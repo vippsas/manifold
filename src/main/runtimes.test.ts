@@ -1,0 +1,96 @@
+import { describe, it, expect } from 'vitest'
+import { BUILT_IN_RUNTIMES, getRuntimeById, listRuntimes } from './runtimes'
+
+describe('runtimes', () => {
+  describe('BUILT_IN_RUNTIMES', () => {
+    it('contains claude, codex, and gemini', () => {
+      const ids = BUILT_IN_RUNTIMES.map((r) => r.id)
+      expect(ids).toContain('claude')
+      expect(ids).toContain('codex')
+      expect(ids).toContain('gemini')
+    })
+
+    it('has exactly 3 built-in runtimes', () => {
+      expect(BUILT_IN_RUNTIMES).toHaveLength(3)
+    })
+
+    it('each runtime has required fields', () => {
+      for (const runtime of BUILT_IN_RUNTIMES) {
+        expect(runtime.id).toBeTruthy()
+        expect(runtime.name).toBeTruthy()
+        expect(runtime.binary).toBeTruthy()
+      }
+    })
+
+    it('claude runtime has the expected binary', () => {
+      const claude = BUILT_IN_RUNTIMES.find((r) => r.id === 'claude')
+      expect(claude?.binary).toBe('claude')
+      expect(claude?.args).toContain('--dangerously-skip-permissions')
+    })
+
+    it('codex runtime has the expected binary', () => {
+      const codex = BUILT_IN_RUNTIMES.find((r) => r.id === 'codex')
+      expect(codex?.binary).toBe('codex')
+    })
+
+    it('gemini runtime has the expected binary', () => {
+      const gemini = BUILT_IN_RUNTIMES.find((r) => r.id === 'gemini')
+      expect(gemini?.binary).toBe('gemini')
+    })
+
+    it('all runtimes have waitingPattern defined', () => {
+      for (const runtime of BUILT_IN_RUNTIMES) {
+        expect(runtime.waitingPattern).toBeTruthy()
+      }
+    })
+  })
+
+  describe('getRuntimeById', () => {
+    it('returns the claude runtime', () => {
+      const runtime = getRuntimeById('claude')
+      expect(runtime).toBeDefined()
+      expect(runtime!.id).toBe('claude')
+      expect(runtime!.name).toBe('Claude Code')
+    })
+
+    it('returns the codex runtime', () => {
+      const runtime = getRuntimeById('codex')
+      expect(runtime).toBeDefined()
+      expect(runtime!.id).toBe('codex')
+    })
+
+    it('returns the gemini runtime', () => {
+      const runtime = getRuntimeById('gemini')
+      expect(runtime).toBeDefined()
+      expect(runtime!.id).toBe('gemini')
+    })
+
+    it('returns undefined for unknown id', () => {
+      expect(getRuntimeById('unknown')).toBeUndefined()
+    })
+
+    it('returns undefined for empty string', () => {
+      expect(getRuntimeById('')).toBeUndefined()
+    })
+  })
+
+  describe('listRuntimes', () => {
+    it('returns a copy of all runtimes', () => {
+      const runtimes = listRuntimes()
+      expect(runtimes).toHaveLength(BUILT_IN_RUNTIMES.length)
+    })
+
+    it('returns a new array instance (not the same reference)', () => {
+      const a = listRuntimes()
+      const b = listRuntimes()
+      expect(a).not.toBe(b)
+    })
+
+    it('contains the same runtimes as BUILT_IN_RUNTIMES', () => {
+      const runtimes = listRuntimes()
+      for (const runtime of BUILT_IN_RUNTIMES) {
+        expect(runtimes.find((r) => r.id === runtime.id)).toBeDefined()
+      }
+    })
+  })
+})
