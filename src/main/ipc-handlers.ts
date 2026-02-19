@@ -102,6 +102,10 @@ function registerAgentHandlers(deps: IpcDependencies): void {
     await sessionManager.killSession(sessionId)
   })
 
+  ipcMain.handle('agent:replay', (_event, sessionId: string) => {
+    return sessionManager.getOutputBuffer(sessionId)
+  })
+
   ipcMain.handle('agent:sessions', () => {
     return sessionManager.listSessions()
   })

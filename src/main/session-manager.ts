@@ -125,6 +125,11 @@ export class SessionManager {
     this.sessions.delete(sessionId)
   }
 
+  getOutputBuffer(sessionId: string): string {
+    const session = this.sessions.get(sessionId)
+    return session ? session.outputBuffer : ''
+  }
+
   getSession(sessionId: string): AgentSession | undefined {
     const session = this.sessions.get(sessionId)
     return session ? this.toPublicSession(session) : undefined

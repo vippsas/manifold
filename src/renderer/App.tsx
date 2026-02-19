@@ -24,7 +24,8 @@ export function App(): React.JSX.Element {
   const paneResize = usePaneResize()
   const codeView = useCodeView(activeSessionId)
   const activeProject = projects.find((p) => p.id === activeProjectId) ?? null
-  const shellSessionId = useShellSession(activeProject?.path ?? null)
+  const shellCwd = activeSession?.worktreePath ?? activeProject?.path ?? null
+  const shellSessionId = useShellSession(shellCwd)
 
   const [showNewAgent, setShowNewAgent] = useState(false)
   const [showSettings, setShowSettings] = useState(false)

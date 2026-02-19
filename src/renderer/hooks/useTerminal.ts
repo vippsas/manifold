@@ -71,6 +71,15 @@ export function useTerminal({ sessionId, scrollbackLines }: UseTerminalOptions):
         }
         window.electronAPI.on('agent:output', handleOutput)
         outputCleanup = () => window.electronAPI.off('agent:output', handleOutput)
+
+        // Replay the session's buffered output to restore the terminal state.
+        // Without this, switching sessions shows a blank terminal until the
+        // PTY emits new output (e.g. user presses Enter).
+        void window.electronAPI.invoke('agent:replay', sessionId).then((buffer) => {
+          if (!disposed && buffer) {
+            terminal.write(buffer as string)
+          }
+        })
       }, 300)
     })
 

@@ -11,6 +11,7 @@ const ALLOWED_INVOKE_CHANNELS = [
   'agent:input',
   'agent:resize',
   'agent:sessions',
+  'agent:replay',
   'files:tree',
   'files:read',
   'files:write',
