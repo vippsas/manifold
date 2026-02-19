@@ -224,6 +224,31 @@ body {
   right: -4px;
 }
 
+/* ─── Horizontal Pane Divider ─── */
+.pane-divider-horizontal {
+  height: var(--pane-divider-width);
+  min-height: var(--pane-divider-width);
+  background: var(--divider);
+  cursor: row-resize;
+  position: relative;
+  flex-shrink: 0;
+  transition: background 0.15s ease;
+}
+
+.pane-divider-horizontal:hover,
+.pane-divider-horizontal.dragging {
+  background: var(--accent);
+}
+
+.pane-divider-horizontal::after {
+  content: '';
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: -4px;
+  bottom: -4px;
+}
+
 /* ─── Utility Classes ─── */
 .mono {
   font-family: var(--font-mono);
