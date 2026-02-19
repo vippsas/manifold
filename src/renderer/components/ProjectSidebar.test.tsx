@@ -34,9 +34,12 @@ function renderSidebar(overrides = {}) {
     projects: sampleProjects,
     activeProjectId: 'p1',
     sessions: sampleSessions,
+    activeSessionId: 's1',
     onSelectProject: vi.fn(),
+    onSelectSession: vi.fn(),
     onAddProject: vi.fn(),
     onRemoveProject: vi.fn(),
+    onNewAgent: vi.fn(),
     onOpenSettings: vi.fn(),
     ...overrides,
   }
@@ -58,11 +61,16 @@ describe('ProjectSidebar', () => {
     expect(screen.getByText('No projects yet')).toBeInTheDocument()
   })
 
-  it('shows session count badge for projects with active sessions', () => {
-    renderSidebar()
+  it('shows session count badge for non-active projects with sessions', () => {
+    const sessionsWithP2: AgentSession[] = [
+      ...sampleSessions,
+      { id: 's3', projectId: 'p2', runtimeId: 'gemini', branchName: 'manifold/stavanger', worktreePath: '/wt3', status: 'running', pid: 3 },
+    ]
 
-    // Project p1 has 2 sessions
-    expect(screen.getByText('2')).toBeInTheDocument()
+    renderSidebar({ sessions: sessionsWithP2 })
+
+    // Non-active project p2 has 1 session shown as badge
+    expect(screen.getByText('1')).toBeInTheDocument()
   })
 
   it('calls onSelectProject when a project is clicked', () => {
@@ -127,5 +135,65 @@ describe('ProjectSidebar', () => {
     renderSidebar()
 
     expect(screen.getByText('Projects')).toBeInTheDocument()
+  })
+
+  it('renders agent branch names under the active project', () => {
+    renderSidebar()
+
+    expect(screen.getByText('oslo')).toBeInTheDocument()
+    expect(screen.getByText('bergen')).toBeInTheDocument()
+  })
+
+  it('renders agent runtime labels', () => {
+    renderSidebar()
+
+    expect(screen.getByText('Claude')).toBeInTheDocument()
+    expect(screen.getByText('Codex')).toBeInTheDocument()
+  })
+
+  it('calls onSelectSession when an agent item is clicked', () => {
+    const { props } = renderSidebar()
+
+    fireEvent.click(screen.getByText('bergen'))
+
+    expect(props.onSelectSession).toHaveBeenCalledWith('s2')
+  })
+
+  it('renders + New Agent button under active project', () => {
+    renderSidebar()
+
+    expect(screen.getByText('+ New Agent')).toBeInTheDocument()
+  })
+
+  it('calls onNewAgent when + New Agent is clicked', () => {
+    const { props } = renderSidebar()
+
+    fireEvent.click(screen.getByText('+ New Agent'))
+
+    expect(props.onNewAgent).toHaveBeenCalled()
+  })
+
+  it('highlights the active agent item', () => {
+    renderSidebar({ activeSessionId: 's1' })
+
+    const agentButton = screen.getByTitle('Claude - manifold/oslo')
+    expect(agentButton.style.background).toContain('var(--bg-input)')
+  })
+
+  it('does not show agents for non-active projects', () => {
+    const sessionsForP2: AgentSession[] = [
+      { id: 's3', projectId: 'p2', runtimeId: 'gemini', branchName: 'manifold/stavanger', worktreePath: '/wt3', status: 'running', pid: 3 },
+    ]
+
+    renderSidebar({ sessions: [...sampleSessions, ...sessionsForP2] })
+
+    expect(screen.queryByText('stavanger')).not.toBeInTheDocument()
+  })
+
+  it('hides session count badge for the active project', () => {
+    renderSidebar()
+
+    // Active project p1 shows agents inline, not a count badge
+    expect(screen.queryByText('2')).not.toBeInTheDocument()
   })
 })
