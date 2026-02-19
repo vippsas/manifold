@@ -38,30 +38,7 @@ function buildTerminalOptions(scrollbackLines: number): ITerminalOptions {
 
 export function useTerminal({ sessionId, scrollbackLines }: UseTerminalOptions): UseTerminalResult {
   const containerRef = useRef<HTMLDivElement | null>(null)
-  const terminalRef = useRef<Terminal | null>(null)
-  const fitAddonRef = useRef<FitAddon | null>(null)
-  const sessionIdRef = useRef<string | null>(sessionId)
-  const readyRef = useRef(false)
 
-  useEffect(() => {
-    sessionIdRef.current = sessionId
-  }, [sessionId])
-
-  useTerminalMount(containerRef, terminalRef, fitAddonRef, sessionIdRef, readyRef, scrollbackLines)
-  useAgentOutputListener(terminalRef, sessionIdRef, readyRef)
-  useSessionChangeEffect(terminalRef, fitAddonRef, sessionIdRef, readyRef, sessionId)
-
-  return { containerRef: containerRef as RefObject<HTMLDivElement | null> }
-}
-
-function useTerminalMount(
-  containerRef: RefObject<HTMLDivElement | null>,
-  terminalRef: React.MutableRefObject<Terminal | null>,
-  fitAddonRef: React.MutableRefObject<FitAddon | null>,
-  sessionIdRef: React.MutableRefObject<string | null>,
-  readyRef: React.MutableRefObject<boolean>,
-  scrollbackLines: number
-): void {
   useEffect(() => {
     const container = containerRef.current
     if (!container) return
@@ -71,94 +48,59 @@ function useTerminalMount(
     terminal.loadAddon(fitAddon)
     terminal.open(container)
 
-    terminalRef.current = terminal
-    fitAddonRef.current = fitAddon
-    readyRef.current = false
+    let disposed = false
+    let outputCleanup: (() => void) | null = null
 
-    // Send resize to PTY, then wait for it to take effect before
-    // allowing output through. The stale-check guards against
-    // React StrictMode's double-mount leaving orphan timers.
+    // Fit terminal to its container and send actual dimensions to the PTY.
+    // Then wait for the CLI tool (e.g. Claude Code) to re-render at the
+    // correct size before subscribing to output. By deferring the IPC
+    // listener registration, any output rendered at the wrong PTY size
+    // is simply never received — there is no listener to deliver it to.
     requestAnimationFrame(() => {
-      if (terminalRef.current !== terminal) return
-      fitAndResize(fitAddon, terminal, sessionIdRef.current)
+      if (disposed) return
+      fitAndResize(fitAddon, terminal, sessionId)
       setTimeout(() => {
-        if (terminalRef.current !== terminal) return
+        if (disposed) return
         terminal.reset()
-        readyRef.current = true
-      }, 200)
+        if (!sessionId) return
+        const handleOutput = (...args: unknown[]): void => {
+          const event = args[0] as AgentOutputEvent
+          if (event.sessionId === sessionId && !disposed) {
+            terminal.write(event.data)
+          }
+        }
+        window.electronAPI.on('agent:output', handleOutput)
+        outputCleanup = () => window.electronAPI.off('agent:output', handleOutput)
+      }, 300)
     })
 
+    // Forward user keystrokes to PTY
     const onDataDisposable = terminal.onData((data: string) => {
-      if (sessionIdRef.current) {
-        void window.electronAPI.invoke('agent:input', sessionIdRef.current, data)
+      if (sessionId) {
+        void window.electronAPI.invoke('agent:input', sessionId, data)
       }
     })
 
+    // Re-fit terminal when container resizes
     const resizeObserver = new ResizeObserver(() => {
-      if (terminalRef.current !== terminal) return
+      if (disposed) return
       requestAnimationFrame(() => {
-        if (terminalRef.current !== terminal) return
-        fitAndResize(fitAddon, terminal, sessionIdRef.current)
+        if (disposed) return
+        fitAndResize(fitAddon, terminal, sessionId)
       })
     })
     resizeObserver.observe(container)
 
     return () => {
+      disposed = true
+      outputCleanup?.()
       onDataDisposable.dispose()
       resizeObserver.disconnect()
       terminal.dispose()
-      terminalRef.current = null
-      fitAddonRef.current = null
-      readyRef.current = false
     }
-  }, [scrollbackLines, containerRef, terminalRef, fitAddonRef, sessionIdRef, readyRef])
-}
+  }, [sessionId, scrollbackLines])
 
-function useAgentOutputListener(
-  terminalRef: React.MutableRefObject<Terminal | null>,
-  sessionIdRef: React.MutableRefObject<string | null>,
-  readyRef: React.MutableRefObject<boolean>
-): void {
-  useEffect(() => {
-    const handleOutput = (...args: unknown[]): void => {
-      const event = args[0] as AgentOutputEvent
-      if (event.sessionId === sessionIdRef.current && terminalRef.current && readyRef.current) {
-        terminalRef.current.write(event.data)
-      }
-    }
-
-    window.electronAPI.on('agent:output', handleOutput)
-    return () => {
-      window.electronAPI.off('agent:output', handleOutput)
-    }
-  }, [terminalRef, sessionIdRef, readyRef])
-}
-
-function useSessionChangeEffect(
-  terminalRef: React.MutableRefObject<Terminal | null>,
-  fitAddonRef: React.MutableRefObject<FitAddon | null>,
-  sessionIdRef: React.MutableRefObject<string | null>,
-  readyRef: React.MutableRefObject<boolean>,
-  sessionId: string | null
-): void {
-  useEffect(() => {
-    const terminal = terminalRef.current
-    const fitAddon = fitAddonRef.current
-    if (!terminal) return
-
-    terminal.clear()
-    readyRef.current = false
-
-    requestAnimationFrame(() => {
-      if (terminalRef.current !== terminal) return
-      fitAndResize(fitAddon, terminal, sessionId)
-      setTimeout(() => {
-        if (terminalRef.current !== terminal) return
-        terminal.reset()
-        readyRef.current = true
-      }, 200)
-    })
-  }, [sessionId, terminalRef, fitAddonRef, sessionIdRef, readyRef])
+  return { containerRef: containerRef as RefObject<HTMLDivElement | null> }
 }
 
 function fitAndResize(
