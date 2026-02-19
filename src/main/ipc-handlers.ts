@@ -105,6 +105,10 @@ function registerAgentHandlers(deps: IpcDependencies): void {
   ipcMain.handle('agent:sessions', () => {
     return sessionManager.listSessions()
   })
+
+  ipcMain.handle('shell:create', (_event, cwd: string) => {
+    return sessionManager.createShellSession(cwd)
+  })
 }
 
 function registerFileHandlers(deps: IpcDependencies): void {
