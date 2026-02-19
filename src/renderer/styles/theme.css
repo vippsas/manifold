@@ -15,7 +15,6 @@
 
   --pane-divider-width: 4px;
   --sidebar-width: 200px;
-  --tab-bar-height: 36px;
   --status-bar-height: 28px;
 }
 
@@ -157,18 +156,6 @@ body {
   flex-direction: column;
   overflow: hidden;
   min-width: 0;
-}
-
-.layout-tab-bar {
-  height: var(--tab-bar-height);
-  background: var(--bg-secondary);
-  border-bottom: 1px solid var(--border);
-  display: flex;
-  align-items: center;
-  overflow-x: auto;
-  overflow-y: hidden;
-  padding: 0 var(--space-sm);
-  gap: var(--space-xs);
 }
 
 .layout-panes {
