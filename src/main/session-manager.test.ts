@@ -355,5 +355,15 @@ describe('SessionManager', () => {
       sessionManager.resize('session-uuid-1', 120, 40)
       expect(ptyPool.resize).toHaveBeenCalledWith('pty-1', 120, 40)
     })
+
+    it('killSession works on shell sessions without worktree removal', async () => {
+      sessionManager.createShellSession('/some/cwd')
+
+      await sessionManager.killSession('session-uuid-1')
+
+      expect(ptyPool.kill).toHaveBeenCalledWith('pty-1')
+      expect(worktreeManager.removeWorktree).not.toHaveBeenCalled()
+      expect(sessionManager.getSession('session-uuid-1')).toBeUndefined()
+    })
   })
 })

@@ -111,13 +111,15 @@ export class SessionManager {
 
     this.ptyPool.kill(session.ptyId)
 
-    try {
-      await this.worktreeManager.removeWorktree(
-        this.projectRegistry.getProject(session.projectId)?.path ?? '',
-        session.worktreePath
-      )
-    } catch {
-      // Worktree cleanup is best-effort
+    if (session.projectId) {
+      try {
+        await this.worktreeManager.removeWorktree(
+          this.projectRegistry.getProject(session.projectId)?.path ?? '',
+          session.worktreePath
+        )
+      } catch {
+        // Worktree cleanup is best-effort
+      }
     }
 
     this.sessions.delete(sessionId)
@@ -177,10 +179,12 @@ export class SessionManager {
         session.outputBuffer = session.outputBuffer.slice(-50_000)
       }
 
-      const newStatus = detectStatus(session.outputBuffer, session.runtimeId)
-      if (newStatus !== session.status) {
-        session.status = newStatus
-        this.sendToRenderer('agent:status', { sessionId: session.id, status: newStatus })
+      if (session.runtimeId !== '__shell__') {
+        const newStatus = detectStatus(session.outputBuffer, session.runtimeId)
+        if (newStatus !== session.status) {
+          session.status = newStatus
+          this.sendToRenderer('agent:status', { sessionId: session.id, status: newStatus })
+        }
       }
 
       this.sendToRenderer('agent:output', { sessionId: session.id, data })
