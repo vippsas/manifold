@@ -194,7 +194,7 @@ function ProjectItem({
       style={{
         ...sidebarStyles.item,
         background: isActive ? 'var(--accent)' : 'transparent',
-        color: isActive ? '#ffffff' : 'var(--text-primary)',
+        color: isActive ? '#0f1626' : 'var(--text-primary)',
       }}
       role="button"
       tabIndex={0}
