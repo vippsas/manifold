@@ -54,8 +54,9 @@ export function MainPanes({
   onShowDiff,
   onSaveFile,
 }: MainPanesProps): React.JSX.Element {
-  const rightAreaCenterFraction = centerFraction / (centerFraction + rightPaneFraction)
-  const rightAreaRightFraction = rightPaneFraction / (centerFraction + rightPaneFraction)
+  const rightAreaTotal = centerFraction + rightPaneFraction
+  const rightAreaCenterFraction = rightAreaTotal > 0 ? centerFraction / rightAreaTotal : 0.5
+  const rightAreaRightFraction = rightAreaTotal > 0 ? rightPaneFraction / rightAreaTotal : 0.5
   const topFraction = 1 - bottomPaneFraction
 
   return (
