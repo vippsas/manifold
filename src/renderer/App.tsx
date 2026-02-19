@@ -9,7 +9,6 @@ import { usePaneResize } from './hooks/usePaneResize'
 import { useCodeView } from './hooks/useCodeView'
 import { useShellSession } from './hooks/useShellSession'
 import { ProjectSidebar } from './components/ProjectSidebar'
-import { AgentTabs } from './components/AgentTabs'
 import { MainPanes } from './components/MainPanes'
 import { NewAgentPopover } from './components/NewAgentPopover'
 import { SettingsModal } from './components/SettingsModal'
@@ -51,20 +50,16 @@ export function App(): React.JSX.Element {
         projects={projects}
         activeProjectId={activeProjectId}
         sessions={sessions}
+        activeSessionId={activeSessionId}
         onSelectProject={setActiveProject}
+        onSelectSession={setActiveSession}
         onAddProject={addProject}
         onRemoveProject={removeProject}
+        onNewAgent={() => setShowNewAgent(true)}
         onOpenSettings={() => setShowSettings(true)}
       />
 
       <div className="layout-main">
-        <AgentTabs
-          sessions={sessions}
-          activeSessionId={activeSessionId}
-          onSelectSession={setActiveSession}
-          onNewAgent={() => setShowNewAgent(true)}
-        />
-
         <MainPanes
           panesRef={paneResize.panesRef}
           rightAreaRef={paneResize.rightAreaRef}
