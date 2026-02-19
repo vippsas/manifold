@@ -4,11 +4,13 @@ import { useTerminal } from '../hooks/useTerminal'
 interface TerminalPaneProps {
   sessionId: string | null
   scrollbackLines: number
+  label?: string
 }
 
 export function TerminalPane({
   sessionId,
   scrollbackLines,
+  label = 'Terminal',
 }: TerminalPaneProps): React.JSX.Element {
   const { containerRef } = useTerminal({ sessionId, scrollbackLines })
 
@@ -16,7 +18,7 @@ export function TerminalPane({
     <div style={paneStyles.wrapper}>
       <div style={paneStyles.header}>
         <span className="mono" style={paneStyles.headerText}>
-          Terminal
+          {label}
         </span>
       </div>
       <div ref={containerRef as React.RefCallback<HTMLDivElement> | React.RefObject<HTMLDivElement> | null} style={paneStyles.container} />

@@ -7,6 +7,7 @@ import { useDiff } from './hooks/useDiff'
 import { useSettings } from './hooks/useSettings'
 import { usePaneResize } from './hooks/usePaneResize'
 import { useCodeView } from './hooks/useCodeView'
+import { useShellSession } from './hooks/useShellSession'
 import { ProjectSidebar } from './components/ProjectSidebar'
 import { AgentTabs } from './components/AgentTabs'
 import { MainPanes } from './components/MainPanes'
@@ -23,6 +24,8 @@ export function App(): React.JSX.Element {
   const { diff, changedFiles } = useDiff(activeSessionId)
   const paneResize = usePaneResize()
   const codeView = useCodeView(activeSessionId)
+  const activeProject = projects.find((p) => p.id === activeProjectId) ?? null
+  const shellSessionId = useShellSession(activeProject?.path ?? null)
 
   const [showNewAgent, setShowNewAgent] = useState(false)
   const [showSettings, setShowSettings] = useState(false)
@@ -41,8 +44,6 @@ export function App(): React.JSX.Element {
     },
     [updateSettings]
   )
-
-  const activeProject = projects.find((p) => p.id === activeProjectId) ?? null
 
   return (
     <div className={`layout-root theme-${settings.theme}`}>
@@ -66,11 +67,14 @@ export function App(): React.JSX.Element {
 
         <MainPanes
           panesRef={paneResize.panesRef}
+          rightAreaRef={paneResize.rightAreaRef}
           leftPaneFraction={paneResize.leftPaneFraction}
           centerFraction={paneResize.centerFraction}
           rightPaneFraction={paneResize.rightPaneFraction}
+          bottomPaneFraction={paneResize.bottomPaneFraction}
           handleDividerMouseDown={paneResize.handleDividerMouseDown}
           sessionId={activeSessionId}
+          shellSessionId={shellSessionId}
           scrollbackLines={settings.scrollbackLines}
           codeViewMode={codeView.codeViewMode}
           diff={diff}
