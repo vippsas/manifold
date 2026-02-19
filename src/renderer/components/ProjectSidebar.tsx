@@ -251,6 +251,7 @@ function AgentItem({ session, isActive, onSelect }: AgentItemProps): React.JSX.E
       style={{
         ...sidebarStyles.agentItem,
         background: isActive ? 'var(--bg-input)' : 'transparent',
+        borderLeftColor: isActive ? 'var(--accent)' : 'transparent',
       }}
       title={`${runtimeLabel(session.runtimeId)} - ${session.branchName}`}
     >
