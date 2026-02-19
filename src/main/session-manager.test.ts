@@ -308,4 +308,52 @@ describe('SessionManager', () => {
       )
     })
   })
+
+  describe('createShellSession', () => {
+    it('spawns a shell pty and returns a session id', () => {
+      const mockWindow = createMockWindow()
+      sessionManager.setMainWindow(mockWindow)
+
+      const shellSession = sessionManager.createShellSession('/some/cwd')
+
+      expect(shellSession).toEqual({ sessionId: 'session-uuid-1' })
+      expect(ptyPool.spawn).toHaveBeenCalledWith(
+        process.platform === 'win32' ? 'cmd.exe' : process.env.SHELL || '/bin/zsh',
+        [],
+        expect.objectContaining({ cwd: '/some/cwd' }),
+      )
+      expect(ptyPool.onData).toHaveBeenCalledWith('pty-1', expect.any(Function))
+      expect(ptyPool.onExit).toHaveBeenCalledWith('pty-1', expect.any(Function))
+    })
+
+    it('streams output to renderer via agent:output', () => {
+      const mockWindow = createMockWindow()
+      sessionManager.setMainWindow(mockWindow)
+
+      sessionManager.createShellSession('/some/cwd')
+
+      const onDataCall = (ptyPool.onData as ReturnType<typeof vi.fn>).mock.calls[0]
+      const dataCallback = onDataCall[1] as (data: string) => void
+      dataCallback('shell output')
+
+      expect(mockWindow.webContents.send).toHaveBeenCalledWith(
+        'agent:output',
+        { sessionId: 'session-uuid-1', data: 'shell output' },
+      )
+    })
+
+    it('supports sendInput on shell sessions', () => {
+      sessionManager.createShellSession('/some/cwd')
+
+      sessionManager.sendInput('session-uuid-1', 'ls\n')
+      expect(ptyPool.write).toHaveBeenCalledWith('pty-1', 'ls\n')
+    })
+
+    it('supports resize on shell sessions', () => {
+      sessionManager.createShellSession('/some/cwd')
+
+      sessionManager.resize('session-uuid-1', 120, 40)
+      expect(ptyPool.resize).toHaveBeenCalledWith('pty-1', 120, 40)
+    })
+  })
 })

@@ -146,6 +146,30 @@ export class SessionManager {
     this.sessions.clear()
   }
 
+  createShellSession(cwd: string): { sessionId: string } {
+    const shell = process.platform === 'win32' ? 'cmd.exe' : (process.env.SHELL || '/bin/zsh')
+    const ptyHandle = this.ptyPool.spawn(shell, [], { cwd })
+    const id = uuidv4()
+
+    const session: InternalSession = {
+      id,
+      projectId: '',
+      runtimeId: '__shell__',
+      branchName: '',
+      worktreePath: cwd,
+      status: 'running',
+      pid: ptyHandle.pid,
+      ptyId: ptyHandle.id,
+      outputBuffer: '',
+    }
+
+    this.sessions.set(id, session)
+    this.wireOutputStreaming(ptyHandle.id, session)
+    this.wireExitHandling(ptyHandle.id, session)
+
+    return { sessionId: id }
+  }
+
   private wireOutputStreaming(ptyId: string, session: InternalSession): void {
     this.ptyPool.onData(ptyId, (data: string) => {
       session.outputBuffer += data
