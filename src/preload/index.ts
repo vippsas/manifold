@@ -18,6 +18,7 @@ const ALLOWED_INVOKE_CHANNELS = [
   'settings:get',
   'settings:update',
   'branch:suggest',
+  'shell:create',
 ] as const
 
 const ALLOWED_LISTEN_CHANNELS = [
