@@ -1,26 +1,33 @@
 import { useState, useEffect, useCallback, useRef, type RefObject } from 'react'
 
+type DividerType = 'left' | 'right' | 'bottom'
+
 interface PaneResizeResult {
   leftPaneFraction: number
   rightPaneFraction: number
   centerFraction: number
+  bottomPaneFraction: number
   panesRef: RefObject<HTMLDivElement>
-  handleDividerMouseDown: (divider: 'left' | 'right') => (e: React.MouseEvent) => void
+  rightAreaRef: RefObject<HTMLDivElement>
+  handleDividerMouseDown: (divider: DividerType) => (e: React.MouseEvent) => void
 }
 
 export function usePaneResize(
   initialLeft: number = 0.35,
-  initialRight: number = 0.22
+  initialRight: number = 0.22,
+  initialBottom: number = 0.30
 ): PaneResizeResult {
   const [leftPaneFraction, setLeftPaneFraction] = useState(initialLeft)
   const [rightPaneFraction, setRightPaneFraction] = useState(initialRight)
+  const [bottomPaneFraction, setBottomPaneFraction] = useState(initialBottom)
   const panesRef = useRef<HTMLDivElement>(null)
-  const draggingRef = useRef<'left' | 'right' | null>(null)
+  const rightAreaRef = useRef<HTMLDivElement>(null)
+  const draggingRef = useRef<DividerType | null>(null)
 
   const handleDividerMouseDown = useCallback(
-    (divider: 'left' | 'right') => (_e: React.MouseEvent): void => {
+    (divider: DividerType) => (_e: React.MouseEvent): void => {
       draggingRef.current = divider
-      document.body.style.cursor = 'col-resize'
+      document.body.style.cursor = divider === 'bottom' ? 'row-resize' : 'col-resize'
       document.body.style.userSelect = 'none'
     },
     []
@@ -28,7 +35,19 @@ export function usePaneResize(
 
   useEffect(() => {
     const handleMouseMove = (e: MouseEvent): void => {
-      if (!draggingRef.current || !panesRef.current) return
+      if (!draggingRef.current) return
+
+      if (draggingRef.current === 'bottom') {
+        if (!rightAreaRef.current) return
+        const rect = rightAreaRef.current.getBoundingClientRect()
+        const y = e.clientY - rect.top
+        const fraction = 1 - y / rect.height
+        const clamped = Math.max(0.2, Math.min(0.8, fraction))
+        setBottomPaneFraction(clamped)
+        return
+      }
+
+      if (!panesRef.current) return
       const rect = panesRef.current.getBoundingClientRect()
       const totalWidth = rect.width
       const x = e.clientX - rect.left
@@ -64,7 +83,9 @@ export function usePaneResize(
     leftPaneFraction,
     rightPaneFraction,
     centerFraction,
+    bottomPaneFraction,
     panesRef,
+    rightAreaRef,
     handleDividerMouseDown,
   }
 }
