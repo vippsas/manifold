@@ -5,22 +5,22 @@ import { sidebarStyles } from './ProjectSidebar.styles'
 interface ProjectSidebarProps {
   projects: Project[]
   activeProjectId: string | null
-  sessions: AgentSession[]
+  allProjectSessions: Record<string, AgentSession[]>
   activeSessionId: string | null
   onSelectProject: (id: string) => void
-  onSelectSession: (id: string) => void
+  onSelectSession: (sessionId: string, projectId: string) => void
   onAddProject: (path?: string) => void
   onRemoveProject: (id: string) => void
   onCloneProject: (url: string) => void
   onDeleteAgent: (id: string) => void
-  onNewAgent: () => void
+  onNewAgent: (projectId: string) => void
   onOpenSettings: () => void
 }
 
 export function ProjectSidebar({
   projects,
   activeProjectId,
-  sessions,
+  allProjectSessions,
   activeSessionId,
   onSelectProject,
   onSelectSession,
@@ -50,13 +50,6 @@ export function ProjectSidebar({
     [cloneUrl, onCloneProject]
   )
 
-  const getSessionCount = useCallback(
-    (projectId: string): number => {
-      return sessions.filter((s) => s.projectId === projectId).length
-    },
-    [sessions]
-  )
-
   const handleRemove = useCallback(
     (e: React.MouseEvent, id: string): void => {
       e.stopPropagation()
@@ -71,9 +64,8 @@ export function ProjectSidebar({
       <ProjectList
         projects={projects}
         activeProjectId={activeProjectId}
-        sessions={sessions}
+        allProjectSessions={allProjectSessions}
         activeSessionId={activeSessionId}
-        getSessionCount={getSessionCount}
         onSelectProject={onSelectProject}
         onSelectSession={onSelectSession}
         onDeleteAgent={onDeleteAgent}
@@ -107,22 +99,20 @@ function SidebarHeader({ onOpenSettings }: { onOpenSettings: () => void }): Reac
 interface ProjectListProps {
   projects: Project[]
   activeProjectId: string | null
-  sessions: AgentSession[]
+  allProjectSessions: Record<string, AgentSession[]>
   activeSessionId: string | null
-  getSessionCount: (id: string) => number
   onSelectProject: (id: string) => void
-  onSelectSession: (id: string) => void
+  onSelectSession: (sessionId: string, projectId: string) => void
   onDeleteAgent: (id: string) => void
-  onNewAgent: () => void
+  onNewAgent: (projectId: string) => void
   onRemove: (e: React.MouseEvent, id: string) => void
 }
 
 function ProjectList({
   projects,
   activeProjectId,
-  sessions,
+  allProjectSessions,
   activeSessionId,
-  getSessionCount,
   onSelectProject,
   onSelectSession,
   onDeleteAgent,
@@ -133,33 +123,28 @@ function ProjectList({
     <div style={sidebarStyles.list}>
       {projects.map((project) => {
         const isActive = project.id === activeProjectId
-        const projectSessions = isActive
-          ? sessions.filter((s) => s.projectId === project.id)
-          : []
+        const projectSessions = allProjectSessions[project.id] ?? []
 
         return (
           <React.Fragment key={project.id}>
             <ProjectItem
               project={project}
               isActive={isActive}
-              sessionCount={isActive ? 0 : getSessionCount(project.id)}
               onSelect={onSelectProject}
               onRemove={onRemove}
             />
-            {isActive && projectSessions.map((session) => (
+            {projectSessions.map((session) => (
               <AgentItem
                 key={session.id}
                 session={session}
                 isActive={session.id === activeSessionId}
-                onSelect={onSelectSession}
+                onSelect={(sessionId) => onSelectSession(sessionId, project.id)}
                 onDelete={onDeleteAgent}
               />
             ))}
-            {isActive && (
-              <button onClick={onNewAgent} style={sidebarStyles.newAgentButton}>
-                + New Agent
-              </button>
-            )}
+            <button onClick={() => onNewAgent(project.id)} style={sidebarStyles.newAgentButton}>
+              + New Agent
+            </button>
           </React.Fragment>
         )
       })}
@@ -173,7 +158,6 @@ function ProjectList({
 interface ProjectItemProps {
   project: Project
   isActive: boolean
-  sessionCount: number
   onSelect: (id: string) => void
   onRemove: (e: React.MouseEvent, id: string) => void
 }
@@ -181,7 +165,6 @@ interface ProjectItemProps {
 function ProjectItem({
   project,
   isActive,
-  sessionCount,
   onSelect,
   onRemove,
 }: ProjectItemProps): React.JSX.Element {
@@ -201,7 +184,7 @@ function ProjectItem({
       onClick={handleClick}
       style={{
         ...sidebarStyles.item,
-        background: isActive ? 'var(--accent)' : 'transparent',
+        background: isActive ? 'var(--accent)' : 'var(--bg-input)',
         color: isActive ? '#0f1626' : 'var(--text-primary)',
       }}
       role="button"
@@ -211,9 +194,6 @@ function ProjectItem({
         {project.name}
       </span>
       <div style={sidebarStyles.itemRight}>
-        {sessionCount > 0 && (
-          <span style={sidebarStyles.badge}>{sessionCount}</span>
-        )}
         <button
           onClick={handleRemoveClick}
           style={sidebarStyles.removeButton}
@@ -267,8 +247,9 @@ function AgentItem({ session, isActive, onSelect, onDelete }: AgentItemProps): R
       onClick={handleClick}
       style={{
         ...sidebarStyles.agentItem,
-        background: isActive ? 'var(--bg-input)' : 'transparent',
+        background: isActive ? 'rgba(79, 195, 247, 0.15)' : 'transparent',
         borderLeftColor: isActive ? 'var(--accent)' : 'transparent',
+        borderLeftWidth: isActive ? '3px' : '2px',
       }}
       title={`${runtimeLabel(session.runtimeId)} - ${session.branchName}`}
     >

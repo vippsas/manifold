@@ -32,7 +32,7 @@ function renderSidebar(overrides = {}) {
   const defaultProps = {
     projects: sampleProjects,
     activeProjectId: 'p1',
-    sessions: sampleSessions,
+    allProjectSessions: { p1: sampleSessions, p2: [] },
     activeSessionId: 's1',
     onSelectProject: vi.fn(),
     onSelectSession: vi.fn(),
@@ -62,16 +62,16 @@ describe('ProjectSidebar', () => {
     expect(screen.getByText('No projects yet')).toBeInTheDocument()
   })
 
-  it('shows session count badge for non-active projects with sessions', () => {
-    const sessionsWithP2: AgentSession[] = [
-      ...sampleSessions,
+  it('shows agents for all projects', () => {
+    const sessionsForP2: AgentSession[] = [
       { id: 's3', projectId: 'p2', runtimeId: 'gemini', branchName: 'manifold/stavanger', worktreePath: '/wt3', status: 'running', pid: 3 },
     ]
 
-    renderSidebar({ sessions: sessionsWithP2 })
+    renderSidebar({ allProjectSessions: { p1: sampleSessions, p2: sessionsForP2 } })
 
-    // Non-active project p2 has 1 session shown as badge
-    expect(screen.getByText('1')).toBeInTheDocument()
+    expect(screen.getByText('oslo')).toBeInTheDocument()
+    expect(screen.getByText('bergen')).toBeInTheDocument()
+    expect(screen.getByText('stavanger')).toBeInTheDocument()
   })
 
   it('calls onSelectProject when a project is clicked', () => {
@@ -152,50 +152,35 @@ describe('ProjectSidebar', () => {
     expect(screen.getByText('Codex')).toBeInTheDocument()
   })
 
-  it('calls onSelectSession when an agent item is clicked', () => {
+  it('calls onSelectSession with sessionId and projectId when an agent item is clicked', () => {
     const { props } = renderSidebar()
 
     fireEvent.click(screen.getByText('bergen'))
 
-    expect(props.onSelectSession).toHaveBeenCalledWith('s2')
+    expect(props.onSelectSession).toHaveBeenCalledWith('s2', 'p1')
   })
 
-  it('renders + New Agent button under active project', () => {
+  it('renders + New Agent button under every project', () => {
     renderSidebar()
 
-    expect(screen.getByText('+ New Agent')).toBeInTheDocument()
+    const newAgentButtons = screen.getAllByText('+ New Agent')
+    expect(newAgentButtons).toHaveLength(2)
   })
 
-  it('calls onNewAgent when + New Agent is clicked', () => {
+  it('calls onNewAgent with projectId when + New Agent is clicked', () => {
     const { props } = renderSidebar()
 
-    fireEvent.click(screen.getByText('+ New Agent'))
+    const newAgentButtons = screen.getAllByText('+ New Agent')
+    fireEvent.click(newAgentButtons[0])
 
-    expect(props.onNewAgent).toHaveBeenCalled()
+    expect(props.onNewAgent).toHaveBeenCalledWith('p1')
   })
 
   it('highlights the active agent item', () => {
     renderSidebar({ activeSessionId: 's1' })
 
     const agentButton = screen.getByTitle('Claude - manifold/oslo')
-    expect(agentButton.style.background).toContain('var(--bg-input)')
-  })
-
-  it('does not show agents for non-active projects', () => {
-    const sessionsForP2: AgentSession[] = [
-      { id: 's3', projectId: 'p2', runtimeId: 'gemini', branchName: 'manifold/stavanger', worktreePath: '/wt3', status: 'running', pid: 3 },
-    ]
-
-    renderSidebar({ sessions: [...sampleSessions, ...sessionsForP2] })
-
-    expect(screen.queryByText('stavanger')).not.toBeInTheDocument()
-  })
-
-  it('hides session count badge for the active project', () => {
-    renderSidebar()
-
-    // Active project p1 shows agents inline, not a count badge
-    expect(screen.queryByText('2')).not.toBeInTheDocument()
+    expect(agentButton.style.background).toContain('rgba(79, 195, 247, 0.15)')
   })
 
   it('calls onDeleteAgent when agent delete button is clicked', () => {
@@ -219,5 +204,17 @@ describe('ProjectSidebar', () => {
 
     expect(screen.getByLabelText('Delete oslo')).toBeInTheDocument()
     expect(screen.getByLabelText('Delete bergen')).toBeInTheDocument()
+  })
+
+  it('calls onSelectSession with correct projectId for cross-project agent click', () => {
+    const sessionsForP2: AgentSession[] = [
+      { id: 's3', projectId: 'p2', runtimeId: 'gemini', branchName: 'manifold/stavanger', worktreePath: '/wt3', status: 'running', pid: 3 },
+    ]
+
+    const { props } = renderSidebar({ allProjectSessions: { p1: sampleSessions, p2: sessionsForP2 } })
+
+    fireEvent.click(screen.getByText('stavanger'))
+
+    expect(props.onSelectSession).toHaveBeenCalledWith('s3', 'p2')
   })
 })

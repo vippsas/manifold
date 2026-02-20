@@ -53,16 +53,6 @@ export const sidebarStyles: Record<string, React.CSSProperties> = {
     marginLeft: '4px',
     flexShrink: 0,
   },
-  badge: {
-    background: 'var(--accent)',
-    color: '#ffffff',
-    borderRadius: '10px',
-    fontSize: '10px',
-    padding: '0 6px',
-    minWidth: '18px',
-    textAlign: 'center' as const,
-    lineHeight: '18px',
-  },
   removeButton: {
     fontSize: '14px',
     color: 'var(--text-muted)',
