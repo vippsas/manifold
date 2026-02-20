@@ -37,7 +37,7 @@ let mainWindow: BrowserWindow | null = null
 // ── Module instances ─────────────────────────────────────────────────
 const settingsStore = new SettingsStore()
 const projectRegistry = new ProjectRegistry()
-const worktreeManager = new WorktreeManager()
+const worktreeManager = new WorktreeManager(settingsStore.getSettings().storagePath)
 const ptyPool = new PtyPool()
 const sessionManager = new SessionManager(worktreeManager, ptyPool, projectRegistry)
 const fileWatcher = new FileWatcher()
