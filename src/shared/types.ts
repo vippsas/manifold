@@ -50,6 +50,13 @@ export interface ManifoldSettings {
   defaultBaseBranch: string
 }
 
+export interface SessionViewState {
+  openFilePaths: string[]
+  activeFilePath: string | null
+  codeViewMode: 'diff' | 'file'
+  expandedPaths: string[]
+}
+
 export interface SpawnAgentOptions {
   projectId: string
   runtimeId: string
