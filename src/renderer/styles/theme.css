@@ -20,6 +20,7 @@
 
 /* ─── Dark Theme ─── */
 .theme-dark {
+  color: var(--text-primary);
   --bg-primary: #1a1a2e;
   --bg-secondary: #16213e;
   --bg-sidebar: #0f1626;
@@ -54,6 +55,7 @@
 
 /* ─── Light Theme ─── */
 .theme-light {
+  color: var(--text-primary);
   --bg-primary: #ffffff;
   --bg-secondary: #f5f7fa;
   --bg-sidebar: #ebeef2;
