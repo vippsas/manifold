@@ -42,6 +42,8 @@ export interface FileTreeNode {
 }
 
 export interface ManifoldSettings {
+  storagePath: string
+  setupCompleted: boolean
   defaultRuntime: string
   theme: 'dark' | 'light'
   scrollbackLines: number
