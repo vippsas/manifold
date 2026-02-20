@@ -89,6 +89,17 @@ export function useTerminal({ sessionId, scrollbackLines }: UseTerminalOptions):
       }, 300)
     })
 
+    // Translate macOS Cmd+Backspace to Ctrl+U (kill line backward)
+    terminal.attachCustomKeyEventHandler((event: KeyboardEvent) => {
+      if (event.type === 'keydown' && event.metaKey && event.key === 'Backspace') {
+        if (sessionId) {
+          void window.electronAPI.invoke('agent:input', sessionId, '\x15')
+        }
+        return false
+      }
+      return true
+    })
+
     // Forward user keystrokes to PTY
     const onDataDisposable = terminal.onData((data: string) => {
       if (sessionId) {
