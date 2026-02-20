@@ -11,6 +11,7 @@ interface UseViewStateResult {
     codeViewMode: 'diff' | 'file'
   } | null
   saveCurrentState: (
+    sessionId: string,
     openFiles: OpenFile[],
     activeFilePath: string | null,
     codeViewMode: 'diff' | 'file'
@@ -37,10 +38,7 @@ export function useViewState(activeSessionId: string | null, tree: FileTreeNode 
   }, [])
 
   const saveCurrentState = useCallback(
-    (openFiles: OpenFile[], activeFilePath: string | null, codeViewMode: 'diff' | 'file'): void => {
-      const sessionId = prevSessionIdRef.current
-      if (!sessionId) return
-
+    (sessionId: string, openFiles: OpenFile[], activeFilePath: string | null, codeViewMode: 'diff' | 'file'): void => {
       const state: SessionViewState = {
         openFilePaths: openFiles.map((f) => f.path),
         activeFilePath,
@@ -59,7 +57,7 @@ export function useViewState(activeSessionId: string | null, tree: FileTreeNode 
 
     if (!activeSessionId) {
       setExpandedPaths(new Set())
-      setRestoreCodeView(null)
+      setRestoreCodeView({ openFiles: [], activeFilePath: null, codeViewMode: 'diff' })
       return
     }
 
@@ -94,13 +92,13 @@ export function useViewState(activeSessionId: string | null, tree: FileTreeNode 
             codeViewMode: state.codeViewMode,
           })
         } else {
-          // No saved state
+          // No saved state — clear tabs
           setExpandedPaths(new Set())
-          setRestoreCodeView(null)
+          setRestoreCodeView({ openFiles: [], activeFilePath: null, codeViewMode: 'diff' })
         }
       } catch {
         setExpandedPaths(new Set())
-        setRestoreCodeView(null)
+        setRestoreCodeView({ openFiles: [], activeFilePath: null, codeViewMode: 'diff' })
       }
     })()
   }, [activeSessionId])

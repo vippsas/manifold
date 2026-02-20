@@ -35,18 +35,19 @@ export function App(): React.JSX.Element {
   const viewState = useViewState(activeSessionId, tree)
 
   const prevSessionRef = useRef<string | null>(null)
+  // Keep refs so the save effect captures current values without re-running on every change
+  const codeViewRef = useRef(codeView)
+  codeViewRef.current = codeView
 
   // Save state before switching away from a session
   useEffect(() => {
-    if (prevSessionRef.current && prevSessionRef.current !== activeSessionId) {
-      viewState.saveCurrentState(
-        codeView.openFiles,
-        codeView.activeFilePath,
-        codeView.codeViewMode
-      )
+    const prev = prevSessionRef.current
+    if (prev && prev !== activeSessionId) {
+      const cv = codeViewRef.current
+      viewState.saveCurrentState(prev, cv.openFiles, cv.activeFilePath, cv.codeViewMode)
     }
     prevSessionRef.current = activeSessionId
-  }, [activeSessionId])
+  }, [activeSessionId, viewState.saveCurrentState])
 
   // Restore state when viewState provides it
   useEffect(() => {
@@ -57,7 +58,7 @@ export function App(): React.JSX.Element {
         viewState.restoreCodeView.codeViewMode
       )
     }
-  }, [viewState.restoreCodeView])
+  }, [viewState.restoreCodeView, codeView.restoreState])
 
   const activeProject = projects.find((p) => p.id === activeProjectId) ?? null
   const shellCwd = activeSession?.worktreePath ?? activeProject?.path ?? null
