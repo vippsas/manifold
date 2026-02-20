@@ -102,12 +102,19 @@ export function useTerminal({ sessionId, scrollbackLines, theme = 'dark' }: UseT
     })
 
     // Translate macOS Cmd+Backspace to Ctrl+U (kill line backward)
+    // Translate Shift+Enter to newline (for multiline input in Claude Code)
     terminal.attachCustomKeyEventHandler((event: KeyboardEvent) => {
       if (event.type === 'keydown' && event.metaKey && event.key === 'Backspace') {
         if (sessionId) {
           void window.electronAPI.invoke('agent:input', sessionId, '\x15')
         }
         return false
+      }
+      if (event.shiftKey && event.key === 'Enter') {
+        if (event.type === 'keydown' && sessionId) {
+          void window.electronAPI.invoke('agent:input', sessionId, '\x1b[13;2u')
+        }
+        return false // Block all event types (keydown + keypress) to prevent \r leaking
       }
       return true
     })
