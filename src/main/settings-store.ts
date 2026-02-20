@@ -18,19 +18,26 @@ export class SettingsStore {
     fs.mkdirSync(CONFIG_DIR, { recursive: true })
   }
 
+  private resolveDefaults(settings: ManifoldSettings): ManifoldSettings {
+    if (!settings.storagePath) {
+      settings.storagePath = path.join(os.homedir(), '.manifold')
+    }
+    return settings
+  }
+
   private loadFromDisk(): ManifoldSettings {
     try {
       if (!fs.existsSync(CONFIG_FILE)) {
-        return { ...DEFAULT_SETTINGS }
+        return this.resolveDefaults({ ...DEFAULT_SETTINGS })
       }
       const raw = fs.readFileSync(CONFIG_FILE, 'utf-8')
       const parsed: unknown = JSON.parse(raw)
       if (typeof parsed !== 'object' || parsed === null) {
-        return { ...DEFAULT_SETTINGS }
+        return this.resolveDefaults({ ...DEFAULT_SETTINGS })
       }
-      return { ...DEFAULT_SETTINGS, ...(parsed as Partial<ManifoldSettings>) }
+      return this.resolveDefaults({ ...DEFAULT_SETTINGS, ...(parsed as Partial<ManifoldSettings>) })
     } catch {
-      return { ...DEFAULT_SETTINGS }
+      return this.resolveDefaults({ ...DEFAULT_SETTINGS })
     }
   }
 
