@@ -39,6 +39,7 @@ export class SessionManager {
     const worktree = await this.worktreeManager.createWorktree(
       project.path,
       project.baseBranch,
+      options.projectId,
       options.branchName
     )
 
