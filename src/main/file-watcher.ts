@@ -33,11 +33,7 @@ export class FileWatcher {
 
   private createChokidarWatcher(worktreePath: string): FSWatcher {
     return chokidarWatch(worktreePath, {
-      ignored: [
-        /(^|[/\\])\../, // dotfiles
-        '**/node_modules/**',
-        '**/.git/**'
-      ],
+      ignored: [],
       persistent: true,
       ignoreInitial: true,
       awaitWriteFinish: {
@@ -128,9 +124,7 @@ export class FileWatcher {
   }
 }
 
-function isVisibleEntry(entry: fs.Dirent): boolean {
-  if (entry.name.startsWith('.')) return false
-  if (entry.name === 'node_modules') return false
+function isVisibleEntry(_entry: fs.Dirent): boolean {
   return true
 }
 
