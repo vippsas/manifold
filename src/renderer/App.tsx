@@ -13,6 +13,7 @@ import { MainPanes } from './components/MainPanes'
 import { NewAgentPopover } from './components/NewAgentPopover'
 import { SettingsModal } from './components/SettingsModal'
 import { StatusBar } from './components/StatusBar'
+import { WelcomeDialog } from './components/WelcomeDialog'
 
 export function App(): React.JSX.Element {
   const { settings, updateSettings } = useSettings()
@@ -44,6 +45,24 @@ export function App(): React.JSX.Element {
     },
     [updateSettings]
   )
+
+  const handleSetupComplete = useCallback(
+    (storagePath: string): void => {
+      void updateSettings({ storagePath, setupCompleted: true })
+    },
+    [updateSettings]
+  )
+
+  if (!settings.setupCompleted) {
+    return (
+      <div className={`layout-root theme-${settings.theme}`}>
+        <WelcomeDialog
+          defaultPath={settings.storagePath}
+          onConfirm={handleSetupComplete}
+        />
+      </div>
+    )
+  }
 
   return (
     <div className={`layout-root theme-${settings.theme}`}>
