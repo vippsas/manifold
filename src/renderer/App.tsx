@@ -9,6 +9,7 @@ import { usePaneResize } from './hooks/usePaneResize'
 import { useCodeView } from './hooks/useCodeView'
 import { useViewState } from './hooks/useViewState'
 import { useShellSessions } from './hooks/useShellSession'
+import { useAllProjectSessions } from './hooks/useAllProjectSessions'
 import { ProjectSidebar } from './components/ProjectSidebar'
 import { MainPanes } from './components/MainPanes'
 import { NewAgentPopover } from './components/NewAgentPopover'
@@ -22,6 +23,7 @@ export function App(): React.JSX.Element {
   const { projects, activeProjectId, addProject, cloneProject, removeProject, setActiveProject } = useProjects()
   const { sessions, activeSessionId, activeSession, spawnAgent, deleteAgent, setActiveSession } =
     useAgentSession(activeProjectId)
+  const { sessionsByProject, removeSession } = useAllProjectSessions(projects, activeProjectId, sessions)
   const { diff, changedFiles, refreshDiff } = useDiff(activeSessionId)
   const paneResize = usePaneResize()
   const codeView = useCodeView(activeSessionId)
@@ -79,9 +81,32 @@ export function App(): React.JSX.Element {
   const handleDeleteAgent = useCallback(
     (sessionId: string): void => {
       void deleteAgent(sessionId)
+      removeSession(sessionId)
       void window.electronAPI.invoke('view-state:delete', sessionId)
     },
-    [deleteAgent]
+    [deleteAgent, removeSession]
+  )
+
+  const handleSelectSession = useCallback(
+    (sessionId: string, projectId: string): void => {
+      if (projectId !== activeProjectId) {
+        setActiveSession(sessionId)
+        setActiveProject(projectId)
+      } else {
+        setActiveSession(sessionId)
+      }
+    },
+    [activeProjectId, setActiveSession, setActiveProject]
+  )
+
+  const handleNewAgentForProject = useCallback(
+    (projectId: string): void => {
+      if (projectId !== activeProjectId) {
+        setActiveProject(projectId)
+      }
+      setShowNewAgent(true)
+    },
+    [activeProjectId, setActiveProject]
   )
 
   const handleSaveSettings = useCallback(
@@ -126,15 +151,15 @@ export function App(): React.JSX.Element {
       <ProjectSidebar
         projects={projects}
         activeProjectId={activeProjectId}
-        sessions={sessions}
+        allProjectSessions={sessionsByProject}
         activeSessionId={activeSessionId}
         onSelectProject={setActiveProject}
-        onSelectSession={setActiveSession}
+        onSelectSession={handleSelectSession}
         onAddProject={addProject}
         onRemoveProject={removeProject}
         onCloneProject={(url: string) => void cloneProject(url)}
         onDeleteAgent={handleDeleteAgent}
-        onNewAgent={() => setShowNewAgent(true)}
+        onNewAgent={handleNewAgentForProject}
         onOpenSettings={() => setShowSettings(true)}
       />
 
