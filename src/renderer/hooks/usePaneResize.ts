@@ -2,11 +2,12 @@ import { useState, useEffect, useCallback, useRef, type RefObject } from 'react'
 
 type DividerType = 'left' | 'right' | 'bottom'
 
-export type PaneName = 'sidebar' | 'left' | 'right' | 'bottom'
+export type PaneName = 'sidebar' | 'left' | 'center' | 'right' | 'bottom'
 
 export interface PaneVisibility {
   sidebar: boolean
   left: boolean
+  center: boolean
   right: boolean
   bottom: boolean
 }
@@ -34,6 +35,7 @@ export function usePaneResize(
   const [paneVisibility, setPaneVisibility] = useState<PaneVisibility>({
     sidebar: true,
     left: true,
+    center: true,
     right: true,
     bottom: true,
   })

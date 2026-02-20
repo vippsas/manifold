@@ -19,6 +19,7 @@ interface CodeViewerProps {
   onCloseTab: (filePath: string) => void
   onShowDiff: () => void
   onSaveFile?: (content: string) => void
+  onClose?: () => void
 }
 
 function isMarkdownFile(filePath: string | null): boolean {
@@ -150,6 +151,7 @@ export function CodeViewer({
   onCloseTab,
   onShowDiff,
   onSaveFile,
+  onClose,
 }: CodeViewerProps): React.JSX.Element {
   const monacoTheme = theme
   const language = useMemo(() => extensionToLanguage(activeFilePath), [activeFilePath])
@@ -200,6 +202,7 @@ export function CodeViewer({
           showPreviewToggle={showPreviewToggle}
           previewActive={previewActive}
           onTogglePreview={() => setPreviewActive((p) => !p)}
+          onClose={onClose}
         />
       )}
       {!hasTabs && (
@@ -207,6 +210,14 @@ export function CodeViewer({
           <span className="mono" style={viewerStyles.headerText}>
             {mode === 'diff' ? 'Changes' : 'No file selected'}
           </span>
+          {onClose && (
+            <>
+              <span style={{ flex: 1 }} />
+              <button onClick={onClose} style={viewerStyles.closeButton} title="Close Editor">
+                {'\u00D7'}
+              </button>
+            </>
+          )}
         </div>
       )}
       <div style={viewerStyles.editorContainer}>
@@ -240,6 +251,7 @@ interface TabBarProps {
   showPreviewToggle: boolean
   previewActive: boolean
   onTogglePreview: () => void
+  onClose?: () => void
 }
 
 function TabBar({
@@ -252,6 +264,7 @@ function TabBar({
   showPreviewToggle,
   previewActive,
   onTogglePreview,
+  onClose,
 }: TabBarProps): React.JSX.Element {
   return (
     <div style={viewerStyles.tabBar}>
@@ -305,6 +318,14 @@ function TabBar({
         >
           {previewActive ? 'Editor' : 'Preview'}
         </button>
+      )}
+      {onClose && (
+        <>
+          <span style={{ flex: 1 }} />
+          <button onClick={onClose} style={viewerStyles.closeButton} title="Close Editor">
+            {'\u00D7'}
+          </button>
+        </>
       )}
     </div>
   )
@@ -507,6 +528,20 @@ const viewerStyles: Record<string, React.CSSProperties> = {
   previewToggleActive: {
     color: 'var(--accent)',
     borderColor: 'var(--accent)',
+  },
+  closeButton: {
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    width: '18px',
+    height: '18px',
+    borderRadius: '3px',
+    color: 'var(--text-muted)',
+    fontSize: '14px',
+    lineHeight: 1,
+    cursor: 'pointer',
+    flexShrink: 0,
+    marginRight: '4px',
   },
   editorContainer: {
     flex: 1,

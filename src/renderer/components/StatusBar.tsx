@@ -5,11 +5,12 @@ import type { PaneVisibility, PaneName } from '../hooks/usePaneResize'
 const PANE_LABELS: Record<PaneName, string> = {
   sidebar: 'Sidebar',
   left: 'Agent',
+  center: 'Editor',
   right: 'Files',
   bottom: 'Shell',
 }
 
-const ALL_VISIBLE: PaneVisibility = { sidebar: true, left: true, right: true, bottom: true }
+const ALL_VISIBLE: PaneVisibility = { sidebar: true, left: true, center: true, right: true, bottom: true }
 
 interface StatusBarProps {
   activeSession: AgentSession | null
