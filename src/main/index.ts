@@ -1,6 +1,13 @@
 import { app, BrowserWindow } from 'electron'
 import { join } from 'node:path'
 import { execFileSync } from 'node:child_process'
+import { appendFileSync } from 'node:fs'
+import { homedir } from 'node:os'
+
+const DEBUG_LOG = join(homedir(), '.manifold', 'debug.log')
+function debugLog(msg: string): void {
+  try { appendFileSync(DEBUG_LOG, `${new Date().toISOString()} ${msg}\n`) } catch { /* */ }
+}
 
 // Electron on macOS doesn't inherit the user's shell PATH.
 // Resolve it once at startup by asking the login shell.
@@ -8,16 +15,21 @@ function loadShellPath(): void {
   if (process.platform !== 'darwin') return
   try {
     const shell = process.env.SHELL ?? '/bin/zsh'
-    const output = execFileSync(shell, ['-l', '-c', 'echo $PATH'], {
+    const output = execFileSync(shell, ['-l', '-c', 'source ~/.zshrc 2>/dev/null; echo $PATH'], {
       encoding: 'utf8',
       timeout: 5000,
       stdio: ['ignore', 'pipe', 'ignore']
     })
     // Take the last non-empty line in case .zshrc printed anything before PATH
     const shellPath = output.split('\n').reverse().find((l) => l.trim().length > 0)?.trim()
-    if (shellPath) process.env.PATH = shellPath
-  } catch {
-    // Fall back to whatever Electron provided
+    if (shellPath) {
+      process.env.PATH = shellPath
+      debugLog(`[startup] PATH resolved (${shellPath.split(':').length} entries), includes .local/bin: ${shellPath.includes('.local/bin')}`)
+    } else {
+      debugLog('[startup] loadShellPath: no PATH found in shell output')
+    }
+  } catch (err) {
+    debugLog(`[startup] loadShellPath failed: ${err}`)
   }
 }
 

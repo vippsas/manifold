@@ -1,5 +1,13 @@
 import * as pty from 'node-pty'
 import { v4 as uuidv4 } from 'uuid'
+import { appendFileSync } from 'node:fs'
+import { join } from 'node:path'
+import { homedir } from 'node:os'
+
+const DEBUG_LOG = join(homedir(), '.manifold', 'debug.log')
+function debugLog(msg: string): void {
+  try { appendFileSync(DEBUG_LOG, `${new Date().toISOString()} ${msg}\n`) } catch { /* */ }
+}
 
 export interface PtyHandle {
   id: string
@@ -28,6 +36,9 @@ export class PtyPool {
     // and makes Claude Code refuse to start ("nested session" detection).
     delete env.CLAUDECODE
 
+    debugLog(`[pty-pool] spawn file=${file} args=${JSON.stringify(args)} cwd=${options.cwd} cols=${options.cols} rows=${options.rows}`)
+    debugLog(`[pty-pool] PATH=${env.PATH?.split(':').slice(0, 5).join(':')}...`)
+
     const proc = pty.spawn(file, args, {
       name: 'xterm-256color',
       cols: options.cols ?? 80,
@@ -35,6 +46,8 @@ export class PtyPool {
       cwd: options.cwd,
       env
     })
+
+    debugLog(`[pty-pool] spawned pid=${proc.pid}`)
 
     const entry: PtyEntry = {
       id,
@@ -50,13 +63,19 @@ export class PtyPool {
   }
 
   private wireListeners(id: string, entry: PtyEntry, proc: pty.IPty): void {
+    let dataReceived = false
     proc.onData((data: string) => {
+      if (!dataReceived) {
+        debugLog(`[pty-pool] first data from pid=${proc.pid} len=${data.length}`)
+        dataReceived = true
+      }
       for (const listener of entry.dataListeners) {
         listener(data)
       }
     })
 
     proc.onExit(({ exitCode, signal }: { exitCode: number; signal?: number }) => {
+      debugLog(`[pty-pool] exit pid=${proc.pid} code=${exitCode} signal=${signal}`)
       for (const listener of entry.exitListeners) {
         listener(exitCode, signal)
       }
