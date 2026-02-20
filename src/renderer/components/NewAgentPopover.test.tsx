@@ -21,6 +21,7 @@ function renderPopover(overrides = {}) {
   const defaultProps = {
     visible: true,
     projectId: 'proj-1',
+    defaultRuntime: 'claude',
     onLaunch: vi.fn(),
     onClose: vi.fn(),
     ...overrides,
@@ -35,6 +36,7 @@ describe('NewAgentPopover', () => {
       <NewAgentPopover
         visible={false}
         projectId="proj-1"
+        defaultRuntime="claude"
         onLaunch={vi.fn()}
         onClose={vi.fn()}
       />,

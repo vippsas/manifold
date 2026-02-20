@@ -5,6 +5,7 @@ import { popoverStyles } from './NewAgentPopover.styles'
 interface NewAgentPopoverProps {
   visible: boolean
   projectId: string
+  defaultRuntime: string
   onLaunch: (options: SpawnAgentOptions) => void
   onClose: () => void
 }
@@ -24,15 +25,16 @@ const RUNTIMES: RuntimeOption[] = [
 export function NewAgentPopover({
   visible,
   projectId,
+  defaultRuntime,
   onLaunch,
   onClose,
 }: NewAgentPopoverProps): React.JSX.Element | null {
-  const [runtimeId, setRuntimeId] = useState(RUNTIMES[0].id)
+  const [runtimeId, setRuntimeId] = useState(defaultRuntime)
   const [branchName, setBranchName] = useState('')
   const [loading, setLoading] = useState(false)
   const overlayRef = useRef<HTMLDivElement>(null)
 
-  useResetOnOpen(visible, projectId, setRuntimeId, setLoading, setBranchName)
+  useResetOnOpen(visible, projectId, defaultRuntime, setRuntimeId, setLoading, setBranchName)
 
   const handleSubmit = useCallback(
     (e: React.FormEvent): void => {
@@ -91,13 +93,14 @@ export function NewAgentPopover({
 function useResetOnOpen(
   visible: boolean,
   projectId: string,
+  defaultRuntime: string,
   setRuntimeId: (id: string) => void,
   setLoading: (val: boolean) => void,
   setBranchName: (val: string) => void
 ): void {
   useEffect(() => {
     if (!visible) return
-    setRuntimeId(RUNTIMES[0].id)
+    setRuntimeId(defaultRuntime)
     setLoading(false)
 
     const fetchBranchSuggestion = async (): Promise<void> => {
@@ -110,7 +113,7 @@ function useResetOnOpen(
     }
 
     void fetchBranchSuggestion()
-  }, [visible, projectId, setRuntimeId, setLoading, setBranchName])
+  }, [visible, projectId, defaultRuntime, setRuntimeId, setLoading, setBranchName])
 }
 
 function PopoverHeader({ onClose }: { onClose: () => void }): React.JSX.Element {

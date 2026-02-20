@@ -177,6 +177,7 @@ export function App(): React.JSX.Element {
         <NewAgentPopover
           visible={showNewAgent}
           projectId={activeProjectId}
+          defaultRuntime={settings.defaultRuntime}
           onLaunch={handleLaunchAgent}
           onClose={() => setShowNewAgent(false)}
         />

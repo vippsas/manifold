@@ -12,7 +12,7 @@ export const BUILT_IN_RUNTIMES: readonly AgentRuntime[] = [
     id: 'codex',
     name: 'Codex',
     binary: 'codex',
-    args: ['--quiet'],
+    args: [],
     waitingPattern: '> |codex>'
   },
   {
