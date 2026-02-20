@@ -23,6 +23,7 @@ const ALLOWED_INVOKE_CHANNELS = [
   'settings:update',
   'branch:suggest',
   'shell:create',
+  'storage:open-dialog',
 ] as const
 
 const ALLOWED_LISTEN_CHANNELS = [

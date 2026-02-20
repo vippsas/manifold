@@ -10,7 +10,7 @@ export function WelcomeDialog({ defaultPath, onConfirm }: WelcomeDialogProps): R
   const overlayRef = useRef<HTMLDivElement>(null)
 
   const handleBrowse = useCallback(async () => {
-    const selected = (await window.electronAPI.invoke('projects:open-dialog')) as string | undefined
+    const selected = (await window.electronAPI.invoke('storage:open-dialog')) as string | undefined
     if (selected) setStoragePath(selected)
   }, [])
 
@@ -91,6 +91,7 @@ const styles: Record<string, React.CSSProperties> = {
   title: {
     fontWeight: 600,
     fontSize: '16px',
+    color: 'var(--text-primary)',
   },
   body: {
     padding: '16px',
@@ -120,6 +121,10 @@ const styles: Record<string, React.CSSProperties> = {
     flex: 1,
     padding: '6px 8px',
     fontSize: '13px',
+    color: 'var(--text-primary)',
+    background: 'var(--bg-input)',
+    border: '1px solid var(--border)',
+    borderRadius: '4px',
   },
   browseButton: {
     padding: '6px 12px',

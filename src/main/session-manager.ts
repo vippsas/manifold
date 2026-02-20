@@ -39,7 +39,7 @@ export class SessionManager {
     const worktree = await this.worktreeManager.createWorktree(
       project.path,
       project.baseBranch,
-      options.projectId,
+      project.name,
       options.branchName
     )
 
@@ -60,7 +60,7 @@ export class SessionManager {
     return this.toPublicSession(session)
   }
 
-  private resolveProject(projectId: string): { path: string; baseBranch: string } {
+  private resolveProject(projectId: string): { name: string; path: string; baseBranch: string } {
     const project = this.projectRegistry.getProject(projectId)
     if (!project) throw new Error(`Project not found: ${projectId}`)
     return project

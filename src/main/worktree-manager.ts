@@ -15,19 +15,19 @@ export class WorktreeManager {
     return simpleGit(projectPath)
   }
 
-  private getWorktreeBase(projectId: string): string {
-    return path.join(this.storagePath, 'worktrees', projectId)
+  private getWorktreeBase(projectName: string): string {
+    return path.join(this.storagePath, 'worktrees', projectName)
   }
 
   async createWorktree(
     projectPath: string,
     baseBranch: string,
-    projectId: string,
+    projectName: string,
     branchName?: string
   ): Promise<WorktreeInfo> {
     const git = this.getGit(projectPath)
     const branch = branchName ?? (await generateBranchName(projectPath))
-    const worktreeBase = this.getWorktreeBase(projectId)
+    const worktreeBase = this.getWorktreeBase(projectName)
     fs.mkdirSync(worktreeBase, { recursive: true })
 
     const safeDirName = branch.replace(/\//g, '-')

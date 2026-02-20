@@ -1,3 +1,4 @@
+import { existsSync } from 'node:fs'
 import simpleGit, { DiffResultTextFile, SimpleGit } from 'simple-git'
 import { FileChange, FileChangeType } from '../shared/types'
 
@@ -7,6 +8,7 @@ export class DiffProvider {
   }
 
   async getDiff(worktreePath: string, baseBranch: string): Promise<string> {
+    if (!existsSync(worktreePath)) return ''
     const git = this.getGit(worktreePath)
 
     // Stage all changes first to capture untracked files
@@ -27,6 +29,7 @@ export class DiffProvider {
   }
 
   async getChangedFiles(worktreePath: string, baseBranch: string): Promise<FileChange[]> {
+    if (!existsSync(worktreePath)) return []
     const git = this.getGit(worktreePath)
     const changes: FileChange[] = []
 

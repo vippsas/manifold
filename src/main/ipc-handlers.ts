@@ -1,5 +1,6 @@
 import { ipcMain, dialog, BrowserWindow } from 'electron'
 import { execFile } from 'node:child_process'
+import { mkdirSync } from 'node:fs'
 import { resolve } from 'node:path'
 import { promisify } from 'node:util'
 import { SpawnAgentOptions, CreatePROptions, ManifoldSettings } from '../shared/types'
@@ -67,6 +68,16 @@ function registerProjectHandlers(deps: IpcDependencies): void {
     if (!window) throw new Error('No BrowserWindow found for event sender')
     const result = await dialog.showOpenDialog(window, {
       properties: ['openDirectory']
+    })
+    if (result.canceled || result.filePaths.length === 0) return undefined
+    return result.filePaths[0]
+  })
+
+  ipcMain.handle('storage:open-dialog', async (event) => {
+    const window = BrowserWindow.fromWebContents(event.sender)
+    if (!window) throw new Error('No BrowserWindow found for event sender')
+    const result = await dialog.showOpenDialog(window, {
+      properties: ['openDirectory', 'createDirectory']
     })
     if (result.canceled || result.filePaths.length === 0) return undefined
     return result.filePaths[0]
@@ -201,6 +212,9 @@ function registerSettingsHandlers(deps: IpcDependencies): void {
   })
 
   ipcMain.handle('settings:update', (_event, partial: Partial<ManifoldSettings>) => {
+    if (partial.storagePath) {
+      mkdirSync(partial.storagePath, { recursive: true })
+    }
     return settingsStore.updateSettings(partial)
   })
 }

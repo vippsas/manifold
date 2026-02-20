@@ -75,6 +75,8 @@ export function useTerminal({ sessionId, scrollbackLines }: UseTerminalOptions):
         terminal.reset()
         ready = true
 
+        terminal.focus()
+
         if (!sessionId) return
         // Replay the session's buffered output to restore the terminal state.
         // Without this, switching sessions shows a blank terminal until the
