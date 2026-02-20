@@ -11,6 +11,7 @@ const ALLOWED_INVOKE_CHANNELS = [
   'agent:input',
   'agent:resize',
   'agent:sessions',
+  'agent:resume',
   'agent:replay',
   'files:tree',
   'files:read',
@@ -43,8 +44,6 @@ function isAllowedListenChannel(channel: string): channel is ListenChannel {
 
 type IpcCallback = (...args: unknown[]) => void
 
-const listenerMap = new Map<IpcCallback, (_event: Electron.IpcRendererEvent, ...args: unknown[]) => void>()
-
 const electronAPI = {
   invoke(channel: string, ...args: unknown[]): Promise<unknown> {
     if (!isAllowedInvokeChannel(channel)) {
@@ -53,25 +52,16 @@ const electronAPI = {
     return ipcRenderer.invoke(channel, ...args)
   },
 
-  on(channel: string, callback: IpcCallback): void {
+  on(channel: string, callback: IpcCallback): () => void {
     if (!isAllowedListenChannel(channel)) {
-      return
+      return () => {}
     }
     const wrappedCallback = (_event: Electron.IpcRendererEvent, ...args: unknown[]): void => {
       callback(...args)
     }
-    listenerMap.set(callback, wrappedCallback)
     ipcRenderer.on(channel, wrappedCallback)
-  },
-
-  off(channel: string, callback: IpcCallback): void {
-    if (!isAllowedListenChannel(channel)) {
-      return
-    }
-    const wrappedCallback = listenerMap.get(callback)
-    if (wrappedCallback) {
+    return () => {
       ipcRenderer.removeListener(channel, wrappedCallback)
-      listenerMap.delete(callback)
     }
   },
 }

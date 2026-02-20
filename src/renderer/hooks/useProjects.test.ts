@@ -2,8 +2,7 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { renderHook, act, waitFor } from '@testing-library/react'
 
 const mockInvoke = vi.fn()
-const mockOn = vi.fn()
-const mockOff = vi.fn()
+const mockOn = vi.fn(() => vi.fn())
 
 const sampleProjects = [
   { id: 'p1', name: 'Project A', path: '/a', baseBranch: 'main', addedAt: '2024-01-01' },
@@ -15,12 +14,11 @@ beforeEach(() => {
   ;(window as unknown as Record<string, unknown>).electronAPI = {
     invoke: mockInvoke,
     on: mockOn,
-    off: mockOff,
   }
 })
 
 afterEach(() => {
-  // Don't delete electronAPI — React may still call off() during unmount cleanup
+  // Don't delete electronAPI — React may still call unsubscribe during unmount cleanup
 })
 
 import { useProjects } from './useProjects'

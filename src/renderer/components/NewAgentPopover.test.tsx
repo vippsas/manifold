@@ -9,13 +9,12 @@ beforeEach(() => {
   vi.clearAllMocks()
   ;(window as unknown as Record<string, unknown>).electronAPI = {
     invoke: mockInvoke,
-    on: vi.fn(),
-    off: vi.fn(),
+    on: vi.fn(() => vi.fn()),
   }
 })
 
 afterEach(() => {
-  // Don't delete electronAPI — React may still call off() during unmount cleanup
+  // Don't delete electronAPI — React may still call unsubscribe during unmount cleanup
 })
 
 function renderPopover(overrides = {}) {

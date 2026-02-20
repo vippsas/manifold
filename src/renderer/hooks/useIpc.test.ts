@@ -2,15 +2,14 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { renderHook, act, waitFor } from '@testing-library/react'
 
 const mockInvoke = vi.fn()
-const mockOn = vi.fn()
-const mockOff = vi.fn()
+const mockUnsubscribe = vi.fn()
+const mockOn = vi.fn(() => mockUnsubscribe)
 
 beforeEach(() => {
   vi.clearAllMocks()
   ;(window as unknown as Record<string, unknown>).electronAPI = {
     invoke: mockInvoke,
     on: mockOn,
-    off: mockOff,
   }
 })
 
@@ -102,7 +101,7 @@ describe('useIpcListener', () => {
 
     unmount()
 
-    expect(mockOff).toHaveBeenCalledWith('test:event', expect.any(Function))
+    expect(mockUnsubscribe).toHaveBeenCalled()
   })
 
   it('calls the handler when event fires', () => {
@@ -148,7 +147,8 @@ describe('useIpcListener', () => {
 
     rerender({ channel: 'channel-b' })
 
-    expect(mockOff).toHaveBeenCalledWith('channel-a', expect.any(Function))
+    // Old listener should have been unsubscribed
+    expect(mockUnsubscribe).toHaveBeenCalled()
     expect(mockOn).toHaveBeenCalledWith('channel-b', expect.any(Function))
   })
 })
