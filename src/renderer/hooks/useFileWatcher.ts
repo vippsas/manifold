@@ -1,4 +1,4 @@
-import { useState, useCallback, useEffect } from 'react'
+import { useState, useCallback, useEffect, useRef } from 'react'
 import type { FileTreeNode, FileChange } from '../../shared/types'
 import { useIpcListener } from './useIpc'
 
@@ -11,7 +11,12 @@ interface UseFileWatcherResult {
   readFile: (filePath: string) => Promise<string | null>
 }
 
-export function useFileWatcher(sessionId: string | null): UseFileWatcherResult {
+export function useFileWatcher(
+  sessionId: string | null,
+  onFilesChanged?: () => void
+): UseFileWatcherResult {
+  const onFilesChangedRef = useRef(onFilesChanged)
+  onFilesChangedRef.current = onFilesChanged
   const [tree, setTree] = useState<FileTreeNode | null>(null)
   const [changes, setChanges] = useState<FileChange[]>([])
   const [loading, setLoading] = useState(false)
@@ -48,6 +53,7 @@ export function useFileWatcher(sessionId: string | null): UseFileWatcherResult {
         if (event.sessionId === sessionId) {
           setChanges(event.changes)
           void refreshTree()
+          onFilesChangedRef.current?.()
         }
       },
       [sessionId, refreshTree]

@@ -20,10 +20,16 @@ export function App(): React.JSX.Element {
   const { projects, activeProjectId, addProject, cloneProject, removeProject, setActiveProject } = useProjects()
   const { sessions, activeSessionId, activeSession, spawnAgent, deleteAgent, setActiveSession } =
     useAgentSession(activeProjectId)
-  const { tree, changes } = useFileWatcher(activeSessionId)
-  const { diff, changedFiles } = useDiff(activeSessionId)
+  const { diff, changedFiles, refreshDiff } = useDiff(activeSessionId)
   const paneResize = usePaneResize()
   const codeView = useCodeView(activeSessionId)
+
+  const handleFilesChanged = useCallback(() => {
+    void codeView.refreshOpenFiles()
+    void refreshDiff()
+  }, [codeView.refreshOpenFiles, refreshDiff])
+
+  const { tree } = useFileWatcher(activeSessionId, handleFilesChanged)
   const activeProject = projects.find((p) => p.id === activeProjectId) ?? null
   const shellCwd = activeSession?.worktreePath ?? activeProject?.path ?? null
   const shellSessionId = useShellSession(shellCwd)
@@ -100,7 +106,7 @@ export function App(): React.JSX.Element {
           fileContent={codeView.activeFileContent}
           theme={settings.theme}
           tree={tree}
-          changes={changes}
+          changes={changedFiles}
           onSelectFile={codeView.handleSelectFile}
           onCloseFile={codeView.handleCloseFile}
           onShowDiff={codeView.handleShowDiff}
