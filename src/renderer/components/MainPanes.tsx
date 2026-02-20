@@ -2,6 +2,7 @@ import React, { type RefObject } from 'react'
 import type { FileTreeNode, FileChange } from '../../shared/types'
 import type { OpenFile } from '../hooks/useCodeView'
 import { TerminalPane } from './TerminalPane'
+import { ShellTabs } from './ShellTabs'
 import { CodeViewer } from './CodeViewer'
 import { FileTree } from './FileTree'
 import { OnboardingView } from './OnboardingView'
@@ -15,7 +16,8 @@ interface MainPanesProps {
   bottomPaneFraction: number
   handleDividerMouseDown: (divider: 'left' | 'right' | 'bottom') => (e: React.MouseEvent) => void
   sessionId: string | null
-  shellSessionId: string | null
+  worktreeShellSessionId: string | null
+  projectShellSessionId: string | null
   scrollbackLines: number
   codeViewMode: 'diff' | 'file'
   diff: string
@@ -43,7 +45,8 @@ export function MainPanes({
   bottomPaneFraction,
   handleDividerMouseDown,
   sessionId,
-  shellSessionId,
+  worktreeShellSessionId,
+  projectShellSessionId,
   scrollbackLines,
   codeViewMode,
   diff,
@@ -131,9 +134,13 @@ export function MainPanes({
               aria-orientation="horizontal"
             />
 
-            {/* Bottom: User Terminal */}
+            {/* Bottom: User Terminal (tabbed: Worktree + Project) */}
             <div style={{ flex: `0 0 ${bottomPaneFraction * 100}%`, overflow: 'hidden', minHeight: 0 }}>
-              <TerminalPane sessionId={shellSessionId} scrollbackLines={scrollbackLines} label="Shell" />
+              <ShellTabs
+                worktreeSessionId={worktreeShellSessionId}
+                projectSessionId={projectShellSessionId}
+                scrollbackLines={scrollbackLines}
+              />
             </div>
           </div>
         </>
