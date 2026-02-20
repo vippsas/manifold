@@ -3,13 +3,14 @@ import { execFile } from 'node:child_process'
 import { mkdirSync } from 'node:fs'
 import { resolve } from 'node:path'
 import { promisify } from 'node:util'
-import { SpawnAgentOptions, CreatePROptions, ManifoldSettings } from '../shared/types'
+import { SpawnAgentOptions, CreatePROptions, ManifoldSettings, SessionViewState } from '../shared/types'
 import { SettingsStore } from './settings-store'
 import { ProjectRegistry } from './project-registry'
 import { SessionManager } from './session-manager'
 import { FileWatcher } from './file-watcher'
 import { DiffProvider } from './diff-provider'
 import { PrCreator } from './pr-creator'
+import { ViewStateStore } from './view-state-store'
 import { listRuntimes } from './runtimes'
 import { generateBranchName } from './branch-namer'
 
@@ -22,6 +23,7 @@ export interface IpcDependencies {
   fileWatcher: FileWatcher
   diffProvider: DiffProvider
   prCreator: PrCreator
+  viewStateStore: ViewStateStore
 }
 
 export function registerIpcHandlers(deps: IpcDependencies): void {
@@ -32,6 +34,7 @@ export function registerIpcHandlers(deps: IpcDependencies): void {
   registerPrHandler(deps)
   registerSettingsHandlers(deps)
   registerRuntimesHandler()
+  registerViewStateHandlers(deps)
 }
 
 function registerProjectHandlers(deps: IpcDependencies): void {
@@ -85,7 +88,7 @@ function registerProjectHandlers(deps: IpcDependencies): void {
 }
 
 function registerAgentHandlers(deps: IpcDependencies): void {
-  const { sessionManager, fileWatcher } = deps
+  const { sessionManager, fileWatcher, viewStateStore } = deps
 
   ipcMain.handle('branch:suggest', async (_event, projectId: string) => {
     const project = deps.projectRegistry.getProject(projectId)
@@ -113,6 +116,7 @@ function registerAgentHandlers(deps: IpcDependencies): void {
       await fileWatcher.unwatch(session.worktreePath)
     }
     await sessionManager.killSession(sessionId)
+    viewStateStore.delete(sessionId)
   })
 
   ipcMain.handle('agent:resume', async (_event, sessionId: string, runtimeId: string) => {
@@ -222,5 +226,21 @@ function registerSettingsHandlers(deps: IpcDependencies): void {
 function registerRuntimesHandler(): void {
   ipcMain.handle('runtimes:list', () => {
     return listRuntimes()
+  })
+}
+
+function registerViewStateHandlers(deps: IpcDependencies): void {
+  const { viewStateStore } = deps
+
+  ipcMain.handle('view-state:get', (_event, sessionId: string) => {
+    return viewStateStore.get(sessionId)
+  })
+
+  ipcMain.handle('view-state:set', (_event, sessionId: string, state: SessionViewState) => {
+    viewStateStore.set(sessionId, state)
+  })
+
+  ipcMain.handle('view-state:delete', (_event, sessionId: string) => {
+    viewStateStore.delete(sessionId)
   })
 }

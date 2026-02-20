@@ -30,6 +30,7 @@ import { SessionManager } from './session-manager'
 import { FileWatcher } from './file-watcher'
 import { DiffProvider } from './diff-provider'
 import { PrCreator } from './pr-creator'
+import { ViewStateStore } from './view-state-store'
 import { registerIpcHandlers } from './ipc-handlers'
 
 let mainWindow: BrowserWindow | null = null
@@ -43,6 +44,7 @@ const sessionManager = new SessionManager(worktreeManager, ptyPool, projectRegis
 const fileWatcher = new FileWatcher()
 const diffProvider = new DiffProvider()
 const prCreator = new PrCreator()
+const viewStateStore = new ViewStateStore()
 
 function createWindow(): void {
   mainWindow = new BrowserWindow({
@@ -78,7 +80,8 @@ function wireModules(window: BrowserWindow): void {
     sessionManager,
     fileWatcher,
     diffProvider,
-    prCreator
+    prCreator,
+    viewStateStore,
   })
 }
 

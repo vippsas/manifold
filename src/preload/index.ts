@@ -24,6 +24,9 @@ const ALLOWED_INVOKE_CHANNELS = [
   'branch:suggest',
   'shell:create',
   'storage:open-dialog',
+  'view-state:get',
+  'view-state:set',
+  'view-state:delete',
 ] as const
 
 const ALLOWED_LISTEN_CHANNELS = [
