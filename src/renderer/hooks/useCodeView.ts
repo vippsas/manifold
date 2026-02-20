@@ -16,6 +16,7 @@ export interface UseCodeViewResult {
   handleCloseFile: (filePath: string) => void
   handleShowDiff: () => void
   handleSaveFile: (content: string) => void
+  refreshOpenFiles: () => Promise<void>
 }
 
 export function useCodeView(activeSessionId: string | null): UseCodeViewResult {
@@ -108,6 +109,31 @@ export function useCodeView(activeSessionId: string | null): UseCodeViewResult {
     [activeSessionId]
   )
 
+  const openFilesRef = useRef<OpenFile[]>([])
+  openFilesRef.current = openFiles
+
+  const refreshOpenFiles = useCallback(async (): Promise<void> => {
+    if (!activeSessionId) return
+    const currentFiles = openFilesRef.current
+    if (currentFiles.length === 0) return
+
+    const updates = await Promise.all(
+      currentFiles.map(async (file) => {
+        try {
+          const content = (await window.electronAPI.invoke(
+            'files:read',
+            activeSessionId,
+            file.path
+          )) as string
+          return { path: file.path, content }
+        } catch {
+          return file
+        }
+      })
+    )
+    setOpenFiles(updates)
+  }, [activeSessionId])
+
   return {
     codeViewMode,
     openFiles,
@@ -117,5 +143,6 @@ export function useCodeView(activeSessionId: string | null): UseCodeViewResult {
     handleCloseFile,
     handleShowDiff,
     handleSaveFile,
+    refreshOpenFiles,
   }
 }
