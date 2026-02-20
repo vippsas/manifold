@@ -1,4 +1,4 @@
-import React, { useState, useCallback } from 'react'
+import React, { useState, useCallback, useEffect, useRef } from 'react'
 import type { SpawnAgentOptions } from '../shared/types'
 import { useProjects } from './hooks/useProjects'
 import { useAgentSession } from './hooks/useAgentSession'
@@ -7,6 +7,7 @@ import { useDiff } from './hooks/useDiff'
 import { useSettings } from './hooks/useSettings'
 import { usePaneResize } from './hooks/usePaneResize'
 import { useCodeView } from './hooks/useCodeView'
+import { useViewState } from './hooks/useViewState'
 import { useShellSession } from './hooks/useShellSession'
 import { ProjectSidebar } from './components/ProjectSidebar'
 import { MainPanes } from './components/MainPanes'
@@ -24,6 +25,32 @@ export function App(): React.JSX.Element {
   const { diff, changedFiles, refreshDiff } = useDiff(activeSessionId)
   const paneResize = usePaneResize()
   const codeView = useCodeView(activeSessionId)
+  const viewState = useViewState(activeSessionId)
+
+  const prevSessionRef = useRef<string | null>(null)
+
+  // Save state before switching away from a session
+  useEffect(() => {
+    if (prevSessionRef.current && prevSessionRef.current !== activeSessionId) {
+      viewState.saveCurrentState(
+        codeView.openFiles,
+        codeView.activeFilePath,
+        codeView.codeViewMode
+      )
+    }
+    prevSessionRef.current = activeSessionId
+  }, [activeSessionId])
+
+  // Restore state when viewState provides it
+  useEffect(() => {
+    if (viewState.restoreCodeView) {
+      codeView.restoreState(
+        viewState.restoreCodeView.openFiles,
+        viewState.restoreCodeView.activeFilePath,
+        viewState.restoreCodeView.codeViewMode
+      )
+    }
+  }, [viewState.restoreCodeView])
 
   const handleFilesChanged = useCallback(() => {
     void codeView.refreshOpenFiles()
@@ -44,6 +71,14 @@ export function App(): React.JSX.Element {
       setShowNewAgent(false)
     },
     [spawnAgent]
+  )
+
+  const handleDeleteAgent = useCallback(
+    (sessionId: string): void => {
+      void deleteAgent(sessionId)
+      void window.electronAPI.invoke('view-state:delete', sessionId)
+    },
+    [deleteAgent]
   )
 
   const handleSaveSettings = useCallback(
@@ -95,7 +130,7 @@ export function App(): React.JSX.Element {
         onAddProject={addProject}
         onRemoveProject={removeProject}
         onCloneProject={(url: string) => void cloneProject(url)}
-        onDeleteAgent={deleteAgent}
+        onDeleteAgent={handleDeleteAgent}
         onNewAgent={() => setShowNewAgent(true)}
         onOpenSettings={() => setShowSettings(true)}
       />
@@ -125,6 +160,8 @@ export function App(): React.JSX.Element {
           onCloseFile={codeView.handleCloseFile}
           onShowDiff={codeView.handleShowDiff}
           onSaveFile={codeView.handleSaveFile}
+          expandedPaths={viewState.expandedPaths}
+          onToggleExpand={viewState.onToggleExpand}
         />
 
         <StatusBar

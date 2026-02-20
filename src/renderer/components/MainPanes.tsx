@@ -30,6 +30,8 @@ interface MainPanesProps {
   onCloseFile: (path: string) => void
   onShowDiff: () => void
   onSaveFile: (content: string) => void
+  expandedPaths: Set<string>
+  onToggleExpand: (path: string) => void
 }
 
 export function MainPanes({
@@ -56,6 +58,8 @@ export function MainPanes({
   onCloseFile,
   onShowDiff,
   onSaveFile,
+  expandedPaths,
+  onToggleExpand,
 }: MainPanesProps): React.JSX.Element {
   const rightAreaTotal = centerFraction + rightPaneFraction
   const rightAreaCenterFraction = rightAreaTotal > 0 ? centerFraction / rightAreaTotal : 0.5
@@ -111,6 +115,8 @@ export function MainPanes({
                 <FileTree
                   tree={tree}
                   changes={changes}
+                  expandedPaths={expandedPaths}
+                  onToggleExpand={onToggleExpand}
                   onSelectFile={onSelectFile}
                   onShowDiff={onShowDiff}
                 />
