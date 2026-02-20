@@ -25,7 +25,14 @@ export function App(): React.JSX.Element {
   const { diff, changedFiles, refreshDiff } = useDiff(activeSessionId)
   const paneResize = usePaneResize()
   const codeView = useCodeView(activeSessionId)
-  const viewState = useViewState(activeSessionId)
+
+  const handleFilesChanged = useCallback(() => {
+    void codeView.refreshOpenFiles()
+    void refreshDiff()
+  }, [codeView.refreshOpenFiles, refreshDiff])
+
+  const { tree } = useFileWatcher(activeSessionId, handleFilesChanged)
+  const viewState = useViewState(activeSessionId, tree)
 
   const prevSessionRef = useRef<string | null>(null)
 
@@ -52,12 +59,6 @@ export function App(): React.JSX.Element {
     }
   }, [viewState.restoreCodeView])
 
-  const handleFilesChanged = useCallback(() => {
-    void codeView.refreshOpenFiles()
-    void refreshDiff()
-  }, [codeView.refreshOpenFiles, refreshDiff])
-
-  const { tree } = useFileWatcher(activeSessionId, handleFilesChanged)
   const activeProject = projects.find((p) => p.id === activeProjectId) ?? null
   const shellCwd = activeSession?.worktreePath ?? activeProject?.path ?? null
   const shellSessionId = useShellSession(shellCwd)
