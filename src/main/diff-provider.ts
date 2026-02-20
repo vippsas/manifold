@@ -11,41 +11,34 @@ export class DiffProvider {
     if (!existsSync(worktreePath)) return ''
     const git = this.getGit(worktreePath)
 
-    // Stage all changes first to capture untracked files
+    // Stage all changes to capture untracked files
     try {
       await git.add('.')
     } catch {
       // May fail if worktree is empty; continue
     }
 
-    const diff = await git.diff([`${baseBranch}...HEAD`])
-    const stagedDiff = await git.diff(['--cached'])
-
-    // Combine committed and staged diffs
-    if (diff && stagedDiff) {
-      return `${diff}\n${stagedDiff}`
-    }
-    return diff || stagedDiff || ''
+    // Single diff: staging area vs base branch shows the net result.
+    // If a committed change was reverted in the working tree, git add .
+    // stages the reverted content, so it won't appear in this diff.
+    return await git.diff(['--cached', baseBranch])
   }
 
   async getChangedFiles(worktreePath: string, baseBranch: string): Promise<FileChange[]> {
     if (!existsSync(worktreePath)) return []
     const git = this.getGit(worktreePath)
-    const changes: FileChange[] = []
 
-    await this.collectCommittedChanges(git, baseBranch, changes)
-    await this.collectUncommittedChanges(git, changes)
-
-    return changes
-  }
-
-  private async collectCommittedChanges(
-    git: SimpleGit,
-    baseBranch: string,
-    changes: FileChange[]
-  ): Promise<void> {
+    // Stage everything so untracked files are included
     try {
-      const diffSummary = await git.diffSummary([`${baseBranch}...HEAD`])
+      await git.add('.')
+    } catch {
+      // May fail if worktree is empty; continue
+    }
+
+    // Net changes: staging area vs base branch
+    const changes: FileChange[] = []
+    try {
+      const diffSummary = await git.diffSummary(['--cached', baseBranch])
       for (const file of diffSummary.files) {
         const changeType = this.inferChangeType(file)
         changes.push({ path: file.file, type: changeType })
@@ -53,32 +46,8 @@ export class DiffProvider {
     } catch {
       // May fail if no commits yet on branch
     }
-  }
 
-  private async collectUncommittedChanges(
-    git: SimpleGit,
-    changes: FileChange[]
-  ): Promise<void> {
-    try {
-      const status = await git.status()
-      this.addUniqueChanges(changes, status.created, 'added')
-      this.addUniqueChanges(changes, status.modified, 'modified')
-      this.addUniqueChanges(changes, status.deleted, 'deleted')
-    } catch {
-      // Status may fail; continue with what we have
-    }
-  }
-
-  private addUniqueChanges(
-    changes: FileChange[],
-    files: string[],
-    type: FileChangeType
-  ): void {
-    for (const file of files) {
-      if (!changes.find((c) => c.path === file)) {
-        changes.push({ path: file, type })
-      }
-    }
+    return changes
   }
 
   private inferChangeType(file: DiffResultTextFile | { file: string; binary: true; before: number; after: number }): FileChangeType {

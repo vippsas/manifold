@@ -64,33 +64,60 @@ function extensionToLanguage(filePath: string | null): string {
   return languageMap[ext] ?? 'plaintext'
 }
 
-function parseDiffSides(diffText: string): { original: string; modified: string } {
-  const lines = diffText.split('\n')
-  const originalLines: string[] = []
-  const modifiedLines: string[] = []
+interface FileDiff {
+  filePath: string
+  original: string
+  modified: string
+  lineCount: number
+}
 
-  for (const line of lines) {
-    if (line.startsWith('---') || line.startsWith('+++') || line.startsWith('@@')) {
-      continue
+function splitDiffByFile(diffText: string): FileDiff[] {
+  if (!diffText.trim()) return []
+
+  // Split on "diff --git" boundaries
+  const fileChunks = diffText.split(/^(?=diff --git )/m).filter((c) => c.trim())
+  const results: FileDiff[] = []
+
+  for (const chunk of fileChunks) {
+    // Extract file path from "diff --git a/path b/path"
+    const headerMatch = chunk.match(/^diff --git a\/(.+?) b\//)
+    const filePath = headerMatch?.[1] ?? 'unknown'
+
+    const lines = chunk.split('\n')
+    const originalLines: string[] = []
+    const modifiedLines: string[] = []
+
+    for (const line of lines) {
+      if (
+        line.startsWith('diff ') ||
+        line.startsWith('index ') ||
+        line.startsWith('---') ||
+        line.startsWith('+++') ||
+        line.startsWith('@@')
+      ) {
+        continue
+      }
+      if (line.startsWith('-')) {
+        originalLines.push(line.slice(1))
+      } else if (line.startsWith('+')) {
+        modifiedLines.push(line.slice(1))
+      } else {
+        const content = line.startsWith(' ') ? line.slice(1) : line
+        originalLines.push(content)
+        modifiedLines.push(content)
+      }
     }
-    if (line.startsWith('diff ') || line.startsWith('index ')) {
-      continue
-    }
-    if (line.startsWith('-')) {
-      originalLines.push(line.slice(1))
-    } else if (line.startsWith('+')) {
-      modifiedLines.push(line.slice(1))
-    } else {
-      const content = line.startsWith(' ') ? line.slice(1) : line
-      originalLines.push(content)
-      modifiedLines.push(content)
-    }
+
+    const lineCount = Math.max(originalLines.length, modifiedLines.length)
+    results.push({
+      filePath,
+      original: originalLines.join('\n'),
+      modified: modifiedLines.join('\n'),
+      lineCount,
+    })
   }
 
-  return {
-    original: originalLines.join('\n'),
-    modified: modifiedLines.join('\n'),
-  }
+  return results
 }
 
 function fileName(filePath: string): string {
@@ -124,7 +151,7 @@ export function CodeViewer({
 }: CodeViewerProps): React.JSX.Element {
   const monacoTheme = theme === 'dark' ? 'vs-dark' : 'vs'
   const language = useMemo(() => extensionToLanguage(activeFilePath), [activeFilePath])
-  const diffSides = useMemo(() => parseDiffSides(diff), [diff])
+  const fileDiffs = useMemo(() => splitDiffByFile(diff), [diff])
   const editorRef = useRef<monacoEditor.IStandaloneCodeEditor | null>(null)
   const saveRef = useRef(onSaveFile)
   const [previewActive, setPreviewActive] = useState(false)
@@ -180,8 +207,7 @@ export function CodeViewer({
         ) : (
           <EditorContent
             mode={mode}
-            diff={diff}
-            diffSides={diffSides}
+            fileDiffs={fileDiffs}
             fileContent={fileContent}
             language={language}
             monacoTheme={monacoTheme}
@@ -275,32 +301,83 @@ function TabBar({
 
 interface EditorContentProps {
   mode: ViewMode
-  diff: string
-  diffSides: { original: string; modified: string }
+  fileDiffs: FileDiff[]
   fileContent: string | null
   language: string
   monacoTheme: string
   onMount?: OnMount
 }
 
+const LINE_HEIGHT = 19
+const FILE_HEADER_HEIGHT = 32
+const EDITOR_PADDING = 8
+
+function FileDiffSection({
+  fileDiff,
+  monacoTheme,
+}: {
+  fileDiff: FileDiff
+  monacoTheme: string
+}): React.JSX.Element {
+  const editorHeight = Math.max(fileDiff.lineCount * LINE_HEIGHT + EDITOR_PADDING, 60)
+  const language = extensionToLanguage(fileDiff.filePath)
+
+  return (
+    <div style={viewerStyles.fileDiffSection}>
+      <div style={viewerStyles.fileDiffHeader}>
+        <span style={viewerStyles.fileDiffPath}>{fileDiff.filePath}</span>
+      </div>
+      <div style={{ height: editorHeight }}>
+        <DiffEditor
+          original={fileDiff.original}
+          modified={fileDiff.modified}
+          language={language}
+          theme={monacoTheme}
+          options={{ ...READONLY_OPTIONS, renderSideBySide: false }}
+        />
+      </div>
+    </div>
+  )
+}
+
 function EditorContent({
   mode,
-  diff,
-  diffSides,
+  fileDiffs,
   fileContent,
   language,
   monacoTheme,
   onMount,
 }: EditorContentProps): React.JSX.Element {
-  if (mode === 'diff' && diff) {
+  if (mode === 'diff' && fileDiffs.length > 0) {
+    // Single file: render full-height DiffEditor (no scrollable wrapper)
+    if (fileDiffs.length === 1) {
+      const fd = fileDiffs[0]
+      const lang = extensionToLanguage(fd.filePath)
+      return (
+        <div style={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
+          <div style={viewerStyles.fileDiffHeader}>
+            <span style={viewerStyles.fileDiffPath}>{fd.filePath}</span>
+          </div>
+          <div style={{ flex: 1 }}>
+            <DiffEditor
+              original={fd.original}
+              modified={fd.modified}
+              language={lang}
+              theme={monacoTheme}
+              options={{ ...READONLY_OPTIONS, renderSideBySide: false }}
+            />
+          </div>
+        </div>
+      )
+    }
+
+    // Multiple files: scrollable list of per-file DiffEditors
     return (
-      <DiffEditor
-        original={diffSides.original}
-        modified={diffSides.modified}
-        language="plaintext"
-        theme={monacoTheme}
-        options={{ ...READONLY_OPTIONS, renderSideBySide: false }}
-      />
+      <div style={viewerStyles.diffScroller}>
+        {fileDiffs.map((fd) => (
+          <FileDiffSection key={fd.filePath} fileDiff={fd} monacoTheme={monacoTheme} />
+        ))}
+      </div>
     )
   }
 
@@ -405,6 +482,29 @@ const viewerStyles: Record<string, React.CSSProperties> = {
   editorContainer: {
     flex: 1,
     overflow: 'hidden',
+  },
+  diffScroller: {
+    height: '100%',
+    overflowY: 'auto' as const,
+  },
+  fileDiffSection: {
+    borderBottom: '2px solid var(--border)',
+  },
+  fileDiffHeader: {
+    display: 'flex',
+    alignItems: 'center',
+    padding: '6px 12px',
+    background: 'var(--bg-secondary)',
+    borderBottom: '1px solid var(--border)',
+    height: FILE_HEADER_HEIGHT,
+    boxSizing: 'border-box' as const,
+    flexShrink: 0,
+  },
+  fileDiffPath: {
+    fontSize: '12px',
+    fontFamily: 'var(--font-mono)',
+    color: 'var(--text-secondary)',
+    fontWeight: 500,
   },
   empty: {
     display: 'flex',
