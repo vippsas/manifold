@@ -12,6 +12,7 @@
     "typecheck:web": "tsc --noEmit -p tsconfig.web.json",
     "test": "vitest run",
     "test:watch": "vitest",
+    "dist": "electron-vite build && electron-builder --mac dmg",
     "postinstall": "chmod +x node_modules/node-pty/prebuilds/darwin-*/spawn-helper 2>/dev/null || true"
   },
   "dependencies": {
@@ -27,6 +28,23 @@
     "remark-gfm": "^4.0.1",
     "simple-git": "^3.27.0",
     "uuid": "^11.0.0"
+  },
+  "build": {
+    "appId": "de.malvik.manifold.app",
+    "productName": "Manifold",
+    "directories": {
+      "output": "dist"
+    },
+    "files": [
+      "out/**/*"
+    ],
+    "mac": {
+      "category": "public.app-category.developer-tools",
+      "target": "dmg"
+    },
+    "dmg": {
+      "title": "Manifold"
+    }
   },
   "devDependencies": {
     "@testing-library/jest-dom": "^6.6.0",

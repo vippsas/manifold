@@ -11,6 +11,7 @@ import { useShellSession } from './hooks/useShellSession'
 import { ProjectSidebar } from './components/ProjectSidebar'
 import { MainPanes } from './components/MainPanes'
 import { NewAgentPopover } from './components/NewAgentPopover'
+import { OnboardingView } from './components/OnboardingView'
 import { SettingsModal } from './components/SettingsModal'
 import { StatusBar } from './components/StatusBar'
 import { WelcomeDialog } from './components/WelcomeDialog'
@@ -70,6 +71,18 @@ export function App(): React.JSX.Element {
     )
   }
 
+  if (projects.length === 0) {
+    return (
+      <div className={`layout-root theme-${settings.theme}`}>
+        <OnboardingView
+          variant="no-project"
+          onAddProject={() => void addProject()}
+          onCloneProject={(url) => void cloneProject(url)}
+        />
+      </div>
+    )
+  }
+
   return (
     <div className={`layout-root theme-${settings.theme}`}>
       <ProjectSidebar
@@ -107,6 +120,7 @@ export function App(): React.JSX.Element {
           theme={settings.theme}
           tree={tree}
           changes={changedFiles}
+          onNewAgent={() => setShowNewAgent(true)}
           onSelectFile={codeView.handleSelectFile}
           onCloseFile={codeView.handleCloseFile}
           onShowDiff={codeView.handleShowDiff}
