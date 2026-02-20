@@ -2,6 +2,15 @@ import { useState, useEffect, useCallback, useRef, type RefObject } from 'react'
 
 type DividerType = 'left' | 'right' | 'bottom'
 
+export type PaneName = 'sidebar' | 'left' | 'right' | 'bottom'
+
+export interface PaneVisibility {
+  sidebar: boolean
+  left: boolean
+  right: boolean
+  bottom: boolean
+}
+
 interface PaneResizeResult {
   leftPaneFraction: number
   rightPaneFraction: number
@@ -10,6 +19,8 @@ interface PaneResizeResult {
   panesRef: RefObject<HTMLDivElement>
   rightAreaRef: RefObject<HTMLDivElement>
   handleDividerMouseDown: (divider: DividerType) => (e: React.MouseEvent) => void
+  paneVisibility: PaneVisibility
+  togglePane: (pane: PaneName) => void
 }
 
 export function usePaneResize(
@@ -20,6 +31,13 @@ export function usePaneResize(
   const [leftPaneFraction, setLeftPaneFraction] = useState(initialLeft)
   const [rightPaneFraction, setRightPaneFraction] = useState(initialRight)
   const [bottomPaneFraction, setBottomPaneFraction] = useState(initialBottom)
+  const [paneVisibility, setPaneVisibility] = useState<PaneVisibility>({
+    sidebar: true,
+    left: true,
+    right: true,
+    bottom: true,
+  })
+  const savedFractions = useRef<Partial<Record<PaneName, number>>>({})
   const panesRef = useRef<HTMLDivElement>(null)
   const rightAreaRef = useRef<HTMLDivElement>(null)
   const draggingRef = useRef<DividerType | null>(null)
@@ -77,6 +95,22 @@ export function usePaneResize(
     }
   }, [])
 
+  const togglePane = useCallback((pane: PaneName) => {
+    setPaneVisibility(prev => {
+      const isVisible = prev[pane]
+      if (isVisible) {
+        if (pane === 'left') savedFractions.current.left = leftPaneFraction
+        else if (pane === 'right') savedFractions.current.right = rightPaneFraction
+        else if (pane === 'bottom') savedFractions.current.bottom = bottomPaneFraction
+      } else {
+        if (pane === 'left') setLeftPaneFraction(savedFractions.current.left ?? initialLeft)
+        else if (pane === 'right') setRightPaneFraction(savedFractions.current.right ?? initialRight)
+        else if (pane === 'bottom') setBottomPaneFraction(savedFractions.current.bottom ?? initialBottom)
+      }
+      return { ...prev, [pane]: !isVisible }
+    })
+  }, [leftPaneFraction, rightPaneFraction, bottomPaneFraction, initialLeft, initialRight, initialBottom])
+
   const centerFraction = 1 - leftPaneFraction - rightPaneFraction
 
   return {
@@ -87,5 +121,7 @@ export function usePaneResize(
     panesRef,
     rightAreaRef,
     handleDividerMouseDown,
+    paneVisibility,
+    togglePane,
   }
 }

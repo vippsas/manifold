@@ -9,6 +9,7 @@ interface FileTreeProps {
   onToggleExpand: (path: string) => void
   onSelectFile: (path: string) => void
   onShowDiff: () => void
+  onClose?: () => void
 }
 
 const CHANGE_INDICATORS: Record<FileChangeType, { color: string; label: string }> = {
@@ -25,6 +26,7 @@ export function FileTree({
   onToggleExpand,
   onSelectFile,
   onShowDiff,
+  onClose,
 }: FileTreeProps): React.JSX.Element {
   const changeMap = useMemo(() => {
     const map = new Map<string, FileChangeType>()
@@ -41,11 +43,18 @@ export function FileTree({
     <div style={treeStyles.wrapper}>
       <div style={treeStyles.header}>
         <span style={treeStyles.headerTitle}>Files</span>
-        {changes.length > 0 && (
-          <button onClick={onShowDiff} style={treeStyles.changesButton} title="Show changes diff">
-            {changes.length} changed
-          </button>
-        )}
+        <span style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+          {changes.length > 0 && (
+            <button onClick={onShowDiff} style={treeStyles.changesButton} title="Show changes diff">
+              {changes.length} changed
+            </button>
+          )}
+          {onClose && (
+            <button onClick={onClose} style={treeStyles.closeButton} title="Close Files">
+              ×
+            </button>
+          )}
+        </span>
       </div>
       <div style={treeStyles.treeContainer}>
         {tree ? (
@@ -212,6 +221,18 @@ const treeStyles: Record<string, React.CSSProperties> = {
     padding: '1px 6px',
     borderRadius: '8px',
     background: 'rgba(79, 195, 247, 0.12)',
+  },
+  closeButton: {
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    width: '18px',
+    height: '18px',
+    borderRadius: '3px',
+    color: 'var(--text-muted)',
+    fontSize: '14px',
+    lineHeight: 1,
+    cursor: 'pointer',
   },
   treeContainer: {
     flex: 1,

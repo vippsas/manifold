@@ -14,6 +14,7 @@ interface CodeViewerProps {
   activeFilePath: string | null
   fileContent: string | null
   theme: 'dark' | 'light'
+  worktreeRoot: string | null
   onSelectTab: (filePath: string) => void
   onCloseTab: (filePath: string) => void
   onShowDiff: () => void
@@ -144,6 +145,7 @@ export function CodeViewer({
   activeFilePath,
   fileContent,
   theme,
+  worktreeRoot,
   onSelectTab,
   onCloseTab,
   onShowDiff,
@@ -173,6 +175,14 @@ export function CodeViewer({
       saveRef.current?.(editor.getValue())
     })
   }, [])
+
+  const handleSelectDiffFile = useCallback(
+    (relativePath: string): void => {
+      const absPath = worktreeRoot ? `${worktreeRoot.replace(/\/$/, '')}/${relativePath}` : relativePath
+      onSelectTab(absPath)
+    },
+    [worktreeRoot, onSelectTab]
+  )
 
   const hasTabs = openFiles.length > 0
   const showPreviewToggle = hasTabs && mode === 'file' && isMd
@@ -212,6 +222,7 @@ export function CodeViewer({
             language={language}
             monacoTheme={monacoTheme}
             onMount={handleEditorMount}
+            onSelectDiffFile={handleSelectDiffFile}
           />
         )}
       </div>
@@ -306,6 +317,7 @@ interface EditorContentProps {
   language: string
   monacoTheme: string
   onMount?: OnMount
+  onSelectDiffFile?: (relativePath: string) => void
 }
 
 const LINE_HEIGHT = 19
@@ -315,9 +327,11 @@ const EDITOR_PADDING = 8
 function FileDiffSection({
   fileDiff,
   monacoTheme,
+  onSelectFile,
 }: {
   fileDiff: FileDiff
   monacoTheme: string
+  onSelectFile?: (relativePath: string) => void
 }): React.JSX.Element {
   const editorHeight = Math.max(fileDiff.lineCount * LINE_HEIGHT + EDITOR_PADDING, 60)
   const language = extensionToLanguage(fileDiff.filePath)
@@ -325,7 +339,14 @@ function FileDiffSection({
   return (
     <div style={viewerStyles.fileDiffSection}>
       <div style={viewerStyles.fileDiffHeader}>
-        <span style={viewerStyles.fileDiffPath}>{fileDiff.filePath}</span>
+        <span
+          style={viewerStyles.fileDiffPath}
+          onClick={() => onSelectFile?.(fileDiff.filePath)}
+          role="button"
+          tabIndex={0}
+        >
+          {fileDiff.filePath}
+        </span>
       </div>
       <div style={{ height: editorHeight }}>
         <DiffEditor
@@ -347,6 +368,7 @@ function EditorContent({
   language,
   monacoTheme,
   onMount,
+  onSelectDiffFile,
 }: EditorContentProps): React.JSX.Element {
   if (mode === 'diff' && fileDiffs.length > 0) {
     // Single file: render full-height DiffEditor (no scrollable wrapper)
@@ -356,7 +378,14 @@ function EditorContent({
       return (
         <div style={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
           <div style={viewerStyles.fileDiffHeader}>
-            <span style={viewerStyles.fileDiffPath}>{fd.filePath}</span>
+            <span
+              style={viewerStyles.fileDiffPath}
+              onClick={() => onSelectDiffFile?.(fd.filePath)}
+              role="button"
+              tabIndex={0}
+            >
+              {fd.filePath}
+            </span>
           </div>
           <div style={{ flex: 1 }}>
             <DiffEditor
@@ -375,7 +404,7 @@ function EditorContent({
     return (
       <div style={viewerStyles.diffScroller}>
         {fileDiffs.map((fd) => (
-          <FileDiffSection key={fd.filePath} fileDiff={fd} monacoTheme={monacoTheme} />
+          <FileDiffSection key={fd.filePath} fileDiff={fd} monacoTheme={monacoTheme} onSelectFile={onSelectDiffFile} />
         ))}
       </div>
     )
@@ -505,6 +534,7 @@ const viewerStyles: Record<string, React.CSSProperties> = {
     fontFamily: 'var(--font-mono)',
     color: 'var(--text-secondary)',
     fontWeight: 500,
+    cursor: 'pointer',
   },
   empty: {
     display: 'flex',

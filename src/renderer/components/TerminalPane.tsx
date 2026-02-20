@@ -5,12 +5,14 @@ interface TerminalPaneProps {
   sessionId: string | null
   scrollbackLines: number
   label?: string
+  onClose?: () => void
 }
 
 export function TerminalPane({
   sessionId,
   scrollbackLines,
   label = 'Terminal',
+  onClose,
 }: TerminalPaneProps): React.JSX.Element {
   const { containerRef } = useTerminal({ sessionId, scrollbackLines })
 
@@ -20,6 +22,11 @@ export function TerminalPane({
         <span className="mono" style={paneStyles.headerText}>
           {label}
         </span>
+        {onClose && (
+          <button onClick={onClose} style={paneStyles.closeButton} title={`Close ${label}`}>
+            ×
+          </button>
+        )}
       </div>
       <div ref={containerRef as React.RefCallback<HTMLDivElement> | React.RefObject<HTMLDivElement> | null} style={paneStyles.container} />
     </div>
@@ -41,6 +48,19 @@ const paneStyles: Record<string, React.CSSProperties> = {
     borderBottom: '1px solid var(--border)',
     background: 'var(--bg-secondary)',
     flexShrink: 0,
+    justifyContent: 'space-between',
+  },
+  closeButton: {
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    width: '18px',
+    height: '18px',
+    borderRadius: '3px',
+    color: 'var(--text-muted)',
+    fontSize: '14px',
+    lineHeight: 1,
+    cursor: 'pointer',
   },
   headerText: {
     fontSize: '11px',

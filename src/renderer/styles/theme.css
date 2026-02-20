@@ -164,6 +164,27 @@ body {
   background: var(--accent);
 }
 
+.sidebar-collapsed {
+  width: 24px;
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--bg-sidebar);
+  border-right: 1px solid var(--border);
+  cursor: pointer;
+  transition: background 0.15s;
+}
+
+.sidebar-collapsed:hover {
+  background: var(--bg-secondary);
+}
+
+.sidebar-collapsed-arrow {
+  font-size: 10px;
+  color: var(--text-muted);
+}
+
 .layout-main {
   flex: 1;
   display: flex;

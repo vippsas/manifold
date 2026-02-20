@@ -48,6 +48,14 @@ export function App(): React.JSX.Element {
 
   const viewState = useViewState(activeSessionId, tree)
 
+  const handleSelectFile = useCallback(
+    (filePath: string): void => {
+      viewState.expandAncestors(filePath)
+      codeView.handleSelectFile(filePath)
+    },
+    [viewState.expandAncestors, codeView.handleSelectFile]
+  )
+
   const prevSessionRef = useRef<string | null>(null)
   // Keep refs so the save effect captures current values without re-running on every change
   const codeViewRef = useRef(codeView)
@@ -189,28 +197,43 @@ export function App(): React.JSX.Element {
     )
   }
 
+  const sidebarVisible = paneResize.paneVisibility.sidebar
+
   return (
     <div className={`layout-root theme-${settings.theme}`}>
-      <ProjectSidebar
-        width={sidebarWidth}
-        projects={projects}
-        activeProjectId={activeProjectId}
-        allProjectSessions={sessionsByProject}
-        activeSessionId={activeSessionId}
-        onSelectProject={setActiveProject}
-        onSelectSession={handleSelectSession}
-        onAddProject={addProject}
-        onRemoveProject={removeProject}
-        onCloneProject={(url: string) => void cloneProject(url)}
-        onDeleteAgent={handleDeleteAgent}
-        onNewAgent={handleNewAgentForProject}
-        onOpenSettings={() => setShowSettings(true)}
-      />
+      {sidebarVisible ? (
+        <>
+          <ProjectSidebar
+            width={sidebarWidth}
+            projects={projects}
+            activeProjectId={activeProjectId}
+            allProjectSessions={sessionsByProject}
+            activeSessionId={activeSessionId}
+            onSelectProject={setActiveProject}
+            onSelectSession={handleSelectSession}
+            onAddProject={addProject}
+            onRemoveProject={removeProject}
+            onCloneProject={(url: string) => void cloneProject(url)}
+            onDeleteAgent={handleDeleteAgent}
+            onNewAgent={handleNewAgentForProject}
+            onOpenSettings={() => setShowSettings(true)}
+            onClose={() => paneResize.togglePane('sidebar')}
+          />
 
-      <div
-        className="sidebar-divider"
-        onMouseDown={handleSidebarDividerMouseDown}
-      />
+          <div
+            className="sidebar-divider"
+            onMouseDown={handleSidebarDividerMouseDown}
+          />
+        </>
+      ) : (
+        <div
+          className="sidebar-collapsed"
+          onClick={() => paneResize.togglePane('sidebar')}
+          title="Expand sidebar"
+        >
+          <span className="sidebar-collapsed-arrow">{'\u25B6'}</span>
+        </div>
+      )}
 
       <div className="layout-main">
         <MainPanes
@@ -221,6 +244,8 @@ export function App(): React.JSX.Element {
           rightPaneFraction={paneResize.rightPaneFraction}
           bottomPaneFraction={paneResize.bottomPaneFraction}
           handleDividerMouseDown={paneResize.handleDividerMouseDown}
+          paneVisibility={paneResize.paneVisibility}
+          onClosePane={paneResize.togglePane}
           sessionId={activeSessionId}
           worktreeShellSessionId={worktreeSessionId}
           projectShellSessionId={projectSessionId}
@@ -234,7 +259,7 @@ export function App(): React.JSX.Element {
           tree={tree}
           changes={mergedChanges}
           onNewAgent={() => setShowNewAgent(true)}
-          onSelectFile={codeView.handleSelectFile}
+          onSelectFile={handleSelectFile}
           onCloseFile={codeView.handleCloseFile}
           onShowDiff={codeView.handleShowDiff}
           onSaveFile={codeView.handleSaveFile}
@@ -246,6 +271,8 @@ export function App(): React.JSX.Element {
           activeSession={activeSession}
           changedFiles={mergedChanges}
           baseBranch={activeProject?.baseBranch ?? settings.defaultBaseBranch}
+          paneVisibility={paneResize.paneVisibility}
+          onTogglePane={paneResize.togglePane}
         />
       </div>
 

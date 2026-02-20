@@ -16,6 +16,7 @@ interface ProjectSidebarProps {
   onDeleteAgent: (id: string) => void
   onNewAgent: (projectId: string) => void
   onOpenSettings: () => void
+  onClose?: () => void
 }
 
 export function ProjectSidebar({
@@ -32,6 +33,7 @@ export function ProjectSidebar({
   onDeleteAgent,
   onNewAgent,
   onOpenSettings,
+  onClose,
 }: ProjectSidebarProps): React.JSX.Element {
   const [cloneUrl, setCloneUrl] = useState('')
   const [showCloneInput, setShowCloneInput] = useState(false)
@@ -62,7 +64,7 @@ export function ProjectSidebar({
 
   return (
     <div className="layout-sidebar" style={{ ...sidebarStyles.root, width }}>
-      <SidebarHeader onOpenSettings={onOpenSettings} />
+      <SidebarHeader onOpenSettings={onOpenSettings} onClose={onClose} />
       <ProjectList
         projects={projects}
         activeProjectId={activeProjectId}
@@ -82,18 +84,30 @@ export function ProjectSidebar({
   )
 }
 
-function SidebarHeader({ onOpenSettings }: { onOpenSettings: () => void }): React.JSX.Element {
+function SidebarHeader({ onOpenSettings, onClose }: { onOpenSettings: () => void; onClose?: () => void }): React.JSX.Element {
   return (
     <div style={sidebarStyles.header}>
       <span style={sidebarStyles.title}>Projects</span>
-      <button
-        onClick={onOpenSettings}
-        style={sidebarStyles.gearButton}
-        aria-label="Settings"
-        title="Settings"
-      >
-        &#9881;
-      </button>
+      <span style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+        <button
+          onClick={onOpenSettings}
+          style={sidebarStyles.gearButton}
+          aria-label="Settings"
+          title="Settings"
+        >
+          &#9881;
+        </button>
+        {onClose && (
+          <button
+            onClick={onClose}
+            style={sidebarStyles.gearButton}
+            aria-label="Collapse sidebar"
+            title="Collapse sidebar"
+          >
+            {'\u25C0'}
+          </button>
+        )}
+      </span>
     </div>
   )
 }

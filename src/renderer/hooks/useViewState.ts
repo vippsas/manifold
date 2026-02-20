@@ -5,6 +5,7 @@ import type { OpenFile } from './useCodeView'
 interface UseViewStateResult {
   expandedPaths: Set<string>
   onToggleExpand: (path: string) => void
+  expandAncestors: (filePath: string) => void
   restoreCodeView: {
     openFiles: OpenFile[]
     activeFilePath: string | null
@@ -32,6 +33,21 @@ export function useViewState(activeSessionId: string | null, tree: FileTreeNode 
         next.delete(path)
       } else {
         next.add(path)
+      }
+      return next
+    })
+  }, [])
+
+  const expandAncestors = useCallback((filePath: string): void => {
+    setExpandedPaths((prev) => {
+      const next = new Set(prev)
+      let dir = filePath
+      // Walk up from the file's parent directory, expanding each ancestor
+      while (true) {
+        const parent = dir.substring(0, dir.lastIndexOf('/'))
+        if (!parent || parent === dir) break
+        dir = parent
+        next.add(dir)
       }
       return next
     })
@@ -113,6 +129,7 @@ export function useViewState(activeSessionId: string | null, tree: FileTreeNode 
   return {
     expandedPaths,
     onToggleExpand,
+    expandAncestors,
     restoreCodeView,
     saveCurrentState,
   }

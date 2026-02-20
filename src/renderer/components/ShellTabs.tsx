@@ -7,12 +7,14 @@ interface ShellTabsProps {
   worktreeSessionId: string | null
   projectSessionId: string | null
   scrollbackLines: number
+  onClose?: () => void
 }
 
 export function ShellTabs({
   worktreeSessionId,
   projectSessionId,
   scrollbackLines,
+  onClose,
 }: ShellTabsProps): React.JSX.Element {
   const [activeTab, setActiveTab] = useState<ShellTab>(
     worktreeSessionId ? 'worktree' : 'project'
@@ -47,6 +49,14 @@ export function ShellTabs({
         >
           Project
         </button>
+        {onClose && (
+          <>
+            <span style={{ flex: 1 }} />
+            <button onClick={onClose} style={styles.closeButton} title="Close Shell">
+              ×
+            </button>
+          </>
+        )}
       </div>
       <div style={styles.terminalArea}>
         <div
@@ -104,6 +114,19 @@ const styles: Record<string, React.CSSProperties> = {
   tabDisabled: {
     opacity: 0.4,
     cursor: 'default',
+  },
+  closeButton: {
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    width: '18px',
+    height: '18px',
+    borderRadius: '3px',
+    color: 'var(--text-muted)',
+    fontSize: '14px',
+    lineHeight: 1,
+    cursor: 'pointer',
+    marginRight: '4px',
   },
   terminalArea: {
     flex: 1,
