@@ -51,6 +51,7 @@ function createWindow(): void {
     minWidth: 800,
     minHeight: 600,
     title: 'Manifold',
+    backgroundColor: '#1a1a2e',
     webPreferences: {
       preload: join(__dirname, '../preload/index.js'),
       contextIsolation: true,

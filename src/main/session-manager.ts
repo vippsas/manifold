@@ -92,7 +92,12 @@ export class SessionManager {
   sendInput(sessionId: string, input: string): void {
     const session = this.sessions.get(sessionId)
     if (!session) throw new Error(`Session not found: ${sessionId}`)
-    this.ptyPool.write(session.ptyId, input)
+    if (!session.ptyId) return
+    try {
+      this.ptyPool.write(session.ptyId, input)
+    } catch {
+      // PTY may have already exited
+    }
   }
 
   resize(sessionId: string, cols: number, rows: number): void {
@@ -127,6 +132,30 @@ export class SessionManager {
         // Worktree cleanup is best-effort
       }
     }
+  }
+
+  async resumeSession(sessionId: string, runtimeId: string): Promise<AgentSession> {
+    const session = this.sessions.get(sessionId)
+    if (!session) throw new Error(`Session not found: ${sessionId}`)
+    if (session.ptyId) return this.toPublicSession(session)
+
+    const runtime = this.resolveRuntime(runtimeId)
+
+    const ptyHandle = this.ptyPool.spawn(runtime.binary, [...(runtime.args ?? [])], {
+      cwd: session.worktreePath,
+      env: runtime.env,
+    })
+
+    session.ptyId = ptyHandle.id
+    session.pid = ptyHandle.pid
+    session.runtimeId = runtimeId
+    session.status = 'running'
+    session.outputBuffer = ''
+
+    this.wireOutputStreaming(ptyHandle.id, session)
+    this.wireExitHandling(ptyHandle.id, session)
+
+    return this.toPublicSession(session)
   }
 
   getOutputBuffer(sessionId: string): string {

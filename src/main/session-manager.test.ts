@@ -1,7 +1,8 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 
+let uuidCounter = 0
 vi.mock('uuid', () => ({
-  v4: vi.fn(() => 'session-uuid-1'),
+  v4: vi.fn(() => `session-uuid-${++uuidCounter}`),
 }))
 
 vi.mock('./runtimes', () => ({
@@ -86,6 +87,7 @@ describe('SessionManager', () => {
   beforeEach(() => {
     vi.clearAllMocks()
     vi.useFakeTimers()
+    uuidCounter = 0
     worktreeManager = createMockWorktreeManager()
     ptyPool = createMockPtyPool()
     projectRegistry = createMockProjectRegistry()
@@ -191,6 +193,19 @@ describe('SessionManager', () => {
 
     it('throws for unknown session', () => {
       expect(() => sessionManager.sendInput('nope', 'data')).toThrow('Session not found')
+    })
+
+    it('silently ignores input for dormant sessions without a PTY', async () => {
+      ;(worktreeManager.listWorktrees as ReturnType<typeof vi.fn>).mockResolvedValue([
+        { branch: 'manifold/bergen', path: '/repo/.manifold/worktrees/manifold-bergen' },
+      ])
+
+      const sessions = await sessionManager.discoverSessionsForProject('proj-1')
+      const dormantId = sessions[0].id
+
+      // Should not throw
+      sessionManager.sendInput(dormantId, 'hello')
+      expect(ptyPool.write).not.toHaveBeenCalled()
     })
   })
 
@@ -364,6 +379,153 @@ describe('SessionManager', () => {
       expect(ptyPool.kill).toHaveBeenCalledWith('pty-1')
       expect(worktreeManager.removeWorktree).not.toHaveBeenCalled()
       expect(sessionManager.getSession('session-uuid-1')).toBeUndefined()
+    })
+  })
+
+  describe('discoverSessionsForProject', () => {
+    it('returns dormant sessions for worktrees not tracked in memory', async () => {
+      ;(worktreeManager.listWorktrees as ReturnType<typeof vi.fn>).mockResolvedValue([
+        { branch: 'manifold/bergen', path: '/repo/.manifold/worktrees/manifold-bergen' },
+        { branch: 'manifold/oslo', path: '/repo/.manifold/worktrees/manifold-oslo' },
+      ])
+
+      const sessions = await sessionManager.discoverSessionsForProject('proj-1')
+
+      expect(sessions).toHaveLength(2)
+      expect(sessions[0].branchName).toBe('manifold/bergen')
+      expect(sessions[0].worktreePath).toBe('/repo/.manifold/worktrees/manifold-bergen')
+      expect(sessions[0].status).toBe('done')
+      expect(sessions[0].pid).toBeNull()
+      expect(sessions[0].projectId).toBe('proj-1')
+      expect(sessions[1].branchName).toBe('manifold/oslo')
+    })
+
+    it('does not duplicate sessions already tracked in memory', async () => {
+      await sessionManager.createSession({
+        projectId: 'proj-1',
+        runtimeId: 'claude',
+        prompt: 'test',
+      })
+
+      ;(worktreeManager.listWorktrees as ReturnType<typeof vi.fn>).mockResolvedValue([
+        { branch: 'manifold/oslo', path: '/repo/.manifold/worktrees/manifold-oslo' },
+        { branch: 'manifold/bergen', path: '/repo/.manifold/worktrees/manifold-bergen' },
+      ])
+
+      const sessions = await sessionManager.discoverSessionsForProject('proj-1')
+
+      // manifold/oslo is already in memory, manifold/bergen is new
+      expect(sessions).toHaveLength(2)
+      const branches = sessions.map((s) => s.branchName).sort()
+      expect(branches).toEqual(['manifold/bergen', 'manifold/oslo'])
+
+      // The in-memory session should keep its running status
+      const osloSession = sessions.find((s) => s.branchName === 'manifold/oslo')!
+      expect(osloSession.status).toBe('running')
+      expect(osloSession.pid).toBe(999)
+
+      // The discovered session should be dormant
+      const bergenSession = sessions.find((s) => s.branchName === 'manifold/bergen')!
+      expect(bergenSession.status).toBe('done')
+      expect(bergenSession.pid).toBeNull()
+    })
+
+    it('returns stable IDs for discovered sessions across calls', async () => {
+      ;(worktreeManager.listWorktrees as ReturnType<typeof vi.fn>).mockResolvedValue([
+        { branch: 'manifold/bergen', path: '/repo/.manifold/worktrees/manifold-bergen' },
+      ])
+
+      const first = await sessionManager.discoverSessionsForProject('proj-1')
+      const second = await sessionManager.discoverSessionsForProject('proj-1')
+
+      expect(first[0].id).toBe(second[0].id)
+    })
+
+    it('throws for unknown project', async () => {
+      await expect(sessionManager.discoverSessionsForProject('nope')).rejects.toThrow(
+        'Project not found',
+      )
+    })
+
+    it('returns empty array when no worktrees exist', async () => {
+      ;(worktreeManager.listWorktrees as ReturnType<typeof vi.fn>).mockResolvedValue([])
+
+      const sessions = await sessionManager.discoverSessionsForProject('proj-1')
+      expect(sessions).toEqual([])
+    })
+  })
+
+  describe('resumeSession', () => {
+    it('spawns a PTY for a dormant session in its existing worktree', async () => {
+      ;(worktreeManager.listWorktrees as ReturnType<typeof vi.fn>).mockResolvedValue([
+        { branch: 'manifold/bergen', path: '/repo/.manifold/worktrees/manifold-bergen' },
+      ])
+
+      const sessions = await sessionManager.discoverSessionsForProject('proj-1')
+      const dormantId = sessions[0].id
+
+      const resumed = await sessionManager.resumeSession(dormantId, 'claude')
+
+      expect(resumed.status).toBe('running')
+      expect(resumed.pid).toBe(999)
+      expect(resumed.runtimeId).toBe('claude')
+      expect(ptyPool.spawn).toHaveBeenCalledWith(
+        'claude',
+        ['--dangerously-skip-permissions'],
+        { cwd: '/repo/.manifold/worktrees/manifold-bergen', env: undefined },
+      )
+      expect(ptyPool.onData).toHaveBeenCalledWith('pty-1', expect.any(Function))
+      expect(ptyPool.onExit).toHaveBeenCalledWith('pty-1', expect.any(Function))
+    })
+
+    it('returns existing session if already running', async () => {
+      const session = await sessionManager.createSession({
+        projectId: 'proj-1',
+        runtimeId: 'claude',
+        prompt: 'test',
+      })
+
+      const resumed = await sessionManager.resumeSession(session.id, 'claude')
+      expect(resumed.id).toBe(session.id)
+      // spawn should only have been called once (during createSession)
+      expect(ptyPool.spawn).toHaveBeenCalledTimes(1)
+    })
+
+    it('throws for unknown session', async () => {
+      await expect(sessionManager.resumeSession('nope', 'claude')).rejects.toThrow(
+        'Session not found',
+      )
+    })
+
+    it('throws for unknown runtime', async () => {
+      ;(worktreeManager.listWorktrees as ReturnType<typeof vi.fn>).mockResolvedValue([
+        { branch: 'manifold/bergen', path: '/repo/.manifold/worktrees/manifold-bergen' },
+      ])
+
+      const sessions = await sessionManager.discoverSessionsForProject('proj-1')
+      await expect(sessionManager.resumeSession(sessions[0].id, 'unknown')).rejects.toThrow(
+        'Runtime not found',
+      )
+    })
+  })
+
+  describe('killSession on dormant sessions', () => {
+    it('removes worktree without killing pty for dormant sessions', async () => {
+      ;(worktreeManager.listWorktrees as ReturnType<typeof vi.fn>).mockResolvedValue([
+        { branch: 'manifold/bergen', path: '/repo/.manifold/worktrees/manifold-bergen' },
+      ])
+
+      const sessions = await sessionManager.discoverSessionsForProject('proj-1')
+      const dormantId = sessions[0].id
+
+      await sessionManager.killSession(dormantId)
+
+      expect(ptyPool.kill).not.toHaveBeenCalled()
+      expect(worktreeManager.removeWorktree).toHaveBeenCalledWith(
+        '/repo',
+        '/repo/.manifold/worktrees/manifold-bergen',
+      )
+      expect(sessionManager.getSession(dormantId)).toBeUndefined()
     })
   })
 })

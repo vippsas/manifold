@@ -102,11 +102,20 @@ function registerAgentHandlers(deps: IpcDependencies): void {
     await sessionManager.killSession(sessionId)
   })
 
+  ipcMain.handle('agent:resume', async (_event, sessionId: string, runtimeId: string) => {
+    const session = await sessionManager.resumeSession(sessionId, runtimeId)
+    fileWatcher.watch(session.worktreePath, session.id)
+    return session
+  })
+
   ipcMain.handle('agent:replay', (_event, sessionId: string) => {
     return sessionManager.getOutputBuffer(sessionId)
   })
 
-  ipcMain.handle('agent:sessions', () => {
+  ipcMain.handle('agent:sessions', async (_event, projectId?: string) => {
+    if (projectId) {
+      return sessionManager.discoverSessionsForProject(projectId)
+    }
     return sessionManager.listSessions()
   })
 

@@ -49,29 +49,33 @@ export function useTerminal({ sessionId, scrollbackLines }: UseTerminalOptions):
     terminal.open(container)
 
     let disposed = false
-    let outputCleanup: (() => void) | null = null
+    let ready = false
+
+    // Register the IPC listener synchronously so cleanup always works.
+    // Buffer is suppressed until the terminal has been sized and reset.
+    const handleOutput = (...args: unknown[]): void => {
+      const event = args[0] as AgentOutputEvent
+      if (event.sessionId === sessionId && !disposed && ready) {
+        terminal.write(event.data)
+      }
+    }
+
+    const unsubscribe = sessionId
+      ? window.electronAPI.on('agent:output', handleOutput)
+      : null
 
     // Fit terminal to its container and send actual dimensions to the PTY.
     // Then wait for the CLI tool (e.g. Claude Code) to re-render at the
-    // correct size before subscribing to output. By deferring the IPC
-    // listener registration, any output rendered at the wrong PTY size
-    // is simply never received — there is no listener to deliver it to.
+    // correct size before accepting output.
     requestAnimationFrame(() => {
       if (disposed) return
       fitAndResize(fitAddon, terminal, sessionId)
       setTimeout(() => {
         if (disposed) return
         terminal.reset()
-        if (!sessionId) return
-        const handleOutput = (...args: unknown[]): void => {
-          const event = args[0] as AgentOutputEvent
-          if (event.sessionId === sessionId && !disposed) {
-            terminal.write(event.data)
-          }
-        }
-        window.electronAPI.on('agent:output', handleOutput)
-        outputCleanup = () => window.electronAPI.off('agent:output', handleOutput)
+        ready = true
 
+        if (!sessionId) return
         // Replay the session's buffered output to restore the terminal state.
         // Without this, switching sessions shows a blank terminal until the
         // PTY emits new output (e.g. user presses Enter).
@@ -102,7 +106,7 @@ export function useTerminal({ sessionId, scrollbackLines }: UseTerminalOptions):
 
     return () => {
       disposed = true
-      outputCleanup?.()
+      unsubscribe?.()
       onDataDisposable.dispose()
       resizeObserver.disconnect()
       terminal.dispose()

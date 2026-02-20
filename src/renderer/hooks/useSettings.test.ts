@@ -3,20 +3,18 @@ import { renderHook, act, waitFor } from '@testing-library/react'
 import { DEFAULT_SETTINGS } from '../../shared/types'
 
 const mockInvoke = vi.fn()
-const mockOn = vi.fn()
-const mockOff = vi.fn()
+const mockOn = vi.fn(() => vi.fn())
 
 beforeEach(() => {
   vi.clearAllMocks()
   ;(window as unknown as Record<string, unknown>).electronAPI = {
     invoke: mockInvoke,
     on: mockOn,
-    off: mockOff,
   }
 })
 
 afterEach(() => {
-  // Don't delete electronAPI — React may still call off() during unmount cleanup
+  // Don't delete electronAPI — React may still call unsubscribe during unmount cleanup
 })
 
 import { useSettings } from './useSettings'

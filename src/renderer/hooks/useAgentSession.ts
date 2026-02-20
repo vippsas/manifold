@@ -1,4 +1,4 @@
-import { useState, useCallback, useEffect } from 'react'
+import { useState, useCallback, useEffect, useRef } from 'react'
 import type { AgentSession, AgentStatus, SpawnAgentOptions } from '../../shared/types'
 import { useIpcListener } from './useIpc'
 
@@ -29,6 +29,7 @@ export function useAgentSession(projectId: string | null): UseAgentSessionResult
   useFetchSessionsOnProjectChange(projectId, activeSessionId, setSessions, setActiveSessionId)
   useStatusListener(setSessions)
   useExitListener(setSessions)
+  useAutoResume(activeSessionId, sessions, setSessions)
 
   const spawnAgent = useSpawnAgent(setSessions, setActiveSessionId)
   const killAgent = useKillAgent()
@@ -45,7 +46,7 @@ export function useAgentSession(projectId: string | null): UseAgentSessionResult
 
 function useFetchSessionsOnProjectChange(
   projectId: string | null,
-  activeSessionId: string | null,
+  _activeSessionId: string | null,
   setSessions: React.Dispatch<React.SetStateAction<AgentSession[]>>,
   setActiveSessionId: React.Dispatch<React.SetStateAction<string | null>>
 ): void {
@@ -60,8 +61,8 @@ function useFetchSessionsOnProjectChange(
       try {
         const result = (await window.electronAPI.invoke('agent:sessions', projectId)) as AgentSession[]
         setSessions(result)
-        if (result.length > 0 && !activeSessionId) {
-          setActiveSessionId(result[0].id)
+        if (result.length > 0) {
+          setActiveSessionId((prev) => prev ?? result[0].id)
         }
       } catch {
         // IPC not ready yet during init, sessions will arrive via events
@@ -69,7 +70,7 @@ function useFetchSessionsOnProjectChange(
     }
 
     void fetchSessions()
-  }, [projectId, activeSessionId, setSessions, setActiveSessionId])
+  }, [projectId, setSessions, setActiveSessionId])
 }
 
 function useStatusListener(
@@ -106,6 +107,34 @@ function useExitListener(
       [setSessions]
     )
   )
+}
+
+function useAutoResume(
+  activeSessionId: string | null,
+  sessions: AgentSession[],
+  setSessions: React.Dispatch<React.SetStateAction<AgentSession[]>>
+): void {
+  const sessionsRef = useRef(sessions)
+  sessionsRef.current = sessions
+
+  useEffect(() => {
+    if (!activeSessionId) return
+    const session = sessionsRef.current.find((s) => s.id === activeSessionId)
+    if (!session || session.pid !== null || session.status !== 'done') return
+
+    void (async () => {
+      try {
+        const resumed = (await window.electronAPI.invoke(
+          'agent:resume',
+          activeSessionId,
+          'claude'
+        )) as AgentSession
+        setSessions((prev) => prev.map((s) => (s.id === resumed.id ? resumed : s)))
+      } catch {
+        // Resume failed — session stays dormant
+      }
+    })()
+  }, [activeSessionId, setSessions])
 }
 
 function useSpawnAgent(

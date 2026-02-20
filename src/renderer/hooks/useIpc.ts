@@ -60,9 +60,9 @@ export function useIpcListener<T = unknown>(
     const callback = (...args: unknown[]): void => {
       handlerRef.current(args[0] as T)
     }
-    window.electronAPI.on(channel, callback)
+    const unsubscribe = window.electronAPI.on(channel, callback)
     return () => {
-      window.electronAPI.off(channel, callback)
+      unsubscribe()
     }
   }, [channel])
 }
