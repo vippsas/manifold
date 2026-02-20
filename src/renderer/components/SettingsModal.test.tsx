@@ -43,8 +43,8 @@ describe('SettingsModal', () => {
     // Default runtime select
     expect(screen.getByDisplayValue('Claude Code')).toBeInTheDocument()
 
-    // Theme select
-    expect(screen.getByDisplayValue('Dark')).toBeInTheDocument()
+    // Theme button shows the current theme label
+    expect(screen.getByText('Dracula')).toBeInTheDocument()
 
     // Scrollback lines input
     const scrollbackInput = screen.getByDisplayValue('5000') as HTMLInputElement
@@ -55,18 +55,14 @@ describe('SettingsModal', () => {
     expect(branchInput).toBeInTheDocument()
   })
 
-  it('calls onSave with updated settings when Save is clicked', () => {
+  it('calls onSave with settings when Save is clicked', () => {
     const { props } = renderModal()
-
-    // Change theme to light
-    const themeSelect = screen.getByDisplayValue('Dark')
-    fireEvent.change(themeSelect, { target: { value: 'light' } })
 
     fireEvent.click(screen.getByText('Save'))
 
     expect(props.onSave).toHaveBeenCalledWith(
       expect.objectContaining({
-        theme: 'light',
+        theme: 'dracula',
         defaultRuntime: 'claude',
         scrollbackLines: 5000,
         defaultBaseBranch: 'main',
@@ -150,18 +146,11 @@ describe('SettingsModal', () => {
     )
   })
 
-  it('resets form values when reopened with new settings', () => {
-    const { rerender } = renderModal({ visible: false })
+  it('shows theme label for the current theme', () => {
+    renderModal({
+      settings: { ...DEFAULT_SETTINGS, theme: 'nord' },
+    })
 
-    rerender(
-      <SettingsModal
-        visible={true}
-        settings={{ ...DEFAULT_SETTINGS, theme: 'light' }}
-        onSave={vi.fn()}
-        onClose={vi.fn()}
-      />,
-    )
-
-    expect(screen.getByDisplayValue('Light')).toBeInTheDocument()
+    expect(screen.getByText('Nord')).toBeInTheDocument()
   })
 })

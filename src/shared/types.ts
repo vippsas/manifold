@@ -45,7 +45,7 @@ export interface ManifoldSettings {
   storagePath: string
   setupCompleted: boolean
   defaultRuntime: string
-  theme: 'dark' | 'light'
+  theme: string
   scrollbackLines: number
   defaultBaseBranch: string
 }

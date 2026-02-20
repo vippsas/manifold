@@ -1,11 +1,14 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react'
 import type { ManifoldSettings } from '../../shared/types'
+import { getThemeList } from '../../shared/themes/registry'
+import { ThemePicker } from './ThemePicker'
 
 interface SettingsModalProps {
   visible: boolean
   settings: ManifoldSettings
   onSave: (partial: Partial<ManifoldSettings>) => void
   onClose: () => void
+  onPreviewTheme?: (themeId: string | null) => void
 }
 
 interface RuntimeOption {
@@ -25,12 +28,14 @@ export function SettingsModal({
   settings,
   onSave,
   onClose,
+  onPreviewTheme,
 }: SettingsModalProps): React.JSX.Element | null {
   const [defaultRuntime, setDefaultRuntime] = useState(settings.defaultRuntime)
   const [theme, setTheme] = useState(settings.theme)
   const [scrollbackLines, setScrollbackLines] = useState(settings.scrollbackLines)
   const [defaultBaseBranch, setDefaultBaseBranch] = useState(settings.defaultBaseBranch)
   const [storagePath, setStoragePath] = useState(settings.storagePath)
+  const [pickerOpen, setPickerOpen] = useState(false)
   const overlayRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
@@ -40,6 +45,7 @@ export function SettingsModal({
       setScrollbackLines(settings.scrollbackLines)
       setDefaultBaseBranch(settings.defaultBaseBranch)
       setStoragePath(settings.storagePath)
+      setPickerOpen(false)
     }
   }, [visible, settings])
 
@@ -69,12 +75,19 @@ export function SettingsModal({
       ref={overlayRef}
       onClick={handleOverlayClick}
       onKeyDown={handleKeyDown}
-      style={modalStyles.overlay}
+      style={{
+        ...modalStyles.overlay,
+        background: pickerOpen ? 'transparent' : 'rgba(0, 0, 0, 0.5)',
+        pointerEvents: pickerOpen ? 'none' : 'auto',
+      }}
       role="dialog"
       aria-modal="true"
       aria-label="Settings"
     >
-      <div style={modalStyles.panel}>
+      <div style={{
+        ...modalStyles.panel,
+        pointerEvents: 'auto',
+      }}>
         <ModalHeader onClose={onClose} />
         <SettingsBody
           storagePath={storagePath}
@@ -87,6 +100,9 @@ export function SettingsModal({
           onThemeChange={setTheme}
           onScrollbackChange={setScrollbackLines}
           onBaseBranchChange={setDefaultBaseBranch}
+          onPreviewTheme={onPreviewTheme}
+          pickerOpen={pickerOpen}
+          onPickerToggle={setPickerOpen}
         />
         <ModalFooter onClose={onClose} onSave={handleSave} />
       </div>
@@ -109,13 +125,16 @@ interface SettingsBodyProps {
   storagePath: string
   onStoragePathChange: (path: string) => void
   defaultRuntime: string
-  theme: 'dark' | 'light'
+  theme: string
   scrollbackLines: number
   defaultBaseBranch: string
   onRuntimeChange: (id: string) => void
-  onThemeChange: (theme: 'dark' | 'light') => void
+  onThemeChange: (theme: string) => void
   onScrollbackChange: (lines: number) => void
   onBaseBranchChange: (branch: string) => void
+  onPreviewTheme?: (themeId: string | null) => void
+  pickerOpen: boolean
+  onPickerToggle: (open: boolean) => void
 }
 
 function SettingsBody({
@@ -129,7 +148,11 @@ function SettingsBody({
   onThemeChange,
   onScrollbackChange,
   onBaseBranchChange,
+  onPreviewTheme,
+  pickerOpen,
+  onPickerToggle,
 }: SettingsBodyProps): React.JSX.Element {
+
   const handleScrollbackInput = useCallback(
     (e: React.ChangeEvent<HTMLInputElement>): void => {
       const value = parseInt(e.target.value, 10)
@@ -138,13 +161,7 @@ function SettingsBody({
     [onScrollbackChange]
   )
 
-  const handleThemeSelect = useCallback(
-    (e: React.ChangeEvent<HTMLSelectElement>): void => {
-      const value = e.target.value
-      if (value === 'dark' || value === 'light') onThemeChange(value)
-    },
-    [onThemeChange]
-  )
+  const themeLabel = getThemeList().find((t) => t.id === theme)?.label ?? theme
 
   return (
     <div style={modalStyles.body}>
@@ -170,13 +187,30 @@ function SettingsBody({
           ))}
         </select>
       </label>
-      <label style={modalStyles.label}>
+      <div style={modalStyles.label}>
         Theme
-        <select value={theme} onChange={handleThemeSelect} style={modalStyles.select}>
-          <option value="dark">Dark</option>
-          <option value="light">Light</option>
-        </select>
-      </label>
+        <div style={{ position: 'relative' as const }}>
+          <button
+            onClick={() => onPickerToggle(!pickerOpen)}
+            style={modalStyles.themeButton}
+          >
+            {themeLabel}
+          </button>
+          {pickerOpen && (
+            <div style={modalStyles.pickerOverlay}>
+              <ThemePicker
+                currentThemeId={theme}
+                onSelect={(id) => {
+                  onThemeChange(id)
+                  onPickerToggle(false)
+                }}
+                onCancel={() => onPickerToggle(false)}
+                onPreview={onPreviewTheme}
+              />
+            </div>
+          )}
+        </div>
+      </div>
       <label style={modalStyles.label}>
         Scrollback Lines
         <input
@@ -278,6 +312,24 @@ const modalStyles: Record<string, React.CSSProperties> = {
   input: {
     padding: '6px 8px',
     fontSize: '13px',
+  },
+  themeButton: {
+    width: '100%',
+    padding: '6px 8px',
+    fontSize: '13px',
+    textAlign: 'left' as const,
+    background: 'var(--bg-input)',
+    color: 'var(--text-primary)',
+    border: '1px solid var(--border)',
+    borderRadius: '4px',
+    cursor: 'pointer',
+  },
+  pickerOverlay: {
+    position: 'absolute' as const,
+    top: '100%',
+    left: 0,
+    zIndex: 1001,
+    marginTop: '4px',
   },
   footer: {
     display: 'flex',

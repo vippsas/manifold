@@ -1,5 +1,5 @@
 import { useEffect, useRef, type RefObject } from 'react'
-import { Terminal, type ITerminalOptions } from '@xterm/xterm'
+import { Terminal, type ITerminalOptions, type ITheme } from '@xterm/xterm'
 import { FitAddon } from '@xterm/addon-fit'
 import '@xterm/xterm/css/xterm.css'
 
@@ -11,31 +11,14 @@ interface AgentOutputEvent {
 interface UseTerminalOptions {
   sessionId: string | null
   scrollbackLines: number
-  theme?: 'dark' | 'light'
+  xtermTheme?: ITheme
 }
 
 interface UseTerminalResult {
   containerRef: RefObject<HTMLDivElement | null>
 }
 
-const XTERM_THEMES = {
-  dark: {
-    background: '#1a1a2e',
-    foreground: '#e0e0e0',
-    cursor: '#ffcc00',
-    cursorAccent: '#1a1a2e',
-    selectionBackground: '#4fc3f744',
-  },
-  light: {
-    background: '#ffffff',
-    foreground: '#1a1a2e',
-    cursor: '#1976d2',
-    cursorAccent: '#ffffff',
-    selectionBackground: '#1976d244',
-  },
-} as const
-
-function buildTerminalOptions(scrollbackLines: number, theme: 'dark' | 'light' = 'dark'): ITerminalOptions {
+function buildTerminalOptions(scrollbackLines: number, xtermTheme?: ITheme): ITerminalOptions {
   return {
     scrollback: scrollbackLines,
     fontFamily: "'SF Mono', 'Fira Code', 'Cascadia Code', Menlo, Consolas, monospace",
@@ -44,18 +27,27 @@ function buildTerminalOptions(scrollbackLines: number, theme: 'dark' | 'light' =
     cursorBlink: true,
     cursorStyle: 'block',
     cursorInactiveStyle: 'outline',
-    theme: XTERM_THEMES[theme],
+    theme: xtermTheme,
   }
 }
 
-export function useTerminal({ sessionId, scrollbackLines, theme = 'dark' }: UseTerminalOptions): UseTerminalResult {
+export function useTerminal({ sessionId, scrollbackLines, xtermTheme }: UseTerminalOptions): UseTerminalResult {
   const containerRef = useRef<HTMLDivElement | null>(null)
+  const terminalRef = useRef<Terminal | null>(null)
+
+  // Update theme on running terminals without recreating them
+  useEffect(() => {
+    if (terminalRef.current && xtermTheme) {
+      terminalRef.current.options.theme = xtermTheme
+    }
+  }, [xtermTheme])
 
   useEffect(() => {
     const container = containerRef.current
     if (!container) return
 
-    const terminal = new Terminal(buildTerminalOptions(scrollbackLines, theme))
+    const terminal = new Terminal(buildTerminalOptions(scrollbackLines, xtermTheme))
+    terminalRef.current = terminal
     const fitAddon = new FitAddon()
     terminal.loadAddon(fitAddon)
     terminal.open(container)
@@ -138,12 +130,13 @@ export function useTerminal({ sessionId, scrollbackLines, theme = 'dark' }: UseT
 
     return () => {
       disposed = true
+      terminalRef.current = null
       unsubscribe?.()
       onDataDisposable.dispose()
       resizeObserver.disconnect()
       terminal.dispose()
     }
-  }, [sessionId, scrollbackLines, theme])
+  }, [sessionId, scrollbackLines])
 
   return { containerRef: containerRef as RefObject<HTMLDivElement | null> }
 }

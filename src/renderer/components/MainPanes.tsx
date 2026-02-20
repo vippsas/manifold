@@ -1,4 +1,5 @@
 import React, { type RefObject } from 'react'
+import type { ITheme } from '@xterm/xterm'
 import type { FileTreeNode, FileChange } from '../../shared/types'
 import type { OpenFile } from '../hooks/useCodeView'
 import type { PaneVisibility, PaneName } from '../hooks/usePaneResize'
@@ -27,7 +28,8 @@ interface MainPanesProps {
   openFiles: OpenFile[]
   activeFilePath: string | null
   fileContent: string | null
-  theme: 'dark' | 'light'
+  theme: string
+  xtermTheme?: ITheme
   tree: FileTreeNode | null
   changes: FileChange[]
   onNewAgent: () => void
@@ -59,6 +61,7 @@ export function MainPanes({
   activeFilePath,
   fileContent,
   theme,
+  xtermTheme,
   tree,
   changes,
   onNewAgent,
@@ -90,7 +93,7 @@ export function MainPanes({
                   sessionId={sessionId}
                   scrollbackLines={scrollbackLines}
                   label="Agent"
-                  theme={theme}
+                  xtermTheme={xtermTheme}
                   onClose={() => onClosePane('left')}
                 />
               </div>
@@ -168,7 +171,7 @@ export function MainPanes({
                     worktreeSessionId={worktreeShellSessionId}
                     projectSessionId={projectShellSessionId}
                     scrollbackLines={scrollbackLines}
-                    theme={theme}
+                    xtermTheme={xtermTheme}
                     onClose={() => onClosePane('bottom')}
                   />
                 </div>

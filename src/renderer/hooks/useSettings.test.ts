@@ -4,12 +4,14 @@ import { DEFAULT_SETTINGS } from '../../shared/defaults'
 
 const mockInvoke = vi.fn()
 const mockOn = vi.fn(() => vi.fn())
+const mockSend = vi.fn()
 
 beforeEach(() => {
   vi.clearAllMocks()
   ;(window as unknown as Record<string, unknown>).electronAPI = {
     invoke: mockInvoke,
     on: mockOn,
+    send: mockSend,
   }
 })
 
@@ -29,8 +31,9 @@ describe('useSettings', () => {
     expect(result.current.loading).toBe(true)
   })
 
-  it('fetches settings on mount', async () => {
-    const customSettings = { ...DEFAULT_SETTINGS, theme: 'light' as const }
+  it('fetches settings on mount and migrates legacy theme', async () => {
+    // Stored as 'light' (legacy) — should be migrated to 'vs'
+    const customSettings = { ...DEFAULT_SETTINGS, theme: 'light' }
     mockInvoke.mockResolvedValue(customSettings)
 
     const { result } = renderHook(() => useSettings())
@@ -40,7 +43,20 @@ describe('useSettings', () => {
     })
 
     expect(mockInvoke).toHaveBeenCalledWith('settings:get')
-    expect(result.current.settings.theme).toBe('light')
+    expect(result.current.settings.theme).toBe('vs')
+  })
+
+  it('preserves non-legacy theme IDs on fetch', async () => {
+    const customSettings = { ...DEFAULT_SETTINGS, theme: 'dracula' }
+    mockInvoke.mockResolvedValue(customSettings)
+
+    const { result } = renderHook(() => useSettings())
+
+    await waitFor(() => {
+      expect(result.current.loading).toBe(false)
+    })
+
+    expect(result.current.settings.theme).toBe('dracula')
   })
 
   it('handles fetch error', async () => {
@@ -58,7 +74,7 @@ describe('useSettings', () => {
 
   describe('updateSettings', () => {
     it('calls IPC and updates local state', async () => {
-      const updatedSettings = { ...DEFAULT_SETTINGS, theme: 'light' as const }
+      const updatedSettings = { ...DEFAULT_SETTINGS, theme: 'nord' }
       mockInvoke
         .mockResolvedValueOnce(DEFAULT_SETTINGS) // initial fetch
         .mockResolvedValueOnce(updatedSettings) // update
@@ -70,11 +86,32 @@ describe('useSettings', () => {
       })
 
       await act(async () => {
-        await result.current.updateSettings({ theme: 'light' })
+        await result.current.updateSettings({ theme: 'nord' })
       })
 
-      expect(mockInvoke).toHaveBeenCalledWith('settings:update', { theme: 'light' })
-      expect(result.current.settings.theme).toBe('light')
+      expect(mockInvoke).toHaveBeenCalledWith('settings:update', { theme: 'nord' })
+      expect(result.current.settings.theme).toBe('nord')
+    })
+
+    it('sends theme:changed IPC with type and background', async () => {
+      mockInvoke
+        .mockResolvedValueOnce(DEFAULT_SETTINGS)
+        .mockResolvedValueOnce({ ...DEFAULT_SETTINGS, theme: 'vs' })
+
+      const { result } = renderHook(() => useSettings())
+
+      await waitFor(() => {
+        expect(result.current.loading).toBe(false)
+      })
+
+      await act(async () => {
+        await result.current.updateSettings({ theme: 'vs' })
+      })
+
+      expect(mockSend).toHaveBeenCalledWith('theme:changed', expect.objectContaining({
+        type: expect.any(String),
+        background: expect.any(String),
+      }))
     })
 
     it('sets error when update fails', async () => {
@@ -89,7 +126,7 @@ describe('useSettings', () => {
       })
 
       await act(async () => {
-        await result.current.updateSettings({ theme: 'light' })
+        await result.current.updateSettings({ theme: 'nord' })
       })
 
       expect(result.current.error).toBe('update failed')

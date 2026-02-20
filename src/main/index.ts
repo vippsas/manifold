@@ -82,11 +82,22 @@ const diffProvider = new DiffProvider()
 const prCreator = new PrCreator()
 const viewStateStore = new ViewStateStore()
 
-const THEME_BG = { dark: '#1a1a2e', light: '#ffffff' } as const
+// Resolve background color for the stored theme setting.
+// The renderer sends the actual background after loading the theme adapter,
+// but we need a reasonable initial value before the renderer is ready.
+function resolveInitialBackground(theme: string): string {
+  if (theme === 'light' || theme === 'vs') return '#ffffff'
+  return '#282a36' // Dracula-ish default for dark themes
+}
+
+function resolveThemeType(theme: string): 'dark' | 'light' {
+  if (theme === 'light' || theme === 'vs') return 'light'
+  return 'dark'
+}
 
 function createWindow(): void {
-  const theme = settingsStore.getSettings().theme ?? 'dark'
-  nativeTheme.themeSource = theme
+  const theme = settingsStore.getSettings().theme ?? 'dracula'
+  nativeTheme.themeSource = resolveThemeType(theme)
 
   mainWindow = new BrowserWindow({
     width: 1400,
@@ -94,7 +105,7 @@ function createWindow(): void {
     minWidth: 800,
     minHeight: 600,
     title: 'Manifold',
-    backgroundColor: THEME_BG[theme],
+    backgroundColor: resolveInitialBackground(theme),
     webPreferences: {
       preload: join(__dirname, '../preload/index.js'),
       contextIsolation: true,
@@ -106,11 +117,12 @@ function createWindow(): void {
   wireModules(mainWindow)
   loadRenderer(mainWindow)
 
-  // Update native title bar and window background when the user switches themes
-  ipcMain.on('theme:changed', (_event, newTheme: 'dark' | 'light') => {
-    nativeTheme.themeSource = newTheme
+  // Update native title bar and window background when the user switches themes.
+  // Renderer sends { type: 'dark'|'light', background: '#hex' } after applying theme.
+  ipcMain.on('theme:changed', (_event, payload: { type: string; background: string }) => {
+    nativeTheme.themeSource = (payload.type === 'light' ? 'light' : 'dark') as 'dark' | 'light'
     if (mainWindow) {
-      mainWindow.setBackgroundColor(THEME_BG[newTheme])
+      mainWindow.setBackgroundColor(payload.background)
     }
   })
 

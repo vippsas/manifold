@@ -13,7 +13,7 @@ interface CodeViewerProps {
   openFiles: OpenFile[]
   activeFilePath: string | null
   fileContent: string | null
-  theme: 'dark' | 'light'
+  theme: string
   worktreeRoot: string | null
   onSelectTab: (filePath: string) => void
   onCloseTab: (filePath: string) => void
@@ -151,7 +151,7 @@ export function CodeViewer({
   onShowDiff,
   onSaveFile,
 }: CodeViewerProps): React.JSX.Element {
-  const monacoTheme = theme === 'dark' ? 'vs-dark' : 'vs'
+  const monacoTheme = theme
   const language = useMemo(() => extensionToLanguage(activeFilePath), [activeFilePath])
   const fileDiffs = useMemo(() => splitDiffByFile(diff), [diff])
   const editorRef = useRef<monacoEditor.IStandaloneCodeEditor | null>(null)

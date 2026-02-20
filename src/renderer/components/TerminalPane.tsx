@@ -1,11 +1,12 @@
 import React from 'react'
+import type { ITheme } from '@xterm/xterm'
 import { useTerminal } from '../hooks/useTerminal'
 
 interface TerminalPaneProps {
   sessionId: string | null
   scrollbackLines: number
   label?: string
-  theme?: 'dark' | 'light'
+  xtermTheme?: ITheme
   onClose?: () => void
 }
 
@@ -13,10 +14,10 @@ export function TerminalPane({
   sessionId,
   scrollbackLines,
   label = 'Terminal',
-  theme = 'dark',
+  xtermTheme,
   onClose,
 }: TerminalPaneProps): React.JSX.Element {
-  const { containerRef } = useTerminal({ sessionId, scrollbackLines, theme })
+  const { containerRef } = useTerminal({ sessionId, scrollbackLines, xtermTheme })
 
   return (
     <div style={paneStyles.wrapper}>

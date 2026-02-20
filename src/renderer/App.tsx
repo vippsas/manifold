@@ -1,5 +1,8 @@
 import React, { useState, useCallback, useEffect, useRef, useMemo } from 'react'
+import type { ITheme } from '@xterm/xterm'
 import type { SpawnAgentOptions, FileChange } from '../shared/types'
+import { loadTheme, migrateLegacyTheme } from '../shared/themes/registry'
+import { applyThemeCssVars } from '../shared/themes/adapter'
 import { useProjects } from './hooks/useProjects'
 import { useAgentSession } from './hooks/useAgentSession'
 import { useFileWatcher } from './hooks/useFileWatcher'
@@ -17,6 +20,7 @@ import { OnboardingView } from './components/OnboardingView'
 import { SettingsModal } from './components/SettingsModal'
 import { StatusBar } from './components/StatusBar'
 import { WelcomeDialog } from './components/WelcomeDialog'
+import { loader } from '@monaco-editor/react'
 
 export function App(): React.JSX.Element {
   const { settings, updateSettings } = useSettings()
@@ -89,6 +93,41 @@ export function App(): React.JSX.Element {
 
   const [showNewAgent, setShowNewAgent] = useState(false)
   const [showSettings, setShowSettings] = useState(false)
+
+  // ── Theme management ───────────────────────────────────────────────
+  // Migrate legacy theme values and compute the theme ID
+  const themeId = useMemo(() => migrateLegacyTheme(settings.theme), [settings.theme])
+
+  // Load the converted theme (CSS vars, Monaco, xterm)
+  const currentTheme = useMemo(() => loadTheme(themeId), [themeId])
+
+  // Derive theme type class for CSS fallback selectors
+  const themeClass = currentTheme.type === 'light' ? 'theme-light' : 'theme-dark'
+
+  // Apply theme: CSS vars, Monaco editor theme, native window
+  useEffect(() => {
+    applyThemeCssVars(currentTheme.cssVars)
+
+    // Register and activate Monaco theme
+    void loader.init().then((monaco) => {
+      monaco.editor.defineTheme(themeId, currentTheme.monacoTheme as Parameters<typeof monaco.editor.defineTheme>[1])
+      monaco.editor.setTheme(themeId)
+    })
+
+    // Notify main process for native window chrome
+    window.electronAPI.send('theme:changed', {
+      type: currentTheme.type,
+      background: currentTheme.cssVars['--bg-primary'],
+    })
+  }, [themeId, currentTheme])
+
+  // Theme preview state (set by ThemePicker during live preview)
+  const [previewThemeId, setPreviewThemeId] = useState<string | null>(null)
+
+  // Pass xterm theme to terminal components (preview overrides current)
+  const xtermTheme: ITheme = previewThemeId
+    ? loadTheme(previewThemeId).xtermTheme
+    : currentTheme.xtermTheme
 
   // Sidebar resize
   const [sidebarWidth, setSidebarWidth] = useState(200)
@@ -176,7 +215,7 @@ export function App(): React.JSX.Element {
 
   if (!settings.setupCompleted) {
     return (
-      <div className={`layout-root theme-${settings.theme}`}>
+      <div className={`layout-root ${themeClass}`}>
         <WelcomeDialog
           defaultPath={settings.storagePath}
           onConfirm={handleSetupComplete}
@@ -187,7 +226,7 @@ export function App(): React.JSX.Element {
 
   if (projects.length === 0) {
     return (
-      <div className={`layout-root theme-${settings.theme}`}>
+      <div className={`layout-root ${themeClass}`}>
         <OnboardingView
           variant="no-project"
           onAddProject={() => void addProject()}
@@ -200,7 +239,7 @@ export function App(): React.JSX.Element {
   const sidebarVisible = paneResize.paneVisibility.sidebar
 
   return (
-    <div className={`layout-root theme-${settings.theme}`}>
+    <div className={`layout-root ${themeClass}`}>
       {sidebarVisible ? (
         <>
           <ProjectSidebar
@@ -255,7 +294,8 @@ export function App(): React.JSX.Element {
           openFiles={codeView.openFiles}
           activeFilePath={codeView.activeFilePath}
           fileContent={codeView.activeFileContent}
-          theme={settings.theme}
+          theme={themeId}
+          xtermTheme={xtermTheme}
           tree={tree}
           changes={mergedChanges}
           onNewAgent={() => setShowNewAgent(true)}
@@ -291,6 +331,7 @@ export function App(): React.JSX.Element {
         settings={settings}
         onSave={handleSaveSettings}
         onClose={() => setShowSettings(false)}
+        onPreviewTheme={setPreviewThemeId}
       />
     </div>
   )

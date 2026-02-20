@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from 'react'
 import type { ManifoldSettings } from '../../shared/types'
 import { DEFAULT_SETTINGS } from '../../shared/defaults'
+import { loadTheme, migrateLegacyTheme } from '../../shared/themes/registry'
 import { useIpcListener } from './useIpc'
 
 interface UseSettingsResult {
@@ -19,6 +20,8 @@ export function useSettings(): UseSettingsResult {
     const fetchSettings = async (): Promise<void> => {
       try {
         const result = (await window.electronAPI.invoke('settings:get')) as ManifoldSettings
+        // Migrate legacy 'dark'/'light' values
+        result.theme = migrateLegacyTheme(result.theme)
         setSettings(result)
       } catch (err: unknown) {
         const message = err instanceof Error ? err.message : String(err)
@@ -47,7 +50,11 @@ export function useSettings(): UseSettingsResult {
         )) as ManifoldSettings
         setSettings(updated)
         if (partial.theme) {
-          window.electronAPI.send('theme:changed', partial.theme)
+          const theme = loadTheme(partial.theme)
+          window.electronAPI.send('theme:changed', {
+            type: theme.type,
+            background: theme.cssVars['--bg-primary'],
+          })
         }
       } catch (err: unknown) {
         const message = err instanceof Error ? err.message : String(err)
