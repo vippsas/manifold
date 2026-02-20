@@ -109,7 +109,13 @@ export class SessionManager {
     const session = this.sessions.get(sessionId)
     if (!session) throw new Error(`Session not found: ${sessionId}`)
 
-    this.ptyPool.kill(session.ptyId)
+    // Remove from Map first so concurrent IPC handlers (e.g. diff:get)
+    // won't try to use a worktree path that's being deleted.
+    this.sessions.delete(sessionId)
+
+    if (session.ptyId) {
+      this.ptyPool.kill(session.ptyId)
+    }
 
     if (session.projectId) {
       try {
@@ -121,8 +127,6 @@ export class SessionManager {
         // Worktree cleanup is best-effort
       }
     }
-
-    this.sessions.delete(sessionId)
   }
 
   getOutputBuffer(sessionId: string): string {
@@ -137,6 +141,38 @@ export class SessionManager {
 
   listSessions(): AgentSession[] {
     return Array.from(this.sessions.values()).map((s) => this.toPublicSession(s))
+  }
+
+  async discoverSessionsForProject(projectId: string): Promise<AgentSession[]> {
+    const project = this.resolveProject(projectId)
+    const worktrees = await this.worktreeManager.listWorktrees(project.path)
+
+    const trackedPaths = new Set(
+      Array.from(this.sessions.values())
+        .filter((s) => s.projectId === projectId)
+        .map((s) => s.worktreePath)
+    )
+
+    for (const wt of worktrees) {
+      if (!trackedPaths.has(wt.path)) {
+        const session: InternalSession = {
+          id: uuidv4(),
+          projectId,
+          runtimeId: '',
+          branchName: wt.branch,
+          worktreePath: wt.path,
+          status: 'done',
+          pid: null,
+          ptyId: '',
+          outputBuffer: ''
+        }
+        this.sessions.set(session.id, session)
+      }
+    }
+
+    return Array.from(this.sessions.values())
+      .filter((s) => s.projectId === projectId)
+      .map((s) => this.toPublicSession(s))
   }
 
   killAllSessions(): void {
