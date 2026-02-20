@@ -121,13 +121,14 @@ function useAutoResume(
     if (!activeSessionId) return
     const session = sessionsRef.current.find((s) => s.id === activeSessionId)
     if (!session || session.pid !== null || session.status !== 'done') return
+    if (!session.runtimeId) return
 
     void (async () => {
       try {
         const resumed = (await window.electronAPI.invoke(
           'agent:resume',
           activeSessionId,
-          'claude'
+          session.runtimeId
         )) as AgentSession
         setSessions((prev) => prev.map((s) => (s.id === resumed.id ? resumed : s)))
       } catch {
