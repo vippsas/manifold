@@ -68,48 +68,20 @@ describe('NewAgentPopover', () => {
     expect(select).toBeInTheDocument()
   })
 
-  it('renders prompt textarea', () => {
-    mockInvoke.mockResolvedValue('manifold/oslo')
-    renderPopover()
-
-    expect(screen.getByPlaceholderText('Describe the task for the agent...')).toBeInTheDocument()
-  })
-
-  it('disables launch button when prompt is empty', () => {
-    mockInvoke.mockResolvedValue('manifold/oslo')
-    renderPopover()
-
-    const launchButton = screen.getByText('Launch')
-    expect(launchButton).toHaveStyle({ opacity: '0.5' })
-  })
-
   it('calls onLaunch with form data when submitted', async () => {
-    mockInvoke.mockResolvedValue('manifold/oslo')
-    const { props } = renderPopover()
-
-    const textarea = screen.getByPlaceholderText('Describe the task for the agent...')
-    fireEvent.change(textarea, { target: { value: 'Fix the bug' } })
-
-    const form = textarea.closest('form')!
-    fireEvent.submit(form)
-
-    expect(props.onLaunch).toHaveBeenCalledWith(
-      expect.objectContaining({
-        projectId: 'proj-1',
-        runtimeId: 'claude',
-        prompt: 'Fix the bug',
-      }),
-    )
-  })
-
-  it('does not call onLaunch when prompt is empty', () => {
     mockInvoke.mockResolvedValue('manifold/oslo')
     const { props } = renderPopover()
 
     const form = screen.getByText('Launch').closest('form')!
     fireEvent.submit(form)
 
-    expect(props.onLaunch).not.toHaveBeenCalled()
+    expect(props.onLaunch).toHaveBeenCalledWith(
+      expect.objectContaining({
+        projectId: 'proj-1',
+        runtimeId: 'claude',
+        prompt: '',
+      }),
+    )
   })
 
   it('calls onClose when Cancel button is clicked', () => {
@@ -148,10 +120,7 @@ describe('NewAgentPopover', () => {
     mockInvoke.mockResolvedValue('manifold/oslo')
     renderPopover()
 
-    const textarea = screen.getByPlaceholderText('Describe the task for the agent...')
-    fireEvent.change(textarea, { target: { value: 'Do something' } })
-
-    const form = textarea.closest('form')!
+    const form = screen.getByText('Launch').closest('form')!
     fireEvent.submit(form)
 
     expect(screen.getByText('Launching...')).toBeInTheDocument()

@@ -29,25 +29,23 @@ export function NewAgentPopover({
 }: NewAgentPopoverProps): React.JSX.Element | null {
   const [runtimeId, setRuntimeId] = useState(RUNTIMES[0].id)
   const [branchName, setBranchName] = useState('')
-  const [prompt, setPrompt] = useState('')
   const [loading, setLoading] = useState(false)
   const overlayRef = useRef<HTMLDivElement>(null)
 
-  useResetOnOpen(visible, projectId, setRuntimeId, setPrompt, setLoading, setBranchName)
+  useResetOnOpen(visible, projectId, setRuntimeId, setLoading, setBranchName)
 
   const handleSubmit = useCallback(
     (e: React.FormEvent): void => {
       e.preventDefault()
-      if (!prompt.trim()) return
       setLoading(true)
       onLaunch({
         projectId,
         runtimeId,
-        prompt: prompt.trim(),
+        prompt: '',
         branchName: branchName.trim() || undefined,
       })
     },
-    [projectId, runtimeId, prompt, branchName, onLaunch]
+    [projectId, runtimeId, branchName, onLaunch]
   )
 
   const handleOverlayClick = useCallback(
@@ -81,12 +79,10 @@ export function NewAgentPopover({
         <PopoverBody
           runtimeId={runtimeId}
           branchName={branchName}
-          prompt={prompt}
           onRuntimeChange={setRuntimeId}
           onBranchChange={setBranchName}
-          onPromptChange={setPrompt}
         />
-        <PopoverFooter onClose={onClose} canSubmit={!!prompt.trim()} loading={loading} />
+        <PopoverFooter onClose={onClose} canSubmit={true} loading={loading} />
       </form>
     </div>
   )
@@ -96,14 +92,12 @@ function useResetOnOpen(
   visible: boolean,
   projectId: string,
   setRuntimeId: (id: string) => void,
-  setPrompt: (val: string) => void,
   setLoading: (val: boolean) => void,
   setBranchName: (val: string) => void
 ): void {
   useEffect(() => {
     if (!visible) return
     setRuntimeId(RUNTIMES[0].id)
-    setPrompt('')
     setLoading(false)
 
     const fetchBranchSuggestion = async (): Promise<void> => {
@@ -116,7 +110,7 @@ function useResetOnOpen(
     }
 
     void fetchBranchSuggestion()
-  }, [visible, projectId, setRuntimeId, setPrompt, setLoading, setBranchName])
+  }, [visible, projectId, setRuntimeId, setLoading, setBranchName])
 }
 
 function PopoverHeader({ onClose }: { onClose: () => void }): React.JSX.Element {
@@ -133,19 +127,15 @@ function PopoverHeader({ onClose }: { onClose: () => void }): React.JSX.Element 
 interface PopoverBodyProps {
   runtimeId: string
   branchName: string
-  prompt: string
   onRuntimeChange: (id: string) => void
   onBranchChange: (name: string) => void
-  onPromptChange: (text: string) => void
 }
 
 function PopoverBody({
   runtimeId,
   branchName,
-  prompt,
   onRuntimeChange,
   onBranchChange,
-  onPromptChange,
 }: PopoverBodyProps): React.JSX.Element {
   return (
     <div style={popoverStyles.body}>
@@ -169,17 +159,6 @@ function PopoverBody({
           onChange={(e) => onBranchChange(e.target.value)}
           style={popoverStyles.input}
           placeholder="manifold/oslo"
-        />
-      </label>
-      <label style={popoverStyles.label}>
-        Prompt
-        <textarea
-          value={prompt}
-          onChange={(e) => onPromptChange(e.target.value)}
-          style={popoverStyles.textarea}
-          placeholder="Describe the task for the agent..."
-          rows={4}
-          autoFocus
         />
       </label>
     </div>

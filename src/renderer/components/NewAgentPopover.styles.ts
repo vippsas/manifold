@@ -58,12 +58,6 @@ export const popoverStyles: Record<string, React.CSSProperties> = {
     fontSize: '13px',
     fontFamily: 'var(--font-mono)',
   },
-  textarea: {
-    padding: '8px',
-    fontSize: '13px',
-    resize: 'vertical' as const,
-    minHeight: '80px',
-  },
   footer: {
     display: 'flex',
     justifyContent: 'flex-end',
