@@ -17,6 +17,7 @@ export interface UseCodeViewResult {
   handleShowDiff: () => void
   handleSaveFile: (content: string) => void
   refreshOpenFiles: () => Promise<void>
+  restoreState: (openFiles: OpenFile[], activeFilePath: string | null, codeViewMode: CodeViewMode) => void
 }
 
 export function useCodeView(activeSessionId: string | null): UseCodeViewResult {
@@ -134,6 +135,15 @@ export function useCodeView(activeSessionId: string | null): UseCodeViewResult {
     setOpenFiles(updates)
   }, [activeSessionId])
 
+  const restoreState = useCallback(
+    (files: OpenFile[], filePath: string | null, mode: CodeViewMode): void => {
+      setOpenFiles(files)
+      setActiveFilePath(filePath)
+      setCodeViewMode(mode)
+    },
+    []
+  )
+
   return {
     codeViewMode,
     openFiles,
@@ -144,5 +154,6 @@ export function useCodeView(activeSessionId: string | null): UseCodeViewResult {
     handleShowDiff,
     handleSaveFile,
     refreshOpenFiles,
+    restoreState,
   }
 }

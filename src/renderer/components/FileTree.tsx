@@ -1,9 +1,11 @@
-import React, { useState, useCallback, useMemo } from 'react'
+import React, { useCallback, useMemo } from 'react'
 import type { FileTreeNode, FileChange, FileChangeType } from '../../shared/types'
 
 interface FileTreeProps {
   tree: FileTreeNode | null
   changes: FileChange[]
+  expandedPaths: Set<string>
+  onToggleExpand: (path: string) => void
   onSelectFile: (path: string) => void
   onShowDiff: () => void
 }
@@ -17,6 +19,8 @@ const CHANGE_INDICATORS: Record<FileChangeType, { color: string; label: string }
 export function FileTree({
   tree,
   changes,
+  expandedPaths,
+  onToggleExpand,
   onSelectFile,
   onShowDiff,
 }: FileTreeProps): React.JSX.Element {
@@ -43,7 +47,14 @@ export function FileTree({
       </div>
       <div style={treeStyles.treeContainer}>
         {tree ? (
-          <TreeNode node={tree} depth={0} changeMap={changeMap} onSelectFile={onSelectFile} />
+          <TreeNode
+            node={tree}
+            depth={0}
+            changeMap={changeMap}
+            expandedPaths={expandedPaths}
+            onToggleExpand={onToggleExpand}
+            onSelectFile={onSelectFile}
+          />
         ) : (
           <div style={treeStyles.empty}>No files to display</div>
         )}
@@ -56,6 +67,8 @@ interface TreeNodeProps {
   node: FileTreeNode
   depth: number
   changeMap: Map<string, FileChangeType>
+  expandedPaths: Set<string>
+  onToggleExpand: (path: string) => void
   onSelectFile: (path: string) => void
 }
 
@@ -63,17 +76,19 @@ function TreeNode({
   node,
   depth,
   changeMap,
+  expandedPaths,
+  onToggleExpand,
   onSelectFile,
 }: TreeNodeProps): React.JSX.Element {
-  const [expanded, setExpanded] = useState(depth === 0)
+  const expanded = expandedPaths.has(node.path)
 
   const handleToggle = useCallback((): void => {
     if (node.isDirectory) {
-      setExpanded((prev) => !prev)
+      onToggleExpand(node.path)
     } else {
       onSelectFile(node.path)
     }
-  }, [node.isDirectory, node.path, onSelectFile])
+  }, [node.isDirectory, node.path, onToggleExpand, onSelectFile])
 
   const changeType = changeMap.get(node.path)
 
@@ -94,6 +109,8 @@ function TreeNode({
               node={child}
               depth={depth + 1}
               changeMap={changeMap}
+              expandedPaths={expandedPaths}
+              onToggleExpand={onToggleExpand}
               onSelectFile={onSelectFile}
             />
           ))}
