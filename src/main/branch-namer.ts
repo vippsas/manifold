@@ -1,4 +1,4 @@
-import simpleGit from 'simple-git'
+import { spawn } from 'node:child_process'
 
 const NORWEGIAN_CITIES: readonly string[] = [
   'Oslo', 'Bergen', 'Trondheim', 'Stavanger', 'Drammen',
@@ -36,10 +36,26 @@ function slugify(name: string): string {
     .replace(/^-|-$/g, '')
 }
 
+function gitExec(args: string[], cwd: string): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const child = spawn('git', args, {
+      cwd,
+      stdio: ['ignore', 'pipe', 'pipe'],
+    })
+
+    const chunks: Buffer[] = []
+    child.stdout!.on('data', (data: Buffer) => chunks.push(data))
+    child.on('error', reject)
+    child.on('close', (code) => {
+      if (code !== 0) reject(new Error(`git ${args[0]} failed (code ${code})`))
+      else resolve(Buffer.concat(chunks).toString('utf8'))
+    })
+  })
+}
+
 async function getExistingBranches(repoPath: string): Promise<Set<string>> {
-  const git = simpleGit(repoPath)
-  const branchSummary = await git.branch()
-  return new Set(branchSummary.all)
+  const stdout = await gitExec(['branch', '-a', '--format=%(refname:short)'], repoPath)
+  return new Set(stdout.trim().split('\n').filter(Boolean))
 }
 
 export async function generateBranchName(repoPath: string): Promise<string> {

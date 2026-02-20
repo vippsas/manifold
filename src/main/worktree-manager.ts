@@ -1,6 +1,6 @@
 import * as fs from 'node:fs'
 import * as path from 'node:path'
-import simpleGit, { SimpleGit } from 'simple-git'
+import { spawn } from 'node:child_process'
 import { generateBranchName } from './branch-namer'
 
 export interface WorktreeInfo {
@@ -8,12 +8,37 @@ export interface WorktreeInfo {
   path: string
 }
 
+/**
+ * Runs git with explicit stdio to avoid Electron EBADF issues.
+ * stdin is /dev/null, stdout/stderr are piped.
+ */
+function gitExec(args: string[], cwd: string): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const child = spawn('git', args, {
+      cwd,
+      stdio: ['ignore', 'pipe', 'pipe'],
+    })
+
+    const chunks: Buffer[] = []
+    const errChunks: Buffer[] = []
+
+    child.stdout!.on('data', (data: Buffer) => chunks.push(data))
+    child.stderr!.on('data', (data: Buffer) => errChunks.push(data))
+
+    child.on('error', reject)
+    child.on('close', (code) => {
+      if (code !== 0) {
+        const stderr = Buffer.concat(errChunks).toString('utf8')
+        reject(new Error(`git ${args[0]} failed (code ${code}): ${stderr}`))
+      } else {
+        resolve(Buffer.concat(chunks).toString('utf8'))
+      }
+    })
+  })
+}
+
 export class WorktreeManager {
   constructor(private storagePath: string) {}
-
-  private getGit(projectPath: string): SimpleGit {
-    return simpleGit(projectPath)
-  }
 
   private getWorktreeBase(projectName: string): string {
     return path.join(this.storagePath, 'worktrees', projectName)
@@ -25,7 +50,6 @@ export class WorktreeManager {
     projectName: string,
     branchName?: string
   ): Promise<WorktreeInfo> {
-    const git = this.getGit(projectPath)
     const branch = branchName ?? (await generateBranchName(projectPath))
     const worktreeBase = this.getWorktreeBase(projectName)
     fs.mkdirSync(worktreeBase, { recursive: true })
@@ -34,24 +58,22 @@ export class WorktreeManager {
     const worktreePath = path.join(worktreeBase, safeDirName)
 
     // Create a new branch from the base branch and set up the worktree
-    await git.raw(['worktree', 'add', '-b', branch, worktreePath, baseBranch])
+    await gitExec(['worktree', 'add', '-b', branch, worktreePath, baseBranch], projectPath)
 
     return { branch, path: worktreePath }
   }
 
   async removeWorktree(projectPath: string, worktreePath: string): Promise<void> {
-    const git = this.getGit(projectPath)
-
     // Get the branch associated with this worktree before removing it
     const worktrees = await this.listWorktrees(projectPath)
     const target = worktrees.find((w) => w.path === worktreePath)
 
-    await git.raw(['worktree', 'remove', worktreePath, '--force'])
+    await gitExec(['worktree', 'remove', worktreePath, '--force'], projectPath)
 
     // Clean up the branch if we found one
     if (target) {
       try {
-        await git.deleteLocalBranch(target.branch, true)
+        await gitExec(['branch', '-D', target.branch], projectPath)
       } catch {
         // Branch may already be deleted or may be the current branch; ignore
       }
@@ -59,8 +81,7 @@ export class WorktreeManager {
   }
 
   async listWorktrees(projectPath: string): Promise<WorktreeInfo[]> {
-    const git = this.getGit(projectPath)
-    const raw = await git.raw(['worktree', 'list', '--porcelain'])
+    const raw = await gitExec(['worktree', 'list', '--porcelain'], projectPath)
     const entries: WorktreeInfo[] = []
     let currentPath: string | null = null
     let currentBranch: string | null = null
