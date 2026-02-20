@@ -5,6 +5,9 @@ APP_NAME="Manifold.app"
 SOURCE="dist/mac-arm64/$APP_NAME"
 DEST="/Applications/$APP_NAME"
 
+echo "Cleaning previous build artifacts..."
+rm -rf dist/
+
 echo "Building Manifold..."
 npm run dist
 
