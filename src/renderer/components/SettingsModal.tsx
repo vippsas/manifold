@@ -30,6 +30,7 @@ export function SettingsModal({
   const [theme, setTheme] = useState(settings.theme)
   const [scrollbackLines, setScrollbackLines] = useState(settings.scrollbackLines)
   const [defaultBaseBranch, setDefaultBaseBranch] = useState(settings.defaultBaseBranch)
+  const [storagePath, setStoragePath] = useState(settings.storagePath)
   const overlayRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
@@ -38,13 +39,14 @@ export function SettingsModal({
       setTheme(settings.theme)
       setScrollbackLines(settings.scrollbackLines)
       setDefaultBaseBranch(settings.defaultBaseBranch)
+      setStoragePath(settings.storagePath)
     }
   }, [visible, settings])
 
   const handleSave = useCallback((): void => {
-    onSave({ defaultRuntime, theme, scrollbackLines, defaultBaseBranch })
+    onSave({ defaultRuntime, theme, scrollbackLines, defaultBaseBranch, storagePath })
     onClose()
-  }, [defaultRuntime, theme, scrollbackLines, defaultBaseBranch, onSave, onClose])
+  }, [defaultRuntime, theme, scrollbackLines, defaultBaseBranch, storagePath, onSave, onClose])
 
   const handleOverlayClick = useCallback(
     (e: React.MouseEvent): void => {
@@ -75,6 +77,8 @@ export function SettingsModal({
       <div style={modalStyles.panel}>
         <ModalHeader onClose={onClose} />
         <SettingsBody
+          storagePath={storagePath}
+          onStoragePathChange={setStoragePath}
           defaultRuntime={defaultRuntime}
           theme={theme}
           scrollbackLines={scrollbackLines}
@@ -102,6 +106,8 @@ function ModalHeader({ onClose }: { onClose: () => void }): React.JSX.Element {
 }
 
 interface SettingsBodyProps {
+  storagePath: string
+  onStoragePathChange: (path: string) => void
   defaultRuntime: string
   theme: 'dark' | 'light'
   scrollbackLines: number
@@ -113,6 +119,8 @@ interface SettingsBodyProps {
 }
 
 function SettingsBody({
+  storagePath,
+  onStoragePathChange,
   defaultRuntime,
   theme,
   scrollbackLines,
@@ -140,6 +148,16 @@ function SettingsBody({
 
   return (
     <div style={modalStyles.body}>
+      <label style={modalStyles.label}>
+        Storage Directory
+        <input
+          type="text"
+          value={storagePath}
+          onChange={(e) => onStoragePathChange(e.target.value)}
+          style={modalStyles.input}
+          placeholder="~/.manifold"
+        />
+      </label>
       <label style={modalStyles.label}>
         Default Runtime
         <select
