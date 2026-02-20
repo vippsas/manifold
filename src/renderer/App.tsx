@@ -288,6 +288,7 @@ export function App(): React.JSX.Element {
           sessionId={activeSessionId}
           worktreeShellSessionId={worktreeSessionId}
           projectShellSessionId={projectSessionId}
+          worktreeCwd={worktreeShellCwd}
           scrollbackLines={settings.scrollbackLines}
           codeViewMode={codeView.codeViewMode}
           diff={diff}

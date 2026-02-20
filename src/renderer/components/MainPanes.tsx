@@ -22,6 +22,7 @@ interface MainPanesProps {
   sessionId: string | null
   worktreeShellSessionId: string | null
   projectShellSessionId: string | null
+  worktreeCwd: string | null
   scrollbackLines: number
   codeViewMode: 'diff' | 'file'
   diff: string
@@ -54,6 +55,7 @@ export function MainPanes({
   sessionId,
   worktreeShellSessionId,
   projectShellSessionId,
+  worktreeCwd,
   scrollbackLines,
   codeViewMode,
   diff,
@@ -170,6 +172,7 @@ export function MainPanes({
                   <ShellTabs
                     worktreeSessionId={worktreeShellSessionId}
                     projectSessionId={projectShellSessionId}
+                    worktreeCwd={worktreeCwd}
                     scrollbackLines={scrollbackLines}
                     xtermTheme={xtermTheme}
                     onClose={() => onClosePane('bottom')}
