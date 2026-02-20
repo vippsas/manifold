@@ -1,15 +1,13 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 
-const mockRaw = vi.fn()
-const mockDeleteLocalBranch = vi.fn()
-const mockGitInstance = {
-  raw: mockRaw,
-  deleteLocalBranch: mockDeleteLocalBranch,
-  branch: vi.fn(),
-}
+const mockExecFile = vi.fn()
 
-vi.mock('simple-git', () => ({
-  default: vi.fn(() => mockGitInstance),
+vi.mock('node:child_process', () => ({
+  execFile: mockExecFile,
+}))
+
+vi.mock('node:util', () => ({
+  promisify: () => mockExecFile,
 }))
 
 vi.mock('node:fs', () => ({
@@ -38,7 +36,7 @@ describe('WorktreeManager', () => {
 
   describe('createWorktree', () => {
     it('creates a worktree with a generated branch name', async () => {
-      mockRaw.mockResolvedValue('')
+      mockExecFile.mockResolvedValue({ stdout: '', stderr: '' })
 
       const result = await manager.createWorktree('/repo', 'main', 'proj-1')
 
@@ -46,15 +44,15 @@ describe('WorktreeManager', () => {
       expect(result.branch).toBe('manifold/oslo')
       expect(result.path).toContain('manifold-oslo')
       expect(result.path).toContain('/mock-home/.manifold/worktrees/proj-1/')
-      expect(mockRaw).toHaveBeenCalledWith([
-        'worktree', 'add', '-b', 'manifold/oslo',
-        expect.stringContaining('manifold-oslo'),
-        'main',
-      ])
+      expect(mockExecFile).toHaveBeenCalledWith(
+        'git',
+        ['worktree', 'add', '-b', 'manifold/oslo', expect.stringContaining('manifold-oslo'), 'main'],
+        { cwd: '/repo' }
+      )
     })
 
     it('uses provided branch name instead of generating one', async () => {
-      mockRaw.mockResolvedValue('')
+      mockExecFile.mockResolvedValue({ stdout: '', stderr: '' })
 
       const result = await manager.createWorktree('/repo', 'main', 'proj-1', 'manifold/custom-branch')
 
@@ -63,7 +61,7 @@ describe('WorktreeManager', () => {
     })
 
     it('creates the worktree directory', async () => {
-      mockRaw.mockResolvedValue('')
+      mockExecFile.mockResolvedValue({ stdout: '', stderr: '' })
 
       await manager.createWorktree('/repo', 'main', 'proj-1')
 
@@ -74,7 +72,7 @@ describe('WorktreeManager', () => {
     })
 
     it('replaces slashes in branch name for directory naming', async () => {
-      mockRaw.mockResolvedValue('')
+      mockExecFile.mockResolvedValue({ stdout: '', stderr: '' })
 
       const result = await manager.createWorktree('/repo', 'main', 'proj-1', 'manifold/nested/branch')
 
@@ -84,29 +82,39 @@ describe('WorktreeManager', () => {
 
   describe('removeWorktree', () => {
     it('removes a worktree and deletes the branch', async () => {
-      // Mock listWorktrees via raw call
-      mockRaw
-        .mockResolvedValueOnce(
-          'worktree /repo/.manifold/worktrees/manifold-oslo\nbranch refs/heads/manifold/oslo\n\n'
-        )
-        .mockResolvedValueOnce('') // worktree remove
-      mockDeleteLocalBranch.mockResolvedValue(undefined)
+      // First call: listWorktrees (worktree list --porcelain)
+      // Second call: worktree remove
+      // Third call: branch -D
+      mockExecFile
+        .mockResolvedValueOnce({
+          stdout: 'worktree /repo/.manifold/worktrees/manifold-oslo\nbranch refs/heads/manifold/oslo\n\n',
+          stderr: '',
+        })
+        .mockResolvedValueOnce({ stdout: '', stderr: '' })
+        .mockResolvedValueOnce({ stdout: '', stderr: '' })
 
       await manager.removeWorktree('/repo', '/repo/.manifold/worktrees/manifold-oslo')
 
-      expect(mockRaw).toHaveBeenCalledWith([
-        'worktree', 'remove', '/repo/.manifold/worktrees/manifold-oslo', '--force',
-      ])
-      expect(mockDeleteLocalBranch).toHaveBeenCalledWith('manifold/oslo', true)
+      expect(mockExecFile).toHaveBeenCalledWith(
+        'git',
+        ['worktree', 'remove', '/repo/.manifold/worktrees/manifold-oslo', '--force'],
+        { cwd: '/repo' }
+      )
+      expect(mockExecFile).toHaveBeenCalledWith(
+        'git',
+        ['branch', '-D', 'manifold/oslo'],
+        { cwd: '/repo' }
+      )
     })
 
     it('does not throw if branch deletion fails', async () => {
-      mockRaw
-        .mockResolvedValueOnce(
-          'worktree /repo/.manifold/worktrees/manifold-oslo\nbranch refs/heads/manifold/oslo\n\n'
-        )
-        .mockResolvedValueOnce('')
-      mockDeleteLocalBranch.mockRejectedValue(new Error('branch not found'))
+      mockExecFile
+        .mockResolvedValueOnce({
+          stdout: 'worktree /repo/.manifold/worktrees/manifold-oslo\nbranch refs/heads/manifold/oslo\n\n',
+          stderr: '',
+        })
+        .mockResolvedValueOnce({ stdout: '', stderr: '' })
+        .mockRejectedValueOnce(new Error('branch not found'))
 
       await expect(
         manager.removeWorktree('/repo', '/repo/.manifold/worktrees/manifold-oslo')
@@ -128,7 +136,7 @@ describe('WorktreeManager', () => {
         '',
       ].join('\n')
 
-      mockRaw.mockResolvedValue(porcelain)
+      mockExecFile.mockResolvedValue({ stdout: porcelain, stderr: '' })
 
       const result = await manager.listWorktrees('/repo')
 
@@ -153,7 +161,7 @@ describe('WorktreeManager', () => {
         '',
       ].join('\n')
 
-      mockRaw.mockResolvedValue(porcelain)
+      mockExecFile.mockResolvedValue({ stdout: porcelain, stderr: '' })
 
       const result = await manager.listWorktrees('/repo')
       expect(result).toHaveLength(0)
@@ -165,7 +173,7 @@ describe('WorktreeManager', () => {
         'branch refs/heads/manifold/oslo',
       ].join('\n')
 
-      mockRaw.mockResolvedValue(porcelain)
+      mockExecFile.mockResolvedValue({ stdout: porcelain, stderr: '' })
 
       const result = await manager.listWorktrees('/repo')
       expect(result).toHaveLength(1)
@@ -173,7 +181,7 @@ describe('WorktreeManager', () => {
     })
 
     it('returns empty array for empty output', async () => {
-      mockRaw.mockResolvedValue('')
+      mockExecFile.mockResolvedValue({ stdout: '', stderr: '' })
 
       const result = await manager.listWorktrees('/repo')
       expect(result).toEqual([])

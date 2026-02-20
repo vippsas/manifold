@@ -8,7 +8,7 @@ function loadShellPath(): void {
   if (process.platform !== 'darwin') return
   try {
     const shell = process.env.SHELL ?? '/bin/zsh'
-    const output = execFileSync(shell, ['-l', '-i', '-c', 'echo $PATH'], {
+    const output = execFileSync(shell, ['-l', '-c', 'echo $PATH'], {
       encoding: 'utf8',
       timeout: 5000,
       stdio: ['ignore', 'pipe', 'ignore']
@@ -22,6 +22,11 @@ function loadShellPath(): void {
 }
 
 loadShellPath()
+
+// Remove env vars set by parent CLI agents so spawned agents don't detect
+// themselves as nested sessions and refuse to start.
+delete process.env.CLAUDECODE
+
 import { SettingsStore } from './settings-store'
 import { ProjectRegistry } from './project-registry'
 import { WorktreeManager } from './worktree-manager'

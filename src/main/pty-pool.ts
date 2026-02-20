@@ -23,6 +23,10 @@ export class PtyPool {
   ): PtyHandle {
     const id = uuidv4()
     const env = { ...process.env, ...(options.env ?? {}) } as Record<string, string>
+    // Manifold spawns agents as child PTY processes. If Manifold itself was
+    // launched from inside Claude Code, the CLAUDECODE env var leaks through
+    // and makes Claude Code refuse to start ("nested session" detection).
+    delete env.CLAUDECODE
 
     const proc = pty.spawn(file, args, {
       name: 'xterm-256color',
