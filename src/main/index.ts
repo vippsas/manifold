@@ -66,6 +66,7 @@ import { SessionManager } from './session-manager'
 import { FileWatcher } from './file-watcher'
 import { DiffProvider } from './diff-provider'
 import { PrCreator } from './pr-creator'
+import { GitOperationsManager } from './git-operations-manager'
 import { ViewStateStore } from './view-state-store'
 import { registerIpcHandlers } from './ipc-handlers'
 
@@ -80,6 +81,7 @@ const sessionManager = new SessionManager(worktreeManager, ptyPool, projectRegis
 const fileWatcher = new FileWatcher()
 const diffProvider = new DiffProvider()
 const prCreator = new PrCreator()
+const gitOperationsManager = new GitOperationsManager()
 const viewStateStore = new ViewStateStore()
 
 // Resolve background color for the stored theme setting.
@@ -142,6 +144,7 @@ function wireModules(window: BrowserWindow): void {
     fileWatcher,
     diffProvider,
     prCreator,
+    gitOperationsManager,
     viewStateStore,
   })
 }

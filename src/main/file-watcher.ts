@@ -10,6 +10,7 @@ interface PollEntry {
   timer: ReturnType<typeof setInterval>
   sessionId: string
   lastStatus: string
+  lastConflicts: string
   polling: boolean
 }
 
@@ -41,6 +42,7 @@ export class FileWatcher {
       timer: setInterval(() => this.poll(worktreePath), POLL_INTERVAL_MS),
       sessionId,
       lastStatus: '',
+      lastConflicts: '',
       polling: false,
     }
     this.polls.set(worktreePath, entry)
@@ -62,6 +64,16 @@ export class FileWatcher {
         this.sendToRenderer('files:changed', {
           sessionId: entry.sessionId,
           changes,
+        })
+      }
+
+      const conflicts = parseConflicts(status)
+      const conflictsKey = conflicts.join('\0')
+      if (conflictsKey !== entry.lastConflicts) {
+        entry.lastConflicts = conflictsKey
+        this.sendToRenderer('agent:conflicts', {
+          sessionId: entry.sessionId,
+          conflicts,
         })
       }
     } catch {
@@ -167,6 +179,20 @@ function parseStatus(raw: string): FileChange[] {
     changes.push({ path: filePath, type })
   }
   return changes
+}
+
+const CONFLICT_CODES = new Set(['UU', 'AA', 'DD'])
+
+function parseConflicts(raw: string): string[] {
+  const conflicts: string[] = []
+  for (const line of raw.split('\n')) {
+    if (line.length < 4) continue
+    const code = line.substring(0, 2)
+    if (CONFLICT_CODES.has(code)) {
+      conflicts.push(line.substring(3))
+    }
+  }
+  return conflicts
 }
 
 const EXCLUDED_DIRS = new Set([

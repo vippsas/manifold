@@ -5,6 +5,7 @@ export interface AgentRuntime {
   args?: string[]
   waitingPattern?: string
   env?: Record<string, string>
+  nonInteractiveFlag?: string
 }
 
 export type AgentStatus = 'running' | 'waiting' | 'done' | 'error'
@@ -70,4 +71,35 @@ export interface CreatePROptions {
   sessionId: string
   title?: string
   body?: string
+}
+
+export interface StatusDetail {
+  conflicts: string[]
+  staged: string[]
+  unstaged: string[]
+}
+
+export interface AheadBehind {
+  ahead: number
+  behind: number
+}
+
+export interface GitCommitRequest {
+  sessionId: string
+  message: string
+}
+
+export interface GitAiGenerateRequest {
+  sessionId: string
+  prompt: string
+}
+
+export interface GitAheadBehindRequest {
+  sessionId: string
+}
+
+export interface GitResolveConflictRequest {
+  sessionId: string
+  filePath: string
+  resolvedContent: string
 }

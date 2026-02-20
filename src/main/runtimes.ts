@@ -6,21 +6,24 @@ export const BUILT_IN_RUNTIMES: readonly AgentRuntime[] = [
     name: 'Claude Code',
     binary: 'claude',
     args: ['--dangerously-skip-permissions'],
-    waitingPattern: '❯|waiting for input|Interrupt to stop'
+    waitingPattern: '❯|waiting for input|Interrupt to stop',
+    nonInteractiveFlag: '-p'
   },
   {
     id: 'codex',
     name: 'Codex',
     binary: 'codex',
     args: [],
-    waitingPattern: '> |codex>'
+    waitingPattern: '> |codex>',
+    nonInteractiveFlag: '--non-interactive'
   },
   {
     id: 'gemini',
     name: 'Gemini CLI',
     binary: 'gemini',
     args: [],
-    waitingPattern: '❯|>>> '
+    waitingPattern: '❯|>>> ',
+    nonInteractiveFlag: '-p'
   }
 ] as const
 

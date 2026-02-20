@@ -3,15 +3,19 @@ import { execFile } from 'node:child_process'
 import { mkdirSync } from 'node:fs'
 import { resolve } from 'node:path'
 import { promisify } from 'node:util'
-import { SpawnAgentOptions, CreatePROptions, ManifoldSettings, SessionViewState } from '../shared/types'
+import {
+  SpawnAgentOptions, CreatePROptions, ManifoldSettings, SessionViewState,
+  GitCommitRequest, GitAiGenerateRequest, GitAheadBehindRequest, GitResolveConflictRequest
+} from '../shared/types'
 import { SettingsStore } from './settings-store'
 import { ProjectRegistry } from './project-registry'
 import { SessionManager } from './session-manager'
 import { FileWatcher } from './file-watcher'
 import { DiffProvider } from './diff-provider'
 import { PrCreator } from './pr-creator'
+import { GitOperationsManager } from './git-operations-manager'
 import { ViewStateStore } from './view-state-store'
-import { listRuntimes } from './runtimes'
+import { listRuntimes, getRuntimeById } from './runtimes'
 import { generateBranchName } from './branch-namer'
 
 const execFileAsync = promisify(execFile)
@@ -23,6 +27,7 @@ export interface IpcDependencies {
   fileWatcher: FileWatcher
   diffProvider: DiffProvider
   prCreator: PrCreator
+  gitOperationsManager: GitOperationsManager
   viewStateStore: ViewStateStore
 }
 
@@ -34,6 +39,7 @@ export function registerIpcHandlers(deps: IpcDependencies): void {
   registerPrHandler(deps)
   registerSettingsHandlers(deps)
   registerRuntimesHandler()
+  registerGitHandlers(deps)
   registerViewStateHandlers(deps)
 }
 
@@ -226,6 +232,50 @@ function registerSettingsHandlers(deps: IpcDependencies): void {
 function registerRuntimesHandler(): void {
   ipcMain.handle('runtimes:list', () => {
     return listRuntimes()
+  })
+}
+
+function registerGitHandlers(deps: IpcDependencies): void {
+  const { sessionManager, projectRegistry, gitOperationsManager } = deps
+
+  ipcMain.handle('git:commit', async (_event, request: GitCommitRequest) => {
+    const session = sessionManager.getSession(request.sessionId)
+    if (!session) throw new Error(`Session not found: ${request.sessionId}`)
+    await gitOperationsManager.commit(session.worktreePath, request.message)
+  })
+
+  ipcMain.handle('git:ai-generate', async (_event, request: GitAiGenerateRequest) => {
+    const session = sessionManager.getSession(request.sessionId)
+    if (!session) throw new Error(`Session not found: ${request.sessionId}`)
+    const runtime = getRuntimeById(session.runtimeId)
+    if (!runtime) throw new Error(`Runtime not found: ${session.runtimeId}`)
+    if (!runtime.nonInteractiveFlag) {
+      throw new Error(`Runtime ${session.runtimeId} does not support non-interactive mode`)
+    }
+    return gitOperationsManager.aiGenerate(
+      runtime.binary,
+      runtime.nonInteractiveFlag,
+      request.prompt,
+      session.worktreePath
+    )
+  })
+
+  ipcMain.handle('git:ahead-behind', async (_event, request: GitAheadBehindRequest) => {
+    const session = sessionManager.getSession(request.sessionId)
+    if (!session) throw new Error(`Session not found: ${request.sessionId}`)
+    const project = projectRegistry.getProject(session.projectId)
+    if (!project) throw new Error(`Project not found: ${session.projectId}`)
+    return gitOperationsManager.getAheadBehind(session.worktreePath, project.baseBranch)
+  })
+
+  ipcMain.handle('git:resolve-conflict', async (_event, request: GitResolveConflictRequest) => {
+    const session = sessionManager.getSession(request.sessionId)
+    if (!session) throw new Error(`Session not found: ${request.sessionId}`)
+    await gitOperationsManager.resolveConflict(
+      session.worktreePath,
+      request.filePath,
+      request.resolvedContent
+    )
   })
 }
 

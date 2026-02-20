@@ -27,6 +27,10 @@ const ALLOWED_INVOKE_CHANNELS = [
   'view-state:get',
   'view-state:set',
   'view-state:delete',
+  'git:commit',
+  'git:ai-generate',
+  'git:ahead-behind',
+  'git:resolve-conflict',
 ] as const
 
 const ALLOWED_SEND_CHANNELS = [
@@ -37,6 +41,7 @@ const ALLOWED_LISTEN_CHANNELS = [
   'agent:output',
   'agent:status',
   'agent:exit',
+  'agent:conflicts',
   'files:changed',
   'settings:changed',
 ] as const

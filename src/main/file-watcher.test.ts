@@ -157,6 +157,97 @@ describe('FileWatcher', () => {
       // No crash, no event sent
       expect(mockWindow.webContents.send).not.toHaveBeenCalled()
     })
+
+    it('sends agent:conflicts when merge conflicts are detected', async () => {
+      const mockWindow = createMockWindow()
+      watcher.setMainWindow(mockWindow)
+
+      const status = 'UU conflicted.ts\nAA both-added.ts\n M normal.ts\n'
+      mockGitStatus.mockResolvedValue(status)
+      watcher.watch('/repo/worktree', 'session-1')
+      await vi.advanceTimersByTimeAsync(10)
+
+      expect(mockWindow.webContents.send).toHaveBeenCalledWith(
+        'agent:conflicts',
+        {
+          sessionId: 'session-1',
+          conflicts: ['conflicted.ts', 'both-added.ts'],
+        },
+      )
+    })
+
+    it('sends agent:conflicts with empty array when conflicts are resolved', async () => {
+      const mockWindow = createMockWindow()
+      watcher.setMainWindow(mockWindow)
+
+      // First poll: conflicts exist
+      mockGitStatus.mockResolvedValue('UU conflicted.ts\n')
+      watcher.watch('/repo/worktree', 'session-1')
+      await vi.advanceTimersByTimeAsync(10)
+
+      mockWindow.webContents.send.mockClear()
+
+      // Second poll: conflicts resolved, only normal changes remain
+      mockGitStatus.mockResolvedValue(' M src/file.ts\n')
+      await vi.advanceTimersByTimeAsync(2000)
+
+      expect(mockWindow.webContents.send).toHaveBeenCalledWith(
+        'agent:conflicts',
+        {
+          sessionId: 'session-1',
+          conflicts: [],
+        },
+      )
+    })
+
+    it('does not send agent:conflicts when status has no conflicts from the start', async () => {
+      const mockWindow = createMockWindow()
+      watcher.setMainWindow(mockWindow)
+
+      mockGitStatus.mockResolvedValue(' M src/file.ts\n')
+      watcher.watch('/repo/worktree', 'session-1')
+      await vi.advanceTimersByTimeAsync(10)
+
+      // Only files:changed should be sent, not agent:conflicts
+      const conflictCalls = mockWindow.webContents.send.mock.calls.filter(
+        (call) => call[0] === 'agent:conflicts'
+      )
+      expect(conflictCalls).toHaveLength(0)
+    })
+
+    it('detects DD (both-deleted) as a conflict', async () => {
+      const mockWindow = createMockWindow()
+      watcher.setMainWindow(mockWindow)
+
+      mockGitStatus.mockResolvedValue('DD deleted-both.ts\n')
+      watcher.watch('/repo/worktree', 'session-1')
+      await vi.advanceTimersByTimeAsync(10)
+
+      expect(mockWindow.webContents.send).toHaveBeenCalledWith(
+        'agent:conflicts',
+        {
+          sessionId: 'session-1',
+          conflicts: ['deleted-both.ts'],
+        },
+      )
+    })
+
+    it('does not resend agent:conflicts when conflicts are unchanged', async () => {
+      const mockWindow = createMockWindow()
+      watcher.setMainWindow(mockWindow)
+
+      mockGitStatus.mockResolvedValue('UU conflicted.ts\n')
+      watcher.watch('/repo/worktree', 'session-1')
+      await vi.advanceTimersByTimeAsync(10)
+
+      mockWindow.webContents.send.mockClear()
+
+      // Same conflict on next poll
+      await vi.advanceTimersByTimeAsync(2000)
+
+      // files:changed won't fire (status unchanged), and conflicts won't fire either
+      expect(mockWindow.webContents.send).not.toHaveBeenCalled()
+    })
   })
 
   describe('unwatch', () => {
