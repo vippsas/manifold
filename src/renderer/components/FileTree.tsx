@@ -22,11 +22,14 @@ export function FileTree({
 }: FileTreeProps): React.JSX.Element {
   const changeMap = useMemo(() => {
     const map = new Map<string, FileChangeType>()
+    const root = tree?.path ?? ''
     for (const change of changes) {
-      map.set(change.path, change.type)
+      // Resolve relative change paths against tree root to match absolute node paths
+      const absPath = root ? `${root.replace(/\/$/, '')}/${change.path}` : change.path
+      map.set(absPath, change.type)
     }
     return map
-  }, [changes])
+  }, [changes, tree?.path])
 
   return (
     <div style={treeStyles.wrapper}>
