@@ -143,13 +143,25 @@ body {
 }
 
 .layout-sidebar {
-  width: var(--sidebar-width);
-  min-width: var(--sidebar-width);
   background: var(--bg-sidebar);
   border-right: 1px solid var(--border);
   display: flex;
   flex-direction: column;
   overflow: hidden;
+  flex-shrink: 0;
+}
+
+.sidebar-divider {
+  width: 4px;
+  cursor: col-resize;
+  background: transparent;
+  flex-shrink: 0;
+  transition: background 0.15s;
+}
+
+.sidebar-divider:hover,
+.sidebar-divider.dragging {
+  background: var(--accent);
 }
 
 .layout-main {

@@ -1,5 +1,5 @@
-import React, { useState, useCallback, useEffect, useRef } from 'react'
-import type { SpawnAgentOptions } from '../shared/types'
+import React, { useState, useCallback, useEffect, useRef, useMemo } from 'react'
+import type { SpawnAgentOptions, FileChange } from '../shared/types'
 import { useProjects } from './hooks/useProjects'
 import { useAgentSession } from './hooks/useAgentSession'
 import { useFileWatcher } from './hooks/useFileWatcher'
@@ -33,7 +33,19 @@ export function App(): React.JSX.Element {
     void refreshDiff()
   }, [codeView.refreshOpenFiles, refreshDiff])
 
-  const { tree } = useFileWatcher(activeSessionId, handleFilesChanged)
+  const { tree, changes: watcherChanges } = useFileWatcher(activeSessionId, handleFilesChanged)
+
+  // Merge both change sources: useDiff (committed changes vs base branch) and
+  // useFileWatcher (uncommitted changes from git status polling). The watcher
+  // changes update every 2s via polling while diff changes require an async IPC
+  // round-trip, so merging ensures the file tree shows indicators immediately.
+  const mergedChanges = useMemo(() => {
+    const map = new Map<string, FileChange>()
+    for (const c of changedFiles) map.set(c.path, c)
+    for (const c of watcherChanges) map.set(c.path, c)
+    return Array.from(map.values())
+  }, [changedFiles, watcherChanges])
+
   const viewState = useViewState(activeSessionId, tree)
 
   const prevSessionRef = useRef<string | null>(null)
@@ -69,6 +81,37 @@ export function App(): React.JSX.Element {
 
   const [showNewAgent, setShowNewAgent] = useState(false)
   const [showSettings, setShowSettings] = useState(false)
+
+  // Sidebar resize
+  const [sidebarWidth, setSidebarWidth] = useState(200)
+  const sidebarDragging = useRef(false)
+
+  const handleSidebarDividerMouseDown = useCallback((_e: React.MouseEvent) => {
+    sidebarDragging.current = true
+    document.body.style.cursor = 'col-resize'
+    document.body.style.userSelect = 'none'
+  }, [])
+
+  useEffect(() => {
+    const onMove = (e: MouseEvent): void => {
+      if (!sidebarDragging.current) return
+      const clamped = Math.max(140, Math.min(400, e.clientX))
+      setSidebarWidth(clamped)
+    }
+    const onUp = (): void => {
+      if (sidebarDragging.current) {
+        sidebarDragging.current = false
+        document.body.style.cursor = ''
+        document.body.style.userSelect = ''
+      }
+    }
+    document.addEventListener('mousemove', onMove)
+    document.addEventListener('mouseup', onUp)
+    return () => {
+      document.removeEventListener('mousemove', onMove)
+      document.removeEventListener('mouseup', onUp)
+    }
+  }, [])
 
   const handleLaunchAgent = useCallback(
     (options: SpawnAgentOptions): void => {
@@ -149,6 +192,7 @@ export function App(): React.JSX.Element {
   return (
     <div className={`layout-root theme-${settings.theme}`}>
       <ProjectSidebar
+        width={sidebarWidth}
         projects={projects}
         activeProjectId={activeProjectId}
         allProjectSessions={sessionsByProject}
@@ -161,6 +205,11 @@ export function App(): React.JSX.Element {
         onDeleteAgent={handleDeleteAgent}
         onNewAgent={handleNewAgentForProject}
         onOpenSettings={() => setShowSettings(true)}
+      />
+
+      <div
+        className="sidebar-divider"
+        onMouseDown={handleSidebarDividerMouseDown}
       />
 
       <div className="layout-main">
@@ -183,7 +232,7 @@ export function App(): React.JSX.Element {
           fileContent={codeView.activeFileContent}
           theme={settings.theme}
           tree={tree}
-          changes={changedFiles}
+          changes={mergedChanges}
           onNewAgent={() => setShowNewAgent(true)}
           onSelectFile={codeView.handleSelectFile}
           onCloseFile={codeView.handleCloseFile}
@@ -195,7 +244,7 @@ export function App(): React.JSX.Element {
 
         <StatusBar
           activeSession={activeSession}
-          changedFiles={changedFiles}
+          changedFiles={mergedChanges}
           baseBranch={activeProject?.baseBranch ?? settings.defaultBaseBranch}
         />
       </div>

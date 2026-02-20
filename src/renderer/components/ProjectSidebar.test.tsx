@@ -30,6 +30,7 @@ const sampleSessions: AgentSession[] = [
 
 function renderSidebar(overrides = {}) {
   const defaultProps = {
+    width: 200,
     projects: sampleProjects,
     activeProjectId: 'p1',
     allProjectSessions: { p1: sampleSessions, p2: [] },

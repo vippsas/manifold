@@ -3,6 +3,7 @@ import type { Project, AgentSession } from '../../shared/types'
 import { sidebarStyles } from './ProjectSidebar.styles'
 
 interface ProjectSidebarProps {
+  width: number
   projects: Project[]
   activeProjectId: string | null
   allProjectSessions: Record<string, AgentSession[]>
@@ -18,6 +19,7 @@ interface ProjectSidebarProps {
 }
 
 export function ProjectSidebar({
+  width,
   projects,
   activeProjectId,
   allProjectSessions,
@@ -59,7 +61,7 @@ export function ProjectSidebar({
   )
 
   return (
-    <div className="layout-sidebar" style={sidebarStyles.root}>
+    <div className="layout-sidebar" style={{ ...sidebarStyles.root, width }}>
       <SidebarHeader onOpenSettings={onOpenSettings} />
       <ProjectList
         projects={projects}
