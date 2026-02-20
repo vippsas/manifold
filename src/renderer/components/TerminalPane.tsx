@@ -5,6 +5,7 @@ interface TerminalPaneProps {
   sessionId: string | null
   scrollbackLines: number
   label?: string
+  theme?: 'dark' | 'light'
   onClose?: () => void
 }
 
@@ -12,9 +13,10 @@ export function TerminalPane({
   sessionId,
   scrollbackLines,
   label = 'Terminal',
+  theme = 'dark',
   onClose,
 }: TerminalPaneProps): React.JSX.Element {
-  const { containerRef } = useTerminal({ sessionId, scrollbackLines })
+  const { containerRef } = useTerminal({ sessionId, scrollbackLines, theme })
 
   return (
     <div style={paneStyles.wrapper}>

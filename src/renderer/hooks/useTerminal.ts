@@ -11,13 +11,31 @@ interface AgentOutputEvent {
 interface UseTerminalOptions {
   sessionId: string | null
   scrollbackLines: number
+  theme?: 'dark' | 'light'
 }
 
 interface UseTerminalResult {
   containerRef: RefObject<HTMLDivElement | null>
 }
 
-function buildTerminalOptions(scrollbackLines: number): ITerminalOptions {
+const XTERM_THEMES = {
+  dark: {
+    background: '#1a1a2e',
+    foreground: '#e0e0e0',
+    cursor: '#ffcc00',
+    cursorAccent: '#1a1a2e',
+    selectionBackground: '#4fc3f744',
+  },
+  light: {
+    background: '#ffffff',
+    foreground: '#1a1a2e',
+    cursor: '#1976d2',
+    cursorAccent: '#ffffff',
+    selectionBackground: '#1976d244',
+  },
+} as const
+
+function buildTerminalOptions(scrollbackLines: number, theme: 'dark' | 'light' = 'dark'): ITerminalOptions {
   return {
     scrollback: scrollbackLines,
     fontFamily: "'SF Mono', 'Fira Code', 'Cascadia Code', Menlo, Consolas, monospace",
@@ -26,24 +44,18 @@ function buildTerminalOptions(scrollbackLines: number): ITerminalOptions {
     cursorBlink: true,
     cursorStyle: 'block',
     cursorInactiveStyle: 'outline',
-    theme: {
-      background: '#1a1a2e',
-      foreground: '#e0e0e0',
-      cursor: '#ffcc00',
-      cursorAccent: '#1a1a2e',
-      selectionBackground: '#4fc3f744',
-    },
+    theme: XTERM_THEMES[theme],
   }
 }
 
-export function useTerminal({ sessionId, scrollbackLines }: UseTerminalOptions): UseTerminalResult {
+export function useTerminal({ sessionId, scrollbackLines, theme = 'dark' }: UseTerminalOptions): UseTerminalResult {
   const containerRef = useRef<HTMLDivElement | null>(null)
 
   useEffect(() => {
     const container = containerRef.current
     if (!container) return
 
-    const terminal = new Terminal(buildTerminalOptions(scrollbackLines))
+    const terminal = new Terminal(buildTerminalOptions(scrollbackLines, theme))
     const fitAddon = new FitAddon()
     terminal.loadAddon(fitAddon)
     terminal.open(container)
@@ -124,7 +136,7 @@ export function useTerminal({ sessionId, scrollbackLines }: UseTerminalOptions):
       resizeObserver.disconnect()
       terminal.dispose()
     }
-  }, [sessionId, scrollbackLines])
+  }, [sessionId, scrollbackLines, theme])
 
   return { containerRef: containerRef as RefObject<HTMLDivElement | null> }
 }

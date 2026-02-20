@@ -1,4 +1,4 @@
-import { app, BrowserWindow } from 'electron'
+import { app, BrowserWindow, ipcMain, nativeTheme } from 'electron'
 import { join } from 'node:path'
 import { execFileSync } from 'node:child_process'
 import { appendFileSync } from 'node:fs'
@@ -63,14 +63,19 @@ const diffProvider = new DiffProvider()
 const prCreator = new PrCreator()
 const viewStateStore = new ViewStateStore()
 
+const THEME_BG = { dark: '#1a1a2e', light: '#ffffff' } as const
+
 function createWindow(): void {
+  const theme = settingsStore.getSettings().theme ?? 'dark'
+  nativeTheme.themeSource = theme
+
   mainWindow = new BrowserWindow({
     width: 1400,
     height: 900,
     minWidth: 800,
     minHeight: 600,
     title: 'Manifold',
-    backgroundColor: '#1a1a2e',
+    backgroundColor: THEME_BG[theme],
     webPreferences: {
       preload: join(__dirname, '../preload/index.js'),
       contextIsolation: true,
@@ -81,6 +86,14 @@ function createWindow(): void {
 
   wireModules(mainWindow)
   loadRenderer(mainWindow)
+
+  // Update native title bar and window background when the user switches themes
+  ipcMain.on('theme:changed', (_event, newTheme: 'dark' | 'light') => {
+    nativeTheme.themeSource = newTheme
+    if (mainWindow) {
+      mainWindow.setBackgroundColor(THEME_BG[newTheme])
+    }
+  })
 
   mainWindow.on('closed', () => {
     mainWindow = null

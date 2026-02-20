@@ -7,6 +7,7 @@ interface ShellTabsProps {
   worktreeSessionId: string | null
   projectSessionId: string | null
   scrollbackLines: number
+  theme?: 'dark' | 'light'
   onClose?: () => void
 }
 
@@ -14,14 +15,15 @@ export function ShellTabs({
   worktreeSessionId,
   projectSessionId,
   scrollbackLines,
+  theme = 'dark',
   onClose,
 }: ShellTabsProps): React.JSX.Element {
   const [activeTab, setActiveTab] = useState<ShellTab>(
     worktreeSessionId ? 'worktree' : 'project'
   )
 
-  const worktreeTerminal = useTerminal({ sessionId: worktreeSessionId, scrollbackLines })
-  const projectTerminal = useTerminal({ sessionId: projectSessionId, scrollbackLines })
+  const worktreeTerminal = useTerminal({ sessionId: worktreeSessionId, scrollbackLines, theme })
+  const projectTerminal = useTerminal({ sessionId: projectSessionId, scrollbackLines, theme })
 
   // Auto-select project tab when no agent is selected
   const effectiveTab = !worktreeSessionId && activeTab === 'worktree' ? 'project' : activeTab

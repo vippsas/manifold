@@ -90,6 +90,7 @@ export function MainPanes({
                   sessionId={sessionId}
                   scrollbackLines={scrollbackLines}
                   label="Agent"
+                  theme={theme}
                   onClose={() => onClosePane('left')}
                 />
               </div>
@@ -167,6 +168,7 @@ export function MainPanes({
                     worktreeSessionId={worktreeShellSessionId}
                     projectSessionId={projectShellSessionId}
                     scrollbackLines={scrollbackLines}
+                    theme={theme}
                     onClose={() => onClosePane('bottom')}
                   />
                 </div>

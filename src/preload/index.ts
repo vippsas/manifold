@@ -29,6 +29,10 @@ const ALLOWED_INVOKE_CHANNELS = [
   'view-state:delete',
 ] as const
 
+const ALLOWED_SEND_CHANNELS = [
+  'theme:changed',
+] as const
+
 const ALLOWED_LISTEN_CHANNELS = [
   'agent:output',
   'agent:status',
@@ -38,10 +42,15 @@ const ALLOWED_LISTEN_CHANNELS = [
 ] as const
 
 type InvokeChannel = (typeof ALLOWED_INVOKE_CHANNELS)[number]
+type SendChannel = (typeof ALLOWED_SEND_CHANNELS)[number]
 type ListenChannel = (typeof ALLOWED_LISTEN_CHANNELS)[number]
 
 function isAllowedInvokeChannel(channel: string): channel is InvokeChannel {
   return (ALLOWED_INVOKE_CHANNELS as readonly string[]).includes(channel)
+}
+
+function isAllowedSendChannel(channel: string): channel is SendChannel {
+  return (ALLOWED_SEND_CHANNELS as readonly string[]).includes(channel)
 }
 
 function isAllowedListenChannel(channel: string): channel is ListenChannel {
@@ -56,6 +65,12 @@ const electronAPI = {
       return Promise.reject(new Error(`IPC invoke channel not allowed: ${channel}`))
     }
     return ipcRenderer.invoke(channel, ...args)
+  },
+
+  send(channel: string, ...args: unknown[]): void {
+    if (isAllowedSendChannel(channel)) {
+      ipcRenderer.send(channel, ...args)
+    }
   },
 
   on(channel: string, callback: IpcCallback): () => void {
