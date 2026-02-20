@@ -1,4 +1,6 @@
 import { v4 as uuidv4 } from 'uuid'
+import { writeFile, readFile } from 'node:fs/promises'
+import { join } from 'node:path'
 import { AgentSession, SpawnAgentOptions } from '../shared/types'
 import { getRuntimeById } from './runtimes'
 import { WorktreeManager } from './worktree-manager'
@@ -56,6 +58,9 @@ export class SessionManager {
     this.wireOutputStreaming(ptyHandle.id, session)
     this.wireExitHandling(ptyHandle.id, session)
     this.sendInitialPrompt(ptyHandle.id, options.prompt)
+
+    // Persist runtime selection so it survives app restarts
+    this.writeWorktreeMeta(worktree.path, { runtimeId: options.runtimeId }).catch(() => {})
 
     return this.toPublicSession(session)
   }
@@ -185,10 +190,11 @@ export class SessionManager {
 
     for (const wt of worktrees) {
       if (!trackedPaths.has(wt.path)) {
+        const meta = await this.readWorktreeMeta(wt.path)
         const session: InternalSession = {
           id: uuidv4(),
           projectId,
-          runtimeId: '',
+          runtimeId: meta?.runtimeId ?? '',
           branchName: wt.branch,
           worktreePath: wt.path,
           status: 'done',
@@ -291,6 +297,24 @@ export class SessionManager {
       worktreePath: session.worktreePath,
       status: session.status,
       pid: session.pid
+    }
+  }
+
+  private async writeWorktreeMeta(
+    worktreePath: string,
+    meta: { runtimeId: string }
+  ): Promise<void> {
+    await writeFile(join(worktreePath, '.manifold.json'), JSON.stringify(meta), 'utf-8')
+  }
+
+  private async readWorktreeMeta(
+    worktreePath: string
+  ): Promise<{ runtimeId: string } | null> {
+    try {
+      const raw = await readFile(join(worktreePath, '.manifold.json'), 'utf-8')
+      return JSON.parse(raw)
+    } catch {
+      return null
     }
   }
 }
