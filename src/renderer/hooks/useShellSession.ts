@@ -1,11 +1,14 @@
 import { useState, useEffect, useRef } from 'react'
 
-export function useShellSession(cwd: string | null): string | null {
-  const [shellSessionId, setShellSessionId] = useState<string | null>(null)
+function useShellLifecycle(cwd: string | null): string | null {
+  const [sessionId, setSessionId] = useState<string | null>(null)
   const sessionIdRef = useRef<string | null>(null)
 
   useEffect(() => {
-    if (!cwd) return
+    if (!cwd) {
+      setSessionId(null)
+      return
+    }
 
     let cancelled = false
 
@@ -13,9 +16,8 @@ export function useShellSession(cwd: string | null): string | null {
       const result = (await window.electronAPI.invoke('shell:create', cwd)) as { sessionId: string }
       if (!cancelled) {
         sessionIdRef.current = result.sessionId
-        setShellSessionId(result.sessionId)
+        setSessionId(result.sessionId)
       } else {
-        // Component unmounted or cwd changed before we got the session — kill it
         void window.electronAPI.invoke('agent:kill', result.sessionId).catch(() => {})
       }
     })()
@@ -29,5 +31,15 @@ export function useShellSession(cwd: string | null): string | null {
     }
   }, [cwd])
 
-  return shellSessionId
+  return sessionId
+}
+
+export function useShellSessions(
+  worktreeCwd: string | null,
+  projectCwd: string | null
+): { worktreeSessionId: string | null; projectSessionId: string | null } {
+  const worktreeSessionId = useShellLifecycle(worktreeCwd)
+  const projectSessionId = useShellLifecycle(projectCwd)
+
+  return { worktreeSessionId, projectSessionId }
 }

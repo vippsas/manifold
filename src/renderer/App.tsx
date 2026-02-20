@@ -8,7 +8,7 @@ import { useSettings } from './hooks/useSettings'
 import { usePaneResize } from './hooks/usePaneResize'
 import { useCodeView } from './hooks/useCodeView'
 import { useViewState } from './hooks/useViewState'
-import { useShellSession } from './hooks/useShellSession'
+import { useShellSessions } from './hooks/useShellSession'
 import { ProjectSidebar } from './components/ProjectSidebar'
 import { MainPanes } from './components/MainPanes'
 import { NewAgentPopover } from './components/NewAgentPopover'
@@ -61,8 +61,9 @@ export function App(): React.JSX.Element {
   }, [viewState.restoreCodeView, codeView.restoreState])
 
   const activeProject = projects.find((p) => p.id === activeProjectId) ?? null
-  const shellCwd = activeSession?.worktreePath ?? activeProject?.path ?? null
-  const shellSessionId = useShellSession(shellCwd)
+  const worktreeShellCwd = activeSession?.worktreePath ?? null
+  const projectShellCwd = activeProject?.path ?? null
+  const { worktreeSessionId, projectSessionId } = useShellSessions(worktreeShellCwd, projectShellCwd)
 
   const [showNewAgent, setShowNewAgent] = useState(false)
   const [showSettings, setShowSettings] = useState(false)
@@ -147,7 +148,8 @@ export function App(): React.JSX.Element {
           bottomPaneFraction={paneResize.bottomPaneFraction}
           handleDividerMouseDown={paneResize.handleDividerMouseDown}
           sessionId={activeSessionId}
-          shellSessionId={shellSessionId}
+          worktreeShellSessionId={worktreeSessionId}
+          projectShellSessionId={projectSessionId}
           scrollbackLines={settings.scrollbackLines}
           codeViewMode={codeView.codeViewMode}
           diff={diff}
