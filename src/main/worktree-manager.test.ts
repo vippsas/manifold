@@ -33,18 +33,19 @@ describe('WorktreeManager', () => {
 
   beforeEach(() => {
     vi.clearAllMocks()
-    manager = new WorktreeManager()
+    manager = new WorktreeManager('/mock-home/.manifold')
   })
 
   describe('createWorktree', () => {
     it('creates a worktree with a generated branch name', async () => {
       mockRaw.mockResolvedValue('')
 
-      const result = await manager.createWorktree('/repo', 'main')
+      const result = await manager.createWorktree('/repo', 'main', 'proj-1')
 
       expect(generateBranchName).toHaveBeenCalledWith('/repo')
       expect(result.branch).toBe('manifold/oslo')
       expect(result.path).toContain('manifold-oslo')
+      expect(result.path).toContain('/mock-home/.manifold/worktrees/proj-1/')
       expect(mockRaw).toHaveBeenCalledWith([
         'worktree', 'add', '-b', 'manifold/oslo',
         expect.stringContaining('manifold-oslo'),
@@ -55,7 +56,7 @@ describe('WorktreeManager', () => {
     it('uses provided branch name instead of generating one', async () => {
       mockRaw.mockResolvedValue('')
 
-      const result = await manager.createWorktree('/repo', 'main', 'manifold/custom-branch')
+      const result = await manager.createWorktree('/repo', 'main', 'proj-1', 'manifold/custom-branch')
 
       expect(generateBranchName).not.toHaveBeenCalled()
       expect(result.branch).toBe('manifold/custom-branch')
@@ -64,10 +65,10 @@ describe('WorktreeManager', () => {
     it('creates the worktree directory', async () => {
       mockRaw.mockResolvedValue('')
 
-      await manager.createWorktree('/repo', 'main')
+      await manager.createWorktree('/repo', 'main', 'proj-1')
 
       expect(fs.mkdirSync).toHaveBeenCalledWith(
-        '/repo/.manifold/worktrees',
+        '/mock-home/.manifold/worktrees/proj-1',
         { recursive: true }
       )
     })
@@ -75,7 +76,7 @@ describe('WorktreeManager', () => {
     it('replaces slashes in branch name for directory naming', async () => {
       mockRaw.mockResolvedValue('')
 
-      const result = await manager.createWorktree('/repo', 'main', 'manifold/nested/branch')
+      const result = await manager.createWorktree('/repo', 'main', 'proj-1', 'manifold/nested/branch')
 
       expect(result.path).toContain('manifold-nested-branch')
     })
