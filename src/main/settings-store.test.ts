@@ -19,6 +19,12 @@ vi.mock('node:os', () => ({
 import * as fs from 'node:fs'
 import { SettingsStore } from './settings-store'
 
+/** DEFAULT_SETTINGS has storagePath: '', but resolveDefaults() fills it in at runtime. */
+const RESOLVED_DEFAULTS = {
+  ...DEFAULT_SETTINGS,
+  storagePath: '/mock-home/.manifold',
+}
+
 const mockExistsSync = vi.mocked(fs.existsSync)
 const mockReadFileSync = vi.mocked(fs.readFileSync)
 const mockWriteFileSync = vi.mocked(fs.writeFileSync)
@@ -33,7 +39,7 @@ describe('SettingsStore', () => {
     it('returns defaults when config file does not exist', () => {
       mockExistsSync.mockReturnValue(false)
       const store = new SettingsStore()
-      expect(store.getSettings()).toEqual(DEFAULT_SETTINGS)
+      expect(store.getSettings()).toEqual(RESOLVED_DEFAULTS)
     })
 
     it('reads and merges settings from disk', () => {
@@ -52,7 +58,7 @@ describe('SettingsStore', () => {
       mockReadFileSync.mockReturnValue('not json!')
 
       const store = new SettingsStore()
-      expect(store.getSettings()).toEqual(DEFAULT_SETTINGS)
+      expect(store.getSettings()).toEqual(RESOLVED_DEFAULTS)
     })
 
     it('returns defaults when file contains a non-object (e.g. number)', () => {
@@ -60,7 +66,7 @@ describe('SettingsStore', () => {
       mockReadFileSync.mockReturnValue('42')
 
       const store = new SettingsStore()
-      expect(store.getSettings()).toEqual(DEFAULT_SETTINGS)
+      expect(store.getSettings()).toEqual(RESOLVED_DEFAULTS)
     })
 
     it('returns defaults when file contains null', () => {
@@ -68,7 +74,7 @@ describe('SettingsStore', () => {
       mockReadFileSync.mockReturnValue('null')
 
       const store = new SettingsStore()
-      expect(store.getSettings()).toEqual(DEFAULT_SETTINGS)
+      expect(store.getSettings()).toEqual(RESOLVED_DEFAULTS)
     })
 
     it('returns defaults when readFileSync throws', () => {
@@ -78,7 +84,7 @@ describe('SettingsStore', () => {
       })
 
       const store = new SettingsStore()
-      expect(store.getSettings()).toEqual(DEFAULT_SETTINGS)
+      expect(store.getSettings()).toEqual(RESOLVED_DEFAULTS)
     })
   })
 
