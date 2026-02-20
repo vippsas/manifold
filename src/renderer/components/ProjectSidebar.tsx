@@ -11,6 +11,7 @@ interface ProjectSidebarProps {
   onSelectSession: (id: string) => void
   onAddProject: (path?: string) => void
   onRemoveProject: (id: string) => void
+  onCloneProject: (url: string) => void
   onDeleteAgent: (id: string) => void
   onNewAgent: () => void
   onOpenSettings: () => void
@@ -25,6 +26,7 @@ export function ProjectSidebar({
   onSelectSession,
   onAddProject,
   onRemoveProject,
+  onCloneProject,
   onDeleteAgent,
   onNewAgent,
   onOpenSettings,
@@ -40,12 +42,12 @@ export function ProjectSidebar({
     (e: React.FormEvent): void => {
       e.preventDefault()
       if (cloneUrl.trim()) {
-        void window.electronAPI.invoke('projects:clone', cloneUrl.trim())
+        onCloneProject(cloneUrl.trim())
         setCloneUrl('')
         setShowCloneInput(false)
       }
     },
-    [cloneUrl]
+    [cloneUrl, onCloneProject]
   )
 
   const getSessionCount = useCallback(

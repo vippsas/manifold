@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from 'react'
 import type { ManifoldSettings } from '../../shared/types'
-import { DEFAULT_SETTINGS } from '../../shared/types'
+import { DEFAULT_SETTINGS } from '../../shared/defaults'
 import { useIpcListener } from './useIpc'
 
 interface UseSettingsResult {

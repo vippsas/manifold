@@ -1,7 +1,8 @@
 import * as fs from 'node:fs'
 import * as path from 'node:path'
 import * as os from 'node:os'
-import { ManifoldSettings, DEFAULT_SETTINGS } from '../shared/types'
+import type { ManifoldSettings } from '../shared/types'
+import { DEFAULT_SETTINGS } from '../shared/defaults'
 
 const CONFIG_DIR = path.join(os.homedir(), '.manifold')
 const CONFIG_FILE = path.join(CONFIG_DIR, 'config.json')

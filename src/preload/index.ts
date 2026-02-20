@@ -17,6 +17,8 @@ const ALLOWED_INVOKE_CHANNELS = [
   'files:read',
   'files:write',
   'diff:get',
+  'pr:create',
+  'runtimes:list',
   'settings:get',
   'settings:update',
   'branch:suggest',

@@ -48,13 +48,6 @@ export interface ManifoldSettings {
   defaultBaseBranch: string
 }
 
-export const DEFAULT_SETTINGS: ManifoldSettings = {
-  defaultRuntime: 'claude',
-  theme: 'dark',
-  scrollbackLines: 5000,
-  defaultBaseBranch: 'main'
-}
-
 export interface SpawnAgentOptions {
   projectId: string
   runtimeId: string

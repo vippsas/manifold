@@ -1,5 +1,6 @@
-import { ipcMain, dialog } from 'electron'
+import { ipcMain, dialog, BrowserWindow } from 'electron'
 import { execFile } from 'node:child_process'
+import { resolve } from 'node:path'
 import { promisify } from 'node:util'
 import { SpawnAgentOptions, CreatePROptions, ManifoldSettings } from '../shared/types'
 import { SettingsStore } from './settings-store'
@@ -62,8 +63,9 @@ function registerProjectHandlers(deps: IpcDependencies): void {
   })
 
   ipcMain.handle('projects:open-dialog', async (event) => {
-    const window = require('electron').BrowserWindow.fromWebContents(event.sender)
-    const result = await dialog.showOpenDialog(window!, {
+    const window = BrowserWindow.fromWebContents(event.sender)
+    if (!window) throw new Error('No BrowserWindow found for event sender')
+    const result = await dialog.showOpenDialog(window, {
       properties: ['openDirectory']
     })
     if (result.canceled || result.filePaths.length === 0) return undefined
@@ -136,7 +138,7 @@ function registerFileHandlers(deps: IpcDependencies): void {
   ipcMain.handle('files:read', (_event, sessionId: string, filePath: string) => {
     const session = sessionManager.getSession(sessionId)
     if (!session) throw new Error(`Session not found: ${sessionId}`)
-    const resolved = require('node:path').resolve(session.worktreePath, filePath)
+    const resolved = resolve(session.worktreePath, filePath)
     if (!resolved.startsWith(session.worktreePath)) {
       throw new Error('Path traversal denied: file outside worktree')
     }
@@ -146,7 +148,7 @@ function registerFileHandlers(deps: IpcDependencies): void {
   ipcMain.handle('files:write', (_event, sessionId: string, filePath: string, content: string) => {
     const session = sessionManager.getSession(sessionId)
     if (!session) throw new Error(`Session not found: ${sessionId}`)
-    const resolved = require('node:path').resolve(session.worktreePath, filePath)
+    const resolved = resolve(session.worktreePath, filePath)
     if (!resolved.startsWith(session.worktreePath)) {
       throw new Error('Path traversal denied: file outside worktree')
     }

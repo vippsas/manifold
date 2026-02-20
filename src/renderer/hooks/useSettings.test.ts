@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { renderHook, act, waitFor } from '@testing-library/react'
-import { DEFAULT_SETTINGS } from '../../shared/types'
+import { DEFAULT_SETTINGS } from '../../shared/defaults'
 
 const mockInvoke = vi.fn()
 const mockOn = vi.fn(() => vi.fn())

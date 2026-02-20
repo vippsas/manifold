@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { DEFAULT_SETTINGS } from '../shared/types'
+import { DEFAULT_SETTINGS } from '../shared/defaults'
 
 vi.mock('node:fs', () => ({
   existsSync: vi.fn(),

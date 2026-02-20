@@ -16,7 +16,7 @@ import { StatusBar } from './components/StatusBar'
 
 export function App(): React.JSX.Element {
   const { settings, updateSettings } = useSettings()
-  const { projects, activeProjectId, addProject, removeProject, setActiveProject } = useProjects()
+  const { projects, activeProjectId, addProject, cloneProject, removeProject, setActiveProject } = useProjects()
   const { sessions, activeSessionId, activeSession, spawnAgent, deleteAgent, setActiveSession } =
     useAgentSession(activeProjectId)
   const { tree, changes } = useFileWatcher(activeSessionId)
@@ -56,6 +56,7 @@ export function App(): React.JSX.Element {
         onSelectSession={setActiveSession}
         onAddProject={addProject}
         onRemoveProject={removeProject}
+        onCloneProject={(url: string) => void cloneProject(url)}
         onDeleteAgent={deleteAgent}
         onNewAgent={() => setShowNewAgent(true)}
         onOpenSettings={() => setShowSettings(true)}

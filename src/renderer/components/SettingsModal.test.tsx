@@ -2,7 +2,7 @@ import { describe, it, expect, vi } from 'vitest'
 import { render, screen, fireEvent } from '@testing-library/react'
 import React from 'react'
 import { SettingsModal } from './SettingsModal'
-import { DEFAULT_SETTINGS } from '../../shared/types'
+import { DEFAULT_SETTINGS } from '../../shared/defaults'
 
 function renderModal(overrides = {}) {
   const defaultProps = {
