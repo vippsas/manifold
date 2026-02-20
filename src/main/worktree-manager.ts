@@ -8,25 +8,26 @@ export interface WorktreeInfo {
   path: string
 }
 
-const WORKTREE_DIR = '.manifold/worktrees'
-
 export class WorktreeManager {
+  constructor(private storagePath: string) {}
+
   private getGit(projectPath: string): SimpleGit {
     return simpleGit(projectPath)
   }
 
-  private getWorktreeBase(projectPath: string): string {
-    return path.join(projectPath, WORKTREE_DIR)
+  private getWorktreeBase(projectId: string): string {
+    return path.join(this.storagePath, 'worktrees', projectId)
   }
 
   async createWorktree(
     projectPath: string,
     baseBranch: string,
+    projectId: string,
     branchName?: string
   ): Promise<WorktreeInfo> {
     const git = this.getGit(projectPath)
     const branch = branchName ?? (await generateBranchName(projectPath))
-    const worktreeBase = this.getWorktreeBase(projectPath)
+    const worktreeBase = this.getWorktreeBase(projectId)
     fs.mkdirSync(worktreeBase, { recursive: true })
 
     const safeDirName = branch.replace(/\//g, '-')
