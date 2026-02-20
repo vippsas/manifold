@@ -182,11 +182,7 @@ function ProjectItem({
   return (
     <div
       onClick={handleClick}
-      style={{
-        ...sidebarStyles.item,
-        background: isActive ? 'var(--accent)' : 'var(--bg-input)',
-        color: isActive ? '#0f1626' : 'var(--text-primary)',
-      }}
+      style={sidebarStyles.item}
       role="button"
       tabIndex={0}
     >
@@ -248,16 +244,29 @@ function AgentItem({ session, isActive, onSelect, onDelete }: AgentItemProps): R
       style={{
         ...sidebarStyles.agentItem,
         background: isActive ? 'rgba(79, 195, 247, 0.15)' : 'transparent',
-        borderLeftColor: isActive ? 'var(--accent)' : 'transparent',
-        borderLeftWidth: isActive ? '3px' : '2px',
+        opacity: isActive ? 1 : 0.6,
       }}
       title={`${runtimeLabel(session.runtimeId)} - ${session.branchName}`}
     >
       <span className={`status-dot status-dot--${session.status}`} />
-      <span className="truncate" style={sidebarStyles.agentBranch}>
+      <span
+        className="truncate"
+        style={{
+          ...sidebarStyles.agentBranch,
+          color: isActive ? 'var(--accent)' : 'var(--text-secondary)',
+          fontWeight: isActive ? 600 : 400,
+        }}
+      >
         {formatBranch(session.branchName)}
       </span>
-      <span style={sidebarStyles.agentRuntime}>{runtimeLabel(session.runtimeId)}</span>
+      <span
+        style={{
+          ...sidebarStyles.agentRuntime,
+          color: isActive ? 'var(--text-primary)' : 'var(--text-muted)',
+        }}
+      >
+        {runtimeLabel(session.runtimeId)}
+      </span>
       <span
         role="button"
         onClick={handleDelete}

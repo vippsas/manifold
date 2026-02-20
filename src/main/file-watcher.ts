@@ -1,17 +1,28 @@
 import * as fs from 'node:fs'
 import * as path from 'node:path'
-import { watch as chokidarWatch, type FSWatcher } from 'chokidar'
-import { FileTreeNode } from '../shared/types'
+import { spawn } from 'node:child_process'
+import { FileTreeNode, FileChange, FileChangeType } from '../shared/types'
 import type { BrowserWindow } from 'electron'
 
-interface WatchEntry {
-  watcher: FSWatcher
+const POLL_INTERVAL_MS = 2000
+
+interface PollEntry {
+  timer: ReturnType<typeof setInterval>
   sessionId: string
+  lastStatus: string
+  polling: boolean
 }
 
+export type GitStatusFn = (cwd: string) => Promise<string>
+
 export class FileWatcher {
-  private watchers: Map<string, WatchEntry> = new Map()
+  private polls: Map<string, PollEntry> = new Map()
   private mainWindow: BrowserWindow | null = null
+  private gitStatusFn: GitStatusFn
+
+  constructor(gitStatusFn?: GitStatusFn) {
+    this.gitStatusFn = gitStatusFn ?? gitStatus
+  }
 
   setMainWindow(window: BrowserWindow): void {
     this.mainWindow = window
@@ -24,53 +35,54 @@ export class FileWatcher {
   }
 
   watch(worktreePath: string, sessionId: string): void {
-    if (this.watchers.has(worktreePath)) return
+    if (this.polls.has(worktreePath)) return
 
-    const watcher = this.createChokidarWatcher(worktreePath)
-    this.bindWatcherEvents(watcher, worktreePath, sessionId)
-    this.watchers.set(worktreePath, { watcher, sessionId })
-  }
-
-  private createChokidarWatcher(worktreePath: string): FSWatcher {
-    return chokidarWatch(worktreePath, {
-      ignored: [],
-      persistent: true,
-      ignoreInitial: true,
-      awaitWriteFinish: {
-        stabilityThreshold: 300,
-        pollInterval: 100
-      }
-    })
-  }
-
-  private bindWatcherEvents(watcher: FSWatcher, worktreePath: string, sessionId: string): void {
-    const notify = (eventType: string, filePath: string): void => {
-      const relativePath = path.relative(worktreePath, filePath)
-      this.sendToRenderer('files:changed', {
-        sessionId,
-        changes: [{ path: relativePath, type: eventType }]
-      })
+    const entry: PollEntry = {
+      timer: setInterval(() => this.poll(worktreePath), POLL_INTERVAL_MS),
+      sessionId,
+      lastStatus: '',
+      polling: false,
     }
+    this.polls.set(worktreePath, entry)
 
-    watcher.on('add', (filePath: string) => notify('added', filePath))
-    watcher.on('change', (filePath: string) => notify('modified', filePath))
-    watcher.on('unlink', (filePath: string) => notify('deleted', filePath))
+    // Run initial poll immediately
+    void this.poll(worktreePath)
+  }
+
+  private async poll(worktreePath: string): Promise<void> {
+    const entry = this.polls.get(worktreePath)
+    if (!entry || entry.polling) return
+
+    entry.polling = true
+    try {
+      const status = await this.gitStatusFn(worktreePath)
+      if (status !== entry.lastStatus) {
+        const changes = parseStatus(status)
+        entry.lastStatus = status
+        this.sendToRenderer('files:changed', {
+          sessionId: entry.sessionId,
+          changes,
+        })
+      }
+    } catch {
+      // Worktree may not exist yet or git may fail — skip this tick
+    } finally {
+      entry.polling = false
+    }
   }
 
   async unwatch(worktreePath: string): Promise<void> {
-    const entry = this.watchers.get(worktreePath)
+    const entry = this.polls.get(worktreePath)
     if (!entry) return
-    await entry.watcher.close()
-    this.watchers.delete(worktreePath)
+    clearInterval(entry.timer)
+    this.polls.delete(worktreePath)
   }
 
   async unwatchAll(): Promise<void> {
-    const closings: Promise<void>[] = []
-    for (const [, entry] of this.watchers) {
-      closings.push(entry.watcher.close())
+    for (const [, entry] of this.polls) {
+      clearInterval(entry.timer)
     }
-    await Promise.all(closings)
-    this.watchers.clear()
+    this.polls.clear()
   }
 
   getFileTree(dirPath: string): FileTreeNode {
@@ -124,8 +136,48 @@ export class FileWatcher {
   }
 }
 
-function isVisibleEntry(_entry: fs.Dirent): boolean {
-  return true
+function gitStatus(cwd: string): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const child = spawn('git', ['status', '--porcelain'], {
+      cwd,
+      stdio: ['ignore', 'pipe', 'pipe'],
+    })
+
+    const chunks: Buffer[] = []
+    child.stdout!.on('data', (data: Buffer) => chunks.push(data))
+    child.on('error', reject)
+    child.on('close', (code) => {
+      if (code !== 0) reject(new Error(`git status failed (code ${code})`))
+      else resolve(Buffer.concat(chunks).toString('utf8'))
+    })
+  })
+}
+
+function parseStatus(raw: string): FileChange[] {
+  const changes: FileChange[] = []
+  for (const line of raw.split('\n')) {
+    if (line.length < 4) continue
+    const code = line.substring(0, 2)
+    const filePath = line.substring(3)
+
+    let type: FileChangeType = 'modified'
+    if (code.includes('A') || code.includes('?')) type = 'added'
+    else if (code.includes('D')) type = 'deleted'
+
+    changes.push({ path: filePath, type })
+  }
+  return changes
+}
+
+const EXCLUDED_DIRS = new Set([
+  'node_modules', '.git', 'dist', 'build', 'coverage', '.cache', '.turbo',
+  '.next',
+  'target', 'vendor',
+  '__pycache__', '.venv', 'venv', '.mypy_cache', '.pytest_cache', '.ruff_cache',
+])
+
+function isVisibleEntry(entry: fs.Dirent): boolean {
+  return !(entry.isDirectory() && EXCLUDED_DIRS.has(entry.name))
 }
 
 function directoriesFirstComparator(a: fs.Dirent, b: fs.Dirent): number {

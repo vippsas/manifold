@@ -4,6 +4,7 @@ import type { FileTreeNode, FileChange, FileChangeType } from '../../shared/type
 interface FileTreeProps {
   tree: FileTreeNode | null
   changes: FileChange[]
+  activeFilePath: string | null
   expandedPaths: Set<string>
   onToggleExpand: (path: string) => void
   onSelectFile: (path: string) => void
@@ -19,6 +20,7 @@ const CHANGE_INDICATORS: Record<FileChangeType, { color: string; label: string }
 export function FileTree({
   tree,
   changes,
+  activeFilePath,
   expandedPaths,
   onToggleExpand,
   onSelectFile,
@@ -51,6 +53,7 @@ export function FileTree({
             node={tree}
             depth={0}
             changeMap={changeMap}
+            activeFilePath={activeFilePath}
             expandedPaths={expandedPaths}
             onToggleExpand={onToggleExpand}
             onSelectFile={onSelectFile}
@@ -67,6 +70,7 @@ interface TreeNodeProps {
   node: FileTreeNode
   depth: number
   changeMap: Map<string, FileChangeType>
+  activeFilePath: string | null
   expandedPaths: Set<string>
   onToggleExpand: (path: string) => void
   onSelectFile: (path: string) => void
@@ -76,6 +80,7 @@ function TreeNode({
   node,
   depth,
   changeMap,
+  activeFilePath,
   expandedPaths,
   onToggleExpand,
   onSelectFile,
@@ -98,6 +103,7 @@ function TreeNode({
         node={node}
         depth={depth}
         expanded={expanded}
+        isActive={!node.isDirectory && node.path === activeFilePath}
         changeType={changeType ?? null}
         onToggle={handleToggle}
       />
@@ -109,6 +115,7 @@ function TreeNode({
               node={child}
               depth={depth + 1}
               changeMap={changeMap}
+              activeFilePath={activeFilePath}
               expandedPaths={expandedPaths}
               onToggleExpand={onToggleExpand}
               onSelectFile={onSelectFile}
@@ -124,12 +131,14 @@ function NodeRow({
   node,
   depth,
   expanded,
+  isActive,
   changeType,
   onToggle,
 }: {
   node: FileTreeNode
   depth: number
   expanded: boolean
+  isActive: boolean
   changeType: FileChangeType | null
   onToggle: () => void
 }): React.JSX.Element {
@@ -138,15 +147,19 @@ function NodeRow({
   return (
     <div
       onClick={onToggle}
-      style={{ ...treeStyles.node, paddingLeft: `${depth * 16 + 8}px` }}
+      style={{
+        ...treeStyles.node,
+        paddingLeft: `${depth * 16 + 8}px`,
+        ...(isActive ? treeStyles.nodeActive : undefined),
+      }}
       role="button"
       tabIndex={0}
       title={node.path}
     >
       {node.isDirectory && (
-        <span style={treeStyles.chevron}>{expanded ? '\u25BE' : '\u25B8'}</span>
+        <span style={treeStyles.folderIcon}>{expanded ? '\uD83D\uDCC2' : '\uD83D\uDCC1'}</span>
       )}
-      {!node.isDirectory && <span style={treeStyles.fileIcon}>{'\u00A0\u00A0'}</span>}
+      {!node.isDirectory && <span style={treeStyles.fileIcon}>{'\uD83D\uDCC4'}</span>}
       <span
         className="truncate"
         style={{ ...treeStyles.nodeName, fontWeight: node.isDirectory ? 600 : 400 }}
@@ -215,16 +228,21 @@ const treeStyles: Record<string, React.CSSProperties> = {
     lineHeight: '20px',
     color: 'var(--text-primary)',
   },
-  chevron: {
-    width: '12px',
-    fontSize: '10px',
-    color: 'var(--text-muted)',
+  nodeActive: {
+    background: 'rgba(79, 195, 247, 0.12)',
+    color: 'var(--accent)',
+  },
+  folderIcon: {
+    width: '16px',
+    fontSize: '13px',
     flexShrink: 0,
     textAlign: 'center' as const,
   },
   fileIcon: {
-    width: '12px',
+    width: '16px',
+    fontSize: '13px',
     flexShrink: 0,
+    textAlign: 'center' as const,
   },
   nodeName: {
     flex: 1,

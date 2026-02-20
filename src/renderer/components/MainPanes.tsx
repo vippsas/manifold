@@ -118,6 +118,7 @@ export function MainPanes({
                 <FileTree
                   tree={tree}
                   changes={changes}
+                  activeFilePath={activeFilePath}
                   expandedPaths={expandedPaths}
                   onToggleExpand={onToggleExpand}
                   onSelectFile={onSelectFile}

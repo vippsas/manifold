@@ -1,4 +1,6 @@
+// @vitest-environment node
 import { describe, it, expect, vi, beforeEach } from 'vitest'
+import { EventEmitter } from 'node:events'
 
 vi.mock('node:fs', () => ({
   existsSync: vi.fn(),
@@ -21,26 +23,54 @@ vi.mock('uuid', () => ({
   v4: vi.fn(),
 }))
 
-vi.mock('simple-git', () => {
-  const branchFn = vi.fn()
-  const mockGit = { branch: branchFn }
-  return { default: vi.fn(() => mockGit), __mockGit: mockGit }
+vi.mock('node:child_process', () => {
+  return {
+    default: {},
+    spawn: vi.fn(),
+  }
 })
 
 import * as fs from 'node:fs'
 import { v4 as uuidv4 } from 'uuid'
-import simpleGit from 'simple-git'
+import { spawn } from 'node:child_process'
 import { ProjectRegistry } from './project-registry'
 
 const mockExistsSync = vi.mocked(fs.existsSync)
 const mockReadFileSync = vi.mocked(fs.readFileSync)
 const mockWriteFileSync = vi.mocked(fs.writeFileSync)
 const mockUuidv4 = vi.mocked(uuidv4)
+const mockSpawn = vi.mocked(spawn)
 
-function getMockGit() {
-  return (simpleGit as unknown as ReturnType<typeof vi.fn>)() as {
-    branch: ReturnType<typeof vi.fn>
-  }
+/**
+ * Creates a fake ChildProcess that emits stdout data and then closes.
+ * `stdout` is the string output the fake git command should produce.
+ * `exitCode` defaults to 0 (success).
+ */
+function fakeSpawn(stdout: string, exitCode = 0) {
+  const child = new EventEmitter() as any
+  child.stdout = new EventEmitter()
+  child.stderr = new EventEmitter()
+  child.stdio = ['ignore', child.stdout, child.stderr]
+
+  // Emit data and close on next tick so the promise in gitExec can attach listeners first
+  process.nextTick(() => {
+    child.stdout.emit('data', Buffer.from(stdout))
+    child.emit('close', exitCode)
+  })
+
+  return child
+}
+
+/**
+ * Sets up mockSpawn to return specific outputs for sequential git calls.
+ * Each entry in `calls` is { stdout, exitCode? }.
+ */
+function setupGitMock(calls: Array<{ stdout: string; exitCode?: number }>) {
+  let callIndex = 0
+  mockSpawn.mockImplementation(() => {
+    const call = calls[callIndex++] ?? { stdout: '', exitCode: 0 }
+    return fakeSpawn(call.stdout, call.exitCode ?? 0)
+  })
 }
 
 describe('ProjectRegistry', () => {
@@ -97,8 +127,8 @@ describe('ProjectRegistry', () => {
   describe('addProject', () => {
     it('adds a new project and persists to disk', async () => {
       mockExistsSync.mockReturnValue(false)
-      const mockGit = getMockGit()
-      mockGit.branch.mockResolvedValue({ all: ['main'], current: 'main' })
+      // git branch -a --format=... returns 'main'
+      setupGitMock([{ stdout: 'main\n' }])
 
       const registry = new ProjectRegistry()
       const project = await registry.addProject('/my-project')
@@ -113,8 +143,8 @@ describe('ProjectRegistry', () => {
 
     it('detects master as base branch when main is absent', async () => {
       mockExistsSync.mockReturnValue(false)
-      const mockGit = getMockGit()
-      mockGit.branch.mockResolvedValue({ all: ['master'], current: 'master' })
+      // git branch -a --format=... returns only 'master' (no 'main')
+      setupGitMock([{ stdout: 'master\n' }])
 
       const registry = new ProjectRegistry()
       const project = await registry.addProject('/my-project')
@@ -123,8 +153,12 @@ describe('ProjectRegistry', () => {
 
     it('falls back to current branch when neither main nor master exist', async () => {
       mockExistsSync.mockReturnValue(false)
-      const mockGit = getMockGit()
-      mockGit.branch.mockResolvedValue({ all: ['develop'], current: 'develop' })
+      // First call: git branch -a --format=... returns only 'develop' (no main or master)
+      // Second call: git branch --show-current returns 'develop'
+      setupGitMock([
+        { stdout: 'develop\n' },
+        { stdout: 'develop\n' },
+      ])
 
       const registry = new ProjectRegistry()
       const project = await registry.addProject('/my-project')
@@ -133,8 +167,26 @@ describe('ProjectRegistry', () => {
 
     it('falls back to main when git throws', async () => {
       mockExistsSync.mockReturnValue(false)
-      const mockGit = getMockGit()
-      mockGit.branch.mockRejectedValue(new Error('not a git repo'))
+      // git branch -a fails with non-zero exit code
+      setupGitMock([{ stdout: '', exitCode: 128 }])
+
+      const registry = new ProjectRegistry()
+      const project = await registry.addProject('/my-project')
+      expect(project.baseBranch).toBe('main')
+    })
+
+    it('falls back to main when spawn emits error', async () => {
+      mockExistsSync.mockReturnValue(false)
+      mockSpawn.mockImplementation(() => {
+        const child = new EventEmitter() as any
+        child.stdout = new EventEmitter()
+        child.stderr = new EventEmitter()
+        child.stdio = ['ignore', child.stdout, child.stderr]
+        process.nextTick(() => {
+          child.emit('error', new Error('spawn ENOENT'))
+        })
+        return child
+      })
 
       const registry = new ProjectRegistry()
       const project = await registry.addProject('/my-project')
@@ -143,8 +195,8 @@ describe('ProjectRegistry', () => {
 
     it('returns existing project when path already registered (deduplication)', async () => {
       mockExistsSync.mockReturnValue(false)
-      const mockGit = getMockGit()
-      mockGit.branch.mockResolvedValue({ all: ['main'], current: 'main' })
+      // git branch -a --format=... returns 'main'
+      setupGitMock([{ stdout: 'main\n' }])
       mockUuidv4.mockReturnValueOnce('id-1' as ReturnType<typeof uuidv4>)
 
       const registry = new ProjectRegistry()
@@ -159,8 +211,7 @@ describe('ProjectRegistry', () => {
   describe('removeProject', () => {
     it('removes a project by id and persists', async () => {
       mockExistsSync.mockReturnValue(false)
-      const mockGit = getMockGit()
-      mockGit.branch.mockResolvedValue({ all: ['main'], current: 'main' })
+      setupGitMock([{ stdout: 'main\n' }])
 
       const registry = new ProjectRegistry()
       const project = await registry.addProject('/my-project')
@@ -182,8 +233,7 @@ describe('ProjectRegistry', () => {
   describe('getProject', () => {
     it('retrieves a project by id', async () => {
       mockExistsSync.mockReturnValue(false)
-      const mockGit = getMockGit()
-      mockGit.branch.mockResolvedValue({ all: ['main'], current: 'main' })
+      setupGitMock([{ stdout: 'main\n' }])
 
       const registry = new ProjectRegistry()
       const project = await registry.addProject('/my-project')

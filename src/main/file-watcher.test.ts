@@ -1,23 +1,10 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest'
-
-const { mockWatcherClose, mockWatcherOn, mockChokidarWatch } = vi.hoisted(() => {
-  const mockWatcherClose = vi.fn().mockResolvedValue(undefined)
-  const mockWatcherOn = vi.fn()
-  const mockChokidarWatch = vi.fn(() => ({
-    close: mockWatcherClose,
-    on: mockWatcherOn,
-  }))
-  return { mockWatcherClose, mockWatcherOn, mockChokidarWatch }
-})
-
-vi.mock('chokidar', () => ({
-  watch: mockChokidarWatch,
-}))
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 
 vi.mock('node:fs', () => ({
   statSync: vi.fn(),
   readdirSync: vi.fn(),
   readFileSync: vi.fn(),
+  writeFileSync: vi.fn(),
 }))
 
 vi.mock('node:path', () => ({
@@ -45,60 +32,143 @@ function createMockWindow() {
 
 describe('FileWatcher', () => {
   let watcher: FileWatcher
+  let mockGitStatus: ReturnType<typeof vi.fn>
 
   beforeEach(() => {
     vi.clearAllMocks()
-    watcher = new FileWatcher()
+    vi.useFakeTimers()
+    mockGitStatus = vi.fn().mockResolvedValue('')
+    watcher = new FileWatcher(mockGitStatus)
+  })
+
+  afterEach(async () => {
+    await watcher.unwatchAll()
+    vi.useRealTimers()
   })
 
   describe('watch', () => {
-    it('creates a chokidar watcher for the path', () => {
+    it('polls git status for the path', async () => {
       watcher.watch('/repo/worktree', 'session-1')
 
-      expect(mockChokidarWatch).toHaveBeenCalledWith('/repo/worktree', expect.objectContaining({
-        persistent: true,
-        ignoreInitial: true,
-      }))
+      // Initial poll fires immediately (flush microtasks)
+      await vi.advanceTimersByTimeAsync(10)
+
+      expect(mockGitStatus).toHaveBeenCalledWith('/repo/worktree')
     })
 
-    it('does not create duplicate watchers for same path', () => {
+    it('does not create duplicate polls for same path', async () => {
       watcher.watch('/repo/worktree', 'session-1')
       watcher.watch('/repo/worktree', 'session-1')
 
-      expect(mockChokidarWatch).toHaveBeenCalledTimes(1)
+      await vi.advanceTimersByTimeAsync(10)
+
+      expect(mockGitStatus).toHaveBeenCalledTimes(1)
     })
 
-    it('registers add, change, and unlink handlers', () => {
+    it('polls again after the interval', async () => {
       watcher.watch('/repo/worktree', 'session-1')
+      await vi.advanceTimersByTimeAsync(10) // initial poll
 
-      const onCalls = mockWatcherOn.mock.calls.map((c) => c[0])
-      expect(onCalls).toContain('add')
-      expect(onCalls).toContain('change')
-      expect(onCalls).toContain('unlink')
+      await vi.advanceTimersByTimeAsync(2000) // next tick
+
+      expect(mockGitStatus).toHaveBeenCalledTimes(2)
     })
 
-    it('sends file change events to renderer', () => {
+    it('sends files:changed when status changes', async () => {
       const mockWindow = createMockWindow()
       watcher.setMainWindow(mockWindow)
-      watcher.watch('/repo/worktree', 'session-1')
 
-      // Simulate an 'add' event
-      const addHandler = mockWatcherOn.mock.calls.find((c) => c[0] === 'add')![1] as (path: string) => void
-      addHandler('/repo/worktree/src/file.ts')
+      // Initial poll returns empty
+      watcher.watch('/repo/worktree', 'session-1')
+      await vi.advanceTimersByTimeAsync(10)
+
+      // Next poll returns a modified file
+      mockGitStatus.mockResolvedValue(' M src/file.ts\n')
+      await vi.advanceTimersByTimeAsync(2000)
 
       expect(mockWindow.webContents.send).toHaveBeenCalledWith(
         'files:changed',
-        { sessionId: 'session-1', changes: [{ path: 'src/file.ts', type: 'added' }] },
+        {
+          sessionId: 'session-1',
+          changes: [{ path: 'src/file.ts', type: 'modified' }],
+        },
       )
+    })
+
+    it('does not send files:changed when status is unchanged', async () => {
+      const mockWindow = createMockWindow()
+      watcher.setMainWindow(mockWindow)
+
+      mockGitStatus.mockResolvedValue(' M src/file.ts\n')
+      watcher.watch('/repo/worktree', 'session-1')
+      await vi.advanceTimersByTimeAsync(10) // initial poll sends change
+
+      mockWindow.webContents.send.mockClear()
+
+      // Same status on next poll
+      await vi.advanceTimersByTimeAsync(2000)
+
+      expect(mockWindow.webContents.send).not.toHaveBeenCalled()
+    })
+
+    it('skips poll if previous is still running', async () => {
+      // Create a gitStatus that never resolves
+      let resolveHanging: (v: string) => void
+      mockGitStatus.mockReturnValue(new Promise((r) => { resolveHanging = r }))
+
+      watcher.watch('/repo/worktree', 'session-1')
+      await vi.advanceTimersByTimeAsync(10) // initial poll starts (hangs)
+
+      mockGitStatus.mockClear()
+      await vi.advanceTimersByTimeAsync(2000) // next tick — should skip
+
+      expect(mockGitStatus).not.toHaveBeenCalled()
+
+      // Clean up: resolve the hanging promise so afterEach can clean up
+      resolveHanging!('')
+      await vi.advanceTimersByTimeAsync(10)
+    })
+
+    it('parses added, deleted, and untracked files', async () => {
+      const mockWindow = createMockWindow()
+      watcher.setMainWindow(mockWindow)
+
+      const status = 'A  new.ts\n D old.ts\n?? untracked.ts\n M changed.ts\n'
+      mockGitStatus.mockResolvedValue(status)
+      watcher.watch('/repo/worktree', 'session-1')
+      await vi.advanceTimersByTimeAsync(10)
+
+      const call = mockWindow.webContents.send.mock.calls[0]
+      const { changes } = call[1] as { changes: Array<{ path: string; type: string }> }
+      expect(changes).toContainEqual({ path: 'new.ts', type: 'added' })
+      expect(changes).toContainEqual({ path: 'old.ts', type: 'deleted' })
+      expect(changes).toContainEqual({ path: 'untracked.ts', type: 'added' })
+      expect(changes).toContainEqual({ path: 'changed.ts', type: 'modified' })
+    })
+
+    it('handles git errors gracefully', async () => {
+      const mockWindow = createMockWindow()
+      watcher.setMainWindow(mockWindow)
+
+      mockGitStatus.mockRejectedValue(new Error('not a git repo'))
+      watcher.watch('/repo/worktree', 'session-1')
+      await vi.advanceTimersByTimeAsync(10)
+
+      // No crash, no event sent
+      expect(mockWindow.webContents.send).not.toHaveBeenCalled()
     })
   })
 
   describe('unwatch', () => {
-    it('closes the watcher and removes it', async () => {
+    it('stops polling for the path', async () => {
       watcher.watch('/repo/worktree', 'session-1')
-      await watcher.unwatch('/repo/worktree')
+      await vi.advanceTimersByTimeAsync(10)
+      mockGitStatus.mockClear()
 
-      expect(mockWatcherClose).toHaveBeenCalled()
+      await watcher.unwatch('/repo/worktree')
+      await vi.advanceTimersByTimeAsync(2000)
+
+      expect(mockGitStatus).not.toHaveBeenCalled()
     })
 
     it('does nothing for unwatched paths', async () => {
@@ -107,39 +177,32 @@ describe('FileWatcher', () => {
   })
 
   describe('unwatchAll', () => {
-    it('closes all watchers', async () => {
+    it('stops all polls', async () => {
       watcher.watch('/repo/wt1', 'session-1')
       watcher.watch('/repo/wt2', 'session-2')
+      await vi.advanceTimersByTimeAsync(10)
+      mockGitStatus.mockClear()
 
       await watcher.unwatchAll()
+      await vi.advanceTimersByTimeAsync(2000)
 
-      expect(mockWatcherClose).toHaveBeenCalledTimes(2)
+      expect(mockGitStatus).not.toHaveBeenCalled()
     })
   })
 
   describe('getFileTree', () => {
     it('builds a tree for a directory', () => {
-      mockStatSync.mockReturnValue({
-        isDirectory: () => true,
-      } as unknown as fs.Stats)
-
-      mockReaddirSync.mockReturnValue([
-        { name: 'file.ts', isDirectory: () => false },
-        { name: 'src', isDirectory: () => true },
-      ] as unknown as fs.Dirent[])
-
-      // For recursive calls: src is a dir with no children, file.ts is a file
       mockStatSync
-        .mockReturnValueOnce({ isDirectory: () => true } as unknown as fs.Stats) // root
-        .mockReturnValueOnce({ isDirectory: () => true } as unknown as fs.Stats) // src (directories first)
-        .mockReturnValueOnce({ isDirectory: () => false } as unknown as fs.Stats) // file.ts
+        .mockReturnValueOnce({ isDirectory: () => true } as unknown as fs.Stats)
+        .mockReturnValueOnce({ isDirectory: () => true } as unknown as fs.Stats)
+        .mockReturnValueOnce({ isDirectory: () => false } as unknown as fs.Stats)
 
       mockReaddirSync
         .mockReturnValueOnce([
           { name: 'file.ts', isDirectory: () => false },
           { name: 'src', isDirectory: () => true },
         ] as unknown as fs.Dirent[])
-        .mockReturnValueOnce([] as unknown as fs.Dirent[]) // src is empty
+        .mockReturnValueOnce([] as unknown as fs.Dirent[])
 
       const tree = watcher.getFileTree('/repo/worktree')
 
@@ -148,22 +211,11 @@ describe('FileWatcher', () => {
       expect(tree.children).toBeDefined()
     })
 
-    it('filters out hidden files and node_modules', () => {
-      mockStatSync.mockReturnValue({
-        isDirectory: () => true,
-      } as unknown as fs.Stats)
-
-      mockReaddirSync.mockReturnValue([
-        { name: '.git', isDirectory: () => true },
-        { name: 'node_modules', isDirectory: () => true },
-        { name: '.env', isDirectory: () => false },
-        { name: 'index.ts', isDirectory: () => false },
-      ] as unknown as fs.Dirent[])
-
-      // Only index.ts should be processed
+    it('filters out node_modules and .git directories but shows dotfiles', () => {
       mockStatSync
         .mockReturnValueOnce({ isDirectory: () => true } as unknown as fs.Stats)
-        .mockReturnValueOnce({ isDirectory: () => false } as unknown as fs.Stats) // index.ts
+        .mockReturnValueOnce({ isDirectory: () => false } as unknown as fs.Stats)
+        .mockReturnValueOnce({ isDirectory: () => false } as unknown as fs.Stats)
 
       mockReaddirSync.mockReturnValueOnce([
         { name: '.git', isDirectory: () => true },
@@ -175,9 +227,9 @@ describe('FileWatcher', () => {
       const tree = watcher.getFileTree('/repo/worktree')
       const childNames = tree.children?.map((c) => c.name) ?? []
       expect(childNames).toContain('index.ts')
+      expect(childNames).toContain('.env')
       expect(childNames).not.toContain('.git')
       expect(childNames).not.toContain('node_modules')
-      expect(childNames).not.toContain('.env')
     })
 
     it('returns a file node when path is not a directory', () => {

@@ -1,188 +1,188 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
+import { EventEmitter } from 'node:events'
+import type { ChildProcess } from 'node:child_process'
 
-const mockAdd = vi.fn()
-const mockDiff = vi.fn()
-const mockDiffSummary = vi.fn()
-const mockStatus = vi.fn()
+// ---------- mocks ----------
 
-vi.mock('simple-git', () => ({
-  default: vi.fn(() => ({
-    add: mockAdd,
-    diff: mockDiff,
-    diffSummary: mockDiffSummary,
-    status: mockStatus,
-  })),
+const { spawnMock, existsSyncMock } = vi.hoisted(() => ({
+  spawnMock: vi.fn(),
+  existsSyncMock: vi.fn(() => true),
+}))
+
+vi.mock('node:fs', () => ({
+  default: { existsSync: existsSyncMock },
+  existsSync: existsSyncMock,
+}))
+
+vi.mock('node:child_process', () => ({
+  default: { spawn: spawnMock },
+  spawn: spawnMock,
 }))
 
 import { DiffProvider } from './diff-provider'
+
+// ---------- helpers ----------
+
+/**
+ * Creates a fake ChildProcess that emits stdout data and then closes.
+ * Data emission is deferred via process.nextTick so callers can attach listeners first.
+ */
+function fakeChild(stdout: string, stderr = '', exitCode = 0): ChildProcess {
+  const child = new EventEmitter() as ChildProcess & {
+    stdout: EventEmitter
+    stderr: EventEmitter
+  }
+  child.stdout = new EventEmitter()
+  child.stderr = new EventEmitter()
+
+  process.nextTick(() => {
+    if (stdout) {
+      child.stdout.emit('data', Buffer.from(stdout))
+    }
+    if (stderr) {
+      child.stderr.emit('data', Buffer.from(stderr))
+    }
+    child.emit('close', exitCode)
+  })
+
+  return child
+}
+
+/**
+ * Queues a spawn mock that lazily creates a fakeChild when spawn() is actually called.
+ * This ensures process.nextTick fires after the implementation attaches listeners.
+ */
+function queueSpawn(stdout: string, stderr = '', exitCode = 0): void {
+  spawnMock.mockImplementationOnce(() => fakeChild(stdout, stderr, exitCode))
+}
+
+// ---------- tests ----------
 
 describe('DiffProvider', () => {
   let provider: DiffProvider
 
   beforeEach(() => {
     vi.clearAllMocks()
+    existsSyncMock.mockReturnValue(true)
     provider = new DiffProvider()
   })
 
+  // ---- getDiff ----
+
   describe('getDiff', () => {
-    it('stages all changes and returns combined diff', async () => {
-      mockAdd.mockResolvedValue(undefined)
-      mockDiff
-        .mockResolvedValueOnce('committed diff')
-        .mockResolvedValueOnce('staged diff')
+    it('stages all changes and returns cached diff against base branch', async () => {
+      queueSpawn('') // git add .
+      queueSpawn('the full diff') // git diff --cached main
 
       const result = await provider.getDiff('/worktree', 'main')
 
-      expect(mockAdd).toHaveBeenCalledWith('.')
-      expect(mockDiff).toHaveBeenCalledWith(['main...HEAD'])
-      expect(mockDiff).toHaveBeenCalledWith(['--cached'])
-      expect(result).toBe('committed diff\nstaged diff')
+      expect(spawnMock).toHaveBeenCalledWith('git', ['add', '.'], expect.objectContaining({ cwd: '/worktree' }))
+      expect(spawnMock).toHaveBeenCalledWith('git', ['diff', '--cached', 'main'], expect.objectContaining({ cwd: '/worktree' }))
+      expect(result).toBe('the full diff')
     })
 
-    it('returns only committed diff when no staged changes', async () => {
-      mockAdd.mockResolvedValue(undefined)
-      mockDiff
-        .mockResolvedValueOnce('committed diff')
-        .mockResolvedValueOnce('')
-
-      const result = await provider.getDiff('/worktree', 'main')
-      expect(result).toBe('committed diff')
-    })
-
-    it('returns only staged diff when no committed changes', async () => {
-      mockAdd.mockResolvedValue(undefined)
-      mockDiff
-        .mockResolvedValueOnce('')
-        .mockResolvedValueOnce('staged diff')
-
-      const result = await provider.getDiff('/worktree', 'main')
-      expect(result).toBe('staged diff')
-    })
-
-    it('returns empty string when no diffs at all', async () => {
-      mockAdd.mockResolvedValue(undefined)
-      mockDiff
-        .mockResolvedValueOnce('')
-        .mockResolvedValueOnce('')
+    it('returns empty string when diff produces no output', async () => {
+      queueSpawn('') // git add
+      queueSpawn('') // git diff --cached
 
       const result = await provider.getDiff('/worktree', 'main')
       expect(result).toBe('')
     })
 
     it('continues even if git add fails', async () => {
-      mockAdd.mockRejectedValue(new Error('nothing to add'))
-      mockDiff
-        .mockResolvedValueOnce('diff')
-        .mockResolvedValueOnce('')
+      queueSpawn('', 'nothing to add', 1) // git add fails
+      queueSpawn('diff output') // git diff still succeeds
 
       const result = await provider.getDiff('/worktree', 'main')
-      expect(result).toBe('diff')
+      expect(result).toBe('diff output')
+    })
+
+    it('returns empty string when worktree path does not exist', async () => {
+      existsSyncMock.mockReturnValue(false)
+
+      const result = await provider.getDiff('/nonexistent', 'main')
+
+      expect(result).toBe('')
+      expect(spawnMock).not.toHaveBeenCalled()
+    })
+
+    it('uses the correct base branch in the diff command', async () => {
+      queueSpawn('') // git add
+      queueSpawn('branch diff') // git diff --cached develop
+
+      const result = await provider.getDiff('/worktree', 'develop')
+
+      expect(spawnMock).toHaveBeenCalledWith('git', ['diff', '--cached', 'develop'], expect.objectContaining({ cwd: '/worktree' }))
+      expect(result).toBe('branch diff')
     })
   })
 
-  describe('getChangedFiles', () => {
-    it('returns committed and uncommitted changes', async () => {
-      mockDiffSummary.mockResolvedValue({
-        files: [
-          { file: 'src/new.ts', binary: false, insertions: 10, deletions: 0 },
-          { file: 'src/old.ts', binary: false, insertions: 0, deletions: 5 },
-          { file: 'src/mod.ts', binary: false, insertions: 3, deletions: 2 },
-        ],
-      })
+  // ---- getChangedFiles ----
 
-      mockStatus.mockResolvedValue({
-        created: [],
-        modified: ['src/extra.ts'],
-        deleted: [],
-      })
+  describe('getChangedFiles', () => {
+    it('returns file changes parsed from numstat output', async () => {
+      const numstat = [
+        '10\t0\tsrc/new.ts',
+        '0\t5\tsrc/old.ts',
+        '3\t2\tsrc/mod.ts',
+      ].join('\n')
+
+      queueSpawn('') // git add
+      queueSpawn(numstat) // git diff --cached --numstat
 
       const changes = await provider.getChangedFiles('/worktree', 'main')
 
       expect(changes).toContainEqual({ path: 'src/new.ts', type: 'added' })
       expect(changes).toContainEqual({ path: 'src/old.ts', type: 'deleted' })
       expect(changes).toContainEqual({ path: 'src/mod.ts', type: 'modified' })
-      expect(changes).toContainEqual({ path: 'src/extra.ts', type: 'modified' })
     })
 
-    it('deduplicates files between committed and status', async () => {
-      mockDiffSummary.mockResolvedValue({
-        files: [
-          { file: 'src/file.ts', binary: false, insertions: 1, deletions: 1 },
-        ],
-      })
+    it('returns empty array when worktree path does not exist', async () => {
+      existsSyncMock.mockReturnValue(false)
 
-      mockStatus.mockResolvedValue({
-        created: [],
-        modified: ['src/file.ts'],
-        deleted: [],
-      })
+      const changes = await provider.getChangedFiles('/nonexistent', 'main')
 
-      const changes = await provider.getChangedFiles('/worktree', 'main')
-      const filePaths = changes.map((c) => c.path)
-      expect(filePaths.filter((p) => p === 'src/file.ts')).toHaveLength(1)
+      expect(changes).toEqual([])
+      expect(spawnMock).not.toHaveBeenCalled()
     })
 
-    it('handles binary files as modified', async () => {
-      mockDiffSummary.mockResolvedValue({
-        files: [
-          { file: 'image.png', binary: true, before: 0, after: 0 },
-        ],
-      })
-
-      mockStatus.mockResolvedValue({
-        created: [],
-        modified: [],
-        deleted: [],
-      })
+    it('returns empty array when numstat output is empty', async () => {
+      queueSpawn('') // git add
+      queueSpawn('') // git diff --cached --numstat (empty)
 
       const changes = await provider.getChangedFiles('/worktree', 'main')
-      expect(changes).toContainEqual({ path: 'image.png', type: 'modified' })
-    })
 
-    it('handles diffSummary failure gracefully', async () => {
-      mockDiffSummary.mockRejectedValue(new Error('no commits'))
-      mockStatus.mockResolvedValue({
-        created: ['new-file.ts'],
-        modified: [],
-        deleted: [],
-      })
-
-      const changes = await provider.getChangedFiles('/worktree', 'main')
-      expect(changes).toContainEqual({ path: 'new-file.ts', type: 'added' })
-    })
-
-    it('handles status failure gracefully', async () => {
-      mockDiffSummary.mockResolvedValue({
-        files: [
-          { file: 'src/file.ts', binary: false, insertions: 5, deletions: 0 },
-        ],
-      })
-      mockStatus.mockRejectedValue(new Error('status failed'))
-
-      const changes = await provider.getChangedFiles('/worktree', 'main')
-      expect(changes).toHaveLength(1)
-      expect(changes[0].path).toBe('src/file.ts')
-    })
-
-    it('returns empty array when both fail', async () => {
-      mockDiffSummary.mockRejectedValue(new Error('fail'))
-      mockStatus.mockRejectedValue(new Error('fail'))
-
-      const changes = await provider.getChangedFiles('/worktree', 'main')
       expect(changes).toEqual([])
     })
 
-    it('includes created files from status', async () => {
-      mockDiffSummary.mockResolvedValue({ files: [] })
-      mockStatus.mockResolvedValue({
-        created: ['brand-new.ts'],
-        modified: [],
-        deleted: ['removed.ts'],
-      })
+    it('handles diff failure gracefully by returning empty array', async () => {
+      queueSpawn('') // git add
+      queueSpawn('', 'no commits', 128) // diff fails
 
       const changes = await provider.getChangedFiles('/worktree', 'main')
-      expect(changes).toContainEqual({ path: 'brand-new.ts', type: 'added' })
-      expect(changes).toContainEqual({ path: 'removed.ts', type: 'deleted' })
+
+      expect(changes).toEqual([])
+    })
+
+    it('handles binary files (shown as dashes in numstat) as modified', async () => {
+      const numstat = '-\t-\timage.png'
+
+      queueSpawn('') // git add
+      queueSpawn(numstat) // git diff --cached --numstat
+
+      const changes = await provider.getChangedFiles('/worktree', 'main')
+
+      // Binary files have '-' for insertions/deletions, parsed as 0/0 → type stays 'modified'
+      expect(changes).toContainEqual({ path: 'image.png', type: 'modified' })
+    })
+
+    it('continues even if git add fails before numstat', async () => {
+      queueSpawn('', 'error', 1) // git add fails
+      queueSpawn('5\t0\tsrc/file.ts') // diff still works
+
+      const changes = await provider.getChangedFiles('/worktree', 'main')
+
+      expect(changes).toContainEqual({ path: 'src/file.ts', type: 'added' })
     })
   })
 })

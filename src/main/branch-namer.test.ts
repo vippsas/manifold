@@ -1,16 +1,40 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
+import { EventEmitter } from 'node:events'
 
-const mockExecFile = vi.fn()
-
-vi.mock('node:child_process', () => ({
-  execFile: mockExecFile,
+const { mockSpawn } = vi.hoisted(() => ({
+  mockSpawn: vi.fn(),
 }))
 
-vi.mock('node:util', () => ({
-  promisify: () => mockExecFile,
-}))
+vi.mock('node:child_process', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('node:child_process')>()
+  return {
+    ...actual,
+    default: { ...actual, spawn: mockSpawn },
+    spawn: mockSpawn,
+  }
+})
 
 import { generateBranchName, slugifyCity } from './branch-namer'
+
+/**
+ * Creates a fake child process that emits stdout data and then closes with code 0.
+ */
+function fakeSpawnSuccess(stdout: string): void {
+  mockSpawn.mockImplementation(() => {
+    const child = new EventEmitter() as EventEmitter & { stdout: EventEmitter }
+    child.stdout = new EventEmitter()
+
+    // Emit data and close asynchronously so listeners are attached first
+    process.nextTick(() => {
+      if (stdout) {
+        child.stdout.emit('data', Buffer.from(stdout))
+      }
+      child.emit('close', 0)
+    })
+
+    return child
+  })
+}
 
 describe('slugifyCity', () => {
   it('converts Norwegian characters ae, o, a', () => {
@@ -60,24 +84,21 @@ describe('generateBranchName', () => {
   })
 
   it('returns the first city slug when no branches exist', async () => {
-    mockExecFile.mockResolvedValue({ stdout: '', stderr: '' })
+    fakeSpawnSuccess('')
 
     const name = await generateBranchName('/repo')
     expect(name).toBe('manifold/oslo')
   })
 
   it('skips already-taken branch names', async () => {
-    mockExecFile.mockResolvedValue({ stdout: 'manifold/oslo\n', stderr: '' })
+    fakeSpawnSuccess('manifold/oslo\n')
 
     const name = await generateBranchName('/repo')
     expect(name).toBe('manifold/bergen')
   })
 
   it('skips multiple taken names', async () => {
-    mockExecFile.mockResolvedValue({
-      stdout: 'manifold/oslo\nmanifold/bergen\nmanifold/trondheim\n',
-      stderr: '',
-    })
+    fakeSpawnSuccess('manifold/oslo\nmanifold/bergen\nmanifold/trondheim\n')
 
     const name = await generateBranchName('/repo')
     expect(name).toBe('manifold/stavanger')
@@ -108,14 +129,14 @@ describe('generateBranchName', () => {
     ]
 
     const allBranches = allBaseNames.map((slug) => `manifold/${slug}`).join('\n')
-    mockExecFile.mockResolvedValue({ stdout: allBranches + '\n', stderr: '' })
+    fakeSpawnSuccess(allBranches + '\n')
 
     const name = await generateBranchName('/repo')
     expect(name).toBe('manifold/oslo-2')
   })
 
   it('result always starts with manifold/ prefix', async () => {
-    mockExecFile.mockResolvedValue({ stdout: '', stderr: '' })
+    fakeSpawnSuccess('')
 
     const name = await generateBranchName('/repo')
     expect(name).toMatch(/^manifold\//)
