@@ -18,6 +18,7 @@ interface UseAgentSessionResult {
   activeSession: AgentSession | null
   spawnAgent: (options: SpawnAgentOptions) => Promise<AgentSession | null>
   killAgent: (sessionId: string) => Promise<void>
+  deleteAgent: (sessionId: string) => void
   setActiveSession: (sessionId: string) => void
 }
 
@@ -31,6 +32,7 @@ export function useAgentSession(projectId: string | null): UseAgentSessionResult
 
   const spawnAgent = useSpawnAgent(setSessions, setActiveSessionId)
   const killAgent = useKillAgent()
+  const deleteAgent = useDeleteAgent(setSessions, setActiveSessionId)
 
   const setActiveSession = useCallback((sessionId: string): void => {
     setActiveSessionId(sessionId)
@@ -38,7 +40,7 @@ export function useAgentSession(projectId: string | null): UseAgentSessionResult
 
   const activeSession = sessions.find((s) => s.id === activeSessionId) ?? null
 
-  return { sessions, activeSessionId, activeSession, spawnAgent, killAgent, setActiveSession }
+  return { sessions, activeSessionId, activeSession, spawnAgent, killAgent, deleteAgent, setActiveSession }
 }
 
 function useFetchSessionsOnProjectChange(
@@ -133,4 +135,18 @@ function useKillAgent(): (sessionId: string) => Promise<void> {
       // Agent may already be dead
     }
   }, [])
+}
+
+function useDeleteAgent(
+  setSessions: React.Dispatch<React.SetStateAction<AgentSession[]>>,
+  setActiveSessionId: React.Dispatch<React.SetStateAction<string | null>>
+): (sessionId: string) => void {
+  return useCallback(
+    (sessionId: string): void => {
+      setSessions((prev) => prev.filter((s) => s.id !== sessionId))
+      setActiveSessionId((prev) => (prev === sessionId ? null : prev))
+      void window.electronAPI.invoke('agent:kill', sessionId).catch(() => {})
+    },
+    [setSessions, setActiveSessionId]
+  )
 }

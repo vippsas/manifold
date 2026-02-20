@@ -39,6 +39,7 @@ function renderSidebar(overrides = {}) {
     onSelectSession: vi.fn(),
     onAddProject: vi.fn(),
     onRemoveProject: vi.fn(),
+    onDeleteAgent: vi.fn(),
     onNewAgent: vi.fn(),
     onOpenSettings: vi.fn(),
     ...overrides,
@@ -195,5 +196,28 @@ describe('ProjectSidebar', () => {
 
     // Active project p1 shows agents inline, not a count badge
     expect(screen.queryByText('2')).not.toBeInTheDocument()
+  })
+
+  it('calls onDeleteAgent when agent delete button is clicked', () => {
+    const { props } = renderSidebar()
+
+    fireEvent.click(screen.getByLabelText('Delete oslo'))
+
+    expect(props.onDeleteAgent).toHaveBeenCalledWith('s1')
+  })
+
+  it('does not trigger onSelectSession when delete button is clicked', () => {
+    const { props } = renderSidebar()
+
+    fireEvent.click(screen.getByLabelText('Delete oslo'))
+
+    expect(props.onSelectSession).not.toHaveBeenCalled()
+  })
+
+  it('renders delete button for each agent', () => {
+    renderSidebar()
+
+    expect(screen.getByLabelText('Delete oslo')).toBeInTheDocument()
+    expect(screen.getByLabelText('Delete bergen')).toBeInTheDocument()
   })
 })

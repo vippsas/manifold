@@ -95,6 +95,15 @@ export const sidebarStyles: Record<string, React.CSSProperties> = {
     color: 'var(--text-secondary)',
     flexShrink: 0,
   },
+  agentDeleteButton: {
+    fontSize: '14px',
+    color: 'var(--text-muted)',
+    padding: '0 2px',
+    lineHeight: 1,
+    opacity: 0.6,
+    flexShrink: 0,
+    cursor: 'pointer',
+  },
   newAgentButton: {
     display: 'flex',
     alignItems: 'center',

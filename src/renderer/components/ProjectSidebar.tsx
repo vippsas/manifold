@@ -11,6 +11,7 @@ interface ProjectSidebarProps {
   onSelectSession: (id: string) => void
   onAddProject: (path?: string) => void
   onRemoveProject: (id: string) => void
+  onDeleteAgent: (id: string) => void
   onNewAgent: () => void
   onOpenSettings: () => void
 }
@@ -24,6 +25,7 @@ export function ProjectSidebar({
   onSelectSession,
   onAddProject,
   onRemoveProject,
+  onDeleteAgent,
   onNewAgent,
   onOpenSettings,
 }: ProjectSidebarProps): React.JSX.Element {
@@ -72,6 +74,7 @@ export function ProjectSidebar({
         getSessionCount={getSessionCount}
         onSelectProject={onSelectProject}
         onSelectSession={onSelectSession}
+        onDeleteAgent={onDeleteAgent}
         onNewAgent={onNewAgent}
         onRemove={handleRemove}
       />
@@ -107,6 +110,7 @@ interface ProjectListProps {
   getSessionCount: (id: string) => number
   onSelectProject: (id: string) => void
   onSelectSession: (id: string) => void
+  onDeleteAgent: (id: string) => void
   onNewAgent: () => void
   onRemove: (e: React.MouseEvent, id: string) => void
 }
@@ -119,6 +123,7 @@ function ProjectList({
   getSessionCount,
   onSelectProject,
   onSelectSession,
+  onDeleteAgent,
   onNewAgent,
   onRemove,
 }: ProjectListProps): React.JSX.Element {
@@ -145,6 +150,7 @@ function ProjectList({
                 session={session}
                 isActive={session.id === activeSessionId}
                 onSelect={onSelectSession}
+                onDelete={onDeleteAgent}
               />
             ))}
             {isActive && (
@@ -238,12 +244,21 @@ interface AgentItemProps {
   session: AgentSession
   isActive: boolean
   onSelect: (id: string) => void
+  onDelete: (id: string) => void
 }
 
-function AgentItem({ session, isActive, onSelect }: AgentItemProps): React.JSX.Element {
+function AgentItem({ session, isActive, onSelect, onDelete }: AgentItemProps): React.JSX.Element {
   const handleClick = useCallback((): void => {
     onSelect(session.id)
   }, [onSelect, session.id])
+
+  const handleDelete = useCallback(
+    (e: React.MouseEvent): void => {
+      e.stopPropagation()
+      onDelete(session.id)
+    },
+    [onDelete, session.id]
+  )
 
   return (
     <button
@@ -260,6 +275,15 @@ function AgentItem({ session, isActive, onSelect }: AgentItemProps): React.JSX.E
         {formatBranch(session.branchName)}
       </span>
       <span style={sidebarStyles.agentRuntime}>{runtimeLabel(session.runtimeId)}</span>
+      <span
+        role="button"
+        onClick={handleDelete}
+        style={sidebarStyles.agentDeleteButton}
+        aria-label={`Delete ${formatBranch(session.branchName)}`}
+        title="Delete agent"
+      >
+        &times;
+      </span>
     </button>
   )
 }

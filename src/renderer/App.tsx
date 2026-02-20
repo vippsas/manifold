@@ -17,7 +17,7 @@ import { StatusBar } from './components/StatusBar'
 export function App(): React.JSX.Element {
   const { settings, updateSettings } = useSettings()
   const { projects, activeProjectId, addProject, removeProject, setActiveProject } = useProjects()
-  const { sessions, activeSessionId, activeSession, spawnAgent, setActiveSession } =
+  const { sessions, activeSessionId, activeSession, spawnAgent, deleteAgent, setActiveSession } =
     useAgentSession(activeProjectId)
   const { tree, changes } = useFileWatcher(activeSessionId)
   const { diff, changedFiles } = useDiff(activeSessionId)
@@ -56,6 +56,7 @@ export function App(): React.JSX.Element {
         onSelectSession={setActiveSession}
         onAddProject={addProject}
         onRemoveProject={removeProject}
+        onDeleteAgent={deleteAgent}
         onNewAgent={() => setShowNewAgent(true)}
         onOpenSettings={() => setShowSettings(true)}
       />
