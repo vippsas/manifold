@@ -695,3 +695,26 @@ select:focus {
 .git-panel-link:hover {
   text-decoration: underline;
 }
+
+/* ─── Monaco Diff Gutter Decorations ─── */
+.diff-gutter-added {
+  background: var(--success) !important;
+  width: 3px !important;
+  margin-left: 3px;
+}
+.diff-line-added {
+  background: rgba(40, 167, 69, 0.1) !important;
+}
+.diff-gutter-modified {
+  background: var(--accent) !important;
+  width: 3px !important;
+  margin-left: 3px;
+}
+.diff-line-modified {
+  background: rgba(79, 195, 247, 0.1) !important;
+}
+.diff-gutter-deleted {
+  background: var(--error) !important;
+  width: 3px !important;
+  margin-left: 3px;
+}
