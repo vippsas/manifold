@@ -58,10 +58,6 @@ export class SessionManager {
     this.wireOutputStreaming(ptyHandle.id, session)
     this.wireExitHandling(ptyHandle.id, session)
 
-    if (options.prompt) {
-      this.ptyPool.write(ptyHandle.id, options.prompt + '\n')
-    }
-
     // Persist runtime and task description so they survive app restarts
     writeWorktreeMeta(worktree.path, {
       runtimeId: options.runtimeId,
