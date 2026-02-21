@@ -2,7 +2,7 @@ import { ipcMain } from 'electron'
 import { mkdirSync } from 'node:fs'
 import { ManifoldSettings, SessionViewState } from '../../shared/types'
 import { SavedShellState } from '../shell-tab-store'
-import { listRuntimes } from '../runtimes'
+import { listRuntimesWithStatus } from '../runtimes'
 import type { IpcDependencies } from './types'
 
 export function registerSettingsHandlers(deps: IpcDependencies): void {
@@ -22,7 +22,7 @@ export function registerSettingsHandlers(deps: IpcDependencies): void {
 
 export function registerRuntimesHandler(): void {
   ipcMain.handle('runtimes:list', () => {
-    return listRuntimes()
+    return listRuntimesWithStatus()
   })
 }
 
