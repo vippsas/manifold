@@ -48,7 +48,10 @@ export class ProjectRegistry {
       if (branches.includes('master')) return 'master'
       // Get current branch
       const current = await gitExec(['branch', '--show-current'], projectPath)
-      return current.trim() || 'main'
+      if (current.trim()) return current.trim()
+      // Empty repo — read the unborn branch name from HEAD
+      const symref = await gitExec(['symbolic-ref', '--short', 'HEAD'], projectPath)
+      return symref.trim() || 'main'
     } catch {
       return 'main'
     }

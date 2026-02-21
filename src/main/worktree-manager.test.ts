@@ -131,6 +131,35 @@ describe('WorktreeManager', () => {
 
       expect(result.path).toContain('repo-nested-branch')
     })
+
+    it('bootstraps an empty repo with an initial commit before creating worktree', async () => {
+      mockSpawnSequence([
+        { stdout: '', exitCode: 128, stderr: 'fatal: invalid reference: main' }, // rev-parse --verify main
+        { stdout: '', exitCode: 128, stderr: 'fatal: bad default revision' },    // rev-parse HEAD (empty repo)
+        { stdout: '' },                                                           // commit --allow-empty
+        { stdout: '' },                                                           // worktree add
+      ])
+
+      const result = await manager.createWorktree('/repo', 'main', 'proj-1', 'repo/oslo')
+
+      expect(mockSpawn).toHaveBeenCalledWith(
+        'git',
+        ['commit', '--allow-empty', '-m', 'Initial commit'],
+        { cwd: '/repo', stdio: ['ignore', 'pipe', 'pipe'] }
+      )
+      expect(result.branch).toBe('repo/oslo')
+    })
+
+    it('throws when baseBranch is missing in a non-empty repo', async () => {
+      mockSpawnSequence([
+        { stdout: '', exitCode: 128, stderr: 'fatal: invalid reference: develop' }, // rev-parse --verify develop
+        { stdout: 'abc123\n' },                                                      // rev-parse HEAD (has commits)
+      ])
+
+      await expect(
+        manager.createWorktree('/repo', 'develop', 'proj-1', 'repo/oslo')
+      ).rejects.toThrow('Base branch "develop" does not exist')
+    })
   })
 
   describe('removeWorktree', () => {
