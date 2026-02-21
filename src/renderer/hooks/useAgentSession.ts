@@ -61,9 +61,12 @@ function useFetchSessionsOnProjectChange(
       try {
         const result = (await window.electronAPI.invoke('agent:sessions', projectId)) as AgentSession[]
         setSessions(result)
-        if (result.length > 0) {
-          setActiveSessionId((prev) => prev ?? result[0].id)
-        }
+        setActiveSessionId((prev) => {
+          // Keep current selection if it belongs to this project's sessions
+          if (prev && result.some((s) => s.id === prev)) return prev
+          // Otherwise select the first session or clear
+          return result.length > 0 ? result[0].id : null
+        })
       } catch {
         // IPC not ready yet during init, sessions will arrive via events
       }
