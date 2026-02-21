@@ -73,6 +73,26 @@ export class GitOperationsManager {
       return ''
     }
   }
+
+  async getPRContext(
+    worktreePath: string,
+    baseBranch: string
+  ): Promise<{ commits: string; diffStat: string; diffPatch: string }> {
+    try {
+      const [logResult, statResult, diffResult] = await Promise.all([
+        execFileAsync('git', ['log', '--oneline', `${baseBranch}..HEAD`], { cwd: worktreePath }),
+        execFileAsync('git', ['diff', '--stat', `${baseBranch}..HEAD`], { cwd: worktreePath }),
+        execFileAsync('git', ['diff', `${baseBranch}..HEAD`], { cwd: worktreePath }),
+      ])
+      return {
+        commits: logResult.stdout.trim(),
+        diffStat: statResult.stdout.trim(),
+        diffPatch: diffResult.stdout.trim().slice(0, 6000),
+      }
+    } catch {
+      return { commits: '', diffStat: '', diffPatch: '' }
+    }
+  }
 }
 
 function parseConflicts(porcelain: string): string[] {

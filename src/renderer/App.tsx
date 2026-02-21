@@ -251,6 +251,7 @@ export function App(): React.JSX.Element {
           branchName={activeSession.branchName}
           baseBranch={activeProject?.baseBranch ?? settings.defaultBaseBranch}
           onAiGenerate={gitOps.aiGenerate}
+          getPRContext={gitOps.getPRContext}
           onClose={handleClosePanel}
         />
       )}
