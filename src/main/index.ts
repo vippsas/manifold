@@ -67,6 +67,7 @@ import { FileWatcher } from './file-watcher'
 import { DiffProvider } from './diff-provider'
 import { PrCreator } from './pr-creator'
 import { ViewStateStore } from './view-state-store'
+import { ShellTabStore } from './shell-tab-store'
 import { registerIpcHandlers } from './ipc-handlers'
 
 let mainWindow: BrowserWindow | null = null
@@ -81,6 +82,7 @@ const fileWatcher = new FileWatcher()
 const diffProvider = new DiffProvider()
 const prCreator = new PrCreator()
 const viewStateStore = new ViewStateStore()
+const shellTabStore = new ShellTabStore()
 
 // Resolve background color for the stored theme setting.
 // The renderer sends the actual background after loading the theme adapter,
@@ -143,6 +145,7 @@ function wireModules(window: BrowserWindow): void {
     diffProvider,
     prCreator,
     viewStateStore,
+    shellTabStore,
   })
 }
 
