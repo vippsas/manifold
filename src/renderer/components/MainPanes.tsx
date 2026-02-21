@@ -7,6 +7,7 @@ import { TerminalPane } from './TerminalPane'
 import { ShellTabs } from './ShellTabs'
 import { CodeViewer } from './CodeViewer'
 import { FileTree } from './FileTree'
+import { ModifiedFiles } from './ModifiedFiles'
 import { OnboardingView } from './OnboardingView'
 
 interface MainPanesProps {
@@ -16,9 +17,12 @@ interface MainPanesProps {
   centerFraction: number
   rightPaneFraction: number
   bottomPaneFraction: number
-  handleDividerMouseDown: (divider: 'left' | 'right' | 'bottom') => (e: React.MouseEvent) => void
+  handleDividerMouseDown: (divider: 'left' | 'right' | 'bottom' | 'fileTreeSplit') => (e: React.MouseEvent) => void
   paneVisibility: PaneVisibility
   onClosePane: (pane: PaneName) => void
+  fileTreeSplitFraction: number
+  rightPaneRef: RefObject<HTMLDivElement>
+  worktreeRoot: string | null
   sessionId: string | null
   worktreeShellSessionId: string | null
   projectShellSessionId: string | null
@@ -52,6 +56,9 @@ export function MainPanes({
   handleDividerMouseDown,
   paneVisibility,
   onClosePane,
+  fileTreeSplitFraction,
+  rightPaneRef,
+  worktreeRoot,
   sessionId,
   worktreeShellSessionId,
   projectShellSessionId,
@@ -147,17 +154,47 @@ export function MainPanes({
                     />
                   )}
 
-                  <div className="layout-pane" style={{ flex: showCenter ? `0 0 ${rightAreaRightFraction * 100}%` : 1 }}>
-                    <FileTree
-                      tree={tree}
-                      changes={changes}
-                      activeFilePath={activeFilePath}
-                      expandedPaths={expandedPaths}
-                      onToggleExpand={onToggleExpand}
-                      onSelectFile={onSelectFile}
-                      onShowDiff={onShowDiff}
-                      onClose={() => onClosePane('right')}
+                  <div
+                    ref={rightPaneRef}
+                    className="layout-pane"
+                    style={{
+                      flex: showCenter ? `0 0 ${rightAreaRightFraction * 100}%` : 1,
+                      display: 'flex',
+                      flexDirection: 'column',
+                      overflow: 'hidden',
+                    }}
+                  >
+                    {/* File Tree (top portion) */}
+                    <div style={{ flex: `0 0 ${(1 - fileTreeSplitFraction) * 100}%`, overflow: 'hidden', minHeight: 0 }}>
+                      <FileTree
+                        tree={tree}
+                        changes={changes}
+                        activeFilePath={activeFilePath}
+                        expandedPaths={expandedPaths}
+                        onToggleExpand={onToggleExpand}
+                        onSelectFile={onSelectFile}
+                        onShowDiff={onShowDiff}
+                        onClose={() => onClosePane('right')}
+                      />
+                    </div>
+
+                    {/* Divider between File Tree and Modified Files */}
+                    <div
+                      className="pane-divider-horizontal"
+                      onMouseDown={handleDividerMouseDown('fileTreeSplit')}
+                      role="separator"
+                      aria-orientation="horizontal"
                     />
+
+                    {/* Modified Files (bottom portion) */}
+                    <div style={{ flex: `0 0 ${fileTreeSplitFraction * 100}%`, overflow: 'hidden', minHeight: 0 }}>
+                      <ModifiedFiles
+                        changes={changes}
+                        activeFilePath={activeFilePath}
+                        worktreeRoot={worktreeRoot ?? ''}
+                        onSelectFile={onSelectFile}
+                      />
+                    </div>
                   </div>
                 </>
               )}
