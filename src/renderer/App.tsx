@@ -305,6 +305,9 @@ export function App(): React.JSX.Element {
           handleDividerMouseDown={paneResize.handleDividerMouseDown}
           paneVisibility={paneResize.paneVisibility}
           onClosePane={paneResize.togglePane}
+          fileTreeSplitFraction={paneResize.fileTreeSplitFraction}
+          rightPaneRef={paneResize.rightPaneRef}
+          worktreeRoot={tree?.path ?? null}
           sessionId={activeSessionId}
           worktreeShellSessionId={worktreeSessionId}
           projectShellSessionId={projectSessionId}
