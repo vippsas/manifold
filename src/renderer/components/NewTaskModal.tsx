@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react'
-import type { SpawnAgentOptions, AgentRuntime } from '../../shared/types'
+import type { SpawnAgentOptions, AgentRuntime, Project } from '../../shared/types'
 import { deriveBranchName } from '../../shared/derive-branch-name'
 import { modalStyles } from './NewTaskModal.styles'
 
@@ -10,6 +10,8 @@ interface NewTaskModalProps {
   defaultRuntime: string
   onLaunch: (options: SpawnAgentOptions) => void
   onClose: () => void
+  /** When provided, show a project selector (center button case) */
+  projects?: Project[]
 }
 
 export function NewTaskModal({
@@ -19,6 +21,7 @@ export function NewTaskModal({
   defaultRuntime,
   onLaunch,
   onClose,
+  projects,
 }: NewTaskModalProps): React.JSX.Element | null {
   const [taskDescription, setTaskDescription] = useState('')
   const [runtimeId, setRuntimeId] = useState(defaultRuntime)
@@ -27,11 +30,22 @@ export function NewTaskModal({
   const [showAdvanced, setShowAdvanced] = useState(false)
   const [loading, setLoading] = useState(false)
   const [runtimes, setRuntimes] = useState<AgentRuntime[]>([])
+  const [selectedProjectId, setSelectedProjectId] = useState(projectId)
   const overlayRef = useRef<HTMLDivElement>(null)
   const textareaRef = useRef<HTMLTextAreaElement>(null)
 
+  const showProjectSelector = projects != null && projects.length > 1
+  const effectiveProjectId = showProjectSelector ? selectedProjectId : projectId
+  const effectiveProjectName = showProjectSelector
+    ? (projects.find((p) => p.id === selectedProjectId)?.name ?? projectName)
+    : projectName
+
+  useEffect(() => {
+    if (visible) setSelectedProjectId(projectId)
+  }, [visible, projectId])
+
   useResetOnOpen(visible, defaultRuntime, setTaskDescription, setRuntimeId, setBranchName, setBranchEdited, setShowAdvanced, setLoading)
-  useDebouncedBranchDerivation(taskDescription, branchEdited, setBranchName, projectName)
+  useDebouncedBranchDerivation(taskDescription, branchEdited, setBranchName, effectiveProjectName)
   useAutoFocus(visible, textareaRef)
 
   useEffect(() => {
@@ -51,13 +65,13 @@ export function NewTaskModal({
       if (!canSubmit) return
       setLoading(true)
       onLaunch({
-        projectId,
+        projectId: effectiveProjectId,
         runtimeId,
         prompt: taskDescription.trim(),
         branchName: branchName.trim() || undefined,
       })
     },
-    [projectId, runtimeId, taskDescription, branchName, canSubmit, onLaunch]
+    [effectiveProjectId, runtimeId, taskDescription, branchName, canSubmit, onLaunch]
   )
 
   const handleOverlayClick = useCallback(
@@ -94,6 +108,13 @@ export function NewTaskModal({
       <form onSubmit={handleSubmit} style={modalStyles.panel}>
         <ModalHeader onClose={onClose} />
         <div style={modalStyles.body}>
+          {showProjectSelector && (
+            <ProjectDropdown
+              value={selectedProjectId}
+              onChange={setSelectedProjectId}
+              projects={projects}
+            />
+          )}
           <TaskDescriptionField
             value={taskDescription}
             onChange={setTaskDescription}
@@ -110,7 +131,7 @@ export function NewTaskModal({
             onToggle={() => setShowAdvanced((p) => !p)}
             branchName={branchName}
             onBranchChange={handleBranchChange}
-            projectName={projectName}
+            projectName={effectiveProjectName}
           />
         </div>
         <ModalFooter onClose={onClose} canSubmit={canSubmit} loading={loading} />
@@ -203,6 +224,33 @@ function TaskDescriptionField({
         Describe what you want the agent to work on — used for branch naming and tracking
       </p>
     </div>
+  )
+}
+
+function ProjectDropdown({
+  value,
+  onChange,
+  projects,
+}: {
+  value: string
+  onChange: (v: string) => void
+  projects: Project[]
+}): React.JSX.Element {
+  return (
+    <label style={modalStyles.label}>
+      Project
+      <select
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        style={modalStyles.select}
+      >
+        {projects.map((p) => (
+          <option key={p.id} value={p.id}>
+            {p.name}
+          </option>
+        ))}
+      </select>
+    </label>
   )
 }
 

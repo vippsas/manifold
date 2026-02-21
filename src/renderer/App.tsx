@@ -91,6 +91,7 @@ export function App(): React.JSX.Element {
 
   const [activePanel, setActivePanel] = useState<'commit' | 'pr' | 'conflicts' | null>(null)
   const [showNewAgent, setShowNewAgent] = useState(false)
+  const [showProjectPicker, setShowProjectPicker] = useState(false)
   const [showSettings, setShowSettings] = useState(false)
 
   const { themeId, themeClass, xtermTheme, setPreviewThemeId } = useTheme(settings.theme)
@@ -122,6 +123,7 @@ export function App(): React.JSX.Element {
 
   const handleNewAgentForProject = useCallback((projectId: string): void => {
     if (projectId !== activeProjectId) setActiveProject(projectId)
+    setShowProjectPicker(false)
     setShowNewAgent(true)
   }, [activeProjectId, setActiveProject])
 
@@ -223,7 +225,7 @@ export function App(): React.JSX.Element {
           xtermTheme={xtermTheme}
           tree={tree}
           changes={mergedChanges}
-          onNewAgent={() => setShowNewAgent(true)}
+          onNewAgent={() => { setShowProjectPicker(true); setShowNewAgent(true) }}
           onSelectFile={handleSelectFile}
           onCloseFile={codeView.handleCloseFile}
           onSaveFile={codeView.handleSaveFile}
@@ -287,6 +289,7 @@ export function App(): React.JSX.Element {
           defaultRuntime={settings.defaultRuntime}
           onLaunch={handleLaunchAgent}
           onClose={() => setShowNewAgent(false)}
+          projects={showProjectPicker ? projects : undefined}
         />
       )}
 
