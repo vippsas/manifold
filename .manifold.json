@@ -1,1 +1,1 @@
-{"runtimeId":"claude"}
+{"runtimeId":"claude","taskDescription":"Please locate the .manifold.json file in the same directory as where we have all projects. We set this location in the settings."}
