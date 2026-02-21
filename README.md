@@ -18,6 +18,7 @@ On first launch, Manifold presents a welcome dialog to configure your storage lo
 ```bash
 npm run dev          # Start Electron in dev mode (hot reload)
 npm run build        # Production build
+npm run dist         # Build + package macOS DMG
 npm run typecheck    # Full typecheck (main + renderer)
 npm test             # Run all tests
 npm run test:watch   # Watch mode
@@ -52,12 +53,19 @@ Electron three-process model with strict context isolation:
 | `StatusDetector` | Pattern-matches PTY output to detect agent status |
 | `DiffProvider` | Git diff between worktree branch and base branch |
 | `FileWatcher` | Watches worktree directories, pushes change events to renderer |
+| `GitOperationsManager` | Commit, AI-generated commit messages, ahead/behind counts, conflict resolution |
+| `PrCreator` | Creates GitHub PRs via `gh` CLI for agent worktree branches |
+| `ShellTabStore` | Persists shell tab layout per worktree across app restarts |
+| `ViewStateStore` | Persists per-session UI state (open files, active tab, code view mode) |
+| `BranchNamer` | AI-generated branch name suggestions from task descriptions |
+| `Runtimes` | Discovers available agent CLIs on the system |
 
 ### Renderer
 
 - **`App.tsx`** — Root component, composes hooks, props drilling (no context providers)
-- **Hooks** (`src/renderer/hooks/`) — Domain-specific state management
+- **Hooks** (`src/renderer/hooks/`) — Domain-specific state management (one hook per domain)
 - **Components** (`src/renderer/components/`) — Presentational: sidebar, terminals, code viewer, file tree
+- **Styles** — Co-located `*.styles.ts` files exporting plain objects (not CSS modules)
 
 ### Tech Stack
 

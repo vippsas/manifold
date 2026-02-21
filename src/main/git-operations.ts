@@ -1,4 +1,4 @@
-import { execFile } from 'node:child_process'
+import { execFile, spawn } from 'node:child_process'
 import { writeFile } from 'node:fs/promises'
 import { join, resolve, normalize } from 'node:path'
 import { promisify } from 'node:util'
@@ -6,7 +6,7 @@ import type { AheadBehind } from '../shared/types'
 
 const execFileAsync = promisify(execFile)
 
-const AI_GENERATE_TIMEOUT_MS = 15_000
+const AI_GENERATE_TIMEOUT_MS = 30_000
 
 export class GitOperationsManager {
   async commit(worktreePath: string, message: string): Promise<void> {
@@ -61,17 +61,39 @@ export class GitOperationsManager {
     prompt: string,
     cwd: string
   ): Promise<string> {
-    try {
-      const { stdout } = await execFileAsync(
-        runtimeBinary,
-        ['-p', prompt],
-        { cwd, timeout: AI_GENERATE_TIMEOUT_MS }
-      )
-      return stdout.trim()
-    } catch {
-      // Generation may timeout or binary may not exist — return empty for user to fill
-      return ''
-    }
+    return new Promise((resolve) => {
+      const child = spawn(runtimeBinary, ['-p'], {
+        cwd,
+        stdio: ['pipe', 'pipe', 'pipe'],
+      })
+
+      const chunks: Buffer[] = []
+      child.stdout.on('data', (data: Buffer) => chunks.push(data))
+
+      const timer = setTimeout(() => {
+        child.kill('SIGTERM')
+      }, AI_GENERATE_TIMEOUT_MS)
+
+      child.on('error', (err) => {
+        clearTimeout(timer)
+        console.error('[aiGenerate] spawn failed:', err.message)
+        resolve('')
+      })
+
+      child.on('close', (code) => {
+        clearTimeout(timer)
+        const result = Buffer.concat(chunks).toString('utf8').trim()
+        if (code === 0 && result) {
+          resolve(result)
+        } else {
+          console.error('[aiGenerate] failed: exit code', code)
+          resolve('')
+        }
+      })
+
+      child.stdin.write(prompt)
+      child.stdin.end()
+    })
   }
 
   async getPRContext(

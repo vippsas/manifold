@@ -21,7 +21,9 @@ export function PRPanel({
   const [title, setTitle] = useState(formatBranchAsTitle(branchName))
   const [description, setDescription] = useState('')
   const [generatingTitle, setGeneratingTitle] = useState(false)
+  const [generateTitleError, setGenerateTitleError] = useState(false)
   const [generatingDesc, setGeneratingDesc] = useState(false)
+  const [generateDescError, setGenerateDescError] = useState(false)
   const [creating, setCreating] = useState(false)
   const [prUrl, setPrUrl] = useState<string | null>(null)
   const [context, setContext] = useState<PRContext | null>(null)
@@ -32,25 +34,39 @@ export function PRPanel({
 
   const generateTitle = useCallback(async (ctx: PRContext): Promise<void> => {
     setGeneratingTitle(true)
-    const prompt = `Write a short pull request title (\u226460 chars, imperative mood) for these changes. Output only the title, nothing else.\n\nCommits:\n${ctx.commits}\n\nFiles changed:\n${ctx.diffStat}`
-    const result = await onAiGenerate(prompt)
-    if (result) setTitle(result)
-    setGeneratingTitle(false)
+    setGenerateTitleError(false)
+    try {
+      const prompt = `Write a short pull request title (\u226460 chars, imperative mood) for these changes. Output only the title, nothing else.\n\nCommits:\n${ctx.commits}\n\nFiles changed:\n${ctx.diffStat}`
+      const result = await onAiGenerate(prompt)
+      if (result) {
+        setTitle(result)
+      } else {
+        setGenerateTitleError(true)
+      }
+    } catch {
+      setGenerateTitleError(true)
+    } finally {
+      setGeneratingTitle(false)
+    }
   }, [onAiGenerate])
 
   const generateDescription = useCallback(async (ctx: PRContext): Promise<void> => {
     setGeneratingDesc(true)
-    const prompt = `Write a pull request description in markdown. Include a brief summary and a bullet-point list of changes. Output only the markdown, nothing else.\n\nCommits:\n${ctx.commits}\n\nFiles changed:\n${ctx.diffStat}\n\nDiff (truncated):\n${ctx.diffPatch}`
-    const result = await onAiGenerate(prompt)
-    if (result) setDescription(result)
-    setGeneratingDesc(false)
+    setGenerateDescError(false)
+    try {
+      const prompt = `Write a pull request description in markdown. Include a brief summary and a bullet-point list of changes. Output only the markdown, nothing else.\n\nCommits:\n${ctx.commits}\n\nFiles changed:\n${ctx.diffStat}\n\nDiff (truncated):\n${ctx.diffPatch}`
+      const result = await onAiGenerate(prompt)
+      if (result) {
+        setDescription(result)
+      } else {
+        setGenerateDescError(true)
+      }
+    } catch {
+      setGenerateDescError(true)
+    } finally {
+      setGeneratingDesc(false)
+    }
   }, [onAiGenerate])
-
-  useEffect(() => {
-    if (!context) return
-    void generateTitle(context)
-    void generateDescription(context)
-  }, [context, generateTitle, generateDescription])
 
   const handleCreate = async (): Promise<void> => {
     if (creating) return
@@ -109,22 +125,48 @@ export function PRPanel({
         </div>
 
         <div className="git-panel-section">
-          <label className="git-panel-label">Title</label>
+          <div className="git-panel-label-row">
+            <label className="git-panel-label">Title</label>
+            <button
+              className="git-panel-btn git-panel-btn--small git-panel-btn--accent"
+              onClick={() => context && void generateTitle(context)}
+              disabled={generatingTitle || !context}
+              title="Generate PR title with AI"
+            >
+              {generatingTitle ? 'Generating\u2026' : '\u2726 AI'}
+            </button>
+          </div>
+          {generateTitleError && (
+            <span className="git-panel-error">AI generation failed — enter a title manually</span>
+          )}
           <input
             className="git-panel-input"
             value={title}
             onChange={(e) => setTitle(e.target.value)}
-            placeholder={generatingTitle ? 'Generating title\u2026' : 'PR title'}
+            placeholder="PR title"
           />
         </div>
 
         <div className="git-panel-section">
-          <label className="git-panel-label">Description</label>
+          <div className="git-panel-label-row">
+            <label className="git-panel-label">Description</label>
+            <button
+              className="git-panel-btn git-panel-btn--small git-panel-btn--accent"
+              onClick={() => context && void generateDescription(context)}
+              disabled={generatingDesc || !context}
+              title="Generate PR description with AI"
+            >
+              {generatingDesc ? 'Generating\u2026' : '\u2726 AI'}
+            </button>
+          </div>
+          {generateDescError && (
+            <span className="git-panel-error">AI generation failed — enter a description manually</span>
+          )}
           <textarea
             className="git-panel-textarea"
             value={description}
             onChange={(e) => setDescription(e.target.value)}
-            placeholder={generatingDesc ? 'Generating description\u2026' : 'PR description'}
+            placeholder="PR description"
             rows={8}
           />
         </div>

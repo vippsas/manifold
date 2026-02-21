@@ -18,17 +18,28 @@ export function CommitPanel({
 }: CommitPanelProps): React.JSX.Element {
   const [message, setMessage] = useState('')
   const [generating, setGenerating] = useState(false)
+  const [generateError, setGenerateError] = useState(false)
   const [committing, setCommitting] = useState(false)
   const textareaRef = useRef<HTMLTextAreaElement>(null)
 
   const handleGenerate = async (): Promise<void> => {
     if (generating || !diff) return
     setGenerating(true)
-    const prompt = `Write a concise git commit message (subject line only, imperative mood, \u226472 chars) for the following diff. Output only the message, nothing else.\n\n${diff.slice(0, 8000)}`
-    const result = await onAiGenerate(prompt)
-    if (result) setMessage(result)
-    setGenerating(false)
-    textareaRef.current?.focus()
+    setGenerateError(false)
+    try {
+      const prompt = `Write a concise git commit message (subject line only, imperative mood, \u226472 chars) for the following diff. Output only the message, nothing else.\n\n${diff.slice(0, 8000)}`
+      const result = await onAiGenerate(prompt)
+      if (result) {
+        setMessage(result)
+      } else {
+        setGenerateError(true)
+      }
+    } catch {
+      setGenerateError(true)
+    } finally {
+      setGenerating(false)
+      textareaRef.current?.focus()
+    }
   }
 
   const handleCommit = async (): Promise<void> => {
@@ -78,6 +89,9 @@ export function CommitPanel({
               {generating ? 'Generating\u2026' : '\u2726 AI'}
             </button>
           </div>
+          {generateError && (
+            <span className="git-panel-error">AI generation failed — enter a message manually</span>
+          )}
           <textarea
             ref={textareaRef}
             className="git-panel-textarea"
