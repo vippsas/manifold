@@ -1,8 +1,10 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
+import { EventEmitter } from 'node:events'
 
-const { mockExecFileAsync, mockWriteFile } = vi.hoisted(() => ({
+const { mockExecFileAsync, mockWriteFile, mockSpawn } = vi.hoisted(() => ({
   mockExecFileAsync: vi.fn(),
   mockWriteFile: vi.fn(),
+  mockSpawn: vi.fn(),
 }))
 
 vi.mock('node:util', () => ({
@@ -13,6 +15,11 @@ vi.mock('node:util', () => ({
 vi.mock('node:fs/promises', () => ({
   writeFile: mockWriteFile,
   default: { writeFile: mockWriteFile },
+}))
+
+vi.mock('node:child_process', () => ({
+  execFile: vi.fn(),
+  spawn: mockSpawn,
 }))
 
 import { GitOperationsManager } from './git-operations'
@@ -183,32 +190,53 @@ describe('GitOperationsManager', () => {
   // ---- aiGenerate ----
 
   describe('aiGenerate', () => {
-    it('returns trimmed stdout', async () => {
-      mockExecFileAsync.mockResolvedValue({
-        stdout: '  generated commit message  \n',
-        stderr: '',
+    function createMockChild(stdout: string, exitCode: number) {
+      const child = Object.assign(new EventEmitter(), {
+        stdout: new EventEmitter(),
+        stdin: { write: vi.fn(), end: vi.fn() },
+        kill: vi.fn(),
       })
+      mockSpawn.mockReturnValue(child)
+      process.nextTick(() => {
+        if (stdout) child.stdout.emit('data', Buffer.from(stdout))
+        child.emit('close', exitCode)
+      })
+      return child
+    }
+
+    it('pipes prompt via stdin and returns trimmed stdout', async () => {
+      const child = createMockChild('  generated commit message  \n', 0)
 
       const result = await git.aiGenerate('/usr/local/bin/claude', 'write a message', '/worktree')
 
       expect(result).toBe('generated commit message')
-      expect(mockExecFileAsync).toHaveBeenCalledWith(
+      expect(mockSpawn).toHaveBeenCalledWith(
         '/usr/local/bin/claude',
-        ['-p', 'write a message'],
-        { cwd: '/worktree', timeout: 15_000 },
+        ['-p'],
+        { cwd: '/worktree', stdio: ['pipe', 'pipe', 'pipe'] },
       )
+      expect(child.stdin.write).toHaveBeenCalledWith('write a message')
+      expect(child.stdin.end).toHaveBeenCalled()
     })
 
-    it('returns empty string on timeout/error', async () => {
-      mockExecFileAsync.mockRejectedValue(new Error('ETIMEDOUT'))
+    it('returns empty string on non-zero exit', async () => {
+      createMockChild('', 1)
 
       const result = await git.aiGenerate('/usr/local/bin/claude', 'prompt', '/worktree')
 
       expect(result).toBe('')
     })
 
-    it('returns empty string when binary not found', async () => {
-      mockExecFileAsync.mockRejectedValue(new Error('ENOENT'))
+    it('returns empty string on spawn error', async () => {
+      const child = Object.assign(new EventEmitter(), {
+        stdout: new EventEmitter(),
+        stdin: { write: vi.fn(), end: vi.fn() },
+        kill: vi.fn(),
+      })
+      mockSpawn.mockReturnValue(child)
+      process.nextTick(() => {
+        child.emit('error', new Error('ENOENT'))
+      })
 
       const result = await git.aiGenerate('/nonexistent/binary', 'prompt', '/cwd')
 
