@@ -1,1 +1,5 @@
+<<<<<<< HEAD
 {"runtimeId":"claude","taskDescription":"Please locate the .manifold.json file in the same directory as where we have all projects. We set this location in the settings."}
+=======
+{"runtimeId":"claude","taskDescription":"When clicking a link from within this application,  then I want it to open in the default browser"}
+>>>>>>> origin/main

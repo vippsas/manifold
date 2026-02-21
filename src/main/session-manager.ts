@@ -57,7 +57,6 @@ export class SessionManager {
 
     this.wireOutputStreaming(ptyHandle.id, session)
     this.wireExitHandling(ptyHandle.id, session)
-    this.sendInitialPrompt(ptyHandle.id, options.prompt)
 
     // Persist runtime and task description so they survive app restarts
     writeWorktreeMeta(worktree.path, {
@@ -272,12 +271,6 @@ export class SessionManager {
       session.pid = null
       this.sendToRenderer('agent:status', { sessionId: session.id, status: 'done' })
     })
-  }
-
-  private sendInitialPrompt(ptyId: string, prompt: string): void {
-    if (!prompt) return
-    // Write immediately — PTY stdin buffers until the agent reads it
-    try { this.ptyPool.write(ptyId, prompt + '\n') } catch { /* PTY may have exited */ }
   }
 
   private toPublicSession(session: InternalSession): AgentSession {
