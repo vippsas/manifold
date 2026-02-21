@@ -53,6 +53,8 @@ export function ShellTabs({
   // Cache extra shells per agent so they survive agent switches
   const extraShellCacheRef = useRef(new Map<string, { shells: ExtraShell[]; counter: number }>())
   const agentKey = worktreeSessionId ?? '__none__'
+  // Use worktree path as persistence key (stable across restarts, unlike session IDs)
+  const persistKey = worktreeCwd ?? '__none__'
 
   // Get or initialize cache entry for current agent
   if (!extraShellCacheRef.current.has(agentKey)) {
@@ -81,13 +83,13 @@ export function ShellTabs({
     (shells: ExtraShell[], counter: number) => {
       if (!worktreeCwd) return
       if (shells.length === 0) {
-        void window.electronAPI.invoke('shell-tabs:set', agentKey, { tabs: [], counter })
+        void window.electronAPI.invoke('shell-tabs:set', persistKey, { tabs: [], counter })
       } else {
         const tabs = shells.map((s) => ({ label: s.label, cwd: worktreeCwd }))
-        void window.electronAPI.invoke('shell-tabs:set', agentKey, { tabs, counter })
+        void window.electronAPI.invoke('shell-tabs:set', persistKey, { tabs, counter })
       }
     },
-    [agentKey, worktreeCwd]
+    [persistKey, worktreeCwd]
   )
 
   // Track which agents have been restored to avoid duplicate restores
@@ -96,16 +98,16 @@ export function ShellTabs({
 
   // Restore saved tabs from disk on agent switch
   useEffect(() => {
-    if (!worktreeCwd || agentKey === '__none__') return
-    if (restoredRef.current.has(agentKey)) return
+    if (!worktreeCwd || persistKey === '__none__') return
+    if (restoredRef.current.has(persistKey)) return
     // If cache already has shells for this agent, skip restore (already in memory)
     const entry = extraShellCacheRef.current.get(agentKey)
     if (entry && entry.shells.length > 0) return
 
-    restoredRef.current.add(agentKey)
+    restoredRef.current.add(persistKey)
 
     void (async () => {
-      const saved = (await window.electronAPI.invoke('shell-tabs:get', agentKey)) as {
+      const saved = (await window.electronAPI.invoke('shell-tabs:get', persistKey)) as {
         tabs: { label: string; cwd: string }[]
         counter: number
       } | null
@@ -131,12 +133,12 @@ export function ShellTabs({
         setExtraShells(shells)
       }
     })()
-  }, [agentKey, worktreeCwd])
+  }, [agentKey, persistKey, worktreeCwd])
 
   // Persist tabs to disk whenever extraShells changes
   useEffect(() => {
     // Don't persist until restore has had a chance to run
-    if (!restoredRef.current.has(agentKey)) return
+    if (!restoredRef.current.has(persistKey)) return
     const entry = extraShellCacheRef.current.get(agentKey)
     if (!entry) return
     persistTabs(extraShells, entry.counter)
