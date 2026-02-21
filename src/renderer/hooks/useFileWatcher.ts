@@ -9,6 +9,7 @@ interface UseFileWatcherResult {
   error: string | null
   refreshTree: () => Promise<void>
   readFile: (filePath: string) => Promise<string | null>
+  deleteFile: (filePath: string) => Promise<boolean>
 }
 
 export function useFileWatcher(
@@ -77,6 +78,19 @@ export function useFileWatcher(
     [sessionId]
   )
 
+  const deleteFile = useCallback(
+    async (filePath: string): Promise<boolean> => {
+      if (!sessionId) return false
+      try {
+        await window.electronAPI.invoke('files:delete', sessionId, filePath)
+        return true
+      } catch {
+        return false
+      }
+    },
+    [sessionId]
+  )
+
   return {
     tree,
     changes,
@@ -84,5 +98,6 @@ export function useFileWatcher(
     error,
     refreshTree,
     readFile,
+    deleteFile,
   }
 }

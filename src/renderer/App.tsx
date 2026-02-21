@@ -43,7 +43,7 @@ export function App(): React.JSX.Element {
     void refreshDiff()
   }, [codeView.refreshOpenFiles, refreshDiff])
 
-  const { tree, changes: watcherChanges } = useFileWatcher(activeSessionId, handleFilesChanged)
+  const { tree, changes: watcherChanges, deleteFile } = useFileWatcher(activeSessionId, handleFilesChanged)
 
   // Merge both change sources: useDiff (committed changes vs base branch) and
   // useFileWatcher (uncommitted changes from git status polling). The watcher
@@ -77,6 +77,16 @@ export function App(): React.JSX.Element {
       }
     },
     [viewState.expandAncestors, codeView.handleSelectFile, paneResize.paneVisibility.center, paneResize.togglePane]
+  )
+
+  const handleDeleteFile = useCallback(
+    async (filePath: string): Promise<void> => {
+      const success = await deleteFile(filePath)
+      if (success) {
+        codeView.handleCloseFile(filePath)
+      }
+    },
+    [deleteFile, codeView.handleCloseFile]
   )
 
   useSessionStatePersistence(activeSessionId, viewState, codeView)
@@ -229,6 +239,7 @@ export function App(): React.JSX.Element {
           onSelectFile={handleSelectFile}
           onCloseFile={codeView.handleCloseFile}
           onSaveFile={codeView.handleSaveFile}
+          onDeleteFile={handleDeleteFile}
           expandedPaths={viewState.expandedPaths}
           onToggleExpand={viewState.onToggleExpand}
         />
