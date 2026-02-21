@@ -128,7 +128,6 @@ export function MainPanes({
                     activeFilePath={activeFilePath}
                     fileContent={fileContent}
                     theme={theme}
-                    worktreeRoot={tree?.path ?? null}
                     onSelectTab={onSelectFile}
                     onCloseTab={onCloseFile}
                     onSaveFile={onSaveFile}

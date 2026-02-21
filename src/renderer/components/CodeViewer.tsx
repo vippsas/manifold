@@ -5,7 +5,7 @@ import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
 import type { OpenFile } from '../hooks/useCodeView'
 import { viewerStyles } from './CodeViewer.styles'
-import { extensionToLanguage, isMarkdownFile, fileName } from './code-viewer-utils'
+import { extensionToLanguage, isMarkdownFile, fileName, parseDiffToLineRanges } from './code-viewer-utils'
 
 interface CodeViewerProps {
   fileDiffText: string | null
@@ -13,7 +13,6 @@ interface CodeViewerProps {
   activeFilePath: string | null
   fileContent: string | null
   theme: string
-  worktreeRoot: string | null
   onSelectTab: (filePath: string) => void
   onCloseTab: (filePath: string) => void
   onSaveFile?: (content: string) => void
@@ -34,7 +33,7 @@ const EDITABLE_OPTIONS = { ...BASE_EDITOR_OPTIONS, readOnly: false }
 
 export function CodeViewer({
   fileDiffText, openFiles, activeFilePath, fileContent, theme,
-  worktreeRoot, onSelectTab, onCloseTab, onSaveFile, onClose,
+  onSelectTab, onCloseTab, onSaveFile, onClose,
 }: CodeViewerProps): React.JSX.Element {
   const monacoTheme = theme
   const language = useMemo(() => extensionToLanguage(activeFilePath), [activeFilePath])
@@ -52,6 +51,44 @@ export function CodeViewer({
       saveRef.current?.(editor.getValue())
     })
   }, [])
+
+  const decorationIds = useRef<string[]>([])
+
+  useEffect(() => {
+    const editor = editorRef.current
+    if (!editor) return
+
+    if (!fileDiffText) {
+      decorationIds.current = editor.deltaDecorations(decorationIds.current, [])
+      return
+    }
+
+    const ranges = parseDiffToLineRanges(fileDiffText)
+    const decorations: monacoEditor.IModelDeltaDecoration[] = []
+
+    for (const range of ranges.added) {
+      decorations.push({
+        range: { startLineNumber: range.startLine, startColumn: 1, endLineNumber: range.endLine, endColumn: 1 },
+        options: { isWholeLine: true, linesDecorationsClassName: 'diff-gutter-added', className: 'diff-line-added' },
+      })
+    }
+
+    for (const range of ranges.modified) {
+      decorations.push({
+        range: { startLineNumber: range.startLine, startColumn: 1, endLineNumber: range.endLine, endColumn: 1 },
+        options: { isWholeLine: true, linesDecorationsClassName: 'diff-gutter-modified', className: 'diff-line-modified' },
+      })
+    }
+
+    for (const line of ranges.deleted) {
+      decorations.push({
+        range: { startLineNumber: Math.max(line, 1), startColumn: 1, endLineNumber: Math.max(line, 1), endColumn: 1 },
+        options: { isWholeLine: true, linesDecorationsClassName: 'diff-gutter-deleted' },
+      })
+    }
+
+    decorationIds.current = editor.deltaDecorations(decorationIds.current, decorations)
+  }, [fileDiffText])
 
   const hasTabs = openFiles.length > 0
   const showPreviewToggle = hasTabs && isMd
