@@ -1,4 +1,4 @@
-import React, { useState, useRef, useCallback } from 'react'
+import React, { useState, useRef, useCallback, useEffect } from 'react'
 import type { ITheme } from '@xterm/xterm'
 import { useTerminal } from '../hooks/useTerminal'
 import { shellTabStyles as styles } from './ShellTabs.styles'
@@ -36,6 +36,11 @@ export function ShellTabs({
   scrollbackLines, xtermTheme, onClose,
 }: ShellTabsProps): React.JSX.Element {
   const [activeTab, setActiveTab] = useState<string>(worktreeSessionId ? 'worktree' : 'project')
+
+  useEffect(() => {
+    if (worktreeSessionId) setActiveTab('worktree')
+  }, [worktreeSessionId])
+
   const extraShellCacheRef = useRef(new Map<string, { shells: ExtraShell[]; counter: number }>())
   const agentKey = worktreeSessionId ?? '__none__'
   const persistKey = worktreeCwd ?? '__none__'
@@ -137,24 +142,28 @@ function ShellTabBar({
   onSetActiveTab: (tab: string) => void; onRemoveShell: (id: string) => void
   onAddShell: () => void; onClose?: () => void
 }): React.JSX.Element {
+  const isMainTab = effectiveTab === 'worktree' || effectiveTab === 'project'
+  const showingProject = effectiveTab === 'project'
+
   return (
     <div style={styles.tabBar}>
       <button
         style={{
           ...styles.tab,
-          ...(effectiveTab === 'worktree' ? styles.tabActive : {}),
-          ...(!worktreeSessionId ? styles.tabDisabled : {}),
+          ...(isMainTab ? styles.tabActive : {}),
+          ...(!worktreeSessionId && !showingProject ? styles.tabDisabled : {}),
         }}
-        onClick={() => worktreeSessionId && onSetActiveTab('worktree')}
-        disabled={!worktreeSessionId}
+        onClick={() => onSetActiveTab(worktreeSessionId ? 'worktree' : 'project')}
       >
-        Worktree
+        {showingProject ? 'Project' : 'Worktree'}
       </button>
       <button
-        style={{ ...styles.tab, ...(effectiveTab === 'project' ? styles.tabActive : {}) }}
-        onClick={() => onSetActiveTab('project')}
+        style={styles.toggleButton}
+        onClick={() => onSetActiveTab(showingProject ? 'worktree' : 'project')}
+        disabled={!worktreeSessionId}
+        title={showingProject ? 'Switch to worktree' : 'Switch to project'}
       >
-        Project
+        {'\u21C5'}
       </button>
       {extraShells.map((shell) => {
         const tabId = `extra-${shell.sessionId}`
