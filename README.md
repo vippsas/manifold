@@ -1,19 +1,86 @@
 # Manifold
 
-A desktop app that orchestrates multiple CLI coding agents working in parallel on the same project. Each agent runs in its own git worktree, so agents can work on isolated branches simultaneously without conflicts.
+A macOS desktop app that orchestrates multiple CLI coding agents working in parallel on the same project. Each agent runs in its own git worktree, so agents can work on isolated branches simultaneously without conflicts.
 
-Supports Claude Code, Codex, and Gemini CLI.
+Supports **Claude Code**, **Codex**, and **Gemini CLI**.
 
-## Getting Started
+## Install
+
+Download the latest `.dmg` from [GitHub Releases](https://github.com/svenmalvik/manifold/releases), open it, and drag Manifold to your Applications folder.
+
+> **Note:** The app is not currently signed with an Apple Developer certificate. If macOS says the file is "damaged" or "can't be opened", run:
+> ```bash
+> xattr -cr /Applications/Manifold.app
+> ```
+> Then open again normally.
+
+### Prerequisites
+
+You need at least one agent CLI installed:
+
+| Agent | Install |
+|---|---|
+| Claude Code | `npm install -g @anthropic-ai/claude-code` |
+| Codex | `npm install -g @openai/codex` |
+| Gemini CLI | `npm install -g @anthropic-ai/gemini-cli` |
+
+Git must be installed. For creating PRs from within Manifold, install the [GitHub CLI](https://cli.github.com/) (`gh`).
+
+## Usage
+
+### First launch
+
+On first launch, Manifold shows a welcome screen where you:
+
+1. **Configure storage** — Choose where agent worktrees are stored (defaults to `~/.manifold/`)
+2. **Register a project** — Add a local git repository or clone one from GitHub
+
+### Creating agents
+
+1. Click **New Task** in the sidebar
+2. Pick a **runtime** (Claude Code, Codex, Gemini CLI, or a custom binary)
+3. Give the agent a **prompt** describing what to do
+4. Optionally edit the **branch name** (auto-generated, always prefixed `manifold/`)
+5. Click **Launch**
+
+Each agent gets its own git worktree branched from the project's main branch. Agents work in fully isolated copies of the codebase, so they never step on each other.
+
+### Working with agents
+
+- **Terminal pane** (left) — Live agent output streamed via xterm.js. Type into the terminal at any time to steer the agent mid-flight.
+- **Code viewer** (center) — See file diffs or full file contents as the agent makes changes. Powered by Monaco Editor.
+- **File tree** (right) — Browse all files in the agent's worktree. Modified files are marked with a dot.
+- **Shell tabs** (bottom) — Open additional shell terminals in the agent's worktree for manual inspection.
+
+Status badges show each agent's state: **running**, **waiting** (for user input), **done**, or **error**.
+
+### Creating pull requests
+
+When an agent finishes, click **Create PR** on the agent tab. Manifold uses the GitHub CLI (`gh`) to open a pull request from the agent's worktree branch to the project's base branch. Title and description are pre-filled for review.
+
+### Key features
+
+- **Parallel agents** — Run multiple agents on the same project simultaneously, each in an isolated worktree
+- **Agent-agnostic** — Works with any CLI coding tool
+- **AI-assisted commits** — Auto-generate commit messages from diffs
+- **Conflict detection** — Alerts when merge conflicts appear in a worktree
+- **Persistent sessions** — Agent state, shell tabs, and UI layout survive app restarts
+- **Dark / light theme** — Toggle in settings
+
+## Contributing
+
+### Setup
 
 ```bash
+git clone https://github.com/svenmalvik/manifold.git
+cd manifold
 npm install
 npm run dev
 ```
 
-On first launch, Manifold presents a welcome dialog to configure your storage location and register a project.
+`npm run dev` starts Electron with hot reload — changes to renderer code reflect immediately.
 
-## Development
+### Commands
 
 ```bash
 npm run dev          # Start Electron in dev mode (hot reload)
@@ -24,14 +91,34 @@ npm test             # Run all tests
 npm run test:watch   # Watch mode
 ```
 
-## How It Works
+### Project structure
 
-1. Register a project (any local git repository)
-2. Create agents — each gets its own git worktree branched from the project
-3. Agents run CLI tools in isolated PTY sessions, streaming output to xterm.js terminals
-4. View diffs, file changes, and agent status in a four-pane layout
+```
+src/
+  main/       — Node.js main process (PTY, git, files, settings)
+  preload/    — IPC bridge (whitelisted channels only)
+  renderer/   — React UI (components, hooks, styles)
+  shared/     — Types shared between main and renderer
+```
 
-Agent worktree branches are prefixed with `manifold/` (e.g., `manifold/oslo`).
+Tests are co-located with source files (`*.test.ts` / `*.test.tsx`).
+
+### Pull request workflow
+
+1. Create a feature branch off `main`
+2. Make your changes
+3. Run `npm run typecheck && npm test` — both must pass
+4. Open a PR against `main`
+
+### IPC convention
+
+Adding a new feature that crosses the process boundary requires changes in three places:
+
+1. `src/main/ipc-handlers.ts` — register the handler
+2. `src/preload/index.ts` — whitelist the channel
+3. The renderer hook that calls it
+
+Channel naming: `domain:action` for request/response, `domain:event` for push events.
 
 ## Architecture
 
@@ -41,7 +128,7 @@ Electron three-process model with strict context isolation:
 - **Preload** (`src/preload/`) — IPC bridge. Whitelisted channels only.
 - **Renderer** (`src/renderer/`) — React UI. No direct Node.js access.
 
-### Main Process Modules
+### Main process modules
 
 | Module | Role |
 |---|---|
@@ -60,18 +147,14 @@ Electron three-process model with strict context isolation:
 | `BranchNamer` | AI-generated branch name suggestions from task descriptions |
 | `Runtimes` | Discovers available agent CLIs on the system |
 
-### Renderer
+### Tech stack
 
-- **`App.tsx`** — Root component, composes hooks, props drilling (no context providers)
-- **Hooks** (`src/renderer/hooks/`) — Domain-specific state management (one hook per domain)
-- **Components** (`src/renderer/components/`) — Presentational: sidebar, terminals, code viewer, file tree
-- **Styles** — Co-located `*.styles.ts` files exporting plain objects (not CSS modules)
-
-### Tech Stack
-
-- Electron + electron-vite
-- React 18, TypeScript
-- xterm.js + node-pty for terminal emulation
-- Monaco Editor for code viewing
-- simple-git for worktree/diff operations
-- Vitest for testing
+| Layer | Technology |
+|---|---|
+| App framework | Electron |
+| Frontend | React 18, TypeScript |
+| Terminal | xterm.js + node-pty |
+| Code viewer | Monaco Editor |
+| Git operations | simple-git |
+| Build | electron-vite + electron-builder |
+| Testing | Vitest |
