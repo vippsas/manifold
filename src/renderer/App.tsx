@@ -88,7 +88,7 @@ export function App(): React.JSX.Element {
   const handleCommit = useCallback(async (message: string): Promise<void> => {
     await gitOps.commit(message)
     void refreshDiff()
-    setActivePanel(null)
+    setActivePanel('pr')
   }, [gitOps.commit, refreshDiff])
 
   const handleClosePanel = useCallback((): void => { setActivePanel(null) }, [])
