@@ -215,4 +215,50 @@ describe('GitOperationsManager', () => {
       expect(result).toBe('')
     })
   })
+
+  // ---- getPRContext ----
+
+  describe('getPRContext', () => {
+    it('returns commits, diffStat, and truncated diffPatch', async () => {
+      mockExecFileAsync
+        .mockResolvedValueOnce({ stdout: 'abc1234 feat: add login\ndef5678 fix: typo\n', stderr: '' })
+        .mockResolvedValueOnce({ stdout: ' src/a.ts | 10 ++++\n src/b.ts |  3 ---\n', stderr: '' })
+        .mockResolvedValueOnce({ stdout: 'diff --git a/src/a.ts b/src/a.ts\n+new line\n', stderr: '' })
+
+      const ctx = await git.getPRContext('/worktree', 'main')
+
+      expect(ctx.commits).toBe('abc1234 feat: add login\ndef5678 fix: typo')
+      expect(ctx.diffStat).toBe('src/a.ts | 10 ++++\n src/b.ts |  3 ---')
+      expect(ctx.diffPatch).toBe('diff --git a/src/a.ts b/src/a.ts\n+new line')
+      expect(mockExecFileAsync).toHaveBeenCalledWith(
+        'git', ['log', '--oneline', 'main..HEAD'], { cwd: '/worktree' },
+      )
+      expect(mockExecFileAsync).toHaveBeenCalledWith(
+        'git', ['diff', '--stat', 'main..HEAD'], { cwd: '/worktree' },
+      )
+      expect(mockExecFileAsync).toHaveBeenCalledWith(
+        'git', ['diff', 'main..HEAD'], { cwd: '/worktree' },
+      )
+    })
+
+    it('truncates diffPatch to 6000 chars', async () => {
+      const longPatch = 'x'.repeat(8000)
+      mockExecFileAsync
+        .mockResolvedValueOnce({ stdout: 'abc feat\n', stderr: '' })
+        .mockResolvedValueOnce({ stdout: 'stat\n', stderr: '' })
+        .mockResolvedValueOnce({ stdout: longPatch, stderr: '' })
+
+      const ctx = await git.getPRContext('/worktree', 'main')
+
+      expect(ctx.diffPatch.length).toBe(6000)
+    })
+
+    it('returns empty strings on error', async () => {
+      mockExecFileAsync.mockRejectedValue(new Error('not a git repo'))
+
+      const ctx = await git.getPRContext('/worktree', 'main')
+
+      expect(ctx).toEqual({ commits: '', diffStat: '', diffPatch: '' })
+    })
+  })
 })
