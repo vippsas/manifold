@@ -34,6 +34,7 @@ const ALLOWED_INVOKE_CHANNELS = [
   'git:ai-generate',
   'git:ahead-behind',
   'git:resolve-conflict',
+  'git:pr-context',
   'app:beep',
 ] as const
 

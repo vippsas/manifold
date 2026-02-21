@@ -301,4 +301,11 @@ function registerGitHandlers(deps: IpcDependencies): void {
   ipcMain.handle('git:resolve-conflict', async (_event, sessionId: string, filePath: string, resolvedContent: string) => {
     await gitOps.resolveConflict(resolveSession(sessionManager, sessionId).worktreePath, filePath, resolvedContent)
   })
+
+  ipcMain.handle('git:pr-context', async (_event, sessionId: string) => {
+    const session = resolveSession(sessionManager, sessionId)
+    const project = projectRegistry.getProject(session.projectId)
+    if (!project) throw new Error(`Project not found: ${session.projectId}`)
+    return gitOps.getPRContext(session.worktreePath, project.baseBranch)
+  })
 }
