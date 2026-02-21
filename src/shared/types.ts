@@ -27,6 +27,7 @@ export interface Project {
   path: string
   baseBranch: string
   addedAt: string
+  autoGenerateMessages?: boolean
 }
 
 export type FileChangeType = 'added' | 'modified' | 'deleted'

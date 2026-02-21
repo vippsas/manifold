@@ -39,6 +39,7 @@ function renderSidebar(overrides = {}) {
     onSelectSession: vi.fn(),
     onAddProject: vi.fn(),
     onRemoveProject: vi.fn(),
+    onUpdateProject: vi.fn(),
     onCloneProject: vi.fn(),
     onDeleteAgent: vi.fn(),
     onNewAgent: vi.fn(),
@@ -217,5 +218,42 @@ describe('ProjectSidebar', () => {
     fireEvent.click(screen.getByText('stavanger'))
 
     expect(props.onSelectSession).toHaveBeenCalledWith('s3', 'p2')
+  })
+
+  it('renders a gear icon for each project', () => {
+    renderSidebar()
+
+    expect(screen.getByLabelText('Settings for Alpha')).toBeInTheDocument()
+    expect(screen.getByLabelText('Settings for Beta')).toBeInTheDocument()
+  })
+
+  it('opens project settings popover when gear icon is clicked', () => {
+    renderSidebar()
+
+    fireEvent.click(screen.getByLabelText('Settings for Alpha'))
+
+    expect(screen.getByText('Auto-generate AI messages')).toBeInTheDocument()
+  })
+
+  it('calls onUpdateProject when toggling auto-generate checkbox', () => {
+    const { props } = renderSidebar()
+
+    fireEvent.click(screen.getByLabelText('Settings for Alpha'))
+    fireEvent.click(screen.getByLabelText('Auto-generate AI messages'))
+
+    expect(props.onUpdateProject).toHaveBeenCalledWith('p1', { autoGenerateMessages: false })
+  })
+
+  it('closes popover when overlay is clicked', () => {
+    renderSidebar()
+
+    fireEvent.click(screen.getByLabelText('Settings for Alpha'))
+    expect(screen.getByText('Auto-generate AI messages')).toBeInTheDocument()
+
+    // The overlay is rendered as a fixed div — find and click it
+    const overlay = screen.getByText('Auto-generate AI messages').parentElement!.previousElementSibling!
+    fireEvent.click(overlay)
+
+    expect(screen.queryByText('Auto-generate AI messages')).not.toBeInTheDocument()
   })
 })
