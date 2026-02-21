@@ -145,10 +145,10 @@ const styles: Record<string, React.CSSProperties> = {
     display: 'flex',
     alignItems: 'center',
     gap: '6px',
-    padding: '4px 8px',
+    padding: '2px 8px',
     cursor: 'pointer',
     fontSize: '12px',
-    lineHeight: '18px',
+    lineHeight: '16px',
     color: 'var(--text-primary)',
   },
   rowActive: {

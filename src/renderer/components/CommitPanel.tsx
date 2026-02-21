@@ -47,7 +47,6 @@ export function CommitPanel({
     setCommitting(true)
     try {
       await onCommit(message.trim())
-      onClose()
     } catch {
       setCommitting(false)
     }
