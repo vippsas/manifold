@@ -7,6 +7,7 @@ import { PrCreator } from '../pr-creator'
 import { ViewStateStore } from '../view-state-store'
 import { ShellTabStore } from '../shell-tab-store'
 import { GitOperationsManager } from '../git-operations'
+import type { AgentSession } from '../../shared/types'
 
 export interface IpcDependencies {
   settingsStore: SettingsStore
@@ -20,7 +21,7 @@ export interface IpcDependencies {
   gitOps: GitOperationsManager
 }
 
-export function resolveSession(sessionManager: SessionManager, sessionId: string): ReturnType<SessionManager['getSession']> & {} {
+export function resolveSession(sessionManager: SessionManager, sessionId: string): AgentSession {
   const session = sessionManager.getSession(sessionId)
   if (!session) throw new Error(`Session not found: ${sessionId}`)
   return session
