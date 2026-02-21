@@ -9,13 +9,11 @@ interface UseViewStateResult {
   restoreCodeView: {
     openFiles: OpenFile[]
     activeFilePath: string | null
-    codeViewMode: 'diff' | 'file'
   } | null
   saveCurrentState: (
     sessionId: string,
     openFiles: OpenFile[],
-    activeFilePath: string | null,
-    codeViewMode: 'diff' | 'file'
+    activeFilePath: string | null
   ) => void
 }
 
@@ -54,11 +52,10 @@ export function useViewState(activeSessionId: string | null, tree: FileTreeNode 
   }, [])
 
   const saveCurrentState = useCallback(
-    (sessionId: string, openFiles: OpenFile[], activeFilePath: string | null, codeViewMode: 'diff' | 'file'): void => {
+    (sessionId: string, openFiles: OpenFile[], activeFilePath: string | null): void => {
       const state: SessionViewState = {
         openFilePaths: openFiles.map((f) => f.path),
         activeFilePath,
-        codeViewMode,
         expandedPaths: Array.from(expandedPathsRef.current),
       }
 
@@ -73,7 +70,7 @@ export function useViewState(activeSessionId: string | null, tree: FileTreeNode 
 
     if (!activeSessionId) {
       setExpandedPaths(new Set())
-      setRestoreCodeView({ openFiles: [], activeFilePath: null, codeViewMode: 'diff' })
+      setRestoreCodeView({ openFiles: [], activeFilePath: null })
       return
     }
 
@@ -105,16 +102,15 @@ export function useViewState(activeSessionId: string | null, tree: FileTreeNode 
           setRestoreCodeView({
             openFiles,
             activeFilePath: state.activeFilePath,
-            codeViewMode: state.codeViewMode,
           })
         } else {
           // No saved state — clear tabs
           setExpandedPaths(new Set())
-          setRestoreCodeView({ openFiles: [], activeFilePath: null, codeViewMode: 'diff' })
+          setRestoreCodeView({ openFiles: [], activeFilePath: null })
         }
       } catch {
         setExpandedPaths(new Set())
-        setRestoreCodeView({ openFiles: [], activeFilePath: null, codeViewMode: 'diff' })
+        setRestoreCodeView({ openFiles: [], activeFilePath: null })
       }
     })()
   }, [activeSessionId])

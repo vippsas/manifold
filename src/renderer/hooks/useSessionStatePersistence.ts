@@ -1,17 +1,15 @@
 import { useEffect, useRef } from 'react'
-import type { OpenFile, CodeViewMode, UseCodeViewResult } from './useCodeView'
+import type { OpenFile, UseCodeViewResult } from './useCodeView'
 
 interface ViewStatePersistence {
   saveCurrentState: (
     sessionId: string,
     openFiles: OpenFile[],
-    activeFilePath: string | null,
-    codeViewMode: CodeViewMode
+    activeFilePath: string | null
   ) => void
   restoreCodeView: {
     openFiles: OpenFile[]
     activeFilePath: string | null
-    codeViewMode: CodeViewMode
   } | null
 }
 
@@ -33,7 +31,7 @@ export function useSessionStatePersistence(
     const prev = prevSessionRef.current
     if (prev && prev !== activeSessionId) {
       const cv = codeViewRef.current
-      viewState.saveCurrentState(prev, cv.openFiles, cv.activeFilePath, cv.codeViewMode)
+      viewState.saveCurrentState(prev, cv.openFiles, cv.activeFilePath)
     }
     prevSessionRef.current = activeSessionId
   }, [activeSessionId, viewState.saveCurrentState])
@@ -43,8 +41,7 @@ export function useSessionStatePersistence(
     if (viewState.restoreCodeView) {
       codeView.restoreState(
         viewState.restoreCodeView.openFiles,
-        viewState.restoreCodeView.activeFilePath,
-        viewState.restoreCodeView.codeViewMode
+        viewState.restoreCodeView.activeFilePath
       )
     }
   }, [viewState.restoreCodeView, codeView.restoreState])

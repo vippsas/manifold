@@ -1,7 +1,5 @@
 import type React from 'react'
 
-const FILE_HEADER_HEIGHT = 32
-
 export const viewerStyles: Record<string, React.CSSProperties> = {
   wrapper: {
     display: 'flex',
@@ -98,30 +96,6 @@ export const viewerStyles: Record<string, React.CSSProperties> = {
   editorContainer: {
     flex: 1,
     overflow: 'hidden',
-  },
-  diffScroller: {
-    height: '100%',
-    overflowY: 'auto' as const,
-  },
-  fileDiffSection: {
-    borderBottom: '2px solid var(--border)',
-  },
-  fileDiffHeader: {
-    display: 'flex',
-    alignItems: 'center',
-    padding: '6px 12px',
-    background: 'var(--bg-secondary)',
-    borderBottom: '1px solid var(--border)',
-    height: FILE_HEADER_HEIGHT,
-    boxSizing: 'border-box' as const,
-    flexShrink: 0,
-  },
-  fileDiffPath: {
-    fontSize: '12px',
-    fontFamily: 'var(--font-mono)',
-    color: 'var(--text-secondary)',
-    fontWeight: 500,
-    cursor: 'pointer',
   },
   empty: {
     display: 'flex',

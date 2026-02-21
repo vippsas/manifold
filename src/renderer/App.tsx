@@ -56,6 +56,16 @@ export function App(): React.JSX.Element {
     return Array.from(map.values())
   }, [changedFiles, watcherChanges])
 
+  const activeFileDiffText = useMemo(() => {
+    if (!codeView.activeFilePath || !diff) return null
+    const worktreeRoot = tree?.path ?? ''
+    const relativePath = worktreeRoot
+      ? codeView.activeFilePath.replace(worktreeRoot.replace(/\/$/, '') + '/', '')
+      : codeView.activeFilePath
+    const chunks = diff.split(/^(?=diff --git )/m)
+    return chunks.find((chunk) => chunk.includes(`a/${relativePath} b/`)) ?? null
+  }, [diff, codeView.activeFilePath, tree?.path])
+
   const viewState = useViewState(activeSessionId, tree)
 
   const handleSelectFile = useCallback(
@@ -205,8 +215,7 @@ export function App(): React.JSX.Element {
           projectShellSessionId={projectSessionId}
           worktreeCwd={worktreeShellCwd}
           scrollbackLines={settings.scrollbackLines}
-          codeViewMode={codeView.codeViewMode}
-          diff={diff}
+          fileDiffText={activeFileDiffText}
           openFiles={codeView.openFiles}
           activeFilePath={codeView.activeFilePath}
           fileContent={codeView.activeFileContent}
@@ -217,7 +226,6 @@ export function App(): React.JSX.Element {
           onNewAgent={() => setShowNewAgent(true)}
           onSelectFile={handleSelectFile}
           onCloseFile={codeView.handleCloseFile}
-          onShowDiff={codeView.handleShowDiff}
           onSaveFile={codeView.handleSaveFile}
           expandedPaths={viewState.expandedPaths}
           onToggleExpand={viewState.onToggleExpand}
