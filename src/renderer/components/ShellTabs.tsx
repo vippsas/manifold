@@ -50,25 +50,113 @@ export function ShellTabs({
   const [activeTab, setActiveTab] = useState<string>(
     worktreeSessionId ? 'worktree' : 'project'
   )
-  const [extraShells, setExtraShells] = useState<ExtraShell[]>([])
-  const extraShellsRef = useRef<ExtraShell[]>([])
-  extraShellsRef.current = extraShells
+  // Cache extra shells per agent so they survive agent switches
+  const extraShellCacheRef = useRef(new Map<string, { shells: ExtraShell[]; counter: number }>())
+  const agentKey = worktreeSessionId ?? '__none__'
 
-  const shellCounterRef = useRef(3)
+  // Get or initialize cache entry for current agent
+  if (!extraShellCacheRef.current.has(agentKey)) {
+    extraShellCacheRef.current.set(agentKey, { shells: [], counter: 3 })
+  }
+  const cached = extraShellCacheRef.current.get(agentKey)!
+
+  const [extraShells, setExtraShells] = useState<ExtraShell[]>(cached.shells)
+
+  // Sync state when agent changes — restore cached shells
+  useEffect(() => {
+    const entry = extraShellCacheRef.current.get(agentKey)
+    setExtraShells(entry?.shells ?? [])
+  }, [agentKey])
+
+  // Keep cache in sync with state changes
+  useEffect(() => {
+    const entry = extraShellCacheRef.current.get(agentKey)
+    if (entry) {
+      entry.shells = extraShells
+    }
+  }, [extraShells, agentKey])
+
+  // Persist tabs to disk so they survive app restart
+  const persistTabs = useCallback(
+    (shells: ExtraShell[], counter: number) => {
+      if (!worktreeCwd) return
+      if (shells.length === 0) {
+        void window.electronAPI.invoke('shell-tabs:set', agentKey, { tabs: [], counter })
+      } else {
+        const tabs = shells.map((s) => ({ label: s.label, cwd: worktreeCwd }))
+        void window.electronAPI.invoke('shell-tabs:set', agentKey, { tabs, counter })
+      }
+    },
+    [agentKey, worktreeCwd]
+  )
+
+  // Track which agents have been restored to avoid duplicate restores
+  // and to guard persist effect from firing before restore completes
+  const restoredRef = useRef(new Set<string>())
+
+  // Restore saved tabs from disk on agent switch
+  useEffect(() => {
+    if (!worktreeCwd || agentKey === '__none__') return
+    if (restoredRef.current.has(agentKey)) return
+    // If cache already has shells for this agent, skip restore (already in memory)
+    const entry = extraShellCacheRef.current.get(agentKey)
+    if (entry && entry.shells.length > 0) return
+
+    restoredRef.current.add(agentKey)
+
+    void (async () => {
+      const saved = (await window.electronAPI.invoke('shell-tabs:get', agentKey)) as {
+        tabs: { label: string; cwd: string }[]
+        counter: number
+      } | null
+      if (!saved || saved.tabs.length === 0) return
+
+      const shells: ExtraShell[] = []
+      for (const tab of saved.tabs) {
+        try {
+          const result = (await window.electronAPI.invoke('shell:create', tab.cwd)) as {
+            sessionId: string
+          }
+          shells.push({ sessionId: result.sessionId, label: tab.label })
+        } catch {
+          // skip failed shell creation
+        }
+      }
+
+      if (shells.length > 0) {
+        const cacheEntry = extraShellCacheRef.current.get(agentKey) ?? { shells: [], counter: 3 }
+        cacheEntry.shells = shells
+        cacheEntry.counter = saved.counter
+        extraShellCacheRef.current.set(agentKey, cacheEntry)
+        setExtraShells(shells)
+      }
+    })()
+  }, [agentKey, worktreeCwd])
+
+  // Persist tabs to disk whenever extraShells changes
+  useEffect(() => {
+    // Don't persist until restore has had a chance to run
+    if (!restoredRef.current.has(agentKey)) return
+    const entry = extraShellCacheRef.current.get(agentKey)
+    if (!entry) return
+    persistTabs(extraShells, entry.counter)
+  }, [extraShells, agentKey, persistTabs])
 
   const worktreeTerminal = useTerminal({ sessionId: worktreeSessionId, scrollbackLines, xtermTheme })
   const projectTerminal = useTerminal({ sessionId: projectSessionId, scrollbackLines, xtermTheme })
 
-  // Kill extra shells and reset state when agent changes or component unmounts
+  // Kill all cached extra shells on unmount only
   useEffect(() => {
+    const cache = extraShellCacheRef.current
     return () => {
-      for (const shell of extraShellsRef.current) {
-        void window.electronAPI.invoke('agent:kill', shell.sessionId).catch(() => {})
+      for (const entry of cache.values()) {
+        for (const shell of entry.shells) {
+          void window.electronAPI.invoke('shell:kill', shell.sessionId).catch(() => {})
+        }
       }
-      setExtraShells([])
-      shellCounterRef.current = 3
+      cache.clear()
     }
-  }, [worktreeSessionId])
+  }, [])
 
   // Compute which tab is actually shown
   let effectiveTab = activeTab
@@ -84,17 +172,23 @@ export function ShellTabs({
 
   const addShell = useCallback(async () => {
     if (!worktreeCwd) return
-    const result = (await window.electronAPI.invoke('shell:create', worktreeCwd)) as {
-      sessionId: string
+    try {
+      const result = (await window.electronAPI.invoke('shell:create', worktreeCwd)) as {
+        sessionId: string
+      }
+      const entry = extraShellCacheRef.current.get(agentKey)
+      const counter = entry ? entry.counter++ : 3
+      const label = `Shell ${counter}`
+      setExtraShells((prev) => [...prev, { sessionId: result.sessionId, label }])
+      setActiveTab(`extra-${result.sessionId}`)
+    } catch {
+      // shell:create failed — ignore silently, user can retry
     }
-    const label = `Shell ${shellCounterRef.current++}`
-    setExtraShells((prev) => [...prev, { sessionId: result.sessionId, label }])
-    setActiveTab(`extra-${result.sessionId}`)
-  }, [worktreeCwd])
+  }, [worktreeCwd, agentKey])
 
   const removeShell = useCallback(
     (sessionId: string) => {
-      void window.electronAPI.invoke('agent:kill', sessionId).catch(() => {})
+      void window.electronAPI.invoke('shell:kill', sessionId).catch(() => {})
       setExtraShells((prev) => prev.filter((s) => s.sessionId !== sessionId))
       setActiveTab((prev) => {
         if (prev === `extra-${sessionId}`) {
@@ -103,7 +197,7 @@ export function ShellTabs({
         return prev
       })
     },
-    [worktreeSessionId]
+    [worktreeSessionId, agentKey]
   )
 
   return (
@@ -134,19 +228,17 @@ export function ShellTabs({
           const tabId = `extra-${shell.sessionId}`
           const isActive = effectiveTab === tabId
           return (
-            <div
+            <button
               key={shell.sessionId}
               style={{
                 ...styles.tab,
-                display: 'flex',
-                alignItems: 'center',
-                cursor: 'pointer',
                 ...(isActive ? styles.tabActive : {}),
               }}
               onClick={() => setActiveTab(tabId)}
             >
               <span>{shell.label}</span>
-              <button
+              <span
+                role="button"
                 style={styles.tabCloseButton}
                 onClick={(e) => {
                   e.stopPropagation()
@@ -155,8 +247,8 @@ export function ShellTabs({
                 title={`Close ${shell.label}`}
               >
                 ×
-              </button>
-            </div>
+              </span>
+            </button>
           )
         })}
 
@@ -269,6 +361,8 @@ const styles: Record<string, React.CSSProperties> = {
     fontFamily: 'var(--font-mono)',
     color: 'var(--text-muted)',
     cursor: 'pointer',
+    background: 'none',
+    border: 'none',
     borderRight: '1px solid var(--border)',
   },
   closeButton: {
