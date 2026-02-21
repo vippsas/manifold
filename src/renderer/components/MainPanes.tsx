@@ -136,14 +136,16 @@ export function MainPanes({
 
               {showRight && (
                 <>
-                  <div
-                    className="pane-divider"
-                    onMouseDown={handleDividerMouseDown('right')}
-                    role="separator"
-                    aria-orientation="vertical"
-                  />
+                  {showCenter && (
+                    <div
+                      className="pane-divider"
+                      onMouseDown={handleDividerMouseDown('right')}
+                      role="separator"
+                      aria-orientation="vertical"
+                    />
+                  )}
 
-                  <div className="layout-pane" style={{ flex: `0 0 ${rightAreaRightFraction * 100}%` }}>
+                  <div className="layout-pane" style={{ flex: showCenter ? `0 0 ${rightAreaRightFraction * 100}%` : 1 }}>
                     <FileTree
                       tree={tree}
                       changes={changes}
