@@ -1,6 +1,7 @@
 import { useEffect, useRef, type RefObject } from 'react'
 import { Terminal, type ITerminalOptions, type ITheme } from '@xterm/xterm'
 import { FitAddon } from '@xterm/addon-fit'
+import { WebLinksAddon } from '@xterm/addon-web-links'
 import '@xterm/xterm/css/xterm.css'
 
 interface AgentOutputEvent {
@@ -50,6 +51,9 @@ export function useTerminal({ sessionId, scrollbackLines, xtermTheme }: UseTermi
     terminalRef.current = terminal
     const fitAddon = new FitAddon()
     terminal.loadAddon(fitAddon)
+    terminal.loadAddon(new WebLinksAddon((_event, uri) => {
+      window.open(uri)
+    }))
     terminal.open(container)
 
     let disposed = false
