@@ -147,21 +147,11 @@ describe('SessionManager', () => {
       ).rejects.toThrow('Runtime not found')
     })
 
-    it('sends prompt to pty immediately', async () => {
+    it('does not auto-write prompt to pty', async () => {
       await sessionManager.createSession({
         projectId: 'proj-1',
         runtimeId: 'claude',
         prompt: 'hello world',
-      })
-
-      expect(ptyPool.write).toHaveBeenCalledWith('pty-1', 'hello world\n')
-    })
-
-    it('does not send empty prompt', async () => {
-      await sessionManager.createSession({
-        projectId: 'proj-1',
-        runtimeId: 'claude',
-        prompt: '',
       })
 
       expect(ptyPool.write).not.toHaveBeenCalled()
