@@ -40,6 +40,7 @@ interface MainPanesProps {
   onSelectFile: (path: string) => void
   onCloseFile: (path: string) => void
   onSaveFile: (content: string) => void
+  onDeleteFile?: (path: string) => void
   expandedPaths: Set<string>
   onToggleExpand: (path: string) => void
 }
@@ -74,6 +75,7 @@ export function MainPanes({
   onSelectFile,
   onCloseFile,
   onSaveFile,
+  onDeleteFile,
   expandedPaths,
   onToggleExpand,
 }: MainPanesProps): React.JSX.Element {
@@ -166,6 +168,7 @@ export function MainPanes({
                         expandedPaths={expandedPaths}
                         onToggleExpand={onToggleExpand}
                         onSelectFile={onSelectFile}
+                        onDeleteFile={onDeleteFile}
                         onClose={() => onClosePane('right')}
                       />
                     </div>

@@ -138,6 +138,14 @@ export class FileWatcher {
       throw new Error(`Failed to write file ${filePath}: ${(err as Error).message}`)
     }
   }
+
+  deleteFile(filePath: string): void {
+    try {
+      fs.rmSync(filePath, { recursive: true })
+    } catch (err) {
+      throw new Error(`Failed to delete ${filePath}: ${(err as Error).message}`)
+    }
+  }
 }
 
 function gitStatus(cwd: string): Promise<string> {

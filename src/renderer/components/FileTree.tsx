@@ -1,4 +1,4 @@
-import React, { useCallback, useMemo } from 'react'
+import React, { useCallback, useMemo, useState } from 'react'
 import type { FileTreeNode, FileChange, FileChangeType } from '../../shared/types'
 
 interface FileTreeProps {
@@ -8,6 +8,7 @@ interface FileTreeProps {
   expandedPaths: Set<string>
   onToggleExpand: (path: string) => void
   onSelectFile: (path: string) => void
+  onDeleteFile?: (path: string) => void
   onClose?: () => void
 }
 
@@ -24,8 +25,10 @@ export function FileTree({
   expandedPaths,
   onToggleExpand,
   onSelectFile,
+  onDeleteFile,
   onClose,
 }: FileTreeProps): React.JSX.Element {
+  const [pendingDelete, setPendingDelete] = useState<{ path: string; name: string; isDirectory: boolean } | null>(null)
   const changeMap = useMemo(() => {
     const map = new Map<string, FileChangeType>()
     const root = tree?.path ?? ''
@@ -36,6 +39,21 @@ export function FileTree({
     }
     return map
   }, [changes, tree?.path])
+
+  const handleRequestDelete = useCallback((path: string, name: string, isDirectory: boolean): void => {
+    setPendingDelete({ path, name, isDirectory })
+  }, [])
+
+  const handleConfirmDelete = useCallback((): void => {
+    if (pendingDelete && onDeleteFile) {
+      onDeleteFile(pendingDelete.path)
+    }
+    setPendingDelete(null)
+  }, [pendingDelete, onDeleteFile])
+
+  const handleCancelDelete = useCallback((): void => {
+    setPendingDelete(null)
+  }, [])
 
   return (
     <div style={treeStyles.wrapper}>
@@ -64,11 +82,30 @@ export function FileTree({
             expandedPaths={expandedPaths}
             onToggleExpand={onToggleExpand}
             onSelectFile={onSelectFile}
+            onRequestDelete={onDeleteFile ? handleRequestDelete : undefined}
           />
         ) : (
           <div style={treeStyles.empty}>No files to display</div>
         )}
       </div>
+
+      {pendingDelete && (
+        <div style={treeStyles.dialogOverlay} onClick={handleCancelDelete}>
+          <div style={treeStyles.dialog} onClick={(e) => e.stopPropagation()}>
+            <div style={treeStyles.dialogTitle}>
+              Delete {pendingDelete.isDirectory ? 'folder' : 'file'}
+            </div>
+            <div style={treeStyles.dialogMessage}>
+              Are you sure you want to delete <strong>{pendingDelete.name}</strong>?
+              {pendingDelete.isDirectory && ' This will delete all contents.'}
+            </div>
+            <div style={treeStyles.dialogActions}>
+              <button style={treeStyles.dialogCancel} onClick={handleCancelDelete}>Cancel</button>
+              <button style={treeStyles.dialogConfirm} onClick={handleConfirmDelete}>Delete</button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }
@@ -81,6 +118,7 @@ interface TreeNodeProps {
   expandedPaths: Set<string>
   onToggleExpand: (path: string) => void
   onSelectFile: (path: string) => void
+  onRequestDelete?: (path: string, name: string, isDirectory: boolean) => void
 }
 
 function TreeNode({
@@ -91,6 +129,7 @@ function TreeNode({
   expandedPaths,
   onToggleExpand,
   onSelectFile,
+  onRequestDelete,
 }: TreeNodeProps): React.JSX.Element {
   const expanded = expandedPaths.has(node.path)
 
@@ -101,6 +140,11 @@ function TreeNode({
       onSelectFile(node.path)
     }
   }, [node.isDirectory, node.path, onToggleExpand, onSelectFile])
+
+  const handleDelete = useCallback((e: React.MouseEvent): void => {
+    e.stopPropagation()
+    onRequestDelete?.(node.path, node.name, node.isDirectory)
+  }, [node.path, node.name, node.isDirectory, onRequestDelete])
 
   const changeType = changeMap.get(node.path)
 
@@ -113,6 +157,7 @@ function TreeNode({
         isActive={!node.isDirectory && node.path === activeFilePath}
         changeType={changeType ?? null}
         onToggle={handleToggle}
+        onDelete={onRequestDelete ? handleDelete : undefined}
       />
       {node.isDirectory && expanded && node.children && (
         <>
@@ -126,6 +171,7 @@ function TreeNode({
               expandedPaths={expandedPaths}
               onToggleExpand={onToggleExpand}
               onSelectFile={onSelectFile}
+              onRequestDelete={onRequestDelete}
             />
           ))}
         </>
@@ -141,6 +187,7 @@ function NodeRow({
   isActive,
   changeType,
   onToggle,
+  onDelete,
 }: {
   node: FileTreeNode
   depth: number
@@ -148,11 +195,13 @@ function NodeRow({
   isActive: boolean
   changeType: FileChangeType | null
   onToggle: () => void
+  onDelete?: (e: React.MouseEvent) => void
 }): React.JSX.Element {
   const indicator = changeType ? CHANGE_INDICATORS[changeType] : null
 
   return (
     <div
+      className="file-tree-row"
       onClick={onToggle}
       style={{
         ...treeStyles.node,
@@ -176,6 +225,18 @@ function NodeRow({
       {indicator && (
         <span style={{ ...treeStyles.indicator, color: indicator.color }} title={changeType ?? undefined}>
           {'\u25CF'}
+        </span>
+      )}
+      {onDelete && (
+        <span
+          className="file-tree-delete-btn"
+          onClick={onDelete}
+          style={treeStyles.deleteButton}
+          title="Delete"
+          role="button"
+          tabIndex={-1}
+        >
+          {'\uD83D\uDDD1'}
         </span>
       )}
     </div>
@@ -273,6 +334,66 @@ const treeStyles: Record<string, React.CSSProperties> = {
     flexShrink: 0,
     fontSize: '8px',
     marginLeft: '4px',
+  },
+  deleteButton: {
+    flexShrink: 0,
+    fontSize: '12px',
+    marginLeft: '4px',
+    cursor: 'pointer',
+    padding: '0 2px',
+    borderRadius: '3px',
+  },
+  dialogOverlay: {
+    position: 'absolute' as const,
+    inset: 0,
+    background: 'rgba(0, 0, 0, 0.5)',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    zIndex: 100,
+  },
+  dialog: {
+    background: 'var(--bg-secondary)',
+    border: '1px solid var(--border)',
+    borderRadius: '8px',
+    padding: '16px',
+    maxWidth: '300px',
+    width: '90%',
+  },
+  dialogTitle: {
+    fontSize: '13px',
+    fontWeight: 600,
+    color: 'var(--text-primary)',
+    marginBottom: '8px',
+  },
+  dialogMessage: {
+    fontSize: '12px',
+    color: 'var(--text-secondary)',
+    lineHeight: '1.4',
+    marginBottom: '16px',
+  },
+  dialogActions: {
+    display: 'flex',
+    justifyContent: 'flex-end',
+    gap: '8px',
+  },
+  dialogCancel: {
+    fontSize: '12px',
+    padding: '4px 12px',
+    borderRadius: '4px',
+    border: '1px solid var(--border)',
+    background: 'transparent',
+    color: 'var(--text-primary)',
+    cursor: 'pointer',
+  },
+  dialogConfirm: {
+    fontSize: '12px',
+    padding: '4px 12px',
+    borderRadius: '4px',
+    border: 'none',
+    background: 'var(--error)',
+    color: '#fff',
+    cursor: 'pointer',
   },
   empty: {
     display: 'flex',

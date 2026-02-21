@@ -696,6 +696,17 @@ select:focus {
   text-decoration: underline;
 }
 
+/* ─── File Tree Delete Button (hover reveal) ─── */
+.file-tree-row .file-tree-delete-btn {
+  opacity: 0;
+}
+.file-tree-row:hover .file-tree-delete-btn {
+  opacity: 0.6;
+}
+.file-tree-row .file-tree-delete-btn:hover {
+  opacity: 1;
+}
+
 /* ─── Monaco Diff Gutter Decorations ─── */
 .diff-gutter-added {
   background: var(--success) !important;
