@@ -89,7 +89,7 @@ export function App(): React.JSX.Element {
   const activeProject = projects.find((p) => p.id === activeProjectId) ?? null
   const worktreeShellCwd = activeSession?.worktreePath ?? null
   const projectShellCwd = activeProject?.path ?? null
-  const { worktreeSessionId, projectSessionId } = useShellSessions(worktreeShellCwd, projectShellCwd)
+  const { worktreeSessionId, projectSessionId } = useShellSessions(worktreeShellCwd, projectShellCwd, activeSessionId)
 
   const [showNewAgent, setShowNewAgent] = useState(false)
   const [showSettings, setShowSettings] = useState(false)
@@ -288,6 +288,7 @@ export function App(): React.JSX.Element {
           sessionId={activeSessionId}
           worktreeShellSessionId={worktreeSessionId}
           projectShellSessionId={projectSessionId}
+          worktreeCwd={worktreeShellCwd}
           scrollbackLines={settings.scrollbackLines}
           codeViewMode={codeView.codeViewMode}
           diff={diff}

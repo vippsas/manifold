@@ -11,6 +11,7 @@ import { FileWatcher } from './file-watcher'
 import { DiffProvider } from './diff-provider'
 import { PrCreator } from './pr-creator'
 import { ViewStateStore } from './view-state-store'
+import { ShellTabStore, SavedShellState } from './shell-tab-store'
 import { listRuntimes } from './runtimes'
 import { generateBranchName } from './branch-namer'
 
@@ -24,6 +25,7 @@ export interface IpcDependencies {
   diffProvider: DiffProvider
   prCreator: PrCreator
   viewStateStore: ViewStateStore
+  shellTabStore: ShellTabStore
 }
 
 export function registerIpcHandlers(deps: IpcDependencies): void {
@@ -35,6 +37,7 @@ export function registerIpcHandlers(deps: IpcDependencies): void {
   registerSettingsHandlers(deps)
   registerRuntimesHandler()
   registerViewStateHandlers(deps)
+  registerShellTabHandlers(deps)
 }
 
 function registerProjectHandlers(deps: IpcDependencies): void {
@@ -139,6 +142,10 @@ function registerAgentHandlers(deps: IpcDependencies): void {
   ipcMain.handle('shell:create', (_event, cwd: string) => {
     return sessionManager.createShellSession(cwd)
   })
+
+  ipcMain.handle('shell:kill', async (_event, sessionId: string) => {
+    await sessionManager.killSession(sessionId)
+  })
 }
 
 function registerFileHandlers(deps: IpcDependencies): void {
@@ -242,5 +249,17 @@ function registerViewStateHandlers(deps: IpcDependencies): void {
 
   ipcMain.handle('view-state:delete', (_event, sessionId: string) => {
     viewStateStore.delete(sessionId)
+  })
+}
+
+function registerShellTabHandlers(deps: IpcDependencies): void {
+  const { shellTabStore } = deps
+
+  ipcMain.handle('shell-tabs:get', (_event, agentKey: string) => {
+    return shellTabStore.get(agentKey)
+  })
+
+  ipcMain.handle('shell-tabs:set', (_event, agentKey: string, state: SavedShellState) => {
+    shellTabStore.set(agentKey, state)
   })
 }

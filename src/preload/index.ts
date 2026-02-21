@@ -23,10 +23,13 @@ const ALLOWED_INVOKE_CHANNELS = [
   'settings:update',
   'branch:suggest',
   'shell:create',
+  'shell:kill',
   'storage:open-dialog',
   'view-state:get',
   'view-state:set',
   'view-state:delete',
+  'shell-tabs:get',
+  'shell-tabs:set',
 ] as const
 
 const ALLOWED_SEND_CHANNELS = [
