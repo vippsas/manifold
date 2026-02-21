@@ -12,7 +12,7 @@
     "typecheck:web": "tsc --noEmit -p tsconfig.web.json",
     "test": "vitest run",
     "test:watch": "vitest",
-    "dist": "electron-vite build && electron-builder --mac dmg && rm -rf node_modules/node-pty/build",
+    "dist": "electron-vite build && electron-builder --mac dmg",
     "postinstall": "chmod +x node_modules/node-pty/prebuilds/darwin-*/spawn-helper 2>/dev/null || true"
   },
   "dependencies": {
@@ -33,6 +33,7 @@
   "build": {
     "appId": "de.malvik.manifold.app",
     "productName": "Manifold",
+    "npmRebuild": false,
     "directories": {
       "output": "dist"
     },
