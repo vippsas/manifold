@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react'
-import type { SpawnAgentOptions } from '../../shared/types'
+import type { SpawnAgentOptions, AgentRuntime } from '../../shared/types'
 import { deriveBranchName } from '../../shared/derive-branch-name'
 import { modalStyles } from './NewTaskModal.styles'
 
@@ -11,18 +11,6 @@ interface NewTaskModalProps {
   onLaunch: (options: SpawnAgentOptions) => void
   onClose: () => void
 }
-
-interface RuntimeOption {
-  id: string
-  label: string
-}
-
-const RUNTIMES: RuntimeOption[] = [
-  { id: 'claude', label: 'Claude Code' },
-  { id: 'codex', label: 'Codex' },
-  { id: 'gemini', label: 'Gemini' },
-  { id: 'custom', label: 'Custom' },
-]
 
 export function NewTaskModal({
   visible,
@@ -38,6 +26,7 @@ export function NewTaskModal({
   const [branchEdited, setBranchEdited] = useState(false)
   const [showAdvanced, setShowAdvanced] = useState(false)
   const [loading, setLoading] = useState(false)
+  const [runtimes, setRuntimes] = useState<AgentRuntime[]>([])
   const overlayRef = useRef<HTMLDivElement>(null)
   const textareaRef = useRef<HTMLTextAreaElement>(null)
 
@@ -45,7 +34,16 @@ export function NewTaskModal({
   useDebouncedBranchDerivation(taskDescription, branchEdited, setBranchName, projectName)
   useAutoFocus(visible, textareaRef)
 
-  const canSubmit = taskDescription.trim().length > 0
+  useEffect(() => {
+    if (!visible) return
+    window.electronAPI.invoke('runtimes:list').then((list) => {
+      setRuntimes(list as AgentRuntime[])
+    })
+  }, [visible])
+
+  const selectedRuntime = runtimes.find((r) => r.id === runtimeId)
+  const runtimeInstalled = selectedRuntime?.installed !== false
+  const canSubmit = taskDescription.trim().length > 0 && runtimeInstalled
 
   const handleSubmit = useCallback(
     (e: React.FormEvent): void => {
@@ -101,7 +99,12 @@ export function NewTaskModal({
             onChange={setTaskDescription}
             textareaRef={textareaRef}
           />
-          <AgentDropdown value={runtimeId} onChange={setRuntimeId} />
+          <AgentDropdown value={runtimeId} onChange={setRuntimeId} runtimes={runtimes} />
+          {!runtimeInstalled && (
+            <p style={{ color: 'var(--error, #f85149)', fontSize: '12px', margin: 0 }}>
+              {selectedRuntime?.name ?? runtimeId} is not installed. Please install it first.
+            </p>
+          )}
           <AdvancedSection
             show={showAdvanced}
             onToggle={() => setShowAdvanced((p) => !p)}
@@ -206,9 +209,11 @@ function TaskDescriptionField({
 function AgentDropdown({
   value,
   onChange,
+  runtimes,
 }: {
   value: string
   onChange: (v: string) => void
+  runtimes: AgentRuntime[]
 }): React.JSX.Element {
   return (
     <label style={modalStyles.label}>
@@ -218,8 +223,10 @@ function AgentDropdown({
         onChange={(e) => onChange(e.target.value)}
         style={modalStyles.select}
       >
-        {RUNTIMES.map((rt) => (
-          <option key={rt.id} value={rt.id}>{rt.label}</option>
+        {runtimes.map((rt) => (
+          <option key={rt.id} value={rt.id}>
+            {rt.name}{rt.installed === false ? ' (not installed)' : ''}
+          </option>
         ))}
       </select>
     </label>
