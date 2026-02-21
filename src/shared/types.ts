@@ -84,3 +84,9 @@ export interface GitStatusDetail {
   staged: string[]
   unstaged: string[]
 }
+
+export interface PRContext {
+  commits: string
+  diffStat: string
+  diffPatch: string
+}
