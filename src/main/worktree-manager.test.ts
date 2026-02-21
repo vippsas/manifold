@@ -8,10 +8,12 @@ vi.mock('node:fs', () => ({
 
 vi.mock('node:path', () => ({
   join: (...args: string[]) => args.join('/'),
+  basename: (p: string) => p.split('/').pop() || '',
 }))
 
 vi.mock('./branch-namer', () => ({
-  generateBranchName: vi.fn().mockResolvedValue('manifold/oslo'),
+  generateBranchName: vi.fn().mockResolvedValue('repo/oslo'),
+  repoPrefix: (repoPath: string) => (repoPath.split('/').pop() || '').toLowerCase() + '/',
 }))
 
 /**
@@ -92,12 +94,12 @@ describe('WorktreeManager', () => {
       const result = await manager.createWorktree('/repo', 'main', 'proj-1')
 
       expect(generateBranchName).toHaveBeenCalledWith('/repo')
-      expect(result.branch).toBe('manifold/oslo')
-      expect(result.path).toContain('manifold-oslo')
+      expect(result.branch).toBe('repo/oslo')
+      expect(result.path).toContain('repo-oslo')
       expect(result.path).toContain('/mock-home/.manifold/worktrees/proj-1/')
       expect(mockSpawn).toHaveBeenCalledWith(
         'git',
-        ['worktree', 'add', '-b', 'manifold/oslo', expect.stringContaining('manifold-oslo'), 'main'],
+        ['worktree', 'add', '-b', 'repo/oslo', expect.stringContaining('repo-oslo'), 'main'],
         { cwd: '/repo', stdio: ['ignore', 'pipe', 'pipe'] }
       )
     })
@@ -105,10 +107,10 @@ describe('WorktreeManager', () => {
     it('uses provided branch name instead of generating one', async () => {
       mockSpawnReturns('')
 
-      const result = await manager.createWorktree('/repo', 'main', 'proj-1', 'manifold/custom-branch')
+      const result = await manager.createWorktree('/repo', 'main', 'proj-1', 'repo/custom-branch')
 
       expect(generateBranchName).not.toHaveBeenCalled()
-      expect(result.branch).toBe('manifold/custom-branch')
+      expect(result.branch).toBe('repo/custom-branch')
     })
 
     it('creates the worktree directory', async () => {
@@ -125,16 +127,16 @@ describe('WorktreeManager', () => {
     it('replaces slashes in branch name for directory naming', async () => {
       mockSpawnReturns('')
 
-      const result = await manager.createWorktree('/repo', 'main', 'proj-1', 'manifold/nested/branch')
+      const result = await manager.createWorktree('/repo', 'main', 'proj-1', 'repo/nested/branch')
 
-      expect(result.path).toContain('manifold-nested-branch')
+      expect(result.path).toContain('repo-nested-branch')
     })
   })
 
   describe('removeWorktree', () => {
     it('removes a worktree and deletes the branch', async () => {
       const porcelainOutput =
-        'worktree /repo/.manifold/worktrees/manifold-oslo\nbranch refs/heads/manifold/oslo\n\n'
+        'worktree /repo/.manifold/worktrees/repo-oslo\nbranch refs/heads/repo/oslo\n\n'
 
       // First call: listWorktrees (worktree list --porcelain)
       // Second call: worktree remove
@@ -145,23 +147,23 @@ describe('WorktreeManager', () => {
         { stdout: '' },
       ])
 
-      await manager.removeWorktree('/repo', '/repo/.manifold/worktrees/manifold-oslo')
+      await manager.removeWorktree('/repo', '/repo/.manifold/worktrees/repo-oslo')
 
       expect(mockSpawn).toHaveBeenCalledWith(
         'git',
-        ['worktree', 'remove', '/repo/.manifold/worktrees/manifold-oslo', '--force'],
+        ['worktree', 'remove', '/repo/.manifold/worktrees/repo-oslo', '--force'],
         { cwd: '/repo', stdio: ['ignore', 'pipe', 'pipe'] }
       )
       expect(mockSpawn).toHaveBeenCalledWith(
         'git',
-        ['branch', '-D', 'manifold/oslo'],
+        ['branch', '-D', 'repo/oslo'],
         { cwd: '/repo', stdio: ['ignore', 'pipe', 'pipe'] }
       )
     })
 
     it('does not throw if branch deletion fails', async () => {
       const porcelainOutput =
-        'worktree /repo/.manifold/worktrees/manifold-oslo\nbranch refs/heads/manifold/oslo\n\n'
+        'worktree /repo/.manifold/worktrees/repo-oslo\nbranch refs/heads/repo/oslo\n\n'
 
       mockSpawnSequence([
         { stdout: porcelainOutput },
@@ -170,22 +172,22 @@ describe('WorktreeManager', () => {
       ])
 
       await expect(
-        manager.removeWorktree('/repo', '/repo/.manifold/worktrees/manifold-oslo')
+        manager.removeWorktree('/repo', '/repo/.manifold/worktrees/repo-oslo')
       ).resolves.toBeUndefined()
     })
   })
 
   describe('listWorktrees', () => {
-    it('parses porcelain output and filters manifold branches', async () => {
+    it('parses porcelain output and filters repo-prefixed branches', async () => {
       const porcelain = [
         'worktree /repo',
         'branch refs/heads/main',
         '',
-        'worktree /repo/.manifold/worktrees/manifold-oslo',
-        'branch refs/heads/manifold/oslo',
+        'worktree /repo/.manifold/worktrees/repo-oslo',
+        'branch refs/heads/repo/oslo',
         '',
-        'worktree /repo/.manifold/worktrees/manifold-bergen',
-        'branch refs/heads/manifold/bergen',
+        'worktree /repo/.manifold/worktrees/repo-bergen',
+        'branch refs/heads/repo/bergen',
         '',
       ].join('\n')
 
@@ -195,16 +197,16 @@ describe('WorktreeManager', () => {
 
       expect(result).toHaveLength(2)
       expect(result[0]).toEqual({
-        branch: 'manifold/oslo',
-        path: '/repo/.manifold/worktrees/manifold-oslo',
+        branch: 'repo/oslo',
+        path: '/repo/.manifold/worktrees/repo-oslo',
       })
       expect(result[1]).toEqual({
-        branch: 'manifold/bergen',
-        path: '/repo/.manifold/worktrees/manifold-bergen',
+        branch: 'repo/bergen',
+        path: '/repo/.manifold/worktrees/repo-bergen',
       })
     })
 
-    it('excludes non-manifold worktrees', async () => {
+    it('excludes non-repo-prefixed worktrees', async () => {
       const porcelain = [
         'worktree /repo',
         'branch refs/heads/main',
@@ -222,15 +224,15 @@ describe('WorktreeManager', () => {
 
     it('handles last entry without trailing blank line', async () => {
       const porcelain = [
-        'worktree /repo/.manifold/worktrees/manifold-oslo',
-        'branch refs/heads/manifold/oslo',
+        'worktree /repo/.manifold/worktrees/repo-oslo',
+        'branch refs/heads/repo/oslo',
       ].join('\n')
 
       mockSpawnReturns(porcelain)
 
       const result = await manager.listWorktrees('/repo')
       expect(result).toHaveLength(1)
-      expect(result[0].branch).toBe('manifold/oslo')
+      expect(result[0].branch).toBe('repo/oslo')
     })
 
     it('returns empty array for empty output', async () => {

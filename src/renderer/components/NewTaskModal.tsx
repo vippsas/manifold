@@ -6,6 +6,7 @@ import { modalStyles } from './NewTaskModal.styles'
 interface NewTaskModalProps {
   visible: boolean
   projectId: string
+  projectName: string
   defaultRuntime: string
   onLaunch: (options: SpawnAgentOptions) => void
   onClose: () => void
@@ -26,6 +27,7 @@ const RUNTIMES: RuntimeOption[] = [
 export function NewTaskModal({
   visible,
   projectId,
+  projectName,
   defaultRuntime,
   onLaunch,
   onClose,
@@ -40,7 +42,7 @@ export function NewTaskModal({
   const textareaRef = useRef<HTMLTextAreaElement>(null)
 
   useResetOnOpen(visible, defaultRuntime, setTaskDescription, setRuntimeId, setBranchName, setBranchEdited, setShowAdvanced, setLoading)
-  useDebouncedBranchDerivation(taskDescription, branchEdited, setBranchName)
+  useDebouncedBranchDerivation(taskDescription, branchEdited, setBranchName, projectName)
   useAutoFocus(visible, textareaRef)
 
   const canSubmit = taskDescription.trim().length > 0
@@ -105,6 +107,7 @@ export function NewTaskModal({
             onToggle={() => setShowAdvanced((p) => !p)}
             branchName={branchName}
             onBranchChange={handleBranchChange}
+            projectName={projectName}
           />
         </div>
         <ModalFooter onClose={onClose} canSubmit={canSubmit} loading={loading} />
@@ -137,17 +140,18 @@ function useResetOnOpen(
 function useDebouncedBranchDerivation(
   taskDescription: string,
   branchEdited: boolean,
-  setBranchName: (v: string) => void
+  setBranchName: (v: string) => void,
+  projectName: string
 ): void {
   useEffect(() => {
     if (branchEdited) return
 
     const timer = setTimeout(() => {
-      setBranchName(deriveBranchName(taskDescription))
+      setBranchName(deriveBranchName(taskDescription, projectName))
     }, 300)
 
     return () => clearTimeout(timer)
-  }, [taskDescription, branchEdited, setBranchName])
+  }, [taskDescription, branchEdited, setBranchName, projectName])
 }
 
 function useAutoFocus(visible: boolean, ref: React.RefObject<HTMLTextAreaElement | null>): void {
@@ -227,11 +231,13 @@ function AdvancedSection({
   onToggle,
   branchName,
   onBranchChange,
+  projectName,
 }: {
   show: boolean
   onToggle: () => void
   branchName: string
   onBranchChange: (v: string) => void
+  projectName: string
 }): React.JSX.Element {
   return (
     <div>
@@ -250,7 +256,7 @@ function AdvancedSection({
               value={branchName}
               onChange={(e) => onBranchChange(e.target.value)}
               style={modalStyles.input}
-              placeholder="manifold/..."
+              placeholder={`${projectName.toLowerCase()}/...`}
             />
           </label>
         </div>
