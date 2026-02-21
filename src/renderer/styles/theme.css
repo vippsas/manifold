@@ -19,24 +19,25 @@
   --sidebar-width: 200px;
   --status-bar-height: 28px;
 
-  /* Default color values (dark) — overridden by theme adapter at runtime */
-  --bg-primary: #1a1a2e;
-  --bg-secondary: #16213e;
-  --bg-sidebar: #0f1626;
-  --bg-input: #1e2a45;
+  /* Default color values — match the default Dracula theme.
+     Overridden by theme adapter at runtime via applyThemeCssVars(). */
+  --bg-primary: #282a36;
+  --bg-secondary: #393b47;
+  --bg-sidebar: #22232e;
+  --bg-input: #333544;
 
-  --text-primary: #e0e0e0;
-  --text-secondary: #8899aa;
-  --text-muted: #556677;
+  --text-primary: #f8f8f2;
+  --text-secondary: rgba(248, 248, 242, 0.65);
+  --text-muted: rgba(248, 248, 242, 0.4);
 
-  --accent: #4fc3f7;
-  --accent-hover: #29b6f6;
+  --accent: #007acc;
+  --accent-hover: #2694d6;
   --success: #66bb6a;
   --warning: #ffa726;
   --error: #ef5350;
 
-  --border: #2a3a5c;
-  --divider: #253352;
+  --border: #4d4f5c;
+  --divider: #3f4150;
 
   --status-running: #42a5f5;
   --status-waiting: #ffca28;
@@ -48,7 +49,7 @@
   --diff-added-gutter: rgba(102, 187, 106, 0.3);
   --diff-deleted-gutter: rgba(239, 83, 80, 0.3);
 
-  --scrollbar-thumb: #3a4a6c;
+  --scrollbar-thumb: #4d4f5c;
   --scrollbar-track: transparent;
 }
 
