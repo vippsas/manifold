@@ -1,8 +1,5 @@
-import React, { useState, useCallback, useEffect, useRef, useMemo } from 'react'
-import type { ITheme } from '@xterm/xterm'
+import React, { useState, useCallback, useMemo } from 'react'
 import type { SpawnAgentOptions, FileChange } from '../shared/types'
-import { loadTheme, migrateLegacyTheme } from '../shared/themes/registry'
-import { applyThemeCssVars } from '../shared/themes/adapter'
 import { useProjects } from './hooks/useProjects'
 import { useAgentSession } from './hooks/useAgentSession'
 import { useFileWatcher } from './hooks/useFileWatcher'
@@ -14,10 +11,13 @@ import { useViewState } from './hooks/useViewState'
 import { useShellSessions } from './hooks/useShellSession'
 import { useGitOperations } from './hooks/useGitOperations'
 import { useAllProjectSessions } from './hooks/useAllProjectSessions'
+import { useTheme } from './hooks/useTheme'
+import { useSidebarResize } from './hooks/useSidebarResize'
+import { useSessionStatePersistence } from './hooks/useSessionStatePersistence'
 import { useStatusNotification } from './hooks/useStatusNotification'
 import { ProjectSidebar } from './components/ProjectSidebar'
 import { MainPanes } from './components/MainPanes'
-import { NewAgentPopover } from './components/NewAgentPopover'
+import { NewTaskModal } from './components/NewTaskModal'
 import { OnboardingView } from './components/OnboardingView'
 import { SettingsModal } from './components/SettingsModal'
 import { StatusBar } from './components/StatusBar'
@@ -25,7 +25,6 @@ import { CommitPanel } from './components/CommitPanel'
 import { PRPanel } from './components/PRPanel'
 import { ConflictPanel } from './components/ConflictPanel'
 import { WelcomeDialog } from './components/WelcomeDialog'
-import { loader } from '@monaco-editor/react'
 
 export function App(): React.JSX.Element {
   const { settings, updateSettings } = useSettings()
@@ -70,31 +69,7 @@ export function App(): React.JSX.Element {
     [viewState.expandAncestors, codeView.handleSelectFile, paneResize.paneVisibility.center, paneResize.togglePane]
   )
 
-  const prevSessionRef = useRef<string | null>(null)
-  // Keep refs so the save effect captures current values without re-running on every change
-  const codeViewRef = useRef(codeView)
-  codeViewRef.current = codeView
-
-  // Save state before switching away from a session
-  useEffect(() => {
-    const prev = prevSessionRef.current
-    if (prev && prev !== activeSessionId) {
-      const cv = codeViewRef.current
-      viewState.saveCurrentState(prev, cv.openFiles, cv.activeFilePath, cv.codeViewMode)
-    }
-    prevSessionRef.current = activeSessionId
-  }, [activeSessionId, viewState.saveCurrentState])
-
-  // Restore state when viewState provides it
-  useEffect(() => {
-    if (viewState.restoreCodeView) {
-      codeView.restoreState(
-        viewState.restoreCodeView.openFiles,
-        viewState.restoreCodeView.activeFilePath,
-        viewState.restoreCodeView.codeViewMode
-      )
-    }
-  }, [viewState.restoreCodeView, codeView.restoreState])
+  useSessionStatePersistence(activeSessionId, viewState, codeView)
 
   const activeProject = projects.find((p) => p.id === activeProjectId) ?? null
   const worktreeShellCwd = activeSession?.worktreePath ?? null
@@ -107,71 +82,8 @@ export function App(): React.JSX.Element {
   const [showNewAgent, setShowNewAgent] = useState(false)
   const [showSettings, setShowSettings] = useState(false)
 
-  // ── Theme management ───────────────────────────────────────────────
-  // Migrate legacy theme values and compute the theme ID
-  const themeId = useMemo(() => migrateLegacyTheme(settings.theme), [settings.theme])
-
-  // Load the converted theme (CSS vars, Monaco, xterm)
-  const currentTheme = useMemo(() => loadTheme(themeId), [themeId])
-
-  // Derive theme type class for CSS fallback selectors
-  const themeClass = currentTheme.type === 'light' ? 'theme-light' : 'theme-dark'
-
-  // Apply theme: CSS vars, Monaco editor theme, native window
-  useEffect(() => {
-    applyThemeCssVars(currentTheme.cssVars)
-
-    // Register and activate Monaco theme
-    void loader.init().then((monaco) => {
-      monaco.editor.defineTheme(themeId, currentTheme.monacoTheme as Parameters<typeof monaco.editor.defineTheme>[1])
-      monaco.editor.setTheme(themeId)
-    })
-
-    // Notify main process for native window chrome
-    window.electronAPI.send('theme:changed', {
-      type: currentTheme.type,
-      background: currentTheme.cssVars['--bg-primary'],
-    })
-  }, [themeId, currentTheme])
-
-  // Theme preview state (set by ThemePicker during live preview)
-  const [previewThemeId, setPreviewThemeId] = useState<string | null>(null)
-
-  // Pass xterm theme to terminal components (preview overrides current)
-  const xtermTheme: ITheme = previewThemeId
-    ? loadTheme(previewThemeId).xtermTheme
-    : currentTheme.xtermTheme
-
-  // Sidebar resize
-  const [sidebarWidth, setSidebarWidth] = useState(200)
-  const sidebarDragging = useRef(false)
-
-  const handleSidebarDividerMouseDown = useCallback((_e: React.MouseEvent) => {
-    sidebarDragging.current = true
-    document.body.style.cursor = 'col-resize'
-    document.body.style.userSelect = 'none'
-  }, [])
-
-  useEffect(() => {
-    const onMove = (e: MouseEvent): void => {
-      if (!sidebarDragging.current) return
-      const clamped = Math.max(140, Math.min(400, e.clientX))
-      setSidebarWidth(clamped)
-    }
-    const onUp = (): void => {
-      if (sidebarDragging.current) {
-        sidebarDragging.current = false
-        document.body.style.cursor = ''
-        document.body.style.userSelect = ''
-      }
-    }
-    document.addEventListener('mousemove', onMove)
-    document.addEventListener('mouseup', onUp)
-    return () => {
-      document.removeEventListener('mousemove', onMove)
-      document.removeEventListener('mouseup', onUp)
-    }
-  }, [])
+  const { themeId, themeClass, xtermTheme, setPreviewThemeId } = useTheme(settings.theme)
+  const { sidebarWidth, handleSidebarDividerMouseDown } = useSidebarResize()
 
   const handleCommit = useCallback(async (message: string): Promise<void> => {
     await gitOps.commit(message)
@@ -179,69 +91,44 @@ export function App(): React.JSX.Element {
     setActivePanel(null)
   }, [gitOps.commit, refreshDiff])
 
-  const handleClosePanel = useCallback((): void => {
-    setActivePanel(null)
-  }, [])
+  const handleClosePanel = useCallback((): void => { setActivePanel(null) }, [])
 
-  const handleLaunchAgent = useCallback(
-    (options: SpawnAgentOptions): void => {
-      void spawnAgent(options)
-      setShowNewAgent(false)
-    },
-    [spawnAgent]
-  )
+  const handleLaunchAgent = useCallback((options: SpawnAgentOptions): void => {
+    void spawnAgent(options)
+    setShowNewAgent(false)
+  }, [spawnAgent])
 
-  const handleDeleteAgent = useCallback(
-    (sessionId: string): void => {
-      void deleteAgent(sessionId)
-      removeSession(sessionId)
-      void window.electronAPI.invoke('view-state:delete', sessionId)
-    },
-    [deleteAgent, removeSession]
-  )
+  const handleDeleteAgent = useCallback((sessionId: string): void => {
+    void deleteAgent(sessionId)
+    removeSession(sessionId)
+    void window.electronAPI.invoke('view-state:delete', sessionId)
+  }, [deleteAgent, removeSession])
 
-  const handleSelectSession = useCallback(
-    (sessionId: string, projectId: string): void => {
-      if (projectId !== activeProjectId) {
-        setActiveSession(sessionId)
-        setActiveProject(projectId)
-      } else {
-        setActiveSession(sessionId)
-      }
-    },
-    [activeProjectId, setActiveSession, setActiveProject]
-  )
+  const handleSelectSession = useCallback((sessionId: string, projectId: string): void => {
+    setActiveSession(sessionId)
+    if (projectId !== activeProjectId) setActiveProject(projectId)
+  }, [activeProjectId, setActiveSession, setActiveProject])
 
-  const handleNewAgentForProject = useCallback(
-    (projectId: string): void => {
-      if (projectId !== activeProjectId) {
-        setActiveProject(projectId)
-      }
-      setShowNewAgent(true)
-    },
-    [activeProjectId, setActiveProject]
-  )
+  const handleNewAgentForProject = useCallback((projectId: string): void => {
+    if (projectId !== activeProjectId) setActiveProject(projectId)
+    setShowNewAgent(true)
+  }, [activeProjectId, setActiveProject])
 
-  const handleSaveSettings = useCallback(
-    (partial: Partial<typeof settings>): void => {
-      void updateSettings(partial)
-    },
-    [updateSettings]
-  )
+  const handleSaveSettings = useCallback((partial: Partial<typeof settings>): void => {
+    void updateSettings(partial)
+  }, [updateSettings])
 
-  const handleSetupComplete = useCallback(
-    (storagePath: string): void => {
-      void updateSettings({ storagePath, setupCompleted: true })
-    },
-    [updateSettings]
-  )
+  const handleSetupComplete = useCallback((): void => {
+    void updateSettings({ setupCompleted: true })
+  }, [updateSettings])
 
   if (!settings.setupCompleted) {
     return (
       <div className={`layout-root ${themeClass}`}>
         <WelcomeDialog
-          defaultPath={settings.storagePath}
-          onConfirm={handleSetupComplete}
+          onAddProject={() => void addProject()}
+          onCloneProject={(url) => void cloneProject(url)}
+          onComplete={handleSetupComplete}
         />
       </div>
     )
@@ -380,7 +267,7 @@ export function App(): React.JSX.Element {
       )}
 
       {activeProjectId && (
-        <NewAgentPopover
+        <NewTaskModal
           visible={showNewAgent}
           projectId={activeProjectId}
           defaultRuntime={settings.defaultRuntime}

@@ -2,6 +2,7 @@ import React, { useState, useEffect, useCallback, useRef } from 'react'
 import type { ManifoldSettings } from '../../shared/types'
 import { getThemeList } from '../../shared/themes/registry'
 import { ThemePicker } from './ThemePicker'
+import { modalStyles } from './SettingsModal.styles'
 
 interface SettingsModalProps {
   visible: boolean
@@ -24,11 +25,7 @@ const RUNTIME_OPTIONS: RuntimeOption[] = [
 ]
 
 export function SettingsModal({
-  visible,
-  settings,
-  onSave,
-  onClose,
-  onPreviewTheme,
+  visible, settings, onSave, onClose, onPreviewTheme,
 }: SettingsModalProps): React.JSX.Element | null {
   const [defaultRuntime, setDefaultRuntime] = useState(settings.defaultRuntime)
   const [theme, setTheme] = useState(settings.theme)
@@ -86,10 +83,7 @@ export function SettingsModal({
       aria-modal="true"
       aria-label="Settings"
     >
-      <div style={{
-        ...modalStyles.panel,
-        pointerEvents: 'auto',
-      }}>
+      <div style={{ ...modalStyles.panel, pointerEvents: 'auto' }}>
         <ModalHeader onClose={onClose} />
         <SettingsBody
           storagePath={storagePath}
@@ -118,9 +112,7 @@ function ModalHeader({ onClose }: { onClose: () => void }): React.JSX.Element {
   return (
     <div style={modalStyles.header}>
       <span style={modalStyles.title}>Settings</span>
-      <button onClick={onClose} style={modalStyles.closeButton}>
-        &times;
-      </button>
+      <button onClick={onClose} style={modalStyles.closeButton}>&times;</button>
     </div>
   )
 }
@@ -144,23 +136,12 @@ interface SettingsBodyProps {
 }
 
 function SettingsBody({
-  storagePath,
-  onStoragePathChange,
-  defaultRuntime,
-  theme,
-  scrollbackLines,
-  defaultBaseBranch,
-  onRuntimeChange,
-  onThemeChange,
-  onScrollbackChange,
-  onBaseBranchChange,
-  onPreviewTheme,
-  pickerOpen,
-  onPickerToggle,
-  notificationSound,
-  onNotificationSoundChange,
+  storagePath, onStoragePathChange,
+  defaultRuntime, theme, scrollbackLines, defaultBaseBranch,
+  onRuntimeChange, onThemeChange, onScrollbackChange, onBaseBranchChange,
+  onPreviewTheme, pickerOpen, onPickerToggle,
+  notificationSound, onNotificationSoundChange,
 }: SettingsBodyProps): React.JSX.Element {
-
   const handleScrollbackInput = useCallback(
     (e: React.ChangeEvent<HTMLInputElement>): void => {
       const value = parseInt(e.target.value, 10)
@@ -173,72 +154,29 @@ function SettingsBody({
 
   return (
     <div style={modalStyles.body}>
-      <label style={modalStyles.label}>
-        Storage Directory
-        <input
-          type="text"
-          value={storagePath}
-          onChange={(e) => onStoragePathChange(e.target.value)}
-          style={modalStyles.input}
-          placeholder="~/.manifold"
-        />
-      </label>
-      <label style={modalStyles.label}>
-        Default Runtime
-        <select
-          value={defaultRuntime}
-          onChange={(e) => onRuntimeChange(e.target.value)}
-          style={modalStyles.select}
-        >
-          {RUNTIME_OPTIONS.map((rt) => (
-            <option key={rt.id} value={rt.id}>{rt.label}</option>
-          ))}
-        </select>
-      </label>
-      <div style={modalStyles.label}>
-        Theme
-        <div style={{ position: 'relative' as const }}>
-          <button
-            onClick={() => onPickerToggle(!pickerOpen)}
-            style={modalStyles.themeButton}
-          >
-            {themeLabel}
-          </button>
-          {pickerOpen && (
-            <div style={modalStyles.pickerOverlay}>
-              <ThemePicker
-                currentThemeId={theme}
-                onSelect={(id) => {
-                  onThemeChange(id)
-                  onPickerToggle(false)
-                }}
-                onCancel={() => onPickerToggle(false)}
-                onPreview={onPreviewTheme}
-              />
-            </div>
-          )}
-        </div>
-      </div>
+      <StorageField value={storagePath} onChange={onStoragePathChange} />
+      <RuntimeField value={defaultRuntime} onChange={onRuntimeChange} />
+      <ThemeField
+        themeLabel={themeLabel}
+        theme={theme}
+        pickerOpen={pickerOpen}
+        onPickerToggle={onPickerToggle}
+        onThemeChange={onThemeChange}
+        onPreviewTheme={onPreviewTheme}
+      />
       <label style={modalStyles.label}>
         Scrollback Lines
         <input
-          type="number"
-          value={scrollbackLines}
-          onChange={handleScrollbackInput}
-          min={100}
-          max={100000}
-          step={100}
-          style={modalStyles.input}
+          type="number" value={scrollbackLines} onChange={handleScrollbackInput}
+          min={100} max={100000} step={100} style={modalStyles.input}
         />
       </label>
       <label style={modalStyles.label}>
         Default Base Branch
         <input
-          type="text"
-          value={defaultBaseBranch}
+          type="text" value={defaultBaseBranch}
           onChange={(e) => onBaseBranchChange(e.target.value)}
-          style={modalStyles.input}
-          placeholder="main"
+          style={modalStyles.input} placeholder="main"
         />
       </label>
       <label style={{ ...modalStyles.label, flexDirection: 'row', alignItems: 'center', gap: '8px' }}>
@@ -254,121 +192,65 @@ function SettingsBody({
   )
 }
 
-function ModalFooter({
-  onClose,
-  onSave,
+function StorageField({ value, onChange }: { value: string; onChange: (v: string) => void }): React.JSX.Element {
+  return (
+    <label style={modalStyles.label}>
+      Storage Directory
+      <input type="text" value={value} onChange={(e) => onChange(e.target.value)} style={modalStyles.input} placeholder="~/.manifold" />
+    </label>
+  )
+}
+
+function RuntimeField({ value, onChange }: { value: string; onChange: (v: string) => void }): React.JSX.Element {
+  return (
+    <label style={modalStyles.label}>
+      Default Runtime
+      <select value={value} onChange={(e) => onChange(e.target.value)} style={modalStyles.select}>
+        {RUNTIME_OPTIONS.map((rt) => (
+          <option key={rt.id} value={rt.id}>{rt.label}</option>
+        ))}
+      </select>
+    </label>
+  )
+}
+
+function ThemeField({
+  themeLabel, theme, pickerOpen, onPickerToggle, onThemeChange, onPreviewTheme,
 }: {
-  onClose: () => void
-  onSave: () => void
+  themeLabel: string
+  theme: string
+  pickerOpen: boolean
+  onPickerToggle: (open: boolean) => void
+  onThemeChange: (theme: string) => void
+  onPreviewTheme?: (themeId: string | null) => void
 }): React.JSX.Element {
   return (
-    <div style={modalStyles.footer}>
-      <button onClick={onClose} style={modalStyles.cancelButton}>
-        Cancel
-      </button>
-      <button onClick={onSave} style={modalStyles.saveButton}>
-        Save
-      </button>
+    <div style={modalStyles.label}>
+      Theme
+      <div style={{ position: 'relative' as const }}>
+        <button onClick={() => onPickerToggle(!pickerOpen)} style={modalStyles.themeButton}>
+          {themeLabel}
+        </button>
+        {pickerOpen && (
+          <div style={modalStyles.pickerOverlay}>
+            <ThemePicker
+              currentThemeId={theme}
+              onSelect={(id) => { onThemeChange(id); onPickerToggle(false) }}
+              onCancel={() => onPickerToggle(false)}
+              onPreview={onPreviewTheme}
+            />
+          </div>
+        )}
+      </div>
     </div>
   )
 }
 
-const modalStyles: Record<string, React.CSSProperties> = {
-  overlay: {
-    position: 'fixed',
-    inset: 0,
-    background: 'rgba(0, 0, 0, 0.5)',
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'center',
-    zIndex: 1000,
-  },
-  panel: {
-    background: 'var(--bg-primary)',
-    border: '1px solid var(--border)',
-    borderRadius: '8px',
-    width: '380px',
-    maxWidth: '90vw',
-    boxShadow: '0 8px 32px rgba(0, 0, 0, 0.3)',
-  },
-  header: {
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    padding: '12px 16px',
-    borderBottom: '1px solid var(--border)',
-  },
-  title: {
-    fontWeight: 600,
-    fontSize: '14px',
-  },
-  closeButton: {
-    fontSize: '18px',
-    color: 'var(--text-secondary)',
-    padding: '0 4px',
-    lineHeight: 1,
-  },
-  body: {
-    padding: '16px',
-    display: 'flex',
-    flexDirection: 'column',
-    gap: '12px',
-  },
-  label: {
-    display: 'flex',
-    flexDirection: 'column',
-    gap: '4px',
-    fontSize: '12px',
-    color: 'var(--text-secondary)',
-    fontWeight: 500,
-  },
-  select: {
-    padding: '6px 8px',
-    fontSize: '13px',
-  },
-  input: {
-    padding: '6px 8px',
-    fontSize: '13px',
-  },
-  themeButton: {
-    width: '100%',
-    padding: '6px 8px',
-    fontSize: '13px',
-    textAlign: 'left' as const,
-    background: 'var(--bg-input)',
-    color: 'var(--text-primary)',
-    border: '1px solid var(--border)',
-    borderRadius: '4px',
-    cursor: 'pointer',
-  },
-  pickerOverlay: {
-    position: 'absolute' as const,
-    top: '100%',
-    left: 0,
-    zIndex: 1001,
-    marginTop: '4px',
-  },
-  footer: {
-    display: 'flex',
-    justifyContent: 'flex-end',
-    gap: '8px',
-    padding: '12px 16px',
-    borderTop: '1px solid var(--border)',
-  },
-  cancelButton: {
-    padding: '6px 16px',
-    borderRadius: '4px',
-    fontSize: '13px',
-    color: 'var(--text-secondary)',
-    background: 'var(--bg-input)',
-    border: '1px solid var(--border)',
-  },
-  saveButton: {
-    padding: '6px 20px',
-    borderRadius: '4px',
-    fontSize: '13px',
-    color: '#ffffff',
-    background: 'var(--accent)',
-    fontWeight: 500,
-  },
+function ModalFooter({ onClose, onSave }: { onClose: () => void; onSave: () => void }): React.JSX.Element {
+  return (
+    <div style={modalStyles.footer}>
+      <button onClick={onClose} style={modalStyles.cancelButton}>Cancel</button>
+      <button onClick={onSave} style={modalStyles.saveButton}>Save</button>
+    </div>
+  )
 }

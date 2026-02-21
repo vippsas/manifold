@@ -1,6 +1,7 @@
 import React, { useState, useCallback } from 'react'
 import type { Project, AgentSession } from '../../shared/types'
 import { sidebarStyles } from './ProjectSidebar.styles'
+import { AgentItem } from './AgentItem'
 
 interface ProjectSidebarProps {
   width: number
@@ -159,7 +160,7 @@ function ProjectList({
               />
             ))}
             <button onClick={() => onNewAgent(project.id)} style={sidebarStyles.newAgentButton}>
-              + New Agent
+              + New Task
             </button>
           </React.Fragment>
         )
@@ -216,83 +217,6 @@ function ProjectItem({
         </button>
       </div>
     </div>
-  )
-}
-
-const RUNTIME_LABELS: Record<string, string> = {
-  claude: 'Claude',
-  codex: 'Codex',
-  gemini: 'Gemini',
-  custom: 'Custom',
-}
-
-function formatBranch(branchName: string): string {
-  return branchName.replace('manifold/', '')
-}
-
-function runtimeLabel(runtimeId: string): string {
-  return RUNTIME_LABELS[runtimeId] ?? runtimeId
-}
-
-interface AgentItemProps {
-  session: AgentSession
-  isActive: boolean
-  onSelect: (id: string) => void
-  onDelete: (id: string) => void
-}
-
-function AgentItem({ session, isActive, onSelect, onDelete }: AgentItemProps): React.JSX.Element {
-  const handleClick = useCallback((): void => {
-    onSelect(session.id)
-  }, [onSelect, session.id])
-
-  const handleDelete = useCallback(
-    (e: React.MouseEvent): void => {
-      e.stopPropagation()
-      onDelete(session.id)
-    },
-    [onDelete, session.id]
-  )
-
-  return (
-    <button
-      onClick={handleClick}
-      style={{
-        ...sidebarStyles.agentItem,
-        background: isActive ? 'rgba(79, 195, 247, 0.15)' : 'transparent',
-        opacity: isActive ? 1 : 0.6,
-      }}
-      title={`${runtimeLabel(session.runtimeId)} - ${session.branchName}`}
-    >
-      <span className={`status-dot status-dot--${session.status}`} />
-      <span
-        className="truncate"
-        style={{
-          ...sidebarStyles.agentBranch,
-          color: isActive ? 'var(--accent)' : 'var(--text-secondary)',
-          fontWeight: isActive ? 600 : 400,
-        }}
-      >
-        {formatBranch(session.branchName)}
-      </span>
-      <span
-        style={{
-          ...sidebarStyles.agentRuntime,
-          color: isActive ? 'var(--text-primary)' : 'var(--text-muted)',
-        }}
-      >
-        {runtimeLabel(session.runtimeId)}
-      </span>
-      <span
-        role="button"
-        onClick={handleDelete}
-        style={sidebarStyles.agentDeleteButton}
-        aria-label={`Delete ${formatBranch(session.branchName)}`}
-        title="Delete agent"
-      >
-        &times;
-      </span>
-    </button>
   )
 }
 
