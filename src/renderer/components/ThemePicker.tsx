@@ -3,6 +3,7 @@ import type { ThemeMeta } from '../../shared/themes/types'
 import { getThemeList, loadTheme } from '../../shared/themes/registry'
 import { applyThemeCssVars } from '../../shared/themes/adapter'
 import { loader } from '@monaco-editor/react'
+import { pickerStyles } from './ThemePicker.styles'
 
 type FilterTab = 'all' | 'dark' | 'light'
 
@@ -33,36 +34,21 @@ export function ThemePicker({ currentThemeId, onSelect, onCancel, onPreview }: T
     return list
   }, [themes, filter, search])
 
-  // Reset selection when filter/search changes
-  useEffect(() => {
-    setSelectedIndex(0)
-  }, [filter, search])
+  useEffect(() => { setSelectedIndex(0) }, [filter, search])
+  useEffect(() => { inputRef.current?.focus() }, [])
 
-  // Auto-focus search input
-  useEffect(() => {
-    inputRef.current?.focus()
-  }, [])
-
-  // Live preview
   const applyPreview = useCallback((themeId: string) => {
     setPreviewedId(themeId)
     const theme = loadTheme(themeId)
     applyThemeCssVars(theme.cssVars)
-
-    // Update Monaco theme
     void loader.init().then((monaco) => {
       monaco.editor.defineTheme(themeId, theme.monacoTheme as Parameters<typeof monaco.editor.defineTheme>[1])
       monaco.editor.setTheme(themeId)
     })
-
-    // Notify main process for window background
     window.electronAPI.send('theme:changed', { type: theme.type, background: theme.cssVars['--bg-primary'] })
-
-    // Update terminal themes via React state
     onPreview?.(themeId)
   }, [onPreview])
 
-  // Revert preview
   const revertPreview = useCallback(() => {
     const origId = originalThemeIdRef.current
     const theme = loadTheme(origId)
@@ -112,7 +98,6 @@ export function ThemePicker({ currentThemeId, onSelect, onCancel, onPreview }: T
     [filtered, applyPreview, handleConfirm, handleCancel]
   )
 
-  // Scroll selected item into view
   useEffect(() => {
     const container = listRef.current
     if (!container) return
@@ -123,43 +108,19 @@ export function ThemePicker({ currentThemeId, onSelect, onCancel, onPreview }: T
   return (
     <div style={pickerStyles.wrapper} onKeyDown={handleKeyDown}>
       <input
-        ref={inputRef}
-        type="text"
-        value={search}
+        ref={inputRef} type="text" value={search}
         onChange={(e) => setSearch(e.target.value)}
-        placeholder="Search themes..."
-        style={pickerStyles.searchInput}
+        placeholder="Search themes..." style={pickerStyles.searchInput}
       />
-      <div style={pickerStyles.filterBar}>
-        {(['all', 'dark', 'light'] as FilterTab[]).map((tab) => (
-          <button
-            key={tab}
-            style={{
-              ...pickerStyles.filterTab,
-              ...(filter === tab ? pickerStyles.filterTabActive : {}),
-            }}
-            onClick={() => setFilter(tab)}
-          >
-            {tab.charAt(0).toUpperCase() + tab.slice(1)}
-          </button>
-        ))}
-      </div>
+      <FilterBar filter={filter} onSetFilter={setFilter} />
       <div ref={listRef} style={pickerStyles.list}>
         {filtered.map((theme, index) => (
           <ThemeListItem
-            key={theme.id}
-            theme={theme}
+            key={theme.id} theme={theme}
             isSelected={index === selectedIndex}
             isCurrent={theme.id === currentThemeId}
-            isPreviewed={theme.id === previewedId}
-            onMouseEnter={() => {
-              setSelectedIndex(index)
-              applyPreview(theme.id)
-            }}
-            onClick={() => {
-              setSelectedIndex(index)
-              onSelect(theme.id)
-            }}
+            onMouseEnter={() => { setSelectedIndex(index); applyPreview(theme.id) }}
+            onClick={() => { setSelectedIndex(index); onSelect(theme.id) }}
           />
         ))}
         {filtered.length === 0 && (
@@ -175,11 +136,26 @@ export function ThemePicker({ currentThemeId, onSelect, onCancel, onPreview }: T
   )
 }
 
+function FilterBar({ filter, onSetFilter }: { filter: FilterTab; onSetFilter: (tab: FilterTab) => void }): React.JSX.Element {
+  return (
+    <div style={pickerStyles.filterBar}>
+      {(['all', 'dark', 'light'] as FilterTab[]).map((tab) => (
+        <button
+          key={tab}
+          style={{ ...pickerStyles.filterTab, ...(filter === tab ? pickerStyles.filterTabActive : {}) }}
+          onClick={() => onSetFilter(tab)}
+        >
+          {tab.charAt(0).toUpperCase() + tab.slice(1)}
+        </button>
+      ))}
+    </div>
+  )
+}
+
 interface ThemeListItemProps {
   theme: ThemeMeta
   isSelected: boolean
   isCurrent: boolean
-  isPreviewed: boolean
   onMouseEnter: () => void
   onClick: () => void
 }
@@ -187,21 +163,13 @@ interface ThemeListItemProps {
 function ThemeListItem({ theme, isSelected, isCurrent, onMouseEnter, onClick }: ThemeListItemProps): React.JSX.Element {
   const swatch = useMemo(() => {
     const t = loadTheme(theme.id)
-    return {
-      bg: t.cssVars['--bg-primary'],
-      fg: t.cssVars['--text-primary'],
-      accent: t.cssVars['--accent'],
-    }
+    return { bg: t.cssVars['--bg-primary'], fg: t.cssVars['--text-primary'], accent: t.cssVars['--accent'] }
   }, [theme.id])
 
   return (
     <div
-      style={{
-        ...pickerStyles.item,
-        ...(isSelected ? pickerStyles.itemSelected : {}),
-      }}
-      onMouseEnter={onMouseEnter}
-      onClick={onClick}
+      style={{ ...pickerStyles.item, ...(isSelected ? pickerStyles.itemSelected : {}) }}
+      onMouseEnter={onMouseEnter} onClick={onClick}
     >
       <div style={pickerStyles.swatchGroup}>
         <div style={{ ...pickerStyles.swatch, background: swatch.bg }} />
@@ -213,111 +181,4 @@ function ThemeListItem({ theme, isSelected, isCurrent, onMouseEnter, onClick }: 
       <span style={pickerStyles.typeBadge}>{theme.type}</span>
     </div>
   )
-}
-
-const pickerStyles: Record<string, React.CSSProperties> = {
-  wrapper: {
-    width: '320px',
-    maxHeight: '460px',
-    display: 'flex',
-    flexDirection: 'column',
-    background: 'var(--bg-primary)',
-    border: '1px solid var(--border)',
-    borderRadius: '6px',
-    boxShadow: '0 8px 24px rgba(0,0,0,0.3)',
-    overflow: 'hidden',
-  },
-  searchInput: {
-    margin: '8px 8px 0',
-    padding: '6px 8px',
-    fontSize: '13px',
-    background: 'var(--bg-input)',
-    color: 'var(--text-primary)',
-    border: '1px solid var(--border)',
-    borderRadius: '4px',
-    outline: 'none',
-  },
-  filterBar: {
-    display: 'flex',
-    gap: '2px',
-    padding: '6px 8px',
-    borderBottom: '1px solid var(--border)',
-  },
-  filterTab: {
-    flex: 1,
-    padding: '3px 0',
-    fontSize: '11px',
-    fontWeight: 500,
-    color: 'var(--text-muted)',
-    background: 'none',
-    border: '1px solid transparent',
-    borderRadius: '3px',
-    cursor: 'pointer',
-    textAlign: 'center' as const,
-  },
-  filterTabActive: {
-    color: 'var(--text-primary)',
-    background: 'var(--bg-secondary)',
-    borderColor: 'var(--border)',
-  },
-  list: {
-    flex: 1,
-    overflowY: 'auto' as const,
-    maxHeight: '340px',
-  },
-  item: {
-    display: 'flex',
-    alignItems: 'center',
-    gap: '8px',
-    padding: '5px 10px',
-    cursor: 'pointer',
-    fontSize: '12px',
-    color: 'var(--text-primary)',
-  },
-  itemSelected: {
-    background: 'var(--bg-secondary)',
-  },
-  itemLabel: {
-    flex: 1,
-    overflow: 'hidden',
-    textOverflow: 'ellipsis',
-    whiteSpace: 'nowrap' as const,
-  },
-  currentBadge: {
-    fontSize: '10px',
-    color: 'var(--accent)',
-    fontWeight: 500,
-    flexShrink: 0,
-  },
-  typeBadge: {
-    fontSize: '10px',
-    color: 'var(--text-muted)',
-    flexShrink: 0,
-  },
-  swatchGroup: {
-    display: 'flex',
-    gap: '2px',
-    flexShrink: 0,
-  },
-  swatch: {
-    width: '12px',
-    height: '12px',
-    borderRadius: '2px',
-    border: '1px solid var(--border)',
-  },
-  empty: {
-    padding: '16px',
-    textAlign: 'center' as const,
-    color: 'var(--text-muted)',
-    fontSize: '12px',
-  },
-  footer: {
-    padding: '6px 10px',
-    borderTop: '1px solid var(--border)',
-    background: 'var(--bg-secondary)',
-  },
-  footerHint: {
-    fontSize: '10px',
-    color: 'var(--text-muted)',
-  },
 }

@@ -1,17 +1,17 @@
 import { v4 as uuidv4 } from 'uuid'
-import { writeFile, readFile } from 'node:fs/promises'
-import { join } from 'node:path'
 import { AgentSession, SpawnAgentOptions } from '../shared/types'
 import { getRuntimeById } from './runtimes'
 import { WorktreeManager } from './worktree-manager'
 import { PtyPool } from './pty-pool'
 import { ProjectRegistry } from './project-registry'
 import { detectStatus } from './status-detector'
+import { writeWorktreeMeta, readWorktreeMeta } from './worktree-meta'
 import type { BrowserWindow } from 'electron'
 
 interface InternalSession extends AgentSession {
   ptyId: string
   outputBuffer: string
+  taskDescription?: string
 }
 
 export class SessionManager {
@@ -59,8 +59,11 @@ export class SessionManager {
     this.wireExitHandling(ptyHandle.id, session)
     this.sendInitialPrompt(ptyHandle.id, options.prompt)
 
-    // Persist runtime selection so it survives app restarts
-    this.writeWorktreeMeta(worktree.path, { runtimeId: options.runtimeId }).catch(() => {})
+    // Persist runtime and task description so they survive app restarts
+    writeWorktreeMeta(worktree.path, {
+      runtimeId: options.runtimeId,
+      taskDescription: options.prompt || undefined,
+    }).catch(() => {})
 
     return this.toPublicSession(session)
   }
@@ -91,7 +94,8 @@ export class SessionManager {
       status: 'running',
       pid: ptyHandle.pid,
       ptyId: ptyHandle.id,
-      outputBuffer: ''
+      outputBuffer: '',
+      taskDescription: options.prompt || undefined,
     }
   }
 
@@ -190,7 +194,7 @@ export class SessionManager {
 
     for (const wt of worktrees) {
       if (!trackedPaths.has(wt.path)) {
-        const meta = await this.readWorktreeMeta(wt.path)
+        const meta = await readWorktreeMeta(wt.path)
         const session: InternalSession = {
           id: uuidv4(),
           projectId,
@@ -200,7 +204,8 @@ export class SessionManager {
           status: 'done',
           pid: null,
           ptyId: '',
-          outputBuffer: ''
+          outputBuffer: '',
+          taskDescription: meta?.taskDescription,
         }
         this.sessions.set(session.id, session)
       }
@@ -212,15 +217,8 @@ export class SessionManager {
   }
 
   killAllSessions(): void {
-    for (const [id] of this.sessions) {
-      try {
-        const session = this.sessions.get(id)
-        if (session) {
-          this.ptyPool.kill(session.ptyId)
-        }
-      } catch {
-        // Best effort cleanup
-      }
+    for (const session of this.sessions.values()) {
+      try { this.ptyPool.kill(session.ptyId) } catch { /* best effort */ }
     }
     this.sessions.clear()
   }
@@ -278,14 +276,8 @@ export class SessionManager {
 
   private sendInitialPrompt(ptyId: string, prompt: string): void {
     if (!prompt) return
-    // Write immediately — PTY stdin buffers the data until Claude Code reads it.
-    // This avoids the double-render that happens when the prompt arrives after
-    // Claude Code has already drawn its startup UI.
-    try {
-      this.ptyPool.write(ptyId, prompt + '\n')
-    } catch {
-      // PTY may have already exited
-    }
+    // Write immediately — PTY stdin buffers until the agent reads it
+    try { this.ptyPool.write(ptyId, prompt + '\n') } catch { /* PTY may have exited */ }
   }
 
   private toPublicSession(session: InternalSession): AgentSession {
@@ -296,25 +288,8 @@ export class SessionManager {
       branchName: session.branchName,
       worktreePath: session.worktreePath,
       status: session.status,
-      pid: session.pid
-    }
-  }
-
-  private async writeWorktreeMeta(
-    worktreePath: string,
-    meta: { runtimeId: string }
-  ): Promise<void> {
-    await writeFile(join(worktreePath, '.manifold.json'), JSON.stringify(meta), 'utf-8')
-  }
-
-  private async readWorktreeMeta(
-    worktreePath: string
-  ): Promise<{ runtimeId: string } | null> {
-    try {
-      const raw = await readFile(join(worktreePath, '.manifold.json'), 'utf-8')
-      return JSON.parse(raw)
-    } catch {
-      return null
+      pid: session.pid,
+      taskDescription: session.taskDescription,
     }
   }
 }

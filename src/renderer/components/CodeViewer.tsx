@@ -4,6 +4,9 @@ import type { editor as monacoEditor } from 'monaco-editor'
 import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
 import type { OpenFile } from '../hooks/useCodeView'
+import { viewerStyles } from './CodeViewer.styles'
+import { extensionToLanguage, isMarkdownFile, fileName, splitDiffByFile } from './code-viewer-utils'
+import type { FileDiff } from './code-viewer-utils'
 
 type ViewMode = 'diff' | 'file'
 
@@ -22,110 +25,6 @@ interface CodeViewerProps {
   onClose?: () => void
 }
 
-function isMarkdownFile(filePath: string | null): boolean {
-  if (!filePath) return false
-  const ext = filePath.split('.').pop()?.toLowerCase() ?? ''
-  return ext === 'md' || ext === 'mdx' || ext === 'markdown'
-}
-
-function extensionToLanguage(filePath: string | null): string {
-  if (!filePath) return 'plaintext'
-  const ext = filePath.split('.').pop()?.toLowerCase() ?? ''
-  const languageMap: Record<string, string> = {
-    ts: 'typescript',
-    tsx: 'typescript',
-    js: 'javascript',
-    jsx: 'javascript',
-    json: 'json',
-    md: 'markdown',
-    css: 'css',
-    scss: 'scss',
-    html: 'html',
-    xml: 'xml',
-    py: 'python',
-    rb: 'ruby',
-    rs: 'rust',
-    go: 'go',
-    java: 'java',
-    c: 'c',
-    cpp: 'cpp',
-    h: 'c',
-    hpp: 'cpp',
-    sh: 'shell',
-    bash: 'shell',
-    zsh: 'shell',
-    yml: 'yaml',
-    yaml: 'yaml',
-    toml: 'ini',
-    sql: 'sql',
-    graphql: 'graphql',
-    dockerfile: 'dockerfile',
-    makefile: 'plaintext',
-    gitignore: 'plaintext',
-  }
-  return languageMap[ext] ?? 'plaintext'
-}
-
-interface FileDiff {
-  filePath: string
-  original: string
-  modified: string
-  lineCount: number
-}
-
-function splitDiffByFile(diffText: string): FileDiff[] {
-  if (!diffText.trim()) return []
-
-  // Split on "diff --git" boundaries
-  const fileChunks = diffText.split(/^(?=diff --git )/m).filter((c) => c.trim())
-  const results: FileDiff[] = []
-
-  for (const chunk of fileChunks) {
-    // Extract file path from "diff --git a/path b/path"
-    const headerMatch = chunk.match(/^diff --git a\/(.+?) b\//)
-    const filePath = headerMatch?.[1] ?? 'unknown'
-
-    const lines = chunk.split('\n')
-    const originalLines: string[] = []
-    const modifiedLines: string[] = []
-
-    for (const line of lines) {
-      if (
-        line.startsWith('diff ') ||
-        line.startsWith('index ') ||
-        line.startsWith('---') ||
-        line.startsWith('+++') ||
-        line.startsWith('@@')
-      ) {
-        continue
-      }
-      if (line.startsWith('-')) {
-        originalLines.push(line.slice(1))
-      } else if (line.startsWith('+')) {
-        modifiedLines.push(line.slice(1))
-      } else {
-        const content = line.startsWith(' ') ? line.slice(1) : line
-        originalLines.push(content)
-        modifiedLines.push(content)
-      }
-    }
-
-    const lineCount = Math.max(originalLines.length, modifiedLines.length)
-    results.push({
-      filePath,
-      original: originalLines.join('\n'),
-      modified: modifiedLines.join('\n'),
-      lineCount,
-    })
-  }
-
-  return results
-}
-
-function fileName(filePath: string): string {
-  return filePath.split('/').pop() ?? filePath
-}
-
 const BASE_EDITOR_OPTIONS = {
   minimap: { enabled: false },
   scrollBeyondLastLine: false,
@@ -140,18 +39,8 @@ const READONLY_OPTIONS = { ...BASE_EDITOR_OPTIONS, readOnly: true }
 const EDITABLE_OPTIONS = { ...BASE_EDITOR_OPTIONS, readOnly: false }
 
 export function CodeViewer({
-  mode,
-  diff,
-  openFiles,
-  activeFilePath,
-  fileContent,
-  theme,
-  worktreeRoot,
-  onSelectTab,
-  onCloseTab,
-  onShowDiff,
-  onSaveFile,
-  onClose,
+  mode, diff, openFiles, activeFilePath, fileContent, theme,
+  worktreeRoot, onSelectTab, onCloseTab, onShowDiff, onSaveFile, onClose,
 }: CodeViewerProps): React.JSX.Element {
   const monacoTheme = theme
   const language = useMemo(() => extensionToLanguage(activeFilePath), [activeFilePath])
@@ -159,17 +48,10 @@ export function CodeViewer({
   const editorRef = useRef<monacoEditor.IStandaloneCodeEditor | null>(null)
   const saveRef = useRef(onSaveFile)
   const [previewActive, setPreviewActive] = useState(false)
-
   const isMd = isMarkdownFile(activeFilePath)
 
-  // Reset preview when switching away from a markdown file
-  useEffect(() => {
-    if (!isMd) setPreviewActive(false)
-  }, [isMd])
-
-  useEffect(() => {
-    saveRef.current = onSaveFile
-  }, [onSaveFile])
+  useEffect(() => { if (!isMd) setPreviewActive(false) }, [isMd])
+  useEffect(() => { saveRef.current = onSaveFile }, [onSaveFile])
 
   const handleEditorMount: OnMount = useCallback((editor, monaco) => {
     editorRef.current = editor
@@ -191,34 +73,15 @@ export function CodeViewer({
 
   return (
     <div style={viewerStyles.wrapper}>
-      {hasTabs && (
+      {hasTabs ? (
         <TabBar
-          openFiles={openFiles}
-          activeFilePath={activeFilePath}
-          mode={mode}
-          onSelectTab={onSelectTab}
-          onCloseTab={onCloseTab}
-          onShowDiff={onShowDiff}
-          showPreviewToggle={showPreviewToggle}
-          previewActive={previewActive}
-          onTogglePreview={() => setPreviewActive((p) => !p)}
-          onClose={onClose}
+          openFiles={openFiles} activeFilePath={activeFilePath} mode={mode}
+          onSelectTab={onSelectTab} onCloseTab={onCloseTab} onShowDiff={onShowDiff}
+          showPreviewToggle={showPreviewToggle} previewActive={previewActive}
+          onTogglePreview={() => setPreviewActive((p) => !p)} onClose={onClose}
         />
-      )}
-      {!hasTabs && (
-        <div style={viewerStyles.header}>
-          <span className="mono" style={viewerStyles.headerText}>
-            {mode === 'diff' ? 'Changes' : 'No file selected'}
-          </span>
-          {onClose && (
-            <>
-              <span style={{ flex: 1 }} />
-              <button onClick={onClose} style={viewerStyles.closeButton} title="Close Editor">
-                {'\u00D7'}
-              </button>
-            </>
-          )}
-        </div>
+      ) : (
+        <NoTabsHeader mode={mode} onClose={onClose} />
       )}
       <div style={viewerStyles.editorContainer}>
         {previewActive && fileContent !== null ? (
@@ -227,16 +90,28 @@ export function CodeViewer({
           </div>
         ) : (
           <EditorContent
-            mode={mode}
-            fileDiffs={fileDiffs}
-            fileContent={fileContent}
-            language={language}
-            monacoTheme={monacoTheme}
-            onMount={handleEditorMount}
-            onSelectDiffFile={handleSelectDiffFile}
+            mode={mode} fileDiffs={fileDiffs} fileContent={fileContent}
+            language={language} monacoTheme={monacoTheme}
+            onMount={handleEditorMount} onSelectDiffFile={handleSelectDiffFile}
           />
         )}
       </div>
+    </div>
+  )
+}
+
+function NoTabsHeader({ mode, onClose }: { mode: ViewMode; onClose?: () => void }): React.JSX.Element {
+  return (
+    <div style={viewerStyles.header}>
+      <span className="mono" style={viewerStyles.headerText}>
+        {mode === 'diff' ? 'Changes' : 'No file selected'}
+      </span>
+      {onClose && (
+        <>
+          <span style={{ flex: 1 }} />
+          <button onClick={onClose} style={viewerStyles.closeButton} title="Close Editor">{'\u00D7'}</button>
+        </>
+      )}
     </div>
   )
 }
@@ -255,64 +130,28 @@ interface TabBarProps {
 }
 
 function TabBar({
-  openFiles,
-  activeFilePath,
-  mode,
-  onSelectTab,
-  onCloseTab,
-  onShowDiff,
-  showPreviewToggle,
-  previewActive,
-  onTogglePreview,
-  onClose,
+  openFiles, activeFilePath, mode,
+  onSelectTab, onCloseTab, onShowDiff,
+  showPreviewToggle, previewActive, onTogglePreview, onClose,
 }: TabBarProps): React.JSX.Element {
   return (
     <div style={viewerStyles.tabBar}>
       <button
-        style={{
-          ...viewerStyles.tab,
-          ...(mode === 'diff' ? viewerStyles.tabActive : {}),
-        }}
+        style={{ ...viewerStyles.tab, ...(mode === 'diff' ? viewerStyles.tabActive : {}) }}
         onClick={onShowDiff}
       >
         Changes
       </button>
-      {openFiles.map((file) => {
-        const isActive = mode === 'file' && file.path === activeFilePath
-        return (
-          <div
-            key={file.path}
-            style={{
-              ...viewerStyles.tab,
-              ...(isActive ? viewerStyles.tabActive : {}),
-            }}
-            title={file.path}
-          >
-            <button
-              style={viewerStyles.tabLabel}
-              onClick={() => onSelectTab(file.path)}
-            >
-              {fileName(file.path)}
-            </button>
-            <button
-              style={viewerStyles.tabClose}
-              onClick={(e) => {
-                e.stopPropagation()
-                onCloseTab(file.path)
-              }}
-              title="Close"
-            >
-              {'\u00D7'}
-            </button>
-          </div>
-        )
-      })}
+      {openFiles.map((file) => (
+        <FileTab
+          key={file.path} file={file}
+          isActive={mode === 'file' && file.path === activeFilePath}
+          onSelect={onSelectTab} onClose={onCloseTab}
+        />
+      ))}
       {showPreviewToggle && (
         <button
-          style={{
-            ...viewerStyles.previewToggle,
-            ...(previewActive ? viewerStyles.previewToggleActive : {}),
-          }}
+          style={{ ...viewerStyles.previewToggle, ...(previewActive ? viewerStyles.previewToggleActive : {}) }}
           onClick={onTogglePreview}
           title={previewActive ? 'Show editor' : 'Show preview'}
         >
@@ -322,11 +161,29 @@ function TabBar({
       {onClose && (
         <>
           <span style={{ flex: 1 }} />
-          <button onClick={onClose} style={viewerStyles.closeButton} title="Close Editor">
-            {'\u00D7'}
-          </button>
+          <button onClick={onClose} style={viewerStyles.closeButton} title="Close Editor">{'\u00D7'}</button>
         </>
       )}
+    </div>
+  )
+}
+
+function FileTab({
+  file, isActive, onSelect, onClose,
+}: {
+  file: OpenFile; isActive: boolean
+  onSelect: (filePath: string) => void; onClose: (filePath: string) => void
+}): React.JSX.Element {
+  return (
+    <div style={{ ...viewerStyles.tab, ...(isActive ? viewerStyles.tabActive : {}) }} title={file.path}>
+      <button style={viewerStyles.tabLabel} onClick={() => onSelect(file.path)}>{fileName(file.path)}</button>
+      <button
+        style={viewerStyles.tabClose}
+        onClick={(e) => { e.stopPropagation(); onClose(file.path) }}
+        title="Close"
+      >
+        {'\u00D7'}
+      </button>
     </div>
   )
 }
@@ -342,86 +199,15 @@ interface EditorContentProps {
 }
 
 const LINE_HEIGHT = 19
-const FILE_HEADER_HEIGHT = 32
 const EDITOR_PADDING = 8
 
-function FileDiffSection({
-  fileDiff,
-  monacoTheme,
-  onSelectFile,
-}: {
-  fileDiff: FileDiff
-  monacoTheme: string
-  onSelectFile?: (relativePath: string) => void
-}): React.JSX.Element {
-  const editorHeight = Math.max(fileDiff.lineCount * LINE_HEIGHT + EDITOR_PADDING, 60)
-  const language = extensionToLanguage(fileDiff.filePath)
-
-  return (
-    <div style={viewerStyles.fileDiffSection}>
-      <div style={viewerStyles.fileDiffHeader}>
-        <span
-          style={viewerStyles.fileDiffPath}
-          onClick={() => onSelectFile?.(fileDiff.filePath)}
-          role="button"
-          tabIndex={0}
-        >
-          {fileDiff.filePath}
-        </span>
-      </div>
-      <div style={{ height: editorHeight }}>
-        <DiffEditor
-          original={fileDiff.original}
-          modified={fileDiff.modified}
-          language={language}
-          theme={monacoTheme}
-          options={{ ...READONLY_OPTIONS, renderSideBySide: false }}
-        />
-      </div>
-    </div>
-  )
-}
-
 function EditorContent({
-  mode,
-  fileDiffs,
-  fileContent,
-  language,
-  monacoTheme,
-  onMount,
-  onSelectDiffFile,
+  mode, fileDiffs, fileContent, language, monacoTheme, onMount, onSelectDiffFile,
 }: EditorContentProps): React.JSX.Element {
-  if (mode === 'diff' && fileDiffs.length > 0) {
-    // Single file: render full-height DiffEditor (no scrollable wrapper)
-    if (fileDiffs.length === 1) {
-      const fd = fileDiffs[0]
-      const lang = extensionToLanguage(fd.filePath)
-      return (
-        <div style={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
-          <div style={viewerStyles.fileDiffHeader}>
-            <span
-              style={viewerStyles.fileDiffPath}
-              onClick={() => onSelectDiffFile?.(fd.filePath)}
-              role="button"
-              tabIndex={0}
-            >
-              {fd.filePath}
-            </span>
-          </div>
-          <div style={{ flex: 1 }}>
-            <DiffEditor
-              original={fd.original}
-              modified={fd.modified}
-              language={lang}
-              theme={monacoTheme}
-              options={{ ...READONLY_OPTIONS, renderSideBySide: false }}
-            />
-          </div>
-        </div>
-      )
-    }
-
-    // Multiple files: scrollable list of per-file DiffEditors
+  if (mode === 'diff' && fileDiffs.length === 1) {
+    return <SingleFileDiff fileDiff={fileDiffs[0]} monacoTheme={monacoTheme} onSelectFile={onSelectDiffFile} />
+  }
+  if (mode === 'diff' && fileDiffs.length > 1) {
     return (
       <div style={viewerStyles.diffScroller}>
         {fileDiffs.map((fd) => (
@@ -430,19 +216,9 @@ function EditorContent({
       </div>
     )
   }
-
   if (mode === 'file' && fileContent !== null) {
-    return (
-      <Editor
-        value={fileContent}
-        language={language}
-        theme={monacoTheme}
-        options={EDITABLE_OPTIONS}
-        onMount={onMount}
-      />
-    )
+    return <Editor value={fileContent} language={language} theme={monacoTheme} options={EDITABLE_OPTIONS} onMount={onMount} />
   }
-
   return (
     <div style={viewerStyles.empty}>
       {mode === 'diff' ? 'No changes to display' : 'Select a file to view its contents'}
@@ -450,133 +226,55 @@ function EditorContent({
   )
 }
 
-const viewerStyles: Record<string, React.CSSProperties> = {
-  wrapper: {
-    display: 'flex',
-    flexDirection: 'column',
-    height: '100%',
-    overflow: 'hidden',
-    background: 'var(--bg-primary)',
-  },
-  header: {
-    display: 'flex',
-    alignItems: 'center',
-    padding: '4px 8px',
-    borderBottom: '1px solid var(--border)',
-    background: 'var(--bg-secondary)',
-    flexShrink: 0,
-  },
-  headerText: {
-    fontSize: '11px',
-    color: 'var(--text-secondary)',
-    textTransform: 'uppercase' as const,
-    letterSpacing: '0.5px',
-  },
-  tabBar: {
-    display: 'flex',
-    alignItems: 'center',
-    overflowX: 'auto' as const,
-    overflowY: 'hidden' as const,
-    borderBottom: '1px solid var(--border)',
-    background: 'var(--bg-secondary)',
-    flexShrink: 0,
-    gap: 0,
-  },
-  tab: {
-    display: 'flex',
-    alignItems: 'center',
-    gap: '4px',
-    padding: '4px 8px',
-    fontSize: '11px',
-    color: 'var(--text-muted)',
-    borderRight: '1px solid var(--border)',
-    cursor: 'pointer',
-    whiteSpace: 'nowrap' as const,
-    flexShrink: 0,
-  },
-  tabActive: {
-    color: 'var(--text-primary)',
-    background: 'var(--bg-primary)',
-  },
-  tabLabel: {
-    padding: 0,
-    fontSize: '11px',
-    fontFamily: 'var(--font-mono)',
-    color: 'inherit',
-  },
-  tabClose: {
-    padding: '0 2px',
-    fontSize: '14px',
-    lineHeight: 1,
-    color: 'var(--text-muted)',
-    borderRadius: '3px',
-  },
-  previewToggle: {
-    marginLeft: 'auto',
-    padding: '2px 8px',
-    fontSize: '10px',
-    fontWeight: 500,
-    color: 'var(--text-secondary)',
-    background: 'var(--bg-input)',
-    borderRadius: '3px',
-    border: '1px solid var(--border)',
-    cursor: 'pointer',
-    whiteSpace: 'nowrap' as const,
-    flexShrink: 0,
-    marginRight: '4px',
-  },
-  previewToggleActive: {
-    color: 'var(--accent)',
-    borderColor: 'var(--accent)',
-  },
-  closeButton: {
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'center',
-    width: '18px',
-    height: '18px',
-    borderRadius: '3px',
-    color: 'var(--text-muted)',
-    fontSize: '14px',
-    lineHeight: 1,
-    cursor: 'pointer',
-    flexShrink: 0,
-    marginRight: '4px',
-  },
-  editorContainer: {
-    flex: 1,
-    overflow: 'hidden',
-  },
-  diffScroller: {
-    height: '100%',
-    overflowY: 'auto' as const,
-  },
-  fileDiffSection: {
-    borderBottom: '2px solid var(--border)',
-  },
-  fileDiffHeader: {
-    display: 'flex',
-    alignItems: 'center',
-    padding: '6px 12px',
-    background: 'var(--bg-secondary)',
-    borderBottom: '1px solid var(--border)',
-    height: FILE_HEADER_HEIGHT,
-    boxSizing: 'border-box' as const,
-    flexShrink: 0,
-  },
-  fileDiffPath: {
-    fontSize: '12px',
-    fontFamily: 'var(--font-mono)',
-    color: 'var(--text-secondary)',
-    fontWeight: 500,
-    cursor: 'pointer',
-  },
-  empty: {
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'center',
-    height: '100%',
-    color: 'var(--text-muted)',
-    fontSize: '13px',
-  },
+function FileDiffSection({
+  fileDiff, monacoTheme, onSelectFile,
+}: {
+  fileDiff: FileDiff; monacoTheme: string; onSelectFile?: (relativePath: string) => void
+}): React.JSX.Element {
+  const editorHeight = Math.max(fileDiff.lineCount * LINE_HEIGHT + EDITOR_PADDING, 60)
+  return (
+    <div style={viewerStyles.fileDiffSection}>
+      <DiffFileHeader filePath={fileDiff.filePath} onSelectFile={onSelectFile} />
+      <div style={{ height: editorHeight }}>
+        <DiffEditor
+          original={fileDiff.original} modified={fileDiff.modified}
+          language={extensionToLanguage(fileDiff.filePath)} theme={monacoTheme}
+          options={{ ...READONLY_OPTIONS, renderSideBySide: false }}
+        />
+      </div>
+    </div>
+  )
+}
+
+function DiffFileHeader({
+  filePath, onSelectFile,
+}: {
+  filePath: string; onSelectFile?: (relativePath: string) => void
+}): React.JSX.Element {
+  return (
+    <div style={viewerStyles.fileDiffHeader}>
+      <span style={viewerStyles.fileDiffPath} onClick={() => onSelectFile?.(filePath)} role="button" tabIndex={0}>
+        {filePath}
+      </span>
+    </div>
+  )
+}
+
+function SingleFileDiff({
+  fileDiff, monacoTheme, onSelectFile,
+}: {
+  fileDiff: FileDiff; monacoTheme: string; onSelectFile?: (relativePath: string) => void
+}): React.JSX.Element {
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
+      <DiffFileHeader filePath={fileDiff.filePath} onSelectFile={onSelectFile} />
+      <div style={{ flex: 1 }}>
+        <DiffEditor
+          original={fileDiff.original} modified={fileDiff.modified}
+          language={extensionToLanguage(fileDiff.filePath)} theme={monacoTheme}
+          options={{ ...READONLY_OPTIONS, renderSideBySide: false }}
+        />
+      </div>
+    </div>
+  )
 }

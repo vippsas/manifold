@@ -17,6 +17,7 @@ export interface AgentSession {
   worktreePath: string
   status: AgentStatus
   pid: number | null
+  taskDescription?: string
 }
 
 export interface Project {

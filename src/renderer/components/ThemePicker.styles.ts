@@ -1,0 +1,108 @@
+import type React from 'react'
+
+export const pickerStyles: Record<string, React.CSSProperties> = {
+  wrapper: {
+    width: '320px',
+    maxHeight: '460px',
+    display: 'flex',
+    flexDirection: 'column',
+    background: 'var(--bg-primary)',
+    border: '1px solid var(--border)',
+    borderRadius: '6px',
+    boxShadow: '0 8px 24px rgba(0,0,0,0.3)',
+    overflow: 'hidden',
+  },
+  searchInput: {
+    margin: '8px 8px 0',
+    padding: '6px 8px',
+    fontSize: '13px',
+    background: 'var(--bg-input)',
+    color: 'var(--text-primary)',
+    border: '1px solid var(--border)',
+    borderRadius: '4px',
+    outline: 'none',
+  },
+  filterBar: {
+    display: 'flex',
+    gap: '2px',
+    padding: '6px 8px',
+    borderBottom: '1px solid var(--border)',
+  },
+  filterTab: {
+    flex: 1,
+    padding: '3px 0',
+    fontSize: '11px',
+    fontWeight: 500,
+    color: 'var(--text-muted)',
+    background: 'none',
+    border: '1px solid transparent',
+    borderRadius: '3px',
+    cursor: 'pointer',
+    textAlign: 'center' as const,
+  },
+  filterTabActive: {
+    color: 'var(--text-primary)',
+    background: 'var(--bg-secondary)',
+    borderColor: 'var(--border)',
+  },
+  list: {
+    flex: 1,
+    overflowY: 'auto' as const,
+    maxHeight: '340px',
+  },
+  item: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: '8px',
+    padding: '5px 10px',
+    cursor: 'pointer',
+    fontSize: '12px',
+    color: 'var(--text-primary)',
+  },
+  itemSelected: {
+    background: 'var(--bg-secondary)',
+  },
+  itemLabel: {
+    flex: 1,
+    overflow: 'hidden',
+    textOverflow: 'ellipsis',
+    whiteSpace: 'nowrap' as const,
+  },
+  currentBadge: {
+    fontSize: '10px',
+    color: 'var(--accent)',
+    fontWeight: 500,
+    flexShrink: 0,
+  },
+  typeBadge: {
+    fontSize: '10px',
+    color: 'var(--text-muted)',
+    flexShrink: 0,
+  },
+  swatchGroup: {
+    display: 'flex',
+    gap: '2px',
+    flexShrink: 0,
+  },
+  swatch: {
+    width: '12px',
+    height: '12px',
+    borderRadius: '2px',
+    border: '1px solid var(--border)',
+  },
+  empty: {
+    padding: '16px',
+    textAlign: 'center' as const,
+    color: 'var(--text-muted)',
+    fontSize: '12px',
+  },
+  footer: {
+    padding: '6px 10px',
+    borderTop: '1px solid var(--border)',
+    background: 'var(--bg-secondary)',
+  },
+  footerHint: {
+    fontSize: '10px',
+    color: 'var(--text-muted)',
+  },
+}

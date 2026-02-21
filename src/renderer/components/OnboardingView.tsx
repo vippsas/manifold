@@ -59,8 +59,8 @@ export function OnboardingView(props: OnboardingViewProps): React.JSX.Element {
         <NoProjectActions onAddProject={props.onAddProject} onCloneProject={props.onCloneProject} />
       ) : (
         <>
-          <div style={{ fontSize: 14 }}>No agent running. Spawn one to get started.</div>
-          <button onClick={props.onNewAgent} style={buttonStyle}>+ New Agent</button>
+          <div style={{ fontSize: 14 }}>No tasks running. Create one to get started.</div>
+          <button onClick={props.onNewAgent} style={buttonStyle}>+ New Task</button>
         </>
       )}
     </div>
