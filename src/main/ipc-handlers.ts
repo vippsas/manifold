@@ -3,7 +3,7 @@ import { execFile } from 'node:child_process'
 import { mkdirSync } from 'node:fs'
 import { resolve } from 'node:path'
 import { promisify } from 'node:util'
-import { SpawnAgentOptions, CreatePROptions, ManifoldSettings, SessionViewState } from '../shared/types'
+import { SpawnAgentOptions, CreatePROptions, ManifoldSettings, SessionViewState, AheadBehind } from '../shared/types'
 import { SettingsStore } from './settings-store'
 import { ProjectRegistry } from './project-registry'
 import { SessionManager } from './session-manager'
@@ -12,7 +12,8 @@ import { DiffProvider } from './diff-provider'
 import { PrCreator } from './pr-creator'
 import { ViewStateStore } from './view-state-store'
 import { ShellTabStore, SavedShellState } from './shell-tab-store'
-import { listRuntimes } from './runtimes'
+import { GitOperationsManager } from './git-operations'
+import { listRuntimes, getRuntimeById } from './runtimes'
 import { generateBranchName } from './branch-namer'
 
 const execFileAsync = promisify(execFile)
@@ -26,6 +27,7 @@ export interface IpcDependencies {
   prCreator: PrCreator
   viewStateStore: ViewStateStore
   shellTabStore: ShellTabStore
+  gitOps: GitOperationsManager
 }
 
 export function registerIpcHandlers(deps: IpcDependencies): void {
@@ -38,6 +40,7 @@ export function registerIpcHandlers(deps: IpcDependencies): void {
   registerRuntimesHandler()
   registerViewStateHandlers(deps)
   registerShellTabHandlers(deps)
+  registerGitHandlers(deps)
 }
 
 function registerProjectHandlers(deps: IpcDependencies): void {
@@ -261,5 +264,37 @@ function registerShellTabHandlers(deps: IpcDependencies): void {
 
   ipcMain.handle('shell-tabs:set', (_event, agentKey: string, state: SavedShellState) => {
     shellTabStore.set(agentKey, state)
+  })
+}
+
+function resolveSession(sessionManager: SessionManager, sessionId: string): ReturnType<SessionManager['getSession']> & {} {
+  const session = sessionManager.getSession(sessionId)
+  if (!session) throw new Error(`Session not found: ${sessionId}`)
+  return session
+}
+
+function registerGitHandlers(deps: IpcDependencies): void {
+  const { gitOps, sessionManager, projectRegistry } = deps
+
+  ipcMain.handle('git:commit', async (_event, sessionId: string, message: string) => {
+    await gitOps.commit(resolveSession(sessionManager, sessionId).worktreePath, message)
+  })
+
+  ipcMain.handle('git:ai-generate', async (_event, sessionId: string, prompt: string) => {
+    const session = resolveSession(sessionManager, sessionId)
+    const runtime = getRuntimeById(session.runtimeId)
+    if (!runtime) throw new Error(`Runtime not found: ${session.runtimeId}`)
+    return gitOps.aiGenerate(runtime.binary, prompt, session.worktreePath)
+  })
+
+  ipcMain.handle('git:ahead-behind', async (_event, sessionId: string): Promise<AheadBehind> => {
+    const session = resolveSession(sessionManager, sessionId)
+    const project = projectRegistry.getProject(session.projectId)
+    if (!project) throw new Error(`Project not found: ${session.projectId}`)
+    return gitOps.getAheadBehind(session.worktreePath, project.baseBranch)
+  })
+
+  ipcMain.handle('git:resolve-conflict', async (_event, sessionId: string, filePath: string, resolvedContent: string) => {
+    await gitOps.resolveConflict(resolveSession(sessionManager, sessionId).worktreePath, filePath, resolvedContent)
   })
 }

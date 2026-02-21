@@ -30,6 +30,10 @@ const ALLOWED_INVOKE_CHANNELS = [
   'view-state:delete',
   'shell-tabs:get',
   'shell-tabs:set',
+  'git:commit',
+  'git:ai-generate',
+  'git:ahead-behind',
+  'git:resolve-conflict',
 ] as const
 
 const ALLOWED_SEND_CHANNELS = [
@@ -42,6 +46,7 @@ const ALLOWED_LISTEN_CHANNELS = [
   'agent:exit',
   'files:changed',
   'settings:changed',
+  'agent:conflicts',
 ] as const
 
 type InvokeChannel = (typeof ALLOWED_INVOKE_CHANNELS)[number]

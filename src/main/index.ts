@@ -68,6 +68,7 @@ import { DiffProvider } from './diff-provider'
 import { PrCreator } from './pr-creator'
 import { ViewStateStore } from './view-state-store'
 import { ShellTabStore } from './shell-tab-store'
+import { GitOperationsManager } from './git-operations'
 import { registerIpcHandlers } from './ipc-handlers'
 
 let mainWindow: BrowserWindow | null = null
@@ -83,6 +84,7 @@ const diffProvider = new DiffProvider()
 const prCreator = new PrCreator()
 const viewStateStore = new ViewStateStore()
 const shellTabStore = new ShellTabStore()
+const gitOps = new GitOperationsManager()
 
 // Resolve background color for the stored theme setting.
 // The renderer sends the actual background after loading the theme adapter,
@@ -146,6 +148,7 @@ function wireModules(window: BrowserWindow): void {
     prCreator,
     viewStateStore,
     shellTabStore,
+    gitOps,
   })
 }
 

@@ -1,0 +1,88 @@
+import { execFile } from 'node:child_process'
+import { writeFile } from 'node:fs/promises'
+import { join, resolve, normalize } from 'node:path'
+import { promisify } from 'node:util'
+import type { AheadBehind } from '../shared/types'
+
+const execFileAsync = promisify(execFile)
+
+const AI_GENERATE_TIMEOUT_MS = 15_000
+
+export class GitOperationsManager {
+  async commit(worktreePath: string, message: string): Promise<void> {
+    await execFileAsync('git', ['add', '.'], { cwd: worktreePath })
+    await execFileAsync('git', ['commit', '-m', message], { cwd: worktreePath })
+  }
+
+  async getAheadBehind(worktreePath: string, baseBranch: string): Promise<AheadBehind> {
+    try {
+      const { stdout } = await execFileAsync(
+        'git',
+        ['rev-list', '--left-right', '--count', `${baseBranch}...HEAD`],
+        { cwd: worktreePath }
+      )
+      const [behind, ahead] = stdout.trim().split(/\s+/).map(Number)
+      return { ahead: ahead ?? 0, behind: behind ?? 0 }
+    } catch {
+      // Branch may not exist yet or have no common ancestor — safe default
+      return { ahead: 0, behind: 0 }
+    }
+  }
+
+  async getConflicts(worktreePath: string): Promise<string[]> {
+    try {
+      const { stdout } = await execFileAsync(
+        'git',
+        ['status', '--porcelain'],
+        { cwd: worktreePath }
+      )
+      return parseConflicts(stdout)
+    } catch {
+      // git status may fail if worktree is not fully initialized
+      return []
+    }
+  }
+
+  async resolveConflict(
+    worktreePath: string,
+    filePath: string,
+    resolvedContent: string
+  ): Promise<void> {
+    const resolved = resolve(worktreePath, normalize(filePath))
+    if (!resolved.startsWith(worktreePath)) {
+      throw new Error('Path traversal denied: file outside worktree')
+    }
+    await writeFile(resolved, resolvedContent, 'utf-8')
+    await execFileAsync('git', ['add', '--', filePath], { cwd: worktreePath })
+  }
+
+  async aiGenerate(
+    runtimeBinary: string,
+    prompt: string,
+    cwd: string
+  ): Promise<string> {
+    try {
+      const { stdout } = await execFileAsync(
+        runtimeBinary,
+        ['-p', prompt],
+        { cwd, timeout: AI_GENERATE_TIMEOUT_MS }
+      )
+      return stdout.trim()
+    } catch {
+      // Generation may timeout or binary may not exist — return empty for user to fill
+      return ''
+    }
+  }
+}
+
+function parseConflicts(porcelain: string): string[] {
+  const conflicts: string[] = []
+  for (const line of porcelain.split('\n')) {
+    if (line.length < 4) continue
+    const code = line.substring(0, 2)
+    if (code === 'UU' || code === 'AA' || code === 'DD') {
+      conflicts.push(line.substring(3))
+    }
+  }
+  return conflicts
+}

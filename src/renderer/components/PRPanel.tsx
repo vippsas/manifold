@@ -1,0 +1,145 @@
+import React, { useState, useEffect, useCallback } from 'react'
+
+interface PRPanelProps {
+  sessionId: string
+  branchName: string
+  baseBranch: string
+  onAiGenerate: (prompt: string) => Promise<string>
+  onClose: () => void
+}
+
+export function PRPanel({
+  sessionId,
+  branchName,
+  baseBranch,
+  onAiGenerate,
+  onClose,
+}: PRPanelProps): React.JSX.Element {
+  const [title, setTitle] = useState(formatBranchAsTitle(branchName))
+  const [description, setDescription] = useState('')
+  const [generatingTitle, setGeneratingTitle] = useState(false)
+  const [generatingDesc, setGeneratingDesc] = useState(false)
+  const [creating, setCreating] = useState(false)
+  const [prUrl, setPrUrl] = useState<string | null>(null)
+
+  const generateTitle = useCallback(async (): Promise<void> => {
+    setGeneratingTitle(true)
+    const prompt = `Write a short pull request title (\u226460 chars, imperative mood) for a branch called '${branchName}'. Output only the title, nothing else.`
+    const result = await onAiGenerate(prompt)
+    if (result) setTitle(result)
+    setGeneratingTitle(false)
+  }, [branchName, onAiGenerate])
+
+  const generateDescription = useCallback(async (): Promise<void> => {
+    setGeneratingDesc(true)
+    const prompt = `Write a pull request description in markdown. Include a brief summary and a bullet-point list of changes. Base it on a branch called '${branchName}'. Output only the markdown, nothing else.`
+    const result = await onAiGenerate(prompt)
+    if (result) setDescription(result)
+    setGeneratingDesc(false)
+  }, [branchName, onAiGenerate])
+
+  useEffect(() => {
+    void generateTitle()
+    void generateDescription()
+  }, [generateTitle, generateDescription])
+
+  const handleCreate = async (): Promise<void> => {
+    if (creating) return
+    setCreating(true)
+    try {
+      const url = await window.electronAPI.invoke('pr:create', {
+        sessionId,
+        title,
+        body: description,
+      }) as string
+      setPrUrl(url)
+    } catch {
+      setCreating(false)
+    }
+  }
+
+  if (prUrl) {
+    return (
+      <div className="git-panel">
+        <div className="git-panel-header">
+          <span className="git-panel-title">Pull Request Created</span>
+          <button className="git-panel-close" onClick={onClose} title="Close">
+            &times;
+          </button>
+        </div>
+        <div className="git-panel-body">
+          <div className="git-panel-section git-panel-success">
+            <p>PR created successfully!</p>
+            <a href={prUrl} target="_blank" rel="noreferrer" className="git-panel-link">
+              {prUrl}
+            </a>
+          </div>
+        </div>
+        <div className="git-panel-footer">
+          <button className="git-panel-btn git-panel-btn--primary" onClick={onClose}>
+            Done
+          </button>
+        </div>
+      </div>
+    )
+  }
+
+  return (
+    <div className="git-panel">
+      <div className="git-panel-header">
+        <span className="git-panel-title">Create Pull Request</span>
+        <button className="git-panel-close" onClick={onClose} title="Close">
+          &times;
+        </button>
+      </div>
+
+      <div className="git-panel-body">
+        <div className="git-panel-section">
+          <label className="git-panel-label">Base Branch</label>
+          <span className="git-panel-readonly mono">{baseBranch}</span>
+        </div>
+
+        <div className="git-panel-section">
+          <label className="git-panel-label">Title</label>
+          <input
+            className="git-panel-input"
+            value={title}
+            onChange={(e) => setTitle(e.target.value)}
+            placeholder={generatingTitle ? 'Generating title\u2026' : 'PR title'}
+          />
+        </div>
+
+        <div className="git-panel-section">
+          <label className="git-panel-label">Description</label>
+          <textarea
+            className="git-panel-textarea"
+            value={description}
+            onChange={(e) => setDescription(e.target.value)}
+            placeholder={generatingDesc ? 'Generating description\u2026' : 'PR description'}
+            rows={8}
+          />
+        </div>
+      </div>
+
+      <div className="git-panel-footer">
+        <button className="git-panel-btn git-panel-btn--secondary" onClick={onClose}>
+          Cancel
+        </button>
+        <button
+          className="git-panel-btn git-panel-btn--primary"
+          onClick={() => void handleCreate()}
+          disabled={!title.trim() || creating}
+        >
+          {creating ? 'Creating\u2026' : 'Push & Create PR'}
+        </button>
+      </div>
+    </div>
+  )
+}
+
+function formatBranchAsTitle(branch: string): string {
+  return branch
+    .replace(/^manifold\//, '')
+    .replace(/[-_]/g, ' ')
+    .replace(/^\w/, (c) => c.toUpperCase())
+}
