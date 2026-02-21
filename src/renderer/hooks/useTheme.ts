@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from 'react'
+import { useState, useLayoutEffect, useMemo } from 'react'
 import type { ITheme } from '@xterm/xterm'
 import { loadTheme, migrateLegacyTheme } from '../../shared/themes/registry'
 import { applyThemeCssVars } from '../../shared/themes/adapter'
@@ -17,7 +17,7 @@ export function useTheme(settingsTheme: string): ThemeResult {
   const currentTheme = useMemo(() => loadTheme(themeId), [themeId])
   const themeClass = currentTheme.type === 'light' ? 'theme-light' : 'theme-dark'
 
-  useEffect(() => {
+  useLayoutEffect(() => {
     applyThemeCssVars(currentTheme.cssVars)
 
     void loader.init().then((monaco) => {
