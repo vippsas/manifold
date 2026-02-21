@@ -3,10 +3,22 @@ import { render, screen, fireEvent, waitFor } from '@testing-library/react'
 import React from 'react'
 import { NewAgentPopover } from './NewAgentPopover'
 
+const MOCK_RUNTIMES = [
+  { id: 'claude', name: 'Claude Code', binary: 'claude', installed: true },
+  { id: 'codex', name: 'Codex', binary: 'codex', installed: true },
+  { id: 'gemini', name: 'Gemini CLI', binary: 'gemini', installed: true },
+  { id: 'custom', name: 'Custom', binary: '', installed: true },
+]
+
 const mockInvoke = vi.fn()
 
 beforeEach(() => {
   vi.clearAllMocks()
+  mockInvoke.mockImplementation((channel: string) => {
+    if (channel === 'runtimes:list') return Promise.resolve(MOCK_RUNTIMES)
+    if (channel === 'branch:suggest') return Promise.resolve('manifold/oslo')
+    return Promise.resolve(undefined)
+  })
   ;(window as unknown as Record<string, unknown>).electronAPI = {
     invoke: mockInvoke,
     on: vi.fn(() => vi.fn()),
@@ -46,7 +58,6 @@ describe('NewAgentPopover', () => {
   })
 
   it('renders the dialog when visible', () => {
-    mockInvoke.mockResolvedValue('manifold/oslo')
     renderPopover()
 
     expect(screen.getByRole('dialog')).toBeInTheDocument()
@@ -54,7 +65,11 @@ describe('NewAgentPopover', () => {
   })
 
   it('fetches branch suggestion on mount', async () => {
-    mockInvoke.mockResolvedValue('manifold/bergen')
+    mockInvoke.mockImplementation((channel: string) => {
+      if (channel === 'runtimes:list') return Promise.resolve(MOCK_RUNTIMES)
+      if (channel === 'branch:suggest') return Promise.resolve('manifold/bergen')
+      return Promise.resolve(undefined)
+    })
     renderPopover()
 
     await waitFor(() => {
@@ -62,16 +77,15 @@ describe('NewAgentPopover', () => {
     })
   })
 
-  it('renders runtime select with all options', () => {
-    mockInvoke.mockResolvedValue('manifold/oslo')
+  it('renders runtime select with all options', async () => {
     renderPopover()
 
-    const select = screen.getByDisplayValue('Claude Code')
-    expect(select).toBeInTheDocument()
+    await waitFor(() => {
+      expect(screen.getByDisplayValue('Claude Code')).toBeInTheDocument()
+    })
   })
 
   it('calls onLaunch with form data when submitted', async () => {
-    mockInvoke.mockResolvedValue('manifold/oslo')
     const { props } = renderPopover()
 
     const form = screen.getByText('Launch').closest('form')!
@@ -87,7 +101,6 @@ describe('NewAgentPopover', () => {
   })
 
   it('calls onClose when Cancel button is clicked', () => {
-    mockInvoke.mockResolvedValue('manifold/oslo')
     const { props } = renderPopover()
 
     fireEvent.click(screen.getByText('Cancel'))
@@ -96,7 +109,6 @@ describe('NewAgentPopover', () => {
   })
 
   it('calls onClose when close X button is clicked', () => {
-    mockInvoke.mockResolvedValue('manifold/oslo')
     const { props } = renderPopover()
 
     // The close button uses &times; which renders as the multiplication sign
@@ -109,7 +121,6 @@ describe('NewAgentPopover', () => {
   })
 
   it('calls onClose when Escape key is pressed', () => {
-    mockInvoke.mockResolvedValue('manifold/oslo')
     const { props } = renderPopover()
 
     const dialog = screen.getByRole('dialog')
@@ -119,7 +130,6 @@ describe('NewAgentPopover', () => {
   })
 
   it('shows "Launching..." text after submit', async () => {
-    mockInvoke.mockResolvedValue('manifold/oslo')
     renderPopover()
 
     const form = screen.getByText('Launch').closest('form')!
@@ -129,7 +139,10 @@ describe('NewAgentPopover', () => {
   })
 
   it('uses fallback branch name if suggestion fetch fails', async () => {
-    mockInvoke.mockRejectedValue(new Error('no suggestion'))
+    mockInvoke.mockImplementation((channel: string) => {
+      if (channel === 'runtimes:list') return Promise.resolve(MOCK_RUNTIMES)
+      return Promise.reject(new Error('no suggestion'))
+    })
     renderPopover()
 
     await waitFor(() => {

@@ -1,13 +1,23 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
-import { render, screen, fireEvent } from '@testing-library/react'
+import { render, screen, fireEvent, waitFor } from '@testing-library/react'
 import { act } from 'react'
 import React from 'react'
 import { NewTaskModal } from './NewTaskModal'
 
+const MOCK_RUNTIMES = [
+  { id: 'claude', name: 'Claude Code', binary: 'claude', installed: true },
+  { id: 'codex', name: 'Codex', binary: 'codex', installed: true },
+  { id: 'gemini', name: 'Gemini', binary: 'gemini', installed: true },
+  { id: 'custom', name: 'Custom', binary: '', installed: true },
+]
+
 beforeEach(() => {
   vi.clearAllMocks()
   ;(window as unknown as Record<string, unknown>).electronAPI = {
-    invoke: vi.fn(),
+    invoke: vi.fn((channel: string) => {
+      if (channel === 'runtimes:list') return Promise.resolve(MOCK_RUNTIMES)
+      return Promise.resolve(undefined)
+    }),
     on: vi.fn(() => vi.fn()),
   }
 })
@@ -125,11 +135,12 @@ describe('NewTaskModal', () => {
     expect(props.onClose).toHaveBeenCalled()
   })
 
-  it('agent dropdown shows all runtime options', () => {
+  it('agent dropdown shows all runtime options', async () => {
     renderModal()
 
-    const select = screen.getByDisplayValue('Claude Code')
-    expect(select).toBeInTheDocument()
+    await waitFor(() => {
+      expect(screen.getByDisplayValue('Claude Code')).toBeInTheDocument()
+    })
 
     // Verify all runtime options exist
     expect(screen.getByText('Claude Code')).toBeInTheDocument()
@@ -207,9 +218,12 @@ describe('NewTaskModal', () => {
     vi.useRealTimers()
   })
 
-  it('uses selected runtime in the launch options', () => {
+  it('uses selected runtime in the launch options', async () => {
     const { props } = renderModal()
 
+    await waitFor(() => {
+      expect(screen.getByDisplayValue('Claude Code')).toBeInTheDocument()
+    })
     const select = screen.getByDisplayValue('Claude Code')
     fireEvent.change(select, { target: { value: 'gemini' } })
 
