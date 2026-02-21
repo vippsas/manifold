@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react'
-import type { SpawnAgentOptions } from '../../shared/types'
+import type { SpawnAgentOptions, AgentRuntime } from '../../shared/types'
 import { popoverStyles } from './NewAgentPopover.styles'
 
 interface NewAgentPopoverProps {
@@ -9,18 +9,6 @@ interface NewAgentPopoverProps {
   onLaunch: (options: SpawnAgentOptions) => void
   onClose: () => void
 }
-
-interface RuntimeOption {
-  id: string
-  label: string
-}
-
-const RUNTIMES: RuntimeOption[] = [
-  { id: 'claude', label: 'Claude Code' },
-  { id: 'codex', label: 'Codex' },
-  { id: 'gemini', label: 'Gemini' },
-  { id: 'custom', label: 'Custom' },
-]
 
 export function NewAgentPopover({
   visible,
@@ -32,9 +20,20 @@ export function NewAgentPopover({
   const [runtimeId, setRuntimeId] = useState(defaultRuntime)
   const [branchName, setBranchName] = useState('')
   const [loading, setLoading] = useState(false)
+  const [runtimes, setRuntimes] = useState<AgentRuntime[]>([])
   const overlayRef = useRef<HTMLDivElement>(null)
 
   useResetOnOpen(visible, projectId, defaultRuntime, setRuntimeId, setLoading, setBranchName)
+
+  useEffect(() => {
+    if (!visible) return
+    window.electronAPI.invoke('runtimes:list').then((list) => {
+      setRuntimes(list as AgentRuntime[])
+    })
+  }, [visible])
+
+  const selectedRuntime = runtimes.find((r) => r.id === runtimeId)
+  const runtimeInstalled = selectedRuntime?.installed !== false
 
   const handleSubmit = useCallback(
     (e: React.FormEvent): void => {
@@ -81,10 +80,13 @@ export function NewAgentPopover({
         <PopoverBody
           runtimeId={runtimeId}
           branchName={branchName}
+          runtimes={runtimes}
+          runtimeInstalled={runtimeInstalled}
+          selectedRuntime={selectedRuntime}
           onRuntimeChange={setRuntimeId}
           onBranchChange={setBranchName}
         />
-        <PopoverFooter onClose={onClose} canSubmit={true} loading={loading} />
+        <PopoverFooter onClose={onClose} canSubmit={runtimeInstalled} loading={loading} />
       </form>
     </div>
   )
@@ -130,6 +132,9 @@ function PopoverHeader({ onClose }: { onClose: () => void }): React.JSX.Element 
 interface PopoverBodyProps {
   runtimeId: string
   branchName: string
+  runtimes: AgentRuntime[]
+  runtimeInstalled: boolean
+  selectedRuntime: AgentRuntime | undefined
   onRuntimeChange: (id: string) => void
   onBranchChange: (name: string) => void
 }
@@ -137,6 +142,9 @@ interface PopoverBodyProps {
 function PopoverBody({
   runtimeId,
   branchName,
+  runtimes,
+  runtimeInstalled,
+  selectedRuntime,
   onRuntimeChange,
   onBranchChange,
 }: PopoverBodyProps): React.JSX.Element {
@@ -149,10 +157,17 @@ function PopoverBody({
           onChange={(e) => onRuntimeChange(e.target.value)}
           style={popoverStyles.select}
         >
-          {RUNTIMES.map((rt) => (
-            <option key={rt.id} value={rt.id}>{rt.label}</option>
+          {runtimes.map((rt) => (
+            <option key={rt.id} value={rt.id}>
+              {rt.name}{rt.installed === false ? ' (not installed)' : ''}
+            </option>
           ))}
         </select>
+        {!runtimeInstalled && (
+          <p style={{ color: 'var(--error, #f85149)', fontSize: '12px', margin: 0 }}>
+            {selectedRuntime?.name ?? runtimeId} is not installed. Please install it first.
+          </p>
+        )}
       </label>
       <label style={popoverStyles.label}>
         Branch
