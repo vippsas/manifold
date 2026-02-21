@@ -1,4 +1,5 @@
 import { spawn } from 'node:child_process'
+import * as path from 'node:path'
 
 const NORWEGIAN_CITIES: readonly string[] = [
   'Oslo', 'Bergen', 'Trondheim', 'Stavanger', 'Drammen',
@@ -22,8 +23,6 @@ const NORWEGIAN_CITIES: readonly string[] = [
   'Fagernes', 'Rjukan', 'Notodden', 'Bø', 'Kragerø',
   'Risør', 'Lyngdal', 'Farsund', 'Sirdal', 'Sauda'
 ] as const
-
-const PREFIX = 'manifold/'
 
 function slugify(name: string): string {
   return name
@@ -59,11 +58,12 @@ async function getExistingBranches(repoPath: string): Promise<Set<string>> {
 }
 
 export async function generateBranchName(repoPath: string): Promise<string> {
+  const prefix = repoPrefix(repoPath)
   const existing = await getExistingBranches(repoPath)
 
   for (const city of NORWEGIAN_CITIES) {
     const slug = slugify(city)
-    const candidate = `${PREFIX}${slug}`
+    const candidate = `${prefix}${slug}`
     if (!existing.has(candidate)) {
       return candidate
     }
@@ -74,7 +74,7 @@ export async function generateBranchName(repoPath: string): Promise<string> {
     const slug = slugify(city)
     let suffix = 2
     while (suffix <= 999) {
-      const candidate = `${PREFIX}${slug}-${suffix}`
+      const candidate = `${prefix}${slug}-${suffix}`
       if (!existing.has(candidate)) {
         return candidate
       }
@@ -83,8 +83,12 @@ export async function generateBranchName(repoPath: string): Promise<string> {
   }
 
   // Extremely unlikely fallback
-  const fallback = `${PREFIX}session-${Date.now()}`
+  const fallback = `${prefix}session-${Date.now()}`
   return fallback
+}
+
+export function repoPrefix(repoPath: string): string {
+  return path.basename(repoPath).toLowerCase() + '/'
 }
 
 export function slugifyCity(name: string): string {

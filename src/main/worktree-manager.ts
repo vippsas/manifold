@@ -1,7 +1,7 @@
 import * as fs from 'node:fs'
 import * as path from 'node:path'
 import { spawn } from 'node:child_process'
-import { generateBranchName } from './branch-namer'
+import { generateBranchName, repoPrefix } from './branch-namer'
 import { removeWorktreeMeta } from './worktree-meta'
 
 export interface WorktreeInfo {
@@ -83,6 +83,7 @@ export class WorktreeManager {
   }
 
   async listWorktrees(projectPath: string): Promise<WorktreeInfo[]> {
+    const prefix = repoPrefix(projectPath)
     const raw = await gitExec(['worktree', 'list', '--porcelain'], projectPath)
     const entries: WorktreeInfo[] = []
     let currentPath: string | null = null
@@ -95,8 +96,7 @@ export class WorktreeManager {
         const fullRef = line.slice('branch '.length).trim()
         currentBranch = fullRef.replace('refs/heads/', '')
       } else if (line.trim() === '' && currentPath && currentBranch) {
-        // Only include manifold worktrees
-        if (currentBranch.startsWith('manifold/')) {
+        if (currentBranch.startsWith(prefix)) {
           entries.push({ branch: currentBranch, path: currentPath })
         }
         currentPath = null
@@ -105,7 +105,7 @@ export class WorktreeManager {
     }
 
     // Handle last entry if file doesn't end with a blank line
-    if (currentPath && currentBranch && currentBranch.startsWith('manifold/')) {
+    if (currentPath && currentBranch && currentBranch.startsWith(prefix)) {
       entries.push({ branch: currentBranch, path: currentPath })
     }
 

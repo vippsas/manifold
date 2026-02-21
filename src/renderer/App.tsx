@@ -270,6 +270,7 @@ export function App(): React.JSX.Element {
         <NewTaskModal
           visible={showNewAgent}
           projectId={activeProjectId}
+          projectName={activeProject?.name ?? ''}
           defaultRuntime={settings.defaultRuntime}
           onLaunch={handleLaunchAgent}
           onClose={() => setShowNewAgent(false)}

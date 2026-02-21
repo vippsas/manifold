@@ -5,9 +5,9 @@ const STOPWORDS = new Set([
 ])
 
 const MAX_LENGTH = 40
-const PREFIX = 'manifold/'
 
-export function deriveBranchName(description: string): string {
+export function deriveBranchName(description: string, repoName: string): string {
+  const prefix = repoName.toLowerCase() + '/'
   const words = description
     .toLowerCase()
     .replace(/[^a-z0-9\s]/g, '')
@@ -18,10 +18,10 @@ export function deriveBranchName(description: string): string {
   if (words.length === 0) return ''
 
   let slug = words.join('-')
-  const maxSlugLen = MAX_LENGTH - PREFIX.length
+  const maxSlugLen = MAX_LENGTH - prefix.length
   if (slug.length > maxSlugLen) {
     slug = slug.slice(0, maxSlugLen).replace(/-[^-]*$/, '')
   }
 
-  return `${PREFIX}${slug}`
+  return `${prefix}${slug}`
 }
