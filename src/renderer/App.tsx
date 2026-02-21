@@ -14,6 +14,7 @@ import { useAllProjectSessions } from './hooks/useAllProjectSessions'
 import { useTheme } from './hooks/useTheme'
 import { useSidebarResize } from './hooks/useSidebarResize'
 import { useSessionStatePersistence } from './hooks/useSessionStatePersistence'
+import { useStatusNotification } from './hooks/useStatusNotification'
 import { ProjectSidebar } from './components/ProjectSidebar'
 import { MainPanes } from './components/MainPanes'
 import { NewTaskModal } from './components/NewTaskModal'
@@ -31,6 +32,8 @@ export function App(): React.JSX.Element {
   const { sessions, activeSessionId, activeSession, spawnAgent, deleteAgent, setActiveSession } =
     useAgentSession(activeProjectId)
   const { sessionsByProject, removeSession } = useAllProjectSessions(projects, activeProjectId, sessions)
+  const allSessions = useMemo(() => Object.values(sessionsByProject).flat(), [sessionsByProject])
+  useStatusNotification(allSessions, settings.notificationSound)
   const { diff, changedFiles, refreshDiff } = useDiff(activeSessionId)
   const paneResize = usePaneResize()
   const codeView = useCodeView(activeSessionId)
@@ -192,6 +195,9 @@ export function App(): React.JSX.Element {
           handleDividerMouseDown={paneResize.handleDividerMouseDown}
           paneVisibility={paneResize.paneVisibility}
           onClosePane={paneResize.togglePane}
+          fileTreeSplitFraction={paneResize.fileTreeSplitFraction}
+          rightPaneRef={paneResize.rightPaneRef}
+          worktreeRoot={tree?.path ?? null}
           sessionId={activeSessionId}
           worktreeShellSessionId={worktreeSessionId}
           projectShellSessionId={projectSessionId}

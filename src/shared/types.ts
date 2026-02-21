@@ -49,6 +49,7 @@ export interface ManifoldSettings {
   theme: string
   scrollbackLines: number
   defaultBaseBranch: string
+  notificationSound: boolean
 }
 
 export interface SessionViewState {
