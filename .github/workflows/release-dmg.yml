@@ -30,19 +30,27 @@ jobs:
       - name: Run tests
         run: npm test
 
-      - name: Build and package DMG
-        run: npm run build && npx electron-builder --mac dmg
+      - name: Build and package
+        run: npm run build && npx electron-builder --mac dmg zip --publish never
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Upload DMG artifact
+      - name: Upload build artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: manifold-dmg
-          path: dist/*.dmg
+          name: manifold-release
+          path: |
+            dist/*.dmg
+            dist/*.zip
+            dist/*.yml
+            dist/*.blockmap
 
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
         with:
-          files: dist/*.dmg
+          files: |
+            dist/*.dmg
+            dist/*.zip
+            dist/*.yml
+            dist/*.blockmap
           generate_release_notes: true
