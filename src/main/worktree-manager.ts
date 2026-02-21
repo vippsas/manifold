@@ -2,6 +2,7 @@ import * as fs from 'node:fs'
 import * as path from 'node:path'
 import { spawn } from 'node:child_process'
 import { generateBranchName } from './branch-namer'
+import { removeWorktreeMeta } from './worktree-meta'
 
 export interface WorktreeInfo {
   branch: string
@@ -69,6 +70,7 @@ export class WorktreeManager {
     const target = worktrees.find((w) => w.path === worktreePath)
 
     await gitExec(['worktree', 'remove', worktreePath, '--force'], projectPath)
+    await removeWorktreeMeta(worktreePath)
 
     // Clean up the branch if we found one
     if (target) {
