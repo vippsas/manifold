@@ -20,6 +20,7 @@ import { MainPanes } from './components/MainPanes'
 import { NewTaskModal } from './components/NewTaskModal'
 import { OnboardingView } from './components/OnboardingView'
 import { SettingsModal } from './components/SettingsModal'
+import { AboutOverlay } from './components/AboutOverlay'
 import { StatusBar } from './components/StatusBar'
 import { CommitPanel } from './components/CommitPanel'
 import { PRPanel } from './components/PRPanel'
@@ -103,6 +104,7 @@ export function App(): React.JSX.Element {
   const [showNewAgent, setShowNewAgent] = useState(false)
   const [showProjectPicker, setShowProjectPicker] = useState(false)
   const [showSettings, setShowSettings] = useState(false)
+  const [showAbout, setShowAbout] = useState(false)
 
   const { themeId, themeClass, xtermTheme, setPreviewThemeId } = useTheme(settings.theme)
   const { sidebarWidth, handleSidebarDividerMouseDown } = useSidebarResize()
@@ -144,6 +146,11 @@ export function App(): React.JSX.Element {
   const handleSetupComplete = useCallback((): void => {
     void updateSettings({ setupCompleted: true })
   }, [updateSettings])
+
+  React.useEffect(() => {
+    const unsub = window.electronAPI.on('show-about', () => setShowAbout(true))
+    return unsub
+  }, [])
 
   if (!settings.setupCompleted) {
     return (
@@ -310,6 +317,11 @@ export function App(): React.JSX.Element {
         onSave={handleSaveSettings}
         onClose={() => setShowSettings(false)}
         onPreviewTheme={setPreviewThemeId}
+      />
+
+      <AboutOverlay
+        visible={showAbout}
+        onClose={() => setShowAbout(false)}
       />
     </div>
   )

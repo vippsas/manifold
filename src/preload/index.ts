@@ -51,6 +51,7 @@ const ALLOWED_LISTEN_CHANNELS = [
   'files:changed',
   'settings:changed',
   'agent:conflicts',
+  'show-about',
 ] as const
 
 type InvokeChannel = (typeof ALLOWED_INVOKE_CHANNELS)[number]
