@@ -1,4 +1,5 @@
 import { ipcMain, shell } from 'electron'
+import { autoUpdater } from 'electron-updater'
 import { registerProjectHandlers } from './ipc/project-handlers'
 import { registerAgentHandlers } from './ipc/agent-handlers'
 import { registerFileHandlers } from './ipc/file-handlers'
@@ -21,5 +22,13 @@ export function registerIpcHandlers(deps: IpcDependencies): void {
 
   ipcMain.handle('app:beep', () => {
     shell.beep()
+  })
+
+  ipcMain.handle('updater:install', () => {
+    autoUpdater.quitAndInstall()
+  })
+
+  ipcMain.handle('updater:check', () => {
+    return autoUpdater.checkForUpdatesAndNotify()
   })
 }
