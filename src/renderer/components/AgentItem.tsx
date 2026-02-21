@@ -37,9 +37,9 @@ export function AgentItem({ session, isActive, onSelect, onDelete }: AgentItemPr
     [onDelete, session.id]
   )
 
-  const primaryLabel = session.taskDescription || formatBranch(session.branchName)
+  const primaryLabel = formatBranch(session.branchName)
   const secondaryLabel = session.taskDescription
-    ? `${formatBranch(session.branchName)} \u00B7 ${runtimeLabel(session.runtimeId)}`
+    ? `${session.taskDescription} \u00B7 ${runtimeLabel(session.runtimeId)}`
     : runtimeLabel(session.runtimeId)
 
   return (
