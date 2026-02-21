@@ -40,6 +40,7 @@ export function ProjectSidebar({
   const [showCloneInput, setShowCloneInput] = useState(false)
 
   const handleAddClick = useCallback((): void => {
+    setShowCloneInput(false)
     onAddProject()
   }, [onAddProject])
 
