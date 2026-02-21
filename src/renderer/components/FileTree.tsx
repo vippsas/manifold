@@ -8,7 +8,6 @@ interface FileTreeProps {
   expandedPaths: Set<string>
   onToggleExpand: (path: string) => void
   onSelectFile: (path: string) => void
-  onShowDiff: () => void
   onClose?: () => void
 }
 
@@ -25,7 +24,6 @@ export function FileTree({
   expandedPaths,
   onToggleExpand,
   onSelectFile,
-  onShowDiff,
   onClose,
 }: FileTreeProps): React.JSX.Element {
   const changeMap = useMemo(() => {
@@ -45,9 +43,9 @@ export function FileTree({
         <span style={treeStyles.headerTitle}>Files</span>
         <span style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
           {changes.length > 0 && (
-            <button onClick={onShowDiff} style={treeStyles.changesButton} title="Show changes diff">
+            <span style={treeStyles.changesButton}>
               {changes.length} changed
-            </button>
+            </span>
           )}
           {onClose && (
             <button onClick={onClose} style={treeStyles.closeButton} title="Close Files">

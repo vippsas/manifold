@@ -28,8 +28,7 @@ interface MainPanesProps {
   projectShellSessionId: string | null
   worktreeCwd: string | null
   scrollbackLines: number
-  codeViewMode: 'diff' | 'file'
-  diff: string
+  fileDiffText: string | null
   openFiles: OpenFile[]
   activeFilePath: string | null
   fileContent: string | null
@@ -40,7 +39,6 @@ interface MainPanesProps {
   onNewAgent: () => void
   onSelectFile: (path: string) => void
   onCloseFile: (path: string) => void
-  onShowDiff: () => void
   onSaveFile: (content: string) => void
   expandedPaths: Set<string>
   onToggleExpand: (path: string) => void
@@ -64,8 +62,7 @@ export function MainPanes({
   projectShellSessionId,
   worktreeCwd,
   scrollbackLines,
-  codeViewMode,
-  diff,
+  fileDiffText,
   openFiles,
   activeFilePath,
   fileContent,
@@ -76,7 +73,6 @@ export function MainPanes({
   onNewAgent,
   onSelectFile,
   onCloseFile,
-  onShowDiff,
   onSaveFile,
   expandedPaths,
   onToggleExpand,
@@ -127,8 +123,7 @@ export function MainPanes({
               {showCenter && (
                 <div className="layout-pane" style={{ flex: showRight ? `0 0 ${rightAreaCenterFraction * 100}%` : 1 }}>
                   <CodeViewer
-                    mode={codeViewMode}
-                    diff={diff}
+                    fileDiffText={fileDiffText}
                     openFiles={openFiles}
                     activeFilePath={activeFilePath}
                     fileContent={fileContent}
@@ -136,7 +131,6 @@ export function MainPanes({
                     worktreeRoot={tree?.path ?? null}
                     onSelectTab={onSelectFile}
                     onCloseTab={onCloseFile}
-                    onShowDiff={onShowDiff}
                     onSaveFile={onSaveFile}
                     onClose={() => onClosePane('center')}
                   />
@@ -173,7 +167,6 @@ export function MainPanes({
                         expandedPaths={expandedPaths}
                         onToggleExpand={onToggleExpand}
                         onSelectFile={onSelectFile}
-                        onShowDiff={onShowDiff}
                         onClose={() => onClosePane('right')}
                       />
                     </div>
@@ -214,7 +207,7 @@ export function MainPanes({
                 <div style={{ flex: `0 0 ${bottomPaneFraction * 100}%`, overflow: 'hidden', minHeight: 0 }}>
                   <ShellTabs
                     worktreeSessionId={worktreeShellSessionId}
-                    projectSessionId={projectShellSessionId}
+                    projectSessionId={projectSessionId}
                     worktreeCwd={worktreeCwd}
                     scrollbackLines={scrollbackLines}
                     xtermTheme={xtermTheme}

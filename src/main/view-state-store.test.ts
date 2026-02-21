@@ -40,7 +40,7 @@ describe('ViewStateStore', () => {
         'session-1': {
           openFilePaths: ['src/main.ts'],
           activeFilePath: 'src/main.ts',
-          codeViewMode: 'file',
+
           expandedPaths: ['/worktree/src'],
         },
       }
@@ -82,7 +82,7 @@ describe('ViewStateStore', () => {
         'session-1': {
           openFilePaths: ['a.ts'],
           activeFilePath: 'a.ts',
-          codeViewMode: 'file' as const,
+
           expandedPaths: ['/src'],
         },
       }
@@ -105,7 +105,7 @@ describe('ViewStateStore', () => {
       const viewState = {
         openFilePaths: ['src/index.ts'],
         activeFilePath: 'src/index.ts',
-        codeViewMode: 'file' as const,
+
         expandedPaths: ['/worktree/src'],
       }
 
@@ -122,14 +122,12 @@ describe('ViewStateStore', () => {
       store.set('session-1', {
         openFilePaths: ['a.ts'],
         activeFilePath: 'a.ts',
-        codeViewMode: 'file',
         expandedPaths: [],
       })
 
       store.set('session-1', {
         openFilePaths: ['b.ts'],
         activeFilePath: 'b.ts',
-        codeViewMode: 'diff',
         expandedPaths: ['/src'],
       })
 
@@ -143,7 +141,7 @@ describe('ViewStateStore', () => {
         'session-1': {
           openFilePaths: ['a.ts'],
           activeFilePath: 'a.ts',
-          codeViewMode: 'file',
+
           expandedPaths: [],
         },
       }
