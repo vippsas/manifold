@@ -75,6 +75,7 @@ export function MainPanes({
   onToggleExpand,
 }: MainPanesProps): React.JSX.Element {
   const showLeft = paneVisibility.left
+  const showCenter = paneVisibility.center
   const showRight = paneVisibility.right
   const showBottom = paneVisibility.bottom
 
@@ -116,32 +117,37 @@ export function MainPanes({
           >
             {/* Top: editor + file tree */}
             <div style={{ flex: showBottom ? `0 0 ${topFraction * 100}%` : 1, display: 'flex', flexDirection: 'row', overflow: 'hidden', minHeight: 0 }}>
-              <div className="layout-pane" style={{ flex: showRight ? `0 0 ${rightAreaCenterFraction * 100}%` : 1 }}>
-                <CodeViewer
-                  mode={codeViewMode}
-                  diff={diff}
-                  openFiles={openFiles}
-                  activeFilePath={activeFilePath}
-                  fileContent={fileContent}
-                  theme={theme}
-                  worktreeRoot={tree?.path ?? null}
-                  onSelectTab={onSelectFile}
-                  onCloseTab={onCloseFile}
-                  onShowDiff={onShowDiff}
-                  onSaveFile={onSaveFile}
-                />
-              </div>
+              {showCenter && (
+                <div className="layout-pane" style={{ flex: showRight ? `0 0 ${rightAreaCenterFraction * 100}%` : 1 }}>
+                  <CodeViewer
+                    mode={codeViewMode}
+                    diff={diff}
+                    openFiles={openFiles}
+                    activeFilePath={activeFilePath}
+                    fileContent={fileContent}
+                    theme={theme}
+                    worktreeRoot={tree?.path ?? null}
+                    onSelectTab={onSelectFile}
+                    onCloseTab={onCloseFile}
+                    onShowDiff={onShowDiff}
+                    onSaveFile={onSaveFile}
+                    onClose={() => onClosePane('center')}
+                  />
+                </div>
+              )}
 
               {showRight && (
                 <>
-                  <div
-                    className="pane-divider"
-                    onMouseDown={handleDividerMouseDown('right')}
-                    role="separator"
-                    aria-orientation="vertical"
-                  />
+                  {showCenter && (
+                    <div
+                      className="pane-divider"
+                      onMouseDown={handleDividerMouseDown('right')}
+                      role="separator"
+                      aria-orientation="vertical"
+                    />
+                  )}
 
-                  <div className="layout-pane" style={{ flex: `0 0 ${rightAreaRightFraction * 100}%` }}>
+                  <div className="layout-pane" style={{ flex: showCenter ? `0 0 ${rightAreaRightFraction * 100}%` : 1 }}>
                     <FileTree
                       tree={tree}
                       changes={changes}

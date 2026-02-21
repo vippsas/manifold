@@ -2,11 +2,12 @@ import { useState, useEffect, useCallback, useRef, type RefObject } from 'react'
 
 type DividerType = 'left' | 'right' | 'bottom'
 
-export type PaneName = 'sidebar' | 'left' | 'right' | 'bottom'
+export type PaneName = 'sidebar' | 'left' | 'center' | 'right' | 'bottom'
 
 export interface PaneVisibility {
   sidebar: boolean
   left: boolean
+  center: boolean
   right: boolean
   bottom: boolean
 }
@@ -24,7 +25,7 @@ interface PaneResizeResult {
 }
 
 export function usePaneResize(
-  initialLeft: number = 0.35,
+  initialLeft: number = 0.75,
   initialRight: number = 0.22,
   initialBottom: number = 0.30
 ): PaneResizeResult {
@@ -34,6 +35,7 @@ export function usePaneResize(
   const [paneVisibility, setPaneVisibility] = useState<PaneVisibility>({
     sidebar: true,
     left: true,
+    center: false,
     right: true,
     bottom: true,
   })
@@ -72,11 +74,11 @@ export function usePaneResize(
       const fraction = x / totalWidth
 
       if (draggingRef.current === 'left') {
-        const clamped = Math.max(0.15, Math.min(0.6, fraction))
+        const clamped = Math.max(0.15, Math.min(0.85, fraction))
         setLeftPaneFraction(clamped)
       } else {
         const rightFrac = 1 - fraction
-        const clamped = Math.max(0.1, Math.min(0.4, rightFrac))
+        const clamped = Math.max(0.05, Math.min(0.4, rightFrac))
         setRightPaneFraction(clamped)
       }
     }

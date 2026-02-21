@@ -56,8 +56,11 @@ export function App(): React.JSX.Element {
     (filePath: string): void => {
       viewState.expandAncestors(filePath)
       codeView.handleSelectFile(filePath)
+      if (!paneResize.paneVisibility.center) {
+        paneResize.togglePane('center')
+      }
     },
-    [viewState.expandAncestors, codeView.handleSelectFile]
+    [viewState.expandAncestors, codeView.handleSelectFile, paneResize.paneVisibility.center, paneResize.togglePane]
   )
 
   const prevSessionRef = useRef<string | null>(null)
