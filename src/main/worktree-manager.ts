@@ -29,10 +29,40 @@ export class WorktreeManager {
     const safeDirName = branch.replace(/\//g, '-')
     const worktreePath = path.join(worktreeBase, safeDirName)
 
+    // Ensure the base branch ref is valid (empty repos have no commits/refs)
+    await this.ensureBaseRef(projectPath, baseBranch)
+
     // Create a new branch from the base branch and set up the worktree
     await gitExec(['worktree', 'add', '-b', branch, worktreePath, baseBranch], projectPath)
 
     return { branch, path: worktreePath }
+  }
+
+  private async ensureBaseRef(projectPath: string, baseBranch: string): Promise<void> {
+    try {
+      await gitExec(['rev-parse', '--verify', baseBranch], projectPath)
+      return
+    } catch {
+      // baseBranch doesn't resolve
+    }
+
+    // Check whether repo is truly empty (no commits at all)
+    const empty = await this.isEmptyRepo(projectPath)
+    if (!empty) {
+      throw new Error(`Base branch "${baseBranch}" does not exist`)
+    }
+
+    // Bootstrap empty repo with an initial commit so worktree has a valid start point
+    await gitExec(['commit', '--allow-empty', '-m', 'Initial commit'], projectPath)
+  }
+
+  private async isEmptyRepo(projectPath: string): Promise<boolean> {
+    try {
+      await gitExec(['rev-parse', 'HEAD'], projectPath)
+      return false
+    } catch {
+      return true
+    }
   }
 
   async removeWorktree(projectPath: string, worktreePath: string): Promise<void> {

@@ -58,7 +58,8 @@ export function useProjects(): UseProjectsResult {
 
   const cloneProject = useCallback(async (url: string): Promise<void> => {
     try {
-      const project = (await window.electronAPI.invoke('projects:clone', url)) as Project
+      const project = (await window.electronAPI.invoke('projects:clone', url)) as Project | undefined
+      if (!project) return
       setProjects((prev) => [...prev, project])
       setActiveProjectId(project.id)
     } catch (err: unknown) {

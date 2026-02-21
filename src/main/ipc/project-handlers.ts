@@ -1,9 +1,18 @@
 import { ipcMain, dialog, BrowserWindow } from 'electron'
 import { execFile } from 'node:child_process'
 import { promisify } from 'node:util'
+import path from 'node:path'
+import os from 'node:os'
+import { existsSync } from 'node:fs'
 import type { IpcDependencies } from './types'
 
 const execFileAsync = promisify(execFile)
+
+function repoNameFromUrl(url: string): string {
+  const cleaned = url.replace(/\/+$/, '').replace(/\.git$/, '')
+  const lastSegment = cleaned.split('/').pop() || 'repo'
+  return lastSegment
+}
 
 export function registerProjectHandlers(deps: IpcDependencies): void {
   const { projectRegistry } = deps
@@ -18,15 +27,26 @@ export function registerProjectHandlers(deps: IpcDependencies): void {
 
   ipcMain.handle(
     'projects:clone',
-    async (_event, repoUrl: string, targetDir: string) => {
-      if (typeof repoUrl !== 'string' || typeof targetDir !== 'string') {
+    async (_event, repoUrl: string, targetDir?: string) => {
+      if (typeof repoUrl !== 'string') {
         throw new Error('Invalid clone arguments')
       }
       if (repoUrl.startsWith('-')) {
         throw new Error('Invalid repository URL')
       }
-      await execFileAsync('git', ['clone', '--', repoUrl, targetDir])
-      return projectRegistry.addProject(targetDir)
+
+      let cloneDir = targetDir
+      if (typeof cloneDir !== 'string') {
+        const repoName = repoNameFromUrl(repoUrl)
+        cloneDir = path.join(os.homedir(), repoName)
+        // Avoid overwriting an existing directory
+        if (existsSync(cloneDir)) {
+          throw new Error(`Directory already exists: ${cloneDir}`)
+        }
+      }
+
+      await execFileAsync('git', ['clone', '--', repoUrl, cloneDir])
+      return projectRegistry.addProject(cloneDir)
     }
   )
 
