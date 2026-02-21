@@ -206,7 +206,7 @@ export function MainPanes({
                 <div style={{ flex: `0 0 ${bottomPaneFraction * 100}%`, overflow: 'hidden', minHeight: 0 }}>
                   <ShellTabs
                     worktreeSessionId={worktreeShellSessionId}
-                    projectSessionId={projectSessionId}
+                    projectSessionId={projectShellSessionId}
                     worktreeCwd={worktreeCwd}
                     scrollbackLines={scrollbackLines}
                     xtermTheme={xtermTheme}
