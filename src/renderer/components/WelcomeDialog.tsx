@@ -1,66 +1,66 @@
-import React, { useState, useCallback, useRef } from 'react'
+import React, { useState, useCallback } from 'react'
 
 interface WelcomeDialogProps {
-  defaultPath: string
-  onConfirm: (storagePath: string) => void
+  onAddProject: () => void
+  onCloneProject: (url: string) => void
+  onComplete: () => void
 }
 
-export function WelcomeDialog({ defaultPath, onConfirm }: WelcomeDialogProps): React.JSX.Element {
-  const [storagePath, setStoragePath] = useState(defaultPath)
-  const overlayRef = useRef<HTMLDivElement>(null)
+export function WelcomeDialog({ onAddProject, onCloneProject, onComplete }: WelcomeDialogProps): React.JSX.Element {
+  const [showClone, setShowClone] = useState(false)
+  const [cloneUrl, setCloneUrl] = useState('')
 
-  const handleBrowse = useCallback(async () => {
-    const selected = (await window.electronAPI.invoke('storage:open-dialog')) as string | undefined
-    if (selected) setStoragePath(selected)
-  }, [])
+  const handleOpenProject = useCallback((): void => {
+    onAddProject()
+    onComplete()
+  }, [onAddProject, onComplete])
 
-  const handleConfirm = useCallback(() => {
-    const trimmed = storagePath.trim()
-    if (trimmed) onConfirm(trimmed)
-  }, [storagePath, onConfirm])
-
-  const handleKeyDown = useCallback(
-    (e: React.KeyboardEvent) => {
-      if (e.key === 'Enter') handleConfirm()
+  const handleCloneSubmit = useCallback(
+    (e: React.FormEvent): void => {
+      e.preventDefault()
+      const url = cloneUrl.trim()
+      if (url) {
+        onCloneProject(url)
+        onComplete()
+      }
     },
-    [handleConfirm]
+    [cloneUrl, onCloneProject, onComplete]
   )
 
   return (
-    <div ref={overlayRef} style={styles.overlay} role="dialog" aria-modal="true" aria-label="Welcome">
+    <div style={styles.overlay} role="dialog" aria-modal="true" aria-label="Welcome">
       <div style={styles.panel}>
         <div style={styles.header}>
-          <span style={styles.title}>Welcome to Manifold</span>
+          <span style={styles.title}>Manifold</span>
         </div>
         <div style={styles.body}>
           <p style={styles.description}>
-            Choose where Manifold stores agent worktrees. You can change this later in Settings.
+            Run multiple AI coding agents in parallel.
+            Each works on a different task, in its own branch, simultaneously.
           </p>
-          <label style={styles.label}>
-            Storage Directory
-            <div style={styles.inputRow}>
+          <div style={styles.actions}>
+            <button onClick={handleOpenProject} style={styles.primaryButton}>
+              Open a local project
+            </button>
+            <button onClick={() => setShowClone((p) => !p)} style={styles.secondaryButton}>
+              Clone a repository
+            </button>
+          </div>
+          {showClone && (
+            <form onSubmit={handleCloneSubmit} style={styles.cloneRow}>
               <input
                 type="text"
-                value={storagePath}
-                onChange={(e) => setStoragePath(e.target.value)}
-                onKeyDown={handleKeyDown}
+                value={cloneUrl}
+                onChange={(e) => setCloneUrl(e.target.value)}
+                placeholder="https://github.com/user/repo.git"
                 style={styles.input}
                 autoFocus
               />
-              <button onClick={() => void handleBrowse()} style={styles.browseButton}>
-                Browse
+              <button type="submit" style={styles.primaryButton} disabled={!cloneUrl.trim()}>
+                Clone
               </button>
-            </div>
-          </label>
-        </div>
-        <div style={styles.footer}>
-          <button
-            onClick={handleConfirm}
-            style={styles.confirmButton}
-            disabled={!storagePath.trim()}
-          >
-            Continue
-          </button>
+            </form>
+          )}
         </div>
       </div>
     </div>
@@ -86,69 +86,62 @@ const styles: Record<string, React.CSSProperties> = {
     boxShadow: '0 8px 32px rgba(0, 0, 0, 0.3)',
   },
   header: {
-    padding: '16px 16px 0',
+    padding: '24px 24px 0',
+    textAlign: 'center',
   },
   title: {
     fontWeight: 600,
-    fontSize: '16px',
+    fontSize: '18px',
     color: 'var(--text-primary)',
   },
   body: {
-    padding: '16px',
+    padding: '16px 24px 24px',
     display: 'flex',
     flexDirection: 'column',
-    gap: '12px',
+    gap: '16px',
   },
   description: {
     fontSize: '13px',
     color: 'var(--text-secondary)',
     margin: 0,
     lineHeight: 1.5,
+    textAlign: 'center',
   },
-  label: {
+  actions: {
     display: 'flex',
     flexDirection: 'column',
-    gap: '4px',
-    fontSize: '12px',
-    color: 'var(--text-secondary)',
-    fontWeight: 500,
+    gap: '8px',
   },
-  inputRow: {
+  primaryButton: {
+    padding: '8px 20px',
+    borderRadius: '6px',
+    fontSize: '13px',
+    color: '#0d1117',
+    background: 'var(--accent)',
+    fontWeight: 500,
+    cursor: 'pointer',
+    border: 'none',
+  },
+  secondaryButton: {
+    padding: '8px 20px',
+    borderRadius: '6px',
+    fontSize: '13px',
+    color: 'var(--text-primary)',
+    background: 'var(--bg-input)',
+    border: '1px solid var(--border)',
+    cursor: 'pointer',
+  },
+  cloneRow: {
     display: 'flex',
     gap: '8px',
   },
   input: {
     flex: 1,
-    padding: '6px 8px',
+    padding: '6px 10px',
     fontSize: '13px',
     color: 'var(--text-primary)',
     background: 'var(--bg-input)',
     border: '1px solid var(--border)',
     borderRadius: '4px',
-  },
-  browseButton: {
-    padding: '6px 12px',
-    borderRadius: '4px',
-    fontSize: '13px',
-    color: 'var(--text-secondary)',
-    background: 'var(--bg-input)',
-    border: '1px solid var(--border)',
-    cursor: 'pointer',
-    whiteSpace: 'nowrap',
-  },
-  footer: {
-    display: 'flex',
-    justifyContent: 'flex-end',
-    padding: '12px 16px',
-    borderTop: '1px solid var(--border)',
-  },
-  confirmButton: {
-    padding: '6px 24px',
-    borderRadius: '4px',
-    fontSize: '13px',
-    color: '#ffffff',
-    background: 'var(--accent)',
-    fontWeight: 500,
-    cursor: 'pointer',
   },
 }
