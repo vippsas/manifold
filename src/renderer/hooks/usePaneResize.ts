@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback, useRef, type RefObject } from 'react'
 
-type DividerType = 'left' | 'right' | 'bottom'
+type DividerType = 'left' | 'right' | 'bottom' | 'fileTreeSplit'
 
 export type PaneName = 'sidebar' | 'left' | 'center' | 'right' | 'bottom'
 
@@ -17,8 +17,10 @@ interface PaneResizeResult {
   rightPaneFraction: number
   centerFraction: number
   bottomPaneFraction: number
+  fileTreeSplitFraction: number
   panesRef: RefObject<HTMLDivElement>
   rightAreaRef: RefObject<HTMLDivElement>
+  rightPaneRef: RefObject<HTMLDivElement>
   handleDividerMouseDown: (divider: DividerType) => (e: React.MouseEvent) => void
   paneVisibility: PaneVisibility
   togglePane: (pane: PaneName) => void
@@ -32,6 +34,7 @@ export function usePaneResize(
   const [leftPaneFraction, setLeftPaneFraction] = useState(initialLeft)
   const [rightPaneFraction, setRightPaneFraction] = useState(initialRight)
   const [bottomPaneFraction, setBottomPaneFraction] = useState(initialBottom)
+  const [fileTreeSplitFraction, setFileTreeSplitFraction] = useState(0.4)
   const [paneVisibility, setPaneVisibility] = useState<PaneVisibility>({
     sidebar: true,
     left: true,
@@ -42,12 +45,13 @@ export function usePaneResize(
   const savedFractions = useRef<Partial<Record<PaneName, number>>>({})
   const panesRef = useRef<HTMLDivElement>(null)
   const rightAreaRef = useRef<HTMLDivElement>(null)
+  const rightPaneRef = useRef<HTMLDivElement>(null)
   const draggingRef = useRef<DividerType | null>(null)
 
   const handleDividerMouseDown = useCallback(
     (divider: DividerType) => (_e: React.MouseEvent): void => {
       draggingRef.current = divider
-      document.body.style.cursor = divider === 'bottom' ? 'row-resize' : 'col-resize'
+      document.body.style.cursor = (divider === 'bottom' || divider === 'fileTreeSplit') ? 'row-resize' : 'col-resize'
       document.body.style.userSelect = 'none'
     },
     []
@@ -64,6 +68,16 @@ export function usePaneResize(
         const fraction = 1 - y / rect.height
         const clamped = Math.max(0.2, Math.min(0.8, fraction))
         setBottomPaneFraction(clamped)
+        return
+      }
+
+      if (draggingRef.current === 'fileTreeSplit') {
+        if (!rightPaneRef.current) return
+        const rect = rightPaneRef.current.getBoundingClientRect()
+        const y = e.clientY - rect.top
+        const fraction = 1 - y / rect.height
+        const clamped = Math.max(0.2, Math.min(0.8, fraction))
+        setFileTreeSplitFraction(clamped)
         return
       }
 
@@ -120,8 +134,10 @@ export function usePaneResize(
     rightPaneFraction,
     centerFraction,
     bottomPaneFraction,
+    fileTreeSplitFraction,
     panesRef,
     rightAreaRef,
+    rightPaneRef,
     handleDividerMouseDown,
     paneVisibility,
     togglePane,
