@@ -35,6 +35,7 @@ export function SettingsModal({
   const [scrollbackLines, setScrollbackLines] = useState(settings.scrollbackLines)
   const [defaultBaseBranch, setDefaultBaseBranch] = useState(settings.defaultBaseBranch)
   const [storagePath, setStoragePath] = useState(settings.storagePath)
+  const [notificationSound, setNotificationSound] = useState(settings.notificationSound)
   const [pickerOpen, setPickerOpen] = useState(false)
   const overlayRef = useRef<HTMLDivElement>(null)
 
@@ -45,14 +46,15 @@ export function SettingsModal({
       setScrollbackLines(settings.scrollbackLines)
       setDefaultBaseBranch(settings.defaultBaseBranch)
       setStoragePath(settings.storagePath)
+      setNotificationSound(settings.notificationSound)
       setPickerOpen(false)
     }
   }, [visible, settings])
 
   const handleSave = useCallback((): void => {
-    onSave({ defaultRuntime, theme, scrollbackLines, defaultBaseBranch, storagePath })
+    onSave({ defaultRuntime, theme, scrollbackLines, defaultBaseBranch, storagePath, notificationSound })
     onClose()
-  }, [defaultRuntime, theme, scrollbackLines, defaultBaseBranch, storagePath, onSave, onClose])
+  }, [defaultRuntime, theme, scrollbackLines, defaultBaseBranch, storagePath, notificationSound, onSave, onClose])
 
   const handleOverlayClick = useCallback(
     (e: React.MouseEvent): void => {
@@ -103,6 +105,8 @@ export function SettingsModal({
           onPreviewTheme={onPreviewTheme}
           pickerOpen={pickerOpen}
           onPickerToggle={setPickerOpen}
+          notificationSound={notificationSound}
+          onNotificationSoundChange={setNotificationSound}
         />
         <ModalFooter onClose={onClose} onSave={handleSave} />
       </div>
@@ -135,6 +139,8 @@ interface SettingsBodyProps {
   onPreviewTheme?: (themeId: string | null) => void
   pickerOpen: boolean
   onPickerToggle: (open: boolean) => void
+  notificationSound: boolean
+  onNotificationSoundChange: (enabled: boolean) => void
 }
 
 function SettingsBody({
@@ -151,6 +157,8 @@ function SettingsBody({
   onPreviewTheme,
   pickerOpen,
   onPickerToggle,
+  notificationSound,
+  onNotificationSoundChange,
 }: SettingsBodyProps): React.JSX.Element {
 
   const handleScrollbackInput = useCallback(
@@ -232,6 +240,15 @@ function SettingsBody({
           style={modalStyles.input}
           placeholder="main"
         />
+      </label>
+      <label style={{ ...modalStyles.label, flexDirection: 'row', alignItems: 'center', gap: '8px' }}>
+        <input
+          type="checkbox"
+          checked={notificationSound}
+          onChange={(e) => onNotificationSoundChange(e.target.checked)}
+          style={{ width: 'auto', margin: 0 }}
+        />
+        Play sound when agent stops running
       </label>
     </div>
   )

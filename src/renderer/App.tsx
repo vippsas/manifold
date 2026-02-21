@@ -14,6 +14,7 @@ import { useViewState } from './hooks/useViewState'
 import { useShellSessions } from './hooks/useShellSession'
 import { useGitOperations } from './hooks/useGitOperations'
 import { useAllProjectSessions } from './hooks/useAllProjectSessions'
+import { useStatusNotification } from './hooks/useStatusNotification'
 import { ProjectSidebar } from './components/ProjectSidebar'
 import { MainPanes } from './components/MainPanes'
 import { NewAgentPopover } from './components/NewAgentPopover'
@@ -32,6 +33,8 @@ export function App(): React.JSX.Element {
   const { sessions, activeSessionId, activeSession, spawnAgent, deleteAgent, setActiveSession } =
     useAgentSession(activeProjectId)
   const { sessionsByProject, removeSession } = useAllProjectSessions(projects, activeProjectId, sessions)
+  const allSessions = useMemo(() => Object.values(sessionsByProject).flat(), [sessionsByProject])
+  useStatusNotification(allSessions, settings.notificationSound)
   const { diff, changedFiles, refreshDiff } = useDiff(activeSessionId)
   const paneResize = usePaneResize()
   const codeView = useCodeView(activeSessionId)

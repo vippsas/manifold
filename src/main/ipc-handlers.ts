@@ -1,4 +1,4 @@
-import { ipcMain, dialog, BrowserWindow } from 'electron'
+import { ipcMain, dialog, BrowserWindow, shell } from 'electron'
 import { execFile } from 'node:child_process'
 import { mkdirSync } from 'node:fs'
 import { resolve } from 'node:path'
@@ -41,6 +41,10 @@ export function registerIpcHandlers(deps: IpcDependencies): void {
   registerViewStateHandlers(deps)
   registerShellTabHandlers(deps)
   registerGitHandlers(deps)
+
+  ipcMain.handle('app:beep', () => {
+    shell.beep()
+  })
 }
 
 function registerProjectHandlers(deps: IpcDependencies): void {
