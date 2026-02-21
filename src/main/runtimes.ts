@@ -1,3 +1,4 @@
+import { execFile } from 'node:child_process'
 import { AgentRuntime } from '../shared/types'
 
 export const BUILT_IN_RUNTIMES: readonly AgentRuntime[] = [
@@ -30,4 +31,23 @@ export function getRuntimeById(id: string): AgentRuntime | undefined {
 
 export function listRuntimes(): AgentRuntime[] {
   return [...BUILT_IN_RUNTIMES]
+}
+
+function checkBinaryExists(binary: string): Promise<boolean> {
+  return new Promise((resolve) => {
+    execFile('which', [binary], (error) => {
+      resolve(!error)
+    })
+  })
+}
+
+export async function listRuntimesWithStatus(): Promise<AgentRuntime[]> {
+  const results = await Promise.all(
+    BUILT_IN_RUNTIMES.map(async (rt) => ({
+      ...rt,
+      installed: await checkBinaryExists(rt.binary),
+    }))
+  )
+  results.push({ id: 'custom', name: 'Custom', binary: '', installed: true })
+  return results
 }

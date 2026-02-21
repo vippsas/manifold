@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { BUILT_IN_RUNTIMES, getRuntimeById, listRuntimes } from './runtimes'
+import { BUILT_IN_RUNTIMES, getRuntimeById, listRuntimes, listRuntimesWithStatus } from './runtimes'
 
 describe('runtimes', () => {
   describe('BUILT_IN_RUNTIMES', () => {
@@ -91,6 +91,30 @@ describe('runtimes', () => {
       for (const runtime of BUILT_IN_RUNTIMES) {
         expect(runtimes.find((r) => r.id === runtime.id)).toBeDefined()
       }
+    })
+  })
+
+  describe('listRuntimesWithStatus', () => {
+    it('returns all built-in runtimes plus custom with installed field', async () => {
+      const runtimes = await listRuntimesWithStatus()
+      expect(runtimes.length).toBeGreaterThanOrEqual(BUILT_IN_RUNTIMES.length)
+      for (const rt of runtimes) {
+        expect(typeof rt.installed).toBe('boolean')
+      }
+    })
+
+    it('each runtime has installed as a boolean', async () => {
+      const runtimes = await listRuntimesWithStatus()
+      for (const rt of runtimes) {
+        expect(rt.installed === true || rt.installed === false).toBe(true)
+      }
+    })
+
+    it('includes the custom runtime entry with installed=true', async () => {
+      const runtimes = await listRuntimesWithStatus()
+      const custom = runtimes.find((r) => r.id === 'custom')
+      expect(custom).toBeDefined()
+      expect(custom!.installed).toBe(true)
     })
   })
 })
