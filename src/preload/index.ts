@@ -38,6 +38,8 @@ const ALLOWED_INVOKE_CHANNELS = [
   'git:resolve-conflict',
   'git:pr-context',
   'app:beep',
+  'updater:install',
+  'updater:check',
 ] as const
 
 const ALLOWED_SEND_CHANNELS = [
@@ -52,6 +54,7 @@ const ALLOWED_LISTEN_CHANNELS = [
   'settings:changed',
   'agent:conflicts',
   'show-about',
+  'updater:status',
 ] as const
 
 type InvokeChannel = (typeof ALLOWED_INVOKE_CHANNELS)[number]
