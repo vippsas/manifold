@@ -79,12 +79,6 @@ export interface AheadBehind {
   behind: number
 }
 
-export interface GitStatusDetail {
-  conflicts: string[]
-  staged: string[]
-  unstaged: string[]
-}
-
 export interface PRContext {
   commits: string
   diffStat: string

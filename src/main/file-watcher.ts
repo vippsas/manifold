@@ -13,7 +13,7 @@ interface PollEntry {
   polling: boolean
 }
 
-export type GitStatusFn = (cwd: string) => Promise<string>
+type GitStatusFn = (cwd: string) => Promise<string>
 
 export class FileWatcher {
   private polls: Map<string, PollEntry> = new Map()
