@@ -1,27 +1,22 @@
 import { useState, useCallback, useRef } from 'react'
 
-export type CodeViewMode = 'diff' | 'file'
-
 export interface OpenFile {
   path: string
   content: string
 }
 
 export interface UseCodeViewResult {
-  codeViewMode: CodeViewMode
   openFiles: OpenFile[]
   activeFilePath: string | null
   activeFileContent: string | null
   handleSelectFile: (filePath: string) => void
   handleCloseFile: (filePath: string) => void
-  handleShowDiff: () => void
   handleSaveFile: (content: string) => void
   refreshOpenFiles: () => Promise<void>
-  restoreState: (openFiles: OpenFile[], activeFilePath: string | null, codeViewMode: CodeViewMode) => void
+  restoreState: (openFiles: OpenFile[], activeFilePath: string | null) => void
 }
 
 export function useCodeView(activeSessionId: string | null): UseCodeViewResult {
-  const [codeViewMode, setCodeViewMode] = useState<CodeViewMode>('diff')
   const [openFiles, setOpenFiles] = useState<OpenFile[]>([])
   const [activeFilePath, setActiveFilePath] = useState<string | null>(null)
 
@@ -39,7 +34,6 @@ export function useCodeView(activeSessionId: string | null): UseCodeViewResult {
       const existing = openFiles.find((f) => f.path === filePath)
       if (existing) {
         setActiveFilePath(filePath)
-        setCodeViewMode('file')
         return
       }
 
@@ -52,7 +46,6 @@ export function useCodeView(activeSessionId: string | null): UseCodeViewResult {
           )) as string
           setOpenFiles((prev) => [...prev, { path: filePath, content }])
           setActiveFilePath(filePath)
-          setCodeViewMode('file')
         } catch {
           // Read failed — don't open the tab
         }
@@ -66,7 +59,7 @@ export function useCodeView(activeSessionId: string | null): UseCodeViewResult {
       setOpenFiles((prev) => {
         const next = prev.filter((f) => f.path !== filePath)
 
-        // If we closed the active tab, switch to an adjacent one or diff view
+        // If we closed the active tab, switch to an adjacent one
         if (activeFilePathRef.current === filePath) {
           const closedIdx = prev.findIndex((f) => f.path === filePath)
           if (next.length > 0) {
@@ -74,7 +67,6 @@ export function useCodeView(activeSessionId: string | null): UseCodeViewResult {
             setActiveFilePath(next[newIdx].path)
           } else {
             setActiveFilePath(null)
-            setCodeViewMode('diff')
           }
         }
 
@@ -83,11 +75,6 @@ export function useCodeView(activeSessionId: string | null): UseCodeViewResult {
     },
     []
   )
-
-  const handleShowDiff = useCallback((): void => {
-    setCodeViewMode('diff')
-    setActiveFilePath(null)
-  }, [])
 
   const handleSaveFile = useCallback(
     (content: string): void => {
@@ -136,22 +123,19 @@ export function useCodeView(activeSessionId: string | null): UseCodeViewResult {
   }, [activeSessionId])
 
   const restoreState = useCallback(
-    (files: OpenFile[], filePath: string | null, mode: CodeViewMode): void => {
+    (files: OpenFile[], filePath: string | null): void => {
       setOpenFiles(files)
       setActiveFilePath(filePath)
-      setCodeViewMode(mode)
     },
     []
   )
 
   return {
-    codeViewMode,
     openFiles,
     activeFilePath,
     activeFileContent: activeFile?.content ?? null,
     handleSelectFile,
     handleCloseFile,
-    handleShowDiff,
     handleSaveFile,
     refreshOpenFiles,
     restoreState,
