@@ -5,6 +5,7 @@ export interface AgentRuntime {
   args?: string[]
   waitingPattern?: string
   env?: Record<string, string>
+  installed?: boolean
 }
 
 export type AgentStatus = 'running' | 'waiting' | 'done' | 'error'
