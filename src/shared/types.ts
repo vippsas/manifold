@@ -56,7 +56,6 @@ export interface ManifoldSettings {
 export interface SessionViewState {
   openFilePaths: string[]
   activeFilePath: string | null
-  codeViewMode: 'diff' | 'file'
   expandedPaths: string[]
 }
 
