@@ -34,6 +34,10 @@ export function registerProjectHandlers(deps: IpcDependencies): void {
     return projectRegistry.removeProject(projectId)
   })
 
+  ipcMain.handle('projects:update', (_event, projectId: string, partial: Record<string, unknown>) => {
+    return projectRegistry.updateProject(projectId, partial)
+  })
+
   ipcMain.handle('projects:open-dialog', async (event) => {
     const window = BrowserWindow.fromWebContents(event.sender)
     if (!window) throw new Error('No BrowserWindow found for event sender')
