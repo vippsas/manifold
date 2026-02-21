@@ -193,7 +193,7 @@ function TaskDescriptionField({
         />
       </label>
       <p style={modalStyles.hint}>
-        Describe what you want the agent to do — it will receive this as its opening prompt
+        Describe what you want the agent to work on — used for branch naming and tracking
       </p>
     </div>
   )
