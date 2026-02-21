@@ -505,6 +505,13 @@ select:focus {
   margin-bottom: 0;
 }
 
+.git-panel-error {
+  display: block;
+  font-size: 11px;
+  color: var(--error);
+  margin-bottom: var(--space-xs);
+}
+
 .git-panel-file-list {
   list-style: none;
   padding: 0;
