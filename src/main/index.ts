@@ -1,4 +1,4 @@
-import { app, BrowserWindow, ipcMain, nativeTheme } from 'electron'
+import { app, BrowserWindow, ipcMain, nativeTheme, shell } from 'electron'
 import { join } from 'node:path'
 import { execFileSync } from 'node:child_process'
 import { appendFileSync } from 'node:fs'
@@ -120,6 +120,20 @@ function createWindow(): void {
 
   wireModules(mainWindow)
   loadRenderer(mainWindow)
+
+  // Open external links in the user's default browser instead of inside the app.
+  mainWindow.webContents.setWindowOpenHandler(({ url }) => {
+    if (url.startsWith('http:') || url.startsWith('https:')) {
+      shell.openExternal(url)
+    }
+    return { action: 'deny' }
+  })
+  mainWindow.webContents.on('will-navigate', (event, url) => {
+    if (url.startsWith('http:') || url.startsWith('https:')) {
+      event.preventDefault()
+      shell.openExternal(url)
+    }
+  })
 
   // Update native title bar and window background when the user switches themes.
   // Renderer sends { type: 'dark'|'light', background: '#hex' } after applying theme.
