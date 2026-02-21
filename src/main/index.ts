@@ -145,7 +145,7 @@ function createWindow(): void {
 
   const menuTemplate: Electron.MenuItemConstructorOptions[] = [
     {
-      label: app.name,
+      label: 'Manifold',
       submenu: [
         {
           label: 'About Manifold',
