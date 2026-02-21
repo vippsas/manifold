@@ -14,7 +14,7 @@ vi.mock('node:child_process', async (importOriginal) => {
   }
 })
 
-import { generateBranchName, slugifyCity } from './branch-namer'
+import { generateBranchName, slugifyCity, repoPrefix } from './branch-namer'
 
 /**
  * Creates a fake child process that emits stdout data and then closes with code 0.
@@ -78,6 +78,20 @@ describe('slugifyCity', () => {
   })
 })
 
+describe('repoPrefix', () => {
+  it('derives prefix from repo path basename', () => {
+    expect(repoPrefix('/Users/sven/code/my-app')).toBe('my-app/')
+  })
+
+  it('lowercases the prefix', () => {
+    expect(repoPrefix('/Users/sven/code/MyApp')).toBe('myapp/')
+  })
+
+  it('handles simple paths', () => {
+    expect(repoPrefix('/repo')).toBe('repo/')
+  })
+})
+
 describe('generateBranchName', () => {
   beforeEach(() => {
     vi.clearAllMocks()
@@ -87,21 +101,21 @@ describe('generateBranchName', () => {
     fakeSpawnSuccess('')
 
     const name = await generateBranchName('/repo')
-    expect(name).toBe('manifold/oslo')
+    expect(name).toBe('repo/oslo')
   })
 
   it('skips already-taken branch names', async () => {
-    fakeSpawnSuccess('manifold/oslo\n')
+    fakeSpawnSuccess('repo/oslo\n')
 
     const name = await generateBranchName('/repo')
-    expect(name).toBe('manifold/bergen')
+    expect(name).toBe('repo/bergen')
   })
 
   it('skips multiple taken names', async () => {
-    fakeSpawnSuccess('manifold/oslo\nmanifold/bergen\nmanifold/trondheim\n')
+    fakeSpawnSuccess('repo/oslo\nrepo/bergen\nrepo/trondheim\n')
 
     const name = await generateBranchName('/repo')
-    expect(name).toBe('manifold/stavanger')
+    expect(name).toBe('repo/stavanger')
   })
 
   it('appends numeric suffix when all base names are taken', async () => {
@@ -128,17 +142,24 @@ describe('generateBranchName', () => {
       'risor', 'lyngdal', 'farsund', 'sirdal', 'sauda',
     ]
 
-    const allBranches = allBaseNames.map((slug) => `manifold/${slug}`).join('\n')
+    const allBranches = allBaseNames.map((slug) => `repo/${slug}`).join('\n')
     fakeSpawnSuccess(allBranches + '\n')
 
     const name = await generateBranchName('/repo')
-    expect(name).toBe('manifold/oslo-2')
+    expect(name).toBe('repo/oslo-2')
   })
 
-  it('result always starts with manifold/ prefix', async () => {
+  it('result uses repo name as prefix', async () => {
     fakeSpawnSuccess('')
 
     const name = await generateBranchName('/repo')
-    expect(name).toMatch(/^manifold\//)
+    expect(name).toMatch(/^repo\//)
+  })
+
+  it('uses project directory name as prefix', async () => {
+    fakeSpawnSuccess('')
+
+    const name = await generateBranchName('/Users/sven/code/my-app')
+    expect(name).toMatch(/^my-app\//)
   })
 })

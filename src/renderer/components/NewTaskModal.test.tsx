@@ -20,6 +20,7 @@ function renderModal(overrides = {}) {
   const defaultProps = {
     visible: true,
     projectId: 'proj-1',
+    projectName: 'my-app',
     defaultRuntime: 'claude',
     onLaunch: vi.fn(),
     onClose: vi.fn(),
@@ -35,6 +36,7 @@ describe('NewTaskModal', () => {
       <NewTaskModal
         visible={false}
         projectId="proj-1"
+        projectName="my-app"
         defaultRuntime="claude"
         onLaunch={vi.fn()}
         onClose={vi.fn()}
@@ -140,13 +142,13 @@ describe('NewTaskModal', () => {
     renderModal()
 
     // Branch input should not be visible initially
-    expect(screen.queryByPlaceholderText('manifold/...')).not.toBeInTheDocument()
+    expect(screen.queryByPlaceholderText('my-app/...')).not.toBeInTheDocument()
 
     // Click "Advanced" to expand
     fireEvent.click(screen.getByText('Advanced'))
 
     // Branch input should now be visible
-    expect(screen.getByPlaceholderText('manifold/...')).toBeInTheDocument()
+    expect(screen.getByPlaceholderText('my-app/...')).toBeInTheDocument()
   })
 
   it('Branch field is visible when Advanced is open', () => {
@@ -154,7 +156,7 @@ describe('NewTaskModal', () => {
 
     fireEvent.click(screen.getByText('Advanced'))
 
-    const branchInput = screen.getByPlaceholderText('manifold/...')
+    const branchInput = screen.getByPlaceholderText('my-app/...')
     expect(branchInput).toBeInTheDocument()
     expect(branchInput.tagName).toBe('INPUT')
   })
@@ -192,7 +194,7 @@ describe('NewTaskModal', () => {
     fireEvent.change(textarea, { target: { value: 'Fix the login bug' } })
 
     // Branch should not be updated yet (debounce)
-    const branchInput = screen.getByPlaceholderText('manifold/...') as HTMLInputElement
+    const branchInput = screen.getByPlaceholderText('my-app/...') as HTMLInputElement
     expect(branchInput.value).toBe('')
 
     // Advance past the 300ms debounce, wrapped in act for React state updates
@@ -200,7 +202,7 @@ describe('NewTaskModal', () => {
       vi.advanceTimersByTime(300)
     })
 
-    expect(branchInput.value).toBe('manifold/fix-login-bug')
+    expect(branchInput.value).toBe('my-app/fix-login-bug')
 
     vi.useRealTimers()
   })
