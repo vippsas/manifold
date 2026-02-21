@@ -57,11 +57,15 @@ export class FileWatcher {
     try {
       const status = await this.gitStatusFn(worktreePath)
       if (status !== entry.lastStatus) {
-        const changes = parseStatus(status)
+        const { changes, conflicts } = parseStatusWithConflicts(status)
         entry.lastStatus = status
         this.sendToRenderer('files:changed', {
           sessionId: entry.sessionId,
           changes,
+        })
+        this.sendToRenderer('agent:conflicts', {
+          sessionId: entry.sessionId,
+          conflicts,
         })
       }
     } catch {
@@ -153,12 +157,17 @@ function gitStatus(cwd: string): Promise<string> {
   })
 }
 
-function parseStatus(raw: string): FileChange[] {
+function parseStatusWithConflicts(raw: string): { changes: FileChange[]; conflicts: string[] } {
   const changes: FileChange[] = []
+  const conflicts: string[] = []
   for (const line of raw.split('\n')) {
     if (line.length < 4) continue
     const code = line.substring(0, 2)
     const filePath = line.substring(3)
+
+    if (code === 'UU' || code === 'AA' || code === 'DD') {
+      conflicts.push(filePath)
+    }
 
     let type: FileChangeType = 'modified'
     if (code.includes('A') || code.includes('?')) type = 'added'
@@ -166,7 +175,7 @@ function parseStatus(raw: string): FileChange[] {
 
     changes.push({ path: filePath, type })
   }
-  return changes
+  return { changes, conflicts }
 }
 
 const EXCLUDED_DIRS = new Set([

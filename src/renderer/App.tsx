@@ -12,6 +12,7 @@ import { usePaneResize } from './hooks/usePaneResize'
 import { useCodeView } from './hooks/useCodeView'
 import { useViewState } from './hooks/useViewState'
 import { useShellSessions } from './hooks/useShellSession'
+import { useGitOperations } from './hooks/useGitOperations'
 import { useAllProjectSessions } from './hooks/useAllProjectSessions'
 import { ProjectSidebar } from './components/ProjectSidebar'
 import { MainPanes } from './components/MainPanes'
@@ -19,6 +20,9 @@ import { NewAgentPopover } from './components/NewAgentPopover'
 import { OnboardingView } from './components/OnboardingView'
 import { SettingsModal } from './components/SettingsModal'
 import { StatusBar } from './components/StatusBar'
+import { CommitPanel } from './components/CommitPanel'
+import { PRPanel } from './components/PRPanel'
+import { ConflictPanel } from './components/ConflictPanel'
 import { WelcomeDialog } from './components/WelcomeDialog'
 import { loader } from '@monaco-editor/react'
 
@@ -94,6 +98,9 @@ export function App(): React.JSX.Element {
   const projectShellCwd = activeProject?.path ?? null
   const { worktreeSessionId, projectSessionId } = useShellSessions(worktreeShellCwd, projectShellCwd, activeSessionId)
 
+  const gitOps = useGitOperations(activeSessionId)
+
+  const [activePanel, setActivePanel] = useState<'commit' | 'pr' | 'conflicts' | null>(null)
   const [showNewAgent, setShowNewAgent] = useState(false)
   const [showSettings, setShowSettings] = useState(false)
 
@@ -161,6 +168,16 @@ export function App(): React.JSX.Element {
       document.removeEventListener('mousemove', onMove)
       document.removeEventListener('mouseup', onUp)
     }
+  }, [])
+
+  const handleCommit = useCallback(async (message: string): Promise<void> => {
+    await gitOps.commit(message)
+    void refreshDiff()
+    setActivePanel(null)
+  }, [gitOps.commit, refreshDiff])
+
+  const handleClosePanel = useCallback((): void => {
+    setActivePanel(null)
   }, [])
 
   const handleLaunchAgent = useCallback(
@@ -317,8 +334,44 @@ export function App(): React.JSX.Element {
           baseBranch={activeProject?.baseBranch ?? settings.defaultBaseBranch}
           paneVisibility={paneResize.paneVisibility}
           onTogglePane={paneResize.togglePane}
+          conflicts={gitOps.conflicts}
+          aheadBehind={gitOps.aheadBehind}
+          onCommit={() => setActivePanel('commit')}
+          onCreatePR={() => setActivePanel('pr')}
+          onShowConflicts={() => setActivePanel('conflicts')}
         />
       </div>
+
+      {activePanel === 'commit' && activeSessionId && (
+        <CommitPanel
+          changedFiles={mergedChanges}
+          diff={diff}
+          onCommit={handleCommit}
+          onAiGenerate={gitOps.aiGenerate}
+          onClose={handleClosePanel}
+        />
+      )}
+
+      {activePanel === 'pr' && activeSessionId && activeSession && (
+        <PRPanel
+          sessionId={activeSessionId}
+          branchName={activeSession.branchName}
+          baseBranch={activeProject?.baseBranch ?? settings.defaultBaseBranch}
+          onAiGenerate={gitOps.aiGenerate}
+          onClose={handleClosePanel}
+        />
+      )}
+
+      {activePanel === 'conflicts' && activeSessionId && (
+        <ConflictPanel
+          sessionId={activeSessionId}
+          conflicts={gitOps.conflicts}
+          onAiGenerate={gitOps.aiGenerate}
+          onResolveConflict={gitOps.resolveConflict}
+          onSelectFile={handleSelectFile}
+          onClose={handleClosePanel}
+        />
+      )}
 
       {activeProjectId && (
         <NewAgentPopover

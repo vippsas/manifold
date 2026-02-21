@@ -71,3 +71,14 @@ export interface CreatePROptions {
   title?: string
   body?: string
 }
+
+export interface AheadBehind {
+  ahead: number
+  behind: number
+}
+
+export interface GitStatusDetail {
+  conflicts: string[]
+  staged: string[]
+  unstaged: string[]
+}

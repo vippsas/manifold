@@ -1,5 +1,5 @@
 import React from 'react'
-import type { AgentSession, FileChange } from '../../shared/types'
+import type { AgentSession, FileChange, AheadBehind } from '../../shared/types'
 import type { PaneVisibility, PaneName } from '../hooks/usePaneResize'
 
 const PANE_LABELS: Record<PaneName, string> = {
@@ -18,6 +18,11 @@ interface StatusBarProps {
   baseBranch: string
   paneVisibility?: PaneVisibility
   onTogglePane?: (pane: PaneName) => void
+  conflicts?: string[]
+  aheadBehind?: AheadBehind
+  onCommit?: () => void
+  onCreatePR?: () => void
+  onShowConflicts?: () => void
 }
 
 export function StatusBar({
@@ -26,7 +31,15 @@ export function StatusBar({
   baseBranch,
   paneVisibility = ALL_VISIBLE,
   onTogglePane,
+  conflicts = [],
+  aheadBehind,
+  onCommit,
+  onCreatePR,
+  onShowConflicts,
 }: StatusBarProps): React.JSX.Element {
+  const hasConflicts = conflicts.length > 0
+  const hasChanges = changedFiles.length > 0
+  const hasAhead = (aheadBehind?.ahead ?? 0) > 0
   const hiddenPanes = (Object.keys(paneVisibility) as PaneName[]).filter(
     (pane) => !paneVisibility[pane]
   )
@@ -47,6 +60,36 @@ export function StatusBar({
         </>
       ) : (
         <span style={barStyles.item}>No active agent</span>
+      )}
+      {activeSession && (
+        <span style={barStyles.gitActions}>
+          {hasConflicts && onShowConflicts ? (
+            <button
+              onClick={onShowConflicts}
+              style={barStyles.conflictButton}
+              title="Resolve merge conflicts"
+            >
+              Conflicts ({conflicts.length})
+            </button>
+          ) : hasChanges && onCommit ? (
+            <button
+              onClick={onCommit}
+              style={barStyles.commitButton}
+              title="Commit changes"
+            >
+              Commit
+            </button>
+          ) : null}
+          {hasAhead && onCreatePR && (
+            <button
+              onClick={onCreatePR}
+              style={barStyles.prButton}
+              title="Create pull request"
+            >
+              Create PR
+            </button>
+          )}
+        </span>
       )}
       <span style={barStyles.spacer} />
       {hiddenPanes.length > 0 && onTogglePane && (
@@ -70,7 +113,18 @@ export function StatusBar({
   )
 }
 
-const barStyles: Record<string, React.CSSProperties> = {
+type BarStyleKey =
+  | 'item'
+  | 'branch'
+  | 'spacer'
+  | 'toggleGroup'
+  | 'toggleButton'
+  | 'gitActions'
+  | 'commitButton'
+  | 'prButton'
+  | 'conflictButton'
+
+const barStyles: Record<BarStyleKey, React.CSSProperties> = {
   item: {
     display: 'flex',
     alignItems: 'center',
@@ -93,6 +147,38 @@ const barStyles: Record<string, React.CSSProperties> = {
     borderRadius: '3px',
     color: 'var(--accent)',
     background: 'rgba(79, 195, 247, 0.12)',
+    cursor: 'pointer',
+    whiteSpace: 'nowrap' as const,
+  },
+  gitActions: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: '6px',
+  },
+  commitButton: {
+    fontSize: '10px',
+    padding: '2px 8px',
+    borderRadius: '3px',
+    color: 'var(--success)',
+    background: 'rgba(102, 187, 106, 0.15)',
+    cursor: 'pointer',
+    whiteSpace: 'nowrap' as const,
+  },
+  prButton: {
+    fontSize: '10px',
+    padding: '2px 8px',
+    borderRadius: '3px',
+    color: 'var(--accent)',
+    background: 'rgba(79, 195, 247, 0.15)',
+    cursor: 'pointer',
+    whiteSpace: 'nowrap' as const,
+  },
+  conflictButton: {
+    fontSize: '10px',
+    padding: '2px 8px',
+    borderRadius: '3px',
+    color: 'var(--warning)',
+    background: 'rgba(255, 167, 38, 0.15)',
     cursor: 'pointer',
     whiteSpace: 'nowrap' as const,
   },
