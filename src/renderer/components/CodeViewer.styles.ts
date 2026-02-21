@@ -1,6 +1,6 @@
 import type React from 'react'
 
-export const FILE_HEADER_HEIGHT = 32
+const FILE_HEADER_HEIGHT = 32
 
 export const viewerStyles: Record<string, React.CSSProperties> = {
   wrapper: {

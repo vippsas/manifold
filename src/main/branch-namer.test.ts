@@ -14,15 +14,16 @@ vi.mock('node:child_process', async (importOriginal) => {
   }
 })
 
-import { generateBranchName, slugifyCity, repoPrefix } from './branch-namer'
+import { generateBranchName, slugify, repoPrefix } from './branch-namer'
 
 /**
  * Creates a fake child process that emits stdout data and then closes with code 0.
  */
 function fakeSpawnSuccess(stdout: string): void {
   mockSpawn.mockImplementation(() => {
-    const child = new EventEmitter() as EventEmitter & { stdout: EventEmitter }
+    const child = new EventEmitter() as EventEmitter & { stdout: EventEmitter; stderr: EventEmitter }
     child.stdout = new EventEmitter()
+    child.stderr = new EventEmitter()
 
     // Emit data and close asynchronously so listeners are attached first
     process.nextTick(() => {
@@ -36,45 +37,45 @@ function fakeSpawnSuccess(stdout: string): void {
   })
 }
 
-describe('slugifyCity', () => {
+describe('slugify', () => {
   it('converts Norwegian characters ae, o, a', () => {
-    expect(slugifyCity('Tromsø')).toBe('tromso')
-    expect(slugifyCity('Ålesund')).toBe('alesund')
-    expect(slugifyCity('Tønsberg')).toBe('tonsberg')
+    expect(slugify('Tromsø')).toBe('tromso')
+    expect(slugify('Ålesund')).toBe('alesund')
+    expect(slugify('Tønsberg')).toBe('tonsberg')
   })
 
   it('handles the ae ligature', () => {
-    expect(slugifyCity('Bærum')).toBe('baerum')
+    expect(slugify('Bærum')).toBe('baerum')
   })
 
   it('converts to lowercase', () => {
-    expect(slugifyCity('Oslo')).toBe('oslo')
-    expect(slugifyCity('BERGEN')).toBe('bergen')
+    expect(slugify('Oslo')).toBe('oslo')
+    expect(slugify('BERGEN')).toBe('bergen')
   })
 
   it('replaces spaces and special chars with hyphens', () => {
-    expect(slugifyCity('Mo i Rana')).toBe('mo-i-rana')
+    expect(slugify('Mo i Rana')).toBe('mo-i-rana')
   })
 
   it('collapses multiple hyphens', () => {
-    expect(slugifyCity('a--b---c')).toBe('a-b-c')
+    expect(slugify('a--b---c')).toBe('a-b-c')
   })
 
   it('strips leading and trailing hyphens', () => {
-    expect(slugifyCity('-oslo-')).toBe('oslo')
+    expect(slugify('-oslo-')).toBe('oslo')
   })
 
   it('handles already-ascii names', () => {
-    expect(slugifyCity('Oslo')).toBe('oslo')
-    expect(slugifyCity('Bergen')).toBe('bergen')
+    expect(slugify('Oslo')).toBe('oslo')
+    expect(slugify('Bergen')).toBe('bergen')
   })
 
   it('handles Bodø correctly', () => {
-    expect(slugifyCity('Bodø')).toBe('bodo')
+    expect(slugify('Bodø')).toBe('bodo')
   })
 
   it('handles Gjøvik correctly', () => {
-    expect(slugifyCity('Gjøvik')).toBe('gjovik')
+    expect(slugify('Gjøvik')).toBe('gjovik')
   })
 })
 

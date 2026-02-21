@@ -1,13 +1,8 @@
 import { app, BrowserWindow, ipcMain, nativeTheme, shell } from 'electron'
 import { join } from 'node:path'
 import { execFileSync } from 'node:child_process'
-import { appendFileSync } from 'node:fs'
 import { homedir } from 'node:os'
-
-const DEBUG_LOG = join(homedir(), '.manifold', 'debug.log')
-function debugLog(msg: string): void {
-  try { appendFileSync(DEBUG_LOG, `${new Date().toISOString()} ${msg}\n`) } catch { /* */ }
-}
+import { debugLog } from './debug-log'
 
 // Electron on macOS doesn't inherit the user's shell PATH.
 // Resolve it once at startup by asking the login shell.

@@ -1,13 +1,6 @@
 import * as pty from 'node-pty'
 import { v4 as uuidv4 } from 'uuid'
-import { appendFileSync } from 'node:fs'
-import { join } from 'node:path'
-import { homedir } from 'node:os'
-
-const DEBUG_LOG = join(homedir(), '.manifold', 'debug.log')
-function debugLog(msg: string): void {
-  try { appendFileSync(DEBUG_LOG, `${new Date().toISOString()} ${msg}\n`) } catch { /* */ }
-}
+import { debugLog } from './debug-log'
 
 export interface PtyHandle {
   id: string

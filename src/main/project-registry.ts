@@ -1,29 +1,12 @@
 import * as fs from 'node:fs'
 import * as path from 'node:path'
 import * as os from 'node:os'
-import { spawn } from 'node:child_process'
 import { v4 as uuidv4 } from 'uuid'
 import { Project } from '../shared/types'
+import { gitExec } from './git-exec'
 
 const CONFIG_DIR = path.join(os.homedir(), '.manifold')
 const PROJECTS_FILE = path.join(CONFIG_DIR, 'projects.json')
-
-function gitExec(args: string[], cwd: string): Promise<string> {
-  return new Promise((resolve, reject) => {
-    const child = spawn('git', args, {
-      cwd,
-      stdio: ['ignore', 'pipe', 'pipe'],
-    })
-
-    const chunks: Buffer[] = []
-    child.stdout!.on('data', (data: Buffer) => chunks.push(data))
-    child.on('error', reject)
-    child.on('close', (code) => {
-      if (code !== 0) reject(new Error(`git ${args[0]} failed (code ${code})`))
-      else resolve(Buffer.concat(chunks).toString('utf8'))
-    })
-  })
-}
 
 export class ProjectRegistry {
   private projects: Project[]

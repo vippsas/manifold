@@ -98,5 +98,3 @@ const electronAPI = {
 }
 
 contextBridge.exposeInMainWorld('electronAPI', electronAPI)
-
-export type ElectronAPI = typeof electronAPI
