@@ -494,6 +494,17 @@ select:focus {
   margin-bottom: var(--space-xs);
 }
 
+.git-panel-label-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: var(--space-xs);
+}
+
+.git-panel-label-row .git-panel-label {
+  margin-bottom: 0;
+}
+
 .git-panel-file-list {
   list-style: none;
   padding: 0;

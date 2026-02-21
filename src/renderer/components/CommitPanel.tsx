@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react'
+import React, { useState, useRef } from 'react'
 import type { FileChange } from '../../shared/types'
 
 interface CommitPanelProps {
@@ -21,16 +21,15 @@ export function CommitPanel({
   const [committing, setCommitting] = useState(false)
   const textareaRef = useRef<HTMLTextAreaElement>(null)
 
-  useEffect(() => {
-    if (!diff) return
+  const handleGenerate = async (): Promise<void> => {
+    if (generating || !diff) return
     setGenerating(true)
     const prompt = `Write a concise git commit message (subject line only, imperative mood, \u226472 chars) for the following diff. Output only the message, nothing else.\n\n${diff.slice(0, 8000)}`
-    void onAiGenerate(prompt).then((result) => {
-      if (result) setMessage(result)
-      setGenerating(false)
-      textareaRef.current?.focus()
-    })
-  }, [diff, onAiGenerate])
+    const result = await onAiGenerate(prompt)
+    if (result) setMessage(result)
+    setGenerating(false)
+    textareaRef.current?.focus()
+  }
 
   const handleCommit = async (): Promise<void> => {
     if (!message.trim() || committing) return
@@ -68,13 +67,23 @@ export function CommitPanel({
         </div>
 
         <div className="git-panel-section">
-          <label className="git-panel-label">Commit Message</label>
+          <div className="git-panel-label-row">
+            <label className="git-panel-label">Commit Message</label>
+            <button
+              className="git-panel-btn git-panel-btn--small git-panel-btn--accent"
+              onClick={() => void handleGenerate()}
+              disabled={generating || !diff}
+              title="Generate commit message with AI"
+            >
+              {generating ? 'Generating\u2026' : '\u2726 AI'}
+            </button>
+          </div>
           <textarea
             ref={textareaRef}
             className="git-panel-textarea"
             value={message}
             onChange={(e) => setMessage(e.target.value)}
-            placeholder={generating ? 'Generating message\u2026' : 'Enter commit message'}
+            placeholder="Enter commit message"
             rows={4}
           />
         </div>
