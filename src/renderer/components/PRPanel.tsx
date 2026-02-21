@@ -1,10 +1,12 @@
 import React, { useState, useEffect, useCallback } from 'react'
+import type { PRContext } from '../../shared/types'
 
 interface PRPanelProps {
   sessionId: string
   branchName: string
   baseBranch: string
   onAiGenerate: (prompt: string) => Promise<string>
+  getPRContext: () => Promise<PRContext>
   onClose: () => void
 }
 
@@ -13,6 +15,7 @@ export function PRPanel({
   branchName,
   baseBranch,
   onAiGenerate,
+  getPRContext,
   onClose,
 }: PRPanelProps): React.JSX.Element {
   const [title, setTitle] = useState(formatBranchAsTitle(branchName))
@@ -21,27 +24,33 @@ export function PRPanel({
   const [generatingDesc, setGeneratingDesc] = useState(false)
   const [creating, setCreating] = useState(false)
   const [prUrl, setPrUrl] = useState<string | null>(null)
+  const [context, setContext] = useState<PRContext | null>(null)
 
-  const generateTitle = useCallback(async (): Promise<void> => {
+  useEffect(() => {
+    void getPRContext().then(setContext)
+  }, [getPRContext])
+
+  const generateTitle = useCallback(async (ctx: PRContext): Promise<void> => {
     setGeneratingTitle(true)
-    const prompt = `Write a short pull request title (\u226460 chars, imperative mood) for a branch called '${branchName}'. Output only the title, nothing else.`
+    const prompt = `Write a short pull request title (\u226460 chars, imperative mood) for these changes. Output only the title, nothing else.\n\nCommits:\n${ctx.commits}\n\nFiles changed:\n${ctx.diffStat}`
     const result = await onAiGenerate(prompt)
     if (result) setTitle(result)
     setGeneratingTitle(false)
-  }, [branchName, onAiGenerate])
+  }, [onAiGenerate])
 
-  const generateDescription = useCallback(async (): Promise<void> => {
+  const generateDescription = useCallback(async (ctx: PRContext): Promise<void> => {
     setGeneratingDesc(true)
-    const prompt = `Write a pull request description in markdown. Include a brief summary and a bullet-point list of changes. Base it on a branch called '${branchName}'. Output only the markdown, nothing else.`
+    const prompt = `Write a pull request description in markdown. Include a brief summary and a bullet-point list of changes. Output only the markdown, nothing else.\n\nCommits:\n${ctx.commits}\n\nFiles changed:\n${ctx.diffStat}\n\nDiff (truncated):\n${ctx.diffPatch}`
     const result = await onAiGenerate(prompt)
     if (result) setDescription(result)
     setGeneratingDesc(false)
-  }, [branchName, onAiGenerate])
+  }, [onAiGenerate])
 
   useEffect(() => {
-    void generateTitle()
-    void generateDescription()
-  }, [generateTitle, generateDescription])
+    if (!context) return
+    void generateTitle(context)
+    void generateDescription(context)
+  }, [context, generateTitle, generateDescription])
 
   const handleCreate = async (): Promise<void> => {
     if (creating) return

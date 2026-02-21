@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
-import type { AheadBehind } from '../../shared/types'
+import type { AheadBehind, PRContext } from '../../shared/types'
 
 interface ConflictsEvent {
   sessionId: string
@@ -11,6 +11,7 @@ interface UseGitOperationsResult {
   conflicts: string[]
   commit: (message: string) => Promise<void>
   aiGenerate: (prompt: string) => Promise<string>
+  getPRContext: () => Promise<PRContext>
   resolveConflict: (filePath: string, resolvedContent: string) => Promise<void>
   refreshAheadBehind: () => Promise<void>
 }
@@ -48,6 +49,15 @@ export function useGitOperations(
     }
   }, [])
 
+  const getPRContext = useCallback(async (): Promise<PRContext> => {
+    if (!sessionRef.current) return { commits: '', diffStat: '', diffPatch: '' }
+    try {
+      return await window.electronAPI.invoke('git:pr-context', sessionRef.current) as PRContext
+    } catch {
+      return { commits: '', diffStat: '', diffPatch: '' }
+    }
+  }, [])
+
   const resolveConflict = useCallback(async (filePath: string, resolvedContent: string): Promise<void> => {
     if (!sessionRef.current) throw new Error('No active session')
     await window.electronAPI.invoke('git:resolve-conflict', sessionRef.current, filePath, resolvedContent)
@@ -74,5 +84,5 @@ export function useGitOperations(
     }
   }, [sessionId, refreshAheadBehind])
 
-  return { aheadBehind, conflicts, commit, aiGenerate, resolveConflict, refreshAheadBehind }
+  return { aheadBehind, conflicts, commit, aiGenerate, getPRContext, resolveConflict, refreshAheadBehind }
 }
