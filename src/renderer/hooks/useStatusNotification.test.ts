@@ -36,17 +36,17 @@ describe('useStatusNotification', () => {
       { initialProps: { s: sessions, enabled: true } }
     )
     rerender({ s: [makeSession('s1', 'running')], enabled: true })
-    vi.advanceTimersByTime(5000)
+    vi.advanceTimersByTime(11000)
     expect(window.electronAPI.invoke).not.toHaveBeenCalledWith('app:beep')
   })
 
-  it('beeps after 4s when status leaves running', () => {
+  it('beeps after 10s when status leaves running', () => {
     const { rerender } = renderHook(
       ({ s, enabled }) => useStatusNotification(s, enabled),
       { initialProps: { s: [makeSession('s1', 'running')], enabled: true } }
     )
     rerender({ s: [makeSession('s1', 'waiting')], enabled: true })
-    vi.advanceTimersByTime(4000)
+    vi.advanceTimersByTime(10000)
     expect(window.electronAPI.invoke).toHaveBeenCalledWith('app:beep')
   })
 
@@ -68,7 +68,7 @@ describe('useStatusNotification', () => {
       { initialProps: { s: [makeSession('s1', 'running')], enabled: false } }
     )
     rerender({ s: [makeSession('s1', 'waiting')], enabled: false })
-    vi.advanceTimersByTime(5000)
+    vi.advanceTimersByTime(11000)
     expect(window.electronAPI.invoke).not.toHaveBeenCalledWith('app:beep')
   })
 
@@ -86,7 +86,7 @@ describe('useStatusNotification', () => {
       s: [makeSession('s1', 'waiting'), makeSession('s2', 'running')],
       enabled: true,
     })
-    vi.advanceTimersByTime(4000)
+    vi.advanceTimersByTime(10000)
     expect(window.electronAPI.invoke).toHaveBeenCalledTimes(1)
   })
 })

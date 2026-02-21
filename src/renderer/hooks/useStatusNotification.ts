@@ -1,7 +1,7 @@
 import { useEffect, useRef } from 'react'
 import type { AgentSession, AgentStatus } from '../../shared/types'
 
-const DEBOUNCE_MS = 4000
+const DEBOUNCE_MS = 10000
 
 export function useStatusNotification(
   sessions: AgentSession[],
