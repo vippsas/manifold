@@ -250,4 +250,45 @@ describe('ProjectRegistry', () => {
       expect(registry.getProject('nope')).toBeUndefined()
     })
   })
+
+  describe('updateProject', () => {
+    it('updates a project and persists to disk', async () => {
+      mockExistsSync.mockReturnValue(false)
+      setupGitMock([{ stdout: 'main\n' }])
+
+      const registry = new ProjectRegistry()
+      const project = await registry.addProject('/my-project')
+      mockWriteFileSync.mockClear()
+
+      const updated = registry.updateProject(project.id, { autoGenerateMessages: false })
+
+      expect(updated).toBeDefined()
+      expect(updated!.autoGenerateMessages).toBe(false)
+      expect(updated!.id).toBe(project.id)
+      expect(updated!.path).toBe('/my-project')
+      expect(mockWriteFileSync).toHaveBeenCalledOnce()
+    })
+
+    it('returns undefined for unknown id', () => {
+      mockExistsSync.mockReturnValue(false)
+      const registry = new ProjectRegistry()
+
+      const result = registry.updateProject('non-existent', { autoGenerateMessages: false })
+      expect(result).toBeUndefined()
+    })
+
+    it('returns a copy, not the internal reference', async () => {
+      mockExistsSync.mockReturnValue(false)
+      setupGitMock([{ stdout: 'main\n' }])
+
+      const registry = new ProjectRegistry()
+      const project = await registry.addProject('/my-project')
+
+      const updated = registry.updateProject(project.id, { autoGenerateMessages: false })
+      const stored = registry.getProject(project.id)
+
+      expect(updated).toEqual(stored)
+      expect(updated).not.toBe(stored)
+    })
+  })
 })

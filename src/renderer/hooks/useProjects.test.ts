@@ -192,6 +192,70 @@ describe('useProjects', () => {
     })
   })
 
+  describe('updateProject', () => {
+    it('invokes projects:update IPC and updates local state', async () => {
+      const updatedProject = { ...sampleProjects[0], autoGenerateMessages: false }
+      mockInvoke.mockImplementation((channel: string) => {
+        if (channel === 'projects:list') return Promise.resolve(sampleProjects)
+        if (channel === 'projects:update') return Promise.resolve(updatedProject)
+        return Promise.resolve(undefined)
+      })
+
+      const { result } = renderHook(() => useProjects())
+
+      await waitFor(() => {
+        expect(result.current.loading).toBe(false)
+      })
+
+      await act(async () => {
+        await result.current.updateProject('p1', { autoGenerateMessages: false })
+      })
+
+      expect(mockInvoke).toHaveBeenCalledWith('projects:update', 'p1', { autoGenerateMessages: false })
+      expect(result.current.projects[0].autoGenerateMessages).toBe(false)
+    })
+
+    it('does not update state when IPC returns undefined', async () => {
+      mockInvoke.mockImplementation((channel: string) => {
+        if (channel === 'projects:list') return Promise.resolve(sampleProjects)
+        if (channel === 'projects:update') return Promise.resolve(undefined)
+        return Promise.resolve(undefined)
+      })
+
+      const { result } = renderHook(() => useProjects())
+
+      await waitFor(() => {
+        expect(result.current.loading).toBe(false)
+      })
+
+      await act(async () => {
+        await result.current.updateProject('unknown', { autoGenerateMessages: false })
+      })
+
+      expect(result.current.projects).toEqual(sampleProjects)
+    })
+
+    it('sets error when update fails', async () => {
+      mockInvoke.mockImplementation((channel: string) => {
+        if (channel === 'projects:list') return Promise.resolve(sampleProjects)
+        if (channel === 'projects:update') return Promise.reject(new Error('update failed'))
+        return Promise.resolve(undefined)
+      })
+
+      const { result } = renderHook(() => useProjects())
+
+      await waitFor(() => {
+        expect(result.current.loading).toBe(false)
+      })
+
+      await act(async () => {
+        await result.current.updateProject('p1', { autoGenerateMessages: false })
+      })
+
+      expect(result.current.error).toBe('update failed')
+    })
+  })
+
   describe('setActiveProject', () => {
     it('changes the active project id', async () => {
       mockInvoke.mockResolvedValue(sampleProjects)

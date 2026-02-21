@@ -9,6 +9,7 @@ interface UseProjectsResult {
   addProject: (path?: string) => Promise<void>
   cloneProject: (url: string) => Promise<void>
   removeProject: (id: string) => Promise<void>
+  updateProject: (id: string, partial: Partial<Omit<Project, 'id'>>) => Promise<void>
   setActiveProject: (id: string) => void
 }
 
@@ -77,6 +78,18 @@ export function useProjects(): UseProjectsResult {
     }
   }, [])
 
+  const updateProject = useCallback(async (id: string, partial: Partial<Omit<Project, 'id'>>): Promise<void> => {
+    try {
+      const updated = (await window.electronAPI.invoke('projects:update', id, partial)) as Project | undefined
+      if (updated) {
+        setProjects((prev) => prev.map((p) => (p.id === id ? updated : p)))
+      }
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : String(err)
+      setError(message)
+    }
+  }, [])
+
   const setActiveProject = useCallback((id: string): void => {
     setActiveProjectId(id)
   }, [])
@@ -89,6 +102,7 @@ export function useProjects(): UseProjectsResult {
     addProject,
     cloneProject,
     removeProject,
+    updateProject,
     setActiveProject,
   }
 }

@@ -2,6 +2,7 @@ import React, { useState, useCallback } from 'react'
 import type { Project, AgentSession } from '../../shared/types'
 import { sidebarStyles } from './ProjectSidebar.styles'
 import { AgentItem } from './AgentItem'
+import { ProjectSettingsPopover } from './ProjectSettingsPopover'
 
 interface ProjectSidebarProps {
   width: number
@@ -13,6 +14,7 @@ interface ProjectSidebarProps {
   onSelectSession: (sessionId: string, projectId: string) => void
   onAddProject: (path?: string) => void
   onRemoveProject: (id: string) => void
+  onUpdateProject: (id: string, partial: Partial<Omit<Project, 'id'>>) => void
   onCloneProject: (url: string) => void
   onDeleteAgent: (id: string) => void
   onNewAgent: (projectId: string) => void
@@ -30,6 +32,7 @@ export function ProjectSidebar({
   onSelectSession,
   onAddProject,
   onRemoveProject,
+  onUpdateProject,
   onCloneProject,
   onDeleteAgent,
   onNewAgent,
@@ -77,6 +80,7 @@ export function ProjectSidebar({
         onDeleteAgent={onDeleteAgent}
         onNewAgent={onNewAgent}
         onRemove={handleRemove}
+        onUpdateProject={onUpdateProject}
       />
       <SidebarActions onAdd={handleAddClick} onToggleClone={() => setShowCloneInput((p) => !p)} />
       {showCloneInput && (
@@ -124,6 +128,7 @@ interface ProjectListProps {
   onDeleteAgent: (id: string) => void
   onNewAgent: (projectId: string) => void
   onRemove: (e: React.MouseEvent, id: string) => void
+  onUpdateProject: (id: string, partial: Partial<Omit<Project, 'id'>>) => void
 }
 
 function ProjectList({
@@ -136,6 +141,7 @@ function ProjectList({
   onDeleteAgent,
   onNewAgent,
   onRemove,
+  onUpdateProject,
 }: ProjectListProps): React.JSX.Element {
   return (
     <div style={sidebarStyles.list}>
@@ -150,6 +156,7 @@ function ProjectList({
               isActive={isActive}
               onSelect={onSelectProject}
               onRemove={onRemove}
+              onUpdateProject={onUpdateProject}
             />
             {projectSessions.map((session) => (
               <AgentItem
@@ -178,6 +185,7 @@ interface ProjectItemProps {
   isActive: boolean
   onSelect: (id: string) => void
   onRemove: (e: React.MouseEvent, id: string) => void
+  onUpdateProject: (id: string, partial: Partial<Omit<Project, 'id'>>) => void
 }
 
 function ProjectItem({
@@ -185,10 +193,21 @@ function ProjectItem({
   isActive,
   onSelect,
   onRemove,
+  onUpdateProject,
 }: ProjectItemProps): React.JSX.Element {
+  const [showSettings, setShowSettings] = useState(false)
+
   const handleClick = useCallback((): void => {
     onSelect(project.id)
   }, [onSelect, project.id])
+
+  const handleGearClick = useCallback(
+    (e: React.MouseEvent): void => {
+      e.stopPropagation()
+      setShowSettings((prev) => !prev)
+    },
+    []
+  )
 
   const handleRemoveClick = useCallback(
     (e: React.MouseEvent): void => {
@@ -200,7 +219,7 @@ function ProjectItem({
   return (
     <div
       onClick={handleClick}
-      style={sidebarStyles.item}
+      style={{ ...sidebarStyles.item, position: 'relative' as const }}
       role="button"
       tabIndex={0}
     >
@@ -208,6 +227,14 @@ function ProjectItem({
         {project.name}
       </span>
       <div style={sidebarStyles.itemRight}>
+        <button
+          onClick={handleGearClick}
+          style={sidebarStyles.removeButton}
+          aria-label={`Settings for ${project.name}`}
+          title="Project settings"
+        >
+          &#9881;
+        </button>
         <button
           onClick={handleRemoveClick}
           style={sidebarStyles.removeButton}
@@ -217,6 +244,13 @@ function ProjectItem({
           &times;
         </button>
       </div>
+      {showSettings && (
+        <ProjectSettingsPopover
+          project={project}
+          onUpdateProject={onUpdateProject}
+          onClose={() => setShowSettings(false)}
+        />
+      )}
     </div>
   )
 }

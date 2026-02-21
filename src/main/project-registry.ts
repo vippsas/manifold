@@ -90,4 +90,12 @@ export class ProjectRegistry {
   getProject(id: string): Project | undefined {
     return this.projects.find((p) => p.id === id)
   }
+
+  updateProject(id: string, partial: Partial<Omit<Project, 'id'>>): Project | undefined {
+    const project = this.projects.find((p) => p.id === id)
+    if (!project) return undefined
+    Object.assign(project, partial)
+    this.writeToDisk()
+    return { ...project }
+  }
 }

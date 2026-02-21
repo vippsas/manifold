@@ -28,7 +28,7 @@ import { WelcomeDialog } from './components/WelcomeDialog'
 
 export function App(): React.JSX.Element {
   const { settings, updateSettings } = useSettings()
-  const { projects, activeProjectId, addProject, cloneProject, removeProject, setActiveProject } = useProjects()
+  const { projects, activeProjectId, addProject, cloneProject, removeProject, updateProject, setActiveProject } = useProjects()
   const { sessions, activeSessionId, activeSession, spawnAgent, deleteAgent, setActiveSession } =
     useAgentSession(activeProjectId)
   const { sessionsByProject, removeSession } = useAllProjectSessions(projects, activeProjectId, sessions)
@@ -72,6 +72,7 @@ export function App(): React.JSX.Element {
   useSessionStatePersistence(activeSessionId, viewState, codeView)
 
   const activeProject = projects.find((p) => p.id === activeProjectId) ?? null
+  const autoGenerateMessages = activeProject?.autoGenerateMessages !== false
   const worktreeShellCwd = activeSession?.worktreePath ?? null
   const projectShellCwd = activeProject?.path ?? null
   const { worktreeSessionId, projectSessionId } = useShellSessions(worktreeShellCwd, projectShellCwd, activeSessionId)
@@ -162,6 +163,7 @@ export function App(): React.JSX.Element {
             onSelectSession={handleSelectSession}
             onAddProject={addProject}
             onRemoveProject={removeProject}
+            onUpdateProject={updateProject}
             onCloneProject={(url: string) => void cloneProject(url)}
             onDeleteAgent={handleDeleteAgent}
             onNewAgent={handleNewAgentForProject}
@@ -239,6 +241,7 @@ export function App(): React.JSX.Element {
         <CommitPanel
           changedFiles={mergedChanges}
           diff={diff}
+          autoGenerateMessages={autoGenerateMessages}
           onCommit={handleCommit}
           onAiGenerate={gitOps.aiGenerate}
           onClose={handleClosePanel}
@@ -250,6 +253,7 @@ export function App(): React.JSX.Element {
           sessionId={activeSessionId}
           branchName={activeSession.branchName}
           baseBranch={activeProject?.baseBranch ?? settings.defaultBaseBranch}
+          autoGenerateMessages={autoGenerateMessages}
           onAiGenerate={gitOps.aiGenerate}
           getPRContext={gitOps.getPRContext}
           onClose={handleClosePanel}
