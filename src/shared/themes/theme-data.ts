@@ -53,6 +53,7 @@ import theme_zenburnesque from './data/Zenburnesque.json'
 import theme_iplastic from './data/iPlastic.json'
 import theme_idlefingers from './data/idleFingers.json'
 import theme_krtheme from './data/krTheme.json'
+import theme_manifold_dark from './data/Manifold Dark.json'
 import theme_monoindustrial from './data/monoindustrial.json'
 
 export const themeDataByLabel: Record<string, unknown> = {
@@ -82,6 +83,7 @@ export const themeDataByLabel: Record<string, unknown> = {
   "LAZY": theme_lazy,
   "MagicWB (Amiga)": theme_magicwb__amiga_,
   "Merbivore Soft": theme_merbivore_soft,
+  "Manifold Dark": theme_manifold_dark,
   "Merbivore": theme_merbivore,
   "Monokai Bright": theme_monokai_bright,
   "Monokai": theme_monokai,
@@ -138,6 +140,7 @@ export const themeList: Record<string, string> = {
   "lazy": "LAZY",
   "magicwb--amiga-": "MagicWB (Amiga)",
   "merbivore-soft": "Merbivore Soft",
+  "manifold-dark": "Manifold Dark",
   "merbivore": "Merbivore",
   "monokai-bright": "Monokai Bright",
   "monokai": "Monokai",
