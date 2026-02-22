@@ -61,7 +61,7 @@ export function registerGitHandlers(deps: IpcDependencies): void {
     const session = resolveSession(sessionManager, sessionId)
     const runtime = getRuntimeById(session.runtimeId)
     if (!runtime) throw new Error(`Runtime not found: ${session.runtimeId}`)
-    return gitOps.aiGenerate(runtime.binary, prompt, session.worktreePath)
+    return gitOps.aiGenerate(runtime.binary, prompt, session.worktreePath, runtime.aiModelArgs ?? [])
   })
 
   ipcMain.handle('git:ahead-behind', async (_event, sessionId: string): Promise<AheadBehind> => {

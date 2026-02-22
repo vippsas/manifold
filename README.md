@@ -1,5 +1,5 @@
 # Manifold
-
+ 
 A macOS desktop app that orchestrates multiple CLI coding agents working in parallel on the same project. Each agent runs in its own git worktree, so agents can work on isolated branches simultaneously without conflicts.
 
 Supports **Claude Code**, **Codex**, and **Gemini CLI**.
@@ -65,7 +65,54 @@ When an agent finishes, click **Create PR** on the agent tab. Manifold uses the 
 - **AI-assisted commits** — Auto-generate commit messages from diffs
 - **Conflict detection** — Alerts when merge conflicts appear in a worktree
 - **Persistent sessions** — Agent state, shell tabs, and UI layout survive app restarts
-- **Dark / light theme** — Toggle in settings
+- **35+ themes** — Switch in settings. Includes two custom Manifold themes plus popular community themes (see full list below)
+
+## Themes
+
+Manifold ships with 35 editor themes. Change the theme in **Settings**.
+
+| Theme | Type |
+|---|---|
+| **Manifold Dark** | Dark (default) |
+| **Manifold Light** | Light |
+| All Hallows Eve | Dark |
+| Amy | Dark |
+| Birds of Paradise | Dark |
+| Blackboard | Dark |
+| Brilliance Black | Dark |
+| Brilliance Dull | Dark |
+| Clouds Midnight | Dark |
+| Cobalt | Dark |
+| Cobalt2 | Dark |
+| Dracula | Dark |
+| Espresso Libre | Dark |
+| GitHub Dark | Dark |
+| GitHub Light | Light |
+| idleFingers | Dark |
+| Katzenmilch | Light |
+| krTheme | Dark |
+| Merbivore | Dark |
+| Merbivore Soft | Dark |
+| Monokai | Dark |
+| Monokai Bright | Dark |
+| monoindustrial | Dark |
+| Night Owl | Dark |
+| Nord | Dark |
+| Oceanic Next | Dark |
+| Pastels on Dark | Dark |
+| Solarized Dark | Dark |
+| Solarized Light | Light |
+| SpaceCadet | Dark |
+| Sunburst | Dark |
+| Tomorrow | Light |
+| Tomorrow Night | Dark |
+| Tomorrow Night Blue | Dark |
+| Tomorrow Night Bright | Dark |
+| Tomorrow Night Eighties | Dark |
+| Twilight | Dark |
+| Upstream Sunburst | Dark |
+| Vibrant Ink | Dark |
+| Zenburnesque | Dark |
 
 ## Contributing
 

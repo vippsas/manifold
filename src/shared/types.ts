@@ -3,6 +3,7 @@ export interface AgentRuntime {
   name: string
   binary: string
   args?: string[]
+  aiModelArgs?: string[]
   waitingPattern?: string
   env?: Record<string, string>
   installed?: boolean

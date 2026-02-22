@@ -59,10 +59,11 @@ export class GitOperationsManager {
   async aiGenerate(
     runtimeBinary: string,
     prompt: string,
-    cwd: string
+    cwd: string,
+    extraArgs: string[] = []
   ): Promise<string> {
     return new Promise((resolve) => {
-      const child = spawn(runtimeBinary, ['-p'], {
+      const child = spawn(runtimeBinary, ['-p', ...extraArgs], {
         cwd,
         stdio: ['pipe', 'pipe', 'pipe'],
       })

@@ -7,6 +7,7 @@ export const BUILT_IN_RUNTIMES: readonly AgentRuntime[] = [
     name: 'Claude Code',
     binary: 'claude',
     args: ['--dangerously-skip-permissions'],
+    aiModelArgs: ['--model', 'haiku'],
     waitingPattern: '❯|waiting for input|Interrupt to stop'
   },
   {
@@ -14,6 +15,7 @@ export const BUILT_IN_RUNTIMES: readonly AgentRuntime[] = [
     name: 'Codex',
     binary: 'codex',
     args: [],
+    aiModelArgs: ['--model', 'o4-mini'],
     waitingPattern: '> |codex>'
   },
   {
@@ -21,6 +23,7 @@ export const BUILT_IN_RUNTIMES: readonly AgentRuntime[] = [
     name: 'Gemini CLI',
     binary: 'gemini',
     args: [],
+    aiModelArgs: ['--model', 'gemini-2.0-flash'],
     waitingPattern: '❯|>>> '
   }
 ] as const

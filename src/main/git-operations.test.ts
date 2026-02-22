@@ -228,6 +228,19 @@ describe('GitOperationsManager', () => {
       expect(result).toBe('')
     })
 
+    it('passes extra args after -p flag', async () => {
+      createMockChild('ai message\n', 0)
+
+      const result = await git.aiGenerate('/usr/local/bin/claude', 'prompt', '/worktree', ['--model', 'haiku'])
+
+      expect(result).toBe('ai message')
+      expect(mockSpawn).toHaveBeenCalledWith(
+        '/usr/local/bin/claude',
+        ['-p', '--model', 'haiku'],
+        { cwd: '/worktree', stdio: ['pipe', 'pipe', 'pipe'] },
+      )
+    })
+
     it('returns empty string on spawn error', async () => {
       const child = Object.assign(new EventEmitter(), {
         stdout: new EventEmitter(),
