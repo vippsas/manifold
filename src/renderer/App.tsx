@@ -136,6 +136,7 @@ export function App(): React.JSX.Element {
   const [showProjectPicker, setShowProjectPicker] = useState(false)
   const [showSettings, setShowSettings] = useState(false)
   const [showAbout, setShowAbout] = useState(false)
+  const [appVersion, setAppVersion] = useState('')
 
   const { themeId, themeClass, xtermTheme, setPreviewThemeId } = useTheme(settings.theme)
   const { sidebarWidth, handleSidebarDividerMouseDown } = useSidebarResize()
@@ -177,6 +178,10 @@ export function App(): React.JSX.Element {
   const handleSetupComplete = useCallback((): void => {
     void updateSettings({ setupCompleted: true })
   }, [updateSettings])
+
+  React.useEffect(() => {
+    void window.electronAPI.invoke('app:version').then((v) => setAppVersion(v as string))
+  }, [])
 
   React.useEffect(() => {
     const unsub = window.electronAPI.on('show-about', () => setShowAbout(true))
@@ -361,6 +366,7 @@ export function App(): React.JSX.Element {
 
       <AboutOverlay
         visible={showAbout}
+        version={appVersion}
         onClose={() => setShowAbout(false)}
       />
     </div>

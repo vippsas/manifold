@@ -3,10 +3,11 @@ import { aboutStyles } from './AboutOverlay.styles'
 
 interface AboutOverlayProps {
   visible: boolean
+  version: string
   onClose: () => void
 }
 
-export function AboutOverlay({ visible, onClose }: AboutOverlayProps): React.JSX.Element | null {
+export function AboutOverlay({ visible, version, onClose }: AboutOverlayProps): React.JSX.Element | null {
   const overlayRef = useRef<HTMLDivElement>(null)
 
   const handleOverlayClick = useCallback(
@@ -42,7 +43,7 @@ export function AboutOverlay({ visible, onClose }: AboutOverlayProps): React.JSX
         </div>
         <div style={aboutStyles.body}>
           <span style={aboutStyles.appName}>Manifold</span>
-          <span style={aboutStyles.version}>v0.0.1</span>
+          <span style={aboutStyles.version}>v{version}</span>
           <span style={aboutStyles.author}>Made by Sven Malvik</span>
           <span style={aboutStyles.origin}>Norway &middot; 2026</span>
         </div>

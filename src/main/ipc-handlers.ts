@@ -1,4 +1,4 @@
-import { ipcMain, shell } from 'electron'
+import { app, ipcMain, shell } from 'electron'
 import { autoUpdater } from 'electron-updater'
 import { registerProjectHandlers } from './ipc/project-handlers'
 import { registerAgentHandlers } from './ipc/agent-handlers'
@@ -19,6 +19,10 @@ export function registerIpcHandlers(deps: IpcDependencies): void {
   registerViewStateHandlers(deps)
   registerShellTabHandlers(deps)
   registerGitHandlers(deps)
+
+  ipcMain.handle('app:version', () => {
+    return app.getVersion()
+  })
 
   ipcMain.handle('app:beep', () => {
     shell.beep()
