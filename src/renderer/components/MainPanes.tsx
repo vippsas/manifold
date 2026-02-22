@@ -188,6 +188,7 @@ export function MainPanes({
                         activeFilePath={activeFilePath}
                         worktreeRoot={worktreeRoot ?? ''}
                         onSelectFile={onSelectFile}
+                        onClose={() => onClosePane('right')}
                       />
                     </div>
                   </div>
