@@ -26,7 +26,11 @@ export class DiffProvider {
     }
 
     // Single diff: staging area vs base branch shows the net result.
-    return await gitExec(['diff', '--cached', baseBranch], worktreePath)
+    try {
+      return await gitExec(['diff', '--cached', baseBranch], worktreePath)
+    } catch {
+      return ''
+    }
   }
 
   async getChangedFiles(worktreePath: string, baseBranch: string): Promise<FileChange[]> {
