@@ -6,6 +6,8 @@ Supports **Claude Code**, **Codex**, and **Gemini CLI**.
 
 ![Manifold](screenshot-2026-02-22-12-54-05.jpg)
 
+Agents run in a native terminal — no wrapping, no abstractions. You get the full CLI experience exactly as if you ran the agent yourself.
+
 ## Install
 
 Download the latest `.dmg` from [GitHub Releases](https://github.com/svenmalvik/manifold/releases), open it, and drag Manifold to your Applications folder.
