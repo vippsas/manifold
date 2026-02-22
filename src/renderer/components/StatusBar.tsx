@@ -18,6 +18,10 @@ interface StatusBarProps {
   baseBranch: string
   paneVisibility?: PaneVisibility
   onTogglePane?: (pane: PaneName) => void
+  fileTreeVisible?: boolean
+  onToggleFileTree?: () => void
+  modifiedFilesVisible?: boolean
+  onToggleModifiedFiles?: () => void
   conflicts?: string[]
   aheadBehind?: AheadBehind
   onCommit?: () => void
@@ -31,6 +35,10 @@ export function StatusBar({
   baseBranch,
   paneVisibility = ALL_VISIBLE,
   onTogglePane,
+  fileTreeVisible = true,
+  onToggleFileTree,
+  modifiedFilesVisible = true,
+  onToggleModifiedFiles,
   conflicts = [],
   aheadBehind,
   onCommit,
@@ -92,9 +100,9 @@ export function StatusBar({
         </span>
       )}
       <span style={barStyles.spacer} />
-      {hiddenPanes.length > 0 && onTogglePane && (
+      {(hiddenPanes.length > 0 || !fileTreeVisible || !modifiedFilesVisible) && (
         <span style={barStyles.toggleGroup}>
-          {hiddenPanes.map((pane) => (
+          {onTogglePane && hiddenPanes.map((pane) => (
             <button
               key={pane}
               onClick={() => onTogglePane(pane)}
@@ -104,6 +112,24 @@ export function StatusBar({
               {PANE_LABELS[pane]}
             </button>
           ))}
+          {!fileTreeVisible && onToggleFileTree && (
+            <button
+              onClick={onToggleFileTree}
+              style={barStyles.toggleButton}
+              title="Show File Tree"
+            >
+              File Tree
+            </button>
+          )}
+          {!modifiedFilesVisible && onToggleModifiedFiles && (
+            <button
+              onClick={onToggleModifiedFiles}
+              style={barStyles.toggleButton}
+              title="Show Modified Files"
+            >
+              Modified
+            </button>
+          )}
         </span>
       )}
       <span style={barStyles.item}>

@@ -57,6 +57,7 @@ export function registerAgentHandlers(deps: IpcDependencies): void {
   })
 
   ipcMain.handle('shell:kill', async (_event, sessionId: string) => {
+    if (!sessionManager.hasSession(sessionId)) return
     await sessionManager.killSession(sessionId)
   })
 

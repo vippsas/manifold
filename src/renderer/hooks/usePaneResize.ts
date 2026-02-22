@@ -24,6 +24,10 @@ interface PaneResizeResult {
   handleDividerMouseDown: (divider: DividerType) => (e: React.MouseEvent) => void
   paneVisibility: PaneVisibility
   togglePane: (pane: PaneName) => void
+  fileTreeVisible: boolean
+  toggleFileTree: () => void
+  modifiedFilesVisible: boolean
+  toggleModifiedFiles: () => void
 }
 
 export function usePaneResize(
@@ -42,6 +46,8 @@ export function usePaneResize(
     right: true,
     bottom: true,
   })
+  const [fileTreeVisible, setFileTreeVisible] = useState(true)
+  const [modifiedFilesVisible, setModifiedFilesVisible] = useState(true)
   const savedFractions = useRef<Partial<Record<PaneName, number>>>({})
   const panesRef = useRef<HTMLDivElement>(null)
   const rightAreaRef = useRef<HTMLDivElement>(null)
@@ -127,6 +133,14 @@ export function usePaneResize(
     })
   }, [leftPaneFraction, rightPaneFraction, bottomPaneFraction, initialLeft, initialRight, initialBottom])
 
+  const toggleFileTree = useCallback(() => {
+    setFileTreeVisible(prev => !prev)
+  }, [])
+
+  const toggleModifiedFiles = useCallback(() => {
+    setModifiedFilesVisible(prev => !prev)
+  }, [])
+
   const centerFraction = 1 - leftPaneFraction - rightPaneFraction
 
   return {
@@ -141,5 +155,9 @@ export function usePaneResize(
     handleDividerMouseDown,
     paneVisibility,
     togglePane,
+    fileTreeVisible,
+    toggleFileTree,
+    modifiedFilesVisible,
+    toggleModifiedFiles,
   }
 }
