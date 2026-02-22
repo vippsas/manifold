@@ -3,6 +3,18 @@ import { FileChange, FileChangeType } from '../shared/types'
 import { gitExec } from './git-exec'
 
 export class DiffProvider {
+  async getOriginalContent(
+    worktreePath: string,
+    baseBranch: string,
+    relativePath: string
+  ): Promise<string | null> {
+    try {
+      return await gitExec(['show', `${baseBranch}:${relativePath}`], worktreePath)
+    } catch {
+      return null // File doesn't exist in base branch (new file)
+    }
+  }
+
   async getDiff(worktreePath: string, baseBranch: string): Promise<string> {
     if (!existsSync(worktreePath)) return ''
 

@@ -19,6 +19,7 @@ const ALLOWED_INVOKE_CHANNELS = [
   'files:write',
   'files:delete',
   'diff:get',
+  'diff:file-original',
   'pr:create',
   'runtimes:list',
   'settings:get',
