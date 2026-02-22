@@ -128,4 +128,55 @@ describe('BranchCheckoutManager', () => {
       expect(branches).toContain('main')
     })
   })
+
+  describe('fetchPRBranch', () => {
+    it('fetches PR branch by number', async () => {
+      mockSpawnSequence([
+        { stdout: 'feature/cool-stuff\n' }, // gh pr view --json headRefName
+        { stdout: '' },                      // git fetch origin feature/cool-stuff
+      ])
+
+      const branch = await manager.fetchPRBranch('/repo', '42')
+
+      expect(mockSpawn).toHaveBeenCalledWith(
+        'gh',
+        ['pr', 'view', '42', '--json', 'headRefName', '-q', '.headRefName'],
+        expect.objectContaining({ cwd: '/repo' })
+      )
+      expect(branch).toBe('feature/cool-stuff')
+    })
+
+    it('extracts PR number from GitHub URL', async () => {
+      mockSpawnSequence([
+        { stdout: 'fix/bug-123\n' },
+        { stdout: '' },
+      ])
+
+      const branch = await manager.fetchPRBranch(
+        '/repo',
+        'https://github.com/org/repo/pull/99'
+      )
+
+      expect(mockSpawn).toHaveBeenCalledWith(
+        'gh',
+        ['pr', 'view', '99', '--json', 'headRefName', '-q', '.headRefName'],
+        expect.objectContaining({ cwd: '/repo' })
+      )
+      expect(branch).toBe('fix/bug-123')
+    })
+
+    it('throws on invalid PR identifier', async () => {
+      await expect(
+        manager.fetchPRBranch('/repo', 'not-a-number')
+      ).rejects.toThrow('Invalid PR identifier')
+    })
+
+    it('throws when gh fails', async () => {
+      mockSpawnReturns('', 1, 'Could not resolve to a pull request')
+
+      await expect(
+        manager.fetchPRBranch('/repo', '999')
+      ).rejects.toThrow()
+    })
+  })
 })
