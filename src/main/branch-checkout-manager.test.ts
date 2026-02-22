@@ -75,6 +75,7 @@ describe('BranchCheckoutManager', () => {
             '  origin/feature/signup',
           ].join('\n'),
         }, // git branch -a --format=%(refname:short)
+        { stdout: 'worktree /repo\nbranch refs/heads/main\n\n' }, // git worktree list --porcelain (only main repo)
       ])
 
       const branches = await manager.listBranches('/repo')
@@ -95,6 +96,7 @@ describe('BranchCheckoutManager', () => {
             '  origin/manifold/bergen',
           ].join('\n'),
         },
+        { stdout: 'worktree /repo\nbranch refs/heads/main\n\n' }, // git worktree list --porcelain (only main repo)
       ])
 
       const branches = await manager.listBranches('/repo')
@@ -110,6 +112,7 @@ describe('BranchCheckoutManager', () => {
         {
           stdout: '  main\n  origin/HEAD\n  origin/main\n',
         },
+        { stdout: 'worktree /repo\nbranch refs/heads/main\n\n' }, // git worktree list --porcelain (only main repo)
       ])
 
       const branches = await manager.listBranches('/repo')
@@ -122,9 +125,42 @@ describe('BranchCheckoutManager', () => {
       mockSpawnSequence([
         { stdout: '', exitCode: 128, stderr: 'fatal: no remote' },
         { stdout: '  main\n' },
+        { stdout: 'worktree /repo\nbranch refs/heads/main\n\n' }, // git worktree list --porcelain (only main repo)
       ])
 
       const branches = await manager.listBranches('/repo')
+      expect(branches).toContain('main')
+    })
+
+    it('filters out branches currently checked out in worktrees', async () => {
+      mockSpawnSequence([
+        { stdout: '' }, // git fetch --all --prune
+        {
+          stdout: [
+            '  main',
+            '  feature/login',
+            '  feature/signup',
+          ].join('\n'),
+        }, // git branch -a --format=%(refname:short)
+        {
+          stdout: [
+            'worktree /repo',
+            'branch refs/heads/main',
+            '',
+            'worktree /home/.manifold/worktrees/proj/feature-login',
+            'branch refs/heads/feature/login',
+            '',
+          ].join('\n'),
+        }, // git worktree list --porcelain
+      ])
+
+      const branches = await manager.listBranches('/repo')
+
+      // feature/login is checked out in a worktree, so excluded
+      expect(branches).not.toContain('feature/login')
+      // feature/signup is not in a worktree, so included
+      expect(branches).toContain('feature/signup')
+      // main is the bare repo checkout, not a manifold worktree — keep it available
       expect(branches).toContain('main')
     })
   })

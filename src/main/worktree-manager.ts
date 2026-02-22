@@ -1,7 +1,7 @@
 import * as fs from 'node:fs'
 import * as path from 'node:path'
 import { generateBranchName, repoPrefix } from './branch-namer'
-import { removeWorktreeMeta } from './worktree-meta'
+import { readWorktreeMeta, removeWorktreeMeta } from './worktree-meta'
 import { gitExec } from './git-exec'
 
 export interface WorktreeInfo {
@@ -66,6 +66,7 @@ export class WorktreeManager {
   }
 
   async removeWorktree(projectPath: string, worktreePath: string): Promise<void> {
+    const prefix = repoPrefix(projectPath)
     // Get the branch associated with this worktree before removing it
     const worktrees = await this.listWorktrees(projectPath)
     const target = worktrees.find((w) => w.path === worktreePath)
@@ -73,8 +74,9 @@ export class WorktreeManager {
     await gitExec(['worktree', 'remove', worktreePath, '--force'], projectPath)
     await removeWorktreeMeta(worktreePath)
 
-    // Clean up the branch if we found one
-    if (target) {
+    // Only delete branches that Manifold created (repo-prefixed).
+    // External branches (existing branches checked out as worktrees) are left intact.
+    if (target && target.branch.startsWith(prefix)) {
       try {
         await gitExec(['branch', '-D', target.branch], projectPath)
       } catch {
@@ -84,9 +86,8 @@ export class WorktreeManager {
   }
 
   async listWorktrees(projectPath: string): Promise<WorktreeInfo[]> {
-    const prefix = repoPrefix(projectPath)
     const raw = await gitExec(['worktree', 'list', '--porcelain'], projectPath)
-    const entries: WorktreeInfo[] = []
+    const candidates: WorktreeInfo[] = []
     let currentPath: string | null = null
     let currentBranch: string | null = null
 
@@ -97,17 +98,24 @@ export class WorktreeManager {
         const fullRef = line.slice('branch '.length).trim()
         currentBranch = fullRef.replace('refs/heads/', '')
       } else if (line.trim() === '' && currentPath && currentBranch) {
-        if (currentBranch.startsWith(prefix)) {
-          entries.push({ branch: currentBranch, path: currentPath })
-        }
+        candidates.push({ branch: currentBranch, path: currentPath })
         currentPath = null
         currentBranch = null
       }
     }
 
-    // Handle last entry if file doesn't end with a blank line
-    if (currentPath && currentBranch && currentBranch.startsWith(prefix)) {
-      entries.push({ branch: currentBranch, path: currentPath })
+    // Handle last entry if output doesn't end with a blank line
+    if (currentPath && currentBranch) {
+      candidates.push({ branch: currentBranch, path: currentPath })
+    }
+
+    // Filter to only Manifold-managed worktrees (those with metadata files)
+    const entries: WorktreeInfo[] = []
+    for (const wt of candidates) {
+      const meta = await readWorktreeMeta(wt.path)
+      if (meta) {
+        entries.push(wt)
+      }
     }
 
     return entries

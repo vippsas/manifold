@@ -16,6 +16,11 @@ vi.mock('./branch-namer', () => ({
   repoPrefix: (repoPath: string) => (repoPath.split('/').pop() || '').toLowerCase() + '/',
 }))
 
+vi.mock('./worktree-meta', () => ({
+  readWorktreeMeta: vi.fn().mockResolvedValue(null),
+  removeWorktreeMeta: vi.fn().mockResolvedValue(undefined),
+}))
+
 /**
  * Creates a fake ChildProcess that emits stdout data and then closes.
  * Data emission is deferred via process.nextTick so callers can attach listeners first.
@@ -52,6 +57,7 @@ vi.mock('node:child_process', () => ({
 
 import { WorktreeManager } from './worktree-manager'
 import { generateBranchName } from './branch-namer'
+import { readWorktreeMeta } from './worktree-meta'
 import * as fs from 'node:fs'
 
 /**
@@ -163,7 +169,7 @@ describe('WorktreeManager', () => {
   })
 
   describe('removeWorktree', () => {
-    it('removes a worktree and deletes the branch', async () => {
+    it('removes a worktree and deletes repo-prefixed branches', async () => {
       const porcelainOutput =
         'worktree /repo/.manifold/worktrees/repo-oslo\nbranch refs/heads/repo/oslo\n\n'
 
@@ -175,6 +181,10 @@ describe('WorktreeManager', () => {
         { stdout: '' },
         { stdout: '' },
       ])
+
+      // listWorktrees now checks metadata to include worktrees
+      const mockReadMeta = vi.mocked(readWorktreeMeta)
+      mockReadMeta.mockResolvedValueOnce({ runtimeId: 'claude' })
 
       await manager.removeWorktree('/repo', '/repo/.manifold/worktrees/repo-oslo')
 
@@ -200,42 +210,77 @@ describe('WorktreeManager', () => {
         { stdout: '', exitCode: 1, stderr: 'branch not found' },
       ])
 
+      // listWorktrees now checks metadata to include worktrees
+      const mockReadMeta = vi.mocked(readWorktreeMeta)
+      mockReadMeta.mockResolvedValueOnce({ runtimeId: 'claude' })
+
       await expect(
         manager.removeWorktree('/repo', '/repo/.manifold/worktrees/repo-oslo')
       ).resolves.toBeUndefined()
     })
+
+    it('skips branch deletion for non-repo-prefixed branches', async () => {
+      const porcelainOutput =
+        'worktree /mock-home/.manifold/worktrees/proj/feature-login\nbranch refs/heads/feature/login\n\n'
+
+      const mockReadMeta = vi.mocked(readWorktreeMeta)
+      mockSpawnSequence([
+        { stdout: porcelainOutput }, // listWorktrees (worktree list --porcelain)
+        { stdout: '' },              // worktree remove
+      ])
+      // metadata exists so listWorktrees includes it
+      mockReadMeta.mockResolvedValueOnce({ runtimeId: 'claude' })
+
+      await manager.removeWorktree('/repo', '/mock-home/.manifold/worktrees/proj/feature-login')
+
+      // Should have called worktree remove
+      expect(mockSpawn).toHaveBeenCalledWith(
+        'git',
+        ['worktree', 'remove', '/mock-home/.manifold/worktrees/proj/feature-login', '--force'],
+        expect.objectContaining({ cwd: '/repo' })
+      )
+      // Should NOT have called branch -D (only 2 spawn calls, not 3)
+      expect(mockSpawn).toHaveBeenCalledTimes(2)
+    })
   })
 
   describe('listWorktrees', () => {
-    it('parses porcelain output and filters repo-prefixed branches', async () => {
+    it('includes worktrees that have metadata files', async () => {
       const porcelain = [
         'worktree /repo',
         'branch refs/heads/main',
         '',
-        'worktree /repo/.manifold/worktrees/repo-oslo',
+        'worktree /mock-home/.manifold/worktrees/proj/repo-oslo',
         'branch refs/heads/repo/oslo',
         '',
-        'worktree /repo/.manifold/worktrees/repo-bergen',
-        'branch refs/heads/repo/bergen',
+        'worktree /mock-home/.manifold/worktrees/proj/feature-login',
+        'branch refs/heads/feature/login',
         '',
       ].join('\n')
 
       mockSpawnReturns(porcelain)
+      const mockReadMeta = vi.mocked(readWorktreeMeta)
+      // Main repo: no metadata
+      mockReadMeta.mockResolvedValueOnce(null)
+      // repo/oslo worktree: has metadata
+      mockReadMeta.mockResolvedValueOnce({ runtimeId: 'claude' })
+      // feature/login worktree: has metadata
+      mockReadMeta.mockResolvedValueOnce({ runtimeId: 'claude' })
 
       const result = await manager.listWorktrees('/repo')
 
       expect(result).toHaveLength(2)
       expect(result[0]).toEqual({
         branch: 'repo/oslo',
-        path: '/repo/.manifold/worktrees/repo-oslo',
+        path: '/mock-home/.manifold/worktrees/proj/repo-oslo',
       })
       expect(result[1]).toEqual({
-        branch: 'repo/bergen',
-        path: '/repo/.manifold/worktrees/repo-bergen',
+        branch: 'feature/login',
+        path: '/mock-home/.manifold/worktrees/proj/feature-login',
       })
     })
 
-    it('excludes non-repo-prefixed worktrees', async () => {
+    it('excludes worktrees without metadata files', async () => {
       const porcelain = [
         'worktree /repo',
         'branch refs/heads/main',
@@ -246,6 +291,8 @@ describe('WorktreeManager', () => {
       ].join('\n')
 
       mockSpawnReturns(porcelain)
+      const mockReadMeta = vi.mocked(readWorktreeMeta)
+      mockReadMeta.mockResolvedValue(null)
 
       const result = await manager.listWorktrees('/repo')
       expect(result).toHaveLength(0)
@@ -253,11 +300,13 @@ describe('WorktreeManager', () => {
 
     it('handles last entry without trailing blank line', async () => {
       const porcelain = [
-        'worktree /repo/.manifold/worktrees/repo-oslo',
+        'worktree /mock-home/.manifold/worktrees/proj/repo-oslo',
         'branch refs/heads/repo/oslo',
       ].join('\n')
 
       mockSpawnReturns(porcelain)
+      const mockReadMeta = vi.mocked(readWorktreeMeta)
+      mockReadMeta.mockResolvedValueOnce({ runtimeId: 'claude' })
 
       const result = await manager.listWorktrees('/repo')
       expect(result).toHaveLength(1)

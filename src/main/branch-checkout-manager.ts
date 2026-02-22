@@ -36,6 +36,10 @@ export class BranchCheckoutManager {
     }
 
     const raw = await gitExec(['branch', '-a', '--format=%(refname:short)'], projectPath)
+
+    // Get branches currently checked out in worktrees
+    const worktreeBranches = await this.getWorktreeBranches(projectPath)
+
     const seen = new Set<string>()
     const branches: string[] = []
 
@@ -46,9 +50,10 @@ export class BranchCheckoutManager {
       // Strip origin/ prefix for remote branches
       const name = trimmed.startsWith('origin/') ? trimmed.slice('origin/'.length) : trimmed
 
-      // Filter out HEAD, manifold/* worktree branches
+      // Filter out HEAD, manifold/* worktree branches, and already-checked-out branches
       if (name === 'HEAD') continue
       if (name.startsWith('manifold/')) continue
+      if (worktreeBranches.has(name)) continue
 
       if (!seen.has(name)) {
         seen.add(name)
@@ -56,6 +61,42 @@ export class BranchCheckoutManager {
       }
     }
 
+    return branches
+  }
+
+  private async getWorktreeBranches(projectPath: string): Promise<Set<string>> {
+    const branches = new Set<string>()
+    try {
+      const raw = await gitExec(['worktree', 'list', '--porcelain'], projectPath)
+      let worktreeIndex = -1
+      let currentBranch: string | null = null
+
+      for (const line of raw.split('\n')) {
+        if (line.startsWith('worktree ')) {
+          // Flush previous worktree's branch (skip first — that's the main repo checkout)
+          if (worktreeIndex > 0 && currentBranch) {
+            branches.add(currentBranch)
+          }
+          worktreeIndex++
+          currentBranch = null
+        } else if (line.startsWith('branch ')) {
+          const fullRef = line.slice('branch '.length).trim()
+          currentBranch = fullRef.replace('refs/heads/', '')
+        } else if (line.trim() === '') {
+          if (worktreeIndex > 0 && currentBranch) {
+            branches.add(currentBranch)
+          }
+          currentBranch = null
+        }
+      }
+
+      // Handle last entry (if no trailing empty line)
+      if (worktreeIndex > 0 && currentBranch) {
+        branches.add(currentBranch)
+      }
+    } catch {
+      // If worktree list fails, return empty set — don't block branch listing
+    }
     return branches
   }
 
