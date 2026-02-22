@@ -108,6 +108,7 @@ export function convertTheme(themeJson: MonacoThemeJson, _themeId: string): Conv
     '--text-muted': c('disabledForeground') ?? withOpacity(editorFg, 0.4),
 
     '--accent': accent,
+    '--accent-text': luminance(accent) > 0.4 ? '#000000' : '#ffffff',
     '--accent-hover': lighten(accent, 15),
 
     '--border': c('panel.border') ?? c('editorGroup.border')
