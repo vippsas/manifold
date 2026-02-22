@@ -94,7 +94,7 @@ export const modalStyles: Record<string, React.CSSProperties> = {
     padding: '6px 20px',
     borderRadius: '4px',
     fontSize: '13px',
-    color: '#ffffff',
+    color: 'var(--accent-text)',
     background: 'var(--accent)',
     fontWeight: 500,
   },

@@ -31,6 +31,7 @@
   --text-muted: rgba(248, 248, 242, 0.4);
 
   --accent: #007acc;
+  --accent-text: #ffffff;
   --accent-hover: #2694d6;
   --success: #66bb6a;
   --warning: #ffa726;
@@ -610,7 +611,7 @@ select:focus {
 
 .git-panel-btn--primary {
   background: var(--accent);
-  color: #fff;
+  color: var(--accent-text);
 }
 
 .git-panel-btn--primary:hover:not(:disabled) {

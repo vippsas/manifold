@@ -140,7 +140,7 @@ export const sidebarStyles: Record<string, React.CSSProperties> = {
   cloneSubmit: {
     padding: '4px 10px',
     background: 'var(--accent)',
-    color: '#ffffff',
+    color: 'var(--accent-text)',
     borderRadius: '4px',
     fontSize: '12px',
   },
