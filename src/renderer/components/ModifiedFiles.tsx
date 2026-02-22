@@ -6,6 +6,7 @@ interface ModifiedFilesProps {
   activeFilePath: string | null
   worktreeRoot: string
   onSelectFile: (absolutePath: string) => void
+  onClose?: () => void
 }
 
 const TYPE_ORDER: FileChangeType[] = ['modified', 'added', 'deleted']
@@ -21,6 +22,7 @@ export function ModifiedFiles({
   activeFilePath,
   worktreeRoot,
   onSelectFile,
+  onClose,
 }: ModifiedFilesProps): React.JSX.Element {
   const root = worktreeRoot.replace(/\/$/, '')
 
@@ -37,7 +39,14 @@ export function ModifiedFiles({
     <div style={styles.wrapper}>
       <div style={styles.header}>
         <span style={styles.headerTitle}>Modified Files</span>
-        {changes.length > 0 && <span style={styles.badge}>{changes.length}</span>}
+        <span style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+          {changes.length > 0 && <span style={styles.badge}>{changes.length}</span>}
+          {onClose && (
+            <button onClick={onClose} style={styles.closeButton} title="Close Modified Files">
+              ×
+            </button>
+          )}
+        </span>
       </div>
       <div style={styles.list}>
         {sorted.length === 0 ? (
@@ -127,6 +136,18 @@ const styles: Record<string, React.CSSProperties> = {
     padding: '1px 6px',
     borderRadius: '8px',
     background: 'rgba(79, 195, 247, 0.12)',
+  },
+  closeButton: {
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    width: '18px',
+    height: '18px',
+    borderRadius: '3px',
+    color: 'var(--text-muted)',
+    fontSize: '14px',
+    lineHeight: 1,
+    cursor: 'pointer',
   },
   list: {
     flex: 1,
