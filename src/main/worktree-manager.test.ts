@@ -169,7 +169,7 @@ describe('WorktreeManager', () => {
   })
 
   describe('removeWorktree', () => {
-    it('removes a worktree and deletes the branch', async () => {
+    it('removes a worktree and deletes repo-prefixed branches', async () => {
       const porcelainOutput =
         'worktree /repo/.manifold/worktrees/repo-oslo\nbranch refs/heads/repo/oslo\n\n'
 
@@ -217,6 +217,30 @@ describe('WorktreeManager', () => {
       await expect(
         manager.removeWorktree('/repo', '/repo/.manifold/worktrees/repo-oslo')
       ).resolves.toBeUndefined()
+    })
+
+    it('skips branch deletion for non-repo-prefixed branches', async () => {
+      const porcelainOutput =
+        'worktree /mock-home/.manifold/worktrees/proj/feature-login\nbranch refs/heads/feature/login\n\n'
+
+      const mockReadMeta = vi.mocked(readWorktreeMeta)
+      mockSpawnSequence([
+        { stdout: porcelainOutput }, // listWorktrees (worktree list --porcelain)
+        { stdout: '' },              // worktree remove
+      ])
+      // metadata exists so listWorktrees includes it
+      mockReadMeta.mockResolvedValueOnce({ runtimeId: 'claude' })
+
+      await manager.removeWorktree('/repo', '/mock-home/.manifold/worktrees/proj/feature-login')
+
+      // Should have called worktree remove
+      expect(mockSpawn).toHaveBeenCalledWith(
+        'git',
+        ['worktree', 'remove', '/mock-home/.manifold/worktrees/proj/feature-login', '--force'],
+        expect.objectContaining({ cwd: '/repo' })
+      )
+      // Should NOT have called branch -D (only 2 spawn calls, not 3)
+      expect(mockSpawn).toHaveBeenCalledTimes(2)
     })
   })
 
