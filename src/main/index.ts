@@ -65,6 +65,7 @@ import { PrCreator } from './pr-creator'
 import { ViewStateStore } from './view-state-store'
 import { ShellTabStore } from './shell-tab-store'
 import { GitOperationsManager } from './git-operations'
+import { BranchCheckoutManager } from './branch-checkout-manager'
 import { registerIpcHandlers } from './ipc-handlers'
 
 let mainWindow: BrowserWindow | null = null
@@ -73,8 +74,9 @@ let mainWindow: BrowserWindow | null = null
 const settingsStore = new SettingsStore()
 const projectRegistry = new ProjectRegistry()
 const worktreeManager = new WorktreeManager(settingsStore.getSettings().storagePath)
+const branchCheckout = new BranchCheckoutManager(settingsStore.getSettings().storagePath)
 const ptyPool = new PtyPool()
-const sessionManager = new SessionManager(worktreeManager, ptyPool, projectRegistry)
+const sessionManager = new SessionManager(worktreeManager, ptyPool, projectRegistry, branchCheckout)
 const fileWatcher = new FileWatcher()
 const diffProvider = new DiffProvider()
 const prCreator = new PrCreator()
@@ -215,6 +217,7 @@ function wireModules(window: BrowserWindow): void {
     viewStateStore,
     shellTabStore,
     gitOps,
+    branchCheckout,
   })
 }
 

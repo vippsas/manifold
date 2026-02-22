@@ -65,6 +65,8 @@ export interface SpawnAgentOptions {
   runtimeId: string
   prompt: string
   branchName?: string
+  existingBranch?: string
+  prIdentifier?: string
   cols?: number
   rows?: number
 }

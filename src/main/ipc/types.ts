@@ -7,6 +7,7 @@ import { PrCreator } from '../pr-creator'
 import { ViewStateStore } from '../view-state-store'
 import { ShellTabStore } from '../shell-tab-store'
 import { GitOperationsManager } from '../git-operations'
+import { BranchCheckoutManager } from '../branch-checkout-manager'
 import type { AgentSession } from '../../shared/types'
 
 export interface IpcDependencies {
@@ -19,6 +20,7 @@ export interface IpcDependencies {
   viewStateStore: ViewStateStore
   shellTabStore: ShellTabStore
   gitOps: GitOperationsManager
+  branchCheckout: BranchCheckoutManager
 }
 
 export function resolveSession(sessionManager: SessionManager, sessionId: string): AgentSession {

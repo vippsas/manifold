@@ -2,6 +2,7 @@ import { v4 as uuidv4 } from 'uuid'
 import { AgentSession, SpawnAgentOptions } from '../shared/types'
 import { getRuntimeById } from './runtimes'
 import { WorktreeManager } from './worktree-manager'
+import { BranchCheckoutManager } from './branch-checkout-manager'
 import { PtyPool } from './pty-pool'
 import { ProjectRegistry } from './project-registry'
 import { detectStatus } from './status-detector'
@@ -21,7 +22,8 @@ export class SessionManager {
   constructor(
     private worktreeManager: WorktreeManager,
     private ptyPool: PtyPool,
-    private projectRegistry: ProjectRegistry
+    private projectRegistry: ProjectRegistry,
+    private branchCheckoutManager?: BranchCheckoutManager
   ) {}
 
   setMainWindow(window: BrowserWindow): void {
@@ -38,12 +40,32 @@ export class SessionManager {
     const project = this.resolveProject(options.projectId)
     const runtime = this.resolveRuntime(options.runtimeId)
 
-    const worktree = await this.worktreeManager.createWorktree(
-      project.path,
-      project.baseBranch,
-      project.name,
-      options.branchName
-    )
+    let worktree: { branch: string; path: string }
+
+    if (options.prIdentifier && this.branchCheckoutManager) {
+      const branch = await this.branchCheckoutManager.fetchPRBranch(
+        project.path,
+        options.prIdentifier
+      )
+      worktree = await this.branchCheckoutManager.createWorktreeFromBranch(
+        project.path,
+        branch,
+        project.name
+      )
+    } else if (options.existingBranch && this.branchCheckoutManager) {
+      worktree = await this.branchCheckoutManager.createWorktreeFromBranch(
+        project.path,
+        options.existingBranch,
+        project.name
+      )
+    } else {
+      worktree = await this.worktreeManager.createWorktree(
+        project.path,
+        project.baseBranch,
+        project.name,
+        options.branchName
+      )
+    }
 
     const ptyHandle = this.ptyPool.spawn(runtime.binary, [...(runtime.args ?? [])], {
       cwd: worktree.path,
