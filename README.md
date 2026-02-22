@@ -8,12 +8,6 @@ Supports **Claude Code**, **Codex**, and **Gemini CLI**.
 
 Download the latest `.dmg` from [GitHub Releases](https://github.com/svenmalvik/manifold/releases), open it, and drag Manifold to your Applications folder.
 
-> **Note:** The app is not currently signed with an Apple Developer certificate. If macOS says the file is "damaged" or "can't be opened", run:
-> ```bash
-> xattr -cr /Applications/Manifold.app
-> ```
-> Then open again normally.
-
 ### Prerequisites
 
 You need at least one agent CLI installed:
