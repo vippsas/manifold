@@ -1,4 +1,4 @@
-import React, { useState, useCallback, useMemo } from 'react'
+import React, { useState, useCallback, useMemo, useEffect } from 'react'
 import type { SpawnAgentOptions, FileChange } from '../shared/types'
 import { useProjects } from './hooks/useProjects'
 import { useAgentSession } from './hooks/useAgentSession'
@@ -66,6 +66,37 @@ export function App(): React.JSX.Element {
     const chunks = diff.split(/^(?=diff --git )/m)
     return chunks.find((chunk) => chunk.includes(`a/${relativePath} b/`)) ?? null
   }, [diff, codeView.activeFilePath, tree?.path])
+
+  // Fetch original file content from base branch for diff view
+  const [originalContent, setOriginalContent] = useState<string | null>(null)
+  const activeFileRelativePath = useMemo(() => {
+    if (!codeView.activeFilePath) return null
+    const worktreeRoot = tree?.path ?? ''
+    return worktreeRoot
+      ? codeView.activeFilePath.replace(worktreeRoot.replace(/\/$/, '') + '/', '')
+      : codeView.activeFilePath
+  }, [codeView.activeFilePath, tree?.path])
+
+  useEffect(() => {
+    if (!activeFileDiffText || !activeSessionId || !activeFileRelativePath) {
+      setOriginalContent(null)
+      return
+    }
+    let cancelled = false
+    void (async (): Promise<void> => {
+      try {
+        const content = (await window.electronAPI.invoke(
+          'diff:file-original',
+          activeSessionId,
+          activeFileRelativePath
+        )) as string | null
+        if (!cancelled) setOriginalContent(content)
+      } catch {
+        if (!cancelled) setOriginalContent(null)
+      }
+    })()
+    return () => { cancelled = true }
+  }, [activeFileDiffText, activeSessionId, activeFileRelativePath])
 
   const viewState = useViewState(activeSessionId, tree)
 
@@ -239,6 +270,7 @@ export function App(): React.JSX.Element {
           worktreeCwd={worktreeShellCwd}
           scrollbackLines={settings.scrollbackLines}
           fileDiffText={activeFileDiffText}
+          originalContent={originalContent}
           openFiles={codeView.openFiles}
           activeFilePath={codeView.activeFilePath}
           fileContent={codeView.activeFileContent}

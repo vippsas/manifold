@@ -33,6 +33,7 @@ interface MainPanesProps {
   worktreeCwd: string | null
   scrollbackLines: number
   fileDiffText: string | null
+  originalContent: string | null
   openFiles: OpenFile[]
   activeFilePath: string | null
   fileContent: string | null
@@ -72,6 +73,7 @@ export function MainPanes({
   worktreeCwd,
   scrollbackLines,
   fileDiffText,
+  originalContent,
   openFiles,
   activeFilePath,
   fileContent,
@@ -135,6 +137,7 @@ export function MainPanes({
                 <div className="layout-pane" style={{ flex: showRight ? `0 0 ${rightAreaCenterFraction * 100}%` : 1 }}>
                   <CodeViewer
                     fileDiffText={fileDiffText}
+                    originalContent={originalContent}
                     openFiles={openFiles}
                     activeFilePath={activeFilePath}
                     fileContent={fileContent}

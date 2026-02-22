@@ -20,6 +20,15 @@ export function registerDiffHandler(deps: IpcDependencies): void {
 
     return { diff, changedFiles }
   })
+
+  ipcMain.handle('diff:file-original', async (_event, sessionId: string, relativePath: string) => {
+    const session = sessionManager.getSession(sessionId)
+    if (!session) throw new Error(`Session not found: ${sessionId}`)
+    const project = projectRegistry.getProject(session.projectId)
+    if (!project) throw new Error(`Project not found: ${session.projectId}`)
+
+    return diffProvider.getOriginalContent(session.worktreePath, project.baseBranch, relativePath)
+  })
 }
 
 export function registerPrHandler(deps: IpcDependencies): void {

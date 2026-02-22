@@ -1,14 +1,15 @@
 import React, { useMemo, useRef, useState, useCallback, useEffect } from 'react'
-import Editor, { type OnMount } from '@monaco-editor/react'
+import Editor, { DiffEditor, type OnMount, type DiffOnMount } from '@monaco-editor/react'
 import type { editor as monacoEditor } from 'monaco-editor'
 import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
 import type { OpenFile } from '../hooks/useCodeView'
 import { viewerStyles } from './CodeViewer.styles'
-import { extensionToLanguage, isMarkdownFile, fileName, parseDiffToLineRanges } from './code-viewer-utils'
+import { extensionToLanguage, isMarkdownFile, fileName } from './code-viewer-utils'
 
 interface CodeViewerProps {
   fileDiffText: string | null
+  originalContent: string | null
   openFiles: OpenFile[]
   activeFilePath: string | null
   fileContent: string | null
@@ -31,8 +32,16 @@ const BASE_EDITOR_OPTIONS = {
 
 const EDITABLE_OPTIONS = { ...BASE_EDITOR_OPTIONS, readOnly: false }
 
+const DIFF_EDITOR_OPTIONS = {
+  ...BASE_EDITOR_OPTIONS,
+  readOnly: true,
+  renderSideBySide: false,
+  renderIndicators: true,
+  renderMarginRevertIcon: false,
+}
+
 export function CodeViewer({
-  fileDiffText, openFiles, activeFilePath, fileContent, theme,
+  fileDiffText, originalContent, openFiles, activeFilePath, fileContent, theme,
   onSelectTab, onCloseTab, onSaveFile, onClose,
 }: CodeViewerProps): React.JSX.Element {
   const monacoTheme = theme
@@ -40,10 +49,17 @@ export function CodeViewer({
   const editorRef = useRef<monacoEditor.IStandaloneCodeEditor | null>(null)
   const saveRef = useRef(onSaveFile)
   const [previewActive, setPreviewActive] = useState(false)
+  const [diffMode, setDiffMode] = useState(false)
   const isMd = isMarkdownFile(activeFilePath)
+  const hasDiff = fileDiffText !== null
 
   useEffect(() => { if (!isMd) setPreviewActive(false) }, [isMd])
   useEffect(() => { saveRef.current = onSaveFile }, [onSaveFile])
+
+  // Auto-enable diff mode when diff data becomes available for the active file
+  useEffect(() => {
+    setDiffMode(hasDiff)
+  }, [hasDiff, activeFilePath])
 
   const handleEditorMount: OnMount = useCallback((editor, monaco) => {
     editorRef.current = editor
@@ -52,46 +68,14 @@ export function CodeViewer({
     })
   }, [])
 
-  const decorationIds = useRef<string[]>([])
-
-  useEffect(() => {
-    const editor = editorRef.current
-    if (!editor) return
-
-    if (!fileDiffText) {
-      decorationIds.current = editor.deltaDecorations(decorationIds.current, [])
-      return
-    }
-
-    const ranges = parseDiffToLineRanges(fileDiffText)
-    const decorations: monacoEditor.IModelDeltaDecoration[] = []
-
-    for (const range of ranges.added) {
-      decorations.push({
-        range: { startLineNumber: range.startLine, startColumn: 1, endLineNumber: range.endLine, endColumn: 1 },
-        options: { isWholeLine: true, linesDecorationsClassName: 'diff-gutter-added', className: 'diff-line-added' },
-      })
-    }
-
-    for (const range of ranges.modified) {
-      decorations.push({
-        range: { startLineNumber: range.startLine, startColumn: 1, endLineNumber: range.endLine, endColumn: 1 },
-        options: { isWholeLine: true, linesDecorationsClassName: 'diff-gutter-modified', className: 'diff-line-modified' },
-      })
-    }
-
-    for (const line of ranges.deleted) {
-      decorations.push({
-        range: { startLineNumber: Math.max(line, 1), startColumn: 1, endLineNumber: Math.max(line, 1), endColumn: 1 },
-        options: { isWholeLine: true, linesDecorationsClassName: 'diff-gutter-deleted' },
-      })
-    }
-
-    decorationIds.current = editor.deltaDecorations(decorationIds.current, decorations)
-  }, [fileDiffText])
+  const handleDiffEditorMount: DiffOnMount = useCallback((editor) => {
+    // Focus the modified editor for keyboard navigation
+    editor.getModifiedEditor().focus()
+  }, [])
 
   const hasTabs = openFiles.length > 0
   const showPreviewToggle = hasTabs && isMd
+  const showDiffToggle = hasTabs && hasDiff && !previewActive
 
   return (
     <div style={viewerStyles.wrapper}>
@@ -100,7 +84,10 @@ export function CodeViewer({
           openFiles={openFiles} activeFilePath={activeFilePath}
           onSelectTab={onSelectTab} onCloseTab={onCloseTab}
           showPreviewToggle={showPreviewToggle} previewActive={previewActive}
-          onTogglePreview={() => setPreviewActive((p) => !p)} onClose={onClose}
+          onTogglePreview={() => { setPreviewActive((p) => !p); setDiffMode(false) }}
+          showDiffToggle={showDiffToggle} diffActive={diffMode}
+          onToggleDiff={() => setDiffMode((d) => !d)}
+          onClose={onClose}
         />
       ) : (
         <NoTabsHeader onClose={onClose} />
@@ -110,6 +97,15 @@ export function CodeViewer({
           <div className="markdown-preview">
             <ReactMarkdown remarkPlugins={[remarkGfm]}>{fileContent}</ReactMarkdown>
           </div>
+        ) : diffMode && fileContent !== null ? (
+          <DiffEditor
+            original={originalContent ?? ''}
+            modified={fileContent}
+            language={language}
+            theme={monacoTheme}
+            options={DIFF_EDITOR_OPTIONS}
+            onMount={handleDiffEditorMount}
+          />
         ) : (
           <EditorContent
             fileContent={fileContent}
@@ -146,13 +142,17 @@ interface TabBarProps {
   showPreviewToggle: boolean
   previewActive: boolean
   onTogglePreview: () => void
+  showDiffToggle: boolean
+  diffActive: boolean
+  onToggleDiff: () => void
   onClose?: () => void
 }
 
 function TabBar({
   openFiles, activeFilePath,
   onSelectTab, onCloseTab,
-  showPreviewToggle, previewActive, onTogglePreview, onClose,
+  showPreviewToggle, previewActive, onTogglePreview,
+  showDiffToggle, diffActive, onToggleDiff, onClose,
 }: TabBarProps): React.JSX.Element {
   return (
     <div style={viewerStyles.tabBar}>
@@ -163,6 +163,15 @@ function TabBar({
           onSelect={onSelectTab} onClose={onCloseTab}
         />
       ))}
+      {showDiffToggle && (
+        <button
+          style={{ ...viewerStyles.previewToggle, ...(diffActive ? viewerStyles.previewToggleActive : {}) }}
+          onClick={onToggleDiff}
+          title={diffActive ? 'Show editor' : 'Show diff'}
+        >
+          Diff
+        </button>
+      )}
       {showPreviewToggle && (
         <button
           style={{ ...viewerStyles.previewToggle, ...(previewActive ? viewerStyles.previewToggleActive : {}) }}
