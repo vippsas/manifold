@@ -66,6 +66,7 @@ export class WorktreeManager {
   }
 
   async removeWorktree(projectPath: string, worktreePath: string): Promise<void> {
+    const prefix = repoPrefix(projectPath)
     // Get the branch associated with this worktree before removing it
     const worktrees = await this.listWorktrees(projectPath)
     const target = worktrees.find((w) => w.path === worktreePath)
@@ -73,8 +74,9 @@ export class WorktreeManager {
     await gitExec(['worktree', 'remove', worktreePath, '--force'], projectPath)
     await removeWorktreeMeta(worktreePath)
 
-    // Clean up the branch if we found one
-    if (target) {
+    // Only delete branches that Manifold created (repo-prefixed).
+    // External branches (existing branches checked out as worktrees) are left intact.
+    if (target && target.branch.startsWith(prefix)) {
       try {
         await gitExec(['branch', '-D', target.branch], projectPath)
       } catch {
