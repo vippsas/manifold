@@ -98,6 +98,10 @@ export class SessionManager {
     }
   }
 
+  hasSession(sessionId: string): boolean {
+    return this.sessions.has(sessionId)
+  }
+
   sendInput(sessionId: string, input: string): void {
     const session = this.sessions.get(sessionId)
     if (!session) throw new Error(`Session not found: ${sessionId}`)

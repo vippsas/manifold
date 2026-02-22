@@ -226,6 +226,10 @@ export function App(): React.JSX.Element {
           handleDividerMouseDown={paneResize.handleDividerMouseDown}
           paneVisibility={paneResize.paneVisibility}
           onClosePane={paneResize.togglePane}
+          fileTreeVisible={paneResize.fileTreeVisible}
+          onCloseFileTree={paneResize.toggleFileTree}
+          modifiedFilesVisible={paneResize.modifiedFilesVisible}
+          onCloseModifiedFiles={paneResize.toggleModifiedFiles}
           fileTreeSplitFraction={paneResize.fileTreeSplitFraction}
           rightPaneRef={paneResize.rightPaneRef}
           worktreeRoot={tree?.path ?? null}
@@ -257,6 +261,10 @@ export function App(): React.JSX.Element {
           baseBranch={activeProject?.baseBranch ?? settings.defaultBaseBranch}
           paneVisibility={paneResize.paneVisibility}
           onTogglePane={paneResize.togglePane}
+          fileTreeVisible={paneResize.fileTreeVisible}
+          onToggleFileTree={paneResize.toggleFileTree}
+          modifiedFilesVisible={paneResize.modifiedFilesVisible}
+          onToggleModifiedFiles={paneResize.toggleModifiedFiles}
           conflicts={gitOps.conflicts}
           aheadBehind={gitOps.aheadBehind}
           onCommit={() => setActivePanel('commit')}
