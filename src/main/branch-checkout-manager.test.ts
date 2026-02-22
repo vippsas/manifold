@@ -179,4 +179,50 @@ describe('BranchCheckoutManager', () => {
       ).rejects.toThrow()
     })
   })
+
+  describe('createWorktreeFromBranch', () => {
+    it('creates a worktree from an existing branch (no -b flag)', async () => {
+      mockSpawnReturns('') // git worktree add
+
+      const result = await manager.createWorktreeFromBranch(
+        '/repo',
+        'feature/login',
+        'my-project'
+      )
+
+      expect(result.branch).toBe('feature/login')
+      expect(result.path).toContain('my-project')
+      expect(result.path).toContain('feature-login')
+      // Verify no -b flag
+      expect(mockSpawn).toHaveBeenCalledWith(
+        'git',
+        ['worktree', 'add', expect.stringContaining('feature-login'), 'feature/login'],
+        expect.objectContaining({ cwd: '/repo' })
+      )
+    })
+
+    it('creates storage directory if needed', async () => {
+      mockSpawnReturns('')
+
+      await manager.createWorktreeFromBranch('/repo', 'main', 'my-project')
+
+      const fs = await import('node:fs')
+      expect(fs.mkdirSync).toHaveBeenCalledWith(
+        expect.stringContaining('worktrees/my-project'),
+        { recursive: true }
+      )
+    })
+
+    it('handles branch names with slashes in directory naming', async () => {
+      mockSpawnReturns('')
+
+      const result = await manager.createWorktreeFromBranch(
+        '/repo',
+        'feature/deep/nested',
+        'proj'
+      )
+
+      expect(result.path).toContain('feature-deep-nested')
+    })
+  })
 })

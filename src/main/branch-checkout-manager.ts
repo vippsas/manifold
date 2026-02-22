@@ -75,6 +75,23 @@ export class BranchCheckoutManager {
     return branchName
   }
 
+  async createWorktreeFromBranch(
+    projectPath: string,
+    branch: string,
+    projectName: string
+  ): Promise<{ branch: string; path: string }> {
+    const worktreeBase = path.join(this.storagePath, 'worktrees', projectName)
+    fs.mkdirSync(worktreeBase, { recursive: true })
+
+    const safeDirName = branch.replace(/\//g, '-')
+    const worktreePath = path.join(worktreeBase, safeDirName)
+
+    // No -b flag: check out existing branch, don't create new
+    await gitExec(['worktree', 'add', worktreePath, branch], projectPath)
+
+    return { branch, path: worktreePath }
+  }
+
   private parsePRNumber(identifier: string): string {
     // Try raw number
     if (/^\d+$/.test(identifier.trim())) {
