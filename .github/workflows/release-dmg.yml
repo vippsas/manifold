@@ -1,6 +1,7 @@
 name: Release DMG
 
 on:
+  workflow_dispatch:
   push:
     tags:
       - 'v*'
@@ -30,12 +31,24 @@ jobs:
       - name: Run tests
         run: npm test
 
-      - name: Build and package
-        run: npm run build && npx electron-builder --mac dmg zip --publish never
+      - name: Build, sign, and notarize
+        run: |
+          npm run build
+          if [ "${{ github.event_name }}" = "push" ]; then
+            npx electron-builder --mac --publish always
+          else
+            npx electron-builder --mac --publish never
+          fi
         env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          CSC_LINK: ${{ secrets.CSC_LINK }}
+          CSC_KEY_PASSWORD: ${{ secrets.CSC_KEY_PASSWORD }}
+          APPLE_ID: ${{ secrets.APPLE_ID }}
+          APPLE_APP_SPECIFIC_PASSWORD: ${{ secrets.APPLE_APP_SPECIFIC_PASSWORD }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+          GH_TOKEN: ${{ secrets.GH_TOKEN }}
 
-      - name: Upload build artifacts
+      - name: Upload artifacts (manual runs)
+        if: github.event_name == 'workflow_dispatch'
         uses: actions/upload-artifact@v4
         with:
           name: manifold-release
@@ -44,13 +57,3 @@ jobs:
             dist/*.zip
             dist/*.yml
             dist/*.blockmap
-
-      - name: Create GitHub Release
-        uses: softprops/action-gh-release@v2
-        with:
-          files: |
-            dist/*.dmg
-            dist/*.zip
-            dist/*.yml
-            dist/*.blockmap
-          generate_release_notes: true
