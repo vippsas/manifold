@@ -6,6 +6,7 @@ export const DEFAULT_SETTINGS: ManifoldSettings = {
   defaultRuntime: 'claude',
   theme: 'dracula',
   scrollbackLines: 5000,
+  terminalFontFamily: '',
   defaultBaseBranch: 'main',
   notificationSound: true
 }

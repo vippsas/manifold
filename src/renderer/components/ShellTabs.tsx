@@ -13,16 +13,17 @@ interface ShellTabsProps {
   projectSessionId: string | null
   worktreeCwd: string | null
   scrollbackLines: number
+  terminalFontFamily?: string
   xtermTheme?: ITheme
   onClose?: () => void
 }
 
 function ExtraShellTerminal({
-  sessionId, scrollbackLines, xtermTheme, isActive,
+  sessionId, scrollbackLines, terminalFontFamily, xtermTheme, isActive,
 }: {
-  sessionId: string; scrollbackLines: number; xtermTheme?: ITheme; isActive: boolean
+  sessionId: string; scrollbackLines: number; terminalFontFamily?: string; xtermTheme?: ITheme; isActive: boolean
 }): React.JSX.Element {
-  const { containerRef } = useTerminal({ sessionId, scrollbackLines, xtermTheme })
+  const { containerRef } = useTerminal({ sessionId, scrollbackLines, terminalFontFamily, xtermTheme })
   return (
     <div
       ref={containerRef as React.RefObject<HTMLDivElement>}
@@ -33,7 +34,7 @@ function ExtraShellTerminal({
 
 export function ShellTabs({
   worktreeSessionId, projectSessionId, worktreeCwd,
-  scrollbackLines, xtermTheme, onClose,
+  scrollbackLines, terminalFontFamily, xtermTheme, onClose,
 }: ShellTabsProps): React.JSX.Element {
   const [activeTab, setActiveTab] = useState<string>(worktreeSessionId ? 'worktree' : 'project')
 
@@ -62,8 +63,8 @@ export function ShellTabs({
   useRestoreTabsFromDisk(worktreeCwd, persistKey, agentKey, extraShellCacheRef, restoredRef, setExtraShells)
   usePersistOnChange(extraShells, agentKey, persistKey, restoredRef, extraShellCacheRef, persistTabs)
 
-  const worktreeTerminal = useTerminal({ sessionId: worktreeSessionId, scrollbackLines, xtermTheme })
-  const projectTerminal = useTerminal({ sessionId: projectSessionId, scrollbackLines, xtermTheme })
+  const worktreeTerminal = useTerminal({ sessionId: worktreeSessionId, scrollbackLines, terminalFontFamily, xtermTheme })
+  const projectTerminal = useTerminal({ sessionId: projectSessionId, scrollbackLines, terminalFontFamily, xtermTheme })
 
   useCleanupOnUnmount(extraShellCacheRef)
 
@@ -113,7 +114,8 @@ export function ShellTabs({
         {extraShells.map((shell) => (
           <ExtraShellTerminal
             key={shell.sessionId} sessionId={shell.sessionId}
-            scrollbackLines={scrollbackLines} xtermTheme={xtermTheme}
+            scrollbackLines={scrollbackLines} terminalFontFamily={terminalFontFamily}
+            xtermTheme={xtermTheme}
             isActive={effectiveTab === `extra-${shell.sessionId}`}
           />
         ))}

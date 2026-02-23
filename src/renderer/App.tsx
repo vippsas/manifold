@@ -284,6 +284,7 @@ export function App(): React.JSX.Element {
           projectShellSessionId={projectSessionId}
           worktreeCwd={worktreeShellCwd}
           scrollbackLines={settings.scrollbackLines}
+          terminalFontFamily={settings.terminalFontFamily}
           fileDiffText={activeFileDiffText}
           originalContent={originalContent}
           openFiles={codeView.openFiles}

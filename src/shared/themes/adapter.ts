@@ -136,6 +136,16 @@ export function convertTheme(themeJson: MonacoThemeJson, _themeId: string): Conv
       ?? (isDark ? 'rgba(239, 83, 80, 0.12)' : 'rgba(211, 47, 47, 0.08)'),
     '--diff-added-gutter': isDark ? 'rgba(102, 187, 106, 0.3)' : 'rgba(56, 142, 60, 0.25)',
     '--diff-deleted-gutter': isDark ? 'rgba(239, 83, 80, 0.3)' : 'rgba(211, 47, 47, 0.25)',
+
+    // Tree / list colors
+    '--tree-active-selection': c('list.activeSelectionBackground')
+      ?? (isDark ? '#04395e' : '#d6ebff'),
+    '--tree-inactive-selection': c('list.inactiveSelectionBackground')
+      ?? (isDark ? '#37373d' : '#e4e6f1'),
+    '--tree-hover': c('list.hoverBackground')
+      ?? (isDark ? '#2a2d2e' : '#e8e8e8'),
+    '--tree-indent-guide': c('tree.indentGuidesStroke')
+      ?? (isDark ? '#585858' : '#c4c4c4'),
   }
 
   // ── xterm.js ITheme mapping ────────────────────────────────────
