@@ -146,6 +146,13 @@ export class FileWatcher {
       throw new Error(`Failed to delete ${filePath}: ${(err as Error).message}`)
     }
   }
+
+  renameFile(oldPath: string, newPath: string): void {
+    if (fs.existsSync(newPath)) {
+      throw new Error(`Target already exists: ${newPath}`)
+    }
+    fs.renameSync(oldPath, newPath)
+  }
 }
 
 function gitStatus(cwd: string): Promise<string> {

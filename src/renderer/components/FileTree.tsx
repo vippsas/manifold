@@ -125,6 +125,7 @@ interface FileTreeProps {
   onToggleExpand: (path: string) => void
   onSelectFile: (path: string) => void
   onDeleteFile?: (path: string) => void
+  onRenameFile?: (oldPath: string, newPath: string) => void
   onClose?: () => void
 }
 
@@ -142,9 +143,12 @@ export function FileTree({
   onToggleExpand,
   onSelectFile,
   onDeleteFile,
+  onRenameFile,
   onClose,
 }: FileTreeProps): React.JSX.Element {
   const [pendingDelete, setPendingDelete] = useState<{ path: string; name: string; isDirectory: boolean } | null>(null)
+  const [renamingPath, setRenamingPath] = useState<string | null>(null)
+  const [renameValue, setRenameValue] = useState('')
   const changeMap = useMemo(() => {
     const map = new Map<string, FileChangeType>()
     const root = tree?.path ?? ''
@@ -155,6 +159,34 @@ export function FileTree({
     }
     return map
   }, [changes, tree?.path])
+
+  const handleStartRename = useCallback((path: string, name: string): void => {
+    setRenamingPath(path)
+    setRenameValue(name)
+  }, [])
+
+  const handleConfirmRename = useCallback((nodePath: string, oldName: string): void => {
+    const trimmed = renameValue.trim()
+    if (
+      !trimmed ||
+      trimmed === oldName ||
+      trimmed.includes('/') ||
+      trimmed.includes('\0')
+    ) {
+      setRenamingPath(null)
+      return
+    }
+    if (onRenameFile) {
+      const parentDir = nodePath.substring(0, nodePath.length - oldName.length)
+      const newPath = parentDir + trimmed
+      onRenameFile(nodePath, newPath)
+    }
+    setRenamingPath(null)
+  }, [renameValue, onRenameFile])
+
+  const handleCancelRename = useCallback((): void => {
+    setRenamingPath(null)
+  }, [])
 
   const handleRequestDelete = useCallback((path: string, name: string, isDirectory: boolean): void => {
     setPendingDelete({ path, name, isDirectory })
@@ -199,6 +231,12 @@ export function FileTree({
             onToggleExpand={onToggleExpand}
             onSelectFile={onSelectFile}
             onRequestDelete={onDeleteFile ? handleRequestDelete : undefined}
+            renamingPath={renamingPath}
+            renameValue={renameValue}
+            onRenameValueChange={setRenameValue}
+            onStartRename={onRenameFile ? handleStartRename : undefined}
+            onConfirmRename={handleConfirmRename}
+            onCancelRename={handleCancelRename}
           />
         ) : (
           <div style={treeStyles.empty}>No files to display</div>
@@ -235,6 +273,12 @@ interface TreeNodeProps {
   onToggleExpand: (path: string) => void
   onSelectFile: (path: string) => void
   onRequestDelete?: (path: string, name: string, isDirectory: boolean) => void
+  renamingPath: string | null
+  renameValue: string
+  onRenameValueChange: (value: string) => void
+  onStartRename?: (path: string, name: string) => void
+  onConfirmRename: (nodePath: string, oldName: string) => void
+  onCancelRename: () => void
 }
 
 function TreeNode({
@@ -246,6 +290,12 @@ function TreeNode({
   onToggleExpand,
   onSelectFile,
   onRequestDelete,
+  renamingPath,
+  renameValue,
+  onRenameValueChange,
+  onStartRename,
+  onConfirmRename,
+  onCancelRename,
 }: TreeNodeProps): React.JSX.Element {
   const expanded = expandedPaths.has(node.path)
 
@@ -274,6 +324,12 @@ function TreeNode({
         changeType={changeType ?? null}
         onToggle={handleToggle}
         onDelete={onRequestDelete ? handleDelete : undefined}
+        isRenaming={renamingPath === node.path}
+        renameValue={renameValue}
+        onRenameValueChange={onRenameValueChange}
+        onStartRename={onStartRename}
+        onConfirmRename={onConfirmRename}
+        onCancelRename={onCancelRename}
       />
       {node.isDirectory && expanded && node.children && (
         <>
@@ -288,6 +344,12 @@ function TreeNode({
               onToggleExpand={onToggleExpand}
               onSelectFile={onSelectFile}
               onRequestDelete={onRequestDelete}
+              renamingPath={renamingPath}
+              renameValue={renameValue}
+              onRenameValueChange={onRenameValueChange}
+              onStartRename={onStartRename}
+              onConfirmRename={onConfirmRename}
+              onCancelRename={onCancelRename}
             />
           ))}
         </>
@@ -304,6 +366,12 @@ function NodeRow({
   changeType,
   onToggle,
   onDelete,
+  isRenaming,
+  renameValue,
+  onRenameValueChange,
+  onStartRename,
+  onConfirmRename,
+  onCancelRename,
 }: {
   node: FileTreeNode
   depth: number
@@ -312,8 +380,31 @@ function NodeRow({
   changeType: FileChangeType | null
   onToggle: () => void
   onDelete?: (e: React.MouseEvent) => void
+  isRenaming: boolean
+  renameValue: string
+  onRenameValueChange: (value: string) => void
+  onStartRename?: (path: string, name: string) => void
+  onConfirmRename: (nodePath: string, oldName: string) => void
+  onCancelRename: () => void
 }): React.JSX.Element {
   const indicator = changeType ? CHANGE_INDICATORS[changeType] : null
+
+  const handleDoubleClick = useCallback((e: React.MouseEvent): void => {
+    e.stopPropagation()
+    onStartRename?.(node.path, node.name)
+  }, [node.path, node.name, onStartRename])
+
+  const handleRenameKeyDown = useCallback((e: React.KeyboardEvent<HTMLInputElement>): void => {
+    if (e.key === 'Enter') {
+      onConfirmRename(node.path, node.name)
+    } else if (e.key === 'Escape') {
+      onCancelRename()
+    }
+  }, [node.path, node.name, onConfirmRename, onCancelRename])
+
+  const handleInputClick = useCallback((e: React.MouseEvent): void => {
+    e.stopPropagation()
+  }, [])
 
   return (
     <div
@@ -339,18 +430,31 @@ function NodeRow({
             : <span style={treeStyles.fileIcon}>{'\uD83D\uDCC4'}</span>
         })()
       )}
-      <span
-        className="truncate"
-        style={{ ...treeStyles.nodeName, fontWeight: node.isDirectory ? 600 : 400 }}
-      >
-        {node.name}
-      </span>
-      {indicator && (
+      {isRenaming ? (
+        <input
+          autoFocus
+          value={renameValue}
+          onChange={(e) => onRenameValueChange(e.target.value)}
+          onKeyDown={handleRenameKeyDown}
+          onBlur={() => onCancelRename()}
+          onClick={handleInputClick}
+          style={treeStyles.renameInput}
+        />
+      ) : (
+        <span
+          className="truncate"
+          style={{ ...treeStyles.nodeName, fontWeight: node.isDirectory ? 600 : 400 }}
+          onDoubleClick={onStartRename ? handleDoubleClick : undefined}
+        >
+          {node.name}
+        </span>
+      )}
+      {!isRenaming && indicator && (
         <span style={{ ...treeStyles.indicator, color: indicator.color }} title={changeType ?? undefined}>
           {'\u25CF'}
         </span>
       )}
-      {onDelete && (
+      {!isRenaming && onDelete && (
         <span
           className="file-tree-delete-btn"
           onClick={onDelete}
@@ -473,6 +577,19 @@ const treeStyles: Record<string, React.CSSProperties> = {
     cursor: 'pointer',
     padding: '0 2px',
     borderRadius: '3px',
+  },
+  renameInput: {
+    flex: 1,
+    minWidth: 0,
+    fontFamily: 'var(--font-mono)',
+    fontSize: '12px',
+    padding: '0 4px',
+    border: '1px solid var(--accent)',
+    borderRadius: '3px',
+    background: 'var(--bg-primary)',
+    color: 'var(--text-primary)',
+    outline: 'none',
+    lineHeight: '18px',
   },
   dialogOverlay: {
     position: 'absolute' as const,

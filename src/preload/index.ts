@@ -18,6 +18,7 @@ const ALLOWED_INVOKE_CHANNELS = [
   'files:read',
   'files:write',
   'files:delete',
+  'files:rename',
   'diff:get',
   'diff:file-original',
   'pr:create',
