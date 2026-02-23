@@ -30,6 +30,7 @@ export function SettingsModal({
   const [defaultRuntime, setDefaultRuntime] = useState(settings.defaultRuntime)
   const [theme, setTheme] = useState(settings.theme)
   const [scrollbackLines, setScrollbackLines] = useState(settings.scrollbackLines)
+  const [terminalFontFamily, setTerminalFontFamily] = useState(settings.terminalFontFamily)
   const [defaultBaseBranch, setDefaultBaseBranch] = useState(settings.defaultBaseBranch)
   const [storagePath, setStoragePath] = useState(settings.storagePath)
   const [notificationSound, setNotificationSound] = useState(settings.notificationSound)
@@ -41,6 +42,7 @@ export function SettingsModal({
       setDefaultRuntime(settings.defaultRuntime)
       setTheme(settings.theme)
       setScrollbackLines(settings.scrollbackLines)
+      setTerminalFontFamily(settings.terminalFontFamily)
       setDefaultBaseBranch(settings.defaultBaseBranch)
       setStoragePath(settings.storagePath)
       setNotificationSound(settings.notificationSound)
@@ -49,9 +51,9 @@ export function SettingsModal({
   }, [visible, settings])
 
   const handleSave = useCallback((): void => {
-    onSave({ defaultRuntime, theme, scrollbackLines, defaultBaseBranch, storagePath, notificationSound })
+    onSave({ defaultRuntime, theme, scrollbackLines, terminalFontFamily, defaultBaseBranch, storagePath, notificationSound })
     onClose()
-  }, [defaultRuntime, theme, scrollbackLines, defaultBaseBranch, storagePath, notificationSound, onSave, onClose])
+  }, [defaultRuntime, theme, scrollbackLines, terminalFontFamily, defaultBaseBranch, storagePath, notificationSound, onSave, onClose])
 
   const handleOverlayClick = useCallback(
     (e: React.MouseEvent): void => {
@@ -91,10 +93,12 @@ export function SettingsModal({
           defaultRuntime={defaultRuntime}
           theme={theme}
           scrollbackLines={scrollbackLines}
+          terminalFontFamily={terminalFontFamily}
           defaultBaseBranch={defaultBaseBranch}
           onRuntimeChange={setDefaultRuntime}
           onThemeChange={setTheme}
           onScrollbackChange={setScrollbackLines}
+          onTerminalFontFamilyChange={setTerminalFontFamily}
           onBaseBranchChange={setDefaultBaseBranch}
           onPreviewTheme={onPreviewTheme}
           pickerOpen={pickerOpen}
@@ -123,10 +127,12 @@ interface SettingsBodyProps {
   defaultRuntime: string
   theme: string
   scrollbackLines: number
+  terminalFontFamily: string
   defaultBaseBranch: string
   onRuntimeChange: (id: string) => void
   onThemeChange: (theme: string) => void
   onScrollbackChange: (lines: number) => void
+  onTerminalFontFamilyChange: (font: string) => void
   onBaseBranchChange: (branch: string) => void
   onPreviewTheme?: (themeId: string | null) => void
   pickerOpen: boolean
@@ -137,8 +143,8 @@ interface SettingsBodyProps {
 
 function SettingsBody({
   storagePath, onStoragePathChange,
-  defaultRuntime, theme, scrollbackLines, defaultBaseBranch,
-  onRuntimeChange, onThemeChange, onScrollbackChange, onBaseBranchChange,
+  defaultRuntime, theme, scrollbackLines, terminalFontFamily, defaultBaseBranch,
+  onRuntimeChange, onThemeChange, onScrollbackChange, onTerminalFontFamilyChange, onBaseBranchChange,
   onPreviewTheme, pickerOpen, onPickerToggle,
   notificationSound, onNotificationSoundChange,
 }: SettingsBodyProps): React.JSX.Element {
@@ -170,6 +176,18 @@ function SettingsBody({
           type="number" value={scrollbackLines} onChange={handleScrollbackInput}
           min={100} max={100000} step={100} style={modalStyles.input}
         />
+      </label>
+      <label style={modalStyles.label}>
+        Terminal Font
+        <input
+          type="text" value={terminalFontFamily}
+          onChange={(e) => onTerminalFontFamilyChange(e.target.value)}
+          style={modalStyles.input}
+          placeholder="SF Mono, Fira Code, Cascadia Code, Menlo"
+        />
+        <span style={{ fontSize: '11px', color: 'var(--text-muted)', marginTop: '2px' }}>
+          Set a Nerd Font (e.g. MesloLGS Nerd Font Mono) for oh-my-posh/Starship icons
+        </span>
       </label>
       <label style={modalStyles.label}>
         Default Base Branch
