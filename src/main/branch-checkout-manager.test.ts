@@ -63,37 +63,49 @@ describe('BranchCheckoutManager', () => {
   })
 
   describe('listBranches', () => {
-    it('fetches from remote then returns deduplicated branch list', async () => {
+    function names(branches: { name: string }[]): string[] {
+      return branches.map((b) => b.name)
+    }
+
+    function findBranch(branches: { name: string; source: string }[], name: string) {
+      return branches.find((b) => b.name === name)
+    }
+
+    it('fetches from remote then returns deduplicated branch list with source info', async () => {
       mockSpawnSequence([
         { stdout: '' }, // git fetch --all --prune
         {
           stdout: [
-            '  main',
-            '  feature/login',
-            '  origin/main',
-            '  origin/feature/login',
-            '  origin/feature/signup',
+            'refs/heads/main',
+            'refs/heads/feature/login',
+            'refs/remotes/origin/main',
+            'refs/remotes/origin/feature/login',
+            'refs/remotes/origin/feature/signup',
           ].join('\n'),
-        }, // git branch -a --format=%(refname:short)
+        }, // git branch -a --format=%(refname)
         { stdout: 'worktree /repo\nbranch refs/heads/main\n\n' }, // git worktree list --porcelain (only main repo)
       ])
 
       const branches = await manager.listBranches('/repo')
 
-      expect(branches).toContain('main')
-      expect(branches).toContain('feature/login')
-      expect(branches).toContain('feature/signup')
-      expect(branches.every((b) => !b.startsWith('origin/'))).toBe(true)
+      expect(names(branches)).toContain('main')
+      expect(names(branches)).toContain('feature/login')
+      expect(names(branches)).toContain('feature/signup')
+      // Branches existing both locally and remotely
+      expect(findBranch(branches, 'main')?.source).toBe('both')
+      expect(findBranch(branches, 'feature/login')?.source).toBe('both')
+      // Remote-only branch
+      expect(findBranch(branches, 'feature/signup')?.source).toBe('remote')
     })
 
-    it('filters out manifold/ prefixed branches', async () => {
+    it('includes manifold/ branches not checked out in worktrees', async () => {
       mockSpawnSequence([
         { stdout: '' },
         {
           stdout: [
-            '  main',
-            '  manifold/oslo',
-            '  origin/manifold/bergen',
+            'refs/heads/main',
+            'refs/heads/manifold/oslo',
+            'refs/remotes/origin/manifold/bergen',
           ].join('\n'),
         },
         { stdout: 'worktree /repo\nbranch refs/heads/main\n\n' }, // git worktree list --porcelain (only main repo)
@@ -101,35 +113,68 @@ describe('BranchCheckoutManager', () => {
 
       const branches = await manager.listBranches('/repo')
 
-      expect(branches).toContain('main')
-      expect(branches).not.toContain('manifold/oslo')
-      expect(branches).not.toContain('manifold/bergen')
+      expect(names(branches)).toContain('main')
+      expect(names(branches)).toContain('manifold/oslo')
+      expect(findBranch(branches, 'manifold/oslo')?.source).toBe('local')
+      expect(names(branches)).toContain('manifold/bergen')
+      expect(findBranch(branches, 'manifold/bergen')?.source).toBe('remote')
     })
 
-    it('filters out HEAD entries', async () => {
+    it('filters out manifold/ branches checked out in worktrees', async () => {
       mockSpawnSequence([
         { stdout: '' },
         {
-          stdout: '  main\n  origin/HEAD\n  origin/main\n',
+          stdout: [
+            'refs/heads/main',
+            'refs/heads/manifold/oslo',
+            'refs/remotes/origin/manifold/bergen',
+          ].join('\n'),
+        },
+        {
+          stdout: [
+            'worktree /repo',
+            'branch refs/heads/main',
+            '',
+            'worktree /home/.manifold/worktrees/proj/manifold-oslo',
+            'branch refs/heads/manifold/oslo',
+            '',
+          ].join('\n'),
+        }, // git worktree list --porcelain
+      ])
+
+      const branches = await manager.listBranches('/repo')
+
+      expect(names(branches)).toContain('main')
+      expect(names(branches)).not.toContain('manifold/oslo')
+      expect(names(branches)).toContain('manifold/bergen')
+    })
+
+    it('filters out remote HEAD pointers', async () => {
+      mockSpawnSequence([
+        { stdout: '' },
+        {
+          stdout: 'refs/heads/main\nrefs/remotes/origin/HEAD\nrefs/remotes/origin/main\n',
         },
         { stdout: 'worktree /repo\nbranch refs/heads/main\n\n' }, // git worktree list --porcelain (only main repo)
       ])
 
       const branches = await manager.listBranches('/repo')
 
-      expect(branches).not.toContain('HEAD')
-      expect(branches).toContain('main')
+      expect(names(branches)).not.toContain('HEAD')
+      expect(names(branches)).not.toContain('origin')
+      expect(names(branches)).toContain('main')
     })
 
     it('returns local branches when fetch fails', async () => {
       mockSpawnSequence([
         { stdout: '', exitCode: 128, stderr: 'fatal: no remote' },
-        { stdout: '  main\n' },
+        { stdout: 'refs/heads/main\n' },
         { stdout: 'worktree /repo\nbranch refs/heads/main\n\n' }, // git worktree list --porcelain (only main repo)
       ])
 
       const branches = await manager.listBranches('/repo')
-      expect(branches).toContain('main')
+      expect(names(branches)).toContain('main')
+      expect(findBranch(branches, 'main')?.source).toBe('local')
     })
 
     it('filters out branches currently checked out in worktrees', async () => {
@@ -137,11 +182,11 @@ describe('BranchCheckoutManager', () => {
         { stdout: '' }, // git fetch --all --prune
         {
           stdout: [
-            '  main',
-            '  feature/login',
-            '  feature/signup',
+            'refs/heads/main',
+            'refs/heads/feature/login',
+            'refs/heads/feature/signup',
           ].join('\n'),
-        }, // git branch -a --format=%(refname:short)
+        }, // git branch -a --format=%(refname)
         {
           stdout: [
             'worktree /repo',
@@ -157,11 +202,11 @@ describe('BranchCheckoutManager', () => {
       const branches = await manager.listBranches('/repo')
 
       // feature/login is checked out in a worktree, so excluded
-      expect(branches).not.toContain('feature/login')
+      expect(names(branches)).not.toContain('feature/login')
       // feature/signup is not in a worktree, so included
-      expect(branches).toContain('feature/signup')
+      expect(names(branches)).toContain('feature/signup')
       // main is the bare repo checkout, not a manifold worktree — keep it available
-      expect(branches).toContain('main')
+      expect(names(branches)).toContain('main')
     })
   })
 
