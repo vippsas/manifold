@@ -17,7 +17,6 @@ interface CodeViewerProps {
   onSelectTab: (filePath: string) => void
   onCloseTab: (filePath: string) => void
   onSaveFile?: (content: string) => void
-  onClose?: () => void
 }
 
 const BASE_EDITOR_OPTIONS = {
@@ -42,7 +41,7 @@ const DIFF_EDITOR_OPTIONS = {
 
 export function CodeViewer({
   fileDiffText, originalContent, openFiles, activeFilePath, fileContent, theme,
-  onSelectTab, onCloseTab, onSaveFile, onClose,
+  onSelectTab, onCloseTab, onSaveFile,
 }: CodeViewerProps): React.JSX.Element {
   const monacoTheme = theme
   const language = useMemo(() => extensionToLanguage(activeFilePath), [activeFilePath])
@@ -87,10 +86,9 @@ export function CodeViewer({
           onTogglePreview={() => { setPreviewActive((p) => !p); setDiffMode(false) }}
           showDiffToggle={showDiffToggle} diffActive={diffMode}
           onToggleDiff={() => setDiffMode((d) => !d)}
-          onClose={onClose}
         />
       ) : (
-        <NoTabsHeader onClose={onClose} />
+        <NoTabsHeader />
       )}
       <div style={viewerStyles.editorContainer}>
         {previewActive && fileContent !== null ? (
@@ -118,18 +116,12 @@ export function CodeViewer({
   )
 }
 
-function NoTabsHeader({ onClose }: { onClose?: () => void }): React.JSX.Element {
+function NoTabsHeader(): React.JSX.Element {
   return (
     <div style={viewerStyles.header}>
       <span className="mono" style={viewerStyles.headerText}>
         No file selected
       </span>
-      {onClose && (
-        <>
-          <span style={{ flex: 1 }} />
-          <button onClick={onClose} style={viewerStyles.closeButton} title="Close Editor">{'\u00D7'}</button>
-        </>
-      )}
     </div>
   )
 }
@@ -145,14 +137,13 @@ interface TabBarProps {
   showDiffToggle: boolean
   diffActive: boolean
   onToggleDiff: () => void
-  onClose?: () => void
 }
 
 function TabBar({
   openFiles, activeFilePath,
   onSelectTab, onCloseTab,
   showPreviewToggle, previewActive, onTogglePreview,
-  showDiffToggle, diffActive, onToggleDiff, onClose,
+  showDiffToggle, diffActive, onToggleDiff,
 }: TabBarProps): React.JSX.Element {
   return (
     <div style={viewerStyles.tabBar}>
@@ -180,12 +171,6 @@ function TabBar({
         >
           {previewActive ? 'Editor' : 'Preview'}
         </button>
-      )}
-      {onClose && (
-        <>
-          <span style={{ flex: 1 }} />
-          <button onClick={onClose} style={viewerStyles.closeButton} title="Close Editor">{'\u00D7'}</button>
-        </>
       )}
     </div>
   )
