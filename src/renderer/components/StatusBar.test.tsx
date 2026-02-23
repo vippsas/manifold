@@ -1,8 +1,9 @@
-import { describe, it, expect } from 'vitest'
+import { describe, it, expect, vi } from 'vitest'
 import { render, screen } from '@testing-library/react'
 import React from 'react'
 import { StatusBar } from './StatusBar'
 import type { AgentSession, FileChange } from '../../shared/types'
+import type { UseDockLayoutResult } from '../hooks/useDockLayout'
 
 const sampleSession: AgentSession = {
   id: 's1',
@@ -20,10 +21,28 @@ const sampleChangedFiles: FileChange[] = [
   { path: 'src/old.ts', type: 'deleted' },
 ]
 
+function mockDockLayout(): UseDockLayoutResult {
+  return {
+    apiRef: { current: null },
+    onReady: vi.fn(),
+    togglePanel: vi.fn(),
+    isPanelVisible: () => true,
+    resetLayout: vi.fn(),
+    hiddenPanels: [],
+  }
+}
+
 describe('StatusBar', () => {
   it('displays "No active agent" when no session', () => {
     render(
-      <StatusBar activeSession={null} changedFiles={[]} baseBranch="main" />,
+      <StatusBar
+        activeSession={null}
+        changedFiles={[]}
+        baseBranch="main"
+        sidebarVisible={true}
+        onToggleSidebar={vi.fn()}
+        dockLayout={mockDockLayout()}
+      />,
     )
 
     expect(screen.getByText('No active agent')).toBeInTheDocument()
@@ -35,6 +54,9 @@ describe('StatusBar', () => {
         activeSession={sampleSession}
         changedFiles={sampleChangedFiles}
         baseBranch="main"
+        sidebarVisible={true}
+        onToggleSidebar={vi.fn()}
+        dockLayout={mockDockLayout()}
       />,
     )
 
@@ -47,6 +69,9 @@ describe('StatusBar', () => {
         activeSession={sampleSession}
         changedFiles={sampleChangedFiles}
         baseBranch="main"
+        sidebarVisible={true}
+        onToggleSidebar={vi.fn()}
+        dockLayout={mockDockLayout()}
       />,
     )
 
@@ -59,6 +84,9 @@ describe('StatusBar', () => {
         activeSession={sampleSession}
         changedFiles={[{ path: 'a.ts', type: 'modified' }]}
         baseBranch="main"
+        sidebarVisible={true}
+        onToggleSidebar={vi.fn()}
+        dockLayout={mockDockLayout()}
       />,
     )
 
@@ -67,7 +95,14 @@ describe('StatusBar', () => {
 
   it('displays zero files changed', () => {
     render(
-      <StatusBar activeSession={sampleSession} changedFiles={[]} baseBranch="main" />,
+      <StatusBar
+        activeSession={sampleSession}
+        changedFiles={[]}
+        baseBranch="main"
+        sidebarVisible={true}
+        onToggleSidebar={vi.fn()}
+        dockLayout={mockDockLayout()}
+      />,
     )
 
     expect(screen.getByText('0 files changed')).toBeInTheDocument()
@@ -75,7 +110,14 @@ describe('StatusBar', () => {
 
   it('displays the base branch', () => {
     render(
-      <StatusBar activeSession={null} changedFiles={[]} baseBranch="develop" />,
+      <StatusBar
+        activeSession={null}
+        changedFiles={[]}
+        baseBranch="develop"
+        sidebarVisible={true}
+        onToggleSidebar={vi.fn()}
+        dockLayout={mockDockLayout()}
+      />,
     )
 
     expect(screen.getByText('develop')).toBeInTheDocument()
@@ -83,7 +125,14 @@ describe('StatusBar', () => {
 
   it('shows base: label', () => {
     render(
-      <StatusBar activeSession={null} changedFiles={[]} baseBranch="main" />,
+      <StatusBar
+        activeSession={null}
+        changedFiles={[]}
+        baseBranch="main"
+        sidebarVisible={true}
+        onToggleSidebar={vi.fn()}
+        dockLayout={mockDockLayout()}
+      />,
     )
 
     expect(screen.getByText('main')).toBeInTheDocument()

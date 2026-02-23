@@ -8,7 +8,6 @@ interface TerminalPaneProps {
   terminalFontFamily?: string
   label?: string
   xtermTheme?: ITheme
-  onClose?: () => void
 }
 
 export function TerminalPane({
@@ -17,22 +16,11 @@ export function TerminalPane({
   terminalFontFamily,
   label = 'Terminal',
   xtermTheme,
-  onClose,
 }: TerminalPaneProps): React.JSX.Element {
   const { containerRef } = useTerminal({ sessionId, scrollbackLines, terminalFontFamily, xtermTheme })
 
   return (
     <div style={paneStyles.wrapper}>
-      <div style={paneStyles.header}>
-        <span className="mono" style={paneStyles.headerText}>
-          {label}
-        </span>
-        {onClose && (
-          <button onClick={onClose} style={paneStyles.closeButton} title={`Close ${label}`}>
-            ×
-          </button>
-        )}
-      </div>
       <div ref={containerRef as React.RefCallback<HTMLDivElement> | React.RefObject<HTMLDivElement> | null} style={paneStyles.container} />
     </div>
   )
@@ -45,33 +33,6 @@ const paneStyles: Record<string, React.CSSProperties> = {
     height: '100%',
     overflow: 'hidden',
     background: 'var(--bg-primary)',
-  },
-  header: {
-    display: 'flex',
-    alignItems: 'center',
-    padding: '4px 8px',
-    borderBottom: '1px solid var(--border)',
-    background: 'var(--bg-secondary)',
-    flexShrink: 0,
-    justifyContent: 'space-between',
-  },
-  closeButton: {
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'center',
-    width: '18px',
-    height: '18px',
-    borderRadius: '3px',
-    color: 'var(--text-muted)',
-    fontSize: '14px',
-    lineHeight: 1,
-    cursor: 'pointer',
-  },
-  headerText: {
-    fontSize: '11px',
-    color: 'var(--text-secondary)',
-    textTransform: 'uppercase' as const,
-    letterSpacing: '0.5px',
   },
   container: {
     flex: 1,

@@ -18,7 +18,7 @@ describe('ModifiedFiles', () => {
     mockOnSelectFile.mockClear()
   })
 
-  it('renders header with file count', () => {
+  it('renders all changed files', () => {
     render(
       <ModifiedFiles
         changes={sampleChanges}
@@ -27,8 +27,9 @@ describe('ModifiedFiles', () => {
         onSelectFile={mockOnSelectFile}
       />,
     )
-    expect(screen.getByText('Modified Files')).toBeInTheDocument()
-    expect(screen.getByText('3')).toBeInTheDocument()
+    expect(screen.getByText('index.ts')).toBeInTheDocument()
+    expect(screen.getByText('helpers.ts')).toBeInTheDocument()
+    expect(screen.getByText('old-file.ts')).toBeInTheDocument()
   })
 
   it('renders each changed file', () => {

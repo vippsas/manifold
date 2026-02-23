@@ -53,3 +53,15 @@ export function registerShellTabHandlers(deps: IpcDependencies): void {
     shellTabStore.set(agentKey, state)
   })
 }
+
+export function registerDockLayoutHandlers(deps: IpcDependencies): void {
+  const { dockLayoutStore } = deps
+
+  ipcMain.handle('dock-layout:get', (_event, sessionId: string) => {
+    return dockLayoutStore.get(sessionId)
+  })
+
+  ipcMain.handle('dock-layout:set', (_event, sessionId: string, layout: unknown) => {
+    dockLayoutStore.set(sessionId, layout)
+  })
+}

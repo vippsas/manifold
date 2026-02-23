@@ -2,6 +2,8 @@ import './monaco-setup'
 import React from 'react'
 import { createRoot } from 'react-dom/client'
 import { App } from './App'
+import 'dockview/dist/styles/dockview.css'
+import './styles/dockview-theme.css'
 import './styles/theme.css'
 
 const container = document.getElementById('root')
