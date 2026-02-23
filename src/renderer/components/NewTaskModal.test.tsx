@@ -31,6 +31,7 @@ function renderModal(overrides = {}) {
     visible: true,
     projectId: 'proj-1',
     projectName: 'my-app',
+    baseBranch: 'main',
     defaultRuntime: 'claude',
     onLaunch: vi.fn(),
     onClose: vi.fn(),
@@ -47,6 +48,7 @@ describe('NewTaskModal', () => {
         visible={false}
         projectId="proj-1"
         projectName="my-app"
+        baseBranch="main"
         defaultRuntime="claude"
         onLaunch={vi.fn()}
         onClose={vi.fn()}
