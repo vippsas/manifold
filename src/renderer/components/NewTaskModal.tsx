@@ -14,6 +14,7 @@ import {
   BranchPicker,
   PRPicker,
   ModalFooter,
+  WorktreeHint,
 } from './new-task'
 import type { ModalTab, ExistingSubTab } from './new-task'
 
@@ -280,6 +281,15 @@ export function NewTaskModal({
           )}
 
           {error && <p style={modalStyles.errorText}>{error}</p>}
+
+          <WorktreeHint
+            activeTab={activeTab}
+            existingSubTab={existingSubTab}
+            baseBranch={effectiveBaseBranch}
+            selectedBranch={selectedBranch}
+            selectedPr={selectedPr}
+            prs={prs}
+          />
         </div>
         <ModalFooter onClose={onClose} canSubmit={canSubmit} loading={loading} />
       </form>
