@@ -40,4 +40,18 @@ export function registerFileHandlers(deps: IpcDependencies): void {
     }
     fileWatcher.deleteFile(resolved)
   })
+
+  ipcMain.handle('files:rename', (_event, sessionId: string, oldPath: string, newPath: string) => {
+    const session = sessionManager.getSession(sessionId)
+    if (!session) throw new Error(`Session not found: ${sessionId}`)
+    const resolvedOld = resolve(session.worktreePath, oldPath)
+    if (!resolvedOld.startsWith(session.worktreePath)) {
+      throw new Error('Path traversal denied: file outside worktree')
+    }
+    const resolvedNew = resolve(session.worktreePath, newPath)
+    if (!resolvedNew.startsWith(session.worktreePath)) {
+      throw new Error('Path traversal denied: file outside worktree')
+    }
+    fileWatcher.renameFile(resolvedOld, resolvedNew)
+  })
 }

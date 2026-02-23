@@ -5,6 +5,8 @@ vi.mock('node:fs', () => ({
   readdirSync: vi.fn(),
   readFileSync: vi.fn(),
   writeFileSync: vi.fn(),
+  existsSync: vi.fn(),
+  renameSync: vi.fn(),
 }))
 
 vi.mock('node:path', () => ({
@@ -20,6 +22,8 @@ import type { BrowserWindow } from 'electron'
 const mockStatSync = vi.mocked(fs.statSync)
 const mockReaddirSync = vi.mocked(fs.readdirSync)
 const mockReadFileSync = vi.mocked(fs.readFileSync)
+const mockExistsSync = vi.mocked(fs.existsSync)
+const mockRenameSync = vi.mocked(fs.renameSync)
 
 function createMockWindow() {
   return {
@@ -249,6 +253,35 @@ describe('FileWatcher', () => {
 
       const tree = watcher.getFileTree('/repo/missing')
       expect(tree.isDirectory).toBe(false)
+    })
+  })
+
+  describe('renameFile', () => {
+    it('renames a file successfully', () => {
+      mockExistsSync.mockReturnValue(false)
+
+      watcher.renameFile('/repo/old.ts', '/repo/new.ts')
+
+      expect(mockExistsSync).toHaveBeenCalledWith('/repo/new.ts')
+      expect(mockRenameSync).toHaveBeenCalledWith('/repo/old.ts', '/repo/new.ts')
+    })
+
+    it('throws when target already exists', () => {
+      mockExistsSync.mockReturnValue(true)
+
+      expect(() => watcher.renameFile('/repo/old.ts', '/repo/new.ts')).toThrow(
+        'Target already exists: /repo/new.ts'
+      )
+      expect(mockRenameSync).not.toHaveBeenCalled()
+    })
+
+    it('propagates rename errors', () => {
+      mockExistsSync.mockReturnValue(false)
+      mockRenameSync.mockImplementation(() => {
+        throw new Error('EPERM')
+      })
+
+      expect(() => watcher.renameFile('/repo/old.ts', '/repo/new.ts')).toThrow('EPERM')
     })
   })
 
