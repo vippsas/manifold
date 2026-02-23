@@ -32,6 +32,7 @@ interface MainPanesProps {
   projectShellSessionId: string | null
   worktreeCwd: string | null
   scrollbackLines: number
+  terminalFontFamily?: string
   fileDiffText: string | null
   originalContent: string | null
   openFiles: OpenFile[]
@@ -72,6 +73,7 @@ export function MainPanes({
   projectShellSessionId,
   worktreeCwd,
   scrollbackLines,
+  terminalFontFamily,
   fileDiffText,
   originalContent,
   openFiles,
@@ -111,6 +113,7 @@ export function MainPanes({
                 <TerminalPane
                   sessionId={sessionId}
                   scrollbackLines={scrollbackLines}
+                  terminalFontFamily={terminalFontFamily}
                   label="Agent"
                   xtermTheme={xtermTheme}
                   onClose={() => onClosePane('left')}
@@ -232,6 +235,7 @@ export function MainPanes({
                     projectSessionId={projectShellSessionId}
                     worktreeCwd={worktreeCwd}
                     scrollbackLines={scrollbackLines}
+                    terminalFontFamily={terminalFontFamily}
                     xtermTheme={xtermTheme}
                     onClose={() => onClosePane('bottom')}
                   />

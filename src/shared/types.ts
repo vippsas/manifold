@@ -51,6 +51,7 @@ export interface ManifoldSettings {
   defaultRuntime: string
   theme: string
   scrollbackLines: number
+  terminalFontFamily: string
   defaultBaseBranch: string
   notificationSound: boolean
 }
