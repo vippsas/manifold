@@ -358,6 +358,9 @@ function TreeNode({
   )
 }
 
+// Inline SVG chevron for directory expand/collapse
+const CHEVRON_SVG = '<svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor"><path d="M6 4l4 4-4 4"/></svg>'
+
 function NodeRow({
   node,
   depth,
@@ -388,6 +391,7 @@ function NodeRow({
   onCancelRename: () => void
 }): React.JSX.Element {
   const indicator = changeType ? CHANGE_INDICATORS[changeType] : null
+  const indent = depth * 8
 
   const handleDoubleClick = useCallback((e: React.MouseEvent): void => {
     e.stopPropagation()
@@ -408,21 +412,47 @@ function NodeRow({
 
   return (
     <div
-      className="file-tree-row"
+      className={`file-tree-row${isActive ? ' file-tree-row--active' : ''}`}
       onClick={onToggle}
       style={{
         ...treeStyles.node,
-        paddingLeft: `${depth * 16 + 8}px`,
-        ...(isActive ? treeStyles.nodeActive : undefined),
+        paddingLeft: `${indent + 4}px`,
       }}
       role="button"
       tabIndex={0}
       title={node.path}
     >
-      {node.isDirectory && (
-        <span style={treeStyles.folderIcon}>{expanded ? '\uD83D\uDCC2' : '\uD83D\uDCC1'}</span>
+      {/* Indent guides */}
+      {Array.from({ length: depth }, (_, i) => (
+        <span
+          key={i}
+          style={{
+            position: 'absolute' as const,
+            left: `${i * 8 + 12}px`,
+            top: 0,
+            bottom: 0,
+            width: '1px',
+            background: 'var(--tree-indent-guide)',
+            opacity: 0.4,
+          }}
+        />
+      ))}
+      {/* Chevron (directories) or spacer (files) */}
+      {node.isDirectory ? (
+        <span
+          style={{
+            ...treeStyles.chevron,
+            transform: expanded ? 'rotate(90deg)' : 'rotate(0deg)',
+          }}
+          dangerouslySetInnerHTML={{ __html: CHEVRON_SVG }}
+        />
+      ) : (
+        <span style={treeStyles.chevronSpacer} />
       )}
-      {!node.isDirectory && (
+      {/* File/folder icon */}
+      {node.isDirectory ? (
+        <span style={treeStyles.fileIcon}>{expanded ? '\uD83D\uDCC2' : '\uD83D\uDCC1'}</span>
+      ) : (
         (() => {
           const svg = getFileIconSvg(node.name)
           return svg
@@ -430,6 +460,7 @@ function NodeRow({
             : <span style={treeStyles.fileIcon}>{'\uD83D\uDCC4'}</span>
         })()
       )}
+<<<<<<< HEAD
       {isRenaming ? (
         <input
           autoFocus
@@ -450,8 +481,14 @@ function NodeRow({
         </span>
       )}
       {!isRenaming && indicator && (
+=======
+      <span className="truncate" style={treeStyles.nodeName}>
+        {node.name}
+      </span>
+      {indicator && (
+>>>>>>> origin/main
         <span style={{ ...treeStyles.indicator, color: indicator.color }} title={changeType ?? undefined}>
-          {'\u25CF'}
+          {indicator.label}
         </span>
       )}
       {!isRenaming && onDelete && (
@@ -523,33 +560,41 @@ const treeStyles: Record<string, React.CSSProperties> = {
   treeContainer: {
     flex: 1,
     overflowY: 'auto' as const,
-    padding: '4px 0',
+    padding: '2px 0',
   },
   node: {
+    position: 'relative' as const,
     display: 'flex',
     alignItems: 'center',
-    gap: '4px',
-    padding: '3px 8px',
+    gap: '6px',
+    height: '22px',
+    paddingRight: '8px',
     cursor: 'pointer',
-    fontSize: '12px',
-    lineHeight: '20px',
+    fontSize: '13px',
+    fontFamily: 'var(--font-sans)',
+    lineHeight: '22px',
     color: 'var(--text-primary)',
   },
-  nodeActive: {
-    background: 'rgba(79, 195, 247, 0.12)',
-    color: 'var(--accent)',
-  },
-  folderIcon: {
+  chevron: {
     width: '16px',
-    fontSize: '13px',
+    height: '16px',
     flexShrink: 0,
-    textAlign: 'center' as const,
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    transition: 'transform 0.1s ease',
+    color: 'var(--text-secondary)',
+  },
+  chevronSpacer: {
+    width: '16px',
+    flexShrink: 0,
   },
   fileIcon: {
     width: '16px',
-    fontSize: '13px',
+    fontSize: '14px',
     flexShrink: 0,
     textAlign: 'center' as const,
+    lineHeight: '16px',
   },
   fileIconImg: {
     width: '16px',
@@ -562,13 +607,17 @@ const treeStyles: Record<string, React.CSSProperties> = {
   nodeName: {
     flex: 1,
     minWidth: 0,
-    fontFamily: 'var(--font-mono)',
-    fontSize: '12px',
+    fontFamily: 'var(--font-sans)',
+    fontSize: '13px',
+    overflow: 'hidden',
+    textOverflow: 'ellipsis',
+    whiteSpace: 'nowrap' as const,
   },
   indicator: {
     flexShrink: 0,
-    fontSize: '8px',
-    marginLeft: '4px',
+    fontSize: '11px',
+    fontWeight: 600,
+    marginLeft: 'auto',
   },
   deleteButton: {
     flexShrink: 0,
