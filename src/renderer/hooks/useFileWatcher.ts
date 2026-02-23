@@ -10,6 +10,7 @@ interface UseFileWatcherResult {
   refreshTree: () => Promise<void>
   readFile: (filePath: string) => Promise<string | null>
   deleteFile: (filePath: string) => Promise<boolean>
+  renameFile: (oldPath: string, newPath: string) => Promise<boolean>
 }
 
 export function useFileWatcher(
@@ -91,6 +92,19 @@ export function useFileWatcher(
     [sessionId]
   )
 
+  const renameFile = useCallback(
+    async (oldPath: string, newPath: string): Promise<boolean> => {
+      if (!sessionId) return false
+      try {
+        await window.electronAPI.invoke('files:rename', sessionId, oldPath, newPath)
+        return true
+      } catch {
+        return false
+      }
+    },
+    [sessionId]
+  )
+
   return {
     tree,
     changes,
@@ -99,5 +113,6 @@ export function useFileWatcher(
     refreshTree,
     readFile,
     deleteFile,
+    renameFile,
   }
 }

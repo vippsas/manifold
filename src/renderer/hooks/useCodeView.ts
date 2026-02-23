@@ -12,6 +12,7 @@ export interface UseCodeViewResult {
   handleSelectFile: (filePath: string) => void
   handleCloseFile: (filePath: string) => void
   handleSaveFile: (content: string) => void
+  handleRenameOpenFile: (oldPath: string, newPath: string) => void
   refreshOpenFiles: () => Promise<void>
   restoreState: (openFiles: OpenFile[], activeFilePath: string | null) => void
 }
@@ -97,6 +98,34 @@ export function useCodeView(activeSessionId: string | null): UseCodeViewResult {
     [activeSessionId]
   )
 
+  const handleRenameOpenFile = useCallback(
+    (oldPath: string, newPath: string): void => {
+      setOpenFiles((prev) =>
+        prev.map((f) => {
+          if (f.path === oldPath) {
+            return { ...f, path: newPath }
+          }
+          // Directory rename: update child paths
+          const oldPrefix = oldPath + '/'
+          if (f.path.startsWith(oldPrefix)) {
+            return { ...f, path: newPath + '/' + f.path.slice(oldPrefix.length) }
+          }
+          return f
+        })
+      )
+      setActiveFilePath((prev) => {
+        if (!prev) return prev
+        if (prev === oldPath) return newPath
+        const oldPrefix = oldPath + '/'
+        if (prev.startsWith(oldPrefix)) {
+          return newPath + '/' + prev.slice(oldPrefix.length)
+        }
+        return prev
+      })
+    },
+    []
+  )
+
   const openFilesRef = useRef<OpenFile[]>([])
   openFilesRef.current = openFiles
 
@@ -137,6 +166,7 @@ export function useCodeView(activeSessionId: string | null): UseCodeViewResult {
     handleSelectFile,
     handleCloseFile,
     handleSaveFile,
+    handleRenameOpenFile,
     refreshOpenFiles,
     restoreState,
   }
