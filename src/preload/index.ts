@@ -39,6 +39,7 @@ const ALLOWED_INVOKE_CHANNELS = [
   'git:resolve-conflict',
   'git:pr-context',
   'git:list-branches',
+  'git:list-prs',
   'git:fetch-pr-branch',
   'app:beep',
   'app:version',

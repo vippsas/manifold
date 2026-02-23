@@ -2,6 +2,7 @@ import * as fs from 'node:fs'
 import * as path from 'node:path'
 import { spawn } from 'node:child_process'
 import { gitExec } from './git-exec'
+import type { BranchInfo, PRInfo } from '../shared/types'
 
 function ghExec(args: string[], cwd: string): Promise<string> {
   return new Promise((resolve, reject) => {
@@ -27,7 +28,7 @@ function ghExec(args: string[], cwd: string): Promise<string> {
 export class BranchCheckoutManager {
   constructor(private storagePath: string) {}
 
-  async listBranches(projectPath: string): Promise<string[]> {
+  async listBranches(projectPath: string): Promise<BranchInfo[]> {
     // Fetch latest from all remotes (best-effort)
     try {
       await gitExec(['fetch', '--all', '--prune'], projectPath)
@@ -35,30 +36,44 @@ export class BranchCheckoutManager {
       // Fetch may fail (no remote, network issues) — continue with local data
     }
 
-    const raw = await gitExec(['branch', '-a', '--format=%(refname:short)'], projectPath)
+    const raw = await gitExec(['branch', '-a', '--format=%(refname)'], projectPath)
 
     // Get branches currently checked out in worktrees
     const worktreeBranches = await this.getWorktreeBranches(projectPath)
 
-    const seen = new Set<string>()
-    const branches: string[] = []
+    const localSet = new Set<string>()
+    const remoteSet = new Set<string>()
 
     for (const line of raw.split('\n')) {
-      const trimmed = line.trim()
-      if (!trimmed) continue
+      const ref = line.trim()
+      if (!ref) continue
 
-      // Strip origin/ prefix for remote branches
-      const name = trimmed.startsWith('origin/') ? trimmed.slice('origin/'.length) : trimmed
-
-      // Filter out HEAD, manifold/* worktree branches, and already-checked-out branches
-      if (name === 'HEAD') continue
-      if (name.startsWith('manifold/')) continue
-      if (worktreeBranches.has(name)) continue
-
-      if (!seen.has(name)) {
-        seen.add(name)
-        branches.push(name)
+      if (ref.startsWith('refs/heads/')) {
+        const name = ref.slice('refs/heads/'.length)
+        if (worktreeBranches.has(name)) continue
+        localSet.add(name)
+      } else if (ref.startsWith('refs/remotes/')) {
+        // Skip remote HEAD pointers (e.g., refs/remotes/origin/HEAD)
+        if (ref.endsWith('/HEAD')) continue
+        // Strip refs/remotes/<remote>/ to get branch name
+        const afterRemotes = ref.slice('refs/remotes/'.length)
+        const slashIdx = afterRemotes.indexOf('/')
+        if (slashIdx < 0) continue
+        const name = afterRemotes.slice(slashIdx + 1)
+        if (worktreeBranches.has(name)) continue
+        remoteSet.add(name)
       }
+    }
+
+    const allNames = new Set([...localSet, ...remoteSet])
+    const branches: BranchInfo[] = []
+    for (const name of allNames) {
+      const isLocal = localSet.has(name)
+      const isRemote = remoteSet.has(name)
+      branches.push({
+        name,
+        source: isLocal && isRemote ? 'both' : isLocal ? 'local' : 'remote',
+      })
     }
 
     return branches
@@ -98,6 +113,25 @@ export class BranchCheckoutManager {
       // If worktree list fails, return empty set — don't block branch listing
     }
     return branches
+  }
+
+  async listOpenPRs(projectPath: string): Promise<PRInfo[]> {
+    const raw = await ghExec(
+      ['pr', 'list', '--state=open', '--json', 'number,title,headRefName,author', '--limit', '50'],
+      projectPath
+    )
+    const parsed = JSON.parse(raw) as Array<{
+      number: number
+      title: string
+      headRefName: string
+      author: { login: string }
+    }>
+    return parsed.map((pr) => ({
+      number: pr.number,
+      title: pr.title,
+      headRefName: pr.headRefName,
+      author: pr.author.login,
+    }))
   }
 
   async fetchPRBranch(projectPath: string, prIdentifier: string): Promise<string> {

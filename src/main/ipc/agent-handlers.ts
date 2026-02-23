@@ -67,6 +67,12 @@ export function registerAgentHandlers(deps: IpcDependencies): void {
     return deps.branchCheckout.listBranches(project.path)
   })
 
+  ipcMain.handle('git:list-prs', async (_event, projectId: string) => {
+    const project = deps.projectRegistry.getProject(projectId)
+    if (!project) throw new Error(`Project not found: ${projectId}`)
+    return deps.branchCheckout.listOpenPRs(project.path)
+  })
+
   ipcMain.handle('git:fetch-pr-branch', async (_event, projectId: string, prIdentifier: string) => {
     const project = deps.projectRegistry.getProject(projectId)
     if (!project) throw new Error(`Project not found: ${projectId}`)

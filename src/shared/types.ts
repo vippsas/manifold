@@ -78,6 +78,18 @@ export interface CreatePROptions {
   body?: string
 }
 
+export interface BranchInfo {
+  name: string
+  source: 'local' | 'remote' | 'both'
+}
+
+export interface PRInfo {
+  number: number
+  title: string
+  headRefName: string
+  author: string
+}
+
 export interface AheadBehind {
   ahead: number
   behind: number

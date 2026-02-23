@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react'
-import type { SpawnAgentOptions, AgentRuntime, Project } from '../../shared/types'
+import type { SpawnAgentOptions, AgentRuntime, Project, BranchInfo, PRInfo } from '../../shared/types'
 import { deriveBranchName } from '../../shared/derive-branch-name'
 import { modalStyles } from './NewTaskModal.styles'
 
@@ -38,10 +38,13 @@ export function NewTaskModal({
   const [selectedProjectId, setSelectedProjectId] = useState(projectId)
   const [activeTab, setActiveTab] = useState<ModalTab>('new')
   const [existingSubTab, setExistingSubTab] = useState<ExistingSubTab>('branch')
-  const [branches, setBranches] = useState<string[]>([])
+  const [branches, setBranches] = useState<BranchInfo[]>([])
   const [branchFilter, setBranchFilter] = useState('')
   const [selectedBranch, setSelectedBranch] = useState('')
-  const [prInput, setPrInput] = useState('')
+  const [prs, setPrs] = useState<PRInfo[]>([])
+  const [prFilter, setPrFilter] = useState('')
+  const [selectedPr, setSelectedPr] = useState<number | null>(null)
+  const [prsLoading, setPrsLoading] = useState(false)
   const [branchesLoading, setBranchesLoading] = useState(false)
   const [error, setError] = useState('')
   const overlayRef = useRef<HTMLDivElement>(null)
@@ -63,7 +66,7 @@ export function NewTaskModal({
     visible, defaultRuntime,
     setTaskDescription, setRuntimeId, setBranchName, setBranchEdited,
     setShowAdvanced, setLoading, setActiveTab, setExistingSubTab,
-    setBranches, setBranchFilter, setSelectedBranch, setPrInput, setError
+    setBranches, setBranchFilter, setSelectedBranch, setPrs, setPrFilter, setSelectedPr, setError
   )
   useDebouncedBranchDerivation(taskDescription, branchEdited, setBranchName, effectiveProjectName)
   useAutoFocus(visible, textareaRef)
@@ -83,12 +86,28 @@ export function NewTaskModal({
     window.electronAPI
       .invoke('git:list-branches', effectiveProjectId)
       .then((list) => {
-        setBranches(list as string[])
+        setBranches(list as BranchInfo[])
       })
       .catch((err) => {
         setError(`Failed to load branches: ${(err as Error).message}`)
       })
       .finally(() => setBranchesLoading(false))
+  }, [visible, activeTab, existingSubTab, effectiveProjectId])
+
+  // Fetch open PRs when switching to existing/pr tab
+  useEffect(() => {
+    if (!visible || activeTab !== 'existing' || existingSubTab !== 'pr') return
+    setPrsLoading(true)
+    setError('')
+    window.electronAPI
+      .invoke('git:list-prs', effectiveProjectId)
+      .then((list) => {
+        setPrs(list as PRInfo[])
+      })
+      .catch((err) => {
+        setError(`Failed to load PRs: ${(err as Error).message}`)
+      })
+      .finally(() => setPrsLoading(false))
   }, [visible, activeTab, existingSubTab, effectiveProjectId])
 
   const selectedRuntime = runtimes.find((r) => r.id === runtimeId)
@@ -98,7 +117,7 @@ export function NewTaskModal({
     if (!runtimeInstalled) return false
     if (taskDescription.trim().length === 0) return false
     if (activeTab === 'existing' && existingSubTab === 'branch' && !selectedBranch) return false
-    if (activeTab === 'existing' && existingSubTab === 'pr' && !prInput.trim()) return false
+    if (activeTab === 'existing' && existingSubTab === 'pr' && selectedPr === null) return false
     return true
   })()
 
@@ -121,7 +140,7 @@ export function NewTaskModal({
           projectId: effectiveProjectId,
           runtimeId,
           prompt: taskDescription.trim(),
-          prIdentifier: prInput.trim(),
+          prIdentifier: String(selectedPr),
         })
       } else {
         onLaunch({
@@ -132,7 +151,7 @@ export function NewTaskModal({
         })
       }
     },
-    [activeTab, existingSubTab, effectiveProjectId, runtimeId, taskDescription, branchName, selectedBranch, prInput, canSubmit, onLaunch]
+    [activeTab, existingSubTab, effectiveProjectId, runtimeId, taskDescription, branchName, selectedBranch, selectedPr, canSubmit, onLaunch]
   )
 
   const handleOverlayClick = useCallback(
@@ -237,7 +256,14 @@ export function NewTaskModal({
               )}
 
               {existingSubTab === 'pr' && (
-                <PRInput value={prInput} onChange={setPrInput} />
+                <PRPicker
+                  prs={prs}
+                  filter={prFilter}
+                  onFilterChange={setPrFilter}
+                  selected={selectedPr}
+                  onSelect={setSelectedPr}
+                  loading={prsLoading}
+                />
               )}
             </>
           )}
@@ -261,10 +287,12 @@ function useResetOnOpen(
   setLoading: (v: boolean) => void,
   setActiveTab: (v: ModalTab) => void,
   setExistingSubTab: (v: ExistingSubTab) => void,
-  setBranches: (v: string[]) => void,
+  setBranches: (v: BranchInfo[]) => void,
   setBranchFilter: (v: string) => void,
   setSelectedBranch: (v: string) => void,
-  setPrInput: (v: string) => void,
+  setPrs: (v: PRInfo[]) => void,
+  setPrFilter: (v: string) => void,
+  setSelectedPr: (v: number | null) => void,
   setError: (v: string) => void
 ): void {
   useEffect(() => {
@@ -280,9 +308,11 @@ function useResetOnOpen(
     setBranches([])
     setBranchFilter('')
     setSelectedBranch('')
-    setPrInput('')
+    setPrs([])
+    setPrFilter('')
+    setSelectedPr(null)
     setError('')
-  }, [visible, defaultRuntime, setTaskDescription, setRuntimeId, setBranchName, setBranchEdited, setShowAdvanced, setLoading, setActiveTab, setExistingSubTab, setBranches, setBranchFilter, setSelectedBranch, setPrInput, setError])
+  }, [visible, defaultRuntime, setTaskDescription, setRuntimeId, setBranchName, setBranchEdited, setShowAdvanced, setLoading, setActiveTab, setExistingSubTab, setBranches, setBranchFilter, setSelectedBranch, setPrs, setPrFilter, setSelectedPr, setError])
 }
 
 function useDebouncedBranchDerivation(
@@ -486,7 +516,7 @@ function BranchPicker({
   onSelect,
   loading,
 }: {
-  branches: string[]
+  branches: BranchInfo[]
   baseBranch: string
   filter: string
   onFilterChange: (v: string) => void
@@ -495,8 +525,10 @@ function BranchPicker({
   loading: boolean
 }): React.JSX.Element {
   const filtered = branches.filter((b) =>
-    b.toLowerCase().includes(filter.toLowerCase())
+    b.name.toLowerCase().includes(filter.toLowerCase())
   )
+  const listRef = useRef<HTMLDivElement>(null)
+
   return (
     <label style={modalStyles.label}>
       Branch
@@ -508,48 +540,180 @@ function BranchPicker({
         style={modalStyles.input}
       />
       {!loading && (
-        <select
-          value={selected}
-          onChange={(e) => onSelect(e.target.value)}
-          style={{ ...modalStyles.select, marginTop: '4px' }}
-          size={Math.min(filtered.length, 8) || 1}
+        <div
+          ref={listRef}
+          style={{
+            marginTop: '4px',
+            border: '1px solid var(--border)',
+            borderRadius: '4px',
+            background: 'var(--bg-input)',
+            maxHeight: '192px',
+            overflowY: 'auto',
+          }}
+          role="listbox"
         >
           {filtered.length === 0 && (
-            <option value="" disabled>
+            <div style={{ padding: '6px 8px', fontSize: '13px', color: 'var(--text-muted)' }}>
               {filter ? 'No matching branches' : 'No branches found'}
-            </option>
+            </div>
           )}
-          {filtered.map((b) => (
-            <option key={b} value={b} disabled={b === baseBranch}>
-              {b}{b === baseBranch ? ' (default — new tasks branch from here)' : ''}
-            </option>
-          ))}
-        </select>
+          {filtered.map((b) => {
+            const isBase = b.name === baseBranch
+            const isSelected = b.name === selected
+            return (
+              <div
+                key={b.name}
+                role="option"
+                aria-selected={isSelected}
+                onClick={isBase ? undefined : () => onSelect(b.name)}
+                style={{
+                  padding: '4px 8px',
+                  fontSize: '13px',
+                  cursor: isBase ? 'default' : 'pointer',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '6px',
+                  background: isSelected ? 'var(--accent)' : 'transparent',
+                  color: isBase
+                    ? 'var(--text-muted)'
+                    : isSelected
+                      ? 'var(--accent-text)'
+                      : 'var(--text-primary)',
+                  opacity: isBase ? 0.6 : 1,
+                }}
+              >
+                <span style={{ flex: 1, fontFamily: 'var(--font-mono)' }}>
+                  {b.name}
+                  {isBase ? ' (default — new tasks branch from here)' : ''}
+                </span>
+                {b.source !== 'both' && (
+                  <span
+                    style={{
+                      fontSize: '10px',
+                      fontFamily: 'inherit',
+                      padding: '1px 5px',
+                      borderRadius: '3px',
+                      fontWeight: 500,
+                      background: b.source === 'remote'
+                        ? 'rgba(56, 139, 253, 0.15)'
+                        : 'rgba(210, 153, 34, 0.15)',
+                      color: b.source === 'remote'
+                        ? 'rgb(100, 170, 255)'
+                        : 'rgb(210, 167, 62)',
+                    }}
+                  >
+                    {b.source}
+                  </span>
+                )}
+              </div>
+            )
+          })}
+        </div>
       )}
     </label>
   )
 }
 
-function PRInput({
-  value,
-  onChange,
+function PRPicker({
+  prs,
+  filter,
+  onFilterChange,
+  selected,
+  onSelect,
+  loading,
 }: {
-  value: string
-  onChange: (v: string) => void
+  prs: PRInfo[]
+  filter: string
+  onFilterChange: (v: string) => void
+  selected: number | null
+  onSelect: (v: number | null) => void
+  loading: boolean
 }): React.JSX.Element {
+  const lowerFilter = filter.toLowerCase()
+  const filtered = prs.filter(
+    (pr) =>
+      pr.title.toLowerCase().includes(lowerFilter) ||
+      pr.headRefName.toLowerCase().includes(lowerFilter) ||
+      String(pr.number).includes(filter) ||
+      pr.author.toLowerCase().includes(lowerFilter)
+  )
   return (
     <label style={modalStyles.label}>
       Pull Request
       <input
         type="text"
-        value={value}
-        onChange={(e) => onChange(e.target.value)}
-        placeholder="PR number or GitHub URL (e.g. 42)"
+        value={filter}
+        onChange={(e) => onFilterChange(e.target.value)}
+        placeholder={loading ? 'Loading PRs...' : 'Filter pull requests...'}
         style={modalStyles.input}
       />
-      <p style={modalStyles.hint}>
-        Enter a PR number or full GitHub URL to check out the PR branch
-      </p>
+      {!loading && (
+        <div
+          style={{
+            marginTop: '4px',
+            border: '1px solid var(--border)',
+            borderRadius: '4px',
+            background: 'var(--bg-input)',
+            maxHeight: '192px',
+            overflowY: 'auto',
+          }}
+          role="listbox"
+        >
+          {filtered.length === 0 && (
+            <div style={{ padding: '6px 8px', fontSize: '13px', color: 'var(--text-muted)' }}>
+              {filter ? 'No matching pull requests' : 'No open pull requests'}
+            </div>
+          )}
+          {filtered.map((pr) => {
+            const isSelected = pr.number === selected
+            return (
+              <div
+                key={pr.number}
+                role="option"
+                aria-selected={isSelected}
+                onClick={() => onSelect(pr.number)}
+                style={{
+                  padding: '5px 8px',
+                  fontSize: '13px',
+                  cursor: 'pointer',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  gap: '1px',
+                  background: isSelected ? 'var(--accent)' : 'transparent',
+                  color: isSelected ? 'var(--accent-text)' : 'var(--text-primary)',
+                }}
+              >
+                <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                  <span style={{
+                    fontSize: '11px',
+                    color: isSelected ? 'var(--accent-text)' : 'var(--text-muted)',
+                    flexShrink: 0,
+                  }}>
+                    #{pr.number}
+                  </span>
+                  <span style={{
+                    flex: 1,
+                    overflow: 'hidden',
+                    textOverflow: 'ellipsis',
+                    whiteSpace: 'nowrap',
+                  }}>
+                    {pr.title}
+                  </span>
+                </div>
+                <div style={{
+                  fontSize: '11px',
+                  color: isSelected ? 'rgba(255,255,255,0.7)' : 'var(--text-muted)',
+                  display: 'flex',
+                  gap: '8px',
+                }}>
+                  <span style={{ fontFamily: 'var(--font-mono)' }}>{pr.headRefName}</span>
+                  <span>{pr.author}</span>
+                </div>
+              </div>
+            )
+          })}
+        </div>
+      )}
     </label>
   )
 }
