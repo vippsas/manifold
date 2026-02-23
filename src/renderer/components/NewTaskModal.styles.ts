@@ -168,4 +168,28 @@ export const modalStyles: Record<string, React.CSSProperties> = {
     fontSize: '12px',
     margin: 0,
   },
+  worktreeHint: {
+    display: 'flex',
+    alignItems: 'baseline',
+    gap: '6px',
+    fontSize: '12px',
+    color: 'var(--text-secondary)',
+    background: 'var(--bg-input)',
+    borderLeft: '3px solid var(--accent)',
+    borderRadius: '2px',
+    padding: '8px 10px',
+    margin: 0,
+    lineHeight: 1.5,
+  },
+  worktreeHintIcon: {
+    flexShrink: 0,
+    color: 'var(--accent)',
+    fontSize: '13px',
+    fontWeight: 700,
+  },
+  worktreeHintBranch: {
+    fontFamily: 'var(--font-mono)',
+    color: 'var(--text-primary)',
+    fontWeight: 500,
+  },
 }
