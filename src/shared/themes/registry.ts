@@ -124,6 +124,10 @@ function getBuiltinCssVars(type: 'dark' | 'light'): Record<string, string> {
       '--diff-deleted-gutter': 'rgba(239, 83, 80, 0.3)',
       '--scrollbar-thumb': '#3a4a6c',
       '--scrollbar-track': 'transparent',
+      '--tree-active-selection': '#04395e',
+      '--tree-inactive-selection': '#37373d',
+      '--tree-hover': '#2a2d2e',
+      '--tree-indent-guide': '#585858',
     }
   }
   return {
@@ -152,6 +156,10 @@ function getBuiltinCssVars(type: 'dark' | 'light'): Record<string, string> {
     '--diff-deleted-gutter': 'rgba(211, 47, 47, 0.25)',
     '--scrollbar-thumb': '#c0c8d0',
     '--scrollbar-track': 'transparent',
+    '--tree-active-selection': '#d6ebff',
+    '--tree-inactive-selection': '#e4e6f1',
+    '--tree-hover': '#e8e8e8',
+    '--tree-indent-guide': '#c4c4c4',
   }
 }
 
