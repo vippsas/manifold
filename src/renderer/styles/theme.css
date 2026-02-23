@@ -52,6 +52,11 @@
 
   --scrollbar-thumb: #4d4f5c;
   --scrollbar-track: transparent;
+
+  --tree-active-selection: #04395e;
+  --tree-inactive-selection: #37373d;
+  --tree-hover: #2a2d2e;
+  --tree-indent-guide: #585858;
 }
 
 /* ─── Global Reset ─── */
@@ -696,6 +701,21 @@ select:focus {
 
 .git-panel-link:hover {
   text-decoration: underline;
+}
+
+/* ─── File Tree Rows ─── */
+.file-tree-row:hover {
+  background: var(--tree-hover);
+}
+.file-tree-row.file-tree-row--active {
+  background: var(--tree-active-selection);
+}
+.file-tree-row.file-tree-row--active:hover {
+  background: var(--tree-active-selection);
+}
+.file-tree-row:focus-visible {
+  outline: 1px solid var(--accent);
+  outline-offset: -1px;
 }
 
 /* ─── File Tree Delete Button (hover reveal) ─── */
