@@ -42,6 +42,8 @@ const ALLOWED_INVOKE_CHANNELS = [
   'git:list-branches',
   'git:list-prs',
   'git:fetch-pr-branch',
+  'dock-layout:get',
+  'dock-layout:set',
   'font:load-data',
   'app:beep',
   'app:version',
