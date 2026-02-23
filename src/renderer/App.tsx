@@ -349,6 +349,7 @@ export function App(): React.JSX.Element {
           visible={showNewAgent}
           projectId={activeProjectId}
           projectName={activeProject?.name ?? ''}
+          baseBranch={activeProject?.baseBranch ?? 'main'}
           defaultRuntime={settings.defaultRuntime}
           onLaunch={handleLaunchAgent}
           onClose={() => setShowNewAgent(false)}

@@ -10,6 +10,7 @@ interface NewTaskModalProps {
   visible: boolean
   projectId: string
   projectName: string
+  baseBranch: string
   defaultRuntime: string
   onLaunch: (options: SpawnAgentOptions) => void
   onClose: () => void
@@ -21,6 +22,7 @@ export function NewTaskModal({
   visible,
   projectId,
   projectName,
+  baseBranch,
   defaultRuntime,
   onLaunch,
   onClose,
@@ -47,9 +49,11 @@ export function NewTaskModal({
 
   const showProjectSelector = projects != null && projects.length > 1
   const effectiveProjectId = showProjectSelector ? selectedProjectId : projectId
-  const effectiveProjectName = showProjectSelector
-    ? (projects.find((p) => p.id === selectedProjectId)?.name ?? projectName)
-    : projectName
+  const selectedProject = showProjectSelector
+    ? projects.find((p) => p.id === selectedProjectId)
+    : undefined
+  const effectiveProjectName = selectedProject?.name ?? projectName
+  const effectiveBaseBranch = selectedProject?.baseBranch ?? baseBranch
 
   useEffect(() => {
     if (visible) setSelectedProjectId(projectId)
@@ -223,6 +227,7 @@ export function NewTaskModal({
               {existingSubTab === 'branch' && (
                 <BranchPicker
                   branches={branches}
+                  baseBranch={effectiveBaseBranch}
                   filter={branchFilter}
                   onFilterChange={setBranchFilter}
                   selected={selectedBranch}
@@ -474,6 +479,7 @@ function AdvancedSection({
 
 function BranchPicker({
   branches,
+  baseBranch,
   filter,
   onFilterChange,
   selected,
@@ -481,6 +487,7 @@ function BranchPicker({
   loading,
 }: {
   branches: string[]
+  baseBranch: string
   filter: string
   onFilterChange: (v: string) => void
   selected: string
@@ -513,8 +520,8 @@ function BranchPicker({
             </option>
           )}
           {filtered.map((b) => (
-            <option key={b} value={b}>
-              {b}
+            <option key={b} value={b} disabled={b === baseBranch}>
+              {b}{b === baseBranch ? ' (default — new tasks branch from here)' : ''}
             </option>
           ))}
         </select>
