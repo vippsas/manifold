@@ -35,10 +35,6 @@ export function ModifiedFiles({
 
   return (
     <div style={styles.wrapper}>
-      <div style={styles.header}>
-        <span style={styles.headerTitle}>Modified Files</span>
-        {changes.length > 0 && <span style={styles.badge}>{changes.length}</span>}
-      </div>
       <div style={styles.list}>
         {sorted.length === 0 ? (
           <div style={styles.empty}>No changes</div>

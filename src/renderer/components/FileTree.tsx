@@ -83,14 +83,6 @@ export function FileTree({
 
   return (
     <div style={treeStyles.wrapper}>
-      <div style={treeStyles.header}>
-        <span style={treeStyles.headerTitle}>Files</span>
-        {changes.length > 0 && (
-          <span style={treeStyles.changesButton}>
-            {changes.length} changed
-          </span>
-        )}
-      </div>
       <div style={treeStyles.treeContainer}>
         {tree ? (
           <TreeNode

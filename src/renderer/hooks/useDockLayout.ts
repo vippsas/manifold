@@ -39,46 +39,53 @@ export function useDockLayout(sessionId: string | null): UseDockLayoutResult {
   }, [])
 
   const buildDefaultLayout = useCallback((api: DockviewApi) => {
-    // Left: Agent (takes up ~75%)
+    // Left: Agent (full height)
     const agentPanel = api.addPanel({
       id: 'agent',
       component: 'agent',
       title: PANEL_TITLES.agent,
     })
 
-    // Right top: Editor, FileTree, ModifiedFiles as tabs
-    api.addPanel({
-      id: 'editor',
-      component: 'editor',
-      title: PANEL_TITLES.editor,
-      position: { referencePanel: agentPanel, direction: 'right' },
-    })
-
-    api.addPanel({
+    // Right top: Files, Modified Files, Editor as tabs
+    const filesPanel = api.addPanel({
       id: 'fileTree',
       component: 'fileTree',
       title: PANEL_TITLES.fileTree,
-      position: { referencePanel: 'editor', direction: 'within' },
+      position: { referencePanel: agentPanel, direction: 'right' },
     })
 
     api.addPanel({
       id: 'modifiedFiles',
       component: 'modifiedFiles',
       title: PANEL_TITLES.modifiedFiles,
-      position: { referencePanel: 'editor', direction: 'within' },
+      position: { referencePanel: filesPanel, direction: 'within' },
     })
 
-    // Bottom: Shell
+    api.addPanel({
+      id: 'editor',
+      component: 'editor',
+      title: PANEL_TITLES.editor,
+      position: { referencePanel: filesPanel, direction: 'within' },
+    })
+
+    // Right bottom: Shell
     api.addPanel({
       id: 'shell',
       component: 'shell',
       title: PANEL_TITLES.shell,
-      position: { referencePanel: agentPanel, direction: 'below' },
+      position: { referencePanel: filesPanel, direction: 'below' },
     })
 
-    // Set relative sizes: agent ~75% left, right area ~25%
+    // Make FileTree the active tab in its group
+    filesPanel.api.setActive()
+
+    // Set relative sizes — shell takes 1/3 of the right column height
     try {
-      api.getPanel('editor')?.group?.api.setSize({ width: 350 })
+      filesPanel.group?.api.setSize({ width: 350 })
+      const totalHeight = api.height
+      if (totalHeight > 0) {
+        api.getPanel('shell')?.group?.api.setSize({ height: Math.round(totalHeight / 3) })
+      }
     } catch {
       // sizing is best-effort
     }
