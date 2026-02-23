@@ -1,10 +1,10 @@
 import React, { useCallback, useMemo } from 'react'
+import { DockviewReact } from 'dockview'
 import { useProjects } from './hooks/useProjects'
 import { useAgentSession } from './hooks/useAgentSession'
 import { useFileWatcher } from './hooks/useFileWatcher'
 import { useDiff } from './hooks/useDiff'
 import { useSettings } from './hooks/useSettings'
-import { usePaneResize } from './hooks/usePaneResize'
 import { useCodeView } from './hooks/useCodeView'
 import { useViewState } from './hooks/useViewState'
 import { useShellSessions } from './hooks/useShellSession'
@@ -17,8 +17,9 @@ import { useStatusNotification } from './hooks/useStatusNotification'
 import { useFileDiff } from './hooks/useFileDiff'
 import { useFileOperations } from './hooks/useFileOperations'
 import { useAppOverlays } from './hooks/useAppOverlays'
+import { useDockLayout } from './hooks/useDockLayout'
+import { PANEL_COMPONENTS, DockStateContext, type DockAppState } from './components/dock-panels'
 import { ProjectSidebar } from './components/ProjectSidebar'
-import { MainPanes } from './components/MainPanes'
 import { NewTaskModal } from './components/NewTaskModal'
 import { OnboardingView } from './components/OnboardingView'
 import { SettingsModal } from './components/SettingsModal'
@@ -38,7 +39,7 @@ export function App(): React.JSX.Element {
   const allSessions = useMemo(() => Object.values(sessionsByProject).flat(), [sessionsByProject])
   useStatusNotification(allSessions, settings.notificationSound)
   const { diff, changedFiles, refreshDiff } = useDiff(activeSessionId)
-  const paneResize = usePaneResize()
+  const dockLayout = useDockLayout(activeSessionId)
   const codeView = useCodeView(activeSessionId)
 
   const handleFilesChanged = useCallback(() => {
@@ -59,13 +60,20 @@ export function App(): React.JSX.Element {
 
   const viewState = useViewState(activeSessionId, tree)
 
+  // Editor panel is always considered visible with dockview (panels can be re-added)
+  const ensureEditorVisible = useCallback(() => {
+    if (!dockLayout.isPanelVisible('editor')) {
+      dockLayout.togglePanel('editor')
+    }
+  }, [dockLayout])
+
   const { handleSelectFile, handleDeleteFile, handleRenameFile } = useFileOperations(
     viewState.expandAncestors,
     codeView.handleSelectFile,
     codeView.handleCloseFile,
     codeView.handleRenameOpenFile,
-    paneResize.paneVisibility.center,
-    paneResize.togglePane,
+    true, // centerVisible — always true, we use ensureEditorVisible instead
+    ensureEditorVisible,
     deleteFile,
     renameFile
   )
@@ -94,6 +102,35 @@ export function App(): React.JSX.Element {
 
   const { themeId, themeClass, xtermTheme, setPreviewThemeId } = useTheme(settings.theme)
   const { sidebarWidth, handleSidebarDividerMouseDown } = useSidebarResize()
+  const [sidebarVisible, setSidebarVisible] = React.useState(true)
+
+  // Shared state object that dock panels read via context
+  const dockState: DockAppState = {
+    sessionId: activeSessionId,
+    scrollbackLines: settings.scrollbackLines,
+    terminalFontFamily: settings.terminalFontFamily,
+    xtermTheme,
+    fileDiffText: activeFileDiffText,
+    originalContent,
+    openFiles: codeView.openFiles,
+    activeFilePath: codeView.activeFilePath,
+    fileContent: codeView.activeFileContent,
+    theme: themeId,
+    onSelectFile: handleSelectFile,
+    onCloseFile: codeView.handleCloseFile,
+    onSaveFile: codeView.handleSaveFile,
+    onDeleteFile: handleDeleteFile,
+    onRenameFile: handleRenameFile,
+    tree,
+    changes: mergedChanges,
+    expandedPaths: viewState.expandedPaths,
+    onToggleExpand: viewState.onToggleExpand,
+    worktreeRoot: tree?.path ?? null,
+    worktreeShellSessionId: worktreeSessionId,
+    projectShellSessionId: projectSessionId,
+    worktreeCwd: worktreeShellCwd,
+    onNewAgent: () => { overlays.setShowProjectPicker(true); overlays.setShowNewAgent(true) },
+  }
 
   if (!settings.setupCompleted) {
     return (
@@ -119,8 +156,6 @@ export function App(): React.JSX.Element {
     )
   }
 
-  const sidebarVisible = paneResize.paneVisibility.sidebar
-
   return (
     <div className={`layout-root ${themeClass}`}>
       {sidebarVisible ? (
@@ -140,7 +175,7 @@ export function App(): React.JSX.Element {
             onDeleteAgent={overlays.handleDeleteAgent}
             onNewAgent={overlays.handleNewAgentForProject}
             onOpenSettings={() => overlays.setShowSettings(true)}
-            onClose={() => paneResize.togglePane('sidebar')}
+            onClose={() => setSidebarVisible(false)}
           />
 
           <div
@@ -151,7 +186,7 @@ export function App(): React.JSX.Element {
       ) : (
         <div
           className="sidebar-collapsed"
-          onClick={() => paneResize.togglePane('sidebar')}
+          onClick={() => setSidebarVisible(true)}
           title="Expand sidebar"
         >
           <span className="sidebar-collapsed-arrow">{'\u25B6'}</span>
@@ -159,58 +194,25 @@ export function App(): React.JSX.Element {
       )}
 
       <div className="layout-main">
-        <MainPanes
-          panesRef={paneResize.panesRef}
-          rightAreaRef={paneResize.rightAreaRef}
-          leftPaneFraction={paneResize.leftPaneFraction}
-          centerFraction={paneResize.centerFraction}
-          rightPaneFraction={paneResize.rightPaneFraction}
-          bottomPaneFraction={paneResize.bottomPaneFraction}
-          handleDividerMouseDown={paneResize.handleDividerMouseDown}
-          paneVisibility={paneResize.paneVisibility}
-          onClosePane={paneResize.togglePane}
-          fileTreeVisible={paneResize.fileTreeVisible}
-          onCloseFileTree={paneResize.toggleFileTree}
-          modifiedFilesVisible={paneResize.modifiedFilesVisible}
-          onCloseModifiedFiles={paneResize.toggleModifiedFiles}
-          fileTreeSplitFraction={paneResize.fileTreeSplitFraction}
-          rightPaneRef={paneResize.rightPaneRef}
-          worktreeRoot={tree?.path ?? null}
-          sessionId={activeSessionId}
-          worktreeShellSessionId={worktreeSessionId}
-          projectShellSessionId={projectSessionId}
-          worktreeCwd={worktreeShellCwd}
-          scrollbackLines={settings.scrollbackLines}
-          terminalFontFamily={settings.terminalFontFamily}
-          fileDiffText={activeFileDiffText}
-          originalContent={originalContent}
-          openFiles={codeView.openFiles}
-          activeFilePath={codeView.activeFilePath}
-          fileContent={codeView.activeFileContent}
-          theme={themeId}
-          xtermTheme={xtermTheme}
-          tree={tree}
-          changes={mergedChanges}
-          onNewAgent={() => { overlays.setShowProjectPicker(true); overlays.setShowNewAgent(true) }}
-          onSelectFile={handleSelectFile}
-          onCloseFile={codeView.handleCloseFile}
-          onSaveFile={codeView.handleSaveFile}
-          onDeleteFile={handleDeleteFile}
-          onRenameFile={handleRenameFile}
-          expandedPaths={viewState.expandedPaths}
-          onToggleExpand={viewState.onToggleExpand}
-        />
+        <DockStateContext.Provider value={dockState}>
+          <div style={{ flex: 1, overflow: 'hidden' }}>
+            <DockviewReact
+              className="dockview-theme-dark dockview-theme-manifold"
+              components={PANEL_COMPONENTS}
+              onReady={(e) => dockLayout.onReady(e.api)}
+              defaultTabComponent={DockTab}
+              watermarkComponent={EmptyWatermark}
+            />
+          </div>
+        </DockStateContext.Provider>
 
         <StatusBar
           activeSession={activeSession}
           changedFiles={mergedChanges}
           baseBranch={activeProject?.baseBranch ?? settings.defaultBaseBranch}
-          paneVisibility={paneResize.paneVisibility}
-          onTogglePane={paneResize.togglePane}
-          fileTreeVisible={paneResize.fileTreeVisible}
-          onToggleFileTree={paneResize.toggleFileTree}
-          modifiedFilesVisible={paneResize.modifiedFilesVisible}
-          onToggleModifiedFiles={paneResize.toggleModifiedFiles}
+          sidebarVisible={sidebarVisible}
+          onToggleSidebar={() => setSidebarVisible((v) => !v)}
+          dockLayout={dockLayout}
           conflicts={gitOps.conflicts}
           aheadBehind={gitOps.aheadBehind}
           onCommit={() => overlays.setActivePanel('commit')}
@@ -279,6 +281,25 @@ export function App(): React.JSX.Element {
         version={overlays.appVersion}
         onClose={() => overlays.setShowAbout(false)}
       />
+    </div>
+  )
+}
+
+function DockTab({ api }: { api: { title: string } }): React.JSX.Element {
+  return (
+    <div style={{ padding: '0 8px', fontSize: '11px', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+      {api.title}
+    </div>
+  )
+}
+
+function EmptyWatermark(): React.JSX.Element {
+  return (
+    <div style={{
+      display: 'flex', alignItems: 'center', justifyContent: 'center',
+      height: '100%', color: 'var(--text-muted)', fontSize: '12px',
+    }}>
+      Drag a panel here
     </div>
   )
 }

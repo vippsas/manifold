@@ -1,0 +1,52 @@
+/* Dockview theme — extends dockview-theme-dark, remaps colors to Manifold theme tokens.
+   Applied alongside dockview-theme-dark so all structural variables are inherited. */
+
+.dockview-theme-dark.dockview-theme-manifold {
+  --dv-background-color: var(--bg-primary);
+  --dv-paneview-header-border-color: var(--border);
+  --dv-tabs-and-actions-container-background-color: var(--bg-secondary);
+  --dv-tabs-and-actions-container-height: 24px;
+  --dv-tabs-and-actions-container-font-size: 11px;
+  --dv-activegroup-visiblepanel-tab-background-color: var(--bg-primary);
+  --dv-activegroup-hiddenpanel-tab-background-color: var(--bg-secondary);
+  --dv-inactivegroup-visiblepanel-tab-background-color: var(--bg-secondary);
+  --dv-inactivegroup-hiddenpanel-tab-background-color: var(--bg-secondary);
+  --dv-tab-divider-color: var(--border);
+  --dv-activegroup-visiblepanel-tab-color: var(--text-primary);
+  --dv-activegroup-hiddenpanel-tab-color: var(--text-muted);
+  --dv-inactivegroup-visiblepanel-tab-color: var(--text-secondary);
+  --dv-inactivegroup-hiddenpanel-tab-color: var(--text-muted);
+  --dv-separator-border: var(--border);
+  --dv-group-view-background-color: var(--bg-primary);
+  --dv-drag-over-background-color: rgba(0, 122, 204, 0.15);
+  --dv-drag-over-border-color: var(--accent);
+}
+
+/* Thin sash (resize handle) between panel groups */
+.dockview-theme-manifold .dv-split-view-container.dv-horizontal > .dv-sash-container > .dv-sash {
+  width: 1px;
+}
+.dockview-theme-manifold .dv-split-view-container.dv-vertical > .dv-sash-container > .dv-sash {
+  height: 1px;
+}
+
+/* Tab text styling */
+.dockview-theme-manifold .dv-tab {
+  font-family: var(--font-sans);
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+/* Active tab highlight — bottom border to clearly indicate selection */
+.dockview-theme-manifold .dv-groupview.dv-active-group > .dv-tabs-and-actions-container .dv-tab.dv-active-tab {
+  border-bottom: 2px solid var(--accent);
+}
+.dockview-theme-manifold .dv-groupview.dv-inactive-group > .dv-tabs-and-actions-container .dv-tab.dv-active-tab {
+  border-bottom: 2px solid var(--text-muted);
+}
+
+/* Panel content fills container */
+.dockview-theme-manifold .dv-groupview-content {
+  background-color: var(--bg-primary);
+}

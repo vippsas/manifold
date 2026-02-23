@@ -15,7 +15,6 @@ interface ShellTabsProps {
   scrollbackLines: number
   terminalFontFamily?: string
   xtermTheme?: ITheme
-  onClose?: () => void
 }
 
 function ExtraShellTerminal({
@@ -34,7 +33,7 @@ function ExtraShellTerminal({
 
 export function ShellTabs({
   worktreeSessionId, projectSessionId, worktreeCwd,
-  scrollbackLines, terminalFontFamily, xtermTheme, onClose,
+  scrollbackLines, terminalFontFamily, xtermTheme,
 }: ShellTabsProps): React.JSX.Element {
   const [activeTab, setActiveTab] = useState<string>(worktreeSessionId ? 'worktree' : 'project')
 
@@ -100,7 +99,7 @@ export function ShellTabs({
       <ShellTabBar
         effectiveTab={effectiveTab} worktreeSessionId={worktreeSessionId}
         extraShells={extraShells} onSetActiveTab={setActiveTab}
-        onRemoveShell={removeShell} onAddShell={() => void addShell()} onClose={onClose}
+        onRemoveShell={removeShell} onAddShell={() => void addShell()}
       />
       <div style={styles.terminalArea}>
         <div
@@ -138,11 +137,11 @@ function resolveEffectiveTab(activeTab: string, worktreeSessionId: string | null
 
 function ShellTabBar({
   effectiveTab, worktreeSessionId, extraShells,
-  onSetActiveTab, onRemoveShell, onAddShell, onClose,
+  onSetActiveTab, onRemoveShell, onAddShell,
 }: {
   effectiveTab: string; worktreeSessionId: string | null; extraShells: ExtraShell[]
   onSetActiveTab: (tab: string) => void; onRemoveShell: (id: string) => void
-  onAddShell: () => void; onClose?: () => void
+  onAddShell: () => void
 }): React.JSX.Element {
   const isMainTab = effectiveTab === 'worktree' || effectiveTab === 'project'
   const showingProject = effectiveTab === 'project'
@@ -188,12 +187,6 @@ function ShellTabBar({
       })}
       {worktreeSessionId && (
         <button style={styles.addTabButton} onClick={onAddShell} title="New shell tab">+</button>
-      )}
-      {onClose && (
-        <>
-          <span style={{ flex: 1 }} />
-          <button onClick={onClose} style={styles.closeButton} title="Close Shell">x</button>
-        </>
       )}
     </div>
   )

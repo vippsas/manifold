@@ -12,7 +12,7 @@ export function useFileOperations(
   codeViewCloseFile: (filePath: string) => void,
   codeViewRenameOpenFile: (oldPath: string, newPath: string) => void,
   centerVisible: boolean,
-  togglePane: (pane: 'left' | 'center' | 'right' | 'bottom' | 'sidebar') => void,
+  ensureEditorVisible: () => void,
   deleteFile: (filePath: string) => Promise<boolean>,
   renameFile: (oldPath: string, newPath: string) => Promise<boolean>
 ): UseFileOperationsResult {
@@ -21,10 +21,10 @@ export function useFileOperations(
       expandAncestors(filePath)
       codeViewSelectFile(filePath)
       if (!centerVisible) {
-        togglePane('center')
+        ensureEditorVisible()
       }
     },
-    [expandAncestors, codeViewSelectFile, centerVisible, togglePane]
+    [expandAncestors, codeViewSelectFile, centerVisible, ensureEditorVisible]
   )
 
   const handleDeleteFile = useCallback(

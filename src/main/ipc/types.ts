@@ -8,6 +8,7 @@ import { ViewStateStore } from '../view-state-store'
 import { ShellTabStore } from '../shell-tab-store'
 import { GitOperationsManager } from '../git-operations'
 import { BranchCheckoutManager } from '../branch-checkout-manager'
+import { DockLayoutStore } from '../dock-layout-store'
 import type { AgentSession } from '../../shared/types'
 
 export interface IpcDependencies {
@@ -21,6 +22,7 @@ export interface IpcDependencies {
   shellTabStore: ShellTabStore
   gitOps: GitOperationsManager
   branchCheckout: BranchCheckoutManager
+  dockLayoutStore: DockLayoutStore
 }
 
 export function resolveSession(sessionManager: SessionManager, sessionId: string): AgentSession {

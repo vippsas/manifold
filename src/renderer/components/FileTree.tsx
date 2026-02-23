@@ -12,7 +12,6 @@ interface FileTreeProps {
   onSelectFile: (path: string) => void
   onDeleteFile?: (path: string) => void
   onRenameFile?: (oldPath: string, newPath: string) => void
-  onClose?: () => void
 }
 
 export function FileTree({
@@ -24,7 +23,6 @@ export function FileTree({
   onSelectFile,
   onDeleteFile,
   onRenameFile,
-  onClose,
 }: FileTreeProps): React.JSX.Element {
   const [pendingDelete, setPendingDelete] = useState<{ path: string; name: string; isDirectory: boolean } | null>(null)
   const [renamingPath, setRenamingPath] = useState<string | null>(null)
@@ -85,21 +83,6 @@ export function FileTree({
 
   return (
     <div style={treeStyles.wrapper}>
-      <div style={treeStyles.header}>
-        <span style={treeStyles.headerTitle}>Files</span>
-        <span style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
-          {changes.length > 0 && (
-            <span style={treeStyles.changesButton}>
-              {changes.length} changed
-            </span>
-          )}
-          {onClose && (
-            <button onClick={onClose} style={treeStyles.closeButton} title="Close Files">
-              ×
-            </button>
-          )}
-        </span>
-      </div>
       <div style={treeStyles.treeContainer}>
         {tree ? (
           <TreeNode

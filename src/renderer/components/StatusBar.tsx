@@ -1,27 +1,23 @@
 import React from 'react'
 import type { AgentSession, FileChange, AheadBehind } from '../../shared/types'
-import type { PaneVisibility, PaneName } from '../hooks/usePaneResize'
+import type { UseDockLayoutResult, DockPanelId } from '../hooks/useDockLayout'
 
-const PANE_LABELS: Record<PaneName, string> = {
+const PANEL_LABELS: Record<DockPanelId | 'sidebar', string> = {
   sidebar: 'Sidebar',
-  left: 'Agent',
-  center: 'Editor',
-  right: 'Files',
-  bottom: 'Shell',
+  agent: 'Agent',
+  editor: 'Editor',
+  fileTree: 'Files',
+  modifiedFiles: 'Modified',
+  shell: 'Shell',
 }
-
-const ALL_VISIBLE: PaneVisibility = { sidebar: true, left: true, center: true, right: true, bottom: true }
 
 interface StatusBarProps {
   activeSession: AgentSession | null
   changedFiles: FileChange[]
   baseBranch: string
-  paneVisibility?: PaneVisibility
-  onTogglePane?: (pane: PaneName) => void
-  fileTreeVisible?: boolean
-  onToggleFileTree?: () => void
-  modifiedFilesVisible?: boolean
-  onToggleModifiedFiles?: () => void
+  sidebarVisible: boolean
+  onToggleSidebar: () => void
+  dockLayout: UseDockLayoutResult
   conflicts?: string[]
   aheadBehind?: AheadBehind
   onCommit?: () => void
@@ -33,12 +29,9 @@ export function StatusBar({
   activeSession,
   changedFiles,
   baseBranch,
-  paneVisibility = ALL_VISIBLE,
-  onTogglePane,
-  fileTreeVisible = true,
-  onToggleFileTree,
-  modifiedFilesVisible = true,
-  onToggleModifiedFiles,
+  sidebarVisible,
+  onToggleSidebar,
+  dockLayout,
   conflicts = [],
   aheadBehind,
   onCommit,
@@ -48,9 +41,9 @@ export function StatusBar({
   const hasConflicts = conflicts.length > 0
   const hasChanges = changedFiles.length > 0
   const hasAhead = (aheadBehind?.ahead ?? 0) > 0
-  const hiddenPanes = (Object.keys(paneVisibility) as PaneName[]).filter(
-    (pane) => !paneVisibility[pane]
-  )
+
+  const hiddenDockPanels = dockLayout.hiddenPanels
+  const showSidebarToggle = !sidebarVisible
 
   return (
     <div className="layout-status-bar">
@@ -100,36 +93,27 @@ export function StatusBar({
         </span>
       )}
       <span style={barStyles.spacer} />
-      {(hiddenPanes.length > 0 || !fileTreeVisible || !modifiedFilesVisible) && (
+      {(showSidebarToggle || hiddenDockPanels.length > 0) && (
         <span style={barStyles.toggleGroup}>
-          {onTogglePane && hiddenPanes.map((pane) => (
+          {showSidebarToggle && (
             <button
-              key={pane}
-              onClick={() => onTogglePane(pane)}
+              onClick={onToggleSidebar}
               style={barStyles.toggleButton}
-              title={`Show ${PANE_LABELS[pane]}`}
+              title="Show Sidebar"
             >
-              {PANE_LABELS[pane]}
+              {PANEL_LABELS.sidebar}
+            </button>
+          )}
+          {hiddenDockPanels.map((id) => (
+            <button
+              key={id}
+              onClick={() => dockLayout.togglePanel(id)}
+              style={barStyles.toggleButton}
+              title={`Show ${PANEL_LABELS[id]}`}
+            >
+              {PANEL_LABELS[id]}
             </button>
           ))}
-          {!fileTreeVisible && onToggleFileTree && (
-            <button
-              onClick={onToggleFileTree}
-              style={barStyles.toggleButton}
-              title="Show File Tree"
-            >
-              File Tree
-            </button>
-          )}
-          {!modifiedFilesVisible && onToggleModifiedFiles && (
-            <button
-              onClick={onToggleModifiedFiles}
-              style={barStyles.toggleButton}
-              title="Show Modified Files"
-            >
-              Modified
-            </button>
-          )}
         </span>
       )}
       <span style={barStyles.item}>
