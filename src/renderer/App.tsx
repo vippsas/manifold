@@ -1,5 +1,4 @@
-import React, { useState, useCallback, useMemo, useEffect } from 'react'
-import type { SpawnAgentOptions, FileChange } from '../shared/types'
+import React, { useCallback, useMemo } from 'react'
 import { useProjects } from './hooks/useProjects'
 import { useAgentSession } from './hooks/useAgentSession'
 import { useFileWatcher } from './hooks/useFileWatcher'
@@ -15,6 +14,9 @@ import { useTheme } from './hooks/useTheme'
 import { useSidebarResize } from './hooks/useSidebarResize'
 import { useSessionStatePersistence } from './hooks/useSessionStatePersistence'
 import { useStatusNotification } from './hooks/useStatusNotification'
+import { useFileDiff } from './hooks/useFileDiff'
+import { useFileOperations } from './hooks/useFileOperations'
+import { useAppOverlays } from './hooks/useAppOverlays'
 import { ProjectSidebar } from './components/ProjectSidebar'
 import { MainPanes } from './components/MainPanes'
 import { NewTaskModal } from './components/NewTaskModal'
@@ -46,89 +48,26 @@ export function App(): React.JSX.Element {
 
   const { tree, changes: watcherChanges, deleteFile, renameFile } = useFileWatcher(activeSessionId, handleFilesChanged)
 
-  // Merge both change sources: useDiff (committed changes vs base branch) and
-  // useFileWatcher (uncommitted changes from git status polling). The watcher
-  // changes update every 2s via polling while diff changes require an async IPC
-  // round-trip, so merging ensures the file tree shows indicators immediately.
-  const mergedChanges = useMemo(() => {
-    const map = new Map<string, FileChange>()
-    for (const c of changedFiles) map.set(c.path, c)
-    for (const c of watcherChanges) map.set(c.path, c)
-    return Array.from(map.values())
-  }, [changedFiles, watcherChanges])
-
-  const activeFileDiffText = useMemo(() => {
-    if (!codeView.activeFilePath || !diff) return null
-    const worktreeRoot = tree?.path ?? ''
-    const relativePath = worktreeRoot
-      ? codeView.activeFilePath.replace(worktreeRoot.replace(/\/$/, '') + '/', '')
-      : codeView.activeFilePath
-    const chunks = diff.split(/^(?=diff --git )/m)
-    return chunks.find((chunk) => chunk.includes(`a/${relativePath} b/`)) ?? null
-  }, [diff, codeView.activeFilePath, tree?.path])
-
-  // Fetch original file content from base branch for diff view
-  const [originalContent, setOriginalContent] = useState<string | null>(null)
-  const activeFileRelativePath = useMemo(() => {
-    if (!codeView.activeFilePath) return null
-    const worktreeRoot = tree?.path ?? ''
-    return worktreeRoot
-      ? codeView.activeFilePath.replace(worktreeRoot.replace(/\/$/, '') + '/', '')
-      : codeView.activeFilePath
-  }, [codeView.activeFilePath, tree?.path])
-
-  useEffect(() => {
-    if (!activeFileDiffText || !activeSessionId || !activeFileRelativePath) {
-      setOriginalContent(null)
-      return
-    }
-    let cancelled = false
-    void (async (): Promise<void> => {
-      try {
-        const content = (await window.electronAPI.invoke(
-          'diff:file-original',
-          activeSessionId,
-          activeFileRelativePath
-        )) as string | null
-        if (!cancelled) setOriginalContent(content)
-      } catch {
-        if (!cancelled) setOriginalContent(null)
-      }
-    })()
-    return () => { cancelled = true }
-  }, [activeFileDiffText, activeSessionId, activeFileRelativePath])
+  const { mergedChanges, activeFileDiffText, originalContent } = useFileDiff(
+    activeSessionId,
+    diff,
+    changedFiles,
+    watcherChanges,
+    codeView.activeFilePath,
+    tree?.path ?? null
+  )
 
   const viewState = useViewState(activeSessionId, tree)
 
-  const handleSelectFile = useCallback(
-    (filePath: string): void => {
-      viewState.expandAncestors(filePath)
-      codeView.handleSelectFile(filePath)
-      if (!paneResize.paneVisibility.center) {
-        paneResize.togglePane('center')
-      }
-    },
-    [viewState.expandAncestors, codeView.handleSelectFile, paneResize.paneVisibility.center, paneResize.togglePane]
-  )
-
-  const handleDeleteFile = useCallback(
-    async (filePath: string): Promise<void> => {
-      const success = await deleteFile(filePath)
-      if (success) {
-        codeView.handleCloseFile(filePath)
-      }
-    },
-    [deleteFile, codeView.handleCloseFile]
-  )
-
-  const handleRenameFile = useCallback(
-    async (oldPath: string, newPath: string): Promise<void> => {
-      const success = await renameFile(oldPath, newPath)
-      if (success) {
-        codeView.handleRenameOpenFile(oldPath, newPath)
-      }
-    },
-    [renameFile, codeView.handleRenameOpenFile]
+  const { handleSelectFile, handleDeleteFile, handleRenameFile } = useFileOperations(
+    viewState.expandAncestors,
+    codeView.handleSelectFile,
+    codeView.handleCloseFile,
+    codeView.handleRenameOpenFile,
+    paneResize.paneVisibility.center,
+    paneResize.togglePane,
+    deleteFile,
+    renameFile
   )
 
   useSessionStatePersistence(activeSessionId, viewState, codeView)
@@ -141,62 +80,20 @@ export function App(): React.JSX.Element {
 
   const gitOps = useGitOperations(activeSessionId)
 
-  const [activePanel, setActivePanel] = useState<'commit' | 'pr' | 'conflicts' | null>(null)
-  const [showNewAgent, setShowNewAgent] = useState(false)
-  const [showProjectPicker, setShowProjectPicker] = useState(false)
-  const [showSettings, setShowSettings] = useState(false)
-  const [showAbout, setShowAbout] = useState(false)
-  const [appVersion, setAppVersion] = useState('')
+  const overlays = useAppOverlays(
+    gitOps.commit,
+    refreshDiff,
+    spawnAgent,
+    deleteAgent,
+    removeSession,
+    updateSettings,
+    setActiveSession,
+    setActiveProject,
+    activeProjectId
+  )
 
   const { themeId, themeClass, xtermTheme, setPreviewThemeId } = useTheme(settings.theme)
   const { sidebarWidth, handleSidebarDividerMouseDown } = useSidebarResize()
-
-  const handleCommit = useCallback(async (message: string): Promise<void> => {
-    await gitOps.commit(message)
-    void refreshDiff()
-    setActivePanel('pr')
-  }, [gitOps.commit, refreshDiff])
-
-  const handleClosePanel = useCallback((): void => { setActivePanel(null) }, [])
-
-  const handleLaunchAgent = useCallback((options: SpawnAgentOptions): void => {
-    void spawnAgent(options)
-    setShowNewAgent(false)
-  }, [spawnAgent])
-
-  const handleDeleteAgent = useCallback((sessionId: string): void => {
-    void deleteAgent(sessionId)
-    removeSession(sessionId)
-    void window.electronAPI.invoke('view-state:delete', sessionId)
-  }, [deleteAgent, removeSession])
-
-  const handleSelectSession = useCallback((sessionId: string, projectId: string): void => {
-    setActiveSession(sessionId)
-    if (projectId !== activeProjectId) setActiveProject(projectId)
-  }, [activeProjectId, setActiveSession, setActiveProject])
-
-  const handleNewAgentForProject = useCallback((projectId: string): void => {
-    if (projectId !== activeProjectId) setActiveProject(projectId)
-    setShowProjectPicker(false)
-    setShowNewAgent(true)
-  }, [activeProjectId, setActiveProject])
-
-  const handleSaveSettings = useCallback((partial: Partial<typeof settings>): void => {
-    void updateSettings(partial)
-  }, [updateSettings])
-
-  const handleSetupComplete = useCallback((): void => {
-    void updateSettings({ setupCompleted: true })
-  }, [updateSettings])
-
-  React.useEffect(() => {
-    void window.electronAPI.invoke('app:version').then((v) => setAppVersion(v as string))
-  }, [])
-
-  React.useEffect(() => {
-    const unsub = window.electronAPI.on('show-about', () => setShowAbout(true))
-    return unsub
-  }, [])
 
   if (!settings.setupCompleted) {
     return (
@@ -204,7 +101,7 @@ export function App(): React.JSX.Element {
         <WelcomeDialog
           onAddProject={() => void addProject()}
           onCloneProject={(url) => void cloneProject(url)}
-          onComplete={handleSetupComplete}
+          onComplete={overlays.handleSetupComplete}
         />
       </div>
     )
@@ -235,14 +132,14 @@ export function App(): React.JSX.Element {
             allProjectSessions={sessionsByProject}
             activeSessionId={activeSessionId}
             onSelectProject={setActiveProject}
-            onSelectSession={handleSelectSession}
+            onSelectSession={overlays.handleSelectSession}
             onAddProject={addProject}
             onRemoveProject={removeProject}
             onUpdateProject={updateProject}
             onCloneProject={(url: string) => void cloneProject(url)}
-            onDeleteAgent={handleDeleteAgent}
-            onNewAgent={handleNewAgentForProject}
-            onOpenSettings={() => setShowSettings(true)}
+            onDeleteAgent={overlays.handleDeleteAgent}
+            onNewAgent={overlays.handleNewAgentForProject}
+            onOpenSettings={() => overlays.setShowSettings(true)}
             onClose={() => paneResize.togglePane('sidebar')}
           />
 
@@ -294,7 +191,7 @@ export function App(): React.JSX.Element {
           xtermTheme={xtermTheme}
           tree={tree}
           changes={mergedChanges}
-          onNewAgent={() => { setShowProjectPicker(true); setShowNewAgent(true) }}
+          onNewAgent={() => { overlays.setShowProjectPicker(true); overlays.setShowNewAgent(true) }}
           onSelectFile={handleSelectFile}
           onCloseFile={codeView.handleCloseFile}
           onSaveFile={codeView.handleSaveFile}
@@ -316,24 +213,24 @@ export function App(): React.JSX.Element {
           onToggleModifiedFiles={paneResize.toggleModifiedFiles}
           conflicts={gitOps.conflicts}
           aheadBehind={gitOps.aheadBehind}
-          onCommit={() => setActivePanel('commit')}
-          onCreatePR={() => setActivePanel('pr')}
-          onShowConflicts={() => setActivePanel('conflicts')}
+          onCommit={() => overlays.setActivePanel('commit')}
+          onCreatePR={() => overlays.setActivePanel('pr')}
+          onShowConflicts={() => overlays.setActivePanel('conflicts')}
         />
       </div>
 
-      {activePanel === 'commit' && activeSessionId && (
+      {overlays.activePanel === 'commit' && activeSessionId && (
         <CommitPanel
           changedFiles={mergedChanges}
           diff={diff}
           autoGenerateMessages={autoGenerateMessages}
-          onCommit={handleCommit}
+          onCommit={overlays.handleCommit}
           onAiGenerate={gitOps.aiGenerate}
-          onClose={handleClosePanel}
+          onClose={overlays.handleClosePanel}
         />
       )}
 
-      {activePanel === 'pr' && activeSessionId && activeSession && (
+      {overlays.activePanel === 'pr' && activeSessionId && activeSession && (
         <PRPanel
           sessionId={activeSessionId}
           branchName={activeSession.branchName}
@@ -341,46 +238,46 @@ export function App(): React.JSX.Element {
           autoGenerateMessages={autoGenerateMessages}
           onAiGenerate={gitOps.aiGenerate}
           getPRContext={gitOps.getPRContext}
-          onClose={handleClosePanel}
+          onClose={overlays.handleClosePanel}
         />
       )}
 
-      {activePanel === 'conflicts' && activeSessionId && (
+      {overlays.activePanel === 'conflicts' && activeSessionId && (
         <ConflictPanel
           sessionId={activeSessionId}
           conflicts={gitOps.conflicts}
           onAiGenerate={gitOps.aiGenerate}
           onResolveConflict={gitOps.resolveConflict}
           onSelectFile={handleSelectFile}
-          onClose={handleClosePanel}
+          onClose={overlays.handleClosePanel}
         />
       )}
 
       {activeProjectId && (
         <NewTaskModal
-          visible={showNewAgent}
+          visible={overlays.showNewAgent}
           projectId={activeProjectId}
           projectName={activeProject?.name ?? ''}
           baseBranch={activeProject?.baseBranch ?? 'main'}
           defaultRuntime={settings.defaultRuntime}
-          onLaunch={handleLaunchAgent}
-          onClose={() => setShowNewAgent(false)}
-          projects={showProjectPicker ? projects : undefined}
+          onLaunch={overlays.handleLaunchAgent}
+          onClose={() => overlays.setShowNewAgent(false)}
+          projects={overlays.showProjectPicker ? projects : undefined}
         />
       )}
 
       <SettingsModal
-        visible={showSettings}
+        visible={overlays.showSettings}
         settings={settings}
-        onSave={handleSaveSettings}
-        onClose={() => setShowSettings(false)}
+        onSave={overlays.handleSaveSettings}
+        onClose={() => overlays.setShowSettings(false)}
         onPreviewTheme={setPreviewThemeId}
       />
 
       <AboutOverlay
-        visible={showAbout}
-        version={appVersion}
-        onClose={() => setShowAbout(false)}
+        visible={overlays.showAbout}
+        version={overlays.appVersion}
+        onClose={() => overlays.setShowAbout(false)}
       />
     </div>
   )

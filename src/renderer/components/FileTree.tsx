@@ -460,7 +460,6 @@ function NodeRow({
             : <span style={treeStyles.fileIcon}>{'\uD83D\uDCC4'}</span>
         })()
       )}
-<<<<<<< HEAD
       {isRenaming ? (
         <input
           autoFocus
@@ -481,12 +480,6 @@ function NodeRow({
         </span>
       )}
       {!isRenaming && indicator && (
-=======
-      <span className="truncate" style={treeStyles.nodeName}>
-        {node.name}
-      </span>
-      {indicator && (
->>>>>>> origin/main
         <span style={{ ...treeStyles.indicator, color: indicator.color }} title={changeType ?? undefined}>
           {indicator.label}
         </span>
