@@ -63,7 +63,8 @@ export class SessionManager {
         project.path,
         project.baseBranch,
         project.name,
-        options.branchName
+        options.branchName,
+        options.prompt
       )
     }
 

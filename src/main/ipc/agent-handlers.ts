@@ -6,10 +6,10 @@ import type { IpcDependencies } from './types'
 export function registerAgentHandlers(deps: IpcDependencies): void {
   const { sessionManager, fileWatcher, viewStateStore } = deps
 
-  ipcMain.handle('branch:suggest', async (_event, projectId: string) => {
+  ipcMain.handle('branch:suggest', async (_event, projectId: string, taskDescription: string) => {
     const project = deps.projectRegistry.getProject(projectId)
     if (!project) throw new Error(`Project not found: ${projectId}`)
-    return generateBranchName(project.path)
+    return generateBranchName(project.path, taskDescription ?? '')
   })
 
   ipcMain.handle('agent:spawn', async (_event, options: SpawnAgentOptions) => {
