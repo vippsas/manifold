@@ -205,51 +205,58 @@ function NoProjectActions({
         Start a new project
       </div>
       <form ref={formRef} onSubmit={handleCreateSubmit} style={{ display: 'flex', flexDirection: 'column', gap: 10, width: 480, maxWidth: '90%' }}>
-        <textarea
-          value={description}
-          onChange={(e) => setDescription(e.target.value)}
-          placeholder="Describe your project idea..."
-          autoFocus
-          rows={5}
-          style={{
-            padding: '10px 14px',
-            fontSize: 13,
-            lineHeight: 1.5,
-            backgroundColor: 'var(--bg-input)',
-            color: 'var(--text-primary)',
-            border: '1px solid var(--border)',
-            borderRadius: 8,
-            outline: 'none',
-            resize: 'vertical',
-            fontFamily: 'inherit',
-          }}
-          onKeyDown={(e) => {
-            if (e.key === 'Enter' && e.metaKey && canSubmit) {
-              e.preventDefault()
-              formRef.current?.requestSubmit()
-            }
-          }}
-        />
+        <div style={{ position: 'relative' }}>
+          <textarea
+            value={description}
+            onChange={(e) => setDescription(e.target.value)}
+            placeholder="Describe your project idea..."
+            autoFocus
+            rows={5}
+            style={{
+              width: '100%',
+              padding: '10px 14px',
+              paddingBottom: 44,
+              fontSize: 13,
+              lineHeight: 1.5,
+              backgroundColor: 'var(--bg-input)',
+              color: 'var(--text-primary)',
+              border: '1px solid var(--border)',
+              borderRadius: 8,
+              outline: 'none',
+              resize: 'vertical',
+              fontFamily: 'inherit',
+              boxSizing: 'border-box',
+            }}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter' && e.metaKey && canSubmit) {
+                e.preventDefault()
+                formRef.current?.requestSubmit()
+              }
+            }}
+          />
+          <button
+            type="submit"
+            disabled={!canSubmit}
+            style={{
+              ...buttonStyle,
+              padding: '6px 16px',
+              fontSize: 13,
+              opacity: canSubmit ? 1 : 0.5,
+              position: 'absolute',
+              right: 8,
+              bottom: 8,
+              display: 'flex',
+              alignItems: 'center',
+              gap: 6,
+            }}
+          >
+            {creatingProject && <span className="spinner" />}
+            {creatingProject ? 'Creating...' : 'Go'}
+          </button>
+        </div>
         {createError && (
           <div style={{ fontSize: 12, color: 'var(--status-error, #f44)' }}>{createError}</div>
         )}
-        <button
-          type="submit"
-          disabled={!canSubmit}
-          style={{
-            ...buttonStyle,
-            padding: '10px 24px',
-            fontSize: 14,
-            opacity: canSubmit ? 1 : 0.5,
-            alignSelf: 'flex-end',
-            display: 'flex',
-            alignItems: 'center',
-            gap: 8,
-          }}
-        >
-          {creatingProject && <span className="spinner" />}
-          {creatingProject ? 'Creating...' : 'Go'}
-        </button>
       </form>
 
       <div style={{
