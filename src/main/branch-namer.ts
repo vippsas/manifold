@@ -1,28 +1,7 @@
 import * as path from 'node:path'
 import { gitExec } from './git-exec'
 
-const NORWEGIAN_CITIES: readonly string[] = [
-  'Oslo', 'Bergen', 'Trondheim', 'Stavanger', 'Drammen',
-  'Fredrikstad', 'Kristiansand', 'Sandnes', 'Tromsø', 'Sarpsborg',
-  'Bodø', 'Sandefjord', 'Ålesund', 'Larvik', 'Tønsberg',
-  'Arendal', 'Haugesund', 'Porsgrunn', 'Skien', 'Moss',
-  'Halden', 'Harstad', 'Molde', 'Lillehammer', 'Kongsberg',
-  'Gjøvik', 'Horten', 'Narvik', 'Hammerfest', 'Alta',
-  'Hamar', 'Elverum', 'Steinkjer', 'Namsos', 'Kristiansund',
-  'Grimstad', 'Mandal', 'Flekkefjord', 'Egersund', 'Bryne',
-  'Leirvik', 'Odda', 'Voss', 'Førde', 'Florø',
-  'Ørsta', 'Volda', 'Ulsteinvik', 'Fosnavåg', 'Åndalsnes',
-  'Sunndalsøra', 'Orkanger', 'Malvik', 'Verdal', 'Levanger',
-  'Røros', 'Tynset', 'Mosjøen', 'Sandnessjøen', 'Mo',
-  'Fauske', 'Sortland', 'Svolvær', 'Leknes', 'Stokmarknes',
-  'Finnsnes', 'Bardufoss', 'Sjøvegan', 'Skånland', 'Kvæfjord',
-  'Honningsvåg', 'Lakselv', 'Tana', 'Vadsø', 'Vardø',
-  'Kirkenes', 'Kautokeino', 'Karasjok', 'Båtsfjord', 'Berlevåg',
-  'Kongsvinger', 'Mysen', 'Askim', 'Ski', 'Ås',
-  'Drøbak', 'Lillestrøm', 'Jessheim', 'Eidsvoll', 'Hønefoss',
-  'Fagernes', 'Rjukan', 'Notodden', 'Bø', 'Kragerø',
-  'Risør', 'Lyngdal', 'Farsund', 'Sirdal', 'Sauda'
-] as const
+const MAX_SLUG_LENGTH = 50
 
 export function slugify(name: string): string {
   return name
@@ -33,6 +12,8 @@ export function slugify(name: string): string {
     .replace(/[^a-z0-9]/g, '-')
     .replace(/-+/g, '-')
     .replace(/^-|-$/g, '')
+    .slice(0, MAX_SLUG_LENGTH)
+    .replace(/-$/, '')
 }
 
 async function getExistingBranches(repoPath: string): Promise<Set<string>> {
@@ -40,34 +21,32 @@ async function getExistingBranches(repoPath: string): Promise<Set<string>> {
   return new Set(stdout.trim().split('\n').filter(Boolean))
 }
 
-export async function generateBranchName(repoPath: string): Promise<string> {
+export async function generateBranchName(repoPath: string, taskDescription: string): Promise<string> {
   const prefix = repoPrefix(repoPath)
-  const existing = await getExistingBranches(repoPath)
+  const slug = slugify(taskDescription)
 
-  for (const city of NORWEGIAN_CITIES) {
-    const slug = slugify(city)
-    const candidate = `${prefix}${slug}`
+  if (!slug) {
+    return `${prefix}task-${Date.now()}`
+  }
+
+  const existing = await getExistingBranches(repoPath)
+  const base = `${prefix}${slug}`
+
+  if (!existing.has(base)) {
+    return base
+  }
+
+  // Append numeric suffix to deduplicate
+  let suffix = 2
+  while (suffix <= 999) {
+    const candidate = `${base}-${suffix}`
     if (!existing.has(candidate)) {
       return candidate
     }
+    suffix++
   }
 
-  // All base names taken; append numeric suffixes
-  for (const city of NORWEGIAN_CITIES) {
-    const slug = slugify(city)
-    let suffix = 2
-    while (suffix <= 999) {
-      const candidate = `${prefix}${slug}-${suffix}`
-      if (!existing.has(candidate)) {
-        return candidate
-      }
-      suffix++
-    }
-  }
-
-  // Extremely unlikely fallback
-  const fallback = `${prefix}session-${Date.now()}`
-  return fallback
+  return `${prefix}task-${Date.now()}`
 }
 
 export function repoPrefix(repoPath: string): string {

@@ -20,9 +20,10 @@ export class WorktreeManager {
     projectPath: string,
     baseBranch: string,
     projectName: string,
-    branchName?: string
+    branchName?: string,
+    taskDescription?: string
   ): Promise<WorktreeInfo> {
-    const branch = branchName ?? (await generateBranchName(projectPath))
+    const branch = branchName ?? (await generateBranchName(projectPath, taskDescription ?? ''))
     const worktreeBase = this.getWorktreeBase(projectName)
     fs.mkdirSync(worktreeBase, { recursive: true })
 

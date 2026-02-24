@@ -70,12 +70,19 @@ describe('slugify', () => {
     expect(slugify('Bergen')).toBe('bergen')
   })
 
-  it('handles Bodø correctly', () => {
-    expect(slugify('Bodø')).toBe('bodo')
+  it('slugifies a task description', () => {
+    expect(slugify('Fix the login button')).toBe('fix-the-login-button')
   })
 
-  it('handles Gjøvik correctly', () => {
-    expect(slugify('Gjøvik')).toBe('gjovik')
+  it('truncates long descriptions to 50 chars without trailing hyphen', () => {
+    const long = 'a'.repeat(60)
+    const result = slugify(long)
+    expect(result.length).toBeLessThanOrEqual(50)
+    expect(result).not.toMatch(/-$/)
+  })
+
+  it('returns empty string for empty input', () => {
+    expect(slugify('')).toBe('')
   })
 })
 
@@ -98,69 +105,39 @@ describe('generateBranchName', () => {
     vi.clearAllMocks()
   })
 
-  it('returns the first city slug when no branches exist', async () => {
+  it('slugifies the task description into a branch name', async () => {
     fakeSpawnSuccess('')
 
-    const name = await generateBranchName('/repo')
-    expect(name).toBe('repo/oslo')
+    const name = await generateBranchName('/repo', 'Fix the login button')
+    expect(name).toBe('repo/fix-the-login-button')
   })
 
-  it('skips already-taken branch names', async () => {
-    fakeSpawnSuccess('repo/oslo\n')
+  it('appends numeric suffix when branch already exists', async () => {
+    fakeSpawnSuccess('repo/fix-the-login-button\n')
 
-    const name = await generateBranchName('/repo')
-    expect(name).toBe('repo/bergen')
+    const name = await generateBranchName('/repo', 'Fix the login button')
+    expect(name).toBe('repo/fix-the-login-button-2')
   })
 
-  it('skips multiple taken names', async () => {
-    fakeSpawnSuccess('repo/oslo\nrepo/bergen\nrepo/trondheim\n')
+  it('increments suffix when multiple duplicates exist', async () => {
+    fakeSpawnSuccess('repo/fix-bug\nrepo/fix-bug-2\nrepo/fix-bug-3\n')
 
-    const name = await generateBranchName('/repo')
-    expect(name).toBe('repo/stavanger')
+    const name = await generateBranchName('/repo', 'Fix bug')
+    expect(name).toBe('repo/fix-bug-4')
   })
 
-  it('appends numeric suffix when all base names are taken', async () => {
-    const allBaseNames = [
-      'oslo', 'bergen', 'trondheim', 'stavanger', 'drammen',
-      'fredrikstad', 'kristiansand', 'sandnes', 'tromso', 'sarpsborg',
-      'bodo', 'sandefjord', 'alesund', 'larvik', 'tonsberg',
-      'arendal', 'haugesund', 'porsgrunn', 'skien', 'moss',
-      'halden', 'harstad', 'molde', 'lillehammer', 'kongsberg',
-      'gjovik', 'horten', 'narvik', 'hammerfest', 'alta',
-      'hamar', 'elverum', 'steinkjer', 'namsos', 'kristiansund',
-      'grimstad', 'mandal', 'flekkefjord', 'egersund', 'bryne',
-      'leirvik', 'odda', 'voss', 'forde', 'floro',
-      'orsta', 'volda', 'ulsteinvik', 'fosnavag', 'andalsnes',
-      'sunndalsora', 'orkanger', 'malvik', 'verdal', 'levanger',
-      'roros', 'tynset', 'mosjoen', 'sandnessjoen', 'mo',
-      'fauske', 'sortland', 'svolvaer', 'leknes', 'stokmarknes',
-      'finnsnes', 'bardufoss', 'sjovegan', 'skanland', 'kvaefjord',
-      'honningsvag', 'lakselv', 'tana', 'vadso', 'vardo',
-      'kirkenes', 'kautokeino', 'karasjok', 'batsfjord', 'berlevag',
-      'kongsvinger', 'mysen', 'askim', 'ski', 'as',
-      'drobak', 'lillestrom', 'jessheim', 'eidsvoll', 'honefoss',
-      'fagernes', 'rjukan', 'notodden', 'bo', 'kragero',
-      'risor', 'lyngdal', 'farsund', 'sirdal', 'sauda',
-    ]
-
-    const allBranches = allBaseNames.map((slug) => `repo/${slug}`).join('\n')
-    fakeSpawnSuccess(allBranches + '\n')
-
-    const name = await generateBranchName('/repo')
-    expect(name).toBe('repo/oslo-2')
-  })
-
-  it('result uses repo name as prefix', async () => {
+  it('falls back to timestamp when description is empty', async () => {
     fakeSpawnSuccess('')
 
-    const name = await generateBranchName('/repo')
-    expect(name).toMatch(/^repo\//)
+    const name = await generateBranchName('/repo', '')
+    expect(name).toMatch(/^repo\/task-\d+$/)
   })
 
   it('uses project directory name as prefix', async () => {
     fakeSpawnSuccess('')
 
-    const name = await generateBranchName('/Users/sven/code/my-app')
+    const name = await generateBranchName('/Users/sven/code/my-app', 'Add tests')
     expect(name).toMatch(/^my-app\//)
+    expect(name).toBe('my-app/add-tests')
   })
 })

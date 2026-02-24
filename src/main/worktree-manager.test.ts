@@ -12,7 +12,7 @@ vi.mock('node:path', () => ({
 }))
 
 vi.mock('./branch-namer', () => ({
-  generateBranchName: vi.fn().mockResolvedValue('repo/oslo'),
+  generateBranchName: vi.fn().mockResolvedValue('repo/fix-login-button'),
   repoPrefix: (repoPath: string) => (repoPath.split('/').pop() || '').toLowerCase() + '/',
 }))
 
@@ -94,18 +94,18 @@ describe('WorktreeManager', () => {
   })
 
   describe('createWorktree', () => {
-    it('creates a worktree with a generated branch name', async () => {
+    it('creates a worktree with a generated branch name from task description', async () => {
       mockSpawnReturns('')
 
-      const result = await manager.createWorktree('/repo', 'main', 'proj-1')
+      const result = await manager.createWorktree('/repo', 'main', 'proj-1', undefined, 'Fix login button')
 
-      expect(generateBranchName).toHaveBeenCalledWith('/repo')
-      expect(result.branch).toBe('repo/oslo')
-      expect(result.path).toContain('repo-oslo')
+      expect(generateBranchName).toHaveBeenCalledWith('/repo', 'Fix login button')
+      expect(result.branch).toBe('repo/fix-login-button')
+      expect(result.path).toContain('repo-fix-login-button')
       expect(result.path).toContain('/mock-home/.manifold/worktrees/proj-1/')
       expect(mockSpawn).toHaveBeenCalledWith(
         'git',
-        ['worktree', 'add', '-b', 'repo/oslo', expect.stringContaining('repo-oslo'), 'main'],
+        ['worktree', 'add', '-b', 'repo/fix-login-button', expect.stringContaining('repo-fix-login-button'), 'main'],
         { cwd: '/repo', stdio: ['ignore', 'pipe', 'pipe'] }
       )
     })

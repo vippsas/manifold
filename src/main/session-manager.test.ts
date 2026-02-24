@@ -117,7 +117,7 @@ describe('SessionManager', () => {
       expect(session.status).toBe('running')
       expect(session.pid).toBe(999)
 
-      expect(worktreeManager.createWorktree).toHaveBeenCalledWith('/repo', 'main', 'test', undefined)
+      expect(worktreeManager.createWorktree).toHaveBeenCalledWith('/repo', 'main', 'test', undefined, 'do something')
       expect(ptyPool.spawn).toHaveBeenCalledWith(
         'claude',
         ['--dangerously-skip-permissions'],
@@ -165,7 +165,7 @@ describe('SessionManager', () => {
         branchName: 'manifold/custom',
       })
 
-      expect(worktreeManager.createWorktree).toHaveBeenCalledWith('/repo', 'main', 'test', 'manifold/custom')
+      expect(worktreeManager.createWorktree).toHaveBeenCalledWith('/repo', 'main', 'test', 'manifold/custom', 'test')
     })
   })
 
