@@ -141,20 +141,19 @@ describe('ProjectSidebar', () => {
     expect(props.onSelectSession).toHaveBeenCalledWith('s2', 'p1')
   })
 
-  it('renders + New Agent button under every project', () => {
+  it('renders a single + New Agent button in the sidebar header', () => {
     renderSidebar()
 
     const newAgentButtons = screen.getAllByText('+ New Agent')
-    expect(newAgentButtons).toHaveLength(2)
+    expect(newAgentButtons).toHaveLength(1)
   })
 
-  it('calls onNewAgent with projectId when + New Agent is clicked', () => {
+  it('calls onNewAgent with no arguments when + New Agent is clicked', () => {
     const { props } = renderSidebar()
 
-    const newAgentButtons = screen.getAllByText('+ New Agent')
-    fireEvent.click(newAgentButtons[0])
+    fireEvent.click(screen.getByText('+ New Agent'))
 
-    expect(props.onNewAgent).toHaveBeenCalledWith('p1')
+    expect(props.onNewAgent).toHaveBeenCalled()
   })
 
   it('highlights the active agent item', () => {

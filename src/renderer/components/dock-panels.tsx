@@ -39,7 +39,7 @@ export interface DockAppState {
   projectShellSessionId: string | null
   worktreeCwd: string | null
   // Onboarding
-  onNewAgent: (description: string) => void
+  onNewAgentWithDescription: (description: string) => void
   // Projects panel
   projects: Project[]
   activeProjectId: string | null
@@ -49,7 +49,7 @@ export interface DockAppState {
   onRemoveProject: (id: string) => void
   onUpdateProject: (id: string, partial: Partial<Omit<Project, 'id'>>) => void
   onDeleteAgent: (id: string) => void
-  onNewAgentForProject: (projectId: string) => void
+  onNewAgentFromHeader: () => void
   onNewProject: () => void
   onOpenSettings: () => void
 }
@@ -75,7 +75,7 @@ export const PANEL_COMPONENTS: Record<string, React.FC<any>> = {
 function AgentPanel(): React.JSX.Element {
   const s = useDockState()
   if (!s.sessionId) {
-    return <OnboardingView variant="no-agent" onNewAgent={s.onNewAgent} />
+    return <OnboardingView variant="no-agent" onNewAgent={s.onNewAgentWithDescription} />
   }
   return (
     <TerminalPane
@@ -165,7 +165,7 @@ function ProjectsPanel(): React.JSX.Element {
       onRemoveProject={s.onRemoveProject}
       onUpdateProject={s.onUpdateProject}
       onDeleteAgent={s.onDeleteAgent}
-      onNewAgent={s.onNewAgentForProject}
+      onNewAgent={s.onNewAgentFromHeader}
       onNewProject={s.onNewProject}
       onOpenSettings={s.onOpenSettings}
     />
