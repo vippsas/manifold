@@ -1,4 +1,4 @@
-import React, { useState, useCallback } from 'react'
+import React, { useRef, useState, useCallback } from 'react'
 
 const LOGO = `  .--.      __  ___            _ ____      __    __
  / oo \\    /  |/  /___ _____  (_) __/___  / /___/ /
@@ -27,6 +27,10 @@ interface NoProjectProps {
   variant: 'no-project'
   onAddProject: () => void
   onCloneProject: (url: string) => void
+  onCreateNewProject: (description: string) => void
+  creatingProject?: boolean
+  createError?: string | null
+  onBack?: () => void
 }
 
 interface NoAgentProps {
@@ -57,7 +61,32 @@ export function OnboardingView(props: OnboardingViewProps): React.JSX.Element {
       </pre>
 
       {props.variant === 'no-project' ? (
-        <NoProjectActions onAddProject={props.onAddProject} onCloneProject={props.onCloneProject} />
+        <>
+          <NoProjectActions
+            onAddProject={props.onAddProject}
+            onCloneProject={props.onCloneProject}
+            onCreateNewProject={props.onCreateNewProject}
+            creatingProject={props.creatingProject}
+            createError={props.createError}
+          />
+          {props.onBack && (
+            <button
+              onClick={props.onBack}
+              style={{
+                marginTop: 8,
+                padding: '6px 16px',
+                fontSize: 12,
+                color: 'var(--text-muted)',
+                backgroundColor: 'transparent',
+                border: 'none',
+                cursor: 'pointer',
+                textDecoration: 'underline',
+              }}
+            >
+              Back to workspace
+            </button>
+          )}
+        </>
       ) : (
         <NewTaskInput onNewAgent={props.onNewAgent} />
       )}
@@ -109,12 +138,31 @@ function NewTaskInput({ onNewAgent }: { onNewAgent: (description: string) => voi
 function NoProjectActions({
   onAddProject,
   onCloneProject,
+  onCreateNewProject,
+  creatingProject,
+  createError,
 }: {
   onAddProject: () => void
   onCloneProject: (url: string) => void
+  onCreateNewProject: (description: string) => void
+  creatingProject?: boolean
+  createError?: string | null
 }): React.JSX.Element {
+  const [description, setDescription] = useState('')
   const [cloneUrl, setCloneUrl] = useState('')
   const [showClone, setShowClone] = useState(false)
+  const formRef = useRef<HTMLFormElement>(null)
+
+  const handleCreateSubmit = useCallback(
+    (e: React.FormEvent): void => {
+      e.preventDefault()
+      const trimmed = description.trim()
+      if (trimmed && !creatingProject) {
+        onCreateNewProject(trimmed)
+      }
+    },
+    [description, creatingProject, onCreateNewProject]
+  )
 
   const handleCloneSubmit = useCallback(
     (e: React.FormEvent): void => {
@@ -129,11 +177,76 @@ function NoProjectActions({
     [cloneUrl, onCloneProject]
   )
 
+  const canSubmit = description.trim().length > 0 && !creatingProject
+
   return (
     <>
-      <div style={{ fontSize: 14 }}>Add a project to get started.</div>
+      <div style={{ fontSize: 15, fontWeight: 500, color: 'var(--text-primary)' }}>
+        Start a new project
+      </div>
+      <form ref={formRef} onSubmit={handleCreateSubmit} style={{ display: 'flex', flexDirection: 'column', gap: 10, width: 480, maxWidth: '90%' }}>
+        <textarea
+          value={description}
+          onChange={(e) => setDescription(e.target.value)}
+          placeholder="Describe your project idea..."
+          autoFocus
+          rows={5}
+          style={{
+            padding: '10px 14px',
+            fontSize: 13,
+            lineHeight: 1.5,
+            backgroundColor: 'var(--bg-input)',
+            color: 'var(--text-primary)',
+            border: '1px solid var(--border)',
+            borderRadius: 8,
+            outline: 'none',
+            resize: 'vertical',
+            fontFamily: 'inherit',
+          }}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter' && e.metaKey && canSubmit) {
+              e.preventDefault()
+              formRef.current?.requestSubmit()
+            }
+          }}
+        />
+        {createError && (
+          <div style={{ fontSize: 12, color: 'var(--status-error, #f44)' }}>{createError}</div>
+        )}
+        <button
+          type="submit"
+          disabled={!canSubmit}
+          style={{
+            ...buttonStyle,
+            padding: '10px 24px',
+            fontSize: 14,
+            opacity: canSubmit ? 1 : 0.5,
+            alignSelf: 'flex-end',
+            display: 'flex',
+            alignItems: 'center',
+            gap: 8,
+          }}
+        >
+          {creatingProject && <span className="spinner" />}
+          {creatingProject ? 'Creating...' : 'Go'}
+        </button>
+      </form>
+
+      <div style={{
+        width: 480,
+        maxWidth: '90%',
+        display: 'flex',
+        alignItems: 'center',
+        gap: 16,
+        margin: '8px 0',
+      }}>
+        <div style={{ flex: 1, height: 1, backgroundColor: 'var(--border)' }} />
+        <span style={{ fontSize: 12, color: 'var(--text-muted)' }}>or open an existing project</span>
+        <div style={{ flex: 1, height: 1, backgroundColor: 'var(--border)' }} />
+      </div>
+
       <div style={{ display: 'flex', gap: 10 }}>
-        <button onClick={onAddProject} style={buttonStyle}>+ Add Local Project</button>
+        <button onClick={onAddProject} style={secondaryButtonStyle}>+ Add Local Project</button>
         <button onClick={() => setShowClone((p) => !p)} style={secondaryButtonStyle}>Clone Repository</button>
       </div>
       {showClone && (
