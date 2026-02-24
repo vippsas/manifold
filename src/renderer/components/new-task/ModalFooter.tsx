@@ -24,7 +24,7 @@ export function ModalFooter({
           cursor: !canSubmit || loading ? 'not-allowed' : 'pointer',
         }}
       >
-        {loading ? 'Starting\u2026' : 'Start Task \u2192'}
+        {loading ? 'Starting\u2026' : 'Start Agent \u2192'}
       </button>
     </div>
   )

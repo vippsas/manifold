@@ -6,6 +6,7 @@ export interface UseAppOverlaysResult {
   setActivePanel: (panel: 'commit' | 'pr' | 'conflicts' | null) => void
   showNewAgent: boolean
   setShowNewAgent: (show: boolean) => void
+  initialDescription: string
   showProjectPicker: boolean
   setShowProjectPicker: (show: boolean) => void
   showSettings: boolean
@@ -19,6 +20,7 @@ export interface UseAppOverlaysResult {
   handleDeleteAgent: (sessionId: string) => void
   handleSelectSession: (sessionId: string, projectId: string) => void
   handleNewAgentForProject: (projectId: string) => void
+  handleNewAgentWithDescription: (description: string) => void
   handleSaveSettings: (partial: Partial<ManifoldSettings>) => void
   handleSetupComplete: () => void
 }
@@ -36,6 +38,7 @@ export function useAppOverlays(
 ): UseAppOverlaysResult {
   const [activePanel, setActivePanel] = useState<'commit' | 'pr' | 'conflicts' | null>(null)
   const [showNewAgent, setShowNewAgent] = useState(false)
+  const [initialDescription, setInitialDescription] = useState('')
   const [showProjectPicker, setShowProjectPicker] = useState(false)
   const [showSettings, setShowSettings] = useState(false)
   const [showAbout, setShowAbout] = useState(false)
@@ -67,9 +70,16 @@ export function useAppOverlays(
 
   const handleNewAgentForProject = useCallback((projectId: string): void => {
     if (projectId !== activeProjectId) setActiveProject(projectId)
+    setInitialDescription('')
     setShowProjectPicker(false)
     setShowNewAgent(true)
   }, [activeProjectId, setActiveProject])
+
+  const handleNewAgentWithDescription = useCallback((description: string): void => {
+    setInitialDescription(description)
+    setShowProjectPicker(true)
+    setShowNewAgent(true)
+  }, [])
 
   const handleSaveSettings = useCallback((partial: Partial<ManifoldSettings>): void => {
     void updateSettings(partial)
@@ -93,6 +103,7 @@ export function useAppOverlays(
     setActivePanel,
     showNewAgent,
     setShowNewAgent,
+    initialDescription,
     showProjectPicker,
     setShowProjectPicker,
     showSettings,
@@ -106,6 +117,7 @@ export function useAppOverlays(
     handleDeleteAgent,
     handleSelectSession,
     handleNewAgentForProject,
+    handleNewAgentWithDescription,
     handleSaveSettings,
     handleSetupComplete,
   }

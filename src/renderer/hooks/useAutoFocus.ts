@@ -1,6 +1,6 @@
 import React, { useEffect } from 'react'
 
-export function useAutoFocus(visible: boolean, ref: React.RefObject<HTMLTextAreaElement | null>): void {
+export function useAutoFocus(visible: boolean, ref: React.RefObject<HTMLElement | null>): void {
   useEffect(() => {
     if (visible) {
       // Small delay to ensure DOM is ready after modal mount
