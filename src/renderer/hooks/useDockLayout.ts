@@ -15,8 +15,7 @@ const PANEL_TITLES: Record<DockPanelId, string> = {
 
 type Direction = 'right' | 'left' | 'above' | 'below' | 'within'
 
-// Preferred restore positions matching the default layout.
-// Each panel lists reference panels + direction to try in order.
+// Fallback positions when no snapshot exists (matches default layout).
 const PANEL_RESTORE_HINTS: Record<DockPanelId, Array<{ ref: DockPanelId; dir: Direction }>> = {
   projects: [{ ref: 'fileTree', dir: 'above' }, { ref: 'agent', dir: 'left' }],
   agent: [{ ref: 'projects', dir: 'right' }, { ref: 'editor', dir: 'left' }, { ref: 'shell', dir: 'above' }],
@@ -40,9 +39,15 @@ export function useDockLayout(sessionId: string | null): UseDockLayoutResult {
   const saveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const sessionIdRef = useRef(sessionId)
   sessionIdRef.current = sessionId
+
   // Incremented on layout changes to trigger re-render for hiddenPanels
   const [, setLayoutVersion] = useState(0)
   const bumpVersion = useCallback(() => setLayoutVersion((v) => v + 1), [])
+
+  // Layout snapshot taken before each panel removal, keyed by panel ID
+  const lastLayoutRef = useRef<SerializedDockview | null>(null)
+  const closedPanelSnapshots = useRef<Map<DockPanelId, SerializedDockview>>(new Map())
+  const isRestoringRef = useRef(false)
 
   const saveLayout = useCallback(() => {
     const api = apiRef.current
@@ -129,18 +134,35 @@ export function useDockLayout(sessionId: string | null): UseDockLayoutResult {
             const saved = (await window.electronAPI.invoke('dock-layout:get', sid)) as SerializedDockview | null
             if (saved && saved.grid && saved.panels) {
               api.fromJSON(saved)
+              lastLayoutRef.current = saved
               return
             }
           } catch {
             // ignore load errors, fall through to default
           }
           buildDefaultLayout(api)
+          lastLayoutRef.current = api.toJSON()
         })()
       } else {
         buildDefaultLayout(api)
+        lastLayoutRef.current = api.toJSON()
       }
 
-      api.onDidLayoutChange(() => { saveLayout(); bumpVersion() })
+      // When a panel is removed, save the pre-removal layout for that panel
+      api.onDidRemovePanel((panel) => {
+        if (isRestoringRef.current) return
+        const id = panel.id as DockPanelId
+        if (PANEL_IDS.includes(id) && lastLayoutRef.current) {
+          closedPanelSnapshots.current.set(id, lastLayoutRef.current)
+        }
+      })
+
+      api.onDidLayoutChange(() => {
+        if (isRestoringRef.current) return
+        lastLayoutRef.current = api.toJSON()
+        saveLayout()
+        bumpVersion()
+      })
     },
     [buildDefaultLayout, saveLayout, bumpVersion]
   )
@@ -158,6 +180,7 @@ export function useDockLayout(sessionId: string | null): UseDockLayoutResult {
         const saved = (await window.electronAPI.invoke('dock-layout:get', sessionId)) as SerializedDockview | null
         if (saved && saved.grid && saved.panels) {
           api.fromJSON(saved)
+          lastLayoutRef.current = saved
           return
         }
       } catch {
@@ -166,6 +189,7 @@ export function useDockLayout(sessionId: string | null): UseDockLayoutResult {
       // Clear and rebuild default if no saved layout
       api.clear()
       buildDefaultLayout(api)
+      lastLayoutRef.current = api.toJSON()
     })()
   }, [sessionId, buildDefaultLayout])
 
@@ -176,7 +200,35 @@ export function useDockLayout(sessionId: string | null): UseDockLayoutResult {
     if (panel) {
       api.removePanel(panel)
     } else {
-      // Find the best restore position from hints
+      // Try to restore from snapshot (exact previous position)
+      const snapshot = closedPanelSnapshots.current.get(id)
+      if (snapshot) {
+        const currentlyVisible = new Set(
+          PANEL_IDS.filter((pid) => api.getPanel(pid) !== undefined)
+        )
+
+        isRestoringRef.current = true
+        try {
+          api.fromJSON(snapshot)
+          // Remove panels that weren't visible before reopening
+          for (const pid of PANEL_IDS) {
+            if (pid !== id && !currentlyVisible.has(pid)) {
+              const p = api.getPanel(pid)
+              if (p) api.removePanel(p)
+            }
+          }
+        } finally {
+          isRestoringRef.current = false
+        }
+
+        lastLayoutRef.current = api.toJSON()
+        saveLayout()
+        bumpVersion()
+        closedPanelSnapshots.current.delete(id)
+        return
+      }
+
+      // Fallback: use static position hints
       const hints = PANEL_RESTORE_HINTS[id]
       let position: { referencePanel: ReturnType<DockviewApi['getPanel']>; direction: Direction } | undefined
       for (const hint of hints) {
@@ -193,7 +245,7 @@ export function useDockLayout(sessionId: string | null): UseDockLayoutResult {
         ...(position ? { position } : {}),
       })
     }
-  }, [])
+  }, [saveLayout, bumpVersion])
 
   const isPanelVisible = useCallback((id: DockPanelId): boolean => {
     const api = apiRef.current
@@ -206,6 +258,8 @@ export function useDockLayout(sessionId: string | null): UseDockLayoutResult {
     if (!api) return
     api.clear()
     buildDefaultLayout(api)
+    closedPanelSnapshots.current.clear()
+    lastLayoutRef.current = api.toJSON()
   }, [buildDefaultLayout])
 
   // Compute hidden panels
