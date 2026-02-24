@@ -206,18 +206,37 @@ export function useDockLayout(sessionId: string | null): UseDockLayoutResult {
           try {
             const saved = (await window.electronAPI.invoke('dock-layout:get', sid)) as SerializedDockview | null
             if (saved && saved.grid && saved.panels) {
-              api.fromJSON(saved)
-              lastLayoutRef.current = saved
-              return
+              const panelIds = new Set(Object.keys(saved.panels))
+              const isCorruptedMinimal = panelIds.size === 2 && panelIds.has('projects') && panelIds.has('agent')
+              if (!isCorruptedMinimal) {
+                isRestoringRef.current = true
+                try {
+                  api.fromJSON(saved)
+                } finally {
+                  isRestoringRef.current = false
+                }
+                lastLayoutRef.current = saved
+                return
+              }
             }
           } catch {
             // ignore load errors, fall through to default
           }
-          buildDefaultLayout(api)
+          isRestoringRef.current = true
+          try {
+            buildDefaultLayout(api)
+          } finally {
+            isRestoringRef.current = false
+          }
           lastLayoutRef.current = api.toJSON()
         })()
       } else {
-        buildMinimalLayout(api)
+        isRestoringRef.current = true
+        try {
+          buildMinimalLayout(api)
+        } finally {
+          isRestoringRef.current = false
+        }
         lastLayoutRef.current = api.toJSON()
       }
 
@@ -248,9 +267,21 @@ export function useDockLayout(sessionId: string | null): UseDockLayoutResult {
     const api = apiRef.current
     if (!api) return
 
+    // Cancel any pending save timer from the previous session to prevent
+    // a stale (e.g. minimal) layout from being saved under the new session ID.
+    if (saveTimerRef.current) {
+      clearTimeout(saveTimerRef.current)
+      saveTimerRef.current = null
+    }
+
     if (!sessionId) {
-      api.clear()
-      buildMinimalLayout(api)
+      isRestoringRef.current = true
+      try {
+        api.clear()
+        buildMinimalLayout(api)
+      } finally {
+        isRestoringRef.current = false
+      }
       lastLayoutRef.current = api.toJSON()
       return
     }
@@ -259,16 +290,33 @@ export function useDockLayout(sessionId: string | null): UseDockLayoutResult {
       try {
         const saved = (await window.electronAPI.invoke('dock-layout:get', sessionId)) as SerializedDockview | null
         if (saved && saved.grid && saved.panels) {
-          api.fromJSON(saved)
-          lastLayoutRef.current = saved
-          return
+          // Detect corrupted minimal-only layouts (only projects + agent) that were
+          // accidentally saved due to a race condition. Treat them as missing and
+          // fall through to the default layout.
+          const panelIds = new Set(Object.keys(saved.panels))
+          const isCorruptedMinimal = panelIds.size === 2 && panelIds.has('projects') && panelIds.has('agent')
+          if (!isCorruptedMinimal) {
+            isRestoringRef.current = true
+            try {
+              api.fromJSON(saved)
+            } finally {
+              isRestoringRef.current = false
+            }
+            lastLayoutRef.current = saved
+            return
+          }
         }
       } catch {
         // ignore
       }
-      // Clear and rebuild default if no saved layout
-      api.clear()
-      buildDefaultLayout(api)
+      // Clear and rebuild default if no saved layout (or corrupted)
+      isRestoringRef.current = true
+      try {
+        api.clear()
+        buildDefaultLayout(api)
+      } finally {
+        isRestoringRef.current = false
+      }
       lastLayoutRef.current = api.toJSON()
     })()
   }, [sessionId, buildDefaultLayout, buildMinimalLayout])
