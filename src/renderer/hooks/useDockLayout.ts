@@ -69,31 +69,14 @@ export function useDockLayout(sessionId: string | null): UseDockLayoutResult {
     })
 
     // 2. Right area: Agent (right of Projects)
-    const agentPanel = api.addPanel({
+    api.addPanel({
       id: 'agent',
       component: 'agent',
       title: PANEL_TITLES.agent,
       position: { referencePanel: projectsPanel, direction: 'right' },
     })
 
-    // 3. Shell below Agent — splits the right area vertically first
-    api.addPanel({
-      id: 'shell',
-      component: 'shell',
-      title: PANEL_TITLES.shell,
-      position: { referencePanel: agentPanel, direction: 'below' },
-    })
-
-    // 4. Editor right of Agent — splits only the top of right area,
-    //    so Shell spans below both Agent and Editor
-    api.addPanel({
-      id: 'editor',
-      component: 'editor',
-      title: PANEL_TITLES.editor,
-      position: { referencePanel: agentPanel, direction: 'right' },
-    })
-
-    // 5. Split left column: Files below Projects
+    // 3. Split left column: Files below Projects
     const filesPanel = api.addPanel({
       id: 'fileTree',
       component: 'fileTree',
@@ -113,11 +96,7 @@ export function useDockLayout(sessionId: string | null): UseDockLayoutResult {
 
     // Set relative sizes
     try {
-      projectsPanel.group?.api.setSize({ width: 200 })
-      const totalHeight = api.height
-      if (totalHeight > 0) {
-        api.getPanel('shell')?.group?.api.setSize({ height: Math.round(totalHeight / 3) })
-      }
+      projectsPanel.group?.api.setSize({ width: 300 })
     } catch {
       // sizing is best-effort
     }
@@ -138,7 +117,7 @@ export function useDockLayout(sessionId: string | null): UseDockLayoutResult {
     })
 
     try {
-      projectsPanel.group?.api.setSize({ width: 200 })
+      projectsPanel.group?.api.setSize({ width: 300 })
     } catch {
       // sizing is best-effort
     }
