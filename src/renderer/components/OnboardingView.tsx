@@ -26,9 +26,10 @@ const secondaryButtonStyle: React.CSSProperties = {
 interface NoProjectProps {
   variant: 'no-project'
   onAddProject: () => void
-  onCloneProject: (url: string) => void
+  onCloneProject: (url: string) => Promise<boolean>
   onCreateNewProject: (description: string) => void
   creatingProject?: boolean
+  cloningProject?: boolean
   createError?: string | null
   onBack?: () => void
 }
@@ -68,6 +69,7 @@ export function OnboardingView(props: OnboardingViewProps): React.JSX.Element {
             onCloneProject={props.onCloneProject}
             onCreateNewProject={props.onCreateNewProject}
             creatingProject={props.creatingProject}
+            cloningProject={props.cloningProject}
             createError={props.createError}
           />
           {props.onBack && (
@@ -160,12 +162,14 @@ function NoProjectActions({
   onCloneProject,
   onCreateNewProject,
   creatingProject,
+  cloningProject,
   createError,
 }: {
   onAddProject: () => void
-  onCloneProject: (url: string) => void
+  onCloneProject: (url: string) => Promise<boolean>
   onCreateNewProject: (description: string) => void
   creatingProject?: boolean
+  cloningProject?: boolean
   createError?: string | null
 }): React.JSX.Element {
   const [description, setDescription] = useState('')
@@ -185,16 +189,18 @@ function NoProjectActions({
   )
 
   const handleCloneSubmit = useCallback(
-    (e: React.FormEvent): void => {
+    async (e: React.FormEvent): Promise<void> => {
       e.preventDefault()
       const url = cloneUrl.trim()
-      if (url) {
-        onCloneProject(url)
-        setCloneUrl('')
-        setShowClone(false)
+      if (url && !cloningProject) {
+        const success = await onCloneProject(url)
+        if (success) {
+          setCloneUrl('')
+          setShowClone(false)
+        }
       }
     },
-    [cloneUrl, onCloneProject]
+    [cloneUrl, cloningProject, onCloneProject]
   )
 
   const canSubmit = description.trim().length > 0 && !creatingProject
@@ -254,7 +260,7 @@ function NoProjectActions({
             {creatingProject ? 'Creating...' : 'Go'}
           </button>
         </div>
-        {createError && (
+        {createError && !showClone && (
           <div style={{ fontSize: 12, color: 'var(--status-error, #f44)' }}>{createError}</div>
         )}
       </form>
@@ -277,26 +283,40 @@ function NoProjectActions({
         <button onClick={() => setShowClone((p) => !p)} style={secondaryButtonStyle}>Clone Repository</button>
       </div>
       {showClone && (
-        <form onSubmit={handleCloneSubmit} style={{ display: 'flex', gap: 8 }}>
-          <input
-            type="text"
-            value={cloneUrl}
-            onChange={(e) => setCloneUrl(e.target.value)}
-            placeholder="https://github.com/user/repo.git"
-            autoFocus
-            style={{
-              padding: '7px 12px',
-              fontSize: 13,
-              backgroundColor: 'var(--bg-input)',
-              color: 'var(--text-primary)',
-              border: '1px solid var(--border)',
-              borderRadius: 6,
-              outline: 'none',
-              width: 320,
-            }}
-          />
-          <button type="submit" style={buttonStyle}>Clone</button>
-        </form>
+        <>
+          <form onSubmit={(e) => void handleCloneSubmit(e)} style={{ display: 'flex', gap: 8 }}>
+            <input
+              type="text"
+              value={cloneUrl}
+              onChange={(e) => setCloneUrl(e.target.value)}
+              placeholder="git@github.com:user/repo.git"
+              autoFocus
+              disabled={cloningProject}
+              style={{
+                padding: '7px 12px',
+                fontSize: 13,
+                backgroundColor: 'var(--bg-input)',
+                color: 'var(--text-primary)',
+                border: '1px solid var(--border)',
+                borderRadius: 6,
+                outline: 'none',
+                width: 320,
+                opacity: cloningProject ? 0.6 : 1,
+              }}
+            />
+            <button
+              type="submit"
+              disabled={!cloneUrl.trim() || cloningProject}
+              style={{ ...buttonStyle, opacity: !cloneUrl.trim() || cloningProject ? 0.5 : 1, display: 'flex', alignItems: 'center', gap: 6 }}
+            >
+              {cloningProject && <span className="spinner" />}
+              {cloningProject ? 'Cloning...' : 'Clone'}
+            </button>
+          </form>
+          {createError && showClone && (
+            <div style={{ fontSize: 12, color: 'var(--status-error, #f44)', maxWidth: 480 }}>{createError}</div>
+          )}
+        </>
       )}
     </>
   )

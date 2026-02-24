@@ -2,13 +2,15 @@ import React, { useState, useCallback } from 'react'
 
 interface WelcomeDialogProps {
   onAddProject: () => void
-  onCloneProject: (url: string) => void
+  onCloneProject: (url: string) => Promise<boolean>
   onComplete: () => void
 }
 
 export function WelcomeDialog({ onAddProject, onCloneProject, onComplete }: WelcomeDialogProps): React.JSX.Element {
   const [showClone, setShowClone] = useState(false)
   const [cloneUrl, setCloneUrl] = useState('')
+  const [cloning, setCloning] = useState(false)
+  const [cloneError, setCloneError] = useState<string | null>(null)
 
   const handleOpenProject = useCallback((): void => {
     onAddProject()
@@ -16,15 +18,25 @@ export function WelcomeDialog({ onAddProject, onCloneProject, onComplete }: Welc
   }, [onAddProject, onComplete])
 
   const handleCloneSubmit = useCallback(
-    (e: React.FormEvent): void => {
+    async (e: React.FormEvent): Promise<void> => {
       e.preventDefault()
       const url = cloneUrl.trim()
-      if (url) {
-        onCloneProject(url)
-        onComplete()
+      if (url && !cloning) {
+        setCloning(true)
+        setCloneError(null)
+        try {
+          const success = await onCloneProject(url)
+          if (success) {
+            onComplete()
+          } else {
+            setCloneError('Clone failed. Check the URL and your access permissions.')
+          }
+        } finally {
+          setCloning(false)
+        }
       }
     },
-    [cloneUrl, onCloneProject, onComplete]
+    [cloneUrl, cloning, onCloneProject, onComplete]
   )
 
   return (
@@ -47,19 +59,29 @@ export function WelcomeDialog({ onAddProject, onCloneProject, onComplete }: Welc
             </button>
           </div>
           {showClone && (
-            <form onSubmit={handleCloneSubmit} style={styles.cloneRow}>
-              <input
-                type="text"
-                value={cloneUrl}
-                onChange={(e) => setCloneUrl(e.target.value)}
-                placeholder="https://github.com/user/repo.git"
-                style={styles.input}
-                autoFocus
-              />
-              <button type="submit" style={styles.primaryButton} disabled={!cloneUrl.trim()}>
-                Clone
-              </button>
-            </form>
+            <>
+              <form onSubmit={(e) => void handleCloneSubmit(e)} style={styles.cloneRow}>
+                <input
+                  type="text"
+                  value={cloneUrl}
+                  onChange={(e) => setCloneUrl(e.target.value)}
+                  placeholder="git@github.com:user/repo.git"
+                  style={{ ...styles.input, opacity: cloning ? 0.6 : 1 }}
+                  autoFocus
+                  disabled={cloning}
+                />
+                <button
+                  type="submit"
+                  style={{ ...styles.primaryButton, opacity: !cloneUrl.trim() || cloning ? 0.5 : 1 }}
+                  disabled={!cloneUrl.trim() || cloning}
+                >
+                  {cloning ? 'Cloning...' : 'Clone'}
+                </button>
+              </form>
+              {cloneError && (
+                <div style={{ fontSize: 12, color: 'var(--status-error, #f44)' }}>{cloneError}</div>
+              )}
+            </>
           )}
         </div>
       </div>
