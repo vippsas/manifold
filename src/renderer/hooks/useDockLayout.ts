@@ -1,4 +1,4 @@
-import { useCallback, useRef, useEffect } from 'react'
+import { useCallback, useRef, useEffect, useState } from 'react'
 import type { DockviewApi, SerializedDockview } from 'dockview'
 
 const PANEL_IDS = ['projects', 'agent', 'editor', 'fileTree', 'modifiedFiles', 'shell'] as const
@@ -27,6 +27,9 @@ export function useDockLayout(sessionId: string | null): UseDockLayoutResult {
   const saveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const sessionIdRef = useRef(sessionId)
   sessionIdRef.current = sessionId
+  // Incremented on layout changes to trigger re-render for hiddenPanels
+  const [, setLayoutVersion] = useState(0)
+  const bumpVersion = useCallback(() => setLayoutVersion((v) => v + 1), [])
 
   const saveLayout = useCallback(() => {
     const api = apiRef.current
@@ -124,9 +127,9 @@ export function useDockLayout(sessionId: string | null): UseDockLayoutResult {
         buildDefaultLayout(api)
       }
 
-      api.onDidLayoutChange(() => saveLayout())
+      api.onDidLayoutChange(() => { saveLayout(); bumpVersion() })
     },
-    [buildDefaultLayout, saveLayout]
+    [buildDefaultLayout, saveLayout, bumpVersion]
   )
 
   // When sessionId changes, try to load the layout for the new session
