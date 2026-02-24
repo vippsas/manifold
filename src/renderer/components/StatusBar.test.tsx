@@ -39,8 +39,6 @@ describe('StatusBar', () => {
         activeSession={null}
         changedFiles={[]}
         baseBranch="main"
-        sidebarVisible={true}
-        onToggleSidebar={vi.fn()}
         dockLayout={mockDockLayout()}
       />,
     )
@@ -54,8 +52,6 @@ describe('StatusBar', () => {
         activeSession={sampleSession}
         changedFiles={sampleChangedFiles}
         baseBranch="main"
-        sidebarVisible={true}
-        onToggleSidebar={vi.fn()}
         dockLayout={mockDockLayout()}
       />,
     )
@@ -69,8 +65,6 @@ describe('StatusBar', () => {
         activeSession={sampleSession}
         changedFiles={sampleChangedFiles}
         baseBranch="main"
-        sidebarVisible={true}
-        onToggleSidebar={vi.fn()}
         dockLayout={mockDockLayout()}
       />,
     )
@@ -84,8 +78,6 @@ describe('StatusBar', () => {
         activeSession={sampleSession}
         changedFiles={[{ path: 'a.ts', type: 'modified' }]}
         baseBranch="main"
-        sidebarVisible={true}
-        onToggleSidebar={vi.fn()}
         dockLayout={mockDockLayout()}
       />,
     )
@@ -99,8 +91,6 @@ describe('StatusBar', () => {
         activeSession={sampleSession}
         changedFiles={[]}
         baseBranch="main"
-        sidebarVisible={true}
-        onToggleSidebar={vi.fn()}
         dockLayout={mockDockLayout()}
       />,
     )
@@ -114,8 +104,6 @@ describe('StatusBar', () => {
         activeSession={null}
         changedFiles={[]}
         baseBranch="develop"
-        sidebarVisible={true}
-        onToggleSidebar={vi.fn()}
         dockLayout={mockDockLayout()}
       />,
     )
@@ -129,8 +117,6 @@ describe('StatusBar', () => {
         activeSession={null}
         changedFiles={[]}
         baseBranch="main"
-        sidebarVisible={true}
-        onToggleSidebar={vi.fn()}
         dockLayout={mockDockLayout()}
       />,
     )

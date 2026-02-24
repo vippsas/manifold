@@ -1,6 +1,6 @@
 import React, { createContext, useContext } from 'react'
 import type { ITheme } from '@xterm/xterm'
-import type { FileTreeNode, FileChange } from '../../shared/types'
+import type { FileTreeNode, FileChange, Project, AgentSession } from '../../shared/types'
 import type { OpenFile } from '../hooks/useCodeView'
 import { TerminalPane } from './TerminalPane'
 import { CodeViewer } from './CodeViewer'
@@ -8,6 +8,7 @@ import { FileTree } from './FileTree'
 import { ModifiedFiles } from './ModifiedFiles'
 import { ShellTabs } from './ShellTabs'
 import { OnboardingView } from './OnboardingView'
+import { ProjectSidebar } from './ProjectSidebar'
 
 export interface DockAppState {
   sessionId: string | null
@@ -39,6 +40,19 @@ export interface DockAppState {
   worktreeCwd: string | null
   // Onboarding
   onNewAgent: () => void
+  // Projects panel
+  projects: Project[]
+  activeProjectId: string | null
+  allProjectSessions: Record<string, AgentSession[]>
+  onSelectProject: (id: string) => void
+  onSelectSession: (sessionId: string, projectId: string) => void
+  onAddProject: (path?: string) => void
+  onRemoveProject: (id: string) => void
+  onUpdateProject: (id: string, partial: Partial<Omit<Project, 'id'>>) => void
+  onCloneProject: (url: string) => void
+  onDeleteAgent: (id: string) => void
+  onNewAgentForProject: (projectId: string) => void
+  onOpenSettings: () => void
 }
 
 export const DockStateContext = createContext<DockAppState | null>(null)
@@ -56,6 +70,7 @@ export const PANEL_COMPONENTS: Record<string, React.FC<any>> = {
   fileTree: FileTreePanel,
   modifiedFiles: ModifiedFilesPanel,
   shell: ShellPanel,
+  projects: ProjectsPanel,
 }
 
 function AgentPanel(): React.JSX.Element {
@@ -129,6 +144,27 @@ function ShellPanel(): React.JSX.Element {
       scrollbackLines={s.scrollbackLines}
       terminalFontFamily={s.terminalFontFamily}
       xtermTheme={s.xtermTheme}
+    />
+  )
+}
+
+function ProjectsPanel(): React.JSX.Element {
+  const s = useDockState()
+  return (
+    <ProjectSidebar
+      projects={s.projects}
+      activeProjectId={s.activeProjectId}
+      allProjectSessions={s.allProjectSessions}
+      activeSessionId={s.sessionId}
+      onSelectProject={s.onSelectProject}
+      onSelectSession={s.onSelectSession}
+      onAddProject={s.onAddProject}
+      onRemoveProject={s.onRemoveProject}
+      onUpdateProject={s.onUpdateProject}
+      onCloneProject={s.onCloneProject}
+      onDeleteAgent={s.onDeleteAgent}
+      onNewAgent={s.onNewAgentForProject}
+      onOpenSettings={s.onOpenSettings}
     />
   )
 }
