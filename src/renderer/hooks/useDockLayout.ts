@@ -1,15 +1,28 @@
-import { useCallback, useRef, useEffect } from 'react'
+import { useCallback, useRef, useEffect, useState } from 'react'
 import type { DockviewApi, SerializedDockview } from 'dockview'
 
-const PANEL_IDS = ['agent', 'editor', 'fileTree', 'modifiedFiles', 'shell'] as const
+const PANEL_IDS = ['projects', 'agent', 'editor', 'fileTree', 'modifiedFiles', 'shell'] as const
 export type DockPanelId = (typeof PANEL_IDS)[number]
 
 const PANEL_TITLES: Record<DockPanelId, string> = {
+  projects: 'Projects',
   agent: 'Agent',
   editor: 'Editor',
   fileTree: 'Files',
   modifiedFiles: 'Modified Files',
   shell: 'Shell',
+}
+
+type Direction = 'right' | 'left' | 'above' | 'below' | 'within'
+
+// Fallback positions when no snapshot exists (matches default layout).
+const PANEL_RESTORE_HINTS: Record<DockPanelId, Array<{ ref: DockPanelId; dir: Direction }>> = {
+  projects: [{ ref: 'fileTree', dir: 'above' }, { ref: 'agent', dir: 'left' }],
+  agent: [{ ref: 'projects', dir: 'right' }, { ref: 'editor', dir: 'left' }, { ref: 'shell', dir: 'above' }],
+  editor: [{ ref: 'agent', dir: 'right' }, { ref: 'shell', dir: 'above' }],
+  fileTree: [{ ref: 'modifiedFiles', dir: 'within' }, { ref: 'projects', dir: 'below' }],
+  modifiedFiles: [{ ref: 'fileTree', dir: 'within' }, { ref: 'projects', dir: 'below' }],
+  shell: [{ ref: 'agent', dir: 'below' }, { ref: 'editor', dir: 'below' }],
 }
 
 export interface UseDockLayoutResult {
@@ -27,6 +40,15 @@ export function useDockLayout(sessionId: string | null): UseDockLayoutResult {
   const sessionIdRef = useRef(sessionId)
   sessionIdRef.current = sessionId
 
+  // Incremented on layout changes to trigger re-render for hiddenPanels
+  const [, setLayoutVersion] = useState(0)
+  const bumpVersion = useCallback(() => setLayoutVersion((v) => v + 1), [])
+
+  // Layout snapshot taken before each panel removal, keyed by panel ID
+  const lastLayoutRef = useRef<SerializedDockview | null>(null)
+  const closedPanelSnapshots = useRef<Map<DockPanelId, SerializedDockview>>(new Map())
+  const isRestoringRef = useRef(false)
+
   const saveLayout = useCallback(() => {
     const api = apiRef.current
     const sid = sessionIdRef.current
@@ -39,19 +61,44 @@ export function useDockLayout(sessionId: string | null): UseDockLayoutResult {
   }, [])
 
   const buildDefaultLayout = useCallback((api: DockviewApi) => {
-    // Left: Agent (full height)
+    // 1. Left column: Projects
+    const projectsPanel = api.addPanel({
+      id: 'projects',
+      component: 'projects',
+      title: PANEL_TITLES.projects,
+    })
+
+    // 2. Right area: Agent (right of Projects)
     const agentPanel = api.addPanel({
       id: 'agent',
       component: 'agent',
       title: PANEL_TITLES.agent,
+      position: { referencePanel: projectsPanel, direction: 'right' },
     })
 
-    // Right top: Files, Modified Files, Editor as tabs
+    // 3. Shell below Agent — splits the right area vertically first
+    api.addPanel({
+      id: 'shell',
+      component: 'shell',
+      title: PANEL_TITLES.shell,
+      position: { referencePanel: agentPanel, direction: 'below' },
+    })
+
+    // 4. Editor right of Agent — splits only the top of right area,
+    //    so Shell spans below both Agent and Editor
+    api.addPanel({
+      id: 'editor',
+      component: 'editor',
+      title: PANEL_TITLES.editor,
+      position: { referencePanel: agentPanel, direction: 'right' },
+    })
+
+    // 5. Split left column: Files below Projects
     const filesPanel = api.addPanel({
       id: 'fileTree',
       component: 'fileTree',
       title: PANEL_TITLES.fileTree,
-      position: { referencePanel: agentPanel, direction: 'right' },
+      position: { referencePanel: projectsPanel, direction: 'below' },
     })
 
     api.addPanel({
@@ -61,27 +108,12 @@ export function useDockLayout(sessionId: string | null): UseDockLayoutResult {
       position: { referencePanel: filesPanel, direction: 'within' },
     })
 
-    api.addPanel({
-      id: 'editor',
-      component: 'editor',
-      title: PANEL_TITLES.editor,
-      position: { referencePanel: filesPanel, direction: 'within' },
-    })
-
-    // Right bottom: Shell
-    api.addPanel({
-      id: 'shell',
-      component: 'shell',
-      title: PANEL_TITLES.shell,
-      position: { referencePanel: filesPanel, direction: 'below' },
-    })
-
-    // Make FileTree the active tab in its group
+    // Make Files the active tab in its group
     filesPanel.api.setActive()
 
-    // Set relative sizes — shell takes 1/3 of the right column height
+    // Set relative sizes
     try {
-      filesPanel.group?.api.setSize({ width: 350 })
+      projectsPanel.group?.api.setSize({ width: 200 })
       const totalHeight = api.height
       if (totalHeight > 0) {
         api.getPanel('shell')?.group?.api.setSize({ height: Math.round(totalHeight / 3) })
@@ -102,20 +134,37 @@ export function useDockLayout(sessionId: string | null): UseDockLayoutResult {
             const saved = (await window.electronAPI.invoke('dock-layout:get', sid)) as SerializedDockview | null
             if (saved && saved.grid && saved.panels) {
               api.fromJSON(saved)
+              lastLayoutRef.current = saved
               return
             }
           } catch {
             // ignore load errors, fall through to default
           }
           buildDefaultLayout(api)
+          lastLayoutRef.current = api.toJSON()
         })()
       } else {
         buildDefaultLayout(api)
+        lastLayoutRef.current = api.toJSON()
       }
 
-      api.onDidLayoutChange(() => saveLayout())
+      // When a panel is removed, save the pre-removal layout for that panel
+      api.onDidRemovePanel((panel) => {
+        if (isRestoringRef.current) return
+        const id = panel.id as DockPanelId
+        if (PANEL_IDS.includes(id) && lastLayoutRef.current) {
+          closedPanelSnapshots.current.set(id, lastLayoutRef.current)
+        }
+      })
+
+      api.onDidLayoutChange(() => {
+        if (isRestoringRef.current) return
+        lastLayoutRef.current = api.toJSON()
+        saveLayout()
+        bumpVersion()
+      })
     },
-    [buildDefaultLayout, saveLayout]
+    [buildDefaultLayout, saveLayout, bumpVersion]
   )
 
   // When sessionId changes, try to load the layout for the new session
@@ -131,6 +180,7 @@ export function useDockLayout(sessionId: string | null): UseDockLayoutResult {
         const saved = (await window.electronAPI.invoke('dock-layout:get', sessionId)) as SerializedDockview | null
         if (saved && saved.grid && saved.panels) {
           api.fromJSON(saved)
+          lastLayoutRef.current = saved
           return
         }
       } catch {
@@ -139,6 +189,7 @@ export function useDockLayout(sessionId: string | null): UseDockLayoutResult {
       // Clear and rebuild default if no saved layout
       api.clear()
       buildDefaultLayout(api)
+      lastLayoutRef.current = api.toJSON()
     })()
   }, [sessionId, buildDefaultLayout])
 
@@ -147,17 +198,54 @@ export function useDockLayout(sessionId: string | null): UseDockLayoutResult {
     if (!api) return
     const panel = api.getPanel(id)
     if (panel) {
-      // Panel exists — remove it
       api.removePanel(panel)
     } else {
-      // Panel doesn't exist — add it back
+      // Try to restore from snapshot (exact previous position)
+      const snapshot = closedPanelSnapshots.current.get(id)
+      if (snapshot) {
+        const currentlyVisible = new Set(
+          PANEL_IDS.filter((pid) => api.getPanel(pid) !== undefined)
+        )
+
+        isRestoringRef.current = true
+        try {
+          api.fromJSON(snapshot)
+          // Remove panels that weren't visible before reopening
+          for (const pid of PANEL_IDS) {
+            if (pid !== id && !currentlyVisible.has(pid)) {
+              const p = api.getPanel(pid)
+              if (p) api.removePanel(p)
+            }
+          }
+        } finally {
+          isRestoringRef.current = false
+        }
+
+        lastLayoutRef.current = api.toJSON()
+        saveLayout()
+        bumpVersion()
+        closedPanelSnapshots.current.delete(id)
+        return
+      }
+
+      // Fallback: use static position hints
+      const hints = PANEL_RESTORE_HINTS[id]
+      let position: { referencePanel: ReturnType<DockviewApi['getPanel']>; direction: Direction } | undefined
+      for (const hint of hints) {
+        const ref = api.getPanel(hint.ref)
+        if (ref) {
+          position = { referencePanel: ref, direction: hint.dir }
+          break
+        }
+      }
       api.addPanel({
         id,
         component: id,
         title: PANEL_TITLES[id],
+        ...(position ? { position } : {}),
       })
     }
-  }, [])
+  }, [saveLayout, bumpVersion])
 
   const isPanelVisible = useCallback((id: DockPanelId): boolean => {
     const api = apiRef.current
@@ -170,6 +258,8 @@ export function useDockLayout(sessionId: string | null): UseDockLayoutResult {
     if (!api) return
     api.clear()
     buildDefaultLayout(api)
+    closedPanelSnapshots.current.clear()
+    lastLayoutRef.current = api.toJSON()
   }, [buildDefaultLayout])
 
   // Compute hidden panels

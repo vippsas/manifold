@@ -2,8 +2,8 @@ import React from 'react'
 import type { AgentSession, FileChange, AheadBehind } from '../../shared/types'
 import type { UseDockLayoutResult, DockPanelId } from '../hooks/useDockLayout'
 
-const PANEL_LABELS: Record<DockPanelId | 'sidebar', string> = {
-  sidebar: 'Sidebar',
+const PANEL_LABELS: Record<DockPanelId, string> = {
+  projects: 'Projects',
   agent: 'Agent',
   editor: 'Editor',
   fileTree: 'Files',
@@ -15,8 +15,6 @@ interface StatusBarProps {
   activeSession: AgentSession | null
   changedFiles: FileChange[]
   baseBranch: string
-  sidebarVisible: boolean
-  onToggleSidebar: () => void
   dockLayout: UseDockLayoutResult
   conflicts?: string[]
   aheadBehind?: AheadBehind
@@ -29,8 +27,6 @@ export function StatusBar({
   activeSession,
   changedFiles,
   baseBranch,
-  sidebarVisible,
-  onToggleSidebar,
   dockLayout,
   conflicts = [],
   aheadBehind,
@@ -43,7 +39,6 @@ export function StatusBar({
   const hasAhead = (aheadBehind?.ahead ?? 0) > 0
 
   const hiddenDockPanels = dockLayout.hiddenPanels
-  const showSidebarToggle = !sidebarVisible
 
   return (
     <div className="layout-status-bar">
@@ -93,17 +88,8 @@ export function StatusBar({
         </span>
       )}
       <span style={barStyles.spacer} />
-      {(showSidebarToggle || hiddenDockPanels.length > 0) && (
+      {hiddenDockPanels.length > 0 && (
         <span style={barStyles.toggleGroup}>
-          {showSidebarToggle && (
-            <button
-              onClick={onToggleSidebar}
-              style={barStyles.toggleButton}
-              title="Show Sidebar"
-            >
-              {PANEL_LABELS.sidebar}
-            </button>
-          )}
           {hiddenDockPanels.map((id) => (
             <button
               key={id}
