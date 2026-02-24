@@ -1,6 +1,6 @@
-import React, { createContext, useContext, useMemo } from 'react'
+import React, { createContext, useCallback, useContext, useMemo } from 'react'
 import type { ITheme } from '@xterm/xterm'
-import type { FileTreeNode, FileChange, Project, AgentSession } from '../../shared/types'
+import type { AgentStatus, FileTreeNode, FileChange, Project, AgentSession } from '../../shared/types'
 import type { OpenFile } from '../hooks/useCodeView'
 import { TerminalPane } from './TerminalPane'
 import { CodeViewer } from './CodeViewer'
@@ -52,6 +52,10 @@ export interface DockAppState {
   onNewAgentFromHeader: () => void
   onNewProject: () => void
   onOpenSettings: () => void
+  // Agent restart
+  activeSessionStatus: AgentStatus | null
+  activeSessionRuntimeId: string | null
+  onResumeAgent: (sessionId: string, runtimeId: string) => Promise<void>
 }
 
 export const DockStateContext = createContext<DockAppState | null>(null)
@@ -77,15 +81,59 @@ function AgentPanel(): React.JSX.Element {
   if (!s.sessionId) {
     return <OnboardingView variant="no-agent" onNewAgent={s.onNewAgentWithDescription} />
   }
+
+  const isExited = s.activeSessionStatus === 'done' || s.activeSessionStatus === 'error'
+
+  const handleRestart = useCallback(() => {
+    if (s.sessionId && s.activeSessionRuntimeId) {
+      void s.onResumeAgent(s.sessionId, s.activeSessionRuntimeId)
+    }
+  }, [s.sessionId, s.activeSessionRuntimeId, s.onResumeAgent])
+
   return (
-    <TerminalPane
-      sessionId={s.sessionId}
-      scrollbackLines={s.scrollbackLines}
-      terminalFontFamily={s.terminalFontFamily}
-      label="Agent"
-      xtermTheme={s.xtermTheme}
-    />
+    <div style={{ position: 'relative', height: '100%' }}>
+      <TerminalPane
+        sessionId={s.sessionId}
+        scrollbackLines={s.scrollbackLines}
+        terminalFontFamily={s.terminalFontFamily}
+        label="Agent"
+        xtermTheme={s.xtermTheme}
+      />
+      {isExited && (
+        <div style={restartOverlayStyles.container}>
+          <button onClick={handleRestart} style={restartOverlayStyles.button}>
+            Restart Agent
+          </button>
+        </div>
+      )}
+    </div>
   )
+}
+
+const restartOverlayStyles: Record<string, React.CSSProperties> = {
+  container: {
+    position: 'absolute',
+    bottom: 0,
+    left: 0,
+    right: 0,
+    zIndex: 10,
+    display: 'flex',
+    justifyContent: 'center',
+    padding: '12px',
+    background: 'linear-gradient(transparent, var(--bg-primary) 40%)',
+    pointerEvents: 'none',
+  },
+  button: {
+    pointerEvents: 'auto',
+    padding: '6px 20px',
+    fontSize: '12px',
+    fontWeight: 600,
+    color: 'var(--bg-primary)',
+    background: 'var(--accent)',
+    border: 'none',
+    borderRadius: '4px',
+    cursor: 'pointer',
+  },
 }
 
 function EditorPanel(): React.JSX.Element {

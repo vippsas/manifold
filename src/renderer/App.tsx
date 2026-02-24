@@ -33,7 +33,7 @@ import { WelcomeDialog } from './components/WelcomeDialog'
 export function App(): React.JSX.Element {
   const { settings, updateSettings } = useSettings()
   const { projects, activeProjectId, addProject, cloneProject, createNewProject, removeProject, updateProject, setActiveProject, error: projectError } = useProjects()
-  const { sessions, activeSessionId, activeSession, spawnAgent, deleteAgent, setActiveSession } =
+  const { sessions, activeSessionId, activeSession, spawnAgent, deleteAgent, setActiveSession, resumeAgent } =
     useAgentSession(activeProjectId)
   const { sessionsByProject, removeSession } = useAllProjectSessions(projects, activeProjectId, sessions)
   const allSessions = useMemo(() => Object.values(sessionsByProject).flat(), [sessionsByProject])
@@ -175,6 +175,10 @@ export function App(): React.JSX.Element {
     onNewAgentFromHeader: overlays.handleNewAgentFromHeader,
     onNewProject: () => setShowOnboarding(true),
     onOpenSettings: () => overlays.setShowSettings(true),
+    // Agent restart
+    activeSessionStatus: activeSession?.status ?? null,
+    activeSessionRuntimeId: activeSession?.runtimeId ?? null,
+    onResumeAgent: resumeAgent,
   }
 
   if (!settings.setupCompleted) {
