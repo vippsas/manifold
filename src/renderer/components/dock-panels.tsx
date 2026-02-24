@@ -46,12 +46,11 @@ export interface DockAppState {
   allProjectSessions: Record<string, AgentSession[]>
   onSelectProject: (id: string) => void
   onSelectSession: (sessionId: string, projectId: string) => void
-  onAddProject: (path?: string) => void
   onRemoveProject: (id: string) => void
   onUpdateProject: (id: string, partial: Partial<Omit<Project, 'id'>>) => void
-  onCloneProject: (url: string) => void
   onDeleteAgent: (id: string) => void
   onNewAgentForProject: (projectId: string) => void
+  onNewProject: () => void
   onOpenSettings: () => void
 }
 
@@ -163,12 +162,11 @@ function ProjectsPanel(): React.JSX.Element {
       activeSessionId={s.sessionId}
       onSelectProject={s.onSelectProject}
       onSelectSession={s.onSelectSession}
-      onAddProject={s.onAddProject}
       onRemoveProject={s.onRemoveProject}
       onUpdateProject={s.onUpdateProject}
-      onCloneProject={s.onCloneProject}
       onDeleteAgent={s.onDeleteAgent}
       onNewAgent={s.onNewAgentForProject}
+      onNewProject={s.onNewProject}
       onOpenSettings={s.onOpenSettings}
     />
   )

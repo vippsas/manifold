@@ -1,4 +1,4 @@
-import React, { useState, useCallback } from 'react'
+import React, { useCallback, useState } from 'react'
 import type { Project, AgentSession } from '../../shared/types'
 import { sidebarStyles } from './ProjectSidebar.styles'
 import { AgentItem } from './AgentItem'
@@ -11,12 +11,11 @@ interface ProjectSidebarProps {
   activeSessionId: string | null
   onSelectProject: (id: string) => void
   onSelectSession: (sessionId: string, projectId: string) => void
-  onAddProject: (path?: string) => void
   onRemoveProject: (id: string) => void
   onUpdateProject: (id: string, partial: Partial<Omit<Project, 'id'>>) => void
-  onCloneProject: (url: string) => void
   onDeleteAgent: (id: string) => void
   onNewAgent: (projectId: string) => void
+  onNewProject: () => void
   onOpenSettings: () => void
 }
 
@@ -27,34 +26,13 @@ export function ProjectSidebar({
   activeSessionId,
   onSelectProject,
   onSelectSession,
-  onAddProject,
   onRemoveProject,
   onUpdateProject,
-  onCloneProject,
   onDeleteAgent,
   onNewAgent,
+  onNewProject,
   onOpenSettings,
 }: ProjectSidebarProps): React.JSX.Element {
-  const [cloneUrl, setCloneUrl] = useState('')
-  const [showCloneInput, setShowCloneInput] = useState(false)
-
-  const handleAddClick = useCallback((): void => {
-    setShowCloneInput(false)
-    onAddProject()
-  }, [onAddProject])
-
-  const handleCloneSubmit = useCallback(
-    (e: React.FormEvent): void => {
-      e.preventDefault()
-      if (cloneUrl.trim()) {
-        onCloneProject(cloneUrl.trim())
-        setCloneUrl('')
-        setShowCloneInput(false)
-      }
-    },
-    [cloneUrl, onCloneProject]
-  )
-
   const handleRemove = useCallback(
     (e: React.MouseEvent, id: string): void => {
       e.stopPropagation()
@@ -78,10 +56,11 @@ export function ProjectSidebar({
         onRemove={handleRemove}
         onUpdateProject={onUpdateProject}
       />
-      <SidebarActions onAdd={handleAddClick} onToggleClone={() => setShowCloneInput((p) => !p)} />
-      {showCloneInput && (
-        <CloneForm cloneUrl={cloneUrl} onUrlChange={setCloneUrl} onSubmit={handleCloneSubmit} />
-      )}
+      <div style={sidebarStyles.actions}>
+        <button onClick={onNewProject} style={sidebarStyles.actionButton}>
+          + New Project
+        </button>
+      </div>
     </div>
   )
 }
@@ -241,48 +220,4 @@ function ProjectItem({
   )
 }
 
-function SidebarActions({
-  onAdd,
-  onToggleClone,
-}: {
-  onAdd: () => void
-  onToggleClone: () => void
-}): React.JSX.Element {
-  return (
-    <div style={sidebarStyles.actions}>
-      <button onClick={onAdd} style={sidebarStyles.actionButton}>
-        + Add
-      </button>
-      <button onClick={onToggleClone} style={sidebarStyles.actionButton}>
-        Clone
-      </button>
-    </div>
-  )
-}
-
-function CloneForm({
-  cloneUrl,
-  onUrlChange,
-  onSubmit,
-}: {
-  cloneUrl: string
-  onUrlChange: (url: string) => void
-  onSubmit: (e: React.FormEvent) => void
-}): React.JSX.Element {
-  return (
-    <form onSubmit={onSubmit} style={sidebarStyles.cloneForm}>
-      <input
-        type="text"
-        value={cloneUrl}
-        onChange={(e) => onUrlChange(e.target.value)}
-        placeholder="Git URL..."
-        style={sidebarStyles.cloneInput}
-        autoFocus
-      />
-      <button type="submit" style={sidebarStyles.cloneSubmit}>
-        Go
-      </button>
-    </form>
-  )
-}
 

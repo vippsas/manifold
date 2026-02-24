@@ -37,12 +37,11 @@ function renderSidebar(overrides = {}) {
     activeSessionId: 's1',
     onSelectProject: vi.fn(),
     onSelectSession: vi.fn(),
-    onAddProject: vi.fn(),
     onRemoveProject: vi.fn(),
     onUpdateProject: vi.fn(),
-    onCloneProject: vi.fn(),
     onDeleteAgent: vi.fn(),
     onNewAgent: vi.fn(),
+    onNewProject: vi.fn(),
     onOpenSettings: vi.fn(),
     ...overrides,
   }
@@ -84,12 +83,12 @@ describe('ProjectSidebar', () => {
     expect(props.onSelectProject).toHaveBeenCalledWith('p2')
   })
 
-  it('calls onAddProject when Add button is clicked', () => {
+  it('calls onNewProject when New Project button is clicked', () => {
     const { props } = renderSidebar()
 
-    fireEvent.click(screen.getByText('+ Add'))
+    fireEvent.click(screen.getByText('+ New Project'))
 
-    expect(props.onAddProject).toHaveBeenCalled()
+    expect(props.onNewProject).toHaveBeenCalled()
   })
 
   it('calls onOpenSettings when gear button is clicked', () => {
@@ -98,26 +97,6 @@ describe('ProjectSidebar', () => {
     fireEvent.click(screen.getByLabelText('Settings'))
 
     expect(props.onOpenSettings).toHaveBeenCalled()
-  })
-
-  it('shows clone input when Clone button is clicked', () => {
-    renderSidebar()
-
-    const cloneButton = screen.getByText('Clone')
-    fireEvent.click(cloneButton)
-
-    expect(screen.getByPlaceholderText('Git URL...')).toBeInTheDocument()
-  })
-
-  it('hides clone input when Clone button is clicked again', () => {
-    renderSidebar()
-
-    const cloneButton = screen.getByText('Clone')
-    fireEvent.click(cloneButton)
-    expect(screen.getByPlaceholderText('Git URL...')).toBeInTheDocument()
-
-    fireEvent.click(cloneButton)
-    expect(screen.queryByPlaceholderText('Git URL...')).not.toBeInTheDocument()
   })
 
   it('calls onRemoveProject when remove button is clicked', () => {

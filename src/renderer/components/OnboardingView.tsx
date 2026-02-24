@@ -30,6 +30,7 @@ interface NoProjectProps {
   onCreateNewProject: (description: string) => void
   creatingProject?: boolean
   createError?: string | null
+  onBack?: () => void
 }
 
 interface NoAgentProps {
@@ -60,13 +61,32 @@ export function OnboardingView(props: OnboardingViewProps): React.JSX.Element {
       </pre>
 
       {props.variant === 'no-project' ? (
-        <NoProjectActions
-          onAddProject={props.onAddProject}
-          onCloneProject={props.onCloneProject}
-          onCreateNewProject={props.onCreateNewProject}
-          creatingProject={props.creatingProject}
-          createError={props.createError}
-        />
+        <>
+          <NoProjectActions
+            onAddProject={props.onAddProject}
+            onCloneProject={props.onCloneProject}
+            onCreateNewProject={props.onCreateNewProject}
+            creatingProject={props.creatingProject}
+            createError={props.createError}
+          />
+          {props.onBack && (
+            <button
+              onClick={props.onBack}
+              style={{
+                marginTop: 8,
+                padding: '6px 16px',
+                fontSize: 12,
+                color: 'var(--text-muted)',
+                backgroundColor: 'transparent',
+                border: 'none',
+                cursor: 'pointer',
+                textDecoration: 'underline',
+              }}
+            >
+              Back to workspace
+            </button>
+          )}
+        </>
       ) : (
         <NewTaskInput onNewAgent={props.onNewAgent} />
       )}

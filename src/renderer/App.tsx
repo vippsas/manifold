@@ -109,12 +109,14 @@ export function App(): React.JSX.Element {
   const { themeId, themeClass, xtermTheme, setPreviewThemeId } = useTheme(settings.theme)
   const updateNotification = useUpdateNotification()
   const [creatingProject, setCreatingProject] = useState(false)
+  const [showOnboarding, setShowOnboarding] = useState(false)
 
   const handleCreateNewProject = useCallback(async (description: string): Promise<void> => {
     setCreatingProject(true)
     try {
       const project = await createNewProject(description)
       if (project) {
+        setShowOnboarding(false)
         void spawnAgent({
           projectId: project.id,
           runtimeId: settings.defaultRuntime,
@@ -125,6 +127,16 @@ export function App(): React.JSX.Element {
       setCreatingProject(false)
     }
   }, [createNewProject, spawnAgent, settings.defaultRuntime])
+
+  const handleAddProjectFromOnboarding = useCallback(async (path?: string): Promise<void> => {
+    await addProject(path)
+    setShowOnboarding(false)
+  }, [addProject])
+
+  const handleCloneFromOnboarding = useCallback(async (url: string): Promise<void> => {
+    await cloneProject(url)
+    setShowOnboarding(false)
+  }, [cloneProject])
 
   // Shared state object that dock panels read via context
   const dockState: DockAppState = {
@@ -157,12 +169,11 @@ export function App(): React.JSX.Element {
     allProjectSessions: sessionsByProject,
     onSelectProject: setActiveProject,
     onSelectSession: overlays.handleSelectSession,
-    onAddProject: addProject,
     onRemoveProject: removeProject,
     onUpdateProject: updateProject,
-    onCloneProject: (url: string) => void cloneProject(url),
     onDeleteAgent: overlays.handleDeleteAgent,
     onNewAgentForProject: overlays.handleNewAgentForProject,
+    onNewProject: () => setShowOnboarding(true),
     onOpenSettings: () => overlays.setShowSettings(true),
   }
 
@@ -178,16 +189,17 @@ export function App(): React.JSX.Element {
     )
   }
 
-  if (projects.length === 0) {
+  if (projects.length === 0 || showOnboarding) {
     return (
       <div className={`layout-root ${themeClass}`}>
         <OnboardingView
           variant="no-project"
-          onAddProject={() => void addProject()}
-          onCloneProject={(url) => void cloneProject(url)}
+          onAddProject={() => void handleAddProjectFromOnboarding()}
+          onCloneProject={(url) => void handleCloneFromOnboarding(url)}
           onCreateNewProject={(desc) => void handleCreateNewProject(desc)}
           creatingProject={creatingProject}
           createError={projectError}
+          onBack={projects.length > 0 ? () => setShowOnboarding(false) : undefined}
         />
       </div>
     )
