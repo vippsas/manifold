@@ -1,6 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { render, screen, fireEvent, waitFor } from '@testing-library/react'
-import { act } from 'react'
 import React from 'react'
 import { NewTaskModal } from './NewTaskModal'
 
@@ -16,6 +15,8 @@ beforeEach(() => {
   ;(window as unknown as Record<string, unknown>).electronAPI = {
     invoke: vi.fn((channel: string) => {
       if (channel === 'runtimes:list') return Promise.resolve(MOCK_RUNTIMES)
+      if (channel === 'git:list-branches') return Promise.resolve([])
+      if (channel === 'git:list-prs') return Promise.resolve([])
       return Promise.resolve(undefined)
     }),
     on: vi.fn(() => vi.fn()),
@@ -30,7 +31,6 @@ function renderModal(overrides = {}) {
   const defaultProps = {
     visible: true,
     projectId: 'proj-1',
-    projectName: 'my-app',
     baseBranch: 'main',
     defaultRuntime: 'claude',
     onLaunch: vi.fn(),
@@ -47,7 +47,6 @@ describe('NewTaskModal', () => {
       <NewTaskModal
         visible={false}
         projectId="proj-1"
-        projectName="my-app"
         baseBranch="main"
         defaultRuntime="claude"
         onLaunch={vi.fn()}
@@ -58,45 +57,45 @@ describe('NewTaskModal', () => {
     expect(container.innerHTML).toBe('')
   })
 
-  it('renders dialog when visible with "New Task" title', () => {
+  it('renders dialog when visible with "New Agent" title', () => {
     renderModal()
 
     expect(screen.getByRole('dialog')).toBeInTheDocument()
-    expect(screen.getByText('New Task')).toBeInTheDocument()
+    expect(screen.getByText('New Agent')).toBeInTheDocument()
   })
 
-  it('renders a textarea', () => {
+  it('renders a text input', () => {
     renderModal()
 
-    const textarea = screen.getByRole('textbox')
-    expect(textarea).toBeInTheDocument()
-    expect(textarea.tagName).toBe('TEXTAREA')
+    const input = screen.getByRole('textbox')
+    expect(input).toBeInTheDocument()
+    expect(input.tagName).toBe('INPUT')
   })
 
-  it('"Start Task" button is disabled when textarea is empty', () => {
+  it('"Start Task" button is disabled when input is empty', () => {
     renderModal()
 
-    const submitButton = screen.getByRole('button', { name: /start task/i })
+    const submitButton = screen.getByRole('button', { name: /start agent/i })
     expect(submitButton).toBeDisabled()
   })
 
-  it('"Start Task" button is enabled when textarea has content', () => {
+  it('"Start Task" button is enabled when input has content', () => {
     renderModal()
 
-    const textarea = screen.getByRole('textbox')
-    fireEvent.change(textarea, { target: { value: 'Fix the login bug' } })
+    const input = screen.getByRole('textbox')
+    fireEvent.change(input, { target: { value: 'Fix the login bug' } })
 
-    const submitButton = screen.getByRole('button', { name: /start task/i })
+    const submitButton = screen.getByRole('button', { name: /start agent/i })
     expect(submitButton).toBeEnabled()
   })
 
   it('calls onLaunch with task description as prompt on submit', () => {
     const { props } = renderModal()
 
-    const textarea = screen.getByRole('textbox')
-    fireEvent.change(textarea, { target: { value: 'Fix the login bug' } })
+    const input = screen.getByRole('textbox')
+    fireEvent.change(input, { target: { value: 'Fix the login bug' } })
 
-    const form = screen.getByRole('button', { name: /start task/i }).closest('form')!
+    const form = screen.getByRole('button', { name: /start agent/i }).closest('form')!
     fireEvent.submit(form)
 
     expect(props.onLaunch).toHaveBeenCalledWith(
@@ -111,10 +110,10 @@ describe('NewTaskModal', () => {
   it('shows "Starting..." after submit', () => {
     renderModal()
 
-    const textarea = screen.getByRole('textbox')
-    fireEvent.change(textarea, { target: { value: 'Fix the login bug' } })
+    const input = screen.getByRole('textbox')
+    fireEvent.change(input, { target: { value: 'Fix the login bug' } })
 
-    const form = screen.getByRole('button', { name: /start task/i }).closest('form')!
+    const form = screen.getByRole('button', { name: /start agent/i }).closest('form')!
     fireEvent.submit(form)
 
     expect(screen.getByText('Starting\u2026')).toBeInTheDocument()
@@ -144,34 +143,10 @@ describe('NewTaskModal', () => {
       expect(screen.getByDisplayValue('Claude Code')).toBeInTheDocument()
     })
 
-    // Verify all runtime options exist
     expect(screen.getByText('Claude Code')).toBeInTheDocument()
     expect(screen.getByText('Codex')).toBeInTheDocument()
     expect(screen.getByText('Gemini')).toBeInTheDocument()
     expect(screen.getByText('Custom')).toBeInTheDocument()
-  })
-
-  it('Advanced section toggles on click', () => {
-    renderModal()
-
-    // Branch input should not be visible initially
-    expect(screen.queryByPlaceholderText('my-app/...')).not.toBeInTheDocument()
-
-    // Click "Advanced" to expand
-    fireEvent.click(screen.getByText('Advanced'))
-
-    // Branch input should now be visible
-    expect(screen.getByPlaceholderText('my-app/...')).toBeInTheDocument()
-  })
-
-  it('Branch field is visible when Advanced is open', () => {
-    renderModal()
-
-    fireEvent.click(screen.getByText('Advanced'))
-
-    const branchInput = screen.getByPlaceholderText('my-app/...')
-    expect(branchInput).toBeInTheDocument()
-    expect(branchInput.tagName).toBe('INPUT')
   })
 
   it('calls onClose when close X button is clicked', () => {
@@ -185,39 +160,13 @@ describe('NewTaskModal', () => {
     expect(props.onClose).toHaveBeenCalled()
   })
 
-  it('does not submit when textarea is empty', () => {
+  it('does not submit when input is empty', () => {
     const { props } = renderModal()
 
-    const form = screen.getByRole('button', { name: /start task/i }).closest('form')!
+    const form = screen.getByRole('button', { name: /start agent/i }).closest('form')!
     fireEvent.submit(form)
 
     expect(props.onLaunch).not.toHaveBeenCalled()
-  })
-
-  it('derives branch name from task description with debounce', () => {
-    vi.useFakeTimers()
-    renderModal()
-
-    // Open advanced to see branch input
-    fireEvent.click(screen.getByText('Advanced'))
-
-    // After opening Advanced, there are two textbox roles (textarea + branch input)
-    // so we target the textarea element directly
-    const textarea = document.querySelector('textarea')!
-    fireEvent.change(textarea, { target: { value: 'Fix the login bug' } })
-
-    // Branch should not be updated yet (debounce)
-    const branchInput = screen.getByPlaceholderText('my-app/...') as HTMLInputElement
-    expect(branchInput.value).toBe('')
-
-    // Advance past the 300ms debounce, wrapped in act for React state updates
-    act(() => {
-      vi.advanceTimersByTime(300)
-    })
-
-    expect(branchInput.value).toBe('my-app/fix-login-bug')
-
-    vi.useRealTimers()
   })
 
   it('uses selected runtime in the launch options', async () => {
@@ -229,10 +178,10 @@ describe('NewTaskModal', () => {
     const select = screen.getByDisplayValue('Claude Code')
     fireEvent.change(select, { target: { value: 'gemini' } })
 
-    const textarea = screen.getByRole('textbox')
-    fireEvent.change(textarea, { target: { value: 'Build a feature' } })
+    const input = screen.getByRole('textbox')
+    fireEvent.change(input, { target: { value: 'Build a feature' } })
 
-    const form = screen.getByRole('button', { name: /start task/i }).closest('form')!
+    const form = screen.getByRole('button', { name: /start agent/i }).closest('form')!
     fireEvent.submit(form)
 
     expect(props.onLaunch).toHaveBeenCalledWith(
@@ -240,5 +189,33 @@ describe('NewTaskModal', () => {
         runtimeId: 'gemini',
       }),
     )
+  })
+
+  it('pre-populates task description from initialDescription', () => {
+    renderModal({ initialDescription: 'Fix the login bug' })
+
+    const input = screen.getByRole('textbox') as HTMLInputElement
+    expect(input.value).toBe('Fix the login bug')
+  })
+
+  it('shows existing branch/PR checkbox unchecked by default', () => {
+    renderModal()
+
+    const checkbox = screen.getByRole('checkbox', { name: /existing branch or pr/i })
+    expect(checkbox).toBeInTheDocument()
+    expect(checkbox).not.toBeChecked()
+  })
+
+  it('shows Branch/PR sub-tabs when checkbox is checked', () => {
+    renderModal()
+
+    const checkbox = screen.getByRole('checkbox', { name: /existing branch or pr/i })
+    fireEvent.click(checkbox)
+
+    const buttons = screen.getAllByRole('button')
+    const branchBtn = buttons.find((b) => b.textContent === 'Branch')
+    const prBtn = buttons.find((b) => b.textContent === 'Pull Request')
+    expect(branchBtn).toBeDefined()
+    expect(prBtn).toBeDefined()
   })
 })

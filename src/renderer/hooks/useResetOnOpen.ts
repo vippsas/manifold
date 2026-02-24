@@ -1,17 +1,15 @@
 import { useEffect } from 'react'
 import type { BranchInfo, PRInfo } from '../../shared/types'
-import type { ModalTab, ExistingSubTab } from '../components/new-task/types'
+import type { ExistingSubTab } from '../components/new-task/types'
 
 export function useResetOnOpen(
   visible: boolean,
   defaultRuntime: string,
+  initialDescription: string,
   setTaskDescription: (v: string) => void,
   setRuntimeId: (v: string) => void,
-  setBranchName: (v: string) => void,
-  setBranchEdited: (v: boolean) => void,
-  setShowAdvanced: (v: boolean) => void,
   setLoading: (v: boolean) => void,
-  setActiveTab: (v: ModalTab) => void,
+  setUseExisting: (v: boolean) => void,
   setExistingSubTab: (v: ExistingSubTab) => void,
   setBranches: (v: BranchInfo[]) => void,
   setBranchFilter: (v: string) => void,
@@ -23,13 +21,10 @@ export function useResetOnOpen(
 ): void {
   useEffect(() => {
     if (!visible) return
-    setTaskDescription('')
+    setTaskDescription(initialDescription)
     setRuntimeId(defaultRuntime)
-    setBranchName('')
-    setBranchEdited(false)
-    setShowAdvanced(false)
     setLoading(false)
-    setActiveTab('new')
+    setUseExisting(false)
     setExistingSubTab('branch')
     setBranches([])
     setBranchFilter('')
@@ -38,5 +33,5 @@ export function useResetOnOpen(
     setPrFilter('')
     setSelectedPr(null)
     setError('')
-  }, [visible, defaultRuntime, setTaskDescription, setRuntimeId, setBranchName, setBranchEdited, setShowAdvanced, setLoading, setActiveTab, setExistingSubTab, setBranches, setBranchFilter, setSelectedBranch, setPrs, setPrFilter, setSelectedPr, setError])
+  }, [visible, defaultRuntime, initialDescription, setTaskDescription, setRuntimeId, setLoading, setUseExisting, setExistingSubTab, setBranches, setBranchFilter, setSelectedBranch, setPrs, setPrFilter, setSelectedPr, setError])
 }
