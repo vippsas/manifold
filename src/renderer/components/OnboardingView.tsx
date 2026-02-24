@@ -36,6 +36,7 @@ interface NoProjectProps {
 interface NoAgentProps {
   variant: 'no-agent'
   onNewAgent: (description: string) => void
+  onBack?: () => void
 }
 
 type OnboardingViewProps = NoProjectProps | NoAgentProps
@@ -88,7 +89,26 @@ export function OnboardingView(props: OnboardingViewProps): React.JSX.Element {
           )}
         </>
       ) : (
-        <NewTaskInput onNewAgent={props.onNewAgent} />
+        <>
+          <NewTaskInput onNewAgent={props.onNewAgent} />
+          {props.onBack && (
+            <button
+              onClick={props.onBack}
+              style={{
+                marginTop: 8,
+                padding: '6px 16px',
+                fontSize: 12,
+                color: 'var(--text-muted)',
+                backgroundColor: 'transparent',
+                border: 'none',
+                cursor: 'pointer',
+                textDecoration: 'underline',
+              }}
+            >
+              Back to workspace
+            </button>
+          )}
+        </>
       )}
     </div>
   )

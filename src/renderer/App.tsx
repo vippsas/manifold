@@ -163,7 +163,7 @@ export function App(): React.JSX.Element {
     worktreeShellSessionId: worktreeSessionId,
     projectShellSessionId: projectSessionId,
     worktreeCwd: worktreeShellCwd,
-    onNewAgent: (description: string) => { overlays.handleNewAgentWithDescription(description) },
+    onNewAgentWithDescription: (description: string) => { overlays.handleNewAgentWithDescription(description) },
     projects,
     activeProjectId,
     allProjectSessions: sessionsByProject,
@@ -172,7 +172,7 @@ export function App(): React.JSX.Element {
     onRemoveProject: removeProject,
     onUpdateProject: updateProject,
     onDeleteAgent: overlays.handleDeleteAgent,
-    onNewAgentForProject: overlays.handleNewAgentForProject,
+    onNewAgentFromHeader: overlays.handleNewAgentFromHeader,
     onNewProject: () => setShowOnboarding(true),
     onOpenSettings: () => overlays.setShowSettings(true),
   }
@@ -311,6 +311,16 @@ export function App(): React.JSX.Element {
             creatingProject={creatingProject}
             createError={projectError}
             onBack={() => setShowOnboarding(false)}
+          />
+        </div>
+      )}
+
+      {overlays.showAgentOnboarding && (
+        <div style={{ position: 'absolute', inset: 0, zIndex: 100, background: 'var(--bg-primary)' }}>
+          <OnboardingView
+            variant="no-agent"
+            onNewAgent={overlays.handleNewAgentWithDescription}
+            onBack={() => overlays.setShowAgentOnboarding(false)}
           />
         </div>
       )}
