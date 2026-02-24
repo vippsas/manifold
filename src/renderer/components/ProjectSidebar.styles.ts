@@ -26,6 +26,13 @@ export const sidebarStyles: Record<string, React.CSSProperties> = {
     padding: '2px',
     lineHeight: 1,
   },
+  headerNewAgent: {
+    fontSize: '11px',
+    color: 'var(--accent)',
+    cursor: 'pointer',
+    padding: '2px 4px',
+    whiteSpace: 'nowrap' as const,
+  },
   list: {
     flex: 1,
     overflowY: 'auto' as const,
@@ -94,15 +101,6 @@ export const sidebarStyles: Record<string, React.CSSProperties> = {
     lineHeight: 1,
     opacity: 0.6,
     flexShrink: 0,
-    cursor: 'pointer',
-  },
-  newAgentButton: {
-    display: 'flex',
-    alignItems: 'center',
-    gap: '4px',
-    padding: '5px 10px 5px 24px',
-    fontSize: '12px',
-    color: 'var(--accent)',
     cursor: 'pointer',
   },
   empty: {

@@ -9,6 +9,9 @@ export interface UseAppOverlaysResult {
   initialDescription: string
   showProjectPicker: boolean
   setShowProjectPicker: (show: boolean) => void
+  showAgentOnboarding: boolean
+  setShowAgentOnboarding: (show: boolean) => void
+  handleNewAgentFromHeader: () => void
   showSettings: boolean
   setShowSettings: (show: boolean) => void
   showAbout: boolean
@@ -19,7 +22,6 @@ export interface UseAppOverlaysResult {
   handleLaunchAgent: (options: SpawnAgentOptions) => void
   handleDeleteAgent: (sessionId: string) => void
   handleSelectSession: (sessionId: string, projectId: string) => void
-  handleNewAgentForProject: (projectId: string) => void
   handleNewAgentWithDescription: (description: string) => void
   handleSaveSettings: (partial: Partial<ManifoldSettings>) => void
   handleSetupComplete: () => void
@@ -40,6 +42,7 @@ export function useAppOverlays(
   const [showNewAgent, setShowNewAgent] = useState(false)
   const [initialDescription, setInitialDescription] = useState('')
   const [showProjectPicker, setShowProjectPicker] = useState(false)
+  const [showAgentOnboarding, setShowAgentOnboarding] = useState(false)
   const [showSettings, setShowSettings] = useState(false)
   const [showAbout, setShowAbout] = useState(false)
   const [appVersion, setAppVersion] = useState('')
@@ -68,17 +71,15 @@ export function useAppOverlays(
     if (projectId !== activeProjectId) setActiveProject(projectId)
   }, [activeProjectId, setActiveSession, setActiveProject])
 
-  const handleNewAgentForProject = useCallback((projectId: string): void => {
-    if (projectId !== activeProjectId) setActiveProject(projectId)
-    setInitialDescription('')
-    setShowProjectPicker(false)
-    setShowNewAgent(true)
-  }, [activeProjectId, setActiveProject])
+  const handleNewAgentFromHeader = useCallback((): void => {
+    setShowAgentOnboarding(true)
+  }, [])
 
   const handleNewAgentWithDescription = useCallback((description: string): void => {
     setInitialDescription(description)
     setShowProjectPicker(true)
     setShowNewAgent(true)
+    setShowAgentOnboarding(false)
   }, [])
 
   const handleSaveSettings = useCallback((partial: Partial<ManifoldSettings>): void => {
@@ -106,6 +107,9 @@ export function useAppOverlays(
     initialDescription,
     showProjectPicker,
     setShowProjectPicker,
+    showAgentOnboarding,
+    setShowAgentOnboarding,
+    handleNewAgentFromHeader,
     showSettings,
     setShowSettings,
     showAbout,
@@ -116,7 +120,6 @@ export function useAppOverlays(
     handleLaunchAgent,
     handleDeleteAgent,
     handleSelectSession,
-    handleNewAgentForProject,
     handleNewAgentWithDescription,
     handleSaveSettings,
     handleSetupComplete,
