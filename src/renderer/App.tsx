@@ -189,7 +189,7 @@ export function App(): React.JSX.Element {
     )
   }
 
-  if (projects.length === 0 || showOnboarding) {
+  if (projects.length === 0) {
     return (
       <div className={`layout-root ${themeClass}`}>
         <OnboardingView
@@ -199,7 +199,6 @@ export function App(): React.JSX.Element {
           onCreateNewProject={(desc) => void handleCreateNewProject(desc)}
           creatingProject={creatingProject}
           createError={projectError}
-          onBack={projects.length > 0 ? () => setShowOnboarding(false) : undefined}
         />
       </div>
     )
@@ -300,6 +299,20 @@ export function App(): React.JSX.Element {
           onRestart={updateNotification.install}
           onDismiss={updateNotification.dismiss}
         />
+      )}
+
+      {showOnboarding && (
+        <div style={{ position: 'absolute', inset: 0, zIndex: 100, background: 'var(--bg-primary)' }}>
+          <OnboardingView
+            variant="no-project"
+            onAddProject={() => void handleAddProjectFromOnboarding()}
+            onCloneProject={(url) => void handleCloneFromOnboarding(url)}
+            onCreateNewProject={(desc) => void handleCreateNewProject(desc)}
+            creatingProject={creatingProject}
+            createError={projectError}
+            onBack={() => setShowOnboarding(false)}
+          />
+        </div>
       )}
     </div>
   )

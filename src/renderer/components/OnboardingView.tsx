@@ -222,8 +222,12 @@ function NoProjectActions({
             fontSize: 14,
             opacity: canSubmit ? 1 : 0.5,
             alignSelf: 'flex-end',
+            display: 'flex',
+            alignItems: 'center',
+            gap: 8,
           }}
         >
+          {creatingProject && <span className="spinner" />}
           {creatingProject ? 'Creating...' : 'Go'}
         </button>
       </form>
