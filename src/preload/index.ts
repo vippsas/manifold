@@ -64,6 +64,7 @@ const ALLOWED_LISTEN_CHANNELS = [
   'agent:conflicts',
   'show-about',
   'updater:status',
+  'view:toggle-panel',
 ] as const
 
 type InvokeChannel = (typeof ALLOWED_INVOKE_CHANNELS)[number]
