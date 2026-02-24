@@ -1,10 +1,11 @@
 import { useCallback, useRef, useEffect } from 'react'
 import type { DockviewApi, SerializedDockview } from 'dockview'
 
-const PANEL_IDS = ['agent', 'editor', 'fileTree', 'modifiedFiles', 'shell'] as const
+const PANEL_IDS = ['projects', 'agent', 'editor', 'fileTree', 'modifiedFiles', 'shell'] as const
 export type DockPanelId = (typeof PANEL_IDS)[number]
 
 const PANEL_TITLES: Record<DockPanelId, string> = {
+  projects: 'Projects',
   agent: 'Agent',
   editor: 'Editor',
   fileTree: 'Files',
@@ -39,19 +40,19 @@ export function useDockLayout(sessionId: string | null): UseDockLayoutResult {
   }, [])
 
   const buildDefaultLayout = useCallback((api: DockviewApi) => {
-    // Left: Agent (full height)
-    const agentPanel = api.addPanel({
-      id: 'agent',
-      component: 'agent',
-      title: PANEL_TITLES.agent,
+    // Left top: Projects
+    const projectsPanel = api.addPanel({
+      id: 'projects',
+      component: 'projects',
+      title: PANEL_TITLES.projects,
     })
 
-    // Right top: Files, Modified Files, Editor as tabs
+    // Left bottom: Files (tabbed with Modified Files)
     const filesPanel = api.addPanel({
       id: 'fileTree',
       component: 'fileTree',
       title: PANEL_TITLES.fileTree,
-      position: { referencePanel: agentPanel, direction: 'right' },
+      position: { referencePanel: projectsPanel, direction: 'below' },
     })
 
     api.addPanel({
@@ -61,27 +62,36 @@ export function useDockLayout(sessionId: string | null): UseDockLayoutResult {
       position: { referencePanel: filesPanel, direction: 'within' },
     })
 
-    api.addPanel({
-      id: 'editor',
-      component: 'editor',
-      title: PANEL_TITLES.editor,
-      position: { referencePanel: filesPanel, direction: 'within' },
+    // Center top: Agent
+    const agentPanel = api.addPanel({
+      id: 'agent',
+      component: 'agent',
+      title: PANEL_TITLES.agent,
+      position: { referencePanel: projectsPanel, direction: 'right' },
     })
 
-    // Right bottom: Shell
+    // Center bottom: Shell
     api.addPanel({
       id: 'shell',
       component: 'shell',
       title: PANEL_TITLES.shell,
-      position: { referencePanel: filesPanel, direction: 'below' },
+      position: { referencePanel: agentPanel, direction: 'below' },
     })
 
-    // Make FileTree the active tab in its group
+    // Right: Editor (full height)
+    api.addPanel({
+      id: 'editor',
+      component: 'editor',
+      title: PANEL_TITLES.editor,
+      position: { referencePanel: agentPanel, direction: 'right' },
+    })
+
+    // Make Files the active tab in its group
     filesPanel.api.setActive()
 
-    // Set relative sizes — shell takes 1/3 of the right column height
+    // Set relative sizes
     try {
-      filesPanel.group?.api.setSize({ width: 350 })
+      projectsPanel.group?.api.setSize({ width: 200 })
       const totalHeight = api.height
       if (totalHeight > 0) {
         api.getPanel('shell')?.group?.api.setSize({ height: Math.round(totalHeight / 3) })
