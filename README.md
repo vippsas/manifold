@@ -4,7 +4,7 @@ A macOS desktop app that orchestrates multiple CLI coding agents working in para
 
 Supports **Claude Code**, **Codex**, and **Gemini CLI**.
 
-![Manifold](screenshot-2026-02-22-12-54-05.jpg)
+![Manifold](manifold.jpg)
 
 Agents run in a native terminal — no wrapping, no abstractions. You get the full CLI experience exactly as if you ran the agent yourself.
 
