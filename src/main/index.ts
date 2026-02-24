@@ -181,6 +181,37 @@ function createWindow(): void {
     {
       label: 'View',
       submenu: [
+        {
+          label: 'Toggle Projects',
+          accelerator: 'CmdOrCtrl+1',
+          click: () => mainWindow?.webContents.send('view:toggle-panel', 'projects'),
+        },
+        {
+          label: 'Toggle Agent',
+          accelerator: 'CmdOrCtrl+2',
+          click: () => mainWindow?.webContents.send('view:toggle-panel', 'agent'),
+        },
+        {
+          label: 'Toggle Editor',
+          accelerator: 'CmdOrCtrl+3',
+          click: () => mainWindow?.webContents.send('view:toggle-panel', 'editor'),
+        },
+        {
+          label: 'Toggle Files',
+          accelerator: 'CmdOrCtrl+4',
+          click: () => mainWindow?.webContents.send('view:toggle-panel', 'fileTree'),
+        },
+        {
+          label: 'Toggle Modified Files',
+          accelerator: 'CmdOrCtrl+5',
+          click: () => mainWindow?.webContents.send('view:toggle-panel', 'modifiedFiles'),
+        },
+        {
+          label: 'Toggle Shell',
+          accelerator: 'CmdOrCtrl+6',
+          click: () => mainWindow?.webContents.send('view:toggle-panel', 'shell'),
+        },
+        { type: 'separator' },
         { role: 'reload' },
         { role: 'forceReload' },
         { role: 'toggleDevTools' },

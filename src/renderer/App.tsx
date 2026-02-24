@@ -1,4 +1,4 @@
-import React, { useCallback, useMemo } from 'react'
+import React, { useCallback, useEffect, useMemo } from 'react'
 import { DockviewReact } from 'dockview'
 import { useProjects } from './hooks/useProjects'
 import { useAgentSession } from './hooks/useAgentSession'
@@ -17,7 +17,7 @@ import { useUpdateNotification } from './hooks/useUpdateNotification'
 import { useFileDiff } from './hooks/useFileDiff'
 import { useFileOperations } from './hooks/useFileOperations'
 import { useAppOverlays } from './hooks/useAppOverlays'
-import { useDockLayout } from './hooks/useDockLayout'
+import { useDockLayout, type DockPanelId } from './hooks/useDockLayout'
 import { PANEL_COMPONENTS, DockStateContext, type DockAppState } from './components/dock-panels'
 import { NewTaskModal } from './components/NewTaskModal'
 import { OnboardingView } from './components/OnboardingView'
@@ -41,6 +41,13 @@ export function App(): React.JSX.Element {
   const { diff, changedFiles, refreshDiff } = useDiff(activeSessionId)
   const dockLayout = useDockLayout(activeSessionId)
   const codeView = useCodeView(activeSessionId)
+
+  // Listen for View menu → Toggle panel commands from the main process.
+  useEffect(() => {
+    return window.electronAPI.on('view:toggle-panel', (panelId: unknown) => {
+      dockLayout.togglePanel(panelId as DockPanelId)
+    })
+  }, [dockLayout.togglePanel])
 
   const handleFilesChanged = useCallback(() => {
     void codeView.refreshOpenFiles()
