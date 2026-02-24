@@ -24,9 +24,9 @@ function repoNameFromUrl(url: string): string {
   return lastSegment
 }
 
-const AI_README_TIMEOUT_MS = 60_000
+const AI_TIMEOUT_MS = 60_000
 
-function generateReadmeViaAI(binary: string, description: string, cwd: string): Promise<string> {
+function runAIPrompt(binary: string, prompt: string, cwd?: string): Promise<string> {
   return new Promise((resolve) => {
     const child = spawn(binary, ['-p'], {
       cwd,
@@ -38,7 +38,7 @@ function generateReadmeViaAI(binary: string, description: string, cwd: string): 
 
     const timer = setTimeout(() => {
       child.kill('SIGTERM')
-    }, AI_README_TIMEOUT_MS)
+    }, AI_TIMEOUT_MS)
 
     child.on('error', () => {
       clearTimeout(timer)
@@ -50,13 +50,6 @@ function generateReadmeViaAI(binary: string, description: string, cwd: string): 
       const result = Buffer.concat(chunks).toString('utf8').trim()
       resolve(code === 0 && result ? result : '')
     })
-
-    const prompt =
-      `I am starting a new project. Here is the project description:\n\n` +
-      `${description}\n\n` +
-      `Generate a README.md for this project. Include a title, description, ` +
-      `and relevant sections based on the project idea. Output only the raw ` +
-      `markdown content, nothing else.`
 
     child.stdin.write(prompt)
     child.stdin.end()
@@ -107,8 +100,23 @@ export function registerProjectHandlers(deps: IpcDependencies): void {
       }
 
       const settings = deps.settingsStore.getSettings()
-      const baseSlug = slugify(description)
+      const runtime = getRuntimeById(settings.defaultRuntime)
       const projectsBase = path.join(settings.storagePath, 'projects')
+
+      // Generate a catchy project name via AI, fall back to slugified description
+      let baseSlug = slugify(description)
+      if (runtime?.binary) {
+        const namePrompt =
+          `Suggest a short, catchy project name (1-3 words) for this project idea:\n\n` +
+          `${description.trim()}\n\n` +
+          `Output ONLY the project name in lowercase with hyphens instead of spaces. ` +
+          `No explanation, no quotes, no punctuation. Example: pixel-forge`
+        const aiName = await runAIPrompt(runtime.binary, namePrompt)
+        const cleaned = slugify(aiName)
+        if (cleaned && cleaned !== 'new-project') {
+          baseSlug = cleaned
+        }
+      }
 
       // Deduplicate: append numeric suffix if directory exists
       let slug = baseSlug
@@ -123,10 +131,17 @@ export function registerProjectHandlers(deps: IpcDependencies): void {
       try {
         mkdirSync(projectDir, { recursive: true })
 
-        const runtime = getRuntimeById(settings.defaultRuntime)
         let readmeContent = `# ${description.trim()}\n\n${description.trim()}\n`
         if (runtime?.binary) {
-          const aiContent = await generateReadmeViaAI(runtime.binary, description.trim(), projectDir)
+          const aiContent = await runAIPrompt(
+            runtime.binary,
+            `I am starting a new project. Here is the project description:\n\n` +
+            `${description.trim()}\n\n` +
+            `Generate a README.md for this project. Include a title, description, ` +
+            `and relevant sections based on the project idea. Output only the raw ` +
+            `markdown content, nothing else.`,
+            projectDir
+          )
           if (aiContent) {
             readmeContent = aiContent
           }
