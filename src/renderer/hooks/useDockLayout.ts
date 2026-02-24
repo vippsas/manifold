@@ -40,13 +40,14 @@ export function useDockLayout(sessionId: string | null): UseDockLayoutResult {
   }, [])
 
   const buildDefaultLayout = useCallback((api: DockviewApi) => {
-    // 1. Establish columns first: Projects (left), Agent (center)
+    // 1. Left column: Projects
     const projectsPanel = api.addPanel({
       id: 'projects',
       component: 'projects',
       title: PANEL_TITLES.projects,
     })
 
+    // 2. Right area: Agent (right of Projects)
     const agentPanel = api.addPanel({
       id: 'agent',
       component: 'agent',
@@ -54,7 +55,16 @@ export function useDockLayout(sessionId: string | null): UseDockLayoutResult {
       position: { referencePanel: projectsPanel, direction: 'right' },
     })
 
-    // 2. Right column: Editor (full height)
+    // 3. Shell below Agent — splits the right area vertically first
+    api.addPanel({
+      id: 'shell',
+      component: 'shell',
+      title: PANEL_TITLES.shell,
+      position: { referencePanel: agentPanel, direction: 'below' },
+    })
+
+    // 4. Editor right of Agent — splits only the top of right area,
+    //    so Shell spans below both Agent and Editor
     api.addPanel({
       id: 'editor',
       component: 'editor',
@@ -62,7 +72,7 @@ export function useDockLayout(sessionId: string | null): UseDockLayoutResult {
       position: { referencePanel: agentPanel, direction: 'right' },
     })
 
-    // 3. Split left column: Files below Projects (only left column)
+    // 5. Split left column: Files below Projects
     const filesPanel = api.addPanel({
       id: 'fileTree',
       component: 'fileTree',
@@ -75,14 +85,6 @@ export function useDockLayout(sessionId: string | null): UseDockLayoutResult {
       component: 'modifiedFiles',
       title: PANEL_TITLES.modifiedFiles,
       position: { referencePanel: filesPanel, direction: 'within' },
-    })
-
-    // 4. Split center column: Shell below Agent
-    api.addPanel({
-      id: 'shell',
-      component: 'shell',
-      title: PANEL_TITLES.shell,
-      position: { referencePanel: agentPanel, direction: 'below' },
     })
 
     // Make Files the active tab in its group
