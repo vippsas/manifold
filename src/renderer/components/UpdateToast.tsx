@@ -17,7 +17,7 @@ export function UpdateToast({ version, onRestart, onDismiss }: UpdateToastProps)
         </button>
       </div>
       <div style={toastStyles.body}>
-        Manifold v{version} is ready. Restart to update.
+        Manifold v{version ?? 'latest'} is ready. Restart to update.
       </div>
       <div style={toastStyles.footer}>
         <button onClick={onRestart} style={toastStyles.restartButton}>

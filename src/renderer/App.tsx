@@ -13,6 +13,7 @@ import { useAllProjectSessions } from './hooks/useAllProjectSessions'
 import { useTheme } from './hooks/useTheme'
 import { useSessionStatePersistence } from './hooks/useSessionStatePersistence'
 import { useStatusNotification } from './hooks/useStatusNotification'
+import { useUpdateNotification } from './hooks/useUpdateNotification'
 import { useFileDiff } from './hooks/useFileDiff'
 import { useFileOperations } from './hooks/useFileOperations'
 import { useAppOverlays } from './hooks/useAppOverlays'
@@ -22,6 +23,7 @@ import { NewTaskModal } from './components/NewTaskModal'
 import { OnboardingView } from './components/OnboardingView'
 import { SettingsModal } from './components/SettingsModal'
 import { AboutOverlay } from './components/AboutOverlay'
+import { UpdateToast } from './components/UpdateToast'
 import { StatusBar } from './components/StatusBar'
 import { CommitPanel } from './components/CommitPanel'
 import { PRPanel } from './components/PRPanel'
@@ -98,6 +100,7 @@ export function App(): React.JSX.Element {
   )
 
   const { themeId, themeClass, xtermTheme, setPreviewThemeId } = useTheme(settings.theme)
+  const updateNotification = useUpdateNotification()
 
   // Shared state object that dock panels read via context
   const dockState: DockAppState = {
@@ -251,6 +254,14 @@ export function App(): React.JSX.Element {
         version={overlays.appVersion}
         onClose={() => overlays.setShowAbout(false)}
       />
+
+      {updateNotification.updateReady && (
+        <UpdateToast
+          version={updateNotification.version}
+          onRestart={updateNotification.install}
+          onDismiss={updateNotification.dismiss}
+        />
+      )}
     </div>
   )
 }
