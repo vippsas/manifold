@@ -188,10 +188,8 @@ function NodeRow({
       ) : (
         <span style={treeStyles.chevronSpacer} />
       )}
-      {/* File/folder icon */}
-      {node.isDirectory ? (
-        <span style={treeStyles.fileIcon}>{expanded ? '\uD83D\uDCC2' : '\uD83D\uDCC1'}</span>
-      ) : (
+      {/* File icon (directories use chevron only) */}
+      {node.isDirectory ? null : (
         (() => {
           const svg = getFileIconSvg(node.name)
           return svg
