@@ -34,18 +34,24 @@ jobs:
       - name: Build, sign, and notarize
         run: |
           npm run build
-          if [ "${{ github.event_name }}" = "push" ]; then
-            npx electron-builder --mac --publish always
-          else
-            npx electron-builder --mac --publish never
-          fi
+          npx electron-builder --mac --publish never
         env:
           CSC_LINK: ${{ secrets.CSC_LINK }}
           CSC_KEY_PASSWORD: ${{ secrets.CSC_KEY_PASSWORD }}
           APPLE_ID: ${{ secrets.APPLE_ID }}
           APPLE_APP_SPECIFIC_PASSWORD: ${{ secrets.APPLE_APP_SPECIFIC_PASSWORD }}
           APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
-          GH_TOKEN: ${{ secrets.GH_TOKEN }}
+
+      - name: Create GitHub Release
+        if: startsWith(github.ref, 'refs/tags/')
+        uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            dist/*.dmg
+            dist/*.zip
+            dist/*.yml
+            dist/*.blockmap
+          generate_release_notes: true
 
       - name: Upload artifacts (manual runs)
         if: github.event_name == 'workflow_dispatch'
