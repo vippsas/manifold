@@ -133,9 +133,19 @@ export function App(): React.JSX.Element {
     setShowOnboarding(false)
   }, [addProject])
 
-  const handleCloneFromOnboarding = useCallback(async (url: string): Promise<void> => {
-    await cloneProject(url)
-    setShowOnboarding(false)
+  const [cloningProject, setCloningProject] = useState(false)
+
+  const handleCloneFromOnboarding = useCallback(async (url: string): Promise<boolean> => {
+    setCloningProject(true)
+    try {
+      const success = await cloneProject(url)
+      if (success) {
+        setShowOnboarding(false)
+      }
+      return success
+    } finally {
+      setCloningProject(false)
+    }
   }, [cloneProject])
 
   // Shared state object that dock panels read via context
@@ -186,7 +196,7 @@ export function App(): React.JSX.Element {
       <div className={`layout-root ${themeClass}`}>
         <WelcomeDialog
           onAddProject={() => void addProject()}
-          onCloneProject={(url) => void cloneProject(url)}
+          onCloneProject={cloneProject}
           onComplete={overlays.handleSetupComplete}
         />
       </div>
@@ -199,9 +209,10 @@ export function App(): React.JSX.Element {
         <OnboardingView
           variant="no-project"
           onAddProject={() => void handleAddProjectFromOnboarding()}
-          onCloneProject={(url) => void handleCloneFromOnboarding(url)}
+          onCloneProject={handleCloneFromOnboarding}
           onCreateNewProject={(desc) => void handleCreateNewProject(desc)}
           creatingProject={creatingProject}
+          cloningProject={cloningProject}
           createError={projectError}
         />
       </div>
@@ -310,9 +321,10 @@ export function App(): React.JSX.Element {
           <OnboardingView
             variant="no-project"
             onAddProject={() => void handleAddProjectFromOnboarding()}
-            onCloneProject={(url) => void handleCloneFromOnboarding(url)}
+            onCloneProject={handleCloneFromOnboarding}
             onCreateNewProject={(desc) => void handleCreateNewProject(desc)}
             creatingProject={creatingProject}
+            cloningProject={cloningProject}
             createError={projectError}
             onBack={() => setShowOnboarding(false)}
           />
