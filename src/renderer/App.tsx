@@ -11,7 +11,6 @@ import { useShellSessions } from './hooks/useShellSession'
 import { useGitOperations } from './hooks/useGitOperations'
 import { useAllProjectSessions } from './hooks/useAllProjectSessions'
 import { useTheme } from './hooks/useTheme'
-import { useSidebarResize } from './hooks/useSidebarResize'
 import { useSessionStatePersistence } from './hooks/useSessionStatePersistence'
 import { useStatusNotification } from './hooks/useStatusNotification'
 import { useFileDiff } from './hooks/useFileDiff'
@@ -19,7 +18,6 @@ import { useFileOperations } from './hooks/useFileOperations'
 import { useAppOverlays } from './hooks/useAppOverlays'
 import { useDockLayout } from './hooks/useDockLayout'
 import { PANEL_COMPONENTS, DockStateContext, type DockAppState } from './components/dock-panels'
-import { ProjectSidebar } from './components/ProjectSidebar'
 import { NewTaskModal } from './components/NewTaskModal'
 import { OnboardingView } from './components/OnboardingView'
 import { SettingsModal } from './components/SettingsModal'
@@ -101,8 +99,6 @@ export function App(): React.JSX.Element {
   )
 
   const { themeId, themeClass, xtermTheme, setPreviewThemeId } = useTheme(settings.theme)
-  const { sidebarWidth, handleSidebarDividerMouseDown } = useSidebarResize()
-  const [sidebarVisible, setSidebarVisible] = React.useState(true)
 
   // Shared state object that dock panels read via context
   const dockState: DockAppState = {
@@ -130,6 +126,18 @@ export function App(): React.JSX.Element {
     projectShellSessionId: projectSessionId,
     worktreeCwd: worktreeShellCwd,
     onNewAgent: () => { overlays.setShowProjectPicker(true); overlays.setShowNewAgent(true) },
+    projects,
+    activeProjectId,
+    allProjectSessions: sessionsByProject,
+    onSelectProject: setActiveProject,
+    onSelectSession: overlays.handleSelectSession,
+    onAddProject: addProject,
+    onRemoveProject: removeProject,
+    onUpdateProject: updateProject,
+    onCloneProject: (url: string) => void cloneProject(url),
+    onDeleteAgent: overlays.handleDeleteAgent,
+    onNewAgentForProject: overlays.handleNewAgentForProject,
+    onOpenSettings: () => overlays.setShowSettings(true),
   }
 
   if (!settings.setupCompleted) {
@@ -158,41 +166,6 @@ export function App(): React.JSX.Element {
 
   return (
     <div className={`layout-root ${themeClass}`}>
-      {sidebarVisible ? (
-        <>
-          <ProjectSidebar
-            width={sidebarWidth}
-            projects={projects}
-            activeProjectId={activeProjectId}
-            allProjectSessions={sessionsByProject}
-            activeSessionId={activeSessionId}
-            onSelectProject={setActiveProject}
-            onSelectSession={overlays.handleSelectSession}
-            onAddProject={addProject}
-            onRemoveProject={removeProject}
-            onUpdateProject={updateProject}
-            onCloneProject={(url: string) => void cloneProject(url)}
-            onDeleteAgent={overlays.handleDeleteAgent}
-            onNewAgent={overlays.handleNewAgentForProject}
-            onOpenSettings={() => overlays.setShowSettings(true)}
-            onClose={() => setSidebarVisible(false)}
-          />
-
-          <div
-            className="sidebar-divider"
-            onMouseDown={handleSidebarDividerMouseDown}
-          />
-        </>
-      ) : (
-        <div
-          className="sidebar-collapsed"
-          onClick={() => setSidebarVisible(true)}
-          title="Expand sidebar"
-        >
-          <span className="sidebar-collapsed-arrow">{'\u25B6'}</span>
-        </div>
-      )}
-
       <div className="layout-main">
         <DockStateContext.Provider value={dockState}>
           <div style={{ flex: 1, overflow: 'hidden' }}>
@@ -210,8 +183,6 @@ export function App(): React.JSX.Element {
           activeSession={activeSession}
           changedFiles={mergedChanges}
           baseBranch={activeProject?.baseBranch ?? settings.defaultBaseBranch}
-          sidebarVisible={sidebarVisible}
-          onToggleSidebar={() => setSidebarVisible((v) => !v)}
           dockLayout={dockLayout}
           conflicts={gitOps.conflicts}
           aheadBehind={gitOps.aheadBehind}
