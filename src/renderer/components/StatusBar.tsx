@@ -88,7 +88,7 @@ export function StatusBar({
         </span>
       )}
       <span style={barStyles.spacer} />
-      {hiddenDockPanels.length > 0 && (
+      {activeSession && hiddenDockPanels.length > 0 && (
         <span style={barStyles.toggleGroup}>
           {hiddenDockPanels.map((id) => (
             <button

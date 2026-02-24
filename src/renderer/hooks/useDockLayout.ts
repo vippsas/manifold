@@ -123,6 +123,27 @@ export function useDockLayout(sessionId: string | null): UseDockLayoutResult {
     }
   }, [])
 
+  const buildMinimalLayout = useCallback((api: DockviewApi) => {
+    const projectsPanel = api.addPanel({
+      id: 'projects',
+      component: 'projects',
+      title: PANEL_TITLES.projects,
+    })
+
+    api.addPanel({
+      id: 'agent',
+      component: 'agent',
+      title: PANEL_TITLES.agent,
+      position: { referencePanel: projectsPanel, direction: 'right' },
+    })
+
+    try {
+      projectsPanel.group?.api.setSize({ width: 200 })
+    } catch {
+      // sizing is best-effort
+    }
+  }, [])
+
   const onReady = useCallback(
     (api: DockviewApi) => {
       apiRef.current = api
@@ -144,7 +165,7 @@ export function useDockLayout(sessionId: string | null): UseDockLayoutResult {
           lastLayoutRef.current = api.toJSON()
         })()
       } else {
-        buildDefaultLayout(api)
+        buildMinimalLayout(api)
         lastLayoutRef.current = api.toJSON()
       }
 
@@ -164,7 +185,7 @@ export function useDockLayout(sessionId: string | null): UseDockLayoutResult {
         bumpVersion()
       })
     },
-    [buildDefaultLayout, saveLayout, bumpVersion]
+    [buildDefaultLayout, buildMinimalLayout, saveLayout, bumpVersion]
   )
 
   // When sessionId changes, try to load the layout for the new session
@@ -173,7 +194,14 @@ export function useDockLayout(sessionId: string | null): UseDockLayoutResult {
     if (sessionId === prevSessionRef.current) return
     prevSessionRef.current = sessionId
     const api = apiRef.current
-    if (!api || !sessionId) return
+    if (!api) return
+
+    if (!sessionId) {
+      api.clear()
+      buildMinimalLayout(api)
+      lastLayoutRef.current = api.toJSON()
+      return
+    }
 
     void (async () => {
       try {
@@ -191,7 +219,7 @@ export function useDockLayout(sessionId: string | null): UseDockLayoutResult {
       buildDefaultLayout(api)
       lastLayoutRef.current = api.toJSON()
     })()
-  }, [sessionId, buildDefaultLayout])
+  }, [sessionId, buildDefaultLayout, buildMinimalLayout])
 
   const togglePanel = useCallback((id: DockPanelId) => {
     const api = apiRef.current
