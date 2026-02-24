@@ -5,7 +5,6 @@ import { AgentItem } from './AgentItem'
 import { ProjectSettingsPopover } from './ProjectSettingsPopover'
 
 interface ProjectSidebarProps {
-  width: number
   projects: Project[]
   activeProjectId: string | null
   allProjectSessions: Record<string, AgentSession[]>
@@ -19,11 +18,9 @@ interface ProjectSidebarProps {
   onDeleteAgent: (id: string) => void
   onNewAgent: (projectId: string) => void
   onOpenSettings: () => void
-  onClose?: () => void
 }
 
 export function ProjectSidebar({
-  width,
   projects,
   activeProjectId,
   allProjectSessions,
@@ -37,7 +34,6 @@ export function ProjectSidebar({
   onDeleteAgent,
   onNewAgent,
   onOpenSettings,
-  onClose,
 }: ProjectSidebarProps): React.JSX.Element {
   const [cloneUrl, setCloneUrl] = useState('')
   const [showCloneInput, setShowCloneInput] = useState(false)
@@ -68,8 +64,8 @@ export function ProjectSidebar({
   )
 
   return (
-    <div className="layout-sidebar" style={{ ...sidebarStyles.root, width }}>
-      <SidebarHeader onOpenSettings={onOpenSettings} onClose={onClose} />
+    <div style={sidebarStyles.root}>
+      <SidebarHeader onOpenSettings={onOpenSettings} />
       <ProjectList
         projects={projects}
         activeProjectId={activeProjectId}
@@ -90,7 +86,7 @@ export function ProjectSidebar({
   )
 }
 
-function SidebarHeader({ onOpenSettings, onClose }: { onOpenSettings: () => void; onClose?: () => void }): React.JSX.Element {
+function SidebarHeader({ onOpenSettings }: { onOpenSettings: () => void }): React.JSX.Element {
   return (
     <div style={sidebarStyles.header}>
       <span style={sidebarStyles.title}>Projects</span>
@@ -103,16 +99,6 @@ function SidebarHeader({ onOpenSettings, onClose }: { onOpenSettings: () => void
         >
           &#9881;
         </button>
-        {onClose && (
-          <button
-            onClick={onClose}
-            style={sidebarStyles.gearButton}
-            aria-label="Collapse sidebar"
-            title="Collapse sidebar"
-          >
-            {'\u25C0'}
-          </button>
-        )}
       </span>
     </div>
   )
