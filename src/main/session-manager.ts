@@ -293,10 +293,12 @@ export class SessionManager {
   }
 
   private wireExitHandling(ptyId: string, session: InternalSession): void {
-    this.ptyPool.onExit(ptyId, () => {
+    this.ptyPool.onExit(ptyId, (exitCode: number) => {
       session.status = 'done'
       session.pid = null
+      session.ptyId = ''
       this.sendToRenderer('agent:status', { sessionId: session.id, status: 'done' })
+      this.sendToRenderer('agent:exit', { sessionId: session.id, code: exitCode })
     })
   }
 

@@ -20,6 +20,7 @@ interface UseAgentSessionResult {
   killAgent: (sessionId: string) => Promise<void>
   deleteAgent: (sessionId: string) => void
   setActiveSession: (sessionId: string) => void
+  resumeAgent: (sessionId: string, runtimeId: string) => Promise<void>
 }
 
 export function useAgentSession(projectId: string | null): UseAgentSessionResult {
@@ -34,6 +35,7 @@ export function useAgentSession(projectId: string | null): UseAgentSessionResult
   const spawnAgent = useSpawnAgent(setSessions, setActiveSessionId)
   const killAgent = useKillAgent()
   const deleteAgent = useDeleteAgent(setSessions, setActiveSessionId)
+  const resumeAgent = useResumeAgent(setSessions)
 
   const setActiveSession = useCallback((sessionId: string): void => {
     setActiveSessionId(sessionId)
@@ -41,7 +43,7 @@ export function useAgentSession(projectId: string | null): UseAgentSessionResult
 
   const activeSession = sessions.find((s) => s.id === activeSessionId) ?? null
 
-  return { sessions, activeSessionId, activeSession, spawnAgent, killAgent, deleteAgent, setActiveSession }
+  return { sessions, activeSessionId, activeSession, spawnAgent, killAgent, deleteAgent, setActiveSession, resumeAgent }
 }
 
 function useFetchSessionsOnProjectChange(
@@ -181,5 +183,25 @@ function useDeleteAgent(
       void window.electronAPI.invoke('agent:kill', sessionId).catch(() => {})
     },
     [setSessions, setActiveSessionId]
+  )
+}
+
+function useResumeAgent(
+  setSessions: React.Dispatch<React.SetStateAction<AgentSession[]>>
+): (sessionId: string, runtimeId: string) => Promise<void> {
+  return useCallback(
+    async (sessionId: string, runtimeId: string): Promise<void> => {
+      try {
+        const resumed = (await window.electronAPI.invoke(
+          'agent:resume',
+          sessionId,
+          runtimeId
+        )) as AgentSession
+        setSessions((prev) => prev.map((s) => (s.id === resumed.id ? resumed : s)))
+      } catch {
+        // Resume failed
+      }
+    },
+    [setSessions]
   )
 }
