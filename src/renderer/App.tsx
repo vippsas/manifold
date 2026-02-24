@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useMemo } from 'react'
+import React, { useCallback, useEffect, useMemo, useState } from 'react'
 import { DockviewReact } from 'dockview'
 import { useProjects } from './hooks/useProjects'
 import { useAgentSession } from './hooks/useAgentSession'
@@ -32,7 +32,7 @@ import { WelcomeDialog } from './components/WelcomeDialog'
 
 export function App(): React.JSX.Element {
   const { settings, updateSettings } = useSettings()
-  const { projects, activeProjectId, addProject, cloneProject, removeProject, updateProject, setActiveProject } = useProjects()
+  const { projects, activeProjectId, addProject, cloneProject, createNewProject, removeProject, updateProject, setActiveProject, error: projectError } = useProjects()
   const { sessions, activeSessionId, activeSession, spawnAgent, deleteAgent, setActiveSession } =
     useAgentSession(activeProjectId)
   const { sessionsByProject, removeSession } = useAllProjectSessions(projects, activeProjectId, sessions)
@@ -108,6 +108,23 @@ export function App(): React.JSX.Element {
 
   const { themeId, themeClass, xtermTheme, setPreviewThemeId } = useTheme(settings.theme)
   const updateNotification = useUpdateNotification()
+  const [creatingProject, setCreatingProject] = useState(false)
+
+  const handleCreateNewProject = useCallback(async (description: string): Promise<void> => {
+    setCreatingProject(true)
+    try {
+      const project = await createNewProject(description)
+      if (project) {
+        void spawnAgent({
+          projectId: project.id,
+          runtimeId: settings.defaultRuntime,
+          prompt: description,
+        })
+      }
+    } finally {
+      setCreatingProject(false)
+    }
+  }, [createNewProject, spawnAgent, settings.defaultRuntime])
 
   // Shared state object that dock panels read via context
   const dockState: DockAppState = {
@@ -168,6 +185,9 @@ export function App(): React.JSX.Element {
           variant="no-project"
           onAddProject={() => void addProject()}
           onCloneProject={(url) => void cloneProject(url)}
+          onCreateNewProject={(desc) => void handleCreateNewProject(desc)}
+          creatingProject={creatingProject}
+          createError={projectError}
         />
       </div>
     )

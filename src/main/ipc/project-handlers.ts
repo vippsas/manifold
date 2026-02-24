@@ -3,10 +3,19 @@ import { execFile } from 'node:child_process'
 import { promisify } from 'node:util'
 import path from 'node:path'
 import os from 'node:os'
-import { existsSync } from 'node:fs'
+import { existsSync, mkdirSync, writeFileSync, rmSync } from 'node:fs'
 import type { IpcDependencies } from './types'
 
 const execFileAsync = promisify(execFile)
+
+function slugify(text: string): string {
+  return text
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '')
+    .slice(0, 60)
+    || 'new-project'
+}
 
 function repoNameFromUrl(url: string): string {
   const cleaned = url.replace(/\/+$/, '').replace(/\.git$/, '')
@@ -47,6 +56,52 @@ export function registerProjectHandlers(deps: IpcDependencies): void {
 
       await execFileAsync('git', ['clone', '--', repoUrl, cloneDir])
       return projectRegistry.addProject(cloneDir)
+    }
+  )
+
+  ipcMain.handle(
+    'projects:create-new',
+    async (_event, description: string) => {
+      if (typeof description !== 'string' || !description.trim()) {
+        throw new Error('A project description is required')
+      }
+
+      const settings = deps.settingsStore.getSettings()
+      const baseSlug = slugify(description)
+      const projectsBase = path.join(settings.storagePath, 'projects')
+
+      // Deduplicate: append numeric suffix if directory exists
+      let slug = baseSlug
+      let projectDir = path.join(projectsBase, slug)
+      let suffix = 2
+      while (existsSync(projectDir)) {
+        slug = `${baseSlug}-${suffix}`
+        projectDir = path.join(projectsBase, slug)
+        suffix++
+      }
+
+      try {
+        mkdirSync(projectDir, { recursive: true })
+        writeFileSync(
+          path.join(projectDir, 'README.md'),
+          `# ${description.trim()}\n\n${description.trim()}\n`,
+          'utf-8'
+        )
+
+        await execFileAsync('git', ['init'], { cwd: projectDir })
+        await execFileAsync('git', ['add', 'README.md'], { cwd: projectDir })
+        await execFileAsync(
+          'git',
+          ['-c', 'user.email=manifold@local', '-c', 'user.name=Manifold', 'commit', '-m', 'Initial commit'],
+          { cwd: projectDir }
+        )
+
+        return projectRegistry.addProject(projectDir)
+      } catch (err) {
+        // Clean up partially-created directory on failure
+        try { rmSync(projectDir, { recursive: true, force: true }) } catch { /* best effort */ }
+        throw err
+      }
     }
   )
 
