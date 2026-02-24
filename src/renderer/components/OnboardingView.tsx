@@ -31,7 +31,7 @@ interface NoProjectProps {
 
 interface NoAgentProps {
   variant: 'no-agent'
-  onNewAgent: () => void
+  onNewAgent: (description: string) => void
 }
 
 type OnboardingViewProps = NoProjectProps | NoAgentProps
@@ -59,12 +59,50 @@ export function OnboardingView(props: OnboardingViewProps): React.JSX.Element {
       {props.variant === 'no-project' ? (
         <NoProjectActions onAddProject={props.onAddProject} onCloneProject={props.onCloneProject} />
       ) : (
-        <>
-          <div style={{ fontSize: 14 }}>No tasks running. Create one to get started.</div>
-          <button onClick={props.onNewAgent} style={buttonStyle}>+ New Task</button>
-        </>
+        <NewTaskInput onNewAgent={props.onNewAgent} />
       )}
     </div>
+  )
+}
+
+function NewTaskInput({ onNewAgent }: { onNewAgent: (description: string) => void }): React.JSX.Element {
+  const [value, setValue] = useState('')
+
+  const handleSubmit = useCallback(
+    (e: React.FormEvent): void => {
+      e.preventDefault()
+      const trimmed = value.trim()
+      if (trimmed) onNewAgent(trimmed)
+    },
+    [value, onNewAgent]
+  )
+
+  return (
+    <>
+      <div style={{ fontSize: 14 }}>Name your next task</div>
+      <form onSubmit={handleSubmit} style={{ display: 'flex', gap: 8, width: 400, maxWidth: '90%' }}>
+        <input
+          type="text"
+          value={value}
+          onChange={(e) => setValue(e.target.value)}
+          placeholder="e.g. Dark mode toggle"
+          autoFocus
+          style={{
+            flex: 1,
+            padding: '8px 12px',
+            fontSize: 13,
+            backgroundColor: 'var(--bg-input)',
+            color: 'var(--text-primary)',
+            border: '1px solid var(--border)',
+            borderRadius: 6,
+            outline: 'none',
+          }}
+        />
+        <button type="submit" disabled={!value.trim()} style={{ ...buttonStyle, opacity: value.trim() ? 1 : 0.5 }}>
+          Start
+        </button>
+      </form>
+    </>
   )
 }
 

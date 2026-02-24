@@ -39,7 +39,7 @@ export interface DockAppState {
   projectShellSessionId: string | null
   worktreeCwd: string | null
   // Onboarding
-  onNewAgent: () => void
+  onNewAgent: (description: string) => void
   // Projects panel
   projects: Project[]
   activeProjectId: string | null

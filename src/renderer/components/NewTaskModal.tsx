@@ -2,53 +2,47 @@ import React, { useState, useEffect, useCallback, useRef } from 'react'
 import type { SpawnAgentOptions, AgentRuntime, Project, BranchInfo, PRInfo } from '../../shared/types'
 import { modalStyles } from './NewTaskModal.styles'
 import { useResetOnOpen } from '../hooks/useResetOnOpen'
-import { useDebouncedBranchDerivation } from '../hooks/useDebouncedBranchDerivation'
 import { useAutoFocus } from '../hooks/useAutoFocus'
 import {
   ModalHeader,
-  TabBar,
   TaskDescriptionField,
   ProjectDropdown,
   AgentDropdown,
-  AdvancedSection,
   BranchPicker,
   PRPicker,
   ModalFooter,
-  WorktreeHint,
 } from './new-task'
-import type { ModalTab, ExistingSubTab } from './new-task'
+import type { ExistingSubTab } from './new-task'
 
 interface NewTaskModalProps {
   visible: boolean
   projectId: string
-  projectName: string
   baseBranch: string
   defaultRuntime: string
   onLaunch: (options: SpawnAgentOptions) => void
   onClose: () => void
   /** When provided, show a project selector (center button case) */
   projects?: Project[]
+  /** Pre-populated task description from the inline input */
+  initialDescription?: string
 }
 
 export function NewTaskModal({
   visible,
   projectId,
-  projectName,
   baseBranch,
   defaultRuntime,
   onLaunch,
   onClose,
   projects,
+  initialDescription = '',
 }: NewTaskModalProps): React.JSX.Element | null {
   const [taskDescription, setTaskDescription] = useState('')
   const [runtimeId, setRuntimeId] = useState(defaultRuntime)
-  const [branchName, setBranchName] = useState('')
-  const [branchEdited, setBranchEdited] = useState(false)
-  const [showAdvanced, setShowAdvanced] = useState(false)
   const [loading, setLoading] = useState(false)
   const [runtimes, setRuntimes] = useState<AgentRuntime[]>([])
   const [selectedProjectId, setSelectedProjectId] = useState(projectId)
-  const [activeTab, setActiveTab] = useState<ModalTab>('new')
+  const [useExisting, setUseExisting] = useState(false)
   const [existingSubTab, setExistingSubTab] = useState<ExistingSubTab>('branch')
   const [branches, setBranches] = useState<BranchInfo[]>([])
   const [branchFilter, setBranchFilter] = useState('')
@@ -60,14 +54,13 @@ export function NewTaskModal({
   const [branchesLoading, setBranchesLoading] = useState(false)
   const [error, setError] = useState('')
   const overlayRef = useRef<HTMLDivElement>(null)
-  const textareaRef = useRef<HTMLTextAreaElement>(null)
+  const inputRef = useRef<HTMLInputElement>(null)
 
   const showProjectSelector = projects != null && projects.length > 1
   const effectiveProjectId = showProjectSelector ? selectedProjectId : projectId
   const selectedProject = showProjectSelector
     ? projects.find((p) => p.id === selectedProjectId)
     : undefined
-  const effectiveProjectName = selectedProject?.name ?? projectName
   const effectiveBaseBranch = selectedProject?.baseBranch ?? baseBranch
 
   useEffect(() => {
@@ -75,13 +68,11 @@ export function NewTaskModal({
   }, [visible, projectId])
 
   useResetOnOpen(
-    visible, defaultRuntime,
-    setTaskDescription, setRuntimeId, setBranchName, setBranchEdited,
-    setShowAdvanced, setLoading, setActiveTab, setExistingSubTab,
+    visible, defaultRuntime, initialDescription,
+    setTaskDescription, setRuntimeId, setLoading, setUseExisting, setExistingSubTab,
     setBranches, setBranchFilter, setSelectedBranch, setPrs, setPrFilter, setSelectedPr, setError
   )
-  useDebouncedBranchDerivation(taskDescription, branchEdited, setBranchName, effectiveProjectName)
-  useAutoFocus(visible, textareaRef)
+  useAutoFocus(visible, inputRef)
 
   useEffect(() => {
     if (!visible) return
@@ -90,9 +81,9 @@ export function NewTaskModal({
     })
   }, [visible])
 
-  // Fetch branches when switching to existing/branch tab
+  // Fetch branches when existing + branch sub-tab is active
   useEffect(() => {
-    if (!visible || activeTab !== 'existing' || existingSubTab !== 'branch') return
+    if (!visible || !useExisting || existingSubTab !== 'branch') return
     setBranchesLoading(true)
     setError('')
     window.electronAPI
@@ -104,11 +95,11 @@ export function NewTaskModal({
         setError(`Failed to load branches: ${(err as Error).message}`)
       })
       .finally(() => setBranchesLoading(false))
-  }, [visible, activeTab, existingSubTab, effectiveProjectId])
+  }, [visible, useExisting, existingSubTab, effectiveProjectId])
 
-  // Fetch open PRs when switching to existing/pr tab
+  // Fetch open PRs when existing + PR sub-tab is active
   useEffect(() => {
-    if (!visible || activeTab !== 'existing' || existingSubTab !== 'pr') return
+    if (!visible || !useExisting || existingSubTab !== 'pr') return
     setPrsLoading(true)
     setError('')
     window.electronAPI
@@ -120,7 +111,7 @@ export function NewTaskModal({
         setError(`Failed to load PRs: ${(err as Error).message}`)
       })
       .finally(() => setPrsLoading(false))
-  }, [visible, activeTab, existingSubTab, effectiveProjectId])
+  }, [visible, useExisting, existingSubTab, effectiveProjectId])
 
   const selectedRuntime = runtimes.find((r) => r.id === runtimeId)
   const runtimeInstalled = selectedRuntime?.installed !== false
@@ -128,8 +119,8 @@ export function NewTaskModal({
   const canSubmit = (() => {
     if (!runtimeInstalled) return false
     if (taskDescription.trim().length === 0) return false
-    if (activeTab === 'existing' && existingSubTab === 'branch' && !selectedBranch) return false
-    if (activeTab === 'existing' && existingSubTab === 'pr' && selectedPr === null) return false
+    if (useExisting && existingSubTab === 'branch' && !selectedBranch) return false
+    if (useExisting && existingSubTab === 'pr' && selectedPr === null) return false
     return true
   })()
 
@@ -140,14 +131,14 @@ export function NewTaskModal({
       setLoading(true)
       setError('')
 
-      if (activeTab === 'existing' && existingSubTab === 'branch') {
+      if (useExisting && existingSubTab === 'branch') {
         onLaunch({
           projectId: effectiveProjectId,
           runtimeId,
           prompt: taskDescription.trim(),
           existingBranch: selectedBranch,
         })
-      } else if (activeTab === 'existing' && existingSubTab === 'pr') {
+      } else if (useExisting && existingSubTab === 'pr') {
         onLaunch({
           projectId: effectiveProjectId,
           runtimeId,
@@ -159,11 +150,10 @@ export function NewTaskModal({
           projectId: effectiveProjectId,
           runtimeId,
           prompt: taskDescription.trim(),
-          branchName: branchName.trim() || undefined,
         })
       }
     },
-    [activeTab, existingSubTab, effectiveProjectId, runtimeId, taskDescription, branchName, selectedBranch, selectedPr, canSubmit, onLaunch]
+    [useExisting, existingSubTab, effectiveProjectId, runtimeId, taskDescription, selectedBranch, selectedPr, canSubmit, onLaunch]
   )
 
   const handleOverlayClick = useCallback(
@@ -180,11 +170,6 @@ export function NewTaskModal({
     [onClose]
   )
 
-  const handleBranchChange = useCallback((value: string): void => {
-    setBranchEdited(true)
-    setBranchName(value)
-  }, [])
-
   if (!visible) return null
 
   return (
@@ -195,11 +180,10 @@ export function NewTaskModal({
       style={modalStyles.overlay}
       role="dialog"
       aria-modal="true"
-      aria-label="New Task"
+      aria-label="New Agent"
     >
       <form onSubmit={handleSubmit} style={modalStyles.panel}>
         <ModalHeader onClose={onClose} />
-        <TabBar activeTab={activeTab} onTabChange={setActiveTab} />
         <div style={modalStyles.body}>
           {showProjectSelector && (
             <ProjectDropdown
@@ -211,7 +195,7 @@ export function NewTaskModal({
           <TaskDescriptionField
             value={taskDescription}
             onChange={setTaskDescription}
-            textareaRef={textareaRef}
+            inputRef={inputRef}
           />
           <AgentDropdown value={runtimeId} onChange={setRuntimeId} runtimes={runtimes} />
           {!runtimeInstalled && (
@@ -220,17 +204,16 @@ export function NewTaskModal({
             </p>
           )}
 
-          {activeTab === 'new' && (
-            <AdvancedSection
-              show={showAdvanced}
-              onToggle={() => setShowAdvanced((p) => !p)}
-              branchName={branchName}
-              onBranchChange={handleBranchChange}
-              projectName={effectiveProjectName}
+          <label style={modalStyles.checkboxLabel}>
+            <input
+              type="checkbox"
+              checked={useExisting}
+              onChange={(e) => setUseExisting(e.target.checked)}
             />
-          )}
+            Continue on an existing branch or PR
+          </label>
 
-          {activeTab === 'existing' && (
+          {useExisting && (
             <>
               <div style={modalStyles.subTabBar}>
                 <button
@@ -281,15 +264,6 @@ export function NewTaskModal({
           )}
 
           {error && <p style={modalStyles.errorText}>{error}</p>}
-
-          <WorktreeHint
-            activeTab={activeTab}
-            existingSubTab={existingSubTab}
-            baseBranch={effectiveBaseBranch}
-            selectedBranch={selectedBranch}
-            selectedPr={selectedPr}
-            prs={prs}
-          />
         </div>
         <ModalFooter onClose={onClose} canSubmit={canSubmit} loading={loading} />
       </form>

@@ -125,7 +125,7 @@ export function App(): React.JSX.Element {
     worktreeShellSessionId: worktreeSessionId,
     projectShellSessionId: projectSessionId,
     worktreeCwd: worktreeShellCwd,
-    onNewAgent: () => { overlays.setShowProjectPicker(true); overlays.setShowNewAgent(true) },
+    onNewAgent: (description: string) => { overlays.handleNewAgentWithDescription(description) },
     projects,
     activeProjectId,
     allProjectSessions: sessionsByProject,
@@ -230,12 +230,12 @@ export function App(): React.JSX.Element {
         <NewTaskModal
           visible={overlays.showNewAgent}
           projectId={activeProjectId}
-          projectName={activeProject?.name ?? ''}
           baseBranch={activeProject?.baseBranch ?? 'main'}
           defaultRuntime={settings.defaultRuntime}
           onLaunch={overlays.handleLaunchAgent}
           onClose={() => overlays.setShowNewAgent(false)}
           projects={overlays.showProjectPicker ? projects : undefined}
+          initialDescription={overlays.initialDescription}
         />
       )}
 

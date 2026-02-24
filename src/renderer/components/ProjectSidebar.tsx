@@ -154,7 +154,7 @@ function ProjectList({
               />
             ))}
             <button onClick={() => onNewAgent(project.id)} style={sidebarStyles.newAgentButton}>
-              + New Task
+              + New Agent
             </button>
           </React.Fragment>
         )
