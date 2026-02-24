@@ -7,6 +7,7 @@ interface FileTreeProps {
   tree: FileTreeNode | null
   changes: FileChange[]
   activeFilePath: string | null
+  openFilePaths: Set<string>
   expandedPaths: Set<string>
   onToggleExpand: (path: string) => void
   onSelectFile: (path: string) => void
@@ -18,12 +19,14 @@ export function FileTree({
   tree,
   changes,
   activeFilePath,
+  openFilePaths,
   expandedPaths,
   onToggleExpand,
   onSelectFile,
   onDeleteFile,
   onRenameFile,
 }: FileTreeProps): React.JSX.Element {
+  const [selectedFilePath, setSelectedFilePath] = useState<string | null>(null)
   const [pendingDelete, setPendingDelete] = useState<{ path: string; name: string; isDirectory: boolean } | null>(null)
   const [renamingPath, setRenamingPath] = useState<string | null>(null)
   const [renameValue, setRenameValue] = useState('')
@@ -90,8 +93,11 @@ export function FileTree({
             depth={0}
             changeMap={changeMap}
             activeFilePath={activeFilePath}
+            selectedFilePath={selectedFilePath}
+            openFilePaths={openFilePaths}
             expandedPaths={expandedPaths}
             onToggleExpand={onToggleExpand}
+            onHighlightFile={setSelectedFilePath}
             onSelectFile={onSelectFile}
             onRequestDelete={onDeleteFile ? handleRequestDelete : undefined}
             renamingPath={renamingPath}

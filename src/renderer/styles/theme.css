@@ -664,6 +664,9 @@ select:focus {
 .file-tree-row:hover {
   background: var(--tree-hover);
 }
+.file-tree-row.file-tree-row--selected {
+  background: var(--tree-hover);
+}
 .file-tree-row.file-tree-row--active {
   background: var(--tree-active-selection);
 }

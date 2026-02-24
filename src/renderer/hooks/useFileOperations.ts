@@ -11,7 +11,6 @@ export function useFileOperations(
   codeViewSelectFile: (filePath: string) => void,
   codeViewCloseFile: (filePath: string) => void,
   codeViewRenameOpenFile: (oldPath: string, newPath: string) => void,
-  centerVisible: boolean,
   ensureEditorVisible: () => void,
   deleteFile: (filePath: string) => Promise<boolean>,
   renameFile: (oldPath: string, newPath: string) => Promise<boolean>
@@ -20,11 +19,9 @@ export function useFileOperations(
     (filePath: string): void => {
       expandAncestors(filePath)
       codeViewSelectFile(filePath)
-      if (!centerVisible) {
-        ensureEditorVisible()
-      }
+      ensureEditorVisible()
     },
-    [expandAncestors, codeViewSelectFile, centerVisible, ensureEditorVisible]
+    [expandAncestors, codeViewSelectFile, ensureEditorVisible]
   )
 
   const handleDeleteFile = useCallback(

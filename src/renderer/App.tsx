@@ -70,7 +70,6 @@ export function App(): React.JSX.Element {
     codeView.handleSelectFile,
     codeView.handleCloseFile,
     codeView.handleRenameOpenFile,
-    true, // centerVisible — always true, we use ensureEditorVisible instead
     ensureEditorVisible,
     deleteFile,
     renameFile
