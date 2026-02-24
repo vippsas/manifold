@@ -1,10 +1,11 @@
 import { ipcMain, dialog, BrowserWindow } from 'electron'
-import { execFile } from 'node:child_process'
+import { execFile, spawn } from 'node:child_process'
 import { promisify } from 'node:util'
 import path from 'node:path'
 import os from 'node:os'
 import { existsSync, mkdirSync, writeFileSync, rmSync } from 'node:fs'
 import type { IpcDependencies } from './types'
+import { getRuntimeById } from '../runtimes'
 
 const execFileAsync = promisify(execFile)
 
@@ -21,6 +22,45 @@ function repoNameFromUrl(url: string): string {
   const cleaned = url.replace(/\/+$/, '').replace(/\.git$/, '')
   const lastSegment = cleaned.split('/').pop() || 'repo'
   return lastSegment
+}
+
+const AI_README_TIMEOUT_MS = 60_000
+
+function generateReadmeViaAI(binary: string, description: string, cwd: string): Promise<string> {
+  return new Promise((resolve) => {
+    const child = spawn(binary, ['-p'], {
+      cwd,
+      stdio: ['pipe', 'pipe', 'pipe'],
+    })
+
+    const chunks: Buffer[] = []
+    child.stdout.on('data', (data: Buffer) => chunks.push(data))
+
+    const timer = setTimeout(() => {
+      child.kill('SIGTERM')
+    }, AI_README_TIMEOUT_MS)
+
+    child.on('error', () => {
+      clearTimeout(timer)
+      resolve('')
+    })
+
+    child.on('close', (code) => {
+      clearTimeout(timer)
+      const result = Buffer.concat(chunks).toString('utf8').trim()
+      resolve(code === 0 && result ? result : '')
+    })
+
+    const prompt =
+      `I am starting a new project. Here is the project description:\n\n` +
+      `${description}\n\n` +
+      `Generate a README.md for this project. Include a title, description, ` +
+      `and relevant sections based on the project idea. Output only the raw ` +
+      `markdown content, nothing else.`
+
+    child.stdin.write(prompt)
+    child.stdin.end()
+  })
 }
 
 export function registerProjectHandlers(deps: IpcDependencies): void {
@@ -82,11 +122,17 @@ export function registerProjectHandlers(deps: IpcDependencies): void {
 
       try {
         mkdirSync(projectDir, { recursive: true })
-        writeFileSync(
-          path.join(projectDir, 'README.md'),
-          `# ${description.trim()}\n\n${description.trim()}\n`,
-          'utf-8'
-        )
+
+        const runtime = getRuntimeById(settings.defaultRuntime)
+        let readmeContent = `# ${description.trim()}\n\n${description.trim()}\n`
+        if (runtime?.binary) {
+          const aiContent = await generateReadmeViaAI(runtime.binary, description.trim(), projectDir)
+          if (aiContent) {
+            readmeContent = aiContent
+          }
+        }
+
+        writeFileSync(path.join(projectDir, 'README.md'), readmeContent, 'utf-8')
 
         await execFileAsync('git', ['init'], { cwd: projectDir })
         await execFileAsync('git', ['add', 'README.md'], { cwd: projectDir })
