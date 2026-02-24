@@ -7,7 +7,7 @@ interface UseProjectsResult {
   loading: boolean
   error: string | null
   addProject: (path?: string) => Promise<void>
-  cloneProject: (url: string) => Promise<void>
+  cloneProject: (url: string) => Promise<boolean>
   createNewProject: (description: string) => Promise<Project | null>
   removeProject: (id: string) => Promise<void>
   updateProject: (id: string, partial: Partial<Omit<Project, 'id'>>) => Promise<void>
@@ -70,15 +70,18 @@ export function useProjects(): UseProjectsResult {
     }
   }, [])
 
-  const cloneProject = useCallback(async (url: string): Promise<void> => {
+  const cloneProject = useCallback(async (url: string): Promise<boolean> => {
+    setError(null)
     try {
       const project = (await window.electronAPI.invoke('projects:clone', url)) as Project | undefined
-      if (!project) return
+      if (!project) return false
       setProjects((prev) => [...prev, project])
       setActiveProjectId(project.id)
+      return true
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : String(err)
       setError(message)
+      return false
     }
   }, [])
 
