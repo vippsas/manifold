@@ -14,7 +14,7 @@ interface ProjectSidebarProps {
   onRemoveProject: (id: string) => void
   onUpdateProject: (id: string, partial: Partial<Omit<Project, 'id'>>) => void
   onDeleteAgent: (id: string) => void
-  onNewAgent: (projectId: string) => void
+  onNewAgent: () => void
   onNewProject: () => void
   onOpenSettings: () => void
 }
@@ -43,7 +43,7 @@ export function ProjectSidebar({
 
   return (
     <div style={sidebarStyles.root}>
-      <SidebarHeader onOpenSettings={onOpenSettings} />
+      <SidebarHeader onNewAgent={onNewAgent} onOpenSettings={onOpenSettings} />
       <ProjectList
         projects={projects}
         activeProjectId={activeProjectId}
@@ -52,7 +52,6 @@ export function ProjectSidebar({
         onSelectProject={onSelectProject}
         onSelectSession={onSelectSession}
         onDeleteAgent={onDeleteAgent}
-        onNewAgent={onNewAgent}
         onRemove={handleRemove}
         onUpdateProject={onUpdateProject}
       />
@@ -65,11 +64,18 @@ export function ProjectSidebar({
   )
 }
 
-function SidebarHeader({ onOpenSettings }: { onOpenSettings: () => void }): React.JSX.Element {
+function SidebarHeader({ onNewAgent, onOpenSettings }: { onNewAgent: () => void; onOpenSettings: () => void }): React.JSX.Element {
   return (
     <div style={sidebarStyles.header}>
       <span style={sidebarStyles.title}>Projects</span>
       <span style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+        <button
+          onClick={onNewAgent}
+          style={sidebarStyles.headerNewAgent}
+          title="New Agent"
+        >
+          + New Agent
+        </button>
         <button
           onClick={onOpenSettings}
           style={sidebarStyles.gearButton}
@@ -91,7 +97,6 @@ interface ProjectListProps {
   onSelectProject: (id: string) => void
   onSelectSession: (sessionId: string, projectId: string) => void
   onDeleteAgent: (id: string) => void
-  onNewAgent: (projectId: string) => void
   onRemove: (e: React.MouseEvent, id: string) => void
   onUpdateProject: (id: string, partial: Partial<Omit<Project, 'id'>>) => void
 }
@@ -104,7 +109,6 @@ function ProjectList({
   onSelectProject,
   onSelectSession,
   onDeleteAgent,
-  onNewAgent,
   onRemove,
   onUpdateProject,
 }: ProjectListProps): React.JSX.Element {
@@ -132,9 +136,6 @@ function ProjectList({
                 onDelete={onDeleteAgent}
               />
             ))}
-            <button onClick={() => onNewAgent(project.id)} style={sidebarStyles.newAgentButton}>
-              + New Agent
-            </button>
           </React.Fragment>
         )
       })}
