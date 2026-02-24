@@ -11,6 +11,7 @@ export interface UseAppOverlaysResult {
   showSettings: boolean
   setShowSettings: (show: boolean) => void
   showAbout: boolean
+  setShowAbout: (show: boolean) => void
   appVersion: string
   handleCommit: (message: string) => Promise<void>
   handleClosePanel: () => void
@@ -97,6 +98,7 @@ export function useAppOverlays(
     showSettings,
     setShowSettings,
     showAbout,
+    setShowAbout,
     appVersion,
     handleCommit,
     handleClosePanel,
