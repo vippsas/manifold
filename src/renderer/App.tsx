@@ -256,10 +256,24 @@ export function App(): React.JSX.Element {
   )
 }
 
-function DockTab({ api }: { api: { title: string } }): React.JSX.Element {
+function DockTab({ api }: { api: { title: string; close: () => void } }): React.JSX.Element {
   return (
-    <div style={{ padding: '0 8px', fontSize: '11px', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
-      {api.title}
+    <div style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '0 8px', fontSize: '11px', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+      <span>{api.title}</span>
+      <button
+        onClick={(e) => { e.stopPropagation(); api.close() }}
+        style={{
+          fontSize: '11px',
+          lineHeight: 1,
+          color: 'var(--text-muted)',
+          padding: '0 2px',
+          cursor: 'pointer',
+          opacity: 0.6,
+        }}
+        title={`Close ${api.title}`}
+      >
+        &times;
+      </button>
     </div>
   )
 }
