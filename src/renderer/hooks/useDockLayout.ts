@@ -13,6 +13,19 @@ const PANEL_TITLES: Record<DockPanelId, string> = {
   shell: 'Shell',
 }
 
+type Direction = 'right' | 'left' | 'above' | 'below' | 'within'
+
+// Preferred restore positions matching the default layout.
+// Each panel lists reference panels + direction to try in order.
+const PANEL_RESTORE_HINTS: Record<DockPanelId, Array<{ ref: DockPanelId; dir: Direction }>> = {
+  projects: [{ ref: 'fileTree', dir: 'above' }, { ref: 'agent', dir: 'left' }],
+  agent: [{ ref: 'projects', dir: 'right' }, { ref: 'editor', dir: 'left' }, { ref: 'shell', dir: 'above' }],
+  editor: [{ ref: 'agent', dir: 'right' }, { ref: 'shell', dir: 'above' }],
+  fileTree: [{ ref: 'modifiedFiles', dir: 'within' }, { ref: 'projects', dir: 'below' }],
+  modifiedFiles: [{ ref: 'fileTree', dir: 'within' }, { ref: 'projects', dir: 'below' }],
+  shell: [{ ref: 'agent', dir: 'below' }, { ref: 'editor', dir: 'below' }],
+}
+
 export interface UseDockLayoutResult {
   apiRef: React.MutableRefObject<DockviewApi | null>
   onReady: (api: DockviewApi) => void
@@ -161,14 +174,23 @@ export function useDockLayout(sessionId: string | null): UseDockLayoutResult {
     if (!api) return
     const panel = api.getPanel(id)
     if (panel) {
-      // Panel exists — remove it
       api.removePanel(panel)
     } else {
-      // Panel doesn't exist — add it back
+      // Find the best restore position from hints
+      const hints = PANEL_RESTORE_HINTS[id]
+      let position: { referencePanel: ReturnType<DockviewApi['getPanel']>; direction: Direction } | undefined
+      for (const hint of hints) {
+        const ref = api.getPanel(hint.ref)
+        if (ref) {
+          position = { referencePanel: ref, direction: hint.dir }
+          break
+        }
+      }
       api.addPanel({
         id,
         component: id,
         title: PANEL_TITLES[id],
+        ...(position ? { position } : {}),
       })
     }
   }, [])
