@@ -41,6 +41,7 @@ export function OnboardingView(props: OnboardingViewProps): React.JSX.Element {
     <div
       style={{
         flex: 1,
+        height: '100%',
         display: 'flex',
         flexDirection: 'column',
         alignItems: 'center',
