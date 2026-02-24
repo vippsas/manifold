@@ -170,7 +170,7 @@ export function App(): React.JSX.Element {
         <DockStateContext.Provider value={dockState}>
           <div style={{ flex: 1, overflow: 'hidden' }}>
             <DockviewReact
-              className="dockview-theme-dark dockview-theme-manifold"
+              className={`dockview-theme-dark dockview-theme-manifold${!activeSessionId ? ' dockview-minimal' : ''}`}
               components={PANEL_COMPONENTS}
               onReady={(e) => dockLayout.onReady(e.api)}
               defaultTabComponent={DockTab}
