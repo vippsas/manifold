@@ -8,8 +8,11 @@ export interface TreeNodeProps {
   depth: number
   changeMap: Map<string, FileChangeType>
   activeFilePath: string | null
+  selectedFilePath: string | null
+  openFilePaths: Set<string>
   expandedPaths: Set<string>
   onToggleExpand: (path: string) => void
+  onHighlightFile: (path: string) => void
   onSelectFile: (path: string) => void
   onRequestDelete?: (path: string, name: string, isDirectory: boolean) => void
   renamingPath: string | null
@@ -25,8 +28,11 @@ export function TreeNode({
   depth,
   changeMap,
   activeFilePath,
+  selectedFilePath,
+  openFilePaths,
   expandedPaths,
   onToggleExpand,
+  onHighlightFile,
   onSelectFile,
   onRequestDelete,
   renamingPath,
@@ -38,13 +44,22 @@ export function TreeNode({
 }: TreeNodeProps): React.JSX.Element {
   const expanded = expandedPaths.has(node.path)
 
-  const handleToggle = useCallback((): void => {
+  const handleClick = useCallback((): void => {
     if (node.isDirectory) {
       onToggleExpand(node.path)
     } else {
+      onHighlightFile(node.path)
+    }
+  }, [node.isDirectory, node.path, onToggleExpand, onHighlightFile])
+
+  const handleDoubleClick = useCallback((): void => {
+    if (node.isDirectory) return
+    if (openFilePaths.has(node.path)) {
+      onStartRename?.(node.path, node.name)
+    } else {
       onSelectFile(node.path)
     }
-  }, [node.isDirectory, node.path, onToggleExpand, onSelectFile])
+  }, [node.isDirectory, node.path, node.name, openFilePaths, onSelectFile, onStartRename])
 
   const handleDelete = useCallback((e: React.MouseEvent): void => {
     e.stopPropagation()
@@ -60,13 +75,14 @@ export function TreeNode({
         depth={depth}
         expanded={expanded}
         isActive={!node.isDirectory && node.path === activeFilePath}
+        isSelected={!node.isDirectory && node.path === selectedFilePath}
         changeType={changeType ?? null}
-        onToggle={handleToggle}
+        onClick={handleClick}
+        onDoubleClick={handleDoubleClick}
         onDelete={onRequestDelete ? handleDelete : undefined}
         isRenaming={renamingPath === node.path}
         renameValue={renameValue}
         onRenameValueChange={onRenameValueChange}
-        onStartRename={onStartRename}
         onConfirmRename={onConfirmRename}
         onCancelRename={onCancelRename}
       />
@@ -79,8 +95,11 @@ export function TreeNode({
               depth={depth + 1}
               changeMap={changeMap}
               activeFilePath={activeFilePath}
+              selectedFilePath={selectedFilePath}
+              openFilePaths={openFilePaths}
               expandedPaths={expandedPaths}
               onToggleExpand={onToggleExpand}
+              onHighlightFile={onHighlightFile}
               onSelectFile={onSelectFile}
               onRequestDelete={onRequestDelete}
               renamingPath={renamingPath}
@@ -105,13 +124,14 @@ function NodeRow({
   depth,
   expanded,
   isActive,
+  isSelected,
   changeType,
-  onToggle,
+  onClick,
+  onDoubleClick,
   onDelete,
   isRenaming,
   renameValue,
   onRenameValueChange,
-  onStartRename,
   onConfirmRename,
   onCancelRename,
 }: {
@@ -119,23 +139,19 @@ function NodeRow({
   depth: number
   expanded: boolean
   isActive: boolean
+  isSelected: boolean
   changeType: FileChangeType | null
-  onToggle: () => void
+  onClick: () => void
+  onDoubleClick: () => void
   onDelete?: (e: React.MouseEvent) => void
   isRenaming: boolean
   renameValue: string
   onRenameValueChange: (value: string) => void
-  onStartRename?: (path: string, name: string) => void
   onConfirmRename: (nodePath: string, oldName: string) => void
   onCancelRename: () => void
 }): React.JSX.Element {
   const indicator = changeType ? CHANGE_INDICATORS[changeType] : null
   const indent = depth * 8
-
-  const handleDoubleClick = useCallback((e: React.MouseEvent): void => {
-    e.stopPropagation()
-    onStartRename?.(node.path, node.name)
-  }, [node.path, node.name, onStartRename])
 
   const handleRenameKeyDown = useCallback((e: React.KeyboardEvent<HTMLInputElement>): void => {
     if (e.key === 'Enter') {
@@ -151,8 +167,9 @@ function NodeRow({
 
   return (
     <div
-      className={`file-tree-row${isActive ? ' file-tree-row--active' : ''}`}
-      onClick={onToggle}
+      className={`file-tree-row${isActive ? ' file-tree-row--active' : ''}${isSelected ? ' file-tree-row--selected' : ''}`}
+      onClick={onClick}
+      onDoubleClick={onDoubleClick}
       style={{
         ...treeStyles.node,
         paddingLeft: `${indent + 4}px`,
@@ -211,7 +228,6 @@ function NodeRow({
         <span
           className="truncate"
           style={{ ...treeStyles.nodeName, fontWeight: node.isDirectory ? 600 : 400 }}
-          onDoubleClick={onStartRename ? handleDoubleClick : undefined}
         >
           {node.name}
         </span>

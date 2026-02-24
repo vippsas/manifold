@@ -1,4 +1,4 @@
-import React, { createContext, useContext } from 'react'
+import React, { createContext, useContext, useMemo } from 'react'
 import type { ITheme } from '@xterm/xterm'
 import type { FileTreeNode, FileChange, Project, AgentSession } from '../../shared/types'
 import type { OpenFile } from '../hooks/useCodeView'
@@ -108,11 +108,16 @@ function EditorPanel(): React.JSX.Element {
 
 function FileTreePanel(): React.JSX.Element {
   const s = useDockState()
+  const openFilePaths = useMemo(
+    () => new Set(s.openFiles.map((f) => f.path)),
+    [s.openFiles]
+  )
   return (
     <FileTree
       tree={s.tree}
       changes={s.changes}
       activeFilePath={s.activeFilePath}
+      openFilePaths={openFilePaths}
       expandedPaths={s.expandedPaths}
       onToggleExpand={s.onToggleExpand}
       onSelectFile={s.onSelectFile}
