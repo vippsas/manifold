@@ -40,14 +40,29 @@ export function useDockLayout(sessionId: string | null): UseDockLayoutResult {
   }, [])
 
   const buildDefaultLayout = useCallback((api: DockviewApi) => {
-    // Left top: Projects
+    // 1. Establish columns first: Projects (left), Agent (center)
     const projectsPanel = api.addPanel({
       id: 'projects',
       component: 'projects',
       title: PANEL_TITLES.projects,
     })
 
-    // Left bottom: Files (tabbed with Modified Files)
+    const agentPanel = api.addPanel({
+      id: 'agent',
+      component: 'agent',
+      title: PANEL_TITLES.agent,
+      position: { referencePanel: projectsPanel, direction: 'right' },
+    })
+
+    // 2. Right column: Editor (full height)
+    api.addPanel({
+      id: 'editor',
+      component: 'editor',
+      title: PANEL_TITLES.editor,
+      position: { referencePanel: agentPanel, direction: 'right' },
+    })
+
+    // 3. Split left column: Files below Projects (only left column)
     const filesPanel = api.addPanel({
       id: 'fileTree',
       component: 'fileTree',
@@ -62,28 +77,12 @@ export function useDockLayout(sessionId: string | null): UseDockLayoutResult {
       position: { referencePanel: filesPanel, direction: 'within' },
     })
 
-    // Center top: Agent
-    const agentPanel = api.addPanel({
-      id: 'agent',
-      component: 'agent',
-      title: PANEL_TITLES.agent,
-      position: { referencePanel: projectsPanel, direction: 'right' },
-    })
-
-    // Center bottom: Shell
+    // 4. Split center column: Shell below Agent
     api.addPanel({
       id: 'shell',
       component: 'shell',
       title: PANEL_TITLES.shell,
       position: { referencePanel: agentPanel, direction: 'below' },
-    })
-
-    // Right: Editor (full height)
-    api.addPanel({
-      id: 'editor',
-      component: 'editor',
-      title: PANEL_TITLES.editor,
-      position: { referencePanel: agentPanel, direction: 'right' },
     })
 
     // Make Files the active tab in its group
