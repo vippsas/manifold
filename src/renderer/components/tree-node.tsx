@@ -79,7 +79,7 @@ export function TreeNode({
         changeType={changeType ?? null}
         onClick={handleClick}
         onDoubleClick={handleDoubleClick}
-        onDelete={onRequestDelete ? handleDelete : undefined}
+        onDelete={onRequestDelete && depth > 0 ? handleDelete : undefined}
         isRenaming={renamingPath === node.path}
         renameValue={renameValue}
         onRenameValueChange={onRenameValueChange}
