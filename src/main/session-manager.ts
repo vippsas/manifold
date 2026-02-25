@@ -306,7 +306,7 @@ export class SessionManager {
           this.sendToRenderer('agent:status', { sessionId: session.id, status: newStatus })
         }
 
-        const addedDir = detectAddDir(data)
+        const addedDir = detectAddDir(session.outputBuffer.slice(-2000))
         if (addedDir && !session.additionalDirs.includes(addedDir)) {
           session.additionalDirs.push(addedDir)
           this.sendToRenderer('agent:dirs-changed', {
