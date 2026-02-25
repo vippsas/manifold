@@ -21,6 +21,7 @@ export interface AgentSession {
   pid: number | null
   taskDescription?: string
   additionalDirs: string[]
+  noWorktree?: boolean
 }
 
 export interface Project {
@@ -70,6 +71,7 @@ export interface SpawnAgentOptions {
   branchName?: string
   existingBranch?: string
   prIdentifier?: string
+  noWorktree?: boolean
   cols?: number
   rows?: number
 }
