@@ -5,6 +5,7 @@ import { treeStyles } from './FileTree.styles'
 
 interface FileTreeProps {
   tree: FileTreeNode | null
+  additionalTrees?: Map<string, FileTreeNode>
   changes: FileChange[]
   activeFilePath: string | null
   openFilePaths: Set<string>
@@ -15,8 +16,27 @@ interface FileTreeProps {
   onRenameFile?: (oldPath: string, newPath: string) => void
 }
 
+function WorkspaceRootHeader({ name }: { name: string }): React.JSX.Element {
+  return (
+    <div
+      style={{
+        padding: '6px 8px 4px',
+        fontSize: '11px',
+        fontWeight: 600,
+        textTransform: 'uppercase' as const,
+        color: 'var(--text-secondary)',
+        letterSpacing: '0.05em',
+        borderBottom: '1px solid var(--border)',
+      }}
+    >
+      {name}
+    </div>
+  )
+}
+
 export function FileTree({
   tree,
+  additionalTrees,
   changes,
   activeFilePath,
   openFilePaths,
@@ -88,25 +108,22 @@ export function FileTree({
     <div style={treeStyles.wrapper}>
       <div style={treeStyles.treeContainer}>
         {tree ? (
-          <TreeNode
-            node={tree}
-            depth={0}
-            changeMap={changeMap}
-            activeFilePath={activeFilePath}
-            selectedFilePath={selectedFilePath}
-            openFilePaths={openFilePaths}
-            expandedPaths={expandedPaths}
-            onToggleExpand={onToggleExpand}
-            onHighlightFile={setSelectedFilePath}
-            onSelectFile={onSelectFile}
-            onRequestDelete={onDeleteFile ? handleRequestDelete : undefined}
-            renamingPath={renamingPath}
-            renameValue={renameValue}
-            onRenameValueChange={setRenameValue}
-            onStartRename={onRenameFile ? handleStartRename : undefined}
-            onConfirmRename={handleConfirmRename}
-            onCancelRename={handleCancelRename}
-          />
+          <>
+            {additionalTrees && additionalTrees.size > 0 ? (
+              <>
+                <WorkspaceRootHeader name={tree.name} />
+                <TreeNode node={tree} depth={0} changeMap={changeMap} activeFilePath={activeFilePath} selectedFilePath={selectedFilePath} openFilePaths={openFilePaths} expandedPaths={expandedPaths} onToggleExpand={onToggleExpand} onHighlightFile={setSelectedFilePath} onSelectFile={onSelectFile} onRequestDelete={onDeleteFile ? handleRequestDelete : undefined} renamingPath={renamingPath} renameValue={renameValue} onRenameValueChange={setRenameValue} onStartRename={onRenameFile ? handleStartRename : undefined} onConfirmRename={handleConfirmRename} onCancelRename={handleCancelRename} />
+                {Array.from(additionalTrees.entries()).map(([dirPath, dirTree]) => (
+                  <React.Fragment key={dirPath}>
+                    <WorkspaceRootHeader name={dirTree.name} />
+                    <TreeNode node={dirTree} depth={0} changeMap={changeMap} activeFilePath={activeFilePath} selectedFilePath={selectedFilePath} openFilePaths={openFilePaths} expandedPaths={expandedPaths} onToggleExpand={onToggleExpand} onHighlightFile={setSelectedFilePath} onSelectFile={onSelectFile} onRequestDelete={onDeleteFile ? handleRequestDelete : undefined} renamingPath={renamingPath} renameValue={renameValue} onRenameValueChange={setRenameValue} onStartRename={onRenameFile ? handleStartRename : undefined} onConfirmRename={handleConfirmRename} onCancelRename={handleCancelRename} />
+                  </React.Fragment>
+                ))}
+              </>
+            ) : (
+              <TreeNode node={tree} depth={0} changeMap={changeMap} activeFilePath={activeFilePath} selectedFilePath={selectedFilePath} openFilePaths={openFilePaths} expandedPaths={expandedPaths} onToggleExpand={onToggleExpand} onHighlightFile={setSelectedFilePath} onSelectFile={onSelectFile} onRequestDelete={onDeleteFile ? handleRequestDelete : undefined} renamingPath={renamingPath} renameValue={renameValue} onRenameValueChange={setRenameValue} onStartRename={onRenameFile ? handleStartRename : undefined} onConfirmRename={handleConfirmRename} onCancelRename={handleCancelRename} />
+            )}
+          </>
         ) : (
           <div style={treeStyles.empty}>No files to display</div>
         )}

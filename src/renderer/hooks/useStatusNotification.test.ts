@@ -12,6 +12,7 @@ function makeSession(id: string, status: AgentSession['status']): AgentSession {
     worktreePath: '/tmp/test',
     status,
     pid: status === 'running' ? 1234 : null,
+    additionalDirs: [],
   }
 }
 
