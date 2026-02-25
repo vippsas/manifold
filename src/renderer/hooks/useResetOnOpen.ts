@@ -17,7 +17,8 @@ export function useResetOnOpen(
   setPrs: (v: PRInfo[]) => void,
   setPrFilter: (v: string) => void,
   setSelectedPr: (v: number | null) => void,
-  setError: (v: string) => void
+  setError: (v: string) => void,
+  setNoWorktree: (v: boolean) => void
 ): void {
   useEffect(() => {
     if (!visible) return
@@ -33,5 +34,6 @@ export function useResetOnOpen(
     setPrFilter('')
     setSelectedPr(null)
     setError('')
-  }, [visible, defaultRuntime, initialDescription, setTaskDescription, setRuntimeId, setLoading, setUseExisting, setExistingSubTab, setBranches, setBranchFilter, setSelectedBranch, setPrs, setPrFilter, setSelectedPr, setError])
+    setNoWorktree(false)
+  }, [visible, defaultRuntime, initialDescription, setTaskDescription, setRuntimeId, setLoading, setUseExisting, setExistingSubTab, setBranches, setBranchFilter, setSelectedBranch, setPrs, setPrFilter, setSelectedPr, setError, setNoWorktree])
 }

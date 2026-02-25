@@ -53,6 +53,7 @@ export function NewTaskModal({
   const [prsLoading, setPrsLoading] = useState(false)
   const [branchesLoading, setBranchesLoading] = useState(false)
   const [error, setError] = useState('')
+  const [noWorktree, setNoWorktree] = useState(false)
   const overlayRef = useRef<HTMLDivElement>(null)
   const inputRef = useRef<HTMLInputElement>(null)
 
@@ -70,7 +71,8 @@ export function NewTaskModal({
   useResetOnOpen(
     visible, defaultRuntime, initialDescription,
     setTaskDescription, setRuntimeId, setLoading, setUseExisting, setExistingSubTab,
-    setBranches, setBranchFilter, setSelectedBranch, setPrs, setPrFilter, setSelectedPr, setError
+    setBranches, setBranchFilter, setSelectedBranch, setPrs, setPrFilter, setSelectedPr, setError,
+    setNoWorktree
   )
   useAutoFocus(visible, inputRef)
 
@@ -137,6 +139,7 @@ export function NewTaskModal({
           runtimeId,
           prompt: taskDescription.trim(),
           existingBranch: selectedBranch,
+          noWorktree: noWorktree || undefined,
         })
       } else if (useExisting && existingSubTab === 'pr') {
         onLaunch({
@@ -144,16 +147,18 @@ export function NewTaskModal({
           runtimeId,
           prompt: taskDescription.trim(),
           prIdentifier: String(selectedPr),
+          noWorktree: noWorktree || undefined,
         })
       } else {
         onLaunch({
           projectId: effectiveProjectId,
           runtimeId,
           prompt: taskDescription.trim(),
+          noWorktree: noWorktree || undefined,
         })
       }
     },
-    [useExisting, existingSubTab, effectiveProjectId, runtimeId, taskDescription, selectedBranch, selectedPr, canSubmit, onLaunch]
+    [useExisting, existingSubTab, effectiveProjectId, runtimeId, taskDescription, selectedBranch, selectedPr, canSubmit, onLaunch, noWorktree]
   )
 
   const handleOverlayClick = useCallback(
@@ -213,6 +218,20 @@ export function NewTaskModal({
             Continue on an existing branch or PR
           </label>
 
+          <label style={modalStyles.checkboxLabel}>
+            <input
+              type="checkbox"
+              checked={noWorktree}
+              onChange={(e) => setNoWorktree(e.target.checked)}
+            />
+            No worktree (run in project directory)
+          </label>
+          {noWorktree && !useExisting && (
+            <p style={modalStyles.infoText}>
+              A new branch will be created from the current branch in your project directory.
+            </p>
+          )}
+
           {useExisting && (
             <>
               <div style={modalStyles.subTabBar}>
@@ -247,6 +266,7 @@ export function NewTaskModal({
                   selected={selectedBranch}
                   onSelect={setSelectedBranch}
                   loading={branchesLoading}
+                  allowBaseBranch={noWorktree}
                 />
               )}
 
