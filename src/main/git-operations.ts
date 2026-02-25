@@ -21,9 +21,23 @@ export class GitOperationsManager {
     const previousRef = prevRaw.trim()
 
     await execFileAsync('git', ['fetch', 'origin'], { cwd: projectPath })
-    await execFileAsync(
-      'git', ['fetch', 'origin', `${baseBranch}:${baseBranch}`], { cwd: projectPath }
-    )
+
+    // Determine if baseBranch is currently checked out in the project.
+    // If so, use merge --ff-only (works on checked-out branch).
+    // Otherwise, use fetch origin branch:branch (updates ref directly).
+    const { stdout: headBranch } = await execFileAsync(
+      'git', ['symbolic-ref', '--short', 'HEAD'], { cwd: projectPath }
+    ).catch(() => ({ stdout: '' }))
+
+    if (headBranch.trim() === baseBranch) {
+      await execFileAsync(
+        'git', ['merge', '--ff-only', `origin/${baseBranch}`], { cwd: projectPath }
+      )
+    } else {
+      await execFileAsync(
+        'git', ['fetch', 'origin', `${baseBranch}:${baseBranch}`], { cwd: projectPath }
+      )
+    }
 
     const { stdout: currRaw } = await execFileAsync(
       'git', ['rev-parse', '--short', baseBranch], { cwd: projectPath }

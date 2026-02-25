@@ -307,10 +307,36 @@ describe('GitOperationsManager', () => {
   // ---- fetchAndUpdate ----
 
   describe('fetchAndUpdate', () => {
-    it('fetches origin and fast-forwards local base branch', async () => {
+    it('uses merge --ff-only when base branch is checked out', async () => {
       mockExecFileAsync
         .mockResolvedValueOnce({ stdout: 'abc1234\n', stderr: '' }) // rev-parse before
         .mockResolvedValueOnce({ stdout: '', stderr: '' })          // fetch origin
+        .mockResolvedValueOnce({ stdout: 'main\n', stderr: '' })   // symbolic-ref HEAD
+        .mockResolvedValueOnce({ stdout: '', stderr: '' })          // merge --ff-only
+        .mockResolvedValueOnce({ stdout: 'def5678\n', stderr: '' }) // rev-parse after
+        .mockResolvedValueOnce({ stdout: '3\n', stderr: '' })       // rev-list --count
+
+      const result = await git.fetchAndUpdate('/project', 'main')
+
+      expect(result).toEqual({
+        updatedBranch: 'main',
+        previousRef: 'abc1234',
+        currentRef: 'def5678',
+        commitCount: 3,
+      })
+      expect(mockExecFileAsync).toHaveBeenNthCalledWith(
+        3, 'git', ['symbolic-ref', '--short', 'HEAD'], { cwd: '/project' },
+      )
+      expect(mockExecFileAsync).toHaveBeenNthCalledWith(
+        4, 'git', ['merge', '--ff-only', 'origin/main'], { cwd: '/project' },
+      )
+    })
+
+    it('uses fetch origin branch:branch when base branch is not checked out', async () => {
+      mockExecFileAsync
+        .mockResolvedValueOnce({ stdout: 'abc1234\n', stderr: '' }) // rev-parse before
+        .mockResolvedValueOnce({ stdout: '', stderr: '' })          // fetch origin
+        .mockResolvedValueOnce({ stdout: 'develop\n', stderr: '' }) // symbolic-ref HEAD (different branch)
         .mockResolvedValueOnce({ stdout: '', stderr: '' })          // fetch origin main:main
         .mockResolvedValueOnce({ stdout: 'def5678\n', stderr: '' }) // rev-parse after
         .mockResolvedValueOnce({ stdout: '3\n', stderr: '' })       // rev-list --count
@@ -324,19 +350,24 @@ describe('GitOperationsManager', () => {
         commitCount: 3,
       })
       expect(mockExecFileAsync).toHaveBeenNthCalledWith(
-        1, 'git', ['rev-parse', '--short', 'main'], { cwd: '/project' },
+        4, 'git', ['fetch', 'origin', 'main:main'], { cwd: '/project' },
       )
+    })
+
+    it('falls back to fetch origin branch:branch on detached HEAD', async () => {
+      mockExecFileAsync
+        .mockResolvedValueOnce({ stdout: 'abc1234\n', stderr: '' }) // rev-parse before
+        .mockResolvedValueOnce({ stdout: '', stderr: '' })          // fetch origin
+        .mockRejectedValueOnce(new Error('not a symbolic ref'))     // symbolic-ref fails (detached)
+        .mockResolvedValueOnce({ stdout: '', stderr: '' })          // fetch origin main:main
+        .mockResolvedValueOnce({ stdout: 'abc1234\n', stderr: '' }) // rev-parse after
+        .mockResolvedValueOnce({ stdout: '0\n', stderr: '' })       // rev-list --count
+
+      const result = await git.fetchAndUpdate('/project', 'main')
+
+      expect(result.commitCount).toBe(0)
       expect(mockExecFileAsync).toHaveBeenNthCalledWith(
-        2, 'git', ['fetch', 'origin'], { cwd: '/project' },
-      )
-      expect(mockExecFileAsync).toHaveBeenNthCalledWith(
-        3, 'git', ['fetch', 'origin', 'main:main'], { cwd: '/project' },
-      )
-      expect(mockExecFileAsync).toHaveBeenNthCalledWith(
-        4, 'git', ['rev-parse', '--short', 'main'], { cwd: '/project' },
-      )
-      expect(mockExecFileAsync).toHaveBeenNthCalledWith(
-        5, 'git', ['rev-list', '--count', 'abc1234..def5678'], { cwd: '/project' },
+        4, 'git', ['fetch', 'origin', 'main:main'], { cwd: '/project' },
       )
     })
 
@@ -344,6 +375,7 @@ describe('GitOperationsManager', () => {
       mockExecFileAsync
         .mockResolvedValueOnce({ stdout: 'abc1234\n', stderr: '' })
         .mockResolvedValueOnce({ stdout: '', stderr: '' })
+        .mockResolvedValueOnce({ stdout: 'main\n', stderr: '' })
         .mockResolvedValueOnce({ stdout: '', stderr: '' })
         .mockResolvedValueOnce({ stdout: 'abc1234\n', stderr: '' })
         .mockResolvedValueOnce({ stdout: '0\n', stderr: '' })
@@ -368,6 +400,7 @@ describe('GitOperationsManager', () => {
       mockExecFileAsync
         .mockResolvedValueOnce({ stdout: 'abc1234\n', stderr: '' })
         .mockResolvedValueOnce({ stdout: '', stderr: '' })
+        .mockResolvedValueOnce({ stdout: 'main\n', stderr: '' })
         .mockRejectedValueOnce(new Error('non-fast-forward'))
 
       await expect(git.fetchAndUpdate('/project', 'main'))
