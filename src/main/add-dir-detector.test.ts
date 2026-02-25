@@ -47,4 +47,11 @@ describe('detectAddDir', () => {
       '\x1b[90m└\x1b[0m \x1b[1mAdded\x1b[0m \x1b[4m/Users/sven/git/landingpage/\x1b[0m as a working directory for this session \x1b[90m·\x1b[0m /permissions to manage'
     expect(detectAddDir(output)).toBe('/Users/sven/git/landingpage')
   })
+
+  it('handles cursor-forward escape codes used as spaces (real Claude Code PTY output)', () => {
+    // Claude Code uses \x1b[1C (cursor forward 1) instead of space characters
+    const output =
+      'Added\x1b[1C\x1b[1m/Users/sven/git/landingpage/\x1b[1C\x1b[22mas\x1b[1Ca\x1b[1Cworking\x1b[1Cdirectory\x1b[1Cfor\x1b[1Cthis\x1b[1Csession'
+    expect(detectAddDir(output)).toBe('/Users/sven/git/landingpage')
+  })
 })
