@@ -6,7 +6,9 @@ import { BranchCheckoutManager } from './branch-checkout-manager'
 import { PtyPool } from './pty-pool'
 import { ProjectRegistry } from './project-registry'
 import { detectStatus } from './status-detector'
+import { detectAddDir } from './add-dir-detector'
 import { writeWorktreeMeta, readWorktreeMeta } from './worktree-meta'
+import { FileWatcher } from './file-watcher'
 import type { BrowserWindow } from 'electron'
 
 interface InternalSession extends AgentSession {
@@ -23,7 +25,8 @@ export class SessionManager {
     private worktreeManager: WorktreeManager,
     private ptyPool: PtyPool,
     private projectRegistry: ProjectRegistry,
-    private branchCheckoutManager?: BranchCheckoutManager
+    private branchCheckoutManager?: BranchCheckoutManager,
+    private fileWatcher?: FileWatcher,
   ) {}
 
   setMainWindow(window: BrowserWindow): void {
@@ -118,6 +121,7 @@ export class SessionManager {
       ptyId: ptyHandle.id,
       outputBuffer: '',
       taskDescription: options.prompt || undefined,
+      additionalDirs: [],
     }
   }
 
@@ -153,6 +157,13 @@ export class SessionManager {
     // Remove from Map first so concurrent IPC handlers (e.g. diff:get)
     // won't try to use a worktree path that's being deleted.
     this.sessions.delete(sessionId)
+
+    // Clean up additional dir watchers
+    if (this.fileWatcher) {
+      for (const dir of session.additionalDirs) {
+        this.fileWatcher.unwatchAdditionalDir(dir, sessionId)
+      }
+    }
 
     if (session.ptyId) {
       this.ptyPool.kill(session.ptyId)
@@ -232,8 +243,15 @@ export class SessionManager {
           ptyId: '',
           outputBuffer: '',
           taskDescription: meta?.taskDescription,
+          additionalDirs: meta?.additionalDirs ?? [],
         }
         this.sessions.set(session.id, session)
+
+        if (meta?.additionalDirs) {
+          for (const dir of meta.additionalDirs) {
+            this.fileWatcher?.watchAdditionalDir(dir, session.id)
+          }
+        }
       }
     }
 
@@ -264,6 +282,7 @@ export class SessionManager {
       pid: ptyHandle.pid,
       ptyId: ptyHandle.id,
       outputBuffer: '',
+      additionalDirs: [],
     }
 
     this.sessions.set(id, session)
@@ -286,6 +305,17 @@ export class SessionManager {
           session.status = newStatus
           this.sendToRenderer('agent:status', { sessionId: session.id, status: newStatus })
         }
+
+        const addedDir = detectAddDir(session.outputBuffer.slice(-2000))
+        if (addedDir && !session.additionalDirs.includes(addedDir)) {
+          session.additionalDirs.push(addedDir)
+          this.sendToRenderer('agent:dirs-changed', {
+            sessionId: session.id,
+            additionalDirs: [...session.additionalDirs],
+          })
+          this.persistAdditionalDirs(session)
+          this.fileWatcher?.watchAdditionalDir(addedDir, session.id)
+        }
       }
 
       this.sendToRenderer('agent:output', { sessionId: session.id, data })
@@ -302,6 +332,14 @@ export class SessionManager {
     })
   }
 
+  private persistAdditionalDirs(session: InternalSession): void {
+    writeWorktreeMeta(session.worktreePath, {
+      runtimeId: session.runtimeId,
+      taskDescription: session.taskDescription,
+      additionalDirs: session.additionalDirs,
+    }).catch(() => {})
+  }
+
   private toPublicSession(session: InternalSession): AgentSession {
     return {
       id: session.id,
@@ -312,6 +350,7 @@ export class SessionManager {
       status: session.status,
       pid: session.pid,
       taskDescription: session.taskDescription,
+      additionalDirs: session.additionalDirs,
     }
   }
 }

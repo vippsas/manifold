@@ -24,6 +24,13 @@ vi.mock('./status-detector', () => ({
   detectStatus: vi.fn(() => 'running'),
 }))
 
+vi.mock('./add-dir-detector', () => ({
+  detectAddDir: vi.fn((output: string) => {
+    const match = output.match(/Added\s+(.+?)\s+as a working directory/)
+    return match ? match[1].replace(/\/+$/, '') : null
+  }),
+}))
+
 import { SessionManager } from './session-manager'
 import { WorktreeManager } from './worktree-manager'
 import { PtyPool } from './pty-pool'
@@ -516,6 +523,85 @@ describe('SessionManager', () => {
         '/repo/.manifold/worktrees/manifold-bergen',
       )
       expect(sessionManager.getSession(dormantId)).toBeUndefined()
+    })
+  })
+
+  describe('add-dir detection', () => {
+    it('detects added directory from PTY output and updates session', async () => {
+      const mockWindow = createMockWindow()
+      sessionManager.setMainWindow(mockWindow)
+
+      await sessionManager.createSession({
+        projectId: 'proj-1',
+        runtimeId: 'claude',
+        prompt: 'test',
+      })
+
+      const onDataCall = (ptyPool.onData as ReturnType<typeof vi.fn>).mock.calls[0]
+      const dataCallback = onDataCall[1] as (data: string) => void
+
+      dataCallback('Added /Users/sven/git/landingpage as a working directory for this session')
+
+      const session = sessionManager.getSession('session-uuid-1')
+      expect(session?.additionalDirs).toEqual(['/Users/sven/git/landingpage'])
+    })
+
+    it('sends agent:dirs-changed event to renderer', async () => {
+      const mockWindow = createMockWindow()
+      sessionManager.setMainWindow(mockWindow)
+
+      await sessionManager.createSession({
+        projectId: 'proj-1',
+        runtimeId: 'claude',
+        prompt: 'test',
+      })
+
+      const onDataCall = (ptyPool.onData as ReturnType<typeof vi.fn>).mock.calls[0]
+      const dataCallback = onDataCall[1] as (data: string) => void
+
+      dataCallback('Added /tmp/mydir as a working directory for this session')
+
+      expect(mockWindow.webContents.send).toHaveBeenCalledWith(
+        'agent:dirs-changed',
+        { sessionId: 'session-uuid-1', additionalDirs: ['/tmp/mydir'] },
+      )
+    })
+
+    it('deduplicates directories', async () => {
+      const mockWindow = createMockWindow()
+      sessionManager.setMainWindow(mockWindow)
+
+      await sessionManager.createSession({
+        projectId: 'proj-1',
+        runtimeId: 'claude',
+        prompt: 'test',
+      })
+
+      const onDataCall = (ptyPool.onData as ReturnType<typeof vi.fn>).mock.calls[0]
+      const dataCallback = onDataCall[1] as (data: string) => void
+
+      dataCallback('Added /tmp/mydir as a working directory for this session')
+      dataCallback('Added /tmp/mydir as a working directory for this session')
+
+      const session = sessionManager.getSession('session-uuid-1')
+      expect(session?.additionalDirs).toEqual(['/tmp/mydir'])
+    })
+
+    it('does not run detection for shell sessions', async () => {
+      const mockWindow = createMockWindow()
+      sessionManager.setMainWindow(mockWindow)
+
+      sessionManager.createShellSession('/some/cwd')
+
+      const onDataCall = (ptyPool.onData as ReturnType<typeof vi.fn>).mock.calls[0]
+      const dataCallback = onDataCall[1] as (data: string) => void
+
+      dataCallback('Added /tmp/mydir as a working directory for this session')
+
+      expect(mockWindow.webContents.send).not.toHaveBeenCalledWith(
+        'agent:dirs-changed',
+        expect.anything(),
+      )
     })
   })
 })

@@ -24,8 +24,8 @@ const sampleProjects: Project[] = [
 ]
 
 const sampleSessions: AgentSession[] = [
-  { id: 's1', projectId: 'p1', runtimeId: 'claude', branchName: 'manifold/oslo', worktreePath: '/wt1', status: 'running', pid: 1 },
-  { id: 's2', projectId: 'p1', runtimeId: 'codex', branchName: 'manifold/bergen', worktreePath: '/wt2', status: 'waiting', pid: 2 },
+  { id: 's1', projectId: 'p1', runtimeId: 'claude', branchName: 'manifold/oslo', worktreePath: '/wt1', status: 'running', pid: 1, additionalDirs: [] },
+  { id: 's2', projectId: 'p1', runtimeId: 'codex', branchName: 'manifold/bergen', worktreePath: '/wt2', status: 'waiting', pid: 2, additionalDirs: [] },
 ]
 
 function renderSidebar(overrides = {}) {
@@ -65,7 +65,7 @@ describe('ProjectSidebar', () => {
 
   it('shows agents for all projects', () => {
     const sessionsForP2: AgentSession[] = [
-      { id: 's3', projectId: 'p2', runtimeId: 'gemini', branchName: 'manifold/stavanger', worktreePath: '/wt3', status: 'running', pid: 3 },
+      { id: 's3', projectId: 'p2', runtimeId: 'gemini', branchName: 'manifold/stavanger', worktreePath: '/wt3', status: 'running', pid: 3, additionalDirs: [] },
     ]
 
     renderSidebar({ allProjectSessions: { p1: sampleSessions, p2: sessionsForP2 } })
@@ -188,7 +188,7 @@ describe('ProjectSidebar', () => {
 
   it('calls onSelectSession with correct projectId for cross-project agent click', () => {
     const sessionsForP2: AgentSession[] = [
-      { id: 's3', projectId: 'p2', runtimeId: 'gemini', branchName: 'manifold/stavanger', worktreePath: '/wt3', status: 'running', pid: 3 },
+      { id: 's3', projectId: 'p2', runtimeId: 'gemini', branchName: 'manifold/stavanger', worktreePath: '/wt3', status: 'running', pid: 3, additionalDirs: [] },
     ]
 
     const { props } = renderSidebar({ allProjectSessions: { p1: sampleSessions, p2: sessionsForP2 } })

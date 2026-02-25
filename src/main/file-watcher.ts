@@ -34,6 +34,29 @@ export class FileWatcher {
     }
   }
 
+  watchAdditionalDir(dirPath: string, sessionId: string): void {
+    const key = `additional:${sessionId}:${dirPath}`
+    if (this.polls.has(key)) return
+
+    const entry: PollEntry = {
+      timer: setInterval(() => this.pollAdditionalDir(key, dirPath), POLL_INTERVAL_MS),
+      sessionId,
+      lastStatus: '',
+      polling: false,
+    }
+    this.polls.set(key, entry)
+
+    void this.pollAdditionalDir(key, dirPath)
+  }
+
+  unwatchAdditionalDir(dirPath: string, sessionId: string): void {
+    const key = `additional:${sessionId}:${dirPath}`
+    const entry = this.polls.get(key)
+    if (!entry) return
+    clearInterval(entry.timer)
+    this.polls.delete(key)
+  }
+
   watch(worktreePath: string, sessionId: string): void {
     if (this.polls.has(worktreePath)) return
 
@@ -70,6 +93,29 @@ export class FileWatcher {
       }
     } catch {
       // Worktree may not exist yet or git may fail — skip this tick
+    } finally {
+      entry.polling = false
+    }
+  }
+
+  private async pollAdditionalDir(key: string, dirPath: string): Promise<void> {
+    const entry = this.polls.get(key)
+    if (!entry || entry.polling) return
+
+    entry.polling = true
+    try {
+      const status = await this.gitStatusFn(dirPath)
+      if (status !== entry.lastStatus) {
+        const { changes, conflicts } = parseStatusWithConflicts(status)
+        entry.lastStatus = status
+        this.sendToRenderer('files:changed', {
+          sessionId: entry.sessionId,
+          changes,
+          source: dirPath,
+        })
+      }
+    } catch {
+      // Directory may not be a git repo or may not exist — skip
     } finally {
       entry.polling = false
     }

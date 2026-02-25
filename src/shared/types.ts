@@ -20,6 +20,7 @@ export interface AgentSession {
   status: AgentStatus
   pid: number | null
   taskDescription?: string
+  additionalDirs: string[]
 }
 
 export interface Project {
