@@ -2,7 +2,7 @@ import { execFile, spawn } from 'node:child_process'
 import { writeFile } from 'node:fs/promises'
 import { join, resolve, normalize } from 'node:path'
 import { promisify } from 'node:util'
-import type { AheadBehind } from '../shared/types'
+import type { AheadBehind, FetchResult } from '../shared/types'
 
 const execFileAsync = promisify(execFile)
 
@@ -12,6 +12,30 @@ export class GitOperationsManager {
   async commit(worktreePath: string, message: string): Promise<void> {
     await execFileAsync('git', ['add', '.'], { cwd: worktreePath })
     await execFileAsync('git', ['commit', '-m', message], { cwd: worktreePath })
+  }
+
+  async fetchAndUpdate(projectPath: string, baseBranch: string): Promise<FetchResult> {
+    const { stdout: prevRaw } = await execFileAsync(
+      'git', ['rev-parse', '--short', baseBranch], { cwd: projectPath }
+    )
+    const previousRef = prevRaw.trim()
+
+    await execFileAsync('git', ['fetch', 'origin'], { cwd: projectPath })
+    await execFileAsync(
+      'git', ['fetch', 'origin', `${baseBranch}:${baseBranch}`], { cwd: projectPath }
+    )
+
+    const { stdout: currRaw } = await execFileAsync(
+      'git', ['rev-parse', '--short', baseBranch], { cwd: projectPath }
+    )
+    const currentRef = currRaw.trim()
+
+    const { stdout: countRaw } = await execFileAsync(
+      'git', ['rev-list', '--count', `${previousRef}..${currentRef}`], { cwd: projectPath }
+    )
+    const commitCount = parseInt(countRaw.trim(), 10) || 0
+
+    return { updatedBranch: baseBranch, previousRef, currentRef, commitCount }
   }
 
   async getAheadBehind(worktreePath: string, baseBranch: string): Promise<AheadBehind> {

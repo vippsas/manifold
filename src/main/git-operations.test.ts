@@ -303,4 +303,75 @@ describe('GitOperationsManager', () => {
       expect(ctx).toEqual({ commits: '', diffStat: '', diffPatch: '' })
     })
   })
+
+  // ---- fetchAndUpdate ----
+
+  describe('fetchAndUpdate', () => {
+    it('fetches origin and fast-forwards local base branch', async () => {
+      mockExecFileAsync
+        .mockResolvedValueOnce({ stdout: 'abc1234\n', stderr: '' }) // rev-parse before
+        .mockResolvedValueOnce({ stdout: '', stderr: '' })          // fetch origin
+        .mockResolvedValueOnce({ stdout: '', stderr: '' })          // fetch origin main:main
+        .mockResolvedValueOnce({ stdout: 'def5678\n', stderr: '' }) // rev-parse after
+        .mockResolvedValueOnce({ stdout: '3\n', stderr: '' })       // rev-list --count
+
+      const result = await git.fetchAndUpdate('/project', 'main')
+
+      expect(result).toEqual({
+        updatedBranch: 'main',
+        previousRef: 'abc1234',
+        currentRef: 'def5678',
+        commitCount: 3,
+      })
+      expect(mockExecFileAsync).toHaveBeenNthCalledWith(
+        1, 'git', ['rev-parse', '--short', 'main'], { cwd: '/project' },
+      )
+      expect(mockExecFileAsync).toHaveBeenNthCalledWith(
+        2, 'git', ['fetch', 'origin'], { cwd: '/project' },
+      )
+      expect(mockExecFileAsync).toHaveBeenNthCalledWith(
+        3, 'git', ['fetch', 'origin', 'main:main'], { cwd: '/project' },
+      )
+      expect(mockExecFileAsync).toHaveBeenNthCalledWith(
+        4, 'git', ['rev-parse', '--short', 'main'], { cwd: '/project' },
+      )
+      expect(mockExecFileAsync).toHaveBeenNthCalledWith(
+        5, 'git', ['rev-list', '--count', 'abc1234..def5678'], { cwd: '/project' },
+      )
+    })
+
+    it('returns commitCount 0 when already up to date', async () => {
+      mockExecFileAsync
+        .mockResolvedValueOnce({ stdout: 'abc1234\n', stderr: '' })
+        .mockResolvedValueOnce({ stdout: '', stderr: '' })
+        .mockResolvedValueOnce({ stdout: '', stderr: '' })
+        .mockResolvedValueOnce({ stdout: 'abc1234\n', stderr: '' })
+        .mockResolvedValueOnce({ stdout: '0\n', stderr: '' })
+
+      const result = await git.fetchAndUpdate('/project', 'main')
+
+      expect(result.commitCount).toBe(0)
+      expect(result.previousRef).toBe('abc1234')
+      expect(result.currentRef).toBe('abc1234')
+    })
+
+    it('propagates error when fetch fails', async () => {
+      mockExecFileAsync
+        .mockResolvedValueOnce({ stdout: 'abc1234\n', stderr: '' })
+        .mockRejectedValueOnce(new Error('Could not resolve host'))
+
+      await expect(git.fetchAndUpdate('/project', 'main'))
+        .rejects.toThrow('Could not resolve host')
+    })
+
+    it('propagates error when fast-forward fails (diverged)', async () => {
+      mockExecFileAsync
+        .mockResolvedValueOnce({ stdout: 'abc1234\n', stderr: '' })
+        .mockResolvedValueOnce({ stdout: '', stderr: '' })
+        .mockRejectedValueOnce(new Error('non-fast-forward'))
+
+      await expect(git.fetchAndUpdate('/project', 'main'))
+        .rejects.toThrow('non-fast-forward')
+    })
+  })
 })
