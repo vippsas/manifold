@@ -6,6 +6,7 @@ import { BranchCheckoutManager } from './branch-checkout-manager'
 import { PtyPool } from './pty-pool'
 import { ProjectRegistry } from './project-registry'
 import { detectStatus } from './status-detector'
+import { detectAddDir } from './add-dir-detector'
 import { writeWorktreeMeta, readWorktreeMeta } from './worktree-meta'
 import type { BrowserWindow } from 'electron'
 
@@ -289,6 +290,16 @@ export class SessionManager {
           session.status = newStatus
           this.sendToRenderer('agent:status', { sessionId: session.id, status: newStatus })
         }
+
+        const addedDir = detectAddDir(data)
+        if (addedDir && !session.additionalDirs.includes(addedDir)) {
+          session.additionalDirs.push(addedDir)
+          this.sendToRenderer('agent:dirs-changed', {
+            sessionId: session.id,
+            additionalDirs: [...session.additionalDirs],
+          })
+          this.persistAdditionalDirs(session)
+        }
       }
 
       this.sendToRenderer('agent:output', { sessionId: session.id, data })
@@ -303,6 +314,14 @@ export class SessionManager {
       this.sendToRenderer('agent:status', { sessionId: session.id, status: 'done' })
       this.sendToRenderer('agent:exit', { sessionId: session.id, code: exitCode })
     })
+  }
+
+  private persistAdditionalDirs(session: InternalSession): void {
+    writeWorktreeMeta(session.worktreePath, {
+      runtimeId: session.runtimeId,
+      taskDescription: session.taskDescription,
+      additionalDirs: session.additionalDirs,
+    }).catch(() => {})
   }
 
   private toPublicSession(session: InternalSession): AgentSession {
