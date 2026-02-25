@@ -3,6 +3,7 @@ import { DockviewReact } from 'dockview'
 import { useProjects } from './hooks/useProjects'
 import { useAgentSession } from './hooks/useAgentSession'
 import { useFileWatcher } from './hooks/useFileWatcher'
+import { useAdditionalDirs } from './hooks/useAdditionalDirs'
 import { useDiff } from './hooks/useDiff'
 import { useSettings } from './hooks/useSettings'
 import { useCodeView } from './hooks/useCodeView'
@@ -54,6 +55,7 @@ export function App(): React.JSX.Element {
     void refreshDiff()
   }, [codeView.refreshOpenFiles, refreshDiff])
 
+  const { additionalTrees } = useAdditionalDirs(activeSessionId)
   const { tree, changes: watcherChanges, deleteFile, renameFile } = useFileWatcher(activeSessionId, handleFilesChanged)
 
   const { mergedChanges, activeFileDiffText, originalContent } = useFileDiff(
@@ -166,6 +168,7 @@ export function App(): React.JSX.Element {
     onDeleteFile: handleDeleteFile,
     onRenameFile: handleRenameFile,
     tree,
+    additionalTrees,
     changes: mergedChanges,
     expandedPaths: viewState.expandedPaths,
     onToggleExpand: viewState.onToggleExpand,
