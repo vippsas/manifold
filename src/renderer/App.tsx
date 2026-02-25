@@ -100,11 +100,10 @@ export function App(): React.JSX.Element {
   const handleFetchSuccess = useCallback((projectId: string) => {
     const projectSessions = sessionsByProject[projectId] ?? []
     for (const session of projectSessions) {
-      if (session.id === activeSessionId) {
-        void gitOps.refreshAheadBehind()
-      }
+      void window.electronAPI.invoke('git:ahead-behind', session.id).catch(() => {})
     }
-  }, [sessionsByProject, activeSessionId, gitOps.refreshAheadBehind])
+    void gitOps.refreshAheadBehind()
+  }, [sessionsByProject, gitOps.refreshAheadBehind])
 
   const fetchProject = useFetchProject(handleFetchSuccess)
 
@@ -203,6 +202,7 @@ export function App(): React.JSX.Element {
     onNewProject: () => setShowOnboarding(true),
     onOpenSettings: () => overlays.setShowSettings(true),
     fetchingProjectId: fetchProject.fetchingProjectId,
+    lastFetchedProjectId: fetchProject.lastFetchedProjectId,
     fetchResult: fetchProject.fetchResult,
     fetchError: fetchProject.fetchError,
     onFetchProject: fetchProject.fetchProject,
