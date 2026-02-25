@@ -223,7 +223,7 @@ function ProjectItem({
     <>
       <div
         onClick={handleClick}
-        style={{ ...sidebarStyles.item, position: 'relative' as const }}
+        style={{ ...sidebarStyles.item, ...(isActive ? sidebarStyles.itemActive : undefined), position: 'relative' as const }}
         role="button"
         tabIndex={0}
       >

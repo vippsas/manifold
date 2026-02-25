@@ -50,6 +50,11 @@ export const sidebarStyles: Record<string, React.CSSProperties> = {
     letterSpacing: '0.5px',
     color: 'var(--text-secondary)',
     marginTop: '4px',
+    borderLeft: '2px solid transparent',
+  },
+  itemActive: {
+    borderLeftColor: 'var(--accent)',
+    color: 'var(--text-primary)',
   },
   itemName: {
     flex: 1,
