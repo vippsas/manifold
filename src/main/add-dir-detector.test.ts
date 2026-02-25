@@ -34,4 +34,17 @@ describe('detectAddDir', () => {
     const output = 'Added /Users/sven/my project/ as a working directory for this session'
     expect(detectAddDir(output)).toBe('/Users/sven/my project')
   })
+
+  it('handles ANSI escape codes in PTY output', () => {
+    // Raw PTY data has color/formatting codes around text
+    const output =
+      '\x1b[1mAdded\x1b[0m \x1b[4m/Users/sven/git/landingpage/\x1b[0m as a working directory for this session'
+    expect(detectAddDir(output)).toBe('/Users/sven/git/landingpage')
+  })
+
+  it('handles ANSI codes with box-drawing prefix', () => {
+    const output =
+      '\x1b[90m└\x1b[0m \x1b[1mAdded\x1b[0m \x1b[4m/Users/sven/git/landingpage/\x1b[0m as a working directory for this session \x1b[90m·\x1b[0m /permissions to manage'
+    expect(detectAddDir(output)).toBe('/Users/sven/git/landingpage')
+  })
 })
