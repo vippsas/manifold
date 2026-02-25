@@ -15,10 +15,6 @@ vi.mock('./runtimes', () => ({
         id: 'gemini',
         waitingPattern: '❯|>>> ',
       },
-      custom: {
-        id: 'custom',
-        waitingPattern: 'READY>',
-      },
     }
     return runtimes[id]
   }),
@@ -97,12 +93,6 @@ describe('detectStatus', () => {
       // If output contains both a runtime-specific match and an error, the runtime-specific one wins
       const output = '❯ Error: something'
       expect(detectStatus(output, 'claude')).toBe('waiting')
-    })
-  })
-
-  describe('custom runtime patterns', () => {
-    it('uses custom waitingPattern from runtime config', () => {
-      expect(detectStatus('READY>', 'custom')).toBe('waiting')
     })
   })
 

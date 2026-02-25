@@ -95,9 +95,9 @@ describe('runtimes', () => {
   })
 
   describe('listRuntimesWithStatus', () => {
-    it('returns all built-in runtimes plus custom with installed field', async () => {
+    it('returns all built-in runtimes with installed field', async () => {
       const runtimes = await listRuntimesWithStatus()
-      expect(runtimes.length).toBeGreaterThanOrEqual(BUILT_IN_RUNTIMES.length)
+      expect(runtimes).toHaveLength(BUILT_IN_RUNTIMES.length)
       for (const rt of runtimes) {
         expect(typeof rt.installed).toBe('boolean')
       }
@@ -108,13 +108,6 @@ describe('runtimes', () => {
       for (const rt of runtimes) {
         expect(rt.installed === true || rt.installed === false).toBe(true)
       }
-    })
-
-    it('includes the custom runtime entry with installed=true', async () => {
-      const runtimes = await listRuntimesWithStatus()
-      const custom = runtimes.find((r) => r.id === 'custom')
-      expect(custom).toBeDefined()
-      expect(custom!.installed).toBe(true)
     })
   })
 })

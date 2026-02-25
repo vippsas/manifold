@@ -7,7 +7,6 @@ const MOCK_RUNTIMES = [
   { id: 'claude', name: 'Claude Code', binary: 'claude', installed: true },
   { id: 'codex', name: 'Codex', binary: 'codex', installed: true },
   { id: 'gemini', name: 'Gemini', binary: 'gemini', installed: true },
-  { id: 'custom', name: 'Custom', binary: '', installed: true },
 ]
 
 beforeEach(() => {
@@ -146,7 +145,6 @@ describe('NewTaskModal', () => {
     expect(screen.getByText('Claude Code')).toBeInTheDocument()
     expect(screen.getByText('Codex')).toBeInTheDocument()
     expect(screen.getByText('Gemini')).toBeInTheDocument()
-    expect(screen.getByText('Custom')).toBeInTheDocument()
   })
 
   it('calls onClose when close X button is clicked', () => {

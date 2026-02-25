@@ -21,7 +21,6 @@ const RUNTIME_OPTIONS: RuntimeOption[] = [
   { id: 'claude', label: 'Claude Code' },
   { id: 'codex', label: 'Codex' },
   { id: 'gemini', label: 'Gemini' },
-  { id: 'custom', label: 'Custom' },
 ]
 
 export function SettingsModal({
