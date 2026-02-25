@@ -8,6 +8,7 @@ import { ProjectRegistry } from './project-registry'
 import { detectStatus } from './status-detector'
 import { detectAddDir } from './add-dir-detector'
 import { writeWorktreeMeta, readWorktreeMeta } from './worktree-meta'
+import { FileWatcher } from './file-watcher'
 import type { BrowserWindow } from 'electron'
 
 interface InternalSession extends AgentSession {
@@ -24,7 +25,8 @@ export class SessionManager {
     private worktreeManager: WorktreeManager,
     private ptyPool: PtyPool,
     private projectRegistry: ProjectRegistry,
-    private branchCheckoutManager?: BranchCheckoutManager
+    private branchCheckoutManager?: BranchCheckoutManager,
+    private fileWatcher?: FileWatcher,
   ) {}
 
   setMainWindow(window: BrowserWindow): void {
@@ -237,6 +239,12 @@ export class SessionManager {
           additionalDirs: meta?.additionalDirs ?? [],
         }
         this.sessions.set(session.id, session)
+
+        if (meta?.additionalDirs) {
+          for (const dir of meta.additionalDirs) {
+            this.fileWatcher?.watchAdditionalDir(dir, session.id)
+          }
+        }
       }
     }
 
@@ -299,6 +307,7 @@ export class SessionManager {
             additionalDirs: [...session.additionalDirs],
           })
           this.persistAdditionalDirs(session)
+          this.fileWatcher?.watchAdditionalDir(addedDir, session.id)
         }
       }
 
