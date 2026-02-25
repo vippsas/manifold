@@ -30,6 +30,8 @@ export interface DockAppState {
   // FileTree
   tree: FileTreeNode | null
   additionalTrees?: Map<string, FileTreeNode>
+  additionalBranches?: Map<string, string | null>
+  primaryBranch: string | null
   changes: FileChange[]
   expandedPaths: Set<string>
   onToggleExpand: (path: string) => void
@@ -164,6 +166,8 @@ function FileTreePanel(): React.JSX.Element {
     <FileTree
       tree={s.tree}
       additionalTrees={s.additionalTrees}
+      additionalBranches={s.additionalBranches}
+      primaryBranch={s.primaryBranch}
       changes={s.changes}
       activeFilePath={s.activeFilePath}
       openFilePaths={openFilePaths}

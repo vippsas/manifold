@@ -1,7 +1,11 @@
 import { ipcMain } from 'electron'
+import { execFile } from 'node:child_process'
 import { resolve } from 'node:path'
+import { promisify } from 'node:util'
 import type { IpcDependencies } from './types'
 import type { AgentSession } from '../../shared/types'
+
+const execFileAsync = promisify(execFile)
 
 function isUnderDir(filePath: string, dir: string): boolean {
   const prefix = dir.endsWith('/') ? dir : dir + '/'
@@ -29,6 +33,23 @@ export function registerFileHandlers(deps: IpcDependencies): void {
       throw new Error(`Directory not in session additional dirs: ${dirPath}`)
     }
     return fileWatcher.getFileTree(dirPath)
+  })
+
+  ipcMain.handle('files:dir-branch', async (_event, sessionId: string, dirPath: string) => {
+    const session = sessionManager.getSession(sessionId)
+    if (!session) throw new Error(`Session not found: ${sessionId}`)
+    if (!isPathAllowed(dirPath, session)) {
+      throw new Error(`Directory not in allowed paths: ${dirPath}`)
+    }
+    try {
+      const { stdout } = await execFileAsync('git', ['rev-parse', '--abbrev-ref', 'HEAD'], {
+        cwd: dirPath,
+        timeout: 5000,
+      })
+      return stdout.trim() || null
+    } catch {
+      return null
+    }
   })
 
   ipcMain.handle('files:read', (_event, sessionId: string, filePath: string) => {

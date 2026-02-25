@@ -55,7 +55,7 @@ export function App(): React.JSX.Element {
     void refreshDiff()
   }, [codeView.refreshOpenFiles, refreshDiff])
 
-  const { additionalTrees } = useAdditionalDirs(activeSessionId)
+  const { additionalTrees, additionalBranches } = useAdditionalDirs(activeSessionId)
   const { tree, changes: watcherChanges, deleteFile, renameFile } = useFileWatcher(activeSessionId, handleFilesChanged)
 
   const { mergedChanges, activeFileDiffText, originalContent } = useFileDiff(
@@ -169,6 +169,8 @@ export function App(): React.JSX.Element {
     onRenameFile: handleRenameFile,
     tree,
     additionalTrees,
+    additionalBranches,
+    primaryBranch: activeSession?.branchName ?? null,
     changes: mergedChanges,
     expandedPaths: viewState.expandedPaths,
     onToggleExpand: viewState.onToggleExpand,

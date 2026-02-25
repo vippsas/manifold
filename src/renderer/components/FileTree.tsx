@@ -6,6 +6,8 @@ import { treeStyles } from './FileTree.styles'
 interface FileTreeProps {
   tree: FileTreeNode | null
   additionalTrees?: Map<string, FileTreeNode>
+  additionalBranches?: Map<string, string | null>
+  primaryBranch: string | null
   changes: FileChange[]
   activeFilePath: string | null
   openFilePaths: Set<string>
@@ -16,27 +18,80 @@ interface FileTreeProps {
   onRenameFile?: (oldPath: string, newPath: string) => void
 }
 
-function WorkspaceRootHeader({ name }: { name: string }): React.JSX.Element {
+function WorkspaceRootHeader({
+  name,
+  subtitle,
+  isAdditional,
+}: {
+  name: string
+  subtitle: string | null
+  isAdditional: boolean
+}): React.JSX.Element {
   return (
     <div
       style={{
         padding: '6px 8px 4px',
-        fontSize: '11px',
-        fontWeight: 600,
-        textTransform: 'uppercase' as const,
-        color: 'var(--text-secondary)',
-        letterSpacing: '0.05em',
         borderBottom: '1px solid var(--border)',
       }}
     >
-      {name}
+      <div
+        style={{
+          display: 'flex',
+          justifyContent: 'space-between',
+          alignItems: 'center',
+          fontSize: '11px',
+          fontWeight: 600,
+          textTransform: 'uppercase' as const,
+          color: 'var(--text-secondary)',
+          letterSpacing: '0.05em',
+        }}
+      >
+        <span>{name}</span>
+        {isAdditional && (
+          <span
+            style={{
+              fontWeight: 400,
+              textTransform: 'lowercase' as const,
+              color: 'var(--text-tertiary, rgba(255,255,255,0.35))',
+              letterSpacing: 'normal',
+            }}
+          >
+            external
+          </span>
+        )}
+      </div>
+      {subtitle && (
+        <div
+          style={{
+            fontSize: '10px',
+            fontWeight: 400,
+            color: 'var(--text-tertiary, rgba(255,255,255,0.35))',
+            marginTop: '2px',
+            overflow: 'hidden',
+            textOverflow: 'ellipsis',
+            whiteSpace: 'nowrap' as const,
+          }}
+        >
+          {subtitle}
+        </div>
+      )}
     </div>
   )
+}
+
+function shortenPath(fullPath: string): string {
+  const match = fullPath.match(/^\/(?:Users|home)\/[^/]+/)
+  if (match) {
+    return '~' + fullPath.slice(match[0].length)
+  }
+  return fullPath
 }
 
 export function FileTree({
   tree,
   additionalTrees,
+  additionalBranches,
+  primaryBranch,
   changes,
   activeFilePath,
   openFilePaths,
@@ -111,14 +166,18 @@ export function FileTree({
           <>
             {additionalTrees && additionalTrees.size > 0 ? (
               <>
-                <WorkspaceRootHeader name={tree.name} />
+                <WorkspaceRootHeader name={tree.name} subtitle={primaryBranch} isAdditional={false} />
                 <TreeNode node={tree} depth={0} changeMap={changeMap} activeFilePath={activeFilePath} selectedFilePath={selectedFilePath} openFilePaths={openFilePaths} expandedPaths={expandedPaths} onToggleExpand={onToggleExpand} onHighlightFile={setSelectedFilePath} onSelectFile={onSelectFile} onRequestDelete={onDeleteFile ? handleRequestDelete : undefined} renamingPath={renamingPath} renameValue={renameValue} onRenameValueChange={setRenameValue} onStartRename={onRenameFile ? handleStartRename : undefined} onConfirmRename={handleConfirmRename} onCancelRename={handleCancelRename} />
-                {Array.from(additionalTrees.entries()).map(([dirPath, dirTree]) => (
-                  <React.Fragment key={dirPath}>
-                    <WorkspaceRootHeader name={dirTree.name} />
-                    <TreeNode node={dirTree} depth={0} changeMap={changeMap} activeFilePath={activeFilePath} selectedFilePath={selectedFilePath} openFilePaths={openFilePaths} expandedPaths={expandedPaths} onToggleExpand={onToggleExpand} onHighlightFile={setSelectedFilePath} onSelectFile={onSelectFile} onRequestDelete={onDeleteFile ? handleRequestDelete : undefined} renamingPath={renamingPath} renameValue={renameValue} onRenameValueChange={setRenameValue} onStartRename={onRenameFile ? handleStartRename : undefined} onConfirmRename={handleConfirmRename} onCancelRename={handleCancelRename} />
-                  </React.Fragment>
-                ))}
+                {Array.from(additionalTrees.entries()).map(([dirPath, dirTree]) => {
+                  const branch = additionalBranches?.get(dirPath)
+                  const subtitle = branch ?? shortenPath(dirPath)
+                  return (
+                    <React.Fragment key={dirPath}>
+                      <WorkspaceRootHeader name={dirTree.name} subtitle={subtitle} isAdditional={true} />
+                      <TreeNode node={dirTree} depth={0} changeMap={changeMap} activeFilePath={activeFilePath} selectedFilePath={selectedFilePath} openFilePaths={openFilePaths} expandedPaths={expandedPaths} onToggleExpand={onToggleExpand} onHighlightFile={setSelectedFilePath} onSelectFile={onSelectFile} onRequestDelete={onDeleteFile ? handleRequestDelete : undefined} renamingPath={renamingPath} renameValue={renameValue} onRenameValueChange={setRenameValue} onStartRename={onRenameFile ? handleStartRename : undefined} onConfirmRename={handleConfirmRename} onCancelRename={handleCancelRename} />
+                    </React.Fragment>
+                  )
+                })}
               </>
             ) : (
               <TreeNode node={tree} depth={0} changeMap={changeMap} activeFilePath={activeFilePath} selectedFilePath={selectedFilePath} openFilePaths={openFilePaths} expandedPaths={expandedPaths} onToggleExpand={onToggleExpand} onHighlightFile={setSelectedFilePath} onSelectFile={onSelectFile} onRequestDelete={onDeleteFile ? handleRequestDelete : undefined} renamingPath={renamingPath} renameValue={renameValue} onRenameValueChange={setRenameValue} onStartRename={onRenameFile ? handleStartRename : undefined} onConfirmRename={handleConfirmRename} onCancelRename={handleCancelRename} />
