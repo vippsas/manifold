@@ -6,7 +6,6 @@ const RUNTIME_LABELS: Record<string, string> = {
   claude: 'Claude',
   codex: 'Codex',
   gemini: 'Gemini',
-  custom: 'Custom',
 }
 
 function formatBranch(branchName: string): string {

@@ -7,7 +7,6 @@ const MOCK_RUNTIMES = [
   { id: 'claude', name: 'Claude Code', binary: 'claude', installed: true },
   { id: 'codex', name: 'Codex', binary: 'codex', installed: true },
   { id: 'gemini', name: 'Gemini CLI', binary: 'gemini', installed: true },
-  { id: 'custom', name: 'Custom', binary: '', installed: true },
 ]
 
 const mockInvoke = vi.fn()

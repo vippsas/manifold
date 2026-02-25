@@ -51,6 +51,5 @@ export async function listRuntimesWithStatus(): Promise<AgentRuntime[]> {
       installed: await checkBinaryExists(rt.binary),
     }))
   )
-  results.push({ id: 'custom', name: 'Custom', binary: '', installed: true })
   return results
 }
