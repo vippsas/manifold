@@ -142,4 +142,9 @@ export const sidebarStyles: Record<string, React.CSSProperties> = {
     borderRadius: '4px',
     fontSize: '12px',
   },
+  fetchMessage: {
+    padding: '2px 12px 4px 20px',
+    fontSize: '10px',
+    color: 'var(--text-muted)',
+  },
 }
