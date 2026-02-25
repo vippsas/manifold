@@ -80,7 +80,7 @@ function WorkspaceRootHeader({
 }
 
 function shortenPath(fullPath: string): string {
-  const match = fullPath.match(/^\/Users\/[^/]+/)
+  const match = fullPath.match(/^\/(?:Users|home)\/[^/]+/)
   if (match) {
     return '~' + fullPath.slice(match[0].length)
   }

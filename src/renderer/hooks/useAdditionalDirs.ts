@@ -30,7 +30,7 @@ export function useAdditionalDirs(activeSessionId: string | null): UseAdditional
         setAdditionalDirs(session.additionalDirs)
         for (const dir of session.additionalDirs) {
           fetchTree(activeSessionId, dir)
-          fetchBranch(dir)
+          fetchBranch(activeSessionId, dir)
         }
       }
     }).catch(() => {})
@@ -50,7 +50,7 @@ export function useAdditionalDirs(activeSessionId: string | null): UseAdditional
 
       for (const dir of dirs) {
         fetchTree(activeSessionId, dir)
-        fetchBranch(dir)
+        fetchBranch(activeSessionId, dir)
       }
     })
 
@@ -66,7 +66,6 @@ export function useAdditionalDirs(activeSessionId: string | null): UseAdditional
       if (sessionId !== activeSessionId || !source) return
       if (additionalDirs.includes(source)) {
         fetchTree(activeSessionId, source)
-        fetchBranch(source)
       }
     })
 
@@ -83,8 +82,8 @@ export function useAdditionalDirs(activeSessionId: string | null): UseAdditional
     }).catch(() => {})
   }
 
-  function fetchBranch(dirPath: string): void {
-    window.electronAPI.invoke('files:dir-branch', dirPath).then((branch) => {
+  function fetchBranch(sessionId: string, dirPath: string): void {
+    window.electronAPI.invoke('files:dir-branch', sessionId, dirPath).then((branch) => {
       setAdditionalBranches((prev) => {
         const next = new Map(prev)
         next.set(dirPath, branch as string | null)
