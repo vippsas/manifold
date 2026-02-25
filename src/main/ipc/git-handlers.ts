@@ -1,5 +1,5 @@
 import { ipcMain } from 'electron'
-import { CreatePROptions, AheadBehind } from '../../shared/types'
+import { CreatePROptions, AheadBehind, FetchResult } from '../../shared/types'
 import { getRuntimeById } from '../runtimes'
 import type { IpcDependencies } from './types'
 import { resolveSession } from './types'
@@ -80,5 +80,11 @@ export function registerGitHandlers(deps: IpcDependencies): void {
     const project = projectRegistry.getProject(session.projectId)
     if (!project) throw new Error(`Project not found: ${session.projectId}`)
     return gitOps.getPRContext(session.worktreePath, project.baseBranch)
+  })
+
+  ipcMain.handle('git:fetch', async (_event, projectId: string): Promise<FetchResult> => {
+    const project = projectRegistry.getProject(projectId)
+    if (!project) throw new Error(`Project not found: ${projectId}`)
+    return gitOps.fetchAndUpdate(project.path, project.baseBranch)
   })
 }
