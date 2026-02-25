@@ -73,7 +73,9 @@ export function useProjects(): UseProjectsResult {
   const cloneProject = useCallback(async (url: string): Promise<boolean> => {
     setError(null)
     try {
-      const project = (await window.electronAPI.invoke('projects:clone', url)) as Project | undefined
+      const targetDir = (await window.electronAPI.invoke('projects:clone-dialog', url)) as string | undefined
+      if (!targetDir) return false // user cancelled
+      const project = (await window.electronAPI.invoke('projects:clone', url, targetDir)) as Project | undefined
       if (!project) return false
       setProjects((prev) => [...prev, project])
       setActiveProjectId(project.id)
