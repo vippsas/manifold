@@ -55,6 +55,11 @@ export interface DockAppState {
   onNewAgentFromHeader: () => void
   onNewProject: () => void
   onOpenSettings: () => void
+  fetchingProjectId: string | null
+  lastFetchedProjectId: string | null
+  fetchResult: { updatedBranch: string; commitCount: number } | null
+  fetchError: string | null
+  onFetchProject: (projectId: string) => void
   // Agent restart
   activeSessionStatus: AgentStatus | null
   activeSessionRuntimeId: string | null
@@ -222,6 +227,11 @@ function ProjectsPanel(): React.JSX.Element {
       onNewAgent={s.onNewAgentFromHeader}
       onNewProject={s.onNewProject}
       onOpenSettings={s.onOpenSettings}
+      fetchingProjectId={s.fetchingProjectId}
+      lastFetchedProjectId={s.lastFetchedProjectId}
+      fetchResult={s.fetchResult}
+      fetchError={s.fetchError}
+      onFetchProject={s.onFetchProject}
     />
   )
 }

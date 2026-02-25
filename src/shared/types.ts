@@ -104,3 +104,10 @@ export interface PRContext {
   diffStat: string
   diffPatch: string
 }
+
+export interface FetchResult {
+  updatedBranch: string
+  previousRef: string
+  currentRef: string
+  commitCount: number
+}

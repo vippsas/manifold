@@ -10,6 +10,7 @@ import { useCodeView } from './hooks/useCodeView'
 import { useViewState } from './hooks/useViewState'
 import { useShellSessions } from './hooks/useShellSession'
 import { useGitOperations } from './hooks/useGitOperations'
+import { useFetchProject } from './hooks/useFetchProject'
 import { useAllProjectSessions } from './hooks/useAllProjectSessions'
 import { useTheme } from './hooks/useTheme'
 import { useSessionStatePersistence } from './hooks/useSessionStatePersistence'
@@ -95,6 +96,16 @@ export function App(): React.JSX.Element {
   const { worktreeSessionId, projectSessionId } = useShellSessions(worktreeShellCwd, projectShellCwd, activeSessionId)
 
   const gitOps = useGitOperations(activeSessionId)
+
+  const handleFetchSuccess = useCallback((projectId: string) => {
+    const projectSessions = sessionsByProject[projectId] ?? []
+    for (const session of projectSessions) {
+      void window.electronAPI.invoke('git:ahead-behind', session.id).catch(() => {})
+    }
+    void gitOps.refreshAheadBehind()
+  }, [sessionsByProject, gitOps.refreshAheadBehind])
+
+  const fetchProject = useFetchProject(handleFetchSuccess)
 
   const overlays = useAppOverlays(
     gitOps.commit,
@@ -190,6 +201,11 @@ export function App(): React.JSX.Element {
     onNewAgentFromHeader: overlays.handleNewAgentFromHeader,
     onNewProject: () => setShowOnboarding(true),
     onOpenSettings: () => overlays.setShowSettings(true),
+    fetchingProjectId: fetchProject.fetchingProjectId,
+    lastFetchedProjectId: fetchProject.lastFetchedProjectId,
+    fetchResult: fetchProject.fetchResult,
+    fetchError: fetchProject.fetchError,
+    onFetchProject: fetchProject.fetchProject,
     // Agent restart
     activeSessionStatus: activeSession?.status ?? null,
     activeSessionRuntimeId: activeSession?.runtimeId ?? null,

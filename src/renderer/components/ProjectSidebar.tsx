@@ -17,6 +17,11 @@ interface ProjectSidebarProps {
   onNewAgent: () => void
   onNewProject: () => void
   onOpenSettings: () => void
+  fetchingProjectId: string | null
+  lastFetchedProjectId: string | null
+  fetchResult: { updatedBranch: string; commitCount: number } | null
+  fetchError: string | null
+  onFetchProject: (projectId: string) => void
 }
 
 export function ProjectSidebar({
@@ -32,6 +37,11 @@ export function ProjectSidebar({
   onNewAgent,
   onNewProject,
   onOpenSettings,
+  fetchingProjectId,
+  lastFetchedProjectId,
+  fetchResult,
+  fetchError,
+  onFetchProject,
 }: ProjectSidebarProps): React.JSX.Element {
   const handleRemove = useCallback(
     (e: React.MouseEvent, id: string): void => {
@@ -54,6 +64,11 @@ export function ProjectSidebar({
         onDeleteAgent={onDeleteAgent}
         onRemove={handleRemove}
         onUpdateProject={onUpdateProject}
+        fetchingProjectId={fetchingProjectId}
+        lastFetchedProjectId={lastFetchedProjectId}
+        fetchResult={fetchResult}
+        fetchError={fetchError}
+        onFetchProject={onFetchProject}
       />
       <div style={sidebarStyles.actions}>
         <button onClick={onNewProject} style={sidebarStyles.actionButton}>
@@ -99,6 +114,11 @@ interface ProjectListProps {
   onDeleteAgent: (id: string) => void
   onRemove: (e: React.MouseEvent, id: string) => void
   onUpdateProject: (id: string, partial: Partial<Omit<Project, 'id'>>) => void
+  fetchingProjectId: string | null
+  lastFetchedProjectId: string | null
+  fetchResult: { updatedBranch: string; commitCount: number } | null
+  fetchError: string | null
+  onFetchProject: (projectId: string) => void
 }
 
 function ProjectList({
@@ -111,6 +131,11 @@ function ProjectList({
   onDeleteAgent,
   onRemove,
   onUpdateProject,
+  fetchingProjectId,
+  lastFetchedProjectId,
+  fetchResult,
+  fetchError,
+  onFetchProject,
 }: ProjectListProps): React.JSX.Element {
   return (
     <div style={sidebarStyles.list}>
@@ -126,6 +151,10 @@ function ProjectList({
               onSelect={onSelectProject}
               onRemove={onRemove}
               onUpdateProject={onUpdateProject}
+              isFetching={fetchingProjectId === project.id}
+              fetchResult={lastFetchedProjectId === project.id ? fetchResult : null}
+              fetchError={lastFetchedProjectId === project.id ? fetchError : null}
+              onFetch={() => onFetchProject(project.id)}
             />
             {projectSessions.map((session) => (
               <AgentItem
@@ -152,6 +181,10 @@ interface ProjectItemProps {
   onSelect: (id: string) => void
   onRemove: (e: React.MouseEvent, id: string) => void
   onUpdateProject: (id: string, partial: Partial<Omit<Project, 'id'>>) => void
+  isFetching: boolean
+  fetchResult: { updatedBranch: string; commitCount: number } | null
+  fetchError: string | null
+  onFetch: () => void
 }
 
 function ProjectItem({
@@ -160,6 +193,10 @@ function ProjectItem({
   onSelect,
   onRemove,
   onUpdateProject,
+  isFetching,
+  fetchResult,
+  fetchError,
+  onFetch,
 }: ProjectItemProps): React.JSX.Element {
   const [showSettings, setShowSettings] = useState(false)
 
@@ -183,41 +220,64 @@ function ProjectItem({
   )
 
   return (
-    <div
-      onClick={handleClick}
-      style={{ ...sidebarStyles.item, position: 'relative' as const }}
-      role="button"
-      tabIndex={0}
-    >
-      <span className="truncate" style={sidebarStyles.itemName}>
-        {project.name}
-      </span>
-      <div style={sidebarStyles.itemRight}>
-        <button
-          onClick={handleGearClick}
-          style={sidebarStyles.removeButton}
-          aria-label={`Settings for ${project.name}`}
-          title="Project settings"
-        >
-          &#9881;
-        </button>
-        <button
-          onClick={handleRemoveClick}
-          style={sidebarStyles.removeButton}
-          aria-label={`Remove ${project.name}`}
-          title="Remove project"
-        >
-          &times;
-        </button>
+    <>
+      <div
+        onClick={handleClick}
+        style={{ ...sidebarStyles.item, position: 'relative' as const }}
+        role="button"
+        tabIndex={0}
+      >
+        <span className="truncate" style={sidebarStyles.itemName}>
+          {project.name}
+        </span>
+        <div style={sidebarStyles.itemRight}>
+          <button
+            onClick={(e) => { e.stopPropagation(); onFetch() }}
+            style={sidebarStyles.removeButton}
+            aria-label={`Fetch ${project.name}`}
+            title="Fetch latest from remote"
+            disabled={isFetching}
+          >
+            {isFetching ? '...' : '\u21BB'}
+          </button>
+          <button
+            onClick={handleGearClick}
+            style={sidebarStyles.removeButton}
+            aria-label={`Settings for ${project.name}`}
+            title="Project settings"
+          >
+            &#9881;
+          </button>
+          <button
+            onClick={handleRemoveClick}
+            style={sidebarStyles.removeButton}
+            aria-label={`Remove ${project.name}`}
+            title="Remove project"
+          >
+            &times;
+          </button>
+        </div>
+        {showSettings && (
+          <ProjectSettingsPopover
+            project={project}
+            onUpdateProject={onUpdateProject}
+            onClose={() => setShowSettings(false)}
+          />
+        )}
       </div>
-      {showSettings && (
-        <ProjectSettingsPopover
-          project={project}
-          onUpdateProject={onUpdateProject}
-          onClose={() => setShowSettings(false)}
-        />
+      {fetchResult && (
+        <div style={sidebarStyles.fetchMessage}>
+          {fetchResult.commitCount > 0
+            ? `Updated ${fetchResult.updatedBranch}: ${fetchResult.commitCount} new commit${fetchResult.commitCount !== 1 ? 's' : ''}`
+            : `${fetchResult.updatedBranch} is up to date`}
+        </div>
       )}
-    </div>
+      {fetchError && (
+        <div style={{ ...sidebarStyles.fetchMessage, color: 'var(--error, #f44)' }}>
+          {fetchError}
+        </div>
+      )}
+    </>
   )
 }
 
