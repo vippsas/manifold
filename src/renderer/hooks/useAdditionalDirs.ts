@@ -4,18 +4,21 @@ import type { FileTreeNode } from '../../shared/types'
 interface UseAdditionalDirsResult {
   additionalDirs: string[]
   additionalTrees: Map<string, FileTreeNode>
+  additionalBranches: Map<string, string | null>
   refreshTree: (dirPath: string) => Promise<void>
 }
 
 export function useAdditionalDirs(activeSessionId: string | null): UseAdditionalDirsResult {
   const [additionalDirs, setAdditionalDirs] = useState<string[]>([])
   const [additionalTrees, setAdditionalTrees] = useState<Map<string, FileTreeNode>>(new Map())
+  const [additionalBranches, setAdditionalBranches] = useState<Map<string, string | null>>(new Map())
 
   // Reset when session changes
   useEffect(() => {
     if (!activeSessionId) {
       setAdditionalDirs([])
       setAdditionalTrees(new Map())
+      setAdditionalBranches(new Map())
       return
     }
 
@@ -27,6 +30,7 @@ export function useAdditionalDirs(activeSessionId: string | null): UseAdditional
         setAdditionalDirs(session.additionalDirs)
         for (const dir of session.additionalDirs) {
           fetchTree(activeSessionId, dir)
+          fetchBranch(dir)
         }
       }
     }).catch(() => {})
@@ -46,6 +50,7 @@ export function useAdditionalDirs(activeSessionId: string | null): UseAdditional
 
       for (const dir of dirs) {
         fetchTree(activeSessionId, dir)
+        fetchBranch(dir)
       }
     })
 
@@ -61,6 +66,7 @@ export function useAdditionalDirs(activeSessionId: string | null): UseAdditional
       if (sessionId !== activeSessionId || !source) return
       if (additionalDirs.includes(source)) {
         fetchTree(activeSessionId, source)
+        fetchBranch(source)
       }
     })
 
@@ -77,10 +83,20 @@ export function useAdditionalDirs(activeSessionId: string | null): UseAdditional
     }).catch(() => {})
   }
 
+  function fetchBranch(dirPath: string): void {
+    window.electronAPI.invoke('files:dir-branch', dirPath).then((branch) => {
+      setAdditionalBranches((prev) => {
+        const next = new Map(prev)
+        next.set(dirPath, branch as string | null)
+        return next
+      })
+    }).catch(() => {})
+  }
+
   const refreshTree = useCallback(async (dirPath: string) => {
     if (!activeSessionId) return
     fetchTree(activeSessionId, dirPath)
   }, [activeSessionId])
 
-  return { additionalDirs, additionalTrees, refreshTree }
+  return { additionalDirs, additionalTrees, additionalBranches, refreshTree }
 }
