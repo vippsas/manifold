@@ -9,6 +9,8 @@ import { detectStatus } from './status-detector'
 import { detectAddDir } from './add-dir-detector'
 import { writeWorktreeMeta, readWorktreeMeta } from './worktree-meta'
 import { FileWatcher } from './file-watcher'
+import { gitExec } from './git-exec'
+import { generateBranchName } from './branch-namer'
 import type { BrowserWindow } from 'electron'
 
 interface InternalSession extends AgentSession {
@@ -45,7 +47,25 @@ export class SessionManager {
 
     let worktree: { branch: string; path: string }
 
-    if (options.prIdentifier && this.branchCheckoutManager) {
+    if (options.noWorktree) {
+      // No-worktree mode: checkout branch directly in project directory
+      if (options.existingBranch) {
+        await gitExec(['checkout', options.existingBranch], project.path)
+        worktree = { branch: options.existingBranch, path: project.path }
+      } else if (options.prIdentifier && this.branchCheckoutManager) {
+        const branch = await this.branchCheckoutManager.fetchPRBranch(
+          project.path,
+          options.prIdentifier
+        )
+        await gitExec(['checkout', branch], project.path)
+        worktree = { branch, path: project.path }
+      } else {
+        // Create new branch from current HEAD
+        const branch = options.branchName ?? (await generateBranchName(project.path, options.prompt ?? ''))
+        await gitExec(['checkout', '-b', branch], project.path)
+        worktree = { branch, path: project.path }
+      }
+    } else if (options.prIdentifier && this.branchCheckoutManager) {
       const branch = await this.branchCheckoutManager.fetchPRBranch(
         project.path,
         options.prIdentifier
@@ -122,6 +142,7 @@ export class SessionManager {
       outputBuffer: '',
       taskDescription: options.prompt || undefined,
       additionalDirs: [],
+      noWorktree: options.noWorktree,
     }
   }
 
@@ -169,7 +190,7 @@ export class SessionManager {
       this.ptyPool.kill(session.ptyId)
     }
 
-    if (session.projectId) {
+    if (session.projectId && !session.noWorktree) {
       try {
         await this.worktreeManager.removeWorktree(
           this.projectRegistry.getProject(session.projectId)?.path ?? '',
@@ -351,6 +372,7 @@ export class SessionManager {
       pid: session.pid,
       taskDescription: session.taskDescription,
       additionalDirs: session.additionalDirs,
+      noWorktree: session.noWorktree,
     }
   }
 }
