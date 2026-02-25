@@ -91,6 +91,32 @@ export function AgentItem({ session, isActive, onSelect, onDelete }: AgentItemPr
       >
         {secondaryLabel}
       </span>
+      {session.additionalDirs.length > 0 && (
+        <div style={{ paddingLeft: '14px', paddingTop: '2px' }}>
+          {session.additionalDirs.map((dir) => {
+            const dirName = dir.split('/').filter(Boolean).pop() ?? dir
+            return (
+              <div
+                key={dir}
+                title={dir}
+                style={{
+                  fontSize: '10px',
+                  color: 'var(--text-muted)',
+                  opacity: 0.7,
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '4px',
+                  paddingTop: '1px',
+                }}
+                className="truncate"
+              >
+                <span style={{ fontSize: '9px', opacity: 0.8 }}>+</span>
+                {dirName}
+              </div>
+            )
+          })}
+        </div>
+      )}
     </button>
   )
 }

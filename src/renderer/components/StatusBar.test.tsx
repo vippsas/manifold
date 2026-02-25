@@ -13,6 +13,7 @@ const sampleSession: AgentSession = {
   worktreePath: '/wt1',
   status: 'running',
   pid: 1,
+  additionalDirs: [],
 }
 
 const sampleChangedFiles: FileChange[] = [

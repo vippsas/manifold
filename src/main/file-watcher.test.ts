@@ -163,6 +163,52 @@ describe('FileWatcher', () => {
     })
   })
 
+  describe('watchAdditionalDir', () => {
+    it('starts polling an additional directory', async () => {
+      const mockGitStatus = vi.fn().mockResolvedValue('')
+      const watcher = new FileWatcher(mockGitStatus)
+      watcher.watchAdditionalDir('/extra/dir', 'session-1')
+
+      // Initial poll fires immediately
+      await vi.advanceTimersByTimeAsync(0)
+      expect(mockGitStatus).toHaveBeenCalledWith('/extra/dir')
+    })
+
+    it('sends files:changed with source field', async () => {
+      const mockGitStatus = vi.fn().mockResolvedValue('M  file.ts\n')
+      const watcher = new FileWatcher(mockGitStatus)
+      const mockWindow = {
+        isDestroyed: vi.fn(() => false),
+        webContents: { send: vi.fn() },
+      }
+      watcher.setMainWindow(mockWindow as any)
+      watcher.watchAdditionalDir('/extra/dir', 'session-1')
+
+      await vi.advanceTimersByTimeAsync(0)
+
+      expect(mockWindow.webContents.send).toHaveBeenCalledWith(
+        'files:changed',
+        expect.objectContaining({
+          sessionId: 'session-1',
+          source: '/extra/dir',
+        }),
+      )
+    })
+
+    it('unwatchAll stops additional dir watchers too', async () => {
+      const mockGitStatus = vi.fn().mockResolvedValue('')
+      const watcher = new FileWatcher(mockGitStatus)
+      watcher.watch('/worktree', 'session-1')
+      watcher.watchAdditionalDir('/extra/dir', 'session-1')
+
+      await watcher.unwatchAll()
+      mockGitStatus.mockClear()
+
+      await vi.advanceTimersByTimeAsync(2000)
+      expect(mockGitStatus).not.toHaveBeenCalled()
+    })
+  })
+
   describe('unwatch', () => {
     it('stops polling for the path', async () => {
       watcher.watch('/repo/worktree', 'session-1')
