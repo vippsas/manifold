@@ -118,6 +118,7 @@ export class SessionManager {
       ptyId: ptyHandle.id,
       outputBuffer: '',
       taskDescription: options.prompt || undefined,
+      additionalDirs: [],
     }
   }
 
@@ -232,6 +233,7 @@ export class SessionManager {
           ptyId: '',
           outputBuffer: '',
           taskDescription: meta?.taskDescription,
+          additionalDirs: meta?.additionalDirs ?? [],
         }
         this.sessions.set(session.id, session)
       }
@@ -264,6 +266,7 @@ export class SessionManager {
       pid: ptyHandle.pid,
       ptyId: ptyHandle.id,
       outputBuffer: '',
+      additionalDirs: [],
     }
 
     this.sessions.set(id, session)
@@ -312,6 +315,7 @@ export class SessionManager {
       status: session.status,
       pid: session.pid,
       taskDescription: session.taskDescription,
+      additionalDirs: session.additionalDirs,
     }
   }
 }

@@ -3,6 +3,7 @@ import { writeFile, readFile, unlink } from 'node:fs/promises'
 export interface WorktreeMeta {
   runtimeId: string
   taskDescription?: string
+  additionalDirs?: string[]
 }
 
 /** Meta file stored as a sibling to the worktree directory, not inside it. */
