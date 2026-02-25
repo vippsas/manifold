@@ -56,6 +56,7 @@ export interface DockAppState {
   onNewProject: () => void
   onOpenSettings: () => void
   fetchingProjectId: string | null
+  lastFetchedProjectId: string | null
   fetchResult: { updatedBranch: string; commitCount: number } | null
   fetchError: string | null
   onFetchProject: (projectId: string) => void
@@ -227,6 +228,7 @@ function ProjectsPanel(): React.JSX.Element {
       onNewProject={s.onNewProject}
       onOpenSettings={s.onOpenSettings}
       fetchingProjectId={s.fetchingProjectId}
+      lastFetchedProjectId={s.lastFetchedProjectId}
       fetchResult={s.fetchResult}
       fetchError={s.fetchError}
       onFetchProject={s.onFetchProject}

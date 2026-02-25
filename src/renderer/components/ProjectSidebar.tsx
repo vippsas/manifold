@@ -18,6 +18,7 @@ interface ProjectSidebarProps {
   onNewProject: () => void
   onOpenSettings: () => void
   fetchingProjectId: string | null
+  lastFetchedProjectId: string | null
   fetchResult: { updatedBranch: string; commitCount: number } | null
   fetchError: string | null
   onFetchProject: (projectId: string) => void
@@ -37,6 +38,7 @@ export function ProjectSidebar({
   onNewProject,
   onOpenSettings,
   fetchingProjectId,
+  lastFetchedProjectId,
   fetchResult,
   fetchError,
   onFetchProject,
@@ -63,6 +65,7 @@ export function ProjectSidebar({
         onRemove={handleRemove}
         onUpdateProject={onUpdateProject}
         fetchingProjectId={fetchingProjectId}
+        lastFetchedProjectId={lastFetchedProjectId}
         fetchResult={fetchResult}
         fetchError={fetchError}
         onFetchProject={onFetchProject}
@@ -112,6 +115,7 @@ interface ProjectListProps {
   onRemove: (e: React.MouseEvent, id: string) => void
   onUpdateProject: (id: string, partial: Partial<Omit<Project, 'id'>>) => void
   fetchingProjectId: string | null
+  lastFetchedProjectId: string | null
   fetchResult: { updatedBranch: string; commitCount: number } | null
   fetchError: string | null
   onFetchProject: (projectId: string) => void
@@ -128,6 +132,7 @@ function ProjectList({
   onRemove,
   onUpdateProject,
   fetchingProjectId,
+  lastFetchedProjectId,
   fetchResult,
   fetchError,
   onFetchProject,
@@ -147,8 +152,8 @@ function ProjectList({
               onRemove={onRemove}
               onUpdateProject={onUpdateProject}
               isFetching={fetchingProjectId === project.id}
-              fetchResult={isActive ? fetchResult : null}
-              fetchError={isActive ? fetchError : null}
+              fetchResult={lastFetchedProjectId === project.id ? fetchResult : null}
+              fetchError={lastFetchedProjectId === project.id ? fetchError : null}
               onFetch={() => onFetchProject(project.id)}
             />
             {projectSessions.map((session) => (
