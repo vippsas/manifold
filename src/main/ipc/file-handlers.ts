@@ -3,9 +3,14 @@ import { resolve } from 'node:path'
 import type { IpcDependencies } from './types'
 import type { AgentSession } from '../../shared/types'
 
+function isUnderDir(filePath: string, dir: string): boolean {
+  const prefix = dir.endsWith('/') ? dir : dir + '/'
+  return filePath === dir || filePath.startsWith(prefix)
+}
+
 function isPathAllowed(resolved: string, session: AgentSession): boolean {
-  if (resolved.startsWith(session.worktreePath)) return true
-  return session.additionalDirs.some((dir) => resolved.startsWith(dir))
+  if (isUnderDir(resolved, session.worktreePath)) return true
+  return session.additionalDirs.some((dir) => isUnderDir(resolved, dir))
 }
 
 export function registerFileHandlers(deps: IpcDependencies): void {

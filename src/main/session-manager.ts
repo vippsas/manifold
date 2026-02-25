@@ -158,6 +158,13 @@ export class SessionManager {
     // won't try to use a worktree path that's being deleted.
     this.sessions.delete(sessionId)
 
+    // Clean up additional dir watchers
+    if (this.fileWatcher) {
+      for (const dir of session.additionalDirs) {
+        this.fileWatcher.unwatchAdditionalDir(dir, sessionId)
+      }
+    }
+
     if (session.ptyId) {
       this.ptyPool.kill(session.ptyId)
     }

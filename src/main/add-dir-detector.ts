@@ -1,4 +1,4 @@
-const ADD_DIR_PATTERN = /Added\s+(.+?)\s+as a working directory/
+const ADD_DIR_PATTERN = /Added\s+(\/[^\n]+?)\s+as a working directory/
 
 export function detectAddDir(output: string): string | null {
   const match = output.match(ADD_DIR_PATTERN)
