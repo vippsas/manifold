@@ -10,6 +10,7 @@ export function BranchPicker({
   selected,
   onSelect,
   loading,
+  allowBaseBranch,
 }: {
   branches: BranchInfo[]
   baseBranch: string
@@ -18,6 +19,7 @@ export function BranchPicker({
   selected: string
   onSelect: (v: string) => void
   loading: boolean
+  allowBaseBranch?: boolean
 }): React.JSX.Element {
   const filtered = branches.filter((b) =>
     b.name.toLowerCase().includes(filter.toLowerCase())
@@ -53,7 +55,7 @@ export function BranchPicker({
             </div>
           )}
           {filtered.map((b) => {
-            const isBase = b.name === baseBranch
+            const isBase = b.name === baseBranch && !allowBaseBranch
             const isSelected = b.name === selected
             return (
               <div
