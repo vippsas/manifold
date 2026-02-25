@@ -174,6 +174,21 @@ export function registerProjectHandlers(deps: IpcDependencies): void {
     return projectRegistry.updateProject(projectId, partial)
   })
 
+  ipcMain.handle('projects:clone-dialog', async (event, repoUrl: string) => {
+    const window = BrowserWindow.fromWebContents(event.sender)
+    if (!window) throw new Error('No BrowserWindow found for event sender')
+    const repoName = repoNameFromUrl(repoUrl)
+    const result = await dialog.showSaveDialog(window, {
+      title: 'Clone repository to...',
+      defaultPath: path.join(os.homedir(), repoName),
+      buttonLabel: 'Clone',
+      nameFieldLabel: 'Folder name:',
+      properties: ['createDirectory'],
+    })
+    if (result.canceled || !result.filePath) return undefined
+    return result.filePath
+  })
+
   ipcMain.handle('projects:open-dialog', async (event) => {
     const window = BrowserWindow.fromWebContents(event.sender)
     if (!window) throw new Error('No BrowserWindow found for event sender')
