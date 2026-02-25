@@ -7,6 +7,7 @@ const ALLOWED_INVOKE_CHANNELS = [
   'projects:update',
   'projects:open-dialog',
   'projects:clone',
+  'projects:clone-dialog',
   'projects:create-new',
   'agent:spawn',
   'agent:kill',
