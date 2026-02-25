@@ -48,6 +48,19 @@ export class SessionManager {
     let worktree: { branch: string; path: string }
 
     if (options.noWorktree) {
+      await this.assertCleanWorkingTree(project.path)
+
+      // Only one no-worktree session per project
+      const existingNoWorktree = Array.from(this.sessions.values()).find(
+        (s) => s.noWorktree && s.projectId === options.projectId
+      )
+      if (existingNoWorktree) {
+        throw new Error(
+          'A no-worktree agent is already running for this project. ' +
+          'Only one no-worktree agent can run at a time per project.'
+        )
+      }
+
       // No-worktree mode: checkout branch directly in project directory
       if (options.existingBranch) {
         await gitExec(['checkout', options.existingBranch], project.path)
@@ -104,13 +117,27 @@ export class SessionManager {
     this.wireOutputStreaming(ptyHandle.id, session)
     this.wireExitHandling(ptyHandle.id, session)
 
-    // Persist runtime and task description so they survive app restarts
-    writeWorktreeMeta(worktree.path, {
-      runtimeId: options.runtimeId,
-      taskDescription: options.prompt || undefined,
-    }).catch(() => {})
+    // Persist runtime and task description so they survive app restarts.
+    // Skip for no-worktree sessions — meta files are keyed by worktree path,
+    // and writing one next to the project root would pollute the filesystem.
+    if (!options.noWorktree) {
+      writeWorktreeMeta(worktree.path, {
+        runtimeId: options.runtimeId,
+        taskDescription: options.prompt || undefined,
+      }).catch(() => {})
+    }
 
     return this.toPublicSession(session)
+  }
+
+  private async assertCleanWorkingTree(projectPath: string): Promise<void> {
+    const status = await gitExec(['status', '--porcelain'], projectPath)
+    if (status.trim().length > 0) {
+      throw new Error(
+        'Cannot switch branches: your working tree has uncommitted changes. ' +
+        'Please commit or stash them before starting a no-worktree agent.'
+      )
+    }
   }
 
   private resolveProject(projectId: string): { name: string; path: string; baseBranch: string } {
