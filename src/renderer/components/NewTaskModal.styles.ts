@@ -132,4 +132,10 @@ export const modalStyles: Record<string, React.CSSProperties> = {
     fontSize: '12px',
     margin: 0,
   },
+  infoText: {
+    fontSize: '12px',
+    color: 'var(--text-muted)',
+    margin: 0,
+    fontStyle: 'italic',
+  },
 }
