@@ -31,6 +31,21 @@ export function registerFileHandlers(deps: IpcDependencies): void {
     return fileWatcher.getFileTree(dirPath)
   })
 
+  ipcMain.handle('files:dir-branch', async (_event, dirPath: string) => {
+    try {
+      const { execFile } = await import('node:child_process')
+      const { promisify } = await import('node:util')
+      const execFileAsync = promisify(execFile)
+      const { stdout } = await execFileAsync('git', ['rev-parse', '--abbrev-ref', 'HEAD'], {
+        cwd: dirPath,
+        timeout: 5000,
+      })
+      return stdout.trim() || null
+    } catch {
+      return null
+    }
+  })
+
   ipcMain.handle('files:read', (_event, sessionId: string, filePath: string) => {
     const session = sessionManager.getSession(sessionId)
     if (!session) throw new Error(`Session not found: ${sessionId}`)
