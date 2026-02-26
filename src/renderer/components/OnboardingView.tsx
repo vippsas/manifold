@@ -222,6 +222,8 @@ function NewAgentForm({
         value={taskDescription}
         onChange={setTaskDescription}
         inputRef={inputRef}
+        canSubmit={canSubmit}
+        loading={loading}
       />
 
       <button
@@ -281,16 +283,6 @@ function NewAgentForm({
       )}
 
       {error && <p style={modalStyles.errorText}>{error}</p>}
-
-      <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: 4 }}>
-        <button
-          type="submit"
-          disabled={!canSubmit || loading}
-          style={{ ...buttonStyle, opacity: canSubmit && !loading ? 1 : 0.5 }}
-        >
-          {loading ? 'Starting\u2026' : 'Start Agent \u2192'}
-        </button>
-      </div>
     </form>
   )
 }
