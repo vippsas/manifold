@@ -342,14 +342,14 @@ function NoProjectActions({
   return (
     <>
       <div style={{ fontSize: 15, fontWeight: 500, color: 'var(--text-primary)' }}>
-        Start a new repository
+        Start a new project
       </div>
       <form ref={formRef} onSubmit={handleCreateSubmit} style={{ display: 'flex', flexDirection: 'column', gap: 10, width: 480, maxWidth: '90%' }}>
         <div style={{ position: 'relative' }}>
           <textarea
             value={description}
             onChange={(e) => setDescription(e.target.value)}
-            placeholder="Describe your repository idea..."
+            placeholder="Describe your project idea..."
             autoFocus
             rows={5}
             style={{
