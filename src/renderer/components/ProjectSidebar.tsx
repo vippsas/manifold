@@ -16,7 +16,6 @@ interface ProjectSidebarProps {
   onDeleteAgent: (id: string) => void
   onNewAgent: () => void
   onNewProject: () => void
-  onOpenSettings: () => void
   fetchingProjectId: string | null
   lastFetchedProjectId: string | null
   fetchResult: { updatedBranch: string; commitCount: number } | null
@@ -36,7 +35,6 @@ export function ProjectSidebar({
   onDeleteAgent,
   onNewAgent,
   onNewProject,
-  onOpenSettings,
   fetchingProjectId,
   lastFetchedProjectId,
   fetchResult,
@@ -53,7 +51,6 @@ export function ProjectSidebar({
 
   return (
     <div style={sidebarStyles.root}>
-      <SidebarHeader onNewAgent={onNewAgent} onOpenSettings={onOpenSettings} />
       <ProjectList
         projects={projects}
         activeProjectId={activeProjectId}
@@ -72,34 +69,12 @@ export function ProjectSidebar({
       />
       <div style={sidebarStyles.actions}>
         <button onClick={onNewProject} style={sidebarStyles.actionButton}>
-          + New Project
+          + New Repository
         </button>
-      </div>
-    </div>
-  )
-}
-
-function SidebarHeader({ onNewAgent, onOpenSettings }: { onNewAgent: () => void; onOpenSettings: () => void }): React.JSX.Element {
-  return (
-    <div style={sidebarStyles.header}>
-      <span style={sidebarStyles.title}>Projects</span>
-      <span style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
-        <button
-          onClick={onNewAgent}
-          style={sidebarStyles.headerNewAgent}
-          title="New Agent"
-        >
+        <button onClick={onNewAgent} style={sidebarStyles.actionButtonPrimary}>
           + New Agent
         </button>
-        <button
-          onClick={onOpenSettings}
-          style={sidebarStyles.gearButton}
-          aria-label="Settings"
-          title="Settings"
-        >
-          &#9881;
-        </button>
-      </span>
+      </div>
     </div>
   )
 }
@@ -181,7 +156,7 @@ function ProjectList({
         )
       })}
       {projects.length === 0 && (
-        <div style={sidebarStyles.empty}>No projects yet</div>
+        <div style={sidebarStyles.empty}>No repositories yet</div>
       )}
     </div>
   )
@@ -256,7 +231,7 @@ function ProjectItem({
             onClick={handleGearClick}
             style={sidebarStyles.removeButton}
             aria-label={`Settings for ${project.name}`}
-            title="Project settings"
+            title="Repository settings"
           >
             &#9881;
           </button>
@@ -264,7 +239,7 @@ function ProjectItem({
             onClick={handleRemoveClick}
             style={sidebarStyles.removeButton}
             aria-label={`Remove ${project.name}`}
-            title="Remove project"
+            title="Remove repository"
           >
             &times;
           </button>

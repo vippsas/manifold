@@ -56,7 +56,6 @@ export interface DockAppState {
   onDeleteAgent: (id: string) => void
   onNewAgentFromHeader: () => void
   onNewProject: () => void
-  onOpenSettings: () => void
   fetchingProjectId: string | null
   lastFetchedProjectId: string | null
   fetchResult: { updatedBranch: string; commitCount: number } | null
@@ -103,7 +102,7 @@ function AgentPanel(): React.JSX.Element {
   }
 
   if (!s.sessionId) {
-    return <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%', color: 'var(--text-muted)', fontSize: 12 }}>Select a project to get started</div>
+    return <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%', color: 'var(--text-muted)', fontSize: 12 }}>Select a repository to get started</div>
   }
 
   const isExited = s.activeSessionStatus === 'done' || s.activeSessionStatus === 'error'
@@ -242,7 +241,6 @@ function ProjectsPanel(): React.JSX.Element {
       onDeleteAgent={s.onDeleteAgent}
       onNewAgent={s.onNewAgentFromHeader}
       onNewProject={s.onNewProject}
-      onOpenSettings={s.onOpenSettings}
       fetchingProjectId={s.fetchingProjectId}
       lastFetchedProjectId={s.lastFetchedProjectId}
       fetchResult={s.fetchResult}

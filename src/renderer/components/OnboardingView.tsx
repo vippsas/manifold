@@ -245,11 +245,11 @@ function NewAgentForm({
 
           <label style={modalStyles.checkboxLabel}>
             <input type="checkbox" checked={noWorktree} onChange={(e) => setNoWorktree(e.target.checked)} />
-            No worktree (run in project directory)
+            No worktree (run in repository directory)
           </label>
           {noWorktree && !useExisting && (
             <p style={modalStyles.infoText}>
-              A new branch will be created from the current branch in your project directory.
+              A new branch will be created from the current branch in your repository directory.
             </p>
           )}
 
@@ -408,12 +408,12 @@ function NoProjectActions({
         margin: '8px 0',
       }}>
         <div style={{ flex: 1, height: 1, backgroundColor: 'var(--border)' }} />
-        <span style={{ fontSize: 12, color: 'var(--text-muted)' }}>or open an existing project</span>
+        <span style={{ fontSize: 12, color: 'var(--text-muted)' }}>or open an existing repository</span>
         <div style={{ flex: 1, height: 1, backgroundColor: 'var(--border)' }} />
       </div>
 
       <div style={{ display: 'flex', gap: 10 }}>
-        <button onClick={onAddProject} style={secondaryButtonStyle}>+ Add Local Project</button>
+        <button onClick={onAddProject} style={secondaryButtonStyle}>+ Add Local Repository</button>
         <button onClick={() => setShowClone((p) => !p)} style={secondaryButtonStyle}>Clone Repository</button>
       </div>
       {showClone && (
