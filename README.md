@@ -31,11 +31,11 @@ Git must be installed. For creating PRs from within Manifold, install the [GitHu
 On first launch, Manifold shows a welcome screen where you:
 
 1. **Configure storage** — Choose where agent worktrees are stored (defaults to `~/.manifold/`)
-2. **Register a project** — Add a local git repository or clone one from GitHub
+2. **Register a repository** — Add a local git repository or clone one from GitHub
 
 ### Creating agents
 
-1. Click **New Task** in the sidebar
+1. Click **New Agent** in the sidebar
 2. Pick a **runtime** (Claude Code, Codex, Gemini CLI, or a custom binary)
 3. Give the agent a **prompt** describing what to do
 4. Optionally edit the **branch name** (auto-generated, always prefixed `manifold/`)
@@ -67,103 +67,11 @@ When an agent finishes, click **Create PR** on the agent tab. Manifold uses the 
 
 ## Themes
 
-Manifold ships with 35 editor themes. Change the theme in **Settings**.
-
-| Theme | Type |
-|---|---|
-| **Manifold Dark** | Dark (default) |
-| **Manifold Light** | Light |
-| All Hallows Eve | Dark |
-| Amy | Dark |
-| Birds of Paradise | Dark |
-| Blackboard | Dark |
-| Brilliance Black | Dark |
-| Brilliance Dull | Dark |
-| Clouds Midnight | Dark |
-| Cobalt | Dark |
-| Cobalt2 | Dark |
-| Dracula | Dark |
-| Espresso Libre | Dark |
-| GitHub Dark | Dark |
-| GitHub Light | Light |
-| idleFingers | Dark |
-| Katzenmilch | Light |
-| krTheme | Dark |
-| Merbivore | Dark |
-| Merbivore Soft | Dark |
-| Monokai | Dark |
-| Monokai Bright | Dark |
-| monoindustrial | Dark |
-| Night Owl | Dark |
-| Nord | Dark |
-| Oceanic Next | Dark |
-| Pastels on Dark | Dark |
-| Solarized Dark | Dark |
-| Solarized Light | Light |
-| SpaceCadet | Dark |
-| Sunburst | Dark |
-| Tomorrow | Light |
-| Tomorrow Night | Dark |
-| Tomorrow Night Blue | Dark |
-| Tomorrow Night Bright | Dark |
-| Tomorrow Night Eighties | Dark |
-| Twilight | Dark |
-| Upstream Sunburst | Dark |
-| Vibrant Ink | Dark |
-| Zenburnesque | Dark |
+Manifold ships with 35+ editor themes including two custom Manifold themes and popular community favorites like Dracula, Nord, Monokai, and Solarized. Change the theme in **Settings**.
 
 ## Contributing
 
-### Setup
-
-```bash
-git clone https://github.com/svenmalvik/manifold.git
-cd manifold
-npm install
-npm run dev
-```
-
-`npm run dev` starts Electron with hot reload — changes to renderer code reflect immediately.
-
-### Commands
-
-```bash
-npm run dev          # Start Electron in dev mode (hot reload)
-npm run build        # Production build
-npm run dist         # Build + package macOS DMG
-npm run typecheck    # Full typecheck (main + renderer)
-npm test             # Run all tests
-npm run test:watch   # Watch mode
-```
-
-### Project structure
-
-```
-src/
-  main/       — Node.js main process (PTY, git, files, settings)
-  preload/    — IPC bridge (whitelisted channels only)
-  renderer/   — React UI (components, hooks, styles)
-  shared/     — Types shared between main and renderer
-```
-
-Tests are co-located with source files (`*.test.ts` / `*.test.tsx`).
-
-### Pull request workflow
-
-1. Create a feature branch off `main`
-2. Make your changes
-3. Run `npm run typecheck && npm test` — both must pass
-4. Open a PR against `main`
-
-### IPC convention
-
-Adding a new feature that crosses the process boundary requires changes in three places:
-
-1. `src/main/ipc-handlers.ts` — register the handler
-2. `src/preload/index.ts` — whitelist the channel
-3. The renderer hook that calls it
-
-Channel naming: `domain:action` for request/response, `domain:event` for push events.
+See [CONTRIBUTING.md](CONTRIBUTING.md) for setup instructions, project structure, code conventions, and pull request workflow.
 
 ## Architecture
 
