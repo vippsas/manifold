@@ -79,6 +79,11 @@ export function useAppOverlays(
     return unsub
   }, [])
 
+  useEffect(() => {
+    const unsub = window.electronAPI.on('show-settings', () => setShowSettings(true))
+    return unsub
+  }, [])
+
   return {
     activePanel,
     setActivePanel,

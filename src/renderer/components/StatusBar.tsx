@@ -21,6 +21,7 @@ interface StatusBarProps {
   onCommit?: () => void
   onCreatePR?: () => void
   onShowConflicts?: () => void
+  onOpenSettings?: () => void
 }
 
 export function StatusBar({
@@ -33,6 +34,7 @@ export function StatusBar({
   onCommit,
   onCreatePR,
   onShowConflicts,
+  onOpenSettings,
 }: StatusBarProps): React.JSX.Element {
   const hasConflicts = conflicts.length > 0
   const hasChanges = changedFiles.length > 0
@@ -105,6 +107,16 @@ export function StatusBar({
       <span style={barStyles.item}>
         base: <span className="mono">{baseBranch}</span>
       </span>
+      {onOpenSettings && (
+        <button
+          onClick={onOpenSettings}
+          style={barStyles.settingsButton}
+          aria-label="Settings"
+          title="Settings"
+        >
+          &#9881;
+        </button>
+      )}
     </div>
   )
 }
@@ -119,6 +131,7 @@ type BarStyleKey =
   | 'commitButton'
   | 'prButton'
   | 'conflictButton'
+  | 'settingsButton'
 
 const barStyles: Record<BarStyleKey, React.CSSProperties> = {
   item: {
@@ -177,5 +190,12 @@ const barStyles: Record<BarStyleKey, React.CSSProperties> = {
     background: 'rgba(255, 167, 38, 0.15)',
     cursor: 'pointer',
     whiteSpace: 'nowrap' as const,
+  },
+  settingsButton: {
+    fontSize: '14px',
+    color: 'var(--text-secondary)',
+    cursor: 'pointer',
+    padding: '0 2px',
+    lineHeight: 1,
   },
 }

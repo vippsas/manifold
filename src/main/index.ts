@@ -157,6 +157,12 @@ function createWindow(): void {
           click: () => mainWindow?.webContents.send('show-about'),
         },
         { type: 'separator' },
+        {
+          label: 'Settings…',
+          accelerator: 'CmdOrCtrl+,',
+          click: () => mainWindow?.webContents.send('show-settings'),
+        },
+        { type: 'separator' },
         { role: 'services' },
         { type: 'separator' },
         { role: 'hide' },

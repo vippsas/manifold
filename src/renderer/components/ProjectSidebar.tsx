@@ -16,7 +16,6 @@ interface ProjectSidebarProps {
   onDeleteAgent: (id: string) => void
   onNewAgent: () => void
   onNewProject: () => void
-  onOpenSettings: () => void
   fetchingProjectId: string | null
   lastFetchedProjectId: string | null
   fetchResult: { updatedBranch: string; commitCount: number } | null
@@ -36,7 +35,6 @@ export function ProjectSidebar({
   onDeleteAgent,
   onNewAgent,
   onNewProject,
-  onOpenSettings,
   fetchingProjectId,
   lastFetchedProjectId,
   fetchResult,
@@ -53,7 +51,6 @@ export function ProjectSidebar({
 
   return (
     <div style={sidebarStyles.root}>
-      <SidebarHeader onNewAgent={onNewAgent} onOpenSettings={onOpenSettings} />
       <ProjectList
         projects={projects}
         activeProjectId={activeProjectId}
@@ -74,32 +71,10 @@ export function ProjectSidebar({
         <button onClick={onNewProject} style={sidebarStyles.actionButton}>
           + New Repository
         </button>
-      </div>
-    </div>
-  )
-}
-
-function SidebarHeader({ onNewAgent, onOpenSettings }: { onNewAgent: () => void; onOpenSettings: () => void }): React.JSX.Element {
-  return (
-    <div style={sidebarStyles.header}>
-      <span style={sidebarStyles.title}>Repositories</span>
-      <span style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
-        <button
-          onClick={onNewAgent}
-          style={sidebarStyles.headerNewAgent}
-          title="New Agent"
-        >
+        <button onClick={onNewAgent} style={sidebarStyles.actionButtonPrimary}>
           + New Agent
         </button>
-        <button
-          onClick={onOpenSettings}
-          style={sidebarStyles.gearButton}
-          aria-label="Settings"
-          title="Settings"
-        >
-          &#9881;
-        </button>
-      </span>
+      </div>
     </div>
   )
 }

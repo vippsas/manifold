@@ -69,6 +69,7 @@ const ALLOWED_LISTEN_CHANNELS = [
   'settings:changed',
   'agent:conflicts',
   'show-about',
+  'show-settings',
   'updater:status',
   'view:toggle-panel',
 ] as const

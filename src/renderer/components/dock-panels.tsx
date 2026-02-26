@@ -56,7 +56,6 @@ export interface DockAppState {
   onDeleteAgent: (id: string) => void
   onNewAgentFromHeader: () => void
   onNewProject: () => void
-  onOpenSettings: () => void
   fetchingProjectId: string | null
   lastFetchedProjectId: string | null
   fetchResult: { updatedBranch: string; commitCount: number } | null
@@ -242,7 +241,6 @@ function ProjectsPanel(): React.JSX.Element {
       onDeleteAgent={s.onDeleteAgent}
       onNewAgent={s.onNewAgentFromHeader}
       onNewProject={s.onNewProject}
-      onOpenSettings={s.onOpenSettings}
       fetchingProjectId={s.fetchingProjectId}
       lastFetchedProjectId={s.lastFetchedProjectId}
       fetchResult={s.fetchResult}

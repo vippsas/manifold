@@ -201,7 +201,6 @@ export function App(): React.JSX.Element {
     onDeleteAgent: overlays.handleDeleteAgent,
     onNewAgentFromHeader: overlays.handleNewAgentFromHeader,
     onNewProject: () => setShowOnboarding(true),
-    onOpenSettings: () => overlays.setShowSettings(true),
     fetchingProjectId: fetchProject.fetchingProjectId,
     lastFetchedProjectId: fetchProject.lastFetchedProjectId,
     fetchResult: fetchProject.fetchResult,
@@ -266,6 +265,7 @@ export function App(): React.JSX.Element {
           onCommit={() => overlays.setActivePanel('commit')}
           onCreatePR={() => overlays.setActivePanel('pr')}
           onShowConflicts={() => overlays.setActivePanel('conflicts')}
+          onOpenSettings={() => overlays.setShowSettings(true)}
         />
       </div>
 

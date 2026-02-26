@@ -42,7 +42,6 @@ function renderSidebar(overrides = {}) {
     onDeleteAgent: vi.fn(),
     onNewAgent: vi.fn(),
     onNewProject: vi.fn(),
-    onOpenSettings: vi.fn(),
     ...overrides,
   }
 
@@ -91,14 +90,6 @@ describe('ProjectSidebar', () => {
     expect(props.onNewProject).toHaveBeenCalled()
   })
 
-  it('calls onOpenSettings when gear button is clicked', () => {
-    const { props } = renderSidebar()
-
-    fireEvent.click(screen.getByLabelText('Settings'))
-
-    expect(props.onOpenSettings).toHaveBeenCalled()
-  })
-
   it('calls onRemoveProject when remove button is clicked', () => {
     const { props } = renderSidebar()
 
@@ -107,16 +98,10 @@ describe('ProjectSidebar', () => {
     expect(props.onRemoveProject).toHaveBeenCalledWith('p1')
   })
 
-  it('renders the settings button', () => {
+  it('renders the New Agent button in actions bar', () => {
     renderSidebar()
 
-    expect(screen.getByLabelText('Settings')).toBeInTheDocument()
-  })
-
-  it('renders the Repositories header', () => {
-    renderSidebar()
-
-    expect(screen.getByText('Repositories')).toBeInTheDocument()
+    expect(screen.getByText('+ New Agent')).toBeInTheDocument()
   })
 
   it('renders agent branch names under the active project', () => {
@@ -141,7 +126,7 @@ describe('ProjectSidebar', () => {
     expect(props.onSelectSession).toHaveBeenCalledWith('s2', 'p1')
   })
 
-  it('renders a single + New Agent button in the sidebar header', () => {
+  it('renders a single + New Agent button in the actions bar', () => {
     renderSidebar()
 
     const newAgentButtons = screen.getAllByText('+ New Agent')
