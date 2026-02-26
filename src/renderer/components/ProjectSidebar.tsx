@@ -137,6 +137,18 @@ function ProjectList({
   fetchError,
   onFetchProject,
 }: ProjectListProps): React.JSX.Element {
+  const handleProjectClick = useCallback(
+    (projectId: string): void => {
+      const sessions = allProjectSessions[projectId] ?? []
+      if (sessions.length > 0) {
+        onSelectSession(sessions[0].id, projectId)
+      } else {
+        onSelectProject(projectId)
+      }
+    },
+    [allProjectSessions, onSelectProject, onSelectSession]
+  )
+
   return (
     <div style={sidebarStyles.list}>
       {projects.map((project) => {
@@ -148,7 +160,7 @@ function ProjectList({
             <ProjectItem
               project={project}
               isActive={isActive}
-              onSelect={onSelectProject}
+              onSelect={handleProjectClick}
               onRemove={onRemove}
               onUpdateProject={onUpdateProject}
               isFetching={fetchingProjectId === project.id}

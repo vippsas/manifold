@@ -19,7 +19,7 @@ interface UseAgentSessionResult {
   spawnAgent: (options: SpawnAgentOptions) => Promise<AgentSession | null>
   killAgent: (sessionId: string) => Promise<void>
   deleteAgent: (sessionId: string) => void
-  setActiveSession: (sessionId: string) => void
+  setActiveSession: (sessionId: string | null) => void
   resumeAgent: (sessionId: string, runtimeId: string) => Promise<void>
 }
 
@@ -37,7 +37,7 @@ export function useAgentSession(projectId: string | null): UseAgentSessionResult
   const deleteAgent = useDeleteAgent(setSessions, setActiveSessionId)
   const resumeAgent = useResumeAgent(setSessions)
 
-  const setActiveSession = useCallback((sessionId: string): void => {
+  const setActiveSession = useCallback((sessionId: string | null): void => {
     setActiveSessionId(sessionId)
   }, [])
 

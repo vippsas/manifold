@@ -1,16 +1,9 @@
-import React, { useState, useCallback, useEffect } from 'react'
+import { useState, useCallback, useEffect } from 'react'
 import type { SpawnAgentOptions, ManifoldSettings } from '../../shared/types'
 
 export interface UseAppOverlaysResult {
   activePanel: 'commit' | 'pr' | 'conflicts' | null
   setActivePanel: (panel: 'commit' | 'pr' | 'conflicts' | null) => void
-  showNewAgent: boolean
-  setShowNewAgent: (show: boolean) => void
-  initialDescription: string
-  showProjectPicker: boolean
-  setShowProjectPicker: (show: boolean) => void
-  showAgentOnboarding: boolean
-  setShowAgentOnboarding: (show: boolean) => void
   handleNewAgentFromHeader: () => void
   showSettings: boolean
   setShowSettings: (show: boolean) => void
@@ -22,7 +15,6 @@ export interface UseAppOverlaysResult {
   handleLaunchAgent: (options: SpawnAgentOptions) => void
   handleDeleteAgent: (sessionId: string) => void
   handleSelectSession: (sessionId: string, projectId: string) => void
-  handleNewAgentWithDescription: (description: string) => void
   handleSaveSettings: (partial: Partial<ManifoldSettings>) => void
   handleSetupComplete: () => void
 }
@@ -34,15 +26,11 @@ export function useAppOverlays(
   deleteAgent: (sessionId: string) => void,
   removeSession: (sessionId: string) => void,
   updateSettings: (partial: Partial<ManifoldSettings>) => Promise<void>,
-  setActiveSession: (sessionId: string) => void,
+  setActiveSession: (sessionId: string | null) => void,
   setActiveProject: (projectId: string) => void,
   activeProjectId: string | null
 ): UseAppOverlaysResult {
   const [activePanel, setActivePanel] = useState<'commit' | 'pr' | 'conflicts' | null>(null)
-  const [showNewAgent, setShowNewAgent] = useState(false)
-  const [initialDescription, setInitialDescription] = useState('')
-  const [showProjectPicker, setShowProjectPicker] = useState(false)
-  const [showAgentOnboarding, setShowAgentOnboarding] = useState(false)
   const [showSettings, setShowSettings] = useState(false)
   const [showAbout, setShowAbout] = useState(false)
   const [appVersion, setAppVersion] = useState('')
@@ -57,7 +45,6 @@ export function useAppOverlays(
 
   const handleLaunchAgent = useCallback((options: SpawnAgentOptions): void => {
     void spawnAgent(options)
-    setShowNewAgent(false)
   }, [spawnAgent])
 
   const handleDeleteAgent = useCallback((sessionId: string): void => {
@@ -72,15 +59,8 @@ export function useAppOverlays(
   }, [activeProjectId, setActiveSession, setActiveProject])
 
   const handleNewAgentFromHeader = useCallback((): void => {
-    setShowAgentOnboarding(true)
-  }, [])
-
-  const handleNewAgentWithDescription = useCallback((description: string): void => {
-    setInitialDescription(description)
-    setShowProjectPicker(true)
-    setShowNewAgent(true)
-    setShowAgentOnboarding(false)
-  }, [])
+    setActiveSession(null)
+  }, [setActiveSession])
 
   const handleSaveSettings = useCallback((partial: Partial<ManifoldSettings>): void => {
     void updateSettings(partial)
@@ -102,13 +82,6 @@ export function useAppOverlays(
   return {
     activePanel,
     setActivePanel,
-    showNewAgent,
-    setShowNewAgent,
-    initialDescription,
-    showProjectPicker,
-    setShowProjectPicker,
-    showAgentOnboarding,
-    setShowAgentOnboarding,
     handleNewAgentFromHeader,
     showSettings,
     setShowSettings,
@@ -120,7 +93,6 @@ export function useAppOverlays(
     handleLaunchAgent,
     handleDeleteAgent,
     handleSelectSession,
-    handleNewAgentWithDescription,
     handleSaveSettings,
     handleSetupComplete,
   }
