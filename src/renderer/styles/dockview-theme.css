@@ -51,10 +51,7 @@
   background-color: var(--bg-primary);
 }
 
-/* Minimal layout (no active session): hide tab headers and sashes */
-.dockview-theme-manifold.dockview-minimal .dv-tabs-and-actions-container {
-  display: none;
-}
+/* Minimal layout (no active session): hide sashes between panels */
 .dockview-theme-manifold.dockview-minimal .dv-split-view-container > .dv-sash-container > .dv-sash {
   pointer-events: none;
   opacity: 0;
