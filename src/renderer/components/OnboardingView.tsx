@@ -1,4 +1,8 @@
-import React, { useRef, useState, useCallback } from 'react'
+import React, { useRef, useState, useCallback, useEffect } from 'react'
+import type { SpawnAgentOptions, AgentRuntime, BranchInfo, PRInfo } from '../../shared/types'
+import { modalStyles } from './NewTaskModal.styles'
+import { TaskDescriptionField, AgentDropdown, BranchPicker, PRPicker } from './new-task'
+import type { ExistingSubTab } from './new-task'
 
 const LOGO = `  .--.      __  ___            _ ____      __    __
  / oo \\    /  |/  /___ _____  (_) __/___  / /___/ /
@@ -36,8 +40,11 @@ interface NoProjectProps {
 
 interface NoAgentProps {
   variant: 'no-agent'
-  onNewAgent: (description: string) => void
-  onBack?: () => void
+  projectId: string
+  projectName: string
+  baseBranch: string
+  defaultRuntime: string
+  onLaunch: (options: SpawnAgentOptions) => void
 }
 
 type OnboardingViewProps = NoProjectProps | NoAgentProps
@@ -92,68 +99,195 @@ export function OnboardingView(props: OnboardingViewProps): React.JSX.Element {
         </>
       ) : (
         <>
-          <NewTaskInput onNewAgent={props.onNewAgent} />
-          {props.onBack && (
-            <button
-              onClick={props.onBack}
-              style={{
-                marginTop: 8,
-                padding: '6px 16px',
-                fontSize: 12,
-                color: 'var(--text-muted)',
-                backgroundColor: 'transparent',
-                border: 'none',
-                cursor: 'pointer',
-                textDecoration: 'underline',
-              }}
-            >
-              Back to workspace
-            </button>
-          )}
+          <div style={{ fontSize: 13, color: 'var(--text-muted)' }}>
+            New agent for <span style={{ color: 'var(--text-primary)', fontWeight: 500 }}>{props.projectName}</span>
+          </div>
+          <NewAgentForm
+            projectId={props.projectId}
+            baseBranch={props.baseBranch}
+            defaultRuntime={props.defaultRuntime}
+            onLaunch={props.onLaunch}
+          />
         </>
       )}
     </div>
   )
 }
 
-function NewTaskInput({ onNewAgent }: { onNewAgent: (description: string) => void }): React.JSX.Element {
-  const [value, setValue] = useState('')
+function NewAgentForm({
+  projectId,
+  baseBranch,
+  defaultRuntime,
+  onLaunch,
+}: {
+  projectId: string
+  baseBranch: string
+  defaultRuntime: string
+  onLaunch: (options: SpawnAgentOptions) => void
+}): React.JSX.Element {
+  const [taskDescription, setTaskDescription] = useState('')
+  const [runtimeId, setRuntimeId] = useState(defaultRuntime)
+  const [loading, setLoading] = useState(false)
+  const [runtimes, setRuntimes] = useState<AgentRuntime[]>([])
+  const [useExisting, setUseExisting] = useState(false)
+  const [existingSubTab, setExistingSubTab] = useState<ExistingSubTab>('branch')
+  const [branches, setBranches] = useState<BranchInfo[]>([])
+  const [branchFilter, setBranchFilter] = useState('')
+  const [selectedBranch, setSelectedBranch] = useState('')
+  const [prs, setPrs] = useState<PRInfo[]>([])
+  const [prFilter, setPrFilter] = useState('')
+  const [selectedPr, setSelectedPr] = useState<number | null>(null)
+  const [prsLoading, setPrsLoading] = useState(false)
+  const [branchesLoading, setBranchesLoading] = useState(false)
+  const [error, setError] = useState('')
+  const [noWorktree, setNoWorktree] = useState(false)
+  const [showAdvanced, setShowAdvanced] = useState(false)
+  const inputRef = useRef<HTMLInputElement>(null)
+
+  useEffect(() => {
+    inputRef.current?.focus()
+  }, [])
+
+  useEffect(() => {
+    void window.electronAPI.invoke('runtimes:list').then((list) => {
+      setRuntimes(list as AgentRuntime[])
+    })
+  }, [])
+
+  useEffect(() => {
+    if (!useExisting || existingSubTab !== 'branch') return
+    setBranchesLoading(true)
+    setError('')
+    void window.electronAPI
+      .invoke('git:list-branches', projectId)
+      .then((list) => setBranches(list as BranchInfo[]))
+      .catch((err) => setError(`Failed to load branches: ${(err as Error).message}`))
+      .finally(() => setBranchesLoading(false))
+  }, [useExisting, existingSubTab, projectId])
+
+  useEffect(() => {
+    if (!useExisting || existingSubTab !== 'pr') return
+    setPrsLoading(true)
+    setError('')
+    void window.electronAPI
+      .invoke('git:list-prs', projectId)
+      .then((list) => setPrs(list as PRInfo[]))
+      .catch((err) => setError(`Failed to load PRs: ${(err as Error).message}`))
+      .finally(() => setPrsLoading(false))
+  }, [useExisting, existingSubTab, projectId])
+
+  const selectedRuntime = runtimes.find((r) => r.id === runtimeId)
+  const runtimeInstalled = selectedRuntime?.installed !== false
+
+  const canSubmit = (() => {
+    if (!runtimeInstalled) return false
+    if (taskDescription.trim().length === 0) return false
+    if (useExisting && existingSubTab === 'branch' && !selectedBranch) return false
+    if (useExisting && existingSubTab === 'pr' && selectedPr === null) return false
+    return true
+  })()
 
   const handleSubmit = useCallback(
     (e: React.FormEvent): void => {
       e.preventDefault()
-      const trimmed = value.trim()
-      if (trimmed) onNewAgent(trimmed)
+      if (!canSubmit) return
+      setLoading(true)
+      setError('')
+
+      const base: SpawnAgentOptions = {
+        projectId,
+        runtimeId,
+        prompt: taskDescription.trim(),
+        noWorktree: noWorktree || undefined,
+      }
+
+      if (useExisting && existingSubTab === 'branch') {
+        onLaunch({ ...base, existingBranch: selectedBranch })
+      } else if (useExisting && existingSubTab === 'pr') {
+        onLaunch({ ...base, prIdentifier: String(selectedPr) })
+      } else {
+        onLaunch(base)
+      }
     },
-    [value, onNewAgent]
+    [useExisting, existingSubTab, projectId, runtimeId, taskDescription, selectedBranch, selectedPr, canSubmit, onLaunch, noWorktree]
   )
 
   return (
-    <>
-      <div style={{ fontSize: 14 }}>Name your next task</div>
-      <form onSubmit={handleSubmit} style={{ display: 'flex', gap: 8, width: 400, maxWidth: '90%' }}>
-        <input
-          type="text"
-          value={value}
-          onChange={(e) => setValue(e.target.value)}
-          placeholder="e.g. Dark mode toggle"
-          autoFocus
-          style={{
-            flex: 1,
-            padding: '8px 12px',
-            fontSize: 13,
-            backgroundColor: 'var(--bg-input)',
-            color: 'var(--text-primary)',
-            border: '1px solid var(--border)',
-            borderRadius: 6,
-            outline: 'none',
-          }}
-        />
-        <button type="submit" disabled={!value.trim()} style={{ ...buttonStyle, opacity: value.trim() ? 1 : 0.5 }}>
-          Start
+    <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: 12, width: 420, maxWidth: '90%' }}>
+      <TaskDescriptionField
+        value={taskDescription}
+        onChange={setTaskDescription}
+        inputRef={inputRef}
+      />
+
+      <button
+        type="button"
+        onClick={() => setShowAdvanced((prev) => !prev)}
+        style={modalStyles.advancedToggle}
+      >
+        <span style={{ transform: showAdvanced ? 'rotate(90deg)' : undefined, display: 'inline-block', transition: 'transform 0.15s' }}>&#9654;</span>
+        {' '}Advanced
+      </button>
+
+      {showAdvanced && (
+        <>
+          <AgentDropdown value={runtimeId} onChange={setRuntimeId} runtimes={runtimes} />
+          {!runtimeInstalled && (
+            <p style={modalStyles.errorText}>
+              {selectedRuntime?.name ?? runtimeId} is not installed. Please install it first.
+            </p>
+          )}
+
+          <label style={modalStyles.checkboxLabel}>
+            <input type="checkbox" checked={useExisting} onChange={(e) => setUseExisting(e.target.checked)} />
+            Continue on an existing branch or PR
+          </label>
+
+          <label style={modalStyles.checkboxLabel}>
+            <input type="checkbox" checked={noWorktree} onChange={(e) => setNoWorktree(e.target.checked)} />
+            No worktree (run in project directory)
+          </label>
+          {noWorktree && !useExisting && (
+            <p style={modalStyles.infoText}>
+              A new branch will be created from the current branch in your project directory.
+            </p>
+          )}
+
+          {useExisting && (
+            <>
+              <div style={modalStyles.subTabBar}>
+                <button type="button" onClick={() => setExistingSubTab('branch')} style={{ ...modalStyles.subTab, ...(existingSubTab === 'branch' ? modalStyles.subTabActive : {}) }}>
+                  Branch
+                </button>
+                <button type="button" onClick={() => setExistingSubTab('pr')} style={{ ...modalStyles.subTab, ...(existingSubTab === 'pr' ? modalStyles.subTabActive : {}) }}>
+                  Pull Request
+                </button>
+              </div>
+
+              {existingSubTab === 'branch' && (
+                <BranchPicker branches={branches} baseBranch={baseBranch} filter={branchFilter} onFilterChange={setBranchFilter} selected={selectedBranch} onSelect={setSelectedBranch} loading={branchesLoading} allowBaseBranch={noWorktree} />
+              )}
+
+              {existingSubTab === 'pr' && (
+                <PRPicker prs={prs} filter={prFilter} onFilterChange={setPrFilter} selected={selectedPr} onSelect={setSelectedPr} loading={prsLoading} />
+              )}
+            </>
+          )}
+        </>
+      )}
+
+      {error && <p style={modalStyles.errorText}>{error}</p>}
+
+      <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: 4 }}>
+        <button
+          type="submit"
+          disabled={!canSubmit || loading}
+          style={{ ...buttonStyle, opacity: canSubmit && !loading ? 1 : 0.5 }}
+        >
+          {loading ? 'Starting\u2026' : 'Start Agent \u2192'}
         </button>
-      </form>
-    </>
+      </div>
+    </form>
   )
 }
 

@@ -1,6 +1,6 @@
 import React, { createContext, useCallback, useContext, useMemo } from 'react'
 import type { ITheme } from '@xterm/xterm'
-import type { AgentStatus, FileTreeNode, FileChange, Project, AgentSession } from '../../shared/types'
+import type { AgentStatus, FileTreeNode, FileChange, Project, AgentSession, SpawnAgentOptions } from '../../shared/types'
 import type { OpenFile } from '../hooks/useCodeView'
 import { TerminalPane } from './TerminalPane'
 import { CodeViewer } from './CodeViewer'
@@ -41,8 +41,10 @@ export interface DockAppState {
   worktreeShellSessionId: string | null
   projectShellSessionId: string | null
   worktreeCwd: string | null
-  // Onboarding
-  onNewAgentWithDescription: (description: string) => void
+  // Agent creation
+  baseBranch: string
+  defaultRuntime: string
+  onLaunchAgent: (options: SpawnAgentOptions) => void
   // Projects panel
   projects: Project[]
   activeProjectId: string | null
@@ -86,8 +88,22 @@ export const PANEL_COMPONENTS: Record<string, React.FC<any>> = {
 
 function AgentPanel(): React.JSX.Element {
   const s = useDockState()
+  const activeProject = s.projects.find((p) => p.id === s.activeProjectId)
+  if (!s.sessionId && s.activeProjectId && activeProject) {
+    return (
+      <OnboardingView
+        variant="no-agent"
+        projectId={s.activeProjectId}
+        projectName={activeProject.name}
+        baseBranch={s.baseBranch}
+        defaultRuntime={s.defaultRuntime}
+        onLaunch={s.onLaunchAgent}
+      />
+    )
+  }
+
   if (!s.sessionId) {
-    return <OnboardingView variant="no-agent" onNewAgent={s.onNewAgentWithDescription} />
+    return <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%', color: 'var(--text-muted)', fontSize: 12 }}>Select a project to get started</div>
   }
 
   const isExited = s.activeSessionStatus === 'done' || s.activeSessionStatus === 'error'
