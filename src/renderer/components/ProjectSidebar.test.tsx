@@ -57,10 +57,10 @@ describe('ProjectSidebar', () => {
     expect(screen.getByText('Beta')).toBeInTheDocument()
   })
 
-  it('shows "No projects yet" when list is empty', () => {
+  it('shows "No repositories yet" when list is empty', () => {
     renderSidebar({ projects: [] })
 
-    expect(screen.getByText('No projects yet')).toBeInTheDocument()
+    expect(screen.getByText('No repositories yet')).toBeInTheDocument()
   })
 
   it('shows agents for all projects', () => {
@@ -83,10 +83,10 @@ describe('ProjectSidebar', () => {
     expect(props.onSelectProject).toHaveBeenCalledWith('p2')
   })
 
-  it('calls onNewProject when New Project button is clicked', () => {
+  it('calls onNewProject when New Repository button is clicked', () => {
     const { props } = renderSidebar()
 
-    fireEvent.click(screen.getByText('+ New Project'))
+    fireEvent.click(screen.getByText('+ New Repository'))
 
     expect(props.onNewProject).toHaveBeenCalled()
   })
@@ -113,10 +113,10 @@ describe('ProjectSidebar', () => {
     expect(screen.getByLabelText('Settings')).toBeInTheDocument()
   })
 
-  it('renders the Projects header', () => {
+  it('renders the Repositories header', () => {
     renderSidebar()
 
-    expect(screen.getByText('Projects')).toBeInTheDocument()
+    expect(screen.getByText('Repositories')).toBeInTheDocument()
   })
 
   it('renders agent branch names under the active project', () => {

@@ -3,7 +3,7 @@ import type { AgentSession, FileChange, AheadBehind } from '../../shared/types'
 import type { UseDockLayoutResult, DockPanelId } from '../hooks/useDockLayout'
 
 const PANEL_LABELS: Record<DockPanelId, string> = {
-  projects: 'Projects',
+  projects: 'Repositories',
   agent: 'Agent',
   editor: 'Editor',
   fileTree: 'Files',

@@ -72,7 +72,7 @@ export function ProjectSidebar({
       />
       <div style={sidebarStyles.actions}>
         <button onClick={onNewProject} style={sidebarStyles.actionButton}>
-          + New Project
+          + New Repository
         </button>
       </div>
     </div>
@@ -82,7 +82,7 @@ export function ProjectSidebar({
 function SidebarHeader({ onNewAgent, onOpenSettings }: { onNewAgent: () => void; onOpenSettings: () => void }): React.JSX.Element {
   return (
     <div style={sidebarStyles.header}>
-      <span style={sidebarStyles.title}>Projects</span>
+      <span style={sidebarStyles.title}>Repositories</span>
       <span style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
         <button
           onClick={onNewAgent}
@@ -181,7 +181,7 @@ function ProjectList({
         )
       })}
       {projects.length === 0 && (
-        <div style={sidebarStyles.empty}>No projects yet</div>
+        <div style={sidebarStyles.empty}>No repositories yet</div>
       )}
     </div>
   )
@@ -256,7 +256,7 @@ function ProjectItem({
             onClick={handleGearClick}
             style={sidebarStyles.removeButton}
             aria-label={`Settings for ${project.name}`}
-            title="Project settings"
+            title="Repository settings"
           >
             &#9881;
           </button>
@@ -264,7 +264,7 @@ function ProjectItem({
             onClick={handleRemoveClick}
             style={sidebarStyles.removeButton}
             aria-label={`Remove ${project.name}`}
-            title="Remove project"
+            title="Remove repository"
           >
             &times;
           </button>

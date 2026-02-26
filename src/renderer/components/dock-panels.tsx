@@ -103,7 +103,7 @@ function AgentPanel(): React.JSX.Element {
   }
 
   if (!s.sessionId) {
-    return <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%', color: 'var(--text-muted)', fontSize: 12 }}>Select a project to get started</div>
+    return <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%', color: 'var(--text-muted)', fontSize: 12 }}>Select a repository to get started</div>
   }
 
   const isExited = s.activeSessionStatus === 'done' || s.activeSessionStatus === 'error'
