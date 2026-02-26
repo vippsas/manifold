@@ -55,6 +55,7 @@ export interface DockAppState {
   onUpdateProject: (id: string, partial: Partial<Omit<Project, 'id'>>) => void
   onDeleteAgent: (id: string) => void
   onNewAgentFromHeader: () => void
+  newAgentFocusTrigger: number
   onNewProject: () => void
   fetchingProjectId: string | null
   lastFetchedProjectId: string | null
@@ -97,6 +98,7 @@ function AgentPanel(): React.JSX.Element {
         baseBranch={s.baseBranch}
         defaultRuntime={s.defaultRuntime}
         onLaunch={s.onLaunchAgent}
+        focusTrigger={s.newAgentFocusTrigger}
       />
     )
   }

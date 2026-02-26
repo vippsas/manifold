@@ -61,7 +61,7 @@ export const modalStyles: Record<string, React.CSSProperties> = {
     borderRadius: '4px',
   },
   input: {
-    padding: '6px 8px',
+    padding: '10px 12px',
     fontSize: '13px',
     fontFamily: 'var(--font-mono)',
     color: 'var(--text-primary)',

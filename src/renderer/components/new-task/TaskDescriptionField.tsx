@@ -17,6 +17,7 @@ export function TaskDescriptionField({
       value={value}
       onChange={(e) => onChange(e.target.value)}
       style={modalStyles.input}
+      autoFocus
       placeholder="Agent name, e.g. Dark mode toggle"
     />
   )

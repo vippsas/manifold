@@ -200,6 +200,7 @@ export function App(): React.JSX.Element {
     onUpdateProject: updateProject,
     onDeleteAgent: overlays.handleDeleteAgent,
     onNewAgentFromHeader: overlays.handleNewAgentFromHeader,
+    newAgentFocusTrigger: overlays.newAgentFocusTrigger,
     onNewProject: () => setShowOnboarding(true),
     fetchingProjectId: fetchProject.fetchingProjectId,
     lastFetchedProjectId: fetchProject.lastFetchedProjectId,

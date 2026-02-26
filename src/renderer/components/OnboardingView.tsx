@@ -45,6 +45,7 @@ interface NoAgentProps {
   baseBranch: string
   defaultRuntime: string
   onLaunch: (options: SpawnAgentOptions) => void
+  focusTrigger?: number
 }
 
 type OnboardingViewProps = NoProjectProps | NoAgentProps
@@ -107,6 +108,7 @@ export function OnboardingView(props: OnboardingViewProps): React.JSX.Element {
             baseBranch={props.baseBranch}
             defaultRuntime={props.defaultRuntime}
             onLaunch={props.onLaunch}
+            focusTrigger={props.focusTrigger}
           />
         </>
       )}
@@ -119,11 +121,13 @@ function NewAgentForm({
   baseBranch,
   defaultRuntime,
   onLaunch,
+  focusTrigger,
 }: {
   projectId: string
   baseBranch: string
   defaultRuntime: string
   onLaunch: (options: SpawnAgentOptions) => void
+  focusTrigger?: number
 }): React.JSX.Element {
   const [taskDescription, setTaskDescription] = useState('')
   const [runtimeId, setRuntimeId] = useState(defaultRuntime)
@@ -146,7 +150,7 @@ function NewAgentForm({
 
   useEffect(() => {
     inputRef.current?.focus()
-  }, [])
+  }, [focusTrigger])
 
   useEffect(() => {
     void window.electronAPI.invoke('runtimes:list').then((list) => {

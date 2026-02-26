@@ -5,6 +5,7 @@ export interface UseAppOverlaysResult {
   activePanel: 'commit' | 'pr' | 'conflicts' | null
   setActivePanel: (panel: 'commit' | 'pr' | 'conflicts' | null) => void
   handleNewAgentFromHeader: () => void
+  newAgentFocusTrigger: number
   showSettings: boolean
   setShowSettings: (show: boolean) => void
   showAbout: boolean
@@ -34,6 +35,7 @@ export function useAppOverlays(
   const [showSettings, setShowSettings] = useState(false)
   const [showAbout, setShowAbout] = useState(false)
   const [appVersion, setAppVersion] = useState('')
+  const [newAgentFocusTrigger, setNewAgentFocusTrigger] = useState(0)
 
   const handleCommit = useCallback(async (message: string): Promise<void> => {
     await commit(message)
@@ -60,6 +62,7 @@ export function useAppOverlays(
 
   const handleNewAgentFromHeader = useCallback((): void => {
     setActiveSession(null)
+    setNewAgentFocusTrigger((n) => n + 1)
   }, [setActiveSession])
 
   const handleSaveSettings = useCallback((partial: Partial<ManifoldSettings>): void => {
@@ -88,6 +91,7 @@ export function useAppOverlays(
     activePanel,
     setActivePanel,
     handleNewAgentFromHeader,
+    newAgentFocusTrigger,
     showSettings,
     setShowSettings,
     showAbout,
