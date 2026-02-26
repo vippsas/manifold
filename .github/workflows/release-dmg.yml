@@ -12,6 +12,7 @@ permissions:
 jobs:
   build-dmg:
     runs-on: macos-latest
+    environment: release
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
