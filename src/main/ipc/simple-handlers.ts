@@ -1,4 +1,4 @@
-import { ipcMain } from 'electron'
+import { BrowserWindow, ipcMain } from 'electron'
 import type { IpcDependencies } from './types'
 
 export function registerSimpleHandlers(deps: IpcDependencies): void {
@@ -18,6 +18,16 @@ export function registerSimpleHandlers(deps: IpcDependencies): void {
 
   ipcMain.handle('simple:deploy-status', (_event, _sessionId: string) => {
     return { stage: 'idle', message: 'Not deployed yet' }
+  })
+
+  ipcMain.handle('simple:subscribe-chat', (_event, sessionId: string) => {
+    chatAdapter.onMessage(sessionId, (msg) => {
+      const win = BrowserWindow.getAllWindows()[0]
+      if (win) {
+        win.webContents.send('simple:chat-message', msg)
+      }
+    })
+    return true
   })
 
   // Preview URL is handled by the existing `preview:url-detected` push channel

@@ -17,6 +17,7 @@ const ALLOWED_INVOKE_CHANNELS = [
   'updater:install',
   'updater:check',
   'simple:chat-messages',
+  'simple:subscribe-chat',
   'simple:deploy',
   'simple:deploy-status',
 ] as const

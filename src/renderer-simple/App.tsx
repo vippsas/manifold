@@ -52,6 +52,8 @@ export function App(): React.JSX.Element {
             branchName: name,
           })) as { id: string; branchName: string; worktreePath: string; status: string }
 
+          await window.electronAPI.invoke('simple:subscribe-chat', session.id)
+
           const newApp: SimpleApp = {
             sessionId: session.id,
             projectId,
