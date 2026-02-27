@@ -22,7 +22,6 @@ import { useAppOverlays } from './hooks/useAppOverlays'
 import { useWebPreview } from './hooks/useWebPreview'
 import { useDockLayout, type DockPanelId } from './hooks/useDockLayout'
 import { PANEL_COMPONENTS, DockStateContext, type DockAppState } from './components/dock-panels'
-import { NewTaskModal } from './components/NewTaskModal'
 import { OnboardingView } from './components/OnboardingView'
 import { SettingsModal } from './components/SettingsModal'
 import { AboutOverlay } from './components/AboutOverlay'
@@ -211,7 +210,9 @@ export function App(): React.JSX.Element {
     worktreeShellSessionId: worktreeSessionId,
     projectShellSessionId: projectSessionId,
     worktreeCwd: worktreeShellCwd,
-    onNewAgentWithDescription: (description: string) => { overlays.handleNewAgentWithDescription(description) },
+    baseBranch: activeProject?.baseBranch ?? settings.defaultBaseBranch,
+    defaultRuntime: settings.defaultRuntime,
+    onLaunchAgent: overlays.handleLaunchAgent,
     projects,
     activeProjectId,
     allProjectSessions: sessionsByProject,
@@ -221,8 +222,8 @@ export function App(): React.JSX.Element {
     onUpdateProject: updateProject,
     onDeleteAgent: overlays.handleDeleteAgent,
     onNewAgentFromHeader: overlays.handleNewAgentFromHeader,
+    newAgentFocusTrigger: overlays.newAgentFocusTrigger,
     onNewProject: () => setShowOnboarding(true),
-    onOpenSettings: () => overlays.setShowSettings(true),
     fetchingProjectId: fetchProject.fetchingProjectId,
     lastFetchedProjectId: fetchProject.lastFetchedProjectId,
     fetchResult: fetchProject.fetchResult,
@@ -289,6 +290,7 @@ export function App(): React.JSX.Element {
           onCommit={() => overlays.setActivePanel('commit')}
           onCreatePR={() => overlays.setActivePanel('pr')}
           onShowConflicts={() => overlays.setActivePanel('conflicts')}
+          onOpenSettings={() => overlays.setShowSettings(true)}
         />
       </div>
 
@@ -323,19 +325,6 @@ export function App(): React.JSX.Element {
           onResolveConflict={gitOps.resolveConflict}
           onSelectFile={handleSelectFile}
           onClose={overlays.handleClosePanel}
-        />
-      )}
-
-      {activeProjectId && (
-        <NewTaskModal
-          visible={overlays.showNewAgent}
-          projectId={activeProjectId}
-          baseBranch={activeProject?.baseBranch ?? 'main'}
-          defaultRuntime={settings.defaultRuntime}
-          onLaunch={overlays.handleLaunchAgent}
-          onClose={() => overlays.setShowNewAgent(false)}
-          projects={overlays.showProjectPicker ? projects : undefined}
-          initialDescription={overlays.initialDescription}
         />
       )}
 
@@ -376,15 +365,6 @@ export function App(): React.JSX.Element {
         </div>
       )}
 
-      {overlays.showAgentOnboarding && (
-        <div style={{ position: 'absolute', inset: 0, zIndex: 100, background: 'var(--bg-primary)' }}>
-          <OnboardingView
-            variant="no-agent"
-            onNewAgent={overlays.handleNewAgentWithDescription}
-            onBack={() => overlays.setShowAgentOnboarding(false)}
-          />
-        </div>
-      )}
     </div>
   )
 }

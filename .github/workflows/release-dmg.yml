@@ -12,6 +12,7 @@ permissions:
 jobs:
   build-dmg:
     runs-on: macos-latest
+    environment: release
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -44,14 +45,15 @@ jobs:
 
       - name: Create GitHub Release
         if: startsWith(github.ref, 'refs/tags/')
-        uses: softprops/action-gh-release@v2
-        with:
-          files: |
-            dist/*.dmg
-            dist/*.zip
-            dist/*.yml
-            dist/*.blockmap
-          generate_release_notes: true
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAG_NAME: ${{ github.ref_name }}
+        run: |
+          if gh release view "$TAG_NAME" &>/dev/null; then
+            gh release upload "$TAG_NAME" dist/*.dmg dist/*.zip dist/*.yml dist/*.blockmap --clobber
+          else
+            gh release create "$TAG_NAME" dist/*.dmg dist/*.zip dist/*.yml dist/*.blockmap --generate-notes
+          fi
 
       - name: Upload artifacts (manual runs)
         if: github.event_name == 'workflow_dispatch'

@@ -243,12 +243,13 @@ select {
   border-radius: var(--radius-sm);
   padding: var(--space-xs) var(--space-sm);
   outline: none;
+  transition: border-color 0.15s ease;
 }
 
 input:focus,
 textarea:focus,
 select:focus {
-  border-color: var(--accent);
+  border-color: var(--accent) !important;
 }
 
 /* ─── Status Dot Utility ─── */

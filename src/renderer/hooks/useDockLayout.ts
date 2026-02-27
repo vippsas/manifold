@@ -5,7 +5,7 @@ const PANEL_IDS = ['projects', 'agent', 'editor', 'fileTree', 'modifiedFiles', '
 export type DockPanelId = (typeof PANEL_IDS)[number]
 
 const PANEL_TITLES: Record<DockPanelId, string> = {
-  projects: 'Projects',
+  projects: 'Repositories',
   agent: 'Agent',
   editor: 'Editor',
   fileTree: 'Files',

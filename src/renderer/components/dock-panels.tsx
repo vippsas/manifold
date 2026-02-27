@@ -1,6 +1,6 @@
 import React, { createContext, useCallback, useContext, useMemo } from 'react'
 import type { ITheme } from '@xterm/xterm'
-import type { AgentStatus, FileTreeNode, FileChange, Project, AgentSession } from '../../shared/types'
+import type { AgentStatus, FileTreeNode, FileChange, Project, AgentSession, SpawnAgentOptions } from '../../shared/types'
 import type { OpenFile } from '../hooks/useCodeView'
 import { TerminalPane } from './TerminalPane'
 import { CodeViewer } from './CodeViewer'
@@ -42,8 +42,10 @@ export interface DockAppState {
   worktreeShellSessionId: string | null
   projectShellSessionId: string | null
   worktreeCwd: string | null
-  // Onboarding
-  onNewAgentWithDescription: (description: string) => void
+  // Agent creation
+  baseBranch: string
+  defaultRuntime: string
+  onLaunchAgent: (options: SpawnAgentOptions) => void
   // Projects panel
   projects: Project[]
   activeProjectId: string | null
@@ -54,8 +56,8 @@ export interface DockAppState {
   onUpdateProject: (id: string, partial: Partial<Omit<Project, 'id'>>) => void
   onDeleteAgent: (id: string) => void
   onNewAgentFromHeader: () => void
+  newAgentFocusTrigger: number
   onNewProject: () => void
-  onOpenSettings: () => void
   fetchingProjectId: string | null
   lastFetchedProjectId: string | null
   fetchResult: { updatedBranch: string; commitCount: number } | null
@@ -90,8 +92,23 @@ export const PANEL_COMPONENTS: Record<string, React.FC<any>> = {
 
 function AgentPanel(): React.JSX.Element {
   const s = useDockState()
+  const activeProject = s.projects.find((p) => p.id === s.activeProjectId)
+  if (!s.sessionId && s.activeProjectId && activeProject) {
+    return (
+      <OnboardingView
+        variant="no-agent"
+        projectId={s.activeProjectId}
+        projectName={activeProject.name}
+        baseBranch={s.baseBranch}
+        defaultRuntime={s.defaultRuntime}
+        onLaunch={s.onLaunchAgent}
+        focusTrigger={s.newAgentFocusTrigger}
+      />
+    )
+  }
+
   if (!s.sessionId) {
-    return <OnboardingView variant="no-agent" onNewAgent={s.onNewAgentWithDescription} />
+    return <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%', color: 'var(--text-muted)', fontSize: 12 }}>Select a repository to get started</div>
   }
 
   const isExited = s.activeSessionStatus === 'done' || s.activeSessionStatus === 'error'
@@ -231,7 +248,6 @@ function ProjectsPanel(): React.JSX.Element {
       onDeleteAgent={s.onDeleteAgent}
       onNewAgent={s.onNewAgentFromHeader}
       onNewProject={s.onNewProject}
-      onOpenSettings={s.onOpenSettings}
       fetchingProjectId={s.fetchingProjectId}
       lastFetchedProjectId={s.lastFetchedProjectId}
       fetchResult={s.fetchResult}
