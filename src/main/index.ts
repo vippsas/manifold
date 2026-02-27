@@ -173,6 +173,14 @@ function createWindow(): void {
     }
   })
 
+  ipcMain.handle('app:switch-mode', (_event, mode: 'developer' | 'simple') => {
+    settingsStore.updateSettings({ uiMode: mode })
+    if (mainWindow) {
+      const isSimple = mode === 'simple'
+      loadRenderer(mainWindow, isSimple)
+    }
+  })
+
   mainWindow.on('closed', () => {
     mainWindow = null
   })

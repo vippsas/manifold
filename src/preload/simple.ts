@@ -20,6 +20,7 @@ const ALLOWED_INVOKE_CHANNELS = [
   'simple:subscribe-chat',
   'simple:deploy',
   'simple:deploy-status',
+  'app:switch-mode',
 ] as const
 
 const ALLOWED_SEND_CHANNELS = [
