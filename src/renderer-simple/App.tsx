@@ -1,8 +1,32 @@
 import React, { useState } from 'react'
 import { Dashboard } from './components/Dashboard'
 import { NewAppForm } from './components/NewAppForm'
+import { AppView } from './components/AppView'
 import { useApps } from './hooks/useApps'
+import { useChat } from './hooks/useChat'
+import { usePreview } from './hooks/usePreview'
 import type { SimpleApp } from '../shared/simple-types'
+
+function AppViewWrapper({ app, onBack }: { app: SimpleApp; onBack: () => void }): React.JSX.Element {
+  const { messages, sendMessage } = useChat(app.sessionId)
+  const { previewUrl } = usePreview(app.sessionId)
+
+  return (
+    <AppView
+      status={app.status}
+      messages={messages}
+      previewUrl={previewUrl}
+      onSendMessage={sendMessage}
+      onBack={onBack}
+      onDeploy={() => {
+        /* TODO: deployment in later task */
+      }}
+      onDevMode={() => {
+        /* TODO: mode switch in later task */
+      }}
+    />
+  )
+}
 
 type View = { kind: 'dashboard' } | { kind: 'new-app' } | { kind: 'app'; app: SimpleApp }
 
@@ -48,25 +72,7 @@ export function App(): React.JSX.Element {
   }
 
   if (view.kind === 'app') {
-    return (
-      <div style={{ padding: 40 }}>
-        <button
-          onClick={() => setView({ kind: 'dashboard' })}
-          style={{
-            background: 'transparent',
-            border: '1px solid var(--border)',
-            borderRadius: 'var(--radius)',
-            padding: '8px 16px',
-            color: 'var(--text-muted)',
-            cursor: 'pointer',
-            marginBottom: 20,
-          }}
-        >
-          Back to Dashboard
-        </button>
-        <p>App: {view.app.name} (Chat + Preview coming in next task)</p>
-      </div>
-    )
+    return <AppViewWrapper app={view.app} onBack={() => setView({ kind: 'dashboard' })} />
   }
 
   return (
