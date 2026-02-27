@@ -9,6 +9,7 @@ import { ModifiedFiles } from './ModifiedFiles'
 import { ShellTabs } from './ShellTabs'
 import { OnboardingView } from './OnboardingView'
 import { ProjectSidebar } from './ProjectSidebar'
+import { WebPreview } from './WebPreview'
 
 export interface DockAppState {
   sessionId: string | null
@@ -64,6 +65,8 @@ export interface DockAppState {
   activeSessionStatus: AgentStatus | null
   activeSessionRuntimeId: string | null
   onResumeAgent: (sessionId: string, runtimeId: string) => Promise<void>
+  // Web preview
+  previewUrl: string | null
 }
 
 export const DockStateContext = createContext<DockAppState | null>(null)
@@ -82,6 +85,7 @@ export const PANEL_COMPONENTS: Record<string, React.FC<any>> = {
   modifiedFiles: ModifiedFilesPanel,
   shell: ShellPanel,
   projects: ProjectsPanel,
+  webPreview: WebPreviewPanel,
 }
 
 function AgentPanel(): React.JSX.Element {
@@ -234,4 +238,16 @@ function ProjectsPanel(): React.JSX.Element {
       onFetchProject={s.onFetchProject}
     />
   )
+}
+
+function WebPreviewPanel(): React.JSX.Element {
+  const s = useDockState()
+  if (!s.previewUrl) {
+    return (
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%', color: 'var(--text-muted)', fontSize: '12px' }}>
+        No preview available
+      </div>
+    )
+  }
+  return <WebPreview url={s.previewUrl} />
 }

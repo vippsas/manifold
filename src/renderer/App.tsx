@@ -19,6 +19,7 @@ import { useUpdateNotification } from './hooks/useUpdateNotification'
 import { useFileDiff } from './hooks/useFileDiff'
 import { useFileOperations } from './hooks/useFileOperations'
 import { useAppOverlays } from './hooks/useAppOverlays'
+import { useWebPreview } from './hooks/useWebPreview'
 import { useDockLayout, type DockPanelId } from './hooks/useDockLayout'
 import { PANEL_COMPONENTS, DockStateContext, type DockAppState } from './components/dock-panels'
 import { NewTaskModal } from './components/NewTaskModal'
@@ -42,6 +43,7 @@ export function App(): React.JSX.Element {
   useStatusNotification(allSessions, settings.notificationSound)
   const { diff, changedFiles, refreshDiff } = useDiff(activeSessionId)
   const dockLayout = useDockLayout(activeSessionId)
+  const webPreview = useWebPreview(activeSessionId)
   const codeView = useCodeView(activeSessionId)
 
   // Listen for View menu → Toggle panel commands from the main process.
@@ -50,6 +52,26 @@ export function App(): React.JSX.Element {
       dockLayout.togglePanel(panelId as DockPanelId)
     })
   }, [dockLayout.togglePanel])
+
+  // Auto-open web preview panel when a URL is detected
+  useEffect(() => {
+    const api = dockLayout.apiRef.current
+    if (!api) return
+
+    if (webPreview.previewUrl) {
+      if (!api.getPanel('webPreview')) {
+        const editorPanel = api.getPanel('editor')
+        api.addPanel({
+          id: 'webPreview',
+          component: 'webPreview',
+          title: 'Preview',
+          position: editorPanel
+            ? { referencePanel: editorPanel, direction: 'within' }
+            : undefined,
+        })
+      }
+    }
+  }, [webPreview.previewUrl, dockLayout.apiRef])
 
   const handleFilesChanged = useCallback(() => {
     void codeView.refreshOpenFiles()
@@ -206,6 +228,8 @@ export function App(): React.JSX.Element {
     fetchResult: fetchProject.fetchResult,
     fetchError: fetchProject.fetchError,
     onFetchProject: fetchProject.fetchProject,
+    // Web preview
+    previewUrl: webPreview.previewUrl,
     // Agent restart
     activeSessionStatus: activeSession?.status ?? null,
     activeSessionRuntimeId: activeSession?.runtimeId ?? null,
