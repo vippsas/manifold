@@ -19,6 +19,14 @@ export const BUILT_IN_RUNTIMES: readonly AgentRuntime[] = [
     waitingPattern: '> |codex>'
   },
   {
+    id: 'copilot',
+    name: 'Copilot',
+    binary: 'copilot',
+    args: ['--yolo'],
+    aiModelArgs: ['--model', 'claude-sonnet-4.5'],
+    waitingPattern: '> |❯'
+  },
+  {
     id: 'gemini',
     name: 'Gemini CLI',
     binary: 'gemini',

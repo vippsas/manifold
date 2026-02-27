@@ -3,17 +3,24 @@ import { BUILT_IN_RUNTIMES, getRuntimeById, listRuntimes, listRuntimesWithStatus
 
 describe('runtimes', () => {
   describe('BUILT_IN_RUNTIMES', () => {
-    it('contains claude, codex, gemini, ollama-claude, and ollama-codex', () => {
+    it('contains claude, codex, copilot, gemini, ollama-claude, and ollama-codex', () => {
       const ids = BUILT_IN_RUNTIMES.map((r) => r.id)
       expect(ids).toContain('claude')
       expect(ids).toContain('codex')
+      expect(ids).toContain('copilot')
       expect(ids).toContain('gemini')
       expect(ids).toContain('ollama-claude')
       expect(ids).toContain('ollama-codex')
     })
 
-    it('has exactly 5 built-in runtimes', () => {
-      expect(BUILT_IN_RUNTIMES).toHaveLength(5)
+    it('has exactly 6 built-in runtimes', () => {
+      expect(BUILT_IN_RUNTIMES).toHaveLength(6)
+    })
+
+    it('copilot runtime has the expected binary and args', () => {
+      const copilot = BUILT_IN_RUNTIMES.find((r) => r.id === 'copilot')
+      expect(copilot?.binary).toBe('copilot')
+      expect(copilot?.args).toContain('--yolo')
     })
 
     it('each runtime has required fields', () => {
