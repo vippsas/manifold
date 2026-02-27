@@ -2,21 +2,50 @@ import type { ChatMessage } from '../shared/simple-types'
 
 type MessageListener = (message: ChatMessage) => void
 
-// Comprehensive ANSI/terminal escape sequence stripping
+/**
+ * Strip all ANSI/VT100 escape sequences from terminal output.
+ * Must be applied AFTER buffering raw chunks to avoid split-sequence artifacts.
+ */
 function stripAnsi(text: string): string {
   return text
-    .replace(/\x1b\[[\x30-\x3f]*[\x20-\x2f]*[\x40-\x7e]/g, '') // CSI sequences (handles ? and other intermediates)
-    .replace(/\x1b\][^\x07\x1b]*(?:\x07|\x1b\\)/g, '')          // OSC sequences
-    .replace(/\x1b[()][A-Z0-9]/g, '')                            // Character set selection
-    .replace(/\x1b[=>]/g, '')                                    // Keypad mode
-    .replace(/\r/g, '')                                          // Carriage returns
+    // CSI sequences: ESC [ (params) (intermediates) (final byte)
+    // Covers colors, cursor movement, erase, scrolling, etc.
+    // Includes 256-color (\x1b[38;5;246m) and truecolor (\x1b[38;2;r;g;bm)
+    .replace(/\x1b\[[\x20-\x3f]*[\x40-\x7e]/g, '')
+    // OSC sequences: ESC ] ... (BEL or ST)
+    .replace(/\x1b\][^\x07\x1b]*(?:\x07|\x1b\\)/g, '')
+    // Other ESC sequences (2-char): ESC + single char
+    .replace(/\x1b[^[\]]/g, '')
+    // Stray CSI fragments left from prior stripping or chunk boundaries
+    // e.g. orphaned "[38;5;246m" without the leading ESC
+    .replace(/\[[\d;]*m/g, '')
+    // Control characters except newline and tab
+    .replace(/[\x00-\x08\x0b\x0c\x0e-\x1f\x7f]/g, '')
+    // Carriage returns
+    .replace(/\r/g, '')
+}
+
+/**
+ * Clean up stripped terminal text into readable prose:
+ * - Collapse runs of spaces (from cursor positioning) into single spaces
+ * - Normalize line breaks
+ * - Trim each line
+ */
+function normalizeText(text: string): string {
+  return text
+    .split('\n')
+    .map(line => line.replace(/ {2,}/g, ' ').trim())
+    .join('\n')
+    .replace(/\n{3,}/g, '\n\n')
+    .trim()
 }
 
 export class ChatAdapter {
   private messages = new Map<string, ChatMessage[]>()
   private listeners = new Map<string, Set<MessageListener>>()
   private nextId = 1
-  private outputBuffers = new Map<string, { text: string; timer: ReturnType<typeof setTimeout> }>()
+  // Buffer raw (unstripped) output per session; strip on flush
+  private outputBuffers = new Map<string, { raw: string; timer: ReturnType<typeof setTimeout> }>()
 
   addUserMessage(sessionId: string, text: string): ChatMessage {
     return this.addMessage(sessionId, 'user', text)
@@ -31,24 +60,24 @@ export class ChatAdapter {
   }
 
   processPtyOutput(sessionId: string, rawOutput: string): void {
-    const cleaned = stripAnsi(rawOutput).trim()
-    if (cleaned.length === 0) return
-
-    // Buffer output chunks and flush after 300ms of silence
-    // so fragmented PTY output becomes coherent messages.
+    // Accumulate raw output (including escape sequences) so that
+    // sequences split across chunks are intact when we strip.
     const existing = this.outputBuffers.get(sessionId)
     if (existing) {
       clearTimeout(existing.timer)
-      existing.text += '\n' + cleaned
+      existing.raw += rawOutput
     } else {
-      this.outputBuffers.set(sessionId, { text: cleaned, timer: null! })
+      this.outputBuffers.set(sessionId, { raw: rawOutput, timer: null! })
     }
 
     const timer = setTimeout(() => {
       const buf = this.outputBuffers.get(sessionId)
-      if (buf && buf.text.length > 0) {
-        this.addAgentMessage(sessionId, buf.text)
+      if (buf) {
+        const cleaned = normalizeText(stripAnsi(buf.raw))
         this.outputBuffers.delete(sessionId)
+        if (cleaned.length > 0) {
+          this.addAgentMessage(sessionId, cleaned)
+        }
       }
     }, 300)
 
