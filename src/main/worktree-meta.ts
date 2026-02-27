@@ -4,6 +4,7 @@ export interface WorktreeMeta {
   runtimeId: string
   taskDescription?: string
   additionalDirs?: string[]
+  ollamaModel?: string
 }
 
 /** Meta file stored as a sibling to the worktree directory, not inside it. */

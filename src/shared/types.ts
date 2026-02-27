@@ -7,6 +7,7 @@ export interface AgentRuntime {
   waitingPattern?: string
   env?: Record<string, string>
   installed?: boolean
+  needsModel?: boolean
 }
 
 export type AgentStatus = 'running' | 'waiting' | 'done' | 'error'
@@ -74,6 +75,7 @@ export interface SpawnAgentOptions {
   noWorktree?: boolean
   cols?: number
   rows?: number
+  ollamaModel?: string
 }
 
 export interface CreatePROptions {

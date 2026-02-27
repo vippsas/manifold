@@ -18,6 +18,7 @@ interface InternalSession extends AgentSession {
   ptyId: string
   outputBuffer: string
   taskDescription?: string
+  ollamaModel?: string
   detectedUrl?: string
 }
 
@@ -106,7 +107,12 @@ export class SessionManager {
       )
     }
 
-    const ptyHandle = this.ptyPool.spawn(runtime.binary, [...(runtime.args ?? [])], {
+    const runtimeArgs = [...(runtime.args ?? [])]
+    if (options.ollamaModel) {
+      runtimeArgs.push('--model', options.ollamaModel)
+    }
+
+    const ptyHandle = this.ptyPool.spawn(runtime.binary, runtimeArgs, {
       cwd: worktree.path,
       env: runtime.env,
       cols: options.cols,
@@ -126,6 +132,7 @@ export class SessionManager {
       writeWorktreeMeta(worktree.path, {
         runtimeId: options.runtimeId,
         taskDescription: options.prompt || undefined,
+        ollamaModel: options.ollamaModel,
       }).catch(() => {})
     }
 
@@ -170,6 +177,7 @@ export class SessionManager {
       ptyId: ptyHandle.id,
       outputBuffer: '',
       taskDescription: options.prompt || undefined,
+      ollamaModel: options.ollamaModel,
       additionalDirs: [],
       noWorktree: options.noWorktree,
     }
@@ -236,9 +244,21 @@ export class SessionManager {
     if (!session) throw new Error(`Session not found: ${sessionId}`)
     if (session.ptyId) return this.toPublicSession(session)
 
+    if (!session.ollamaModel) {
+      const meta = await readWorktreeMeta(session.worktreePath)
+      if (meta?.ollamaModel) {
+        session.ollamaModel = meta.ollamaModel
+      }
+    }
+
     const runtime = this.resolveRuntime(runtimeId)
 
-    const ptyHandle = this.ptyPool.spawn(runtime.binary, [...(runtime.args ?? [])], {
+    const runtimeArgs = [...(runtime.args ?? [])]
+    if (session.ollamaModel) {
+      runtimeArgs.push('--model', session.ollamaModel)
+    }
+
+    const ptyHandle = this.ptyPool.spawn(runtime.binary, runtimeArgs, {
       cwd: session.worktreePath,
       env: runtime.env,
     })
@@ -295,6 +315,7 @@ export class SessionManager {
           outputBuffer: '',
           taskDescription: meta?.taskDescription,
           additionalDirs: meta?.additionalDirs ?? [],
+          ollamaModel: meta?.ollamaModel,
         }
         this.sessions.set(session.id, session)
 
@@ -397,6 +418,7 @@ export class SessionManager {
       runtimeId: session.runtimeId,
       taskDescription: session.taskDescription,
       additionalDirs: session.additionalDirs,
+      ollamaModel: session.ollamaModel,
     }).catch(() => {})
   }
 
