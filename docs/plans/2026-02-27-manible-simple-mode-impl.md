@@ -8,6 +8,8 @@
 
 **Tech Stack:** Electron, React 18, electron-vite (multi-renderer), existing IPC pattern, `gh` CLI for GitHub workflow triggers.
 
+**Reused from main:** The web preview feature (merged in PR #134) provides URL detection from PTY output (`src/main/url-detector.ts`), a production-ready `WebPreview` component with webview toolbar/error handling (`src/renderer/components/WebPreview.tsx`), a `useWebPreview` hook, and the `preview:url-detected` IPC push channel. The simple renderer reuses these directly instead of building custom preview components.
+
 ---
 
 ### Task 1: Add `uiMode` to settings and shared types
@@ -89,7 +91,6 @@ const ALLOWED_INVOKE_CHANNELS = [
   'simple:chat-messages',
   'simple:deploy',
   'simple:deploy-status',
-  'simple:preview-url',
 ] as const
 
 const ALLOWED_SEND_CHANNELS = [
@@ -100,8 +101,8 @@ const ALLOWED_LISTEN_CHANNELS = [
   'agent:status',
   'agent:exit',
   'simple:chat-message',
-  'simple:preview-update',
   'simple:deploy-status-update',
+  'preview:url-detected',
   'updater:status',
   'show-about',
   'show-settings',
@@ -748,10 +749,8 @@ export function registerSimpleHandlers(deps: IpcDependencies): void {
     return { stage: 'idle', message: 'Not deployed yet' }
   })
 
-  ipcMain.handle('simple:preview-url', (_event, _sessionId: string) => {
-    // Placeholder — will return local dev server URL once agent starts one
-    return null
-  })
+  // Preview URL is handled by the existing `preview:url-detected` push channel
+  // from SessionManager (web preview feature, PR #134) — no handler needed here.
 }
 ```
 
@@ -1243,6 +1242,8 @@ git commit -m "feat: add NewAppForm component for simple mode"
 
 ### Task 11: Build the AppView (Chat + Preview) component
 
+> **Note:** The PreviewPane reuses the existing `WebPreview` component from `src/renderer/components/WebPreview.tsx` (merged in PR #134). This gives us a production-ready webview with toolbar, reload, error handling, and crash recovery for free. The `useWebPreview` hook pattern is also reused. No custom preview component needed.
+
 **Files:**
 - Create: `src/renderer-simple/components/AppView.tsx`
 - Create: `src/renderer-simple/components/AppView.styles.ts`
@@ -1250,10 +1251,10 @@ git commit -m "feat: add NewAppForm component for simple mode"
 - Create: `src/renderer-simple/components/ChatPane.styles.ts`
 - Create: `src/renderer-simple/components/ChatMessage.tsx`
 - Create: `src/renderer-simple/components/ChatMessage.styles.ts`
-- Create: `src/renderer-simple/components/PreviewPane.tsx`
-- Create: `src/renderer-simple/components/PreviewPane.styles.ts`
+- Create: `src/renderer-simple/components/PreviewPane.tsx` (thin wrapper around existing `WebPreview`)
 - Create: `src/renderer-simple/components/StatusBanner.tsx`
 - Create: `src/renderer-simple/hooks/useChat.ts`
+- Create: `src/renderer-simple/hooks/usePreview.ts`
 - Modify: `src/renderer-simple/App.tsx`
 
 **Step 1: Create useChat hook**
@@ -1450,43 +1451,13 @@ export function ChatPane({ messages, onSend }: Props): React.JSX.Element {
 }
 ```
 
-**Step 4: Create PreviewPane component**
+**Step 4: Create PreviewPane (thin wrapper around existing WebPreview)**
 
-Create `src/renderer-simple/components/PreviewPane.styles.ts`:
-
-```typescript
-import type { CSSProperties } from 'react'
-
-export const container: CSSProperties = {
-  height: '100%',
-  display: 'flex',
-  flexDirection: 'column',
-  background: '#fff',
-  borderRadius: 'var(--radius)',
-  overflow: 'hidden',
-}
-
-export const placeholder: CSSProperties = {
-  flex: 1,
-  display: 'flex',
-  alignItems: 'center',
-  justifyContent: 'center',
-  color: '#888',
-  fontSize: 16,
-}
-
-export const iframe: CSSProperties = {
-  flex: 1,
-  border: 'none',
-  width: '100%',
-}
-```
-
-Create `src/renderer-simple/components/PreviewPane.tsx`:
+Create `src/renderer-simple/components/PreviewPane.tsx` — reuses the existing `WebPreview` component from the developer renderer, which already has webview toolbar, reload, error handling, and crash recovery:
 
 ```typescript
 import React from 'react'
-import * as styles from './PreviewPane.styles'
+import { WebPreview } from '../../renderer/components/WebPreview'
 
 interface Props {
   url: string | null
@@ -1495,23 +1466,67 @@ interface Props {
 export function PreviewPane({ url }: Props): React.JSX.Element {
   if (!url) {
     return (
-      <div style={styles.container}>
-        <div style={styles.placeholder}>
-          Preview will appear here once the app is running...
-        </div>
+      <div style={{
+        height: '100%', display: 'flex', alignItems: 'center',
+        justifyContent: 'center', color: 'var(--text-muted)', fontSize: 16,
+        background: 'var(--surface)',
+      }}>
+        Preview will appear here once the app is running...
       </div>
     )
   }
 
-  return (
-    <div style={styles.container}>
-      <iframe style={styles.iframe} src={url} title="App preview" />
-    </div>
-  )
+  return <WebPreview url={url} />
 }
 ```
 
-**Step 5: Create StatusBanner**
+**Step 5: Create usePreview hook (reuses existing pattern)**
+
+Create `src/renderer-simple/hooks/usePreview.ts` — follows the same pattern as `useWebPreview` from the developer renderer but simplified for the simple UI:
+
+```typescript
+import { useState, useEffect, useCallback, useRef } from 'react'
+
+interface PreviewUrlEvent {
+  sessionId: string
+  url: string
+}
+
+export function usePreview(sessionId: string | null): {
+  previewUrl: string | null
+  liveUrl: string | null
+  setLiveUrl: (url: string) => void
+} {
+  const [previewUrl, setPreviewUrl] = useState<string | null>(null)
+  const [liveUrl, setLiveUrl] = useState<string | null>(null)
+  const previewUrlRef = useRef(previewUrl)
+  previewUrlRef.current = previewUrl
+
+  useEffect(() => {
+    setPreviewUrl(null)
+    setLiveUrl(null)
+  }, [sessionId])
+
+  useEffect(() => {
+    if (!sessionId) return
+    const unsub = window.electronAPI.on('preview:url-detected', (event: unknown) => {
+      const e = event as PreviewUrlEvent
+      if (e.sessionId === sessionId && !previewUrlRef.current) {
+        setPreviewUrl(e.url)
+      }
+    })
+    return unsub
+  }, [sessionId])
+
+  return {
+    previewUrl: liveUrl ?? previewUrl,
+    liveUrl,
+    setLiveUrl: useCallback((url: string) => setLiveUrl(url), []),
+  }
+}
+```
+
+**Step 6: Create StatusBanner**
 
 Create `src/renderer-simple/components/StatusBanner.tsx`:
 
@@ -1590,7 +1605,7 @@ export function StatusBanner({ status, onBack, onDeploy, onDevMode }: Props): Re
 }
 ```
 
-**Step 6: Create AppView container**
+**Step 7: Create AppView container**
 
 Create `src/renderer-simple/components/AppView.styles.ts`:
 
@@ -1665,13 +1680,14 @@ export function AppView({
 }
 ```
 
-**Step 7: Wire AppView into App.tsx**
+**Step 8: Wire AppView into App.tsx**
 
-Update `src/renderer-simple/App.tsx` to render `AppView` when `view.kind === 'app'`:
+Update `src/renderer-simple/App.tsx` to render `AppView` when `view.kind === 'app'`. Uses both `useChat` and the new `usePreview` hook (which listens for `preview:url-detected` from the existing web preview feature):
 
 ```typescript
 import { AppView } from './components/AppView'
 import { useChat } from './hooks/useChat'
+import { usePreview } from './hooks/usePreview'
 
 // Inside App component, for the app view:
 if (view.kind === 'app') {
@@ -1686,12 +1702,13 @@ if (view.kind === 'app') {
 // Create a wrapper component to use hooks per-app:
 function AppViewWrapper({ app, onBack }: { app: SimpleApp; onBack: () => void }): React.JSX.Element {
   const { messages, sendMessage } = useChat(app.sessionId)
+  const { previewUrl } = usePreview(app.sessionId)
 
   return (
     <AppView
       status={app.status}
       messages={messages}
-      previewUrl={app.previewUrl}
+      previewUrl={previewUrl}
       onSendMessage={sendMessage}
       onBack={onBack}
       onDeploy={() => { /* TODO: Task 12 */ }}
@@ -1701,16 +1718,16 @@ function AppViewWrapper({ app, onBack }: { app: SimpleApp; onBack: () => void })
 }
 ```
 
-**Step 8: Verify in dev mode**
+**Step 9: Verify in dev mode**
 
 Run: `npm run dev`
 Expected: Dashboard shows, can navigate to app view (shows chat + preview layout).
 
-**Step 9: Commit**
+**Step 10: Commit**
 
 ```bash
 git add src/renderer-simple/
-git commit -m "feat: add AppView with ChatPane, PreviewPane, and StatusBanner"
+git commit -m "feat: add AppView with ChatPane, reused WebPreview, and StatusBanner"
 ```
 
 ---
