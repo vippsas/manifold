@@ -55,6 +55,7 @@ const ALLOWED_INVOKE_CHANNELS = [
   'app:version',
   'updater:install',
   'updater:check',
+  'app:switch-mode',
 ] as const
 
 const ALLOWED_SEND_CHANNELS = [
