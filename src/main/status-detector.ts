@@ -24,6 +24,11 @@ const RUNTIME_PATTERNS: Record<string, readonly StatusPattern[]> = {
     { pattern: /> $/, status: 'waiting' },
     { pattern: /codex>/i, status: 'waiting' }
   ],
+  copilot: [
+    { pattern: /> $/, status: 'waiting' },
+    { pattern: /❯/, status: 'waiting' },
+    { pattern: /Allow|Deny|Yes|No.*\?/i, status: 'waiting' }
+  ],
   gemini: [
     { pattern: /❯/, status: 'waiting' },
     { pattern: />>> $/, status: 'waiting' }
