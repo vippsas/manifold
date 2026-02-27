@@ -10,6 +10,7 @@ interface Props {
   status: AppStatus
   messages: ChatMessageType[]
   previewUrl: string | null
+  isAgentWorking?: boolean
   onSendMessage: (text: string) => void
   onBack: () => void
   onDeploy: () => void
@@ -20,6 +21,7 @@ export function AppView({
   status,
   messages,
   previewUrl,
+  isAgentWorking,
   onSendMessage,
   onBack,
   onDeploy,
@@ -38,7 +40,7 @@ export function AppView({
           <ChatPane
             messages={messages}
             onSend={onSendMessage}
-            isThinking={messages.length > 0 && messages[messages.length - 1].role === 'user'}
+            isThinking={isAgentWorking}
           />
         </div>
         <div style={styles.previewSide}>

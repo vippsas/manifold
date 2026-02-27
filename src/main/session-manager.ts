@@ -24,6 +24,8 @@ interface InternalSession extends AgentSession {
   detectedUrl?: string
   nonInteractive?: boolean
   devServerPtyId?: string
+  /** Buffer for accumulating partial NDJSON lines from stream-json output */
+  streamJsonLineBuffer?: string
 }
 
 
@@ -122,9 +124,11 @@ export class SessionManager {
       runtimeArgs.push('--model', options.ollamaModel)
     }
     if (options.nonInteractive && options.prompt) {
-      // Print mode: pass the prompt as a CLI argument instead of typing it interactively.
-      // This skips the trust dialog and all interactive prompts entirely.
-      runtimeArgs.push('-p', options.prompt)
+      // Print mode with streaming JSON: pass the prompt as a CLI argument.
+      // --output-format stream-json gives us incremental NDJSON output
+      // instead of buffering everything until exit.
+      // --verbose is required by Claude Code when using stream-json.
+      runtimeArgs.push('-p', options.prompt, '--output-format', 'stream-json', '--verbose')
     }
 
     debugLog(`[session] nonInteractive=${options.nonInteractive}, runtimeArgs=${JSON.stringify(runtimeArgs)}`)
@@ -139,12 +143,12 @@ export class SessionManager {
     const session = this.buildSession(options, worktree, ptyHandle)
     this.sessions.set(session.id, session)
 
-    this.wireOutputStreaming(ptyHandle.id, session)
-
     if (options.nonInteractive) {
+      this.wireStreamJsonOutput(ptyHandle.id, session)
       this.wirePrintModeInitialExitHandling(ptyHandle.id, session)
       this.chatAdapter?.addUserMessage(session.id, options.userMessage || options.prompt)
     } else {
+      this.wireOutputStreaming(ptyHandle.id, session)
       this.wireExitHandling(ptyHandle.id, session)
     }
 
@@ -244,7 +248,7 @@ export class SessionManager {
     }
 
     const runtime = this.resolveRuntime(session.runtimeId)
-    const runtimeArgs = [...(runtime.args ?? []), '-c', '-p', prompt]
+    const runtimeArgs = [...(runtime.args ?? []), '-c', '-p', prompt, '--output-format', 'stream-json', '--verbose']
 
     debugLog(`[session] print-mode follow-up: ${JSON.stringify(runtimeArgs)}`)
 
@@ -257,9 +261,10 @@ export class SessionManager {
     session.pid = ptyHandle.pid
     session.status = 'running'
     session.outputBuffer = ''
+    session.streamJsonLineBuffer = ''
     this.sendToRenderer('agent:status', { sessionId: session.id, status: 'running' })
 
-    this.wireOutputStreaming(ptyHandle.id, session)
+    this.wireStreamJsonOutput(ptyHandle.id, session)
     this.wirePrintModeExitHandling(ptyHandle.id, session)
   }
 
@@ -430,6 +435,83 @@ export class SessionManager {
     this.wireExitHandling(ptyHandle.id, session)
 
     return { sessionId: id }
+  }
+
+  /**
+   * Parse NDJSON stream from `claude -p --output-format stream-json`.
+   * Each line is a JSON object. We extract assistant text content and
+   * stream it to the chat in real time.
+   */
+  private wireStreamJsonOutput(ptyId: string, session: InternalSession): void {
+    session.streamJsonLineBuffer = ''
+
+    this.ptyPool.onData(ptyId, (data: string) => {
+      debugLog(`[stream-json] raw data (${data.length} bytes): ${data.slice(0, 500)}`)
+      session.streamJsonLineBuffer = (session.streamJsonLineBuffer ?? '') + data
+
+      // Process complete lines
+      const lines = session.streamJsonLineBuffer.split('\n')
+      // Keep the last (potentially incomplete) line in the buffer
+      session.streamJsonLineBuffer = lines.pop() ?? ''
+
+      for (const line of lines) {
+        const trimmed = line.trim()
+        if (!trimmed) continue
+
+        try {
+          const event = JSON.parse(trimmed)
+          debugLog(`[stream-json] event type=${event.type}`)
+          this.handleStreamJsonEvent(session, event)
+        } catch {
+          debugLog(`[stream-json] non-JSON line: ${trimmed.slice(0, 200)}`)
+        }
+      }
+    })
+  }
+
+  private handleStreamJsonEvent(session: InternalSession, event: Record<string, unknown>): void {
+    const type = event.type as string | undefined
+
+    if (type === 'assistant') {
+      // Each assistant turn emits an event with the full message content.
+      // Extract text blocks and send them to chat.
+      const message = event.message as { content?: Array<{ type: string; text?: string }> } | undefined
+      if (message?.content) {
+        const textParts = message.content
+          .filter(c => c.type === 'text' && c.text)
+          .map(c => c.text!)
+        if (textParts.length > 0) {
+          const text = textParts.join('\n')
+          this.chatAdapter?.addAgentMessage(session.id, text)
+          this.detectUrlInText(session, text)
+        }
+      }
+    } else if (type === 'result') {
+      // Final result — only emit if no agent messages were sent (fallback)
+      const result = event.result as string | undefined
+      const subtype = event.subtype as string | undefined
+      if (result && subtype === 'success') {
+        const existing = this.chatAdapter?.getMessages(session.id) ?? []
+        const hasAgentMsg = existing.some(m => m.role === 'agent')
+        if (!hasAgentMsg) {
+          this.chatAdapter?.addAgentMessage(session.id, result)
+        }
+        this.detectUrlInText(session, result)
+      }
+    }
+  }
+
+  private detectUrlInText(session: InternalSession, text: string): void {
+    if (session.detectedUrl) return
+    const urlResult = detectUrl(text)
+    if (urlResult) {
+      session.detectedUrl = urlResult.url
+      debugLog(`[session] URL detected in agent text: ${urlResult.url}`)
+      this.sendToRenderer('preview:url-detected', {
+        sessionId: session.id,
+        url: urlResult.url,
+      })
+    }
   }
 
   private wireOutputStreaming(ptyId: string, session: InternalSession): void {

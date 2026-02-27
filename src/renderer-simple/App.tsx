@@ -3,12 +3,14 @@ import { Dashboard } from './components/Dashboard'
 import { NewAppForm } from './components/NewAppForm'
 import { AppView } from './components/AppView'
 import { useApps } from './hooks/useApps'
+import { useAgentStatus } from './hooks/useAgentStatus'
 import { useChat } from './hooks/useChat'
 import { usePreview } from './hooks/usePreview'
 import { buildSimplePrompt } from '../shared/simple-types'
 import type { SimpleApp } from '../shared/simple-types'
 
 function AppViewWrapper({ app, onBack }: { app: SimpleApp; onBack: () => void }): React.JSX.Element {
+  const agentStatus = useAgentStatus(app.sessionId)
   const { messages, sendMessage } = useChat(app.sessionId)
   const { previewUrl } = usePreview(app.sessionId)
 
@@ -17,6 +19,7 @@ function AppViewWrapper({ app, onBack }: { app: SimpleApp; onBack: () => void })
       status={app.status}
       messages={messages}
       previewUrl={previewUrl}
+      isAgentWorking={agentStatus === 'running'}
       onSendMessage={sendMessage}
       onBack={onBack}
       onDeploy={() => {
