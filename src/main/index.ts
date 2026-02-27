@@ -132,6 +132,15 @@ function createWindow(): void {
     }
   })
 
+  // Suppress ERR_ABORTED (-3) from webview when dev server restarts or shuts down.
+  mainWindow.webContents.on('did-attach-webview', (_event, webContents) => {
+    webContents.on('did-fail-load', (failEvent, errorCode) => {
+      if (errorCode === -3) {
+        failEvent.preventDefault()
+      }
+    })
+  })
+
   wireModules(mainWindow)
   loadRenderer(mainWindow)
 
