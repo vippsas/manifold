@@ -56,11 +56,38 @@ describe('ChatAdapter', () => {
     expect(messages[0].text).toContain('world')
   })
 
-  it('strips ANSI escape sequences including CSI ? variants', () => {
-    const listener = vi.fn()
-    adapter.onMessage('session-1', listener)
+  it('strips basic ANSI color sequences', () => {
+    adapter.processPtyOutput('session-1', '\x1b[32mHello\x1b[0m \x1b[1mworld\x1b[0m')
+    vi.advanceTimersByTime(300)
 
-    adapter.processPtyOutput('session-1', '\x1b[?2026h\x1b[?2004hHello world\x1b[0m')
+    const messages = adapter.getMessages('session-1')
+    expect(messages).toHaveLength(1)
+    expect(messages[0].text).toBe('Hello world')
+  })
+
+  it('strips CSI ? sequences', () => {
+    adapter.processPtyOutput('session-1', '\x1b[?2026h\x1b[?2004hHello world\x1b[?25l')
+    vi.advanceTimersByTime(300)
+
+    const messages = adapter.getMessages('session-1')
+    expect(messages).toHaveLength(1)
+    expect(messages[0].text).toBe('Hello world')
+  })
+
+  it('strips 256-color sequences even when split across chunks', () => {
+    // ESC[38;5;246m split as two chunks
+    adapter.processPtyOutput('session-1', '\x1b[38;5;2')
+    adapter.processPtyOutput('session-1', '46mHello world\x1b[0m')
+    vi.advanceTimersByTime(300)
+
+    const messages = adapter.getMessages('session-1')
+    expect(messages).toHaveLength(1)
+    expect(messages[0].text).toBe('Hello world')
+  })
+
+  it('strips orphaned CSI fragments like [38;5;246m', () => {
+    // Raw text with orphaned fragment (no ESC prefix)
+    adapter.processPtyOutput('session-1', 'Hello [38;5;246mworld')
     vi.advanceTimersByTime(300)
 
     const messages = adapter.getMessages('session-1')
@@ -72,5 +99,13 @@ describe('ChatAdapter', () => {
     adapter.processPtyOutput('session-1', '\x1b[?25l\x1b[?2004h')
     vi.advanceTimersByTime(300)
     expect(adapter.getMessages('session-1')).toHaveLength(0)
+  })
+
+  it('normalizes excessive whitespace', () => {
+    adapter.processPtyOutput('session-1', 'Hello     world    test')
+    vi.advanceTimersByTime(300)
+
+    const messages = adapter.getMessages('session-1')
+    expect(messages[0].text).toBe('Hello world test')
   })
 })
