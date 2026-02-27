@@ -14,7 +14,8 @@ export function useChat(sessionId: string | null): {
     })
     const unsub = window.electronAPI.on('simple:chat-message', (msg: unknown) => {
       const chatMsg = msg as ChatMessage
-      if (chatMsg.sessionId === sessionId) {
+      // Skip user messages — they're already added locally in sendMessage
+      if (chatMsg.sessionId === sessionId && chatMsg.role !== 'user') {
         setMessages((prev) => [...prev, chatMsg])
       }
     })
