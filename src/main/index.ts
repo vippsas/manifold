@@ -303,7 +303,8 @@ function wireModules(window: BrowserWindow): void {
 function loadRenderer(window: BrowserWindow, simple: boolean): void {
   if (process.env.ELECTRON_RENDERER_URL) {
     const base = process.env.ELECTRON_RENDERER_URL
-    window.loadURL(simple ? `${base}/simple.html` : base)
+    const page = simple ? '/renderer-simple/index.html' : '/renderer/index.html'
+    window.loadURL(base + page)
   } else {
     const page = simple ? '../renderer-simple/index.html' : '../renderer/index.html'
     window.loadFile(join(__dirname, page))
