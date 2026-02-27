@@ -498,6 +498,11 @@ export class SessionManager {
         }
         this.detectUrlInText(session, result)
       }
+      // The result event signals the agent is done. Transition to 'waiting'
+      // immediately rather than waiting for the process to exit (which can
+      // linger for over a minute after the result is emitted).
+      session.status = 'waiting'
+      this.sendToRenderer('agent:status', { sessionId: session.id, status: 'waiting' })
     }
   }
 
@@ -585,8 +590,17 @@ export class SessionManager {
     this.ptyPool.onExit(ptyId, () => {
       session.pid = null
       session.ptyId = ''
-      debugLog(`[session] initial build finished, starting dev server in ${session.worktreePath}`)
-      this.startDevServer(session)
+
+      if (session.detectedUrl) {
+        // The agent already started the dev server and we detected its URL
+        // from the stream-json output — no need to start another one.
+        debugLog(`[session] initial build finished, URL already detected: ${session.detectedUrl}`)
+        session.status = 'waiting'
+        this.sendToRenderer('agent:status', { sessionId: session.id, status: 'waiting' })
+      } else {
+        debugLog(`[session] initial build finished, starting dev server in ${session.worktreePath}`)
+        this.startDevServer(session)
+      }
     })
   }
 
