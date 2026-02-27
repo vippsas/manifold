@@ -107,6 +107,13 @@ export function StatusBar({
       <span style={barStyles.item}>
         base: <span className="mono">{baseBranch}</span>
       </span>
+      <button
+        onClick={() => window.electronAPI.invoke('app:switch-mode', 'simple')}
+        style={barStyles.toggleButton}
+        title="Switch to Manible (Simple View)"
+      >
+        Simple View
+      </button>
       {onOpenSettings && (
         <button
           onClick={onOpenSettings}
