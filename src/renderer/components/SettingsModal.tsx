@@ -33,6 +33,7 @@ export function SettingsModal({
   const [defaultBaseBranch, setDefaultBaseBranch] = useState(settings.defaultBaseBranch)
   const [storagePath, setStoragePath] = useState(settings.storagePath)
   const [notificationSound, setNotificationSound] = useState(settings.notificationSound)
+  const [uiMode, setUiMode] = useState(settings.uiMode)
   const [pickerOpen, setPickerOpen] = useState(false)
   const overlayRef = useRef<HTMLDivElement>(null)
 
@@ -45,14 +46,19 @@ export function SettingsModal({
       setDefaultBaseBranch(settings.defaultBaseBranch)
       setStoragePath(settings.storagePath)
       setNotificationSound(settings.notificationSound)
+      setUiMode(settings.uiMode)
       setPickerOpen(false)
     }
   }, [visible, settings])
 
   const handleSave = useCallback((): void => {
-    onSave({ defaultRuntime, theme, scrollbackLines, terminalFontFamily, defaultBaseBranch, storagePath, notificationSound })
+    const modeChanged = uiMode !== settings.uiMode
+    onSave({ defaultRuntime, theme, scrollbackLines, terminalFontFamily, defaultBaseBranch, storagePath, notificationSound, uiMode })
     onClose()
-  }, [defaultRuntime, theme, scrollbackLines, terminalFontFamily, defaultBaseBranch, storagePath, notificationSound, onSave, onClose])
+    if (modeChanged) {
+      window.electronAPI.invoke('app:switch-mode', uiMode)
+    }
+  }, [defaultRuntime, theme, scrollbackLines, terminalFontFamily, defaultBaseBranch, storagePath, notificationSound, uiMode, settings.uiMode, onSave, onClose])
 
   const handleOverlayClick = useCallback(
     (e: React.MouseEvent): void => {
@@ -104,6 +110,8 @@ export function SettingsModal({
           onPickerToggle={setPickerOpen}
           notificationSound={notificationSound}
           onNotificationSoundChange={setNotificationSound}
+          uiMode={uiMode}
+          onUiModeChange={setUiMode}
         />
         <ModalFooter onClose={onClose} onSave={handleSave} />
       </div>
@@ -138,6 +146,8 @@ interface SettingsBodyProps {
   onPickerToggle: (open: boolean) => void
   notificationSound: boolean
   onNotificationSoundChange: (enabled: boolean) => void
+  uiMode: 'developer' | 'simple'
+  onUiModeChange: (mode: 'developer' | 'simple') => void
 }
 
 function SettingsBody({
@@ -146,6 +156,7 @@ function SettingsBody({
   onRuntimeChange, onThemeChange, onScrollbackChange, onTerminalFontFamilyChange, onBaseBranchChange,
   onPreviewTheme, pickerOpen, onPickerToggle,
   notificationSound, onNotificationSoundChange,
+  uiMode, onUiModeChange,
 }: SettingsBodyProps): React.JSX.Element {
   const handleScrollbackInput = useCallback(
     (e: React.ChangeEvent<HTMLInputElement>): void => {
@@ -204,6 +215,17 @@ function SettingsBody({
           style={{ width: 'auto', margin: 0 }}
         />
         Play sound when agent stops running
+      </label>
+      <label style={modalStyles.label}>
+        UI Mode
+        <select
+          value={uiMode}
+          onChange={(e) => onUiModeChange(e.target.value as 'developer' | 'simple')}
+          style={modalStyles.select}
+        >
+          <option value="developer">Developer (Manifold)</option>
+          <option value="simple">Simple (Manible)</option>
+        </select>
       </label>
     </div>
   )
