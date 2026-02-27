@@ -3,15 +3,17 @@ import { BUILT_IN_RUNTIMES, getRuntimeById, listRuntimes, listRuntimesWithStatus
 
 describe('runtimes', () => {
   describe('BUILT_IN_RUNTIMES', () => {
-    it('contains claude, codex, and gemini', () => {
+    it('contains claude, codex, gemini, ollama-claude, and ollama-codex', () => {
       const ids = BUILT_IN_RUNTIMES.map((r) => r.id)
       expect(ids).toContain('claude')
       expect(ids).toContain('codex')
       expect(ids).toContain('gemini')
+      expect(ids).toContain('ollama-claude')
+      expect(ids).toContain('ollama-codex')
     })
 
-    it('has exactly 3 built-in runtimes', () => {
-      expect(BUILT_IN_RUNTIMES).toHaveLength(3)
+    it('has exactly 5 built-in runtimes', () => {
+      expect(BUILT_IN_RUNTIMES).toHaveLength(5)
     })
 
     it('each runtime has required fields', () => {
@@ -36,6 +38,29 @@ describe('runtimes', () => {
     it('gemini runtime has the expected binary', () => {
       const gemini = BUILT_IN_RUNTIMES.find((r) => r.id === 'gemini')
       expect(gemini?.binary).toBe('gemini')
+    })
+
+    it('ollama-claude runtime uses ollama binary with launch args and needsModel', () => {
+      const ollamaClaude = BUILT_IN_RUNTIMES.find((r) => r.id === 'ollama-claude')
+      expect(ollamaClaude).toBeDefined()
+      expect(ollamaClaude!.binary).toBe('ollama')
+      expect(ollamaClaude!.args).toEqual(['launch', 'claude'])
+      expect(ollamaClaude!.needsModel).toBe(true)
+    })
+
+    it('ollama-codex runtime uses ollama binary with launch args and needsModel', () => {
+      const ollamaCodex = BUILT_IN_RUNTIMES.find((r) => r.id === 'ollama-codex')
+      expect(ollamaCodex).toBeDefined()
+      expect(ollamaCodex!.binary).toBe('ollama')
+      expect(ollamaCodex!.args).toEqual(['launch', 'codex'])
+      expect(ollamaCodex!.needsModel).toBe(true)
+    })
+
+    it('ollama runtimes have no aiModelArgs', () => {
+      const ollamaClaude = BUILT_IN_RUNTIMES.find((r) => r.id === 'ollama-claude')
+      const ollamaCodex = BUILT_IN_RUNTIMES.find((r) => r.id === 'ollama-codex')
+      expect(ollamaClaude!.aiModelArgs).toBeUndefined()
+      expect(ollamaCodex!.aiModelArgs).toBeUndefined()
     })
 
     it('all runtimes have waitingPattern defined', () => {
