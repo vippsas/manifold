@@ -7,6 +7,7 @@ import { PtyPool } from './pty-pool'
 import { ProjectRegistry } from './project-registry'
 import { detectStatus } from './status-detector'
 import { detectAddDir } from './add-dir-detector'
+import { detectUrl } from './url-detector'
 import { writeWorktreeMeta, readWorktreeMeta } from './worktree-meta'
 import { FileWatcher } from './file-watcher'
 import { gitExec } from './git-exec'
@@ -17,6 +18,7 @@ interface InternalSession extends AgentSession {
   ptyId: string
   outputBuffer: string
   taskDescription?: string
+  detectedUrl?: string
 }
 
 export class SessionManager {
@@ -363,6 +365,15 @@ export class SessionManager {
           })
           this.persistAdditionalDirs(session)
           this.fileWatcher?.watchAdditionalDir(addedDir, session.id)
+        }
+
+        const urlResult = detectUrl(session.outputBuffer.slice(-2000))
+        if (urlResult && !session.detectedUrl) {
+          session.detectedUrl = urlResult.url
+          this.sendToRenderer('preview:url-detected', {
+            sessionId: session.id,
+            url: urlResult.url,
+          })
         }
       }
 
