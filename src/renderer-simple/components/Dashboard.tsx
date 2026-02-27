@@ -20,7 +20,13 @@ export function Dashboard({ apps, onNewApp, onSelectApp }: Props): React.JSX.Ele
       </div>
       {apps.length === 0 ? (
         <div style={styles.emptyState}>
-          No apps yet. Click &quot;New App&quot; to get started.
+          <div style={{ fontSize: 22, marginBottom: 12 }}>No apps yet</div>
+          <div style={{ marginBottom: 24 }}>
+            Click &quot;New App&quot; to get started.
+          </div>
+          <div style={{ fontSize: 14, color: 'var(--text-muted)', lineHeight: 1.8 }}>
+            React + TypeScript &middot; Vite &middot; IndexedDB (Dexie.js) &middot; CSS Modules
+          </div>
         </div>
       ) : (
         <div style={styles.grid}>

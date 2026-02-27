@@ -70,10 +70,12 @@ export interface SpawnAgentOptions {
   projectId: string
   runtimeId: string
   prompt: string
+  userMessage?: string
   branchName?: string
   existingBranch?: string
   prIdentifier?: string
   noWorktree?: boolean
+  nonInteractive?: boolean
   cols?: number
   rows?: number
   ollamaModel?: string

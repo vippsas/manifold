@@ -35,7 +35,11 @@ export function AppView({
       />
       <div style={styles.splitPane}>
         <div style={styles.chatSide}>
-          <ChatPane messages={messages} onSend={onSendMessage} />
+          <ChatPane
+            messages={messages}
+            onSend={onSendMessage}
+            isThinking={messages.length > 0 && messages[messages.length - 1].role === 'user'}
+          />
         </div>
         <div style={styles.previewSide}>
           <PreviewPane url={previewUrl} />
