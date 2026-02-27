@@ -67,6 +67,8 @@ import { ShellTabStore } from './shell-tab-store'
 import { GitOperationsManager } from './git-operations'
 import { BranchCheckoutManager } from './branch-checkout-manager'
 import { DockLayoutStore } from './dock-layout-store'
+import { ChatAdapter } from './chat-adapter'
+import { DeploymentManager } from './deployment-manager'
 import { registerIpcHandlers } from './ipc-handlers'
 
 let mainWindow: BrowserWindow | null = null
@@ -85,6 +87,8 @@ const viewStateStore = new ViewStateStore()
 const shellTabStore = new ShellTabStore()
 const gitOps = new GitOperationsManager()
 const dockLayoutStore = new DockLayoutStore()
+const chatAdapter = new ChatAdapter()
+const deploymentManager = new DeploymentManager()
 
 // Resolve background color for the stored theme setting.
 // The renderer sends the actual background after loading the theme adapter,
@@ -283,6 +287,8 @@ function wireModules(window: BrowserWindow): void {
     gitOps,
     branchCheckout,
     dockLayoutStore,
+    chatAdapter,
+    deploymentManager,
   })
 }
 

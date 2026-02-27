@@ -8,6 +8,7 @@ import { registerAgentHandlers } from './ipc/agent-handlers'
 import { registerFileHandlers } from './ipc/file-handlers'
 import { registerDiffHandler, registerPrHandler, registerGitHandlers } from './ipc/git-handlers'
 import { registerSettingsHandlers, registerRuntimesHandler, registerOllamaHandler, registerViewStateHandlers, registerShellTabHandlers, registerDockLayoutHandlers } from './ipc/settings-handlers'
+import { registerSimpleHandlers } from './ipc/simple-handlers'
 export type { IpcDependencies } from './ipc/types'
 import type { IpcDependencies } from './ipc/types'
 
@@ -24,6 +25,7 @@ export function registerIpcHandlers(deps: IpcDependencies): void {
   registerShellTabHandlers(deps)
   registerGitHandlers(deps)
   registerDockLayoutHandlers(deps)
+  registerSimpleHandlers(deps)
 
   // Load a local font file as base64 so the renderer can create a web font
   // from it, bypassing macOS canvas PUA character rendering limitations.
