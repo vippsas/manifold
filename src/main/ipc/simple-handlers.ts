@@ -3,9 +3,14 @@ import type { IpcDependencies } from './types'
 
 export function registerSimpleHandlers(deps: IpcDependencies): void {
   const { chatAdapter, deploymentManager, sessionManager } = deps
+  const chatUnsubscribers = new Map<string, () => void>()
 
   ipcMain.handle('simple:chat-messages', (_event, sessionId: string) => {
     return chatAdapter.getMessages(sessionId)
+  })
+
+  ipcMain.handle('simple:send-message', (_event, sessionId: string, text: string) => {
+    chatAdapter.addUserMessage(sessionId, text)
   })
 
   ipcMain.handle('simple:deploy', async (_event, sessionId: string) => {
@@ -20,16 +25,15 @@ export function registerSimpleHandlers(deps: IpcDependencies): void {
     return { stage: 'idle', message: 'Not deployed yet' }
   })
 
-  ipcMain.handle('simple:subscribe-chat', (_event, sessionId: string) => {
-    chatAdapter.onMessage(sessionId, (msg) => {
-      const win = BrowserWindow.getAllWindows()[0]
-      if (win) {
-        win.webContents.send('simple:chat-message', msg)
+  ipcMain.handle('simple:subscribe-chat', (event, sessionId: string) => {
+    chatUnsubscribers.get(sessionId)?.()
+    const senderWindow = BrowserWindow.fromWebContents(event.sender)
+    const unsub = chatAdapter.onMessage(sessionId, (msg) => {
+      if (senderWindow && !senderWindow.isDestroyed()) {
+        senderWindow.webContents.send('simple:chat-message', msg)
       }
     })
+    chatUnsubscribers.set(sessionId, unsub)
     return true
   })
-
-  // Preview URL is handled by the existing `preview:url-detected` push channel
-  // from SessionManager (web preview feature) — no handler needed here.
 }

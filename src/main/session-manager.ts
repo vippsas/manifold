@@ -12,6 +12,7 @@ import { writeWorktreeMeta, readWorktreeMeta } from './worktree-meta'
 import { FileWatcher } from './file-watcher'
 import { gitExec } from './git-exec'
 import { generateBranchName } from './branch-namer'
+import type { ChatAdapter } from './chat-adapter'
 import type { BrowserWindow } from 'electron'
 
 interface InternalSession extends AgentSession {
@@ -25,6 +26,7 @@ interface InternalSession extends AgentSession {
 export class SessionManager {
   private sessions: Map<string, InternalSession> = new Map()
   private mainWindow: BrowserWindow | null = null
+  private chatAdapter: ChatAdapter | null = null
 
   constructor(
     private worktreeManager: WorktreeManager,
@@ -33,6 +35,10 @@ export class SessionManager {
     private branchCheckoutManager?: BranchCheckoutManager,
     private fileWatcher?: FileWatcher,
   ) {}
+
+  setChatAdapter(adapter: ChatAdapter): void {
+    this.chatAdapter = adapter
+  }
 
   setMainWindow(window: BrowserWindow): void {
     this.mainWindow = window
@@ -399,6 +405,7 @@ export class SessionManager {
         }
       }
 
+      this.chatAdapter?.processPtyOutput(session.id, data)
       this.sendToRenderer('agent:output', { sessionId: session.id, data })
     })
   }

@@ -89,6 +89,7 @@ const gitOps = new GitOperationsManager()
 const dockLayoutStore = new DockLayoutStore()
 const chatAdapter = new ChatAdapter()
 const deploymentManager = new DeploymentManager()
+sessionManager.setChatAdapter(chatAdapter)
 
 // Resolve background color for the stored theme setting.
 // The renderer sends the actual background after loading the theme adapter,
@@ -170,14 +171,6 @@ function createWindow(): void {
     nativeTheme.themeSource = (payload.type === 'light' ? 'light' : 'dark') as 'dark' | 'light'
     if (mainWindow) {
       mainWindow.setBackgroundColor(payload.background)
-    }
-  })
-
-  ipcMain.handle('app:switch-mode', (_event, mode: 'developer' | 'simple') => {
-    settingsStore.updateSettings({ uiMode: mode })
-    if (mainWindow) {
-      const isSimple = mode === 'simple'
-      loadRenderer(mainWindow, isSimple)
     }
   })
 
@@ -339,6 +332,17 @@ function setupAutoUpdater(window: BrowserWindow): void {
 
   autoUpdater.checkForUpdatesAndNotify()
 }
+
+// ── Mode switching ───────────────────────────────────────────────────
+// Registered once at app level (not inside createWindow) to avoid duplicate
+// handler errors when macOS activate recreates the window.
+ipcMain.handle('app:switch-mode', (_event, mode: 'developer' | 'simple') => {
+  settingsStore.updateSettings({ uiMode: mode })
+  if (mainWindow) {
+    mainWindow.close()
+  }
+  createWindow()
+})
 
 // ── App lifecycle ────────────────────────────────────────────────────
 app.whenReady().then(() => {

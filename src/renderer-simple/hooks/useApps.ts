@@ -34,7 +34,12 @@ export function useApps(): {
         projectId: s.projectId,
         name: s.branchName.replace('manifold/', ''),
         description: s.taskDescription ?? '',
-        status: s.status === 'done' ? 'live' : s.status === 'running' ? 'building' : 'idle',
+        status:
+          s.status === 'done' ? 'live'
+          : s.status === 'error' ? 'error'
+          : s.status === 'running' ? 'building'
+          : s.status === 'waiting' ? 'previewing'
+          : 'idle',
         previewUrl: null,
         liveUrl: null,
         createdAt: Date.now(),
