@@ -5,6 +5,7 @@ import { WebLinksAddon } from '@xterm/addon-web-links'
 import { WebglAddon } from '@xterm/addon-webgl'
 import { Unicode11Addon } from '@xterm/addon-unicode11'
 import '@xterm/xterm/css/xterm.css'
+import { filterTerminalResponses } from '../terminal-input-filter'
 
 interface AgentOutputEvent {
   sessionId: string
@@ -221,10 +222,15 @@ export function useTerminal({ sessionId, scrollbackLines, terminalFontFamily, xt
       return true
     })
 
-    // Forward user keystrokes to PTY
+    // Forward user keystrokes to PTY, filtering out terminal response sequences
+    // (OSC color queries, cursor position reports, focus events) that xterm.js
+    // auto-generates during replay/reset/focus and would appear as garbled input.
     const onDataDisposable = terminal.onData((data: string) => {
       if (sessionId) {
-        void window.electronAPI.invoke('agent:input', sessionId, data)
+        const filtered = filterTerminalResponses(data)
+        if (filtered) {
+          void window.electronAPI.invoke('agent:input', sessionId, filtered)
+        }
       }
     })
 
