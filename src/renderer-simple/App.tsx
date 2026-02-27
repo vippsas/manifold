@@ -49,7 +49,7 @@ export function App(): React.JSX.Element {
             projectId,
             runtimeId: 'claude',
             prompt: description,
-            branchName: name,
+            branchName: name.toLowerCase().replace(/[^a-z0-9-]/g, '-').replace(/-+/g, '-').replace(/^-|-$/g, ''),
           })) as { id: string; branchName: string; worktreePath: string; status: string }
 
           await window.electronAPI.invoke('simple:subscribe-chat', session.id)
