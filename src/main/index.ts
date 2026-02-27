@@ -67,6 +67,8 @@ import { ShellTabStore } from './shell-tab-store'
 import { GitOperationsManager } from './git-operations'
 import { BranchCheckoutManager } from './branch-checkout-manager'
 import { DockLayoutStore } from './dock-layout-store'
+import { ChatAdapter } from './chat-adapter'
+import { DeploymentManager } from './deployment-manager'
 import { registerIpcHandlers } from './ipc-handlers'
 
 let mainWindow: BrowserWindow | null = null
@@ -85,6 +87,9 @@ const viewStateStore = new ViewStateStore()
 const shellTabStore = new ShellTabStore()
 const gitOps = new GitOperationsManager()
 const dockLayoutStore = new DockLayoutStore()
+const chatAdapter = new ChatAdapter()
+const deploymentManager = new DeploymentManager()
+sessionManager.setChatAdapter(chatAdapter)
 
 // Resolve background color for the stored theme setting.
 // The renderer sends the actual background after loading the theme adapter,
@@ -100,18 +105,20 @@ function resolveThemeType(theme: string): 'dark' | 'light' {
 }
 
 function createWindow(): void {
-  const theme = settingsStore.getSettings().theme ?? 'dracula'
+  const settings = settingsStore.getSettings()
+  const theme = settings.theme ?? 'dracula'
+  const simple = settings.uiMode === 'simple'
   nativeTheme.themeSource = resolveThemeType(theme)
 
   mainWindow = new BrowserWindow({
-    width: 1400,
-    height: 900,
+    width: simple ? 1100 : 1400,
+    height: simple ? 800 : 900,
     minWidth: 800,
     minHeight: 600,
-    title: 'Manifold',
+    title: simple ? 'Manible' : 'Manifold',
     backgroundColor: resolveInitialBackground(theme),
     webPreferences: {
-      preload: join(__dirname, '../preload/index.js'),
+      preload: join(__dirname, simple ? '../preload/simple.js' : '../preload/index.js'),
       contextIsolation: true,
       nodeIntegration: false,
       webviewTag: true,
@@ -132,8 +139,17 @@ function createWindow(): void {
     }
   })
 
+  // Suppress ERR_ABORTED (-3) from webview when dev server restarts or shuts down.
+  mainWindow.webContents.on('did-attach-webview', (_event, webContents) => {
+    webContents.on('did-fail-load', (failEvent, errorCode) => {
+      if (errorCode === -3) {
+        failEvent.preventDefault()
+      }
+    })
+  })
+
   wireModules(mainWindow)
-  loadRenderer(mainWindow)
+  loadRenderer(mainWindow, simple)
 
   // Open external links in the user's default browser instead of inside the app.
   mainWindow.webContents.setWindowOpenHandler(({ url }) => {
@@ -256,30 +272,40 @@ function createWindow(): void {
   Menu.setApplicationMenu(Menu.buildFromTemplate(menuTemplate))
 }
 
+let ipcHandlersRegistered = false
+
 function wireModules(window: BrowserWindow): void {
   sessionManager.setMainWindow(window)
   fileWatcher.setMainWindow(window)
 
-  registerIpcHandlers({
-    settingsStore,
-    projectRegistry,
-    sessionManager,
-    fileWatcher,
-    diffProvider,
-    prCreator,
-    viewStateStore,
-    shellTabStore,
-    gitOps,
-    branchCheckout,
-    dockLayoutStore,
-  })
+  if (!ipcHandlersRegistered) {
+    registerIpcHandlers({
+      settingsStore,
+      projectRegistry,
+      sessionManager,
+      fileWatcher,
+      diffProvider,
+      prCreator,
+      viewStateStore,
+      shellTabStore,
+      gitOps,
+      branchCheckout,
+      dockLayoutStore,
+      chatAdapter,
+      deploymentManager,
+    })
+    ipcHandlersRegistered = true
+  }
 }
 
-function loadRenderer(window: BrowserWindow): void {
+function loadRenderer(window: BrowserWindow, simple: boolean): void {
   if (process.env.ELECTRON_RENDERER_URL) {
-    window.loadURL(process.env.ELECTRON_RENDERER_URL)
+    const base = process.env.ELECTRON_RENDERER_URL
+    const page = simple ? '/renderer-simple/index.html' : '/renderer/index.html'
+    window.loadURL(base + page)
   } else {
-    window.loadFile(join(__dirname, '../renderer/index.html'))
+    const page = simple ? '../renderer-simple/index.html' : '../renderer/index.html'
+    window.loadFile(join(__dirname, page))
   }
 }
 
@@ -311,6 +337,33 @@ function setupAutoUpdater(window: BrowserWindow): void {
 
   autoUpdater.checkForUpdatesAndNotify()
 }
+
+// ── Mode switching ───────────────────────────────────────────────────
+// Registered once at app level (not inside createWindow) to avoid duplicate
+// handler errors when macOS activate recreates the window.
+ipcMain.handle('app:switch-mode', async (_event, mode: 'developer' | 'simple', projectId?: string) => {
+  settingsStore.updateSettings({ uiMode: mode })
+
+  let branchName: string | undefined
+  if (mode === 'developer' && projectId) {
+    const result = await sessionManager.killNonInteractiveSessions(projectId)
+    branchName = result.branchName
+    if (result.killedIds.length > 0) {
+      debugLog(`[switch-mode] killed ${result.killedIds.length} non-interactive session(s), branch: ${branchName}`)
+    }
+  }
+
+  if (mainWindow) {
+    mainWindow.close()
+  }
+  createWindow()
+
+  if (mode === 'developer' && projectId) {
+    mainWindow?.webContents.once('did-finish-load', () => {
+      mainWindow?.webContents.send('app:auto-spawn', projectId, branchName)
+    })
+  }
+})
 
 // ── App lifecycle ────────────────────────────────────────────────────
 app.whenReady().then(() => {

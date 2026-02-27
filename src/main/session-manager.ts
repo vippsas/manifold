@@ -12,6 +12,8 @@ import { writeWorktreeMeta, readWorktreeMeta } from './worktree-meta'
 import { FileWatcher } from './file-watcher'
 import { gitExec } from './git-exec'
 import { generateBranchName } from './branch-namer'
+import type { ChatAdapter } from './chat-adapter'
+import { debugLog } from './debug-log'
 import type { BrowserWindow } from 'electron'
 
 interface InternalSession extends AgentSession {
@@ -20,11 +22,17 @@ interface InternalSession extends AgentSession {
   taskDescription?: string
   ollamaModel?: string
   detectedUrl?: string
+  nonInteractive?: boolean
+  devServerPtyId?: string
+  /** Buffer for accumulating partial NDJSON lines from stream-json output */
+  streamJsonLineBuffer?: string
 }
+
 
 export class SessionManager {
   private sessions: Map<string, InternalSession> = new Map()
   private mainWindow: BrowserWindow | null = null
+  private chatAdapter: ChatAdapter | null = null
 
   constructor(
     private worktreeManager: WorktreeManager,
@@ -33,6 +41,10 @@ export class SessionManager {
     private branchCheckoutManager?: BranchCheckoutManager,
     private fileWatcher?: FileWatcher,
   ) {}
+
+  setChatAdapter(adapter: ChatAdapter): void {
+    this.chatAdapter = adapter
+  }
 
   setMainWindow(window: BrowserWindow): void {
     this.mainWindow = window
@@ -111,6 +123,15 @@ export class SessionManager {
     if (options.ollamaModel) {
       runtimeArgs.push('--model', options.ollamaModel)
     }
+    if (options.nonInteractive && options.prompt) {
+      // Print mode with streaming JSON: pass the prompt as a CLI argument.
+      // --output-format stream-json gives us incremental NDJSON output
+      // instead of buffering everything until exit.
+      // --verbose is required by Claude Code when using stream-json.
+      runtimeArgs.push('-p', options.prompt, '--output-format', 'stream-json', '--verbose')
+    }
+
+    debugLog(`[session] nonInteractive=${options.nonInteractive}, runtimeArgs=${JSON.stringify(runtimeArgs)}`)
 
     const ptyHandle = this.ptyPool.spawn(runtime.binary, runtimeArgs, {
       cwd: worktree.path,
@@ -122,8 +143,14 @@ export class SessionManager {
     const session = this.buildSession(options, worktree, ptyHandle)
     this.sessions.set(session.id, session)
 
-    this.wireOutputStreaming(ptyHandle.id, session)
-    this.wireExitHandling(ptyHandle.id, session)
+    if (options.nonInteractive) {
+      this.wireStreamJsonOutput(ptyHandle.id, session)
+      this.wirePrintModeInitialExitHandling(ptyHandle.id, session)
+      this.chatAdapter?.addUserMessage(session.id, options.userMessage || options.prompt)
+    } else {
+      this.wireOutputStreaming(ptyHandle.id, session)
+      this.wireExitHandling(ptyHandle.id, session)
+    }
 
     // Persist runtime and task description so they survive app restarts.
     // Skip for no-worktree sessions — meta files are keyed by worktree path,
@@ -180,6 +207,7 @@ export class SessionManager {
       ollamaModel: options.ollamaModel,
       additionalDirs: [],
       noWorktree: options.noWorktree,
+      nonInteractive: options.nonInteractive,
     }
   }
 
@@ -190,12 +218,54 @@ export class SessionManager {
   sendInput(sessionId: string, input: string): void {
     const session = this.sessions.get(sessionId)
     if (!session) throw new Error(`Session not found: ${sessionId}`)
+
+    if (session.nonInteractive) {
+      // Print mode: spawn a new process that continues the previous conversation
+      this.spawnPrintModeFollowUp(session, input.trim())
+      return
+    }
+
     if (!session.ptyId) return
     try {
       this.ptyPool.write(session.ptyId, input)
     } catch {
       // PTY may have already exited
     }
+  }
+
+  /**
+   * For print-mode sessions, each follow-up message spawns a fresh
+   * `claude -c -p "message"` process that continues the previous conversation.
+   */
+  private spawnPrintModeFollowUp(session: InternalSession, prompt: string): void {
+    if (!prompt) return
+
+    // Kill any still-running process to prevent race conditions where
+    // an old exit handler overwrites the session's ptyId.
+    if (session.ptyId) {
+      try { this.ptyPool.kill(session.ptyId) } catch { /* already exited */ }
+      session.ptyId = ''
+    }
+
+    const runtime = this.resolveRuntime(session.runtimeId)
+    const runtimeArgs = [...(runtime.args ?? []), '-c', '-p', prompt, '--output-format', 'stream-json', '--verbose']
+
+    debugLog(`[session] print-mode follow-up: ${JSON.stringify(runtimeArgs)}`)
+
+    const ptyHandle = this.ptyPool.spawn(runtime.binary, runtimeArgs, {
+      cwd: session.worktreePath,
+      env: runtime.env,
+    })
+
+    session.ptyId = ptyHandle.id
+    session.pid = ptyHandle.pid
+    session.status = 'running'
+    session.outputBuffer = ''
+    session.streamJsonLineBuffer = ''
+    this.sendToRenderer('agent:status', { sessionId: session.id, status: 'running' })
+
+    this.wireStreamJsonOutput(ptyHandle.id, session)
+    this.wirePrintModeExitHandling(ptyHandle.id, session)
   }
 
   resize(sessionId: string, cols: number, rows: number): void {
@@ -225,6 +295,9 @@ export class SessionManager {
 
     if (session.ptyId) {
       this.ptyPool.kill(session.ptyId)
+    }
+    if (session.devServerPtyId) {
+      try { this.ptyPool.kill(session.devServerPtyId) } catch { /* already exited */ }
     }
 
     if (session.projectId && !session.noWorktree) {
@@ -332,6 +405,57 @@ export class SessionManager {
       .map((s) => this.toPublicSession(s))
   }
 
+  async killNonInteractiveSessions(projectId: string): Promise<{ killedIds: string[]; branchName?: string }> {
+    const toKill = Array.from(this.sessions.values())
+      .filter(s => s.projectId === projectId && s.nonInteractive)
+    const killedIds: string[] = []
+    let branchName: string | undefined
+
+    for (const session of toKill) {
+      branchName = session.branchName
+
+      // Stop running processes so file system is stable before committing
+      if (session.ptyId) {
+        try { this.ptyPool.kill(session.ptyId) } catch { /* already exited */ }
+        session.ptyId = ''
+      }
+      if (session.devServerPtyId) {
+        try { this.ptyPool.kill(session.devServerPtyId) } catch { /* already exited */ }
+        session.devServerPtyId = undefined
+      }
+
+      // Commit any uncommitted work so it survives the mode switch
+      try {
+        const status = await gitExec(['status', '--porcelain'], session.worktreePath)
+        if (status.trim().length > 0) {
+          await gitExec(['add', '-A'], session.worktreePath)
+          await gitExec(['commit', '-m', 'Auto-commit: work from simple mode'], session.worktreePath)
+          debugLog(`[session] auto-committed changes on branch ${branchName}`)
+        }
+      } catch (err) {
+        debugLog(`[session] auto-commit failed: ${err}`)
+      }
+
+      await this.killSession(session.id)
+      killedIds.push(session.id)
+    }
+
+    // Switch project directory back to base branch so new worktrees can be created
+    if (branchName) {
+      const project = this.projectRegistry.getProject(projectId)
+      if (project) {
+        try {
+          await gitExec(['checkout', project.baseBranch], project.path)
+          debugLog(`[session] switched project back to ${project.baseBranch}`)
+        } catch (err) {
+          debugLog(`[session] checkout base branch failed: ${err}`)
+        }
+      }
+    }
+
+    return { killedIds, branchName }
+  }
+
   killAllSessions(): void {
     for (const session of this.sessions.values()) {
       try { this.ptyPool.kill(session.ptyId) } catch { /* best effort */ }
@@ -362,6 +486,88 @@ export class SessionManager {
     this.wireExitHandling(ptyHandle.id, session)
 
     return { sessionId: id }
+  }
+
+  /**
+   * Parse NDJSON stream from `claude -p --output-format stream-json`.
+   * Each line is a JSON object. We extract assistant text content and
+   * stream it to the chat in real time.
+   */
+  private wireStreamJsonOutput(ptyId: string, session: InternalSession): void {
+    session.streamJsonLineBuffer = ''
+
+    this.ptyPool.onData(ptyId, (data: string) => {
+      debugLog(`[stream-json] raw data (${data.length} bytes): ${data.slice(0, 500)}`)
+      session.streamJsonLineBuffer = (session.streamJsonLineBuffer ?? '') + data
+
+      // Process complete lines
+      const lines = session.streamJsonLineBuffer.split('\n')
+      // Keep the last (potentially incomplete) line in the buffer
+      session.streamJsonLineBuffer = lines.pop() ?? ''
+
+      for (const line of lines) {
+        const trimmed = line.trim()
+        if (!trimmed) continue
+
+        try {
+          const event = JSON.parse(trimmed)
+          debugLog(`[stream-json] event type=${event.type}`)
+          this.handleStreamJsonEvent(session, event)
+        } catch {
+          debugLog(`[stream-json] non-JSON line: ${trimmed.slice(0, 200)}`)
+        }
+      }
+    })
+  }
+
+  private handleStreamJsonEvent(session: InternalSession, event: Record<string, unknown>): void {
+    const type = event.type as string | undefined
+
+    if (type === 'assistant') {
+      // Each assistant turn emits an event with the full message content.
+      // Extract text blocks and send them to chat.
+      const message = event.message as { content?: Array<{ type: string; text?: string }> } | undefined
+      if (message?.content) {
+        const textParts = message.content
+          .filter(c => c.type === 'text' && c.text)
+          .map(c => c.text!)
+        if (textParts.length > 0) {
+          const text = textParts.join('\n')
+          this.chatAdapter?.addAgentMessage(session.id, text)
+          this.detectUrlInText(session, text)
+        }
+      }
+    } else if (type === 'result') {
+      // Final result — only emit if no agent messages were sent (fallback)
+      const result = event.result as string | undefined
+      const subtype = event.subtype as string | undefined
+      if (result && subtype === 'success') {
+        const existing = this.chatAdapter?.getMessages(session.id) ?? []
+        const hasAgentMsg = existing.some(m => m.role === 'agent')
+        if (!hasAgentMsg) {
+          this.chatAdapter?.addAgentMessage(session.id, result)
+        }
+        this.detectUrlInText(session, result)
+      }
+      // The result event signals the agent is done. Transition to 'waiting'
+      // immediately rather than waiting for the process to exit (which can
+      // linger for over a minute after the result is emitted).
+      session.status = 'waiting'
+      this.sendToRenderer('agent:status', { sessionId: session.id, status: 'waiting' })
+    }
+  }
+
+  private detectUrlInText(session: InternalSession, text: string): void {
+    if (session.detectedUrl) return
+    const urlResult = detectUrl(text)
+    if (urlResult) {
+      session.detectedUrl = urlResult.url
+      debugLog(`[session] URL detected in agent text: ${urlResult.url}`)
+      this.sendToRenderer('preview:url-detected', {
+        sessionId: session.id,
+        url: urlResult.url,
+      })
+    }
   }
 
   private wireOutputStreaming(ptyId: string, session: InternalSession): void {
@@ -399,6 +605,7 @@ export class SessionManager {
         }
       }
 
+      this.chatAdapter?.processPtyOutput(session.id, data)
       this.sendToRenderer('agent:output', { sessionId: session.id, data })
     })
   }
@@ -410,6 +617,87 @@ export class SessionManager {
       session.ptyId = ''
       this.sendToRenderer('agent:status', { sessionId: session.id, status: 'done' })
       this.sendToRenderer('agent:exit', { sessionId: session.id, code: exitCode })
+    })
+  }
+
+  /**
+   * Print-mode processes exit after each prompt. The session stays alive
+   * in 'waiting' state, ready for follow-up messages via spawnPrintModeFollowUp.
+   */
+  private wirePrintModeExitHandling(ptyId: string, session: InternalSession): void {
+    this.ptyPool.onExit(ptyId, () => {
+      session.status = 'waiting'
+      session.pid = null
+      session.ptyId = ''
+      this.sendToRenderer('agent:status', { sessionId: session.id, status: 'waiting' })
+    })
+  }
+
+  /**
+   * After the initial print-mode build finishes, auto-start the dev server
+   * so the preview pane can show the app.
+   */
+  private wirePrintModeInitialExitHandling(ptyId: string, session: InternalSession): void {
+    this.ptyPool.onExit(ptyId, () => {
+      session.pid = null
+      session.ptyId = ''
+
+      if (session.detectedUrl) {
+        // The agent already started the dev server and we detected its URL
+        // from the stream-json output — no need to start another one.
+        debugLog(`[session] initial build finished, URL already detected: ${session.detectedUrl}`)
+        session.status = 'waiting'
+        this.sendToRenderer('agent:status', { sessionId: session.id, status: 'waiting' })
+      } else {
+        debugLog(`[session] initial build finished, starting dev server in ${session.worktreePath}`)
+        this.startDevServer(session)
+      }
+    })
+  }
+
+  /**
+   * Spawn `npm run dev` in the project directory. Its output is wired
+   * through wireOutputStreaming so URL detection picks up the dev server URL.
+   */
+  private startDevServer(session: InternalSession): void {
+    const ptyHandle = this.ptyPool.spawn('npm', ['run', 'dev'], {
+      cwd: session.worktreePath,
+    })
+
+    session.devServerPtyId = ptyHandle.id
+    session.status = 'running'
+    session.outputBuffer = ''
+    this.sendToRenderer('agent:status', { sessionId: session.id, status: 'running' })
+
+    // Wire output so URL detection and chat adapter pick up the dev server URL
+    this.ptyPool.onData(ptyHandle.id, (data: string) => {
+      session.outputBuffer += data
+      if (session.outputBuffer.length > 100_000) {
+        session.outputBuffer = session.outputBuffer.slice(-50_000)
+      }
+
+      const urlResult = detectUrl(session.outputBuffer.slice(-2000))
+      if (urlResult && !session.detectedUrl) {
+        session.detectedUrl = urlResult.url
+        debugLog(`[session] dev server URL detected: ${urlResult.url}`)
+        this.sendToRenderer('preview:url-detected', {
+          sessionId: session.id,
+          url: urlResult.url,
+        })
+        // Once we have the URL, set status to waiting (ready for follow-ups)
+        session.status = 'waiting'
+        this.sendToRenderer('agent:status', { sessionId: session.id, status: 'waiting' })
+      }
+    })
+
+    this.ptyPool.onExit(ptyHandle.id, () => {
+      session.devServerPtyId = undefined
+      debugLog(`[session] dev server exited for ${session.id}`)
+      // If no URL was ever detected, go to waiting state anyway
+      if (session.status === 'running') {
+        session.status = 'waiting'
+        this.sendToRenderer('agent:status', { sessionId: session.id, status: 'waiting' })
+      }
     })
   }
 

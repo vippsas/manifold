@@ -57,6 +57,7 @@ export interface ManifoldSettings {
   terminalFontFamily: string
   defaultBaseBranch: string
   notificationSound: boolean
+  uiMode: 'developer' | 'simple'
 }
 
 export interface SessionViewState {
@@ -69,10 +70,12 @@ export interface SpawnAgentOptions {
   projectId: string
   runtimeId: string
   prompt: string
+  userMessage?: string
   branchName?: string
   existingBranch?: string
   prIdentifier?: string
   noWorktree?: boolean
+  nonInteractive?: boolean
   cols?: number
   rows?: number
   ollamaModel?: string

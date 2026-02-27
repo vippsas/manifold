@@ -99,6 +99,15 @@ describe('SettingsStore', () => {
     })
   })
 
+  describe('defaults', () => {
+    it('includes uiMode in default settings', () => {
+      mockExistsSync.mockReturnValue(false)
+      const store = new SettingsStore()
+      const settings = store.getSettings()
+      expect(settings.uiMode).toBe('developer')
+    })
+  })
+
   describe('updateSettings', () => {
     it('merges partial updates and persists to disk', () => {
       mockExistsSync.mockReturnValue(false)
