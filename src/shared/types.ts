@@ -57,6 +57,7 @@ export interface ManifoldSettings {
   terminalFontFamily: string
   defaultBaseBranch: string
   notificationSound: boolean
+  uiMode: 'developer' | 'simple'
 }
 
 export interface SessionViewState {

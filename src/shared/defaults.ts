@@ -8,5 +8,6 @@ export const DEFAULT_SETTINGS: ManifoldSettings = {
   scrollbackLines: 5000,
   terminalFontFamily: '',
   defaultBaseBranch: 'main',
-  notificationSound: true
+  notificationSound: true,
+  uiMode: 'simple'
 }
