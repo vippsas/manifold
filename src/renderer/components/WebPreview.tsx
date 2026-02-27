@@ -16,37 +16,43 @@ export function WebPreview({ url }: WebPreviewProps): React.JSX.Element {
     setLoading(true)
   }, [url])
 
-  useEffect(() => {
-    const webview = webviewRef.current
-    if (!webview) return
+  const webviewCallbackRef = useCallback((node: Electron.WebviewTag | null) => {
+    const prev = webviewRef.current
+    if (prev) {
+      prev.removeEventListener('did-start-loading', handleStartLoadingRef.current)
+      prev.removeEventListener('did-stop-loading', handleStopLoadingRef.current)
+      prev.removeEventListener('did-fail-load', handleFailLoadRef.current as EventListener)
+      prev.removeEventListener('did-navigate', handleNavigateRef.current as EventListener)
+      prev.removeEventListener('render-process-gone', handleCrashRef.current as EventListener)
+    }
+    webviewRef.current = node
+    if (node) {
+      node.addEventListener('did-start-loading', handleStartLoadingRef.current)
+      node.addEventListener('did-stop-loading', handleStopLoadingRef.current)
+      node.addEventListener('did-fail-load', handleFailLoadRef.current as EventListener)
+      node.addEventListener('did-navigate', handleNavigateRef.current as EventListener)
+      node.addEventListener('render-process-gone', handleCrashRef.current as EventListener)
+    }
+  }, [])
 
-    const handleStartLoading = (): void => {
-      setLoading(true)
-      setError(null)
+  const handleStartLoadingRef = useRef((): void => {
+    setLoading(true)
+    setError(null)
+  })
+  const handleStopLoadingRef = useRef((): void => setLoading(false))
+  const handleFailLoadRef = useRef((e: Electron.DidFailLoadEvent): void => {
+    if (e.errorCode !== -3) {
+      setError(`Failed to load: ${e.errorDescription}`)
+      setLoading(false)
     }
-    const handleStopLoading = (): void => setLoading(false)
-    const handleFailLoad = (e: Electron.DidFailLoadEvent): void => {
-      if (e.errorCode !== -3) {
-        setError(`Failed to load: ${e.errorDescription}`)
-        setLoading(false)
-      }
-    }
-    const handleNavigate = (e: Electron.DidNavigateEvent): void => {
-      setCurrentUrl(e.url)
-    }
-
-    webview.addEventListener('did-start-loading', handleStartLoading)
-    webview.addEventListener('did-stop-loading', handleStopLoading)
-    webview.addEventListener('did-fail-load', handleFailLoad as EventListener)
-    webview.addEventListener('did-navigate', handleNavigate as EventListener)
-
-    return () => {
-      webview.removeEventListener('did-start-loading', handleStartLoading)
-      webview.removeEventListener('did-stop-loading', handleStopLoading)
-      webview.removeEventListener('did-fail-load', handleFailLoad as EventListener)
-      webview.removeEventListener('did-navigate', handleNavigate as EventListener)
-    }
-  }, [error])
+  })
+  const handleNavigateRef = useRef((e: Electron.DidNavigateEvent): void => {
+    setCurrentUrl(e.url)
+  })
+  const handleCrashRef = useRef((_e: Electron.RenderProcessGoneEvent): void => {
+    setError('The preview process crashed unexpectedly. Click Retry to reload.')
+    setLoading(false)
+  })
 
   const handleReload = useCallback(() => {
     const webview = webviewRef.current
@@ -75,18 +81,17 @@ export function WebPreview({ url }: WebPreviewProps): React.JSX.Element {
           </button>
         </div>
       </div>
-      {error ? (
+      {error && (
         <div style={styles.errorContainer}>
           <p style={styles.errorText}>{error}</p>
           <button onClick={handleReload} style={styles.retryButton}>Retry</button>
         </div>
-      ) : (
-        <webview
-          ref={webviewRef as React.Ref<Electron.WebviewTag>}
-          src={currentUrl}
-          style={styles.webview}
-        />
       )}
+      <webview
+        ref={webviewCallbackRef as React.Ref<Electron.WebviewTag>}
+        src={currentUrl}
+        style={{ ...styles.webview, display: error ? 'none' : 'flex' }}
+      />
     </div>
   )
 }
