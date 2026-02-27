@@ -16,7 +16,10 @@ export default defineConfig({
     build: {
       outDir: 'out/preload',
       rollupOptions: {
-        input: resolve(__dirname, 'src/preload/index.ts')
+        input: {
+          index: resolve(__dirname, 'src/preload/index.ts'),
+          simple: resolve(__dirname, 'src/preload/simple.ts'),
+        }
       }
     }
   },
@@ -25,7 +28,10 @@ export default defineConfig({
     build: {
       outDir: 'out/renderer',
       rollupOptions: {
-        input: resolve(__dirname, 'src/renderer/index.html')
+        input: {
+          index: resolve(__dirname, 'src/renderer/index.html'),
+          simple: resolve(__dirname, 'src/renderer-simple/index.html'),
+        }
       }
     }
   }
