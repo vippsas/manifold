@@ -272,25 +272,30 @@ function createWindow(): void {
   Menu.setApplicationMenu(Menu.buildFromTemplate(menuTemplate))
 }
 
+let ipcHandlersRegistered = false
+
 function wireModules(window: BrowserWindow): void {
   sessionManager.setMainWindow(window)
   fileWatcher.setMainWindow(window)
 
-  registerIpcHandlers({
-    settingsStore,
-    projectRegistry,
-    sessionManager,
-    fileWatcher,
-    diffProvider,
-    prCreator,
-    viewStateStore,
-    shellTabStore,
-    gitOps,
-    branchCheckout,
-    dockLayoutStore,
-    chatAdapter,
-    deploymentManager,
-  })
+  if (!ipcHandlersRegistered) {
+    registerIpcHandlers({
+      settingsStore,
+      projectRegistry,
+      sessionManager,
+      fileWatcher,
+      diffProvider,
+      prCreator,
+      viewStateStore,
+      shellTabStore,
+      gitOps,
+      branchCheckout,
+      dockLayoutStore,
+      chatAdapter,
+      deploymentManager,
+    })
+    ipcHandlersRegistered = true
+  }
 }
 
 function loadRenderer(window: BrowserWindow, simple: boolean): void {
