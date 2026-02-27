@@ -9,6 +9,8 @@ import { ShellTabStore } from '../shell-tab-store'
 import { GitOperationsManager } from '../git-operations'
 import { BranchCheckoutManager } from '../branch-checkout-manager'
 import { DockLayoutStore } from '../dock-layout-store'
+import type { ChatAdapter } from '../chat-adapter'
+import type { DeploymentManager } from '../deployment-manager'
 import type { AgentSession } from '../../shared/types'
 
 export interface IpcDependencies {
@@ -23,6 +25,8 @@ export interface IpcDependencies {
   gitOps: GitOperationsManager
   branchCheckout: BranchCheckoutManager
   dockLayoutStore: DockLayoutStore
+  chatAdapter: ChatAdapter
+  deploymentManager: DeploymentManager
 }
 
 export function resolveSession(sessionManager: SessionManager, sessionId: string): AgentSession {
