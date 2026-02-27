@@ -76,3 +76,14 @@ export const cancelButton: CSSProperties = {
   fontSize: 16,
   cursor: 'pointer',
 }
+
+export const techStackBox: CSSProperties = {
+  background: 'var(--surface)',
+  border: '1px solid var(--border)',
+  borderRadius: 'var(--radius)',
+  padding: '14px 18px',
+  marginBottom: 28,
+  fontSize: 13,
+  lineHeight: 1.6,
+  color: 'var(--text-muted)',
+}

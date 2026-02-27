@@ -74,8 +74,6 @@ export class ChatAdapter {
     if (existing) {
       clearTimeout(existing.timer)
       existing.raw += rawOutput
-    } else {
-      this.outputBuffers.set(sessionId, { raw: rawOutput, timer: null! })
     }
 
     const timer = setTimeout(() => {
@@ -89,7 +87,11 @@ export class ChatAdapter {
       }
     }, 300)
 
-    this.outputBuffers.get(sessionId)!.timer = timer
+    if (existing) {
+      existing.timer = timer
+    } else {
+      this.outputBuffers.set(sessionId, { raw: rawOutput, timer })
+    }
   }
 
   getMessages(sessionId: string): ChatMessage[] {
@@ -104,6 +106,17 @@ export class ChatAdapter {
     return () => {
       this.listeners.get(sessionId)?.delete(listener)
     }
+  }
+
+  /** Remove all state for a session (messages, listeners, pending output buffer). */
+  clearSession(sessionId: string): void {
+    const buf = this.outputBuffers.get(sessionId)
+    if (buf) {
+      clearTimeout(buf.timer)
+      this.outputBuffers.delete(sessionId)
+    }
+    this.listeners.delete(sessionId)
+    this.messages.delete(sessionId)
   }
 
   private addMessage(sessionId: string, role: ChatMessage['role'], text: string): ChatMessage {

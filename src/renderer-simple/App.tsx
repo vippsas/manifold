@@ -6,7 +6,7 @@ import { useApps } from './hooks/useApps'
 import { useAgentStatus } from './hooks/useAgentStatus'
 import { useChat } from './hooks/useChat'
 import { usePreview } from './hooks/usePreview'
-import { buildSimplePrompt } from '../shared/simple-types'
+import { buildSimplePrompt } from '../shared/simple-prompts'
 import type { SimpleApp } from '../shared/simple-types'
 
 function AppViewWrapper({ app, onBack }: { app: SimpleApp; onBack: () => void }): React.JSX.Element {

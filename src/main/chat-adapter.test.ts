@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest'
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { ChatAdapter } from './chat-adapter'
 
 describe('ChatAdapter', () => {
@@ -7,6 +7,10 @@ describe('ChatAdapter', () => {
   beforeEach(() => {
     vi.useFakeTimers()
     adapter = new ChatAdapter()
+  })
+
+  afterEach(() => {
+    vi.useRealTimers()
   })
 
   it('stores a user message', () => {
@@ -126,5 +130,35 @@ describe('ChatAdapter', () => {
 
     const messages = adapter.getMessages('session-1')
     expect(messages[0].text).toBe('Hello world test')
+  })
+
+  describe('clearSession', () => {
+    it('removes messages for a session', () => {
+      adapter.addUserMessage('session-1', 'hello')
+      expect(adapter.getMessages('session-1')).toHaveLength(1)
+
+      adapter.clearSession('session-1')
+      expect(adapter.getMessages('session-1')).toEqual([])
+    })
+
+    it('removes listeners so they stop firing', () => {
+      const listener = vi.fn()
+      adapter.onMessage('session-1', listener)
+      adapter.clearSession('session-1')
+      adapter.addUserMessage('session-1', 'after clear')
+      expect(listener).not.toHaveBeenCalled()
+    })
+
+    it('cancels pending output buffer timer', () => {
+      adapter.processPtyOutput('session-1', 'Hello')
+      adapter.clearSession('session-1')
+      vi.advanceTimersByTime(300)
+      // Buffer was cleared, so no message should be created
+      expect(adapter.getMessages('session-1')).toEqual([])
+    })
+
+    it('is safe to call on unknown session', () => {
+      expect(() => adapter.clearSession('unknown')).not.toThrow()
+    })
   })
 })

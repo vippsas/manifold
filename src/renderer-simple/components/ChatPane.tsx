@@ -3,12 +3,6 @@ import type { ChatMessage as ChatMessageType } from '../../shared/simple-types'
 import { ChatMessage } from './ChatMessage'
 import * as styles from './ChatPane.styles'
 
-const typingKeyframes = `
-@keyframes typing-dot {
-  0%, 80%, 100% { opacity: 0.3; transform: translateY(0); }
-  40% { opacity: 1; transform: translateY(-4px); }
-}`
-
 function TypingIndicator(): React.JSX.Element {
   return (
     <div style={{ display: 'flex', justifyContent: 'flex-start', marginBottom: 12 }}>
@@ -87,7 +81,6 @@ export function ChatPane({ messages, onSend, isThinking, durationMs }: Props): R
 
   return (
     <div style={styles.container}>
-      <style>{typingKeyframes}</style>
       <div style={styles.messages}>
         {messages.map((msg) => (
           <ChatMessage key={msg.id} message={msg} />

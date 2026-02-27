@@ -293,6 +293,8 @@ export class SessionManager {
       }
     }
 
+    this.chatAdapter?.clearSession(sessionId)
+
     if (session.ptyId) {
       this.ptyPool.kill(session.ptyId)
     }
