@@ -1,8 +1,5 @@
-export { ModalHeader } from './ModalHeader'
 export { TaskDescriptionField } from './TaskDescriptionField'
-export { ProjectDropdown } from './ProjectDropdown'
 export { AgentDropdown } from './AgentDropdown'
 export { BranchPicker } from './BranchPicker'
 export { PRPicker } from './PRPicker'
-export { ModalFooter } from './ModalFooter'
 export type { ExistingSubTab } from './types'

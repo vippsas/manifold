@@ -156,13 +156,13 @@ function ShellTabBar({
         }}
         onClick={() => onSetActiveTab(worktreeSessionId ? 'worktree' : 'project')}
       >
-        {showingProject ? 'Project' : 'Worktree'}
+        {showingProject ? 'Repository' : 'Worktree'}
       </button>
       <button
         style={styles.toggleButton}
         onClick={() => onSetActiveTab(showingProject ? 'worktree' : 'project')}
         disabled={!worktreeSessionId}
-        title={showingProject ? 'Switch to worktree' : 'Switch to project'}
+        title={showingProject ? 'Switch to worktree' : 'Switch to repository'}
       >
         {'\u21C5'}
       </button>

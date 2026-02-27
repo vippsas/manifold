@@ -44,11 +44,6 @@ export const modalStyles: Record<string, React.CSSProperties> = {
     flexDirection: 'column',
     gap: '12px',
   },
-  hint: {
-    fontSize: '11px',
-    color: 'var(--text-muted)',
-    margin: 0,
-  },
   label: {
     display: 'flex',
     flexDirection: 'column',
@@ -66,7 +61,7 @@ export const modalStyles: Record<string, React.CSSProperties> = {
     borderRadius: '4px',
   },
   input: {
-    padding: '6px 8px',
+    padding: '10px 12px',
     fontSize: '13px',
     fontFamily: 'var(--font-mono)',
     color: 'var(--text-primary)',
@@ -88,15 +83,6 @@ export const modalStyles: Record<string, React.CSSProperties> = {
     color: 'var(--text-secondary)',
     background: 'var(--bg-input)',
     border: '1px solid var(--border)',
-    cursor: 'pointer',
-  },
-  startButton: {
-    padding: '6px 20px',
-    borderRadius: '4px',
-    fontSize: '13px',
-    color: 'var(--accent-text)',
-    background: 'var(--accent)',
-    fontWeight: 500,
     cursor: 'pointer',
   },
   checkboxLabel: {
@@ -137,5 +123,16 @@ export const modalStyles: Record<string, React.CSSProperties> = {
     color: 'var(--text-muted)',
     margin: 0,
     fontStyle: 'italic',
+  },
+  advancedToggle: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: '6px',
+    fontSize: '12px',
+    color: 'var(--text-secondary)',
+    background: 'none',
+    border: 'none',
+    cursor: 'pointer',
+    padding: 0,
   },
 }
