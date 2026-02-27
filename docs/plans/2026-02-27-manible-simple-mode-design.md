@@ -36,6 +36,7 @@ Key decisions:
 - Preload B exposes a smaller set of IPC channels
 - Both renderers can operate on the same session data, enabling mode switching
 - Agent is auto-selected (Claude Code) — no agent picker in the simple UI
+- Reuses the existing web preview feature (PR #134): `WebPreview` component, `url-detector.ts`, and `preview:url-detected` IPC channel — no custom preview implementation needed
 
 ## User Flow
 
