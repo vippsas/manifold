@@ -38,18 +38,8 @@ export function NewAppForm({ onStart, onCancel }: Props): React.JSX.Element {
 
   return (
     <div style={styles.container}>
-      <style>{`@keyframes spin { to { transform: rotate(360deg) } }`}</style>
       <div style={styles.title}>Create a new app</div>
-      <div style={{
-        background: 'var(--surface)',
-        border: '1px solid var(--border)',
-        borderRadius: 'var(--radius)',
-        padding: '14px 18px',
-        marginBottom: 28,
-        fontSize: 13,
-        lineHeight: 1.6,
-        color: 'var(--text-muted)',
-      }}>
+      <div style={styles.techStackBox}>
         <span style={{ fontWeight: 600, color: 'var(--text)' }}>Tech stack:</span>{' '}
         React + TypeScript &middot; Vite &middot; IndexedDB (Dexie.js) &middot; CSS Modules
       </div>

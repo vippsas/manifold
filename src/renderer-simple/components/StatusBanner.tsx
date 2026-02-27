@@ -1,5 +1,6 @@
 import React from 'react'
 import type { AppStatus } from '../../shared/simple-types'
+import * as styles from './StatusBanner.styles'
 
 const STATUS_LABELS: Record<AppStatus, string> = {
   idle: 'Ready',
@@ -30,61 +31,21 @@ interface Props {
 
 export function StatusBanner({ status, onBack, onDeploy, onDevMode }: Props): React.JSX.Element {
   return (
-    <div
-      style={{
-        display: 'flex',
-        alignItems: 'center',
-        padding: '8px 16px',
-        borderBottom: '1px solid var(--border)',
-        gap: 12,
-      }}
-    >
-      <button
-        onClick={onBack}
-        style={{
-          background: 'transparent',
-          border: 'none',
-          color: 'var(--text-muted)',
-          cursor: 'pointer',
-          fontSize: 14,
-        }}
-      >
+    <div style={styles.container}>
+      <button onClick={onBack} style={styles.backButton}>
         Back
       </button>
-      <span style={{ fontSize: 13, fontWeight: 600, color: STATUS_COLORS[status] }}>
+      <span style={styles.statusLabel(STATUS_COLORS[status])}>
         {STATUS_LABELS[status]}
       </span>
-      <div style={{ flex: 1 }} />
+      <div style={styles.spacer} />
       {onDevMode && (
-        <button
-          onClick={onDevMode}
-          style={{
-            background: 'transparent',
-            border: '1px solid var(--border)',
-            borderRadius: 'var(--radius)',
-            padding: '6px 12px',
-            fontSize: 12,
-            color: 'var(--text-muted)',
-            cursor: 'pointer',
-          }}
-        >
+        <button onClick={onDevMode} style={styles.devModeButton}>
           Developer View
         </button>
       )}
       {onDeploy && status === 'previewing' && (
-        <button
-          onClick={onDeploy}
-          style={{
-            background: 'var(--success)',
-            color: '#fff',
-            border: 'none',
-            borderRadius: 'var(--radius)',
-            padding: '6px 16px',
-            fontSize: 13,
-            fontWeight: 600,
-            cursor: 'pointer',
-          }}
-        >
+        <button onClick={onDeploy} style={styles.deployButton}>
           Deploy
         </button>
       )}
