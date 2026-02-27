@@ -54,6 +54,9 @@ export const buttonRow: CSSProperties = {
 }
 
 export const startButton: CSSProperties = {
+  display: 'inline-flex',
+  alignItems: 'center',
+  gap: 8,
   background: 'var(--accent)',
   color: '#fff',
   border: 'none',
@@ -62,7 +65,6 @@ export const startButton: CSSProperties = {
   fontSize: 16,
   fontWeight: 600,
   cursor: 'pointer',
-  minWidth: 220,
 }
 
 export const cancelButton: CSSProperties = {

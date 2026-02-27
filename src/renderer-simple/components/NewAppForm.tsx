@@ -1,14 +1,21 @@
-import React, { useState, useEffect } from 'react'
+import React, { useState } from 'react'
 import * as styles from './NewAppForm.styles'
 
-function useAnimatedDots(active: boolean): string {
-  const [count, setCount] = useState(0)
-  useEffect(() => {
-    if (!active) { setCount(0); return }
-    const id = setInterval(() => setCount(c => (c + 1) % 4), 400)
-    return () => clearInterval(id)
-  }, [active])
-  return '.'.repeat(count)
+function Spinner(): React.JSX.Element {
+  return (
+    <span
+      style={{
+        display: 'inline-block',
+        width: 16,
+        height: 16,
+        border: '2px solid rgba(255,255,255,0.3)',
+        borderTopColor: '#fff',
+        borderRadius: '50%',
+        animation: 'spin 0.6s linear infinite',
+        verticalAlign: 'middle',
+      }}
+    />
+  )
 }
 
 interface Props {
@@ -20,7 +27,6 @@ export function NewAppForm({ onStart, onCancel }: Props): React.JSX.Element {
   const [name, setName] = useState('')
   const [description, setDescription] = useState('')
   const [loading, setLoading] = useState(false)
-  const dots = useAnimatedDots(loading)
 
   const canSubmit = name.trim().length > 0 && description.trim().length > 0 && !loading
 
@@ -32,6 +38,7 @@ export function NewAppForm({ onStart, onCancel }: Props): React.JSX.Element {
 
   return (
     <div style={styles.container}>
+      <style>{`@keyframes spin { to { transform: rotate(360deg) } }`}</style>
       <div style={styles.title}>Create a new app</div>
 
       <label style={styles.label}>App name</label>
@@ -62,7 +69,7 @@ export function NewAppForm({ onStart, onCancel }: Props): React.JSX.Element {
           onClick={handleStart}
           disabled={!canSubmit}
         >
-          {loading ? `Setting up project${dots}` : 'Start Building'}
+          {loading ? <><Spinner /> Setting up project</> : 'Start Building'}
         </button>
       </div>
     </div>
