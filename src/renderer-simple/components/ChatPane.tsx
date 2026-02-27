@@ -38,19 +38,45 @@ function TypingIndicator(): React.JSX.Element {
   )
 }
 
+function formatDuration(ms: number): string {
+  const totalSeconds = Math.round(ms / 1000)
+  if (totalSeconds < 60) return `${totalSeconds}s`
+  const minutes = Math.floor(totalSeconds / 60)
+  const seconds = totalSeconds % 60
+  return seconds > 0 ? `${minutes}m ${seconds}s` : `${minutes}m`
+}
+
+function DurationBadge({ durationMs }: { durationMs: number }): React.JSX.Element {
+  return (
+    <div style={{ display: 'flex', justifyContent: 'center', marginBottom: 12 }}>
+      <span style={{
+        fontSize: 12,
+        color: 'var(--text-muted)',
+        padding: '4px 12px',
+        borderRadius: 12,
+        background: 'var(--surface)',
+        border: '1px solid var(--border)',
+      }}>
+        Completed in {formatDuration(durationMs)}
+      </span>
+    </div>
+  )
+}
+
 interface Props {
   messages: ChatMessageType[]
   onSend: (text: string) => void
   isThinking?: boolean
+  durationMs?: number | null
 }
 
-export function ChatPane({ messages, onSend, isThinking }: Props): React.JSX.Element {
+export function ChatPane({ messages, onSend, isThinking, durationMs }: Props): React.JSX.Element {
   const [input, setInput] = useState('')
   const messagesEndRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
-  }, [messages, isThinking])
+  }, [messages, isThinking, durationMs])
 
   const handleSend = (): void => {
     if (input.trim()) {
@@ -67,6 +93,7 @@ export function ChatPane({ messages, onSend, isThinking }: Props): React.JSX.Ele
           <ChatMessage key={msg.id} message={msg} />
         ))}
         {isThinking && <TypingIndicator />}
+        {!isThinking && durationMs != null && durationMs > 0 && <DurationBadge durationMs={durationMs} />}
         <div ref={messagesEndRef} />
       </div>
       <div style={styles.inputRow}>

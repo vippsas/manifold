@@ -10,7 +10,7 @@ import { buildSimplePrompt } from '../shared/simple-types'
 import type { SimpleApp } from '../shared/simple-types'
 
 function AppViewWrapper({ app, onBack }: { app: SimpleApp; onBack: () => void }): React.JSX.Element {
-  const agentStatus = useAgentStatus(app.sessionId)
+  const { status: agentStatus, durationMs } = useAgentStatus(app.sessionId)
   const { messages, sendMessage } = useChat(app.sessionId)
   const { previewUrl } = usePreview(app.sessionId)
 
@@ -20,6 +20,7 @@ function AppViewWrapper({ app, onBack }: { app: SimpleApp; onBack: () => void })
       messages={messages}
       previewUrl={previewUrl}
       isAgentWorking={agentStatus === 'running'}
+      agentDurationMs={durationMs}
       onSendMessage={sendMessage}
       onBack={onBack}
       onDeploy={() => {
