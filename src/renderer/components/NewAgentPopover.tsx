@@ -21,9 +21,20 @@ export function NewAgentPopover({
   const [branchName, setBranchName] = useState('')
   const [loading, setLoading] = useState(false)
   const [runtimes, setRuntimes] = useState<AgentRuntime[]>([])
+  const [ollamaModel, setOllamaModel] = useState('')
+  const [ollamaModels, setOllamaModels] = useState<string[]>([])
   const overlayRef = useRef<HTMLDivElement>(null)
 
-  useResetOnOpen(visible, projectId, defaultRuntime, setRuntimeId, setLoading, setBranchName)
+  useResetOnOpen(
+    visible,
+    projectId,
+    defaultRuntime,
+    setRuntimeId,
+    setLoading,
+    setBranchName,
+    setOllamaModel,
+    setOllamaModels
+  )
 
   useEffect(() => {
     if (!visible) return
@@ -34,6 +45,23 @@ export function NewAgentPopover({
 
   const selectedRuntime = runtimes.find((r) => r.id === runtimeId)
   const runtimeInstalled = selectedRuntime?.installed !== false
+  const needsModelButNone = selectedRuntime?.needsModel && !ollamaModel
+
+  useEffect(() => {
+    if (!visible) return
+    if (!selectedRuntime?.needsModel) {
+      setOllamaModels([])
+      setOllamaModel('')
+      return
+    }
+    window.electronAPI.invoke('ollama:list-models').then((models) => {
+      const modelList = models as string[]
+      setOllamaModels(modelList)
+      if (modelList.length > 0) {
+        setOllamaModel(modelList[0])
+      }
+    })
+  }, [visible, selectedRuntime?.needsModel])
 
   const handleSubmit = useCallback(
     (e: React.FormEvent): void => {
@@ -44,9 +72,10 @@ export function NewAgentPopover({
         runtimeId,
         prompt: '',
         branchName: branchName.trim() || undefined,
+        ollamaModel: selectedRuntime?.needsModel ? ollamaModel : undefined,
       })
     },
-    [projectId, runtimeId, branchName, onLaunch]
+    [projectId, runtimeId, branchName, ollamaModel, selectedRuntime?.needsModel, onLaunch]
   )
 
   const handleOverlayClick = useCallback(
@@ -85,8 +114,16 @@ export function NewAgentPopover({
           selectedRuntime={selectedRuntime}
           onRuntimeChange={setRuntimeId}
           onBranchChange={setBranchName}
+          ollamaModels={ollamaModels}
+          ollamaModel={ollamaModel}
+          onModelChange={setOllamaModel}
+          needsModel={!!selectedRuntime?.needsModel}
         />
-        <PopoverFooter onClose={onClose} canSubmit={runtimeInstalled} loading={loading} />
+        <PopoverFooter
+          onClose={onClose}
+          canSubmit={runtimeInstalled && !needsModelButNone}
+          loading={loading}
+        />
       </form>
     </div>
   )
@@ -98,12 +135,16 @@ function useResetOnOpen(
   defaultRuntime: string,
   setRuntimeId: (id: string) => void,
   setLoading: (val: boolean) => void,
-  setBranchName: (val: string) => void
+  setBranchName: (val: string) => void,
+  setOllamaModel: (val: string) => void,
+  setOllamaModels: (val: string[]) => void
 ): void {
   useEffect(() => {
     if (!visible) return
     setRuntimeId(defaultRuntime)
     setLoading(false)
+    setOllamaModel('')
+    setOllamaModels([])
 
     const fetchBranchSuggestion = async (): Promise<void> => {
       try {
@@ -115,7 +156,16 @@ function useResetOnOpen(
     }
 
     void fetchBranchSuggestion()
-  }, [visible, projectId, defaultRuntime, setRuntimeId, setLoading, setBranchName])
+  }, [
+    visible,
+    projectId,
+    defaultRuntime,
+    setRuntimeId,
+    setLoading,
+    setBranchName,
+    setOllamaModel,
+    setOllamaModels,
+  ])
 }
 
 function PopoverHeader({ onClose }: { onClose: () => void }): React.JSX.Element {
@@ -137,6 +187,10 @@ interface PopoverBodyProps {
   selectedRuntime: AgentRuntime | undefined
   onRuntimeChange: (id: string) => void
   onBranchChange: (name: string) => void
+  ollamaModels: string[]
+  ollamaModel: string
+  onModelChange: (model: string) => void
+  needsModel: boolean
 }
 
 function PopoverBody({
@@ -147,6 +201,10 @@ function PopoverBody({
   selectedRuntime,
   onRuntimeChange,
   onBranchChange,
+  ollamaModels,
+  ollamaModel,
+  onModelChange,
+  needsModel,
 }: PopoverBodyProps): React.JSX.Element {
   return (
     <div style={popoverStyles.body}>
@@ -169,6 +227,28 @@ function PopoverBody({
           </p>
         )}
       </label>
+      {needsModel && (
+        <label style={popoverStyles.label}>
+          Model
+          <select
+            value={ollamaModel}
+            onChange={(e) => onModelChange(e.target.value)}
+            style={popoverStyles.select}
+          >
+            {ollamaModels.length === 0 && (
+              <option value="">No models found</option>
+            )}
+            {ollamaModels.map((m) => (
+              <option key={m} value={m}>{m}</option>
+            ))}
+          </select>
+          {ollamaModels.length === 0 && (
+            <p style={{ color: 'var(--error, #f85149)', fontSize: '12px', margin: 0 }}>
+              No Ollama models found. Run &quot;ollama pull &lt;model&gt;&quot; to download one.
+            </p>
+          )}
+        </label>
+      )}
       <label style={popoverStyles.label}>
         Branch
         <input
