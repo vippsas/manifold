@@ -75,6 +75,7 @@ const ALLOWED_LISTEN_CHANNELS = [
   'updater:status',
   'view:toggle-panel',
   'preview:url-detected',
+  'app:auto-spawn',
 ] as const
 
 type InvokeChannel = (typeof ALLOWED_INVOKE_CHANNELS)[number]

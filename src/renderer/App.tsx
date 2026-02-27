@@ -52,6 +52,23 @@ export function App(): React.JSX.Element {
     })
   }, [dockLayout.togglePanel])
 
+  // When switching from simple → developer mode, the main process sends the
+  // project ID and branch name so we can resume work in an interactive session.
+  useEffect(() => {
+    return window.electronAPI.on('app:auto-spawn', (...args: unknown[]) => {
+      const projectId = args[0] as string | undefined
+      const branchName = args[1] as string | undefined
+      if (typeof projectId !== 'string') return
+      setActiveProject(projectId)
+      void spawnAgent({
+        projectId,
+        runtimeId: settings.defaultRuntime,
+        prompt: '',
+        existingBranch: branchName,
+      })
+    })
+  }, [setActiveProject, spawnAgent, settings.defaultRuntime])
+
   // Auto-open web preview panel when a URL is detected
   useEffect(() => {
     const api = dockLayout.apiRef.current

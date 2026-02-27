@@ -341,12 +341,28 @@ function setupAutoUpdater(window: BrowserWindow): void {
 // ── Mode switching ───────────────────────────────────────────────────
 // Registered once at app level (not inside createWindow) to avoid duplicate
 // handler errors when macOS activate recreates the window.
-ipcMain.handle('app:switch-mode', (_event, mode: 'developer' | 'simple') => {
+ipcMain.handle('app:switch-mode', async (_event, mode: 'developer' | 'simple', projectId?: string) => {
   settingsStore.updateSettings({ uiMode: mode })
+
+  let branchName: string | undefined
+  if (mode === 'developer' && projectId) {
+    const result = await sessionManager.killNonInteractiveSessions(projectId)
+    branchName = result.branchName
+    if (result.killedIds.length > 0) {
+      debugLog(`[switch-mode] killed ${result.killedIds.length} non-interactive session(s), branch: ${branchName}`)
+    }
+  }
+
   if (mainWindow) {
     mainWindow.close()
   }
   createWindow()
+
+  if (mode === 'developer' && projectId) {
+    mainWindow?.webContents.once('did-finish-load', () => {
+      mainWindow?.webContents.send('app:auto-spawn', projectId, branchName)
+    })
+  }
 })
 
 // ── App lifecycle ────────────────────────────────────────────────────
