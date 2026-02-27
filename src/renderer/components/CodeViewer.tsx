@@ -5,9 +5,10 @@ import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
 import type { OpenFile } from '../hooks/useCodeView'
 import { viewerStyles } from './CodeViewer.styles'
-import { extensionToLanguage, isMarkdownFile, fileName } from './code-viewer-utils'
+import { extensionToLanguage, isMarkdownFile, isHtmlFile, fileName } from './code-viewer-utils'
 
 interface CodeViewerProps {
+  sessionId: string | null
   fileDiffText: string | null
   originalContent: string | null
   openFiles: OpenFile[]
@@ -40,7 +41,7 @@ const DIFF_EDITOR_OPTIONS = {
 }
 
 export function CodeViewer({
-  fileDiffText, originalContent, openFiles, activeFilePath, fileContent, theme,
+  sessionId, fileDiffText, originalContent, openFiles, activeFilePath, fileContent, theme,
   onSelectTab, onCloseTab, onSaveFile,
 }: CodeViewerProps): React.JSX.Element {
   const monacoTheme = theme
@@ -50,9 +51,53 @@ export function CodeViewer({
   const [previewActive, setPreviewActive] = useState(false)
   const [diffMode, setDiffMode] = useState(false)
   const isMd = isMarkdownFile(activeFilePath)
+  const isHtml = isHtmlFile(activeFilePath)
+  const isPreviewable = isMd || isHtml
   const hasDiff = fileDiffText !== null
 
-  useEffect(() => { if (!isMd) setPreviewActive(false) }, [isMd])
+  const [resolvedHtml, setResolvedHtml] = useState<string | null>(null)
+
+  // Inline <link rel="stylesheet"> references so HTML preview renders with CSS
+  useEffect(() => {
+    if (!isHtml || !fileContent || !sessionId || !activeFilePath) {
+      setResolvedHtml(null)
+      return
+    }
+    let cancelled = false
+    const dir = activeFilePath.includes('/') ? activeFilePath.replace(/\/[^/]+$/, '') : ''
+
+    void (async (): Promise<void> => {
+      const linkPattern = /<link\s+[^>]*rel=["']stylesheet["'][^>]*href=["']([^"']+)["'][^>]*\/?>/gi
+      const altPattern = /<link\s+[^>]*href=["']([^"']+)["'][^>]*rel=["']stylesheet["'][^>]*\/?>/gi
+      const hrefs = new Set<string>()
+      for (const re of [linkPattern, altPattern]) {
+        let m: RegExpExecArray | null
+        while ((m = re.exec(fileContent)) !== null) hrefs.add(m[1])
+      }
+
+      let html = fileContent
+      for (const href of hrefs) {
+        if (href.startsWith('http://') || href.startsWith('https://')) continue
+        const cssPath = dir ? `${dir}/${href}` : href
+        try {
+          const css = (await window.electronAPI.invoke('files:read', sessionId, cssPath)) as string
+          const escapedHref = href.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+          const tagPattern = new RegExp(
+            `<link\\s+[^>]*href=["']${escapedHref}["'][^>]*\\/?>`,
+            'gi'
+          )
+          html = html.replace(tagPattern, `<style>${css}</style>`)
+        } catch {
+          // CSS file not found — leave the link tag as-is
+        }
+      }
+      if (!cancelled) setResolvedHtml(html)
+    })()
+
+    return () => { cancelled = true }
+  }, [isHtml, fileContent, sessionId, activeFilePath])
+
+  useEffect(() => { if (!isPreviewable) setPreviewActive(false) }, [isPreviewable])
   useEffect(() => { saveRef.current = onSaveFile }, [onSaveFile])
 
   // Auto-enable diff mode when diff data becomes available for the active file
@@ -73,7 +118,7 @@ export function CodeViewer({
   }, [])
 
   const hasTabs = openFiles.length > 0
-  const showPreviewToggle = hasTabs && isMd
+  const showPreviewToggle = hasTabs && isPreviewable
   const showDiffToggle = hasTabs && hasDiff && !previewActive
 
   return (
@@ -91,7 +136,14 @@ export function CodeViewer({
         <NoTabsHeader />
       )}
       <div style={viewerStyles.editorContainer}>
-        {previewActive && fileContent !== null ? (
+        {previewActive && isHtml && resolvedHtml !== null ? (
+          <iframe
+            srcDoc={resolvedHtml}
+            sandbox="allow-scripts"
+            style={viewerStyles.htmlPreview}
+            title="HTML Preview"
+          />
+        ) : previewActive && fileContent !== null && !isHtml ? (
           <div className="markdown-preview">
             <ReactMarkdown remarkPlugins={[remarkGfm]}>{fileContent}</ReactMarkdown>
           </div>

@@ -152,6 +152,7 @@ function EditorPanel(): React.JSX.Element {
   const s = useDockState()
   return (
     <CodeViewer
+      sessionId={s.sessionId}
       fileDiffText={s.fileDiffText}
       originalContent={s.originalContent}
       openFiles={s.openFiles}

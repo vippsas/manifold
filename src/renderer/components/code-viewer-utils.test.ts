@@ -1,5 +1,24 @@
 import { describe, it, expect } from 'vitest'
-import { parseDiffToLineRanges } from './code-viewer-utils'
+import { parseDiffToLineRanges, isHtmlFile } from './code-viewer-utils'
+
+describe('isHtmlFile', () => {
+  it('returns true for .html extension', () => {
+    expect(isHtmlFile('index.html')).toBe(true)
+  })
+  it('returns true for .htm extension', () => {
+    expect(isHtmlFile('page.htm')).toBe(true)
+  })
+  it('returns true regardless of case', () => {
+    expect(isHtmlFile('Page.HTML')).toBe(true)
+  })
+  it('returns false for non-html files', () => {
+    expect(isHtmlFile('file.ts')).toBe(false)
+    expect(isHtmlFile('file.md')).toBe(false)
+  })
+  it('returns false for null', () => {
+    expect(isHtmlFile(null)).toBe(false)
+  })
+})
 
 describe('parseDiffToLineRanges', () => {
   it('returns empty ranges for empty diff', () => {
