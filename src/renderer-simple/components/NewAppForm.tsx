@@ -9,8 +9,15 @@ interface Props {
 export function NewAppForm({ onStart, onCancel }: Props): React.JSX.Element {
   const [name, setName] = useState('')
   const [description, setDescription] = useState('')
+  const [loading, setLoading] = useState(false)
 
-  const canSubmit = name.trim().length > 0 && description.trim().length > 0
+  const canSubmit = name.trim().length > 0 && description.trim().length > 0 && !loading
+
+  const handleStart = (): void => {
+    if (!canSubmit) return
+    setLoading(true)
+    onStart(name.trim(), description.trim())
+  }
 
   return (
     <div style={styles.container}>
@@ -22,6 +29,7 @@ export function NewAppForm({ onStart, onCancel }: Props): React.JSX.Element {
         placeholder="e.g. customer-feedback"
         value={name}
         onChange={(e) => setName(e.target.value)}
+        disabled={loading}
         autoFocus
       />
 
@@ -31,18 +39,19 @@ export function NewAppForm({ onStart, onCancel }: Props): React.JSX.Element {
         placeholder="e.g. A simple page where customers can submit feedback with their name and a message. Show a list of recent feedback entries."
         value={description}
         onChange={(e) => setDescription(e.target.value)}
+        disabled={loading}
       />
 
       <div style={styles.buttonRow}>
-        <button style={styles.cancelButton} onClick={onCancel}>
+        <button style={styles.cancelButton} onClick={onCancel} disabled={loading}>
           Cancel
         </button>
         <button
           style={{ ...styles.startButton, opacity: canSubmit ? 1 : 0.5 }}
-          onClick={() => canSubmit && onStart(name.trim(), description.trim())}
+          onClick={handleStart}
           disabled={!canSubmit}
         >
-          Start Building
+          {loading ? 'Setting up project...' : 'Start Building'}
         </button>
       </div>
     </div>
