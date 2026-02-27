@@ -1,4 +1,4 @@
-import { useState, useCallback } from 'react'
+import { useState, useCallback, useEffect, useRef } from 'react'
 import { useIpcListener } from './useIpc'
 
 interface PreviewUrlEvent {
@@ -14,16 +14,23 @@ export interface UseWebPreviewResult {
 
 export function useWebPreview(sessionId: string | null): UseWebPreviewResult {
   const [previewUrl, setPreviewUrl] = useState<string | null>(null)
+  const previewUrlRef = useRef(previewUrl)
+  previewUrlRef.current = previewUrl
+
+  // Clear preview when session changes
+  useEffect(() => {
+    setPreviewUrl(null)
+  }, [sessionId])
 
   useIpcListener<PreviewUrlEvent>(
     'preview:url-detected',
     useCallback(
       (event: PreviewUrlEvent) => {
-        if (event.sessionId === sessionId && !previewUrl) {
+        if (event.sessionId === sessionId && !previewUrlRef.current) {
           setPreviewUrl(event.url)
         }
       },
-      [sessionId, previewUrl]
+      [sessionId]
     )
   )
 

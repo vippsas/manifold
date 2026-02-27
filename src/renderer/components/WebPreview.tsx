@@ -46,7 +46,7 @@ export function WebPreview({ url }: WebPreviewProps): React.JSX.Element {
       webview.removeEventListener('did-fail-load', handleFailLoad as EventListener)
       webview.removeEventListener('did-navigate', handleNavigate as EventListener)
     }
-  }, [])
+  }, [error])
 
   const handleReload = useCallback(() => {
     const webview = webviewRef.current

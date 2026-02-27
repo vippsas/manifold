@@ -248,6 +248,7 @@ export class SessionManager {
     session.runtimeId = runtimeId
     session.status = 'running'
     session.outputBuffer = ''
+    session.detectedUrl = undefined
 
     this.wireOutputStreaming(ptyHandle.id, session)
     this.wireExitHandling(ptyHandle.id, session)
