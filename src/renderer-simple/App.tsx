@@ -39,24 +39,24 @@ export function App(): React.JSX.Element {
       <NewAppForm
         onCancel={() => setView({ kind: 'dashboard' })}
         onStart={async (name, description) => {
-          const projects = (await window.electronAPI.invoke('projects:list')) as Array<{
-            id: string
-          }>
-          if (projects.length === 0) return
-          const projectId = projects[0].id
+          // Create a fresh project (git repo) for each new app
+          const project = (await window.electronAPI.invoke(
+            'projects:create-new',
+            `${name}: ${description}`,
+          )) as { id: string }
 
           const session = (await window.electronAPI.invoke('agent:spawn', {
-            projectId,
+            projectId: project.id,
             runtimeId: 'claude',
             prompt: description,
-            branchName: name.toLowerCase().replace(/[^a-z0-9-]/g, '-').replace(/-+/g, '-').replace(/^-|-$/g, ''),
+            noWorktree: true,
           })) as { id: string; branchName: string; worktreePath: string; status: string }
 
           await window.electronAPI.invoke('simple:subscribe-chat', session.id)
 
           const newApp: SimpleApp = {
             sessionId: session.id,
-            projectId,
+            projectId: project.id,
             name,
             description,
             status: 'building',
