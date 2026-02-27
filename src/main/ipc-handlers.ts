@@ -7,7 +7,7 @@ import { registerProjectHandlers } from './ipc/project-handlers'
 import { registerAgentHandlers } from './ipc/agent-handlers'
 import { registerFileHandlers } from './ipc/file-handlers'
 import { registerDiffHandler, registerPrHandler, registerGitHandlers } from './ipc/git-handlers'
-import { registerSettingsHandlers, registerRuntimesHandler, registerViewStateHandlers, registerShellTabHandlers, registerDockLayoutHandlers } from './ipc/settings-handlers'
+import { registerSettingsHandlers, registerRuntimesHandler, registerOllamaHandler, registerViewStateHandlers, registerShellTabHandlers, registerDockLayoutHandlers } from './ipc/settings-handlers'
 export type { IpcDependencies } from './ipc/types'
 import type { IpcDependencies } from './ipc/types'
 
@@ -19,6 +19,7 @@ export function registerIpcHandlers(deps: IpcDependencies): void {
   registerPrHandler(deps)
   registerSettingsHandlers(deps)
   registerRuntimesHandler()
+  registerOllamaHandler()
   registerViewStateHandlers(deps)
   registerShellTabHandlers(deps)
   registerGitHandlers(deps)

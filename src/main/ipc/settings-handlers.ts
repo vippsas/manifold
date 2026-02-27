@@ -3,6 +3,7 @@ import { mkdirSync } from 'node:fs'
 import { ManifoldSettings, SessionViewState } from '../../shared/types'
 import { SavedShellState } from '../shell-tab-store'
 import { listRuntimesWithStatus } from '../runtimes'
+import { listOllamaModels } from '../ollama-models'
 import type { IpcDependencies } from './types'
 
 export function registerSettingsHandlers(deps: IpcDependencies): void {
@@ -23,6 +24,12 @@ export function registerSettingsHandlers(deps: IpcDependencies): void {
 export function registerRuntimesHandler(): void {
   ipcMain.handle('runtimes:list', () => {
     return listRuntimesWithStatus()
+  })
+}
+
+export function registerOllamaHandler(): void {
+  ipcMain.handle('ollama:list-models', () => {
+    return listOllamaModels()
   })
 }
 
