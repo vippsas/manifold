@@ -62,6 +62,7 @@ export const startButton: CSSProperties = {
   fontSize: 16,
   fontWeight: 600,
   cursor: 'pointer',
+  minWidth: 220,
 }
 
 export const cancelButton: CSSProperties = {
