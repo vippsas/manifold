@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useRef } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 
 interface PreviewUrlEvent {
   sessionId: string
@@ -12,8 +12,6 @@ export function usePreview(sessionId: string | null): {
 } {
   const [previewUrl, setPreviewUrl] = useState<string | null>(null)
   const [liveUrl, setLiveUrl] = useState<string | null>(null)
-  const previewUrlRef = useRef(previewUrl)
-  previewUrlRef.current = previewUrl
 
   useEffect(() => {
     setPreviewUrl(null)
@@ -24,8 +22,9 @@ export function usePreview(sessionId: string | null): {
     if (!sessionId) return
     const unsub = window.electronAPI.on('preview:url-detected', (event: unknown) => {
       const e = event as PreviewUrlEvent
-      if (e.sessionId === sessionId && !previewUrlRef.current) {
-        setPreviewUrl(e.url)
+      if (e.sessionId === sessionId) {
+        // Only accept the first detected URL per session
+        setPreviewUrl((prev) => prev ?? e.url)
       }
     })
     return unsub

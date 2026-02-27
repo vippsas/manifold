@@ -1,9 +1,9 @@
 import { BrowserWindow, ipcMain } from 'electron'
 import type { IpcDependencies } from './types'
+import { resolveSession } from './types'
 
 export function registerSimpleHandlers(deps: IpcDependencies): void {
   const { chatAdapter, deploymentManager, sessionManager } = deps
-  const chatUnsubscribers = new Map<string, () => void>()
 
   ipcMain.handle('simple:chat-messages', (_event, sessionId: string) => {
     return chatAdapter.getMessages(sessionId)
@@ -14,10 +14,12 @@ export function registerSimpleHandlers(deps: IpcDependencies): void {
   })
 
   ipcMain.handle('simple:deploy', async (_event, sessionId: string) => {
-    const session = sessionManager.getSession(sessionId)
-    if (!session) throw new Error('Session not found')
-    const repoName = `vippsas/${session.branchName.replace('manifold/', '')}`
-    const cmd = deploymentManager.buildDeployCommand(repoName)
+    const session = resolveSession(sessionManager, sessionId)
+    const base = session.branchName.replace('manifold/', '')
+    if (!base || base === session.branchName) {
+      throw new Error(`Invalid branch name: expected manifold/ prefix, got ${session.branchName}`)
+    }
+    const cmd = deploymentManager.buildDeployCommand(`vippsas/${base}`)
     return { command: cmd.binary, args: cmd.args }
   })
 
@@ -26,14 +28,14 @@ export function registerSimpleHandlers(deps: IpcDependencies): void {
   })
 
   ipcMain.handle('simple:subscribe-chat', (event, sessionId: string) => {
-    chatUnsubscribers.get(sessionId)?.()
     const senderWindow = BrowserWindow.fromWebContents(event.sender)
-    const unsub = chatAdapter.onMessage(sessionId, (msg) => {
+    // onMessage returns an unsubscriber; ChatAdapter.clearSession() removes
+    // all listeners for the session, so no separate tracking map is needed.
+    chatAdapter.onMessage(sessionId, (msg) => {
       if (senderWindow && !senderWindow.isDestroyed()) {
         senderWindow.webContents.send('simple:chat-message', msg)
       }
     })
-    chatUnsubscribers.set(sessionId, unsub)
     return true
   })
 }

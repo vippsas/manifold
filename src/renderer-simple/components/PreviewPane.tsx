@@ -1,4 +1,8 @@
 import React, { useRef, useCallback, useState, useEffect } from 'react'
+import * as styles from './PreviewPane.styles'
+
+// Chromium error code -3 (ERR_ABORTED) fires on navigation cancellation; not a real error.
+const ERR_ABORTED = -3
 
 interface Props {
   url: string | null
@@ -16,7 +20,7 @@ export function PreviewPane({ url, isAgentWorking }: Props): React.JSX.Element {
     setLoading(true)
   }, [url])
 
-  // Auto-reload when agent finishes (working → not working)
+  // Auto-reload when agent finishes (working -> not working)
   useEffect(() => {
     const wasWorking = wasWorkingRef.current
     wasWorkingRef.current = isAgentWorking
@@ -31,7 +35,7 @@ export function PreviewPane({ url, isAgentWorking }: Props): React.JSX.Element {
   })
   const handleStopRef = useRef((): void => setLoading(false))
   const handleFailRef = useRef((e: Electron.DidFailLoadEvent): void => {
-    if (e.errorCode !== -3) {
+    if (e.errorCode !== ERR_ABORTED) {
       setError(`Failed to load: ${e.errorDescription}`)
       setLoading(false)
     }
@@ -61,89 +65,22 @@ export function PreviewPane({ url, isAgentWorking }: Props): React.JSX.Element {
   }, [])
 
   if (!url) {
-    return (
-      <div
-        style={{
-          height: '100%',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          color: 'var(--text-muted)',
-          fontSize: 16,
-          background: 'var(--surface)',
-          borderRadius: 'var(--radius)',
-        }}
-      >
-        Preview will appear here once the app is running...
-      </div>
-    )
+    return <div style={styles.emptyState}>Preview will appear here once the app is running...</div>
   }
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
-      <div
-        style={{
-          display: 'flex',
-          alignItems: 'center',
-          padding: '6px 12px',
-          borderBottom: '1px solid var(--border)',
-          fontSize: 12,
-          color: 'var(--text-muted)',
-          gap: 8,
-        }}
-      >
-        <span
-          style={{
-            flex: 1,
-            overflow: 'hidden',
-            textOverflow: 'ellipsis',
-            whiteSpace: 'nowrap',
-            fontFamily: 'monospace',
-          }}
-        >
-          {url}
-        </span>
+    <div style={styles.container}>
+      <div style={styles.toolbar}>
+        <span style={styles.urlLabel}>{url}</span>
         {loading && <span style={{ fontSize: 10 }}>Loading...</span>}
-        <button
-          onClick={handleReload}
-          style={{
-            background: 'none',
-            border: 'none',
-            color: 'var(--text-muted)',
-            cursor: 'pointer',
-            fontSize: 14,
-            padding: '2px 4px',
-          }}
-          title="Reload"
-        >
+        <button onClick={handleReload} style={styles.reloadButton} title="Reload">
           &#x21bb;
         </button>
       </div>
       {error ? (
-        <div
-          style={{
-            flex: 1,
-            display: 'flex',
-            flexDirection: 'column',
-            alignItems: 'center',
-            justifyContent: 'center',
-            gap: 12,
-            color: 'var(--text-muted)',
-          }}
-        >
+        <div style={styles.errorContainer}>
           <p style={{ fontSize: 12, margin: 0 }}>{error}</p>
-          <button
-            onClick={handleReload}
-            style={{
-              padding: '4px 16px',
-              fontSize: 12,
-              color: '#fff',
-              background: 'var(--accent)',
-              border: 'none',
-              borderRadius: 'var(--radius)',
-              cursor: 'pointer',
-            }}
-          >
+          <button onClick={handleReload} style={styles.retryButton}>
             Retry
           </button>
         </div>
