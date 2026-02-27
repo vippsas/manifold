@@ -25,6 +25,22 @@ export const BUILT_IN_RUNTIMES: readonly AgentRuntime[] = [
     args: [],
     aiModelArgs: ['--model', 'gemini-2.0-flash'],
     waitingPattern: '❯|>>> '
+  },
+  {
+    id: 'ollama-claude',
+    name: 'Claude Code (Ollama)',
+    binary: 'ollama',
+    args: ['launch', 'claude'],
+    needsModel: true,
+    waitingPattern: '❯|waiting for input|Interrupt to stop'
+  },
+  {
+    id: 'ollama-codex',
+    name: 'Codex (Ollama)',
+    binary: 'ollama',
+    args: ['launch', 'codex'],
+    needsModel: true,
+    waitingPattern: '> |codex>'
   }
 ] as const
 

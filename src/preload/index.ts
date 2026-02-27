@@ -27,6 +27,7 @@ const ALLOWED_INVOKE_CHANNELS = [
   'diff:file-original',
   'pr:create',
   'runtimes:list',
+  'ollama:list-models',
   'settings:get',
   'settings:update',
   'branch:suggest',
