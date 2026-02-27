@@ -114,7 +114,21 @@ function createWindow(): void {
       preload: join(__dirname, '../preload/index.js'),
       contextIsolation: true,
       nodeIntegration: false,
+      webviewTag: true,
       sandbox: false
+    }
+  })
+
+  // Validate webview creation: strip preload, force isolation, restrict to localhost.
+  mainWindow.webContents.on('will-attach-webview', (_event, webPreferences, params) => {
+    delete webPreferences.preload
+    webPreferences.nodeIntegration = false
+    webPreferences.contextIsolation = true
+
+    const url = params.src || ''
+    const isLocalhost = /^https?:\/\/(localhost|127\.0\.0\.1|0\.0\.0\.0)(:\d+)?/.test(url)
+    if (!isLocalhost) {
+      _event.preventDefault()
     }
   })
 

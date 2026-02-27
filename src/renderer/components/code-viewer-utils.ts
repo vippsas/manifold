@@ -29,6 +29,12 @@ export function isMarkdownFile(filePath: string | null): boolean {
   return ext === 'md' || ext === 'mdx' || ext === 'markdown'
 }
 
+export function isHtmlFile(filePath: string | null): boolean {
+  if (!filePath) return false
+  const ext = filePath.split('.').pop()?.toLowerCase() ?? ''
+  return ext === 'html' || ext === 'htm'
+}
+
 export function fileName(filePath: string): string {
   return filePath.split('/').pop() ?? filePath
 }

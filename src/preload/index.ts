@@ -72,6 +72,7 @@ const ALLOWED_LISTEN_CHANNELS = [
   'show-settings',
   'updater:status',
   'view:toggle-panel',
+  'preview:url-detected',
 ] as const
 
 type InvokeChannel = (typeof ALLOWED_INVOKE_CHANNELS)[number]

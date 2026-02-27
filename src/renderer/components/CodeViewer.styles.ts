@@ -93,6 +93,12 @@ export const viewerStyles: Record<string, React.CSSProperties> = {
     flexShrink: 0,
     marginRight: '4px',
   },
+  htmlPreview: {
+    width: '100%',
+    height: '100%',
+    border: 'none',
+    background: '#ffffff',
+  },
   editorContainer: {
     flex: 1,
     overflow: 'hidden',
