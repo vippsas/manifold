@@ -2,17 +2,28 @@ import React, { useRef, useCallback, useState, useEffect } from 'react'
 
 interface Props {
   url: string | null
+  isAgentWorking?: boolean
 }
 
-export function PreviewPane({ url }: Props): React.JSX.Element {
+export function PreviewPane({ url, isAgentWorking }: Props): React.JSX.Element {
   const webviewRef = useRef<Electron.WebviewTag | null>(null)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const wasWorkingRef = useRef(isAgentWorking)
 
   useEffect(() => {
     setError(null)
     setLoading(true)
   }, [url])
+
+  // Auto-reload when agent finishes (working → not working)
+  useEffect(() => {
+    const wasWorking = wasWorkingRef.current
+    wasWorkingRef.current = isAgentWorking
+    if (wasWorking && !isAgentWorking && webviewRef.current) {
+      webviewRef.current.reload()
+    }
+  }, [isAgentWorking])
 
   const handleStartRef = useRef((): void => {
     setLoading(true)

@@ -47,7 +47,7 @@ export function AppView({
           />
         </div>
         <div style={styles.previewSide}>
-          <PreviewPane url={previewUrl} />
+          <PreviewPane url={previewUrl} isAgentWorking={isAgentWorking} />
         </div>
       </div>
     </div>
