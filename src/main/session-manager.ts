@@ -405,6 +405,57 @@ export class SessionManager {
       .map((s) => this.toPublicSession(s))
   }
 
+  async killNonInteractiveSessions(projectId: string): Promise<{ killedIds: string[]; branchName?: string }> {
+    const toKill = Array.from(this.sessions.values())
+      .filter(s => s.projectId === projectId && s.nonInteractive)
+    const killedIds: string[] = []
+    let branchName: string | undefined
+
+    for (const session of toKill) {
+      branchName = session.branchName
+
+      // Stop running processes so file system is stable before committing
+      if (session.ptyId) {
+        try { this.ptyPool.kill(session.ptyId) } catch { /* already exited */ }
+        session.ptyId = ''
+      }
+      if (session.devServerPtyId) {
+        try { this.ptyPool.kill(session.devServerPtyId) } catch { /* already exited */ }
+        session.devServerPtyId = undefined
+      }
+
+      // Commit any uncommitted work so it survives the mode switch
+      try {
+        const status = await gitExec(['status', '--porcelain'], session.worktreePath)
+        if (status.trim().length > 0) {
+          await gitExec(['add', '-A'], session.worktreePath)
+          await gitExec(['commit', '-m', 'Auto-commit: work from simple mode'], session.worktreePath)
+          debugLog(`[session] auto-committed changes on branch ${branchName}`)
+        }
+      } catch (err) {
+        debugLog(`[session] auto-commit failed: ${err}`)
+      }
+
+      await this.killSession(session.id)
+      killedIds.push(session.id)
+    }
+
+    // Switch project directory back to base branch so new worktrees can be created
+    if (branchName) {
+      const project = this.projectRegistry.getProject(projectId)
+      if (project) {
+        try {
+          await gitExec(['checkout', project.baseBranch], project.path)
+          debugLog(`[session] switched project back to ${project.baseBranch}`)
+        } catch (err) {
+          debugLog(`[session] checkout base branch failed: ${err}`)
+        }
+      }
+    }
+
+    return { killedIds, branchName }
+  }
+
   killAllSessions(): void {
     for (const session of this.sessions.values()) {
       try { this.ptyPool.kill(session.ptyId) } catch { /* best effort */ }

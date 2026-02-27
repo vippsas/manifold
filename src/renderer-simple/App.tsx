@@ -27,7 +27,7 @@ function AppViewWrapper({ app, onBack }: { app: SimpleApp; onBack: () => void })
         /* TODO: deployment in later task */
       }}
       onDevMode={() => {
-        window.electronAPI.invoke('app:switch-mode', 'developer')
+        window.electronAPI.invoke('app:switch-mode', 'developer', app.projectId)
       }}
     />
   )
