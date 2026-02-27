@@ -1,5 +1,15 @@
-import React, { useState } from 'react'
+import React, { useState, useEffect } from 'react'
 import * as styles from './NewAppForm.styles'
+
+function useAnimatedDots(active: boolean): string {
+  const [count, setCount] = useState(0)
+  useEffect(() => {
+    if (!active) { setCount(0); return }
+    const id = setInterval(() => setCount(c => (c + 1) % 4), 400)
+    return () => clearInterval(id)
+  }, [active])
+  return '.'.repeat(count)
+}
 
 interface Props {
   onStart: (name: string, description: string) => void
@@ -10,6 +20,7 @@ export function NewAppForm({ onStart, onCancel }: Props): React.JSX.Element {
   const [name, setName] = useState('')
   const [description, setDescription] = useState('')
   const [loading, setLoading] = useState(false)
+  const dots = useAnimatedDots(loading)
 
   const canSubmit = name.trim().length > 0 && description.trim().length > 0 && !loading
 
@@ -51,7 +62,7 @@ export function NewAppForm({ onStart, onCancel }: Props): React.JSX.Element {
           onClick={handleStart}
           disabled={!canSubmit}
         >
-          {loading ? 'Setting up project...' : 'Start Building'}
+          {loading ? `Setting up project${dots}` : 'Start Building'}
         </button>
       </div>
     </div>
