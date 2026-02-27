@@ -5,6 +5,7 @@ import { AppView } from './components/AppView'
 import { useApps } from './hooks/useApps'
 import { useChat } from './hooks/useChat'
 import { usePreview } from './hooks/usePreview'
+import { buildSimplePrompt } from '../shared/simple-types'
 import type { SimpleApp } from '../shared/simple-types'
 
 function AppViewWrapper({ app, onBack }: { app: SimpleApp; onBack: () => void }): React.JSX.Element {
@@ -48,8 +49,10 @@ export function App(): React.JSX.Element {
           const session = (await window.electronAPI.invoke('agent:spawn', {
             projectId: project.id,
             runtimeId: 'claude',
-            prompt: description,
+            prompt: buildSimplePrompt(description),
+            userMessage: description,
             noWorktree: true,
+            nonInteractive: true,
           })) as { id: string; branchName: string; worktreePath: string; status: string }
 
           await window.electronAPI.invoke('simple:subscribe-chat', session.id)

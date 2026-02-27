@@ -8,8 +8,14 @@ type MessageListener = (message: ChatMessage) => void
  */
 function stripAnsi(text: string): string {
   return text
+    // Replace cursor-movement sequences with a space to preserve word boundaries.
+    // TUI renderers (like ink) position text via cursor commands; stripping them
+    // without a replacement causes words to concatenate.
+    // Covers: CUU(A) CUD(B) CUF(C) CUB(D) CNL(E) CPL(F) CHA(G) CUP(H) CHT(I) VPA(d) HVP(f)
+    // Must come BEFORE the general CSI strip.
+    .replace(/\x1b\[\d*(?:;\d*)*[A-Ifd]/g, ' ')
     // CSI sequences: ESC [ (params) (intermediates) (final byte)
-    // Covers colors, cursor movement, erase, scrolling, etc.
+    // Covers colors, erase, scrolling, mode changes, etc.
     // Includes 256-color (\x1b[38;5;246m) and truecolor (\x1b[38;2;r;g;bm)
     .replace(/\x1b\[[\x20-\x3f]*[\x40-\x7e]/g, '')
     // OSC sequences: ESC ] ... (BEL or ST)
@@ -21,6 +27,8 @@ function stripAnsi(text: string): string {
     .replace(/\[[\d;]*m/g, '')
     // Control characters except newline and tab
     .replace(/[\x00-\x08\x0b\x0c\x0e-\x1f\x7f]/g, '')
+    // Tabs → spaces (for chat readability)
+    .replace(/\t/g, ' ')
     // Carriage returns
     .replace(/\r/g, '')
 }

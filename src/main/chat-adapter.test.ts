@@ -95,6 +95,25 @@ describe('ChatAdapter', () => {
     expect(messages[0].text).toBe('Hello world')
   })
 
+  it('replaces cursor-movement sequences with spaces to preserve word boundaries', () => {
+    // Simulate TUI output using CHA (G) and CUF (C) for positioning
+    adapter.processPtyOutput('session-1', 'Hello\x1b[10Gworld\x1b[3Ctest')
+    vi.advanceTimersByTime(300)
+
+    const messages = adapter.getMessages('session-1')
+    expect(messages).toHaveLength(1)
+    expect(messages[0].text).toBe('Hello world test')
+  })
+
+  it('replaces cursor position (H) sequences with spaces', () => {
+    adapter.processPtyOutput('session-1', 'Quick\x1b[1;7Hsafety\x1b[1;14Hcheck')
+    vi.advanceTimersByTime(300)
+
+    const messages = adapter.getMessages('session-1')
+    expect(messages).toHaveLength(1)
+    expect(messages[0].text).toBe('Quick safety check')
+  })
+
   it('ignores empty output after stripping', () => {
     adapter.processPtyOutput('session-1', '\x1b[?25l\x1b[?2004h')
     vi.advanceTimersByTime(300)
