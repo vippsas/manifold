@@ -100,18 +100,20 @@ function resolveThemeType(theme: string): 'dark' | 'light' {
 }
 
 function createWindow(): void {
-  const theme = settingsStore.getSettings().theme ?? 'dracula'
+  const settings = settingsStore.getSettings()
+  const theme = settings.theme ?? 'dracula'
+  const simple = settings.uiMode === 'simple'
   nativeTheme.themeSource = resolveThemeType(theme)
 
   mainWindow = new BrowserWindow({
-    width: 1400,
-    height: 900,
+    width: simple ? 1100 : 1400,
+    height: simple ? 800 : 900,
     minWidth: 800,
     minHeight: 600,
-    title: 'Manifold',
+    title: simple ? 'Manible' : 'Manifold',
     backgroundColor: resolveInitialBackground(theme),
     webPreferences: {
-      preload: join(__dirname, '../preload/index.js'),
+      preload: join(__dirname, simple ? '../preload/simple.js' : '../preload/index.js'),
       contextIsolation: true,
       nodeIntegration: false,
       webviewTag: true,
@@ -142,7 +144,7 @@ function createWindow(): void {
   })
 
   wireModules(mainWindow)
-  loadRenderer(mainWindow)
+  loadRenderer(mainWindow, simple)
 
   // Open external links in the user's default browser instead of inside the app.
   mainWindow.webContents.setWindowOpenHandler(({ url }) => {
@@ -284,11 +286,13 @@ function wireModules(window: BrowserWindow): void {
   })
 }
 
-function loadRenderer(window: BrowserWindow): void {
+function loadRenderer(window: BrowserWindow, simple: boolean): void {
   if (process.env.ELECTRON_RENDERER_URL) {
-    window.loadURL(process.env.ELECTRON_RENDERER_URL)
+    const base = process.env.ELECTRON_RENDERER_URL
+    window.loadURL(simple ? `${base}/simple.html` : base)
   } else {
-    window.loadFile(join(__dirname, '../renderer/index.html'))
+    const page = simple ? '../renderer-simple/index.html' : '../renderer/index.html'
+    window.loadFile(join(__dirname, page))
   }
 }
 
