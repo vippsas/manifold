@@ -1,3 +1,5 @@
+import * as fs from 'node:fs/promises'
+import * as path from 'node:path'
 import { ipcMain } from 'electron'
 import { SpawnAgentOptions } from '../../shared/types'
 import { generateBranchName } from '../branch-namer'
@@ -35,6 +37,29 @@ export function registerAgentHandlers(deps: IpcDependencies): void {
     viewStateStore.delete(sessionId)
   })
 
+  ipcMain.handle('agent:delete-app', async (_event, sessionId: string, projectId: string) => {
+    // 1. Kill session (also removes worktree if applicable)
+    const session = sessionManager.getSession(sessionId)
+    if (session) {
+      await fileWatcher.unwatch(session.worktreePath)
+      await sessionManager.killSession(sessionId)
+      viewStateStore.delete(sessionId)
+    }
+
+    // 2. Remove the project directory from disk
+    const project = deps.projectRegistry.getProject(projectId)
+    if (project) {
+      try {
+        await fs.rm(project.path, { recursive: true, force: true })
+      } catch {
+        // Best-effort: directory may already be gone
+      }
+    }
+
+    // 3. Remove project from registry
+    deps.projectRegistry.removeProject(projectId)
+  })
+
   ipcMain.handle('agent:resume', async (_event, sessionId: string, runtimeId: string) => {
     const session = await sessionManager.resumeSession(sessionId, runtimeId)
     fileWatcher.watch(session.worktreePath, session.id)
@@ -49,7 +74,9 @@ export function registerAgentHandlers(deps: IpcDependencies): void {
     if (projectId) {
       return sessionManager.discoverSessionsForProject(projectId)
     }
-    return sessionManager.listSessions()
+    const settings = deps.settingsStore.getSettings()
+    const simpleProjectsBase = path.join(settings.storagePath, 'projects')
+    return sessionManager.discoverAllSessions(simpleProjectsBase)
   })
 
   ipcMain.handle('shell:create', (_event, cwd: string) => {

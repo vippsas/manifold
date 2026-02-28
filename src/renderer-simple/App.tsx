@@ -51,7 +51,7 @@ function AppViewWrapper({ app, onBack }: { app: SimpleApp; onBack: () => void })
 type View = { kind: 'dashboard' } | { kind: 'new-app' } | { kind: 'app'; app: SimpleApp }
 
 export function App(): React.JSX.Element {
-  const { apps, refreshApps } = useApps()
+  const { apps, refreshApps, deleteApp } = useApps()
   const [view, setView] = useState<View>({ kind: 'dashboard' })
 
   useLayoutEffect(() => {
@@ -79,7 +79,7 @@ export function App(): React.JSX.Element {
           const project = (await window.electronAPI.invoke(
             'projects:create-new',
             `${name}: ${description}`,
-          )) as { id: string }
+          )) as { id: string; path: string }
 
           const session = (await window.electronAPI.invoke('agent:spawn', {
             projectId: project.id,
@@ -100,6 +100,7 @@ export function App(): React.JSX.Element {
             status: 'building',
             previewUrl: null,
             liveUrl: null,
+            projectPath: project.path,
             createdAt: Date.now(),
             updatedAt: Date.now(),
           }
@@ -120,6 +121,7 @@ export function App(): React.JSX.Element {
       apps={apps}
       onNewApp={() => setView({ kind: 'new-app' })}
       onSelectApp={(app) => setView({ kind: 'app', app })}
+      onDeleteApp={(app) => deleteApp(app.sessionId, app.projectId)}
     />
   )
 }

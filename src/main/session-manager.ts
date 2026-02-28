@@ -407,6 +407,57 @@ export class SessionManager {
       .map((s) => this.toPublicSession(s))
   }
 
+  async discoverAllSessions(simpleProjectsBase?: string): Promise<AgentSession[]> {
+    const projects = this.projectRegistry.listProjects()
+
+    for (const project of projects) {
+      // Already have sessions for this project — skip
+      if (Array.from(this.sessions.values()).some((s) => s.projectId === project.id)) {
+        continue
+      }
+
+      // Discover worktree-based sessions
+      try {
+        await this.discoverSessionsForProject(project.id)
+      } catch {
+        // Project path may no longer exist
+      }
+
+      // If still no sessions and project is a simple-mode project (lives under
+      // the managed projects directory), create a dormant noWorktree stub.
+      if (simpleProjectsBase &&
+          project.path.startsWith(simpleProjectsBase) &&
+          !Array.from(this.sessions.values()).some((s) => s.projectId === project.id)) {
+        try {
+          const branchOutput = await gitExec(['branch', '--show-current'], project.path)
+          const branch = branchOutput.trim()
+          if (branch) {
+            const session: InternalSession = {
+              id: uuidv4(),
+              projectId: project.id,
+              runtimeId: '',
+              branchName: branch,
+              worktreePath: project.path,
+              status: 'done',
+              pid: null,
+              ptyId: '',
+              outputBuffer: '',
+              taskDescription: undefined,
+              additionalDirs: [],
+              noWorktree: true,
+              nonInteractive: true,
+            }
+            this.sessions.set(session.id, session)
+          }
+        } catch {
+          // Git command failed — project directory may be gone
+        }
+      }
+    }
+
+    return Array.from(this.sessions.values()).map((s) => this.toPublicSession(s))
+  }
+
   async killNonInteractiveSessions(projectId: string): Promise<{ killedIds: string[]; branchName?: string }> {
     const toKill = Array.from(this.sessions.values())
       .filter(s => s.projectId === projectId && s.nonInteractive)
