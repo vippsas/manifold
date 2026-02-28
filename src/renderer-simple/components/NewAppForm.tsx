@@ -1,5 +1,6 @@
 import React, { useState } from 'react'
 import * as styles from './NewAppForm.styles'
+import { techStackIcons } from './tech-stack-icons'
 
 function Spinner(): React.JSX.Element {
   return (
@@ -15,6 +16,21 @@ function Spinner(): React.JSX.Element {
         verticalAlign: 'middle',
       }}
     />
+  )
+}
+
+function TechIcon({ path, color, size = 16 }: { path: string; color: string; size?: number }): React.JSX.Element {
+  return (
+    <svg
+      role="img"
+      viewBox="0 0 24 24"
+      width={size}
+      height={size}
+      fill={color}
+      style={{ verticalAlign: 'middle', flexShrink: 0 }}
+    >
+      <path d={path} />
+    </svg>
   )
 }
 
@@ -40,8 +56,15 @@ export function NewAppForm({ onStart, onCancel }: Props): React.JSX.Element {
     <div style={styles.container}>
       <div style={styles.title}>Create a new app</div>
       <div style={styles.techStackBox}>
-        <span style={{ fontWeight: 600, color: 'var(--text)' }}>Tech stack:</span>{' '}
-        React + TypeScript &middot; Vite &middot; IndexedDB (Dexie.js) &middot; CSS Modules
+        {techStackIcons.map((tech, i) => (
+          <React.Fragment key={tech.label}>
+            {i > 0 && <span style={styles.techDot}>&middot;</span>}
+            <span style={styles.techItem}>
+              <TechIcon path={tech.path} color={tech.color} />
+              <span>{tech.label}</span>
+            </span>
+          </React.Fragment>
+        ))}
       </div>
 
       <label style={styles.label}>App name</label>
