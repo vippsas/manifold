@@ -1,6 +1,6 @@
 /**
  * Wraps the user's app description into a full system prompt
- * that constrains the agent to the Manible tech stack.
+ * that constrains the agent to the Manifold tech stack.
  */
 export function buildSimplePrompt(description: string): string {
   return `You are building a web application for a non-technical user. Follow these rules strictly:
