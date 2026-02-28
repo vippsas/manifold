@@ -15,6 +15,7 @@ export function useApps(): {
   apps: SimpleApp[]
   loading: boolean
   refreshApps: () => Promise<void>
+  deleteApp: (sessionId: string, projectId: string) => Promise<void>
 } {
   const [apps, setApps] = useState<SimpleApp[]>([])
   const [loading, setLoading] = useState(true)
@@ -22,17 +23,25 @@ export function useApps(): {
   const refreshApps = useCallback(async () => {
     setLoading(true)
     try {
-      const sessions = (await window.electronAPI.invoke('agent:sessions')) as Array<{
-        id: string
-        projectId: string
-        branchName: string
-        status: string
-        taskDescription?: string
-      }>
+      const [sessions, projects] = await Promise.all([
+        window.electronAPI.invoke('agent:sessions') as Promise<Array<{
+          id: string
+          projectId: string
+          branchName: string
+          status: string
+          taskDescription?: string
+        }>>,
+        window.electronAPI.invoke('projects:list') as Promise<Array<{
+          id: string
+          name: string
+          path: string
+        }>>,
+      ])
+      const projectMap = new Map(projects.map((p) => [p.id, p]))
       const simpleApps: SimpleApp[] = sessions.map((s) => ({
         sessionId: s.id,
         projectId: s.projectId,
-        name: s.branchName.replace('manifold/', ''),
+        name: projectMap.get(s.projectId)?.name ?? s.branchName.replace('manifold/', ''),
         description: s.taskDescription ?? '',
         status:
           s.status === 'done' ? 'live'
@@ -42,6 +51,7 @@ export function useApps(): {
           : 'idle',
         previewUrl: null,
         liveUrl: null,
+        projectPath: projectMap.get(s.projectId)?.path ?? '',
         createdAt: Date.now(),
         updatedAt: Date.now(),
       }))
@@ -55,5 +65,10 @@ export function useApps(): {
     refreshApps()
   }, [refreshApps])
 
-  return { apps, loading, refreshApps }
+  const deleteApp = useCallback(async (sessionId: string, projectId: string) => {
+    await window.electronAPI.invoke('agent:delete-app', sessionId, projectId)
+    await refreshApps()
+  }, [refreshApps])
+
+  return { apps, loading, refreshApps, deleteApp }
 }
