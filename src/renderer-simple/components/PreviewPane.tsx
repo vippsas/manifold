@@ -4,13 +4,23 @@ import * as styles from './PreviewPane.styles'
 // Chromium error code -3 (ERR_ABORTED) fires on navigation cancellation; not a real error.
 const ERR_ABORTED = -3
 
+// Inject spinner keyframe once
+if (typeof document !== 'undefined' && !document.getElementById('sp-keyframe')) {
+  const style = document.createElement('style')
+  style.id = 'sp-keyframe'
+  style.textContent = '@keyframes spin { to { transform: rotate(360deg) } }'
+  document.head.appendChild(style)
+}
+
 interface Props {
   url: string | null
   isAgentWorking?: boolean
+  starting?: boolean
 }
 
-export function PreviewPane({ url, isAgentWorking }: Props): React.JSX.Element {
+export function PreviewPane({ url, isAgentWorking, starting }: Props): React.JSX.Element {
   const webviewRef = useRef<Electron.WebviewTag | null>(null)
+  const readyRef = useRef(false)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const wasWorkingRef = useRef(isAgentWorking)
@@ -24,7 +34,7 @@ export function PreviewPane({ url, isAgentWorking }: Props): React.JSX.Element {
   useEffect(() => {
     const wasWorking = wasWorkingRef.current
     wasWorkingRef.current = isAgentWorking
-    if (wasWorking && !isAgentWorking && webviewRef.current) {
+    if (wasWorking && !isAgentWorking && webviewRef.current && readyRef.current) {
       webviewRef.current.reload()
     }
   }, [isAgentWorking])
@@ -40,16 +50,20 @@ export function PreviewPane({ url, isAgentWorking }: Props): React.JSX.Element {
       setLoading(false)
     }
   })
+  const handleReadyRef = useRef((): void => { readyRef.current = true })
 
   const webviewCallbackRef = useCallback((node: Electron.WebviewTag | null) => {
     const prev = webviewRef.current
     if (prev) {
+      prev.removeEventListener('dom-ready', handleReadyRef.current)
       prev.removeEventListener('did-start-loading', handleStartRef.current)
       prev.removeEventListener('did-stop-loading', handleStopRef.current)
       prev.removeEventListener('did-fail-load', handleFailRef.current as EventListener)
     }
     webviewRef.current = node
+    readyRef.current = false
     if (node) {
+      node.addEventListener('dom-ready', handleReadyRef.current)
       node.addEventListener('did-start-loading', handleStartRef.current)
       node.addEventListener('did-stop-loading', handleStopRef.current)
       node.addEventListener('did-fail-load', handleFailRef.current as EventListener)
@@ -57,7 +71,7 @@ export function PreviewPane({ url, isAgentWorking }: Props): React.JSX.Element {
   }, [])
 
   const handleReload = useCallback(() => {
-    if (webviewRef.current) {
+    if (webviewRef.current && readyRef.current) {
       setError(null)
       setLoading(true)
       webviewRef.current.reload()
@@ -65,7 +79,18 @@ export function PreviewPane({ url, isAgentWorking }: Props): React.JSX.Element {
   }, [])
 
   if (!url) {
-    return <div style={styles.emptyState}>Preview will appear here once the app is running...</div>
+    return (
+      <div style={styles.emptyState}>
+        {starting ? (
+          <>
+            <div style={styles.spinner} />
+            <span>Starting app...</span>
+          </>
+        ) : (
+          'Preview will appear here once the app is running...'
+        )}
+      </div>
+    )
   }
 
   return (

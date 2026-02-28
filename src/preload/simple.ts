@@ -9,6 +9,7 @@ const ALLOWED_INVOKE_CHANNELS = [
   'agent:spawn',
   'agent:kill',
   'agent:delete-app',
+  'agent:start-dev-server',
   'agent:input',
   'agent:resize',
   'agent:sessions',
@@ -19,6 +20,8 @@ const ALLOWED_INVOKE_CHANNELS = [
   'updater:install',
   'updater:check',
   'simple:chat-messages',
+  'simple:get-preview-url',
+  'simple:get-agent-status',
   'simple:subscribe-chat',
   'simple:deploy',
   'simple:deploy-status',
@@ -40,6 +43,7 @@ const ALLOWED_LISTEN_CHANNELS = [
   'show-about',
   'show-settings',
   'settings:changed',
+  'app:auto-open-app',
 ] as const
 
 type InvokeChannel = (typeof ALLOWED_INVOKE_CHANNELS)[number]

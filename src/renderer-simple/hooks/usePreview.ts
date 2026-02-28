@@ -18,6 +18,17 @@ export function usePreview(sessionId: string | null): {
     setLiveUrl(null)
   }, [sessionId])
 
+  // Fetch any URL that was already detected before we subscribed
+  useEffect(() => {
+    if (!sessionId) return
+    let cancelled = false
+    window.electronAPI.invoke('simple:get-preview-url', sessionId).then((url) => {
+      if (cancelled || !url) return
+      setPreviewUrl((prev) => prev ?? (url as string))
+    })
+    return () => { cancelled = true }
+  }, [sessionId])
+
   useEffect(() => {
     if (!sessionId) return
     const unsub = window.electronAPI.on('preview:url-detected', (event: unknown) => {

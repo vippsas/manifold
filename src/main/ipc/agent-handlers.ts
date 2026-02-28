@@ -60,6 +60,13 @@ export function registerAgentHandlers(deps: IpcDependencies): void {
     deps.projectRegistry.removeProject(projectId)
   })
 
+  ipcMain.handle(
+    'agent:start-dev-server',
+    (_event, projectId: string, branchName: string, description?: string) => {
+      return sessionManager.startDevServerSession(projectId, branchName, description)
+    },
+  )
+
   ipcMain.handle('agent:resume', async (_event, sessionId: string, runtimeId: string) => {
     const session = await sessionManager.resumeSession(sessionId, runtimeId)
     fileWatcher.watch(session.worktreePath, session.id)

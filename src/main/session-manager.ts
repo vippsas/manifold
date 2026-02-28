@@ -361,6 +361,14 @@ export class SessionManager {
     return session ? this.toPublicSession(session) : undefined
   }
 
+  getDetectedUrl(sessionId: string): string | null {
+    return this.sessions.get(sessionId)?.detectedUrl ?? null
+  }
+
+  getSessionStatus(sessionId: string): string | null {
+    return this.sessions.get(sessionId)?.status ?? null
+  }
+
   listSessions(): AgentSession[] {
     return Array.from(this.sessions.values()).map((s) => this.toPublicSession(s))
   }
@@ -429,8 +437,18 @@ export class SessionManager {
           project.path.startsWith(simpleProjectsBase) &&
           !Array.from(this.sessions.values()).some((s) => s.projectId === project.id)) {
         try {
-          const branchOutput = await gitExec(['branch', '--show-current'], project.path)
-          const branch = branchOutput.trim()
+          let branch = (await gitExec(['branch', '--show-current'], project.path)).trim()
+
+          // If on the base branch, look for a feature branch that has the app code.
+          // killNonInteractiveSessions switches back to the base branch, so dormant
+          // projects are often left on main while the real code is on a feature branch.
+          if (branch === project.baseBranch) {
+            const allBranches = (await gitExec(['branch', '--format=%(refname:short)'], project.path))
+              .split('\n').map(b => b.trim()).filter(Boolean)
+            const featureBranch = allBranches.find(b => b !== project.baseBranch)
+            if (featureBranch) branch = featureBranch
+          }
+
           if (branch) {
             const session: InternalSession = {
               id: uuidv4(),
@@ -507,6 +525,98 @@ export class SessionManager {
     }
 
     return { killedIds, branchName }
+  }
+
+  async killInteractiveSession(sessionId: string): Promise<{ projectPath: string; branchName: string; taskDescription?: string }> {
+    const session = this.sessions.get(sessionId)
+    if (!session) throw new Error(`Session not found: ${sessionId}`)
+
+    const branchName = session.branchName
+    const taskDescription = session.taskDescription
+    const worktreePath = session.worktreePath
+    const projectId = session.projectId
+
+    // Stop running processes so file system is stable before committing
+    if (session.ptyId) {
+      try { this.ptyPool.kill(session.ptyId) } catch { /* already exited */ }
+      session.ptyId = ''
+    }
+    if (session.devServerPtyId) {
+      try { this.ptyPool.kill(session.devServerPtyId) } catch { /* already exited */ }
+      session.devServerPtyId = undefined
+    }
+
+    // Commit any uncommitted work so it survives the mode switch
+    try {
+      const status = await gitExec(['status', '--porcelain'], worktreePath)
+      if (status.trim().length > 0) {
+        await gitExec(['add', '-A'], worktreePath)
+        await gitExec(['commit', '-m', 'Auto-commit: work from developer mode'], worktreePath)
+        debugLog(`[session] auto-committed changes on branch ${branchName}`)
+      }
+    } catch (err) {
+      debugLog(`[session] auto-commit failed: ${err}`)
+    }
+
+    await this.killSession(sessionId)
+
+    const project = this.projectRegistry.getProject(projectId)
+    if (!project) throw new Error(`Project not found: ${projectId}`)
+
+    return { projectPath: project.path, branchName, taskDescription }
+  }
+
+  async startDevServerSession(projectId: string, branchName: string, taskDescription?: string): Promise<{ sessionId: string }> {
+    const project = this.resolveProject(projectId)
+
+    // Clean up any existing sessions for this project so we don't accumulate
+    // duplicate app cards every time the user opens the same app.
+    for (const existing of Array.from(this.sessions.values())) {
+      if (existing.projectId === projectId) {
+        if (existing.ptyId) {
+          try { this.ptyPool.kill(existing.ptyId) } catch { /* already exited */ }
+        }
+        if (existing.devServerPtyId) {
+          try { this.ptyPool.kill(existing.devServerPtyId) } catch { /* already exited */ }
+        }
+        this.chatAdapter?.clearSession(existing.id)
+        this.sessions.delete(existing.id)
+      }
+    }
+
+    // Ensure we're on the correct branch (the project may be on main after a mode switch)
+    const currentBranch = (await gitExec(['branch', '--show-current'], project.path)).trim()
+    if (currentBranch !== branchName) {
+      try {
+        await gitExec(['checkout', branchName], project.path)
+      } catch {
+        // Branch may have been deleted (e.g. by worktree cleanup during mode switch).
+        // Stay on the current branch — it may still have the app code.
+        debugLog(`[session] checkout ${branchName} failed, staying on ${currentBranch}`)
+      }
+    }
+
+    const session: InternalSession = {
+      id: uuidv4(),
+      projectId,
+      runtimeId: 'claude',
+      branchName,
+      worktreePath: project.path,
+      status: 'running',
+      pid: null,
+      ptyId: '',
+      outputBuffer: '',
+      taskDescription,
+      additionalDirs: [],
+      noWorktree: true,
+      nonInteractive: true,
+    }
+
+    this.sessions.set(session.id, session)
+    this.chatAdapter?.addSystemMessage(session.id, 'Your app is running. Send a message to make changes.')
+    this.startDevServer(session)
+
+    return { sessionId: session.id }
   }
 
   killAllSessions(): void {

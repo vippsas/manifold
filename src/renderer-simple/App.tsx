@@ -1,4 +1,4 @@
-import React, { useState, useLayoutEffect } from 'react'
+import React, { useState, useEffect, useLayoutEffect } from 'react'
 import { Dashboard } from './components/Dashboard'
 import { AppView } from './components/AppView'
 import { useApps } from './hooks/useApps'
@@ -10,6 +10,34 @@ import type { SimpleApp } from '../shared/simple-types'
 import { loadTheme, migrateLegacyTheme } from '../shared/themes/registry'
 import { applyThemeCssVars } from '../shared/themes/adapter'
 import type { ConvertedTheme } from '../shared/themes/types'
+
+class ErrorBoundary extends React.Component<
+  { children: React.ReactNode; onReset: () => void },
+  { error: Error | null }
+> {
+  state: { error: Error | null } = { error: null }
+  static getDerivedStateFromError(error: Error): { error: Error } {
+    return { error }
+  }
+  render(): React.ReactNode {
+    if (this.state.error) {
+      return (
+        <div style={{ padding: 32, color: '#f88', fontFamily: 'monospace' }}>
+          <h2>Something went wrong</h2>
+          <pre style={{ whiteSpace: 'pre-wrap', fontSize: 12 }}>{this.state.error.message}</pre>
+          <pre style={{ whiteSpace: 'pre-wrap', fontSize: 10, opacity: 0.7 }}>{this.state.error.stack}</pre>
+          <button
+            onClick={() => { this.setState({ error: null }); this.props.onReset() }}
+            style={{ marginTop: 16, padding: '8px 16px', cursor: 'pointer' }}
+          >
+            Back to Dashboard
+          </button>
+        </div>
+      )
+    }
+    return this.props.children
+  }
+}
 
 /** Apply theme CSS vars + alias the developer-view names to simple-mode names */
 function applySimpleThemeVars(theme: ConvertedTheme): void {
@@ -67,8 +95,23 @@ export function App(): React.JSX.Element {
     return () => { cancelled = true }
   }, [])
 
+  useEffect(() => {
+    const unsub = window.electronAPI.on('app:auto-open-app', (...args: unknown[]) => {
+      const app = args[0] as SimpleApp
+      if (app?.sessionId && app?.projectId) {
+        void window.electronAPI.invoke('simple:subscribe-chat', app.sessionId)
+        setView({ kind: 'app', app })
+      }
+    })
+    return unsub
+  }, [])
+
   if (view.kind === 'app') {
-    return <AppViewWrapper app={view.app} onBack={() => setView({ kind: 'dashboard' })} />
+    return (
+      <ErrorBoundary onReset={() => setView({ kind: 'dashboard' })}>
+        <AppViewWrapper app={view.app} onBack={() => setView({ kind: 'dashboard' })} />
+      </ErrorBoundary>
+    )
   }
 
   return (
@@ -94,6 +137,7 @@ export function App(): React.JSX.Element {
         const newApp: SimpleApp = {
           sessionId: session.id,
           projectId: project.id,
+          branchName: session.branchName ?? '',
           name,
           description,
           status: 'building',
@@ -107,7 +151,30 @@ export function App(): React.JSX.Element {
         setView({ kind: 'app', app: newApp })
         refreshApps()
       }}
-      onSelectApp={(app) => setView({ kind: 'app', app })}
+      onSelectApp={async (app) => {
+        try {
+          const needsDevServer = app.status === 'idle' || app.status === 'live' || app.status === 'error'
+          if (needsDevServer) {
+            const result = (await window.electronAPI.invoke(
+              'agent:start-dev-server',
+              app.projectId,
+              app.branchName,
+              app.description,
+            )) as { sessionId: string }
+            await window.electronAPI.invoke('simple:subscribe-chat', result.sessionId)
+            setView({
+              kind: 'app',
+              app: { ...app, sessionId: result.sessionId, status: 'building' },
+            })
+            refreshApps()
+          } else {
+            await window.electronAPI.invoke('simple:subscribe-chat', app.sessionId)
+            setView({ kind: 'app', app })
+          }
+        } catch (err) {
+          console.error('[onSelectApp] failed:', err)
+        }
+      }}
       onDeleteApp={(app) => deleteApp(app.sessionId, app.projectId)}
     />
   )

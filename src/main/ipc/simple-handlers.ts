@@ -27,6 +27,14 @@ export function registerSimpleHandlers(deps: IpcDependencies): void {
     return { stage: 'idle', message: 'Not deployed yet' }
   })
 
+  ipcMain.handle('simple:get-preview-url', (_event, sessionId: string) => {
+    return sessionManager.getDetectedUrl(sessionId)
+  })
+
+  ipcMain.handle('simple:get-agent-status', (_event, sessionId: string) => {
+    return sessionManager.getSessionStatus(sessionId)
+  })
+
   ipcMain.handle('simple:subscribe-chat', (event, sessionId: string) => {
     const senderWindow = BrowserWindow.fromWebContents(event.sender)
     // onMessage returns an unsubscriber; ChatAdapter.clearSession() removes

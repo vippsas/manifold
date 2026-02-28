@@ -165,6 +165,10 @@ function createWindow(): void {
     }
   })
 
+  mainWindow.webContents.on('render-process-gone', (_event, details) => {
+    debugLog(`[renderer] process gone: reason=${details.reason} exitCode=${details.exitCode}`)
+  })
+
   mainWindow.on('closed', () => {
     mainWindow = null
   })
@@ -342,15 +346,42 @@ ipcMain.on('theme:changed', (_event, payload: { type: string; background: string
 // ── Mode switching ───────────────────────────────────────────────────
 // Registered once at app level (not inside createWindow) to avoid duplicate
 // handler errors when macOS activate recreates the window.
-ipcMain.handle('app:switch-mode', async (_event, mode: 'developer' | 'simple', projectId?: string) => {
+ipcMain.handle('app:switch-mode', async (_event, mode: 'developer' | 'simple', projectId?: string, sessionId?: string) => {
   settingsStore.updateSettings({ uiMode: mode })
 
   let branchName: string | undefined
+  let simpleAppPayload: Record<string, unknown> | undefined
+
   if (mode === 'developer' && projectId) {
     const result = await sessionManager.killNonInteractiveSessions(projectId)
     branchName = result.branchName
     if (result.killedIds.length > 0) {
       debugLog(`[switch-mode] killed ${result.killedIds.length} non-interactive session(s), branch: ${branchName}`)
+    }
+  }
+
+  if (mode === 'simple' && projectId && sessionId) {
+    try {
+      const result = await sessionManager.killInteractiveSession(sessionId)
+      const { sessionId: newSessionId } = await sessionManager.startDevServerSession(
+        projectId,
+        result.branchName,
+        result.taskDescription
+      )
+      simpleAppPayload = {
+        sessionId: newSessionId,
+        projectId,
+        name: result.branchName.replace('manifold/', ''),
+        description: result.taskDescription ?? '',
+        status: 'building',
+        previewUrl: null,
+        liveUrl: null,
+        createdAt: Date.now(),
+        updatedAt: Date.now(),
+      }
+      debugLog(`[switch-mode] dev→simple: killed session ${sessionId}, new session ${newSessionId}`)
+    } catch (err) {
+      debugLog(`[switch-mode] dev→simple failed: ${err}`)
     }
   }
 
@@ -366,6 +397,12 @@ ipcMain.handle('app:switch-mode', async (_event, mode: 'developer' | 'simple', p
   if (mode === 'developer' && projectId) {
     mainWindow?.webContents.once('did-finish-load', () => {
       mainWindow?.webContents.send('app:auto-spawn', projectId, branchName)
+    })
+  }
+
+  if (mode === 'simple' && simpleAppPayload) {
+    mainWindow?.webContents.once('did-finish-load', () => {
+      mainWindow?.webContents.send('app:auto-open-app', simpleAppPayload)
     })
   }
 })
