@@ -6,10 +6,16 @@ export const container: CSSProperties = {
   margin: '0 auto',
 }
 
+export const header: CSSProperties = {
+  display: 'flex',
+  alignItems: 'center',
+  justifyContent: 'space-between',
+  marginBottom: 32,
+}
+
 export const title: CSSProperties = {
   fontSize: 28,
   fontWeight: 700,
-  marginBottom: 32,
 }
 
 export const grid: CSSProperties = {
@@ -65,6 +71,17 @@ export const techItem: CSSProperties = {
 
 export const techDot: CSSProperties = {
   opacity: 0.4,
+}
+
+export const devViewButton: CSSProperties = {
+  background: 'transparent',
+  color: 'var(--accent)',
+  border: '1px solid var(--accent)',
+  borderRadius: 'var(--radius)',
+  padding: '8px 16px',
+  fontSize: 13,
+  fontWeight: 600,
+  cursor: 'pointer',
 }
 
 // Create dialog (modal overlay)

@@ -176,6 +176,9 @@ export function App(): React.JSX.Element {
         }
       }}
       onDeleteApp={(app) => deleteApp(app.sessionId, app.projectId)}
+      onDevMode={() => {
+        window.electronAPI.invoke('app:switch-mode', 'developer')
+      }}
     />
   )
 }

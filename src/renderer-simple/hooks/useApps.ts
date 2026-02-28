@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useRef } from 'react'
 import type { SimpleApp } from '../../shared/simple-types'
 
 declare global {
@@ -72,6 +72,20 @@ export function useApps(): {
 
   useEffect(() => {
     refreshApps()
+  }, [refreshApps])
+
+  // Re-fetch app list whenever any agent's status changes so cards stay current.
+  // Debounced to avoid hammering IPC on rapid-fire status events.
+  const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  useEffect(() => {
+    const unsub = window.electronAPI.on('agent:status', () => {
+      if (timerRef.current) clearTimeout(timerRef.current)
+      timerRef.current = setTimeout(() => refreshApps(), 500)
+    })
+    return () => {
+      unsub()
+      if (timerRef.current) clearTimeout(timerRef.current)
+    }
   }, [refreshApps])
 
   const deleteApp = useCallback(async (sessionId: string, projectId: string) => {
