@@ -104,7 +104,7 @@ describe('SettingsStore', () => {
       mockExistsSync.mockReturnValue(false)
       const store = new SettingsStore()
       const settings = store.getSettings()
-      expect(settings.uiMode).toBe('developer')
+      expect(settings.uiMode).toBe('simple')
     })
   })
 
