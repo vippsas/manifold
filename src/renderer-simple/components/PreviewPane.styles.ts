@@ -9,12 +9,23 @@ export const container: CSSProperties = {
 export const emptyState: CSSProperties = {
   height: '100%',
   display: 'flex',
+  flexDirection: 'column',
   alignItems: 'center',
   justifyContent: 'center',
   color: 'var(--text-muted)',
   fontSize: 16,
   background: 'var(--surface)',
   borderRadius: 'var(--radius)',
+}
+
+export const spinner: CSSProperties = {
+  width: 24,
+  height: 24,
+  border: '3px solid var(--border)',
+  borderTop: '3px solid var(--accent)',
+  borderRadius: '50%',
+  animation: 'spin 0.8s linear infinite',
+  marginBottom: 12,
 }
 
 export const toolbar: CSSProperties = {
