@@ -14,6 +14,7 @@ export function useSyncCacheOnAgentChange(
   setExtraShells: React.Dispatch<React.SetStateAction<ExtraShell[]>>
 ): void {
   useEffect(() => {
+    if (!cacheRef.current) return
     const entry = cacheRef.current.get(agentKey)
     setExtraShells(entry?.shells ?? [])
   }, [agentKey, cacheRef, setExtraShells])
@@ -25,6 +26,7 @@ export function useKeepCacheInSync(
   cacheRef: ShellCacheRef
 ): void {
   useEffect(() => {
+    if (!cacheRef.current) return
     const entry = cacheRef.current.get(agentKey)
     if (entry) entry.shells = extraShells
   }, [extraShells, agentKey, cacheRef])
@@ -54,11 +56,14 @@ export function useRestoreTabsFromDisk(
 ): void {
   useEffect(() => {
     if (!worktreeCwd || persistKey === '__none__') return
+    if (!restoredRef.current || !cacheRef.current) return
     if (restoredRef.current.has(persistKey)) return
     const entry = cacheRef.current.get(agentKey)
     if (entry && entry.shells.length > 0) return
 
     restoredRef.current.add(persistKey)
+
+    const cache = cacheRef.current
 
     void (async () => {
       const saved = (await window.electronAPI.invoke('shell-tabs:get', persistKey)) as {
@@ -78,10 +83,10 @@ export function useRestoreTabsFromDisk(
       }
 
       if (shells.length > 0) {
-        const cacheEntry = cacheRef.current.get(agentKey) ?? { shells: [], counter: 3 }
+        const cacheEntry = cache.get(agentKey) ?? { shells: [], counter: 3 }
         cacheEntry.shells = shells
         cacheEntry.counter = saved.counter
-        cacheRef.current.set(agentKey, cacheEntry)
+        cache.set(agentKey, cacheEntry)
         setExtraShells(shells)
       }
     })()
@@ -97,6 +102,7 @@ export function usePersistOnChange(
   persistTabs: (shells: ExtraShell[], counter: number) => void
 ): void {
   useEffect(() => {
+    if (!restoredRef.current || !cacheRef.current) return
     if (!restoredRef.current.has(persistKey)) return
     const entry = cacheRef.current.get(agentKey)
     if (!entry) return
@@ -106,6 +112,7 @@ export function usePersistOnChange(
 
 export function useCleanupOnUnmount(cacheRef: ShellCacheRef): void {
   useEffect(() => {
+    if (!cacheRef.current) return
     const cache = cacheRef.current
     return () => {
       for (const entry of cache.values()) {

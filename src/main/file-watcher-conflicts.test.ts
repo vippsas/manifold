@@ -27,12 +27,12 @@ function createMockWindow() {
 
 describe('FileWatcher — conflict detection', () => {
   let watcher: FileWatcher
-  let mockGitStatus: ReturnType<typeof vi.fn>
+  let mockGitStatus: ReturnType<typeof vi.fn<(cwd: string) => Promise<string>>>
 
   beforeEach(() => {
     vi.clearAllMocks()
     vi.useFakeTimers()
-    mockGitStatus = vi.fn().mockResolvedValue('')
+    mockGitStatus = vi.fn<(cwd: string) => Promise<string>>().mockResolvedValue('')
     watcher = new FileWatcher(mockGitStatus)
   })
 
@@ -49,8 +49,8 @@ describe('FileWatcher — conflict detection', () => {
     watcher.watch('/repo/worktree', 'session-1')
     await vi.advanceTimersByTimeAsync(10)
 
-    const conflictCall = mockWindow.webContents.send.mock.calls.find(
-      (call) => call[0] === 'agent:conflicts',
+    const conflictCall = vi.mocked(mockWindow.webContents.send).mock.calls.find(
+      (call: unknown[]) => call[0] === 'agent:conflicts',
     )
     expect(conflictCall).toBeDefined()
     expect(conflictCall![1]).toEqual({
@@ -67,8 +67,8 @@ describe('FileWatcher — conflict detection', () => {
     watcher.watch('/repo/worktree', 'session-1')
     await vi.advanceTimersByTimeAsync(10)
 
-    const conflictCall = mockWindow.webContents.send.mock.calls.find(
-      (call) => call[0] === 'agent:conflicts',
+    const conflictCall = vi.mocked(mockWindow.webContents.send).mock.calls.find(
+      (call: unknown[]) => call[0] === 'agent:conflicts',
     )
     expect(conflictCall).toBeDefined()
     expect(conflictCall![1]).toEqual({
@@ -85,8 +85,8 @@ describe('FileWatcher — conflict detection', () => {
     watcher.watch('/repo/worktree', 'session-1')
     await vi.advanceTimersByTimeAsync(10)
 
-    const conflictCall = mockWindow.webContents.send.mock.calls.find(
-      (call) => call[0] === 'agent:conflicts',
+    const conflictCall = vi.mocked(mockWindow.webContents.send).mock.calls.find(
+      (call: unknown[]) => call[0] === 'agent:conflicts',
     )
     expect(conflictCall).toBeDefined()
     expect(conflictCall![1]).toEqual({
@@ -103,7 +103,7 @@ describe('FileWatcher — conflict detection', () => {
     watcher.watch('/repo/worktree', 'session-1')
     await vi.advanceTimersByTimeAsync(10)
 
-    const channels = mockWindow.webContents.send.mock.calls.map((call) => call[0])
+    const channels = vi.mocked(mockWindow.webContents.send).mock.calls.map((call: unknown[]) => call[0])
     expect(channels).toContain('files:changed')
     expect(channels).toContain('agent:conflicts')
   })
@@ -116,8 +116,8 @@ describe('FileWatcher — conflict detection', () => {
     watcher.watch('/repo/worktree', 'session-1')
     await vi.advanceTimersByTimeAsync(10)
 
-    const changesCall = mockWindow.webContents.send.mock.calls.find(
-      (call) => call[0] === 'files:changed',
+    const changesCall = vi.mocked(mockWindow.webContents.send).mock.calls.find(
+      (call: unknown[]) => call[0] === 'files:changed',
     )
     expect(changesCall![1].changes).toContainEqual({
       path: 'src/conflict.ts',
@@ -128,8 +128,8 @@ describe('FileWatcher — conflict detection', () => {
       type: 'modified',
     })
 
-    const conflictCall = mockWindow.webContents.send.mock.calls.find(
-      (call) => call[0] === 'agent:conflicts',
+    const conflictCall = vi.mocked(mockWindow.webContents.send).mock.calls.find(
+      (call: unknown[]) => call[0] === 'agent:conflicts',
     )
     expect(conflictCall![1].conflicts).toEqual(['src/conflict.ts'])
   })
@@ -146,8 +146,8 @@ describe('FileWatcher — conflict detection', () => {
     mockGitStatus.mockResolvedValue(' M src/file.ts\n')
     await vi.advanceTimersByTimeAsync(2000)
 
-    const conflictCalls = mockWindow.webContents.send.mock.calls.filter(
-      (call) => call[0] === 'agent:conflicts',
+    const conflictCalls = vi.mocked(mockWindow.webContents.send).mock.calls.filter(
+      (call: unknown[]) => call[0] === 'agent:conflicts',
     )
     // The second call should have empty conflicts
     const lastConflictCall = conflictCalls[conflictCalls.length - 1]
@@ -169,8 +169,8 @@ describe('FileWatcher — conflict detection', () => {
     watcher.watch('/repo/worktree', 'session-1')
     await vi.advanceTimersByTimeAsync(10)
 
-    const conflictCall = mockWindow.webContents.send.mock.calls.find(
-      (call) => call[0] === 'agent:conflicts',
+    const conflictCall = vi.mocked(mockWindow.webContents.send).mock.calls.find(
+      (call: unknown[]) => call[0] === 'agent:conflicts',
     )
     expect(conflictCall![1].conflicts).toEqual([
       'src/uu-file.ts',

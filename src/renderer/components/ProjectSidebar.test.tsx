@@ -42,6 +42,11 @@ function renderSidebar(overrides = {}) {
     onDeleteAgent: vi.fn(),
     onNewAgent: vi.fn(),
     onNewProject: vi.fn(),
+    fetchingProjectId: null,
+    lastFetchedProjectId: null,
+    fetchResult: null,
+    fetchError: null,
+    onFetchProject: vi.fn(),
     ...overrides,
   }
 

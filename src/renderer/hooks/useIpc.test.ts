@@ -109,7 +109,7 @@ describe('useIpcListener', () => {
     renderHook(() => useIpcListener('test:event', handler))
 
     // Get the callback registered with `on`
-    const registeredCallback = mockOn.mock.calls[0][1]
+    const registeredCallback = (mockOn.mock.calls[0] as unknown[])[1] as (...args: unknown[]) => void
     registeredCallback('payload-data')
 
     expect(handler).toHaveBeenCalledWith('payload-data')
@@ -127,7 +127,7 @@ describe('useIpcListener', () => {
     rerender({ handler: handler2 })
 
     // Fire the event
-    const registeredCallback = mockOn.mock.calls[0][1]
+    const registeredCallback = (mockOn.mock.calls[0] as unknown[])[1] as (...args: unknown[]) => void
     registeredCallback('data')
 
     // Should call handler2, not handler1
