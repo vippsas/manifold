@@ -77,8 +77,8 @@ export const popoverStyles: Record<string, React.CSSProperties> = {
     padding: '6px 20px',
     borderRadius: '4px',
     fontSize: '13px',
-    color: 'var(--accent-text)',
-    background: 'var(--accent)',
+    color: 'var(--btn-text)',
+    background: 'var(--btn-bg)',
     fontWeight: 500,
   },
 }
