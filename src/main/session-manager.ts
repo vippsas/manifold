@@ -15,18 +15,7 @@ import { generateBranchName } from './branch-namer'
 import type { ChatAdapter } from './chat-adapter'
 import { debugLog } from './debug-log'
 import type { BrowserWindow } from 'electron'
-
-interface InternalSession extends AgentSession {
-  ptyId: string
-  outputBuffer: string
-  taskDescription?: string
-  ollamaModel?: string
-  detectedUrl?: string
-  nonInteractive?: boolean
-  devServerPtyId?: string
-  /** Buffer for accumulating partial NDJSON lines from stream-json output */
-  streamJsonLineBuffer?: string
-}
+import type { InternalSession } from './session-types'
 
 
 export class SessionManager {
