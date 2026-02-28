@@ -40,6 +40,7 @@ const ALLOWED_LISTEN_CHANNELS = [
   'show-about',
   'show-settings',
   'settings:changed',
+  'app:auto-open-app',
 ] as const
 
 type InvokeChannel = (typeof ALLOWED_INVOKE_CHANNELS)[number]
