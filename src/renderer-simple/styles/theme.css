@@ -1,3 +1,5 @@
+/* Color variables are set dynamically by applySimpleThemeVars() on <html>.
+   Defaults below are used only until the theme loads asynchronously. */
 :root {
   --bg: #1a1a2e;
   --surface: #16213e;

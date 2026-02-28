@@ -1,4 +1,4 @@
-import React, { useState } from 'react'
+import React, { useState, useLayoutEffect } from 'react'
 import { Dashboard } from './components/Dashboard'
 import { NewAppForm } from './components/NewAppForm'
 import { AppView } from './components/AppView'
@@ -8,6 +8,21 @@ import { useChat } from './hooks/useChat'
 import { usePreview } from './hooks/usePreview'
 import { buildSimplePrompt } from '../shared/simple-prompts'
 import type { SimpleApp } from '../shared/simple-types'
+import { loadTheme, migrateLegacyTheme } from '../shared/themes/registry'
+import { applyThemeCssVars } from '../shared/themes/adapter'
+import type { ConvertedTheme } from '../shared/themes/types'
+
+/** Apply theme CSS vars + alias the developer-view names to simple-mode names */
+function applySimpleThemeVars(theme: ConvertedTheme): void {
+  const vars = theme.cssVars
+  applyThemeCssVars(vars)
+  // Simple-mode components use short aliases (--bg, --surface, --text)
+  // that differ from the theme system names (--bg-primary, --bg-secondary, --text-primary).
+  const root = document.documentElement
+  root.style.setProperty('--bg', vars['--bg-primary'])
+  root.style.setProperty('--surface', vars['--bg-secondary'])
+  root.style.setProperty('--text', vars['--text-primary'])
+}
 
 function AppViewWrapper({ app, onBack }: { app: SimpleApp; onBack: () => void }): React.JSX.Element {
   const { status: agentStatus, durationMs } = useAgentStatus(app.sessionId)
@@ -38,6 +53,22 @@ type View = { kind: 'dashboard' } | { kind: 'new-app' } | { kind: 'app'; app: Si
 export function App(): React.JSX.Element {
   const { apps, refreshApps } = useApps()
   const [view, setView] = useState<View>({ kind: 'dashboard' })
+
+  useLayoutEffect(() => {
+    let cancelled = false
+    void (async () => {
+      const settings = (await window.electronAPI.invoke('settings:get')) as { theme?: string }
+      if (cancelled) return
+      const themeId = migrateLegacyTheme(settings.theme ?? 'dracula')
+      const theme = loadTheme(themeId)
+      applySimpleThemeVars(theme)
+      window.electronAPI.send('theme:changed', {
+        type: theme.type,
+        background: theme.cssVars['--bg-primary'],
+      })
+    })()
+    return () => { cancelled = true }
+  }, [])
 
   if (view.kind === 'new-app') {
     return (
