@@ -39,6 +39,9 @@ export const description: CSSProperties = {
   color: 'var(--text-muted)',
   marginBottom: 16,
   lineHeight: 1.4,
+  overflow: 'hidden',
+  textOverflow: 'ellipsis',
+  whiteSpace: 'nowrap',
 }
 
 export const statusBadge = (status: string): CSSProperties => ({
