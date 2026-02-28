@@ -359,7 +359,7 @@ ipcMain.handle('app:switch-mode', async (_event, mode: 'developer' | 'simple', p
   if (mode === 'simple' && projectId && sessionId) {
     try {
       const result = await sessionManager.killInteractiveSession(sessionId)
-      const { sessionId: newSessionId } = sessionManager.startDevServerSession(
+      const { sessionId: newSessionId } = await sessionManager.startDevServerSession(
         projectId,
         result.branchName,
         result.taskDescription

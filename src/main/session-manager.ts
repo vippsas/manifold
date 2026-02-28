@@ -548,8 +548,11 @@ export class SessionManager {
     return { projectPath: project.path, branchName, taskDescription }
   }
 
-  startDevServerSession(projectId: string, branchName: string, taskDescription?: string): { sessionId: string } {
+  async startDevServerSession(projectId: string, branchName: string, taskDescription?: string): Promise<{ sessionId: string }> {
     const project = this.resolveProject(projectId)
+
+    // Ensure we're on the correct branch (the project may be on main after a mode switch)
+    await gitExec(['checkout', branchName], project.path)
 
     const session: InternalSession = {
       id: uuidv4(),
