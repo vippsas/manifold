@@ -42,9 +42,10 @@ interface Props {
   onStart: (name: string, description: string) => void
   onSelectApp: (app: SimpleApp) => void
   onDeleteApp: (app: SimpleApp) => Promise<void>
+  onDevMode: () => void
 }
 
-export function Dashboard({ apps, onStart, onSelectApp, onDeleteApp }: Props): React.JSX.Element {
+export function Dashboard({ apps, onStart, onSelectApp, onDeleteApp, onDevMode }: Props): React.JSX.Element {
   const [showCreate, setShowCreate] = useState(false)
   const [name, setName] = useState('')
   const [description, setDescription] = useState('')
@@ -52,6 +53,7 @@ export function Dashboard({ apps, onStart, onSelectApp, onDeleteApp }: Props): R
   const [appToDelete, setAppToDelete] = useState<SimpleApp | null>(null)
 
   const canSubmit = name.trim().length > 0 && description.trim().length > 0 && !loading
+  const hasActiveApp = apps.some((a) => a.status === 'scaffolding' || a.status === 'building' || a.status === 'deploying')
 
   const handleStart = (): void => {
     if (!canSubmit) return
@@ -68,7 +70,17 @@ export function Dashboard({ apps, onStart, onSelectApp, onDeleteApp }: Props): R
 
   return (
     <div style={styles.container}>
-      <div style={styles.title}>My Apps</div>
+      <div style={styles.header}>
+        <div style={styles.title}>My Apps</div>
+        <button
+          style={{ ...styles.devViewButton, opacity: hasActiveApp ? 0.4 : 1, cursor: hasActiveApp ? 'not-allowed' : 'pointer' }}
+          onClick={hasActiveApp ? undefined : onDevMode}
+          disabled={hasActiveApp}
+          title={hasActiveApp ? 'Unavailable while an app is building' : 'Switch to full developer mode'}
+        >
+          Developer View
+        </button>
+      </div>
 
       <div style={styles.grid}>
         {/* New App card — always first */}
