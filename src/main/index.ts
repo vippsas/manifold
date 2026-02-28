@@ -111,8 +111,8 @@ function createWindow(): void {
   nativeTheme.themeSource = resolveThemeType(theme)
 
   mainWindow = new BrowserWindow({
-    width: simple ? 1100 : 1400,
-    height: simple ? 800 : 900,
+    width: 1400,
+    height: 900,
     minWidth: 800,
     minHeight: 600,
     title: simple ? 'Manible' : 'Manifold',
