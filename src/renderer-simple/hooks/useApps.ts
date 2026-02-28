@@ -49,6 +49,7 @@ export function useApps(): {
       const simpleApps: SimpleApp[] = simpleSessions.map((s) => ({
         sessionId: s.id,
         projectId: s.projectId,
+        branchName: s.branchName,
         name: projectMap.get(s.projectId)?.name ?? s.branchName.replace('manifold/', ''),
         description: s.taskDescription ?? '',
         status:
