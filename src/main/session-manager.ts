@@ -8,7 +8,7 @@ import { ProjectRegistry } from './project-registry'
 import { detectStatus } from './status-detector'
 import { detectAddDir } from './add-dir-detector'
 import { detectUrl } from './url-detector'
-import { writeWorktreeMeta, readWorktreeMeta } from './worktree-meta'
+import { writeWorktreeMeta, readWorktreeMeta, removeWorktreeMeta } from './worktree-meta'
 import { FileWatcher } from './file-watcher'
 import { gitExec } from './git-exec'
 import { generateBranchName } from './branch-namer'
@@ -556,6 +556,18 @@ export class SessionManager {
       }
     } catch (err) {
       debugLog(`[session] auto-commit failed: ${err}`)
+    }
+
+    // Remove the worktree but keep the branch alive — the dev server session
+    // that follows will check out this branch in the project directory.
+    if (!session.noWorktree) {
+      try {
+        await gitExec(['worktree', 'remove', worktreePath, '--force'], this.projectRegistry.getProject(projectId)?.path ?? '')
+        await removeWorktreeMeta(worktreePath)
+      } catch {
+        // Best-effort cleanup
+      }
+      session.noWorktree = true
     }
 
     await this.killSession(sessionId)
