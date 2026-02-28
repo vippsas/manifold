@@ -18,6 +18,7 @@ export interface SimpleApp {
   status: AppStatus
   previewUrl: string | null
   liveUrl: string | null
+  projectPath: string
   createdAt: number
   updatedAt: number
 }
