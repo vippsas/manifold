@@ -9,6 +9,7 @@ const ALLOWED_INVOKE_CHANNELS = [
   'agent:spawn',
   'agent:kill',
   'agent:delete-app',
+  'agent:start-dev-server',
   'agent:input',
   'agent:resize',
   'agent:sessions',
