@@ -1,32 +1,84 @@
-import React, { useState, useRef, useEffect } from 'react'
+import React, { useState, useRef, useEffect, useCallback } from 'react'
 import type { ChatMessage as ChatMessageType } from '../../shared/simple-types'
 import { ChatMessage } from './ChatMessage'
 import * as styles from './ChatPane.styles'
 
-function TypingIndicator(): React.JSX.Element {
+const THINKING_PHRASES = [
+  'Thinking',
+  'Pondering',
+  'Reasoning',
+  'Connecting dots',
+  'Weaving ideas',
+  'Exploring paths',
+  'Working through it',
+  'Diving deep',
+  'Piecing it together',
+  'Mulling it over',
+  'Crafting a response',
+  'Mapping it out',
+  'Almost there',
+  'On it',
+]
+
+function pickRandom(phrases: string[], exclude: string): string {
+  const filtered = phrases.filter((p) => p !== exclude)
+  return filtered[Math.floor(Math.random() * filtered.length)]
+}
+
+function ThinkingIndicator(): React.JSX.Element {
+  const [phrase, setPhrase] = useState(() =>
+    THINKING_PHRASES[Math.floor(Math.random() * THINKING_PHRASES.length)]
+  )
+  const [visible, setVisible] = useState(true)
+
+  const rotate = useCallback(() => {
+    setVisible(false)
+    setTimeout(() => {
+      setPhrase((prev) => pickRandom(THINKING_PHRASES, prev))
+      setVisible(true)
+    }, 400)
+  }, [])
+
+  useEffect(() => {
+    const id = setInterval(rotate, 3000)
+    return () => clearInterval(id)
+  }, [rotate])
+
   return (
     <div style={{ display: 'flex', justifyContent: 'flex-start', marginBottom: 12 }}>
       <div style={{
         display: 'flex',
         alignItems: 'center',
-        gap: 4,
-        padding: '12px 18px',
-        borderRadius: 16,
-        background: 'var(--surface)',
-        border: '1px solid var(--border)',
+        gap: 8,
+        padding: '4px 0',
       }}>
         {[0, 1, 2].map((i) => (
           <span
             key={i}
             style={{
-              width: 7,
-              height: 7,
+              width: 5,
+              height: 5,
               borderRadius: '50%',
-              background: 'var(--text-muted)',
+              background: 'var(--accent)',
               animation: `typing-dot 1.4s ease-in-out ${i * 0.2}s infinite`,
             }}
           />
         ))}
+        <span
+          style={{
+            fontSize: 14,
+            fontWeight: 500,
+            background: 'linear-gradient(90deg, var(--text-muted) 0%, var(--accent-hover) 50%, var(--text-muted) 100%)',
+            backgroundSize: '200% auto',
+            WebkitBackgroundClip: 'text',
+            WebkitTextFillColor: 'transparent',
+            animation: 'shimmer 2s linear infinite',
+            opacity: visible ? 1 : 0,
+            transition: 'opacity 0.4s ease',
+          }}
+        >
+          {phrase}...
+        </span>
       </div>
     </div>
   )
@@ -85,7 +137,7 @@ export function ChatPane({ messages, onSend, isThinking, durationMs }: Props): R
         {messages.map((msg) => (
           <ChatMessage key={msg.id} message={msg} />
         ))}
-        {isThinking && <TypingIndicator />}
+        {isThinking && <ThinkingIndicator />}
         {!isThinking && durationMs != null && durationMs > 0 && <DurationBadge durationMs={durationMs} />}
         <div ref={messagesEndRef} />
       </div>
