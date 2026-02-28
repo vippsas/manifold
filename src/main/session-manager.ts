@@ -565,6 +565,21 @@ export class SessionManager {
   async startDevServerSession(projectId: string, branchName: string, taskDescription?: string): Promise<{ sessionId: string }> {
     const project = this.resolveProject(projectId)
 
+    // Clean up any existing sessions for this project so we don't accumulate
+    // duplicate app cards every time the user opens the same app.
+    for (const existing of Array.from(this.sessions.values())) {
+      if (existing.projectId === projectId) {
+        if (existing.ptyId) {
+          try { this.ptyPool.kill(existing.ptyId) } catch { /* already exited */ }
+        }
+        if (existing.devServerPtyId) {
+          try { this.ptyPool.kill(existing.devServerPtyId) } catch { /* already exited */ }
+        }
+        this.chatAdapter?.clearSession(existing.id)
+        this.sessions.delete(existing.id)
+      }
+    }
+
     // Ensure we're on the correct branch (the project may be on main after a mode switch)
     const currentBranch = (await gitExec(['branch', '--show-current'], project.path)).trim()
     if (currentBranch !== branchName) {
