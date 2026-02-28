@@ -33,6 +33,7 @@ export function AppView({
     <div style={styles.container}>
       <StatusBanner
         status={status}
+        isAgentWorking={isAgentWorking}
         onBack={onBack}
         onDeploy={onDeploy}
         onDevMode={onDevMode}
