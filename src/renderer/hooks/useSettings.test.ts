@@ -152,9 +152,9 @@ describe('useSettings', () => {
       })
 
       // Simulate the settings:changed event
-      const registeredCallback = mockOn.mock.calls.find(
+      const registeredCallback = (mockOn.mock.calls as unknown[][]).find(
         (call) => call[0] === 'settings:changed',
-      )![1]
+      )![1] as (...args: unknown[]) => void
 
       act(() => {
         registeredCallback({ ...DEFAULT_SETTINGS, scrollbackLines: 9999 })

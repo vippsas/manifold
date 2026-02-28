@@ -256,8 +256,8 @@ describe('SessionManager', () => {
       expect(session).toBeDefined()
       expect(session!.id).toBe('session-uuid-1')
       // Should not expose internal fields
-      expect((session as Record<string, unknown>)['ptyId']).toBeUndefined()
-      expect((session as Record<string, unknown>)['outputBuffer']).toBeUndefined()
+      expect((session as unknown as Record<string, unknown>)['ptyId']).toBeUndefined()
+      expect((session as unknown as Record<string, unknown>)['outputBuffer']).toBeUndefined()
     })
 
     it('returns undefined for unknown session', () => {

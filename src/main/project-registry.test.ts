@@ -1,6 +1,7 @@
 // @vitest-environment node
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { EventEmitter } from 'node:events'
+import type { ChildProcess } from 'node:child_process'
 
 vi.mock('node:fs', () => ({
   existsSync: vi.fn(),
@@ -47,18 +48,18 @@ const mockSpawn = vi.mocked(spawn)
  * `exitCode` defaults to 0 (success).
  */
 function fakeSpawn(stdout: string, exitCode = 0) {
-  const child = new EventEmitter() as any
-  child.stdout = new EventEmitter()
-  child.stderr = new EventEmitter()
-  child.stdio = ['ignore', child.stdout, child.stderr]
+  const emitter = new EventEmitter()
+  const stdoutEmitter = new EventEmitter()
+  const stderrEmitter = new EventEmitter()
+  Object.assign(emitter, { stdout: stdoutEmitter, stderr: stderrEmitter })
 
   // Emit data and close on next tick so the promise in gitExec can attach listeners first
   process.nextTick(() => {
-    child.stdout.emit('data', Buffer.from(stdout))
-    child.emit('close', exitCode)
+    stdoutEmitter.emit('data', Buffer.from(stdout))
+    emitter.emit('close', exitCode)
   })
 
-  return child
+  return emitter as unknown as ChildProcess
 }
 
 /**
@@ -76,7 +77,7 @@ function setupGitMock(calls: Array<{ stdout: string; exitCode?: number }>) {
 describe('ProjectRegistry', () => {
   beforeEach(() => {
     vi.clearAllMocks()
-    mockUuidv4.mockReturnValue('test-uuid-1' as ReturnType<typeof uuidv4>)
+    mockUuidv4.mockReturnValue('test-uuid-1' as unknown as ReturnType<typeof uuidv4>)
   })
 
   describe('constructor / loadFromDisk', () => {
@@ -178,14 +179,12 @@ describe('ProjectRegistry', () => {
     it('falls back to main when spawn emits error', async () => {
       mockExistsSync.mockReturnValue(false)
       mockSpawn.mockImplementation(() => {
-        const child = new EventEmitter() as any
-        child.stdout = new EventEmitter()
-        child.stderr = new EventEmitter()
-        child.stdio = ['ignore', child.stdout, child.stderr]
+        const emitter = new EventEmitter()
+        Object.assign(emitter, { stdout: new EventEmitter(), stderr: new EventEmitter() })
         process.nextTick(() => {
-          child.emit('error', new Error('spawn ENOENT'))
+          emitter.emit('error', new Error('spawn ENOENT'))
         })
-        return child
+        return emitter as unknown as ChildProcess
       })
 
       const registry = new ProjectRegistry()
@@ -197,7 +196,7 @@ describe('ProjectRegistry', () => {
       mockExistsSync.mockReturnValue(false)
       // git branch -a --format=... returns 'main'
       setupGitMock([{ stdout: 'main\n' }])
-      mockUuidv4.mockReturnValueOnce('id-1' as ReturnType<typeof uuidv4>)
+      mockUuidv4.mockReturnValueOnce('id-1' as unknown as ReturnType<typeof uuidv4>)
 
       const registry = new ProjectRegistry()
       const first = await registry.addProject('/my-project')

@@ -36,12 +36,12 @@ function createMockWindow() {
 
 describe('FileWatcher', () => {
   let watcher: FileWatcher
-  let mockGitStatus: ReturnType<typeof vi.fn>
+  let mockGitStatus: ReturnType<typeof vi.fn<(cwd: string) => Promise<string>>>
 
   beforeEach(() => {
     vi.clearAllMocks()
     vi.useFakeTimers()
-    mockGitStatus = vi.fn().mockResolvedValue('')
+    mockGitStatus = vi.fn<(cwd: string) => Promise<string>>().mockResolvedValue('')
     watcher = new FileWatcher(mockGitStatus)
   })
 
@@ -107,7 +107,7 @@ describe('FileWatcher', () => {
       watcher.watch('/repo/worktree', 'session-1')
       await vi.advanceTimersByTimeAsync(10) // initial poll sends change
 
-      mockWindow.webContents.send.mockClear()
+      vi.mocked(mockWindow.webContents.send).mockClear()
 
       // Same status on next poll
       await vi.advanceTimersByTimeAsync(2000)
@@ -142,7 +142,7 @@ describe('FileWatcher', () => {
       watcher.watch('/repo/worktree', 'session-1')
       await vi.advanceTimersByTimeAsync(10)
 
-      const call = mockWindow.webContents.send.mock.calls[0]
+      const call = vi.mocked(mockWindow.webContents.send).mock.calls[0] as unknown[]
       const { changes } = call[1] as { changes: Array<{ path: string; type: string }> }
       expect(changes).toContainEqual({ path: 'new.ts', type: 'added' })
       expect(changes).toContainEqual({ path: 'old.ts', type: 'deleted' })
@@ -251,8 +251,8 @@ describe('FileWatcher', () => {
         .mockReturnValueOnce([
           { name: 'file.ts', isDirectory: () => false },
           { name: 'src', isDirectory: () => true },
-        ] as unknown as fs.Dirent[])
-        .mockReturnValueOnce([] as unknown as fs.Dirent[])
+        ] as unknown as ReturnType<typeof fs.readdirSync>)
+        .mockReturnValueOnce([] as unknown as ReturnType<typeof fs.readdirSync>)
 
       const tree = watcher.getFileTree('/repo/worktree')
 
@@ -272,7 +272,7 @@ describe('FileWatcher', () => {
         { name: 'node_modules', isDirectory: () => true },
         { name: '.env', isDirectory: () => false },
         { name: 'index.ts', isDirectory: () => false },
-      ] as unknown as fs.Dirent[])
+      ] as unknown as ReturnType<typeof fs.readdirSync>)
 
       const tree = watcher.getFileTree('/repo/worktree')
       const childNames = tree.children?.map((c) => c.name) ?? []
