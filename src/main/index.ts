@@ -1,4 +1,4 @@
-import { app, BrowserWindow, Menu, nativeTheme, shell } from 'electron'
+import { app, BrowserWindow } from 'electron'
 import { join } from 'node:path'
 import { execFileSync } from 'node:child_process'
 import { homedir } from 'node:os'
@@ -68,10 +68,9 @@ import { BranchCheckoutManager } from './branch-checkout-manager'
 import { DockLayoutStore } from './dock-layout-store'
 import { ChatAdapter } from './chat-adapter'
 import { DeploymentManager } from './deployment-manager'
-import { registerIpcHandlers } from './ipc-handlers'
-import { buildAppMenu } from './app-menu'
 import { setupAutoUpdater } from './auto-updater'
 import { ModeSwitcher } from './mode-switcher'
+import { createWindow } from './window-factory'
 
 let mainWindow: BrowserWindow | null = null
 
@@ -93,145 +92,52 @@ const chatAdapter = new ChatAdapter()
 const deploymentManager = new DeploymentManager()
 sessionManager.setChatAdapter(chatAdapter)
 
+const ipcDeps = {
+  settingsStore,
+  projectRegistry,
+  sessionManager,
+  fileWatcher,
+  diffProvider,
+  prCreator,
+  viewStateStore,
+  shellTabStore,
+  gitOps,
+  branchCheckout,
+  dockLayoutStore,
+  chatAdapter,
+  deploymentManager,
+}
+
+function doCreateWindow(): void {
+  const win = createWindow({
+    getSettings: () => settingsStore.getSettings(),
+    wireMainWindow: (w) => {
+      sessionManager.setMainWindow(w)
+      fileWatcher.setMainWindow(w)
+    },
+    ipcDeps,
+  })
+  mainWindow = win
+  win.on('closed', () => { mainWindow = null })
+}
+
 const modeSwitcher = new ModeSwitcher({ settingsStore, sessionManager })
 modeSwitcher.register(
-  createWindow,
+  doCreateWindow,
   () => mainWindow,
   (win) => { mainWindow = win }
 )
 
-// Resolve background color for the stored theme setting.
-// The renderer sends the actual background after loading the theme adapter,
-// but we need a reasonable initial value before the renderer is ready.
-function resolveInitialBackground(theme: string): string {
-  if (theme === 'light' || theme === 'vs') return '#ffffff'
-  return '#282a36' // Dracula-ish default for dark themes
-}
-
-function resolveThemeType(theme: string): 'dark' | 'light' {
-  if (theme === 'light' || theme === 'vs') return 'light'
-  return 'dark'
-}
-
-function createWindow(): void {
-  const settings = settingsStore.getSettings()
-  const theme = settings.theme ?? 'dracula'
-  const simple = settings.uiMode === 'simple'
-  nativeTheme.themeSource = resolveThemeType(theme)
-
-  mainWindow = new BrowserWindow({
-    width: 1400,
-    height: 900,
-    minWidth: 800,
-    minHeight: 600,
-    title: simple ? 'Manible' : 'Manifold',
-    backgroundColor: resolveInitialBackground(theme),
-    webPreferences: {
-      preload: join(__dirname, simple ? '../preload/simple.js' : '../preload/index.js'),
-      contextIsolation: true,
-      nodeIntegration: false,
-      webviewTag: true,
-      sandbox: false
-    }
-  })
-
-  // Validate webview creation: strip preload, force isolation, restrict to localhost.
-  mainWindow.webContents.on('will-attach-webview', (_event, webPreferences, params) => {
-    delete webPreferences.preload
-    webPreferences.nodeIntegration = false
-    webPreferences.contextIsolation = true
-
-    const url = params.src || ''
-    const isLocalhost = /^https?:\/\/(localhost|127\.0\.0\.1|0\.0\.0\.0)(:\d+)?/.test(url)
-    if (!isLocalhost) {
-      _event.preventDefault()
-    }
-  })
-
-  // Suppress ERR_ABORTED (-3) from webview when dev server restarts or shuts down.
-  mainWindow.webContents.on('did-attach-webview', (_event, webContents) => {
-    webContents.on('did-fail-load', (failEvent, errorCode) => {
-      if (errorCode === -3) {
-        failEvent.preventDefault()
-      }
-    })
-  })
-
-  wireModules(mainWindow)
-  loadRenderer(mainWindow, simple)
-
-  // Open external links in the user's default browser instead of inside the app.
-  mainWindow.webContents.setWindowOpenHandler(({ url }) => {
-    if (url.startsWith('http:') || url.startsWith('https:')) {
-      shell.openExternal(url)
-    }
-    return { action: 'deny' }
-  })
-  mainWindow.webContents.on('will-navigate', (event, url) => {
-    if (url.startsWith('http:') || url.startsWith('https:')) {
-      event.preventDefault()
-      shell.openExternal(url)
-    }
-  })
-
-  mainWindow.webContents.on('render-process-gone', (_event, details) => {
-    debugLog(`[renderer] process gone: reason=${details.reason} exitCode=${details.exitCode}`)
-  })
-
-  mainWindow.on('closed', () => {
-    mainWindow = null
-  })
-
-  Menu.setApplicationMenu(buildAppMenu(mainWindow))
-}
-
-let ipcHandlersRegistered = false
-
-function wireModules(window: BrowserWindow): void {
-  sessionManager.setMainWindow(window)
-  fileWatcher.setMainWindow(window)
-
-  if (!ipcHandlersRegistered) {
-    registerIpcHandlers({
-      settingsStore,
-      projectRegistry,
-      sessionManager,
-      fileWatcher,
-      diffProvider,
-      prCreator,
-      viewStateStore,
-      shellTabStore,
-      gitOps,
-      branchCheckout,
-      dockLayoutStore,
-      chatAdapter,
-      deploymentManager,
-    })
-    ipcHandlersRegistered = true
-  }
-}
-
-function loadRenderer(window: BrowserWindow, simple: boolean): void {
-  if (process.env.ELECTRON_RENDERER_URL) {
-    const base = process.env.ELECTRON_RENDERER_URL
-    const page = simple ? '/renderer-simple/index.html' : '/renderer/index.html'
-    window.loadURL(base + page)
-  } else {
-    const page = simple ? '../renderer-simple/index.html' : '../renderer/index.html'
-    window.loadFile(join(__dirname, page))
-  }
-}
-
 // ── App lifecycle ────────────────────────────────────────────────────
 app.whenReady().then(() => {
-  createWindow()
+  doCreateWindow()
   if (mainWindow) {
     setupAutoUpdater(mainWindow)
   }
 
   app.on('activate', () => {
     if (BrowserWindow.getAllWindows().length === 0) {
-      createWindow()
+      doCreateWindow()
     }
   })
 })
