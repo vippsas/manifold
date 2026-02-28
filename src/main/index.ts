@@ -1,4 +1,4 @@
-import { app, BrowserWindow, ipcMain, Menu, nativeTheme, shell } from 'electron'
+import { app, BrowserWindow, Menu, nativeTheme, shell } from 'electron'
 import { join } from 'node:path'
 import { execFileSync } from 'node:child_process'
 import { homedir } from 'node:os'
@@ -71,6 +71,7 @@ import { DeploymentManager } from './deployment-manager'
 import { registerIpcHandlers } from './ipc-handlers'
 import { buildAppMenu } from './app-menu'
 import { setupAutoUpdater } from './auto-updater'
+import { ModeSwitcher } from './mode-switcher'
 
 let mainWindow: BrowserWindow | null = null
 
@@ -91,6 +92,13 @@ const dockLayoutStore = new DockLayoutStore()
 const chatAdapter = new ChatAdapter()
 const deploymentManager = new DeploymentManager()
 sessionManager.setChatAdapter(chatAdapter)
+
+const modeSwitcher = new ModeSwitcher({ settingsStore, sessionManager })
+modeSwitcher.register(
+  createWindow,
+  () => mainWindow,
+  (win) => { mainWindow = win }
+)
 
 // Resolve background color for the stored theme setting.
 // The renderer sends the actual background after loading the theme adapter,
@@ -213,82 +221,6 @@ function loadRenderer(window: BrowserWindow, simple: boolean): void {
     window.loadFile(join(__dirname, page))
   }
 }
-
-// ── Theme ────────────────────────────────────────────────────────────
-// Registered once at module level (not inside createWindow) to avoid
-// accumulating duplicate listeners on each mode switch.
-ipcMain.on('theme:changed', (_event, payload: { type: string; background: string }) => {
-  nativeTheme.themeSource = (payload.type === 'light' ? 'light' : 'dark') as 'dark' | 'light'
-  if (mainWindow) {
-    mainWindow.setBackgroundColor(payload.background)
-  }
-})
-
-// ── Mode switching ───────────────────────────────────────────────────
-// Registered once at app level (not inside createWindow) to avoid duplicate
-// handler errors when macOS activate recreates the window.
-ipcMain.handle('app:switch-mode', async (_event, mode: 'developer' | 'simple', projectId?: string, sessionId?: string) => {
-  settingsStore.updateSettings({ uiMode: mode })
-
-  let branchName: string | undefined
-  let simpleAppPayload: Record<string, unknown> | undefined
-
-  if (mode === 'developer' && projectId) {
-    const result = await sessionManager.killNonInteractiveSessions(projectId)
-    branchName = result.branchName
-    if (result.killedIds.length > 0) {
-      debugLog(`[switch-mode] killed ${result.killedIds.length} non-interactive session(s), branch: ${branchName}`)
-    }
-  }
-
-  if (mode === 'simple' && projectId && sessionId) {
-    try {
-      const result = await sessionManager.killInteractiveSession(sessionId)
-      const { sessionId: newSessionId } = await sessionManager.startDevServerSession(
-        projectId,
-        result.branchName,
-        result.taskDescription
-      )
-      simpleAppPayload = {
-        sessionId: newSessionId,
-        projectId,
-        name: result.branchName.replace('manifold/', ''),
-        description: result.taskDescription ?? '',
-        status: 'building',
-        previewUrl: null,
-        liveUrl: null,
-        createdAt: Date.now(),
-        updatedAt: Date.now(),
-      }
-      debugLog(`[switch-mode] dev→simple: killed session ${sessionId}, new session ${newSessionId}`)
-    } catch (err) {
-      debugLog(`[switch-mode] dev→simple failed: ${err}`)
-    }
-  }
-
-  if (mainWindow) {
-    // destroy() synchronously tears down the old window so it doesn't linger
-    // behind the new one. close() is async on macOS and leaves the old
-    // renderer visible in the background.
-    mainWindow.destroy()
-    mainWindow = null
-  }
-  createWindow()
-
-  // mainWindow is reassigned inside createWindow() but TS can't track the side effect.
-  const newWindow = mainWindow as BrowserWindow | null
-  if (mode === 'developer' && projectId && newWindow) {
-    newWindow.webContents.once('did-finish-load', () => {
-      newWindow.webContents.send('app:auto-spawn', projectId, branchName)
-    })
-  }
-
-  if (mode === 'simple' && simpleAppPayload && newWindow) {
-    newWindow.webContents.once('did-finish-load', () => {
-      newWindow.webContents.send('app:auto-open-app', simpleAppPayload)
-    })
-  }
-})
 
 // ── App lifecycle ────────────────────────────────────────────────────
 app.whenReady().then(() => {
