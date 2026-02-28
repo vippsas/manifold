@@ -509,6 +509,71 @@ export class SessionManager {
     return { killedIds, branchName }
   }
 
+  async killInteractiveSession(sessionId: string): Promise<{ projectPath: string; branchName: string; taskDescription?: string }> {
+    const session = this.sessions.get(sessionId)
+    if (!session) throw new Error(`Session not found: ${sessionId}`)
+
+    const branchName = session.branchName
+    const taskDescription = session.taskDescription
+    const worktreePath = session.worktreePath
+    const projectId = session.projectId
+
+    // Stop running processes so file system is stable before committing
+    if (session.ptyId) {
+      try { this.ptyPool.kill(session.ptyId) } catch { /* already exited */ }
+      session.ptyId = ''
+    }
+    if (session.devServerPtyId) {
+      try { this.ptyPool.kill(session.devServerPtyId) } catch { /* already exited */ }
+      session.devServerPtyId = undefined
+    }
+
+    // Commit any uncommitted work so it survives the mode switch
+    try {
+      const status = await gitExec(['status', '--porcelain'], worktreePath)
+      if (status.trim().length > 0) {
+        await gitExec(['add', '-A'], worktreePath)
+        await gitExec(['commit', '-m', 'Auto-commit: work from developer mode'], worktreePath)
+        debugLog(`[session] auto-committed changes on branch ${branchName}`)
+      }
+    } catch (err) {
+      debugLog(`[session] auto-commit failed: ${err}`)
+    }
+
+    await this.killSession(sessionId)
+
+    const project = this.projectRegistry.getProject(projectId)
+    if (!project) throw new Error(`Project not found: ${projectId}`)
+
+    return { projectPath: project.path, branchName, taskDescription }
+  }
+
+  startDevServerSession(projectId: string, branchName: string, taskDescription?: string): { sessionId: string } {
+    const project = this.resolveProject(projectId)
+
+    const session: InternalSession = {
+      id: uuidv4(),
+      projectId,
+      runtimeId: 'claude',
+      branchName,
+      worktreePath: project.path,
+      status: 'running',
+      pid: null,
+      ptyId: '',
+      outputBuffer: '',
+      taskDescription,
+      additionalDirs: [],
+      noWorktree: true,
+      nonInteractive: true,
+    }
+
+    this.sessions.set(session.id, session)
+    this.chatAdapter?.addSystemMessage(session.id, 'Your app is running. Send a message to make changes.')
+    this.startDevServer(session)
+
+    return { sessionId: session.id }
+  }
+
   killAllSessions(): void {
     for (const session of this.sessions.values()) {
       try { this.ptyPool.kill(session.ptyId) } catch { /* best effort */ }
