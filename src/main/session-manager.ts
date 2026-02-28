@@ -361,6 +361,10 @@ export class SessionManager {
     return session ? this.toPublicSession(session) : undefined
   }
 
+  getDetectedUrl(sessionId: string): string | null {
+    return this.sessions.get(sessionId)?.detectedUrl ?? null
+  }
+
   listSessions(): AgentSession[] {
     return Array.from(this.sessions.values()).map((s) => this.toPublicSession(s))
   }

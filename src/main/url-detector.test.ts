@@ -39,4 +39,14 @@ describe('detectUrl', () => {
   it('ignores port 9229 (Node debugger)', () => {
     expect(detectUrl('Debugger listening on ws://127.0.0.1:9229')).toBeNull()
   })
+
+  it('strips trailing markdown bold markers from URL', () => {
+    const result = detectUrl('Your app is running at **http://localhost:5182/**')
+    expect(result).toEqual({ url: 'http://localhost:5182/', port: 5182 })
+  })
+
+  it('strips trailing parentheses and brackets from URL', () => {
+    const result = detectUrl('See [http://localhost:3000/path]')
+    expect(result).toEqual({ url: 'http://localhost:3000/path', port: 3000 })
+  })
 })
