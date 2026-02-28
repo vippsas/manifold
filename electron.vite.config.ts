@@ -7,7 +7,7 @@ export default defineConfig({
     build: {
       outDir: 'out/main',
       rollupOptions: {
-        input: resolve(__dirname, 'src/main/index.ts')
+        input: resolve(__dirname, 'src/main/app/index.ts')
       }
     }
   },

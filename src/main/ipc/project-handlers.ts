@@ -5,7 +5,7 @@ import path from 'node:path'
 import os from 'node:os'
 import { existsSync, mkdirSync, writeFileSync, rmSync } from 'node:fs'
 import type { IpcDependencies } from './types'
-import { getRuntimeById } from '../runtimes'
+import { getRuntimeById } from '../agent/runtimes'
 
 const execFileAsync = promisify(execFile)
 
