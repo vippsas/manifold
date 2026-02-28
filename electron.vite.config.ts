@@ -27,6 +27,7 @@ export default defineConfig({
     root: resolve(__dirname, 'src'),
     build: {
       outDir: 'out',
+      emptyOutDir: false,
       rollupOptions: {
         input: {
           index: resolve(__dirname, 'src/renderer/index.html'),
