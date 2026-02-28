@@ -224,7 +224,7 @@ function SettingsBody({
           style={modalStyles.select}
         >
           <option value="developer">Developer (Manifold)</option>
-          <option value="simple">Simple (Manible)</option>
+          <option value="simple">Simple</option>
         </select>
       </label>
     </div>
