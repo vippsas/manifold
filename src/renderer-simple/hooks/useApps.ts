@@ -23,7 +23,7 @@ export function useApps(): {
   const refreshApps = useCallback(async () => {
     setLoading(true)
     try {
-      const [sessions, projects] = await Promise.all([
+      const [sessions, projects, settings] = await Promise.all([
         window.electronAPI.invoke('agent:sessions') as Promise<Array<{
           id: string
           projectId: string
@@ -36,9 +36,17 @@ export function useApps(): {
           name: string
           path: string
         }>>,
+        window.electronAPI.invoke('settings:get') as Promise<{ storagePath: string }>,
       ])
       const projectMap = new Map(projects.map((p) => [p.id, p]))
-      const simpleApps: SimpleApp[] = sessions.map((s) => ({
+      // Only show apps whose project lives under the managed projects directory
+      // (i.e. created from the simple view), not developer-view projects.
+      const simpleProjectsBase = settings.storagePath + '/projects'
+      const simpleSessions = sessions.filter((s) => {
+        const projectPath = projectMap.get(s.projectId)?.path ?? ''
+        return projectPath.startsWith(simpleProjectsBase)
+      })
+      const simpleApps: SimpleApp[] = simpleSessions.map((s) => ({
         sessionId: s.id,
         projectId: s.projectId,
         name: projectMap.get(s.projectId)?.name ?? s.branchName.replace('manifold/', ''),
