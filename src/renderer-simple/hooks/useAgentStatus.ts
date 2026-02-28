@@ -12,6 +12,22 @@ export function useAgentStatus(sessionId: string | null): AgentStatusInfo {
   const [durationMs, setDurationMs] = useState<number | null>(null)
   const startedAtRef = useRef<number>(Date.now())
 
+  // Fetch current status on mount so we don't assume 'running' when the
+  // session is actually 'waiting' or 'done' (e.g. after navigating back).
+  useEffect(() => {
+    if (!sessionId) return
+    let cancelled = false
+    window.electronAPI.invoke('simple:get-agent-status', sessionId).then((s) => {
+      if (cancelled || !s) return
+      const current = s as AgentStatus
+      setStatus(current)
+      if (current !== 'running') {
+        setDurationMs(0)
+      }
+    })
+    return () => { cancelled = true }
+  }, [sessionId])
+
   useEffect(() => {
     if (!sessionId) return
     setStatus('running')

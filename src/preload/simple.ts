@@ -21,6 +21,7 @@ const ALLOWED_INVOKE_CHANNELS = [
   'updater:check',
   'simple:chat-messages',
   'simple:get-preview-url',
+  'simple:get-agent-status',
   'simple:subscribe-chat',
   'simple:deploy',
   'simple:deploy-status',
