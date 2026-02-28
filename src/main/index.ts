@@ -165,6 +165,10 @@ function createWindow(): void {
     }
   })
 
+  mainWindow.webContents.on('render-process-gone', (_event, details) => {
+    debugLog(`[renderer] process gone: reason=${details.reason} exitCode=${details.exitCode}`)
+  })
+
   mainWindow.on('closed', () => {
     mainWindow = null
   })

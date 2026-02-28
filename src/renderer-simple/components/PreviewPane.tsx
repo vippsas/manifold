@@ -20,6 +20,7 @@ interface Props {
 
 export function PreviewPane({ url, isAgentWorking, starting }: Props): React.JSX.Element {
   const webviewRef = useRef<Electron.WebviewTag | null>(null)
+  const readyRef = useRef(false)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const wasWorkingRef = useRef(isAgentWorking)
@@ -33,7 +34,7 @@ export function PreviewPane({ url, isAgentWorking, starting }: Props): React.JSX
   useEffect(() => {
     const wasWorking = wasWorkingRef.current
     wasWorkingRef.current = isAgentWorking
-    if (wasWorking && !isAgentWorking && webviewRef.current) {
+    if (wasWorking && !isAgentWorking && webviewRef.current && readyRef.current) {
       webviewRef.current.reload()
     }
   }, [isAgentWorking])
@@ -49,16 +50,20 @@ export function PreviewPane({ url, isAgentWorking, starting }: Props): React.JSX
       setLoading(false)
     }
   })
+  const handleReadyRef = useRef((): void => { readyRef.current = true })
 
   const webviewCallbackRef = useCallback((node: Electron.WebviewTag | null) => {
     const prev = webviewRef.current
     if (prev) {
+      prev.removeEventListener('dom-ready', handleReadyRef.current)
       prev.removeEventListener('did-start-loading', handleStartRef.current)
       prev.removeEventListener('did-stop-loading', handleStopRef.current)
       prev.removeEventListener('did-fail-load', handleFailRef.current as EventListener)
     }
     webviewRef.current = node
+    readyRef.current = false
     if (node) {
+      node.addEventListener('dom-ready', handleReadyRef.current)
       node.addEventListener('did-start-loading', handleStartRef.current)
       node.addEventListener('did-stop-loading', handleStopRef.current)
       node.addEventListener('did-fail-load', handleFailRef.current as EventListener)
@@ -66,7 +71,7 @@ export function PreviewPane({ url, isAgentWorking, starting }: Props): React.JSX
   }, [])
 
   const handleReload = useCallback(() => {
-    if (webviewRef.current) {
+    if (webviewRef.current && readyRef.current) {
       setError(null)
       setLoading(true)
       webviewRef.current.reload()
