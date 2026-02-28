@@ -429,8 +429,18 @@ export class SessionManager {
           project.path.startsWith(simpleProjectsBase) &&
           !Array.from(this.sessions.values()).some((s) => s.projectId === project.id)) {
         try {
-          const branchOutput = await gitExec(['branch', '--show-current'], project.path)
-          const branch = branchOutput.trim()
+          let branch = (await gitExec(['branch', '--show-current'], project.path)).trim()
+
+          // If on the base branch, look for a feature branch that has the app code.
+          // killNonInteractiveSessions switches back to the base branch, so dormant
+          // projects are often left on main while the real code is on a feature branch.
+          if (branch === project.baseBranch) {
+            const allBranches = (await gitExec(['branch', '--format=%(refname:short)'], project.path))
+              .split('\n').map(b => b.trim()).filter(Boolean)
+            const featureBranch = allBranches.find(b => b !== project.baseBranch)
+            if (featureBranch) branch = featureBranch
+          }
+
           if (branch) {
             const session: InternalSession = {
               id: uuidv4(),
@@ -552,7 +562,16 @@ export class SessionManager {
     const project = this.resolveProject(projectId)
 
     // Ensure we're on the correct branch (the project may be on main after a mode switch)
-    await gitExec(['checkout', branchName], project.path)
+    const currentBranch = (await gitExec(['branch', '--show-current'], project.path)).trim()
+    if (currentBranch !== branchName) {
+      try {
+        await gitExec(['checkout', branchName], project.path)
+      } catch {
+        // Branch may have been deleted (e.g. by worktree cleanup during mode switch).
+        // Stay on the current branch — it may still have the app code.
+        debugLog(`[session] checkout ${branchName} failed, staying on ${currentBranch}`)
+      }
+    }
 
     const session: InternalSession = {
       id: uuidv4(),
