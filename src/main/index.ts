@@ -165,15 +165,6 @@ function createWindow(): void {
     }
   })
 
-  // Update native title bar and window background when the user switches themes.
-  // Renderer sends { type: 'dark'|'light', background: '#hex' } after applying theme.
-  ipcMain.on('theme:changed', (_event, payload: { type: string; background: string }) => {
-    nativeTheme.themeSource = (payload.type === 'light' ? 'light' : 'dark') as 'dark' | 'light'
-    if (mainWindow) {
-      mainWindow.setBackgroundColor(payload.background)
-    }
-  })
-
   mainWindow.on('closed', () => {
     mainWindow = null
   })
@@ -338,6 +329,16 @@ function setupAutoUpdater(window: BrowserWindow): void {
   autoUpdater.checkForUpdatesAndNotify()
 }
 
+// ── Theme ────────────────────────────────────────────────────────────
+// Registered once at module level (not inside createWindow) to avoid
+// accumulating duplicate listeners on each mode switch.
+ipcMain.on('theme:changed', (_event, payload: { type: string; background: string }) => {
+  nativeTheme.themeSource = (payload.type === 'light' ? 'light' : 'dark') as 'dark' | 'light'
+  if (mainWindow) {
+    mainWindow.setBackgroundColor(payload.background)
+  }
+})
+
 // ── Mode switching ───────────────────────────────────────────────────
 // Registered once at app level (not inside createWindow) to avoid duplicate
 // handler errors when macOS activate recreates the window.
@@ -354,7 +355,11 @@ ipcMain.handle('app:switch-mode', async (_event, mode: 'developer' | 'simple', p
   }
 
   if (mainWindow) {
-    mainWindow.close()
+    // destroy() synchronously tears down the old window so it doesn't linger
+    // behind the new one. close() is async on macOS and leaves the old
+    // renderer visible in the background.
+    mainWindow.destroy()
+    mainWindow = null
   }
   createWindow()
 
