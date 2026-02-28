@@ -4,12 +4,21 @@ import * as styles from './PreviewPane.styles'
 // Chromium error code -3 (ERR_ABORTED) fires on navigation cancellation; not a real error.
 const ERR_ABORTED = -3
 
+// Inject spinner keyframe once
+if (typeof document !== 'undefined' && !document.getElementById('sp-keyframe')) {
+  const style = document.createElement('style')
+  style.id = 'sp-keyframe'
+  style.textContent = '@keyframes spin { to { transform: rotate(360deg) } }'
+  document.head.appendChild(style)
+}
+
 interface Props {
   url: string | null
   isAgentWorking?: boolean
+  starting?: boolean
 }
 
-export function PreviewPane({ url, isAgentWorking }: Props): React.JSX.Element {
+export function PreviewPane({ url, isAgentWorking, starting }: Props): React.JSX.Element {
   const webviewRef = useRef<Electron.WebviewTag | null>(null)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -65,7 +74,18 @@ export function PreviewPane({ url, isAgentWorking }: Props): React.JSX.Element {
   }, [])
 
   if (!url) {
-    return <div style={styles.emptyState}>Preview will appear here once the app is running...</div>
+    return (
+      <div style={styles.emptyState}>
+        {starting ? (
+          <>
+            <div style={styles.spinner} />
+            <span>Starting app...</span>
+          </>
+        ) : (
+          'Preview will appear here once the app is running...'
+        )}
+      </div>
+    )
   }
 
   return (
