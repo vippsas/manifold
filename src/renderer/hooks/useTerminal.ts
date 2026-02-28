@@ -1,11 +1,19 @@
 import { useEffect, useRef, type RefObject } from 'react'
-import { Terminal, type ITerminalOptions, type ITheme } from '@xterm/xterm'
+import { Terminal } from '@xterm/xterm'
+import type { ITheme } from '@xterm/xterm'
 import { FitAddon } from '@xterm/addon-fit'
 import { WebLinksAddon } from '@xterm/addon-web-links'
 import { WebglAddon } from '@xterm/addon-webgl'
 import { Unicode11Addon } from '@xterm/addon-unicode11'
 import '@xterm/xterm/css/xterm.css'
 import { filterTerminalResponses } from '../terminal-input-filter'
+import {
+  loadWebFont,
+  resolveFontFamily,
+  buildTerminalOptions,
+  cleanFontName,
+  DEFAULT_FONT_STACK,
+} from './terminal-font'
 
 interface AgentOutputEvent {
   sessionId: string
@@ -21,60 +29,6 @@ interface UseTerminalOptions {
 
 interface UseTerminalResult {
   containerRef: RefObject<HTMLDivElement | null>
-}
-
-const DEFAULT_FONT_STACK = "'SF Mono', 'Fira Code', 'Cascadia Code', Menlo, Consolas, monospace"
-const WEB_FONT_ALIAS = 'ManifoldTerminal'
-let webFontLoaded = false
-let webFontLoading: Promise<boolean> | null = null
-
-/**
- * Load the user's font as a web font from its file data. System fonts accessed
- * via local() don't render PUA characters on Chromium's canvas. Loading the
- * actual font file bytes as a web font bypasses this platform limitation.
- */
-function loadWebFont(fontFamily: string): Promise<boolean> {
-  if (webFontLoaded) return Promise.resolve(true)
-  if (webFontLoading) return webFontLoading
-  webFontLoading = (async () => {
-    try {
-      console.log('[useTerminal] loadWebFont: requesting font data for', fontFamily)
-      const dataUrl = await window.electronAPI.invoke('font:load-data', fontFamily) as string | null
-      console.log('[useTerminal] loadWebFont: got data URL?', !!dataUrl, dataUrl ? `(${dataUrl.length} chars)` : '')
-      if (!dataUrl) return false
-      const face = new FontFace(WEB_FONT_ALIAS, `url(${dataUrl})`)
-      await face.load()
-      document.fonts.add(face)
-      webFontLoaded = true
-      console.log('[useTerminal] loadWebFont: web font loaded and added to document.fonts')
-      return true
-    } catch (err) {
-      console.error('[useTerminal] loadWebFont: failed', err)
-      return false
-    }
-  })()
-  return webFontLoading
-}
-
-function resolveFontFamily(terminalFontFamily?: string, useWebFont = false): string {
-  const cleaned = terminalFontFamily?.replace(/^['"]|['"]$/g, '').trim()
-  if (!cleaned) return DEFAULT_FONT_STACK
-  const primary = useWebFont ? `'${WEB_FONT_ALIAS}', ` : ''
-  return `${primary}'${cleaned}', ${DEFAULT_FONT_STACK}`
-}
-
-function buildTerminalOptions(scrollbackLines: number, terminalFontFamily?: string, xtermTheme?: ITheme): ITerminalOptions {
-  return {
-    scrollback: scrollbackLines,
-    fontFamily: resolveFontFamily(terminalFontFamily),
-    fontSize: 13,
-    lineHeight: 1.4,
-    cursorBlink: true,
-    cursorStyle: 'block',
-    cursorInactiveStyle: 'outline',
-    allowProposedApi: true,
-    theme: xtermTheme,
-  }
 }
 
 export function useTerminal({ sessionId, scrollbackLines, terminalFontFamily, xtermTheme }: UseTerminalOptions): UseTerminalResult {
@@ -95,7 +49,7 @@ export function useTerminal({ sessionId, scrollbackLines, terminalFontFamily, xt
     const terminal = terminalRef.current
     console.log('[useTerminal] font effect: terminalFontFamily =', terminalFontFamily, 'terminal exists =', !!terminal)
     if (!terminal) return
-    const cleaned = terminalFontFamily?.replace(/^['"]|['"]$/g, '').trim()
+    const cleaned = cleanFontName(terminalFontFamily)
     if (!cleaned) {
       terminal.options.fontFamily = DEFAULT_FONT_STACK
       terminal.clearTextureAtlas()
@@ -151,7 +105,7 @@ export function useTerminal({ sessionId, scrollbackLines, terminalFontFamily, xt
     // Load the user's font as a web font on initial terminal creation so PUA
     // glyphs render correctly from the start (the font-change effect only fires
     // when terminalFontFamily changes, not on first mount).
-    const cleanedFont = terminalFontFamily?.replace(/^['"]|['"]$/g, '').trim()
+    const cleanedFont = cleanFontName(terminalFontFamily)
     console.log('[useTerminal] main effect: cleanedFont =', cleanedFont)
     if (cleanedFont) {
       void loadWebFont(cleanedFont).then((loaded) => {
