@@ -573,12 +573,12 @@ select:focus {
 }
 
 .git-panel-btn--primary {
-  background: var(--accent);
-  color: var(--accent-text);
+  background: var(--btn-bg);
+  color: var(--btn-text);
 }
 
 .git-panel-btn--primary:hover:not(:disabled) {
-  background: var(--accent-hover);
+  background: var(--btn-hover);
 }
 
 .git-panel-btn--secondary {

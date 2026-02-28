@@ -187,6 +187,7 @@
     "input.background": "#141414",
     "focusBorder": "#c8ff00",
     "button.background": "#c8ff00",
+    "button.foreground": "#c8ff00",
     "panel.border": "#1e1e1e",
     "editorGroup.border": "#1a1a1a",
     "scrollbarSlider.background": "#2a2a2a",

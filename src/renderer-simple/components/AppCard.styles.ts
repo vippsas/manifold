@@ -52,5 +52,6 @@ export const statusBadge = (status: string): CSSProperties => ({
   borderRadius: 20,
   background:
     status === 'live' ? 'var(--success)' : status === 'error' ? 'var(--error)' : 'var(--accent)',
-  color: '#fff',
+  color:
+    status === 'live' ? '#fff' : status === 'error' ? '#fff' : 'var(--accent-text)',
 })

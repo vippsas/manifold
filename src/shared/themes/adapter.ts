@@ -111,6 +111,13 @@ export function convertTheme(themeJson: MonacoThemeJson, _themeId: string): Conv
     '--accent-text': luminance(accent) > 0.4 ? '#000000' : '#ffffff',
     '--accent-hover': lighten(accent, 15),
 
+    // Button colors — themes can override via button.background / button.foreground
+    '--btn-bg': c('button.foreground') ? (c('input.background') ?? editorBg) : accent,
+    '--btn-text': c('button.foreground') ?? (luminance(accent) > 0.4 ? '#000000' : '#ffffff'),
+    '--btn-hover': c('button.foreground')
+      ? lighten(c('input.background') ?? editorBg, 10)
+      : lighten(accent, 15),
+
     '--border': c('panel.border') ?? c('editorGroup.border')
       ?? (isDark ? lighten(editorBg, 18) : darken(editorBg, 18)),
     '--divider': c('editorGroup.border')

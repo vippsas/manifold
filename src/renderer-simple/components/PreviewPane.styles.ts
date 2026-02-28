@@ -68,8 +68,8 @@ export const errorContainer: CSSProperties = {
 export const retryButton: CSSProperties = {
   padding: '4px 16px',
   fontSize: 12,
-  color: '#fff',
-  background: 'var(--accent)',
+  color: 'var(--btn-text)',
+  background: 'var(--btn-bg)',
   border: 'none',
   borderRadius: 'var(--radius)',
   cursor: 'pointer',

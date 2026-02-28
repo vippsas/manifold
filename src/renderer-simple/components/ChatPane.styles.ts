@@ -32,7 +32,7 @@ export const input: CSSProperties = {
 
 export const sendButton: CSSProperties = {
   background: 'var(--accent)',
-  color: '#fff',
+  color: 'var(--accent-text)',
   border: 'none',
   borderRadius: 'var(--radius)',
   padding: '12px 20px',

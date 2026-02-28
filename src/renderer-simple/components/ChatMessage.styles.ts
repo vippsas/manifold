@@ -12,7 +12,7 @@ export const bubble = (isUser: boolean): CSSProperties => ({
   borderRadius: 16,
   fontSize: 15,
   lineHeight: 1.5,
-  background: isUser ? 'var(--accent)' : 'var(--surface)',
-  color: isUser ? '#fff' : 'var(--text)',
-  border: isUser ? 'none' : '1px solid var(--border)',
+  background: isUser ? 'transparent' : 'var(--surface)',
+  color: isUser ? 'var(--text)' : 'var(--text)',
+  border: isUser ? '1px solid var(--accent)' : '1px solid var(--border)',
 })
