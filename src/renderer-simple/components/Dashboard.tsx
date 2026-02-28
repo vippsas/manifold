@@ -5,6 +5,12 @@ import { ConfirmDialog } from './ConfirmDialog'
 import { techStackIcons } from './tech-stack-icons'
 import * as styles from './Dashboard.styles'
 
+const LOGO = `  .--.      __  ___            _ ____      __    __
+ / oo \\    /  |/  /___ _____  (_) __/___  / /___/ /
+| \\__/ |  / /|_/ / __ \`/ __ \\/ / /_/ __ \\/ / __  /
+ \\    /  / /  / / /_/ / / / / / __/ /_/ / / /_/ /
+  \\__/  /_/  /_/\\__,_/_/ /_/_/_/  \\____/_/\\__,_/`
+
 function Spinner(): React.JSX.Element {
   return (
     <span
@@ -70,6 +76,9 @@ export function Dashboard({ apps, onStart, onSelectApp, onDeleteApp, onDevMode }
 
   return (
     <div style={styles.container}>
+      <div style={styles.logoWrap}>
+        <pre style={styles.logo}>{LOGO}</pre>
+      </div>
       <div style={styles.header}>
         <div style={styles.title}>My Apps</div>
         <button
