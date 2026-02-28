@@ -10,6 +10,8 @@ import type { SimpleApp } from '../shared/simple-types'
 import { loadTheme, migrateLegacyTheme } from '../shared/themes/registry'
 import { applyThemeCssVars } from '../shared/themes/adapter'
 import type { ConvertedTheme } from '../shared/themes/types'
+import { useUpdateNotification } from '../shared/useUpdateNotification'
+import { UpdateToast } from '../shared/UpdateToast'
 
 class ErrorBoundary extends React.Component<
   { children: React.ReactNode; onReset: () => void },
@@ -77,6 +79,7 @@ type View = { kind: 'dashboard' } | { kind: 'app'; app: SimpleApp }
 
 export function App(): React.JSX.Element {
   const { apps, refreshApps, deleteApp } = useApps()
+  const updateNotification = useUpdateNotification()
   const [view, setView] = useState<View>({ kind: 'dashboard' })
 
   useLayoutEffect(() => {
@@ -106,15 +109,25 @@ export function App(): React.JSX.Element {
     return unsub
   }, [])
 
+  const updateToast = updateNotification.updateReady ? (
+    <UpdateToast
+      version={updateNotification.version}
+      onRestart={updateNotification.install}
+      onDismiss={updateNotification.dismiss}
+    />
+  ) : null
+
   if (view.kind === 'app') {
     return (
       <ErrorBoundary onReset={() => setView({ kind: 'dashboard' })}>
         <AppViewWrapper app={view.app} onBack={() => setView({ kind: 'dashboard' })} />
+        {updateToast}
       </ErrorBoundary>
     )
   }
 
   return (
+    <>
     <Dashboard
       apps={apps}
       onStart={async (name, description) => {
@@ -180,5 +193,7 @@ export function App(): React.JSX.Element {
         window.electronAPI.invoke('app:switch-mode', 'developer')
       }}
     />
+    {updateToast}
+    </>
   )
 }

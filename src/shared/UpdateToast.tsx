@@ -1,6 +1,6 @@
-import type React from 'react'
+import React from 'react'
 
-export const toastStyles: Record<string, React.CSSProperties> = {
+const styles: Record<string, React.CSSProperties> = {
   container: {
     position: 'fixed',
     bottom: '16px',
@@ -53,4 +53,31 @@ export const toastStyles: Record<string, React.CSSProperties> = {
     color: 'var(--btn-text)',
     cursor: 'pointer',
   },
+}
+
+interface UpdateToastProps {
+  version: string | null
+  onRestart: () => void
+  onDismiss: () => void
+}
+
+export function UpdateToast({ version, onRestart, onDismiss }: UpdateToastProps): React.JSX.Element {
+  return (
+    <div style={styles.container} role="alert">
+      <div style={styles.header}>
+        <span style={styles.title}>Update available</span>
+        <button onClick={onDismiss} style={styles.dismissButton} title="Dismiss">
+          &times;
+        </button>
+      </div>
+      <div style={styles.body}>
+        Manifold v{version ?? 'latest'} is ready. Restart to update.
+      </div>
+      <div style={styles.footer}>
+        <button onClick={onRestart} style={styles.restartButton}>
+          Restart
+        </button>
+      </div>
+    </div>
+  )
 }
