@@ -2,7 +2,7 @@ import * as fs from 'node:fs/promises'
 import * as path from 'node:path'
 import { ipcMain } from 'electron'
 import { SpawnAgentOptions } from '../../shared/types'
-import { generateBranchName } from '../branch-namer'
+import { generateBranchName } from '../git/branch-namer'
 import type { IpcDependencies } from './types'
 
 export function registerAgentHandlers(deps: IpcDependencies): void {

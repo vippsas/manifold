@@ -1,6 +1,6 @@
 import React from 'react'
 import type { PRInfo } from '../../../shared/types'
-import { modalStyles } from '../NewTaskModal.styles'
+import { modalStyles } from '../modals/NewTaskModal.styles'
 
 export function PRPicker({
   prs,

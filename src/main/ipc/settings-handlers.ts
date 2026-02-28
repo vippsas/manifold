@@ -1,9 +1,9 @@
 import { ipcMain } from 'electron'
 import { mkdirSync } from 'node:fs'
 import { ManifoldSettings, SessionViewState } from '../../shared/types'
-import { SavedShellState } from '../shell-tab-store'
-import { listRuntimesWithStatus } from '../runtimes'
-import { listOllamaModels } from '../ollama-models'
+import { SavedShellState } from '../store/shell-tab-store'
+import { listRuntimesWithStatus } from '../agent/runtimes'
+import { listOllamaModels } from '../agent/ollama-models'
 import type { IpcDependencies } from './types'
 
 export function registerSettingsHandlers(deps: IpcDependencies): void {

@@ -1,6 +1,6 @@
 import React, { useRef } from 'react'
 import type { BranchInfo } from '../../../shared/types'
-import { modalStyles } from '../NewTaskModal.styles'
+import { modalStyles } from '../modals/NewTaskModal.styles'
 
 export function BranchPicker({
   branches,
