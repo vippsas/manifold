@@ -33,7 +33,7 @@ export function createWindow(deps: WindowFactoryDeps): BrowserWindow {
     height: 900,
     minWidth: 800,
     minHeight: 600,
-    title: simple ? 'Manible' : 'Manifold',
+    title: 'Manifold',
     backgroundColor: resolveInitialBackground(theme),
     webPreferences: {
       preload: join(__dirname, simple ? '../preload/simple.js' : '../preload/index.js'),
