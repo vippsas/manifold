@@ -10,7 +10,7 @@ export function TaskDescriptionField({
 }: {
   value: string
   onChange: (v: string) => void
-  inputRef: React.RefObject<HTMLInputElement | null>
+  inputRef: React.Ref<HTMLInputElement>
   canSubmit: boolean
   loading: boolean
 }): React.JSX.Element {

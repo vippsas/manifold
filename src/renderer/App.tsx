@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react'
-import { DockviewReact } from 'dockview'
+import { DockviewReact, type IDockviewPanelHeaderProps } from 'dockview'
 import { useProjects } from './hooks/useProjects'
 import { useAgentSession } from './hooks/useAgentSession'
 import { useFileWatcher } from './hooks/useFileWatcher'
@@ -386,10 +386,11 @@ export function App(): React.JSX.Element {
   )
 }
 
-function DockTab({ api }: { api: { title: string; close: () => void } }): React.JSX.Element {
+function DockTab({ api }: IDockviewPanelHeaderProps): React.JSX.Element {
+  const title = api.title ?? ''
   return (
     <div style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '0 8px', fontSize: '11px', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
-      <span>{api.title}</span>
+      <span>{title}</span>
       <button
         onClick={(e) => { e.stopPropagation(); api.close() }}
         style={{
@@ -400,7 +401,7 @@ function DockTab({ api }: { api: { title: string; close: () => void } }): React.
           cursor: 'pointer',
           opacity: 0.6,
         }}
-        title={`Close ${api.title}`}
+        title={`Close ${title}`}
       >
         &times;
       </button>

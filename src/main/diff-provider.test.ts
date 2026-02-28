@@ -28,24 +28,22 @@ import { DiffProvider } from './diff-provider'
  * Data emission is deferred via process.nextTick so callers can attach listeners first.
  */
 function fakeChild(stdout: string, stderr = '', exitCode = 0): ChildProcess {
-  const child = new EventEmitter() as ChildProcess & {
-    stdout: EventEmitter
-    stderr: EventEmitter
-  }
-  child.stdout = new EventEmitter()
-  child.stderr = new EventEmitter()
+  const emitter = new EventEmitter()
+  const stdoutEmitter = new EventEmitter()
+  const stderrEmitter = new EventEmitter()
+  Object.assign(emitter, { stdout: stdoutEmitter, stderr: stderrEmitter })
 
   process.nextTick(() => {
     if (stdout) {
-      child.stdout.emit('data', Buffer.from(stdout))
+      stdoutEmitter.emit('data', Buffer.from(stdout))
     }
     if (stderr) {
-      child.stderr.emit('data', Buffer.from(stderr))
+      stderrEmitter.emit('data', Buffer.from(stderr))
     }
-    child.emit('close', exitCode)
+    emitter.emit('close', exitCode)
   })
 
-  return child
+  return emitter as unknown as ChildProcess
 }
 
 /**

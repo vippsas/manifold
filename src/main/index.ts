@@ -394,15 +394,17 @@ ipcMain.handle('app:switch-mode', async (_event, mode: 'developer' | 'simple', p
   }
   createWindow()
 
-  if (mode === 'developer' && projectId) {
-    mainWindow?.webContents.once('did-finish-load', () => {
-      mainWindow?.webContents.send('app:auto-spawn', projectId, branchName)
+  // mainWindow is reassigned inside createWindow() but TS can't track the side effect.
+  const newWindow = mainWindow as BrowserWindow | null
+  if (mode === 'developer' && projectId && newWindow) {
+    newWindow.webContents.once('did-finish-load', () => {
+      newWindow.webContents.send('app:auto-spawn', projectId, branchName)
     })
   }
 
-  if (mode === 'simple' && simpleAppPayload) {
-    mainWindow?.webContents.once('did-finish-load', () => {
-      mainWindow?.webContents.send('app:auto-open-app', simpleAppPayload)
+  if (mode === 'simple' && simpleAppPayload && newWindow) {
+    newWindow.webContents.once('did-finish-load', () => {
+      newWindow.webContents.send('app:auto-open-app', simpleAppPayload)
     })
   }
 })

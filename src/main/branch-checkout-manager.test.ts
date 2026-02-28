@@ -3,20 +3,18 @@ import { EventEmitter } from 'node:events'
 import type { ChildProcess } from 'node:child_process'
 
 function fakeSpawnResult(stdout: string, exitCode = 0, stderr = ''): ChildProcess {
-  const child = new EventEmitter() as ChildProcess & {
-    stdout: EventEmitter
-    stderr: EventEmitter
-  }
-  child.stdout = new EventEmitter()
-  child.stderr = new EventEmitter()
+  const emitter = new EventEmitter()
+  const stdoutEmitter = new EventEmitter()
+  const stderrEmitter = new EventEmitter()
+  Object.assign(emitter, { stdout: stdoutEmitter, stderr: stderrEmitter })
 
   process.nextTick(() => {
-    if (stdout) child.stdout.emit('data', Buffer.from(stdout))
-    if (stderr) child.stderr.emit('data', Buffer.from(stderr))
-    child.emit('close', exitCode)
+    if (stdout) stdoutEmitter.emit('data', Buffer.from(stdout))
+    if (stderr) stderrEmitter.emit('data', Buffer.from(stderr))
+    emitter.emit('close', exitCode)
   })
 
-  return child
+  return emitter as unknown as ChildProcess
 }
 
 const { spawn: mockSpawn } = vi.hoisted(() => {

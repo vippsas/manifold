@@ -1,3 +1,4 @@
+/// <reference types="electron" />
 import React, { useRef, useCallback, useState, useEffect } from 'react'
 
 interface WebPreviewProps {
