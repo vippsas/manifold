@@ -261,12 +261,16 @@ describe('BranchCheckoutManager', () => {
 
   describe('createWorktreeFromBranch', () => {
     it('creates a worktree from an existing branch (no -b flag)', async () => {
-      mockSpawnReturns('') // git worktree add
+      mockSpawnSequence([
+        { stdout: 'main\n' },  // git rev-parse --abbrev-ref HEAD
+        { stdout: '' },        // git worktree add
+      ])
 
       const result = await manager.createWorktreeFromBranch(
         '/repo',
         'feature/login',
-        'my-project'
+        'my-project',
+        'main'
       )
 
       expect(result.branch).toBe('feature/login')
@@ -281,9 +285,13 @@ describe('BranchCheckoutManager', () => {
     })
 
     it('creates storage directory if needed', async () => {
-      mockSpawnReturns('')
+      mockSpawnSequence([
+        { stdout: 'main\n' },  // rev-parse: same as branch, triggers checkout
+        { stdout: '' },        // git checkout main (no-op but still runs)
+        { stdout: '' },        // git worktree add
+      ])
 
-      await manager.createWorktreeFromBranch('/repo', 'main', 'my-project')
+      await manager.createWorktreeFromBranch('/repo', 'main', 'my-project', 'main')
 
       const fs = await import('node:fs')
       expect(fs.mkdirSync).toHaveBeenCalledWith(
@@ -293,15 +301,63 @@ describe('BranchCheckoutManager', () => {
     })
 
     it('handles branch names with slashes in directory naming', async () => {
-      mockSpawnReturns('')
+      mockSpawnSequence([
+        { stdout: 'main\n' },
+        { stdout: '' },
+      ])
 
       const result = await manager.createWorktreeFromBranch(
         '/repo',
         'feature/deep/nested',
-        'proj'
+        'proj',
+        'main'
       )
 
       expect(result.path).toContain('feature-deep-nested')
+    })
+
+    it('switches main repo to baseBranch when target branch is already checked out', async () => {
+      mockSpawnSequence([
+        { stdout: 'cloud-platform-decisions/vibe-coding-solution\n' }, // rev-parse: same as target
+        { stdout: '' },  // git checkout main (switch away)
+        { stdout: '' },  // git worktree add
+      ])
+
+      const result = await manager.createWorktreeFromBranch(
+        '/repo',
+        'cloud-platform-decisions/vibe-coding-solution',
+        'proj',
+        'main'
+      )
+
+      expect(result.branch).toBe('cloud-platform-decisions/vibe-coding-solution')
+      // Verify it checked out baseBranch before creating worktree
+      expect(mockSpawn).toHaveBeenCalledWith(
+        'git',
+        ['checkout', 'main'],
+        expect.objectContaining({ cwd: '/repo' })
+      )
+    })
+
+    it('does not switch branch when target is not currently checked out', async () => {
+      mockSpawnSequence([
+        { stdout: 'main\n' },  // rev-parse: different from target
+        { stdout: '' },        // git worktree add
+      ])
+
+      await manager.createWorktreeFromBranch(
+        '/repo',
+        'feature/login',
+        'proj',
+        'main'
+      )
+
+      // Should NOT have called git checkout
+      expect(mockSpawn).not.toHaveBeenCalledWith(
+        'git',
+        ['checkout', 'main'],
+        expect.anything()
+      )
     })
   })
 })

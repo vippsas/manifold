@@ -53,6 +53,36 @@ export class SessionDiscovery {
         }
       }
     }
+
+    // If no sessions found (no worktrees and nothing in memory), check whether
+    // the main repo is on a non-base branch — this indicates prior noWorktree work
+    // that should be surfaced as a dormant session.
+    const hasAnySession = Array.from(this.sessions.values()).some((s) => s.projectId === projectId)
+    if (!hasAnySession) {
+      try {
+        const branch = (await gitExec(['branch', '--show-current'], project.path)).trim()
+        if (branch && branch !== project.baseBranch) {
+          const session: InternalSession = {
+            id: uuidv4(),
+            projectId,
+            runtimeId: '',
+            branchName: branch,
+            worktreePath: project.path,
+            status: 'done',
+            pid: null,
+            ptyId: '',
+            outputBuffer: '',
+            taskDescription: undefined,
+            additionalDirs: [],
+            noWorktree: true,
+            nonInteractive: true,
+          }
+          this.sessions.set(session.id, session)
+        }
+      } catch {
+        // Git command failed — project directory may be gone
+      }
+    }
   }
 
   async discoverAllSessions(simpleProjectsBase?: string): Promise<void> {

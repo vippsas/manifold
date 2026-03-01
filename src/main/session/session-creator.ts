@@ -55,13 +55,15 @@ export class SessionCreator {
       worktree = await this.branchCheckoutManager.createWorktreeFromBranch(
         project.path,
         branch,
-        project.name
+        project.name,
+        project.baseBranch
       )
     } else if (options.existingBranch && this.branchCheckoutManager) {
       worktree = await this.branchCheckoutManager.createWorktreeFromBranch(
         project.path,
         options.existingBranch,
-        project.name
+        project.name,
+        project.baseBranch
       )
     } else {
       worktree = await this.worktreeManager.createWorktree(

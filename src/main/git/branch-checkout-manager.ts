@@ -153,13 +153,22 @@ export class BranchCheckoutManager {
   async createWorktreeFromBranch(
     projectPath: string,
     branch: string,
-    projectName: string
+    projectName: string,
+    baseBranch: string
   ): Promise<{ branch: string; path: string }> {
     const worktreeBase = path.join(this.storagePath, 'worktrees', projectName)
     fs.mkdirSync(worktreeBase, { recursive: true })
 
     const safeDirName = branch.replace(/\//g, '-')
     const worktreePath = path.join(worktreeBase, safeDirName)
+
+    // If the branch is currently checked out in the main repo, switch the main
+    // repo to the base branch first — git refuses to create a worktree for a
+    // branch that is already checked out elsewhere.
+    const currentBranch = (await gitExec(['rev-parse', '--abbrev-ref', 'HEAD'], projectPath)).trim()
+    if (currentBranch === branch) {
+      await gitExec(['checkout', baseBranch], projectPath)
+    }
 
     // No -b flag: check out existing branch, don't create new
     await gitExec(['worktree', 'add', worktreePath, branch], projectPath)

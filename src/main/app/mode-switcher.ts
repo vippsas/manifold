@@ -1,11 +1,14 @@
+import * as path from 'node:path'
 import { BrowserWindow, ipcMain, nativeTheme } from 'electron'
 import { debugLog } from './debug-log'
 import type { SettingsStore } from '../store/settings-store'
 import type { SessionManager } from '../session/session-manager'
+import type { ProjectRegistry } from '../store/project-registry'
 
 interface ModeSwitcherDeps {
   settingsStore: SettingsStore
   sessionManager: SessionManager
+  projectRegistry: ProjectRegistry
 }
 
 export class ModeSwitcher {
@@ -39,7 +42,7 @@ export class ModeSwitcher {
     getMainWindow: () => BrowserWindow | null,
     setMainWindow: (win: BrowserWindow | null) => void
   ): void {
-    const { settingsStore, sessionManager } = this.deps
+    const { settingsStore, sessionManager, projectRegistry } = this.deps
 
     ipcMain.handle('app:switch-mode', async (_event, mode: 'developer' | 'simple', projectId?: string, sessionId?: string) => {
       settingsStore.updateSettings({ uiMode: mode })
@@ -56,27 +59,39 @@ export class ModeSwitcher {
       }
 
       if (mode === 'simple' && projectId && sessionId) {
-        try {
-          const result = await sessionManager.killInteractiveSession(sessionId)
-          const { sessionId: newSessionId } = await sessionManager.startDevServerSession(
-            projectId,
-            result.branchName,
-            result.taskDescription
-          )
-          simpleAppPayload = {
-            sessionId: newSessionId,
-            projectId,
-            name: result.branchName.replace('manifold/', ''),
-            description: result.taskDescription ?? '',
-            status: 'building',
-            previewUrl: null,
-            liveUrl: null,
-            createdAt: Date.now(),
-            updatedAt: Date.now(),
+        // Only start a dev server + auto-open for simple-mode projects (web apps
+        // created from simple view).  Developer-view projects (CLI tools,
+        // libraries, etc.) have no dev server to show, so just switch to the
+        // simple dashboard with app cards.
+        const project = projectRegistry.getProject(projectId)
+        const simpleProjectsBase = path.join(settingsStore.getSettings().storagePath, 'projects')
+        const isSimpleProject = project?.path.startsWith(simpleProjectsBase)
+
+        if (isSimpleProject) {
+          try {
+            const result = await sessionManager.killInteractiveSession(sessionId)
+            const { sessionId: newSessionId } = await sessionManager.startDevServerSession(
+              projectId,
+              result.branchName,
+              result.taskDescription
+            )
+            simpleAppPayload = {
+              sessionId: newSessionId,
+              projectId,
+              name: result.branchName.replace('manifold/', ''),
+              description: result.taskDescription ?? '',
+              status: 'building',
+              previewUrl: null,
+              liveUrl: null,
+              createdAt: Date.now(),
+              updatedAt: Date.now(),
+            }
+            debugLog(`[switch-mode] dev→simple: killed session ${sessionId}, new session ${newSessionId}`)
+          } catch (err) {
+            debugLog(`[switch-mode] dev→simple failed: ${err}`)
           }
-          debugLog(`[switch-mode] dev→simple: killed session ${sessionId}, new session ${newSessionId}`)
-        } catch (err) {
-          debugLog(`[switch-mode] dev→simple failed: ${err}`)
+        } else {
+          debugLog(`[switch-mode] dev→simple: non-web project, showing dashboard`)
         }
       }
 
