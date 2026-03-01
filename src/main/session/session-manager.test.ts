@@ -31,11 +31,16 @@ vi.mock('../fs/add-dir-detector', () => ({
   }),
 }))
 
+vi.mock('../git/git-exec', () => ({
+  gitExec: vi.fn().mockResolvedValue('main\n'),
+}))
+
 import { SessionManager } from './session-manager'
 import { WorktreeManager } from '../git/worktree-manager'
 import { PtyPool } from '../agent/pty-pool'
 import { ProjectRegistry } from '../store/project-registry'
 import { getRuntimeById } from '../agent/runtimes'
+import { gitExec } from '../git/git-exec'
 import type { BrowserWindow } from 'electron'
 
 function createMockWorktreeManager() {
@@ -449,6 +454,23 @@ describe('SessionManager', () => {
 
       const sessions = await sessionManager.discoverSessionsForProject('proj-1')
       expect(sessions).toEqual([])
+    })
+
+    it('does not create duplicate sessions when called concurrently for noWorktree project', async () => {
+      // Simulate a simple-mode project on a feature branch (no worktrees)
+      ;(worktreeManager.listWorktrees as ReturnType<typeof vi.fn>).mockResolvedValue([])
+      ;(gitExec as ReturnType<typeof vi.fn>).mockResolvedValue('manifold/my-app\n')
+
+      // Fire two concurrent discovery calls (simulates useAgentSession + useAdditionalDirs race)
+      const [sessionsA, sessionsB] = await Promise.all([
+        sessionManager.discoverSessionsForProject('proj-1'),
+        sessionManager.discoverSessionsForProject('proj-1'),
+      ])
+
+      // Both should return the same single session — no duplicates
+      expect(sessionsA).toHaveLength(1)
+      expect(sessionsB).toHaveLength(1)
+      expect(sessionsA[0].id).toBe(sessionsB[0].id)
     })
   })
 

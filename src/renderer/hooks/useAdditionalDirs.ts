@@ -8,12 +8,12 @@ interface UseAdditionalDirsResult {
   refreshTree: (dirPath: string) => Promise<void>
 }
 
-export function useAdditionalDirs(activeSessionId: string | null): UseAdditionalDirsResult {
+export function useAdditionalDirs(activeSessionId: string | null, initialDirs: string[] = []): UseAdditionalDirsResult {
   const [additionalDirs, setAdditionalDirs] = useState<string[]>([])
   const [additionalTrees, setAdditionalTrees] = useState<Map<string, FileTreeNode>>(new Map())
   const [additionalBranches, setAdditionalBranches] = useState<Map<string, string | null>>(new Map())
 
-  // Reset when session changes
+  // Seed from the already-fetched session data (avoids a redundant global discovery call)
   useEffect(() => {
     if (!activeSessionId) {
       setAdditionalDirs([])
@@ -22,19 +22,14 @@ export function useAdditionalDirs(activeSessionId: string | null): UseAdditional
       return
     }
 
-    // Load persisted dirs from session data
-    window.electronAPI.invoke('agent:sessions').then((sessions: unknown) => {
-      const sessionList = sessions as Array<{ id: string; additionalDirs: string[] }>
-      const session = sessionList.find((s) => s.id === activeSessionId)
-      if (session?.additionalDirs?.length) {
-        setAdditionalDirs(session.additionalDirs)
-        for (const dir of session.additionalDirs) {
-          fetchTree(activeSessionId, dir)
-          fetchBranch(activeSessionId, dir)
-        }
+    if (initialDirs.length > 0) {
+      setAdditionalDirs(initialDirs)
+      for (const dir of initialDirs) {
+        fetchTree(activeSessionId, dir)
+        fetchBranch(activeSessionId, dir)
       }
-    }).catch(() => {})
-  }, [activeSessionId])
+    }
+  }, [activeSessionId, initialDirs.join(',')])
 
   // Listen for new dirs added
   useEffect(() => {

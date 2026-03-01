@@ -94,7 +94,7 @@ export function App(): React.JSX.Element {
     void refreshDiff()
   }, [codeView.refreshOpenFiles, refreshDiff])
 
-  const { additionalTrees, additionalBranches } = useAdditionalDirs(activeSessionId)
+  const { additionalTrees, additionalBranches } = useAdditionalDirs(activeSessionId, activeSession?.additionalDirs)
   const { tree, changes: watcherChanges, deleteFile, renameFile } = useFileWatcher(activeSessionId, handleFilesChanged)
 
   const { mergedChanges, activeFileDiffText, originalContent } = useFileDiff(

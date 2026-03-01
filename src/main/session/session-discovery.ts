@@ -8,6 +8,8 @@ import { debugLog } from '../app/debug-log'
 import type { InternalSession } from './session-types'
 
 export class SessionDiscovery {
+  private discoveryInFlight = new Map<string, Promise<void>>()
+
   constructor(
     private sessions: Map<string, InternalSession>,
     private worktreeManager: WorktreeManager,
@@ -16,6 +18,24 @@ export class SessionDiscovery {
   ) {}
 
   async discoverSessionsForProject(projectId: string): Promise<void> {
+    // Serialize concurrent calls for the same project to prevent duplicate sessions.
+    // Without this, two renderer hooks calling discovery simultaneously can both see
+    // zero sessions and each create a new one.
+    const inflight = this.discoveryInFlight.get(projectId)
+    if (inflight) {
+      await inflight
+      return
+    }
+    const promise = this.doDiscoverSessionsForProject(projectId)
+    this.discoveryInFlight.set(projectId, promise)
+    try {
+      await promise
+    } finally {
+      this.discoveryInFlight.delete(projectId)
+    }
+  }
+
+  private async doDiscoverSessionsForProject(projectId: string): Promise<void> {
     const project = this.projectRegistry.getProject(projectId)
     if (!project) throw new Error('Project not found: ' + projectId)
 
