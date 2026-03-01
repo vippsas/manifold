@@ -75,7 +75,7 @@ function doCreateWindow(): void {
   win.on('closed', () => { mainWindow = null })
 }
 
-const modeSwitcher = new ModeSwitcher({ settingsStore, sessionManager })
+const modeSwitcher = new ModeSwitcher({ settingsStore, sessionManager, projectRegistry })
 modeSwitcher.register(
   doCreateWindow,
   () => mainWindow,
