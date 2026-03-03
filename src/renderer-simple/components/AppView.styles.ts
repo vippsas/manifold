@@ -13,10 +13,26 @@ export const splitPane: CSSProperties = {
 }
 
 export const chatSide: CSSProperties = {
-  width: '40%',
-  borderRight: '1px solid var(--border)',
+  borderRight: 'none',
+  display: 'flex',
+  flexDirection: 'column',
+  overflow: 'hidden',
+}
+
+export const resizeHandle: CSSProperties = {
+  width: '6px',
+  cursor: 'col-resize',
+  background: 'var(--border)',
+  flexShrink: 0,
+  transition: 'background 0.15s',
+}
+
+export const resizeHandleActive: CSSProperties = {
+  ...resizeHandle,
+  background: 'var(--accent, #007acc)',
 }
 
 export const previewSide: CSSProperties = {
   flex: 1,
+  overflow: 'hidden',
 }

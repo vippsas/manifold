@@ -2,6 +2,7 @@ import { PtyPool } from '../agent/pty-pool'
 import { detectStatus } from '../agent/status-detector'
 import { detectAddDir } from '../fs/add-dir-detector'
 import { detectUrl } from '../fs/url-detector'
+import { parseOptions } from '../agent/chat-adapter'
 import type { ChatAdapter } from '../agent/chat-adapter'
 import type { FileWatcher } from '../fs/file-watcher'
 import { debugLog } from '../app/debug-log'
@@ -147,7 +148,24 @@ export class SessionStreamWirer {
           .map(c => c.text!)
         if (textParts.length > 0) {
           const text = textParts.join('\n')
-          this.getChatAdapter()?.addAgentMessage(session.id, text)
+          const { cleanText, options } = parseOptions(text)
+          const adapter = this.getChatAdapter()
+
+          // Skip if the last agent message has identical text (avoids duplicates
+          // when the stream emits multiple assistant events with the same content)
+          const existing = adapter?.getMessages(session.id) ?? []
+          const lastAgent = [...existing].reverse().find(m => m.role === 'agent')
+          const textToCompare = options ? cleanText : text
+          if (lastAgent?.text === textToCompare) {
+            this.detectUrlInText(session, text)
+            return
+          }
+
+          if (options) {
+            adapter?.addAgentMessageWithOptions(session.id, cleanText, options)
+          } else {
+            adapter?.addAgentMessage(session.id, text)
+          }
           this.detectUrlInText(session, text)
         }
       }
@@ -159,7 +177,13 @@ export class SessionStreamWirer {
         const existing = this.getChatAdapter()?.getMessages(session.id) ?? []
         const hasAgentMsg = existing.some(m => m.role === 'agent')
         if (!hasAgentMsg) {
-          this.getChatAdapter()?.addAgentMessage(session.id, result)
+          const { cleanText, options } = parseOptions(result)
+          const adapter = this.getChatAdapter()
+          if (options) {
+            adapter?.addAgentMessageWithOptions(session.id, cleanText, options)
+          } else {
+            adapter?.addAgentMessage(session.id, result)
+          }
         }
         this.detectUrlInText(session, result)
       }

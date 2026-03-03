@@ -94,6 +94,9 @@ export class SessionCreator {
 
     const session = this.buildSession(options, worktree, ptyHandle)
 
+    // Map session→project so chat messages are persisted under the projectId
+    this.getChatAdapter()?.setSessionProject(session.id, options.projectId)
+
     if (options.nonInteractive) {
       this.streamWirer.wireStreamJsonOutput(ptyHandle.id, session)
       this.streamWirer.wirePrintModeInitialExitHandling(ptyHandle.id, session)
