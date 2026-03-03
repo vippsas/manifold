@@ -6,6 +6,7 @@ export interface ChatMessage {
   role: ChatRole
   text: string
   timestamp: number
+  options?: string[]
 }
 
 export type AppStatus = 'idle' | 'scaffolding' | 'building' | 'previewing' | 'deploying' | 'live' | 'error'

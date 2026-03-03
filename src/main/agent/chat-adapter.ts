@@ -1,4 +1,5 @@
 import type { ChatMessage } from '../../shared/simple-types'
+import type { ChatStore } from '../store/chat-store'
 
 type MessageListener = (message: ChatMessage) => void
 
@@ -48,12 +49,69 @@ function normalizeText(text: string): string {
     .trim()
 }
 
+/**
+ * Parse the ---options--- / ---end--- block from agent text.
+ * Returns the text with the block stripped and the extracted options (if any).
+ */
+export function parseOptions(text: string): { cleanText: string; options: string[] | undefined } {
+  // Try with ---end--- first, then fall back to no closing marker
+  const regex = /\n*---options---\s*\n([\s\S]*?)(?:---end---\s*$|$)/
+  const match = regex.exec(text)
+  if (!match || !match[1]?.trim()) return { cleanText: text, options: undefined }
+
+  const optionsBlock = match[1]
+  const options = optionsBlock
+    .split('\n')
+    .map(line => line.replace(/^\d+\.\s*/, '').trim())
+    .filter(line => line.length > 0)
+
+  if (options.length === 0) return { cleanText: text, options: undefined }
+
+  const cleanText = text.replace(regex, '').trim()
+  return { cleanText, options }
+}
+
 export class ChatAdapter {
   private messages = new Map<string, ChatMessage[]>()
   private listeners = new Map<string, Set<MessageListener>>()
   private nextId = 1
   // Buffer raw (unstripped) output per session; strip on flush
   private outputBuffers = new Map<string, { raw: string; timer: ReturnType<typeof setTimeout> }>()
+  private chatStore: ChatStore | null = null
+  private sessionProjectMap = new Map<string, string>()
+
+  setChatStore(store: ChatStore): void {
+    this.chatStore = store
+  }
+
+  setSessionProject(sessionId: string, projectId: string): void {
+    this.sessionProjectMap.set(sessionId, projectId)
+  }
+
+  loadMessages(sessionId: string, projectId: string): ChatMessage[] {
+    // Already have in-memory messages — return those
+    const existing = this.messages.get(sessionId)
+    if (existing && existing.length > 0) return existing
+
+    // Try loading from persistent store
+    const persisted = this.chatStore?.get(projectId)
+    if (!persisted || persisted.length === 0) return []
+
+    // Re-key messages with the new sessionId
+    const rekeyed = persisted.map(m => ({ ...m, sessionId }))
+    this.messages.set(sessionId, rekeyed)
+    this.sessionProjectMap.set(sessionId, projectId)
+
+    // Update nextId to avoid collisions
+    for (const m of rekeyed) {
+      const num = parseInt(m.id.replace('msg-', ''), 10)
+      if (!isNaN(num) && num >= this.nextId) {
+        this.nextId = num + 1
+      }
+    }
+
+    return rekeyed
+  }
 
   addUserMessage(sessionId: string, text: string): ChatMessage {
     return this.addMessage(sessionId, 'user', text)
@@ -65,6 +123,10 @@ export class ChatAdapter {
 
   addAgentMessage(sessionId: string, text: string): ChatMessage {
     return this.addMessage(sessionId, 'agent', text)
+  }
+
+  addAgentMessageWithOptions(sessionId: string, text: string, options: string[]): ChatMessage {
+    return this.addMessage(sessionId, 'agent', text, options)
   }
 
   processPtyOutput(sessionId: string, rawOutput: string): void {
@@ -108,7 +170,8 @@ export class ChatAdapter {
     }
   }
 
-  /** Remove all state for a session (messages, listeners, pending output buffer). */
+  /** Remove in-memory state for a session (messages, listeners, pending output buffer).
+   *  Persisted chat history is NOT deleted — it survives restarts. */
   clearSession(sessionId: string): void {
     const buf = this.outputBuffers.get(sessionId)
     if (buf) {
@@ -117,20 +180,29 @@ export class ChatAdapter {
     }
     this.listeners.delete(sessionId)
     this.messages.delete(sessionId)
+    this.sessionProjectMap.delete(sessionId)
   }
 
-  private addMessage(sessionId: string, role: ChatMessage['role'], text: string): ChatMessage {
+  private addMessage(sessionId: string, role: ChatMessage['role'], text: string, options?: string[]): ChatMessage {
     const message: ChatMessage = {
       id: `msg-${this.nextId++}`,
       sessionId,
       role,
       text,
       timestamp: Date.now(),
+      ...(options && options.length > 0 ? { options } : {}),
     }
     if (!this.messages.has(sessionId)) {
       this.messages.set(sessionId, [])
     }
     this.messages.get(sessionId)!.push(message)
+
+    // Persist to disk if we know the projectId
+    const projectId = this.sessionProjectMap.get(sessionId)
+    if (projectId && this.chatStore) {
+      this.chatStore.set(projectId, this.messages.get(sessionId)!)
+    }
+
     this.listeners.get(sessionId)?.forEach(fn => fn(message))
     return message
   }

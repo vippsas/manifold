@@ -21,9 +21,8 @@ export function useAgentStatus(sessionId: string | null): AgentStatusInfo {
       if (cancelled || !s) return
       const current = s as AgentStatus
       setStatus(current)
-      if (current !== 'running') {
-        setDurationMs(0)
-      }
+      // Don't set durationMs for dormant/restored sessions — we don't know
+      // how long the original run took, and showing "0s" is misleading.
     })
     return () => { cancelled = true }
   }, [sessionId])

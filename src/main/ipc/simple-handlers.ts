@@ -5,8 +5,20 @@ import { resolveSession } from './types'
 export function registerSimpleHandlers(deps: IpcDependencies): void {
   const { chatAdapter, deploymentManager, sessionManager } = deps
 
+  // Track active chat subscriptions per window+session to prevent duplicate listeners.
+  // Key: `${webContentsId}:${sessionId}`, Value: unsubscribe function.
+  const chatSubscriptions = new Map<string, () => void>()
+
   ipcMain.handle('simple:chat-messages', (_event, sessionId: string) => {
-    return chatAdapter.getMessages(sessionId)
+    const messages = chatAdapter.getMessages(sessionId)
+    if (messages.length > 0) return messages
+
+    // Hydrate from persisted store for dormant/restarted sessions
+    const session = sessionManager.getSession(sessionId)
+    if (session?.projectId) {
+      return chatAdapter.loadMessages(sessionId, session.projectId)
+    }
+    return messages
   })
 
   ipcMain.handle('simple:send-message', (_event, sessionId: string, text: string) => {
@@ -37,13 +49,27 @@ export function registerSimpleHandlers(deps: IpcDependencies): void {
 
   ipcMain.handle('simple:subscribe-chat', (event, sessionId: string) => {
     const senderWindow = BrowserWindow.fromWebContents(event.sender)
-    // onMessage returns an unsubscriber; ChatAdapter.clearSession() removes
-    // all listeners for the session, so no separate tracking map is needed.
-    chatAdapter.onMessage(sessionId, (msg) => {
+    const key = `${event.sender.id}:${sessionId}`
+
+    // Ensure session→project mapping is set for new messages to be persisted
+    const session = sessionManager.getSession(sessionId)
+    if (session?.projectId) {
+      chatAdapter.setSessionProject(sessionId, session.projectId)
+      // Hydrate from store if not yet loaded
+      if (chatAdapter.getMessages(sessionId).length === 0) {
+        chatAdapter.loadMessages(sessionId, session.projectId)
+      }
+    }
+
+    // Unsubscribe any existing listener for this window+session to avoid duplicates
+    chatSubscriptions.get(key)?.()
+
+    const unsub = chatAdapter.onMessage(sessionId, (msg) => {
       if (senderWindow && !senderWindow.isDestroyed()) {
         senderWindow.webContents.send('simple:chat-message', msg)
       }
     })
+    chatSubscriptions.set(key, unsub)
     return true
   })
 }

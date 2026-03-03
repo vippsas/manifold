@@ -46,40 +46,17 @@ function ThinkingIndicator(): React.JSX.Element {
 
   return (
     <div style={{ display: 'flex', justifyContent: 'flex-start', marginBottom: 12 }}>
-      <div style={{
-        display: 'flex',
-        alignItems: 'center',
-        gap: 8,
-        padding: '4px 0',
-      }}>
-        {[0, 1, 2].map((i) => (
-          <span
-            key={i}
-            style={{
-              width: 5,
-              height: 5,
-              borderRadius: '50%',
-              background: 'var(--accent)',
-              animation: `typing-dot 1.4s ease-in-out ${i * 0.2}s infinite`,
-            }}
-          />
-        ))}
-        <span
-          style={{
-            fontSize: 14,
-            fontWeight: 500,
-            background: 'linear-gradient(90deg, var(--text-muted) 0%, var(--accent-hover) 50%, var(--text-muted) 100%)',
-            backgroundSize: '200% auto',
-            WebkitBackgroundClip: 'text',
-            WebkitTextFillColor: 'transparent',
-            animation: 'shimmer 2s linear infinite',
-            opacity: visible ? 1 : 0,
-            transition: 'opacity 0.4s ease',
-          }}
-        >
-          {phrase}...
-        </span>
-      </div>
+      <span
+        style={{
+          fontSize: 14,
+          fontWeight: 500,
+          color: 'var(--text-muted)',
+          opacity: visible ? 1 : 0,
+          transition: 'opacity 0.4s ease',
+        }}
+      >
+        {phrase}...
+      </span>
     </div>
   )
 }
@@ -118,24 +95,47 @@ interface Props {
 
 export function ChatPane({ messages, onSend, isThinking, durationMs }: Props): React.JSX.Element {
   const [input, setInput] = useState('')
+  const [dismissedOptions, setDismissedOptions] = useState<Set<string>>(new Set())
   const messagesEndRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
   }, [messages, isThinking, durationMs])
 
+  const dismissAllOptions = (): void => {
+    const ids = messages.filter(m => m.options && m.options.length > 0).map(m => m.id)
+    if (ids.length > 0) {
+      setDismissedOptions(prev => {
+        const next = new Set(prev)
+        ids.forEach(id => next.add(id))
+        return next
+      })
+    }
+  }
+
   const handleSend = (): void => {
     if (input.trim()) {
+      dismissAllOptions()
       onSend(input.trim())
       setInput('')
     }
+  }
+
+  const handleOptionClick = (messageId: string, option: string): void => {
+    setDismissedOptions(prev => new Set(prev).add(messageId))
+    onSend(option)
   }
 
   return (
     <div style={styles.container}>
       <div style={styles.messages}>
         {messages.map((msg) => (
-          <ChatMessage key={msg.id} message={msg} />
+          <ChatMessage
+            key={msg.id}
+            message={msg}
+            onOptionClick={(option) => handleOptionClick(msg.id, option)}
+            hideOptions={dismissedOptions.has(msg.id)}
+          />
         ))}
         {isThinking && <ThinkingIndicator />}
         {!isThinking && durationMs != null && durationMs > 0 && <DurationBadge durationMs={durationMs} />}
@@ -149,8 +149,11 @@ export function ChatPane({ messages, onSend, isThinking, durationMs }: Props): R
           onKeyDown={(e) => e.key === 'Enter' && handleSend()}
           placeholder="Tell the agent what to change..."
         />
-        <button style={styles.sendButton} onClick={handleSend}>
-          Send
+        <button
+          style={isThinking ? styles.interruptButton : styles.sendButton}
+          onClick={handleSend}
+        >
+          {isThinking ? 'Interrupt' : 'Send'}
         </button>
       </div>
     </div>

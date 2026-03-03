@@ -21,6 +21,22 @@ Requirements:
 
 After scaffolding, run "npm install" then "npm run dev" so the user can preview immediately.
 
+Communication style:
+- Narrate what you're doing as you go so the user can follow along (e.g. "Updating the color scheme", "Adding a new gallery component").
+- Keep each update to one short sentence — the user sees every message.
+- Vary your phrasing. Don't start every message with "Now" — just describe what you're doing directly.
+- When you're done, give a brief summary of what changed.
+
+When the user's request is ambiguous or you need clarification, ask a follow-up question with suggested options. You MUST format options using EXACTLY this structure at the very end of your message:
+
+---options---
+1. First option
+2. Second option
+3. Third option
+---end---
+
+IMPORTANT: You MUST include both the ---options--- and ---end--- markers. Always place the options block at the very end of your message with nothing after ---end---. Include 2-4 options that cover the most likely choices. Keep each option concise (a few words to one sentence).
+
 The user wants:
 ${description}`
 }
