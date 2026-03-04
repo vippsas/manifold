@@ -9,13 +9,13 @@ export const wrapper = (isUser: boolean): CSSProperties => ({
 
 export const bubble = (isUser: boolean): CSSProperties => ({
   maxWidth: '85%',
-  padding: isUser ? '10px 16px' : '4px 0',
-  borderRadius: isUser ? 20 : 0,
+  padding: '12px 16px',
+  borderRadius: 16,
   fontSize: 15,
   lineHeight: 1.6,
-  background: isUser ? 'var(--surface)' : 'transparent',
+  background: isUser ? 'transparent' : 'var(--surface)',
   color: 'var(--text)',
-  border: 'none',
+  border: isUser ? '1px solid var(--accent)' : '1px solid var(--border)',
 })
 
 export const optionsSection: CSSProperties = {

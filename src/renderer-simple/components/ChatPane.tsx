@@ -46,17 +46,40 @@ function ThinkingIndicator(): React.JSX.Element {
 
   return (
     <div style={{ display: 'flex', justifyContent: 'flex-start', marginBottom: 12 }}>
-      <span
-        style={{
-          fontSize: 14,
-          fontWeight: 500,
-          color: 'var(--text-muted)',
-          opacity: visible ? 1 : 0,
-          transition: 'opacity 0.4s ease',
-        }}
-      >
-        {phrase}...
-      </span>
+      <div style={{
+        display: 'flex',
+        alignItems: 'center',
+        gap: 8,
+        padding: '4px 0',
+      }}>
+        {[0, 1, 2].map((i) => (
+          <span
+            key={i}
+            style={{
+              width: 5,
+              height: 5,
+              borderRadius: '50%',
+              background: 'var(--accent)',
+              animation: `typing-dot 1.4s ease-in-out ${i * 0.2}s infinite`,
+            }}
+          />
+        ))}
+        <span
+          style={{
+            fontSize: 14,
+            fontWeight: 500,
+            background: 'linear-gradient(90deg, var(--text-muted) 0%, var(--accent-hover) 50%, var(--text-muted) 100%)',
+            backgroundSize: '200% auto',
+            WebkitBackgroundClip: 'text',
+            WebkitTextFillColor: 'transparent',
+            animation: 'shimmer 2s linear infinite',
+            opacity: visible ? 1 : 0,
+            transition: 'opacity 0.4s ease',
+          }}
+        >
+          {phrase}...
+        </span>
+      </div>
     </div>
   )
 }
