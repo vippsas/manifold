@@ -28,6 +28,13 @@ export interface DockAppState {
   onSaveFile: (content: string) => void
   onDeleteFile?: (path: string) => void
   onRenameFile?: (oldPath: string, newPath: string) => void
+  onCreateFile?: (dirPath: string, fileName: string) => Promise<boolean>
+  onCreateDir?: (dirPath: string, dirName: string) => Promise<boolean>
+  onRevealInFinder?: (filePath: string) => Promise<void>
+  onOpenInTerminal?: (dirPath: string) => Promise<void>
+  onCopyAbsolutePath?: (filePath: string) => void
+  onCopyRelativePath?: (filePath: string, rootPath: string) => void
+  worktreeRootPath?: string
   // FileTree
   tree: FileTreeNode | null
   additionalTrees?: Map<string, FileTreeNode>
@@ -203,6 +210,13 @@ function FileTreePanel(): React.JSX.Element {
       onSelectFile={s.onSelectFile}
       onDeleteFile={s.onDeleteFile}
       onRenameFile={s.onRenameFile}
+      onCreateFile={s.onCreateFile}
+      onCreateDir={s.onCreateDir}
+      onRevealInFinder={s.onRevealInFinder}
+      onOpenInTerminal={s.onOpenInTerminal}
+      onCopyAbsolutePath={s.onCopyAbsolutePath}
+      onCopyRelativePath={s.onCopyRelativePath}
+      worktreeRootPath={s.worktreeRootPath}
     />
   )
 }

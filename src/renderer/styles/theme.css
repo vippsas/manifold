@@ -690,6 +690,11 @@ select:focus {
   opacity: 1;
 }
 
+/* ─── Context Menu ─── */
+.context-menu-item:hover {
+  background: rgba(255, 255, 255, 0.06);
+}
+
 /* ─── Monaco Diff Gutter Decorations ─── */
 .diff-gutter-added {
   background: var(--success) !important;

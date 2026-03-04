@@ -21,6 +21,7 @@ export interface TreeNodeProps {
   onStartRename?: (path: string, name: string) => void
   onConfirmRename: (nodePath: string, oldName: string) => void
   onCancelRename: () => void
+  onContextMenu?: (e: React.MouseEvent, node: FileTreeNode) => void
 }
 
 export function TreeNode({
@@ -41,6 +42,7 @@ export function TreeNode({
   onStartRename,
   onConfirmRename,
   onCancelRename,
+  onContextMenu,
 }: TreeNodeProps): React.JSX.Element {
   const expanded = expandedPaths.has(node.path)
 
@@ -66,6 +68,12 @@ export function TreeNode({
     onRequestDelete?.(node.path, node.name, node.isDirectory)
   }, [node.path, node.name, node.isDirectory, onRequestDelete])
 
+  const handleContextMenu = useCallback((e: React.MouseEvent): void => {
+    e.preventDefault()
+    e.stopPropagation()
+    onContextMenu?.(e, node)
+  }, [node, onContextMenu])
+
   const changeType = changeMap.get(node.path)
 
   return (
@@ -85,6 +93,7 @@ export function TreeNode({
         onRenameValueChange={onRenameValueChange}
         onConfirmRename={onConfirmRename}
         onCancelRename={onCancelRename}
+        onContextMenu={handleContextMenu}
       />
       {node.isDirectory && expanded && node.children && (
         <>
@@ -108,6 +117,7 @@ export function TreeNode({
               onStartRename={onStartRename}
               onConfirmRename={onConfirmRename}
               onCancelRename={onCancelRename}
+              onContextMenu={onContextMenu}
             />
           ))}
         </>
@@ -134,6 +144,7 @@ function NodeRow({
   onRenameValueChange,
   onConfirmRename,
   onCancelRename,
+  onContextMenu,
 }: {
   node: FileTreeNode
   depth: number
@@ -149,6 +160,7 @@ function NodeRow({
   onRenameValueChange: (value: string) => void
   onConfirmRename: (nodePath: string, oldName: string) => void
   onCancelRename: () => void
+  onContextMenu?: (e: React.MouseEvent) => void
 }): React.JSX.Element {
   const indicator = changeType ? CHANGE_INDICATORS[changeType] : null
   const indent = depth * 8
@@ -170,6 +182,7 @@ function NodeRow({
       className={`file-tree-row${isActive ? ' file-tree-row--active' : ''}${isSelected ? ' file-tree-row--selected' : ''}`}
       onClick={onClick}
       onDoubleClick={onDoubleClick}
+      onContextMenu={onContextMenu}
       style={{
         ...treeStyles.node,
         paddingLeft: `${indent + 4}px`,

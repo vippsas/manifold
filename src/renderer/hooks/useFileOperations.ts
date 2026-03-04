@@ -4,6 +4,12 @@ export interface UseFileOperationsResult {
   handleSelectFile: (filePath: string) => void
   handleDeleteFile: (filePath: string) => Promise<void>
   handleRenameFile: (oldPath: string, newPath: string) => Promise<void>
+  handleCreateFile: (dirPath: string, fileName: string) => Promise<boolean>
+  handleCreateDir: (dirPath: string, dirName: string) => Promise<boolean>
+  handleRevealInFinder: (filePath: string) => Promise<void>
+  handleOpenInTerminal: (dirPath: string) => Promise<void>
+  handleCopyAbsolutePath: (filePath: string) => void
+  handleCopyRelativePath: (filePath: string, rootPath: string) => void
 }
 
 export function useFileOperations(
@@ -13,7 +19,11 @@ export function useFileOperations(
   codeViewRenameOpenFile: (oldPath: string, newPath: string) => void,
   ensureEditorVisible: () => void,
   deleteFile: (filePath: string) => Promise<boolean>,
-  renameFile: (oldPath: string, newPath: string) => Promise<boolean>
+  renameFile: (oldPath: string, newPath: string) => Promise<boolean>,
+  createFile: (dirPath: string, fileName: string) => Promise<boolean>,
+  createDir: (dirPath: string, dirName: string) => Promise<boolean>,
+  revealInFinder: (filePath: string) => Promise<void>,
+  openInTerminal: (dirPath: string) => Promise<void>
 ): UseFileOperationsResult {
   const handleSelectFile = useCallback(
     (filePath: string): void => {
@@ -44,9 +54,54 @@ export function useFileOperations(
     [renameFile, codeViewRenameOpenFile]
   )
 
+  const handleCreateFile = useCallback(
+    async (dirPath: string, fileName: string): Promise<boolean> => {
+      return createFile(dirPath, fileName)
+    },
+    [createFile]
+  )
+
+  const handleCreateDir = useCallback(
+    async (dirPath: string, dirName: string): Promise<boolean> => {
+      return createDir(dirPath, dirName)
+    },
+    [createDir]
+  )
+
+  const handleRevealInFinder = useCallback(
+    async (filePath: string): Promise<void> => {
+      await revealInFinder(filePath)
+    },
+    [revealInFinder]
+  )
+
+  const handleOpenInTerminal = useCallback(
+    async (dirPath: string): Promise<void> => {
+      await openInTerminal(dirPath)
+    },
+    [openInTerminal]
+  )
+
+  const handleCopyAbsolutePath = useCallback((filePath: string): void => {
+    void navigator.clipboard.writeText(filePath)
+  }, [])
+
+  const handleCopyRelativePath = useCallback((filePath: string, rootPath: string): void => {
+    const relative = filePath.startsWith(rootPath)
+      ? filePath.slice(rootPath.length).replace(/^\//, '')
+      : filePath
+    void navigator.clipboard.writeText(relative)
+  }, [])
+
   return {
     handleSelectFile,
     handleDeleteFile,
     handleRenameFile,
+    handleCreateFile,
+    handleCreateDir,
+    handleRevealInFinder,
+    handleOpenInTerminal,
+    handleCopyAbsolutePath,
+    handleCopyRelativePath,
   }
 }

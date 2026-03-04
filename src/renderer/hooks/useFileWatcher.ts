@@ -11,6 +11,10 @@ interface UseFileWatcherResult {
   readFile: (filePath: string) => Promise<string | null>
   deleteFile: (filePath: string) => Promise<boolean>
   renameFile: (oldPath: string, newPath: string) => Promise<boolean>
+  createFile: (dirPath: string, fileName: string) => Promise<boolean>
+  createDir: (dirPath: string, dirName: string) => Promise<boolean>
+  revealInFinder: (filePath: string) => Promise<void>
+  openInTerminal: (dirPath: string) => Promise<void>
 }
 
 export function useFileWatcher(
@@ -83,7 +87,10 @@ export function useFileWatcher(
     async (filePath: string): Promise<boolean> => {
       if (!sessionId) return false
       try {
-        await window.electronAPI.invoke('files:delete', sessionId, filePath)
+        const result = (await window.electronAPI.invoke('files:delete', sessionId, filePath)) as
+          | { tree: FileTreeNode }
+          | undefined
+        if (result?.tree) setTree(result.tree)
         return true
       } catch {
         return false
@@ -96,11 +103,62 @@ export function useFileWatcher(
     async (oldPath: string, newPath: string): Promise<boolean> => {
       if (!sessionId) return false
       try {
-        await window.electronAPI.invoke('files:rename', sessionId, oldPath, newPath)
+        const result = (await window.electronAPI.invoke('files:rename', sessionId, oldPath, newPath)) as
+          | { tree: FileTreeNode }
+          | undefined
+        if (result?.tree) setTree(result.tree)
         return true
       } catch {
         return false
       }
+    },
+    [sessionId]
+  )
+
+  const createFile = useCallback(
+    async (dirPath: string, fileName: string): Promise<boolean> => {
+      if (!sessionId) return false
+      try {
+        const result = (await window.electronAPI.invoke('files:create-file', sessionId, dirPath, fileName)) as
+          | { tree: FileTreeNode }
+          | undefined
+        if (result?.tree) setTree(result.tree)
+        return true
+      } catch {
+        return false
+      }
+    },
+    [sessionId]
+  )
+
+  const createDir = useCallback(
+    async (dirPath: string, dirName: string): Promise<boolean> => {
+      if (!sessionId) return false
+      try {
+        const result = (await window.electronAPI.invoke('files:create-dir', sessionId, dirPath, dirName)) as
+          | { tree: FileTreeNode }
+          | undefined
+        if (result?.tree) setTree(result.tree)
+        return true
+      } catch {
+        return false
+      }
+    },
+    [sessionId]
+  )
+
+  const revealInFinder = useCallback(
+    async (filePath: string): Promise<void> => {
+      if (!sessionId) return
+      await window.electronAPI.invoke('files:reveal', sessionId, filePath)
+    },
+    [sessionId]
+  )
+
+  const openInTerminal = useCallback(
+    async (dirPath: string): Promise<void> => {
+      if (!sessionId) return
+      await window.electronAPI.invoke('files:open-terminal', sessionId, dirPath)
     },
     [sessionId]
   )
@@ -114,5 +172,9 @@ export function useFileWatcher(
     readFile,
     deleteFile,
     renameFile,
+    createFile,
+    createDir,
+    revealInFinder,
+    openInTerminal,
   }
 }

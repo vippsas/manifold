@@ -4,3 +4,4 @@ dist/
 .manifold/
 docs/plans/
 specs/
+.DS_Store

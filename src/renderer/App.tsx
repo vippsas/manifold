@@ -95,7 +95,7 @@ export function App(): React.JSX.Element {
   }, [codeView.refreshOpenFiles, refreshDiff])
 
   const { additionalTrees, additionalBranches } = useAdditionalDirs(activeSessionId, activeSession?.additionalDirs)
-  const { tree, changes: watcherChanges, deleteFile, renameFile } = useFileWatcher(activeSessionId, handleFilesChanged)
+  const { tree, changes: watcherChanges, deleteFile, renameFile, createFile, createDir, revealInFinder, openInTerminal } = useFileWatcher(activeSessionId, handleFilesChanged)
 
   const { mergedChanges, activeFileDiffText, originalContent } = useFileDiff(
     activeSessionId,
@@ -115,14 +115,23 @@ export function App(): React.JSX.Element {
     }
   }, [dockLayout])
 
-  const { handleSelectFile, handleDeleteFile, handleRenameFile } = useFileOperations(
+  const {
+    handleSelectFile, handleDeleteFile, handleRenameFile,
+    handleCreateFile, handleCreateDir,
+    handleRevealInFinder, handleOpenInTerminal,
+    handleCopyAbsolutePath, handleCopyRelativePath,
+  } = useFileOperations(
     viewState.expandAncestors,
     codeView.handleSelectFile,
     codeView.handleCloseFile,
     codeView.handleRenameOpenFile,
     ensureEditorVisible,
     deleteFile,
-    renameFile
+    renameFile,
+    createFile,
+    createDir,
+    revealInFinder,
+    openInTerminal
   )
 
   useSessionStatePersistence(activeSessionId, viewState, codeView)
@@ -216,6 +225,13 @@ export function App(): React.JSX.Element {
     onSaveFile: codeView.handleSaveFile,
     onDeleteFile: handleDeleteFile,
     onRenameFile: handleRenameFile,
+    onCreateFile: handleCreateFile,
+    onCreateDir: handleCreateDir,
+    onRevealInFinder: handleRevealInFinder,
+    onOpenInTerminal: handleOpenInTerminal,
+    onCopyAbsolutePath: handleCopyAbsolutePath,
+    onCopyRelativePath: handleCopyRelativePath,
+    worktreeRootPath: tree?.path ?? undefined,
     tree,
     additionalTrees,
     additionalBranches,

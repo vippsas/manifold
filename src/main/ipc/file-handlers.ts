@@ -1,6 +1,6 @@
-import { ipcMain } from 'electron'
-import { execFile } from 'node:child_process'
-import { resolve } from 'node:path'
+import { ipcMain, shell } from 'electron'
+import { execFile, spawn } from 'node:child_process'
+import { resolve, dirname } from 'node:path'
 import { promisify } from 'node:util'
 import type { IpcDependencies } from './types'
 import type { AgentSession } from '../../shared/types'
@@ -80,6 +80,7 @@ export function registerFileHandlers(deps: IpcDependencies): void {
       throw new Error('Path traversal denied: file outside allowed directories')
     }
     fileWatcher.deleteFile(resolved)
+    return { tree: fileWatcher.getFileTree(session.worktreePath) }
   })
 
   ipcMain.handle('files:rename', (_event, sessionId: string, oldPath: string, newPath: string) => {
@@ -94,5 +95,56 @@ export function registerFileHandlers(deps: IpcDependencies): void {
       throw new Error('Path traversal denied: file outside allowed directories')
     }
     fileWatcher.renameFile(resolvedOld, resolvedNew)
+    return { tree: fileWatcher.getFileTree(session.worktreePath) }
+  })
+
+  ipcMain.handle('files:create-file', (_event, sessionId: string, dirPath: string, fileName: string) => {
+    const session = sessionManager.getSession(sessionId)
+    if (!session) throw new Error(`Session not found: ${sessionId}`)
+    const resolvedDir = resolve(session.worktreePath, dirPath)
+    if (!isPathAllowed(resolvedDir, session)) {
+      throw new Error('Path traversal denied: directory outside allowed directories')
+    }
+    const filePath = resolve(resolvedDir, fileName)
+    if (!isPathAllowed(filePath, session)) {
+      throw new Error('Path traversal denied: file outside allowed directories')
+    }
+    fileWatcher.createFile(filePath)
+    return { tree: fileWatcher.getFileTree(session.worktreePath) }
+  })
+
+  ipcMain.handle('files:create-dir', (_event, sessionId: string, dirPath: string, dirName: string) => {
+    const session = sessionManager.getSession(sessionId)
+    if (!session) throw new Error(`Session not found: ${sessionId}`)
+    const resolvedDir = resolve(session.worktreePath, dirPath)
+    if (!isPathAllowed(resolvedDir, session)) {
+      throw new Error('Path traversal denied: directory outside allowed directories')
+    }
+    const newDirPath = resolve(resolvedDir, dirName)
+    if (!isPathAllowed(newDirPath, session)) {
+      throw new Error('Path traversal denied: directory outside allowed directories')
+    }
+    fileWatcher.createDir(newDirPath)
+    return { tree: fileWatcher.getFileTree(session.worktreePath) }
+  })
+
+  ipcMain.handle('files:reveal', (_event, sessionId: string, filePath: string) => {
+    const session = sessionManager.getSession(sessionId)
+    if (!session) throw new Error(`Session not found: ${sessionId}`)
+    const resolved = resolve(session.worktreePath, filePath)
+    if (!isPathAllowed(resolved, session)) {
+      throw new Error('Path traversal denied: file outside allowed directories')
+    }
+    shell.showItemInFolder(resolved)
+  })
+
+  ipcMain.handle('files:open-terminal', (_event, sessionId: string, dirPath: string) => {
+    const session = sessionManager.getSession(sessionId)
+    if (!session) throw new Error(`Session not found: ${sessionId}`)
+    const resolved = resolve(session.worktreePath, dirPath)
+    if (!isPathAllowed(resolved, session)) {
+      throw new Error('Path traversal denied: directory outside allowed directories')
+    }
+    spawn('open', ['-a', 'Terminal', resolved], { detached: true, stdio: 'ignore' })
   })
 }

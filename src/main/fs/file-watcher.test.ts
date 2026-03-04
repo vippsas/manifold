@@ -7,6 +7,8 @@ vi.mock('node:fs', () => ({
   writeFileSync: vi.fn(),
   existsSync: vi.fn(),
   renameSync: vi.fn(),
+  mkdirSync: vi.fn(),
+  rmSync: vi.fn(),
 }))
 
 vi.mock('node:path', () => ({
@@ -24,6 +26,7 @@ const mockReaddirSync = vi.mocked(fs.readdirSync)
 const mockReadFileSync = vi.mocked(fs.readFileSync)
 const mockExistsSync = vi.mocked(fs.existsSync)
 const mockRenameSync = vi.mocked(fs.renameSync)
+const mockMkdirSync = vi.mocked(fs.mkdirSync)
 
 function createMockWindow() {
   return {
@@ -348,6 +351,31 @@ describe('FileWatcher', () => {
       expect(() => watcher.readFile('/repo/missing.ts')).toThrow(
         'Failed to read file /repo/missing.ts',
       )
+    })
+  })
+
+  describe('createFile', () => {
+    it('creates an empty file at the given path', () => {
+      watcher.createFile('/repo/worktree/newfile.txt')
+      expect(fs.writeFileSync).toHaveBeenCalledWith('/repo/worktree/newfile.txt', '', 'utf-8')
+    })
+
+    it('throws if file already exists', () => {
+      mockExistsSync.mockReturnValue(true)
+      expect(() => watcher.createFile('/repo/worktree/existing.txt')).toThrow('already exists')
+    })
+  })
+
+  describe('createDir', () => {
+    it('creates a directory at the given path', () => {
+      mockExistsSync.mockReturnValue(false)
+      watcher.createDir('/repo/worktree/newdir')
+      expect(fs.mkdirSync).toHaveBeenCalledWith('/repo/worktree/newdir')
+    })
+
+    it('throws if directory already exists', () => {
+      mockExistsSync.mockReturnValue(true)
+      expect(() => watcher.createDir('/repo/worktree/existing')).toThrow('already exists')
     })
   })
 })

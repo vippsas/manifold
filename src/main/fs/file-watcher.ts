@@ -185,6 +185,28 @@ export class FileWatcher {
     }
   }
 
+  createFile(filePath: string): void {
+    if (fs.existsSync(filePath)) {
+      throw new Error(`File already exists: ${filePath}`)
+    }
+    try {
+      fs.writeFileSync(filePath, '', 'utf-8')
+    } catch (err) {
+      throw new Error(`Failed to create file ${filePath}: ${(err as Error).message}`)
+    }
+  }
+
+  createDir(dirPath: string): void {
+    if (fs.existsSync(dirPath)) {
+      throw new Error(`Directory already exists: ${dirPath}`)
+    }
+    try {
+      fs.mkdirSync(dirPath)
+    } catch (err) {
+      throw new Error(`Failed to create directory ${dirPath}: ${(err as Error).message}`)
+    }
+  }
+
   deleteFile(filePath: string): void {
     try {
       fs.rmSync(filePath, { recursive: true })
