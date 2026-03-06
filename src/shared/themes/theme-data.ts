@@ -40,6 +40,8 @@ import theme_idlefingers from './data/idleFingers.json'
 import theme_krtheme from './data/krTheme.json'
 import theme_manifold_dark from './data/Manifold Dark.json'
 import theme_manifold_light from './data/Manifold Light.json'
+import theme_vipps_dark from './data/Vipps Dark.json'
+import theme_vipps_light from './data/Vipps Light.json'
 import theme_monoindustrial from './data/monoindustrial.json'
 
 export const themeDataByLabel: Record<string, unknown> = {
@@ -79,6 +81,8 @@ export const themeDataByLabel: Record<string, unknown> = {
   "Twilight": theme_twilight,
   "Upstream Sunburst": theme_upstream_sunburst,
   "Vibrant Ink": theme_vibrant_ink,
+  "Vipps Dark": theme_vipps_dark,
+  "Vipps Light": theme_vipps_light,
   "Zenburnesque": theme_zenburnesque,
   "idleFingers": theme_idlefingers,
   "krTheme": theme_krtheme,
@@ -122,6 +126,8 @@ export const themeList: Record<string, string> = {
   "twilight": "Twilight",
   "upstream-sunburst": "Upstream Sunburst",
   "vibrant-ink": "Vibrant Ink",
+  "vipps-dark": "Vipps Dark",
+  "vipps-light": "Vipps Light",
   "zenburnesque": "Zenburnesque",
   "idlefingers": "idleFingers",
   "krtheme": "krTheme",
