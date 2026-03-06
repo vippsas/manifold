@@ -34,7 +34,7 @@ describe('runtimes', () => {
     it('claude runtime has the expected binary', () => {
       const claude = BUILT_IN_RUNTIMES.find((r) => r.id === 'claude')
       expect(claude?.binary).toBe('claude')
-      expect(claude?.args).toContain('--dangerously-skip-permissions')
+      expect(claude?.args).toContain('--dontask')
     })
 
     it('codex runtime has the expected binary', () => {
