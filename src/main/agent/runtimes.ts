@@ -6,7 +6,7 @@ export const BUILT_IN_RUNTIMES: readonly AgentRuntime[] = [
     id: 'claude',
     name: 'Claude Code',
     binary: 'claude',
-    args: ['--dontask'],
+    args: ['--allow-dangerously-skip-permissions'],
     aiModelArgs: ['--model', 'haiku'],
     waitingPattern: '❯|waiting for input|Interrupt to stop'
   },
