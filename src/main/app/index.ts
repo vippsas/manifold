@@ -22,7 +22,6 @@ import { BranchCheckoutManager } from '../git/branch-checkout-manager'
 import { DockLayoutStore } from '../store/dock-layout-store'
 import { ChatStore } from '../store/chat-store'
 import { ChatAdapter } from '../agent/chat-adapter'
-import { DeploymentManager } from './deployment-manager'
 import { setupAutoUpdater } from './auto-updater'
 import { ModeSwitcher } from './mode-switcher'
 import { createWindow } from './window-factory'
@@ -46,7 +45,6 @@ const dockLayoutStore = new DockLayoutStore()
 const chatStore = new ChatStore()
 const chatAdapter = new ChatAdapter()
 chatAdapter.setChatStore(chatStore)
-const deploymentManager = new DeploymentManager()
 sessionManager.setChatAdapter(chatAdapter)
 
 const ipcDeps = {
@@ -63,7 +61,6 @@ const ipcDeps = {
   dockLayoutStore,
   chatAdapter,
   chatStore,
-  deploymentManager,
 }
 
 function doCreateWindow(): void {
