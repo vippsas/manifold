@@ -11,7 +11,6 @@ import { BranchCheckoutManager } from '../git/branch-checkout-manager'
 import { DockLayoutStore } from '../store/dock-layout-store'
 import type { ChatAdapter } from '../agent/chat-adapter'
 import type { ChatStore } from '../store/chat-store'
-import type { DeploymentManager } from '../app/deployment-manager'
 import type { AgentSession } from '../../shared/types'
 
 export interface IpcDependencies {
@@ -28,7 +27,6 @@ export interface IpcDependencies {
   dockLayoutStore: DockLayoutStore
   chatAdapter: ChatAdapter
   chatStore: ChatStore
-  deploymentManager: DeploymentManager
 }
 
 export function resolveSession(sessionManager: SessionManager, sessionId: string): AgentSession {

@@ -1,9 +1,8 @@
 import { BrowserWindow, ipcMain } from 'electron'
 import type { IpcDependencies } from './types'
-import { resolveSession } from './types'
 
 export function registerSimpleHandlers(deps: IpcDependencies): void {
-  const { chatAdapter, deploymentManager, sessionManager } = deps
+  const { chatAdapter, sessionManager } = deps
 
   // Track active chat subscriptions per window+session to prevent duplicate listeners.
   // Key: `${webContentsId}:${sessionId}`, Value: unsubscribe function.
@@ -25,14 +24,8 @@ export function registerSimpleHandlers(deps: IpcDependencies): void {
     chatAdapter.addUserMessage(sessionId, text)
   })
 
-  ipcMain.handle('simple:deploy', async (_event, sessionId: string) => {
-    const session = resolveSession(sessionManager, sessionId)
-    const base = session.branchName.replace('manifold/', '')
-    if (!base || base === session.branchName) {
-      throw new Error(`Invalid branch name: expected manifold/ prefix, got ${session.branchName}`)
-    }
-    const cmd = deploymentManager.buildDeployCommand(`vippsas/${base}`)
-    return { command: cmd.binary, args: cmd.args }
+  ipcMain.handle('simple:deploy', async (_event, _sessionId: string) => {
+    throw new Error('Deployment is not yet implemented')
   })
 
   ipcMain.handle('simple:deploy-status', (_event, _sessionId: string) => {
