@@ -12,7 +12,7 @@ vi.mock('../agent/runtimes', () => ({
         id: 'claude',
         name: 'Claude Code',
         binary: 'claude',
-        args: ['--dangerously-skip-permissions'],
+        args: ['--dontask'],
         env: undefined,
       }
     }
@@ -132,7 +132,7 @@ describe('SessionManager', () => {
       expect(worktreeManager.createWorktree).toHaveBeenCalledWith('/repo', 'main', 'test', undefined, 'do something')
       expect(ptyPool.spawn).toHaveBeenCalledWith(
         'claude',
-        ['--dangerously-skip-permissions'],
+        ['--dontask'],
         { cwd: '/repo/.manifold/worktrees/manifold-oslo', env: undefined },
       )
       expect(ptyPool.onData).toHaveBeenCalledWith('pty-1', expect.any(Function))
@@ -490,7 +490,7 @@ describe('SessionManager', () => {
       expect(resumed.runtimeId).toBe('claude')
       expect(ptyPool.spawn).toHaveBeenCalledWith(
         'claude',
-        ['--dangerously-skip-permissions'],
+        ['--dontask'],
         { cwd: '/repo/.manifold/worktrees/manifold-bergen', env: undefined },
       )
       expect(ptyPool.onData).toHaveBeenCalledWith('pty-1', expect.any(Function))
