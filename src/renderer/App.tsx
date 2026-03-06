@@ -264,6 +264,8 @@ export function App(): React.JSX.Element {
     onFetchProject: fetchProject.fetchProject,
     // Web preview
     previewUrl: webPreview.previewUrl,
+    // Layout
+    onHidePanel: (id: string) => dockLayout.togglePanel(id as DockPanelId),
     // Agent restart
     activeSessionStatus: activeSession?.status ?? null,
     activeSessionRuntimeId: activeSession?.runtimeId ?? null,
@@ -403,12 +405,13 @@ export function App(): React.JSX.Element {
 }
 
 function DockTab({ api }: IDockviewPanelHeaderProps): React.JSX.Element {
+  const state = React.useContext(DockStateContext)
   const title = api.title ?? ''
   return (
     <div style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '0 8px', fontSize: '11px', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
       <span>{title}</span>
       <button
-        onClick={(e) => { e.stopPropagation(); api.close() }}
+        onClick={(e) => { e.stopPropagation(); state?.onHidePanel(api.id) }}
         style={{
           fontSize: '11px',
           lineHeight: 1,

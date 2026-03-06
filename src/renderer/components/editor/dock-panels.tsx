@@ -76,6 +76,8 @@ export interface DockAppState {
   onResumeAgent: (sessionId: string, runtimeId: string) => Promise<void>
   // Web preview
   previewUrl: string | null
+  // Layout
+  onHidePanel: (id: string) => void
 }
 
 export const DockStateContext = createContext<DockAppState | null>(null)
