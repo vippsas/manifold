@@ -135,7 +135,7 @@ export class DevServerManager {
 
     const runtime = getRuntimeById(session.runtimeId)
     if (!runtime) throw new Error('Runtime not found: ' + session.runtimeId)
-    const runtimeArgs = [...(runtime.args ?? []), '-c', '-p', prompt, '--output-format', 'stream-json', '--verbose']
+    const runtimeArgs = [...(runtime.args ?? []), '--permission-mode', 'bypassPermissions', '-c', '-p', prompt, '--output-format', 'stream-json', '--verbose']
 
     debugLog(`[session] print-mode follow-up: ${JSON.stringify(runtimeArgs)}`)
 
