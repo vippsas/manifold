@@ -80,7 +80,7 @@ export class SessionCreator {
       runtimeArgs.push('--model', options.ollamaModel)
     }
     if (options.nonInteractive && options.prompt) {
-      runtimeArgs.push('-p', options.prompt, '--output-format', 'stream-json', '--verbose')
+      runtimeArgs.push('--permission-mode', 'bypassPermissions', '-p', options.prompt, '--output-format', 'stream-json', '--verbose')
     }
 
     debugLog(`[session] nonInteractive=${options.nonInteractive}, runtimeArgs=${JSON.stringify(runtimeArgs)}`)
