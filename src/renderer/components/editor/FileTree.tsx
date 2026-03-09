@@ -96,6 +96,23 @@ function shortenPath(fullPath: string): string {
   return fullPath
 }
 
+function filterTree(node: FileTreeNode, query: string): FileTreeNode | null {
+  const lowerQuery = query.toLowerCase()
+  function walk(n: FileTreeNode): FileTreeNode | null {
+    if (!n.isDirectory) {
+      return n.name.toLowerCase().includes(lowerQuery) ? n : null
+    }
+    const filteredChildren = (n.children ?? [])
+      .map(walk)
+      .filter((child): child is FileTreeNode => child !== null)
+    if (filteredChildren.length > 0) {
+      return { ...n, children: filteredChildren }
+    }
+    return n.name.toLowerCase().includes(lowerQuery) ? { ...n, children: [] } : null
+  }
+  return walk(node)
+}
+
 export function FileTree({
   tree,
   additionalTrees,
@@ -133,6 +150,7 @@ export function FileTree({
   } | null>(null)
   const [createName, setCreateName] = useState('')
   const [createError, setCreateError] = useState<string | null>(null)
+  const [filterQuery, setFilterQuery] = useState('')
   const changeMap = useMemo(() => {
     const map = new Map<string, FileChangeType>()
     const root = tree?.path ?? ''
@@ -143,6 +161,20 @@ export function FileTree({
     }
     return map
   }, [changes, tree?.path])
+
+  const filteredTree = useMemo(
+    () => (tree && filterQuery ? filterTree(tree, filterQuery) : tree),
+    [tree, filterQuery]
+  )
+  const filteredAdditionalTrees = useMemo(() => {
+    if (!additionalTrees || !filterQuery) return additionalTrees
+    const result = new Map<string, FileTreeNode>()
+    for (const [dirPath, dirTree] of additionalTrees) {
+      const filtered = filterTree(dirTree, filterQuery)
+      if (filtered) result.set(dirPath, filtered)
+    }
+    return result
+  }, [additionalTrees, filterQuery])
 
   const handleStartRename = useCallback((path: string, name: string): void => {
     setRenamingPath(path)
@@ -273,6 +305,25 @@ export function FileTree({
 
   return (
     <div style={treeStyles.wrapper}>
+      <div style={treeStyles.filterContainer}>
+        <input
+          type="text"
+          style={treeStyles.filterInput}
+          placeholder="Filter files..."
+          value={filterQuery}
+          onChange={(e) => setFilterQuery(e.target.value)}
+          onKeyDown={(e) => { if (e.key === 'Escape') setFilterQuery('') }}
+        />
+        {filterQuery && (
+          <button
+            style={treeStyles.filterClear}
+            onClick={() => setFilterQuery('')}
+            title="Clear filter"
+          >
+            {'\u00D7'}
+          </button>
+        )}
+      </div>
       <div
         style={treeStyles.treeContainer}
         onContextMenu={(e) => {
@@ -280,13 +331,13 @@ export function FileTree({
           setContextMenu({ x: e.clientX, y: e.clientY, node: null })
         }}
       >
-        {tree ? (
+        {filteredTree ? (
           <>
-            {additionalTrees && additionalTrees.size > 0 ? (
+            {filteredAdditionalTrees && filteredAdditionalTrees.size > 0 ? (
               <>
-                <WorkspaceRootHeader name={tree.name} subtitle={primaryBranch} isAdditional={false} />
-                <TreeNode node={tree} depth={0} changeMap={changeMap} activeFilePath={activeFilePath} selectedFilePath={selectedFilePath} openFilePaths={openFilePaths} expandedPaths={expandedPaths} onToggleExpand={onToggleExpand} onHighlightFile={setSelectedFilePath} onSelectFile={onSelectFile} onRequestDelete={onDeleteFile ? handleRequestDelete : undefined} renamingPath={renamingPath} renameValue={renameValue} onRenameValueChange={setRenameValue} onStartRename={onRenameFile ? handleStartRename : undefined} onConfirmRename={handleConfirmRename} onCancelRename={handleCancelRename} onContextMenu={handleContextMenu} creating={creating} createName={createName} onCreateNameChange={handleCreateNameChange} createError={createError} onConfirmCreate={handleConfirmCreate} onCancelCreate={handleCancelCreate} />
-                {Array.from(additionalTrees.entries()).map(([dirPath, dirTree]) => {
+                <WorkspaceRootHeader name={filteredTree.name} subtitle={primaryBranch} isAdditional={false} />
+                <TreeNode node={filteredTree} depth={0} changeMap={changeMap} activeFilePath={activeFilePath} selectedFilePath={selectedFilePath} openFilePaths={openFilePaths} expandedPaths={expandedPaths} onToggleExpand={onToggleExpand} onHighlightFile={setSelectedFilePath} onSelectFile={onSelectFile} onRequestDelete={onDeleteFile ? handleRequestDelete : undefined} renamingPath={renamingPath} renameValue={renameValue} onRenameValueChange={setRenameValue} onStartRename={onRenameFile ? handleStartRename : undefined} onConfirmRename={handleConfirmRename} onCancelRename={handleCancelRename} onContextMenu={handleContextMenu} creating={creating} createName={createName} onCreateNameChange={handleCreateNameChange} createError={createError} onConfirmCreate={handleConfirmCreate} onCancelCreate={handleCancelCreate} />
+                {Array.from(filteredAdditionalTrees.entries()).map(([dirPath, dirTree]) => {
                   const branch = additionalBranches?.get(dirPath)
                   const subtitle = branch ?? shortenPath(dirPath)
                   return (
@@ -298,7 +349,7 @@ export function FileTree({
                 })}
               </>
             ) : (
-              <TreeNode node={tree} depth={0} changeMap={changeMap} activeFilePath={activeFilePath} selectedFilePath={selectedFilePath} openFilePaths={openFilePaths} expandedPaths={expandedPaths} onToggleExpand={onToggleExpand} onHighlightFile={setSelectedFilePath} onSelectFile={onSelectFile} onRequestDelete={onDeleteFile ? handleRequestDelete : undefined} renamingPath={renamingPath} renameValue={renameValue} onRenameValueChange={setRenameValue} onStartRename={onRenameFile ? handleStartRename : undefined} onConfirmRename={handleConfirmRename} onCancelRename={handleCancelRename} onContextMenu={handleContextMenu} creating={creating} createName={createName} onCreateNameChange={handleCreateNameChange} createError={createError} onConfirmCreate={handleConfirmCreate} onCancelCreate={handleCancelCreate} />
+              <TreeNode node={filteredTree} depth={0} changeMap={changeMap} activeFilePath={activeFilePath} selectedFilePath={selectedFilePath} openFilePaths={openFilePaths} expandedPaths={expandedPaths} onToggleExpand={onToggleExpand} onHighlightFile={setSelectedFilePath} onSelectFile={onSelectFile} onRequestDelete={onDeleteFile ? handleRequestDelete : undefined} renamingPath={renamingPath} renameValue={renameValue} onRenameValueChange={setRenameValue} onStartRename={onRenameFile ? handleStartRename : undefined} onConfirmRename={handleConfirmRename} onCancelRename={handleCancelRename} onContextMenu={handleContextMenu} creating={creating} createName={createName} onCreateNameChange={handleCreateNameChange} createError={createError} onConfirmCreate={handleConfirmCreate} onCancelCreate={handleCancelCreate} />
             )}
           </>
         ) : (
