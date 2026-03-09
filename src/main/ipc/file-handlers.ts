@@ -147,4 +147,61 @@ export function registerFileHandlers(deps: IpcDependencies): void {
     }
     spawn('open', ['-a', 'Terminal', resolved], { detached: true, stdio: 'ignore' })
   })
+
+  ipcMain.handle('files:search-content', async (_event, sessionId: string, query: string) => {
+    const session = sessionManager.getSession(sessionId)
+    if (!session) throw new Error(`Session not found: ${sessionId}`)
+    if (!query || query.trim().length === 0) return []
+
+    try {
+      const { stdout } = await execFileAsync('git', [
+        'grep', '-n', '-I', '--heading', '--break',
+        '--max-count=50',
+        '--', query.trim(),
+      ], {
+        cwd: session.worktreePath,
+        timeout: 10000,
+        maxBuffer: 1024 * 1024,
+      })
+      return parseGitGrepOutput(stdout, session.worktreePath)
+    } catch (err: unknown) {
+      // git grep exits with code 1 when no matches found
+      if (err && typeof err === 'object' && 'code' in err && (err as { code: number }).code === 1) {
+        return []
+      }
+      throw err
+    }
+  })
+}
+
+interface SearchMatch {
+  line: number
+  text: string
+}
+
+interface SearchFileResult {
+  file: string
+  matches: SearchMatch[]
+}
+
+function parseGitGrepOutput(stdout: string, worktreePath: string): SearchFileResult[] {
+  const results: SearchFileResult[] = []
+  const blocks = stdout.split('\n\n')
+  for (const block of blocks) {
+    const lines = block.split('\n').filter((l) => l.length > 0)
+    if (lines.length === 0) continue
+    const filePath = lines[0]
+    const matches: SearchMatch[] = []
+    for (let i = 1; i < lines.length && matches.length < 50; i++) {
+      const colonIdx = lines[i].indexOf(':')
+      if (colonIdx === -1) continue
+      const lineNum = parseInt(lines[i].substring(0, colonIdx), 10)
+      if (isNaN(lineNum)) continue
+      matches.push({ line: lineNum, text: lines[i].substring(colonIdx + 1) })
+    }
+    if (matches.length > 0) {
+      results.push({ file: `${worktreePath}/${filePath}`, matches })
+    }
+  }
+  return results
 }

@@ -35,6 +35,8 @@ export function buildAppMenu(mainWindow: BrowserWindow): Menu {
         { role: 'copy' },
         { role: 'paste' },
         { role: 'selectAll' },
+        { type: 'separator' },
+        { role: 'find' },
       ],
     },
     {

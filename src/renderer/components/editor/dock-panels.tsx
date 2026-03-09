@@ -1,10 +1,12 @@
-import React, { createContext, useCallback, useContext, useMemo } from 'react'
+import React, { createContext, useCallback, useContext, useMemo, useState } from 'react'
 import type { ITheme } from '@xterm/xterm'
 import type { AgentStatus, FileTreeNode, FileChange, Project, AgentSession, SpawnAgentOptions } from '../../../shared/types'
 import type { OpenFile } from '../../hooks/useCodeView'
 import { TerminalPane } from '../terminal/TerminalPane'
 import { CodeViewer } from './CodeViewer'
 import { FileTree } from './FileTree'
+import { SearchResults } from './SearchResults'
+import { treeStyles } from './FileTree.styles'
 import { ModifiedFiles } from '../git/ModifiedFiles'
 import { ShellTabs } from '../terminal/ShellTabs'
 import { OnboardingView } from '../modals/OnboardingView'
@@ -194,32 +196,56 @@ function EditorPanel(): React.JSX.Element {
 
 function FileTreePanel(): React.JSX.Element {
   const s = useDockState()
+  const [activeTab, setActiveTab] = useState<'files' | 'search'>('files')
   const openFilePaths = useMemo(
     () => new Set(s.openFiles.map((f) => f.path)),
     [s.openFiles]
   )
   return (
-    <FileTree
-      tree={s.tree}
-      additionalTrees={s.additionalTrees}
-      additionalBranches={s.additionalBranches}
-      primaryBranch={s.primaryBranch}
-      changes={s.changes}
-      activeFilePath={s.activeFilePath}
-      openFilePaths={openFilePaths}
-      expandedPaths={s.expandedPaths}
-      onToggleExpand={s.onToggleExpand}
-      onSelectFile={s.onSelectFile}
-      onDeleteFile={s.onDeleteFile}
-      onRenameFile={s.onRenameFile}
-      onCreateFile={s.onCreateFile}
-      onCreateDir={s.onCreateDir}
-      onRevealInFinder={s.onRevealInFinder}
-      onOpenInTerminal={s.onOpenInTerminal}
-      onCopyAbsolutePath={s.onCopyAbsolutePath}
-      onCopyRelativePath={s.onCopyRelativePath}
-      worktreeRootPath={s.worktreeRootPath}
-    />
+    <div style={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
+      <div style={treeStyles.panelTabBar}>
+        <button
+          style={{ ...treeStyles.panelTab, ...(activeTab === 'files' ? treeStyles.panelTabActive : {}) }}
+          onClick={() => setActiveTab('files')}
+        >
+          Files
+        </button>
+        <button
+          style={{ ...treeStyles.panelTab, ...(activeTab === 'search' ? treeStyles.panelTabActive : {}) }}
+          onClick={() => setActiveTab('search')}
+        >
+          Search
+        </button>
+      </div>
+      {activeTab === 'files' ? (
+        <FileTree
+          tree={s.tree}
+          additionalTrees={s.additionalTrees}
+          additionalBranches={s.additionalBranches}
+          primaryBranch={s.primaryBranch}
+          changes={s.changes}
+          activeFilePath={s.activeFilePath}
+          openFilePaths={openFilePaths}
+          expandedPaths={s.expandedPaths}
+          onToggleExpand={s.onToggleExpand}
+          onSelectFile={s.onSelectFile}
+          onDeleteFile={s.onDeleteFile}
+          onRenameFile={s.onRenameFile}
+          onCreateFile={s.onCreateFile}
+          onCreateDir={s.onCreateDir}
+          onRevealInFinder={s.onRevealInFinder}
+          onOpenInTerminal={s.onOpenInTerminal}
+          onCopyAbsolutePath={s.onCopyAbsolutePath}
+          onCopyRelativePath={s.onCopyRelativePath}
+          worktreeRootPath={s.worktreeRootPath}
+        />
+      ) : (
+        <SearchResults
+          sessionId={s.sessionId}
+          onSelectFile={s.onSelectFile}
+        />
+      )}
+    </div>
   )
 }
 
