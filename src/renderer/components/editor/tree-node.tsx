@@ -22,6 +22,12 @@ export interface TreeNodeProps {
   onConfirmRename: (nodePath: string, oldName: string) => void
   onCancelRename: () => void
   onContextMenu?: (e: React.MouseEvent, node: FileTreeNode) => void
+  creating?: { parentPath: string; type: 'file' | 'directory'; afterPath?: string } | null
+  createName?: string
+  createError?: string | null
+  onCreateNameChange?: (value: string) => void
+  onConfirmCreate?: () => void
+  onCancelCreate?: () => void
 }
 
 export function TreeNode({
@@ -42,9 +48,24 @@ export function TreeNode({
   onStartRename,
   onConfirmRename,
   onCancelRename,
+  creating,
+  createName,
+  createError,
+  onCreateNameChange,
+  onConfirmCreate,
+  onCancelCreate,
   onContextMenu,
 }: TreeNodeProps): React.JSX.Element {
   const expanded = expandedPaths.has(node.path)
+  const isCreatingHere = creating?.parentPath === node.path
+
+  const handleCreateKeyDown = useCallback((e: React.KeyboardEvent<HTMLInputElement>): void => {
+    if (e.key === 'Enter') {
+      onConfirmCreate?.()
+    } else if (e.key === 'Escape') {
+      onCancelCreate?.()
+    }
+  }, [onConfirmCreate, onCancelCreate])
 
   const handleClick = useCallback((): void => {
     if (node.isDirectory) {
@@ -95,30 +116,61 @@ export function TreeNode({
         onCancelRename={onCancelRename}
         onContextMenu={handleContextMenu}
       />
-      {node.isDirectory && expanded && node.children && (
+      {node.isDirectory && expanded && (
         <>
-          {sortChildren(node.children).map((child) => (
-            <TreeNode
-              key={child.path}
-              node={child}
+          {isCreatingHere && !creating.afterPath && (
+            <CreateInput
               depth={depth + 1}
-              changeMap={changeMap}
-              activeFilePath={activeFilePath}
-              selectedFilePath={selectedFilePath}
-              openFilePaths={openFilePaths}
-              expandedPaths={expandedPaths}
-              onToggleExpand={onToggleExpand}
-              onHighlightFile={onHighlightFile}
-              onSelectFile={onSelectFile}
-              onRequestDelete={onRequestDelete}
-              renamingPath={renamingPath}
-              renameValue={renameValue}
-              onRenameValueChange={onRenameValueChange}
-              onStartRename={onStartRename}
-              onConfirmRename={onConfirmRename}
-              onCancelRename={onCancelRename}
-              onContextMenu={onContextMenu}
+              creating={creating}
+              createName={createName}
+              createError={createError}
+              onCreateNameChange={onCreateNameChange}
+              onKeyDown={handleCreateKeyDown}
+              onConfirmCreate={onConfirmCreate}
+              onCancelCreate={onCancelCreate}
             />
+          )}
+          {node.children && sortChildren(node.children).map((child) => (
+            <React.Fragment key={child.path}>
+              <TreeNode
+                node={child}
+                depth={depth + 1}
+                changeMap={changeMap}
+                activeFilePath={activeFilePath}
+                selectedFilePath={selectedFilePath}
+                openFilePaths={openFilePaths}
+                expandedPaths={expandedPaths}
+                onToggleExpand={onToggleExpand}
+                onHighlightFile={onHighlightFile}
+                onSelectFile={onSelectFile}
+                onRequestDelete={onRequestDelete}
+                renamingPath={renamingPath}
+                renameValue={renameValue}
+                onRenameValueChange={onRenameValueChange}
+                onStartRename={onStartRename}
+                onConfirmRename={onConfirmRename}
+                onCancelRename={onCancelRename}
+                onContextMenu={onContextMenu}
+                creating={creating}
+                createName={createName}
+                createError={createError}
+                onCreateNameChange={onCreateNameChange}
+                onConfirmCreate={onConfirmCreate}
+                onCancelCreate={onCancelCreate}
+              />
+              {isCreatingHere && creating.afterPath === child.path && (
+                <CreateInput
+                  depth={depth + 1}
+                  creating={creating}
+                  createName={createName}
+                  createError={createError}
+                  onCreateNameChange={onCreateNameChange}
+                  onKeyDown={handleCreateKeyDown}
+                  onConfirmCreate={onConfirmCreate}
+                  onCancelCreate={onCancelCreate}
+                />
+              )}
+            </React.Fragment>
           ))}
         </>
       )}
@@ -261,6 +313,63 @@ function NodeRow({
         >
           {'\uD83D\uDDD1'}
         </span>
+      )}
+    </div>
+  )
+}
+
+function CreateInput({
+  depth,
+  creating,
+  createName,
+  createError,
+  onCreateNameChange,
+  onKeyDown,
+  onConfirmCreate,
+  onCancelCreate,
+}: {
+  depth: number
+  creating: { type: 'file' | 'directory' }
+  createName?: string
+  createError?: string | null
+  onCreateNameChange?: (value: string) => void
+  onKeyDown: (e: React.KeyboardEvent<HTMLInputElement>) => void
+  onConfirmCreate?: () => void
+  onCancelCreate?: () => void
+}): React.JSX.Element {
+  const handleBlur = useCallback((): void => {
+    if (createName?.trim()) {
+      onConfirmCreate?.()
+    } else {
+      onCancelCreate?.()
+    }
+  }, [createName, onConfirmCreate, onCancelCreate])
+
+  return (
+    <div style={{ paddingLeft: `${depth * 8 + 4}px` }}>
+      <div style={{ ...treeStyles.node }}>
+        <span style={treeStyles.chevronSpacer} />
+        <span style={{ fontSize: '11px', color: 'var(--text-secondary)', flexShrink: 0 }}>
+          {creating.type === 'file' ? '\uD83D\uDCC4' : '\uD83D\uDCC1'}
+        </span>
+        <input
+          autoFocus
+          value={createName ?? ''}
+          onChange={(e) => onCreateNameChange?.(e.target.value)}
+          onKeyDown={onKeyDown}
+          onBlur={handleBlur}
+          onClick={(e) => e.stopPropagation()}
+          style={{
+            ...treeStyles.renameInput,
+            ...(createError ? { borderColor: 'var(--error)' } : {}),
+          }}
+          placeholder={creating.type === 'file' ? 'filename' : 'folder name'}
+        />
+      </div>
+      {createError && (
+        <div style={{ fontSize: '11px', color: 'var(--error)', paddingLeft: '38px', lineHeight: '18px' }}>
+          {createError}
+        </div>
       )}
     </div>
   )

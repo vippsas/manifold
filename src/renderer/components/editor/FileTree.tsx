@@ -129,8 +129,10 @@ export function FileTree({
   const [creating, setCreating] = useState<{
     parentPath: string
     type: 'file' | 'directory'
+    afterPath?: string
   } | null>(null)
   const [createName, setCreateName] = useState('')
+  const [createError, setCreateError] = useState<string | null>(null)
   const changeMap = useMemo(() => {
     const map = new Map<string, FileChangeType>()
     const root = tree?.path ?? ''
@@ -190,9 +192,10 @@ export function FileTree({
     setContextMenu({ x: e.clientX, y: e.clientY, node })
   }, [])
 
-  const startCreating = useCallback((parentPath: string, type: 'file' | 'directory'): void => {
-    setCreating({ parentPath, type })
+  const startCreating = useCallback((parentPath: string, type: 'file' | 'directory', afterPath?: string): void => {
+    setCreating({ parentPath, type, afterPath })
     setCreateName('')
+    setCreateError(null)
     if (!expandedPaths.has(parentPath)) {
       onToggleExpand(parentPath)
     }
@@ -205,25 +208,28 @@ export function FileTree({
       setCreating(null)
       return
     }
+    let success = false
     if (creating.type === 'file' && onCreateFile) {
-      await onCreateFile(creating.parentPath, trimmed)
+      success = await onCreateFile(creating.parentPath, trimmed)
     } else if (creating.type === 'directory' && onCreateDir) {
-      await onCreateDir(creating.parentPath, trimmed)
+      success = await onCreateDir(creating.parentPath, trimmed)
     }
-    setCreating(null)
+    if (success) {
+      setCreating(null)
+    } else {
+      setCreateError(`"${trimmed}" already exists`)
+    }
   }, [creating, createName, onCreateFile, onCreateDir])
 
   const handleCancelCreate = useCallback((): void => {
     setCreating(null)
+    setCreateError(null)
   }, [])
 
-  const handleCreateKeyDown = useCallback((e: React.KeyboardEvent<HTMLInputElement>): void => {
-    if (e.key === 'Enter') {
-      void handleConfirmCreate()
-    } else if (e.key === 'Escape') {
-      handleCancelCreate()
-    }
-  }, [handleConfirmCreate, handleCancelCreate])
+  const handleCreateNameChange = useCallback((value: string): void => {
+    setCreateName(value)
+    if (createError) setCreateError(null)
+  }, [createError])
 
   const buildContextMenuItems = useCallback((targetNode: FileTreeNode | null): (ContextMenuAction | 'separator')[] => {
     const items: (ContextMenuAction | 'separator')[] = []
@@ -236,11 +242,13 @@ export function FileTree({
     }
 
     const isDir = targetNode.isDirectory
-    const dirPath = isDir ? targetNode.path : targetNode.path.substring(0, targetNode.path.lastIndexOf('/'))
+    const dirPath = targetNode.path.substring(0, targetNode.path.lastIndexOf('/'))
+    const parentPath = dirPath
+    const afterSibling = targetNode.path
 
     // Create operations
-    if (onCreateFile) items.push({ label: 'New File', action: () => startCreating(isDir ? targetNode.path : dirPath, 'file') })
-    if (onCreateDir) items.push({ label: 'New Folder', action: () => startCreating(isDir ? targetNode.path : dirPath, 'directory') })
+    if (onCreateFile) items.push({ label: 'New File', action: () => startCreating(parentPath, 'file', afterSibling) })
+    if (onCreateDir) items.push({ label: 'New Folder', action: () => startCreating(parentPath, 'directory', afterSibling) })
     if (items.length > 0) items.push('separator')
 
     // Edit operations
@@ -277,50 +285,24 @@ export function FileTree({
             {additionalTrees && additionalTrees.size > 0 ? (
               <>
                 <WorkspaceRootHeader name={tree.name} subtitle={primaryBranch} isAdditional={false} />
-                <TreeNode node={tree} depth={0} changeMap={changeMap} activeFilePath={activeFilePath} selectedFilePath={selectedFilePath} openFilePaths={openFilePaths} expandedPaths={expandedPaths} onToggleExpand={onToggleExpand} onHighlightFile={setSelectedFilePath} onSelectFile={onSelectFile} onRequestDelete={onDeleteFile ? handleRequestDelete : undefined} renamingPath={renamingPath} renameValue={renameValue} onRenameValueChange={setRenameValue} onStartRename={onRenameFile ? handleStartRename : undefined} onConfirmRename={handleConfirmRename} onCancelRename={handleCancelRename} onContextMenu={handleContextMenu} />
+                <TreeNode node={tree} depth={0} changeMap={changeMap} activeFilePath={activeFilePath} selectedFilePath={selectedFilePath} openFilePaths={openFilePaths} expandedPaths={expandedPaths} onToggleExpand={onToggleExpand} onHighlightFile={setSelectedFilePath} onSelectFile={onSelectFile} onRequestDelete={onDeleteFile ? handleRequestDelete : undefined} renamingPath={renamingPath} renameValue={renameValue} onRenameValueChange={setRenameValue} onStartRename={onRenameFile ? handleStartRename : undefined} onConfirmRename={handleConfirmRename} onCancelRename={handleCancelRename} onContextMenu={handleContextMenu} creating={creating} createName={createName} onCreateNameChange={handleCreateNameChange} createError={createError} onConfirmCreate={handleConfirmCreate} onCancelCreate={handleCancelCreate} />
                 {Array.from(additionalTrees.entries()).map(([dirPath, dirTree]) => {
                   const branch = additionalBranches?.get(dirPath)
                   const subtitle = branch ?? shortenPath(dirPath)
                   return (
                     <React.Fragment key={dirPath}>
                       <WorkspaceRootHeader name={dirTree.name} subtitle={subtitle} isAdditional={true} />
-                      <TreeNode node={dirTree} depth={0} changeMap={changeMap} activeFilePath={activeFilePath} selectedFilePath={selectedFilePath} openFilePaths={openFilePaths} expandedPaths={expandedPaths} onToggleExpand={onToggleExpand} onHighlightFile={setSelectedFilePath} onSelectFile={onSelectFile} onRequestDelete={onDeleteFile ? handleRequestDelete : undefined} renamingPath={renamingPath} renameValue={renameValue} onRenameValueChange={setRenameValue} onStartRename={onRenameFile ? handleStartRename : undefined} onConfirmRename={handleConfirmRename} onCancelRename={handleCancelRename} onContextMenu={handleContextMenu} />
+                      <TreeNode node={dirTree} depth={0} changeMap={changeMap} activeFilePath={activeFilePath} selectedFilePath={selectedFilePath} openFilePaths={openFilePaths} expandedPaths={expandedPaths} onToggleExpand={onToggleExpand} onHighlightFile={setSelectedFilePath} onSelectFile={onSelectFile} onRequestDelete={onDeleteFile ? handleRequestDelete : undefined} renamingPath={renamingPath} renameValue={renameValue} onRenameValueChange={setRenameValue} onStartRename={onRenameFile ? handleStartRename : undefined} onConfirmRename={handleConfirmRename} onCancelRename={handleCancelRename} onContextMenu={handleContextMenu} creating={creating} createName={createName} onCreateNameChange={handleCreateNameChange} createError={createError} onConfirmCreate={handleConfirmCreate} onCancelCreate={handleCancelCreate} />
                     </React.Fragment>
                   )
                 })}
               </>
             ) : (
-              <TreeNode node={tree} depth={0} changeMap={changeMap} activeFilePath={activeFilePath} selectedFilePath={selectedFilePath} openFilePaths={openFilePaths} expandedPaths={expandedPaths} onToggleExpand={onToggleExpand} onHighlightFile={setSelectedFilePath} onSelectFile={onSelectFile} onRequestDelete={onDeleteFile ? handleRequestDelete : undefined} renamingPath={renamingPath} renameValue={renameValue} onRenameValueChange={setRenameValue} onStartRename={onRenameFile ? handleStartRename : undefined} onConfirmRename={handleConfirmRename} onCancelRename={handleCancelRename} onContextMenu={handleContextMenu} />
+              <TreeNode node={tree} depth={0} changeMap={changeMap} activeFilePath={activeFilePath} selectedFilePath={selectedFilePath} openFilePaths={openFilePaths} expandedPaths={expandedPaths} onToggleExpand={onToggleExpand} onHighlightFile={setSelectedFilePath} onSelectFile={onSelectFile} onRequestDelete={onDeleteFile ? handleRequestDelete : undefined} renamingPath={renamingPath} renameValue={renameValue} onRenameValueChange={setRenameValue} onStartRename={onRenameFile ? handleStartRename : undefined} onConfirmRename={handleConfirmRename} onCancelRename={handleCancelRename} onContextMenu={handleContextMenu} creating={creating} createName={createName} onCreateNameChange={handleCreateNameChange} createError={createError} onConfirmCreate={handleConfirmCreate} onCancelCreate={handleCancelCreate} />
             )}
           </>
         ) : (
           <div style={treeStyles.empty}>No files to display</div>
-        )}
-        {creating && (
-          <div
-            style={{
-              ...treeStyles.node,
-              paddingLeft: '20px',
-              background: 'var(--bg-secondary)',
-              position: 'sticky',
-              bottom: 0,
-              borderTop: '1px solid var(--border)',
-            }}
-          >
-            <span style={{ fontSize: '11px', color: 'var(--text-secondary)', marginRight: '4px' }}>
-              {creating.type === 'file' ? 'New file in' : 'New folder in'} {creating.parentPath.split('/').pop()}:
-            </span>
-            <input
-              autoFocus
-              value={createName}
-              onChange={(e) => setCreateName(e.target.value)}
-              onKeyDown={handleCreateKeyDown}
-              onBlur={handleCancelCreate}
-              onClick={(e) => e.stopPropagation()}
-              style={treeStyles.renameInput}
-              placeholder={creating.type === 'file' ? 'filename' : 'folder name'}
-            />
-          </div>
         )}
       </div>
 
