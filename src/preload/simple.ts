@@ -8,6 +8,7 @@ const ALLOWED_INVOKE_CHANNELS = [
   'projects:create-new',
   'agent:spawn',
   'agent:kill',
+  'agent:interrupt',
   'agent:delete-app',
   'agent:start-dev-server',
   'agent:input',

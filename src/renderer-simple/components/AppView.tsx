@@ -17,6 +17,7 @@ interface Props {
   isAgentWorking?: boolean
   agentDurationMs?: number | null
   onSendMessage: (text: string) => void
+  onInterrupt?: () => void
   onBack: () => void
   onDeploy: () => void
   onDevMode: () => void
@@ -29,6 +30,7 @@ export function AppView({
   isAgentWorking,
   agentDurationMs,
   onSendMessage,
+  onInterrupt,
   onBack,
   onDeploy,
   onDevMode,
@@ -86,6 +88,7 @@ export function AppView({
           <ChatPane
             messages={messages}
             onSend={onSendMessage}
+            onInterrupt={onInterrupt}
             isThinking={isAgentWorking}
             durationMs={agentDurationMs}
           />
