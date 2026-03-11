@@ -1,6 +1,7 @@
 import type { CSSProperties } from 'react'
 
 export const container: CSSProperties = {
+  position: 'relative',
   display: 'flex',
   alignItems: 'center',
   padding: '8px 16px',
@@ -21,6 +22,25 @@ export const statusLabel = (color: string): CSSProperties => ({
   fontWeight: 600,
   color,
 })
+
+export const runtimeBadge: CSSProperties = {
+  position: 'absolute',
+  left: '50%',
+  transform: 'translateX(-50%)',
+  display: 'inline-flex',
+  alignItems: 'center',
+  justifyContent: 'center',
+  padding: '6px 12px',
+  borderRadius: 999,
+  border: '1px solid var(--border)',
+  background: 'color-mix(in srgb, var(--surface) 82%, transparent)',
+  color: 'var(--text-muted)',
+  fontSize: 12,
+  fontWeight: 600,
+  letterSpacing: '0.01em',
+  whiteSpace: 'nowrap',
+  pointerEvents: 'none',
+}
 
 export const spacer: CSSProperties = { flex: 1 }
 

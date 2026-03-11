@@ -25,8 +25,8 @@ export function useChat(sessionId: string | null): {
   const sendMessage = useCallback(
     (text: string) => {
       if (!sessionId) return
-      window.electronAPI.invoke('agent:input', sessionId, text)
       window.electronAPI.invoke('simple:send-message', sessionId, text)
+      window.electronAPI.invoke('agent:input', sessionId, text)
       const userMsg: ChatMessage = {
         id: `local-${Date.now()}`,
         sessionId,

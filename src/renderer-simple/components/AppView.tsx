@@ -20,6 +20,7 @@ interface Props {
   onInterrupt?: () => void
   onBack: () => void
   onDeploy: () => void
+  runtimeLabel?: string
   onDevMode: () => void
 }
 
@@ -33,6 +34,7 @@ export function AppView({
   onInterrupt,
   onBack,
   onDeploy,
+  runtimeLabel,
   onDevMode,
 }: Props): React.JSX.Element {
   const splitRef = useRef<HTMLDivElement>(null)
@@ -81,6 +83,7 @@ export function AppView({
         isAgentWorking={isAgentWorking}
         onBack={onBack}
         onDeploy={onDeploy}
+        runtimeLabel={runtimeLabel}
         onDevMode={onDevMode}
       />
       <div ref={splitRef} style={styles.splitPane}>

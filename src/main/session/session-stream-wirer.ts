@@ -7,6 +7,7 @@ import type { ChatAdapter } from '../agent/chat-adapter'
 import type { FileWatcher } from '../fs/file-watcher'
 import { debugLog } from '../app/debug-log'
 import type { InternalSession } from './session-types'
+import type { SimpleRuntimeOutputMode } from '../agent/simple-runtime'
 
 export class SessionStreamWirer {
   constructor(
@@ -73,7 +74,11 @@ export class SessionStreamWirer {
    * Each line is a JSON object. We extract assistant text content and
    * stream it to the chat in real time.
    */
-  wireStreamJsonOutput(ptyId: string, session: InternalSession): void {
+  wireStreamJsonOutput(
+    ptyId: string,
+    session: InternalSession,
+    outputMode: Exclude<SimpleRuntimeOutputMode, 'plain-text'> = 'claude-stream-json',
+  ): void {
     session.streamJsonLineBuffer = ''
 
     this.ptyPool.onData(ptyId, (data: string) => {
@@ -92,7 +97,7 @@ export class SessionStreamWirer {
         try {
           const event = JSON.parse(trimmed)
           debugLog(`[stream-json] event type=${event.type}`)
-          this.handleStreamJsonEvent(session, event, ptyId)
+          this.handleStreamJsonEvent(session, event, ptyId, outputMode)
         } catch {
           debugLog(`[stream-json] non-JSON line: ${trimmed.slice(0, 200)}`)
         }
@@ -138,7 +143,21 @@ export class SessionStreamWirer {
     })
   }
 
-  private handleStreamJsonEvent(session: InternalSession, event: Record<string, unknown>, ptyId?: string): void {
+  private handleStreamJsonEvent(
+    session: InternalSession,
+    event: Record<string, unknown>,
+    ptyId: string | undefined,
+    outputMode: Exclude<SimpleRuntimeOutputMode, 'plain-text'>,
+  ): void {
+    if (outputMode === 'codex-jsonl') {
+      this.handleCodexJsonEvent(session, event, ptyId)
+      return
+    }
+
+    this.handleClaudeStreamJsonEvent(session, event, ptyId)
+  }
+
+  private handleClaudeStreamJsonEvent(session: InternalSession, event: Record<string, unknown>, ptyId?: string): void {
     const type = event.type as string | undefined
 
     if (type === 'assistant') {
@@ -199,6 +218,55 @@ export class SessionStreamWirer {
         this.sendToRenderer('agent:status', { sessionId: session.id, status: 'waiting' })
       }
     }
+  }
+
+  private handleCodexJsonEvent(session: InternalSession, event: Record<string, unknown>, ptyId?: string): void {
+    const type = event.type as string | undefined
+
+    if (type === 'item.completed') {
+      const item = event.item as { type?: string; text?: string; message?: string } | undefined
+      if (item?.type === 'agent_message' && item.text) {
+        this.publishAgentText(session, item.text)
+        return
+      }
+      if (item?.type === 'error' && item.message) {
+        this.getChatAdapter()?.addSystemMessage(session.id, item.message)
+      }
+      return
+    }
+
+    if (type === 'error') {
+      const message = event.message as string | undefined
+      if (message) {
+        this.getChatAdapter()?.addSystemMessage(session.id, message)
+      }
+      return
+    }
+
+    if (type === 'turn.completed' && (!ptyId || session.ptyId === ptyId)) {
+      session.status = 'waiting'
+      this.sendToRenderer('agent:status', { sessionId: session.id, status: 'waiting' })
+    }
+  }
+
+  private publishAgentText(session: InternalSession, text: string): void {
+    const { cleanText, options } = parseOptions(text)
+    const adapter = this.getChatAdapter()
+
+    const existing = adapter?.getMessages(session.id) ?? []
+    const lastAgent = [...existing].reverse().find(m => m.role === 'agent')
+    const textToCompare = options ? cleanText : text
+    if (lastAgent?.text === textToCompare) {
+      this.detectUrlInText(session, text)
+      return
+    }
+
+    if (options) {
+      adapter?.addAgentMessageWithOptions(session.id, cleanText, options)
+    } else {
+      adapter?.addAgentMessage(session.id, text)
+    }
+    this.detectUrlInText(session, text)
   }
 
   private detectUrlInText(session: InternalSession, text: string): void {

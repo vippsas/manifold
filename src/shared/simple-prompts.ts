@@ -1,9 +1,10 @@
-/**
- * Wraps the user's app description into a full system prompt
- * that constrains the agent to the Manifold tech stack.
- */
-export function buildSimplePrompt(description: string): string {
-  return `You are building a web application for a non-technical user. Follow these rules strictly:
+interface PromptChatMessage {
+  role: 'user' | 'agent' | 'system'
+  text: string
+  options?: string[]
+}
+
+const SIMPLE_MODE_RULES = `You are building a web application for a non-technical user. Follow these rules strictly:
 
 Tech stack (do NOT deviate):
 - React 19 with TypeScript
@@ -37,6 +38,58 @@ When the user's request is ambiguous or you need clarification, ask a follow-up 
 
 IMPORTANT: You MUST include both the ---options--- and ---end--- markers. Always place the options block at the very end of your message with nothing after ---end---. Include 2-4 options that cover the most likely choices. Keep each option concise (a few words to one sentence).
 
-The user wants:
+`
+
+const FOLLOW_UP_HISTORY_LIMIT = 20
+
+function formatMessage(message: PromptChatMessage): string {
+  const roleLabel =
+    message.role === 'user' ? 'User'
+    : message.role === 'agent' ? 'Assistant'
+    : 'System'
+
+  const optionsText = message.options && message.options.length > 0
+    ? `\nOptions:\n${message.options.map((option, index) => `${index + 1}. ${option}`).join('\n')}`
+    : ''
+
+  return `${roleLabel}: ${message.text.trim()}${optionsText}`
+}
+
+/**
+ * Wraps the user's app description into a full system prompt
+ * that constrains the agent to the Manifold tech stack.
+ */
+export function buildSimplePrompt(description: string): string {
+  return `${SIMPLE_MODE_RULES}The user wants:
 ${description}`
+}
+
+export function buildSimpleFollowUpPrompt(messages: PromptChatMessage[], latestUserRequest: string): string {
+  const trimmedRequest = latestUserRequest.trim()
+  const recentMessages = messages
+    .filter((message) => message.text.trim().length > 0)
+    .slice(-FOLLOW_UP_HISTORY_LIMIT)
+
+  const history =
+    recentMessages.length > 0 &&
+    recentMessages[recentMessages.length - 1]?.role === 'user' &&
+    recentMessages[recentMessages.length - 1]?.text.trim() === trimmedRequest
+      ? recentMessages.slice(0, -1)
+      : recentMessages
+
+  const transcript = history.length > 0
+    ? history.map(formatMessage).join('\n\n')
+    : 'No prior chat history.'
+
+  return `You are continuing work on an existing simple-mode web app in the current repository.
+
+Use the current files in the repository as the source of truth. Continue from the existing implementation instead of rebuilding the app from scratch unless the user explicitly asks for that.
+
+Follow these rules strictly:
+
+${SIMPLE_MODE_RULES}Conversation so far:
+${transcript}
+
+Latest user request:
+${trimmedRequest}`
 }

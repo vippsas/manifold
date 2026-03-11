@@ -27,6 +27,7 @@ export function useApps(): {
         window.electronAPI.invoke('agent:sessions') as Promise<Array<{
           id: string
           projectId: string
+          runtimeId?: string
           branchName: string
           status: string
           taskDescription?: string
@@ -49,6 +50,7 @@ export function useApps(): {
       const simpleApps: SimpleApp[] = simpleSessions.map((s) => ({
         sessionId: s.id,
         projectId: s.projectId,
+        runtimeId: s.runtimeId,
         branchName: s.branchName,
         name: projectMap.get(s.projectId)?.name ?? s.branchName.replace('manifold/', ''),
         description: s.taskDescription ?? '',

@@ -2,12 +2,14 @@ import { v4 as uuidv4 } from 'uuid'
 import { PtyPool } from '../agent/pty-pool'
 import { ProjectRegistry } from '../store/project-registry'
 import { getRuntimeById } from '../agent/runtimes'
+import { buildSimpleRuntimeCommand } from '../agent/simple-runtime'
 import { detectUrl } from '../fs/url-detector'
 import { gitExec } from '../git/git-exec'
 import type { ChatAdapter } from '../agent/chat-adapter'
 import { debugLog } from './debug-log'
 import type { InternalSession } from '../session/session-types'
 import type { SessionStreamWirer } from '../session/session-stream-wirer'
+import { buildSimpleFollowUpPrompt } from '../../shared/simple-prompts'
 
 export class DevServerManager {
   constructor(
@@ -19,7 +21,12 @@ export class DevServerManager {
     private streamWirer: SessionStreamWirer,
   ) {}
 
-  async startDevServerSession(projectId: string, branchName: string, taskDescription?: string): Promise<{ sessionId: string }> {
+  async startDevServerSession(
+    projectId: string,
+    branchName: string,
+    taskDescription?: string,
+    runtimeId = 'claude',
+  ): Promise<{ sessionId: string }> {
     const project = this.projectRegistry.getProject(projectId)
     if (!project) throw new Error('Project not found: ' + projectId)
 
@@ -53,7 +60,7 @@ export class DevServerManager {
     const session: InternalSession = {
       id: uuidv4(),
       projectId,
-      runtimeId: 'claude',
+      runtimeId,
       branchName,
       worktreePath: project.path,
       status: 'running',
@@ -120,8 +127,8 @@ export class DevServerManager {
   }
 
   /**
-   * For print-mode sessions, each follow-up message spawns a fresh
-   * `claude -c -p "message"` process that continues the previous conversation.
+   * For simple-mode sessions, each follow-up message spawns a fresh
+   * non-interactive run using the current repository state plus recent chat history.
    */
   spawnPrintModeFollowUp(session: InternalSession, prompt: string): void {
     if (!prompt) return
@@ -133,13 +140,17 @@ export class DevServerManager {
       session.ptyId = ''
     }
 
+    const adapter = this.getChatAdapter()
+    const history = adapter?.getMessages(session.id) ?? []
+    const followUpPrompt = buildSimpleFollowUpPrompt(history, prompt)
     const runtime = getRuntimeById(session.runtimeId)
     if (!runtime) throw new Error('Runtime not found: ' + session.runtimeId)
-    const runtimeArgs = [...(runtime.args ?? []), '--permission-mode', 'bypassPermissions', '-c', '-p', prompt, '--output-format', 'stream-json', '--verbose']
+    const simpleCommand = buildSimpleRuntimeCommand(session.runtimeId, followUpPrompt)
+    const runtimeArgs = simpleCommand.args
 
     debugLog(`[session] print-mode follow-up: ${JSON.stringify(runtimeArgs)}`)
 
-    const ptyHandle = this.ptyPool.spawn(runtime.binary, runtimeArgs, {
+    const ptyHandle = this.ptyPool.spawn(simpleCommand.binary, runtimeArgs, {
       cwd: session.worktreePath,
       env: runtime.env,
     })
@@ -149,9 +160,14 @@ export class DevServerManager {
     session.status = 'running'
     session.outputBuffer = ''
     session.streamJsonLineBuffer = ''
+    session.nonInteractiveOutputMode = simpleCommand.outputMode
     this.sendToRenderer('agent:status', { sessionId: session.id, status: 'running' })
 
-    this.streamWirer.wireStreamJsonOutput(ptyHandle.id, session)
+    if (simpleCommand.outputMode === 'plain-text') {
+      this.streamWirer.wireOutputStreaming(ptyHandle.id, session)
+    } else {
+      this.streamWirer.wireStreamJsonOutput(ptyHandle.id, session, simpleCommand.outputMode)
+    }
     this.streamWirer.wirePrintModeExitHandling(ptyHandle.id, session)
   }
 }

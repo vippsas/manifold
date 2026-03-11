@@ -73,11 +73,13 @@ export class ModeSwitcher {
             const { sessionId: newSessionId } = await sessionManager.startDevServerSession(
               projectId,
               result.branchName,
-              result.taskDescription
+              result.taskDescription,
+              settingsStore.getSettings().defaultRuntime,
             )
             simpleAppPayload = {
               sessionId: newSessionId,
               projectId,
+              runtimeId: settingsStore.getSettings().defaultRuntime,
               name: result.branchName.replace('manifold/', ''),
               description: result.taskDescription ?? '',
               status: 'building',
