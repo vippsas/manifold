@@ -3,6 +3,11 @@ import { writeFile } from 'node:fs/promises'
 import { join, resolve, normalize } from 'node:path'
 import { promisify } from 'node:util'
 import type { AheadBehind, FetchResult } from '../../shared/types'
+import {
+  commitManagedWorktree,
+  getManagedWorktreeStatus,
+  stageManagedWorktreePath,
+} from './managed-worktree'
 
 const execFileAsync = promisify(execFile)
 
@@ -10,8 +15,7 @@ const AI_GENERATE_TIMEOUT_MS = 30_000
 
 export class GitOperationsManager {
   async commit(worktreePath: string, message: string): Promise<void> {
-    await execFileAsync('git', ['add', '.'], { cwd: worktreePath })
-    await execFileAsync('git', ['commit', '-m', message], { cwd: worktreePath })
+    await commitManagedWorktree(worktreePath, message)
   }
 
   async fetchAndUpdate(projectPath: string, baseBranch: string): Promise<FetchResult> {
@@ -69,11 +73,7 @@ export class GitOperationsManager {
 
   async getConflicts(worktreePath: string): Promise<string[]> {
     try {
-      const { stdout } = await execFileAsync(
-        'git',
-        ['status', '--porcelain'],
-        { cwd: worktreePath }
-      )
+      const stdout = await getManagedWorktreeStatus(worktreePath)
       return parseConflicts(stdout)
     } catch {
       // git status may fail if worktree is not fully initialized
@@ -91,7 +91,7 @@ export class GitOperationsManager {
       throw new Error('Path traversal denied: file outside worktree')
     }
     await writeFile(resolved, resolvedContent, 'utf-8')
-    await execFileAsync('git', ['add', '--', filePath], { cwd: worktreePath })
+    await stageManagedWorktreePath(worktreePath, filePath)
   }
 
   async aiGenerate(

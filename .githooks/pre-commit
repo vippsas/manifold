@@ -64,7 +64,7 @@ AI_ENGINE=""
 
 if command -v claude &>/dev/null; then
   AI_ENGINE="Claude Code"
-  AI_RESULT=$(echo "$PROMPT" | env -u CLAUDECODE claude -p --model haiku 2>/dev/null) || AI_RESULT=""
+  AI_RESULT=$(echo "$PROMPT" | env -u CLAUDECODE claude -p --model haiku --setting-sources project,local --disable-slash-commands --no-session-persistence 2>/dev/null) || AI_RESULT=""
 elif command -v codex &>/dev/null; then
   AI_ENGINE="Codex"
   AI_RESULT=$(echo "$PROMPT" | codex --quiet 2>/dev/null) || AI_RESULT=""

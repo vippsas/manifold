@@ -7,6 +7,16 @@ const { mockExecFileAsync, mockWriteFile, mockSpawn } = vi.hoisted(() => ({
   mockSpawn: vi.fn(),
 }))
 
+const {
+  mockCommitManagedWorktree,
+  mockGetManagedWorktreeStatus,
+  mockStageManagedWorktreePath,
+} = vi.hoisted(() => ({
+  mockCommitManagedWorktree: vi.fn(),
+  mockGetManagedWorktreeStatus: vi.fn(),
+  mockStageManagedWorktreePath: vi.fn(),
+}))
+
 vi.mock('node:util', () => ({
   promisify: () => mockExecFileAsync,
   default: { promisify: () => mockExecFileAsync },
@@ -23,7 +33,18 @@ vi.mock('node:child_process', () => ({
   spawn: mockSpawn,
 }))
 
+vi.mock('./managed-worktree', () => ({
+  commitManagedWorktree: mockCommitManagedWorktree,
+  getManagedWorktreeStatus: mockGetManagedWorktreeStatus,
+  stageManagedWorktreePath: mockStageManagedWorktreePath,
+}))
+
 import { GitOperationsManager } from './git-operations'
+import {
+  commitManagedWorktree,
+  getManagedWorktreeStatus,
+  stageManagedWorktreePath,
+} from './managed-worktree'
 
 describe('GitOperationsManager', () => {
   let git: GitOperationsManager
@@ -36,30 +57,16 @@ describe('GitOperationsManager', () => {
   // ---- commit ----
 
   describe('commit', () => {
-    it('calls git add then git commit with correct args', async () => {
-      mockExecFileAsync.mockResolvedValue({ stdout: '', stderr: '' })
+    it('delegates to the managed-worktree commit helper', async () => {
+      mockCommitManagedWorktree.mockResolvedValue(undefined)
 
       await git.commit('/worktree', 'fix: resolve bug')
 
-      expect(mockExecFileAsync).toHaveBeenCalledTimes(2)
-      expect(mockExecFileAsync).toHaveBeenNthCalledWith(
-        1,
-        'git',
-        ['add', '.'],
-        { cwd: '/worktree' },
-      )
-      expect(mockExecFileAsync).toHaveBeenNthCalledWith(
-        2,
-        'git',
-        ['commit', '-m', 'fix: resolve bug'],
-        { cwd: '/worktree' },
-      )
+      expect(commitManagedWorktree).toHaveBeenCalledWith('/worktree', 'fix: resolve bug')
     })
 
-    it('propagates errors from git commit', async () => {
-      mockExecFileAsync
-        .mockResolvedValueOnce({ stdout: '', stderr: '' }) // git add succeeds
-        .mockRejectedValueOnce(new Error('nothing to commit'))
+    it('propagates errors from the managed-worktree commit helper', async () => {
+      mockCommitManagedWorktree.mockRejectedValueOnce(new Error('nothing to commit'))
 
       await expect(git.commit('/worktree', 'empty')).rejects.toThrow('nothing to commit')
     })
@@ -102,21 +109,16 @@ describe('GitOperationsManager', () => {
 
   describe('getConflicts', () => {
     it('parses UU lines from porcelain output', async () => {
-      mockExecFileAsync.mockResolvedValue({
-        stdout: 'UU src/conflict.ts\n M src/clean.ts\n',
-        stderr: '',
-      })
+      mockGetManagedWorktreeStatus.mockResolvedValue('UU src/conflict.ts\n M src/clean.ts\n')
 
       const conflicts = await git.getConflicts('/worktree')
 
       expect(conflicts).toEqual(['src/conflict.ts'])
+      expect(getManagedWorktreeStatus).toHaveBeenCalledWith('/worktree')
     })
 
     it('parses AA and DD lines from porcelain output', async () => {
-      mockExecFileAsync.mockResolvedValue({
-        stdout: 'AA src/both-added.ts\nDD src/both-deleted.ts\n',
-        stderr: '',
-      })
+      mockGetManagedWorktreeStatus.mockResolvedValue('AA src/both-added.ts\nDD src/both-deleted.ts\n')
 
       const conflicts = await git.getConflicts('/worktree')
 
@@ -124,7 +126,7 @@ describe('GitOperationsManager', () => {
     })
 
     it('returns empty array for clean status', async () => {
-      mockExecFileAsync.mockResolvedValue({ stdout: ' M src/file.ts\n?? new.ts\n', stderr: '' })
+      mockGetManagedWorktreeStatus.mockResolvedValue(' M src/file.ts\n?? new.ts\n')
 
       const conflicts = await git.getConflicts('/worktree')
 
@@ -132,7 +134,7 @@ describe('GitOperationsManager', () => {
     })
 
     it('returns [] on error', async () => {
-      mockExecFileAsync.mockRejectedValue(new Error('git failed'))
+      mockGetManagedWorktreeStatus.mockRejectedValue(new Error('git failed'))
 
       const conflicts = await git.getConflicts('/worktree')
 
@@ -157,7 +159,7 @@ describe('GitOperationsManager', () => {
 
     it('writes file and runs git add for valid paths', async () => {
       mockWriteFile.mockResolvedValue(undefined)
-      mockExecFileAsync.mockResolvedValue({ stdout: '', stderr: '' })
+      mockStageManagedWorktreePath.mockResolvedValue(undefined)
 
       await git.resolveConflict('/worktree', 'src/file.ts', 'resolved content')
 
@@ -166,25 +168,17 @@ describe('GitOperationsManager', () => {
         'resolved content',
         'utf-8',
       )
-      expect(mockExecFileAsync).toHaveBeenCalledWith(
-        'git',
-        ['add', '--', 'src/file.ts'],
-        { cwd: '/worktree' },
-      )
+      expect(stageManagedWorktreePath).toHaveBeenCalledWith('/worktree', 'src/file.ts')
     })
 
     it('accepts files in nested subdirectories', async () => {
       mockWriteFile.mockResolvedValue(undefined)
-      mockExecFileAsync.mockResolvedValue({ stdout: '', stderr: '' })
+      mockStageManagedWorktreePath.mockResolvedValue(undefined)
 
       await git.resolveConflict('/worktree', 'src/deep/nested/file.ts', 'content')
 
       expect(mockWriteFile).toHaveBeenCalled()
-      expect(mockExecFileAsync).toHaveBeenCalledWith(
-        'git',
-        ['add', '--', 'src/deep/nested/file.ts'],
-        { cwd: '/worktree' },
-      )
+      expect(stageManagedWorktreePath).toHaveBeenCalledWith('/worktree', 'src/deep/nested/file.ts')
     })
   })
 

@@ -35,6 +35,10 @@ vi.mock('../git/git-exec', () => ({
   gitExec: vi.fn().mockResolvedValue('main\n'),
 }))
 
+vi.mock('../git/managed-worktree', () => ({
+  prepareManagedWorktree: vi.fn().mockResolvedValue(undefined),
+}))
+
 import { SessionManager } from './session-manager'
 import { WorktreeManager } from '../git/worktree-manager'
 import { PtyPool } from '../agent/pty-pool'

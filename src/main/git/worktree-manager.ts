@@ -1,6 +1,7 @@
 import * as fs from 'node:fs'
 import * as path from 'node:path'
 import { generateBranchName, repoPrefix } from './branch-namer'
+import { prepareManagedWorktree } from './managed-worktree'
 import { readWorktreeMeta, removeWorktreeMeta } from './worktree-meta'
 import { gitExec } from './git-exec'
 
@@ -37,6 +38,7 @@ export class WorktreeManager {
     await gitExec(['worktree', 'add', '-b', branch, worktreePath, baseBranch], projectPath)
     // Reset the freshly created worktree index so stale admin/index state cannot leak across sessions.
     await gitExec(['reset', '--mixed', 'HEAD'], worktreePath)
+    await prepareManagedWorktree(worktreePath)
 
     return { branch, path: worktreePath }
   }

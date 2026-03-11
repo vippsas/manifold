@@ -2,6 +2,7 @@ import * as fs from 'node:fs'
 import * as path from 'node:path'
 import { spawn } from 'node:child_process'
 import { gitExec } from './git-exec'
+import { prepareManagedWorktree } from './managed-worktree'
 import type { BranchInfo, PRInfo } from '../../shared/types'
 
 function ghExec(args: string[], cwd: string): Promise<string> {
@@ -174,6 +175,7 @@ export class BranchCheckoutManager {
     await gitExec(['worktree', 'add', worktreePath, branch], projectPath)
     // Reset the freshly created worktree index so stale admin/index state cannot leak across sessions.
     await gitExec(['reset', '--mixed', 'HEAD'], worktreePath)
+    await prepareManagedWorktree(worktreePath)
 
     return { branch, path: worktreePath }
   }

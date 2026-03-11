@@ -1,6 +1,7 @@
 import { PtyPool } from '../agent/pty-pool'
 import { ProjectRegistry } from '../store/project-registry'
 import { gitExec } from '../git/git-exec'
+import { commitManagedWorktree, getManagedWorktreeStatus } from '../git/managed-worktree'
 import { removeWorktreeMeta } from '../git/worktree-meta'
 import { debugLog } from '../app/debug-log'
 import type { InternalSession } from './session-types'
@@ -32,10 +33,9 @@ export class SessionTeardown {
       }
 
       try {
-        const status = await gitExec(['status', '--porcelain'], session.worktreePath)
+        const status = await getManagedWorktreeStatus(session.worktreePath)
         if (status.trim().length > 0) {
-          await gitExec(['add', '-A'], session.worktreePath)
-          await gitExec(['commit', '-m', 'Auto-commit: work from simple mode'], session.worktreePath)
+          await commitManagedWorktree(session.worktreePath, 'Auto-commit: work from simple mode')
           debugLog(`[session] auto-committed changes on branch ${branchName}`)
         }
       } catch (err) {
@@ -80,10 +80,9 @@ export class SessionTeardown {
     }
 
     try {
-      const status = await gitExec(['status', '--porcelain'], worktreePath)
+      const status = await getManagedWorktreeStatus(worktreePath)
       if (status.trim().length > 0) {
-        await gitExec(['add', '-A'], worktreePath)
-        await gitExec(['commit', '-m', 'Auto-commit: work from developer mode'], worktreePath)
+        await commitManagedWorktree(worktreePath, 'Auto-commit: work from developer mode')
         debugLog(`[session] auto-committed changes on branch ${branchName}`)
       }
     } catch (err) {
