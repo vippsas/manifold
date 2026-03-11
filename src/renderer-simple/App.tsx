@@ -56,9 +56,19 @@ function AppViewWrapper({ app, onBack }: { app: SimpleApp; onBack: () => void })
   const { messages, sendMessage } = useChat(app.sessionId)
   const { previewUrl } = usePreview(app.sessionId)
 
+  // Derive live display status instead of using the stale snapshot.
+  // The snapshot's initial value distinguishes new apps ('scaffolding')
+  // from reopened apps ('building') while the agent is running pre-URL.
+  const status: SimpleApp['status'] =
+    agentStatus === 'done' ? 'live'
+    : agentStatus === 'error' ? 'error'
+    : agentStatus === 'waiting' ? 'previewing'
+    : previewUrl ? 'building'
+    : app.status
+
   return (
     <AppView
-      status={app.status}
+      status={status}
       messages={messages}
       previewUrl={previewUrl}
       isAgentWorking={agentStatus === 'running'}
@@ -153,7 +163,7 @@ export function App(): React.JSX.Element {
           branchName: session.branchName ?? '',
           name,
           description,
-          status: 'building',
+          status: 'scaffolding',
           previewUrl: null,
           liveUrl: null,
           projectPath: project.path,

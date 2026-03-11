@@ -16,9 +16,10 @@ interface Props {
   url: string | null
   isAgentWorking?: boolean
   starting?: boolean
+  scaffolding?: boolean
 }
 
-export function PreviewPane({ url, isAgentWorking, starting }: Props): React.JSX.Element {
+export function PreviewPane({ url, isAgentWorking, starting, scaffolding }: Props): React.JSX.Element {
   const webviewRef = useRef<Electron.WebviewTag | null>(null)
   const readyRef = useRef(false)
   const [loading, setLoading] = useState(false)
@@ -81,7 +82,12 @@ export function PreviewPane({ url, isAgentWorking, starting }: Props): React.JSX
   if (!url) {
     return (
       <div style={styles.emptyState}>
-        {starting ? (
+        {scaffolding ? (
+          <>
+            <div style={styles.spinner} />
+            <span>Setting up your project...</span>
+          </>
+        ) : starting ? (
           <>
             <div style={styles.spinner} />
             <span>Starting app...</span>

@@ -102,6 +102,7 @@ export function AppView({
             url={previewUrl}
             isAgentWorking={isAgentWorking}
             starting={!previewUrl && (status === 'building' || status === 'idle')}
+            scaffolding={!previewUrl && status === 'scaffolding'}
           />
         </div>
       </div>
