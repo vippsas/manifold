@@ -263,8 +263,13 @@ export class SessionManager {
     return this.teardown.killInteractiveSession(sessionId)
   }
 
-  async startDevServerSession(projectId: string, branchName: string, taskDescription?: string): Promise<{ sessionId: string }> {
-    return this.devServer.startDevServerSession(projectId, branchName, taskDescription)
+  async startDevServerSession(
+    projectId: string,
+    branchName: string,
+    taskDescription?: string,
+    runtimeId?: string,
+  ): Promise<{ sessionId: string }> {
+    return this.devServer.startDevServerSession(projectId, branchName, taskDescription, runtimeId)
   }
 
   killAllSessions(): void {

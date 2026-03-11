@@ -12,6 +12,7 @@ import { generateBranchName } from '../git/branch-namer'
 import type { ChatAdapter } from '../agent/chat-adapter'
 import { debugLog } from '../app/debug-log'
 import type { InternalSession } from './session-types'
+import { buildSimpleRuntimeCommand } from '../agent/simple-runtime'
 
 export class SessionCreator {
   constructor(
@@ -75,30 +76,39 @@ export class SessionCreator {
       )
     }
 
-    const runtimeArgs = [...(runtime.args ?? [])]
-    if (options.ollamaModel) {
-      runtimeArgs.push('--model', options.ollamaModel)
-    }
+    let commandBinary = runtime.binary
+    let runtimeArgs = [...(runtime.args ?? [])]
+    let nonInteractiveOutputMode: InternalSession['nonInteractiveOutputMode']
+
     if (options.nonInteractive && options.prompt) {
-      runtimeArgs.push('--permission-mode', 'bypassPermissions', '-p', options.prompt, '--output-format', 'stream-json', '--verbose')
+      const simpleCommand = buildSimpleRuntimeCommand(options.runtimeId, options.prompt)
+      commandBinary = simpleCommand.binary
+      runtimeArgs = simpleCommand.args
+      nonInteractiveOutputMode = simpleCommand.outputMode
+    } else if (options.ollamaModel) {
+      runtimeArgs.push('--model', options.ollamaModel)
     }
 
     debugLog(`[session] nonInteractive=${options.nonInteractive}, runtimeArgs=${JSON.stringify(runtimeArgs)}`)
 
-    const ptyHandle = this.ptyPool.spawn(runtime.binary, runtimeArgs, {
+    const ptyHandle = this.ptyPool.spawn(commandBinary, runtimeArgs, {
       cwd: worktree.path,
       env: runtime.env,
       cols: options.cols,
       rows: options.rows
     })
 
-    const session = this.buildSession(options, worktree, ptyHandle)
+    const session = this.buildSession(options, worktree, ptyHandle, nonInteractiveOutputMode)
 
     // Map session→project so chat messages are persisted under the projectId
     this.getChatAdapter()?.setSessionProject(session.id, options.projectId)
 
     if (options.nonInteractive) {
-      this.streamWirer.wireStreamJsonOutput(ptyHandle.id, session)
+      if (session.nonInteractiveOutputMode === 'plain-text') {
+        this.streamWirer.wireOutputStreaming(ptyHandle.id, session)
+      } else {
+        this.streamWirer.wireStreamJsonOutput(ptyHandle.id, session, session.nonInteractiveOutputMode)
+      }
       this.streamWirer.wirePrintModeInitialExitHandling(ptyHandle.id, session)
       this.getChatAdapter()?.addUserMessage(session.id, options.userMessage || options.prompt)
     } else {
@@ -142,7 +152,8 @@ export class SessionCreator {
   private buildSession(
     options: SpawnAgentOptions,
     worktree: { branch: string; path: string },
-    ptyHandle: { id: string; pid: number }
+    ptyHandle: { id: string; pid: number },
+    nonInteractiveOutputMode?: InternalSession['nonInteractiveOutputMode']
   ): InternalSession {
     return {
       id: uuidv4(),
@@ -159,6 +170,7 @@ export class SessionCreator {
       additionalDirs: [],
       noWorktree: options.noWorktree,
       nonInteractive: options.nonInteractive,
+      nonInteractiveOutputMode,
     }
   }
 }

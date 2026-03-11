@@ -14,6 +14,7 @@ export type AppStatus = 'idle' | 'scaffolding' | 'building' | 'previewing' | 'de
 export interface SimpleApp {
   sessionId: string
   projectId: string
+  runtimeId?: string
   branchName: string
   name: string
   description: string

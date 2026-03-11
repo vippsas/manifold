@@ -27,10 +27,11 @@ interface Props {
   isAgentWorking?: boolean
   onBack: () => void
   onDeploy?: () => void
+  runtimeLabel?: string
   onDevMode?: () => void
 }
 
-export function StatusBanner({ status, isAgentWorking, onBack, onDeploy, onDevMode }: Props): React.JSX.Element {
+export function StatusBanner({ status, isAgentWorking, onBack, onDeploy, runtimeLabel, onDevMode }: Props): React.JSX.Element {
   return (
     <div style={styles.container}>
       <button onClick={onBack} style={styles.backButton}>
@@ -39,6 +40,11 @@ export function StatusBanner({ status, isAgentWorking, onBack, onDeploy, onDevMo
       <span style={styles.statusLabel(STATUS_COLORS[status])}>
         {STATUS_LABELS[status]}
       </span>
+      {runtimeLabel && (
+        <div style={styles.runtimeBadge}>
+          AI Assistant: {runtimeLabel}
+        </div>
+      )}
       <div style={styles.spacer} />
       {onDevMode && (
         <button

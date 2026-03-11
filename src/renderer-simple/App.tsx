@@ -13,6 +13,17 @@ import type { ConvertedTheme } from '../shared/themes/types'
 import { useUpdateNotification } from '../shared/useUpdateNotification'
 import { UpdateToast } from '../shared/UpdateToast'
 
+const SIMPLE_RUNTIME_LABELS: Record<string, string> = {
+  claude: 'Claude Code',
+  codex: 'Codex',
+  gemini: 'Gemini',
+}
+
+function getSimpleRuntimeLabel(runtimeId?: string): string {
+  if (!runtimeId) return 'AI Assistant'
+  return SIMPLE_RUNTIME_LABELS[runtimeId] ?? runtimeId
+}
+
 class ErrorBoundary extends React.Component<
   { children: React.ReactNode; onReset: () => void },
   { error: Error | null }
@@ -83,6 +94,7 @@ function AppViewWrapper({ app, onBack }: { app: SimpleApp; onBack: () => void })
       onDeploy={() => {
         /* TODO: deployment in later task */
       }}
+      runtimeLabel={getSimpleRuntimeLabel(app.runtimeId)}
       onDevMode={() => {
         window.electronAPI.invoke('app:switch-mode', 'developer', app.projectId)
       }}
@@ -146,6 +158,7 @@ export function App(): React.JSX.Element {
     <Dashboard
       apps={apps}
       onStart={async (name, description) => {
+        const settings = (await window.electronAPI.invoke('settings:get')) as { defaultRuntime?: string }
         const project = (await window.electronAPI.invoke(
           'projects:create-new',
           `${name}: ${description}`,
@@ -153,7 +166,7 @@ export function App(): React.JSX.Element {
 
         const session = (await window.electronAPI.invoke('agent:spawn', {
           projectId: project.id,
-          runtimeId: 'claude',
+          runtimeId: settings.defaultRuntime ?? 'claude',
           prompt: buildSimplePrompt(description),
           userMessage: description,
           noWorktree: true,
@@ -165,6 +178,7 @@ export function App(): React.JSX.Element {
         const newApp: SimpleApp = {
           sessionId: session.id,
           projectId: project.id,
+          runtimeId: settings.defaultRuntime ?? 'claude',
           branchName: session.branchName ?? '',
           name,
           description,
@@ -183,16 +197,23 @@ export function App(): React.JSX.Element {
         try {
           const needsDevServer = app.status === 'idle' || app.status === 'live' || app.status === 'error'
           if (needsDevServer) {
+            const settings = (await window.electronAPI.invoke('settings:get')) as { defaultRuntime?: string }
             const result = (await window.electronAPI.invoke(
               'agent:start-dev-server',
               app.projectId,
               app.branchName,
               app.description,
+              settings.defaultRuntime ?? 'claude',
             )) as { sessionId: string }
             await window.electronAPI.invoke('simple:subscribe-chat', result.sessionId)
             setView({
               kind: 'app',
-              app: { ...app, sessionId: result.sessionId, status: 'building' },
+              app: {
+                ...app,
+                sessionId: result.sessionId,
+                runtimeId: settings.defaultRuntime ?? app.runtimeId ?? 'claude',
+                status: 'building',
+              },
             })
             refreshApps()
           } else {
