@@ -35,6 +35,14 @@ vi.mock('node:path', () => ({
   basename: (p: string) => p.split('/').pop() || '',
 }))
 
+const { mockPrepareManagedWorktree } = vi.hoisted(() => ({
+  mockPrepareManagedWorktree: vi.fn().mockResolvedValue(undefined),
+}))
+
+vi.mock('./managed-worktree', () => ({
+  prepareManagedWorktree: mockPrepareManagedWorktree,
+}))
+
 function mockSpawnReturns(stdout: string, exitCode = 0, stderr = ''): void {
   mockSpawn.mockImplementation(() => fakeSpawnResult(stdout, exitCode, stderr))
 }
@@ -51,6 +59,7 @@ function mockSpawnSequence(
 }
 
 import { BranchCheckoutManager } from './branch-checkout-manager'
+import { prepareManagedWorktree } from './managed-worktree'
 
 describe('BranchCheckoutManager', () => {
   let manager: BranchCheckoutManager
@@ -288,6 +297,7 @@ describe('BranchCheckoutManager', () => {
         ['reset', '--mixed', 'HEAD'],
         expect.objectContaining({ cwd: result.path })
       )
+      expect(prepareManagedWorktree).toHaveBeenCalledWith(result.path)
     })
 
     it('creates storage directory if needed', async () => {

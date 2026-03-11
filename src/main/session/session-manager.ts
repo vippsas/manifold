@@ -9,6 +9,7 @@ import { DevServerManager } from '../app/dev-server-manager'
 import { SessionCreator } from './session-creator'
 import { SessionTeardown } from './session-teardown'
 import { writeWorktreeMeta, readWorktreeMeta } from '../git/worktree-meta'
+import { prepareManagedWorktree } from '../git/managed-worktree'
 import { FileWatcher } from '../fs/file-watcher'
 import type { ChatAdapter } from '../agent/chat-adapter'
 import type { BrowserWindow } from 'electron'
@@ -197,6 +198,15 @@ export class SessionManager {
 
     const runtime = getRuntimeById(runtimeId)
     if (!runtime) throw new Error(`Runtime not found: ${runtimeId}`)
+
+    if (!session.noWorktree) {
+      try {
+        await prepareManagedWorktree(session.worktreePath)
+      } catch {
+        // Best-effort: session resume should not fail just because worktree
+        // guards could not be refreshed.
+      }
+    }
 
     const runtimeArgs = [...(runtime.args ?? [])]
     if (session.ollamaModel) {

@@ -4,6 +4,7 @@ import { ProjectRegistry } from '../store/project-registry'
 import type { FileWatcher } from '../fs/file-watcher'
 import { readWorktreeMeta } from '../git/worktree-meta'
 import { gitExec } from '../git/git-exec'
+import { prepareManagedWorktree } from '../git/managed-worktree'
 import { debugLog } from '../app/debug-log'
 import type { InternalSession } from './session-types'
 
@@ -49,6 +50,12 @@ export class SessionDiscovery {
 
     for (const wt of worktrees) {
       if (!trackedPaths.has(wt.path)) {
+        try {
+          await prepareManagedWorktree(wt.path)
+        } catch (err) {
+          debugLog(`[session] failed to install managed worktree guards for ${wt.path}: ${err}`)
+        }
+
         const meta = await readWorktreeMeta(wt.path)
         const session: InternalSession = {
           id: uuidv4(),

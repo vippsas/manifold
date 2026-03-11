@@ -21,6 +21,14 @@ vi.mock('./worktree-meta', () => ({
   removeWorktreeMeta: vi.fn().mockResolvedValue(undefined),
 }))
 
+const { mockPrepareManagedWorktree } = vi.hoisted(() => ({
+  mockPrepareManagedWorktree: vi.fn().mockResolvedValue(undefined),
+}))
+
+vi.mock('./managed-worktree', () => ({
+  prepareManagedWorktree: mockPrepareManagedWorktree,
+}))
+
 /**
  * Creates a fake ChildProcess that emits stdout data and then closes.
  * Data emission is deferred via process.nextTick so callers can attach listeners first.
@@ -55,6 +63,7 @@ vi.mock('node:child_process', () => ({
 
 import { WorktreeManager } from './worktree-manager'
 import { generateBranchName } from './branch-namer'
+import { prepareManagedWorktree } from './managed-worktree'
 import { readWorktreeMeta } from './worktree-meta'
 import * as fs from 'node:fs'
 
@@ -111,6 +120,7 @@ describe('WorktreeManager', () => {
         ['reset', '--mixed', 'HEAD'],
         { cwd: result.path, stdio: ['ignore', 'pipe', 'pipe'] }
       )
+      expect(prepareManagedWorktree).toHaveBeenCalledWith(result.path)
     })
 
     it('uses provided branch name instead of generating one', async () => {
