@@ -4,8 +4,9 @@ import type { ChildProcess } from 'node:child_process'
 
 // ---------- mocks ----------
 
-const { spawnMock, existsSyncMock } = vi.hoisted(() => ({
+const { spawnMock, execFileMock, existsSyncMock } = vi.hoisted(() => ({
   spawnMock: vi.fn(),
+  execFileMock: vi.fn(),
   existsSyncMock: vi.fn(() => true),
 }))
 
@@ -15,7 +16,8 @@ vi.mock('node:fs', () => ({
 }))
 
 vi.mock('node:child_process', () => ({
-  default: { spawn: spawnMock },
+  default: { spawn: spawnMock, execFile: execFileMock },
+  execFile: execFileMock,
   spawn: spawnMock,
 }))
 
@@ -62,37 +64,45 @@ describe('DiffProvider', () => {
   beforeEach(() => {
     vi.clearAllMocks()
     existsSyncMock.mockReturnValue(true)
+    execFileMock.mockImplementation((_file, _args, _options, callback) => {
+      callback?.(null, '', '')
+      return {} as ChildProcess
+    })
     provider = new DiffProvider()
   })
 
   // ---- getDiff ----
 
   describe('getDiff', () => {
-    it('stages all changes and returns cached diff against base branch', async () => {
-      queueSpawn('') // git add .
-      queueSpawn('the full diff') // git diff --cached main
+    it('returns working-tree diff against base branch without staging', async () => {
+      queueSpawn('the full diff') // git diff --find-renames main
+      queueSpawn('') // git ls-files --others --exclude-standard -z
 
       const result = await provider.getDiff('/worktree', 'main')
 
-      expect(spawnMock).toHaveBeenCalledWith('git', ['add', '.'], expect.objectContaining({ cwd: '/worktree' }))
-      expect(spawnMock).toHaveBeenCalledWith('git', ['diff', '--cached', 'main'], expect.objectContaining({ cwd: '/worktree' }))
+      expect(spawnMock).toHaveBeenCalledWith(
+        'git',
+        ['diff', '--find-renames', 'main'],
+        expect.objectContaining({ cwd: '/worktree' })
+      )
+      expect(spawnMock).not.toHaveBeenCalledWith('git', ['add', '.'], expect.anything())
       expect(result).toBe('the full diff')
     })
 
     it('returns empty string when diff produces no output', async () => {
-      queueSpawn('') // git add
-      queueSpawn('') // git diff --cached
+      queueSpawn('') // git diff --find-renames
+      queueSpawn('') // git ls-files --others --exclude-standard -z
 
       const result = await provider.getDiff('/worktree', 'main')
       expect(result).toBe('')
     })
 
-    it('continues even if git add fails', async () => {
-      queueSpawn('', 'nothing to add', 1) // git add fails
-      queueSpawn('diff output') // git diff still succeeds
+    it('continues even if tracked diff fails', async () => {
+      queueSpawn('', 'fatal: bad revision', 1) // git diff fails
+      queueSpawn('') // git ls-files --others --exclude-standard -z
 
       const result = await provider.getDiff('/worktree', 'main')
-      expect(result).toBe('diff output')
+      expect(result).toBe('')
     })
 
     it('returns empty string when worktree path does not exist', async () => {
@@ -105,12 +115,16 @@ describe('DiffProvider', () => {
     })
 
     it('uses the correct base branch in the diff command', async () => {
-      queueSpawn('') // git add
-      queueSpawn('branch diff') // git diff --cached develop
+      queueSpawn('branch diff') // git diff --find-renames develop
+      queueSpawn('') // git ls-files --others --exclude-standard -z
 
       const result = await provider.getDiff('/worktree', 'develop')
 
-      expect(spawnMock).toHaveBeenCalledWith('git', ['diff', '--cached', 'develop'], expect.objectContaining({ cwd: '/worktree' }))
+      expect(spawnMock).toHaveBeenCalledWith(
+        'git',
+        ['diff', '--find-renames', 'develop'],
+        expect.objectContaining({ cwd: '/worktree' })
+      )
       expect(result).toBe('branch diff')
     })
   })
@@ -119,14 +133,14 @@ describe('DiffProvider', () => {
 
   describe('getChangedFiles', () => {
     it('returns file changes parsed from numstat output', async () => {
-      const numstat = [
-        '10\t0\tsrc/new.ts',
-        '0\t5\tsrc/old.ts',
-        '3\t2\tsrc/mod.ts',
+      const nameStatus = [
+        'A\tsrc/new.ts',
+        'D\tsrc/old.ts',
+        'M\tsrc/mod.ts',
       ].join('\n')
 
-      queueSpawn('') // git add
-      queueSpawn(numstat) // git diff --cached --numstat
+      queueSpawn(nameStatus) // git diff --name-status --find-renames
+      queueSpawn('') // git ls-files --others --exclude-standard -z
 
       const changes = await provider.getChangedFiles('/worktree', 'main')
 
@@ -145,8 +159,8 @@ describe('DiffProvider', () => {
     })
 
     it('returns empty array when numstat output is empty', async () => {
-      queueSpawn('') // git add
-      queueSpawn('') // git diff --cached --numstat (empty)
+      queueSpawn('') // git diff --name-status --find-renames
+      queueSpawn('') // git ls-files --others --exclude-standard -z
 
       const changes = await provider.getChangedFiles('/worktree', 'main')
 
@@ -154,33 +168,32 @@ describe('DiffProvider', () => {
     })
 
     it('handles diff failure gracefully by returning empty array', async () => {
-      queueSpawn('') // git add
       queueSpawn('', 'no commits', 128) // diff fails
+      queueSpawn('') // git ls-files --others --exclude-standard -z
 
       const changes = await provider.getChangedFiles('/worktree', 'main')
 
       expect(changes).toEqual([])
     })
 
-    it('handles binary files (shown as dashes in numstat) as modified', async () => {
-      const numstat = '-\t-\timage.png'
+    it('treats renames as modified', async () => {
+      const nameStatus = 'R100\told-name.ts\tnew-name.ts'
 
-      queueSpawn('') // git add
-      queueSpawn(numstat) // git diff --cached --numstat
+      queueSpawn(nameStatus) // git diff --name-status --find-renames
+      queueSpawn('') // git ls-files --others --exclude-standard -z
 
       const changes = await provider.getChangedFiles('/worktree', 'main')
 
-      // Binary files have '-' for insertions/deletions, parsed as 0/0 → type stays 'modified'
-      expect(changes).toContainEqual({ path: 'image.png', type: 'modified' })
+      expect(changes).toContainEqual({ path: 'new-name.ts', type: 'modified' })
     })
 
-    it('continues even if git add fails before numstat', async () => {
-      queueSpawn('', 'error', 1) // git add fails
-      queueSpawn('5\t0\tsrc/file.ts') // diff still works
+    it('includes untracked files as added without staging them', async () => {
+      queueSpawn('') // git diff --name-status --find-renames
+      queueSpawn('new/untracked.ts\u0000') // git ls-files --others --exclude-standard -z
 
       const changes = await provider.getChangedFiles('/worktree', 'main')
 
-      expect(changes).toContainEqual({ path: 'src/file.ts', type: 'added' })
+      expect(changes).toContainEqual({ path: 'new/untracked.ts', type: 'added' })
     })
   })
 })

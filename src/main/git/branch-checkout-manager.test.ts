@@ -264,6 +264,7 @@ describe('BranchCheckoutManager', () => {
       mockSpawnSequence([
         { stdout: 'main\n' },  // git rev-parse --abbrev-ref HEAD
         { stdout: '' },        // git worktree add
+        { stdout: '' },        // git reset --mixed HEAD
       ])
 
       const result = await manager.createWorktreeFromBranch(
@@ -282,6 +283,11 @@ describe('BranchCheckoutManager', () => {
         ['worktree', 'add', expect.stringContaining('feature-login'), 'feature/login'],
         expect.objectContaining({ cwd: '/repo' })
       )
+      expect(mockSpawn).toHaveBeenCalledWith(
+        'git',
+        ['reset', '--mixed', 'HEAD'],
+        expect.objectContaining({ cwd: result.path })
+      )
     })
 
     it('creates storage directory if needed', async () => {
@@ -289,6 +295,7 @@ describe('BranchCheckoutManager', () => {
         { stdout: 'main\n' },  // rev-parse: same as branch, triggers checkout
         { stdout: '' },        // git checkout main (no-op but still runs)
         { stdout: '' },        // git worktree add
+        { stdout: '' },        // git reset --mixed HEAD
       ])
 
       await manager.createWorktreeFromBranch('/repo', 'main', 'my-project', 'main')
@@ -303,7 +310,8 @@ describe('BranchCheckoutManager', () => {
     it('handles branch names with slashes in directory naming', async () => {
       mockSpawnSequence([
         { stdout: 'main\n' },
-        { stdout: '' },
+        { stdout: '' },        // git worktree add
+        { stdout: '' },        // git reset --mixed HEAD
       ])
 
       const result = await manager.createWorktreeFromBranch(
@@ -321,6 +329,7 @@ describe('BranchCheckoutManager', () => {
         { stdout: 'cloud-platform-decisions/vibe-coding-solution\n' }, // rev-parse: same as target
         { stdout: '' },  // git checkout main (switch away)
         { stdout: '' },  // git worktree add
+        { stdout: '' },  // git reset --mixed HEAD
       ])
 
       const result = await manager.createWorktreeFromBranch(
@@ -343,6 +352,7 @@ describe('BranchCheckoutManager', () => {
       mockSpawnSequence([
         { stdout: 'main\n' },  // rev-parse: different from target
         { stdout: '' },        // git worktree add
+        { stdout: '' },        // git reset --mixed HEAD
       ])
 
       await manager.createWorktreeFromBranch(

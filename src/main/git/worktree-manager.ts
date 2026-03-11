@@ -35,6 +35,8 @@ export class WorktreeManager {
 
     // Create a new branch from the base branch and set up the worktree
     await gitExec(['worktree', 'add', '-b', branch, worktreePath, baseBranch], projectPath)
+    // Reset the freshly created worktree index so stale admin/index state cannot leak across sessions.
+    await gitExec(['reset', '--mixed', 'HEAD'], worktreePath)
 
     return { branch, path: worktreePath }
   }
