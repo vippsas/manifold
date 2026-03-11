@@ -43,7 +43,14 @@ should NOT be in a public repo. Look for:
 - Personal data (emails, phone numbers, physical addresses)
 - Internal URLs, private endpoints, or proprietary service references
 - Hardcoded environment-specific configuration (database connection strings, etc.)
-- Any other sensitive or confidential information
+- Company-related data: employee names, team names, org chart details,
+  internal project codenames, or references to specific people
+- Internal services, microservice names, internal API endpoints, or
+  infrastructure details that reveal how the company operates
+- Internal tooling names, deployment targets, staging/production hostnames,
+  or CI/CD pipeline references specific to the company
+- Any other data that could expose the company's internal structure,
+  processes, or ways of working
 
 If the diff is clean, respond with exactly: PASS
 If you find issues, respond with: FAIL followed by a brief explanation of each finding.
