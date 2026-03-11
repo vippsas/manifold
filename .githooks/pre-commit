@@ -1,0 +1,24 @@
+#!/usr/bin/env bash
+#
+# Pre-commit hook: reject staged changes that introduce
+# forbidden company name references.
+
+FORBIDDEN="vipps|vippsas"
+
+DIFF_LINES=$(git diff --cached --diff-filter=ACMR \
+  -- . ':(exclude).githooks' \
+  | grep '^[+]' \
+  | grep -v '^[+][+][+]' \
+  | grep -iE "$FORBIDDEN" || true)
+
+if [ -n "$DIFF_LINES" ]; then
+  echo ""
+  echo "ERROR: Commit blocked — staged changes contain forbidden terms."
+  echo ""
+  echo "Matches found:"
+  echo "$DIFF_LINES"
+  echo ""
+  echo "Please remove these references before committing."
+  echo "To bypass this check: git commit --no-verify"
+  exit 1
+fi
