@@ -28,6 +28,10 @@ export function registerAgentHandlers(deps: IpcDependencies): void {
     sessionManager.resize(sessionId, cols, rows)
   })
 
+  ipcMain.handle('agent:interrupt', (_event, sessionId: string) => {
+    sessionManager.interruptSession(sessionId)
+  })
+
   ipcMain.handle('agent:kill', async (_event, sessionId: string) => {
     const session = sessionManager.getSession(sessionId)
     if (session) {

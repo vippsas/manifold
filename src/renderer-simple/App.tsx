@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useLayoutEffect } from 'react'
+import React, { useState, useEffect, useLayoutEffect, useCallback } from 'react'
 import { Dashboard } from './components/Dashboard'
 import { AppView } from './components/AppView'
 import { useApps } from './hooks/useApps'
@@ -56,6 +56,10 @@ function AppViewWrapper({ app, onBack }: { app: SimpleApp; onBack: () => void })
   const { messages, sendMessage } = useChat(app.sessionId)
   const { previewUrl } = usePreview(app.sessionId)
 
+  const interruptAgent = useCallback(() => {
+    window.electronAPI.invoke('agent:interrupt', app.sessionId)
+  }, [app.sessionId])
+
   return (
     <AppView
       status={app.status}
@@ -64,6 +68,7 @@ function AppViewWrapper({ app, onBack }: { app: SimpleApp; onBack: () => void })
       isAgentWorking={agentStatus === 'running'}
       agentDurationMs={durationMs}
       onSendMessage={sendMessage}
+      onInterrupt={interruptAgent}
       onBack={onBack}
       onDeploy={() => {
         /* TODO: deployment in later task */

@@ -112,11 +112,12 @@ function DurationBadge({ durationMs }: { durationMs: number }): React.JSX.Elemen
 interface Props {
   messages: ChatMessageType[]
   onSend: (text: string) => void
+  onInterrupt?: () => void
   isThinking?: boolean
   durationMs?: number | null
 }
 
-export function ChatPane({ messages, onSend, isThinking, durationMs }: Props): React.JSX.Element {
+export function ChatPane({ messages, onSend, onInterrupt, isThinking, durationMs }: Props): React.JSX.Element {
   const [input, setInput] = useState('')
   const [dismissedOptions, setDismissedOptions] = useState<Set<string>>(new Set())
   const messagesEndRef = useRef<HTMLDivElement>(null)
@@ -174,7 +175,7 @@ export function ChatPane({ messages, onSend, isThinking, durationMs }: Props): R
         />
         <button
           style={isThinking ? styles.interruptButton : styles.sendButton}
-          onClick={handleSend}
+          onClick={isThinking ? onInterrupt : handleSend}
         >
           {isThinking ? 'Interrupt' : 'Send'}
         </button>
