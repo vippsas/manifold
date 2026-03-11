@@ -92,7 +92,7 @@ export class SessionStreamWirer {
         try {
           const event = JSON.parse(trimmed)
           debugLog(`[stream-json] event type=${event.type}`)
-          this.handleStreamJsonEvent(session, event)
+          this.handleStreamJsonEvent(session, event, ptyId)
         } catch {
           debugLog(`[stream-json] non-JSON line: ${trimmed.slice(0, 200)}`)
         }
@@ -106,6 +106,9 @@ export class SessionStreamWirer {
    */
   wirePrintModeExitHandling(ptyId: string, session: InternalSession): void {
     this.ptyPool.onExit(ptyId, () => {
+      // Guard against stale exit: if a new process has already replaced this one,
+      // don't overwrite its 'running' status with 'waiting'.
+      if (session.ptyId && session.ptyId !== ptyId) return
       session.status = 'waiting'
       session.pid = null
       session.ptyId = ''
@@ -135,7 +138,7 @@ export class SessionStreamWirer {
     })
   }
 
-  private handleStreamJsonEvent(session: InternalSession, event: Record<string, unknown>): void {
+  private handleStreamJsonEvent(session: InternalSession, event: Record<string, unknown>, ptyId?: string): void {
     const type = event.type as string | undefined
 
     if (type === 'assistant') {
@@ -190,8 +193,11 @@ export class SessionStreamWirer {
       // The result event signals the agent is done. Transition to 'waiting'
       // immediately rather than waiting for the process to exit (which can
       // linger for over a minute after the result is emitted).
-      session.status = 'waiting'
-      this.sendToRenderer('agent:status', { sessionId: session.id, status: 'waiting' })
+      // Guard: skip if a new process has already replaced this one.
+      if (!ptyId || session.ptyId === ptyId) {
+        session.status = 'waiting'
+        this.sendToRenderer('agent:status', { sessionId: session.id, status: 'waiting' })
+      }
     }
   }
 
