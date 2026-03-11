@@ -108,6 +108,17 @@ export class SessionManager {
     return this.sessions.has(sessionId)
   }
 
+  interruptSession(sessionId: string): void {
+    const session = this.sessions.get(sessionId)
+    if (!session) return
+    if (!session.ptyId) return
+    try {
+      this.ptyPool.kill(session.ptyId)
+    } catch {
+      // PTY may have already exited
+    }
+  }
+
   sendInput(sessionId: string, input: string): void {
     const session = this.sessions.get(sessionId)
     if (!session) throw new Error(`Session not found: ${sessionId}`)

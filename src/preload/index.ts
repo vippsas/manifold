@@ -11,6 +11,7 @@ const ALLOWED_INVOKE_CHANNELS = [
   'projects:create-new',
   'agent:spawn',
   'agent:kill',
+  'agent:interrupt',
   'agent:input',
   'agent:resize',
   'agent:sessions',
