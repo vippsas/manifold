@@ -106,6 +106,11 @@ describe('WorktreeManager', () => {
         ['worktree', 'add', '-b', 'repo/fix-login-button', expect.stringContaining('repo-fix-login-button'), 'main'],
         { cwd: '/repo', stdio: ['ignore', 'pipe', 'pipe'] }
       )
+      expect(mockSpawn).toHaveBeenCalledWith(
+        'git',
+        ['reset', '--mixed', 'HEAD'],
+        { cwd: result.path, stdio: ['ignore', 'pipe', 'pipe'] }
+      )
     })
 
     it('uses provided branch name instead of generating one', async () => {
@@ -142,6 +147,7 @@ describe('WorktreeManager', () => {
         { stdout: '', exitCode: 128, stderr: 'fatal: bad default revision' },    // rev-parse HEAD (empty repo)
         { stdout: '' },                                                           // commit --allow-empty
         { stdout: '' },                                                           // worktree add
+        { stdout: '' },                                                           // reset --mixed HEAD
       ])
 
       const result = await manager.createWorktree('/repo', 'main', 'proj-1', 'repo/oslo')

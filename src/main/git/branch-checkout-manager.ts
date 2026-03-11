@@ -172,6 +172,8 @@ export class BranchCheckoutManager {
 
     // No -b flag: check out existing branch, don't create new
     await gitExec(['worktree', 'add', worktreePath, branch], projectPath)
+    // Reset the freshly created worktree index so stale admin/index state cannot leak across sessions.
+    await gitExec(['reset', '--mixed', 'HEAD'], worktreePath)
 
     return { branch, path: worktreePath }
   }
