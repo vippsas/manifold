@@ -36,7 +36,11 @@ export function buildAppMenu(mainWindow: BrowserWindow): Menu {
         { role: 'paste' },
         { role: 'selectAll' },
         { type: 'separator' },
-        { role: 'find' },
+        {
+          label: 'Find in Files',
+          accelerator: 'CmdOrCtrl+F',
+          click: () => mainWindow?.webContents.send('view:show-search'),
+        },
       ],
     },
     {

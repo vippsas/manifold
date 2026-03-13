@@ -10,6 +10,7 @@ interface PollEntry {
   timer: ReturnType<typeof setInterval>
   sessionId: string
   lastStatus: string
+  lastChangeFingerprint: string
   polling: boolean
 }
 
@@ -42,6 +43,7 @@ export class FileWatcher {
       timer: setInterval(() => this.pollAdditionalDir(key, dirPath), POLL_INTERVAL_MS),
       sessionId,
       lastStatus: '',
+      lastChangeFingerprint: '',
       polling: false,
     }
     this.polls.set(key, entry)
@@ -64,6 +66,7 @@ export class FileWatcher {
       timer: setInterval(() => this.poll(worktreePath), POLL_INTERVAL_MS),
       sessionId,
       lastStatus: '',
+      lastChangeFingerprint: '',
       polling: false,
     }
     this.polls.set(worktreePath, entry)
@@ -79,9 +82,11 @@ export class FileWatcher {
     entry.polling = true
     try {
       const status = await this.gitStatusFn(worktreePath)
-      if (status !== entry.lastStatus) {
-        const { changes, conflicts } = parseStatusWithConflicts(status)
+      const { changes, conflicts } = parseStatusWithConflicts(status)
+      const changeFingerprint = buildChangeFingerprint(worktreePath, changes)
+      if (status !== entry.lastStatus || changeFingerprint !== entry.lastChangeFingerprint) {
         entry.lastStatus = status
+        entry.lastChangeFingerprint = changeFingerprint
         this.sendToRenderer('files:changed', {
           sessionId: entry.sessionId,
           changes,
@@ -105,9 +110,11 @@ export class FileWatcher {
     entry.polling = true
     try {
       const status = await this.gitStatusFn(dirPath)
-      if (status !== entry.lastStatus) {
-        const { changes, conflicts } = parseStatusWithConflicts(status)
+      const { changes, conflicts } = parseStatusWithConflicts(status)
+      const changeFingerprint = buildChangeFingerprint(dirPath, changes)
+      if (status !== entry.lastStatus || changeFingerprint !== entry.lastChangeFingerprint) {
         entry.lastStatus = status
+        entry.lastChangeFingerprint = changeFingerprint
         this.sendToRenderer('files:changed', {
           sessionId: entry.sessionId,
           changes,
@@ -259,6 +266,24 @@ function parseStatusWithConflicts(raw: string): { changes: FileChange[]; conflic
     changes.push({ path: filePath, type })
   }
   return { changes, conflicts }
+}
+
+function buildChangeFingerprint(rootPath: string, changes: FileChange[]): string {
+  return [...changes]
+    .sort((a, b) => a.path.localeCompare(b.path) || a.type.localeCompare(b.type))
+    .map((change) => {
+      const absolutePath = path.join(rootPath, change.path)
+      try {
+        const stat = fs.statSync(absolutePath)
+        const kind = stat.isDirectory() ? 'dir' : 'file'
+        const size = typeof stat.size === 'number' ? stat.size : 0
+        const modifiedAt = typeof stat.mtimeMs === 'number' ? stat.mtimeMs : 0
+        return `${change.type}:${change.path}:${kind}:${size}:${modifiedAt}`
+      } catch {
+        return `${change.type}:${change.path}:missing`
+      }
+    })
+    .join('|')
 }
 
 const EXCLUDED_DIRS = new Set([

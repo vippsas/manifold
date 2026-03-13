@@ -140,7 +140,7 @@ async function disableClaudePluginsLocally(worktreePath: string): Promise<void> 
 
   try {
     const result = await execFileAsync('claude', ['plugins', 'list', '--json'], { cwd: worktreePath })
-    stdout = typeof result.stdout === 'string' ? result.stdout : result.stdout.toString('utf8')
+    stdout = result.stdout
   } catch {
     return
   }

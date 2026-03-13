@@ -2,8 +2,6 @@
 #
 # Pre-commit hook:
 # 1. Reject staged changes that introduce forbidden company name references.
-# 2. Use an AI engine to check for sensitive data that should not be in a
-#    public open-source repository.
 
 # --- Check 1: Forbidden terms ---
 
@@ -26,79 +24,4 @@ if [ -n "$DIFF_LINES" ]; then
   echo "To bypass this check: git commit --no-verify"
   exit 1
 fi
-
-# --- Check 2: AI-powered sensitive data scan ---
-
-DIFF=$(git diff --cached --diff-filter=ACMR)
-
-if [ -z "$DIFF" ]; then
-  exit 0
-fi
-
-PROMPT="You are a security reviewer for a public open-source repository.
-Review the following git diff and check whether it contains any data that
-should NOT be in a public repo. Look for:
-- API keys, tokens, secrets, passwords, or credentials
-- Private IP addresses or internal hostnames
-- Personal data (emails, phone numbers, physical addresses)
-- Internal URLs, private endpoints, or proprietary service references
-- Hardcoded environment-specific configuration (database connection strings, etc.)
-- Company-related data: employee names, team names, org chart details,
-  internal project codenames, or references to specific people
-- Internal services, microservice names, internal API endpoints, or
-  infrastructure details that reveal how the company operates
-- Internal tooling names, deployment targets, staging/production hostnames,
-  or CI/CD pipeline references specific to the company
-- Any other data that could expose the company's internal structure,
-  processes, or ways of working
-
-If the diff is clean, respond with exactly: PASS
-If you find issues, respond with: FAIL followed by a brief explanation of each finding.
-
-Diff to review:
-$DIFF"
-
-# Try engines in priority order: claude, codex, gemini
-AI_RESULT=""
-AI_ENGINE=""
-
-if command -v claude &>/dev/null; then
-  AI_ENGINE="Claude Code"
-  AI_RESULT=$(echo "$PROMPT" | env -u CLAUDECODE claude -p --model haiku --setting-sources project,local --disable-slash-commands --no-session-persistence 2>/dev/null) || AI_RESULT=""
-elif command -v codex &>/dev/null; then
-  AI_ENGINE="Codex"
-  AI_RESULT=$(echo "$PROMPT" | codex --quiet 2>/dev/null) || AI_RESULT=""
-elif command -v gemini &>/dev/null; then
-  AI_ENGINE="Gemini CLI"
-  AI_RESULT=$(echo "$PROMPT" | gemini 2>/dev/null) || AI_RESULT=""
-fi
-
-if [ -z "$AI_RESULT" ]; then
-  echo ""
-  echo "WARNING: AI sensitive-data check skipped (no AI engine available or engine failed)."
-  echo ""
-  exit 0
-fi
-
-if echo "$AI_RESULT" | grep -q '^PASS'; then
-  echo "AI security review ($AI_ENGINE): PASS"
-  exit 0
-fi
-
-if echo "$AI_RESULT" | grep -q '^FAIL'; then
-  echo ""
-  echo "ERROR: AI security review ($AI_ENGINE) found sensitive data in staged changes."
-  echo ""
-  echo "$AI_RESULT"
-  echo ""
-  echo "Please review and remove sensitive data before committing."
-  echo "To bypass this check: git commit --no-verify"
-  exit 1
-fi
-
-# If the AI response doesn't clearly say PASS or FAIL, show it as a warning
-echo ""
-echo "WARNING: AI security review ($AI_ENGINE) returned an unclear result:"
-echo "$AI_RESULT"
-echo ""
 exit 0

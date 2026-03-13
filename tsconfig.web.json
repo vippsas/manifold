@@ -18,7 +18,7 @@
   "include": [
     "src/renderer/**/*.ts",
     "src/renderer/**/*.tsx",
-    "src/shared/**/*.ts",
+    "src/shared/**/*",
     "src/shared/themes/data/*.json"
   ]
 }
