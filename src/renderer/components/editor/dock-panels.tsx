@@ -43,6 +43,7 @@ export interface DockAppState {
   additionalBranches?: Map<string, string | null>
   primaryBranch: string | null
   changes: FileChange[]
+  fileSearchRequestKey: number
   expandedPaths: Set<string>
   onToggleExpand: (path: string) => void
   // ModifiedFiles
@@ -201,6 +202,13 @@ function FileTreePanel(): React.JSX.Element {
     () => new Set(s.openFiles.map((f) => f.path)),
     [s.openFiles]
   )
+
+  React.useEffect(() => {
+    if (s.fileSearchRequestKey > 0) {
+      setActiveTab('search')
+    }
+  }, [s.fileSearchRequestKey])
+
   return (
     <div style={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
       <div style={treeStyles.panelTabBar}>

@@ -52,6 +52,20 @@ export function App(): React.JSX.Element {
     })
   }, [dockLayout.togglePanel])
 
+  useEffect(() => {
+    return window.electronAPI.on('view:show-search', () => {
+      if (!dockLayout.isPanelVisible('fileTree')) {
+        dockLayout.togglePanel('fileTree')
+      }
+
+      setFileSearchRequestKey((prev) => prev + 1)
+
+      queueMicrotask(() => {
+        dockLayout.apiRef.current?.getPanel('fileTree')?.api.setActive()
+      })
+    })
+  }, [dockLayout.apiRef, dockLayout.isPanelVisible, dockLayout.togglePanel])
+
   // When switching from simple → developer mode, the main process sends the
   // project ID and branch name so we can resume work in an interactive session.
   useEffect(() => {
@@ -170,6 +184,7 @@ export function App(): React.JSX.Element {
   const updateNotification = useUpdateNotification()
   const [creatingProject, setCreatingProject] = useState(false)
   const [showOnboarding, setShowOnboarding] = useState(false)
+  const [fileSearchRequestKey, setFileSearchRequestKey] = useState(0)
 
   const handleCreateNewProject = useCallback(async (description: string): Promise<void> => {
     setCreatingProject(true)
@@ -237,6 +252,7 @@ export function App(): React.JSX.Element {
     additionalBranches,
     primaryBranch: activeSession?.branchName ?? null,
     changes: mergedChanges,
+    fileSearchRequestKey,
     expandedPaths: viewState.expandedPaths,
     onToggleExpand: viewState.onToggleExpand,
     worktreeRoot: tree?.path ?? null,

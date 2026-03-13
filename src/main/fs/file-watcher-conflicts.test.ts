@@ -15,6 +15,9 @@ vi.mock('node:path', () => ({
 
 import { FileWatcher } from './file-watcher'
 import type { BrowserWindow } from 'electron'
+import * as fs from 'node:fs'
+
+const mockStatSync = vi.mocked(fs.statSync)
 
 function createMockWindow() {
   return {
@@ -33,6 +36,11 @@ describe('FileWatcher — conflict detection', () => {
     vi.clearAllMocks()
     vi.useFakeTimers()
     mockGitStatus = vi.fn<(cwd: string) => Promise<string>>().mockResolvedValue('')
+    mockStatSync.mockReturnValue({
+      isDirectory: () => false,
+      mtimeMs: 1,
+      size: 1,
+    } as unknown as fs.Stats)
     watcher = new FileWatcher(mockGitStatus)
   })
 

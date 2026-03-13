@@ -80,6 +80,7 @@ const ALLOWED_LISTEN_CHANNELS = [
   'show-settings',
   'updater:status',
   'view:toggle-panel',
+  'view:show-search',
   'preview:url-detected',
   'app:auto-spawn',
 ] as const

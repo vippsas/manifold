@@ -45,6 +45,11 @@ describe('FileWatcher', () => {
     vi.clearAllMocks()
     vi.useFakeTimers()
     mockGitStatus = vi.fn<(cwd: string) => Promise<string>>().mockResolvedValue('')
+    mockStatSync.mockReturnValue({
+      isDirectory: () => false,
+      mtimeMs: 1,
+      size: 1,
+    } as unknown as fs.Stats)
     watcher = new FileWatcher(mockGitStatus)
   })
 
@@ -116,6 +121,40 @@ describe('FileWatcher', () => {
       await vi.advanceTimersByTimeAsync(2000)
 
       expect(mockWindow.webContents.send).not.toHaveBeenCalled()
+    })
+
+    it('sends files:changed when a dirty file changes again without a new git status', async () => {
+      const mockWindow = createMockWindow()
+      watcher.setMainWindow(mockWindow)
+
+      mockGitStatus.mockResolvedValue(' M src/file.ts\n')
+      mockStatSync
+        .mockReset()
+        .mockReturnValueOnce({
+          isDirectory: () => false,
+          mtimeMs: 1,
+          size: 10,
+        } as unknown as fs.Stats)
+        .mockReturnValueOnce({
+          isDirectory: () => false,
+          mtimeMs: 2,
+          size: 10,
+        } as unknown as fs.Stats)
+
+      watcher.watch('/repo/worktree', 'session-1')
+      await vi.advanceTimersByTimeAsync(10)
+
+      vi.mocked(mockWindow.webContents.send).mockClear()
+
+      await vi.advanceTimersByTimeAsync(2000)
+
+      expect(mockWindow.webContents.send).toHaveBeenCalledWith(
+        'files:changed',
+        {
+          sessionId: 'session-1',
+          changes: [{ path: 'src/file.ts', type: 'modified' }],
+        },
+      )
     })
 
     it('skips poll if previous is still running', async () => {
