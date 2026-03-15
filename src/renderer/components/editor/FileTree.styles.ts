@@ -14,6 +14,7 @@ export const treeStyles: Record<string, React.CSSProperties> = {
     height: '100%',
     overflow: 'hidden',
     background: 'var(--bg-primary)',
+    position: 'relative' as const,
   },
   header: {
     display: 'flex',
@@ -53,6 +54,11 @@ export const treeStyles: Record<string, React.CSSProperties> = {
     flex: 1,
     overflowY: 'auto' as const,
     padding: '2px 0',
+    position: 'relative' as const,
+  },
+  treeContainerDragActive: {
+    background: 'color-mix(in srgb, var(--accent) 8%, transparent)',
+    boxShadow: 'inset 0 0 0 1px color-mix(in srgb, var(--accent) 45%, transparent)',
   },
   node: {
     position: 'relative' as const,
@@ -217,6 +223,42 @@ export const treeStyles: Record<string, React.CSSProperties> = {
     background: 'transparent',
     border: 'none',
     flexShrink: 0,
+  },
+  statusBanner: {
+    padding: '6px 8px',
+    fontSize: '11px',
+    lineHeight: 1.4,
+    borderBottom: '1px solid var(--border)',
+    flexShrink: 0,
+  },
+  statusBannerInfo: {
+    color: 'var(--text-secondary)',
+    background: 'color-mix(in srgb, var(--accent) 8%, var(--bg-secondary))',
+  },
+  statusBannerError: {
+    color: '#fff',
+    background: 'color-mix(in srgb, var(--error) 88%, black 12%)',
+  },
+  dropOverlay: {
+    position: 'absolute' as const,
+    inset: '8px',
+    border: '1px dashed color-mix(in srgb, var(--accent) 60%, transparent)',
+    borderRadius: '8px',
+    pointerEvents: 'none' as const,
+    display: 'flex',
+    alignItems: 'flex-end',
+    justifyContent: 'flex-end',
+    padding: '10px',
+    background: 'linear-gradient(180deg, transparent, color-mix(in srgb, var(--accent) 6%, transparent))',
+  },
+  dropOverlayLabel: {
+    fontSize: '11px',
+    fontWeight: 600,
+    color: 'var(--text-primary)',
+    background: 'color-mix(in srgb, var(--bg-primary) 82%, transparent)',
+    border: '1px solid color-mix(in srgb, var(--accent) 35%, transparent)',
+    borderRadius: '999px',
+    padding: '4px 8px',
   },
   panelTabBar: {
     display: 'flex',

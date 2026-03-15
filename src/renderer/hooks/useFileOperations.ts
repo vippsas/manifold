@@ -6,6 +6,7 @@ export interface UseFileOperationsResult {
   handleRenameFile: (oldPath: string, newPath: string) => Promise<void>
   handleCreateFile: (dirPath: string, fileName: string) => Promise<boolean>
   handleCreateDir: (dirPath: string, dirName: string) => Promise<boolean>
+  handleImportPaths: (dirPath: string, sourcePaths: string[]) => Promise<string | null>
   handleRevealInFinder: (filePath: string) => Promise<void>
   handleOpenInTerminal: (dirPath: string) => Promise<void>
   handleCopyAbsolutePath: (filePath: string) => void
@@ -22,6 +23,7 @@ export function useFileOperations(
   renameFile: (oldPath: string, newPath: string) => Promise<boolean>,
   createFile: (dirPath: string, fileName: string) => Promise<boolean>,
   createDir: (dirPath: string, dirName: string) => Promise<boolean>,
+  importPaths: (dirPath: string, sourcePaths: string[]) => Promise<string | null>,
   revealInFinder: (filePath: string) => Promise<void>,
   openInTerminal: (dirPath: string) => Promise<void>
 ): UseFileOperationsResult {
@@ -68,6 +70,13 @@ export function useFileOperations(
     [createDir]
   )
 
+  const handleImportPaths = useCallback(
+    async (dirPath: string, sourcePaths: string[]): Promise<string | null> => {
+      return importPaths(dirPath, sourcePaths)
+    },
+    [importPaths]
+  )
+
   const handleRevealInFinder = useCallback(
     async (filePath: string): Promise<void> => {
       await revealInFinder(filePath)
@@ -99,6 +108,7 @@ export function useFileOperations(
     handleRenameFile,
     handleCreateFile,
     handleCreateDir,
+    handleImportPaths,
     handleRevealInFinder,
     handleOpenInTerminal,
     handleCopyAbsolutePath,

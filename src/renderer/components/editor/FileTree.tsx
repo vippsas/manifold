@@ -4,6 +4,12 @@ import { TreeNode } from './tree-node'
 import { ContextMenu } from './ContextMenu'
 import type { ContextMenuAction } from './ContextMenu'
 import { treeStyles } from './FileTree.styles'
+import {
+  collectDroppedPaths,
+  describeDropTarget,
+  hasDraggedFiles,
+  resolveDropDirectory,
+} from './file-tree-drop'
 
 interface FileTreeProps {
   tree: FileTreeNode | null
@@ -20,6 +26,7 @@ interface FileTreeProps {
   onRenameFile?: (oldPath: string, newPath: string) => void
   onCreateFile?: (dirPath: string, fileName: string) => Promise<boolean>
   onCreateDir?: (dirPath: string, dirName: string) => Promise<boolean>
+  onImportPaths?: (dirPath: string, sourcePaths: string[]) => Promise<string | null>
   onRevealInFinder?: (filePath: string) => Promise<void>
   onOpenInTerminal?: (dirPath: string) => Promise<void>
   onCopyAbsolutePath?: (filePath: string) => void
@@ -128,6 +135,7 @@ export function FileTree({
   onRenameFile,
   onCreateFile,
   onCreateDir,
+  onImportPaths,
   onRevealInFinder,
   onOpenInTerminal,
   onCopyAbsolutePath,
@@ -151,6 +159,10 @@ export function FileTree({
   const [createName, setCreateName] = useState('')
   const [createError, setCreateError] = useState<string | null>(null)
   const [filterQuery, setFilterQuery] = useState('')
+  const [isDraggingFiles, setIsDraggingFiles] = useState(false)
+  const [dropTargetPath, setDropTargetPath] = useState<string | null>(null)
+  const [importError, setImportError] = useState<string | null>(null)
+  const defaultDropDir = worktreeRootPath ?? tree?.path ?? null
   const changeMap = useMemo(() => {
     const map = new Map<string, FileChangeType>()
     const root = tree?.path ?? ''
@@ -258,10 +270,68 @@ export function FileTree({
     setCreateError(null)
   }, [])
 
+  const updateDropTarget = useCallback((target: EventTarget | null): string | null => {
+    const nextTarget = resolveDropDirectory(target, defaultDropDir)
+    setDropTargetPath(nextTarget)
+    return nextTarget
+  }, [defaultDropDir])
+
+  const clearDropState = useCallback((): void => {
+    setIsDraggingFiles(false)
+    setDropTargetPath(null)
+  }, [])
+
   const handleCreateNameChange = useCallback((value: string): void => {
     setCreateName(value)
     if (createError) setCreateError(null)
   }, [createError])
+
+  const handleDragEnter = useCallback((e: React.DragEvent<HTMLDivElement>): void => {
+    if (!hasDraggedFiles(e.dataTransfer)) return
+    e.preventDefault()
+    setImportError(null)
+    setIsDraggingFiles(true)
+    updateDropTarget(e.target)
+  }, [updateDropTarget])
+
+  const handleDragOver = useCallback((e: React.DragEvent<HTMLDivElement>): void => {
+    if (!hasDraggedFiles(e.dataTransfer)) return
+    e.preventDefault()
+    e.dataTransfer.dropEffect = 'copy'
+    setIsDraggingFiles(true)
+    updateDropTarget(e.target)
+  }, [updateDropTarget])
+
+  const handleDragLeave = useCallback((e: React.DragEvent<HTMLDivElement>): void => {
+    if (e.currentTarget.contains(e.relatedTarget as Node | null)) return
+    clearDropState()
+  }, [clearDropState])
+
+  const handleDrop = useCallback(async (e: React.DragEvent<HTMLDivElement>): Promise<void> => {
+    if (!hasDraggedFiles(e.dataTransfer)) {
+      clearDropState()
+      return
+    }
+    e.preventDefault()
+
+    const targetDir = updateDropTarget(e.target)
+    clearDropState()
+
+    if (!targetDir || !onImportPaths) return
+
+    const sourcePaths = collectDroppedPaths(
+      Array.from(e.dataTransfer.files),
+      (file) => window.electronAPI.getPathForFile(file)
+    )
+
+    if (sourcePaths.length === 0) {
+      setImportError('Could not read the dropped file paths.')
+      return
+    }
+
+    const error = await onImportPaths(targetDir, sourcePaths)
+    setImportError(error)
+  }, [clearDropState, onImportPaths, updateDropTarget])
 
   const buildContextMenuItems = useCallback((targetNode: FileTreeNode | null): (ContextMenuAction | 'separator')[] => {
     const items: (ContextMenuAction | 'separator')[] = []
@@ -324,36 +394,64 @@ export function FileTree({
           </button>
         )}
       </div>
+      {(isDraggingFiles || importError) && (
+        <div
+          style={{
+            ...treeStyles.statusBanner,
+            ...(importError ? treeStyles.statusBannerError : treeStyles.statusBannerInfo),
+          }}
+        >
+          {importError ?? `Drop to import into ${describeDropTarget(dropTargetPath ?? defaultDropDir)}`}
+        </div>
+      )}
       <div
-        style={treeStyles.treeContainer}
+        style={{
+          ...treeStyles.treeContainer,
+          ...(isDraggingFiles ? treeStyles.treeContainerDragActive : {}),
+        }}
         onContextMenu={(e) => {
           e.preventDefault()
           setContextMenu({ x: e.clientX, y: e.clientY, node: null })
         }}
+        onDragEnter={handleDragEnter}
+        onDragOver={handleDragOver}
+        onDragLeave={handleDragLeave}
+        onDrop={(e) => { void handleDrop(e) }}
       >
         {filteredTree ? (
           <>
             {filteredAdditionalTrees && filteredAdditionalTrees.size > 0 ? (
               <>
-                <WorkspaceRootHeader name={filteredTree.name} subtitle={primaryBranch} isAdditional={false} />
-                <TreeNode node={filteredTree} depth={0} changeMap={changeMap} activeFilePath={activeFilePath} selectedFilePath={selectedFilePath} openFilePaths={openFilePaths} expandedPaths={expandedPaths} onToggleExpand={onToggleExpand} onHighlightFile={setSelectedFilePath} onSelectFile={onSelectFile} onRequestDelete={onDeleteFile ? handleRequestDelete : undefined} renamingPath={renamingPath} renameValue={renameValue} onRenameValueChange={setRenameValue} onStartRename={onRenameFile ? handleStartRename : undefined} onConfirmRename={handleConfirmRename} onCancelRename={handleCancelRename} onContextMenu={handleContextMenu} creating={creating} createName={createName} onCreateNameChange={handleCreateNameChange} createError={createError} onConfirmCreate={handleConfirmCreate} onCancelCreate={handleCancelCreate} />
+                <div data-tree-root-path={filteredTree.path}>
+                  <WorkspaceRootHeader name={filteredTree.name} subtitle={primaryBranch} isAdditional={false} />
+                  <TreeNode node={filteredTree} depth={0} changeMap={changeMap} activeFilePath={activeFilePath} selectedFilePath={selectedFilePath} openFilePaths={openFilePaths} expandedPaths={expandedPaths} onToggleExpand={onToggleExpand} onHighlightFile={setSelectedFilePath} onSelectFile={onSelectFile} onRequestDelete={onDeleteFile ? handleRequestDelete : undefined} renamingPath={renamingPath} renameValue={renameValue} onRenameValueChange={setRenameValue} onConfirmRename={handleConfirmRename} onCancelRename={handleCancelRename} onContextMenu={handleContextMenu} creating={creating} createName={createName} onCreateNameChange={handleCreateNameChange} createError={createError} onConfirmCreate={handleConfirmCreate} onCancelCreate={handleCancelCreate} />
+                </div>
                 {Array.from(filteredAdditionalTrees.entries()).map(([dirPath, dirTree]) => {
                   const branch = additionalBranches?.get(dirPath)
                   const subtitle = branch ?? shortenPath(dirPath)
                   return (
-                    <React.Fragment key={dirPath}>
+                    <div key={dirPath} data-tree-root-path={dirPath}>
                       <WorkspaceRootHeader name={dirTree.name} subtitle={subtitle} isAdditional={true} />
-                      <TreeNode node={dirTree} depth={0} changeMap={changeMap} activeFilePath={activeFilePath} selectedFilePath={selectedFilePath} openFilePaths={openFilePaths} expandedPaths={expandedPaths} onToggleExpand={onToggleExpand} onHighlightFile={setSelectedFilePath} onSelectFile={onSelectFile} onRequestDelete={onDeleteFile ? handleRequestDelete : undefined} renamingPath={renamingPath} renameValue={renameValue} onRenameValueChange={setRenameValue} onStartRename={onRenameFile ? handleStartRename : undefined} onConfirmRename={handleConfirmRename} onCancelRename={handleCancelRename} onContextMenu={handleContextMenu} creating={creating} createName={createName} onCreateNameChange={handleCreateNameChange} createError={createError} onConfirmCreate={handleConfirmCreate} onCancelCreate={handleCancelCreate} />
-                    </React.Fragment>
+                      <TreeNode node={dirTree} depth={0} changeMap={changeMap} activeFilePath={activeFilePath} selectedFilePath={selectedFilePath} openFilePaths={openFilePaths} expandedPaths={expandedPaths} onToggleExpand={onToggleExpand} onHighlightFile={setSelectedFilePath} onSelectFile={onSelectFile} onRequestDelete={onDeleteFile ? handleRequestDelete : undefined} renamingPath={renamingPath} renameValue={renameValue} onRenameValueChange={setRenameValue} onConfirmRename={handleConfirmRename} onCancelRename={handleCancelRename} onContextMenu={handleContextMenu} creating={creating} createName={createName} onCreateNameChange={handleCreateNameChange} createError={createError} onConfirmCreate={handleConfirmCreate} onCancelCreate={handleCancelCreate} />
+                    </div>
                   )
                 })}
               </>
             ) : (
-              <TreeNode node={filteredTree} depth={0} changeMap={changeMap} activeFilePath={activeFilePath} selectedFilePath={selectedFilePath} openFilePaths={openFilePaths} expandedPaths={expandedPaths} onToggleExpand={onToggleExpand} onHighlightFile={setSelectedFilePath} onSelectFile={onSelectFile} onRequestDelete={onDeleteFile ? handleRequestDelete : undefined} renamingPath={renamingPath} renameValue={renameValue} onRenameValueChange={setRenameValue} onStartRename={onRenameFile ? handleStartRename : undefined} onConfirmRename={handleConfirmRename} onCancelRename={handleCancelRename} onContextMenu={handleContextMenu} creating={creating} createName={createName} onCreateNameChange={handleCreateNameChange} createError={createError} onConfirmCreate={handleConfirmCreate} onCancelCreate={handleCancelCreate} />
+              <div data-tree-root-path={filteredTree.path}>
+                <TreeNode node={filteredTree} depth={0} changeMap={changeMap} activeFilePath={activeFilePath} selectedFilePath={selectedFilePath} openFilePaths={openFilePaths} expandedPaths={expandedPaths} onToggleExpand={onToggleExpand} onHighlightFile={setSelectedFilePath} onSelectFile={onSelectFile} onRequestDelete={onDeleteFile ? handleRequestDelete : undefined} renamingPath={renamingPath} renameValue={renameValue} onRenameValueChange={setRenameValue} onConfirmRename={handleConfirmRename} onCancelRename={handleCancelRename} onContextMenu={handleContextMenu} creating={creating} createName={createName} onCreateNameChange={handleCreateNameChange} createError={createError} onConfirmCreate={handleConfirmCreate} onCancelCreate={handleCancelCreate} />
+              </div>
             )}
           </>
         ) : (
           <div style={treeStyles.empty}>No files to display</div>
+        )}
+        {isDraggingFiles && (
+          <div style={treeStyles.dropOverlay}>
+            <div style={treeStyles.dropOverlayLabel}>
+              {`Import to ${describeDropTarget(dropTargetPath ?? defaultDropDir)}`}
+            </div>
+          </div>
         )}
       </div>
 

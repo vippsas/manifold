@@ -56,15 +56,21 @@ export function useAdditionalDirs(activeSessionId: string | null, initialDirs: s
   useEffect(() => {
     if (!activeSessionId || additionalDirs.length === 0) return
 
-    const unsub = window.electronAPI.on('files:changed', (payload: unknown) => {
+    const refreshIfNeeded = (payload: unknown): void => {
       const { sessionId, source } = payload as { sessionId: string; source?: string }
       if (sessionId !== activeSessionId || !source) return
       if (additionalDirs.includes(source)) {
         fetchTree(activeSessionId, source)
       }
-    })
+    }
 
-    return unsub
+    const unsubFilesChanged = window.electronAPI.on('files:changed', refreshIfNeeded)
+    const unsubTreeChanged = window.electronAPI.on('files:tree-changed', refreshIfNeeded)
+
+    return () => {
+      unsubFilesChanged()
+      unsubTreeChanged()
+    }
   }, [activeSessionId, additionalDirs])
 
   function fetchTree(sessionId: string, dirPath: string): void {

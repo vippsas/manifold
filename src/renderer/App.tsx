@@ -110,7 +110,7 @@ export function App(): React.JSX.Element {
   }, [codeView.refreshOpenFiles, refreshDiff])
 
   const { additionalTrees, additionalBranches } = useAdditionalDirs(activeSessionId, activeSession?.additionalDirs)
-  const { tree, changes: watcherChanges, deleteFile, renameFile, createFile, createDir, revealInFinder, openInTerminal } = useFileWatcher(activeSessionId, handleFilesChanged)
+  const { tree, changes: watcherChanges, deleteFile, renameFile, createFile, createDir, importPaths, revealInFinder, openInTerminal } = useFileWatcher(activeSessionId, handleFilesChanged)
 
   const { mergedChanges, activeFileDiffText, originalContent } = useFileDiff(
     activeSessionId,
@@ -128,11 +128,15 @@ export function App(): React.JSX.Element {
     if (!dockLayout.isPanelVisible('editor')) {
       dockLayout.togglePanel('editor')
     }
+
+    queueMicrotask(() => {
+      dockLayout.apiRef.current?.getPanel('editor')?.api.setActive()
+    })
   }, [dockLayout])
 
   const {
     handleSelectFile, handleDeleteFile, handleRenameFile,
-    handleCreateFile, handleCreateDir,
+    handleCreateFile, handleCreateDir, handleImportPaths,
     handleRevealInFinder, handleOpenInTerminal,
     handleCopyAbsolutePath, handleCopyRelativePath,
   } = useFileOperations(
@@ -145,6 +149,7 @@ export function App(): React.JSX.Element {
     renameFile,
     createFile,
     createDir,
+    importPaths,
     revealInFinder,
     openInTerminal
   )
@@ -259,6 +264,7 @@ export function App(): React.JSX.Element {
     onRenameFile: handleRenameFile,
     onCreateFile: handleCreateFile,
     onCreateDir: handleCreateDir,
+    onImportPaths: handleImportPaths,
     onRevealInFinder: handleRevealInFinder,
     onOpenInTerminal: handleOpenInTerminal,
     onCopyAbsolutePath: handleCopyAbsolutePath,

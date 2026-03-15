@@ -18,7 +18,6 @@ export interface TreeNodeProps {
   renamingPath: string | null
   renameValue: string
   onRenameValueChange: (value: string) => void
-  onStartRename?: (path: string, name: string) => void
   onConfirmRename: (nodePath: string, oldName: string) => void
   onCancelRename: () => void
   onContextMenu?: (e: React.MouseEvent, node: FileTreeNode) => void
@@ -45,7 +44,6 @@ export function TreeNode({
   renamingPath,
   renameValue,
   onRenameValueChange,
-  onStartRename,
   onConfirmRename,
   onCancelRename,
   creating,
@@ -72,17 +70,16 @@ export function TreeNode({
       onToggleExpand(node.path)
     } else {
       onHighlightFile(node.path)
+      if (openFilePaths.has(node.path)) {
+        onSelectFile(node.path)
+      }
     }
-  }, [node.isDirectory, node.path, onToggleExpand, onHighlightFile])
+  }, [node.isDirectory, node.path, onToggleExpand, onHighlightFile, openFilePaths, onSelectFile])
 
   const handleDoubleClick = useCallback((): void => {
     if (node.isDirectory) return
-    if (openFilePaths.has(node.path)) {
-      onStartRename?.(node.path, node.name)
-    } else {
-      onSelectFile(node.path)
-    }
-  }, [node.isDirectory, node.path, node.name, openFilePaths, onSelectFile, onStartRename])
+    onSelectFile(node.path)
+  }, [node.isDirectory, node.path, onSelectFile])
 
   const handleDelete = useCallback((e: React.MouseEvent): void => {
     e.stopPropagation()
@@ -147,7 +144,6 @@ export function TreeNode({
                 renamingPath={renamingPath}
                 renameValue={renameValue}
                 onRenameValueChange={onRenameValueChange}
-                onStartRename={onStartRename}
                 onConfirmRename={onConfirmRename}
                 onCancelRename={onCancelRename}
                 onContextMenu={onContextMenu}
@@ -235,6 +231,8 @@ function NodeRow({
       onClick={onClick}
       onDoubleClick={onDoubleClick}
       onContextMenu={onContextMenu}
+      data-tree-path={node.path}
+      data-tree-is-directory={node.isDirectory ? 'true' : 'false'}
       style={{
         ...treeStyles.node,
         paddingLeft: `${indent + 4}px`,
