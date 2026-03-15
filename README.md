@@ -100,6 +100,28 @@ Manifold ships with 50+ editor themes including two custom Manifold themes and p
 
 See [CONTRIBUTING.md](CONTRIBUTING.md) for setup instructions, project structure, code conventions, and pull request workflow.
 
+## Releasing
+
+Releases happen in two steps because the version bump must be reviewed and merged into `main` before the tag is created.
+
+1. Prepare the release PR from the repository root:
+
+```bash
+./release.sh patch
+./release.sh minor
+./release.sh major
+```
+
+The prepare step always creates a fresh `release/v<version>` branch from the latest `origin/main`, regardless of which branch you started on in the current worktree. It then updates `package.json` and `package-lock.json`, creates the version bump commit, pushes the branch, and opens a PR to `main`.
+
+2. After that PR is approved and merged, publish the release:
+
+```bash
+./release.sh publish
+```
+
+The publish step fetches `origin/main`, reads the merged version from `package.json`, creates the matching `v<version>` tag on the `main` merge commit, pushes the tag, and creates the GitHub release with generated notes.
+
 ## Architecture
 
 Electron three-process model with strict context isolation:
