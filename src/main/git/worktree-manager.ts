@@ -1,6 +1,6 @@
 import * as fs from 'node:fs'
 import * as path from 'node:path'
-import { generateBranchName, repoPrefix } from './branch-namer'
+import { generateBranchName } from './branch-namer'
 import { prepareManagedWorktree } from './managed-worktree'
 import { readWorktreeMeta, removeWorktreeMeta } from './worktree-meta'
 import { gitExec } from './git-exec'
@@ -71,23 +71,8 @@ export class WorktreeManager {
   }
 
   async removeWorktree(projectPath: string, worktreePath: string): Promise<void> {
-    const prefix = repoPrefix(projectPath)
-    // Get the branch associated with this worktree before removing it
-    const worktrees = await this.listWorktrees(projectPath)
-    const target = worktrees.find((w) => w.path === worktreePath)
-
     await gitExec(['worktree', 'remove', worktreePath, '--force'], projectPath)
     await removeWorktreeMeta(worktreePath)
-
-    // Only delete branches that Manifold created (repo-prefixed).
-    // External branches (existing branches checked out as worktrees) are left intact.
-    if (target && target.branch.startsWith(prefix)) {
-      try {
-        await gitExec(['branch', '-D', target.branch], projectPath)
-      } catch {
-        // Branch may already be deleted or may be the current branch; ignore
-      }
-    }
   }
 
   async listWorktrees(projectPath: string): Promise<WorktreeInfo[]> {
