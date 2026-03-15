@@ -86,9 +86,7 @@ modeSwitcher.register(
 // ── App lifecycle ────────────────────────────────────────────────────
 app.whenReady().then(() => {
   doCreateWindow()
-  if (mainWindow) {
-    setupAutoUpdater(mainWindow)
-  }
+  setupAutoUpdater()
 
   app.on('activate', () => {
     if (BrowserWindow.getAllWindows().length === 0) {
