@@ -183,22 +183,8 @@ describe('WorktreeManager', () => {
   })
 
   describe('removeWorktree', () => {
-    it('removes a worktree and deletes repo-prefixed branches', async () => {
-      const porcelainOutput =
-        'worktree /repo/.manifold/worktrees/repo-oslo\nbranch refs/heads/repo/oslo\n\n'
-
-      // First call: listWorktrees (worktree list --porcelain)
-      // Second call: worktree remove
-      // Third call: branch -D
-      mockSpawnSequence([
-        { stdout: porcelainOutput },
-        { stdout: '' },
-        { stdout: '' },
-      ])
-
-      // listWorktrees now checks metadata to include worktrees
-      const mockReadMeta = vi.mocked(readWorktreeMeta)
-      mockReadMeta.mockResolvedValueOnce({ runtimeId: 'claude' })
+    it('removes a worktree and keeps the branch', async () => {
+      mockSpawnSequence([{ stdout: '' }])
 
       await manager.removeWorktree('/repo', '/repo/.manifold/worktrees/repo-oslo')
 
@@ -207,54 +193,7 @@ describe('WorktreeManager', () => {
         ['worktree', 'remove', '/repo/.manifold/worktrees/repo-oslo', '--force'],
         { cwd: '/repo', stdio: ['ignore', 'pipe', 'pipe'] }
       )
-      expect(mockSpawn).toHaveBeenCalledWith(
-        'git',
-        ['branch', '-D', 'repo/oslo'],
-        { cwd: '/repo', stdio: ['ignore', 'pipe', 'pipe'] }
-      )
-    })
-
-    it('does not throw if branch deletion fails', async () => {
-      const porcelainOutput =
-        'worktree /repo/.manifold/worktrees/repo-oslo\nbranch refs/heads/repo/oslo\n\n'
-
-      mockSpawnSequence([
-        { stdout: porcelainOutput },
-        { stdout: '' },
-        { stdout: '', exitCode: 1, stderr: 'branch not found' },
-      ])
-
-      // listWorktrees now checks metadata to include worktrees
-      const mockReadMeta = vi.mocked(readWorktreeMeta)
-      mockReadMeta.mockResolvedValueOnce({ runtimeId: 'claude' })
-
-      await expect(
-        manager.removeWorktree('/repo', '/repo/.manifold/worktrees/repo-oslo')
-      ).resolves.toBeUndefined()
-    })
-
-    it('skips branch deletion for non-repo-prefixed branches', async () => {
-      const porcelainOutput =
-        'worktree /mock-home/.manifold/worktrees/proj/feature-login\nbranch refs/heads/feature/login\n\n'
-
-      const mockReadMeta = vi.mocked(readWorktreeMeta)
-      mockSpawnSequence([
-        { stdout: porcelainOutput }, // listWorktrees (worktree list --porcelain)
-        { stdout: '' },              // worktree remove
-      ])
-      // metadata exists so listWorktrees includes it
-      mockReadMeta.mockResolvedValueOnce({ runtimeId: 'claude' })
-
-      await manager.removeWorktree('/repo', '/mock-home/.manifold/worktrees/proj/feature-login')
-
-      // Should have called worktree remove
-      expect(mockSpawn).toHaveBeenCalledWith(
-        'git',
-        ['worktree', 'remove', '/mock-home/.manifold/worktrees/proj/feature-login', '--force'],
-        expect.objectContaining({ cwd: '/repo' })
-      )
-      // Should NOT have called branch -D (only 2 spawn calls, not 3)
-      expect(mockSpawn).toHaveBeenCalledTimes(2)
+      expect(mockSpawn).toHaveBeenCalledTimes(1)
     })
   })
 
