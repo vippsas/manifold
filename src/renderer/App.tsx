@@ -31,6 +31,7 @@ import { CommitPanel } from './components/git/CommitPanel'
 import { PRPanel } from './components/git/PRPanel'
 import { ConflictPanel } from './components/git/ConflictPanel'
 import { WelcomeDialog } from './components/modals/WelcomeDialog'
+import type { FileOpenRequest } from './components/editor/file-open-request'
 
 export function App(): React.JSX.Element {
   const { settings, updateSettings } = useSettings()
@@ -185,6 +186,10 @@ export function App(): React.JSX.Element {
   const [creatingProject, setCreatingProject] = useState(false)
   const [showOnboarding, setShowOnboarding] = useState(false)
   const [fileSearchRequestKey, setFileSearchRequestKey] = useState(0)
+  const [lastFileOpenRequest, setLastFileOpenRequest] = useState<FileOpenRequest>({
+    path: null,
+    source: 'default',
+  })
 
   const handleCreateNewProject = useCallback(async (description: string): Promise<void> => {
     setCreatingProject(true)
@@ -223,6 +228,16 @@ export function App(): React.JSX.Element {
     }
   }, [cloneProject])
 
+  const handleSelectFileWithDefaultView = useCallback((filePath: string): void => {
+    setLastFileOpenRequest({ path: filePath, source: 'default' })
+    handleSelectFile(filePath)
+  }, [handleSelectFile])
+
+  const handleSelectFileFromFileTree = useCallback((filePath: string): void => {
+    setLastFileOpenRequest({ path: filePath, source: 'fileTree' })
+    handleSelectFile(filePath)
+  }, [handleSelectFile])
+
   // Shared state object that dock panels read via context
   const dockState: DockAppState = {
     sessionId: activeSessionId,
@@ -234,8 +249,10 @@ export function App(): React.JSX.Element {
     openFiles: codeView.openFiles,
     activeFilePath: codeView.activeFilePath,
     fileContent: codeView.activeFileContent,
+    lastFileOpenRequest,
     theme: themeId,
-    onSelectFile: handleSelectFile,
+    onSelectFile: handleSelectFileWithDefaultView,
+    onSelectFileFromFileTree: handleSelectFileFromFileTree,
     onCloseFile: codeView.handleCloseFile,
     onSaveFile: codeView.handleSaveFile,
     onDeleteFile: handleDeleteFile,
