@@ -2,7 +2,44 @@ import { BrowserWindow } from 'electron'
 import { autoUpdater } from 'electron-updater'
 import { debugLog } from './debug-log'
 
-export function setupAutoUpdater(window: BrowserWindow): void {
+const HOURLY_UPDATE_CHECK_MS = 60 * 60 * 1000
+
+let updaterInitialized = false
+let updateCheckInFlight = false
+
+function finishUpdateCheck(): void {
+  updateCheckInFlight = false
+}
+
+function broadcastStatus(status: 'available' | 'downloaded', version: string): void {
+  for (const window of BrowserWindow.getAllWindows()) {
+    if (window.isDestroyed() || window.webContents.isDestroyed()) continue
+    window.webContents.send('updater:status', { status, version })
+  }
+}
+
+export async function checkForUpdates(reason: 'startup' | 'scheduled' | 'manual' = 'manual'): Promise<void> {
+  if (updateCheckInFlight) {
+    debugLog(`[updater] skipping ${reason} check; updater is busy`)
+    return
+  }
+
+  updateCheckInFlight = true
+  debugLog(`[updater] triggering ${reason} update check`)
+
+  try {
+    await autoUpdater.checkForUpdatesAndNotify()
+  } catch (error) {
+    finishUpdateCheck()
+    const message = error instanceof Error ? error.message : String(error)
+    debugLog(`[updater] check failed: ${message}`)
+  }
+}
+
+export function setupAutoUpdater(): void {
+  if (updaterInitialized) return
+  updaterInitialized = true
+
   autoUpdater.autoDownload = true
   autoUpdater.autoInstallOnAppQuit = true
 
@@ -11,21 +48,27 @@ export function setupAutoUpdater(window: BrowserWindow): void {
   })
   autoUpdater.on('update-available', (info) => {
     debugLog(`[updater] update available: ${info.version}`)
-    window.webContents.send('updater:status', { status: 'available', version: info.version })
+    broadcastStatus('available', info.version)
   })
   autoUpdater.on('update-not-available', () => {
     debugLog('[updater] up to date')
+    finishUpdateCheck()
   })
   autoUpdater.on('download-progress', (progress) => {
     debugLog(`[updater] downloading: ${Math.round(progress.percent)}%`)
   })
   autoUpdater.on('update-downloaded', (info) => {
     debugLog(`[updater] downloaded: ${info.version}`)
-    window.webContents.send('updater:status', { status: 'downloaded', version: info.version })
+    finishUpdateCheck()
+    broadcastStatus('downloaded', info.version)
   })
   autoUpdater.on('error', (err) => {
+    finishUpdateCheck()
     debugLog(`[updater] error: ${err.message}`)
   })
 
-  autoUpdater.checkForUpdatesAndNotify()
+  void checkForUpdates('startup')
+  setInterval(() => {
+    void checkForUpdates('scheduled')
+  }, HOURLY_UPDATE_CHECK_MS)
 }

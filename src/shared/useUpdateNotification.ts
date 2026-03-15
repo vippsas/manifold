@@ -20,7 +20,11 @@ export function useUpdateNotification(): UseUpdateNotificationResult {
     const unsub = window.electronAPI.on('updater:status', (payload: unknown) => {
       const { status, version } = payload as { status: string; version: string }
       if (status === 'available' || status === 'downloaded') {
-        setState((prev) => ({ ...prev, status: status as 'available' | 'downloaded', version }))
+        setState((prev) => ({
+          status: status as 'available' | 'downloaded',
+          version,
+          dismissed: prev.version === version ? prev.dismissed : false,
+        }))
       }
     })
     return unsub

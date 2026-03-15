@@ -3,6 +3,7 @@ import * as fs from 'node:fs'
 import * as path from 'node:path'
 import * as os from 'node:os'
 import { autoUpdater } from 'electron-updater'
+import { checkForUpdates } from './auto-updater'
 import { registerProjectHandlers } from '../ipc/project-handlers'
 import { registerAgentHandlers } from '../ipc/agent-handlers'
 import { registerFileHandlers } from '../ipc/file-handlers'
@@ -46,7 +47,7 @@ export function registerIpcHandlers(deps: IpcDependencies): void {
   })
 
   ipcMain.handle('updater:check', () => {
-    return autoUpdater.checkForUpdatesAndNotify()
+    return checkForUpdates('manual')
   })
 }
 
