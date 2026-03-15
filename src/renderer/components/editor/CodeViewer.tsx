@@ -6,6 +6,7 @@ import remarkGfm from 'remark-gfm'
 import type { OpenFile } from '../../hooks/useCodeView'
 import { viewerStyles } from './CodeViewer.styles'
 import { extensionToLanguage, isMarkdownFile, isHtmlFile, fileName } from './code-viewer-utils'
+import type { FileOpenRequest } from './file-open-request'
 
 interface CodeViewerProps {
   sessionId: string | null
@@ -14,6 +15,7 @@ interface CodeViewerProps {
   openFiles: OpenFile[]
   activeFilePath: string | null
   fileContent: string | null
+  lastFileOpenRequest: FileOpenRequest
   theme: string
   onSelectTab: (filePath: string) => void
   onCloseTab: (filePath: string) => void
@@ -41,7 +43,7 @@ const DIFF_EDITOR_OPTIONS = {
 }
 
 export function CodeViewer({
-  sessionId, fileDiffText, originalContent, openFiles, activeFilePath, fileContent, theme,
+  sessionId, fileDiffText, originalContent, openFiles, activeFilePath, fileContent, lastFileOpenRequest, theme,
   onSelectTab, onCloseTab, onSaveFile,
 }: CodeViewerProps): React.JSX.Element {
   const monacoTheme = theme
@@ -105,10 +107,14 @@ export function CodeViewer({
   useEffect(() => { if (!isPreviewable) setPreviewActive(false) }, [isPreviewable])
   useEffect(() => { saveRef.current = onSaveFile }, [onSaveFile])
 
-  // Auto-enable diff mode when diff data becomes available for the active file
+  // File tree opens should land in editor or existing preview, not diff.
   useEffect(() => {
+    if (lastFileOpenRequest.source === 'fileTree' && lastFileOpenRequest.path === activeFilePath) {
+      setDiffMode(false)
+      return
+    }
     setDiffMode(hasDiff)
-  }, [hasDiff, activeFilePath])
+  }, [hasDiff, activeFilePath, lastFileOpenRequest])
 
   const handleEditorMount: OnMount = useCallback((editor, monaco) => {
     editorRef.current = editor

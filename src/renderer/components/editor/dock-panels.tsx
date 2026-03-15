@@ -12,6 +12,7 @@ import { ShellTabs } from '../terminal/ShellTabs'
 import { OnboardingView } from '../modals/OnboardingView'
 import { ProjectSidebar } from '../sidebar/ProjectSidebar'
 import { WebPreview } from '../terminal/WebPreview'
+import type { FileOpenRequest } from './file-open-request'
 
 export interface DockAppState {
   sessionId: string | null
@@ -24,8 +25,10 @@ export interface DockAppState {
   openFiles: OpenFile[]
   activeFilePath: string | null
   fileContent: string | null
+  lastFileOpenRequest: FileOpenRequest
   theme: string
   onSelectFile: (path: string) => void
+  onSelectFileFromFileTree: (path: string) => void
   onCloseFile: (path: string) => void
   onSaveFile: (content: string) => void
   onDeleteFile?: (path: string) => void
@@ -187,6 +190,7 @@ function EditorPanel(): React.JSX.Element {
       openFiles={s.openFiles}
       activeFilePath={s.activeFilePath}
       fileContent={s.fileContent}
+      lastFileOpenRequest={s.lastFileOpenRequest}
       theme={s.theme}
       onSelectTab={s.onSelectFile}
       onCloseTab={s.onCloseFile}
@@ -236,7 +240,7 @@ function FileTreePanel(): React.JSX.Element {
           openFilePaths={openFilePaths}
           expandedPaths={s.expandedPaths}
           onToggleExpand={s.onToggleExpand}
-          onSelectFile={s.onSelectFile}
+          onSelectFile={s.onSelectFileFromFileTree}
           onDeleteFile={s.onDeleteFile}
           onRenameFile={s.onRenameFile}
           onCreateFile={s.onCreateFile}
