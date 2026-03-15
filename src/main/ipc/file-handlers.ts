@@ -1,6 +1,6 @@
 import { ipcMain, shell } from 'electron'
 import { execFile, spawn } from 'node:child_process'
-import { resolve, dirname } from 'node:path'
+import { resolve } from 'node:path'
 import { promisify } from 'node:util'
 import type { IpcDependencies } from './types'
 import type { AgentSession } from '../../shared/types'
@@ -125,6 +125,22 @@ export function registerFileHandlers(deps: IpcDependencies): void {
       throw new Error('Path traversal denied: directory outside allowed directories')
     }
     fileWatcher.createDir(newDirPath)
+    return { tree: fileWatcher.getFileTree(session.worktreePath) }
+  })
+
+  ipcMain.handle('files:import', (_event, sessionId: string, dirPath: string, sourcePaths: string[]) => {
+    const session = sessionManager.getSession(sessionId)
+    if (!session) throw new Error(`Session not found: ${sessionId}`)
+    const resolvedDir = resolve(session.worktreePath, dirPath)
+    if (!isPathAllowed(resolvedDir, session)) {
+      throw new Error('Path traversal denied: directory outside allowed directories')
+    }
+
+    fileWatcher.importPaths(sourcePaths, resolvedDir)
+
+    const source = session.additionalDirs.find((additionalDir) => isUnderDir(resolvedDir, additionalDir))
+    fileWatcher.notifyTreeChanged(sessionId, source)
+
     return { tree: fileWatcher.getFileTree(session.worktreePath) }
   })
 

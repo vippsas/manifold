@@ -35,6 +35,10 @@ export class FileWatcher {
     }
   }
 
+  notifyTreeChanged(sessionId: string, source?: string): void {
+    this.sendToRenderer('files:tree-changed', source ? { sessionId, source } : { sessionId })
+  }
+
   watchAdditionalDir(dirPath: string, sessionId: string): void {
     const key = `additional:${sessionId}:${dirPath}`
     if (this.polls.has(key)) return
@@ -227,6 +231,44 @@ export class FileWatcher {
       throw new Error(`Target already exists: ${newPath}`)
     }
     fs.renameSync(oldPath, newPath)
+  }
+
+  importPaths(sourcePaths: string[], targetDir: string): string[] {
+    if (!fs.statSync(targetDir).isDirectory()) {
+      throw new Error(`Import target is not a directory: ${targetDir}`)
+    }
+
+    const uniqueSources = [...new Set(sourcePaths)]
+    const copyPlan = uniqueSources.map((sourcePath) => {
+      const stat = fs.statSync(sourcePath)
+      const targetPath = path.join(targetDir, path.basename(sourcePath))
+      return { sourcePath, targetPath, recursive: stat.isDirectory() }
+    })
+
+    const seenTargets = new Set<string>()
+    for (const entry of copyPlan) {
+      if (seenTargets.has(entry.targetPath)) {
+        throw new Error(`Multiple dropped items would overwrite ${entry.targetPath}`)
+      }
+      if (fs.existsSync(entry.targetPath)) {
+        throw new Error(`Target already exists: ${entry.targetPath}`)
+      }
+      seenTargets.add(entry.targetPath)
+    }
+
+    try {
+      for (const entry of copyPlan) {
+        fs.cpSync(entry.sourcePath, entry.targetPath, {
+          recursive: entry.recursive,
+          force: false,
+          errorOnExist: true,
+        })
+      }
+    } catch (err) {
+      throw new Error(`Failed to import into ${targetDir}: ${(err as Error).message}`)
+    }
+
+    return copyPlan.map((entry) => entry.targetPath)
   }
 }
 

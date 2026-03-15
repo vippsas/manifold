@@ -1,4 +1,4 @@
-import { contextBridge, ipcRenderer } from 'electron'
+import { contextBridge, ipcRenderer, webUtils } from 'electron'
 
 const ALLOWED_INVOKE_CHANNELS = [
   'projects:list',
@@ -25,6 +25,7 @@ const ALLOWED_INVOKE_CHANNELS = [
   'files:rename',
   'files:create-file',
   'files:create-dir',
+  'files:import',
   'files:reveal',
   'files:open-terminal',
   'files:dir-branch',
@@ -74,6 +75,7 @@ const ALLOWED_LISTEN_CHANNELS = [
   'agent:exit',
   'agent:dirs-changed',
   'files:changed',
+  'files:tree-changed',
   'settings:changed',
   'agent:conflicts',
   'show-about',
@@ -128,6 +130,10 @@ const electronAPI = {
     return () => {
       ipcRenderer.removeListener(channel, wrappedCallback)
     }
+  },
+
+  getPathForFile(file: File): string {
+    return webUtils.getPathForFile(file)
   },
 }
 

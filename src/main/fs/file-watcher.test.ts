@@ -9,6 +9,7 @@ vi.mock('node:fs', () => ({
   renameSync: vi.fn(),
   mkdirSync: vi.fn(),
   rmSync: vi.fn(),
+  cpSync: vi.fn(),
 }))
 
 vi.mock('node:path', () => ({
@@ -27,6 +28,7 @@ const mockReadFileSync = vi.mocked(fs.readFileSync)
 const mockExistsSync = vi.mocked(fs.existsSync)
 const mockRenameSync = vi.mocked(fs.renameSync)
 const mockMkdirSync = vi.mocked(fs.mkdirSync)
+const mockCpSync = vi.mocked(fs.cpSync)
 
 function createMockWindow() {
   return {
@@ -415,6 +417,51 @@ describe('FileWatcher', () => {
     it('throws if directory already exists', () => {
       mockExistsSync.mockReturnValue(true)
       expect(() => watcher.createDir('/repo/worktree/existing')).toThrow('already exists')
+    })
+  })
+
+  describe('importPaths', () => {
+    it('copies dropped files into the target directory', () => {
+      mockStatSync.mockImplementation((targetPath: fs.PathLike) => ({
+        isDirectory: () => targetPath === '/repo/worktree/imports',
+      } as unknown as fs.Stats))
+      mockExistsSync.mockReturnValue(false)
+
+      const imported = watcher.importPaths(['/tmp/report.md'], '/repo/worktree/imports')
+
+      expect(imported).toEqual(['/repo/worktree/imports/report.md'])
+      expect(mockCpSync).toHaveBeenCalledWith('/tmp/report.md', '/repo/worktree/imports/report.md', {
+        recursive: false,
+        force: false,
+        errorOnExist: true,
+      })
+    })
+
+    it('copies directories recursively', () => {
+      mockStatSync.mockImplementation((targetPath: fs.PathLike) => ({
+        isDirectory: () => targetPath === '/repo/worktree/imports' || targetPath === '/tmp/assets',
+      } as unknown as fs.Stats))
+      mockExistsSync.mockReturnValue(false)
+
+      watcher.importPaths(['/tmp/assets'], '/repo/worktree/imports')
+
+      expect(mockCpSync).toHaveBeenCalledWith('/tmp/assets', '/repo/worktree/imports/assets', {
+        recursive: true,
+        force: false,
+        errorOnExist: true,
+      })
+    })
+
+    it('fails before copying when a target already exists', () => {
+      mockStatSync.mockImplementation((targetPath: fs.PathLike) => ({
+        isDirectory: () => targetPath === '/repo/worktree/imports',
+      } as unknown as fs.Stats))
+      mockExistsSync.mockImplementation((targetPath: fs.PathLike) => targetPath === '/repo/worktree/imports/report.md')
+
+      expect(() => watcher.importPaths(['/tmp/report.md'], '/repo/worktree/imports')).toThrow(
+        'Target already exists: /repo/worktree/imports/report.md'
+      )
+      expect(mockCpSync).not.toHaveBeenCalled()
     })
   })
 })

@@ -13,6 +13,7 @@ interface UseFileWatcherResult {
   renameFile: (oldPath: string, newPath: string) => Promise<boolean>
   createFile: (dirPath: string, fileName: string) => Promise<boolean>
   createDir: (dirPath: string, dirName: string) => Promise<boolean>
+  importPaths: (dirPath: string, sourcePaths: string[]) => Promise<string | null>
   revealInFinder: (filePath: string) => Promise<void>
   openInTerminal: (dirPath: string) => Promise<void>
 }
@@ -61,6 +62,18 @@ export function useFileWatcher(
           void refreshTree()
           onFilesChangedRef.current?.()
         }
+      },
+      [sessionId, refreshTree]
+    )
+  )
+
+  useIpcListener<{ sessionId: string; source?: string }>(
+    'files:tree-changed',
+    useCallback(
+      (event) => {
+        if (event.sessionId !== sessionId) return
+        void refreshTree()
+        onFilesChangedRef.current?.()
       },
       [sessionId, refreshTree]
     )
@@ -147,6 +160,22 @@ export function useFileWatcher(
     [sessionId]
   )
 
+  const importPaths = useCallback(
+    async (dirPath: string, sourcePaths: string[]): Promise<string | null> => {
+      if (!sessionId) return 'No active session'
+      try {
+        const result = (await window.electronAPI.invoke('files:import', sessionId, dirPath, sourcePaths)) as
+          | { tree: FileTreeNode }
+          | undefined
+        if (result?.tree) setTree(result.tree)
+        return null
+      } catch (err: unknown) {
+        return err instanceof Error ? err.message : String(err)
+      }
+    },
+    [sessionId]
+  )
+
   const revealInFinder = useCallback(
     async (filePath: string): Promise<void> => {
       if (!sessionId) return
@@ -174,6 +203,7 @@ export function useFileWatcher(
     renameFile,
     createFile,
     createDir,
+    importPaths,
     revealInFinder,
     openInTerminal,
   }

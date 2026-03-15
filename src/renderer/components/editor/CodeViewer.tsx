@@ -121,6 +121,7 @@ export function CodeViewer({
     editor.addCommand(monaco.KeyMod.CtrlCmd | monaco.KeyCode.KeyS, () => {
       saveRef.current?.(editor.getValue())
     })
+    editor.focus()
   }, [])
 
   const handleDiffEditorMount: DiffOnMount = useCallback((editor) => {
