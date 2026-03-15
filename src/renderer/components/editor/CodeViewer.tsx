@@ -46,6 +46,11 @@ export function CodeViewer({
 }: CodeViewerProps): React.JSX.Element {
   const monacoTheme = theme
   const language = useMemo(() => extensionToLanguage(activeFilePath), [activeFilePath])
+  const activeOpenFile = useMemo(
+    () => openFiles.find((file) => file.path === activeFilePath) ?? null,
+    [openFiles, activeFilePath]
+  )
+  const activeRefreshVersion = activeOpenFile?.refreshVersion ?? 0
   const editorRef = useRef<monacoEditor.IStandaloneCodeEditor | null>(null)
   const saveRef = useRef(onSaveFile)
   const [previewActive, setPreviewActive] = useState(false)
@@ -149,6 +154,7 @@ export function CodeViewer({
           </div>
         ) : diffMode && fileContent !== null ? (
           <DiffEditor
+            key={`${activeFilePath ?? '__no-file__'}:${activeRefreshVersion}`}
             original={originalContent ?? ''}
             modified={fileContent}
             language={language}
@@ -158,7 +164,9 @@ export function CodeViewer({
           />
         ) : (
           <EditorContent
+            filePath={activeFilePath}
             fileContent={fileContent}
+            refreshVersion={activeRefreshVersion}
             language={language} monacoTheme={monacoTheme}
             onMount={handleEditorMount}
           />
@@ -249,17 +257,28 @@ function FileTab({
 }
 
 interface EditorContentProps {
+  filePath: string | null
   fileContent: string | null
+  refreshVersion: number
   language: string
   monacoTheme: string
   onMount?: OnMount
 }
 
 function EditorContent({
-  fileContent, language, monacoTheme, onMount,
+  filePath, fileContent, refreshVersion, language, monacoTheme, onMount,
 }: EditorContentProps): React.JSX.Element {
   if (fileContent !== null) {
-    return <Editor value={fileContent} language={language} theme={monacoTheme} options={EDITABLE_OPTIONS} onMount={onMount} />
+    return (
+      <Editor
+        key={`${filePath ?? '__no-file__'}:${refreshVersion}`}
+        value={fileContent}
+        language={language}
+        theme={monacoTheme}
+        options={EDITABLE_OPTIONS}
+        onMount={onMount}
+      />
+    )
   }
   return (
     <div style={viewerStyles.empty}>

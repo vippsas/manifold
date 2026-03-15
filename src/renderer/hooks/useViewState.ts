@@ -93,7 +93,7 @@ export function useViewState(activeSessionId: string | null, tree: FileTreeNode 
                 activeSessionId,
                 filePath
               )) as string
-              openFiles.push({ path: filePath, content })
+              openFiles.push({ path: filePath, content, refreshVersion: 0 })
             } catch {
               // File may have been deleted — skip it
             }
