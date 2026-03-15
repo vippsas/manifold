@@ -131,7 +131,9 @@ prepare_release() {
   local current_branch start_branch main_version next_version tag release_branch
   local current_version new_version pr_url pr_title pr_body
 
-  git fetch origin main --tags >/dev/null
+  # Avoid syncing tags here; stale or divergent local tags can make fetch fail,
+  # and remote tag existence is checked explicitly with git ls-remote below.
+  git fetch --no-tags origin main >/dev/null
 
   main_version="$(get_package_version_at_ref "origin/main")"
   next_version="$(calculate_next_version "$main_version" "$release_type")"
@@ -217,7 +219,9 @@ EOF
 publish_release() {
   local main_sha main_version tag
 
-  git fetch origin main --tags >/dev/null
+  # Avoid syncing tags here; stale or divergent local tags can make fetch fail,
+  # and remote tag existence is checked explicitly with git ls-remote below.
+  git fetch --no-tags origin main >/dev/null
 
   main_sha="$(git rev-parse origin/main)"
   main_version="$(get_package_version_at_ref "origin/main")"
