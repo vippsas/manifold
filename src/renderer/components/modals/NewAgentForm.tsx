@@ -3,6 +3,7 @@ import type { SpawnAgentOptions, AgentRuntime, BranchInfo, PRInfo } from '../../
 import { modalStyles } from './NewTaskModal.styles'
 import { TaskDescriptionField, AgentDropdown, BranchPicker, PRPicker } from '../new-task'
 import type { ExistingSubTab } from '../new-task'
+import { pickRandomNorwegianCityName } from '../../../shared/norwegian-cities'
 
 export function NewAgentForm({
   projectId,
@@ -73,7 +74,6 @@ export function NewAgentForm({
 
   const canSubmit = (() => {
     if (!runtimeInstalled) return false
-    if (taskDescription.trim().length === 0) return false
     if (useExisting && existingSubTab === 'branch' && !selectedBranch) return false
     if (useExisting && existingSubTab === 'pr' && selectedPr === null) return false
     return true
@@ -85,11 +85,13 @@ export function NewAgentForm({
       if (!canSubmit) return
       setLoading(true)
       setError('')
+      const resolvedTaskDescription = taskDescription.trim() || pickRandomNorwegianCityName()
+      setTaskDescription(resolvedTaskDescription)
 
       const base: SpawnAgentOptions = {
         projectId,
         runtimeId,
-        prompt: taskDescription.trim(),
+        prompt: resolvedTaskDescription,
         noWorktree: noWorktree || undefined,
       }
 
