@@ -3,6 +3,7 @@ import { useState, useCallback, useRef } from 'react'
 export interface OpenFile {
   path: string
   content: string
+  refreshVersion: number
 }
 
 export interface UseCodeViewResult {
@@ -45,7 +46,7 @@ export function useCodeView(activeSessionId: string | null): UseCodeViewResult {
             activeSessionId,
             filePath
           )) as string
-          setOpenFiles((prev) => [...prev, { path: filePath, content }])
+          setOpenFiles((prev) => [...prev, createOpenFile(filePath, content)])
           setActiveFilePath(filePath)
         } catch {
           // Read failed — don't open the tab
@@ -142,7 +143,12 @@ export function useCodeView(activeSessionId: string | null): UseCodeViewResult {
             activeSessionId,
             file.path
           )) as string
-          return { path: file.path, content }
+          if (content === file.content) return file
+          return {
+            ...file,
+            content,
+            refreshVersion: file.refreshVersion + 1,
+          }
         } catch {
           return file
         }
@@ -153,7 +159,7 @@ export function useCodeView(activeSessionId: string | null): UseCodeViewResult {
 
   const restoreState = useCallback(
     (files: OpenFile[], filePath: string | null): void => {
-      setOpenFiles(files)
+      setOpenFiles(files.map(normalizeOpenFile))
       setActiveFilePath(filePath)
     },
     []
@@ -169,5 +175,20 @@ export function useCodeView(activeSessionId: string | null): UseCodeViewResult {
     handleRenameOpenFile,
     refreshOpenFiles,
     restoreState,
+  }
+}
+
+function createOpenFile(path: string, content: string): OpenFile {
+  return {
+    path,
+    content,
+    refreshVersion: 0,
+  }
+}
+
+function normalizeOpenFile(file: OpenFile): OpenFile {
+  return {
+    ...file,
+    refreshVersion: file.refreshVersion ?? 0,
   }
 }
