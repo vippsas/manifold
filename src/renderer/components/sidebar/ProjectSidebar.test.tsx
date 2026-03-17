@@ -19,13 +19,13 @@ afterEach(() => {
 })
 
 const sampleProjects: Project[] = [
-  { id: 'p1', name: 'Alpha', path: '/alpha', baseBranch: 'main', addedAt: '2024-01-01' },
-  { id: 'p2', name: 'Beta', path: '/beta', baseBranch: 'main', addedAt: '2024-01-02' },
+  { id: 'p1', name: 'Alpha', path: '/repos/alpha', baseBranch: 'main', addedAt: '2024-01-01' },
+  { id: 'p2', name: 'Beta', path: '/repos/beta', baseBranch: 'main', addedAt: '2024-01-02' },
 ]
 
 const sampleSessions: AgentSession[] = [
-  { id: 's1', projectId: 'p1', runtimeId: 'claude', branchName: 'manifold/oslo', worktreePath: '/wt1', status: 'running', pid: 1, additionalDirs: [] },
-  { id: 's2', projectId: 'p1', runtimeId: 'codex', branchName: 'manifold/bergen', worktreePath: '/wt2', status: 'waiting', pid: 2, additionalDirs: [] },
+  { id: 's1', projectId: 'p1', runtimeId: 'claude', branchName: 'alpha/oslo', worktreePath: '/wt1', status: 'running', pid: 1, additionalDirs: [] },
+  { id: 's2', projectId: 'p1', runtimeId: 'codex', branchName: 'alpha/bergen', worktreePath: '/wt2', status: 'waiting', pid: 2, additionalDirs: [] },
 ]
 
 function renderSidebar(overrides = {}) {
@@ -69,7 +69,7 @@ describe('ProjectSidebar', () => {
 
   it('shows agents for all projects', () => {
     const sessionsForP2: AgentSession[] = [
-      { id: 's3', projectId: 'p2', runtimeId: 'gemini', branchName: 'manifold/stavanger', worktreePath: '/wt3', status: 'running', pid: 3, additionalDirs: [] },
+      { id: 's3', projectId: 'p2', runtimeId: 'gemini', branchName: 'beta/stavanger', worktreePath: '/wt3', status: 'running', pid: 3, additionalDirs: [] },
     ]
 
     renderSidebar({ allProjectSessions: { p1: sampleSessions, p2: sessionsForP2 } })
@@ -149,7 +149,7 @@ describe('ProjectSidebar', () => {
   it('highlights the active agent item', () => {
     renderSidebar({ activeSessionId: 's1' })
 
-    const agentButton = screen.getByTitle('Claude - manifold/oslo')
+    const agentButton = screen.getByTitle('Claude - alpha/oslo')
     expect(agentButton.style.background).toContain('rgba(79, 195, 247, 0.15)')
   })
 
@@ -178,7 +178,7 @@ describe('ProjectSidebar', () => {
 
   it('calls onSelectSession with correct projectId for cross-project agent click', () => {
     const sessionsForP2: AgentSession[] = [
-      { id: 's3', projectId: 'p2', runtimeId: 'gemini', branchName: 'manifold/stavanger', worktreePath: '/wt3', status: 'running', pid: 3, additionalDirs: [] },
+      { id: 's3', projectId: 'p2', runtimeId: 'gemini', branchName: 'beta/stavanger', worktreePath: '/wt3', status: 'running', pid: 3, additionalDirs: [] },
     ]
 
     const { props } = renderSidebar({ allProjectSessions: { p1: sampleSessions, p2: sessionsForP2 } })
@@ -223,5 +223,15 @@ describe('ProjectSidebar', () => {
     fireEvent.click(overlay)
 
     expect(screen.queryByText('Auto-generate AI messages')).not.toBeInTheDocument()
+  })
+
+  it('keeps stripping legacy manifold-prefixed branch names', () => {
+    const legacySessions: AgentSession[] = [
+      { id: 's1', projectId: 'p1', runtimeId: 'claude', branchName: 'manifold/oslo', worktreePath: '/wt1', status: 'running', pid: 1, additionalDirs: [] },
+    ]
+
+    renderSidebar({ allProjectSessions: { p1: legacySessions, p2: [] } })
+
+    expect(screen.getByText('oslo')).toBeInTheDocument()
   })
 })

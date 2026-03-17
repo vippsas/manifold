@@ -147,6 +147,7 @@ function ProjectList({
               <AgentItem
                 key={session.id}
                 session={session}
+                projectPath={project.path}
                 isActive={session.id === activeSessionId}
                 onSelect={(sessionId) => onSelectSession(sessionId, project.id)}
                 onDelete={onDeleteAgent}
@@ -267,5 +268,4 @@ function ProjectItem({
     </>
   )
 }
-
 

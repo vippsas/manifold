@@ -9,7 +9,22 @@ const RUNTIME_LABELS: Record<string, string> = {
 }
 
 function formatBranch(branchName: string): string {
-  return branchName.replace('manifold/', '')
+  return branchName.replace(/^manifold\//, '')
+}
+
+function repoPrefix(projectPath: string): string {
+  const repoName = projectPath.split(/[\\/]/).filter(Boolean).pop()?.toLowerCase() ?? ''
+  return repoName ? `${repoName}/` : ''
+}
+
+function formatBranchLabel(branchName: string, projectPath: string): string {
+  const prefix = repoPrefix(projectPath)
+
+  if (prefix && branchName.toLowerCase().startsWith(prefix)) {
+    return branchName.slice(prefix.length)
+  }
+
+  return formatBranch(branchName)
 }
 
 function runtimeLabel(runtimeId: string): string {
@@ -18,12 +33,13 @@ function runtimeLabel(runtimeId: string): string {
 
 interface AgentItemProps {
   session: AgentSession
+  projectPath: string
   isActive: boolean
   onSelect: (id: string) => void
   onDelete: (id: string) => void
 }
 
-export function AgentItem({ session, isActive, onSelect, onDelete }: AgentItemProps): React.JSX.Element {
+export function AgentItem({ session, projectPath, isActive, onSelect, onDelete }: AgentItemProps): React.JSX.Element {
   const handleClick = useCallback((): void => {
     onSelect(session.id)
   }, [onSelect, session.id])
@@ -36,7 +52,7 @@ export function AgentItem({ session, isActive, onSelect, onDelete }: AgentItemPr
     [onDelete, session.id]
   )
 
-  const primaryLabel = formatBranch(session.branchName)
+  const primaryLabel = formatBranchLabel(session.branchName, projectPath)
   const secondaryLabel = session.taskDescription
     ? `${session.taskDescription} \u00B7 ${runtimeLabel(session.runtimeId)}`
     : runtimeLabel(session.runtimeId)
