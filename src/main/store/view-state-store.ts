@@ -46,11 +46,23 @@ export class ViewStateStore {
       ...entry,
       openFilePaths: [...entry.openFilePaths],
       expandedPaths: [...entry.expandedPaths],
+      editorPanes: entry.editorPanes?.map((pane) => ({
+        ...pane,
+        openFilePaths: [...pane.openFilePaths],
+      })),
     }
   }
 
   set(sessionId: string, viewState: SessionViewState): void {
-    this.state.set(sessionId, { ...viewState })
+    this.state.set(sessionId, {
+      ...viewState,
+      openFilePaths: [...viewState.openFilePaths],
+      expandedPaths: [...viewState.expandedPaths],
+      editorPanes: viewState.editorPanes?.map((pane) => ({
+        ...pane,
+        openFilePaths: [...pane.openFilePaths],
+      })),
+    })
     this.writeToDisk()
   }
 

@@ -1,16 +1,14 @@
 import { useEffect, useRef } from 'react'
-import type { OpenFile, UseCodeViewResult } from './useCodeView'
+import type { RestoredCodeViewState, UseCodeViewResult } from './useCodeView'
+import type { EditorPaneState } from './editor-pane-utils'
 
 interface ViewStatePersistence {
   saveCurrentState: (
     sessionId: string,
-    openFiles: OpenFile[],
-    activeFilePath: string | null
+    editorPanes: EditorPaneState[],
+    activeEditorPaneId: string | null,
   ) => void
-  restoreCodeView: {
-    openFiles: OpenFile[]
-    activeFilePath: string | null
-  } | null
+  restoreCodeView: RestoredCodeViewState | null
 }
 
 /**
@@ -31,7 +29,7 @@ export function useSessionStatePersistence(
     const prev = prevSessionRef.current
     if (prev && prev !== activeSessionId) {
       const cv = codeViewRef.current
-      viewState.saveCurrentState(prev, cv.openFiles, cv.activeFilePath)
+      viewState.saveCurrentState(prev, cv.editorPanes, cv.activeEditorPaneId)
     }
     prevSessionRef.current = activeSessionId
   }, [activeSessionId, viewState.saveCurrentState])
@@ -39,10 +37,7 @@ export function useSessionStatePersistence(
   // Restore state when viewState provides it
   useEffect(() => {
     if (viewState.restoreCodeView) {
-      codeView.restoreState(
-        viewState.restoreCodeView.openFiles,
-        viewState.restoreCodeView.activeFilePath
-      )
+      codeView.restoreState(viewState.restoreCodeView)
     }
   }, [viewState.restoreCodeView, codeView.restoreState])
 }

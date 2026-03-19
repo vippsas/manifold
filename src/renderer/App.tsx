@@ -16,11 +16,11 @@ import { useTheme } from './hooks/useTheme'
 import { useSessionStatePersistence } from './hooks/useSessionStatePersistence'
 import { useStatusNotification } from './hooks/useStatusNotification'
 import { useUpdateNotification } from '../shared/useUpdateNotification'
-import { useFileDiff } from './hooks/useFileDiff'
+import { mergeFileChanges } from './hooks/useFileDiff'
 import { useFileOperations } from './hooks/useFileOperations'
 import { useAppOverlays } from './hooks/useAppOverlays'
 import { useWebPreview } from './hooks/useWebPreview'
-import { useDockLayout, type DockPanelId } from './hooks/useDockLayout'
+import { useDockLayout, type DockPanelId, isEditorPanelId } from './hooks/useDockLayout'
 import { PANEL_COMPONENTS, DockStateContext, type DockAppState } from './components/editor/dock-panels'
 import { OnboardingView } from './components/modals/OnboardingView'
 import { SettingsModal } from './components/modals/SettingsModal'
@@ -91,7 +91,9 @@ export function App(): React.JSX.Element {
 
     if (webPreview.previewUrl) {
       if (!api.getPanel('webPreview')) {
-        const editorPanel = api.getPanel('editor')
+        const editorPanel = dockLayout.editorPanelIds[0]
+          ? api.getPanel(dockLayout.editorPanelIds[0])
+          : api.getPanel('editor')
         api.addPanel({
           id: 'webPreview',
           component: 'webPreview',
@@ -102,7 +104,7 @@ export function App(): React.JSX.Element {
         })
       }
     }
-  }, [webPreview.previewUrl, dockLayout.apiRef])
+  }, [webPreview.previewUrl, dockLayout.apiRef, dockLayout.editorPanelIds])
 
   const handleFilesChanged = useCallback(() => {
     void codeView.refreshOpenFiles()
@@ -112,27 +114,16 @@ export function App(): React.JSX.Element {
   const { additionalTrees, additionalBranches } = useAdditionalDirs(activeSessionId, activeSession?.additionalDirs)
   const { tree, changes: watcherChanges, deleteFile, renameFile, createFile, createDir, importPaths, revealInFinder, openInTerminal } = useFileWatcher(activeSessionId, handleFilesChanged)
 
-  const { mergedChanges, activeFileDiffText, originalContent } = useFileDiff(
-    activeSessionId,
-    diff,
-    changedFiles,
-    watcherChanges,
-    codeView.activeFilePath,
-    tree?.path ?? null
+  const mergedChanges = useMemo(
+    () => mergeFileChanges(changedFiles, watcherChanges),
+    [changedFiles, watcherChanges],
   )
 
   const viewState = useViewState(activeSessionId, tree)
 
-  // Editor panel is always considered visible with dockview (panels can be re-added)
-  const ensureEditorVisible = useCallback(() => {
-    if (!dockLayout.isPanelVisible('editor')) {
-      dockLayout.togglePanel('editor')
-    }
-
-    queueMicrotask(() => {
-      dockLayout.apiRef.current?.getPanel('editor')?.api.setActive()
-    })
-  }, [dockLayout])
+  const ensureEditorVisible = useCallback((preferredPaneId?: string | null): string => {
+    return dockLayout.ensureEditorPanel(preferredPaneId ?? codeView.activeEditorPaneId)
+  }, [codeView.activeEditorPaneId, dockLayout])
 
   const {
     handleSelectFile, handleDeleteFile, handleRenameFile,
@@ -243,23 +234,62 @@ export function App(): React.JSX.Element {
     handleSelectFile(filePath)
   }, [handleSelectFile])
 
+  const handleSelectOpenFile = useCallback((filePath: string, paneId: string): void => {
+    codeView.setActivePane(paneId)
+    const targetPaneId = codeView.handleSelectFile(filePath, paneId)
+    dockLayout.focusPanel(targetPaneId)
+  }, [codeView, dockLayout])
+
+  const handleActivateEditorPane = useCallback((paneId: string): void => {
+    codeView.setActivePane(paneId)
+    dockLayout.focusPanel(paneId)
+  }, [codeView, dockLayout])
+
+  const handleSplitEditorPane = useCallback((paneId: string, direction: 'right' | 'below'): void => {
+    const nextPaneId = dockLayout.splitEditorPane(paneId, direction)
+    if (!nextPaneId) return
+    codeView.createPane(nextPaneId, paneId)
+    codeView.setActivePane(nextPaneId)
+  }, [codeView, dockLayout])
+
+  const handleMoveFileToPane = useCallback((filePath: string, targetPaneId: string, sourcePaneId?: string | null): void => {
+    codeView.moveFileToPane(filePath, targetPaneId, sourcePaneId)
+    codeView.setActivePane(targetPaneId)
+    dockLayout.focusPanel(targetPaneId)
+  }, [codeView, dockLayout])
+
+  const handleClosePanel = useCallback((panelId: string): void => {
+    if (isEditorPanelId(panelId)) {
+      const fallbackPaneId = dockLayout.editorPanelIds.find((id) => id !== panelId) ?? null
+      codeView.removePane(panelId, fallbackPaneId)
+    }
+
+    dockLayout.closePanel(panelId)
+  }, [codeView, dockLayout])
+
   // Shared state object that dock panels read via context
   const dockState: DockAppState = {
     sessionId: activeSessionId,
     scrollbackLines: settings.scrollbackLines,
     terminalFontFamily: settings.terminalFontFamily,
     xtermTheme,
-    fileDiffText: activeFileDiffText,
-    originalContent,
+    diffText: diff,
     openFiles: codeView.openFiles,
     activeFilePath: codeView.activeFilePath,
-    fileContent: codeView.activeFileContent,
+    activeEditorPaneId: codeView.activeEditorPaneId,
+    editorPaneIds: dockLayout.editorPanelIds,
+    getEditorPane: codeView.getEditorPane,
     lastFileOpenRequest,
     theme: themeId,
     onSelectFile: handleSelectFileWithDefaultView,
     onSelectFileFromFileTree: handleSelectFileFromFileTree,
+    onSelectOpenFile: handleSelectOpenFile,
     onCloseFile: codeView.handleCloseFile,
     onSaveFile: codeView.handleSaveFile,
+    onRegisterEditorPane: codeView.registerPane,
+    onActivateEditorPane: handleActivateEditorPane,
+    onSplitEditorPane: handleSplitEditorPane,
+    onMoveFileToPane: handleMoveFileToPane,
     onDeleteFile: handleDeleteFile,
     onRenameFile: handleRenameFile,
     onCreateFile: handleCreateFile,
@@ -304,7 +334,7 @@ export function App(): React.JSX.Element {
     // Web preview
     previewUrl: webPreview.previewUrl,
     // Layout
-    onHidePanel: (id: string) => dockLayout.togglePanel(id as DockPanelId),
+    onClosePanel: handleClosePanel,
     // Agent restart
     activeSessionStatus: activeSession?.status ?? null,
     activeSessionRuntimeId: activeSession?.runtimeId ?? null,
@@ -450,7 +480,7 @@ function DockTab({ api }: IDockviewPanelHeaderProps): React.JSX.Element {
     <div style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '0 8px', fontSize: '11px', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
       <span>{title}</span>
       <button
-        onClick={(e) => { e.stopPropagation(); state?.onHidePanel(api.id) }}
+        onClick={(e) => { e.stopPropagation(); state?.onClosePanel(api.id) }}
         style={{
           fontSize: '11px',
           lineHeight: 1,

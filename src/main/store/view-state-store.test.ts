@@ -95,6 +95,29 @@ describe('ViewStateStore', () => {
       expect(a).toEqual(b)
       expect(a).not.toBe(b)
     })
+
+    it('returns cloned editor pane state', () => {
+      const state = {
+        'session-1': {
+          openFilePaths: ['a.ts', 'b.ts'],
+          activeFilePath: 'a.ts',
+          expandedPaths: ['/src'],
+          editorPanes: [
+            { id: 'editor', openFilePaths: ['a.ts'], activeFilePath: 'a.ts' },
+            { id: 'editor:1', openFilePaths: ['b.ts'], activeFilePath: 'b.ts' },
+          ],
+          activeEditorPaneId: 'editor:1',
+        },
+      }
+      mockExistsSync.mockReturnValue(true)
+      mockReadFileSync.mockReturnValue(JSON.stringify(state))
+
+      const store = new ViewStateStore()
+      const first = store.get('session-1')
+      first?.editorPanes?.[0].openFilePaths.push('mutated.ts')
+
+      expect(store.get('session-1')?.editorPanes?.[0].openFilePaths).toEqual(['a.ts'])
+    })
   })
 
   describe('set', () => {

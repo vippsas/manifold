@@ -60,10 +60,18 @@ export interface ManifoldSettings {
   uiMode: 'developer' | 'simple'
 }
 
+export interface SessionEditorPaneState {
+  id: string
+  openFilePaths: string[]
+  activeFilePath: string | null
+}
+
 export interface SessionViewState {
   openFilePaths: string[]
   activeFilePath: string | null
   expandedPaths: string[]
+  editorPanes?: SessionEditorPaneState[]
+  activeEditorPaneId?: string | null
 }
 
 export interface SpawnAgentOptions {

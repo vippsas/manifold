@@ -1,7 +1,8 @@
 import React, { createContext, useCallback, useContext, useMemo, useState } from 'react'
 import type { ITheme } from '@xterm/xterm'
 import type { AgentStatus, FileTreeNode, FileChange, Project, AgentSession, SpawnAgentOptions } from '../../../shared/types'
-import type { OpenFile } from '../../hooks/useCodeView'
+import type { EditorPaneView, OpenFile } from '../../hooks/useCodeView'
+import { useFileDiff } from '../../hooks/useFileDiff'
 import { TerminalPane } from '../terminal/TerminalPane'
 import { CodeViewer } from './CodeViewer'
 import { FileTree } from './FileTree'
@@ -20,17 +21,23 @@ export interface DockAppState {
   terminalFontFamily?: string
   xtermTheme?: ITheme
   // Editor
-  fileDiffText: string | null
-  originalContent: string | null
+  diffText: string
   openFiles: OpenFile[]
   activeFilePath: string | null
-  fileContent: string | null
+  activeEditorPaneId: string | null
+  editorPaneIds: string[]
+  getEditorPane: (paneId: string) => EditorPaneView
   lastFileOpenRequest: FileOpenRequest
   theme: string
   onSelectFile: (path: string) => void
   onSelectFileFromFileTree: (path: string) => void
-  onCloseFile: (path: string) => void
-  onSaveFile: (content: string) => void
+  onSelectOpenFile: (path: string, paneId: string) => void
+  onCloseFile: (path: string, paneId?: string | null) => void
+  onSaveFile: (path: string, content: string) => void
+  onRegisterEditorPane: (paneId: string) => void
+  onActivateEditorPane: (paneId: string) => void
+  onSplitEditorPane: (paneId: string, direction: 'right' | 'below') => void
+  onMoveFileToPane: (filePath: string, targetPaneId: string, sourcePaneId?: string | null) => void
   onDeleteFile?: (path: string) => void
   onRenameFile?: (oldPath: string, newPath: string) => void
   onCreateFile?: (dirPath: string, fileName: string) => Promise<boolean>
@@ -84,7 +91,7 @@ export interface DockAppState {
   // Web preview
   previewUrl: string | null
   // Layout
-  onHidePanel: (id: string) => void
+  onClosePanel: (id: string) => void
 }
 
 export const DockStateContext = createContext<DockAppState | null>(null)
@@ -181,20 +188,48 @@ const restartOverlayStyles: Record<string, React.CSSProperties> = {
   },
 }
 
-function EditorPanel(): React.JSX.Element {
+function EditorPanel({ api }: { api: { id: string } }): React.JSX.Element {
   const s = useDockState()
+  const paneId = api.id
+  const pane = s.getEditorPane(paneId)
+  const moveTargets = useMemo(
+    () => s.editorPaneIds
+      .filter((id) => id !== paneId)
+      .map((id) => ({
+        id,
+        label: `Editor ${s.editorPaneIds.indexOf(id) + 1}`,
+      })),
+    [s.editorPaneIds, paneId],
+  )
+
+  React.useEffect(() => {
+    s.onRegisterEditorPane(paneId)
+  }, [paneId, s])
+
+  const { activeFileDiffText, originalContent } = useFileDiff(
+    s.sessionId,
+    s.diffText,
+    pane.activeFilePath,
+    s.worktreeRoot,
+  )
+
   return (
     <CodeViewer
+      paneId={paneId}
       sessionId={s.sessionId}
-      fileDiffText={s.fileDiffText}
-      originalContent={s.originalContent}
-      openFiles={s.openFiles}
-      activeFilePath={s.activeFilePath}
-      fileContent={s.fileContent}
+      fileDiffText={activeFileDiffText}
+      originalContent={originalContent}
+      openFiles={pane.openFiles}
+      activeFilePath={pane.activeFilePath}
+      fileContent={pane.fileContent}
       lastFileOpenRequest={s.lastFileOpenRequest}
       theme={s.theme}
-      onSelectTab={s.onSelectFile}
-      onCloseTab={s.onCloseFile}
+      moveTargets={moveTargets}
+      onActivatePane={() => s.onActivateEditorPane(paneId)}
+      onSplitPane={(direction) => s.onSplitEditorPane(paneId, direction)}
+      onMoveFile={(filePath, targetPaneId) => s.onMoveFileToPane(filePath, targetPaneId, paneId)}
+      onSelectTab={(filePath) => s.onSelectOpenFile(filePath, paneId)}
+      onCloseTab={(filePath) => s.onCloseFile(filePath, paneId)}
       onSaveFile={s.onSaveFile}
     />
   )
