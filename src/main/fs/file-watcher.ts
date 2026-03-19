@@ -11,6 +11,7 @@ interface PollEntry {
   sessionId: string
   lastStatus: string
   lastChangeFingerprint: string
+  lastDirFingerprint: string
   polling: boolean
 }
 
@@ -48,6 +49,7 @@ export class FileWatcher {
       sessionId,
       lastStatus: '',
       lastChangeFingerprint: '',
+      lastDirFingerprint: '',
       polling: false,
     }
     this.polls.set(key, entry)
@@ -71,6 +73,7 @@ export class FileWatcher {
       sessionId,
       lastStatus: '',
       lastChangeFingerprint: '',
+      lastDirFingerprint: '',
       polling: false,
     }
     this.polls.set(worktreePath, entry)
@@ -88,7 +91,12 @@ export class FileWatcher {
       const status = await this.gitStatusFn(worktreePath)
       const { changes, conflicts } = parseStatusWithConflicts(status)
       const changeFingerprint = buildChangeFingerprint(worktreePath, changes)
-      if (status !== entry.lastStatus || changeFingerprint !== entry.lastChangeFingerprint) {
+      const dirFingerprint = buildDirFingerprint(worktreePath)
+
+      const gitChanged = status !== entry.lastStatus || changeFingerprint !== entry.lastChangeFingerprint
+      const dirChanged = dirFingerprint !== entry.lastDirFingerprint
+
+      if (gitChanged) {
         entry.lastStatus = status
         entry.lastChangeFingerprint = changeFingerprint
         this.sendToRenderer('files:changed', {
@@ -99,6 +107,11 @@ export class FileWatcher {
           sessionId: entry.sessionId,
           conflicts,
         })
+      }
+
+      if (dirChanged) {
+        entry.lastDirFingerprint = dirFingerprint
+        this.sendToRenderer('files:tree-changed', { sessionId: entry.sessionId })
       }
     } catch {
       // Worktree may not exist yet or git may fail — skip this tick
@@ -326,6 +339,19 @@ function buildChangeFingerprint(rootPath: string, changes: FileChange[]): string
       }
     })
     .join('|')
+}
+
+function buildDirFingerprint(dirPath: string): string {
+  try {
+    const entries = fs.readdirSync(dirPath, { withFileTypes: true })
+    return entries
+      .filter(isVisibleEntry)
+      .map((e) => `${e.name}:${e.isDirectory() ? 'd' : 'f'}`)
+      .sort()
+      .join('|')
+  } catch {
+    return ''
+  }
 }
 
 const EXCLUDED_DIRS = new Set([
