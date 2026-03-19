@@ -73,6 +73,7 @@ export function App(): React.JSX.Element {
     return window.electronAPI.on('app:auto-spawn', (...args: unknown[]) => {
       const projectId = args[0] as string | undefined
       const branchName = args[1] as string | undefined
+      const noWorktree = args[2] as boolean | undefined
       if (typeof projectId !== 'string') return
       setActiveProject(projectId)
       void spawnAgent({
@@ -80,6 +81,7 @@ export function App(): React.JSX.Element {
         runtimeId: settings.defaultRuntime,
         prompt: '',
         existingBranch: branchName,
+        noWorktree: noWorktree ?? false,
       })
     })
   }, [setActiveProject, spawnAgent, settings.defaultRuntime])

@@ -14,14 +14,16 @@ export class SessionTeardown {
     private onKillSession: (sessionId: string) => Promise<void>,
   ) {}
 
-  async killNonInteractiveSessions(projectId: string): Promise<{ killedIds: string[]; branchName?: string }> {
+  async killNonInteractiveSessions(projectId: string): Promise<{ killedIds: string[]; branchName?: string; noWorktree?: boolean }> {
     const toKill = Array.from(this.sessions.values())
       .filter(s => s.projectId === projectId && s.nonInteractive)
     const killedIds: string[] = []
     let branchName: string | undefined
+    let noWorktree: boolean | undefined
 
     for (const session of toKill) {
       branchName = session.branchName
+      noWorktree = session.noWorktree
 
       if (session.ptyId) {
         try { this.ptyPool.kill(session.ptyId) } catch { /* already exited */ }
@@ -46,7 +48,11 @@ export class SessionTeardown {
       killedIds.push(session.id)
     }
 
-    if (branchName) {
+    // Only checkout base branch for worktree-based sessions.
+    // noWorktree sessions work directly in the project directory — checking
+    // out base would remove .gitignore and expose build artifacts (node_modules)
+    // as untracked files, breaking the subsequent agent spawn.
+    if (branchName && !noWorktree) {
       const project = this.projectRegistry.getProject(projectId)
       if (project) {
         try {
@@ -58,7 +64,7 @@ export class SessionTeardown {
       }
     }
 
-    return { killedIds, branchName }
+    return { killedIds, branchName, noWorktree }
   }
 
   async killInteractiveSession(sessionId: string): Promise<{ projectPath: string; branchName: string; taskDescription?: string }> {

@@ -48,13 +48,15 @@ export class ModeSwitcher {
       settingsStore.updateSettings({ uiMode: mode })
 
       let branchName: string | undefined
+      let noWorktree: boolean | undefined
       let simpleAppPayload: Record<string, unknown> | undefined
 
       if (mode === 'developer' && projectId) {
         const result = await sessionManager.killNonInteractiveSessions(projectId)
         branchName = result.branchName
+        noWorktree = result.noWorktree
         if (result.killedIds.length > 0) {
-          debugLog(`[switch-mode] killed ${result.killedIds.length} non-interactive session(s), branch: ${branchName}`)
+          debugLog(`[switch-mode] killed ${result.killedIds.length} non-interactive session(s), branch: ${branchName}, noWorktree: ${noWorktree}`)
         }
       }
 
@@ -107,7 +109,7 @@ export class ModeSwitcher {
       const newWindow = getMainWindow()
       if (mode === 'developer' && projectId && newWindow) {
         newWindow.webContents.once('did-finish-load', () => {
-          newWindow.webContents.send('app:auto-spawn', projectId, branchName)
+          newWindow.webContents.send('app:auto-spawn', projectId, branchName, noWorktree)
         })
       }
 

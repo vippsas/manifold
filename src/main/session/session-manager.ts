@@ -265,7 +265,7 @@ export class SessionManager {
     return Array.from(this.sessions.values()).map((s) => this.toPublicSession(s))
   }
 
-  async killNonInteractiveSessions(projectId: string): Promise<{ killedIds: string[]; branchName?: string }> {
+  async killNonInteractiveSessions(projectId: string): Promise<{ killedIds: string[]; branchName?: string; noWorktree?: boolean }> {
     return this.teardown.killNonInteractiveSessions(projectId)
   }
 
