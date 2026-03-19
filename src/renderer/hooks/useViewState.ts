@@ -1,26 +1,29 @@
 import { useState, useCallback, useEffect, useRef } from 'react'
 import type { FileTreeNode, SessionViewState } from '../../shared/types'
-import type { OpenFile } from './useCodeView'
+import type { RestoredCodeViewState } from './useCodeView'
+import type { EditorPaneState } from './editor-pane-utils'
+import {
+  buildLegacyEditorPanes,
+  collectOpenFilePaths,
+  normalizeEditorPanes,
+  resolveActiveEditorPaneId,
+} from './editor-pane-utils'
 
 interface UseViewStateResult {
   expandedPaths: Set<string>
   onToggleExpand: (path: string) => void
   expandAncestors: (filePath: string) => void
-  restoreCodeView: {
-    openFiles: OpenFile[]
-    activeFilePath: string | null
-  } | null
+  restoreCodeView: RestoredCodeViewState | null
   saveCurrentState: (
     sessionId: string,
-    openFiles: OpenFile[],
-    activeFilePath: string | null
+    editorPanes: EditorPaneState[],
+    activeEditorPaneId: string | null
   ) => void
 }
 
 export function useViewState(activeSessionId: string | null, tree: FileTreeNode | null): UseViewStateResult {
   const [expandedPaths, setExpandedPaths] = useState<Set<string>>(new Set())
-  const [restoreCodeView, setRestoreCodeView] = useState<UseViewStateResult['restoreCodeView']>(null)
-  const prevSessionIdRef = useRef<string | null>(null)
+  const [restoreCodeView, setRestoreCodeView] = useState<RestoredCodeViewState | null>(null)
   const expandedPathsRef = useRef<Set<string>>(expandedPaths)
   expandedPathsRef.current = expandedPaths
 
@@ -40,7 +43,6 @@ export function useViewState(activeSessionId: string | null, tree: FileTreeNode 
     setExpandedPaths((prev) => {
       const next = new Set(prev)
       let dir = filePath
-      // Walk up from the file's parent directory, expanding each ancestor
       while (true) {
         const parent = dir.substring(0, dir.lastIndexOf('/'))
         if (!parent || parent === dir) break
@@ -51,26 +53,35 @@ export function useViewState(activeSessionId: string | null, tree: FileTreeNode 
     })
   }, [])
 
-  const saveCurrentState = useCallback(
-    (sessionId: string, openFiles: OpenFile[], activeFilePath: string | null): void => {
-      const state: SessionViewState = {
-        openFilePaths: openFiles.map((f) => f.path),
-        activeFilePath,
-        expandedPaths: Array.from(expandedPathsRef.current),
-      }
+  const saveCurrentState = useCallback((
+    sessionId: string,
+    editorPanes: EditorPaneState[],
+    activeEditorPaneId: string | null,
+  ): void => {
+    const activePane = editorPanes.find((pane) => pane.id === activeEditorPaneId) ?? editorPanes[0] ?? null
+    const state: SessionViewState = {
+      openFilePaths: collectOpenFilePaths(editorPanes),
+      activeFilePath: activePane?.activeFilePath ?? null,
+      expandedPaths: Array.from(expandedPathsRef.current),
+      editorPanes: editorPanes.map((pane) => ({
+        id: pane.id,
+        openFilePaths: [...pane.openFilePaths],
+        activeFilePath: pane.activeFilePath,
+      })),
+      activeEditorPaneId,
+    }
 
-      void window.electronAPI.invoke('view-state:set', sessionId, state)
-    },
-    []
-  )
+    void window.electronAPI.invoke('view-state:set', sessionId, state)
+  }, [])
 
-  // On session change: load the new session's state
   useEffect(() => {
-    prevSessionIdRef.current = activeSessionId
-
     if (!activeSessionId) {
       setExpandedPaths(new Set())
-      setRestoreCodeView({ openFiles: [], activeFilePath: null })
+      setRestoreCodeView({
+        openFiles: [],
+        editorPanes: buildLegacyEditorPanes([], null),
+        activeEditorPaneId: null,
+      })
       return
     }
 
@@ -78,49 +89,67 @@ export function useViewState(activeSessionId: string | null, tree: FileTreeNode 
       try {
         const state = (await window.electronAPI.invoke(
           'view-state:get',
-          activeSessionId
+          activeSessionId,
         )) as SessionViewState | null
 
-        if (state) {
-          setExpandedPaths(new Set(state.expandedPaths))
-
-          // Load file contents for restored tabs
-          const openFiles: OpenFile[] = []
-          for (const filePath of state.openFilePaths) {
-            try {
-              const content = (await window.electronAPI.invoke(
-                'files:read',
-                activeSessionId,
-                filePath
-              )) as string
-              openFiles.push({ path: filePath, content, refreshVersion: 0 })
-            } catch {
-              // File may have been deleted — skip it
-            }
-          }
-
-          setRestoreCodeView({
-            openFiles,
-            activeFilePath: state.activeFilePath,
-          })
-        } else {
-          // No saved state — clear tabs
+        if (!state) {
           setExpandedPaths(new Set())
-          setRestoreCodeView({ openFiles: [], activeFilePath: null })
+          setRestoreCodeView({
+            openFiles: [],
+            editorPanes: buildLegacyEditorPanes([], null),
+            activeEditorPaneId: null,
+          })
+          return
         }
+
+        setExpandedPaths(new Set(state.expandedPaths))
+
+        const paneState = state.editorPanes && state.editorPanes.length > 0
+          ? state.editorPanes
+          : buildLegacyEditorPanes(state.openFilePaths, state.activeFilePath)
+
+        const uniqueOpenFilePaths = collectOpenFilePaths(paneState)
+        const openFiles = []
+
+        for (const filePath of uniqueOpenFilePaths) {
+          try {
+            const content = (await window.electronAPI.invoke(
+              'files:read',
+              activeSessionId,
+              filePath,
+            )) as string
+            openFiles.push({ path: filePath, content, refreshVersion: 0 })
+          } catch {
+            // File may have been deleted — skip it
+          }
+        }
+
+        const normalizedPanes = normalizeEditorPanes(
+          paneState,
+          openFiles.map((file) => file.path),
+        )
+
+        setRestoreCodeView({
+          openFiles,
+          editorPanes: normalizedPanes,
+          activeEditorPaneId: resolveActiveEditorPaneId(normalizedPanes, state.activeEditorPaneId),
+        })
       } catch {
         setExpandedPaths(new Set())
-        setRestoreCodeView({ openFiles: [], activeFilePath: null })
+        setRestoreCodeView({
+          openFiles: [],
+          editorPanes: buildLegacyEditorPanes([], null),
+          activeEditorPaneId: null,
+        })
       }
     })()
   }, [activeSessionId])
 
-  // Auto-expand root when tree loads for a session with no saved state
   useEffect(() => {
     if (tree && expandedPaths.size === 0) {
       setExpandedPaths(new Set([tree.path]))
     }
-  }, [tree])
+  }, [tree, expandedPaths.size])
 
   return {
     expandedPaths,

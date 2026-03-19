@@ -2,6 +2,7 @@ import type { DockviewApi, SerializedDockview } from 'dockview'
 
 export const PANEL_IDS = ['projects', 'agent', 'editor', 'fileTree', 'modifiedFiles', 'shell'] as const
 export type DockPanelId = (typeof PANEL_IDS)[number]
+export const EDITOR_PANEL_ID_PREFIX = 'editor:'
 
 export const PANEL_TITLES: Record<DockPanelId, string> = {
   projects: 'Repositories',
@@ -25,6 +26,16 @@ const PANEL_RESTORE_HINTS: Record<DockPanelId, Array<{ ref: DockPanelId; dir: Di
 }
 
 export const DEFAULT_SIDEBAR_WIDTH = 300
+
+export function isEditorPanelId(panelId: string): boolean {
+  return panelId === 'editor' || panelId.startsWith(EDITOR_PANEL_ID_PREFIX)
+}
+
+export function parseEditorPanelOrder(panelId: string): number {
+  if (panelId === 'editor') return 0
+  const suffix = Number(panelId.slice(EDITOR_PANEL_ID_PREFIX.length))
+  return Number.isFinite(suffix) ? suffix : Number.MAX_SAFE_INTEGER
+}
 
 export interface LayoutRefs {
   isRestoringRef: React.MutableRefObject<boolean>

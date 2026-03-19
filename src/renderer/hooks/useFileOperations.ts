@@ -15,10 +15,10 @@ export interface UseFileOperationsResult {
 
 export function useFileOperations(
   expandAncestors: (filePath: string) => void,
-  codeViewSelectFile: (filePath: string) => void,
+  codeViewSelectFile: (filePath: string, preferredPaneId?: string | null) => string,
   codeViewCloseFile: (filePath: string) => void,
   codeViewRenameOpenFile: (oldPath: string, newPath: string) => void,
-  ensureEditorVisible: () => void,
+  ensureEditorVisible: (preferredPaneId?: string | null) => string,
   deleteFile: (filePath: string) => Promise<boolean>,
   renameFile: (oldPath: string, newPath: string) => Promise<boolean>,
   createFile: (dirPath: string, fileName: string) => Promise<boolean>,
@@ -30,8 +30,9 @@ export function useFileOperations(
   const handleSelectFile = useCallback(
     (filePath: string): void => {
       expandAncestors(filePath)
-      codeViewSelectFile(filePath)
-      ensureEditorVisible()
+      const visiblePaneId = ensureEditorVisible()
+      const targetPaneId = codeViewSelectFile(filePath, visiblePaneId)
+      ensureEditorVisible(targetPaneId)
     },
     [expandAncestors, codeViewSelectFile, ensureEditorVisible]
   )

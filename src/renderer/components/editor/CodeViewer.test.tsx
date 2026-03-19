@@ -1,6 +1,6 @@
 import React from 'react'
 import { describe, it, expect, vi } from 'vitest'
-import { render, screen, waitFor } from '@testing-library/react'
+import { fireEvent, render, screen, waitFor } from '@testing-library/react'
 import type { OpenFile } from '../../hooks/useCodeView'
 import { CodeViewer } from './CodeViewer'
 import type { FileOpenRequest } from './file-open-request'
@@ -185,5 +185,48 @@ describe('CodeViewer', () => {
       expect(screen.getByTestId('monaco-editor')).toHaveTextContent('new')
     })
     expect(screen.queryByTestId('monaco-diff-editor')).not.toBeInTheDocument()
+  })
+
+  it('keeps preview button working when pane activation triggers a rerender', async () => {
+    function Wrapper(): React.JSX.Element {
+      const [activations, setActivations] = React.useState(0)
+
+      return (
+        <CodeViewer
+          sessionId="session-1"
+          fileDiffText={null}
+          originalContent={null}
+          openFiles={[makeOpenFile({ path: '/repo/readme.md', content: '# Hello' })]}
+          activeFilePath="/repo/readme.md"
+          fileContent="# Hello"
+          lastFileOpenRequest={makeOpenRequest({ path: '/repo/readme.md' })}
+          theme="vs-dark"
+          onActivatePane={() => setActivations((value) => value + 1)}
+          onSelectTab={vi.fn()}
+          onCloseTab={vi.fn()}
+          onSaveFile={vi.fn()}
+        />
+      )
+    }
+
+    render(<Wrapper />)
+
+    fireEvent.click(screen.getByTitle('Show preview'))
+
+    await waitFor(() => {
+      expect(screen.getByTestId('markdown-preview')).toHaveTextContent('# Hello')
+    })
+  })
+
+  it('invokes split action when clicked', () => {
+    const onSplitPane = vi.fn()
+
+    renderViewer({
+      onSplitPane,
+    })
+
+    fireEvent.click(screen.getByTitle('Split editor vertically'))
+
+    expect(onSplitPane).toHaveBeenCalledWith('right')
   })
 })
