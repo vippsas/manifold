@@ -113,6 +113,22 @@ export class SessionDiscovery {
   }
 
   async discoverAllSessions(simpleProjectsBase?: string): Promise<void> {
+    // Serialize concurrent calls to prevent duplicate dormant sessions.
+    const inflight = this.discoveryInFlight.get('__all__')
+    if (inflight) {
+      await inflight
+      return
+    }
+    const promise = this.doDiscoverAllSessions(simpleProjectsBase)
+    this.discoveryInFlight.set('__all__', promise)
+    try {
+      await promise
+    } finally {
+      this.discoveryInFlight.delete('__all__')
+    }
+  }
+
+  private async doDiscoverAllSessions(simpleProjectsBase?: string): Promise<void> {
     const projects = this.projectRegistry.listProjects()
 
     for (const project of projects) {

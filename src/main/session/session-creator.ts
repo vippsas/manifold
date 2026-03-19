@@ -31,9 +31,9 @@ export class SessionCreator {
     let worktree: { branch: string; path: string }
 
     if (options.noWorktree) {
-      await this.assertCleanWorkingTree(project.path)
-
       if (options.existingBranch) {
+        // Switching to an existing branch — skip clean-tree check.
+        // Build artifacts (node_modules) may be present but are not a problem.
         await gitExec(['checkout', options.existingBranch], project.path)
         worktree = { branch: options.existingBranch, path: project.path }
       } else if (options.prIdentifier && this.branchCheckoutManager) {
@@ -44,6 +44,9 @@ export class SessionCreator {
         await gitExec(['checkout', branch], project.path)
         worktree = { branch, path: project.path }
       } else {
+        // Creating a new branch — ensure working tree is clean to avoid
+        // accidentally including unintended changes.
+        await this.assertCleanWorkingTree(project.path)
         const branch = options.branchName ?? (await generateBranchName(project.path, options.prompt ?? ''))
         await gitExec(['checkout', '-b', branch], project.path)
         worktree = { branch, path: project.path }
