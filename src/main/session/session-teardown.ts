@@ -4,6 +4,7 @@ import { gitExec } from '../git/git-exec'
 import { commitManagedWorktree, getManagedWorktreeStatus } from '../git/managed-worktree'
 import { removeWorktreeMeta } from '../git/worktree-meta'
 import { debugLog } from '../app/debug-log'
+import type { MemoryCompressor } from '../memory/memory-compressor'
 import type { InternalSession } from './session-types'
 
 export class SessionTeardown {
@@ -12,6 +13,7 @@ export class SessionTeardown {
     private ptyPool: PtyPool,
     private projectRegistry: ProjectRegistry,
     private onKillSession: (sessionId: string) => Promise<void>,
+    private getMemoryCompressor?: () => MemoryCompressor | null,
   ) {}
 
   async killNonInteractiveSessions(projectId: string): Promise<{ killedIds: string[]; branchName?: string; noWorktree?: boolean }> {
@@ -94,6 +96,9 @@ export class SessionTeardown {
     } catch (err) {
       debugLog(`[session] auto-commit failed: ${err}`)
     }
+
+    try { await this.getMemoryCompressor?.()?.compressSession(session) }
+    catch (err) { debugLog(`[session] memory compression failed: ${err}`) }
 
     if (!session.noWorktree) {
       try {

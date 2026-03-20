@@ -10,6 +10,7 @@ import { writeWorktreeMeta } from '../git/worktree-meta'
 import { gitExec } from '../git/git-exec'
 import { generateBranchName } from '../git/branch-namer'
 import type { ChatAdapter } from '../agent/chat-adapter'
+import type { MemoryInjector } from '../memory/memory-injector'
 import { debugLog } from '../app/debug-log'
 import type { InternalSession } from './session-types'
 import { buildSimpleRuntimeCommand } from '../agent/simple-runtime'
@@ -22,6 +23,7 @@ export class SessionCreator {
     private streamWirer: SessionStreamWirer,
     private getChatAdapter: () => ChatAdapter | null,
     private branchCheckoutManager?: BranchCheckoutManager,
+    private getMemoryInjector?: () => MemoryInjector | null,
   ) {}
 
   async create(options: SpawnAgentOptions): Promise<InternalSession> {
@@ -129,6 +131,8 @@ export class SessionCreator {
         ollamaModel: options.ollamaModel,
       }).catch(() => {})
     }
+
+    await this.getMemoryInjector?.()?.injectContext(session)
 
     return session
   }

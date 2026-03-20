@@ -9,5 +9,13 @@ export const DEFAULT_SETTINGS: ManifoldSettings = {
   terminalFontFamily: '',
   defaultBaseBranch: 'main',
   notificationSound: true,
-  uiMode: 'simple'
+  uiMode: 'simple',
+  memory: {
+    enabled: true,
+    compressionRuntime: 'auto',
+    injectionEnabled: true,
+    injectionTokenBudget: 2000,
+    injectionMethod: 'auto',
+    rawRetentionDays: 30,
+  },
 }
