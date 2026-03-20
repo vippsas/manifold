@@ -136,6 +136,10 @@ export function CodeViewer({
   }, [isHtml, fileContent, sessionId, activeFilePath])
 
   useEffect(() => {
+    previewPathsByPane.set(paneId, previewPaths)
+  }, [paneId, previewPaths])
+
+  useEffect(() => {
     saveRef.current = onSaveFile
   }, [onSaveFile])
 
@@ -201,7 +205,6 @@ export function CodeViewer({
                 const next = new Set(prev)
                 if (next.has(activeFilePath)) next.delete(activeFilePath)
                 else next.add(activeFilePath)
-                previewPathsByPane.set(paneId, next)
                 return next
               })
             }
