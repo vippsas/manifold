@@ -1,9 +1,22 @@
 import { useState, useEffect, useCallback } from 'react'
 import type { AgentSession, Project } from '../../shared/types'
+import { useIpcListener } from './useIpc'
 
 interface UseAllProjectSessionsResult {
   sessionsByProject: Record<string, AgentSession[]>
   removeSession: (sessionId: string) => void
+}
+
+interface AgentSessionsChangedEvent {
+  projectId: string
+}
+
+async function fetchProjectSessions(projectId: string): Promise<AgentSession[]> {
+  try {
+    return (await window.electronAPI.invoke('agent:sessions', projectId)) as AgentSession[]
+  } catch {
+    return []
+  }
 }
 
 export function useAllProjectSessions(
@@ -14,23 +27,40 @@ export function useAllProjectSessions(
   const [backgroundSessions, setBackgroundSessions] = useState<Record<string, AgentSession[]>>({})
 
   useEffect(() => {
+    let cancelled = false
+
     const fetchAll = async (): Promise<void> => {
-      const result: Record<string, AgentSession[]> = {}
-      for (const project of projects) {
-        if (project.id === activeProjectId) continue
-        try {
-          result[project.id] = (await window.electronAPI.invoke(
-            'agent:sessions',
-            project.id
-          )) as AgentSession[]
-        } catch {
-          result[project.id] = []
-        }
-      }
-      setBackgroundSessions(result)
+      const entries = await Promise.all(
+        projects
+          .filter((project) => project.id !== activeProjectId)
+          .map(async (project) => [project.id, await fetchProjectSessions(project.id)] as const)
+      )
+      if (cancelled) return
+      setBackgroundSessions(Object.fromEntries(entries))
     }
+
     void fetchAll()
+    return () => {
+      cancelled = true
+    }
   }, [projects, activeProjectId])
+
+  const refreshBackgroundProject = useCallback(async (projectId: string): Promise<void> => {
+    const sessions = await fetchProjectSessions(projectId)
+    setBackgroundSessions((prev) => ({ ...prev, [projectId]: sessions }))
+  }, [])
+
+  useIpcListener<AgentSessionsChangedEvent>(
+    'agent:sessions-changed',
+    useCallback(
+      (event: AgentSessionsChangedEvent) => {
+        if (event.projectId === activeProjectId) return
+        if (!projects.some((project) => project.id === event.projectId)) return
+        void refreshBackgroundProject(event.projectId)
+      },
+      [activeProjectId, projects, refreshBackgroundProject]
+    )
+  )
 
   const removeSession = useCallback((sessionId: string): void => {
     setBackgroundSessions((prev) => {
