@@ -45,7 +45,7 @@ export function NewAgentForm({
   projectId: string
   baseBranch: string
   defaultRuntime: string
-  onLaunch: (options: SpawnAgentOptions) => void
+  onLaunch: (options: SpawnAgentOptions) => Promise<unknown>
   focusTrigger?: number
 }): React.JSX.Element {
   const [branchMode, setBranchMode] = useState<BranchMode>('new')
@@ -66,6 +66,13 @@ export function NewAgentForm({
   const [error, setError] = useState('')
   const [showAdvanced, setShowAdvanced] = useState(false)
   const inputRef = useRef<HTMLInputElement>(null)
+  const mountedRef = useRef(true)
+
+  useEffect(() => {
+    return () => {
+      mountedRef.current = false
+    }
+  }, [])
 
   useEffect(() => {
     inputRef.current?.focus()
@@ -110,7 +117,7 @@ export function NewAgentForm({
   })()
 
   const handleSubmit = useCallback(
-    (e: React.FormEvent): void => {
+    async (e: React.FormEvent): Promise<void> => {
       e.preventDefault()
       if (!canSubmit) return
       setLoading(true)
@@ -118,30 +125,46 @@ export function NewAgentForm({
       const resolvedTaskDescription = taskDescription.trim() || pickRandomNorwegianCityName()
       setTaskDescription(resolvedTaskDescription)
 
-      if (branchMode === 'current') {
-        onLaunch({
+      const launchOptions = (() => {
+        if (branchMode === 'current') {
+          return {
+            projectId,
+            runtimeId,
+            prompt: resolvedTaskDescription,
+            noWorktree: true,
+            stayOnBranch: true,
+          } satisfies SpawnAgentOptions
+        }
+
+        const base: SpawnAgentOptions = {
           projectId,
           runtimeId,
           prompt: resolvedTaskDescription,
-          noWorktree: true,
-          stayOnBranch: true,
-        })
-        return
-      }
+        }
 
-      // "New branch" mode
-      const base: SpawnAgentOptions = {
-        projectId,
-        runtimeId,
-        prompt: resolvedTaskDescription,
-      }
+        if (useExisting && existingSubTab === 'branch') {
+          return { ...base, existingBranch: selectedBranch }
+        }
+        if (useExisting && existingSubTab === 'pr') {
+          return { ...base, prIdentifier: String(selectedPr) }
+        }
+        return base
+      })()
 
-      if (useExisting && existingSubTab === 'branch') {
-        onLaunch({ ...base, existingBranch: selectedBranch })
-      } else if (useExisting && existingSubTab === 'pr') {
-        onLaunch({ ...base, prIdentifier: String(selectedPr) })
-      } else {
-        onLaunch(base)
+      try {
+        const session = await onLaunch(launchOptions)
+        if (!session && mountedRef.current) {
+          setError('Failed to start agent.')
+        }
+      } catch (err) {
+        if (mountedRef.current) {
+          const message = err instanceof Error ? err.message : String(err)
+          setError(`Failed to start agent: ${message}`)
+        }
+      } finally {
+        if (mountedRef.current) {
+          setLoading(false)
+        }
       }
     },
     [branchMode, useExisting, existingSubTab, projectId, runtimeId, taskDescription, selectedBranch, selectedPr, canSubmit, onLaunch]

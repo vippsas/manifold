@@ -90,4 +90,35 @@ describe('useAgentSession', () => {
     expect(result.current.sessions).toEqual([])
     expect(result.current.activeSessionId).toBeNull()
   })
+
+  it('resyncs the current project when spawn fails after backend session creation', async () => {
+    const recoveredSession = makeSession('s3', 'p1')
+
+    mockInvoke
+      .mockResolvedValueOnce([])
+      .mockRejectedValueOnce(new Error('spawn failed'))
+      .mockResolvedValueOnce([recoveredSession])
+
+    const { result } = renderHook(() => useAgentSession('p1'))
+
+    await waitFor(() => {
+      expect(mockInvoke).toHaveBeenCalledWith('agent:sessions', 'p1')
+    })
+
+    let returnedSession: AgentSession | null = makeSession('placeholder', 'p1')
+    await act(async () => {
+      returnedSession = await result.current.spawnAgent({
+        projectId: 'p1',
+        runtimeId: 'codex',
+        prompt: 'Test task',
+      })
+    })
+
+    expect(returnedSession).toBeNull()
+
+    await waitFor(() => {
+      expect(result.current.sessions).toEqual([recoveredSession])
+      expect(result.current.activeSessionId).toBe('s3')
+    })
+  })
 })
