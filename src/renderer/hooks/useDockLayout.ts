@@ -72,7 +72,7 @@ export function useDockLayout(sessionId: string | null): UseDockLayoutResult {
 
   const focusPanel = useCallback((id: string): void => {
     const panel = apiRef.current?.getPanel(id)
-    if (panel) panel.api.setActive()
+    if (panel && !panel.api.isActive) panel.api.setActive()
   }, [])
 
   const onReady = useCallback((api: DockviewApi) => {
