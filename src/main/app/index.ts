@@ -25,6 +25,10 @@ import { ChatAdapter } from '../agent/chat-adapter'
 import { setupAutoUpdater } from './auto-updater'
 import { ModeSwitcher } from './mode-switcher'
 import { createWindow } from './window-factory'
+import { MemoryStore } from '../memory/memory-store'
+import { MemoryCapture } from '../memory/memory-capture'
+import { MemoryCompressor } from '../memory/memory-compressor'
+import { MemoryInjector } from '../memory/memory-injector'
 
 let mainWindow: BrowserWindow | null = null
 
@@ -47,6 +51,15 @@ const chatAdapter = new ChatAdapter()
 chatAdapter.setChatStore(chatStore)
 sessionManager.setChatAdapter(chatAdapter)
 
+const memoryStore = new MemoryStore()
+const memoryCapture = new MemoryCapture(chatAdapter, memoryStore, (sid) => sessionManager.getSession(sid))
+const memoryCompressor = new MemoryCompressor(memoryStore, settingsStore)
+const memoryInjector = new MemoryInjector(memoryStore, settingsStore)
+memoryCapture.setMemoryCompressor(memoryCompressor)
+sessionManager.setMemoryCapture(memoryCapture)
+sessionManager.setMemoryCompressor(memoryCompressor)
+sessionManager.setMemoryInjector(memoryInjector)
+
 const ipcDeps = {
   settingsStore,
   projectRegistry,
@@ -61,6 +74,7 @@ const ipcDeps = {
   dockLayoutStore,
   chatAdapter,
   chatStore,
+  memoryStore,
 }
 
 function doCreateWindow(): void {
@@ -88,6 +102,13 @@ app.whenReady().then(() => {
   doCreateWindow()
   setupAutoUpdater()
 
+  try {
+    const settings = settingsStore.getSettings()
+    memoryStore.pruneAll(settings.memory?.rawRetentionDays ?? 30)
+  } catch {
+    // Best-effort pruning
+  }
+
   app.on('activate', () => {
     if (BrowserWindow.getAllWindows().length === 0) {
       doCreateWindow()
@@ -106,4 +127,5 @@ app.on('before-quit', async () => {
   sessionManager.killAllSessions()
   ptyPool.killAll()
   await fileWatcher.unwatchAll()
+  memoryStore.close()
 })

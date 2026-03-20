@@ -9,6 +9,9 @@ import { SessionTeardown } from './session-teardown'
 import { writeWorktreeMeta } from '../git/worktree-meta'
 import { FileWatcher } from '../fs/file-watcher'
 import type { ChatAdapter } from '../agent/chat-adapter'
+import type { MemoryCapture } from '../memory/memory-capture'
+import type { MemoryCompressor } from '../memory/memory-compressor'
+import type { MemoryInjector } from '../memory/memory-injector'
 import type { BrowserWindow } from 'electron'
 import type { InternalSession } from './session-types'
 import { SessionStreamWirer } from './session-stream-wirer'
@@ -20,6 +23,9 @@ export class SessionManager {
   private sessions: Map<string, InternalSession> = new Map()
   private mainWindow: BrowserWindow | null = null
   private chatAdapter: ChatAdapter | null = null
+  private memoryCapture: MemoryCapture | null = null
+  private memoryCompressor: MemoryCompressor | null = null
+  private memoryInjector: MemoryInjector | null = null
   private streamWirer: SessionStreamWirer
   private devServer: DevServerManager
   private discovery: SessionDiscovery
@@ -62,17 +68,31 @@ export class SessionManager {
       this.streamWirer,
       () => this.chatAdapter,
       this.branchCheckoutManager,
+      () => this.memoryInjector,
     )
     this.teardown = new SessionTeardown(
       this.sessions,
       this.ptyPool,
       this.projectRegistry,
       (id) => this.killSession(id),
+      () => this.memoryCompressor,
     )
   }
 
   setChatAdapter(adapter: ChatAdapter): void {
     this.chatAdapter = adapter
+  }
+
+  setMemoryCapture(capture: MemoryCapture): void {
+    this.memoryCapture = capture
+  }
+
+  setMemoryCompressor(compressor: MemoryCompressor): void {
+    this.memoryCompressor = compressor
+  }
+
+  setMemoryInjector(injector: MemoryInjector): void {
+    this.memoryInjector = injector
   }
 
   setMainWindow(window: BrowserWindow): void {
@@ -100,6 +120,7 @@ export class SessionManager {
 
     const session = await this.sessionCreator.create(options)
     this.sessions.set(session.id, session)
+    this.memoryCapture?.startCapturing(session.id)
     return this.toPublicSession(session)
   }
 
@@ -161,6 +182,7 @@ export class SessionManager {
       }
     }
 
+    this.memoryCapture?.stopCapturing(sessionId)
     this.chatAdapter?.clearSession(sessionId)
 
     if (session.ptyId) {
@@ -187,7 +209,8 @@ export class SessionManager {
     if (!session) throw new Error(`Session not found: ${sessionId}`)
     if (session.ptyId) return this.toPublicSession(session)
 
-    await resumeAgentSession(session, runtimeId, this.ptyPool, this.streamWirer)
+    await resumeAgentSession(session, runtimeId, this.ptyPool, this.streamWirer, this.memoryInjector ?? undefined)
+    this.memoryCapture?.startCapturing(sessionId)
 
     return this.toPublicSession(session)
   }
@@ -200,6 +223,10 @@ export class SessionManager {
   getSession(sessionId: string): AgentSession | undefined {
     const session = this.sessions.get(sessionId)
     return session ? this.toPublicSession(session) : undefined
+  }
+
+  getInternalSession(sessionId: string): InternalSession | undefined {
+    return this.sessions.get(sessionId)
   }
 
   getDetectedUrl(sessionId: string): string | null {

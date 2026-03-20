@@ -3,6 +3,8 @@ import { PtyPool } from '../agent/pty-pool'
 import { SessionStreamWirer } from './session-stream-wirer'
 import { prepareManagedWorktree } from '../git/managed-worktree'
 import { readWorktreeMeta } from '../git/worktree-meta'
+import type { MemoryInjector } from '../memory/memory-injector'
+
 import type { InternalSession } from './session-types'
 import { v4 as uuidv4 } from 'uuid'
 
@@ -11,6 +13,7 @@ export async function resumeAgentSession(
   runtimeId: string,
   ptyPool: PtyPool,
   streamWirer: SessionStreamWirer,
+  memoryInjector?: MemoryInjector,
 ): Promise<void> {
   if (!session.ollamaModel) {
     const meta = await readWorktreeMeta(session.worktreePath)
@@ -30,6 +33,8 @@ export async function resumeAgentSession(
       // guards could not be refreshed.
     }
   }
+
+  await memoryInjector?.injectContext(session)
 
   const runtimeArgs = [...(runtime.args ?? [])]
   if (session.ollamaModel) {

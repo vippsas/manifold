@@ -58,6 +58,7 @@ export interface ManifoldSettings {
   defaultBaseBranch: string
   notificationSound: boolean
   uiMode: 'developer' | 'simple'
+  memory?: import('./memory-types').MemorySettings
 }
 
 export interface SessionEditorPaneState {

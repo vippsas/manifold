@@ -63,6 +63,13 @@ const ALLOWED_INVOKE_CHANNELS = [
   'updater:install',
   'updater:check',
   'app:switch-mode',
+  'memory:search',
+  'memory:get',
+  'memory:timeline',
+  'memory:stats',
+  'memory:delete',
+  'memory:clear',
+  'memory:settings',
 ] as const
 
 const ALLOWED_SEND_CHANNELS = [

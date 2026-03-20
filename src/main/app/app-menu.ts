@@ -76,6 +76,11 @@ export function buildAppMenu(mainWindow: BrowserWindow): Menu {
           accelerator: 'CmdOrCtrl+6',
           click: () => mainWindow?.webContents.send('view:toggle-panel', 'shell'),
         },
+        {
+          label: 'Toggle Memory',
+          accelerator: 'CmdOrCtrl+7',
+          click: () => mainWindow?.webContents.send('view:toggle-panel', 'memory'),
+        },
         { type: 'separator' },
         { role: 'reload' },
         { role: 'forceReload' },

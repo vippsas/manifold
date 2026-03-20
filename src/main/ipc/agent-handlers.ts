@@ -63,6 +63,9 @@ export function registerAgentHandlers(deps: IpcDependencies): void {
     // 3. Remove persisted chat history
     deps.chatStore.delete(projectId)
 
+    // 3b. Remove memory data
+    deps.memoryStore.deleteProject(projectId)
+
     // 4. Remove project from registry
     deps.projectRegistry.removeProject(projectId)
   })

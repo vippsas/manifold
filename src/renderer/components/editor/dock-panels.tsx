@@ -10,6 +10,7 @@ import { ShellTabs } from '../terminal/ShellTabs'
 import { OnboardingView } from '../modals/OnboardingView'
 import { ProjectSidebar } from '../sidebar/ProjectSidebar'
 import { WebPreview } from '../terminal/WebPreview'
+import { MemoryPanel } from '../memory/MemoryPanel'
 import { pickRandomNorwegianCityName } from '../../../shared/norwegian-cities'
 import { DockStateContext, useDockState } from './dock-panel-types'
 export type { DockAppState } from './dock-panel-types'
@@ -24,6 +25,7 @@ export const PANEL_COMPONENTS: Record<string, React.FC<any>> = {
   shell: ShellPanel,
   projects: ProjectsPanel,
   webPreview: WebPreviewPanel,
+  memory: MemoryPanel,
 }
 
 function AgentPanel(): React.JSX.Element {
