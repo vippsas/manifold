@@ -105,6 +105,10 @@ export class SessionManager {
     }
   }
 
+  private notifySessionsChanged(projectId: string): void {
+    this.sendToRenderer('agent:sessions-changed', { projectId })
+  }
+
   async createSession(options: SpawnAgentOptions): Promise<AgentSession> {
     if (options.noWorktree) {
       const existingNoWorktree = Array.from(this.sessions.values()).find(
@@ -121,6 +125,7 @@ export class SessionManager {
     const session = await this.sessionCreator.create(options)
     this.sessions.set(session.id, session)
     this.memoryCapture?.startCapturing(session.id)
+    this.notifySessionsChanged(session.projectId)
     return this.toPublicSession(session)
   }
 
@@ -170,6 +175,7 @@ export class SessionManager {
   async killSession(sessionId: string): Promise<void> {
     const session = this.sessions.get(sessionId)
     if (!session) throw new Error(`Session not found: ${sessionId}`)
+    const { projectId } = session
 
     // Remove from Map first so concurrent IPC handlers (e.g. diff:get)
     // won't try to use a worktree path that's being deleted.
@@ -202,6 +208,8 @@ export class SessionManager {
         // Worktree cleanup is best-effort
       }
     }
+
+    this.notifySessionsChanged(projectId)
   }
 
   async resumeSession(sessionId: string, runtimeId: string): Promise<AgentSession> {
@@ -211,6 +219,7 @@ export class SessionManager {
 
     await resumeAgentSession(session, runtimeId, this.ptyPool, this.streamWirer, this.memoryInjector ?? undefined)
     this.memoryCapture?.startCapturing(sessionId)
+    this.notifySessionsChanged(session.projectId)
 
     return this.toPublicSession(session)
   }

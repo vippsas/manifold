@@ -80,6 +80,7 @@ const ALLOWED_LISTEN_CHANNELS = [
   'agent:output',
   'agent:status',
   'agent:exit',
+  'agent:sessions-changed',
   'agent:dirs-changed',
   'files:changed',
   'files:tree-changed',
