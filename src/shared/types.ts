@@ -83,6 +83,7 @@ export interface SpawnAgentOptions {
   existingBranch?: string
   prIdentifier?: string
   noWorktree?: boolean
+  stayOnBranch?: boolean
   nonInteractive?: boolean
   cols?: number
   rows?: number

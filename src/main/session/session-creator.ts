@@ -31,7 +31,10 @@ export class SessionCreator {
     let worktree: { branch: string; path: string }
 
     if (options.noWorktree) {
-      if (options.existingBranch) {
+      if (options.stayOnBranch) {
+        const branch = (await gitExec(['rev-parse', '--abbrev-ref', 'HEAD'], project.path)).trim()
+        worktree = { branch, path: project.path }
+      } else if (options.existingBranch) {
         // Switching to an existing branch — skip clean-tree check.
         // Build artifacts (node_modules) may be present but are not a problem.
         await gitExec(['checkout', options.existingBranch], project.path)
