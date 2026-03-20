@@ -32,7 +32,7 @@ function renderForm(overrides = {}) {
     projectId: 'proj-1',
     baseBranch: 'main',
     defaultRuntime: 'claude',
-    onLaunch: vi.fn(),
+    onLaunch: vi.fn().mockResolvedValue({ id: 'session-1' }),
     ...overrides,
   }
 
@@ -53,13 +53,15 @@ describe('NewAgentForm', () => {
 
     fireEvent.click(screen.getByText('Start →'))
 
-    expect(props.onLaunch).toHaveBeenCalledWith(
-      expect.objectContaining({
-        projectId: 'proj-1',
-        runtimeId: 'claude',
-        prompt: 'Oslo',
-      }),
-    )
+    await waitFor(() => {
+      expect(props.onLaunch).toHaveBeenCalledWith(
+        expect.objectContaining({
+          projectId: 'proj-1',
+          runtimeId: 'claude',
+          prompt: 'Oslo',
+        }),
+      )
+    })
   })
 
   it('uses the typed agent name when one is provided', async () => {
@@ -71,10 +73,24 @@ describe('NewAgentForm', () => {
     })
     fireEvent.click(screen.getByText('Start →'))
 
-    expect(props.onLaunch).toHaveBeenCalledWith(
-      expect.objectContaining({
-        prompt: 'Dark mode toggle',
-      }),
-    )
+    await waitFor(() => {
+      expect(props.onLaunch).toHaveBeenCalledWith(
+        expect.objectContaining({
+          prompt: 'Dark mode toggle',
+        }),
+      )
+    })
+  })
+
+  it('shows an error and recovers when launch returns null', async () => {
+    renderForm({ onLaunch: vi.fn().mockResolvedValue(null) })
+    await waitFor(() => expect(mockInvoke).toHaveBeenCalledWith('runtimes:list'))
+
+    fireEvent.click(screen.getByText('Start →'))
+
+    await waitFor(() => {
+      expect(screen.getByText('Failed to start agent.')).toBeInTheDocument()
+      expect(screen.getByText('Start →')).toBeEnabled()
+    })
   })
 })

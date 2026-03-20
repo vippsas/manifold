@@ -13,7 +13,7 @@ export interface UseAppOverlaysResult {
   appVersion: string
   handleCommit: (message: string) => Promise<void>
   handleClosePanel: () => void
-  handleLaunchAgent: (options: SpawnAgentOptions) => void
+  handleLaunchAgent: (options: SpawnAgentOptions) => Promise<unknown>
   handleDeleteAgent: (sessionId: string) => void
   handleSelectSession: (sessionId: string, projectId: string) => void
   handleSaveSettings: (partial: Partial<ManifoldSettings>) => void
@@ -45,8 +45,8 @@ export function useAppOverlays(
 
   const handleClosePanel = useCallback((): void => { setActivePanel(null) }, [])
 
-  const handleLaunchAgent = useCallback((options: SpawnAgentOptions): void => {
-    void spawnAgent(options)
+  const handleLaunchAgent = useCallback((options: SpawnAgentOptions): Promise<unknown> => {
+    return spawnAgent(options)
   }, [spawnAgent])
 
   const handleDeleteAgent = useCallback((sessionId: string): void => {

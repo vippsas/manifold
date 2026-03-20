@@ -26,7 +26,7 @@ interface NoAgentProps {
   projectName: string
   baseBranch: string
   defaultRuntime: string
-  onLaunch: (options: SpawnAgentOptions) => void
+  onLaunch: (options: SpawnAgentOptions) => Promise<unknown>
   focusTrigger?: number
 }
 

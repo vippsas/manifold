@@ -16,6 +16,24 @@ interface AgentSessionsChangedEvent {
   projectId: string
 }
 
+async function fetchProjectSessions(projectId: string): Promise<AgentSession[]> {
+  return (await window.electronAPI.invoke('agent:sessions', projectId)) as AgentSession[]
+}
+
+function applyProjectSessions(
+  result: AgentSession[],
+  preferredSessionId: string | null | undefined,
+  setSessions: React.Dispatch<React.SetStateAction<AgentSession[]>>,
+  setActiveSessionId: React.Dispatch<React.SetStateAction<string | null>>
+): void {
+  setSessions(result)
+  setActiveSessionId((prev) => {
+    const preferred = preferredSessionId ?? prev
+    if (preferred && result.some((session) => session.id === preferred)) return preferred
+    return result.length > 0 ? result[0].id : null
+  })
+}
+
 interface UseAgentSessionResult {
   sessions: AgentSession[]
   activeSessionId: string | null
@@ -31,12 +49,12 @@ export function useAgentSession(projectId: string | null): UseAgentSessionResult
   const [sessions, setSessions] = useState<AgentSession[]>([])
   const [activeSessionId, setActiveSessionId] = useState<string | null>(null)
 
-  useFetchSessionsOnProjectChange(projectId, activeSessionId, setSessions, setActiveSessionId)
+  const refreshSessions = useFetchSessionsOnProjectChange(projectId, activeSessionId, setSessions, setActiveSessionId)
   useStatusListener(setSessions)
   useExitListener(setSessions)
   useAutoResume(activeSessionId, sessions, setSessions)
 
-  const spawnAgent = useSpawnAgent(projectId, setSessions, setActiveSessionId)
+  const spawnAgent = useSpawnAgent(projectId, refreshSessions, setSessions, setActiveSessionId)
   const killAgent = useKillAgent()
   const deleteAgent = useDeleteAgent(setSessions, setActiveSessionId)
   const resumeAgent = useResumeAgent(setSessions)
@@ -55,25 +73,24 @@ function useFetchSessionsOnProjectChange(
   _activeSessionId: string | null,
   setSessions: React.Dispatch<React.SetStateAction<AgentSession[]>>,
   setActiveSessionId: React.Dispatch<React.SetStateAction<string | null>>
-): void {
+): (preferredSessionId?: string | null) => Promise<AgentSession[] | null> {
   const requestIdRef = useRef(0)
 
   const syncSessions = useCallback(
-    async (nextProjectId: string): Promise<void> => {
+    async (preferredSessionId?: string | null): Promise<AgentSession[] | null> => {
+      if (!projectId) return null
       const requestId = ++requestIdRef.current
       try {
-        const result = (await window.electronAPI.invoke('agent:sessions', nextProjectId)) as AgentSession[]
-        if (requestId !== requestIdRef.current) return
-        setSessions(result)
-        setActiveSessionId((prev) => {
-          if (prev && result.some((s) => s.id === prev)) return prev
-          return result.length > 0 ? result[0].id : null
-        })
+        const result = await fetchProjectSessions(projectId)
+        if (requestId !== requestIdRef.current) return null
+        applyProjectSessions(result, preferredSessionId, setSessions, setActiveSessionId)
+        return result
       } catch {
         // IPC not ready yet during init, sessions will arrive via events
+        return null
       }
     },
-    [setSessions, setActiveSessionId]
+    [projectId, setSessions, setActiveSessionId]
   )
 
   useEffect(() => {
@@ -84,7 +101,7 @@ function useFetchSessionsOnProjectChange(
       return
     }
 
-    void syncSessions(projectId)
+    void syncSessions()
   }, [projectId, setSessions, setActiveSessionId, syncSessions])
 
   useIpcListener<AgentSessionsChangedEvent>(
@@ -92,11 +109,13 @@ function useFetchSessionsOnProjectChange(
     useCallback(
       (event: AgentSessionsChangedEvent) => {
         if (!projectId || event.projectId !== projectId) return
-        void syncSessions(projectId)
+        void syncSessions()
       },
       [projectId, syncSessions]
     )
   )
+
+  return syncSessions
 }
 
 function useStatusListener(
@@ -166,6 +185,7 @@ function useAutoResume(
 
 function useSpawnAgent(
   currentProjectId: string | null,
+  refreshCurrentProject: (preferredSessionId?: string | null) => Promise<AgentSession[] | null>,
   setSessions: React.Dispatch<React.SetStateAction<AgentSession[]>>,
   setActiveSessionId: React.Dispatch<React.SetStateAction<string | null>>
 ): (options: SpawnAgentOptions) => Promise<AgentSession | null> {
@@ -182,13 +202,17 @@ function useSpawnAgent(
             return next
           })
           setActiveSessionId(session.id)
+          void refreshCurrentProject(session.id)
         }
         return session
       } catch {
+        if (options.projectId === currentProjectId) {
+          void refreshCurrentProject()
+        }
         return null
       }
     },
-    [currentProjectId, setSessions, setActiveSessionId]
+    [currentProjectId, refreshCurrentProject, setSessions, setActiveSessionId]
   )
 }
 
