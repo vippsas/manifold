@@ -395,6 +395,43 @@ select:focus {
   border-radius: var(--radius-md);
 }
 
+.markdown-preview .mermaid-diagram {
+  display: flex;
+  justify-content: center;
+  background: var(--bg-secondary);
+  border-radius: var(--radius-md);
+  padding: 1em;
+  margin: 1em 0;
+  overflow-x: auto;
+}
+
+.markdown-preview .mermaid-diagram svg {
+  max-width: 100%;
+  height: auto;
+}
+
+.markdown-preview .mermaid-error {
+  border: 1px solid var(--error);
+  border-radius: var(--radius-md);
+  padding: 1em;
+  margin: 1em 0;
+}
+
+.markdown-preview .mermaid-error-message {
+  background: rgba(255, 85, 85, 0.1);
+  color: var(--error);
+  padding: 0.5em 0.75em;
+  border-radius: var(--radius-sm);
+  margin-bottom: 0.75em;
+  font-size: 0.85em;
+}
+
+.markdown-preview .mermaid-loading {
+  text-align: center;
+  color: var(--text-muted);
+  padding: 2em;
+}
+
 /* ─── Git Panels (Slide-in) ─── */
 .git-panel {
   position: fixed;

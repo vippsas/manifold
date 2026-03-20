@@ -10,6 +10,16 @@ import type { FileOpenRequest } from './file-open-request'
 import { ContextMenu } from './ContextMenu'
 import { TabBar, NoTabsHeader } from './CodeViewerTabs'
 import type { MoveTarget } from './CodeViewerTabs'
+import { MermaidBlock } from './MermaidBlock'
+
+const markdownComponents = {
+  code({ className, children, ...props }: React.ComponentProps<'code'>) {
+    if (className === 'language-mermaid') {
+      return <MermaidBlock chart={String(children).replace(/\n$/, '')} />
+    }
+    return <code className={className} {...props}>{children}</code>
+  },
+}
 
 interface CodeViewerProps {
   paneId?: string
@@ -227,7 +237,7 @@ export function CodeViewer({
           />
         ) : previewActive && fileContent !== null && !isHtml ? (
           <div className="markdown-preview">
-            <ReactMarkdown remarkPlugins={[remarkGfm]}>{fileContent}</ReactMarkdown>
+            <ReactMarkdown remarkPlugins={[remarkGfm]} components={markdownComponents}>{fileContent}</ReactMarkdown>
           </div>
         ) : diffMode && fileContent !== null ? (
           <DiffEditor

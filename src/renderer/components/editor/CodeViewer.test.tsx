@@ -34,6 +34,13 @@ vi.mock('remark-gfm', () => ({
   default: () => null,
 }))
 
+vi.mock('mermaid', () => ({
+  default: {
+    initialize: vi.fn(),
+    render: vi.fn().mockResolvedValue({ svg: '<svg>mock</svg>' }),
+  },
+}))
+
 function makeOpenFile(overrides: Partial<OpenFile> = {}): OpenFile {
   return {
     path: '/repo/file.ts',
