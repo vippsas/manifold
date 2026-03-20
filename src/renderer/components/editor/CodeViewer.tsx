@@ -30,6 +30,10 @@ interface CodeViewerProps {
   onSaveFile?: (filePath: string, content: string) => void
 }
 
+// Module-level state that survives component remounts (e.g. agent switches rebuild dockview layout)
+const previewPathsByPane = new Map<string, Set<string>>()
+const scrollPositionsByFile = new Map<string, number>()
+
 const BASE_EDITOR_OPTIONS = {
   minimap: { enabled: false },
   scrollBeyondLastLine: false,
@@ -80,13 +84,16 @@ export function CodeViewer({
   const activeFilePathRef = useRef(activeFilePath)
   activeFilePathRef.current = activeFilePath
 
-  const [previewActive, setPreviewActive] = useState(false)
+  const [previewPaths, setPreviewPaths] = useState<Set<string>>(
+    () => previewPathsByPane.get(paneId) ?? new Set(),
+  )
   const [diffMode, setDiffMode] = useState(false)
   const [moveMenu, setMoveMenu] = useState<{ x: number; y: number } | null>(null)
   const isMd = isMarkdownFile(activeFilePath)
   const isHtml = isHtmlFile(activeFilePath)
   const isPreviewable = isMd || isHtml
   const hasDiff = fileDiffText !== null
+  const previewActive = isPreviewable && activeFilePath !== null && previewPaths.has(activeFilePath)
 
   const [resolvedHtml, setResolvedHtml] = useState<string | null>(null)
 
@@ -129,8 +136,8 @@ export function CodeViewer({
   }, [isHtml, fileContent, sessionId, activeFilePath])
 
   useEffect(() => {
-    if (!isPreviewable) setPreviewActive(false)
-  }, [isPreviewable])
+    previewPathsByPane.set(paneId, previewPaths)
+  }, [paneId, previewPaths])
 
   useEffect(() => {
     saveRef.current = onSaveFile
@@ -151,6 +158,22 @@ export function CodeViewer({
       if (!filePath) return
       saveRef.current?.(filePath, editor.getValue())
     })
+
+    const filePath = activeFilePathRef.current
+    if (filePath) {
+      const scrollTop = scrollPositionsByFile.get(filePath)
+      if (scrollTop !== undefined) {
+        requestAnimationFrame(() => editor.setScrollTop(scrollTop))
+      }
+    }
+
+    editor.onDidScrollChange((e) => {
+      const fp = activeFilePathRef.current
+      if (fp && e.scrollTopChanged) {
+        scrollPositionsByFile.set(fp, e.scrollTop)
+      }
+    })
+
     editor.focus()
   }, [])
 
@@ -176,7 +199,17 @@ export function CodeViewer({
           onSplitPane={onSplitPane}
           showPreviewToggle={showPreviewToggle}
           previewActive={previewActive}
-          onTogglePreview={() => { setPreviewActive((value) => !value); setDiffMode(false) }}
+          onTogglePreview={() => {
+            if (activeFilePath) {
+              setPreviewPaths((prev) => {
+                const next = new Set(prev)
+                if (next.has(activeFilePath)) next.delete(activeFilePath)
+                else next.add(activeFilePath)
+                return next
+              })
+            }
+            setDiffMode(false)
+          }}
           showDiffToggle={showDiffToggle}
           diffActive={diffMode}
           onToggleDiff={() => setDiffMode((value) => !value)}
@@ -253,7 +286,7 @@ function EditorContent({
     return (
       <Editor
         key={`${filePath ?? '__no-file__'}:${refreshVersion}`}
-        value={fileContent}
+        defaultValue={fileContent}
         language={language}
         theme={monacoTheme}
         options={EDITABLE_OPTIONS}

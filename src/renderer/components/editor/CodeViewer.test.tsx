@@ -8,8 +8,8 @@ import type { FileOpenRequest } from './file-open-request'
 vi.mock('@monaco-editor/react', async () => {
   const React = await import('react')
 
-  function MockEditor({ value }: { value: string }): React.JSX.Element {
-    const [initialValue] = React.useState(value)
+  function MockEditor({ value, defaultValue }: { value?: string; defaultValue?: string }): React.JSX.Element {
+    const [initialValue] = React.useState(value ?? defaultValue)
     return <div data-testid="monaco-editor">{initialValue}</div>
   }
 
