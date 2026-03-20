@@ -14,6 +14,7 @@ import { OnboardingView } from '../modals/OnboardingView'
 import { ProjectSidebar } from '../sidebar/ProjectSidebar'
 import { WebPreview } from '../terminal/WebPreview'
 import type { FileOpenRequest } from './file-open-request'
+import { pickRandomNorwegianCityName } from '../../../shared/norwegian-cities'
 
 export interface DockAppState {
   sessionId: string | null
@@ -326,6 +327,16 @@ function ShellPanel(): React.JSX.Element {
 
 function ProjectsPanel(): React.JSX.Element {
   const s = useDockState()
+  const handleQuickStart = useCallback(() => {
+    if (!s.activeProjectId) return
+    s.onLaunchAgent({
+      projectId: s.activeProjectId,
+      runtimeId: s.defaultRuntime,
+      prompt: pickRandomNorwegianCityName(),
+      noWorktree: true,
+      stayOnBranch: true,
+    })
+  }, [s.activeProjectId, s.defaultRuntime, s.onLaunchAgent])
   return (
     <ProjectSidebar
       projects={s.projects}
@@ -338,6 +349,7 @@ function ProjectsPanel(): React.JSX.Element {
       onUpdateProject={s.onUpdateProject}
       onDeleteAgent={s.onDeleteAgent}
       onNewAgent={s.onNewAgentFromHeader}
+      onQuickStart={s.activeProjectId ? handleQuickStart : undefined}
       onNewProject={s.onNewProject}
       fetchingProjectId={s.fetchingProjectId}
       lastFetchedProjectId={s.lastFetchedProjectId}
