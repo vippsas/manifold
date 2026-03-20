@@ -1,6 +1,4 @@
-import { v4 as uuidv4 } from 'uuid'
 import { AgentSession, SpawnAgentOptions } from '../../shared/types'
-import { getRuntimeById } from '../agent/runtimes'
 import { WorktreeManager } from '../git/worktree-manager'
 import { BranchCheckoutManager } from '../git/branch-checkout-manager'
 import { PtyPool } from '../agent/pty-pool'
@@ -8,14 +6,14 @@ import { ProjectRegistry } from '../store/project-registry'
 import { DevServerManager } from '../app/dev-server-manager'
 import { SessionCreator } from './session-creator'
 import { SessionTeardown } from './session-teardown'
-import { writeWorktreeMeta, readWorktreeMeta } from '../git/worktree-meta'
-import { prepareManagedWorktree } from '../git/managed-worktree'
+import { writeWorktreeMeta } from '../git/worktree-meta'
 import { FileWatcher } from '../fs/file-watcher'
 import type { ChatAdapter } from '../agent/chat-adapter'
 import type { BrowserWindow } from 'electron'
 import type { InternalSession } from './session-types'
 import { SessionStreamWirer } from './session-stream-wirer'
 import { SessionDiscovery } from './session-discovery'
+import { resumeAgentSession, createShellPtySession } from './session-resume'
 
 
 export class SessionManager {
@@ -189,44 +187,7 @@ export class SessionManager {
     if (!session) throw new Error(`Session not found: ${sessionId}`)
     if (session.ptyId) return this.toPublicSession(session)
 
-    if (!session.ollamaModel) {
-      const meta = await readWorktreeMeta(session.worktreePath)
-      if (meta?.ollamaModel) {
-        session.ollamaModel = meta.ollamaModel
-      }
-    }
-
-    const runtime = getRuntimeById(runtimeId)
-    if (!runtime) throw new Error(`Runtime not found: ${runtimeId}`)
-
-    if (!session.noWorktree) {
-      try {
-        await prepareManagedWorktree(session.worktreePath)
-      } catch {
-        // Best-effort: session resume should not fail just because worktree
-        // guards could not be refreshed.
-      }
-    }
-
-    const runtimeArgs = [...(runtime.args ?? [])]
-    if (session.ollamaModel) {
-      runtimeArgs.push('--model', session.ollamaModel)
-    }
-
-    const ptyHandle = this.ptyPool.spawn(runtime.binary, runtimeArgs, {
-      cwd: session.worktreePath,
-      env: runtime.env,
-    })
-
-    session.ptyId = ptyHandle.id
-    session.pid = ptyHandle.pid
-    session.runtimeId = runtimeId
-    session.status = 'running'
-    session.outputBuffer = ''
-    session.detectedUrl = undefined
-
-    this.streamWirer.wireOutputStreaming(ptyHandle.id, session)
-    this.streamWirer.wireExitHandling(ptyHandle.id, session)
+    await resumeAgentSession(session, runtimeId, this.ptyPool, this.streamWirer)
 
     return this.toPublicSession(session)
   }
@@ -290,28 +251,7 @@ export class SessionManager {
   }
 
   createShellSession(cwd: string): { sessionId: string } {
-    const shell = process.platform === 'win32' ? 'cmd.exe' : (process.env.SHELL || '/bin/zsh')
-    const ptyHandle = this.ptyPool.spawn(shell, [], { cwd })
-    const id = uuidv4()
-
-    const session: InternalSession = {
-      id,
-      projectId: '',
-      runtimeId: '__shell__',
-      branchName: '',
-      worktreePath: cwd,
-      status: 'running',
-      pid: ptyHandle.pid,
-      ptyId: ptyHandle.id,
-      outputBuffer: '',
-      additionalDirs: [],
-    }
-
-    this.sessions.set(id, session)
-    this.streamWirer.wireOutputStreaming(ptyHandle.id, session)
-    this.streamWirer.wireExitHandling(ptyHandle.id, session)
-
-    return { sessionId: id }
+    return createShellPtySession(cwd, this.ptyPool, this.streamWirer, this.sessions)
   }
 
   private persistAdditionalDirs(session: InternalSession): void {

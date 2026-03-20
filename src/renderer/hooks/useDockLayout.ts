@@ -3,7 +3,6 @@ import type { DockviewApi, SerializedDockview } from 'dockview'
 import {
   PANEL_IDS,
   PANEL_TITLES,
-  DEFAULT_SIDEBAR_WIDTH,
   applyMinimalLayout,
   hidePanel,
   isEditorPanelId,
@@ -14,6 +13,7 @@ import {
   type DockPanelId,
   type LayoutRefs,
 } from './dock-layout-helpers'
+import { applyDefaultLayout, applyMinimalPanels, syncEditorPanelIds } from './dock-layout-builders'
 
 export type { DockPanelId } from './dock-layout-helpers'
 export { isEditorPanelId } from './dock-layout-helpers'
@@ -50,15 +50,8 @@ export function useDockLayout(sessionId: string | null): UseDockLayoutResult {
   const isRestoringRef = useRef(false)
   const refs: LayoutRefs = { isRestoringRef, lastLayoutRef }
 
-  const syncEditorPanels = useCallback((api: DockviewApi): void => {
-    const panelIds = Object.keys(api.toJSON().panels ?? {}).filter(isEditorPanelId)
-    editorPanelIdsRef.current = new Set(panelIds)
-
-    let maxOrder = 0
-    for (const panelId of panelIds) {
-      maxOrder = Math.max(maxOrder, parseEditorPanelOrder(panelId))
-    }
-    nextEditorPanelIndexRef.current = Math.max(maxOrder + 1, 1)
+  const syncPanels = useCallback((api: DockviewApi) => {
+    syncEditorPanelIds(api, editorPanelIdsRef, nextEditorPanelIndexRef)
   }, [])
 
   const saveLayout = useCallback(() => {
@@ -74,69 +67,12 @@ export function useDockLayout(sessionId: string | null): UseDockLayoutResult {
     }, 500)
   }, [])
 
-  const buildDefaultLayout = useCallback((api: DockviewApi) => {
-    const projectsPanel = api.addPanel({
-      id: 'projects',
-      component: 'projects',
-      title: PANEL_TITLES.projects,
-    })
-
-    api.addPanel({
-      id: 'agent',
-      component: 'agent',
-      title: PANEL_TITLES.agent,
-      position: { referencePanel: projectsPanel, direction: 'right' },
-    })
-
-    const filesPanel = api.addPanel({
-      id: 'fileTree',
-      component: 'fileTree',
-      title: PANEL_TITLES.fileTree,
-      position: { referencePanel: projectsPanel, direction: 'below' },
-    })
-
-    api.addPanel({
-      id: 'modifiedFiles',
-      component: 'modifiedFiles',
-      title: PANEL_TITLES.modifiedFiles,
-      position: { referencePanel: filesPanel, direction: 'within' },
-    })
-
-    filesPanel.api.setActive()
-
-    try {
-      projectsPanel.group?.api.setSize({ width: DEFAULT_SIDEBAR_WIDTH })
-    } catch {
-      // sizing is best-effort
-    }
-  }, [])
-
-  const buildMinimalLayout = useCallback((api: DockviewApi) => {
-    const projectsPanel = api.addPanel({
-      id: 'projects',
-      component: 'projects',
-      title: PANEL_TITLES.projects,
-    })
-
-    api.addPanel({
-      id: 'agent',
-      component: 'agent',
-      title: PANEL_TITLES.agent,
-      position: { referencePanel: projectsPanel, direction: 'right' },
-    })
-
-    try {
-      projectsPanel.group?.api.setSize({ width: DEFAULT_SIDEBAR_WIDTH })
-    } catch {
-      // sizing is best-effort
-    }
-  }, [])
+  const buildDefaultLayout = useCallback((api: DockviewApi) => applyDefaultLayout(api), [])
+  const buildMinimalLayout = useCallback((api: DockviewApi) => applyMinimalPanels(api), [])
 
   const focusPanel = useCallback((id: string): void => {
     const panel = apiRef.current?.getPanel(id)
-    if (panel) {
-      panel.api.setActive()
-    }
+    if (panel) panel.api.setActive()
   }, [])
 
   const onReady = useCallback((api: DockviewApi) => {
@@ -145,12 +81,12 @@ export function useDockLayout(sessionId: string | null): UseDockLayoutResult {
     const sid = sessionIdRef.current
     if (sid) {
       void loadOrBuildLayout(api, sid, buildDefaultLayout, refs).then(() => {
-        syncEditorPanels(api)
+        syncPanels(api)
         bumpVersion()
       })
     } else {
       applyMinimalLayout(api, buildMinimalLayout, refs)
-      syncEditorPanels(api)
+      syncPanels(api)
       bumpVersion()
     }
 
@@ -172,11 +108,11 @@ export function useDockLayout(sessionId: string | null): UseDockLayoutResult {
     api.onDidLayoutChange(() => {
       if (isRestoringRef.current) return
       lastLayoutRef.current = api.toJSON()
-      syncEditorPanels(api)
+      syncPanels(api)
       saveLayout()
       bumpVersion()
     })
-  }, [buildDefaultLayout, buildMinimalLayout, bumpVersion, saveLayout, syncEditorPanels])
+  }, [buildDefaultLayout, buildMinimalLayout, bumpVersion, saveLayout, syncPanels])
 
   const prevSessionRef = useRef(sessionId)
   useEffect(() => {
@@ -193,16 +129,16 @@ export function useDockLayout(sessionId: string | null): UseDockLayoutResult {
 
     if (!sessionId) {
       applyMinimalLayout(api, buildMinimalLayout, refs)
-      syncEditorPanels(api)
+      syncPanels(api)
       bumpVersion()
       return
     }
 
     void loadOrBuildLayout(api, sessionId, buildDefaultLayout, refs).then(() => {
-      syncEditorPanels(api)
+      syncPanels(api)
       bumpVersion()
     })
-  }, [sessionId, buildDefaultLayout, buildMinimalLayout, bumpVersion, syncEditorPanels])
+  }, [sessionId, buildDefaultLayout, buildMinimalLayout, bumpVersion, syncPanels])
 
   const ensureEditorPanel = useCallback((preferredPanelId?: string | null): string => {
     const api = apiRef.current
@@ -222,12 +158,12 @@ export function useDockLayout(sessionId: string | null): UseDockLayoutResult {
     }
 
     showPanelFromHints(api, 'editor')
-    syncEditorPanels(api)
+    syncPanels(api)
     saveLayout()
     bumpVersion()
     focusPanel('editor')
     return 'editor'
-  }, [bumpVersion, focusPanel, saveLayout, syncEditorPanels])
+  }, [bumpVersion, focusPanel, saveLayout, syncPanels])
 
   const splitEditorPane = useCallback((referencePanelId: string, direction: SplitEditorDirection): string | null => {
     const api = apiRef.current
@@ -311,26 +247,22 @@ export function useDockLayout(sessionId: string | null): UseDockLayoutResult {
     const snapshot = closedPanelSnapshots.current.get(id)
     if (snapshot) {
       showPanelFromSnapshot(api, id, snapshot, closedPanelSnapshots, refs)
-      syncEditorPanels(api)
+      syncPanels(api)
       saveLayout()
       bumpVersion()
       return
     }
 
     showPanelFromHints(api, id)
-    syncEditorPanels(api)
+    syncPanels(api)
     saveLayout()
     bumpVersion()
-  }, [bumpVersion, ensureEditorPanel, saveLayout, syncEditorPanels])
+  }, [bumpVersion, ensureEditorPanel, saveLayout, syncPanels])
 
   const isPanelVisible = useCallback((id: DockPanelId): boolean => {
     const api = apiRef.current
     if (!api) return true
-
-    if (id === 'editor') {
-      return editorPanelIdsRef.current.size > 0
-    }
-
+    if (id === 'editor') return editorPanelIdsRef.current.size > 0
     return api.getPanel(id) !== undefined
   }, [])
 
@@ -340,10 +272,10 @@ export function useDockLayout(sessionId: string | null): UseDockLayoutResult {
     api.clear()
     buildDefaultLayout(api)
     closedPanelSnapshots.current.clear()
-    syncEditorPanels(api)
+    syncPanels(api)
     lastLayoutRef.current = api.toJSON()
     bumpVersion()
-  }, [buildDefaultLayout, bumpVersion, syncEditorPanels])
+  }, [buildDefaultLayout, bumpVersion, syncPanels])
 
   const hiddenPanels = PANEL_IDS.filter((id) => !isPanelVisible(id)) as DockPanelId[]
   const editorPanelIds = Array.from(editorPanelIdsRef.current).sort((left, right) => (
@@ -351,16 +283,8 @@ export function useDockLayout(sessionId: string | null): UseDockLayoutResult {
   ))
 
   return {
-    apiRef,
-    onReady,
-    togglePanel,
-    closePanel,
-    focusPanel,
-    ensureEditorPanel,
-    splitEditorPane,
-    isPanelVisible,
-    resetLayout,
-    hiddenPanels,
-    editorPanelIds,
+    apiRef, onReady, togglePanel, closePanel, focusPanel,
+    ensureEditorPanel, splitEditorPane, isPanelVisible,
+    resetLayout, hiddenPanels, editorPanelIds,
   }
 }

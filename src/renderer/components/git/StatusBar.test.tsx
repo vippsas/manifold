@@ -27,9 +27,14 @@ function mockDockLayout(): UseDockLayoutResult {
     apiRef: { current: null },
     onReady: vi.fn(),
     togglePanel: vi.fn(),
+    closePanel: vi.fn(),
+    focusPanel: vi.fn(),
+    ensureEditorPanel: vi.fn().mockReturnValue('editor'),
+    splitEditorPane: vi.fn().mockReturnValue(null),
     isPanelVisible: () => true,
     resetLayout: vi.fn(),
     hiddenPanels: [],
+    editorPanelIds: [],
   }
 }
 
