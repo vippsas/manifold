@@ -12,6 +12,7 @@ export interface UseMemoryResult {
   searchResults: MemorySearchResult[]
   stats: MemoryStats | null
   timeline: MemoryObservation[]
+  error: string | null
   isSearching: boolean
   searchQuery: string
   setSearchQuery: (query: string) => void
@@ -23,10 +24,25 @@ export interface UseMemoryResult {
   timelineHasMore: boolean
 }
 
+function formatMemoryError(error: unknown): string {
+  const message = error instanceof Error
+    ? error.message
+    : typeof error === 'string'
+      ? error
+      : ''
+
+  if (/better_sqlite3\.node/.test(message) && /NODE_MODULE_VERSION/.test(message)) {
+    return 'Memory backend unavailable. better-sqlite3 was built for the wrong Electron runtime.'
+  }
+
+  return message.trim() || 'Memory backend unavailable.'
+}
+
 export function useMemory(activeProjectId: string | null): UseMemoryResult {
   const [searchResults, setSearchResults] = useState<MemorySearchResult[]>([])
   const [stats, setStats] = useState<MemoryStats | null>(null)
   const [timeline, setTimeline] = useState<MemoryObservation[]>([])
+  const [error, setError] = useState<string | null>(null)
   const [isSearching, setIsSearching] = useState(false)
   const [searchQuery, setSearchQueryState] = useState('')
   const [timelineHasMore, setTimelineHasMore] = useState(false)
@@ -48,8 +64,10 @@ export function useMemory(activeProjectId: string | null): UseMemoryResult {
         limit: 20,
       })) as MemorySearchResponse
       setSearchResults(result.results)
-    } catch {
+      setError(null)
+    } catch (error) {
       setSearchResults([])
+      setError(formatMemoryError(error))
     } finally {
       setIsSearching(false)
     }
@@ -84,8 +102,13 @@ export function useMemory(activeProjectId: string | null): UseMemoryResult {
       }
       timelineCursorRef.current = result.nextCursor
       setTimelineHasMore(result.nextCursor !== null)
-    } catch {
-      // ignore
+      setError(null)
+    } catch (error) {
+      if (reset) {
+        setTimeline([])
+      }
+      setTimelineHasMore(false)
+      setError(formatMemoryError(error))
     }
   }, [activeProjectId])
 
@@ -95,24 +118,34 @@ export function useMemory(activeProjectId: string | null): UseMemoryResult {
       const result = (await window.electronAPI.invoke('memory:stats', activeProjectId)) as MemoryStats
       setStats(result)
     } catch {
-      // ignore
+      setStats(null)
     }
   }, [activeProjectId])
 
   const deleteObservation = useCallback(async (observationId: string) => {
     if (!activeProjectId) return
-    await window.electronAPI.invoke('memory:delete', activeProjectId, observationId)
-    setTimeline((prev) => prev.filter((o) => o.id !== observationId))
-    setSearchResults((prev) => prev.filter((r) => r.id !== observationId))
-    void loadStats()
+    try {
+      await window.electronAPI.invoke('memory:delete', activeProjectId, observationId)
+      setTimeline((prev) => prev.filter((o) => o.id !== observationId))
+      setSearchResults((prev) => prev.filter((r) => r.id !== observationId))
+      setError(null)
+      void loadStats()
+    } catch (error) {
+      setError(formatMemoryError(error))
+    }
   }, [activeProjectId, loadStats])
 
   const clearMemory = useCallback(async () => {
     if (!activeProjectId) return
-    await window.electronAPI.invoke('memory:clear', activeProjectId)
-    setTimeline([])
-    setSearchResults([])
-    setStats(null)
+    try {
+      await window.electronAPI.invoke('memory:clear', activeProjectId)
+      setTimeline([])
+      setSearchResults([])
+      setStats(null)
+      setError(null)
+    } catch (error) {
+      setError(formatMemoryError(error))
+    }
   }, [activeProjectId])
 
   // Reset state when project changes; clean up debounce timer on unmount
@@ -120,6 +153,7 @@ export function useMemory(activeProjectId: string | null): UseMemoryResult {
     setSearchResults([])
     setTimeline([])
     setStats(null)
+    setError(null)
     setSearchQueryState('')
     timelineCursorRef.current = null
     setTimelineHasMore(false)
@@ -132,6 +166,7 @@ export function useMemory(activeProjectId: string | null): UseMemoryResult {
     searchResults,
     stats,
     timeline,
+    error,
     isSearching,
     searchQuery,
     setSearchQuery,

@@ -4,18 +4,20 @@
   "description": "Multi-agent orchestrator for CLI coding agents",
   "main": "out/main/index.js",
   "scripts": {
+    "predev": "npm run rebuild:electron",
     "dev": "electron-vite dev",
     "build": "electron-vite build",
+    "prestart": "npm run rebuild:electron",
     "start": "electron-vite preview",
     "typecheck": "tsc --noEmit",
     "typecheck:node": "tsc --noEmit -p tsconfig.node.json",
     "typecheck:web": "tsc --noEmit -p tsconfig.web.json",
     "test": "vitest run",
     "test:watch": "vitest",
+    "predist": "npm run rebuild:electron",
     "dist": "electron-vite build && electron-builder --mac --publish always",
     "postinstall": "chmod +x node_modules/node-pty/prebuilds/darwin-*/spawn-helper 2>/dev/null || true",
-    "rebuild:electron": "npx electron-rebuild -f -w better-sqlite3",
-    "predev": "npm run rebuild:electron 2>/dev/null || true"
+    "rebuild:electron": "npx electron-rebuild -f -w better-sqlite3"
   },
   "dependencies": {
     "@monaco-editor/react": "^4.7.0",
