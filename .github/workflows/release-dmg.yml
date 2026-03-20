@@ -32,6 +32,9 @@ jobs:
       - name: Run tests
         run: npm test
 
+      - name: Rebuild native modules for Electron
+        run: npm run rebuild:electron
+
       - name: Build, sign, and notarize
         run: |
           npm run build

@@ -124,6 +124,12 @@ export function MemoryPanelContent({ memory }: MemoryPanelContentProps): React.J
         ))}
       </div>
 
+      {memory.error && (
+        <div style={s.errorBanner} title={memory.error}>
+          {memory.error}
+        </div>
+      )}
+
       {/* Content */}
       <div style={s.content}>
         {activeTab === 'search' ? (
@@ -139,6 +145,8 @@ export function MemoryPanelContent({ memory }: MemoryPanelContentProps): React.J
                 onDelete={() => void memory.deleteObservation(result.id)}
               />
             ))
+          ) : memory.error ? (
+            <div style={s.errorState}>{memory.error}</div>
           ) : memory.searchQuery ? (
             <div style={s.emptyState}>No results found</div>
           ) : (
@@ -161,6 +169,8 @@ export function MemoryPanelContent({ memory }: MemoryPanelContentProps): React.J
               </button>
             )}
           </>
+        ) : memory.error ? (
+          <div style={s.errorState}>{memory.error}</div>
         ) : (
           <div style={s.emptyState}>
             No memory yet — observations will appear here as agents work
