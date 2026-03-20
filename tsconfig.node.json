@@ -21,5 +21,9 @@
     "src/shared/**/*.ts",
     "src/shared/themes/data/*.json",
     "electron.vite.config.ts"
+  ],
+  "exclude": [
+    "src/**/*.test.ts",
+    "src/**/*.test.tsx"
   ]
 }

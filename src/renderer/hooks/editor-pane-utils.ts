@@ -107,3 +107,39 @@ export function resolveActiveEditorPaneId(
 export function isEditorPaneEmpty(pane: EditorPaneState): boolean {
   return pane.openFilePaths.length === 0
 }
+
+export function closeFileInPane(pane: EditorPaneState, filePath: string): EditorPaneState {
+  const openFilePaths = pane.openFilePaths.filter((path) => path !== filePath)
+  const closedIndex = pane.openFilePaths.indexOf(filePath)
+  const activeFilePath = pane.activeFilePath === filePath
+    ? (openFilePaths[Math.min(closedIndex, openFilePaths.length - 1)] ?? null)
+    : pane.activeFilePath
+
+  return {
+    ...pane,
+    openFilePaths,
+    activeFilePath,
+  }
+}
+
+export function dedupePaths(paths: string[]): string[] {
+  return Array.from(new Set(paths))
+}
+
+export function renamePath(path: string, oldPath: string, newPath: string): string
+export function renamePath(path: string | null, oldPath: string, newPath: string): string | null
+export function renamePath(
+  path: string | null,
+  oldPath: string,
+  newPath: string,
+): string | null {
+  if (!path) return path
+  if (path === oldPath) return newPath
+
+  const oldPrefix = oldPath + '/'
+  if (path.startsWith(oldPrefix)) {
+    return newPath + '/' + path.slice(oldPrefix.length)
+  }
+
+  return path
+}

@@ -1,5 +1,5 @@
-import React, { useCallback, useEffect, useMemo, useState } from 'react'
-import { DockviewReact, type IDockviewPanelHeaderProps } from 'dockview'
+import React, { useCallback, useMemo, useState } from 'react'
+import { DockviewReact } from 'dockview'
 import { useProjects } from './hooks/useProjects'
 import { useAgentSession } from './hooks/useAgentSession'
 import { useFileWatcher } from './hooks/useFileWatcher'
@@ -20,8 +20,10 @@ import { mergeFileChanges } from './hooks/useFileDiff'
 import { useFileOperations } from './hooks/useFileOperations'
 import { useAppOverlays } from './hooks/useAppOverlays'
 import { useWebPreview } from './hooks/useWebPreview'
-import { useDockLayout, type DockPanelId, isEditorPanelId } from './hooks/useDockLayout'
-import { PANEL_COMPONENTS, DockStateContext, type DockAppState } from './components/editor/dock-panels'
+import { useDockLayout, isEditorPanelId } from './hooks/useDockLayout'
+import { useAppEffects } from './hooks/useAppEffects'
+import { PANEL_COMPONENTS, DockStateContext } from './components/editor/dock-panels'
+import type { DockAppState } from './components/editor/dock-panel-types'
 import { OnboardingView } from './components/modals/OnboardingView'
 import { SettingsModal } from './components/modals/SettingsModal'
 import { AboutOverlay } from './components/modals/AboutOverlay'
@@ -31,13 +33,13 @@ import { CommitPanel } from './components/git/CommitPanel'
 import { PRPanel } from './components/git/PRPanel'
 import { ConflictPanel } from './components/git/ConflictPanel'
 import { WelcomeDialog } from './components/modals/WelcomeDialog'
+import { DockTab, EmptyWatermark } from './DockTab'
 import type { FileOpenRequest } from './components/editor/file-open-request'
 
 export function App(): React.JSX.Element {
   const { settings, updateSettings } = useSettings()
   const { projects, activeProjectId, addProject, cloneProject, createNewProject, removeProject, updateProject, setActiveProject, error: projectError } = useProjects()
-  const { sessions, activeSessionId, activeSession, spawnAgent, deleteAgent, setActiveSession, resumeAgent } =
-    useAgentSession(activeProjectId)
+  const { sessions, activeSessionId, activeSession, spawnAgent, deleteAgent, setActiveSession, resumeAgent } = useAgentSession(activeProjectId)
   const { sessionsByProject, removeSession } = useAllProjectSessions(projects, activeProjectId, sessions)
   const allSessions = useMemo(() => Object.values(sessionsByProject).flat(), [sessionsByProject])
   useStatusNotification(allSessions, settings.notificationSound)
@@ -46,105 +48,23 @@ export function App(): React.JSX.Element {
   const webPreview = useWebPreview(activeSessionId)
   const codeView = useCodeView(activeSessionId)
 
-  // Listen for View menu → Toggle panel commands from the main process.
-  useEffect(() => {
-    return window.electronAPI.on('view:toggle-panel', (panelId: unknown) => {
-      dockLayout.togglePanel(panelId as DockPanelId)
-    })
-  }, [dockLayout.togglePanel])
-
-  useEffect(() => {
-    return window.electronAPI.on('view:show-search', () => {
-      if (!dockLayout.isPanelVisible('fileTree')) {
-        dockLayout.togglePanel('fileTree')
-      }
-
-      setFileSearchRequestKey((prev) => prev + 1)
-
-      queueMicrotask(() => {
-        dockLayout.apiRef.current?.getPanel('fileTree')?.api.setActive()
-      })
-    })
-  }, [dockLayout.apiRef, dockLayout.isPanelVisible, dockLayout.togglePanel])
-
-  // When switching from simple → developer mode, the main process sends the
-  // project ID and branch name so we can resume work in an interactive session.
-  useEffect(() => {
-    return window.electronAPI.on('app:auto-spawn', (...args: unknown[]) => {
-      const projectId = args[0] as string | undefined
-      const branchName = args[1] as string | undefined
-      const noWorktree = args[2] as boolean | undefined
-      if (typeof projectId !== 'string') return
-      setActiveProject(projectId)
-      void spawnAgent({
-        projectId,
-        runtimeId: settings.defaultRuntime,
-        prompt: '',
-        existingBranch: branchName,
-        noWorktree: noWorktree ?? false,
-      })
-    })
-  }, [setActiveProject, spawnAgent, settings.defaultRuntime])
-
-  // Auto-open web preview panel when a URL is detected
-  useEffect(() => {
-    const api = dockLayout.apiRef.current
-    if (!api) return
-
-    if (webPreview.previewUrl) {
-      if (!api.getPanel('webPreview')) {
-        const editorPanel = dockLayout.editorPanelIds[0]
-          ? api.getPanel(dockLayout.editorPanelIds[0])
-          : api.getPanel('editor')
-        api.addPanel({
-          id: 'webPreview',
-          component: 'webPreview',
-          title: 'Preview',
-          position: editorPanel
-            ? { referencePanel: editorPanel, direction: 'within' }
-            : undefined,
-        })
-      }
-    }
-  }, [webPreview.previewUrl, dockLayout.apiRef, dockLayout.editorPanelIds])
-
-  const handleFilesChanged = useCallback(() => {
-    void codeView.refreshOpenFiles()
-    void refreshDiff()
-  }, [codeView.refreshOpenFiles, refreshDiff])
+  const appEffects = useAppEffects({
+    dockLayout, webPreviewUrl: webPreview.previewUrl, settings,
+    setActiveProject, spawnAgent, refreshOpenFiles: codeView.refreshOpenFiles, refreshDiff,
+  })
 
   const { additionalTrees, additionalBranches } = useAdditionalDirs(activeSessionId, activeSession?.additionalDirs)
-  const { tree, changes: watcherChanges, deleteFile, renameFile, createFile, createDir, importPaths, revealInFinder, openInTerminal } = useFileWatcher(activeSessionId, handleFilesChanged)
-
-  const mergedChanges = useMemo(
-    () => mergeFileChanges(changedFiles, watcherChanges),
-    [changedFiles, watcherChanges],
-  )
-
+  const { tree, changes: watcherChanges, deleteFile, renameFile, createFile, createDir, importPaths, revealInFinder, openInTerminal } = useFileWatcher(activeSessionId, appEffects.handleFilesChanged)
+  const mergedChanges = useMemo(() => mergeFileChanges(changedFiles, watcherChanges), [changedFiles, watcherChanges])
   const viewState = useViewState(activeSessionId, tree)
 
   const ensureEditorVisible = useCallback((preferredPaneId?: string | null): string => {
     return dockLayout.ensureEditorPanel(preferredPaneId ?? codeView.activeEditorPaneId)
   }, [codeView.activeEditorPaneId, dockLayout])
 
-  const {
-    handleSelectFile, handleDeleteFile, handleRenameFile,
-    handleCreateFile, handleCreateDir, handleImportPaths,
-    handleRevealInFinder, handleOpenInTerminal,
-    handleCopyAbsolutePath, handleCopyRelativePath,
-  } = useFileOperations(
-    viewState.expandAncestors,
-    codeView.handleSelectFile,
-    codeView.handleCloseFile,
-    codeView.handleRenameOpenFile,
-    ensureEditorVisible,
-    deleteFile,
-    renameFile,
-    createFile,
-    createDir,
-    importPaths,
-    revealInFinder,
-    openInTerminal
+  const { handleSelectFile, handleDeleteFile, handleRenameFile, handleCreateFile, handleCreateDir, handleImportPaths, handleRevealInFinder, handleOpenInTerminal, handleCopyAbsolutePath, handleCopyRelativePath } = useFileOperations(
+    viewState.expandAncestors, codeView.handleSelectFile, codeView.handleCloseFile, codeView.handleRenameOpenFile,
+    ensureEditorVisible, deleteFile, renameFile, createFile, createDir, importPaths, revealInFinder, openInTerminal,
   )
 
   useSessionStatePersistence(activeSessionId, viewState, codeView)
@@ -152,205 +72,99 @@ export function App(): React.JSX.Element {
   const activeProject = projects.find((p) => p.id === activeProjectId) ?? null
   const autoGenerateMessages = activeProject?.autoGenerateMessages !== false
   const worktreeShellCwd = activeSession?.worktreePath ?? null
-  const projectShellCwd = activeProject?.path ?? null
-  const { worktreeSessionId, projectSessionId } = useShellSessions(worktreeShellCwd, projectShellCwd, activeSessionId)
-
+  const { worktreeSessionId, projectSessionId } = useShellSessions(worktreeShellCwd, activeProject?.path ?? null, activeSessionId)
   const gitOps = useGitOperations(activeSessionId)
 
   const handleFetchSuccess = useCallback((projectId: string) => {
-    const projectSessions = sessionsByProject[projectId] ?? []
-    for (const session of projectSessions) {
+    for (const session of sessionsByProject[projectId] ?? []) {
       void window.electronAPI.invoke('git:ahead-behind', session.id).catch(() => {})
     }
     void gitOps.refreshAheadBehind()
   }, [sessionsByProject, gitOps.refreshAheadBehind])
 
   const fetchProject = useFetchProject(handleFetchSuccess)
-
-  const overlays = useAppOverlays(
-    gitOps.commit,
-    refreshDiff,
-    spawnAgent,
-    deleteAgent,
-    removeSession,
-    updateSettings,
-    setActiveSession,
-    setActiveProject,
-    activeProjectId
-  )
-
+  const overlays = useAppOverlays(gitOps.commit, refreshDiff, spawnAgent, deleteAgent, removeSession, updateSettings, setActiveSession, setActiveProject, activeProjectId)
   const { themeId, themeClass, xtermTheme, setPreviewThemeId } = useTheme(settings.theme)
   const updateNotification = useUpdateNotification()
-  const [creatingProject, setCreatingProject] = useState(false)
-  const [showOnboarding, setShowOnboarding] = useState(false)
-  const [fileSearchRequestKey, setFileSearchRequestKey] = useState(0)
-  const [lastFileOpenRequest, setLastFileOpenRequest] = useState<FileOpenRequest>({
-    path: null,
-    source: 'default',
-  })
-
-  const handleCreateNewProject = useCallback(async (description: string): Promise<void> => {
-    setCreatingProject(true)
-    try {
-      const project = await createNewProject(description)
-      if (project) {
-        setShowOnboarding(false)
-        void spawnAgent({
-          projectId: project.id,
-          runtimeId: settings.defaultRuntime,
-          prompt: description,
-        })
-      }
-    } finally {
-      setCreatingProject(false)
-    }
-  }, [createNewProject, spawnAgent, settings.defaultRuntime])
-
-  const handleAddProjectFromOnboarding = useCallback(async (path?: string): Promise<void> => {
-    await addProject(path)
-    setShowOnboarding(false)
-  }, [addProject])
-
-  const [cloningProject, setCloningProject] = useState(false)
-
-  const handleCloneFromOnboarding = useCallback(async (url: string): Promise<boolean> => {
-    setCloningProject(true)
-    try {
-      const success = await cloneProject(url)
-      if (success) {
-        setShowOnboarding(false)
-      }
-      return success
-    } finally {
-      setCloningProject(false)
-    }
-  }, [cloneProject])
+  const [lastFileOpenRequest, setLastFileOpenRequest] = useState<FileOpenRequest>({ path: null, source: 'default' })
 
   const handleSelectFileWithDefaultView = useCallback((filePath: string): void => {
-    setLastFileOpenRequest({ path: filePath, source: 'default' })
-    handleSelectFile(filePath)
+    setLastFileOpenRequest({ path: filePath, source: 'default' }); handleSelectFile(filePath)
   }, [handleSelectFile])
-
   const handleSelectFileFromFileTree = useCallback((filePath: string): void => {
-    setLastFileOpenRequest({ path: filePath, source: 'fileTree' })
-    handleSelectFile(filePath)
+    setLastFileOpenRequest({ path: filePath, source: 'fileTree' }); handleSelectFile(filePath)
   }, [handleSelectFile])
-
   const handleSelectOpenFile = useCallback((filePath: string, paneId: string): void => {
-    codeView.setActivePane(paneId)
-    const targetPaneId = codeView.handleSelectFile(filePath, paneId)
-    dockLayout.focusPanel(targetPaneId)
+    codeView.setActivePane(paneId); const t = codeView.handleSelectFile(filePath, paneId); dockLayout.focusPanel(t)
   }, [codeView, dockLayout])
-
   const handleActivateEditorPane = useCallback((paneId: string): void => {
-    codeView.setActivePane(paneId)
-    dockLayout.focusPanel(paneId)
+    codeView.setActivePane(paneId); dockLayout.focusPanel(paneId)
   }, [codeView, dockLayout])
-
   const handleSplitEditorPane = useCallback((paneId: string, direction: 'right' | 'below'): void => {
-    const nextPaneId = dockLayout.splitEditorPane(paneId, direction)
-    if (!nextPaneId) return
-    codeView.createPane(nextPaneId, paneId)
-    codeView.setActivePane(nextPaneId)
+    const n = dockLayout.splitEditorPane(paneId, direction); if (!n) return; codeView.createPane(n, paneId); codeView.setActivePane(n)
   }, [codeView, dockLayout])
-
   const handleMoveFileToPane = useCallback((filePath: string, targetPaneId: string, sourcePaneId?: string | null): void => {
-    codeView.moveFileToPane(filePath, targetPaneId, sourcePaneId)
-    codeView.setActivePane(targetPaneId)
-    dockLayout.focusPanel(targetPaneId)
+    codeView.moveFileToPane(filePath, targetPaneId, sourcePaneId); codeView.setActivePane(targetPaneId); dockLayout.focusPanel(targetPaneId)
   }, [codeView, dockLayout])
-
   const handleClosePanel = useCallback((panelId: string): void => {
-    if (isEditorPanelId(panelId)) {
-      const fallbackPaneId = dockLayout.editorPanelIds.find((id) => id !== panelId) ?? null
-      codeView.removePane(panelId, fallbackPaneId)
-    }
-
+    if (isEditorPanelId(panelId)) { codeView.removePane(panelId, dockLayout.editorPanelIds.find((id) => id !== panelId) ?? null) }
     dockLayout.closePanel(panelId)
   }, [codeView, dockLayout])
 
-  // Shared state object that dock panels read via context
+  const handleCreateNewProject = useCallback(async (description: string): Promise<void> => {
+    appEffects.setCreatingProject(true)
+    try {
+      const project = await createNewProject(description)
+      if (project) { appEffects.setShowOnboarding(false); void spawnAgent({ projectId: project.id, runtimeId: settings.defaultRuntime, prompt: description }) }
+    } finally { appEffects.setCreatingProject(false) }
+  }, [createNewProject, spawnAgent, settings.defaultRuntime, appEffects])
+  const handleAddProjectFromOnboarding = useCallback(async (path?: string): Promise<void> => {
+    await addProject(path); appEffects.setShowOnboarding(false)
+  }, [addProject, appEffects])
+  const handleCloneFromOnboarding = useCallback(async (url: string): Promise<boolean> => {
+    appEffects.setCloningProject(true)
+    try { const ok = await cloneProject(url); if (ok) appEffects.setShowOnboarding(false); return ok }
+    finally { appEffects.setCloningProject(false) }
+  }, [cloneProject, appEffects])
+
+  const baseBranch = activeProject?.baseBranch ?? settings.defaultBaseBranch
   const dockState: DockAppState = {
-    sessionId: activeSessionId,
-    scrollbackLines: settings.scrollbackLines,
-    terminalFontFamily: settings.terminalFontFamily,
-    xtermTheme,
-    diffText: diff,
-    openFiles: codeView.openFiles,
-    activeFilePath: codeView.activeFilePath,
-    activeEditorPaneId: codeView.activeEditorPaneId,
-    editorPaneIds: dockLayout.editorPanelIds,
-    getEditorPane: codeView.getEditorPane,
-    lastFileOpenRequest,
-    theme: themeId,
-    onSelectFile: handleSelectFileWithDefaultView,
-    onSelectFileFromFileTree: handleSelectFileFromFileTree,
-    onSelectOpenFile: handleSelectOpenFile,
-    onCloseFile: codeView.handleCloseFile,
-    onSaveFile: codeView.handleSaveFile,
-    onRegisterEditorPane: codeView.registerPane,
-    onActivateEditorPane: handleActivateEditorPane,
-    onSplitEditorPane: handleSplitEditorPane,
-    onMoveFileToPane: handleMoveFileToPane,
-    onDeleteFile: handleDeleteFile,
-    onRenameFile: handleRenameFile,
-    onCreateFile: handleCreateFile,
-    onCreateDir: handleCreateDir,
-    onImportPaths: handleImportPaths,
-    onRevealInFinder: handleRevealInFinder,
-    onOpenInTerminal: handleOpenInTerminal,
-    onCopyAbsolutePath: handleCopyAbsolutePath,
-    onCopyRelativePath: handleCopyRelativePath,
-    worktreeRootPath: tree?.path ?? undefined,
-    tree,
-    additionalTrees,
-    additionalBranches,
-    primaryBranch: activeSession?.branchName ?? null,
-    changes: mergedChanges,
-    fileSearchRequestKey,
-    expandedPaths: viewState.expandedPaths,
-    onToggleExpand: viewState.onToggleExpand,
-    worktreeRoot: tree?.path ?? null,
-    worktreeShellSessionId: worktreeSessionId,
-    projectShellSessionId: projectSessionId,
-    worktreeCwd: worktreeShellCwd,
-    baseBranch: activeProject?.baseBranch ?? settings.defaultBaseBranch,
-    defaultRuntime: settings.defaultRuntime,
-    onLaunchAgent: overlays.handleLaunchAgent,
-    projects,
-    activeProjectId,
-    allProjectSessions: sessionsByProject,
-    onSelectProject: setActiveProject,
-    onSelectSession: overlays.handleSelectSession,
-    onRemoveProject: removeProject,
-    onUpdateProject: updateProject,
-    onDeleteAgent: overlays.handleDeleteAgent,
-    onNewAgentFromHeader: overlays.handleNewAgentFromHeader,
-    newAgentFocusTrigger: overlays.newAgentFocusTrigger,
-    onNewProject: () => setShowOnboarding(true),
-    fetchingProjectId: fetchProject.fetchingProjectId,
-    lastFetchedProjectId: fetchProject.lastFetchedProjectId,
-    fetchResult: fetchProject.fetchResult,
-    fetchError: fetchProject.fetchError,
-    onFetchProject: fetchProject.fetchProject,
-    // Web preview
-    previewUrl: webPreview.previewUrl,
-    // Layout
-    onClosePanel: handleClosePanel,
-    // Agent restart
-    activeSessionStatus: activeSession?.status ?? null,
-    activeSessionRuntimeId: activeSession?.runtimeId ?? null,
-    onResumeAgent: resumeAgent,
+    sessionId: activeSessionId, scrollbackLines: settings.scrollbackLines,
+    terminalFontFamily: settings.terminalFontFamily, xtermTheme, diffText: diff,
+    openFiles: codeView.openFiles, activeFilePath: codeView.activeFilePath,
+    activeEditorPaneId: codeView.activeEditorPaneId, editorPaneIds: dockLayout.editorPanelIds,
+    getEditorPane: codeView.getEditorPane, lastFileOpenRequest, theme: themeId,
+    onSelectFile: handleSelectFileWithDefaultView, onSelectFileFromFileTree: handleSelectFileFromFileTree,
+    onSelectOpenFile: handleSelectOpenFile, onCloseFile: codeView.handleCloseFile,
+    onSaveFile: codeView.handleSaveFile, onRegisterEditorPane: codeView.registerPane,
+    onActivateEditorPane: handleActivateEditorPane, onSplitEditorPane: handleSplitEditorPane,
+    onMoveFileToPane: handleMoveFileToPane, onDeleteFile: handleDeleteFile, onRenameFile: handleRenameFile,
+    onCreateFile: handleCreateFile, onCreateDir: handleCreateDir, onImportPaths: handleImportPaths,
+    onRevealInFinder: handleRevealInFinder, onOpenInTerminal: handleOpenInTerminal,
+    onCopyAbsolutePath: handleCopyAbsolutePath, onCopyRelativePath: handleCopyRelativePath,
+    worktreeRootPath: tree?.path ?? undefined, tree, additionalTrees, additionalBranches,
+    primaryBranch: activeSession?.branchName ?? null, changes: mergedChanges,
+    fileSearchRequestKey: appEffects.fileSearchRequestKey, expandedPaths: viewState.expandedPaths,
+    onToggleExpand: viewState.onToggleExpand, worktreeRoot: tree?.path ?? null,
+    worktreeShellSessionId: worktreeSessionId, projectShellSessionId: projectSessionId,
+    worktreeCwd: worktreeShellCwd, baseBranch, defaultRuntime: settings.defaultRuntime,
+    onLaunchAgent: overlays.handleLaunchAgent, projects, activeProjectId,
+    allProjectSessions: sessionsByProject, onSelectProject: setActiveProject,
+    onSelectSession: overlays.handleSelectSession, onRemoveProject: removeProject,
+    onUpdateProject: updateProject, onDeleteAgent: overlays.handleDeleteAgent,
+    onNewAgentFromHeader: overlays.handleNewAgentFromHeader, newAgentFocusTrigger: overlays.newAgentFocusTrigger,
+    onNewProject: () => appEffects.setShowOnboarding(true),
+    fetchingProjectId: fetchProject.fetchingProjectId, lastFetchedProjectId: fetchProject.lastFetchedProjectId,
+    fetchResult: fetchProject.fetchResult, fetchError: fetchProject.fetchError,
+    onFetchProject: fetchProject.fetchProject, previewUrl: webPreview.previewUrl,
+    onClosePanel: handleClosePanel, activeSessionStatus: activeSession?.status ?? null,
+    activeSessionRuntimeId: activeSession?.runtimeId ?? null, onResumeAgent: resumeAgent,
   }
 
   if (!settings.setupCompleted) {
     return (
       <div className={`layout-root ${themeClass}`}>
-        <WelcomeDialog
-          onAddProject={() => void addProject()}
-          onCloneProject={cloneProject}
-          onComplete={overlays.handleSetupComplete}
-        />
+        <WelcomeDialog onAddProject={() => void addProject()} onCloneProject={cloneProject} onComplete={overlays.handleSetupComplete} />
       </div>
     )
   }
@@ -358,15 +172,9 @@ export function App(): React.JSX.Element {
   if (projects.length === 0) {
     return (
       <div className={`layout-root ${themeClass}`}>
-        <OnboardingView
-          variant="no-project"
-          onAddProject={() => void handleAddProjectFromOnboarding()}
-          onCloneProject={handleCloneFromOnboarding}
-          onCreateNewProject={(desc) => void handleCreateNewProject(desc)}
-          creatingProject={creatingProject}
-          cloningProject={cloningProject}
-          createError={projectError}
-        />
+        <OnboardingView variant="no-project" onAddProject={() => void handleAddProjectFromOnboarding()} onCloneProject={handleCloneFromOnboarding}
+          onCreateNewProject={(desc) => void handleCreateNewProject(desc)} creatingProject={appEffects.creatingProject}
+          cloningProject={appEffects.cloningProject} createError={projectError} />
       </div>
     )
   }
@@ -376,136 +184,42 @@ export function App(): React.JSX.Element {
       <div className="layout-main">
         <DockStateContext.Provider value={dockState}>
           <div style={{ flex: 1, overflow: 'hidden' }}>
-            <DockviewReact
-              className={`dockview-theme-dark dockview-theme-manifold${!activeSessionId ? ' dockview-minimal' : ''}`}
-              components={PANEL_COMPONENTS}
-              onReady={(e) => dockLayout.onReady(e.api)}
-              defaultTabComponent={DockTab}
-              watermarkComponent={EmptyWatermark}
-            />
+            <DockviewReact className={`dockview-theme-dark dockview-theme-manifold${!activeSessionId ? ' dockview-minimal' : ''}`}
+              components={PANEL_COMPONENTS} onReady={(e) => dockLayout.onReady(e.api)}
+              defaultTabComponent={DockTab} watermarkComponent={EmptyWatermark} />
           </div>
         </DockStateContext.Provider>
-
-        <StatusBar
-          activeSession={activeSession}
-          changedFiles={mergedChanges}
-          baseBranch={activeProject?.baseBranch ?? settings.defaultBaseBranch}
-          dockLayout={dockLayout}
-          conflicts={gitOps.conflicts}
-          aheadBehind={gitOps.aheadBehind}
-          onCommit={() => overlays.setActivePanel('commit')}
-          onCreatePR={() => overlays.setActivePanel('pr')}
-          onShowConflicts={() => overlays.setActivePanel('conflicts')}
-          onOpenSettings={() => overlays.setShowSettings(true)}
-        />
+        <StatusBar activeSession={activeSession} changedFiles={mergedChanges} baseBranch={baseBranch} dockLayout={dockLayout}
+          conflicts={gitOps.conflicts} aheadBehind={gitOps.aheadBehind} onCommit={() => overlays.setActivePanel('commit')}
+          onCreatePR={() => overlays.setActivePanel('pr')} onShowConflicts={() => overlays.setActivePanel('conflicts')}
+          onOpenSettings={() => overlays.setShowSettings(true)} />
       </div>
-
       {overlays.activePanel === 'commit' && activeSessionId && (
-        <CommitPanel
-          changedFiles={mergedChanges}
-          diff={diff}
-          autoGenerateMessages={autoGenerateMessages}
-          onCommit={overlays.handleCommit}
-          onAiGenerate={gitOps.aiGenerate}
-          onClose={overlays.handleClosePanel}
-        />
+        <CommitPanel changedFiles={mergedChanges} diff={diff} autoGenerateMessages={autoGenerateMessages}
+          onCommit={overlays.handleCommit} onAiGenerate={gitOps.aiGenerate} onClose={overlays.handleClosePanel} />
       )}
-
       {overlays.activePanel === 'pr' && activeSessionId && activeSession && (
-        <PRPanel
-          sessionId={activeSessionId}
-          branchName={activeSession.branchName}
-          baseBranch={activeProject?.baseBranch ?? settings.defaultBaseBranch}
-          autoGenerateMessages={autoGenerateMessages}
-          onAiGenerate={gitOps.aiGenerate}
-          getPRContext={gitOps.getPRContext}
-          onClose={overlays.handleClosePanel}
-        />
+        <PRPanel sessionId={activeSessionId} branchName={activeSession.branchName} baseBranch={baseBranch}
+          autoGenerateMessages={autoGenerateMessages} onAiGenerate={gitOps.aiGenerate}
+          getPRContext={gitOps.getPRContext} onClose={overlays.handleClosePanel} />
       )}
-
       {overlays.activePanel === 'conflicts' && activeSessionId && (
-        <ConflictPanel
-          sessionId={activeSessionId}
-          conflicts={gitOps.conflicts}
-          onAiGenerate={gitOps.aiGenerate}
-          onResolveConflict={gitOps.resolveConflict}
-          onSelectFile={handleSelectFile}
-          onClose={overlays.handleClosePanel}
-        />
+        <ConflictPanel sessionId={activeSessionId} conflicts={gitOps.conflicts} onAiGenerate={gitOps.aiGenerate}
+          onResolveConflict={gitOps.resolveConflict} onSelectFile={handleSelectFile} onClose={overlays.handleClosePanel} />
       )}
-
-      <SettingsModal
-        visible={overlays.showSettings}
-        settings={settings}
-        onSave={overlays.handleSaveSettings}
-        onClose={() => overlays.setShowSettings(false)}
-        onPreviewTheme={setPreviewThemeId}
-      />
-
-      <AboutOverlay
-        visible={overlays.showAbout}
-        version={overlays.appVersion}
-        onClose={() => overlays.setShowAbout(false)}
-      />
-
+      <SettingsModal visible={overlays.showSettings} settings={settings} onSave={overlays.handleSaveSettings}
+        onClose={() => overlays.setShowSettings(false)} onPreviewTheme={setPreviewThemeId} />
+      <AboutOverlay visible={overlays.showAbout} version={overlays.appVersion} onClose={() => overlays.setShowAbout(false)} />
       {updateNotification.updateReady && (
-        <UpdateToast
-          version={updateNotification.version}
-          onRestart={updateNotification.install}
-          onDismiss={updateNotification.dismiss}
-        />
+        <UpdateToast version={updateNotification.version} onRestart={updateNotification.install} onDismiss={updateNotification.dismiss} />
       )}
-
-      {showOnboarding && (
+      {appEffects.showOnboarding && (
         <div style={{ position: 'absolute', inset: 0, zIndex: 100, background: 'var(--bg-primary)' }}>
-          <OnboardingView
-            variant="no-project"
-            onAddProject={() => void handleAddProjectFromOnboarding()}
-            onCloneProject={handleCloneFromOnboarding}
-            onCreateNewProject={(desc) => void handleCreateNewProject(desc)}
-            creatingProject={creatingProject}
-            cloningProject={cloningProject}
-            createError={projectError}
-            onBack={() => setShowOnboarding(false)}
-          />
+          <OnboardingView variant="no-project" onAddProject={() => void handleAddProjectFromOnboarding()} onCloneProject={handleCloneFromOnboarding}
+            onCreateNewProject={(desc) => void handleCreateNewProject(desc)} creatingProject={appEffects.creatingProject}
+            cloningProject={appEffects.cloningProject} createError={projectError} onBack={() => appEffects.setShowOnboarding(false)} />
         </div>
       )}
-
-    </div>
-  )
-}
-
-function DockTab({ api }: IDockviewPanelHeaderProps): React.JSX.Element {
-  const state = React.useContext(DockStateContext)
-  const title = api.title ?? ''
-  return (
-    <div style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '0 8px', fontSize: '11px', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
-      <span>{title}</span>
-      <button
-        onClick={(e) => { e.stopPropagation(); state?.onClosePanel(api.id) }}
-        style={{
-          fontSize: '11px',
-          lineHeight: 1,
-          color: 'var(--text-muted)',
-          padding: '0 2px',
-          cursor: 'pointer',
-          opacity: 0.6,
-        }}
-        title={`Close ${title}`}
-      >
-        &times;
-      </button>
-    </div>
-  )
-}
-
-function EmptyWatermark(): React.JSX.Element {
-  return (
-    <div style={{
-      display: 'flex', alignItems: 'center', justifyContent: 'center',
-      height: '100%', color: 'var(--text-muted)', fontSize: '12px',
-    }}>
-      Drag a panel here
     </div>
   )
 }
