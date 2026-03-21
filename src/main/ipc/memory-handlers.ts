@@ -21,6 +21,14 @@ function truncate(text: string, maxLength: number): string {
     : text
 }
 
+function getInteractionRoleLabel(role: string): string {
+  return role === 'user'
+    ? 'You'
+    : role === 'system'
+      ? 'System'
+      : 'Agent'
+}
+
 function toObservationTimelineItem(observation: MemoryObservation): MemoryTimelineItem {
   return {
     ...observation,
@@ -55,19 +63,13 @@ function toInteractionTimelineItem(
     return null
   }
 
-  const title = row.role === 'user'
-    ? 'You'
-    : row.role === 'system'
-      ? 'System'
-      : 'Agent'
-
   return {
     id: `interaction-${row.id}`,
     projectId,
     sessionId: row.sessionId,
     source: 'interaction',
     type: 'task_summary',
-    title,
+    title: getInteractionRoleLabel(row.role),
     summary: truncate(cleanText, 400),
     role: row.role,
     createdAt: row.timestamp,
@@ -111,7 +113,7 @@ export function registerMemoryHandlers(deps: IpcDependencies): void {
               id: `interaction-${r.id}`,
               type: 'task_summary' as ObservationType,
               source: 'interaction' as const,
-              title: `${r.role === 'user' ? 'You' : 'Agent'}: ${truncate(cleanText, 80)}`,
+              title: getInteractionRoleLabel(r.role),
               summary: truncate(cleanText, 200),
               sessionId: r.sessionId,
               createdAt: r.timestamp,
