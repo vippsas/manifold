@@ -5,8 +5,8 @@
   --dv-background-color: var(--bg-primary);
   --dv-paneview-header-border-color: var(--border);
   --dv-tabs-and-actions-container-background-color: var(--bg-secondary);
-  --dv-tabs-and-actions-container-height: 24px;
-  --dv-tabs-and-actions-container-font-size: 11px;
+  --dv-tabs-and-actions-container-height: 28px;
+  --dv-tabs-and-actions-container-font-size: 1em;
   --dv-activegroup-visiblepanel-tab-background-color: var(--bg-primary);
   --dv-activegroup-hiddenpanel-tab-background-color: var(--bg-secondary);
   --dv-inactivegroup-visiblepanel-tab-background-color: var(--bg-secondary);
@@ -32,10 +32,8 @@
 
 /* Tab text styling */
 .dockview-theme-manifold .dv-tab {
-  font-family: var(--font-sans);
-  font-size: 11px;
-  text-transform: uppercase;
-  letter-spacing: 0.5px;
+  font-family: inherit;
+  font-size: inherit;
 }
 
 /* Active tab highlight — bottom border to clearly indicate selection */

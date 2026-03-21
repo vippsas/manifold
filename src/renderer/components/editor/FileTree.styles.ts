@@ -26,13 +26,12 @@ export const treeStyles: Record<string, React.CSSProperties> = {
     flexShrink: 0,
   },
   headerTitle: {
-    fontSize: '11px',
+    fontSize: 'inherit',
+    fontWeight: 500,
     color: 'var(--text-secondary)',
-    textTransform: 'uppercase' as const,
-    letterSpacing: '0.5px',
   },
   changesButton: {
-    fontSize: '10px',
+    fontSize: '0.92em',
     color: 'var(--accent)',
     padding: '1px 6px',
     borderRadius: '8px',
@@ -162,7 +161,7 @@ export const treeStyles: Record<string, React.CSSProperties> = {
     marginBottom: '8px',
   },
   dialogMessage: {
-    fontSize: '12px',
+    fontSize: '0.92em',
     color: 'var(--text-secondary)',
     lineHeight: '1.4',
     marginBottom: '16px',
@@ -173,7 +172,7 @@ export const treeStyles: Record<string, React.CSSProperties> = {
     gap: '8px',
   },
   dialogCancel: {
-    fontSize: '12px',
+    fontSize: '0.92em',
     padding: '4px 12px',
     borderRadius: '4px',
     border: '1px solid var(--border)',
@@ -182,7 +181,7 @@ export const treeStyles: Record<string, React.CSSProperties> = {
     cursor: 'pointer',
   },
   dialogConfirm: {
-    fontSize: '12px',
+    fontSize: '0.92em',
     padding: '4px 12px',
     borderRadius: '4px',
     border: 'none',
@@ -201,7 +200,7 @@ export const treeStyles: Record<string, React.CSSProperties> = {
     flex: 1,
     minWidth: 0,
     fontFamily: 'var(--font-sans)',
-    fontSize: '12px',
+    fontSize: 'inherit',
     padding: '3px 6px',
     border: '1px solid var(--border)',
     borderRadius: '4px',

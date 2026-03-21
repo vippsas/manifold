@@ -17,10 +17,8 @@ export const sidebarStyles: Record<string, React.CSSProperties> = {
     justifyContent: 'space-between',
     padding: '8px 12px 4px',
     cursor: 'pointer',
-    fontSize: '11px',
-    fontWeight: 600,
-    textTransform: 'uppercase' as const,
-    letterSpacing: '0.5px',
+    fontSize: 'inherit',
+    fontWeight: 500,
     color: 'var(--text-secondary)',
     marginTop: '4px',
     borderLeft: '2px solid transparent',
@@ -59,17 +57,17 @@ export const sidebarStyles: Record<string, React.CSSProperties> = {
     borderRadius: 0,
     textAlign: 'left' as const,
     transition: 'background 0.1s ease',
-    fontSize: '12px',
+    fontSize: 'inherit',
     color: 'var(--text-primary)',
   },
   agentBranch: {
     flex: 1,
     minWidth: 0,
     fontFamily: 'var(--font-mono)',
-    fontSize: '12px',
+    fontSize: 'inherit',
   },
   agentRuntime: {
-    fontSize: '11px',
+    fontSize: '0.92em',
     flexShrink: 0,
   },
   agentDeleteButton: {
@@ -84,7 +82,7 @@ export const sidebarStyles: Record<string, React.CSSProperties> = {
   empty: {
     padding: '16px 12px',
     color: 'var(--text-muted)',
-    fontSize: '12px',
+    fontSize: 'inherit',
     textAlign: 'center' as const,
   },
   actions: {
@@ -99,7 +97,7 @@ export const sidebarStyles: Record<string, React.CSSProperties> = {
     background: 'var(--bg-input)',
     border: '1px solid var(--border)',
     borderRadius: '4px',
-    fontSize: '12px',
+    fontSize: 'inherit',
     fontWeight: 600,
     color: 'var(--accent)',
     textAlign: 'center' as const,
@@ -110,7 +108,7 @@ export const sidebarStyles: Record<string, React.CSSProperties> = {
     background: 'var(--bg-input)',
     border: '1px solid var(--border)',
     borderRadius: '4px',
-    fontSize: '12px',
+    fontSize: 'inherit',
     color: 'var(--text-primary)',
     textAlign: 'center' as const,
   },
@@ -121,7 +119,7 @@ export const sidebarStyles: Record<string, React.CSSProperties> = {
   },
   cloneInput: {
     flex: 1,
-    fontSize: '12px',
+    fontSize: 'inherit',
     padding: '4px 8px',
   },
   cloneSubmit: {
@@ -129,11 +127,11 @@ export const sidebarStyles: Record<string, React.CSSProperties> = {
     background: 'var(--btn-bg)',
     color: 'var(--btn-text)',
     borderRadius: '4px',
-    fontSize: '12px',
+    fontSize: 'inherit',
   },
   fetchMessage: {
     padding: '2px 12px 4px 20px',
-    fontSize: '10px',
+    fontSize: '0.92em',
     color: 'var(--text-muted)',
   },
 }
