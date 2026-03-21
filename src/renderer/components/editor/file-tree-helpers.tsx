@@ -22,21 +22,18 @@ export function WorkspaceRootHeader({
           display: 'flex',
           justifyContent: 'space-between',
           alignItems: 'center',
-          fontSize: '11px',
-          fontWeight: 600,
-          textTransform: 'uppercase' as const,
+          fontSize: 'inherit',
+          fontWeight: 500,
           color: 'var(--text-secondary)',
-          letterSpacing: '0.05em',
         }}
       >
         <span>{name}</span>
         {isAdditional && (
           <span
             style={{
+              fontSize: '0.92em',
               fontWeight: 400,
-              textTransform: 'lowercase' as const,
               color: 'var(--text-tertiary, rgba(255,255,255,0.35))',
-              letterSpacing: 'normal',
             }}
           >
             external
@@ -46,7 +43,7 @@ export function WorkspaceRootHeader({
       {subtitle && (
         <div
           style={{
-            fontSize: '10px',
+            fontSize: '0.92em',
             fontWeight: 400,
             color: 'var(--text-tertiary, rgba(255,255,255,0.35))',
             marginTop: '2px',

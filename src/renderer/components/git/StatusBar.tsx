@@ -148,7 +148,7 @@ const barStyles: Record<BarStyleKey, React.CSSProperties> = {
     gap: '6px',
   },
   branch: {
-    fontSize: '11px',
+    fontSize: 'inherit',
   },
   spacer: {
     flex: 1,
@@ -159,7 +159,7 @@ const barStyles: Record<BarStyleKey, React.CSSProperties> = {
     gap: '4px',
   },
   toggleButton: {
-    fontSize: '10px',
+    fontSize: '0.92em',
     padding: '1px 6px',
     borderRadius: '3px',
     color: 'var(--accent)',
@@ -173,7 +173,7 @@ const barStyles: Record<BarStyleKey, React.CSSProperties> = {
     gap: '6px',
   },
   commitButton: {
-    fontSize: '10px',
+    fontSize: '0.92em',
     padding: '2px 8px',
     borderRadius: '3px',
     color: 'var(--success)',
@@ -182,7 +182,7 @@ const barStyles: Record<BarStyleKey, React.CSSProperties> = {
     whiteSpace: 'nowrap' as const,
   },
   prButton: {
-    fontSize: '10px',
+    fontSize: '0.92em',
     padding: '2px 8px',
     borderRadius: '3px',
     color: 'var(--accent)',
@@ -191,7 +191,7 @@ const barStyles: Record<BarStyleKey, React.CSSProperties> = {
     whiteSpace: 'nowrap' as const,
   },
   conflictButton: {
-    fontSize: '10px',
+    fontSize: '0.92em',
     padding: '2px 8px',
     borderRadius: '3px',
     color: 'var(--warning)',
@@ -200,7 +200,7 @@ const barStyles: Record<BarStyleKey, React.CSSProperties> = {
     whiteSpace: 'nowrap' as const,
   },
   settingsButton: {
-    fontSize: '14px',
+    fontSize: '1em',
     color: 'var(--text-secondary)',
     cursor: 'pointer',
     padding: '0 2px',

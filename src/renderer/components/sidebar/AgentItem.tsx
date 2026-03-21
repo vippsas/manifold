@@ -97,7 +97,7 @@ export function AgentItem({ session, projectPath, isActive, onSelect, onDelete }
       </div>
       <span
         style={{
-          fontSize: '10px',
+          fontSize: '0.92em',
           color: 'var(--text-muted)',
           paddingLeft: '14px',
           opacity: 0.8,
@@ -115,7 +115,7 @@ export function AgentItem({ session, projectPath, isActive, onSelect, onDelete }
                 key={dir}
                 title={dir}
                 style={{
-                  fontSize: '10px',
+                  fontSize: '0.92em',
                   color: 'var(--text-muted)',
                   opacity: 0.7,
                   display: 'flex',
@@ -125,7 +125,7 @@ export function AgentItem({ session, projectPath, isActive, onSelect, onDelete }
                 }}
                 className="truncate"
               >
-                <span style={{ fontSize: '9px', opacity: 0.8 }}>+</span>
+                <span style={{ fontSize: '0.85em', opacity: 0.8 }}>+</span>
                 {dirName}
               </div>
             )

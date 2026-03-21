@@ -17,7 +17,7 @@
 
   --pane-divider-width: 4px;
   --sidebar-width: 200px;
-  --status-bar-height: 28px;
+  --status-bar-height: 30px;
 
   /* Default color values — match the default Dracula theme.
      Overridden by theme adapter at runtime via applyThemeCssVars(). */
@@ -145,7 +145,7 @@ body {
   align-items: center;
   padding: 0 var(--space-md);
   gap: var(--space-lg);
-  font-size: 11px;
+  font-size: inherit;
   color: var(--text-secondary);
 }
 

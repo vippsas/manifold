@@ -17,10 +17,9 @@ export const viewerStyles: Record<string, React.CSSProperties> = {
     flexShrink: 0,
   },
   headerText: {
-    fontSize: '11px',
+    fontSize: 'inherit',
+    fontWeight: 500,
     color: 'var(--text-secondary)',
-    textTransform: 'uppercase' as const,
-    letterSpacing: '0.5px',
   },
   tabBar: {
     display: 'flex',
@@ -50,7 +49,7 @@ export const viewerStyles: Record<string, React.CSSProperties> = {
     alignItems: 'center',
     gap: '4px',
     padding: '4px 8px',
-    fontSize: '11px',
+    fontSize: 'inherit',
     color: 'var(--text-muted)',
     borderRight: '1px solid var(--border)',
     cursor: 'pointer',
@@ -63,7 +62,7 @@ export const viewerStyles: Record<string, React.CSSProperties> = {
   },
   tabLabel: {
     padding: 0,
-    fontSize: '11px',
+    fontSize: 'inherit',
     fontFamily: 'var(--font-mono)',
     color: 'inherit',
   },
@@ -76,7 +75,7 @@ export const viewerStyles: Record<string, React.CSSProperties> = {
   },
   previewToggle: {
     padding: '2px 8px',
-    fontSize: '10px',
+    fontSize: '0.92em',
     fontWeight: 500,
     color: 'var(--text-secondary)',
     background: 'var(--bg-input)',
@@ -88,7 +87,7 @@ export const viewerStyles: Record<string, React.CSSProperties> = {
   },
   actionButton: {
     padding: '2px 8px',
-    fontSize: '10px',
+    fontSize: '0.92em',
     fontWeight: 500,
     color: 'var(--text-secondary)',
     background: 'var(--bg-input)',
