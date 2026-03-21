@@ -7,6 +7,7 @@ import { listRuntimesWithStatus } from '../agent/runtimes'
 import { runAiPrompt } from '../agent/ai-prompt'
 import { buildCompressionPrompt } from './compression-prompts'
 import { debugLog } from '../app/debug-log'
+import { isNoise, sanitizeMemoryText } from './memory-capture'
 
 const MIN_INTERACTIONS_FOR_COMPRESSION = 3
 const INCREMENTAL_BATCH_SIZE = 5
@@ -40,6 +41,34 @@ interface CompressionResult {
   }>
 }
 
+interface RegexFallbackContext {
+  runtimeId?: string
+  branchName?: string
+  taskDescription?: string
+}
+
+function truncate(text: string, maxLength: number): string {
+  return text.length > maxLength
+    ? text.slice(0, maxLength - 3) + '...'
+    : text
+}
+
+function scoreInteractionForSummary(interaction: MemoryInteraction): number {
+  let score = Math.min(interaction.text.length, 320)
+
+  if (interaction.role === 'user') score += 200
+  if (/[.?!]/.test(interaction.text)) score += 30
+  if (/\b(fix|fixed|updated|added|implemented|resolved|root cause|patch|changed|commit|pull request|pr)\b/i.test(interaction.text)) {
+    score += 80
+  }
+  if (/^\s*(>|sh:|npm|pnpm|yarn|vitest|tsc|jest|cargo|go test)\b/im.test(interaction.text)) {
+    score -= 160
+  }
+  if (interaction.text.includes('\n')) score -= 20
+
+  return score
+}
+
 export class MemoryCompressor {
   constructor(
     private memoryStore: MemoryStore,
@@ -63,8 +92,20 @@ export class MemoryCompressor {
       return sinceTimestamp
     }
 
-    // Compress this batch using regex (instant, no AI needed)
-    this.regexFallbackCompression(projectId, sessionId, interactions)
+    const result = this.buildRegexFallbackResult(interactions)
+    for (const obs of result.observations) {
+      this.memoryStore.insertObservation({
+        id: randomUUID(),
+        projectId,
+        sessionId,
+        type: obs.type,
+        title: obs.title,
+        summary: obs.summary,
+        facts: obs.facts || [],
+        filesTouched: obs.filesTouched || [],
+        createdAt: Date.now(),
+      })
+    }
     debugLog(`[MemoryCompressor] Incremental compression for ${sessionId}: ${interactions.length} interactions → observation`)
 
     // Return the timestamp of the last processed interaction
@@ -87,7 +128,7 @@ export class MemoryCompressor {
 
       if (!runtime) {
         debugLog('[MemoryCompressor] No AI runtime available, using regex fallback')
-        this.regexFallbackCompression(session.projectId, session.id, interactions)
+        this.storeResults(session, this.buildRegexFallbackResult(interactions, session))
         return
       }
 
@@ -108,14 +149,14 @@ export class MemoryCompressor {
 
       if (!raw) {
         debugLog('[MemoryCompressor] AI returned empty response, using regex fallback')
-        this.regexFallbackCompression(session.projectId, session.id, interactions)
+        this.storeResults(session, this.buildRegexFallbackResult(interactions, session))
         return
       }
 
       const parsed = this.parseResponse(raw)
       if (!parsed) {
         debugLog('[MemoryCompressor] Failed to parse AI response, using regex fallback')
-        this.regexFallbackCompression(session.projectId, session.id, interactions)
+        this.storeResults(session, this.buildRegexFallbackResult(interactions, session))
         return
       }
 
@@ -123,7 +164,7 @@ export class MemoryCompressor {
       debugLog(`[MemoryCompressor] Compressed session ${session.id}: ${parsed.observations.length} observations`)
     } catch (err) {
       debugLog(`[MemoryCompressor] Error compressing session ${session.id}: ${err}`)
-      this.regexFallbackCompression(session.projectId, session.id, interactions)
+      this.storeResults(session, this.buildRegexFallbackResult(interactions, session))
     } finally {
       this.memoryStore.endSession(session.projectId, session.id)
     }
@@ -192,28 +233,68 @@ export class MemoryCompressor {
     }
   }
 
-  regexFallbackCompression(
-    projectId: string,
-    sessionId: string,
-    interactions: MemoryInteraction[]
-  ): void {
-    if (interactions.length === 0) return
+  private buildRegexFallbackResult(
+    interactions: MemoryInteraction[],
+    context?: RegexFallbackContext,
+  ): CompressionResult {
+    const cleanedInteractions = interactions
+      .map((interaction) => ({
+        ...interaction,
+        text: sanitizeMemoryText(interaction.text),
+      }))
+      .filter((interaction) => interaction.text && !isNoise(interaction.text))
 
-    // Title: first message (role-agnostic — PTY agents tag everything as 'agent')
-    const firstMsg = interactions[0].text
-    const title = firstMsg.length > 120
-      ? firstMsg.slice(0, 117) + '...'
-      : firstMsg
+    if (cleanedInteractions.length === 0) {
+      const fallbackTitle = context?.taskDescription || 'Session summary'
+      return {
+        summary: {
+          taskDescription: context?.taskDescription || fallbackTitle,
+          whatWasDone: fallbackTitle,
+          whatWasLearned: '',
+          decisionsMade: [],
+          filesChanged: [],
+        },
+        observations: [{
+          type: 'task_summary',
+          title: truncate(fallbackTitle, 120),
+          summary: truncate(fallbackTitle, 500),
+          facts: [],
+          filesTouched: [],
+        }],
+      }
+    }
 
-    // Summary: the longest message is typically the most substantive
-    const sorted = [...interactions].sort((a, b) => b.text.length - a.text.length)
-    const bestMsg = sorted[0].text
-    const summary = bestMsg.length > 500
-      ? bestMsg.slice(0, 497) + '...'
-      : bestMsg
+    const titleSource = cleanedInteractions.find((interaction) => interaction.role === 'user')?.text
+      || context?.taskDescription
+      || cleanedInteractions[0].text
+    const title = truncate(titleSource, 120)
 
-    // Extract file paths and function names as supplementary facts
-    const allText = interactions.map((i) => i.text).join('\n')
+    const bestSummaryInteraction = [...cleanedInteractions]
+      .sort((a, b) => scoreInteractionForSummary(b) - scoreInteractionForSummary(a))[0]
+    const summary = truncate(bestSummaryInteraction.text, 500)
+
+    const whatWasDone = truncate(
+      cleanedInteractions.find((interaction) =>
+        interaction.role === 'agent'
+        && /\b(fix|fixed|updated|added|implemented|resolved|running|created|committed|pushed)\b/i.test(interaction.text),
+      )?.text || summary,
+      500,
+    )
+
+    const whatWasLearned = truncate(
+      cleanedInteractions.find((interaction) =>
+        /\b(learned|found|discovered|root cause|turned out|cause)\b/i.test(interaction.text),
+      )?.text || '',
+      300,
+    )
+
+    const decisionsMade = cleanedInteractions
+      .filter((interaction) => /\b(decide|decided|choice|trade.?off|instead|chose|option)\b/i.test(interaction.text))
+      .map((interaction) => truncate(interaction.text, 150))
+      .filter((value, index, values) => values.indexOf(value) === index)
+      .slice(0, 5)
+
+    const allText = cleanedInteractions.map((i) => i.text).join('\n')
     const filePathPattern = /(?:^|\s)((?:src|lib|app|test|tests|packages?)\/[\w./-]+\.\w+)/g
     const filePaths = new Set<string>()
     let match: RegExpExecArray | null
@@ -230,10 +311,11 @@ export class MemoryCompressor {
       }
     }
 
-    // Additional messages as facts for searchability
-    const facts: string[] = interactions.slice(1, 4).map((m) =>
-      m.text.length > 150 ? m.text.slice(0, 147) + '...' : m.text,
-    )
+    const facts: string[] = cleanedInteractions
+      .filter((interaction) => interaction.text !== bestSummaryInteraction.text)
+      .map((interaction) => truncate(interaction.text, 150))
+      .filter((value, index, values) => values.indexOf(value) === index)
+      .slice(0, 3)
     if (filePaths.size > 0) {
       facts.push(`Files: ${[...filePaths].slice(0, 15).join(', ')}`)
     }
@@ -243,17 +325,21 @@ export class MemoryCompressor {
 
     const type = detectObservationType(allText)
 
-    const observation: MemoryObservation = {
-      id: randomUUID(),
-      projectId,
-      sessionId,
-      type,
-      title,
-      summary,
-      facts: facts.slice(0, 10),
-      filesTouched: [...filePaths].slice(0, 20),
-      createdAt: Date.now(),
+    return {
+      summary: {
+        taskDescription: context?.taskDescription || title,
+        whatWasDone,
+        whatWasLearned,
+        decisionsMade,
+        filesChanged: [...filePaths].slice(0, 20),
+      },
+      observations: [{
+        type,
+        title,
+        summary,
+        facts: facts.slice(0, 10),
+        filesTouched: [...filePaths].slice(0, 20),
+      }],
     }
-    this.memoryStore.insertObservation(observation)
   }
 }

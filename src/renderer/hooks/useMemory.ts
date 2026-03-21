@@ -3,7 +3,7 @@ import type {
   MemorySearchResponse,
   MemorySearchResult,
   MemoryStats,
-  MemoryObservation,
+  MemoryTimelineItem,
   MemoryTimelineResponse,
   ObservationType,
 } from '../../shared/memory-types'
@@ -11,7 +11,7 @@ import type {
 export interface UseMemoryResult {
   searchResults: MemorySearchResult[]
   stats: MemoryStats | null
-  timeline: MemoryObservation[]
+  timeline: MemoryTimelineItem[]
   error: string | null
   isSearching: boolean
   searchQuery: string
@@ -41,7 +41,7 @@ function formatMemoryError(error: unknown): string {
 export function useMemory(activeProjectId: string | null): UseMemoryResult {
   const [searchResults, setSearchResults] = useState<MemorySearchResult[]>([])
   const [stats, setStats] = useState<MemoryStats | null>(null)
-  const [timeline, setTimeline] = useState<MemoryObservation[]>([])
+  const [timeline, setTimeline] = useState<MemoryTimelineItem[]>([])
   const [error, setError] = useState<string | null>(null)
   const [isSearching, setIsSearching] = useState(false)
   const [searchQuery, setSearchQueryState] = useState('')

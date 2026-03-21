@@ -113,6 +113,14 @@ export const memoryStyles: Record<string, React.CSSProperties> = {
     color: 'var(--accent)',
     flexShrink: 0,
   },
+  sourceBadge: {
+    fontSize: '9px',
+    padding: '1px 5px',
+    borderRadius: '8px',
+    background: 'rgba(255, 255, 255, 0.06)',
+    color: 'var(--text-muted)',
+    flexShrink: 0,
+  },
   cardSummary: {
     fontSize: '11px',
     color: 'var(--text-muted)',
@@ -132,6 +140,9 @@ export const memoryStyles: Record<string, React.CSSProperties> = {
     padding: '8px',
     borderTop: '1px solid var(--border)',
     fontSize: '11px',
+  },
+  detailBlock: {
+    marginTop: '6px',
   },
   factsList: {
     margin: '4px 0',

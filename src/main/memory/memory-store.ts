@@ -266,6 +266,7 @@ export class MemoryStore {
       ...obsRows.map((r) => ({
         id: r.id,
         type: r.type,
+        source: 'observation' as const,
         title: r.title,
         summary: r.summary,
         sessionId: r.sessionId,
@@ -275,6 +276,7 @@ export class MemoryStore {
       ...sumRows.map((r) => ({
         id: r.id,
         type: 'task_summary' as ObservationType,
+        source: 'session_summary' as const,
         title: r.title,
         summary: r.summary,
         runtimeId: r.runtimeId,
@@ -374,6 +376,7 @@ export class MemoryStore {
     const results: MemorySearchResult[] = rows.map((r) => ({
       id: r.id,
       type: r.type,
+      source: 'observation',
       title: r.title,
       summary: r.summary,
       sessionId: r.sessionId,
@@ -459,7 +462,7 @@ export function parseObservationRow(row: Record<string, unknown>): MemoryObserva
   }
 }
 
-function parseSessionSummaryRow(row: Record<string, unknown>): SessionSummary {
+export function parseSessionSummaryRow(row: Record<string, unknown>): SessionSummary {
   return {
     id: row.id as string,
     projectId: row.projectId as string,

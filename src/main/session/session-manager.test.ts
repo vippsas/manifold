@@ -46,6 +46,7 @@ import { ProjectRegistry } from '../store/project-registry'
 import { getRuntimeById } from '../agent/runtimes'
 import { gitExec } from '../git/git-exec'
 import type { BrowserWindow } from 'electron'
+import type { MemoryCapture } from '../memory/memory-capture'
 
 function createMockWorktreeManager() {
   return {
@@ -98,6 +99,7 @@ describe('SessionManager', () => {
   let worktreeManager: ReturnType<typeof createMockWorktreeManager>
   let ptyPool: ReturnType<typeof createMockPtyPool>
   let projectRegistry: ReturnType<typeof createMockProjectRegistry>
+  let memoryCapture: Pick<MemoryCapture, 'startCapturing' | 'stopCapturing' | 'recordInput'>
   let sessionManager: SessionManager
 
   beforeEach(() => {
@@ -107,11 +109,17 @@ describe('SessionManager', () => {
     worktreeManager = createMockWorktreeManager()
     ptyPool = createMockPtyPool()
     projectRegistry = createMockProjectRegistry()
+    memoryCapture = {
+      startCapturing: vi.fn(),
+      stopCapturing: vi.fn(),
+      recordInput: vi.fn(),
+    }
     sessionManager = new SessionManager(
       worktreeManager as unknown as WorktreeManager,
       ptyPool as unknown as PtyPool,
       projectRegistry as unknown as ProjectRegistry,
     )
+    sessionManager.setMemoryCapture(memoryCapture as MemoryCapture)
   })
 
   afterEach(() => {
@@ -194,6 +202,7 @@ describe('SessionManager', () => {
       })
 
       sessionManager.sendInput('session-uuid-1', 'some input')
+      expect(memoryCapture.recordInput).toHaveBeenCalledWith('session-uuid-1', 'some input')
       expect(ptyPool.write).toHaveBeenCalledWith('pty-1', 'some input')
     })
 

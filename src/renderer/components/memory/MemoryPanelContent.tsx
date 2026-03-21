@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react'
-import type { MemorySearchResult, MemoryObservation, ObservationType } from '../../../shared/memory-types'
+import type { MemorySearchResult, MemoryTimelineItem, ObservationType } from '../../../shared/memory-types'
 import type { UseMemoryResult } from '../../hooks/useMemory'
 import { memoryStyles as s } from './MemoryPanel.styles'
 
@@ -17,6 +17,12 @@ const TYPE_LABELS: Record<ObservationType, string> = {
   error_resolution: 'Error Fix',
   architecture: 'Architecture',
   pattern: 'Pattern',
+}
+
+const SOURCE_LABELS: Record<MemoryTimelineItem['source'] | MemorySearchResult['source'], string> = {
+  observation: 'Observation',
+  session_summary: 'Session',
+  interaction: 'Message',
 }
 
 function formatTimestamp(ts: number): string {
@@ -142,7 +148,9 @@ export function MemoryPanelContent({ memory }: MemoryPanelContentProps): React.J
                 result={result}
                 expanded={expandedId === result.id}
                 onToggle={() => setExpandedId(expandedId === result.id ? null : result.id)}
-                onDelete={() => void memory.deleteObservation(result.id)}
+                onDelete={result.source === 'observation'
+                  ? () => void memory.deleteObservation(result.id)
+                  : undefined}
               />
             ))
           ) : memory.error ? (
@@ -155,12 +163,14 @@ export function MemoryPanelContent({ memory }: MemoryPanelContentProps): React.J
         ) : filteredTimeline.length > 0 ? (
           <>
             {filteredTimeline.map((obs) => (
-              <ObservationCard
+              <TimelineCard
                 key={obs.id}
-                observation={obs}
+                item={obs}
                 expanded={expandedId === obs.id}
                 onToggle={() => setExpandedId(expandedId === obs.id ? null : obs.id)}
-                onDelete={() => void memory.deleteObservation(obs.id)}
+                onDelete={obs.source === 'observation'
+                  ? () => void memory.deleteObservation(obs.id)
+                  : undefined}
               />
             ))}
             {memory.timelineHasMore && (
@@ -205,16 +215,19 @@ function SearchResultCard({
   result: MemorySearchResult
   expanded: boolean
   onToggle: () => void
-  onDelete: () => void
+  onDelete?: () => void
 }): React.JSX.Element {
   return (
     <div style={s.card} onClick={onToggle}>
       <div style={s.cardHeader}>
         <span style={s.cardTitle}>{result.title}</span>
         <span style={s.typeBadge}>{TYPE_LABELS[result.type]}</span>
-        <button style={s.deleteButton} onClick={(e) => { e.stopPropagation(); onDelete() }} title="Delete">
-          x
-        </button>
+        <span style={s.sourceBadge}>{SOURCE_LABELS[result.source]}</span>
+        {onDelete && (
+          <button style={s.deleteButton} onClick={(e) => { e.stopPropagation(); onDelete() }} title="Delete">
+            x
+          </button>
+        )}
       </div>
       <div style={s.cardSummary}>{result.summary}</div>
       <div style={s.cardTimestamp}>{formatTimestamp(result.createdAt)}</div>
@@ -222,46 +235,74 @@ function SearchResultCard({
   )
 }
 
-function ObservationCard({
-  observation,
+function TimelineCard({
+  item,
   expanded,
   onToggle,
   onDelete,
 }: {
-  observation: MemoryObservation
+  item: MemoryTimelineItem
   expanded: boolean
   onToggle: () => void
-  onDelete: () => void
+  onDelete?: () => void
 }): React.JSX.Element {
   return (
     <div style={s.card} onClick={onToggle}>
       <div style={s.cardHeader}>
-        <span style={s.cardTitle}>{observation.title}</span>
-        <span style={s.typeBadge}>{TYPE_LABELS[observation.type]}</span>
-        <button style={s.deleteButton} onClick={(e) => { e.stopPropagation(); onDelete() }} title="Delete">
-          x
-        </button>
+        <span style={s.cardTitle}>{item.title}</span>
+        <span style={s.typeBadge}>{TYPE_LABELS[item.type]}</span>
+        <span style={s.sourceBadge}>{SOURCE_LABELS[item.source]}</span>
+        {onDelete && (
+          <button style={s.deleteButton} onClick={(e) => { e.stopPropagation(); onDelete() }} title="Delete">
+            x
+          </button>
+        )}
       </div>
-      <div style={s.cardSummary}>{observation.summary}</div>
-      <div style={s.cardTimestamp}>{formatTimestamp(observation.createdAt)}</div>
+      <div style={s.cardSummary}>{item.summary}</div>
+      <div style={s.cardTimestamp}>{formatTimestamp(item.createdAt)}</div>
       {expanded && (
         <div style={s.expandedDetail}>
-          <div><strong>Summary:</strong> {observation.summary}</div>
-          {observation.facts.length > 0 && (
+          <div><strong>Summary:</strong> {item.summary}</div>
+          {item.source === 'observation' && item.facts.length > 0 && (
             <>
               <div style={{ marginTop: '6px' }}><strong>Facts:</strong></div>
               <ul style={s.factsList}>
-                {observation.facts.map((fact, i) => (
+                {item.facts.map((fact, i) => (
                   <li key={i}>{fact}</li>
                 ))}
               </ul>
             </>
           )}
-          {observation.filesTouched.length > 0 && (
+          {item.source === 'session_summary' && item.whatWasLearned && (
+            <div style={s.detailBlock}>
+              <strong>Learned:</strong> {item.whatWasLearned}
+            </div>
+          )}
+          {item.source === 'session_summary' && item.decisionsMade.length > 0 && (
+            <>
+              <div style={s.detailBlock}><strong>Decisions:</strong></div>
+              <ul style={s.factsList}>
+                {item.decisionsMade.map((decision, i) => (
+                  <li key={i}>{decision}</li>
+                ))}
+              </ul>
+            </>
+          )}
+          {item.source === 'observation' && item.filesTouched.length > 0 && (
             <>
               <div style={s.filesLabel}>Files touched:</div>
               <div>
-                {observation.filesTouched.map((f) => (
+                {item.filesTouched.map((f) => (
+                  <span key={f} style={s.fileTag}>{f}</span>
+                ))}
+              </div>
+            </>
+          )}
+          {item.source === 'session_summary' && item.filesChanged.length > 0 && (
+            <>
+              <div style={s.filesLabel}>Files changed:</div>
+              <div>
+                {item.filesChanged.map((f) => (
                   <span key={f} style={s.fileTag}>{f}</span>
                 ))}
               </div>

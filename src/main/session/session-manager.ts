@@ -148,6 +148,8 @@ export class SessionManager {
     const session = this.sessions.get(sessionId)
     if (!session) throw new Error(`Session not found: ${sessionId}`)
 
+    this.memoryCapture?.recordInput(sessionId, input)
+
     if (session.nonInteractive) {
       // Print mode: spawn a new process that continues the previous conversation
       this.devServer.spawnPrintModeFollowUp(session, input.trim())
