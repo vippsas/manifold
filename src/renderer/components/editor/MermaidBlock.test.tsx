@@ -17,7 +17,11 @@ beforeEach(() => {
 
 describe('MermaidBlock', () => {
   it('renders SVG on success', async () => {
-    vi.mocked(mermaid.render).mockResolvedValue({ svg: '<svg data-testid="rendered">diagram</svg>', bindFunctions: undefined })
+    vi.mocked(mermaid.render).mockResolvedValue({
+      svg: '<svg data-testid="rendered">diagram</svg>',
+      diagramType: 'flowchart',
+      bindFunctions: undefined,
+    })
 
     render(<MermaidBlock chart="graph TD; A-->B" />)
 

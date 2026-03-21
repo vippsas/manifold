@@ -97,6 +97,12 @@ export function App(): React.JSX.Element {
   const handleSelectOpenFile = useCallback((filePath: string, paneId: string): void => {
     codeView.setActivePane(paneId); const t = codeView.handleSelectFile(filePath, paneId); dockLayout.focusPanel(t)
   }, [codeView, dockLayout])
+  const handleSelectFileFromMarkdownPreview = useCallback((filePath: string, paneId: string): void => {
+    setLastFileOpenRequest({ path: filePath, source: 'markdownPreview' })
+    codeView.setActivePane(paneId)
+    const targetPaneId = codeView.handleSelectFile(filePath, paneId)
+    dockLayout.focusPanel(targetPaneId)
+  }, [codeView, dockLayout])
   const handleActivateEditorPane = useCallback((paneId: string): void => {
     codeView.setActivePane(paneId); dockLayout.focusPanel(paneId)
   }, [codeView, dockLayout])
@@ -135,7 +141,8 @@ export function App(): React.JSX.Element {
     activeEditorPaneId: codeView.activeEditorPaneId, editorPaneIds: dockLayout.editorPanelIds,
     getEditorPane: codeView.getEditorPane, lastFileOpenRequest, theme: themeId,
     onSelectFile: handleSelectFileWithDefaultView, onSelectFileFromFileTree: handleSelectFileFromFileTree,
-    onSelectOpenFile: handleSelectOpenFile, onCloseFile: codeView.handleCloseFile,
+    onSelectOpenFile: handleSelectOpenFile, onSelectFileFromMarkdownPreview: handleSelectFileFromMarkdownPreview,
+    onCloseFile: codeView.handleCloseFile,
     onSaveFile: codeView.handleSaveFile, onRegisterEditorPane: codeView.registerPane,
     onActivateEditorPane: handleActivateEditorPane, onSplitEditorPane: handleSplitEditorPane,
     onMoveFileToPane: handleMoveFileToPane, onDeleteFile: handleDeleteFile, onRenameFile: handleRenameFile,

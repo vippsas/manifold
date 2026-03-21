@@ -1,5 +1,10 @@
 import { describe, it, expect } from 'vitest'
-import { parseDiffToLineRanges, isHtmlFile } from './code-viewer-utils'
+import {
+  isExternalMarkdownHref,
+  isHtmlFile,
+  parseDiffToLineRanges,
+  resolveMarkdownLinkedFilePath,
+} from './code-viewer-utils'
 
 describe('isHtmlFile', () => {
   it('returns true for .html extension', () => {
@@ -102,5 +107,45 @@ describe('parseDiffToLineRanges', () => {
       { startLine: 2, endLine: 2 },
       { startLine: 12, endLine: 12 },
     ])
+  })
+})
+
+describe('resolveMarkdownLinkedFilePath', () => {
+  it('resolves relative links against the current markdown file', () => {
+    expect(resolveMarkdownLinkedFilePath('/repo/docs/guide.md', './notes/child.md'))
+      .toBe('/repo/docs/notes/child.md')
+  })
+
+  it('drops fragments when resolving local file links', () => {
+    expect(resolveMarkdownLinkedFilePath('/repo/docs/guide.md', '../README.md#summary'))
+      .toBe('/repo/README.md')
+  })
+
+  it('supports file urls', () => {
+    expect(resolveMarkdownLinkedFilePath('/repo/docs/guide.md', 'file:///repo/reference.md'))
+      .toBe('/repo/reference.md')
+  })
+
+  it('supports windows-style current file paths', () => {
+    expect(resolveMarkdownLinkedFilePath('C:\\repo\\docs\\guide.md', './child.md'))
+      .toBe('C:/repo/docs/child.md')
+  })
+
+  it('ignores hash-only links', () => {
+    expect(resolveMarkdownLinkedFilePath('/repo/docs/guide.md', '#summary')).toBeNull()
+  })
+
+  it('ignores external links', () => {
+    expect(resolveMarkdownLinkedFilePath('/repo/docs/guide.md', 'https://example.com')).toBeNull()
+  })
+})
+
+describe('isExternalMarkdownHref', () => {
+  it('treats http links as external', () => {
+    expect(isExternalMarkdownHref('https://example.com')).toBe(true)
+  })
+
+  it('does not treat file urls as external', () => {
+    expect(isExternalMarkdownHref('file:///repo/readme.md')).toBe(false)
   })
 })

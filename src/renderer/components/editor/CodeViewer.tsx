@@ -5,21 +5,18 @@ import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
 import type { OpenFile } from '../../hooks/useCodeView'
 import { viewerStyles } from './CodeViewer.styles'
-import { extensionToLanguage, isMarkdownFile, isHtmlFile } from './code-viewer-utils'
+import {
+  extensionToLanguage,
+  isExternalMarkdownHref,
+  isMarkdownFile,
+  isHtmlFile,
+  resolveMarkdownLinkedFilePath,
+} from './code-viewer-utils'
 import type { FileOpenRequest } from './file-open-request'
 import { ContextMenu } from './ContextMenu'
 import { TabBar, NoTabsHeader } from './CodeViewerTabs'
 import type { MoveTarget } from './CodeViewerTabs'
 import { MermaidBlock } from './MermaidBlock'
-
-const markdownComponents = {
-  code({ className, children, ...props }: React.ComponentProps<'code'>) {
-    if (className === 'language-mermaid') {
-      return <MermaidBlock chart={String(children).replace(/\n$/, '')} />
-    }
-    return <code className={className} {...props}>{children}</code>
-  },
-}
 
 interface CodeViewerProps {
   paneId?: string
@@ -36,6 +33,7 @@ interface CodeViewerProps {
   onSplitPane?: (direction: 'right' | 'below') => void
   onMoveFile?: (filePath: string, targetPaneId: string) => void
   onSelectTab: (filePath: string) => void
+  onOpenLinkedFile?: (filePath: string) => void
   onCloseTab: (filePath: string) => void
   onSaveFile?: (filePath: string, content: string) => void
 }
@@ -80,6 +78,7 @@ export function CodeViewer({
   onSplitPane = () => {},
   onMoveFile = () => {},
   onSelectTab,
+  onOpenLinkedFile = () => {},
   onCloseTab,
   onSaveFile,
 }: CodeViewerProps): React.JSX.Element {
@@ -155,7 +154,7 @@ export function CodeViewer({
   }, [onSaveFile])
 
   useEffect(() => {
-    if (lastFileOpenRequest.source === 'fileTree' && lastFileOpenRequest.path === activeFilePath) {
+    if (lastFileOpenRequest.source !== 'default' && lastFileOpenRequest.path === activeFilePath) {
       setDiffMode(false)
       return
     }
@@ -191,6 +190,17 @@ export function CodeViewer({
   const handleDiffEditorMount: DiffOnMount = useCallback((editor) => {
     editor.getModifiedEditor().focus()
   }, [])
+
+  const handleOpenLinkedFile = useCallback((filePath: string): void => {
+    setPreviewPaths((prev) => {
+      if (prev.has(filePath)) return prev
+      const next = new Set(prev)
+      next.add(filePath)
+      return next
+    })
+    setDiffMode(false)
+    onOpenLinkedFile(filePath)
+  }, [onOpenLinkedFile])
 
   const hasTabs = openFiles.length > 0
   const showPreviewToggle = hasTabs && isPreviewable
@@ -238,7 +248,12 @@ export function CodeViewer({
           />
         ) : previewActive && fileContent !== null && !isHtml ? (
           activeFilePath !== null ? (
-            <MarkdownPreview paneId={paneId} filePath={activeFilePath} fileContent={fileContent} />
+            <MarkdownPreview
+              paneId={paneId}
+              filePath={activeFilePath}
+              fileContent={fileContent}
+              onOpenLinkedFile={handleOpenLinkedFile}
+            />
           ) : null
         ) : diffMode && fileContent !== null ? (
           <DiffEditor
@@ -280,15 +295,21 @@ interface MarkdownPreviewProps {
   paneId: string
   filePath: string
   fileContent: string
+  onOpenLinkedFile: (filePath: string) => void
 }
 
 function MarkdownPreview({
   paneId,
   filePath,
   fileContent,
+  onOpenLinkedFile,
 }: MarkdownPreviewProps): React.JSX.Element {
   const containerRef = useRef<HTMLDivElement | null>(null)
   const scrollKey = `${paneId}:${filePath}`
+  const markdownComponents = useMemo(
+    () => createMarkdownComponents(filePath, onOpenLinkedFile),
+    [filePath, onOpenLinkedFile],
+  )
 
   const persistScrollPosition = useCallback((): void => {
     const container = containerRef.current
@@ -361,4 +382,41 @@ function EditorContent({
       Select a file to view its contents
     </div>
   )
+}
+
+function createMarkdownComponents(
+  currentFilePath: string,
+  onOpenLinkedFile: (filePath: string) => void,
+) {
+  return {
+    code({ className, children, ...props }: React.ComponentProps<'code'>) {
+      if (className === 'language-mermaid') {
+        return <MermaidBlock chart={String(children).replace(/\n$/, '')} />
+      }
+      return <code className={className} {...props}>{children}</code>
+    },
+    a({ href, children, onClick, rel, target, ...props }: React.ComponentProps<'a'>) {
+      const resolvedFilePath = resolveMarkdownLinkedFilePath(currentFilePath, href)
+      const isExternalLink = isExternalMarkdownHref(href)
+
+      const handleClick = (event: React.MouseEvent<HTMLAnchorElement>): void => {
+        onClick?.(event)
+        if (event.defaultPrevented || !resolvedFilePath) return
+        event.preventDefault()
+        onOpenLinkedFile(resolvedFilePath)
+      }
+
+      return (
+        <a
+          href={href}
+          onClick={handleClick}
+          rel={isExternalLink ? (rel ?? 'noreferrer') : rel}
+          target={isExternalLink ? (target ?? '_blank') : target}
+          {...props}
+        >
+          {children}
+        </a>
+      )
+    },
+  }
 }
