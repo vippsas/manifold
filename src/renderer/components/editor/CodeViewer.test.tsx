@@ -225,6 +225,50 @@ describe('CodeViewer', () => {
     })
   })
 
+  it('preserves markdown preview scroll when pane activation remounts the viewer', async () => {
+    function Wrapper(): React.JSX.Element {
+      const [activations, setActivations] = React.useState(0)
+      const remountKey = activations > 1 ? activations : 0
+
+      return (
+        <CodeViewer
+          key={remountKey}
+          paneId="editor-scroll-test"
+          sessionId="session-1"
+          fileDiffText={null}
+          originalContent={null}
+          openFiles={[makeOpenFile({ path: '/repo/readme.md', content: '# Hello' })]}
+          activeFilePath="/repo/readme.md"
+          fileContent={'# Hello\n\n' + 'Line\n'.repeat(200)}
+          lastFileOpenRequest={makeOpenRequest({ path: '/repo/readme.md' })}
+          theme="vs-dark"
+          onActivatePane={() => setActivations((value) => value + 1)}
+          onSelectTab={vi.fn()}
+          onCloseTab={vi.fn()}
+          onSaveFile={vi.fn()}
+        />
+      )
+    }
+
+    const { container } = render(<Wrapper />)
+
+    fireEvent.click(screen.getByTitle('Show preview'))
+
+    await waitFor(() => {
+      expect(container.querySelector('.markdown-preview')).not.toBeNull()
+    })
+
+    const preview = container.querySelector('.markdown-preview') as HTMLDivElement
+    preview.scrollTop = 240
+    fireEvent.scroll(preview)
+
+    fireEvent.mouseDown(preview)
+
+    await waitFor(() => {
+      expect((container.querySelector('.markdown-preview') as HTMLDivElement).scrollTop).toBe(240)
+    })
+  })
+
   it('invokes split action when clicked', () => {
     const onSplitPane = vi.fn()
 
