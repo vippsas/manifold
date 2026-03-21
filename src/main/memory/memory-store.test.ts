@@ -319,4 +319,112 @@ describe('MemoryStore', () => {
       expect(db).toBeDefined()
     })
   })
+
+  describe('observations with narrative and concepts', () => {
+    it('stores and retrieves narrative and concepts', () => {
+      store.insertObservation({
+        id: 'obs-nc-1',
+        projectId: PROJECT,
+        sessionId: SESSION,
+        type: 'bugfix',
+        title: 'Fixed auth bug',
+        summary: 'Token validation was missing expiry check',
+        narrative: 'The login handler accepted expired tokens because the expiry field was never checked.',
+        facts: ['Tokens expire after 24h'],
+        concepts: ['problem-solution', 'gotcha'],
+        filesTouched: ['src/auth/login.ts'],
+        createdAt: Date.now(),
+      })
+
+      const results = store.getObservationsBySession(PROJECT, SESSION)
+      expect(results).toHaveLength(1)
+      expect(results[0].narrative).toBe('The login handler accepted expired tokens because the expiry field was never checked.')
+      expect(results[0].concepts).toEqual(['problem-solution', 'gotcha'])
+    })
+
+    it('defaults narrative to empty string for old rows', () => {
+      // Insert without narrative (simulates old data)
+      const db = store.getDb(PROJECT)
+      db.prepare(`
+        INSERT INTO observations (id, projectId, sessionId, type, title, summary, facts, filesTouched, createdAt)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+      `).run('obs-old', PROJECT, SESSION, 'decision', 'Old obs', 'Old summary', '[]', '[]', Date.now())
+
+      const obs = store.getObservationById(PROJECT, 'obs-old')
+      expect(obs).not.toBeNull()
+      expect(obs!.narrative).toBe('')
+      expect(obs!.concepts).toEqual([])
+    })
+  })
+
+  describe('getRecentObservations', () => {
+    it('returns observations ordered by createdAt desc', () => {
+      store.insertObservation({
+        id: 'obs-r1', projectId: PROJECT, sessionId: SESSION,
+        type: 'feature', title: 'First', summary: 'First obs',
+        facts: [], filesTouched: [], createdAt: 1000,
+      })
+      store.insertObservation({
+        id: 'obs-r2', projectId: PROJECT, sessionId: SESSION,
+        type: 'bugfix', title: 'Second', summary: 'Second obs',
+        facts: [], filesTouched: [], createdAt: 2000,
+      })
+      store.insertObservation({
+        id: 'obs-r3', projectId: PROJECT, sessionId: SESSION,
+        type: 'refactor', title: 'Third', summary: 'Third obs',
+        facts: [], filesTouched: [], createdAt: 3000,
+      })
+
+      const results = store.getRecentObservations(PROJECT, 2)
+      expect(results).toHaveLength(2)
+      expect(results[0].id).toBe('obs-r3')
+      expect(results[1].id).toBe('obs-r2')
+    })
+  })
+
+  describe('concept-filtered queries', () => {
+    it('filters observations by concept in searchObservations', () => {
+      store.insertObservation({
+        id: 'obs-c1', projectId: PROJECT, sessionId: SESSION,
+        type: 'bugfix', title: 'Auth bug fix',
+        summary: 'Fixed authentication token validation',
+        facts: [], concepts: ['problem-solution', 'gotcha'],
+        filesTouched: [], createdAt: Date.now(),
+      })
+      store.insertObservation({
+        id: 'obs-c2', projectId: PROJECT, sessionId: SESSION,
+        type: 'feature', title: 'Auth feature added',
+        summary: 'Added new authentication endpoint',
+        facts: [], concepts: ['what-changed'],
+        filesTouched: [], createdAt: Date.now(),
+      })
+
+      const result = store.searchObservations(PROJECT, 'authentication', { concepts: ['gotcha'] })
+      expect(result.results).toHaveLength(1)
+      expect(result.results[0].id).toBe('obs-c1')
+    })
+  })
+
+  describe('interactions with toolEvents', () => {
+    it('stores and retrieves toolEvents', () => {
+      store.insertInteraction(PROJECT, SESSION, 'agent', 'I read the file', 1000, [
+        { toolName: 'Read', inputSummary: 'src/main/index.ts', timestamp: 1000 },
+      ])
+
+      const interactions = store.getSessionInteractions(PROJECT, SESSION)
+      expect(interactions).toHaveLength(1)
+      expect(interactions[0].toolEvents).toHaveLength(1)
+      expect(interactions[0].toolEvents![0].toolName).toBe('Read')
+      expect(interactions[0].toolEvents![0].inputSummary).toBe('src/main/index.ts')
+    })
+
+    it('defaults toolEvents to empty array for old rows', () => {
+      // Insert without toolEvents column (old style — the default handles it)
+      store.insertInteraction(PROJECT, SESSION, 'user', 'hello', 1000)
+
+      const interactions = store.getSessionInteractions(PROJECT, SESSION)
+      expect(interactions).toHaveLength(1)
+      expect(interactions[0].toolEvents).toEqual([])
+    })
+  })
 })

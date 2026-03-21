@@ -2,7 +2,7 @@ import { randomUUID } from 'node:crypto'
 import type { MemoryStore } from './memory-store'
 import type { SettingsStore } from '../store/settings-store'
 import type { InternalSession } from '../session/session-types'
-import type { MemoryInteraction, MemoryObservation, SessionSummary } from '../../shared/memory-types'
+import type { MemoryInteraction, MemoryObservation, SessionSummary, ToolUseEvent } from '../../shared/memory-types'
 import { listRuntimesWithStatus } from '../agent/runtimes'
 import { runAiPrompt } from '../agent/ai-prompt'
 import { buildCompressionPrompt } from './compression-prompts'
@@ -12,13 +12,42 @@ import { isNoise, sanitizeMemoryText } from './memory-capture'
 const MIN_INTERACTIONS_FOR_COMPRESSION = 3
 const INCREMENTAL_BATCH_SIZE = 5
 
+const VALID_OBSERVATION_TYPES = new Set([
+  'bugfix', 'feature', 'refactor', 'change', 'discovery',
+  'decision', 'task_summary', 'architecture', 'pattern', 'error_resolution',
+])
+
+const VALID_CONCEPTS = new Set([
+  'how-it-works', 'what-changed', 'problem-solution',
+  'gotcha', 'pattern', 'trade-off', 'why-it-exists',
+])
+
 function detectObservationType(text: string): MemoryObservation['type'] {
   const lower = text.toLowerCase()
-  if (/\b(error|bug|fix|crash|fail|exception|stack\s*trace|broken)\b/.test(lower)) return 'error_resolution'
-  if (/\b(architect|design|structure|refactor|pattern|module|layer)\b/.test(lower)) return 'architecture'
+  if (/\b(error|bug|fix|crash|fail|exception|stack\s*trace|broken)\b/.test(lower)) return 'bugfix'
+  if (/\b(add|implement|new|create|feature|introduce)\b/.test(lower)) return 'feature'
+  if (/\b(refactor|extract|rename|cleanup|reorganize|restructure)\b/.test(lower)) return 'refactor'
+  if (/\b(discover|learn|realize|understand|investigate|found out)\b/.test(lower)) return 'discovery'
+  if (/\b(architect|design|structure|module|layer|system)\b/.test(lower)) return 'architecture'
   if (/\b(decide|choice|trade.?off|alternative|instead of|chose|option)\b/.test(lower)) return 'decision'
   if (/\b(convention|pattern|always|never|rule|best practice)\b/.test(lower)) return 'pattern'
+  if (/\b(change|update|modify|edit|alter)\b/.test(lower)) return 'change'
   return 'task_summary'
+}
+
+function detectConcepts(text: string): string[] {
+  const lower = text.toLowerCase()
+  const concepts: string[] = []
+
+  if (/\b(how|works|behavior|mechanism|flow|process)\b/.test(lower)) concepts.push('how-it-works')
+  if (/\b(change|update|modify|add|remove|rename)\b/.test(lower)) concepts.push('what-changed')
+  if (/\b(fix|bug|error|issue|problem|resolve|solution)\b/.test(lower)) concepts.push('problem-solution')
+  if (/\b(gotcha|caveat|careful|watch out|pitfall|edge case|subtle)\b/.test(lower)) concepts.push('gotcha')
+  if (/\b(pattern|convention|always|never|rule|practice)\b/.test(lower)) concepts.push('pattern')
+  if (/\b(trade.?off|instead|versus|chose|alternative|pros|cons)\b/.test(lower)) concepts.push('trade-off')
+  if (/\b(because|reason|why|rationale|purpose|designed to)\b/.test(lower)) concepts.push('why-it-exists')
+
+  return concepts.slice(0, 3)
 }
 
 // Priority order for cheapest AI runtime
@@ -36,7 +65,9 @@ interface CompressionResult {
     type: MemoryObservation['type']
     title: string
     summary: string
+    narrative?: string
     facts: string[]
+    concepts?: string[]
     filesTouched: string[]
   }>
 }
@@ -69,11 +100,58 @@ function scoreInteractionForSummary(interaction: MemoryInteraction): number {
   return score
 }
 
+// --- XML parsing helpers ---
+
+function extractXmlTag(xml: string, tag: string): string {
+  const regex = new RegExp(`<${tag}>([\\s\\S]*?)</${tag}>`)
+  const match = regex.exec(xml)
+  return match ? match[1].trim() : ''
+}
+
+function extractXmlTags(xml: string, tag: string): string[] {
+  const regex = new RegExp(`<${tag}>([\\s\\S]*?)</${tag}>`, 'g')
+  const results: string[] = []
+  let match: RegExpExecArray | null
+  while ((match = regex.exec(xml)) !== null) {
+    const val = match[1].trim()
+    if (val) results.push(val)
+  }
+  return results
+}
+
+function parseXmlObservation(xml: string): CompressionResult['observations'][0] | null {
+  const title = extractXmlTag(xml, 'title')
+  if (!title) return null
+
+  let type = extractXmlTag(xml, 'type') as MemoryObservation['type']
+  if (!VALID_OBSERVATION_TYPES.has(type)) type = 'task_summary'
+
+  const summary = extractXmlTag(xml, 'summary')
+  const narrative = extractXmlTag(xml, 'narrative')
+  const facts = extractXmlTags(xml, 'fact')
+  const concepts = extractXmlTags(xml, 'concept').filter((c) => VALID_CONCEPTS.has(c))
+  const filesTouched = extractXmlTags(xml, 'file')
+
+  return { type, title, summary, narrative, facts, concepts, filesTouched }
+}
+
 export class MemoryCompressor {
+  private sessionToolEvents = new Map<string, ToolUseEvent[]>()
+
   constructor(
     private memoryStore: MemoryStore,
     private settingsStore: SettingsStore
   ) {}
+
+  addToolEvents(sessionId: string, events: ToolUseEvent[]): void {
+    const existing = this.sessionToolEvents.get(sessionId) ?? []
+    existing.push(...events)
+    this.sessionToolEvents.set(sessionId, existing)
+  }
+
+  getToolEvents(sessionId: string): ToolUseEvent[] {
+    return this.sessionToolEvents.get(sessionId) ?? []
+  }
 
   /**
    * Incremental compression — runs periodically during a live session.
@@ -101,7 +179,9 @@ export class MemoryCompressor {
         type: obs.type,
         title: obs.title,
         summary: obs.summary,
+        narrative: obs.narrative ?? '',
         facts: obs.facts || [],
+        concepts: obs.concepts ?? [],
         filesTouched: obs.filesTouched || [],
         createdAt: Date.now(),
       })
@@ -132,11 +212,12 @@ export class MemoryCompressor {
         return
       }
 
+      const toolEvents = this.getToolEvents(session.id)
       const prompt = buildCompressionPrompt(interactions, {
         runtimeId: session.runtimeId,
         branchName: session.branchName,
         taskDescription: session.taskDescription,
-      })
+      }, toolEvents.length > 0 ? toolEvents : undefined)
 
       const args = [...(runtime.aiModelArgs || []), '-p']
       const raw = await runAiPrompt({
@@ -167,6 +248,7 @@ export class MemoryCompressor {
       this.storeResults(session, this.buildRegexFallbackResult(interactions, session))
     } finally {
       this.memoryStore.endSession(session.projectId, session.id)
+      this.sessionToolEvents.delete(session.id)
     }
   }
 
@@ -181,9 +263,58 @@ export class MemoryCompressor {
     return null
   }
 
-  private parseResponse(raw: string): CompressionResult | null {
+  /**
+   * Three-tier parsing: XML → JSON → regex fallback
+   */
+  parseResponse(raw: string): CompressionResult | null {
+    // Tier 1: Try XML parsing
+    const xmlResult = this.parseXmlResponse(raw)
+    if (xmlResult) return xmlResult
+
+    // Tier 2: Try JSON parsing
+    const jsonResult = this.parseJsonResponse(raw)
+    if (jsonResult) return jsonResult
+
+    // Tier 3: No structured data could be parsed
+    return null
+  }
+
+  private parseXmlResponse(raw: string): CompressionResult | null {
+    // Check if response contains XML observation tags
+    if (!/<observation>/.test(raw)) return null
+
     try {
-      // Strip markdown fencing if present
+      const summaryBlock = extractXmlTag(raw, 'summary')
+
+      const summary = {
+        taskDescription: extractXmlTag(summaryBlock, 'taskDescription'),
+        whatWasDone: extractXmlTag(summaryBlock, 'whatWasDone'),
+        whatWasLearned: extractXmlTag(summaryBlock, 'whatWasLearned'),
+        decisionsMade: extractXmlTags(summaryBlock, 'decision'),
+        filesChanged: extractXmlTags(summaryBlock, 'file'),
+      }
+
+      // Extract each <observation>...</observation> block
+      const obsRegex = /<observation>([\s\S]*?)<\/observation>/g
+      const observations: CompressionResult['observations'] = []
+      let match: RegExpExecArray | null
+      while ((match = obsRegex.exec(raw)) !== null) {
+        const obs = parseXmlObservation(match[1])
+        if (obs) observations.push(obs)
+      }
+
+      if (observations.length === 0 && !summary.taskDescription && !summary.whatWasDone) {
+        return null
+      }
+
+      return { summary, observations }
+    } catch {
+      return null
+    }
+  }
+
+  private parseJsonResponse(raw: string): CompressionResult | null {
+    try {
       let json = raw
       const fenceMatch = json.match(/```(?:json)?\s*\n?([\s\S]*?)```/)
       if (fenceMatch) {
@@ -193,7 +324,14 @@ export class MemoryCompressor {
       if (!parsed.summary || !Array.isArray(parsed.observations)) {
         return null
       }
-      return parsed as CompressionResult
+      // Normalize JSON observations to include new fields
+      const result = parsed as CompressionResult
+      result.observations = result.observations.map((obs) => ({
+        ...obs,
+        narrative: obs.narrative ?? '',
+        concepts: (obs.concepts ?? []).filter((c: string) => VALID_CONCEPTS.has(c)),
+      }))
+      return result
     } catch {
       return null
     }
@@ -225,7 +363,9 @@ export class MemoryCompressor {
         type: obs.type,
         title: obs.title,
         summary: obs.summary,
+        narrative: obs.narrative ?? '',
         facts: obs.facts || [],
+        concepts: obs.concepts ?? [],
         filesTouched: obs.filesTouched || [],
         createdAt: now,
       }
@@ -233,7 +373,7 @@ export class MemoryCompressor {
     }
   }
 
-  private buildRegexFallbackResult(
+  buildRegexFallbackResult(
     interactions: MemoryInteraction[],
     context?: RegexFallbackContext,
   ): CompressionResult {
@@ -258,7 +398,9 @@ export class MemoryCompressor {
           type: 'task_summary',
           title: truncate(fallbackTitle, 120),
           summary: truncate(fallbackTitle, 500),
+          narrative: '',
           facts: [],
+          concepts: [],
           filesTouched: [],
         }],
       }
@@ -302,6 +444,14 @@ export class MemoryCompressor {
       filePaths.add(match[1])
     }
 
+    // Enrich file lists from tool events if available
+    const toolEvents = interactions.flatMap((i) => i.toolEvents ?? [])
+    for (const evt of toolEvents) {
+      if (evt.toolName === 'Edit' || evt.toolName === 'Write') {
+        filePaths.add(evt.inputSummary)
+      }
+    }
+
     const funcPattern = /(?:function|async)\s+(\w+)|\.(\w+)\s*\(/g
     const funcNames = new Set<string>()
     while ((match = funcPattern.exec(allText)) !== null) {
@@ -324,6 +474,21 @@ export class MemoryCompressor {
     }
 
     const type = detectObservationType(allText)
+    const concepts = detectConcepts(allText)
+
+    // Generate narrative from the top-scored interaction
+    const narrative = truncate(bestSummaryInteraction.text, 500)
+
+    // Build filesChanged from Edit/Write tool events first, then regex-detected files
+    const filesChanged = new Set<string>()
+    for (const evt of toolEvents) {
+      if (evt.toolName === 'Edit' || evt.toolName === 'Write') {
+        filesChanged.add(evt.inputSummary)
+      }
+    }
+    for (const fp of filePaths) {
+      filesChanged.add(fp)
+    }
 
     return {
       summary: {
@@ -331,13 +496,15 @@ export class MemoryCompressor {
         whatWasDone,
         whatWasLearned,
         decisionsMade,
-        filesChanged: [...filePaths].slice(0, 20),
+        filesChanged: [...filesChanged].slice(0, 20),
       },
       observations: [{
         type,
         title,
         summary,
+        narrative,
         facts: facts.slice(0, 10),
+        concepts,
         filesTouched: [...filePaths].slice(0, 20),
       }],
     }

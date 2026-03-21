@@ -3,7 +3,7 @@ import { join } from 'node:path'
 import type { MemoryStore } from './memory-store'
 import type { SettingsStore } from '../store/settings-store'
 import type { InternalSession } from '../session/session-types'
-import type { MemorySearchResult, SessionSummary } from '../../shared/memory-types'
+import type { MemoryObservation, SessionSummary } from '../../shared/memory-types'
 import { debugLog } from '../app/debug-log'
 
 const MARKER_START = '<!-- manifold:memory-context:start -->'
@@ -25,6 +25,29 @@ function getContextFileName(runtimeId: string): string {
   return CONTEXT_FILE_MAP[runtimeId] || 'AGENTS.md'
 }
 
+const TYPE_ICONS: Record<string, string> = {
+  bugfix: 'fix',
+  feature: 'feat',
+  refactor: 'refactor',
+  change: 'change',
+  discovery: 'discovery',
+  decision: 'decision',
+  task_summary: 'summary',
+  architecture: 'arch',
+  pattern: 'pattern',
+  error_resolution: 'fix',
+}
+
+function formatRelativeDate(ts: number): string {
+  const diffMs = Date.now() - ts
+  const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24))
+  if (diffDays === 0) return 'today'
+  if (diffDays === 1) return 'yesterday'
+  if (diffDays < 7) return `${diffDays}d ago`
+  if (diffDays < 30) return `${Math.floor(diffDays / 7)}w ago`
+  return `${Math.floor(diffDays / 30)}mo ago`
+}
+
 export class MemoryInjector {
   constructor(
     private memoryStore: MemoryStore,
@@ -38,15 +61,20 @@ export class MemoryInjector {
     }
 
     try {
-      const summaries = this.memoryStore.getRecentSummaries(session.projectId, 3)
+      const summaries = this.memoryStore.getRecentSummaries(session.projectId, 5)
 
-      let observations: MemorySearchResult[] = []
+      let observations: MemoryObservation[] = []
       if (session.taskDescription) {
         const searchResult = this.memoryStore.searchObservations(
           session.projectId,
           session.taskDescription
         )
+        // Fetch full observations to get narrative/concepts
         observations = searchResult.results
+          .map((r) => this.memoryStore.getObservationById(session.projectId, r.id))
+          .filter((o): o is MemoryObservation => o !== null)
+      } else {
+        observations = this.memoryStore.getRecentObservations(session.projectId, 10)
       }
 
       if (summaries.length === 0 && observations.length === 0) {
@@ -84,7 +112,7 @@ export class MemoryInjector {
 
   buildContextMarkdown(
     summaries: SessionSummary[],
-    observations: MemorySearchResult[],
+    observations: MemoryObservation[],
     tokenBudget: number
   ): string {
     const charBudget = tokenBudget * CHARS_PER_TOKEN
@@ -96,17 +124,27 @@ export class MemoryInjector {
     parts.push(header)
     usedChars += header.length
 
-    // Summaries section
+    // --- Summaries section (~50% budget) ---
+    const summaryBudget = charBudget * 0.5
     if (summaries.length > 0) {
-      const sectionHeader = '### Recent Sessions'
-      usedChars += sectionHeader.length + 1
+      const sectionHeader = '\n### Recent Sessions'
+      usedChars += sectionHeader.length
       const summaryLines: string[] = [sectionHeader]
 
       for (const s of summaries) {
-        const line = `- **${s.taskDescription || 'Untitled session'}** (${s.branchName}): ${s.whatWasDone}`
-        if (usedChars + line.length + 1 > charBudget) break
-        summaryLines.push(line)
-        usedChars += line.length + 1
+        const lines: string[] = []
+        const titleLine = `\n#### ${s.taskDescription || 'Untitled session'} (${s.branchName}) — ${formatRelativeDate(s.createdAt)}`
+        lines.push(titleLine)
+
+        if (s.whatWasDone) lines.push(`- **Done:** ${s.whatWasDone}`)
+        if (s.whatWasLearned) lines.push(`- **Learned:** ${s.whatWasLearned}`)
+        if (s.decisionsMade.length > 0) lines.push(`- **Decisions:** ${s.decisionsMade.join('; ')}`)
+        if (s.filesChanged.length > 0) lines.push(`- **Files:** ${s.filesChanged.join(', ')}`)
+
+        const block = lines.join('\n')
+        if (usedChars + block.length > summaryBudget + header.length) break
+        summaryLines.push(block)
+        usedChars += block.length
       }
 
       if (summaryLines.length > 1) {
@@ -114,21 +152,63 @@ export class MemoryInjector {
       }
     }
 
-    // Observations section — fill remaining budget
+    // --- Observations section (~40% budget) ---
+    const observationBudget = charBudget * 0.4
     if (observations.length > 0 && usedChars < charBudget) {
-      const sectionHeader = '### Key Observations'
-      usedChars += sectionHeader.length + 1
+      const sectionHeader = '\n### Key Observations'
+      usedChars += sectionHeader.length
       const obsLines: string[] = [sectionHeader]
 
-      for (const o of observations) {
-        const line = `- **${o.title}** (${o.type}): ${o.summary}`
-        if (usedChars + line.length + 1 > charBudget) break
-        obsLines.push(line)
-        usedChars += line.length + 1
+      for (let i = 0; i < observations.length; i++) {
+        const o = observations[i]
+        const lines: string[] = []
+        const icon = TYPE_ICONS[o.type] || o.type
+        lines.push(`\n#### ${o.title} (${icon}) — ${formatRelativeDate(o.createdAt)}`)
+        lines.push(o.summary)
+
+        // Include narrative for the most recent 2 observations if within budget
+        if (i < 2 && o.narrative) {
+          lines.push(o.narrative)
+        }
+
+        if (o.concepts && o.concepts.length > 0) {
+          lines.push(`- **Concepts:** ${o.concepts.join(', ')}`)
+        }
+        if (o.filesTouched.length > 0) {
+          lines.push(`- **Files:** ${o.filesTouched.join(', ')}`)
+        }
+
+        const block = lines.join('\n')
+        if (usedChars + block.length > header.length + charBudget * 0.9) break
+        obsLines.push(block)
+        usedChars += block.length
       }
 
       if (obsLines.length > 1) {
         parts.push(obsLines.join('\n'))
+      }
+    }
+
+    // --- Key Learnings section (~10% budget) ---
+    const learnings = summaries
+      .map((s) => s.whatWasLearned)
+      .filter(Boolean)
+      .filter((v, i, arr) => arr.indexOf(v) === i)
+
+    if (learnings.length > 0 && usedChars < charBudget) {
+      const sectionHeader = '\n### Key Learnings'
+      usedChars += sectionHeader.length
+      const learnLines: string[] = [sectionHeader]
+
+      for (const l of learnings) {
+        const line = `- ${l}`
+        if (usedChars + line.length + 1 > charBudget) break
+        learnLines.push(line)
+        usedChars += line.length + 1
+      }
+
+      if (learnLines.length > 1) {
+        parts.push(learnLines.join('\n'))
       }
     }
 

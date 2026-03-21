@@ -137,6 +137,7 @@ describe('MemoryCapture', () => {
         'user',
         'Please fix the authentication bug in the login handler',
         msg.timestamp,
+        undefined,
       )
     })
 
@@ -151,6 +152,7 @@ describe('MemoryCapture', () => {
         'agent',
         'I can help with that authentication issue in the handler',
         msg.timestamp,
+        undefined,
       )
     })
 
@@ -167,6 +169,7 @@ describe('MemoryCapture', () => {
         'user',
         'Please commit, push, and open a PR',
         expect.any(Number),
+        undefined,
       )
     })
 
@@ -183,6 +186,7 @@ describe('MemoryCapture', () => {
         'user',
         'Please fix the codex bug in memory',
         expect.any(Number),
+        undefined,
       )
     })
 
@@ -202,6 +206,7 @@ describe('MemoryCapture', () => {
         'user',
         'Please commit push and create a PR',
         expect.any(Number),
+        undefined,
       )
     })
   })
@@ -244,6 +249,7 @@ describe('MemoryCapture', () => {
         'user',
         'The authentication handler needs to validate tokens  before processing the request',
         expect.any(Number),
+        undefined,
       )
     })
 
@@ -261,6 +267,7 @@ describe('MemoryCapture', () => {
         'user',
         'The refactored session manager now handles reconnections properly',
         expect.any(Number),
+        undefined,
       )
     })
 
@@ -283,6 +290,7 @@ describe('MemoryCapture', () => {
         'user',
         'This message has no markers and should pass through unchanged',
         expect.any(Number),
+        undefined,
       )
     })
   })

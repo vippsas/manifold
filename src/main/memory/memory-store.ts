@@ -11,6 +11,7 @@ import type {
   MemorySearchResult,
   MemorySearchResponse,
   ObservationType,
+  ToolUseEvent,
 } from '../../shared/memory-types'
 
 const SCHEMA_SQL = `
@@ -120,6 +121,7 @@ const SCHEMA_SQL = `
 
 interface SearchOptions {
   type?: ObservationType
+  concepts?: string[]
   runtimeId?: string
   limit?: number
 }
@@ -141,8 +143,24 @@ export class MemoryStore {
     const db = new Database(dbPath)
     db.pragma('journal_mode = WAL')
     db.exec(SCHEMA_SQL)
+    this.runMigrations(db)
     this.dbs.set(projectId, db)
     return db
+  }
+
+  private runMigrations(db: Database.Database): void {
+    const migrations = [
+      "ALTER TABLE observations ADD COLUMN narrative TEXT NOT NULL DEFAULT ''",
+      "ALTER TABLE observations ADD COLUMN concepts TEXT NOT NULL DEFAULT '[]'",
+      "ALTER TABLE interactions ADD COLUMN toolEvents TEXT NOT NULL DEFAULT '[]'",
+    ]
+    for (const sql of migrations) {
+      try {
+        db.exec(sql)
+      } catch {
+        // Column already exists — expected on subsequent opens
+      }
+    }
   }
 
   upsertSession(
@@ -174,18 +192,19 @@ export class MemoryStore {
     role: string,
     text: string,
     timestamp: number,
+    toolEvents?: ToolUseEvent[],
   ): void {
     const db = this.getDb(projectId)
     db.prepare(
-      'INSERT INTO interactions (projectId, sessionId, role, text, timestamp) VALUES (?, ?, ?, ?, ?)',
-    ).run(projectId, sessionId, role, text, timestamp)
+      'INSERT INTO interactions (projectId, sessionId, role, text, timestamp, toolEvents) VALUES (?, ?, ?, ?, ?, ?)',
+    ).run(projectId, sessionId, role, text, timestamp, JSON.stringify(toolEvents ?? []))
   }
 
   insertObservation(observation: MemoryObservation): void {
     const db = this.getDb(observation.projectId)
     db.prepare(`
-      INSERT OR REPLACE INTO observations (id, projectId, sessionId, type, title, summary, facts, filesTouched, createdAt)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+      INSERT OR REPLACE INTO observations (id, projectId, sessionId, type, title, summary, narrative, facts, concepts, filesTouched, createdAt)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `).run(
       observation.id,
       observation.projectId,
@@ -193,7 +212,9 @@ export class MemoryStore {
       observation.type,
       observation.title,
       observation.summary,
+      observation.narrative ?? '',
       JSON.stringify(observation.facts),
+      JSON.stringify(observation.concepts ?? []),
       JSON.stringify(observation.filesTouched),
       observation.createdAt,
     )
@@ -290,6 +311,15 @@ export class MemoryStore {
     if (options?.type) {
       results = results.filter((r) => r.type === options.type)
     }
+    if (options?.concepts && options.concepts.length > 0) {
+      // Filter observation results by concepts (summaries don't have concepts)
+      const conceptSet = new Set(options.concepts)
+      results = results.filter((r) => {
+        if (r.source !== 'observation') return true
+        const obs = this.getObservationById(projectId, r.id)
+        return obs?.concepts?.some((c) => conceptSet.has(c)) ?? false
+      })
+    }
     if (options?.runtimeId) {
       results = results.filter((r) => r.runtimeId === options.runtimeId)
     }
@@ -302,16 +332,18 @@ export class MemoryStore {
 
   getSessionInteractions(projectId: string, sessionId: string): MemoryInteraction[] {
     const db = this.getDb(projectId)
-    return db
+    const rows = db
       .prepare('SELECT * FROM interactions WHERE sessionId = ? ORDER BY timestamp ASC')
-      .all(sessionId) as MemoryInteraction[]
+      .all(sessionId) as Array<Record<string, unknown>>
+    return rows.map(parseInteractionRow)
   }
 
   getRecentInteractions(projectId: string, limit = 50): MemoryInteraction[] {
     const db = this.getDb(projectId)
-    return db
+    const rows = db
       .prepare('SELECT * FROM interactions ORDER BY timestamp DESC LIMIT ?')
-      .all(limit) as MemoryInteraction[]
+      .all(limit) as Array<Record<string, unknown>>
+    return rows.map(parseInteractionRow)
   }
 
   getRecentSummaries(projectId: string, limit = 10): SessionSummary[] {
@@ -343,6 +375,14 @@ export class MemoryStore {
     return rows.map(parseObservationRow)
   }
 
+  getRecentObservations(projectId: string, limit = 10): MemoryObservation[] {
+    const db = this.getDb(projectId)
+    const rows = db
+      .prepare('SELECT * FROM observations ORDER BY createdAt DESC LIMIT ?')
+      .all(limit) as Array<Record<string, unknown>>
+    return rows.map(parseObservationRow)
+  }
+
   searchObservations(projectId: string, query: string, options?: SearchOptions): MemorySearchResponse {
     const db = this.getDb(projectId)
     const limit = options?.limit ?? 20
@@ -358,6 +398,12 @@ export class MemoryStore {
     if (options?.type) {
       sql += ' AND o.type = ?'
       params.push(options.type)
+    }
+
+    if (options?.concepts && options.concepts.length > 0) {
+      const placeholders = options.concepts.map(() => '?').join(', ')
+      sql += ` AND EXISTS (SELECT 1 FROM json_each(o.concepts) WHERE value IN (${placeholders}))`
+      params.push(...options.concepts)
     }
 
     sql += ' ORDER BY rank LIMIT ?'
@@ -449,6 +495,12 @@ export class MemoryStore {
 }
 
 export function parseObservationRow(row: Record<string, unknown>): MemoryObservation {
+  let concepts: string[] = []
+  try {
+    concepts = JSON.parse((row.concepts as string) || '[]')
+  } catch {
+    concepts = []
+  }
   return {
     id: row.id as string,
     projectId: row.projectId as string,
@@ -456,9 +508,29 @@ export function parseObservationRow(row: Record<string, unknown>): MemoryObserva
     type: row.type as MemoryObservation['type'],
     title: row.title as string,
     summary: row.summary as string,
+    narrative: (row.narrative as string) || '',
     facts: JSON.parse(row.facts as string),
+    concepts,
     filesTouched: JSON.parse(row.filesTouched as string),
     createdAt: row.createdAt as number,
+  }
+}
+
+export function parseInteractionRow(row: Record<string, unknown>): MemoryInteraction {
+  let toolEvents: ToolUseEvent[] = []
+  try {
+    toolEvents = JSON.parse((row.toolEvents as string) || '[]')
+  } catch {
+    toolEvents = []
+  }
+  return {
+    id: row.id as number,
+    projectId: row.projectId as string,
+    sessionId: row.sessionId as string,
+    role: row.role as string,
+    text: row.text as string,
+    toolEvents,
+    timestamp: row.timestamp as number,
   }
 }
 
