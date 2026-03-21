@@ -1,71 +1,20 @@
 import type React from 'react'
+import { createDialogStyles } from '../workbench-style-primitives'
+
+const base = createDialogStyles('380px')
 
 export const modalStyles: Record<string, React.CSSProperties> = {
-  overlay: {
-    position: 'fixed',
-    inset: 0,
-    background: 'rgba(0, 0, 0, 0.5)',
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'center',
-    zIndex: 1000,
-  },
-  panel: {
-    background: 'var(--bg-primary)',
-    border: '1px solid var(--border)',
-    borderRadius: '8px',
-    width: '380px',
-    maxWidth: '90vw',
-    boxShadow: '0 8px 32px rgba(0, 0, 0, 0.3)',
-  },
-  header: {
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    padding: '12px 16px',
-    borderBottom: '1px solid var(--border)',
-  },
-  title: {
-    fontWeight: 600,
-    fontSize: '14px',
-  },
-  closeButton: {
-    fontSize: '18px',
-    color: 'var(--text-secondary)',
-    padding: '0 4px',
-    lineHeight: 1,
-  },
-  body: {
-    padding: '16px',
-    display: 'flex',
-    flexDirection: 'column',
-    gap: '12px',
-  },
-  label: {
-    display: 'flex',
-    flexDirection: 'column',
-    gap: '4px',
-    fontSize: '12px',
-    color: 'var(--text-secondary)',
-    fontWeight: 500,
-  },
-  select: {
-    padding: '6px 8px',
-    fontSize: '13px',
-  },
-  input: {
-    padding: '6px 8px',
-    fontSize: '13px',
-  },
+  ...base,
   themeButton: {
     width: '100%',
-    padding: '6px 8px',
-    fontSize: '13px',
+    minHeight: 'var(--control-height)',
+    padding: '0 var(--space-sm)',
+    fontSize: 'var(--type-ui)',
     textAlign: 'left' as const,
-    background: 'var(--bg-input)',
+    background: 'var(--control-bg)',
     color: 'var(--text-primary)',
-    border: '1px solid var(--border)',
-    borderRadius: '4px',
+    border: '1px solid var(--control-border)',
+    borderRadius: 'var(--radius-sm)',
     cursor: 'pointer',
   },
   pickerOverlay: {
@@ -74,28 +23,5 @@ export const modalStyles: Record<string, React.CSSProperties> = {
     left: 0,
     zIndex: 1001,
     marginTop: '4px',
-  },
-  footer: {
-    display: 'flex',
-    justifyContent: 'flex-end',
-    gap: '8px',
-    padding: '12px 16px',
-    borderTop: '1px solid var(--border)',
-  },
-  cancelButton: {
-    padding: '6px 16px',
-    borderRadius: '4px',
-    fontSize: '13px',
-    color: 'var(--text-secondary)',
-    background: 'var(--bg-input)',
-    border: '1px solid var(--border)',
-  },
-  saveButton: {
-    padding: '6px 20px',
-    borderRadius: '4px',
-    fontSize: '13px',
-    color: 'var(--btn-text)',
-    background: 'var(--btn-bg)',
-    fontWeight: 500,
   },
 }

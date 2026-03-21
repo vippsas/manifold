@@ -39,7 +39,7 @@ export function AboutOverlay({ visible, version, onClose }: AboutOverlayProps): 
       <div style={aboutStyles.panel}>
         <div style={aboutStyles.header}>
           <span style={aboutStyles.title}>About Manifold</span>
-          <button onClick={onClose} style={aboutStyles.closeButton}>&times;</button>
+          <button type="button" onClick={onClose} style={aboutStyles.closeButton} aria-label="Close about dialog">&times;</button>
         </div>
         <div style={aboutStyles.body}>
           <span style={aboutStyles.appName}>Manifold</span>
@@ -48,7 +48,7 @@ export function AboutOverlay({ visible, version, onClose }: AboutOverlayProps): 
           <span style={aboutStyles.origin}>Norway &middot; 2026</span>
         </div>
         <div style={aboutStyles.footer}>
-          <button onClick={onClose} style={aboutStyles.closeFooterButton}>Close</button>
+          <button type="button" onClick={onClose} style={aboutStyles.closeFooterButton}>Close</button>
         </div>
       </div>
     </div>

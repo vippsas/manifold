@@ -90,6 +90,9 @@ export function convertTheme(themeJson: MonacoThemeJson, _themeId: string): Conv
 
   const editorFg = c('editor.foreground') ?? (isDark ? '#d4d4d4' : '#1e1e1e')
   const accent = c('focusBorder') ?? c('button.background') ?? '#007acc'
+  const success = isDark ? '#66bb6a' : '#388e3c'
+  const warning = isDark ? '#ffa726' : '#f57c00'
+  const error = isDark ? '#ef5350' : '#d32f2f'
 
   // ── CSS variable mapping ───────────────────────────────────────
   // Surface hierarchy: sidebar (deepest) → primary (editor) → secondary (headers)
@@ -128,14 +131,14 @@ export function convertTheme(themeJson: MonacoThemeJson, _themeId: string): Conv
     '--scrollbar-track': c('scrollbarSlider.activeBackground') ?? 'transparent',
 
     // Status colors — keep consistent per theme type
-    '--success': isDark ? '#66bb6a' : '#388e3c',
-    '--warning': isDark ? '#ffa726' : '#f57c00',
-    '--error': isDark ? '#ef5350' : '#d32f2f',
+    '--success': success,
+    '--warning': warning,
+    '--error': error,
 
     '--status-running': isDark ? '#42a5f5' : '#1e88e5',
     '--status-waiting': isDark ? '#ffca28' : '#f9a825',
-    '--status-done': isDark ? '#66bb6a' : '#388e3c',
-    '--status-error': isDark ? '#ef5350' : '#d32f2f',
+    '--status-done': success,
+    '--status-error': error,
 
     '--diff-added-bg': c('diffEditor.insertedTextBackground')
       ?? (isDark ? 'rgba(102, 187, 106, 0.12)' : 'rgba(56, 142, 60, 0.08)'),
@@ -153,6 +156,58 @@ export function convertTheme(themeJson: MonacoThemeJson, _themeId: string): Conv
       ?? (isDark ? '#2a2d2e' : '#e8e8e8'),
     '--tree-indent-guide': c('tree.indentGuidesStroke')
       ?? (isDark ? '#585858' : '#c4c4c4'),
+
+    // Workbench semantic tokens
+    '--bg-chrome': c('titleBar.activeBackground')
+      ?? c('editorGroupHeader.tabsBackground')
+      ?? (isDark ? lighten(editorBg, 7) : darken(editorBg, 5)),
+    '--bg-chrome-active': c('tab.activeBackground')
+      ?? editorBg,
+    '--bg-overlay': c('editorWidget.background')
+      ?? c('menu.background')
+      ?? (isDark ? lighten(editorBg, 4) : darken(editorBg, 2)),
+    '--bg-elevated': c('sideBarSectionHeader.background')
+      ?? c('menu.background')
+      ?? (isDark ? lighten(editorBg, 6) : darken(editorBg, 3)),
+    '--control-bg': c('input.background')
+      ?? (isDark ? lighten(editorBg, 5) : darken(editorBg, 3)),
+    '--control-border': c('input.border')
+      ?? c('panel.border')
+      ?? c('editorGroup.border')
+      ?? (isDark ? lighten(editorBg, 18) : darken(editorBg, 18)),
+    '--control-bg-hover': c('button.hoverBackground')
+      ?? c('list.hoverBackground')
+      ?? withOpacity(editorFg, isDark ? 0.08 : 0.05),
+    '--overlay-backdrop': isDark ? 'rgba(0, 0, 0, 0.44)' : 'rgba(0, 0, 0, 0.2)',
+    '--overlay-border': c('widget.border')
+      ?? c('panel.border')
+      ?? (isDark ? lighten(editorBg, 18) : darken(editorBg, 18)),
+    '--focus-ring': c('focusBorder') ?? accent,
+    '--list-hover-bg': c('list.hoverBackground')
+      ?? (isDark ? '#2a2d2e' : '#e8e8e8'),
+    '--list-active-bg': c('list.activeSelectionBackground')
+      ?? (isDark ? '#04395e' : '#d6ebff'),
+    '--list-inactive-bg': c('list.inactiveSelectionBackground')
+      ?? (isDark ? '#37373d' : '#e4e6f1'),
+    '--sidebar-active-bg': c('list.inactiveSelectionBackground')
+      ?? withOpacity(accent, isDark ? 0.14 : 0.1),
+    '--sidebar-active-border': c('list.activeSelectionBackground')
+      ?? withOpacity(accent, isDark ? 0.28 : 0.18),
+    '--sidebar-active-text': c('list.activeSelectionForeground')
+      ?? editorFg,
+    '--statusbar-bg': c('statusBar.background')
+      ?? c('statusBar.noFolderBackground')
+      ?? c('editorGroupHeader.tabsBackground')
+      ?? (isDark ? lighten(editorBg, 8) : darken(editorBg, 5)),
+    '--statusbar-hover-bg': c('statusBarItem.hoverBackground')
+      ?? withOpacity(editorFg, isDark ? 0.08 : 0.06),
+    '--accent-subtle': withOpacity(accent, isDark ? 0.16 : 0.12),
+    '--success-subtle': withOpacity(success, isDark ? 0.16 : 0.12),
+    '--warning-subtle': withOpacity(warning, isDark ? 0.16 : 0.12),
+    '--error-subtle': withOpacity(error, isDark ? 0.16 : 0.12),
+    '--shadow-subtle': isDark ? '0 1px 0 rgba(255, 255, 255, 0.03)' : '0 1px 0 rgba(0, 0, 0, 0.06)',
+    '--shadow-popover': isDark ? '0 8px 24px rgba(0, 0, 0, 0.24)' : '0 8px 24px rgba(0, 0, 0, 0.14)',
+    '--shadow-overlay': isDark ? '0 16px 40px rgba(0, 0, 0, 0.28)' : '0 16px 36px rgba(0, 0, 0, 0.18)',
   }
 
   // ── xterm.js ITheme mapping ────────────────────────────────────

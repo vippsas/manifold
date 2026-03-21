@@ -27,7 +27,15 @@ const PANEL_RESTORE_HINTS: Record<DockPanelId, Array<{ ref: DockPanelId; dir: Di
   memory: [{ ref: 'modifiedFiles', dir: 'within' }, { ref: 'fileTree', dir: 'within' }],
 }
 
-export const DEFAULT_SIDEBAR_WIDTH = 300
+const LEGACY_SIDEBAR_WIDTH = 300
+export const MIN_SIDEBAR_WIDTH = 340
+export const DEFAULT_SIDEBAR_WIDTH = 360
+
+function normalizeSidebarWidth(width: number): number {
+  if (width <= 0) return DEFAULT_SIDEBAR_WIDTH
+  if (width <= LEGACY_SIDEBAR_WIDTH) return DEFAULT_SIDEBAR_WIDTH
+  return Math.max(width, MIN_SIDEBAR_WIDTH)
+}
 
 export function isEditorPanelId(panelId: string): boolean {
   return panelId === 'editor' || panelId.startsWith(EDITOR_PANEL_ID_PREFIX)
@@ -57,10 +65,12 @@ export function getSidebarWidth(api: DockviewApi): number {
 
 /** Restore the sidebar to a specific pixel width on the next frame. */
 export function restoreSidebarWidth(api: DockviewApi, width: number): void {
-  if (width <= 0) return
+  const requestedWidth = width > 0 ? width : null
   requestAnimationFrame(() => {
     try {
-      api.getPanel('projects')?.group?.api.setSize({ width })
+      const measuredWidth = getSidebarWidth(api)
+      const targetWidth = normalizeSidebarWidth(requestedWidth ?? measuredWidth)
+      api.getPanel('projects')?.group?.api.setSize({ width: targetWidth })
     } catch { /* best-effort */ }
   })
 }
@@ -129,6 +139,7 @@ export async function loadOrBuildLayout(
       } finally {
         refs.isRestoringRef.current = false
       }
+      restoreSidebarWidth(api, getSidebarWidth(api))
       refs.lastLayoutRef.current = saved
       return
     }
@@ -142,6 +153,7 @@ export async function loadOrBuildLayout(
   } finally {
     refs.isRestoringRef.current = false
   }
+  restoreSidebarWidth(api, DEFAULT_SIDEBAR_WIDTH)
   refs.lastLayoutRef.current = api.toJSON()
 }
 

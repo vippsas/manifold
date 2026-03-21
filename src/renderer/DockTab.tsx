@@ -6,22 +6,12 @@ export function DockTab({ api }: IDockviewPanelHeaderProps): React.JSX.Element {
   const state = React.useContext(DockStateContext)
   const title = api.title ?? ''
   return (
-    <div style={{
-      display: 'flex',
-      alignItems: 'center',
-      gap: '6px',
-      padding: '0 8px',
-      fontSize: 'inherit',
-      fontWeight: 500,
-      whiteSpace: 'nowrap',
-    }}>
-      <span>{title}</span>
+    <div className="dock-tab">
+      <span className="dock-tab__label truncate">{title}</span>
       <button
+        type="button"
         onClick={(e) => { e.stopPropagation(); state?.onClosePanel(api.id) }}
-        style={{
-          fontSize: 'inherit', lineHeight: 1, color: 'var(--text-muted)',
-          padding: '0 2px', cursor: 'pointer', opacity: 0.6,
-        }}
+        className="dock-tab__close"
         title={`Close ${title}`}
       >
         &times;

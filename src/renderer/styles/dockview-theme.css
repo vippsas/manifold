@@ -4,13 +4,13 @@
 .dockview-theme-dark.dockview-theme-manifold {
   --dv-background-color: var(--bg-primary);
   --dv-paneview-header-border-color: var(--border);
-  --dv-tabs-and-actions-container-background-color: var(--bg-secondary);
-  --dv-tabs-and-actions-container-height: 28px;
+  --dv-tabs-and-actions-container-background-color: var(--bg-chrome);
+  --dv-tabs-and-actions-container-height: var(--chrome-tab-height);
   --dv-tabs-and-actions-container-font-size: 1em;
-  --dv-activegroup-visiblepanel-tab-background-color: var(--bg-primary);
-  --dv-activegroup-hiddenpanel-tab-background-color: var(--bg-secondary);
-  --dv-inactivegroup-visiblepanel-tab-background-color: var(--bg-secondary);
-  --dv-inactivegroup-hiddenpanel-tab-background-color: var(--bg-secondary);
+  --dv-activegroup-visiblepanel-tab-background-color: var(--bg-chrome-active);
+  --dv-activegroup-hiddenpanel-tab-background-color: var(--bg-chrome);
+  --dv-inactivegroup-visiblepanel-tab-background-color: var(--bg-chrome);
+  --dv-inactivegroup-hiddenpanel-tab-background-color: var(--bg-chrome);
   --dv-tab-divider-color: var(--border);
   --dv-activegroup-visiblepanel-tab-color: var(--text-primary);
   --dv-activegroup-hiddenpanel-tab-color: var(--text-muted);
@@ -36,31 +36,32 @@
   font-size: inherit;
 }
 
-/* Allow crowded panel tab headers to wrap into additional rows. */
 .dockview-theme-manifold .dv-tabs-and-actions-container {
-  align-items: flex-start;
+  align-items: stretch;
   display: flex;
-  flex-wrap: wrap;
-  height: auto;
+  flex-wrap: nowrap;
+  height: var(--dv-tabs-and-actions-container-height);
   min-height: var(--dv-tabs-and-actions-container-height);
+  overflow: hidden;
 }
 
 .dockview-theme-manifold .dv-tabs-and-actions-container > .dv-tabs-container {
   display: flex;
   flex: 1 1 0;
-  flex-wrap: wrap;
+  flex-wrap: nowrap;
   min-width: 0;
-  overflow: visible;
+  overflow: hidden;
 }
 
 .dockview-theme-manifold .dv-tabs-and-actions-container > .dv-group-actions,
 .dockview-theme-manifold .dv-tabs-and-actions-container > .dv-tabs-actions,
 .dockview-theme-manifold .dv-tabs-and-actions-container > .dv-actions-container {
-  align-items: flex-start;
+  align-items: center;
   display: flex;
   flex: 0 0 auto;
-  flex-wrap: wrap;
+  flex-wrap: nowrap;
   margin-left: auto;
+  min-height: var(--dv-tabs-and-actions-container-height);
 }
 
 /* Active tab highlight — bottom border to clearly indicate selection */
@@ -74,6 +75,10 @@
 /* Panel content fills container */
 .dockview-theme-manifold .dv-groupview-content {
   background-color: var(--bg-primary);
+}
+
+.dockview-theme-manifold .dv-tab {
+  min-width: 0;
 }
 
 /* Minimal layout (no active session): hide sashes between panels */

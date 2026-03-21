@@ -70,16 +70,16 @@ export function ProjectSidebar({
         onFetchProject={onFetchProject}
       />
       <div style={sidebarStyles.actions}>
-        <button onClick={onNewProject} style={sidebarStyles.actionButton}>
+        <button type="button" onClick={onNewProject} className="sidebar-action-button" style={sidebarStyles.actionButton}>
           + New Repository
         </button>
       </div>
       <div style={sidebarStyles.actions}>
-        <button onClick={onNewAgent} style={sidebarStyles.actionButtonPrimary}>
+        <button type="button" onClick={onNewAgent} className="sidebar-action-button sidebar-action-button--primary" style={sidebarStyles.actionButtonPrimary}>
           + New Agent
         </button>
         {onQuickStart && (
-          <button onClick={onQuickStart} style={sidebarStyles.actionButton} title="Start agent on current branch">
+          <button type="button" onClick={onQuickStart} className="sidebar-action-button" style={sidebarStyles.actionButton} title="Start agent on current branch">
             &#9654; Current branch
           </button>
         )}
@@ -201,6 +201,16 @@ function ProjectItem({
     onSelect(project.id)
   }, [onSelect, project.id])
 
+  const handleKeyDown = useCallback(
+    (e: React.KeyboardEvent<HTMLDivElement>): void => {
+      if (e.key === 'Enter' || e.key === ' ') {
+        e.preventDefault()
+        onSelect(project.id)
+      }
+    },
+    [onSelect, project.id]
+  )
+
   const handleGearClick = useCallback(
     (e: React.MouseEvent): void => {
       e.stopPropagation()
@@ -216,20 +226,29 @@ function ProjectItem({
     [onRemove, project.id]
   )
 
+  const stopKeyPropagation = useCallback((e: React.KeyboardEvent<HTMLButtonElement>): void => {
+    e.stopPropagation()
+  }, [])
+
   return (
     <>
       <div
         onClick={handleClick}
+        onKeyDown={handleKeyDown}
+        className={`sidebar-item-row sidebar-project-row${isActive ? ' sidebar-item-row--active' : ''}`}
         style={{ ...sidebarStyles.item, ...(isActive ? sidebarStyles.itemActive : undefined), position: 'relative' as const }}
         role="button"
         tabIndex={0}
       >
-        <span className="truncate" style={sidebarStyles.itemName}>
+        <span className="truncate sidebar-row-label" style={sidebarStyles.itemName}>
           {project.name}
         </span>
-        <div style={sidebarStyles.itemRight}>
+        <div className="sidebar-item-actions" style={sidebarStyles.itemRight}>
           <button
+            type="button"
             onClick={(e) => { e.stopPropagation(); onFetch() }}
+            onKeyDown={stopKeyPropagation}
+            className="sidebar-icon-button"
             style={sidebarStyles.removeButton}
             aria-label={`Fetch ${project.name}`}
             title="Fetch latest from remote"
@@ -238,7 +257,10 @@ function ProjectItem({
             {isFetching ? '...' : '\u21BB'}
           </button>
           <button
+            type="button"
             onClick={handleGearClick}
+            onKeyDown={stopKeyPropagation}
+            className="sidebar-icon-button"
             style={sidebarStyles.removeButton}
             aria-label={`Settings for ${project.name}`}
             title="Repository settings"
@@ -246,7 +268,10 @@ function ProjectItem({
             &#9881;
           </button>
           <button
+            type="button"
             onClick={handleRemoveClick}
+            onKeyDown={stopKeyPropagation}
+            className="sidebar-icon-button"
             style={sidebarStyles.removeButton}
             aria-label={`Remove ${project.name}`}
             title="Remove repository"
@@ -277,4 +302,3 @@ function ProjectItem({
     </>
   )
 }
-

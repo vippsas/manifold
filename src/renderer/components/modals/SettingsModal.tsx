@@ -123,7 +123,7 @@ function ModalHeader({ onClose }: { onClose: () => void }): React.JSX.Element {
   return (
     <div style={modalStyles.header}>
       <span style={modalStyles.title}>Settings</span>
-      <button onClick={onClose} style={modalStyles.closeButton}>&times;</button>
+      <button type="button" onClick={onClose} style={modalStyles.closeButton} aria-label="Close settings">&times;</button>
     </div>
   )
 }
@@ -195,7 +195,7 @@ function SettingsBody({
           style={modalStyles.input}
           placeholder="SF Mono, Fira Code, Cascadia Code, Menlo"
         />
-        <span style={{ fontSize: '11px', color: 'var(--text-muted)', marginTop: '2px' }}>
+        <span style={modalStyles.helpText}>
           Set a Nerd Font (e.g. MesloLGS Nerd Font Mono) for oh-my-posh/Starship icons
         </span>
       </label>
@@ -288,8 +288,8 @@ function ThemeField({
 function ModalFooter({ onClose, onSave }: { onClose: () => void; onSave: () => void }): React.JSX.Element {
   return (
     <div style={modalStyles.footer}>
-      <button onClick={onClose} style={modalStyles.cancelButton}>Cancel</button>
-      <button onClick={onSave} style={modalStyles.saveButton}>Save</button>
+      <button type="button" onClick={onClose} style={modalStyles.cancelButton}>Cancel</button>
+      <button type="button" onClick={onSave} style={modalStyles.saveButton}>Save</button>
     </div>
   )
 }

@@ -1,0 +1,176 @@
+import type React from 'react'
+
+type StyleMap = Record<string, React.CSSProperties>
+
+export const dialogPrimitives: StyleMap = {
+  overlay: {
+    position: 'fixed',
+    inset: 0,
+    background: 'var(--overlay-backdrop)',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    zIndex: 1000,
+  },
+  panelBase: {
+    background: 'var(--bg-overlay)',
+    border: '1px solid var(--overlay-border)',
+    borderRadius: 'var(--radius-md)',
+    boxShadow: 'var(--shadow-overlay)',
+    overflow: 'hidden',
+  },
+  header: {
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    minHeight: 'var(--dialog-header-height)',
+    padding: '0 var(--space-lg)',
+    borderBottom: '1px solid var(--border)',
+    background: 'var(--bg-chrome)',
+  },
+  title: {
+    fontWeight: 600,
+    fontSize: 'var(--type-ui)',
+    lineHeight: 1.2,
+  },
+  closeButton: {
+    display: 'inline-flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    width: 'calc(var(--control-height) - 4px)',
+    height: 'calc(var(--control-height) - 4px)',
+    borderRadius: 'var(--radius-xs)',
+    color: 'var(--text-secondary)',
+    lineHeight: 1,
+  },
+  body: {
+    padding: 'var(--space-lg)',
+    display: 'flex',
+    flexDirection: 'column',
+    gap: 'var(--space-md)',
+  },
+  footer: {
+    display: 'flex',
+    justifyContent: 'flex-end',
+    gap: 'var(--space-sm)',
+    padding: 'var(--space-md) var(--space-lg)',
+    borderTop: '1px solid var(--border)',
+    background: 'var(--bg-chrome)',
+  },
+  label: {
+    display: 'flex',
+    flexDirection: 'column',
+    gap: 'var(--space-xs)',
+    fontSize: 'var(--type-ui-small)',
+    color: 'var(--text-secondary)',
+    fontWeight: 500,
+  },
+  select: {
+    minHeight: 'var(--control-height)',
+    padding: '0 var(--space-sm)',
+    fontSize: 'var(--type-ui)',
+    background: 'var(--control-bg)',
+    color: 'var(--text-primary)',
+    border: '1px solid var(--control-border)',
+    borderRadius: 'var(--radius-sm)',
+  },
+  input: {
+    minHeight: 'var(--control-height)',
+    padding: '0 var(--space-sm)',
+    fontSize: 'var(--type-ui)',
+    background: 'var(--control-bg)',
+    color: 'var(--text-primary)',
+    border: '1px solid var(--control-border)',
+    borderRadius: 'var(--radius-sm)',
+  },
+  secondaryButton: {
+    minHeight: 'var(--control-height)',
+    padding: '0 var(--space-md)',
+    borderRadius: 'var(--radius-sm)',
+    fontSize: 'var(--type-ui)',
+    color: 'var(--text-secondary)',
+    background: 'var(--control-bg)',
+    border: '1px solid var(--control-border)',
+  },
+  primaryButton: {
+    minHeight: 'var(--control-height)',
+    padding: '0 calc(var(--space-md) + 2px)',
+    borderRadius: 'var(--radius-sm)',
+    fontSize: 'var(--type-ui)',
+    color: 'var(--btn-text)',
+    background: 'var(--btn-bg)',
+    fontWeight: 500,
+  },
+  helpText: {
+    fontSize: 'var(--type-ui-caption)',
+    color: 'var(--text-muted)',
+    marginTop: '2px',
+  },
+  errorText: {
+    fontSize: 'var(--type-ui-small)',
+    color: 'var(--error)',
+    margin: 0,
+  },
+}
+
+export function createDialogStyles(width: string): StyleMap {
+  return {
+    overlay: dialogPrimitives.overlay,
+    panel: {
+      ...dialogPrimitives.panelBase,
+      width,
+      maxWidth: '90vw',
+    },
+    header: dialogPrimitives.header,
+    title: dialogPrimitives.title,
+    closeButton: dialogPrimitives.closeButton,
+    body: dialogPrimitives.body,
+    footer: dialogPrimitives.footer,
+    label: dialogPrimitives.label,
+    select: dialogPrimitives.select,
+    input: dialogPrimitives.input,
+    cancelButton: dialogPrimitives.secondaryButton,
+    saveButton: dialogPrimitives.primaryButton,
+    secondaryButton: dialogPrimitives.secondaryButton,
+    primaryButton: dialogPrimitives.primaryButton,
+    helpText: dialogPrimitives.helpText,
+    errorText: dialogPrimitives.errorText,
+  }
+}
+
+export function createAnchoredPopoverStyles(minWidth: string): StyleMap {
+  return {
+    overlay: {
+      position: 'fixed',
+      inset: 0,
+      zIndex: 999,
+    },
+    popover: {
+      position: 'absolute',
+      right: 0,
+      top: '100%',
+      marginTop: '4px',
+      background: 'var(--bg-elevated)',
+      border: '1px solid var(--overlay-border)',
+      borderRadius: 'var(--radius-sm)',
+      padding: 'var(--space-sm) var(--space-md)',
+      zIndex: 1000,
+      minWidth,
+      boxShadow: 'var(--shadow-popover)',
+    },
+    header: {
+      fontSize: 'var(--type-ui-small)',
+      fontWeight: 600,
+      color: 'var(--text-secondary)',
+      marginBottom: 'var(--space-sm)',
+    },
+    label: {
+      display: 'flex',
+      alignItems: 'center',
+      gap: 'var(--space-sm)',
+      fontSize: 'var(--type-ui-small)',
+      color: 'var(--text-primary)',
+      cursor: 'pointer',
+    },
+  }
+}

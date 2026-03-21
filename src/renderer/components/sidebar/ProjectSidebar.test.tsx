@@ -150,7 +150,7 @@ describe('ProjectSidebar', () => {
     renderSidebar({ activeSessionId: 's1' })
 
     const agentButton = screen.getByTitle('Claude - alpha/oslo')
-    expect(agentButton.style.background).toContain('rgba(79, 195, 247, 0.15)')
+    expect(agentButton).toHaveClass('sidebar-item-row--active')
   })
 
   it('calls onDeleteAgent when agent delete button is clicked', () => {
