@@ -25,6 +25,24 @@ const SOURCE_LABELS: Record<MemoryTimelineItem['source'] | MemorySearchResult['s
   interaction: 'Message',
 }
 
+function getCardSummaryStyle(expanded: boolean): React.CSSProperties {
+  return expanded
+    ? { ...s.cardSummary, ...s.cardSummaryExpanded }
+    : s.cardSummary
+}
+
+function hasExpandedMetadata(item: MemoryTimelineItem): boolean {
+  if (item.source === 'observation') {
+    return item.facts.length > 0 || item.filesTouched.length > 0
+  }
+
+  if (item.source === 'session_summary') {
+    return Boolean(item.whatWasLearned) || item.decisionsMade.length > 0 || item.filesChanged.length > 0
+  }
+
+  return false
+}
+
 function formatTimestamp(ts: number): string {
   const d = new Date(ts)
   const now = new Date()
@@ -229,7 +247,7 @@ function SearchResultCard({
           </button>
         )}
       </div>
-      <div style={s.cardSummary}>{result.summary}</div>
+      <div style={getCardSummaryStyle(expanded)}>{result.summary}</div>
       <div style={s.cardTimestamp}>{formatTimestamp(result.createdAt)}</div>
     </div>
   )
@@ -246,6 +264,8 @@ function TimelineCard({
   onToggle: () => void
   onDelete?: () => void
 }): React.JSX.Element {
+  const showExpandedMetadata = hasExpandedMetadata(item)
+
   return (
     <div style={s.card} onClick={onToggle}>
       <div style={s.cardHeader}>
@@ -258,11 +278,10 @@ function TimelineCard({
           </button>
         )}
       </div>
-      <div style={s.cardSummary}>{item.summary}</div>
+      <div style={getCardSummaryStyle(expanded)}>{item.summary}</div>
       <div style={s.cardTimestamp}>{formatTimestamp(item.createdAt)}</div>
-      {expanded && (
+      {expanded && showExpandedMetadata && (
         <div style={s.expandedDetail}>
-          <div><strong>Summary:</strong> {item.summary}</div>
           {item.source === 'observation' && item.facts.length > 0 && (
             <>
               <div style={{ marginTop: '6px' }}><strong>Facts:</strong></div>

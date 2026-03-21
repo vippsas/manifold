@@ -130,6 +130,10 @@ export const memoryStyles: Record<string, React.CSSProperties> = {
     WebkitLineClamp: 2,
     WebkitBoxOrient: 'vertical' as const,
   },
+  cardSummaryExpanded: {
+    display: 'block',
+    overflow: 'visible',
+  },
   cardTimestamp: {
     fontSize: '10px',
     color: 'var(--text-muted)',
