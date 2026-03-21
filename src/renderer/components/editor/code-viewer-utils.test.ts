@@ -4,6 +4,7 @@ import {
   isHtmlFile,
   parseDiffToLineRanges,
   resolveMarkdownLinkedFilePath,
+  shortenFileNameForTab,
 } from './code-viewer-utils'
 
 describe('isHtmlFile', () => {
@@ -22,6 +23,22 @@ describe('isHtmlFile', () => {
   })
   it('returns false for null', () => {
     expect(isHtmlFile(null)).toBe(false)
+  })
+})
+
+describe('shortenFileNameForTab', () => {
+  it('leaves short names unchanged', () => {
+    expect(shortenFileNameForTab('/repo/README.md')).toBe('README.md')
+  })
+
+  it('truncates long names while preserving the extension', () => {
+    expect(shortenFileNameForTab('/repo/aks-workload-isolation-and-least-privilege-findings.md', 32))
+      .toBe('aks-workload-isolation-and-l….md')
+  })
+
+  it('truncates long names without an extension', () => {
+    expect(shortenFileNameForTab('/repo/very-long-filename-without-extension', 20))
+      .toBe('very-long-filename…')
   })
 })
 

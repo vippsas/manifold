@@ -1,7 +1,7 @@
 import React, { useCallback, useRef } from 'react'
 import type { OpenFile } from '../../hooks/useCodeView'
 import { viewerStyles } from './CodeViewer.styles'
-import { fileName } from './code-viewer-utils'
+import { shortenFileNameForTab } from './code-viewer-utils'
 
 export interface MoveTarget {
   id: string
@@ -160,6 +160,8 @@ function FileTab({
   onSelect: (filePath: string) => void
   onClose: (filePath: string) => void
 }): React.JSX.Element {
+  const label = shortenFileNameForTab(file.path)
+
   return (
     <div style={{ ...viewerStyles.tab, ...(isActive ? viewerStyles.tabActive : {}) }} title={file.path}>
       <button
@@ -168,8 +170,9 @@ function FileTab({
           onActivatePane()
           onSelect(file.path)
         }}
+        title={file.path}
       >
-        {fileName(file.path)}
+        {label}
       </button>
       <button
         style={viewerStyles.tabClose}

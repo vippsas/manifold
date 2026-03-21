@@ -65,6 +65,28 @@ export function fileName(filePath: string): string {
   return filePath.split('/').pop() ?? filePath
 }
 
+export function shortenFileNameForTab(filePath: string, maxLength = 32): string {
+  const name = fileName(filePath)
+  const ellipsis = '\u2026'
+
+  if (name.length <= maxLength) return name
+  if (maxLength <= ellipsis.length) return ellipsis.slice(0, maxLength)
+
+  const lastDot = name.lastIndexOf('.')
+  const hasExtension = lastDot > 0 && lastDot < name.length - 1
+  const extension = hasExtension ? name.slice(lastDot) : ''
+  const baseName = hasExtension ? name.slice(0, lastDot) : name
+  const reservedLength = ellipsis.length + extension.length
+
+  if (extension && reservedLength < maxLength) {
+    const visibleBase = baseName.slice(0, maxLength - reservedLength).replace(/[-_. ]+$/, '')
+    return `${visibleBase || baseName.slice(0, maxLength - reservedLength)}${ellipsis}${extension}`
+  }
+
+  const visibleName = name.slice(0, maxLength - ellipsis.length).replace(/[-_. ]+$/, '')
+  return `${visibleName || name.slice(0, maxLength - ellipsis.length)}${ellipsis}`
+}
+
 export function splitDiffByFile(diffText: string): FileDiff[] {
   if (!diffText.trim()) return []
   const fileChunks = diffText.split(/^(?=diff --git )/m).filter((c) => c.trim())
