@@ -1,4 +1,4 @@
-import React, { useMemo, useRef, useState, useCallback, useEffect } from 'react'
+import React, { useMemo, useRef, useState, useCallback, useEffect, useLayoutEffect } from 'react'
 import Editor, { DiffEditor, type OnMount, type DiffOnMount } from '@monaco-editor/react'
 import type { editor as monacoEditor } from 'monaco-editor'
 import ReactMarkdown from 'react-markdown'
@@ -43,6 +43,7 @@ interface CodeViewerProps {
 // Module-level state that survives component remounts (e.g. agent switches rebuild dockview layout)
 const previewPathsByPane = new Map<string, Set<string>>()
 const scrollPositionsByFile = new Map<string, number>()
+const markdownScrollPositionsByPreview = new Map<string, number>()
 
 const BASE_EDITOR_OPTIONS = {
   minimap: { enabled: false },
@@ -236,9 +237,9 @@ export function CodeViewer({
             title="HTML Preview"
           />
         ) : previewActive && fileContent !== null && !isHtml ? (
-          <div className="markdown-preview">
-            <ReactMarkdown remarkPlugins={[remarkGfm]} components={markdownComponents}>{fileContent}</ReactMarkdown>
-          </div>
+          activeFilePath !== null ? (
+            <MarkdownPreview paneId={paneId} filePath={activeFilePath} fileContent={fileContent} />
+          ) : null
         ) : diffMode && fileContent !== null ? (
           <DiffEditor
             key={`${activeFilePath ?? '__no-file__'}:${activeRefreshVersion}`}
@@ -271,6 +272,56 @@ export function CodeViewer({
           onClose={() => setMoveMenu(null)}
         />
       )}
+    </div>
+  )
+}
+
+interface MarkdownPreviewProps {
+  paneId: string
+  filePath: string
+  fileContent: string
+}
+
+function MarkdownPreview({
+  paneId,
+  filePath,
+  fileContent,
+}: MarkdownPreviewProps): React.JSX.Element {
+  const containerRef = useRef<HTMLDivElement | null>(null)
+  const scrollKey = `${paneId}:${filePath}`
+
+  const persistScrollPosition = useCallback((): void => {
+    const container = containerRef.current
+    if (!container) return
+    markdownScrollPositionsByPreview.set(scrollKey, container.scrollTop)
+  }, [scrollKey])
+
+  useLayoutEffect(() => {
+    const container = containerRef.current
+    if (!container) return
+
+    const scrollTop = markdownScrollPositionsByPreview.get(scrollKey)
+    if (scrollTop !== undefined && container.scrollTop !== scrollTop) {
+      container.scrollTop = scrollTop
+    }
+  })
+
+  useEffect(() => (
+    () => {
+      const container = containerRef.current
+      if (!container) return
+      markdownScrollPositionsByPreview.set(scrollKey, container.scrollTop)
+    }
+  ), [scrollKey])
+
+  return (
+    <div
+      ref={containerRef}
+      className="markdown-preview"
+      onScroll={persistScrollPosition}
+      onMouseDownCapture={persistScrollPosition}
+    >
+      <ReactMarkdown remarkPlugins={[remarkGfm]} components={markdownComponents}>{fileContent}</ReactMarkdown>
     </div>
   )
 }
