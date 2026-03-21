@@ -25,9 +25,27 @@ vi.mock('@monaco-editor/react', async () => {
 })
 
 vi.mock('react-markdown', () => ({
-  default: ({ children }: { children: React.ReactNode }) => (
-    <div data-testid="markdown-preview">{children}</div>
-  ),
+  default: ({
+    children,
+    components,
+  }: {
+    children: React.ReactNode
+    components?: { a?: React.ComponentType<{ href?: string; children: React.ReactNode }> }
+  }) => {
+    const content = String(children)
+    const linkMatch = content.trim().match(/^\[([^\]]+)\]\(([^)]+)\)$/)
+
+    if (linkMatch && components?.a) {
+      const Anchor = components.a
+      return (
+        <div data-testid="markdown-preview">
+          <Anchor href={linkMatch[2]}>{linkMatch[1]}</Anchor>
+        </div>
+      )
+    }
+
+    return <div data-testid="markdown-preview">{children}</div>
+  },
 }))
 
 vi.mock('remark-gfm', () => ({
@@ -70,6 +88,7 @@ function renderViewer(overrides: Partial<React.ComponentProps<typeof CodeViewer>
     lastFileOpenRequest: makeOpenRequest(),
     theme: 'vs-dark',
     onSelectTab: vi.fn(),
+    onOpenLinkedFile: vi.fn(),
     onCloseTab: vi.fn(),
     onSaveFile: vi.fn(),
     ...overrides,
@@ -194,6 +213,27 @@ describe('CodeViewer', () => {
     expect(screen.queryByTestId('monaco-diff-editor')).not.toBeInTheDocument()
   })
 
+  it('opens in editor instead of diff when the file was opened from markdown preview', async () => {
+    const openFile = makeOpenFile({
+      path: '/repo/src/index.ts',
+      content: 'new',
+    })
+
+    renderViewer({
+      fileDiffText: 'diff --git a/src/index.ts b/src/index.ts',
+      originalContent: 'old',
+      openFiles: [openFile],
+      activeFilePath: openFile.path,
+      fileContent: openFile.content,
+      lastFileOpenRequest: makeOpenRequest({ path: openFile.path, source: 'markdownPreview' }),
+    })
+
+    await waitFor(() => {
+      expect(screen.getByTestId('monaco-editor')).toHaveTextContent('new')
+    })
+    expect(screen.queryByTestId('monaco-diff-editor')).not.toBeInTheDocument()
+  })
+
   it('keeps preview button working when pane activation triggers a rerender', async () => {
     function Wrapper(): React.JSX.Element {
       const [activations, setActivations] = React.useState(0)
@@ -223,6 +263,70 @@ describe('CodeViewer', () => {
     await waitFor(() => {
       expect(screen.getByTestId('markdown-preview')).toHaveTextContent('# Hello')
     })
+  })
+
+  it('opens relative markdown links in the current editor pane', async () => {
+    const onOpenLinkedFile = vi.fn()
+
+    renderViewer({
+      openFiles: [makeOpenFile({ path: '/repo/docs/readme.md', content: '[Child note](./notes/child.md)' })],
+      activeFilePath: '/repo/docs/readme.md',
+      fileContent: '[Child note](./notes/child.md)',
+      onOpenLinkedFile,
+    })
+
+    fireEvent.click(screen.getByTitle('Show preview'))
+
+    const link = await screen.findByRole('link', { name: 'Child note' })
+    fireEvent.click(link)
+
+    expect(onOpenLinkedFile).toHaveBeenCalledWith('/repo/docs/notes/child.md')
+  })
+
+  it('opens linked markdown files directly in preview mode', async () => {
+    function Wrapper(): React.JSX.Element {
+      const files = React.useMemo<Record<string, string>>(() => ({
+        '/repo/docs/readme.md': '[Child note](./notes/child.md)',
+        '/repo/docs/notes/child.md': '# Child preview',
+      }), [])
+      const [activeFilePath, setActiveFilePath] = React.useState('/repo/docs/readme.md')
+      const [lastFileOpenRequest, setLastFileOpenRequest] = React.useState<FileOpenRequest>(
+        makeOpenRequest({ path: '/repo/docs/readme.md' }),
+      )
+
+      return (
+        <CodeViewer
+          paneId="editor-preview-link-open-test"
+          sessionId="session-1"
+          fileDiffText={null}
+          originalContent={null}
+          openFiles={Object.entries(files).map(([path, content]) => makeOpenFile({ path, content }))}
+          activeFilePath={activeFilePath}
+          fileContent={files[activeFilePath]}
+          lastFileOpenRequest={lastFileOpenRequest}
+          theme="vs-dark"
+          onSelectTab={vi.fn()}
+          onOpenLinkedFile={(filePath) => {
+            setActiveFilePath(filePath)
+            setLastFileOpenRequest(makeOpenRequest({ path: filePath, source: 'markdownPreview' }))
+          }}
+          onCloseTab={vi.fn()}
+          onSaveFile={vi.fn()}
+        />
+      )
+    }
+
+    render(<Wrapper />)
+
+    fireEvent.click(screen.getByTitle('Show preview'))
+
+    const link = await screen.findByRole('link', { name: 'Child note' })
+    fireEvent.click(link)
+
+    await waitFor(() => {
+      expect(screen.getByTestId('markdown-preview')).toHaveTextContent('# Child preview')
+    })
+    expect(screen.queryByTestId('monaco-editor')).not.toBeInTheDocument()
   })
 
   it('preserves markdown preview scroll when pane activation remounts the viewer', async () => {

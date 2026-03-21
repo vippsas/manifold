@@ -35,6 +35,32 @@ export function isHtmlFile(filePath: string | null): boolean {
   return ext === 'html' || ext === 'htm'
 }
 
+const URL_SCHEME_PATTERN = /^[a-zA-Z][a-zA-Z\d+.-]*:/
+
+export function isExternalMarkdownHref(href: string | null | undefined): boolean {
+  if (!href) return false
+  if (href.startsWith('//')) return true
+  if (!URL_SCHEME_PATTERN.test(href)) return false
+  return !href.toLowerCase().startsWith('file:')
+}
+
+export function resolveMarkdownLinkedFilePath(currentFilePath: string, href: string | null | undefined): string | null {
+  if (!href || href.startsWith('#') || isExternalMarkdownHref(href)) {
+    return null
+  }
+
+  try {
+    const resolved = href.toLowerCase().startsWith('file:')
+      ? new URL(href)
+      : new URL(href, filePathToUrl(currentFilePath))
+
+    if (resolved.protocol !== 'file:') return null
+    return fileUrlToPath(resolved)
+  } catch {
+    return null
+  }
+}
+
 export function fileName(filePath: string): string {
   return filePath.split('/').pop() ?? filePath
 }
@@ -81,6 +107,17 @@ function isDiffMetaLine(line: string): boolean {
     line.startsWith('+++') ||
     line.startsWith('@@')
   )
+}
+
+function filePathToUrl(filePath: string): URL {
+  const normalized = filePath.replace(/\\/g, '/')
+  const pathname = normalized.startsWith('/') ? normalized : `/${normalized}`
+  return new URL(`file://${encodeURI(pathname)}`)
+}
+
+function fileUrlToPath(url: URL): string {
+  const pathname = decodeURIComponent(url.pathname)
+  return /^\/[a-zA-Z]:\//.test(pathname) ? pathname.slice(1) : pathname
 }
 
 export interface LineRange {

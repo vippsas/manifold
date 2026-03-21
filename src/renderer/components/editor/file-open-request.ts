@@ -1,4 +1,4 @@
-export type FileOpenSource = 'default' | 'fileTree'
+export type FileOpenSource = 'default' | 'fileTree' | 'markdownPreview'
 
 export interface FileOpenRequest {
   path: string | null
