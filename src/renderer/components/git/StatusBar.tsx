@@ -47,33 +47,35 @@ export function StatusBar({
     <div className="layout-status-bar">
       {activeSession ? (
         <>
-          <span style={barStyles.item}>
+          <span className="statusbar-item">
             <span className={`status-dot status-dot--${activeSession.status}`} />
-            <span className="mono" style={barStyles.branch}>
+            <span className="mono truncate statusbar-branch">
               {activeSession.branchName}
             </span>
           </span>
-          <span style={barStyles.item}>
+          <span className="statusbar-item">
             {changedFiles.length} file{changedFiles.length !== 1 ? 's' : ''} changed
           </span>
         </>
       ) : (
-        <span style={barStyles.item}>No active agent</span>
+        <span className="statusbar-item">No active agent</span>
       )}
       {activeSession && (
-        <span style={barStyles.gitActions}>
+        <span className="statusbar-group">
           {hasConflicts && onShowConflicts ? (
             <button
+              type="button"
               onClick={onShowConflicts}
-              style={barStyles.conflictButton}
+              className="statusbar-button statusbar-button--warning"
               title="Resolve merge conflicts"
             >
               Conflicts ({conflicts.length})
             </button>
           ) : hasChanges && onCommit ? (
             <button
+              type="button"
               onClick={onCommit}
-              style={barStyles.commitButton}
+              className="statusbar-button statusbar-button--success"
               title="Commit changes"
             >
               Commit
@@ -81,8 +83,9 @@ export function StatusBar({
           ) : null}
           {hasAhead && onCreatePR && (
             <button
+              type="button"
               onClick={onCreatePR}
-              style={barStyles.prButton}
+              className="statusbar-button statusbar-button--accent"
               title="Create pull request"
             >
               Create PR
@@ -90,14 +93,15 @@ export function StatusBar({
           )}
         </span>
       )}
-      <span style={barStyles.spacer} />
+      <span className="statusbar-spacer" />
       {activeSession && hiddenDockPanels.length > 0 && (
-        <span style={barStyles.toggleGroup}>
+        <span className="statusbar-group">
           {hiddenDockPanels.map((id) => (
             <button
               key={id}
+              type="button"
               onClick={() => dockLayout.togglePanel(id)}
-              style={barStyles.toggleButton}
+              className="statusbar-button"
               title={`Show ${PANEL_LABELS[id]}`}
             >
               {PANEL_LABELS[id]}
@@ -105,105 +109,28 @@ export function StatusBar({
           ))}
         </span>
       )}
-      <span style={barStyles.item}>
+      <span className="statusbar-item">
         base: <span className="mono">{baseBranch}</span>
       </span>
       <button
+        type="button"
         onClick={() => window.electronAPI.invoke('app:switch-mode', 'simple', activeSession?.projectId, activeSession?.id)}
-        style={barStyles.toggleButton}
+        className="statusbar-button"
         title="Switch to Simple View"
       >
         Simple View
       </button>
       {onOpenSettings && (
         <button
+          type="button"
           onClick={onOpenSettings}
-          style={barStyles.settingsButton}
+          className="statusbar-button statusbar-icon-button"
           aria-label="Settings"
           title="Settings"
         >
-          &#9881;
+          <span className="statusbar-icon">&#9881;</span>
         </button>
       )}
     </div>
   )
-}
-
-type BarStyleKey =
-  | 'item'
-  | 'branch'
-  | 'spacer'
-  | 'toggleGroup'
-  | 'toggleButton'
-  | 'gitActions'
-  | 'commitButton'
-  | 'prButton'
-  | 'conflictButton'
-  | 'settingsButton'
-
-const barStyles: Record<BarStyleKey, React.CSSProperties> = {
-  item: {
-    display: 'flex',
-    alignItems: 'center',
-    gap: '6px',
-  },
-  branch: {
-    fontSize: 'inherit',
-  },
-  spacer: {
-    flex: 1,
-  },
-  toggleGroup: {
-    display: 'flex',
-    alignItems: 'center',
-    gap: '4px',
-  },
-  toggleButton: {
-    fontSize: '0.92em',
-    padding: '1px 6px',
-    borderRadius: '3px',
-    color: 'var(--accent)',
-    background: 'rgba(79, 195, 247, 0.12)',
-    cursor: 'pointer',
-    whiteSpace: 'nowrap' as const,
-  },
-  gitActions: {
-    display: 'flex',
-    alignItems: 'center',
-    gap: '6px',
-  },
-  commitButton: {
-    fontSize: '0.92em',
-    padding: '2px 8px',
-    borderRadius: '3px',
-    color: 'var(--success)',
-    background: 'rgba(102, 187, 106, 0.15)',
-    cursor: 'pointer',
-    whiteSpace: 'nowrap' as const,
-  },
-  prButton: {
-    fontSize: '0.92em',
-    padding: '2px 8px',
-    borderRadius: '3px',
-    color: 'var(--accent)',
-    background: 'rgba(79, 195, 247, 0.15)',
-    cursor: 'pointer',
-    whiteSpace: 'nowrap' as const,
-  },
-  conflictButton: {
-    fontSize: '0.92em',
-    padding: '2px 8px',
-    borderRadius: '3px',
-    color: 'var(--warning)',
-    background: 'rgba(255, 167, 38, 0.15)',
-    cursor: 'pointer',
-    whiteSpace: 'nowrap' as const,
-  },
-  settingsButton: {
-    fontSize: '1em',
-    color: 'var(--text-secondary)',
-    cursor: 'pointer',
-    padding: '0 2px',
-    lineHeight: 1,
-  },
 }

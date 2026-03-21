@@ -222,7 +222,7 @@ function PopoverBody({
           ))}
         </select>
         {!runtimeInstalled && (
-          <p style={{ color: 'var(--error, #f85149)', fontSize: '12px', margin: 0 }}>
+          <p style={popoverStyles.errorText}>
             {selectedRuntime?.name ?? runtimeId} is not installed. Please install it first.
           </p>
         )}
@@ -243,7 +243,7 @@ function PopoverBody({
             ))}
           </select>
           {ollamaModels.length === 0 && (
-            <p style={{ color: 'var(--error, #f85149)', fontSize: '12px', margin: 0 }}>
+            <p style={popoverStyles.errorText}>
               No Ollama models found. Run &quot;ollama pull &lt;model&gt;&quot; to download one.
             </p>
           )}
@@ -290,4 +290,3 @@ function PopoverFooter({
     </div>
   )
 }
-

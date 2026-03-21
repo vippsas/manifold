@@ -2,12 +2,14 @@
 /* Color variables are set dynamically by applyThemeCssVars() on <html>.
    The defaults below provide initial values before JS loads. */
 :root {
-  --font-sans: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
-  --font-mono: 'SF Mono', 'Fira Code', 'Cascadia Code', 'JetBrains Mono', Menlo, Consolas, monospace;
+  --font-sans: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  --font-mono: 'SF Mono', ui-monospace, 'Cascadia Mono', 'Cascadia Code', 'JetBrains Mono', Menlo, Consolas, monospace;
 
+  --radius-xs: 2px;
   --radius-sm: 4px;
   --radius-md: 6px;
   --radius-lg: 8px;
+  --radius-pill: 999px;
 
   --space-xs: 4px;
   --space-sm: 8px;
@@ -15,9 +17,20 @@
   --space-lg: 16px;
   --space-xl: 24px;
 
+  --type-ui: 13px;
+  --type-ui-small: 12px;
+  --type-ui-caption: 11px;
+  --type-ui-micro: 10px;
+
+  --chrome-tab-height: 30px;
+  --chrome-row-height: 26px;
+  --chrome-status-height: 24px;
+  --control-height: 28px;
+  --dialog-header-height: 38px;
+
   --pane-divider-width: 4px;
-  --sidebar-width: 200px;
-  --status-bar-height: 30px;
+  --sidebar-width: 360px;
+  --status-bar-height: var(--chrome-status-height);
 
   /* Default color values — match the default Dracula theme.
      Overridden by theme adapter at runtime via applyThemeCssVars(). */
@@ -57,6 +70,37 @@
   --tree-inactive-selection: #37373d;
   --tree-hover: #2a2d2e;
   --tree-indent-guide: #585858;
+
+  --bg-chrome: var(--bg-secondary);
+  --bg-chrome-active: var(--bg-primary);
+  --bg-overlay: var(--bg-secondary);
+  --bg-elevated: var(--bg-secondary);
+
+  --control-bg: var(--bg-input);
+  --control-border: var(--border);
+  --control-bg-hover: rgba(255, 255, 255, 0.08);
+
+  --overlay-backdrop: rgba(0, 0, 0, 0.44);
+  --overlay-border: var(--border);
+
+  --focus-ring: var(--accent);
+  --list-hover-bg: var(--tree-hover);
+  --list-active-bg: var(--tree-active-selection);
+  --list-inactive-bg: var(--tree-inactive-selection);
+  --sidebar-active-bg: var(--accent-subtle);
+  --sidebar-active-border: rgba(0, 122, 204, 0.28);
+  --sidebar-active-text: var(--text-primary);
+  --statusbar-bg: var(--bg-secondary);
+  --statusbar-hover-bg: rgba(255, 255, 255, 0.08);
+
+  --accent-subtle: rgba(0, 122, 204, 0.16);
+  --success-subtle: rgba(102, 187, 106, 0.16);
+  --warning-subtle: rgba(255, 167, 38, 0.16);
+  --error-subtle: rgba(239, 83, 80, 0.16);
+
+  --shadow-subtle: 0 1px 0 rgba(0, 0, 0, 0.12);
+  --shadow-popover: 0 8px 24px rgba(0, 0, 0, 0.22);
+  --shadow-overlay: 0 16px 40px rgba(0, 0, 0, 0.28);
 }
 
 /* ─── Global Reset ─── */
@@ -78,8 +122,8 @@ body,
 
 body {
   font-family: var(--font-sans);
-  font-size: 13px;
-  line-height: 1.5;
+  font-size: var(--type-ui);
+  line-height: 1.4;
   background: var(--bg-primary);
   color: var(--text-primary);
   -webkit-font-smoothing: antialiased;
@@ -139,14 +183,15 @@ body {
 
 .layout-status-bar {
   height: var(--status-bar-height);
-  background: var(--bg-secondary);
+  background: var(--statusbar-bg);
   border-top: 1px solid var(--border);
   display: flex;
   align-items: center;
-  padding: 0 var(--space-md);
-  gap: var(--space-lg);
-  font-size: inherit;
+  padding: 0 var(--space-sm);
+  gap: var(--space-sm);
+  font-size: var(--type-ui-small);
   color: var(--text-secondary);
+  user-select: none;
 }
 
 /* ─── Resizable Pane Dividers ─── */
@@ -237,9 +282,9 @@ textarea,
 select {
   font-family: inherit;
   font-size: inherit;
-  background: var(--bg-input);
+  background: var(--control-bg);
   color: var(--text-primary);
-  border: 1px solid var(--border);
+  border: 1px solid var(--control-border);
   border-radius: var(--radius-sm);
   padding: var(--space-xs) var(--space-sm);
   outline: none;
@@ -250,6 +295,15 @@ input:focus,
 textarea:focus,
 select:focus {
   border-color: var(--accent) !important;
+}
+
+button:focus-visible,
+[role='button']:focus-visible,
+input:focus-visible,
+textarea:focus-visible,
+select:focus-visible {
+  outline: 1px solid var(--focus-ring);
+  outline-offset: -1px;
 }
 
 /* ─── Status Dot Utility ─── */
@@ -275,6 +329,236 @@ select:focus {
 
 .status-dot--error {
   background: var(--status-error);
+}
+
+.dock-tab {
+  display: flex;
+  align-items: center;
+  gap: var(--space-xs);
+  min-width: 0;
+  height: 100%;
+  padding: 0 var(--space-sm);
+  font-size: inherit;
+  font-weight: 500;
+  white-space: nowrap;
+}
+
+.dock-tab__label {
+  min-width: 0;
+}
+
+.dock-tab__close {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 14px;
+  height: 14px;
+  border-radius: var(--radius-xs);
+  color: var(--text-muted);
+  opacity: 0.7;
+}
+
+.dock-tab__close:hover {
+  background: var(--statusbar-hover-bg);
+  color: var(--text-primary);
+  opacity: 1;
+}
+
+.statusbar-item,
+.statusbar-group {
+  display: flex;
+  align-items: center;
+  gap: var(--space-xs);
+  min-width: 0;
+}
+
+.statusbar-spacer {
+  flex: 1;
+}
+
+.statusbar-branch {
+  min-width: 0;
+}
+
+.statusbar-button {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  min-height: calc(var(--chrome-status-height) - 4px);
+  padding: 0 6px;
+  border: 1px solid transparent;
+  border-radius: var(--radius-xs);
+  color: var(--text-secondary);
+  background: transparent;
+  white-space: nowrap;
+}
+
+.statusbar-button:hover {
+  background: var(--statusbar-hover-bg);
+  color: var(--text-primary);
+}
+
+.statusbar-button--accent {
+  color: var(--accent);
+  background: var(--accent-subtle);
+}
+
+.statusbar-button--success {
+  color: var(--success);
+  background: var(--success-subtle);
+}
+
+.statusbar-button--warning {
+  color: var(--warning);
+  background: var(--warning-subtle);
+}
+
+.statusbar-icon-button {
+  width: 20px;
+  justify-content: center;
+  padding: 0;
+}
+
+.statusbar-icon {
+  font-size: 14px;
+  line-height: 1;
+}
+
+.sidebar-item-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-sm);
+  min-height: var(--chrome-row-height);
+  margin: 1px 8px;
+  padding: 0 12px 0 11px;
+  border-radius: var(--radius-sm);
+  color: var(--text-secondary);
+  position: relative;
+  cursor: pointer;
+}
+
+.sidebar-item-row:hover {
+  background: var(--list-hover-bg);
+  color: var(--text-primary);
+}
+
+.sidebar-item-row--active {
+  background: var(--sidebar-active-bg);
+  box-shadow: inset 0 0 0 1px var(--sidebar-active-border);
+  color: var(--sidebar-active-text);
+}
+
+.sidebar-item-row:focus-visible {
+  outline: 1px solid var(--focus-ring);
+  outline-offset: -1px;
+}
+
+.sidebar-project-row {
+  font-weight: 600;
+  padding-right: 68px;
+}
+
+.sidebar-agent-row {
+  flex-direction: column;
+  align-items: flex-start;
+  min-height: auto;
+  padding: 2px 12px 2px 28px;
+  gap: 0;
+}
+
+.sidebar-agent-main {
+  display: flex;
+  align-items: center;
+  gap: var(--space-xs);
+  width: 100%;
+  min-height: 18px;
+  position: relative;
+  padding-right: 18px;
+}
+
+.sidebar-row-label {
+  flex: 1;
+  min-width: 0;
+}
+
+.sidebar-item-actions {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  margin-left: auto;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.15s ease;
+}
+
+.sidebar-item-row:hover .sidebar-item-actions,
+.sidebar-item-row:focus-within .sidebar-item-actions,
+.sidebar-item-row--active .sidebar-item-actions {
+  opacity: 0.95;
+  pointer-events: auto;
+}
+
+.sidebar-project-row > .sidebar-item-actions {
+  position: absolute;
+  right: 10px;
+  top: 50%;
+  transform: translateY(-50%);
+}
+
+.sidebar-agent-main > .sidebar-item-actions {
+  position: absolute;
+  right: 0;
+  top: 50%;
+  transform: translateY(-50%);
+}
+
+.sidebar-secondary-text {
+  display: block;
+  font-size: var(--type-ui-caption);
+  color: var(--text-muted);
+  line-height: 1.15;
+}
+
+.sidebar-aux-list {
+  padding-left: 14px;
+  padding-top: 1px;
+}
+
+.sidebar-aux-item {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding-top: 0;
+  font-size: var(--type-ui-caption);
+  color: var(--text-muted);
+}
+
+.sidebar-icon-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 16px;
+  height: 16px;
+  border-radius: var(--radius-xs);
+  color: var(--text-muted);
+  opacity: 0.75;
+}
+
+.sidebar-icon-button:hover {
+  background: var(--statusbar-hover-bg);
+  color: var(--text-primary);
+  opacity: 1;
+}
+
+.sidebar-action-button {
+  min-height: var(--control-height);
+}
+
+.sidebar-action-button--primary {
+  color: var(--accent);
+  background: var(--accent-subtle);
+  border-color: transparent;
 }
 
 /* ─── Markdown Preview ─── */
@@ -445,7 +729,7 @@ select:focus {
   display: flex;
   flex-direction: column;
   z-index: 100;
-  box-shadow: -4px 0 16px rgba(0, 0, 0, 0.25);
+  box-shadow: var(--shadow-overlay);
 }
 
 .git-panel-header {
@@ -459,7 +743,7 @@ select:focus {
 
 .git-panel-title {
   font-weight: 600;
-  font-size: 13px;
+  font-size: var(--type-ui);
 }
 
 .git-panel-close {
@@ -488,7 +772,7 @@ select:focus {
 
 .git-panel-label {
   display: block;
-  font-size: 11px;
+  font-size: var(--type-ui-caption);
   font-weight: 600;
   color: var(--text-secondary);
   text-transform: uppercase;
@@ -509,7 +793,7 @@ select:focus {
 
 .git-panel-error {
   display: block;
-  font-size: 11px;
+  font-size: var(--type-ui-caption);
   color: var(--error);
   margin-bottom: var(--space-xs);
 }
@@ -526,7 +810,7 @@ select:focus {
   gap: var(--space-xs);
   padding: 3px 0;
   font-family: var(--font-mono);
-  font-size: 12px;
+  font-size: var(--type-ui-small);
   color: var(--text-primary);
 }
 
@@ -536,8 +820,8 @@ select:focus {
   justify-content: center;
   width: 16px;
   height: 16px;
-  border-radius: 2px;
-  font-size: 9px;
+  border-radius: var(--radius-xs);
+  font-size: var(--type-ui-micro);
   font-weight: 700;
   flex-shrink: 0;
 }
@@ -560,8 +844,8 @@ select:focus {
 .git-panel-textarea {
   width: 100%;
   font-family: var(--font-mono);
-  font-size: 12px;
-  background: var(--bg-input);
+  font-size: var(--type-ui-small);
+  background: var(--control-bg);
   color: var(--text-primary);
   border: 1px solid var(--border);
   border-radius: var(--radius-sm);
@@ -576,11 +860,11 @@ select:focus {
 
 .git-panel-input {
   width: 100%;
-  font-size: 13px;
+  font-size: var(--type-ui);
 }
 
 .git-panel-readonly {
-  font-size: 12px;
+  font-size: var(--type-ui-small);
   color: var(--text-secondary);
   padding: var(--space-xs) 0;
 }
@@ -596,7 +880,7 @@ select:focus {
 }
 
 .git-panel-btn {
-  font-size: 12px;
+  font-size: var(--type-ui-small);
   padding: 5px 14px;
   border-radius: var(--radius-sm);
   cursor: pointer;
@@ -628,10 +912,10 @@ select:focus {
 }
 
 .git-panel-btn--small {
-  font-size: 11px;
+  font-size: var(--type-ui-caption);
   padding: 2px 8px;
-  border-radius: 3px;
-  background: var(--bg-input);
+  border-radius: var(--radius-xs);
+  background: var(--control-bg);
   color: var(--text-secondary);
 }
 
@@ -653,7 +937,7 @@ select:focus {
 
 .git-panel-conflict-path {
   font-family: var(--font-mono);
-  font-size: 12px;
+  font-size: var(--type-ui-small);
   flex: 1;
   min-width: 0;
 }
@@ -665,13 +949,13 @@ select:focus {
 }
 
 .git-panel-resolved-badge {
-  font-size: 11px;
+  font-size: var(--type-ui-caption);
   color: var(--success);
   font-weight: 600;
 }
 
 .git-panel-resolving {
-  font-size: 11px;
+  font-size: var(--type-ui-caption);
   color: var(--text-muted);
 }
 
@@ -690,7 +974,7 @@ select:focus {
   color: var(--accent);
   text-decoration: none;
   font-family: var(--font-mono);
-  font-size: 12px;
+  font-size: var(--type-ui-small);
   word-break: break-all;
 }
 
@@ -729,7 +1013,7 @@ select:focus {
 
 /* ─── Context Menu ─── */
 .context-menu-item:hover {
-  background: rgba(255, 255, 255, 0.06);
+  background: var(--list-hover-bg);
 }
 
 /* ─── Monaco Diff Gutter Decorations ─── */

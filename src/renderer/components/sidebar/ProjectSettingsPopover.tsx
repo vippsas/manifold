@@ -1,5 +1,6 @@
 import React from 'react'
 import type { Project } from '../../../shared/types'
+import { createAnchoredPopoverStyles } from '../workbench-style-primitives'
 
 interface ProjectSettingsPopoverProps {
   project: Project
@@ -7,40 +8,7 @@ interface ProjectSettingsPopoverProps {
   onClose: () => void
 }
 
-const styles: Record<string, React.CSSProperties> = {
-  overlay: {
-    position: 'fixed',
-    inset: 0,
-    zIndex: 999,
-  },
-  popover: {
-    position: 'absolute',
-    right: 0,
-    top: '100%',
-    marginTop: '4px',
-    background: 'var(--bg-secondary)',
-    border: '1px solid var(--border)',
-    borderRadius: '6px',
-    padding: '10px 12px',
-    zIndex: 1000,
-    minWidth: '200px',
-    boxShadow: '0 4px 12px rgba(0,0,0,0.3)',
-  },
-  header: {
-    fontSize: 'inherit',
-    fontWeight: 600,
-    color: 'var(--text-secondary)',
-    marginBottom: '8px',
-  },
-  label: {
-    display: 'flex',
-    alignItems: 'center',
-    gap: '8px',
-    fontSize: 'inherit',
-    color: 'var(--text-primary)',
-    cursor: 'pointer',
-  },
-}
+const styles: Record<string, React.CSSProperties> = createAnchoredPopoverStyles('200px')
 
 export function ProjectSettingsPopover({
   project,

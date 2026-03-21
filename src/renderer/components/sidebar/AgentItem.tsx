@@ -44,13 +44,27 @@ export function AgentItem({ session, projectPath, isActive, onSelect, onDelete }
     onSelect(session.id)
   }, [onSelect, session.id])
 
+  const handleKeyDown = useCallback(
+    (e: React.KeyboardEvent<HTMLDivElement>): void => {
+      if (e.key === 'Enter' || e.key === ' ') {
+        e.preventDefault()
+        onSelect(session.id)
+      }
+    },
+    [onSelect, session.id]
+  )
+
   const handleDelete = useCallback(
-    (e: React.MouseEvent): void => {
+    (e: React.MouseEvent | React.KeyboardEvent): void => {
       e.stopPropagation()
       onDelete(session.id)
     },
     [onDelete, session.id]
   )
+
+  const stopKeyPropagation = useCallback((e: React.KeyboardEvent<HTMLButtonElement>): void => {
+    e.stopPropagation()
+  }, [])
 
   const primaryLabel = formatBranchLabel(session.branchName, projectPath)
   const secondaryLabel = session.taskDescription
@@ -58,24 +72,18 @@ export function AgentItem({ session, projectPath, isActive, onSelect, onDelete }
     : runtimeLabel(session.runtimeId)
 
   return (
-    <button
+    <div
       onClick={handleClick}
-      style={{
-        ...sidebarStyles.agentItem,
-        background: isActive ? 'rgba(79, 195, 247, 0.15)' : 'transparent',
-        opacity: isActive ? 1 : 0.6,
-        flexDirection: 'column',
-        alignItems: 'flex-start',
-        gap: '2px',
-        paddingTop: '6px',
-        paddingBottom: '6px',
-      }}
+      onKeyDown={handleKeyDown}
+      className={`sidebar-item-row sidebar-agent-row${isActive ? ' sidebar-item-row--active' : ''}`}
       title={`${runtimeLabel(session.runtimeId)} - ${session.branchName}`}
+      role="button"
+      tabIndex={0}
     >
-      <div style={{ display: 'flex', alignItems: 'center', gap: '6px', width: '100%' }}>
+      <div className="sidebar-agent-main">
         <span className={`status-dot status-dot--${session.status}`} />
         <span
-          className="truncate"
+          className="truncate sidebar-row-label"
           style={{
             ...sidebarStyles.agentBranch,
             color: isActive ? 'var(--accent)' : 'var(--text-secondary)',
@@ -85,45 +93,35 @@ export function AgentItem({ session, projectPath, isActive, onSelect, onDelete }
         >
           {primaryLabel}
         </span>
-        <span
-          role="button"
-          onClick={handleDelete}
-          style={sidebarStyles.agentDeleteButton}
-          aria-label={`Delete ${primaryLabel}`}
-          title="Delete task"
-        >
-          &times;
-        </span>
+        <div className="sidebar-item-actions">
+          <button
+            type="button"
+            onClick={handleDelete}
+            onKeyDown={stopKeyPropagation}
+            className="sidebar-icon-button"
+            style={sidebarStyles.agentDeleteButton}
+            aria-label={`Delete ${primaryLabel}`}
+            title="Delete task"
+          >
+            &times;
+          </button>
+        </div>
       </div>
       <span
-        style={{
-          fontSize: '0.92em',
-          color: 'var(--text-muted)',
-          paddingLeft: '14px',
-          opacity: 0.8,
-        }}
-        className="truncate"
+        className="truncate sidebar-secondary-text"
+        style={{ paddingLeft: '16px' }}
       >
         {secondaryLabel}
       </span>
       {session.additionalDirs.length > 0 && (
-        <div style={{ paddingLeft: '14px', paddingTop: '2px' }}>
+        <div className="sidebar-aux-list">
           {session.additionalDirs.map((dir) => {
             const dirName = dir.split('/').filter(Boolean).pop() ?? dir
             return (
               <div
                 key={dir}
                 title={dir}
-                style={{
-                  fontSize: '0.92em',
-                  color: 'var(--text-muted)',
-                  opacity: 0.7,
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '4px',
-                  paddingTop: '1px',
-                }}
-                className="truncate"
+                className="truncate sidebar-aux-item"
               >
                 <span style={{ fontSize: '0.85em', opacity: 0.8 }}>+</span>
                 {dirName}
@@ -132,6 +130,6 @@ export function AgentItem({ session, projectPath, isActive, onSelect, onDelete }
           })}
         </div>
       )}
-    </button>
+    </div>
   )
 }
