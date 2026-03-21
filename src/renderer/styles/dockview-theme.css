@@ -36,6 +36,33 @@
   font-size: inherit;
 }
 
+/* Allow crowded panel tab headers to wrap into additional rows. */
+.dockview-theme-manifold .dv-tabs-and-actions-container {
+  align-items: flex-start;
+  display: flex;
+  flex-wrap: wrap;
+  height: auto;
+  min-height: var(--dv-tabs-and-actions-container-height);
+}
+
+.dockview-theme-manifold .dv-tabs-and-actions-container > .dv-tabs-container {
+  display: flex;
+  flex: 1 1 0;
+  flex-wrap: wrap;
+  min-width: 0;
+  overflow: visible;
+}
+
+.dockview-theme-manifold .dv-tabs-and-actions-container > .dv-group-actions,
+.dockview-theme-manifold .dv-tabs-and-actions-container > .dv-tabs-actions,
+.dockview-theme-manifold .dv-tabs-and-actions-container > .dv-actions-container {
+  align-items: flex-start;
+  display: flex;
+  flex: 0 0 auto;
+  flex-wrap: wrap;
+  margin-left: auto;
+}
+
 /* Active tab highlight — bottom border to clearly indicate selection */
 .dockview-theme-manifold .dv-groupview.dv-active-group > .dv-tabs-and-actions-container .dv-tab.dv-active-tab {
   border-bottom: 2px solid var(--accent);
