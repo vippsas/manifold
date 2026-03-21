@@ -9,6 +9,11 @@ const OBSERVATION_TYPES: ObservationType[] = [
   'error_resolution',
   'architecture',
   'pattern',
+  'bugfix',
+  'feature',
+  'refactor',
+  'discovery',
+  'change',
 ]
 
 const TYPE_LABELS: Record<ObservationType, string> = {
@@ -17,7 +22,22 @@ const TYPE_LABELS: Record<ObservationType, string> = {
   error_resolution: 'Error Fix',
   architecture: 'Architecture',
   pattern: 'Pattern',
+  bugfix: 'Bug Fix',
+  feature: 'Feature',
+  refactor: 'Refactor',
+  discovery: 'Discovery',
+  change: 'Change',
 }
+
+const OBSERVATION_CONCEPTS = [
+  { value: 'how-it-works', label: 'How it works' },
+  { value: 'what-changed', label: 'What changed' },
+  { value: 'problem-solution', label: 'Problem/Solution' },
+  { value: 'gotcha', label: 'Gotcha' },
+  { value: 'pattern', label: 'Pattern' },
+  { value: 'trade-off', label: 'Trade-off' },
+  { value: 'why-it-exists', label: 'Why it exists' },
+] as const
 
 const SOURCE_LABELS: Record<MemoryTimelineItem['source'] | MemorySearchResult['source'], string> = {
   observation: 'Observation',
@@ -33,7 +53,10 @@ function getCardSummaryStyle(expanded: boolean): React.CSSProperties {
 
 function hasExpandedMetadata(item: MemoryTimelineItem): boolean {
   if (item.source === 'observation') {
-    return item.facts.length > 0 || item.filesTouched.length > 0
+    return item.facts.length > 0
+      || item.filesTouched.length > 0
+      || Boolean(item.narrative)
+      || (item.concepts != null && item.concepts.length > 0)
   }
 
   if (item.source === 'session_summary') {
@@ -56,6 +79,34 @@ function formatTimestamp(ts: number): string {
   return d.toLocaleDateString(undefined, { month: 'short', day: 'numeric' })
 }
 
+const conceptChipStyle: React.CSSProperties = {
+  padding: '1px 6px',
+  fontSize: '9px',
+  borderRadius: '8px',
+  border: '1px solid rgba(156, 39, 176, 0.3)',
+  background: 'none',
+  color: 'var(--text-muted)',
+  cursor: 'pointer',
+}
+
+const conceptChipActiveStyle: React.CSSProperties = {
+  ...conceptChipStyle,
+  background: 'rgba(156, 39, 176, 0.2)',
+  color: 'var(--text-primary)',
+  borderColor: 'rgba(156, 39, 176, 0.6)',
+}
+
+const conceptTagStyle: React.CSSProperties = {
+  display: 'inline-block',
+  fontSize: '9px',
+  padding: '1px 5px',
+  marginRight: '3px',
+  marginBottom: '2px',
+  borderRadius: '3px',
+  background: 'rgba(156, 39, 176, 0.1)',
+  color: 'var(--text-muted)',
+}
+
 interface MemoryPanelContentProps {
   memory: UseMemoryResult
 }
@@ -63,6 +114,7 @@ interface MemoryPanelContentProps {
 export function MemoryPanelContent({ memory }: MemoryPanelContentProps): React.JSX.Element {
   const [activeTab, setActiveTab] = useState<'search' | 'timeline'>('timeline')
   const [typeFilter, setTypeFilter] = useState<ObservationType | null>(null)
+  const [conceptFilter, setConceptFilter] = useState<string | null>(null)
   const [expandedId, setExpandedId] = useState<string | null>(null)
 
   useEffect(() => {
@@ -79,15 +131,27 @@ export function MemoryPanelContent({ memory }: MemoryPanelContentProps): React.J
     setTypeFilter((prev) => {
       const newFilter = prev === type ? null : type
       if (memory.searchQuery) {
-        void memory.search(memory.searchQuery, newFilter ?? undefined)
+        void memory.search(memory.searchQuery, newFilter ?? undefined, conceptFilter ? [conceptFilter] : undefined)
       }
       return newFilter
     })
-  }, [memory])
+  }, [memory, conceptFilter])
+
+  const handleConceptClick = useCallback((concept: string) => {
+    setConceptFilter((prev) => {
+      const newConcept = prev === concept ? null : concept
+      // Reload timeline with concept filter
+      void memory.loadTimeline(true, newConcept ? [newConcept] : undefined)
+      if (memory.searchQuery) {
+        void memory.search(memory.searchQuery, typeFilter ?? undefined, newConcept ? [newConcept] : undefined)
+      }
+      return newConcept
+    })
+  }, [memory, typeFilter])
 
   const handleLoadMore = useCallback(() => {
-    void memory.loadTimeline(false)
-  }, [memory.loadTimeline])
+    void memory.loadTimeline(false, conceptFilter ? [conceptFilter] : undefined)
+  }, [memory.loadTimeline, conceptFilter])
 
   const handleClear = useCallback(() => {
     if (confirm('Delete all memory for this project? This cannot be undone.')) {
@@ -135,7 +199,7 @@ export function MemoryPanelContent({ memory }: MemoryPanelContentProps): React.J
         </button>
       </div>
 
-      {/* Filter chips */}
+      {/* Type filter chips */}
       <div style={s.filterBar}>
         {OBSERVATION_TYPES.map((type) => (
           <button
@@ -144,6 +208,19 @@ export function MemoryPanelContent({ memory }: MemoryPanelContentProps): React.J
             onClick={() => handleFilterClick(type)}
           >
             {TYPE_LABELS[type]}
+          </button>
+        ))}
+      </div>
+
+      {/* Concept filter chips */}
+      <div style={{ ...s.filterBar, borderBottom: '1px solid var(--border)' }}>
+        {OBSERVATION_CONCEPTS.map(({ value, label }) => (
+          <button
+            key={value}
+            style={conceptFilter === value ? conceptChipActiveStyle : conceptChipStyle}
+            onClick={() => handleConceptClick(value)}
+          >
+            {label}
           </button>
         ))}
       </div>
@@ -282,6 +359,11 @@ function TimelineCard({
       <div style={s.cardTimestamp}>{formatTimestamp(item.createdAt)}</div>
       {expanded && showExpandedMetadata && (
         <div style={s.expandedDetail}>
+          {item.source === 'observation' && item.narrative && (
+            <div style={s.detailBlock}>
+              <strong>Context:</strong> {item.narrative}
+            </div>
+          )}
           {item.source === 'observation' && item.facts.length > 0 && (
             <>
               <div style={{ marginTop: '6px' }}><strong>Facts:</strong></div>
@@ -291,6 +373,13 @@ function TimelineCard({
                 ))}
               </ul>
             </>
+          )}
+          {item.source === 'observation' && item.concepts && item.concepts.length > 0 && (
+            <div style={{ marginTop: '6px' }}>
+              {item.concepts.map((concept) => (
+                <span key={concept} style={conceptTagStyle}>{concept}</span>
+              ))}
+            </div>
           )}
           {item.source === 'session_summary' && item.whatWasLearned && (
             <div style={s.detailBlock}>

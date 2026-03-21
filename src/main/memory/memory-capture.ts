@@ -1,8 +1,10 @@
 import type { ChatAdapter } from '../agent/chat-adapter'
 import type { ChatMessage } from '../../shared/simple-types'
 import type { AgentSession } from '../../shared/types'
+import type { ToolUseEvent } from '../../shared/memory-types'
 import type { MemoryStore } from './memory-store'
 import type { MemoryCompressor } from './memory-compressor'
+import { ToolDetector } from './tool-detector'
 
 const MEMORY_CONTEXT_REGEX = /<!-- manifold:memory-context:start -->[\s\S]*?<!-- manifold:memory-context:end -->/g
 const INCREMENTAL_COMPRESSION_INTERVAL = 5
@@ -88,6 +90,7 @@ export class MemoryCapture {
   private inputBuffers = new Map<string, string>()
   private recentUserInputs = new Map<string, Array<{ text: string; timestamp: number }>>()
   private memoryCompressor: MemoryCompressor | null = null
+  private toolDetector = new ToolDetector()
 
   constructor(
     private chatAdapter: ChatAdapter,
@@ -176,10 +179,24 @@ export class MemoryCapture {
   private onMessage(sessionId: string, message: ChatMessage): void {
     // Strip memory context markers to prevent feedback loops
     const cleanText = message.text.replace(MEMORY_CONTEXT_REGEX, '').trim()
-    this.storeInteraction(sessionId, message.role, cleanText, message.timestamp)
+
+    // Detect tool use events from agent output
+    let toolEvents
+    if (message.role === 'agent') {
+      const detected = this.toolDetector.detect(cleanText)
+      if (detected.length > 0) {
+        toolEvents = detected
+        // Forward to compressor for richer compression
+        if (this.memoryCompressor) {
+          this.memoryCompressor.addToolEvents(sessionId, detected)
+        }
+      }
+    }
+
+    this.storeInteraction(sessionId, message.role, cleanText, message.timestamp, toolEvents)
   }
 
-  private storeInteraction(sessionId: string, role: string, text: string, timestamp: number): void {
+  private storeInteraction(sessionId: string, role: string, text: string, timestamp: number, toolEvents?: ToolUseEvent[]): void {
     const session = this.sessionResolver(sessionId)
     if (!session?.projectId) return
 
@@ -196,6 +213,7 @@ export class MemoryCapture {
       role,
       cleanText,
       timestamp,
+      toolEvents,
     )
 
     if (role === 'user') {

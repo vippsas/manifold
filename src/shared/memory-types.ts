@@ -1,6 +1,16 @@
 // Shared types for the memory system (IPC request/response shapes)
 
-export type ObservationType = 'task_summary' | 'decision' | 'error_resolution' | 'architecture' | 'pattern'
+export type ObservationType =
+  | 'task_summary'
+  | 'decision'
+  | 'error_resolution'
+  | 'architecture'
+  | 'pattern'
+  | 'bugfix'
+  | 'feature'
+  | 'refactor'
+  | 'discovery'
+  | 'change'
 
 export interface MemoryObservation {
   id: string
@@ -9,7 +19,9 @@ export interface MemoryObservation {
   type: ObservationType
   title: string
   summary: string
+  narrative?: string
   facts: string[]
+  concepts?: string[]
   filesTouched: string[]
   createdAt: number
 }
@@ -28,12 +40,20 @@ export interface SessionSummary {
   createdAt: number
 }
 
+export interface ToolUseEvent {
+  toolName: string
+  inputSummary: string
+  outputSummary?: string
+  timestamp: number
+}
+
 export interface MemoryInteraction {
   id: number
   projectId: string
   sessionId: string
   role: string
   text: string
+  toolEvents?: ToolUseEvent[]
   timestamp: number
 }
 
@@ -62,6 +82,7 @@ export interface MemorySearchRequest {
   projectId: string
   query: string
   type?: ObservationType
+  concepts?: string[]
   runtimeId?: string
   limit?: number
 }
@@ -88,6 +109,7 @@ export interface MemoryTimelineRequest {
   cursor?: number
   limit?: number
   type?: ObservationType
+  concepts?: string[]
 }
 
 export interface MemoryObservationTimelineItem {
@@ -98,7 +120,9 @@ export interface MemoryObservationTimelineItem {
   type: ObservationType
   title: string
   summary: string
+  narrative?: string
   facts: string[]
+  concepts?: string[]
   filesTouched: string[]
   createdAt: number
 }

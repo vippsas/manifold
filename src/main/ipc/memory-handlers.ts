@@ -85,6 +85,7 @@ export function registerMemoryHandlers(deps: IpcDependencies): void {
     // Search compressed observations + summaries first
     const compressed = memoryStore.search(request.projectId, request.query, {
       type: request.type,
+      concepts: request.concepts,
       runtimeId: request.runtimeId,
       limit,
     })
@@ -146,7 +147,7 @@ export function registerMemoryHandlers(deps: IpcDependencies): void {
     const cursor = request.cursor ?? Date.now() + 1
 
     let observationSql = `
-      SELECT id, projectId, sessionId, type, title, summary, facts, filesTouched, createdAt
+      SELECT id, projectId, sessionId, type, title, summary, narrative, facts, concepts, filesTouched, createdAt
       FROM observations
       WHERE createdAt < ?
     `
@@ -155,6 +156,12 @@ export function registerMemoryHandlers(deps: IpcDependencies): void {
     if (request.type) {
       observationSql += ' AND type = ?'
       observationParams.push(request.type)
+    }
+
+    if (request.concepts && request.concepts.length > 0) {
+      const placeholders = request.concepts.map(() => '?').join(', ')
+      observationSql += ` AND EXISTS (SELECT 1 FROM json_each(concepts) WHERE value IN (${placeholders}))`
+      observationParams.push(...request.concepts)
     }
 
     observationSql += ' ORDER BY createdAt DESC LIMIT ?'

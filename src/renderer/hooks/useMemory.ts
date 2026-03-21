@@ -16,8 +16,8 @@ export interface UseMemoryResult {
   isSearching: boolean
   searchQuery: string
   setSearchQuery: (query: string) => void
-  search: (query: string, type?: ObservationType) => Promise<void>
-  loadTimeline: (reset?: boolean) => Promise<void>
+  search: (query: string, type?: ObservationType, concepts?: string[]) => Promise<void>
+  loadTimeline: (reset?: boolean, concepts?: string[]) => Promise<void>
   loadStats: () => Promise<void>
   deleteObservation: (observationId: string) => Promise<void>
   clearMemory: () => Promise<void>
@@ -50,7 +50,7 @@ export function useMemory(activeProjectId: string | null): UseMemoryResult {
   const timelineCursorRef = useRef<number | null>(null)
   const debounceTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
-  const search = useCallback(async (query: string, type?: ObservationType) => {
+  const search = useCallback(async (query: string, type?: ObservationType, concepts?: string[]) => {
     if (!activeProjectId || !query.trim()) {
       setSearchResults([])
       return
@@ -61,6 +61,7 @@ export function useMemory(activeProjectId: string | null): UseMemoryResult {
         projectId: activeProjectId,
         query: query.trim(),
         type,
+        concepts,
         limit: 20,
       })) as MemorySearchResponse
       setSearchResults(result.results)
@@ -85,13 +86,14 @@ export function useMemory(activeProjectId: string | null): UseMemoryResult {
     }, 300)
   }, [search])
 
-  const loadTimeline = useCallback(async (reset?: boolean) => {
+  const loadTimeline = useCallback(async (reset?: boolean, concepts?: string[]) => {
     if (!activeProjectId) return
     const cursor = reset ? undefined : timelineCursorRef.current ?? undefined
     try {
       const result = (await window.electronAPI.invoke('memory:timeline', {
         projectId: activeProjectId,
         cursor,
+        concepts,
         limit: 20,
       })) as MemoryTimelineResponse
       const items = result.items
