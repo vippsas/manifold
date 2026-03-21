@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { MemoryCapture } from './memory-capture'
+import { MemoryCapture, sanitizeMemoryText } from './memory-capture'
 import type { ChatAdapter } from '../agent/chat-adapter'
 import type { ChatMessage } from '../../shared/simple-types'
 import type { AgentSession } from '../../shared/types'
@@ -153,6 +153,57 @@ describe('MemoryCapture', () => {
         msg.timestamp,
       )
     })
+
+    it('captures terminal user input when a line is submitted', () => {
+      capture.startCapturing('sess-1')
+
+      capture.recordInput('sess-1', 'Please commit, push, and open a PR')
+      expect(store.insertInteraction).not.toHaveBeenCalled()
+
+      capture.recordInput('sess-1', '\r')
+      expect(store.insertInteraction).toHaveBeenCalledWith(
+        'proj-1',
+        'sess-1',
+        'user',
+        'Please commit, push, and open a PR',
+        expect.any(Number),
+      )
+    })
+
+    it('handles backspace while capturing terminal user input', () => {
+      capture.startCapturing('sess-1')
+
+      capture.recordInput('sess-1', 'Please fix the codx')
+      capture.recordInput('sess-1', '\b')
+      capture.recordInput('sess-1', 'ex bug in memory\r')
+
+      expect(store.insertInteraction).toHaveBeenCalledWith(
+        'proj-1',
+        'sess-1',
+        'user',
+        'Please fix the codex bug in memory',
+        expect.any(Number),
+      )
+    })
+
+    it('suppresses echoed agent output when it matches a recent user prompt', () => {
+      capture.startCapturing('sess-1')
+
+      capture.recordInput('sess-1', 'Please commit push and create a PR\r')
+      adapter.emit('sess-1', makeMessage({
+        role: 'agent',
+        text: 'Please commit, push, and create a PR',
+      }))
+
+      expect(store.insertInteraction).toHaveBeenCalledTimes(1)
+      expect(store.insertInteraction).toHaveBeenLastCalledWith(
+        'proj-1',
+        'sess-1',
+        'user',
+        'Please commit push and create a PR',
+        expect.any(Number),
+      )
+    })
   })
 
   describe('shell session skipping', () => {
@@ -265,6 +316,15 @@ describe('MemoryCapture', () => {
       capture.startCapturing('sess-1')
       adapter.emit('sess-1', makeMessage({ text: 'Refactoring the session manager to support reconnections' }))
       expect(store.insertInteraction).toHaveBeenCalled()
+    })
+
+    it('sanitizes terminal artifacts out of mixed PTY output', () => {
+      expect(sanitizeMemoryText(
+        '• 9 10 ◦\n' +
+        '─────────────────────────────\n' +
+        '• The patch is in. I am running a focused test.\n' +
+        '◦ · 2 background terminals running · /ps to view · /stop to close',
+      )).toBe('The patch is in. I am running a focused test.')
     })
   })
 })

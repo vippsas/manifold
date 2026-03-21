@@ -6,12 +6,73 @@ import type {
   MemoryTimelineRequest,
   MemoryTimelineResponse,
   MemoryObservation,
+  MemoryTimelineItem,
   MemoryStats,
   MemorySettings,
   ObservationType,
+  SessionSummary,
 } from '../../shared/memory-types'
-import { parseObservationRow } from '../memory/memory-store'
-import { isNoise } from '../memory/memory-capture'
+import { parseObservationRow, parseSessionSummaryRow } from '../memory/memory-store'
+import { isNoise, sanitizeMemoryText } from '../memory/memory-capture'
+
+function truncate(text: string, maxLength: number): string {
+  return text.length > maxLength
+    ? text.slice(0, maxLength - 3) + '...'
+    : text
+}
+
+function toObservationTimelineItem(observation: MemoryObservation): MemoryTimelineItem {
+  return {
+    ...observation,
+    source: 'observation',
+  }
+}
+
+function toSessionSummaryTimelineItem(summary: SessionSummary): MemoryTimelineItem {
+  return {
+    id: summary.id,
+    projectId: summary.projectId,
+    sessionId: summary.sessionId,
+    source: 'session_summary',
+    type: 'task_summary',
+    title: summary.taskDescription || summary.branchName,
+    summary: summary.whatWasDone || summary.whatWasLearned,
+    runtimeId: summary.runtimeId,
+    branchName: summary.branchName,
+    whatWasLearned: summary.whatWasLearned,
+    decisionsMade: summary.decisionsMade,
+    filesChanged: summary.filesChanged,
+    createdAt: summary.createdAt,
+  }
+}
+
+function toInteractionTimelineItem(
+  projectId: string,
+  row: { id: number; sessionId: string; role: string; text: string; timestamp: number },
+): MemoryTimelineItem | null {
+  const cleanText = sanitizeMemoryText(row.text.trim())
+  if (!cleanText || isNoise(cleanText)) {
+    return null
+  }
+
+  const title = row.role === 'user'
+    ? 'You'
+    : row.role === 'system'
+      ? 'System'
+      : 'Agent'
+
+  return {
+    id: `interaction-${row.id}`,
+    projectId,
+    sessionId: row.sessionId,
+    source: 'interaction',
+    type: 'task_summary',
+    title,
+    summary: truncate(cleanText, 400),
+    role: row.role,
+    createdAt: row.timestamp,
+  }
+}
 
 export function registerMemoryHandlers(deps: IpcDependencies): void {
   const { memoryStore, settingsStore } = deps
@@ -41,15 +102,23 @@ export function registerMemoryHandlers(deps: IpcDependencies): void {
           id: number; sessionId: string; role: string; text: string; timestamp: number; rank: number
         }>
 
-        const interactionResults = interactionRows.map((r) => ({
-          id: `interaction-${r.id}`,
-          type: 'task_summary' as ObservationType,
-          title: `${r.role === 'user' ? 'You' : 'Agent'}: ${r.text.slice(0, 80)}${r.text.length > 80 ? '...' : ''}`,
-          summary: r.text.slice(0, 200),
-          sessionId: r.sessionId,
-          createdAt: r.timestamp,
-          rank: r.rank,
-        }))
+        const interactionResults = interactionRows
+          .map((r) => {
+            const cleanText = sanitizeMemoryText(r.text)
+            if (!cleanText || isNoise(cleanText)) return null
+
+            return {
+              id: `interaction-${r.id}`,
+              type: 'task_summary' as ObservationType,
+              source: 'interaction' as const,
+              title: `${r.role === 'user' ? 'You' : 'Agent'}: ${truncate(cleanText, 80)}`,
+              summary: truncate(cleanText, 200),
+              sessionId: r.sessionId,
+              createdAt: r.timestamp,
+              rank: r.rank,
+            }
+          })
+          .filter((result): result is NonNullable<typeof result> => result !== null)
 
         // Merge and dedupe, compressed results first
         const allResults = [...compressed.results, ...interactionResults]
@@ -74,69 +143,70 @@ export function registerMemoryHandlers(deps: IpcDependencies): void {
     const limit = request.limit ?? 20
     const cursor = request.cursor ?? Date.now() + 1
 
-    // Try observations first
-    let sql = `
+    let observationSql = `
       SELECT id, projectId, sessionId, type, title, summary, facts, filesTouched, createdAt
       FROM observations
       WHERE createdAt < ?
     `
-    const params: unknown[] = [cursor]
+    const observationParams: unknown[] = [cursor]
 
     if (request.type) {
-      sql += ' AND type = ?'
-      params.push(request.type)
+      observationSql += ' AND type = ?'
+      observationParams.push(request.type)
     }
 
-    sql += ' ORDER BY createdAt DESC LIMIT ?'
-    params.push(limit + 1)
+    observationSql += ' ORDER BY createdAt DESC LIMIT ?'
+    observationParams.push(limit + 1)
 
-    const rows = db.prepare(sql).all(...params) as Array<Record<string, unknown>>
+    const observationRows = db.prepare(observationSql).all(...observationParams) as Array<Record<string, unknown>>
+    const observationItems = observationRows
+      .map(parseObservationRow)
+      .map(toObservationTimelineItem)
 
-    // If we have observations, return them
-    if (rows.length > 0) {
-      const hasMore = rows.length > limit
-      const items = rows.slice(0, limit).map(parseObservationRow)
-      return { items, nextCursor: hasMore ? items[items.length - 1].createdAt : null }
+    const summaryItems: MemoryTimelineItem[] =
+      request.type && request.type !== 'task_summary'
+        ? []
+        : (db.prepare(`
+            SELECT *
+            FROM session_summaries
+            WHERE createdAt < ?
+            ORDER BY createdAt DESC
+            LIMIT ?
+          `).all(cursor, limit + 1) as Array<Record<string, unknown>>)
+          .map(parseSessionSummaryRow)
+          .map(toSessionSummaryTimelineItem)
+
+    const interactionItems: MemoryTimelineItem[] =
+      request.type && request.type !== 'task_summary'
+        ? []
+        : (db.prepare(`
+            SELECT id, sessionId, role, text, timestamp
+            FROM interactions
+            WHERE timestamp < ?
+            ORDER BY timestamp DESC
+            LIMIT ?
+          `).all(cursor, (limit + 1) * 4) as Array<{
+            id: number
+            sessionId: string
+            role: string
+            text: string
+            timestamp: number
+          }>)
+          .map((row) => toInteractionTimelineItem(request.projectId, row))
+          .filter((item): item is MemoryTimelineItem => item !== null)
+
+    const items = [...observationItems, ...summaryItems, ...interactionItems]
+      .sort((a, b) => {
+        if (b.createdAt !== a.createdAt) return b.createdAt - a.createdAt
+        return a.id.localeCompare(b.id)
+      })
+
+    const page = items.slice(0, limit)
+    const hasMore = items.length > limit
+    return {
+      items: page,
+      nextCursor: hasMore && page.length > 0 ? page[page.length - 1].createdAt : null,
     }
-
-    // No observations yet — show recent non-noise interactions
-    if (!request.type) {
-      const interactionRows = db.prepare(`
-        SELECT id, sessionId, text, timestamp
-        FROM interactions
-        WHERE timestamp < ?
-        ORDER BY timestamp DESC
-        LIMIT ?
-      `).all(cursor, (limit + 1) * 3) as Array<{
-        id: number; sessionId: string; text: string; timestamp: number
-      }>
-
-      const filtered = interactionRows
-        .filter((row) => !isNoise(row.text.trim()))
-        .slice(0, limit + 1)
-
-      if (filtered.length > 0) {
-        const hasMore = filtered.length > limit
-        const items = filtered.slice(0, limit).map((row) => ({
-          id: `interaction-${row.id}`,
-          projectId: request.projectId,
-          sessionId: row.sessionId,
-          type: 'task_summary' as ObservationType,
-          title: row.text.length > 120
-            ? row.text.slice(0, 117) + '...'
-            : row.text,
-          summary: row.text.length > 300
-            ? row.text.slice(0, 297) + '...'
-            : row.text,
-          facts: [] as string[],
-          filesTouched: [] as string[],
-          createdAt: row.timestamp,
-        }))
-        return { items, nextCursor: hasMore ? items[items.length - 1].createdAt : null }
-      }
-    }
-
-    return { items: [], nextCursor: null }
   })
 
   ipcMain.handle('memory:stats', (_event, projectId: string): MemoryStats => {

@@ -69,6 +69,7 @@ export interface MemorySearchRequest {
 export interface MemorySearchResult {
   id: string
   type: ObservationType
+  source: 'observation' | 'session_summary' | 'interaction'
   title: string
   summary: string
   runtimeId?: string
@@ -89,8 +90,54 @@ export interface MemoryTimelineRequest {
   type?: ObservationType
 }
 
+export interface MemoryObservationTimelineItem {
+  id: string
+  projectId: string
+  sessionId: string
+  source: 'observation'
+  type: ObservationType
+  title: string
+  summary: string
+  facts: string[]
+  filesTouched: string[]
+  createdAt: number
+}
+
+export interface MemorySessionSummaryTimelineItem {
+  id: string
+  projectId: string
+  sessionId: string
+  source: 'session_summary'
+  type: 'task_summary'
+  title: string
+  summary: string
+  runtimeId: string
+  branchName: string
+  whatWasLearned: string
+  decisionsMade: string[]
+  filesChanged: string[]
+  createdAt: number
+}
+
+export interface MemoryInteractionTimelineItem {
+  id: string
+  projectId: string
+  sessionId: string
+  source: 'interaction'
+  type: 'task_summary'
+  title: string
+  summary: string
+  role: string
+  createdAt: number
+}
+
+export type MemoryTimelineItem =
+  | MemoryObservationTimelineItem
+  | MemorySessionSummaryTimelineItem
+  | MemoryInteractionTimelineItem
+
 export interface MemoryTimelineResponse {
-  items: MemoryObservation[]
+  items: MemoryTimelineItem[]
   nextCursor: number | null
 }
 
