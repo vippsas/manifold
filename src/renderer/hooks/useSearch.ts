@@ -131,10 +131,12 @@ export function useSearch(
     }
   }, [activeSessionId, context, mode])
 
+  const workspaceSessionsMap = scopeKind === 'all-project-sessions' ? allProjectSessions : null
+
   const effectiveScope = useMemo<SearchScopeDescriptor>(() => {
     if (mode === 'memory') return { kind: 'memory-only' }
     if (scopeKind === 'all-project-sessions') {
-      const workspaceSessions = Object.values(allProjectSessions).flat()
+      const workspaceSessions = Object.values(workspaceSessionsMap ?? {}).flat()
       return {
         kind: scopeKind,
         includeAdditionalDirs: mode === 'everything',
@@ -143,7 +145,16 @@ export function useSearch(
       }
     }
     return { kind: scopeKind }
-  }, [allProjectSessions, mode, scopeKind])
+  }, [mode, scopeKind, workspaceSessionsMap])
+
+  const searchActiveSessionId = useMemo(
+    () => (
+      effectiveScope.kind === 'all-project-sessions' || effectiveScope.kind === 'memory-only'
+        ? null
+        : activeSessionId
+    ),
+    [activeSessionId, effectiveScope.kind],
+  )
 
   const request = useMemo(() => buildSearchQueryRequest({
     activeProjectId,
@@ -169,6 +180,30 @@ export function useSearch(
     memoryConceptFilter,
   ])
 
+  const searchRequest = useMemo(() => buildSearchQueryRequest({
+    activeProjectId,
+    activeSessionId: searchActiveSessionId,
+    mode,
+    query,
+    scope: effectiveScope,
+    matchMode,
+    caseSensitive,
+    wholeWord,
+    memoryTypeFilter,
+    memoryConceptFilter,
+  }), [
+    activeProjectId,
+    searchActiveSessionId,
+    mode,
+    query,
+    effectiveScope,
+    matchMode,
+    caseSensitive,
+    wholeWord,
+    memoryTypeFilter,
+    memoryConceptFilter,
+  ])
+
   const clearAiAnswer = useCallback(() => {
     askRequestIdRef.current += 1
     setAiAnswer(null)
@@ -181,7 +216,7 @@ export function useSearch(
   }, [request, clearAiAnswer])
 
   const search = useCallback(async (): Promise<void> => {
-    if (!request) {
+    if (!searchRequest) {
       setResults([])
       setWarnings([])
       return
@@ -190,7 +225,7 @@ export function useSearch(
     const requestId = ++requestIdRef.current
     setIsSearching(true)
     try {
-      const response = await window.electronAPI.invoke('search:query', request) as SearchQueryResponse
+      const response = await window.electronAPI.invoke('search:query', searchRequest) as SearchQueryResponse
       if (requestId !== requestIdRef.current) return
       setResults(response.results)
       setWarnings(response.warnings ?? [])
@@ -205,7 +240,7 @@ export function useSearch(
         setIsSearching(false)
       }
     }
-  }, [request])
+  }, [searchRequest])
 
   const ask = useCallback(async (): Promise<void> => {
     if (!request) {
@@ -237,7 +272,7 @@ export function useSearch(
   useEffect(() => {
     if (debounceTimerRef.current) clearTimeout(debounceTimerRef.current)
     requestIdRef.current += 1
-    if (!request) {
+    if (!searchRequest) {
       setResults([])
       setWarnings([])
       setIsSearching(false)
@@ -249,7 +284,7 @@ export function useSearch(
     return () => {
       if (debounceTimerRef.current) clearTimeout(debounceTimerRef.current)
     }
-  }, [request, search])
+  }, [searchRequest, search])
 
   return {
     context,
