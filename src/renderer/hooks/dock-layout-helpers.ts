@@ -1,6 +1,6 @@
 import type { DockviewApi, SerializedDockview } from 'dockview'
 
-export const PANEL_IDS = ['projects', 'agent', 'editor', 'fileTree', 'modifiedFiles', 'shell', 'memory'] as const
+export const PANEL_IDS = ['projects', 'agent', 'editor', 'fileTree', 'modifiedFiles', 'shell', 'memory', 'search'] as const
 export type DockPanelId = (typeof PANEL_IDS)[number]
 export const EDITOR_PANEL_ID_PREFIX = 'editor:'
 
@@ -12,6 +12,7 @@ export const PANEL_TITLES: Record<DockPanelId, string> = {
   modifiedFiles: 'Modified Files',
   shell: 'Shell',
   memory: 'Memory',
+  search: 'Search',
 }
 
 type Direction = 'right' | 'left' | 'above' | 'below' | 'within'
@@ -25,6 +26,7 @@ const PANEL_RESTORE_HINTS: Record<DockPanelId, Array<{ ref: DockPanelId; dir: Di
   modifiedFiles: [{ ref: 'fileTree', dir: 'within' }, { ref: 'projects', dir: 'below' }],
   shell: [{ ref: 'agent', dir: 'below' }, { ref: 'editor', dir: 'below' }],
   memory: [{ ref: 'modifiedFiles', dir: 'within' }, { ref: 'fileTree', dir: 'within' }],
+  search: [{ ref: 'agent', dir: 'within' }, { ref: 'editor', dir: 'within' }],
 }
 
 const LEGACY_SIDEBAR_WIDTH = 300

@@ -10,6 +10,7 @@ const PANEL_LABELS: Record<DockPanelId, string> = {
   modifiedFiles: 'Modified',
   shell: 'Shell',
   memory: 'Memory',
+  search: 'Search',
 }
 
 interface StatusBarProps {

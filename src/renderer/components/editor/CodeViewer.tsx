@@ -1,22 +1,20 @@
-import React, { useMemo, useRef, useState, useCallback, useEffect, useLayoutEffect } from 'react'
+import React, { useMemo, useRef, useState, useCallback, useEffect } from 'react'
 import Editor, { DiffEditor, type OnMount, type DiffOnMount } from '@monaco-editor/react'
 import type { editor as monacoEditor } from 'monaco-editor'
-import ReactMarkdown from 'react-markdown'
-import remarkGfm from 'remark-gfm'
 import type { OpenFile } from '../../hooks/useCodeView'
 import { viewerStyles } from './CodeViewer.styles'
 import {
   extensionToLanguage,
-  isExternalMarkdownHref,
-  isMarkdownFile,
   isHtmlFile,
-  resolveMarkdownLinkedFilePath,
+  isMarkdownFile,
 } from './code-viewer-utils'
 import type { FileOpenRequest } from './file-open-request'
 import { ContextMenu } from './ContextMenu'
 import { TabBar, NoTabsHeader } from './CodeViewerTabs'
 import type { MoveTarget } from './CodeViewerTabs'
-import { MermaidBlock } from './MermaidBlock'
+import { MarkdownPreview } from './viewer/MarkdownPreview'
+import { revealRequestedLocation } from './viewer/reveal-requested-location'
+import { useResolvedHtmlPreview } from './viewer/useResolvedHtmlPreview'
 
 interface CodeViewerProps {
   paneId?: string
@@ -41,7 +39,6 @@ interface CodeViewerProps {
 // Module-level state that survives component remounts (e.g. agent switches rebuild dockview layout)
 const previewPathsByPane = new Map<string, Set<string>>()
 const scrollPositionsByFile = new Map<string, number>()
-const markdownScrollPositionsByPreview = new Map<string, number>()
 
 const BASE_EDITOR_OPTIONS = {
   minimap: { enabled: false },
@@ -92,7 +89,9 @@ export function CodeViewer({
   const editorRef = useRef<monacoEditor.IStandaloneCodeEditor | null>(null)
   const saveRef = useRef(onSaveFile)
   const activeFilePathRef = useRef(activeFilePath)
+  const lastFileOpenRequestRef = useRef(lastFileOpenRequest)
   activeFilePathRef.current = activeFilePath
+  lastFileOpenRequestRef.current = lastFileOpenRequest
 
   const [previewPaths, setPreviewPaths] = useState<Set<string>>(
     () => previewPathsByPane.get(paneId) ?? new Set(),
@@ -104,46 +103,12 @@ export function CodeViewer({
   const isPreviewable = isMd || isHtml
   const hasDiff = fileDiffText !== null
   const previewActive = isPreviewable && activeFilePath !== null && previewPaths.has(activeFilePath)
-
-  const [resolvedHtml, setResolvedHtml] = useState<string | null>(null)
-
-  useEffect(() => {
-    if (!isHtml || !fileContent || !sessionId || !activeFilePath) {
-      setResolvedHtml(null)
-      return
-    }
-
-    let cancelled = false
-    const dir = activeFilePath.includes('/') ? activeFilePath.replace(/\/[^/]+$/, '') : ''
-
-    void (async (): Promise<void> => {
-      const linkPattern = /<link\s+[^>]*rel=["']stylesheet["'][^>]*href=["']([^"']+)["'][^>]*\/?>/gi
-      const altPattern = /<link\s+[^>]*href=["']([^"']+)["'][^>]*rel=["']stylesheet["'][^>]*\/?>/gi
-      const hrefs = new Set<string>()
-      for (const regex of [linkPattern, altPattern]) {
-        let match: RegExpExecArray | null
-        while ((match = regex.exec(fileContent)) !== null) hrefs.add(match[1])
-      }
-
-      let html = fileContent
-      for (const href of hrefs) {
-        if (href.startsWith('http://') || href.startsWith('https://')) continue
-        const cssPath = dir ? `${dir}/${href}` : href
-        try {
-          const css = (await window.electronAPI.invoke('files:read', sessionId, cssPath)) as string
-          const escapedHref = href.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
-          const tagPattern = new RegExp(`<link\\s+[^>]*href=["']${escapedHref}["'][^>]*\\/?>`, 'gi')
-          html = html.replace(tagPattern, `<style>${css}</style>`)
-        } catch {
-          // CSS file not found — leave the link tag as-is
-        }
-      }
-
-      if (!cancelled) setResolvedHtml(html)
-    })()
-
-    return () => { cancelled = true }
-  }, [isHtml, fileContent, sessionId, activeFilePath])
+  const resolvedHtml = useResolvedHtmlPreview({
+    isHtml,
+    fileContent,
+    sessionId,
+    activeFilePath,
+  })
 
   useEffect(() => {
     previewPathsByPane.set(paneId, previewPaths)
@@ -184,6 +149,7 @@ export function CodeViewer({
       }
     })
 
+    revealRequestedLocation(editor, activeFilePathRef.current, lastFileOpenRequestRef.current)
     editor.focus()
   }, [])
 
@@ -205,6 +171,10 @@ export function CodeViewer({
   const hasTabs = openFiles.length > 0
   const showPreviewToggle = hasTabs && isPreviewable
   const showDiffToggle = hasTabs && hasDiff && !previewActive
+
+  useEffect(() => {
+    revealRequestedLocation(editorRef.current, activeFilePath, lastFileOpenRequest)
+  }, [activeFilePath, lastFileOpenRequest])
 
   return (
     <div style={viewerStyles.wrapper} data-pane-id={paneId}>
@@ -291,62 +261,6 @@ export function CodeViewer({
   )
 }
 
-interface MarkdownPreviewProps {
-  paneId: string
-  filePath: string
-  fileContent: string
-  onOpenLinkedFile: (filePath: string) => void
-}
-
-function MarkdownPreview({
-  paneId,
-  filePath,
-  fileContent,
-  onOpenLinkedFile,
-}: MarkdownPreviewProps): React.JSX.Element {
-  const containerRef = useRef<HTMLDivElement | null>(null)
-  const scrollKey = `${paneId}:${filePath}`
-  const markdownComponents = useMemo(
-    () => createMarkdownComponents(filePath, onOpenLinkedFile),
-    [filePath, onOpenLinkedFile],
-  )
-
-  const persistScrollPosition = useCallback((): void => {
-    const container = containerRef.current
-    if (!container) return
-    markdownScrollPositionsByPreview.set(scrollKey, container.scrollTop)
-  }, [scrollKey])
-
-  useLayoutEffect(() => {
-    const container = containerRef.current
-    if (!container) return
-
-    const scrollTop = markdownScrollPositionsByPreview.get(scrollKey)
-    if (scrollTop !== undefined && container.scrollTop !== scrollTop) {
-      container.scrollTop = scrollTop
-    }
-  })
-
-  useEffect(() => (
-    () => {
-      const container = containerRef.current
-      if (!container) return
-      markdownScrollPositionsByPreview.set(scrollKey, container.scrollTop)
-    }
-  ), [scrollKey])
-
-  return (
-    <div
-      ref={containerRef}
-      className="markdown-preview"
-      onScroll={persistScrollPosition}
-      onMouseDownCapture={persistScrollPosition}
-    >
-      <ReactMarkdown remarkPlugins={[remarkGfm]} components={markdownComponents}>{fileContent}</ReactMarkdown>
-    </div>
-  )
-}
-
 interface EditorContentProps {
   filePath: string | null
   fileContent: string | null
@@ -382,41 +296,4 @@ function EditorContent({
       Select a file to view its contents
     </div>
   )
-}
-
-function createMarkdownComponents(
-  currentFilePath: string,
-  onOpenLinkedFile: (filePath: string) => void,
-) {
-  return {
-    code({ className, children, ...props }: React.ComponentProps<'code'>) {
-      if (className === 'language-mermaid') {
-        return <MermaidBlock chart={String(children).replace(/\n$/, '')} />
-      }
-      return <code className={className} {...props}>{children}</code>
-    },
-    a({ href, children, onClick, rel, target, ...props }: React.ComponentProps<'a'>) {
-      const resolvedFilePath = resolveMarkdownLinkedFilePath(currentFilePath, href)
-      const isExternalLink = isExternalMarkdownHref(href)
-
-      const handleClick = (event: React.MouseEvent<HTMLAnchorElement>): void => {
-        onClick?.(event)
-        if (event.defaultPrevented || !resolvedFilePath) return
-        event.preventDefault()
-        onOpenLinkedFile(resolvedFilePath)
-      }
-
-      return (
-        <a
-          href={href}
-          onClick={handleClick}
-          rel={isExternalLink ? (rel ?? 'noreferrer') : rel}
-          target={isExternalLink ? (target ?? '_blank') : target}
-          {...props}
-        >
-          {children}
-        </a>
-      )
-    },
-  }
 }

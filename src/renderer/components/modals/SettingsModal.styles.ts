@@ -24,4 +24,13 @@ export const modalStyles: Record<string, React.CSSProperties> = {
     zIndex: 1001,
     marginTop: '4px',
   },
+  divider: {
+    borderTop: '1px solid var(--border)',
+    margin: '4px 0',
+  },
+  sectionTitle: {
+    color: 'var(--text-primary)',
+    fontSize: 'var(--type-ui-small)',
+    fontWeight: 600,
+  },
 }

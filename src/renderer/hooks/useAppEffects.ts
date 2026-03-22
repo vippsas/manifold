@@ -1,6 +1,8 @@
 import { useCallback, useEffect, useState } from 'react'
+import type { SearchMode } from '../../shared/search-types'
 import type { DockPanelId, UseDockLayoutResult } from './useDockLayout'
 import type { SpawnAgentOptions } from '../../shared/types'
+import { ensureSearchPanelInWorkspace } from './dock-layout-search'
 
 interface AppEffectsInput {
   dockLayout: UseDockLayoutResult
@@ -13,21 +15,39 @@ interface AppEffectsInput {
 }
 
 export interface AppEffectsResult {
-  fileSearchRequestKey: number
+  searchFocusRequestKey: number
+  requestedSearchMode: SearchMode | null
   showOnboarding: boolean
   setShowOnboarding: (show: boolean) => void
   creatingProject: boolean
   setCreatingProject: (v: boolean) => void
   cloningProject: boolean
   setCloningProject: (v: boolean) => void
+  showSearchPanel: (mode: SearchMode) => void
   handleFilesChanged: () => void
 }
 
 export function useAppEffects(input: AppEffectsInput): AppEffectsResult {
-  const [fileSearchRequestKey, setFileSearchRequestKey] = useState(0)
+  const [searchFocusRequestKey, setSearchFocusRequestKey] = useState(0)
+  const [requestedSearchMode, setRequestedSearchMode] = useState<SearchMode | null>(null)
   const [showOnboarding, setShowOnboarding] = useState(false)
   const [creatingProject, setCreatingProject] = useState(false)
   const [cloningProject, setCloningProject] = useState(false)
+
+  const showSearchPanel = useCallback((mode: SearchMode) => {
+    const api = input.dockLayout.apiRef.current
+    if (api) {
+      ensureSearchPanelInWorkspace(api, input.dockLayout.editorPanelIds)
+    } else if (!input.dockLayout.isPanelVisible('search')) {
+      input.dockLayout.togglePanel('search')
+    }
+    setRequestedSearchMode(mode)
+    setSearchFocusRequestKey((prev) => prev + 1)
+    queueMicrotask(() => {
+      const panel = input.dockLayout.apiRef.current?.getPanel('search')
+      panel?.api.setActive()
+    })
+  }, [input.dockLayout.apiRef, input.dockLayout.editorPanelIds, input.dockLayout.isPanelVisible, input.dockLayout.togglePanel])
 
   useEffect(() => {
     return window.electronAPI.on('view:toggle-panel', (panelId: unknown) => {
@@ -37,15 +57,9 @@ export function useAppEffects(input: AppEffectsInput): AppEffectsResult {
 
   useEffect(() => {
     return window.electronAPI.on('view:show-search', () => {
-      if (!input.dockLayout.isPanelVisible('fileTree')) {
-        input.dockLayout.togglePanel('fileTree')
-      }
-      setFileSearchRequestKey((prev) => prev + 1)
-      queueMicrotask(() => {
-        input.dockLayout.apiRef.current?.getPanel('fileTree')?.api.setActive()
-      })
+      showSearchPanel('code')
     })
-  }, [input.dockLayout.apiRef, input.dockLayout.isPanelVisible, input.dockLayout.togglePanel])
+  }, [showSearchPanel])
 
   useEffect(() => {
     return window.electronAPI.on('app:auto-spawn', (...args: unknown[]) => {
@@ -86,8 +100,9 @@ export function useAppEffects(input: AppEffectsInput): AppEffectsResult {
   }, [input.refreshOpenFiles, input.refreshDiff])
 
   return {
-    fileSearchRequestKey, showOnboarding, setShowOnboarding,
+    searchFocusRequestKey, requestedSearchMode, showOnboarding, setShowOnboarding,
     creatingProject, setCreatingProject, cloningProject, setCloningProject,
+    showSearchPanel,
     handleFilesChanged,
   }
 }

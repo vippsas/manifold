@@ -70,6 +70,11 @@ const ALLOWED_INVOKE_CHANNELS = [
   'memory:delete',
   'memory:clear',
   'memory:settings',
+  'search:context',
+  'search:view-state:get',
+  'search:view-state:set',
+  'search:query',
+  'search:ask',
 ] as const
 
 const ALLOWED_SEND_CHANNELS = [

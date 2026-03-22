@@ -7,7 +7,7 @@ import { listRuntimesWithStatus } from '../agent/runtimes'
 import { runAiPrompt } from '../agent/ai-prompt'
 import { buildCompressionPrompt } from './compression-prompts'
 import { debugLog } from '../app/debug-log'
-import { isNoise, sanitizeMemoryText } from './memory-capture'
+import { isNoise, sanitizeMemoryText, truncate } from './memory-capture'
 
 const MIN_INTERACTIONS_FOR_COMPRESSION = 3
 const INCREMENTAL_BATCH_SIZE = 5
@@ -76,12 +76,6 @@ interface RegexFallbackContext {
   runtimeId?: string
   branchName?: string
   taskDescription?: string
-}
-
-function truncate(text: string, maxLength: number): string {
-  return text.length > maxLength
-    ? text.slice(0, maxLength - 3) + '...'
-    : text
 }
 
 function scoreInteractionForSummary(interaction: MemoryInteraction): number {

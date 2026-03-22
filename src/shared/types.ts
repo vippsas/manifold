@@ -59,6 +59,19 @@ export interface ManifoldSettings {
   notificationSound: boolean
   uiMode: 'developer' | 'simple'
   memory?: import('./memory-types').MemorySettings
+  search?: SearchSettings
+}
+
+export interface SearchAiSettings {
+  enabled: boolean
+  mode: 'answer' | 'rerank'
+  runtimeId: 'default' | string
+  citationLimit: number
+  maxContextResults: number
+}
+
+export interface SearchSettings {
+  ai: SearchAiSettings
 }
 
 export interface SessionEditorPaneState {

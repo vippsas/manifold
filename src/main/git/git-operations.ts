@@ -3,6 +3,8 @@ import { writeFile } from 'node:fs/promises'
 import { join, resolve, normalize } from 'node:path'
 import { promisify } from 'node:util'
 import type { AheadBehind, FetchResult } from '../../shared/types'
+import type { AgentRuntime } from '../../shared/types'
+import { buildAiRuntimeCommand, parseAiRuntimeOutput } from '../agent/ai-runtime-command'
 import {
   commitManagedWorktree,
   getManagedWorktreeStatus,
@@ -95,19 +97,23 @@ export class GitOperationsManager {
   }
 
   async aiGenerate(
-    runtimeBinary: string,
+    runtime: AgentRuntime,
     prompt: string,
     cwd: string,
     extraArgs: string[] = []
   ): Promise<string> {
     return new Promise((resolve) => {
-      const child = spawn(runtimeBinary, ['-p', ...extraArgs], {
+      const command = buildAiRuntimeCommand(runtime, prompt, extraArgs)
+      const child = spawn(command.binary, command.args, {
         cwd,
+        env: command.env,
         stdio: ['pipe', 'pipe', 'pipe'],
       })
 
-      const chunks: Buffer[] = []
-      child.stdout.on('data', (data: Buffer) => chunks.push(data))
+      const stdoutChunks: Buffer[] = []
+      const stderrChunks: Buffer[] = []
+      child.stdout?.on('data', (data: Buffer) => stdoutChunks.push(data))
+      child.stderr?.on('data', (data: Buffer) => stderrChunks.push(data))
 
       const timer = setTimeout(() => {
         child.kill('SIGTERM')
@@ -121,17 +127,22 @@ export class GitOperationsManager {
 
       child.on('close', (code) => {
         clearTimeout(timer)
-        const result = Buffer.concat(chunks).toString('utf8').trim()
+        const stdout = Buffer.concat(stdoutChunks).toString('utf8')
+        const stderr = Buffer.concat(stderrChunks).toString('utf8').trim()
+        const result = parseAiRuntimeOutput(command.outputMode, stdout)
         if (code === 0 && result) {
           resolve(result)
         } else {
-          console.error('[aiGenerate] failed: exit code', code)
+          console.error('[aiGenerate] failed:', {
+            runtime: runtime.id,
+            code,
+            stderr: stderr.slice(0, 500),
+          })
           resolve('')
         }
       })
 
-      child.stdin.write(prompt)
-      child.stdin.end()
+      child.stdin?.end()
     })
   }
 

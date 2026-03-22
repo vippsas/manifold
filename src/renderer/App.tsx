@@ -1,4 +1,4 @@
-import React, { useCallback, useMemo, useState } from 'react'
+import React, { useCallback, useEffect, useMemo, useState } from 'react'
 import { DockviewReact } from 'dockview'
 import { useProjects } from './hooks/useProjects'
 import { useAgentSession } from './hooks/useAgentSession'
@@ -35,6 +35,14 @@ import { ConflictPanel } from './components/git/ConflictPanel'
 import { WelcomeDialog } from './components/modals/WelcomeDialog'
 import { DockTab, EmptyWatermark } from './DockTab'
 import type { FileOpenRequest } from './components/editor/file-open-request'
+
+interface SearchOpenTarget {
+  path: string
+  line?: number
+  column?: number
+  sessionId?: string | null
+  openInSplit?: boolean
+}
 
 export function App(): React.JSX.Element {
   const { settings, updateSettings } = useSettings()
@@ -87,10 +95,56 @@ export function App(): React.JSX.Element {
   const { themeId, themeClass, xtermTheme, setPreviewThemeId } = useTheme(settings.theme)
   const updateNotification = useUpdateNotification()
   const [lastFileOpenRequest, setLastFileOpenRequest] = useState<FileOpenRequest>({ path: null, source: 'default' })
+  const [pendingSearchOpen, setPendingSearchOpen] = useState<SearchOpenTarget | null>(null)
+
+  const openSearchResultInActiveSession = useCallback((target: SearchOpenTarget): void => {
+    setLastFileOpenRequest({
+      path: target.path,
+      line: target.line,
+      column: target.column,
+      source: 'search',
+    })
+
+    if (target.openInSplit) {
+      const referencePaneId = ensureEditorVisible(codeView.activeEditorPaneId)
+      const splitPaneId = dockLayout.splitEditorPane(referencePaneId, 'right')
+      if (splitPaneId) {
+        codeView.createPane(splitPaneId, referencePaneId)
+        codeView.setActivePane(splitPaneId)
+        const targetPaneId = codeView.handleSelectFile(target.path, splitPaneId)
+        dockLayout.focusPanel(targetPaneId)
+        return
+      }
+    }
+
+    handleSelectFile(target.path)
+  }, [codeView, dockLayout, ensureEditorVisible, handleSelectFile])
+
+  useEffect(() => {
+    if (!pendingSearchOpen) return
+    if (!pendingSearchOpen.sessionId || pendingSearchOpen.sessionId !== activeSessionId) return
+    if (viewState.restoredSessionId !== activeSessionId) return
+
+    openSearchResultInActiveSession(pendingSearchOpen)
+    setPendingSearchOpen(null)
+  }, [activeSessionId, openSearchResultInActiveSession, pendingSearchOpen, viewState.restoredSessionId])
 
   const handleSelectFileWithDefaultView = useCallback((filePath: string): void => {
     setLastFileOpenRequest({ path: filePath, source: 'default' }); handleSelectFile(filePath)
   }, [handleSelectFile])
+  const handleOpenSearchResult = useCallback((target: SearchOpenTarget): void => {
+    if (target.sessionId && target.sessionId !== activeSessionId) {
+      setPendingSearchOpen(target)
+      setActiveSession(target.sessionId)
+      return
+    }
+
+    setPendingSearchOpen(null)
+    openSearchResultInActiveSession(target)
+  }, [activeSessionId, openSearchResultInActiveSession, setActiveSession])
+  const handleOpenSearchResultInSplit = useCallback((target: SearchOpenTarget): void => {
+    handleOpenSearchResult({ ...target, openInSplit: true })
+  }, [handleOpenSearchResult])
   const handleSelectFileFromFileTree = useCallback((filePath: string): void => {
     setLastFileOpenRequest({ path: filePath, source: 'fileTree' }); handleSelectFile(filePath)
   }, [handleSelectFile])
@@ -135,12 +189,15 @@ export function App(): React.JSX.Element {
 
   const baseBranch = activeProject?.baseBranch ?? settings.defaultBaseBranch
   const dockState: DockAppState = {
-    sessionId: activeSessionId, scrollbackLines: settings.scrollbackLines,
+    sessionId: activeSessionId,
+    searchFocusRequestKey: appEffects.searchFocusRequestKey,
+    requestedSearchMode: appEffects.requestedSearchMode,
+    scrollbackLines: settings.scrollbackLines,
     terminalFontFamily: settings.terminalFontFamily, xtermTheme, diffText: diff,
     openFiles: codeView.openFiles, activeFilePath: codeView.activeFilePath,
     activeEditorPaneId: codeView.activeEditorPaneId, editorPaneIds: dockLayout.editorPanelIds,
     getEditorPane: codeView.getEditorPane, lastFileOpenRequest, theme: themeId,
-    onSelectFile: handleSelectFileWithDefaultView, onSelectFileFromFileTree: handleSelectFileFromFileTree,
+    onSelectFile: handleSelectFileWithDefaultView, onOpenSearchResult: handleOpenSearchResult, onOpenSearchResultInSplit: handleOpenSearchResultInSplit, onSelectFileFromFileTree: handleSelectFileFromFileTree,
     onSelectOpenFile: handleSelectOpenFile, onSelectFileFromMarkdownPreview: handleSelectFileFromMarkdownPreview,
     onCloseFile: codeView.handleCloseFile,
     onSaveFile: codeView.handleSaveFile, onRegisterEditorPane: codeView.registerPane,
@@ -151,8 +208,7 @@ export function App(): React.JSX.Element {
     onCopyAbsolutePath: handleCopyAbsolutePath, onCopyRelativePath: handleCopyRelativePath,
     worktreeRootPath: tree?.path ?? undefined, tree, additionalTrees, additionalBranches,
     primaryBranch: activeSession?.branchName ?? null, changes: mergedChanges,
-    fileSearchRequestKey: appEffects.fileSearchRequestKey, expandedPaths: viewState.expandedPaths,
-    onToggleExpand: viewState.onToggleExpand, worktreeRoot: tree?.path ?? null,
+    expandedPaths: viewState.expandedPaths, onToggleExpand: viewState.onToggleExpand, worktreeRoot: tree?.path ?? null,
     worktreeShellSessionId: worktreeSessionId, projectShellSessionId: projectSessionId,
     worktreeCwd: worktreeShellCwd, baseBranch, defaultRuntime: settings.defaultRuntime,
     onLaunchAgent: overlays.handleLaunchAgent, projects, activeProjectId,
@@ -164,7 +220,7 @@ export function App(): React.JSX.Element {
     fetchingProjectId: fetchProject.fetchingProjectId, lastFetchedProjectId: fetchProject.lastFetchedProjectId,
     fetchResult: fetchProject.fetchResult, fetchError: fetchProject.fetchError,
     onFetchProject: fetchProject.fetchProject, previewUrl: webPreview.previewUrl,
-    onClosePanel: handleClosePanel, activeSessionStatus: activeSession?.status ?? null,
+    onShowSearchPanel: appEffects.showSearchPanel, onClosePanel: handleClosePanel, activeSessionStatus: activeSession?.status ?? null,
     activeSessionRuntimeId: activeSession?.runtimeId ?? null, onResumeAgent: resumeAgent,
   }
 

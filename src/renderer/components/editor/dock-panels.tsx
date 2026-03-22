@@ -1,16 +1,15 @@
-import React, { useCallback, useMemo, useState } from 'react'
+import React, { useCallback, useMemo } from 'react'
 import { useFileDiff } from '../../hooks/useFileDiff'
 import { TerminalPane } from '../terminal/TerminalPane'
 import { CodeViewer } from './CodeViewer'
 import { FileTree } from './FileTree'
-import { SearchResults } from './SearchResults'
-import { treeStyles } from './FileTree.styles'
 import { ModifiedFiles } from '../git/ModifiedFiles'
 import { ShellTabs } from '../terminal/ShellTabs'
 import { OnboardingView } from '../modals/OnboardingView'
 import { ProjectSidebar } from '../sidebar/ProjectSidebar'
 import { WebPreview } from '../terminal/WebPreview'
 import { MemoryPanel } from '../memory/MemoryPanel'
+import { SearchPanel } from '../search/SearchPanel'
 import { pickRandomNorwegianCityName } from '../../../shared/norwegian-cities'
 import { DockStateContext, useDockState } from './dock-panel-types'
 export type { DockAppState } from './dock-panel-types'
@@ -26,6 +25,7 @@ export const PANEL_COMPONENTS: Record<string, React.FC<any>> = {
   projects: ProjectsPanel,
   webPreview: WebPreviewPanel,
   memory: MemoryPanel,
+  search: SearchPanel,
 }
 
 function AgentPanel(): React.JSX.Element {
@@ -153,58 +153,35 @@ function EditorPanel({ api }: { api: { id: string } }): React.JSX.Element {
 
 function FileTreePanel(): React.JSX.Element {
   const s = useDockState()
-  const [activeTab, setActiveTab] = useState<'files' | 'search'>('files')
   const openFilePaths = useMemo(
     () => new Set(s.openFiles.map((f) => f.path)),
     [s.openFiles]
   )
 
-  React.useEffect(() => {
-    if (s.fileSearchRequestKey > 0) setActiveTab('search')
-  }, [s.fileSearchRequestKey])
-
   return (
     <div style={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
-      <div style={treeStyles.panelTabBar}>
-        <button
-          style={{ ...treeStyles.panelTab, ...(activeTab === 'files' ? treeStyles.panelTabActive : {}) }}
-          onClick={() => setActiveTab('files')}
-        >
-          Files
-        </button>
-        <button
-          style={{ ...treeStyles.panelTab, ...(activeTab === 'search' ? treeStyles.panelTabActive : {}) }}
-          onClick={() => setActiveTab('search')}
-        >
-          Search
-        </button>
-      </div>
-      {activeTab === 'files' ? (
-        <FileTree
-          tree={s.tree}
-          additionalTrees={s.additionalTrees}
-          additionalBranches={s.additionalBranches}
-          primaryBranch={s.primaryBranch}
-          changes={s.changes}
-          activeFilePath={s.activeFilePath}
-          openFilePaths={openFilePaths}
-          expandedPaths={s.expandedPaths}
-          onToggleExpand={s.onToggleExpand}
-          onSelectFile={s.onSelectFileFromFileTree}
-          onDeleteFile={s.onDeleteFile}
-          onRenameFile={s.onRenameFile}
-          onCreateFile={s.onCreateFile}
-          onCreateDir={s.onCreateDir}
-          onImportPaths={s.onImportPaths}
-          onRevealInFinder={s.onRevealInFinder}
-          onOpenInTerminal={s.onOpenInTerminal}
-          onCopyAbsolutePath={s.onCopyAbsolutePath}
-          onCopyRelativePath={s.onCopyRelativePath}
-          worktreeRootPath={s.worktreeRootPath}
-        />
-      ) : (
-        <SearchResults sessionId={s.sessionId} onSelectFile={s.onSelectFile} />
-      )}
+      <FileTree
+        tree={s.tree}
+        additionalTrees={s.additionalTrees}
+        additionalBranches={s.additionalBranches}
+        primaryBranch={s.primaryBranch}
+        changes={s.changes}
+        activeFilePath={s.activeFilePath}
+        openFilePaths={openFilePaths}
+        expandedPaths={s.expandedPaths}
+        onToggleExpand={s.onToggleExpand}
+        onSelectFile={s.onSelectFileFromFileTree}
+        onDeleteFile={s.onDeleteFile}
+        onRenameFile={s.onRenameFile}
+        onCreateFile={s.onCreateFile}
+        onCreateDir={s.onCreateDir}
+        onImportPaths={s.onImportPaths}
+        onRevealInFinder={s.onRevealInFinder}
+        onOpenInTerminal={s.onOpenInTerminal}
+        onCopyAbsolutePath={s.onCopyAbsolutePath}
+        onCopyRelativePath={s.onCopyRelativePath}
+        worktreeRootPath={s.worktreeRootPath}
+      />
     </div>
   )
 }

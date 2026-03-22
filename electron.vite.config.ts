@@ -25,6 +25,19 @@ export default defineConfig({
   },
   renderer: {
     root: resolve(__dirname, 'src'),
+    cacheDir: resolve(__dirname, 'node_modules/.vite/renderer'),
+    optimizeDeps: {
+      entries: [
+        resolve(__dirname, 'src/renderer/index.html'),
+        resolve(__dirname, 'src/renderer-simple/index.html'),
+      ],
+      include: [
+        'react',
+        'react-dom/client',
+        'react/jsx-runtime',
+        'react/jsx-dev-runtime',
+      ],
+    },
     build: {
       outDir: 'out',
       emptyOutDir: false,
