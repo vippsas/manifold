@@ -44,7 +44,10 @@ describe('answerSearchQuestion', () => {
     const response = await answerSearchQuestion(deps, createRequest(), retrieval)
 
     expect(deps.gitOps.aiGenerate).toHaveBeenCalledWith(
-      'claude',
+      expect.objectContaining({
+        id: 'claude',
+        binary: 'claude',
+      }),
       expect.stringContaining('Question: auth flow'),
       '/repo/.manifold/worktrees/feature-search',
       ['--model', 'haiku'],
@@ -95,6 +98,7 @@ function createDeps() {
     },
     sessionManager: {
       getSession: vi.fn(() => ({
+        runtimeId: 'claude',
         worktreePath: '/repo/.manifold/worktrees/feature-search',
       })),
     },

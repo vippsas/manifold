@@ -78,6 +78,7 @@ function createDeps(overrides: Record<string, unknown> = {}) {
     },
     sessionManager: {
       getSession: vi.fn(() => ({
+        runtimeId: 'claude',
         worktreePath: '/repo/.manifold/worktrees/feature-search',
       })),
     },

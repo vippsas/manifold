@@ -1,7 +1,7 @@
-import { getRuntimeById } from '../agent/runtimes'
 import type { SearchAskRequest, SearchAskResponse, SearchQueryResponse, UnifiedSearchResult } from '../../shared/search-types'
 import type { IpcDependencies } from '../ipc/types'
 import { buildSearchAnswerPrompt } from './search-prompt-builder'
+import { resolveSearchAiRuntime } from './search-ai-runtime'
 
 interface AiSearchDeps {
   settingsStore: IpcDependencies['settingsStore']
@@ -34,10 +34,11 @@ export async function answerSearchQuestion(
     }
   }
 
-  const runtimeId = aiSettings.runtimeId === 'default'
-    ? deps.settingsStore.getSettings().defaultRuntime
-    : aiSettings.runtimeId
-  const runtime = getRuntimeById(runtimeId)
+  const { runtimeId, runtime } = resolveSearchAiRuntime(
+    { settingsStore: deps.settingsStore, sessionManager: deps.sessionManager },
+    request.search.activeSessionId,
+    aiSettings.runtimeId,
+  )
   if (!runtime) {
     throw new Error(`Search AI runtime not found: ${runtimeId}`)
   }
@@ -49,7 +50,7 @@ export async function answerSearchQuestion(
 
   const cwd = resolveSearchWorkingDirectory(deps.sessionManager, request.search.activeSessionId, project.path)
   const prompt = buildSearchAnswerPrompt(request.question, citations)
-  const answer = await deps.gitOps.aiGenerate(runtime.binary, prompt, cwd, runtime.aiModelArgs ?? [])
+  const answer = await deps.gitOps.aiGenerate(runtime, prompt, cwd, runtime.aiModelArgs ?? [])
   if (!answer.trim()) {
     throw new Error('AI search did not return an answer.')
   }

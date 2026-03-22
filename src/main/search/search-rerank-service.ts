@@ -1,7 +1,7 @@
-import { getRuntimeById } from '../agent/runtimes'
 import type { SearchQueryRequest, SearchQueryResponse, UnifiedSearchResult } from '../../shared/search-types'
 import type { IpcDependencies } from '../ipc/types'
 import { buildSearchRerankPrompt } from './search-prompt-builder'
+import { resolveSearchAiRuntime } from './search-ai-runtime'
 
 interface SearchRerankDeps {
   settingsStore: IpcDependencies['settingsStore']
@@ -22,13 +22,14 @@ export async function maybeRerankSearchResults(
   }
 
   try {
-    const runtimeId = aiSettings.runtimeId === 'default'
-      ? settings?.defaultRuntime
-      : aiSettings.runtimeId
+    const { runtimeId, runtime } = resolveSearchAiRuntime(
+      { settingsStore: deps.settingsStore, sessionManager: deps.sessionManager },
+      request.activeSessionId,
+      aiSettings.runtimeId,
+    )
     if (!runtimeId) {
       return appendWarning(retrieval, 'AI reranking runtime is not configured. Showing exact results.')
     }
-    const runtime = getRuntimeById(runtimeId)
     if (!runtime) {
       return appendWarning(retrieval, `AI reranking runtime not found: ${runtimeId}`)
     }
@@ -43,7 +44,7 @@ export async function maybeRerankSearchResults(
     const cwd = request.activeSessionId
       ? deps.sessionManager.getSession(request.activeSessionId)?.worktreePath ?? project.path
       : project.path
-    const output = await deps.gitOps.aiGenerate(runtime.binary, prompt, cwd, runtime.aiModelArgs ?? [])
+    const output = await deps.gitOps.aiGenerate(runtime, prompt, cwd, runtime.aiModelArgs ?? [])
     const reranked = reorderResults(rerankPool, output)
     if (!reranked) {
       return appendWarning(retrieval, 'AI reranking did not return a usable order. Showing exact results.')
