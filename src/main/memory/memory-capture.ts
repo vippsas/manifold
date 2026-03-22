@@ -40,6 +40,12 @@ function looksLikeUserEcho(agentText: string, userText: string): boolean {
   return shorter.length >= 4 && overlap / shorter.length >= 0.8
 }
 
+export function truncate(text: string, maxLength: number): string {
+  return text.length > maxLength
+    ? text.slice(0, maxLength - 3) + '...'
+    : text
+}
+
 export function sanitizeMemoryText(text: string): string {
   return text
     .replace(/\r/g, '\n')

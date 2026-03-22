@@ -1,7 +1,7 @@
 import type { MemorySearchResult as LegacyMemorySearchResult } from '../../shared/memory-types'
 import type { SearchQueryRequest, SearchQueryResponse, UnifiedSearchResult } from '../../shared/search-types'
 import type { AgentSession } from '../../shared/types'
-import { isNoise, sanitizeMemoryText } from '../memory/memory-capture'
+import { isNoise, sanitizeMemoryText, truncate } from '../memory/memory-capture'
 import { searchCodeInSessions } from './code-search-service'
 import type { IpcDependencies } from '../ipc/types'
 
@@ -190,8 +190,3 @@ interface InteractionRow {
   rank: number
 }
 
-function truncate(text: string, maxLength: number): string {
-  return text.length > maxLength
-    ? text.slice(0, maxLength - 3) + '...'
-    : text
-}

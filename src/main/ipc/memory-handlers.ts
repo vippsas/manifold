@@ -13,13 +13,7 @@ import type {
   SessionSummary,
 } from '../../shared/memory-types'
 import { parseObservationRow, parseSessionSummaryRow } from '../memory/memory-store'
-import { isNoise, sanitizeMemoryText } from '../memory/memory-capture'
-
-function truncate(text: string, maxLength: number): string {
-  return text.length > maxLength
-    ? text.slice(0, maxLength - 3) + '...'
-    : text
-}
+import { isNoise, sanitizeMemoryText, truncate } from '../memory/memory-capture'
 
 function getInteractionRoleLabel(role: string): string {
   return role === 'user'

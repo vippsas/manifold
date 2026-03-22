@@ -19,6 +19,7 @@ vi.mock('../../hooks/useSearchHistory', () => ({
 
 describe('SearchPanel', () => {
   beforeEach(() => {
+    vi.clearAllMocks()
     useSearchHistoryMock.mockReturnValue(createSearchHistoryState())
   })
 
