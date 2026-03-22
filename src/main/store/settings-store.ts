@@ -22,6 +22,16 @@ export class SettingsStore {
     if (!settings.storagePath) {
       settings.storagePath = path.join(os.homedir(), '.manifold')
     }
+    settings.memory = {
+      ...DEFAULT_SETTINGS.memory,
+      ...settings.memory,
+    }
+    settings.search = {
+      ai: {
+        ...DEFAULT_SETTINGS.search.ai,
+        ...settings.search?.ai,
+      },
+    }
     return settings
   }
 

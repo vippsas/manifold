@@ -106,6 +106,25 @@ describe('SettingsStore', () => {
       const settings = store.getSettings()
       expect(settings.uiMode).toBe('simple')
     })
+
+    it('deep-merges partial search AI settings with defaults', () => {
+      mockExistsSync.mockReturnValue(true)
+      mockReadFileSync.mockReturnValue(JSON.stringify({
+        search: {
+          ai: {
+            enabled: false,
+            mode: 'rerank',
+          },
+        },
+      }))
+
+      const store = new SettingsStore()
+      const settings = store.getSettings()
+      expect(settings.search?.ai.enabled).toBe(false)
+      expect(settings.search?.ai.mode).toBe('rerank')
+      expect(settings.search?.ai.runtimeId).toBe(DEFAULT_SETTINGS.search.ai.runtimeId)
+      expect(settings.search?.ai.citationLimit).toBe(DEFAULT_SETTINGS.search.ai.citationLimit)
+    })
   })
 
   describe('updateSettings', () => {

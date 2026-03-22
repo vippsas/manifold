@@ -9,6 +9,7 @@ const mocks = vi.hoisted(() => {
     }),
     executeSearchQuery: vi.fn(),
     answerSearchQuestion: vi.fn(),
+    maybeRerankSearchResults: vi.fn(),
   }
 })
 
@@ -26,11 +27,16 @@ vi.mock('../search/ai-search-service', () => ({
   answerSearchQuestion: mocks.answerSearchQuestion,
 }))
 
+vi.mock('../search/search-rerank-service', () => ({
+  maybeRerankSearchResults: mocks.maybeRerankSearchResults,
+}))
+
 describe('registerSearchHandlers AI flow', () => {
   beforeEach(() => {
     vi.resetModules()
     vi.clearAllMocks()
     mocks.handlers.clear()
+    mocks.maybeRerankSearchResults.mockImplementation(async (_deps, _request, retrieval) => retrieval)
   })
 
   it('routes search:ask through retrieval and grounded answer synthesis', async () => {
@@ -94,6 +100,63 @@ describe('registerSearchHandlers AI flow', () => {
     expect(response).toMatchObject({
       answer: 'The auth file changed [S1].',
       tookMs: 22,
+    })
+  })
+
+  it('routes search:query through optional AI reranking', async () => {
+    const { registerSearchHandlers } = await import('./search-handlers')
+    mocks.executeSearchQuery.mockResolvedValue({
+      results: [],
+      total: 0,
+      tookMs: 5,
+    })
+    mocks.maybeRerankSearchResults.mockResolvedValue({
+      results: [{ id: 'reranked' }],
+      total: 1,
+      tookMs: 7,
+    })
+
+    const deps = {
+      sessionManager: {},
+      memoryStore: {},
+      settingsStore: {},
+      projectRegistry: {},
+      gitOps: {},
+    }
+
+    registerSearchHandlers(deps as never)
+
+    const handler = mocks.handlers.get('search:query')
+    if (!handler) {
+      throw new Error('search:query handler was not registered')
+    }
+
+    const request = {
+      projectId: 'project-1',
+      activeSessionId: 'session-1',
+      mode: 'code',
+      query: 'auth flow',
+      scope: { kind: 'active-session' },
+      matchMode: 'literal',
+      caseSensitive: false,
+      wholeWord: false,
+    }
+
+    const response = await handler({}, request)
+
+    expect(mocks.maybeRerankSearchResults).toHaveBeenCalledWith(
+      {
+        settingsStore: deps.settingsStore,
+        projectRegistry: deps.projectRegistry,
+        sessionManager: deps.sessionManager,
+        gitOps: deps.gitOps,
+      },
+      request,
+      expect.objectContaining({ tookMs: 5 }),
+    )
+    expect(response).toMatchObject({
+      results: [{ id: 'reranked' }],
+      total: 1,
     })
   })
 })

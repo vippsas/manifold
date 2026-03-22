@@ -17,6 +17,23 @@ export function buildSearchAnswerPrompt(question: string, citations: UnifiedSear
   ].join('\n')
 }
 
+export function buildSearchRerankPrompt(query: string, citations: UnifiedSearchResult[]): string {
+  const sourceBlocks = citations.map((citation, index) => formatSourceBlock(citation, index + 1))
+
+  return [
+    'You are reranking search results inside Manifold.',
+    'Rank the sources by relevance to the query.',
+    'Return only source ids in order, separated by spaces.',
+    'Example: S2 S1 S3',
+    'Do not explain your answer.',
+    '',
+    `Query: ${query.trim()}`,
+    '',
+    'Sources:',
+    sourceBlocks.join('\n\n'),
+  ].join('\n')
+}
+
 function formatSourceBlock(result: UnifiedSearchResult, sourceIndex: number): string {
   const sourceId = `S${sourceIndex}`
   const metadata = result.source === 'code'

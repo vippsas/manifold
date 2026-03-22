@@ -4,6 +4,7 @@ import type { SearchAskRequest, SearchAskResponse, SearchContextResponse, Search
 import { getSearchContext } from '../search/search-context-service'
 import { answerSearchQuestion } from '../search/ai-search-service'
 import { executeSearchQuery } from '../search/search-query-service'
+import { maybeRerankSearchResults } from '../search/search-rerank-service'
 import type { IpcDependencies } from './types'
 
 export function registerSearchHandlers(deps: IpcDependencies): void {
@@ -22,7 +23,12 @@ export function registerSearchHandlers(deps: IpcDependencies): void {
   })
 
   ipcMain.handle('search:query', async (_event, request: SearchQueryRequest): Promise<SearchQueryResponse> => {
-    return executeSearchQuery({ sessionManager, memoryStore }, request)
+    const exact = await executeSearchQuery({ sessionManager, memoryStore }, request)
+    return maybeRerankSearchResults(
+      { settingsStore, projectRegistry, sessionManager, gitOps },
+      request,
+      exact,
+    )
   })
 
   ipcMain.handle('search:ask', async (_event, request: SearchAskRequest): Promise<SearchAskResponse> => {
