@@ -20,6 +20,7 @@ export interface MemorySearchFilters {
 export interface SearchScopeDescriptor {
   kind: SearchScopeKind
   sessionIds?: string[]
+  projectIds?: string[]
   rootPaths?: string[]
   includeAdditionalDirs?: boolean
 }
@@ -66,6 +67,7 @@ export interface SearchResultBase {
   title: string
   snippet: string
   score?: number
+  projectId?: string
   sessionId?: string
   branchName?: string
   runtimeId?: string

@@ -58,75 +58,108 @@ export function SearchPanelControls(props: SearchPanelControlsProps): React.JSX.
     onClearAnswer,
   } = props
 
+  const searchSurfaceTitle = mode === 'everything'
+    ? 'Search across code, sessions, and project memory'
+    : mode === 'memory'
+      ? 'Search memory, summaries, and interactions'
+      : 'Search code in the selected workspace scope'
+
+  const searchSurfaceHint = mode === 'everything'
+    ? 'Ask AI turns retrieved matches into a grounded answer with citations.'
+    : mode === 'memory'
+      ? 'Use questions or keywords to explore observations, summaries, and prior decisions.'
+      : 'Use direct terms for exact hits, then Ask AI to explain what the retrieved sources mean.'
+
   return (
     <>
       <div style={s.searchHeader}>
-        <div style={s.tabBar}>
-          <ModeTab mode="code" activeMode={mode} onSelect={onModeChange} />
-          <ModeTab mode="memory" activeMode={mode} onSelect={onModeChange} />
-          <ModeTab mode="everything" activeMode={mode} onSelect={onModeChange} />
+        <div style={s.searchHeaderTop}>
+          <div style={s.tabBar}>
+            <ModeTab mode="code" activeMode={mode} onSelect={onModeChange} />
+            <ModeTab mode="memory" activeMode={mode} onSelect={onModeChange} />
+            <ModeTab mode="everything" activeMode={mode} onSelect={onModeChange} />
+          </div>
+
+          <div style={s.headerActions}>
+            {showClearAnswer && (
+              <UtilityButton label="Clear" active={false} onClick={onClearAnswer} />
+            )}
+            <UtilityButton
+              label={isCurrentSaved ? 'Pinned' : 'Pin'}
+              active={isCurrentSaved}
+              disabled={!canSaveCurrent}
+              onClick={onToggleSaveCurrent}
+            />
+          </div>
         </div>
-        <div style={s.headerActions}>
-          {showClearAnswer && (
-            <UtilityButton label="Clear" active={false} onClick={onClearAnswer} />
+
+        <div style={s.searchSurface}>
+          <div style={s.searchSurfaceMeta}>
+            <div style={s.searchSurfaceCopy}>
+              <span style={s.searchSurfaceEyebrow}>{searchSurfaceTitle}</span>
+              <span style={s.searchSurfaceHint}>{searchSurfaceHint}</span>
+            </div>
+
+            {mode !== 'memory' && (
+              <label style={s.scopeField}>
+                <span style={s.scopeLabel}>Scope</span>
+                <select
+                  style={s.select}
+                  value={scopeKind}
+                  onChange={(event) => onScopeChange(event.target.value as SearchScopeKind)}
+                >
+                  {scopeOptions.map((option) => (
+                    <option key={option.value} value={option.value}>{option.label}</option>
+                  ))}
+                </select>
+              </label>
+            )}
+          </div>
+
+          <div style={s.queryRow}>
+            <div style={s.queryInputWrap}>
+              <input
+                ref={inputRef}
+                type="text"
+                style={s.input}
+                placeholder={placeholder}
+                value={query}
+                onKeyDown={onInputKeyDown}
+                onChange={(event) => onQueryChange(event.target.value)}
+              />
+            </div>
+
+            <PrimaryButton
+              label={isAsking ? 'Asking...' : 'Ask AI'}
+              disabled={!canAskAi}
+              loading={isAsking}
+              onClick={onAskAi}
+            />
+          </div>
+
+          {mode !== 'memory' && (
+            <div style={s.controlsRow}>
+              <div style={s.toggleGroup}>
+                <ToggleButton
+                  label={matchMode === 'literal' ? 'Literal' : 'Regex'}
+                  active={matchMode === 'regex'}
+                  onClick={onToggleMatchMode}
+                />
+                <ToggleButton
+                  label="Case Sensitive"
+                  active={caseSensitive}
+                  onClick={onToggleCaseSensitive}
+                />
+                <ToggleButton
+                  label="Whole Word"
+                  active={wholeWord}
+                  onClick={onToggleWholeWord}
+                />
+              </div>
+            </div>
           )}
-          <UtilityButton
-            label={isCurrentSaved ? 'Saved' : 'Pin'}
-            active={isCurrentSaved}
-            disabled={!canSaveCurrent}
-            onClick={onToggleSaveCurrent}
-          />
-          <UtilityButton
-            label={isAsking ? 'Asking...' : 'Ask AI'}
-            active={false}
-            disabled={!canAskAi || isAsking}
-            onClick={onAskAi}
-          />
         </div>
       </div>
-
-      <div style={s.toolbar}>
-        <input
-          ref={inputRef}
-          type="text"
-          style={s.input}
-          placeholder={placeholder}
-          value={query}
-          onKeyDown={onInputKeyDown}
-          onChange={(event) => onQueryChange(event.target.value)}
-        />
-        {mode !== 'memory' && (
-          <select
-            style={s.select}
-            value={scopeKind}
-            onChange={(event) => onScopeChange(event.target.value as SearchScopeKind)}
-          >
-            {scopeOptions.map((option) => (
-              <option key={option.value} value={option.value}>{option.label}</option>
-            ))}
-          </select>
-        )}
-      </div>
-
-      {mode !== 'memory' && (
-        <div style={s.controlsRow}>
-          <ToggleButton
-            label={matchMode === 'literal' ? 'Literal' : 'Regex'}
-            active={matchMode === 'regex'}
-            onClick={onToggleMatchMode}
-          />
-          <ToggleButton
-            label="Case"
-            active={caseSensitive}
-            onClick={onToggleCaseSensitive}
-          />
-          <ToggleButton
-            label="Word"
-            active={wholeWord}
-            onClick={onToggleWholeWord}
-          />
-        </div>
-      )}
     </>
   )
 }
@@ -183,11 +216,46 @@ function UtilityButton({
   return (
     <button
       type="button"
-      style={{ ...s.toggle, ...(active ? s.toggleActive : {}) }}
+      style={{
+        ...s.utilityButton,
+        ...(active ? s.utilityButtonActive : {}),
+        ...(disabled ? s.buttonDisabled : {}),
+      }}
       onClick={onClick}
       disabled={disabled}
     >
       {label}
+    </button>
+  )
+}
+
+function PrimaryButton({
+  label,
+  disabled = false,
+  loading = false,
+  onClick,
+}: {
+  label: string
+  disabled?: boolean
+  loading?: boolean
+  onClick: () => void
+}): React.JSX.Element {
+  return (
+    <button
+      type="button"
+      style={{
+        ...s.primaryButton,
+        ...(loading ? s.primaryButtonLoading : {}),
+        ...(!loading && disabled ? s.primaryButtonDisabled : {}),
+      }}
+      onClick={onClick}
+      disabled={disabled || loading}
+      aria-busy={loading}
+    >
+      <span style={s.primaryButtonContent}>
+        {loading && <span className="spinner" aria-hidden="true" />}
+        <span>{label}</span>
+      </span>
     </button>
   )
 }

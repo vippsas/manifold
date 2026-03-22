@@ -40,6 +40,7 @@ describe('runtimes', () => {
     it('codex runtime has the expected binary', () => {
       const codex = BUILT_IN_RUNTIMES.find((r) => r.id === 'codex')
       expect(codex?.binary).toBe('codex')
+      expect(codex?.aiModelArgs).toBeUndefined()
     })
 
     it('gemini runtime has the expected binary', () => {

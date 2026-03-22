@@ -17,6 +17,8 @@ export function getActiveContextSession(
 export function getScopeOptions(
   sessionCount: number,
   additionalDirCount: number,
+  workspaceSessionCount: number,
+  workspaceProjectCount: number,
 ): SearchScopeOption[] {
   const options: SearchScopeOption[] = [
     { value: 'active-session', label: 'Active Agent' },
@@ -25,8 +27,11 @@ export function getScopeOptions(
   if (additionalDirCount > 0) {
     options.push({ value: 'visible-roots', label: 'Visible Roots' })
   }
-  if (sessionCount > 1) {
-    options.push({ value: 'all-project-sessions', label: 'All Agents' })
+  if (workspaceSessionCount > 1) {
+    options.push({
+      value: 'all-project-sessions',
+      label: workspaceProjectCount > 1 ? 'All Agents (Workspace)' : 'All Agents',
+    })
   }
 
   return options
@@ -38,9 +43,22 @@ export function getInfoText(params: {
   scopeKind: SearchScopeKind
   additionalDirCount: number
   totalAdditionalDirCount: number
+  workspaceAgentCount: number
+  workspaceProjectCount: number
+  workspaceAdditionalDirCount: number
   hasActiveSession: boolean
 }): string | null {
-  const { context, mode, scopeKind, additionalDirCount, totalAdditionalDirCount, hasActiveSession } = params
+  const {
+    context,
+    mode,
+    scopeKind,
+    additionalDirCount,
+    totalAdditionalDirCount,
+    workspaceAgentCount,
+    workspaceProjectCount,
+    workspaceAdditionalDirCount,
+    hasActiveSession,
+  } = params
   if (!context) return null
 
   const agentCount = context.sessions.length
@@ -50,7 +68,10 @@ export function getInfoText(params: {
 
   if (mode === 'everything') {
     if (scopeKind === 'all-project-sessions') {
-      const totalRootCount = agentCount + totalAdditionalDirCount
+      const totalRootCount = workspaceAgentCount + workspaceAdditionalDirCount
+      if (workspaceProjectCount > 1) {
+        return `${workspaceAgentCount} agent${workspaceAgentCount === 1 ? '' : 's'} across ${workspaceProjectCount} repos, ${totalRootCount} code root${totalRootCount === 1 ? '' : 's'}, and workspace memory`
+      }
       return `${agentCount} agent${agentCount === 1 ? '' : 's'}, ${totalRootCount} code root${totalRootCount === 1 ? '' : 's'}, and project memory`
     }
 
@@ -68,6 +89,9 @@ export function getInfoText(params: {
   }
 
   if (scopeKind === 'all-project-sessions') {
+    if (workspaceProjectCount > 1) {
+      return `${workspaceAgentCount} agent${workspaceAgentCount === 1 ? '' : 's'} across ${workspaceProjectCount} repos in code search scope`
+    }
     return `${agentCount} agent${agentCount === 1 ? '' : 's'} in code search scope`
   }
 

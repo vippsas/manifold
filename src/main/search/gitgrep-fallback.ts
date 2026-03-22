@@ -47,7 +47,7 @@ async function searchRootWithGitGrep(
   const { stdout } = await execFileAsync('git', buildGitGrepArgs(request, limit), {
     cwd: root.path,
     timeout: 10_000,
-    maxBuffer: 1024 * 1024,
+    maxBuffer: 8 * 1024 * 1024,
   })
   return parseGitGrepOutput(stdout, root, limit)
 }

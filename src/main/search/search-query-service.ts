@@ -61,6 +61,11 @@ async function resolveScopeSessions(
 ): Promise<AgentSession[]> {
   switch (request.scope.kind) {
     case 'all-project-sessions':
+      if (request.scope.sessionIds && request.scope.sessionIds.length > 0) {
+        return [...new Set(request.scope.sessionIds)]
+          .map((sessionId) => sessionManager.getSession(sessionId))
+          .filter((session): session is AgentSession => Boolean(session))
+      }
       return sessionManager.discoverSessionsForProject(request.projectId)
     case 'active-session':
     case 'visible-roots': {
@@ -81,23 +86,32 @@ function searchMemory(
   const ftsQuery = buildMemoryFtsQuery(request.query)
   if (!ftsQuery) return []
 
+  const projectIds = resolveMemoryProjectIds(request)
   const limit = request.limit ?? 100
-  const compressed = memoryStore.search(request.projectId, request.query, {
-    type: request.memoryFilters?.type,
-    runtimeId: request.memoryFilters?.runtimeId,
-    concepts: request.memoryFilters?.concepts,
-    limit,
-  })
+  const shouldPrefixIds = projectIds.length > 1
+  const results: UnifiedSearchResult[] = []
 
-  const results: UnifiedSearchResult[] = compressed.results.map(mapMemoryResult)
-  const db = memoryStore.getDb(request.projectId)
-  const shouldIncludeInteractionMatches = (
-    !request.memoryFilters?.runtimeId &&
-    !(request.memoryFilters?.concepts && request.memoryFilters.concepts.length > 0) &&
-    (!request.memoryFilters?.type || request.memoryFilters.type === 'task_summary')
-  )
+  for (const projectId of projectIds) {
+    const compressed = memoryStore.search(projectId, request.query, {
+      type: request.memoryFilters?.type,
+      runtimeId: request.memoryFilters?.runtimeId,
+      concepts: request.memoryFilters?.concepts,
+      limit,
+    })
 
-  if (shouldIncludeInteractionMatches) {
+    results.push(...compressed.results.map((result) => mapMemoryResult(result, projectId, shouldPrefixIds)))
+
+    const db = memoryStore.getDb(projectId)
+    const shouldIncludeInteractionMatches = (
+      !request.memoryFilters?.runtimeId &&
+      !(request.memoryFilters?.concepts && request.memoryFilters.concepts.length > 0) &&
+      (!request.memoryFilters?.type || request.memoryFilters.type === 'task_summary')
+    )
+
+    if (!shouldIncludeInteractionMatches) {
+      continue
+    }
+
     try {
       const interactionRows = db.prepare(`
         SELECT i.id, i.sessionId, i.role, i.text, i.timestamp, s.runtimeId, s.branchName, s.worktreePath, rank
@@ -113,12 +127,13 @@ function searchMemory(
         const cleanText = sanitizeMemoryText(row.text)
         if (!cleanText || isNoise(cleanText)) continue
         results.push({
-          id: `interaction-${row.id}`,
+          id: toScopedMemoryId(projectId, `interaction-${row.id}`, shouldPrefixIds),
           source: 'memory',
           memorySource: 'interaction',
           title: row.role === 'user' ? 'You' : row.role === 'system' ? 'System' : 'Agent',
           snippet: truncate(cleanText, 220),
           score: row.rank,
+          projectId,
           sessionId: row.sessionId,
           branchName: row.branchName ?? undefined,
           runtimeId: row.runtimeId ?? undefined,
@@ -137,19 +152,27 @@ function searchMemory(
       const leftScore = left.score ?? 0
       const rightScore = right.score ?? 0
       if (leftScore !== rightScore) return leftScore - rightScore
+      const leftProject = left.projectId ?? ''
+      const rightProject = right.projectId ?? ''
+      if (leftProject !== rightProject) return leftProject.localeCompare(rightProject)
       return left.title.localeCompare(right.title)
     })
     .slice(0, limit)
 }
 
-function mapMemoryResult(result: LegacyMemorySearchResult): UnifiedSearchResult {
+function mapMemoryResult(
+  result: LegacyMemorySearchResult,
+  projectId: string,
+  shouldPrefixIds: boolean,
+): UnifiedSearchResult {
   return {
-    id: result.id,
+    id: toScopedMemoryId(projectId, result.id, shouldPrefixIds),
     source: 'memory',
     memorySource: result.source,
     title: result.title,
     snippet: result.summary,
     score: result.rank,
+    projectId,
     sessionId: result.sessionId,
     branchName: result.branchName,
     runtimeId: result.runtimeId,
@@ -159,6 +182,18 @@ function mapMemoryResult(result: LegacyMemorySearchResult): UnifiedSearchResult 
     concepts: result.concepts,
     filesTouched: result.filesTouched,
   }
+}
+
+function resolveMemoryProjectIds(request: SearchQueryRequest): string[] {
+  const projectIds = request.scope.projectIds?.length
+    ? request.scope.projectIds
+    : [request.projectId]
+
+  return [...new Set(projectIds.filter(Boolean))]
+}
+
+function toScopedMemoryId(projectId: string, id: string, shouldPrefixIds: boolean): string {
+  return shouldPrefixIds ? `${projectId}:${id}` : id
 }
 
 function mergeResults(

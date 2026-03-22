@@ -10,6 +10,8 @@ interface SearchRerankDeps {
   gitOps: IpcDependencies['gitOps']
 }
 
+const SEARCH_RERANK_TIMEOUT_MS = 45_000
+
 export async function maybeRerankSearchResults(
   deps: SearchRerankDeps,
   request: SearchQueryRequest,
@@ -17,6 +19,7 @@ export async function maybeRerankSearchResults(
 ): Promise<SearchQueryResponse> {
   const settings = deps.settingsStore?.getSettings?.()
   const aiSettings = settings?.search?.ai
+  let failureContext = 'AI reranking failed.'
   if (!aiSettings?.enabled || aiSettings.mode !== 'rerank' || retrieval.results.length < 2) {
     return retrieval
   }
@@ -33,6 +36,7 @@ export async function maybeRerankSearchResults(
     if (!runtime) {
       return appendWarning(retrieval, `AI reranking runtime not found: ${runtimeId}`)
     }
+    failureContext = `AI reranking failed in ${runtime.name ?? runtimeId}.`
 
     const project = deps.projectRegistry.getProject(request.projectId)
     if (!project) {
@@ -44,7 +48,13 @@ export async function maybeRerankSearchResults(
     const cwd = request.activeSessionId
       ? deps.sessionManager.getSession(request.activeSessionId)?.worktreePath ?? project.path
       : project.path
-    const output = await deps.gitOps.aiGenerate(runtime, prompt, cwd, runtime.aiModelArgs ?? [])
+    const output = await deps.gitOps.aiGenerate(
+      runtime,
+      prompt,
+      cwd,
+      runtime.aiModelArgs ?? [],
+      { timeoutMs: SEARCH_RERANK_TIMEOUT_MS },
+    )
     const reranked = reorderResults(rerankPool, output)
     if (!reranked) {
       return appendWarning(retrieval, 'AI reranking did not return a usable order. Showing exact results.')
@@ -54,8 +64,9 @@ export async function maybeRerankSearchResults(
       ...retrieval,
       results: [...reranked, ...retrieval.results.slice(rerankPool.length)],
     }
-  } catch {
-    return appendWarning(retrieval, 'AI reranking failed. Showing exact results.')
+  } catch (error) {
+    const detail = ensureSentence(formatAiFailure(error))
+    return appendWarning(retrieval, `${failureContext} ${detail} Showing exact results.`)
   }
 }
 
@@ -85,4 +96,14 @@ function appendWarning(response: SearchQueryResponse, warning: string): SearchQu
     ...response,
     warnings: [...(response.warnings ?? []), warning],
   }
+}
+
+function formatAiFailure(error: unknown): string {
+  if (error instanceof Error && error.message.trim()) return error.message.trim()
+  if (typeof error === 'string' && error.trim()) return error.trim()
+  return 'The runtime did not provide an error message.'
+}
+
+function ensureSentence(text: string): string {
+  return /[.!?]$/.test(text) ? text : `${text}.`
 }

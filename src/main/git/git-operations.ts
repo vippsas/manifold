@@ -4,7 +4,7 @@ import { join, resolve, normalize } from 'node:path'
 import { promisify } from 'node:util'
 import type { AheadBehind, FetchResult } from '../../shared/types'
 import type { AgentRuntime } from '../../shared/types'
-import { buildAiRuntimeCommand, parseAiRuntimeOutput } from '../agent/ai-runtime-command'
+import { buildAiRuntimeCommand, parseAiRuntimeFailure, parseAiRuntimeOutput } from '../agent/ai-runtime-command'
 import {
   commitManagedWorktree,
   getManagedWorktreeStatus,
@@ -13,7 +13,11 @@ import {
 
 const execFileAsync = promisify(execFile)
 
-const AI_GENERATE_TIMEOUT_MS = 30_000
+const DEFAULT_AI_GENERATE_TIMEOUT_MS = 30_000
+
+interface AiGenerateOptions {
+  timeoutMs?: number
+}
 
 export class GitOperationsManager {
   async commit(worktreePath: string, message: string): Promise<void> {
@@ -100,46 +104,74 @@ export class GitOperationsManager {
     runtime: AgentRuntime,
     prompt: string,
     cwd: string,
-    extraArgs: string[] = []
+    extraArgs: string[] = [],
+    options: AiGenerateOptions = {},
   ): Promise<string> {
-    return new Promise((resolve) => {
+    return new Promise((resolve, reject) => {
+      const timeoutMs = Math.max(1_000, options.timeoutMs ?? DEFAULT_AI_GENERATE_TIMEOUT_MS)
       const command = buildAiRuntimeCommand(runtime, prompt, extraArgs)
       const child = spawn(command.binary, command.args, {
         cwd,
-        env: command.env,
+        env: command.env ? { ...process.env, ...command.env } : undefined,
         stdio: ['pipe', 'pipe', 'pipe'],
       })
 
       const stdoutChunks: Buffer[] = []
       const stderrChunks: Buffer[] = []
+      let settled = false
+      let timedOut = false
       child.stdout?.on('data', (data: Buffer) => stdoutChunks.push(data))
       child.stderr?.on('data', (data: Buffer) => stderrChunks.push(data))
 
       const timer = setTimeout(() => {
+        timedOut = true
         child.kill('SIGTERM')
-      }, AI_GENERATE_TIMEOUT_MS)
+      }, timeoutMs)
+
+      const settle = (callback: () => void) => {
+        if (settled) return
+        settled = true
+        clearTimeout(timer)
+        callback()
+      }
 
       child.on('error', (err) => {
-        clearTimeout(timer)
-        console.error('[aiGenerate] spawn failed:', err.message)
-        resolve('')
+        settle(() => {
+          console.error('[aiGenerate] spawn failed:', {
+            runtime: runtime.id,
+            message: err.message,
+          })
+          reject(new Error(`AI runtime "${runtime.id}" failed to start: ${err.message}`))
+        })
       })
 
       child.on('close', (code) => {
-        clearTimeout(timer)
-        const stdout = Buffer.concat(stdoutChunks).toString('utf8')
-        const stderr = Buffer.concat(stderrChunks).toString('utf8').trim()
-        const result = parseAiRuntimeOutput(command.outputMode, stdout)
-        if (code === 0 && result) {
-          resolve(result)
-        } else {
+        settle(() => {
+          const stdout = Buffer.concat(stdoutChunks).toString('utf8')
+          const stderr = Buffer.concat(stderrChunks).toString('utf8').trim()
+          const result = parseAiRuntimeOutput(command.outputMode, stdout)
+          if (code === 0 && result) {
+            resolve(result)
+            return
+          }
+
+          const failure = timedOut
+            ? `timed out after ${timeoutMs / 1000} seconds`
+            : parseAiRuntimeFailure(command.outputMode, stdout, stderr)
+          const codeLabel = code === null ? 'terminated' : `exit code ${code}`
+          const message = failure
+            ? `AI runtime "${runtime.id}" failed (${codeLabel}): ${failure}`
+            : `AI runtime "${runtime.id}" returned no usable output (${codeLabel}).`
+
           console.error('[aiGenerate] failed:', {
             runtime: runtime.id,
             code,
+            message,
             stderr: stderr.slice(0, 500),
+            stdoutTail: stdout.slice(-500),
           })
-          resolve('')
-        }
+          reject(new Error(message))
+        })
       })
 
       child.stdin?.end()

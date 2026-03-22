@@ -24,6 +24,16 @@ describe('maybeRerankSearchResults', () => {
 
     const response = await maybeRerankSearchResults(deps, createRequest(), createRetrieval())
 
+    expect(deps.gitOps.aiGenerate).toHaveBeenCalledWith(
+      expect.objectContaining({
+        id: 'claude',
+        binary: 'claude',
+      }),
+      expect.stringContaining('Query: auth flow'),
+      '/repo/.manifold/worktrees/feature-search',
+      ['--model', 'haiku'],
+      { timeoutMs: 45_000 },
+    )
     expect(response.results.map((result) => result.id)).toEqual(['memory-1', 'code-1', 'code-2'])
     expect(response.warnings).toBeUndefined()
   })
@@ -51,6 +61,29 @@ describe('maybeRerankSearchResults', () => {
     const response = await maybeRerankSearchResults(deps, createRequest(), retrieval)
 
     expect(response).toEqual(retrieval)
+  })
+
+  it('surfaces the runtime failure in warnings and keeps exact results', async () => {
+    const { maybeRerankSearchResults } = await import('./search-rerank-service')
+    getRuntimeByIdMock.mockReturnValue({
+      id: 'codex',
+      name: 'Codex',
+      binary: 'codex',
+      aiModelArgs: ['--model', 'o4-mini'],
+    })
+
+    const deps = createDeps()
+    deps.gitOps.aiGenerate.mockRejectedValue(new Error(
+      'AI runtime "codex" failed (exit code 1): stream disconnected before completion',
+    ))
+
+    const retrieval = createRetrieval()
+    const response = await maybeRerankSearchResults(deps, createRequest(), retrieval)
+
+    expect(response.results).toEqual(retrieval.results)
+    expect(response.warnings).toEqual([
+      'AI reranking failed in Codex. AI runtime "codex" failed (exit code 1): stream disconnected before completion. Showing exact results.',
+    ])
   })
 })
 

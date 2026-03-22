@@ -1,6 +1,6 @@
 import type { DockviewApi, SerializedDockview } from 'dockview'
 
-export const PANEL_IDS = ['projects', 'agent', 'editor', 'fileTree', 'modifiedFiles', 'shell', 'memory', 'search'] as const
+export const PANEL_IDS = ['projects', 'agent', 'editor', 'fileTree', 'modifiedFiles', 'shell', 'search'] as const
 export type DockPanelId = (typeof PANEL_IDS)[number]
 export const EDITOR_PANEL_ID_PREFIX = 'editor:'
 
@@ -11,7 +11,6 @@ export const PANEL_TITLES: Record<DockPanelId, string> = {
   fileTree: 'Files',
   modifiedFiles: 'Modified Files',
   shell: 'Shell',
-  memory: 'Memory',
   search: 'Search',
 }
 
@@ -25,7 +24,6 @@ const PANEL_RESTORE_HINTS: Record<DockPanelId, Array<{ ref: DockPanelId; dir: Di
   fileTree: [{ ref: 'modifiedFiles', dir: 'within' }, { ref: 'projects', dir: 'below' }],
   modifiedFiles: [{ ref: 'fileTree', dir: 'within' }, { ref: 'projects', dir: 'below' }],
   shell: [{ ref: 'agent', dir: 'below' }, { ref: 'editor', dir: 'below' }],
-  memory: [{ ref: 'modifiedFiles', dir: 'within' }, { ref: 'fileTree', dir: 'within' }],
   search: [{ ref: 'agent', dir: 'within' }, { ref: 'editor', dir: 'within' }],
 }
 
@@ -84,6 +82,8 @@ type GridNode =
   | { type: 'branch'; data: GridNode[]; size: number }
   | { type: 'leaf'; data: { views: string[]; id: string; activeView?: string }; size: number }
 
+const RETIRED_PANEL_IDS = new Set(['memory'])
+
 function treeContainsPanel(node: GridNode, panelId: string): boolean {
   if (node.type === 'leaf') return node.data.views.includes(panelId)
   return node.data.some((child) => treeContainsPanel(child, panelId))
@@ -119,6 +119,48 @@ function removeLeafFromTree(parent: GridNode & { type: 'branch' }, panelId: stri
   return 0
 }
 
+function stripRetiredPanelsFromTree(node: GridNode): GridNode | null {
+  if (node.type === 'leaf') {
+    const views = node.data.views.filter((view) => !RETIRED_PANEL_IDS.has(view))
+    if (views.length === 0) return null
+    node.data.views = views
+    if (!node.data.activeView || !views.includes(node.data.activeView)) {
+      node.data.activeView = views[0]
+    }
+    return node
+  }
+
+  const nextChildren = node.data
+    .map((child) => stripRetiredPanelsFromTree(child))
+    .filter((child): child is GridNode => child !== null)
+
+  if (nextChildren.length === 0) return null
+  if (nextChildren.length === 1) {
+    const [onlyChild] = nextChildren
+    onlyChild.size = node.size
+    return onlyChild
+  }
+
+  node.data = nextChildren
+  return node
+}
+
+export function sanitizeDockLayout(saved: SerializedDockview): SerializedDockview | null {
+  const panelIds = Object.keys(saved.panels ?? {})
+  if (!panelIds.some((panelId) => RETIRED_PANEL_IDS.has(panelId))) return saved
+
+  const sanitized = JSON.parse(JSON.stringify(saved)) as SerializedDockview
+  const root = stripRetiredPanelsFromTree(sanitized.grid.root as GridNode)
+  if (!root) return null
+
+  sanitized.grid.root = root
+  for (const retiredPanelId of RETIRED_PANEL_IDS) {
+    delete (sanitized.panels as Record<string, unknown>)[retiredPanelId]
+  }
+
+  return sanitized
+}
+
 // ── Layout loading helpers ──────────────────────────────────────────────
 
 function isCorruptedMinimalLayout(saved: SerializedDockview): boolean {
@@ -133,7 +175,8 @@ export async function loadOrBuildLayout(
   refs: LayoutRefs,
 ): Promise<void> {
   try {
-    const saved = (await window.electronAPI.invoke('dock-layout:get', sessionId)) as SerializedDockview | null
+    const rawSaved = (await window.electronAPI.invoke('dock-layout:get', sessionId)) as SerializedDockview | null
+    const saved = rawSaved ? sanitizeDockLayout(rawSaved) : null
     if (saved && saved.grid && saved.panels && !isCorruptedMinimalLayout(saved)) {
       refs.isRestoringRef.current = true
       try {

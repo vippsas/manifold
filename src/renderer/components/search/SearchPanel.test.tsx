@@ -107,6 +107,26 @@ describe('SearchPanel', () => {
 
     expect(getByRole('button', { name: 'Ask AI' })).toBeDisabled()
   })
+
+  it('shows a loading state while Ask AI is running', () => {
+    useSearchMock.mockReturnValue(createSearchState({
+      query: 'auth',
+      isAsking: true,
+    }))
+
+    const { getByRole, getByText, container } = render(
+      <DockStateContext.Provider value={createDockState()}>
+        <SearchPanel />
+      </DockStateContext.Provider>,
+    )
+
+    expect(getByRole('button', { name: 'Asking...' })).toBeDisabled()
+    expect(getByText('AI Answer')).toBeTruthy()
+    expect(getByText('Asking AI about "auth"...')).toBeTruthy()
+    expect(container.querySelector('.spinner')).not.toBeNull()
+    expect(container.querySelectorAll('.ai-answer-loading-dot')).toHaveLength(3)
+    expect(container.querySelector('.ai-answer-loading-text')).not.toBeNull()
+  })
 })
 
 function createSearchState(overrides: Partial<UseSearchResult> = {}): UseSearchResult {

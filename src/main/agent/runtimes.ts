@@ -15,7 +15,6 @@ export const BUILT_IN_RUNTIMES: readonly AgentRuntime[] = [
     name: 'Codex',
     binary: 'codex',
     args: [],
-    aiModelArgs: ['--model', 'o4-mini'],
     waitingPattern: '> |codex>'
   },
   {

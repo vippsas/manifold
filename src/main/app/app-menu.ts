@@ -77,12 +77,8 @@ export function buildAppMenu(mainWindow: BrowserWindow): Menu {
           click: () => mainWindow?.webContents.send('view:toggle-panel', 'shell'),
         },
         {
-          label: 'Toggle Memory',
-          accelerator: 'CmdOrCtrl+7',
-          click: () => mainWindow?.webContents.send('view:toggle-panel', 'memory'),
-        },
-        {
           label: 'Toggle Search',
+          accelerator: 'CmdOrCtrl+7',
           click: () => mainWindow?.webContents.send('view:toggle-panel', 'search'),
         },
         { type: 'separator' },
