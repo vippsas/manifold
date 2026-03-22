@@ -1,4 +1,4 @@
-import React, { useCallback, useRef } from 'react'
+import React, { useCallback, useEffect, useRef, useState } from 'react'
 import type { OpenFile } from '../../hooks/useCodeView'
 import { viewerStyles } from './CodeViewer.styles'
 import { shortenFileNameForTab } from './code-viewer-utils'
@@ -7,6 +7,8 @@ export interface MoveTarget {
   id: string
   label: string
 }
+
+type SplitDirection = 'right' | 'below'
 
 interface TabBarProps {
   openFiles: OpenFile[]
@@ -103,6 +105,9 @@ function PaneActions({
   onSplitPane: (direction: 'right' | 'below') => void
 }): React.JSX.Element {
   const moveButtonRef = useRef<HTMLButtonElement | null>(null)
+  const splitButtonRef = useRef<HTMLButtonElement | null>(null)
+  const splitMenuRef = useRef<HTMLDivElement | null>(null)
+  const [splitMenu, setSplitMenu] = useState<{ x: number; y: number } | null>(null)
 
   const handleMoveClick = useCallback(() => {
     if (!hasMoveTargets || !moveButtonRef.current || !onOpenMoveMenu) return
@@ -111,30 +116,68 @@ function PaneActions({
     onOpenMoveMenu(rect.left, rect.bottom + 4)
   }, [hasMoveTargets, onActivatePane, onOpenMoveMenu])
 
+  const handleToggleSplitMenu = useCallback(() => {
+    if (!splitButtonRef.current) return
+    onActivatePane()
+    if (splitMenu) {
+      setSplitMenu(null)
+      return
+    }
+    const rect = splitButtonRef.current.getBoundingClientRect()
+    setSplitMenu({ x: rect.right - 148, y: rect.bottom + 4 })
+  }, [onActivatePane, splitMenu])
+
+  const handleSplitSelect = useCallback((direction: SplitDirection) => {
+    onActivatePane()
+    onSplitPane(direction)
+    setSplitMenu(null)
+  }, [onActivatePane, onSplitPane])
+
+  useEffect(() => {
+    if (!splitMenu) return
+
+    const handleKeyDown = (event: KeyboardEvent): void => {
+      if (event.key === 'Escape') setSplitMenu(null)
+    }
+
+    document.addEventListener('keydown', handleKeyDown)
+    return () => document.removeEventListener('keydown', handleKeyDown)
+  }, [splitMenu])
+
+  useEffect(() => {
+    const menu = splitMenuRef.current
+    if (!menu || !splitMenu) return
+
+    const rect = menu.getBoundingClientRect()
+    const maxLeft = Math.max(4, window.innerWidth - rect.width - 4)
+    const maxTop = Math.max(4, window.innerHeight - rect.height - 4)
+    menu.style.left = `${Math.min(Math.max(4, splitMenu.x), maxLeft)}px`
+    menu.style.top = `${Math.min(Math.max(4, splitMenu.y), maxTop)}px`
+  }, [splitMenu])
+
   return (
     <>
       <button
-        style={viewerStyles.actionButton}
-        onClick={() => {
-          onActivatePane()
-          onSplitPane('right')
+        type="button"
+        ref={splitButtonRef}
+        style={{
+          ...viewerStyles.compactActionButton,
+          ...(splitMenu ? viewerStyles.compactActionButtonActive : {}),
         }}
-        title="Split editor vertically"
+        onClick={handleToggleSplitMenu}
+        title="Split editor"
+        aria-label="Split editor"
+        aria-haspopup="menu"
+        aria-expanded={splitMenu !== null}
       >
-        Split Right
-      </button>
-      <button
-        style={viewerStyles.actionButton}
-        onClick={() => {
-          onActivatePane()
-          onSplitPane('below')
-        }}
-        title="Split editor horizontally"
-      >
-        Split Down
+        <span style={viewerStyles.compactActionButtonContent}>
+          <SplitGlyph direction="menu" />
+          <span style={viewerStyles.iconCaret} />
+        </span>
       </button>
       {hasMoveTargets && (
         <button
+          type="button"
           ref={moveButtonRef}
           style={viewerStyles.actionButton}
           onClick={handleMoveClick}
@@ -143,7 +186,48 @@ function PaneActions({
           Move
         </button>
       )}
+      {splitMenu && (
+        <>
+          <div style={viewerStyles.actionMenuOverlay} onClick={() => setSplitMenu(null)} />
+          <div
+            ref={splitMenuRef}
+            style={{ ...viewerStyles.actionMenu, left: splitMenu.x, top: splitMenu.y }}
+            role="menu"
+            aria-label="Split editor"
+          >
+            <button
+              type="button"
+              style={viewerStyles.actionMenuItem}
+              onClick={() => handleSplitSelect('right')}
+              role="menuitem"
+            >
+              <SplitGlyph direction="right" />
+              <span style={viewerStyles.actionMenuItemLabel}>Split right</span>
+            </button>
+            <button
+              type="button"
+              style={viewerStyles.actionMenuItem}
+              onClick={() => handleSplitSelect('below')}
+              role="menuitem"
+            >
+              <SplitGlyph direction="below" />
+              <span style={viewerStyles.actionMenuItemLabel}>Split down</span>
+            </button>
+          </div>
+        </>
+      )}
     </>
+  )
+}
+
+function SplitGlyph({ direction }: { direction: 'menu' | SplitDirection }): React.JSX.Element {
+  return (
+    <span style={viewerStyles.splitGlyph} aria-hidden="true">
+      {(direction === 'menu' || direction === 'right') && <span style={viewerStyles.splitGlyphDividerVertical} />}
+      {(direction === 'menu' || direction === 'below') && <span style={viewerStyles.splitGlyphDividerHorizontal} />}
+      {direction === 'right' && <span style={viewerStyles.splitGlyphPaneHighlightRight} />}
+      {direction === 'below' && <span style={viewerStyles.splitGlyphPaneHighlightBelow} />}
+    </span>
   )
 }
 

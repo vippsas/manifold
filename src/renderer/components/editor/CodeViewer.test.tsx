@@ -373,15 +373,29 @@ describe('CodeViewer', () => {
     })
   })
 
-  it('invokes split action when clicked', () => {
+  it('invokes split-right action from the compact split menu', () => {
     const onSplitPane = vi.fn()
 
     renderViewer({
       onSplitPane,
     })
 
-    fireEvent.click(screen.getByTitle('Split editor vertically'))
+    fireEvent.click(screen.getByRole('button', { name: 'Split editor' }))
+    fireEvent.click(screen.getByRole('menuitem', { name: 'Split right' }))
 
     expect(onSplitPane).toHaveBeenCalledWith('right')
+  })
+
+  it('invokes split-down action from the compact split menu', () => {
+    const onSplitPane = vi.fn()
+
+    renderViewer({
+      onSplitPane,
+    })
+
+    fireEvent.click(screen.getByRole('button', { name: 'Split editor' }))
+    fireEvent.click(screen.getByRole('menuitem', { name: 'Split down' }))
+
+    expect(onSplitPane).toHaveBeenCalledWith('below')
   })
 })
