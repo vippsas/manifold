@@ -1041,7 +1041,17 @@ select:focus-visible {
   margin-left: 3px;
 }
 
-/* ─── Spinner Animation ─── */
+/* ─── Shared Loading Animations ─── */
+@keyframes typing-dot {
+  0%, 80%, 100% { opacity: 0.3; transform: translateY(0); }
+  40% { opacity: 1; transform: translateY(-4px); }
+}
+
+@keyframes shimmer {
+  0% { background-position: -200% center; }
+  100% { background-position: 200% center; }
+}
+
 @keyframes spin {
   to { transform: rotate(360deg); }
 }

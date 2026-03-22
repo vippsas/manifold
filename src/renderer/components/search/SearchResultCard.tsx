@@ -26,6 +26,22 @@ export function SearchResultCard({
   onOpenCodeResult,
 }: SearchResultCardProps): React.JSX.Element {
   const isCode = result.source === 'code'
+  const metaItems = isCode
+    ? [
+        result.projectId,
+        `Line ${result.line}`,
+        result.branchName,
+        result.runtimeId,
+      ].filter(Boolean) as string[]
+    : [
+        result.projectId,
+        result.branchName,
+        result.runtimeId,
+        result.worktreePath ? formatWorktreeLabel(result.worktreePath) : null,
+        !result.branchName && !result.runtimeId && result.sessionId ? formatSessionLabel(result.sessionId) : null,
+        formatMemoryTimestamp(result.createdAt),
+      ].filter(Boolean) as string[]
+
   const content = (
     <>
       <div style={s.resultHeader}>
@@ -54,22 +70,9 @@ export function SearchResultCard({
         </div>
       )}
       <div style={s.resultMeta}>
-        {isCode ? (
-          <>
-            <span>{result.relativePath}</span>
-            <span>Ln {result.line}</span>
-            {result.branchName && <span>{result.branchName}</span>}
-            {result.runtimeId && <span>{result.runtimeId}</span>}
-          </>
-        ) : (
-          <>
-            {result.branchName && <span>{result.branchName}</span>}
-            {result.runtimeId && <span>{result.runtimeId}</span>}
-            {result.worktreePath && <span>{formatWorktreeLabel(result.worktreePath)}</span>}
-            {!result.branchName && !result.runtimeId && result.sessionId && <span>{formatSessionLabel(result.sessionId)}</span>}
-            <span>{formatMemoryTimestamp(result.createdAt)}</span>
-          </>
-        )}
+        {metaItems.map((item) => (
+          <span key={`${result.id}-${item}`} style={s.resultMetaItem}>{item}</span>
+        ))}
       </div>
     </>
   )
@@ -114,7 +117,7 @@ export function SearchResultCard({
 
 const selectedCardStyle: React.CSSProperties = {
   borderColor: 'var(--accent)',
-  boxShadow: '0 0 0 1px var(--accent) inset',
+  boxShadow: '0 0 0 1px var(--accent) inset, 0 14px 32px rgba(0, 0, 0, 0.2)',
 }
 
 function CodeSnippet({

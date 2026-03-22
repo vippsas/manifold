@@ -51,6 +51,7 @@ describe('answerSearchQuestion', () => {
       expect.stringContaining('Question: auth flow'),
       '/repo/.manifold/worktrees/feature-search',
       ['--model', 'haiku'],
+      { timeoutMs: 90_000 },
     )
     expect(response.citations).toEqual([retrieval.results[1]])
   })
@@ -71,6 +72,24 @@ describe('answerSearchQuestion', () => {
 
     expect(response.answer).toContain('Sources: [S1] [S2]')
     expect(response.citations).toEqual(retrieval.results.slice(0, 2))
+  })
+
+  it('preserves the underlying runtime failure instead of masking it', async () => {
+    const { answerSearchQuestion } = await import('./ai-search-service')
+    getRuntimeByIdMock.mockReturnValue({
+      id: 'codex',
+      binary: 'codex',
+      aiModelArgs: ['--model', 'o4-mini'],
+    })
+
+    const deps = createDeps()
+    deps.gitOps.aiGenerate.mockRejectedValue(new Error(
+      'AI runtime "codex" failed (exit code 1): stream disconnected before completion',
+    ))
+
+    await expect(answerSearchQuestion(deps, createRequest(), createRetrieval())).rejects.toThrow(
+      'AI runtime "codex" failed (exit code 1): stream disconnected before completion',
+    )
   })
 })
 

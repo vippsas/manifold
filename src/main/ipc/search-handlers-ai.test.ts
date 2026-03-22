@@ -159,4 +159,121 @@ describe('registerSearchHandlers AI flow', () => {
       total: 1,
     })
   })
+
+  it('retries ask retrieval with keyword fallback when the natural-language query has no exact hits', async () => {
+    const { registerSearchHandlers } = await import('./search-handlers')
+    mocks.executeSearchQuery
+      .mockResolvedValueOnce({
+        results: [],
+        total: 0,
+        tookMs: 4,
+      })
+      .mockResolvedValueOnce({
+        results: [
+          {
+            id: 'code-linkerd',
+            source: 'code',
+            title: 'docs/security.md',
+            snippet: 'Linkerd mTLS decision',
+            filePath: '/repo/docs/security.md',
+            rootPath: '/repo',
+            relativePath: 'docs/security.md',
+            line: 8,
+          },
+        ],
+        total: 1,
+        tookMs: 6,
+      })
+      .mockResolvedValueOnce({
+        results: [
+          {
+            id: 'memory-linkerd',
+            source: 'memory',
+            memorySource: 'session_summary',
+            title: 'Decision summary',
+            snippet: 'We chose Linkerd mTLS over Cilium mTLS for this service mesh rollout.',
+            createdAt: 123,
+          },
+        ],
+        total: 1,
+        tookMs: 5,
+      })
+    mocks.answerSearchQuestion.mockResolvedValue({
+      answer: 'We chose Linkerd for operational reasons [S1].',
+      citations: [],
+      tookMs: 22,
+    })
+
+    const deps = {
+      sessionManager: { getSession: vi.fn(), discoverSessionsForProject: vi.fn() },
+      memoryStore: {},
+      settingsStore: {},
+      projectRegistry: {},
+      gitOps: {},
+    }
+
+    registerSearchHandlers(deps as never)
+
+    const handler = mocks.handlers.get('search:ask')
+    if (!handler) {
+      throw new Error('search:ask handler was not registered')
+    }
+
+    const request = {
+      question: 'Why did we choose Linkerd mtls over Cilium mtls?',
+      search: {
+        projectId: 'project-1',
+        activeSessionId: 'session-1',
+        mode: 'everything',
+        query: 'Why did we choose Linkerd mtls over Cilium mtls?',
+        scope: { kind: 'all-project-sessions', includeAdditionalDirs: true },
+        matchMode: 'literal',
+        caseSensitive: false,
+        wholeWord: false,
+      },
+    }
+
+    await handler({}, request)
+
+    expect(mocks.executeSearchQuery).toHaveBeenNthCalledWith(
+      1,
+      { sessionManager: deps.sessionManager, memoryStore: deps.memoryStore },
+      request.search,
+    )
+    expect(mocks.executeSearchQuery).toHaveBeenNthCalledWith(
+      2,
+      { sessionManager: deps.sessionManager, memoryStore: deps.memoryStore },
+      expect.objectContaining({
+        mode: 'code',
+        query: 'Linkerd|mtls|Cilium',
+        matchMode: 'regex',
+      }),
+    )
+    expect(mocks.executeSearchQuery).toHaveBeenNthCalledWith(
+      3,
+      { sessionManager: deps.sessionManager, memoryStore: deps.memoryStore },
+      expect.objectContaining({
+        mode: 'memory',
+        query: 'Linkerd mtls Cilium',
+        scope: { kind: 'memory-only' },
+        matchMode: 'literal',
+      }),
+    )
+    expect(mocks.answerSearchQuestion).toHaveBeenCalledWith(
+      {
+        settingsStore: deps.settingsStore,
+        projectRegistry: deps.projectRegistry,
+        sessionManager: deps.sessionManager,
+        gitOps: deps.gitOps,
+      },
+      request,
+      expect.objectContaining({
+        total: 2,
+        results: expect.arrayContaining([
+          expect.objectContaining({ id: 'code-linkerd' }),
+          expect.objectContaining({ id: 'memory-linkerd' }),
+        ]),
+      }),
+    )
+  })
 })

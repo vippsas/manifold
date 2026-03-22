@@ -10,6 +10,7 @@ import type {
   SearchMatchMode,
   UnifiedSearchResult,
 } from '../../shared/search-types'
+import type { AgentSession } from '../../shared/types'
 import { buildSearchQueryRequest, getDefaultSearchScope } from './search-request'
 import { useSearchAiAvailability } from './useSearchAiAvailability'
 
@@ -43,7 +44,11 @@ export interface UseSearchResult {
   error: string | null
 }
 
-export function useSearch(activeProjectId: string | null, activeSessionId: string | null): UseSearchResult {
+export function useSearch(
+  activeProjectId: string | null,
+  activeSessionId: string | null,
+  allProjectSessions: Record<string, AgentSession[]> = {},
+): UseSearchResult {
   const [context, setContext] = useState<SearchContextResponse | null>(null)
   const [mode, setModeState] = useState<SearchMode>('code')
   const [query, setQuery] = useState('')
@@ -128,11 +133,17 @@ export function useSearch(activeProjectId: string | null, activeSessionId: strin
 
   const effectiveScope = useMemo<SearchScopeDescriptor>(() => {
     if (mode === 'memory') return { kind: 'memory-only' }
-    if (mode === 'everything' && scopeKind === 'all-project-sessions') {
-      return { kind: scopeKind, includeAdditionalDirs: true }
+    if (scopeKind === 'all-project-sessions') {
+      const workspaceSessions = Object.values(allProjectSessions).flat()
+      return {
+        kind: scopeKind,
+        includeAdditionalDirs: mode === 'everything',
+        sessionIds: workspaceSessions.map((session) => session.id),
+        projectIds: [...new Set(workspaceSessions.map((session) => session.projectId))],
+      }
     }
     return { kind: scopeKind }
-  }, [mode, scopeKind])
+  }, [allProjectSessions, mode, scopeKind])
 
   const request = useMemo(() => buildSearchQueryRequest({
     activeProjectId,
@@ -272,7 +283,16 @@ export function useSearch(activeProjectId: string | null, activeSessionId: strin
 }
 
 function formatSearchError(error: unknown): string {
-  if (error instanceof Error) return error.message
-  if (typeof error === 'string' && error.trim()) return error
-  return 'Search failed.'
+  const message = error instanceof Error
+    ? error.message
+    : typeof error === 'string'
+      ? error
+      : ''
+
+  const normalized = message
+    .replace(/^Error invoking remote method '.*?':\s*/i, '')
+    .replace(/^(Error:\s*)+/i, '')
+    .trim()
+
+  return normalized || 'Search failed.'
 }

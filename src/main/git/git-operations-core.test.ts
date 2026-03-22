@@ -175,7 +175,7 @@ describe('GitOperationsManager core', () => {
   })
 
   describe('aiGenerate', () => {
-    function createMockChild(stdout: string, exitCode: number) {
+    function createMockChild(stdout: string, exitCode: number, stderr = '') {
       const child = Object.assign(new EventEmitter(), {
         stdout: new EventEmitter(),
         stderr: new EventEmitter(),
@@ -185,6 +185,7 @@ describe('GitOperationsManager core', () => {
       mockSpawn.mockReturnValue(child)
       process.nextTick(() => {
         if (stdout) child.stdout.emit('data', Buffer.from(stdout))
+        if (stderr) child.stderr.emit('data', Buffer.from(stderr))
         child.emit('close', exitCode)
       })
       return child
@@ -219,16 +220,19 @@ describe('GitOperationsManager core', () => {
       expect(child.stdin.end).toHaveBeenCalled()
     })
 
-    it('returns empty string on non-zero exit', async () => {
-      createMockChild('', 1)
+    it('rejects with a parsed runtime error on non-zero exit', async () => {
+      createMockChild(
+        '{"type":"turn.failed","error":{"message":"stream disconnected before completion"}}\n',
+        1,
+      )
 
-      const result = await git.aiGenerate({
-        id: 'claude',
-        name: 'Claude',
-        binary: '/usr/local/bin/claude',
-      }, 'prompt', '/worktree')
-
-      expect(result).toBe('')
+      await expect(git.aiGenerate({
+        id: 'codex',
+        name: 'Codex',
+        binary: '/usr/local/bin/codex',
+      }, 'prompt', '/worktree')).rejects.toThrow(
+        'AI runtime "codex" failed (exit code 1): stream disconnected before completion',
+      )
     })
 
     it('passes extra args into the codex exec command and parses JSONL output', async () => {
@@ -248,7 +252,7 @@ describe('GitOperationsManager core', () => {
       )
     })
 
-    it('returns empty string on spawn error', async () => {
+    it('rejects on spawn error', async () => {
       const child = Object.assign(new EventEmitter(), {
         stdout: new EventEmitter(),
         stderr: new EventEmitter(),
@@ -260,13 +264,13 @@ describe('GitOperationsManager core', () => {
         child.emit('error', new Error('ENOENT'))
       })
 
-      const result = await git.aiGenerate({
+      await expect(git.aiGenerate({
         id: 'claude',
         name: 'Claude',
         binary: '/nonexistent/binary',
-      }, 'prompt', '/cwd')
-
-      expect(result).toBe('')
+      }, 'prompt', '/cwd')).rejects.toThrow(
+        'AI runtime "claude" failed to start: ENOENT',
+      )
     })
   })
 })

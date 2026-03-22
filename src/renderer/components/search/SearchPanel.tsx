@@ -21,10 +21,22 @@ import {
 
 export function SearchPanel(): React.JSX.Element {
   const dock = useDockState()
-  const search = useSearch(dock.activeProjectId, dock.sessionId)
+  const search = useSearch(dock.activeProjectId, dock.sessionId, dock.allProjectSessions)
   const history = useSearchHistory(dock.activeProjectId, search)
   const inputRef = useRef<HTMLInputElement | null>(null)
   const handledFocusRequestKeyRef = useRef(0)
+  const workspaceSessions = useMemo(
+    () => Object.values(dock.allProjectSessions).flat(),
+    [dock.allProjectSessions],
+  )
+  const workspaceProjectCount = useMemo(
+    () => Object.values(dock.allProjectSessions).filter((sessions) => sessions.length > 0).length,
+    [dock.allProjectSessions],
+  )
+  const workspaceAdditionalDirCount = useMemo(
+    () => workspaceSessions.reduce((count, session) => count + session.additionalDirs.length, 0),
+    [workspaceSessions],
+  )
   const activeContextSession = useMemo(
     () => getActiveContextSession(search.context, dock.sessionId),
     [dock.sessionId, search.context],
@@ -53,8 +65,10 @@ export function SearchPanel(): React.JSX.Element {
     () => getScopeOptions(
       search.context?.sessions.length ?? 0,
       activeContextSession?.additionalDirs.length ?? 0,
+      workspaceSessions.length,
+      workspaceProjectCount,
     ),
-    [activeContextSession?.additionalDirs.length, search.context?.sessions.length],
+    [activeContextSession?.additionalDirs.length, search.context?.sessions.length, workspaceProjectCount, workspaceSessions.length],
   )
 
   useEffect(() => {
@@ -73,16 +87,22 @@ export function SearchPanel(): React.JSX.Element {
         (count, session) => count + session.additionalDirs.length,
         0,
       ) ?? 0,
+      workspaceAgentCount: workspaceSessions.length,
+      workspaceProjectCount,
+      workspaceAdditionalDirCount,
       hasActiveSession: activeContextSession !== null,
     }),
-    [activeContextSession, search.context, search.mode, search.scopeKind],
+    [activeContextSession, search.context, search.mode, search.scopeKind, workspaceAdditionalDirCount, workspaceProjectCount, workspaceSessions.length],
   )
   const resultSummary = useMemo(() => {
     if (search.isSearching) return 'Searching...'
     if (!hasCurrentSearch) return null
-    if (search.results.length === 0) return 'No results'
+    if (search.results.length === 0) {
+      if (search.aiAnswer || search.aiError || search.isAsking) return null
+      return 'No direct matches'
+    }
     return `${search.results.length} ${search.results.length === 1 ? 'result' : 'results'}`
-  }, [hasCurrentSearch, search.isSearching, search.results.length])
+  }, [hasCurrentSearch, search.aiAnswer, search.aiError, search.isAsking, search.isSearching, search.results.length])
 
   if (!dock.activeProjectId) {
     return <div style={s.empty}>Select a project to search</div>

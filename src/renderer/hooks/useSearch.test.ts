@@ -91,6 +91,85 @@ describe('useSearch', () => {
     expect(result.current.warnings).toEqual([])
     expect(result.current.isSearching).toBe(false)
   })
+
+  it('sends workspace session ids and project ids when All Agents scope is selected', async () => {
+    mockInvoke.mockImplementation((channel: string, payload?: unknown) => {
+      if (channel === 'settings:get') return Promise.resolve(DEFAULT_SETTINGS)
+      if (channel === 'search:context') {
+        return Promise.resolve({
+          projectId: 'project-1',
+          activeSessionId: 'session-1',
+          sessions: [{
+            sessionId: 'session-1',
+            branchName: 'feature/search',
+            runtimeId: 'codex',
+            worktreePath: '/repo/.manifold/worktrees/feature-search',
+            additionalDirs: [],
+            status: 'running',
+          }],
+        })
+      }
+      if (channel === 'search:query') {
+        return Promise.resolve({
+          results: [],
+          total: 0,
+          tookMs: 4,
+        })
+      }
+      return Promise.reject(new Error(`Unexpected channel: ${channel} ${JSON.stringify(payload)}`))
+    })
+
+    const { result } = renderHook(() => useSearch('project-1', 'session-1', {
+      'project-1': [{
+        id: 'session-1',
+        projectId: 'project-1',
+        runtimeId: 'codex',
+        branchName: 'feature/search',
+        worktreePath: '/repo/.manifold/worktrees/feature-search',
+        status: 'running',
+        pid: 1,
+        additionalDirs: [],
+      }],
+      'project-2': [{
+        id: 'session-2',
+        projectId: 'project-2',
+        runtimeId: 'claude',
+        branchName: 'larvik',
+        worktreePath: '/trancefjord/.manifold/worktrees/larvik',
+        status: 'waiting',
+        pid: 2,
+        additionalDirs: ['/trancefjord/docs'],
+      }],
+    }))
+
+    await act(async () => {
+      await Promise.resolve()
+    })
+
+    act(() => {
+      result.current.setMode('everything')
+      result.current.setScopeKind('all-project-sessions')
+      result.current.setQuery('trancefjord')
+    })
+
+    act(() => {
+      vi.advanceTimersByTime(250)
+    })
+
+    await act(async () => {
+      await Promise.resolve()
+    })
+
+    expect(mockInvoke).toHaveBeenCalledWith('search:query', expect.objectContaining({
+      projectId: 'project-1',
+      scope: expect.objectContaining({
+        kind: 'all-project-sessions',
+        includeAdditionalDirs: true,
+        sessionIds: ['session-1', 'session-2'],
+        projectIds: ['project-1', 'project-2'],
+      }),
+    }))
+  })
 })
 
 function createDeferred<T>() {

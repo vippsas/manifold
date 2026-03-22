@@ -10,6 +10,8 @@ interface AiSearchDeps {
   gitOps: IpcDependencies['gitOps']
 }
 
+const SEARCH_AI_ANSWER_TIMEOUT_MS = 90_000
+
 export async function answerSearchQuestion(
   deps: AiSearchDeps,
   request: SearchAskRequest,
@@ -50,10 +52,13 @@ export async function answerSearchQuestion(
 
   const cwd = resolveSearchWorkingDirectory(deps.sessionManager, request.search.activeSessionId, project.path)
   const prompt = buildSearchAnswerPrompt(request.question, citations)
-  const answer = await deps.gitOps.aiGenerate(runtime, prompt, cwd, runtime.aiModelArgs ?? [])
-  if (!answer.trim()) {
-    throw new Error('AI search did not return an answer.')
-  }
+  const answer = await deps.gitOps.aiGenerate(
+    runtime,
+    prompt,
+    cwd,
+    runtime.aiModelArgs ?? [],
+    { timeoutMs: SEARCH_AI_ANSWER_TIMEOUT_MS },
+  )
 
   const usedCitations = extractUsedCitations(answer, citations, aiSettings.citationLimit)
   return {

@@ -67,6 +67,7 @@ export function createCodeSearchResult(
     source: 'code',
     title: displayRelativePath,
     snippet,
+    projectId: root.session.projectId,
     filePath,
     rootPath: root.path,
     relativePath: displayRelativePath,

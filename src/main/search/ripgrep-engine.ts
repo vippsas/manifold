@@ -1,8 +1,9 @@
-import { execFile } from 'node:child_process'
-import { promisify } from 'node:util'
+import { spawn } from 'node:child_process'
 import type { CodeSearchResult, SearchQueryRequest } from '../../shared/search-types'
 import { createCodeSearchResult, type CodeSearchRoot } from './search-engine'
-const execFileAsync = promisify(execFile)
+
+const RIPGREP_TIMEOUT_MS = 10_000
+const RIPGREP_STDERR_LIMIT = 2 * 1024
 
 export async function searchWithRipgrep(
   roots: CodeSearchRoot[],
@@ -33,19 +34,94 @@ async function searchRootWithRipgrep(
   if (!request.query.trim()) return []
 
   const args = buildRipgrepArgs(request, limit)
-  try {
-    const { stdout } = await execFileAsync('rg', args, {
+  return new Promise((resolve, reject) => {
+    const child = spawn('rg', args, {
       cwd: root.path,
-      timeout: 10_000,
-      maxBuffer: 2 * 1024 * 1024,
+      stdio: ['ignore', 'pipe', 'pipe'],
     })
-    return parseRipgrepOutput(stdout, root)
-  } catch (error: unknown) {
-    if (error && typeof error === 'object' && 'code' in error && (error as { code: number }).code === 1) {
-      return []
+
+    const results: CodeSearchResult[] = []
+    const stderrChunks: string[] = []
+    let stdoutBuffer = ''
+    let settled = false
+    let killedForLimit = false
+    let timedOut = false
+
+    const timer = setTimeout(() => {
+      timedOut = true
+      child.kill('SIGTERM')
+    }, RIPGREP_TIMEOUT_MS)
+
+    const settle = (callback: () => void) => {
+      if (settled) return
+      settled = true
+      clearTimeout(timer)
+      callback()
     }
-    throw error
-  }
+
+    const flushStdout = (final: boolean): void => {
+      const parts = stdoutBuffer.split('\n')
+      if (!final) {
+        stdoutBuffer = parts.pop() ?? ''
+      } else {
+        stdoutBuffer = ''
+      }
+
+      for (const line of parts) {
+        const result = parseRipgrepLine(line, root, results.length)
+        if (!result) continue
+
+        results.push(result)
+        if (results.length >= limit && !killedForLimit) {
+          killedForLimit = true
+          child.kill('SIGTERM')
+          break
+        }
+      }
+    }
+
+    child.stdout?.on('data', (data: Buffer) => {
+      stdoutBuffer += data.toString('utf8')
+      flushStdout(false)
+    })
+
+    child.stderr?.on('data', (data: Buffer) => {
+      const next = data.toString('utf8')
+      const currentLength = stderrChunks.reduce((sum, chunk) => sum + chunk.length, 0)
+      if (currentLength >= RIPGREP_STDERR_LIMIT) return
+      stderrChunks.push(next.slice(0, RIPGREP_STDERR_LIMIT - currentLength))
+    })
+
+    child.on('error', (error) => {
+      settle(() => reject(error))
+    })
+
+    child.on('close', (code) => {
+      flushStdout(true)
+
+      settle(() => {
+        if (killedForLimit || code === 0) {
+          resolve(results.slice(0, limit))
+          return
+        }
+
+        if (code === 1) {
+          resolve([])
+          return
+        }
+
+        const stderr = stderrChunks.join('').trim()
+        const failure = timedOut
+          ? `ripgrep timed out after ${RIPGREP_TIMEOUT_MS / 1000} seconds`
+          : stderr || `ripgrep failed with exit code ${code ?? 'unknown'}`
+        const error = Object.assign(new Error(failure), {
+          code: timedOut ? 'ETIMEDOUT' : code,
+          stderr,
+        })
+        reject(error)
+      })
+    })
+  })
 }
 
 export function buildRipgrepArgs(request: SearchQueryRequest, limit: number): string[] {
@@ -73,30 +149,27 @@ export function buildRipgrepArgs(request: SearchQueryRequest, limit: number): st
   return args
 }
 
-function parseRipgrepOutput(stdout: string, root: CodeSearchRoot): CodeSearchResult[] {
-  const results: CodeSearchResult[] = []
-  const lines = stdout.split('\n').filter((line) => line.length > 0)
+function parseRipgrepLine(
+  line: string,
+  root: CodeSearchRoot,
+  matchIndex: number,
+): CodeSearchResult | null {
+  if (!line) return null
 
-  for (let index = 0; index < lines.length; index += 1) {
-    const match = /^(.*?):(\d+):(\d+):(.*)$/.exec(lines[index])
-    if (!match) continue
+  const match = /^(.*?):(\d+):(\d+):(.*)$/.exec(line)
+  if (!match) return null
 
-    const [, relativePath, lineText, columnText, snippet] = match
-    const line = Number.parseInt(lineText, 10)
-    const column = Number.parseInt(columnText, 10)
-    if (!Number.isFinite(line) || !Number.isFinite(column)) continue
+  const [, relativePath, lineText, columnText, snippet] = match
+  const lineNumber = Number.parseInt(lineText, 10)
+  const column = Number.parseInt(columnText, 10)
+  if (!Number.isFinite(lineNumber) || !Number.isFinite(column)) return null
 
-    results.push(
-      createCodeSearchResult(
-        root,
-        relativePath,
-        line,
-        column,
-        snippet,
-        index,
-      ),
-    )
-  }
-
-  return results
+  return createCodeSearchResult(
+    root,
+    relativePath,
+    lineNumber,
+    column,
+    snippet,
+    matchIndex,
+  )
 }
