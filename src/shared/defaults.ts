@@ -18,4 +18,13 @@ export const DEFAULT_SETTINGS: ManifoldSettings = {
     injectionMethod: 'auto',
     rawRetentionDays: 30,
   },
+  search: {
+    ai: {
+      enabled: true,
+      mode: 'answer',
+      runtimeId: 'default',
+      citationLimit: 6,
+      maxContextResults: 8,
+    },
+  },
 }

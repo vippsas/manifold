@@ -37,14 +37,29 @@ export function getInfoText(params: {
   mode: SearchMode
   scopeKind: SearchScopeKind
   additionalDirCount: number
+  totalAdditionalDirCount: number
   hasActiveSession: boolean
 }): string | null {
-  const { context, mode, scopeKind, additionalDirCount, hasActiveSession } = params
+  const { context, mode, scopeKind, additionalDirCount, totalAdditionalDirCount, hasActiveSession } = params
   if (!context) return null
 
   const agentCount = context.sessions.length
   if (mode === 'memory') {
     return `${agentCount} agent${agentCount === 1 ? '' : 's'} in project memory context`
+  }
+
+  if (mode === 'everything') {
+    if (scopeKind === 'all-project-sessions') {
+      const totalRootCount = agentCount + totalAdditionalDirCount
+      return `${agentCount} agent${agentCount === 1 ? '' : 's'}, ${totalRootCount} code root${totalRootCount === 1 ? '' : 's'}, and project memory`
+    }
+
+    if (scopeKind === 'visible-roots') {
+      const totalRootCount = additionalDirCount + (hasActiveSession ? 1 : 0)
+      return `${totalRootCount} active code root${totalRootCount === 1 ? '' : 's'} and project memory`
+    }
+
+    return 'Active agent code and project memory'
   }
 
   if (scopeKind === 'visible-roots') {
@@ -69,13 +84,4 @@ export function getEmptyState(mode: SearchMode): string {
   if (mode === 'memory') return 'Search observations, summaries, and interactions'
   if (mode === 'everything') return 'Search across code, sessions, and memory'
   return 'Search across the current code scope'
-}
-
-export function formatMemoryDate(timestamp: number): string {
-  const deltaMs = Date.now() - timestamp
-  const deltaDays = Math.floor(deltaMs / (1000 * 60 * 60 * 24))
-  if (deltaDays <= 0) return 'today'
-  if (deltaDays === 1) return 'yesterday'
-  if (deltaDays < 7) return `${deltaDays}d ago`
-  return new Date(timestamp).toLocaleDateString()
 }

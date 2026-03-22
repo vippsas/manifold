@@ -82,7 +82,6 @@ export function registerMemoryHandlers(deps: IpcDependencies): void {
   ipcMain.handle('memory:search', (_event, request: MemorySearchRequest): MemorySearchResponse => {
     const limit = request.limit ?? 20
 
-    // Search compressed observations + summaries first
     const compressed = memoryStore.search(request.projectId, request.query, {
       type: request.type,
       concepts: request.concepts,
@@ -90,19 +89,33 @@ export function registerMemoryHandlers(deps: IpcDependencies): void {
       limit,
     })
 
-    // Also search raw interactions via FTS5 (always available, even before compression)
-    if (!request.type) {
+    const shouldIncludeInteractionMatches = (
+      !request.runtimeId &&
+      !(request.concepts && request.concepts.length > 0) &&
+      (!request.type || request.type === 'task_summary')
+    )
+
+    if (shouldIncludeInteractionMatches) {
       try {
         const db = memoryStore.getDb(request.projectId)
         const interactionRows = db.prepare(`
-          SELECT i.id, i.sessionId, i.role, i.text, i.timestamp, rank
+          SELECT i.id, i.sessionId, i.role, i.text, i.timestamp, s.runtimeId, s.branchName, s.worktreePath, rank
           FROM interactions_fts f
           JOIN interactions i ON i.id = f.rowid
+          LEFT JOIN sessions s ON s.sessionId = i.sessionId
           WHERE interactions_fts MATCH ?
           ORDER BY rank
           LIMIT ?
         `).all(request.query, limit) as Array<{
-          id: number; sessionId: string; role: string; text: string; timestamp: number; rank: number
+          id: number
+          sessionId: string
+          role: string
+          text: string
+          timestamp: number
+          runtimeId: string | null
+          branchName: string | null
+          worktreePath: string | null
+          rank: number
         }>
 
         const interactionResults = interactionRows
@@ -117,6 +130,9 @@ export function registerMemoryHandlers(deps: IpcDependencies): void {
               title: getInteractionRoleLabel(r.role),
               summary: truncate(cleanText, 200),
               sessionId: r.sessionId,
+              runtimeId: r.runtimeId ?? undefined,
+              branchName: r.branchName ?? undefined,
+              worktreePath: r.worktreePath ?? undefined,
               createdAt: r.timestamp,
               rank: r.rank,
             }
@@ -172,8 +188,13 @@ export function registerMemoryHandlers(deps: IpcDependencies): void {
       .map(parseObservationRow)
       .map(toObservationTimelineItem)
 
+    const includeSummaryTimeline = (
+      !(request.type && request.type !== 'task_summary') &&
+      !(request.concepts && request.concepts.length > 0)
+    )
+
     const summaryItems: MemoryTimelineItem[] =
-      request.type && request.type !== 'task_summary'
+      !includeSummaryTimeline
         ? []
         : (db.prepare(`
             SELECT *
@@ -186,7 +207,7 @@ export function registerMemoryHandlers(deps: IpcDependencies): void {
           .map(toSessionSummaryTimelineItem)
 
     const interactionItems: MemoryTimelineItem[] =
-      request.type && request.type !== 'task_summary'
+      !includeSummaryTimeline
         ? []
         : (db.prepare(`
             SELECT id, sessionId, role, text, timestamp

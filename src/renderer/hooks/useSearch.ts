@@ -1,14 +1,16 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import type { ObservationType } from '../../shared/memory-types'
 import type {
+  SearchAskResponse,
   SearchContextResponse,
   SearchMode,
-  SearchQueryRequest,
   SearchQueryResponse,
   SearchScopeDescriptor,
   SearchScopeKind,
   SearchMatchMode,
   UnifiedSearchResult,
 } from '../../shared/search-types'
+import { buildSearchQueryRequest, getDefaultSearchScope } from './search-request'
 
 export interface UseSearchResult {
   context: SearchContextResponse | null
@@ -24,29 +26,42 @@ export interface UseSearchResult {
   setCaseSensitive: (value: boolean) => void
   wholeWord: boolean
   setWholeWord: (value: boolean) => void
+  memoryTypeFilter: ObservationType | null
+  setMemoryTypeFilter: (value: ObservationType | null) => void
+  memoryConceptFilter: string | null
+  setMemoryConceptFilter: (value: string | null) => void
   results: UnifiedSearchResult[]
   warnings: string[]
   isSearching: boolean
+  aiAnswer: SearchAskResponse | null
+  isAsking: boolean
+  ask: () => Promise<void>
+  clearAiAnswer: () => void
+  aiError: string | null
   error: string | null
 }
 
-const DEFAULT_LIMIT = 100
-
 export function useSearch(activeProjectId: string | null, activeSessionId: string | null): UseSearchResult {
   const [context, setContext] = useState<SearchContextResponse | null>(null)
-  const [mode, setMode] = useState<SearchMode>('code')
+  const [mode, setModeState] = useState<SearchMode>('code')
   const [query, setQuery] = useState('')
   const [scopeKind, setScopeKind] = useState<SearchScopeKind>('active-session')
   const [matchMode, setMatchMode] = useState<SearchMatchMode>('literal')
   const [caseSensitive, setCaseSensitive] = useState(false)
   const [wholeWord, setWholeWord] = useState(false)
+  const [memoryTypeFilter, setMemoryTypeFilter] = useState<ObservationType | null>(null)
+  const [memoryConceptFilter, setMemoryConceptFilter] = useState<string | null>(null)
   const [results, setResults] = useState<UnifiedSearchResult[]>([])
   const [warnings, setWarnings] = useState<string[]>([])
   const [isSearching, setIsSearching] = useState(false)
+  const [aiAnswer, setAiAnswer] = useState<SearchAskResponse | null>(null)
+  const [isAsking, setIsAsking] = useState(false)
+  const [aiError, setAiError] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
 
   const debounceTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const requestIdRef = useRef(0)
+  const askRequestIdRef = useRef(0)
 
   useEffect(() => {
     if (!activeProjectId) {
@@ -79,40 +94,86 @@ export function useSearch(activeProjectId: string | null, activeSessionId: strin
     setResults([])
     setWarnings([])
     setError(null)
+    setAiAnswer(null)
+    setAiError(null)
+    setIsAsking(false)
     setQuery('')
-    setMode('code')
+    setModeState('code')
     setScopeKind('active-session')
     setMatchMode('literal')
     setCaseSensitive(false)
     setWholeWord(false)
+    setMemoryTypeFilter(null)
+    setMemoryConceptFilter(null)
   }, [activeProjectId])
+
+  useEffect(() => {
+    if (mode === 'memory' && matchMode === 'regex') {
+      setMatchMode('literal')
+    }
+  }, [matchMode, mode])
+
+  const setMode = useCallback((nextMode: SearchMode) => {
+    setModeState(nextMode)
+
+    if (nextMode === mode) return
+    if (nextMode === 'memory') return
+    if (nextMode === 'everything') {
+      setScopeKind(getDefaultSearchScope(nextMode, context, activeSessionId))
+    }
+  }, [activeSessionId, context, mode])
 
   const effectiveScope = useMemo<SearchScopeDescriptor>(() => {
     if (mode === 'memory') return { kind: 'memory-only' }
+    if (mode === 'everything' && scopeKind === 'all-project-sessions') {
+      return { kind: scopeKind, includeAdditionalDirs: true }
+    }
     return { kind: scopeKind }
   }, [mode, scopeKind])
 
+  const request = useMemo(() => buildSearchQueryRequest({
+    activeProjectId,
+    activeSessionId,
+    mode,
+    query,
+    scope: effectiveScope,
+    matchMode,
+    caseSensitive,
+    wholeWord,
+    memoryTypeFilter,
+    memoryConceptFilter,
+  }), [
+    activeProjectId,
+    activeSessionId,
+    mode,
+    query,
+    effectiveScope,
+    matchMode,
+    caseSensitive,
+    wholeWord,
+    memoryTypeFilter,
+    memoryConceptFilter,
+  ])
+
+  const clearAiAnswer = useCallback(() => {
+    askRequestIdRef.current += 1
+    setAiAnswer(null)
+    setAiError(null)
+    setIsAsking(false)
+  }, [])
+
+  useEffect(() => {
+    clearAiAnswer()
+  }, [request, clearAiAnswer])
+
   const search = useCallback(async (): Promise<void> => {
-    if (!activeProjectId || !query.trim()) {
+    if (!request) {
       setResults([])
       setWarnings([])
       return
     }
 
     const requestId = ++requestIdRef.current
-    const request: SearchQueryRequest = {
-      projectId: activeProjectId,
-      activeSessionId,
-      mode,
-      query: query.trim(),
-      scope: effectiveScope,
-      matchMode,
-      caseSensitive,
-      wholeWord,
-      limit: DEFAULT_LIMIT,
-      contextLines: 1,
-    }
-
     setIsSearching(true)
     try {
       const response = await window.electronAPI.invoke('search:query', request) as SearchQueryResponse
@@ -130,11 +191,38 @@ export function useSearch(activeProjectId: string | null, activeSessionId: strin
         setIsSearching(false)
       }
     }
-  }, [activeProjectId, activeSessionId, mode, query, effectiveScope, matchMode, caseSensitive, wholeWord])
+  }, [request])
+
+  const ask = useCallback(async (): Promise<void> => {
+    if (!request) {
+      clearAiAnswer()
+      return
+    }
+
+    const requestId = ++askRequestIdRef.current
+    setIsAsking(true)
+    setAiError(null)
+    try {
+      const response = await window.electronAPI.invoke('search:ask', {
+        search: request,
+        question: request.query,
+      }) as SearchAskResponse
+      if (requestId !== askRequestIdRef.current) return
+      setAiAnswer(response)
+    } catch (nextError) {
+      if (requestId !== askRequestIdRef.current) return
+      setAiAnswer(null)
+      setAiError(formatSearchError(nextError))
+    } finally {
+      if (requestId === askRequestIdRef.current) {
+        setIsAsking(false)
+      }
+    }
+  }, [clearAiAnswer, request])
 
   useEffect(() => {
     if (debounceTimerRef.current) clearTimeout(debounceTimerRef.current)
-    if (!query.trim()) {
+    if (!request) {
       setResults([])
       setWarnings([])
       setIsSearching(false)
@@ -146,7 +234,7 @@ export function useSearch(activeProjectId: string | null, activeSessionId: strin
     return () => {
       if (debounceTimerRef.current) clearTimeout(debounceTimerRef.current)
     }
-  }, [query, mode, effectiveScope, matchMode, caseSensitive, wholeWord, search])
+  }, [request, search])
 
   return {
     context,
@@ -162,9 +250,18 @@ export function useSearch(activeProjectId: string | null, activeSessionId: strin
     setCaseSensitive,
     wholeWord,
     setWholeWord,
+    memoryTypeFilter,
+    setMemoryTypeFilter,
+    memoryConceptFilter,
+    setMemoryConceptFilter,
     results,
     warnings,
     isSearching,
+    aiAnswer,
+    isAsking,
+    ask,
+    clearAiAnswer,
+    aiError,
     error,
   }
 }

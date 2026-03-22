@@ -63,6 +63,78 @@ describe('search-engine', () => {
     ])
   })
 
+  it('includes additional directories across all sessions when explicitly requested', () => {
+    const roots = buildCodeSearchRoots(
+      [
+        createSession(),
+        createSession({
+          id: 'session-2',
+          branchName: 'feature/other',
+          worktreePath: '/repo/.manifold/worktrees/feature-other',
+          additionalDirs: ['/repo/shared'],
+        }),
+      ],
+      createRequest({
+        mode: 'everything',
+        scope: { kind: 'all-project-sessions', includeAdditionalDirs: true },
+      }),
+    )
+
+    expect(roots.map((root) => ({ path: root.path, kind: root.kind, sessionId: root.session.id }))).toEqual([
+      {
+        path: '/repo/.manifold/worktrees/feature-search',
+        kind: 'worktree',
+        sessionId: 'session-1',
+      },
+      {
+        path: '/repo/docs',
+        kind: 'additional-dir',
+        sessionId: 'session-1',
+      },
+      {
+        path: '/repo/design',
+        kind: 'additional-dir',
+        sessionId: 'session-1',
+      },
+      {
+        path: '/repo/.manifold/worktrees/feature-other',
+        kind: 'worktree',
+        sessionId: 'session-2',
+      },
+      {
+        path: '/repo/shared',
+        kind: 'additional-dir',
+        sessionId: 'session-2',
+      },
+    ])
+  })
+
+  it('deduplicates shared additional directories across sessions by path', () => {
+    const roots = buildCodeSearchRoots(
+      [
+        createSession(),
+        createSession({
+          id: 'session-2',
+          branchName: 'feature/other',
+          worktreePath: '/repo/.manifold/worktrees/feature-other',
+          additionalDirs: ['/repo/design', '/repo/shared'],
+        }),
+      ],
+      createRequest({
+        mode: 'everything',
+        scope: { kind: 'all-project-sessions', includeAdditionalDirs: true },
+      }),
+    )
+
+    expect(roots.map((root) => ({ path: root.path, kind: root.kind }))).toEqual([
+      { path: '/repo/.manifold/worktrees/feature-search', kind: 'worktree' },
+      { path: '/repo/docs', kind: 'additional-dir' },
+      { path: '/repo/design', kind: 'additional-dir' },
+      { path: '/repo/.manifold/worktrees/feature-other', kind: 'worktree' },
+      { path: '/repo/shared', kind: 'additional-dir' },
+    ])
+  })
+
   it('labels additional-dir results and deduplicates repeated hits', () => {
     const session = createSession()
     const extraRoot = {
@@ -99,5 +171,28 @@ describe('search-engine', () => {
         column: 1,
       },
     ])
+  })
+
+  it('deduplicates repeated hits across sessions when they point to the same file path', () => {
+    const sharedPath = '/repo/shared'
+    const firstRoot = {
+      path: sharedPath,
+      kind: 'additional-dir' as const,
+      session: createSession(),
+    }
+    const secondRoot = {
+      path: sharedPath,
+      kind: 'additional-dir' as const,
+      session: createSession({
+        id: 'session-2',
+        branchName: 'feature/other',
+        runtimeId: 'claude',
+      }),
+    }
+
+    const first = createCodeSearchResult(firstRoot, 'guide.md', 12, 4, 'search guide', 0)
+    const duplicate = createCodeSearchResult(secondRoot, 'guide.md', 12, 4, 'search guide', 0)
+
+    expect(sortAndLimitCodeResults([duplicate, first], 10)).toEqual([duplicate])
   })
 })

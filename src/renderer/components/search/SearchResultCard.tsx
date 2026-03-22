@@ -2,7 +2,7 @@ import React from 'react'
 import type { CodeSearchResult, SearchMatchMode, UnifiedSearchResult } from '../../../shared/search-types'
 import { searchPanelStyles as s } from './SearchPanel.styles'
 import { splitHighlightedText } from './search-highlight'
-import { formatMemoryDate } from './search-panel-utils'
+import { formatMemoryTimestamp, MEMORY_SOURCE_LABELS, OBSERVATION_TYPE_LABELS } from '../memory/panel/memory-panel-config'
 
 interface SearchResultCardProps {
   result: UnifiedSearchResult
@@ -10,6 +10,8 @@ interface SearchResultCardProps {
   matchMode: SearchMatchMode
   caseSensitive: boolean
   wholeWord: boolean
+  selected?: boolean
+  onSelect?: () => void
   onOpenCodeResult: (result: CodeSearchResult) => void
 }
 
@@ -19,6 +21,8 @@ export function SearchResultCard({
   matchMode,
   caseSensitive,
   wholeWord,
+  selected = false,
+  onSelect,
   onOpenCodeResult,
 }: SearchResultCardProps): React.JSX.Element {
   const isCode = result.source === 'code'
@@ -27,7 +31,8 @@ export function SearchResultCard({
       <div style={s.resultHeader}>
         <span style={s.resultTitle}>{result.title}</span>
         <span style={{ ...s.badge, ...(isCode ? s.codeBadge : {}) }}>{isCode ? 'Code' : 'Memory'}</span>
-        {!isCode && <span style={s.badge}>{result.memorySource}</span>}
+        {!isCode && <span style={s.badge}>{MEMORY_SOURCE_LABELS[result.memorySource]}</span>}
+        {!isCode && result.observationType && <span style={s.badge}>{OBSERVATION_TYPE_LABELS[result.observationType]}</span>}
       </div>
       {isCode ? (
         <CodeSnippet
@@ -60,7 +65,9 @@ export function SearchResultCard({
           <>
             {result.branchName && <span>{result.branchName}</span>}
             {result.runtimeId && <span>{result.runtimeId}</span>}
-            <span>{formatMemoryDate(result.createdAt)}</span>
+            {result.worktreePath && <span>{formatWorktreeLabel(result.worktreePath)}</span>}
+            {!result.branchName && !result.runtimeId && result.sessionId && <span>{formatSessionLabel(result.sessionId)}</span>}
+            <span>{formatMemoryTimestamp(result.createdAt)}</span>
           </>
         )}
       </div>
@@ -71,8 +78,18 @@ export function SearchResultCard({
     return (
       <button
         type="button"
-        style={{ ...s.resultCard, ...s.resultCardButton, ...s.resultCardClickable }}
-        onClick={() => onOpenCodeResult(result)}
+        style={{
+          ...s.resultCard,
+          ...s.resultCardButton,
+          ...s.resultCardClickable,
+          ...(selected ? selectedCardStyle : {}),
+        }}
+        onClick={() => {
+          onSelect?.()
+          onOpenCodeResult(result)
+        }}
+        onMouseEnter={onSelect}
+        onFocus={onSelect}
         aria-label={`Open ${result.relativePath} line ${result.line}`}
       >
         {content}
@@ -81,10 +98,23 @@ export function SearchResultCard({
   }
 
   return (
-    <div style={{ ...s.resultCard, ...s.resultCardStatic }}>
+    <div
+      style={{
+        ...s.resultCard,
+        ...s.resultCardStatic,
+        ...(selected ? selectedCardStyle : {}),
+      }}
+      onMouseEnter={onSelect}
+      onClick={onSelect}
+    >
       {content}
     </div>
   )
+}
+
+const selectedCardStyle: React.CSSProperties = {
+  borderColor: 'var(--accent)',
+  boxShadow: '0 0 0 1px var(--accent) inset',
 }
 
 function CodeSnippet({
@@ -204,4 +234,13 @@ function HighlightedText({
       ))}
     </>
   )
+}
+
+function formatWorktreeLabel(worktreePath: string): string {
+  const segments = worktreePath.split(/[\\/]/).filter(Boolean)
+  return segments[segments.length - 1] ?? worktreePath
+}
+
+function formatSessionLabel(sessionId: string): string {
+  return `session ${sessionId.slice(0, 8)}`
 }

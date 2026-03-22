@@ -114,6 +114,7 @@ export class MemoryCapture {
         session.runtimeId,
         session.branchName,
         session.taskDescription,
+        session.worktreePath,
       )
     }
 

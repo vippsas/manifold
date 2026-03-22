@@ -1,12 +1,14 @@
 import { createContext, useContext } from 'react'
 import type { ITheme } from '@xterm/xterm'
 import type { AgentStatus, FileTreeNode, FileChange, Project, AgentSession, SpawnAgentOptions } from '../../../shared/types'
+import type { SearchMode } from '../../../shared/search-types'
 import type { EditorPaneView, OpenFile } from '../../hooks/useCodeView'
 import type { FileOpenRequest } from './file-open-request'
 
 export interface DockAppState {
   sessionId: string | null
   searchFocusRequestKey: number
+  requestedSearchMode: SearchMode | null
   scrollbackLines: number
   terminalFontFamily?: string
   xtermTheme?: ITheme
@@ -21,6 +23,7 @@ export interface DockAppState {
   theme: string
   onSelectFile: (path: string) => void
   onOpenSearchResult: (target: { path: string; line?: number; column?: number; sessionId?: string | null }) => void
+  onOpenSearchResultInSplit: (target: { path: string; line?: number; column?: number; sessionId?: string | null }) => void
   onSelectFileFromFileTree: (path: string) => void
   onSelectOpenFile: (path: string, paneId: string) => void
   onSelectFileFromMarkdownPreview: (path: string, paneId: string) => void
@@ -46,7 +49,6 @@ export interface DockAppState {
   additionalBranches?: Map<string, string | null>
   primaryBranch: string | null
   changes: FileChange[]
-  fileSearchRequestKey: number
   expandedPaths: Set<string>
   onToggleExpand: (path: string) => void
   // ModifiedFiles
@@ -83,6 +85,7 @@ export interface DockAppState {
   // Web preview
   previewUrl: string | null
   // Layout
+  onShowSearchPanel: (mode: SearchMode) => void
   onClosePanel: (id: string) => void
 }
 

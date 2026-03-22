@@ -8,7 +8,7 @@ export const memoryStyles: Record<string, React.CSSProperties> = {
     overflow: 'hidden',
     background: 'var(--bg-primary)',
   },
-  searchBar: {
+  banner: {
     display: 'flex',
     alignItems: 'center',
     gap: 'var(--space-xs)',
@@ -16,34 +16,36 @@ export const memoryStyles: Record<string, React.CSSProperties> = {
     borderBottom: '1px solid var(--border)',
     flexShrink: 0,
   },
-  searchInput: {
+  bannerText: {
     flex: 1,
-    minHeight: 'var(--control-height)',
-    padding: '0 var(--space-sm)',
-    fontSize: 'var(--type-ui-small)',
-    background: 'var(--control-bg)',
-    border: '1px solid var(--control-border)',
-    borderRadius: 'var(--radius-sm)',
-    color: 'var(--text-primary)',
-  },
-  tabBar: {
-    display: 'flex',
-    borderBottom: '1px solid var(--border)',
-    flexShrink: 0,
-  },
-  tab: {
-    minHeight: 'calc(var(--control-height) - 2px)',
-    padding: '0 var(--space-md)',
     fontSize: 'var(--type-ui-caption)',
     color: 'var(--text-muted)',
+    lineHeight: '1.45',
+  },
+  bannerButton: {
+    minHeight: 'calc(var(--control-height) - 4px)',
+    padding: '0 10px',
+    fontSize: 'var(--type-ui-micro)',
+    borderRadius: 'var(--radius-sm)',
+    color: 'var(--accent)',
     background: 'none',
-    border: 'none',
-    borderBottom: '2px solid transparent',
+    border: '1px solid var(--border)',
     cursor: 'pointer',
   },
-  tabActive: {
+  conceptChip: {
+    minHeight: '20px',
+    padding: '0 8px',
+    fontSize: 'var(--type-ui-micro)',
+    borderRadius: '8px',
+    border: '1px solid rgba(156, 39, 176, 0.3)',
+    background: 'none',
+    color: 'var(--text-muted)',
+    cursor: 'pointer',
+  },
+  conceptChipActive: {
+    background: 'rgba(156, 39, 176, 0.2)',
     color: 'var(--accent)',
-    borderBottomColor: 'var(--accent)',
+    borderColor: 'rgba(156, 39, 176, 0.6)',
   },
   filterBar: {
     display: 'flex',
@@ -149,6 +151,16 @@ export const memoryStyles: Record<string, React.CSSProperties> = {
   },
   detailBlock: {
     marginTop: '6px',
+  },
+  conceptTag: {
+    display: 'inline-block',
+    fontSize: '9px',
+    padding: '1px 5px',
+    marginRight: '3px',
+    marginBottom: '2px',
+    borderRadius: '3px',
+    background: 'rgba(156, 39, 176, 0.1)',
+    color: 'var(--text-muted)',
   },
   factsList: {
     margin: '4px 0',

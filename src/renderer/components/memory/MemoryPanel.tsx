@@ -5,7 +5,7 @@ import { MemoryPanelContent } from './MemoryPanelContent'
 import { memoryStyles as s } from './MemoryPanel.styles'
 
 export function MemoryPanel(): React.JSX.Element {
-  const { activeProjectId } = useDockState()
+  const { activeProjectId, onShowSearchPanel } = useDockState()
   const memory = useMemory(activeProjectId)
 
   if (!activeProjectId) {
@@ -16,5 +16,5 @@ export function MemoryPanel(): React.JSX.Element {
     )
   }
 
-  return <MemoryPanelContent memory={memory} />
+  return <MemoryPanelContent memory={memory} onOpenSearch={() => onShowSearchPanel('memory')} />
 }

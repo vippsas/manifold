@@ -81,7 +81,7 @@ export function createCodeSearchResult(
 export function sortAndLimitCodeResults(results: CodeSearchResult[], limit: number): CodeSearchResult[] {
   const deduped = new Map<string, CodeSearchResult>()
   for (const result of results) {
-    const key = `${result.sessionId ?? ''}:${result.filePath}:${result.line}:${result.column ?? 1}`
+    const key = `${resolve(result.filePath)}:${result.line}:${result.column ?? 1}`
     if (!deduped.has(key)) {
       deduped.set(key, result)
     }
@@ -104,7 +104,7 @@ function pushRoot(
   seen: Set<string>,
   root: CodeSearchRoot,
 ): void {
-  const key = `${root.session.id}:${root.path}`
+  const key = resolve(root.path)
   if (seen.has(key)) return
   seen.add(key)
   roots.push(root)

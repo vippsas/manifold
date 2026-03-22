@@ -13,6 +13,7 @@ interface SearchPanelControlsProps {
   scopeOptions: SearchScopeOption[]
   inputRef: React.RefObject<HTMLInputElement | null>
   placeholder: string
+  onInputKeyDown?: (event: React.KeyboardEvent<HTMLInputElement>) => void
   onModeChange: (mode: SearchMode) => void
   onQueryChange: (query: string) => void
   onScopeChange: (scope: SearchScopeKind) => void
@@ -32,6 +33,7 @@ export function SearchPanelControls(props: SearchPanelControlsProps): React.JSX.
     scopeOptions,
     inputRef,
     placeholder,
+    onInputKeyDown,
     onModeChange,
     onQueryChange,
     onScopeChange,
@@ -55,6 +57,7 @@ export function SearchPanelControls(props: SearchPanelControlsProps): React.JSX.
           style={s.input}
           placeholder={placeholder}
           value={query}
+          onKeyDown={onInputKeyDown}
           onChange={(event) => onQueryChange(event.target.value)}
         />
         {mode !== 'memory' && (

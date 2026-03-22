@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from 'react'
+import type { SearchMode } from '../../shared/search-types'
 import type { DockPanelId, UseDockLayoutResult } from './useDockLayout'
 import type { SpawnAgentOptions } from '../../shared/types'
 
@@ -13,23 +14,35 @@ interface AppEffectsInput {
 }
 
 export interface AppEffectsResult {
-  fileSearchRequestKey: number
   searchFocusRequestKey: number
+  requestedSearchMode: SearchMode | null
   showOnboarding: boolean
   setShowOnboarding: (show: boolean) => void
   creatingProject: boolean
   setCreatingProject: (v: boolean) => void
   cloningProject: boolean
   setCloningProject: (v: boolean) => void
+  showSearchPanel: (mode: SearchMode) => void
   handleFilesChanged: () => void
 }
 
 export function useAppEffects(input: AppEffectsInput): AppEffectsResult {
-  const [fileSearchRequestKey] = useState(0)
   const [searchFocusRequestKey, setSearchFocusRequestKey] = useState(0)
+  const [requestedSearchMode, setRequestedSearchMode] = useState<SearchMode | null>(null)
   const [showOnboarding, setShowOnboarding] = useState(false)
   const [creatingProject, setCreatingProject] = useState(false)
   const [cloningProject, setCloningProject] = useState(false)
+
+  const showSearchPanel = useCallback((mode: SearchMode) => {
+    if (!input.dockLayout.isPanelVisible('search')) {
+      input.dockLayout.togglePanel('search')
+    }
+    setRequestedSearchMode(mode)
+    setSearchFocusRequestKey((prev) => prev + 1)
+    queueMicrotask(() => {
+      input.dockLayout.apiRef.current?.getPanel('search')?.api.setActive()
+    })
+  }, [input.dockLayout.apiRef, input.dockLayout.isPanelVisible, input.dockLayout.togglePanel])
 
   useEffect(() => {
     return window.electronAPI.on('view:toggle-panel', (panelId: unknown) => {
@@ -39,15 +52,9 @@ export function useAppEffects(input: AppEffectsInput): AppEffectsResult {
 
   useEffect(() => {
     return window.electronAPI.on('view:show-search', () => {
-      if (!input.dockLayout.isPanelVisible('search')) {
-        input.dockLayout.togglePanel('search')
-      }
-      setSearchFocusRequestKey((prev) => prev + 1)
-      queueMicrotask(() => {
-        input.dockLayout.apiRef.current?.getPanel('search')?.api.setActive()
-      })
+      showSearchPanel('code')
     })
-  }, [input.dockLayout.apiRef, input.dockLayout.isPanelVisible, input.dockLayout.togglePanel])
+  }, [showSearchPanel])
 
   useEffect(() => {
     return window.electronAPI.on('app:auto-spawn', (...args: unknown[]) => {
@@ -88,8 +95,9 @@ export function useAppEffects(input: AppEffectsInput): AppEffectsResult {
   }, [input.refreshOpenFiles, input.refreshDiff])
 
   return {
-    fileSearchRequestKey, searchFocusRequestKey, showOnboarding, setShowOnboarding,
+    searchFocusRequestKey, requestedSearchMode, showOnboarding, setShowOnboarding,
     creatingProject, setCreatingProject, cloningProject, setCloningProject,
+    showSearchPanel,
     handleFilesChanged,
   }
 }

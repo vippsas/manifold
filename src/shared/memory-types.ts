@@ -62,6 +62,7 @@ export interface MemorySessionRow {
   projectId: string
   runtimeId: string
   branchName: string
+  worktreePath: string | null
   taskDescription: string | null
   startedAt: number
   endedAt: number | null
@@ -94,9 +95,13 @@ export interface MemorySearchResult {
   title: string
   summary: string
   runtimeId?: string
+  branchName?: string
+  worktreePath?: string
   sessionId: string
   createdAt: number
   rank?: number
+  concepts?: string[]
+  filesTouched?: string[]
 }
 
 export interface MemorySearchResponse {

@@ -71,6 +71,8 @@ const ALLOWED_INVOKE_CHANNELS = [
   'memory:clear',
   'memory:settings',
   'search:context',
+  'search:view-state:get',
+  'search:view-state:set',
   'search:query',
   'search:ask',
 ] as const

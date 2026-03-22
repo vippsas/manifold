@@ -1,4 +1,5 @@
 import type { AgentStatus } from './types'
+import type { ObservationType } from './memory-types'
 
 export type SearchMode = 'code' | 'memory' | 'everything'
 
@@ -9,6 +10,12 @@ export type SearchScopeKind =
   | 'memory-only'
 
 export type SearchMatchMode = 'literal' | 'regex'
+
+export interface MemorySearchFilters {
+  type?: ObservationType
+  concepts?: string[]
+  runtimeId?: string
+}
 
 export interface SearchScopeDescriptor {
   kind: SearchScopeKind
@@ -30,6 +37,7 @@ export interface SearchQueryRequest {
   excludeGlobs?: string[]
   limit?: number
   contextLines?: number
+  memoryFilters?: MemorySearchFilters
   ai?: {
     enabled: boolean
     rerank?: boolean
@@ -61,6 +69,7 @@ export interface SearchResultBase {
   sessionId?: string
   branchName?: string
   runtimeId?: string
+  worktreePath?: string
 }
 
 export interface CodeSearchResult extends SearchResultBase {
@@ -78,6 +87,7 @@ export interface MemorySearchResultItem extends SearchResultBase {
   source: 'memory'
   memorySource: 'observation' | 'session_summary' | 'interaction'
   createdAt: number
+  observationType?: ObservationType
   concepts?: string[]
   filesTouched?: string[]
 }
@@ -89,6 +99,11 @@ export interface SearchQueryResponse {
   total: number
   tookMs: number
   warnings?: string[]
+}
+
+export interface SearchAskRequest {
+  search: SearchQueryRequest
+  question: string
 }
 
 export interface SearchAskResponse {

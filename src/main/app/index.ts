@@ -20,6 +20,7 @@ import { ShellTabStore } from '../store/shell-tab-store'
 import { GitOperationsManager } from '../git/git-operations'
 import { BranchCheckoutManager } from '../git/branch-checkout-manager'
 import { DockLayoutStore } from '../store/dock-layout-store'
+import { SearchViewStore } from '../store/search-view-store'
 import { ChatStore } from '../store/chat-store'
 import { ChatAdapter } from '../agent/chat-adapter'
 import { setupAutoUpdater } from './auto-updater'
@@ -46,6 +47,7 @@ const viewStateStore = new ViewStateStore()
 const shellTabStore = new ShellTabStore()
 const gitOps = new GitOperationsManager()
 const dockLayoutStore = new DockLayoutStore()
+const searchViewStore = new SearchViewStore()
 const chatStore = new ChatStore()
 const chatAdapter = new ChatAdapter()
 chatAdapter.setChatStore(chatStore)
@@ -72,6 +74,7 @@ const ipcDeps = {
   gitOps,
   branchCheckout,
   dockLayoutStore,
+  searchViewStore,
   chatAdapter,
   chatStore,
   memoryStore,
