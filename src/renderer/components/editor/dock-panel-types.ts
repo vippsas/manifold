@@ -6,6 +6,7 @@ import type { FileOpenRequest } from './file-open-request'
 
 export interface DockAppState {
   sessionId: string | null
+  searchFocusRequestKey: number
   scrollbackLines: number
   terminalFontFamily?: string
   xtermTheme?: ITheme
@@ -19,6 +20,7 @@ export interface DockAppState {
   lastFileOpenRequest: FileOpenRequest
   theme: string
   onSelectFile: (path: string) => void
+  onOpenSearchResult: (target: { path: string; line?: number; column?: number; sessionId?: string | null }) => void
   onSelectFileFromFileTree: (path: string) => void
   onSelectOpenFile: (path: string, paneId: string) => void
   onSelectFileFromMarkdownPreview: (path: string, paneId: string) => void

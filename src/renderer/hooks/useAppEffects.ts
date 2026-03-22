@@ -14,6 +14,7 @@ interface AppEffectsInput {
 
 export interface AppEffectsResult {
   fileSearchRequestKey: number
+  searchFocusRequestKey: number
   showOnboarding: boolean
   setShowOnboarding: (show: boolean) => void
   creatingProject: boolean
@@ -24,7 +25,8 @@ export interface AppEffectsResult {
 }
 
 export function useAppEffects(input: AppEffectsInput): AppEffectsResult {
-  const [fileSearchRequestKey, setFileSearchRequestKey] = useState(0)
+  const [fileSearchRequestKey] = useState(0)
+  const [searchFocusRequestKey, setSearchFocusRequestKey] = useState(0)
   const [showOnboarding, setShowOnboarding] = useState(false)
   const [creatingProject, setCreatingProject] = useState(false)
   const [cloningProject, setCloningProject] = useState(false)
@@ -37,12 +39,12 @@ export function useAppEffects(input: AppEffectsInput): AppEffectsResult {
 
   useEffect(() => {
     return window.electronAPI.on('view:show-search', () => {
-      if (!input.dockLayout.isPanelVisible('fileTree')) {
-        input.dockLayout.togglePanel('fileTree')
+      if (!input.dockLayout.isPanelVisible('search')) {
+        input.dockLayout.togglePanel('search')
       }
-      setFileSearchRequestKey((prev) => prev + 1)
+      setSearchFocusRequestKey((prev) => prev + 1)
       queueMicrotask(() => {
-        input.dockLayout.apiRef.current?.getPanel('fileTree')?.api.setActive()
+        input.dockLayout.apiRef.current?.getPanel('search')?.api.setActive()
       })
     })
   }, [input.dockLayout.apiRef, input.dockLayout.isPanelVisible, input.dockLayout.togglePanel])
@@ -86,7 +88,7 @@ export function useAppEffects(input: AppEffectsInput): AppEffectsResult {
   }, [input.refreshOpenFiles, input.refreshDiff])
 
   return {
-    fileSearchRequestKey, showOnboarding, setShowOnboarding,
+    fileSearchRequestKey, searchFocusRequestKey, showOnboarding, setShowOnboarding,
     creatingProject, setCreatingProject, cloningProject, setCloningProject,
     handleFilesChanged,
   }

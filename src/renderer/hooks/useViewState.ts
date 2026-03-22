@@ -14,6 +14,7 @@ interface UseViewStateResult {
   onToggleExpand: (path: string) => void
   expandAncestors: (filePath: string) => void
   restoreCodeView: RestoredCodeViewState | null
+  restoredSessionId: string | null
   saveCurrentState: (
     sessionId: string,
     editorPanes: EditorPaneState[],
@@ -24,6 +25,7 @@ interface UseViewStateResult {
 export function useViewState(activeSessionId: string | null, tree: FileTreeNode | null): UseViewStateResult {
   const [expandedPaths, setExpandedPaths] = useState<Set<string>>(new Set())
   const [restoreCodeView, setRestoreCodeView] = useState<RestoredCodeViewState | null>(null)
+  const [restoredSessionId, setRestoredSessionId] = useState<string | null>(null)
   const expandedPathsRef = useRef<Set<string>>(expandedPaths)
   expandedPathsRef.current = expandedPaths
 
@@ -82,8 +84,11 @@ export function useViewState(activeSessionId: string | null, tree: FileTreeNode 
         editorPanes: buildLegacyEditorPanes([], null),
         activeEditorPaneId: null,
       })
+      setRestoredSessionId(null)
       return
     }
+
+    let cancelled = false
 
     void (async (): Promise<void> => {
       try {
@@ -93,15 +98,18 @@ export function useViewState(activeSessionId: string | null, tree: FileTreeNode 
         )) as SessionViewState | null
 
         if (!state) {
+          if (cancelled) return
           setExpandedPaths(new Set())
           setRestoreCodeView({
             openFiles: [],
             editorPanes: buildLegacyEditorPanes([], null),
             activeEditorPaneId: null,
           })
+          setRestoredSessionId(activeSessionId)
           return
         }
 
+        if (cancelled) return
         setExpandedPaths(new Set(state.expandedPaths))
 
         const paneState = state.editorPanes && state.editorPanes.length > 0
@@ -134,15 +142,22 @@ export function useViewState(activeSessionId: string | null, tree: FileTreeNode 
           editorPanes: normalizedPanes,
           activeEditorPaneId: resolveActiveEditorPaneId(normalizedPanes, state.activeEditorPaneId),
         })
+        setRestoredSessionId(activeSessionId)
       } catch {
+        if (cancelled) return
         setExpandedPaths(new Set())
         setRestoreCodeView({
           openFiles: [],
           editorPanes: buildLegacyEditorPanes([], null),
           activeEditorPaneId: null,
         })
+        setRestoredSessionId(activeSessionId)
       }
     })()
+
+    return () => {
+      cancelled = true
+    }
   }, [activeSessionId])
 
   useEffect(() => {
@@ -156,6 +171,7 @@ export function useViewState(activeSessionId: string | null, tree: FileTreeNode 
     onToggleExpand,
     expandAncestors,
     restoreCodeView,
+    restoredSessionId,
     saveCurrentState,
   }
 }

@@ -1,4 +1,4 @@
-import React, { useCallback, useMemo, useState } from 'react'
+import React, { useCallback, useEffect, useMemo, useState } from 'react'
 import { DockviewReact } from 'dockview'
 import { useProjects } from './hooks/useProjects'
 import { useAgentSession } from './hooks/useAgentSession'
@@ -35,6 +35,13 @@ import { ConflictPanel } from './components/git/ConflictPanel'
 import { WelcomeDialog } from './components/modals/WelcomeDialog'
 import { DockTab, EmptyWatermark } from './DockTab'
 import type { FileOpenRequest } from './components/editor/file-open-request'
+
+interface SearchOpenTarget {
+  path: string
+  line?: number
+  column?: number
+  sessionId?: string | null
+}
 
 export function App(): React.JSX.Element {
   const { settings, updateSettings } = useSettings()
@@ -87,10 +94,40 @@ export function App(): React.JSX.Element {
   const { themeId, themeClass, xtermTheme, setPreviewThemeId } = useTheme(settings.theme)
   const updateNotification = useUpdateNotification()
   const [lastFileOpenRequest, setLastFileOpenRequest] = useState<FileOpenRequest>({ path: null, source: 'default' })
+  const [pendingSearchOpen, setPendingSearchOpen] = useState<SearchOpenTarget | null>(null)
+
+  const openSearchResultInActiveSession = useCallback((target: SearchOpenTarget): void => {
+    setLastFileOpenRequest({
+      path: target.path,
+      line: target.line,
+      column: target.column,
+      source: 'search',
+    })
+    handleSelectFile(target.path)
+  }, [handleSelectFile])
+
+  useEffect(() => {
+    if (!pendingSearchOpen) return
+    if (!pendingSearchOpen.sessionId || pendingSearchOpen.sessionId !== activeSessionId) return
+    if (viewState.restoredSessionId !== activeSessionId) return
+
+    openSearchResultInActiveSession(pendingSearchOpen)
+    setPendingSearchOpen(null)
+  }, [activeSessionId, openSearchResultInActiveSession, pendingSearchOpen, viewState.restoredSessionId])
 
   const handleSelectFileWithDefaultView = useCallback((filePath: string): void => {
     setLastFileOpenRequest({ path: filePath, source: 'default' }); handleSelectFile(filePath)
   }, [handleSelectFile])
+  const handleOpenSearchResult = useCallback((target: SearchOpenTarget): void => {
+    if (target.sessionId && target.sessionId !== activeSessionId) {
+      setPendingSearchOpen(target)
+      setActiveSession(target.sessionId)
+      return
+    }
+
+    setPendingSearchOpen(null)
+    openSearchResultInActiveSession(target)
+  }, [activeSessionId, openSearchResultInActiveSession, setActiveSession])
   const handleSelectFileFromFileTree = useCallback((filePath: string): void => {
     setLastFileOpenRequest({ path: filePath, source: 'fileTree' }); handleSelectFile(filePath)
   }, [handleSelectFile])
@@ -135,12 +172,12 @@ export function App(): React.JSX.Element {
 
   const baseBranch = activeProject?.baseBranch ?? settings.defaultBaseBranch
   const dockState: DockAppState = {
-    sessionId: activeSessionId, scrollbackLines: settings.scrollbackLines,
+    sessionId: activeSessionId, searchFocusRequestKey: appEffects.searchFocusRequestKey, scrollbackLines: settings.scrollbackLines,
     terminalFontFamily: settings.terminalFontFamily, xtermTheme, diffText: diff,
     openFiles: codeView.openFiles, activeFilePath: codeView.activeFilePath,
     activeEditorPaneId: codeView.activeEditorPaneId, editorPaneIds: dockLayout.editorPanelIds,
     getEditorPane: codeView.getEditorPane, lastFileOpenRequest, theme: themeId,
-    onSelectFile: handleSelectFileWithDefaultView, onSelectFileFromFileTree: handleSelectFileFromFileTree,
+    onSelectFile: handleSelectFileWithDefaultView, onOpenSearchResult: handleOpenSearchResult, onSelectFileFromFileTree: handleSelectFileFromFileTree,
     onSelectOpenFile: handleSelectOpenFile, onSelectFileFromMarkdownPreview: handleSelectFileFromMarkdownPreview,
     onCloseFile: codeView.handleCloseFile,
     onSaveFile: codeView.handleSaveFile, onRegisterEditorPane: codeView.registerPane,

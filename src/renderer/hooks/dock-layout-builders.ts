@@ -34,6 +34,13 @@ export function applyDefaultLayout(api: DockviewApi): void {
     position: { referencePanel: filesPanel, direction: 'within' },
   })
 
+  api.addPanel({
+    id: 'search',
+    component: 'search',
+    title: PANEL_TITLES.search,
+    position: { referencePanel: filesPanel, direction: 'within' },
+  })
+
   filesPanel.api.setActive()
 
   try {

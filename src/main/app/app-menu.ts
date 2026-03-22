@@ -38,7 +38,7 @@ export function buildAppMenu(mainWindow: BrowserWindow): Menu {
         { type: 'separator' },
         {
           label: 'Find in Files',
-          accelerator: 'CmdOrCtrl+F',
+          accelerator: 'CmdOrCtrl+Shift+F',
           click: () => mainWindow?.webContents.send('view:show-search'),
         },
       ],
@@ -80,6 +80,10 @@ export function buildAppMenu(mainWindow: BrowserWindow): Menu {
           label: 'Toggle Memory',
           accelerator: 'CmdOrCtrl+7',
           click: () => mainWindow?.webContents.send('view:toggle-panel', 'memory'),
+        },
+        {
+          label: 'Toggle Search',
+          click: () => mainWindow?.webContents.send('view:toggle-panel', 'search'),
         },
         { type: 'separator' },
         { role: 'reload' },
