@@ -11,6 +11,7 @@ import type {
   UnifiedSearchResult,
 } from '../../shared/search-types'
 import { buildSearchQueryRequest, getDefaultSearchScope } from './search-request'
+import { useSearchAiAvailability } from './useSearchAiAvailability'
 
 export interface UseSearchResult {
   context: SearchContextResponse | null
@@ -33,6 +34,7 @@ export interface UseSearchResult {
   results: UnifiedSearchResult[]
   warnings: string[]
   isSearching: boolean
+  canAskAi: boolean
   aiAnswer: SearchAskResponse | null
   isAsking: boolean
   ask: () => Promise<void>
@@ -58,6 +60,7 @@ export function useSearch(activeProjectId: string | null, activeSessionId: strin
   const [isAsking, setIsAsking] = useState(false)
   const [aiError, setAiError] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
+  const canAskAi = useSearchAiAvailability()
 
   const debounceTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const requestIdRef = useRef(0)
@@ -222,6 +225,7 @@ export function useSearch(activeProjectId: string | null, activeSessionId: strin
 
   useEffect(() => {
     if (debounceTimerRef.current) clearTimeout(debounceTimerRef.current)
+    requestIdRef.current += 1
     if (!request) {
       setResults([])
       setWarnings([])
@@ -257,6 +261,7 @@ export function useSearch(activeProjectId: string | null, activeSessionId: strin
     results,
     warnings,
     isSearching,
+    canAskAi,
     aiAnswer,
     isAsking,
     ask,

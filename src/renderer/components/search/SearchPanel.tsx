@@ -170,7 +170,7 @@ export function SearchPanel(): React.JSX.Element {
             void history.markCurrentSearchUsed(search.results.length)
             void search.ask()
           }}
-          disabled={!search.query.trim() || search.isAsking}
+          disabled={!search.query.trim() || search.isAsking || !search.canAskAi}
         >
           {search.isAsking ? 'Asking...' : 'Ask AI'}
         </button>

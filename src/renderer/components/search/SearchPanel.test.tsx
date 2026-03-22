@@ -91,6 +91,21 @@ describe('SearchPanel', () => {
       sessionId: undefined,
     })
   })
+
+  it('disables Ask AI when answer mode is unavailable', () => {
+    useSearchMock.mockReturnValue(createSearchState({
+      query: 'auth',
+      canAskAi: false,
+    }))
+
+    const { getByRole } = render(
+      <DockStateContext.Provider value={createDockState()}>
+        <SearchPanel />
+      </DockStateContext.Provider>,
+    )
+
+    expect(getByRole('button', { name: 'Ask AI' })).toBeDisabled()
+  })
 })
 
 function createSearchState(overrides: Partial<UseSearchResult> = {}): UseSearchResult {
@@ -126,6 +141,7 @@ function createSearchState(overrides: Partial<UseSearchResult> = {}): UseSearchR
     results: [],
     warnings: [],
     isSearching: false,
+    canAskAi: true,
     aiAnswer: null,
     isAsking: false,
     ask: vi.fn(async () => {}),

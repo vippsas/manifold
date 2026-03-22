@@ -6,6 +6,7 @@ import {
   type CodeSearchResponse,
   type CodeSearchRoot,
 } from './search-engine'
+import { getSearchRootLimit } from './search-root-limit'
 
 const execFileAsync = promisify(execFile)
 
@@ -15,12 +16,12 @@ export async function searchWithGitGrepFallback(
   limit: number,
 ): Promise<CodeSearchResponse> {
   const warnings: string[] = []
-  const perRootLimit = Math.max(1, Math.ceil(limit / Math.max(roots.length, 1)))
+  const rootLimit = getSearchRootLimit(limit, roots.length)
 
   const settled = await Promise.all(
     roots.map(async (root) => {
       try {
-        return await searchRootWithGitGrep(root, request, perRootLimit)
+        return await searchRootWithGitGrep(root, request, rootLimit)
       } catch (error: unknown) {
         if (isGitGrepNoMatch(error)) {
           return []

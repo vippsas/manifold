@@ -2,6 +2,7 @@ import { execFile } from 'node:child_process'
 import { promisify } from 'node:util'
 import type { CodeSearchResult, SearchQueryRequest } from '../../shared/search-types'
 import { createCodeSearchResult, type CodeSearchRoot } from './search-engine'
+import { getSearchRootLimit } from './search-root-limit'
 
 const execFileAsync = promisify(execFile)
 
@@ -10,9 +11,9 @@ export async function searchWithRipgrep(
   request: SearchQueryRequest,
   limit: number,
 ): Promise<CodeSearchResult[]> {
-  const perRootLimit = Math.max(1, Math.ceil(limit / Math.max(roots.length, 1)))
+  const rootLimit = getSearchRootLimit(limit, roots.length)
   const settled = await Promise.all(
-    roots.map(async (root) => searchRootWithRipgrep(root, request, perRootLimit))
+    roots.map(async (root) => searchRootWithRipgrep(root, request, rootLimit))
   )
   return settled.flat()
 }
