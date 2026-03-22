@@ -2,6 +2,7 @@ import type { MemorySearchResult as LegacyMemorySearchResult } from '../../share
 import type { SearchQueryRequest, SearchQueryResponse, UnifiedSearchResult } from '../../shared/search-types'
 import type { AgentSession } from '../../shared/types'
 import { isNoise, sanitizeMemoryText, truncate } from '../memory/memory-capture'
+import { buildMemoryFtsQuery } from '../memory/store/memory-fts-query'
 import { searchCodeInSessions } from './code-search-service'
 import type { IpcDependencies } from '../ipc/types'
 
@@ -77,6 +78,8 @@ function searchMemory(
   request: SearchQueryRequest,
 ): UnifiedSearchResult[] {
   if (!request.query.trim()) return []
+  const ftsQuery = buildMemoryFtsQuery(request.query)
+  if (!ftsQuery) return []
 
   const limit = request.limit ?? 100
   const compressed = memoryStore.search(request.projectId, request.query, {
@@ -104,7 +107,7 @@ function searchMemory(
         WHERE interactions_fts MATCH ?
         ORDER BY rank
         LIMIT ?
-      `).all(request.query, limit) as InteractionRow[]
+      `).all(ftsQuery, limit) as InteractionRow[]
 
       for (const row of interactionRows) {
         const cleanText = sanitizeMemoryText(row.text)
@@ -189,4 +192,3 @@ interface InteractionRow {
   worktreePath: string | null
   rank: number
 }
-

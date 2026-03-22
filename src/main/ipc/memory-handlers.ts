@@ -14,6 +14,7 @@ import type {
 } from '../../shared/memory-types'
 import { parseObservationRow, parseSessionSummaryRow } from '../memory/memory-store'
 import { isNoise, sanitizeMemoryText, truncate } from '../memory/memory-capture'
+import { buildMemoryFtsQuery } from '../memory/store/memory-fts-query'
 
 function getInteractionRoleLabel(role: string): string {
   return role === 'user'
@@ -75,6 +76,7 @@ export function registerMemoryHandlers(deps: IpcDependencies): void {
 
   ipcMain.handle('memory:search', (_event, request: MemorySearchRequest): MemorySearchResponse => {
     const limit = request.limit ?? 20
+    const ftsQuery = buildMemoryFtsQuery(request.query)
 
     const compressed = memoryStore.search(request.projectId, request.query, {
       type: request.type,
@@ -89,7 +91,7 @@ export function registerMemoryHandlers(deps: IpcDependencies): void {
       (!request.type || request.type === 'task_summary')
     )
 
-    if (shouldIncludeInteractionMatches) {
+    if (shouldIncludeInteractionMatches && ftsQuery) {
       try {
         const db = memoryStore.getDb(request.projectId)
         const interactionRows = db.prepare(`
@@ -100,7 +102,7 @@ export function registerMemoryHandlers(deps: IpcDependencies): void {
           WHERE interactions_fts MATCH ?
           ORDER BY rank
           LIMIT ?
-        `).all(request.query, limit) as Array<{
+        `).all(ftsQuery, limit) as Array<{
           id: number
           sessionId: string
           role: string

@@ -4,6 +4,7 @@ import type {
   MemorySearchResult,
   ObservationType,
 } from '../../../shared/memory-types'
+import { buildMemoryFtsQuery } from './memory-fts-query'
 import { safeParseStringArray } from './memory-store-parsers'
 
 export interface MemoryStoreSearchOptions {
@@ -19,8 +20,13 @@ export function searchMemoryRecords(
   options?: MemoryStoreSearchOptions,
 ): MemorySearchResponse {
   const limit = options?.limit ?? 20
-  let observationResults = searchObservationRows(db, query, limit)
-  let summaryResults = searchSummaryRows(db, query, limit)
+  const ftsQuery = buildMemoryFtsQuery(query)
+  if (!ftsQuery) {
+    return { results: [], total: 0 }
+  }
+
+  let observationResults = searchObservationRows(db, ftsQuery, limit)
+  let summaryResults = searchSummaryRows(db, ftsQuery, limit)
 
   if (options?.type) {
     observationResults = observationResults.filter((result) => result.type === options.type)
@@ -55,6 +61,11 @@ export function searchObservationRecords(
   options?: MemoryStoreSearchOptions,
 ): MemorySearchResponse {
   const limit = options?.limit ?? 20
+  const ftsQuery = buildMemoryFtsQuery(query)
+  if (!ftsQuery) {
+    return { results: [], total: 0 }
+  }
+
   let sql = `
     SELECT o.id, o.type, o.title, o.summary, o.sessionId, s.runtimeId, s.branchName, s.worktreePath,
            o.createdAt, o.concepts, o.filesTouched, rank
@@ -63,7 +74,7 @@ export function searchObservationRecords(
     LEFT JOIN sessions s ON s.sessionId = o.sessionId
     WHERE observations_fts MATCH ?
   `
-  const params: unknown[] = [query]
+  const params: unknown[] = [ftsQuery]
 
   if (options?.type) {
     sql += ' AND o.type = ?'

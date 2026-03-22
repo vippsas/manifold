@@ -14,6 +14,7 @@ import {
   type LayoutRefs,
 } from './dock-layout-helpers'
 import { applyDefaultLayout, applyMinimalPanels, syncEditorPanelIds } from './dock-layout-builders'
+import { ensureSearchPanelInWorkspace } from './dock-layout-search'
 
 export type { DockPanelId } from './dock-layout-helpers'
 export { isEditorPanelId } from './dock-layout-helpers'
@@ -82,6 +83,10 @@ export function useDockLayout(sessionId: string | null): UseDockLayoutResult {
     if (sid) {
       void loadOrBuildLayout(api, sid, buildDefaultLayout, refs).then(() => {
         syncPanels(api)
+        if (ensureSearchPanelInWorkspace(api, editorPanelIdsRef.current)) {
+          lastLayoutRef.current = api.toJSON()
+          saveLayout()
+        }
         bumpVersion()
       })
     } else {
@@ -136,6 +141,10 @@ export function useDockLayout(sessionId: string | null): UseDockLayoutResult {
 
     void loadOrBuildLayout(api, sessionId, buildDefaultLayout, refs).then(() => {
       syncPanels(api)
+      if (ensureSearchPanelInWorkspace(api, editorPanelIdsRef.current)) {
+        lastLayoutRef.current = api.toJSON()
+        saveLayout()
+      }
       bumpVersion()
     })
   }, [sessionId, buildDefaultLayout, buildMinimalLayout, bumpVersion, syncPanels])

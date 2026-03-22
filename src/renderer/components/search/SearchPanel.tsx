@@ -36,6 +36,8 @@ export function SearchPanel(): React.JSX.Element {
     moveSelection,
   } = useSearchResultSelection(search.results)
   const hasCurrentSearch = search.query.trim().length > 0
+  const showLandingState = !hasCurrentSearch && !search.isSearching && !search.aiAnswer && !search.aiError
+  const hasCodeResults = search.results.some((result) => result.source === 'code')
 
   useEffect(() => {
     if (dock.searchFocusRequestKey <= handledFocusRequestKeyRef.current) return
@@ -75,6 +77,12 @@ export function SearchPanel(): React.JSX.Element {
     }),
     [activeContextSession, search.context, search.mode, search.scopeKind],
   )
+  const resultSummary = useMemo(() => {
+    if (search.isSearching) return 'Searching...'
+    if (!hasCurrentSearch) return null
+    if (search.results.length === 0) return 'No results'
+    return `${search.results.length} ${search.results.length === 1 ? 'result' : 'results'}`
+  }, [hasCurrentSearch, search.isSearching, search.results.length])
 
   if (!dock.activeProjectId) {
     return <div style={s.empty}>Select a project to search</div>
@@ -144,6 +152,11 @@ export function SearchPanel(): React.JSX.Element {
         scopeOptions={scopeOptions}
         inputRef={inputRef}
         placeholder={getSearchPlaceholder(search.mode)}
+        canAskAi={search.canAskAi && hasCurrentSearch}
+        isAsking={search.isAsking}
+        canSaveCurrent={hasCurrentSearch}
+        isCurrentSaved={history.currentSavedSearchId !== null}
+        showClearAnswer={Boolean(search.aiAnswer || search.aiError)}
         onInputKeyDown={handleInputKeyDown}
         onModeChange={search.setMode}
         onQueryChange={search.setQuery}
@@ -151,6 +164,12 @@ export function SearchPanel(): React.JSX.Element {
         onToggleMatchMode={() => search.setMatchMode(search.matchMode === 'literal' ? 'regex' : 'literal')}
         onToggleCaseSensitive={() => search.setCaseSensitive(!search.caseSensitive)}
         onToggleWholeWord={() => search.setWholeWord(!search.wholeWord)}
+        onAskAi={() => {
+          void history.markCurrentSearchUsed(search.results.length)
+          void search.ask()
+        }}
+        onToggleSaveCurrent={() => void history.toggleSaveCurrentSearch()}
+        onClearAnswer={search.clearAiAnswer}
       />
 
       {search.mode === 'memory' && (
@@ -162,53 +181,6 @@ export function SearchPanel(): React.JSX.Element {
         />
       )}
 
-      <div style={s.controlsRow}>
-        <button
-          type="button"
-          style={{ ...s.toggle, ...(search.aiAnswer ? s.toggleActive : {}) }}
-          onClick={() => {
-            void history.markCurrentSearchUsed(search.results.length)
-            void search.ask()
-          }}
-          disabled={!search.query.trim() || search.isAsking || !search.canAskAi}
-        >
-          {search.isAsking ? 'Asking...' : 'Ask AI'}
-        </button>
-        <button
-          type="button"
-          style={{ ...s.toggle, ...(history.currentSavedSearchId ? s.toggleActive : {}) }}
-          onClick={() => void history.toggleSaveCurrentSearch()}
-          disabled={!hasCurrentSearch}
-        >
-          {history.currentSavedSearchId ? 'Unpin' : 'Pin'}
-        </button>
-        <button
-          type="button"
-          style={s.toggle}
-          onClick={() => openResult(selectedResult)}
-          disabled={selectedResult?.source !== 'code'}
-        >
-          Open
-        </button>
-        <button
-          type="button"
-          style={s.toggle}
-          onClick={() => openResult(selectedResult, true)}
-          disabled={selectedResult?.source !== 'code'}
-        >
-          Open Split
-        </button>
-        {(search.aiAnswer || search.aiError) && (
-          <button
-            type="button"
-            style={s.toggle}
-            onClick={search.clearAiAnswer}
-          >
-            Clear Answer
-          </button>
-        )}
-      </div>
-
       {(infoText || search.warnings.length > 0 || search.error) && (
         <div style={s.infoBar}>
           {infoText && <span>{infoText}</span>}
@@ -219,44 +191,43 @@ export function SearchPanel(): React.JSX.Element {
         </div>
       )}
 
-      <div style={s.content}>
-        <SavedSearchView
-          savedSearches={history.savedSearches}
-          recentSearches={history.recentSearches}
-          currentSavedSearchId={history.currentSavedSearchId}
-          hasCurrentSearch={hasCurrentSearch}
-          onApplyEntry={(entry) => void history.applySearchEntry(entry)}
-          onToggleSaveCurrent={() => void history.toggleSaveCurrentSearch()}
-        />
-
-        <AiAnswerPanel
-          query={search.query}
-          response={search.aiAnswer}
-          isAsking={search.isAsking}
-          error={search.aiError}
-          matchMode={search.matchMode}
-          caseSensitive={search.caseSensitive}
-          wholeWord={search.wholeWord}
-          onOpenCodeResult={(codeResult) => openCodeResult(
-            codeResult.filePath,
-            codeResult.line,
-            codeResult.column,
-            codeResult.sessionId,
+      {(resultSummary || hasCodeResults) && (
+        <div style={s.summaryBar}>
+          {resultSummary && <span style={s.summaryText}>{resultSummary}</span>}
+          {hasCodeResults && (
+            <span style={s.summaryHint}>
+              {selectedResult?.source === 'code'
+                ? 'Enter opens the selected result. Alt+Enter opens in split.'
+                : 'Arrow keys select results. Enter opens files. Alt+Enter opens in split.'}
+            </span>
           )}
-        />
+        </div>
+      )}
 
-        {search.isSearching ? (
-          <div style={s.empty}>Searching...</div>
-        ) : search.results.length > 0 ? (
-          search.mode === 'everything' ? (
-            <EverythingSearchView
-              results={search.results}
+      <div style={s.content}>
+        {showLandingState ? (
+          <>
+            <div style={s.emptyStatePanel}>
+              <div style={s.emptyStateTitle}>Search the project</div>
+              <div style={s.emptyStateBody}>{getEmptyState(search.mode)}</div>
+            </div>
+            <SavedSearchView
+              savedSearches={history.savedSearches}
+              recentSearches={history.recentSearches}
+              currentSavedSearchId={history.currentSavedSearchId}
+              onApplyEntry={(entry) => void history.applySearchEntry(entry)}
+            />
+          </>
+        ) : (
+          <>
+            <AiAnswerPanel
               query={search.query}
+              response={search.aiAnswer}
+              isAsking={search.isAsking}
+              error={search.aiError}
               matchMode={search.matchMode}
               caseSensitive={search.caseSensitive}
               wholeWord={search.wholeWord}
-              selectedResultId={selectedResultId}
-              onSelectResult={setSelectedResultId}
               onOpenCodeResult={(codeResult) => openCodeResult(
                 codeResult.filePath,
                 codeResult.line,
@@ -264,30 +235,50 @@ export function SearchPanel(): React.JSX.Element {
                 codeResult.sessionId,
               )}
             />
-          ) : (
-            search.results.map((result) => (
-              <SearchResultCard
-                key={result.id}
-                result={result}
-                query={search.query}
-                matchMode={search.matchMode}
-                caseSensitive={search.caseSensitive}
-                wholeWord={search.wholeWord}
-                selected={selectedResultId === result.id}
-                onSelect={() => setSelectedResultId(result.id)}
-                onOpenCodeResult={(codeResult) => openCodeResult(
-                  codeResult.filePath,
-                  codeResult.line,
-                  codeResult.column,
-                  codeResult.sessionId,
-                )}
-              />
-            ))
-          )
-        ) : search.query.trim() ? (
-          <div style={s.empty}>No results found</div>
-        ) : (
-          <div style={s.empty}>{getEmptyState(search.mode)}</div>
+
+            {search.isSearching ? (
+              <div style={s.empty}>Searching...</div>
+            ) : search.results.length > 0 ? (
+              search.mode === 'everything' ? (
+                <EverythingSearchView
+                  results={search.results}
+                  query={search.query}
+                  matchMode={search.matchMode}
+                  caseSensitive={search.caseSensitive}
+                  wholeWord={search.wholeWord}
+                  selectedResultId={selectedResultId}
+                  onSelectResult={setSelectedResultId}
+                  onOpenCodeResult={(codeResult) => openCodeResult(
+                    codeResult.filePath,
+                    codeResult.line,
+                    codeResult.column,
+                    codeResult.sessionId,
+                  )}
+                />
+              ) : (
+                search.results.map((result) => (
+                  <SearchResultCard
+                    key={result.id}
+                    result={result}
+                    query={search.query}
+                    matchMode={search.matchMode}
+                    caseSensitive={search.caseSensitive}
+                    wholeWord={search.wholeWord}
+                    selected={selectedResultId === result.id}
+                    onSelect={() => setSelectedResultId(result.id)}
+                    onOpenCodeResult={(codeResult) => openCodeResult(
+                      codeResult.filePath,
+                      codeResult.line,
+                      codeResult.column,
+                      codeResult.sessionId,
+                    )}
+                  />
+                ))
+              )
+            ) : (
+              <div style={s.empty}>No results found</div>
+            )}
+          </>
         )}
       </div>
     </div>

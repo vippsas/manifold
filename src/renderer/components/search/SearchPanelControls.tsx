@@ -13,6 +13,11 @@ interface SearchPanelControlsProps {
   scopeOptions: SearchScopeOption[]
   inputRef: React.RefObject<HTMLInputElement | null>
   placeholder: string
+  canAskAi: boolean
+  isAsking: boolean
+  canSaveCurrent: boolean
+  isCurrentSaved: boolean
+  showClearAnswer: boolean
   onInputKeyDown?: (event: React.KeyboardEvent<HTMLInputElement>) => void
   onModeChange: (mode: SearchMode) => void
   onQueryChange: (query: string) => void
@@ -20,6 +25,9 @@ interface SearchPanelControlsProps {
   onToggleMatchMode: () => void
   onToggleCaseSensitive: () => void
   onToggleWholeWord: () => void
+  onAskAi: () => void
+  onToggleSaveCurrent: () => void
+  onClearAnswer: () => void
 }
 
 export function SearchPanelControls(props: SearchPanelControlsProps): React.JSX.Element {
@@ -33,6 +41,11 @@ export function SearchPanelControls(props: SearchPanelControlsProps): React.JSX.
     scopeOptions,
     inputRef,
     placeholder,
+    canAskAi,
+    isAsking,
+    canSaveCurrent,
+    isCurrentSaved,
+    showClearAnswer,
     onInputKeyDown,
     onModeChange,
     onQueryChange,
@@ -40,14 +53,36 @@ export function SearchPanelControls(props: SearchPanelControlsProps): React.JSX.
     onToggleMatchMode,
     onToggleCaseSensitive,
     onToggleWholeWord,
+    onAskAi,
+    onToggleSaveCurrent,
+    onClearAnswer,
   } = props
 
   return (
     <>
-      <div style={s.tabBar}>
-        <ModeTab mode="code" activeMode={mode} onSelect={onModeChange} />
-        <ModeTab mode="memory" activeMode={mode} onSelect={onModeChange} />
-        <ModeTab mode="everything" activeMode={mode} onSelect={onModeChange} />
+      <div style={s.searchHeader}>
+        <div style={s.tabBar}>
+          <ModeTab mode="code" activeMode={mode} onSelect={onModeChange} />
+          <ModeTab mode="memory" activeMode={mode} onSelect={onModeChange} />
+          <ModeTab mode="everything" activeMode={mode} onSelect={onModeChange} />
+        </div>
+        <div style={s.headerActions}>
+          {showClearAnswer && (
+            <UtilityButton label="Clear" active={false} onClick={onClearAnswer} />
+          )}
+          <UtilityButton
+            label={isCurrentSaved ? 'Saved' : 'Pin'}
+            active={isCurrentSaved}
+            disabled={!canSaveCurrent}
+            onClick={onToggleSaveCurrent}
+          />
+          <UtilityButton
+            label={isAsking ? 'Asking...' : 'Ask AI'}
+            active={false}
+            disabled={!canAskAi || isAsking}
+            onClick={onAskAi}
+          />
+        </div>
       </div>
 
       <div style={s.toolbar}>
@@ -128,6 +163,29 @@ function ToggleButton({
     <button
       style={{ ...s.toggle, ...(active ? s.toggleActive : {}) }}
       onClick={onClick}
+    >
+      {label}
+    </button>
+  )
+}
+
+function UtilityButton({
+  label,
+  active,
+  disabled = false,
+  onClick,
+}: {
+  label: string
+  active: boolean
+  disabled?: boolean
+  onClick: () => void
+}): React.JSX.Element {
+  return (
+    <button
+      type="button"
+      style={{ ...s.toggle, ...(active ? s.toggleActive : {}) }}
+      onClick={onClick}
+      disabled={disabled}
     >
       {label}
     </button>

@@ -26,7 +26,7 @@ const PANEL_RESTORE_HINTS: Record<DockPanelId, Array<{ ref: DockPanelId; dir: Di
   modifiedFiles: [{ ref: 'fileTree', dir: 'within' }, { ref: 'projects', dir: 'below' }],
   shell: [{ ref: 'agent', dir: 'below' }, { ref: 'editor', dir: 'below' }],
   memory: [{ ref: 'modifiedFiles', dir: 'within' }, { ref: 'fileTree', dir: 'within' }],
-  search: [{ ref: 'modifiedFiles', dir: 'within' }, { ref: 'fileTree', dir: 'within' }],
+  search: [{ ref: 'agent', dir: 'within' }, { ref: 'editor', dir: 'within' }],
 }
 
 const LEGACY_SIDEBAR_WIDTH = 300

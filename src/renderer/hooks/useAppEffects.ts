@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from 'react'
 import type { SearchMode } from '../../shared/search-types'
 import type { DockPanelId, UseDockLayoutResult } from './useDockLayout'
 import type { SpawnAgentOptions } from '../../shared/types'
+import { ensureSearchPanelInWorkspace } from './dock-layout-search'
 
 interface AppEffectsInput {
   dockLayout: UseDockLayoutResult
@@ -34,15 +35,19 @@ export function useAppEffects(input: AppEffectsInput): AppEffectsResult {
   const [cloningProject, setCloningProject] = useState(false)
 
   const showSearchPanel = useCallback((mode: SearchMode) => {
-    if (!input.dockLayout.isPanelVisible('search')) {
+    const api = input.dockLayout.apiRef.current
+    if (api) {
+      ensureSearchPanelInWorkspace(api, input.dockLayout.editorPanelIds)
+    } else if (!input.dockLayout.isPanelVisible('search')) {
       input.dockLayout.togglePanel('search')
     }
     setRequestedSearchMode(mode)
     setSearchFocusRequestKey((prev) => prev + 1)
     queueMicrotask(() => {
-      input.dockLayout.apiRef.current?.getPanel('search')?.api.setActive()
+      const panel = input.dockLayout.apiRef.current?.getPanel('search')
+      panel?.api.setActive()
     })
-  }, [input.dockLayout.apiRef, input.dockLayout.isPanelVisible, input.dockLayout.togglePanel])
+  }, [input.dockLayout.apiRef, input.dockLayout.editorPanelIds, input.dockLayout.isPanelVisible, input.dockLayout.togglePanel])
 
   useEffect(() => {
     return window.electronAPI.on('view:toggle-panel', (panelId: unknown) => {

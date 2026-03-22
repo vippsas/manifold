@@ -244,4 +244,45 @@ describe('registerSearchHandlers', () => {
       }],
     })
   })
+
+  it('sanitizes punctuation before querying interaction FTS rows', async () => {
+    const { registerSearchHandlers } = await import('./search-handlers')
+    const interactionQuery = vi.fn(() => [])
+
+    const memoryStore = {
+      search: vi.fn(() => ({ results: [], total: 0 })),
+      getDb: vi.fn(() => ({
+        prepare: vi.fn(() => ({
+          all: interactionQuery,
+        })),
+      })),
+    }
+
+    registerSearchHandlers({
+      sessionManager: {
+        getSession: vi.fn(() => null),
+        discoverSessionsForProject: vi.fn(async () => []),
+      },
+      memoryStore,
+    } as never)
+
+    const queryHandler = mocks.handlers.get('search:query')
+    if (!queryHandler) {
+      throw new Error('search:query handler was not registered')
+    }
+
+    await queryHandler({}, {
+      projectId: 'project-1',
+      activeSessionId: 'session-1',
+      mode: 'memory',
+      query: 'How does auth work?',
+      scope: { kind: 'memory-only' },
+      matchMode: 'literal',
+      caseSensitive: false,
+      wholeWord: false,
+      limit: 100,
+    })
+
+    expect(interactionQuery).toHaveBeenCalledWith('"How" "does" "auth" "work"', 100)
+  })
 })

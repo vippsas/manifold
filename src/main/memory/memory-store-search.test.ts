@@ -45,6 +45,18 @@ describe('MemoryStore search behavior', () => {
       expect(result.results[0].title).toBe('Chose SQLite over JSON')
     })
 
+    it('sanitizes punctuation in observation queries', () => {
+      context.store.insertObservation(createObservation({
+        title: 'Authentication fix',
+        summary: 'Fixed token validation in the login flow',
+      }))
+
+      const result = context.store.searchObservations(PROJECT, 'authentication?')
+
+      expect(result.results).toHaveLength(1)
+      expect(result.results[0].title).toBe('Authentication fix')
+    })
+
     it('filters observations by type', () => {
       context.store.insertObservation(createObservation())
       context.store.insertObservation(createObservation({
@@ -122,6 +134,18 @@ describe('MemoryStore search behavior', () => {
         branchName: 'manifold/test',
         worktreePath: WORKTREE_PATH,
       })
+    })
+
+    it('accepts natural-language questions with punctuation in combined search', () => {
+      context.store.insertObservation(createObservation({
+        title: 'Auth change overview',
+        summary: 'Explained how the authentication flow works',
+      }))
+
+      const result = context.store.search(PROJECT, 'How does authentication work?')
+
+      expect(result.results).toHaveLength(1)
+      expect(result.results[0].title).toBe('Auth change overview')
     })
   })
 })

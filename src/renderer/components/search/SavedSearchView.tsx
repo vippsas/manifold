@@ -6,29 +6,24 @@ interface SavedSearchViewProps {
   recentSearches: SearchHistoryEntry[]
   currentSavedSearchId: string | null
   onApplyEntry: (entry: SearchHistoryEntry | SavedSearchEntry) => void
-  onToggleSaveCurrent: () => void
-  hasCurrentSearch: boolean
 }
 
 export function SavedSearchView(props: SavedSearchViewProps): React.JSX.Element {
+  if (props.savedSearches.length === 0 && props.recentSearches.length === 0) {
+    return <></>
+  }
+
   return (
     <section style={styles.wrapper}>
       <div style={styles.header}>
-        <span style={styles.title}>Search Workflow</span>
-        <button
-          type="button"
-          style={styles.action}
-          onClick={props.onToggleSaveCurrent}
-          disabled={!props.hasCurrentSearch}
-        >
-          {props.currentSavedSearchId ? 'Unpin Search' : 'Pin Search'}
-        </button>
+        <span style={styles.title}>Pinned and Recent</span>
+        <span style={styles.subtitle}>Reuse search workflows</span>
       </div>
 
       {props.savedSearches.length > 0 && (
         <SearchEntrySection
           title="Pinned"
-          entries={props.savedSearches}
+          entries={props.savedSearches.slice(0, 4)}
           activeEntryId={props.currentSavedSearchId}
           onApplyEntry={props.onApplyEntry}
         />
@@ -37,7 +32,7 @@ export function SavedSearchView(props: SavedSearchViewProps): React.JSX.Element 
       {props.recentSearches.length > 0 && (
         <SearchEntrySection
           title="Recent"
-          entries={props.recentSearches}
+          entries={props.recentSearches.slice(0, 4)}
           activeEntryId={null}
           onApplyEntry={props.onApplyEntry}
         />
@@ -108,33 +103,27 @@ const styles: Record<string, React.CSSProperties> = {
     display: 'flex',
     flexDirection: 'column',
     gap: 'var(--space-sm)',
-    marginBottom: 'var(--space-md)',
+    marginTop: 'var(--space-lg)',
   },
   header: {
     display: 'flex',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    gap: 'var(--space-sm)',
+    flexDirection: 'column',
+    alignItems: 'flex-start',
+    gap: '2px',
   },
   title: {
     fontSize: 'var(--type-ui-caption)',
     fontWeight: 600,
     color: 'var(--text-primary)',
   },
-  action: {
-    minHeight: '22px',
-    padding: '0 8px',
-    fontSize: 'var(--type-ui-micro)',
-    borderRadius: 'var(--radius-sm)',
-    border: '1px solid var(--border)',
-    background: 'none',
+  subtitle: {
     color: 'var(--text-muted)',
-    cursor: 'pointer',
+    fontSize: 'var(--type-ui-micro)',
   },
   section: {
     display: 'flex',
     flexDirection: 'column',
-    gap: '6px',
+    gap: '8px',
   },
   sectionTitle: {
     color: 'var(--text-muted)',
@@ -144,14 +133,16 @@ const styles: Record<string, React.CSSProperties> = {
   },
   list: {
     display: 'flex',
-    flexDirection: 'column',
+    flexWrap: 'wrap',
     gap: '6px',
   },
   entry: {
     display: 'flex',
     flexDirection: 'column',
     gap: '2px',
-    padding: '8px',
+    minWidth: '220px',
+    maxWidth: '320px',
+    padding: '8px 10px',
     borderRadius: 'var(--radius-sm)',
     border: '1px solid var(--border)',
     background: 'var(--bg-elevated)',
@@ -166,9 +157,15 @@ const styles: Record<string, React.CSSProperties> = {
     color: 'var(--text-primary)',
     fontSize: 'var(--type-ui-caption)',
     fontWeight: 600,
+    overflow: 'hidden',
+    textOverflow: 'ellipsis',
+    whiteSpace: 'nowrap',
   },
   entryMeta: {
     color: 'var(--text-muted)',
     fontSize: 'var(--type-ui-micro)',
+    overflow: 'hidden',
+    textOverflow: 'ellipsis',
+    whiteSpace: 'nowrap',
   },
 }

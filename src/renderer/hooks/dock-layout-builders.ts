@@ -20,6 +20,14 @@ export function applyDefaultLayout(api: DockviewApi): void {
     position: { referencePanel: projectsPanel, direction: 'right' },
   })
 
+  api.addPanel({
+    id: 'search',
+    component: 'search',
+    title: PANEL_TITLES.search,
+    inactive: true,
+    position: { referencePanel: 'agent', direction: 'within' },
+  })
+
   const filesPanel = api.addPanel({
     id: 'fileTree',
     component: 'fileTree',
@@ -31,13 +39,6 @@ export function applyDefaultLayout(api: DockviewApi): void {
     id: 'modifiedFiles',
     component: 'modifiedFiles',
     title: PANEL_TITLES.modifiedFiles,
-    position: { referencePanel: filesPanel, direction: 'within' },
-  })
-
-  api.addPanel({
-    id: 'search',
-    component: 'search',
-    title: PANEL_TITLES.search,
     position: { referencePanel: filesPanel, direction: 'within' },
   })
 
