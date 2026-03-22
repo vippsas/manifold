@@ -35,6 +35,8 @@ describe('SettingsModal', () => {
 
     expect(screen.getByRole('dialog')).toBeInTheDocument()
     expect(screen.getByText('Settings')).toBeInTheDocument()
+    expect(screen.getByRole('tab', { name: /General/i })).toBeInTheDocument()
+    expect(screen.getByRole('tab', { name: /Search AI/i })).toBeInTheDocument()
   })
 
   it('renders form fields with current settings values', () => {
@@ -152,5 +154,36 @@ describe('SettingsModal', () => {
     })
 
     expect(screen.getByText('Nord')).toBeInTheDocument()
+  })
+
+  it('switches between settings tabs', () => {
+    renderModal()
+
+    fireEvent.click(screen.getByRole('tab', { name: /Search AI/i }))
+
+    expect(screen.getByText('Answering And Reranking')).toBeInTheDocument()
+    expect(screen.getByText('AI Search Mode')).toBeInTheDocument()
+    expect(screen.queryByText('Storage Directory')).not.toBeInTheDocument()
+  })
+
+  it('saves updated search ai settings from the dedicated tab', () => {
+    const { props } = renderModal()
+
+    fireEvent.click(screen.getByRole('tab', { name: /Search AI/i }))
+    fireEvent.change(screen.getByDisplayValue('Grounded answers'), { target: { value: 'rerank' } })
+    fireEvent.change(screen.getByDisplayValue('6'), { target: { value: '4' } })
+
+    fireEvent.click(screen.getByText('Save'))
+
+    expect(props.onSave).toHaveBeenCalledWith(
+      expect.objectContaining({
+        search: {
+          ai: expect.objectContaining({
+            mode: 'rerank',
+            citationLimit: 4,
+          }),
+        },
+      }),
+    )
   })
 })

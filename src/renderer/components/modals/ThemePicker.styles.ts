@@ -2,7 +2,8 @@ import type React from 'react'
 
 export const pickerStyles: Record<string, React.CSSProperties> = {
   wrapper: {
-    width: '320px',
+    width: 'min(320px, 100%)',
+    maxWidth: '100%',
     maxHeight: '460px',
     display: 'flex',
     flexDirection: 'column',

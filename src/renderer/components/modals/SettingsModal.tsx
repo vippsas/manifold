@@ -12,6 +12,8 @@ interface SettingsModalProps {
   onPreviewTheme?: (themeId: string | null) => void
 }
 
+type SettingsTabId = 'general' | 'search-ai'
+
 export function SettingsModal({
   visible, settings, onSave, onClose, onPreviewTheme,
 }: SettingsModalProps): React.JSX.Element | null {
@@ -25,6 +27,7 @@ export function SettingsModal({
   const [uiMode, setUiMode] = useState(settings.uiMode)
   const [searchAiSettings, setSearchAiSettings] = useState(settings.search?.ai ?? DEFAULT_SETTINGS.search.ai)
   const [pickerOpen, setPickerOpen] = useState(false)
+  const [activeTab, setActiveTab] = useState<SettingsTabId>('general')
   const overlayRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
@@ -39,6 +42,7 @@ export function SettingsModal({
       setUiMode(settings.uiMode)
       setSearchAiSettings(settings.search?.ai ?? DEFAULT_SETTINGS.search.ai)
       setPickerOpen(false)
+      setActiveTab('general')
     }
   }, [visible, settings])
 
@@ -75,6 +79,11 @@ export function SettingsModal({
     [onClose]
   )
 
+  const handleTabChange = useCallback((tab: SettingsTabId): void => {
+    setActiveTab(tab)
+    setPickerOpen(false)
+  }, [])
+
   if (!visible) return null
 
   return (
@@ -82,18 +91,16 @@ export function SettingsModal({
       ref={overlayRef}
       onClick={handleOverlayClick}
       onKeyDown={handleKeyDown}
-      style={{
-        ...modalStyles.overlay,
-        background: pickerOpen ? 'transparent' : 'rgba(0, 0, 0, 0.5)',
-        pointerEvents: pickerOpen ? 'none' : 'auto',
-      }}
+      style={modalStyles.overlay}
       role="dialog"
       aria-modal="true"
       aria-label="Settings"
     >
-      <div style={{ ...modalStyles.panel, pointerEvents: 'auto' }}>
+      <div style={modalStyles.panel}>
         <ModalHeader onClose={onClose} />
         <SettingsModalBody
+          activeTab={activeTab}
+          onTabChange={handleTabChange}
           storagePath={storagePath}
           onStoragePathChange={setStoragePath}
           defaultRuntime={defaultRuntime}
