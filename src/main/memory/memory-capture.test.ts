@@ -88,6 +88,7 @@ describe('MemoryCapture', () => {
         'claude',
         'manifold/test',
         undefined,
+        '/tmp/worktree',
       )
     })
 
@@ -100,6 +101,7 @@ describe('MemoryCapture', () => {
         'claude',
         'manifold/test',
         'fix bug',
+        '/tmp/worktree',
       )
     })
 

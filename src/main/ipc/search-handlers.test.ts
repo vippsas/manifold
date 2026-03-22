@@ -283,6 +283,6 @@ describe('registerSearchHandlers', () => {
       limit: 100,
     })
 
-    expect(interactionQuery).toHaveBeenCalledWith('"How" "does" "auth" "work"', 100)
+    expect(interactionQuery).toHaveBeenCalledWith('"auth" "work"', 100)
   })
 })
