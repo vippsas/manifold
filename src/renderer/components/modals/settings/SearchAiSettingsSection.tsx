@@ -19,18 +19,18 @@ export function SearchAiSettingsSection({
   }, [onChange, value])
 
   return (
-    <>
-      <label style={{ ...modalStyles.label, flexDirection: 'row', alignItems: 'center', gap: '8px' }}>
+    <div style={modalStyles.fieldGrid}>
+      <label style={{ ...modalStyles.checkboxField, ...modalStyles.fieldSpanFull }}>
         <input
           type="checkbox"
           checked={value.enabled}
           onChange={(event) => onChange({ ...value, enabled: event.target.checked })}
-          style={{ width: 'auto', margin: 0 }}
+          style={modalStyles.checkboxInput}
         />
         Enable AI search
       </label>
 
-      <label style={modalStyles.label}>
+      <label style={{ ...modalStyles.label, ...modalStyles.fieldSpanFull }}>
         AI Search Mode
         <select
           value={value.mode}
@@ -71,7 +71,7 @@ export function SearchAiSettingsSection({
         />
       </label>
 
-      <label style={modalStyles.label}>
+      <label style={{ ...modalStyles.label, ...modalStyles.fieldSpanFull }}>
         AI Context Results
         <input
           type="number"
@@ -86,6 +86,6 @@ export function SearchAiSettingsSection({
           Controls how many retrieved results are sent to AI for answers or reranking.
         </span>
       </label>
-    </>
+    </div>
   )
 }
