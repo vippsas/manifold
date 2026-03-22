@@ -8,22 +8,10 @@ import { debugLog } from '../app/debug-log'
 
 const MARKER_START = '<!-- manifold:memory-context:start -->'
 const MARKER_END = '<!-- manifold:memory-context:end -->'
+const CONTEXT_FILE_NAME = 'MANIFOLD.md'
 
 const DEFAULT_TOKEN_BUDGET = 2000
 const CHARS_PER_TOKEN = 4
-
-const CONTEXT_FILE_MAP: Record<string, string> = {
-  claude: 'CLAUDE.md',
-  'ollama-claude': 'CLAUDE.md',
-  codex: 'AGENTS.md',
-  'ollama-codex': 'AGENTS.md',
-  gemini: 'GEMINI.md',
-  copilot: 'AGENTS.md',
-}
-
-function getContextFileName(runtimeId: string): string {
-  return CONTEXT_FILE_MAP[runtimeId] || 'AGENTS.md'
-}
 
 const TYPE_ICONS: Record<string, string> = {
   bugfix: 'fix',
@@ -87,8 +75,7 @@ export class MemoryInjector {
 
       if (!markdown) return
 
-      const contextFile = getContextFileName(session.runtimeId)
-      const contextPath = join(session.worktreePath, contextFile)
+      const contextPath = join(session.worktreePath, CONTEXT_FILE_NAME)
 
       let existing = ''
       try {
@@ -219,9 +206,8 @@ export class MemoryInjector {
     return parts.join('\n')
   }
 
-  async cleanupContextFile(worktreePath: string, runtimeId: string): Promise<void> {
-    const contextFile = getContextFileName(runtimeId)
-    const contextPath = join(worktreePath, contextFile)
+  async cleanupContextFile(worktreePath: string, _runtimeId: string): Promise<void> {
+    const contextPath = join(worktreePath, CONTEXT_FILE_NAME)
 
     try {
       const existing = await readFile(contextPath, 'utf-8')

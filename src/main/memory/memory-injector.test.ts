@@ -1,17 +1,32 @@
-import { describe, it, expect } from 'vitest'
+import { afterEach, describe, it, expect } from 'vitest'
+import * as fs from 'node:fs'
+import * as os from 'node:os'
+import * as path from 'node:path'
 import { MemoryInjector } from './memory-injector'
 import type { MemoryStore } from './memory-store'
 import type { SettingsStore } from '../store/settings-store'
+import { DEFAULT_SETTINGS } from '../../shared/defaults'
 import type { MemoryObservation, SessionSummary } from '../../shared/memory-types'
+import type { InternalSession } from '../session/session-types'
 
-function createInjector(): MemoryInjector {
+function createInjector(
+  memoryStore: Partial<MemoryStore> = {},
+  settingsStore: Partial<SettingsStore> = {},
+): MemoryInjector {
   return new MemoryInjector(
-    {} as unknown as MemoryStore,
-    {} as unknown as SettingsStore,
+    memoryStore as MemoryStore,
+    settingsStore as SettingsStore,
   )
 }
 
 const NOW = Date.now()
+const tempDirs: string[] = []
+
+afterEach(() => {
+  for (const dir of tempDirs.splice(0)) {
+    fs.rmSync(dir, { recursive: true, force: true })
+  }
+})
 
 function makeSummary(overrides: Partial<SessionSummary> = {}): SessionSummary {
   return {
@@ -48,6 +63,48 @@ function makeObservation(overrides: Partial<MemoryObservation> = {}): MemoryObse
 }
 
 describe('MemoryInjector', () => {
+  describe('injectContext', () => {
+    it('writes injected context to MANIFOLD.md instead of runtime-specific context files', async () => {
+      const worktreePath = fs.mkdtempSync(path.join(os.tmpdir(), 'memory-injector-test-'))
+      tempDirs.push(worktreePath)
+
+      const injector = createInjector(
+        {
+          getRecentSummaries: () => [makeSummary()],
+          getRecentObservations: () => [],
+        },
+        {
+          getSettings: () => ({
+            ...DEFAULT_SETTINGS,
+            memory: {
+              ...DEFAULT_SETTINGS.memory,
+              injectionEnabled: true,
+              injectionTokenBudget: 2000,
+            },
+          }),
+        },
+      )
+
+      const session = {
+        id: 'sess-1',
+        projectId: 'proj-1',
+        runtimeId: 'codex',
+        branchName: 'manifold/test',
+        worktreePath,
+        status: 'running',
+        pid: null,
+        additionalDirs: [],
+      } as InternalSession
+
+      await injector.injectContext(session)
+
+      expect(fs.existsSync(path.join(worktreePath, 'MANIFOLD.md'))).toBe(true)
+      expect(fs.existsSync(path.join(worktreePath, 'AGENTS.md'))).toBe(false)
+      expect(fs.existsSync(path.join(worktreePath, 'CLAUDE.md'))).toBe(false)
+      expect(fs.existsSync(path.join(worktreePath, 'GEMINI.md'))).toBe(false)
+    })
+  })
+
   describe('buildContextMarkdown', () => {
     it('includes summary section with all fields', () => {
       const injector = createInjector()
