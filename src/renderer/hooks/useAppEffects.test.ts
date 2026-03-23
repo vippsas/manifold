@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { renderHook } from '@testing-library/react'
+import { renderHook, waitFor } from '@testing-library/react'
 import { useAppEffects } from './useAppEffects'
 import type { UseDockLayoutResult } from './useDockLayout'
 
@@ -46,7 +46,7 @@ function createInput(webPreviewUrl: string | null) {
 describe('useAppEffects', () => {
   beforeEach(() => {
     window.electronAPI = {
-      invoke: vi.fn(),
+      invoke: vi.fn(async () => null),
       send: vi.fn(),
       on: vi.fn(() => () => {}),
     } as unknown as typeof window.electronAPI
@@ -83,5 +83,64 @@ describe('useAppEffects', () => {
     rerender({ webPreviewUrl: 'http://127.0.0.1:5173' })
 
     expect(addPanel).toHaveBeenCalledTimes(2)
+  })
+
+  it('uses the runtime provided by app:auto-spawn when present', () => {
+    const { input } = createInput(null)
+    const spawnAgent = vi.fn()
+    input.spawnAgent = spawnAgent
+
+    renderHook(() => useAppEffects({ ...input }))
+
+    const autoSpawnHandler = vi.mocked(window.electronAPI.on).mock.calls.find(
+      ([channel]) => channel === 'app:auto-spawn',
+    )?.[1] as ((...args: unknown[]) => void) | undefined
+
+    if (!autoSpawnHandler) {
+      throw new Error('app:auto-spawn handler was not registered')
+    }
+
+    autoSpawnHandler('proj-1', 'feature/clock', true, 'codex')
+
+    expect(spawnAgent).toHaveBeenCalledWith({
+      projectId: 'proj-1',
+      runtimeId: 'codex',
+      prompt: '',
+      existingBranch: 'feature/clock',
+      noWorktree: false,
+    })
+  })
+
+  it('spawns a pending developer launch on mount', async () => {
+    vi.mocked(window.electronAPI.invoke).mockImplementation(async (channel: string) => {
+      if (channel === 'app:consume-pending-launch') {
+        return {
+          kind: 'developer',
+          projectId: 'proj-1',
+          branchName: 'feature/clock',
+          runtimeId: 'codex',
+        }
+      }
+      return null
+    })
+
+    const { input } = createInput(null)
+    const spawnAgent = vi.fn()
+    const setActiveProject = vi.fn()
+    input.spawnAgent = spawnAgent
+    input.setActiveProject = setActiveProject
+
+    renderHook(() => useAppEffects({ ...input }))
+
+    await waitFor(() => {
+      expect(setActiveProject).toHaveBeenCalledWith('proj-1')
+      expect(spawnAgent).toHaveBeenCalledWith({
+        projectId: 'proj-1',
+        runtimeId: 'codex',
+        prompt: '',
+        existingBranch: 'feature/clock',
+        noWorktree: false,
+      })
+    })
   })
 })

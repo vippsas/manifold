@@ -5,6 +5,33 @@ import { SpawnAgentOptions } from '../../shared/types'
 import { generateBranchName } from '../git/branch-namer'
 import type { IpcDependencies } from './types'
 
+const NO_WORKTREE_ERROR =
+  'A no-worktree agent is already running for this project. ' +
+  'Only one no-worktree agent can run at a time per project.'
+
+async function clearDormantNoWorktreeSessions(
+  deps: Pick<IpcDependencies, 'sessionManager' | 'fileWatcher'>,
+  options: SpawnAgentOptions,
+): Promise<void> {
+  const sessions = deps.sessionManager.listSessions()
+    .filter((session) => session.projectId === options.projectId && session.noWorktree)
+
+  for (const session of sessions) {
+    const internal = deps.sessionManager.getInternalSession(session.id)
+    if (!options.noWorktree) continue
+    if (internal?.ptyId || internal?.devServerPtyId || internal?.status === 'running') {
+      throw new Error(NO_WORKTREE_ERROR)
+    }
+  }
+
+  for (const session of sessions) {
+    const internal = deps.sessionManager.getInternalSession(session.id)
+    if (internal?.ptyId || internal?.devServerPtyId || internal?.status === 'running') continue
+    await deps.fileWatcher.unwatch(session.worktreePath)
+    await deps.sessionManager.killSession(session.id)
+  }
+}
+
 export function registerAgentHandlers(deps: IpcDependencies): void {
   const { sessionManager, fileWatcher, viewStateStore } = deps
 
@@ -15,6 +42,7 @@ export function registerAgentHandlers(deps: IpcDependencies): void {
   })
 
   ipcMain.handle('agent:spawn', async (_event, options: SpawnAgentOptions) => {
+    await clearDormantNoWorktreeSessions(deps, options)
     const session = await sessionManager.createSession(options)
     fileWatcher.watch(session.worktreePath, session.id)
     return session

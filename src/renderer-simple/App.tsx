@@ -13,6 +13,7 @@ import { applyThemeCssVars } from '../shared/themes/adapter'
 import type { ConvertedTheme } from '../shared/themes/types'
 import { useUpdateNotification } from '../shared/useUpdateNotification'
 import { UpdateToast } from '../shared/UpdateToast'
+import type { PendingLaunchAction } from '../shared/mode-switch-types'
 import type {
   ProvisioningCreateResult,
   ProvisioningOperationResult,
@@ -101,7 +102,7 @@ function AppViewWrapper({ app, onBack }: { app: SimpleApp; onBack: () => void })
       }}
       runtimeLabel={getSimpleRuntimeLabel(app.runtimeId)}
       onDevMode={() => {
-        window.electronAPI.invoke('app:switch-mode', 'developer', app.projectId)
+        window.electronAPI.invoke('app:switch-mode', 'developer', app.projectId, app.sessionId, app.runtimeId)
       }}
     />
   )
@@ -126,6 +127,17 @@ export function App(): React.JSX.Element {
         type: theme.type,
         background: theme.cssVars['--bg-primary'],
       })
+    })()
+    return () => { cancelled = true }
+  }, [])
+
+  useEffect(() => {
+    let cancelled = false
+    void (async () => {
+      const pending = (await window.electronAPI.invoke('app:consume-pending-launch')) as PendingLaunchAction | null
+      if (cancelled || !pending || pending.kind !== 'simple') return
+      await window.electronAPI.invoke('simple:subscribe-chat', pending.app.sessionId)
+      if (!cancelled) setView({ kind: 'app', app: pending.app })
     })()
     return () => { cancelled = true }
   }, [])

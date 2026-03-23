@@ -68,6 +68,7 @@ const ALLOWED_INVOKE_CHANNELS = [
   'updater:install',
   'updater:check',
   'app:switch-mode',
+  'app:consume-pending-launch',
   'memory:search',
   'memory:get',
   'memory:timeline',

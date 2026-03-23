@@ -83,32 +83,11 @@ export class BranchCheckoutManager {
   private async getWorktreeBranches(projectPath: string): Promise<Set<string>> {
     const branches = new Set<string>()
     try {
-      const raw = await gitExec(['worktree', 'list', '--porcelain'], projectPath)
-      let worktreeIndex = -1
-      let currentBranch: string | null = null
-
-      for (const line of raw.split('\n')) {
-        if (line.startsWith('worktree ')) {
-          // Flush previous worktree's branch (skip first — that's the main repo checkout)
-          if (worktreeIndex > 0 && currentBranch) {
-            branches.add(currentBranch)
-          }
-          worktreeIndex++
-          currentBranch = null
-        } else if (line.startsWith('branch ')) {
-          const fullRef = line.slice('branch '.length).trim()
-          currentBranch = fullRef.replace('refs/heads/', '')
-        } else if (line.trim() === '') {
-          if (worktreeIndex > 0 && currentBranch) {
-            branches.add(currentBranch)
-          }
-          currentBranch = null
+      const worktrees = await this.listWorktrees(projectPath)
+      for (const worktree of worktrees.slice(1)) {
+        if (worktree.branch) {
+          branches.add(worktree.branch)
         }
-      }
-
-      // Handle last entry (if no trailing empty line)
-      if (worktreeIndex > 0 && currentBranch) {
-        branches.add(currentBranch)
       }
     } catch {
       // If worktree list fails, return empty set — don't block branch listing
@@ -162,6 +141,13 @@ export class BranchCheckoutManager {
 
     const safeDirName = branch.replace(/\//g, '-')
     const worktreePath = path.join(worktreeBase, safeDirName)
+    const existingWorktreePath = await this.findExistingWorktreePath(projectPath, branch)
+
+    if (existingWorktreePath) {
+      await gitExec(['reset', '--mixed', 'HEAD'], existingWorktreePath).catch(() => {})
+      await prepareManagedWorktree(existingWorktreePath)
+      return { branch, path: existingWorktreePath }
+    }
 
     // If the branch is currently checked out in the main repo, switch the main
     // repo to the base branch first — git refuses to create a worktree for a
@@ -178,6 +164,45 @@ export class BranchCheckoutManager {
     await prepareManagedWorktree(worktreePath)
 
     return { branch, path: worktreePath }
+  }
+
+  private async findExistingWorktreePath(projectPath: string, branch: string): Promise<string | null> {
+    const worktrees = await this.listWorktrees(projectPath)
+    const existing = worktrees.find((worktree, index) => index > 0 && worktree.branch === branch)
+    if (!existing) return null
+    if (fs.existsSync(existing.path)) return existing.path
+    await gitExec(['worktree', 'prune'], projectPath).catch(() => {})
+    return null
+  }
+
+  private async listWorktrees(projectPath: string): Promise<Array<{ path: string; branch: string | null }>> {
+    const raw = await gitExec(['worktree', 'list', '--porcelain'], projectPath)
+    const worktrees: Array<{ path: string; branch: string | null }> = []
+    let currentPath: string | null = null
+    let currentBranch: string | null = null
+
+    for (const line of raw.split('\n')) {
+      if (line.startsWith('worktree ')) {
+        if (currentPath) {
+          worktrees.push({ path: currentPath, branch: currentBranch })
+        }
+        currentPath = line.slice('worktree '.length).trim()
+        currentBranch = null
+      } else if (line.startsWith('branch ')) {
+        const fullRef = line.slice('branch '.length).trim()
+        currentBranch = fullRef.replace('refs/heads/', '')
+      } else if (line.trim() === '' && currentPath) {
+        worktrees.push({ path: currentPath, branch: currentBranch })
+        currentPath = null
+        currentBranch = null
+      }
+    }
+
+    if (currentPath) {
+      worktrees.push({ path: currentPath, branch: currentBranch })
+    }
+
+    return worktrees
   }
 
   private parsePRNumber(identifier: string): string {

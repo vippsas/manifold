@@ -31,6 +31,7 @@ const ALLOWED_INVOKE_CHANNELS = [
   'simple:deploy',
   'simple:deploy-status',
   'app:switch-mode',
+  'app:consume-pending-launch',
   'simple:send-message',
 ] as const
 

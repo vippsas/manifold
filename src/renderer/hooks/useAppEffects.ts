@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import type { SearchMode } from '../../shared/search-types'
 import type { DockPanelId, UseDockLayoutResult } from './useDockLayout'
 import type { SpawnAgentOptions } from '../../shared/types'
+import type { PendingLaunchAction } from '../../shared/mode-switch-types'
 import { ensureSearchPanelInWorkspace } from './dock-layout-search'
 
 interface AppEffectsInput {
@@ -50,6 +51,17 @@ export function useAppEffects(input: AppEffectsInput): AppEffectsResult {
     })
   }, [input.dockLayout.apiRef, input.dockLayout.editorPanelIds, input.dockLayout.isPanelVisible, input.dockLayout.togglePanel])
 
+  const openDeveloperLaunch = useCallback((projectId: string, branchName?: string, runtimeId?: string) => {
+    input.setActiveProject(projectId)
+    void input.spawnAgent({
+      projectId,
+      runtimeId: runtimeId || input.settings.defaultRuntime,
+      prompt: '',
+      existingBranch: branchName,
+      noWorktree: false,
+    })
+  }, [input.setActiveProject, input.spawnAgent, input.settings.defaultRuntime])
+
   useEffect(() => {
     return window.electronAPI.on('view:toggle-panel', (panelId: unknown) => {
       input.dockLayout.togglePanel(panelId as DockPanelId)
@@ -63,21 +75,24 @@ export function useAppEffects(input: AppEffectsInput): AppEffectsResult {
   }, [showSearchPanel])
 
   useEffect(() => {
+    let cancelled = false
+    void (async () => {
+      const pending = await window.electronAPI.invoke('app:consume-pending-launch') as PendingLaunchAction | null
+      if (cancelled || !pending || pending.kind !== 'developer') return
+      openDeveloperLaunch(pending.projectId, pending.branchName, pending.runtimeId)
+    })()
+    return () => { cancelled = true }
+  }, [openDeveloperLaunch])
+
+  useEffect(() => {
     return window.electronAPI.on('app:auto-spawn', (...args: unknown[]) => {
       const projectId = args[0] as string | undefined
       const branchName = args[1] as string | undefined
-      const noWorktree = args[2] as boolean | undefined
+      const runtimeId = args[3] as string | undefined
       if (typeof projectId !== 'string') return
-      input.setActiveProject(projectId)
-      void input.spawnAgent({
-        projectId,
-        runtimeId: input.settings.defaultRuntime,
-        prompt: '',
-        existingBranch: branchName,
-        noWorktree: noWorktree ?? false,
-      })
+      openDeveloperLaunch(projectId, branchName, runtimeId)
     })
-  }, [input.setActiveProject, input.spawnAgent, input.settings.defaultRuntime])
+  }, [openDeveloperLaunch])
 
   useEffect(() => {
     const api = input.dockLayout.apiRef.current
