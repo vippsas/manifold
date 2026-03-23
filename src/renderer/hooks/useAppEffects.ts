@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import type { SearchMode } from '../../shared/search-types'
 import type { DockPanelId, UseDockLayoutResult } from './useDockLayout'
 import type { SpawnAgentOptions } from '../../shared/types'
@@ -33,6 +33,7 @@ export function useAppEffects(input: AppEffectsInput): AppEffectsResult {
   const [showOnboarding, setShowOnboarding] = useState(false)
   const [creatingProject, setCreatingProject] = useState(false)
   const [cloningProject, setCloningProject] = useState(false)
+  const lastAutoOpenedPreviewUrlRef = useRef<string | null>(null)
 
   const showSearchPanel = useCallback((mode: SearchMode) => {
     const api = input.dockLayout.apiRef.current
@@ -80,18 +81,21 @@ export function useAppEffects(input: AppEffectsInput): AppEffectsResult {
 
   useEffect(() => {
     const api = input.dockLayout.apiRef.current
-    if (!api) return
-    if (input.webPreviewUrl) {
-      if (!api.getPanel('webPreview')) {
-        const editorPanel = input.dockLayout.editorPanelIds[0]
-          ? api.getPanel(input.dockLayout.editorPanelIds[0])
-          : api.getPanel('editor')
-        api.addPanel({
-          id: 'webPreview', component: 'webPreview', title: 'Preview',
-          position: editorPanel ? { referencePanel: editorPanel, direction: 'within' } : undefined,
-        })
-      }
+    if (!input.webPreviewUrl) {
+      lastAutoOpenedPreviewUrlRef.current = null
+      return
     }
+    if (!api || input.webPreviewUrl === lastAutoOpenedPreviewUrlRef.current) return
+    if (!api.getPanel('webPreview')) {
+      const editorPanel = input.dockLayout.editorPanelIds[0]
+        ? api.getPanel(input.dockLayout.editorPanelIds[0])
+        : api.getPanel('editor')
+      api.addPanel({
+        id: 'webPreview', component: 'webPreview', title: 'Preview',
+        position: editorPanel ? { referencePanel: editorPanel, direction: 'within' } : undefined,
+      })
+    }
+    lastAutoOpenedPreviewUrlRef.current = input.webPreviewUrl
   }, [input.webPreviewUrl, input.dockLayout.apiRef, input.dockLayout.editorPanelIds])
 
   const handleFilesChanged = useCallback(() => {
