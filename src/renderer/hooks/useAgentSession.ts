@@ -40,7 +40,7 @@ interface UseAgentSessionResult {
   activeSession: AgentSession | null
   spawnAgent: (options: SpawnAgentOptions) => Promise<AgentSession | null>
   killAgent: (sessionId: string) => Promise<void>
-  deleteAgent: (sessionId: string) => void
+  deleteAgent: (sessionId: string) => Promise<void>
   setActiveSession: (sessionId: string | null) => void
   resumeAgent: (sessionId: string, runtimeId: string) => Promise<void>
 }
@@ -229,12 +229,12 @@ function useKillAgent(): (sessionId: string) => Promise<void> {
 function useDeleteAgent(
   setSessions: React.Dispatch<React.SetStateAction<AgentSession[]>>,
   setActiveSessionId: React.Dispatch<React.SetStateAction<string | null>>
-): (sessionId: string) => void {
+): (sessionId: string) => Promise<void> {
   return useCallback(
-    (sessionId: string): void => {
+    async (sessionId: string): Promise<void> => {
+      await window.electronAPI.invoke('agent:kill', sessionId)
       setSessions((prev) => prev.filter((s) => s.id !== sessionId))
       setActiveSessionId((prev) => (prev === sessionId ? null : prev))
-      void window.electronAPI.invoke('agent:kill', sessionId).catch(() => {})
     },
     [setSessions, setActiveSessionId]
   )

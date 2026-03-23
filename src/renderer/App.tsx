@@ -57,6 +57,7 @@ export function App(): React.JSX.Element {
   const codeView = useCodeView(activeSessionId)
 
   const appEffects = useAppEffects({
+    activeSessionId,
     dockLayout, webPreviewUrl: webPreview.previewUrl, settings,
     setActiveProject, spawnAgent, refreshOpenFiles: codeView.refreshOpenFiles, refreshDiff,
   })
