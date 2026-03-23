@@ -13,6 +13,7 @@ import type {
   ProvisioningTemplateDescriptor,
 } from '../../shared/provisioning-types'
 import { PROVISIONER_PROTOCOL_VERSION } from '../../shared/provisioning-types'
+import { decodeProvisioningTemplateQualifiedId, encodeProvisioningTemplateQualifiedId } from '../../shared/provisioning-qualified-id'
 import { runProvisionerRequest } from './provisioner-process'
 import { resolveProvisionerCommand } from './provisioner-command'
 import { ProvisioningCatalogCache } from './provisioning-catalog-cache'
@@ -40,13 +41,13 @@ function validateCreateRequest(request: ProvisioningCreateRequest): void {
 }
 
 function splitQualifiedId(qualifiedId: string): { provisionerId: string; templateId: string } {
-  const index = qualifiedId.indexOf(':')
-  if (index <= 0 || index === qualifiedId.length - 1) {
+  const decoded = decodeProvisioningTemplateQualifiedId(qualifiedId)
+  if (!decoded) {
     throw new ProvisioningError('template_not_found', `Invalid template identifier: ${qualifiedId}`, {
       code: 'invalid_template_identifier',
     })
   }
-  return { provisionerId: qualifiedId.slice(0, index), templateId: qualifiedId.slice(index + 1) }
+  return decoded
 }
 
 function sortTemplates(templates: ProvisioningTemplateDescriptor[]): ProvisioningTemplateDescriptor[] {
@@ -235,7 +236,7 @@ export class ProvisioningDispatcher {
     return {
       templates: templates.map((template) => ({
         ...template,
-        qualifiedId: `${provisioner.id}:${template.id}`,
+        qualifiedId: encodeProvisioningTemplateQualifiedId(provisioner.id, template.id),
         provisionerId: provisioner.id,
         provisionerLabel: provisioner.label,
         tags: template.tags ?? [],

@@ -1,14 +1,56 @@
 import type { ProvisionerConfig } from '../../../../shared/provisioning-types'
 
 export function parseProvisionerArgs(text: string): string[] {
-  return text
-    .split(/\s+/)
-    .map((value) => value.trim())
-    .filter(Boolean)
+  const args: string[] = []
+  let current = ''
+  let quote: '"' | "'" | null = null
+  let escaping = false
+
+  for (const char of text) {
+    if (escaping) {
+      current += char
+      escaping = false
+      continue
+    }
+    if (char === '\\' && quote !== "'") {
+      escaping = true
+      continue
+    }
+    if (quote) {
+      if (char === quote) {
+        quote = null
+      } else {
+        current += char
+      }
+      continue
+    }
+    if (char === '"' || char === "'") {
+      quote = char
+      continue
+    }
+    if (/\s/.test(char)) {
+      if (current) {
+        args.push(current)
+        current = ''
+      }
+      continue
+    }
+    current += char
+  }
+
+  if (escaping) current += '\\'
+  if (current || quote) args.push(current)
+  return args
 }
 
 export function stringifyProvisionerArgs(args?: string[]): string {
-  return (args ?? []).join(' ')
+  return (args ?? [])
+    .map((arg) => {
+      if (arg === '') return '""'
+      if (/^[^\s"'\\]+$/.test(arg)) return arg
+      return `"${arg.replace(/([\\"])/g, '\\$1')}"`
+    })
+    .join(' ')
 }
 
 export function createExternalProvisioner(existing: ProvisionerConfig[]): ProvisionerConfig {

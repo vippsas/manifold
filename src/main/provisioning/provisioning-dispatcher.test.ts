@@ -7,6 +7,7 @@ import { fileURLToPath } from 'node:url'
 import { describe, expect, it, vi, afterEach } from 'vitest'
 import type { Project } from '../../shared/types'
 import type { ProvisionerConfig } from '../../shared/provisioning-types'
+import { encodeProvisioningTemplateQualifiedId } from '../../shared/provisioning-qualified-id'
 import { ProvisioningDispatcher } from './provisioning-dispatcher'
 
 const fixturePath = path.join(path.dirname(fileURLToPath(import.meta.url)), '__fixtures__', 'cli-provisioner-fixture.js')
@@ -120,6 +121,31 @@ describe('ProvisioningDispatcher', () => {
 
     expect(progress).toHaveBeenCalledWith(expect.objectContaining({ message: 'Cloning repository into managed storage...' }))
     expect(progress).toHaveBeenCalledWith(expect.objectContaining({ message: 'Project ready.' }))
+  })
+
+  it('supports provisioner ids that contain colons', async () => {
+    const storageRoot = createStorageRoot()
+    const provisionerId = 'company:backstage'
+    const { dispatcher } = createDispatcher([
+      {
+        id: provisionerId,
+        label: 'Company Templates',
+        type: 'cli',
+        enabled: true,
+        command: process.execPath,
+        args: [fixturePath, 'good'],
+      },
+    ], storageRoot)
+
+    const catalog = await dispatcher.listTemplates()
+    expect(catalog.templates[0]?.qualifiedId).toBe(encodeProvisioningTemplateQualifiedId(provisionerId, 'company-service'))
+
+    const result = await dispatcher.create({
+      templateQualifiedId: encodeProvisioningTemplateQualifiedId(provisionerId, 'company-service'),
+      inputs: { name: 'ledger-service', description: 'Track company ledger entries.' },
+    })
+
+    expect(result.ok).toBe(true)
   })
 
   it('cleans up the managed directory when clone fails', async () => {

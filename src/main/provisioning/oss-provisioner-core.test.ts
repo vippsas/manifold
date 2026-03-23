@@ -73,4 +73,18 @@ describe('oss-provisioner-core', () => {
     expect(firstOrigin).toBe('')
     expect(secondOrigin).toBe('')
   })
+
+  it('rebuilds the shared template cache when the stored version is stale', async () => {
+    const shared = await ensureSharedTemplateRepo('web-react-vite')
+    registerPath(shared)
+
+    fs.writeFileSync(path.join(shared, '.manifold-template-version'), 'stale-version\n', 'utf-8')
+    fs.rmSync(path.join(shared, 'AGENTS.md'), { force: true })
+
+    const rebuilt = await ensureSharedTemplateRepo('web-react-vite')
+
+    expect(rebuilt).toBe(shared)
+    expect(fs.existsSync(path.join(shared, 'AGENTS.md'))).toBe(true)
+    expect(fs.readFileSync(path.join(shared, '.manifold-template-version'), 'utf-8').trim()).not.toBe('stale-version')
+  })
 })

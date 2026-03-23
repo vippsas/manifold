@@ -41,6 +41,7 @@ function validateField(schema: TemplateFieldSchema, value: TemplateInputValue, r
 export function CreateAppDialog({ open, onClose, onStart }: Props): React.JSX.Element | null {
   const [catalog, setCatalog] = useState<ProvisioningTemplateCatalog>({ templates: [], provisioners: [] })
   const [templatesLoading, setTemplatesLoading] = useState(false)
+  const [catalogRequested, setCatalogRequested] = useState(false)
   const [loading, setLoading] = useState(false)
   const [selectedTemplateId, setSelectedTemplateId] = useState('')
   const [formValues, setFormValues] = useState<Record<string, TemplateInputValue>>({})
@@ -64,10 +65,14 @@ export function CreateAppDialog({ open, onClose, onStart }: Props): React.JSX.El
   const canSubmit = Boolean(selectedTemplate) && Object.values(fieldErrors).every((value) => !value) && !loading
 
   useEffect(() => {
-    if (!open) return
-    if (catalog.templates.length > 0 || templatesLoading) return
+    if (!open) {
+      setCatalogRequested(false)
+      return
+    }
+    if (catalogRequested || templatesLoading) return
+    setCatalogRequested(true)
     void loadCatalog(false)
-  }, [open, catalog.templates.length, templatesLoading])
+  }, [catalogRequested, open, templatesLoading])
 
   useEffect(() => {
     if (!open) return undefined
