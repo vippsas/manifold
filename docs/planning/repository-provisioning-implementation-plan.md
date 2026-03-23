@@ -473,6 +473,10 @@ Verification completed on 2026-03-23:
 
 Phase 2 should harden and broaden the system after the first delivery is working.
 
+Detailed Phase 2 execution planning lives in:
+
+- `docs/planning/repository-provisioning-phase-2-implementation-plan.md`
+
 Planned items:
 
 - support multiple external provisioners as a first-class common case

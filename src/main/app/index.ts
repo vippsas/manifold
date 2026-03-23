@@ -1,7 +1,9 @@
 import { app, BrowserWindow } from 'electron'
 import { loadShellPath } from './shell-path'
+import { configureDevProfilePaths } from './dev-profile'
 
 loadShellPath()
+configureDevProfilePaths(app)
 
 // Remove env vars set by parent CLI agents so spawned agents don't detect
 // themselves as nested sessions and refuse to start.

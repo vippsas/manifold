@@ -13,7 +13,10 @@ import { applyThemeCssVars } from '../shared/themes/adapter'
 import type { ConvertedTheme } from '../shared/themes/types'
 import { useUpdateNotification } from '../shared/useUpdateNotification'
 import { UpdateToast } from '../shared/UpdateToast'
-import type { ProvisioningCreateResult } from '../shared/provisioning-types'
+import type {
+  ProvisioningCreateResult,
+  ProvisioningOperationResult,
+} from '../shared/provisioning-types'
 
 const SIMPLE_RUNTIME_LABELS: Record<string, string> = {
   claude: 'Claude Code',
@@ -164,10 +167,14 @@ export function App(): React.JSX.Element {
         const provisioning = (await window.electronAPI.invoke(
           'provisioning:create',
           { templateQualifiedId, inputs },
-        )) as ProvisioningCreateResult
+        )) as ProvisioningOperationResult<ProvisioningCreateResult>
+
+        if (!provisioning.ok) {
+          throw new Error(provisioning.error.message)
+        }
 
         const session = (await window.electronAPI.invoke('agent:spawn', {
-          projectId: provisioning.project.id,
+          projectId: provisioning.value.project.id,
           runtimeId: settings.defaultRuntime ?? 'claude',
           prompt: buildSimplePrompt(description, templateTitle),
           userMessage: description,
@@ -179,7 +186,7 @@ export function App(): React.JSX.Element {
 
         const newApp: SimpleApp = {
           sessionId: session.id,
-          projectId: provisioning.project.id,
+          projectId: provisioning.value.project.id,
           runtimeId: settings.defaultRuntime ?? 'claude',
           branchName: session.branchName ?? '',
           name,
@@ -187,7 +194,7 @@ export function App(): React.JSX.Element {
           status: 'scaffolding',
           previewUrl: null,
           liveUrl: null,
-          projectPath: provisioning.project.path,
+          projectPath: provisioning.value.project.path,
           createdAt: Date.now(),
           updatedAt: Date.now(),
         }

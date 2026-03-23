@@ -6,7 +6,9 @@ import {
   type ProvisionerProgressEvent,
   type ProvisionerRequest,
   type ProvisionerResultEvent,
+  type ProvisioningProgressPayload,
 } from '../../shared/provisioning-types'
+import { fromProvisionerErrorPayload, ProvisioningError } from './provisioning-errors'
 
 function isProgressEvent<T>(event: ProvisionerEvent<T>): event is ProvisionerProgressEvent {
   return event.event === 'progress'
@@ -24,7 +26,7 @@ export async function runProvisionerRequest<T>(
   command: string,
   args: string[],
   request: ProvisionerRequest,
-  onProgress?: (message: string) => void,
+  onProgress?: (payload: ProvisioningProgressPayload) => void,
   options?: { timeoutMs?: number },
 ): Promise<T> {
   return await new Promise<T>((resolve, reject) => {
@@ -43,7 +45,10 @@ export async function runProvisionerRequest<T>(
       if (settled) return
       settled = true
       child.kill('SIGTERM')
-      reject(new Error(`Provisioner timed out after ${timeoutMs}ms`))
+      reject(new ProvisioningError('provisioner_unavailable', `Provisioner timed out after ${timeoutMs}ms`, {
+        code: 'provisioner_timeout',
+        retryable: true,
+      }))
     }, timeoutMs)
 
     const finish = (): void => {
@@ -54,19 +59,28 @@ export async function runProvisionerRequest<T>(
       if (event.protocolVersion !== PROVISIONER_PROTOCOL_VERSION) {
         settled = true
         finish()
-        reject(new Error(`Unsupported provisioner protocol version: ${event.protocolVersion}`))
+        reject(new ProvisioningError('protocol_error', `Unsupported provisioner protocol version: ${event.protocolVersion}`, {
+          code: 'unsupported_protocol_version',
+        }))
         return
       }
 
       if (isProgressEvent(event)) {
-        onProgress?.(event.message)
+        onProgress?.({
+          requestId: request.requestId ?? '',
+          message: event.message,
+          stage: event.stage,
+          status: event.status,
+          percent: event.percent,
+          retryable: event.retryable,
+        })
         return
       }
 
       if (isErrorEvent(event)) {
         settled = true
         finish()
-        reject(new Error(event.error.message || 'Provisioner returned an error'))
+        reject(fromProvisionerErrorPayload(event.error))
         return
       }
 
@@ -88,7 +102,9 @@ export async function runProvisionerRequest<T>(
           } catch (err) {
             settled = true
             finish()
-            reject(new Error(`Invalid provisioner JSON output: ${String(err)}`))
+            reject(new ProvisioningError('protocol_error', `Invalid provisioner JSON output: ${String(err)}`, {
+              code: 'invalid_provisioner_json',
+            }))
             child.kill('SIGTERM')
             return
           }
@@ -110,7 +126,10 @@ export async function runProvisionerRequest<T>(
       if (settled) return
       settled = true
       finish()
-      reject(err)
+      reject(new ProvisioningError('provisioner_unavailable', err.message, {
+        code: 'provisioner_spawn_failed',
+        retryable: true,
+      }))
     })
 
     child.on('close', (code) => {
@@ -126,7 +145,10 @@ export async function runProvisionerRequest<T>(
         }
       }
       const stderrText = stderrBuffer.trim()
-      reject(new Error(stderrText || `Provisioner exited with code ${code ?? 'unknown'}`))
+      reject(new ProvisioningError('provisioner_unavailable', stderrText || `Provisioner exited with code ${code ?? 'unknown'}`, {
+        code: 'provisioner_exit_failure',
+        retryable: true,
+      }))
     })
 
     child.stdin.write(JSON.stringify(request))

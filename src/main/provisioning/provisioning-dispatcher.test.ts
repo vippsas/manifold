@@ -75,12 +75,14 @@ describe('ProvisioningDispatcher', () => {
       },
     ], storageRoot)
 
-    const templates = await dispatcher.listTemplates()
-    expect(templates).toHaveLength(1)
-    expect(templates[0]).toEqual(expect.objectContaining({
+    const catalog = await dispatcher.listTemplates()
+    expect(catalog.templates).toHaveLength(1)
+    expect(catalog.templates[0]).toEqual(expect.objectContaining({
       qualifiedId: 'company-ok:company-service',
       provisionerLabel: 'Company Templates',
+      catalogSource: 'live',
     }))
+    expect(catalog.provisioners).toHaveLength(2)
   })
 
   it('creates a project from an external CLI provisioner and clones into managed storage', async () => {
@@ -105,10 +107,13 @@ describe('ProvisioningDispatcher', () => {
       },
     }, progress)
 
+    expect(result.ok).toBe(true)
+    if (!result.ok) throw new Error('Expected create to succeed')
+
     const expectedPath = path.join(storageRoot, 'projects', 'ledger-service')
     expect(addProject).toHaveBeenCalledWith(expectedPath)
     expect(fs.existsSync(path.join(expectedPath, '.git'))).toBe(true)
-    expect(result.project.path).toBe(expectedPath)
+    expect(result.value.project.path).toBe(expectedPath)
 
     const remotes = execFileSync('git', ['remote'], { cwd: expectedPath }).toString('utf8').trim()
     expect(remotes).toBe('')
@@ -130,18 +135,92 @@ describe('ProvisioningDispatcher', () => {
       },
     ], storageRoot)
 
-    await expect(
-      dispatcher.create({
-        templateQualifiedId: 'company-bad-repo:company-service',
-        inputs: {
-          name: 'broken-app',
-          description: 'Should fail to clone.',
-        },
-      }),
-    ).rejects.toThrow()
+    const result = await dispatcher.create({
+      templateQualifiedId: 'company-bad-repo:company-service',
+      inputs: {
+        name: 'broken-app',
+        description: 'Should fail to clone.',
+      },
+    })
+
+    expect(result.ok).toBe(false)
 
     const managedProjectsRoot = path.join(storageRoot, 'projects')
     const entries = fs.existsSync(managedProjectsRoot) ? fs.readdirSync(managedProjectsRoot) : []
     expect(entries).toEqual([])
+  })
+
+  it('returns cached templates when the catalog is already available', async () => {
+    const storageRoot = createStorageRoot()
+    const { dispatcher } = createDispatcher([
+      {
+        id: 'company-ok',
+        label: 'Company Templates',
+        type: 'cli',
+        enabled: true,
+        command: process.execPath,
+        args: [fixturePath, 'good'],
+      },
+    ], storageRoot)
+
+    const first = await dispatcher.listTemplates()
+    const second = await dispatcher.listTemplates()
+
+    expect(first.templates[0]?.catalogSource).toBe('live')
+    expect(second.templates[0]?.catalogSource).toBe('cache')
+  })
+
+  it('checks health for configured provisioners', async () => {
+    const storageRoot = createStorageRoot()
+    const { dispatcher } = createDispatcher([
+      {
+        id: 'company-ok',
+        label: 'Company Templates',
+        type: 'cli',
+        enabled: true,
+        command: process.execPath,
+        args: [fixturePath, 'good'],
+      },
+    ], storageRoot)
+
+    const statuses = await dispatcher.checkHealth()
+    expect(statuses).toHaveLength(1)
+    expect(statuses[0]).toEqual(expect.objectContaining({
+      provisionerId: 'company-ok',
+      state: 'healthy',
+    }))
+  })
+
+  it('falls back to cached templates when a refresh fails', async () => {
+    const storageRoot = createStorageRoot()
+    const stateFile = path.join(storageRoot, 'fixture-state.txt')
+    fs.writeFileSync(stateFile, 'good', 'utf8')
+
+    const { dispatcher } = createDispatcher([
+      {
+        id: 'company-stateful',
+        label: 'Stateful Templates',
+        type: 'cli',
+        enabled: true,
+        command: process.execPath,
+        args: [fixturePath, 'stateful', stateFile],
+      },
+    ], storageRoot)
+
+    const first = await dispatcher.listTemplates()
+    expect(first.templates[0]?.catalogSource).toBe('live')
+
+    fs.writeFileSync(stateFile, 'error', 'utf8')
+    const refreshed = await dispatcher.listTemplates(true)
+
+    expect(refreshed.templates[0]).toEqual(expect.objectContaining({
+      qualifiedId: 'company-stateful:company-service',
+      catalogSource: 'cache',
+      isStale: true,
+    }))
+    expect(refreshed.provisioners[0]).toEqual(expect.objectContaining({
+      source: 'cache',
+      state: 'unreachable',
+    }))
   })
 })

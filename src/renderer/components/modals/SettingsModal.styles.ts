@@ -54,7 +54,7 @@ export const modalStyles: Record<string, React.CSSProperties> = {
   tabActive: {
     color: 'var(--text-primary)',
     background: 'color-mix(in srgb, var(--accent) 12%, var(--bg-elevated))',
-    borderColor: 'color-mix(in srgb, var(--accent) 50%, var(--control-border))',
+    border: '1px solid color-mix(in srgb, var(--accent) 50%, var(--control-border))',
     boxShadow: 'inset 0 0 0 1px color-mix(in srgb, var(--accent) 18%, transparent)',
   },
   tabTitle: {
@@ -167,6 +167,21 @@ export const modalStyles: Record<string, React.CSSProperties> = {
     overflow: 'hidden',
     border: '1px solid var(--border)',
     background: 'var(--bg-primary)',
+  },
+  secondaryButton: {
+    minHeight: 'var(--control-height)',
+    padding: '0 var(--space-sm)',
+    display: 'inline-flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: '6px',
+    background: 'var(--control-bg)',
+    color: 'var(--text-primary)',
+    border: '1px solid var(--control-border)',
+    borderRadius: 'var(--radius-sm)',
+    cursor: 'pointer',
+    fontSize: 'var(--type-ui-caption)',
+    fontWeight: 600,
   },
   divider: {
     borderTop: '1px solid var(--border)',

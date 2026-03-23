@@ -9,6 +9,11 @@ const ALLOWED_INVOKE_CHANNELS = [
   'projects:clone',
   'projects:clone-dialog',
   'projects:create-new',
+  'provisioning:list-templates',
+  'provisioning:refresh-templates',
+  'provisioning:get-statuses',
+  'provisioning:check-health',
+  'provisioning:create',
   'agent:spawn',
   'agent:kill',
   'agent:interrupt',
@@ -98,6 +103,7 @@ const ALLOWED_LISTEN_CHANNELS = [
   'view:show-search',
   'preview:url-detected',
   'app:auto-spawn',
+  'provisioning:progress',
 ] as const
 
 type InvokeChannel = (typeof ALLOWED_INVOKE_CHANNELS)[number]

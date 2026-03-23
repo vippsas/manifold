@@ -7,6 +7,8 @@ const ALLOWED_INVOKE_CHANNELS = [
   'projects:clone',
   'provisioning:list-templates',
   'provisioning:refresh-templates',
+  'provisioning:get-statuses',
+  'provisioning:check-health',
   'provisioning:create',
   'agent:spawn',
   'agent:kill',

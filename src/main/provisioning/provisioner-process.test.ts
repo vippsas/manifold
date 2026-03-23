@@ -26,7 +26,7 @@ describe('runProvisionerRequest', () => {
       progress,
     )
 
-    expect(progress).toHaveBeenCalledWith('Fixture preparing repository...')
+    expect(progress).toHaveBeenCalledWith(expect.objectContaining({ message: 'Fixture preparing repository...' }))
     expect(result.displayName).toBe('fixture-app')
     expect(result.repoUrl).toContain('fixture-app')
   })

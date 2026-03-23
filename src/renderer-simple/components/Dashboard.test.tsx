@@ -10,26 +10,52 @@ beforeEach(() => {
   vi.clearAllMocks()
   mockInvoke.mockImplementation((channel: string) => {
     if (channel === 'provisioning:list-templates' || channel === 'provisioning:refresh-templates') {
-      return Promise.resolve([
-        {
-          id: 'web-react-vite',
-          qualifiedId: 'oss-bundled:web-react-vite',
-          title: 'Web App',
-          description: 'Starter app.',
-          category: 'Web',
-          tags: ['react'],
-          provisionerId: 'oss-bundled',
-          provisionerLabel: 'Open Source Templates',
-          paramsSchema: {
-            type: 'object',
-            properties: {
-              name: { type: 'string', title: 'App name', placeholder: 'e.g. customer-feedback' },
-              description: { type: 'string', title: 'Describe what you want to build', multiline: true },
+      return Promise.resolve({
+        templates: [
+          {
+            id: 'web-react-vite',
+            qualifiedId: 'oss-bundled:web-react-vite',
+            title: 'Web App',
+            description: 'Starter app.',
+            category: 'Web',
+            tags: ['react'],
+            provisionerId: 'oss-bundled',
+            provisionerLabel: 'Open Source Templates',
+            catalogSource: 'cache',
+            isStale: true,
+            paramsSchema: {
+              type: 'object',
+              properties: {
+                name: { type: 'string', title: 'App name', placeholder: 'e.g. customer-feedback' },
+                description: { type: 'string', title: 'Describe what you want to build', multiline: true },
+                visibility: {
+                  type: 'string',
+                  title: 'Visibility',
+                  enum: [
+                    { value: 'private', label: 'Private' },
+                    { value: 'public', label: 'Public' },
+                  ],
+                  default: 'private',
+                },
+                retentionDays: { type: 'integer', title: 'Retention Days', default: 30, minimum: 7 },
+              },
+              required: ['name', 'description'],
             },
-            required: ['name', 'description'],
           },
-        },
-      ])
+        ],
+        provisioners: [
+          {
+            provisionerId: 'oss-bundled',
+            provisionerLabel: 'Open Source Templates',
+            enabled: true,
+            source: 'cache',
+            state: 'healthy',
+            templateCount: 1,
+            summary: 'Using cached templates',
+            isStale: true,
+          },
+        ],
+      })
     }
     return Promise.resolve(undefined)
   })
@@ -68,12 +94,20 @@ describe('Dashboard', () => {
     })
 
     expect(screen.getByText('Open Source Templates')).toBeInTheDocument()
+    expect(screen.getByText('Cached')).toBeInTheDocument()
+    expect(screen.getByText('Stale')).toBeInTheDocument()
 
     fireEvent.change(screen.getByPlaceholderText('e.g. customer-feedback'), {
       target: { value: 'feedback-board' },
     })
     fireEvent.change(screen.getAllByRole('textbox')[1], {
       target: { value: 'Collect customer feedback and trends.' },
+    })
+    fireEvent.change(screen.getByDisplayValue('Private'), {
+      target: { value: 'public' },
+    })
+    fireEvent.change(screen.getByDisplayValue('30'), {
+      target: { value: '21' },
     })
 
     fireEvent.click(screen.getByText('Start Building'))
@@ -87,6 +121,8 @@ describe('Dashboard', () => {
         inputs: {
           name: 'feedback-board',
           description: 'Collect customer feedback and trends.',
+          visibility: 'public',
+          retentionDays: 21,
         },
       })
     })

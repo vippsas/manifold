@@ -6,7 +6,17 @@ const path = require('node:path')
 const { execFileSync } = require('node:child_process')
 
 const mode = process.argv[2] || 'good'
+const stateFile = process.argv[3]
 const PROTOCOL_VERSION = 1
+
+function resolveMode() {
+  if (mode !== 'stateful' || !stateFile) return mode
+  try {
+    return fs.readFileSync(stateFile, 'utf8').trim() || 'good'
+  } catch {
+    return 'good'
+  }
+}
 
 function write(payload) {
   process.stdout.write(JSON.stringify(payload) + '\n')
@@ -34,17 +44,18 @@ async function readRequest() {
 }
 
 async function main() {
+  const resolvedMode = resolveMode()
   const request = await readRequest()
   if (request.protocolVersion !== PROTOCOL_VERSION) {
     throw new Error(`Unsupported protocol version: ${request.protocolVersion}`)
   }
 
-  if (mode === 'bad-json') {
+  if (resolvedMode === 'bad-json') {
     process.stdout.write('{not-json}\n')
     return
   }
 
-  if (mode === 'error') {
+  if (resolvedMode === 'error') {
     process.stderr.write('fixture failed\n')
     process.exitCode = 1
     return
@@ -92,11 +103,11 @@ async function main() {
       message: 'Fixture preparing repository...',
     })
 
-    if (mode === 'slow') {
+    if (resolvedMode === 'slow') {
       await new Promise((resolve) => setTimeout(resolve, 200))
     }
 
-    if (mode === 'bad-repo') {
+    if (resolvedMode === 'bad-repo') {
       write({
         protocolVersion: PROTOCOL_VERSION,
         requestId: request.requestId,
