@@ -2,7 +2,7 @@ import React, { useState } from 'react'
 import type { SimpleApp } from '../../shared/simple-types'
 import { AppCard } from './AppCard'
 import { ConfirmDialog } from './ConfirmDialog'
-import { techStackIcons } from './tech-stack-icons'
+import { CreateAppDialog, type StartAppRequest } from './CreateAppDialog'
 import * as styles from './Dashboard.styles'
 
 const LOGO = `  .--.      __  ___            _ ____      __    __
@@ -11,74 +11,28 @@ const LOGO = `  .--.      __  ___            _ ____      __    __
  \\    /  / /  / / /_/ / / / / / __/ /_/ / / /_/ /
   \\__/  /_/  /_/\\__,_/_/ /_/_/_/  \\____/_/\\__,_/`
 
-function Spinner(): React.JSX.Element {
-  return (
-    <span
-      style={{
-        display: 'inline-block',
-        width: 14,
-        height: 14,
-        border: '2px solid rgba(255,255,255,0.3)',
-        borderTopColor: '#fff',
-        borderRadius: '50%',
-        animation: 'spin 0.6s linear infinite',
-        verticalAlign: 'middle',
-      }}
-    />
-  )
-}
-
-function TechIcon({ path, color, size = 12 }: { path: string; color: string; size?: number }): React.JSX.Element {
-  return (
-    <svg
-      role="img"
-      viewBox="0 0 24 24"
-      width={size}
-      height={size}
-      fill={color}
-      style={{ verticalAlign: 'middle', flexShrink: 0 }}
-    >
-      <path d={path} />
-    </svg>
-  )
-}
-
 interface Props {
   apps: SimpleApp[]
-  onStart: (name: string, description: string) => void
+  onStart: (request: StartAppRequest) => Promise<void>
   onSelectApp: (app: SimpleApp) => void
   onDeleteApp: (app: SimpleApp) => Promise<void>
   onDevMode: () => void
 }
 
+export type { StartAppRequest } from './CreateAppDialog'
+
 export function Dashboard({ apps, onStart, onSelectApp, onDeleteApp, onDevMode }: Props): React.JSX.Element {
   const [showCreate, setShowCreate] = useState(false)
-  const [name, setName] = useState('')
-  const [description, setDescription] = useState('')
-  const [loading, setLoading] = useState(false)
   const [appToDelete, setAppToDelete] = useState<SimpleApp | null>(null)
 
-  const canSubmit = name.trim().length > 0 && description.trim().length > 0 && !loading
-  const hasActiveApp = apps.some((a) => a.status === 'scaffolding' || a.status === 'building' || a.status === 'deploying')
-
-  const handleStart = (): void => {
-    if (!canSubmit) return
-    setLoading(true)
-    onStart(name.trim(), description.trim())
-  }
-
-  const handleCancel = (): void => {
-    if (loading) return
-    setShowCreate(false)
-    setName('')
-    setDescription('')
-  }
+  const hasActiveApp = apps.some((app) => app.status === 'scaffolding' || app.status === 'building' || app.status === 'deploying')
 
   return (
     <div style={styles.container}>
       <div style={styles.logoWrap}>
         <pre style={styles.logo}>{LOGO}</pre>
       </div>
+
       <div style={styles.header}>
         <div style={styles.title}>My Apps</div>
         <button
@@ -92,21 +46,10 @@ export function Dashboard({ apps, onStart, onSelectApp, onDeleteApp, onDevMode }
       </div>
 
       <div style={styles.grid}>
-        {/* New App card — always first */}
         <div style={styles.newAppCard} onClick={() => setShowCreate(true)}>
           <div style={styles.newAppIcon}>+</div>
           <div style={styles.newAppLabel}>New App</div>
-          <div style={styles.newAppTechRow}>
-            {techStackIcons.map((tech, i) => (
-              <React.Fragment key={tech.label}>
-                {i > 0 && <span style={styles.techDot}>&middot;</span>}
-                <span style={styles.techItem}>
-                  <TechIcon path={tech.path} color={tech.color} />
-                  <span>{tech.label}</span>
-                </span>
-              </React.Fragment>
-            ))}
-          </div>
+          <div style={styles.newAppTechRow}>Templates from your configured provisioners</div>
         </div>
 
         {apps.map((app) => (
@@ -119,57 +62,11 @@ export function Dashboard({ apps, onStart, onSelectApp, onDeleteApp, onDevMode }
         ))}
       </div>
 
-      {/* Create App Dialog */}
-      {showCreate && (
-        <div style={styles.overlay} onClick={handleCancel}>
-          <div style={styles.dialog} onClick={(e) => e.stopPropagation()}>
-            <div style={styles.dialogTitle}>Create a new app</div>
-            <div style={styles.dialogTechRow}>
-              {techStackIcons.map((tech, i) => (
-                <React.Fragment key={tech.label}>
-                  {i > 0 && <span style={styles.techDot}>&middot;</span>}
-                  <span style={styles.techItem}>
-                    <TechIcon path={tech.path} color={tech.color} size={14} />
-                    <span>{tech.label}</span>
-                  </span>
-                </React.Fragment>
-              ))}
-            </div>
-
-            <label style={styles.fieldLabel}>App name</label>
-            <input
-              style={styles.input}
-              placeholder="e.g. customer-feedback"
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-              disabled={loading}
-              autoFocus
-            />
-
-            <label style={styles.fieldLabel}>Describe what you want to build</label>
-            <textarea
-              style={styles.textarea}
-              placeholder="e.g. A feedback page where customers submit their name and a message. Show a list of recent entries."
-              value={description}
-              onChange={(e) => setDescription(e.target.value)}
-              disabled={loading}
-            />
-
-            <div style={styles.buttonRow}>
-              <button style={styles.cancelButton} onClick={handleCancel} disabled={loading}>
-                Cancel
-              </button>
-              <button
-                style={{ ...styles.startButton, opacity: canSubmit ? 1 : 0.5 }}
-                onClick={handleStart}
-                disabled={!canSubmit}
-              >
-                {loading ? <><Spinner /> Setting up...</> : 'Start Building'}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+      <CreateAppDialog
+        open={showCreate}
+        onClose={() => setShowCreate(false)}
+        onStart={onStart}
+      />
 
       {appToDelete && (
         <ConfirmDialog

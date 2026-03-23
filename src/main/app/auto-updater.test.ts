@@ -6,6 +6,9 @@ const mocks = vi.hoisted(() => {
   const mockGetAllWindows = vi.fn()
   const mockCheckForUpdatesAndNotify = vi.fn()
   const debugLog = vi.fn()
+  const mockApp = {
+    isPackaged: true,
+  }
   const autoUpdater = {
     autoDownload: false,
     autoInstallOnAppQuit: false,
@@ -21,11 +24,13 @@ const mocks = vi.hoisted(() => {
     mockGetAllWindows,
     mockCheckForUpdatesAndNotify,
     debugLog,
+    mockApp,
     autoUpdater,
   }
 })
 
 vi.mock('electron', () => ({
+  app: mocks.mockApp,
   BrowserWindow: {
     getAllWindows: mocks.mockGetAllWindows,
   },
@@ -67,6 +72,7 @@ describe('setupAutoUpdater', () => {
     mocks.updaterHandlers.clear()
     mocks.mockGetAllWindows.mockReturnValue([])
     mocks.mockCheckForUpdatesAndNotify.mockResolvedValue(undefined)
+    mocks.mockApp.isPackaged = true
     mocks.autoUpdater.autoDownload = false
     mocks.autoUpdater.autoInstallOnAppQuit = false
   })
@@ -88,6 +94,18 @@ describe('setupAutoUpdater', () => {
     await vi.advanceTimersByTimeAsync(60 * 60 * 1000)
 
     expect(mocks.mockCheckForUpdatesAndNotify).toHaveBeenCalledTimes(2)
+  })
+
+  it('skips updater setup in dev when the app is not packaged', async () => {
+    mocks.mockApp.isPackaged = false
+
+    const { setupAutoUpdater } = await import('./auto-updater')
+
+    setupAutoUpdater()
+
+    expect(mocks.mockCheckForUpdatesAndNotify).not.toHaveBeenCalled()
+    expect(mocks.autoUpdater.on).not.toHaveBeenCalled()
+    expect(mocks.debugLog).toHaveBeenCalledWith('[updater] skipping update checks in dev because the app is not packaged')
   })
 
   it('does not start a second check while a download is still in progress', async () => {

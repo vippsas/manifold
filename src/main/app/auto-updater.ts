@@ -1,11 +1,16 @@
-import { BrowserWindow } from 'electron'
+import { app, BrowserWindow } from 'electron'
 import { autoUpdater } from 'electron-updater'
 import { debugLog } from './debug-log'
 
 const HOURLY_UPDATE_CHECK_MS = 60 * 60 * 1000
+const FORCE_DEV_UPDATES = process.env.MANIFOLD_FORCE_DEV_UPDATES === '1'
 
 let updaterInitialized = false
 let updateCheckInFlight = false
+
+function shouldRunAutoUpdater(): boolean {
+  return app.isPackaged || FORCE_DEV_UPDATES
+}
 
 function finishUpdateCheck(): void {
   updateCheckInFlight = false
@@ -39,6 +44,11 @@ export async function checkForUpdates(reason: 'startup' | 'scheduled' | 'manual'
 export function setupAutoUpdater(): void {
   if (updaterInitialized) return
   updaterInitialized = true
+
+  if (!shouldRunAutoUpdater()) {
+    debugLog('[updater] skipping update checks in dev because the app is not packaged')
+    return
+  }
 
   autoUpdater.autoDownload = true
   autoUpdater.autoInstallOnAppQuit = true

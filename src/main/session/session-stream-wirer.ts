@@ -181,7 +181,6 @@ export class SessionStreamWirer {
           const lastAgent = [...existing].reverse().find(m => m.role === 'agent')
           const textToCompare = options ? cleanText : text
           if (lastAgent?.text === textToCompare) {
-            this.detectUrlInText(session, text)
             return
           }
 
@@ -190,7 +189,6 @@ export class SessionStreamWirer {
           } else {
             adapter?.addAgentMessage(session.id, text)
           }
-          this.detectUrlInText(session, text)
         }
       }
     } else if (type === 'result') {
@@ -209,7 +207,6 @@ export class SessionStreamWirer {
             adapter?.addAgentMessage(session.id, result)
           }
         }
-        this.detectUrlInText(session, result)
       }
       // The result event signals the agent is done. Transition to 'waiting'
       // immediately rather than waiting for the process to exit (which can
@@ -258,29 +255,12 @@ export class SessionStreamWirer {
     const existing = adapter?.getMessages(session.id) ?? []
     const lastAgent = [...existing].reverse().find(m => m.role === 'agent')
     const textToCompare = options ? cleanText : text
-    if (lastAgent?.text === textToCompare) {
-      this.detectUrlInText(session, text)
-      return
-    }
+    if (lastAgent?.text === textToCompare) return
 
     if (options) {
       adapter?.addAgentMessageWithOptions(session.id, cleanText, options)
     } else {
       adapter?.addAgentMessage(session.id, text)
-    }
-    this.detectUrlInText(session, text)
-  }
-
-  private detectUrlInText(session: InternalSession, text: string): void {
-    if (session.detectedUrl) return
-    const urlResult = detectUrl(text)
-    if (urlResult) {
-      session.detectedUrl = urlResult.url
-      debugLog(`[session] URL detected in agent text: ${urlResult.url}`)
-      this.sendToRenderer('preview:url-detected', {
-        sessionId: session.id,
-        url: urlResult.url,
-      })
     }
   }
 }

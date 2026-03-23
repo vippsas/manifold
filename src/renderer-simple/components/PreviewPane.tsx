@@ -1,5 +1,6 @@
 import React, { useRef, useCallback, useState, useEffect } from 'react'
 import * as styles from './PreviewPane.styles'
+import { reloadWebview, stopWebview } from './preview-webview'
 
 // Chromium error code -3 (ERR_ABORTED) fires on navigation cancellation; not a real error.
 const ERR_ABORTED = -3
@@ -31,12 +32,21 @@ export function PreviewPane({ url, isAgentWorking, starting, scaffolding }: Prop
     setLoading(true)
   }, [url])
 
+  useEffect(() => {
+    return () => {
+      stopWebview(webviewRef.current)
+      webviewRef.current = null
+      readyRef.current = false
+    }
+  }, [])
+
   // Auto-reload when agent finishes (working -> not working)
   useEffect(() => {
     const wasWorking = wasWorkingRef.current
     wasWorkingRef.current = isAgentWorking
-    if (wasWorking && !isAgentWorking && webviewRef.current && readyRef.current) {
-      webviewRef.current.reload()
+    if (wasWorking && !isAgentWorking && reloadWebview(webviewRef.current, readyRef.current)) {
+      setLoading(true)
+      setError(null)
     }
   }, [isAgentWorking])
 
@@ -56,6 +66,7 @@ export function PreviewPane({ url, isAgentWorking, starting, scaffolding }: Prop
   const webviewCallbackRef = useCallback((node: Electron.WebviewTag | null) => {
     const prev = webviewRef.current
     if (prev) {
+      stopWebview(prev)
       prev.removeEventListener('dom-ready', handleReadyRef.current)
       prev.removeEventListener('did-start-loading', handleStartRef.current)
       prev.removeEventListener('did-stop-loading', handleStopRef.current)
@@ -72,10 +83,9 @@ export function PreviewPane({ url, isAgentWorking, starting, scaffolding }: Prop
   }, [])
 
   const handleReload = useCallback(() => {
-    if (webviewRef.current && readyRef.current) {
+    if (reloadWebview(webviewRef.current, readyRef.current)) {
       setError(null)
       setLoading(true)
-      webviewRef.current.reload()
     }
   }, [])
 

@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import type { SearchMode } from '../../shared/search-types'
 import type { DockPanelId, UseDockLayoutResult } from './useDockLayout'
 import type { SpawnAgentOptions } from '../../shared/types'
+import type { PendingLaunchAction } from '../../shared/mode-switch-types'
 import { ensureSearchPanelInWorkspace } from './dock-layout-search'
 
 interface AppEffectsInput {
@@ -10,7 +11,7 @@ interface AppEffectsInput {
   webPreviewUrl: string | null
   settings: { defaultRuntime: string }
   setActiveProject: (id: string) => void
-  spawnAgent: (options: SpawnAgentOptions) => Promise<any>
+  spawnAgent: (options: SpawnAgentOptions) => Promise<unknown>
   refreshOpenFiles: () => Promise<void>
   refreshDiff: () => Promise<void>
 }
@@ -34,130 +35,125 @@ export function useAppEffects(input: AppEffectsInput): AppEffectsResult {
   const [showOnboarding, setShowOnboarding] = useState(false)
   const [creatingProject, setCreatingProject] = useState(false)
   const [cloningProject, setCloningProject] = useState(false)
+  const lastAutoOpenedPreviewUrlRef = useRef<string | null>(null)
   const agentRefreshTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   const showSearchPanel = useCallback((mode: SearchMode) => {
     const api = input.dockLayout.apiRef.current
-    if (api) {
-      ensureSearchPanelInWorkspace(api, input.dockLayout.editorPanelIds)
-    } else if (!input.dockLayout.isPanelVisible('search')) {
-      input.dockLayout.togglePanel('search')
-    }
+    if (api) ensureSearchPanelInWorkspace(api, input.dockLayout.editorPanelIds)
+    else if (!input.dockLayout.isPanelVisible('search')) input.dockLayout.togglePanel('search')
     setRequestedSearchMode(mode)
     setSearchFocusRequestKey((prev) => prev + 1)
-    queueMicrotask(() => {
-      const panel = input.dockLayout.apiRef.current?.getPanel('search')
-      panel?.api.setActive()
-    })
-  }, [input.dockLayout.apiRef, input.dockLayout.editorPanelIds, input.dockLayout.isPanelVisible, input.dockLayout.togglePanel])
+    queueMicrotask(() => input.dockLayout.apiRef.current?.getPanel('search')?.api.setActive())
+  }, [input.dockLayout])
 
-  useEffect(() => {
-    return window.electronAPI.on('view:toggle-panel', (panelId: unknown) => {
-      input.dockLayout.togglePanel(panelId as DockPanelId)
+  const openDeveloperLaunch = useCallback((projectId: string, branchName?: string, runtimeId?: string, noWorktree?: boolean) => {
+    input.setActiveProject(projectId)
+    void input.spawnAgent({
+      projectId,
+      runtimeId: runtimeId || input.settings.defaultRuntime,
+      prompt: '',
+      existingBranch: branchName,
+      noWorktree: noWorktree ?? false,
     })
-  }, [input.dockLayout.togglePanel])
-
-  useEffect(() => {
-    return window.electronAPI.on('view:show-search', () => {
-      showSearchPanel('code')
-    })
-  }, [showSearchPanel])
-
-  useEffect(() => {
-    return window.electronAPI.on('app:auto-spawn', (...args: unknown[]) => {
-      const projectId = args[0] as string | undefined
-      const branchName = args[1] as string | undefined
-      const noWorktree = args[2] as boolean | undefined
-      if (typeof projectId !== 'string') return
-      input.setActiveProject(projectId)
-      void input.spawnAgent({
-        projectId,
-        runtimeId: input.settings.defaultRuntime,
-        prompt: '',
-        existingBranch: branchName,
-        noWorktree: noWorktree ?? false,
-      })
-    })
-  }, [input.setActiveProject, input.spawnAgent, input.settings.defaultRuntime])
+  }, [input.setActiveProject, input.settings.defaultRuntime, input.spawnAgent])
 
   const flushOpenFileRefresh = useCallback(() => {
-    if (agentRefreshTimerRef.current) {
-      clearTimeout(agentRefreshTimerRef.current)
-      agentRefreshTimerRef.current = null
-    }
+    if (agentRefreshTimerRef.current) clearTimeout(agentRefreshTimerRef.current)
+    agentRefreshTimerRef.current = null
     void input.refreshOpenFiles()
   }, [input.refreshOpenFiles])
 
   const scheduleOpenFileRefresh = useCallback(() => {
-    if (agentRefreshTimerRef.current) {
-      clearTimeout(agentRefreshTimerRef.current)
-    }
-
+    if (agentRefreshTimerRef.current) clearTimeout(agentRefreshTimerRef.current)
     agentRefreshTimerRef.current = setTimeout(() => {
       agentRefreshTimerRef.current = null
       void input.refreshOpenFiles()
     }, 150)
   }, [input.refreshOpenFiles])
 
+  useEffect(() => window.electronAPI.on('view:toggle-panel', (panelId: unknown) => {
+    input.dockLayout.togglePanel(panelId as DockPanelId)
+  }), [input.dockLayout.togglePanel])
+
+  useEffect(() => window.electronAPI.on('view:show-search', () => {
+    showSearchPanel('code')
+  }), [showSearchPanel])
+
   useEffect(() => {
-    return () => {
-      if (agentRefreshTimerRef.current) {
-        clearTimeout(agentRefreshTimerRef.current)
-        agentRefreshTimerRef.current = null
-      }
-    }
+    let cancelled = false
+    void (async () => {
+      const pending = await window.electronAPI.invoke('app:consume-pending-launch') as PendingLaunchAction | null
+      if (cancelled || !pending || pending.kind !== 'developer') return
+      openDeveloperLaunch(pending.projectId, pending.branchName, pending.runtimeId, false)
+    })()
+    return () => { cancelled = true }
+  }, [openDeveloperLaunch])
+
+  useEffect(() => window.electronAPI.on('app:auto-spawn', (...args: unknown[]) => {
+    const projectId = args[0] as string | undefined
+    if (!projectId) return
+    openDeveloperLaunch(projectId, args[1] as string | undefined, args[3] as string | undefined, args[2] as boolean | undefined)
+  }), [openDeveloperLaunch])
+
+  useEffect(() => () => {
+    if (agentRefreshTimerRef.current) clearTimeout(agentRefreshTimerRef.current)
   }, [])
 
   useEffect(() => {
-    if (agentRefreshTimerRef.current) {
-      clearTimeout(agentRefreshTimerRef.current)
-      agentRefreshTimerRef.current = null
-    }
+    if (agentRefreshTimerRef.current) clearTimeout(agentRefreshTimerRef.current)
+    agentRefreshTimerRef.current = null
   }, [input.activeSessionId])
 
-  useEffect(() => {
-    return window.electronAPI.on('agent:activity', (event: unknown) => {
-      const payload = event as { sessionId?: string }
-      if (!input.activeSessionId || payload.sessionId !== input.activeSessionId) return
-      scheduleOpenFileRefresh()
-    })
-  }, [input.activeSessionId, scheduleOpenFileRefresh])
+  useEffect(() => window.electronAPI.on('agent:activity', (event: unknown) => {
+    const payload = event as { sessionId?: string }
+    if (!input.activeSessionId || payload.sessionId !== input.activeSessionId) return
+    scheduleOpenFileRefresh()
+  }), [input.activeSessionId, scheduleOpenFileRefresh])
 
-  useEffect(() => {
-    return window.electronAPI.on('agent:status', (event: unknown) => {
-      const payload = event as { sessionId?: string; status?: string }
-      if (!input.activeSessionId || payload.sessionId !== input.activeSessionId) return
-      if (payload.status !== 'waiting' && payload.status !== 'done') return
-
-      flushOpenFileRefresh()
-      void input.refreshDiff()
-    })
-  }, [flushOpenFileRefresh, input.activeSessionId, input.refreshDiff])
+  useEffect(() => window.electronAPI.on('agent:status', (event: unknown) => {
+    const payload = event as { sessionId?: string; status?: string }
+    if (!input.activeSessionId || payload.sessionId !== input.activeSessionId) return
+    if (payload.status !== 'waiting' && payload.status !== 'done') return
+    flushOpenFileRefresh()
+    void input.refreshDiff()
+  }), [flushOpenFileRefresh, input.activeSessionId, input.refreshDiff])
 
   useEffect(() => {
     const api = input.dockLayout.apiRef.current
-    if (!api) return
-    if (input.webPreviewUrl) {
-      if (!api.getPanel('webPreview')) {
-        const editorPanel = input.dockLayout.editorPanelIds[0]
-          ? api.getPanel(input.dockLayout.editorPanelIds[0])
-          : api.getPanel('editor')
-        api.addPanel({
-          id: 'webPreview', component: 'webPreview', title: 'Preview',
-          position: editorPanel ? { referencePanel: editorPanel, direction: 'within' } : undefined,
-        })
-      }
+    if (!input.webPreviewUrl) {
+      lastAutoOpenedPreviewUrlRef.current = null
+      return
     }
-  }, [input.webPreviewUrl, input.dockLayout.apiRef, input.dockLayout.editorPanelIds])
+    if (!api || input.webPreviewUrl === lastAutoOpenedPreviewUrlRef.current) return
+    if (!api.getPanel('webPreview')) {
+      const editorPanel = input.dockLayout.editorPanelIds[0]
+        ? api.getPanel(input.dockLayout.editorPanelIds[0])
+        : api.getPanel('editor')
+      api.addPanel({
+        id: 'webPreview',
+        component: 'webPreview',
+        title: 'Preview',
+        position: editorPanel ? { referencePanel: editorPanel, direction: 'within' } : undefined,
+      })
+    }
+    lastAutoOpenedPreviewUrlRef.current = input.webPreviewUrl
+  }, [input.dockLayout.apiRef, input.dockLayout.editorPanelIds, input.webPreviewUrl])
 
   const handleFilesChanged = useCallback(() => {
     void input.refreshOpenFiles()
     void input.refreshDiff()
-  }, [input.refreshOpenFiles, input.refreshDiff])
+  }, [input.refreshDiff, input.refreshOpenFiles])
 
   return {
-    searchFocusRequestKey, requestedSearchMode, showOnboarding, setShowOnboarding,
-    creatingProject, setCreatingProject, cloningProject, setCloningProject,
+    searchFocusRequestKey,
+    requestedSearchMode,
+    showOnboarding,
+    setShowOnboarding,
+    creatingProject,
+    setCreatingProject,
+    cloningProject,
+    setCloningProject,
     showSearchPanel,
     handleFilesChanged,
   }

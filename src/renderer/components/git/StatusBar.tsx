@@ -114,7 +114,7 @@ export function StatusBar({
       </span>
       <button
         type="button"
-        onClick={() => window.electronAPI.invoke('app:switch-mode', 'simple', activeSession?.projectId, activeSession?.id)}
+        onClick={() => window.electronAPI.invoke('app:switch-mode', 'simple', activeSession?.projectId, activeSession?.id, activeSession?.runtimeId)}
         className="statusbar-button"
         title="Switch to Simple View"
       >

@@ -5,7 +5,11 @@ const ALLOWED_INVOKE_CHANNELS = [
   'projects:add',
   'projects:open-dialog',
   'projects:clone',
-  'projects:create-new',
+  'provisioning:list-templates',
+  'provisioning:refresh-templates',
+  'provisioning:get-statuses',
+  'provisioning:check-health',
+  'provisioning:create',
   'agent:spawn',
   'agent:kill',
   'agent:interrupt',
@@ -27,6 +31,7 @@ const ALLOWED_INVOKE_CHANNELS = [
   'simple:deploy',
   'simple:deploy-status',
   'app:switch-mode',
+  'app:consume-pending-launch',
   'simple:send-message',
 ] as const
 
@@ -45,6 +50,7 @@ const ALLOWED_LISTEN_CHANNELS = [
   'show-settings',
   'settings:changed',
   'app:auto-open-app',
+  'provisioning:progress',
 ] as const
 
 type InvokeChannel = (typeof ALLOWED_INVOKE_CHANNELS)[number]

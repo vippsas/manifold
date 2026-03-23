@@ -60,6 +60,7 @@ export interface ManifoldSettings {
   uiMode: 'developer' | 'simple'
   memory?: import('./memory-types').MemorySettings
   search?: SearchSettings
+  provisioning?: import('./provisioning-types').ProvisioningSettings
 }
 
 export interface SearchAiSettings {
