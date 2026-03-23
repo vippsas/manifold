@@ -1,8 +1,11 @@
 import React, { useCallback, useState } from 'react'
 import type { Project, AgentSession } from '../../../shared/types'
 import { sidebarStyles } from './ProjectSidebar.styles'
-import { AgentItem } from './AgentItem'
+import { AgentItem, formatBranchLabel, runtimeLabel } from './AgentItem'
 import { ProjectSettingsPopover } from './ProjectSettingsPopover'
+import { createDialogStyles } from '../workbench-style-primitives'
+
+const deleteDialogStyles = createDialogStyles('360px')
 
 interface ProjectSidebarProps {
   projects: Project[]
@@ -13,7 +16,7 @@ interface ProjectSidebarProps {
   onSelectSession: (sessionId: string, projectId: string) => void
   onRemoveProject: (id: string) => void
   onUpdateProject: (id: string, partial: Partial<Omit<Project, 'id'>>) => void
-  onDeleteAgent: (id: string) => void
+  onDeleteAgent: (id: string) => Promise<void>
   onNewAgent: () => void
   onQuickStart?: () => void
   onNewProject: () => void
@@ -43,6 +46,9 @@ export function ProjectSidebar({
   fetchError,
   onFetchProject,
 }: ProjectSidebarProps): React.JSX.Element {
+  const [pendingDelete, setPendingDelete] = useState<{ session: AgentSession; projectPath: string } | null>(null)
+  const [deletingSessionId, setDeletingSessionId] = useState<string | null>(null)
+
   const handleRemove = useCallback(
     (e: React.MouseEvent, id: string): void => {
       e.stopPropagation()
@@ -51,40 +57,71 @@ export function ProjectSidebar({
     [onRemoveProject]
   )
 
+  const handleRequestDeleteAgent = useCallback((session: AgentSession, projectPath: string): void => {
+    setPendingDelete({ session, projectPath })
+  }, [])
+
+  const handleCancelDelete = useCallback((): void => {
+    if (deletingSessionId) return
+    setPendingDelete(null)
+  }, [deletingSessionId])
+
+  const handleConfirmDelete = useCallback(async (): Promise<void> => {
+    if (!pendingDelete) return
+
+    setDeletingSessionId(pendingDelete.session.id)
+    try {
+      await onDeleteAgent(pendingDelete.session.id)
+      setPendingDelete(null)
+    } catch {
+      // Keep the confirmation dialog open if deletion fails.
+    } finally {
+      setDeletingSessionId(null)
+    }
+  }, [onDeleteAgent, pendingDelete])
+
   return (
-    <div style={sidebarStyles.root}>
-      <ProjectList
-        projects={projects}
-        activeProjectId={activeProjectId}
-        allProjectSessions={allProjectSessions}
-        activeSessionId={activeSessionId}
-        onSelectProject={onSelectProject}
-        onSelectSession={onSelectSession}
-        onDeleteAgent={onDeleteAgent}
-        onRemove={handleRemove}
-        onUpdateProject={onUpdateProject}
-        fetchingProjectId={fetchingProjectId}
-        lastFetchedProjectId={lastFetchedProjectId}
-        fetchResult={fetchResult}
-        fetchError={fetchError}
-        onFetchProject={onFetchProject}
-      />
-      <div style={sidebarStyles.actions}>
-        <button type="button" onClick={onNewProject} className="sidebar-action-button" style={sidebarStyles.actionButton}>
-          + New Repository
-        </button>
-      </div>
-      <div style={sidebarStyles.actions}>
-        <button type="button" onClick={onNewAgent} className="sidebar-action-button sidebar-action-button--primary" style={sidebarStyles.actionButtonPrimary}>
-          + New Agent
-        </button>
-        {onQuickStart && (
-          <button type="button" onClick={onQuickStart} className="sidebar-action-button" style={sidebarStyles.actionButton} title="Start agent on current branch">
-            &#9654; Current branch
+    <>
+      <div style={sidebarStyles.root}>
+        <ProjectList
+          projects={projects}
+          activeProjectId={activeProjectId}
+          allProjectSessions={allProjectSessions}
+          activeSessionId={activeSessionId}
+          onSelectProject={onSelectProject}
+          onSelectSession={onSelectSession}
+          onRequestDeleteAgent={handleRequestDeleteAgent}
+          onRemove={handleRemove}
+          onUpdateProject={onUpdateProject}
+          fetchingProjectId={fetchingProjectId}
+          lastFetchedProjectId={lastFetchedProjectId}
+          fetchResult={fetchResult}
+          fetchError={fetchError}
+          onFetchProject={onFetchProject}
+        />
+        <div style={sidebarStyles.actions}>
+          <button type="button" onClick={onNewProject} className="sidebar-action-button" style={sidebarStyles.actionButton}>
+            + New Repository
           </button>
-        )}
+        </div>
+        <div style={sidebarStyles.actions}>
+          <button type="button" onClick={onNewAgent} className="sidebar-action-button sidebar-action-button--primary" style={sidebarStyles.actionButtonPrimary}>
+            + New Agent
+          </button>
+          {onQuickStart && (
+            <button type="button" onClick={onQuickStart} className="sidebar-action-button" style={sidebarStyles.actionButton} title="Start agent on current branch">
+              &#9654; Current branch
+            </button>
+          )}
+        </div>
       </div>
-    </div>
+      <DeleteAgentDialog
+        pendingDelete={pendingDelete}
+        deleting={deletingSessionId === pendingDelete?.session.id}
+        onCancel={handleCancelDelete}
+        onConfirm={handleConfirmDelete}
+      />
+    </>
   )
 }
 
@@ -95,7 +132,7 @@ interface ProjectListProps {
   activeSessionId: string | null
   onSelectProject: (id: string) => void
   onSelectSession: (sessionId: string, projectId: string) => void
-  onDeleteAgent: (id: string) => void
+  onRequestDeleteAgent: (session: AgentSession, projectPath: string) => void
   onRemove: (e: React.MouseEvent, id: string) => void
   onUpdateProject: (id: string, partial: Partial<Omit<Project, 'id'>>) => void
   fetchingProjectId: string | null
@@ -112,7 +149,7 @@ function ProjectList({
   activeSessionId,
   onSelectProject,
   onSelectSession,
-  onDeleteAgent,
+  onRequestDeleteAgent,
   onRemove,
   onUpdateProject,
   fetchingProjectId,
@@ -159,7 +196,7 @@ function ProjectList({
                 projectPath={project.path}
                 isActive={session.id === activeSessionId}
                 onSelect={(sessionId) => onSelectSession(sessionId, project.id)}
-                onDelete={onDeleteAgent}
+                onDelete={() => onRequestDeleteAgent(session, project.path)}
               />
             ))}
           </React.Fragment>
@@ -168,6 +205,83 @@ function ProjectList({
       {projects.length === 0 && (
         <div style={sidebarStyles.empty}>No repositories yet</div>
       )}
+    </div>
+  )
+}
+
+interface DeleteAgentDialogProps {
+  pendingDelete: { session: AgentSession; projectPath: string } | null
+  deleting: boolean
+  onCancel: () => void
+  onConfirm: () => Promise<void>
+}
+
+function DeleteAgentDialog({
+  pendingDelete,
+  deleting,
+  onCancel,
+  onConfirm,
+}: DeleteAgentDialogProps): React.JSX.Element | null {
+  const handleKeyDown = useCallback(
+    (e: React.KeyboardEvent<HTMLDivElement>): void => {
+      if (e.key === 'Escape' && !deleting) onCancel()
+    },
+    [deleting, onCancel]
+  )
+
+  if (!pendingDelete) return null
+
+  const { session, projectPath } = pendingDelete
+  const label = formatBranchLabel(session.branchName, projectPath)
+  const actionText = session.noWorktree
+    ? 'This will stop the agent.'
+    : 'This will stop the agent and remove its worktree.'
+
+  return (
+    <div
+      onClick={deleting ? undefined : onCancel}
+      onKeyDown={handleKeyDown}
+      style={deleteDialogStyles.overlay}
+      role="dialog"
+      aria-modal="true"
+      aria-label="Delete agent"
+    >
+      <div style={deleteDialogStyles.panel} onClick={(e) => e.stopPropagation()}>
+        <div style={deleteDialogStyles.header}>
+          <span style={deleteDialogStyles.title}>Delete agent</span>
+          <button
+            type="button"
+            onClick={onCancel}
+            style={deleteDialogStyles.closeButton}
+            aria-label="Close delete dialog"
+            disabled={deleting}
+          >
+            &times;
+          </button>
+        </div>
+        <div style={deleteDialogStyles.body}>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+            <strong style={{ color: 'var(--text-primary)' }}>{label}</strong>
+            <span style={{ color: 'var(--text-secondary)', fontSize: 'var(--type-ui-small)' }}>
+              {runtimeLabel(session.runtimeId)}
+            </span>
+          </div>
+          <p style={{ margin: 0, color: 'var(--text-secondary)', lineHeight: 1.5 }}>
+            {actionText} The local branch will be kept.
+          </p>
+        </div>
+        <div style={deleteDialogStyles.footer}>
+          <button type="button" onClick={onCancel} style={deleteDialogStyles.secondaryButton} disabled={deleting}>Cancel</button>
+          <button
+            type="button"
+            onClick={() => void onConfirm()}
+            style={{ ...deleteDialogStyles.primaryButton, background: 'var(--error)' }}
+            disabled={deleting}
+          >
+            {deleting ? 'Deleting...' : 'Delete'}
+          </button>
+        </div>
+      </div>
     </div>
   )
 }

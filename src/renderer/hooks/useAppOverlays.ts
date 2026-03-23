@@ -14,7 +14,7 @@ export interface UseAppOverlaysResult {
   handleCommit: (message: string) => Promise<void>
   handleClosePanel: () => void
   handleLaunchAgent: (options: SpawnAgentOptions) => Promise<unknown>
-  handleDeleteAgent: (sessionId: string) => void
+  handleDeleteAgent: (sessionId: string) => Promise<void>
   handleSelectSession: (sessionId: string, projectId: string) => void
   handleSaveSettings: (partial: Partial<ManifoldSettings>) => void
   handleSetupComplete: () => void
@@ -24,7 +24,7 @@ export function useAppOverlays(
   commit: (message: string) => Promise<void>,
   refreshDiff: () => Promise<void>,
   spawnAgent: (options: SpawnAgentOptions) => Promise<unknown>,
-  deleteAgent: (sessionId: string) => void,
+  deleteAgent: (sessionId: string) => Promise<void>,
   removeSession: (sessionId: string) => void,
   updateSettings: (partial: Partial<ManifoldSettings>) => Promise<void>,
   setActiveSession: (sessionId: string | null) => void,
@@ -49,10 +49,9 @@ export function useAppOverlays(
     return spawnAgent(options)
   }, [spawnAgent])
 
-  const handleDeleteAgent = useCallback((sessionId: string): void => {
-    void deleteAgent(sessionId)
+  const handleDeleteAgent = useCallback(async (sessionId: string): Promise<void> => {
+    await deleteAgent(sessionId)
     removeSession(sessionId)
-    void window.electronAPI.invoke('view-state:delete', sessionId)
   }, [deleteAgent, removeSession])
 
   const handleSelectSession = useCallback((sessionId: string, projectId: string): void => {

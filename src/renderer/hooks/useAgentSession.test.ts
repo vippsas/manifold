@@ -121,4 +121,36 @@ describe('useAgentSession', () => {
       expect(result.current.activeSessionId).toBe('s3')
     })
   })
+
+  it('keeps the session visible until backend deletion succeeds', async () => {
+    const session = makeSession('s1', 'p1')
+    let resolveDelete: (() => void) | null = null
+
+    mockInvoke
+      .mockResolvedValueOnce([session])
+      .mockImplementationOnce(() => new Promise<void>((resolve) => {
+        resolveDelete = resolve
+      }))
+
+    const { result } = renderHook(() => useAgentSession('p1'))
+
+    await waitFor(() => {
+      expect(result.current.sessions).toEqual([session])
+    })
+
+    let deletePromise: Promise<void> | null = null
+    act(() => {
+      deletePromise = result.current.deleteAgent('s1')
+    })
+
+    expect(result.current.sessions).toEqual([session])
+
+    await act(async () => {
+      resolveDelete?.()
+      await deletePromise
+    })
+
+    expect(result.current.sessions).toEqual([])
+    expect(result.current.activeSessionId).toBeNull()
+  })
 })

@@ -17,7 +17,7 @@ function repoPrefix(projectPath: string): string {
   return repoName ? `${repoName}/` : ''
 }
 
-function formatBranchLabel(branchName: string, projectPath: string): string {
+export function formatBranchLabel(branchName: string, projectPath: string): string {
   const prefix = repoPrefix(projectPath)
 
   if (prefix && branchName.toLowerCase().startsWith(prefix)) {
@@ -27,7 +27,7 @@ function formatBranchLabel(branchName: string, projectPath: string): string {
   return formatBranch(branchName)
 }
 
-function runtimeLabel(runtimeId: string): string {
+export function runtimeLabel(runtimeId: string): string {
   return RUNTIME_LABELS[runtimeId] ?? runtimeId
 }
 
@@ -36,7 +36,7 @@ interface AgentItemProps {
   projectPath: string
   isActive: boolean
   onSelect: (id: string) => void
-  onDelete: (id: string) => void
+  onDelete: () => void
 }
 
 export function AgentItem({ session, projectPath, isActive, onSelect, onDelete }: AgentItemProps): React.JSX.Element {
@@ -57,9 +57,9 @@ export function AgentItem({ session, projectPath, isActive, onSelect, onDelete }
   const handleDelete = useCallback(
     (e: React.MouseEvent | React.KeyboardEvent): void => {
       e.stopPropagation()
-      onDelete(session.id)
+      onDelete()
     },
-    [onDelete, session.id]
+    [onDelete]
   )
 
   const stopKeyPropagation = useCallback((e: React.KeyboardEvent<HTMLButtonElement>): void => {
