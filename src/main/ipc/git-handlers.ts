@@ -9,7 +9,9 @@ export function registerDiffHandler(deps: IpcDependencies): void {
 
   ipcMain.handle('diff:get', async (_event, sessionId: string) => {
     const session = sessionManager.getSession(sessionId)
-    if (!session) throw new Error(`Session not found: ${sessionId}`)
+    // Session teardown removes the session before the renderer necessarily
+    // clears every in-flight refresh. Treat that race as an empty diff.
+    if (!session) return { diff: '', changedFiles: [] }
     const project = projectRegistry.getProject(session.projectId)
     if (!project) throw new Error(`Project not found: ${session.projectId}`)
 
