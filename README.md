@@ -203,6 +203,12 @@ Important main-process services include:
 
 Renderer-side previews are restricted to localhost webview URLs.
 
+## External Provisioners
+
+Manifold supports external repository provisioners through a versioned CLI protocol.
+
+To build one, see [docs/external-provisioners.md](docs/external-provisioners.md).
+
 ## Contributing
 
 See [CONTRIBUTING.md](CONTRIBUTING.md) for contributor setup, code conventions, test commands, and PR workflow.

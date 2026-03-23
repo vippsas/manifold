@@ -5,27 +5,27 @@ Date: 2026-03-23
 
 ## Context
 
-Simple view currently creates a project locally inside the Manifold storage directory, writes a `README.md`, runs `git init`, commits, registers the project, and then starts the agent.
+Simple view originally created a project locally inside the Manifold storage directory, wrote a `README.md`, ran `git init`, registered the project, and then started the agent.
 
-That local-first flow is a good default for open source, but it is too narrow for the broader direction:
+That local-first flow is a good open-source default, but it is too narrow for the broader direction:
 
 - We want predictable starter templates for different app types such as web apps and Rust services.
-- We want organizational integrations where repository creation is handled outside Manifold, for example via Backstage templates and downstream workflows.
+- We want organizational integrations where repository creation is handled outside Manifold, for example through Backstage templates and downstream workflows.
 - We do not want company-specific logic in the open-source Manifold repository.
 - We do not want two separate user-facing creation flows.
-- We need both OSS and company-backed provisioning available from day one.
+- We need both OSS and company-backed provisioning available at the same time.
 
 Current scope:
 
 - This document focuses on the Simple view creation flow first.
-- The same provisioning and template model should be reusable later in the Developer view onboarding flow, but that is not part of the initial implementation scope.
+- The same provisioning and template model should be reusable later in Developer view onboarding, but that is outside the initial implementation scope.
 
 ## Decision Summary
 
 Manifold should support a single, generic provisioning system with a dispatcher in core.
 
-- Manifold core owns the dispatcher, template catalog aggregation, UI flow, and project registration.
-- Each provisioner is an external CLI executable that speaks a small JSON protocol.
+- Manifold core owns the dispatcher, template catalog aggregation, UI flow, local materialization, and project registration.
+- Each provisioner is an external CLI executable that speaks a small versioned JSON protocol.
 - The open-source repo ships one bundled OSS provisioner, implemented in this repo but invoked through the same CLI protocol as any other provisioner.
 - Organizations add their own provisioners outside this repo.
 - The dispatcher queries all configured provisioners, merges their templates into one catalog, and routes creation requests to the selected provisioner.
@@ -36,15 +36,15 @@ This keeps Manifold open-source and generic while still allowing both OSS and or
 
 This document is the architecture and decision record for repository provisioning.
 
-Implementation planning and status tracking should happen in:
+Implementation planning and status tracking live in:
 
 - `docs/planning/repository-provisioning-implementation-plan.md`
 
-When implementation starts, update the implementation plan to reflect:
+External provisioner authoring and protocol details live in:
 
-- what Phase 1 items are complete
-- what remains in progress
-- what has been deferred to later phases
+- `docs/external-provisioners.md`
+
+The external provisioner spec should track the implemented protocol in code. If the spec and runtime ever diverge, update the spec to match the implemented contract.
 
 ## Goals
 
@@ -54,7 +54,7 @@ When implementation starts, update the implementation plan to reflect:
 - Keep organization-specific logic outside the Manifold repo.
 - Make provisioners plug and play to install and configure, including both the bundled OSS provisioner and external org provisioners.
 - Support long-running provisioning operations with progress updates.
-- Preserve a common post-provisioning flow inside Manifold: clone/open, register project, spawn agent.
+- Preserve a common post-provisioning flow inside Manifold: materialize locally, register project, spawn agent.
 
 ## Non-Goals
 
@@ -62,6 +62,7 @@ When implementation starts, update the implementation plan to reflect:
 - Hardcoding GitHub, Vercel, or any company system into the core provisioning flow.
 - Supporting arbitrary remote execution inside Manifold itself.
 - Defining every template up front.
+- Making the UI provisioner-specific by default.
 
 ## Core Model
 
@@ -89,8 +90,8 @@ Manifold should have a core dispatcher service that:
 - asks each provisioner for its template catalog
 - merges the results into a single template list
 - routes create requests to the chosen provisioner
-- receives the resulting repository details
-- clones or opens the repository locally
+- receives repository details from the selected provisioner
+- materializes the final repository locally inside managed storage
 - registers the project
 - starts the agent
 
@@ -106,18 +107,24 @@ Examples:
 - private company provisioner installed separately
 - local development provisioner used for testing
 
-The protocol should be JSON-based and versioned from day one.
+The protocol is JSON-based and versioned from day one.
 
-Recommended operations:
+Supported operations:
 
 - `listTemplates`
 - `create`
 - `health`
 
-The transport should be one of:
+Transport:
 
-- stdin/stdout JSON for request-response
-- JSON lines over stdout for progress streaming during `create`
+- Manifold writes one JSON request to `stdin`
+- the provisioner emits JSON lines on `stdout`
+- the provisioner uses event objects such as `progress`, `result`, and `error`
+
+The implemented request and event shapes are defined in:
+
+- `src/shared/provisioning-types.ts`
+- `docs/planning/repository-provisioning-external-provisioner-spec.md`
 
 CLI-based external provisioners are the right starting point because they keep auth, private dependencies, and company-specific code outside Manifold.
 
@@ -127,18 +134,12 @@ The open-source repository should ship one bundled provisioner that supports OSS
 
 Implementation guidance:
 
-- the initial OSS provisioner should live in this repository
-- it should be built and shipped together with Manifold
-- Manifold should still invoke it through the same provisioner CLI contract used for external provisioners
-- it should not become an in-process special case in core
+- the initial OSS provisioner lives in this repository
+- it is built and shipped together with Manifold
+- Manifold still invokes it through the same provisioner CLI contract used for external provisioners
+- it does not become an in-process special case in core
 
-Possible OSS behaviors:
-
-- create from a pinned public template repo
-- shallow clone a template ref, strip `.git`, then `git init`
-- optionally support remote-first OSS flows later if needed
-
-The exact bootstrap mechanism can evolve without changing the core protocol.
+The exact OSS bootstrap mechanism can evolve without changing the core protocol.
 
 ### 4. External Company Provisioner
 
@@ -151,100 +152,9 @@ The company provisioner should live outside this repo and can:
 
 Manifold should treat it the same as any other provisioner.
 
-## Why a Dispatcher in Core
-
-We need both OSS and company-backed provisioning from day one. Requiring users to swap one active provisioner for another is not enough.
-
-The dispatcher solves this without putting company specifics in the repo:
-
-- Manifold exposes one flow and one template picker.
-- The OSS repo only contains generic aggregation logic plus the bundled OSS provisioner.
-- The private company provisioner remains fully external.
-
-This is still one solution, not two bespoke product paths.
-
-## Template Catalog Model
-
-Each provisioner returns a list of template descriptors.
-
-Suggested shape:
-
-```json
-{
-  "id": "web-react-vite",
-  "title": "Web App",
-  "description": "React, TypeScript, Vite, local-first storage",
-  "category": "Web",
-  "provisionerId": "oss-bundled",
-  "tags": ["react", "vite", "typescript"],
-  "paramsSchema": {
-    "type": "object",
-    "properties": {
-      "name": { "type": "string" },
-      "description": { "type": "string" }
-    },
-    "required": ["name", "description"]
-  }
-}
-```
-
-Notes:
-
-- `id` must be unique within a provisioner.
-- The dispatcher should namespace templates internally as `provisionerId:templateId`.
-- `paramsSchema` allows template-specific inputs without changing Manifold core for each new template.
-- Template metadata should be enough to drive a future UI without hardcoded template forms.
-
-## Create Request Model
-
-Suggested request shape from Manifold to a provisioner:
-
-```json
-{
-  "protocolVersion": 1,
-  "operation": "create",
-  "requestId": "req_123",
-  "templateId": "web-react-vite",
-  "inputs": {
-    "name": "expense-tracker",
-    "description": "Track personal expenses with categories and charts"
-  }
-}
-```
-
-Suggested final response:
-
-```json
-{
-  "protocolVersion": 1,
-  "status": "ready",
-  "requestId": "req_123",
-  "result": {
-    "displayName": "expense-tracker",
-    "repoUrl": "git@github.com:acme/expense-tracker.git",
-    "defaultBranch": "main",
-    "localPath": null,
-    "metadata": {
-      "providerProjectUrl": "https://backstage.example.com/catalog/default/component/expense-tracker"
-    }
-  }
-}
-```
-
-Progress events during provisioning:
-
-```json
-{
-  "protocolVersion": 1,
-  "status": "progress",
-  "requestId": "req_123",
-  "message": "Waiting for repository workflow to finish"
-}
-```
-
 ## Local Materialization Rules
 
-After a provisioner returns `ready`, Manifold should follow one shared path:
+After a provisioner returns a ready result, Manifold should follow one shared path:
 
 - materialize the final per-app repository inside the managed projects area
 - if the provisioner returns `repoUrl`, Manifold clones it into the managed projects area
@@ -253,7 +163,7 @@ After a provisioner returns `ready`, Manifold should follow one shared path:
 - detect the default branch
 - spawn the simple-mode agent
 
-Additional constraint:
+Additional constraints:
 
 - provisioners may reuse a shared template source internally, such as a cached clone of a GitHub template repository
 - the repository returned to Manifold for a created app must always be a distinct working checkout for that app
@@ -265,36 +175,13 @@ This keeps repository usage consistent regardless of how the repository was prov
 
 Manifold should support a list of provisioners, not a single active provisioner.
 
-Suggested settings shape:
-
-```json
-{
-  "provisioning": {
-    "provisioners": [
-      {
-        "id": "oss-bundled",
-        "label": "Open Source Templates",
-        "type": "builtin",
-        "enabled": true
-      },
-      {
-        "id": "company-backstage",
-        "label": "Company Templates",
-        "type": "cli",
-        "command": "/usr/local/bin/manifold-company-provisioner",
-        "args": [],
-        "enabled": true
-      }
-    ]
-  }
-}
-```
-
 Important constraints:
 
-- Manifold should not store company secrets itself if that can be avoided.
-- Provisioners should own their own auth flow and credentials.
-- Provisioners should be treated as trusted local executables.
+- Manifold should not store company secrets itself if that can be avoided
+- provisioners should own their own auth flow and credentials
+- provisioners should be treated as trusted local executables
+
+The concrete settings shape is defined in the shared types and defaults, not in this document.
 
 ## UI Implications
 
@@ -305,17 +192,16 @@ For the initial implementation, the Simple view UI should stay as one flow:
 3. Fill template-specific fields if needed
 4. Create application
 5. Watch provisioning progress
-6. Open app once the repository is ready
+6. Open the app once the repository is ready
 
-The template picker should be able to:
+The UI should:
 
-- group by category
-- optionally show source or provisioner label
-- hide provisioner complexity for simple users when possible
+- present templates as the primary choice, not provisioners
+- show provisioner labels prominently
+- make cached or stale catalog state visible where relevant
+- avoid exposing provisioner complexity unless needed for debugging or setup
 
-We should avoid exposing "pick a provisioner" as the primary UX. Users should usually pick a template, not an integration backend.
-
-The same template catalog may later be reused in Developer view onboarding, but that should be treated as a follow-on product decision rather than part of the first delivery.
+The same template catalog may later be reused in Developer view onboarding, but that is a follow-on product decision rather than part of the initial delivery.
 
 ## Error Handling
 
@@ -341,19 +227,17 @@ Because provisioners are external executables, the security model should be expl
 
 - only locally configured provisioners are allowed
 - the user or org admin is responsible for trusting the executable
-- Manifold should validate protocol shape, not business logic
+- Manifold validates protocol shape, not business logic
 - company auth and policy enforcement stay outside Manifold
 
-## Rollout Plan
+## Rollout Summary
 
 ### Phase 1
 
-- Introduce a `ProvisioningDispatcher` service in main
-- Introduce a versioned provisioner command protocol
-- Move current `projects:create-new` logic behind the dispatcher
+- Introduce the dispatcher and the initial CLI protocol
 - Ship one bundled OSS provisioner
 - Support at least one external CLI provisioner in addition to the bundled OSS provisioner
-- Add a template catalog UI in Simple view
+- Add the template catalog UI in Simple view
 
 ### Phase 2
 
@@ -383,7 +267,7 @@ Because provisioners are external executables, the security model should be expl
 Build a generic multi-provisioner dispatcher in Manifold core.
 
 - Ship the OSS provisioner in this repo and invoke it through the same CLI protocol as any other provisioner.
-- Keep the company provisioner entirely outside this repo.
+- Keep company provisioners entirely outside this repo.
 - Treat templates as first-class catalog items.
 - Keep one Simple view creation flow.
 - Keep one shared post-provisioning path inside Manifold.
