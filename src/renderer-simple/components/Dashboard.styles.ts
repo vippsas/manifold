@@ -136,6 +136,13 @@ export const dialogTechRow: CSSProperties = {
   color: 'var(--text-muted)',
 }
 
+export const helperText: CSSProperties = {
+  fontSize: 13,
+  lineHeight: 1.6,
+  color: 'var(--text-muted)',
+  marginBottom: 20,
+}
+
 export const fieldLabel: CSSProperties = {
   display: 'block',
   fontSize: 13,
@@ -156,6 +163,11 @@ export const input: CSSProperties = {
   marginBottom: 20,
 }
 
+export const select: CSSProperties = {
+  ...input,
+  appearance: 'none',
+}
+
 export const textarea: CSSProperties = {
   width: '100%',
   padding: '10px 14px',
@@ -169,6 +181,68 @@ export const textarea: CSSProperties = {
   minHeight: 100,
   resize: 'vertical' as const,
   fontFamily: 'inherit',
+}
+
+export const templateMeta: CSSProperties = {
+  marginBottom: 20,
+  padding: '12px 14px',
+  border: '1px solid var(--border)',
+  borderRadius: 'var(--radius)',
+  background: 'var(--bg)',
+}
+
+export const templateTitleRow: CSSProperties = {
+  display: 'flex',
+  alignItems: 'center',
+  justifyContent: 'space-between',
+  gap: 12,
+  marginBottom: 6,
+}
+
+export const templateTitleText: CSSProperties = {
+  fontSize: 14,
+  fontWeight: 600,
+  color: 'var(--text)',
+}
+
+export const templateBadge: CSSProperties = {
+  display: 'inline-flex',
+  alignItems: 'center',
+  padding: '4px 8px',
+  borderRadius: 999,
+  fontSize: 11,
+  fontWeight: 600,
+  color: 'var(--accent)',
+  border: '1px solid var(--accent)',
+}
+
+export const templateDescription: CSSProperties = {
+  fontSize: 13,
+  lineHeight: 1.5,
+  color: 'var(--text-muted)',
+}
+
+export const refreshButton: CSSProperties = {
+  background: 'transparent',
+  color: 'var(--accent)',
+  border: '1px solid var(--border)',
+  borderRadius: 'var(--radius)',
+  padding: '8px 12px',
+  fontSize: 12,
+  fontWeight: 600,
+  cursor: 'pointer',
+}
+
+export const statusText: CSSProperties = {
+  marginTop: 12,
+  fontSize: 12,
+  color: 'var(--text-muted)',
+}
+
+export const errorText: CSSProperties = {
+  marginTop: 12,
+  fontSize: 12,
+  color: 'var(--error)',
 }
 
 export const buttonRow: CSSProperties = {

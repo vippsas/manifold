@@ -32,6 +32,11 @@ export class SettingsStore {
         ...settings.search?.ai,
       },
     }
+    settings.provisioning = {
+      provisioners: settings.provisioning?.provisioners?.length
+        ? settings.provisioning.provisioners.map((provisioner) => ({ ...provisioner }))
+        : [...(DEFAULT_SETTINGS.provisioning?.provisioners ?? [])],
+    }
     return settings
   }
 

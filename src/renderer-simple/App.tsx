@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useLayoutEffect, useCallback } from 'react'
 import { Dashboard } from './components/Dashboard'
+import type { StartAppRequest } from './components/Dashboard'
 import { AppView } from './components/AppView'
 import { useApps } from './hooks/useApps'
 import { useAgentStatus } from './hooks/useAgentStatus'
@@ -12,6 +13,7 @@ import { applyThemeCssVars } from '../shared/themes/adapter'
 import type { ConvertedTheme } from '../shared/themes/types'
 import { useUpdateNotification } from '../shared/useUpdateNotification'
 import { UpdateToast } from '../shared/UpdateToast'
+import type { ProvisioningCreateResult } from '../shared/provisioning-types'
 
 const SIMPLE_RUNTIME_LABELS: Record<string, string> = {
   claude: 'Claude Code',
@@ -157,17 +159,17 @@ export function App(): React.JSX.Element {
     <>
     <Dashboard
       apps={apps}
-      onStart={async (name, description) => {
+      onStart={async ({ name, description, templateQualifiedId, templateTitle, inputs }: StartAppRequest) => {
         const settings = (await window.electronAPI.invoke('settings:get')) as { defaultRuntime?: string }
-        const project = (await window.electronAPI.invoke(
-          'projects:create-new',
-          `${name}: ${description}`,
-        )) as { id: string; path: string }
+        const provisioning = (await window.electronAPI.invoke(
+          'provisioning:create',
+          { templateQualifiedId, inputs },
+        )) as ProvisioningCreateResult
 
         const session = (await window.electronAPI.invoke('agent:spawn', {
-          projectId: project.id,
+          projectId: provisioning.project.id,
           runtimeId: settings.defaultRuntime ?? 'claude',
-          prompt: buildSimplePrompt(description),
+          prompt: buildSimplePrompt(description, templateTitle),
           userMessage: description,
           noWorktree: true,
           nonInteractive: true,
@@ -177,7 +179,7 @@ export function App(): React.JSX.Element {
 
         const newApp: SimpleApp = {
           sessionId: session.id,
-          projectId: project.id,
+          projectId: provisioning.project.id,
           runtimeId: settings.defaultRuntime ?? 'claude',
           branchName: session.branchName ?? '',
           name,
@@ -185,7 +187,7 @@ export function App(): React.JSX.Element {
           status: 'scaffolding',
           previewUrl: null,
           liveUrl: null,
-          projectPath: project.path,
+          projectPath: provisioning.project.path,
           createdAt: Date.now(),
           updatedAt: Date.now(),
         }

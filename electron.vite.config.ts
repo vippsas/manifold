@@ -7,7 +7,10 @@ export default defineConfig({
     build: {
       outDir: 'out/main',
       rollupOptions: {
-        input: resolve(__dirname, 'src/main/app/index.ts')
+        input: {
+          index: resolve(__dirname, 'src/main/app/index.ts'),
+          'oss-provisioner': resolve(__dirname, 'src/main/provisioning/oss-provisioner-cli.ts'),
+        }
       }
     }
   },

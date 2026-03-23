@@ -1,6 +1,6 @@
 # Repository Provisioning Dispatcher Plan
 
-Status: Draft
+Status: Accepted
 Date: 2026-03-23
 
 ## Context
@@ -31,6 +31,20 @@ Manifold should support a single, generic provisioning system with a dispatcher 
 - The dispatcher queries all configured provisioners, merges their templates into one catalog, and routes creation requests to the selected provisioner.
 
 This keeps Manifold open-source and generic while still allowing both OSS and organizational provisioning paths in the same product.
+
+## Implementation Tracking
+
+This document is the architecture and decision record for repository provisioning.
+
+Implementation planning and status tracking should happen in:
+
+- `docs/planning/repository-provisioning-implementation-plan.md`
+
+When implementation starts, update the implementation plan to reflect:
+
+- what Phase 1 items are complete
+- what remains in progress
+- what has been deferred to later phases
 
 ## Goals
 

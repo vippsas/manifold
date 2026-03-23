@@ -27,4 +27,14 @@ export const DEFAULT_SETTINGS: ManifoldSettings = {
       maxContextResults: 8,
     },
   },
+  provisioning: {
+    provisioners: [
+      {
+        id: 'oss-bundled',
+        label: 'Open Source Templates',
+        type: 'builtin',
+        enabled: true,
+      },
+    ],
+  },
 }
