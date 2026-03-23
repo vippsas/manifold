@@ -1,110 +1,217 @@
 # Manifold
 
-A macOS desktop app that orchestrates multiple CLI coding agents working in parallel on the same project. Each agent runs in its own git worktree, so agents can work on isolated branches simultaneously without conflicts.
+Manifold is a macOS desktop app for running CLI coding agents side by side on the same codebase.
 
-Supports **Claude Code**, **Codex**, **Copilot**, and **Gemini CLI** — plus local models via **Ollama**.
+It gives each agent its own git worktree when you want isolation, keeps the agent in a real terminal instead of a wrapper UI, and adds the workspace tools you need around it: code browsing, diffs, shell tabs, search, previews, commits, and pull requests.
+
+Supports the built-in runtimes in this repo today: **Claude Code**, **Codex**, **Copilot**, **Gemini CLI**, and **Ollama-backed Claude/Codex**.
 
 ![Manifold](manifold.jpg)
 
-Agents run in a native terminal — no wrapping, no abstractions. You get the full CLI experience exactly as if you ran the agent yourself.
+## Highlights
+
+- Run multiple agents in parallel on one repository without branch collisions
+- Use the full agent terminal directly, with live PTY output and manual input at any time
+- Switch between a full **Developer** workspace and a lightweight **Simple** app-builder view
+- Launch work on a new branch, the current branch, an existing branch, or an open PR
+- Review changes with diffs, a file tree, split editors, shell tabs, and embedded localhost previews
+- Search code, captured session memory, or both, with optional AI answer/rerank modes
+- Keep project state, chat history, dock layout, open files, and shell tabs across restarts
 
 ## Install
 
-Download the latest `.dmg` from [GitHub Releases](https://github.com/svenmalvik/manifold/releases), open it, and drag Manifold to your Applications folder.
+Download the latest `.dmg` from the repository's GitHub Releases page, open it, and drag Manifold to `Applications`.
+
+### Requirements
+
+| Requirement | Notes |
+| --- | --- |
+| macOS | The packaged app and build scripts currently target macOS only. |
+| Git | Required for repository management, worktrees, diffs, commits, and PR flows. |
+| One supported CLI agent on your `PATH` | Manifold checks for the runtime binaries directly. |
+| GitHub CLI (`gh`) | Optional, but required for creating pull requests from inside the app. |
+| Ollama + at least one pulled model | Optional, only needed for the Ollama-backed runtimes. |
+
+### Runtime Binaries
+
+| Runtime | Binary Manifold looks for | Notes |
+| --- | --- | --- |
+| Claude Code | `claude` | Used in both Developer and Simple view. |
+| Codex | `codex` | Used in both Developer and Simple view. |
+| Copilot | `copilot` | Available in the built-in runtime list. |
+| Gemini CLI | `gemini` | Available in both Developer and Simple view. |
+| Claude Code (Ollama) | `ollama` | Launches through `ollama launch claude`; model selection is required. |
+| Codex (Ollama) | `ollama` | Launches through `ollama launch codex`; model selection is required. |
+
+On startup, Manifold resolves your login-shell `PATH` and appends common binary directories like `~/.local/bin`, `/opt/homebrew/bin`, and `/usr/local/bin` so CLIs installed outside Finder's default environment still show up.
+
+## Two Modes
+
+Manifold ships with two separate renderer experiences and lets you switch between them from the app.
+
+### Simple View
+
+Simple view is the default UI mode on a fresh install.
+
+It is optimized for quickly building local web apps from chat:
+
+- Creates a managed project under your Manifold storage directory
+- Uses your configured default runtime to scaffold and iterate on the app
+- Constrains the generated app to a local stack: **React 19**, **TypeScript**, **Vite**, **Dexie/IndexedDB**, and **CSS Modules**
+- Runs `npm install` and `npm run dev` so the preview can come up immediately
+- Persists chat history and reopens existing apps from the dashboard
+- Lets you jump into Developer view for the same project when you need terminals, diffs, or git tools
+
+Simple view is intended for local prototyping and iteration. Deployment is not implemented yet.
+
+### Developer View
+
+Developer view is the full workspace for repository work.
+
+The layout is dockable rather than fixed, and the current panel set includes:
+
+- Repositories sidebar
+- Agent terminal
+- Search
+- File tree
+- Modified files
+- Shell tabs
+- Web preview
+- One or more editor panes
+
+Key developer workflows:
+
+- Open an existing local repository or clone one from GitHub
+- Start an agent on a fresh `manifold/*` worktree branch
+- Start an agent directly on the current branch when you do not want a worktree
+- Continue work from an existing branch or from an open pull request
+- Resume a stopped agent in place
+- Generate commit messages and PR copy with the same runtime the session used
+- Detect merge conflicts and inspect ahead/behind state against the configured base branch
+
+## Typical Workflow
+
+### Work On An Existing Repository
+
+1. Open a local repo or clone one from the welcome/onboarding flow.
+2. Pick a project in the sidebar.
+3. Launch an agent.
+4. Watch output in the terminal, steer it manually when needed, and review changes in the editor and diff views.
+5. Commit from the status bar and create a PR through `gh` when the branch is ready.
+
+### Launching Agents
+
+In Developer view, a new agent can start in four ways:
+
+- **New branch**: the default path, using a dedicated git worktree
+- **Current branch**: runs directly in the project checkout (`noWorktree`)
+- **Existing branch**: continue work already in progress
+- **Open pull request**: fetch/select a PR branch and continue from there
+
+Agent states shown in the UI are `running`, `waiting`, `done`, and `error`.
+
+### Building Apps In Simple View
+
+1. Create a new app card.
+2. Describe the app you want.
+3. Let the runtime scaffold the project and start the dev server.
+4. Continue iterating through chat while previewing the app live.
+5. Switch to Developer view when you need direct file, terminal, or git access.
+
+## Search And Memory
+
+Developer view includes a search system that goes beyond file text search.
+
+- Search modes: `code`, `memory`, or `everything`
+- Search scopes: active session, project sessions, or broader workspace context depending on mode
+- Match modes: literal or regex
+- Saved searches and recent searches are persisted per project
+- `Ask AI` can answer grounded questions from retrieved results or rerank exact results, depending on settings
+
+Manifold also captures session data locally and stores it per project in SQLite:
+
+- interactions
+- observations
+- session summaries
+
+That memory is used for search and for context injection/compression when sessions are resumed.
+
+## Local Data
+
+By default, Manifold stores its state under `~/.manifold/`.
+
+| Path | Purpose |
+| --- | --- |
+| `~/.manifold/config.json` | User settings |
+| `~/.manifold/projects.json` | Registered projects |
+| `~/.manifold/memory/*.db` | Per-project SQLite memory stores |
+| `~/.manifold/debug.log` | Debug logging |
+| `<storagePath>/worktrees/...` | Managed git worktrees |
+| `<storagePath>/projects/...` | Simple-view app projects |
+
+The storage root is configurable in Settings.
+
+## Local Development
 
 ### Prerequisites
 
-You need at least one agent CLI installed:
+- Node.js 18+
+- npm
+- macOS
+- Git
+- At least one supported CLI runtime installed locally
 
-| Agent | Install |
-|---|---|
-| Claude Code | `npm install -g @anthropic-ai/claude-code` |
-| Codex | `npm install -g @openai/codex` |
-| Copilot | `npm install -g @githubnext/github-copilot-cli` |
-| Gemini CLI | `npm install -g @anthropic-ai/gemini-cli` |
+### Commands
 
-Git must be installed. For creating PRs from within Manifold, install the [GitHub CLI](https://cli.github.com/) (`gh`).
+```bash
+npm install
+npm run dev
+npm run build
+npm run typecheck
+npm test
+```
 
-## Two modes
+Useful additional commands:
 
-Manifold ships with two UI modes you can switch between at any time.
+```bash
+npm run typecheck:node
+npm run typecheck:web
+npm run test:watch
+```
 
-### Developer view
+`npm run dev` and `npm start` automatically rebuild the native Electron modules they depend on.
 
-The full multi-agent workspace for developers. A resizable panel layout with six panes, each toggleable via keyboard shortcuts (Cmd+1 through Cmd+6):
+## Architecture
 
-- **Projects panel** — Repository browser with multi-project support
-- **Agent terminal** — Live PTY output from the agent CLI. Type into the terminal at any time to steer the agent mid-flight.
-- **Code viewer** — File diffs or full file contents as the agent makes changes. Powered by Monaco Editor.
-- **File tree** — Browse all files in the agent's worktree. Modified files are marked with a dot.
-- **Modified files** — Quick access to git-tracked changes.
-- **Shell tabs** — Multi-tab terminal for the agent's worktree or the project root.
-- **Web preview** — Opens automatically when the agent starts a dev server.
+Manifold follows Electron's multi-process model with strict context isolation:
 
-Status badges show each agent's state: **running**, **waiting** (for user input), **done**, or **error**.
+- `src/main/`: PTYs, git/worktree operations, search, memory, settings, and app lifecycle
+- `src/preload/`: whitelisted IPC bridges for Developer and Simple view
+- `src/renderer/`: the Developer workspace UI
+- `src/renderer-simple/`: the Simple app-builder UI
+- `src/shared/`: shared types, defaults, prompts, and theme data
 
-### Simple view
+Important main-process services include:
 
-A streamlined mode for quickly building web apps through chat. Describe what you want, and an AI agent scaffolds a React + TypeScript + Vite app with IndexedDB persistence, then starts a dev server so you can preview it immediately.
+- `SessionManager` for agent lifecycle and session discovery
+- `WorktreeManager` and `BranchCheckoutManager` for repository isolation/worktree flows
+- `PtyPool` for terminal processes
+- `GitOperationsManager` and `PrCreator` for commit/PR workflows
+- `DevServerManager` for local preview sessions in Simple view
+- `MemoryStore`, `MemoryCapture`, `MemoryCompressor`, and `MemoryInjector` for local memory
+- search services for exact search, AI reranking, and AI-grounded answers
 
-- **Dashboard** — See all your apps in a grid. Click "New App" to start.
-- **Chat pane** — Send messages to iterate on the app. Agent responses render as markdown.
-- **Live preview** — An embedded webview shows the running app, auto-reloading when the agent finishes a change.
-- **Status banner** — Visual feedback on the current state (building, previewing, error).
-
-You can switch to developer view at any time to access the full terminal, file tree, and git tools for the same project.
-
-## Usage
-
-### First launch
-
-On first launch, Manifold shows a welcome screen where you:
-
-1. **Configure storage** — Choose where agent worktrees are stored (defaults to `~/.manifold/`)
-2. **Register a repository** — Add a local git repository or clone one from GitHub
-
-### Creating agents
-
-1. Click **New Agent** in the sidebar
-2. Pick a **runtime** (Claude Code, Codex, Copilot, Gemini CLI, or a custom binary)
-3. Give the agent a **prompt** describing what to do
-4. Optionally edit the **branch name** (auto-generated, always prefixed `manifold/`)
-5. Click **Launch**
-
-Each agent gets its own git worktree branched from the project's main branch. Agents work in fully isolated copies of the codebase, so they never step on each other.
-
-### Git operations
-
-- **AI-assisted commits** — Auto-generate commit messages from diffs, or write your own
-- **Create PR** — When an agent finishes, open a pull request with an AI-generated title and description via the GitHub CLI
-- **Conflict detection** — Real-time polling alerts you when merge conflicts appear, with AI-powered resolution suggestions
-- **Ahead/behind tracking** — See sync status between worktree branches and the base branch
-
-### Key features
-
-- **Parallel agents** — Run multiple agents on the same project simultaneously, each in an isolated worktree
-- **Agent-agnostic** — Works with Claude Code, Codex, Copilot, Gemini CLI, Ollama, or any custom CLI binary
-- **Two UI modes** — Full developer workspace or simplified app-builder chat
-- **Web preview** — Embedded browser that auto-detects dev server URLs from agent output
-- **AI-assisted git** — Auto-generated commit messages, PR descriptions, and branch names
-- **Conflict detection** — Alerts and AI suggestions when merge conflicts appear
-- **Persistent sessions** — Agent state, shell tabs, panel layout, and open files survive app restarts
-- **50+ themes** — Includes custom Manifold themes plus popular community themes like Dracula, Nord, Monokai, and Solarized
-- **Auto-updates** — Checks for new versions on launch and installs automatically
-
-## Themes
-
-Manifold ships with 50+ editor themes including two custom Manifold themes and popular community favorites like Dracula, Nord, Monokai, and Solarized. Browse themes with live preview, filter by dark/light, and search by name in **Settings**.
+Renderer-side previews are restricted to localhost webview URLs.
 
 ## Contributing
 
-See [CONTRIBUTING.md](CONTRIBUTING.md) for setup instructions, project structure, code conventions, and pull request workflow.
+See [CONTRIBUTING.md](CONTRIBUTING.md) for contributor setup, code conventions, test commands, and PR workflow.
 
 ## Releasing
 
-Releases happen in two steps because the version bump must be reviewed and merged into `main` before the tag is created.
+Releases happen in two steps so the version bump lands on `main` before the tag is created.
 
-1. Prepare the release PR from the repository root:
+1. Prepare the release PR:
 
 ```bash
 ./release.sh patch
@@ -112,55 +219,8 @@ Releases happen in two steps because the version bump must be reviewed and merge
 ./release.sh major
 ```
 
-The prepare step always creates a fresh `release/v<version>` branch from the latest `origin/main`, regardless of which branch you started on in the current worktree. It then updates `package.json` and `package-lock.json`, creates the version bump commit, pushes the branch, and opens a PR to `main`.
-
-2. After that PR is approved and merged, publish the release:
+2. After that PR is merged, publish the release:
 
 ```bash
 ./release.sh publish
 ```
-
-The publish step fetches `origin/main`, reads the merged version from `package.json`, creates the matching `v<version>` tag on the `main` merge commit, pushes the tag, and creates the GitHub release with generated notes.
-
-## Architecture
-
-Electron three-process model with strict context isolation:
-
-- **Main** (`src/main/`) — Node.js runtime. Owns PTY processes, git worktrees, file system, settings.
-- **Preload** (`src/preload/`) — IPC bridge. Whitelisted channels only.
-- **Renderer — Developer** (`src/renderer/`) — React UI for the developer view. No direct Node.js access.
-- **Renderer — Simple** (`src/renderer-simple/`) — React UI for the simple app-builder view.
-
-### Main process modules
-
-| Module | Role |
-|---|---|
-| `SessionManager` | Agent session lifecycle — create, resume, kill, discover dormant worktrees |
-| `WorktreeManager` | Git worktree creation/removal under configurable `storagePath` |
-| `PtyPool` | PTY process management via `node-pty` |
-| `ProjectRegistry` | CRUD for registered projects (`~/.manifold/projects.json`) |
-| `SettingsStore` | Config persistence (`~/.manifold/config.json`) |
-| `StatusDetector` | Pattern-matches PTY output to detect agent status |
-| `DiffProvider` | Git diff between worktree branch and base branch |
-| `FileWatcher` | Watches worktree directories, pushes change events to renderer |
-| `GitOperationsManager` | Commit, AI-generated commit messages, ahead/behind counts, conflict resolution |
-| `PrCreator` | Creates GitHub PRs via `gh` CLI for agent worktree branches |
-| `ShellTabStore` | Persists shell tab layout per worktree across app restarts |
-| `ViewStateStore` | Persists per-session UI state (open files, active tab, code view mode) |
-| `BranchNamer` | AI-generated branch name suggestions from task descriptions |
-| `Runtimes` | Discovers available agent CLIs on the system |
-| `DevServerManager` | Spawns dev servers and detects preview URLs for simple mode |
-| `ModeSwitcher` | Handles transitions between developer and simple views |
-
-### Tech stack
-
-| Layer | Technology |
-|---|---|
-| App framework | Electron |
-| Frontend | React, TypeScript |
-| Terminal | xterm.js + node-pty |
-| Code viewer | Monaco Editor |
-| Git operations | simple-git |
-| Panel layout | Dockview |
-| Build | electron-vite + electron-builder |
-| Testing | Vitest |
