@@ -55,6 +55,7 @@ export class SessionStreamWirer {
       }
 
       this.getChatAdapter()?.processPtyOutput(session.id, data)
+      this.sendToRenderer('agent:activity', { sessionId: session.id })
       this.sendToRenderer('agent:output', { sessionId: session.id, data })
     })
   }
@@ -84,6 +85,7 @@ export class SessionStreamWirer {
     this.ptyPool.onData(ptyId, (data: string) => {
       debugLog(`[stream-json] raw data (${data.length} bytes): ${data.slice(0, 500)}`)
       session.streamJsonLineBuffer = (session.streamJsonLineBuffer ?? '') + data
+      this.sendToRenderer('agent:activity', { sessionId: session.id })
 
       // Process complete lines
       const lines = session.streamJsonLineBuffer.split('\n')

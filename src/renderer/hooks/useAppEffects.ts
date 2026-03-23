@@ -1,10 +1,11 @@
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import type { SearchMode } from '../../shared/search-types'
 import type { DockPanelId, UseDockLayoutResult } from './useDockLayout'
 import type { SpawnAgentOptions } from '../../shared/types'
 import { ensureSearchPanelInWorkspace } from './dock-layout-search'
 
 interface AppEffectsInput {
+  activeSessionId: string | null
   dockLayout: UseDockLayoutResult
   webPreviewUrl: string | null
   settings: { defaultRuntime: string }
@@ -33,6 +34,7 @@ export function useAppEffects(input: AppEffectsInput): AppEffectsResult {
   const [showOnboarding, setShowOnboarding] = useState(false)
   const [creatingProject, setCreatingProject] = useState(false)
   const [cloningProject, setCloningProject] = useState(false)
+  const agentRefreshTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   const showSearchPanel = useCallback((mode: SearchMode) => {
     const api = input.dockLayout.apiRef.current
@@ -77,6 +79,60 @@ export function useAppEffects(input: AppEffectsInput): AppEffectsResult {
       })
     })
   }, [input.setActiveProject, input.spawnAgent, input.settings.defaultRuntime])
+
+  const flushOpenFileRefresh = useCallback(() => {
+    if (agentRefreshTimerRef.current) {
+      clearTimeout(agentRefreshTimerRef.current)
+      agentRefreshTimerRef.current = null
+    }
+    void input.refreshOpenFiles()
+  }, [input.refreshOpenFiles])
+
+  const scheduleOpenFileRefresh = useCallback(() => {
+    if (agentRefreshTimerRef.current) {
+      clearTimeout(agentRefreshTimerRef.current)
+    }
+
+    agentRefreshTimerRef.current = setTimeout(() => {
+      agentRefreshTimerRef.current = null
+      void input.refreshOpenFiles()
+    }, 150)
+  }, [input.refreshOpenFiles])
+
+  useEffect(() => {
+    return () => {
+      if (agentRefreshTimerRef.current) {
+        clearTimeout(agentRefreshTimerRef.current)
+        agentRefreshTimerRef.current = null
+      }
+    }
+  }, [])
+
+  useEffect(() => {
+    if (agentRefreshTimerRef.current) {
+      clearTimeout(agentRefreshTimerRef.current)
+      agentRefreshTimerRef.current = null
+    }
+  }, [input.activeSessionId])
+
+  useEffect(() => {
+    return window.electronAPI.on('agent:activity', (event: unknown) => {
+      const payload = event as { sessionId?: string }
+      if (!input.activeSessionId || payload.sessionId !== input.activeSessionId) return
+      scheduleOpenFileRefresh()
+    })
+  }, [input.activeSessionId, scheduleOpenFileRefresh])
+
+  useEffect(() => {
+    return window.electronAPI.on('agent:status', (event: unknown) => {
+      const payload = event as { sessionId?: string; status?: string }
+      if (!input.activeSessionId || payload.sessionId !== input.activeSessionId) return
+      if (payload.status !== 'waiting' && payload.status !== 'done') return
+
+      flushOpenFileRefresh()
+      void input.refreshDiff()
+    })
+  }, [flushOpenFileRefresh, input.activeSessionId, input.refreshDiff])
 
   useEffect(() => {
     const api = input.dockLayout.apiRef.current
