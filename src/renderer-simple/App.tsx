@@ -77,9 +77,9 @@ function AppViewWrapper({ app, onBack }: { app: SimpleApp; onBack: () => void })
   // The snapshot's initial value distinguishes new apps ('scaffolding')
   // from reopened apps ('building') while the agent is running pre-URL.
   const status: SimpleApp['status'] =
-    agentStatus === 'done' ? 'live'
+    agentStatus === 'done' ? (previewUrl ? 'previewing' : 'live')
     : agentStatus === 'error' ? 'error'
-    : agentStatus === 'waiting' ? 'previewing'
+    : agentStatus === 'waiting' ? (previewUrl ? 'previewing' : 'idle')
     : previewUrl ? 'building'
     : app.status
 
@@ -216,7 +216,11 @@ export function App(): React.JSX.Element {
       }}
       onSelectApp={async (app) => {
         try {
-          const needsDevServer = app.status === 'idle' || app.status === 'live' || app.status === 'error'
+          const previewUrl = (await window.electronAPI.invoke(
+            'simple:get-preview-url',
+            app.sessionId,
+          )) as string | null
+          const needsDevServer = !previewUrl && app.status !== 'scaffolding' && app.status !== 'building'
           if (needsDevServer) {
             const settings = (await window.electronAPI.invoke('settings:get')) as { defaultRuntime?: string }
             const result = (await window.electronAPI.invoke(
@@ -239,7 +243,13 @@ export function App(): React.JSX.Element {
             refreshApps()
           } else {
             await window.electronAPI.invoke('simple:subscribe-chat', app.sessionId)
-            setView({ kind: 'app', app })
+            setView({
+              kind: 'app',
+              app: {
+                ...app,
+                previewUrl,
+              },
+            })
           }
         } catch (err) {
           console.error('[onSelectApp] failed:', err)
