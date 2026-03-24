@@ -47,7 +47,15 @@ export function useApps(): {
         const projectPath = projectMap.get(s.projectId)?.path ?? ''
         return projectPath.startsWith(simpleProjectsBase)
       })
+      const previewUrlEntries = await Promise.all(
+        simpleSessions.map(async (session) => {
+          const previewUrl = await window.electronAPI.invoke('simple:get-preview-url', session.id) as string | null
+          return [session.id, previewUrl] as const
+        }),
+      )
+      const previewUrlMap = new Map(previewUrlEntries)
       const simpleApps: SimpleApp[] = simpleSessions.map((s) => ({
+        previewUrl: previewUrlMap.get(s.id) ?? null,
         sessionId: s.id,
         projectId: s.projectId,
         runtimeId: s.runtimeId,
@@ -58,9 +66,8 @@ export function useApps(): {
           s.status === 'done' ? 'live'
           : s.status === 'error' ? 'error'
           : s.status === 'running' ? 'building'
-          : s.status === 'waiting' ? 'previewing'
+          : s.status === 'waiting' && (previewUrlMap.get(s.id) ?? null) ? 'previewing'
           : 'idle',
-        previewUrl: null,
         liveUrl: null,
         projectPath: projectMap.get(s.projectId)?.path ?? '',
         createdAt: Date.now(),
