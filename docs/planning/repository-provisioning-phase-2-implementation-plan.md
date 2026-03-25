@@ -21,8 +21,8 @@ Phase 1 established the end-to-end provisioning path for Simple view. Phase 2 sh
 
 Phase 1 is implemented. The current system already provides:
 
-- bundled OSS provisioner support
-- support for configured external CLI provisioners
+- bundled provisioner support (OSS and additional bundled provisioners)
+- support for configured standalone CLI provisioners
 - template listing and manual refresh in Simple view
 - template selection with generic schema-driven inputs
 - create progress streaming
@@ -31,8 +31,8 @@ Phase 1 is implemented. The current system already provides:
 
 Current gaps relevant to Phase 2:
 
-- multiple external provisioners work technically, but not yet as a fully managed product feature
-- there is no dedicated settings UI for adding, editing, enabling, or testing provisioners
+- multiple provisioners (bundled and standalone) work technically, but not yet as a fully managed product feature
+- there is no dedicated settings UI for adding, editing, enabling, or testing standalone provisioners
 - template catalogs are fetched live on demand, without durable cache management
 - health checks exist in the protocol but are not surfaced in the product
 - progress and error handling are still mostly string-based
@@ -41,11 +41,11 @@ Current gaps relevant to Phase 2:
 
 ## Phase 2 Goals
 
-- Make multiple external provisioners a first-class supported configuration.
+- Make multiple provisioners (bundled and standalone) a first-class supported configuration.
 - Add provisioner health checks and template catalog caching.
 - Improve progress and error semantics without breaking the Phase 1 flow.
 - Improve schema-driven form rendering while keeping provisioner-specific custom UI out of scope.
-- Add a settings experience for configuring and validating provisioners.
+- Add a settings experience for configuring and validating standalone provisioners.
 - Decide whether the legacy `projects:create-new` path can be retired or reduced further.
 
 ## Phase 2 Non-Goals
@@ -63,7 +63,7 @@ Current gaps relevant to Phase 2:
 - dispatcher support for cache-backed catalog aggregation and health-aware behavior
 - persistent template catalog cache and refresh semantics
 - provisioner health visibility and test actions in settings
-- settings UI for multiple external CLI provisioners
+- settings UI for multiple standalone CLI provisioners
 - improved generic schema-driven form rendering in Simple view
 - documented and enforced decision on the legacy `projects:create-new` path
 - automated coverage for the new cache, health, and settings flows

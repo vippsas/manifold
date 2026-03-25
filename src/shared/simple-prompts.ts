@@ -59,7 +59,12 @@ function formatMessage(message: PromptChatMessage): string {
  * Wraps the user's app description into a full system prompt
  * that constrains the agent to the Manifold tech stack.
  */
-export function buildSimplePrompt(description: string, templateTitle?: string): string {
+export function buildSimplePrompt(description: string, templateTitle?: string, promptInstructions?: string): string {
+  if (promptInstructions) {
+    return `${promptInstructions}The user wants:
+${description}`
+  }
+
   const templateContext = templateTitle
     ? `You are starting from the "${templateTitle}" template in the current repository.\n` +
       `Use the existing files as the starting point and extend them instead of rebuilding from scratch unless necessary.\n\n`

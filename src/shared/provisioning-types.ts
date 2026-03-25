@@ -60,6 +60,7 @@ export interface ProvisionerTemplate {
   category: string
   tags?: string[]
   paramsSchema: TemplateInputSchema
+  promptInstructions?: string
 }
 
 export interface ProvisioningErrorDescriptor {

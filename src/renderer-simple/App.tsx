@@ -72,6 +72,16 @@ function AppViewWrapper({ app, onBack }: { app: SimpleApp; onBack: () => void })
   const { status: agentStatus, durationMs } = useAgentStatus(app.sessionId)
   const { messages, sendMessage } = useChat(app.sessionId)
   const { previewUrl } = usePreview(app.sessionId)
+  const devServerStartedRef = React.useRef(false)
+
+  // When agent finishes and no preview URL was detected, auto-start the dev
+  // server so the preview pane picks up the URL without requiring navigation.
+  React.useEffect(() => {
+    if (agentStatus === 'done' && !previewUrl && !devServerStartedRef.current) {
+      devServerStartedRef.current = true
+      window.electronAPI.invoke('agent:start-dev-server', app.sessionId)
+    }
+  }, [agentStatus, previewUrl, app.sessionId])
 
   // Derive live display status instead of using the stale snapshot.
   // The snapshot's initial value distinguishes new apps ('scaffolding')
@@ -174,7 +184,7 @@ export function App(): React.JSX.Element {
     <>
     <Dashboard
       apps={apps}
-      onStart={async ({ name, description, templateQualifiedId, templateTitle, inputs }: StartAppRequest) => {
+      onStart={async ({ name, description, templateQualifiedId, templateTitle, promptInstructions, inputs }: StartAppRequest) => {
         const settings = (await window.electronAPI.invoke('settings:get')) as { defaultRuntime?: string }
         const provisioning = (await window.electronAPI.invoke(
           'provisioning:create',
@@ -188,7 +198,7 @@ export function App(): React.JSX.Element {
         const session = (await window.electronAPI.invoke('agent:spawn', {
           projectId: provisioning.value.project.id,
           runtimeId: settings.defaultRuntime ?? 'claude',
-          prompt: buildSimplePrompt(description, templateTitle),
+          prompt: buildSimplePrompt(description, templateTitle, promptInstructions),
           userMessage: description,
           noWorktree: true,
           nonInteractive: true,

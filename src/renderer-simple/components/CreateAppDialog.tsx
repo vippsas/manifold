@@ -14,6 +14,7 @@ export interface StartAppRequest extends ProvisioningCreateRequest {
   name: string
   description: string
   templateTitle: string
+  promptInstructions?: string
 }
 
 interface Props {
@@ -124,6 +125,7 @@ export function CreateAppDialog({ open, onClose, onStart }: Props): React.JSX.El
         description: String(formValues.description ?? '').trim(),
         templateQualifiedId: selectedTemplate.qualifiedId,
         templateTitle: selectedTemplate.title,
+        promptInstructions: selectedTemplate.promptInstructions,
         inputs: Object.fromEntries(Object.entries(formValues).map(([key, value]) => [key, typeof value === 'string' ? value.trim() : value])),
       })
     } catch (error) {

@@ -3,8 +3,9 @@ import {
   type CreateProvisionerRequest,
   type ListTemplatesProvisionerRequest,
   type ProvisionerRequest,
-} from '../../shared/provisioning-types'
-import { createBundledTemplateSource, getBundledTemplates } from './oss-provisioner-core'
+} from '../../../src/shared/provisioning-types'
+import { getTemplates, TEMPLATE_REPOS } from './templates'
+import { checkGhCli, createRepoFromTemplate } from './github'
 
 function writeEvent(payload: unknown): void {
   process.stdout.write(JSON.stringify(payload) + '\n')
@@ -14,40 +15,72 @@ async function handleListTemplates(_request: ListTemplatesProvisionerRequest): P
   writeEvent({
     protocolVersion: PROVISIONER_PROTOCOL_VERSION,
     event: 'result',
-    result: getBundledTemplates(),
+    result: getTemplates(),
   })
 }
 
 async function handleCreate(request: CreateProvisionerRequest): Promise<void> {
+  const name = String(request.inputs.name).trim()
+  if (!name) {
+    throw new Error('Repository name is required')
+  }
+
+  const templateRepo = TEMPLATE_REPOS[request.templateId]
+  if (!templateRepo) {
+    throw new Error(`Unknown template: ${request.templateId}`)
+  }
+
+  const owner = request.inputs.owner ? String(request.inputs.owner).trim() : undefined
+
   writeEvent({
     protocolVersion: PROVISIONER_PROTOCOL_VERSION,
     event: 'progress',
     requestId: request.requestId,
-    message: 'Preparing template source...',
+    message: 'Creating repository on GitHub...',
+    stage: 'provisioning',
+    status: 'running',
   })
 
-  const result = await createBundledTemplateSource(request.templateId, request.inputs)
+  const { repoUrl, fullName } = await createRepoFromTemplate(templateRepo, name, owner)
 
   writeEvent({
     protocolVersion: PROVISIONER_PROTOCOL_VERSION,
     event: 'progress',
     requestId: request.requestId,
-    message: 'Template source is ready.',
+    message: `Repository ${fullName} created.`,
+    stage: 'provisioning',
+    status: 'done',
   })
 
   writeEvent({
     protocolVersion: PROVISIONER_PROTOCOL_VERSION,
     event: 'result',
     requestId: request.requestId,
-    result,
+    result: {
+      displayName: name,
+      repoUrl,
+      defaultBranch: 'main',
+      metadata: {
+        templateRepo,
+        githubFullName: fullName,
+      },
+    },
   })
 }
 
 async function handleHealth(): Promise<void> {
+  const status = await checkGhCli()
+
   writeEvent({
     protocolVersion: PROVISIONER_PROTOCOL_VERSION,
     event: 'result',
-    result: { healthy: true },
+    result: {
+      healthy: status.authenticated,
+      summary: status.authenticated
+        ? `gh CLI authenticated as ${status.user}`
+        : status.error,
+      capabilities: ['listTemplates', 'create', 'health'],
+    },
   })
 }
 

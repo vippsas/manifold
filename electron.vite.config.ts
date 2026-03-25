@@ -9,7 +9,7 @@ export default defineConfig({
       rollupOptions: {
         input: {
           index: resolve(__dirname, 'src/main/app/index.ts'),
-          'oss-provisioner': resolve(__dirname, 'src/main/provisioning/oss-provisioner-cli.ts'),
+          'vercel-provisioner': resolve(__dirname, 'provisioners/vercel/src/cli.ts'),
         }
       }
     }
