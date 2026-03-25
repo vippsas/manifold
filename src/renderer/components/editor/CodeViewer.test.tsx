@@ -258,8 +258,7 @@ describe('CodeViewer', () => {
 
     render(<Wrapper />)
 
-    fireEvent.click(screen.getByTitle('Show preview'))
-
+    // Markdown files auto-open in preview mode
     await waitFor(() => {
       expect(screen.getByTestId('markdown-preview')).toHaveTextContent('# Hello')
     })
@@ -275,8 +274,7 @@ describe('CodeViewer', () => {
       onOpenLinkedFile,
     })
 
-    fireEvent.click(screen.getByTitle('Show preview'))
-
+    // Markdown files auto-open in preview mode
     const link = await screen.findByRole('link', { name: 'Child note' })
     fireEvent.click(link)
 
@@ -318,8 +316,7 @@ describe('CodeViewer', () => {
 
     render(<Wrapper />)
 
-    fireEvent.click(screen.getByTitle('Show preview'))
-
+    // Markdown files auto-open in preview mode
     const link = await screen.findByRole('link', { name: 'Child note' })
     fireEvent.click(link)
 
@@ -356,8 +353,7 @@ describe('CodeViewer', () => {
 
     const { container } = render(<Wrapper />)
 
-    fireEvent.click(screen.getByTitle('Show preview'))
-
+    // Markdown files auto-open in preview mode
     await waitFor(() => {
       expect(container.querySelector('.markdown-preview')).not.toBeNull()
     })

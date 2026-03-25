@@ -114,6 +114,17 @@ export function CodeViewer({
     previewPathsByPane.set(paneId, previewPaths)
   }, [paneId, previewPaths])
 
+  // Auto-open markdown files in preview mode
+  useEffect(() => {
+    if (activeFilePath && isMarkdownFile(activeFilePath) && !previewPaths.has(activeFilePath)) {
+      setPreviewPaths((prev) => {
+        const next = new Set(prev)
+        next.add(activeFilePath)
+        return next
+      })
+    }
+  }, [activeFilePath])
+
   useEffect(() => {
     saveRef.current = onSaveFile
   }, [onSaveFile])
