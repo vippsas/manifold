@@ -16,7 +16,13 @@ npm run typecheck    # Full typecheck (delegates to tsconfig.node.json + tsconfi
 npm test             # Run all tests (vitest)
 npm run test:watch   # Watch mode
 npx vitest run src/main/pty-pool.test.ts  # Run a single test file
+npm run typecheck && npm test             # Must pass before reporting any task complete
 ```
+
+## Worktree Git Health
+- This project uses git worktrees heavily. Worktree index corruption is a known recurring issue.
+- Before committing in a worktree, run `git status` first — if it errors, follow the git recovery playbook in the global CLAUDE.md rather than retrying.
+- When running `git` commands in agent worktree paths (`~/.manifold/worktrees/`), always verify you're operating on the intended worktree, not the main repo.
 
 ## Architecture
 
@@ -70,6 +76,14 @@ All instantiated in `src/main/index.ts` and wired together via dependency inject
 - Listen (main→renderer push): `domain:event` — e.g., `agent:output`, `agent:status`, `files:changed`
 
 Adding a new IPC channel requires updating three places: `ipc-handlers.ts` (handler), `preload/index.ts` (whitelist), and the renderer hook that calls it.
+
+**Checklist for new IPC channels:**
+1. `src/main/ipc-handlers.ts` — add handler
+2. `src/preload/index.ts` — add to whitelist
+3. Renderer hook — add invoke/send/on call
+4. `src/shared/` — add types if needed
+
+Forgetting any step causes silent failures that are hard to debug.
 
 ### TypeScript Configuration
 
