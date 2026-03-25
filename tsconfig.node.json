@@ -20,6 +20,7 @@
     "src/preload/**/*.ts",
     "src/shared/**/*.ts",
     "src/shared/themes/data/*.json",
+    "provisioners/**/*.ts",
     "electron.vite.config.ts"
   ],
   "exclude": [

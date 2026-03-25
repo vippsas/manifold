@@ -26,8 +26,8 @@ Manifold should support a single, generic provisioning system with a dispatcher 
 
 - Manifold core owns the dispatcher, template catalog aggregation, UI flow, local materialization, and project registration.
 - Each provisioner is an external CLI executable that speaks a small versioned JSON protocol.
-- The open-source repo ships one bundled OSS provisioner, implemented in this repo but invoked through the same CLI protocol as any other provisioner.
-- Organizations add their own provisioners outside this repo.
+- The open-source repo ships one or more bundled provisioners, implemented in this repo but invoked through the same CLI protocol as any other provisioner.
+- Organizations can add their own standalone provisioners outside this repo.
 - The dispatcher queries all configured provisioners, merges their templates into one catalog, and routes creation requests to the selected provisioner.
 
 This keeps Manifold open-source and generic while still allowing both OSS and organizational provisioning paths in the same product.
@@ -73,9 +73,9 @@ The key split is:
 
 Examples:
 
-- `web-react-vite` is a template.
+- `vercel-starter` is a template.
 - `rust-axum-service` is a template.
-- `oss-bundled` is a provisioner.
+- `vercel-bundled` is a provisioner.
 - `backstage-company` is a provisioner.
 
 Different app types should not require different creation flows in Manifold. They are selections within one catalog.

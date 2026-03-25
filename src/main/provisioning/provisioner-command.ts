@@ -1,18 +1,24 @@
 import { createHash } from 'node:crypto'
 import path from 'node:path'
+import { app } from 'electron'
 import type { ProvisionerConfig } from '../../shared/provisioning-types'
 import { ProvisioningError } from './provisioning-errors'
 
+const BUILTIN_PROVISIONERS: Record<string, string> = {
+  'vercel-bundled': 'vercel-provisioner.js',
+}
+
 export function resolveProvisionerCommand(provisioner: ProvisionerConfig): { command: string; args: string[] } {
   if (provisioner.type === 'builtin') {
-    if (provisioner.id !== 'oss-bundled') {
+    const filename = BUILTIN_PROVISIONERS[provisioner.id]
+    if (!filename) {
       throw new ProvisioningError('settings_invalid', `Unknown builtin provisioner: ${provisioner.id}`, {
         code: 'unknown_builtin_provisioner',
       })
     }
     return {
       command: process.execPath,
-      args: [path.join(__dirname, 'oss-provisioner.js')],
+      args: [path.join(__dirname, filename)],
     }
   }
 
@@ -29,6 +35,7 @@ export function resolveProvisionerCommand(provisioner: ProvisionerConfig): { com
 }
 
 export function fingerprintProvisioner(provisioner: ProvisionerConfig): string {
+  const appVersion = provisioner.type === 'builtin' ? safeAppVersion() : ''
   return createHash('sha1')
     .update(JSON.stringify({
       id: provisioner.id,
@@ -37,6 +44,15 @@ export function fingerprintProvisioner(provisioner: ProvisionerConfig): string {
       command: provisioner.command ?? '',
       args: provisioner.args ?? [],
       enabled: provisioner.enabled,
+      appVersion,
     }))
     .digest('hex')
+}
+
+function safeAppVersion(): string {
+  try {
+    return app.getVersion()
+  } catch {
+    return ''
+  }
 }

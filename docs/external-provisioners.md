@@ -9,9 +9,9 @@ This document describes how to build an external repository provisioner for Mani
 
 Use it when building:
 
-- a private org provisioner
+- a bundled provisioner shipped with Manifold (lives in this repo, uses the same CLI protocol)
+- a private org provisioner (separate repo/project)
 - a local test provisioner
-- another bundled provisioner that should work with the same dispatcher contract
 
 The canonical runtime contract lives in:
 
@@ -21,11 +21,18 @@ This document should match that code.
 
 ## Before You Start
 
-An external provisioner is a standalone CLI executable with no code dependency on Manifold. Create it in its own repository or project directory.
+An external provisioner is a CLI executable that speaks the provisioning JSON protocol over `stdin`/`stdout`. It can live in one of two places:
+
+- **Bundled** — inside this repo under `provisioners/`. Shipped with Manifold and auto-registered at build time. Uses TypeScript and follows the same build pipeline as the rest of the app.
+- **Standalone** — a separate repo or project directory with no code dependency on Manifold. Registered manually in Manifold settings.
+
+Both kinds use the exact same protocol. The only difference is where the code lives and how the provisioner is registered.
 
 ### Choose a Language
 
-The provisioner only needs to read JSON from `stdin` and write JSON lines to `stdout`. Any language that can do this works: Node.js/TypeScript, Python, Go, Bash, etc.
+For **bundled** provisioners, use TypeScript (consistent with the rest of the codebase).
+
+For **standalone** provisioners, any language that can read JSON from `stdin` and write JSON lines to `stdout` works: Node.js/TypeScript, Python, Go, Bash, etc.
 
 ### Decide What Your Provisioner Creates
 
@@ -37,7 +44,7 @@ Before writing code, know the answers to:
 
 ### Have Ready
 
-- API tokens or credentials for any service your provisioner calls (GitHub, GitLab, Backstage, etc.). Keep these inside the provisioner's own configuration — Manifold does not manage provisioner secrets.
+- Authentication for any service your provisioner calls. If the user already has a CLI tool authenticated locally (e.g., `gh` for GitHub, `glab` for GitLab), the provisioner can shell out to it directly — no extra tokens needed. Otherwise, keep credentials inside the provisioner's own configuration — Manifold does not manage provisioner secrets.
 - A unique `id` for your provisioner (e.g., `company-backstage`).
 - A human-readable `label` (e.g., `Company Templates`).
 
@@ -51,7 +58,8 @@ Before writing code, know the answers to:
 
 ### Register in Manifold
 
-Once your provisioner executable is ready, register it in Manifold settings (see [Settings Example](#settings-example) below).
+- **Bundled provisioners** are auto-registered by the dispatcher at startup. No manual settings entry needed — just add the provisioner module under `src/main/provisioning/` and wire it into the dispatcher.
+- **Standalone provisioners** must be registered in Manifold settings (see [Settings Example](#settings-example) below).
 
 ## Provisioner Model
 
@@ -292,10 +300,12 @@ Rules:
 - Validate `protocolVersion` and reject unsupported versions.
 - Return one terminal `result` or `error` event.
 - Emit `progress` only when it adds value.
-- Keep auth and secrets inside the provisioner, not in Manifold.
+- Keep auth and secrets inside the provisioner, not in Manifold. Prefer reusing locally authenticated CLIs (e.g., `gh`, `glab`) over managing tokens directly.
 - If you cache template sources internally, never reuse the same mutable checkout for multiple created apps.
 
 ## Settings Example
+
+Standalone provisioners are registered in Manifold settings. Bundled provisioners do not need a settings entry — they are auto-registered by the dispatcher.
 
 ```json
 {
@@ -319,5 +329,5 @@ Rules:
 
 Reference implementations:
 
-- bundled OSS provisioner: `src/main/provisioning/oss-provisioner-cli.ts`
-- fixture external provisioner: `src/main/provisioning/__fixtures__/cli-provisioner-fixture.js`
+- bundled Vercel provisioner (shipped with Manifold): `provisioners/vercel/src/cli.ts`
+- fixture standalone provisioner (for testing): `src/main/provisioning/__fixtures__/cli-provisioner-fixture.js`

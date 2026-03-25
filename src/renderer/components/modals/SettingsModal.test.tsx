@@ -12,8 +12,8 @@ beforeEach(() => {
     if (channel === 'provisioning:get-statuses') {
       return Promise.resolve([
         {
-          provisionerId: 'oss-bundled',
-          provisionerLabel: 'Open Source Templates',
+          provisionerId: 'vercel-bundled',
+          provisionerLabel: 'Vercel Templates',
           enabled: true,
           source: 'cache',
           state: 'healthy',
@@ -25,8 +25,8 @@ beforeEach(() => {
     if (channel === 'provisioning:check-health') {
       return Promise.resolve([
         {
-          provisionerId: provisionerId ?? 'oss-bundled',
-          provisionerLabel: 'Open Source Templates',
+          provisionerId: provisionerId ?? 'vercel-bundled',
+          provisionerLabel: 'Vercel Templates',
           enabled: true,
           source: 'none',
           state: 'healthy',

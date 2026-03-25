@@ -30,8 +30,8 @@ export const DEFAULT_SETTINGS: ManifoldSettings = {
   provisioning: {
     provisioners: [
       {
-        id: 'oss-bundled',
-        label: 'Open Source Templates',
+        id: 'vercel-bundled',
+        label: 'Vercel Templates',
         type: 'builtin',
         enabled: true,
       },

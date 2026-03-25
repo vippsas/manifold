@@ -17,10 +17,10 @@ Phase 1 status: Implemented
 Completed in code:
 
 - versioned provisioning protocol and shared types
-- settings support for bundled and external CLI provisioners
+- settings support for bundled and standalone CLI provisioners
 - main-process dispatcher, CLI runner, and managed-storage materialization flow
 - bundled OSS provisioner CLI shipped from this repo
-- external CLI provisioner support validated with automated fixture coverage
+- standalone CLI provisioner support validated with automated fixture coverage
 - Simple view template picker, refresh flow, generic schema-driven inputs, and create-progress UX
 - project registration plus existing simple-mode agent startup on the provisioned repository
 - provisioning-specific automated coverage for dispatcher, process runner, bundled OSS provisioner, and Simple view template flow
@@ -30,7 +30,7 @@ Deferred to later phases:
 - Developer view onboarding integration
 - remote OSS repository creation
 - provisioner-specific custom renderer components
-- richer settings UX for configuring external provisioners
+- richer settings UX for configuring standalone provisioners
 - broader catalog features such as search, favorites, and policy filters
 
 Verification:
@@ -40,7 +40,6 @@ Verification:
 - provisioning-specific coverage is included for:
   - `src/main/provisioning/provisioner-process.test.ts`
   - `src/main/provisioning/provisioning-dispatcher.test.ts`
-  - `src/main/provisioning/oss-provisioner-core.test.ts`
   - `src/renderer-simple/components/Dashboard.test.tsx`
 
 ## Scope
@@ -462,7 +461,7 @@ Phase 1 is complete when all of the following are true:
 - [x] The created repo is cloned into Manifold-managed storage. Evidence: [provisioning-dispatcher.ts](../../src/main/provisioning/provisioning-dispatcher.ts), [provisioning-dispatcher.test.ts](../../src/main/provisioning/provisioning-dispatcher.test.ts).
 - [x] The project is registered and the agent starts successfully. Evidence: [provisioning-dispatcher.ts](../../src/main/provisioning/provisioning-dispatcher.ts), [App.tsx](../../src/renderer-simple/App.tsx), [simple-prompts.ts](../../src/shared/simple-prompts.ts).
 - [x] Failure cases do not leave partially registered projects behind. Evidence: [provisioning-dispatcher.ts](../../src/main/provisioning/provisioning-dispatcher.ts), [provisioning-dispatcher.test.ts](../../src/main/provisioning/provisioning-dispatcher.test.ts).
-- [x] Automated coverage exists for the core dispatcher and create flow. Evidence: [provisioner-process.test.ts](../../src/main/provisioning/provisioner-process.test.ts), [provisioning-dispatcher.test.ts](../../src/main/provisioning/provisioning-dispatcher.test.ts), [oss-provisioner-core.test.ts](../../src/main/provisioning/oss-provisioner-core.test.ts), [Dashboard.test.tsx](../../src/renderer-simple/components/Dashboard.test.tsx).
+- [x] Automated coverage exists for the core dispatcher and create flow. Evidence: [provisioner-process.test.ts](../../src/main/provisioning/provisioner-process.test.ts), [provisioning-dispatcher.test.ts](../../src/main/provisioning/provisioning-dispatcher.test.ts), [Dashboard.test.tsx](../../src/renderer-simple/components/Dashboard.test.tsx).
 
 Verification completed on 2026-03-23:
 

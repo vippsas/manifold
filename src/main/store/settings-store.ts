@@ -32,10 +32,23 @@ export class SettingsStore {
         ...settings.search?.ai,
       },
     }
+    const userProvisioners = settings.provisioning?.provisioners?.length
+      ? settings.provisioning.provisioners.map((provisioner) => ({ ...provisioner }))
+      : []
+    const defaultBuiltins = (DEFAULT_SETTINGS.provisioning?.provisioners ?? []).filter(
+      (p) => p.type === 'builtin',
+    )
+    const defaultBuiltinIds = new Set(defaultBuiltins.map((p) => p.id))
+    const withoutStaleBuiltins = userProvisioners.filter(
+      (p) => p.type !== 'builtin' || defaultBuiltinIds.has(p.id),
+    )
+    const missingBuiltins = defaultBuiltins.filter(
+      (builtin) => !withoutStaleBuiltins.some((p) => p.id === builtin.id),
+    )
     settings.provisioning = {
-      provisioners: settings.provisioning?.provisioners?.length
-        ? settings.provisioning.provisioners.map((provisioner) => ({ ...provisioner }))
-        : [...(DEFAULT_SETTINGS.provisioning?.provisioners ?? [])],
+      provisioners: withoutStaleBuiltins.length || missingBuiltins.length
+        ? [...withoutStaleBuiltins, ...missingBuiltins]
+        : [...defaultBuiltins],
     }
     return settings
   }

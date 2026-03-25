@@ -13,14 +13,14 @@ beforeEach(() => {
       return Promise.resolve({
         templates: [
           {
-            id: 'web-react-vite',
-            qualifiedId: 'oss-bundled:web-react-vite',
+            id: 'vercel-starter',
+            qualifiedId: 'vercel-bundled:vercel-starter',
             title: 'Web App',
             description: 'Starter app.',
             category: 'Web',
             tags: ['react'],
-            provisionerId: 'oss-bundled',
-            provisionerLabel: 'Open Source Templates',
+            provisionerId: 'vercel-bundled',
+            provisionerLabel: 'Vercel Templates',
             catalogSource: 'cache',
             isStale: true,
             paramsSchema: {
@@ -45,8 +45,8 @@ beforeEach(() => {
         ],
         provisioners: [
           {
-            provisionerId: 'oss-bundled',
-            provisionerLabel: 'Open Source Templates',
+            provisionerId: 'vercel-bundled',
+            provisionerLabel: 'Vercel Templates',
             enabled: true,
             source: 'cache',
             state: 'healthy',
@@ -93,7 +93,7 @@ describe('Dashboard', () => {
       expect(mockInvoke).toHaveBeenCalledWith('provisioning:list-templates')
     })
 
-    expect(screen.getByText('Open Source Templates')).toBeInTheDocument()
+    expect(screen.getByText('Vercel Templates')).toBeInTheDocument()
     expect(screen.getByText('Cached')).toBeInTheDocument()
     expect(screen.getByText('Stale')).toBeInTheDocument()
 
@@ -116,7 +116,7 @@ describe('Dashboard', () => {
       expect(props.onStart).toHaveBeenCalledWith({
         name: 'feedback-board',
         description: 'Collect customer feedback and trends.',
-        templateQualifiedId: 'oss-bundled:web-react-vite',
+        templateQualifiedId: 'vercel-bundled:vercel-starter',
         templateTitle: 'Web App',
         inputs: {
           name: 'feedback-board',
