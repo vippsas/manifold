@@ -2,7 +2,7 @@ import { execFile } from 'node:child_process'
 
 function run(command: string, args: string[]): Promise<string> {
   return new Promise((resolve, reject) => {
-    execFile(command, args, { timeout: 30_000 }, (error, stdout, stderr) => {
+    execFile(command, args, { timeout: 30_000, env: { ...process.env, GH_NO_UPDATE_NOTIFIER: '1' } }, (error, stdout, stderr) => {
       if (error) {
         reject(new Error(stderr.trim() || error.message))
         return

@@ -97,6 +97,10 @@ export async function runProvisionerRequest<T>(
         const line = stdoutBuffer.slice(0, newlineIndex).trim()
         stdoutBuffer = stdoutBuffer.slice(newlineIndex + 1)
         if (line) {
+          if (!line.startsWith('{')) {
+            // Skip non-JSON lines (e.g. "Checking for update" from gh CLI)
+            continue
+          }
           try {
             maybeResolveOrReject(JSON.parse(line) as ProvisionerEvent<T>)
           } catch (err) {
