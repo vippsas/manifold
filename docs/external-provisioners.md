@@ -19,6 +19,40 @@ The canonical runtime contract lives in:
 
 This document should match that code.
 
+## Before You Start
+
+An external provisioner is a standalone CLI executable with no code dependency on Manifold. Create it in its own repository or project directory.
+
+### Choose a Language
+
+The provisioner only needs to read JSON from `stdin` and write JSON lines to `stdout`. Any language that can do this works: Node.js/TypeScript, Python, Go, Bash, etc.
+
+### Decide What Your Provisioner Creates
+
+Before writing code, know the answers to:
+
+- What kind of repositories will it create? (GitHub template repos, Cookiecutter scaffolds, org-specific templates, etc.)
+- What templates will it offer via `listTemplates`?
+- Does it need authentication to an external service (GitHub API, Backstage, etc.)?
+
+### Have Ready
+
+- API tokens or credentials for any service your provisioner calls (GitHub, GitLab, Backstage, etc.). Keep these inside the provisioner's own configuration — Manifold does not manage provisioner secrets.
+- A unique `id` for your provisioner (e.g., `company-backstage`).
+- A human-readable `label` (e.g., `Company Templates`).
+
+### Operations to Implement
+
+| Operation | What it does |
+|---|---|
+| `listTemplates` | Return available repo templates |
+| `create` | Create a repo from a template and return its `repoUrl` |
+| `health` | Report whether the provisioner is functional |
+
+### Register in Manifold
+
+Once your provisioner executable is ready, register it in Manifold settings (see [Settings Example](#settings-example) below).
+
 ## Provisioner Model
 
 An external provisioner is a local CLI executable.
