@@ -42,59 +42,9 @@ export class MemoryInjector {
     private settingsStore: SettingsStore
   ) {}
 
-  async injectContext(session: InternalSession): Promise<void> {
-    const settings = this.settingsStore.getSettings()
-    if (!settings.memory?.injectionEnabled) {
-      return
-    }
-
-    try {
-      const summaries = this.memoryStore.getRecentSummaries(session.projectId, 5)
-
-      let observations: MemoryObservation[] = []
-      if (session.taskDescription) {
-        const searchResult = this.memoryStore.searchObservations(
-          session.projectId,
-          session.taskDescription
-        )
-        // Fetch full observations to get narrative/concepts
-        observations = searchResult.results
-          .map((r) => this.memoryStore.getObservationById(session.projectId, r.id))
-          .filter((o): o is MemoryObservation => o !== null)
-      } else {
-        observations = this.memoryStore.getRecentObservations(session.projectId, 10)
-      }
-
-      if (summaries.length === 0 && observations.length === 0) {
-        debugLog(`[MemoryInjector] No memory context to inject for session ${session.id}`)
-        return
-      }
-
-      const tokenBudget = settings.memory.injectionTokenBudget || DEFAULT_TOKEN_BUDGET
-      const markdown = this.buildContextMarkdown(summaries, observations, tokenBudget)
-
-      if (!markdown) return
-
-      const contextPath = join(session.worktreePath, CONTEXT_FILE_NAME)
-
-      let existing = ''
-      try {
-        existing = await readFile(contextPath, 'utf-8')
-      } catch {
-        // File doesn't exist yet
-      }
-
-      // Remove any previous injected section
-      const cleaned = this.removeMarkerSection(existing)
-      const newContent = cleaned
-        ? `${cleaned.trimEnd()}\n\n${markdown}\n`
-        : `${markdown}\n`
-
-      await writeFile(contextPath, newContent, 'utf-8')
-      debugLog(`[MemoryInjector] Injected memory context into ${contextPath}`)
-    } catch (err) {
-      debugLog(`[MemoryInjector] Error injecting context: ${err}`)
-    }
+  async injectContext(_session: InternalSession): Promise<void> {
+    // Memory injection disabled — feature not ready yet
+    return
   }
 
   buildContextMarkdown(

@@ -98,7 +98,8 @@ describe('MemoryInjector', () => {
 
       await injector.injectContext(session)
 
-      expect(fs.existsSync(path.join(worktreePath, 'MANIFOLD.md'))).toBe(true)
+      // Memory injection is disabled — no files should be written
+      expect(fs.existsSync(path.join(worktreePath, 'MANIFOLD.md'))).toBe(false)
       expect(fs.existsSync(path.join(worktreePath, 'AGENTS.md'))).toBe(false)
       expect(fs.existsSync(path.join(worktreePath, 'CLAUDE.md'))).toBe(false)
       expect(fs.existsSync(path.join(worktreePath, 'GEMINI.md'))).toBe(false)
