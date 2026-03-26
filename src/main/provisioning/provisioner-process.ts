@@ -34,6 +34,7 @@ export async function runProvisionerRequest<T>(
       stdio: ['pipe', 'pipe', 'pipe'],
       env: {
         ...process.env,
+        ELECTRON_RUN_AS_NODE: '1',
       },
     })
 
