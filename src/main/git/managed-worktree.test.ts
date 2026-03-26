@@ -7,25 +7,17 @@ const { spawnMock } = vi.hoisted(() => ({
 }))
 
 const {
-  mockExecFileAsync,
   readFileMock,
   writeFileMock,
   renameMock,
 } = vi.hoisted(() => ({
-  mockExecFileAsync: vi.fn(),
   readFileMock: vi.fn(),
   writeFileMock: vi.fn(),
   renameMock: vi.fn(),
 }))
 
-vi.mock('node:util', () => ({
-  promisify: () => mockExecFileAsync,
-  default: { promisify: () => mockExecFileAsync },
-}))
-
 vi.mock('node:child_process', () => ({
-  default: { execFile: vi.fn(), spawn: spawnMock },
-  execFile: vi.fn(),
+  default: { spawn: spawnMock },
   spawn: spawnMock,
 }))
 
@@ -44,7 +36,6 @@ import {
   commitManagedWorktree,
   ensureManagedWorktreeGuards,
   getManagedWorktreeStatus,
-  prepareManagedWorktree,
 } from './managed-worktree'
 
 function fakeSpawnResult(stdout: string, exitCode = 0, stderr = ''): ChildProcess {
@@ -78,7 +69,6 @@ function mockSpawnSequence(
 describe('managed-worktree', () => {
   beforeEach(() => {
     vi.clearAllMocks()
-    mockExecFileAsync.mockReset()
     readFileMock.mockResolvedValue('')
     writeFileMock.mockResolvedValue(undefined)
     renameMock.mockResolvedValue(undefined)
@@ -116,44 +106,6 @@ describe('managed-worktree', () => {
     await ensureManagedWorktreeGuards('/worktree')
 
     expect(writeFileMock).not.toHaveBeenCalled()
-  })
-
-  it('disables all enabled Claude plugins in local scope when preparing a worktree', async () => {
-    readFileMock.mockResolvedValue('# manifold: managed-worktree excludes start\n')
-    mockSpawnSequence([
-      { stdout: '/repo/.git/info/exclude\n' },
-    ])
-    mockExecFileAsync
-      .mockResolvedValueOnce({
-        stdout: JSON.stringify([
-          { id: 'superpowers@claude-plugins-official', enabled: true },
-          { id: 'feature-dev@claude-plugins-official', enabled: true },
-          { id: 'already-disabled@claude-plugins-official', enabled: false },
-        ]),
-        stderr: '',
-      })
-      .mockResolvedValue({ stdout: '', stderr: '' })
-
-    await prepareManagedWorktree('/worktree')
-
-    expect(mockExecFileAsync).toHaveBeenNthCalledWith(
-      1,
-      'claude',
-      ['plugins', 'list', '--json'],
-      { cwd: '/worktree' },
-    )
-    expect(mockExecFileAsync).toHaveBeenNthCalledWith(
-      2,
-      'claude',
-      ['plugins', 'disable', '--scope', 'local', 'superpowers@claude-plugins-official'],
-      { cwd: '/worktree' },
-    )
-    expect(mockExecFileAsync).toHaveBeenNthCalledWith(
-      3,
-      'claude',
-      ['plugins', 'disable', '--scope', 'local', 'feature-dev@claude-plugins-official'],
-      { cwd: '/worktree' },
-    )
   })
 
   it('stages all changes with git add -A before committing', async () => {
