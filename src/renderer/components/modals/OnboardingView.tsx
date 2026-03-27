@@ -33,6 +33,20 @@ interface NoAgentProps {
 type OnboardingViewProps = NoProjectProps | NoAgentProps
 
 export function OnboardingView(props: OnboardingViewProps): React.JSX.Element {
+  const onBack = props.variant === 'no-project' ? props.onBack : undefined
+
+  React.useEffect(() => {
+    if (!onBack) return
+    const handleKeyDown = (e: KeyboardEvent): void => {
+      if (e.key === 'Escape') {
+        e.preventDefault()
+        onBack()
+      }
+    }
+    window.addEventListener('keydown', handleKeyDown)
+    return () => window.removeEventListener('keydown', handleKeyDown)
+  }, [onBack])
+
   return (
     <div
       style={{
