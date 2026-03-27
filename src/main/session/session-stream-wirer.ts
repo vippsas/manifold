@@ -132,12 +132,13 @@ export class SessionStreamWirer {
       session.pid = null
       session.ptyId = ''
 
-      if (session.detectedUrl) {
-        // The agent already started the dev server and we detected its URL
-        // from the stream-json output — no need to start another one.
+      if (session.detectedUrl || session.devServerPtyId) {
+        // URL already detected or dev server already started (from result event).
         debugLog(`[session] initial build finished, URL already detected: ${session.detectedUrl}`)
-        session.status = 'waiting'
-        this.sendToRenderer('agent:status', { sessionId: session.id, status: 'waiting' })
+        if (session.status !== 'running') {
+          session.status = 'waiting'
+          this.sendToRenderer('agent:status', { sessionId: session.id, status: 'waiting' })
+        }
       } else {
         debugLog(`[session] initial build finished, starting dev server in ${session.worktreePath}`)
         this.onDevServerNeeded(session)
@@ -213,8 +214,12 @@ export class SessionStreamWirer {
       // linger for over a minute after the result is emitted).
       // Guard: skip if a new process has already replaced this one.
       if (!ptyId || session.ptyId === ptyId) {
-        session.status = 'waiting'
-        this.sendToRenderer('agent:status', { sessionId: session.id, status: 'waiting' })
+        if (!session.detectedUrl && !session.devServerPtyId) {
+          this.onDevServerNeeded(session)
+        } else {
+          session.status = 'waiting'
+          this.sendToRenderer('agent:status', { sessionId: session.id, status: 'waiting' })
+        }
       }
     }
   }
@@ -243,8 +248,12 @@ export class SessionStreamWirer {
     }
 
     if (type === 'turn.completed' && (!ptyId || session.ptyId === ptyId)) {
-      session.status = 'waiting'
-      this.sendToRenderer('agent:status', { sessionId: session.id, status: 'waiting' })
+      if (!session.detectedUrl && !session.devServerPtyId) {
+        this.onDevServerNeeded(session)
+      } else {
+        session.status = 'waiting'
+        this.sendToRenderer('agent:status', { sessionId: session.id, status: 'waiting' })
+      }
     }
   }
 
@@ -263,4 +272,5 @@ export class SessionStreamWirer {
       adapter?.addAgentMessage(session.id, text)
     }
   }
+
 }

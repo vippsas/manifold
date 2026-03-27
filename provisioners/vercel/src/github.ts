@@ -16,6 +16,20 @@ export async function getAuthenticatedUser(): Promise<string> {
   return run('gh', ['api', 'user', '--jq', '.login'])
 }
 
+async function waitForTemplateReady(fullName: string, timeoutMs = 30_000, intervalMs = 2_000): Promise<void> {
+  const deadline = Date.now() + timeoutMs
+  while (Date.now() < deadline) {
+    try {
+      await run('gh', ['api', `repos/${fullName}/commits`, '--jq', '.[0].sha', '-q'])
+      return
+    } catch {
+      // Template content not ready yet — repo is still empty.
+    }
+    await new Promise((resolve) => setTimeout(resolve, intervalMs))
+  }
+  // Timed out waiting, but proceed anyway — the clone will get whatever state exists.
+}
+
 export async function createRepoFromTemplate(
   templateRepo: string,
   name: string,
@@ -33,6 +47,8 @@ export async function createRepoFromTemplate(
     '--private',
     '--confirm',
   ])
+
+  await waitForTemplateReady(fullName)
 
   return {
     repoUrl: `git@github.com:${fullName}.git`,
