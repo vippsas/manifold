@@ -9,6 +9,7 @@ import {
   type ProvisioningProgressPayload,
 } from '../../shared/provisioning-types'
 import { fromProvisionerErrorPayload, ProvisioningError } from './provisioning-errors'
+import { debugLog } from '../app/debug-log'
 
 function isProgressEvent<T>(event: ProvisionerEvent<T>): event is ProvisionerProgressEvent {
   return event.event === 'progress'
@@ -30,6 +31,7 @@ export async function runProvisionerRequest<T>(
   options?: { timeoutMs?: number },
 ): Promise<T> {
   return await new Promise<T>((resolve, reject) => {
+    debugLog(`[provisioning] spawning provisioner: ${command} ${args.join(' ')}`)
     const child = spawn(command, args, {
       stdio: ['pipe', 'pipe', 'pipe'],
       env: {
@@ -128,6 +130,7 @@ export async function runProvisionerRequest<T>(
     })
 
     child.on('error', (err) => {
+      debugLog(`[provisioning] provisioner spawn error: ${err.message}`)
       if (settled) return
       settled = true
       finish()
@@ -150,6 +153,7 @@ export async function runProvisionerRequest<T>(
         }
       }
       const stderrText = stderrBuffer.trim()
+      debugLog(`[provisioning] provisioner exited with code ${code ?? 'unknown'}: ${stderrText.slice(0, 500)}`)
       reject(new ProvisioningError('provisioner_unavailable', stderrText || `Provisioner exited with code ${code ?? 'unknown'}`, {
         code: 'provisioner_exit_failure',
         retryable: true,
