@@ -14,6 +14,11 @@ function slugify(text: string): string {
   return text.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 60) || 'new-project'
 }
 
+function sshToHttps(repoUrl: string): string | null {
+  const match = repoUrl.match(/^git@github\.com:([^/]+\/[^/.]+?)(?:\.git)?$/)
+  return match ? `https://github.com/${match[1]}.git` : null
+}
+
 async function cloneProject(repoUrl: string, targetDir: string): Promise<void> {
   if (repoUrl.startsWith('-')) {
     throw new ProvisioningError('clone_failed', 'Invalid repository source', {
@@ -26,11 +31,25 @@ async function cloneProject(repoUrl: string, targetDir: string): Promise<void> {
     if (path.isAbsolute(repoUrl) && existsSync(repoUrl)) {
       await execFileAsync('git', ['remote', 'remove', 'origin'], { cwd: targetDir }).catch(() => {})
     }
-  } catch (error) {
-    throw new ProvisioningError('clone_failed', 'Failed to clone provisioned repository', {
-      code: 'clone_failed',
-      details: { repoUrl, reason: error instanceof Error ? error.message : String(error) },
-    })
+  } catch (sshError) {
+    const httpsUrl = sshToHttps(repoUrl)
+    if (!httpsUrl) {
+      throw new ProvisioningError('clone_failed', 'Failed to clone provisioned repository', {
+        code: 'clone_failed',
+        details: { repoUrl, reason: sshError instanceof Error ? sshError.message : String(sshError) },
+      })
+    }
+    try {
+      rmSync(targetDir, { recursive: true, force: true })
+    } catch { /* best-effort cleanup before retry */ }
+    try {
+      await execFileAsync('git', ['clone', '--', httpsUrl, targetDir])
+    } catch (httpsError) {
+      throw new ProvisioningError('clone_failed', 'Failed to clone provisioned repository', {
+        code: 'clone_failed',
+        details: { repoUrl, reason: httpsError instanceof Error ? httpsError.message : String(httpsError) },
+      })
+    }
   }
 }
 

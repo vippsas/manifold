@@ -9,6 +9,7 @@ import { SessionStreamWirer } from './session-stream-wirer'
 import { writeWorktreeMeta } from '../git/worktree-meta'
 import { gitExec } from '../git/git-exec'
 import { generateBranchName } from '../git/branch-namer'
+import { pickRandomNorwegianCityName } from '../../shared/norwegian-cities'
 import type { ChatAdapter } from '../agent/chat-adapter'
 import type { MemoryInjector } from '../memory/memory-injector'
 import { debugLog } from '../app/debug-log'
@@ -52,7 +53,8 @@ export class SessionCreator {
         // Creating a new branch — ensure working tree is clean to avoid
         // accidentally including unintended changes.
         await this.assertCleanWorkingTree(project.path)
-        const branch = options.branchName ?? (await generateBranchName(project.path, options.prompt ?? ''))
+        const branchHint = options.nonInteractive ? pickRandomNorwegianCityName() : (options.prompt ?? '')
+        const branch = options.branchName ?? (await generateBranchName(project.path, branchHint))
         await gitExec(['checkout', '-b', branch], project.path)
         worktree = { branch, path: project.path }
       }

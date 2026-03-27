@@ -47,7 +47,7 @@ async function handleCreate(request: CreateProvisionerRequest): Promise<void> {
     protocolVersion: PROVISIONER_PROTOCOL_VERSION,
     event: 'progress',
     requestId: request.requestId,
-    message: `Repository ${fullName} created.`,
+    message: `Repository ${fullName} ready.`,
     stage: 'provisioning',
     status: 'done',
   })
