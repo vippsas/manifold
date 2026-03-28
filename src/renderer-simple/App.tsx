@@ -2,10 +2,12 @@ import React, { useState, useEffect, useLayoutEffect, useCallback } from 'react'
 import { Dashboard } from './components/Dashboard'
 import type { StartAppRequest } from './components/Dashboard'
 import { AppView } from './components/AppView'
+import { DeployModal } from './components/DeployModal'
 import { useApps } from './hooks/useApps'
 import { useAgentStatus } from './hooks/useAgentStatus'
 import { useChat } from './hooks/useChat'
 import { usePreview } from './hooks/usePreview'
+import { useDeploy } from './hooks/useDeploy'
 import { buildSimplePrompt } from '../shared/simple-prompts'
 import type { SimpleApp } from '../shared/simple-types'
 import { loadTheme, migrateLegacyTheme } from '../shared/themes/registry'
@@ -72,6 +74,7 @@ function AppViewWrapper({ app, onBack }: { app: SimpleApp; onBack: () => void })
   const { status: agentStatus, durationMs } = useAgentStatus(app.sessionId)
   const { messages, sendMessage } = useChat(app.sessionId)
   const { previewUrl } = usePreview(app.sessionId)
+  const { deployStatus, liveUrl, showSetupModal, setupHealth, deploy, dismissModal, onSetupComplete } = useDeploy(app.sessionId)
   const devServerStartedRef = React.useRef(false)
 
   // When agent finishes and no preview URL was detected, auto-start the dev
@@ -98,23 +101,32 @@ function AppViewWrapper({ app, onBack }: { app: SimpleApp; onBack: () => void })
   }, [app.sessionId])
 
   return (
-    <AppView
-      status={status}
-      messages={messages}
-      previewUrl={previewUrl}
-      isAgentWorking={agentStatus === 'running'}
-      agentDurationMs={durationMs}
-      onSendMessage={sendMessage}
-      onInterrupt={interruptAgent}
-      onBack={onBack}
-      onDeploy={() => {
-        /* TODO: deployment in later task */
-      }}
-      runtimeLabel={getSimpleRuntimeLabel(app.runtimeId)}
-      onDevMode={() => {
-        window.electronAPI.invoke('app:switch-mode', 'developer', app.projectId, app.sessionId, app.runtimeId)
-      }}
-    />
+    <>
+      <AppView
+        status={status}
+        messages={messages}
+        previewUrl={previewUrl}
+        isAgentWorking={agentStatus === 'running'}
+        agentDurationMs={durationMs}
+        onSendMessage={sendMessage}
+        onInterrupt={interruptAgent}
+        onBack={onBack}
+        onDeploy={deploy}
+        liveUrl={liveUrl}
+        deployStatus={deployStatus}
+        runtimeLabel={getSimpleRuntimeLabel(app.runtimeId)}
+        onDevMode={() => {
+          window.electronAPI.invoke('app:switch-mode', 'developer', app.projectId, app.sessionId, app.runtimeId)
+        }}
+      />
+      {showSetupModal && setupHealth && (
+        <DeployModal
+          health={setupHealth}
+          onComplete={onSetupComplete}
+          onCancel={dismissModal}
+        />
+      )}
+    </>
   )
 }
 
