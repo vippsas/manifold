@@ -44,15 +44,16 @@ export function applyDefaultLayout(api: DockviewApi): void {
 
   filesPanel.api.setActive()
 
-  try {
-    const sidebarWidth = Math.round(api.width / 6)
-    // Set the right panel first so it doesn't absorb leftover space,
-    // then set the left panel to the same width.
-    filesPanel.group?.api.setSize({ width: sidebarWidth })
-    projectsPanel.group?.api.setSize({ width: sidebarWidth })
-  } catch {
-    // sizing is best-effort
-  }
+  // Defer sizing to next frame so api.width reflects the actual container.
+  requestAnimationFrame(() => {
+    try {
+      const sidebarWidth = Math.round(api.width / 6)
+      filesPanel.group?.api.setSize({ width: sidebarWidth })
+      projectsPanel.group?.api.setSize({ width: sidebarWidth })
+    } catch {
+      // sizing is best-effort
+    }
+  })
 }
 
 export function applyMinimalPanels(api: DockviewApi): void {
