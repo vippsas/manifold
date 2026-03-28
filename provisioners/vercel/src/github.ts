@@ -1,5 +1,19 @@
 import { execFile } from 'node:child_process'
 
+/**
+ * GitHub repo names may only contain alphanumeric characters, hyphens,
+ * underscores, and periods.  Anything else (e.g. `&`, spaces) is replaced
+ * with a hyphen so the name we pass to `gh repo create` is the same name
+ * that appears in the clone URL.
+ */
+export function sanitizeGitHubRepoName(name: string): string {
+  return name
+    .replace(/[^a-zA-Z0-9._-]/g, '-')
+    .replace(/-{2,}/g, '-')
+    .replace(/^[-.]+|[-.]+$/g, '')
+    || 'new-project'
+}
+
 function run(command: string, args: string[]): Promise<string> {
   return new Promise((resolve, reject) => {
     execFile(command, args, { timeout: 30_000, env: { ...process.env, GH_NO_UPDATE_NOTIFIER: '1' } }, (error, stdout, stderr) => {
@@ -36,7 +50,8 @@ export async function createRepoFromTemplate(
   owner?: string,
 ): Promise<{ repoUrl: string; fullName: string }> {
   const resolvedOwner = owner?.trim() || (await getAuthenticatedUser())
-  const fullName = `${resolvedOwner}/${name}`
+  const safeName = sanitizeGitHubRepoName(name)
+  const fullName = `${resolvedOwner}/${safeName}`
 
   await run('gh', [
     'repo',
