@@ -89,7 +89,7 @@ installCli(): Promise<void>           — runs `npm i -g vercel`, throws on fail
 login(): Promise<void>                — runs `vercel login --github`, polls `whoami` for completion
 ```
 
-All commands use `execFileNoThrow` from `src/utils/execFileNoThrow.ts` (safe from shell injection, handles Windows compatibility). Uses the same PATH resolution as agent CLI discovery (`loadShellPath()`).
+All commands use `execFile` from `node:child_process` (promisified via `node:util`), following the same pattern as `PrCreator` (`src/main/git/pr-creator.ts`). Uses `execFile` not `exec` to prevent shell injection.
 
 The `login()` method spawns `vercel login --github` (which opens the browser), then polls `vercel whoami` every 2 seconds for up to 120 seconds. Returns successfully when `whoami` returns a username. Throws on timeout.
 
