@@ -18,11 +18,11 @@ type Direction = 'right' | 'left' | 'above' | 'below' | 'within'
 
 // Fallback positions when no snapshot exists (matches default layout).
 const PANEL_RESTORE_HINTS: Record<DockPanelId, Array<{ ref: DockPanelId; dir: Direction }>> = {
-  projects: [{ ref: 'fileTree', dir: 'above' }, { ref: 'agent', dir: 'left' }],
-  agent: [{ ref: 'projects', dir: 'right' }, { ref: 'editor', dir: 'left' }, { ref: 'shell', dir: 'above' }],
+  projects: [{ ref: 'agent', dir: 'left' }, { ref: 'fileTree', dir: 'left' }],
+  agent: [{ ref: 'projects', dir: 'right' }, { ref: 'fileTree', dir: 'left' }, { ref: 'editor', dir: 'left' }, { ref: 'shell', dir: 'above' }],
   editor: [{ ref: 'agent', dir: 'right' }, { ref: 'shell', dir: 'above' }],
-  fileTree: [{ ref: 'modifiedFiles', dir: 'within' }, { ref: 'projects', dir: 'below' }],
-  modifiedFiles: [{ ref: 'fileTree', dir: 'within' }, { ref: 'projects', dir: 'below' }],
+  fileTree: [{ ref: 'modifiedFiles', dir: 'within' }, { ref: 'agent', dir: 'right' }],
+  modifiedFiles: [{ ref: 'fileTree', dir: 'within' }, { ref: 'agent', dir: 'right' }],
   shell: [{ ref: 'agent', dir: 'below' }, { ref: 'editor', dir: 'below' }],
   search: [{ ref: 'agent', dir: 'within' }, { ref: 'editor', dir: 'within' }],
 }
@@ -198,7 +198,6 @@ export async function loadOrBuildLayout(
   } finally {
     refs.isRestoringRef.current = false
   }
-  restoreSidebarWidth(api, DEFAULT_SIDEBAR_WIDTH)
   refs.lastLayoutRef.current = api.toJSON()
 }
 

@@ -42,6 +42,7 @@ import theme_manifold_dark from './data/Manifold Dark.json'
 import theme_manifold_light from './data/Manifold Light.json'
 import theme_vipps_dark from './data/Vipps Dark.json'
 import theme_vipps_light from './data/Vipps Light.json'
+import theme_jacob_co_dark from './data/Jacob Co Dark.json'
 import theme_monoindustrial from './data/monoindustrial.json'
 
 export const themeDataByLabel: Record<string, unknown> = {
@@ -85,6 +86,7 @@ export const themeDataByLabel: Record<string, unknown> = {
   "Vipps Light": theme_vipps_light,
   "Zenburnesque": theme_zenburnesque,
   "idleFingers": theme_idlefingers,
+  "Jacob Co Dark": theme_jacob_co_dark,
   "krTheme": theme_krtheme,
   "monoindustrial": theme_monoindustrial,
 }
@@ -130,6 +132,7 @@ export const themeList: Record<string, string> = {
   "vipps-light": "Vipps Light",
   "zenburnesque": "Zenburnesque",
   "idlefingers": "idleFingers",
+  "jacob-co-dark": "Jacob Co Dark",
   "krtheme": "krTheme",
   "monoindustrial": "monoindustrial",
 }

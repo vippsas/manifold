@@ -68,6 +68,12 @@ function applySimpleThemeVars(theme: ConvertedTheme): void {
   root.style.setProperty('--bg', vars['--bg-primary'])
   root.style.setProperty('--surface', vars['--bg-secondary'])
   root.style.setProperty('--text', vars['--text-primary'])
+  root.style.setProperty('--accent-dim', vars['--accent-dim'])
+  root.style.setProperty('--shadow-elevated', vars['--shadow-elevated'])
+  root.style.setProperty('--shadow-overlay', vars['--shadow-overlay'])
+  root.style.setProperty('--shadow-subtle', vars['--shadow-subtle'])
+  root.style.setProperty('--bg-chrome-hi', vars['--bg-chrome-hi'])
+  root.style.setProperty('--bg-chrome-lo', vars['--bg-chrome-lo'])
 }
 
 function AppViewWrapper({ app, onBack }: { app: SimpleApp; onBack: () => void }): React.JSX.Element {

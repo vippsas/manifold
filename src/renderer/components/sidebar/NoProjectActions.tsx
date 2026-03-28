@@ -121,7 +121,7 @@ export function NoProjectActions({
           </button>
         </div>
         {createError && !showClone && (
-          <div style={{ fontSize: 12, color: 'var(--status-error, #f44)' }}>{createError}</div>
+          <div style={{ fontSize: 12, color: 'var(--error)' }}>{createError}</div>
         )}
       </form>
 
@@ -174,7 +174,7 @@ export function NoProjectActions({
             </button>
           </form>
           {createError && showClone && (
-            <div style={{ fontSize: 12, color: 'var(--status-error, #f44)', maxWidth: 480 }}>{createError}</div>
+            <div style={{ fontSize: 12, color: 'var(--error)', maxWidth: 480 }}>{createError}</div>
           )}
         </>
       )}

@@ -16,6 +16,7 @@ export const bubble = (isUser: boolean): CSSProperties => ({
   background: isUser ? 'transparent' : 'var(--surface)',
   color: 'var(--text)',
   border: isUser ? '1px solid var(--accent)' : '1px solid var(--border)',
+  boxShadow: isUser ? undefined : 'var(--shadow-subtle)',
 })
 
 export const optionsSection: CSSProperties = {

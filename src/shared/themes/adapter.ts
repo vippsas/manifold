@@ -113,6 +113,7 @@ export function convertTheme(themeJson: MonacoThemeJson, _themeId: string): Conv
     '--accent': accent,
     '--accent-text': luminance(accent) > 0.4 ? '#000000' : '#ffffff',
     '--accent-hover': lighten(accent, 15),
+    '--accent-dim': darken(accent, 30),
 
     // Button colors — themes can override via button.background / button.foreground
     '--btn-bg': c('button.foreground') ? (c('input.background') ?? editorBg) : accent,
@@ -161,6 +162,18 @@ export function convertTheme(themeJson: MonacoThemeJson, _themeId: string): Conv
     '--bg-chrome': c('titleBar.activeBackground')
       ?? c('editorGroupHeader.tabsBackground')
       ?? (isDark ? lighten(editorBg, 7) : darken(editorBg, 5)),
+    '--bg-chrome-hi': lighten(
+      c('titleBar.activeBackground')
+        ?? c('editorGroupHeader.tabsBackground')
+        ?? (isDark ? lighten(editorBg, 8) : darken(editorBg, 5)),
+      3,
+    ),
+    '--bg-chrome-lo': darken(
+      c('titleBar.activeBackground')
+        ?? c('editorGroupHeader.tabsBackground')
+        ?? (isDark ? lighten(editorBg, 8) : darken(editorBg, 5)),
+      3,
+    ),
     '--bg-chrome-active': c('tab.activeBackground')
       ?? editorBg,
     '--bg-overlay': c('editorWidget.background')
@@ -190,9 +203,9 @@ export function convertTheme(themeJson: MonacoThemeJson, _themeId: string): Conv
     '--list-inactive-bg': c('list.inactiveSelectionBackground')
       ?? (isDark ? '#37373d' : '#e4e6f1'),
     '--sidebar-active-bg': c('list.inactiveSelectionBackground')
-      ?? withOpacity(accent, isDark ? 0.14 : 0.1),
+      ?? withOpacity(accent, isDark ? 0.08 : 0.06),
     '--sidebar-active-border': c('list.activeSelectionBackground')
-      ?? withOpacity(accent, isDark ? 0.28 : 0.18),
+      ?? withOpacity(accent, isDark ? 0.15 : 0.1),
     '--sidebar-active-text': c('list.activeSelectionForeground')
       ?? editorFg,
     '--statusbar-bg': c('statusBar.background')
@@ -205,9 +218,12 @@ export function convertTheme(themeJson: MonacoThemeJson, _themeId: string): Conv
     '--success-subtle': withOpacity(success, isDark ? 0.16 : 0.12),
     '--warning-subtle': withOpacity(warning, isDark ? 0.16 : 0.12),
     '--error-subtle': withOpacity(error, isDark ? 0.16 : 0.12),
-    '--shadow-subtle': isDark ? '0 1px 0 rgba(255, 255, 255, 0.03)' : '0 1px 0 rgba(0, 0, 0, 0.06)',
-    '--shadow-popover': isDark ? '0 8px 24px rgba(0, 0, 0, 0.24)' : '0 8px 24px rgba(0, 0, 0, 0.14)',
-    '--shadow-overlay': isDark ? '0 16px 40px rgba(0, 0, 0, 0.28)' : '0 16px 36px rgba(0, 0, 0, 0.18)',
+    '--shadow-subtle': isDark ? '0 2px 8px rgba(0, 0, 0, 0.2)' : '0 2px 8px rgba(0, 0, 0, 0.1)',
+    '--shadow-popover': isDark ? '0 8px 24px rgba(0, 0, 0, 0.35)' : '0 8px 24px rgba(0, 0, 0, 0.18)',
+    '--shadow-overlay': isDark ? '0 16px 48px rgba(0, 0, 0, 0.45)' : '0 16px 36px rgba(0, 0, 0, 0.22)',
+    '--shadow-elevated': isDark
+      ? '0 4px 16px rgba(0, 0, 0, 0.3), inset 0 1px 0 rgba(255, 255, 255, 0.03)'
+      : '0 4px 16px rgba(0, 0, 0, 0.1), inset 0 1px 0 rgba(255, 255, 255, 0.5)',
   }
 
   // ── xterm.js ITheme mapping ────────────────────────────────────
