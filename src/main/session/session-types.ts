@@ -7,6 +7,7 @@ export interface InternalSession extends AgentSession {
   taskDescription?: string
   ollamaModel?: string
   detectedUrl?: string
+  detectedVercelUrl?: string
   nonInteractive?: boolean
   devServerPtyId?: string
   /** Buffer for accumulating partial NDJSON lines from stream-json output */

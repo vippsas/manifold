@@ -1,5 +1,6 @@
+import { BrowserWindow } from 'electron'
 import { PtyPool } from '../agent/pty-pool'
-import { detectStatus } from '../agent/status-detector'
+import { detectStatus, detectVercelUrl } from '../agent/status-detector'
 import { detectAddDir } from '../fs/add-dir-detector'
 import { detectUrl } from '../fs/url-detector'
 import { parseOptions } from '../agent/chat-adapter'
@@ -51,6 +52,21 @@ export class SessionStreamWirer {
             sessionId: session.id,
             url: urlResult.url,
           })
+        }
+
+        const vercelUrl = detectVercelUrl(session.outputBuffer)
+        if (vercelUrl && !session.detectedVercelUrl) {
+          session.detectedVercelUrl = vercelUrl
+          for (const win of BrowserWindow.getAllWindows()) {
+            if (!win.isDestroyed()) {
+              win.webContents.send('simple:deploy-status-update', {
+                sessionId: session.id,
+                stage: 'live',
+                message: 'Deployed successfully',
+                url: vercelUrl,
+              })
+            }
+          }
         }
       }
 
