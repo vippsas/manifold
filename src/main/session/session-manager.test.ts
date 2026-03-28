@@ -23,6 +23,7 @@ vi.mock('../agent/runtimes', () => ({
 vi.mock('../agent/status-detector', () => ({
   detectStatus: vi.fn(() => 'running'),
   detectVercelUrl: vi.fn(() => null),
+  detectVercelDeployFailure: vi.fn(() => false),
 }))
 
 vi.mock('../fs/add-dir-detector', () => ({

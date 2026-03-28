@@ -1,6 +1,6 @@
 import { BrowserWindow } from 'electron'
 import { PtyPool } from '../agent/pty-pool'
-import { detectStatus, detectVercelUrl } from '../agent/status-detector'
+import { detectStatus, detectVercelUrl, detectVercelDeployFailure } from '../agent/status-detector'
 import { detectAddDir } from '../fs/add-dir-detector'
 import { detectUrl } from '../fs/url-detector'
 import { parseOptions } from '../agent/chat-adapter'
@@ -64,6 +64,19 @@ export class SessionStreamWirer {
                 stage: 'live',
                 message: 'Deployed successfully',
                 url: vercelUrl,
+              })
+            }
+          }
+        }
+
+        if (!session.detectedVercelUrl && detectVercelDeployFailure(session.outputBuffer)) {
+          session.detectedVercelUrl = '__failed__'
+          for (const win of BrowserWindow.getAllWindows()) {
+            if (!win.isDestroyed()) {
+              win.webContents.send('simple:deploy-status-update', {
+                sessionId: session.id,
+                stage: 'error',
+                message: 'Deploy failed',
               })
             }
           }

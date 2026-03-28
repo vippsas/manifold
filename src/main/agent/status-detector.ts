@@ -97,3 +97,19 @@ export function detectVercelUrl(output: string): string | null {
   const match = output.match(VERCEL_URL_PATTERN)
   return match ? match[0] : null
 }
+
+const VERCEL_DEPLOY_ERROR_PATTERNS = [
+  /Error: .*(deploy|vercel)/i,
+  /Build failed/i,
+  /vercel deploy.*failed/i,
+  /Error!.*deploy/i,
+]
+
+/**
+ * Scans agent output for Vercel deployment failure indicators.
+ * Returns true if a deploy failure is detected.
+ */
+export function detectVercelDeployFailure(output: string): boolean {
+  const recentOutput = output.slice(-3000)
+  return VERCEL_DEPLOY_ERROR_PATTERNS.some(p => p.test(recentOutput))
+}

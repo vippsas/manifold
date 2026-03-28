@@ -103,7 +103,7 @@ export function StatusBanner({ status, isAgentWorking, onBack, onDeploy, runtime
         </button>
       )}
       {onDeploy && status === 'previewing' && !isDeploying && !isLive && !deployFailed && (
-        <button onClick={onDeploy} style={styles.deployButton} disabled={isDeploying}>
+        <button onClick={onDeploy} style={styles.deployButton}>
           Deploy ▲
         </button>
       )}
