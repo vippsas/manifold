@@ -54,33 +54,7 @@ export class SessionStreamWirer {
           })
         }
 
-        const vercelUrl = detectVercelUrl(session.outputBuffer)
-        if (vercelUrl && !session.detectedVercelUrl) {
-          session.detectedVercelUrl = vercelUrl
-          for (const win of BrowserWindow.getAllWindows()) {
-            if (!win.isDestroyed()) {
-              win.webContents.send('simple:deploy-status-update', {
-                sessionId: session.id,
-                stage: 'live',
-                message: 'Deployed successfully',
-                url: vercelUrl,
-              })
-            }
-          }
-        }
-
-        if (!session.detectedVercelUrl && detectVercelDeployFailure(session.outputBuffer)) {
-          session.detectedVercelUrl = '__failed__'
-          for (const win of BrowserWindow.getAllWindows()) {
-            if (!win.isDestroyed()) {
-              win.webContents.send('simple:deploy-status-update', {
-                sessionId: session.id,
-                stage: 'error',
-                message: 'Deploy failed',
-              })
-            }
-          }
-        }
+        this.checkVercelDeploy(session)
       }
 
       this.getChatAdapter()?.processPtyOutput(session.id, data)
@@ -113,6 +87,11 @@ export class SessionStreamWirer {
 
     this.ptyPool.onData(ptyId, (data: string) => {
       debugLog(`[stream-json] raw data (${data.length} bytes): ${data.slice(0, 500)}`)
+      session.outputBuffer += data
+      if (session.outputBuffer.length > 100_000) {
+        session.outputBuffer = session.outputBuffer.slice(-50_000)
+      }
+      this.checkVercelDeploy(session)
       session.streamJsonLineBuffer = (session.streamJsonLineBuffer ?? '') + data
       this.sendToRenderer('agent:activity', { sessionId: session.id })
 
@@ -282,6 +261,36 @@ export class SessionStreamWirer {
       } else {
         session.status = 'waiting'
         this.sendToRenderer('agent:status', { sessionId: session.id, status: 'waiting' })
+      }
+    }
+  }
+
+  private checkVercelDeploy(session: InternalSession): void {
+    const vercelUrl = detectVercelUrl(session.outputBuffer)
+    if (vercelUrl && !session.detectedVercelUrl) {
+      session.detectedVercelUrl = vercelUrl
+      for (const win of BrowserWindow.getAllWindows()) {
+        if (!win.isDestroyed()) {
+          win.webContents.send('simple:deploy-status-update', {
+            sessionId: session.id,
+            stage: 'live',
+            message: 'Deployed successfully',
+            url: vercelUrl,
+          })
+        }
+      }
+    }
+
+    if (!session.detectedVercelUrl && detectVercelDeployFailure(session.outputBuffer)) {
+      session.detectedVercelUrl = '__failed__'
+      for (const win of BrowserWindow.getAllWindows()) {
+        if (!win.isDestroyed()) {
+          win.webContents.send('simple:deploy-status-update', {
+            sessionId: session.id,
+            stage: 'error',
+            message: 'Deploy failed',
+          })
+        }
       }
     }
   }
