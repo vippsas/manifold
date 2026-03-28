@@ -18,7 +18,7 @@
   --dv-inactivegroup-hiddenpanel-tab-color: var(--text-muted);
   --dv-separator-border: var(--border);
   --dv-group-view-background-color: var(--bg-primary);
-  --dv-drag-over-background-color: rgba(0, 122, 204, 0.15);
+  --dv-drag-over-background-color: var(--accent-subtle, rgba(0, 122, 204, 0.15));
   --dv-drag-over-border-color: var(--accent);
 }
 
@@ -34,6 +34,12 @@
 .dockview-theme-manifold .dv-tab {
   font-family: inherit;
   font-size: inherit;
+}
+
+/* Sash hover — use muted accent for resize handle highlight */
+.dockview-theme-manifold .dv-sash:hover {
+  background: var(--accent-dim, var(--accent));
+  transition: background 0.15s ease;
 }
 
 .dockview-theme-manifold .dv-tabs-and-actions-container {
