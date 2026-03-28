@@ -3,7 +3,7 @@ import type { CSSProperties } from 'react'
 export const overlay: CSSProperties = {
   position: 'fixed',
   inset: 0,
-  background: 'rgba(0, 0, 0, 0.6)',
+  background: 'var(--overlay-backdrop, rgba(0, 0, 0, 0.6))',
   display: 'flex',
   alignItems: 'center',
   justifyContent: 'center',
@@ -17,6 +17,7 @@ export const modal: CSSProperties = {
   width: 400,
   textAlign: 'center',
   border: '1px solid var(--border)',
+  boxShadow: 'var(--shadow-overlay)',
 }
 
 export const logo: CSSProperties = {
