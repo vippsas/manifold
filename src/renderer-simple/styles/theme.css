@@ -12,6 +12,9 @@
   --warning: #ff9800;
   --border: #2a2a4a;
   --radius: 12px;
+  --shadow-subtle: 0 2px 8px rgba(0, 0, 0, 0.2);
+  --shadow-elevated: 0 4px 16px rgba(0, 0, 0, 0.3), inset 0 1px 0 rgba(255, 255, 255, 0.03);
+  --shadow-overlay: 0 16px 48px rgba(0, 0, 0, 0.45);
 }
 
 * {
