@@ -87,15 +87,17 @@ export function detectStatus(output: string, runtimeId: string): AgentStatus {
   return 'running'
 }
 
-const VERCEL_URL_PATTERN = /https:\/\/[\w-]+\.vercel\.app/
+const VERCEL_URL_PATTERN = /https:\/\/[\w-]+\.vercel\.app/g
 
 /**
  * Scans agent output for a Vercel production URL.
- * Returns the first matched URL or null.
+ * Vercel emits two URLs: a deployment-specific one (long, with hash) and a
+ * shorter production alias. Returns the shortest match (the production URL).
  */
 export function detectVercelUrl(output: string): string | null {
-  const match = output.match(VERCEL_URL_PATTERN)
-  return match ? match[0] : null
+  const matches = [...output.matchAll(VERCEL_URL_PATTERN)].map(m => m[0])
+  if (matches.length === 0) return null
+  return matches.reduce((shortest, url) => url.length < shortest.length ? url : shortest)
 }
 
 const VERCEL_DEPLOY_ERROR_PATTERNS = [
