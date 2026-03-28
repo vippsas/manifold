@@ -198,7 +198,6 @@ export async function loadOrBuildLayout(
   } finally {
     refs.isRestoringRef.current = false
   }
-  restoreSidebarWidth(api, DEFAULT_SIDEBAR_WIDTH)
   refs.lastLayoutRef.current = api.toJSON()
 }
 
