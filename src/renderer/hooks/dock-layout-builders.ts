@@ -1,6 +1,7 @@
 import type { DockviewApi } from 'dockview'
 import {
   PANEL_TITLES,
+  MIN_SIDEBAR_WIDTH,
   DEFAULT_SIDEBAR_WIDTH,
   isEditorPanelId,
   parseEditorPanelOrder,
@@ -32,7 +33,7 @@ export function applyDefaultLayout(api: DockviewApi): void {
     id: 'fileTree',
     component: 'fileTree',
     title: PANEL_TITLES.fileTree,
-    position: { referencePanel: projectsPanel, direction: 'below' },
+    position: { referencePanel: 'agent', direction: 'right' },
   })
 
   api.addPanel({
@@ -45,7 +46,9 @@ export function applyDefaultLayout(api: DockviewApi): void {
   filesPanel.api.setActive()
 
   try {
-    projectsPanel.group?.api.setSize({ width: DEFAULT_SIDEBAR_WIDTH })
+    const sidebarWidth = Math.max(Math.round(api.width / 6), MIN_SIDEBAR_WIDTH)
+    projectsPanel.group?.api.setSize({ width: sidebarWidth })
+    filesPanel.group?.api.setSize({ width: sidebarWidth })
   } catch {
     // sizing is best-effort
   }
