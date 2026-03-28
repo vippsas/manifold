@@ -33,5 +33,10 @@ export interface DeploymentStatus {
   url?: string
 }
 
+export interface VercelHealth {
+  cliInstalled: boolean
+  authenticated: boolean
+}
+
 // Re-export for backwards compatibility — prefer importing from simple-prompts directly.
 export { buildSimplePrompt } from './simple-prompts'

@@ -7,7 +7,7 @@ const STATUS_LABELS: Record<AppStatus, string> = {
   scaffolding: 'Setting up project...',
   building: 'Building your app...',
   previewing: 'Preview ready',
-  deploying: 'Deploying...',
+  deploying: 'Deploying to Vercel...',
   live: 'Live',
   error: 'Something went wrong',
 }
@@ -17,7 +17,7 @@ const STATUS_COLORS: Record<AppStatus, string> = {
   scaffolding: 'var(--accent)',
   building: 'var(--accent)',
   previewing: 'var(--success)',
-  deploying: 'var(--warning)',
+  deploying: 'var(--accent)',
   live: 'var(--success)',
   error: 'var(--error)',
 }
@@ -29,17 +29,37 @@ interface Props {
   onDeploy?: () => void
   runtimeLabel?: string
   onDevMode?: () => void
+  liveUrl?: string | null
+  deployStatus?: AppStatus | null
 }
 
-export function StatusBanner({ status, isAgentWorking, onBack, onDeploy, runtimeLabel, onDevMode }: Props): React.JSX.Element {
+export function StatusBanner({ status, isAgentWorking, onBack, onDeploy, runtimeLabel, onDevMode, liveUrl, deployStatus }: Props): React.JSX.Element {
+  const isDeploying = deployStatus === 'deploying'
+  const isLive = deployStatus === 'live' && liveUrl
+  const deployFailed = deployStatus === 'error'
+
+  const displayStatus = isDeploying ? 'deploying' : isLive ? 'live' : status
+  const displayLabel = isLive ? 'Live at' : STATUS_LABELS[displayStatus]
+  const displayColor = STATUS_COLORS[displayStatus]
+
   return (
     <div style={styles.container}>
       <button onClick={onBack} style={styles.backButton}>
         Back
       </button>
-      <span style={styles.statusLabel(STATUS_COLORS[status])}>
-        {STATUS_LABELS[status]}
+      <span style={styles.statusLabel(displayColor)}>
+        {isDeploying && <span style={styles.deployingSpinner} />}
+        {' '}{displayLabel}
       </span>
+      {isLive && liveUrl && (
+        <button
+          style={styles.liveUrlButton}
+          onClick={() => window.open(liveUrl, '_blank')}
+          title={liveUrl}
+        >
+          {liveUrl.replace('https://', '')}
+        </button>
+      )}
       {runtimeLabel && (
         <div style={styles.runtimeBadge}>
           AI Assistant: {runtimeLabel}
@@ -56,9 +76,35 @@ export function StatusBanner({ status, isAgentWorking, onBack, onDeploy, runtime
           Developer View
         </button>
       )}
-      {onDeploy && status === 'previewing' && (
+      {isLive && liveUrl && (
+        <>
+          <button
+            style={styles.copyButton}
+            onClick={() => navigator.clipboard.writeText(liveUrl)}
+          >
+            Copy URL
+          </button>
+          <button
+            style={styles.openButton}
+            onClick={() => window.open(liveUrl, '_blank')}
+          >
+            Open ↗
+          </button>
+        </>
+      )}
+      {isLive && onDeploy && status === 'previewing' && (
         <button onClick={onDeploy} style={styles.deployButton}>
-          Deploy
+          Redeploy ▲
+        </button>
+      )}
+      {deployFailed && onDeploy && (
+        <button onClick={onDeploy} style={styles.retryButton}>
+          Retry
+        </button>
+      )}
+      {onDeploy && status === 'previewing' && !isDeploying && !isLive && !deployFailed && (
+        <button onClick={onDeploy} style={styles.deployButton}>
+          Deploy ▲
         </button>
       )}
     </div>

@@ -5,3 +5,4 @@ dist/
 docs/plans/
 specs/
 .DS_Store
+.superpowers/

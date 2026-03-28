@@ -64,3 +64,54 @@ export const deployButton: CSSProperties = {
   fontWeight: 600,
   cursor: 'pointer',
 }
+
+export const deployingSpinner: CSSProperties = {
+  width: 14,
+  height: 14,
+  border: '2px solid var(--accent)',
+  borderTopColor: 'transparent',
+  borderRadius: '50%',
+  animation: 'spin 1s linear infinite',
+  display: 'inline-block',
+}
+
+export const liveUrlButton: CSSProperties = {
+  fontSize: 13,
+  color: 'var(--success)',
+  textDecoration: 'underline',
+  cursor: 'pointer',
+  background: 'none',
+  border: 'none',
+  fontWeight: 600,
+}
+
+export const copyButton: CSSProperties = {
+  background: 'rgba(255,255,255,0.1)',
+  border: 'none',
+  color: 'var(--text)',
+  borderRadius: 'var(--radius)',
+  padding: '6px 14px',
+  fontSize: 13,
+  cursor: 'pointer',
+}
+
+export const openButton: CSSProperties = {
+  background: 'var(--success)',
+  color: '#fff',
+  border: 'none',
+  borderRadius: 'var(--radius)',
+  padding: '6px 14px',
+  fontSize: 13,
+  fontWeight: 600,
+  cursor: 'pointer',
+}
+
+export const retryButton: CSSProperties = {
+  background: 'rgba(255,255,255,0.1)',
+  color: 'var(--text)',
+  border: 'none',
+  borderRadius: 'var(--radius)',
+  padding: '6px 14px',
+  fontSize: 13,
+  cursor: 'pointer',
+}

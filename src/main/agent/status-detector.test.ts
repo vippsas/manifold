@@ -20,7 +20,7 @@ vi.mock('./runtimes', () => ({
   }),
 }))
 
-import { detectStatus } from './status-detector'
+import { detectStatus, detectVercelUrl, detectVercelDeployFailure } from './status-detector'
 
 describe('detectStatus', () => {
   beforeEach(() => {
@@ -124,5 +124,43 @@ describe('detectStatus', () => {
       const output = padding + '❯ '
       expect(detectStatus(output, 'claude')).toBe('waiting')
     })
+  })
+})
+
+describe('detectVercelUrl', () => {
+  it('returns null when no Vercel URL is present', () => {
+    expect(detectVercelUrl('no urls here')).toBeNull()
+  })
+
+  it('returns the URL when only one is present', () => {
+    expect(detectVercelUrl('Deployed to https://my-app.vercel.app')).toBe('https://my-app.vercel.app')
+  })
+
+  it('returns the shortest (production) URL when both deployment and production URLs are present', () => {
+    const output = `
+      Inspect: https://vercel.com/team/my-app/abc123
+      Preview: https://my-app-8fk88lkx6-team.vercel.app
+      Production: https://my-app.vercel.app
+    `
+    expect(detectVercelUrl(output)).toBe('https://my-app.vercel.app')
+  })
+
+  it('returns the production URL regardless of order', () => {
+    const output = 'https://my-app.vercel.app then https://my-app-8fk88lkx6-team.vercel.app'
+    expect(detectVercelUrl(output)).toBe('https://my-app.vercel.app')
+  })
+})
+
+describe('detectVercelDeployFailure', () => {
+  it('returns false when no failure is present', () => {
+    expect(detectVercelDeployFailure('Deployed successfully')).toBe(false)
+  })
+
+  it('detects "Build failed"', () => {
+    expect(detectVercelDeployFailure('Build failed')).toBe(true)
+  })
+
+  it('detects "vercel deploy failed"', () => {
+    expect(detectVercelDeployFailure('vercel deploy has failed')).toBe(true)
   })
 })

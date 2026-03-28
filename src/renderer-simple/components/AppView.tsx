@@ -20,6 +20,8 @@ interface Props {
   onInterrupt?: () => void
   onBack: () => void
   onDeploy: () => void
+  liveUrl?: string | null
+  deployStatus?: AppStatus | null
   runtimeLabel?: string
   onDevMode: () => void
 }
@@ -34,6 +36,8 @@ export function AppView({
   onInterrupt,
   onBack,
   onDeploy,
+  liveUrl,
+  deployStatus,
   runtimeLabel,
   onDevMode,
 }: Props): React.JSX.Element {
@@ -85,6 +89,8 @@ export function AppView({
         onDeploy={onDeploy}
         runtimeLabel={runtimeLabel}
         onDevMode={onDevMode}
+        liveUrl={liveUrl}
+        deployStatus={deployStatus}
       />
       <div ref={splitRef} style={styles.splitPane}>
         <div style={chatSideStyle}>

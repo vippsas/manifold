@@ -86,3 +86,32 @@ export function detectStatus(output: string, runtimeId: string): AgentStatus {
 
   return 'running'
 }
+
+const VERCEL_URL_PATTERN = /https:\/\/[\w-]+\.vercel\.app/g
+
+/**
+ * Scans agent output for a Vercel production URL.
+ * Vercel emits two URLs: a deployment-specific one (long, with hash) and a
+ * shorter production alias. Returns the shortest match (the production URL).
+ */
+export function detectVercelUrl(output: string): string | null {
+  const matches = [...output.matchAll(VERCEL_URL_PATTERN)].map(m => m[0])
+  if (matches.length === 0) return null
+  return matches.reduce((shortest, url) => url.length < shortest.length ? url : shortest)
+}
+
+const VERCEL_DEPLOY_ERROR_PATTERNS = [
+  /Error: .*(deploy|vercel)/i,
+  /Build failed/i,
+  /vercel deploy.*failed/i,
+  /Error!.*deploy/i,
+]
+
+/**
+ * Scans agent output for Vercel deployment failure indicators.
+ * Returns true if a deploy failure is detected.
+ */
+export function detectVercelDeployFailure(output: string): boolean {
+  const recentOutput = output.slice(-3000)
+  return VERCEL_DEPLOY_ERROR_PATTERNS.some(p => p.test(recentOutput))
+}
