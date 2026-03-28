@@ -44,6 +44,7 @@
 
 .dockview-theme-manifold .dv-tabs-and-actions-container {
   align-items: stretch;
+  background: linear-gradient(180deg, var(--bg-chrome-hi, var(--bg-chrome)) 0%, var(--bg-chrome) 100%);
   display: flex;
   flex-wrap: nowrap;
   height: var(--dv-tabs-and-actions-container-height);

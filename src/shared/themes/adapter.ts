@@ -218,9 +218,9 @@ export function convertTheme(themeJson: MonacoThemeJson, _themeId: string): Conv
     '--success-subtle': withOpacity(success, isDark ? 0.16 : 0.12),
     '--warning-subtle': withOpacity(warning, isDark ? 0.16 : 0.12),
     '--error-subtle': withOpacity(error, isDark ? 0.16 : 0.12),
-    '--shadow-subtle': isDark ? '0 1px 0 rgba(255, 255, 255, 0.03)' : '0 1px 0 rgba(0, 0, 0, 0.06)',
-    '--shadow-popover': isDark ? '0 8px 24px rgba(0, 0, 0, 0.24)' : '0 8px 24px rgba(0, 0, 0, 0.14)',
-    '--shadow-overlay': isDark ? '0 16px 40px rgba(0, 0, 0, 0.28)' : '0 16px 36px rgba(0, 0, 0, 0.18)',
+    '--shadow-subtle': isDark ? '0 2px 8px rgba(0, 0, 0, 0.2)' : '0 2px 8px rgba(0, 0, 0, 0.1)',
+    '--shadow-popover': isDark ? '0 8px 24px rgba(0, 0, 0, 0.35)' : '0 8px 24px rgba(0, 0, 0, 0.18)',
+    '--shadow-overlay': isDark ? '0 16px 48px rgba(0, 0, 0, 0.45)' : '0 16px 36px rgba(0, 0, 0, 0.22)',
     '--shadow-elevated': isDark
       ? '0 4px 16px rgba(0, 0, 0, 0.3), inset 0 1px 0 rgba(255, 255, 255, 0.03)'
       : '0 4px 16px rgba(0, 0, 0, 0.1), inset 0 1px 0 rgba(255, 255, 255, 0.5)',
