@@ -267,7 +267,7 @@ export class SessionStreamWirer {
 
   private checkVercelDeploy(session: InternalSession): void {
     const vercelUrl = detectVercelUrl(session.outputBuffer)
-    if (vercelUrl && !session.detectedVercelUrl) {
+    if (vercelUrl && (!session.detectedVercelUrl || vercelUrl.length < session.detectedVercelUrl.length)) {
       session.detectedVercelUrl = vercelUrl
       for (const win of BrowserWindow.getAllWindows()) {
         if (!win.isDestroyed()) {
@@ -281,7 +281,7 @@ export class SessionStreamWirer {
       }
     }
 
-    if (!session.detectedVercelUrl && detectVercelDeployFailure(session.outputBuffer)) {
+    if ((!session.detectedVercelUrl || session.detectedVercelUrl === '__failed__') && detectVercelDeployFailure(session.outputBuffer)) {
       session.detectedVercelUrl = '__failed__'
       for (const win of BrowserWindow.getAllWindows()) {
         if (!win.isDestroyed()) {
