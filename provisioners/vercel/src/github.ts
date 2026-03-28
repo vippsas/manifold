@@ -2,16 +2,28 @@ import { execFile } from 'node:child_process'
 
 /**
  * GitHub repo names may only contain alphanumeric characters, hyphens,
- * underscores, and periods.  Anything else (e.g. `&`, spaces) is replaced
- * with a hyphen so the name we pass to `gh repo create` is the same name
- * that appears in the clone URL.
+ * underscores, and periods.  When you pass an invalid name to `gh repo create`,
+ * GitHub silently sanitizes it (e.g. replacing `&` with `-`).  We must apply
+ * the same sanitization locally so the clone URL we construct matches the
+ * actual repo name GitHub created.
+ *
+ * Invalid characters are replaced with hyphens, consecutive hyphens are
+ * collapsed, and leading/trailing hyphens and periods are stripped.
+ * Throws if the name reduces to an empty string after sanitization.
  */
 export function sanitizeGitHubRepoName(name: string): string {
-  return name
+  const sanitized = name
     .replace(/[^a-zA-Z0-9._-]/g, '-')
     .replace(/-{2,}/g, '-')
     .replace(/^[-.]+|[-.]+$/g, '')
-    || 'new-project'
+
+  if (!sanitized) {
+    throw new Error(
+      `Repository name "${name}" contains no valid characters. ` +
+      'Names must include at least one alphanumeric character, underscore, or period.',
+    )
+  }
+  return sanitized
 }
 
 function run(command: string, args: string[]): Promise<string> {

@@ -42,6 +42,18 @@ async function handleCreate(request: CreateProvisionerRequest): Promise<void> {
   })
 
   const { repoUrl, fullName } = await createRepoFromTemplate(templateRepo, name, owner)
+  const actualRepoName = fullName.split('/').pop()!
+
+  if (actualRepoName !== name) {
+    writeEvent({
+      protocolVersion: PROVISIONER_PROTOCOL_VERSION,
+      event: 'progress',
+      requestId: request.requestId,
+      message: `Repository name adjusted to "${actualRepoName}" (GitHub does not allow special characters).`,
+      stage: 'provisioning',
+      status: 'running',
+    })
+  }
 
   writeEvent({
     protocolVersion: PROVISIONER_PROTOCOL_VERSION,
@@ -57,7 +69,7 @@ async function handleCreate(request: CreateProvisionerRequest): Promise<void> {
     event: 'result',
     requestId: request.requestId,
     result: {
-      displayName: name,
+      displayName: actualRepoName,
       repoUrl,
       defaultBranch: 'main',
       metadata: {
