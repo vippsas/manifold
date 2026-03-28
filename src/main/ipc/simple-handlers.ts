@@ -2,7 +2,7 @@ import { BrowserWindow, ipcMain } from 'electron'
 import type { IpcDependencies } from './types'
 
 export function registerSimpleHandlers(deps: IpcDependencies): void {
-  const { chatAdapter, sessionManager } = deps
+  const { chatAdapter, sessionManager, vercelHealthCheck } = deps
 
   // Track active chat subscriptions per window+session to prevent duplicate listeners.
   // Key: `${webContentsId}:${sessionId}`, Value: unsubscribe function.
@@ -24,12 +24,40 @@ export function registerSimpleHandlers(deps: IpcDependencies): void {
     chatAdapter.addUserMessage(sessionId, text)
   })
 
-  ipcMain.handle('simple:deploy', async (_event, _sessionId: string) => {
-    throw new Error('Deployment is not yet implemented')
+  ipcMain.handle('simple:deploy', async (_event, sessionId: string) => {
+    const health = await vercelHealthCheck.getHealthStatus()
+    if (!health.cliInstalled || !health.authenticated) {
+      return { needsSetup: true, health }
+    }
+
+    sessionManager.sendInput(
+      sessionId,
+      'Deploy this application to Vercel production using `vercel deploy --prod --yes`. Report the production URL when complete.\n'
+    )
+
+    for (const win of BrowserWindow.getAllWindows()) {
+      if (!win.isDestroyed()) {
+        win.webContents.send('simple:deploy-status-update', {
+          sessionId,
+          stage: 'deploying',
+          message: 'Deploying to Vercel...',
+        })
+      }
+    }
+
+    return { needsSetup: false }
   })
 
   ipcMain.handle('simple:deploy-status', (_event, _sessionId: string) => {
-    return { stage: 'idle', message: 'Not deployed yet' }
+    return deps.vercelHealthCheck.getHealthStatus()
+  })
+
+  ipcMain.handle('simple:deploy-install-cli', async () => {
+    await deps.vercelHealthCheck.installCli()
+  })
+
+  ipcMain.handle('simple:deploy-login', async () => {
+    await deps.vercelHealthCheck.login()
   })
 
   ipcMain.handle('simple:get-preview-url', (_event, sessionId: string) => {

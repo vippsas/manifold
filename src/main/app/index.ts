@@ -32,6 +32,7 @@ import { MemoryStore } from '../memory/memory-store'
 import { MemoryCapture } from '../memory/memory-capture'
 import { MemoryCompressor } from '../memory/memory-compressor'
 import { MemoryInjector } from '../memory/memory-injector'
+import { VercelHealthCheck } from '../deploy/vercel-health-check'
 
 let mainWindow: BrowserWindow | null = null
 
@@ -54,6 +55,8 @@ const chatStore = new ChatStore()
 const chatAdapter = new ChatAdapter()
 chatAdapter.setChatStore(chatStore)
 sessionManager.setChatAdapter(chatAdapter)
+
+const vercelHealthCheck = new VercelHealthCheck()
 
 const memoryStore = new MemoryStore()
 const memoryCapture = new MemoryCapture(chatAdapter, memoryStore, (sid) => sessionManager.getSession(sid))
@@ -80,6 +83,7 @@ const ipcDeps = {
   chatAdapter,
   chatStore,
   memoryStore,
+  vercelHealthCheck,
 }
 
 function doCreateWindow(): void {

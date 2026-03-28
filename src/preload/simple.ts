@@ -30,6 +30,8 @@ const ALLOWED_INVOKE_CHANNELS = [
   'simple:subscribe-chat',
   'simple:deploy',
   'simple:deploy-status',
+  'simple:deploy-install-cli',
+  'simple:deploy-login',
   'app:switch-mode',
   'app:consume-pending-launch',
   'simple:send-message',

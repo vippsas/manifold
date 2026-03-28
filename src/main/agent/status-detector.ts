@@ -86,3 +86,14 @@ export function detectStatus(output: string, runtimeId: string): AgentStatus {
 
   return 'running'
 }
+
+const VERCEL_URL_PATTERN = /https:\/\/[\w-]+\.vercel\.app/
+
+/**
+ * Scans agent output for a Vercel production URL.
+ * Returns the first matched URL or null.
+ */
+export function detectVercelUrl(output: string): string | null {
+  const match = output.match(VERCEL_URL_PATTERN)
+  return match ? match[0] : null
+}
