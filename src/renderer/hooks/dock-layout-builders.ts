@@ -1,7 +1,6 @@
 import type { DockviewApi } from 'dockview'
 import {
   PANEL_TITLES,
-  MIN_SIDEBAR_WIDTH,
   DEFAULT_SIDEBAR_WIDTH,
   isEditorPanelId,
   parseEditorPanelOrder,
@@ -46,9 +45,11 @@ export function applyDefaultLayout(api: DockviewApi): void {
   filesPanel.api.setActive()
 
   try {
-    const sidebarWidth = Math.max(Math.round(api.width / 6), MIN_SIDEBAR_WIDTH)
-    projectsPanel.group?.api.setSize({ width: sidebarWidth })
+    const sidebarWidth = Math.round(api.width / 6)
+    // Set the right panel first so it doesn't absorb leftover space,
+    // then set the left panel to the same width.
     filesPanel.group?.api.setSize({ width: sidebarWidth })
+    projectsPanel.group?.api.setSize({ width: sidebarWidth })
   } catch {
     // sizing is best-effort
   }
