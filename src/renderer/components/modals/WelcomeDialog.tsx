@@ -79,7 +79,7 @@ export function WelcomeDialog({ onAddProject, onCloneProject, onComplete }: Welc
                 </button>
               </form>
               {cloneError && (
-                <div style={{ fontSize: 12, color: 'var(--status-error, #f44)' }}>{cloneError}</div>
+                <div style={{ fontSize: 12, color: 'var(--error)' }}>{cloneError}</div>
               )}
             </>
           )}
@@ -93,7 +93,7 @@ const styles: Record<string, React.CSSProperties> = {
   overlay: {
     position: 'fixed',
     inset: 0,
-    background: 'rgba(0, 0, 0, 0.6)',
+    background: 'var(--overlay-backdrop, rgba(0, 0, 0, 0.44))',
     display: 'flex',
     alignItems: 'center',
     justifyContent: 'center',
@@ -105,7 +105,7 @@ const styles: Record<string, React.CSSProperties> = {
     borderRadius: '8px',
     width: '440px',
     maxWidth: '90vw',
-    boxShadow: '0 8px 32px rgba(0, 0, 0, 0.3)',
+    boxShadow: 'var(--shadow-overlay)',
   },
   header: {
     padding: '24px 24px 0',
