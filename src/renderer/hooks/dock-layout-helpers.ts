@@ -44,8 +44,9 @@ export interface LayoutRefs {
 
 // ── Sidebar width helpers ─────────────────────────────────────────────
 
-/** IDs of panels treated as sidebars (protected from resize redistribution). */
-const SIDEBAR_PANEL_IDS = new Set<string>(['projects', 'fileTree', 'modifiedFiles'])
+/** Anchor panels that define the sidebars (protected from resize redistribution).
+ *  modifiedFiles is intentionally excluded — it can be dragged to the center. */
+const SIDEBAR_PANEL_IDS = new Set<string>(['projects', 'fileTree'])
 
 /** Read a panel group's current pixel width (0 if unavailable). */
 function getPanelWidth(api: DockviewApi, panelId: string): number {
@@ -91,8 +92,8 @@ export function restoreSidebarWidths(api: DockviewApi, widths: { left: number; r
       c.type === 'leaf' ? c.data.views.includes('projects') : treeContainsPanel(c, 'projects'))
     const rightIdx = root.data.findIndex((c) =>
       c.type === 'leaf'
-        ? c.data.views.some((v) => v === 'fileTree' || v === 'modifiedFiles')
-        : treeContainsPanel(c, 'fileTree') || treeContainsPanel(c, 'modifiedFiles'))
+        ? c.data.views.includes('fileTree')
+        : treeContainsPanel(c, 'fileTree'))
 
     let consumed = 0
     if (leftIdx >= 0 && widths.left > 0) {
