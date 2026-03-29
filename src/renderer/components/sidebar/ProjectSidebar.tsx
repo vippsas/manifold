@@ -2,7 +2,6 @@ import React, { useCallback, useState } from 'react'
 import type { Project, AgentSession } from '../../../shared/types'
 import { sidebarStyles } from './ProjectSidebar.styles'
 import { AgentItem, formatBranchLabel, runtimeLabel } from './AgentItem'
-import { ProjectSettingsPopover } from './ProjectSettingsPopover'
 import { createDialogStyles } from '../workbench-style-primitives'
 
 const deleteDialogStyles = createDialogStyles('360px')
@@ -199,7 +198,7 @@ function ProjectList({
             isActive={true}
             onSelect={handleProjectClick}
             onRemove={onRemove}
-            onUpdateProject={onUpdateProject}
+
             isFetching={fetchingProjectId === activeProject.id}
             fetchResult={lastFetchedProjectId === activeProject.id ? fetchResult : null}
             fetchError={lastFetchedProjectId === activeProject.id ? fetchError : null}
@@ -383,7 +382,6 @@ interface ProjectItemProps {
   isActive: boolean
   onSelect: (id: string) => void
   onRemove: (e: React.MouseEvent, id: string) => void
-  onUpdateProject: (id: string, partial: Partial<Omit<Project, 'id'>>) => void
   isFetching: boolean
   fetchResult: { updatedBranch: string; commitCount: number } | null
   fetchError: string | null
@@ -395,13 +393,11 @@ function ProjectItem({
   isActive,
   onSelect,
   onRemove,
-  onUpdateProject,
   isFetching,
   fetchResult,
   fetchError,
   onFetch,
 }: ProjectItemProps): React.JSX.Element {
-  const [showSettings, setShowSettings] = useState(false)
 
   const handleClick = useCallback((): void => {
     onSelect(project.id)
@@ -415,14 +411,6 @@ function ProjectItem({
       }
     },
     [onSelect, project.id]
-  )
-
-  const handleGearClick = useCallback(
-    (e: React.MouseEvent): void => {
-      e.stopPropagation()
-      setShowSettings((prev) => !prev)
-    },
-    []
   )
 
   const handleRemoveClick = useCallback(
@@ -464,17 +452,6 @@ function ProjectItem({
           </button>
           <button
             type="button"
-            onClick={handleGearClick}
-            onKeyDown={stopKeyPropagation}
-            className="sidebar-icon-button"
-            style={sidebarStyles.removeButton}
-            aria-label={`Settings for ${project.name}`}
-            title="Repository settings"
-          >
-            &#9881;
-          </button>
-          <button
-            type="button"
             onClick={handleRemoveClick}
             onKeyDown={stopKeyPropagation}
             className="sidebar-icon-button"
@@ -485,13 +462,6 @@ function ProjectItem({
             &times;
           </button>
         </div>
-        {showSettings && (
-          <ProjectSettingsPopover
-            project={project}
-            onUpdateProject={onUpdateProject}
-            onClose={() => setShowSettings(false)}
-          />
-        )}
       </div>
       {fetchResult && (
         <div style={sidebarStyles.fetchMessage}>

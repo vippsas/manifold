@@ -194,7 +194,7 @@ describe('useProjects', () => {
 
   describe('updateProject', () => {
     it('invokes projects:update IPC and updates local state', async () => {
-      const updatedProject = { ...sampleProjects[0], autoGenerateMessages: false }
+      const updatedProject = { ...sampleProjects[0], baseBranch: 'develop' }
       mockInvoke.mockImplementation((channel: string) => {
         if (channel === 'projects:list') return Promise.resolve(sampleProjects)
         if (channel === 'projects:update') return Promise.resolve(updatedProject)
@@ -208,11 +208,11 @@ describe('useProjects', () => {
       })
 
       await act(async () => {
-        await result.current.updateProject('p1', { autoGenerateMessages: false })
+        await result.current.updateProject('p1', { baseBranch: 'develop' })
       })
 
-      expect(mockInvoke).toHaveBeenCalledWith('projects:update', 'p1', { autoGenerateMessages: false })
-      expect(result.current.projects[0].autoGenerateMessages).toBe(false)
+      expect(mockInvoke).toHaveBeenCalledWith('projects:update', 'p1', { baseBranch: 'develop' })
+      expect(result.current.projects[0].baseBranch).toBe('develop')
     })
 
     it('does not update state when IPC returns undefined', async () => {
@@ -229,7 +229,7 @@ describe('useProjects', () => {
       })
 
       await act(async () => {
-        await result.current.updateProject('unknown', { autoGenerateMessages: false })
+        await result.current.updateProject('unknown', { baseBranch: 'develop' })
       })
 
       expect(result.current.projects).toEqual(sampleProjects)
@@ -249,7 +249,7 @@ describe('useProjects', () => {
       })
 
       await act(async () => {
-        await result.current.updateProject('p1', { autoGenerateMessages: false })
+        await result.current.updateProject('p1', { baseBranch: 'develop' })
       })
 
       expect(result.current.error).toBe('update failed')

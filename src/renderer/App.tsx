@@ -99,7 +99,7 @@ export function App(): React.JSX.Element {
   useSessionStatePersistence(activeSessionId, viewState, codeView)
 
   const activeProject = projects.find((p) => p.id === activeProjectId) ?? null
-  const autoGenerateMessages = activeProject?.autoGenerateMessages !== false
+  const autoGenerateMessages = settings.autoGenerateMessages
   const worktreeShellCwd = activeSession?.worktreePath ?? null
   const { worktreeSessionId, projectSessionId } = useShellSessions(worktreeShellCwd, activeProject?.path ?? null, activeSessionId)
   const gitOps = useGitOperations(activeSessionId)
