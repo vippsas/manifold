@@ -428,7 +428,7 @@ export function showPanelFromHints(api: DockviewApi, id: DockPanelId, refs?: Lay
     ...(position ? { position } : {}),
   })
   if (usedDirection === 'below') {
-    applyPanelHeightFraction(api, id, 0.25, refs)
+    applyPanelHeightFraction(api, id, 1 / 3, refs)
   }
   restoreSidebarWidths(api, widths, refs)
 }
