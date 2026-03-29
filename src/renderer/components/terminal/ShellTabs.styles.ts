@@ -97,7 +97,27 @@ export const shellTabStyles: Record<string, React.CSSProperties> = {
   terminalContainer: {
     width: '100%',
     height: '100%',
-    padding: '4px',
+    padding: '8px',
     boxSizing: 'border-box' as const,
+  },
+  contextBar: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: '6px',
+    padding: '3px 8px',
+    fontSize: 'var(--type-ui-micro)',
+    color: 'var(--text-muted)',
+    background: 'var(--bg-secondary)',
+    borderBottom: '1px solid var(--border)',
+    flexShrink: 0,
+    fontFamily: 'var(--font-mono)',
+    letterSpacing: '0.02em',
+    overflow: 'hidden',
+    whiteSpace: 'nowrap' as const,
+    textOverflow: 'ellipsis',
+  },
+  contextSeparator: {
+    color: 'var(--text-muted)',
+    opacity: 0.4,
   },
 }
