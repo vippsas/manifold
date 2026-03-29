@@ -214,44 +214,6 @@ describe('ProjectSidebar', () => {
     expect(props.onSelectSession).toHaveBeenCalledWith('s3', 'p2')
   })
 
-  it('renders a gear icon for the active project', () => {
-    renderSidebar()
-
-    // Only the active expanded project (Tier 1) has a gear icon
-    expect(screen.getByLabelText('Settings for Alpha')).toBeInTheDocument()
-    // Beta is inactive (Tier 3) and rendered as a compact text span — no gear icon
-  })
-
-  it('opens project settings popover when gear icon is clicked', () => {
-    renderSidebar()
-
-    fireEvent.click(screen.getByLabelText('Settings for Alpha'))
-
-    expect(screen.getByText('Auto-generate AI messages')).toBeInTheDocument()
-  })
-
-  it('calls onUpdateProject when toggling auto-generate checkbox', () => {
-    const { props } = renderSidebar()
-
-    fireEvent.click(screen.getByLabelText('Settings for Alpha'))
-    fireEvent.click(screen.getByLabelText('Auto-generate AI messages'))
-
-    expect(props.onUpdateProject).toHaveBeenCalledWith('p1', { autoGenerateMessages: false })
-  })
-
-  it('closes popover when overlay is clicked', () => {
-    renderSidebar()
-
-    fireEvent.click(screen.getByLabelText('Settings for Alpha'))
-    expect(screen.getByText('Auto-generate AI messages')).toBeInTheDocument()
-
-    // The overlay is rendered as a fixed div — find and click it
-    const overlay = screen.getByText('Auto-generate AI messages').parentElement!.previousElementSibling!
-    fireEvent.click(overlay)
-
-    expect(screen.queryByText('Auto-generate AI messages')).not.toBeInTheDocument()
-  })
-
   it('keeps stripping legacy manifold-prefixed branch names', () => {
     const legacySessions: AgentSession[] = [
       { id: 's1', projectId: 'p1', runtimeId: 'claude', branchName: 'manifold/oslo', worktreePath: '/wt1', status: 'running', pid: 1, additionalDirs: [] },

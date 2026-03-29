@@ -41,6 +41,8 @@ interface Props {
   onUiModeChange: (mode: 'developer' | 'simple') => void
   density: DensitySetting
   onDensityChange: (density: DensitySetting) => void
+  autoGenerateMessages: boolean
+  onAutoGenerateMessagesChange: (enabled: boolean) => void
   searchAiSettings: SearchAiSettings
   onSearchAiSettingsChange: (value: SearchAiSettings) => void
   provisioners: ProvisionerConfig[]

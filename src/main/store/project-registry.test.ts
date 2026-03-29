@@ -259,10 +259,10 @@ describe('ProjectRegistry', () => {
       const project = await registry.addProject('/my-project')
       mockWriteFileSync.mockClear()
 
-      const updated = registry.updateProject(project.id, { autoGenerateMessages: false })
+      const updated = registry.updateProject(project.id, { baseBranch: 'develop' })
 
       expect(updated).toBeDefined()
-      expect(updated!.autoGenerateMessages).toBe(false)
+      expect(updated!.baseBranch).toBe('develop')
       expect(updated!.id).toBe(project.id)
       expect(updated!.path).toBe('/my-project')
       expect(mockWriteFileSync).toHaveBeenCalledOnce()
@@ -272,7 +272,7 @@ describe('ProjectRegistry', () => {
       mockExistsSync.mockReturnValue(false)
       const registry = new ProjectRegistry()
 
-      const result = registry.updateProject('non-existent', { autoGenerateMessages: false })
+      const result = registry.updateProject('non-existent', { baseBranch: 'develop' })
       expect(result).toBeUndefined()
     })
 
@@ -283,7 +283,7 @@ describe('ProjectRegistry', () => {
       const registry = new ProjectRegistry()
       const project = await registry.addProject('/my-project')
 
-      const updated = registry.updateProject(project.id, { autoGenerateMessages: false })
+      const updated = registry.updateProject(project.id, { baseBranch: 'develop' })
       const stored = registry.getProject(project.id)
 
       expect(updated).toEqual(stored)

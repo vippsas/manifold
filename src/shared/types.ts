@@ -31,7 +31,7 @@ export interface Project {
   path: string
   baseBranch: string
   addedAt: string
-  autoGenerateMessages?: boolean
+
 }
 
 export type FileChangeType = 'added' | 'modified' | 'deleted'
@@ -62,6 +62,7 @@ export interface ManifoldSettings {
   shellPrompt: boolean
   uiMode: 'developer' | 'simple'
   density: DensitySetting
+  autoGenerateMessages: boolean
   memory?: import('./memory-types').MemorySettings
   search?: SearchSettings
   provisioning?: import('./provisioning-types').ProvisioningSettings

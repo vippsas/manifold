@@ -30,6 +30,8 @@ interface Props {
   onUiModeChange: (mode: 'developer' | 'simple') => void
   density: DensitySetting
   onDensityChange: (density: DensitySetting) => void
+  autoGenerateMessages: boolean
+  onAutoGenerateMessagesChange: (enabled: boolean) => void
   searchAiSettings: SearchAiSettings
 }
 
@@ -63,6 +65,10 @@ export function GeneralSettingsSection(props: Props): React.JSX.Element {
             <label style={modalStyles.label}>
               Default Base Branch
               <input type="text" value={props.defaultBaseBranch} onChange={(event) => props.onBaseBranchChange(event.target.value)} style={modalStyles.input} placeholder="main" />
+            </label>
+            <label style={{ ...modalStyles.checkboxField, ...modalStyles.fieldSpanFull }}>
+              <input type="checkbox" checked={props.autoGenerateMessages} onChange={(event) => props.onAutoGenerateMessagesChange(event.target.checked)} style={modalStyles.checkboxInput} />
+              Auto-generate AI messages for commits and PRs
             </label>
           </div>
         </SectionCard>

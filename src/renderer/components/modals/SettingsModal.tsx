@@ -25,6 +25,7 @@ export function SettingsModal({ visible, settings, onSave, onClose, onPreviewThe
   const [shellPrompt, setShellPrompt] = useState(settings.shellPrompt)
   const [uiMode, setUiMode] = useState(settings.uiMode)
   const [density, setDensity] = useState<DensitySetting>(settings.density)
+  const [autoGenerateMessages, setAutoGenerateMessages] = useState(settings.autoGenerateMessages)
   const [searchAiSettings, setSearchAiSettings] = useState(settings.search?.ai ?? DEFAULT_SETTINGS.search.ai)
   const [provisioners, setProvisioners] = useState<ProvisionerConfig[]>(settings.provisioning?.provisioners ?? DEFAULT_SETTINGS.provisioning.provisioners)
   const [provisionerStatuses, setProvisionerStatuses] = useState<ProvisionerStatus[]>([])
@@ -50,6 +51,7 @@ export function SettingsModal({ visible, settings, onSave, onClose, onPreviewThe
     setShellPrompt(settings.shellPrompt)
     setUiMode(settings.uiMode)
     setDensity(settings.density)
+    setAutoGenerateMessages(settings.autoGenerateMessages)
     setSearchAiSettings(settings.search?.ai ?? DEFAULT_SETTINGS.search.ai)
     setProvisioners(nextProvisioners)
     setPickerOpen(false)
@@ -77,6 +79,7 @@ export function SettingsModal({ visible, settings, onSave, onClose, onPreviewThe
       shellPrompt,
       uiMode,
       density,
+      autoGenerateMessages,
       search: { ai: searchAiSettings },
       provisioning: { provisioners },
     })
@@ -84,7 +87,7 @@ export function SettingsModal({ visible, settings, onSave, onClose, onPreviewThe
     if (modeChanged) {
       window.electronAPI.invoke('app:switch-mode', uiMode)
     }
-  }, [defaultRuntime, theme, scrollbackLines, terminalFontFamily, defaultBaseBranch, storagePath, notificationSound, shellPrompt, uiMode, density, settings.uiMode, searchAiSettings, provisioners, onSave, onClose])
+  }, [defaultRuntime, theme, scrollbackLines, terminalFontFamily, defaultBaseBranch, storagePath, notificationSound, shellPrompt, uiMode, density, autoGenerateMessages, settings.uiMode, searchAiSettings, provisioners, onSave, onClose])
 
   if (!visible) return null
 
@@ -130,6 +133,8 @@ export function SettingsModal({ visible, settings, onSave, onClose, onPreviewThe
           onUiModeChange={setUiMode}
           density={density}
           onDensityChange={setDensity}
+          autoGenerateMessages={autoGenerateMessages}
+          onAutoGenerateMessagesChange={setAutoGenerateMessages}
           searchAiSettings={searchAiSettings}
           onSearchAiSettingsChange={setSearchAiSettings}
           provisioners={provisioners}

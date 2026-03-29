@@ -12,6 +12,7 @@ export const DEFAULT_SETTINGS: ManifoldSettings = {
   shellPrompt: true,
   uiMode: 'simple',
   density: 'comfortable' as const,
+  autoGenerateMessages: true,
   memory: {
     enabled: true,
     compressionRuntime: 'auto',
