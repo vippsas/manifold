@@ -1,7 +1,6 @@
 import type { DockviewApi, SerializedDockview } from 'dockview'
 import {
   PANEL_TITLES,
-  DEFAULT_SIDEBAR_WIDTH,
   isEditorPanelId,
   parseEditorPanelOrder,
 } from './dock-layout-helpers'
@@ -77,7 +76,8 @@ export function applyMinimalPanels(api: DockviewApi): void {
   })
 
   try {
-    projectsPanel.group?.api.setSize({ width: DEFAULT_SIDEBAR_WIDTH })
+    const sidebarWidth = Math.round(api.width / 6)
+    projectsPanel.group?.api.setSize({ width: sidebarWidth })
   } catch {
     // sizing is best-effort
   }
