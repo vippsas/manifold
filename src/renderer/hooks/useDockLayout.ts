@@ -166,7 +166,7 @@ export function useDockLayout(sessionId: string | null): UseDockLayoutResult {
       return existingPanelId
     }
 
-    showPanelFromHints(api, 'editor')
+    showPanelFromHints(api, 'editor', refs)
     syncPanels(api)
     saveLayout()
     bumpVersion()
@@ -262,7 +262,7 @@ export function useDockLayout(sessionId: string | null): UseDockLayoutResult {
       return
     }
 
-    showPanelFromHints(api, id)
+    showPanelFromHints(api, id, refs)
     syncPanels(api)
     saveLayout()
     bumpVersion()
