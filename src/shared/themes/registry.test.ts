@@ -5,7 +5,6 @@ describe('custom themes', () => {
 
   it.each([
     'manifold-dark',
-    'manifold-light',
     ...brandedThemeIds,
   ])('%s includes colorful markdown token rules', (themeId) => {
     const rules = loadTheme(themeId).monacoTheme.rules

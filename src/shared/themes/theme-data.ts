@@ -1,137 +1,50 @@
 // Auto-generated barrel of all monaco-themes theme JSONs.
 // Theme files are copied from node_modules/monaco-themes/themes/ into data/.
 
-import theme_all_hallows_eve from './data/All Hallows Eve.json'
-import theme_amy from './data/Amy.json'
-import theme_birds_of_paradise from './data/Birds of Paradise.json'
 import theme_blackboard from './data/Blackboard.json'
 import theme_brilliance_black from './data/Brilliance Black.json'
-import theme_brilliance_dull from './data/Brilliance Dull.json'
-import theme_clouds_midnight from './data/Clouds Midnight.json'
-import theme_cobalt from './data/Cobalt.json'
-import theme_cobalt2 from './data/Cobalt2.json'
 import theme_dracula from './data/Dracula.json'
-import theme_espresso_libre from './data/Espresso Libre.json'
-import theme_github_dark from './data/GitHub Dark.json'
-import theme_github_light from './data/GitHub Light.json'
-import theme_katzenmilch from './data/Katzenmilch.json'
-import theme_merbivore_soft from './data/Merbivore Soft.json'
 import theme_merbivore from './data/Merbivore.json'
-import theme_monokai_bright from './data/Monokai Bright.json'
 import theme_monokai from './data/Monokai.json'
-import theme_night_owl from './data/Night Owl.json'
-import theme_nord from './data/Nord.json'
-import theme_oceanic_next from './data/Oceanic Next.json'
 import theme_pastels_on_dark from './data/Pastels on Dark.json'
-import theme_solarized_dark from './data/Solarized-dark.json'
-import theme_solarized_light from './data/Solarized-light.json'
 import theme_spacecadet from './data/SpaceCadet.json'
-import theme_sunburst from './data/Sunburst.json'
-import theme_tomorrow_night_blue from './data/Tomorrow-Night-Blue.json'
-import theme_tomorrow_night_bright from './data/Tomorrow-Night-Bright.json'
-import theme_tomorrow_night_eighties from './data/Tomorrow-Night-Eighties.json'
-import theme_tomorrow_night from './data/Tomorrow-Night.json'
 import theme_tomorrow from './data/Tomorrow.json'
-import theme_twilight from './data/Twilight.json'
-import theme_upstream_sunburst from './data/Upstream Sunburst.json'
-import theme_vibrant_ink from './data/Vibrant Ink.json'
-import theme_zenburnesque from './data/Zenburnesque.json'
-import theme_idlefingers from './data/idleFingers.json'
-import theme_krtheme from './data/krTheme.json'
 import theme_manifold_dark from './data/Manifold Dark.json'
-import theme_manifold_light from './data/Manifold Light.json'
 import theme_vipps_dark from './data/Vipps Dark.json'
 import theme_vipps_light from './data/Vipps Light.json'
 import theme_jacob_co_dark from './data/Jacob Co Dark.json'
+import theme_krtheme from './data/krTheme.json'
 import theme_monoindustrial from './data/monoindustrial.json'
 
 export const themeDataByLabel: Record<string, unknown> = {
-  "All Hallows Eve": theme_all_hallows_eve,
-  "Amy": theme_amy,
-  "Birds of Paradise": theme_birds_of_paradise,
   "Blackboard": theme_blackboard,
   "Brilliance Black": theme_brilliance_black,
-  "Brilliance Dull": theme_brilliance_dull,
-  "Clouds Midnight": theme_clouds_midnight,
-  "Cobalt": theme_cobalt,
-  "Cobalt2": theme_cobalt2,
   "Dracula": theme_dracula,
-  "Espresso Libre": theme_espresso_libre,
-  "GitHub Dark": theme_github_dark,
-  "GitHub Light": theme_github_light,
-  "Katzenmilch": theme_katzenmilch,
   "Manifold Dark": theme_manifold_dark,
-  "Manifold Light": theme_manifold_light,
-  "Merbivore Soft": theme_merbivore_soft,
   "Merbivore": theme_merbivore,
-  "Monokai Bright": theme_monokai_bright,
   "Monokai": theme_monokai,
-  "Night Owl": theme_night_owl,
-  "Nord": theme_nord,
-  "Oceanic Next": theme_oceanic_next,
   "Pastels on Dark": theme_pastels_on_dark,
-  "Solarized-dark": theme_solarized_dark,
-  "Solarized-light": theme_solarized_light,
   "SpaceCadet": theme_spacecadet,
-  "Sunburst": theme_sunburst,
-  "Tomorrow-Night-Blue": theme_tomorrow_night_blue,
-  "Tomorrow-Night-Bright": theme_tomorrow_night_bright,
-  "Tomorrow-Night-Eighties": theme_tomorrow_night_eighties,
-  "Tomorrow-Night": theme_tomorrow_night,
   "Tomorrow": theme_tomorrow,
-  "Twilight": theme_twilight,
-  "Upstream Sunburst": theme_upstream_sunburst,
-  "Vibrant Ink": theme_vibrant_ink,
   "Vipps Dark": theme_vipps_dark,
   "Vipps Light": theme_vipps_light,
-  "Zenburnesque": theme_zenburnesque,
-  "idleFingers": theme_idlefingers,
   "Jacob Co Dark": theme_jacob_co_dark,
   "krTheme": theme_krtheme,
   "monoindustrial": theme_monoindustrial,
 }
 
 export const themeList: Record<string, string> = {
-  "all-hallows-eve": "All Hallows Eve",
-  "amy": "Amy",
-  "birds-of-paradise": "Birds of Paradise",
   "blackboard": "Blackboard",
   "brilliance-black": "Brilliance Black",
-  "brilliance-dull": "Brilliance Dull",
-  "clouds-midnight": "Clouds Midnight",
-  "cobalt": "Cobalt",
-  "cobalt2": "Cobalt2",
   "dracula": "Dracula",
-  "espresso-libre": "Espresso Libre",
-  "github-dark": "GitHub Dark",
-  "github-light": "GitHub Light",
-  "katzenmilch": "Katzenmilch",
   "manifold-dark": "Manifold Dark",
-  "manifold-light": "Manifold Light",
-  "merbivore-soft": "Merbivore Soft",
   "merbivore": "Merbivore",
-  "monokai-bright": "Monokai Bright",
   "monokai": "Monokai",
-  "night-owl": "Night Owl",
-  "nord": "Nord",
-  "oceanic-next": "Oceanic Next",
   "pastels-on-dark": "Pastels on Dark",
-  "solarized-dark": "Solarized-dark",
-  "solarized-light": "Solarized-light",
   "spacecadet": "SpaceCadet",
-  "sunburst": "Sunburst",
-  "tomorrow-night-blue": "Tomorrow-Night-Blue",
-  "tomorrow-night-bright": "Tomorrow-Night-Bright",
-  "tomorrow-night-eighties": "Tomorrow-Night-Eighties",
-  "tomorrow-night": "Tomorrow-Night",
   "tomorrow": "Tomorrow",
-  "twilight": "Twilight",
-  "upstream-sunburst": "Upstream Sunburst",
-  "vibrant-ink": "Vibrant Ink",
   "vipps-dark": "Vipps Dark",
   "vipps-light": "Vipps Light",
-  "zenburnesque": "Zenburnesque",
-  "idlefingers": "idleFingers",
   "jacob-co-dark": "Jacob Co Dark",
   "krtheme": "krTheme",
   "monoindustrial": "monoindustrial",

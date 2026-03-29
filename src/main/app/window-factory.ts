@@ -23,12 +23,10 @@ console.error = (...args: unknown[]): void => {
 }
 
 function resolveInitialBackground(theme: string): string {
-  if (theme === 'light' || theme === 'vs') return '#ffffff'
   return '#282a36' // Dracula-ish default for dark themes
 }
 
 function resolveThemeType(theme: string): 'dark' | 'light' {
-  if (theme === 'light' || theme === 'vs') return 'light'
   return 'dark'
 }
 
