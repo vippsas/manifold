@@ -98,8 +98,9 @@ export const dialogPrimitives: StyleMap = {
     borderRadius: 'var(--radius-sm)',
     fontSize: 'var(--type-ui)',
     color: 'var(--btn-text)',
-    background: 'var(--btn-bg)',
+    background: 'linear-gradient(135deg, var(--btn-bg), var(--btn-hover))',
     fontWeight: 500,
+    transition: 'filter 200ms ease',
   },
   helpText: {
     fontSize: 'var(--type-ui-caption)',

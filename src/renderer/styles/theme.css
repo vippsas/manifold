@@ -557,9 +557,15 @@ select:focus-visible {
 }
 
 .sidebar-action-button--primary {
-  color: var(--accent);
-  background: var(--accent-subtle);
+  color: var(--btn-text);
+  background: linear-gradient(135deg, var(--btn-bg), var(--btn-hover));
   border-color: transparent;
+  font-weight: 600;
+  transition: filter 200ms ease;
+}
+
+.sidebar-action-button--primary:hover {
+  filter: brightness(1.12);
 }
 
 /* ─── Markdown Preview ─── */
@@ -895,12 +901,13 @@ select:focus-visible {
 }
 
 .git-panel-btn--primary {
-  background: var(--btn-bg);
+  background: linear-gradient(135deg, var(--btn-bg), var(--btn-hover));
   color: var(--btn-text);
+  transition: filter 200ms ease;
 }
 
 .git-panel-btn--primary:hover:not(:disabled) {
-  background: var(--btn-hover);
+  filter: brightness(1.12);
 }
 
 .git-panel-btn--secondary {
