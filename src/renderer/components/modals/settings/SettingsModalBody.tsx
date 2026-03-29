@@ -35,6 +35,8 @@ interface Props {
   onPickerToggle: (open: boolean) => void
   notificationSound: boolean
   onNotificationSoundChange: (enabled: boolean) => void
+  shellPrompt: boolean
+  onShellPromptChange: (enabled: boolean) => void
   uiMode: 'developer' | 'simple'
   onUiModeChange: (mode: 'developer' | 'simple') => void
   searchAiSettings: SearchAiSettings
