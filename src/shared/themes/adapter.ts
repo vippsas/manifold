@@ -40,9 +40,29 @@ function withOpacity(hex: string, opacity: number): string {
 
 function normalizeHex(color: string | undefined): string | undefined {
   if (!color) return undefined
-  const c = color.replace('#', '')
-  // Strip alpha channel if present (8-char or 4-char hex)
+  if (!color.startsWith('#')) return undefined // non-hex (rgb, named, etc.) — skip
+  const c = color.slice(1)
+  if (!/^[0-9a-fA-F]+$/.test(c)) return undefined
+  // Strip alpha channel for hex-manipulation functions (lighten/darken/luminance)
   if (c.length === 8) return '#' + c.slice(0, 6)
+  if (c.length === 4) return '#' + c.slice(0, 3)
+  return '#' + c
+}
+
+/** Return a CSS-safe color value, preserving alpha from 8-digit hex (#RRGGBBAA). */
+function normalizeCssColor(color: string | undefined): string | undefined {
+  if (!color) return undefined
+  if (!color.startsWith('#')) return color // non-hex (rgb, named, etc.) — pass through as CSS
+  const c = color.slice(1)
+  if (!/^[0-9a-fA-F]+$/.test(c)) return color // malformed hex — pass through
+  if (c.length === 8) {
+    const r = parseInt(c.slice(0, 2), 16)
+    const g = parseInt(c.slice(2, 4), 16)
+    const b = parseInt(c.slice(4, 6), 16)
+    const a = parseInt(c.slice(6, 8), 16) / 255
+    if (a >= 0.996) return '#' + c.slice(0, 6) // fully opaque
+    return `rgba(${r}, ${g}, ${b}, ${+(a.toFixed(3))})`
+  }
   if (c.length === 4) return '#' + c.slice(0, 3)
   return '#' + c
 }
@@ -80,7 +100,10 @@ interface MonacoThemeJson {
 
 export function convertTheme(themeJson: MonacoThemeJson, _themeId: string): ConvertedTheme {
   const colors = themeJson.colors ?? {}
+  /** Opaque hex for color manipulation (lighten/darken/luminance). */
   const c = (key: string): string | undefined => normalizeHex(colors[key])
+  /** CSS-safe value preserving alpha from 8-digit hex. */
+  const css = (key: string): string | undefined => normalizeCssColor(colors[key])
 
   // Determine theme type from background luminance
   const editorBg = c('editor.background') ?? (themeJson.base === 'vs' ? '#ffffff' : '#1e1e1e')
@@ -111,24 +134,23 @@ export function convertTheme(themeJson: MonacoThemeJson, _themeId: string): Conv
     '--text-muted': c('disabledForeground') ?? withOpacity(editorFg, 0.4),
 
     '--accent': accent,
-    '--accent-text': luminance(accent) > 0.4 ? '#000000' : '#ffffff',
+    '--accent-text': c('button.foreground') ?? (luminance(accent) > 0.4 ? '#000000' : '#ffffff'),
     '--accent-hover': lighten(accent, 15),
+    '--accent-dim': darken(accent, 30),
 
     // Button colors — themes can override via button.background / button.foreground
-    '--btn-bg': c('button.foreground') ? (c('input.background') ?? editorBg) : accent,
+    '--btn-bg': c('button.background') ?? accent,
     '--btn-text': c('button.foreground') ?? (luminance(accent) > 0.4 ? '#000000' : '#ffffff'),
-    '--btn-hover': c('button.foreground')
-      ? lighten(c('input.background') ?? editorBg, 10)
-      : lighten(accent, 15),
+    '--btn-hover': lighten(c('button.background') ?? accent, 15),
 
     '--border': c('panel.border') ?? c('editorGroup.border')
       ?? (isDark ? lighten(editorBg, 18) : darken(editorBg, 18)),
     '--divider': c('editorGroup.border')
       ?? (isDark ? lighten(editorBg, 12) : darken(editorBg, 12)),
 
-    '--scrollbar-thumb': c('scrollbarSlider.background')
+    '--scrollbar-thumb': css('scrollbarSlider.background')
       ?? (isDark ? lighten(editorBg, 22) : darken(editorBg, 22)),
-    '--scrollbar-track': c('scrollbarSlider.activeBackground') ?? 'transparent',
+    '--scrollbar-track': css('scrollbarSlider.activeBackground') ?? 'transparent',
 
     // Status colors — keep consistent per theme type
     '--success': success,
@@ -148,11 +170,11 @@ export function convertTheme(themeJson: MonacoThemeJson, _themeId: string): Conv
     '--diff-deleted-gutter': isDark ? 'rgba(239, 83, 80, 0.3)' : 'rgba(211, 47, 47, 0.25)',
 
     // Tree / list colors
-    '--tree-active-selection': c('list.activeSelectionBackground')
+    '--tree-active-selection': css('list.activeSelectionBackground')
       ?? (isDark ? '#04395e' : '#d6ebff'),
-    '--tree-inactive-selection': c('list.inactiveSelectionBackground')
+    '--tree-inactive-selection': css('list.inactiveSelectionBackground')
       ?? (isDark ? '#37373d' : '#e4e6f1'),
-    '--tree-hover': c('list.hoverBackground')
+    '--tree-hover': css('list.hoverBackground')
       ?? (isDark ? '#2a2d2e' : '#e8e8e8'),
     '--tree-indent-guide': c('tree.indentGuidesStroke')
       ?? (isDark ? '#585858' : '#c4c4c4'),
@@ -161,6 +183,18 @@ export function convertTheme(themeJson: MonacoThemeJson, _themeId: string): Conv
     '--bg-chrome': c('titleBar.activeBackground')
       ?? c('editorGroupHeader.tabsBackground')
       ?? (isDark ? lighten(editorBg, 7) : darken(editorBg, 5)),
+    '--bg-chrome-hi': lighten(
+      c('titleBar.activeBackground')
+        ?? c('editorGroupHeader.tabsBackground')
+        ?? (isDark ? lighten(editorBg, 8) : darken(editorBg, 5)),
+      3,
+    ),
+    '--bg-chrome-lo': darken(
+      c('titleBar.activeBackground')
+        ?? c('editorGroupHeader.tabsBackground')
+        ?? (isDark ? lighten(editorBg, 8) : darken(editorBg, 5)),
+      3,
+    ),
     '--bg-chrome-active': c('tab.activeBackground')
       ?? editorBg,
     '--bg-overlay': c('editorWidget.background')
@@ -175,24 +209,24 @@ export function convertTheme(themeJson: MonacoThemeJson, _themeId: string): Conv
       ?? c('panel.border')
       ?? c('editorGroup.border')
       ?? (isDark ? lighten(editorBg, 18) : darken(editorBg, 18)),
-    '--control-bg-hover': c('button.hoverBackground')
-      ?? c('list.hoverBackground')
+    '--control-bg-hover': css('button.hoverBackground')
+      ?? css('list.hoverBackground')
       ?? withOpacity(editorFg, isDark ? 0.08 : 0.05),
     '--overlay-backdrop': isDark ? 'rgba(0, 0, 0, 0.44)' : 'rgba(0, 0, 0, 0.2)',
     '--overlay-border': c('widget.border')
       ?? c('panel.border')
       ?? (isDark ? lighten(editorBg, 18) : darken(editorBg, 18)),
     '--focus-ring': c('focusBorder') ?? accent,
-    '--list-hover-bg': c('list.hoverBackground')
+    '--list-hover-bg': css('list.hoverBackground')
       ?? (isDark ? '#2a2d2e' : '#e8e8e8'),
-    '--list-active-bg': c('list.activeSelectionBackground')
+    '--list-active-bg': css('list.activeSelectionBackground')
       ?? (isDark ? '#04395e' : '#d6ebff'),
-    '--list-inactive-bg': c('list.inactiveSelectionBackground')
+    '--list-inactive-bg': css('list.inactiveSelectionBackground')
       ?? (isDark ? '#37373d' : '#e4e6f1'),
-    '--sidebar-active-bg': c('list.inactiveSelectionBackground')
-      ?? withOpacity(accent, isDark ? 0.14 : 0.1),
-    '--sidebar-active-border': c('list.activeSelectionBackground')
-      ?? withOpacity(accent, isDark ? 0.28 : 0.18),
+    '--sidebar-active-bg': css('list.inactiveSelectionBackground')
+      ?? withOpacity(accent, isDark ? 0.08 : 0.06),
+    '--sidebar-active-border': css('list.activeSelectionBackground')
+      ?? withOpacity(accent, isDark ? 0.15 : 0.1),
     '--sidebar-active-text': c('list.activeSelectionForeground')
       ?? editorFg,
     '--statusbar-bg': c('statusBar.background')
@@ -205,9 +239,12 @@ export function convertTheme(themeJson: MonacoThemeJson, _themeId: string): Conv
     '--success-subtle': withOpacity(success, isDark ? 0.16 : 0.12),
     '--warning-subtle': withOpacity(warning, isDark ? 0.16 : 0.12),
     '--error-subtle': withOpacity(error, isDark ? 0.16 : 0.12),
-    '--shadow-subtle': isDark ? '0 1px 0 rgba(255, 255, 255, 0.03)' : '0 1px 0 rgba(0, 0, 0, 0.06)',
-    '--shadow-popover': isDark ? '0 8px 24px rgba(0, 0, 0, 0.24)' : '0 8px 24px rgba(0, 0, 0, 0.14)',
-    '--shadow-overlay': isDark ? '0 16px 40px rgba(0, 0, 0, 0.28)' : '0 16px 36px rgba(0, 0, 0, 0.18)',
+    '--shadow-subtle': isDark ? '0 2px 8px rgba(0, 0, 0, 0.2)' : '0 2px 8px rgba(0, 0, 0, 0.1)',
+    '--shadow-popover': isDark ? '0 8px 24px rgba(0, 0, 0, 0.35)' : '0 8px 24px rgba(0, 0, 0, 0.18)',
+    '--shadow-overlay': isDark ? '0 16px 48px rgba(0, 0, 0, 0.45)' : '0 16px 36px rgba(0, 0, 0, 0.22)',
+    '--shadow-elevated': isDark
+      ? '0 4px 16px rgba(0, 0, 0, 0.3), inset 0 1px 0 rgba(255, 255, 255, 0.03)'
+      : '0 4px 16px rgba(0, 0, 0, 0.1), inset 0 1px 0 rgba(255, 255, 255, 0.5)',
   }
 
   // ── xterm.js ITheme mapping ────────────────────────────────────
@@ -220,7 +257,7 @@ export function convertTheme(themeJson: MonacoThemeJson, _themeId: string): Conv
     foreground: c('terminal.foreground') ?? editorFg,
     cursor: c('terminalCursor.foreground') ?? accent,
     cursorAccent: c('terminalCursor.background') ?? editorBg,
-    selectionBackground: c('terminal.selectionBackground') ?? c('editor.selectionBackground') ?? withOpacity(accent, 0.3),
+    selectionBackground: css('terminal.selectionBackground') ?? css('editor.selectionBackground') ?? withOpacity(accent, 0.3),
 
     black: c('terminal.ansiBlack') ?? ansiDefaults.black,
     red: c('terminal.ansiRed') ?? ansiDefaults.red,

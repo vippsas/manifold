@@ -91,7 +91,7 @@ describe('SettingsModal', () => {
     expect(screen.getByDisplayValue('Claude Code')).toBeInTheDocument()
 
     // Theme button shows the current theme label
-    expect(screen.getByText('Dracula')).toBeInTheDocument()
+    expect(screen.getByText('Jacob Co Dark')).toBeInTheDocument()
 
     // Scrollback lines input
     const scrollbackInput = screen.getByDisplayValue('5000') as HTMLInputElement
@@ -109,7 +109,7 @@ describe('SettingsModal', () => {
 
     expect(props.onSave).toHaveBeenCalledWith(
       expect.objectContaining({
-        theme: 'dracula',
+        theme: 'jacob-co-dark',
         defaultRuntime: 'claude',
         scrollbackLines: 5000,
         defaultBaseBranch: 'main',

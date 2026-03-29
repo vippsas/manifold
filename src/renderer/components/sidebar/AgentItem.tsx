@@ -75,7 +75,7 @@ export function AgentItem({ session, projectPath, isActive, onSelect, onDelete }
     <div
       onClick={handleClick}
       onKeyDown={handleKeyDown}
-      className={`sidebar-item-row sidebar-agent-row${isActive ? ' sidebar-item-row--active' : ''}`}
+      className={`sidebar-item-row sidebar-agent-row sidebar-agent-row--${session.status}${isActive ? ' sidebar-item-row--active' : ''}`}
       title={`${runtimeLabel(session.runtimeId)} - ${session.branchName}`}
       role="button"
       tabIndex={0}

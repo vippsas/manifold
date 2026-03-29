@@ -6,16 +6,16 @@
   --font-mono: 'SF Mono', ui-monospace, 'Cascadia Mono', 'Cascadia Code', 'JetBrains Mono', Menlo, Consolas, monospace;
 
   --radius-xs: 2px;
-  --radius-sm: 4px;
-  --radius-md: 6px;
-  --radius-lg: 8px;
+  --radius-sm: 5px;
+  --radius-md: 8px;
+  --radius-lg: 10px;
   --radius-pill: 999px;
 
   --space-xs: 4px;
   --space-sm: 8px;
-  --space-md: 12px;
-  --space-lg: 16px;
-  --space-xl: 24px;
+  --space-md: 14px;
+  --space-lg: 18px;
+  --space-xl: 28px;
 
   --type-ui: 13px;
   --type-ui-small: 12px;
@@ -98,9 +98,10 @@
   --warning-subtle: rgba(255, 167, 38, 0.16);
   --error-subtle: rgba(239, 83, 80, 0.16);
 
-  --shadow-subtle: 0 1px 0 rgba(0, 0, 0, 0.12);
-  --shadow-popover: 0 8px 24px rgba(0, 0, 0, 0.22);
-  --shadow-overlay: 0 16px 40px rgba(0, 0, 0, 0.28);
+  --shadow-subtle: 0 2px 8px rgba(0, 0, 0, 0.2);
+  --shadow-popover: 0 8px 24px rgba(0, 0, 0, 0.35);
+  --shadow-overlay: 0 16px 48px rgba(0, 0, 0, 0.45);
+  --shadow-elevated: 0 4px 16px rgba(0, 0, 0, 0.3), inset 0 1px 0 rgba(255, 255, 255, 0.03);
 }
 
 /* ─── Global Reset ─── */
@@ -132,8 +133,8 @@ body {
 
 /* ─── Scrollbar ─── */
 ::-webkit-scrollbar {
-  width: 8px;
-  height: 8px;
+  width: 6px;
+  height: 6px;
 }
 
 ::-webkit-scrollbar-track {
@@ -142,11 +143,11 @@ body {
 
 ::-webkit-scrollbar-thumb {
   background: var(--scrollbar-thumb);
-  border-radius: 4px;
+  border-radius: 3px;
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  background: var(--accent);
+  background: var(--accent-dim, var(--accent));
 }
 
 /* ─── Layout Helpers ─── */
@@ -183,7 +184,7 @@ body {
 
 .layout-status-bar {
   height: var(--status-bar-height);
-  background: var(--statusbar-bg);
+  background: linear-gradient(180deg, var(--bg-chrome, var(--statusbar-bg)) 0%, var(--bg-chrome-lo, var(--statusbar-bg)) 100%);
   border-top: 1px solid var(--border);
   display: flex;
   align-items: center;
@@ -207,7 +208,7 @@ body {
 
 .pane-divider:hover,
 .pane-divider.dragging {
-  background: var(--accent);
+  background: var(--accent-dim, var(--accent));
 }
 
 .pane-divider::after {
@@ -232,7 +233,7 @@ body {
 
 .pane-divider-horizontal:hover,
 .pane-divider-horizontal.dragging {
-  background: var(--accent);
+  background: var(--accent-dim, var(--accent));
 }
 
 .pane-divider-horizontal::after {
@@ -302,8 +303,8 @@ button:focus-visible,
 input:focus-visible,
 textarea:focus-visible,
 select:focus-visible {
-  outline: 1px solid var(--focus-ring);
-  outline-offset: -1px;
+  outline: none;
+  box-shadow: 0 0 0 2px var(--accent-subtle), 0 0 10px var(--accent-subtle);
 }
 
 /* ─── Status Dot Utility ─── */
@@ -436,6 +437,7 @@ select:focus-visible {
   color: var(--text-secondary);
   position: relative;
   cursor: pointer;
+  transition: background 150ms ease, color 150ms ease, box-shadow 150ms ease;
 }
 
 .sidebar-item-row:hover {
@@ -445,26 +447,63 @@ select:focus-visible {
 
 .sidebar-item-row--active {
   background: var(--sidebar-active-bg);
-  box-shadow: inset 0 0 0 1px var(--sidebar-active-border);
   color: var(--sidebar-active-text);
 }
 
+.sidebar-project-row.sidebar-item-row--active {
+  border-left: 2px solid var(--accent);
+  padding-left: 9px;
+}
+
 .sidebar-item-row:focus-visible {
-  outline: 1px solid var(--focus-ring);
-  outline-offset: -1px;
+  outline: none;
+  box-shadow: 0 0 0 2px var(--accent-subtle), 0 0 10px var(--accent-subtle);
 }
 
 .sidebar-project-row {
   font-weight: 600;
   padding-right: 68px;
+  font-size: var(--type-ui-small);
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
 }
 
 .sidebar-agent-row {
   flex-direction: column;
   align-items: flex-start;
   min-height: auto;
-  padding: 2px 12px 2px 28px;
+  padding: 4px 12px 4px 28px;
   gap: 0;
+  margin-top: 1px;
+  margin-bottom: 1px;
+  background: var(--bg-input);
+  border-left: 2px solid transparent;
+}
+
+.sidebar-agent-row:hover {
+  transform: translateY(-0.5px);
+  box-shadow: var(--shadow-subtle);
+}
+
+.sidebar-agent-row--running {
+  border-left-color: var(--status-running);
+}
+
+.sidebar-agent-row--waiting {
+  border-left-color: var(--status-waiting);
+}
+
+.sidebar-agent-row--done {
+  border-left-color: var(--status-done);
+}
+
+.sidebar-agent-row--error {
+  border-left-color: var(--status-error);
+}
+
+.sidebar-agent-row.sidebar-item-row--active {
+  border-left-width: 2px;
+  background: var(--sidebar-active-bg);
 }
 
 .sidebar-agent-main {
@@ -520,6 +559,28 @@ select:focus-visible {
   line-height: 1.15;
 }
 
+.sidebar-project-group {
+  margin-bottom: 2px;
+}
+
+.sidebar-project-group--has-agents {
+  margin: 4px 6px;
+  padding: 2px 0;
+  background: var(--bg-elevated);
+  border-radius: var(--radius-md);
+  border: 1px solid var(--divider);
+}
+
+.sidebar-project-group--has-agents .sidebar-item-row {
+  margin-left: 4px;
+  margin-right: 4px;
+}
+
+.sidebar-project-group--empty .sidebar-project-row {
+  color: var(--text-muted);
+  font-weight: 500;
+}
+
 .sidebar-aux-list {
   padding-left: 14px;
   padding-top: 1px;
@@ -543,6 +604,7 @@ select:focus-visible {
   border-radius: var(--radius-xs);
   color: var(--text-muted);
   opacity: 0.75;
+  transition: opacity 150ms ease, color 150ms ease, background 150ms ease;
 }
 
 .sidebar-icon-button:hover {
@@ -556,9 +618,15 @@ select:focus-visible {
 }
 
 .sidebar-action-button--primary {
-  color: var(--accent);
-  background: var(--accent-subtle);
+  color: var(--btn-text);
+  background: linear-gradient(135deg, var(--btn-bg), var(--btn-hover));
   border-color: transparent;
+  font-weight: 600;
+  transition: filter 200ms ease;
+}
+
+.sidebar-action-button--primary:hover {
+  filter: brightness(1.12);
 }
 
 /* ─── Markdown Preview ─── */
@@ -886,6 +954,7 @@ select:focus-visible {
   cursor: pointer;
   border: none;
   font-weight: 500;
+  transition: filter 200ms ease, background 150ms ease, color 150ms ease;
 }
 
 .git-panel-btn:disabled {
@@ -894,12 +963,13 @@ select:focus-visible {
 }
 
 .git-panel-btn--primary {
-  background: var(--btn-bg);
+  background: linear-gradient(135deg, var(--btn-bg), var(--btn-hover));
   color: var(--btn-text);
+  transition: filter 200ms ease;
 }
 
 .git-panel-btn--primary:hover:not(:disabled) {
-  background: var(--btn-hover);
+  filter: brightness(1.12);
 }
 
 .git-panel-btn--secondary {
@@ -983,6 +1053,9 @@ select:focus-visible {
 }
 
 /* ─── File Tree Rows ─── */
+.file-tree-row {
+  transition: background 150ms ease;
+}
 .file-tree-row:hover {
   background: var(--tree-hover);
 }
@@ -998,8 +1071,8 @@ select:focus-visible {
   background: var(--sidebar-active-bg);
 }
 .file-tree-row:focus-visible {
-  outline: 1px solid var(--accent);
-  outline-offset: -1px;
+  outline: none;
+  box-shadow: 0 0 0 2px var(--accent-subtle), 0 0 10px var(--accent-subtle);
 }
 
 /* ─── File Tree Delete Button (hover reveal) ─── */

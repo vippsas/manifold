@@ -1,7 +1,6 @@
-import type { DockviewApi } from 'dockview'
+import type { DockviewApi, SerializedDockview } from 'dockview'
 import {
   PANEL_TITLES,
-  DEFAULT_SIDEBAR_WIDTH,
   isEditorPanelId,
   parseEditorPanelOrder,
 } from './dock-layout-helpers'
@@ -32,7 +31,7 @@ export function applyDefaultLayout(api: DockviewApi): void {
     id: 'fileTree',
     component: 'fileTree',
     title: PANEL_TITLES.fileTree,
-    position: { referencePanel: projectsPanel, direction: 'below' },
+    position: { referencePanel: 'agent', direction: 'right' },
   })
 
   api.addPanel({
@@ -44,10 +43,21 @@ export function applyDefaultLayout(api: DockviewApi): void {
 
   filesPanel.api.setActive()
 
+  // setSize calls interfere with each other (dockview redistributes freed
+  // space proportionally to all siblings). Instead, patch the serialized
+  // grid to enforce an exact 1:4:1 ratio, then reload.
   try {
-    projectsPanel.group?.api.setSize({ width: DEFAULT_SIDEBAR_WIDTH })
-  } catch {
-    // sizing is best-effort
+    const json = api.toJSON() as SerializedDockview & { grid: { root: { data?: { size: number }[] } } }
+    const children = json.grid.root.data
+    if (children && children.length === 3) {
+      const total = children.reduce((s, c) => s + c.size, 0)
+      children[0].size = Math.round(total / 6)     // projects
+      children[2].size = Math.round(total / 6)     // files
+      children[1].size = total - children[0].size - children[2].size // agent
+      api.fromJSON(json as SerializedDockview)
+    }
+  } catch (err) {
+    console.warn('[applyDefaultLayout] grid ratio patching failed:', err)
   }
 }
 
@@ -66,9 +76,10 @@ export function applyMinimalPanels(api: DockviewApi): void {
   })
 
   try {
-    projectsPanel.group?.api.setSize({ width: DEFAULT_SIDEBAR_WIDTH })
-  } catch {
-    // sizing is best-effort
+    const sidebarWidth = Math.round(api.width / 6)
+    projectsPanel.group?.api.setSize({ width: sidebarWidth })
+  } catch (err) {
+    console.warn('[applyMinimalPanels] sidebar sizing failed:', err)
   }
 }
 

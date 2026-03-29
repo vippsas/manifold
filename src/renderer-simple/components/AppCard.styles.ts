@@ -7,6 +7,7 @@ export const card: CSSProperties = {
   padding: 24,
   cursor: 'pointer',
   border: '1px solid var(--border)',
+  boxShadow: 'var(--shadow-elevated)',
   transition: 'border-color 0.2s',
 }
 

@@ -18,23 +18,13 @@ type Direction = 'right' | 'left' | 'above' | 'below' | 'within'
 
 // Fallback positions when no snapshot exists (matches default layout).
 const PANEL_RESTORE_HINTS: Record<DockPanelId, Array<{ ref: DockPanelId; dir: Direction }>> = {
-  projects: [{ ref: 'fileTree', dir: 'above' }, { ref: 'agent', dir: 'left' }],
-  agent: [{ ref: 'projects', dir: 'right' }, { ref: 'editor', dir: 'left' }, { ref: 'shell', dir: 'above' }],
+  projects: [{ ref: 'agent', dir: 'left' }, { ref: 'fileTree', dir: 'left' }],
+  agent: [{ ref: 'projects', dir: 'right' }, { ref: 'fileTree', dir: 'left' }, { ref: 'editor', dir: 'left' }, { ref: 'shell', dir: 'above' }],
   editor: [{ ref: 'agent', dir: 'right' }, { ref: 'shell', dir: 'above' }],
-  fileTree: [{ ref: 'modifiedFiles', dir: 'within' }, { ref: 'projects', dir: 'below' }],
-  modifiedFiles: [{ ref: 'fileTree', dir: 'within' }, { ref: 'projects', dir: 'below' }],
+  fileTree: [{ ref: 'modifiedFiles', dir: 'within' }, { ref: 'agent', dir: 'right' }],
+  modifiedFiles: [{ ref: 'fileTree', dir: 'within' }, { ref: 'agent', dir: 'right' }],
   shell: [{ ref: 'agent', dir: 'below' }, { ref: 'editor', dir: 'below' }],
   search: [{ ref: 'agent', dir: 'within' }, { ref: 'editor', dir: 'within' }],
-}
-
-const LEGACY_SIDEBAR_WIDTH = 300
-export const MIN_SIDEBAR_WIDTH = 340
-export const DEFAULT_SIDEBAR_WIDTH = 360
-
-function normalizeSidebarWidth(width: number): number {
-  if (width <= 0) return DEFAULT_SIDEBAR_WIDTH
-  if (width <= LEGACY_SIDEBAR_WIDTH) return DEFAULT_SIDEBAR_WIDTH
-  return Math.max(width, MIN_SIDEBAR_WIDTH)
 }
 
 export function isEditorPanelId(panelId: string): boolean {
@@ -54,25 +44,97 @@ export interface LayoutRefs {
 
 // ── Sidebar width helpers ─────────────────────────────────────────────
 
-/** Read the sidebar group's current pixel width (0 if unavailable). */
-export function getSidebarWidth(api: DockviewApi): number {
+/** Anchor panels that define the sidebars (protected from resize redistribution).
+ *  modifiedFiles is intentionally excluded — it can be dragged to the center. */
+const SIDEBAR_PANEL_IDS = new Set<string>(['projects', 'fileTree'])
+
+/** Read a panel group's current pixel width (0 if unavailable). */
+function getPanelWidth(api: DockviewApi, panelId: string): number {
   try {
-    return api.getPanel('projects')?.group?.element.offsetWidth ?? 0
-  } catch {
+    return api.getPanel(panelId)?.group?.element.offsetWidth ?? 0
+  } catch (err) {
+    console.warn(`[getPanelWidth] failed for panel '${panelId}':`, err)
     return 0
   }
 }
 
-/** Restore the sidebar to a specific pixel width on the next frame. */
-export function restoreSidebarWidth(api: DockviewApi, width: number): void {
-  const requestedWidth = width > 0 ? width : null
-  requestAnimationFrame(() => {
+/** Read the left sidebar group's current pixel width (0 if unavailable). */
+export function getSidebarWidth(api: DockviewApi): number {
+  return getPanelWidth(api, 'projects')
+}
+
+/** Capture both sidebar widths. */
+export function getSidebarWidths(api: DockviewApi): { left: number; right: number } {
+  return {
+    left: getPanelWidth(api, 'projects'),
+    right: getPanelWidth(api, 'fileTree'),
+  }
+}
+
+/**
+ * Restore both sidebar widths by patching the serialized grid tree.
+ * Sequential setSize calls interfere with each other (dockview redistributes
+ * freed space proportionally), so we patch sizes in the JSON and reload.
+ */
+export function restoreSidebarWidths(api: DockviewApi, widths: { left: number; right: number }, refs?: LayoutRefs): void {
+  if (widths.left <= 0 && widths.right <= 0) return
+  if (api.width <= 0) return
+  try {
+    const json = api.toJSON()
+    const root = (json as { grid: { root: GridNode } }).grid.root
+    if (root.type !== 'branch' || root.data.length < 2) return
+
+    const total = root.data.reduce((s, c) => s + c.size, 0)
+    if (total <= 0) return
+
+    // Find which root children contain the sidebars
+    const leftIdx = root.data.findIndex((c) =>
+      c.type === 'leaf' ? c.data.views.includes('projects') : treeContainsPanel(c, 'projects'))
+    const rightIdx = root.data.findIndex((c) =>
+      c.type === 'leaf'
+        ? c.data.views.includes('fileTree')
+        : treeContainsPanel(c, 'fileTree'))
+
+    let consumed = 0
+    if (leftIdx >= 0 && widths.left > 0) {
+      const leftSize = Math.round((widths.left / api.width) * total)
+      root.data[leftIdx].size = leftSize
+      consumed += leftSize
+    } else if (leftIdx >= 0) {
+      consumed += root.data[leftIdx].size
+    }
+    if (rightIdx >= 0 && rightIdx !== leftIdx && widths.right > 0) {
+      const rightSize = Math.round((widths.right / api.width) * total)
+      root.data[rightIdx].size = rightSize
+      consumed += rightSize
+    } else if (rightIdx >= 0 && rightIdx !== leftIdx) {
+      consumed += root.data[rightIdx].size
+    }
+
+    // Give remaining space to center panels
+    const centerNodes = root.data.filter((_, i) => i !== leftIdx && i !== rightIdx)
+    const remaining = total - consumed
+    if (centerNodes.length > 0 && remaining > 0) {
+      const centerTotal = centerNodes.reduce((s, c) => s + c.size, 0)
+      const scale = centerTotal > 0 ? remaining / centerTotal : 1
+      for (const c of centerNodes) c.size = Math.round(c.size * scale)
+    }
+
+    if (refs) refs.isRestoringRef.current = true
     try {
-      const measuredWidth = getSidebarWidth(api)
-      const targetWidth = normalizeSidebarWidth(requestedWidth ?? measuredWidth)
-      api.getPanel('projects')?.group?.api.setSize({ width: targetWidth })
-    } catch { /* best-effort */ }
-  })
+      api.fromJSON(json)
+    } finally {
+      if (refs) refs.isRestoringRef.current = false
+    }
+    if (refs) refs.lastLayoutRef.current = api.toJSON()
+  } catch (err) {
+    console.warn('[restoreSidebarWidths] failed to restore sidebar widths:', err)
+  }
+}
+
+/** Restore the left sidebar to a specific pixel width. */
+export function restoreSidebarWidth(api: DockviewApi, width: number): void {
+  restoreSidebarWidths(api, { left: width, right: 0 })
 }
 
 // ── Serialized layout tree helpers ──────────────────────────────────────
@@ -81,6 +143,62 @@ export function restoreSidebarWidth(api: DockviewApi, width: number): void {
 type GridNode =
   | { type: 'branch'; data: GridNode[]; size: number }
   | { type: 'leaf'; data: { views: string[]; id: string; activeView?: string }; size: number }
+
+/**
+ * Produce a string that captures the grid's panel arrangement (which panels
+ * live in which groups, how groups are nested) but ignores sizes.  Two layouts
+ * with the same signature differ only in panel/group dimensions — any panel
+ * add, remove, or drag-to-new-group changes the signature.
+ */
+function nodeSignature(node: GridNode): string {
+  if (node.type === 'leaf') return `L[${[...node.data.views].sort().join(',')}]`
+  return `B[${node.data.map(nodeSignature).join('|')}]`
+}
+
+export function getGridSignature(layout: SerializedDockview): string {
+  return nodeSignature(layout.grid.root as GridNode)
+}
+
+// ── Bottom-panel height helpers ───────────────────────────────────────
+
+/**
+ * Walk the grid tree and set the leaf containing `panelId` to `fraction`
+ * of its parent branch total, scaling siblings to fill the remainder.
+ * Returns true if the node was found and patched.
+ */
+function applyHeightInTree(node: GridNode, panelId: string, fraction: number): boolean {
+  if (node.type !== 'branch') return false
+
+  const idx = node.data.findIndex((c) =>
+    c.type === 'leaf' && c.data.views.includes(panelId))
+
+  if (idx >= 0) {
+    const total = node.data.reduce((s, c) => s + c.size, 0)
+    const panelSize = Math.round(total * fraction)
+    const remaining = total - panelSize
+    const otherTotal = node.data.reduce((s, c, i) => s + (i === idx ? 0 : c.size), 0)
+    const scale = otherTotal > 0 ? remaining / otherTotal : 1
+    for (let i = 0; i < node.data.length; i++) {
+      node.data[i].size = i === idx ? panelSize : Math.round(node.data[i].size * scale)
+    }
+    return true
+  }
+
+  return node.data.some((child) => applyHeightInTree(child, panelId, fraction))
+}
+
+/** Patch the serialised grid so `panelId` occupies `fraction` of its parent branch. */
+function applyPanelHeightFraction(api: DockviewApi, panelId: string, fraction: number, refs?: LayoutRefs): void {
+  try {
+    const json = api.toJSON()
+    if (!applyHeightInTree(json.grid.root as GridNode, panelId, fraction)) return
+    if (refs) refs.isRestoringRef.current = true
+    try { api.fromJSON(json) } finally { if (refs) refs.isRestoringRef.current = false }
+    if (refs) refs.lastLayoutRef.current = api.toJSON()
+  } catch (err) {
+    console.warn(`[applyPanelHeightFraction] failed for '${panelId}':`, err)
+  }
+}
 
 const RETIRED_PANEL_IDS = new Set(['memory'])
 
@@ -184,12 +302,11 @@ export async function loadOrBuildLayout(
       } finally {
         refs.isRestoringRef.current = false
       }
-      restoreSidebarWidth(api, getSidebarWidth(api))
       refs.lastLayoutRef.current = saved
       return
     }
-  } catch {
-    // ignore load errors, fall through to default
+  } catch (err) {
+    console.warn('[loadOrBuildLayout] failed to restore saved layout for session', sessionId, '- falling back to default:', err)
   }
   refs.isRestoringRef.current = true
   try {
@@ -198,7 +315,6 @@ export async function loadOrBuildLayout(
   } finally {
     refs.isRestoringRef.current = false
   }
-  restoreSidebarWidth(api, DEFAULT_SIDEBAR_WIDTH)
   refs.lastLayoutRef.current = api.toJSON()
 }
 
@@ -233,12 +349,12 @@ export function hidePanel(
   if (root.type === 'branch') {
     const freed = removeLeafFromTree(root, id)
     if (freed > 0 && root.data.length > 0) {
-      const sidebarIdx = root.data.findIndex((c) =>
-        c.type === 'leaf'
-          ? c.data.views.includes('projects')
-          : treeContainsPanel(c, 'projects')
-      )
-      const targets = root.data.filter((_, i) => i !== sidebarIdx)
+      const isSidebarNode = (c: GridNode) => {
+        const views = c.type === 'leaf' ? c.data.views : []
+        return views.some((v) => SIDEBAR_PANEL_IDS.has(v)) ||
+          (c.type === 'branch' && Array.from(SIDEBAR_PANEL_IDS).some((sid) => treeContainsPanel(c, sid)))
+      }
+      const targets = root.data.filter((c) => !isSidebarNode(c))
       if (targets.length > 0) {
         const share = freed / targets.length
         for (const t of targets) t.size = Math.round(t.size + share)
@@ -254,6 +370,8 @@ export function hidePanel(
   refs.isRestoringRef.current = true
   try {
     api.fromJSON(json)
+  } catch (err) {
+    console.warn(`[hidePanel] failed to apply layout after hiding '${id}':`, err)
   } finally {
     refs.isRestoringRef.current = false
   }
@@ -270,7 +388,7 @@ export function showPanelFromSnapshot(
   const currentlyVisible = new Set(
     PANEL_IDS.filter((pid) => api.getPanel(pid) !== undefined)
   )
-  const sidebarWidth = getSidebarWidth(api)
+  const widths = getSidebarWidths(api)
 
   refs.isRestoringRef.current = true
   try {
@@ -285,19 +403,21 @@ export function showPanelFromSnapshot(
     refs.isRestoringRef.current = false
   }
 
-  restoreSidebarWidth(api, sidebarWidth)
+  restoreSidebarWidths(api, widths, refs)
   refs.lastLayoutRef.current = api.toJSON()
   closedPanelSnapshots.current.delete(id)
 }
 
-export function showPanelFromHints(api: DockviewApi, id: DockPanelId): void {
-  const sidebarWidth = getSidebarWidth(api)
+export function showPanelFromHints(api: DockviewApi, id: DockPanelId, refs?: LayoutRefs): void {
+  const widths = getSidebarWidths(api)
   const hints = PANEL_RESTORE_HINTS[id]
   let position: { referencePanel: ReturnType<DockviewApi['getPanel']>; direction: Direction } | undefined
+  let usedDirection: Direction | undefined
   for (const hint of hints) {
     const ref = api.getPanel(hint.ref)
     if (ref) {
       position = { referencePanel: ref, direction: hint.dir }
+      usedDirection = hint.dir
       break
     }
   }
@@ -307,5 +427,8 @@ export function showPanelFromHints(api: DockviewApi, id: DockPanelId): void {
     title: PANEL_TITLES[id],
     ...(position ? { position } : {}),
   })
-  restoreSidebarWidth(api, sidebarWidth)
+  if (usedDirection === 'below') {
+    applyPanelHeightFraction(api, id, 1 / 3, refs)
+  }
+  restoreSidebarWidths(api, widths, refs)
 }

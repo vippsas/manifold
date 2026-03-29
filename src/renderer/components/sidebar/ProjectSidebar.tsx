@@ -176,8 +176,11 @@ function ProjectList({
         const isActive = project.id === activeProjectId
         const projectSessions = allProjectSessions[project.id] ?? []
 
+        const hasAgents = projectSessions.length > 0
+        const groupClass = `sidebar-project-group${hasAgents ? ' sidebar-project-group--has-agents' : ' sidebar-project-group--empty'}`
+
         return (
-          <React.Fragment key={project.id}>
+          <div key={project.id} className={groupClass}>
             <ProjectItem
               project={project}
               isActive={isActive}
@@ -199,7 +202,7 @@ function ProjectList({
                 onDelete={() => onRequestDeleteAgent(session, project.path)}
               />
             ))}
-          </React.Fragment>
+          </div>
         )
       })}
       {projects.length === 0 && (

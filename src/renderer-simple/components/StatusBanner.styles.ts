@@ -7,6 +7,7 @@ export const container: CSSProperties = {
   padding: '8px 16px',
   borderBottom: '1px solid var(--border)',
   gap: 12,
+  background: 'linear-gradient(180deg, var(--bg-chrome-hi, var(--surface)) 0%, var(--surface) 100%)',
 }
 
 export const backButton: CSSProperties = {

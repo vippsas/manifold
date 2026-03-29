@@ -3,7 +3,7 @@ import type { CSSProperties } from 'react'
 export const overlay: CSSProperties = {
   position: 'fixed',
   inset: 0,
-  background: 'rgba(0, 0, 0, 0.5)',
+  background: 'var(--overlay-backdrop, rgba(0, 0, 0, 0.5))',
   display: 'flex',
   alignItems: 'center',
   justifyContent: 'center',
@@ -17,6 +17,7 @@ export const dialog: CSSProperties = {
   padding: 32,
   maxWidth: 400,
   width: '90%',
+  boxShadow: 'var(--shadow-overlay)',
 }
 
 export const title: CSSProperties = {
