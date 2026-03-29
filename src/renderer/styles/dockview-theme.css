@@ -3,7 +3,7 @@
 
 .dockview-theme-dark.dockview-theme-manifold {
   --dv-background-color: var(--bg-primary);
-  --dv-paneview-header-border-color: var(--border);
+  --dv-paneview-header-border-color: transparent;
   --dv-tabs-and-actions-container-background-color: var(--bg-chrome);
   --dv-tabs-and-actions-container-height: var(--chrome-tab-height);
   --dv-tabs-and-actions-container-font-size: 1em;
@@ -11,12 +11,12 @@
   --dv-activegroup-hiddenpanel-tab-background-color: var(--bg-chrome);
   --dv-inactivegroup-visiblepanel-tab-background-color: var(--bg-chrome);
   --dv-inactivegroup-hiddenpanel-tab-background-color: var(--bg-chrome);
-  --dv-tab-divider-color: var(--border);
+  --dv-tab-divider-color: transparent;
   --dv-activegroup-visiblepanel-tab-color: var(--text-primary);
   --dv-activegroup-hiddenpanel-tab-color: var(--text-muted);
   --dv-inactivegroup-visiblepanel-tab-color: var(--text-secondary);
   --dv-inactivegroup-hiddenpanel-tab-color: var(--text-muted);
-  --dv-separator-border: var(--border);
+  --dv-separator-border: transparent;
   --dv-group-view-background-color: var(--bg-primary);
   --dv-drag-over-background-color: var(--accent-subtle, rgba(0, 122, 204, 0.15));
   --dv-drag-over-border-color: var(--accent);
