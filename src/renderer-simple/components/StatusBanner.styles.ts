@@ -45,16 +45,6 @@ export const runtimeBadge: CSSProperties = {
 
 export const spacer: CSSProperties = { flex: 1 }
 
-export const devModeButton: CSSProperties = {
-  background: 'transparent',
-  border: '1px solid var(--border)',
-  borderRadius: 'var(--radius)',
-  padding: '6px 12px',
-  fontSize: 12,
-  color: 'var(--text-muted)',
-  cursor: 'pointer',
-}
-
 export const deployButton: CSSProperties = {
   background: 'var(--success)',
   color: '#fff',

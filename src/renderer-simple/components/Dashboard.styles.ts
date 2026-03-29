@@ -88,17 +88,6 @@ export const techDot: CSSProperties = {
   opacity: 0.4,
 }
 
-export const devViewButton: CSSProperties = {
-  background: 'transparent',
-  color: 'var(--accent)',
-  border: '1px solid var(--accent)',
-  borderRadius: 'var(--radius)',
-  padding: '8px 16px',
-  fontSize: 13,
-  fontWeight: 600,
-  cursor: 'pointer',
-}
-
 // Create dialog (modal overlay)
 export const overlay: CSSProperties = {
   position: 'fixed',

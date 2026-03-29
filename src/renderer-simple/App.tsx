@@ -2,6 +2,7 @@ import React, { useState, useEffect, useLayoutEffect, useCallback } from 'react'
 import { Dashboard } from './components/Dashboard'
 import type { StartAppRequest } from './components/Dashboard'
 import { AppView } from './components/AppView'
+import { SimpleTitleBar } from './components/SimpleTitleBar'
 import { DeployModal } from './components/DeployModal'
 import { useApps } from './hooks/useApps'
 import { useAgentStatus } from './hooks/useAgentStatus'
@@ -121,9 +122,6 @@ function AppViewWrapper({ app, onBack }: { app: SimpleApp; onBack: () => void })
         liveUrl={liveUrl}
         deployStatus={deployStatus}
         runtimeLabel={getSimpleRuntimeLabel(app.runtimeId)}
-        onDevMode={() => {
-          window.electronAPI.invoke('app:switch-mode', 'developer', app.projectId, app.sessionId, app.runtimeId)
-        }}
       />
       {showSetupModal && setupHealth && (
         <DeployModal
@@ -142,6 +140,9 @@ export function App(): React.JSX.Element {
   const { apps, refreshApps, deleteApp } = useApps()
   const updateNotification = useUpdateNotification()
   const [view, setView] = useState<View>({ kind: 'dashboard' })
+  const activeApp = view.kind === 'app' ? view.app : null
+  const { status: agentStatus } = useAgentStatus(activeApp?.sessionId ?? null)
+  const isAgentBusy = agentStatus === 'running'
 
   useLayoutEffect(() => {
     let cancelled = false
@@ -192,14 +193,23 @@ export function App(): React.JSX.Element {
   if (view.kind === 'app') {
     return (
       <ErrorBoundary onReset={() => setView({ kind: 'dashboard' })}>
+        <SimpleTitleBar
+          projectId={view.app.projectId}
+          sessionId={view.app.sessionId}
+          runtimeId={view.app.runtimeId}
+          disabled={isAgentBusy}
+        />
         <AppViewWrapper app={view.app} onBack={() => setView({ kind: 'dashboard' })} />
         {updateToast}
       </ErrorBoundary>
     )
   }
 
+  const hasActiveApp = apps.some((app) => app.status === 'scaffolding' || app.status === 'building' || app.status === 'deploying')
+
   return (
     <>
+    <SimpleTitleBar disabled={hasActiveApp} />
     <Dashboard
       apps={apps}
       onStart={async ({ name, description, templateQualifiedId, templateTitle, promptInstructions, inputs }: StartAppRequest) => {
@@ -284,9 +294,6 @@ export function App(): React.JSX.Element {
         }
       }}
       onDeleteApp={(app) => deleteApp(app.sessionId, app.projectId)}
-      onDevMode={() => {
-        window.electronAPI.invoke('app:switch-mode', 'developer')
-      }}
     />
     {updateToast}
     </>
