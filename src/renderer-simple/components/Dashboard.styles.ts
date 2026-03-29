@@ -260,3 +260,83 @@ export const startButton: CSSProperties = {
   fontWeight: 600,
   cursor: 'pointer',
 }
+
+export const emptyState: CSSProperties = {
+  display: 'flex',
+  flexDirection: 'column',
+  alignItems: 'center',
+  justifyContent: 'center',
+  textAlign: 'center',
+  minHeight: '50vh',
+  gap: 0,
+}
+
+export const emptyIllustration: CSSProperties = {
+  position: 'relative',
+  width: 80,
+  height: 80,
+  marginBottom: 24,
+}
+
+export const emptyCircleOuter: CSSProperties = {
+  position: 'absolute',
+  inset: 0,
+  border: '1.5px dashed var(--accent)',
+  borderRadius: '50%',
+  opacity: 0.25,
+}
+
+export const emptyCircleInner: CSSProperties = {
+  position: 'absolute',
+  inset: 16,
+  border: '1.5px dashed var(--accent)',
+  borderRadius: '50%',
+  opacity: 0.15,
+}
+
+export const emptyCircleCenter: CSSProperties = {
+  position: 'absolute',
+  top: '50%',
+  left: '50%',
+  transform: 'translate(-50%, -50%)',
+  width: 24,
+  height: 24,
+  borderRadius: '50%',
+  background: 'var(--accent)',
+  opacity: 0.12,
+  display: 'flex',
+  alignItems: 'center',
+  justifyContent: 'center',
+  color: 'var(--accent)',
+  fontSize: 16,
+}
+
+export const emptyHeading: CSSProperties = {
+  fontSize: 16,
+  fontWeight: 500,
+  color: 'var(--text-primary, var(--text))',
+  marginBottom: 8,
+}
+
+export const emptySubtitle: CSSProperties = {
+  fontSize: 13,
+  color: 'var(--text-muted)',
+  maxWidth: 280,
+  lineHeight: 1.5,
+  marginBottom: 24,
+}
+
+export const emptyCta: CSSProperties = {
+  display: 'inline-flex',
+  alignItems: 'center',
+  gap: 8,
+  padding: '10px 24px',
+  borderRadius: 'var(--radius)',
+  background: 'var(--accent)',
+  opacity: 0.15,
+  color: 'var(--accent)',
+  fontSize: 14,
+  fontWeight: 600,
+  border: '1px solid var(--accent)',
+  cursor: 'pointer',
+}

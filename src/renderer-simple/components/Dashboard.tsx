@@ -43,35 +43,60 @@ export function Dashboard({ apps, onStart, onSelectApp, onDeleteApp }: Props): R
   const [showCreate, setShowCreate] = useState(false)
   const [appToDelete, setAppToDelete] = useState<SimpleApp | null>(null)
 
+  const hasApps = apps.length > 0
+
   return (
     <div style={styles.container}>
       <div style={styles.logoWrap}>
         <ManifoldWordmark />
       </div>
 
-      <div style={styles.header}>
-        <div style={styles.title}>My Apps</div>
-        <div style={styles.headerDivider} />
-        <div style={styles.headerCount}>
-          {apps.length} {apps.length === 1 ? 'app' : 'apps'}
-        </div>
-      </div>
+      {hasApps ? (
+        <>
+          <div style={styles.header}>
+            <div style={styles.title}>My Apps</div>
+            <div style={styles.headerDivider} />
+            <div style={styles.headerCount}>
+              {apps.length} {apps.length === 1 ? 'app' : 'apps'}
+            </div>
+          </div>
 
-      <div style={styles.grid}>
-        <div style={styles.newAppCard} onClick={() => setShowCreate(true)}>
-          <div style={styles.newAppIconCircle}>+</div>
-          <div style={styles.newAppLabel}>New App</div>
-        </div>
+          <div style={styles.grid}>
+            <div style={styles.newAppCard} onClick={() => setShowCreate(true)}>
+              <div style={styles.newAppIconCircle}>+</div>
+              <div style={styles.newAppLabel}>New App</div>
+            </div>
 
-        {apps.map((app) => (
-          <AppCard
-            key={app.sessionId}
-            app={app}
-            onClick={() => onSelectApp(app)}
-            onDelete={() => setAppToDelete(app)}
-          />
-        ))}
-      </div>
+            {apps.map((app) => (
+              <AppCard
+                key={app.sessionId}
+                app={app}
+                onClick={() => onSelectApp(app)}
+                onDelete={() => setAppToDelete(app)}
+              />
+            ))}
+          </div>
+        </>
+      ) : (
+        <div style={styles.emptyState}>
+          <div style={styles.emptyIllustration}>
+            <div style={styles.emptyCircleOuter} />
+            <div style={styles.emptyCircleInner} />
+            <div style={styles.emptyCircleCenter}>+</div>
+          </div>
+          <div style={styles.emptyHeading}>Create your first app</div>
+          <div style={styles.emptySubtitle}>
+            Describe what you want to build and Manifold will scaffold, preview, and deploy it for you.
+          </div>
+          <button
+            type="button"
+            style={styles.emptyCta}
+            onClick={() => setShowCreate(true)}
+          >
+            New App
+          </button>
+        </div>
+      )}
 
       <CreateAppDialog
         open={showCreate}
