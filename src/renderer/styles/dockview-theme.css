@@ -88,6 +88,21 @@
   min-width: 0;
 }
 
+/* Hide tab close button by default, show on tab hover */
+.dockview-theme-manifold .dv-default-tab .dv-default-tab-action {
+  opacity: 0;
+  transition: opacity var(--duration-normal) var(--ease-premium);
+}
+
+.dockview-theme-manifold .dv-default-tab:hover .dv-default-tab-action {
+  opacity: 1;
+}
+
+/* Always show close button on active tab */
+.dockview-theme-manifold .dv-default-tab.dv-active-tab .dv-default-tab-action {
+  opacity: 1;
+}
+
 /* Minimal layout (no active session): hide sashes between panels */
 .dockview-theme-manifold.dockview-minimal .dv-split-view-container > .dv-sash-container > .dv-sash {
   pointer-events: none;
