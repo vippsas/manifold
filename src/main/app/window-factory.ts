@@ -4,6 +4,24 @@ import { debugLog } from './debug-log'
 import { buildAppMenu } from './app-menu'
 import { registerIpcHandlers, type IpcDependencies } from './ipc-handlers'
 
+// Suppress Electron's internal GUEST_VIEW_MANAGER_CALL error logging for
+// ERR_ABORTED (-3).  These fire when a <webview> navigation is cancelled
+// (e.g. during dev-server restarts, HMR, or startup race conditions).
+// Electron logs them via console.error inside its ipcMain.handle plumbing
+// before the rejection reaches process-level handlers, so we intercept here.
+const _origConsoleError = console.error
+console.error = (...args: unknown[]): void => {
+  if (
+    typeof args[0] === 'string' &&
+    args[0].includes('GUEST_VIEW_MANAGER_CALL') &&
+    args[1] instanceof Error &&
+    (args[1] as NodeJS.ErrnoException).errno === -3
+  ) {
+    return
+  }
+  _origConsoleError.apply(console, args)
+}
+
 function resolveInitialBackground(theme: string): string {
   if (theme === 'light' || theme === 'vs') return '#ffffff'
   return '#282a36' // Dracula-ish default for dark themes
