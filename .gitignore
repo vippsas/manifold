@@ -4,5 +4,6 @@ dist/
 .manifold/
 docs/plans/
 specs/
+!.claude/skills/
 .DS_Store
 .superpowers/
