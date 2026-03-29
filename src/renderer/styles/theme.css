@@ -303,8 +303,8 @@ button:focus-visible,
 input:focus-visible,
 textarea:focus-visible,
 select:focus-visible {
-  outline: 1px solid var(--focus-ring);
-  outline-offset: -1px;
+  outline: none;
+  box-shadow: 0 0 0 2px var(--accent-subtle), 0 0 10px var(--accent-subtle);
 }
 
 /* ─── Status Dot Utility ─── */
@@ -451,8 +451,8 @@ select:focus-visible {
 }
 
 .sidebar-item-row:focus-visible {
-  outline: 1px solid var(--focus-ring);
-  outline-offset: -1px;
+  outline: none;
+  box-shadow: 0 0 0 2px var(--accent-subtle), 0 0 10px var(--accent-subtle);
 }
 
 .sidebar-project-row {
@@ -1006,8 +1006,8 @@ select:focus-visible {
   background: var(--sidebar-active-bg);
 }
 .file-tree-row:focus-visible {
-  outline: 1px solid var(--accent);
-  outline-offset: -1px;
+  outline: none;
+  box-shadow: 0 0 0 2px var(--accent-subtle), 0 0 10px var(--accent-subtle);
 }
 
 /* ─── File Tree Delete Button (hover reveal) ─── */
