@@ -12,15 +12,6 @@ export const logoWrap: CSSProperties = {
   marginBottom: 24,
 }
 
-export const logo: CSSProperties = {
-  margin: 0,
-  fontSize: 11,
-  lineHeight: 1.3,
-  color: 'var(--text-muted)',
-  opacity: 0.4,
-  userSelect: 'none',
-}
-
 export const header: CSSProperties = {
   display: 'flex',
   alignItems: 'center',

@@ -5,11 +5,29 @@ import { ConfirmDialog } from './ConfirmDialog'
 import { CreateAppDialog, type StartAppRequest } from './CreateAppDialog'
 import * as styles from './Dashboard.styles'
 
-const LOGO = `  .--.      __  ___            _ ____      __    __
- / oo \\    /  |/  /___ _____  (_) __/___  / /___/ /
-| \\__/ |  / /|_/ / __ \`/ __ \\/ / /_/ __ \\/ / __  /
- \\    /  / /  / / /_/ / / / / / __/ /_/ / / /_/ /
-  \\__/  /_/  /_/\\__,_/_/ /_/_/_/  \\____/_/\\__,_/`
+function ManifoldWordmark(): React.JSX.Element {
+  return (
+    <div style={{ textAlign: 'center' }}>
+      <div style={{
+        fontSize: 32,
+        fontWeight: 200,
+        letterSpacing: '0.15em',
+        color: 'var(--text-primary, var(--text))',
+        opacity: 0.8,
+        fontFamily: 'var(--font-sans, -apple-system, BlinkMacSystemFont, sans-serif)',
+      }}>
+        MANIFOLD
+      </div>
+      <div style={{
+        width: 60,
+        height: 1,
+        background: 'linear-gradient(90deg, transparent, var(--accent), transparent)',
+        margin: '8px auto 0',
+        opacity: 0.5,
+      }} />
+    </div>
+  )
+}
 
 interface Props {
   apps: SimpleApp[]
@@ -27,7 +45,7 @@ export function Dashboard({ apps, onStart, onSelectApp, onDeleteApp }: Props): R
   return (
     <div style={styles.container}>
       <div style={styles.logoWrap}>
-        <pre style={styles.logo}>{LOGO}</pre>
+        <ManifoldWordmark />
       </div>
 
       <div style={styles.header}>
