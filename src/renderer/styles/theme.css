@@ -1124,6 +1124,7 @@ select:focus-visible {
 
 /* ─── File Tree Rows ─── */
 .file-tree-row {
+  color: var(--text-secondary);
   transition: background var(--duration-normal) var(--ease-premium);
 }
 .file-tree-row:hover {
