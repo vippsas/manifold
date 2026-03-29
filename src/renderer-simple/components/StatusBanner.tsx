@@ -28,12 +28,11 @@ interface Props {
   onBack: () => void
   onDeploy?: () => void
   runtimeLabel?: string
-  onDevMode?: () => void
   liveUrl?: string | null
   deployStatus?: AppStatus | null
 }
 
-export function StatusBanner({ status, isAgentWorking, onBack, onDeploy, runtimeLabel, onDevMode, liveUrl, deployStatus }: Props): React.JSX.Element {
+export function StatusBanner({ status, isAgentWorking, onBack, onDeploy, runtimeLabel, liveUrl, deployStatus }: Props): React.JSX.Element {
   const isDeploying = deployStatus === 'deploying'
   const isLive = deployStatus === 'live' && liveUrl
   const deployFailed = deployStatus === 'error'
@@ -66,16 +65,6 @@ export function StatusBanner({ status, isAgentWorking, onBack, onDeploy, runtime
         </div>
       )}
       <div style={styles.spacer} />
-      {onDevMode && (
-        <button
-          onClick={isAgentWorking ? undefined : onDevMode}
-          disabled={isAgentWorking}
-          style={{ ...styles.devModeButton, opacity: isAgentWorking ? 0.4 : 1, cursor: isAgentWorking ? 'not-allowed' : 'pointer' }}
-          title={isAgentWorking ? 'Unavailable while app is building' : 'Switch to full developer mode'}
-        >
-          Developer View
-        </button>
-      )}
       {isLive && liveUrl && (
         <>
           <button

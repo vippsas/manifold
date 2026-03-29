@@ -23,7 +23,6 @@ interface Props {
   liveUrl?: string | null
   deployStatus?: AppStatus | null
   runtimeLabel?: string
-  onDevMode: () => void
 }
 
 export function AppView({
@@ -39,7 +38,6 @@ export function AppView({
   liveUrl,
   deployStatus,
   runtimeLabel,
-  onDevMode,
 }: Props): React.JSX.Element {
   const splitRef = useRef<HTMLDivElement>(null)
   const [chatWidth, setChatWidth] = useState<number | null>(null)
@@ -88,7 +86,6 @@ export function AppView({
         onBack={onBack}
         onDeploy={onDeploy}
         runtimeLabel={runtimeLabel}
-        onDevMode={onDevMode}
         liveUrl={liveUrl}
         deployStatus={deployStatus}
       />

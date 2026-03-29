@@ -52,6 +52,8 @@ export function createWindow(deps: WindowFactoryDeps): BrowserWindow {
     minWidth: 800,
     minHeight: 600,
     title: 'Manifold',
+    titleBarStyle: 'hiddenInset',
+    trafficLightPosition: { x: 12, y: 12 },
     backgroundColor: resolveInitialBackground(theme),
     webPreferences: {
       preload: join(__dirname, simple ? '../preload/simple.js' : '../preload/index.js'),
