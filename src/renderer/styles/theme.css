@@ -32,6 +32,17 @@
   --sidebar-width: 360px;
   --status-bar-height: var(--chrome-status-height);
 
+  /* Duration tokens */
+  --duration-fast: 100ms;
+  --duration-normal: 250ms;
+  --duration-slow: 400ms;
+  --duration-elegant: 600ms;
+
+  /* Easing tokens */
+  --ease-out: cubic-bezier(0.0, 0, 0.2, 1);
+  --ease-in: cubic-bezier(0.4, 0, 1, 1);
+  --ease-premium: cubic-bezier(0.4, 0, 0.2, 1);
+
   /* Default color values — match the default Dracula theme.
      Overridden by theme adapter at runtime via applyThemeCssVars(). */
   --bg-primary: #282a36;
