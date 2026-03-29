@@ -459,6 +459,9 @@ select:focus-visible {
 .sidebar-project-row {
   font-weight: 600;
   padding-right: 68px;
+  font-size: var(--type-ui-small);
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
 }
 
 .sidebar-agent-row {
@@ -520,6 +523,28 @@ select:focus-visible {
   font-size: var(--type-ui-caption);
   color: var(--text-muted);
   line-height: 1.15;
+}
+
+.sidebar-project-group {
+  margin-bottom: 2px;
+}
+
+.sidebar-project-group--has-agents {
+  margin: 4px 6px;
+  padding: 2px 0;
+  background: var(--bg-elevated);
+  border-radius: var(--radius-md);
+  border: 1px solid var(--divider);
+}
+
+.sidebar-project-group--has-agents .sidebar-item-row {
+  margin-left: 4px;
+  margin-right: 4px;
+}
+
+.sidebar-project-group--empty .sidebar-project-row {
+  color: var(--text-muted);
+  font-weight: 500;
 }
 
 .sidebar-aux-list {
