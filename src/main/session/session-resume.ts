@@ -64,7 +64,7 @@ export function createShellPtySession(
   sessions: Map<string, InternalSession>,
 ): { sessionId: string } {
   const shell = process.platform === 'win32' ? 'cmd.exe' : (process.env.SHELL || '/bin/zsh')
-  const ptyHandle = ptyPool.spawn(shell, [], { cwd })
+  const ptyHandle = ptyPool.spawn(shell, ['-il'], { cwd })
   const id = uuidv4()
 
   const session: InternalSession = {
