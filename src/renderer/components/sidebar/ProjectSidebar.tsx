@@ -18,7 +18,6 @@ interface ProjectSidebarProps {
   onUpdateProject: (id: string, partial: Partial<Omit<Project, 'id'>>) => void
   onDeleteAgent: (id: string) => Promise<void>
   onNewAgent: () => void
-  onQuickStart?: () => void
   onNewProject: () => void
   fetchingProjectId: string | null
   lastFetchedProjectId: string | null
@@ -38,7 +37,6 @@ export function ProjectSidebar({
   onUpdateProject,
   onDeleteAgent,
   onNewAgent,
-  onQuickStart,
   onNewProject,
   fetchingProjectId,
   lastFetchedProjectId,
@@ -100,19 +98,12 @@ export function ProjectSidebar({
           onFetchProject={onFetchProject}
         />
         <div style={sidebarStyles.actions}>
-          <button type="button" onClick={onNewProject} className="sidebar-action-button" style={sidebarStyles.actionButton}>
-            + New Repository
-          </button>
-        </div>
-        <div style={sidebarStyles.actions}>
           <button type="button" onClick={onNewAgent} className="sidebar-action-button sidebar-action-button--primary" style={sidebarStyles.actionButtonPrimary}>
             + New Agent
           </button>
-          {onQuickStart && (
-            <button type="button" onClick={onQuickStart} className="sidebar-action-button" style={sidebarStyles.actionButton} title="Start agent on current branch">
-              &#9654; Current branch
-            </button>
-          )}
+          <button type="button" onClick={onNewProject} className="sidebar-action-button" style={sidebarStyles.actionButton}>
+            + New Repository
+          </button>
         </div>
       </div>
       <DeleteAgentDialog
