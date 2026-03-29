@@ -4,6 +4,7 @@ import {
   PANEL_IDS,
   PANEL_TITLES,
   applyMinimalLayout,
+  getGridSignature,
   getSidebarWidths,
   hidePanel,
   isEditorPanelId,
@@ -51,6 +52,7 @@ export function useDockLayout(sessionId: string | null): UseDockLayoutResult {
   const lastLayoutRef = useRef<SerializedDockview | null>(null)
   const closedPanelSnapshots = useRef<Map<DockPanelId, SerializedDockview>>(new Map())
   const isRestoringRef = useRef(false)
+  const sidebarWidthsRef = useRef<{ left: number; right: number }>({ left: 0, right: 0 })
   const refs: LayoutRefs = { isRestoringRef, lastLayoutRef }
 
   const syncPanels = useCallback((api: DockviewApi) => {
@@ -85,6 +87,7 @@ export function useDockLayout(sessionId: string | null): UseDockLayoutResult {
     if (sid) {
       void loadOrBuildLayout(api, sid, buildDefaultLayout, refs).then(() => {
         syncPanels(api)
+        sidebarWidthsRef.current = getSidebarWidths(api)
         if (ensureSearchPanelInWorkspace(api, editorPanelIdsRef.current)) {
           lastLayoutRef.current = api.toJSON()
           saveLayout()
@@ -94,6 +97,7 @@ export function useDockLayout(sessionId: string | null): UseDockLayoutResult {
     } else {
       applyMinimalLayout(api, buildMinimalLayout, refs)
       syncPanels(api)
+      sidebarWidthsRef.current = getSidebarWidths(api)
       bumpVersion()
     }
 
@@ -114,7 +118,25 @@ export function useDockLayout(sessionId: string | null): UseDockLayoutResult {
 
     api.onDidLayoutChange(() => {
       if (isRestoringRef.current) return
-      lastLayoutRef.current = api.toJSON()
+
+      const previousJson = lastLayoutRef.current
+      const currentJson = api.toJSON()
+
+      // Detect structural changes (panel moves/adds/removes) vs simple
+      // divider resizes by comparing the grid's panel arrangement.
+      const structureChanged = previousJson &&
+        getGridSignature(previousJson) !== getGridSignature(currentJson)
+
+      if (structureChanged && (sidebarWidthsRef.current.left > 0 || sidebarWidthsRef.current.right > 0)) {
+        // Structural change — restore pinned sidebar widths so only the
+        // center (agent) pane absorbs the size difference.
+        restoreSidebarWidths(api, sidebarWidthsRef.current, refs)
+      } else {
+        // Pure resize (user dragging a divider) — update pinned widths.
+        sidebarWidthsRef.current = getSidebarWidths(api)
+        lastLayoutRef.current = currentJson
+      }
+
       syncPanels(api)
       saveLayout()
       bumpVersion()
@@ -137,12 +159,14 @@ export function useDockLayout(sessionId: string | null): UseDockLayoutResult {
     if (!sessionId) {
       applyMinimalLayout(api, buildMinimalLayout, refs)
       syncPanels(api)
+      sidebarWidthsRef.current = getSidebarWidths(api)
       bumpVersion()
       return
     }
 
     void loadOrBuildLayout(api, sessionId, buildDefaultLayout, refs).then(() => {
       syncPanels(api)
+      sidebarWidthsRef.current = getSidebarWidths(api)
       if (ensureSearchPanelInWorkspace(api, editorPanelIdsRef.current)) {
         lastLayoutRef.current = api.toJSON()
         saveLayout()
@@ -284,10 +308,16 @@ export function useDockLayout(sessionId: string | null): UseDockLayoutResult {
   const resetLayout = useCallback(() => {
     const api = apiRef.current
     if (!api) return
-    api.clear()
-    buildDefaultLayout(api)
+    isRestoringRef.current = true
+    try {
+      api.clear()
+      buildDefaultLayout(api)
+    } finally {
+      isRestoringRef.current = false
+    }
     closedPanelSnapshots.current.clear()
     syncPanels(api)
+    sidebarWidthsRef.current = getSidebarWidths(api)
     lastLayoutRef.current = api.toJSON()
     bumpVersion()
   }, [buildDefaultLayout, bumpVersion, syncPanels])

@@ -143,6 +143,21 @@ type GridNode =
   | { type: 'branch'; data: GridNode[]; size: number }
   | { type: 'leaf'; data: { views: string[]; id: string; activeView?: string }; size: number }
 
+/**
+ * Produce a string that captures the grid's panel arrangement (which panels
+ * live in which groups, how groups are nested) but ignores sizes.  Two layouts
+ * with the same signature differ only in panel/group dimensions — any panel
+ * add, remove, or drag-to-new-group changes the signature.
+ */
+function nodeSignature(node: GridNode): string {
+  if (node.type === 'leaf') return `L[${[...node.data.views].sort().join(',')}]`
+  return `B[${node.data.map(nodeSignature).join('|')}]`
+}
+
+export function getGridSignature(layout: SerializedDockview): string {
+  return nodeSignature(layout.grid.root as GridNode)
+}
+
 const RETIRED_PANEL_IDS = new Set(['memory'])
 
 function treeContainsPanel(node: GridNode, panelId: string): boolean {
