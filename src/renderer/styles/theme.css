@@ -14,18 +14,33 @@
   --space-xs: 4px;
   --space-sm: 8px;
   --space-md: 14px;
-  --space-lg: 18px;
+  --space-lg: 20px;
   --space-xl: 28px;
+  --space-2xl: 40px;
+  --space-3xl: 56px;
+  --space-4xl: 80px;
 
   --type-ui: 13px;
   --type-ui-small: 12px;
   --type-ui-caption: 11px;
   --type-ui-micro: 10px;
 
+  /* Extended type scale */
+  --type-display: 24px;
+  --type-title: 18px;
+  --type-heading: 15px;
+  --type-label: 11px;
+
+  /* Letter-spacing tokens */
+  --tracking-tight: -0.01em;
+  --tracking-normal: 0em;
+  --tracking-wide: 0.1em;
+
   --chrome-tab-height: 30px;
   --chrome-row-height: 26px;
   --chrome-status-height: 24px;
   --control-height: 28px;
+  --row-gap: 4px;
   --dialog-header-height: 38px;
 
   --pane-divider-width: 4px;
@@ -109,10 +124,10 @@
   --warning-subtle: rgba(255, 167, 38, 0.16);
   --error-subtle: rgba(239, 83, 80, 0.16);
 
-  --shadow-subtle: 0 2px 8px rgba(0, 0, 0, 0.2);
-  --shadow-popover: 0 8px 24px rgba(0, 0, 0, 0.35);
-  --shadow-overlay: 0 16px 48px rgba(0, 0, 0, 0.45);
-  --shadow-elevated: 0 4px 16px rgba(0, 0, 0, 0.3), inset 0 1px 0 rgba(255, 255, 255, 0.03);
+  --shadow-subtle: 0 2px 8px rgba(0, 0, 0, 0.25), inset 0 1px 0 rgba(255, 255, 255, 0.06);
+  --shadow-popover: 0 8px 24px rgba(0, 0, 0, 0.4), 0 0 0 1px rgba(255, 255, 255, 0.04), inset 0 1px 0 rgba(255, 255, 255, 0.06);
+  --shadow-overlay: 0 20px 60px rgba(0, 0, 0, 0.5), 0 0 0 1px rgba(255, 255, 255, 0.05), inset 0 1px 0 rgba(255, 255, 255, 0.08);
+  --shadow-elevated: 0 4px 16px rgba(0, 0, 0, 0.3), inset 0 1px 0 rgba(255, 255, 255, 0.06);
 }
 
 /* ─── Global Reset ─── */
