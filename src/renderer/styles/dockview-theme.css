@@ -39,7 +39,7 @@
 /* Sash hover — use muted accent for resize handle highlight */
 .dockview-theme-manifold .dv-sash:hover {
   background: var(--accent-dim, var(--accent));
-  transition: background 0.15s ease;
+  transition: background var(--duration-normal) var(--ease-premium);
 }
 
 .dockview-theme-manifold .dv-tabs-and-actions-container {

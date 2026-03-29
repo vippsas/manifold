@@ -150,6 +150,13 @@
   --space-xl: 32px;
 }
 
+/* ── Micro-interactions ── */
+button:active,
+[role="button"]:active {
+  transform: scale(0.97);
+  transition: transform var(--duration-fast) var(--ease-out);
+}
+
 /* ─── Global Reset ─── */
 *,
 *::before,
@@ -249,7 +256,7 @@ body {
   cursor: col-resize;
   position: relative;
   flex-shrink: 0;
-  transition: background 0.15s ease;
+  transition: background var(--duration-normal) var(--ease-premium);
 }
 
 .pane-divider:hover,
@@ -274,7 +281,7 @@ body {
   cursor: row-resize;
   position: relative;
   flex-shrink: 0;
-  transition: background 0.15s ease;
+  transition: background var(--duration-normal) var(--ease-premium);
 }
 
 .pane-divider-horizontal:hover,
@@ -335,7 +342,7 @@ select {
   border-radius: var(--radius-sm);
   padding: var(--space-xs) var(--space-sm);
   outline: none;
-  transition: border-color 0.15s ease;
+  transition: border-color var(--duration-normal) var(--ease-premium);
 }
 
 input:focus,
@@ -483,7 +490,7 @@ select:focus-visible {
   color: var(--text-secondary);
   position: relative;
   cursor: pointer;
-  transition: background 150ms ease, color 150ms ease, box-shadow 150ms ease;
+  transition: background var(--duration-normal) var(--ease-premium), color var(--duration-normal) var(--ease-premium), box-shadow var(--duration-normal) var(--ease-premium);
 }
 
 .sidebar-item-row:hover {
@@ -574,7 +581,7 @@ select:focus-visible {
   margin-left: auto;
   opacity: 0;
   pointer-events: none;
-  transition: opacity 0.15s ease;
+  transition: opacity var(--duration-normal) var(--ease-premium);
 }
 
 .sidebar-item-row:hover .sidebar-item-actions,
@@ -650,7 +657,7 @@ select:focus-visible {
   border-radius: var(--radius-xs);
   color: var(--text-muted);
   opacity: 0.75;
-  transition: opacity 150ms ease, color 150ms ease, background 150ms ease;
+  transition: opacity var(--duration-normal) var(--ease-premium), color var(--duration-normal) var(--ease-premium), background var(--duration-normal) var(--ease-premium);
 }
 
 .sidebar-icon-button:hover {
@@ -668,7 +675,7 @@ select:focus-visible {
   background: linear-gradient(135deg, var(--btn-bg), var(--btn-hover));
   border-color: transparent;
   font-weight: 600;
-  transition: filter 200ms ease;
+  transition: filter var(--duration-normal) var(--ease-premium);
 }
 
 .sidebar-action-button--primary:hover {
@@ -1000,7 +1007,7 @@ select:focus-visible {
   cursor: pointer;
   border: none;
   font-weight: 500;
-  transition: filter 200ms ease, background 150ms ease, color 150ms ease;
+  transition: filter var(--duration-normal) var(--ease-premium), background var(--duration-normal) var(--ease-premium), color var(--duration-normal) var(--ease-premium);
 }
 
 .git-panel-btn:disabled {
@@ -1011,7 +1018,7 @@ select:focus-visible {
 .git-panel-btn--primary {
   background: linear-gradient(135deg, var(--btn-bg), var(--btn-hover));
   color: var(--btn-text);
-  transition: filter 200ms ease;
+  transition: filter var(--duration-normal) var(--ease-premium);
 }
 
 .git-panel-btn--primary:hover:not(:disabled) {
@@ -1100,7 +1107,7 @@ select:focus-visible {
 
 /* ─── File Tree Rows ─── */
 .file-tree-row {
-  transition: background 150ms ease;
+  transition: background var(--duration-normal) var(--ease-premium);
 }
 .file-tree-row:hover {
   background: var(--tree-hover);
