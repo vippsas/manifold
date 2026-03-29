@@ -125,7 +125,8 @@ export function registerAgentHandlers(deps: IpcDependencies): void {
   })
 
   ipcMain.handle('shell:create', (_event, cwd: string) => {
-    return sessionManager.createShellSession(cwd)
+    const settings = deps.settingsStore.getSettings()
+    return sessionManager.createShellSession(cwd, { shellPrompt: settings.shellPrompt })
   })
 
   ipcMain.handle('shell:kill', async (_event, sessionId: string) => {

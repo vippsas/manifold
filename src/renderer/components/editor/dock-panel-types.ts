@@ -57,6 +57,8 @@ export interface DockAppState {
   worktreeShellSessionId: string | null
   projectShellSessionId: string | null
   worktreeCwd: string | null
+  shellBranchName: string | null
+  shellProjectName: string | null
   // Agent creation
   baseBranch: string
   defaultRuntime: string

@@ -57,6 +57,7 @@ export interface ManifoldSettings {
   terminalFontFamily: string
   defaultBaseBranch: string
   notificationSound: boolean
+  shellPrompt: boolean
   uiMode: 'developer' | 'simple'
   memory?: import('./memory-types').MemorySettings
   search?: SearchSettings

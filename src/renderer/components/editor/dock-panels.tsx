@@ -206,6 +206,8 @@ function ShellPanel(): React.JSX.Element {
       scrollbackLines={s.scrollbackLines}
       terminalFontFamily={s.terminalFontFamily}
       xtermTheme={s.xtermTheme}
+      branchName={s.shellBranchName}
+      projectName={s.shellProjectName}
     />
   )
 }

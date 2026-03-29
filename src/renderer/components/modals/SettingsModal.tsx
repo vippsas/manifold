@@ -22,6 +22,7 @@ export function SettingsModal({ visible, settings, onSave, onClose, onPreviewThe
   const [defaultBaseBranch, setDefaultBaseBranch] = useState(settings.defaultBaseBranch)
   const [storagePath, setStoragePath] = useState(settings.storagePath)
   const [notificationSound, setNotificationSound] = useState(settings.notificationSound)
+  const [shellPrompt, setShellPrompt] = useState(settings.shellPrompt)
   const [uiMode, setUiMode] = useState(settings.uiMode)
   const [searchAiSettings, setSearchAiSettings] = useState(settings.search?.ai ?? DEFAULT_SETTINGS.search.ai)
   const [provisioners, setProvisioners] = useState<ProvisionerConfig[]>(settings.provisioning?.provisioners ?? DEFAULT_SETTINGS.provisioning.provisioners)
@@ -45,6 +46,7 @@ export function SettingsModal({ visible, settings, onSave, onClose, onPreviewThe
     setDefaultBaseBranch(settings.defaultBaseBranch)
     setStoragePath(settings.storagePath)
     setNotificationSound(settings.notificationSound)
+    setShellPrompt(settings.shellPrompt)
     setUiMode(settings.uiMode)
     setSearchAiSettings(settings.search?.ai ?? DEFAULT_SETTINGS.search.ai)
     setProvisioners(nextProvisioners)
@@ -70,6 +72,7 @@ export function SettingsModal({ visible, settings, onSave, onClose, onPreviewThe
       defaultBaseBranch,
       storagePath,
       notificationSound,
+      shellPrompt,
       uiMode,
       search: { ai: searchAiSettings },
       provisioning: { provisioners },
@@ -78,7 +81,7 @@ export function SettingsModal({ visible, settings, onSave, onClose, onPreviewThe
     if (modeChanged) {
       window.electronAPI.invoke('app:switch-mode', uiMode)
     }
-  }, [defaultRuntime, theme, scrollbackLines, terminalFontFamily, defaultBaseBranch, storagePath, notificationSound, uiMode, settings.uiMode, searchAiSettings, provisioners, onSave, onClose])
+  }, [defaultRuntime, theme, scrollbackLines, terminalFontFamily, defaultBaseBranch, storagePath, notificationSound, shellPrompt, uiMode, settings.uiMode, searchAiSettings, provisioners, onSave, onClose])
 
   if (!visible) return null
 
@@ -118,6 +121,8 @@ export function SettingsModal({ visible, settings, onSave, onClose, onPreviewThe
           onPickerToggle={setPickerOpen}
           notificationSound={notificationSound}
           onNotificationSoundChange={setNotificationSound}
+          shellPrompt={shellPrompt}
+          onShellPromptChange={setShellPrompt}
           uiMode={uiMode}
           onUiModeChange={setUiMode}
           searchAiSettings={searchAiSettings}

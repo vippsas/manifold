@@ -15,6 +15,26 @@ interface ShellTabsProps {
   scrollbackLines: number
   terminalFontFamily?: string
   xtermTheme?: ITheme
+  branchName?: string | null
+  projectName?: string | null
+}
+
+function ContextBar({ projectName, branchName, cwd }: {
+  projectName?: string | null; branchName?: string | null; cwd?: string | null
+}): React.JSX.Element | null {
+  if (!cwd) return null
+  const sep = <span style={styles.contextSeparator}>{'\u203A'}</span>
+  // Shorten cwd: show last two path segments
+  const segments = cwd.split('/')
+  const shortPath = segments.length > 2 ? segments.slice(-2).join('/') : cwd
+
+  return (
+    <div style={styles.contextBar}>
+      {projectName && <><span>{projectName}</span>{sep}</>}
+      {branchName && <><span>{branchName}</span>{sep}</>}
+      <span style={{ opacity: 0.6 }}>{shortPath}</span>
+    </div>
+  )
 }
 
 function ExtraShellTerminal({
@@ -34,6 +54,7 @@ function ExtraShellTerminal({
 export function ShellTabs({
   worktreeSessionId, projectSessionId, worktreeCwd,
   scrollbackLines, terminalFontFamily, xtermTheme,
+  branchName, projectName,
 }: ShellTabsProps): React.JSX.Element {
   const [activeTab, setActiveTab] = useState<string>(worktreeSessionId ? 'worktree' : 'project')
 
@@ -101,6 +122,9 @@ export function ShellTabs({
         extraShells={extraShells} onSetActiveTab={setActiveTab}
         onRemoveShell={removeShell} onAddShell={() => void addShell()}
       />
+      {effectiveTab !== 'project' && (
+        <ContextBar projectName={projectName} branchName={branchName} cwd={worktreeCwd} />
+      )}
       <div style={styles.terminalArea}>
         <div
           ref={worktreeTerminal.containerRef as React.RefObject<HTMLDivElement>}

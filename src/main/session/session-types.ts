@@ -13,4 +13,6 @@ export interface InternalSession extends AgentSession {
   /** Buffer for accumulating partial NDJSON lines from stream-json output */
   streamJsonLineBuffer?: string
   nonInteractiveOutputMode?: SimpleRuntimeOutputMode
+  /** Temp ZDOTDIR created for Manifold shell prompt — cleaned up on session exit */
+  zdotdir?: string
 }

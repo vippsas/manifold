@@ -4,6 +4,8 @@ import { SessionStreamWirer } from './session-stream-wirer'
 import { prepareManagedWorktree } from '../git/managed-worktree'
 import { readWorktreeMeta } from '../git/worktree-meta'
 import type { MemoryInjector } from '../memory/memory-injector'
+import { buildShellEnv, buildWelcomeMessage, createManifoldZdotdir } from './shell-prompt'
+import * as fs from 'node:fs'
 
 import type { InternalSession } from './session-types'
 import { v4 as uuidv4 } from 'uuid'
@@ -62,9 +64,26 @@ export function createShellPtySession(
   ptyPool: PtyPool,
   streamWirer: SessionStreamWirer,
   sessions: Map<string, InternalSession>,
+  options?: { shellPrompt?: boolean },
 ): { sessionId: string } {
   const shell = process.platform === 'win32' ? 'cmd.exe' : (process.env.SHELL || '/bin/zsh')
-  const ptyHandle = ptyPool.spawn(shell, ['-il'], { cwd })
+  const useManifoldPrompt = options?.shellPrompt ?? false
+  const isZsh = shell.endsWith('/zsh') || shell === 'zsh'
+
+  let env: Record<string, string> | undefined
+  let zdotdirPath: string | undefined
+
+  if (useManifoldPrompt) {
+    const shellEnv = buildShellEnv(cwd)
+    env = { ...shellEnv }
+
+    if (isZsh) {
+      zdotdirPath = createManifoldZdotdir(shellEnv.MANIFOLD_AGENT_NAME)
+      env.ZDOTDIR = zdotdirPath
+    }
+  }
+
+  const ptyHandle = ptyPool.spawn(shell, ['-il'], { cwd, env })
   const id = uuidv4()
 
   const session: InternalSession = {
@@ -78,11 +97,26 @@ export function createShellPtySession(
     ptyId: ptyHandle.id,
     outputBuffer: '',
     additionalDirs: [],
+    zdotdir: zdotdirPath,
   }
 
   sessions.set(id, session)
   streamWirer.wireOutputStreaming(ptyHandle.id, session)
   streamWirer.wireExitHandling(ptyHandle.id, session)
+
+  // Inject welcome message after listeners are wired so it reaches the renderer
+  if (useManifoldPrompt) {
+    const branch = env?.MANIFOLD_BRANCH ?? 'manifold'
+    ptyPool.pushOutput(ptyHandle.id, buildWelcomeMessage(branch, cwd))
+  }
+
+  // Clean up temp ZDOTDIR when the shell exits
+  if (zdotdirPath) {
+    const dir = zdotdirPath
+    ptyPool.onExit(ptyHandle.id, () => {
+      fs.rm(dir, { recursive: true, force: true }, () => {})
+    })
+  }
 
   return { sessionId: id }
 }

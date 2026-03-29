@@ -9,6 +9,7 @@ export const DEFAULT_SETTINGS: ManifoldSettings = {
   terminalFontFamily: '',
   defaultBaseBranch: 'main',
   notificationSound: true,
+  shellPrompt: true,
   uiMode: 'simple',
   memory: {
     enabled: true,
