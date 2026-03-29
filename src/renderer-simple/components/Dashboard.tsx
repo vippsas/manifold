@@ -25,6 +25,7 @@ function ManifoldWordmark(): React.JSX.Element {
         margin: '8px auto 0',
         opacity: 0.5,
       }} />
+      <div style={styles.tagline}>Build something amazing</div>
     </div>
   )
 }
@@ -50,6 +51,10 @@ export function Dashboard({ apps, onStart, onSelectApp, onDeleteApp }: Props): R
 
       <div style={styles.header}>
         <div style={styles.title}>My Apps</div>
+        <div style={styles.headerDivider} />
+        <div style={styles.headerCount}>
+          {apps.length} {apps.length === 1 ? 'app' : 'apps'}
+        </div>
       </div>
 
       <div style={styles.grid}>

@@ -12,16 +12,36 @@ export const logoWrap: CSSProperties = {
   marginBottom: 24,
 }
 
+export const tagline: CSSProperties = {
+  fontSize: 11,
+  color: 'var(--text-muted)',
+  letterSpacing: '0.05em',
+  marginTop: 8,
+}
+
 export const header: CSSProperties = {
   display: 'flex',
   alignItems: 'center',
-  justifyContent: 'space-between',
+  gap: 12,
   marginBottom: 32,
 }
 
 export const title: CSSProperties = {
-  fontSize: 28,
-  fontWeight: 700,
+  fontSize: 20,
+  fontWeight: 600,
+  flexShrink: 0,
+}
+
+export const headerDivider: CSSProperties = {
+  flex: 1,
+  height: 1,
+  background: 'linear-gradient(90deg, rgba(var(--accent-rgb, 200,149,108), 0.3), transparent)',
+}
+
+export const headerCount: CSSProperties = {
+  fontSize: 11,
+  color: 'var(--text-muted)',
+  flexShrink: 0,
 }
 
 export const grid: CSSProperties = {
