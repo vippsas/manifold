@@ -95,6 +95,7 @@ export function App(): React.JSX.Element {
   const fetchProject = useFetchProject(handleFetchSuccess)
   const overlays = useAppOverlays(gitOps.commit, refreshDiff, spawnAgent, deleteAgent, removeSession, updateSettings, setActiveSession, setActiveProject, activeProjectId)
   const { themeId, themeClass, xtermTheme, setPreviewThemeId } = useTheme(settings.theme)
+  const densityClass = settings.density === 'comfortable' ? '' : `density-${settings.density}`
   const updateNotification = useUpdateNotification()
   const [lastFileOpenRequest, setLastFileOpenRequest] = useState<FileOpenRequest>({ path: null, source: 'default' })
   const [pendingSearchOpen, setPendingSearchOpen] = useState<SearchOpenTarget | null>(null)
@@ -231,7 +232,7 @@ export function App(): React.JSX.Element {
 
   if (!settings.setupCompleted) {
     return (
-      <div className={`layout-root ${themeClass}`}>
+      <div className={`layout-root ${themeClass} ${densityClass}`}>
         <TitleBar />
         <WelcomeDialog onAddProject={() => void addProject()} onCloneProject={cloneProject} onComplete={overlays.handleSetupComplete} />
       </div>
@@ -240,7 +241,7 @@ export function App(): React.JSX.Element {
 
   if (projects.length === 0) {
     return (
-      <div className={`layout-root ${themeClass}`}>
+      <div className={`layout-root ${themeClass} ${densityClass}`}>
         <TitleBar />
         <OnboardingView variant="no-project" onAddProject={() => void handleAddProjectFromOnboarding()} onCloneProject={handleCloneFromOnboarding}
           onCreateNewProject={(desc) => void handleCreateNewProject(desc)} creatingProject={appEffects.creatingProject}
@@ -250,7 +251,7 @@ export function App(): React.JSX.Element {
   }
 
   return (
-    <div className={`layout-root ${themeClass}`}>
+    <div className={`layout-root ${themeClass} ${densityClass}`}>
       <TitleBar
         activeSessionProjectId={activeSession?.projectId}
         activeSessionId={activeSessionId}
