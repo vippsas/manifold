@@ -86,7 +86,7 @@ function renderViewer(overrides: Partial<React.ComponentProps<typeof CodeViewer>
     activeFilePath: openFile.path,
     fileContent: openFile.content,
     lastFileOpenRequest: makeOpenRequest(),
-    theme: 'vs-dark',
+    theme: 'manifold-dark',
     onSelectTab: vi.fn(),
     onOpenLinkedFile: vi.fn(),
     onCloseTab: vi.fn(),
@@ -122,7 +122,7 @@ describe('CodeViewer', () => {
         activeFilePath={refreshedFile.path}
         fileContent={refreshedFile.content}
         lastFileOpenRequest={makeOpenRequest()}
-        theme="vs-dark"
+        theme="manifold-dark"
         onSelectTab={vi.fn()}
         onCloseTab={vi.fn()}
         onSaveFile={vi.fn()}
@@ -161,7 +161,7 @@ describe('CodeViewer', () => {
         activeFilePath={refreshedFile.path}
         fileContent={refreshedFile.content}
         lastFileOpenRequest={makeOpenRequest({ path: refreshedFile.path })}
-        theme="vs-dark"
+        theme="manifold-dark"
         onSelectTab={vi.fn()}
         onCloseTab={vi.fn()}
         onSaveFile={vi.fn()}
@@ -247,7 +247,7 @@ describe('CodeViewer', () => {
           activeFilePath="/repo/readme.md"
           fileContent="# Hello"
           lastFileOpenRequest={makeOpenRequest({ path: '/repo/readme.md' })}
-          theme="vs-dark"
+          theme="manifold-dark"
           onActivatePane={() => setActivations((value) => value + 1)}
           onSelectTab={vi.fn()}
           onCloseTab={vi.fn()}
@@ -302,7 +302,7 @@ describe('CodeViewer', () => {
           activeFilePath={activeFilePath}
           fileContent={files[activeFilePath]}
           lastFileOpenRequest={lastFileOpenRequest}
-          theme="vs-dark"
+          theme="manifold-dark"
           onSelectTab={vi.fn()}
           onOpenLinkedFile={(filePath) => {
             setActiveFilePath(filePath)
@@ -342,7 +342,7 @@ describe('CodeViewer', () => {
           activeFilePath="/repo/readme.md"
           fileContent={'# Hello\n\n' + 'Line\n'.repeat(200)}
           lastFileOpenRequest={makeOpenRequest({ path: '/repo/readme.md' })}
-          theme="vs-dark"
+          theme="manifold-dark"
           onActivatePane={() => setActivations((value) => value + 1)}
           onSelectTab={vi.fn()}
           onCloseTab={vi.fn()}

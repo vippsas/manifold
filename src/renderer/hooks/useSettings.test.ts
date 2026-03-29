@@ -32,7 +32,7 @@ describe('useSettings', () => {
   })
 
   it('fetches settings on mount and migrates legacy theme', async () => {
-    // Stored as 'light' (legacy) — should be migrated to 'vs'
+    // Stored as 'light' (legacy) — should be migrated to 'manifold-dark'
     const customSettings = { ...DEFAULT_SETTINGS, theme: 'light' }
     mockInvoke.mockResolvedValue(customSettings)
 
@@ -43,7 +43,7 @@ describe('useSettings', () => {
     })
 
     expect(mockInvoke).toHaveBeenCalledWith('settings:get')
-    expect(result.current.settings.theme).toBe('vs')
+    expect(result.current.settings.theme).toBe('manifold-dark')
   })
 
   it('preserves non-legacy theme IDs on fetch', async () => {
@@ -96,7 +96,7 @@ describe('useSettings', () => {
     it('sends theme:changed IPC with type and background', async () => {
       mockInvoke
         .mockResolvedValueOnce(DEFAULT_SETTINGS)
-        .mockResolvedValueOnce({ ...DEFAULT_SETTINGS, theme: 'vs' })
+        .mockResolvedValueOnce({ ...DEFAULT_SETTINGS, theme: 'manifold-dark' })
 
       const { result } = renderHook(() => useSettings())
 
@@ -105,7 +105,7 @@ describe('useSettings', () => {
       })
 
       await act(async () => {
-        await result.current.updateSettings({ theme: 'vs' })
+        await result.current.updateSettings({ theme: 'manifold-dark' })
       })
 
       expect(mockSend).toHaveBeenCalledWith('theme:changed', expect.objectContaining({
