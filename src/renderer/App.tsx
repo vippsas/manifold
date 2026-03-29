@@ -229,6 +229,7 @@ export function App(): React.JSX.Element {
   if (!settings.setupCompleted) {
     return (
       <div className={`layout-root ${themeClass}`}>
+        <TitleBar />
         <WelcomeDialog onAddProject={() => void addProject()} onCloneProject={cloneProject} onComplete={overlays.handleSetupComplete} />
       </div>
     )
@@ -237,6 +238,7 @@ export function App(): React.JSX.Element {
   if (projects.length === 0) {
     return (
       <div className={`layout-root ${themeClass}`}>
+        <TitleBar />
         <OnboardingView variant="no-project" onAddProject={() => void handleAddProjectFromOnboarding()} onCloneProject={handleCloneFromOnboarding}
           onCreateNewProject={(desc) => void handleCreateNewProject(desc)} creatingProject={appEffects.creatingProject}
           cloningProject={appEffects.cloningProject} createError={projectError} />
