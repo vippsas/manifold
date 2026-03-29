@@ -447,8 +447,12 @@ select:focus-visible {
 
 .sidebar-item-row--active {
   background: var(--sidebar-active-bg);
-  box-shadow: inset 0 0 0 1px var(--sidebar-active-border);
   color: var(--sidebar-active-text);
+}
+
+.sidebar-project-row.sidebar-item-row--active {
+  border-left: 2px solid var(--accent);
+  padding-left: 9px;
 }
 
 .sidebar-item-row:focus-visible {
@@ -468,8 +472,38 @@ select:focus-visible {
   flex-direction: column;
   align-items: flex-start;
   min-height: auto;
-  padding: 2px 12px 2px 28px;
+  padding: 4px 12px 4px 28px;
   gap: 0;
+  margin-top: 1px;
+  margin-bottom: 1px;
+  background: var(--bg-input);
+  border-left: 2px solid transparent;
+}
+
+.sidebar-agent-row:hover {
+  transform: translateY(-0.5px);
+  box-shadow: var(--shadow-subtle);
+}
+
+.sidebar-agent-row--running {
+  border-left-color: var(--status-running);
+}
+
+.sidebar-agent-row--waiting {
+  border-left-color: var(--status-waiting);
+}
+
+.sidebar-agent-row--done {
+  border-left-color: var(--status-done);
+}
+
+.sidebar-agent-row--error {
+  border-left-color: var(--status-error);
+}
+
+.sidebar-agent-row.sidebar-item-row--active {
+  border-left-width: 2px;
+  background: var(--sidebar-active-bg);
 }
 
 .sidebar-agent-main {
