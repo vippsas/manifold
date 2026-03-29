@@ -130,6 +130,26 @@
   --shadow-elevated: 0 4px 16px rgba(0, 0, 0, 0.3), inset 0 1px 0 rgba(255, 255, 255, 0.06);
 }
 
+/* ── Density presets ── */
+.density-compact {
+  --chrome-tab-height: 28px;
+  --chrome-row-height: 24px;
+  --chrome-status-height: 22px;
+  --control-height: 26px;
+  --row-gap: 2px;
+  --space-lg: 18px;
+}
+
+.density-spacious {
+  --chrome-tab-height: 40px;
+  --chrome-row-height: 38px;
+  --chrome-status-height: 28px;
+  --control-height: 36px;
+  --row-gap: 8px;
+  --space-lg: 24px;
+  --space-xl: 32px;
+}
+
 /* ─── Global Reset ─── */
 *,
 *::before,
