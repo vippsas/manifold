@@ -1,6 +1,6 @@
 import React from 'react'
 import type { ProvisionerConfig, ProvisionerStatus } from '../../../../shared/provisioning-types'
-import type { SearchAiSettings } from '../../../../shared/types'
+import type { DensitySetting, SearchAiSettings } from '../../../../shared/types'
 import { modalStyles } from '../SettingsModal.styles'
 import { SearchAiSettingsSection } from './SearchAiSettingsSection'
 import { GeneralSettingsSection } from './GeneralSettingsSection'
@@ -39,6 +39,8 @@ interface Props {
   onShellPromptChange: (enabled: boolean) => void
   uiMode: 'developer' | 'simple'
   onUiModeChange: (mode: 'developer' | 'simple') => void
+  density: DensitySetting
+  onDensityChange: (density: DensitySetting) => void
   searchAiSettings: SearchAiSettings
   onSearchAiSettingsChange: (value: SearchAiSettings) => void
   provisioners: ProvisionerConfig[]

@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react'
 import { DEFAULT_SETTINGS } from '../../../shared/defaults'
 import type { ProvisionerConfig, ProvisionerStatus } from '../../../shared/provisioning-types'
-import type { ManifoldSettings } from '../../../shared/types'
+import type { DensitySetting, ManifoldSettings } from '../../../shared/types'
 import { modalStyles } from './SettingsModal.styles'
 import { SettingsModalBody, type SettingsTabId } from './settings/SettingsModalBody'
 import { validateProvisioners } from './settings/provisioning-settings-helpers'
@@ -24,6 +24,7 @@ export function SettingsModal({ visible, settings, onSave, onClose, onPreviewThe
   const [notificationSound, setNotificationSound] = useState(settings.notificationSound)
   const [shellPrompt, setShellPrompt] = useState(settings.shellPrompt)
   const [uiMode, setUiMode] = useState(settings.uiMode)
+  const [density, setDensity] = useState<DensitySetting>(settings.density)
   const [searchAiSettings, setSearchAiSettings] = useState(settings.search?.ai ?? DEFAULT_SETTINGS.search.ai)
   const [provisioners, setProvisioners] = useState<ProvisionerConfig[]>(settings.provisioning?.provisioners ?? DEFAULT_SETTINGS.provisioning.provisioners)
   const [provisionerStatuses, setProvisionerStatuses] = useState<ProvisionerStatus[]>([])
@@ -48,6 +49,7 @@ export function SettingsModal({ visible, settings, onSave, onClose, onPreviewThe
     setNotificationSound(settings.notificationSound)
     setShellPrompt(settings.shellPrompt)
     setUiMode(settings.uiMode)
+    setDensity(settings.density)
     setSearchAiSettings(settings.search?.ai ?? DEFAULT_SETTINGS.search.ai)
     setProvisioners(nextProvisioners)
     setPickerOpen(false)
@@ -74,6 +76,7 @@ export function SettingsModal({ visible, settings, onSave, onClose, onPreviewThe
       notificationSound,
       shellPrompt,
       uiMode,
+      density,
       search: { ai: searchAiSettings },
       provisioning: { provisioners },
     })
@@ -81,7 +84,7 @@ export function SettingsModal({ visible, settings, onSave, onClose, onPreviewThe
     if (modeChanged) {
       window.electronAPI.invoke('app:switch-mode', uiMode)
     }
-  }, [defaultRuntime, theme, scrollbackLines, terminalFontFamily, defaultBaseBranch, storagePath, notificationSound, shellPrompt, uiMode, settings.uiMode, searchAiSettings, provisioners, onSave, onClose])
+  }, [defaultRuntime, theme, scrollbackLines, terminalFontFamily, defaultBaseBranch, storagePath, notificationSound, shellPrompt, uiMode, density, settings.uiMode, searchAiSettings, provisioners, onSave, onClose])
 
   if (!visible) return null
 
@@ -125,6 +128,8 @@ export function SettingsModal({ visible, settings, onSave, onClose, onPreviewThe
           onShellPromptChange={setShellPrompt}
           uiMode={uiMode}
           onUiModeChange={setUiMode}
+          density={density}
+          onDensityChange={setDensity}
           searchAiSettings={searchAiSettings}
           onSearchAiSettingsChange={setSearchAiSettings}
           provisioners={provisioners}
