@@ -48,6 +48,8 @@ export interface FileTreeNode {
   children?: FileTreeNode[]
 }
 
+export type DensitySetting = 'compact' | 'comfortable' | 'spacious'
+
 export interface ManifoldSettings {
   storagePath: string
   setupCompleted: boolean
@@ -59,6 +61,7 @@ export interface ManifoldSettings {
   notificationSound: boolean
   shellPrompt: boolean
   uiMode: 'developer' | 'simple'
+  density: DensitySetting
   memory?: import('./memory-types').MemorySettings
   search?: SearchSettings
   provisioning?: import('./provisioning-types').ProvisioningSettings
