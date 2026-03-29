@@ -111,16 +111,14 @@ export function convertTheme(themeJson: MonacoThemeJson, _themeId: string): Conv
     '--text-muted': c('disabledForeground') ?? withOpacity(editorFg, 0.4),
 
     '--accent': accent,
-    '--accent-text': luminance(accent) > 0.4 ? '#000000' : '#ffffff',
+    '--accent-text': c('button.foreground') ?? (luminance(accent) > 0.4 ? '#000000' : '#ffffff'),
     '--accent-hover': lighten(accent, 15),
     '--accent-dim': darken(accent, 30),
 
     // Button colors — themes can override via button.background / button.foreground
-    '--btn-bg': c('button.foreground') ? (c('input.background') ?? editorBg) : accent,
+    '--btn-bg': c('button.background') ?? accent,
     '--btn-text': c('button.foreground') ?? (luminance(accent) > 0.4 ? '#000000' : '#ffffff'),
-    '--btn-hover': c('button.foreground')
-      ? lighten(c('input.background') ?? editorBg, 10)
-      : lighten(accent, 15),
+    '--btn-hover': lighten(c('button.background') ?? accent, 15),
 
     '--border': c('panel.border') ?? c('editorGroup.border')
       ?? (isDark ? lighten(editorBg, 18) : darken(editorBg, 18)),
