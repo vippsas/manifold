@@ -437,6 +437,7 @@ select:focus-visible {
   color: var(--text-secondary);
   position: relative;
   cursor: pointer;
+  transition: background 150ms ease, color 150ms ease, box-shadow 150ms ease;
 }
 
 .sidebar-item-row:hover {
@@ -544,6 +545,7 @@ select:focus-visible {
   border-radius: var(--radius-xs);
   color: var(--text-muted);
   opacity: 0.75;
+  transition: opacity 150ms ease, color 150ms ease, background 150ms ease;
 }
 
 .sidebar-icon-button:hover {
@@ -893,6 +895,7 @@ select:focus-visible {
   cursor: pointer;
   border: none;
   font-weight: 500;
+  transition: filter 200ms ease, background 150ms ease, color 150ms ease;
 }
 
 .git-panel-btn:disabled {
@@ -991,6 +994,9 @@ select:focus-visible {
 }
 
 /* ─── File Tree Rows ─── */
+.file-tree-row {
+  transition: background 150ms ease;
+}
 .file-tree-row:hover {
   background: var(--tree-hover);
 }
