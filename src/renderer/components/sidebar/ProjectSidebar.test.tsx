@@ -67,16 +67,21 @@ describe('ProjectSidebar', () => {
     expect(screen.getByText('No repositories yet')).toBeInTheDocument()
   })
 
-  it('shows agents for all projects', () => {
+  it('shows agents for active project and mini dots for collapsed projects', () => {
     const sessionsForP2: AgentSession[] = [
       { id: 's3', projectId: 'p2', runtimeId: 'gemini', branchName: 'beta/stavanger', worktreePath: '/wt3', status: 'running', pid: 3, additionalDirs: [] },
     ]
 
     renderSidebar({ allProjectSessions: { p1: sampleSessions, p2: sessionsForP2 } })
 
+    // Active project (p1) shows expanded agent names
     expect(screen.getByText('oslo')).toBeInTheDocument()
     expect(screen.getByText('bergen')).toBeInTheDocument()
-    expect(screen.getByText('stavanger')).toBeInTheDocument()
+
+    // Collapsed project (p2) shows project name but not agent names
+    expect(screen.getByText('Beta')).toBeInTheDocument()
+    // Agent name is available as a title on the mini dot
+    expect(screen.getByTitle('beta/stavanger')).toBeInTheDocument()
   })
 
   it('calls onSelectProject when a project is clicked', () => {
@@ -196,23 +201,25 @@ describe('ProjectSidebar', () => {
     expect(screen.getByText(/The local branch will be kept\./)).toBeInTheDocument()
   })
 
-  it('calls onSelectSession with correct projectId for cross-project agent click', () => {
+  it('selects first session when clicking a collapsed project with agents', () => {
     const sessionsForP2: AgentSession[] = [
       { id: 's3', projectId: 'p2', runtimeId: 'gemini', branchName: 'beta/stavanger', worktreePath: '/wt3', status: 'running', pid: 3, additionalDirs: [] },
     ]
 
     const { props } = renderSidebar({ allProjectSessions: { p1: sampleSessions, p2: sessionsForP2 } })
 
-    fireEvent.click(screen.getByText('stavanger'))
+    // Collapsed project row is clickable — selects the first session
+    fireEvent.click(screen.getByText('Beta'))
 
     expect(props.onSelectSession).toHaveBeenCalledWith('s3', 'p2')
   })
 
-  it('renders a gear icon for each project', () => {
+  it('renders a gear icon for the active project', () => {
     renderSidebar()
 
+    // Only the active expanded project (Tier 1) has a gear icon
     expect(screen.getByLabelText('Settings for Alpha')).toBeInTheDocument()
-    expect(screen.getByLabelText('Settings for Beta')).toBeInTheDocument()
+    // Beta is inactive (Tier 3) and rendered as a compact text span — no gear icon
   })
 
   it('opens project settings popover when gear icon is clicked', () => {

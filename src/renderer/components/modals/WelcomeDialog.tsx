@@ -51,10 +51,10 @@ export function WelcomeDialog({ onAddProject, onCloneProject, onComplete }: Welc
             Each works on a different task, in its own branch, simultaneously.
           </p>
           <div style={styles.actions}>
-            <button onClick={handleOpenProject} style={styles.primaryButton}>
+            <button onClick={handleOpenProject} style={styles.ghostButton}>
               Open a local project
             </button>
-            <button onClick={() => setShowClone((p) => !p)} style={styles.secondaryButton}>
+            <button onClick={() => setShowClone((p) => !p)} style={styles.ghostButton}>
               Clone a repository
             </button>
           </div>
@@ -72,7 +72,7 @@ export function WelcomeDialog({ onAddProject, onCloneProject, onComplete }: Welc
                 />
                 <button
                   type="submit"
-                  style={{ ...styles.primaryButton, opacity: !cloneUrl.trim() || cloning ? 0.5 : 1 }}
+                  style={{ ...styles.ghostButton, opacity: !cloneUrl.trim() || cloning ? 0.5 : 1 }}
                   disabled={!cloneUrl.trim() || cloning}
                 >
                   {cloning ? 'Cloning...' : 'Clone'}
@@ -112,15 +112,17 @@ const styles: Record<string, React.CSSProperties> = {
     textAlign: 'center',
   },
   title: {
-    fontWeight: 600,
-    fontSize: '18px',
+    fontSize: 'var(--type-display)',
+    fontWeight: 300,
     color: 'var(--text-primary)',
+    letterSpacing: 'var(--tracking-tight)',
+    marginBottom: 'var(--space-2xl)',
   },
   body: {
     padding: '16px 24px 24px',
     display: 'flex',
     flexDirection: 'column',
-    gap: '16px',
+    gap: 'var(--space-xl)',
   },
   description: {
     fontSize: '13px',
@@ -132,26 +134,22 @@ const styles: Record<string, React.CSSProperties> = {
   actions: {
     display: 'flex',
     flexDirection: 'column',
-    gap: '8px',
+    gap: 'var(--space-2xl)',
+    marginTop: 'var(--space-2xl)',
   },
-  primaryButton: {
-    padding: '8px 20px',
-    borderRadius: '6px',
-    fontSize: '13px',
-    color: 'var(--accent-text)',
-    background: 'var(--accent)',
-    fontWeight: 500,
+  ghostButton: {
+    display: 'inline-flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    height: 'var(--control-height)',
+    padding: '0 24px',
+    background: 'transparent',
+    border: '1px solid color-mix(in srgb, var(--accent), transparent 70%)',
+    borderRadius: 'var(--radius-sm)',
+    color: 'var(--accent)',
+    fontSize: 'var(--type-ui)',
     cursor: 'pointer',
-    border: 'none',
-  },
-  secondaryButton: {
-    padding: '8px 20px',
-    borderRadius: '6px',
-    fontSize: '13px',
-    color: 'var(--text-primary)',
-    background: 'var(--bg-input)',
-    border: '1px solid var(--border)',
-    cursor: 'pointer',
+    transition: 'border-color var(--duration-normal) var(--ease-premium), background var(--duration-normal) var(--ease-premium)',
   },
   cloneRow: {
     display: 'flex',

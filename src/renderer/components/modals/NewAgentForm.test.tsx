@@ -44,14 +44,14 @@ describe('NewAgentForm', () => {
     renderForm()
     await waitFor(() => expect(mockInvoke).toHaveBeenCalledWith('runtimes:list'))
 
-    expect(screen.getByText('Start →')).toBeEnabled()
+    expect(screen.getByText('Start Agent')).toBeEnabled()
   })
 
   it('uses a random Norwegian city when submitted with a blank name', async () => {
     const { props } = renderForm()
     await waitFor(() => expect(mockInvoke).toHaveBeenCalledWith('runtimes:list'))
 
-    fireEvent.click(screen.getByText('Start →'))
+    fireEvent.click(screen.getByText('Start Agent'))
 
     await waitFor(() => {
       expect(props.onLaunch).toHaveBeenCalledWith(
@@ -71,7 +71,7 @@ describe('NewAgentForm', () => {
     fireEvent.change(screen.getByPlaceholderText('Agent name (optional), e.g. Dark mode toggle'), {
       target: { value: 'Dark mode toggle' },
     })
-    fireEvent.click(screen.getByText('Start →'))
+    fireEvent.click(screen.getByText('Start Agent'))
 
     await waitFor(() => {
       expect(props.onLaunch).toHaveBeenCalledWith(
@@ -86,11 +86,11 @@ describe('NewAgentForm', () => {
     renderForm({ onLaunch: vi.fn().mockResolvedValue(null) })
     await waitFor(() => expect(mockInvoke).toHaveBeenCalledWith('runtimes:list'))
 
-    fireEvent.click(screen.getByText('Start →'))
+    fireEvent.click(screen.getByText('Start Agent'))
 
     await waitFor(() => {
       expect(screen.getByText('Failed to start agent.')).toBeInTheDocument()
-      expect(screen.getByText('Start →')).toBeEnabled()
+      expect(screen.getByText('Start Agent')).toBeEnabled()
     })
   })
 })

@@ -14,23 +14,49 @@
   --space-xs: 4px;
   --space-sm: 8px;
   --space-md: 14px;
-  --space-lg: 18px;
+  --space-lg: 20px;
   --space-xl: 28px;
+  --space-2xl: 40px;
+  --space-3xl: 56px;
+  --space-4xl: 80px;
 
   --type-ui: 13px;
   --type-ui-small: 12px;
   --type-ui-caption: 11px;
   --type-ui-micro: 10px;
 
+  /* Extended type scale */
+  --type-display: 24px;
+  --type-title: 18px;
+  --type-heading: 15px;
+  --type-label: 11px;
+
+  /* Letter-spacing tokens */
+  --tracking-tight: -0.01em;
+  --tracking-normal: 0em;
+  --tracking-wide: 0.1em;
+
   --chrome-tab-height: 30px;
   --chrome-row-height: 26px;
   --chrome-status-height: 24px;
   --control-height: 28px;
+  --row-gap: 4px;
   --dialog-header-height: 38px;
 
   --pane-divider-width: 4px;
   --sidebar-width: 360px;
   --status-bar-height: var(--chrome-status-height);
+
+  /* Duration tokens */
+  --duration-fast: 100ms;
+  --duration-normal: 250ms;
+  --duration-slow: 400ms;
+  --duration-elegant: 600ms;
+
+  /* Easing tokens */
+  --ease-out: cubic-bezier(0.0, 0, 0.2, 1);
+  --ease-in: cubic-bezier(0.4, 0, 1, 1);
+  --ease-premium: cubic-bezier(0.4, 0, 0.2, 1);
 
   /* Default color values — match the default Dracula theme.
      Overridden by theme adapter at runtime via applyThemeCssVars(). */
@@ -98,10 +124,54 @@
   --warning-subtle: rgba(255, 167, 38, 0.16);
   --error-subtle: rgba(239, 83, 80, 0.16);
 
-  --shadow-subtle: 0 2px 8px rgba(0, 0, 0, 0.2);
-  --shadow-popover: 0 8px 24px rgba(0, 0, 0, 0.35);
-  --shadow-overlay: 0 16px 48px rgba(0, 0, 0, 0.45);
-  --shadow-elevated: 0 4px 16px rgba(0, 0, 0, 0.3), inset 0 1px 0 rgba(255, 255, 255, 0.03);
+  --shadow-subtle: 0 2px 8px rgba(0, 0, 0, 0.25), inset 0 1px 0 rgba(255, 255, 255, 0.06);
+  --shadow-popover: 0 8px 24px rgba(0, 0, 0, 0.4), 0 0 0 1px rgba(255, 255, 255, 0.04), inset 0 1px 0 rgba(255, 255, 255, 0.06);
+  --shadow-overlay: 0 20px 60px rgba(0, 0, 0, 0.5), 0 0 0 1px rgba(255, 255, 255, 0.05), inset 0 1px 0 rgba(255, 255, 255, 0.08);
+  --shadow-elevated: 0 4px 16px rgba(0, 0, 0, 0.3), inset 0 1px 0 rgba(255, 255, 255, 0.06);
+}
+
+/* ── Density presets ── */
+.density-compact {
+  --chrome-tab-height: 28px;
+  --chrome-row-height: 24px;
+  --chrome-status-height: 22px;
+  --control-height: 26px;
+  --row-gap: 2px;
+  --space-lg: 18px;
+}
+
+.density-spacious {
+  --chrome-tab-height: 40px;
+  --chrome-row-height: 38px;
+  --chrome-status-height: 28px;
+  --control-height: 36px;
+  --row-gap: 8px;
+  --space-lg: 24px;
+  --space-xl: 32px;
+}
+
+/* ── Micro-interactions ── */
+button:active,
+[role="button"]:active {
+  transform: scale(0.97);
+  transition: transform var(--duration-fast) var(--ease-out);
+}
+
+/* ── Contextual zones ── */
+.zone-lobby {
+  background: color-mix(in srgb, var(--bg-primary), black 15%);
+}
+
+.zone-workshop {
+  background: var(--bg-primary);
+}
+
+.zone-library {
+  background: color-mix(in srgb, var(--bg-primary), black 8%);
+}
+
+.zone-console {
+  background: color-mix(in srgb, var(--bg-primary), black 20%);
 }
 
 /* ─── Global Reset ─── */
@@ -185,7 +255,7 @@ body {
 .layout-status-bar {
   height: var(--status-bar-height);
   background: linear-gradient(180deg, var(--bg-chrome, var(--statusbar-bg)) 0%, var(--bg-chrome-lo, var(--statusbar-bg)) 100%);
-  border-top: 1px solid var(--border);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.04);
   display: flex;
   align-items: center;
   padding: 0 var(--space-sm);
@@ -203,7 +273,7 @@ body {
   cursor: col-resize;
   position: relative;
   flex-shrink: 0;
-  transition: background 0.15s ease;
+  transition: background var(--duration-normal) var(--ease-premium);
 }
 
 .pane-divider:hover,
@@ -228,7 +298,7 @@ body {
   cursor: row-resize;
   position: relative;
   flex-shrink: 0;
-  transition: background 0.15s ease;
+  transition: background var(--duration-normal) var(--ease-premium);
 }
 
 .pane-divider-horizontal:hover,
@@ -289,7 +359,7 @@ select {
   border-radius: var(--radius-sm);
   padding: var(--space-xs) var(--space-sm);
   outline: none;
-  transition: border-color 0.15s ease;
+  transition: border-color var(--duration-normal) var(--ease-premium);
 }
 
 input:focus,
@@ -437,7 +507,7 @@ select:focus-visible {
   color: var(--text-secondary);
   position: relative;
   cursor: pointer;
-  transition: background 150ms ease, color 150ms ease, box-shadow 150ms ease;
+  transition: background var(--duration-normal) var(--ease-premium), color var(--duration-normal) var(--ease-premium), box-shadow var(--duration-normal) var(--ease-premium);
 }
 
 .sidebar-item-row:hover {
@@ -528,7 +598,7 @@ select:focus-visible {
   margin-left: auto;
   opacity: 0;
   pointer-events: none;
-  transition: opacity 0.15s ease;
+  transition: opacity var(--duration-normal) var(--ease-premium);
 }
 
 .sidebar-item-row:hover .sidebar-item-actions,
@@ -604,7 +674,7 @@ select:focus-visible {
   border-radius: var(--radius-xs);
   color: var(--text-muted);
   opacity: 0.75;
-  transition: opacity 150ms ease, color 150ms ease, background 150ms ease;
+  transition: opacity var(--duration-normal) var(--ease-premium), color var(--duration-normal) var(--ease-premium), background var(--duration-normal) var(--ease-premium);
 }
 
 .sidebar-icon-button:hover {
@@ -622,7 +692,7 @@ select:focus-visible {
   background: linear-gradient(135deg, var(--btn-bg), var(--btn-hover));
   border-color: transparent;
   font-weight: 600;
-  transition: filter 200ms ease;
+  transition: filter var(--duration-normal) var(--ease-premium);
 }
 
 .sidebar-action-button--primary:hover {
@@ -954,7 +1024,7 @@ select:focus-visible {
   cursor: pointer;
   border: none;
   font-weight: 500;
-  transition: filter 200ms ease, background 150ms ease, color 150ms ease;
+  transition: filter var(--duration-normal) var(--ease-premium), background var(--duration-normal) var(--ease-premium), color var(--duration-normal) var(--ease-premium);
 }
 
 .git-panel-btn:disabled {
@@ -965,7 +1035,7 @@ select:focus-visible {
 .git-panel-btn--primary {
   background: linear-gradient(135deg, var(--btn-bg), var(--btn-hover));
   color: var(--btn-text);
-  transition: filter 200ms ease;
+  transition: filter var(--duration-normal) var(--ease-premium);
 }
 
 .git-panel-btn--primary:hover:not(:disabled) {
@@ -1054,7 +1124,8 @@ select:focus-visible {
 
 /* ─── File Tree Rows ─── */
 .file-tree-row {
-  transition: background 150ms ease;
+  color: var(--text-secondary);
+  transition: background var(--duration-normal) var(--ease-premium);
 }
 .file-tree-row:hover {
   background: var(--tree-hover);

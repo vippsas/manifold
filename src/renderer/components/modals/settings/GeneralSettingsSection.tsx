@@ -1,5 +1,5 @@
 import React, { useCallback } from 'react'
-import type { SearchAiSettings } from '../../../../shared/types'
+import type { DensitySetting, SearchAiSettings } from '../../../../shared/types'
 import { getThemeList } from '../../../../shared/themes/registry'
 import { ThemePicker } from '../ThemePicker'
 import { modalStyles } from '../SettingsModal.styles'
@@ -28,6 +28,8 @@ interface Props {
   onShellPromptChange: (enabled: boolean) => void
   uiMode: 'developer' | 'simple'
   onUiModeChange: (mode: 'developer' | 'simple') => void
+  density: DensitySetting
+  onDensityChange: (density: DensitySetting) => void
   searchAiSettings: SearchAiSettings
 }
 
@@ -100,6 +102,14 @@ export function GeneralSettingsSection(props: Props): React.JSX.Element {
               <select value={props.uiMode} onChange={(event) => props.onUiModeChange(event.target.value as 'developer' | 'simple')} style={modalStyles.select}>
                 <option value="developer">Developer (Manifold)</option>
                 <option value="simple">Simple</option>
+              </select>
+            </label>
+            <label style={modalStyles.label}>
+              Density
+              <select value={props.density} onChange={(event) => props.onDensityChange(event.target.value as DensitySetting)} style={modalStyles.select}>
+                <option value="compact">Compact</option>
+                <option value="comfortable">Comfortable</option>
+                <option value="spacious">Spacious</option>
               </select>
             </label>
             <label style={{ ...modalStyles.checkboxField, ...modalStyles.fieldSpanFull }}>

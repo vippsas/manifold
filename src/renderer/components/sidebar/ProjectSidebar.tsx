@@ -133,6 +133,13 @@ interface ProjectListProps {
   onFetchProject: (projectId: string) => void
 }
 
+const STATUS_DOT_COLORS: Record<string, string> = {
+  running: 'var(--status-running)',
+  waiting: 'var(--status-waiting)',
+  done: 'var(--status-done)',
+  error: 'var(--status-error)',
+}
+
 function ProjectList({
   projects,
   activeProjectId,
@@ -161,43 +168,134 @@ function ProjectList({
     [allProjectSessions, onSelectProject, onSelectSession]
   )
 
+  // Tier 1: currently active project
+  const activeProject = projects.find((p) => p.id === activeProjectId) ?? null
+
+  // Tier 2: other projects that have running sessions
+  const withAgentsProjects = projects.filter(
+    (p) => p.id !== activeProjectId && (allProjectSessions[p.id] ?? []).length > 0
+  )
+
+  // Tier 3: projects with no sessions
+  const inactiveProjects = projects.filter(
+    (p) => p.id !== activeProjectId && (allProjectSessions[p.id] ?? []).length === 0
+  )
+
+  if (projects.length === 0) {
+    return (
+      <div style={sidebarStyles.list}>
+        <div style={sidebarStyles.empty}>No repositories yet</div>
+      </div>
+    )
+  }
+
   return (
     <div style={sidebarStyles.list}>
-      {projects.map((project) => {
-        const isActive = project.id === activeProjectId
-        const projectSessions = allProjectSessions[project.id] ?? []
-
-        const hasAgents = projectSessions.length > 0
-        const groupClass = `sidebar-project-group${hasAgents ? ' sidebar-project-group--has-agents' : ' sidebar-project-group--empty'}`
-
-        return (
-          <div key={project.id} className={groupClass}>
-            <ProjectItem
-              project={project}
-              isActive={isActive}
-              onSelect={handleProjectClick}
-              onRemove={onRemove}
-              onUpdateProject={onUpdateProject}
-              isFetching={fetchingProjectId === project.id}
-              fetchResult={lastFetchedProjectId === project.id ? fetchResult : null}
-              fetchError={lastFetchedProjectId === project.id ? fetchError : null}
-              onFetch={() => onFetchProject(project.id)}
+      {/* Tier 1: Active project — expanded with agents */}
+      {activeProject !== null && (
+        <div className="sidebar-project-group sidebar-project-group--active sidebar-project-group--has-agents">
+          <ProjectItem
+            project={activeProject}
+            isActive={true}
+            onSelect={handleProjectClick}
+            onRemove={onRemove}
+            onUpdateProject={onUpdateProject}
+            isFetching={fetchingProjectId === activeProject.id}
+            fetchResult={lastFetchedProjectId === activeProject.id ? fetchResult : null}
+            fetchError={lastFetchedProjectId === activeProject.id ? fetchError : null}
+            onFetch={() => onFetchProject(activeProject.id)}
+          />
+          {(allProjectSessions[activeProject.id] ?? []).map((session) => (
+            <AgentItem
+              key={session.id}
+              session={session}
+              projectPath={activeProject.path}
+              isActive={session.id === activeSessionId}
+              onSelect={(sessionId) => onSelectSession(sessionId, activeProject.id)}
+              onDelete={() => onRequestDeleteAgent(session, activeProject.path)}
             />
-            {projectSessions.map((session) => (
-              <AgentItem
-                key={session.id}
-                session={session}
-                projectPath={project.path}
-                isActive={session.id === activeSessionId}
-                onSelect={(sessionId) => onSelectSession(sessionId, project.id)}
-                onDelete={() => onRequestDeleteAgent(session, project.path)}
-              />
+          ))}
+        </div>
+      )}
+
+      {/* Tier 2: Other projects with agents — collapsed with mini status dots */}
+      {withAgentsProjects.length > 0 && (
+        <>
+          <div style={sidebarStyles.sectionDivider} />
+          <div style={sidebarStyles.sectionLabel}>With agents</div>
+          {withAgentsProjects.map((project) => {
+            const projectSessions = allProjectSessions[project.id] ?? []
+            return (
+              <div
+                key={project.id}
+                style={sidebarStyles.collapsedProject}
+                onClick={() => handleProjectClick(project.id)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' || e.key === ' ') {
+                    e.preventDefault()
+                    handleProjectClick(project.id)
+                  }
+                }}
+                role="button"
+                tabIndex={0}
+                className="sidebar-project-group sidebar-project-group--has-agents sidebar-project-group--collapsed"
+              >
+                <span
+                  className="truncate sidebar-row-label"
+                  style={{ ...sidebarStyles.item, color: 'var(--text-secondary)', fontSize: 'var(--type-ui-small)' }}
+                >
+                  {project.name}
+                </span>
+                <div style={sidebarStyles.miniStatusDots}>
+                  {projectSessions.map((session) => (
+                    <span
+                      key={session.id}
+                      title={session.branchName}
+                      style={{
+                        ...sidebarStyles.miniDot,
+                        background: STATUS_DOT_COLORS[session.status] ?? 'var(--text-muted)',
+                      }}
+                    />
+                  ))}
+                </div>
+              </div>
+            )
+          })}
+        </>
+      )}
+
+      {/* Tier 3: Inactive projects — compact inline list */}
+      {inactiveProjects.length > 0 && (
+        <>
+          <div style={sidebarStyles.sectionDivider} />
+          <div style={sidebarStyles.sectionLabel}>Repositories</div>
+          <div style={sidebarStyles.inactiveList}>
+            {inactiveProjects.map((project) => (
+              <div
+                key={project.id}
+                style={sidebarStyles.collapsedProject}
+                onClick={() => handleProjectClick(project.id)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' || e.key === ' ') {
+                    e.preventDefault()
+                    handleProjectClick(project.id)
+                  }
+                }}
+                role="button"
+                tabIndex={0}
+                title={project.path}
+                className="sidebar-inactive-project"
+              >
+                <span
+                  className="truncate sidebar-row-label"
+                  style={{ color: 'var(--text-muted)', fontSize: 'var(--type-ui-small)' }}
+                >
+                  {project.name}
+                </span>
+              </div>
             ))}
           </div>
-        )
-      })}
-      {projects.length === 0 && (
-        <div style={sidebarStyles.empty}>No repositories yet</div>
+        </>
       )}
     </div>
   )

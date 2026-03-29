@@ -3,11 +3,32 @@ import type { SpawnAgentOptions } from '../../../shared/types'
 import { NewAgentForm } from './NewAgentForm'
 import { NoProjectActions } from '../sidebar/NoProjectActions'
 
-const LOGO = `  .--.      __  ___            _ ____      __    __
- / oo \\    /  |/  /___ _____  (_) __/___  / /___/ /
-| \\__/ |  / /|_/ / __ \`/ __ \\/ / /_/ __ \\/ / __  /
- \\    /  / /  / / /_/ / / / / / __/ /_/ / / /_/ /
-  \\__/  /_/  /_/\\__,_/_/ /_/_/_/  \\____/_/\\__,_/`
+function ManifoldWordmark({ size = 'normal' }: { size?: 'normal' | 'large' }) {
+  const fontSize = size === 'large' ? 32 : 22
+  const trackingEm = size === 'large' ? '0.15em' : '0.12em'
+  const ruleWidth = size === 'large' ? 60 : 40
+  return (
+    <div style={{ textAlign: 'center' }}>
+      <div style={{
+        fontSize,
+        fontWeight: 200,
+        letterSpacing: trackingEm,
+        color: 'var(--text-primary)',
+        opacity: 0.8,
+        fontFamily: 'var(--font-sans)',
+      }}>
+        MANIFOLD
+      </div>
+      <div style={{
+        width: ruleWidth,
+        height: 1,
+        background: 'linear-gradient(90deg, transparent, var(--accent), transparent)',
+        margin: '8px auto 0',
+        opacity: 0.5,
+      }} />
+    </div>
+  )
+}
 
 interface NoProjectProps {
   variant: 'no-project'
@@ -62,9 +83,7 @@ export function OnboardingView(props: OnboardingViewProps): React.JSX.Element {
         userSelect: 'none',
       }}
     >
-      <pre style={{ margin: 0, fontSize: 14, lineHeight: 1.3, color: 'var(--text-primary)', opacity: 0.6 }}>
-        {LOGO}
-      </pre>
+      <ManifoldWordmark size="normal" />
 
       {props.variant === 'no-project' ? (
         <>
@@ -96,7 +115,13 @@ export function OnboardingView(props: OnboardingViewProps): React.JSX.Element {
         </>
       ) : (
         <>
-          <div style={{ fontSize: 13, color: 'var(--text-muted)' }}>
+          <div style={{
+            fontSize: 'var(--type-title)',
+            fontWeight: 300,
+            color: 'var(--text-primary)',
+            letterSpacing: 'var(--tracking-tight)',
+            marginBottom: 'var(--space-xl)',
+          }}>
             New agent for <span style={{ color: 'var(--text-primary)', fontWeight: 500 }}>{props.projectName}</span>
           </div>
           <NewAgentForm
