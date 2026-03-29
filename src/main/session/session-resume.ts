@@ -4,6 +4,7 @@ import { SessionStreamWirer } from './session-stream-wirer'
 import { prepareManagedWorktree } from '../git/managed-worktree'
 import { readWorktreeMeta } from '../git/worktree-meta'
 import type { MemoryInjector } from '../memory/memory-injector'
+import { buildShellEnv, buildWelcomeMessage, createManifoldZdotdir } from './shell-prompt'
 
 import type { InternalSession } from './session-types'
 import { v4 as uuidv4 } from 'uuid'
@@ -62,10 +63,36 @@ export function createShellPtySession(
   ptyPool: PtyPool,
   streamWirer: SessionStreamWirer,
   sessions: Map<string, InternalSession>,
+  options?: { shellPrompt?: boolean },
 ): { sessionId: string } {
   const shell = process.platform === 'win32' ? 'cmd.exe' : (process.env.SHELL || '/bin/zsh')
-  const ptyHandle = ptyPool.spawn(shell, ['-il'], { cwd })
+  const useManifoldPrompt = options?.shellPrompt ?? false
+  const isZsh = shell.endsWith('/zsh') || shell === 'zsh'
+
+  let env: Record<string, string> | undefined
+
+  if (useManifoldPrompt) {
+    const shellEnv = buildShellEnv(cwd)
+    env = { ...shellEnv }
+
+    if (isZsh) {
+      const agentName = shellEnv.MANIFOLD_AGENT_NAME
+      const zdotdir = createManifoldZdotdir(agentName)
+      env.ZDOTDIR = zdotdir
+    }
+  }
+
+  const ptyHandle = ptyPool.spawn(shell, ['-il'], { cwd, env })
   const id = uuidv4()
+
+  if (useManifoldPrompt) {
+    const branch = env?.MANIFOLD_BRANCH ?? 'manifold'
+    const welcome = buildWelcomeMessage(branch, cwd)
+    // Small delay to let the shell initialize before printing the welcome message
+    setTimeout(() => {
+      try { ptyPool.write(ptyHandle.id, `printf '${welcome.replace(/'/g, "'\\''")}'\\n`) } catch { /* PTY may have exited */ }
+    }, 300)
+  }
 
   const session: InternalSession = {
     id,
