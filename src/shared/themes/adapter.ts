@@ -40,7 +40,9 @@ function withOpacity(hex: string, opacity: number): string {
 
 function normalizeHex(color: string | undefined): string | undefined {
   if (!color) return undefined
-  const c = color.replace('#', '')
+  if (!color.startsWith('#')) return undefined // non-hex (rgb, named, etc.) — skip
+  const c = color.slice(1)
+  if (!/^[0-9a-fA-F]+$/.test(c)) return undefined
   // Strip alpha channel for hex-manipulation functions (lighten/darken/luminance)
   if (c.length === 8) return '#' + c.slice(0, 6)
   if (c.length === 4) return '#' + c.slice(0, 3)
@@ -50,7 +52,9 @@ function normalizeHex(color: string | undefined): string | undefined {
 /** Return a CSS-safe color value, preserving alpha from 8-digit hex (#RRGGBBAA). */
 function normalizeCssColor(color: string | undefined): string | undefined {
   if (!color) return undefined
-  const c = color.replace('#', '')
+  if (!color.startsWith('#')) return color // non-hex (rgb, named, etc.) — pass through as CSS
+  const c = color.slice(1)
+  if (!/^[0-9a-fA-F]+$/.test(c)) return color // malformed hex — pass through
   if (c.length === 8) {
     const r = parseInt(c.slice(0, 2), 16)
     const g = parseInt(c.slice(2, 4), 16)

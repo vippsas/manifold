@@ -79,7 +79,7 @@ export function WelcomeDialog({ onAddProject, onCloneProject, onComplete }: Welc
                 </button>
               </form>
               {cloneError && (
-                <div style={{ fontSize: 12, color: 'var(--error)' }}>{cloneError}</div>
+                <div style={{ fontSize: 12, color: 'var(--error, #f44)' }}>{cloneError}</div>
               )}
             </>
           )}

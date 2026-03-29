@@ -27,16 +27,6 @@ const PANEL_RESTORE_HINTS: Record<DockPanelId, Array<{ ref: DockPanelId; dir: Di
   search: [{ ref: 'agent', dir: 'within' }, { ref: 'editor', dir: 'within' }],
 }
 
-const LEGACY_SIDEBAR_WIDTH = 300
-export const MIN_SIDEBAR_WIDTH = 340
-export const DEFAULT_SIDEBAR_WIDTH = 360
-
-function normalizeSidebarWidth(width: number): number {
-  if (width <= 0) return DEFAULT_SIDEBAR_WIDTH
-  if (width <= LEGACY_SIDEBAR_WIDTH) return DEFAULT_SIDEBAR_WIDTH
-  return Math.max(width, MIN_SIDEBAR_WIDTH)
-}
-
 export function isEditorPanelId(panelId: string): boolean {
   return panelId === 'editor' || panelId.startsWith(EDITOR_PANEL_ID_PREFIX)
 }
@@ -61,7 +51,8 @@ const SIDEBAR_PANEL_IDS = new Set<string>(['projects', 'fileTree', 'modifiedFile
 function getPanelWidth(api: DockviewApi, panelId: string): number {
   try {
     return api.getPanel(panelId)?.group?.element.offsetWidth ?? 0
-  } catch {
+  } catch (err) {
+    console.warn(`[getPanelWidth] failed for panel '${panelId}':`, err)
     return 0
   }
 }
@@ -86,6 +77,7 @@ export function getSidebarWidths(api: DockviewApi): { left: number; right: numbe
  */
 export function restoreSidebarWidths(api: DockviewApi, widths: { left: number; right: number }, refs?: LayoutRefs): void {
   if (widths.left <= 0 && widths.right <= 0) return
+  if (api.width <= 0) return
   try {
     const json = api.toJSON()
     const root = (json as { grid: { root: GridNode } }).grid.root
@@ -134,7 +126,9 @@ export function restoreSidebarWidths(api: DockviewApi, widths: { left: number; r
       if (refs) refs.isRestoringRef.current = false
     }
     if (refs) refs.lastLayoutRef.current = api.toJSON()
-  } catch { /* best-effort */ }
+  } catch (err) {
+    console.warn('[restoreSidebarWidths] failed to restore sidebar widths:', err)
+  }
 }
 
 /** Restore the left sidebar to a specific pixel width. */
@@ -254,8 +248,8 @@ export async function loadOrBuildLayout(
       refs.lastLayoutRef.current = saved
       return
     }
-  } catch {
-    // ignore load errors, fall through to default
+  } catch (err) {
+    console.warn('[loadOrBuildLayout] failed to restore saved layout for session', sessionId, '- falling back to default:', err)
   }
   refs.isRestoringRef.current = true
   try {
@@ -319,6 +313,8 @@ export function hidePanel(
   refs.isRestoringRef.current = true
   try {
     api.fromJSON(json)
+  } catch (err) {
+    console.warn(`[hidePanel] failed to apply layout after hiding '${id}':`, err)
   } finally {
     refs.isRestoringRef.current = false
   }
@@ -351,6 +347,7 @@ export function showPanelFromSnapshot(
   }
 
   restoreSidebarWidths(api, widths, refs)
+  refs.lastLayoutRef.current = api.toJSON()
   closedPanelSnapshots.current.delete(id)
 }
 

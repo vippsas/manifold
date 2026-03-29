@@ -56,8 +56,8 @@ export function applyDefaultLayout(api: DockviewApi): void {
       children[1].size = total - children[0].size - children[2].size // agent
       api.fromJSON(json as SerializedDockview)
     }
-  } catch {
-    // sizing is best-effort
+  } catch (err) {
+    console.warn('[applyDefaultLayout] grid ratio patching failed:', err)
   }
 }
 
@@ -78,8 +78,8 @@ export function applyMinimalPanels(api: DockviewApi): void {
   try {
     const sidebarWidth = Math.round(api.width / 6)
     projectsPanel.group?.api.setSize({ width: sidebarWidth })
-  } catch {
-    // sizing is best-effort
+  } catch (err) {
+    console.warn('[applyMinimalPanels] sidebar sizing failed:', err)
   }
 }
 
