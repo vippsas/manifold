@@ -6,6 +6,7 @@ interface SimpleTitleBarProps {
   sessionId?: string
   runtimeId?: string
   disabled?: boolean
+  onBack?: () => void
 }
 
 export function SimpleTitleBar({
@@ -13,6 +14,7 @@ export function SimpleTitleBar({
   sessionId,
   runtimeId,
   disabled,
+  onBack,
 }: SimpleTitleBarProps): React.JSX.Element {
   const [hovered, setHovered] = useState(false)
 
@@ -42,6 +44,16 @@ export function SimpleTitleBar({
   return (
     <div style={styles.container}>
       <div style={styles.trafficLightSpacer} />
+      {onBack && (
+        <button
+          type="button"
+          style={styles.backButton}
+          onClick={onBack}
+          title="Back to Dashboard"
+        >
+          ← Dashboard
+        </button>
+      )}
       <div style={styles.title}>Manifold</div>
       <button
         type="button"
