@@ -82,6 +82,15 @@ export class PtyPool {
     entry.process.write(data)
   }
 
+  /** Inject text into the terminal output stream without sending it to the PTY process. */
+  pushOutput(id: string, data: string): void {
+    const entry = this.ptys.get(id)
+    if (!entry) return
+    for (const listener of entry.dataListeners) {
+      listener(data)
+    }
+  }
+
   kill(id: string): void {
     const entry = this.ptys.get(id)
     if (!entry) return

@@ -88,10 +88,8 @@ export function createShellPtySession(
   if (useManifoldPrompt) {
     const branch = env?.MANIFOLD_BRANCH ?? 'manifold'
     const welcome = buildWelcomeMessage(branch, cwd)
-    // Small delay to let the shell initialize before printing the welcome message
-    setTimeout(() => {
-      try { ptyPool.write(ptyHandle.id, `printf '${welcome.replace(/'/g, "'\\''")}'\\n`) } catch { /* PTY may have exited */ }
-    }, 300)
+    // Inject welcome message directly into terminal output (not as a shell command)
+    ptyPool.pushOutput(ptyHandle.id, welcome)
   }
 
   const session: InternalSession = {
