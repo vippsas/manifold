@@ -7,32 +7,34 @@ import { pickRandomNorwegianCityName } from '../../../shared/norwegian-cities'
 
 type BranchMode = 'current' | 'new'
 
-const segmentedStyles: Record<string, React.CSSProperties> = {
+const segmentedStyles = {
   container: {
     display: 'flex',
-    borderRadius: 6,
-    overflow: 'hidden',
+    gap: 0,
+    background: 'var(--bg-input, rgba(255,255,255,0.03))',
+    borderRadius: 'var(--radius-md)',
+    padding: 3,
     border: '1px solid var(--border)',
-  },
+  } as React.CSSProperties,
   button: {
     flex: 1,
-    padding: '6px 14px',
-    fontSize: 12,
-    fontWeight: 500,
-    color: 'var(--text-secondary)',
-    backgroundColor: 'var(--bg-input)',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: '7px 24px',
     border: 'none',
+    borderRadius: 'calc(var(--radius-md) - 2px)',
+    fontSize: 'var(--type-ui-small)',
+    fontWeight: 500,
     cursor: 'pointer',
-    transition: 'background-color 0.15s, color 0.15s',
-  },
+    background: 'transparent',
+    color: 'var(--text-muted)',
+    transition: 'all var(--duration-normal) var(--ease-premium)',
+  } as React.CSSProperties,
   buttonActive: {
-    color: 'var(--accent-text, var(--text-primary))',
-    backgroundColor: 'var(--accent)',
-  },
-  divider: {
-    width: 1,
-    backgroundColor: 'var(--border)',
-  },
+    background: 'var(--accent-subtle)',
+    color: 'var(--accent)',
+  } as React.CSSProperties,
 }
 
 export function NewAgentForm({
@@ -171,7 +173,7 @@ export function NewAgentForm({
   )
 
   return (
-    <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: 12, width: 420, maxWidth: '90%' }}>
+    <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-lg)', width: 420, maxWidth: '90%' }}>
       <div style={segmentedStyles.container}>
         <button
           type="button"
@@ -180,7 +182,6 @@ export function NewAgentForm({
         >
           New branch
         </button>
-        <div style={segmentedStyles.divider} />
         <button
           type="button"
           onClick={() => setBranchMode('current')}
@@ -255,6 +256,33 @@ export function NewAgentForm({
       )}
 
       {error && <p style={modalStyles.errorText}>{error}</p>}
+
+      <button
+        type="submit"
+        disabled={!canSubmit || loading}
+        style={{
+          width: '100%',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          height: 'var(--control-height)',
+          padding: '0 32px',
+          background: 'linear-gradient(135deg, var(--btn-bg), var(--btn-hover))',
+          color: 'var(--btn-text)',
+          border: 'none',
+          borderRadius: 'var(--radius-sm)',
+          fontSize: 'var(--type-ui)',
+          fontWeight: 500,
+          cursor: canSubmit && !loading ? 'pointer' : 'default',
+          letterSpacing: '0.02em',
+          boxShadow: 'var(--shadow-glow, var(--shadow-subtle))',
+          transition: 'filter var(--duration-normal) var(--ease-premium)',
+          marginTop: 'var(--space-sm)',
+          opacity: canSubmit && !loading ? 1 : 0.5,
+        }}
+      >
+        {loading ? 'Starting…' : 'Start Agent'}
+      </button>
     </form>
   )
 }

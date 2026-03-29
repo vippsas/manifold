@@ -115,7 +115,13 @@ export function OnboardingView(props: OnboardingViewProps): React.JSX.Element {
         </>
       ) : (
         <>
-          <div style={{ fontSize: 13, color: 'var(--text-muted)' }}>
+          <div style={{
+            fontSize: 'var(--type-title)',
+            fontWeight: 300,
+            color: 'var(--text-primary)',
+            letterSpacing: 'var(--tracking-tight)',
+            marginBottom: 'var(--space-xl)',
+          }}>
             New agent for <span style={{ color: 'var(--text-primary)', fontWeight: 500 }}>{props.projectName}</span>
           </div>
           <NewAgentForm
