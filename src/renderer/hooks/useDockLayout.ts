@@ -4,10 +4,12 @@ import {
   PANEL_IDS,
   PANEL_TITLES,
   applyMinimalLayout,
+  getSidebarWidths,
   hidePanel,
   isEditorPanelId,
   loadOrBuildLayout,
   parseEditorPanelOrder,
+  restoreSidebarWidths,
   showPanelFromHints,
   showPanelFromSnapshot,
   type DockPanelId,
@@ -206,8 +208,10 @@ export function useDockLayout(sessionId: string | null): UseDockLayoutResult {
     if (isEditorPanelId(id)) {
       const panel = api.getPanel(id)
       if (!panel) return
+      const widths = getSidebarWidths(api)
       api.removePanel(panel)
       editorPanelIdsRef.current.delete(id)
+      restoreSidebarWidths(api, widths, refs)
       lastLayoutRef.current = api.toJSON()
       saveLayout()
       bumpVersion()
@@ -233,12 +237,14 @@ export function useDockLayout(sessionId: string | null): UseDockLayoutResult {
         return
       }
 
+      const widths = getSidebarWidths(api)
       for (const panelId of visibleEditorPanels) {
         const panel = api.getPanel(panelId)
         if (panel) api.removePanel(panel)
       }
 
       editorPanelIdsRef.current.clear()
+      restoreSidebarWidths(api, widths, refs)
       lastLayoutRef.current = api.toJSON()
       saveLayout()
       bumpVersion()
