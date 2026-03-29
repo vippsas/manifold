@@ -271,8 +271,9 @@ function ProjectList({
           <div style={sidebarStyles.sectionLabel}>Repositories</div>
           <div style={sidebarStyles.inactiveList}>
             {inactiveProjects.map((project) => (
-              <span
+              <div
                 key={project.id}
+                style={sidebarStyles.collapsedProject}
                 onClick={() => handleProjectClick(project.id)}
                 onKeyDown={(e) => {
                   if (e.key === 'Enter' || e.key === ' ') {
@@ -283,11 +284,15 @@ function ProjectList({
                 role="button"
                 tabIndex={0}
                 title={project.path}
-                style={{ cursor: 'pointer' }}
                 className="sidebar-inactive-project"
               >
-                {project.name}
-              </span>
+                <span
+                  className="truncate sidebar-row-label"
+                  style={{ color: 'var(--text-muted)', fontSize: 'var(--type-ui-small)' }}
+                >
+                  {project.name}
+                </span>
+              </div>
             ))}
           </div>
         </>

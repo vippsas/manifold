@@ -143,11 +143,8 @@ export const sidebarStyles: Record<string, React.CSSProperties> = {
   } as React.CSSProperties,
   inactiveList: {
     display: 'flex',
-    flexWrap: 'wrap' as const,
-    gap: 'var(--space-xs)',
-    padding: '0 var(--space-sm)',
-    fontSize: 'var(--type-ui-micro)',
-    color: 'var(--text-muted)',
+    flexDirection: 'column' as const,
+    gap: 0,
   } as React.CSSProperties,
   collapsedProject: {
     display: 'flex',
