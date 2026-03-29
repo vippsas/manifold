@@ -153,7 +153,7 @@ body {
 /* ─── Layout Helpers ─── */
 .layout-root {
   display: flex;
-  flex-direction: row;
+  flex-direction: column;
   height: 100%;
   width: 100%;
 }

@@ -34,6 +34,7 @@ import { PRPanel } from './components/git/PRPanel'
 import { ConflictPanel } from './components/git/ConflictPanel'
 import { WelcomeDialog } from './components/modals/WelcomeDialog'
 import { DockTab, EmptyWatermark } from './DockTab'
+import { TitleBar } from './components/TitleBar'
 import type { FileOpenRequest } from './components/editor/file-open-request'
 
 interface SearchOpenTarget {
@@ -245,6 +246,11 @@ export function App(): React.JSX.Element {
 
   return (
     <div className={`layout-root ${themeClass}`}>
+      <TitleBar
+        activeSessionProjectId={activeSession?.projectId}
+        activeSessionId={activeSessionId}
+        activeSessionRuntimeId={activeSession?.runtimeId}
+      />
       <div className="layout-main">
         <DockStateContext.Provider value={dockState}>
           <div style={{ flex: 1, overflow: 'hidden' }}>
