@@ -157,6 +157,23 @@ button:active,
   transition: transform var(--duration-fast) var(--ease-out);
 }
 
+/* ── Contextual zones ── */
+.zone-lobby {
+  background: color-mix(in srgb, var(--bg-primary), black 15%);
+}
+
+.zone-workshop {
+  background: var(--bg-primary);
+}
+
+.zone-library {
+  background: color-mix(in srgb, var(--bg-primary), black 8%);
+}
+
+.zone-console {
+  background: color-mix(in srgb, var(--bg-primary), black 20%);
+}
+
 /* ─── Global Reset ─── */
 *,
 *::before,
@@ -238,7 +255,7 @@ body {
 .layout-status-bar {
   height: var(--status-bar-height);
   background: linear-gradient(180deg, var(--bg-chrome, var(--statusbar-bg)) 0%, var(--bg-chrome-lo, var(--statusbar-bg)) 100%);
-  border-top: 1px solid var(--border);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.04);
   display: flex;
   align-items: center;
   padding: 0 var(--space-sm);
