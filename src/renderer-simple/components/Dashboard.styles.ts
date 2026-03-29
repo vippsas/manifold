@@ -61,42 +61,28 @@ export const newAppCard: CSSProperties = {
   borderRadius: 'var(--radius)',
   padding: 24,
   cursor: 'pointer',
-  border: '2px dashed var(--border)',
+  border: '1.5px dashed var(--border)',
   transition: 'border-color 0.2s, background 0.2s',
   minHeight: 140,
 }
 
-export const newAppIcon: CSSProperties = {
-  fontSize: 32,
-  lineHeight: 1,
-  color: 'var(--text-muted)',
-}
-
-export const newAppLabel: CSSProperties = {
-  fontSize: 16,
-  fontWeight: 600,
-  color: 'var(--text-muted)',
-}
-
-export const newAppTechRow: CSSProperties = {
+export const newAppIconCircle: CSSProperties = {
+  width: 36,
+  height: 36,
+  borderRadius: '50%',
+  border: '1.5px dashed var(--accent)',
   display: 'flex',
-  flexWrap: 'wrap',
   alignItems: 'center',
   justifyContent: 'center',
-  gap: 6,
-  fontSize: 12,
-  color: 'var(--text-muted)',
+  color: 'var(--accent)',
+  fontSize: 18,
   opacity: 0.7,
 }
 
-export const techItem: CSSProperties = {
-  display: 'inline-flex',
-  alignItems: 'center',
-  gap: 4,
-}
-
-export const techDot: CSSProperties = {
-  opacity: 0.4,
+export const newAppLabel: CSSProperties = {
+  fontSize: 13,
+  fontWeight: 500,
+  color: 'var(--accent)',
 }
 
 // Create dialog (modal overlay)

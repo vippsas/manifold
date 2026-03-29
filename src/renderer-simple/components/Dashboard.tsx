@@ -59,9 +59,8 @@ export function Dashboard({ apps, onStart, onSelectApp, onDeleteApp }: Props): R
 
       <div style={styles.grid}>
         <div style={styles.newAppCard} onClick={() => setShowCreate(true)}>
-          <div style={styles.newAppIcon}>+</div>
+          <div style={styles.newAppIconCircle}>+</div>
           <div style={styles.newAppLabel}>New App</div>
-          <div style={styles.newAppTechRow}>Templates from your configured provisioners</div>
         </div>
 
         {apps.map((app) => (
