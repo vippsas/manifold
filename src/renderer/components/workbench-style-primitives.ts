@@ -7,6 +7,8 @@ export const dialogPrimitives: StyleMap = {
     position: 'fixed',
     inset: 0,
     background: 'var(--overlay-backdrop)',
+    backdropFilter: 'blur(12px)',
+    WebkitBackdropFilter: 'blur(12px)',
     display: 'flex',
     alignItems: 'center',
     justifyContent: 'center',
