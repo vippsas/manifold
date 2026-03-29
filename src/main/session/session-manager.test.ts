@@ -351,7 +351,7 @@ describe('SessionManager', () => {
       expect(shellSession).toEqual({ sessionId: 'session-uuid-1' })
       expect(ptyPool.spawn).toHaveBeenCalledWith(
         process.platform === 'win32' ? 'cmd.exe' : process.env.SHELL || '/bin/zsh',
-        [],
+        ['-il'],
         expect.objectContaining({ cwd: '/some/cwd' }),
       )
       expect(ptyPool.onData).toHaveBeenCalledWith('pty-1', expect.any(Function))
