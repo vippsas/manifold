@@ -252,6 +252,7 @@ export function App(): React.JSX.Element {
         activeSessionProjectId={activeSession?.projectId}
         activeSessionId={activeSessionId}
         activeSessionRuntimeId={activeSession?.runtimeId}
+        activeSessionStatus={activeSession?.status}
       />
       <div className="layout-main">
         <DockStateContext.Provider value={dockState}>
