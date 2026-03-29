@@ -47,6 +47,8 @@ export function createManifoldZdotdir(agentName: string): string {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'manifold-shell-'))
   const userZdotdir = process.env.ZDOTDIR || os.homedir()
 
+  // Note: ${agentName} is a JS template literal variable baked into the file at
+  // write time — it is NOT a zsh variable reference in the generated .zshrc.
   const rc = `# Manifold shell prompt — sources user config then overrides PROMPT
 ZDOTDIR_ORIG="${userZdotdir}"
 
@@ -56,13 +58,22 @@ if [[ -f "${userZdotdir}/.zshrc" ]]; then
   source "${userZdotdir}/.zshrc"
 fi
 
+# Disable prompt managers that override PROMPT via precmd hooks
+unset STARSHIP_SESSION_KEY STARSHIP_SHELL 2>/dev/null
+if (( \${+functions[_p9k_precmd]} )); then
+  add-zsh-hook -d precmd _p9k_precmd 2>/dev/null
+fi
+if (( \${+functions[_omp_precmd]} )); then
+  add-zsh-hook -d precmd _omp_precmd 2>/dev/null
+fi
+
 # Override prompt with clean Manifold style
 PROMPT='%F{cyan}${agentName}%f %F{white}❯%f '
 RPROMPT=''
 `
 
   fs.writeFileSync(path.join(dir, '.zshrc'), rc, 'utf-8')
-  // Create empty .zshenv to prevent global /etc/zshenv from loading ZDOTDIR twice
+  // Empty .zshenv prevents user's ~/.zshenv from being sourced from the temp ZDOTDIR
   fs.writeFileSync(path.join(dir, '.zshenv'), '', 'utf-8')
 
   return dir
