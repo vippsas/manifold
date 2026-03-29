@@ -54,25 +54,49 @@ export interface LayoutRefs {
 
 // ── Sidebar width helpers ─────────────────────────────────────────────
 
-/** Read the sidebar group's current pixel width (0 if unavailable). */
-export function getSidebarWidth(api: DockviewApi): number {
+/** IDs of panels treated as sidebars (protected from resize redistribution). */
+const SIDEBAR_PANEL_IDS = new Set<string>(['projects', 'fileTree', 'modifiedFiles'])
+
+/** Read a panel group's current pixel width (0 if unavailable). */
+function getPanelWidth(api: DockviewApi, panelId: string): number {
   try {
-    return api.getPanel('projects')?.group?.element.offsetWidth ?? 0
+    return api.getPanel(panelId)?.group?.element.offsetWidth ?? 0
   } catch {
     return 0
   }
 }
 
-/** Restore the sidebar to a specific pixel width on the next frame. */
-export function restoreSidebarWidth(api: DockviewApi, width: number): void {
-  const requestedWidth = width > 0 ? width : null
+/** Read the left sidebar group's current pixel width (0 if unavailable). */
+export function getSidebarWidth(api: DockviewApi): number {
+  return getPanelWidth(api, 'projects')
+}
+
+/** Capture both sidebar widths. */
+export function getSidebarWidths(api: DockviewApi): { left: number; right: number } {
+  return {
+    left: getPanelWidth(api, 'projects'),
+    right: getPanelWidth(api, 'fileTree'),
+  }
+}
+
+/** Restore both sidebars to specific pixel widths on the next frame. */
+export function restoreSidebarWidths(api: DockviewApi, widths: { left: number; right: number }): void {
   requestAnimationFrame(() => {
     try {
-      const measuredWidth = getSidebarWidth(api)
-      const targetWidth = normalizeSidebarWidth(requestedWidth ?? measuredWidth)
-      api.getPanel('projects')?.group?.api.setSize({ width: targetWidth })
+      if (widths.right > 0) {
+        api.getPanel('fileTree')?.group?.api.setSize({ width: widths.right })
+      }
+      if (widths.left > 0) {
+        const targetWidth = normalizeSidebarWidth(widths.left)
+        api.getPanel('projects')?.group?.api.setSize({ width: targetWidth })
+      }
     } catch { /* best-effort */ }
   })
+}
+
+/** Restore the left sidebar to a specific pixel width on the next frame. */
+export function restoreSidebarWidth(api: DockviewApi, width: number): void {
+  restoreSidebarWidths(api, { left: width, right: 0 })
 }
 
 // ── Serialized layout tree helpers ──────────────────────────────────────
@@ -184,7 +208,7 @@ export async function loadOrBuildLayout(
       } finally {
         refs.isRestoringRef.current = false
       }
-      restoreSidebarWidth(api, getSidebarWidth(api))
+      restoreSidebarWidths(api, getSidebarWidths(api))
       refs.lastLayoutRef.current = saved
       return
     }
@@ -232,12 +256,12 @@ export function hidePanel(
   if (root.type === 'branch') {
     const freed = removeLeafFromTree(root, id)
     if (freed > 0 && root.data.length > 0) {
-      const sidebarIdx = root.data.findIndex((c) =>
-        c.type === 'leaf'
-          ? c.data.views.includes('projects')
-          : treeContainsPanel(c, 'projects')
-      )
-      const targets = root.data.filter((_, i) => i !== sidebarIdx)
+      const isSidebarNode = (c: GridNode) => {
+        const views = c.type === 'leaf' ? c.data.views : []
+        return views.some((v) => SIDEBAR_PANEL_IDS.has(v)) ||
+          (c.type === 'branch' && Array.from(SIDEBAR_PANEL_IDS).some((sid) => treeContainsPanel(c, sid)))
+      }
+      const targets = root.data.filter((c) => !isSidebarNode(c))
       if (targets.length > 0) {
         const share = freed / targets.length
         for (const t of targets) t.size = Math.round(t.size + share)
@@ -269,7 +293,7 @@ export function showPanelFromSnapshot(
   const currentlyVisible = new Set(
     PANEL_IDS.filter((pid) => api.getPanel(pid) !== undefined)
   )
-  const sidebarWidth = getSidebarWidth(api)
+  const widths = getSidebarWidths(api)
 
   refs.isRestoringRef.current = true
   try {
@@ -284,13 +308,13 @@ export function showPanelFromSnapshot(
     refs.isRestoringRef.current = false
   }
 
-  restoreSidebarWidth(api, sidebarWidth)
+  restoreSidebarWidths(api, widths)
   refs.lastLayoutRef.current = api.toJSON()
   closedPanelSnapshots.current.delete(id)
 }
 
 export function showPanelFromHints(api: DockviewApi, id: DockPanelId): void {
-  const sidebarWidth = getSidebarWidth(api)
+  const widths = getSidebarWidths(api)
   const hints = PANEL_RESTORE_HINTS[id]
   let position: { referencePanel: ReturnType<DockviewApi['getPanel']>; direction: Direction } | undefined
   for (const hint of hints) {
@@ -306,5 +330,5 @@ export function showPanelFromHints(api: DockviewApi, id: DockPanelId): void {
     title: PANEL_TITLES[id],
     ...(position ? { position } : {}),
   })
-  restoreSidebarWidth(api, sidebarWidth)
+  restoreSidebarWidths(api, widths)
 }
