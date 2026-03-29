@@ -12,25 +12,36 @@ export const logoWrap: CSSProperties = {
   marginBottom: 24,
 }
 
-export const logo: CSSProperties = {
-  margin: 0,
+export const tagline: CSSProperties = {
   fontSize: 11,
-  lineHeight: 1.3,
   color: 'var(--text-muted)',
-  opacity: 0.4,
-  userSelect: 'none',
+  letterSpacing: '0.05em',
+  marginTop: 8,
 }
 
 export const header: CSSProperties = {
   display: 'flex',
   alignItems: 'center',
-  justifyContent: 'space-between',
+  gap: 12,
   marginBottom: 32,
 }
 
 export const title: CSSProperties = {
-  fontSize: 28,
-  fontWeight: 700,
+  fontSize: 20,
+  fontWeight: 600,
+  flexShrink: 0,
+}
+
+export const headerDivider: CSSProperties = {
+  flex: 1,
+  height: 1,
+  background: 'linear-gradient(90deg, rgba(var(--accent-rgb, 200,149,108), 0.3), transparent)',
+}
+
+export const headerCount: CSSProperties = {
+  fontSize: 11,
+  color: 'var(--text-muted)',
+  flexShrink: 0,
 }
 
 export const grid: CSSProperties = {
@@ -50,42 +61,28 @@ export const newAppCard: CSSProperties = {
   borderRadius: 'var(--radius)',
   padding: 24,
   cursor: 'pointer',
-  border: '2px dashed var(--border)',
+  border: '1.5px dashed var(--border)',
   transition: 'border-color 0.2s, background 0.2s',
   minHeight: 140,
 }
 
-export const newAppIcon: CSSProperties = {
-  fontSize: 32,
-  lineHeight: 1,
-  color: 'var(--text-muted)',
-}
-
-export const newAppLabel: CSSProperties = {
-  fontSize: 16,
-  fontWeight: 600,
-  color: 'var(--text-muted)',
-}
-
-export const newAppTechRow: CSSProperties = {
+export const newAppIconCircle: CSSProperties = {
+  width: 36,
+  height: 36,
+  borderRadius: '50%',
+  border: '1.5px dashed var(--accent)',
   display: 'flex',
-  flexWrap: 'wrap',
   alignItems: 'center',
   justifyContent: 'center',
-  gap: 6,
-  fontSize: 12,
-  color: 'var(--text-muted)',
+  color: 'var(--accent)',
+  fontSize: 18,
   opacity: 0.7,
 }
 
-export const techItem: CSSProperties = {
-  display: 'inline-flex',
-  alignItems: 'center',
-  gap: 4,
-}
-
-export const techDot: CSSProperties = {
-  opacity: 0.4,
+export const newAppLabel: CSSProperties = {
+  fontSize: 13,
+  fontWeight: 500,
+  color: 'var(--accent)',
 }
 
 // Create dialog (modal overlay)
@@ -261,5 +258,84 @@ export const startButton: CSSProperties = {
   padding: '10px 24px',
   fontSize: 14,
   fontWeight: 600,
+  cursor: 'pointer',
+}
+
+export const emptyState: CSSProperties = {
+  display: 'flex',
+  flexDirection: 'column',
+  alignItems: 'center',
+  justifyContent: 'center',
+  textAlign: 'center',
+  minHeight: '50vh',
+  gap: 0,
+}
+
+export const emptyIllustration: CSSProperties = {
+  position: 'relative',
+  width: 80,
+  height: 80,
+  marginBottom: 24,
+}
+
+export const emptyCircleOuter: CSSProperties = {
+  position: 'absolute',
+  inset: 0,
+  border: '1.5px dashed var(--accent)',
+  borderRadius: '50%',
+  opacity: 0.25,
+}
+
+export const emptyCircleInner: CSSProperties = {
+  position: 'absolute',
+  inset: 16,
+  border: '1.5px dashed var(--accent)',
+  borderRadius: '50%',
+  opacity: 0.15,
+}
+
+export const emptyCircleCenter: CSSProperties = {
+  position: 'absolute',
+  top: '50%',
+  left: '50%',
+  transform: 'translate(-50%, -50%)',
+  width: 24,
+  height: 24,
+  borderRadius: '50%',
+  background: 'var(--accent)',
+  opacity: 0.12,
+  display: 'flex',
+  alignItems: 'center',
+  justifyContent: 'center',
+  color: 'var(--accent)',
+  fontSize: 16,
+}
+
+export const emptyHeading: CSSProperties = {
+  fontSize: 16,
+  fontWeight: 500,
+  color: 'var(--text-primary, var(--text))',
+  marginBottom: 8,
+}
+
+export const emptySubtitle: CSSProperties = {
+  fontSize: 13,
+  color: 'var(--text-muted)',
+  maxWidth: 280,
+  lineHeight: 1.5,
+  marginBottom: 24,
+}
+
+export const emptyCta: CSSProperties = {
+  display: 'inline-flex',
+  alignItems: 'center',
+  gap: 8,
+  padding: '10px 24px',
+  borderRadius: 'var(--radius)',
+  background: 'rgba(var(--accent-rgb, 200,149,108), 0.15)',
+  color: 'var(--accent)',
+  fontSize: 14,
+  fontWeight: 600,
+  border: '1px solid var(--accent)',
   cursor: 'pointer',
 }

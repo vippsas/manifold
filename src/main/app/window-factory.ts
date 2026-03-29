@@ -3,6 +3,7 @@ import { join } from 'node:path'
 import { debugLog } from './debug-log'
 import { buildAppMenu } from './app-menu'
 import { registerIpcHandlers, type IpcDependencies } from './ipc-handlers'
+import { loadTheme, migrateLegacyTheme } from '../../shared/themes/registry'
 
 // Suppress Electron's internal GUEST_VIEW_MANAGER_CALL error logging for
 // ERR_ABORTED (-3).  These fire when a <webview> navigation is cancelled
@@ -23,11 +24,21 @@ console.error = (...args: unknown[]): void => {
 }
 
 function resolveInitialBackground(theme: string): string {
-  return '#282a36' // Dracula-ish default for dark themes
+  try {
+    const converted = loadTheme(migrateLegacyTheme(theme))
+    return converted.cssVars['--bg-primary'] ?? '#1a1a1a'
+  } catch {
+    return '#1a1a1a'
+  }
 }
 
 function resolveThemeType(theme: string): 'dark' | 'light' {
-  return 'dark'
+  try {
+    const converted = loadTheme(migrateLegacyTheme(theme))
+    return converted.type
+  } catch {
+    return 'dark'
+  }
 }
 
 interface WindowFactoryDeps {
