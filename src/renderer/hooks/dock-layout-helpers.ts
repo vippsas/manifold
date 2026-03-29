@@ -159,6 +159,47 @@ export function getGridSignature(layout: SerializedDockview): string {
   return nodeSignature(layout.grid.root as GridNode)
 }
 
+// ── Bottom-panel height helpers ───────────────────────────────────────
+
+/**
+ * Walk the grid tree and set the leaf containing `panelId` to `fraction`
+ * of its parent branch total, scaling siblings to fill the remainder.
+ * Returns true if the node was found and patched.
+ */
+function applyHeightInTree(node: GridNode, panelId: string, fraction: number): boolean {
+  if (node.type !== 'branch') return false
+
+  const idx = node.data.findIndex((c) =>
+    c.type === 'leaf' && c.data.views.includes(panelId))
+
+  if (idx >= 0) {
+    const total = node.data.reduce((s, c) => s + c.size, 0)
+    const panelSize = Math.round(total * fraction)
+    const remaining = total - panelSize
+    const otherTotal = node.data.reduce((s, c, i) => s + (i === idx ? 0 : c.size), 0)
+    const scale = otherTotal > 0 ? remaining / otherTotal : 1
+    for (let i = 0; i < node.data.length; i++) {
+      node.data[i].size = i === idx ? panelSize : Math.round(node.data[i].size * scale)
+    }
+    return true
+  }
+
+  return node.data.some((child) => applyHeightInTree(child, panelId, fraction))
+}
+
+/** Patch the serialised grid so `panelId` occupies `fraction` of its parent branch. */
+function applyPanelHeightFraction(api: DockviewApi, panelId: string, fraction: number, refs?: LayoutRefs): void {
+  try {
+    const json = api.toJSON()
+    if (!applyHeightInTree(json.grid.root as GridNode, panelId, fraction)) return
+    if (refs) refs.isRestoringRef.current = true
+    try { api.fromJSON(json) } finally { if (refs) refs.isRestoringRef.current = false }
+    if (refs) refs.lastLayoutRef.current = api.toJSON()
+  } catch (err) {
+    console.warn(`[applyPanelHeightFraction] failed for '${panelId}':`, err)
+  }
+}
+
 const RETIRED_PANEL_IDS = new Set(['memory'])
 
 function treeContainsPanel(node: GridNode, panelId: string): boolean {
@@ -371,10 +412,12 @@ export function showPanelFromHints(api: DockviewApi, id: DockPanelId, refs?: Lay
   const widths = getSidebarWidths(api)
   const hints = PANEL_RESTORE_HINTS[id]
   let position: { referencePanel: ReturnType<DockviewApi['getPanel']>; direction: Direction } | undefined
+  let usedDirection: Direction | undefined
   for (const hint of hints) {
     const ref = api.getPanel(hint.ref)
     if (ref) {
       position = { referencePanel: ref, direction: hint.dir }
+      usedDirection = hint.dir
       break
     }
   }
@@ -384,5 +427,8 @@ export function showPanelFromHints(api: DockviewApi, id: DockPanelId, refs?: Lay
     title: PANEL_TITLES[id],
     ...(position ? { position } : {}),
   })
+  if (usedDirection === 'below') {
+    applyPanelHeightFraction(api, id, 0.25, refs)
+  }
   restoreSidebarWidths(api, widths, refs)
 }
