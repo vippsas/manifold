@@ -193,13 +193,16 @@ export function App(): React.JSX.Element {
   if (view.kind === 'app') {
     return (
       <ErrorBoundary onReset={() => setView({ kind: 'dashboard' })}>
-        <SimpleTitleBar
-          projectId={view.app.projectId}
-          sessionId={view.app.sessionId}
-          runtimeId={view.app.runtimeId}
-          disabled={isAgentBusy}
-        />
-        <AppViewWrapper app={view.app} onBack={() => setView({ kind: 'dashboard' })} />
+        <div style={{ display: 'flex', flexDirection: 'column', height: '100vh' }}>
+          <SimpleTitleBar
+            projectId={view.app.projectId}
+            sessionId={view.app.sessionId}
+            runtimeId={view.app.runtimeId}
+            disabled={isAgentBusy}
+            onBack={() => setView({ kind: 'dashboard' })}
+          />
+          <AppViewWrapper app={view.app} onBack={() => setView({ kind: 'dashboard' })} />
+        </div>
         {updateToast}
       </ErrorBoundary>
     )

@@ -70,7 +70,6 @@ export const treeStyles: Record<string, React.CSSProperties> = {
     fontSize: '13px',
     fontFamily: 'var(--font-sans)',
     lineHeight: '22px',
-    color: 'var(--text-primary)',
   },
   chevron: {
     width: '16px',

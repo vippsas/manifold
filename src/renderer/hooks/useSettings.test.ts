@@ -32,7 +32,7 @@ describe('useSettings', () => {
   })
 
   it('fetches settings on mount and migrates legacy theme', async () => {
-    // Stored as 'light' (legacy) — should be migrated to 'manifold-dark'
+    // Stored as 'light' (legacy) — should be migrated to default theme
     const customSettings = { ...DEFAULT_SETTINGS, theme: 'light' }
     mockInvoke.mockResolvedValue(customSettings)
 
@@ -43,7 +43,7 @@ describe('useSettings', () => {
     })
 
     expect(mockInvoke).toHaveBeenCalledWith('settings:get')
-    expect(result.current.settings.theme).toBe('manifold-dark')
+    expect(result.current.settings.theme).toBe('manifold-atelier')
   })
 
   it('preserves non-legacy theme IDs on fetch', async () => {

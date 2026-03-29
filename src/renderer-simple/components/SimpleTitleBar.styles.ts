@@ -17,6 +17,22 @@ export const trafficLightSpacer: CSSProperties = {
   flexShrink: 0,
 }
 
+export const backButton: CSSProperties = {
+  display: 'flex',
+  alignItems: 'center',
+  gap: 4,
+  padding: '3px 8px',
+  border: 'none',
+  borderRadius: 4,
+  fontSize: 12,
+  fontWeight: 500,
+  color: 'var(--text-secondary, var(--text-muted))',
+  background: 'transparent',
+  cursor: 'pointer',
+  // @ts-expect-error -- Electron-specific CSS property to make button clickable in drag region
+  WebkitAppRegion: 'no-drag',
+}
+
 export const title: CSSProperties = {
   flex: 1,
   textAlign: 'center',

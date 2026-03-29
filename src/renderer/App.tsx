@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useMemo, useState } from 'react'
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { DockviewReact } from 'dockview'
 import { useProjects } from './hooks/useProjects'
 import { useAgentSession } from './hooks/useAgentSession'
@@ -51,6 +51,25 @@ export function App(): React.JSX.Element {
   const { sessions, activeSessionId, activeSession, spawnAgent, deleteAgent, setActiveSession, resumeAgent } = useAgentSession(activeProjectId)
   const { sessionsByProject, removeSession } = useAllProjectSessions(projects, activeProjectId, sessions)
   const allSessions = useMemo(() => Object.values(sessionsByProject).flat(), [sessionsByProject])
+
+  // On startup, prefer selecting a project that has active agents
+  const didAutoSelectRef = useRef(false)
+  useEffect(() => {
+    if (didAutoSelectRef.current) return
+    const projectIds = Object.keys(sessionsByProject)
+    if (projectIds.length < 2) return // not yet loaded
+    const currentSessions = activeProjectId ? sessionsByProject[activeProjectId] ?? [] : []
+    if (currentSessions.length > 0) {
+      didAutoSelectRef.current = true
+      return
+    }
+    const projectWithAgents = projects.find((p) => (sessionsByProject[p.id] ?? []).length > 0)
+    if (projectWithAgents) {
+      didAutoSelectRef.current = true
+      setActiveProject(projectWithAgents.id)
+    }
+  }, [sessionsByProject, activeProjectId, projects, setActiveProject])
+
   useStatusNotification(allSessions, settings.notificationSound)
   const { diff, changedFiles, refreshDiff } = useDiff(activeSessionId)
   const dockLayout = useDockLayout(activeSessionId)

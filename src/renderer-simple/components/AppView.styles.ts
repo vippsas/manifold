@@ -3,7 +3,8 @@ import type { CSSProperties } from 'react'
 export const container: CSSProperties = {
   display: 'flex',
   flexDirection: 'column',
-  height: '100vh',
+  flex: 1,
+  minHeight: 0,
 }
 
 export const splitPane: CSSProperties = {

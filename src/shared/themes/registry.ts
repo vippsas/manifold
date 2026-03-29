@@ -6,7 +6,7 @@ import { themeList, themeDataByLabel } from './theme-data'
 
 const themeCache = new Map<string, ConvertedTheme>()
 
-const DEFAULT_THEME = 'manifold-dark'
+const DEFAULT_THEME = 'manifold-atelier'
 
 // ── Theme file name mapping ────────────────────────────────────────
 
