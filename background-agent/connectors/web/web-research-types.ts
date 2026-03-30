@@ -50,3 +50,12 @@ export interface WebResearchContext {
   projectProfile: BackgroundAgentProjectProfile
   runtimeContext: BackgroundAgentRuntimeContext
 }
+
+export interface WebResearchProgressEvent {
+  kind: 'topic_started' | 'topic_completed' | 'topic_failed'
+  topic: WebResearchTopic
+  current: number
+  total: number
+  message: string
+  detail?: string
+}

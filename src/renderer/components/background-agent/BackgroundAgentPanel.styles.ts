@@ -31,6 +31,9 @@ export const backgroundAgentPanelStyles: Record<string, React.CSSProperties> = {
     color: 'var(--text-muted)',
   },
   refreshButton: {
+    display: 'inline-flex',
+    alignItems: 'center',
+    gap: 8,
     padding: '6px 10px',
     borderRadius: 6,
     border: '1px solid var(--border)',
@@ -38,6 +41,14 @@ export const backgroundAgentPanelStyles: Record<string, React.CSSProperties> = {
     color: 'var(--text-primary)',
     cursor: 'pointer',
     fontSize: 12,
+  },
+  refreshButtonDisabled: {
+    cursor: 'default',
+    opacity: 0.85,
+  },
+  buttonSpinner: {
+    width: 12,
+    height: 12,
   },
   content: {
     flex: 1,
@@ -79,6 +90,60 @@ export const backgroundAgentPanelStyles: Record<string, React.CSSProperties> = {
   error: {
     color: 'var(--status-error)',
     fontSize: 12,
+  },
+  statusCard: {
+    display: 'flex',
+    alignItems: 'flex-start',
+    gap: 10,
+    padding: 12,
+    borderRadius: 8,
+    border: '1px solid var(--border)',
+    background: 'var(--bg-elevated)',
+  },
+  statusBody: {
+    display: 'flex',
+    flexDirection: 'column',
+    gap: 8,
+    minWidth: 0,
+  },
+  statusHeader: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: 8,
+    flexWrap: 'wrap',
+  },
+  statusHeadline: {
+    fontSize: 12,
+    color: 'var(--text-primary)',
+    lineHeight: 1.5,
+    fontWeight: 600,
+  },
+  statusStep: {
+    fontSize: 10,
+    color: 'var(--accent)',
+    background: 'var(--accent-subtle)',
+    padding: '2px 6px',
+    borderRadius: 999,
+    letterSpacing: '0.04em',
+    textTransform: 'uppercase',
+  },
+  statusText: {
+    fontSize: 12,
+    color: 'var(--text-secondary)',
+    lineHeight: 1.5,
+  },
+  activityList: {
+    display: 'flex',
+    flexDirection: 'column',
+    gap: 6,
+    margin: 0,
+    padding: 0,
+    listStyle: 'none',
+  },
+  activityItem: {
+    fontSize: 12,
+    color: 'var(--text-secondary)',
+    lineHeight: 1.5,
   },
   card: {
     padding: 14,

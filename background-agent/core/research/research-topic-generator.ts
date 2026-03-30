@@ -5,36 +5,20 @@ export function generateResearchTopics(profile: BackgroundAgentProjectProfile): 
   const projectAnchor = profile.productType ?? profile.projectName
   const workflowAnchor = profile.majorWorkflows[0] ?? profile.summary
   const architectureAnchor = profile.architectureShape ?? profile.dependencyStack.join(' ')
-  const ecosystemAnchor = profile.dependencyStack.slice(0, 3).join(' ')
-
   return [
     {
-      id: 'ring-1-feature-opportunities',
-      title: 'Direct competitor feature expectations',
-      query: `${projectAnchor} direct competitor feature expectations`,
+      id: 'feature-and-workflow-patterns',
+      title: 'Competitor and workflow patterns',
+      query: `${projectAnchor} ${workflowAnchor} feature patterns developer tools`,
       ring: 1,
-      rationale: 'Find adjacent feature ideas in the same product category.',
+      rationale: 'Find product ideas and workflow patterns in adjacent tools.',
     },
     {
-      id: 'ring-2-workflow-patterns',
-      title: 'Same-workflow patterns',
-      query: `${workflowAnchor} workflow patterns developer tools`,
-      ring: 2,
-      rationale: 'Find patterns from tools solving the same user workflow.',
-    },
-    {
-      id: 'ring-3-architecture-patterns',
+      id: 'architecture-patterns',
       title: 'Architecture and interaction patterns',
-      query: `${architectureAnchor} architecture patterns`,
+      query: `${architectureAnchor} architecture patterns developer tools`,
       ring: 3,
       rationale: 'Find structural patterns that may transfer well to this project.',
-    },
-    {
-      id: 'ecosystem-shifts',
-      title: 'Ecosystem changes',
-      query: `${ecosystemAnchor} changelog ecosystem updates`,
-      ring: 3,
-      rationale: 'Watch the surrounding stack for shifts worth reacting to.',
     },
   ].filter((topic) => topic.query.trim().length > 0)
 }

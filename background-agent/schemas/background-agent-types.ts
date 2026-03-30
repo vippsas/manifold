@@ -72,6 +72,10 @@ export interface BackgroundAgentGenerationStatus {
   isRefreshing: boolean
   lastRefreshedAt: string | null
   error: string | null
+  summary: string | null
+  detail: string | null
+  stepLabel: string | null
+  recentActivity: string[]
 }
 
 export type BackgroundAgentFeedbackType =

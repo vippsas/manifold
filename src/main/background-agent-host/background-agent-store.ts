@@ -55,7 +55,10 @@ export class BackgroundAgentStore {
       supportingSources: suggestion.supportingSources.map((source) => ({ ...source })),
       evidence: [...suggestion.evidence],
     }))
-    current.status = { ...snapshot.status }
+    current.status = {
+      ...snapshot.status,
+      recentActivity: [...snapshot.status.recentActivity],
+    }
     this.setProjectState(projectId, current)
   }
 

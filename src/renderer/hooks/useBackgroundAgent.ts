@@ -22,9 +22,41 @@ export function useBackgroundAgent(
   const [isRefreshing, setIsRefreshing] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const requestIdRef = useRef(0)
+  const pollTimerRef = useRef<number | null>(null)
+
+  const stopPolling = useCallback((): void => {
+    if (pollTimerRef.current !== null) {
+      window.clearTimeout(pollTimerRef.current)
+      pollTimerRef.current = null
+    }
+  }, [])
+
+  const pollSnapshot = useCallback(async (projectId: string, requestId: number): Promise<void> => {
+    try {
+      const nextSnapshot = await window.electronAPI.invoke(
+        'background-agent:list-suggestions',
+        projectId,
+      ) as BackgroundAgentSnapshot
+      if (requestId !== requestIdRef.current) return
+      setSnapshot(nextSnapshot)
+      setIsRefreshing(nextSnapshot.status.isRefreshing)
+      setError(nextSnapshot.status.error)
+      if (nextSnapshot.status.isRefreshing) {
+        pollTimerRef.current = window.setTimeout(() => {
+          void pollSnapshot(projectId, requestId)
+        }, 800)
+      }
+    } catch (nextError) {
+      if (requestId !== requestIdRef.current) return
+      setError(formatError(nextError))
+    }
+  }, [])
 
   useEffect(() => {
+    stopPolling()
+    setIsRefreshing(false)
     if (!activeProjectId) {
+      requestIdRef.current += 1
       setSnapshot(null)
       setError(null)
       setIsLoading(false)
@@ -37,8 +69,10 @@ export function useBackgroundAgent(
     void window.electronAPI.invoke('background-agent:list-suggestions', activeProjectId)
       .then((response) => {
         if (requestId !== requestIdRef.current) return
-        setSnapshot(response as BackgroundAgentSnapshot)
-        setError(null)
+        const nextSnapshot = response as BackgroundAgentSnapshot
+        setSnapshot(nextSnapshot)
+        setIsRefreshing(nextSnapshot.status.isRefreshing)
+        setError(nextSnapshot.status.error)
       })
       .catch((nextError) => {
         if (requestId !== requestIdRef.current) return
@@ -50,25 +84,39 @@ export function useBackgroundAgent(
           setIsLoading(false)
         }
       })
-  }, [activeProjectId])
+    return () => {
+      requestIdRef.current += 1
+      stopPolling()
+    }
+  }, [activeProjectId, stopPolling])
 
   const refresh = useCallback(async (): Promise<void> => {
     if (!activeProjectId) return
+    const requestId = ++requestIdRef.current
+    stopPolling()
     setIsRefreshing(true)
+    setError(null)
+    void pollSnapshot(activeProjectId, requestId)
     try {
       const nextSnapshot = await window.electronAPI.invoke(
         'background-agent:refresh',
         activeProjectId,
         activeSessionId,
       ) as BackgroundAgentSnapshot
+      if (requestId !== requestIdRef.current) return
       setSnapshot(nextSnapshot)
+      setIsRefreshing(nextSnapshot.status.isRefreshing)
       setError(nextSnapshot.status.error)
     } catch (nextError) {
+      if (requestId !== requestIdRef.current) return
       setError(formatError(nextError))
     } finally {
-      setIsRefreshing(false)
+      stopPolling()
+      if (requestId === requestIdRef.current) {
+        setIsRefreshing(false)
+      }
     }
-  }, [activeProjectId, activeSessionId])
+  }, [activeProjectId, activeSessionId, pollSnapshot, stopPolling])
 
   const submitFeedback = useCallback(async (
     suggestionId: string,

@@ -1,6 +1,7 @@
 import type { WebResearchClient } from '../../../background-agent/connectors/web/web-research-client'
 import type {
   WebResearchContext,
+  WebResearchProgressEvent,
   WebResearchResult,
   WebResearchSourceRecord,
   WebResearchSuggestionHint,
@@ -29,34 +30,92 @@ export class RuntimeWebResearchClient implements WebResearchClient {
     private readonly deps: Pick<BackgroundAgentHostDeps, 'settingsStore' | 'projectRegistry' | 'sessionManager' | 'gitOps'>,
     options: RuntimeResearchClientOptions = {},
   ) {
-    this.maxSourcesPerTopic = Math.max(1, options.maxSourcesPerTopic ?? 4)
-    this.maxSuggestionsPerTopic = Math.max(1, options.maxSuggestionsPerTopic ?? 2)
+    this.maxSourcesPerTopic = Math.max(1, options.maxSourcesPerTopic ?? 2)
+    this.maxSuggestionsPerTopic = Math.max(1, options.maxSuggestionsPerTopic ?? 1)
   }
 
-  async research(topics: WebResearchTopic[], context: WebResearchContext): Promise<WebResearchResult[]> {
+  async research(
+    topics: WebResearchTopic[],
+    context: WebResearchContext,
+    onProgress?: (event: WebResearchProgressEvent) => void,
+  ): Promise<WebResearchResult[]> {
     const results: WebResearchResult[] = []
 
-    for (const topic of topics) {
-      const prompt = buildResearchPrompt(topic, context, this.maxSourcesPerTopic, this.maxSuggestionsPerTopic)
-      const output = await runBackgroundAgentPrompt(this.deps, {
-        projectId: context.projectProfile.projectId,
-        activeSessionId: context.runtimeContext.activeSessionId,
-        prompt,
-        timeoutMs: 90_000,
-        mode: 'research',
+    for (const [index, topic] of topics.entries()) {
+      const current = index + 1
+      onProgress?.({
+        kind: 'topic_started',
+        topic,
+        current,
+        total: topics.length,
+        message: `Searching the web for ${topic.title.toLowerCase()}.`,
+        detail: trimDetail(`Query: ${topic.query}`),
       })
 
-      const parsed = parseResearchOutput(output)
-      results.push({
-        topic,
-        topicSummary: typeof parsed.topicSummary === 'string' ? parsed.topicSummary.trim() : '',
-        findings: normalizeFindings(parsed.findings),
-        sources: normalizeSources(parsed.sources).slice(0, this.maxSourcesPerTopic),
-        candidateSuggestions: normalizeSuggestionHints(parsed.candidateSuggestions).slice(0, this.maxSuggestionsPerTopic),
-      })
+      try {
+        const prompt = buildResearchPrompt(topic, context, this.maxSourcesPerTopic, this.maxSuggestionsPerTopic)
+        const output = await runBackgroundAgentPrompt(this.deps, {
+          projectId: context.projectProfile.projectId,
+          activeSessionId: context.runtimeContext.activeSessionId,
+          prompt,
+          mode: 'research',
+          silent: true,
+          logLabel: topic.id,
+        })
+
+        const parsed = parseResearchOutput(output)
+        results.push({
+          topic,
+          topicSummary: typeof parsed.topicSummary === 'string' ? parsed.topicSummary.trim() : '',
+          findings: normalizeFindings(parsed.findings),
+          sources: normalizeSources(parsed.sources).slice(0, this.maxSourcesPerTopic),
+          candidateSuggestions: normalizeSuggestionHints(parsed.candidateSuggestions).slice(0, this.maxSuggestionsPerTopic),
+        })
+        const latest = results.at(-1)
+        const sourceCount = latest?.sources.length ?? 0
+        const suggestionCount = latest?.candidateSuggestions.length ?? 0
+        onProgress?.({
+          kind: 'topic_completed',
+          topic,
+          current,
+          total: topics.length,
+          message: sourceCount > 0
+            ? `Reviewed ${sourceCount} source${sourceCount === 1 ? '' : 's'} for ${topic.title.toLowerCase()}.`
+            : `No strong sources found for ${topic.title.toLowerCase()}.`,
+          detail: suggestionCount > 0
+            ? `Found ${suggestionCount} candidate idea${suggestionCount === 1 ? '' : 's'} to evaluate.`
+            : 'No candidate ideas survived the evidence bar for this topic.',
+        })
+      } catch (error) {
+        const message = summarizeResearchError(error)
+        console.warn('[background-agent] research topic failed; continuing with partial results', {
+          topicId: topic.id,
+          runtimeId: context.runtimeContext.runtimeId,
+          message,
+        })
+        onProgress?.({
+          kind: 'topic_failed',
+          topic,
+          current,
+          total: topics.length,
+          message: `Research stalled for ${topic.title.toLowerCase()}.`,
+          detail: message,
+        })
+        results.push(createEmptyResearchResult(topic))
+      }
     }
 
     return results
+  }
+}
+
+function createEmptyResearchResult(topic: WebResearchTopic): WebResearchResult {
+  return {
+    topic,
+    topicSummary: '',
+    findings: [],
+    sources: [],
+    candidateSuggestions: [],
   }
 }
 
@@ -76,6 +135,9 @@ function buildResearchPrompt(
     'Use a strong research approach. Prefer official docs, changelogs, OSS repos, OSS issues/discussions, and strong engineering blogs.',
     'Forums and communities may be used only as supporting evidence, never as the only basis for a suggestion.',
     'If your runtime supports web search or browsing, use it. If it does not, return an empty result object with no invented sources.',
+    'Do not inspect local repository files and do not run shell commands. Use only the supplied project profile and web research.',
+    'Be selective and fast: do at most 2 search attempts and inspect at most 2 sources before deciding.',
+    'If you cannot find one high-trust source quickly, return no candidate suggestions for this topic.',
     'Return JSON only. Do not include markdown fences or commentary.',
     '',
     'JSON schema:',
@@ -129,6 +191,8 @@ function buildResearchPrompt(
     '- Do not invent sources or URLs.',
     '- Only include a candidate suggestion if it is genuinely relevant to this project.',
     '- Prefer source-backed, concrete ideas over generic trend summaries.',
+    '- Avoid exhaustive research; aim for the strongest answer you can support quickly.',
+    '- Never inspect local files or execute commands for this task.',
   ].join('\n')
 }
 
@@ -239,4 +303,32 @@ function normalizeLevelValue(value: string, kind: 'category'): string {
   }
 
   return value
+}
+
+function summarizeResearchError(error: unknown): string {
+  const message = error instanceof Error ? error.message : String(error)
+
+  if (message.includes('timed out after')) {
+    return message.match(/timed out after \d+ seconds/)?.[0] ?? 'timed out'
+  }
+
+  if (message.includes('returned no usable output')) {
+    return 'research run ended without a final answer'
+  }
+
+  const runtimeFailureMatch = message.match(/AI runtime "([^"]+)" failed \([^)]*\): (.+)$/)
+  if (runtimeFailureMatch) {
+    const detail = runtimeFailureMatch[2].trim()
+    if (detail.startsWith('{')) {
+      return 'research run ended without a usable final answer'
+    }
+    return detail
+  }
+
+  return message
+}
+
+function trimDetail(value: string, maxLength = 120): string {
+  if (value.length <= maxLength) return value
+  return `${value.slice(0, maxLength - 1).trimEnd()}…`
 }

@@ -30,6 +30,10 @@ export const EMPTY_BACKGROUND_AGENT_STATUS: BackgroundAgentGenerationStatus = {
   isRefreshing: false,
   lastRefreshedAt: null,
   error: null,
+  summary: null,
+  detail: null,
+  stepLabel: null,
+  recentActivity: [],
 }
 
 export const EMPTY_BACKGROUND_AGENT_SNAPSHOT: BackgroundAgentSnapshot = {
@@ -51,7 +55,7 @@ export function cloneProjectState(state: BackgroundAgentProjectState): Backgroun
   return {
     profile: state.profile ? { ...state.profile, majorWorkflows: [...state.profile.majorWorkflows], dependencyStack: [...state.profile.dependencyStack], openQuestions: [...state.profile.openQuestions], sourcePaths: [...state.profile.sourcePaths] } : null,
     suggestions: state.suggestions.map(cloneSuggestion),
-    status: { ...state.status },
+    status: cloneStatus(state.status),
     feedback: state.feedback.map((event) => ({ ...event })),
   }
 }
@@ -68,6 +72,16 @@ export function toSnapshot(state: BackgroundAgentProjectState): BackgroundAgentS
   return {
     profile: state.profile ? { ...state.profile, majorWorkflows: [...state.profile.majorWorkflows], dependencyStack: [...state.profile.dependencyStack], openQuestions: [...state.profile.openQuestions], sourcePaths: [...state.profile.sourcePaths] } : null,
     suggestions: state.suggestions.map(cloneSuggestion),
-    status: { ...state.status },
+    status: cloneStatus(state.status),
+  }
+}
+
+function cloneStatus(status: BackgroundAgentGenerationStatus): BackgroundAgentGenerationStatus {
+  return {
+    ...status,
+    summary: status.summary ?? null,
+    detail: status.detail ?? null,
+    stepLabel: status.stepLabel ?? null,
+    recentActivity: [...(status.recentActivity ?? [])],
   }
 }
