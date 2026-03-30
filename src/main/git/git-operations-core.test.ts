@@ -191,9 +191,9 @@ describe('GitOperationsManager core', () => {
       return child
     }
 
-    it('runs Claude non-interactively and returns parsed assistant output', async () => {
+    it('runs Claude non-interactively and returns plain text output', async () => {
       const child = createMockChild(
-        '{"type":"assistant","message":{"content":[{"type":"text","text":"generated commit message"}]}}\n',
+        'generated commit message\n',
         0,
       )
 
@@ -212,8 +212,7 @@ describe('GitOperationsManager core', () => {
           '-p',
           'write a message',
           '--output-format',
-          'stream-json',
-          '--verbose',
+          'text',
         ],
         { cwd: '/worktree', env: undefined, stdio: ['pipe', 'pipe', 'pipe'] },
       )
