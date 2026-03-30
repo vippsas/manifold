@@ -69,7 +69,7 @@ Predicted command:`
 /**
  * Gather git status for the given cwd.
  */
-function gatherGitStatus(cwd: string): Promise<string> {
+export function gatherGitStatus(cwd: string): Promise<string> {
   return new Promise((resolve) => {
     execFile('git', ['status', '--porcelain', '--branch'], { cwd, timeout: 3000 }, (err, stdout) => {
       if (err) {
@@ -98,7 +98,7 @@ function resolveHistoryPath(session: InternalSession): string | null {
 /**
  * Inject ghost text (dimmed suggestion) after the cursor position.
  */
-function injectGhostText(ptyPool: PtyPool, ptyId: string, text: string): void {
+export function injectGhostText(ptyPool: PtyPool, ptyId: string, text: string): void {
   const ghost = `\x1b7\x1b[2m${text}\x1b8`
   ptyPool.pushOutput(ptyId, ghost)
 }
@@ -106,7 +106,7 @@ function injectGhostText(ptyPool: PtyPool, ptyId: string, text: string): void {
 /**
  * Clear ghost text by restoring saved cursor position and erasing to end of line.
  */
-function clearGhostText(ptyPool: PtyPool, ptyId: string): void {
+export function clearGhostText(ptyPool: PtyPool, ptyId: string): void {
   const clear = `\x1b8\x1b[K`
   ptyPool.pushOutput(ptyId, clear)
 }

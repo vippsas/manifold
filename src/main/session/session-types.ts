@@ -1,5 +1,6 @@
 import type { AgentSession } from '../../shared/types'
 import type { SimpleRuntimeOutputMode } from '../agent/simple-runtime'
+import type { NlInputBuffer, RollingOutputBuffer } from './nl-command-translator'
 
 export interface ShellSuggestionState {
   /** The currently displayed suggestion text, or null if none */
@@ -24,4 +25,14 @@ export interface InternalSession extends AgentSession {
   zdotdir?: string
   /** AI shell command suggestion state (shell sessions only) */
   shellSuggestion?: ShellSuggestionState
+  /** NL command translator state (shell sessions only) */
+  nlInputBuffer?: NlInputBuffer
+  /** Rolling buffer of recent plain-text terminal output for NL context */
+  nlOutputBuffer?: RollingOutputBuffer
+  /** Whether an NL translation request is in flight */
+  nlPending?: boolean
+  /** Whether the first-prompt NL hint ghost text has been shown */
+  nlHintShown?: boolean
+  /** Whether the NL hint ghost text is currently visible (cleared on keystroke) */
+  nlHintActive?: boolean
 }

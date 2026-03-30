@@ -34,7 +34,7 @@ export function buildWelcomeMessage(branch: string, cwd: string): string {
   // Shorten home directory to ~
   const home = os.homedir()
   const displayPath = cwd.startsWith(home) ? '~' + cwd.slice(home.length) : cwd
-  return `${dim}●  ${cyan}${branch}${dim}  ·  ${displayPath}${reset}\r\n`
+  return `${dim}●  ${cyan}${branch}${dim}  ·  ${displayPath}${reset}\r\n${dim}💡 Type ${cyan}#${dim} followed by your question for AI help${reset}\r\n`
 }
 
 /**
@@ -82,6 +82,9 @@ if (( \${+functions[_omp_precmd]} )); then
   add-zsh-hook -d precmd _omp_precmd 2>/dev/null
 fi
 ${historyBlock}
+# Enable # as comment character in interactive mode (required for NL command translator)
+setopt INTERACTIVE_COMMENTS
+
 # Override prompt with clean Manifold style
 PROMPT='%F{cyan}${agentName}%f %F{white}❯%f '
 RPROMPT=''
