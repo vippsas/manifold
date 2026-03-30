@@ -9,9 +9,10 @@ import { generateResearchTopics } from '../../../background-agent/core/research/
 import { synthesizeSuggestions } from '../../../background-agent/core/synthesis/suggestion-synthesizer'
 import { rankSuggestions } from '../../../background-agent/core/ranking/suggestion-ranker'
 import { isBackgroundAgentFeedbackType } from '../../../background-agent/core/feedback/feedback-policy'
-import { NoopWebResearchClient, type WebResearchClient } from '../../../background-agent/connectors/web/web-research-client'
+import type { WebResearchClient } from '../../../background-agent/connectors/web/web-research-client'
 import { resolveBackgroundAgentRuntime } from './background-agent-runtime'
 import { BackgroundAgentStore } from './background-agent-store'
+import { RuntimeWebResearchClient } from './background-agent-research-client'
 import {
   cloneProjectState,
   toSnapshot,
@@ -33,7 +34,7 @@ export class BackgroundAgentHost {
     options: BackgroundAgentHostOptions = {},
   ) {
     this.store = options.store ?? new BackgroundAgentStore()
-    this.webResearchClient = options.webResearchClient ?? new NoopWebResearchClient()
+    this.webResearchClient = options.webResearchClient ?? new RuntimeWebResearchClient(this.deps)
   }
 
   listSuggestions(projectId: string): BackgroundAgentSnapshot {
@@ -78,6 +79,16 @@ export class BackgroundAgentHost {
       const researchResults = await this.webResearchClient.research(topics, {
         projectProfile: profile,
         runtimeContext: runtime.context,
+      })
+      this.store.setProjectSnapshot(projectId, {
+        profile,
+        suggestions: existingState.suggestions,
+        status: {
+          phase: 'synthesizing',
+          isRefreshing: true,
+          lastRefreshedAt: existingState.status.lastRefreshedAt,
+          error: null,
+        },
       })
       const suggestions = rankSuggestions(synthesizeSuggestions(profile, researchResults), 5)
       const snapshot: BackgroundAgentSnapshot = {

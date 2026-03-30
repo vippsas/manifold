@@ -15,6 +15,7 @@ interface RunBackgroundAgentPromptOptions {
   projectId: string
   activeSessionId: string | null
   timeoutMs?: number
+  mode?: 'default' | 'research'
 }
 
 export function resolveBackgroundAgentRuntime(
@@ -55,11 +56,30 @@ export async function runBackgroundAgentPrompt(
   options: RunBackgroundAgentPromptOptions,
 ): Promise<string> {
   const resolved = resolveBackgroundAgentRuntime(deps, options.projectId, options.activeSessionId)
+  const extraArgs = options.mode === 'research'
+    ? getBackgroundAgentResearchModelArgs(resolved.runtime)
+    : (resolved.runtime.aiModelArgs ?? [])
   return deps.gitOps.aiGenerate(
     resolved.runtime,
     options.prompt,
     resolved.cwd,
-    resolved.runtime.aiModelArgs ?? [],
+    extraArgs,
     { timeoutMs: options.timeoutMs },
   )
+}
+
+function getBackgroundAgentResearchModelArgs(runtime: AgentRuntime): string[] {
+  switch (runtime.id) {
+    case 'claude':
+      return ['--model', 'sonnet']
+    case 'gemini':
+      return ['--model', 'gemini-2.5-pro']
+    case 'copilot':
+      return ['--model', 'claude-sonnet-4.5']
+    case 'ollama-claude':
+    case 'ollama-codex':
+      return runtime.aiModelArgs ?? []
+    default:
+      return runtime.aiModelArgs ?? []
+  }
 }

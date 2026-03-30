@@ -234,6 +234,7 @@ Requirements:
 - when the background agent needs model reasoning, it should use the same runtime already configured for the user's current agent
 - if there is no current active agent to reuse, it should fall back to the project default runtime
 - that runtime should be invoked in non-interactive mode
+- research-oriented background-agent tasks may use stronger model args than the cheapest default model for that runtime when supported
 - the MVP should not introduce a separate background-agent model picker or separate assistant configuration
 - runtime selection should flow through the host adapter, not be hardcoded inside `background-agent/`
 

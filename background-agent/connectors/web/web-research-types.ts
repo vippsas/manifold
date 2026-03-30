@@ -1,6 +1,8 @@
 import type {
   BackgroundAgentProjectProfile,
+  BackgroundAgentRating,
   BackgroundAgentRuntimeContext,
+  BackgroundAgentSuggestionCategory,
   BackgroundAgentSourceType,
 } from '../../schemas/background-agent-types'
 
@@ -23,9 +25,25 @@ export interface WebResearchSourceRecord {
   snippet?: string
 }
 
+export interface WebResearchSuggestionHint {
+  title: string
+  category: BackgroundAgentSuggestionCategory
+  summary: string
+  whyItMatters: string
+  whyNow: string | null
+  evidence: string[]
+  confidence: BackgroundAgentRating
+  novelty: BackgroundAgentRating
+  effort: BackgroundAgentRating
+  impact: BackgroundAgentRating
+}
+
 export interface WebResearchResult {
   topic: WebResearchTopic
+  topicSummary: string
+  findings: string[]
   sources: WebResearchSourceRecord[]
+  candidateSuggestions: WebResearchSuggestionHint[]
 }
 
 export interface WebResearchContext {
