@@ -23,6 +23,7 @@ export function SettingsModal({ visible, settings, onSave, onClose, onPreviewThe
   const [storagePath, setStoragePath] = useState(settings.storagePath)
   const [notificationSound, setNotificationSound] = useState(settings.notificationSound)
   const [shellPrompt, setShellPrompt] = useState(settings.shellPrompt)
+  const [shellHistoryScope, setShellHistoryScope] = useState(settings.shellHistoryScope)
   const [uiMode, setUiMode] = useState(settings.uiMode)
   const [density, setDensity] = useState<DensitySetting>(settings.density)
   const [autoGenerateMessages, setAutoGenerateMessages] = useState(settings.autoGenerateMessages)
@@ -49,6 +50,7 @@ export function SettingsModal({ visible, settings, onSave, onClose, onPreviewThe
     setStoragePath(settings.storagePath)
     setNotificationSound(settings.notificationSound)
     setShellPrompt(settings.shellPrompt)
+    setShellHistoryScope(settings.shellHistoryScope)
     setUiMode(settings.uiMode)
     setDensity(settings.density)
     setAutoGenerateMessages(settings.autoGenerateMessages)
@@ -77,6 +79,7 @@ export function SettingsModal({ visible, settings, onSave, onClose, onPreviewThe
       storagePath,
       notificationSound,
       shellPrompt,
+      shellHistoryScope,
       uiMode,
       density,
       autoGenerateMessages,
@@ -87,7 +90,7 @@ export function SettingsModal({ visible, settings, onSave, onClose, onPreviewThe
     if (modeChanged) {
       window.electronAPI.invoke('app:switch-mode', uiMode)
     }
-  }, [defaultRuntime, theme, scrollbackLines, terminalFontFamily, defaultBaseBranch, storagePath, notificationSound, shellPrompt, uiMode, density, autoGenerateMessages, settings.uiMode, searchAiSettings, provisioners, onSave, onClose])
+  }, [defaultRuntime, theme, scrollbackLines, terminalFontFamily, defaultBaseBranch, storagePath, notificationSound, shellPrompt, shellHistoryScope, uiMode, density, autoGenerateMessages, settings.uiMode, searchAiSettings, provisioners, onSave, onClose])
 
   if (!visible) return null
 
@@ -129,6 +132,8 @@ export function SettingsModal({ visible, settings, onSave, onClose, onPreviewThe
           onNotificationSoundChange={setNotificationSound}
           shellPrompt={shellPrompt}
           onShellPromptChange={setShellPrompt}
+          shellHistoryScope={shellHistoryScope}
+          onShellHistoryScopeChange={setShellHistoryScope}
           uiMode={uiMode}
           onUiModeChange={setUiMode}
           density={density}
