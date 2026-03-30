@@ -35,6 +35,9 @@ export class SessionStreamWirer {
         session.outputBuffer = session.outputBuffer.slice(-50_000)
       }
 
+      // Feed rolling plain-text buffer for NL command translator context
+      session.nlOutputBuffer?.append(data)
+
       if (session.runtimeId !== '__shell__') {
         const newStatus = detectStatus(session.outputBuffer, session.runtimeId)
         if (newStatus !== session.status) {
