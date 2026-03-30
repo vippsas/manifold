@@ -4,6 +4,7 @@ import * as path from 'node:path'
 import { ipcMain } from 'electron'
 import { SpawnAgentOptions } from '../../shared/types'
 import { generateBranchName } from '../git/branch-namer'
+import { acceptSuggestion, dismissSuggestion } from '../session/shell-suggestion'
 import type { IpcDependencies } from './types'
 
 const NO_WORKTREE_ERROR =
@@ -157,6 +158,18 @@ export function registerAgentHandlers(deps: IpcDependencies): void {
   ipcMain.handle('shell:kill', async (_event, sessionId: string) => {
     if (!sessionManager.hasSession(sessionId)) return
     await sessionManager.killSession(sessionId)
+  })
+
+  ipcMain.handle('shell:accept-suggestion', (_event, sessionId: string) => {
+    const session = sessionManager.getInternalSession(sessionId)
+    if (!session) return false
+    return acceptSuggestion(session, deps.sessionManager.getPtyPool())
+  })
+
+  ipcMain.handle('shell:dismiss-suggestion', (_event, sessionId: string) => {
+    const session = sessionManager.getInternalSession(sessionId)
+    if (!session) return
+    dismissSuggestion(session, deps.sessionManager.getPtyPool())
   })
 
   ipcMain.handle('git:list-branches', async (_event, projectId: string) => {

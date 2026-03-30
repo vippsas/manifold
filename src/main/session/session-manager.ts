@@ -247,6 +247,10 @@ export class SessionManager {
     return this.sessions.get(sessionId)
   }
 
+  getPtyPool(): PtyPool {
+    return this.ptyPool
+  }
+
   getDetectedUrl(sessionId: string): string | null {
     return this.sessions.get(sessionId)?.detectedUrl ?? null
   }
