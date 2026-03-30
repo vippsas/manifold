@@ -1,7 +1,9 @@
 import { describe, it, expect, afterEach } from 'vitest'
 import * as fs from 'node:fs'
+import * as os from 'node:os'
 import * as path from 'node:path'
 import { buildShellEnv, buildWelcomeMessage, createManifoldZdotdir } from './shell-prompt'
+import { resolveShellHistoryDir } from '../ipc/agent-handlers'
 
 describe('buildShellEnv', () => {
   it('sets MANIFOLD env vars from worktree path', () => {
@@ -62,5 +64,28 @@ describe('createManifoldZdotdir', () => {
     zdotdir = createManifoldZdotdir('oslo')
     const rc = fs.readFileSync(path.join(zdotdir, '.zshrc'), 'utf-8')
     expect(rc).not.toContain('HISTFILE')
+  })
+})
+
+describe('resolveShellHistoryDir', () => {
+  it('returns project-scoped path for worktree cwd', () => {
+    const dir = resolveShellHistoryDir(
+      '/Users/me/.manifold/worktrees/myproject/manifold-oslo',
+      'project',
+    )
+    expect(dir).toBe(path.join(os.homedir(), '.manifold', 'history', 'myproject'))
+  })
+
+  it('falls back to basename for non-worktree cwd', () => {
+    const dir = resolveShellHistoryDir('/Users/me/code/my-repo', 'project')
+    expect(dir).toBe(path.join(os.homedir(), '.manifold', 'history', 'my-repo'))
+  })
+
+  it('returns global path when scope is global', () => {
+    const dir = resolveShellHistoryDir(
+      '/Users/me/.manifold/worktrees/myproject/manifold-oslo',
+      'global',
+    )
+    expect(dir).toBe(path.join(os.homedir(), '.manifold', 'history'))
   })
 })

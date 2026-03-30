@@ -1,4 +1,5 @@
 import * as fs from 'node:fs/promises'
+import * as os from 'node:os'
 import * as path from 'node:path'
 import { ipcMain } from 'electron'
 import { SpawnAgentOptions } from '../../shared/types'
@@ -8,6 +9,26 @@ import type { IpcDependencies } from './types'
 const NO_WORKTREE_ERROR =
   'A no-worktree agent is already running for this project. ' +
   'Only one no-worktree agent can run at a time per project.'
+
+/**
+ * Resolve the shell history directory based on the scope setting.
+ *
+ * For 'project' scope: ~/.manifold/history/<projectName>/
+ *   - Worktree paths: ~/.manifold/worktrees/<projectName>/manifold-<agent> → projectName
+ *   - Other paths: uses path.basename(cwd) as fallback
+ *
+ * For 'global' scope: ~/.manifold/history/
+ */
+export function resolveShellHistoryDir(cwd: string, scope: 'project' | 'global'): string {
+  const historyBase = path.join(os.homedir(), '.manifold', 'history')
+  if (scope === 'global') {
+    return historyBase
+  }
+  // Extract project name from worktree path: .../worktrees/<projectName>/manifold-<agent>
+  const worktreeMatch = cwd.match(/worktrees\/([^/]+)\//)
+  const projectName = worktreeMatch ? worktreeMatch[1] : path.basename(cwd)
+  return path.join(historyBase, projectName)
+}
 
 async function clearDormantNoWorktreeSessions(
   deps: Pick<IpcDependencies, 'sessionManager' | 'fileWatcher'>,
@@ -126,7 +147,11 @@ export function registerAgentHandlers(deps: IpcDependencies): void {
 
   ipcMain.handle('shell:create', (_event, cwd: string) => {
     const settings = deps.settingsStore.getSettings()
-    return sessionManager.createShellSession(cwd, { shellPrompt: settings.shellPrompt })
+    const historyDir = resolveShellHistoryDir(cwd, settings.shellHistoryScope)
+    return sessionManager.createShellSession(cwd, {
+      shellPrompt: settings.shellPrompt,
+      historyDir,
+    })
   })
 
   ipcMain.handle('shell:kill', async (_event, sessionId: string) => {

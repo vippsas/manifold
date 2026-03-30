@@ -288,7 +288,7 @@ export class SessionManager {
     this.sessions.clear()
   }
 
-  createShellSession(cwd: string, options?: { shellPrompt?: boolean }): { sessionId: string } {
+  createShellSession(cwd: string, options?: { shellPrompt?: boolean; historyDir?: string }): { sessionId: string } {
     return createShellPtySession(cwd, this.ptyPool, this.streamWirer, this.sessions, options)
   }
 
