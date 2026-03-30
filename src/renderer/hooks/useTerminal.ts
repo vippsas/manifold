@@ -183,7 +183,19 @@ export function useTerminal({ sessionId, scrollbackLines, terminalFontFamily, xt
       if (sessionId) {
         const filtered = filterTerminalResponses(data)
         if (filtered) {
-          void window.electronAPI.invoke('agent:input', sessionId, filtered)
+          if (filtered === '\t') {
+            // Tab key: try to accept AI suggestion first, fall through to normal tab if none
+            void window.electronAPI.invoke('shell:accept-suggestion', sessionId).then((accepted) => {
+              if (!accepted) {
+                // No active suggestion — forward Tab to PTY for normal completion
+                void window.electronAPI.invoke('agent:input', sessionId, '\t')
+              }
+            })
+          } else {
+            // Any other key: dismiss suggestion then forward the keystroke
+            void window.electronAPI.invoke('shell:dismiss-suggestion', sessionId)
+            void window.electronAPI.invoke('agent:input', sessionId, filtered)
+          }
         }
       }
     })
