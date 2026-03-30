@@ -55,6 +55,7 @@ const chatStore = new ChatStore()
 const chatAdapter = new ChatAdapter()
 chatAdapter.setChatStore(chatStore)
 sessionManager.setChatAdapter(chatAdapter)
+sessionManager.setGitOps(gitOps)
 
 const vercelHealthCheck = new VercelHealthCheck()
 

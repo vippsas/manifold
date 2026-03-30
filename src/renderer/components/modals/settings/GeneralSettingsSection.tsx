@@ -26,6 +26,8 @@ interface Props {
   onNotificationSoundChange: (enabled: boolean) => void
   shellPrompt: boolean
   onShellPromptChange: (enabled: boolean) => void
+  shellHistoryScope: 'project' | 'global'
+  onShellHistoryScopeChange: (scope: 'project' | 'global') => void
   uiMode: 'developer' | 'simple'
   onUiModeChange: (mode: 'developer' | 'simple') => void
   density: DensitySetting
@@ -126,6 +128,14 @@ export function GeneralSettingsSection(props: Props): React.JSX.Element {
               <input type="checkbox" checked={props.shellPrompt} onChange={(event) => props.onShellPromptChange(event.target.checked)} style={modalStyles.checkboxInput} />
               Use Manifold prompt in worktree shells
               <span style={modalStyles.helpText}>Shows a clean minimal prompt instead of your shell theme. Disable to keep your own prompt.</span>
+            </label>
+            <label style={modalStyles.label}>
+              Shell History
+              <select value={props.shellHistoryScope} onChange={(event) => props.onShellHistoryScopeChange(event.target.value as 'project' | 'global')} style={modalStyles.select}>
+                <option value="project">Per Project</option>
+                <option value="global">Global</option>
+              </select>
+              <span style={modalStyles.helpText}>Per Project keeps history separate for each repository. Global shares history across all projects.</span>
             </label>
           </div>
         </SectionCard>

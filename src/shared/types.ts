@@ -60,6 +60,7 @@ export interface ManifoldSettings {
   defaultBaseBranch: string
   notificationSound: boolean
   shellPrompt: boolean
+  shellHistoryScope: 'project' | 'global'
   uiMode: 'developer' | 'simple'
   density: DensitySetting
   autoGenerateMessages: boolean
