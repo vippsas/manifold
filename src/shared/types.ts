@@ -54,6 +54,7 @@ export interface ManifoldSettings {
   storagePath: string
   setupCompleted: boolean
   defaultRuntime: string
+  showIdeasTab: boolean
   theme: string
   scrollbackLines: number
   terminalFontFamily: string

@@ -5,7 +5,11 @@ import {
   parseEditorPanelOrder,
 } from './dock-layout-helpers'
 
-export function applyDefaultLayout(api: DockviewApi): void {
+interface DefaultLayoutOptions {
+  showIdeasTab: boolean
+}
+
+export function applyDefaultLayout(api: DockviewApi, options: DefaultLayoutOptions): void {
   const projectsPanel = api.addPanel({
     id: 'projects',
     component: 'projects',
@@ -26,6 +30,16 @@ export function applyDefaultLayout(api: DockviewApi): void {
     inactive: true,
     position: { referencePanel: 'agent', direction: 'within' },
   })
+
+  if (options.showIdeasTab) {
+    api.addPanel({
+      id: 'backgroundAgent',
+      component: 'backgroundAgent',
+      title: PANEL_TITLES.backgroundAgent,
+      inactive: true,
+      position: { referencePanel: 'agent', direction: 'within' },
+    })
+  }
 
   const filesPanel = api.addPanel({
     id: 'fileTree',

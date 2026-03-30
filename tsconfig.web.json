@@ -16,6 +16,7 @@
     "types": ["node", "vite/client", "vitest/globals", "@testing-library/jest-dom/vitest"]
   },
   "include": [
+    "background-agent/schemas/**/*.ts",
     "src/renderer/**/*.ts",
     "src/renderer/**/*.tsx",
     "src/shared/**/*",

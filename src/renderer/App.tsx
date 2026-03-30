@@ -73,7 +73,7 @@ export function App(): React.JSX.Element {
 
   useStatusNotification(allSessions, settings.notificationSound)
   const { diff, changedFiles, refreshDiff } = useDiff(activeSessionId)
-  const dockLayout = useDockLayout(activeSessionId)
+  const dockLayout = useDockLayout(activeSessionId, settings.showIdeasTab)
   const webPreview = useWebPreview(activeSessionId)
   const codeView = useCodeView(activeSessionId)
 

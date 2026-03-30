@@ -9,6 +9,7 @@ import { OnboardingView } from '../modals/OnboardingView'
 import { ProjectSidebar } from '../sidebar/ProjectSidebar'
 import { WebPreview } from '../terminal/WebPreview'
 import { SearchPanel } from '../search/SearchPanel'
+import { BackgroundAgentPanel } from '../background-agent/BackgroundAgentPanel'
 import { DockStateContext, useDockState } from './dock-panel-types'
 export type { DockAppState } from './dock-panel-types'
 export { DockStateContext } from './dock-panel-types'
@@ -23,6 +24,7 @@ export const PANEL_COMPONENTS: Record<string, React.FC<any>> = {
   projects: ProjectsPanel,
   webPreview: WebPreviewPanel,
   search: SearchPanel,
+  backgroundAgent: BackgroundAgentPanel,
 }
 
 function AgentPanel(): React.JSX.Element {

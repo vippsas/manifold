@@ -10,11 +10,13 @@ interface Props {
   storagePath: string
   onStoragePathChange: (path: string) => void
   defaultRuntime: string
+  showIdeasTab: boolean
   theme: string
   scrollbackLines: number
   terminalFontFamily: string
   defaultBaseBranch: string
   onRuntimeChange: (id: string) => void
+  onShowIdeasTabChange: (enabled: boolean) => void
   onThemeChange: (theme: string) => void
   onScrollbackChange: (lines: number) => void
   onTerminalFontFamilyChange: (font: string) => void
@@ -71,6 +73,11 @@ export function GeneralSettingsSection(props: Props): React.JSX.Element {
             <label style={{ ...modalStyles.checkboxField, ...modalStyles.fieldSpanFull }}>
               <input type="checkbox" checked={props.autoGenerateMessages} onChange={(event) => props.onAutoGenerateMessagesChange(event.target.checked)} style={modalStyles.checkboxInput} />
               Auto-generate AI messages for commits and PRs
+            </label>
+            <label style={{ ...modalStyles.checkboxField, ...modalStyles.fieldSpanFull }}>
+              <input type="checkbox" checked={props.showIdeasTab} onChange={(event) => props.onShowIdeasTabChange(event.target.checked)} style={modalStyles.checkboxInput} />
+              Show Ideas tab
+              <span style={modalStyles.helpText}>Keeps the experimental project ideas feed available in the agent/search pane.</span>
             </label>
           </div>
         </SectionCard>

@@ -15,6 +15,9 @@ export function buildAiRuntimeCommand(
   extraArgs: string[] = [],
 ): AiRuntimeCommand {
   const baseArgs = [...(runtime.args ?? [])]
+  const { globalArgs, commandArgs } = runtime.id === 'codex'
+    ? splitCodexExtraArgs(extraArgs)
+    : { globalArgs: [], commandArgs: extraArgs }
 
   switch (runtime.id) {
     case 'claude':
@@ -39,10 +42,11 @@ export function buildAiRuntimeCommand(
         binary: runtime.binary,
         args: [
           ...baseArgs,
+          ...globalArgs,
           'exec',
           '--full-auto',
           '--json',
-          ...extraArgs,
+          ...commandArgs,
           prompt,
         ],
         env: runtime.env,
@@ -62,6 +66,21 @@ export function buildAiRuntimeCommand(
         outputMode: 'plain-text',
       }
   }
+}
+
+function splitCodexExtraArgs(extraArgs: string[]): { globalArgs: string[]; commandArgs: string[] } {
+  const globalArgs: string[] = []
+  const commandArgs: string[] = []
+
+  for (const arg of extraArgs) {
+    if (arg === '--search') {
+      globalArgs.push(arg)
+      continue
+    }
+    commandArgs.push(arg)
+  }
+
+  return { globalArgs, commandArgs }
 }
 
 export function parseAiRuntimeOutput(mode: AiRuntimeOutputMode, stdout: string): string {
@@ -209,17 +228,20 @@ function extractFallbackFailure(stdout: string): string | null {
 
   if (lines.length === 0) return null
 
-  const explicitError = [...lines]
+  const candidateLines = lines.filter((line) => !isStructuredProgressEvent(line))
+  if (candidateLines.length === 0) return null
+
+  const explicitError = [...candidateLines]
     .reverse()
     .find((line) => /^(ERROR:|Error:|error:)\s*/.test(line))
   if (explicitError) {
     return normalizeFailureMessage(explicitError.replace(/^(ERROR:|Error:|error:)\s*/, ''))
   }
 
-  const likelyFailure = [...lines]
+  const likelyFailure = [...candidateLines]
     .reverse()
     .find((line) => /\b(error|failed|failure|denied|timed out|disconnect|not found|refused|panic)\b/i.test(line))
-  return normalizeFailureMessage(likelyFailure ?? lines.at(-1) ?? '')
+  return normalizeFailureMessage(likelyFailure ?? candidateLines.at(-1) ?? '')
 }
 
 function normalizeFailureMessage(message: string): string | null {
@@ -259,4 +281,21 @@ function extractErrorMessage(value: unknown): string | null {
   }
 
   return null
+}
+
+function isStructuredProgressEvent(line: string): boolean {
+  const parsed = tryParseJson(line)
+  if (!parsed || typeof parsed !== 'object') return false
+
+  const record = parsed as Record<string, unknown>
+  const type = typeof record.type === 'string' ? record.type : null
+  if (!type) return false
+
+  if (type === 'error' || type === 'turn.failed') return false
+  if (type === 'item.completed') {
+    const item = record.item as { type?: string } | undefined
+    if (item?.type === 'error') return false
+  }
+
+  return true
 }

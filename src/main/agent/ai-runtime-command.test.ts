@@ -31,6 +31,16 @@ describe('buildAiRuntimeCommand', () => {
     expect(cmd.args).toContain('hello prompt')
   })
 
+  it('places codex global args before exec', () => {
+    const cmd = buildAiRuntimeCommand(
+      { id: 'codex', name: 'Codex', binary: 'codex', args: [] },
+      'hello prompt',
+      ['--search', '--model', 'o4-mini'],
+    )
+
+    expect(cmd.args).toEqual(['--search', 'exec', '--full-auto', '--json', '--model', 'o4-mini', 'hello prompt'])
+  })
+
   it('builds default runtime command with plain-text output', () => {
     const cmd = buildAiRuntimeCommand(
       { id: 'gemini', name: 'Gemini', binary: 'gemini', args: [] },
@@ -81,5 +91,14 @@ describe('parseAiRuntimeFailure', () => {
 
   it('falls back to plain stderr for plain-text runtimes', () => {
     expect(parseAiRuntimeFailure('plain-text', '', 'permission denied')).toBe('permission denied')
+  })
+
+  it('does not treat codex progress events as the failure message', () => {
+    const stdout = [
+      '{"type":"item.completed","item":{"type":"web_search","query":"example"}}',
+      '{"type":"item.completed","item":{"type":"command_execution","command":"sed -n 1,20p file.ts"}}',
+    ].join('\n')
+
+    expect(parseAiRuntimeFailure('codex-jsonl', stdout, '')).toBeNull()
   })
 })

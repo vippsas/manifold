@@ -16,6 +16,7 @@
     "types": ["node"]
   },
   "include": [
+    "background-agent/**/*.ts",
     "src/main/**/*.ts",
     "src/preload/**/*.ts",
     "src/shared/**/*.ts",
