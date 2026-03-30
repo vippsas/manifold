@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { NlInputBuffer } from './nl-command-translator'
+import { NlInputBuffer, stripAnsiForContext, RollingOutputBuffer } from './nl-command-translator'
 
 describe('NlInputBuffer', () => {
   it('detects # prefix when Enter is pressed', () => {
@@ -84,5 +84,66 @@ describe('NlInputBuffer', () => {
     buf.feed('#    ')
     const result = buf.feed('\r')
     expect(result).toEqual({ type: 'passthrough' })
+  })
+})
+
+describe('stripAnsiForContext', () => {
+  it('strips color codes', () => {
+    expect(stripAnsiForContext('\x1b[32mhello\x1b[0m')).toBe('hello')
+  })
+
+  it('strips cursor movement sequences', () => {
+    expect(stripAnsiForContext('\x1b[2;5Htext\x1b[K')).toBe('text')
+  })
+
+  it('strips OSC sequences', () => {
+    expect(stripAnsiForContext('\x1b]0;title\x07hello')).toBe('hello')
+  })
+
+  it('preserves plain text', () => {
+    expect(stripAnsiForContext('just plain text')).toBe('just plain text')
+  })
+
+  it('handles empty string', () => {
+    expect(stripAnsiForContext('')).toBe('')
+  })
+})
+
+describe('RollingOutputBuffer', () => {
+  it('stores lines up to the limit', () => {
+    const buf = new RollingOutputBuffer(3)
+    buf.append('line1\nline2\nline3\n')
+    expect(buf.getLines()).toEqual(['line1', 'line2', 'line3'])
+  })
+
+  it('drops oldest lines when limit exceeded', () => {
+    const buf = new RollingOutputBuffer(2)
+    buf.append('a\nb\nc\n')
+    expect(buf.getLines()).toEqual(['b', 'c'])
+  })
+
+  it('handles partial lines across appends', () => {
+    const buf = new RollingOutputBuffer(10)
+    buf.append('hel')
+    buf.append('lo\nworld\n')
+    expect(buf.getLines()).toEqual(['hello', 'world'])
+  })
+
+  it('strips ANSI before storing', () => {
+    const buf = new RollingOutputBuffer(10)
+    buf.append('\x1b[32mcolored\x1b[0m\n')
+    expect(buf.getLines()).toEqual(['colored'])
+  })
+
+  it('skips empty lines', () => {
+    const buf = new RollingOutputBuffer(10)
+    buf.append('a\n\n\nb\n')
+    expect(buf.getLines()).toEqual(['a', 'b'])
+  })
+
+  it('returns text block via getText()', () => {
+    const buf = new RollingOutputBuffer(10)
+    buf.append('line1\nline2\n')
+    expect(buf.getText()).toBe('line1\nline2')
   })
 })

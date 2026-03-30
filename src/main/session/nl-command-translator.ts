@@ -42,3 +42,59 @@ export class NlInputBuffer {
     return { type: 'nl-query', query }
   }
 }
+
+/**
+ * Strip ANSI/VT100 escape sequences from terminal output for AI context.
+ * Simpler than the chat-adapter version — we just need readable text.
+ */
+export function stripAnsiForContext(text: string): string {
+  return text
+    // OSC sequences: ESC ] ... (ST | BEL)
+    .replace(/\x1b\][^\x07\x1b]*(?:\x07|\x1b\\)/g, '')
+    // CSI sequences: ESC [ ... final byte
+    .replace(/\x1b\[[0-9;]*[A-Za-z]/g, '')
+    // Other escape sequences: ESC followed by one character
+    .replace(/\x1b[^[\]]/g, '')
+    // Remaining control characters except newline/tab
+    .replace(/[\x00-\x08\x0b\x0c\x0e-\x1f]/g, '')
+}
+
+const DEFAULT_MAX_LINES = 50
+
+/**
+ * Rolling buffer that keeps the last N lines of plain-text terminal output.
+ * ANSI sequences are stripped on append. Used to provide context to the AI
+ * when translating natural language commands.
+ */
+export class RollingOutputBuffer {
+  private lines: string[] = []
+  private partial = ''
+
+  constructor(private maxLines = DEFAULT_MAX_LINES) {}
+
+  append(data: string): void {
+    const clean = stripAnsiForContext(data)
+    const text = this.partial + clean
+    const parts = text.split('\n')
+    // Last element is either empty (if data ended with \n) or a partial line
+    this.partial = parts.pop() ?? ''
+
+    for (const line of parts) {
+      const trimmed = line.trim()
+      if (!trimmed) continue
+      this.lines.push(trimmed)
+    }
+
+    if (this.lines.length > this.maxLines) {
+      this.lines = this.lines.slice(-this.maxLines)
+    }
+  }
+
+  getLines(): string[] {
+    return [...this.lines]
+  }
+
+  getText(): string {
+    return this.lines.join('\n')
+  }
+}
