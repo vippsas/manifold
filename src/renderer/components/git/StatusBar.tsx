@@ -10,6 +10,7 @@ const PANEL_LABELS: Record<DockPanelId, string> = {
   modifiedFiles: 'Modified',
   shell: 'Shell',
   search: 'Search',
+  backgroundAgent: 'Ideas',
 }
 
 interface StatusBarProps {

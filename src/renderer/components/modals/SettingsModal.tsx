@@ -16,6 +16,7 @@ interface SettingsModalProps {
 
 export function SettingsModal({ visible, settings, onSave, onClose, onPreviewTheme }: SettingsModalProps): React.JSX.Element | null {
   const [defaultRuntime, setDefaultRuntime] = useState(settings.defaultRuntime)
+  const [showIdeasTab, setShowIdeasTab] = useState(settings.showIdeasTab)
   const [theme, setTheme] = useState(settings.theme)
   const [scrollbackLines, setScrollbackLines] = useState(settings.scrollbackLines)
   const [terminalFontFamily, setTerminalFontFamily] = useState(settings.terminalFontFamily)
@@ -43,6 +44,7 @@ export function SettingsModal({ visible, settings, onSave, onClose, onPreviewThe
     if (!visible) return
     const nextProvisioners = settings.provisioning?.provisioners ?? DEFAULT_SETTINGS.provisioning.provisioners
     setDefaultRuntime(settings.defaultRuntime)
+    setShowIdeasTab(settings.showIdeasTab)
     setTheme(settings.theme)
     setScrollbackLines(settings.scrollbackLines)
     setTerminalFontFamily(settings.terminalFontFamily)
@@ -72,6 +74,7 @@ export function SettingsModal({ visible, settings, onSave, onClose, onPreviewThe
     const modeChanged = uiMode !== settings.uiMode
     onSave({
       defaultRuntime,
+      showIdeasTab,
       theme,
       scrollbackLines,
       terminalFontFamily,
@@ -90,7 +93,7 @@ export function SettingsModal({ visible, settings, onSave, onClose, onPreviewThe
     if (modeChanged) {
       window.electronAPI.invoke('app:switch-mode', uiMode)
     }
-  }, [defaultRuntime, theme, scrollbackLines, terminalFontFamily, defaultBaseBranch, storagePath, notificationSound, shellPrompt, shellHistoryScope, uiMode, density, autoGenerateMessages, settings.uiMode, searchAiSettings, provisioners, onSave, onClose])
+  }, [defaultRuntime, showIdeasTab, theme, scrollbackLines, terminalFontFamily, defaultBaseBranch, storagePath, notificationSound, shellPrompt, shellHistoryScope, uiMode, density, autoGenerateMessages, settings.uiMode, searchAiSettings, provisioners, onSave, onClose])
 
   if (!visible) return null
 
@@ -116,11 +119,13 @@ export function SettingsModal({ visible, settings, onSave, onClose, onPreviewThe
           storagePath={storagePath}
           onStoragePathChange={setStoragePath}
           defaultRuntime={defaultRuntime}
+          showIdeasTab={showIdeasTab}
           theme={theme}
           scrollbackLines={scrollbackLines}
           terminalFontFamily={terminalFontFamily}
           defaultBaseBranch={defaultBaseBranch}
           onRuntimeChange={setDefaultRuntime}
+          onShowIdeasTabChange={setShowIdeasTab}
           onThemeChange={setTheme}
           onScrollbackChange={setScrollbackLines}
           onTerminalFontFamilyChange={setTerminalFontFamily}

@@ -107,6 +107,13 @@ describe('SettingsStore', () => {
       expect(settings.uiMode).toBe('simple')
     })
 
+    it('keeps the ideas tab disabled by default', () => {
+      mockExistsSync.mockReturnValue(false)
+      const store = new SettingsStore()
+      const settings = store.getSettings()
+      expect(settings.showIdeasTab).toBe(false)
+    })
+
     it('deep-merges partial search AI settings with defaults', () => {
       mockExistsSync.mockReturnValue(true)
       mockReadFileSync.mockReturnValue(JSON.stringify({
