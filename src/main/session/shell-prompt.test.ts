@@ -47,4 +47,20 @@ describe('createManifoldZdotdir', () => {
     expect(rc).toContain('oslo')
     expect(rc).toContain('PROMPT=')
   })
+
+  it('configures HISTFILE when historyDir is provided', () => {
+    zdotdir = createManifoldZdotdir('oslo', '/tmp/test-history')
+    const rc = fs.readFileSync(path.join(zdotdir, '.zshrc'), 'utf-8')
+    expect(rc).toContain('HISTFILE="/tmp/test-history/.zsh_history"')
+    expect(rc).toContain('HISTSIZE=10000')
+    expect(rc).toContain('SAVEHIST=10000')
+    expect(rc).toContain('setopt INC_APPEND_HISTORY')
+    expect(rc).toContain('setopt HIST_IGNORE_DUPS')
+  })
+
+  it('does not include HISTFILE when historyDir is undefined', () => {
+    zdotdir = createManifoldZdotdir('oslo')
+    const rc = fs.readFileSync(path.join(zdotdir, '.zshrc'), 'utf-8')
+    expect(rc).not.toContain('HISTFILE')
+  })
 })

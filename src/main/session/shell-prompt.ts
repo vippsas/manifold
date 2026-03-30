@@ -43,9 +43,24 @@ export function buildWelcomeMessage(branch: string, cwd: string): string {
  * 2. Sources the user's .zshrc
  * 3. Overrides PROMPT with a clean Manifold prompt
  */
-export function createManifoldZdotdir(agentName: string): string {
+export function createManifoldZdotdir(agentName: string, historyDir?: string): string {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'manifold-shell-'))
   const userZdotdir = process.env.ZDOTDIR || os.homedir()
+
+  if (historyDir) {
+    fs.mkdirSync(historyDir, { recursive: true })
+  }
+
+  const historyBlock = historyDir
+    ? `
+# Shell history — shared per repository
+HISTFILE="${historyDir}/.zsh_history"
+HISTSIZE=10000
+SAVEHIST=10000
+setopt INC_APPEND_HISTORY
+setopt HIST_IGNORE_DUPS
+`
+    : ''
 
   // Note: ${agentName} is a JS template literal variable baked into the file at
   // write time — it is NOT a zsh variable reference in the generated .zshrc.
@@ -66,7 +81,7 @@ fi
 if (( \${+functions[_omp_precmd]} )); then
   add-zsh-hook -d precmd _omp_precmd 2>/dev/null
 fi
-
+${historyBlock}
 # Override prompt with clean Manifold style
 PROMPT='%F{cyan}${agentName}%f %F{white}❯%f '
 RPROMPT=''
