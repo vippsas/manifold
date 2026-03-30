@@ -48,19 +48,24 @@ export function buildSuggestionPrompt(
   history: string[],
   gitStatus: string,
   cwdBasename: string,
+  terminalOutput?: string,
 ): string {
   const historyBlock = history.length > 0
     ? history.join('\n')
     : '(no recent commands)'
 
-  return `You are a shell command predictor. Based on the shell history and git status below, predict the single most likely next command the user will run. Reply with ONLY the command, nothing else. No explanation, no markdown, no quotes.
+  const outputBlock = terminalOutput
+    ? `\nRecent terminal output:\n${terminalOutput}\n`
+    : ''
+
+  return `You are a shell command predictor. Based on the shell history, git status, and recent terminal output below, predict the single most likely next command the user will run. Reply with ONLY the command, nothing else. No explanation, no markdown, no quotes. If there is nothing useful to do, reply with an empty line.
 
 Shell history (most recent last):
 ${historyBlock}
 
 Git status:
 ${gitStatus}
-
+${outputBlock}
 Working directory: ${cwdBasename}
 
 Predicted command:`
@@ -142,10 +147,13 @@ export async function predictNextCommand(
     const runtime = getRuntimeById('claude')
     if (!runtime) return
 
+    const terminalOutput = session.nlOutputBuffer?.getText() || ''
+
     const prompt = buildSuggestionPrompt(
       history,
       gitStatus,
       path.basename(session.worktreePath),
+      terminalOutput,
     )
 
     const result = await gitOps.aiGenerate(
@@ -153,7 +161,7 @@ export async function predictNextCommand(
       prompt,
       session.worktreePath,
       runtime.aiModelArgs ?? [],
-      { timeoutMs: SUGGESTION_TIMEOUT_MS },
+      { timeoutMs: SUGGESTION_TIMEOUT_MS, silent: true },
     )
 
     if (!session.shellSuggestion.pending) return

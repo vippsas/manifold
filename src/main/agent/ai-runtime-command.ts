@@ -28,11 +28,10 @@ export function buildAiRuntimeCommand(
           '-p',
           prompt,
           '--output-format',
-          'stream-json',
-          '--verbose',
+          'text',
         ],
         env: runtime.env,
-        outputMode: 'claude-stream-json',
+        outputMode: 'plain-text',
       }
 
     case 'codex':

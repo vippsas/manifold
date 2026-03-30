@@ -74,4 +74,24 @@ describe('buildSuggestionPrompt', () => {
     expect(prompt).toContain('(no recent commands)')
     expect(prompt).toContain('single most likely next command')
   })
+
+  it('includes terminal output when provided', () => {
+    const prompt = buildSuggestionPrompt(
+      ['git status'],
+      '## manifold/sandnes',
+      'my-project',
+      'On branch manifold/sandnes\nnothing to commit, working tree clean',
+    )
+    expect(prompt).toContain('Recent terminal output:')
+    expect(prompt).toContain('nothing to commit, working tree clean')
+  })
+
+  it('omits terminal output block when not provided', () => {
+    const prompt = buildSuggestionPrompt(
+      ['git status'],
+      '## manifold/sandnes',
+      'my-project',
+    )
+    expect(prompt).not.toContain('Recent terminal output:')
+  })
 })

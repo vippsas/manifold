@@ -17,6 +17,8 @@ const DEFAULT_AI_GENERATE_TIMEOUT_MS = 30_000
 
 interface AiGenerateOptions {
   timeoutMs?: number
+  /** When true, suppress console.error logging on failure (for fire-and-forget callers like shell suggestions). */
+  silent?: boolean
 }
 
 export class GitOperationsManager {
@@ -137,10 +139,12 @@ export class GitOperationsManager {
 
       child.on('error', (err) => {
         settle(() => {
-          console.error('[aiGenerate] spawn failed:', {
-            runtime: runtime.id,
-            message: err.message,
-          })
+          if (!options.silent) {
+            console.error('[aiGenerate] spawn failed:', {
+              runtime: runtime.id,
+              message: err.message,
+            })
+          }
           reject(new Error(`AI runtime "${runtime.id}" failed to start: ${err.message}`))
         })
       })
@@ -163,13 +167,15 @@ export class GitOperationsManager {
             ? `AI runtime "${runtime.id}" failed (${codeLabel}): ${failure}`
             : `AI runtime "${runtime.id}" returned no usable output (${codeLabel}).`
 
-          console.error('[aiGenerate] failed:', {
-            runtime: runtime.id,
-            code,
-            message,
-            stderr: stderr.slice(0, 500),
-            stdoutTail: stdout.slice(-500),
-          })
+          if (!options.silent) {
+            console.error('[aiGenerate] failed:', {
+              runtime: runtime.id,
+              code,
+              message,
+              stderr: stderr.slice(0, 500),
+              stdoutTail: stdout.slice(-500),
+            })
+          }
           reject(new Error(message))
         })
       })

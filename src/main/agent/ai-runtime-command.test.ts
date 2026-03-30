@@ -1,5 +1,72 @@
 import { describe, expect, it } from 'vitest'
-import { parseAiRuntimeFailure } from './ai-runtime-command'
+import { buildAiRuntimeCommand, parseAiRuntimeOutput, parseAiRuntimeFailure } from './ai-runtime-command'
+
+describe('buildAiRuntimeCommand', () => {
+  it('builds claude command with text output format', () => {
+    const cmd = buildAiRuntimeCommand(
+      { id: 'claude', name: 'Claude', binary: 'claude', args: ['--flag'] },
+      'hello prompt',
+      ['--model', 'haiku'],
+    )
+    expect(cmd.outputMode).toBe('plain-text')
+    expect(cmd.args).toContain('--output-format')
+    expect(cmd.args[cmd.args.indexOf('--output-format') + 1]).toBe('text')
+    expect(cmd.args).toContain('-p')
+    expect(cmd.args).toContain('hello prompt')
+    expect(cmd.args).toContain('--model')
+    expect(cmd.args).toContain('--flag')
+  })
+
+  it('builds codex command with jsonl output format', () => {
+    const cmd = buildAiRuntimeCommand(
+      { id: 'codex', name: 'Codex', binary: 'codex', args: [] },
+      'hello prompt',
+      ['--model', 'o4-mini'],
+    )
+    expect(cmd.outputMode).toBe('codex-jsonl')
+    expect(cmd.args).toContain('exec')
+    expect(cmd.args).toContain('--full-auto')
+    expect(cmd.args).toContain('--json')
+    expect(cmd.args).toContain('--model')
+    expect(cmd.args).toContain('hello prompt')
+  })
+
+  it('builds default runtime command with plain-text output', () => {
+    const cmd = buildAiRuntimeCommand(
+      { id: 'gemini', name: 'Gemini', binary: 'gemini', args: [] },
+      'hello prompt',
+    )
+    expect(cmd.outputMode).toBe('plain-text')
+    expect(cmd.args).toContain('-p')
+    expect(cmd.args).toContain('hello prompt')
+    expect(cmd.args).not.toContain('--output-format')
+  })
+})
+
+describe('parseAiRuntimeOutput', () => {
+  it('returns trimmed text for plain-text mode', () => {
+    expect(parseAiRuntimeOutput('plain-text', '  hello world  \n')).toBe('hello world')
+  })
+
+  it('extracts text from claude stream-json assistant events', () => {
+    const stdout = [
+      '{"type":"system","subtype":"init","tools":[]}',
+      '{"type":"assistant","message":{"content":[{"type":"text","text":"git push"}]}}',
+      '{"type":"result","subtype":"success","result":"git push"}',
+    ].join('\n')
+    expect(parseAiRuntimeOutput('claude-stream-json', stdout)).toBe('git push')
+  })
+
+  it('extracts text from codex jsonl agent_message events', () => {
+    const stdout = '{"type":"item.completed","item":{"type":"agent_message","text":"npm test"}}\n'
+    expect(parseAiRuntimeOutput('codex-jsonl', stdout)).toBe('npm test')
+  })
+
+  it('returns empty string when no text events found', () => {
+    const stdout = '{"type":"system","subtype":"init"}\n'
+    expect(parseAiRuntimeOutput('claude-stream-json', stdout)).toBe('')
+  })
+})
 
 describe('parseAiRuntimeFailure', () => {
   it('extracts nested API error messages from codex JSONL failure events', () => {
