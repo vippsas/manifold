@@ -18,6 +18,9 @@ import type { InternalSession } from './session-types'
 import { SessionStreamWirer } from './session-stream-wirer'
 import { SessionDiscovery } from './session-discovery'
 import { resumeAgentSession, createShellPtySession } from './session-resume'
+import { NlInputBuffer, RollingOutputBuffer, buildNlTranslationPrompt } from './nl-command-translator'
+import { getRuntimeById } from '../agent/runtimes'
+import { injectGhostText, clearGhostText, gatherGitStatus } from './shell-suggestion'
 
 
 export class SessionManager {
@@ -164,6 +167,17 @@ export class SessionManager {
     }
 
     if (!session.ptyId) return
+
+    // NL command translator: buffer keystrokes for shell sessions
+    if (session.nlInputBuffer) {
+      const result = session.nlInputBuffer.feed(input)
+      if (result.type === 'nl-query') {
+        void this.translateNlCommand(session, result.query)
+        return
+      }
+      // 'accumulate' and 'passthrough' both forward to PTY
+    }
+
     try {
       this.ptyPool.write(session.ptyId, input)
     } catch {
@@ -300,7 +314,71 @@ export class SessionManager {
   }
 
   createShellSession(cwd: string, options?: { shellPrompt?: boolean; historyDir?: string }): { sessionId: string } {
-    return createShellPtySession(cwd, this.ptyPool, this.streamWirer, this.sessions, options)
+    const result = createShellPtySession(cwd, this.ptyPool, this.streamWirer, this.sessions, options)
+    const session = this.sessions.get(result.sessionId)
+    if (session) {
+      session.nlInputBuffer = new NlInputBuffer()
+      session.nlOutputBuffer = new RollingOutputBuffer()
+    }
+    return result
+  }
+
+  private async translateNlCommand(session: InternalSession, query: string): Promise<void> {
+    if (!session.ptyId || !this.gitOps || session.nlPending) return
+
+    session.nlPending = true
+
+    const ptyId = session.ptyId
+    // Send the original "# ..." line to the PTY as a comment (no-op) so the
+    // terminal shows a newline and a fresh prompt appears for the suggestion.
+    this.ptyPool.write(ptyId, `# ${query}\r`)
+
+    // Wait briefly for the prompt to render, then show loading ghost text
+    setTimeout(() => {
+      if (!session.nlPending || session.ptyId !== ptyId) return
+      injectGhostText(this.ptyPool, ptyId, '⏳ ...')
+    }, 200)
+
+    try {
+      const terminalOutput = session.nlOutputBuffer?.getText() ?? ''
+      const gitStatus = await gatherGitStatus(session.worktreePath)
+
+      const prompt = buildNlTranslationPrompt({
+        query,
+        terminalOutput,
+        cwd: session.worktreePath,
+        gitStatus,
+        os: process.platform,
+        shell: 'zsh',
+      })
+
+      const runtime = getRuntimeById('claude')
+      if (!runtime) return
+
+      const result = await this.gitOps.aiGenerate(
+        runtime,
+        prompt,
+        session.worktreePath,
+        runtime.aiModelArgs ?? [],
+        { timeoutMs: 30_000 },
+      )
+
+      if (session.ptyId !== ptyId) return
+
+      const command = result.trim().split('\n')[0].trim()
+      if (!command) return
+
+      // Clear ghost text and write the command to PTY stdin
+      clearGhostText(this.ptyPool, ptyId)
+      this.ptyPool.write(ptyId, command)
+    } catch {
+      // Clear ghost text on error — user sees empty prompt
+      if (session.ptyId === ptyId) {
+        clearGhostText(this.ptyPool, ptyId)
+      }
+    } finally {
+      session.nlPending = false
+    }
   }
 
   private persistAdditionalDirs(session: InternalSession): void {

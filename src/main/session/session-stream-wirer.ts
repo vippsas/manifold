@@ -71,7 +71,7 @@ export class SessionStreamWirer {
       // Detect Manifold shell prompt and trigger AI command prediction.
       // Skip if a prediction is already in flight to avoid flooding the AI runtime.
       if (session.runtimeId === '__shell__' && this.gitOps && data.includes('❯')
-          && !session.shellSuggestion?.pending) {
+          && !session.shellSuggestion?.pending && !session.nlPending) {
         dismissSuggestion(session, this.ptyPool)
         void predictNextCommand(session, this.ptyPool, this.gitOps)
       }
