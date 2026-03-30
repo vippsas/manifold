@@ -328,6 +328,12 @@ export class SessionManager {
 
     session.nlPending = true
 
+    // Cancel any in-flight auto-suggestion to prevent ghost text collision
+    if (session.shellSuggestion) {
+      session.shellSuggestion.pending = false
+      session.shellSuggestion.activeSuggestion = null
+    }
+
     const ptyId = session.ptyId
     // The user's keystrokes were already forwarded to the PTY during the
     // accumulate phase, so the "# ..." text is already on the prompt line.
