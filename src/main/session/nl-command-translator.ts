@@ -98,3 +98,39 @@ export class RollingOutputBuffer {
     return this.lines.join('\n')
   }
 }
+
+export interface NlTranslationContext {
+  query: string
+  terminalOutput: string
+  cwd: string
+  gitStatus: string
+  os: string
+  shell: string
+}
+
+/**
+ * Build the AI prompt for translating a natural language request into a shell command.
+ */
+export function buildNlTranslationPrompt(ctx: NlTranslationContext): string {
+  const output = ctx.terminalOutput || '(no recent output)'
+  const git = ctx.gitStatus || '(not a git repository)'
+
+  return `You are a shell command translator. Convert the user's natural language request into a single shell command. Use the recent terminal output for context (e.g. error messages, previous commands).
+
+Reply with ONLY the shell command. No explanation, no markdown, no backticks, no quotes.
+If you cannot determine a single command, reply with a comment starting with #.
+
+OS: ${ctx.os}
+Shell: ${ctx.shell}
+Working directory: ${ctx.cwd}
+
+Git status:
+${git}
+
+Recent terminal output:
+${output}
+
+User request: ${ctx.query}
+
+Command:`
+}

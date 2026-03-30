@@ -1,5 +1,10 @@
 import { describe, it, expect } from 'vitest'
-import { NlInputBuffer, stripAnsiForContext, RollingOutputBuffer } from './nl-command-translator'
+import {
+  NlInputBuffer,
+  stripAnsiForContext,
+  RollingOutputBuffer,
+  buildNlTranslationPrompt,
+} from './nl-command-translator'
 
 describe('NlInputBuffer', () => {
   it('detects # prefix when Enter is pressed', () => {
@@ -145,5 +150,38 @@ describe('RollingOutputBuffer', () => {
     const buf = new RollingOutputBuffer(10)
     buf.append('line1\nline2\n')
     expect(buf.getText()).toBe('line1\nline2')
+  })
+})
+
+describe('buildNlTranslationPrompt', () => {
+  it('includes query and terminal output in prompt', () => {
+    const prompt = buildNlTranslationPrompt({
+      query: 'please install typescript',
+      terminalOutput: 'sh: tsc: command not found',
+      cwd: '/Users/dev/my-project',
+      gitStatus: '## main\n M src/index.ts',
+      os: 'darwin',
+      shell: 'zsh',
+    })
+    expect(prompt).toContain('please install typescript')
+    expect(prompt).toContain('sh: tsc: command not found')
+    expect(prompt).toContain('/Users/dev/my-project')
+    expect(prompt).toContain('M src/index.ts')
+    expect(prompt).toContain('darwin')
+    expect(prompt).toContain('zsh')
+    expect(prompt).toContain('ONLY the shell command')
+  })
+
+  it('handles empty terminal output', () => {
+    const prompt = buildNlTranslationPrompt({
+      query: 'list files',
+      terminalOutput: '',
+      cwd: '/tmp',
+      gitStatus: '',
+      os: 'darwin',
+      shell: 'zsh',
+    })
+    expect(prompt).toContain('list files')
+    expect(prompt).toContain('(no recent output)')
   })
 })
