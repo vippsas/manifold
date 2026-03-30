@@ -24,6 +24,7 @@ export function useBackgroundAgent(
   const [error, setError] = useState<string | null>(null)
   const requestIdRef = useRef(0)
   const pollTimerRef = useRef<number | null>(null)
+  const refreshPromiseRef = useRef<Promise<void> | null>(null)
 
   const stopPolling = useCallback((): void => {
     if (pollTimerRef.current !== null) {
@@ -114,6 +115,9 @@ export function useBackgroundAgent(
         setSnapshot(nextSnapshot)
         setIsRefreshing(nextSnapshot.status.isRefreshing)
         setError(nextSnapshot.status.error)
+        if (nextSnapshot.status.isRefreshing) {
+          scheduleStatusPoll(activeProjectId, requestId, 0, 800)
+        }
       })
       .catch((nextError) => {
         if (requestId !== requestIdRef.current) return
@@ -127,69 +131,83 @@ export function useBackgroundAgent(
       })
     return () => {
       requestIdRef.current += 1
+      refreshPromiseRef.current = null
       stopPolling()
     }
-  }, [activeProjectId, stopPolling])
+  }, [activeProjectId, scheduleStatusPoll, stopPolling])
 
   const refresh = useCallback(async (): Promise<void> => {
     if (!activeProjectId) return
-    const requestId = ++requestIdRef.current
-    stopPolling()
-    setSnapshot((current) => {
-      if (!current) {
+    if (refreshPromiseRef.current) return refreshPromiseRef.current
+
+    const refreshPromise = (async () => {
+      const requestId = ++requestIdRef.current
+      stopPolling()
+      setSnapshot((current) => {
+        if (!current) {
+          return {
+            profile: null,
+            suggestions: [],
+            status: {
+              phase: 'profiling',
+              isRefreshing: true,
+              lastRefreshedAt: null,
+              error: null,
+              summary: 'Starting a new Ideas refresh.',
+              detail: 'Preparing local project context and research topics.',
+              stepLabel: 'Step 1 of 4',
+              recentActivity: ['Started a new Ideas refresh.'],
+            },
+          }
+        }
+
         return {
-          profile: null,
-          suggestions: [],
+          ...current,
           status: {
+            ...current.status,
             phase: 'profiling',
             isRefreshing: true,
-            lastRefreshedAt: null,
             error: null,
             summary: 'Starting a new Ideas refresh.',
             detail: 'Preparing local project context and research topics.',
             stepLabel: 'Step 1 of 4',
-            recentActivity: ['Started a new Ideas refresh.'],
+            recentActivity: current.status.recentActivity.at(-1) === 'Started a new Ideas refresh.'
+              ? current.status.recentActivity
+              : [...current.status.recentActivity, 'Started a new Ideas refresh.'].slice(-6),
           },
         }
+      })
+      setIsRefreshing(true)
+      setError(null)
+      try {
+        const refreshRequest = window.electronAPI.invoke(
+          'background-agent:refresh',
+          activeProjectId,
+          activeSessionId,
+        ) as Promise<BackgroundAgentSnapshot>
+        scheduleStatusPoll(activeProjectId, requestId, 2, 150)
+        const nextSnapshot = await refreshRequest
+        if (requestId !== requestIdRef.current) return
+        setSnapshot(nextSnapshot)
+        setIsRefreshing(nextSnapshot.status.isRefreshing)
+        setError(nextSnapshot.status.error)
+      } catch (nextError) {
+        if (requestId !== requestIdRef.current) return
+        setError(formatError(nextError))
+      } finally {
+        stopPolling()
+        if (requestId === requestIdRef.current) {
+          setIsRefreshing(false)
+        }
       }
+    })()
 
-      return {
-        ...current,
-        status: {
-          ...current.status,
-          phase: 'profiling',
-          isRefreshing: true,
-          error: null,
-          summary: 'Starting a new Ideas refresh.',
-          detail: 'Preparing local project context and research topics.',
-          stepLabel: 'Step 1 of 4',
-          recentActivity: current.status.recentActivity.at(-1) === 'Started a new Ideas refresh.'
-            ? current.status.recentActivity
-            : [...current.status.recentActivity, 'Started a new Ideas refresh.'].slice(-6),
-        },
-      }
-    })
-    setIsRefreshing(true)
-    setError(null)
+    refreshPromiseRef.current = refreshPromise
     try {
-      const refreshRequest = window.electronAPI.invoke(
-        'background-agent:refresh',
-        activeProjectId,
-        activeSessionId,
-      ) as Promise<BackgroundAgentSnapshot>
-      scheduleStatusPoll(activeProjectId, requestId, 2, 150)
-      const nextSnapshot = await refreshRequest
-      if (requestId !== requestIdRef.current) return
-      setSnapshot(nextSnapshot)
-      setIsRefreshing(nextSnapshot.status.isRefreshing)
-      setError(nextSnapshot.status.error)
-    } catch (nextError) {
-      if (requestId !== requestIdRef.current) return
-      setError(formatError(nextError))
+      await refreshPromise
     } finally {
-      stopPolling()
-      if (requestId === requestIdRef.current) {
-        setIsRefreshing(false)
+      if (refreshPromiseRef.current === refreshPromise) {
+        refreshPromiseRef.current = null
       }
     }
   }, [activeProjectId, activeSessionId, scheduleStatusPoll, stopPolling])

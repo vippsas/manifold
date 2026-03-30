@@ -60,13 +60,25 @@ export function summarizeRepoStructure(
     ...(packageManifest?.devDependencies ?? []),
   ])
   const probableStack: string[] = []
+  const hasSrcDirectory = topLevelEntries.includes('src')
+  const hasElectronDependency = Array.from(candidateDeps).some((dependency) => (
+    dependency === 'electron' ||
+    dependency === 'electron-vite' ||
+    dependency === 'electron-builder' ||
+    dependency.startsWith('@electron/')
+  ))
+  const hasElectronStructure = (
+    fs.existsSync(path.join(projectPath, 'src', 'main')) ||
+    fs.existsSync(path.join(projectPath, 'src', 'preload')) ||
+    topLevelEntries.some((entry) => /^electron\.vite\.config\./i.test(entry))
+  )
 
-  if (candidateDeps.has('electron') || topLevelEntries.includes('src')) probableStack.push('electron')
+  if (hasElectronDependency || hasElectronStructure) probableStack.push('electron')
   if (candidateDeps.has('react') || candidateDeps.has('react-dom')) probableStack.push('react')
   if (candidateDeps.has('vite') || candidateDeps.has('electron-vite')) probableStack.push('vite')
   if (candidateDeps.has('typescript')) probableStack.push('typescript')
-  if (topLevelEntries.includes('src')) probableStack.push('node')
-  if (topLevelEntries.includes('src') && topLevelEntries.includes('docs')) probableStack.push('docs-driven')
+  if (hasSrcDirectory) probableStack.push('node')
+  if (hasSrcDirectory && topLevelEntries.includes('docs')) probableStack.push('docs-driven')
 
   return {
     topLevelEntries,

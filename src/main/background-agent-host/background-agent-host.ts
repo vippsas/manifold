@@ -29,7 +29,7 @@ interface BackgroundAgentHostOptions {
 export class BackgroundAgentHost {
   private readonly store: BackgroundAgentStore
   private readonly webResearchClient: WebResearchClient
-  private readonly activeRefreshes = new Set<string>()
+  private readonly inFlightRefreshes = new Map<string, Promise<BackgroundAgentSnapshot>>()
 
   constructor(
     private readonly deps: BackgroundAgentHostDeps,
@@ -47,14 +47,30 @@ export class BackgroundAgentHost {
     return this.getLiveProjectState(projectId).status
   }
 
-  async refreshSuggestions(projectId: string, activeSessionId: string | null): Promise<BackgroundAgentSnapshot> {
+  refreshSuggestions(projectId: string, activeSessionId: string | null): Promise<BackgroundAgentSnapshot> {
+    const inFlight = this.inFlightRefreshes.get(projectId)
+    if (inFlight) {
+      debugLog(`[background-agent] refresh join project=${projectId} activeSession=${activeSessionId ?? '(none)'}`)
+      return inFlight
+    }
+
+    const refreshPromise = this.runRefreshSuggestions(projectId, activeSessionId)
+    this.inFlightRefreshes.set(projectId, refreshPromise)
+    void refreshPromise.finally(() => {
+      if (this.inFlightRefreshes.get(projectId) === refreshPromise) {
+        this.inFlightRefreshes.delete(projectId)
+      }
+    })
+    return refreshPromise
+  }
+
+  private async runRefreshSuggestions(projectId: string, activeSessionId: string | null): Promise<BackgroundAgentSnapshot> {
     const project = this.deps.projectRegistry.getProject(projectId)
     if (!project) {
       throw new Error(`Project not found: ${projectId}`)
     }
 
     const existingState = this.getLiveProjectState(projectId)
-    this.activeRefreshes.add(projectId)
     debugLog(`[background-agent] refresh start project=${projectId} activeSession=${activeSessionId ?? '(none)'}`)
     this.store.setProjectState(projectId, withStatus(existingState, {
       phase: 'profiling',
@@ -179,8 +195,6 @@ export class BackgroundAgentHost {
       })
       this.store.setProjectState(projectId, failedState)
       return toSnapshot(failedState)
-    } finally {
-      this.activeRefreshes.delete(projectId)
     }
   }
 
@@ -204,7 +218,7 @@ export class BackgroundAgentHost {
 
   private getLiveProjectState(projectId: string): BackgroundAgentProjectState {
     const current = this.store.getProjectState(projectId)
-    if (!current.status.isRefreshing || this.activeRefreshes.has(projectId)) {
+    if (!current.status.isRefreshing || this.inFlightRefreshes.has(projectId)) {
       return current
     }
 

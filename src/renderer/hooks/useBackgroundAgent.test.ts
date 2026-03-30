@@ -131,4 +131,56 @@ describe('useBackgroundAgent', () => {
     expect(result.current.isRefreshing).toBe(false)
     expect(result.current.snapshot?.status.phase).toBe('ready')
   })
+
+  it('resumes polling when mounted during an active refresh', async () => {
+    mockInvoke.mockImplementation((channel: string) => {
+      if (channel === 'background-agent:list-suggestions') {
+        return Promise.resolve({
+          profile: null,
+          suggestions: [],
+          status: {
+            ...idleStatus,
+            phase: 'researching',
+            isRefreshing: true,
+            summary: 'Researching the web for source-backed ideas.',
+            detail: 'Prepared 2 focused research threads using codex.',
+            stepLabel: 'Step 2 of 4',
+            recentActivity: ['Built a local project profile.'],
+          },
+        } satisfies BackgroundAgentSnapshot)
+      }
+      if (channel === 'background-agent:get-status') {
+        return Promise.resolve({
+          ...idleStatus,
+          phase: 'ready',
+          isRefreshing: false,
+          summary: 'Prepared 1 source-backed idea.',
+          detail: 'The Ideas feed is ready to review.',
+          stepLabel: 'Step 4 of 4',
+          recentActivity: ['Ranked and stored 1 idea card.'],
+        } satisfies BackgroundAgentGenerationStatus)
+      }
+      throw new Error(`Unexpected IPC channel: ${channel}`)
+    })
+
+    const { result } = renderHook(() => useBackgroundAgent('project-1', 'session-1'))
+
+    await act(async () => {
+      await Promise.resolve()
+      await Promise.resolve()
+    })
+
+    expect(result.current.isRefreshing).toBe(true)
+    expect(result.current.snapshot?.status.phase).toBe('researching')
+
+    await act(async () => {
+      vi.advanceTimersByTime(800)
+      await Promise.resolve()
+      await Promise.resolve()
+    })
+
+    expect(mockInvoke).toHaveBeenCalledWith('background-agent:get-status', 'project-1')
+    expect(result.current.isRefreshing).toBe(false)
+    expect(result.current.snapshot?.status.phase).toBe('ready')
+  })
 })
