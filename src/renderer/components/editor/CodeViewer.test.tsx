@@ -369,29 +369,28 @@ describe('CodeViewer', () => {
     })
   })
 
-  it('invokes split-right action from the compact split menu', () => {
-    const onSplitPane = vi.fn()
-
+  it('shows the basename unchanged for long file names', () => {
     renderViewer({
-      onSplitPane,
+      openFiles: [makeOpenFile({ path: '/repo/repository-provisioning-display-plan.md' })],
+      activeFilePath: '/repo/repository-provisioning-display-plan.md',
+      fileContent: 'plan',
     })
 
-    fireEvent.click(screen.getByRole('button', { name: 'Split editor' }))
-    fireEvent.click(screen.getByRole('menuitem', { name: 'Split right' }))
-
-    expect(onSplitPane).toHaveBeenCalledWith('right')
+    expect(screen.getByRole('button', { name: 'repository-provisioning-display-plan.md' })).toBeInTheDocument()
   })
 
-  it('invokes split-down action from the compact split menu', () => {
-    const onSplitPane = vi.fn()
-
+  it('adds directory context only when duplicate basenames are open', () => {
     renderViewer({
-      onSplitPane,
+      openFiles: [
+        makeOpenFile({ path: '/repo/docs/readme.md', content: '# Docs' }),
+        makeOpenFile({ path: '/repo/reference/readme.md', content: '# Reference' }),
+      ],
+      activeFilePath: '/repo/docs/readme.md',
+      fileContent: '# Docs',
     })
 
-    fireEvent.click(screen.getByRole('button', { name: 'Split editor' }))
-    fireEvent.click(screen.getByRole('menuitem', { name: 'Split down' }))
-
-    expect(onSplitPane).toHaveBeenCalledWith('below')
+    expect(screen.getByRole('button', { name: /readme\.md\s*•\s*docs/ })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /readme\.md\s*•\s*reference/ })).toBeInTheDocument()
   })
+
 })

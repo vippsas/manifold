@@ -65,26 +65,81 @@ export function fileName(filePath: string): string {
   return filePath.split('/').pop() ?? filePath
 }
 
-export function shortenFileNameForTab(filePath: string, maxLength = 32): string {
-  const name = fileName(filePath)
-  const ellipsis = '\u2026'
+export interface FileTabLabel {
+  name: string
+  description: string
+}
 
-  if (name.length <= maxLength) return name
-  if (maxLength <= ellipsis.length) return ellipsis.slice(0, maxLength)
+export function getFileTabLabels(filePaths: string[]): FileTabLabel[] {
+  const labels = filePaths.map((path) => ({ name: fileName(path), description: '' }))
+  const duplicateGroups = new Map<string, number[]>()
 
-  const lastDot = name.lastIndexOf('.')
-  const hasExtension = lastDot > 0 && lastDot < name.length - 1
-  const extension = hasExtension ? name.slice(lastDot) : ''
-  const baseName = hasExtension ? name.slice(0, lastDot) : name
-  const reservedLength = ellipsis.length + extension.length
-
-  if (extension && reservedLength < maxLength) {
-    const visibleBase = baseName.slice(0, maxLength - reservedLength).replace(/[-_. ]+$/, '')
-    return `${visibleBase || baseName.slice(0, maxLength - reservedLength)}${ellipsis}${extension}`
+  for (let index = 0; index < filePaths.length; index++) {
+    const name = labels[index].name
+    const indices = duplicateGroups.get(name)
+    if (indices) indices.push(index)
+    else duplicateGroups.set(name, [index])
   }
 
-  const visibleName = name.slice(0, maxLength - ellipsis.length).replace(/[-_. ]+$/, '')
-  return `${visibleName || name.slice(0, maxLength - ellipsis.length)}${ellipsis}`
+  for (const indices of duplicateGroups.values()) {
+    if (indices.length <= 1) continue
+
+    const descriptions = getUniqueDirectorySuffixes(indices.map((index) => filePaths[index]))
+    for (let i = 0; i < indices.length; i++) {
+      labels[indices[i]].description = descriptions[i]
+    }
+  }
+
+  return labels
+}
+
+function getUniqueDirectorySuffixes(filePaths: string[]): string[] {
+  const directorySegments = filePaths.map((filePath) => splitPathSegments(parentPath(filePath)))
+  const commonPrefixLength = getCommonPrefixLength(directorySegments)
+  const relativeDirectorySegments = directorySegments.map((segments) => segments.slice(commonPrefixLength))
+  const maxSegmentCount = Math.max(...relativeDirectorySegments.map((segments) => segments.length), 0)
+
+  for (let segmentCount = 1; segmentCount <= maxSegmentCount; segmentCount++) {
+    const candidates = relativeDirectorySegments.map((segments) => formatPathSuffix(segments, segmentCount))
+    if (new Set(candidates).size === candidates.length) {
+      return candidates
+    }
+  }
+
+  return relativeDirectorySegments.map((segments) => segments.join('/'))
+}
+
+function parentPath(filePath: string): string {
+  const normalized = filePath.replace(/\\/g, '/')
+  const lastSlash = normalized.lastIndexOf('/')
+  if (lastSlash <= 0) return ''
+  return normalized.slice(0, lastSlash)
+}
+
+function splitPathSegments(path: string): string[] {
+  return path
+    .replace(/\\/g, '/')
+    .split('/')
+    .filter(Boolean)
+}
+
+function getCommonPrefixLength(allSegments: string[][]): number {
+  if (allSegments.length === 0) return 0
+
+  let prefixLength = 0
+  while (true) {
+    const candidate = allSegments[0][prefixLength]
+    if (!candidate) return prefixLength
+    if (allSegments.some((segments) => segments[prefixLength] !== candidate)) {
+      return prefixLength
+    }
+    prefixLength++
+  }
+}
+
+function formatPathSuffix(segments: string[], segmentCount: number): string {
+  if (segments.length === 0) return ''
+  return segments.slice(-segmentCount).join('/')
 }
 
 export function splitDiffByFile(diffText: string): FileDiff[] {

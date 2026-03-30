@@ -1,10 +1,10 @@
 import { describe, it, expect } from 'vitest'
 import {
+  getFileTabLabels,
   isExternalMarkdownHref,
   isHtmlFile,
   parseDiffToLineRanges,
   resolveMarkdownLinkedFilePath,
-  shortenFileNameForTab,
 } from './code-viewer-utils'
 
 describe('isHtmlFile', () => {
@@ -26,19 +26,33 @@ describe('isHtmlFile', () => {
   })
 })
 
-describe('shortenFileNameForTab', () => {
-  it('leaves short names unchanged', () => {
-    expect(shortenFileNameForTab('/repo/README.md')).toBe('README.md')
+describe('getFileTabLabels', () => {
+  it('keeps unique file names without extra description', () => {
+    expect(getFileTabLabels(['/repo/README.md'])).toEqual([
+      { name: 'README.md', description: '' },
+    ])
   })
 
-  it('truncates long names while preserving the extension', () => {
-    expect(shortenFileNameForTab('/repo/aks-workload-isolation-and-least-privilege-findings.md', 32))
-      .toBe('aks-workload-isolation-and-l….md')
+  it('adds parent-folder descriptions only when names are duplicated', () => {
+    expect(getFileTabLabels([
+      '/repo/docs/readme.md',
+      '/repo/reference/readme.md',
+    ])).toEqual([
+      { name: 'readme.md', description: 'docs' },
+      { name: 'readme.md', description: 'reference' },
+    ])
   })
 
-  it('truncates long names without an extension', () => {
-    expect(shortenFileNameForTab('/repo/very-long-filename-without-extension', 20))
-      .toBe('very-long-filename…')
+  it('uses the shortest unique directory suffix for duplicate names', () => {
+    expect(getFileTabLabels([
+      '/repo/packages/app/src/index.ts',
+      '/repo/packages/lib/src/index.ts',
+      '/repo/tools/src/index.ts',
+    ])).toEqual([
+      { name: 'index.ts', description: 'app/src' },
+      { name: 'index.ts', description: 'lib/src' },
+      { name: 'index.ts', description: 'tools/src' },
+    ])
   })
 })
 
