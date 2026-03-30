@@ -11,7 +11,7 @@ describe('NlInputBuffer', () => {
     const buf = new NlInputBuffer()
     buf.feed('# please install')
     const result = buf.feed('\r')
-    expect(result).toEqual({ type: 'nl-query', query: 'please install' })
+    expect(result).toEqual({ type: 'nl-query', query: 'please install', pasted: false })
   })
 
   it('returns passthrough for normal commands', () => {
@@ -44,14 +44,14 @@ describe('NlInputBuffer', () => {
     expect(result).toEqual({ type: 'passthrough' })
   })
 
-  it('handles character-by-character input', () => {
+  it('handles character-by-character input (pasted: false)', () => {
     const buf = new NlInputBuffer()
     buf.feed('#')
     buf.feed(' ')
     buf.feed('h')
     buf.feed('i')
     const result = buf.feed('\r')
-    expect(result).toEqual({ type: 'nl-query', query: 'hi' })
+    expect(result).toEqual({ type: 'nl-query', query: 'hi', pasted: false })
   })
 
   it('handles backspace (0x7f) correctly', () => {
@@ -59,7 +59,7 @@ describe('NlInputBuffer', () => {
     buf.feed('# helloo')
     buf.feed('\x7f') // backspace
     const result = buf.feed('\r')
-    expect(result).toEqual({ type: 'nl-query', query: 'hello' })
+    expect(result).toEqual({ type: 'nl-query', query: 'hello', pasted: false })
   })
 
   it('handles Ctrl+U (kill line) correctly', () => {
@@ -81,7 +81,13 @@ describe('NlInputBuffer', () => {
     const buf = new NlInputBuffer()
     buf.feed('#   install stuff   ')
     const result = buf.feed('\r')
-    expect(result).toEqual({ type: 'nl-query', query: 'install stuff' })
+    expect(result).toEqual({ type: 'nl-query', query: 'install stuff', pasted: false })
+  })
+
+  it('marks pasted: true when entire line arrives in one feed() with Enter', () => {
+    const buf = new NlInputBuffer()
+    const result = buf.feed('# pasted query\r')
+    expect(result).toEqual({ type: 'nl-query', query: 'pasted query', pasted: true })
   })
 
   it('returns passthrough for empty query after #', () => {

@@ -172,7 +172,7 @@ export class SessionManager {
     if (session.nlInputBuffer) {
       const result = session.nlInputBuffer.feed(input)
       if (result.type === 'nl-query') {
-        void this.translateNlCommand(session, result.query)
+        void this.translateNlCommand(session, result.query, result.pasted)
         return
       }
       // 'accumulate' and 'passthrough' both forward to PTY
@@ -323,7 +323,7 @@ export class SessionManager {
     return result
   }
 
-  private async translateNlCommand(session: InternalSession, query: string): Promise<void> {
+  private async translateNlCommand(session: InternalSession, query: string, pasted: boolean): Promise<void> {
     if (!session.ptyId || !this.gitOps || session.nlPending) return
 
     session.nlPending = true
@@ -335,10 +335,9 @@ export class SessionManager {
     }
 
     const ptyId = session.ptyId
-    // The user's keystrokes were already forwarded to the PTY during the
-    // accumulate phase, so the "# ..." text is already on the prompt line.
-    // Just send Enter to execute it as a comment (no-op) and get a fresh prompt.
-    this.ptyPool.write(ptyId, '\r')
+    // When pasted, the text was never forwarded to the PTY — write it now.
+    // When typed character-by-character, it's already on the prompt — just send Enter.
+    this.ptyPool.write(ptyId, pasted ? `# ${query}\r` : '\r')
 
     // Wait briefly for the prompt to render, then show loading ghost text
     setTimeout(() => {
@@ -375,15 +374,14 @@ export class SessionManager {
       const command = result.trim().split('\n')[0].trim()
       if (!command) return
 
-      // Clear ghost text and write the command to PTY stdin
-      clearGhostText(this.ptyPool, ptyId)
       this.ptyPool.write(ptyId, command)
     } catch {
-      // Clear ghost text on error — user sees empty prompt
+      // Error silently — user sees empty prompt
+    } finally {
+      // Always clear ghost text and reset state
       if (session.ptyId === ptyId) {
         clearGhostText(this.ptyPool, ptyId)
       }
-    } finally {
       session.nlPending = false
     }
   }

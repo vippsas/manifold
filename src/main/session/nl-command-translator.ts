@@ -1,23 +1,31 @@
 export type NlBufferResult =
   | { type: 'accumulate' }
   | { type: 'passthrough' }
-  | { type: 'nl-query'; query: string }
+  | { type: 'nl-query'; query: string; pasted: boolean }
 
 /**
  * Buffers keystrokes for a shell session and detects `# <text>` NL queries.
  * Call `feed()` with each chunk of input. When it returns `nl-query`, the
  * input should be intercepted (not forwarded to PTY). When it returns
  * `passthrough`, forward the entire buffered line + Enter to the PTY.
+ *
+ * The `pasted` flag on `nl-query` indicates whether the entire line arrived
+ * in a single feed() call (paste) vs character-by-character (typing). When
+ * pasted, the caller must echo the text to the PTY since it was never
+ * forwarded during accumulate.
  */
 export class NlInputBuffer {
   private buffer = ''
+  private hadAccumulate = false
 
   feed(data: string): NlBufferResult {
     for (const char of data) {
       if (char === '\r' || char === '\n') {
         const line = this.buffer
+        const pasted = !this.hadAccumulate
         this.buffer = ''
-        return this.classifyLine(line)
+        this.hadAccumulate = false
+        return this.classifyLine(line, pasted)
       }
       if (char === '\x7f') {
         // Backspace
@@ -31,15 +39,16 @@ export class NlInputBuffer {
       }
       this.buffer += char
     }
+    this.hadAccumulate = true
     return { type: 'accumulate' }
   }
 
-  private classifyLine(line: string): NlBufferResult {
+  private classifyLine(line: string, pasted: boolean): NlBufferResult {
     // Must start with "# " (hash + space) to trigger NL mode
     if (!line.startsWith('# ')) return { type: 'passthrough' }
     const query = line.slice(2).trim()
     if (!query) return { type: 'passthrough' }
-    return { type: 'nl-query', query }
+    return { type: 'nl-query', query, pasted }
   }
 }
 
