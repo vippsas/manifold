@@ -152,7 +152,7 @@ export async function predictNextCommand(
       runtime,
       prompt,
       session.worktreePath,
-      runtime.aiModelArgs ?? [],
+      ['--bare', ...(runtime.aiModelArgs ?? [])],
       { timeoutMs: SUGGESTION_TIMEOUT_MS },
     )
 
