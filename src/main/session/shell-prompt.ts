@@ -82,6 +82,9 @@ if (( \${+functions[_omp_precmd]} )); then
   add-zsh-hook -d precmd _omp_precmd 2>/dev/null
 fi
 ${historyBlock}
+# Enable # as comment character in interactive mode (required for NL command translator)
+setopt INTERACTIVE_COMMENTS
+
 # Override prompt with clean Manifold style
 PROMPT='%F{cyan}${agentName}%f %F{white}❯%f '
 RPROMPT=''
