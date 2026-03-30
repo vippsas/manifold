@@ -329,9 +329,10 @@ export class SessionManager {
     session.nlPending = true
 
     const ptyId = session.ptyId
-    // Send the original "# ..." line to the PTY as a comment (no-op) so the
-    // terminal shows a newline and a fresh prompt appears for the suggestion.
-    this.ptyPool.write(ptyId, `# ${query}\r`)
+    // The user's keystrokes were already forwarded to the PTY during the
+    // accumulate phase, so the "# ..." text is already on the prompt line.
+    // Just send Enter to execute it as a comment (no-op) and get a fresh prompt.
+    this.ptyPool.write(ptyId, '\r')
 
     // Wait briefly for the prompt to render, then show loading ghost text
     setTimeout(() => {
@@ -360,7 +361,7 @@ export class SessionManager {
         prompt,
         session.worktreePath,
         runtime.aiModelArgs ?? [],
-        { timeoutMs: 30_000 },
+        { timeoutMs: 60_000 },
       )
 
       if (session.ptyId !== ptyId) return
