@@ -94,8 +94,8 @@ describe('sanitizeDockLayout', () => {
               size: 700,
               data: {
                 id: 'workspace',
-                views: ['agent', 'search', 'backgroundAgent'],
-                activeView: 'backgroundAgent',
+                views: ['agent', 'search', 'unsupportedPanel'],
+                activeView: 'unsupportedPanel',
               },
             },
           ],
@@ -105,7 +105,7 @@ describe('sanitizeDockLayout', () => {
         projects: {},
         agent: {},
         search: {},
-        backgroundAgent: {},
+        unsupportedPanel: {},
       },
     } as unknown as SerializedDockview
 
@@ -143,15 +143,15 @@ describe('sanitizeDockLayout', () => {
               size: 500,
               data: {
                 id: 'right',
-                views: ['backgroundAgent'],
-                activeView: 'backgroundAgent',
+                views: ['unsupportedPanel'],
+                activeView: 'unsupportedPanel',
               },
             },
           ],
         },
       },
       panels: {
-        backgroundAgent: {},
+        unsupportedPanel: {},
       },
     } as unknown as SerializedDockview
 
