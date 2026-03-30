@@ -73,12 +73,12 @@ export class SessionStreamWirer {
       if (session.runtimeId === '__shell__' && this.gitOps && data.includes('❯')
           && !session.shellSuggestion?.pending && !session.nlPending) {
         dismissSuggestion(session, this.ptyPool)
-        if (!session.nlHintShown) {
+        if (!session.nlInputBuffer?.hasBufferedInput() && !session.nlHintShown) {
           // First prompt: show hint ghost text teaching the user about # prefix
           session.nlHintShown = true
           session.nlHintActive = true
           injectGhostText(this.ptyPool, session.ptyId, '# ask AI for help...')
-        } else {
+        } else if (!session.nlInputBuffer?.hasBufferedInput()) {
           void predictNextCommand(session, this.ptyPool, this.gitOps)
         }
       }

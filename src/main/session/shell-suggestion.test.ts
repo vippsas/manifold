@@ -5,11 +5,37 @@ vi.mock('node:fs', () => ({
   readFileSync: vi.fn(),
 }))
 
+vi.mock('../agent/runtimes', () => ({
+  getRuntimeById: vi.fn(() => ({
+    id: 'claude',
+    aiModelArgs: [],
+  })),
+}))
+
 import * as fs from 'node:fs'
-import { buildSuggestionPrompt, readRecentHistory, parseZshHistoryLine } from './shell-suggestion'
+import type { InternalSession } from './session-types'
+import { NlInputBuffer } from './nl-command-translator'
+import { buildSuggestionPrompt, readRecentHistory, parseZshHistoryLine, dismissSuggestion } from './shell-suggestion'
 
 const mockExistsSync = vi.mocked(fs.existsSync)
 const mockReadFileSync = vi.mocked(fs.readFileSync)
+
+function createShellSession(): InternalSession {
+  return {
+    id: 'session-1',
+    projectId: 'project-1',
+    runtimeId: '__shell__',
+    branchName: 'main',
+    worktreePath: '/tmp/app',
+    status: 'running',
+    pid: 123,
+    ptyId: 'pty-1',
+    outputBuffer: '',
+    additionalDirs: [],
+    noWorktree: true,
+    nlInputBuffer: new NlInputBuffer(),
+  }
+}
 
 describe('parseZshHistoryLine', () => {
   it('strips extended history timestamp format', () => {
@@ -93,5 +119,18 @@ describe('buildSuggestionPrompt', () => {
       'my-project',
     )
     expect(prompt).not.toContain('Recent terminal output:')
+  })
+})
+
+describe('dismissSuggestion', () => {
+  it('cancels in-flight suggestions even before ghost text is rendered', () => {
+    const session = createShellSession()
+    const ptyPool = { pushOutput: vi.fn() }
+    session.shellSuggestion = { activeSuggestion: null, pending: true }
+
+    dismissSuggestion(session, ptyPool as never)
+
+    expect(session.shellSuggestion).toEqual({ activeSuggestion: null, pending: false })
+    expect(ptyPool.pushOutput).not.toHaveBeenCalled()
   })
 })
