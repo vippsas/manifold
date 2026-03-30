@@ -43,6 +43,10 @@ export class NlInputBuffer {
     return { type: 'accumulate' }
   }
 
+  hasBufferedInput(): boolean {
+    return this.buffer.length > 0
+  }
+
   private classifyLine(line: string, pasted: boolean): NlBufferResult {
     // Must start with "# " (hash + space) to trigger NL mode
     if (!line.startsWith('# ')) return { type: 'passthrough' }

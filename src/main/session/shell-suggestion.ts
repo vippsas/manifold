@@ -116,6 +116,10 @@ export function clearGhostText(ptyPool: PtyPool, ptyId: string): void {
   ptyPool.pushOutput(ptyId, clear)
 }
 
+function hasBufferedPromptInput(session: InternalSession): boolean {
+  return session.nlInputBuffer?.hasBufferedInput() ?? false
+}
+
 /**
  * Trigger an AI prediction for the next shell command.
  * Fire-and-forget — errors are silently ignored.
@@ -127,13 +131,15 @@ export async function predictNextCommand(
 ): Promise<void> {
   if (session.runtimeId !== '__shell__') return
   if (!session.ptyId) return
+  if (hasBufferedPromptInput(session)) return
 
   if (!session.shellSuggestion) {
     session.shellSuggestion = { activeSuggestion: null, pending: false }
   }
 
-  session.shellSuggestion.pending = true
-  session.shellSuggestion.activeSuggestion = null
+  const suggestionState = session.shellSuggestion
+  suggestionState.pending = true
+  suggestionState.activeSuggestion = null
 
   try {
     const historyPath = resolveHistoryPath(session)
@@ -142,10 +148,16 @@ export async function predictNextCommand(
       gatherGitStatus(session.worktreePath),
     ])
 
-    if (!session.shellSuggestion.pending) return
+    if (!suggestionState.pending || hasBufferedPromptInput(session)) {
+      suggestionState.pending = false
+      return
+    }
 
     const runtime = getRuntimeById('claude')
-    if (!runtime) return
+    if (!runtime) {
+      suggestionState.pending = false
+      return
+    }
 
     const terminalOutput = session.nlOutputBuffer?.getText() || ''
 
@@ -164,21 +176,22 @@ export async function predictNextCommand(
       { timeoutMs: SUGGESTION_TIMEOUT_MS, silent: true },
     )
 
-    if (!session.shellSuggestion.pending) return
-
-    const suggestion = result.trim()
-    if (!suggestion || suggestion.includes('\n')) {
-      session.shellSuggestion.pending = false
+    if (!suggestionState.pending || hasBufferedPromptInput(session)) {
+      suggestionState.pending = false
       return
     }
 
-    session.shellSuggestion.activeSuggestion = suggestion
-    session.shellSuggestion.pending = false
+    const suggestion = result.trim()
+    if (!suggestion || suggestion.includes('\n')) {
+      suggestionState.pending = false
+      return
+    }
+
+    suggestionState.activeSuggestion = suggestion
+    suggestionState.pending = false
     injectGhostText(ptyPool, session.ptyId, suggestion)
   } catch {
-    if (session.shellSuggestion) {
-      session.shellSuggestion.pending = false
-    }
+    suggestionState.pending = false
   }
 }
 
@@ -194,6 +207,7 @@ export function acceptSuggestion(
 
   clearGhostText(ptyPool, session.ptyId)
   ptyPool.write(session.ptyId, suggestion)
+  session.shellSuggestion!.pending = false
   session.shellSuggestion!.activeSuggestion = null
   return true
 }
@@ -205,8 +219,12 @@ export function dismissSuggestion(
   session: InternalSession,
   ptyPool: PtyPool,
 ): void {
-  if (!session.shellSuggestion?.activeSuggestion || !session.ptyId) return
+  if (!session.shellSuggestion) return
 
-  clearGhostText(ptyPool, session.ptyId)
+  session.shellSuggestion.pending = false
+
+  if (session.shellSuggestion.activeSuggestion && session.ptyId) {
+    clearGhostText(ptyPool, session.ptyId)
+  }
   session.shellSuggestion.activeSuggestion = null
 }

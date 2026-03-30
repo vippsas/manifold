@@ -1,7 +1,16 @@
 // @vitest-environment node
 import { describe, expect, it, vi } from 'vitest'
+
+vi.mock('./shell-suggestion', () => ({
+  predictNextCommand: vi.fn(),
+  dismissSuggestion: vi.fn(),
+  injectGhostText: vi.fn(),
+}))
+
 import { ChatAdapter } from '../agent/chat-adapter'
 import { SessionStreamWirer } from './session-stream-wirer'
+import { NlInputBuffer } from './nl-command-translator'
+import { predictNextCommand, injectGhostText } from './shell-suggestion'
 import type { InternalSession } from './session-types'
 
 class FakePtyPool {
@@ -110,5 +119,34 @@ describe('SessionStreamWirer', () => {
       sessionId: session.id,
       url: 'http://127.0.0.1:5174/',
     })
+  })
+
+  it('does not append shell hints or suggestions when the prompt already has text', () => {
+    const ptyPool = new FakePtyPool()
+    const sendToRenderer = vi.fn()
+
+    const wirer = new SessionStreamWirer(
+      ptyPool as never,
+      () => null,
+      sendToRenderer,
+      undefined,
+      vi.fn(),
+      vi.fn(),
+    )
+
+    const session = createSession()
+    session.runtimeId = '__shell__'
+    session.nlHintShown = false
+    session.nlInputBuffer = new NlInputBuffer()
+    session.nlInputBuffer.feed('npm run dev')
+
+    wirer.setGitOps({ aiGenerate: vi.fn() } as never)
+    wirer.wireOutputStreaming(session.ptyId, session)
+
+    ptyPool.emitData(session.ptyId, '❯ ')
+
+    expect(vi.mocked(injectGhostText)).not.toHaveBeenCalled()
+    expect(vi.mocked(predictNextCommand)).not.toHaveBeenCalled()
+    expect(sendToRenderer).toHaveBeenCalledWith('agent:output', { sessionId: session.id, data: '❯ ' })
   })
 })
