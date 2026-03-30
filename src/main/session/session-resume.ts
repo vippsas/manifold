@@ -64,7 +64,7 @@ export function createShellPtySession(
   ptyPool: PtyPool,
   streamWirer: SessionStreamWirer,
   sessions: Map<string, InternalSession>,
-  options?: { shellPrompt?: boolean },
+  options?: { shellPrompt?: boolean; historyDir?: string },
 ): { sessionId: string } {
   const shell = process.platform === 'win32' ? 'cmd.exe' : (process.env.SHELL || '/bin/zsh')
   const useManifoldPrompt = options?.shellPrompt ?? false
@@ -78,7 +78,7 @@ export function createShellPtySession(
     env = { ...shellEnv }
 
     if (isZsh) {
-      zdotdirPath = createManifoldZdotdir(shellEnv.MANIFOLD_AGENT_NAME)
+      zdotdirPath = createManifoldZdotdir(shellEnv.MANIFOLD_AGENT_NAME, options?.historyDir)
       env.ZDOTDIR = zdotdirPath
     }
   }
