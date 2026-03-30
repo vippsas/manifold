@@ -13,6 +13,7 @@ import type { MemoryCapture } from '../memory/memory-capture'
 import type { MemoryCompressor } from '../memory/memory-compressor'
 import type { MemoryInjector } from '../memory/memory-injector'
 import type { BrowserWindow } from 'electron'
+import type { GitOperationsManager } from '../git/git-operations'
 import type { InternalSession } from './session-types'
 import { SessionStreamWirer } from './session-stream-wirer'
 import { SessionDiscovery } from './session-discovery'
@@ -26,6 +27,7 @@ export class SessionManager {
   private memoryCapture: MemoryCapture | null = null
   private memoryCompressor: MemoryCompressor | null = null
   private memoryInjector: MemoryInjector | null = null
+  private gitOps: GitOperationsManager | null = null
   private streamWirer: SessionStreamWirer
   private devServer: DevServerManager
   private discovery: SessionDiscovery
@@ -93,6 +95,11 @@ export class SessionManager {
 
   setMemoryInjector(injector: MemoryInjector): void {
     this.memoryInjector = injector
+  }
+
+  setGitOps(gitOps: GitOperationsManager): void {
+    this.gitOps = gitOps
+    this.streamWirer.setGitOps(gitOps)
   }
 
   setMainWindow(window: BrowserWindow): void {

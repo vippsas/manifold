@@ -9,8 +9,12 @@ import type { FileWatcher } from '../fs/file-watcher'
 import { debugLog } from '../app/debug-log'
 import type { InternalSession } from './session-types'
 import type { SimpleRuntimeOutputMode } from '../agent/simple-runtime'
+import type { GitOperationsManager } from '../git/git-operations'
+import { predictNextCommand, dismissSuggestion } from './shell-suggestion'
 
 export class SessionStreamWirer {
+  private gitOps: GitOperationsManager | undefined
+
   constructor(
     private ptyPool: PtyPool,
     private getChatAdapter: () => ChatAdapter | null,
@@ -19,6 +23,10 @@ export class SessionStreamWirer {
     private onPersistAdditionalDirs: (session: InternalSession) => void,
     private onDevServerNeeded: (session: InternalSession) => void,
   ) {}
+
+  setGitOps(gitOps: GitOperationsManager): void {
+    this.gitOps = gitOps
+  }
 
   wireOutputStreaming(ptyId: string, session: InternalSession): void {
     this.ptyPool.onData(ptyId, (data: string) => {
@@ -55,6 +63,14 @@ export class SessionStreamWirer {
         }
 
         this.checkVercelDeploy(session)
+      }
+
+      // Detect Manifold shell prompt and trigger AI command prediction
+      if (session.runtimeId === '__shell__' && this.gitOps && data.includes('❯')) {
+        // Dismiss any existing suggestion when new output arrives
+        dismissSuggestion(session, this.ptyPool)
+        // The ❯ character in output means the prompt was printed — predict next command
+        void predictNextCommand(session, this.ptyPool, this.gitOps)
       }
 
       this.getChatAdapter()?.processPtyOutput(session.id, data)
