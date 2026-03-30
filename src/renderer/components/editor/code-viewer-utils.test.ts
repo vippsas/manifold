@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest'
 import {
+  getFileNameTabLabelParts,
   isExternalMarkdownHref,
   isHtmlFile,
   parseDiffToLineRanges,
@@ -31,14 +32,23 @@ describe('shortenFileNameForTab', () => {
     expect(shortenFileNameForTab('/repo/README.md')).toBe('README.md')
   })
 
-  it('truncates long names while preserving the extension', () => {
+  it('truncates long names with a middle ellipsis while preserving only the extension', () => {
     expect(shortenFileNameForTab('/repo/aks-workload-isolation-and-least-privilege-findings.md', 32))
       .toBe('aks-workload-isolation-and-l….md')
   })
 
-  it('truncates long names without an extension', () => {
+  it('truncates long names without an extension using an end ellipsis', () => {
     expect(shortenFileNameForTab('/repo/very-long-filename-without-extension', 20))
       .toBe('very-long-filename…')
+  })
+
+  it('returns separate prefix and extension parts for tab rendering', () => {
+    expect(getFileNameTabLabelParts('/repo/project-aware-background-agents.md', 24))
+      .toEqual({
+        prefix: 'project-aware-backgr',
+        suffix: '.md',
+        truncated: true,
+      })
   })
 })
 

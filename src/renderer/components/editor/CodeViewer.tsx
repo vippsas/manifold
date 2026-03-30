@@ -9,12 +9,14 @@ import {
   isMarkdownFile,
 } from './code-viewer-utils'
 import type { FileOpenRequest } from './file-open-request'
-import { ContextMenu } from './ContextMenu'
 import { TabBar, NoTabsHeader } from './CodeViewerTabs'
-import type { MoveTarget } from './CodeViewerTabs'
 import { MarkdownPreview } from './viewer/MarkdownPreview'
 import { revealRequestedLocation } from './viewer/reveal-requested-location'
 import { useResolvedHtmlPreview } from './viewer/useResolvedHtmlPreview'
+import {
+  registerEditorPaneModeControls,
+  unregisterEditorPaneModeControls,
+} from './editor-pane-mode-controls'
 
 interface CodeViewerProps {
   paneId?: string
@@ -26,10 +28,7 @@ interface CodeViewerProps {
   fileContent: string | null
   lastFileOpenRequest: FileOpenRequest
   theme: string
-  moveTargets?: MoveTarget[]
   onActivatePane?: () => void
-  onSplitPane?: (direction: 'right' | 'below') => void
-  onMoveFile?: (filePath: string, targetPaneId: string) => void
   onSelectTab: (filePath: string) => void
   onOpenLinkedFile?: (filePath: string) => void
   onCloseTab: (filePath: string) => void
@@ -70,10 +69,7 @@ export function CodeViewer({
   fileContent,
   lastFileOpenRequest,
   theme,
-  moveTargets = [],
   onActivatePane = () => {},
-  onSplitPane = () => {},
-  onMoveFile = () => {},
   onSelectTab,
   onOpenLinkedFile = () => {},
   onCloseTab,
@@ -97,7 +93,6 @@ export function CodeViewer({
     () => previewPathsByPane.get(paneId) ?? new Set(),
   )
   const [diffMode, setDiffMode] = useState(false)
-  const [moveMenu, setMoveMenu] = useState<{ x: number; y: number } | null>(null)
   const isMd = isMarkdownFile(activeFilePath)
   const isHtml = isHtmlFile(activeFilePath)
   const isPreviewable = isMd || isHtml
@@ -181,11 +176,62 @@ export function CodeViewer({
 
   const hasTabs = openFiles.length > 0
   const showPreviewToggle = hasTabs && isPreviewable
-  const showDiffToggle = hasTabs && hasDiff && !previewActive
+  const showDiffToggle = hasTabs && hasDiff
+
+  const showEditorMode = useCallback(() => {
+    if (activeFilePath) {
+      setPreviewPaths((prev) => {
+        if (!prev.has(activeFilePath)) return prev
+        const next = new Set(prev)
+        next.delete(activeFilePath)
+        return next
+      })
+    }
+    setDiffMode(false)
+  }, [activeFilePath])
+
+  const showPreviewMode = useCallback(() => {
+    if (!activeFilePath || !isPreviewable) return
+
+    setPreviewPaths((prev) => {
+      if (prev.has(activeFilePath)) return prev
+      const next = new Set(prev)
+      next.add(activeFilePath)
+      return next
+    })
+    setDiffMode(false)
+  }, [activeFilePath, isPreviewable])
+
+  const showDiffMode = useCallback(() => {
+    if (!hasDiff) return
+
+    if (activeFilePath) {
+      setPreviewPaths((prev) => {
+        if (!prev.has(activeFilePath)) return prev
+        const next = new Set(prev)
+        next.delete(activeFilePath)
+        return next
+      })
+    }
+    setDiffMode(true)
+  }, [activeFilePath, hasDiff])
 
   useEffect(() => {
     revealRequestedLocation(editorRef.current, activeFilePath, lastFileOpenRequest)
   }, [activeFilePath, lastFileOpenRequest])
+
+  useEffect(() => {
+    const controls = {
+      canShowPreview: showPreviewToggle,
+      canShowDiff: showDiffToggle,
+      showEditor: showEditorMode,
+      showPreview: showPreviewMode,
+      showDiff: showDiffMode,
+    }
+
+    registerEditorPaneModeControls(paneId, controls)
+    return () => unregisterEditorPaneModeControls(paneId, controls)
+  }, [paneId, showPreviewToggle, showDiffToggle, showEditorMode, showPreviewMode, showDiffMode])
 
   return (
     <div style={viewerStyles.wrapper} data-pane-id={paneId}>
@@ -193,31 +239,12 @@ export function CodeViewer({
         <TabBar
           openFiles={openFiles}
           activeFilePath={activeFilePath}
-          moveTargets={moveTargets}
           onActivatePane={onActivatePane}
           onSelectTab={onSelectTab}
           onCloseTab={onCloseTab}
-          onOpenMoveMenu={(x, y) => setMoveMenu({ x, y })}
-          onSplitPane={onSplitPane}
-          showPreviewToggle={showPreviewToggle}
-          previewActive={previewActive}
-          onTogglePreview={() => {
-            if (activeFilePath) {
-              setPreviewPaths((prev) => {
-                const next = new Set(prev)
-                if (next.has(activeFilePath)) next.delete(activeFilePath)
-                else next.add(activeFilePath)
-                return next
-              })
-            }
-            setDiffMode(false)
-          }}
-          showDiffToggle={showDiffToggle}
-          diffActive={diffMode}
-          onToggleDiff={() => setDiffMode((value) => !value)}
         />
       ) : (
-        <NoTabsHeader onActivatePane={onActivatePane} onSplitPane={onSplitPane} />
+        <NoTabsHeader />
       )}
       <div style={viewerStyles.editorContainer} onMouseDown={onActivatePane}>
         {previewActive && isHtml && resolvedHtml !== null ? (
@@ -257,17 +284,6 @@ export function CodeViewer({
           />
         )}
       </div>
-      {moveMenu && activeFilePath && moveTargets.length > 0 && (
-        <ContextMenu
-          x={moveMenu.x}
-          y={moveMenu.y}
-          items={moveTargets.map((target) => ({
-            label: `Move to ${target.label}`,
-            action: () => onMoveFile(activeFilePath, target.id),
-          }))}
-          onClose={() => setMoveMenu(null)}
-        />
-      )}
     </div>
   )
 }

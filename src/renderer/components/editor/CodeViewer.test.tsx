@@ -369,29 +369,14 @@ describe('CodeViewer', () => {
     })
   })
 
-  it('invokes split-right action from the compact split menu', () => {
-    const onSplitPane = vi.fn()
-
+  it('uses a tighter tab label budget for long file names', () => {
     renderViewer({
-      onSplitPane,
+      openFiles: [makeOpenFile({ path: '/repo/repository-provisioning-display-plan.md' })],
+      activeFilePath: '/repo/repository-provisioning-display-plan.md',
+      fileContent: 'plan',
     })
 
-    fireEvent.click(screen.getByRole('button', { name: 'Split editor' }))
-    fireEvent.click(screen.getByRole('menuitem', { name: 'Split right' }))
-
-    expect(onSplitPane).toHaveBeenCalledWith('right')
+    expect(screen.getByRole('button', { name: /repository-provisi\s*…\s*\.md/ })).toBeInTheDocument()
   })
 
-  it('invokes split-down action from the compact split menu', () => {
-    const onSplitPane = vi.fn()
-
-    renderViewer({
-      onSplitPane,
-    })
-
-    fireEvent.click(screen.getByRole('button', { name: 'Split editor' }))
-    fireEvent.click(screen.getByRole('menuitem', { name: 'Split down' }))
-
-    expect(onSplitPane).toHaveBeenCalledWith('below')
-  })
 })

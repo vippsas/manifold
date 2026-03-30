@@ -24,6 +24,7 @@ import { useDockLayout, isEditorPanelId } from './hooks/useDockLayout'
 import { useAppEffects } from './hooks/useAppEffects'
 import { PANEL_COMPONENTS, DockStateContext } from './components/editor/dock-panels'
 import type { DockAppState } from './components/editor/dock-panel-types'
+import { EditorHeaderActions } from './components/editor/EditorHeaderActions'
 import { OnboardingView } from './components/modals/OnboardingView'
 import { SettingsModal } from './components/modals/SettingsModal'
 import { AboutOverlay } from './components/modals/AboutOverlay'
@@ -282,7 +283,8 @@ export function App(): React.JSX.Element {
           <div style={{ flex: 1, overflow: 'hidden' }}>
             <DockviewReact className={`dockview-theme-dark dockview-theme-manifold${!activeSessionId ? ' dockview-minimal' : ''}`}
               components={PANEL_COMPONENTS} onReady={(e) => dockLayout.onReady(e.api)}
-              defaultTabComponent={DockTab} watermarkComponent={EmptyWatermark} />
+              defaultTabComponent={DockTab} rightHeaderActionsComponent={EditorHeaderActions}
+              watermarkComponent={EmptyWatermark} />
           </div>
         </DockStateContext.Provider>
         <StatusBar activeSession={activeSession} changedFiles={mergedChanges} baseBranch={baseBranch} dockLayout={dockLayout}

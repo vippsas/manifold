@@ -72,4 +72,89 @@ describe('sanitizeDockLayout', () => {
 
     expect(sanitizeDockLayout(saved)).toBeNull()
   })
+
+  it('removes empty groups and unsupported panels from corrupted layouts', () => {
+    const saved = {
+      grid: {
+        root: {
+          type: 'branch',
+          size: 1000,
+          data: [
+            {
+              type: 'leaf',
+              size: 300,
+              data: {
+                id: 'empty-left',
+                views: [],
+                activeView: 'projects',
+              },
+            },
+            {
+              type: 'leaf',
+              size: 700,
+              data: {
+                id: 'workspace',
+                views: ['agent', 'search', 'backgroundAgent'],
+                activeView: 'backgroundAgent',
+              },
+            },
+          ],
+        },
+      },
+      panels: {
+        projects: {},
+        agent: {},
+        search: {},
+        backgroundAgent: {},
+      },
+    } as unknown as SerializedDockview
+
+    const sanitized = sanitizeDockLayout(saved) as SerializedDockview
+    const root = sanitized.grid.root as {
+      type: 'leaf'
+      data: { views: string[]; activeView?: string }
+    }
+
+    expect(sanitized).not.toBeNull()
+    expect(root.type).toBe('leaf')
+    expect(root.data.views).toEqual(['agent', 'search'])
+    expect(root.data.activeView).toBe('agent')
+    expect(Object.keys(sanitized.panels)).toEqual(['agent', 'search'])
+  })
+
+  it('returns null when every grid leaf is empty after sanitization', () => {
+    const saved = {
+      grid: {
+        root: {
+          type: 'branch',
+          size: 1000,
+          data: [
+            {
+              type: 'leaf',
+              size: 500,
+              data: {
+                id: 'left',
+                views: [],
+                activeView: 'projects',
+              },
+            },
+            {
+              type: 'leaf',
+              size: 500,
+              data: {
+                id: 'right',
+                views: ['backgroundAgent'],
+                activeView: 'backgroundAgent',
+              },
+            },
+          ],
+        },
+      },
+      panels: {
+        backgroundAgent: {},
+      },
+    } as unknown as SerializedDockview
+
+    expect(sanitizeDockLayout(saved)).toBeNull()
+  })
 })

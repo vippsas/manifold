@@ -65,26 +65,55 @@ export function fileName(filePath: string): string {
   return filePath.split('/').pop() ?? filePath
 }
 
-export function shortenFileNameForTab(filePath: string, maxLength = 32): string {
-  const name = fileName(filePath)
-  const ellipsis = '\u2026'
+export interface FileNameTabLabelParts {
+  prefix: string
+  suffix: string
+  truncated: boolean
+}
 
-  if (name.length <= maxLength) return name
-  if (maxLength <= ellipsis.length) return ellipsis.slice(0, maxLength)
+const TAB_LABEL_ELLIPSIS = '\u2026'
+
+export function getFileNameTabLabelParts(filePath: string, maxLength = 32): FileNameTabLabelParts {
+  const name = fileName(filePath)
+
+  if (name.length <= maxLength) return { prefix: name, suffix: '', truncated: false }
+  if (maxLength <= TAB_LABEL_ELLIPSIS.length) {
+    return { prefix: TAB_LABEL_ELLIPSIS.slice(0, maxLength), suffix: '', truncated: true }
+  }
 
   const lastDot = name.lastIndexOf('.')
   const hasExtension = lastDot > 0 && lastDot < name.length - 1
   const extension = hasExtension ? name.slice(lastDot) : ''
   const baseName = hasExtension ? name.slice(0, lastDot) : name
-  const reservedLength = ellipsis.length + extension.length
 
-  if (extension && reservedLength < maxLength) {
-    const visibleBase = baseName.slice(0, maxLength - reservedLength).replace(/[-_. ]+$/, '')
-    return `${visibleBase || baseName.slice(0, maxLength - reservedLength)}${ellipsis}${extension}`
+  if (extension) {
+    const reservedLength = TAB_LABEL_ELLIPSIS.length + extension.length
+    if (reservedLength < maxLength) {
+      const visibleBase = trimTabLabelPrefix(baseName.slice(0, maxLength - reservedLength))
+      return {
+        prefix: visibleBase || baseName.slice(0, maxLength - reservedLength),
+        suffix: extension,
+        truncated: true,
+      }
+    }
   }
 
-  const visibleName = name.slice(0, maxLength - ellipsis.length).replace(/[-_. ]+$/, '')
-  return `${visibleName || name.slice(0, maxLength - ellipsis.length)}${ellipsis}`
+  const visibleName = trimTabLabelPrefix(name.slice(0, maxLength - TAB_LABEL_ELLIPSIS.length))
+  return {
+    prefix: visibleName || name.slice(0, maxLength - TAB_LABEL_ELLIPSIS.length),
+    suffix: '',
+    truncated: true,
+  }
+}
+
+export function shortenFileNameForTab(filePath: string, maxLength = 32): string {
+  const { prefix, suffix, truncated } = getFileNameTabLabelParts(filePath, maxLength)
+  if (!truncated) return prefix
+  return `${prefix}${TAB_LABEL_ELLIPSIS}${suffix}`
+}
+
+function trimTabLabelPrefix(text: string): string {
+  return text.replace(/[-_. ]+$/, '')
 }
 
 export function splitDiffByFile(diffText: string): FileDiff[] {

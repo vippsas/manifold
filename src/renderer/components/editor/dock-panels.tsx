@@ -104,15 +104,6 @@ function EditorPanel({ api }: { api: { id: string } }): React.JSX.Element {
   const s = useDockState()
   const paneId = api.id
   const pane = s.getEditorPane(paneId)
-  const moveTargets = useMemo(
-    () => s.editorPaneIds
-      .filter((id) => id !== paneId)
-      .map((id) => ({
-        id,
-        label: `Editor ${s.editorPaneIds.indexOf(id) + 1}`,
-      })),
-    [s.editorPaneIds, paneId],
-  )
 
   React.useEffect(() => {
     s.onRegisterEditorPane(paneId)
@@ -136,10 +127,7 @@ function EditorPanel({ api }: { api: { id: string } }): React.JSX.Element {
       fileContent={pane.fileContent}
       lastFileOpenRequest={s.lastFileOpenRequest}
       theme={s.theme}
-      moveTargets={moveTargets}
       onActivatePane={() => s.onActivateEditorPane(paneId)}
-      onSplitPane={(direction) => s.onSplitEditorPane(paneId, direction)}
-      onMoveFile={(filePath, targetPaneId) => s.onMoveFileToPane(filePath, targetPaneId, paneId)}
       onSelectTab={(filePath) => s.onSelectOpenFile(filePath, paneId)}
       onOpenLinkedFile={(filePath) => s.onSelectFileFromMarkdownPreview(filePath, paneId)}
       onCloseTab={(filePath) => s.onCloseFile(filePath, paneId)}
