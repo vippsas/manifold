@@ -65,55 +65,81 @@ export function fileName(filePath: string): string {
   return filePath.split('/').pop() ?? filePath
 }
 
-export interface FileNameTabLabelParts {
-  prefix: string
-  suffix: string
-  truncated: boolean
+export interface FileTabLabel {
+  name: string
+  description: string
 }
 
-const TAB_LABEL_ELLIPSIS = '\u2026'
+export function getFileTabLabels(filePaths: string[]): FileTabLabel[] {
+  const labels = filePaths.map((path) => ({ name: fileName(path), description: '' }))
+  const duplicateGroups = new Map<string, number[]>()
 
-export function getFileNameTabLabelParts(filePath: string, maxLength = 32): FileNameTabLabelParts {
-  const name = fileName(filePath)
-
-  if (name.length <= maxLength) return { prefix: name, suffix: '', truncated: false }
-  if (maxLength <= TAB_LABEL_ELLIPSIS.length) {
-    return { prefix: TAB_LABEL_ELLIPSIS.slice(0, maxLength), suffix: '', truncated: true }
+  for (let index = 0; index < filePaths.length; index++) {
+    const name = labels[index].name
+    const indices = duplicateGroups.get(name)
+    if (indices) indices.push(index)
+    else duplicateGroups.set(name, [index])
   }
 
-  const lastDot = name.lastIndexOf('.')
-  const hasExtension = lastDot > 0 && lastDot < name.length - 1
-  const extension = hasExtension ? name.slice(lastDot) : ''
-  const baseName = hasExtension ? name.slice(0, lastDot) : name
+  for (const indices of duplicateGroups.values()) {
+    if (indices.length <= 1) continue
 
-  if (extension) {
-    const reservedLength = TAB_LABEL_ELLIPSIS.length + extension.length
-    if (reservedLength < maxLength) {
-      const visibleBase = trimTabLabelPrefix(baseName.slice(0, maxLength - reservedLength))
-      return {
-        prefix: visibleBase || baseName.slice(0, maxLength - reservedLength),
-        suffix: extension,
-        truncated: true,
-      }
+    const descriptions = getUniqueDirectorySuffixes(indices.map((index) => filePaths[index]))
+    for (let i = 0; i < indices.length; i++) {
+      labels[indices[i]].description = descriptions[i]
     }
   }
 
-  const visibleName = trimTabLabelPrefix(name.slice(0, maxLength - TAB_LABEL_ELLIPSIS.length))
-  return {
-    prefix: visibleName || name.slice(0, maxLength - TAB_LABEL_ELLIPSIS.length),
-    suffix: '',
-    truncated: true,
+  return labels
+}
+
+function getUniqueDirectorySuffixes(filePaths: string[]): string[] {
+  const directorySegments = filePaths.map((filePath) => splitPathSegments(parentPath(filePath)))
+  const commonPrefixLength = getCommonPrefixLength(directorySegments)
+  const relativeDirectorySegments = directorySegments.map((segments) => segments.slice(commonPrefixLength))
+  const maxSegmentCount = Math.max(...relativeDirectorySegments.map((segments) => segments.length), 0)
+
+  for (let segmentCount = 1; segmentCount <= maxSegmentCount; segmentCount++) {
+    const candidates = relativeDirectorySegments.map((segments) => formatPathSuffix(segments, segmentCount))
+    if (new Set(candidates).size === candidates.length) {
+      return candidates
+    }
+  }
+
+  return relativeDirectorySegments.map((segments) => segments.join('/'))
+}
+
+function parentPath(filePath: string): string {
+  const normalized = filePath.replace(/\\/g, '/')
+  const lastSlash = normalized.lastIndexOf('/')
+  if (lastSlash <= 0) return ''
+  return normalized.slice(0, lastSlash)
+}
+
+function splitPathSegments(path: string): string[] {
+  return path
+    .replace(/\\/g, '/')
+    .split('/')
+    .filter(Boolean)
+}
+
+function getCommonPrefixLength(allSegments: string[][]): number {
+  if (allSegments.length === 0) return 0
+
+  let prefixLength = 0
+  while (true) {
+    const candidate = allSegments[0][prefixLength]
+    if (!candidate) return prefixLength
+    if (allSegments.some((segments) => segments[prefixLength] !== candidate)) {
+      return prefixLength
+    }
+    prefixLength++
   }
 }
 
-export function shortenFileNameForTab(filePath: string, maxLength = 32): string {
-  const { prefix, suffix, truncated } = getFileNameTabLabelParts(filePath, maxLength)
-  if (!truncated) return prefix
-  return `${prefix}${TAB_LABEL_ELLIPSIS}${suffix}`
-}
-
-function trimTabLabelPrefix(text: string): string {
-  return text.replace(/[-_. ]+$/, '')
+function formatPathSuffix(segments: string[], segmentCount: number): string {
+  if (segments.length === 0) return ''
+  return segments.slice(-segmentCount).join('/')
 }
 
 export function splitDiffByFile(diffText: string): FileDiff[] {

@@ -369,14 +369,28 @@ describe('CodeViewer', () => {
     })
   })
 
-  it('uses a tighter tab label budget for long file names', () => {
+  it('shows the basename unchanged for long file names', () => {
     renderViewer({
       openFiles: [makeOpenFile({ path: '/repo/repository-provisioning-display-plan.md' })],
       activeFilePath: '/repo/repository-provisioning-display-plan.md',
       fileContent: 'plan',
     })
 
-    expect(screen.getByRole('button', { name: /repository-provisi\s*…\s*\.md/ })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'repository-provisioning-display-plan.md' })).toBeInTheDocument()
+  })
+
+  it('adds directory context only when duplicate basenames are open', () => {
+    renderViewer({
+      openFiles: [
+        makeOpenFile({ path: '/repo/docs/readme.md', content: '# Docs' }),
+        makeOpenFile({ path: '/repo/reference/readme.md', content: '# Reference' }),
+      ],
+      activeFilePath: '/repo/docs/readme.md',
+      fileContent: '# Docs',
+    })
+
+    expect(screen.getByRole('button', { name: /readme\.md\s*•\s*docs/ })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /readme\.md\s*•\s*reference/ })).toBeInTheDocument()
   })
 
 })

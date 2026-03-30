@@ -61,7 +61,7 @@ export const viewerStyles: Record<string, React.CSSProperties> = {
     whiteSpace: 'nowrap' as const,
     flexShrink: 1,
     minWidth: 0,
-    maxWidth: '220px',
+    maxWidth: '180px',
     overflow: 'hidden',
   },
   tabActive: {
@@ -70,7 +70,7 @@ export const viewerStyles: Record<string, React.CSSProperties> = {
   },
   tabLabel: {
     display: 'flex',
-    alignItems: 'baseline',
+    alignItems: 'center',
     justifyContent: 'flex-start',
     flex: '1 1 auto',
     minWidth: 0,
@@ -83,18 +83,24 @@ export const viewerStyles: Record<string, React.CSSProperties> = {
     whiteSpace: 'nowrap' as const,
     textAlign: 'left' as const,
   },
-  tabLabelPrefix: {
+  tabLabelName: {
     flex: '1 1 auto',
     minWidth: 0,
     overflow: 'hidden',
+    textOverflow: 'ellipsis',
     whiteSpace: 'nowrap' as const,
   },
-  tabLabelEllipsis: {
+  tabLabelSeparator: {
     flexShrink: 0,
+    color: 'var(--text-muted)',
   },
-  tabLabelSuffix: {
-    flexShrink: 0,
+  tabLabelDescription: {
+    flex: '0 1 45%',
+    minWidth: 0,
+    overflow: 'hidden',
+    textOverflow: 'ellipsis',
     whiteSpace: 'nowrap' as const,
+    color: 'var(--text-muted)',
   },
   tabClose: {
     padding: '0 2px',
