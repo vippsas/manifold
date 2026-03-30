@@ -7,7 +7,7 @@ import type { PtyPool } from '../agent/pty-pool'
 import type { InternalSession } from './session-types'
 
 const HISTORY_LINES = 20
-const SUGGESTION_TIMEOUT_MS = 10_000
+const SUGGESTION_TIMEOUT_MS = 30_000
 
 /**
  * Parse a single zsh history line, stripping extended history format.

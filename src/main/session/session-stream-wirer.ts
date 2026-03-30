@@ -65,11 +65,11 @@ export class SessionStreamWirer {
         this.checkVercelDeploy(session)
       }
 
-      // Detect Manifold shell prompt and trigger AI command prediction
-      if (session.runtimeId === '__shell__' && this.gitOps && data.includes('❯')) {
-        // Dismiss any existing suggestion when new output arrives
+      // Detect Manifold shell prompt and trigger AI command prediction.
+      // Skip if a prediction is already in flight to avoid flooding the AI runtime.
+      if (session.runtimeId === '__shell__' && this.gitOps && data.includes('❯')
+          && !session.shellSuggestion?.pending) {
         dismissSuggestion(session, this.ptyPool)
-        // The ❯ character in output means the prompt was printed — predict next command
         void predictNextCommand(session, this.ptyPool, this.gitOps)
       }
 
