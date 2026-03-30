@@ -34,7 +34,7 @@ export function buildWelcomeMessage(branch: string, cwd: string): string {
   // Shorten home directory to ~
   const home = os.homedir()
   const displayPath = cwd.startsWith(home) ? '~' + cwd.slice(home.length) : cwd
-  return `${dim}●  ${cyan}${branch}${dim}  ·  ${displayPath}${reset}\r\n`
+  return `${dim}●  ${cyan}${branch}${dim}  ·  ${displayPath}${reset}\r\n${dim}💡 Type ${cyan}#${dim} followed by your question for AI help${reset}\r\n`
 }
 
 /**

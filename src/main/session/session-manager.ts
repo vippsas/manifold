@@ -7,6 +7,7 @@ import { DevServerManager } from '../app/dev-server-manager'
 import { SessionCreator } from './session-creator'
 import { SessionTeardown } from './session-teardown'
 import { writeWorktreeMeta } from '../git/worktree-meta'
+import { debugLog } from '../app/debug-log'
 import { FileWatcher } from '../fs/file-watcher'
 import type { ChatAdapter } from '../agent/chat-adapter'
 import type { MemoryCapture } from '../memory/memory-capture'
@@ -167,6 +168,12 @@ export class SessionManager {
     }
 
     if (!session.ptyId) return
+
+    // Clear first-prompt hint ghost text on any keystroke
+    if (session.nlHintActive) {
+      session.nlHintActive = false
+      clearGhostText(this.ptyPool, session.ptyId)
+    }
 
     // NL command translator: buffer keystrokes for shell sessions
     if (session.nlInputBuffer) {

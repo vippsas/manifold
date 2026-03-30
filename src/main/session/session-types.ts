@@ -31,4 +31,8 @@ export interface InternalSession extends AgentSession {
   nlOutputBuffer?: RollingOutputBuffer
   /** Whether an NL translation request is in flight */
   nlPending?: boolean
+  /** Whether the first-prompt NL hint ghost text has been shown */
+  nlHintShown?: boolean
+  /** Whether the NL hint ghost text is currently visible (cleared on keystroke) */
+  nlHintActive?: boolean
 }

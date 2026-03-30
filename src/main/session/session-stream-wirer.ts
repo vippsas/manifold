@@ -10,7 +10,7 @@ import { debugLog } from '../app/debug-log'
 import type { InternalSession } from './session-types'
 import type { SimpleRuntimeOutputMode } from '../agent/simple-runtime'
 import type { GitOperationsManager } from '../git/git-operations'
-import { predictNextCommand, dismissSuggestion } from './shell-suggestion'
+import { predictNextCommand, dismissSuggestion, injectGhostText } from './shell-suggestion'
 
 export class SessionStreamWirer {
   private gitOps: GitOperationsManager | undefined
@@ -73,7 +73,14 @@ export class SessionStreamWirer {
       if (session.runtimeId === '__shell__' && this.gitOps && data.includes('❯')
           && !session.shellSuggestion?.pending && !session.nlPending) {
         dismissSuggestion(session, this.ptyPool)
-        void predictNextCommand(session, this.ptyPool, this.gitOps)
+        if (!session.nlHintShown) {
+          // First prompt: show hint ghost text teaching the user about # prefix
+          session.nlHintShown = true
+          session.nlHintActive = true
+          injectGhostText(this.ptyPool, session.ptyId, '# ask AI for help...')
+        } else {
+          void predictNextCommand(session, this.ptyPool, this.gitOps)
+        }
       }
 
       this.getChatAdapter()?.processPtyOutput(session.id, data)
