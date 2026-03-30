@@ -27,6 +27,14 @@ export function applyDefaultLayout(api: DockviewApi): void {
     position: { referencePanel: 'agent', direction: 'within' },
   })
 
+  api.addPanel({
+    id: 'backgroundAgent',
+    component: 'backgroundAgent',
+    title: PANEL_TITLES.backgroundAgent,
+    inactive: true,
+    position: { referencePanel: 'agent', direction: 'within' },
+  })
+
   const filesPanel = api.addPanel({
     id: 'fileTree',
     component: 'fileTree',

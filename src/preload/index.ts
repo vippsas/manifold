@@ -83,6 +83,10 @@ const ALLOWED_INVOKE_CHANNELS = [
   'search:view-state:set',
   'search:query',
   'search:ask',
+  'background-agent:list-suggestions',
+  'background-agent:refresh',
+  'background-agent:feedback',
+  'background-agent:get-status',
 ] as const
 
 const ALLOWED_SEND_CHANNELS = [
