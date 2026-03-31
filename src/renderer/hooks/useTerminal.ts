@@ -1,4 +1,4 @@
-import { useEffect, useRef, type RefObject } from 'react'
+import { useCallback, useEffect, useRef, type RefObject } from 'react'
 import { Terminal } from '@xterm/xterm'
 import type { ITheme } from '@xterm/xterm'
 import { FitAddon } from '@xterm/addon-fit'
@@ -29,6 +29,7 @@ interface UseTerminalOptions {
 
 interface UseTerminalResult {
   containerRef: RefObject<HTMLDivElement | null>
+  focusTerminal: () => void
 }
 
 export function useTerminal({ sessionId, scrollbackLines, terminalFontFamily, xtermTheme }: UseTerminalOptions): UseTerminalResult {
@@ -222,7 +223,14 @@ export function useTerminal({ sessionId, scrollbackLines, terminalFontFamily, xt
   // eslint-disable-next-line react-hooks/exhaustive-deps -- terminalFontFamily handled by its own effect
   }, [sessionId, scrollbackLines])
 
-  return { containerRef: containerRef as RefObject<HTMLDivElement | null> }
+  const focusTerminal = useCallback((): void => {
+    terminalRef.current?.focus()
+  }, [])
+
+  return {
+    containerRef: containerRef as RefObject<HTMLDivElement | null>,
+    focusTerminal,
+  }
 }
 
 function fitAndResize(

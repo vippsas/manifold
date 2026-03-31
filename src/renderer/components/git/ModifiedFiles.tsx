@@ -1,5 +1,7 @@
-import React, { useMemo } from 'react'
+import React, { useCallback, useMemo } from 'react'
 import type { FileChange, FileChangeType } from '../../../shared/types'
+import { getRelativePath } from '../../../shared/relative-path'
+import { writeAgentPathDragData } from '../editor/file-tree-drag'
 
 interface ModifiedFilesProps {
   changes: FileChange[]
@@ -43,6 +45,8 @@ export function ModifiedFiles({
             <ModifiedFileRow
               key={change.path}
               change={change}
+              absolutePath={`${root}/${change.path}`}
+              relativePath={getRelativePath(`${root}/${change.path}`, root)}
               isActive={activeFilePath === `${root}/${change.path}`}
               onSelect={() => onSelectFile(`${root}/${change.path}`)}
             />
@@ -55,10 +59,14 @@ export function ModifiedFiles({
 
 function ModifiedFileRow({
   change,
+  absolutePath,
+  relativePath,
   isActive,
   onSelect,
 }: {
   change: FileChange
+  absolutePath: string
+  relativePath: string
   isActive: boolean
   onSelect: () => void
 }): React.JSX.Element {
@@ -66,13 +74,19 @@ function ModifiedFileRow({
   const filename = parts[parts.length - 1]
   const dir = parts.length > 1 ? parts.slice(0, -1).join('/') : ''
   const indicator = CHANGE_INDICATORS[change.type]
+  const handleDragStart = useCallback((e: React.DragEvent<HTMLDivElement>): void => {
+    writeAgentPathDragData(e.dataTransfer, relativePath)
+  }, [relativePath])
 
   return (
     <div
       onClick={onSelect}
+      onDragStart={handleDragStart}
       role="button"
       tabIndex={0}
       data-active={isActive || undefined}
+      data-path={absolutePath}
+      draggable
       style={{
         ...styles.row,
         ...(isActive ? styles.rowActive : undefined),

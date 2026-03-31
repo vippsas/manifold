@@ -20,6 +20,7 @@ export interface TreeNodeProps {
   onConfirmRename: (nodePath: string, oldName: string) => void
   onCancelRename: () => void
   onContextMenu?: (e: React.MouseEvent, node: FileTreeNode) => void
+  dragRootPath?: string | null
   creating?: { parentPath: string; type: 'file' | 'directory'; afterPath?: string } | null
   createName?: string
   createError?: string | null
@@ -52,6 +53,7 @@ export function TreeNode({
   onConfirmCreate,
   onCancelCreate,
   onContextMenu,
+  dragRootPath,
 }: TreeNodeProps): React.JSX.Element {
   const expanded = expandedPaths.has(node.path)
   const isCreatingHere = creating?.parentPath === node.path
@@ -111,6 +113,7 @@ export function TreeNode({
         onConfirmRename={onConfirmRename}
         onCancelRename={onCancelRename}
         onContextMenu={handleContextMenu}
+        dragRootPath={dragRootPath}
       />
       {node.isDirectory && expanded && (
         <>
@@ -146,6 +149,7 @@ export function TreeNode({
                 onConfirmRename={onConfirmRename}
                 onCancelRename={onCancelRename}
                 onContextMenu={onContextMenu}
+                dragRootPath={dragRootPath}
                 creating={creating}
                 createName={createName}
                 createError={createError}

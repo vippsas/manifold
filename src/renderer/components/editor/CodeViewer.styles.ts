@@ -68,6 +68,9 @@ export const viewerStyles: Record<string, React.CSSProperties> = {
     color: 'var(--text-primary)',
     background: 'var(--bg-primary)',
   },
+  tabMenuOpen: {
+    boxShadow: 'inset 0 -1px 0 var(--accent)',
+  },
   tabLabel: {
     display: 'flex',
     alignItems: 'center',

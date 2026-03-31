@@ -264,6 +264,26 @@ describe('CodeViewer', () => {
     })
   })
 
+  it('opens a tab context menu and sends the clicked file to a directional split pane', () => {
+    const onSelectTab = vi.fn()
+    const onMoveTabToSplitPane = vi.fn()
+
+    renderViewer({
+      onSelectTab,
+      onMoveTabToSplitPane,
+    })
+
+    const tab = screen.getByRole('button', { name: 'file.ts' }).closest('div')
+    expect(tab).not.toBeNull()
+    fireEvent.contextMenu(tab as HTMLDivElement)
+
+    expect(onSelectTab).toHaveBeenCalledWith('/repo/file.ts')
+    expect(screen.getByRole('menuitem', { name: 'Split pane to the bottom' })).toBeInTheDocument()
+    fireEvent.click(screen.getByRole('menuitem', { name: 'Split pane to the right' }))
+
+    expect(onMoveTabToSplitPane).toHaveBeenCalledWith('/repo/file.ts', 'right')
+  })
+
   it('opens relative markdown links in the current editor pane', async () => {
     const onOpenLinkedFile = vi.fn()
 

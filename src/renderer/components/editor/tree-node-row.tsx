@@ -1,6 +1,7 @@
 import React, { useCallback } from 'react'
 import type { FileTreeNode, FileChangeType } from '../../../shared/types'
 import { getFileIconSvg } from './file-icons'
+import { getDraggedTreePath, writeFileTreeDragData } from './file-tree-drag'
 import { CHANGE_INDICATORS, treeStyles } from './FileTree.styles'
 
 // Inline SVG chevron for directory expand/collapse
@@ -22,6 +23,7 @@ export function NodeRow({
   onConfirmRename,
   onCancelRename,
   onContextMenu,
+  dragRootPath,
 }: {
   node: FileTreeNode
   depth: number
@@ -38,6 +40,7 @@ export function NodeRow({
   onConfirmRename: (nodePath: string, oldName: string) => void
   onCancelRename: () => void
   onContextMenu?: (e: React.MouseEvent) => void
+  dragRootPath?: string | null
 }): React.JSX.Element {
   const indicator = changeType ? CHANGE_INDICATORS[changeType] : null
   const indent = depth * 8
@@ -54,12 +57,18 @@ export function NodeRow({
     e.stopPropagation()
   }, [])
 
+  const handleDragStart = useCallback((e: React.DragEvent<HTMLDivElement>): void => {
+    if (!dragRootPath) return
+    writeFileTreeDragData(e.dataTransfer, getDraggedTreePath(node.path, dragRootPath))
+  }, [dragRootPath, node.path])
+
   return (
     <div
       className={`file-tree-row${isActive ? ' file-tree-row--active' : ''}${isSelected ? ' file-tree-row--selected' : ''}`}
       onClick={onClick}
       onDoubleClick={onDoubleClick}
       onContextMenu={onContextMenu}
+      onDragStart={handleDragStart}
       data-tree-path={node.path}
       data-tree-is-directory={node.isDirectory ? 'true' : 'false'}
       style={{
@@ -69,6 +78,7 @@ export function NodeRow({
       role="button"
       tabIndex={0}
       title={node.path}
+      draggable={!isRenaming && Boolean(dragRootPath)}
     >
       {/* Indent guides */}
       {Array.from({ length: depth }, (_, i) => (
