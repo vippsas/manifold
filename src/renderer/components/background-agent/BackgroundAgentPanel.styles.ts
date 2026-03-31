@@ -42,6 +42,27 @@ export const backgroundAgentPanelStyles: Record<string, React.CSSProperties> = {
     cursor: 'pointer',
     fontSize: 12,
   },
+  toolbarActions: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: 8,
+  },
+  clearButton: {
+    display: 'inline-flex',
+    alignItems: 'center',
+    gap: 8,
+    padding: '6px 10px',
+    borderRadius: 6,
+    border: '1px solid var(--border)',
+    background: 'transparent',
+    color: 'var(--text-secondary)',
+    cursor: 'pointer',
+    fontSize: 12,
+  },
+  clearButtonDisabled: {
+    cursor: 'default',
+    opacity: 0.72,
+  },
   refreshButtonDisabled: {
     cursor: 'default',
     opacity: 0.85,
@@ -86,6 +107,18 @@ export const backgroundAgentPanelStyles: Record<string, React.CSSProperties> = {
   infoText: {
     fontSize: 12,
     lineHeight: 1.5,
+  },
+  infoList: {
+    display: 'flex',
+    flexDirection: 'column',
+    gap: 6,
+    margin: 0,
+    paddingLeft: 16,
+  },
+  infoItem: {
+    fontSize: 12,
+    lineHeight: 1.5,
+    color: 'var(--text-secondary)',
   },
   error: {
     color: 'var(--status-error)',
@@ -192,10 +225,41 @@ export const backgroundAgentPanelStyles: Record<string, React.CSSProperties> = {
     flexDirection: 'column',
     gap: 6,
   },
+  sourceItem: {
+    display: 'flex',
+    flexDirection: 'column',
+    gap: 4,
+    padding: '8px 10px',
+    borderRadius: 8,
+    background: 'var(--bg-secondary)',
+    border: '1px solid var(--border)',
+  },
   sourceLink: {
     fontSize: 12,
     color: 'var(--accent)',
     textDecoration: 'none',
+  },
+  sourceMeta: {
+    fontSize: 11,
+    color: 'var(--text-muted)',
+    lineHeight: 1.4,
+  },
+  sourceNote: {
+    fontSize: 12,
+    color: 'var(--text-secondary)',
+    lineHeight: 1.5,
+  },
+  evidenceList: {
+    display: 'flex',
+    flexDirection: 'column',
+    gap: 6,
+    margin: 0,
+    paddingLeft: 18,
+  },
+  evidenceItem: {
+    fontSize: 12,
+    lineHeight: 1.5,
+    color: 'var(--text-secondary)',
   },
   feedbackRow: {
     display: 'flex',
@@ -210,5 +274,19 @@ export const backgroundAgentPanelStyles: Record<string, React.CSSProperties> = {
     color: 'var(--text-secondary)',
     cursor: 'pointer',
     fontSize: 11,
+  },
+  feedbackButtonActive: {
+    color: 'var(--accent)',
+    borderColor: 'var(--accent)',
+    background: 'var(--accent-subtle)',
+  },
+  feedbackButtonDisabled: {
+    cursor: 'default',
+    opacity: 0.72,
+  },
+  feedbackError: {
+    fontSize: 11,
+    color: 'var(--status-error)',
+    lineHeight: 1.4,
   },
 }

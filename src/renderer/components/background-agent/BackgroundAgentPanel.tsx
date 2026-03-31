@@ -1,6 +1,7 @@
 import React from 'react'
 import { useBackgroundAgent } from '../../hooks/useBackgroundAgent'
 import { useDockState } from '../editor/dock-panel-types'
+import { ActionMenuButton } from '../editor/ActionMenuButton'
 import { backgroundAgentPanelStyles as s } from './BackgroundAgentPanel.styles'
 import { BackgroundSuggestionCard } from './BackgroundSuggestionCard'
 
@@ -17,17 +18,54 @@ export function BackgroundAgentPanel(): React.JSX.Element {
   }
 
   const snapshot = backgroundAgent.snapshot
-  const status = snapshot?.status
+  const status = backgroundAgent.status
+  const refreshState = status?.refreshState ?? 'idle'
+  const isPaused = refreshState === 'paused'
+  const isStopped = refreshState === 'stopped'
+  const isPauseRequested = refreshState === 'pause_requested'
+  const isStopRequested = refreshState === 'stop_requested'
   const summaryText = status?.summary ?? getFallbackStatusText(status?.phase)
+  const detailText = status?.detail ?? null
   const activityItems = (status?.recentActivity ?? [])
-    .filter((item) => item !== summaryText)
+    .filter((item) => item !== summaryText && item !== detailText)
     .slice()
     .reverse()
-  const subtitle = backgroundAgent.isRefreshing
+  const subtitle = backgroundAgent.isRefreshing || isPaused || isStopped
     ? summaryText
     : snapshot?.status.lastRefreshedAt
       ? `Last refreshed ${new Date(snapshot.status.lastRefreshedAt).toLocaleString()}`
       : 'Refresh to build the first project-aware feed'
+  const canClear = !backgroundAgent.isRefreshing && !backgroundAgent.isClearing && (
+    Boolean(snapshot?.profile) || backgroundAgent.suggestions.length > 0
+  )
+  const showStatusCard = backgroundAgent.isRefreshing || isPaused || isStopped
+  const primaryAction = isPaused
+    ? () => void backgroundAgent.resume()
+    : backgroundAgent.isRefreshing
+      ? () => void backgroundAgent.pause()
+      : () => void backgroundAgent.refresh()
+  const primaryLabel = isPaused
+    ? 'Resume Ideas'
+    : isPauseRequested
+      ? 'Pausing...'
+      : isStopRequested
+        ? 'Stopping...'
+        : backgroundAgent.isRefreshing
+          ? 'Pause Ideas'
+          : 'Refresh Ideas'
+  const primaryDisabled = backgroundAgent.isClearing || isPauseRequested || isStopRequested
+  const actionMenuItems = [
+    ...((backgroundAgent.isRefreshing || isPaused) && !isStopRequested ? [{
+      id: 'stop',
+      label: 'Stop Refresh',
+      action: () => void backgroundAgent.stop(),
+    }] : []),
+    ...(canClear ? [{
+      id: 'clear',
+      label: 'Clear Ideas',
+      action: () => void backgroundAgent.clear(),
+    }] : []),
+  ]
 
   return (
     <div style={s.wrapper}>
@@ -36,34 +74,42 @@ export function BackgroundAgentPanel(): React.JSX.Element {
           <div style={s.title}>Project Ideas</div>
           <div style={s.subtitle}>{subtitle}</div>
         </div>
-        <button
-          type="button"
-          style={{
-            ...s.refreshButton,
-            ...(backgroundAgent.isRefreshing ? s.refreshButtonDisabled : {}),
-          }}
-          onClick={() => void backgroundAgent.refresh()}
-          disabled={backgroundAgent.isRefreshing}
-        >
-          {backgroundAgent.isRefreshing && (
-            <span className="spinner" aria-hidden="true" style={s.buttonSpinner} />
-          )}
-          <span>{backgroundAgent.isRefreshing ? 'Refreshing Ideas...' : 'Refresh Ideas'}</span>
-        </button>
+        <div style={s.toolbarActions}>
+          <button
+            type="button"
+            style={{
+              ...s.refreshButton,
+              ...(primaryDisabled ? s.refreshButtonDisabled : {}),
+            }}
+            onClick={primaryAction}
+            disabled={primaryDisabled}
+          >
+            {(isPauseRequested || isStopRequested) && (
+              <span className="spinner" aria-hidden="true" style={s.buttonSpinner} />
+            )}
+            <span>{primaryLabel}</span>
+          </button>
+          <ActionMenuButton
+            buttonLabel="More"
+            title="More actions"
+            menuLabel="Ideas actions"
+            items={actionMenuItems}
+          />
+        </div>
       </div>
 
       <div style={s.content}>
         {backgroundAgent.error && <div style={s.error}>{backgroundAgent.error}</div>}
 
-        {backgroundAgent.isRefreshing && (
+        {showStatusCard && (
           <div style={s.statusCard}>
-            <span className="spinner" aria-hidden="true" />
+            {backgroundAgent.isRefreshing && <span className="spinner" aria-hidden="true" />}
             <div style={s.statusBody}>
               <div style={s.statusHeader}>
                 <div style={s.statusHeadline}>{summaryText}</div>
                 {status?.stepLabel && <div style={s.statusStep}>{status.stepLabel}</div>}
               </div>
-              {status?.detail && <div style={s.statusText}>{status.detail}</div>}
+              {detailText && <div style={s.statusText}>{detailText}</div>}
               {activityItems.length > 0 && (
                 <ul style={s.activityList}>
                   {activityItems.map((item, index) => (
@@ -84,6 +130,16 @@ export function BackgroundAgentPanel(): React.JSX.Element {
             )}
             {snapshot.profile.dependencyStack.length > 0 && (
               <div style={s.infoText}>Stack: {snapshot.profile.dependencyStack.join(', ')}</div>
+            )}
+            {snapshot.profile.recentChanges.length > 0 && (
+              <React.Fragment>
+                <div style={s.infoText}>Recent changes:</div>
+                <ul style={s.infoList}>
+                {snapshot.profile.recentChanges.map((item, index) => (
+                  <li key={`${index}:${item}`} style={s.infoItem}>{item}</li>
+                ))}
+                </ul>
+              </React.Fragment>
             )}
           </div>
         )}

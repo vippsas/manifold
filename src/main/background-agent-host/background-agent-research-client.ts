@@ -30,8 +30,8 @@ export class RuntimeWebResearchClient implements WebResearchClient {
     private readonly deps: Pick<BackgroundAgentHostDeps, 'settingsStore' | 'projectRegistry' | 'sessionManager' | 'gitOps'>,
     options: RuntimeResearchClientOptions = {},
   ) {
-    this.maxSourcesPerTopic = Math.max(1, options.maxSourcesPerTopic ?? 2)
-    this.maxSuggestionsPerTopic = Math.max(1, options.maxSuggestionsPerTopic ?? 1)
+    this.maxSourcesPerTopic = Math.max(2, options.maxSourcesPerTopic ?? 3)
+    this.maxSuggestionsPerTopic = Math.max(1, options.maxSuggestionsPerTopic ?? 2)
   }
 
   async research(
@@ -129,6 +129,7 @@ function buildResearchPrompt(
   const workflows = profile.majorWorkflows.length > 0 ? profile.majorWorkflows.join(', ') : '(none identified)'
   const stack = profile.dependencyStack.length > 0 ? profile.dependencyStack.join(', ') : '(unknown)'
   const openQuestions = profile.openQuestions.length > 0 ? profile.openQuestions.join('; ') : '(none identified)'
+  const recentChanges = profile.recentChanges.length > 0 ? profile.recentChanges.join('; ') : '(none identified)'
 
   return [
     'You are researching the web for a project-aware background agent inside Manifold.',
@@ -136,7 +137,7 @@ function buildResearchPrompt(
     'Forums and communities may be used only as supporting evidence, never as the only basis for a suggestion.',
     'If your runtime supports web search or browsing, use it. If it does not, return an empty result object with no invented sources.',
     'Do not inspect local repository files and do not run shell commands. Use only the supplied project profile and web research.',
-    'Be selective and fast: do at most 2 search attempts and inspect at most 2 sources before deciding.',
+    `Be selective and fast: do at most 3 search attempts and inspect at most ${maxSources} sources before deciding.`,
     'If you cannot find one high-trust source quickly, return no candidate suggestions for this topic.',
     'Return JSON only. Do not include markdown fences or commentary.',
     '',
@@ -180,6 +181,7 @@ function buildResearchPrompt(
     `- Architecture: ${profile.architectureShape ?? '(unknown)'}`,
     `- Stack: ${stack}`,
     `- Open questions: ${openQuestions}`,
+    `- Recent changes: ${recentChanges}`,
     '',
     'Research topic:',
     `- Ring: ${topic.ring}`,

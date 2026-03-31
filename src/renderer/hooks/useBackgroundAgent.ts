@@ -4,13 +4,25 @@ import type {
   BackgroundAgentGenerationStatus,
   BackgroundAgentSnapshot,
 } from '../../../background-agent/schemas/background-agent-types'
+import {
+  createRefreshBootstrapSnapshot,
+  createResumeBootstrapSnapshot,
+  formatBackgroundAgentError,
+} from './background-agent-hook-helpers'
 
 export interface UseBackgroundAgentResult {
   snapshot: BackgroundAgentSnapshot | null
+  suggestions: BackgroundAgentSnapshot['suggestions']
+  status: BackgroundAgentGenerationStatus | null
   isLoading: boolean
   isRefreshing: boolean
+  isClearing: boolean
   error: string | null
   refresh: () => Promise<void>
+  pause: () => Promise<void>
+  resume: () => Promise<void>
+  stop: () => Promise<void>
+  clear: () => Promise<void>
   submitFeedback: (suggestionId: string, feedbackType: BackgroundAgentFeedbackType) => Promise<void>
 }
 
@@ -21,16 +33,23 @@ export function useBackgroundAgent(
   const [snapshot, setSnapshot] = useState<BackgroundAgentSnapshot | null>(null)
   const [isLoading, setIsLoading] = useState(false)
   const [isRefreshing, setIsRefreshing] = useState(false)
+  const [isClearing, setIsClearing] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const requestIdRef = useRef(0)
   const pollTimerRef = useRef<number | null>(null)
-  const refreshPromiseRef = useRef<Promise<void> | null>(null)
+  const runPromiseRef = useRef<Promise<void> | null>(null)
 
   const stopPolling = useCallback((): void => {
     if (pollTimerRef.current !== null) {
       window.clearTimeout(pollTimerRef.current)
       pollTimerRef.current = null
     }
+  }, [])
+
+  const applySnapshot = useCallback((nextSnapshot: BackgroundAgentSnapshot): void => {
+    setSnapshot(nextSnapshot)
+    setIsRefreshing(nextSnapshot.status.isRefreshing)
+    setError(nextSnapshot.status.error)
   }, [])
 
   const applyStatus = useCallback((status: BackgroundAgentGenerationStatus): void => {
@@ -90,7 +109,7 @@ export function useBackgroundAgent(
       }
     } catch (nextError) {
       if (requestId !== requestIdRef.current) return
-      setError(formatError(nextError))
+      setError(formatBackgroundAgentError(nextError))
     }
   }, [applyStatus, scheduleStatusPoll])
 
@@ -103,6 +122,7 @@ export function useBackgroundAgent(
       setError(null)
       setIsLoading(false)
       setIsRefreshing(false)
+      setIsClearing(false)
       return
     }
 
@@ -112,9 +132,7 @@ export function useBackgroundAgent(
       .then((response) => {
         if (requestId !== requestIdRef.current) return
         const nextSnapshot = response as BackgroundAgentSnapshot
-        setSnapshot(nextSnapshot)
-        setIsRefreshing(nextSnapshot.status.isRefreshing)
-        setError(nextSnapshot.status.error)
+        applySnapshot(nextSnapshot)
         if (nextSnapshot.status.isRefreshing) {
           scheduleStatusPoll(activeProjectId, requestId, 0, 800)
         }
@@ -122,7 +140,7 @@ export function useBackgroundAgent(
       .catch((nextError) => {
         if (requestId !== requestIdRef.current) return
         setSnapshot(null)
-        setError(formatError(nextError))
+        setError(formatBackgroundAgentError(nextError))
       })
       .finally(() => {
         if (requestId === requestIdRef.current) {
@@ -131,69 +149,35 @@ export function useBackgroundAgent(
       })
     return () => {
       requestIdRef.current += 1
-      refreshPromiseRef.current = null
+      runPromiseRef.current = null
       stopPolling()
     }
-  }, [activeProjectId, scheduleStatusPoll, stopPolling])
+  }, [activeProjectId, applySnapshot, scheduleStatusPoll, stopPolling])
 
-  const refresh = useCallback(async (): Promise<void> => {
+  const runLongTask = useCallback(async (
+    channel: 'background-agent:refresh' | 'background-agent:resume',
+    bootstrapSnapshot: BackgroundAgentSnapshot,
+  ): Promise<void> => {
     if (!activeProjectId) return
-    if (refreshPromiseRef.current) return refreshPromiseRef.current
+    if (runPromiseRef.current) return runPromiseRef.current
 
-    const refreshPromise = (async () => {
+    const runPromise = (async () => {
       const requestId = ++requestIdRef.current
       stopPolling()
-      setSnapshot((current) => {
-        if (!current) {
-          return {
-            profile: null,
-            suggestions: [],
-            status: {
-              phase: 'profiling',
-              isRefreshing: true,
-              lastRefreshedAt: null,
-              error: null,
-              summary: 'Starting a new Ideas refresh.',
-              detail: 'Preparing local project context and research topics.',
-              stepLabel: 'Step 1 of 4',
-              recentActivity: ['Started a new Ideas refresh.'],
-            },
-          }
-        }
-
-        return {
-          ...current,
-          status: {
-            ...current.status,
-            phase: 'profiling',
-            isRefreshing: true,
-            error: null,
-            summary: 'Starting a new Ideas refresh.',
-            detail: 'Preparing local project context and research topics.',
-            stepLabel: 'Step 1 of 4',
-            recentActivity: current.status.recentActivity.at(-1) === 'Started a new Ideas refresh.'
-              ? current.status.recentActivity
-              : [...current.status.recentActivity, 'Started a new Ideas refresh.'].slice(-6),
-          },
-        }
-      })
-      setIsRefreshing(true)
-      setError(null)
+      applySnapshot(bootstrapSnapshot)
       try {
-        const refreshRequest = window.electronAPI.invoke(
-          'background-agent:refresh',
+        const request = window.electronAPI.invoke(
+          channel,
           activeProjectId,
           activeSessionId,
         ) as Promise<BackgroundAgentSnapshot>
         scheduleStatusPoll(activeProjectId, requestId, 2, 150)
-        const nextSnapshot = await refreshRequest
+        const nextSnapshot = await request
         if (requestId !== requestIdRef.current) return
-        setSnapshot(nextSnapshot)
-        setIsRefreshing(nextSnapshot.status.isRefreshing)
-        setError(nextSnapshot.status.error)
+        applySnapshot(nextSnapshot)
       } catch (nextError) {
         if (requestId !== requestIdRef.current) return
-        setError(formatError(nextError))
+        setError(formatBackgroundAgentError(nextError))
       } finally {
         stopPolling()
         if (requestId === requestIdRef.current) {
@@ -202,41 +186,96 @@ export function useBackgroundAgent(
       }
     })()
 
-    refreshPromiseRef.current = refreshPromise
+    runPromiseRef.current = runPromise
     try {
-      await refreshPromise
+      await runPromise
     } finally {
-      if (refreshPromiseRef.current === refreshPromise) {
-        refreshPromiseRef.current = null
+      if (runPromiseRef.current === runPromise) {
+        runPromiseRef.current = null
       }
     }
-  }, [activeProjectId, activeSessionId, scheduleStatusPoll, stopPolling])
+  }, [activeProjectId, activeSessionId, applySnapshot, scheduleStatusPoll, stopPolling])
+
+  const refresh = useCallback(async (): Promise<void> => {
+    await runLongTask('background-agent:refresh', createRefreshBootstrapSnapshot(snapshot))
+  }, [runLongTask, snapshot])
+
+  const resume = useCallback(async (): Promise<void> => {
+    if (!snapshot) return
+    await runLongTask('background-agent:resume', createResumeBootstrapSnapshot(snapshot))
+  }, [runLongTask, snapshot])
+
+  const pause = useCallback(async (): Promise<void> => {
+    if (!activeProjectId) return
+    const nextSnapshot = await window.electronAPI.invoke(
+      'background-agent:pause',
+      activeProjectId,
+    ) as BackgroundAgentSnapshot
+    applySnapshot(nextSnapshot)
+    if (nextSnapshot.status.isRefreshing) {
+      scheduleStatusPoll(activeProjectId, requestIdRef.current, 0, 200)
+    }
+  }, [activeProjectId, applySnapshot, scheduleStatusPoll])
+
+  const stop = useCallback(async (): Promise<void> => {
+    if (!activeProjectId) return
+    const nextSnapshot = await window.electronAPI.invoke(
+      'background-agent:stop',
+      activeProjectId,
+    ) as BackgroundAgentSnapshot
+    applySnapshot(nextSnapshot)
+    if (nextSnapshot.status.isRefreshing) {
+      scheduleStatusPoll(activeProjectId, requestIdRef.current, 0, 200)
+    } else {
+      stopPolling()
+    }
+  }, [activeProjectId, applySnapshot, scheduleStatusPoll, stopPolling])
 
   const submitFeedback = useCallback(async (
     suggestionId: string,
     feedbackType: BackgroundAgentFeedbackType,
   ): Promise<void> => {
     if (!activeProjectId) return
-    await window.electronAPI.invoke(
+    const nextSnapshot = await window.electronAPI.invoke(
       'background-agent:feedback',
       activeProjectId,
       suggestionId,
       feedbackType,
-    )
-  }, [activeProjectId])
+    ) as BackgroundAgentSnapshot
+    applySnapshot(nextSnapshot)
+  }, [activeProjectId, applySnapshot])
+
+  const clear = useCallback(async (): Promise<void> => {
+    if (!activeProjectId) return
+    stopPolling()
+    setIsClearing(true)
+    setError(null)
+    try {
+      const nextSnapshot = await window.electronAPI.invoke(
+        'background-agent:clear',
+        activeProjectId,
+      ) as BackgroundAgentSnapshot
+      applySnapshot(nextSnapshot)
+    } catch (nextError) {
+      setError(formatBackgroundAgentError(nextError))
+    } finally {
+      setIsClearing(false)
+    }
+  }, [activeProjectId, applySnapshot, stopPolling])
 
   return {
     snapshot,
+    suggestions: snapshot?.suggestions ?? [],
+    status: snapshot?.status ?? null,
     isLoading,
     isRefreshing,
+    isClearing,
     error,
     refresh,
+    pause,
+    resume,
+    stop,
+    clear,
     submitFeedback,
   }
-}
-
-function formatError(error: unknown): string {
-  if (error instanceof Error && error.message.trim()) return error.message.trim()
-  if (typeof error === 'string' && error.trim()) return error.trim()
-  return 'Unknown background-agent error.'
 }

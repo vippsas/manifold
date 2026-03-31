@@ -85,7 +85,11 @@ const ALLOWED_INVOKE_CHANNELS = [
   'search:ask',
   'background-agent:list-suggestions',
   'background-agent:refresh',
+  'background-agent:resume',
+  'background-agent:pause',
+  'background-agent:stop',
   'background-agent:feedback',
+  'background-agent:clear',
   'background-agent:get-status',
 ] as const
 
