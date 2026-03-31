@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest'
 import { generateResearchTopics } from '../../../background-agent/core/research/research-topic-generator'
 
 describe('generateResearchTopics', () => {
-  it('includes all three similarity rings and an ecosystem topic', () => {
+  it('generates six research topics across the three similarity rings', () => {
     const topics = generateResearchTopics({
       projectId: 'project-1',
       projectName: 'Manifold',
@@ -19,8 +19,10 @@ describe('generateResearchTopics', () => {
       generatedAt: '2026-03-31T07:00:00.000Z',
     })
 
-    expect(topics).toHaveLength(4)
-    expect(topics.map((topic) => topic.ring)).toEqual([1, 2, 3, 3])
+    expect(topics).toHaveLength(6)
+    expect(topics.map((topic) => topic.ring)).toEqual([1, 2, 1, 2, 3, 3])
+    expect(topics.some((topic) => topic.id === 'user-pain-signals')).toBe(true)
+    expect(topics.some((topic) => topic.id === 'integration-automation-patterns')).toBe(true)
     expect(topics.some((topic) => topic.id === 'workflow-transfer-patterns')).toBe(true)
     expect(topics.some((topic) => topic.id === 'ecosystem-shifts')).toBe(true)
   })

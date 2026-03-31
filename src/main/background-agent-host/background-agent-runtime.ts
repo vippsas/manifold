@@ -59,10 +59,13 @@ export async function runBackgroundAgentPrompt(
   options: RunBackgroundAgentPromptOptions,
 ): Promise<string> {
   const resolved = resolveBackgroundAgentRuntime(deps, options.projectId, options.activeSessionId)
+  const invocation = options.mode === 'research'
+    ? prepareBackgroundAgentResearchInvocation(resolved.runtime, options.prompt)
+    : {
+      prompt: options.prompt,
+      extraArgs: resolved.runtime.aiModelArgs ?? [],
+    }
   const timeoutMs = getBackgroundAgentTimeoutMs(resolved.runtime, options.mode, options.timeoutMs)
-  const extraArgs = options.mode === 'research'
-    ? getBackgroundAgentResearchModelArgs(resolved.runtime)
-    : (resolved.runtime.aiModelArgs ?? [])
   const label = options.logLabel ?? 'prompt'
   debugLog(
     `[background-agent] runtime start project=${options.projectId} runtime=${resolved.runtime.id} mode=${options.mode ?? 'default'} label=${label} timeoutMs=${timeoutMs ?? 'default'}`,
@@ -70,9 +73,9 @@ export async function runBackgroundAgentPrompt(
   try {
     const output = await deps.gitOps.aiGenerate(
       resolved.runtime,
-      options.prompt,
+      invocation.prompt,
       resolved.cwd,
-      extraArgs,
+      invocation.extraArgs,
       {
         timeoutMs,
         silent: options.silent,
@@ -100,28 +103,51 @@ function getBackgroundAgentTimeoutMs(
     return requestedTimeoutMs
   }
 
-  const minimumResearchTimeoutMs = runtime.id === 'codex'
-    ? 300_000
-    : 90_000
+  const minimumResearchTimeoutMs = runtime.id === 'copilot'
+    ? 600_000
+    : runtime.id === 'gemini'
+      ? 180_000
+      : 300_000
 
   return Math.max(requestedTimeoutMs ?? minimumResearchTimeoutMs, minimumResearchTimeoutMs)
 }
 
-function getBackgroundAgentResearchModelArgs(runtime: AgentRuntime): string[] {
+function prepareBackgroundAgentResearchInvocation(
+  runtime: AgentRuntime,
+  prompt: string,
+): { prompt: string; extraArgs: string[] } {
   switch (runtime.id) {
     case 'codex':
-      return ['--search']
+      return {
+        prompt,
+        extraArgs: ['--search', '--model', 'gpt-5-codex', '-c', 'model_reasoning_effort="high"'],
+      }
     case 'claude':
-      return ['--model', 'sonnet']
+      return {
+        prompt,
+        extraArgs: ['--model', 'opus', '--effort', 'max'],
+      }
     case 'gemini':
-      return ['--model', 'gemini-2.5-pro']
+      return {
+        prompt,
+        extraArgs: ['--model', 'gemini-2.5-pro'],
+      }
     case 'copilot':
-      return ['--model', 'claude-sonnet-4.5']
+      return {
+        prompt: buildCopilotResearchPrompt(prompt),
+        extraArgs: [],
+      }
     case 'ollama-claude':
     case 'ollama-codex':
-      return runtime.aiModelArgs ?? []
+      return {
+        prompt,
+        extraArgs: runtime.aiModelArgs ?? [],
+      }
     default:
-      return runtime.aiModelArgs ?? []
+      return {
+        prompt,
+        extraArgs: runtime.aiModelArgs ?? [],
+      }
   }
 }
 
@@ -129,4 +155,10 @@ function sanitizeForLog(value: string, maxLength = 220): string {
   const singleLine = value.replace(/\s+/g, ' ').trim()
   if (singleLine.length <= maxLength) return singleLine
   return `${singleLine.slice(0, maxLength - 1).trimEnd()}…`
+}
+
+function buildCopilotResearchPrompt(prompt: string): string {
+  const trimmed = prompt.trimStart()
+  if (trimmed.startsWith('/research')) return prompt
+  return `/research ${prompt}`
 }
