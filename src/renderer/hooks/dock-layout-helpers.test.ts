@@ -1,6 +1,6 @@
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
 import type { SerializedDockview } from 'dockview'
-import { sanitizeDockLayout } from './dock-layout-helpers'
+import { sanitizeDockLayout, showPanelFromHints } from './dock-layout-helpers'
 
 describe('sanitizeDockLayout', () => {
   it('removes the retired memory panel from saved layouts', () => {
@@ -156,5 +156,45 @@ describe('sanitizeDockLayout', () => {
     } as unknown as SerializedDockview
 
     expect(sanitizeDockLayout(saved)).toBeNull()
+  })
+})
+
+describe('showPanelFromHints', () => {
+  it('restores the editor into the existing agent tab group', () => {
+    const agentPanel = { id: 'agent' }
+    const addPanel = vi.fn()
+    const api = {
+      width: 0,
+      getPanel: vi.fn((id: string) => (id === 'agent' ? agentPanel : undefined)),
+      addPanel,
+    }
+
+    showPanelFromHints(api as never, 'editor')
+
+    expect(addPanel).toHaveBeenCalledWith({
+      id: 'editor',
+      component: 'editor',
+      title: 'Editor',
+      position: { referencePanel: agentPanel, direction: 'within' },
+    })
+  })
+
+  it('restores the agent into the existing editor tab group', () => {
+    const editorPanel = { id: 'editor' }
+    const addPanel = vi.fn()
+    const api = {
+      width: 0,
+      getPanel: vi.fn((id: string) => (id === 'editor' ? editorPanel : undefined)),
+      addPanel,
+    }
+
+    showPanelFromHints(api as never, 'agent')
+
+    expect(addPanel).toHaveBeenCalledWith({
+      id: 'agent',
+      component: 'agent',
+      title: 'Agent',
+      position: { referencePanel: editorPanel, direction: 'within' },
+    })
   })
 })
