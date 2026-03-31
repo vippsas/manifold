@@ -5,6 +5,7 @@ import { MermaidBlock } from '../MermaidBlock'
 import {
   isExternalMarkdownHref,
   resolveMarkdownLinkedFilePath,
+  resolveMarkdownPreviewSource,
 } from '../code-viewer-utils'
 
 const markdownScrollPositionsByPreview = new Map<string, number>()
@@ -98,6 +99,9 @@ function createMarkdownComponents(
           {children}
         </a>
       )
+    },
+    img({ alt, src, ...props }: React.ComponentProps<'img'>) {
+      return <img {...props} src={resolveMarkdownPreviewSource(currentFilePath, src)} alt={alt} />
     },
   }
 }

@@ -49,16 +49,14 @@ export function resolveMarkdownLinkedFilePath(currentFilePath: string, href: str
     return null
   }
 
-  try {
-    const resolved = href.toLowerCase().startsWith('file:')
-      ? new URL(href)
-      : new URL(href, filePathToUrl(currentFilePath))
+  const resolved = resolveMarkdownFileUrl(currentFilePath, href)
+  return resolved ? fileUrlToPath(resolved) : null
+}
 
-    if (resolved.protocol !== 'file:') return null
-    return fileUrlToPath(resolved)
-  } catch {
-    return null
-  }
+export function resolveMarkdownPreviewSource(currentFilePath: string, source: string | null | undefined): string | undefined {
+  if (!source) return undefined
+  if (source.startsWith('#') || isExternalMarkdownHref(source)) return source
+  return resolveMarkdownFileUrl(currentFilePath, source)?.toString() ?? source
 }
 
 export function fileName(filePath: string): string {
@@ -190,6 +188,18 @@ function filePathToUrl(filePath: string): URL {
   const normalized = filePath.replace(/\\/g, '/')
   const pathname = normalized.startsWith('/') ? normalized : `/${normalized}`
   return new URL(`file://${encodeURI(pathname)}`)
+}
+
+function resolveMarkdownFileUrl(currentFilePath: string, href: string): URL | null {
+  try {
+    const resolved = href.toLowerCase().startsWith('file:')
+      ? new URL(href)
+      : new URL(href, filePathToUrl(currentFilePath))
+
+    return resolved.protocol === 'file:' ? resolved : null
+  } catch {
+    return null
+  }
 }
 
 function fileUrlToPath(url: URL): string {
