@@ -5,6 +5,7 @@ import {
   applyLayoutChangePreservingSidebarWidths,
   findAdjacentEditorPanelId,
   sanitizeDockLayout,
+  showPanelFromHints,
 } from './dock-layout-helpers'
 
 function createWorkspaceLayout(left = 200, center = 600, right = 200): SerializedDockview {
@@ -54,7 +55,7 @@ function createWorkspaceLayout(left = 200, center = 600, right = 200): Serialize
   } as unknown as SerializedDockview
 }
 
-describe('sanitizeDockLayout', () => {
+describe('findAdjacentEditorPanelId', () => {
   it('finds an existing editor pane to the right of the active pane', () => {
     expect(findAdjacentEditorPanelId(
       Orientation.HORIZONTAL,
@@ -78,7 +79,9 @@ describe('sanitizeDockLayout', () => {
       'below',
     )).toBe('editor:2')
   })
+})
 
+describe('sanitizeDockLayout', () => {
   it('removes the retired memory panel from saved layouts', () => {
     const saved = {
       grid: {
@@ -262,5 +265,45 @@ describe('applyLayoutChangePreservingSidebarWidths', () => {
       data: Array<{ size: number }>
     }
     expect(root.data.map((node) => node.size)).toEqual([200, 600, 200])
+  })
+})
+
+describe('showPanelFromHints', () => {
+  it('restores the editor into the existing agent tab group', () => {
+    const agentPanel = { id: 'agent' }
+    const addPanel = vi.fn()
+    const api = {
+      width: 0,
+      getPanel: vi.fn((id: string) => (id === 'agent' ? agentPanel : undefined)),
+      addPanel,
+    }
+
+    showPanelFromHints(api as never, 'editor')
+
+    expect(addPanel).toHaveBeenCalledWith({
+      id: 'editor',
+      component: 'editor',
+      title: 'Editor',
+      position: { referencePanel: agentPanel, direction: 'within' },
+    })
+  })
+
+  it('restores the agent into the existing editor tab group', () => {
+    const editorPanel = { id: 'editor' }
+    const addPanel = vi.fn()
+    const api = {
+      width: 0,
+      getPanel: vi.fn((id: string) => (id === 'editor' ? editorPanel : undefined)),
+      addPanel,
+    }
+
+    showPanelFromHints(api as never, 'agent')
+
+    expect(addPanel).toHaveBeenCalledWith({
+      id: 'agent',
+      component: 'agent',
+      title: 'Agent',
+      position: { referencePanel: editorPanel, direction: 'within' },
+    })
   })
 })

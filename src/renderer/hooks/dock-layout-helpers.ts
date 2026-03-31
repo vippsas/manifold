@@ -21,14 +21,14 @@ type Direction = 'right' | 'left' | 'above' | 'below' | 'within'
 
 // Fallback positions when no snapshot exists (matches default layout).
 const PANEL_RESTORE_HINTS: Record<DockPanelId, Array<{ ref: DockPanelId; dir: Direction }>> = {
-  projects: [{ ref: 'agent', dir: 'left' }, { ref: 'fileTree', dir: 'left' }],
-  agent: [{ ref: 'projects', dir: 'right' }, { ref: 'fileTree', dir: 'left' }, { ref: 'editor', dir: 'left' }, { ref: 'shell', dir: 'above' }],
-  editor: [{ ref: 'agent', dir: 'right' }, { ref: 'shell', dir: 'above' }],
-  fileTree: [{ ref: 'modifiedFiles', dir: 'within' }, { ref: 'agent', dir: 'right' }],
+  projects: [{ ref: 'agent', dir: 'left' }, { ref: 'editor', dir: 'left' }, { ref: 'fileTree', dir: 'left' }],
+  agent: [{ ref: 'editor', dir: 'within' }, { ref: 'search', dir: 'within' }, { ref: 'backgroundAgent', dir: 'within' }, { ref: 'projects', dir: 'right' }, { ref: 'fileTree', dir: 'left' }, { ref: 'shell', dir: 'above' }],
+  editor: [{ ref: 'agent', dir: 'within' }, { ref: 'search', dir: 'within' }, { ref: 'backgroundAgent', dir: 'within' }, { ref: 'shell', dir: 'above' }],
+  fileTree: [{ ref: 'modifiedFiles', dir: 'within' }, { ref: 'agent', dir: 'right' }, { ref: 'editor', dir: 'right' }],
   modifiedFiles: [{ ref: 'fileTree', dir: 'within' }, { ref: 'agent', dir: 'right' }],
   shell: [{ ref: 'agent', dir: 'below' }, { ref: 'editor', dir: 'below' }],
-  search: [{ ref: 'agent', dir: 'within' }, { ref: 'editor', dir: 'within' }],
-  backgroundAgent: [{ ref: 'agent', dir: 'within' }, { ref: 'search', dir: 'within' }],
+  search: [{ ref: 'editor', dir: 'within' }, { ref: 'agent', dir: 'within' }, { ref: 'backgroundAgent', dir: 'within' }],
+  backgroundAgent: [{ ref: 'editor', dir: 'within' }, { ref: 'agent', dir: 'within' }, { ref: 'search', dir: 'within' }],
 }
 
 export function isEditorPanelId(panelId: string): boolean {

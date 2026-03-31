@@ -25,6 +25,7 @@ const ALLOWED_INVOKE_CHANNELS = [
   'files:tree',
   'files:tree-dir',
   'files:read',
+  'files:read-data-url',
   'files:write',
   'files:delete',
   'files:rename',

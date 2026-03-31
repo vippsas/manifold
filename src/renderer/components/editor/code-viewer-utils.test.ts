@@ -5,6 +5,7 @@ import {
   isHtmlFile,
   parseDiffToLineRanges,
   resolveMarkdownLinkedFilePath,
+  resolveMarkdownPreviewSource,
 } from './code-viewer-utils'
 
 describe('isHtmlFile', () => {
@@ -168,6 +169,23 @@ describe('resolveMarkdownLinkedFilePath', () => {
 
   it('ignores external links', () => {
     expect(resolveMarkdownLinkedFilePath('/repo/docs/guide.md', 'https://example.com')).toBeNull()
+  })
+})
+
+describe('resolveMarkdownPreviewSource', () => {
+  it('resolves relative image sources against the current markdown file', () => {
+    expect(resolveMarkdownPreviewSource('/repo/docs/guide.md', './images/diagram.png'))
+      .toBe('file:///repo/docs/images/diagram.png')
+  })
+
+  it('preserves external image sources', () => {
+    expect(resolveMarkdownPreviewSource('/repo/docs/guide.md', 'https://example.com/image.png'))
+      .toBe('https://example.com/image.png')
+  })
+
+  it('supports windows-style current file paths', () => {
+    expect(resolveMarkdownPreviewSource('C:\\repo\\docs\\guide.md', './diagram.png'))
+      .toBe('file:///C:/repo/docs/diagram.png')
   })
 })
 

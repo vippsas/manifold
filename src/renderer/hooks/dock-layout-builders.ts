@@ -24,6 +24,14 @@ export function applyDefaultLayout(api: DockviewApi, options: DefaultLayoutOptio
   })
 
   api.addPanel({
+    id: 'editor',
+    component: 'editor',
+    title: PANEL_TITLES.editor,
+    inactive: true,
+    position: { referencePanel: 'agent', direction: 'within' },
+  })
+
+  api.addPanel({
     id: 'search',
     component: 'search',
     title: PANEL_TITLES.search,

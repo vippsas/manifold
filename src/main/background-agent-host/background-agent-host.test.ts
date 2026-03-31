@@ -208,7 +208,7 @@ describe('BackgroundAgentHost', () => {
 
     expect(resumedSnapshot.status.phase).toBe('ready')
     expect(resumedSnapshot.status.refreshState).toBe('idle')
-    expect(webResearchClient.research).toHaveBeenCalledTimes(4)
+    expect(webResearchClient.research).toHaveBeenCalledTimes(6)
   })
 
   it('stops a paused refresh and discards the resume checkpoint', async () => {

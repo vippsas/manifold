@@ -87,9 +87,79 @@ describe('background-agent-runtime', () => {
       expect.objectContaining({ id: 'codex', binary: 'codex' }),
       'Find ecosystem shifts.',
       '/repo',
-      ['--search'],
+      ['--search', '--model', 'gpt-5-codex', '-c', 'model_reasoning_effort="high"'],
       {
         timeoutMs: 300_000,
+        silent: true,
+      },
+    )
+  })
+
+  it('uses opus with max effort for Claude research runs', async () => {
+    const { runBackgroundAgentPrompt } = await import('./background-agent-runtime')
+    getRuntimeByIdMock.mockReturnValue({
+      id: 'claude',
+      binary: 'claude',
+      aiModelArgs: ['--model', 'haiku'],
+    })
+
+    const deps = createDeps({
+      defaultRuntime: 'claude',
+      gitOps: {
+        aiGenerate: vi.fn(async () => 'ok'),
+      },
+    })
+
+    await runBackgroundAgentPrompt(deps as never, {
+      prompt: 'Investigate trends.',
+      projectId: 'project-1',
+      activeSessionId: null,
+      mode: 'research',
+      silent: true,
+    })
+
+    expect(deps.gitOps.aiGenerate).toHaveBeenCalledWith(
+      expect.objectContaining({ id: 'claude', binary: 'claude' }),
+      'Investigate trends.',
+      '/repo',
+      ['--model', 'opus', '--effort', 'max'],
+      {
+        timeoutMs: 300_000,
+        silent: true,
+      },
+    )
+  })
+
+  it('routes Copilot research runs through the built-in research agent', async () => {
+    const { runBackgroundAgentPrompt } = await import('./background-agent-runtime')
+    getRuntimeByIdMock.mockReturnValue({
+      id: 'copilot',
+      binary: 'copilot',
+      aiModelArgs: ['--model', 'claude-sonnet-4.5'],
+    })
+
+    const deps = createDeps({
+      defaultRuntime: 'copilot',
+      gitOps: {
+        aiGenerate: vi.fn(async () => 'ok'),
+      },
+    })
+
+    await runBackgroundAgentPrompt(deps as never, {
+      prompt: 'Find adjacent opportunities.',
+      projectId: 'project-1',
+      activeSessionId: null,
+      mode: 'research',
+      silent: true,
+    })
+
+    expect(deps.gitOps.aiGenerate).toHaveBeenCalledWith(
+      expect.objectContaining({ id: 'copilot', binary: 'copilot' }),
+      '/research Find adjacent opportunities.',
+      '/repo',
+      [],
+      {
+        timeoutMs: 600_000,
         silent: true,
       },
     )

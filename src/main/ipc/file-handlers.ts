@@ -1,6 +1,7 @@
 import { ipcMain, shell } from 'electron'
+import * as fs from 'node:fs'
 import { execFile, spawn } from 'node:child_process'
-import { resolve } from 'node:path'
+import { extname, resolve } from 'node:path'
 import { promisify } from 'node:util'
 import type { IpcDependencies } from './types'
 import type { AgentSession } from '../../shared/types'
@@ -60,6 +61,16 @@ export function registerFileHandlers(deps: IpcDependencies): void {
       throw new Error('Path traversal denied: file outside allowed directories')
     }
     return fileWatcher.readFile(resolved)
+  })
+
+  ipcMain.handle('files:read-data-url', (_event, sessionId: string, filePath: string) => {
+    const session = sessionManager.getSession(sessionId)
+    if (!session) throw new Error(`Session not found: ${sessionId}`)
+    const resolved = resolve(session.worktreePath, filePath)
+    if (!isPathAllowed(resolved, session)) {
+      throw new Error('Path traversal denied: file outside allowed directories')
+    }
+    return readFileAsDataUrl(resolved)
   })
 
   ipcMain.handle('files:write', (_event, sessionId: string, filePath: string, content: string) => {
@@ -188,6 +199,41 @@ export function registerFileHandlers(deps: IpcDependencies): void {
       throw err
     }
   })
+}
+
+function readFileAsDataUrl(filePath: string): string {
+  try {
+    const data = fs.readFileSync(filePath)
+    return `data:${mimeTypeForFile(filePath)};base64,${data.toString('base64')}`
+  } catch (err) {
+    throw new Error(`Failed to read file ${filePath}: ${(err as Error).message}`)
+  }
+}
+
+function mimeTypeForFile(filePath: string): string {
+  switch (extname(filePath).toLowerCase()) {
+    case '.apng':
+      return 'image/apng'
+    case '.avif':
+      return 'image/avif'
+    case '.bmp':
+      return 'image/bmp'
+    case '.gif':
+      return 'image/gif'
+    case '.ico':
+      return 'image/x-icon'
+    case '.jpeg':
+    case '.jpg':
+      return 'image/jpeg'
+    case '.png':
+      return 'image/png'
+    case '.svg':
+      return 'image/svg+xml'
+    case '.webp':
+      return 'image/webp'
+    default:
+      return 'application/octet-stream'
+  }
 }
 
 interface SearchMatch {
