@@ -1,5 +1,6 @@
 import * as fs from 'node:fs'
 import * as path from 'node:path'
+import { execFileSync } from 'node:child_process'
 import {
   readPackageManifest,
   summarizeRepoStructure,
@@ -12,7 +13,7 @@ const MAX_DOC_BYTES = 24_000
 
 export interface LoadedProjectDocument {
   path: string
-  kind: 'readme' | 'doc'
+  kind: 'readme' | 'doc' | 'note'
   content: string
 }
 
@@ -23,6 +24,7 @@ export interface LoadedLocalProjectInput {
   documents: LoadedProjectDocument[]
   packageManifest: PackageManifestSnapshot | null
   repoStructure: RepoStructureSummary
+  recentChangeHints: string[]
 }
 
 export function loadLocalProjectInput(
@@ -33,6 +35,7 @@ export function loadLocalProjectInput(
   const packageManifest = readPackageManifest(projectPath)
   const repoStructure = summarizeRepoStructure(projectPath, packageManifest)
   const documents = loadProjectDocuments(projectPath)
+  const recentChangeHints = loadRecentChangeHints(projectPath)
 
   return {
     projectId,
@@ -41,12 +44,14 @@ export function loadLocalProjectInput(
     documents,
     packageManifest,
     repoStructure,
+    recentChangeHints,
   }
 }
 
 function loadProjectDocuments(projectPath: string): LoadedProjectDocument[] {
   const documentPaths = [
     ...collectRootReadmes(projectPath),
+    ...collectTopLevelNoteFiles(projectPath),
     ...collectTopLevelMarkdown(projectPath),
     ...collectDocsMarkdown(projectPath),
   ]
@@ -60,9 +65,10 @@ function loadProjectDocuments(projectPath: string): LoadedProjectDocument[] {
 
     const relativePath = path.relative(projectPath, absolutePath) || path.basename(absolutePath)
     const isReadme = /^readme/i.test(path.basename(absolutePath))
+    const isNamedNote = /^(todo|roadmap|plan|notes?|backlog|issues?)(\..+)?$/i.test(path.basename(absolutePath))
     documents.push({
       path: relativePath,
-      kind: isReadme ? 'readme' : 'doc',
+      kind: isReadme ? 'readme' : (isNamedNote ? 'note' : 'doc'),
       content,
     })
   }
@@ -74,6 +80,18 @@ function collectRootReadmes(projectPath: string): string[] {
   try {
     return fs.readdirSync(projectPath)
       .filter((name) => /^README/i.test(name))
+      .map((name) => path.join(projectPath, name))
+  } catch {
+    return []
+  }
+}
+
+function collectTopLevelNoteFiles(projectPath: string): string[] {
+  try {
+    return fs.readdirSync(projectPath, { withFileTypes: true })
+      .filter((entry) => entry.isFile())
+      .map((entry) => entry.name)
+      .filter((name) => /^(todo|roadmap|plan|notes?|backlog|issues?)(\..+)?$/i.test(name))
       .map((name) => path.join(projectPath, name))
   } catch {
     return []
@@ -129,5 +147,74 @@ function readDocument(absolutePath: string): string | null {
     return content || null
   } catch {
     return null
+  }
+}
+
+function loadRecentChangeHints(projectPath: string): string[] {
+  const hints = [
+    ...readRecentPullRequestHints(projectPath),
+    ...readGitStatusHints(projectPath),
+    ...readRecentCommitHints(projectPath),
+  ]
+
+  return [...new Set(hints)].slice(0, 6)
+}
+
+function readRecentPullRequestHints(projectPath: string): string[] {
+  try {
+    const output = execFileSync(
+      'git',
+      ['log', '--format=%s', '--max-count=15'],
+      { cwd: projectPath, encoding: 'utf-8', stdio: ['ignore', 'pipe', 'ignore'] },
+    )
+    return output
+      .split('\n')
+      .map((line) => line.trim())
+      .filter(Boolean)
+      .filter((line) => /#\d+/.test(line) || /^merge pull request #\d+/i.test(line))
+      .slice(0, 3)
+      .map((line) => `Recent PR: ${line}`)
+  } catch {
+    return []
+  }
+}
+
+function readGitStatusHints(projectPath: string): string[] {
+  try {
+    const output = execFileSync(
+      'git',
+      ['status', '--short', '--untracked-files=no'],
+      { cwd: projectPath, encoding: 'utf-8', stdio: ['ignore', 'pipe', 'ignore'] },
+    )
+    return output
+      .split('\n')
+      .map((line) => line.trim())
+      .filter(Boolean)
+      .slice(0, 3)
+      .map((line) => {
+        const filePath = line.slice(3).trim()
+        if (!filePath) return null
+        return `Local changes touch ${filePath}.`
+      })
+      .filter((hint): hint is string => hint !== null)
+  } catch {
+    return []
+  }
+}
+
+function readRecentCommitHints(projectPath: string): string[] {
+  try {
+    const output = execFileSync(
+      'git',
+      ['log', '--format=%s', '--max-count=4'],
+      { cwd: projectPath, encoding: 'utf-8', stdio: ['ignore', 'pipe', 'ignore'] },
+    )
+    return output
+      .split('\n')
+      .map((line) => line.trim())
+      .filter(Boolean)
+      .map((line) => `Recent work: ${line}`)
+  } catch {
+    return []
   }
 }

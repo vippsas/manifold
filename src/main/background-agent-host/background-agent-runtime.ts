@@ -101,7 +101,7 @@ function getBackgroundAgentTimeoutMs(
   }
 
   const minimumResearchTimeoutMs = runtime.id === 'codex'
-    ? 180_000
+    ? 300_000
     : 90_000
 
   return Math.max(requestedTimeoutMs ?? minimumResearchTimeoutMs, minimumResearchTimeoutMs)

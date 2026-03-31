@@ -48,6 +48,7 @@ export class BackgroundAgentStore {
       majorWorkflows: [...snapshot.profile.majorWorkflows],
       dependencyStack: [...snapshot.profile.dependencyStack],
       openQuestions: [...snapshot.profile.openQuestions],
+      recentChanges: [...snapshot.profile.recentChanges],
       sourcePaths: [...snapshot.profile.sourcePaths],
     } : null
     current.suggestions = snapshot.suggestions.map((suggestion) => ({
@@ -82,7 +83,12 @@ export class BackgroundAgentStore {
       if (!parsed || typeof parsed !== 'object' || typeof parsed.projects !== 'object' || parsed.projects === null) {
         return { projects: {} }
       }
-      return parsed
+      const normalizedProjects: BackgroundAgentStoreData['projects'] = {}
+      for (const [projectId, projectState] of Object.entries(parsed.projects)) {
+        if (!projectState) continue
+        normalizedProjects[projectId] = cloneProjectState(projectState)
+      }
+      return { projects: normalizedProjects }
     } catch {
       return { projects: {} }
     }

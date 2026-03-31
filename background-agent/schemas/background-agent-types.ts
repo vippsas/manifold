@@ -39,6 +39,7 @@ export interface BackgroundAgentProjectProfile {
   architectureShape: string | null
   dependencyStack: string[]
   openQuestions: string[]
+  recentChanges: string[]
   sourcePaths: string[]
   generatedAt: string
 }
@@ -67,9 +68,18 @@ export type BackgroundAgentGenerationPhase =
   | 'ready'
   | 'error'
 
+export type BackgroundAgentRefreshState =
+  | 'idle'
+  | 'running'
+  | 'pause_requested'
+  | 'paused'
+  | 'stop_requested'
+  | 'stopped'
+
 export interface BackgroundAgentGenerationStatus {
   phase: BackgroundAgentGenerationPhase
   isRefreshing: boolean
+  refreshState: BackgroundAgentRefreshState
   lastRefreshedAt: string | null
   error: string | null
   summary: string | null
