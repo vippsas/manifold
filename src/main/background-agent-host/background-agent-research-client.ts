@@ -8,6 +8,7 @@ import type {
   WebResearchTopic,
 } from '../../../background-agent/connectors/web/web-research-types'
 import { runBackgroundAgentPrompt } from './background-agent-runtime'
+import { buildResearchPrompt } from './background-agent-research-prompt'
 import type { BackgroundAgentHostDeps } from './background-agent-types'
 
 interface RuntimeResearchClientOptions {
@@ -22,9 +23,12 @@ interface PromptResponseShape {
   candidateSuggestions?: unknown
 }
 
+type ResearchProgressReporter = (event: WebResearchProgressEvent) => void
+
 export class RuntimeWebResearchClient implements WebResearchClient {
   private readonly maxSourcesPerTopic: number
   private readonly maxSuggestionsPerTopic: number
+  private readonly maxRetryAttempts = 1
 
   constructor(
     private readonly deps: Pick<BackgroundAgentHostDeps, 'settingsStore' | 'projectRegistry' | 'sessionManager' | 'gitOps'>,
@@ -54,14 +58,7 @@ export class RuntimeWebResearchClient implements WebResearchClient {
 
       try {
         const prompt = buildResearchPrompt(topic, context, this.maxSourcesPerTopic, this.maxSuggestionsPerTopic)
-        const output = await runBackgroundAgentPrompt(this.deps, {
-          projectId: context.projectProfile.projectId,
-          activeSessionId: context.runtimeContext.activeSessionId,
-          prompt,
-          mode: 'research',
-          silent: true,
-          logLabel: topic.id,
-        })
+        const output = await this.runTopicPromptWithRetry(topic, context, prompt, onProgress, current, topics.length)
 
         const parsed = parseResearchOutput(output)
         results.push({
@@ -107,6 +104,43 @@ export class RuntimeWebResearchClient implements WebResearchClient {
 
     return results
   }
+
+  private async runTopicPromptWithRetry(
+    topic: WebResearchTopic,
+    context: WebResearchContext,
+    prompt: string,
+    onProgress: ResearchProgressReporter | undefined,
+    current: number,
+    total: number,
+  ): Promise<string> {
+    let attempt = 0
+
+    while (true) {
+      try {
+        return await runBackgroundAgentPrompt(this.deps, {
+          projectId: context.projectProfile.projectId,
+          activeSessionId: context.runtimeContext.activeSessionId,
+          prompt,
+          mode: 'research',
+          silent: true,
+          logLabel: attempt === 0 ? topic.id : `${topic.id}-retry-${attempt}`,
+        })
+      } catch (error) {
+        if (attempt >= this.maxRetryAttempts || !shouldRetryResearchRun(error)) {
+          throw error
+        }
+        attempt += 1
+        onProgress?.({
+          kind: 'topic_started',
+          topic,
+          current,
+          total,
+          message: `Retrying ${topic.title.toLowerCase()} after the previous research run stalled.`,
+          detail: summarizeResearchError(error),
+        })
+      }
+    }
+  }
 }
 
 function createEmptyResearchResult(topic: WebResearchTopic): WebResearchResult {
@@ -117,85 +151,6 @@ function createEmptyResearchResult(topic: WebResearchTopic): WebResearchResult {
     sources: [],
     candidateSuggestions: [],
   }
-}
-
-function buildResearchPrompt(
-  topic: WebResearchTopic,
-  context: WebResearchContext,
-  maxSources: number,
-  maxSuggestions: number,
-): string {
-  const profile = context.projectProfile
-  const workflows = profile.majorWorkflows.length > 0 ? profile.majorWorkflows.join(', ') : '(none identified)'
-  const stack = profile.dependencyStack.length > 0 ? profile.dependencyStack.join(', ') : '(unknown)'
-  const openQuestions = profile.openQuestions.length > 0 ? profile.openQuestions.join('; ') : '(none identified)'
-  const recentChanges = profile.recentChanges.length > 0 ? profile.recentChanges.join('; ') : '(none identified)'
-
-  return [
-    'You are researching the web for a project-aware background agent inside Manifold.',
-    'Use a strong research approach. Prefer official docs, changelogs, OSS repos, OSS issues/discussions, and strong engineering blogs.',
-    'Forums and communities may be used only as supporting evidence, never as the only basis for a suggestion.',
-    'If your runtime supports web search or browsing, use it. If it does not, return an empty result object with no invented sources.',
-    'Do not inspect local repository files and do not run shell commands. Use only the supplied project profile and web research.',
-    `Be selective and fast: do at most 3 search attempts and inspect at most ${maxSources} sources before deciding.`,
-    'If you cannot find one high-trust source quickly, return no candidate suggestions for this topic.',
-    'Return JSON only. Do not include markdown fences or commentary.',
-    '',
-    'JSON schema:',
-    '{',
-    '  "topicSummary": "short summary",',
-    '  "findings": ["finding 1", "finding 2"],',
-    '  "sources": [',
-    '    {',
-    '      "title": "source title",',
-    '      "url": "https://...",',
-    '      "type": "official_docs|changelog|oss_repo|oss_issue|oss_discussion|engineering_blog|forum|community|other",',
-    '      "publishedAt": "YYYY-MM-DD or null",',
-    '      "snippet": "short evidence snippet"',
-    '    }',
-    '  ],',
-    '  "candidateSuggestions": [',
-    '    {',
-    '      "title": "suggestion title",',
-    '      "category": "feature_opportunity|architecture_improvement|pattern_transfer|ecosystem_shift",',
-    '      "summary": "short summary",',
-    '      "whyItMatters": "why it matters for this project",',
-    '      "whyNow": "why now or null",',
-    '      "evidence": ["evidence 1", "evidence 2"],',
-    '      "confidence": "low|medium|high",',
-    '      "novelty": "low|medium|high",',
-    '      "effort": "low|medium|high",',
-    '      "impact": "low|medium|high"',
-    '    }',
-    '  ]',
-    '}',
-    '',
-    `Use at most ${maxSources} sources and at most ${maxSuggestions} candidate suggestions.`,
-    '',
-    'Project profile:',
-    `- Project: ${profile.projectName}`,
-    `- Summary: ${profile.summary}`,
-    `- Product type: ${profile.productType ?? '(unknown)'}`,
-    `- Target user: ${profile.targetUser ?? '(unknown)'}`,
-    `- Major workflows: ${workflows}`,
-    `- Architecture: ${profile.architectureShape ?? '(unknown)'}`,
-    `- Stack: ${stack}`,
-    `- Open questions: ${openQuestions}`,
-    `- Recent changes: ${recentChanges}`,
-    '',
-    'Research topic:',
-    `- Ring: ${topic.ring}`,
-    `- Title: ${topic.title}`,
-    `- Query: ${topic.query}`,
-    `- Rationale: ${topic.rationale}`,
-    '',
-    'Important rules:',
-    '- Do not invent sources or URLs.',
-    '- Only include a candidate suggestion if it is genuinely relevant to this project.',
-    '- Prefer source-backed, concrete ideas over generic trend summaries.',
-    '- Avoid exhaustive research; aim for the strongest answer you can support quickly.',
-    '- Never inspect local files or execute commands for this task.',
-  ].join('\n')
 }
 
 function parseResearchOutput(output: string): PromptResponseShape {
@@ -328,6 +283,12 @@ function summarizeResearchError(error: unknown): string {
   }
 
   return message
+}
+
+function shouldRetryResearchRun(error: unknown): boolean {
+  const message = error instanceof Error ? error.message : String(error)
+  return message.includes('returned no usable output')
+    || message.includes('stream disconnected before completion')
 }
 
 function trimDetail(value: string, maxLength = 120): string {

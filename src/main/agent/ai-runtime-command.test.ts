@@ -41,6 +41,26 @@ describe('buildAiRuntimeCommand', () => {
     expect(cmd.args).toEqual(['--search', 'exec', '--full-auto', '--json', '--model', 'o4-mini', 'hello prompt'])
   })
 
+  it('keeps codex config overrides after exec while preserving global search flags', () => {
+    const cmd = buildAiRuntimeCommand(
+      { id: 'codex', name: 'Codex', binary: 'codex', args: [] },
+      'hello prompt',
+      ['--search', '--model', 'gpt-5-codex', '-c', 'model_reasoning_effort="high"'],
+    )
+
+    expect(cmd.args).toEqual([
+      '--search',
+      'exec',
+      '--full-auto',
+      '--json',
+      '--model',
+      'gpt-5-codex',
+      '-c',
+      'model_reasoning_effort="high"',
+      'hello prompt',
+    ])
+  })
+
   it('builds default runtime command with plain-text output', () => {
     const cmd = buildAiRuntimeCommand(
       { id: 'gemini', name: 'Gemini', binary: 'gemini', args: [] },
