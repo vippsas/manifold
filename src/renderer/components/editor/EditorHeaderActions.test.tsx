@@ -41,6 +41,7 @@ function makeDockState(overrides: Partial<DockAppState> = {}): DockAppState {
     onActivateEditorPane: vi.fn(),
     onSplitEditorPane: vi.fn(),
     onMoveFileToPane: vi.fn(),
+    onMoveFileToSplitPane: vi.fn(),
     tree: null,
     primaryBranch: null,
     changes: [],

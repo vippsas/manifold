@@ -167,6 +167,7 @@ export function FileTree({
     createError: editing.createError,
     onConfirmCreate: editing.handleConfirmCreate,
     onCancelCreate: editing.handleCancelCreate,
+    dragRootPath: worktreeRootPath ?? tree?.path ?? null,
   }
 
   return (

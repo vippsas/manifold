@@ -3,6 +3,21 @@ import { render, screen, fireEvent } from '@testing-library/react'
 import React from 'react'
 import { ModifiedFiles } from './ModifiedFiles'
 import type { FileChange } from '../../../shared/types'
+import { AGENT_PATH_DRAG_MIME } from '../editor/file-tree-drag'
+
+function createMockDataTransfer(): DataTransfer {
+  return {
+    dropEffect: 'none',
+    effectAllowed: 'all',
+    files: {} as FileList,
+    items: {} as DataTransferItemList,
+    types: [],
+    clearData: vi.fn(),
+    getData: vi.fn(),
+    setData: vi.fn(),
+    setDragImage: vi.fn(),
+  } as unknown as DataTransfer
+}
 
 describe('ModifiedFiles', () => {
   const mockOnSelectFile = vi.fn()
@@ -102,5 +117,24 @@ describe('ModifiedFiles', () => {
     expect(rows[0].textContent).toContain('m-modified.ts')
     expect(rows[1].textContent).toContain('a-added.ts')
     expect(rows[2].textContent).toContain('z-deleted.ts')
+  })
+
+  it('publishes a relative path when a modified file is dragged', () => {
+    render(
+      <ModifiedFiles
+        changes={sampleChanges}
+        activeFilePath={null}
+        worktreeRoot={worktreeRoot}
+        onSelectFile={mockOnSelectFile}
+      />,
+    )
+    const dataTransfer = createMockDataTransfer()
+    const row = screen.getByText('index.ts').closest('[role="button"]')
+
+    expect(row).not.toBeNull()
+    fireEvent.dragStart(row as Element, { dataTransfer })
+
+    expect(dataTransfer.setData).toHaveBeenCalledWith(AGENT_PATH_DRAG_MIME, 'src/index.ts')
+    expect(dataTransfer.setData).toHaveBeenCalledWith('text/plain', 'src/index.ts')
   })
 })

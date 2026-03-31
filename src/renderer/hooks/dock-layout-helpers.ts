@@ -1,8 +1,10 @@
 import type { DockviewApi, SerializedDockview } from 'dockview'
+import { getRelativeLocation, type Orientation } from 'dockview-core'
 
 export const PANEL_IDS = ['projects', 'agent', 'editor', 'fileTree', 'modifiedFiles', 'shell', 'search', 'backgroundAgent'] as const
 export type DockPanelId = (typeof PANEL_IDS)[number]
 export const EDITOR_PANEL_ID_PREFIX = 'editor:'
+export type EditorSplitDirection = 'right' | 'below'
 
 export const PANEL_TITLES: Record<DockPanelId, string> = {
   projects: 'Repositories',
@@ -39,6 +41,22 @@ export function parseEditorPanelOrder(panelId: string): number {
   return Number.isFinite(suffix) ? suffix : Number.MAX_SAFE_INTEGER
 }
 
+export function findAdjacentEditorPanelId(
+  rootOrientation: Orientation,
+  referenceLocation: number[],
+  candidatePanels: Array<{ panelId: string; location: number[] }>,
+  direction: EditorSplitDirection,
+): string | null {
+  const targetLocation = getRelativeLocation(
+    rootOrientation,
+    referenceLocation,
+    direction === 'below' ? 'bottom' : 'right',
+  )
+
+  const match = candidatePanels.find((panel) => areGridLocationsEqual(panel.location, targetLocation))
+  return match?.panelId ?? null
+}
+
 export interface LayoutRefs {
   isRestoringRef: React.MutableRefObject<boolean>
   lastLayoutRef: React.MutableRefObject<SerializedDockview | null>
@@ -58,6 +76,14 @@ function getPanelWidth(api: DockviewApi, panelId: string): number {
     console.warn(`[getPanelWidth] failed for panel '${panelId}':`, err)
     return 0
   }
+}
+
+function areGridLocationsEqual(left: number[], right: number[]): boolean {
+  if (left.length !== right.length) return false
+  for (let index = 0; index < left.length; index += 1) {
+    if (left[index] !== right[index]) return false
+  }
+  return true
 }
 
 /** Read the left sidebar group's current pixel width (0 if unavailable). */
@@ -132,6 +158,16 @@ export function restoreSidebarWidths(api: DockviewApi, widths: { left: number; r
   } catch (err) {
     console.warn('[restoreSidebarWidths] failed to restore sidebar widths:', err)
   }
+}
+
+export function applyLayoutChangePreservingSidebarWidths(
+  api: DockviewApi,
+  applyChange: () => void,
+  refs?: LayoutRefs,
+): void {
+  const widths = getSidebarWidths(api)
+  applyChange()
+  restoreSidebarWidths(api, widths, refs)
 }
 
 /** Restore the left sidebar to a specific pixel width. */
@@ -462,7 +498,6 @@ export function showPanelFromSnapshot(
 }
 
 export function showPanelFromHints(api: DockviewApi, id: DockPanelId, refs?: LayoutRefs): void {
-  const widths = getSidebarWidths(api)
   const hints = PANEL_RESTORE_HINTS[id]
   let position: { referencePanel: ReturnType<DockviewApi['getPanel']>; direction: Direction } | undefined
   let usedDirection: Direction | undefined
@@ -474,14 +509,15 @@ export function showPanelFromHints(api: DockviewApi, id: DockPanelId, refs?: Lay
       break
     }
   }
-  api.addPanel({
-    id,
-    component: id,
-    title: PANEL_TITLES[id],
-    ...(position ? { position } : {}),
-  })
-  if (usedDirection === 'below') {
-    applyPanelHeightFraction(api, id, 1 / 3, refs)
-  }
-  restoreSidebarWidths(api, widths, refs)
+  applyLayoutChangePreservingSidebarWidths(api, () => {
+    api.addPanel({
+      id,
+      component: id,
+      title: PANEL_TITLES[id],
+      ...(position ? { position } : {}),
+    })
+    if (usedDirection === 'below') {
+      applyPanelHeightFraction(api, id, 1 / 3, refs)
+    }
+  }, refs)
 }

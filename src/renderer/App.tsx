@@ -189,6 +189,20 @@ export function App(): React.JSX.Element {
   const handleMoveFileToPane = useCallback((filePath: string, targetPaneId: string, sourcePaneId?: string | null): void => {
     codeView.moveFileToPane(filePath, targetPaneId, sourcePaneId); codeView.setActivePane(targetPaneId); dockLayout.focusPanel(targetPaneId)
   }, [codeView, dockLayout])
+  const handleMoveFileToSplitPane = useCallback((filePath: string, sourcePaneId: string, direction: 'right' | 'below'): void => {
+    const existingTargetPaneId = dockLayout.findEditorPanelForSplit(sourcePaneId, direction)
+    let targetPaneId = existingTargetPaneId
+
+    if (!targetPaneId) {
+      targetPaneId = dockLayout.splitEditorPane(sourcePaneId, direction)
+      if (!targetPaneId) return
+      codeView.createPane(targetPaneId, sourcePaneId)
+    }
+
+    codeView.moveFileToPane(filePath, targetPaneId, sourcePaneId)
+    codeView.setActivePane(targetPaneId)
+    dockLayout.focusPanel(targetPaneId)
+  }, [codeView, dockLayout])
   const handleClosePanel = useCallback((panelId: string): void => {
     if (isEditorPanelId(panelId)) { codeView.removePane(panelId, dockLayout.editorPanelIds.find((id) => id !== panelId) ?? null) }
     dockLayout.closePanel(panelId)
@@ -225,7 +239,8 @@ export function App(): React.JSX.Element {
     onCloseFile: codeView.handleCloseFile,
     onSaveFile: codeView.handleSaveFile, onRegisterEditorPane: codeView.registerPane,
     onActivateEditorPane: handleActivateEditorPane, onSplitEditorPane: handleSplitEditorPane,
-    onMoveFileToPane: handleMoveFileToPane, onDeleteFile: handleDeleteFile, onRenameFile: handleRenameFile,
+    onMoveFileToPane: handleMoveFileToPane, onMoveFileToSplitPane: handleMoveFileToSplitPane,
+    onDeleteFile: handleDeleteFile, onRenameFile: handleRenameFile,
     onCreateFile: handleCreateFile, onCreateDir: handleCreateDir, onImportPaths: handleImportPaths,
     onRevealInFinder: handleRevealInFinder, onOpenInTerminal: handleOpenInTerminal,
     onCopyAbsolutePath: handleCopyAbsolutePath, onCopyRelativePath: handleCopyRelativePath,

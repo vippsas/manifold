@@ -1,6 +1,85 @@
 import { describe, expect, it, vi } from 'vitest'
-import type { SerializedDockview } from 'dockview'
-import { sanitizeDockLayout, showPanelFromHints } from './dock-layout-helpers'
+import type { DockviewApi, SerializedDockview } from 'dockview'
+import { Orientation } from 'dockview-core'
+import {
+  applyLayoutChangePreservingSidebarWidths,
+  findAdjacentEditorPanelId,
+  sanitizeDockLayout,
+  showPanelFromHints,
+} from './dock-layout-helpers'
+
+function createWorkspaceLayout(left = 200, center = 600, right = 200): SerializedDockview {
+  return {
+    grid: {
+      root: {
+        type: 'branch',
+        size: 1000,
+        data: [
+          {
+            type: 'leaf',
+            size: left,
+            data: {
+              id: 'projects-group',
+              views: ['projects'],
+              activeView: 'projects',
+            },
+          },
+          {
+            type: 'leaf',
+            size: center,
+            data: {
+              id: 'workspace',
+              views: ['agent', 'editor'],
+              activeView: 'editor',
+            },
+          },
+          {
+            type: 'leaf',
+            size: right,
+            data: {
+              id: 'files-group',
+              views: ['fileTree', 'modifiedFiles'],
+              activeView: 'fileTree',
+            },
+          },
+        ],
+      },
+    },
+    panels: {
+      projects: {},
+      agent: {},
+      editor: {},
+      fileTree: {},
+      modifiedFiles: {},
+    },
+  } as unknown as SerializedDockview
+}
+
+describe('findAdjacentEditorPanelId', () => {
+  it('finds an existing editor pane to the right of the active pane', () => {
+    expect(findAdjacentEditorPanelId(
+      Orientation.HORIZONTAL,
+      [0],
+      [
+        { panelId: 'editor:1', location: [1] },
+        { panelId: 'editor:2', location: [0, 1] },
+      ],
+      'right',
+    )).toBe('editor:1')
+  })
+
+  it('finds an existing editor pane below the active pane', () => {
+    expect(findAdjacentEditorPanelId(
+      Orientation.HORIZONTAL,
+      [0],
+      [
+        { panelId: 'editor:1', location: [1] },
+        { panelId: 'editor:2', location: [0, 1] },
+      ],
+      'below',
+    )).toBe('editor:2')
+  })
+})
 
 describe('sanitizeDockLayout', () => {
   it('removes the retired memory panel from saved layouts', () => {
@@ -156,6 +235,36 @@ describe('sanitizeDockLayout', () => {
     } as unknown as SerializedDockview
 
     expect(sanitizeDockLayout(saved)).toBeNull()
+  })
+})
+
+describe('applyLayoutChangePreservingSidebarWidths', () => {
+  it('restores left and right sidebar widths after a structural layout change', () => {
+    let layout = createWorkspaceLayout()
+    const fromJSON = vi.fn((json: SerializedDockview) => {
+      layout = json
+    })
+    const api = {
+      width: 1000,
+      toJSON: vi.fn(() => layout),
+      fromJSON,
+      getPanel: vi.fn((panelId: string) => {
+        if (panelId === 'projects') return { group: { element: { offsetWidth: 200 } } }
+        if (panelId === 'fileTree') return { group: { element: { offsetWidth: 200 } } }
+        return undefined
+      }),
+    } as unknown as DockviewApi
+
+    applyLayoutChangePreservingSidebarWidths(api, () => {
+      layout = createWorkspaceLayout(260, 490, 250)
+    })
+
+    expect(fromJSON).toHaveBeenCalledTimes(1)
+    const root = layout.grid.root as {
+      type: 'branch'
+      data: Array<{ size: number }>
+    }
+    expect(root.data.map((node) => node.size)).toEqual([200, 600, 200])
   })
 })
 

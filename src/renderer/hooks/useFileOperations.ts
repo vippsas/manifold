@@ -1,4 +1,5 @@
 import { useCallback } from 'react'
+import { getRelativePath } from '../../shared/relative-path'
 
 export interface UseFileOperationsResult {
   handleSelectFile: (filePath: string) => void
@@ -97,10 +98,7 @@ export function useFileOperations(
   }, [])
 
   const handleCopyRelativePath = useCallback((filePath: string, rootPath: string): void => {
-    const relative = filePath.startsWith(rootPath)
-      ? filePath.slice(rootPath.length).replace(/^\//, '')
-      : filePath
-    void navigator.clipboard.writeText(relative)
+    void navigator.clipboard.writeText(getRelativePath(filePath, rootPath))
   }, [])
 
   return {

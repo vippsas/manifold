@@ -30,6 +30,7 @@ interface CodeViewerProps {
   theme: string
   onActivatePane?: () => void
   onSelectTab: (filePath: string) => void
+  onMoveTabToSplitPane?: (filePath: string, direction: 'right' | 'below') => void
   onOpenLinkedFile?: (filePath: string) => void
   onCloseTab: (filePath: string) => void
   onSaveFile?: (filePath: string, content: string) => void
@@ -71,6 +72,7 @@ export function CodeViewer({
   theme,
   onActivatePane = () => {},
   onSelectTab,
+  onMoveTabToSplitPane,
   onOpenLinkedFile = () => {},
   onCloseTab,
   onSaveFile,
@@ -241,6 +243,7 @@ export function CodeViewer({
           activeFilePath={activeFilePath}
           onActivatePane={onActivatePane}
           onSelectTab={onSelectTab}
+          onMoveToSplitPane={onMoveTabToSplitPane}
           onCloseTab={onCloseTab}
         />
       ) : (

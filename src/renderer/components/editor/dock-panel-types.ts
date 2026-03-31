@@ -33,6 +33,7 @@ export interface DockAppState {
   onActivateEditorPane: (paneId: string) => void
   onSplitEditorPane: (paneId: string, direction: 'right' | 'below') => void
   onMoveFileToPane: (filePath: string, targetPaneId: string, sourcePaneId?: string | null) => void
+  onMoveFileToSplitPane: (filePath: string, sourcePaneId: string, direction: 'right' | 'below') => void
   onDeleteFile?: (path: string) => void
   onRenameFile?: (oldPath: string, newPath: string) => void
   onCreateFile?: (dirPath: string, fileName: string) => Promise<boolean>

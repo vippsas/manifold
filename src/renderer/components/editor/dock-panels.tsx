@@ -131,6 +131,7 @@ function EditorPanel({ api }: { api: { id: string } }): React.JSX.Element {
       theme={s.theme}
       onActivatePane={() => s.onActivateEditorPane(paneId)}
       onSelectTab={(filePath) => s.onSelectOpenFile(filePath, paneId)}
+      onMoveTabToSplitPane={(filePath, direction) => s.onMoveFileToSplitPane(filePath, paneId, direction)}
       onOpenLinkedFile={(filePath) => s.onSelectFileFromMarkdownPreview(filePath, paneId)}
       onCloseTab={(filePath) => s.onCloseFile(filePath, paneId)}
       onSaveFile={s.onSaveFile}

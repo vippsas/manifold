@@ -1,9 +1,12 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import type { DockviewApi, SerializedDockview } from 'dockview'
+import { getGridLocation, type Orientation } from 'dockview-core'
 import {
+  applyLayoutChangePreservingSidebarWidths,
   PANEL_IDS,
   PANEL_TITLES,
   applyMinimalLayout,
+  findAdjacentEditorPanelId,
   getGridSignature,
   getSidebarWidths,
   hidePanel,
@@ -13,16 +16,15 @@ import {
   restoreSidebarWidths,
   showPanelFromHints,
   showPanelFromSnapshot,
+  type EditorSplitDirection,
   type DockPanelId,
   type LayoutRefs,
 } from './dock-layout-helpers'
 import { applyDefaultLayout, applyMinimalPanels, syncEditorPanelIds } from './dock-layout-builders'
 import { ensureSearchPanelInWorkspace } from './dock-layout-search'
 
-export type { DockPanelId } from './dock-layout-helpers'
+export type { DockPanelId, EditorSplitDirection } from './dock-layout-helpers'
 export { isEditorPanelId } from './dock-layout-helpers'
-
-type SplitEditorDirection = 'right' | 'below'
 
 export interface UseDockLayoutResult {
   apiRef: React.MutableRefObject<DockviewApi | null>
@@ -31,7 +33,8 @@ export interface UseDockLayoutResult {
   closePanel: (id: string) => void
   focusPanel: (id: string) => void
   ensureEditorPanel: (preferredPanelId?: string | null) => string
-  splitEditorPane: (referencePanelId: string, direction: SplitEditorDirection) => string | null
+  splitEditorPane: (referencePanelId: string, direction: EditorSplitDirection) => string | null
+  findEditorPanelForSplit: (referencePanelId: string, direction: EditorSplitDirection) => string | null
   isPanelVisible: (id: DockPanelId) => boolean
   resetLayout: () => void
   hiddenPanels: DockPanelId[]
@@ -248,7 +251,7 @@ export function useDockLayout(sessionId: string | null, showIdeasTab: boolean): 
     return 'editor'
   }, [bumpVersion, focusPanel, saveLayout, syncPanels])
 
-  const splitEditorPane = useCallback((referencePanelId: string, direction: SplitEditorDirection): string | null => {
+  const splitEditorPane = useCallback((referencePanelId: string, direction: EditorSplitDirection): string | null => {
     const api = apiRef.current
     if (!api) return null
 
@@ -258,20 +261,49 @@ export function useDockLayout(sessionId: string | null, showIdeasTab: boolean): 
     const newPanelId = `${PANEL_TITLES.editor.toLowerCase()}:${nextEditorPanelIndexRef.current}`
     nextEditorPanelIndexRef.current += 1
 
-    const panel = api.addPanel({
-      id: newPanelId,
-      component: 'editor',
-      title: PANEL_TITLES.editor,
-      position: { referencePanel, direction },
-    })
+    applyLayoutChangePreservingSidebarWidths(api, () => {
+      api.addPanel({
+        id: newPanelId,
+        component: 'editor',
+        title: PANEL_TITLES.editor,
+        position: { referencePanel, direction },
+      })
+    }, refs)
 
+    const panel = api.getPanel(newPanelId)
+    if (!panel) return null
     editorPanelIdsRef.current.add(newPanelId)
+    sidebarWidthsRef.current = getSidebarWidths(api)
     panel.api.setActive()
     lastLayoutRef.current = api.toJSON()
     saveLayout()
     bumpVersion()
     return newPanelId
   }, [bumpVersion, ensureEditorPanel, saveLayout])
+
+  const findEditorPanelForSplit = useCallback((referencePanelId: string, direction: EditorSplitDirection): string | null => {
+    const api = apiRef.current
+    if (!api) return null
+
+    const referencePanel = api.getPanel(referencePanelId) ?? api.getPanel(ensureEditorPanel(referencePanelId))
+    if (!referencePanel) return null
+
+    const referenceLocation = getGridLocation(referencePanel.group.element)
+    const rootOrientation = api.toJSON().grid.orientation as Orientation
+    const candidatePanels = Array.from(editorPanelIdsRef.current)
+      .filter((panelId) => panelId !== referencePanelId)
+      .map((panelId) => {
+        const panel = api.getPanel(panelId)
+        if (!panel) return null
+        return {
+          panelId,
+          location: getGridLocation(panel.group.element),
+        }
+      })
+      .filter((panel): panel is { panelId: string; location: number[] } => panel !== null)
+
+    return findAdjacentEditorPanelId(rootOrientation, referenceLocation, candidatePanels, direction)
+  }, [ensureEditorPanel])
 
   const closePanel = useCallback((id: string): void => {
     const api = apiRef.current
@@ -380,7 +412,7 @@ export function useDockLayout(sessionId: string | null, showIdeasTab: boolean): 
 
   return {
     apiRef, onReady, togglePanel, closePanel, focusPanel,
-    ensureEditorPanel, splitEditorPane, isPanelVisible,
+    ensureEditorPanel, splitEditorPane, findEditorPanelForSplit, isPanelVisible,
     resetLayout, hiddenPanels, editorPanelIds,
   }
 }
