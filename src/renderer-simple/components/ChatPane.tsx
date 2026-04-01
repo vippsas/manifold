@@ -1,7 +1,13 @@
-import React, { useState, useRef, useEffect, useCallback } from 'react'
+import React, { useState, useRef, useEffect, useCallback, useLayoutEffect } from 'react'
 import type { ChatMessage as ChatMessageType } from '../../shared/simple-types'
 import { ChatMessage } from './ChatMessage'
 import * as styles from './ChatPane.styles'
+
+const INPUT_LINE_HEIGHT = 22
+const INPUT_CHROME_HEIGHT = 26
+const MAX_VISIBLE_LINES = 4
+const MIN_INPUT_HEIGHT = INPUT_LINE_HEIGHT + INPUT_CHROME_HEIGHT
+const MAX_INPUT_HEIGHT = INPUT_LINE_HEIGHT * MAX_VISIBLE_LINES + INPUT_CHROME_HEIGHT
 
 const THINKING_PHRASES = [
   'Thinking',
@@ -121,10 +127,34 @@ export function ChatPane({ messages, onSend, onInterrupt, isThinking, durationMs
   const [input, setInput] = useState('')
   const [dismissedOptions, setDismissedOptions] = useState<Set<string>>(new Set())
   const messagesEndRef = useRef<HTMLDivElement>(null)
+  const inputRef = useRef<HTMLTextAreaElement>(null)
+  const pendingSelectionRef = useRef<number | null>(null)
 
   useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
+    messagesEndRef.current?.scrollIntoView?.({ behavior: 'smooth' })
   }, [messages, isThinking, durationMs])
+
+  const syncInputHeight = useCallback((): void => {
+    const textarea = inputRef.current
+    if (!textarea) return
+
+    textarea.style.height = `${MIN_INPUT_HEIGHT}px`
+    const nextHeight = Math.min(textarea.scrollHeight, MAX_INPUT_HEIGHT)
+    textarea.style.height = `${Math.max(MIN_INPUT_HEIGHT, nextHeight)}px`
+    textarea.style.overflowY = textarea.scrollHeight > MAX_INPUT_HEIGHT ? 'auto' : 'hidden'
+  }, [])
+
+  useLayoutEffect(() => {
+    syncInputHeight()
+
+    if (pendingSelectionRef.current == null) return
+
+    const textarea = inputRef.current
+    if (!textarea) return
+
+    textarea.setSelectionRange(pendingSelectionRef.current, pendingSelectionRef.current)
+    pendingSelectionRef.current = null
+  }, [input, syncInputHeight])
 
   const dismissAllOptions = (): void => {
     const ids = messages.filter(m => m.options && m.options.length > 0).map(m => m.id)
@@ -138,11 +168,37 @@ export function ChatPane({ messages, onSend, onInterrupt, isThinking, durationMs
   }
 
   const handleSend = (): void => {
-    if (input.trim()) {
+    const message = input.trim()
+    if (message) {
       dismissAllOptions()
-      onSend(input.trim())
+      onSend(message)
       setInput('')
     }
+  }
+
+  const insertLineBreak = (): void => {
+    const textarea = inputRef.current
+    if (!textarea) {
+      setInput((current) => `${current}\n`)
+      return
+    }
+
+    const selectionStart = textarea.selectionStart ?? input.length
+    const selectionEnd = textarea.selectionEnd ?? input.length
+    pendingSelectionRef.current = selectionStart + 1
+    setInput((current) => `${current.slice(0, selectionStart)}\n${current.slice(selectionEnd)}`)
+  }
+
+  const handleInputKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>): void => {
+    if (e.key !== 'Enter' || e.nativeEvent.isComposing) return
+
+    e.preventDefault()
+    if (e.shiftKey) {
+      insertLineBreak()
+      return
+    }
+
+    handleSend()
   }
 
   const handleOptionClick = (messageId: string, option: string): void => {
@@ -166,11 +222,13 @@ export function ChatPane({ messages, onSend, onInterrupt, isThinking, durationMs
         <div ref={messagesEndRef} />
       </div>
       <div style={styles.inputRow}>
-        <input
+        <textarea
+          ref={inputRef}
           style={styles.input}
+          rows={1}
           value={input}
           onChange={(e) => setInput(e.target.value)}
-          onKeyDown={(e) => e.key === 'Enter' && handleSend()}
+          onKeyDown={handleInputKeyDown}
           placeholder="Tell the agent what to change..."
         />
         <button
