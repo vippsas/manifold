@@ -25,6 +25,8 @@ export class DevServerManager {
     projectId: string,
     branchName: string,
     taskDescription?: string,
+    simpleTemplateTitle?: string,
+    simplePromptInstructions?: string,
     runtimeId = 'claude',
   ): Promise<{ sessionId: string }> {
     const project = this.projectRegistry.getProject(projectId)
@@ -68,6 +70,8 @@ export class DevServerManager {
       ptyId: '',
       outputBuffer: '',
       taskDescription,
+      simpleTemplateTitle,
+      simplePromptInstructions,
       additionalDirs: [],
       noWorktree: true,
       nonInteractive: true,
@@ -142,7 +146,12 @@ export class DevServerManager {
 
     const adapter = this.getChatAdapter()
     const history = adapter?.getMessages(session.id) ?? []
-    const followUpPrompt = buildSimpleFollowUpPrompt(history, prompt)
+    const followUpPrompt = buildSimpleFollowUpPrompt(
+      history,
+      prompt,
+      session.simpleTemplateTitle,
+      session.simplePromptInstructions,
+    )
     const runtime = getRuntimeById(session.runtimeId)
     if (!runtime) throw new Error('Runtime not found: ' + session.runtimeId)
     const simpleCommand = buildSimpleRuntimeCommand(session.runtimeId, followUpPrompt)

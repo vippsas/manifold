@@ -308,9 +308,18 @@ export class SessionManager {
     projectId: string,
     branchName: string,
     taskDescription?: string,
+    simpleTemplateTitle?: string,
+    simplePromptInstructions?: string,
     runtimeId?: string,
   ): Promise<{ sessionId: string }> {
-    return this.devServer.startDevServerSession(projectId, branchName, taskDescription, runtimeId)
+    return this.devServer.startDevServerSession(
+      projectId,
+      branchName,
+      taskDescription,
+      simpleTemplateTitle,
+      simplePromptInstructions,
+      runtimeId,
+    )
   }
 
   killAllSessions(): void {
@@ -397,6 +406,8 @@ export class SessionManager {
     writeWorktreeMeta(session.worktreePath, {
       runtimeId: session.runtimeId,
       taskDescription: session.taskDescription,
+      simpleTemplateTitle: session.simpleTemplateTitle,
+      simplePromptInstructions: session.simplePromptInstructions,
       additionalDirs: session.additionalDirs,
       ollamaModel: session.ollamaModel,
     }).catch(() => {})
@@ -412,6 +423,8 @@ export class SessionManager {
       status: session.status,
       pid: session.pid,
       taskDescription: session.taskDescription,
+      simpleTemplateTitle: session.simpleTemplateTitle,
+      simplePromptInstructions: session.simplePromptInstructions,
       additionalDirs: session.additionalDirs,
       noWorktree: session.noWorktree,
     }

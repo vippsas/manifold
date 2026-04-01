@@ -226,11 +226,18 @@ export function App(): React.JSX.Element {
           throw new Error(provisioning.error.message)
         }
 
+        await window.electronAPI.invoke('projects:update', provisioning.value.project.id, {
+          simpleTemplateTitle: templateTitle,
+          simplePromptInstructions: promptInstructions,
+        })
+
         const session = (await window.electronAPI.invoke('agent:spawn', {
           projectId: provisioning.value.project.id,
           runtimeId: settings.defaultRuntime ?? 'claude',
           prompt: buildSimplePrompt(description, templateTitle, promptInstructions),
           userMessage: description,
+          simpleTemplateTitle: templateTitle,
+          simplePromptInstructions: promptInstructions,
           noWorktree: true,
           nonInteractive: true,
         })) as { id: string; branchName: string; worktreePath: string; status: string }
@@ -244,6 +251,8 @@ export function App(): React.JSX.Element {
           branchName: session.branchName ?? '',
           name,
           description,
+          simpleTemplateTitle: templateTitle,
+          simplePromptInstructions: promptInstructions,
           status: 'scaffolding',
           previewUrl: null,
           liveUrl: null,
@@ -269,6 +278,8 @@ export function App(): React.JSX.Element {
               app.projectId,
               app.branchName,
               app.description,
+              app.simpleTemplateTitle,
+              app.simplePromptInstructions,
               settings.defaultRuntime ?? 'claude',
             )) as { sessionId: string }
             await window.electronAPI.invoke('simple:subscribe-chat', result.sessionId)

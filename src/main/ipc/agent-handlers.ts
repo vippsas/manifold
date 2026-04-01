@@ -122,8 +122,23 @@ export function registerAgentHandlers(deps: IpcDependencies): void {
 
   ipcMain.handle(
     'agent:start-dev-server',
-    (_event, projectId: string, branchName: string, description?: string, runtimeId?: string) => {
-      return sessionManager.startDevServerSession(projectId, branchName, description, runtimeId)
+    (
+      _event,
+      projectId: string,
+      branchName: string,
+      description?: string,
+      simpleTemplateTitle?: string,
+      simplePromptInstructions?: string,
+      runtimeId?: string,
+    ) => {
+      return sessionManager.startDevServerSession(
+        projectId,
+        branchName,
+        description,
+        simpleTemplateTitle,
+        simplePromptInstructions,
+        runtimeId,
+      )
     },
   )
 

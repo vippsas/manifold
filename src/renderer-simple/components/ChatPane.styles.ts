@@ -14,6 +14,7 @@ export const messages: CSSProperties = {
 
 export const inputRow: CSSProperties = {
   display: 'flex',
+  alignItems: 'flex-end',
   gap: 8,
   padding: '12px 16px',
 }
@@ -21,15 +22,23 @@ export const inputRow: CSSProperties = {
 export const input: CSSProperties = {
   flex: 1,
   padding: '12px 16px',
+  minHeight: 48,
+  maxHeight: 114,
   fontSize: 15,
+  lineHeight: '22px',
+  fontFamily: 'inherit',
   background: 'var(--surface)',
   border: '1px solid var(--border)',
   borderRadius: 20,
   color: 'var(--text)',
   outline: 'none',
+  resize: 'none',
+  overflowY: 'hidden',
 }
 
 export const sendButton: CSSProperties = {
+  alignSelf: 'flex-end',
+  flexShrink: 0,
   background: 'var(--accent)',
   color: 'var(--accent-text)',
   border: 'none',
@@ -41,6 +50,8 @@ export const sendButton: CSSProperties = {
 }
 
 export const interruptButton: CSSProperties = {
+  alignSelf: 'flex-end',
+  flexShrink: 0,
   background: 'transparent',
   color: 'var(--warning)',
   border: '1px solid var(--warning)',

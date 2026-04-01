@@ -3,6 +3,8 @@ import { writeFile, readFile, unlink } from 'node:fs/promises'
 export interface WorktreeMeta {
   runtimeId: string
   taskDescription?: string
+  simpleTemplateTitle?: string
+  simplePromptInstructions?: string
   additionalDirs?: string[]
   ollamaModel?: string
 }

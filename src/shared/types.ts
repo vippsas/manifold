@@ -21,6 +21,8 @@ export interface AgentSession {
   status: AgentStatus
   pid: number | null
   taskDescription?: string
+  simpleTemplateTitle?: string
+  simplePromptInstructions?: string
   additionalDirs: string[]
   noWorktree?: boolean
 }
@@ -31,7 +33,8 @@ export interface Project {
   path: string
   baseBranch: string
   addedAt: string
-
+  simpleTemplateTitle?: string
+  simplePromptInstructions?: string
 }
 
 export type FileChangeType = 'added' | 'modified' | 'deleted'
@@ -101,6 +104,8 @@ export interface SpawnAgentOptions {
   runtimeId: string
   prompt: string
   userMessage?: string
+  simpleTemplateTitle?: string
+  simplePromptInstructions?: string
   branchName?: string
   existingBranch?: string
   prIdentifier?: string

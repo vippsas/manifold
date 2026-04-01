@@ -13,6 +13,8 @@ export interface InternalSession extends AgentSession {
   ptyId: string
   outputBuffer: string
   taskDescription?: string
+  simpleTemplateTitle?: string
+  simplePromptInstructions?: string
   ollamaModel?: string
   detectedUrl?: string
   detectedVercelUrl?: string

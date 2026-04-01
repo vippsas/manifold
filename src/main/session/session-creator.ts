@@ -129,7 +129,9 @@ export class SessionCreator {
     if (!options.noWorktree) {
       writeWorktreeMeta(worktree.path, {
         runtimeId: options.runtimeId,
-        taskDescription: options.prompt || undefined,
+        taskDescription: options.userMessage || options.prompt || undefined,
+        simpleTemplateTitle: options.simpleTemplateTitle,
+        simplePromptInstructions: options.simplePromptInstructions,
         ollamaModel: options.ollamaModel,
       }).catch(() => {})
     }
@@ -177,7 +179,9 @@ export class SessionCreator {
       pid: ptyHandle.pid,
       ptyId: ptyHandle.id,
       outputBuffer: '',
-      taskDescription: options.prompt || undefined,
+      taskDescription: options.userMessage || options.prompt || undefined,
+      simpleTemplateTitle: options.simpleTemplateTitle,
+      simplePromptInstructions: options.simplePromptInstructions,
       ollamaModel: options.ollamaModel,
       additionalDirs: [],
       noWorktree: options.noWorktree,
