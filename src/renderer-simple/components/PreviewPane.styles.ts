@@ -4,6 +4,7 @@ export const container: CSSProperties = {
   display: 'flex',
   flexDirection: 'column',
   height: '100%',
+  background: 'var(--bg)',
 }
 
 export const emptyState: CSSProperties = {
@@ -36,6 +37,7 @@ export const toolbar: CSSProperties = {
   fontSize: 12,
   color: 'var(--text-muted)',
   gap: 8,
+  background: 'var(--surface)',
 }
 
 export const urlLabel: CSSProperties = {
@@ -46,13 +48,44 @@ export const urlLabel: CSSProperties = {
   fontFamily: 'monospace',
 }
 
-export const reloadButton: CSSProperties = {
-  background: 'none',
-  border: 'none',
-  color: 'var(--text-muted)',
+export const toolbarActions: CSSProperties = {
+  display: 'flex',
+  alignItems: 'center',
+  gap: 6,
+  flexShrink: 0,
+}
+
+export const toolbarButton: CSSProperties = {
+  display: 'inline-flex',
+  alignItems: 'center',
+  justifyContent: 'center',
+  minWidth: 28,
+  height: 24,
+  background: 'var(--bg)',
+  border: '1px solid var(--border)',
+  borderRadius: 'calc(var(--radius) - 6px)',
+  color: 'var(--text)',
   cursor: 'pointer',
-  fontSize: 14,
-  padding: '2px 4px',
+  fontSize: 13,
+  padding: '0 6px',
+  transition: 'background 0.15s ease, color 0.15s ease, opacity 0.15s ease',
+}
+
+export const toolbarButtonDisabled: CSSProperties = {
+  ...toolbarButton,
+  color: 'var(--text-muted)',
+  cursor: 'default',
+  opacity: 0.5,
+}
+
+export const loadingLabel: CSSProperties = {
+  flexShrink: 0,
+  fontSize: 11,
+}
+
+export const webview: CSSProperties = {
+  flex: 1,
+  border: 'none',
 }
 
 export const errorContainer: CSSProperties = {
