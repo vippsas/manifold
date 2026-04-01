@@ -1,8 +1,54 @@
 import * as fs from 'node:fs'
 import * as os from 'node:os'
 import * as path from 'node:path'
-import { execFileSync } from 'node:child_process'
-import { afterEach, describe, expect, it } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vitest'
+
+const { gitLogByPath, gitStatusByPath } = vi.hoisted(() => ({
+  gitLogByPath: new Map<string, string[]>(),
+  gitStatusByPath: new Map<string, string[]>(),
+}))
+
+vi.mock('node:child_process', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('node:child_process')>()
+  const execFileSync = vi.fn((
+    command: string,
+    args: string[],
+    options?: { cwd?: string; encoding?: string },
+  ) => {
+    if (command !== 'git') {
+      throw new Error(`Unexpected command: ${command}`)
+    }
+
+    const cwd = options?.cwd
+    if (!cwd) {
+      throw new Error('Expected git command to provide cwd')
+    }
+
+    if (args[0] === 'log') {
+      const maxCountArg = args.find((arg) => arg.startsWith('--max-count='))
+      const maxCount = maxCountArg ? Number(maxCountArg.slice('--max-count='.length)) : Infinity
+      const output = (gitLogByPath.get(cwd) ?? []).slice(0, maxCount).join('\n')
+      return options?.encoding ? output : Buffer.from(output, 'utf-8')
+    }
+
+    if (args[0] === 'status') {
+      const output = (gitStatusByPath.get(cwd) ?? []).join('\n')
+      return options?.encoding ? output : Buffer.from(output, 'utf-8')
+    }
+
+    throw new Error(`Unexpected git args: ${args.join(' ')}`)
+  })
+
+  return {
+    ...actual,
+    default: {
+      ...actual,
+      execFileSync,
+    },
+    execFileSync,
+  }
+})
+
 import { loadLocalProjectInput } from '../../../background-agent/connectors/local-project/local-project-loader'
 
 const tempDirs: string[] = []
@@ -13,6 +59,8 @@ describe('loadLocalProjectInput', () => {
       const dir = tempDirs.pop()
       if (dir) fs.rmSync(dir, { recursive: true, force: true })
     }
+    gitLogByPath.clear()
+    gitStatusByPath.clear()
   })
 
   it('loads top-level roadmap notes and recent PR-like commit hints', () => {
@@ -29,10 +77,10 @@ describe('loadLocalProjectInput', () => {
       }),
     })
 
-    initGitRepo(projectPath)
-    commitAll(projectPath, 'Initial project scaffolding')
-    fs.writeFileSync(path.join(projectPath, 'README.md'), '# Project One\n\nAn Electron app for project-aware developer workflows.\n\nUpdated.', 'utf-8')
-    commitAll(projectPath, 'Add ecosystem watch groundwork (#123)')
+    seedGitHistory(projectPath, [
+      'Add ecosystem watch groundwork (#123)',
+      'Initial project scaffolding',
+    ])
 
     const input = loadLocalProjectInput('project-1', 'Project One', projectPath)
 
@@ -54,13 +102,7 @@ function createTempProject(files: Record<string, string>): string {
   return projectPath
 }
 
-function initGitRepo(projectPath: string): void {
-  execFileSync('git', ['init'], { cwd: projectPath, stdio: ['ignore', 'ignore', 'ignore'] })
-  execFileSync('git', ['config', 'user.email', 'codex@example.com'], { cwd: projectPath, stdio: ['ignore', 'ignore', 'ignore'] })
-  execFileSync('git', ['config', 'user.name', 'Codex'], { cwd: projectPath, stdio: ['ignore', 'ignore', 'ignore'] })
-}
-
-function commitAll(projectPath: string, message: string): void {
-  execFileSync('git', ['add', '.'], { cwd: projectPath, stdio: ['ignore', 'ignore', 'ignore'] })
-  execFileSync('git', ['commit', '-m', message], { cwd: projectPath, stdio: ['ignore', 'ignore', 'ignore'] })
+function seedGitHistory(projectPath: string, commits: string[], status: string[] = []): void {
+  gitLogByPath.set(projectPath, commits)
+  gitStatusByPath.set(projectPath, status)
 }
