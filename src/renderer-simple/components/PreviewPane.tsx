@@ -1,6 +1,11 @@
 import React, { useRef, useCallback, useState, useEffect } from 'react'
 import * as styles from './PreviewPane.styles'
-import { reloadWebview, stopWebview } from './preview-webview'
+import {
+  getWebviewNavigationState,
+  navigateWebviewHistory,
+  reloadWebview,
+  stopWebview,
+} from './preview-webview'
 
 // Chromium error code -3 (ERR_ABORTED) fires on navigation cancellation; not a real error.
 const ERR_ABORTED = -3
@@ -23,11 +28,30 @@ interface Props {
 export function PreviewPane({ url, isAgentWorking, starting, scaffolding }: Props): React.JSX.Element {
   const webviewRef = useRef<Electron.WebviewTag | null>(null)
   const readyRef = useRef(false)
+  const syncNavigationStateRef = useRef((): void => {})
+  const [currentUrl, setCurrentUrl] = useState<string | null>(url)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [canGoBack, setCanGoBack] = useState(false)
+  const [canGoForward, setCanGoForward] = useState(false)
   const wasWorkingRef = useRef(isAgentWorking)
 
+  syncNavigationStateRef.current = () => {
+    const {
+      currentUrl: nextUrl,
+      canGoBack: nextCanGoBack,
+      canGoForward: nextCanGoForward,
+    } = getWebviewNavigationState(webviewRef.current, url)
+
+    setCurrentUrl(nextUrl)
+    setCanGoBack(nextCanGoBack)
+    setCanGoForward(nextCanGoForward)
+  }
+
   useEffect(() => {
+    setCurrentUrl(url)
+    setCanGoBack(false)
+    setCanGoForward(false)
     setError(null)
     setLoading(true)
   }, [url])
@@ -54,14 +78,26 @@ export function PreviewPane({ url, isAgentWorking, starting, scaffolding }: Prop
     setLoading(true)
     setError(null)
   })
-  const handleStopRef = useRef((): void => setLoading(false))
+  const handleStopRef = useRef((): void => {
+    setLoading(false)
+    syncNavigationStateRef.current()
+  })
   const handleFailRef = useRef((e: Electron.DidFailLoadEvent): void => {
     if (e.errorCode !== ERR_ABORTED) {
       setError(`Failed to load: ${e.errorDescription}`)
       setLoading(false)
     }
   })
-  const handleReadyRef = useRef((): void => { readyRef.current = true })
+  const handleReadyRef = useRef((): void => {
+    readyRef.current = true
+    syncNavigationStateRef.current()
+  })
+  const handleNavigateRef = useRef((_e: Electron.DidNavigateEvent): void => {
+    syncNavigationStateRef.current()
+  })
+  const handleNavigateInPageRef = useRef((_e: Electron.DidNavigateInPageEvent): void => {
+    syncNavigationStateRef.current()
+  })
 
   const webviewCallbackRef = useCallback((node: Electron.WebviewTag | null) => {
     const prev = webviewRef.current
@@ -71,6 +107,8 @@ export function PreviewPane({ url, isAgentWorking, starting, scaffolding }: Prop
       prev.removeEventListener('did-start-loading', handleStartRef.current)
       prev.removeEventListener('did-stop-loading', handleStopRef.current)
       prev.removeEventListener('did-fail-load', handleFailRef.current as EventListener)
+      prev.removeEventListener('did-navigate', handleNavigateRef.current as EventListener)
+      prev.removeEventListener('did-navigate-in-page', handleNavigateInPageRef.current as EventListener)
     }
     webviewRef.current = node
     readyRef.current = false
@@ -79,6 +117,22 @@ export function PreviewPane({ url, isAgentWorking, starting, scaffolding }: Prop
       node.addEventListener('did-start-loading', handleStartRef.current)
       node.addEventListener('did-stop-loading', handleStopRef.current)
       node.addEventListener('did-fail-load', handleFailRef.current as EventListener)
+      node.addEventListener('did-navigate', handleNavigateRef.current as EventListener)
+      node.addEventListener('did-navigate-in-page', handleNavigateInPageRef.current as EventListener)
+    }
+  }, [])
+
+  const handleBack = useCallback(() => {
+    if (navigateWebviewHistory(webviewRef.current, 'back')) {
+      setError(null)
+      setLoading(true)
+    }
+  }, [])
+
+  const handleForward = useCallback(() => {
+    if (navigateWebviewHistory(webviewRef.current, 'forward')) {
+      setError(null)
+      setLoading(true)
     }
   }, [])
 
@@ -112,11 +166,36 @@ export function PreviewPane({ url, isAgentWorking, starting, scaffolding }: Prop
   return (
     <div style={styles.container}>
       <div style={styles.toolbar}>
-        <span style={styles.urlLabel}>{url}</span>
-        {loading && <span style={{ fontSize: 10 }}>Loading...</span>}
-        <button onClick={handleReload} style={styles.reloadButton} title="Reload">
-          &#x21bb;
-        </button>
+        <div style={styles.toolbarActions}>
+          <button
+            aria-label="Back"
+            disabled={!canGoBack}
+            onClick={handleBack}
+            style={canGoBack ? styles.toolbarButton : styles.toolbarButtonDisabled}
+            title="Back"
+          >
+            &#x2190;
+          </button>
+          <button
+            aria-label="Forward"
+            disabled={!canGoForward}
+            onClick={handleForward}
+            style={canGoForward ? styles.toolbarButton : styles.toolbarButtonDisabled}
+            title="Forward"
+          >
+            &#x2192;
+          </button>
+          <button
+            aria-label="Reload"
+            onClick={handleReload}
+            style={styles.toolbarButton}
+            title="Reload"
+          >
+            &#x21bb;
+          </button>
+        </div>
+        <span style={styles.urlLabel} title={currentUrl ?? url}>{currentUrl ?? url}</span>
+        {loading && <span style={styles.loadingLabel}>Loading...</span>}
       </div>
       {error ? (
         <div style={styles.errorContainer}>
@@ -128,8 +207,8 @@ export function PreviewPane({ url, isAgentWorking, starting, scaffolding }: Prop
       ) : (
         <webview
           ref={webviewCallbackRef as React.Ref<Electron.WebviewTag>}
-          src={url}
-          style={{ flex: 1, border: 'none' }}
+          src={currentUrl ?? url}
+          style={styles.webview}
         />
       )}
     </div>
