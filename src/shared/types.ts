@@ -37,6 +37,11 @@ export interface Project {
   simplePromptInstructions?: string
 }
 
+export interface CreateProjectOptions {
+  description: string
+  repoName?: string
+}
+
 export type FileChangeType = 'added' | 'modified' | 'deleted'
 
 export interface FileChange {

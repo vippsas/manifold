@@ -37,6 +37,7 @@ import { WelcomeDialog } from './components/modals/WelcomeDialog'
 import { DockTab, EmptyWatermark } from './DockTab'
 import { TitleBar } from './components/TitleBar'
 import type { FileOpenRequest } from './components/editor/file-open-request'
+import type { CreateProjectOptions } from '../shared/types'
 
 interface SearchOpenTarget {
   path: string
@@ -208,11 +209,14 @@ export function App(): React.JSX.Element {
     dockLayout.closePanel(panelId)
   }, [codeView, dockLayout])
 
-  const handleCreateNewProject = useCallback(async (description: string): Promise<void> => {
+  const handleCreateNewProject = useCallback(async (options: CreateProjectOptions): Promise<boolean> => {
     appEffects.setCreatingProject(true)
     try {
-      const project = await createNewProject(description)
-      if (project) { appEffects.setShowOnboarding(false); void spawnAgent({ projectId: project.id, runtimeId: settings.defaultRuntime, prompt: description }) }
+      const project = await createNewProject(options)
+      if (!project) return false
+      appEffects.setShowOnboarding(false)
+      void spawnAgent({ projectId: project.id, runtimeId: settings.defaultRuntime, prompt: options.description })
+      return true
     } finally { appEffects.setCreatingProject(false) }
   }, [createNewProject, spawnAgent, settings.defaultRuntime, appEffects])
   const handleAddProjectFromOnboarding = useCallback(async (path?: string): Promise<void> => {
