@@ -6,17 +6,10 @@ import os from 'node:os'
 import { existsSync, mkdirSync, writeFileSync, rmSync } from 'node:fs'
 import type { IpcDependencies } from './types'
 import { getRuntimeById } from '../agent/runtimes'
+import type { CreateProjectOptions } from '../../shared/types'
+import { slugifyRepoName, suggestRepoName } from '../../shared/repo-name'
 
 const execFileAsync = promisify(execFile)
-
-function slugify(text: string): string {
-  return text
-    .toLowerCase()
-    .replace(/[^a-z0-9]+/g, '-')
-    .replace(/^-+|-+$/g, '')
-    .slice(0, 60)
-    || 'new-project'
-}
 
 function repoNameFromUrl(url: string): string {
   const cleaned = url.replace(/\/+$/, '').replace(/\.git$/, '')
@@ -94,49 +87,63 @@ export function registerProjectHandlers(deps: IpcDependencies): void {
 
   ipcMain.handle(
     'projects:create-new',
-    async (_event, description: string) => {
-      if (typeof description !== 'string' || !description.trim()) {
+    async (_event, options: CreateProjectOptions | string) => {
+      const payload = typeof options === 'string' ? { description: options } : options
+      if (!payload || typeof payload.description !== 'string' || !payload.description.trim()) {
         throw new Error('A project description is required')
       }
 
+      const description = payload.description.trim()
+      const requestedRepoName = typeof payload.repoName === 'string' ? payload.repoName : undefined
+      const explicitRepoName = requestedRepoName !== undefined
       const settings = deps.settingsStore.getSettings()
       const runtime = getRuntimeById(settings.defaultRuntime)
       const projectsBase = path.join(settings.storagePath, 'projects')
 
       // Generate a catchy project name via AI, fall back to slugified description
-      let baseSlug = slugify(description)
-      if (runtime?.binary) {
+      let baseSlug = explicitRepoName ? slugifyRepoName(requestedRepoName) : suggestRepoName(description)
+      if (explicitRepoName && !baseSlug) {
+        throw new Error('A repository name is required')
+      }
+
+      if (!explicitRepoName && runtime?.binary) {
         const namePrompt =
           `Suggest a short, catchy project name (1-3 words) for this project idea:\n\n` +
-          `${description.trim()}\n\n` +
+          `${description}\n\n` +
           `Output ONLY the project name in lowercase with hyphens instead of spaces. ` +
           `No explanation, no quotes, no punctuation. Example: pixel-forge`
         const aiName = await runAIPrompt(runtime.binary, namePrompt)
-        const cleaned = slugify(aiName)
-        if (cleaned && cleaned !== 'new-project') {
+        const cleaned = slugifyRepoName(aiName)
+        if (cleaned) {
           baseSlug = cleaned
         }
       }
 
-      // Deduplicate: append numeric suffix if directory exists
       let slug = baseSlug
       let projectDir = path.join(projectsBase, slug)
-      let suffix = 2
-      while (existsSync(projectDir)) {
-        slug = `${baseSlug}-${suffix}`
-        projectDir = path.join(projectsBase, slug)
-        suffix++
+
+      if (explicitRepoName) {
+        if (existsSync(projectDir)) {
+          throw new Error(`A repository named "${slug}" already exists`)
+        }
+      } else {
+        let suffix = 2
+        while (existsSync(projectDir)) {
+          slug = `${baseSlug}-${suffix}`
+          projectDir = path.join(projectsBase, slug)
+          suffix++
+        }
       }
 
       try {
         mkdirSync(projectDir, { recursive: true })
 
-        let readmeContent = `# ${description.trim()}\n\n${description.trim()}\n`
+        let readmeContent = `# ${description}\n\n${description}\n`
         if (runtime?.binary) {
           const aiContent = await runAIPrompt(
             runtime.binary,
             `I am starting a new project. Here is the project description:\n\n` +
-            `${description.trim()}\n\n` +
+            `${description}\n\n` +
             `Generate a README.md for this project. Include a title, description, ` +
             `and relevant sections based on the project idea. Output only the raw ` +
             `markdown content, nothing else.`,
@@ -149,7 +156,7 @@ export function registerProjectHandlers(deps: IpcDependencies): void {
 
         writeFileSync(path.join(projectDir, 'README.md'), readmeContent, 'utf-8')
 
-        await execFileAsync('git', ['init'], { cwd: projectDir })
+        await execFileAsync('git', ['init', '--initial-branch=main'], { cwd: projectDir })
         await execFileAsync('git', ['add', 'README.md'], { cwd: projectDir })
         await execFileAsync(
           'git',

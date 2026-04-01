@@ -140,6 +140,56 @@ describe('useProjects', () => {
     })
   })
 
+  describe('createNewProject', () => {
+    it('creates a project with explicit repo metadata', async () => {
+      const createdProject = { id: 'p-new', name: 'Timer', path: '/projects/timer', baseBranch: 'main', addedAt: '2024-01-03' }
+      mockInvoke
+        .mockResolvedValueOnce([]) // initial list
+        .mockResolvedValueOnce(createdProject)
+
+      const { result } = renderHook(() => useProjects())
+
+      await waitFor(() => {
+        expect(result.current.loading).toBe(false)
+      })
+
+      await act(async () => {
+        await result.current.createNewProject({
+          description: 'Build a timer app',
+          repoName: 'timer-app',
+        })
+      })
+
+      expect(mockInvoke).toHaveBeenCalledWith('projects:create-new', {
+        description: 'Build a timer app',
+        repoName: 'timer-app',
+      })
+      expect(result.current.projects).toContainEqual(createdProject)
+      expect(result.current.activeProjectId).toBe('p-new')
+    })
+
+    it('sets error when project creation fails', async () => {
+      mockInvoke
+        .mockResolvedValueOnce([])
+        .mockRejectedValueOnce(new Error('name already exists'))
+
+      const { result } = renderHook(() => useProjects())
+
+      await waitFor(() => {
+        expect(result.current.loading).toBe(false)
+      })
+
+      await act(async () => {
+        await result.current.createNewProject({
+          description: 'Build a timer app',
+          repoName: 'timer-app',
+        })
+      })
+
+      expect(result.current.error).toBe('name already exists')
+    })
+  })
+
   describe('removeProject', () => {
     it('removes a project and clears active if it was active', async () => {
       const remaining = [sampleProjects[1]]

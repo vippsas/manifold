@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react'
-import type { Project } from '../../shared/types'
+import type { CreateProjectOptions, Project } from '../../shared/types'
 
 interface UseProjectsResult {
   projects: Project[]
@@ -8,7 +8,7 @@ interface UseProjectsResult {
   error: string | null
   addProject: (path?: string) => Promise<void>
   cloneProject: (url: string) => Promise<boolean>
-  createNewProject: (description: string) => Promise<Project | null>
+  createNewProject: (options: CreateProjectOptions) => Promise<Project | null>
   removeProject: (id: string) => Promise<void>
   updateProject: (id: string, partial: Partial<Omit<Project, 'id'>>) => Promise<void>
   setActiveProject: (id: string) => void
@@ -57,9 +57,10 @@ export function useProjects(): UseProjectsResult {
     }
   }, [])
 
-  const createNewProject = useCallback(async (description: string): Promise<Project | null> => {
+  const createNewProject = useCallback(async (options: CreateProjectOptions): Promise<Project | null> => {
+    setError(null)
     try {
-      const project = (await window.electronAPI.invoke('projects:create-new', description)) as Project
+      const project = (await window.electronAPI.invoke('projects:create-new', options)) as Project
       setProjects((prev) => [...prev, project])
       setActiveProjectId(project.id)
       return project

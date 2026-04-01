@@ -1,5 +1,5 @@
 import React from 'react'
-import type { SpawnAgentOptions } from '../../../shared/types'
+import type { CreateProjectOptions, SpawnAgentOptions } from '../../../shared/types'
 import { NewAgentForm } from './NewAgentForm'
 import { NoProjectActions } from '../sidebar/NoProjectActions'
 
@@ -34,7 +34,7 @@ interface NoProjectProps {
   variant: 'no-project'
   onAddProject: () => void
   onCloneProject: (url: string) => Promise<boolean>
-  onCreateNewProject: (description: string) => void
+  onCreateNewProject: (options: CreateProjectOptions) => Promise<boolean>
   creatingProject?: boolean
   cloningProject?: boolean
   createError?: string | null
