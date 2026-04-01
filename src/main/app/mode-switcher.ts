@@ -125,6 +125,8 @@ export class ModeSwitcher {
       projectId,
       branchName,
       context.taskDescription,
+      project.simpleTemplateTitle,
+      project.simplePromptInstructions,
       nextRuntimeId,
     )
 
@@ -137,6 +139,8 @@ export class ModeSwitcher {
         branchName,
         name: project.name,
         description: context.taskDescription ?? '',
+        simpleTemplateTitle: project.simpleTemplateTitle,
+        simplePromptInstructions: project.simplePromptInstructions,
         status: 'building',
         previewUrl: null,
         liveUrl: null,

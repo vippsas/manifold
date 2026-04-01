@@ -26,4 +26,21 @@ describe('simple prompts', () => {
     expect(prompt).toContain('Latest user request:')
     expect(prompt).toContain('Add streak badges')
   })
+
+  it('reuses template-specific instructions for follow-up prompts', () => {
+    const prompt = buildSimpleFollowUpPrompt(
+      [
+        { role: 'user', text: 'Evaluate Lovable' },
+        { role: 'agent', text: 'Outlining the research plan.' },
+      ],
+      'Compare it with Bolt and v0',
+      'Tool Researcher',
+      'This repository is a research workspace, not a React app.\n\n',
+    )
+
+    expect(prompt).toContain('This repository is a research workspace, not a React app.')
+    expect(prompt).not.toContain('React 19 with TypeScript')
+    expect(prompt).toContain('Assistant: Outlining the research plan.')
+    expect(prompt).toContain('Compare it with Bolt and v0')
+  })
 })

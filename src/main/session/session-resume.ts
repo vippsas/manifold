@@ -17,10 +17,16 @@ export async function resumeAgentSession(
   streamWirer: SessionStreamWirer,
   memoryInjector?: MemoryInjector,
 ): Promise<void> {
-  if (!session.ollamaModel) {
+  if (!session.ollamaModel || !session.simpleTemplateTitle || !session.simplePromptInstructions) {
     const meta = await readWorktreeMeta(session.worktreePath)
     if (meta?.ollamaModel) {
       session.ollamaModel = meta.ollamaModel
+    }
+    if (meta?.simpleTemplateTitle) {
+      session.simpleTemplateTitle = meta.simpleTemplateTitle
+    }
+    if (meta?.simplePromptInstructions) {
+      session.simplePromptInstructions = meta.simplePromptInstructions
     }
   }
 

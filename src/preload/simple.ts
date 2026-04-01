@@ -3,6 +3,7 @@ import { contextBridge, ipcRenderer } from 'electron'
 const ALLOWED_INVOKE_CHANNELS = [
   'projects:list',
   'projects:add',
+  'projects:update',
   'projects:open-dialog',
   'projects:clone',
   'provisioning:list-templates',

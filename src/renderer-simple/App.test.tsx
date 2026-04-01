@@ -77,6 +77,8 @@ function createApp(overrides: Partial<SimpleApp> = {}): SimpleApp {
     branchName: 'clock/fredrikstad',
     name: 'clock',
     description: 'Clock app',
+    simpleTemplateTitle: 'Tool Researcher',
+    simplePromptInstructions: 'This repository is a research workspace, not a React app.\n\n',
     status: 'previewing',
     previewUrl: null,
     liveUrl: null,
@@ -142,6 +144,8 @@ describe('App', () => {
         'project-1',
         'clock/fredrikstad',
         'Clock app',
+        'Tool Researcher',
+        'This repository is a research workspace, not a React app.\n\n',
         'codex',
       )
     })

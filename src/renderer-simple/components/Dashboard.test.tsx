@@ -42,6 +42,26 @@ beforeEach(() => {
               required: ['name', 'description'],
             },
           },
+          {
+            id: 'tool-researcher',
+            qualifiedId: 'vercel-bundled:tool-researcher',
+            title: 'Tool Researcher',
+            description: 'Research workflow.',
+            category: 'Research',
+            tags: ['research'],
+            provisionerId: 'vercel-bundled',
+            provisionerLabel: 'Vercel Templates',
+            catalogSource: 'cache',
+            promptInstructions: 'This repository is a research workspace, not a React app.\n\n',
+            paramsSchema: {
+              type: 'object',
+              properties: {
+                name: { type: 'string', title: 'App name', placeholder: 'e.g. lovable-evaluation' },
+                description: { type: 'string', title: 'What tool should be evaluated?', multiline: true },
+              },
+              required: ['name', 'description'],
+            },
+          },
         ],
         provisioners: [
           {
@@ -50,7 +70,7 @@ beforeEach(() => {
             enabled: true,
             source: 'cache',
             state: 'healthy',
-            templateCount: 1,
+            templateCount: 2,
             summary: 'Using cached templates',
             isStale: true,
           },
@@ -123,6 +143,42 @@ describe('Dashboard', () => {
           description: 'Collect customer feedback and trends.',
           visibility: 'public',
           retentionDays: 21,
+        },
+      })
+    })
+  })
+
+  it('submits the selected secondary template with its prompt instructions', async () => {
+    const { props } = renderDashboard()
+
+    fireEvent.click(screen.getByText('New App'))
+
+    await waitFor(() => {
+      expect(mockInvoke).toHaveBeenCalledWith('provisioning:list-templates')
+    })
+
+    fireEvent.change(screen.getByDisplayValue('Web App - Vercel Templates'), {
+      target: { value: 'vercel-bundled:tool-researcher' },
+    })
+    fireEvent.change(screen.getByPlaceholderText('e.g. lovable-evaluation'), {
+      target: { value: 'lovable-evaluation' },
+    })
+    fireEvent.change(screen.getAllByRole('textbox')[1], {
+      target: { value: 'Evaluate Lovable for internal prototyping.' },
+    })
+
+    fireEvent.click(screen.getByText('Start Building'))
+
+    await waitFor(() => {
+      expect(props.onStart).toHaveBeenCalledWith({
+        name: 'lovable-evaluation',
+        description: 'Evaluate Lovable for internal prototyping.',
+        templateQualifiedId: 'vercel-bundled:tool-researcher',
+        templateTitle: 'Tool Researcher',
+        promptInstructions: 'This repository is a research workspace, not a React app.\n\n',
+        inputs: {
+          name: 'lovable-evaluation',
+          description: 'Evaluate Lovable for internal prototyping.',
         },
       })
     })

@@ -18,6 +18,8 @@ export interface SimpleApp {
   branchName: string
   name: string
   description: string
+  simpleTemplateTitle?: string
+  simplePromptInstructions?: string
   status: AppStatus
   previewUrl: string | null
   liveUrl: string | null

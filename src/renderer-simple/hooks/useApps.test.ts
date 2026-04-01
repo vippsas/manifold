@@ -48,7 +48,13 @@ describe('useApps', () => {
 
       if (channel === 'projects:list') {
         return Promise.resolve([
-          { id: 'project-1', name: 'clock', path: '/Users/test/.manifold/projects/clock' },
+          {
+            id: 'project-1',
+            name: 'clock',
+            path: '/Users/test/.manifold/projects/clock',
+            simpleTemplateTitle: 'Tool Researcher',
+            simplePromptInstructions: 'This repository is a research workspace, not a React app.\n\n',
+          },
           { id: 'project-2', name: 'hello', path: '/Users/test/.manifold/projects/hello' },
           { id: 'project-3', name: 'outside', path: '/Users/test/git/outside' },
         ])
@@ -71,12 +77,13 @@ describe('useApps', () => {
       expect(result.current.loading).toBe(false)
     })
 
-    expect(result.current.apps).toEqual([
+      expect(result.current.apps).toEqual([
       expect.objectContaining({
         sessionId: 'session-no-preview',
         name: 'clock',
         status: 'idle',
         previewUrl: null,
+        simpleTemplateTitle: 'Tool Researcher',
       }),
       expect.objectContaining({
         sessionId: 'session-with-preview',

@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
 import type { SimpleApp } from '../../shared/simple-types'
+import type { AgentSession, Project } from '../../shared/types'
 
 declare global {
   interface Window {
@@ -24,19 +25,8 @@ export function useApps(): {
     setLoading(true)
     try {
       const [sessions, projects, settings] = await Promise.all([
-        window.electronAPI.invoke('agent:sessions') as Promise<Array<{
-          id: string
-          projectId: string
-          runtimeId?: string
-          branchName: string
-          status: string
-          taskDescription?: string
-        }>>,
-        window.electronAPI.invoke('projects:list') as Promise<Array<{
-          id: string
-          name: string
-          path: string
-        }>>,
+        window.electronAPI.invoke('agent:sessions') as Promise<AgentSession[]>,
+        window.electronAPI.invoke('projects:list') as Promise<Project[]>,
         window.electronAPI.invoke('settings:get') as Promise<{ storagePath: string }>,
       ])
       const projectMap = new Map(projects.map((p) => [p.id, p]))
@@ -54,25 +44,30 @@ export function useApps(): {
         }),
       )
       const previewUrlMap = new Map(previewUrlEntries)
-      const simpleApps: SimpleApp[] = simpleSessions.map((s) => ({
-        previewUrl: previewUrlMap.get(s.id) ?? null,
-        sessionId: s.id,
-        projectId: s.projectId,
-        runtimeId: s.runtimeId,
-        branchName: s.branchName,
-        name: projectMap.get(s.projectId)?.name ?? s.branchName.replace('manifold/', ''),
-        description: s.taskDescription ?? '',
-        status:
-          s.status === 'done' ? 'live'
-          : s.status === 'error' ? 'error'
-          : s.status === 'running' ? 'building'
-          : s.status === 'waiting' && (previewUrlMap.get(s.id) ?? null) ? 'previewing'
-          : 'idle',
-        liveUrl: null,
-        projectPath: projectMap.get(s.projectId)?.path ?? '',
-        createdAt: Date.now(),
-        updatedAt: Date.now(),
-      }))
+      const simpleApps: SimpleApp[] = simpleSessions.map((s) => {
+        const project = projectMap.get(s.projectId)
+        return {
+          previewUrl: previewUrlMap.get(s.id) ?? null,
+          sessionId: s.id,
+          projectId: s.projectId,
+          runtimeId: s.runtimeId,
+          branchName: s.branchName,
+          name: project?.name ?? s.branchName.replace('manifold/', ''),
+          description: s.taskDescription ?? '',
+          simpleTemplateTitle: project?.simpleTemplateTitle ?? s.simpleTemplateTitle,
+          simplePromptInstructions: project?.simplePromptInstructions ?? s.simplePromptInstructions,
+          status:
+            s.status === 'done' ? 'live'
+            : s.status === 'error' ? 'error'
+            : s.status === 'running' ? 'building'
+            : s.status === 'waiting' && (previewUrlMap.get(s.id) ?? null) ? 'previewing'
+            : 'idle',
+          liveUrl: null,
+          projectPath: project?.path ?? '',
+          createdAt: Date.now(),
+          updatedAt: Date.now(),
+        }
+      })
       setApps(simpleApps)
     } finally {
       setLoading(false)

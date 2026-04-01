@@ -42,6 +42,17 @@ IMPORTANT: You MUST include both the ---options--- and ---end--- markers. Always
 
 const FOLLOW_UP_HISTORY_LIMIT = 20
 
+function buildSimplePromptInstructions(templateTitle?: string, promptInstructions?: string): string {
+  if (promptInstructions) return promptInstructions
+
+  const templateContext = templateTitle
+    ? `You are starting from the "${templateTitle}" template in the current repository.\n` +
+      'Use the existing files as the starting point and extend them instead of rebuilding from scratch unless necessary.\n\n'
+    : ''
+
+  return `${templateContext}${SIMPLE_MODE_RULES}`
+}
+
 function formatMessage(message: PromptChatMessage): string {
   const roleLabel =
     message.role === 'user' ? 'User'
@@ -60,21 +71,16 @@ function formatMessage(message: PromptChatMessage): string {
  * that constrains the agent to the Manifold tech stack.
  */
 export function buildSimplePrompt(description: string, templateTitle?: string, promptInstructions?: string): string {
-  if (promptInstructions) {
-    return `${promptInstructions}The user wants:
-${description}`
-  }
-
-  const templateContext = templateTitle
-    ? `You are starting from the "${templateTitle}" template in the current repository.\n` +
-      `Use the existing files as the starting point and extend them instead of rebuilding from scratch unless necessary.\n\n`
-    : ''
-
-  return `${templateContext}${SIMPLE_MODE_RULES}The user wants:
+  return `${buildSimplePromptInstructions(templateTitle, promptInstructions)}The user wants:
 ${description}`
 }
 
-export function buildSimpleFollowUpPrompt(messages: PromptChatMessage[], latestUserRequest: string): string {
+export function buildSimpleFollowUpPrompt(
+  messages: PromptChatMessage[],
+  latestUserRequest: string,
+  templateTitle?: string,
+  promptInstructions?: string,
+): string {
   const trimmedRequest = latestUserRequest.trim()
   const recentMessages = messages
     .filter((message) => message.text.trim().length > 0)
@@ -91,13 +97,13 @@ export function buildSimpleFollowUpPrompt(messages: PromptChatMessage[], latestU
     ? history.map(formatMessage).join('\n\n')
     : 'No prior chat history.'
 
-  return `You are continuing work on an existing simple-mode web app in the current repository.
+  const continuationContext = promptInstructions
+    ? ''
+    : 'You are continuing work on an existing simple-mode project in the current repository.\n\n'
 
-Use the current files in the repository as the source of truth. Continue from the existing implementation instead of rebuilding the app from scratch unless the user explicitly asks for that.
+  return `${continuationContext}Use the current files in the repository as the source of truth. Continue from the existing implementation instead of rebuilding the project from scratch unless the user explicitly asks for that.
 
-Follow these rules strictly:
-
-${SIMPLE_MODE_RULES}Conversation so far:
+${buildSimplePromptInstructions(templateTitle, promptInstructions)}Conversation so far:
 ${transcript}
 
 Latest user request:
