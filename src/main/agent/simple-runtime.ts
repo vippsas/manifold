@@ -36,8 +36,7 @@ export function buildSimpleRuntimeCommand(runtimeId: string, prompt: string): Si
         args: [
           ...baseArgs,
           'exec',
-          '--full-auto',
-          '--sandbox', 'danger-full-access',
+          '--dangerously-bypass-approvals-and-sandbox',
           '--json',
           prompt,
         ],

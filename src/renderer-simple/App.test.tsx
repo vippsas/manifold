@@ -129,6 +129,46 @@ beforeEach(() => {
 })
 
 describe('App', () => {
+  it('starts a dev server for an active app view when the agent finishes without a preview', async () => {
+    mockUseAgentStatus.mockReturnValue({ status: 'done', durationMs: null })
+    mockInvoke.mockImplementation((channel: string, ...args: unknown[]) => {
+      if (channel === 'settings:get') {
+        return Promise.resolve({ theme: 'manifold-dark', defaultRuntime: 'codex' })
+      }
+      if (channel === 'app:consume-pending-launch') {
+        return Promise.resolve({ kind: 'simple', app: createApp({ status: 'building' }) })
+      }
+      if (channel === 'agent:start-dev-server') {
+        return Promise.resolve({ sessionId: 'dev-session-1' })
+      }
+      if (channel === 'simple:subscribe-chat') {
+        return Promise.resolve(true)
+      }
+      if (channel === 'app:switch-mode') {
+        return Promise.resolve(undefined)
+      }
+      throw new Error(`Unexpected invoke: ${channel}(${args.join(', ')})`)
+    })
+
+    render(<App />)
+
+    await waitFor(() => {
+      expect(mockInvoke).toHaveBeenCalledWith('simple:subscribe-chat', 'session-1')
+    })
+
+    await waitFor(() => {
+      expect(mockInvoke).toHaveBeenCalledWith(
+        'agent:start-dev-server',
+        'project-1',
+        'clock/fredrikstad',
+        'Clock app',
+        'Tool Researcher',
+        'This repository is a research workspace, not a React app.\n\n',
+        'codex',
+      )
+    })
+  })
+
   it('starts a dev server when reopening a waiting app without a preview URL', async () => {
     render(<App />)
 
