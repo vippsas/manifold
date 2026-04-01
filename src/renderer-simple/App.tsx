@@ -89,9 +89,28 @@ function AppViewWrapper({ app, onBack }: { app: SimpleApp; onBack: () => void })
   React.useEffect(() => {
     if (agentStatus === 'done' && !previewUrl && !devServerStartedRef.current) {
       devServerStartedRef.current = true
-      window.electronAPI.invoke('agent:start-dev-server', app.sessionId)
+      void window.electronAPI.invoke(
+        'agent:start-dev-server',
+        app.projectId,
+        app.branchName,
+        app.description,
+        app.simpleTemplateTitle,
+        app.simplePromptInstructions,
+        app.runtimeId ?? 'claude',
+      ).catch((error) => {
+        console.error('[AppViewWrapper] failed to start dev server:', error)
+      })
     }
-  }, [agentStatus, previewUrl, app.sessionId])
+  }, [
+    agentStatus,
+    previewUrl,
+    app.branchName,
+    app.description,
+    app.projectId,
+    app.runtimeId,
+    app.simplePromptInstructions,
+    app.simpleTemplateTitle,
+  ])
 
   // Derive live display status instead of using the stale snapshot.
   // The snapshot's initial value distinguishes new apps ('scaffolding')
