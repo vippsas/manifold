@@ -27,10 +27,10 @@ describe('buildSimpleRuntimeCommand', () => {
     })
   })
 
-  it('builds Codex simple-mode commands with exec --json', () => {
+  it('builds Codex simple-mode commands with danger-full-access exec --json', () => {
     expect(buildSimpleRuntimeCommand('codex', 'build it')).toEqual({
       binary: 'codex',
-      args: ['exec', '--full-auto', '--json', 'build it'],
+      args: ['exec', '--full-auto', '--sandbox', 'danger-full-access', '--json', 'build it'],
       env: undefined,
       outputMode: 'codex-jsonl',
     })

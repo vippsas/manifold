@@ -37,6 +37,7 @@ export function buildSimpleRuntimeCommand(runtimeId: string, prompt: string): Si
           ...baseArgs,
           'exec',
           '--full-auto',
+          '--sandbox', 'danger-full-access',
           '--json',
           prompt,
         ],

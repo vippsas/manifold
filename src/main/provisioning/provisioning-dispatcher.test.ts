@@ -6,9 +6,12 @@ import { execFileSync } from 'node:child_process'
 import { fileURLToPath } from 'node:url'
 import { describe, expect, it, vi, afterEach } from 'vitest'
 import type { Project } from '../../shared/types'
+import type { ProvisionerTemplate, ProvisioningReadyResult } from '../../shared/provisioning-types'
 import type { ProvisionerConfig } from '../../shared/provisioning-types'
 import { encodeProvisioningTemplateQualifiedId } from '../../shared/provisioning-qualified-id'
 import { ProvisioningDispatcher } from './provisioning-dispatcher'
+import * as materializer from './provisioning-materializer'
+import * as provisionerProcess from './provisioner-process'
 
 const fixturePath = path.join(path.dirname(fileURLToPath(import.meta.url)), '__fixtures__', 'cli-provisioner-fixture.js')
 const tempRoots = new Set<string>()
@@ -52,6 +55,7 @@ afterEach(() => {
     fs.rmSync(root, { recursive: true, force: true })
   }
   tempRoots.clear()
+  vi.restoreAllMocks()
 })
 
 describe('ProvisioningDispatcher', () => {
@@ -136,12 +140,53 @@ describe('ProvisioningDispatcher', () => {
         args: [fixturePath, 'good'],
       },
     ], storageRoot)
+    const templateQualifiedId = encodeProvisioningTemplateQualifiedId(provisionerId, 'company-service')
+
+    vi.spyOn(provisionerProcess, 'runProvisionerRequest').mockImplementation(async (_command, _args, request) => {
+      if (request.operation === 'listTemplates') {
+        return [{
+          id: 'company-service',
+          title: 'Company Service',
+          description: 'External CLI provisioner fixture.',
+          category: 'Backend',
+          tags: ['fixture'],
+          paramsSchema: {
+            type: 'object',
+            properties: {
+              name: { type: 'string', title: 'Service name' },
+              description: { type: 'string', title: 'Description', multiline: true },
+            },
+            required: ['name', 'description'],
+          },
+        }] as ProvisionerTemplate[] as never
+      }
+
+      if (request.operation === 'create') {
+        expect(request.templateId).toBe('company-service')
+        return {
+          displayName: 'ledger-service',
+          repoUrl: '/tmp/fake-repo',
+          defaultBranch: 'main',
+          metadata: { source: 'fixture' },
+        } as ProvisioningReadyResult as never
+      }
+
+      throw new Error(`Unexpected request operation: ${request.operation}`)
+    })
+
+    vi.spyOn(materializer, 'materializeProvisionedProject').mockResolvedValue({
+      id: 'project-1',
+      name: 'ledger-service',
+      path: path.join(storageRoot, 'projects', 'ledger-service'),
+      baseBranch: 'main',
+      addedAt: new Date().toISOString(),
+    })
 
     const catalog = await dispatcher.listTemplates()
-    expect(catalog.templates[0]?.qualifiedId).toBe(encodeProvisioningTemplateQualifiedId(provisionerId, 'company-service'))
+    expect(catalog.templates[0]?.qualifiedId).toBe(templateQualifiedId)
 
     const result = await dispatcher.create({
-      templateQualifiedId: encodeProvisioningTemplateQualifiedId(provisionerId, 'company-service'),
+      templateQualifiedId,
       inputs: { name: 'ledger-service', description: 'Track company ledger entries.' },
     })
 
