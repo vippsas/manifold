@@ -8,7 +8,7 @@ export interface ActionMenuButtonItem {
 }
 
 interface ActionMenuButtonProps {
-  buttonLabel: string
+  buttonLabel: React.ReactNode
   title: string
   menuLabel: string
   items: ActionMenuButtonItem[]

@@ -7,6 +7,28 @@ import {
   subscribeEditorPaneModeControls,
 } from './editor-pane-mode-controls'
 
+function ModeButtonIcon(): React.JSX.Element {
+  return (
+    <svg aria-hidden="true" width="12" height="12" viewBox="0 0 12 12" fill="none">
+      <rect x="1.5" y="1.5" width="9" height="9" rx="1.75" stroke="currentColor" strokeWidth="1.1" />
+      <path d="M3.1 4.1H8.9" stroke="currentColor" strokeWidth="1.1" strokeLinecap="round" />
+      <path d="M3.1 6H8.9" stroke="currentColor" strokeWidth="1.1" strokeLinecap="round" opacity="0.72" />
+      <path d="M3.1 7.9H6.6" stroke="currentColor" strokeWidth="1.1" strokeLinecap="round" opacity="0.48" />
+    </svg>
+  )
+}
+
+function PaneButtonIcon(): React.JSX.Element {
+  return (
+    <svg aria-hidden="true" width="12" height="12" viewBox="0 0 12 12" fill="none">
+      <rect x="1.5" y="1.5" width="9" height="9" rx="1.75" stroke="currentColor" strokeWidth="1.1" />
+      <path d="M6 2.4V9.6" stroke="currentColor" strokeWidth="1.1" strokeLinecap="round" />
+      <path d="M2.7 4.2H5" stroke="currentColor" strokeWidth="1.1" strokeLinecap="round" opacity="0.62" />
+      <path d="M7 7.8H9.3" stroke="currentColor" strokeWidth="1.1" strokeLinecap="round" opacity="0.62" />
+    </svg>
+  )
+}
+
 export function EditorHeaderActions({ activePanel }: IDockviewHeaderActionsProps): React.JSX.Element | null {
   const state = React.useContext(DockStateContext)
   const paneId = activePanel?.id ?? null
@@ -96,13 +118,13 @@ export function EditorHeaderActions({ activePanel }: IDockviewHeaderActionsProps
   return (
     <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
       <ActionMenuButton
-        buttonLabel="Mode"
+        buttonLabel={<ModeButtonIcon />}
         title="File mode options"
         menuLabel="File mode options"
         items={modeItems}
       />
       <ActionMenuButton
-        buttonLabel="Pane"
+        buttonLabel={<PaneButtonIcon />}
         title="Pane actions"
         menuLabel="Pane actions"
         items={items}

@@ -3,6 +3,7 @@ import * as os from 'node:os'
 import * as path from 'node:path'
 import { ipcMain } from 'electron'
 import { SpawnAgentOptions } from '../../shared/types'
+import { pickRandomNorwegianCityName } from '../../shared/norwegian-cities'
 import { generateBranchName } from '../git/branch-namer'
 import { acceptSuggestion, dismissSuggestion } from '../session/shell-suggestion'
 import type { IpcDependencies } from './types'
@@ -60,7 +61,8 @@ export function registerAgentHandlers(deps: IpcDependencies): void {
   ipcMain.handle('branch:suggest', async (_event, projectId: string, taskDescription: string) => {
     const project = deps.projectRegistry.getProject(projectId)
     if (!project) throw new Error(`Project not found: ${projectId}`)
-    return generateBranchName(project.path, taskDescription ?? '')
+    const branchHint = taskDescription?.trim() || pickRandomNorwegianCityName()
+    return generateBranchName(project.path, branchHint)
   })
 
   ipcMain.handle('agent:spawn', async (_event, options: SpawnAgentOptions) => {
