@@ -38,6 +38,8 @@ import { DockTab, EmptyWatermark } from './DockTab'
 import { TitleBar } from './components/TitleBar'
 import type { FileOpenRequest } from './components/editor/file-open-request'
 import type { CreateProjectOptions } from '../shared/types'
+import { deriveBranchName } from '../shared/derive-branch-name'
+import { pickRandomNorwegianCityName } from '../shared/norwegian-cities'
 
 interface SearchOpenTarget {
   path: string
@@ -215,7 +217,23 @@ export function App(): React.JSX.Element {
       const project = await createNewProject(options)
       if (!project) return false
       appEffects.setShowOnboarding(false)
-      void spawnAgent({ projectId: project.id, runtimeId: settings.defaultRuntime, prompt: options.description })
+      let branchName = deriveBranchName(pickRandomNorwegianCityName(), project.name)
+
+      try {
+        const suggested = await window.electronAPI.invoke('branch:suggest', project.id) as string
+        if (typeof suggested === 'string' && suggested.trim()) {
+          branchName = suggested
+        }
+      } catch {
+        // Keep the city-based fallback if branch suggestion fails.
+      }
+
+      void spawnAgent({
+        projectId: project.id,
+        runtimeId: settings.defaultRuntime,
+        prompt: options.description,
+        branchName,
+      })
       return true
     } finally { appEffects.setCreatingProject(false) }
   }, [createNewProject, spawnAgent, settings.defaultRuntime, appEffects])
