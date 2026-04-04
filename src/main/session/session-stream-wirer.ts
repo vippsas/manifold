@@ -14,6 +14,7 @@ import { predictNextCommand, dismissSuggestion, injectGhostText } from './shell-
 
 export class SessionStreamWirer {
   private gitOps: GitOperationsManager | undefined
+  private idleTimers = new Map<string, ReturnType<typeof setTimeout>>()
 
   constructor(
     private ptyPool: PtyPool,
@@ -28,6 +29,48 @@ export class SessionStreamWirer {
     this.gitOps = gitOps
   }
 
+  /**
+   * Track PTY output activity per session.
+   * Emits `agent:activity-state` when transitioning between active/idle.
+   * Active = PTY output within last 5 seconds. Idle = no output for 5s.
+   */
+  private trackActivity(session: InternalSession): void {
+    const wasIdle = !session.lastOutputTime ||
+      Date.now() - session.lastOutputTime > 5000
+    session.lastOutputTime = Date.now()
+
+    if (wasIdle) {
+      this.sendToRenderer('agent:activity-state', {
+        sessionId: session.id,
+        isOutputting: true,
+      })
+    }
+
+    // Reset the 5-second idle timer
+    const existing = this.idleTimers.get(session.id)
+    if (existing) clearTimeout(existing)
+
+    this.idleTimers.set(
+      session.id,
+      setTimeout(() => {
+        this.idleTimers.delete(session.id)
+        this.sendToRenderer('agent:activity-state', {
+          sessionId: session.id,
+          isOutputting: false,
+        })
+      }, 5000)
+    )
+  }
+
+  /** Clear idle timer for a session (call on exit or cleanup). */
+  clearActivityTimer(sessionId: string): void {
+    const timer = this.idleTimers.get(sessionId)
+    if (timer) {
+      clearTimeout(timer)
+      this.idleTimers.delete(sessionId)
+    }
+  }
+
   wireOutputStreaming(ptyId: string, session: InternalSession): void {
     this.ptyPool.onData(ptyId, (data: string) => {
       session.outputBuffer += data
@@ -37,6 +80,8 @@ export class SessionStreamWirer {
 
       // Feed rolling plain-text buffer for NL command translator context
       session.nlOutputBuffer?.append(data)
+
+      this.trackActivity(session)
 
       if (session.runtimeId !== '__shell__') {
         const newStatus = detectStatus(session.outputBuffer, session.runtimeId)
@@ -94,6 +139,11 @@ export class SessionStreamWirer {
       session.status = 'done'
       session.pid = null
       session.ptyId = ''
+      this.clearActivityTimer(session.id)
+      this.sendToRenderer('agent:activity-state', {
+        sessionId: session.id,
+        isOutputting: false,
+      })
       this.sendToRenderer('agent:status', { sessionId: session.id, status: 'done' })
       this.sendToRenderer('agent:exit', { sessionId: session.id, code: exitCode })
     })
@@ -118,6 +168,7 @@ export class SessionStreamWirer {
         session.outputBuffer = session.outputBuffer.slice(-50_000)
       }
       this.checkVercelDeploy(session)
+      this.trackActivity(session)
       session.streamJsonLineBuffer = (session.streamJsonLineBuffer ?? '') + data
       this.sendToRenderer('agent:activity', { sessionId: session.id })
 

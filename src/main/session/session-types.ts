@@ -18,6 +18,8 @@ export interface InternalSession extends AgentSession {
   ollamaModel?: string
   detectedUrl?: string
   detectedVercelUrl?: string
+  /** Timestamp of most recent PTY output — used for activity-state tracking */
+  lastOutputTime?: number
   nonInteractive?: boolean
   devServerPtyId?: string
   /** Buffer for accumulating partial NDJSON lines from stream-json output */
