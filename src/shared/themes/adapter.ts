@@ -157,11 +157,6 @@ export function convertTheme(themeJson: MonacoThemeJson, _themeId: string): Conv
     '--warning': warning,
     '--error': error,
 
-    '--status-running': isDark ? '#42a5f5' : '#1e88e5',
-    '--status-waiting': isDark ? '#ffca28' : '#f9a825',
-    '--status-done': success,
-    '--status-error': error,
-
     '--diff-added-bg': c('diffEditor.insertedTextBackground')
       ?? (isDark ? 'rgba(102, 187, 106, 0.12)' : 'rgba(56, 142, 60, 0.08)'),
     '--diff-deleted-bg': c('diffEditor.removedTextBackground')
@@ -253,21 +248,6 @@ export function convertTheme(themeJson: MonacoThemeJson, _themeId: string): Conv
   if (accentRgb) {
     cssVars['--surface-tint'] = `rgba(${accentRgb[0]}, ${accentRgb[1]}, ${accentRgb[2]}, 0.03)`
     cssVars['--shadow-glow'] = `0 4px 16px rgba(0, 0, 0, 0.3), 0 0 20px rgba(${accentRgb[0]}, ${accentRgb[1]}, ${accentRgb[2]}, 0.06), inset 0 1px 0 rgba(255, 255, 255, 0.06)`
-  }
-
-  // Status dot glows
-  const statusColors = {
-    running: cssVars['--status-running'] ?? '#42a5f5',
-    waiting: cssVars['--status-waiting'] ?? '#ffca28',
-    done: cssVars['--status-done'] ?? '#66bb6a',
-    error: cssVars['--status-error'] ?? '#ef5350',
-  }
-  for (const [status, color] of Object.entries(statusColors)) {
-    const normalizedColor = normalizeHex(color)
-    const rgb = normalizedColor ? hexToRgb(normalizedColor) : null
-    if (rgb) {
-      cssVars[`--status-${status}-glow`] = `0 0 8px rgba(${rgb[0]}, ${rgb[1]}, ${rgb[2]}, 0.3)`
-    }
   }
 
   // ── xterm.js ITheme mapping ────────────────────────────────────
