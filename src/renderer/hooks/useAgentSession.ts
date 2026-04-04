@@ -16,6 +16,11 @@ interface AgentSessionsChangedEvent {
   projectId: string
 }
 
+interface AgentActivityStateEvent {
+  sessionId: string
+  isOutputting: boolean
+}
+
 async function fetchProjectSessions(projectId: string): Promise<AgentSession[]> {
   return (await window.electronAPI.invoke('agent:sessions', projectId)) as AgentSession[]
 }
@@ -43,6 +48,7 @@ interface UseAgentSessionResult {
   deleteAgent: (sessionId: string) => Promise<void>
   setActiveSession: (sessionId: string | null) => void
   resumeAgent: (sessionId: string, runtimeId: string) => Promise<void>
+  outputtingSessionIds: Set<string>
 }
 
 export function useAgentSession(projectId: string | null): UseAgentSessionResult {
@@ -53,6 +59,7 @@ export function useAgentSession(projectId: string | null): UseAgentSessionResult
   useStatusListener(setSessions)
   useExitListener(setSessions)
   useAutoResume(activeSessionId, sessions, setSessions)
+  const outputtingSessionIds = useActivityStateListener()
 
   const spawnAgent = useSpawnAgent(projectId, refreshSessions, setSessions, setActiveSessionId)
   const killAgent = useKillAgent()
@@ -65,7 +72,7 @@ export function useAgentSession(projectId: string | null): UseAgentSessionResult
 
   const activeSession = sessions.find((s) => s.id === activeSessionId) ?? null
 
-  return { sessions, activeSessionId, activeSession, spawnAgent, killAgent, deleteAgent, setActiveSession, resumeAgent }
+  return { sessions, activeSessionId, activeSession, spawnAgent, killAgent, deleteAgent, setActiveSession, resumeAgent, outputtingSessionIds }
 }
 
 function useFetchSessionsOnProjectChange(
@@ -152,6 +159,32 @@ function useExitListener(
       [setSessions]
     )
   )
+}
+
+function useActivityStateListener(): Set<string> {
+  const [outputtingIds, setOutputtingIds] = useState<Set<string>>(new Set())
+
+  useIpcListener<AgentActivityStateEvent>(
+    'agent:activity-state',
+    useCallback(
+      (event: AgentActivityStateEvent) => {
+        setOutputtingIds((prev) => {
+          const next = new Set(prev)
+          if (event.isOutputting) {
+            next.add(event.sessionId)
+          } else {
+            next.delete(event.sessionId)
+          }
+          // Avoid re-render if nothing changed
+          if (next.size === prev.size && [...next].every((id) => prev.has(id))) return prev
+          return next
+        })
+      },
+      []
+    )
+  )
+
+  return outputtingIds
 }
 
 function useAutoResume(
