@@ -201,6 +201,11 @@ export class SessionStreamWirer {
       // Guard against stale exit: if a new process has already replaced this one,
       // don't overwrite its 'running' status with 'waiting'.
       if (session.ptyId && session.ptyId !== ptyId) return
+      this.clearActivityTimer(session.id)
+      this.sendToRenderer('agent:activity-state', {
+        sessionId: session.id,
+        isOutputting: false,
+      })
       session.status = 'waiting'
       session.pid = null
       session.ptyId = ''
@@ -214,6 +219,11 @@ export class SessionStreamWirer {
    */
   wirePrintModeInitialExitHandling(ptyId: string, session: InternalSession): void {
     this.ptyPool.onExit(ptyId, () => {
+      this.clearActivityTimer(session.id)
+      this.sendToRenderer('agent:activity-state', {
+        sessionId: session.id,
+        isOutputting: false,
+      })
       session.pid = null
       session.ptyId = ''
 

@@ -169,15 +169,17 @@ function useActivityStateListener(): Set<string> {
     useCallback(
       (event: AgentActivityStateEvent) => {
         setOutputtingIds((prev) => {
-          const next = new Set(prev)
           if (event.isOutputting) {
+            if (prev.has(event.sessionId)) return prev
+            const next = new Set(prev)
             next.add(event.sessionId)
+            return next
           } else {
+            if (!prev.has(event.sessionId)) return prev
+            const next = new Set(prev)
             next.delete(event.sessionId)
+            return next
           }
-          // Avoid re-render if nothing changed
-          if (next.size === prev.size && [...next].every((id) => prev.has(id))) return prev
-          return next
         })
       },
       []
