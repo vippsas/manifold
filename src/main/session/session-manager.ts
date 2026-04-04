@@ -187,6 +187,11 @@ export class SessionManager {
 
     try {
       this.ptyPool.write(session.ptyId, input)
+      // Trigger activity on user input so the dot blinks immediately
+      // when the user presses Enter, even before the agent produces output.
+      if (input.includes('\r') || input.includes('\n')) {
+        this.streamWirer.trackActivity(session)
+      }
     } catch {
       // PTY may have already exited
     }

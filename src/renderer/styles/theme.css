@@ -79,11 +79,6 @@
   --border: #4d4f5c;
   --divider: #3f4150;
 
-  --status-running: #42a5f5;
-  --status-waiting: #ffca28;
-  --status-done: #66bb6a;
-  --status-error: #ef5350;
-
   --diff-added-bg: rgba(102, 187, 106, 0.12);
   --diff-deleted-bg: rgba(239, 83, 80, 0.12);
   --diff-added-gutter: rgba(102, 187, 106, 0.3);
@@ -384,22 +379,20 @@ select:focus-visible {
   height: 8px;
   border-radius: 50%;
   flex-shrink: 0;
+  background: var(--accent);
 }
 
-.status-dot--running {
-  background: var(--status-running);
+@keyframes dot-blink {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.25; }
 }
 
-.status-dot--waiting {
-  background: var(--status-waiting);
+.status-dot--active {
+  animation: dot-blink 1.4s ease-in-out infinite;
 }
 
-.status-dot--done {
-  background: var(--status-done);
-}
-
-.status-dot--error {
-  background: var(--status-error);
+.status-dot--hidden {
+  visibility: hidden;
 }
 
 .dock-tab {
@@ -555,20 +548,12 @@ select:focus-visible {
   box-shadow: var(--shadow-subtle);
 }
 
-.sidebar-agent-row--running {
-  border-left-color: var(--status-running);
+.sidebar-agent-row--alive {
+  border-left-color: var(--accent);
 }
 
-.sidebar-agent-row--waiting {
-  border-left-color: var(--status-waiting);
-}
-
-.sidebar-agent-row--done {
-  border-left-color: var(--status-done);
-}
-
-.sidebar-agent-row--error {
-  border-left-color: var(--status-error);
+.sidebar-agent-row--exited {
+  border-left-color: transparent;
 }
 
 .sidebar-agent-row.sidebar-item-row--active {

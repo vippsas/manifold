@@ -11,6 +11,7 @@ interface ProjectSidebarProps {
   activeProjectId: string | null
   allProjectSessions: Record<string, AgentSession[]>
   activeSessionId: string | null
+  outputtingSessionIds: Set<string>
   onSelectProject: (id: string) => void
   onSelectSession: (sessionId: string, projectId: string) => void
   onRemoveProject: (id: string) => void
@@ -30,6 +31,7 @@ export function ProjectSidebar({
   activeProjectId,
   allProjectSessions,
   activeSessionId,
+  outputtingSessionIds,
   onSelectProject,
   onSelectSession,
   onRemoveProject,
@@ -85,6 +87,7 @@ export function ProjectSidebar({
           activeProjectId={activeProjectId}
           allProjectSessions={allProjectSessions}
           activeSessionId={activeSessionId}
+          outputtingSessionIds={outputtingSessionIds}
           onSelectProject={onSelectProject}
           onSelectSession={onSelectSession}
           onRequestDeleteAgent={handleRequestDeleteAgent}
@@ -120,6 +123,7 @@ interface ProjectListProps {
   activeProjectId: string | null
   allProjectSessions: Record<string, AgentSession[]>
   activeSessionId: string | null
+  outputtingSessionIds: Set<string>
   onSelectProject: (id: string) => void
   onSelectSession: (sessionId: string, projectId: string) => void
   onRequestDeleteAgent: (session: AgentSession, projectPath: string) => void
@@ -132,18 +136,12 @@ interface ProjectListProps {
   onFetchProject: (projectId: string) => void
 }
 
-const STATUS_DOT_COLORS: Record<string, string> = {
-  running: 'var(--status-running)',
-  waiting: 'var(--status-waiting)',
-  done: 'var(--status-done)',
-  error: 'var(--status-error)',
-}
-
 function ProjectList({
   projects,
   activeProjectId,
   allProjectSessions,
   activeSessionId,
+  outputtingSessionIds,
   onSelectProject,
   onSelectSession,
   onRequestDeleteAgent,
@@ -212,6 +210,7 @@ function ProjectList({
               session={session}
               projectPath={activeProject.path}
               isActive={session.id === activeSessionId}
+              isOutputting={outputtingSessionIds.has(session.id)}
               onSelect={(sessionId) => onSelectSession(sessionId, activeProject.id)}
               onDelete={() => onRequestDeleteAgent(session, activeProject.path)}
             />
@@ -248,16 +247,19 @@ function ProjectList({
                   {project.name}
                 </span>
                 <div style={sidebarStyles.miniStatusDots}>
-                  {projectSessions.map((session) => (
-                    <span
-                      key={session.id}
-                      title={session.branchName}
-                      style={{
-                        ...sidebarStyles.miniDot,
-                        background: STATUS_DOT_COLORS[session.status] ?? 'var(--text-muted)',
-                      }}
-                    />
-                  ))}
+                  {projectSessions
+                    .filter((session) => session.status !== 'done' && session.status !== 'error')
+                    .map((session) => (
+                      <span
+                        key={session.id}
+                        title={session.branchName}
+                        className={outputtingSessionIds.has(session.id) ? 'status-dot--active' : ''}
+                        style={{
+                          ...sidebarStyles.miniDot,
+                          background: 'var(--accent)',
+                        }}
+                      />
+                    ))}
                 </div>
               </div>
             )

@@ -121,7 +121,7 @@ export const backgroundAgentPanelStyles: Record<string, React.CSSProperties> = {
     color: 'var(--text-secondary)',
   },
   error: {
-    color: 'var(--status-error)',
+    color: 'var(--error)',
     fontSize: 12,
   },
   statusCard: {
@@ -286,7 +286,7 @@ export const backgroundAgentPanelStyles: Record<string, React.CSSProperties> = {
   },
   feedbackError: {
     fontSize: 11,
-    color: 'var(--status-error)',
+    color: 'var(--error)',
     lineHeight: 1.4,
   },
 }
