@@ -101,6 +101,7 @@ const ALLOWED_SEND_CHANNELS = [
 const ALLOWED_LISTEN_CHANNELS = [
   'agent:output',
   'agent:activity',
+  'agent:activity-state',
   'agent:status',
   'agent:exit',
   'agent:sessions-changed',
