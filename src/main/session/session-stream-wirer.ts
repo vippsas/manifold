@@ -34,7 +34,7 @@ export class SessionStreamWirer {
    * Emits `agent:activity-state` when transitioning between active/idle.
    * Active = PTY output within last 5 seconds. Idle = no output for 5s.
    */
-  private trackActivity(session: InternalSession): void {
+  trackActivity(session: InternalSession): void {
     const wasIdle = !session.lastOutputTime ||
       Date.now() - session.lastOutputTime > 5000
     session.lastOutputTime = Date.now()
