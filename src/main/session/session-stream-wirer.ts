@@ -36,7 +36,7 @@ export class SessionStreamWirer {
    */
   trackActivity(session: InternalSession): void {
     const wasIdle = !session.lastOutputTime ||
-      Date.now() - session.lastOutputTime > 5000
+      Date.now() - session.lastOutputTime > 2000
     session.lastOutputTime = Date.now()
 
     if (wasIdle) {
@@ -58,7 +58,7 @@ export class SessionStreamWirer {
           sessionId: session.id,
           isOutputting: false,
         })
-      }, 5000)
+      }, 2000)
     )
   }
 
