@@ -155,6 +155,8 @@ function ProjectList({
   fetchError,
   onFetchProject,
 }: ProjectListProps): React.JSX.Element {
+  const [reposExpanded, setReposExpanded] = useState(false)
+
   const handleProjectClick = useCallback(
     (projectId: string): void => {
       const sessions = allProjectSessions[projectId] ?? []
@@ -263,37 +265,65 @@ function ProjectList({
         </>
       )}
 
-      {/* Tier 3: Inactive projects — compact inline list */}
+      {/* Tier 3: Inactive projects — collapsed by default */}
       {inactiveProjects.length > 0 && (
         <>
           <div style={sidebarStyles.sectionDivider} />
-          <div style={sidebarStyles.sectionLabel}>Repositories</div>
-          <div style={sidebarStyles.inactiveList}>
-            {inactiveProjects.map((project) => (
-              <div
-                key={project.id}
-                style={sidebarStyles.collapsedProject}
-                onClick={() => handleProjectClick(project.id)}
-                onKeyDown={(e) => {
-                  if (e.key === 'Enter' || e.key === ' ') {
-                    e.preventDefault()
-                    handleProjectClick(project.id)
-                  }
-                }}
-                role="button"
-                tabIndex={0}
-                title={project.path}
-                className="sidebar-inactive-project"
-              >
-                <span
-                  className="truncate sidebar-row-label"
-                  style={{ color: 'var(--text-muted)', fontSize: 'var(--type-ui-small)' }}
-                >
-                  {project.name}
-                </span>
-              </div>
-            ))}
+          <div
+            style={sidebarStyles.sectionLabelToggle}
+            onClick={() => setReposExpanded((prev) => !prev)}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter' || e.key === ' ') {
+                e.preventDefault()
+                setReposExpanded((prev) => !prev)
+              }
+            }}
+            role="button"
+            tabIndex={0}
+          >
+            <svg
+              width="10"
+              height="10"
+              viewBox="0 0 10 10"
+              style={{
+                transform: reposExpanded ? 'rotate(90deg)' : 'rotate(0deg)',
+                transition: 'transform 0.1s ease',
+                flexShrink: 0,
+              }}
+            >
+              <path d="M3 1L7 5L3 9" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+            </svg>
+            <span>Repositories</span>
+            <span style={sidebarStyles.sectionCount}>{inactiveProjects.length}</span>
           </div>
+          {reposExpanded && (
+            <div style={sidebarStyles.inactiveList}>
+              {inactiveProjects.map((project) => (
+                <div
+                  key={project.id}
+                  style={sidebarStyles.collapsedProject}
+                  onClick={() => handleProjectClick(project.id)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter' || e.key === ' ') {
+                      e.preventDefault()
+                      handleProjectClick(project.id)
+                    }
+                  }}
+                  role="button"
+                  tabIndex={0}
+                  title={project.path}
+                  className="sidebar-inactive-project"
+                >
+                  <span
+                    className="truncate sidebar-row-label"
+                    style={{ color: 'var(--text-muted)', fontSize: 'var(--type-ui-small)' }}
+                  >
+                    {project.name}
+                  </span>
+                </div>
+              ))}
+            </div>
+          )}
         </>
       )}
     </div>

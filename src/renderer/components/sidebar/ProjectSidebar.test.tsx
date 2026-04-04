@@ -58,6 +58,8 @@ describe('ProjectSidebar', () => {
     renderSidebar()
 
     expect(screen.getByText('Alpha')).toBeInTheDocument()
+    // Inactive repos are collapsed by default — expand to see them
+    fireEvent.click(screen.getByText('Repositories'))
     expect(screen.getByText('Beta')).toBeInTheDocument()
   })
 
@@ -87,6 +89,8 @@ describe('ProjectSidebar', () => {
   it('calls onSelectProject when a project is clicked', () => {
     const { props } = renderSidebar()
 
+    // Expand collapsed repos section first
+    fireEvent.click(screen.getByText('Repositories'))
     fireEvent.click(screen.getByText('Beta'))
 
     expect(props.onSelectProject).toHaveBeenCalledWith('p2')
