@@ -35,6 +35,7 @@ function renderSidebar(overrides = {}) {
     activeProjectId: 'p1',
     allProjectSessions: { p1: sampleSessions, p2: [] },
     activeSessionId: 's1',
+    outputtingSessionIds: new Set<string>(),
     onSelectProject: vi.fn(),
     onSelectSession: vi.fn(),
     onRemoveProject: vi.fn(),

@@ -35,11 +35,12 @@ interface AgentItemProps {
   session: AgentSession
   projectPath: string
   isActive: boolean
+  isOutputting: boolean
   onSelect: (id: string) => void
   onDelete: () => void
 }
 
-export function AgentItem({ session, projectPath, isActive, onSelect, onDelete }: AgentItemProps): React.JSX.Element {
+export function AgentItem({ session, projectPath, isActive, isOutputting, onSelect, onDelete }: AgentItemProps): React.JSX.Element {
   const handleClick = useCallback((): void => {
     onSelect(session.id)
   }, [onSelect, session.id])
@@ -75,13 +76,13 @@ export function AgentItem({ session, projectPath, isActive, onSelect, onDelete }
     <div
       onClick={handleClick}
       onKeyDown={handleKeyDown}
-      className={`sidebar-item-row sidebar-agent-row sidebar-agent-row--${session.status}${isActive ? ' sidebar-item-row--active' : ''}`}
+      className={`sidebar-item-row sidebar-agent-row ${session.status === 'done' || session.status === 'error' ? 'sidebar-agent-row--exited' : 'sidebar-agent-row--alive'}${isActive ? ' sidebar-item-row--active' : ''}`}
       title={`${runtimeLabel(session.runtimeId)} - ${session.branchName}`}
       role="button"
       tabIndex={0}
     >
       <div className="sidebar-agent-main">
-        <span className={`status-dot status-dot--${session.status}`} />
+        <span className={`status-dot${session.status === 'done' || session.status === 'error' ? ' status-dot--hidden' : isOutputting ? ' status-dot--active' : ''}`} />
         <span
           className="truncate sidebar-row-label"
           style={{

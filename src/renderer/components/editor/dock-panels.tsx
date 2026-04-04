@@ -210,6 +210,7 @@ function ProjectsPanel(): React.JSX.Element {
       activeProjectId={s.activeProjectId}
       allProjectSessions={s.allProjectSessions}
       activeSessionId={s.sessionId}
+      outputtingSessionIds={s.outputtingSessionIds}
       onSelectProject={s.onSelectProject}
       onSelectSession={s.onSelectSession}
       onRemoveProject={s.onRemoveProject}

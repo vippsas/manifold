@@ -52,7 +52,7 @@ interface SearchOpenTarget {
 export function App(): React.JSX.Element {
   const { settings, updateSettings } = useSettings()
   const { projects, activeProjectId, addProject, cloneProject, createNewProject, removeProject, updateProject, setActiveProject, error: projectError } = useProjects()
-  const { sessions, activeSessionId, activeSession, spawnAgent, deleteAgent, setActiveSession, resumeAgent } = useAgentSession(activeProjectId)
+  const { sessions, activeSessionId, activeSession, spawnAgent, deleteAgent, setActiveSession, resumeAgent, outputtingSessionIds } = useAgentSession(activeProjectId)
   const { sessionsByProject, removeSession } = useAllProjectSessions(projects, activeProjectId, sessions)
   const allSessions = useMemo(() => Object.values(sessionsByProject).flat(), [sessionsByProject])
 
@@ -275,7 +275,8 @@ export function App(): React.JSX.Element {
     shellProjectName: projects.find((p) => p.id === activeProjectId)?.name ?? null,
     baseBranch, defaultRuntime: settings.defaultRuntime,
     onLaunchAgent: overlays.handleLaunchAgent, projects, activeProjectId,
-    allProjectSessions: sessionsByProject, onSelectProject: setActiveProject,
+    allProjectSessions: sessionsByProject, outputtingSessionIds,
+    onSelectProject: setActiveProject,
     onSelectSession: overlays.handleSelectSession, onRemoveProject: removeProject,
     onUpdateProject: updateProject, onDeleteAgent: overlays.handleDeleteAgent,
     onNewAgentFromHeader: overlays.handleNewAgentFromHeader, newAgentFocusTrigger: overlays.newAgentFocusTrigger,

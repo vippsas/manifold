@@ -68,6 +68,7 @@ export interface DockAppState {
   projects: Project[]
   activeProjectId: string | null
   allProjectSessions: Record<string, AgentSession[]>
+  outputtingSessionIds: Set<string>
   onSelectProject: (id: string) => void
   onSelectSession: (sessionId: string, projectId: string) => void
   onRemoveProject: (id: string) => void
