@@ -210,7 +210,7 @@ export function NewAgentForm({
         onClick={() => setShowAdvanced((prev) => !prev)}
         style={modalStyles.advancedToggle}
       >
-        <span style={{ transform: showAdvanced ? 'rotate(90deg)' : undefined, display: 'inline-block', transition: 'transform 0.15s' }}>&#9654;</span>
+        <span style={{ transform: showAdvanced ? 'rotate(90deg)' : 'rotate(0deg)', display: 'inline-block', transition: 'transform 0.15s', pointerEvents: 'none' }}>&#9654;</span>
         {' '}Advanced
       </button>
 

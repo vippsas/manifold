@@ -74,7 +74,7 @@ export function App(): React.JSX.Element {
     }
   }, [sessionsByProject, activeProjectId, projects, setActiveProject])
 
-  useStatusNotification(allSessions, settings.notificationSound)
+  useStatusNotification(outputtingSessionIds, settings.notificationSound)
   const { diff, changedFiles, refreshDiff } = useDiff(activeSessionId)
   const dockLayout = useDockLayout(activeSessionId, settings.showIdeasTab)
   const webPreview = useWebPreview(activeSessionId)
