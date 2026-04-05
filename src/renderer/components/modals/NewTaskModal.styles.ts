@@ -55,6 +55,7 @@ export const modalStyles: Record<string, React.CSSProperties> = {
     background: 'none',
     border: 'none',
     cursor: 'pointer',
-    padding: 0,
+    padding: 'var(--space-xs) var(--space-sm)',
+    margin: '0 calc(-1 * var(--space-sm))',
   },
 }

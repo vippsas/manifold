@@ -1,20 +1,6 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { renderHook } from '@testing-library/react'
 import { useStatusNotification } from './useStatusNotification'
-import type { AgentSession } from '../../shared/types'
-
-function makeSession(id: string, status: AgentSession['status']): AgentSession {
-  return {
-    id,
-    projectId: 'proj-1',
-    runtimeId: 'claude',
-    branchName: 'manifold/test',
-    worktreePath: '/tmp/test',
-    status,
-    pid: status === 'running' ? 1234 : null,
-    additionalDirs: [],
-  }
-}
 
 describe('useStatusNotification', () => {
   beforeEach(() => {
@@ -30,63 +16,56 @@ describe('useStatusNotification', () => {
     vi.useRealTimers()
   })
 
-  it('does not beep when status stays running', () => {
-    const sessions = [makeSession('s1', 'running')]
+  it('does not beep while dot is blinking', () => {
+    const outputting = new Set(['s1'])
     const { rerender } = renderHook(
-      ({ s, enabled }) => useStatusNotification(s, enabled),
-      { initialProps: { s: sessions, enabled: true } }
+      ({ ids, enabled }) => useStatusNotification(ids, enabled),
+      { initialProps: { ids: outputting, enabled: true } }
     )
-    rerender({ s: [makeSession('s1', 'running')], enabled: true })
+    rerender({ ids: new Set(['s1']), enabled: true })
     vi.advanceTimersByTime(11000)
     expect(window.electronAPI.invoke).not.toHaveBeenCalledWith('app:beep')
   })
 
-  it('beeps after 10s when status leaves running', () => {
+  it('beeps after 10s when dot stops blinking', () => {
     const { rerender } = renderHook(
-      ({ s, enabled }) => useStatusNotification(s, enabled),
-      { initialProps: { s: [makeSession('s1', 'running')], enabled: true } }
+      ({ ids, enabled }) => useStatusNotification(ids, enabled),
+      { initialProps: { ids: new Set(['s1']), enabled: true } }
     )
-    rerender({ s: [makeSession('s1', 'waiting')], enabled: true })
+    rerender({ ids: new Set<string>(), enabled: true })
     vi.advanceTimersByTime(10000)
     expect(window.electronAPI.invoke).toHaveBeenCalledWith('app:beep')
   })
 
-  it('cancels beep if status returns to running within window', () => {
+  it('cancels beep if dot resumes blinking within window', () => {
     const { rerender } = renderHook(
-      ({ s, enabled }) => useStatusNotification(s, enabled),
-      { initialProps: { s: [makeSession('s1', 'running')], enabled: true } }
+      ({ ids, enabled }) => useStatusNotification(ids, enabled),
+      { initialProps: { ids: new Set(['s1']), enabled: true } }
     )
-    rerender({ s: [makeSession('s1', 'waiting')], enabled: true })
+    rerender({ ids: new Set<string>(), enabled: true })
     vi.advanceTimersByTime(1000)
-    rerender({ s: [makeSession('s1', 'running')], enabled: true })
-    vi.advanceTimersByTime(2000)
+    rerender({ ids: new Set(['s1']), enabled: true })
+    vi.advanceTimersByTime(10000)
     expect(window.electronAPI.invoke).not.toHaveBeenCalledWith('app:beep')
   })
 
   it('does not beep when disabled', () => {
     const { rerender } = renderHook(
-      ({ s, enabled }) => useStatusNotification(s, enabled),
-      { initialProps: { s: [makeSession('s1', 'running')], enabled: false } }
+      ({ ids, enabled }) => useStatusNotification(ids, enabled),
+      { initialProps: { ids: new Set(['s1']), enabled: false } }
     )
-    rerender({ s: [makeSession('s1', 'waiting')], enabled: false })
+    rerender({ ids: new Set<string>(), enabled: false })
     vi.advanceTimersByTime(11000)
     expect(window.electronAPI.invoke).not.toHaveBeenCalledWith('app:beep')
   })
 
   it('tracks multiple sessions independently', () => {
     const { rerender } = renderHook(
-      ({ s, enabled }) => useStatusNotification(s, enabled),
-      {
-        initialProps: {
-          s: [makeSession('s1', 'running'), makeSession('s2', 'running')],
-          enabled: true,
-        },
-      }
+      ({ ids, enabled }) => useStatusNotification(ids, enabled),
+      { initialProps: { ids: new Set(['s1', 's2']), enabled: true } }
     )
-    rerender({
-      s: [makeSession('s1', 'waiting'), makeSession('s2', 'running')],
-      enabled: true,
-    })
+    // Only s1 stops outputting
+    rerender({ ids: new Set(['s2']), enabled: true })
     vi.advanceTimersByTime(10000)
     expect(window.electronAPI.invoke).toHaveBeenCalledTimes(1)
   })
