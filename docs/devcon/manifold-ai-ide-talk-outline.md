@@ -22,7 +22,7 @@ This outline is based on the current repository, especially:
 - Manifold is an Electron desktop app built around running native CLI coding agents side by side on the same codebase.
 - The current built-in runtimes are Claude Code, Codex, Copilot, Gemini CLI, and Ollama-backed Claude/Codex.
 - The core product idea is real git worktrees plus real PTY terminals, not a wrapped chat abstraction.
-- There are two product modes: Developer View and Simple View.
+- Developer View is the core workflow, while Simple View is a lighter surface on the same engine.
 - Developer View includes dockable panes, diffs, file tree, shell tabs, previews, and PR workflows.
 - Search supports code, memory, or everything, with local memory persisted in SQLite.
 - There is a project-aware ideas feed that researches the web for source-backed suggestions.
@@ -57,7 +57,7 @@ Target: 52-55 minutes of presentation, 5-8 minutes for questions.
 | 0:17-0:24 | How I built Manifold with AI | Show the actual agentic workflow behind the product |
 | 0:24-0:30 | Architecture and runtime model | Show why Electron and native CLIs were the right fit |
 | 0:30-0:37 | Developer View walkthrough | Show the serious engineering workflow |
-| 0:37-0:42 | Simple View walkthrough | Show the broader app-builder flow |
+| 0:37-0:42 | Simple View in context | Show where the lighter surface is useful without presenting it as a second equal product |
 | 0:42-0:46 | Shell integration | Explain the Warp-inspired terminal experience |
 | 0:46-0:50 | Search, memory, and context | Show how Manifold becomes more than a terminal launcher |
 | 0:50-0:52 | Provisioners and extensibility | Show how projects get created and extended |
@@ -179,19 +179,21 @@ Target: 52-55 minutes of presentation, 5-8 minutes for questions.
 - Show diff review and shell tabs
 - Show that you can still type directly into the terminal
 
-### 8. Simple View: A Different Product Surface
+### 8. Simple View: A Lighter Surface On The Same Engine
 
 **Time:** 6 minutes
 
-- Simple View is for quickly building local apps from chat.
-- It uses a constrained local stack: React 19, TypeScript, Vite, Dexie, CSS Modules.
-- It is optimized for non-technical or less terminal-heavy workflows.
-- The important point is that it is not a separate product. It is another surface over the same system.
+- Developer View is the core workflow and center of gravity.
+- Simple View uses the same AI engine, but in non-interactive mode.
+- It is useful for specific cases like prompt-driven local app generation.
+- The default stack is React 19, TypeScript, Vite, Dexie, and CSS Modules.
+- Provisioners are the way to customize that starting point.
+- It is a lighter surface on top of the same orchestration engine, not a separate product.
 - You can jump from Simple View to Developer View when you need more control.
 
 **Narrative angle:**
 
-- Same engine room, different cockpit.
+- Developer View is the core workflow. Simple View uses the same AI engine in non-interactive mode for specific cases, but it is not the center of gravity.
 
 ### 9. Shell Integration Inspired By Warp
 
@@ -228,7 +230,8 @@ Target: 52-55 minutes of presentation, 5-8 minutes for questions.
 - Manifold does not just open repos; it can provision them.
 - Provisioners use a versioned CLI protocol over `stdin` and `stdout`.
 - That means provisioners can be bundled or external.
-- Vercel templates are already represented in the current settings defaults.
+- Provisioners are how the default stack gets customized for different project starting points.
+- These provisioners can point at GitHub repo templates as the source for generated projects.
 - If you want to mention VCE, position it as your own custom/internal provisioner story.
 - In Simple View, there is also a Vercel deploy flow in the codebase.
 

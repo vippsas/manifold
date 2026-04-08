@@ -369,7 +369,7 @@ body {
 .hero-layout,
 .split-layout {
   display: grid;
-  grid-template-columns: 1.1fr 0.9fr;
+  grid-template-columns: 1.18fr 0.82fr;
   gap: clamp(20px, 2.5vw, 36px);
   align-items: center;
 }
@@ -464,6 +464,7 @@ body {
   font-weight: 700;
   line-height: 0.95;
   letter-spacing: 0.02em;
+  text-wrap: balance;
 }
 
 .hero-title {
@@ -472,12 +473,24 @@ body {
 
 .section-title {
   font-size: clamp(2.4rem, 4.6vw, 4.5rem);
-  max-width: 11ch;
+  max-width: 12.5ch;
+  margin-bottom: 16px;
 }
 
 .section-title--wide {
-  max-width: 16ch;
+  max-width: 18ch;
   font-size: clamp(2.2rem, 4vw, 4rem);
+}
+
+.split-layout .section-title {
+  max-width: 14.5ch;
+  margin-bottom: 22px;
+}
+
+.split-layout .section-title--wide {
+  max-width: 24ch;
+  font-size: clamp(2rem, 3.6vw, 3.75rem);
+  margin-bottom: 22px;
 }
 
 .hero-subtitle,

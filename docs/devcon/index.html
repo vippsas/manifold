@@ -115,7 +115,7 @@
             <div class="agenda-card">
               <span class="agenda-time">0:24-0:42</span>
               <h3>Architecture + product surfaces</h3>
-              <p>Why Electron fits, and how Developer View and Simple View solve different jobs.</p>
+              <p>Why Electron fits, why Developer View is the core workflow, and where Simple View fits as a lighter surface.</p>
             </div>
             <div class="agenda-card">
               <span class="agenda-time">0:42-0:52</span>
@@ -173,7 +173,7 @@
         <div class="slide-grid stacked-layout stacked-layout--centered">
           <div class="slide-header">
             <div class="eyebrow">One Slide Explanation</div>
-            <h2 class="section-title">Git worktrees are the primitive that makes parallel AI work sane</h2>
+            <h2 class="section-title section-title--wide">Git worktrees are the primitive that makes parallel AI work sane</h2>
           </div>
 
           <div class="comparison-grid">
@@ -211,7 +211,7 @@
         <div class="slide-grid stacked-layout stacked-layout--centered">
           <div>
             <div class="eyebrow">Positioning</div>
-            <h2 class="section-title">Cursor feel, but with native engines underneath</h2>
+            <h2 class="section-title section-title--wide">Cursor feel, but with native engines underneath</h2>
           </div>
 
           <div class="principles-grid">
@@ -243,7 +243,7 @@
         <div class="slide-grid split-layout">
           <div>
             <div class="eyebrow">How I Developed Manifold</div>
-            <h2 class="section-title">Manifold was built with the same kind of workflow it now supports</h2>
+            <h2 class="section-title section-title--wide">Manifold was built with the same kind of workflow it now supports</h2>
             <ul class="bullet-list large-bullets">
               <li>I start with intent, not with a giant vague coding prompt.</li>
               <li>I ask the AI to absorb the relevant context material before I ask it for solutions.</li>
@@ -526,21 +526,25 @@
         </div>
       </section>
 
-      <section class="slide" data-title="Simple View" data-note="Explain that this is a product decision, not just a UI mode. Same engine room, different cockpit.">
+      <section class="slide" data-title="Simple View" data-note="Frame this honestly: Developer View is the center of gravity. Simple View uses the same AI engine in non-interactive mode for specific cases.">
         <div class="slide-grid split-layout">
           <div>
-            <div class="eyebrow">A Second Product Surface</div>
-            <h2 class="section-title">Simple View is optimized for app building from chat</h2>
+            <div class="eyebrow">A Lighter Surface</div>
+            <h2 class="section-title section-title--wide">Same AI engine, non-interactive mode</h2>
             <ul class="bullet-list large-bullets">
-              <li>Local web-app prototyping without dropping into the full workspace immediately</li>
-              <li>Constrained stack: React 19, TypeScript, Vite, Dexie, CSS Modules</li>
-              <li>Preview-first workflow with an easy path into Developer View later</li>
+              <li>Developer View is the core workflow I optimize around</li>
+              <li>Simple View uses the same AI engine, just without the interactive terminal-driven workflow</li>
+              <li>It is useful for specific cases like prompt-driven local app generation</li>
+              <li>The default stack is React 19, TypeScript, Vite, Dexie, and CSS Modules</li>
+              <li>Provisioners are the way to customize that starting point through repo templates</li>
+              <li>Preview-first workflow with an easy path into Developer View when more control is needed</li>
             </ul>
           </div>
 
           <div class="simple-view-card">
-            <div class="simple-header">Same engine room, different cockpit</div>
+            <div class="simple-header">Same engine, non-interactive mode</div>
             <div class="simple-stack">
+              <span>Default stack</span>
               <span>React 19</span>
               <span>TypeScript</span>
               <span>Vite</span>
@@ -548,7 +552,7 @@
               <span>CSS Modules</span>
             </div>
             <p class="simple-note">
-              The important point is product design, not just UI design: Simple View and Developer View solve different jobs with the same underlying orchestration model.
+              Developer View is the core workflow. Simple View uses the same AI engine in non-interactive mode, with a default stack and provisioners as the customization layer.
             </p>
           </div>
         </div>
@@ -558,7 +562,7 @@
         <div class="slide-grid split-layout">
           <div>
             <div class="eyebrow">Warp-Inspired Shell Integration</div>
-            <h2 class="section-title">The shell is a first-class part of the workspace</h2>
+            <h2 class="section-title section-title--wide">The shell is a first-class part of the workspace</h2>
             <ul class="bullet-list large-bullets">
               <li>Shell tabs persist with the worktree context</li>
               <li>Project, branch, and path are visible at a glance</li>
@@ -653,10 +657,11 @@ PASS SearchPanel.test.tsx</pre>
         <div class="slide-grid split-layout">
           <div>
             <div class="eyebrow">Provisioners And Deploy</div>
-            <h2 class="section-title">Manifold can create projects, not just open them</h2>
+            <h2 class="section-title section-title--wide">Manifold can create projects, not just open them</h2>
             <ul class="bullet-list large-bullets">
               <li>Bundled or external provisioners through a versioned JSON CLI protocol</li>
-              <li>Custom provisioners for Vercel, VCE, and internal org flows</li>
+              <li>Provisioners are how the default stack gets customized for different starting points</li>
+              <li>These provisioners can point at GitHub repo templates as the source for generated projects</li>
               <li>Simple View deploy path for Vercel-style shipping workflows</li>
             </ul>
           </div>
@@ -666,7 +671,7 @@ PASS SearchPanel.test.tsx</pre>
             <div class="protocol-arrow">↓</div>
             <div class="protocol-line"><span>stdout</span><code>{ "event": "progress" }</code></div>
             <div class="protocol-line"><span>stdout</span><code>{ "event": "result" }</code></div>
-            <div class="protocol-footnote">Bundled provisioners and standalone external CLIs share the same protocol.</div>
+            <div class="protocol-footnote">Bundled provisioners, external CLIs, and template-backed project starters can all sit behind the same protocol.</div>
           </div>
         </div>
       </section>
@@ -736,7 +741,7 @@ PASS SearchPanel.test.tsx</pre>
         <div class="slide-grid split-layout">
           <div>
             <div class="eyebrow">Why Taste Matters</div>
-            <h2 class="section-title">Floating panes and beautiful themes are part of the product, not decoration</h2>
+            <h2 class="section-title section-title--wide">Floating panes and beautiful themes are part of the product, not decoration</h2>
             <ul class="bullet-list large-bullets">
               <li>Dockable pane-based workflow that supports parallel thinking</li>
               <li>Strong theme identity with multiple custom themes in the repo</li>
