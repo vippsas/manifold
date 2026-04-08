@@ -1185,6 +1185,45 @@ body {
   white-space: pre-wrap;
 }
 
+.inline-code {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.08em 0.4em 0.12em;
+  margin: 0 0.06em;
+  border-radius: 0.5em;
+  border: 1px solid var(--line);
+  background: var(--surface-faint);
+  color: var(--text);
+  font-family: var(--mono-font);
+  font-size: 0.88em;
+  line-height: 1;
+  vertical-align: baseline;
+}
+
+.summary-card-copy .inline-code {
+  border-color: rgba(42, 33, 22, 0.18);
+  background: rgba(42, 33, 22, 0.07);
+  color: var(--summary-card-text);
+}
+
+:root[data-theme="light"] .summary-card-copy .inline-code {
+  border-color: rgba(241, 224, 195, 0.14);
+  background: rgba(255, 255, 255, 0.08);
+  color: var(--summary-card-text);
+}
+
+.speaker-note-copy .inline-code {
+  border-color: rgba(102, 209, 210, 0.16);
+  background: rgba(255, 255, 255, 0.04);
+  color: var(--text);
+}
+
+:root[data-theme="light"] .speaker-note-copy .inline-code {
+  border-color: rgba(42, 81, 120, 0.16);
+  background: rgba(42, 33, 22, 0.05);
+  color: var(--text);
+}
+
 .search-grid {
   grid-template-columns: repeat(3, minmax(0, 1fr));
 }
@@ -1348,10 +1387,16 @@ body {
 }
 
 .theme-swatch {
+  position: relative;
+  overflow: hidden;
+  display: flex;
+  align-items: center;
+  justify-content: center;
   height: 120px;
   border-radius: 18px;
   border: 1px solid var(--surface-border-soft);
   margin-bottom: 16px;
+  color: rgba(255, 250, 240, 0.94);
 }
 
 .swatch-atelier {
@@ -1370,6 +1415,37 @@ body {
   background:
     linear-gradient(135deg, rgba(203, 139, 103, 0.85), rgba(229, 207, 180, 0.65)),
     linear-gradient(180deg, #151418, #06070b);
+}
+
+.theme-icon-svg {
+  width: 100%;
+  height: 100%;
+  padding: 16px;
+  filter: drop-shadow(0 8px 14px rgba(0, 0, 0, 0.18));
+}
+
+.theme-icon-fill {
+  fill: rgba(255, 250, 240, 0.18);
+  stroke: rgba(255, 250, 240, 0.54);
+  stroke-width: 1.4;
+}
+
+.theme-icon-fill--soft {
+  fill: rgba(255, 250, 240, 0.11);
+}
+
+.theme-icon-stroke {
+  stroke: rgba(255, 250, 240, 0.88);
+  stroke-width: 2.4;
+}
+
+.theme-icon-stroke--soft {
+  stroke-width: 1.8;
+  opacity: 0.7;
+}
+
+.theme-icon-dot {
+  fill: rgba(255, 250, 240, 0.92);
 }
 
 .takeaway-grid {

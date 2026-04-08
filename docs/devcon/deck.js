@@ -19,7 +19,74 @@
   let notesVisible = false;
   let theme = readTheme();
 
+  renderBackticksInContent(document.getElementById('deckStage'));
   totalSlidesEl.textContent = String(slides.length);
+
+  function createRichTextFragment(text) {
+    const content = typeof text === 'string' ? text : '';
+    const matchesBackticks = /`[^`\n]+`/.test(content);
+
+    if (!matchesBackticks) {
+      return document.createTextNode(content);
+    }
+
+    const fragment = document.createDocumentFragment();
+    const pattern = /`([^`\n]+)`/g;
+    let lastIndex = 0;
+    let match;
+
+    while ((match = pattern.exec(content)) !== null) {
+      if (match.index > lastIndex) {
+        fragment.append(document.createTextNode(content.slice(lastIndex, match.index)));
+      }
+
+      const code = document.createElement('code');
+      code.className = 'inline-code';
+      code.textContent = match[1];
+      fragment.append(code);
+      lastIndex = pattern.lastIndex;
+    }
+
+    if (lastIndex < content.length) {
+      fragment.append(document.createTextNode(content.slice(lastIndex)));
+    }
+
+    return fragment;
+  }
+
+  function renderBackticksInContent(root) {
+    if (!root) return;
+
+    const walker = document.createTreeWalker(
+      root,
+      NodeFilter.SHOW_TEXT,
+      {
+        acceptNode(node) {
+          if (!node.nodeValue || !node.nodeValue.includes('`')) return NodeFilter.FILTER_REJECT;
+          const parent = node.parentElement;
+          if (!parent) return NodeFilter.FILTER_REJECT;
+          if (parent.closest('code, pre, script, style, textarea')) return NodeFilter.FILTER_REJECT;
+          return NodeFilter.FILTER_ACCEPT;
+        }
+      }
+    );
+
+    const textNodes = [];
+    let currentNode = walker.nextNode();
+    while (currentNode) {
+      textNodes.push(currentNode);
+      currentNode = walker.nextNode();
+    }
+
+    for (const textNode of textNodes) {
+      textNode.replaceWith(createRichTextFragment(textNode.nodeValue));
+    }
+  }
+
+  function setRichText(element, text) {
+    if (!element) return;
+    element.replaceChildren(createRichTextFragment(text));
+  }
 
   function parseHash() {
     const value = Number(window.location.hash.replace('#', ''));
@@ -46,7 +113,7 @@
     currentSlideEl.textContent = String(currentIndex + 1);
     currentSectionTitleEl.textContent = title;
     progressBarEl.style.width = `${((currentIndex + 1) / slides.length) * 100}%`;
-    speakerNoteCopy.textContent = note;
+    setRichText(speakerNoteCopy, note);
     document.title = `Manifold Devcon Deck - ${title}`;
   }
 

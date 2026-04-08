@@ -1,304 +1,405 @@
-# Manifold AI IDE Talk Outline
+# AI Coding Talk Outline
 
-## Research Notes
+## Working Title
 
-This outline is based on the current repository, especially:
+**How I Code With AI**
 
-- `README.md`
-- `docs/external-provisioners.md`
-- `docs/superpowers/designs/2026-03-28-simple-view-vercel-deploy-design.md`
-- `src/main/agent/runtimes.ts`
-- `src/main/background-agent-host/background-agent-research-prompt.ts`
-- `src/main/deploy/vercel-health-check.ts`
-- `src/renderer/components/background-agent/BackgroundAgentPanel.tsx`
-- `src/renderer/components/terminal/ShellTabs.tsx`
-- `src/shared/defaults.ts`
-- `src/shared/provisioning-types.ts`
-- `src/shared/simple-prompts.ts`
-- `src/shared/themes/theme-data.ts`
+Subtitle option:
 
-### Verified Talking Points
+**Using Manifold as the illustration, not the subject**
 
-- Manifold is an Electron desktop app built around running native CLI coding agents side by side on the same codebase.
-- The current built-in runtimes are Claude Code, Codex, Copilot, Gemini CLI, and Ollama-backed Claude/Codex.
-- The core product idea is real git worktrees plus real PTY terminals, not a wrapped chat abstraction.
-- Developer View is the core workflow, while Simple View is a lighter surface on the same engine.
-- Developer View includes dockable panes, diffs, file tree, shell tabs, previews, and PR workflows.
-- Search supports code, memory, or everything, with local memory persisted in SQLite.
-- There is a project-aware ideas feed that researches the web for source-backed suggestions.
-- External and bundled provisioners are supported through a versioned CLI JSON protocol.
-- Vercel support is present in the codebase through built-in provisioner settings and a Simple View deploy flow.
-- Manifold has multiple custom themes and a strong UI/theming focus.
-- The repo includes `CONTRIBUTING.md`, so inviting contributions is grounded.
+## Source Material
 
-### Accuracy Notes
+This outline is based on:
 
-- The product direction is OS-agnostic, but the current packaged app and build scripts are still macOS-only.
-- `README.md` still says Simple View deployment is not implemented, but the codebase now includes a Vercel deploy flow. Mention this carefully depending on the build you demo.
-- I could not find the term `VCE` in the repo. If you mention it, present it as your internal/custom provisioner story rather than a repo-defined feature name.
-
-## Recommended Title
-
-**Manifold: Real Git Worktrees, Real Terminals, Native AI Engines**
+- the current Manifold repository
+- the working research notes in `docs/devcon/ai-coding-talk-research.md`
+- your stated workflow and emphasis areas
+- current public documentation from Anthropic, OpenAI, GitHub, Miro, and `claude-mem`
 
 ## Core Message
 
-Manifold started as a better way to work with git worktrees, but the deeper idea is bigger: keep the power and authenticity of native AI coding engines while giving them a desktop workspace that feels coherent, fast, and beautiful.
+AI made implementation cheaper, but it made workflow design more important.
+
+The important things now are:
+
+- tests and verification
+- parallel work
+- repo templates
+- permissions
+- markdown context files
+- skills
+- better judgment about what to build next
+
+Manifold is useful in the talk because it is a concrete illustration of that entire loop.
+
+## Recommended Framing
+
+This should not sound like:
+
+- “Here is my AI IDE”
+
+It should sound like:
+
+- “Here is how I actually build with AI now, and here is the tool I built around that workflow”
 
 ## 60-Minute Run Of Show
 
-Target: 52-55 minutes of presentation, 5-8 minutes for questions.
+Target: 52 to 55 minutes of presentation, 5 to 8 minutes for questions.
 
 | Time | Section | Purpose |
 | --- | --- | --- |
-| 0:00-0:04 | Opening: why this exists | Frame the frustration that led to Manifold |
-| 0:04-0:11 | Git worktrees in one slide | Give the audience the mental model |
-| 0:11-0:17 | The product thesis | Explain why you built this instead of another editor wrapper |
-| 0:17-0:24 | How I built Manifold with AI | Show the actual agentic workflow behind the product |
-| 0:24-0:30 | Architecture and runtime model | Show why Electron and native CLIs were the right fit |
-| 0:30-0:37 | Developer View walkthrough | Show the serious engineering workflow |
-| 0:37-0:42 | Simple View in context | Show where the lighter surface is useful without presenting it as a second equal product |
-| 0:42-0:46 | Shell integration | Explain the Warp-inspired terminal experience |
-| 0:46-0:50 | Search, memory, and context | Show how Manifold becomes more than a terminal launcher |
-| 0:50-0:52 | Provisioners and extensibility | Show how projects get created and extended |
-| 0:52-0:55 | Ideas feed, themes, and contribution | Land on product depth, taste, and community |
-| 0:55-1:00 | Q&A | Leave time for discussion |
+| 0:00-0:08 | Why the bottleneck changed | Reframe AI coding as a workflow shift, not a code-generation trick |
+| 0:08-0:16 | Parallelism and harness | Show why worktrees, isolation, and owning the harness matter |
+| 0:16-0:30 | Workflow, tests, context, permissions | Teach the loop that actually works in practice |
+| 0:30-0:40 | Claude Code, Codex, async surfaces | Explain tool choice and the move toward asynchronous coding |
+| 0:40-0:52 | Templates, prototyping, next bets | Show how cheap building changes starting points and decision-making |
+| 0:52-0:55 | Reviews, waiting, closing | Close on the idea that waiting did not disappear, it moved |
+| 0:55-1:00 | Q&A | Reserve time for practical tradeoffs |
 
 ## Slide-By-Slide Outline
 
-### 1. Opening: The Problem I Wanted To Solve
+### 1. Opening
 
-**Time:** 4 minutes
+**Time:** 2 minutes
 
-- I wanted isolated branches I could work on in parallel across one or many repositories.
-- I wanted the freedom of native CLI agents, not a locked-in AI editor.
-- I wanted a desktop app that feels polished like Cursor, but keeps the real engine underneath.
-
-**Key line to use:**
-
-> Manifold started as a worktree tool, but it became a way to give native AI coding agents a serious workspace.
-
-### 2. Git Worktrees In One Slide
-
-**Time:** 7 minutes
-
-- Explain the normal pain: branch switching, dirty state, stashing, collisions between experiments.
-- Explain the worktree model: one repository, multiple working directories, each on its own branch.
-- Explain why this matters for AI agents: each agent gets isolation by default.
-- Explain why this matters for humans: parallelism without chaos.
-
-**Suggested slide structure:**
-
-- Left side: traditional single working directory workflow
-- Right side: one repo, multiple worktrees, multiple agents
-- Bottom line: isolation is the primitive that makes parallel AI work sane
-
-### 3. Product Thesis: Cursor Feel, Native Engines
-
-**Time:** 6 minutes
-
-- Most AI IDEs either wrap the model heavily or hide the underlying tool.
-- Manifold keeps the native engine intact: Claude Code, Codex, Gemini CLI, Copilot.
-- The terminal is not fake. It is the real PTY, with live output and manual intervention whenever needed.
-- The app is an orchestrator and workspace layer, not a replacement for the agent.
-
-**Key contrast to make:**
-
-- Not “another model”
-- Not “another editor fork”
-- A workspace for serious AI-assisted engineering
-
-### 4. How I Built Manifold With AI
-
-**Time:** 4 minutes
-
-- Manifold was not only designed for agentic coding. It was also built with agentic coding.
-- My role is to bring intent, product taste, architecture judgment, and evaluation.
-- AI helps me move from a rough idea to a spec, then to a plan, then to working code faster.
-- I use both Claude Code and Codex in practice because both deliver strong results.
-- The important point is not "ask AI to code." The important point is to create enough structure that the AI can do strong work.
-
-**Good framing:**
-
-- AI is part of the development process, not a magic replacement for technical judgment.
-- The product and the workflow reinforce each other: Manifold was built using the same kind of loop it tries to support.
-
-### 5. My Agentic Coding Loop
-
-**Time:** 3 minutes
-
-- Have at least a general idea of the intent.
-- Ask AI to get familiar with the context material first.
-- Tell the AI your intent and thoughts, then ask for its thoughts.
-- Ask it to create a markdown specification.
-- Ask it to create an implementation plan if it has not done so already.
-- Ask it to implement the work.
-- Test the new thing or feature.
-- Ask AI to refactor the result based on rules like max LOC and other code-quality constraints.
-
-**Operational defaults:**
-
-- Use the best model available with the highest reasoning effort for serious architecture, specification, and planning work.
-- Use both Claude Code and Codex when it makes sense rather than treating the workflow as tied to one engine.
-- When working in Claude Code, use the Superpowers plugin.
-- Treat specification, planning, implementation, testing, and refactoring as separate phases instead of one vague prompt.
-
-### 6. Why Electron, And How The App Is Structured
-
-**Time:** 7 minutes
-
-- Electron gives you a desktop app with a mature UI stack and strong native integration.
-- VS Code proved Electron can power serious developer tooling.
-- Manifold uses the standard Electron split:
-- Main process owns PTYs, worktrees, git operations, memory, settings, and provisioning.
-- Preload keeps the boundary safe.
-- Renderer delivers the desktop UX.
-- The long-term direction is OS-agnostic, even though the current packaged app is macOS-first.
-
-**Good framing:**
-
-- Electron was a pragmatic choice, not a compromise.
-- The architecture fits the job because the job is orchestration of real local tools.
-
-### 7. Developer View: The Core Engineering Workflow
-
-**Time:** 8 minutes
-
-- Launch an agent on a fresh `manifold/*` worktree branch.
-- Or run on the current branch, an existing branch, or even an open PR branch.
-- Watch the real terminal.
-- Review diffs and files in parallel.
-- Use shell tabs, previews, editors, and PR workflows without leaving the app.
-- Keep layout, tabs, and session state across restarts.
-
-**What to demo if you want a live segment:**
-
-- Open a repo
-- Spawn two agents in parallel
-- Show the worktree branch naming and isolation
-- Show diff review and shell tabs
-- Show that you can still type directly into the terminal
-
-### 8. Simple View: A Lighter Surface On The Same Engine
-
-**Time:** 6 minutes
-
-- Developer View is the core workflow and center of gravity.
-- Simple View uses the same AI engine, but in non-interactive mode.
-- It is useful for specific cases like prompt-driven local app generation.
-- The default stack is React 19, TypeScript, Vite, Dexie, and CSS Modules.
-- Provisioners are the way to customize that starting point.
-- It is a lighter surface on top of the same orchestration engine, not a separate product.
-- You can jump from Simple View to Developer View when you need more control.
-
-**Narrative angle:**
-
-- Developer View is the core workflow. Simple View uses the same AI engine in non-interactive mode for specific cases, but it is not the center of gravity.
-
-### 9. Shell Integration Inspired By Warp
-
-**Time:** 5 minutes
-
-- Shell matters because serious users still need direct command execution.
-- Manifold adds context around the shell rather than replacing it.
-- Shell tabs persist.
-- The shell panel shows project, branch, and path context.
-- This makes the shell feel like part of the workspace instead of an external escape hatch.
-
-**Key point:**
-
-- The shell is not a fallback. It is a first-class part of the product.
-
-### 10. Search With Memory
-
-**Time:** 5 minutes
-
-- Search spans code, memory, or both.
-- Memory is local and project-based, stored in SQLite.
-- Session interactions, observations, and summaries accumulate over time.
-- That memory improves retrieval and resumed-session context.
-- This is where Manifold starts to feel like more than a launcher for multiple terminals.
-
-**Bridge line:**
-
-- Worktrees solve isolation. Memory solves continuity.
-
-### 11. Provisioners, Vercel, And Extensibility
-
-**Time:** 4 minutes
-
-- Manifold does not just open repos; it can provision them.
-- Provisioners use a versioned CLI protocol over `stdin` and `stdout`.
-- That means provisioners can be bundled or external.
-- Provisioners are how the default stack gets customized for different project starting points.
-- These provisioners can point at GitHub repo templates as the source for generated projects.
-- If you want to mention VCE, position it as your own custom/internal provisioner story.
-- In Simple View, there is also a Vercel deploy flow in the codebase.
-
-**Important audience takeaway:**
-
-- Manifold is opinionated, but extensible in the right place.
-
-### 12. Project-Aware Ideas Generator
-
-**Time:** 3 minutes
-
-- Manifold includes a background ideas feed that profiles the current project and researches the web.
-- The output is source-backed ideas, not vague brainstorming.
-- This is an example of Manifold becoming a project-aware engineering partner, not just a front end for agent sessions.
-
-**Good phrasing:**
-
-- On-demand ideas, grounded in both local project context and external signals.
-
-### 13. Floating Panes, Themes, And Why Taste Matters
-
-**Time:** 3 minutes
-
-- The workspace is dockable and pane-driven.
-- Theming is a real part of the product, with multiple custom themes in the repo.
-- Beautiful tools matter because people spend hours inside them.
-- This is not cosmetic polish after the fact; it is part of the product thesis.
+- Open with the new thesis: this talk is about how I code with AI.
+- Manifold is the harness I built around that workflow.
+- The subject is not “my IDE.”
+- The subject is the new software loop.
 
 **Key line:**
 
-- If you want people to live in the tool, utility is not enough. Taste matters.
+> AI made implementation cheaper. The hard parts now are orchestration, verification, permissions, and deciding what is worth building next.
 
-### 14. Close: What Manifold Really Is
+### 2. Agenda
 
-**Time:** 2-3 minutes
+**Time:** 1 minute
 
-- It began with git worktrees.
-- It became an orchestration layer for native AI coding engines.
-- It now points toward a bigger idea: a desktop workspace for parallel, local-first, extensible AI engineering.
-- End with contribution: the repo is open to contributors, and the product is still actively evolving.
+- Show the room that the talk will move from:
+  - bottleneck shift
+  - parallelism and harness
+  - workflow, tests, context, permissions
+  - tool choice
+  - templates and prototyping
+  - reviews and waiting
+
+### 3. The Bottleneck Moved
+
+**Time:** 5 minutes
+
+- Typing is cheaper than before.
+- Agent latency is now part of normal development.
+- A task can take 1 to 45 minutes to come back.
+- That means serial work wastes time.
+- Verification, review, and decision-making are now much more visible bottlenecks.
+
+**Talking angle:**
+
+- AI did not remove friction.
+- It moved friction to different parts of the loop.
+
+### 4. Parallelism Is Not Optional
+
+**Time:** 6 minutes
+
+- If the agent is busy, the human should still be moving.
+- Worktrees are the most concrete answer to this.
+- One repo, many isolated working directories, many agents.
+- This is why Manifold started with worktrees.
+
+**Key line:**
+
+> Parallelism is not a luxury feature. It is the practical answer to agent wait time.
+
+### 5. The Harness Matters More Than The Chat Box
+
+**Time:** 5 minutes
+
+- The workflow around the model matters as much as the model.
+- Repo instructions matter.
+- Permissions matter.
+- Isolation matters.
+- Review surfaces matter.
+
+What belongs in the harness:
+
+- `CLAUDE.md`
+- `AGENTS.md`
+- permissions and allowlists
+- worktrees
+- tests
+- diff review
+- templates
+- memory
+
+Important nuance:
+
+- `CLAUDE.md` and `AGENTS.md` are valuable when they change behavior
+- commands, workflow rules, constraints, preferences, and non-obvious gotchas are useful
+- generic project structure descriptions are only worth keeping if they actually affect execution
+
+### 6. Build The Harness You Want To Live In
+
+**Time:** 4 minutes
+
+- The best part of building your own IDE is that it can become exactly what you want.
+- Every repeated annoyance can become a tool.
+- Every new workflow can become a surface.
+- The harness compounds over time.
+
+**Narrative angle:**
+
+- I am not just building software in the IDE.
+- I am also shaping the IDE around the way I build.
+
+### 7. Claude Code And Codex Both Earn A Place
+
+**Time:** 4 minutes
+
+- I do not treat this as a one-tool workflow.
+- Claude Code is strong for interactive terminal-native work.
+- Codex is strong for delegated background tasks and PR-shaped execution.
+- OpenAI’s own guidance around Codex also reinforces Ask mode first, issue-shaped tasks, and durable repo instructions like `AGENTS.md`.
+- The point is not which one “wins.”
+- The point is which operating mode fits the task.
+
+**Key line:**
+
+> The better question is not “which model is best?” It is “which operating mode fits this job?”
+
+### 8. My Agentic Workflow
+
+**Time:** 5 minutes
+
+- Intent
+- Context
+- Discussion
+- Specification
+- Plan
+- Implementation
+- Verification
+- Refactor
+
+Operational defaults:
+
+- use the best model available
+- use the highest reasoning effort for serious work
+- use Claude Code with the Superpowers plugin when useful
+- separate phases instead of asking for everything at once
+- load only the relevant context instead of stuffing everything into one session
+- when the thread drifts, split the task, compact it, or start fresh
+
+Important framing:
+
+- context windows fill up fast
+- more context is not automatically better
+- keeping the session on track is now part of the skill
+
+### 9. Why Tests-First Matters More Now
+
+**Time:** 5 minutes
+
+- Anthropic says verification is the single highest-leverage thing you can give the agent.
+- Tests let the agent check itself instead of routing everything back through you.
+- Tests-first now also includes:
+  - expected outputs
+  - screenshots
+  - previews
+  - typecheck
+  - lint
+
+**Key line:**
+
+> AI makes tests more important, not less.
+
+### 10. Manifold As The Concrete Harness
+
+**Time:** 5 minutes
+
+- Use Manifold as the concrete illustration of this whole workflow.
+- Parallel agents
+- Worktree isolation
+- Real terminals
+- Diff review
+- Search and memory
+- PR flow
+
+**Suggested demo angle:**
+
+- show two tasks in flight
+- show one returning while another is still running
+- show the human staying productive instead of waiting
+
+### 11. Claude Code On The Phone
+
+**Time:** 3 minutes
+
+- Claude Code on the web and mobile matters because it changes the rhythm of coding.
+- It is useful for:
+  - well-defined tasks
+  - monitoring progress
+  - queueing work on the go
+- The deeper point is asynchronous coding.
+
+**Important nuance:**
+
+- this is not “serious coding moved to the phone”
+- this is “dead time is now usable for task orchestration”
+
+### 12. Permissions Are Security And Workflow
+
+**Time:** 4 minutes
+
+- Permissions are about security.
+- They are also about velocity.
+- Too many approval prompts slow work and train people to spam approve.
+- Anthropic explicitly acknowledges this problem.
+- Auto mode, allowlists, and sandboxing are how that gets managed.
+
+**Must mention:**
+
+- the settings file and command allowlist have to be good
+- this is not a side detail, it is part of workflow quality
+
+### 13. Repo Templates Are Leverage
+
+**Time:** 4 minutes
+
+- Repo templates make good defaults reusable.
+- GitHub templates preserve structure, files, and optionally branches.
+- Provisioners are how Manifold operationalizes this.
+- Templates make starting the next build cheap.
+
+**Key line:**
+
+> Templates turn taste into infrastructure.
+
+### 14. What Do You Build Next?
+
+**Time:** 3 minutes
+
+- When building gets cheaper, choosing gets harder.
+- The question comes back all the time: what next?
+- Good build candidates are:
+  - repeated friction
+  - reusable workflow improvements
+  - things that help future work, not just one task
+
+**Narrative angle:**
+
+- cheap implementation raises the bar for judgment
+
+### 15. Build First Before Inviting Everyone Into A Meeting
+
+**Time:** 3 minutes
+
+- AI lowers the cost of a quick prototype.
+- A rough build often creates better discussion than an abstract meeting.
+- Miro’s prototyping research supports this: prototyping early reduces rework and creates alignment sooner.
+- This is one of the strongest places where outside guidance and personal experience line up.
+
+**Key line:**
+
+> The prototype does not need to be final. It just needs to make the discussion concrete.
+
+### 16. Agentic AI Needs Practice
+
+**Time:** 3 minutes
+
+- There is a real learning curve.
+- You need instincts for:
+  - task sizing
+  - context loading
+  - context cleanup
+  - when to interrupt
+  - when to parallelize
+  - when to stop
+- Skills are valuable because they package repeatable knowledge.
+
+**Important point:**
+
+- one good prompt helps once
+- one good skill helps many times
+
+### 17. Memory And Markdown Matter
+
+**Time:** 3 minutes
+
+- Live context windows fill up quickly and degrade if too much irrelevant material accumulates.
+- Memory across sessions is highly valuable.
+- `claude-mem` proves the demand is real.
+- But Manifold needed its own memory layer because it supports more than Claude.
+- Markdown files help make memory durable:
+  - `CLAUDE.md`
+  - `AGENTS.md`
+  - specs
+  - plans
+  - session notes
+  - architecture notes
+
+**Key line:**
+
+> Markdown is one of the simplest ways to turn fleeting context into reusable context.
+
+Important nuance:
+
+- markdown files should earn their place by changing what the agent does
+- if a note does not alter behavior, prioritization, commands, or constraints, it may not belong in `CLAUDE.md` or `AGENTS.md`
+- markdown and skills are also how you keep stable instructions out of the live context window
+
+### 18. Closing: Reviews, Waiting, And The New Loop
+
+**Time:** 3 minutes
+
+- Agents still make you wait.
+- Reviews still make you wait.
+- Meetings still make you wait.
+- The four-eye principle is useful, but required approvals, stale-review resets, and large PRs clearly slow flow.
+- The workflow skill now is deciding where that waiting is worth it.
+- End with one small meta example: even this presentation was vibe coded because it was faster than copying ChatGPT output into PowerPoint.
 
 **Closing sentence:**
 
-> Manifold is my attempt to make AI coding feel native, parallel, and real.
+> AI coding speeds implementation. The real leverage is how you structure the rest of the loop.
 
-## Suggested Q&A Topics
+### 19. Q&A
 
-If questions are slow, seed them with one of these:
+**Time:** 5 minutes
 
-- Why not just use Cursor or VS Code plus extensions?
-- Why keep the terminal so central instead of abstracting it away?
-- Why Electron?
-- How do worktrees change the way AI agents collaborate?
-- How do you decide what belongs in Simple View versus Developer View?
-- What would it take to make the app truly OS-agnostic?
+Useful seed questions:
+
+- Why are tests more important now?
+- How do you split work between Claude Code and Codex?
+- What belongs in repo templates?
+- How much review is enough before flow dies?
+- What belongs in markdown versus memory versus the tool itself?
 
 ## What To Emphasize Repeatedly
 
-- Real git worktrees
-- Real terminals
-- Native AI engines
-- Parallel workflows
-- Local-first memory and context
-- A polished desktop UX around serious engineering primitives
+- Implementation got cheaper
+- Waiting got more visible
+- Parallelism matters
+- Tests matter more
+- Repo templates are leverage
+- Permissions are workflow design
+- Context discipline is workflow design
+- Markdown files are durable context
+- Behavior-changing markdown is more valuable than descriptive markdown
+- Skills are reusable expertise
+- Manifold is the illustration, not the whole thesis
 
-## Optional Trim If You Run Long
+## What To Avoid
 
-- Shorten the Electron architecture section by 2 minutes.
-- Cut the ideas-generator section to 1 minute.
-- Fold themes and contribution into the closing slide.
+- Do not frame this as a “my tool is better than your tool” talk.
+- Do not frame reviews as useless.
+- Do not frame the phone workflow as replacing desktop engineering.
+- Do not frame permissions as pure friction with no security value.
+- Do not imply memory is solved.
+
+## Suggested Trim If Time Runs Long
+
+- Shorten the Claude Code vs Codex section by 2 minutes
+- Fold the mobile/phone point into the async section
+- Shorten the “what to build next” section by 1 minute
+- Keep the tests, templates, permissions, and closing sections intact
