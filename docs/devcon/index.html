@@ -4,6 +4,17 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Manifold Devcon Deck</title>
+  <script>
+    (function () {
+      try {
+        const savedTheme = localStorage.getItem('manifold-devcon-theme');
+        const theme = savedTheme === 'light' ? 'light' : 'dark';
+        document.documentElement.dataset.theme = theme;
+      } catch {
+        document.documentElement.dataset.theme = 'dark';
+      }
+    }());
+  </script>
   <link rel="stylesheet" href="./deck.css">
 </head>
 <body>
@@ -24,6 +35,7 @@
       </div>
 
       <div class="chrome-meta">
+        <button class="chrome-button" id="themeBtn" type="button" aria-pressed="false">Light Mode</button>
         <button class="chrome-button" id="notesBtn" type="button">Notes</button>
         <button class="chrome-button" id="fullscreenBtn" type="button">Fullscreen</button>
         <div class="slide-counter">
@@ -83,7 +95,7 @@
       </section>
 
       <section class="slide" data-title="Agenda" data-note="Use this to reassure the audience that the talk will move from pain, to architecture, to product surfaces, to differentiators.">
-        <div class="slide-grid stacked-layout">
+        <div class="slide-grid stacked-layout stacked-layout--centered">
           <div>
             <div class="eyebrow">Run Of Show</div>
             <h2 class="section-title">How the hour is structured</h2>
@@ -158,7 +170,7 @@
       </section>
 
       <section class="slide" data-title="Git Worktrees" data-note="This is the most important explanatory slide. Slow down here and make sure everyone leaves with the same mental model.">
-        <div class="slide-grid stacked-layout">
+        <div class="slide-grid stacked-layout stacked-layout--centered">
           <div class="slide-header">
             <div class="eyebrow">One Slide Explanation</div>
             <h2 class="section-title">Git worktrees are the primitive that makes parallel AI work sane</h2>
@@ -196,7 +208,7 @@
       </section>
 
       <section class="slide" data-title="Product Thesis" data-note="Say explicitly that Manifold is not trying to replace the agent. It is the workspace around the agent.">
-        <div class="slide-grid stacked-layout">
+        <div class="slide-grid stacked-layout stacked-layout--centered">
           <div>
             <div class="eyebrow">Positioning</div>
             <h2 class="section-title">Cursor feel, but with native engines underneath</h2>
@@ -236,6 +248,7 @@
               <li>I start with intent, not with a giant vague coding prompt.</li>
               <li>I ask the AI to absorb the relevant context material before I ask it for solutions.</li>
               <li>I use the AI to think with me before I ask it to implement.</li>
+              <li>I use both Claude Code and Codex in practice. Both deliver great results, so I do not treat this as a one-tool story.</li>
               <li>The human part is still the hard part: product judgment, evaluation, sequencing, and taste.</li>
             </ul>
           </div>
@@ -262,92 +275,138 @@
       </section>
 
       <section class="slide" data-title="Agentic Workflow" data-note="Teach the workflow concretely. This is the practical section people can copy into their own work immediately.">
-        <div class="slide-grid stacked-layout">
-          <div>
-            <div class="eyebrow">My Main Workflow About Agentic Coding</div>
-            <h2 class="section-title">A repeatable loop beats one giant prompt</h2>
-          </div>
+        <div class="slide-grid stacked-layout--workflow">
+          <aside class="summary-card summary-card--workflow">
+            <div class="summary-card-label">Working principle</div>
+            <p class="summary-card-copy">
+              Do not ask for everything at once. Break the work into explicit phases so the model can reason, structure, implement, and improve in sequence.
+            </p>
+          </aside>
 
-          <div class="step-grid">
-            <article class="step-card">
-              <div class="step-number">01</div>
-              <p>Have at least a general idea of your intent.</p>
-            </article>
-            <article class="step-card">
-              <div class="step-number">02</div>
-              <p>Ask AI to get familiar with the relevant context material.</p>
-            </article>
-            <article class="step-card">
-              <div class="step-number">03</div>
-              <p>Tell AI your intent and thoughts, then ask for its thoughts.</p>
-            </article>
-            <article class="step-card">
-              <div class="step-number">04</div>
-              <p>Ask for a specification in markdown form.</p>
-            </article>
-            <article class="step-card">
-              <div class="step-number">05</div>
-              <p>If needed, ask for an implementation plan.</p>
-            </article>
-            <article class="step-card">
-              <div class="step-number">06</div>
-              <p>Ask AI to implement the plan.</p>
-            </article>
-            <article class="step-card">
-              <div class="step-number">07</div>
-              <p>Test the new thing or feature in reality.</p>
-            </article>
-            <article class="step-card">
-              <div class="step-number">08</div>
-              <p>Ask AI to refactor using explicit rules such as max LOC.</p>
-            </article>
-          </div>
+          <div class="workflow-body">
+            <div class="workflow-header">
+              <div class="eyebrow">My Main Workflow About Agentic Coding</div>
+              <h2 class="section-title section-title--wide">A repeatable loop beats one giant prompt</h2>
+            </div>
 
-          <div class="rules-strip">
-            <span class="rules-pill">Best model available</span>
-            <span class="rules-pill">Highest reasoning effort</span>
-            <span class="rules-pill">Claude Code + Superpowers plugin</span>
-            <span class="rules-pill">Spec → Plan → Implement → Test → Refactor</span>
+            <div class="step-grid step-grid--workflow">
+              <article class="step-card">
+                <div class="step-number">01</div>
+                <h3 class="step-title">Intent</h3>
+                <p>Have at least a general idea of your intent.</p>
+              </article>
+              <article class="step-card">
+                <div class="step-number">02</div>
+                <h3 class="step-title">Context</h3>
+                <p>Ask AI to get familiar with the relevant context material.</p>
+              </article>
+              <article class="step-card">
+                <div class="step-number">03</div>
+                <h3 class="step-title">Discussion</h3>
+                <p>Tell AI your intent and thoughts, then ask for its thoughts.</p>
+              </article>
+              <article class="step-card">
+                <div class="step-number">04</div>
+                <h3 class="step-title">Specification</h3>
+                <p>Ask for a specification in markdown form.</p>
+              </article>
+              <article class="step-card">
+                <div class="step-number">05</div>
+                <h3 class="step-title">Plan</h3>
+                <p>If needed, ask for an implementation plan.</p>
+              </article>
+              <article class="step-card">
+                <div class="step-number">06</div>
+                <h3 class="step-title">Implementation</h3>
+                <p>Ask AI to implement the plan.</p>
+              </article>
+              <article class="step-card">
+                <div class="step-number">07</div>
+                <h3 class="step-title">Reality Check</h3>
+                <p>Test the new thing or feature in reality.</p>
+              </article>
+              <article class="step-card">
+                <div class="step-number">08</div>
+                <h3 class="step-title">Refactor</h3>
+                <p>Ask AI to refactor using explicit rules such as max LOC.</p>
+              </article>
+            </div>
+
+            <div class="rules-strip">
+              <span class="rules-pill">Best model available</span>
+              <span class="rules-pill">Highest reasoning effort</span>
+              <span class="rules-pill">Claude Code + Superpowers plugin</span>
+              <span class="rules-pill">Spec → Plan → Implement → Test → Refactor</span>
+            </div>
           </div>
         </div>
       </section>
 
       <section class="slide" data-title="Why Electron" data-note="Frame Electron as a pragmatic systems choice. Mention that VS Code validated the category, but the job here is different.">
         <div class="slide-grid stacked-layout">
-          <div class="slide-header">
-            <div class="eyebrow">Architecture</div>
-            <h2 class="section-title">Electron is a pragmatic fit for local orchestration</h2>
+          <div class="headline-band">
+            <div class="slide-header">
+              <div class="eyebrow">Architecture</div>
+              <h2 class="section-title section-title--wide">Electron is a pragmatic fit for local orchestration</h2>
+            </div>
+
+            <aside class="summary-card">
+              <div class="summary-card-label">Why it fits</div>
+              <p class="summary-card-copy">
+                The job is not just editing text. The job is orchestrating PTYs, worktrees, local file systems, previews, settings, and native tools inside one coherent desktop shell.
+              </p>
+            </aside>
           </div>
 
-          <div class="architecture-grid">
-            <article class="architecture-card">
-              <div class="arch-role">Main process</div>
-              <h3>Owns the real system work</h3>
-              <ul class="bullet-list">
-                <li>PTY processes</li>
-                <li>Git and worktree operations</li>
-                <li>Memory, search, settings</li>
-                <li>Provisioning and deploy integrations</li>
-              </ul>
-            </article>
-            <article class="architecture-card">
-              <div class="arch-role">Preload</div>
-              <h3>Keeps the boundary tight</h3>
-              <ul class="bullet-list">
-                <li>Whitelisted IPC channels</li>
-                <li>Context isolation</li>
-                <li>Bridge, not business logic</li>
-              </ul>
-            </article>
-            <article class="architecture-card">
-              <div class="arch-role">Renderer</div>
-              <h3>Delivers the desktop experience</h3>
-              <ul class="bullet-list">
-                <li>Dockable panes</li>
-                <li>Editors, previews, status</li>
-                <li>Developer View and Simple View</li>
-              </ul>
-            </article>
+          <div class="architecture-stage">
+            <div class="media-placeholder media-placeholder--diagram">
+              <div class="media-placeholder-label">Drop in later</div>
+              <h3 class="media-placeholder-title">Architecture diagram or process-boundary screenshot</h3>
+              <p class="media-placeholder-copy">
+                Good fit: one clean diagram showing Main process, Preload, and Renderer with IPC boundaries and ownership.
+              </p>
+              <div class="media-placeholder-frame media-placeholder-frame--diagram">
+                <span class="placeholder-node">Main</span>
+                <span class="placeholder-link">→</span>
+                <span class="placeholder-node">Preload</span>
+                <span class="placeholder-link">→</span>
+                <span class="placeholder-node">Renderer</span>
+              </div>
+            </div>
+
+            <div class="architecture-grid">
+              <article class="architecture-card">
+                <div class="arch-role">Main process</div>
+                <h3>Owns the real system work</h3>
+                <ul class="bullet-list">
+                  <li>PTY processes</li>
+                  <li>Git and worktree operations</li>
+                  <li>Memory, search, settings</li>
+                  <li>Provisioning and deploy integrations</li>
+                </ul>
+                <div class="architecture-footer">Owns state, processes, and system access.</div>
+              </article>
+              <article class="architecture-card">
+                <div class="arch-role">Preload</div>
+                <h3>Keeps the boundary tight</h3>
+                <ul class="bullet-list">
+                  <li>Whitelisted IPC channels</li>
+                  <li>Context isolation</li>
+                  <li>Bridge, not business logic</li>
+                </ul>
+                <div class="architecture-footer">Security and shape, not product logic.</div>
+              </article>
+              <article class="architecture-card">
+                <div class="arch-role">Renderer</div>
+                <h3>Delivers the desktop experience</h3>
+                <ul class="bullet-list">
+                  <li>Dockable panes</li>
+                  <li>Editors, previews, status</li>
+                  <li>Developer View and Simple View</li>
+                </ul>
+                <div class="architecture-footer">Where the workflow becomes usable.</div>
+              </article>
+            </div>
           </div>
 
           <div class="callout-banner">
@@ -390,20 +449,69 @@
 
       <section class="slide" data-title="Developer View" data-note="If you demo live, this is where to show two agents in parallel, real PTY output, and diff review.">
         <div class="slide-grid stacked-layout">
-          <div>
-            <div class="eyebrow">The Core Workflow</div>
-            <h2 class="section-title">Developer View is where repository work becomes manageable</h2>
+          <div class="headline-band">
+            <div>
+              <div class="eyebrow">The Core Workflow</div>
+              <h2 class="section-title section-title--wide">Developer View is where repository work becomes manageable</h2>
+            </div>
+
+            <aside class="summary-card summary-card--developer">
+              <div class="summary-card-label">What it gives you</div>
+              <p class="summary-card-copy">
+                A serious workspace around the agent: parallel terminals, file and diff review, previews, shells, and a path from worktree to pull request.
+              </p>
+            </aside>
           </div>
 
-          <div class="feature-grid">
-            <div class="feature-card">Repositories sidebar</div>
-            <div class="feature-card">Agent terminal</div>
-            <div class="feature-card">Search</div>
-            <div class="feature-card">File tree</div>
-            <div class="feature-card">Modified files</div>
-            <div class="feature-card">Shell tabs</div>
-            <div class="feature-card">Web preview</div>
-            <div class="feature-card">Editor panes</div>
+          <div class="developer-stage">
+            <div class="media-placeholder media-placeholder--workspace">
+              <div class="media-placeholder-label">Drop in later</div>
+              <h3 class="media-placeholder-title">Developer View screenshot</h3>
+              <p class="media-placeholder-copy">
+                Good capture: two active agents, file tree, modified files, editor or diff, shell tabs, and a local preview visible at the same time.
+              </p>
+              <div class="media-placeholder-frame media-placeholder-frame--workspace">
+                <span class="placeholder-pane placeholder-pane--sidebar">Repos</span>
+                <span class="placeholder-pane placeholder-pane--terminal">Agent</span>
+                <span class="placeholder-pane placeholder-pane--editor">Editor / Diff</span>
+                <span class="placeholder-pane placeholder-pane--preview">Preview</span>
+              </div>
+            </div>
+
+            <div class="feature-grid feature-grid--compact">
+              <div class="feature-card">
+                <div class="feature-card-title">Repositories sidebar</div>
+                <div class="feature-card-copy">Open, switch, and orient across projects.</div>
+              </div>
+              <div class="feature-card">
+                <div class="feature-card-title">Agent terminal</div>
+                <div class="feature-card-copy">Watch live PTY output and intervene directly.</div>
+              </div>
+              <div class="feature-card">
+                <div class="feature-card-title">Search</div>
+                <div class="feature-card-copy">Find code, memory, or both from one surface.</div>
+              </div>
+              <div class="feature-card">
+                <div class="feature-card-title">File tree</div>
+                <div class="feature-card-copy">Navigate the working tree without leaving the flow.</div>
+              </div>
+              <div class="feature-card">
+                <div class="feature-card-title">Modified files</div>
+                <div class="feature-card-copy">See what changed before you commit.</div>
+              </div>
+              <div class="feature-card">
+                <div class="feature-card-title">Shell tabs</div>
+                <div class="feature-card-copy">Keep direct command-line work inside the workspace.</div>
+              </div>
+              <div class="feature-card">
+                <div class="feature-card-title">Web preview</div>
+                <div class="feature-card-copy">Check the running app without switching tools.</div>
+              </div>
+              <div class="feature-card">
+                <div class="feature-card-title">Editor panes</div>
+                <div class="feature-card-copy">Review files, diffs, and context side by side.</div>
+              </div>
+            </div>
           </div>
 
           <div class="workflow-row">
@@ -481,27 +589,52 @@ PASS SearchPanel.test.tsx</pre>
 
       <section class="slide" data-title="Search And Memory" data-note="Bridge from isolation to continuity: worktrees isolate work, memory preserves momentum.">
         <div class="slide-grid stacked-layout">
-          <div>
-            <div class="eyebrow">Continuity</div>
-            <h2 class="section-title">Search is not just code search, and memory is not just chat history</h2>
+          <div class="headline-band">
+            <div>
+              <div class="eyebrow">Continuity</div>
+              <h2 class="section-title section-title--wide">Search is not just code search, and memory is not just chat history</h2>
+            </div>
+
+            <aside class="summary-card">
+              <div class="summary-card-label">Why this matters</div>
+              <p class="summary-card-copy">
+                Worktrees give you isolation. Memory and unified search give you continuity across sessions, branches, and project history.
+              </p>
+            </aside>
           </div>
 
-          <div class="search-grid">
-            <article class="mode-card">
-              <div class="mode-label">Mode</div>
-              <h3>Code</h3>
-              <p>Traditional repository search for exact file-level navigation.</p>
-            </article>
-            <article class="mode-card">
-              <div class="mode-label">Mode</div>
-              <h3>Memory</h3>
-              <p>Interactions, observations, and session summaries stored locally in SQLite.</p>
-            </article>
-            <article class="mode-card">
-              <div class="mode-label">Mode</div>
-              <h3>Everything</h3>
-              <p>One place to search code and project memory together, with grounded AI answer modes.</p>
-            </article>
+          <div class="search-stage">
+            <div class="media-placeholder media-placeholder--search">
+              <div class="media-placeholder-label">Drop in later</div>
+              <h3 class="media-placeholder-title">Search or memory panel screenshot</h3>
+              <p class="media-placeholder-copy">
+                Good capture: code results, memory results, and a grounded AI answer or rerank result in the same view.
+              </p>
+              <div class="media-placeholder-frame media-placeholder-frame--search">
+                <span class="placeholder-searchbar">Search: worktree memory bug</span>
+                <span class="placeholder-result">Code result</span>
+                <span class="placeholder-result">Memory result</span>
+                <span class="placeholder-result placeholder-result--wide">Grounded AI answer</span>
+              </div>
+            </div>
+
+            <div class="mode-stack">
+              <article class="mode-card">
+                <div class="mode-label">Mode</div>
+                <h3>Code</h3>
+                <p>Traditional repository search for exact file-level navigation.</p>
+              </article>
+              <article class="mode-card">
+                <div class="mode-label">Mode</div>
+                <h3>Memory</h3>
+                <p>Interactions, observations, and session summaries stored locally in SQLite.</p>
+              </article>
+              <article class="mode-card">
+                <div class="mode-label">Mode</div>
+                <h3>Everything</h3>
+                <p>One place to search code and project memory together, with grounded AI answer modes.</p>
+              </article>
+            </div>
           </div>
 
           <div class="workflow-row">
@@ -539,20 +672,44 @@ PASS SearchPanel.test.tsx</pre>
       </section>
 
       <section class="slide" data-title="Ideas Generator" data-note="Present this as the beginning of a project-aware engineering partner, not just an idea toy.">
-        <div class="slide-grid stacked-layout">
-          <div>
-            <div class="eyebrow">Project-Aware Ideas</div>
-            <h2 class="section-title">On-demand idea generation grounded in local context and outside signals</h2>
+        <div class="slide-grid stacked-layout stacked-layout--ideas">
+          <div class="headline-band">
+            <div>
+              <div class="eyebrow">Project-Aware Ideas</div>
+              <h2 class="section-title section-title--wide">On-demand idea generation grounded in local context and outside signals</h2>
+            </div>
+
+            <aside class="summary-card">
+              <div class="summary-card-label">What to show here</div>
+              <p class="summary-card-copy">
+                The strongest demo here is the real ideas feed: project profile on one side, source-backed suggestions on the other, and evidence attached to each idea.
+              </p>
+            </aside>
           </div>
 
-          <div class="workflow-row workflow-row-large">
-            <div class="workflow-step">Profile the current project</div>
-            <div class="workflow-arrow">→</div>
-            <div class="workflow-step">Research the web</div>
-            <div class="workflow-arrow">→</div>
-            <div class="workflow-step">Rank source-backed ideas</div>
-            <div class="workflow-arrow">→</div>
-            <div class="workflow-step">Feed the user concrete suggestions</div>
+          <div class="ideas-stage">
+            <div class="media-placeholder media-placeholder--ideas">
+              <div class="media-placeholder-label">Drop in later</div>
+              <h3 class="media-placeholder-title">Ideas feed screenshot</h3>
+              <p class="media-placeholder-copy">
+                Good capture: current project profile, live refresh state, and 2-3 high-quality suggestion cards with source references.
+              </p>
+              <div class="media-placeholder-frame media-placeholder-frame--ideas">
+                <span class="placeholder-column">Profile</span>
+                <span class="placeholder-column">Suggestions</span>
+                <span class="placeholder-column">Sources</span>
+              </div>
+            </div>
+
+            <div class="workflow-column">
+              <div class="workflow-step workflow-step--column">Profile the current project</div>
+              <div class="workflow-arrow workflow-arrow--down">↓</div>
+              <div class="workflow-step workflow-step--column">Research the web</div>
+              <div class="workflow-arrow workflow-arrow--down">↓</div>
+              <div class="workflow-step workflow-step--column">Rank source-backed ideas</div>
+              <div class="workflow-arrow workflow-arrow--down">↓</div>
+              <div class="workflow-step workflow-step--column">Feed the user concrete suggestions</div>
+            </div>
           </div>
 
           <div class="idea-grid">
@@ -634,24 +791,46 @@ PASS SearchPanel.test.tsx</pre>
 
       <section class="slide" data-title="What Manifold Is" data-note="This is your closing argument. Compress the whole talk into a single memorable statement.">
         <div class="slide-grid stacked-layout">
-          <div>
-            <div class="eyebrow">Closing</div>
-            <h2 class="section-title">What Manifold really is</h2>
+          <div class="headline-band">
+            <div>
+              <div class="eyebrow">Closing</div>
+              <h2 class="section-title section-title--wide">What Manifold really is</h2>
+            </div>
+
+            <aside class="summary-card">
+              <div class="summary-card-label">Final visual</div>
+              <p class="summary-card-copy">
+                This is a good place for one clean final product screenshot or montage that makes the whole talk feel concrete again before Q&amp;A.
+              </p>
+            </aside>
           </div>
 
-          <div class="takeaway-grid">
-            <article class="takeaway-card">
-              <h3>It began with git worktrees</h3>
-              <p>A concrete engineering pain with a concrete engineering answer.</p>
-            </article>
-            <article class="takeaway-card">
-              <h3>It became an orchestration layer</h3>
-              <p>Native AI coding engines, real terminals, and parallel workflows.</p>
-            </article>
-            <article class="takeaway-card">
-              <h3>It points at a bigger direction</h3>
-              <p>A local-first desktop workspace for serious AI-assisted engineering.</p>
-            </article>
+          <div class="closing-stage">
+            <div class="media-placeholder media-placeholder--closing">
+              <div class="media-placeholder-label">Drop in later</div>
+              <h3 class="media-placeholder-title">Final product screenshot or montage</h3>
+              <p class="media-placeholder-copy">
+                Good fit: one polished screenshot of Manifold in action, or a 3-panel montage showing worktrees, terminals, and the workspace together.
+              </p>
+              <div class="media-placeholder-frame media-placeholder-frame--closing">
+                <span class="placeholder-pane placeholder-pane--hero">Hero screenshot</span>
+              </div>
+            </div>
+
+            <div class="takeaway-grid takeaway-grid--stacked">
+              <article class="takeaway-card">
+                <h3>It began with git worktrees</h3>
+                <p>A concrete engineering pain with a concrete engineering answer.</p>
+              </article>
+              <article class="takeaway-card">
+                <h3>It became an orchestration layer</h3>
+                <p>Native AI coding engines, real terminals, and parallel workflows.</p>
+              </article>
+              <article class="takeaway-card">
+                <h3>It points at a bigger direction</h3>
+                <p>A local-first desktop workspace for serious AI-assisted engineering.</p>
+              </article>
+            </div>
           </div>
 
           <div class="callout-banner">
@@ -678,7 +857,7 @@ PASS SearchPanel.test.tsx</pre>
     </main>
 
     <footer class="deck-footer">
-      <div class="footer-hint">Arrow keys / Space to navigate · Home/End to jump · N for notes · F for fullscreen</div>
+      <div class="footer-hint">Arrow keys / Space to navigate · Home/End to jump · T for theme · N for notes · F for fullscreen</div>
       <div class="footer-controls">
         <button class="nav-button" id="prevBtn" type="button">Previous</button>
         <button class="nav-button nav-button-primary" id="nextBtn" type="button">Next</button>

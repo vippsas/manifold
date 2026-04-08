@@ -115,6 +115,7 @@ Target: 52-55 minutes of presentation, 5-8 minutes for questions.
 - Manifold was not only designed for agentic coding. It was also built with agentic coding.
 - My role is to bring intent, product taste, architecture judgment, and evaluation.
 - AI helps me move from a rough idea to a spec, then to a plan, then to working code faster.
+- I use both Claude Code and Codex in practice because both deliver strong results.
 - The important point is not "ask AI to code." The important point is to create enough structure that the AI can do strong work.
 
 **Good framing:**
@@ -138,6 +139,7 @@ Target: 52-55 minutes of presentation, 5-8 minutes for questions.
 **Operational defaults:**
 
 - Use the best model available with the highest reasoning effort for serious architecture, specification, and planning work.
+- Use both Claude Code and Codex when it makes sense rather than treating the workflow as tied to one engine.
 - When working in Claude Code, use the Superpowers plugin.
 - Treat specification, planning, implementation, testing, and refactoring as separate phases instead of one vague prompt.
 

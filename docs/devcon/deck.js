@@ -6,15 +6,18 @@
   const progressBarEl = document.getElementById('progressBar');
   const prevBtn = document.getElementById('prevBtn');
   const nextBtn = document.getElementById('nextBtn');
+  const themeBtn = document.getElementById('themeBtn');
   const notesBtn = document.getElementById('notesBtn');
   const fullscreenBtn = document.getElementById('fullscreenBtn');
   const speakerNotePanel = document.getElementById('speakerNotePanel');
   const speakerNoteCopy = document.getElementById('speakerNoteCopy');
+  const storageKey = 'manifold-devcon-theme';
 
   if (slides.length === 0) return;
 
   let currentIndex = parseHash();
   let notesVisible = false;
+  let theme = readTheme();
 
   totalSlidesEl.textContent = String(slides.length);
 
@@ -47,10 +50,36 @@
     document.title = `Manifold Devcon Deck - ${title}`;
   }
 
+  function readTheme() {
+    const themeValue = document.documentElement.dataset.theme;
+    return themeValue === 'light' ? 'light' : 'dark';
+  }
+
+  function writeTheme(nextTheme) {
+    theme = nextTheme === 'light' ? 'light' : 'dark';
+    document.documentElement.dataset.theme = theme;
+    try {
+      localStorage.setItem(storageKey, theme);
+    } catch {
+      // Ignore storage failures in restricted contexts.
+    }
+    updateThemeUi();
+  }
+
+  function updateThemeUi() {
+    const isLight = theme === 'light';
+    themeBtn.textContent = isLight ? 'Dark Mode' : 'Light Mode';
+    themeBtn.setAttribute('aria-pressed', String(isLight));
+  }
+
   function updateNotesUi() {
     speakerNotePanel.hidden = !notesVisible;
     notesBtn.textContent = notesVisible ? 'Hide Notes' : 'Notes';
     notesBtn.setAttribute('aria-pressed', String(notesVisible));
+  }
+
+  function toggleTheme() {
+    writeTheme(theme === 'light' ? 'dark' : 'light');
   }
 
   function render() {
@@ -124,6 +153,11 @@
         notesVisible = !notesVisible;
         updateNotesUi();
         break;
+      case 't':
+      case 'T':
+        event.preventDefault();
+        toggleTheme();
+        break;
       default:
         break;
     }
@@ -131,6 +165,7 @@
 
   prevBtn.addEventListener('click', previous);
   nextBtn.addEventListener('click', next);
+  themeBtn.addEventListener('click', toggleTheme);
   notesBtn.addEventListener('click', () => {
     notesVisible = !notesVisible;
     updateNotesUi();
@@ -149,6 +184,7 @@
     fullscreenBtn.textContent = document.fullscreenElement ? 'Exit Fullscreen' : 'Fullscreen';
   });
 
+  updateThemeUi();
   updateNotesUi();
   render();
 }());
