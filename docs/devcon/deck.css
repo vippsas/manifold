@@ -1141,6 +1141,42 @@ body {
   align-items: stretch;
 }
 
+.closing-synthesis {
+  min-height: 0;
+  display: grid;
+  align-content: start;
+  gap: 12px;
+  padding: 20px 22px;
+  border-radius: var(--radius-lg);
+  border: 1px solid var(--line-strong);
+  background:
+    linear-gradient(145deg, rgba(224, 187, 133, 0.08), rgba(102, 209, 210, 0.05)),
+    var(--surface-faint);
+  box-shadow: var(--shadow-soft);
+}
+
+.closing-synthesis-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 14px;
+}
+
+.closing-synthesis-card {
+  padding: 18px;
+}
+
+.closing-synthesis-card h3 {
+  margin: 8px 0 8px;
+  font-size: clamp(1.16rem, 1.7vw, 1.42rem);
+}
+
+.closing-synthesis-card p {
+  margin: 0;
+  color: var(--text-soft);
+  font-size: 1rem;
+  line-height: 1.34;
+}
+
 .feature-card {
   display: grid;
   align-content: space-between;
