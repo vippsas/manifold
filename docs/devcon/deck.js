@@ -22,6 +22,44 @@
   renderBackticksInContent(document.getElementById('deckStage'));
   totalSlidesEl.textContent = String(slides.length);
 
+  function resetSlideFit(slide) {
+    const grid = slide?.querySelector('.slide-grid');
+    if (!grid) return;
+    grid.style.transform = '';
+    grid.style.width = '';
+    grid.style.height = '100%';
+  }
+
+  function fitSlide(slide) {
+    const grid = slide?.querySelector('.slide-grid');
+    if (!grid) return;
+
+    resetSlideFit(slide);
+
+    const availableHeight = grid.clientHeight;
+    const availableWidth = grid.clientWidth;
+    const requiredHeight = grid.scrollHeight;
+    const requiredWidth = grid.scrollWidth;
+
+    if (availableHeight === 0 || availableWidth === 0) return;
+
+    const scale = Math.min(1, availableHeight / requiredHeight, availableWidth / requiredWidth);
+
+    if (scale >= 0.999) return;
+
+    grid.style.transform = `scale(${scale})`;
+    grid.style.width = `${100 / scale}%`;
+    grid.style.height = `${100 / scale}%`;
+  }
+
+  function fitCurrentSlide() {
+    const slide = slides[currentIndex];
+    if (!slide) return;
+    window.requestAnimationFrame(() => {
+      fitSlide(slide);
+    });
+  }
+
   function createRichTextFragment(text) {
     const content = typeof text === 'string' ? text : '';
     const matchesBackticks = /`[^`\n]+`/.test(content);
@@ -154,11 +192,13 @@
       const isActive = index === currentIndex;
       slide.classList.toggle('is-active', isActive);
       slide.setAttribute('aria-hidden', String(!isActive));
+      if (!isActive) resetSlideFit(slide);
     });
 
     updateButtons();
     updateChrome();
     syncHash(currentIndex);
+    fitCurrentSlide();
   }
 
   function goTo(index) {
@@ -247,8 +287,15 @@
     }
   });
 
+  window.addEventListener('resize', fitCurrentSlide);
+
+  document.querySelectorAll('img').forEach((img) => {
+    img.addEventListener('load', fitCurrentSlide);
+  });
+
   document.addEventListener('fullscreenchange', () => {
     fullscreenBtn.textContent = document.fullscreenElement ? 'Exit Fullscreen' : 'Fullscreen';
+    fitCurrentSlide();
   });
 
   updateThemeUi();
