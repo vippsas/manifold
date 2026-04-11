@@ -4,17 +4,6 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Manifold Devcon Deck</title>
-  <script>
-    (function () {
-      try {
-        const savedTheme = localStorage.getItem('manifold-devcon-theme');
-        const theme = savedTheme === 'light' ? 'light' : 'dark';
-        document.documentElement.dataset.theme = theme;
-      } catch {
-        document.documentElement.dataset.theme = 'dark';
-      }
-    }());
-  </script>
   <link rel="stylesheet" href="./deck.css">
 </head>
 <body>
@@ -32,7 +21,6 @@
       </a>
 
       <div class="chrome-meta">
-        <button class="chrome-button" id="themeBtn" type="button" aria-pressed="false">Light Mode</button>
         <button class="chrome-button" id="notesBtn" type="button">Notes</button>
         <button class="chrome-button" id="fullscreenBtn" type="button">Fullscreen</button>
         <div class="slide-counter">
@@ -202,7 +190,7 @@
         </div>
       </section>
 
-      <section class="slide" data-title="Toolkit" data-note="Make the thesis explicit: the toolkit around the model matters as much as the model itself.">
+      <section class="slide" data-title="Toolkit" data-theme="light" data-note="Make the thesis explicit: the toolkit around the model matters as much as the model itself.">
         <div class="slide-grid stacked-layout stacked-layout--centered">
           <div>
             <div class="eyebrow">Workflow Thesis</div>
@@ -324,7 +312,7 @@
         </div>
       </section>
 
-      <section class="slide" data-title="Agentic Workflow" data-note="Keep this practical and copyable. This is your core loop.">
+      <section class="slide" data-title="Agentic Workflow" data-theme="light" data-note="Keep this practical and copyable. This is your core loop.">
         <div class="slide-grid stacked-layout--workflow">
           <aside class="summary-card summary-card--workflow">
             <div class="summary-card-label">Working principle</div>
@@ -668,7 +656,7 @@ Bad settings file:
         </div>
       </section>
 
-      <section class="slide" data-title="Build First Before Meeting" data-note="Lean on the idea that prototypes create better discussions than abstract meetings.">
+      <section class="slide" data-title="Build First Before Meeting" data-theme="light" data-note="Lean on the idea that prototypes create better discussions than abstract meetings.">
         <div class="slide-grid split-layout split-layout--build-first">
           <div>
             <div class="eyebrow">Decision Making</div>
@@ -762,7 +750,7 @@ Bad settings file:
         </div>
       </section>
 
-      <section class="slide" data-title="Closing" data-note="Close on the full loop. AI made implementation faster, but approvals, reviews, and waiting still set the pace.">
+      <section class="slide" data-title="Closing" data-theme="light" data-note="Close on the full loop. AI made implementation faster, but approvals, reviews, and waiting still set the pace.">
         <div class="slide-grid stacked-layout">
           <div class="headline-band">
             <div>
@@ -854,7 +842,7 @@ Bad settings file:
     </main>
 
     <footer class="deck-footer">
-      <div class="footer-hint">Arrow keys / Space to navigate · Home/End to jump · T for theme · N for notes · F for fullscreen</div>
+      <div class="footer-hint">Arrow keys / Space to navigate · Home/End to jump · N for notes · F for fullscreen</div>
       <div class="footer-controls">
         <button class="nav-button" id="prevBtn" type="button">Previous</button>
         <button class="nav-button nav-button-primary" id="nextBtn" type="button">Next</button>
