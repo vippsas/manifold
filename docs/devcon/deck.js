@@ -165,12 +165,19 @@
   function goTo(index) {
     const nextIndex = Math.max(0, Math.min(index, slides.length - 1));
     if (nextIndex === currentIndex) return;
+
+    // Track navigation direction for CSS directional transitions
+    const direction = nextIndex > currentIndex ? 'forward' : 'backward';
+    if (deckStage) deckStage.dataset.direction = direction;
+
     const leaving = slides[currentIndex];
     if (leaving) {
       leaving.classList.add('is-leaving');
-      leaving.addEventListener('transitionend', () => {
+      leaving.addEventListener('animationend', () => {
         leaving.classList.remove('is-leaving');
       }, { once: true });
+      // Fallback cleanup if no animation fires
+      setTimeout(() => leaving.classList.remove('is-leaving'), 900);
     }
     currentIndex = nextIndex;
     render();
@@ -254,6 +261,7 @@
     fitCurrentSlide();
   });
 
+  const deckStage = document.querySelector('.deck-stage');
   const deckShell = document.querySelector('.deck-shell');
   let chromeTimer = null;
 

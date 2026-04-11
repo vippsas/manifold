@@ -338,7 +338,7 @@ body {
   width: 6.25%;
   border-radius: inherit;
   background: var(--gold);
-  transition: width 220ms ease;
+  transition: width 700ms cubic-bezier(0.34, 1.56, 0.64, 1);
 }
 
 .deck-stage {
@@ -359,26 +359,86 @@ body {
   inset: 0;
   padding: clamp(28px, 3.2vw, 52px);
   opacity: 0;
-  transform: scale(0.97);
-  filter: blur(8px);
   pointer-events: none;
-  transition:
-    opacity 600ms cubic-bezier(0.16, 1, 0.3, 1),
-    transform 600ms cubic-bezier(0.16, 1, 0.3, 1),
-    filter 600ms cubic-bezier(0.16, 1, 0.3, 1);
+  will-change: opacity, transform, filter;
 }
 
-.slide.is-leaving {
-  opacity: 0;
-  transform: scale(1.02);
-  filter: blur(8px);
+/* --- Directional enter/exit --- */
+
+/* Forward: enter from right/scale-down, exit to left/scale-up */
+[data-direction="forward"] .slide.is-active {
+  animation: slide-enter-forward 650ms cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+[data-direction="forward"] .slide.is-leaving {
+  animation: slide-exit-forward 500ms cubic-bezier(0.4, 0, 1, 1) both;
 }
 
+/* Backward: enter from left, exit to right */
+[data-direction="backward"] .slide.is-active {
+  animation: slide-enter-backward 650ms cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+[data-direction="backward"] .slide.is-leaving {
+  animation: slide-exit-backward 500ms cubic-bezier(0.4, 0, 1, 1) both;
+}
+
+/* Initial render (no direction yet) */
 .slide.is-active {
   opacity: 1;
-  transform: scale(1);
-  filter: blur(0);
+  transform: none;
+  filter: none;
   pointer-events: auto;
+}
+
+@keyframes slide-enter-forward {
+  from {
+    opacity: 0;
+    transform: translateX(3%) scale(0.97);
+    filter: blur(6px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0) scale(1);
+    filter: blur(0);
+  }
+}
+
+@keyframes slide-exit-forward {
+  from {
+    opacity: 1;
+    transform: translateX(0) scale(1);
+    filter: blur(0);
+  }
+  to {
+    opacity: 0;
+    transform: translateX(-3%) scale(1.02);
+    filter: blur(6px);
+  }
+}
+
+@keyframes slide-enter-backward {
+  from {
+    opacity: 0;
+    transform: translateX(-3%) scale(0.97);
+    filter: blur(6px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0) scale(1);
+    filter: blur(0);
+  }
+}
+
+@keyframes slide-exit-backward {
+  from {
+    opacity: 1;
+    transform: translateX(0) scale(1);
+    filter: blur(0);
+  }
+  to {
+    opacity: 0;
+    transform: translateX(3%) scale(1.02);
+    filter: blur(6px);
+  }
 }
 
 /* Staggered content entry — parallax depth layers */
@@ -389,19 +449,41 @@ body {
   animation: layer-near 600ms cubic-bezier(0.16, 1, 0.3, 1) 100ms both;
 }
 
-/* Layer 2: Titles — subtle lift */
+/* Layer 2: Titles — masked reveal (clip upward into view) */
 .slide.is-active .hero-title,
 .slide.is-active .section-title {
-  animation: layer-near 600ms cubic-bezier(0.16, 1, 0.3, 1) 220ms both;
+  animation: mask-reveal 700ms cubic-bezier(0.16, 1, 0.3, 1) 180ms both;
 }
 
 /* Layer 3: Body text — medium depth */
 .slide.is-active .hero-subtitle,
-.slide.is-active .hero-quote,
-.slide.is-active .bullet-list,
-.slide.is-active .focus-list {
+.slide.is-active .hero-quote {
   animation: layer-mid 550ms cubic-bezier(0.16, 1, 0.3, 1) 360ms both;
 }
+
+/* List containers appear immediately; individual items micro-stagger */
+.slide.is-active .bullet-list,
+.slide.is-active .focus-list {
+  animation: none;
+}
+
+.slide.is-active .bullet-list > li,
+.slide.is-active .focus-list > li {
+  animation: layer-mid 500ms cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+.slide.is-active .bullet-list > li:nth-child(1),
+.slide.is-active .focus-list > li:nth-child(1) { animation-delay: 340ms; }
+.slide.is-active .bullet-list > li:nth-child(2),
+.slide.is-active .focus-list > li:nth-child(2) { animation-delay: 400ms; }
+.slide.is-active .bullet-list > li:nth-child(3),
+.slide.is-active .focus-list > li:nth-child(3) { animation-delay: 460ms; }
+.slide.is-active .bullet-list > li:nth-child(4),
+.slide.is-active .focus-list > li:nth-child(4) { animation-delay: 520ms; }
+.slide.is-active .bullet-list > li:nth-child(5),
+.slide.is-active .focus-list > li:nth-child(5) { animation-delay: 580ms; }
+.slide.is-active .bullet-list > li:nth-child(n+6),
+.slide.is-active .focus-list > li:nth-child(n+6) { animation-delay: 640ms; }
 
 /* Layer 4: Cards — deepest movement, stagger per card */
 .slide.is-active .glass-card,
@@ -483,9 +565,63 @@ body {
   animation: layer-mid 450ms cubic-bezier(0.16, 1, 0.3, 1) 650ms both;
 }
 
+/* --- Exit choreography: content leaves in reverse layer order --- */
+@keyframes exit-fade {
+  from { opacity: 1; transform: translateY(0); }
+  to   { opacity: 0; transform: translateY(-6px); }
+}
+
+/* Banners & strips leave first */
+.slide.is-leaving .callout-banner,
+.slide.is-leaving .rules-strip {
+  animation: exit-fade 250ms cubic-bezier(0.4, 0, 1, 1) 0ms both;
+}
+
+/* Cards & panels leave second */
+.slide.is-leaving .glass-card,
+.slide.is-leaving .principle-card,
+.slide.is-leaving .architecture-card,
+.slide.is-leaving .step-card,
+.slide.is-leaving .agenda-card,
+.slide.is-leaving .compare-card,
+.slide.is-leaving .idea-card,
+.slide.is-leaving .feature-card,
+.slide.is-leaving .theme-card,
+.slide.is-leaving .takeaway-card,
+.slide.is-leaving .mode-card,
+.slide.is-leaving .summary-card,
+.slide.is-leaving .terminal-shell,
+.slide.is-leaving .protocol-card,
+.slide.is-leaving .simple-view-card,
+.slide.is-leaving .accent-panel,
+.slide.is-leaving .media-placeholder,
+.slide.is-leaving .hero-panel {
+  animation: exit-fade 220ms cubic-bezier(0.4, 0, 1, 1) 60ms both;
+}
+
+/* Body text & lists leave third */
+.slide.is-leaving .hero-subtitle,
+.slide.is-leaving .hero-quote,
+.slide.is-leaving .bullet-list,
+.slide.is-leaving .focus-list {
+  animation: exit-fade 200ms cubic-bezier(0.4, 0, 1, 1) 120ms both;
+}
+
+/* Titles leave fourth */
+.slide.is-leaving .hero-title,
+.slide.is-leaving .section-title {
+  animation: exit-fade 180ms cubic-bezier(0.4, 0, 1, 1) 160ms both;
+}
+
+/* Labels leave last */
+.slide.is-leaving .eyebrow,
+.slide.is-leaving .brand-eyebrow {
+  animation: exit-fade 150ms cubic-bezier(0.4, 0, 1, 1) 200ms both;
+}
+
 /* Hero slide — slower, more dramatic */
 .slide:first-child.is-active .hero-title {
-  animation: layer-hero 800ms cubic-bezier(0.16, 1, 0.3, 1) 200ms both;
+  animation: mask-reveal 900ms cubic-bezier(0.16, 1, 0.3, 1) 200ms both;
 }
 
 .slide:first-child.is-active .hero-brand-lockup {
@@ -498,6 +634,18 @@ body {
 
 .slide:first-child.is-active .hero-panel {
   animation: layer-far 700ms cubic-bezier(0.16, 1, 0.3, 1) 500ms both;
+}
+
+/* Masked reveal — title slides up from behind a clip edge */
+@keyframes mask-reveal {
+  from {
+    clip-path: inset(100% 0 0 0);
+    transform: translateY(12px);
+  }
+  to {
+    clip-path: inset(0 0 0 0);
+    transform: translateY(0);
+  }
 }
 
 /* Depth keyframes — near elements barely move, far elements travel further and scale */
@@ -2064,13 +2212,18 @@ body {
     transition: none;
   }
 
+  /* Disable all entry animations */
+  .slide.is-active,
+  [data-direction] .slide.is-active,
+  [data-direction] .slide.is-leaving,
   .slide.is-active .eyebrow,
+  .slide.is-active .brand-eyebrow,
   .slide.is-active .hero-title,
   .slide.is-active .section-title,
   .slide.is-active .hero-subtitle,
   .slide.is-active .hero-quote,
-  .slide.is-active .bullet-list,
-  .slide.is-active .focus-list,
+  .slide.is-active .bullet-list > li,
+  .slide.is-active .focus-list > li,
   .slide.is-active .glass-card,
   .slide.is-active .principle-card,
   .slide.is-active .architecture-card,
@@ -2081,6 +2234,7 @@ body {
   .slide.is-active .feature-card,
   .slide.is-active .theme-card,
   .slide.is-active .takeaway-card,
+  .slide.is-active .mode-card,
   .slide.is-active .summary-card,
   .slide.is-active .callout-banner,
   .slide.is-active .terminal-shell,
@@ -2089,7 +2243,40 @@ body {
   .slide.is-active .accent-panel,
   .slide.is-active .media-placeholder,
   .slide.is-active .hero-panel,
-  .slide.is-active .rules-strip {
+  .slide.is-active .rules-strip,
+  .slide.is-active .hero-brand-lockup {
+    animation: none;
+  }
+
+  /* Disable all exit animations */
+  .slide.is-leaving .callout-banner,
+  .slide.is-leaving .rules-strip,
+  .slide.is-leaving .glass-card,
+  .slide.is-leaving .principle-card,
+  .slide.is-leaving .architecture-card,
+  .slide.is-leaving .step-card,
+  .slide.is-leaving .agenda-card,
+  .slide.is-leaving .compare-card,
+  .slide.is-leaving .idea-card,
+  .slide.is-leaving .feature-card,
+  .slide.is-leaving .theme-card,
+  .slide.is-leaving .takeaway-card,
+  .slide.is-leaving .mode-card,
+  .slide.is-leaving .summary-card,
+  .slide.is-leaving .terminal-shell,
+  .slide.is-leaving .protocol-card,
+  .slide.is-leaving .simple-view-card,
+  .slide.is-leaving .accent-panel,
+  .slide.is-leaving .media-placeholder,
+  .slide.is-leaving .hero-panel,
+  .slide.is-leaving .hero-subtitle,
+  .slide.is-leaving .hero-quote,
+  .slide.is-leaving .bullet-list,
+  .slide.is-leaving .focus-list,
+  .slide.is-leaving .hero-title,
+  .slide.is-leaving .section-title,
+  .slide.is-leaving .eyebrow,
+  .slide.is-leaving .brand-eyebrow {
     animation: none;
   }
 }
