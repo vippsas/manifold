@@ -126,7 +126,10 @@ body {
   background: var(--body-background);
   color: var(--text);
   font-family: var(--body-font);
+  font-weight: 300;
   overflow: hidden;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
   transition:
     background 500ms cubic-bezier(0.16, 1, 0.3, 1),
     color 500ms cubic-bezier(0.16, 1, 0.3, 1);
@@ -243,10 +246,25 @@ body {
 .idea-tag,
 .meta-label {
   font-family: var(--heading-font);
-  font-size: 0.8rem;
-  letter-spacing: 0.14em;
+  font-size: 0.72rem;
+  font-weight: 500;
+  letter-spacing: 0.22em;
   text-transform: uppercase;
   color: var(--gold);
+}
+
+.eyebrow {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+.eyebrow::after {
+  content: "";
+  flex: 1;
+  height: 1px;
+  background: linear-gradient(90deg, var(--line-strong), transparent 80%);
+  max-width: 120px;
 }
 
 .demo-badge {
@@ -357,7 +375,7 @@ body {
 .slide {
   position: absolute;
   inset: 0;
-  padding: clamp(28px, 3.2vw, 52px);
+  padding: clamp(36px, 4vw, 64px);
   opacity: 0;
   pointer-events: none;
   will-change: opacity, transform, filter;
@@ -713,21 +731,21 @@ body {
 .split-layout {
   display: grid;
   grid-template-columns: 1.18fr 0.82fr;
-  gap: clamp(20px, 2.5vw, 36px);
+  gap: clamp(28px, 3.2vw, 48px);
   align-items: center;
 }
 
 .headline-band {
   display: grid;
   grid-template-columns: 1.22fr 0.78fr;
-  gap: 20px;
+  gap: 28px;
   align-items: end;
 }
 
 .stacked-layout {
   display: grid;
   grid-template-rows: auto 1fr auto;
-  gap: 20px;
+  gap: 26px;
 }
 
 .stacked-layout--centered {
@@ -776,7 +794,7 @@ body {
 
 .hero-copy {
   display: grid;
-  gap: 20px;
+  gap: 24px;
 }
 
 .hero-brand-lockup {
@@ -810,18 +828,18 @@ body {
 }
 
 .hero-title {
-  font-size: clamp(3.2rem, 6vw, 5.6rem);
+  font-size: clamp(3.6rem, 6.8vw, 6.4rem);
 }
 
 .section-title {
-  font-size: clamp(2.4rem, 4.6vw, 4.5rem);
+  font-size: clamp(2.8rem, 5.2vw, 5.2rem);
   max-width: 12.5ch;
   margin-bottom: 16px;
 }
 
 .section-title--wide {
   max-width: 18ch;
-  font-size: clamp(2.2rem, 4vw, 4rem);
+  font-size: clamp(2.5rem, 4.6vw, 4.6rem);
 }
 
 .split-layout .section-title {
@@ -847,8 +865,8 @@ body {
 .takeaway-card p,
 .qna-prompt {
   margin: 0;
-  font-size: clamp(1.16rem, 1.62vw, 1.56rem);
-  line-height: 1.45;
+  font-size: clamp(1.08rem, 1.5vw, 1.42rem);
+  line-height: 1.52;
   color: var(--text-soft);
 }
 
@@ -902,10 +920,11 @@ body {
 .summary-card::before {
   content: "";
   position: absolute;
-  inset: 0 auto auto 0;
-  width: 48px;
-  height: 3px;
-  background: var(--gold);
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 1px;
+  background: linear-gradient(90deg, var(--gold), transparent 60%);
 }
 
 .summary-card-label {
@@ -1020,7 +1039,7 @@ body {
 .idea-grid,
 .step-grid {
   display: grid;
-  gap: 18px;
+  gap: 22px;
   align-content: start;
 }
 
@@ -1028,19 +1047,30 @@ body {
   grid-template-columns: repeat(3, minmax(0, 1fr));
 }
 
-.agenda-card,
-.principle-card,
+/* Primary cards — solid panel surface */
 .architecture-card,
-.mode-card,
-.theme-card,
-.takeaway-card,
-.idea-card,
-.step-card {
+.step-card,
+.compare-card {
   background: var(--panel);
   border: 1px solid var(--line);
   border-radius: var(--radius-lg);
-  padding: 22px;
+  padding: 24px;
   box-shadow: var(--shadow-soft);
+}
+
+/* Secondary cards — transparent with left accent */
+.agenda-card,
+.principle-card,
+.mode-card,
+.theme-card,
+.takeaway-card,
+.idea-card {
+  background: transparent;
+  border: none;
+  border-left: 2px solid var(--line-strong);
+  border-radius: 0;
+  padding: 4px 0 4px 22px;
+  box-shadow: none;
 }
 
 .architecture-card,
@@ -1055,10 +1085,11 @@ body {
 .step-card::before {
   content: "";
   position: absolute;
-  inset: 0 auto auto 0;
-  width: 3px;
-  height: 32px;
-  background: var(--gold);
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 1px;
+  background: linear-gradient(90deg, var(--gold), transparent 70%);
 }
 
 .agenda-card h3,
@@ -1071,10 +1102,11 @@ body {
 .glass-card h3,
 .compare-card h3,
 .panel-title {
-  margin: 10px 0 10px;
+  margin: 8px 0 10px;
   font-family: var(--heading-font);
-  font-size: clamp(1.4rem, 2.2vw, 2rem);
-  line-height: 1.05;
+  font-weight: 600;
+  font-size: clamp(1.32rem, 2vw, 1.85rem);
+  line-height: 1.1;
 }
 
 .card-stack {
@@ -1087,10 +1119,10 @@ body {
   margin: 0;
   padding-left: 1.2em;
   display: grid;
-  gap: 12px;
+  gap: 14px;
   color: var(--text-soft);
-  font-size: clamp(1.12rem, 1.48vw, 1.4rem);
-  line-height: 1.45;
+  font-size: clamp(1.04rem, 1.4vw, 1.32rem);
+  line-height: 1.52;
 }
 
 .large-bullets {
@@ -1098,8 +1130,20 @@ body {
 }
 
 .accent-panel {
+  position: relative;
   background: var(--panel-strong);
-  border-left: 3px solid var(--gold);
+  border-left: none;
+  overflow: hidden;
+}
+
+.accent-panel::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 0;
+  bottom: 0;
+  width: 1px;
+  background: linear-gradient(180deg, var(--gold), transparent 80%);
 }
 
 .comparison-grid,
@@ -1113,18 +1157,11 @@ body {
 .mode-stack,
 .workflow-column {
   display: grid;
-  gap: 18px;
+  gap: 22px;
 }
 
 .comparison-grid {
   grid-template-columns: repeat(2, minmax(0, 1fr));
-}
-
-.compare-card {
-  padding: 24px;
-  border-radius: var(--radius-lg);
-  border: 1px solid var(--line);
-  background: var(--panel);
 }
 
 .compare-card-negative {
@@ -1177,15 +1214,20 @@ body {
   display: flex;
   align-items: center;
   justify-content: center;
-  min-height: 74px;
-  padding: 18px 24px;
-  border-radius: var(--radius-lg);
+  min-height: 64px;
+  margin-left: calc(-1 * clamp(36px, 4vw, 64px));
+  margin-right: calc(-1 * clamp(36px, 4vw, 64px));
+  padding: 18px clamp(36px, 4vw, 64px);
+  border-radius: 0;
   background: var(--callout-bg);
-  border: 1px solid var(--callout-border);
+  border: none;
+  border-top: 1px solid var(--callout-border);
+  border-bottom: 1px solid var(--callout-border);
   text-align: center;
   font-family: var(--heading-font);
-  font-size: clamp(1.2rem, 1.9vw, 1.7rem);
-  letter-spacing: 0.03em;
+  font-size: clamp(1.12rem, 1.7vw, 1.52rem);
+  font-weight: 400;
+  letter-spacing: 0.04em;
 }
 
 .principles-grid {
