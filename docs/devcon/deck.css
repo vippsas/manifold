@@ -561,16 +561,17 @@ body {
 .slide.is-active .takeaway-card:nth-child(n+4) { animation-delay: 1620ms; }
 
 /* Layer 4: Panels — emerge from depth */
-.slide.is-active .summary-card {
-  animation: layer-far 550ms cubic-bezier(0.16, 1, 0.3, 1) 380ms both;
-}
-
 .slide.is-active .terminal-shell,
 .slide.is-active .protocol-card,
 .slide.is-active .simple-view-card,
 .slide.is-active .accent-panel,
 .slide.is-active .media-placeholder {
   animation: layer-far 550ms cubic-bezier(0.16, 1, 0.3, 1) 400ms both;
+}
+
+/* Summary cards — arrive after all other content as the key takeaway */
+.slide.is-active .summary-card {
+  animation: layer-far 650ms cubic-bezier(0.16, 1, 0.3, 1) 900ms both;
 }
 
 .slide.is-active .hero-panel {
