@@ -141,10 +141,22 @@
     document.title = `Manifold Devcon Deck - ${title}`;
   }
 
+  let themeTimer = null;
+
   function syncThemeToSlide() {
     const slide = slides[currentIndex];
-    const slideTheme = slide?.dataset.theme || 'dark';
-    document.documentElement.dataset.theme = slideTheme;
+    const nextTheme = slide?.dataset.theme || 'dark';
+    const currentTheme = document.documentElement.dataset.theme || 'dark';
+
+    clearTimeout(themeTimer);
+
+    if (nextTheme === currentTheme) return;
+
+    // Delay the theme switch so the exit animation is underway
+    // before colors start changing — easier on the eye
+    themeTimer = setTimeout(() => {
+      document.documentElement.dataset.theme = nextTheme;
+    }, 250);
   }
 
   function render() {
@@ -290,6 +302,10 @@
 
   document.addEventListener('mousemove', showChrome);
   showChrome();
+
+  // Set initial theme immediately (no delay on first load)
+  const initialSlide = slides[currentIndex];
+  document.documentElement.dataset.theme = initialSlide?.dataset.theme || 'dark';
 
   render();
 }());

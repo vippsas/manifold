@@ -131,8 +131,48 @@ body {
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
   transition:
-    background 500ms cubic-bezier(0.16, 1, 0.3, 1),
-    color 500ms cubic-bezier(0.16, 1, 0.3, 1);
+    background 800ms cubic-bezier(0.16, 1, 0.3, 1),
+    color 800ms cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+/* Theme crossfade — smooth color transitions when switching dark ↔ light */
+.deck-shell,
+.chrome-meta,
+.deck-footer,
+.slide-counter,
+.chrome-button,
+.nav-button,
+.progress-track,
+.hero-panel,
+.glass-card,
+.accent-panel,
+.simple-view-card,
+.protocol-card,
+.qna-card,
+.summary-card,
+.architecture-card,
+.step-card,
+.compare-card,
+.feature-card,
+.terminal-shell,
+.callout-banner,
+.sequence-item,
+.repo-node,
+.branch-node,
+.chip,
+.runtime-pill,
+.workflow-step,
+.media-placeholder,
+.media-placeholder-frame,
+.placeholder-node,
+.inline-code,
+.rules-pill,
+.closing-synthesis {
+  transition:
+    background 800ms cubic-bezier(0.16, 1, 0.3, 1),
+    color 800ms cubic-bezier(0.16, 1, 0.3, 1),
+    border-color 800ms cubic-bezier(0.16, 1, 0.3, 1),
+    box-shadow 800ms cubic-bezier(0.16, 1, 0.3, 1);
 }
 
 .ambient {
@@ -368,8 +408,8 @@ body {
   border: 1px solid var(--stage-border);
   background: var(--stage-background);
   transition:
-    background 500ms cubic-bezier(0.16, 1, 0.3, 1),
-    border-color 500ms cubic-bezier(0.16, 1, 0.3, 1);
+    background 800ms cubic-bezier(0.16, 1, 0.3, 1),
+    border-color 800ms cubic-bezier(0.16, 1, 0.3, 1);
 }
 
 .slide {
