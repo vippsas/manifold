@@ -150,9 +150,12 @@
   function render() {
     slides.forEach((slide, index) => {
       const isActive = index === currentIndex;
-      slide.classList.toggle('is-active', isActive);
-      slide.setAttribute('aria-hidden', String(!isActive));
-      if (!isActive) resetSlideFit(slide);
+      const isLeaving = slide.classList.contains('is-leaving');
+      // Keep is-active on leaving slides so animation fill values persist
+      slide.classList.toggle('is-active', isActive || isLeaving);
+      slide.setAttribute('aria-hidden', String(!isActive && !isLeaving));
+      // Don't reset fit on leaving slides — defer until exit animation completes
+      if (!isActive && !isLeaving) resetSlideFit(slide);
     });
 
     updateButtons();
@@ -160,6 +163,13 @@
     syncThemeToSlide();
     syncHash(currentIndex);
     fitCurrentSlide();
+  }
+
+  function cleanUpLeaving(slide) {
+    slide.classList.remove('is-leaving');
+    slide.classList.remove('is-active');
+    slide.setAttribute('aria-hidden', 'true');
+    resetSlideFit(slide);
   }
 
   function goTo(index) {
@@ -173,11 +183,9 @@
     const leaving = slides[currentIndex];
     if (leaving) {
       leaving.classList.add('is-leaving');
-      leaving.addEventListener('animationend', () => {
-        leaving.classList.remove('is-leaving');
-      }, { once: true });
+      leaving.addEventListener('animationend', () => cleanUpLeaving(leaving), { once: true });
       // Fallback cleanup if no animation fires
-      setTimeout(() => leaving.classList.remove('is-leaving'), 900);
+      setTimeout(() => cleanUpLeaving(leaving), 900);
     }
     currentIndex = nextIndex;
     render();
