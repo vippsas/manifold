@@ -551,14 +551,14 @@ body {
 .slide.is-active .feature-card:nth-child(n+4),
 .slide.is-active .idea-card:nth-child(n+4) { animation-delay: 600ms; }
 
-/* Takeaway cards — arrive last, after everything else has settled */
+/* Takeaway cards — arrive dead last, after a deliberate pause */
 .slide.is-active .takeaway-card {
-  animation: layer-far 600ms cubic-bezier(0.16, 1, 0.3, 1) both;
+  animation: layer-far 700ms cubic-bezier(0.16, 1, 0.3, 1) both;
 }
-.slide.is-active .takeaway-card:nth-child(1) { animation-delay: 800ms; }
-.slide.is-active .takeaway-card:nth-child(2) { animation-delay: 880ms; }
-.slide.is-active .takeaway-card:nth-child(3) { animation-delay: 960ms; }
-.slide.is-active .takeaway-card:nth-child(n+4) { animation-delay: 1040ms; }
+.slide.is-active .takeaway-card:nth-child(1) { animation-delay: 1200ms; }
+.slide.is-active .takeaway-card:nth-child(2) { animation-delay: 1340ms; }
+.slide.is-active .takeaway-card:nth-child(3) { animation-delay: 1480ms; }
+.slide.is-active .takeaway-card:nth-child(n+4) { animation-delay: 1620ms; }
 
 /* Layer 4: Panels — emerge from depth */
 .slide.is-active .summary-card {
