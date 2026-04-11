@@ -247,5 +247,19 @@
     fitCurrentSlide();
   });
 
+  const deckShell = document.querySelector('.deck-shell');
+  let chromeTimer = null;
+
+  function showChrome() {
+    deckShell.classList.add('show-chrome');
+    clearTimeout(chromeTimer);
+    chromeTimer = setTimeout(() => {
+      deckShell.classList.remove('show-chrome');
+    }, 2000);
+  }
+
+  document.addEventListener('mousemove', showChrome);
+  showChrome();
+
   render();
 }());

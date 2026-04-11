@@ -181,6 +181,19 @@ body {
   gap: 18px;
 }
 
+.deck-chrome,
+.deck-footer,
+.progress-track {
+  opacity: 0;
+  transition: opacity 300ms ease;
+}
+
+.deck-shell.show-chrome .deck-chrome,
+.deck-shell.show-chrome .deck-footer,
+.deck-shell.show-chrome .progress-track {
+  opacity: 1;
+}
+
 .deck-chrome {
   flex-wrap: wrap;
 }
