@@ -166,10 +166,14 @@
   }
 
   function cleanUpLeaving(slide) {
+    if (!slide.classList.contains('is-leaving')) return;
     slide.classList.remove('is-leaving');
-    slide.classList.remove('is-active');
-    slide.setAttribute('aria-hidden', 'true');
-    resetSlideFit(slide);
+    // Only fully deactivate if this slide isn't the current one
+    if (slides[currentIndex] !== slide) {
+      slide.classList.remove('is-active');
+      slide.setAttribute('aria-hidden', 'true');
+      resetSlideFit(slide);
+    }
   }
 
   function goTo(index) {
@@ -180,11 +184,14 @@
     const direction = nextIndex > currentIndex ? 'forward' : 'backward';
     if (deckStage) deckStage.dataset.direction = direction;
 
+    // Force-clean any slides still in leaving state from rapid navigation
+    slides.forEach((slide) => {
+      if (slide.classList.contains('is-leaving')) cleanUpLeaving(slide);
+    });
+
     const leaving = slides[currentIndex];
     if (leaving) {
       leaving.classList.add('is-leaving');
-      leaving.addEventListener('animationend', () => cleanUpLeaving(leaving), { once: true });
-      // Fallback cleanup if no animation fires
       setTimeout(() => cleanUpLeaving(leaving), 900);
     }
     currentIndex = nextIndex;
