@@ -18,9 +18,6 @@
   <link rel="stylesheet" href="./deck.css">
 </head>
 <body>
-  <div class="ambient ambient-a" aria-hidden="true"></div>
-  <div class="ambient ambient-b" aria-hidden="true"></div>
-  <div class="ambient ambient-c" aria-hidden="true"></div>
 
   <div class="deck-shell">
     <header class="deck-chrome">
@@ -59,17 +56,10 @@
               <div class="hero-brand-text">MANIFOLD</div>
             </div>
             <div class="eyebrow">Tests First. Parallel Agents. Templates. Practice.</div>
-            <h1 class="hero-title">How I code with AI</h1>
+            <h1 class="hero-title">Build your own AI coding workflow</h1>
             <p class="hero-subtitle">
-              Manifold is the toolkit I built around that workflow, but the real story is how agentic coding changes what matters.
+              Manifold is the toolkit I built to solve these problems, but the real story is how agentic coding changes what matters.
             </p>
-            <div class="chip-row">
-              <span class="chip">Claude Code</span>
-              <span class="chip">Codex</span>
-              <span class="chip">Worktrees</span>
-              <span class="chip">Repo templates</span>
-              <span class="chip">Permissions</span>
-            </div>
           </div>
 
           <div class="hero-panel glass-card">
@@ -153,7 +143,7 @@
               </article>
               <article class="glass-card">
                 <h3>Waiting became visible</h3>
-                <p>An agent response can take between 1 and 45 minutes, so serial work wastes time fast.</p>
+                <p>An agent response can take between 15 and 45 minutes, so serial work wastes time fast.</p>
               </article>
               <article class="glass-card">
                 <h3>Judgment matters more</h3>
@@ -178,7 +168,7 @@
         <div class="slide-grid stacked-layout stacked-layout--centered">
           <div class="slide-header">
             <div class="eyebrow">The Practical Answer</div>
-            <h2 class="section-title section-title--wide">Parallelism is not optional when agents take between 1 and 45 minutes</h2>
+            <h2 class="section-title section-title--wide">Parallelism is not optional when agents take between 15 and 45 minutes</h2>
           </div>
 
           <div class="comparison-grid">
@@ -201,7 +191,7 @@
                 <div class="branch-node">manifold/fix-tests</div>
                 <div class="branch-node">manifold/new-template</div>
                 <div class="branch-node">manifold/phone-flow</div>
-                <div class="branch-node">open-pr/review-pass</div>
+                <div class="branch-node">manifold/review-pass</div>
               </div>
             </article>
           </div>
@@ -237,7 +227,7 @@
             </article>
             <article class="principle-card">
               <div class="principle-number">04</div>
-              <h3>The workspace is the real product</h3>
+              <h3>The rules around the agent are the real product</h3>
               <p>Tests, diffs, templates, memory, markdown, and skills are what turn a model into a workflow.</p>
             </article>
           </div>
@@ -267,7 +257,7 @@
                 <h3>You can redesign your actual loop</h3>
                 <ul class="bullet-list">
                   <li>Turn agent wait time into parallel task management</li>
-                  <li>Encode tests, permissions, and templates in one place</li>
+                  <li>Manage permissions, templates, and context from your own toolkit</li>
                   <li>Keep the tool aligned with how you really build</li>
                 </ul>
                 <div class="architecture-footer">You stop outsourcing workflow decisions to a generic editor roadmap.</div>
@@ -283,14 +273,14 @@
                 <div class="architecture-footer">The payoff is cumulative because every fix you add makes the toolkit better.</div>
               </article>
               <article class="architecture-card">
-                <div class="arch-role">Use Manifold as proof</div>
-                <h3>This talk is not about the IDE as a trophy</h3>
+                <div class="arch-role">Manifold is the example, not the point</div>
+                <h3>The operating model is what matters</h3>
                 <ul class="bullet-list">
-                  <li>It is an illustration of what happens when you build around your own loop</li>
-                  <li>The important part is the operating model, not the screenshots</li>
+                  <li>Manifold illustrates what happens when you build around your own loop</li>
+                  <li>The workflow decisions matter more than the screenshots</li>
                   <li>The IDE is where the workflow became concrete</li>
                 </ul>
-                <div class="architecture-footer">That is why Manifold belongs in the talk, but is not the whole talk.</div>
+                <div class="architecture-footer">Any developer can apply the same approach with their own tools.</div>
               </article>
             </div>
           </div>
@@ -307,12 +297,9 @@
             <div class="eyebrow">Tool Choice</div>
             <h2 class="section-title section-title--wide">Claude Code and Codex both earn a place in my workflow</h2>
             <ul class="bullet-list large-bullets">
-              <li>I do not treat agentic coding as a one-tool story.</li>
               <li>Claude Code is strong when I want terminal-native steering, repo-aware instructions, and tight interaction.</li>
               <li>Codex is strong when I want delegated work, isolated execution, and PR-sized tasks running in the background.</li>
-              <li>OpenAI’s own Codex guidance also points toward Ask mode first, issue-shaped tasks, and durable repo instructions like `AGENTS.md`.</li>
-              <li>The point is not brand loyalty. The point is matching the operating model to the task.</li>
-              <li>Manifold works well as the surface that keeps both of those modes visible.</li>
+              <li>The point is not brand loyalty. The point is matching the operating mode to the task.</li>
             </ul>
           </div>
 
@@ -412,14 +399,6 @@
           <div>
             <div class="eyebrow">Verification</div>
             <h2 class="section-title">Tests first is higher leverage now</h2>
-            <div class="runtime-grid">
-              <span class="runtime-pill">Failing test</span>
-              <span class="runtime-pill">Expected output</span>
-              <span class="runtime-pill">Typecheck</span>
-              <span class="runtime-pill">Lint</span>
-              <span class="runtime-pill">Screenshot</span>
-              <span class="runtime-pill">Preview</span>
-            </div>
           </div>
 
           <div class="card-stack">
@@ -516,10 +495,8 @@
             <h2 class="section-title section-title--wide">Claude Code on the phone is not a gimmick</h2>
             <ul class="bullet-list large-bullets">
               <li>Claude Code now exists on the web and in the Claude app for iOS and Android.</li>
-              <li>That makes sense for well-defined tasks that do not require constant steering.</li>
               <li>You can kick off work, monitor progress, and return to the terminal later for deeper review.</li>
-              <li>The important shift is not mobile coding. It is asynchronous coding.</li>
-              <li>Desktop stays the serious control room, but the phone changes what counts as dead time.</li>
+              <li>The important shift is not mobile coding. It is asynchronous coding — the phone changes what counts as dead time.</li>
             </ul>
           </div>
 
@@ -591,30 +568,24 @@ Bad settings file:
             <div class="eyebrow">Durable Context</div>
             <h2 class="section-title section-title--wide">Memory, markdown, and skills make the workflow compound</h2>
             <ul class="bullet-list large-bullets">
-              <li>The live context window fills up fast, so keeping it on track is now a real engineering skill.</li>
-              <li>`claude-mem` proves that cross-session memory is valuable in real coding workflows.</li>
-              <li>Because Manifold also supports Codex and other engines, I had to implement memory at the Manifold layer instead of relying on a Claude-only plugin.</li>
-              <li>Markdown files like `CLAUDE.md`, `AGENTS.md`, specs, plans, and session notes keep stable instructions out of the live prompt and available across sessions.</li>
-              <li>Skills are reusable chunks of workflow knowledge: one good skill helps many times, keeps sessions leaner, and reduces repeated explanation.</li>
+              <li>The live context window fills up fast, so keeping it focused is now a real engineering concern.</li>
+              <li>Stable instructions belong in markdown files like <span class="inline-code">CLAUDE.md</span> and <span class="inline-code">AGENTS.md</span>, not repeated inside every prompt.</li>
+              <li>Skills are reusable workflow knowledge: one good skill helps many times, keeps sessions leaner, and reduces repeated explanation.</li>
             </ul>
           </div>
 
           <div class="card-stack">
             <article class="glass-card">
               <h3>Keep the live context lean</h3>
-              <p>If a session gets cluttered or starts drifting, split the task, compact it, or start a fresh session instead of arguing with stale context.</p>
+              <p>If a session gets cluttered or starts drifting, split the task or start fresh instead of arguing with stale context.</p>
             </article>
             <article class="glass-card">
-              <h3>`claude-mem` proved the need</h3>
-              <p>Cross-session recall is useful enough that people built dedicated memory plugins around it.</p>
-            </article>
-            <article class="glass-card">
-              <h3>Manifold had to generalize it</h3>
-              <p>A multi-engine workspace needs memory that survives the choice of Claude Code, Codex, or something else.</p>
+              <h3>Cross-session memory matters</h3>
+              <p>Agents lose context between sessions. Memory that persists across conversations prevents repeated explanation.</p>
             </article>
             <article class="glass-card">
               <h3>Markdown and skills offload pressure</h3>
-              <p>Put stable instructions into files and skills so the agent does not have to relearn the same rules inside every live context window.</p>
+              <p>Put stable instructions into files and skills so the agent does not have to relearn the same rules every session.</p>
             </article>
           </div>
         </div>
@@ -705,7 +676,7 @@ Bad settings file:
             <ul class="bullet-list large-bullets">
               <li>AI makes first drafts and prototypes dramatically cheaper than they used to be.</li>
               <li>If I can build a thin slice today, I would rather show that than debate it abstractly for an hour.</li>
-              <li>Miro argues that prototyping earlier reduces rework and creates alignment before assumptions calcify.</li>
+              <li>Prototyping earlier reduces rework and creates alignment before assumptions calcify.</li>
               <li>The prototype does not need to be final. It just needs to make the discussion concrete.</li>
             </ul>
           </div>
@@ -782,12 +753,10 @@ Bad settings file:
             <h3 class="panel-title">The better you get, the less you ask for “AI help” and the more you design a loop</h3>
             <ul class="focus-list">
               <li>Better prompts become better task definitions</li>
-              <li>Better repo instructions become fewer corrections</li>
+              <li>Better repo instructions change behavior, not just describe structure</li>
               <li>Better context discipline means fewer long, drifting sessions</li>
-              <li>Better repo instructions change behavior instead of just describing structure</li>
-              <li>Better permissions become fewer boring approvals</li>
-              <li>Better skills become reusable judgment</li>
-              <li>Better taste becomes better decisions about what not to ship</li>
+              <li>Better permissions mean fewer boring approvals</li>
+              <li>Better taste means better decisions about what not to ship</li>
             </ul>
           </div>
         </div>
@@ -844,15 +813,15 @@ Bad settings file:
             <div class="takeaway-grid takeaway-grid--stacked">
               <article class="takeaway-card">
                 <h3>Agents still make you wait</h3>
-                <p>If tasks take 1 to 45 minutes, parallel work and isolation become core workflow design.</p>
+                <p>If tasks take 15 to 45 minutes, parallel work and isolation become core workflow design.</p>
               </article>
               <article class="takeaway-card">
                 <h3>Reviews still make you wait</h3>
                 <p>The four-eye principle is useful, but required approvals, stale review resets, and large PRs still slow development.</p>
               </article>
               <article class="takeaway-card">
-                <h3>Knowing your toolkit is the real advantage</h3>
-                <p>Tests, templates, permissions, markdown context, memory, skills, and better task design are how you actually get leverage.</p>
+                <h3>Start building your own loop</h3>
+                <p>Pick the bottleneck that annoys you most and turn it into a workflow you control.</p>
               </article>
             </div>
           </div>
@@ -862,7 +831,7 @@ Bad settings file:
           </div>
 
           <div class="callout-banner">
-            Even this presentation was vibe coded. It saved me from copying and pasting ChatGPT output into PowerPoint.
+            Even this presentation was built with AI coding. It saved me from copying and pasting ChatGPT output into PowerPoint.
           </div>
         </div>
       </section>
