@@ -381,24 +381,29 @@ body {
   pointer-events: auto;
 }
 
-/* Staggered content entry */
+/* Staggered content entry — parallax depth layers */
+
+/* Layer 1: Labels — barely move, appear first */
 .slide.is-active .eyebrow,
 .slide.is-active .brand-eyebrow {
-  animation: stagger-in 500ms cubic-bezier(0.16, 1, 0.3, 1) 100ms both;
+  animation: layer-near 600ms cubic-bezier(0.16, 1, 0.3, 1) 100ms both;
 }
 
+/* Layer 2: Titles — subtle lift */
 .slide.is-active .hero-title,
 .slide.is-active .section-title {
-  animation: stagger-in 500ms cubic-bezier(0.16, 1, 0.3, 1) 200ms both;
+  animation: layer-near 600ms cubic-bezier(0.16, 1, 0.3, 1) 220ms both;
 }
 
+/* Layer 3: Body text — medium depth */
 .slide.is-active .hero-subtitle,
 .slide.is-active .hero-quote,
 .slide.is-active .bullet-list,
 .slide.is-active .focus-list {
-  animation: stagger-in 500ms cubic-bezier(0.16, 1, 0.3, 1) 320ms both;
+  animation: layer-mid 550ms cubic-bezier(0.16, 1, 0.3, 1) 360ms both;
 }
 
+/* Layer 4: Cards — deepest movement, stagger per card */
 .slide.is-active .glass-card,
 .slide.is-active .principle-card,
 .slide.is-active .architecture-card,
@@ -410,7 +415,7 @@ body {
 .slide.is-active .theme-card,
 .slide.is-active .takeaway-card,
 .slide.is-active .mode-card {
-  animation: stagger-in 450ms cubic-bezier(0.16, 1, 0.3, 1) both;
+  animation: layer-far 500ms cubic-bezier(0.16, 1, 0.3, 1) both;
 }
 
 .slide.is-active .glass-card:nth-child(1),
@@ -421,7 +426,7 @@ body {
 .slide.is-active .feature-card:nth-child(1),
 .slide.is-active .theme-card:nth-child(1),
 .slide.is-active .takeaway-card:nth-child(1),
-.slide.is-active .idea-card:nth-child(1) { animation-delay: 300ms; }
+.slide.is-active .idea-card:nth-child(1) { animation-delay: 320ms; }
 
 .slide.is-active .glass-card:nth-child(2),
 .slide.is-active .principle-card:nth-child(2),
@@ -431,7 +436,7 @@ body {
 .slide.is-active .feature-card:nth-child(2),
 .slide.is-active .theme-card:nth-child(2),
 .slide.is-active .takeaway-card:nth-child(2),
-.slide.is-active .idea-card:nth-child(2) { animation-delay: 400ms; }
+.slide.is-active .idea-card:nth-child(2) { animation-delay: 420ms; }
 
 .slide.is-active .glass-card:nth-child(3),
 .slide.is-active .principle-card:nth-child(3),
@@ -441,21 +446,18 @@ body {
 .slide.is-active .feature-card:nth-child(3),
 .slide.is-active .theme-card:nth-child(3),
 .slide.is-active .takeaway-card:nth-child(3),
-.slide.is-active .idea-card:nth-child(3) { animation-delay: 500ms; }
+.slide.is-active .idea-card:nth-child(3) { animation-delay: 520ms; }
 
 .slide.is-active .glass-card:nth-child(n+4),
 .slide.is-active .principle-card:nth-child(n+4),
 .slide.is-active .agenda-card:nth-child(n+4),
 .slide.is-active .step-card:nth-child(n+4),
 .slide.is-active .feature-card:nth-child(n+4),
-.slide.is-active .idea-card:nth-child(n+4) { animation-delay: 580ms; }
+.slide.is-active .idea-card:nth-child(n+4) { animation-delay: 600ms; }
 
+/* Layer 4: Panels — emerge from depth */
 .slide.is-active .summary-card {
-  animation: stagger-in 500ms cubic-bezier(0.16, 1, 0.3, 1) 350ms both;
-}
-
-.slide.is-active .callout-banner {
-  animation: stagger-in 500ms cubic-bezier(0.16, 1, 0.3, 1) 550ms both;
+  animation: layer-far 550ms cubic-bezier(0.16, 1, 0.3, 1) 380ms both;
 }
 
 .slide.is-active .terminal-shell,
@@ -463,26 +465,89 @@ body {
 .slide.is-active .simple-view-card,
 .slide.is-active .accent-panel,
 .slide.is-active .media-placeholder {
-  animation: stagger-in 500ms cubic-bezier(0.16, 1, 0.3, 1) 380ms both;
+  animation: layer-far 550ms cubic-bezier(0.16, 1, 0.3, 1) 400ms both;
 }
 
 .slide.is-active .hero-panel {
-  animation: stagger-in 500ms cubic-bezier(0.16, 1, 0.3, 1) 300ms both;
+  animation: layer-far 600ms cubic-bezier(0.16, 1, 0.3, 1) 320ms both;
+}
+
+/* Layer 5: Banners — last to arrive, subtle float after landing */
+.slide.is-active .callout-banner {
+  animation:
+    layer-mid 500ms cubic-bezier(0.16, 1, 0.3, 1) 580ms both,
+    gentle-float 4s ease-in-out 1200ms infinite;
 }
 
 .slide.is-active .rules-strip {
-  animation: stagger-in 400ms cubic-bezier(0.16, 1, 0.3, 1) 620ms both;
+  animation: layer-mid 450ms cubic-bezier(0.16, 1, 0.3, 1) 650ms both;
 }
 
-@keyframes stagger-in {
+/* Hero slide — slower, more dramatic */
+.slide:first-child.is-active .hero-title {
+  animation: layer-hero 800ms cubic-bezier(0.16, 1, 0.3, 1) 200ms both;
+}
+
+.slide:first-child.is-active .hero-brand-lockup {
+  animation: layer-near 700ms cubic-bezier(0.16, 1, 0.3, 1) 50ms both;
+}
+
+.slide:first-child.is-active .hero-subtitle {
+  animation: layer-mid 650ms cubic-bezier(0.16, 1, 0.3, 1) 450ms both;
+}
+
+.slide:first-child.is-active .hero-panel {
+  animation: layer-far 700ms cubic-bezier(0.16, 1, 0.3, 1) 500ms both;
+}
+
+/* Depth keyframes — near elements barely move, far elements travel further and scale */
+@keyframes layer-near {
   from {
     opacity: 0;
-    transform: translateY(12px);
+    transform: translateY(5px);
   }
   to {
     opacity: 1;
     transform: translateY(0);
   }
+}
+
+@keyframes layer-mid {
+  from {
+    opacity: 0;
+    transform: translateY(14px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes layer-far {
+  from {
+    opacity: 0;
+    transform: translateY(22px) scale(0.97);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+@keyframes layer-hero {
+  from {
+    opacity: 0;
+    transform: translateY(8px) scale(0.98);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+@keyframes gentle-float {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-3px); }
 }
 
 .slide::before {
