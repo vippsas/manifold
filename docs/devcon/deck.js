@@ -165,6 +165,13 @@
   function goTo(index) {
     const nextIndex = Math.max(0, Math.min(index, slides.length - 1));
     if (nextIndex === currentIndex) return;
+    const leaving = slides[currentIndex];
+    if (leaving) {
+      leaving.classList.add('is-leaving');
+      leaving.addEventListener('transitionend', () => {
+        leaving.classList.remove('is-leaving');
+      }, { once: true });
+    }
     currentIndex = nextIndex;
     render();
   }
