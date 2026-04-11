@@ -235,6 +235,20 @@ body {
   color: var(--gold);
 }
 
+.demo-badge {
+  display: inline-flex;
+  align-items: center;
+  margin-left: 10px;
+  padding: 2px 8px;
+  border-radius: 2px;
+  background: var(--gold);
+  color: #000000;
+  font-size: 0.7rem;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  vertical-align: middle;
+}
+
 .brand-title {
   font-family: var(--heading-font);
   font-size: 1.25rem;
