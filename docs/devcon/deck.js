@@ -270,6 +270,10 @@
     }
   });
 
+  document.getElementById('homeLink').addEventListener('click', (e) => {
+    e.preventDefault();
+    goTo(0);
+  });
   prevBtn.addEventListener('click', previous);
   nextBtn.addEventListener('click', next);
   themeBtn.addEventListener('click', toggleTheme);

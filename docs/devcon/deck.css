@@ -193,6 +193,12 @@ body {
   gap: 14px;
 }
 
+.chrome-brand {
+  text-decoration: none;
+  color: inherit;
+  cursor: pointer;
+}
+
 .brand-mark {
   width: 56px;
   height: 56px;
