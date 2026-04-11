@@ -6,15 +6,11 @@
   const progressBarEl = document.getElementById('progressBar');
   const prevBtn = document.getElementById('prevBtn');
   const nextBtn = document.getElementById('nextBtn');
-  const notesBtn = document.getElementById('notesBtn');
   const fullscreenBtn = document.getElementById('fullscreenBtn');
-  const speakerNotePanel = document.getElementById('speakerNotePanel');
-  const speakerNoteCopy = document.getElementById('speakerNoteCopy');
 
   if (slides.length === 0) return;
 
   let currentIndex = parseHash();
-  let notesVisible = false;
 
   renderBackticksInContent(document.getElementById('deckStage'));
   totalSlidesEl.textContent = String(slides.length);
@@ -118,11 +114,6 @@
     }
   }
 
-  function setRichText(element, text) {
-    if (!element) return;
-    element.replaceChildren(createRichTextFragment(text));
-  }
-
   function parseHash() {
     const value = Number(window.location.hash.replace('#', ''));
     if (!Number.isFinite(value) || value < 1 || value > slides.length) return 0;
@@ -144,11 +135,9 @@
   function updateChrome() {
     const slide = slides[currentIndex];
     const title = slide.dataset.title || `Slide ${currentIndex + 1}`;
-    const note = slide.dataset.note || 'No presenter note for this slide.';
     currentSlideEl.textContent = String(currentIndex + 1);
     currentSectionTitleEl.textContent = title;
     progressBarEl.style.width = `${((currentIndex + 1) / slides.length) * 100}%`;
-    setRichText(speakerNoteCopy, note);
     document.title = `Manifold Devcon Deck - ${title}`;
   }
 
@@ -156,12 +145,6 @@
     const slide = slides[currentIndex];
     const slideTheme = slide?.dataset.theme || 'dark';
     document.documentElement.dataset.theme = slideTheme;
-  }
-
-  function updateNotesUi() {
-    speakerNotePanel.hidden = !notesVisible;
-    notesBtn.textContent = notesVisible ? 'Hide Notes' : 'Notes';
-    notesBtn.setAttribute('aria-pressed', String(notesVisible));
   }
 
   function render() {
@@ -232,12 +215,6 @@
         event.preventDefault();
         toggleFullscreen();
         break;
-      case 'n':
-      case 'N':
-        event.preventDefault();
-        notesVisible = !notesVisible;
-        updateNotesUi();
-        break;
       default:
         break;
     }
@@ -249,10 +226,6 @@
   });
   prevBtn.addEventListener('click', previous);
   nextBtn.addEventListener('click', next);
-  notesBtn.addEventListener('click', () => {
-    notesVisible = !notesVisible;
-    updateNotesUi();
-  });
   fullscreenBtn.addEventListener('click', toggleFullscreen);
 
   window.addEventListener('hashchange', () => {
@@ -274,6 +247,5 @@
     fitCurrentSlide();
   });
 
-  updateNotesUi();
   render();
 }());
