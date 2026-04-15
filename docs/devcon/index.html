@@ -1,0 +1,829 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Manifold Devcon Deck</title>
+  <link rel="stylesheet" href="./deck.css">
+</head>
+<body>
+
+  <div class="deck-shell">
+    <header class="deck-chrome">
+      <a class="chrome-brand" id="homeLink" href="#" role="button" aria-label="Go to first slide">
+        <div class="brand-mark">
+          <img class="brand-logo" src="../../build/icon.svg" alt="Manifold logo">
+        </div>
+        <div class="brand-copy">
+          <div class="brand-eyebrow">Devcon Talk Deck</div>
+          <div class="brand-title" id="currentSectionTitle">Opening</div>
+        </div>
+      </a>
+
+      <div class="chrome-meta">
+        <button class="chrome-button" id="fullscreenBtn" type="button">Fullscreen</button>
+        <div class="slide-counter">
+          <span id="currentSlide">1</span>
+          <span class="counter-separator">/</span>
+          <span id="totalSlides">19</span>
+        </div>
+      </div>
+
+      <div class="progress-track" aria-hidden="true">
+        <div class="progress-bar" id="progressBar"></div>
+      </div>
+    </header>
+
+    <main class="deck-stage" id="deckStage">
+      <section class="slide is-active" data-title="Opening">
+        <div class="slide-grid hero-layout">
+          <div class="hero-copy">
+            <div class="hero-brand-lockup">
+              <img class="hero-logo" src="../../build/icon.svg" alt="Manifold logo">
+              <div class="hero-brand-text">MANIFOLD</div>
+            </div>
+            <div class="eyebrow">Tests First. Parallel Agents. Templates. Practice.</div>
+            <h1 class="hero-title">Build your own AI coding workflow</h1>
+            <p class="hero-subtitle">
+              Manifold is the toolkit I built to solve these problems, but the real story is how agentic coding changes what matters.
+            </p>
+          </div>
+
+          <div class="hero-panel glass-card">
+            <div class="quote-mark">“</div>
+            <p class="hero-quote">
+              AI made implementation cheaper. The hard parts now are orchestration, verification, permissions, and deciding what is worth building next.
+            </p>
+            <div class="hero-logo-orb" aria-hidden="true">
+              <img class="hero-logo-orb-image" src="../../build/icon.svg" alt="">
+            </div>
+            <div class="hero-meta">
+              <div class="meta-line">
+                <span class="meta-label">Theme</span>
+                <span class="meta-value">Agentic coding in practice</span>
+              </div>
+              <div class="meta-line">
+                <span class="meta-label">Format</span>
+                <span class="meta-value">55 minutes + Q&amp;A</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section class="slide" data-title="Agenda">
+        <div class="slide-grid stacked-layout stacked-layout--centered">
+          <div>
+            <div class="eyebrow">Run Of Show</div>
+            <h2 class="section-title">How the hour is structured</h2>
+          </div>
+
+          <div class="agenda-grid">
+            <div class="agenda-card">
+              <span class="agenda-time">0:00-0:08</span>
+              <h3>The bottleneck changed</h3>
+              <p>Why AI coding moved the problem from typing to orchestration, verification, and waiting.</p>
+            </div>
+            <div class="agenda-card">
+              <span class="agenda-time">0:08-0:16</span>
+              <h3>Parallelism and toolkit</h3>
+              <p>Worktrees, your own IDE, and why the toolkit matters more than the chat box.</p>
+            </div>
+            <div class="agenda-card">
+              <span class="agenda-time">0:16-0:30</span>
+              <h3>Workflow, tests, context, permissions</h3>
+              <p>The repeatable loop, why tests-first matters, how to keep the context window on track, and how permissions affect velocity.</p>
+            </div>
+            <div class="agenda-card">
+              <span class="agenda-time">0:30-0:40</span>
+              <h3>Claude Code, Codex, async work</h3>
+              <p>How I use both tools, and why phone, web, and durable memory change the rhythm of coding.</p>
+            </div>
+            <div class="agenda-card">
+              <span class="agenda-time">0:40-0:52</span>
+              <h3>Templates, prototyping, next bets</h3>
+              <p>Repo templates, building before meetings, and the recurring question of what to build next.</p>
+            </div>
+            <div class="agenda-card">
+              <span class="agenda-time">0:52-0:55</span>
+              <h3>Reviews, waiting, closing</h3>
+              <p>Why merge friction still matters even when implementation accelerates.</p>
+            </div>
+            <div class="agenda-card">
+              <span class="agenda-time">0:55-1:00</span>
+              <h3>Questions</h3>
+              <p>Leave time for tradeoffs around tests, templates, permissions, tools, and review culture.</p>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section class="slide" data-title="Why AI Changed My Workflow">
+        <div class="slide-grid split-layout">
+          <div>
+            <div class="eyebrow">Why This Talk</div>
+            <h2 class="section-title">The bottleneck moved</h2>
+            <div class="card-stack">
+              <article class="glass-card">
+                <h3>Typing became cheaper</h3>
+                <p>Agents can now draft, refactor, and scaffold faster than the old manual loop.</p>
+              </article>
+              <article class="glass-card">
+                <h3>Waiting became visible</h3>
+                <p>An agent response can take between 15 and 45 minutes, so serial work wastes time fast.</p>
+              </article>
+              <article class="glass-card">
+                <h3>Judgment matters more</h3>
+                <p>The hard parts are now scoping, verifying, steering, reviewing, and deciding what to build next.</p>
+              </article>
+            </div>
+          </div>
+
+          <div class="accent-panel">
+            <div class="eyebrow">The new target state</div>
+            <h3 class="panel-title">A workflow that keeps moving while agents think, test, and return</h3>
+            <ul class="focus-list">
+              <li>Parallel tasks instead of one long blocking interaction</li>
+              <li>Explicit tests, screenshots, and success criteria instead of hope</li>
+              <li>A toolkit for permissions, templates, review, and context</li>
+            </ul>
+          </div>
+        </div>
+      </section>
+
+      <section class="slide" data-title="Parallelism">
+        <div class="slide-grid stacked-layout stacked-layout--centered">
+          <div class="slide-header">
+            <div class="eyebrow">The Practical Answer <span class="demo-badge">DEMO</span></div>
+            <h2 class="section-title section-title--wide">Parallelism is not optional when agents take between 15 and 45 minutes</h2>
+          </div>
+
+          <div class="comparison-grid">
+            <article class="compare-card compare-card-negative">
+              <div class="compare-label">Serial flow</div>
+              <h3>One repo, one task, one wait</h3>
+              <div class="sequence-list">
+                <div class="sequence-item">Prompt one agent</div>
+                <div class="sequence-item">Wait for a result</div>
+                <div class="sequence-item">Lose momentum or context-switch</div>
+                <div class="sequence-item">Repeat</div>
+              </div>
+            </article>
+
+            <article class="compare-card compare-card-positive">
+              <div class="compare-label">Parallel flow</div>
+              <h3>One repo, many isolated paths</h3>
+              <div class="worktree-map">
+                <div class="repo-node">repo/main</div>
+                <div class="branch-node">manifold/fix-tests</div>
+                <div class="branch-node">manifold/new-template</div>
+                <div class="branch-node">manifold/phone-flow</div>
+                <div class="branch-node">manifold/review-pass</div>
+              </div>
+            </article>
+          </div>
+
+          <div class="callout-banner">
+            If the agent is busy, the human should still be moving.
+          </div>
+        </div>
+      </section>
+
+      <section class="slide" data-title="Toolkit" data-theme="light">
+        <div class="slide-grid stacked-layout stacked-layout--centered">
+          <div>
+            <div class="eyebrow">Workflow Thesis</div>
+            <h2 class="section-title section-title--wide">The toolkit matters more than the chat box</h2>
+          </div>
+
+          <div class="principles-grid">
+            <article class="principle-card">
+              <div class="principle-number">01</div>
+              <h3>Instructions compound</h3>
+              <p>`CLAUDE.md`, `AGENTS.md`, specs, and plans matter when they change agent behavior, not when they just restate obvious repo facts.</p>
+            </article>
+            <article class="principle-card">
+              <div class="principle-number">02</div>
+              <h3>Permissions shape velocity</h3>
+              <p>Approval prompts protect the machine, but a bad allowlist can quietly destroy flow.</p>
+            </article>
+            <article class="principle-card">
+              <div class="principle-number">03</div>
+              <h3>Isolation enables trust</h3>
+              <p>Worktrees, sandboxes, and separate sessions make parallel AI work manageable.</p>
+            </article>
+            <article class="principle-card">
+              <div class="principle-number">04</div>
+              <h3>The rules around the agent are the real product</h3>
+              <p>Tests, diffs, templates, memory, markdown, and skills are what turn a model into a workflow.</p>
+            </article>
+          </div>
+        </div>
+      </section>
+
+      <section class="slide" data-title="Build Your Own IDE">
+        <div class="slide-grid stacked-layout">
+          <div class="headline-band">
+            <div class="slide-header">
+              <div class="eyebrow">Builder Leverage</div>
+              <h2 class="section-title section-title--wide">Build the toolkit you actually want to use</h2>
+            </div>
+
+            <aside class="summary-card">
+              <div class="summary-card-label">Why it matters</div>
+              <p class="summary-card-copy">
+                If you own the tool, waiting, review, templates, permissions, and context can all become product features instead of recurring complaints.
+              </p>
+            </aside>
+          </div>
+
+          <div class="architecture-stage">
+            <div class="architecture-grid">
+              <article class="architecture-card">
+                <div class="arch-role">Own the bottlenecks</div>
+                <h3>You can redesign your actual loop</h3>
+                <ul class="bullet-list">
+                  <li>Turn agent wait time into parallel task management</li>
+                  <li>Manage permissions, templates, and context from your own toolkit</li>
+                  <li>Keep the tool aligned with how you really build</li>
+                </ul>
+                <div class="architecture-footer">You stop outsourcing workflow decisions to a generic editor roadmap.</div>
+              </article>
+              <article class="architecture-card">
+                <div class="arch-role">Let it compound</div>
+                <h3>The value of the tool increases with every irritation you remove</h3>
+                <ul class="bullet-list">
+                  <li>An agent mocked my database once — one line in CLAUDE.md, never happened again</li>
+                  <li>A worktree index corrupted — wrote a five-line playbook, now every agent recovers automatically</li>
+                  <li>After six months, the toolkit knows how I work better than any colleague does</li>
+                </ul>
+                <div class="architecture-footer">The payoff is cumulative because every fix you add makes the toolkit better.</div>
+              </article>
+              <article class="architecture-card">
+                <div class="arch-role">Manifold is the example, not the point</div>
+                <h3>The operating model is what matters</h3>
+                <ul class="bullet-list">
+                  <li>Manifold illustrates what happens when you build around your own loop</li>
+                  <li>The workflow decisions matter more than the screenshots</li>
+                  <li>The IDE is where the workflow became concrete</li>
+                </ul>
+                <div class="architecture-footer">Any developer can apply the same approach with their own tools.</div>
+              </article>
+            </div>
+          </div>
+
+          <div class="callout-banner">
+            Owning the toolkit lets you keep adding new ideas, tools, and features forever.
+          </div>
+        </div>
+      </section>
+
+      <section class="slide" data-title="Claude Code And Codex">
+        <div class="slide-grid split-layout">
+          <div>
+            <div class="eyebrow">Tool Choice</div>
+            <h2 class="section-title section-title--wide">Claude Code and Codex both earn a place in my workflow</h2>
+            <ul class="bullet-list large-bullets">
+              <li>Claude Code is strong when I want terminal-native steering, repo-aware instructions, and tight interaction.</li>
+              <li>Codex is strong when I want delegated work, isolated execution, and PR-sized tasks running in the background.</li>
+              <li>The point is not brand loyalty. The point is matching the operating mode to the task.</li>
+            </ul>
+          </div>
+
+          <div class="card-stack">
+            <article class="glass-card">
+              <h3>Claude Code</h3>
+              <p>Great when I want an interactive terminal partner that I can steer in real time.</p>
+            </article>
+            <article class="glass-card">
+              <h3>Codex</h3>
+              <p>Great when I want a task to run independently in the background and come back as a reviewable, issue-shaped unit.</p>
+            </article>
+            <article class="glass-card">
+              <h3>Same habits win</h3>
+              <p>Both tools benefit from structure, context, tests, and explicit success criteria.</p>
+            </article>
+            <article class="glass-card">
+              <h3>The real comparison</h3>
+              <p>The best question is not “which model is best?” It is “which operating mode fits this job?”</p>
+            </article>
+          </div>
+        </div>
+      </section>
+
+      <section class="slide" data-title="Agentic Workflow" data-theme="light">
+        <div class="slide-grid stacked-layout--workflow">
+          <aside class="summary-card summary-card--workflow">
+            <div class="summary-card-label">Working principle</div>
+            <p class="summary-card-copy">
+              Anthropic and OpenAI both converge on the same pattern: explore, plan, implement, verify, then refine, while keeping the context window focused enough that the agent stays on track.
+            </p>
+          </aside>
+
+          <div class="workflow-body">
+            <div class="workflow-header">
+              <div class="eyebrow">My Main Workflow About Agentic Coding</div>
+              <h2 class="section-title section-title--wide">A repeatable loop beats one giant prompt</h2>
+            </div>
+
+            <div class="step-grid step-grid--workflow">
+              <article class="step-card">
+                <div class="step-number">01</div>
+                <h3 class="step-title">Intent</h3>
+                <p>Start with a rough intent, not a vague request for magic.</p>
+              </article>
+              <article class="step-card">
+                <div class="step-number">02</div>
+                <h3 class="step-title">Context</h3>
+                <p>Load only the relevant docs, files, markdown notes, and patterns first. More context is not always better.</p>
+              </article>
+              <article class="step-card">
+                <div class="step-number">03</div>
+                <h3 class="step-title">Discussion</h3>
+                <p>Tell the agent your thoughts, then ask for its thoughts before coding.</p>
+              </article>
+              <article class="step-card">
+                <div class="step-number">04</div>
+                <h3 class="step-title">Specification</h3>
+                <p>Force the work into a markdown spec so the change becomes concrete and reusable.</p>
+              </article>
+              <article class="step-card">
+                <div class="step-number">05</div>
+                <h3 class="step-title">Plan</h3>
+                <p>If the task is non-trivial, get an implementation plan before edits start.</p>
+              </article>
+              <article class="step-card">
+                <div class="step-number">06</div>
+                <h3 class="step-title">Implementation</h3>
+                <p>Let the agent implement the plan instead of improvising inside one long thread.</p>
+              </article>
+              <article class="step-card">
+                <div class="step-number">07</div>
+                <h3 class="step-title">Verification</h3>
+                <p>Run tests, commands, screenshots, or previews so the agent can check itself.</p>
+              </article>
+              <article class="step-card">
+                <div class="step-number">08</div>
+                <h3 class="step-title">Refactor</h3>
+                <p>Use explicit rules like max LOC, smaller functions, better file boundaries, and start fresh if the session has drifted.</p>
+              </article>
+            </div>
+
+            <div class="rules-strip">
+              <span class="rules-pill">Best model available</span>
+              <span class="rules-pill">Highest reasoning effort</span>
+              <span class="rules-pill">Claude Code + Superpowers plugin</span>
+              <span class="rules-pill">Behavior-changing repo instructions</span>
+              <span class="rules-pill">Protect the context window</span>
+              <span class="rules-pill">Spec → Plan → Implement → Verify → Refactor</span>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section class="slide" data-title="Verification">
+        <div class="slide-grid split-layout">
+          <div>
+            <div class="eyebrow">Verification</div>
+            <h2 class="section-title">Tests are how agents verify their own work</h2>
+          </div>
+
+          <div class="card-stack">
+            <article class="glass-card">
+              <h3>Without verification, you become the only feedback loop</h3>
+              <p>Anthropic explicitly calls self-verification the highest-leverage thing you can give the agent.</p>
+            </article>
+            <article class="glass-card">
+              <h3>Tests make refactoring safer and faster</h3>
+              <p>Manifold has 800+ tests. They let the model run, break, fix, and confirm without asking you to inspect every change manually.</p>
+            </article>
+            <article class="glass-card">
+              <h3>UI work needs checks too — and the browser is catching up</h3>
+              <p>Screenshots and visual diffs work today, but Chrome's WebMCP protocol is already letting sites expose structured tools directly to agents — ~98% task accuracy, 90% fewer tokens, no brittle screenshot parsing. The verification loop is about to get much cheaper.</p>
+            </article>
+          </div>
+        </div>
+      </section>
+
+      <section class="slide" data-title="Manifold As Toolkit">
+        <div class="slide-grid stacked-layout stacked-layout--developer-story">
+          <div class="headline-band">
+            <div>
+              <div class="eyebrow">Manifold As Illustration <span class="demo-badge">DEMO</span></div>
+              <h2 class="section-title section-title--wide">This is the toolkit I want around agentic work</h2>
+            </div>
+
+            <aside class="summary-card summary-card--developer">
+              <div class="summary-card-label">What it gives me</div>
+              <p class="summary-card-copy">
+                Parallel agents, worktree isolation, real terminals, diff review, previews, and a visible path from task to pull request.
+              </p>
+            </aside>
+          </div>
+
+          <div class="developer-stage">
+            <div class="media-placeholder media-placeholder--workspace">
+              <div class="media-placeholder-label">Live capture</div>
+              <h3 class="media-placeholder-title">Manifold workspace in use</h3>
+              <p class="media-placeholder-copy">
+                Two repositories, multiple agents, shell, editor, and file tree visible in one workspace.
+              </p>
+              <div class="media-placeholder-frame media-placeholder-frame--screenshot">
+                <img
+                  class="workspace-screenshot"
+                  src="./manifold_overview.png"
+                  alt="Manifold workspace showing repositories, agent terminal, editor, shell, and file tree"
+                >
+              </div>
+            </div>
+
+            <div class="feature-grid feature-grid--compact feature-grid--developer-story">
+              <div class="feature-card">
+                <div class="feature-card-title">Repositories</div>
+                <div class="feature-card-copy">Keep multiple codebases visible without losing orientation.</div>
+              </div>
+              <div class="feature-card">
+                <div class="feature-card-title">Agent terminals</div>
+                <div class="feature-card-copy">See live output instead of a summarized wrapper.</div>
+              </div>
+              <div class="feature-card">
+                <div class="feature-card-title">Diff review</div>
+                <div class="feature-card-copy">Inspect what came back before you trust it.</div>
+              </div>
+              <div class="feature-card">
+                <div class="feature-card-title">Search and memory</div>
+                <div class="feature-card-copy">Recover context instead of re-explaining everything.</div>
+              </div>
+              <div class="feature-card">
+                <div class="feature-card-title">Shell tabs</div>
+                <div class="feature-card-copy">Keep real commands inside the same workspace.</div>
+              </div>
+              <div class="feature-card">
+                <div class="feature-card-title">Previews</div>
+                <div class="feature-card-copy">Turn verification into part of the loop.</div>
+              </div>
+              <div class="feature-card">
+                <div class="feature-card-title">PR flow</div>
+                <div class="feature-card-copy">Move from worktree to reviewable unit cleanly.</div>
+              </div>
+              <div class="feature-card">
+                <div class="feature-card-title">Isolation</div>
+                <div class="feature-card-copy">Keep agents from trampling the same branch.</div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section class="slide" data-title="Claude Code On The Phone">
+        <div class="slide-grid split-layout">
+          <div>
+            <div class="eyebrow">An Async Surface</div>
+            <h2 class="section-title section-title--wide">Claude Code on the phone is not a gimmick</h2>
+            <ul class="bullet-list large-bullets">
+              <li>Claude Code now exists on the web and in the Claude app for iOS and Android.</li>
+              <li>You can kick off work, monitor progress, and return to the terminal later for deeper review.</li>
+              <li>The important shift is not mobile coding. It is asynchronous coding — the phone changes what counts as dead time.</li>
+            </ul>
+          </div>
+
+          <div class="simple-view-card">
+            <div class="simple-header">Async loop</div>
+            <div class="simple-stack">
+              <span>Queue task</span>
+              <span>Leave desk</span>
+              <span>Monitor progress</span>
+              <span>Return later</span>
+              <span>Review diff</span>
+              <span>Continue locally</span>
+            </div>
+            <p class="simple-note">
+              The real lesson is that AI work can now move while you are away from the keyboard. That changes the cadence of a normal engineering day.
+            </p>
+          </div>
+        </div>
+      </section>
+
+      <section class="slide" data-title="Permissions">
+        <div class="slide-grid split-layout">
+          <div>
+            <div class="eyebrow">Security And Speed</div>
+            <h2 class="section-title section-title--wide">Permissions and allowlists shape flow</h2>
+            <img class="workspace-screenshot" src="./permissions.png" alt="Claude Code permissions and allowlist configuration">
+            <ul class="bullet-list large-bullets">
+              <li>Approval prompts are good security when trust is low and scope is unclear.</li>
+              <li>But constant prompts slow development and eventually train you to stop paying attention.</li>
+              <li>Claude Code supports auto mode, command allowlists, and sandboxing to reduce this drag.</li>
+              <li>A good `.claude/settings.json` is not setup trivia. It is part of the workflow design.</li>
+              <li>If the allowlist is too narrow, you waste the day approving harmless commands. If it is too broad, security becomes theater.</li>
+              <li>The goal is not zero friction. The goal is the right friction in the right places.</li>
+            </ul>
+          </div>
+
+          <div class="terminal-shell">
+            <div class="terminal-topbar">
+              <span class="terminal-dot dot-red"></span>
+              <span class="terminal-dot dot-amber"></span>
+              <span class="terminal-dot dot-green"></span>
+              <span class="terminal-context">project › .claude/settings.json › allowlists</span>
+            </div>
+            <pre class="terminal-body">"permissions": {
+  "allow": [
+    "Read", "Edit", "Write", "Grep",
+    "Bash(git:*)",  "Bash(npm:*)",
+    "Bash(vitest:*)", "Bash(tsc:*)",
+    "Bash(rm:*)",   "Bash(cp:*)",
+    "Bash(curl:*)", "Bash(jq:*)"
+  ],
+  "deny": [
+    "Bash(rm -rf /:*)",
+    "Bash(rm -rf ~:*)",
+    "Bash(> /dev:*)"
+  ],
+  "ask": [
+    "Bash(git push --force:*)",
+    "Bash(docker push:*)",
+    "Bash(docker stop:*)"
+  ]
+}</pre>
+          </div>
+        </div>
+      </section>
+
+      <section class="slide" data-title="Memory And Skills">
+        <div class="slide-grid split-layout">
+          <div>
+            <div class="eyebrow">Durable Context</div>
+            <h2 class="section-title section-title--wide">Memory, markdown, and skills make the workflow compound</h2>
+            <ul class="bullet-list large-bullets">
+              <li>The live context window fills up fast, so keeping it focused is now a real engineering concern.</li>
+              <li>Stable instructions belong in markdown files like <span class="inline-code">CLAUDE.md</span> and <span class="inline-code">AGENTS.md</span>, not repeated inside every prompt.</li>
+              <li>Skills are reusable workflow knowledge: one good skill helps many times, keeps sessions leaner, and reduces repeated explanation.</li>
+            </ul>
+          </div>
+
+          <div class="card-stack">
+            <article class="glass-card">
+              <h3>Keep the live context lean</h3>
+              <p>If a session gets cluttered or starts drifting, split the task or start fresh instead of arguing with stale context.</p>
+            </article>
+            <article class="glass-card">
+              <h3>Cross-session memory matters</h3>
+              <p>Agents lose context between sessions. Memory that persists across conversations prevents repeated explanation.</p>
+            </article>
+            <article class="glass-card">
+              <h3>Markdown and skills offload pressure</h3>
+              <p>Put stable instructions into files and skills so the agent does not have to relearn the same rules every session.</p>
+            </article>
+          </div>
+
+          <div class="callout-banner">
+            The model is stateless. Your job is to build the state around it — in files, memory, and skills — so every session starts smart instead of blank.
+          </div>
+        </div>
+      </section>
+
+      <section class="slide" data-title="Repo Templates">
+        <div class="slide-grid split-layout">
+          <div>
+            <div class="eyebrow">Starting Well Matters <span class="demo-badge">DEMO</span></div>
+            <h2 class="section-title section-title--wide">Repo templates are leverage</h2>
+            <ul class="bullet-list large-bullets">
+              <li>A good template turns best practices into a starting point instead of a checklist.</li>
+              <li>GitHub templates let you create new repositories with the same structure, files, and optionally branches.</li>
+              <li>In my own workflow, provisioners are the mechanism and templates are the substance.</li>
+              <li>Templates encode taste: stack, testing defaults, deployment shape, docs, and structure.</li>
+              <li>They lower the cost of the next idea enough that building becomes easier than debating.</li>
+            </ul>
+          </div>
+
+          <div class="protocol-card">
+            <div class="protocol-line"><span>input</span><code>choose template</code></div>
+            <div class="protocol-arrow">↓</div>
+            <div class="protocol-line"><span>starter</span><code>clone structure + files</code></div>
+            <div class="protocol-line"><span>result</span><code>open a ready repo</code></div>
+            <div class="protocol-footnote">Templates are how your conventions, stack defaults, and workflow rules become reusable instead of tribal knowledge.</div>
+          </div>
+        </div>
+      </section>
+
+      <section class="slide" data-title="What To Build Next">
+        <div class="slide-grid split-layout split-layout--next-bets">
+          <div class="next-bets-copy">
+            <div>
+              <div class="eyebrow">The Recurring Question <span class="demo-badge">DEMO</span></div>
+              <h2 class="section-title section-title--wide">What do you build next?</h2>
+            </div> 
+
+            <div class="card-stack next-bets-card-stack">
+              <article class="idea-card">
+                <div class="idea-tag">Workflow fix</div>
+                <h3>Remove a repeated irritation</h3>
+                <p>If the same annoyance appears weekly, it is a strong build candidate.</p>
+              </article>
+              <article class="idea-card">
+                <div class="idea-tag">Template move</div>
+                <h3>Package a starting point</h3>
+                <p>If a new project keeps beginning the same way, make it a template.</p>
+              </article>
+              <article class="idea-card">
+                <div class="idea-tag">Leverage test</div>
+                <h3>Prefer things that help future work</h3>
+                <p>Build the tool, pane, or rule that makes the next ten tasks cheaper.</p>
+              </article>
+            </div>
+          </div>
+
+          <div class="next-bets-visual">
+            <aside class="summary-card">
+              <div class="summary-card-label">Selection problem</div>
+              <p class="summary-card-copy">
+                When prototyping is cheap, the hard question is no longer “can I build this?” but “which thing deserves to exist?”
+              </p>
+            </aside>
+
+            <div class="media-placeholder media-placeholder--ideas media-placeholder--next-bets">
+              <div class="media-placeholder-label">Live capture</div>
+              <h3 class="media-placeholder-title">Ideas feed in use</h3>
+              <p class="media-placeholder-copy">
+                Project profile, ranked next bets, and source-backed reasoning in one place.
+              </p>
+              <div class="media-placeholder-frame media-placeholder-frame--screenshot">
+                <img
+                  class="workspace-screenshot"
+                  src="./ideas.png"
+                  alt="Manifold ideas view showing a project profile, ranked ideas, and supporting evidence"
+                >
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section class="slide" data-title="Build First Before Meeting" data-theme="light">
+        <div class="slide-grid split-layout split-layout--build-first">
+          <div>
+            <div class="eyebrow">Decision Making</div>
+            <h2 class="section-title section-title--wide">Build first before you invite everyone into a meeting</h2>
+            <ul class="bullet-list large-bullets">
+              <li>AI makes first drafts and prototypes dramatically cheaper than they used to be.</li>
+              <li>If I can build a thin slice today, I would rather show that than debate it abstractly for an hour.</li>
+              <li>Prototyping earlier reduces rework and creates alignment before assumptions calcify.</li>
+              <li>The prototype does not need to be final. It just needs to make the discussion concrete.</li>
+            </ul>
+          </div>
+
+          <div class="theme-grid theme-grid--decision">
+            <article class="theme-card">
+              <div class="theme-swatch swatch-atelier" aria-hidden="true">
+                <svg class="theme-icon-svg" viewBox="0 0 120 72" fill="none">
+                  <rect x="14" y="14" width="34" height="22" rx="7" class="theme-icon-fill" transform="rotate(-8 14 14)" />
+                  <rect x="46" y="18" width="40" height="24" rx="7" class="theme-icon-fill" />
+                  <rect x="32" y="42" width="46" height="18" rx="7" class="theme-icon-fill" transform="rotate(6 32 42)" />
+                  <path d="M36 26L56 28M66 40L54 49M80 28L61 24" class="theme-icon-stroke" stroke-linecap="round" />
+                  <circle cx="27" cy="25" r="2.5" class="theme-icon-dot" />
+                  <circle cx="64" cy="30" r="2.5" class="theme-icon-dot" />
+                  <circle cx="55" cy="50" r="2.5" class="theme-icon-dot" />
+                </svg>
+              </div>
+              <h3>Before</h3>
+              <p>Speculation, interpretation gaps, and the loudest voice in the room.</p>
+            </article>
+            <article class="theme-card">
+              <div class="theme-swatch swatch-mission" aria-hidden="true">
+                <svg class="theme-icon-svg" viewBox="0 0 120 72" fill="none">
+                  <rect x="20" y="14" width="80" height="46" rx="10" class="theme-icon-fill" />
+                  <path d="M20 26H100" class="theme-icon-stroke" />
+                  <circle cx="30" cy="20" r="2.5" class="theme-icon-dot" />
+                  <circle cx="38" cy="20" r="2.5" class="theme-icon-dot" />
+                  <circle cx="46" cy="20" r="2.5" class="theme-icon-dot" />
+                  <rect x="30" y="34" width="24" height="16" rx="5" class="theme-icon-fill theme-icon-fill--soft" />
+                  <rect x="58" y="34" width="32" height="7" rx="3.5" class="theme-icon-fill theme-icon-fill--soft" />
+                  <rect x="58" y="45" width="22" height="5" rx="2.5" class="theme-icon-fill theme-icon-fill--soft" />
+                  <path d="M90 14L98 6M98 14L90 6" class="theme-icon-stroke" stroke-linecap="round" />
+                </svg>
+              </div>
+              <h3>Build</h3>
+              <p>A rough prototype, a working screen, or one real flow that people can react to.</p>
+            </article>
+            <article class="theme-card">
+              <div class="theme-swatch swatch-jacob" aria-hidden="true">
+                <svg class="theme-icon-svg" viewBox="0 0 120 72" fill="none">
+                  <rect x="18" y="18" width="62" height="38" rx="9" class="theme-icon-fill" />
+                  <rect x="42" y="10" width="60" height="38" rx="9" class="theme-icon-fill theme-icon-fill--soft" />
+                  <path d="M56 30L64 38L82 20" class="theme-icon-stroke" stroke-linecap="round" stroke-linejoin="round" />
+                  <path d="M52 46H88" class="theme-icon-stroke theme-icon-stroke--soft" stroke-linecap="round" />
+                  <path d="M52 54H78" class="theme-icon-stroke theme-icon-stroke--soft" stroke-linecap="round" />
+                  <circle cx="33" cy="37" r="7" class="theme-icon-fill theme-icon-fill--soft" />
+                  <path d="M29 37L32 40L38 33" class="theme-icon-stroke" stroke-linecap="round" stroke-linejoin="round" />
+                </svg>
+              </div>
+              <h3>After</h3>
+              <p>Faster decisions because the team is now discussing something concrete.</p>
+            </article>
+          </div>
+        </div>
+      </section>
+
+      <section class="slide" data-title="Practice">
+        <div class="slide-grid split-layout">
+          <div>
+            <div class="eyebrow">Skill Curve</div>
+            <h2 class="section-title">Agentic AI needs a lot of practice</h2>
+            <ul class="bullet-list large-bullets">
+              <li>There is a real learning curve, even when the tooling is good.</li>
+              <li>You need instincts for scoping, context loading, verification, and when to interrupt the agent.</li>
+              <li>You also need instincts for when the context window has drifted and the best move is to reset, split, or reframe the task.</li>
+              <li>You get better at choosing between interactive work, delegated work, and parallel work.</li>
+              <li>You also get better at deciding what belongs in a markdown file, a settings file, or a reusable skill.</li>
+              <li>The best practices are real, but fluency only comes from repetitions.</li>
+            </ul>
+          </div>
+
+          <div class="accent-panel">
+            <div class="eyebrow">What practice changes</div>
+            <h3 class="panel-title">The better you get, the less you ask for “AI help” and the more you design a loop</h3>
+            <ul class="focus-list">
+              <li>Better prompts become better task definitions</li>
+              <li>Better repo instructions change behavior, not just describe structure</li>
+              <li>Better context discipline means fewer long, drifting sessions</li>
+              <li>Better permissions mean fewer boring approvals</li>
+              <li>Better taste means better decisions about what not to ship</li>
+            </ul>
+          </div>
+        </div>
+      </section>
+
+      <section class="slide" data-title="Closing" data-theme="light">
+        <div class="slide-grid stacked-layout">
+          <div class="headline-band">
+            <div>
+              <div class="eyebrow">Closing</div>
+              <h2 class="section-title section-title--wide">The new loop is faster, but waiting did not disappear</h2>
+            </div>
+
+            <aside class="summary-card">
+              <div class="summary-card-label">Closing thought</div>
+              <p class="summary-card-copy">
+                Fast agents expose slow systems: approvals, reviews, meetings, and indecision. That is why the workflow around the model now matters so much.
+              </p>
+            </aside>
+          </div>
+
+          <div class="closing-stage">
+            <div class="takeaway-grid takeaway-grid--stacked">
+              <article class="takeaway-card">
+                <h3>Agents still make you wait</h3>
+                <p>If tasks take 15 to 45 minutes, parallel work and isolation become core workflow design.</p>
+              </article>
+              <article class="takeaway-card">
+                <h3>Reviews still make you wait</h3>
+                <p>The four-eye principle is useful, but required approvals, stale review resets, and large PRs still slow development.</p>
+              </article>
+              <article class="takeaway-card">
+                <h3>Start building your own loop</h3>
+                <p>Pick the bottleneck that annoys you most and turn it into a workflow you control.</p>
+              </article>
+            </div>
+          </div>
+
+          <div class="callout-banner">
+            AI coding speeds implementation. The real leverage is how you structure the rest of the loop.
+          </div>
+
+          <div class="callout-banner">
+            Even this presentation was built with AI coding. It saved me from copying and pasting ChatGPT output into PowerPoint.
+          </div>
+        </div>
+      </section>
+
+      <section class="slide" data-title="Q&A">
+        <div class="slide-grid center-layout">
+          <div class="qna-card">
+            <div class="eyebrow">Questions</div>
+            <h2 class="section-title">Q&amp;A</h2>
+            <p class="qna-prompt">Useful starting points if the room is quiet:</p>
+            <div class="chip-row qna-row">
+              <span class="chip">Why are tests more important now?</span>
+              <span class="chip">How do you split work between Claude Code and Codex?</span>
+              <span class="chip">What belongs in repo templates?</span>
+              <span class="chip">What belongs in markdown, memory, or skills?</span>
+            </div>
+          </div>
+        </div>
+      </section>
+    </main>
+
+    <footer class="deck-footer">
+      <div class="footer-hint">Arrow keys / Space to navigate · Home/End to jump · F for fullscreen</div>
+      <div class="footer-controls">
+        <button class="nav-button" id="prevBtn" type="button">Previous</button>
+        <button class="nav-button nav-button-primary" id="nextBtn" type="button">Next</button>
+      </div>
+    </footer>
+
+  </div>
+
+  <script src="./deck.js"></script>
+</body>
+</html>
