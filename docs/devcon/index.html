@@ -253,9 +253,9 @@
                 <div class="arch-role">Let it compound</div>
                 <h3>The value of the tool increases with every irritation you remove</h3>
                 <ul class="bullet-list">
-                  <li>New rules become defaults</li>
-                  <li>New project types become templates</li>
-                  <li>New review habits become built-in workflow</li>
+                  <li>An agent mocked my database once — one line in CLAUDE.md, never happened again</li>
+                  <li>A worktree index corrupted — wrote a five-line playbook, now every agent recovers automatically</li>
+                  <li>After six months, the toolkit knows how I work better than any colleague does</li>
                 </ul>
                 <div class="architecture-footer">The payoff is cumulative because every fix you add makes the toolkit better.</div>
               </article>
@@ -322,7 +322,7 @@
 
           <div class="workflow-body">
             <div class="workflow-header">
-              <div class="eyebrow">My Main Workflow About Agentic Coding <span class="demo-badge">DEMO</span></div>
+              <div class="eyebrow">My Main Workflow About Agentic Coding</div>
               <h2 class="section-title section-title--wide">A repeatable loop beats one giant prompt</h2>
             </div>
 
@@ -395,11 +395,11 @@
             </article>
             <article class="glass-card">
               <h3>Tests make refactoring safer and faster</h3>
-              <p>They let the model run, break, fix, and confirm without asking you to inspect every change manually.</p>
+              <p>Manifold has 800+ tests. They let the model run, break, fix, and confirm without asking you to inspect every change manually.</p>
             </article>
             <article class="glass-card">
-              <h3>UI work needs checks too</h3>
-              <p>Screenshots, previews, and visual diffs are part of tests-first development now.</p>
+              <h3>UI work needs checks too — and the browser is catching up</h3>
+              <p>Screenshots and visual diffs work today, but Chrome's WebMCP protocol is already letting sites expose structured tools directly to agents — ~98% task accuracy, 90% fewer tokens, no brittle screenshot parsing. The verification loop is about to get much cheaper.</p>
             </article>
           </div>
         </div>
@@ -509,6 +509,7 @@
           <div>
             <div class="eyebrow">Security And Speed</div>
             <h2 class="section-title section-title--wide">Permissions and allowlists shape flow</h2>
+            <img class="workspace-screenshot" src="./permissions.png" alt="Claude Code permissions and allowlist configuration">
             <ul class="bullet-list large-bullets">
               <li>Approval prompts are good security when trust is low and scope is unclear.</li>
               <li>But constant prompts slow development and eventually train you to stop paying attention.</li>
@@ -526,25 +527,25 @@
               <span class="terminal-dot dot-green"></span>
               <span class="terminal-context">project › .claude/settings.json › allowlists</span>
             </div>
-            <pre class="terminal-body">Goal:
-  remove boring approvals
-  keep meaningful security checks
-
-Allow individually:
-  npm test
-  npm run typecheck
-  git status
-  git diff
-  pnpm lint
-
-Still require approval:
-  rm
-  force-push
-  production deploys
-
-Bad settings file:
-  too many harmless prompts
-  or not enough real protection</pre>
+            <pre class="terminal-body">"permissions": {
+  "allow": [
+    "Read", "Edit", "Write", "Grep",
+    "Bash(git:*)",  "Bash(npm:*)",
+    "Bash(vitest:*)", "Bash(tsc:*)",
+    "Bash(rm:*)",   "Bash(cp:*)",
+    "Bash(curl:*)", "Bash(jq:*)"
+  ],
+  "deny": [
+    "Bash(rm -rf /:*)",
+    "Bash(rm -rf ~:*)",
+    "Bash(> /dev:*)"
+  ],
+  "ask": [
+    "Bash(git push --force:*)",
+    "Bash(docker push:*)",
+    "Bash(docker stop:*)"
+  ]
+}</pre>
           </div>
         </div>
       </section>
@@ -574,6 +575,10 @@ Bad settings file:
               <h3>Markdown and skills offload pressure</h3>
               <p>Put stable instructions into files and skills so the agent does not have to relearn the same rules every session.</p>
             </article>
+          </div>
+
+          <div class="callout-banner">
+            The model is stateless. Your job is to build the state around it — in files, memory, and skills — so every session starts smart instead of blank.
           </div>
         </div>
       </section>
