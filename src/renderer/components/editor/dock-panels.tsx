@@ -40,6 +40,7 @@ function AgentPanel(): React.JSX.Element {
         defaultRuntime={s.defaultRuntime}
         onLaunch={s.onLaunchAgent}
         focusTrigger={s.newAgentFocusTrigger}
+        onNewSuperagent={s.onNewSuperagent}
       />
     )
   }
@@ -218,7 +219,6 @@ function ProjectsPanel(): React.JSX.Element {
       onDeleteAgent={s.onDeleteAgent}
       onNewAgent={s.onNewAgentFromHeader}
       onNewProject={s.onNewProject}
-      onNewSuperagent={s.onNewSuperagent}
       superagents={s.superagents}
       activeSuperagentId={s.activeSuperagentId}
       onSelectSuperagent={s.onSelectSuperagent}

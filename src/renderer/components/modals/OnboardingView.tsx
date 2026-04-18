@@ -49,6 +49,7 @@ interface NoAgentProps {
   defaultRuntime: string
   onLaunch: (options: SpawnAgentOptions) => Promise<unknown>
   focusTrigger?: number
+  onNewSuperagent?: () => void
 }
 
 type OnboardingViewProps = NoProjectProps | NoAgentProps
@@ -131,6 +132,23 @@ export function OnboardingView(props: OnboardingViewProps): React.JSX.Element {
             onLaunch={props.onLaunch}
             focusTrigger={props.focusTrigger}
           />
+          {props.onNewSuperagent && (
+            <button
+              onClick={props.onNewSuperagent}
+              style={{
+                marginTop: 8,
+                padding: '6px 16px',
+                fontSize: 12,
+                color: 'var(--text-muted)',
+                backgroundColor: 'transparent',
+                border: 'none',
+                cursor: 'pointer',
+                textDecoration: 'underline',
+              }}
+            >
+              + New Superagent
+            </button>
+          )}
         </>
       )}
     </div>
