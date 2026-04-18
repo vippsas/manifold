@@ -1,0 +1,108 @@
+import { describe, it, expect, vi, beforeEach } from 'vitest'
+import { OrchestratorMcpServer } from './orchestrator-mcp-server'
+import type { Superagent } from '../../shared/superagent-types'
+import type { AgentSession } from '../../shared/types'
+
+function makeSuperagent(): Superagent {
+  return {
+    id: 'super-1',
+    name: 'test',
+    taskDescription: 't',
+    runtimeId: 'claude',
+    fleetProjectIds: ['p1', 'p2'],
+    childSessionIds: [],
+    coordinationPath: '/tmp/super-1',
+    createdAt: '2026-04-18T00:00:00.000Z',
+    pid: null,
+    status: 'running',
+    autoApprove: false,
+  }
+}
+
+function makeDeps(over: Partial<Parameters<typeof OrchestratorMcpServer.prototype.constructor>[0]> = {}) {
+  const superagent = makeSuperagent()
+  return {
+    superagentId: superagent.id,
+    getSuperagent: vi.fn(() => superagent),
+    projectRegistry: {
+      getProject: vi.fn((id: string) => ({ id, name: `name-${id}`, path: `/repo/${id}`, baseBranch: 'main', addedAt: '' })),
+      listProjects: vi.fn(() => []),
+    } as any,
+    sessionManager: {
+      getSession: vi.fn<(id: string) => AgentSession | undefined>(),
+      createSession: vi.fn(),
+      killSession: vi.fn(),
+      getOutputBuffer: vi.fn(() => ''),
+      sendInput: vi.fn(),
+    } as any,
+    diffProvider: {
+      getDiff: vi.fn(async () => 'diff output'),
+    } as any,
+    approvalBroker: { requestApproval: vi.fn(async () => 'approve') } as any,
+    getAutoApprove: vi.fn(() => false),
+    ...over,
+  }
+}
+
+describe('OrchestratorMcpServer — read-only tools', () => {
+  let deps: ReturnType<typeof makeDeps>
+  let server: OrchestratorMcpServer
+
+  beforeEach(() => {
+    deps = makeDeps()
+    server = new OrchestratorMcpServer(deps)
+  })
+
+  it('list_projects returns the fleet only', async () => {
+    const result = await server.handleToolCall('list_projects', {})
+    expect(result).toEqual({
+      projects: [
+        { id: 'p1', name: 'name-p1', path: '/repo/p1' },
+        { id: 'p2', name: 'name-p2', path: '/repo/p2' },
+      ],
+    })
+  })
+
+  it('read_status returns status + pid + lastOutputTime for a child', async () => {
+    deps.sessionManager.getSession = vi.fn(() => ({
+      id: 'child-1',
+      status: 'running',
+      pid: 42,
+      projectId: 'p1',
+      runtimeId: 'claude',
+      branchName: 'b',
+      worktreePath: '/w',
+      additionalDirs: [],
+      parentSuperagentId: 'super-1',
+    }))
+    const result = await server.handleToolCall('read_status', { sessionId: 'child-1' })
+    expect(result).toMatchObject({ status: 'running', pid: 42 })
+  })
+
+  it('read_status errors when sessionId is not a child of this superagent', async () => {
+    deps.sessionManager.getSession = vi.fn(() => ({
+      id: 'other',
+      parentSuperagentId: 'different-super',
+    }) as any)
+    await expect(
+      server.handleToolCall('read_status', { sessionId: 'other' }),
+    ).rejects.toThrow(/not a child/)
+  })
+
+  it('read_output returns the session output buffer', async () => {
+    deps.sessionManager.getSession = vi.fn(() => ({ id: 'c1', parentSuperagentId: 'super-1' }) as any)
+    deps.sessionManager.getOutputBuffer = vi.fn(() => 'hello world')
+    const result = await server.handleToolCall('read_output', { sessionId: 'c1' })
+    expect(result).toEqual({ text: 'hello world' })
+  })
+
+  it('read_diff returns the session diff', async () => {
+    deps.sessionManager.getSession = vi.fn(() => ({ id: 'c1', parentSuperagentId: 'super-1', projectId: 'p1', worktreePath: '/w' }) as any)
+    const result = await server.handleToolCall('read_diff', { sessionId: 'c1' })
+    expect(result).toEqual({ diff: 'diff output' })
+  })
+
+  it('unknown tool throws', async () => {
+    await expect(server.handleToolCall('bogus', {})).rejects.toThrow(/unknown tool/i)
+  })
+})
