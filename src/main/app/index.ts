@@ -1,4 +1,5 @@
 import { app, BrowserWindow } from 'electron'
+import type { AgentStatus } from '../../shared/types'
 import { loadShellPath } from './shell-path'
 import { configureDevProfilePaths } from './dev-profile'
 
@@ -84,6 +85,11 @@ const superagentManager = new SuperagentManager({
   emitOutput: (sid, chunk) => { mainWindow?.webContents.send('superagent:output', { superagentId: sid, chunk }) },
 })
 superagentManagerRef = superagentManager
+sessionManager.setStatusListener((sessionId, status) => {
+  const session = sessionManager.getSession(sessionId)
+  const parentId = session?.parentSuperagentId
+  if (parentId) superagentManager.onChildStatusChange(parentId, sessionId, status as AgentStatus)
+})
 const prCreator = new PrCreator()
 const viewStateStore = new ViewStateStore()
 const shellTabStore = new ShellTabStore()

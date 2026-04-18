@@ -110,7 +110,19 @@ export class SessionManager {
     this.mainWindow = window
   }
 
+  private statusListener: ((sessionId: string, status: string) => void) | null = null
+
+  setStatusListener(listener: (sessionId: string, status: string) => void): void {
+    this.statusListener = listener
+  }
+
   private sendToRenderer(channel: string, ...args: unknown[]): void {
+    if (channel === 'agent:status' && this.statusListener) {
+      const payload = args[0] as { sessionId?: string; status?: string } | undefined
+      if (payload?.sessionId && payload.status) {
+        this.statusListener(payload.sessionId, payload.status)
+      }
+    }
     if (this.mainWindow && !this.mainWindow.isDestroyed()) {
       this.mainWindow.webContents.send(channel, ...args)
     }

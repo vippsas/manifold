@@ -100,3 +100,43 @@ describe('SuperagentManager', () => {
     expect(deps.store.get(s.id)?.autoApprove).toBe(true)
   })
 })
+
+describe('SuperagentManager — derived status', () => {
+  let tmpDir: string
+  let deps: ReturnType<typeof makeDeps>
+  let manager: SuperagentManager
+
+  beforeEach(() => {
+    tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'superagent-mgr-'))
+    deps = makeDeps(tmpDir)
+    manager = new SuperagentManager(deps)
+  })
+
+  afterEach(() => {
+    fs.rmSync(tmpDir, { recursive: true, force: true })
+  })
+
+  it('recomputes status to running when any child is running', async () => {
+    const s = await manager.create({ name: 'n', taskDescription: 'd', fleetProjectIds: ['p1'], initialPrompt: 'x' })
+    deps.store.update(s.id, { childSessionIds: ['c1'] })
+    deps.sessionManager.getSession = vi.fn((id: string) => ({ id, status: 'running', parentSuperagentId: s.id })) as any
+    manager.onChildStatusChange(s.id, 'c1', 'running')
+    expect(deps.store.get(s.id)?.status).toBe('running')
+  })
+
+  it('marks superagent done when all children done', async () => {
+    const s = await manager.create({ name: 'n', taskDescription: 'd', fleetProjectIds: ['p1'], initialPrompt: 'x' })
+    deps.store.update(s.id, { childSessionIds: ['c1', 'c2'] })
+    deps.sessionManager.getSession = vi.fn((id: string) => ({ id, status: 'done', parentSuperagentId: s.id })) as any
+    manager.onChildStatusChange(s.id, 'c1', 'done')
+    expect(deps.store.get(s.id)?.status).toBe('done')
+  })
+
+  it('marks superagent error when any child errors', async () => {
+    const s = await manager.create({ name: 'n', taskDescription: 'd', fleetProjectIds: ['p1'], initialPrompt: 'x' })
+    deps.store.update(s.id, { childSessionIds: ['c1'] })
+    deps.sessionManager.getSession = vi.fn(() => ({ id: 'c1', status: 'error', parentSuperagentId: s.id })) as any
+    manager.onChildStatusChange(s.id, 'c1', 'error')
+    expect(deps.store.get(s.id)?.status).toBe('error')
+  })
+})

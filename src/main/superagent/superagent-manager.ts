@@ -167,4 +167,21 @@ export class SuperagentManager {
     if (!entry) throw new Error(`Superagent ${superagentId} not active`)
     return entry.mcp.handleToolCall(name, args)
   }
+
+  onChildStatusChange(superagentId: string, _childId: string, _childStatus: AgentStatus): void {
+    const s = this.deps.store.get(superagentId)
+    if (!s) return
+    const childStatuses = s.childSessionIds
+      .map((id) => this.deps.sessionManager.getSession(id)?.status)
+      .filter((v: AgentStatus | undefined): v is AgentStatus => Boolean(v))
+
+    let status: AgentStatus = 'waiting'
+    if (childStatuses.some((st: AgentStatus) => st === 'error')) status = 'error'
+    else if (childStatuses.some((st: AgentStatus) => st === 'running')) status = 'running'
+    else if (childStatuses.length > 0 && childStatuses.every((st: AgentStatus) => st === 'done')) status = 'done'
+    else status = 'waiting'
+
+    this.deps.store.update(superagentId, { status })
+    this.deps.emitStatus(superagentId, status)
+  }
 }
