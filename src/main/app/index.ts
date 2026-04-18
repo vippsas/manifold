@@ -58,6 +58,7 @@ const manifoldHome = path.join(app.getPath('home'), '.manifold')
 const superagentStore = new SuperagentStore(path.join(manifoldHome, 'superagents.json'))
 const approvalBroker = new ApprovalBroker({
   emit: (req) => { mainWindow?.webContents.send('superagent:approval-request', req) },
+  onAutoApprove: (id) => { superagentManagerRef?.setAutoApprove(id, true) },
 })
 let superagentManagerRef: SuperagentManager | null = null
 const mcpBridge = new McpBridgeServer({
@@ -78,6 +79,9 @@ const superagentManager = new SuperagentManager({
   runtimes: { getRuntimeById },
   mcpBridge,
   emitStatus: (sid, status) => { mainWindow?.webContents.send('superagent:status', { superagentId: sid, status }) },
+  emitListChanged: () => { mainWindow?.webContents.send('superagent:list-changed') },
+  emitChildSpawned: (sid, childId) => { mainWindow?.webContents.send('superagent:child-spawned', { superagentId: sid, sessionId: childId }) },
+  emitOutput: (sid, chunk) => { mainWindow?.webContents.send('superagent:output', { superagentId: sid, chunk }) },
 })
 superagentManagerRef = superagentManager
 const prCreator = new PrCreator()

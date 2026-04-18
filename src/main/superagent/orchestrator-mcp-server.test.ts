@@ -117,6 +117,9 @@ describe('OrchestratorMcpServer — gated tools', () => {
   })
 
   it('spawn_agent requests approval, then calls createSession on approve', async () => {
+    const onChildSpawned = vi.fn()
+    deps = makeDeps({ onChildSpawned })
+    server = new OrchestratorMcpServer(deps)
     deps.approvalBroker.requestApproval = vi.fn(async () => 'approve')
     deps.sessionManager.createSession = vi.fn(async () => ({
       id: 'child-1',
@@ -147,6 +150,7 @@ describe('OrchestratorMcpServer — gated tools', () => {
         parentSuperagentId: 'super-1',
       }),
     )
+    expect(onChildSpawned).toHaveBeenCalledWith('child-1')
     expect(result).toEqual({ sessionId: 'child-1' })
   })
 

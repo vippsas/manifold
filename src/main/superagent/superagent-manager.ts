@@ -36,6 +36,9 @@ export interface SuperagentManagerDeps {
   runtimes: { getRuntimeById: (id: string) => { id: string; binary: string; args?: string[] } | undefined }
   mcpBridge: McpBridgeServer
   emitStatus: (superagentId: string, status: AgentStatus) => void
+  emitListChanged: () => void
+  emitChildSpawned: (superagentId: string, sessionId: string) => void
+  emitOutput: (superagentId: string, chunk: string) => void
 }
 
 export class SuperagentManager {
@@ -121,17 +124,25 @@ export class SuperagentManager {
       diffProvider: this.deps.diffProvider,
       approvalBroker: this.deps.approvalBroker,
       getAutoApprove: () => this.deps.store.get(id)?.autoApprove ?? false,
+      onChildSpawned: (sessionId) => {
+        this.deps.store.addChild(id, sessionId)
+        this.deps.emitChildSpawned(id, sessionId)
+      },
     })
 
-    this.deps.ptyPool.onData(handle.id, () => undefined)
+    this.deps.ptyPool.onData(handle.id, (data) => {
+      this.deps.emitOutput(id, data)
+    })
     this.deps.ptyPool.onExit(handle.id, () => {
       this.deps.store.update(id, { status: 'done', pid: null })
       this.deps.emitStatus(id, 'done')
+      this.deps.emitListChanged()
       this.active.delete(id)
     })
     this.active.set(id, { ptyId: handle.id, mcp })
 
     this.deps.ptyPool.write(handle.id, `${prompt}\r`)
+    this.deps.emitListChanged()
 
     return superagent
   }
@@ -144,6 +155,7 @@ export class SuperagentManager {
     }
     this.deps.store.update(superagentId, { status: 'done', pid: null })
     this.deps.emitStatus(superagentId, 'done')
+    this.deps.emitListChanged()
   }
 
   setAutoApprove(superagentId: string, value: boolean): void {

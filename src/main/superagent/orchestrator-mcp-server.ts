@@ -27,6 +27,7 @@ export interface OrchestratorDeps {
   }
   approvalBroker: ApprovalBroker
   getAutoApprove: () => boolean
+  onChildSpawned?: (sessionId: string) => void
 }
 
 export type ToolResult = Record<string, unknown>
@@ -106,6 +107,7 @@ export class OrchestratorMcpServer {
       branchName,
       parentSuperagentId: this.deps.superagentId,
     })
+    this.deps.onChildSpawned?.(session.id)
     return { sessionId: session.id }
   }
 

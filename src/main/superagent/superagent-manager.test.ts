@@ -40,6 +40,9 @@ function makeDeps(tmpDir: string) {
     runtimes: { getRuntimeById: vi.fn(() => ({ id: 'claude', name: 'Claude', binary: 'claude', args: [] })) } as any,
     mcpBridge: { socketPath: '/tmp/test.sock' } as any,
     emitStatus: vi.fn(),
+    emitListChanged: vi.fn(),
+    emitChildSpawned: vi.fn(),
+    emitOutput: vi.fn(),
   }
 }
 
