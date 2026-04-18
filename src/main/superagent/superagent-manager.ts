@@ -7,6 +7,8 @@ import { OrchestratorMcpServer } from './orchestrator-mcp-server'
 import { buildOrchestratorPrompt } from './orchestrator-prompt'
 import type { SuperagentStore } from './superagent-store'
 import type { ApprovalBroker } from './approval-broker'
+import type { McpBridgeServer } from './mcp-bridge-server'
+import { MCP_BRIDGE_SCRIPT, TOOL_SCHEMAS } from './mcp-bridge-script'
 
 export interface SuperagentManagerDeps {
   store: SuperagentStore
@@ -27,16 +29,17 @@ export interface SuperagentManagerDeps {
   ptyPool: {
     spawn: (file: string, args: string[], opts: { cwd: string; env?: Record<string, string>; cols?: number; rows?: number }) => { id: string; pid: number }
     kill: (ptyId: string) => void
-    onData: (ptyId: string, fn: (data: string) => void) => () => void
-    onExit: (ptyId: string, fn: () => void) => () => void
+    onData: (ptyId: string, fn: (data: string) => void) => void
+    onExit: (ptyId: string, fn: () => void) => void
     write: (ptyId: string, data: string) => void
   }
   runtimes: { getRuntimeById: (id: string) => { id: string; binary: string; args?: string[] } | undefined }
+  mcpBridge: McpBridgeServer
   emitStatus: (superagentId: string, status: AgentStatus) => void
 }
 
 export class SuperagentManager {
-  private readonly active = new Map<string, { ptyId: string; mcp: OrchestratorMcpServer; unsubscribes: Array<() => void> }>()
+  private readonly active = new Map<string, { ptyId: string; mcp: OrchestratorMcpServer }>()
 
   constructor(private readonly deps: SuperagentManagerDeps) {}
 
@@ -56,6 +59,20 @@ export class SuperagentManager {
       '# Plan\n\n_Orchestrator may edit freely._\n',
     )
 
+    const bridgeScriptPath = path.join(coordinationPath, 'mcp-bridge.js')
+    const toolSchemasPath = path.join(coordinationPath, 'tool-schemas.json')
+    const mcpConfigPath = path.join(coordinationPath, 'mcp-config.json')
+    fs.writeFileSync(bridgeScriptPath, MCP_BRIDGE_SCRIPT)
+    fs.writeFileSync(toolSchemasPath, JSON.stringify(TOOL_SCHEMAS, null, 2))
+    fs.writeFileSync(
+      mcpConfigPath,
+      JSON.stringify(
+        { mcpServers: { 'manifold-orchestrator': { command: 'node', args: [bridgeScriptPath] } } },
+        null,
+        2,
+      ),
+    )
+
     const runtime = this.deps.runtimes.getRuntimeById('claude')
     if (!runtime) throw new Error('Claude runtime not available')
 
@@ -69,10 +86,17 @@ export class SuperagentManager {
       fleet,
     })
 
-    const handle = this.deps.ptyPool.spawn(runtime.binary, runtime.args ?? [], {
-      cwd: coordinationPath,
-      env: { MANIFOLD_SUPERAGENT_ID: id },
-    })
+    const handle = this.deps.ptyPool.spawn(
+      runtime.binary,
+      [...(runtime.args ?? []), '--mcp-config', mcpConfigPath, '--strict-mcp-config'],
+      {
+        cwd: coordinationPath,
+        env: {
+          MANIFOLD_SUPERAGENT_ID: id,
+          MANIFOLD_MCP_SOCKET: this.deps.mcpBridge.socketPath,
+        },
+      },
+    )
 
     const superagent: Superagent = {
       id,
@@ -99,13 +123,13 @@ export class SuperagentManager {
       getAutoApprove: () => this.deps.store.get(id)?.autoApprove ?? false,
     })
 
-    const unsubData = this.deps.ptyPool.onData(handle.id, () => undefined)
-    const unsubExit = this.deps.ptyPool.onExit(handle.id, () => {
+    this.deps.ptyPool.onData(handle.id, () => undefined)
+    this.deps.ptyPool.onExit(handle.id, () => {
       this.deps.store.update(id, { status: 'done', pid: null })
       this.deps.emitStatus(id, 'done')
       this.active.delete(id)
     })
-    this.active.set(id, { ptyId: handle.id, mcp, unsubscribes: [unsubData, unsubExit] })
+    this.active.set(id, { ptyId: handle.id, mcp })
 
     this.deps.ptyPool.write(handle.id, `${prompt}\r`)
 
@@ -115,7 +139,6 @@ export class SuperagentManager {
   async kill(superagentId: string): Promise<void> {
     const entry = this.active.get(superagentId)
     if (entry) {
-      entry.unsubscribes.forEach((u) => u())
       this.deps.ptyPool.kill(entry.ptyId)
       this.active.delete(superagentId)
     }

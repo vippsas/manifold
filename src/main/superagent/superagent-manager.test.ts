@@ -33,11 +33,12 @@ function makeDeps(tmpDir: string) {
     ptyPool: {
       spawn: vi.fn(() => ({ id: 'pty-1', pid: 99 })),
       kill: vi.fn(),
-      onData: vi.fn(() => () => undefined),
-      onExit: vi.fn(() => () => undefined),
+      onData: vi.fn(),
+      onExit: vi.fn(),
       write: vi.fn(),
     } as any,
     runtimes: { getRuntimeById: vi.fn(() => ({ id: 'claude', name: 'Claude', binary: 'claude', args: [] })) } as any,
+    mcpBridge: { socketPath: '/tmp/test.sock' } as any,
     emitStatus: vi.fn(),
   }
 }
