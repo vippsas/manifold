@@ -36,6 +36,7 @@ import { ConflictPanel } from './components/git/ConflictPanel'
 import { WelcomeDialog } from './components/modals/WelcomeDialog'
 import { NewSuperagentModal } from './components/modals/NewSuperagentModal'
 import { useSuperagents } from './hooks/useSuperagents'
+import { SuperagentView } from './components/superagent/SuperagentView'
 import { DockTab, EmptyWatermark } from './DockTab'
 import { TitleBar } from './components/TitleBar'
 import type { FileOpenRequest } from './components/editor/file-open-request'
@@ -126,7 +127,12 @@ export function App(): React.JSX.Element {
   const [pendingSearchOpen, setPendingSearchOpen] = useState<SearchOpenTarget | null>(null)
   const [newSuperagentVisible, setNewSuperagentVisible] = useState(false)
   const [activeSuperagentId, setActiveSuperagentId] = useState<string | null>(null)
-  const { createSuperagent } = useSuperagents()
+  const { superagents, createSuperagent } = useSuperagents()
+  const activeSuperagent = useMemo(() => superagents.find((sa) => sa.id === activeSuperagentId) ?? null, [superagents, activeSuperagentId])
+  const superagentChildSessions = useMemo(
+    () => (activeSuperagentId ? allSessions.filter((sess) => sess.parentSuperagentId === activeSuperagentId) : []),
+    [allSessions, activeSuperagentId],
+  )
 
   const openSearchResultInActiveSession = useCallback((target: SearchOpenTarget): void => {
     setLastFileOpenRequest({
@@ -325,10 +331,19 @@ export function App(): React.JSX.Element {
       <div className="layout-main">
         <DockStateContext.Provider value={dockState}>
           <div style={{ flex: 1, overflow: 'hidden' }}>
-            <DockviewReact className={`dockview-theme-dark dockview-theme-manifold${!activeSessionId ? ' dockview-minimal' : ''}`}
-              components={PANEL_COMPONENTS} onReady={(e) => dockLayout.onReady(e.api)}
-              defaultTabComponent={DockTab} rightHeaderActionsComponent={EditorHeaderActions}
-              watermarkComponent={EmptyWatermark} />
+            {activeSuperagent ? (
+              <SuperagentView
+                superagent={activeSuperagent}
+                projects={projects}
+                childSessions={superagentChildSessions}
+                childOutputTails={{}}
+              />
+            ) : (
+              <DockviewReact className={`dockview-theme-dark dockview-theme-manifold${!activeSessionId ? ' dockview-minimal' : ''}`}
+                components={PANEL_COMPONENTS} onReady={(e) => dockLayout.onReady(e.api)}
+                defaultTabComponent={DockTab} rightHeaderActionsComponent={EditorHeaderActions}
+                watermarkComponent={EmptyWatermark} />
+            )}
           </div>
         </DockStateContext.Provider>
         <StatusBar activeSession={activeSession} changedFiles={mergedChanges} baseBranch={baseBranch} dockLayout={dockLayout}
