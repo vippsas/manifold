@@ -192,6 +192,17 @@ export class SuperagentManager {
     this.deps.emitListChanged()
   }
 
+  async remove(superagentId: string): Promise<void> {
+    const entry = this.active.get(superagentId)
+    if (entry) {
+      this.deps.ptyPool.kill(entry.ptyId)
+      this.active.delete(superagentId)
+    }
+    this.outputBuffers.delete(superagentId)
+    this.deps.store.remove(superagentId)
+    this.deps.emitListChanged()
+  }
+
   setAutoApprove(superagentId: string, value: boolean): void {
     this.deps.store.update(superagentId, { autoApprove: value })
   }

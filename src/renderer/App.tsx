@@ -125,7 +125,7 @@ export function App(): React.JSX.Element {
   const [pendingSearchOpen, setPendingSearchOpen] = useState<SearchOpenTarget | null>(null)
   const [newSuperagentVisible, setNewSuperagentVisible] = useState(false)
   const [activeSuperagentId, setActiveSuperagentId] = useState<string | null>(null)
-  const { superagents, createSuperagent } = useSuperagents()
+  const { superagents, createSuperagent, removeSuperagent } = useSuperagents()
 
   const openSearchResultInActiveSession = useCallback((target: SearchOpenTarget): void => {
     setLastFileOpenRequest({
@@ -284,12 +284,16 @@ export function App(): React.JSX.Element {
     onSelectSession: (sessionId: string, projectId: string) => { setActiveSuperagentId(null); overlays.handleSelectSession(sessionId, projectId) },
     onRemoveProject: removeProject,
     onUpdateProject: updateProject, onDeleteAgent: overlays.handleDeleteAgent,
-    onNewAgentFromHeader: overlays.handleNewAgentFromHeader, newAgentFocusTrigger: overlays.newAgentFocusTrigger,
+    onNewAgentFromHeader: () => { setActiveSuperagentId(null); overlays.handleNewAgentFromHeader() }, newAgentFocusTrigger: overlays.newAgentFocusTrigger,
     onNewProject: () => appEffects.setShowOnboarding(true),
     onNewSuperagent: () => setNewSuperagentVisible(true),
     superagents,
     activeSuperagentId,
     onSelectSuperagent: (id) => setActiveSuperagentId(id),
+    onRemoveSuperagent: async (id: string) => {
+      await removeSuperagent(id)
+      setActiveSuperagentId((current) => (current === id ? null : current))
+    },
     fetchingProjectId: fetchProject.fetchingProjectId, lastFetchedProjectId: fetchProject.lastFetchedProjectId,
     fetchResult: fetchProject.fetchResult, fetchError: fetchProject.fetchError,
     onFetchProject: fetchProject.fetchProject, previewUrl: webPreview.previewUrl,

@@ -32,17 +32,32 @@ function AgentPanel(): React.JSX.Element {
   const s = useDockState()
   const activeProject = s.projects.find((p) => p.id === s.activeProjectId)
 
+  const handleRestart = useCallback(() => {
+    if (s.sessionId && s.activeSessionRuntimeId) {
+      void s.onResumeAgent(s.sessionId, s.activeSessionRuntimeId)
+    }
+  }, [s.sessionId, s.activeSessionRuntimeId, s.onResumeAgent])
+
   if (s.activeSuperagentId) {
+    const activeSuperagent = s.superagents?.find((sa) => sa.id === s.activeSuperagentId)
+    const isDormant = activeSuperagent?.status === 'done' || activeSuperagent?.status === 'error'
     return (
       <div style={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
         <div style={{ flex: 1, minHeight: 0 }}>
-          <TerminalPane
-            sessionId={s.activeSuperagentId}
-            scrollbackLines={s.scrollbackLines}
-            terminalFontFamily={s.terminalFontFamily}
-            label="Superagent"
-            xtermTheme={s.xtermTheme}
-          />
+          {isDormant ? (
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%', color: 'var(--text-muted)', fontSize: 12, padding: 16, textAlign: 'center' }}>
+              Superagent &quot;{activeSuperagent?.name}&quot; is no longer running.<br />
+              Create a new superagent to continue orchestration.
+            </div>
+          ) : (
+            <TerminalPane
+              sessionId={s.activeSuperagentId}
+              scrollbackLines={s.scrollbackLines}
+              terminalFontFamily={s.terminalFontFamily}
+              label="Superagent"
+              xtermTheme={s.xtermTheme}
+            />
+          )}
         </div>
         <div style={{ borderTop: '1px solid var(--border)', background: 'var(--bg-secondary)' }}>
           <ApprovalInbox superagentId={s.activeSuperagentId} />
@@ -71,12 +86,6 @@ function AgentPanel(): React.JSX.Element {
   }
 
   const isExited = s.activeSessionStatus === 'done' || s.activeSessionStatus === 'error'
-
-  const handleRestart = useCallback(() => {
-    if (s.sessionId && s.activeSessionRuntimeId) {
-      void s.onResumeAgent(s.sessionId, s.activeSessionRuntimeId)
-    }
-  }, [s.sessionId, s.activeSessionRuntimeId, s.onResumeAgent])
 
   return (
     <div style={{ position: 'relative', height: '100%' }}>
@@ -243,6 +252,7 @@ function ProjectsPanel(): React.JSX.Element {
       superagents={s.superagents}
       activeSuperagentId={s.activeSuperagentId}
       onSelectSuperagent={s.onSelectSuperagent}
+      onRemoveSuperagent={s.onRemoveSuperagent}
       fetchingProjectId={s.fetchingProjectId}
       lastFetchedProjectId={s.lastFetchedProjectId}
       fetchResult={s.fetchResult}

@@ -5,6 +5,7 @@ export interface UseSuperagentsResult {
   superagents: Superagent[]
   createSuperagent: (opts: SuperagentCreateOptions) => Promise<Superagent>
   killSuperagent: (id: string) => Promise<void>
+  removeSuperagent: (id: string) => Promise<void>
   toggleAutoApprove: (id: string, value: boolean) => Promise<void>
 }
 
@@ -34,10 +35,15 @@ export function useSuperagents(): UseSuperagentsResult {
     await refresh()
   }, [refresh])
 
+  const removeSuperagent = useCallback(async (id: string) => {
+    await window.electronAPI.invoke('superagent:remove', id)
+    await refresh()
+  }, [refresh])
+
   const toggleAutoApprove = useCallback(async (id: string, value: boolean) => {
     await window.electronAPI.invoke('superagent:toggle-auto-approve', id, value)
     await refresh()
   }, [refresh])
 
-  return { superagents, createSuperagent, killSuperagent, toggleAutoApprove }
+  return { superagents, createSuperagent, killSuperagent, removeSuperagent, toggleAutoApprove }
 }

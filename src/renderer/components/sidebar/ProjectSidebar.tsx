@@ -24,6 +24,7 @@ interface ProjectSidebarProps {
   superagents?: Superagent[]
   activeSuperagentId?: string | null
   onSelectSuperagent?: (id: string) => void
+  onRemoveSuperagent?: (id: string) => Promise<void>
   fetchingProjectId: string | null
   lastFetchedProjectId: string | null
   fetchResult: { updatedBranch: string; commitCount: number } | null
@@ -47,6 +48,7 @@ export function ProjectSidebar({
   superagents,
   activeSuperagentId,
   onSelectSuperagent,
+  onRemoveSuperagent,
   fetchingProjectId,
   lastFetchedProjectId,
   fetchResult,
@@ -95,6 +97,7 @@ export function ProjectSidebar({
             superagents={superagents}
             activeSuperagentId={activeSuperagentId ?? null}
             onSelect={onSelectSuperagent}
+            onRemove={onRemoveSuperagent}
           />
         )}
         <ProjectList

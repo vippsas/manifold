@@ -15,6 +15,10 @@ export function registerSuperagentHandlers(deps: IpcDependencies): void {
     await superagentManager.kill(id)
   })
 
+  ipcMain.handle('superagent:remove', async (_e, id: string) => {
+    await superagentManager.remove(id)
+  })
+
   ipcMain.handle('superagent:toggle-auto-approve', (_e, id: string, value: boolean) => {
     superagentManager.setAutoApprove(id, value)
   })

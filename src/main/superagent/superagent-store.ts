@@ -7,6 +7,21 @@ export class SuperagentStore {
 
   constructor(private readonly filePath: string) {
     this.superagents = this.loadFromDisk()
+    this.sanitizeStaleStatuses()
+  }
+
+  // Any superagent persisted as running/waiting from a previous app
+  // run is necessarily dormant — its PTY didn't survive the restart.
+  private sanitizeStaleStatuses(): void {
+    let changed = false
+    for (const s of this.superagents) {
+      if (s.status === 'running' || s.status === 'waiting') {
+        s.status = 'done'
+        s.pid = null
+        changed = true
+      }
+    }
+    if (changed) this.writeToDisk()
   }
 
   private loadFromDisk(): Superagent[] {
