@@ -14,7 +14,7 @@ export function NewSuperagentModal({ visible, projects, onLaunch, onClose }: New
   const [name, setName] = useState('')
   const [taskDescription, setTaskDescription] = useState('')
   const [initialPrompt, setInitialPrompt] = useState('')
-  const [fleet, setFleet] = useState<string[]>(projects.map((p) => p.id))
+  const [fleet, setFleet] = useState<string[]>([])
 
   if (!visible) return null
 
