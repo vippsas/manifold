@@ -264,12 +264,31 @@ export class SuperagentManager {
   }
 
   async remove(superagentId: string): Promise<void> {
+    const superagent = this.deps.store.get(superagentId)
+
     const entry = this.active.get(superagentId)
     if (entry) {
       this.deps.ptyPool.kill(entry.ptyId)
       this.active.delete(superagentId)
     }
     this.outputBuffers.delete(superagentId)
+
+    // Dormant children have no orchestrator to coordinate them once the
+    // superagent is gone — clean them up. Active children are left running.
+    if (superagent) {
+      for (const childId of superagent.childSessionIds) {
+        const child = this.deps.sessionManager.getSession(childId)
+        if (!child) continue
+        if (child.status === 'done' || child.status === 'error') {
+          try {
+            await this.deps.sessionManager.killSession(childId)
+          } catch {
+            // Best-effort cleanup.
+          }
+        }
+      }
+    }
+
     await this.removeFleetWorktrees(superagentId)
     this.deps.store.remove(superagentId)
     this.deps.emitListChanged()
@@ -278,7 +297,19 @@ export class SuperagentManager {
   private async removeFleetWorktrees(superagentId: string): Promise<void> {
     const superagent = this.deps.store.get(superagentId)
     if (!superagent) return
+
+    // Preserve worktrees where an active child session is still running — tearing
+    // them down would kill that live agent.
+    const inUse = new Set<string>()
+    for (const childId of superagent.childSessionIds) {
+      const child = this.deps.sessionManager.getSession(childId)
+      if (child && child.status !== 'done' && child.status !== 'error') {
+        inUse.add(child.worktreePath)
+      }
+    }
+
     for (const [projectId, worktreePath] of Object.entries(superagent.fleetWorktreePaths ?? {})) {
+      if (inUse.has(worktreePath)) continue
       const project = this.deps.projectRegistry.getProject(projectId)
       if (!project?.path) continue
       try {
