@@ -170,6 +170,7 @@ export function FileTree({
     onRenameValueChange: editing.setRenameValue,
     onConfirmRename: editing.handleConfirmRename,
     onCancelRename: editing.handleCancelRename,
+    onStartRename: onRenameFile ? editing.handleStartRename : undefined,
     onContextMenu: editing.handleContextMenu,
     creating: editing.creating, createName: editing.createName,
     onCreateNameChange: editing.handleCreateNameChange,
