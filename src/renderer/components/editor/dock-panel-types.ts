@@ -77,6 +77,7 @@ export interface DockAppState {
   onNewAgentFromHeader: () => void
   newAgentFocusTrigger: number
   onNewProject: () => void
+  onNewSuperagent?: () => void
   fetchingProjectId: string | null
   lastFetchedProjectId: string | null
   fetchResult: { updatedBranch: string; commitCount: number } | null

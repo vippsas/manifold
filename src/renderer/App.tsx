@@ -34,6 +34,8 @@ import { CommitPanel } from './components/git/CommitPanel'
 import { PRPanel } from './components/git/PRPanel'
 import { ConflictPanel } from './components/git/ConflictPanel'
 import { WelcomeDialog } from './components/modals/WelcomeDialog'
+import { NewSuperagentModal } from './components/modals/NewSuperagentModal'
+import { useSuperagents } from './hooks/useSuperagents'
 import { DockTab, EmptyWatermark } from './DockTab'
 import { TitleBar } from './components/TitleBar'
 import type { FileOpenRequest } from './components/editor/file-open-request'
@@ -122,6 +124,9 @@ export function App(): React.JSX.Element {
   const updateNotification = useUpdateNotification()
   const [lastFileOpenRequest, setLastFileOpenRequest] = useState<FileOpenRequest>({ path: null, source: 'default' })
   const [pendingSearchOpen, setPendingSearchOpen] = useState<SearchOpenTarget | null>(null)
+  const [newSuperagentVisible, setNewSuperagentVisible] = useState(false)
+  const [activeSuperagentId, setActiveSuperagentId] = useState<string | null>(null)
+  const { createSuperagent } = useSuperagents()
 
   const openSearchResultInActiveSession = useCallback((target: SearchOpenTarget): void => {
     setLastFileOpenRequest({
@@ -281,6 +286,7 @@ export function App(): React.JSX.Element {
     onUpdateProject: updateProject, onDeleteAgent: overlays.handleDeleteAgent,
     onNewAgentFromHeader: overlays.handleNewAgentFromHeader, newAgentFocusTrigger: overlays.newAgentFocusTrigger,
     onNewProject: () => appEffects.setShowOnboarding(true),
+    onNewSuperagent: () => setNewSuperagentVisible(true),
     fetchingProjectId: fetchProject.fetchingProjectId, lastFetchedProjectId: fetchProject.lastFetchedProjectId,
     fetchResult: fetchProject.fetchResult, fetchError: fetchProject.fetchError,
     onFetchProject: fetchProject.fetchProject, previewUrl: webPreview.previewUrl,
@@ -346,6 +352,16 @@ export function App(): React.JSX.Element {
       <SettingsModal visible={overlays.showSettings} settings={settings} onSave={overlays.handleSaveSettings}
         onClose={() => overlays.setShowSettings(false)} onPreviewTheme={setPreviewThemeId} />
       <AboutOverlay visible={overlays.showAbout} version={overlays.appVersion} onClose={() => overlays.setShowAbout(false)} />
+      <NewSuperagentModal
+        visible={newSuperagentVisible}
+        projects={projects}
+        onLaunch={async (opts) => {
+          const sa = await createSuperagent(opts)
+          setActiveSuperagentId(sa.id)
+          setNewSuperagentVisible(false)
+        }}
+        onClose={() => setNewSuperagentVisible(false)}
+      />
       {updateNotification.updateReady && (
         <UpdateToast version={updateNotification.version} onRestart={updateNotification.install} onDismiss={updateNotification.dismiss} />
       )}

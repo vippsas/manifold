@@ -19,6 +19,7 @@ interface ProjectSidebarProps {
   onDeleteAgent: (id: string) => Promise<void>
   onNewAgent: () => void
   onNewProject: () => void
+  onNewSuperagent?: () => void
   fetchingProjectId: string | null
   lastFetchedProjectId: string | null
   fetchResult: { updatedBranch: string; commitCount: number } | null
@@ -39,6 +40,7 @@ export function ProjectSidebar({
   onDeleteAgent,
   onNewAgent,
   onNewProject,
+  onNewSuperagent,
   fetchingProjectId,
   lastFetchedProjectId,
   fetchResult,
@@ -103,6 +105,11 @@ export function ProjectSidebar({
           <button type="button" onClick={onNewAgent} className="sidebar-action-button sidebar-action-button--primary" style={sidebarStyles.actionButtonPrimary}>
             + New Agent
           </button>
+          {onNewSuperagent && (
+            <button type="button" onClick={onNewSuperagent} className="sidebar-action-button" style={sidebarStyles.actionButton} title="Create a cross-repo orchestrator session">
+              + Superagent
+            </button>
+          )}
           <button type="button" onClick={onNewProject} className="sidebar-action-button" style={sidebarStyles.actionButton}>
             + New Repository
           </button>

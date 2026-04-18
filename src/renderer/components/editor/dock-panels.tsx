@@ -218,6 +218,7 @@ function ProjectsPanel(): React.JSX.Element {
       onDeleteAgent={s.onDeleteAgent}
       onNewAgent={s.onNewAgentFromHeader}
       onNewProject={s.onNewProject}
+      onNewSuperagent={s.onNewSuperagent}
       fetchingProjectId={s.fetchingProjectId}
       lastFetchedProjectId={s.lastFetchedProjectId}
       fetchResult={s.fetchResult}
