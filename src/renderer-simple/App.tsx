@@ -15,7 +15,9 @@ import { loadTheme, migrateLegacyTheme } from '../shared/themes/registry'
 import { applyThemeCssVars } from '../shared/themes/adapter'
 import type { ConvertedTheme } from '../shared/themes/types'
 import { useUpdateNotification } from '../shared/useUpdateNotification'
+import { useUpdateLog } from '../shared/useUpdateLog'
 import { UpdateToast } from '../shared/UpdateToast'
+import { UpdateLogOverlay } from '../renderer/components/modals/UpdateLogOverlay'
 import type { PendingLaunchAction } from '../shared/mode-switch-types'
 import type {
   ProvisioningCreateResult,
@@ -158,6 +160,7 @@ type View = { kind: 'dashboard' } | { kind: 'app'; app: SimpleApp }
 export function App(): React.JSX.Element {
   const { apps, refreshApps, deleteApp } = useApps()
   const updateNotification = useUpdateNotification()
+  const updateLog = useUpdateLog()
   const [view, setView] = useState<View>({ kind: 'dashboard' })
   const activeApp = view.kind === 'app' ? view.app : null
   const { status: agentStatus } = useAgentStatus(activeApp?.sessionId ?? null)
@@ -223,6 +226,16 @@ export function App(): React.JSX.Element {
           <AppViewWrapper app={view.app} onBack={() => setView({ kind: 'dashboard' })} />
         </div>
         {updateToast}
+        <UpdateLogOverlay
+          visible={updateLog.visible}
+          log={updateLog.log}
+          loading={updateLog.loading}
+          error={updateLog.error}
+          onClose={updateLog.close}
+          onRefresh={() => { void updateLog.refresh() }}
+          onClean={() => { void updateLog.clear() }}
+          onCheckForUpdates={() => { void updateLog.checkForUpdates() }}
+        />
       </ErrorBoundary>
     )
   }
@@ -329,6 +342,16 @@ export function App(): React.JSX.Element {
       onDeleteApp={(app) => deleteApp(app.sessionId, app.projectId)}
     />
     {updateToast}
+    <UpdateLogOverlay
+      visible={updateLog.visible}
+      log={updateLog.log}
+      loading={updateLog.loading}
+      error={updateLog.error}
+      onClose={updateLog.close}
+      onRefresh={() => { void updateLog.refresh() }}
+      onClean={() => { void updateLog.clear() }}
+      onCheckForUpdates={() => { void updateLog.checkForUpdates() }}
+    />
     </>
   )
 }

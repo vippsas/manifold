@@ -11,6 +11,10 @@ export function buildAppMenu(mainWindow: BrowserWindow): Menu {
         },
         { type: 'separator' },
         {
+          label: 'Update',
+          click: () => mainWindow?.webContents.send('show-update-log'),
+        },
+        {
           label: 'Settings\u2026',
           accelerator: 'CmdOrCtrl+,',
           click: () => mainWindow?.webContents.send('show-settings'),

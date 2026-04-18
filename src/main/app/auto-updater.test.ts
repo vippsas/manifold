@@ -5,6 +5,8 @@ const mocks = vi.hoisted(() => {
   const updaterHandlers = new Map<string, (...args: unknown[]) => void>()
   const mockGetAllWindows = vi.fn()
   const mockCheckForUpdatesAndNotify = vi.fn()
+  const mockReadFileSync = vi.fn()
+  const mockWriteFileSync = vi.fn()
   const debugLog = vi.fn()
   const mockApp = {
     isPackaged: true,
@@ -23,6 +25,8 @@ const mocks = vi.hoisted(() => {
     updaterHandlers,
     mockGetAllWindows,
     mockCheckForUpdatesAndNotify,
+    mockReadFileSync,
+    mockWriteFileSync,
     debugLog,
     mockApp,
     autoUpdater,
@@ -40,7 +44,23 @@ vi.mock('electron-updater', () => ({
   autoUpdater: mocks.autoUpdater,
 }))
 
+vi.mock('node:fs', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('node:fs')>()
+  return {
+    ...actual,
+    readFileSync: mocks.mockReadFileSync,
+    writeFileSync: mocks.mockWriteFileSync,
+    default: {
+      ...(actual as unknown as { default?: object }).default,
+      ...actual,
+      readFileSync: mocks.mockReadFileSync,
+      writeFileSync: mocks.mockWriteFileSync,
+    },
+  }
+})
+
 vi.mock('./debug-log', () => ({
+  DEBUG_LOG: '/tmp/manifold-debug.log',
   debugLog: mocks.debugLog,
 }))
 
@@ -72,6 +92,8 @@ describe('setupAutoUpdater', () => {
     mocks.updaterHandlers.clear()
     mocks.mockGetAllWindows.mockReturnValue([])
     mocks.mockCheckForUpdatesAndNotify.mockResolvedValue(undefined)
+    mocks.mockReadFileSync.mockReset()
+    mocks.mockWriteFileSync.mockReset()
     mocks.mockApp.isPackaged = true
     mocks.autoUpdater.autoDownload = false
     mocks.autoUpdater.autoInstallOnAppQuit = false
@@ -122,6 +144,36 @@ describe('setupAutoUpdater', () => {
     expect(mocks.mockCheckForUpdatesAndNotify).toHaveBeenCalledTimes(2)
   })
 
+  it('retries transient startup failures within seconds', async () => {
+    mocks.mockCheckForUpdatesAndNotify
+      .mockRejectedValueOnce(new Error('504'))
+      .mockResolvedValue(undefined)
+
+    const { setupAutoUpdater } = await import('./auto-updater')
+
+    setupAutoUpdater()
+
+    expect(mocks.mockCheckForUpdatesAndNotify).toHaveBeenCalledTimes(1)
+
+    await vi.advanceTimersByTimeAsync(4_999)
+    expect(mocks.mockCheckForUpdatesAndNotify).toHaveBeenCalledTimes(1)
+
+    await vi.advanceTimersByTimeAsync(1)
+    expect(mocks.mockCheckForUpdatesAndNotify).toHaveBeenCalledTimes(2)
+    expect(mocks.debugLog).toHaveBeenCalledWith('[updater] scheduling retry 1/3 in 5000ms')
+  })
+
+  it('does not retry immediately when the machine is offline', async () => {
+    mocks.mockCheckForUpdatesAndNotify.mockRejectedValueOnce(new Error('net::ERR_INTERNET_DISCONNECTED'))
+
+    const { setupAutoUpdater } = await import('./auto-updater')
+
+    setupAutoUpdater()
+    await vi.advanceTimersByTimeAsync(60_000)
+
+    expect(mocks.mockCheckForUpdatesAndNotify).toHaveBeenCalledTimes(1)
+  })
+
   it('broadcasts downloaded updates to the currently open windows', async () => {
     const activeWindow = createMockWindow(false)
     const destroyedWindow = createMockWindow(true)
@@ -137,5 +189,38 @@ describe('setupAutoUpdater', () => {
       version: '1.2.3',
     })
     expect(destroyedWindow.webContents.send).not.toHaveBeenCalled()
+  })
+
+  it('filters out dev-only updater noise from the log excerpt', async () => {
+    mocks.mockReadFileSync.mockReturnValue([
+      '2026-04-18T15:13:06.253Z [updater] triggering startup update check',
+      '2026-04-18T15:13:06.254Z [updater] checking for update…',
+      '2026-04-18T15:13:18.302Z [updater] error: 504 ',
+      '2026-04-18T15:13:18.306Z [updater] check failed: 504 ',
+      '2026-04-18T15:14:59.307Z [updater] skipping update checks in dev because the app is not packaged',
+    ].join('\n'))
+
+    const { getUpdateLogExcerpt } = await import('./auto-updater')
+
+    expect(getUpdateLogExcerpt()).toContain('[updater] check failed: 504')
+    expect(getUpdateLogExcerpt()).not.toContain('skipping update checks in dev because the app is not packaged')
+  })
+
+  it('clears updater lines while keeping non-updater debug lines', async () => {
+    mocks.mockReadFileSync.mockReturnValue([
+      '2026-04-18T15:13:06.253Z [updater] triggering startup update check',
+      '2026-04-18T15:13:07.000Z [renderer] process gone: reason=crashed exitCode=1',
+      '2026-04-18T15:13:18.306Z [updater] check failed: 504 ',
+    ].join('\n'))
+
+    const { clearUpdateLog } = await import('./auto-updater')
+
+    clearUpdateLog()
+
+    expect(mocks.mockWriteFileSync).toHaveBeenCalledWith(
+      '/tmp/manifold-debug.log',
+      '2026-04-18T15:13:07.000Z [renderer] process gone: reason=crashed exitCode=1\n',
+      'utf8',
+    )
   })
 })

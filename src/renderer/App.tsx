@@ -15,6 +15,7 @@ import { useAllProjectSessions } from './hooks/useAllProjectSessions'
 import { useTheme } from './hooks/useTheme'
 import { useSessionStatePersistence } from './hooks/useSessionStatePersistence'
 import { useStatusNotification } from './hooks/useStatusNotification'
+import { useUpdateLog } from '../shared/useUpdateLog'
 import { useUpdateNotification } from '../shared/useUpdateNotification'
 import { mergeFileChanges } from './hooks/useFileDiff'
 import { useFileOperations } from './hooks/useFileOperations'
@@ -28,6 +29,7 @@ import { EditorHeaderActions } from './components/editor/EditorHeaderActions'
 import { OnboardingView } from './components/modals/OnboardingView'
 import { SettingsModal } from './components/modals/SettingsModal'
 import { AboutOverlay } from './components/modals/AboutOverlay'
+import { UpdateLogOverlay } from './components/modals/UpdateLogOverlay'
 import { UpdateToast } from '../shared/UpdateToast'
 import { StatusBar } from './components/git/StatusBar'
 import { CommitPanel } from './components/git/CommitPanel'
@@ -157,6 +159,7 @@ export function App(): React.JSX.Element {
   const { themeId, themeClass, xtermTheme, setPreviewThemeId } = useTheme(settings.theme)
   const densityClass = settings.density === 'comfortable' ? '' : `density-${settings.density}`
   const updateNotification = useUpdateNotification()
+  const updateLog = useUpdateLog()
   const [lastFileOpenRequest, setLastFileOpenRequest] = useState<FileOpenRequest>({ path: null, source: 'default' })
   const [pendingSearchOpen, setPendingSearchOpen] = useState<SearchOpenTarget | null>(null)
   const [newSuperagentVisible, setNewSuperagentVisible] = useState(false)
@@ -408,6 +411,16 @@ export function App(): React.JSX.Element {
       <SettingsModal visible={overlays.showSettings} settings={settings} onSave={overlays.handleSaveSettings}
         onClose={() => overlays.setShowSettings(false)} onPreviewTheme={setPreviewThemeId} />
       <AboutOverlay visible={overlays.showAbout} version={overlays.appVersion} onClose={() => overlays.setShowAbout(false)} />
+      <UpdateLogOverlay
+        visible={updateLog.visible}
+        log={updateLog.log}
+        loading={updateLog.loading}
+        error={updateLog.error}
+        onClose={updateLog.close}
+        onRefresh={() => { void updateLog.refresh() }}
+        onClean={() => { void updateLog.clear() }}
+        onCheckForUpdates={() => { void updateLog.checkForUpdates() }}
+      />
       <NewSuperagentModal
         visible={newSuperagentVisible}
         projects={projects}
