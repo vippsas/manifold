@@ -4,6 +4,7 @@ import { TerminalPane } from '../terminal/TerminalPane'
 import { CodeViewer } from './CodeViewer'
 import { FileTree } from './FileTree'
 import { ModifiedFiles } from '../git/ModifiedFiles'
+import { FleetModifiedFiles } from '../git/FleetModifiedFiles'
 import { ShellTabs } from '../terminal/ShellTabs'
 import { OnboardingView } from '../modals/OnboardingView'
 import { ProjectSidebar } from '../sidebar/ProjectSidebar'
@@ -225,6 +226,16 @@ function FileTreePanel(): React.JSX.Element {
 
 function ModifiedFilesPanel(): React.JSX.Element {
   const s = useDockState()
+  if (s.activeSuperagent) {
+    return (
+      <FleetModifiedFiles
+        superagent={s.activeSuperagent}
+        projects={s.projects}
+        activeFilePath={s.activeFilePath}
+        onSelectFile={s.onSelectFileFromFileTree}
+      />
+    )
+  }
   return (
     <ModifiedFiles
       changes={s.changes}

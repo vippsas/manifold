@@ -1,7 +1,8 @@
-import React, { useCallback, useEffect, useState } from 'react'
+import React, { useCallback, useEffect, useMemo, useState } from 'react'
 import type { Superagent } from '../../../shared/superagent-types'
-import type { Project, AgentSession, FileTreeNode } from '../../../shared/types'
+import type { Project, AgentSession, FileTreeNode, FileChange } from '../../../shared/types'
 import { FileTree } from '../editor/FileTree'
+import { useSuperagentFleetChanges } from '../../hooks/useSuperagentFleetChanges'
 
 interface SuperagentFleetTreeProps {
   superagent: Superagent
@@ -73,6 +74,8 @@ export function SuperagentFleetTree({
       .map((s) => ({ session: s, projectId: project.id }))
   )
 
+  const fleetChanges = useSuperagentFleetChanges(superagent.id)
+
   const primaryProject = fleetProjects[0]
   const primaryWorktreePath = primaryProject
     ? worktreePathFor(primaryProject.id, primaryProject.path)
@@ -85,6 +88,18 @@ export function SuperagentFleetTree({
     const t = trees.get(wt)
     if (t) additionalTrees.set(wt, t)
   }
+
+  const primaryChanges = useMemo<FileChange[]>(
+    () => (primaryWorktreePath ? fleetChanges[primaryWorktreePath] ?? [] : []),
+    [fleetChanges, primaryWorktreePath],
+  )
+  const additionalChanges = useMemo(() => {
+    const map = new Map<string, FileChange[]>()
+    for (const wt of additionalTrees.keys()) {
+      map.set(wt, fleetChanges[wt] ?? [])
+    }
+    return map
+  }, [fleetChanges, additionalTrees])
 
   return (
     <div style={styles.root}>
@@ -120,7 +135,8 @@ export function SuperagentFleetTree({
             tree={primaryTree}
             additionalTrees={additionalTrees.size > 0 ? additionalTrees : undefined}
             primaryBranch={null}
-            changes={[]}
+            changes={primaryChanges}
+            additionalChanges={additionalChanges.size > 0 ? additionalChanges : undefined}
             activeFilePath={null}
             openFilePaths={EMPTY_SET}
             expandedPaths={expandedPaths}

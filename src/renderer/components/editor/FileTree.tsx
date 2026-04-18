@@ -19,6 +19,7 @@ interface FileTreeProps {
   additionalBranches?: Map<string, string | null>
   primaryBranch: string | null
   changes: FileChange[]
+  additionalChanges?: Map<string, FileChange[]>
   activeFilePath: string | null
   openFilePaths: Set<string>
   expandedPaths: Set<string>
@@ -38,7 +39,7 @@ interface FileTreeProps {
 
 export function FileTree({
   tree, additionalTrees, additionalBranches, primaryBranch,
-  changes, activeFilePath, openFilePaths, expandedPaths, onToggleExpand, onSelectFile,
+  changes, additionalChanges, activeFilePath, openFilePaths, expandedPaths, onToggleExpand, onSelectFile,
   onDeleteFile, onRenameFile, onCreateFile, onCreateDir, onImportPaths,
   onRevealInFinder, onOpenInTerminal, onCopyAbsolutePath, onCopyRelativePath,
   worktreeRootPath,
@@ -55,13 +56,19 @@ export function FileTree({
 
   const changeMap = useMemo(() => {
     const map = new Map<string, FileChangeType>()
-    const root = tree?.path ?? ''
-    for (const change of changes) {
-      const absPath = root ? `${root.replace(/\/$/, '')}/${change.path}` : change.path
-      map.set(absPath, change.type)
+    const addChanges = (root: string, list: FileChange[]): void => {
+      const normalizedRoot = root.replace(/\/$/, '')
+      for (const change of list) {
+        const absPath = normalizedRoot ? `${normalizedRoot}/${change.path}` : change.path
+        map.set(absPath, change.type)
+      }
+    }
+    addChanges(tree?.path ?? '', changes)
+    if (additionalChanges) {
+      for (const [root, list] of additionalChanges) addChanges(root, list)
     }
     return map
-  }, [changes, tree?.path])
+  }, [changes, additionalChanges, tree?.path])
 
   const filteredTree = useMemo(
     () => (tree && editing.filterQuery ? filterTree(tree, editing.filterQuery) : tree),

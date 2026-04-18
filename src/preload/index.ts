@@ -27,6 +27,8 @@ const ALLOWED_INVOKE_CHANNELS = [
   'files:tree-by-project',
   'files:tree-for-superagent-project',
   'files:read-for-superagent-project',
+  'files:write-for-superagent-project',
+  'files:fleet-changes',
   'files:read',
   'files:read-data-url',
   'files:write',

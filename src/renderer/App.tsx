@@ -84,16 +84,19 @@ export function App(): React.JSX.Element {
   const dockLayout = useDockLayout(dockLayoutKey, settings.showIdeasTab)
   const webPreview = useWebPreview(activeSessionId)
 
-  const superagentFileReader = useMemo(() => {
-    if (!activeSuperagent) return null
+  const { superagentFileReader, superagentFileWriter } = useMemo(() => {
+    if (!activeSuperagent) return { superagentFileReader: null, superagentFileWriter: null }
     const worktreeEntries = Object.entries(activeSuperagent.fleetWorktreePaths ?? {})
-    if (worktreeEntries.length === 0) return null
-    return async (filePath: string): Promise<string> => {
+    if (worktreeEntries.length === 0) return { superagentFileReader: null, superagentFileWriter: null }
+    const resolveProjectId = (filePath: string): string => {
       const match = worktreeEntries.find(
         ([, root]) => filePath === root || filePath.startsWith(root.endsWith('/') ? root : root + '/'),
       )
       if (!match) throw new Error(`File ${filePath} is not under any fleet worktree`)
-      const [projectId] = match
+      return match[0]
+    }
+    const reader = async (filePath: string): Promise<string> => {
+      const projectId = resolveProjectId(filePath)
       return (await window.electronAPI.invoke(
         'files:read-for-superagent-project',
         activeSuperagent.id,
@@ -101,9 +104,20 @@ export function App(): React.JSX.Element {
         filePath,
       )) as string
     }
+    const writer = async (filePath: string, content: string): Promise<void> => {
+      const projectId = resolveProjectId(filePath)
+      await window.electronAPI.invoke(
+        'files:write-for-superagent-project',
+        activeSuperagent.id,
+        projectId,
+        filePath,
+        content,
+      )
+    }
+    return { superagentFileReader: reader, superagentFileWriter: writer }
   }, [activeSuperagent])
 
-  const codeView = useCodeView(activeSessionId, superagentFileReader)
+  const codeView = useCodeView(activeSessionId, superagentFileReader, superagentFileWriter)
 
   const appEffects = useAppEffects({
     activeSessionId,
