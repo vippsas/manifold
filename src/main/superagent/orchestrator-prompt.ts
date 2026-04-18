@@ -12,11 +12,14 @@ export function buildOrchestratorPrompt({
   fleet,
 }: OrchestratorPromptInput): string {
   const fleetList = fleet.map((p) => `- ${p.name} (id=${p.id}, path=${p.path}, base=${p.baseBranch})`).join('\n')
-  return [
+  const lines: string[] = [
     'You are a Manifold superagent — an orchestrator that coordinates work across multiple repos by calling MCP tools to spawn and control child agents.',
     '',
-    `Task: ${taskDescription}`,
-    '',
+  ]
+  if (taskDescription.trim()) {
+    lines.push(`Task: ${taskDescription}`, '')
+  }
+  lines.push(
     'Fleet:',
     fleetList,
     '',
@@ -30,7 +33,9 @@ export function buildOrchestratorPrompt({
     '- stop_agent({ sessionId }) — terminate a child',
     '',
     'Plan the work, spawn children as needed, check their output and diffs, and report progress to the user.',
-    '',
-    `User: ${initialPrompt}`,
-  ].join('\n')
+  )
+  if (initialPrompt.trim()) {
+    lines.push('', `User: ${initialPrompt}`)
+  }
+  return lines.join('\n')
 }

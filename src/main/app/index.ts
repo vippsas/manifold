@@ -82,7 +82,7 @@ const superagentManager = new SuperagentManager({
   emitStatus: (sid, status) => { mainWindow?.webContents.send('superagent:status', { superagentId: sid, status }) },
   emitListChanged: () => { mainWindow?.webContents.send('superagent:list-changed') },
   emitChildSpawned: (sid, childId) => { mainWindow?.webContents.send('superagent:child-spawned', { superagentId: sid, sessionId: childId }) },
-  emitOutput: (sid, chunk) => { mainWindow?.webContents.send('superagent:output', { superagentId: sid, chunk }) },
+  emitOutput: (sid, chunk) => { mainWindow?.webContents.send('agent:output', { sessionId: sid, data: chunk }) },
 })
 superagentManagerRef = superagentManager
 sessionManager.setStatusListener((sessionId, status) => {

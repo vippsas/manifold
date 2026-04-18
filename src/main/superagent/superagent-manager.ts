@@ -32,6 +32,7 @@ export interface SuperagentManagerDeps {
     onData: (ptyId: string, fn: (data: string) => void) => void
     onExit: (ptyId: string, fn: () => void) => void
     write: (ptyId: string, data: string) => void
+    resize?: (ptyId: string, cols: number, rows: number) => void
   }
   runtimes: { getRuntimeById: (id: string) => { id: string; binary: string; args?: string[] } | undefined }
   mcpBridge: McpBridgeServer
@@ -41,13 +42,42 @@ export interface SuperagentManagerDeps {
   emitOutput: (superagentId: string, chunk: string) => void
 }
 
+const MAX_OUTPUT_BUFFER = 1_000_000
+
 export class SuperagentManager {
   private readonly active = new Map<string, { ptyId: string; mcp: OrchestratorMcpServer }>()
+  private readonly outputBuffers = new Map<string, string>()
 
   constructor(private readonly deps: SuperagentManagerDeps) {}
 
   list(): Superagent[] {
     return this.deps.store.list()
+  }
+
+  isSuperagent(id: string): boolean {
+    return this.deps.store.get(id) !== undefined
+  }
+
+  sendInput(superagentId: string, data: string): void {
+    const entry = this.active.get(superagentId)
+    if (!entry) return
+    this.deps.ptyPool.write(entry.ptyId, data)
+  }
+
+  resize(superagentId: string, cols: number, rows: number): void {
+    const entry = this.active.get(superagentId)
+    if (!entry) return
+    this.deps.ptyPool.resize?.(entry.ptyId, cols, rows)
+  }
+
+  interrupt(superagentId: string): void {
+    const entry = this.active.get(superagentId)
+    if (!entry) return
+    this.deps.ptyPool.write(entry.ptyId, '\x03')
+  }
+
+  getOutputBuffer(superagentId: string): string {
+    return this.outputBuffers.get(superagentId) ?? ''
   }
 
   async create(options: SuperagentCreateOptions): Promise<Superagent> {
@@ -131,6 +161,9 @@ export class SuperagentManager {
     })
 
     this.deps.ptyPool.onData(handle.id, (data) => {
+      const prev = this.outputBuffers.get(id) ?? ''
+      const next = prev + data
+      this.outputBuffers.set(id, next.length > MAX_OUTPUT_BUFFER ? next.slice(-MAX_OUTPUT_BUFFER) : next)
       this.deps.emitOutput(id, data)
     })
     this.deps.ptyPool.onExit(handle.id, () => {
@@ -153,6 +186,7 @@ export class SuperagentManager {
       this.deps.ptyPool.kill(entry.ptyId)
       this.active.delete(superagentId)
     }
+    this.outputBuffers.delete(superagentId)
     this.deps.store.update(superagentId, { status: 'done', pid: null })
     this.deps.emitStatus(superagentId, 'done')
     this.deps.emitListChanged()

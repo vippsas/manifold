@@ -128,7 +128,6 @@ const ALLOWED_LISTEN_CHANNELS = [
   'superagent:status',
   'superagent:child-spawned',
   'superagent:list-changed',
-  'superagent:output',
 ] as const
 
 type InvokeChannel = (typeof ALLOWED_INVOKE_CHANNELS)[number]

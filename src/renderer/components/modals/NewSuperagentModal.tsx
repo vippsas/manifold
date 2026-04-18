@@ -12,13 +12,11 @@ export interface NewSuperagentModalProps {
 
 export function NewSuperagentModal({ visible, projects, onLaunch, onClose }: NewSuperagentModalProps) {
   const [name, setName] = useState('')
-  const [taskDescription, setTaskDescription] = useState('')
-  const [initialPrompt, setInitialPrompt] = useState('')
   const [fleet, setFleet] = useState<string[]>([])
 
   if (!visible) return null
 
-  const canSubmit = name.trim().length > 0 && taskDescription.trim().length > 0 && fleet.length > 0
+  const canSubmit = name.trim().length > 0 && fleet.length > 0
 
   return (
     <div style={s.overlay} onClick={onClose}>
@@ -28,11 +26,6 @@ export function NewSuperagentModal({ visible, projects, onLaunch, onClose }: New
         <div style={s.field}>
           <label style={s.label}>Name</label>
           <input style={s.input} value={name} onChange={(e) => setName(e.target.value)} placeholder="e.g. cross-repo auth rename" />
-        </div>
-
-        <div style={s.field}>
-          <label style={s.label}>Task description</label>
-          <textarea style={{ ...s.input, minHeight: 60, fontFamily: 'inherit' }} value={taskDescription} onChange={(e) => setTaskDescription(e.target.value)} />
         </div>
 
         <div style={s.field}>
@@ -58,17 +51,12 @@ export function NewSuperagentModal({ visible, projects, onLaunch, onClose }: New
           </div>
         </div>
 
-        <div style={s.field}>
-          <label style={s.label}>Initial prompt</label>
-          <textarea style={{ ...s.input, minHeight: 80, fontFamily: 'inherit' }} value={initialPrompt} onChange={(e) => setInitialPrompt(e.target.value)} placeholder="What should the orchestrator do first?" />
-        </div>
-
         <div style={s.actions}>
           <button style={s.secondaryButton} onClick={onClose}>Cancel</button>
           <button
             style={{ ...s.primaryButton, opacity: canSubmit ? 1 : 0.5, cursor: canSubmit ? 'pointer' : 'not-allowed' }}
             disabled={!canSubmit}
-            onClick={() => onLaunch({ name, taskDescription, fleetProjectIds: fleet, initialPrompt })}
+            onClick={() => onLaunch({ name, taskDescription: '', fleetProjectIds: fleet, initialPrompt: '' })}
           >
             Launch
           </button>
