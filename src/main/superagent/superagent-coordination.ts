@@ -4,7 +4,7 @@ import { MCP_BRIDGE_SCRIPT, TOOL_SCHEMAS } from './mcp-bridge-script'
 
 export interface CoordinationPaths {
   coordinationPath: string
-  mcpConfigPath: string
+  bridgeScriptPath: string
 }
 
 export function setupCoordinationDir(storageRoot: string, superagentId: string): CoordinationPaths {
@@ -17,19 +17,10 @@ export function setupCoordinationDir(storageRoot: string, superagentId: string):
 
   const bridgeScriptPath = path.join(coordinationPath, 'mcp-bridge.js')
   const toolSchemasPath = path.join(coordinationPath, 'tool-schemas.json')
-  const mcpConfigPath = path.join(coordinationPath, 'mcp-config.json')
   fs.writeFileSync(bridgeScriptPath, MCP_BRIDGE_SCRIPT)
   fs.writeFileSync(toolSchemasPath, JSON.stringify(TOOL_SCHEMAS, null, 2))
-  fs.writeFileSync(
-    mcpConfigPath,
-    JSON.stringify(
-      { mcpServers: { 'manifold-orchestrator': { command: 'node', args: [bridgeScriptPath] } } },
-      null,
-      2,
-    ),
-  )
 
-  return { coordinationPath, mcpConfigPath }
+  return { coordinationPath, bridgeScriptPath }
 }
 
 export function slugifyName(name: string): string {

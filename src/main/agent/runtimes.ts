@@ -16,7 +16,8 @@ export const BUILT_IN_RUNTIMES: readonly AgentRuntime[] = [
     name: 'Codex',
     binary: 'codex',
     args: [],
-    waitingPattern: '> |codex>'
+    waitingPattern: '> |codex>',
+    orchestratorCapable: true
   },
   {
     id: 'copilot',
@@ -24,7 +25,8 @@ export const BUILT_IN_RUNTIMES: readonly AgentRuntime[] = [
     binary: 'copilot',
     args: ['--yolo'],
     aiModelArgs: ['--model', 'claude-sonnet-4.5'],
-    waitingPattern: '> |❯'
+    waitingPattern: '> |❯',
+    orchestratorCapable: true
   },
   {
     id: 'gemini',
@@ -32,7 +34,8 @@ export const BUILT_IN_RUNTIMES: readonly AgentRuntime[] = [
     binary: 'gemini',
     args: [],
     aiModelArgs: ['--model', 'gemini-2.0-flash'],
-    waitingPattern: '❯|>>> '
+    waitingPattern: '❯|>>> ',
+    orchestratorCapable: true
   },
   {
     id: 'ollama-claude',

@@ -444,6 +444,7 @@ export class SessionManager {
       simplePromptInstructions: session.simplePromptInstructions,
       additionalDirs: session.additionalDirs,
       noWorktree: session.noWorktree,
+      parentSuperagentId: session.parentSuperagentId,
     }
   }
 }

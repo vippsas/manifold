@@ -1,6 +1,7 @@
 import { randomUUID } from 'node:crypto'
 import * as fs from 'node:fs'
 import * as path from 'node:path'
+import type { AgentRuntime } from '../../shared/types'
 import type { Superagent, SuperagentCreateOptions } from '../../shared/superagent-types'
 import type { AgentStatus } from '../../shared/types'
 import { OrchestratorMcpServer } from './orchestrator-mcp-server'
@@ -14,6 +15,7 @@ import {
   removeFleetWorktreesExcept,
 } from './superagent-fleet'
 import type { SuperagentManagerDeps } from './superagent-manager-deps'
+import { getOrchestratorLauncher } from './runtime-launchers'
 
 export type { SuperagentManagerDeps } from './superagent-manager-deps'
 
@@ -60,7 +62,7 @@ export class SuperagentManager {
       throw new Error('Fleet must contain at least one project')
     }
     const id = randomUUID()
-    const { coordinationPath, mcpConfigPath } = setupCoordinationDir(this.deps.storageRoot, id)
+    const { coordinationPath, bridgeScriptPath } = setupCoordinationDir(this.deps.storageRoot, id)
 
     const runtime = this.deps.runtimes.getRuntimeById(options.runtimeId)
     if (!runtime) throw new Error(`Runtime not available: ${options.runtimeId}`)
@@ -83,6 +85,13 @@ export class SuperagentManager {
       fleetWorktreePaths,
       branchName,
     })
+    const persistentContext = buildOrchestratorPrompt({
+      taskDescription: options.taskDescription,
+      initialPrompt: '',
+      fleet,
+      fleetWorktreePaths,
+      branchName,
+    })
 
     const superagent: Superagent = {
       id,
@@ -101,7 +110,7 @@ export class SuperagentManager {
     }
     this.deps.store.add(superagent)
 
-    this.spawnAndWire(id, coordinationPath, runtime, mcpConfigPath, prompt)
+    await this.spawnAndWire(id, coordinationPath, runtime, bridgeScriptPath, prompt, persistentContext)
 
     this.deps.emitListChanged()
 
@@ -116,36 +125,53 @@ export class SuperagentManager {
     const runtime = this.deps.runtimes.getRuntimeById(superagent.runtimeId)
     if (!runtime) throw new Error(`Runtime not available: ${superagent.runtimeId}`)
 
-    const mcpConfigPath = path.join(superagent.coordinationPath, 'mcp-config.json')
-    if (!fs.existsSync(mcpConfigPath)) {
-      throw new Error(`Coordination directory missing MCP config: ${mcpConfigPath}`)
+    const bridgeScriptPath = path.join(superagent.coordinationPath, 'mcp-bridge.js')
+    if (!fs.existsSync(bridgeScriptPath)) {
+      throw new Error(`Coordination directory missing MCP bridge script: ${bridgeScriptPath}`)
     }
 
     this.outputBuffers.delete(superagentId)
-    this.spawnAndWire(superagentId, superagent.coordinationPath, runtime, mcpConfigPath, undefined)
+    const resumeFleet = superagent.fleetProjectIds
+      .map((pid) => this.deps.projectRegistry.getProject(pid))
+      .filter(Boolean)
+    const resumeContext = buildOrchestratorPrompt({
+      taskDescription: superagent.taskDescription,
+      initialPrompt: '',
+      fleet: resumeFleet,
+      fleetWorktreePaths: superagent.fleetWorktreePaths,
+      branchName: superagent.branchName,
+    })
+    await this.spawnAndWire(superagentId, superagent.coordinationPath, runtime, bridgeScriptPath, undefined, resumeContext)
     this.deps.emitListChanged()
   }
 
-  private spawnAndWire(
+  private async spawnAndWire(
     id: string,
     coordinationPath: string,
-    runtime: { binary: string; args?: string[] },
-    mcpConfigPath: string,
+    runtime: AgentRuntime,
+    bridgeScriptPath: string,
     initialPrompt: string | undefined,
-  ): void {
-    const args = [
-      ...(runtime.args ?? []),
-      '--mcp-config', mcpConfigPath,
-      '--strict-mcp-config',
-    ]
-    if (initialPrompt !== undefined) args.push(initialPrompt)
+    persistentContext: string,
+  ): Promise<void> {
+    const launcher = getOrchestratorLauncher(runtime.id)
+    if (!launcher) {
+      throw new Error(`No orchestrator launcher registered for runtime "${runtime.id}"`)
+    }
 
-    const handle = this.deps.ptyPool.spawn(runtime.binary, args, {
-      cwd: coordinationPath,
-      env: {
-        MANIFOLD_SUPERAGENT_ID: id,
-        MANIFOLD_MCP_SOCKET: this.deps.mcpBridge.socketPath,
-      },
+    const spec = await launcher.prepare({
+      superagentId: id,
+      coordinationPath,
+      bridgeScriptPath,
+      mcpSocketPath: this.deps.mcpBridge.socketPath,
+      runtimeBinary: runtime.binary,
+      runtimeArgs: runtime.args ?? [],
+      initialPrompt,
+      persistentContext,
+    })
+
+    const handle = this.deps.ptyPool.spawn(spec.binary, spec.args, {
+      cwd: spec.cwd,
+      env: spec.env,
     })
 
     const mcp = new OrchestratorMcpServer({

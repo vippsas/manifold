@@ -19,7 +19,12 @@ const rl = readline.createInterface({ input: process.stdin })
 rl.on('line', async (line) => {
   let msg; try { msg = JSON.parse(line) } catch { return }
   if (msg.method === 'initialize') {
-    send({ jsonrpc: '2.0', id: msg.id, result: { protocolVersion: '2024-11-05', capabilities: { tools: {} }, serverInfo: { name: 'manifold-orchestrator', version: '0.1.0' } } })
+    const clientVersion = msg.params && msg.params.protocolVersion
+    const protocolVersion = typeof clientVersion === 'string' ? clientVersion : '2024-11-05'
+    send({ jsonrpc: '2.0', id: msg.id, result: { protocolVersion, capabilities: { tools: { listChanged: false } }, serverInfo: { name: 'manifold-orchestrator', version: '0.1.0' } } })
+    return
+  }
+  if (msg.method === 'notifications/initialized' || msg.method === 'initialized') {
     return
   }
   if (msg.method === 'tools/list') {
