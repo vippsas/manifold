@@ -127,6 +127,8 @@ const ipcDeps = {
   chatStore,
   memoryStore,
   vercelHealthCheck,
+  superagentManager,
+  approvalBroker,
 }
 
 function doCreateWindow(): void {

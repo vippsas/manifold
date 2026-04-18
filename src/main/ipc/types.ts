@@ -35,6 +35,8 @@ export interface IpcDependencies {
   chatStore: ChatStore
   memoryStore: MemoryStore
   vercelHealthCheck: VercelHealthCheck
+  superagentManager: import('../superagent/superagent-manager').SuperagentManager
+  approvalBroker: import('../superagent/approval-broker').ApprovalBroker
 }
 
 export function resolveSession(sessionManager: SessionManager, sessionId: string): AgentSession {
