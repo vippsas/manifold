@@ -17,6 +17,8 @@ interface FileTreeProps {
   tree: FileTreeNode | null
   additionalTrees?: Map<string, FileTreeNode>
   additionalBranches?: Map<string, string | null>
+  /** Optional display names per worktree root path. Keys: primary tree path, plus additional tree paths. */
+  rootLabels?: Map<string, string>
   primaryBranch: string | null
   changes: FileChange[]
   additionalChanges?: Map<string, FileChange[]>
@@ -38,7 +40,7 @@ interface FileTreeProps {
 }
 
 export function FileTree({
-  tree, additionalTrees, additionalBranches, primaryBranch,
+  tree, additionalTrees, additionalBranches, rootLabels, primaryBranch,
   changes, additionalChanges, activeFilePath, openFilePaths, expandedPaths, onToggleExpand, onSelectFile,
   onDeleteFile, onRenameFile, onCreateFile, onCreateDir, onImportPaths,
   onRevealInFinder, onOpenInTerminal, onCopyAbsolutePath, onCopyRelativePath,
@@ -208,12 +210,12 @@ export function FileTree({
             {filteredAdditionalTrees && filteredAdditionalTrees.size > 0 ? (
               <>
                 <div data-tree-root-path={filteredTree.path}>
-                  <WorkspaceRootHeader name={filteredTree.name} subtitle={primaryBranch} isAdditional={false} />
+                  <WorkspaceRootHeader name={rootLabels?.get(filteredTree.path) ?? filteredTree.name} subtitle={primaryBranch} isAdditional={false} />
                   <TreeNode node={filteredTree} depth={0} {...treeNodeProps} />
                 </div>
                 {Array.from(filteredAdditionalTrees.entries()).map(([dirPath, dirTree]) => (
                   <div key={dirPath} data-tree-root-path={dirPath}>
-                    <WorkspaceRootHeader name={dirTree.name} subtitle={additionalBranches?.get(dirPath) ?? shortenPath(dirPath)} isAdditional={true} />
+                    <WorkspaceRootHeader name={rootLabels?.get(dirPath) ?? dirTree.name} subtitle={additionalBranches?.get(dirPath) ?? shortenPath(dirPath)} isAdditional={true} />
                     <TreeNode node={dirTree} depth={0} {...treeNodeProps} />
                   </div>
                 ))}

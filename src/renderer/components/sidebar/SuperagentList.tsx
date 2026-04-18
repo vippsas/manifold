@@ -141,6 +141,10 @@ export function SuperagentList({
                   const childSession = projectSessions.find(
                     (ps) => s.childSessionIds.includes(ps.id) && ps.worktreePath === s.fleetWorktreePaths?.[projectId],
                   )
+                  const branchSuffix = childSession
+                    ? childSession.branchName.replace(/^manifold\//, '')
+                    : s.branchName.replace(/^manifold\//, '')
+                  const combinedLabel = `${project.name}/${branchSuffix}`
                   if (childSession && onSelectSession) {
                     return (
                       <AgentItem
@@ -151,6 +155,7 @@ export function SuperagentList({
                         isOutputting={outputtingSessionIds?.has(childSession.id) ?? false}
                         onSelect={(sessionId) => onSelectSession(sessionId, projectId)}
                         onDelete={() => onDeleteAgent?.(childSession, project.path)}
+                        labelOverride={combinedLabel}
                       />
                     )
                   }
@@ -182,7 +187,7 @@ export function SuperagentList({
                             flex: 1,
                           }}
                         >
-                          {project.name}
+                          {combinedLabel}
                         </span>
                       </div>
                       <span className="truncate sidebar-secondary-text" style={{ paddingLeft: '16px' }}>

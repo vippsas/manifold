@@ -101,6 +101,23 @@ export function SuperagentFleetTree({
     return map
   }, [fleetChanges, additionalTrees])
 
+  const rootLabels = useMemo(() => {
+    const map = new Map<string, string>()
+    for (const p of fleetProjects) {
+      const wt = worktreePathFor(p.id, p.path)
+      map.set(wt, p.name)
+    }
+    return map
+  }, [fleetProjects, worktreePathFor])
+
+  const additionalBranches = useMemo(() => {
+    const map = new Map<string, string | null>()
+    for (const wt of additionalTrees.keys()) {
+      map.set(wt, superagent.branchName)
+    }
+    return map
+  }, [additionalTrees, superagent.branchName])
+
   return (
     <div style={styles.root}>
       <div style={styles.headerBlock}>
@@ -134,7 +151,9 @@ export function SuperagentFleetTree({
           <FileTree
             tree={primaryTree}
             additionalTrees={additionalTrees.size > 0 ? additionalTrees : undefined}
-            primaryBranch={null}
+            additionalBranches={additionalBranches.size > 0 ? additionalBranches : undefined}
+            rootLabels={rootLabels}
+            primaryBranch={superagent.branchName}
             changes={primaryChanges}
             additionalChanges={additionalChanges.size > 0 ? additionalChanges : undefined}
             activeFilePath={null}

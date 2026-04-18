@@ -38,9 +38,10 @@ interface AgentItemProps {
   isOutputting: boolean
   onSelect: (id: string) => void
   onDelete: () => void
+  labelOverride?: string
 }
 
-export function AgentItem({ session, projectPath, isActive, isOutputting, onSelect, onDelete }: AgentItemProps): React.JSX.Element {
+export function AgentItem({ session, projectPath, isActive, isOutputting, onSelect, onDelete, labelOverride }: AgentItemProps): React.JSX.Element {
   const handleClick = useCallback((): void => {
     onSelect(session.id)
   }, [onSelect, session.id])
@@ -67,7 +68,7 @@ export function AgentItem({ session, projectPath, isActive, isOutputting, onSele
     e.stopPropagation()
   }, [])
 
-  const primaryLabel = formatBranchLabel(session.branchName, projectPath)
+  const primaryLabel = labelOverride ?? formatBranchLabel(session.branchName, projectPath)
   const secondaryLabel = session.taskDescription
     ? `${session.taskDescription} \u00B7 ${runtimeLabel(session.runtimeId)}`
     : runtimeLabel(session.runtimeId)
