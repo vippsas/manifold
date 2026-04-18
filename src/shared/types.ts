@@ -25,6 +25,8 @@ export interface AgentSession {
   simplePromptInstructions?: string
   additionalDirs: string[]
   noWorktree?: boolean
+  /** If set, this agent was spawned by a superagent and is listed as a child. */
+  parentSuperagentId?: string
 }
 
 export interface Project {
