@@ -75,9 +75,11 @@ export function App(): React.JSX.Element {
     }
   }, [sessionsByProject, activeProjectId, projects, setActiveProject])
 
+  const [activeSuperagentId, setActiveSuperagentId] = useState<string | null>(null)
   useStatusNotification(outputtingSessionIds, settings.notificationSound)
   const { diff, changedFiles, refreshDiff } = useDiff(activeSessionId)
-  const dockLayout = useDockLayout(activeSessionId, settings.showIdeasTab)
+  const dockLayoutKey = activeSessionId ?? activeSuperagentId
+  const dockLayout = useDockLayout(dockLayoutKey, settings.showIdeasTab)
   const webPreview = useWebPreview(activeSessionId)
   const codeView = useCodeView(activeSessionId)
 
@@ -105,8 +107,6 @@ export function App(): React.JSX.Element {
 
   const activeProject = projects.find((p) => p.id === activeProjectId) ?? null
   const autoGenerateMessages = settings.autoGenerateMessages
-  const worktreeShellCwd = activeSession?.worktreePath ?? null
-  const { worktreeSessionId, projectSessionId } = useShellSessions(worktreeShellCwd, activeProject?.path ?? null, activeSessionId)
   const gitOps = useGitOperations(activeSessionId)
 
   const handleFetchSuccess = useCallback((projectId: string) => {
@@ -124,8 +124,12 @@ export function App(): React.JSX.Element {
   const [lastFileOpenRequest, setLastFileOpenRequest] = useState<FileOpenRequest>({ path: null, source: 'default' })
   const [pendingSearchOpen, setPendingSearchOpen] = useState<SearchOpenTarget | null>(null)
   const [newSuperagentVisible, setNewSuperagentVisible] = useState(false)
-  const [activeSuperagentId, setActiveSuperagentId] = useState<string | null>(null)
   const { superagents, createSuperagent, removeSuperagent } = useSuperagents()
+  const activeSuperagent = superagents.find((s) => s.id === activeSuperagentId) ?? null
+  const worktreeShellCwd = activeSession?.worktreePath ?? activeSuperagent?.coordinationPath ?? null
+  const shellProjectCwd = activeSession ? (activeProject?.path ?? null) : null
+  const shellSessionKey = activeSessionId ?? activeSuperagentId
+  const { worktreeSessionId, projectSessionId } = useShellSessions(worktreeShellCwd, shellProjectCwd, shellSessionKey)
 
   const openSearchResultInActiveSession = useCallback((target: SearchOpenTarget): void => {
     setLastFileOpenRequest({
@@ -289,6 +293,7 @@ export function App(): React.JSX.Element {
     onNewSuperagent: () => setNewSuperagentVisible(true),
     superagents,
     activeSuperagentId,
+    activeSuperagent,
     onSelectSuperagent: (id) => setActiveSuperagentId(id),
     onRemoveSuperagent: async (id: string) => {
       await removeSuperagent(id)

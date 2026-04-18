@@ -121,7 +121,12 @@ export class SuperagentManager {
 
     const handle = this.deps.ptyPool.spawn(
       runtime.binary,
-      [...(runtime.args ?? []), '--mcp-config', mcpConfigPath, '--strict-mcp-config'],
+      [
+        ...(runtime.args ?? []),
+        '--mcp-config', mcpConfigPath,
+        '--strict-mcp-config',
+        prompt,
+      ],
       {
         cwd: coordinationPath,
         env: {
@@ -174,7 +179,6 @@ export class SuperagentManager {
     })
     this.active.set(id, { ptyId: handle.id, mcp })
 
-    this.deps.ptyPool.write(handle.id, `${prompt}\r`)
     this.deps.emitListChanged()
 
     return superagent

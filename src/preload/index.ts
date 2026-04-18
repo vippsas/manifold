@@ -24,6 +24,7 @@ const ALLOWED_INVOKE_CHANNELS = [
   'agent:replay',
   'files:tree',
   'files:tree-dir',
+  'files:tree-by-project',
   'files:read',
   'files:read-data-url',
   'files:write',

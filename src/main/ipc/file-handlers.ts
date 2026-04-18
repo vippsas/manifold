@@ -19,12 +19,18 @@ function isPathAllowed(resolved: string, session: AgentSession): boolean {
 }
 
 export function registerFileHandlers(deps: IpcDependencies): void {
-  const { sessionManager, fileWatcher } = deps
+  const { sessionManager, fileWatcher, projectRegistry } = deps
 
   ipcMain.handle('files:tree', (_event, sessionId: string) => {
     const session = sessionManager.getSession(sessionId)
     if (!session) throw new Error(`Session not found: ${sessionId}`)
     return fileWatcher.getFileTree(session.worktreePath)
+  })
+
+  ipcMain.handle('files:tree-by-project', (_event, projectId: string) => {
+    const project = projectRegistry.getProject(projectId)
+    if (!project) throw new Error(`Project not found: ${projectId}`)
+    return fileWatcher.getFileTree(project.path)
   })
 
   ipcMain.handle('files:tree-dir', (_event, sessionId: string, dirPath: string) => {

@@ -11,6 +11,7 @@ import { WebPreview } from '../terminal/WebPreview'
 import { SearchPanel } from '../search/SearchPanel'
 import { BackgroundAgentPanel } from '../background-agent/BackgroundAgentPanel'
 import { ApprovalInbox } from '../superagent/ApprovalInbox'
+import { SuperagentFleetTree } from '../sidebar/SuperagentFleetTree'
 import { DockStateContext, useDockState } from './dock-panel-types'
 export type { DockAppState } from './dock-panel-types'
 export { DockStateContext } from './dock-panel-types'
@@ -177,6 +178,17 @@ function FileTreePanel(): React.JSX.Element {
     [s.openFiles]
   )
 
+  if (s.activeSuperagent) {
+    return (
+      <SuperagentFleetTree
+        superagent={s.activeSuperagent}
+        projects={s.projects}
+        allProjectSessions={s.allProjectSessions}
+        onSelectSession={s.onSelectSession}
+      />
+    )
+  }
+
   return (
     <div style={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
       <FileTree
@@ -219,6 +231,8 @@ function ModifiedFilesPanel(): React.JSX.Element {
 
 function ShellPanel(): React.JSX.Element {
   const s = useDockState()
+  const projectName = s.activeSuperagent ? s.activeSuperagent.name : s.shellProjectName
+  const branchName = s.activeSuperagent ? 'coordination' : s.shellBranchName
   return (
     <ShellTabs
       worktreeSessionId={s.worktreeShellSessionId}
@@ -227,8 +241,8 @@ function ShellPanel(): React.JSX.Element {
       scrollbackLines={s.scrollbackLines}
       terminalFontFamily={s.terminalFontFamily}
       xtermTheme={s.xtermTheme}
-      branchName={s.shellBranchName}
-      projectName={s.shellProjectName}
+      branchName={branchName}
+      projectName={projectName}
     />
   )
 }
