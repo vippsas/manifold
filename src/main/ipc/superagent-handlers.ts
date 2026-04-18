@@ -19,6 +19,10 @@ export function registerSuperagentHandlers(deps: IpcDependencies): void {
     await superagentManager.remove(id)
   })
 
+  ipcMain.handle('superagent:spawn-fleet-agent', async (_e, superagentId: string, projectId: string) => {
+    return superagentManager.spawnFleetAgent(superagentId, projectId)
+  })
+
   ipcMain.handle('superagent:resume', async (_e, id: string) => {
     await superagentManager.resume(id)
   })

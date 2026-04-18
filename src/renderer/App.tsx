@@ -334,6 +334,15 @@ export function App(): React.JSX.Element {
       await removeSuperagent(id)
       setActiveSuperagentId((current) => (current === id ? null : current))
     },
+    onSpawnFleetAgent: async (superagentId: string, projectId: string) => {
+      const result = (await window.electronAPI.invoke(
+        'superagent:spawn-fleet-agent',
+        superagentId,
+        projectId,
+      )) as { id: string }
+      setActiveSuperagentId(null)
+      overlays.handleSelectSession(result.id, projectId)
+    },
     fetchingProjectId: fetchProject.fetchingProjectId, lastFetchedProjectId: fetchProject.lastFetchedProjectId,
     fetchResult: fetchProject.fetchResult, fetchError: fetchProject.fetchError,
     onFetchProject: fetchProject.fetchProject, previewUrl: webPreview.previewUrl,

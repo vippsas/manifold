@@ -284,6 +284,7 @@ function ProjectsPanel(): React.JSX.Element {
       activeSuperagentId={s.activeSuperagentId}
       onSelectSuperagent={s.onSelectSuperagent}
       onRemoveSuperagent={s.onRemoveSuperagent}
+      onSpawnFleetAgent={s.onSpawnFleetAgent}
       fetchingProjectId={s.fetchingProjectId}
       lastFetchedProjectId={s.lastFetchedProjectId}
       fetchResult={s.fetchResult}

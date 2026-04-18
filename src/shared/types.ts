@@ -124,6 +124,12 @@ export interface SpawnAgentOptions {
   ollamaModel?: string
   /** If set, the spawned session is owned by this superagent. */
   parentSuperagentId?: string
+  /**
+   * Attach the session to an existing worktree instead of creating a new one.
+   * Used when a superagent's fleet worktree already exists and we want to
+   * spawn an interactive session inside it.
+   */
+  existingWorktreePath?: string
 }
 
 export interface CreatePROptions {

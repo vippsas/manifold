@@ -84,6 +84,7 @@ export interface DockAppState {
   onSelectSuperagent?: (id: string) => void
   onResumeSuperagent?: (id: string) => Promise<void>
   onRemoveSuperagent?: (id: string) => Promise<void>
+  onSpawnFleetAgent?: (superagentId: string, projectId: string) => Promise<void>
   fetchingProjectId: string | null
   lastFetchedProjectId: string | null
   fetchResult: { updatedBranch: string; commitCount: number } | null

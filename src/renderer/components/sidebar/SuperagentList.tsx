@@ -1,8 +1,9 @@
 import { useCallback, useState } from 'react'
 import type { Superagent } from '../../../shared/superagent-types'
-import type { Project } from '../../../shared/types'
+import type { AgentSession, Project } from '../../../shared/types'
 import { sidebarStyles } from './ProjectSidebar.styles'
 import { createDialogStyles } from '../workbench-style-primitives'
+import { AgentItem } from './AgentItem'
 
 const deleteDialogStyles = createDialogStyles('360px')
 
@@ -12,6 +13,12 @@ interface SuperagentListProps {
   activeSuperagentId: string | null
   onSelect: (id: string) => void
   onRemove?: (id: string) => Promise<void>
+  allProjectSessions?: Record<string, AgentSession[]>
+  activeSessionId?: string | null
+  outputtingSessionIds?: Set<string>
+  onSelectSession?: (sessionId: string, projectId: string) => void
+  onSpawnFleetAgent?: (superagentId: string, projectId: string) => Promise<void>
+  onDeleteAgent?: (session: AgentSession, projectPath: string) => void
 }
 
 export function SuperagentList({
@@ -20,9 +27,30 @@ export function SuperagentList({
   activeSuperagentId,
   onSelect,
   onRemove,
+  allProjectSessions,
+  activeSessionId,
+  outputtingSessionIds,
+  onSelectSession,
+  onSpawnFleetAgent,
+  onDeleteAgent,
 }: SuperagentListProps) {
   const [pendingDelete, setPendingDelete] = useState<Superagent | null>(null)
   const [deleting, setDeleting] = useState(false)
+  const [spawningKey, setSpawningKey] = useState<string | null>(null)
+
+  const handleSpawnFleetAgent = useCallback(
+    async (superagentId: string, projectId: string): Promise<void> => {
+      if (!onSpawnFleetAgent) return
+      const key = `${superagentId}:${projectId}`
+      setSpawningKey(key)
+      try {
+        await onSpawnFleetAgent(superagentId, projectId)
+      } finally {
+        setSpawningKey((current) => (current === key ? null : current))
+      }
+    },
+    [onSpawnFleetAgent],
+  )
 
   const handleRequestDelete = useCallback((e: React.MouseEvent, s: Superagent): void => {
     e.stopPropagation()
@@ -106,6 +134,63 @@ export function SuperagentList({
                   <span className={`status-dot${alive ? '' : ' status-dot--hidden'}`} style={{ width: 6, height: 6 }} />
                   <span className="truncate">{repoLabel(s)} &middot; {s.status}</span>
                 </div>
+                {s.fleetProjectIds.map((projectId) => {
+                  const project = projects.find((p) => p.id === projectId)
+                  if (!project) return null
+                  const projectSessions = allProjectSessions?.[projectId] ?? []
+                  const childSession = projectSessions.find(
+                    (ps) => s.childSessionIds.includes(ps.id) && ps.worktreePath === s.fleetWorktreePaths?.[projectId],
+                  )
+                  if (childSession && onSelectSession) {
+                    return (
+                      <AgentItem
+                        key={`${s.id}:${projectId}`}
+                        session={childSession}
+                        projectPath={project.path}
+                        isActive={childSession.id === activeSessionId}
+                        isOutputting={outputtingSessionIds?.has(childSession.id) ?? false}
+                        onSelect={(sessionId) => onSelectSession(sessionId, projectId)}
+                        onDelete={() => onDeleteAgent?.(childSession, project.path)}
+                      />
+                    )
+                  }
+                  const key = `${s.id}:${projectId}`
+                  const isSpawning = spawningKey === key
+                  return (
+                    <div
+                      key={key}
+                      onClick={() => { if (!isSpawning) void handleSpawnFleetAgent(s.id, projectId) }}
+                      onKeyDown={(e) => {
+                        if ((e.key === 'Enter' || e.key === ' ') && !isSpawning) {
+                          e.preventDefault()
+                          void handleSpawnFleetAgent(s.id, projectId)
+                        }
+                      }}
+                      role="button"
+                      tabIndex={0}
+                      className="sidebar-item-row sidebar-agent-row sidebar-agent-row--exited"
+                      title={`Start agent in ${project.name}`}
+                    >
+                      <div className="sidebar-agent-main">
+                        <span className="status-dot status-dot--hidden" />
+                        <span
+                          className="truncate sidebar-row-label"
+                          style={{
+                            ...sidebarStyles.agentBranch,
+                            color: 'var(--text-muted)',
+                            fontStyle: 'italic',
+                            flex: 1,
+                          }}
+                        >
+                          {project.name}
+                        </span>
+                      </div>
+                      <span className="truncate sidebar-secondary-text" style={{ paddingLeft: '16px' }}>
+                        {isSpawning ? 'Starting…' : 'Click to start agent'}
+                      </span>
+                    </div>
+                  )
+                })}
               </div>
             )
           }

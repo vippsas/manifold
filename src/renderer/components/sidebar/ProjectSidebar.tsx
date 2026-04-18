@@ -25,6 +25,7 @@ interface ProjectSidebarProps {
   activeSuperagentId?: string | null
   onSelectSuperagent?: (id: string) => void
   onRemoveSuperagent?: (id: string) => Promise<void>
+  onSpawnFleetAgent?: (superagentId: string, projectId: string) => Promise<void>
   fetchingProjectId: string | null
   lastFetchedProjectId: string | null
   fetchResult: { updatedBranch: string; commitCount: number } | null
@@ -49,6 +50,7 @@ export function ProjectSidebar({
   activeSuperagentId,
   onSelectSuperagent,
   onRemoveSuperagent,
+  onSpawnFleetAgent,
   fetchingProjectId,
   lastFetchedProjectId,
   fetchResult,
@@ -99,6 +101,12 @@ export function ProjectSidebar({
             activeSuperagentId={activeSuperagentId ?? null}
             onSelect={onSelectSuperagent}
             onRemove={onRemoveSuperagent}
+            allProjectSessions={allProjectSessions}
+            activeSessionId={activeSessionId}
+            outputtingSessionIds={outputtingSessionIds}
+            onSelectSession={onSelectSession}
+            onSpawnFleetAgent={onSpawnFleetAgent}
+            onDeleteAgent={handleRequestDeleteAgent}
           />
         )}
         <ProjectList

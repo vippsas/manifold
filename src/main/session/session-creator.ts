@@ -33,7 +33,10 @@ export class SessionCreator {
 
     let worktree: { branch: string; path: string }
 
-    if (options.noWorktree) {
+    if (options.existingWorktreePath) {
+      const branch = (await gitExec(['rev-parse', '--abbrev-ref', 'HEAD'], options.existingWorktreePath)).trim()
+      worktree = { branch, path: options.existingWorktreePath }
+    } else if (options.noWorktree) {
       if (options.stayOnBranch) {
         const branch = (await gitExec(['rev-parse', '--abbrev-ref', 'HEAD'], project.path)).trim()
         worktree = { branch, path: project.path }

@@ -101,6 +101,7 @@ const ALLOWED_INVOKE_CHANNELS = [
   'superagent:create',
   'superagent:kill',
   'superagent:remove',
+  'superagent:spawn-fleet-agent',
   'superagent:resume',
   'superagent:toggle-auto-approve',
   'superagent:approval-response',

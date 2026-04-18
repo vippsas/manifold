@@ -289,6 +289,34 @@ export class SuperagentManager {
     }
   }
 
+  async spawnFleetAgent(superagentId: string, projectId: string): Promise<{ id: string }> {
+    const superagent = this.deps.store.get(superagentId)
+    if (!superagent) throw new Error(`Superagent not found: ${superagentId}`)
+    if (!superagent.fleetProjectIds.includes(projectId)) {
+      throw new Error(`Project ${projectId} is not in fleet of superagent ${superagentId}`)
+    }
+    const worktreePath = superagent.fleetWorktreePaths?.[projectId]
+    if (!worktreePath) throw new Error(`No fleet worktree for project ${projectId}`)
+
+    const existing = superagent.childSessionIds
+      .map((sid) => this.deps.sessionManager.getSession(sid))
+      .find((s) => s && s.projectId === projectId && s.worktreePath === worktreePath)
+    if (existing) return { id: existing.id }
+
+    const session = await this.deps.sessionManager.createSession({
+      projectId,
+      runtimeId: superagent.runtimeId,
+      prompt: '',
+      existingWorktreePath: worktreePath,
+      parentSuperagentId: superagentId,
+    })
+
+    this.deps.store.addChild(superagentId, session.id)
+    this.deps.emitChildSpawned(superagentId, session.id)
+    this.deps.emitListChanged()
+    return { id: session.id }
+  }
+
   setAutoApprove(superagentId: string, value: boolean): void {
     this.deps.store.update(superagentId, { autoApprove: value })
   }
