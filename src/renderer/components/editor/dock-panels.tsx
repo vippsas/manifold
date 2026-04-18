@@ -219,6 +219,9 @@ function ProjectsPanel(): React.JSX.Element {
       onNewAgent={s.onNewAgentFromHeader}
       onNewProject={s.onNewProject}
       onNewSuperagent={s.onNewSuperagent}
+      superagents={s.superagents}
+      activeSuperagentId={s.activeSuperagentId}
+      onSelectSuperagent={s.onSelectSuperagent}
       fetchingProjectId={s.fetchingProjectId}
       lastFetchedProjectId={s.lastFetchedProjectId}
       fetchResult={s.fetchResult}

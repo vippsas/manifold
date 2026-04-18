@@ -1,7 +1,9 @@
 import React, { useCallback, useState } from 'react'
 import type { Project, AgentSession } from '../../../shared/types'
+import type { Superagent } from '../../../shared/superagent-types'
 import { sidebarStyles } from './ProjectSidebar.styles'
 import { AgentItem, formatBranchLabel, runtimeLabel } from './AgentItem'
+import { SuperagentList } from './SuperagentList'
 import { createDialogStyles } from '../workbench-style-primitives'
 
 const deleteDialogStyles = createDialogStyles('360px')
@@ -20,6 +22,9 @@ interface ProjectSidebarProps {
   onNewAgent: () => void
   onNewProject: () => void
   onNewSuperagent?: () => void
+  superagents?: Superagent[]
+  activeSuperagentId?: string | null
+  onSelectSuperagent?: (id: string) => void
   fetchingProjectId: string | null
   lastFetchedProjectId: string | null
   fetchResult: { updatedBranch: string; commitCount: number } | null
@@ -41,6 +46,9 @@ export function ProjectSidebar({
   onNewAgent,
   onNewProject,
   onNewSuperagent,
+  superagents,
+  activeSuperagentId,
+  onSelectSuperagent,
   fetchingProjectId,
   lastFetchedProjectId,
   fetchResult,
@@ -84,6 +92,13 @@ export function ProjectSidebar({
   return (
     <>
       <div style={sidebarStyles.root}>
+        {superagents && onSelectSuperagent && (
+          <SuperagentList
+            superagents={superagents}
+            activeSuperagentId={activeSuperagentId ?? null}
+            onSelect={onSelectSuperagent}
+          />
+        )}
         <ProjectList
           projects={projects}
           activeProjectId={activeProjectId}

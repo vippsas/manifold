@@ -78,6 +78,9 @@ export interface DockAppState {
   newAgentFocusTrigger: number
   onNewProject: () => void
   onNewSuperagent?: () => void
+  superagents?: import('../../../shared/superagent-types').Superagent[]
+  activeSuperagentId?: string | null
+  onSelectSuperagent?: (id: string) => void
   fetchingProjectId: string | null
   lastFetchedProjectId: string | null
   fetchResult: { updatedBranch: string; commitCount: number } | null
