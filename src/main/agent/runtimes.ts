@@ -8,14 +8,16 @@ export const BUILT_IN_RUNTIMES: readonly AgentRuntime[] = [
     binary: 'claude',
     args: ['--allow-dangerously-skip-permissions'],
     aiModelArgs: ['--model', 'haiku'],
-    waitingPattern: '❯|waiting for input|Interrupt to stop'
+    waitingPattern: '❯|waiting for input|Interrupt to stop',
+    orchestratorCapable: true
   },
   {
     id: 'codex',
     name: 'Codex',
     binary: 'codex',
     args: [],
-    waitingPattern: '> |codex>'
+    waitingPattern: '> |codex>',
+    orchestratorCapable: true
   },
   {
     id: 'copilot',
@@ -23,7 +25,8 @@ export const BUILT_IN_RUNTIMES: readonly AgentRuntime[] = [
     binary: 'copilot',
     args: ['--yolo'],
     aiModelArgs: ['--model', 'claude-sonnet-4.5'],
-    waitingPattern: '> |❯'
+    waitingPattern: '> |❯',
+    orchestratorCapable: true
   },
   {
     id: 'gemini',
@@ -31,7 +34,8 @@ export const BUILT_IN_RUNTIMES: readonly AgentRuntime[] = [
     binary: 'gemini',
     args: [],
     aiModelArgs: ['--model', 'gemini-2.0-flash'],
-    waitingPattern: '❯|>>> '
+    waitingPattern: '❯|>>> ',
+    orchestratorCapable: true
   },
   {
     id: 'ollama-claude',
@@ -39,7 +43,8 @@ export const BUILT_IN_RUNTIMES: readonly AgentRuntime[] = [
     binary: 'ollama',
     args: ['launch', 'claude'],
     needsModel: true,
-    waitingPattern: '❯|waiting for input|Interrupt to stop'
+    waitingPattern: '❯|waiting for input|Interrupt to stop',
+    orchestratorCapable: true
   },
   {
     id: 'ollama-codex',

@@ -36,9 +36,15 @@ export function useCodeViewFileOps(
   activeSessionId: string | null,
   refs: StateRefs,
   setters: StateSetters,
+  readFileOverride: ((filePath: string) => Promise<string>) | null = null,
+  writeFileOverride: ((filePath: string, content: string) => Promise<void>) | null = null,
 ): CodeViewFileOps {
   const activeSessionIdRef = useRef(activeSessionId)
   activeSessionIdRef.current = activeSessionId
+  const readFileOverrideRef = useRef(readFileOverride)
+  readFileOverrideRef.current = readFileOverride
+  const writeFileOverrideRef = useRef(writeFileOverride)
+  writeFileOverrideRef.current = writeFileOverride
 
   const handleSelectFile = useCallback(
     (filePath: string, preferredPaneId?: string | null): string => {
@@ -47,7 +53,7 @@ export function useCodeViewFileOps(
       setters.setEditorPanes((prev) => ensureEditorPane(prev, targetPaneId))
       setters.setActiveEditorPaneId(targetPaneId)
 
-      if (!activeSessionIdRef.current) {
+      if (!activeSessionIdRef.current && !readFileOverrideRef.current) {
         return targetPaneId
       }
 
@@ -98,11 +104,13 @@ export function useCodeViewFileOps(
 
       void (async (): Promise<void> => {
         try {
-          const content = (await window.electronAPI.invoke(
-            'files:read',
-            activeSessionIdRef.current,
-            filePath,
-          )) as string
+          const content = readFileOverrideRef.current
+            ? await readFileOverrideRef.current(filePath)
+            : ((await window.electronAPI.invoke(
+                'files:read',
+                activeSessionIdRef.current,
+                filePath,
+              )) as string)
 
           setters.setOpenFiles((prev) => upsertOpenFile(prev, createOpenFile(filePath, content)))
           setters.setEditorPanes((prev) => {
@@ -144,7 +152,8 @@ export function useCodeViewFileOps(
 
   const handleSaveFile = useCallback(
     (filePath: string, content: string): void => {
-      if (!activeSessionIdRef.current || !filePath) return
+      if (!filePath) return
+      if (!activeSessionIdRef.current && !writeFileOverrideRef.current) return
 
       setters.setOpenFiles((prev) =>
         prev.map((file) => (file.path === filePath ? { ...file, content } : file)),
@@ -152,7 +161,11 @@ export function useCodeViewFileOps(
 
       void (async (): Promise<void> => {
         try {
-          await window.electronAPI.invoke('files:write', activeSessionIdRef.current, filePath, content)
+          if (writeFileOverrideRef.current) {
+            await writeFileOverrideRef.current(filePath, content)
+          } else {
+            await window.electronAPI.invoke('files:write', activeSessionIdRef.current, filePath, content)
+          }
         } catch {
           // Save failed silently
         }
@@ -192,7 +205,7 @@ export function useCodeViewFileOps(
   }, [])
 
   const refreshOpenFiles = useCallback(async (): Promise<void> => {
-    if (!activeSessionIdRef.current) return
+    if (!activeSessionIdRef.current && !readFileOverrideRef.current) return
     const currentFiles = refs.openFilesRef.current
     const openFilePaths = new Set(collectOpenFilePaths(refs.editorPanesRef.current))
     if (currentFiles.length === 0 || openFilePaths.size === 0) return
@@ -202,11 +215,13 @@ export function useCodeViewFileOps(
         .filter((file) => openFilePaths.has(file.path))
         .map(async (file) => {
           try {
-            const content = (await window.electronAPI.invoke(
-              'files:read',
-              activeSessionIdRef.current,
-              file.path,
-            )) as string
+            const content = readFileOverrideRef.current
+              ? await readFileOverrideRef.current(file.path)
+              : ((await window.electronAPI.invoke(
+                  'files:read',
+                  activeSessionIdRef.current,
+                  file.path,
+                )) as string)
             if (content === file.content) return file
             return {
               ...file,

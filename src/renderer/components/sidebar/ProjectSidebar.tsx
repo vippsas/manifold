@@ -1,7 +1,9 @@
 import React, { useCallback, useState } from 'react'
 import type { Project, AgentSession } from '../../../shared/types'
+import type { Superagent } from '../../../shared/superagent-types'
 import { sidebarStyles } from './ProjectSidebar.styles'
 import { AgentItem, formatBranchLabel, runtimeLabel } from './AgentItem'
+import { SuperagentList } from './SuperagentList'
 import { createDialogStyles } from '../workbench-style-primitives'
 
 const deleteDialogStyles = createDialogStyles('360px')
@@ -19,6 +21,11 @@ interface ProjectSidebarProps {
   onDeleteAgent: (id: string) => Promise<void>
   onNewAgent: () => void
   onNewProject: () => void
+  superagents?: Superagent[]
+  activeSuperagentId?: string | null
+  onSelectSuperagent?: (id: string) => void
+  onRemoveSuperagent?: (id: string) => Promise<void>
+  onSpawnFleetAgent?: (superagentId: string, projectId: string) => Promise<void>
   fetchingProjectId: string | null
   lastFetchedProjectId: string | null
   fetchResult: { updatedBranch: string; commitCount: number } | null
@@ -39,6 +46,11 @@ export function ProjectSidebar({
   onDeleteAgent,
   onNewAgent,
   onNewProject,
+  superagents,
+  activeSuperagentId,
+  onSelectSuperagent,
+  onRemoveSuperagent,
+  onSpawnFleetAgent,
   fetchingProjectId,
   lastFetchedProjectId,
   fetchResult,
@@ -82,9 +94,24 @@ export function ProjectSidebar({
   return (
     <>
       <div style={sidebarStyles.root}>
+        {superagents && onSelectSuperagent && (
+          <SuperagentList
+            superagents={superagents}
+            projects={projects}
+            activeSuperagentId={activeSuperagentId ?? null}
+            onSelect={onSelectSuperagent}
+            onRemove={onRemoveSuperagent}
+            allProjectSessions={allProjectSessions}
+            activeSessionId={activeSessionId}
+            outputtingSessionIds={outputtingSessionIds}
+            onSelectSession={onSelectSession}
+            onSpawnFleetAgent={onSpawnFleetAgent}
+            onDeleteAgent={handleRequestDeleteAgent}
+          />
+        )}
         <ProjectList
           projects={projects}
-          activeProjectId={activeProjectId}
+          activeProjectId={activeSuperagentId ? null : activeProjectId}
           allProjectSessions={allProjectSessions}
           activeSessionId={activeSessionId}
           outputtingSessionIds={outputtingSessionIds}

@@ -34,6 +34,8 @@ import { CommitPanel } from './components/git/CommitPanel'
 import { PRPanel } from './components/git/PRPanel'
 import { ConflictPanel } from './components/git/ConflictPanel'
 import { WelcomeDialog } from './components/modals/WelcomeDialog'
+import { NewSuperagentModal } from './components/modals/NewSuperagentModal'
+import { useSuperagents } from './hooks/useSuperagents'
 import { DockTab, EmptyWatermark } from './DockTab'
 import { TitleBar } from './components/TitleBar'
 import type { FileOpenRequest } from './components/editor/file-open-request'
@@ -54,7 +56,6 @@ export function App(): React.JSX.Element {
   const { projects, activeProjectId, addProject, cloneProject, createNewProject, removeProject, updateProject, setActiveProject, error: projectError } = useProjects()
   const { sessions, activeSessionId, activeSession, spawnAgent, deleteAgent, setActiveSession, resumeAgent, outputtingSessionIds } = useAgentSession(activeProjectId)
   const { sessionsByProject, removeSession } = useAllProjectSessions(projects, activeProjectId, sessions)
-  const allSessions = useMemo(() => Object.values(sessionsByProject).flat(), [sessionsByProject])
 
   // On startup, prefer selecting a project that has active agents
   const didAutoSelectRef = useRef(false)
@@ -74,11 +75,49 @@ export function App(): React.JSX.Element {
     }
   }, [sessionsByProject, activeProjectId, projects, setActiveProject])
 
+  const [activeSuperagentId, setActiveSuperagentId] = useState<string | null>(null)
+  const { superagents, createSuperagent, removeSuperagent, resumeSuperagent } = useSuperagents()
+  const activeSuperagent = superagents.find((s) => s.id === activeSuperagentId) ?? null
   useStatusNotification(outputtingSessionIds, settings.notificationSound)
   const { diff, changedFiles, refreshDiff } = useDiff(activeSessionId)
-  const dockLayout = useDockLayout(activeSessionId, settings.showIdeasTab)
+  const dockLayoutKey = activeSessionId ?? activeSuperagentId
+  const dockLayout = useDockLayout(dockLayoutKey, settings.showIdeasTab)
   const webPreview = useWebPreview(activeSessionId)
-  const codeView = useCodeView(activeSessionId)
+
+  const { superagentFileReader, superagentFileWriter } = useMemo(() => {
+    if (!activeSuperagent) return { superagentFileReader: null, superagentFileWriter: null }
+    const worktreeEntries = Object.entries(activeSuperagent.fleetWorktreePaths ?? {})
+    if (worktreeEntries.length === 0) return { superagentFileReader: null, superagentFileWriter: null }
+    const resolveProjectId = (filePath: string): string => {
+      const match = worktreeEntries.find(
+        ([, root]) => filePath === root || filePath.startsWith(root.endsWith('/') ? root : root + '/'),
+      )
+      if (!match) throw new Error(`File ${filePath} is not under any fleet worktree`)
+      return match[0]
+    }
+    const reader = async (filePath: string): Promise<string> => {
+      const projectId = resolveProjectId(filePath)
+      return (await window.electronAPI.invoke(
+        'files:read-for-superagent-project',
+        activeSuperagent.id,
+        projectId,
+        filePath,
+      )) as string
+    }
+    const writer = async (filePath: string, content: string): Promise<void> => {
+      const projectId = resolveProjectId(filePath)
+      await window.electronAPI.invoke(
+        'files:write-for-superagent-project',
+        activeSuperagent.id,
+        projectId,
+        filePath,
+        content,
+      )
+    }
+    return { superagentFileReader: reader, superagentFileWriter: writer }
+  }, [activeSuperagent])
+
+  const codeView = useCodeView(activeSessionId, superagentFileReader, superagentFileWriter)
 
   const appEffects = useAppEffects({
     activeSessionId,
@@ -104,8 +143,6 @@ export function App(): React.JSX.Element {
 
   const activeProject = projects.find((p) => p.id === activeProjectId) ?? null
   const autoGenerateMessages = settings.autoGenerateMessages
-  const worktreeShellCwd = activeSession?.worktreePath ?? null
-  const { worktreeSessionId, projectSessionId } = useShellSessions(worktreeShellCwd, activeProject?.path ?? null, activeSessionId)
   const gitOps = useGitOperations(activeSessionId)
 
   const handleFetchSuccess = useCallback((projectId: string) => {
@@ -122,6 +159,11 @@ export function App(): React.JSX.Element {
   const updateNotification = useUpdateNotification()
   const [lastFileOpenRequest, setLastFileOpenRequest] = useState<FileOpenRequest>({ path: null, source: 'default' })
   const [pendingSearchOpen, setPendingSearchOpen] = useState<SearchOpenTarget | null>(null)
+  const [newSuperagentVisible, setNewSuperagentVisible] = useState(false)
+  const worktreeShellCwd = activeSession?.worktreePath ?? activeSuperagent?.coordinationPath ?? null
+  const shellProjectCwd = activeSession ? (activeProject?.path ?? null) : null
+  const shellSessionKey = activeSessionId ?? activeSuperagentId
+  const { worktreeSessionId, projectSessionId } = useShellSessions(worktreeShellCwd, shellProjectCwd, shellSessionKey)
 
   const openSearchResultInActiveSession = useCallback((target: SearchOpenTarget): void => {
     setLastFileOpenRequest({
@@ -276,11 +318,31 @@ export function App(): React.JSX.Element {
     baseBranch, defaultRuntime: settings.defaultRuntime,
     onLaunchAgent: overlays.handleLaunchAgent, projects, activeProjectId,
     allProjectSessions: sessionsByProject, outputtingSessionIds,
-    onSelectProject: setActiveProject,
-    onSelectSession: overlays.handleSelectSession, onRemoveProject: removeProject,
+    onSelectProject: (id: string) => { setActiveSuperagentId(null); setActiveProject(id) },
+    onSelectSession: (sessionId: string, projectId: string) => { setActiveSuperagentId(null); overlays.handleSelectSession(sessionId, projectId) },
+    onRemoveProject: removeProject,
     onUpdateProject: updateProject, onDeleteAgent: overlays.handleDeleteAgent,
-    onNewAgentFromHeader: overlays.handleNewAgentFromHeader, newAgentFocusTrigger: overlays.newAgentFocusTrigger,
+    onNewAgentFromHeader: () => { setActiveSuperagentId(null); overlays.handleNewAgentFromHeader() }, newAgentFocusTrigger: overlays.newAgentFocusTrigger,
     onNewProject: () => appEffects.setShowOnboarding(true),
+    onNewSuperagent: () => setNewSuperagentVisible(true),
+    superagents,
+    activeSuperagentId,
+    activeSuperagent,
+    onSelectSuperagent: (id) => { setActiveSession(null); setActiveSuperagentId(id) },
+    onResumeSuperagent: (id: string) => resumeSuperagent(id),
+    onRemoveSuperagent: async (id: string) => {
+      await removeSuperagent(id)
+      setActiveSuperagentId((current) => (current === id ? null : current))
+    },
+    onSpawnFleetAgent: async (superagentId: string, projectId: string) => {
+      const result = (await window.electronAPI.invoke(
+        'superagent:spawn-fleet-agent',
+        superagentId,
+        projectId,
+      )) as { id: string }
+      setActiveSuperagentId(null)
+      overlays.handleSelectSession(result.id, projectId)
+    },
     fetchingProjectId: fetchProject.fetchingProjectId, lastFetchedProjectId: fetchProject.lastFetchedProjectId,
     fetchResult: fetchProject.fetchResult, fetchError: fetchProject.fetchError,
     onFetchProject: fetchProject.fetchProject, previewUrl: webPreview.previewUrl,
@@ -319,7 +381,7 @@ export function App(): React.JSX.Element {
       <div className="layout-main">
         <DockStateContext.Provider value={dockState}>
           <div style={{ flex: 1, overflow: 'hidden' }}>
-            <DockviewReact className={`dockview-theme-dark dockview-theme-manifold${!activeSessionId ? ' dockview-minimal' : ''}`}
+            <DockviewReact className={`dockview-theme-dark dockview-theme-manifold${!activeSessionId && !activeSuperagentId ? ' dockview-minimal' : ''}`}
               components={PANEL_COMPONENTS} onReady={(e) => dockLayout.onReady(e.api)}
               defaultTabComponent={DockTab} rightHeaderActionsComponent={EditorHeaderActions}
               watermarkComponent={EmptyWatermark} />
@@ -346,6 +408,17 @@ export function App(): React.JSX.Element {
       <SettingsModal visible={overlays.showSettings} settings={settings} onSave={overlays.handleSaveSettings}
         onClose={() => overlays.setShowSettings(false)} onPreviewTheme={setPreviewThemeId} />
       <AboutOverlay visible={overlays.showAbout} version={overlays.appVersion} onClose={() => overlays.setShowAbout(false)} />
+      <NewSuperagentModal
+        visible={newSuperagentVisible}
+        projects={projects}
+        defaultRuntime={settings.defaultRuntime}
+        onLaunch={async (opts) => {
+          const sa = await createSuperagent(opts)
+          setActiveSuperagentId(sa.id)
+          setNewSuperagentVisible(false)
+        }}
+        onClose={() => setNewSuperagentVisible(false)}
+      />
       {updateNotification.updateReady && (
         <UpdateToast version={updateNotification.version} onRestart={updateNotification.install} onDismiss={updateNotification.dismiss} />
       )}

@@ -51,7 +51,11 @@ export interface UseCodeViewResult {
   moveFileToPane: (filePath: string, targetPaneId: string, sourcePaneId?: string | null) => void
 }
 
-export function useCodeView(activeSessionId: string | null): UseCodeViewResult {
+export function useCodeView(
+  activeSessionId: string | null,
+  readFileOverride?: ((filePath: string) => Promise<string>) | null,
+  writeFileOverride?: ((filePath: string, content: string) => Promise<void>) | null,
+): UseCodeViewResult {
   const [openFiles, setOpenFiles] = useState<OpenFile[]>([])
   const [editorPanes, setEditorPanes] = useState<EditorPaneState[]>([createEditorPaneState()])
   const [activeEditorPaneId, setActiveEditorPaneId] = useState<string | null>(DEFAULT_EDITOR_PANE_ID)
@@ -66,7 +70,13 @@ export function useCodeView(activeSessionId: string | null): UseCodeViewResult {
   const refs = { openFilesRef, editorPanesRef, activeEditorPaneIdRef }
   const setters = { setOpenFiles, setEditorPanes, setActiveEditorPaneId }
 
-  const fileOps = useCodeViewFileOps(activeSessionId, refs, setters)
+  const fileOps = useCodeViewFileOps(
+    activeSessionId,
+    refs,
+    setters,
+    readFileOverride ?? null,
+    writeFileOverride ?? null,
+  )
 
   const activePane = useMemo(() => {
     if (!activeEditorPaneId) return editorPanes[0] ?? null

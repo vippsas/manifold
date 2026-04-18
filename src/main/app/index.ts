@@ -1,4 +1,5 @@
 import { app, BrowserWindow } from 'electron'
+import type { AgentStatus } from '../../shared/types'
 import { loadShellPath } from './shell-path'
 import { configureDevProfilePaths } from './dev-profile'
 
@@ -34,6 +35,12 @@ import { MemoryCapture } from '../memory/memory-capture'
 import { MemoryCompressor } from '../memory/memory-compressor'
 import { MemoryInjector } from '../memory/memory-injector'
 import { VercelHealthCheck } from '../deploy/vercel-health-check'
+import * as path from 'node:path'
+import { SuperagentStore } from '../superagent/superagent-store'
+import { ApprovalBroker } from '../superagent/approval-broker'
+import { McpBridgeServer } from '../superagent/mcp-bridge-server'
+import { SuperagentManager } from '../superagent/superagent-manager'
+import { getRuntimeById } from '../agent/runtimes'
 
 let mainWindow: BrowserWindow | null = null
 
@@ -46,6 +53,44 @@ const ptyPool = new PtyPool()
 const fileWatcher = new FileWatcher()
 const sessionManager = new SessionManager(worktreeManager, ptyPool, projectRegistry, branchCheckout, fileWatcher)
 const diffProvider = new DiffProvider()
+
+// ── Superagent modules ───────────────────────────────────────────────
+const manifoldHome = path.join(app.getPath('home'), '.manifold')
+const superagentStore = new SuperagentStore(path.join(manifoldHome, 'superagents.json'))
+const approvalBroker = new ApprovalBroker({
+  emit: (req) => { mainWindow?.webContents.send('superagent:approval-request', req) },
+  onAutoApprove: (id) => { superagentManagerRef?.setAutoApprove(id, true) },
+})
+let superagentManagerRef: SuperagentManager | null = null
+const mcpBridge = new McpBridgeServer({
+  socketPath: path.join(manifoldHome, 'mcp-bridge.sock'),
+  handleToolCall: (sid, name, args) => {
+    if (!superagentManagerRef) throw new Error('SuperagentManager not initialized')
+    return superagentManagerRef.handleToolCall(sid, name, args)
+  },
+})
+const superagentManager = new SuperagentManager({
+  store: superagentStore,
+  storageRoot: manifoldHome,
+  approvalBroker,
+  worktreeManager,
+  projectRegistry,
+  sessionManager,
+  diffProvider,
+  ptyPool,
+  runtimes: { getRuntimeById },
+  mcpBridge,
+  emitStatus: (sid, status) => { mainWindow?.webContents.send('superagent:status', { superagentId: sid, status }) },
+  emitListChanged: () => { mainWindow?.webContents.send('superagent:list-changed') },
+  emitChildSpawned: (sid, childId) => { mainWindow?.webContents.send('superagent:child-spawned', { superagentId: sid, sessionId: childId }) },
+  emitOutput: (sid, chunk) => { mainWindow?.webContents.send('agent:output', { sessionId: sid, data: chunk }) },
+})
+superagentManagerRef = superagentManager
+sessionManager.setStatusListener((sessionId, status) => {
+  const session = sessionManager.getSession(sessionId)
+  const parentId = session?.parentSuperagentId
+  if (parentId) superagentManager.onChildStatusChange(parentId, sessionId, status as AgentStatus)
+})
 const prCreator = new PrCreator()
 const viewStateStore = new ViewStateStore()
 const shellTabStore = new ShellTabStore()
@@ -93,6 +138,8 @@ const ipcDeps = {
   chatStore,
   memoryStore,
   vercelHealthCheck,
+  superagentManager,
+  approvalBroker,
 }
 
 function doCreateWindow(): void {
@@ -116,9 +163,15 @@ modeSwitcher.register(
 )
 
 // ── App lifecycle ────────────────────────────────────────────────────
-app.whenReady().then(() => {
+app.whenReady().then(async () => {
   doCreateWindow()
   setupAutoUpdater()
+
+  try {
+    await mcpBridge.start()
+  } catch (err) {
+    console.error('Failed to start MCP bridge:', err)
+  }
 
   try {
     const settings = settingsStore.getSettings()

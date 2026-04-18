@@ -8,6 +8,9 @@ export interface AgentRuntime {
   env?: Record<string, string>
   installed?: boolean
   needsModel?: boolean
+  // True if the runtime accepts Claude-style `--mcp-config` / `--strict-mcp-config`
+  // flags, which the superagent orchestrator requires.
+  orchestratorCapable?: boolean
 }
 
 export type AgentStatus = 'running' | 'waiting' | 'done' | 'error'
@@ -25,6 +28,8 @@ export interface AgentSession {
   simplePromptInstructions?: string
   additionalDirs: string[]
   noWorktree?: boolean
+  /** If set, this agent was spawned by a superagent and is listed as a child. */
+  parentSuperagentId?: string
 }
 
 export interface Project {
@@ -120,6 +125,14 @@ export interface SpawnAgentOptions {
   cols?: number
   rows?: number
   ollamaModel?: string
+  /** If set, the spawned session is owned by this superagent. */
+  parentSuperagentId?: string
+  /**
+   * Attach the session to an existing worktree instead of creating a new one.
+   * Used when a superagent's fleet worktree already exists and we want to
+   * spawn an interactive session inside it.
+   */
+  existingWorktreePath?: string
 }
 
 export interface CreatePROptions {
