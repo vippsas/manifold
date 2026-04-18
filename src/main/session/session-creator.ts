@@ -185,6 +185,7 @@ export class SessionCreator {
       ollamaModel: options.ollamaModel,
       additionalDirs: [],
       noWorktree: options.noWorktree,
+      parentSuperagentId: options.parentSuperagentId,
       nonInteractive: options.nonInteractive,
       nonInteractiveOutputMode,
     }

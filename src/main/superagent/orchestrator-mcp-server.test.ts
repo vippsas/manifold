@@ -106,3 +106,85 @@ describe('OrchestratorMcpServer — read-only tools', () => {
     await expect(server.handleToolCall('bogus', {})).rejects.toThrow(/unknown tool/i)
   })
 })
+
+describe('OrchestratorMcpServer — gated tools', () => {
+  let deps: ReturnType<typeof makeDeps>
+  let server: OrchestratorMcpServer
+
+  beforeEach(() => {
+    deps = makeDeps()
+    server = new OrchestratorMcpServer(deps)
+  })
+
+  it('spawn_agent requests approval, then calls createSession on approve', async () => {
+    deps.approvalBroker.requestApproval = vi.fn(async () => 'approve')
+    deps.sessionManager.createSession = vi.fn(async () => ({
+      id: 'child-1',
+      projectId: 'p1',
+      runtimeId: 'claude',
+      branchName: 'b',
+      worktreePath: '/w',
+      status: 'running',
+      pid: 1,
+      additionalDirs: [],
+      parentSuperagentId: 'super-1',
+    }))
+    const result = await server.handleToolCall('spawn_agent', {
+      projectId: 'p1',
+      runtime: 'claude',
+      prompt: 'hello',
+    })
+    expect(deps.approvalBroker.requestApproval).toHaveBeenCalledWith(
+      'super-1',
+      'spawn_agent',
+      expect.objectContaining({ projectId: 'p1', runtime: 'claude', prompt: 'hello' }),
+    )
+    expect(deps.sessionManager.createSession).toHaveBeenCalledWith(
+      expect.objectContaining({
+        projectId: 'p1',
+        runtimeId: 'claude',
+        prompt: 'hello',
+        parentSuperagentId: 'super-1',
+      }),
+    )
+    expect(result).toEqual({ sessionId: 'child-1' })
+  })
+
+  it('spawn_agent returns denied error without calling createSession', async () => {
+    deps.approvalBroker.requestApproval = vi.fn(async () => 'deny')
+    deps.sessionManager.createSession = vi.fn()
+    await expect(
+      server.handleToolCall('spawn_agent', { projectId: 'p1', runtime: 'claude', prompt: 'x' }),
+    ).rejects.toThrow(/denied/i)
+    expect(deps.sessionManager.createSession).not.toHaveBeenCalled()
+  })
+
+  it('spawn_agent rejects projectId not in fleet', async () => {
+    await expect(
+      server.handleToolCall('spawn_agent', { projectId: 'not-in-fleet', runtime: 'claude', prompt: 'x' }),
+    ).rejects.toThrow(/not in fleet/i)
+  })
+
+  it('send_prompt approves, then writes to PTY', async () => {
+    deps.sessionManager.getSession = vi.fn(() => ({ id: 'c1', parentSuperagentId: 'super-1' }) as any)
+    deps.approvalBroker.requestApproval = vi.fn(async () => 'approve')
+    await server.handleToolCall('send_prompt', { sessionId: 'c1', prompt: 'hi' })
+    expect(deps.sessionManager.sendInput).toHaveBeenCalledWith('c1', 'hi\r')
+  })
+
+  it('stop_agent approves, then kills', async () => {
+    deps.sessionManager.getSession = vi.fn(() => ({ id: 'c1', parentSuperagentId: 'super-1' }) as any)
+    deps.approvalBroker.requestApproval = vi.fn(async () => 'approve')
+    await server.handleToolCall('stop_agent', { sessionId: 'c1' })
+    expect(deps.sessionManager.killSession).toHaveBeenCalledWith('c1')
+  })
+
+  it('gated tool skips approval when autoApprove is on', async () => {
+    deps.getAutoApprove = vi.fn(() => true)
+    deps.approvalBroker.requestApproval = vi.fn()
+    deps.sessionManager.createSession = vi.fn(async () => ({ id: 'c1' }) as any)
+    await server.handleToolCall('spawn_agent', { projectId: 'p1', runtime: 'claude', prompt: 'x' })
+    expect(deps.approvalBroker.requestApproval).not.toHaveBeenCalled()
+    expect(deps.sessionManager.createSession).toHaveBeenCalled()
+  })
+})

@@ -58,9 +58,68 @@ export class OrchestratorMcpServer {
     }
   }
 
-  private async handleGated(_name: string, _args: Record<string, unknown>): Promise<ToolResult> {
-    // Implemented in Task 6.
-    throw new Error('Gated tools not yet implemented')
+  private async handleGated(name: string, args: Record<string, unknown>): Promise<ToolResult> {
+    // Validate first so we don't ask for approval on invalid calls.
+    if (name === 'spawn_agent') {
+      const projectId = String(args.projectId)
+      const superagent = this.deps.getSuperagent()
+      if (!superagent) throw new Error('Superagent not found')
+      if (!superagent.fleetProjectIds.includes(projectId)) {
+        throw new Error(`Project ${projectId} is not in fleet`)
+      }
+    } else if (name === 'send_prompt' || name === 'stop_agent') {
+      this.requireChildSession(String(args.sessionId))
+    }
+
+    if (!this.deps.getAutoApprove()) {
+      const decision = await this.deps.approvalBroker.requestApproval(
+        this.deps.superagentId,
+        name as any,
+        args,
+      )
+      if (decision === 'deny') {
+        throw new Error(`Tool call denied by user: ${name}`)
+      }
+    }
+
+    switch (name) {
+      case 'spawn_agent':
+        return this.spawnAgent(args)
+      case 'send_prompt':
+        return this.sendPrompt(args)
+      case 'stop_agent':
+        return this.stopAgent(args)
+      default:
+        throw new Error(`Unknown gated tool: ${name}`)
+    }
+  }
+
+  private async spawnAgent(args: Record<string, unknown>): Promise<ToolResult> {
+    const projectId = String(args.projectId)
+    const runtime = String(args.runtime)
+    const prompt = String(args.prompt)
+    const branchName = args.branchName ? String(args.branchName) : undefined
+    const session = await this.deps.sessionManager.createSession({
+      projectId,
+      runtimeId: runtime,
+      prompt,
+      branchName,
+      parentSuperagentId: this.deps.superagentId,
+    })
+    return { sessionId: session.id }
+  }
+
+  private async sendPrompt(args: Record<string, unknown>): Promise<ToolResult> {
+    const sessionId = String(args.sessionId)
+    const prompt = String(args.prompt)
+    this.deps.sessionManager.sendInput(sessionId, `${prompt}\r`)
+    return { ok: true }
+  }
+
+  private async stopAgent(args: Record<string, unknown>): Promise<ToolResult> {
+    const sessionId = String(args.sessionId)
+    await this.deps.sessionManager.killSession(sessionId)
+    return { ok: true }
   }
 
   private listProjects(): ToolResult {

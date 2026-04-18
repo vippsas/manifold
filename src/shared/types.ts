@@ -122,6 +122,8 @@ export interface SpawnAgentOptions {
   cols?: number
   rows?: number
   ollamaModel?: string
+  /** If set, the spawned session is owned by this superagent. */
+  parentSuperagentId?: string
 }
 
 export interface CreatePROptions {
