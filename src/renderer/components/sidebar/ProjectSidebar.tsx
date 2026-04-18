@@ -95,6 +95,7 @@ export function ProjectSidebar({
         {superagents && onSelectSuperagent && (
           <SuperagentList
             superagents={superagents}
+            projects={projects}
             activeSuperagentId={activeSuperagentId ?? null}
             onSelect={onSelectSuperagent}
             onRemove={onRemoveSuperagent}
@@ -102,7 +103,7 @@ export function ProjectSidebar({
         )}
         <ProjectList
           projects={projects}
-          activeProjectId={activeProjectId}
+          activeProjectId={activeSuperagentId ? null : activeProjectId}
           allProjectSessions={allProjectSessions}
           activeSessionId={activeSessionId}
           outputtingSessionIds={outputtingSessionIds}

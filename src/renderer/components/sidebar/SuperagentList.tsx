@@ -1,5 +1,6 @@
 import { useCallback, useState } from 'react'
 import type { Superagent } from '../../../shared/superagent-types'
+import type { Project } from '../../../shared/types'
 import { sidebarStyles } from './ProjectSidebar.styles'
 import { createDialogStyles } from '../workbench-style-primitives'
 
@@ -7,6 +8,7 @@ const deleteDialogStyles = createDialogStyles('360px')
 
 interface SuperagentListProps {
   superagents: Superagent[]
+  projects: Project[]
   activeSuperagentId: string | null
   onSelect: (id: string) => void
   onRemove?: (id: string) => Promise<void>
@@ -14,6 +16,7 @@ interface SuperagentListProps {
 
 export function SuperagentList({
   superagents,
+  projects,
   activeSuperagentId,
   onSelect,
   onRemove,
@@ -43,50 +46,102 @@ export function SuperagentList({
   }, [onRemove, pendingDelete])
 
   if (superagents.length === 0) return null
+
+  const repoLabel = (s: Superagent): string =>
+    s.fleetProjectIds
+      .map((id) => projects.find((p) => p.id === id)?.name ?? id)
+      .join(', ')
+
+  const isAlive = (status: Superagent['status']): boolean =>
+    status === 'running' || status === 'waiting'
+
   return (
     <>
-      <div style={{ padding: 8 }}>
-        <div style={{ fontSize: 11, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: 1, marginBottom: 4 }}>
-          Superagents
-        </div>
-        {superagents.map((s) => (
-          <div
-            key={s.id}
-            onClick={() => onSelect(s.id)}
-            className="sidebar-item-row"
-            style={{
-              padding: '6px 8px',
-              cursor: 'pointer',
-              borderRadius: 4,
-              background: s.id === activeSuperagentId ? 'var(--bg-secondary)' : 'transparent',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'space-between',
-              gap: 4,
-            }}
-          >
-            <div style={{ minWidth: 0, flex: 1 }}>
-              <div style={{ fontSize: 13 }}>{s.name}</div>
-              <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>
-                {s.fleetProjectIds.length} repos · {s.status}
+      <div style={{ paddingTop: 8 }}>
+        <div style={sidebarStyles.sectionLabel}>Superagents</div>
+        {superagents.map((s) => {
+          const isActive = s.id === activeSuperagentId
+          const alive = isAlive(s.status)
+          const title = `${s.name} — ${repoLabel(s)}`
+          if (isActive) {
+            return (
+              <div
+                key={s.id}
+                className="sidebar-project-group sidebar-project-group--active sidebar-project-group--has-agents"
+              >
+                <div
+                  onClick={() => onSelect(s.id)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter' || e.key === ' ') {
+                      e.preventDefault()
+                      onSelect(s.id)
+                    }
+                  }}
+                  role="button"
+                  tabIndex={0}
+                  className="sidebar-item-row sidebar-project-row sidebar-item-row--active"
+                  style={{ ...sidebarStyles.item, ...sidebarStyles.itemActive, position: 'relative' as const }}
+                  title={title}
+                >
+                  <span className="truncate sidebar-row-label" style={sidebarStyles.itemName}>
+                    {s.name}
+                  </span>
+                  {onRemove && (
+                    <div className="sidebar-item-actions" style={sidebarStyles.itemRight}>
+                      <button
+                        type="button"
+                        onClick={(e) => handleRequestDelete(e, s)}
+                        onKeyDown={(e) => e.stopPropagation()}
+                        className="sidebar-icon-button"
+                        style={sidebarStyles.removeButton}
+                        aria-label={`Remove ${s.name}`}
+                        title="Remove superagent"
+                      >
+                        &times;
+                      </button>
+                    </div>
+                  )}
+                </div>
+                <div style={{ ...sidebarStyles.fetchMessage, display: 'flex', alignItems: 'center', gap: 6 }}>
+                  <span className={`status-dot${alive ? '' : ' status-dot--hidden'}`} style={{ width: 6, height: 6 }} />
+                  <span className="truncate">{repoLabel(s)} &middot; {s.status}</span>
+                </div>
+              </div>
+            )
+          }
+          return (
+            <div
+              key={s.id}
+              style={sidebarStyles.collapsedProject}
+              onClick={() => onSelect(s.id)}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter' || e.key === ' ') {
+                  e.preventDefault()
+                  onSelect(s.id)
+                }
+              }}
+              role="button"
+              tabIndex={0}
+              className="sidebar-project-group sidebar-project-group--has-agents sidebar-project-group--collapsed"
+              title={title}
+            >
+              <span
+                className="truncate sidebar-row-label"
+                style={{ ...sidebarStyles.item, color: 'var(--text-secondary)', fontSize: 'var(--type-ui-small)' }}
+              >
+                {s.name}
+              </span>
+              <div style={sidebarStyles.miniStatusDots}>
+                {alive && (
+                  <span
+                    title={s.status}
+                    style={{ ...sidebarStyles.miniDot, background: 'var(--accent)' }}
+                  />
+                )}
               </div>
             </div>
-            {onRemove && (
-              <div className="sidebar-item-actions">
-                <button
-                  type="button"
-                  onClick={(e) => handleRequestDelete(e, s)}
-                  className="sidebar-icon-button"
-                  style={sidebarStyles.agentDeleteButton}
-                  aria-label={`Remove ${s.name}`}
-                  title="Remove superagent"
-                >
-                  &times;
-                </button>
-              </div>
-            )}
-          </div>
-        ))}
+          )
+        })}
       </div>
       {pendingDelete && (
         <DeleteSuperagentDialog

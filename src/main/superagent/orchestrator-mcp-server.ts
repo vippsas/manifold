@@ -127,10 +127,18 @@ export class OrchestratorMcpServer {
   private listProjects(): ToolResult {
     const superagent = this.deps.getSuperagent()
     if (!superagent) throw new Error('Superagent not found')
+    const worktreePaths = superagent.fleetWorktreePaths ?? {}
+    const branch = superagent.branchName
     const projects = superagent.fleetProjectIds
       .map((id) => this.deps.projectRegistry.getProject(id))
       .filter((p): p is ProjectLike => Boolean(p))
-      .map(({ id, name, path }) => ({ id, name, path }))
+      .map(({ id, name, path, baseBranch }) => ({
+        id,
+        name,
+        path: worktreePaths[id] ?? path,
+        branch,
+        baseBranch: baseBranch ?? 'main',
+      }))
     return { projects }
   }
 

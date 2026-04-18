@@ -73,6 +73,7 @@ const superagentManager = new SuperagentManager({
   store: superagentStore,
   storageRoot: manifoldHome,
   approvalBroker,
+  worktreeManager,
   projectRegistry,
   sessionManager,
   diffProvider,

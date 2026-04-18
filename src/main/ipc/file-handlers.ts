@@ -19,7 +19,7 @@ function isPathAllowed(resolved: string, session: AgentSession): boolean {
 }
 
 export function registerFileHandlers(deps: IpcDependencies): void {
-  const { sessionManager, fileWatcher, projectRegistry } = deps
+  const { sessionManager, fileWatcher, projectRegistry, superagentManager } = deps
 
   ipcMain.handle('files:tree', (_event, sessionId: string) => {
     const session = sessionManager.getSession(sessionId)
@@ -32,6 +32,43 @@ export function registerFileHandlers(deps: IpcDependencies): void {
     if (!project) throw new Error(`Project not found: ${projectId}`)
     return fileWatcher.getFileTree(project.path)
   })
+
+  ipcMain.handle(
+    'files:tree-for-superagent-project',
+    (_event, superagentId: string, projectId: string) => {
+      const superagent = superagentManager.list().find((s) => s.id === superagentId)
+      if (!superagent) throw new Error(`Superagent not found: ${superagentId}`)
+      if (!superagent.fleetProjectIds.includes(projectId)) {
+        throw new Error(`Project ${projectId} is not in fleet of superagent ${superagentId}`)
+      }
+      const worktreePath = superagent.fleetWorktreePaths?.[projectId]
+      if (!worktreePath) {
+        const project = projectRegistry.getProject(projectId)
+        if (!project) throw new Error(`Project not found: ${projectId}`)
+        return fileWatcher.getFileTree(project.path)
+      }
+      return fileWatcher.getFileTree(worktreePath)
+    },
+  )
+
+  ipcMain.handle(
+    'files:read-for-superagent-project',
+    (_event, superagentId: string, projectId: string, filePath: string) => {
+      const superagent = superagentManager.list().find((s) => s.id === superagentId)
+      if (!superagent) throw new Error(`Superagent not found: ${superagentId}`)
+      if (!superagent.fleetProjectIds.includes(projectId)) {
+        throw new Error(`Project ${projectId} is not in fleet of superagent ${superagentId}`)
+      }
+      const worktreePath = superagent.fleetWorktreePaths?.[projectId]
+      const rootPath = worktreePath ?? projectRegistry.getProject(projectId)?.path
+      if (!rootPath) throw new Error(`No worktree or project path for ${projectId}`)
+      const resolved = resolve(rootPath, filePath)
+      if (!isUnderDir(resolved, rootPath)) {
+        throw new Error('Path traversal denied: file outside fleet worktree')
+      }
+      return fileWatcher.readFile(resolved)
+    },
+  )
 
   ipcMain.handle('files:tree-dir', (_event, sessionId: string, dirPath: string) => {
     const session = sessionManager.getSession(sessionId)

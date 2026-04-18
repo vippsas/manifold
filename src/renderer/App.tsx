@@ -76,12 +76,34 @@ export function App(): React.JSX.Element {
   }, [sessionsByProject, activeProjectId, projects, setActiveProject])
 
   const [activeSuperagentId, setActiveSuperagentId] = useState<string | null>(null)
+  const { superagents, createSuperagent, removeSuperagent, resumeSuperagent } = useSuperagents()
+  const activeSuperagent = superagents.find((s) => s.id === activeSuperagentId) ?? null
   useStatusNotification(outputtingSessionIds, settings.notificationSound)
   const { diff, changedFiles, refreshDiff } = useDiff(activeSessionId)
   const dockLayoutKey = activeSessionId ?? activeSuperagentId
   const dockLayout = useDockLayout(dockLayoutKey, settings.showIdeasTab)
   const webPreview = useWebPreview(activeSessionId)
-  const codeView = useCodeView(activeSessionId)
+
+  const superagentFileReader = useMemo(() => {
+    if (!activeSuperagent) return null
+    const worktreeEntries = Object.entries(activeSuperagent.fleetWorktreePaths ?? {})
+    if (worktreeEntries.length === 0) return null
+    return async (filePath: string): Promise<string> => {
+      const match = worktreeEntries.find(
+        ([, root]) => filePath === root || filePath.startsWith(root.endsWith('/') ? root : root + '/'),
+      )
+      if (!match) throw new Error(`File ${filePath} is not under any fleet worktree`)
+      const [projectId] = match
+      return (await window.electronAPI.invoke(
+        'files:read-for-superagent-project',
+        activeSuperagent.id,
+        projectId,
+        filePath,
+      )) as string
+    }
+  }, [activeSuperagent])
+
+  const codeView = useCodeView(activeSessionId, superagentFileReader)
 
   const appEffects = useAppEffects({
     activeSessionId,
@@ -124,8 +146,6 @@ export function App(): React.JSX.Element {
   const [lastFileOpenRequest, setLastFileOpenRequest] = useState<FileOpenRequest>({ path: null, source: 'default' })
   const [pendingSearchOpen, setPendingSearchOpen] = useState<SearchOpenTarget | null>(null)
   const [newSuperagentVisible, setNewSuperagentVisible] = useState(false)
-  const { superagents, createSuperagent, removeSuperagent } = useSuperagents()
-  const activeSuperagent = superagents.find((s) => s.id === activeSuperagentId) ?? null
   const worktreeShellCwd = activeSession?.worktreePath ?? activeSuperagent?.coordinationPath ?? null
   const shellProjectCwd = activeSession ? (activeProject?.path ?? null) : null
   const shellSessionKey = activeSessionId ?? activeSuperagentId
@@ -294,7 +314,8 @@ export function App(): React.JSX.Element {
     superagents,
     activeSuperagentId,
     activeSuperagent,
-    onSelectSuperagent: (id) => setActiveSuperagentId(id),
+    onSelectSuperagent: (id) => { setActiveSession(null); setActiveSuperagentId(id) },
+    onResumeSuperagent: (id: string) => resumeSuperagent(id),
     onRemoveSuperagent: async (id: string) => {
       await removeSuperagent(id)
       setActiveSuperagentId((current) => (current === id ? null : current))

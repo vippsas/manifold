@@ -29,7 +29,12 @@ export class SuperagentStore {
       if (!fs.existsSync(this.filePath)) return []
       const raw = fs.readFileSync(this.filePath, 'utf-8')
       const parsed = JSON.parse(raw)
-      return Array.isArray(parsed) ? (parsed as Superagent[]) : []
+      if (!Array.isArray(parsed)) return []
+      return (parsed as Partial<Superagent>[]).map((s) => ({
+        ...(s as Superagent),
+        fleetWorktreePaths: s.fleetWorktreePaths ?? {},
+        branchName: s.branchName ?? `manifold/${(s.name ?? 'superagent').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)+/g, '') || 'superagent'}`,
+      }))
     } catch {
       return []
     }

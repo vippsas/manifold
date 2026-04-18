@@ -4,14 +4,22 @@ export interface OrchestratorPromptInput {
   taskDescription: string
   initialPrompt: string
   fleet: Project[]
+  fleetWorktreePaths?: Record<string, string>
+  branchName?: string
 }
 
 export function buildOrchestratorPrompt({
   taskDescription,
   initialPrompt,
   fleet,
+  fleetWorktreePaths,
+  branchName,
 }: OrchestratorPromptInput): string {
-  const fleetList = fleet.map((p) => `- ${p.name} (id=${p.id}, path=${p.path}, base=${p.baseBranch})`).join('\n')
+  const fleetList = fleet.map((p) => {
+    const worktreePath = fleetWorktreePaths?.[p.id] ?? p.path
+    const branchPart = branchName ? `, branch=${branchName}` : ''
+    return `- ${p.name} (id=${p.id}, path=${worktreePath}${branchPart}, base=${p.baseBranch})`
+  }).join('\n')
   const lines: string[] = [
     'You are a Manifold superagent — an orchestrator that coordinates work across multiple repos by calling MCP tools to spawn and control child agents.',
     '',

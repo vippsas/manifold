@@ -6,6 +6,8 @@ export interface Superagent {
   taskDescription: string
   runtimeId: 'claude'
   fleetProjectIds: string[]
+  fleetWorktreePaths: Record<string, string>
+  branchName: string
   childSessionIds: string[]
   coordinationPath: string
   createdAt: string

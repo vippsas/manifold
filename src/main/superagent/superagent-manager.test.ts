@@ -18,6 +18,13 @@ function makeDeps(tmpDir: string) {
     store: new SuperagentStore(path.join(tmpDir, 'superagents.json')),
     storageRoot: tmpDir,
     approvalBroker: new ApprovalBroker({ emit: vi.fn() }),
+    worktreeManager: {
+      createWorktree: vi.fn(async (projectPath: string, _baseBranch: string, _projectName: string, branchName?: string) => ({
+        branch: branchName ?? 'manifold/test',
+        path: `${projectPath}/.wt/${branchName ?? 'manifold-test'}`,
+      })),
+      removeWorktree: vi.fn(async () => { /* noop */ }),
+    } as any,
     projectRegistry: {
       getProject: vi.fn((id: string) => ({ id, name: id, path: `/r/${id}`, baseBranch: 'main', addedAt: '' })),
       listProjects: vi.fn(() => []),

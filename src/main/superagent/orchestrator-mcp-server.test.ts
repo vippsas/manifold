@@ -10,6 +10,8 @@ function makeSuperagent(): Superagent {
     taskDescription: 't',
     runtimeId: 'claude',
     fleetProjectIds: ['p1', 'p2'],
+    fleetWorktreePaths: {},
+    branchName: 'manifold/test',
     childSessionIds: [],
     coordinationPath: '/tmp/super-1',
     createdAt: '2026-04-18T00:00:00.000Z',
@@ -57,8 +59,8 @@ describe('OrchestratorMcpServer — read-only tools', () => {
     const result = await server.handleToolCall('list_projects', {})
     expect(result).toEqual({
       projects: [
-        { id: 'p1', name: 'name-p1', path: '/repo/p1' },
-        { id: 'p2', name: 'name-p2', path: '/repo/p2' },
+        { id: 'p1', name: 'name-p1', path: '/repo/p1', branch: 'manifold/test', baseBranch: 'main' },
+        { id: 'p2', name: 'name-p2', path: '/repo/p2', branch: 'manifold/test', baseBranch: 'main' },
       ],
     })
   })

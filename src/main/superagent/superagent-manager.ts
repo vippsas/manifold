@@ -14,6 +14,10 @@ export interface SuperagentManagerDeps {
   store: SuperagentStore
   storageRoot: string
   approvalBroker: ApprovalBroker
+  worktreeManager: {
+    createWorktree: (projectPath: string, baseBranch: string, projectName: string, branchName?: string) => Promise<{ branch: string; path: string }>
+    removeWorktree: (projectPath: string, worktreePath: string) => Promise<void>
+  }
   projectRegistry: {
     getProject: (id: string) => any
     listProjects: () => any[]
@@ -113,28 +117,16 @@ export class SuperagentManager {
       .map((pid) => this.deps.projectRegistry.getProject(pid))
       .filter(Boolean)
 
+    const branchName = `manifold/${slugifyName(options.name)}`
+    const fleetWorktreePaths = await this.createFleetWorktrees(fleet, branchName)
+
     const prompt = buildOrchestratorPrompt({
       taskDescription: options.taskDescription,
       initialPrompt: options.initialPrompt,
       fleet,
+      fleetWorktreePaths,
+      branchName,
     })
-
-    const handle = this.deps.ptyPool.spawn(
-      runtime.binary,
-      [
-        ...(runtime.args ?? []),
-        '--mcp-config', mcpConfigPath,
-        '--strict-mcp-config',
-        prompt,
-      ],
-      {
-        cwd: coordinationPath,
-        env: {
-          MANIFOLD_SUPERAGENT_ID: id,
-          MANIFOLD_MCP_SOCKET: this.deps.mcpBridge.socketPath,
-        },
-      },
-    )
 
     const superagent: Superagent = {
       id,
@@ -142,14 +134,90 @@ export class SuperagentManager {
       taskDescription: options.taskDescription,
       runtimeId: 'claude',
       fleetProjectIds: [...options.fleetProjectIds],
+      fleetWorktreePaths,
+      branchName,
       childSessionIds: [],
       coordinationPath,
       createdAt: new Date().toISOString(),
-      pid: handle.pid,
+      pid: null,
       status: 'running',
       autoApprove: false,
     }
     this.deps.store.add(superagent)
+
+    this.spawnAndWire(id, coordinationPath, runtime, mcpConfigPath, prompt)
+
+    this.deps.emitListChanged()
+
+    return this.deps.store.get(id) ?? superagent
+  }
+
+  private async createFleetWorktrees(
+    fleet: { id: string; path: string; name: string; baseBranch: string }[],
+    branchName: string,
+  ): Promise<Record<string, string>> {
+    const created: { projectPath: string; worktreePath: string }[] = []
+    const result: Record<string, string> = {}
+    try {
+      for (const project of fleet) {
+        const info = await this.deps.worktreeManager.createWorktree(
+          project.path,
+          project.baseBranch,
+          project.name,
+          branchName,
+        )
+        created.push({ projectPath: project.path, worktreePath: info.path })
+        result[project.id] = info.path
+      }
+      return result
+    } catch (err) {
+      // Best-effort rollback to avoid leaking worktrees on partial failure.
+      for (const { projectPath, worktreePath } of created) {
+        try { await this.deps.worktreeManager.removeWorktree(projectPath, worktreePath) } catch { /* ignore */ }
+      }
+      throw err
+    }
+  }
+
+  async resume(superagentId: string): Promise<void> {
+    const superagent = this.deps.store.get(superagentId)
+    if (!superagent) throw new Error(`Superagent not found: ${superagentId}`)
+    if (this.active.has(superagentId)) return
+
+    const runtime = this.deps.runtimes.getRuntimeById(superagent.runtimeId)
+    if (!runtime) throw new Error(`Runtime not available: ${superagent.runtimeId}`)
+
+    const mcpConfigPath = path.join(superagent.coordinationPath, 'mcp-config.json')
+    if (!fs.existsSync(mcpConfigPath)) {
+      throw new Error(`Coordination directory missing MCP config: ${mcpConfigPath}`)
+    }
+
+    this.outputBuffers.delete(superagentId)
+    this.spawnAndWire(superagentId, superagent.coordinationPath, runtime, mcpConfigPath, undefined)
+    this.deps.emitListChanged()
+  }
+
+  private spawnAndWire(
+    id: string,
+    coordinationPath: string,
+    runtime: { binary: string; args?: string[] },
+    mcpConfigPath: string,
+    initialPrompt: string | undefined,
+  ): void {
+    const args = [
+      ...(runtime.args ?? []),
+      '--mcp-config', mcpConfigPath,
+      '--strict-mcp-config',
+    ]
+    if (initialPrompt !== undefined) args.push(initialPrompt)
+
+    const handle = this.deps.ptyPool.spawn(runtime.binary, args, {
+      cwd: coordinationPath,
+      env: {
+        MANIFOLD_SUPERAGENT_ID: id,
+        MANIFOLD_MCP_SOCKET: this.deps.mcpBridge.socketPath,
+      },
+    })
 
     const mcp = new OrchestratorMcpServer({
       superagentId: id,
@@ -179,9 +247,8 @@ export class SuperagentManager {
     })
     this.active.set(id, { ptyId: handle.id, mcp })
 
-    this.deps.emitListChanged()
-
-    return superagent
+    this.deps.store.update(id, { status: 'running', pid: handle.pid })
+    this.deps.emitStatus(id, 'running')
   }
 
   async kill(superagentId: string): Promise<void> {
@@ -203,8 +270,23 @@ export class SuperagentManager {
       this.active.delete(superagentId)
     }
     this.outputBuffers.delete(superagentId)
+    await this.removeFleetWorktrees(superagentId)
     this.deps.store.remove(superagentId)
     this.deps.emitListChanged()
+  }
+
+  private async removeFleetWorktrees(superagentId: string): Promise<void> {
+    const superagent = this.deps.store.get(superagentId)
+    if (!superagent) return
+    for (const [projectId, worktreePath] of Object.entries(superagent.fleetWorktreePaths ?? {})) {
+      const project = this.deps.projectRegistry.getProject(projectId)
+      if (!project?.path) continue
+      try {
+        await this.deps.worktreeManager.removeWorktree(project.path, worktreePath)
+      } catch {
+        // Best-effort: worktree may already be gone.
+      }
+    }
   }
 
   setAutoApprove(superagentId: string, value: boolean): void {
@@ -233,4 +315,12 @@ export class SuperagentManager {
     this.deps.store.update(superagentId, { status })
     this.deps.emitStatus(superagentId, status)
   }
+}
+
+function slugifyName(name: string): string {
+  const slug = name
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/(^-|-$)+/g, '')
+  return slug || 'superagent'
 }

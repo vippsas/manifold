@@ -8,6 +8,7 @@ interface SuperagentFleetTreeProps {
   projects: Project[]
   allProjectSessions: Record<string, AgentSession[]>
   onSelectSession: (sessionId: string, projectId: string) => void
+  onSelectFile?: (path: string) => void
 }
 
 export function SuperagentFleetTree({
@@ -15,10 +16,17 @@ export function SuperagentFleetTree({
   projects,
   allProjectSessions,
   onSelectSession,
+  onSelectFile,
 }: SuperagentFleetTreeProps): React.JSX.Element {
   const fleetProjects = superagent.fleetProjectIds
     .map((id) => projects.find((p) => p.id === id))
     .filter((p): p is Project => Boolean(p))
+
+  const worktreePathFor = useCallback(
+    (projectId: string, fallbackPath: string): string =>
+      superagent.fleetWorktreePaths?.[projectId] ?? fallbackPath,
+    [superagent.fleetWorktreePaths],
+  )
 
   const [trees, setTrees] = useState<Map<string, FileTreeNode>>(new Map())
   const [expandedPaths, setExpandedPaths] = useState<Set<string>>(new Set())
@@ -28,8 +36,8 @@ export function SuperagentFleetTree({
     Promise.all(
       fleetProjects.map((p) =>
         window.electronAPI
-          .invoke('files:tree-by-project', p.id)
-          .then((node) => [p.path, node as FileTreeNode] as const)
+          .invoke('files:tree-for-superagent-project', superagent.id, p.id)
+          .then((node) => [worktreePathFor(p.id, p.path), node as FileTreeNode] as const)
           .catch(() => null)
       )
     ).then((results) => {
@@ -41,7 +49,7 @@ export function SuperagentFleetTree({
       setTrees(next)
     })
     return () => { cancelled = true }
-  }, [superagent.id, fleetProjects.map((p) => p.id).join(',')])
+  }, [superagent.id, fleetProjects.map((p) => p.id).join(','), worktreePathFor])
 
   const handleToggleExpand = useCallback((path: string): void => {
     setExpandedPaths((prev) => {
@@ -52,7 +60,12 @@ export function SuperagentFleetTree({
     })
   }, [])
 
-  const noopSelectFile = useCallback((_path: string): void => { /* read-only browse */ }, [])
+  const handleSelectFile = useCallback(
+    (path: string): void => {
+      onSelectFile?.(path)
+    },
+    [onSelectFile],
+  )
 
   const childSessions = fleetProjects.flatMap((project) =>
     (allProjectSessions[project.id] ?? [])
@@ -61,11 +74,16 @@ export function SuperagentFleetTree({
   )
 
   const primaryProject = fleetProjects[0]
-  const primaryTree = primaryProject ? trees.get(primaryProject.path) ?? null : null
+  const primaryWorktreePath = primaryProject
+    ? worktreePathFor(primaryProject.id, primaryProject.path)
+    : null
+  const primaryTree = primaryWorktreePath ? trees.get(primaryWorktreePath) ?? null : null
   const additionalTrees = new Map<string, FileTreeNode>()
   for (let i = 1; i < fleetProjects.length; i++) {
-    const t = trees.get(fleetProjects[i].path)
-    if (t) additionalTrees.set(fleetProjects[i].path, t)
+    const p = fleetProjects[i]
+    const wt = worktreePathFor(p.id, p.path)
+    const t = trees.get(wt)
+    if (t) additionalTrees.set(wt, t)
   }
 
   return (
@@ -107,8 +125,8 @@ export function SuperagentFleetTree({
             openFilePaths={EMPTY_SET}
             expandedPaths={expandedPaths}
             onToggleExpand={handleToggleExpand}
-            onSelectFile={noopSelectFile}
-            worktreeRootPath={primaryProject?.path}
+            onSelectFile={handleSelectFile}
+            worktreeRootPath={primaryWorktreePath ?? primaryProject?.path}
           />
         )}
       </div>

@@ -42,26 +42,31 @@ function AgentPanel(): React.JSX.Element {
   if (s.activeSuperagentId) {
     const activeSuperagent = s.superagents?.find((sa) => sa.id === s.activeSuperagentId)
     const isDormant = activeSuperagent?.status === 'done' || activeSuperagent?.status === 'error'
+    const superagentId = s.activeSuperagentId
+    const onResume = s.onResumeSuperagent
     return (
       <div style={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
-        <div style={{ flex: 1, minHeight: 0 }}>
-          {isDormant ? (
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%', color: 'var(--text-muted)', fontSize: 12, padding: 16, textAlign: 'center' }}>
-              Superagent &quot;{activeSuperagent?.name}&quot; is no longer running.<br />
-              Create a new superagent to continue orchestration.
+        <div style={{ flex: 1, minHeight: 0, position: 'relative' }}>
+          <TerminalPane
+            sessionId={superagentId}
+            scrollbackLines={s.scrollbackLines}
+            terminalFontFamily={s.terminalFontFamily}
+            label="Superagent"
+            xtermTheme={s.xtermTheme}
+          />
+          {isDormant && onResume && (
+            <div style={restartOverlayStyles.container}>
+              <button
+                onClick={() => { void onResume(superagentId) }}
+                style={restartOverlayStyles.button}
+              >
+                Restart Superagent
+              </button>
             </div>
-          ) : (
-            <TerminalPane
-              sessionId={s.activeSuperagentId}
-              scrollbackLines={s.scrollbackLines}
-              terminalFontFamily={s.terminalFontFamily}
-              label="Superagent"
-              xtermTheme={s.xtermTheme}
-            />
           )}
         </div>
         <div style={{ borderTop: '1px solid var(--border)', background: 'var(--bg-secondary)' }}>
-          <ApprovalInbox superagentId={s.activeSuperagentId} />
+          <ApprovalInbox superagentId={superagentId} />
         </div>
       </div>
     )
@@ -185,6 +190,7 @@ function FileTreePanel(): React.JSX.Element {
         projects={s.projects}
         allProjectSessions={s.allProjectSessions}
         onSelectSession={s.onSelectSession}
+        onSelectFile={s.onSelectFileFromFileTree}
       />
     )
   }
