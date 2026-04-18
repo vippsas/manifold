@@ -92,6 +92,12 @@ const ALLOWED_INVOKE_CHANNELS = [
   'background-agent:feedback',
   'background-agent:clear',
   'background-agent:get-status',
+  'superagent:list',
+  'superagent:create',
+  'superagent:kill',
+  'superagent:toggle-auto-approve',
+  'superagent:approval-response',
+  'superagent:list-pending-approvals',
 ] as const
 
 const ALLOWED_SEND_CHANNELS = [
@@ -118,6 +124,11 @@ const ALLOWED_LISTEN_CHANNELS = [
   'preview:url-detected',
   'app:auto-spawn',
   'provisioning:progress',
+  'superagent:approval-request',
+  'superagent:status',
+  'superagent:child-spawned',
+  'superagent:list-changed',
+  'superagent:output',
 ] as const
 
 type InvokeChannel = (typeof ALLOWED_INVOKE_CHANNELS)[number]
