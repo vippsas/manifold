@@ -17,11 +17,13 @@ function renderTreeNode({
   openFilePaths = new Set<string>(),
   onHighlightFile = vi.fn(),
   onSelectFile = vi.fn(),
+  onStartRename = vi.fn(),
 }: {
   node?: FileTreeNode
   openFilePaths?: Set<string>
   onHighlightFile?: (path: string) => void
   onSelectFile?: (path: string) => void
+  onStartRename?: (path: string, name: string) => void
 } = {}) {
   render(
     <TreeNode
@@ -40,27 +42,24 @@ function renderTreeNode({
       onRenameValueChange={vi.fn()}
       onConfirmRename={vi.fn()}
       onCancelRename={vi.fn()}
+      onStartRename={onStartRename}
     />
   )
 
   return {
     onHighlightFile,
     onSelectFile,
+    onStartRename,
     row: screen.getByTitle(node.path),
   }
 }
 
 describe('TreeNode', () => {
-  it('selects an already-open file on single click', () => {
+  it('opens the file and highlights it on single click', () => {
     const node = makeFileNode()
     const onHighlightFile = vi.fn()
     const onSelectFile = vi.fn()
-    const { row } = renderTreeNode({
-      node,
-      openFilePaths: new Set([node.path]),
-      onHighlightFile,
-      onSelectFile,
-    })
+    const { row } = renderTreeNode({ node, onHighlightFile, onSelectFile })
 
     fireEvent.click(row)
 
@@ -68,15 +67,14 @@ describe('TreeNode', () => {
     expect(onSelectFile).toHaveBeenCalledWith(node.path)
   })
 
-  it('keeps unopened files on highlight until double click', () => {
+  it('starts rename on double click', () => {
     const node = makeFileNode()
+    const onStartRename = vi.fn()
     const onSelectFile = vi.fn()
-    const { row } = renderTreeNode({ node, onSelectFile })
-
-    fireEvent.click(row)
-    expect(onSelectFile).not.toHaveBeenCalled()
+    const { row } = renderTreeNode({ node, onSelectFile, onStartRename })
 
     fireEvent.doubleClick(row)
-    expect(onSelectFile).toHaveBeenCalledWith(node.path)
+
+    expect(onStartRename).toHaveBeenCalledWith(node.path, node.name)
   })
 })

@@ -19,6 +19,7 @@ export interface TreeNodeProps {
   onRenameValueChange: (value: string) => void
   onConfirmRename: (nodePath: string, oldName: string) => void
   onCancelRename: () => void
+  onStartRename?: (path: string, name: string) => void
   onContextMenu?: (e: React.MouseEvent, node: FileTreeNode) => void
   dragRootPath?: string | null
   creating?: { parentPath: string; type: 'file' | 'directory'; afterPath?: string } | null
@@ -46,6 +47,7 @@ export function TreeNode({
   onRenameValueChange,
   onConfirmRename,
   onCancelRename,
+  onStartRename,
   creating,
   createName,
   createError,
@@ -71,16 +73,14 @@ export function TreeNode({
       onToggleExpand(node.path)
     } else {
       onHighlightFile(node.path)
-      if (openFilePaths.has(node.path)) {
-        onSelectFile(node.path)
-      }
+      onSelectFile(node.path)
     }
-  }, [node.isDirectory, node.path, onToggleExpand, onHighlightFile, openFilePaths, onSelectFile])
+  }, [node.isDirectory, node.path, onToggleExpand, onHighlightFile, onSelectFile])
 
   const handleDoubleClick = useCallback((): void => {
     if (node.isDirectory) return
-    onSelectFile(node.path)
-  }, [node.isDirectory, node.path, onSelectFile])
+    onStartRename?.(node.path, node.name)
+  }, [node.isDirectory, node.path, node.name, onStartRename])
 
   const handleDelete = useCallback((e: React.MouseEvent): void => {
     e.stopPropagation()
@@ -148,6 +148,7 @@ export function TreeNode({
                 onRenameValueChange={onRenameValueChange}
                 onConfirmRename={onConfirmRename}
                 onCancelRename={onCancelRename}
+                onStartRename={onStartRename}
                 onContextMenu={onContextMenu}
                 dragRootPath={dragRootPath}
                 creating={creating}

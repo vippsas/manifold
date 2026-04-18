@@ -219,7 +219,8 @@ export function useCodeViewFileOps(
         }),
     )
 
-    setters.setOpenFiles(updates)
+    const updateMap = new Map(updates.map((file) => [file.path, file]))
+    setters.setOpenFiles((prev) => prev.map((file) => updateMap.get(file.path) ?? file))
   }, [])
 
   return {
