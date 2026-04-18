@@ -28,6 +28,7 @@ export function useViewState(activeSessionId: string | null, tree: FileTreeNode 
   const [restoredSessionId, setRestoredSessionId] = useState<string | null>(null)
   const expandedPathsRef = useRef<Set<string>>(expandedPaths)
   expandedPathsRef.current = expandedPaths
+  const autoExpandedSessionRef = useRef<string | null>(null)
 
   const onToggleExpand = useCallback((path: string): void => {
     setExpandedPaths((prev) => {
@@ -161,10 +162,13 @@ export function useViewState(activeSessionId: string | null, tree: FileTreeNode 
   }, [activeSessionId])
 
   useEffect(() => {
-    if (tree && expandedPaths.size === 0) {
+    if (!tree || !activeSessionId) return
+    if (autoExpandedSessionRef.current === activeSessionId) return
+    autoExpandedSessionRef.current = activeSessionId
+    if (expandedPathsRef.current.size === 0) {
       setExpandedPaths(new Set([tree.path]))
     }
-  }, [tree, expandedPaths.size])
+  }, [tree, activeSessionId])
 
   return {
     expandedPaths,
