@@ -10,6 +10,7 @@ import { ProjectSidebar } from '../sidebar/ProjectSidebar'
 import { WebPreview } from '../terminal/WebPreview'
 import { SearchPanel } from '../search/SearchPanel'
 import { BackgroundAgentPanel } from '../background-agent/BackgroundAgentPanel'
+import { ApprovalInbox } from '../superagent/ApprovalInbox'
 import { DockStateContext, useDockState } from './dock-panel-types'
 export type { DockAppState } from './dock-panel-types'
 export { DockStateContext } from './dock-panel-types'
@@ -30,6 +31,26 @@ export const PANEL_COMPONENTS: Record<string, React.FC<any>> = {
 function AgentPanel(): React.JSX.Element {
   const s = useDockState()
   const activeProject = s.projects.find((p) => p.id === s.activeProjectId)
+
+  if (s.activeSuperagentId) {
+    return (
+      <div style={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
+        <div style={{ flex: 1, minHeight: 0 }}>
+          <TerminalPane
+            sessionId={s.activeSuperagentId}
+            scrollbackLines={s.scrollbackLines}
+            terminalFontFamily={s.terminalFontFamily}
+            label="Superagent"
+            xtermTheme={s.xtermTheme}
+          />
+        </div>
+        <div style={{ borderTop: '1px solid var(--border)', background: 'var(--bg-secondary)' }}>
+          <ApprovalInbox superagentId={s.activeSuperagentId} />
+        </div>
+      </div>
+    )
+  }
+
   if (!s.sessionId && s.activeProjectId && activeProject) {
     return (
       <OnboardingView

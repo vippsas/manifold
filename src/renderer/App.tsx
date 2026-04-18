@@ -36,7 +36,6 @@ import { ConflictPanel } from './components/git/ConflictPanel'
 import { WelcomeDialog } from './components/modals/WelcomeDialog'
 import { NewSuperagentModal } from './components/modals/NewSuperagentModal'
 import { useSuperagents } from './hooks/useSuperagents'
-import { SuperagentView } from './components/superagent/SuperagentView'
 import { DockTab, EmptyWatermark } from './DockTab'
 import { TitleBar } from './components/TitleBar'
 import type { FileOpenRequest } from './components/editor/file-open-request'
@@ -57,7 +56,6 @@ export function App(): React.JSX.Element {
   const { projects, activeProjectId, addProject, cloneProject, createNewProject, removeProject, updateProject, setActiveProject, error: projectError } = useProjects()
   const { sessions, activeSessionId, activeSession, spawnAgent, deleteAgent, setActiveSession, resumeAgent, outputtingSessionIds } = useAgentSession(activeProjectId)
   const { sessionsByProject, removeSession } = useAllProjectSessions(projects, activeProjectId, sessions)
-  const allSessions = useMemo(() => Object.values(sessionsByProject).flat(), [sessionsByProject])
 
   // On startup, prefer selecting a project that has active agents
   const didAutoSelectRef = useRef(false)
@@ -128,11 +126,6 @@ export function App(): React.JSX.Element {
   const [newSuperagentVisible, setNewSuperagentVisible] = useState(false)
   const [activeSuperagentId, setActiveSuperagentId] = useState<string | null>(null)
   const { superagents, createSuperagent } = useSuperagents()
-  const activeSuperagent = useMemo(() => superagents.find((sa) => sa.id === activeSuperagentId) ?? null, [superagents, activeSuperagentId])
-  const superagentChildSessions = useMemo(
-    () => (activeSuperagentId ? allSessions.filter((sess) => sess.parentSuperagentId === activeSuperagentId) : []),
-    [allSessions, activeSuperagentId],
-  )
 
   const openSearchResultInActiveSession = useCallback((target: SearchOpenTarget): void => {
     setLastFileOpenRequest({
@@ -335,19 +328,10 @@ export function App(): React.JSX.Element {
       <div className="layout-main">
         <DockStateContext.Provider value={dockState}>
           <div style={{ flex: 1, overflow: 'hidden' }}>
-            {activeSuperagent ? (
-              <SuperagentView
-                superagent={activeSuperagent}
-                projects={projects}
-                childSessions={superagentChildSessions}
-                childOutputTails={{}}
-              />
-            ) : (
-              <DockviewReact className={`dockview-theme-dark dockview-theme-manifold${!activeSessionId ? ' dockview-minimal' : ''}`}
-                components={PANEL_COMPONENTS} onReady={(e) => dockLayout.onReady(e.api)}
-                defaultTabComponent={DockTab} rightHeaderActionsComponent={EditorHeaderActions}
-                watermarkComponent={EmptyWatermark} />
-            )}
+            <DockviewReact className={`dockview-theme-dark dockview-theme-manifold${!activeSessionId && !activeSuperagentId ? ' dockview-minimal' : ''}`}
+              components={PANEL_COMPONENTS} onReady={(e) => dockLayout.onReady(e.api)}
+              defaultTabComponent={DockTab} rightHeaderActionsComponent={EditorHeaderActions}
+              watermarkComponent={EmptyWatermark} />
           </div>
         </DockStateContext.Provider>
         <StatusBar activeSession={activeSession} changedFiles={mergedChanges} baseBranch={baseBranch} dockLayout={dockLayout}
