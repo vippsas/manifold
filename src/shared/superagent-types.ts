@@ -4,7 +4,7 @@ export interface Superagent {
   id: string
   name: string
   taskDescription: string
-  runtimeId: 'claude'
+  runtimeId: string
   fleetProjectIds: string[]
   fleetWorktreePaths: Record<string, string>
   branchName: string
@@ -19,6 +19,7 @@ export interface Superagent {
 export interface SuperagentCreateOptions {
   name: string
   taskDescription: string
+  runtimeId: string
   fleetProjectIds: string[]
   initialPrompt: string
 }

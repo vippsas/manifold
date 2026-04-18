@@ -70,6 +70,15 @@ export class WorktreeManager {
     }
   }
 
+  async branchExists(projectPath: string, branch: string): Promise<boolean> {
+    try {
+      await gitExec(['rev-parse', '--verify', `refs/heads/${branch}`], projectPath)
+      return true
+    } catch {
+      return false
+    }
+  }
+
   async removeWorktree(projectPath: string, worktreePath: string): Promise<void> {
     await gitExec(['worktree', 'remove', worktreePath, '--force'], projectPath)
     await removeWorktreeMeta(worktreePath)

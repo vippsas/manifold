@@ -8,6 +8,9 @@ export interface AgentRuntime {
   env?: Record<string, string>
   installed?: boolean
   needsModel?: boolean
+  // True if the runtime accepts Claude-style `--mcp-config` / `--strict-mcp-config`
+  // flags, which the superagent orchestrator requires.
+  orchestratorCapable?: boolean
 }
 
 export type AgentStatus = 'running' | 'waiting' | 'done' | 'error'

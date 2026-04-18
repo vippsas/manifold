@@ -1,22 +1,41 @@
-import { useState } from 'react'
-import type { Project } from '../../../shared/types'
+import { useEffect, useState } from 'react'
+import type { AgentRuntime, Project } from '../../../shared/types'
 import type { SuperagentCreateOptions } from '../../../shared/superagent-types'
 import * as s from './NewSuperagentModal.styles'
 
 export interface NewSuperagentModalProps {
   visible: boolean
   projects: Project[]
+  defaultRuntime: string
   onLaunch: (options: SuperagentCreateOptions) => void
   onClose: () => void
 }
 
-export function NewSuperagentModal({ visible, projects, onLaunch, onClose }: NewSuperagentModalProps) {
+export function NewSuperagentModal({ visible, projects, defaultRuntime, onLaunch, onClose }: NewSuperagentModalProps) {
   const [name, setName] = useState('')
   const [fleet, setFleet] = useState<string[]>([])
+  const [runtimeId, setRuntimeId] = useState(defaultRuntime)
+  const [runtimes, setRuntimes] = useState<AgentRuntime[]>([])
+
+  useEffect(() => {
+    if (!visible) return
+    void window.electronAPI.invoke('runtimes:list').then((list) => {
+      const supported = (list as AgentRuntime[]).filter((rt) => rt.orchestratorCapable)
+      setRuntimes(supported)
+      setRuntimeId((current) => {
+        if (supported.some((rt) => rt.id === current)) return current
+        return supported[0]?.id ?? ''
+      })
+    })
+  }, [visible])
+
+  useEffect(() => {
+    setRuntimeId(defaultRuntime)
+  }, [defaultRuntime])
 
   if (!visible) return null
 
-  const canSubmit = name.trim().length > 0 && fleet.length > 0
+  const canSubmit = name.trim().length > 0 && fleet.length > 0 && runtimeId.length > 0
 
   return (
     <div style={s.overlay} onClick={onClose}>
@@ -30,7 +49,13 @@ export function NewSuperagentModal({ visible, projects, onLaunch, onClose }: New
 
         <div style={s.field}>
           <label style={s.label}>Runtime</label>
-          <input style={{ ...s.input, opacity: 0.7 }} value="Claude Code" readOnly />
+          <select style={s.input} value={runtimeId} onChange={(e) => setRuntimeId(e.target.value)}>
+            {runtimes.map((rt) => (
+              <option key={rt.id} value={rt.id}>
+                {rt.name}{rt.installed === false ? ' (not installed)' : ''}
+              </option>
+            ))}
+          </select>
         </div>
 
         <div style={s.field}>
@@ -56,7 +81,7 @@ export function NewSuperagentModal({ visible, projects, onLaunch, onClose }: New
           <button
             style={{ ...s.primaryButton, opacity: canSubmit ? 1 : 0.5, cursor: canSubmit ? 'pointer' : 'not-allowed' }}
             disabled={!canSubmit}
-            onClick={() => onLaunch({ name, taskDescription: '', fleetProjectIds: fleet, initialPrompt: '' })}
+            onClick={() => onLaunch({ name, taskDescription: '', runtimeId, fleetProjectIds: fleet, initialPrompt: '' })}
           >
             Launch
           </button>

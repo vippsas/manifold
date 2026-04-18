@@ -8,7 +8,8 @@ export const BUILT_IN_RUNTIMES: readonly AgentRuntime[] = [
     binary: 'claude',
     args: ['--allow-dangerously-skip-permissions'],
     aiModelArgs: ['--model', 'haiku'],
-    waitingPattern: '❯|waiting for input|Interrupt to stop'
+    waitingPattern: '❯|waiting for input|Interrupt to stop',
+    orchestratorCapable: true
   },
   {
     id: 'codex',
@@ -39,7 +40,8 @@ export const BUILT_IN_RUNTIMES: readonly AgentRuntime[] = [
     binary: 'ollama',
     args: ['launch', 'claude'],
     needsModel: true,
-    waitingPattern: '❯|waiting for input|Interrupt to stop'
+    waitingPattern: '❯|waiting for input|Interrupt to stop',
+    orchestratorCapable: true
   },
   {
     id: 'ollama-codex',

@@ -24,6 +24,7 @@ function makeDeps(tmpDir: string) {
         path: `${projectPath}/.wt/${branchName ?? 'manifold-test'}`,
       })),
       removeWorktree: vi.fn(async () => { /* noop */ }),
+      branchExists: vi.fn(async () => false),
     } as any,
     projectRegistry: {
       getProject: vi.fn((id: string) => ({ id, name: id, path: `/r/${id}`, baseBranch: 'main', addedAt: '' })),
@@ -44,7 +45,7 @@ function makeDeps(tmpDir: string) {
       onExit: vi.fn(),
       write: vi.fn(),
     } as any,
-    runtimes: { getRuntimeById: vi.fn(() => ({ id: 'claude', name: 'Claude', binary: 'claude', args: [] })) } as any,
+    runtimes: { getRuntimeById: vi.fn(() => ({ id: 'claude', name: 'Claude', binary: 'claude', args: [], orchestratorCapable: true })) } as any,
     mcpBridge: { socketPath: '/tmp/test.sock' } as any,
     emitStatus: vi.fn(),
     emitListChanged: vi.fn(),
@@ -72,6 +73,7 @@ describe('SuperagentManager', () => {
     const s = await manager.create({
       name: 'n',
       taskDescription: 'd',
+      runtimeId: 'claude',
       fleetProjectIds: ['p1'],
       initialPrompt: 'start',
     })
@@ -85,24 +87,24 @@ describe('SuperagentManager', () => {
 
   it('create rejects empty fleet', async () => {
     await expect(
-      manager.create({ name: 'n', taskDescription: 'd', fleetProjectIds: [], initialPrompt: 'x' }),
+      manager.create({ name: 'n', taskDescription: 'd', runtimeId: 'claude', fleetProjectIds: [], initialPrompt: 'x' }),
     ).rejects.toThrow(/fleet/i)
   })
 
   it('list returns superagents', async () => {
-    await manager.create({ name: 'a', taskDescription: 'd', fleetProjectIds: ['p1'], initialPrompt: 'x' })
+    await manager.create({ name: 'a', taskDescription: 'd', runtimeId: 'claude', fleetProjectIds: ['p1'], initialPrompt: 'x' })
     expect(manager.list()).toHaveLength(1)
   })
 
   it('kill tears down PTY and marks session done', async () => {
-    const s = await manager.create({ name: 'n', taskDescription: 'd', fleetProjectIds: ['p1'], initialPrompt: 'x' })
+    const s = await manager.create({ name: 'n', taskDescription: 'd', runtimeId: 'claude', fleetProjectIds: ['p1'], initialPrompt: 'x' })
     await manager.kill(s.id)
     expect(deps.ptyPool.kill).toHaveBeenCalled()
     expect(deps.store.get(s.id)?.status).toBe('done')
   })
 
   it('setAutoApprove persists the flag', async () => {
-    const s = await manager.create({ name: 'n', taskDescription: 'd', fleetProjectIds: ['p1'], initialPrompt: 'x' })
+    const s = await manager.create({ name: 'n', taskDescription: 'd', runtimeId: 'claude', fleetProjectIds: ['p1'], initialPrompt: 'x' })
     manager.setAutoApprove(s.id, true)
     expect(deps.store.get(s.id)?.autoApprove).toBe(true)
   })
@@ -124,7 +126,7 @@ describe('SuperagentManager — derived status', () => {
   })
 
   it('recomputes status to running when any child is running', async () => {
-    const s = await manager.create({ name: 'n', taskDescription: 'd', fleetProjectIds: ['p1'], initialPrompt: 'x' })
+    const s = await manager.create({ name: 'n', taskDescription: 'd', runtimeId: 'claude', fleetProjectIds: ['p1'], initialPrompt: 'x' })
     deps.store.update(s.id, { childSessionIds: ['c1'] })
     deps.sessionManager.getSession = vi.fn((id: string) => ({ id, status: 'running', parentSuperagentId: s.id })) as any
     manager.onChildStatusChange(s.id, 'c1', 'running')
@@ -132,7 +134,7 @@ describe('SuperagentManager — derived status', () => {
   })
 
   it('marks superagent done when all children done', async () => {
-    const s = await manager.create({ name: 'n', taskDescription: 'd', fleetProjectIds: ['p1'], initialPrompt: 'x' })
+    const s = await manager.create({ name: 'n', taskDescription: 'd', runtimeId: 'claude', fleetProjectIds: ['p1'], initialPrompt: 'x' })
     deps.store.update(s.id, { childSessionIds: ['c1', 'c2'] })
     deps.sessionManager.getSession = vi.fn((id: string) => ({ id, status: 'done', parentSuperagentId: s.id })) as any
     manager.onChildStatusChange(s.id, 'c1', 'done')
@@ -140,7 +142,7 @@ describe('SuperagentManager — derived status', () => {
   })
 
   it('marks superagent error when any child errors', async () => {
-    const s = await manager.create({ name: 'n', taskDescription: 'd', fleetProjectIds: ['p1'], initialPrompt: 'x' })
+    const s = await manager.create({ name: 'n', taskDescription: 'd', runtimeId: 'claude', fleetProjectIds: ['p1'], initialPrompt: 'x' })
     deps.store.update(s.id, { childSessionIds: ['c1'] })
     deps.sessionManager.getSession = vi.fn(() => ({ id: 'c1', status: 'error', parentSuperagentId: s.id })) as any
     manager.onChildStatusChange(s.id, 'c1', 'error')

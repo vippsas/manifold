@@ -7,6 +7,7 @@ import { checkForUpdates } from './auto-updater'
 import { registerProjectHandlers } from '../ipc/project-handlers'
 import { registerAgentHandlers } from '../ipc/agent-handlers'
 import { registerFileHandlers } from '../ipc/file-handlers'
+import { registerSuperagentFileHandlers } from '../ipc/superagent-file-handlers'
 import { registerDiffHandler, registerPrHandler, registerGitHandlers } from '../ipc/git-handlers'
 import { registerSettingsHandlers, registerRuntimesHandler, registerOllamaHandler, registerViewStateHandlers, registerShellTabHandlers, registerDockLayoutHandlers } from '../ipc/settings-handlers'
 import { registerSimpleHandlers } from '../ipc/simple-handlers'
@@ -22,6 +23,7 @@ export function registerIpcHandlers(deps: IpcDependencies): void {
   registerProjectHandlers(deps)
   registerAgentHandlers(deps)
   registerFileHandlers(deps)
+  registerSuperagentFileHandlers(deps)
   registerDiffHandler(deps)
   registerPrHandler(deps)
   registerSettingsHandlers(deps)

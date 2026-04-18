@@ -411,6 +411,7 @@ export function App(): React.JSX.Element {
       <NewSuperagentModal
         visible={newSuperagentVisible}
         projects={projects}
+        defaultRuntime={settings.defaultRuntime}
         onLaunch={async (opts) => {
           const sa = await createSuperagent(opts)
           setActiveSuperagentId(sa.id)

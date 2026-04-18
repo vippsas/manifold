@@ -41,7 +41,7 @@ describe('useSuperagents', () => {
     await waitFor(() => expect(mockInvoke).toHaveBeenCalledWith('superagent:list'))
     let created: any
     await act(async () => {
-      created = await result.current.createSuperagent({ name: 'new', taskDescription: '', fleetProjectIds: ['p1'], initialPrompt: '' })
+      created = await result.current.createSuperagent({ name: 'new', taskDescription: '', runtimeId: 'claude', fleetProjectIds: ['p1'], initialPrompt: '' })
     })
     expect(created.id).toBe('s1')
     expect(mockInvoke).toHaveBeenCalledWith('superagent:create', expect.any(Object))

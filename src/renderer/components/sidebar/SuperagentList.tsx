@@ -2,10 +2,8 @@ import { useCallback, useState } from 'react'
 import type { Superagent } from '../../../shared/superagent-types'
 import type { AgentSession, Project } from '../../../shared/types'
 import { sidebarStyles } from './ProjectSidebar.styles'
-import { createDialogStyles } from '../workbench-style-primitives'
-import { AgentItem } from './AgentItem'
-
-const deleteDialogStyles = createDialogStyles('360px')
+import { ActiveSuperagentGroup } from './ActiveSuperagentGroup'
+import { DeleteSuperagentDialog } from './DeleteSuperagentDialog'
 
 interface SuperagentListProps {
   superagents: Superagent[]
@@ -39,15 +37,13 @@ export function SuperagentList({
   const [spawningKey, setSpawningKey] = useState<string | null>(null)
 
   const handleSpawnFleetAgent = useCallback(
-    async (superagentId: string, projectId: string): Promise<void> => {
+    (superagentId: string, projectId: string): void => {
       if (!onSpawnFleetAgent) return
       const key = `${superagentId}:${projectId}`
       setSpawningKey(key)
-      try {
-        await onSpawnFleetAgent(superagentId, projectId)
-      } finally {
+      void onSpawnFleetAgent(superagentId, projectId).finally(() => {
         setSpawningKey((current) => (current === key ? null : current))
-      }
+      })
     },
     [onSpawnFleetAgent],
   )
@@ -93,110 +89,24 @@ export function SuperagentList({
           const title = `${s.name} — ${repoLabel(s)}`
           if (isActive) {
             return (
-              <div
+              <ActiveSuperagentGroup
                 key={s.id}
-                className="sidebar-project-group sidebar-project-group--active sidebar-project-group--has-agents"
-              >
-                <div
-                  onClick={() => onSelect(s.id)}
-                  onKeyDown={(e) => {
-                    if (e.key === 'Enter' || e.key === ' ') {
-                      e.preventDefault()
-                      onSelect(s.id)
-                    }
-                  }}
-                  role="button"
-                  tabIndex={0}
-                  className="sidebar-item-row sidebar-project-row sidebar-item-row--active"
-                  style={{ ...sidebarStyles.item, ...sidebarStyles.itemActive, position: 'relative' as const }}
-                  title={title}
-                >
-                  <span className="truncate sidebar-row-label" style={sidebarStyles.itemName}>
-                    {s.name}
-                  </span>
-                  {onRemove && (
-                    <div className="sidebar-item-actions" style={sidebarStyles.itemRight}>
-                      <button
-                        type="button"
-                        onClick={(e) => handleRequestDelete(e, s)}
-                        onKeyDown={(e) => e.stopPropagation()}
-                        className="sidebar-icon-button"
-                        style={sidebarStyles.removeButton}
-                        aria-label={`Remove ${s.name}`}
-                        title="Remove superagent"
-                      >
-                        &times;
-                      </button>
-                    </div>
-                  )}
-                </div>
-                <div style={{ ...sidebarStyles.fetchMessage, display: 'flex', alignItems: 'center', gap: 6 }}>
-                  <span className={`status-dot${alive ? '' : ' status-dot--hidden'}`} style={{ width: 6, height: 6 }} />
-                  <span className="truncate">{repoLabel(s)} &middot; {s.status}</span>
-                </div>
-                {s.fleetProjectIds.map((projectId) => {
-                  const project = projects.find((p) => p.id === projectId)
-                  if (!project) return null
-                  const projectSessions = allProjectSessions?.[projectId] ?? []
-                  const childSession = projectSessions.find(
-                    (ps) => s.childSessionIds.includes(ps.id) && ps.worktreePath === s.fleetWorktreePaths?.[projectId],
-                  )
-                  const branchSuffix = childSession
-                    ? childSession.branchName.replace(/^manifold\//, '')
-                    : s.branchName.replace(/^manifold\//, '')
-                  const combinedLabel = `${project.name}/${branchSuffix}`
-                  if (childSession && onSelectSession) {
-                    return (
-                      <AgentItem
-                        key={`${s.id}:${projectId}`}
-                        session={childSession}
-                        projectPath={project.path}
-                        isActive={childSession.id === activeSessionId}
-                        isOutputting={outputtingSessionIds?.has(childSession.id) ?? false}
-                        onSelect={(sessionId) => onSelectSession(sessionId, projectId)}
-                        onDelete={() => onDeleteAgent?.(childSession, project.path)}
-                        labelOverride={combinedLabel}
-                      />
-                    )
-                  }
-                  const key = `${s.id}:${projectId}`
-                  const isSpawning = spawningKey === key
-                  return (
-                    <div
-                      key={key}
-                      onClick={() => { if (!isSpawning) void handleSpawnFleetAgent(s.id, projectId) }}
-                      onKeyDown={(e) => {
-                        if ((e.key === 'Enter' || e.key === ' ') && !isSpawning) {
-                          e.preventDefault()
-                          void handleSpawnFleetAgent(s.id, projectId)
-                        }
-                      }}
-                      role="button"
-                      tabIndex={0}
-                      className="sidebar-item-row sidebar-agent-row sidebar-agent-row--exited"
-                      title={`Start agent in ${project.name}`}
-                    >
-                      <div className="sidebar-agent-main">
-                        <span className="status-dot status-dot--hidden" />
-                        <span
-                          className="truncate sidebar-row-label"
-                          style={{
-                            ...sidebarStyles.agentBranch,
-                            color: 'var(--text-muted)',
-                            fontStyle: 'italic',
-                            flex: 1,
-                          }}
-                        >
-                          {combinedLabel}
-                        </span>
-                      </div>
-                      <span className="truncate sidebar-secondary-text" style={{ paddingLeft: '16px' }}>
-                        {isSpawning ? 'Starting…' : 'Click to start agent'}
-                      </span>
-                    </div>
-                  )
-                })}
-              </div>
+                superagent={s}
+                projects={projects}
+                title={title}
+                repoLabel={repoLabel(s)}
+                alive={alive}
+                allProjectSessions={allProjectSessions}
+                activeSessionId={activeSessionId}
+                outputtingSessionIds={outputtingSessionIds}
+                spawningKey={spawningKey}
+                onSelect={onSelect}
+                onSelectSession={onSelectSession}
+                onSpawnFleetAgent={handleSpawnFleetAgent}
+                onDeleteAgent={onDeleteAgent}
+                onRequestDelete={(e) => handleRequestDelete(e, s)}
+                canRemove={Boolean(onRemove)}
+              />
             )
           }
           return (
@@ -242,81 +152,5 @@ export function SuperagentList({
         />
       )}
     </>
-  )
-}
-
-interface DeleteSuperagentDialogProps {
-  superagent: Superagent
-  deleting: boolean
-  onCancel: () => void
-  onConfirm: () => Promise<void>
-}
-
-function DeleteSuperagentDialog({
-  superagent,
-  deleting,
-  onCancel,
-  onConfirm,
-}: DeleteSuperagentDialogProps) {
-  const handleKeyDown = useCallback(
-    (e: React.KeyboardEvent<HTMLDivElement>): void => {
-      if (e.key === 'Escape' && !deleting) onCancel()
-    },
-    [deleting, onCancel]
-  )
-
-  const isRunning = superagent.status === 'running' || superagent.status === 'waiting'
-  const actionText = isRunning
-    ? 'This will stop the superagent and remove its coordination state.'
-    : 'This will remove the superagent and its coordination state.'
-
-  return (
-    <div
-      onClick={deleting ? undefined : onCancel}
-      onKeyDown={handleKeyDown}
-      style={deleteDialogStyles.overlay}
-      role="dialog"
-      aria-modal="true"
-      aria-label="Remove superagent"
-    >
-      <div style={deleteDialogStyles.panel} onClick={(e) => e.stopPropagation()}>
-        <div style={deleteDialogStyles.header}>
-          <span style={deleteDialogStyles.title}>Remove superagent</span>
-          <button
-            type="button"
-            onClick={onCancel}
-            style={deleteDialogStyles.closeButton}
-            aria-label="Close remove dialog"
-            disabled={deleting}
-          >
-            &times;
-          </button>
-        </div>
-        <div style={deleteDialogStyles.body}>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
-            <strong style={{ color: 'var(--text-primary)' }}>{superagent.name}</strong>
-            <span style={{ color: 'var(--text-secondary)', fontSize: 'var(--type-ui-small)' }}>
-              {superagent.fleetProjectIds.length} repos · {superagent.status}
-            </span>
-          </div>
-          <p style={{ margin: 0, color: 'var(--text-secondary)', lineHeight: 1.5 }}>
-            {actionText} Child agent worktrees are not touched.
-          </p>
-        </div>
-        <div style={deleteDialogStyles.footer}>
-          <button type="button" onClick={onCancel} style={deleteDialogStyles.secondaryButton} disabled={deleting}>
-            Cancel
-          </button>
-          <button
-            type="button"
-            onClick={() => void onConfirm()}
-            style={{ ...deleteDialogStyles.primaryButton, background: 'var(--error)' }}
-            disabled={deleting}
-          >
-            {deleting ? 'Removing...' : 'Remove'}
-          </button>
-        </div>
-      </div>
-    </div>
   )
 }

@@ -5,46 +5,17 @@ import type { Superagent, SuperagentCreateOptions } from '../../shared/superagen
 import type { AgentStatus } from '../../shared/types'
 import { OrchestratorMcpServer } from './orchestrator-mcp-server'
 import { buildOrchestratorPrompt } from './orchestrator-prompt'
-import type { SuperagentStore } from './superagent-store'
-import type { ApprovalBroker } from './approval-broker'
-import type { McpBridgeServer } from './mcp-bridge-server'
-import { MCP_BRIDGE_SCRIPT, TOOL_SCHEMAS } from './mcp-bridge-script'
+import { setupCoordinationDir, slugifyName } from './superagent-coordination'
+import {
+  collectActiveChildWorktrees,
+  createFleetWorktrees,
+  findAvailableFleetBranch,
+  killDormantChildren,
+  removeFleetWorktreesExcept,
+} from './superagent-fleet'
+import type { SuperagentManagerDeps } from './superagent-manager-deps'
 
-export interface SuperagentManagerDeps {
-  store: SuperagentStore
-  storageRoot: string
-  approvalBroker: ApprovalBroker
-  worktreeManager: {
-    createWorktree: (projectPath: string, baseBranch: string, projectName: string, branchName?: string) => Promise<{ branch: string; path: string }>
-    removeWorktree: (projectPath: string, worktreePath: string) => Promise<void>
-  }
-  projectRegistry: {
-    getProject: (id: string) => any
-    listProjects: () => any[]
-  }
-  sessionManager: {
-    getSession: (id: string) => any
-    createSession: (opts: any) => Promise<any>
-    killSession: (id: string) => Promise<void>
-    getOutputBuffer: (id: string) => string
-    sendInput: (id: string, data: string) => void
-  }
-  diffProvider: { getDiff: (path: string, base: string) => Promise<string> }
-  ptyPool: {
-    spawn: (file: string, args: string[], opts: { cwd: string; env?: Record<string, string>; cols?: number; rows?: number }) => { id: string; pid: number }
-    kill: (ptyId: string) => void
-    onData: (ptyId: string, fn: (data: string) => void) => void
-    onExit: (ptyId: string, fn: () => void) => void
-    write: (ptyId: string, data: string) => void
-    resize?: (ptyId: string, cols: number, rows: number) => void
-  }
-  runtimes: { getRuntimeById: (id: string) => { id: string; binary: string; args?: string[] } | undefined }
-  mcpBridge: McpBridgeServer
-  emitStatus: (superagentId: string, status: AgentStatus) => void
-  emitListChanged: () => void
-  emitChildSpawned: (superagentId: string, sessionId: string) => void
-  emitOutput: (superagentId: string, chunk: string) => void
-}
+export type { SuperagentManagerDeps } from './superagent-manager-deps'
 
 const MAX_OUTPUT_BUFFER = 1_000_000
 
@@ -89,36 +60,21 @@ export class SuperagentManager {
       throw new Error('Fleet must contain at least one project')
     }
     const id = randomUUID()
-    const coordinationPath = path.join(this.deps.storageRoot, 'superagents', id)
-    fs.mkdirSync(coordinationPath, { recursive: true })
-    fs.writeFileSync(
-      path.join(coordinationPath, 'plan.md'),
-      '# Plan\n\n_Orchestrator may edit freely._\n',
-    )
+    const { coordinationPath, mcpConfigPath } = setupCoordinationDir(this.deps.storageRoot, id)
 
-    const bridgeScriptPath = path.join(coordinationPath, 'mcp-bridge.js')
-    const toolSchemasPath = path.join(coordinationPath, 'tool-schemas.json')
-    const mcpConfigPath = path.join(coordinationPath, 'mcp-config.json')
-    fs.writeFileSync(bridgeScriptPath, MCP_BRIDGE_SCRIPT)
-    fs.writeFileSync(toolSchemasPath, JSON.stringify(TOOL_SCHEMAS, null, 2))
-    fs.writeFileSync(
-      mcpConfigPath,
-      JSON.stringify(
-        { mcpServers: { 'manifold-orchestrator': { command: 'node', args: [bridgeScriptPath] } } },
-        null,
-        2,
-      ),
-    )
-
-    const runtime = this.deps.runtimes.getRuntimeById('claude')
-    if (!runtime) throw new Error('Claude runtime not available')
+    const runtime = this.deps.runtimes.getRuntimeById(options.runtimeId)
+    if (!runtime) throw new Error(`Runtime not available: ${options.runtimeId}`)
+    if (!runtime.orchestratorCapable) {
+      throw new Error(`Runtime "${runtime.name}" does not support superagent orchestration`)
+    }
 
     const fleet = options.fleetProjectIds
       .map((pid) => this.deps.projectRegistry.getProject(pid))
       .filter(Boolean)
 
-    const branchName = `manifold/${slugifyName(options.name)}`
-    const fleetWorktreePaths = await this.createFleetWorktrees(fleet, branchName)
+    const desiredBranch = `manifold/${slugifyName(options.name)}`
+    const branchName = await findAvailableFleetBranch(this.deps.worktreeManager, fleet, desiredBranch)
+    const fleetWorktreePaths = await createFleetWorktrees(this.deps.worktreeManager, fleet, branchName)
 
     const prompt = buildOrchestratorPrompt({
       taskDescription: options.taskDescription,
@@ -132,7 +88,7 @@ export class SuperagentManager {
       id,
       name: options.name,
       taskDescription: options.taskDescription,
-      runtimeId: 'claude',
+      runtimeId: options.runtimeId,
       fleetProjectIds: [...options.fleetProjectIds],
       fleetWorktreePaths,
       branchName,
@@ -150,33 +106,6 @@ export class SuperagentManager {
     this.deps.emitListChanged()
 
     return this.deps.store.get(id) ?? superagent
-  }
-
-  private async createFleetWorktrees(
-    fleet: { id: string; path: string; name: string; baseBranch: string }[],
-    branchName: string,
-  ): Promise<Record<string, string>> {
-    const created: { projectPath: string; worktreePath: string }[] = []
-    const result: Record<string, string> = {}
-    try {
-      for (const project of fleet) {
-        const info = await this.deps.worktreeManager.createWorktree(
-          project.path,
-          project.baseBranch,
-          project.name,
-          branchName,
-        )
-        created.push({ projectPath: project.path, worktreePath: info.path })
-        result[project.id] = info.path
-      }
-      return result
-    } catch (err) {
-      // Best-effort rollback to avoid leaking worktrees on partial failure.
-      for (const { projectPath, worktreePath } of created) {
-        try { await this.deps.worktreeManager.removeWorktree(projectPath, worktreePath) } catch { /* ignore */ }
-      }
-      throw err
-    }
   }
 
   async resume(superagentId: string): Promise<void> {
@@ -273,51 +202,22 @@ export class SuperagentManager {
     }
     this.outputBuffers.delete(superagentId)
 
-    // Dormant children have no orchestrator to coordinate them once the
-    // superagent is gone — clean them up. Active children are left running.
     if (superagent) {
-      for (const childId of superagent.childSessionIds) {
-        const child = this.deps.sessionManager.getSession(childId)
-        if (!child) continue
-        if (child.status === 'done' || child.status === 'error') {
-          try {
-            await this.deps.sessionManager.killSession(childId)
-          } catch {
-            // Best-effort cleanup.
-          }
-        }
-      }
+      const getSession = (id: string) => this.deps.sessionManager.getSession(id)
+      // Dormant children have no orchestrator once the superagent is gone;
+      // worktrees holding an active child are preserved so the live agent keeps running.
+      await killDormantChildren(superagent.childSessionIds, getSession, (id) => this.deps.sessionManager.killSession(id))
+      const inUse = collectActiveChildWorktrees(superagent.childSessionIds, getSession)
+      await removeFleetWorktreesExcept(
+        this.deps.worktreeManager,
+        superagent.fleetWorktreePaths ?? {},
+        (pid) => this.deps.projectRegistry.getProject(pid)?.path,
+        inUse,
+      )
     }
 
-    await this.removeFleetWorktrees(superagentId)
     this.deps.store.remove(superagentId)
     this.deps.emitListChanged()
-  }
-
-  private async removeFleetWorktrees(superagentId: string): Promise<void> {
-    const superagent = this.deps.store.get(superagentId)
-    if (!superagent) return
-
-    // Preserve worktrees where an active child session is still running — tearing
-    // them down would kill that live agent.
-    const inUse = new Set<string>()
-    for (const childId of superagent.childSessionIds) {
-      const child = this.deps.sessionManager.getSession(childId)
-      if (child && child.status !== 'done' && child.status !== 'error') {
-        inUse.add(child.worktreePath)
-      }
-    }
-
-    for (const [projectId, worktreePath] of Object.entries(superagent.fleetWorktreePaths ?? {})) {
-      if (inUse.has(worktreePath)) continue
-      const project = this.deps.projectRegistry.getProject(projectId)
-      if (!project?.path) continue
-      try {
-        await this.deps.worktreeManager.removeWorktree(project.path, worktreePath)
-      } catch {
-        // Best-effort: worktree may already be gone.
-      }
-    }
   }
 
   async spawnFleetAgent(superagentId: string, projectId: string): Promise<{ id: string }> {
@@ -374,12 +274,4 @@ export class SuperagentManager {
     this.deps.store.update(superagentId, { status })
     this.deps.emitStatus(superagentId, status)
   }
-}
-
-function slugifyName(name: string): string {
-  const slug = name
-    .toLowerCase()
-    .replace(/[^a-z0-9]+/g, '-')
-    .replace(/(^-|-$)+/g, '')
-  return slug || 'superagent'
 }
