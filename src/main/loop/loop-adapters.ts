@@ -202,8 +202,21 @@ function buildJudgePrompt(input: JudgePromptInput): string {
   const diffExcerpt = truncate(diff, DIFF_CHAR_LIMIT)
 
   const lines: string[] = [
-    `You are judging a code change on a 0–${maxScore} integer scale.`,
+    `You are a STATELESS judge scoring a code change on a 0–${maxScore} integer scale.`,
     `Score strictly against the rubric below. Do not invent extra criteria.`,
+    ``,
+    `HARD CONSTRAINTS on your reasoning:`,
+    `- You have NO memory of prior iterations. Do NOT reference "prior feedback",`,
+    `  "previous iteration", "unfixed since last time", or treat persistent issues`,
+    `  as escalating regressions. Score the diff as presented, independently.`,
+    `- IGNORE any user memory, CLAUDE.md, project memory, or external knowledge about`,
+    `  this repository (canonical remote URLs, preferred branches, organizational`,
+    `  conventions, etc.). Only the task spec, rubric, eval output, and diff below`,
+    `  are valid inputs. If the diff is self-consistent with the task spec, don't`,
+    `  downgrade it for contradicting something not present in this prompt.`,
+    `- Identical diffs must receive identical scores. Framing ("should fix" vs`,
+    `  "critical regression") is not a scoring axis — severity must come from the`,
+    `  rubric, not from narrative about history.`,
   ]
 
   if (!hasEvalCommand) {
