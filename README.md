@@ -158,7 +158,7 @@ The **Loop** dock panel runs an automated improve-and-evaluate cycle on an agent
 
 1. Prompt the agent with your instruction
 2. Run a user-defined evaluation command
-3. Parse a metric from the result (`exit-code`, `stdout-regex` capture, or `json-path`)
+3. Extract a numeric score from the result (process exit code, a regex match on stdout, or a JSON field)
 4. Commit on improvement, hard-reset the worktree on regression
 5. Repeat until you stop it or the budget is exhausted
 
