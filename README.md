@@ -176,9 +176,9 @@ Developer view includes a search system that goes beyond file text search.
 
 Manifold also captures session data locally and stores it per project in SQLite:
 
-- interactions
-- observations
-- session summaries
+- **interactions** — prompts sent and responses received
+- **observations** — facts the agent noted during a session
+- **session summaries** — compressed overviews used when resuming long sessions
 
 That memory is used for search and to give the agent relevant history when a session is resumed.
 
