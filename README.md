@@ -148,7 +148,7 @@ A **Superagent** is a Claude Code orchestrator session that spawns and supervise
 - Spawns child agents on any registered repository and streams their output back
 - Requires approval for each tool call that modifies files or runs commands, with an option to auto-approve for the session
 - Shows overall status based on all child agents: `running` if any are still working, `error` if any failed, `done` when all finish
-- Uses a two-pane layout: orchestrator terminal alongside the fleet view and approval inbox
+- Uses a two-pane layout: the orchestrating agent's terminal alongside a list of child agents and any pending approvals
 
 Superagents are useful when a task spans several repositories at once — for example, landing a change that touches both a backend and a frontend repo, or running the same refactor across many services.
 
