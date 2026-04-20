@@ -311,6 +311,39 @@ describe('SessionManager', () => {
     })
   })
 
+  describe('resize', () => {
+    it('forwards cols and rows to the session pty', async () => {
+      await sessionManager.createSession({
+        projectId: 'proj-1',
+        runtimeId: 'claude',
+        prompt: 'test',
+      })
+
+      sessionManager.resize('session-uuid-1', 132, 50)
+
+      expect(ptyPool.resize).toHaveBeenCalledWith('pty-1', 132, 50)
+    })
+
+    it('silently no-ops for unknown session', () => {
+      expect(() => sessionManager.resize('nope', 80, 24)).not.toThrow()
+      expect(ptyPool.resize).not.toHaveBeenCalled()
+    })
+
+    it('swallows errors thrown by ptyPool.resize (pty may have exited)', async () => {
+      await sessionManager.createSession({
+        projectId: 'proj-1',
+        runtimeId: 'claude',
+        prompt: 'test',
+      })
+
+      ;(ptyPool.resize as ReturnType<typeof vi.fn>).mockImplementation(() => {
+        throw new Error('PTY not found')
+      })
+
+      expect(() => sessionManager.resize('session-uuid-1', 80, 24)).not.toThrow()
+    })
+  })
+
   describe('getSession', () => {
     it('returns the public session info', async () => {
       await sessionManager.createSession({
