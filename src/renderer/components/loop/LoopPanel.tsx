@@ -22,16 +22,16 @@ const DEFAULT_JUDGE_RUBRIC = 'Rate 0-10 based on: 1) does the change actually so
 
 const DEFAULT_FORM: FormState = {
   program: '',
-  targetGlobs: 'src/**',
-  evalCommand: 'npm test',
-  metricKind: 'exit-code',
+  targetGlobs: '',
+  evalCommand: '',
+  metricKind: 'llm-judge',
   pattern: 'ms=(\\d+(?:\\.\\d+)?)',
   jsonPath: 'results.meanMs',
   direction: 'minimize',
   judgeRubric: DEFAULT_JUDGE_RUBRIC,
   judgeMaxScore: '10',
   budgetSeconds: '60',
-  maxIterations: '20',
+  maxIterations: '5',
 }
 
 function formFromConfig(cfg: LoopConfig | null): FormState {
@@ -283,7 +283,7 @@ function LoopConfigForm({ sessionId, initialConfig, disabled, onStart, onSave }:
 
       <div style={S.field}>
         <label style={S.label}>Target globs (comma-separated)</label>
-        <input style={S.input} value={form.targetGlobs} onChange={(e) => update('targetGlobs', e.target.value)} disabled={disabled} />
+        <input style={S.input} value={form.targetGlobs} onChange={(e) => update('targetGlobs', e.target.value)} disabled={disabled} placeholder="e.g. src/**, README.md" />
       </div>
 
       <div style={S.field}>
@@ -293,7 +293,7 @@ function LoopConfigForm({ sessionId, initialConfig, disabled, onStart, onSave }:
             <span style={S.labelHint}>optional — if set, its stdout is passed to the judge</span>
           )}
         </div>
-        <input style={S.input} value={form.evalCommand} onChange={(e) => update('evalCommand', e.target.value)} disabled={disabled} placeholder={form.metricKind === 'llm-judge' ? 'leave blank to judge the diff directly' : undefined} />
+        <input style={S.input} value={form.evalCommand} onChange={(e) => update('evalCommand', e.target.value)} disabled={disabled} placeholder={form.metricKind === 'llm-judge' ? 'leave blank to judge the diff directly' : 'e.g. npm test'} />
       </div>
 
       <div style={S.inputRow}>
