@@ -31,7 +31,7 @@ export interface JudgeRequest {
   evalStdout: string
   diff: string
   hasEvalCommand: boolean
-  programFile: string
+  program: string
 }
 
 export interface JudgeResult {
@@ -84,7 +84,10 @@ interface RunState {
   baselineSha: string
 }
 
-const PROMPT_TEMPLATE = `Read \`{programFile}\` and propose ONE small change aimed at improving the target metric. Edit only files matching: {targetGlobs}. When done, stop your turn. Do not run tests or benchmarks — the harness will measure your change.`
+const PROMPT_TEMPLATE = `Task:
+{program}
+
+Propose ONE small change aimed at improving the target metric. Edit only files matching: {targetGlobs}. Do NOT ask clarifying questions — make reasonable assumptions and act. Do NOT create or edit a program.md file; the task above is your spec. When done, stop your turn. Do not run tests or benchmarks — the harness will measure your change.`
 
 export class LoopRunner {
   private runs = new Map<string, RunState>()
@@ -233,7 +236,7 @@ export class LoopRunner {
         evalStdout: evalResult.stdout,
         diff,
         hasEvalCommand: !skipEval,
-        programFile: config.programFile,
+        program: config.program,
       }, abort.signal)
       score = result.score
       failure = result.failure
@@ -290,7 +293,7 @@ export class LoopRunner {
 
 function renderPrompt(template: string, config: LoopConfig): string {
   return template
-    .replace('{programFile}', config.programFile)
+    .replace('{program}', config.program.trim() || '(no task specified)')
     .replace('{targetGlobs}', config.targetGlobs.join(', '))
 }
 

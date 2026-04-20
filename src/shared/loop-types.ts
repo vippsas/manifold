@@ -8,7 +8,7 @@ export type MetricSpec =
 
 export interface LoopConfig {
   sessionId: string
-  programFile: string
+  program: string
   targetGlobs: string[]
   evalCommand: string
   metric: MetricSpec

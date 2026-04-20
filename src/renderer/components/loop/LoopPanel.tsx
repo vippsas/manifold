@@ -5,7 +5,7 @@ import type { LoopConfig, MetricSpec } from '../../../shared/loop-types'
 import { loopPanelStyles as S, outcomeColors, stateColors } from './LoopPanel.styles'
 
 interface FormState {
-  programFile: string
+  program: string
   targetGlobs: string
   evalCommand: string
   metricKind: MetricSpec['kind']
@@ -18,10 +18,10 @@ interface FormState {
   maxIterations: string
 }
 
-const DEFAULT_JUDGE_RUBRIC = 'Rate 0-10 based on: 1) does the change actually solve the task in program.md? 2) is the diff minimal and focused? 3) any regressions or red flags?'
+const DEFAULT_JUDGE_RUBRIC = 'Rate 0-10 based on: 1) does the change actually solve the task? 2) is the diff minimal and focused? 3) any regressions or red flags?'
 
 const DEFAULT_FORM: FormState = {
-  programFile: 'program.md',
+  program: '',
   targetGlobs: 'src/**',
   evalCommand: 'npm test',
   metricKind: 'exit-code',
@@ -38,7 +38,7 @@ function formFromConfig(cfg: LoopConfig | null): FormState {
   if (!cfg) return DEFAULT_FORM
   const m = cfg.metric
   return {
-    programFile: cfg.programFile,
+    program: cfg.program,
     targetGlobs: cfg.targetGlobs.join(', '),
     evalCommand: cfg.evalCommand,
     metricKind: m.kind,
@@ -75,9 +75,11 @@ function configFromForm(sessionId: string, form: FormState): LoopConfig | { erro
     metric = { kind: 'exit-code', direction: 'minimize' }
   }
 
+  if (!form.program.trim()) return { error: 'program cannot be empty — describe the task' }
+
   return {
     sessionId,
-    programFile: form.programFile,
+    program: form.program,
     targetGlobs: globs,
     evalCommand: form.evalCommand,
     metric,
@@ -199,60 +201,30 @@ interface ConfigFormProps {
 function LoopConfigForm({ sessionId, initialConfig, disabled, onStart, onSave }: ConfigFormProps): React.JSX.Element {
   const [form, setForm] = useState<FormState>(() => formFromConfig(initialConfig))
   const [error, setError] = useState<string | null>(null)
-  const [program, setProgram] = useState<string>('')
   const [aiBusy, setAiBusy] = useState(false)
-  const loadedProgramRef = React.useRef<string>('')
 
   React.useEffect(() => { setForm(formFromConfig(initialConfig)) }, [initialConfig])
-
-  const programFile = form.programFile
-  React.useEffect(() => {
-    let cancelled = false
-    void (async () => {
-      try {
-        const content = await window.electronAPI.invoke('files:read-if-exists', sessionId, programFile) as string | null
-        if (cancelled) return
-        setProgram(content ?? '')
-        loadedProgramRef.current = content ?? ''
-      } catch {
-        if (cancelled) return
-        setProgram('')
-        loadedProgramRef.current = ''
-      }
-    })()
-    return () => { cancelled = true }
-  }, [sessionId, programFile])
 
   async function improveWithAi(): Promise<void> {
     if (aiBusy) return
     setAiBusy(true)
     setError(null)
     try {
-      const draft = program.trim()
+      const draft = form.program.trim()
       const instruction = draft
-        ? `You are improving the program description for an autoresearch loop. The loop repeatedly asks a coding agent to edit files in this repo to improve a measurable metric. Rewrite the user's draft into a clear, concise program.md: state the goal, list constraints (what not to touch), and define what "better" means. Keep it short. Return ONLY the markdown — no preamble, no code fences.\n\nUser's draft:\n${draft}`
-        : `You are writing a starter program.md for an autoresearch loop that runs in this repo. The loop repeatedly asks a coding agent to edit files to improve a measurable metric (eval command: "${form.evalCommand}", target globs: ${form.targetGlobs}). Write a clear, concise program.md: state a plausible goal based on the repo, list constraints (what not to touch), and define what "better" means. Keep it short. Return ONLY the markdown — no preamble, no code fences.`
+        ? `You are rewriting a task description for an autoresearch loop. The loop repeatedly asks a coding agent to edit files in this repo to improve a measurable metric. Rewrite the user's draft into a clear, concrete task spec: state the goal, list constraints (what not to touch), and define what "better" means. Do NOT ask clarifying questions — make reasonable assumptions and commit to them. Keep it short. Return ONLY the task spec as plain text — no preamble, no code fences, no questions.\n\nUser's draft:\n${draft}`
+        : `You are writing a starter task description for an autoresearch loop that runs in this repo. The loop repeatedly asks a coding agent to edit files to improve a measurable metric (eval command: "${form.evalCommand}", target globs: ${form.targetGlobs}). Write a clear, concrete task spec: state a plausible goal based on the repo, list constraints (what not to touch), and define what "better" means. Do NOT ask clarifying questions — make reasonable assumptions and commit to them. Keep it short. Return ONLY the task spec as plain text — no preamble, no code fences, no questions.`
       const improved = await window.electronAPI.invoke('git:ai-generate', sessionId, instruction) as string
       const cleaned = improved.trim()
       if (!cleaned) {
         setError('AI returned no output — is a default runtime configured?')
         return
       }
-      setProgram(cleaned)
+      update('program', cleaned)
     } catch (e) {
       setError(`AI improve failed: ${(e as Error).message}`)
     } finally {
       setAiBusy(false)
-    }
-  }
-
-  async function flushProgram(): Promise<void> {
-    if (program === loadedProgramRef.current) return
-    try {
-      await window.electronAPI.invoke('files:write', sessionId, programFile, program)
-      loadedProgramRef.current = program
-    } catch (e) {
-      setError(`Failed to save ${programFile}: ${(e as Error).message}`)
     }
   }
 
@@ -277,7 +249,7 @@ function LoopConfigForm({ sessionId, initialConfig, disabled, onStart, onSave }:
         e.preventDefault()
         const cfg = build()
         if (!cfg) return
-        void flushProgram().then(() => onStart(cfg))
+        onStart(cfg)
       }}
     >
       <div style={S.field}>
@@ -293,19 +265,17 @@ function LoopConfigForm({ sessionId, initialConfig, disabled, onStart, onSave }:
                 ...(disabled && !aiBusy ? S.aiButtonDisabled : null),
                 ...(aiBusy ? S.aiButtonBusy : null),
               }}
-              title="Use your default AI coding assistant to rewrite this prompt"
+              title="Use your default AI coding assistant to rewrite this task spec"
             >
               <span aria-hidden="true" style={{ ...S.aiSparkle, ...(aiBusy ? S.aiSparkleBusy : null) }}>✦</span>
               {aiBusy ? 'Improving…' : 'Improve with AI'}
             </button>
-            <span style={S.labelHint}>{programFile}</span>
           </div>
         </div>
         <textarea
           style={S.textarea}
-          value={program}
-          onChange={(e) => setProgram(e.target.value)}
-          onBlur={() => { void flushProgram() }}
+          value={form.program}
+          onChange={(e) => update('program', e.target.value)}
           disabled={disabled}
           placeholder="Describe what the agent should do each iteration. e.g. 'Make all tests in src/** pass without modifying test files.'"
         />
@@ -402,7 +372,7 @@ function LoopConfigForm({ sessionId, initialConfig, disabled, onStart, onSave }:
           onClick={() => {
             const cfg = build()
             if (!cfg) return
-            void flushProgram().then(() => onSave(cfg))
+            onSave(cfg)
           }}
           disabled={disabled}
         >Save</button>

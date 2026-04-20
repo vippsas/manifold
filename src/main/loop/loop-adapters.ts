@@ -1,8 +1,6 @@
 import { spawn } from 'node:child_process'
 import { execFile } from 'node:child_process'
 import { promisify } from 'node:util'
-import { readFile } from 'node:fs/promises'
-import { resolve as resolvePath } from 'node:path'
 import type { BrowserWindow } from 'electron'
 import type { SessionManager } from '../session/session-manager'
 import type { GitOperations } from '../git/git-operations'
@@ -157,14 +155,13 @@ export function createJudgeAdapter(sessionManager: SessionManager, gitOps: GitOp
       if (!runtime) return { failure: `runtime not found: ${session.runtimeId}` }
 
       const rubric = request.rubric.trim() || 'Rate overall quality of the change.'
-      const programSpec = await readProgramSpec(session.worktreePath, request.programFile)
       const prompt = buildJudgePrompt({
         rubric,
         maxScore: request.maxScore,
         evalStdout: request.evalStdout,
         diff: request.diff,
         hasEvalCommand: request.hasEvalCommand,
-        programSpec,
+        programSpec: request.program,
       })
 
       let output: string
@@ -219,7 +216,7 @@ function buildJudgePrompt(input: JudgePromptInput): string {
     )
   }
 
-  lines.push('', `Task specification (from program.md):`, '```', truncate(programSpec?.trim() || '(program.md is empty or missing)', PROGRAM_SPEC_CHAR_LIMIT), '```', '')
+  lines.push('', `Task specification:`, '```', truncate(programSpec?.trim() || '(no task specified)', PROGRAM_SPEC_CHAR_LIMIT), '```', '')
 
   lines.push(`Rubric:`, rubric, '')
 
@@ -250,14 +247,6 @@ function buildJudgePrompt(input: JudgePromptInput): string {
   return lines.join('\n')
 }
 
-async function readProgramSpec(worktreePath: string, programFile: string): Promise<string | null> {
-  if (!programFile.trim()) return null
-  try {
-    return await readFile(resolvePath(worktreePath, programFile), 'utf8')
-  } catch {
-    return null
-  }
-}
 
 function extractScore(output: string, maxScore: number): number | null {
   const tagged = output.match(/FINAL[_\s-]?SCORE\s*[:=]\s*(-?\d+(?:\.\d+)?)/i)

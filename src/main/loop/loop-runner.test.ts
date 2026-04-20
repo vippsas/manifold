@@ -115,7 +115,7 @@ function makeWait(outcomes: Array<'ended' | 'timeout' | 'aborted'>): WaitForTurn
 function baseConfig(overrides: Partial<LoopConfig> = {}): LoopConfig {
   return {
     sessionId: SESSION_ID,
-    programFile: 'program.md',
+    program: 'Make the widget faster.',
     targetGlobs: ['src/**'],
     evalCommand: 'npm run bench',
     metric: { kind: 'stdout-regex', pattern: 'ms=(\\d+)', direction: 'minimize' },
@@ -171,10 +171,11 @@ describe('LoopRunner.start — single iteration, improvement', () => {
     env.deps.git.changedFiles.push(3)
   })
 
-  it('prompts the agent', async () => {
-    await env.runner.start(baseConfig())
+  it('prompts the agent with the inline program text', async () => {
+    await env.runner.start(baseConfig({ program: 'Make the widget faster.' }))
     expect(env.deps.session.inputs.length).toBe(2)
-    expect(env.deps.session.inputs[0]).toContain('program.md')
+    expect(env.deps.session.inputs[0]).toContain('Make the widget faster.')
+    expect(env.deps.session.inputs[0]).not.toMatch(/Read `program\.md`/)
     expect(env.deps.session.inputs[1]).toBe('\r')
   })
 
