@@ -187,6 +187,13 @@ The storage root is configurable in Settings.
 - Git
 - At least one supported CLI runtime installed locally
 
+### Get The Source
+
+```bash
+git clone https://github.com/vippsas/manifold.git
+cd manifold
+```
+
 ### Commands
 
 | Command | Purpose |
@@ -234,7 +241,15 @@ To build one, see [docs/external-provisioners.md](docs/external-provisioners.md)
 
 ## Contributing
 
-See [CONTRIBUTING.md](CONTRIBUTING.md) for contributor setup, code conventions, test commands, and PR workflow.
+Contributions are welcome. A quick outline:
+
+1. Fork the repo and create a branch from `main`.
+2. Follow the [Local Development](#local-development) steps to get the app running.
+3. Make your change, keeping it focused and small where possible.
+4. Run `npm run typecheck` and `npm test` — both must pass.
+5. Open a pull request describing the change and the testing you ran.
+
+See [CONTRIBUTING.md](CONTRIBUTING.md) for the full contributor setup, code conventions, test commands, and PR workflow.
 
 ## Releasing
 
