@@ -255,7 +255,7 @@ For security, embedded web previews are limited to `localhost` URLs only — the
 
 ## External Provisioners
 
-Manifold supports external repository provisioners through a versioned CLI protocol.
+Manifold supports external plugins that can create and configure repositories on demand, communicating with Manifold through a versioned command-line protocol.
 
 To build one, see [docs/external-provisioners.md](docs/external-provisioners.md).
 
