@@ -58,7 +58,6 @@ function configFromForm(sessionId: string, form: FormState): LoopConfig | { erro
   const maxIter = Number(form.maxIterations)
   if (!Number.isFinite(maxIter) || maxIter <= 0) return { error: 'maxIterations must be positive' }
   const globs = form.targetGlobs.split(',').map((g) => g.trim()).filter(Boolean)
-  if (globs.length === 0) return { error: 'targetGlobs cannot be empty' }
   if (!form.evalCommand.trim() && form.metricKind !== 'llm-judge') return { error: 'evalCommand cannot be empty' }
 
   let metric: MetricSpec
@@ -282,7 +281,10 @@ function LoopConfigForm({ sessionId, initialConfig, disabled, onStart, onSave }:
       </div>
 
       <div style={S.field}>
-        <label style={S.label}>Target globs (comma-separated)</label>
+        <div style={S.labelRow}>
+          <label style={S.label}>Target globs (comma-separated)</label>
+          <span style={S.labelHint}>leave blank to allow edits anywhere in the project</span>
+        </div>
         <input style={S.input} value={form.targetGlobs} onChange={(e) => update('targetGlobs', e.target.value)} disabled={disabled} placeholder="e.g. src/**, README.md" />
       </div>
 

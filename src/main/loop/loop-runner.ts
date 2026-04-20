@@ -87,7 +87,7 @@ interface RunState {
 const PROMPT_TEMPLATE = `Task:
 {program}
 
-Propose ONE small change aimed at improving the target metric. Edit only files matching: {targetGlobs}. Do NOT ask clarifying questions — make reasonable assumptions and act. Do NOT create or edit a program.md file; the task above is your spec. When done, stop your turn. Do not run tests or benchmarks — the harness will measure your change.`
+Propose ONE small change aimed at improving the target metric.{targetGlobsLine} Do NOT ask clarifying questions — make reasonable assumptions and act. Do NOT create or edit a program.md file; the task above is your spec. When done, stop your turn. Do not run tests or benchmarks — the harness will measure your change.`
 
 export class LoopRunner {
   private runs = new Map<string, RunState>()
@@ -292,9 +292,11 @@ export class LoopRunner {
 }
 
 function renderPrompt(template: string, config: LoopConfig): string {
+  const globs = config.targetGlobs.filter((g) => g.trim().length > 0)
+  const targetGlobsLine = globs.length > 0 ? ` Edit only files matching: ${globs.join(', ')}.` : ''
   return template
     .replace('{program}', config.program.trim() || '(no task specified)')
-    .replace('{targetGlobs}', config.targetGlobs.join(', '))
+    .replace('{targetGlobsLine}', targetGlobsLine)
 }
 
 function tail(text: string, max = 2048): string {
