@@ -233,7 +233,7 @@ Before opening a pull request, make sure `npm run typecheck` and `npm test` both
 
 ## Architecture
 
-Manifold follows Electron's multi-process model with strict context isolation:
+Manifold follows Electron's multi-process model, where the UI has no direct access to Node.js or the filesystem — all system calls go through a controlled bridge:
 
 - `src/main/`: terminal processes (PTYs), git/worktree operations, search, memory, settings, and app lifecycle
 - `src/preload/`: security bridge that exposes a controlled set of main-process operations to the UI
