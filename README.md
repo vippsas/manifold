@@ -72,7 +72,7 @@ Simple view is the default UI mode on a fresh install.
 It is optimized for quickly building local web apps from chat:
 
 - Creates a project folder under your Manifold storage directory and tracks it automatically
-- Uses your configured default runtime to scaffold and iterate on the app
+- Uses the default runtime you set in Settings to scaffold and iterate on the app
 - Constrains the generated app to a local stack: **React 19**, **TypeScript**, **Vite**, **Dexie/IndexedDB** (browser-local database), and **CSS Modules**
 - Runs `npm install` and `npm run dev` so the preview can come up immediately
 - Persists chat history and reopens existing apps from the dashboard
