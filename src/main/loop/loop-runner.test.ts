@@ -62,13 +62,19 @@ function makeFakeGit(): LoopGitAdapter & { commits: Array<{ msg: string; sha: st
   }
 }
 
-function makeFakeJudge(results: Array<{ score: number } | { failure: string }> = []): LoopJudgeAdapter & { calls: Array<{ rubric: string; maxScore: number; evalStdout: string; diff: string }> } {
-  const calls: Array<{ rubric: string; maxScore: number; evalStdout: string; diff: string }> = []
+function makeFakeJudge(results: Array<{ score: number } | { failure: string }> = []): LoopJudgeAdapter & { calls: Array<{ rubric: string; maxScore: number; evalStdout: string; diff: string; hasEvalCommand: boolean }> } {
+  const calls: Array<{ rubric: string; maxScore: number; evalStdout: string; diff: string; hasEvalCommand: boolean }> = []
   const queue = [...results]
   return {
     calls,
     async judge(request) {
-      calls.push({ rubric: request.rubric, maxScore: request.maxScore, evalStdout: request.evalStdout, diff: request.diff })
+      calls.push({
+        rubric: request.rubric,
+        maxScore: request.maxScore,
+        evalStdout: request.evalStdout,
+        diff: request.diff,
+        hasEvalCommand: request.hasEvalCommand,
+      })
       return queue.shift() ?? { failure: 'no judge result queued' }
     },
   }
@@ -234,9 +240,10 @@ describe('LoopRunner.start — llm-judge metric', () => {
         return { stdout: '', exitCode: 0, timedOut: false }
       },
     }
+    const judge = makeFakeJudge([{ score: 7 }])
     const env = buildRunner({
       evalRunner,
-      judge: makeFakeJudge([{ score: 7 }]),
+      judge,
     })
     env.deps.git.changedFiles.push(1)
 
@@ -246,9 +253,26 @@ describe('LoopRunner.start — llm-judge metric', () => {
     }))
 
     expect(evalCalled).toBe(false)
+    expect(judge.calls[0].hasEvalCommand).toBe(false)
     const iter = env.deps.iterationLog.appended[0]
     expect(iter.outcome).toBe('improved')
     expect(iter.score).toBe(7)
+  })
+
+  it('flags hasEvalCommand=true when an eval command is configured', async () => {
+    const judge = makeFakeJudge([{ score: 6 }])
+    const env = buildRunner({
+      evalRunner: makeFakeEval([{ stdout: 'built', exitCode: 0 }]),
+      judge,
+    })
+    env.deps.git.changedFiles.push(1)
+
+    await env.runner.start(baseConfig({
+      evalCommand: 'npm run bench',
+      metric: { kind: 'llm-judge', rubric: 'r', maxScore: 10, direction: 'maximize' },
+    }))
+
+    expect(judge.calls[0].hasEvalCommand).toBe(true)
   })
 
   it('marks iteration failed when the judge returns failure', async () => {

@@ -160,8 +160,7 @@ export function createJudgeAdapter(sessionManager: SessionManager, gitOps: GitOp
         maxScore: request.maxScore,
         evalStdout: request.evalStdout,
         diff: request.diff,
-        iterationIndex: request.iterationIndex,
-        previousBestScore: request.previousBestScore,
+        hasEvalCommand: request.hasEvalCommand,
       })
 
       let output: string
@@ -191,70 +190,53 @@ interface JudgePromptInput {
   maxScore: number
   evalStdout: string
   diff: string
-  iterationIndex: number
-  previousBestScore?: number
+  hasEvalCommand: boolean
 }
 
 function buildJudgePrompt(input: JudgePromptInput): string {
-  const { rubric, maxScore, evalStdout, diff, iterationIndex, previousBestScore } = input
-  const stdoutExcerpt = truncate(evalStdout, STDOUT_CHAR_LIMIT)
+  const { rubric, maxScore, evalStdout, diff, hasEvalCommand } = input
   const diffExcerpt = truncate(diff, DIFF_CHAR_LIMIT)
-  const low = Math.max(1, Math.round(maxScore * 0.2))
-  const mid = Math.round(maxScore * 0.5)
-  const high = Math.round(maxScore * 0.8)
 
-  const anchorBlock = [
-    `Calibration anchors (use the FULL scale — do not default to 0, 1, or ${maxScore}):`,
-    `  0           = change is broken, harmful, or does nothing relevant`,
-    `  ${low.toString().padEnd(11)} = weak / questionable improvement`,
-    `  ${mid.toString().padEnd(11)} = neutral — meets baseline expectations, no net harm or help`,
-    `  ${high.toString().padEnd(11)} = solid improvement across most rubric criteria`,
-    `  ${maxScore.toString().padEnd(11)} = reserved for exceptional, clearly-complete work`,
-  ]
-
-  const anchorContext = previousBestScore === undefined
-    ? [
-      `This is iteration #${iterationIndex} — the first candidate. No previous baseline score exists.`,
-      `Score this cumulative diff against the rubric using the calibration anchors below.`,
-    ]
-    : [
-      `This is iteration #${iterationIndex}. The previous best candidate (a SUBSET of the diff below)`,
-      `scored ${previousBestScore}/${maxScore}. The diff you are evaluating now contains ALL of that`,
-      `work PLUS additional changes from this iteration.`,
-      `Your score MUST reflect the comparison:`,
-      `  - If this iteration adds real, useful progress, score > ${previousBestScore}.`,
-      `  - If this iteration is neutral or cosmetic-only, score = ${previousBestScore}.`,
-      `  - If it introduces regressions, redundancy, or noise, score < ${previousBestScore}.`,
-      `Do NOT anchor stubbornly on the prior score — differentiate.`,
-    ]
-
-  return [
-    `You are judging a cumulative code change on a 0–${maxScore} integer scale.`,
+  const lines: string[] = [
+    `You are judging a code change on a 0–${maxScore} integer scale.`,
+    `Score strictly against the rubric below. Do not invent extra criteria.`,
     '',
-    ...anchorContext,
-    '',
-    ...anchorBlock,
-    '',
-    `Rubric to apply:`,
+    `Rubric:`,
     rubric,
     '',
-    `Eval command output (truncated):`,
-    '```',
-    stdoutExcerpt || '(no output)',
-    '```',
-    '',
-    `Cumulative diff from loop baseline (truncated):`,
+  ]
+
+  if (hasEvalCommand) {
+    const stdoutExcerpt = truncate(evalStdout, STDOUT_CHAR_LIMIT)
+    lines.push(
+      `Eval command output (truncated):`,
+      '```',
+      stdoutExcerpt || '(no output)',
+      '```',
+      '',
+    )
+  } else {
+    lines.push(
+      `No eval command is configured for this loop — judge the diff directly against the rubric.`,
+      `If the rubric mentions eval output, interpret it as "does the diff itself demonstrate the change works" and do NOT penalize for missing eval output.`,
+      '',
+    )
+  }
+
+  lines.push(
+    `Diff to evaluate (truncated):`,
     '```diff',
     diffExcerpt || '(no diff)',
     '```',
     '',
     `Instructions:`,
-    `1. For each rubric criterion, write ONE short line naming the criterion and awarding a sub-score (e.g. "criterion X: 3/${maxScore}, because ..."). Be specific about the diff.`,
-    `2. Combine the sub-scores into a final integer in [0, ${maxScore}], positioned relative to the prior best if given.`,
-    `3. On the very last line, output EXACTLY this format and nothing else:`,
+    `1. Briefly apply each rubric criterion to the diff${hasEvalCommand ? ' and eval output' : ''}. Be concrete.`,
+    `2. On the very last line, output EXACTLY this format and nothing else:`,
     `   FINAL_SCORE: <integer between 0 and ${maxScore}>`,
     `The last line is parsed mechanically — any deviation will be treated as a judge failure.`,
-  ].join('\n')
+  )
+
+  return lines.join('\n')
 }
 
 function extractScore(output: string, maxScore: number): number | null {

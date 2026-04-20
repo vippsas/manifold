@@ -30,8 +30,7 @@ export interface JudgeRequest {
   maxScore: number
   evalStdout: string
   diff: string
-  iterationIndex: number
-  previousBestScore?: number
+  hasEvalCommand: boolean
 }
 
 export interface JudgeResult {
@@ -232,8 +231,7 @@ export class LoopRunner {
         maxScore: config.metric.maxScore,
         evalStdout: evalResult.stdout,
         diff,
-        iterationIndex: index,
-        previousBestScore: status.bestScore,
+        hasEvalCommand: !skipEval,
       }, abort.signal)
       score = result.score
       failure = result.failure
