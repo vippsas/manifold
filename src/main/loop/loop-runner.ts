@@ -113,6 +113,7 @@ export class LoopRunner {
       state: 'running',
       currentIteration: 0,
       bestCommitSha: baselineSha,
+      baselineSha,
       startedAt: this.now(),
     }
     const run: RunState = {

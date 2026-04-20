@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from 'react'
+import React, { useEffect, useMemo, useState } from 'react'
 import { useLoop } from '../../hooks/useLoop'
 import { useDockState } from '../editor/dock-panel-types'
 import type { LoopConfig, MetricSpec } from '../../../shared/loop-types'
@@ -108,17 +108,55 @@ export function LoopPanel(): React.JSX.Element {
 
   const isRunning = loop.status?.state === 'running'
   const hasConfig = loop.config !== null
+  const hasImprovement = !!loop.status?.bestCommitSha && loop.status.bestCommitSha !== loop.status.baselineSha
+
+  const [restoreMsg, setRestoreMsg] = useState<{ kind: 'ok' | 'err'; text: string } | null>(null)
+  const [restoring, setRestoring] = useState(false)
+
+  useEffect(() => {
+    if (!restoreMsg) return
+    const t = window.setTimeout(() => setRestoreMsg(null), 4000)
+    return () => window.clearTimeout(t)
+  }, [restoreMsg])
+
+  const handleRestoreBest = async (): Promise<void> => {
+    setRestoring(true)
+    try {
+      const { sha } = await loop.restoreBest()
+      setRestoreMsg({ kind: 'ok', text: `Restored to ${sha.slice(0, 7)}` })
+    } catch (err) {
+      setRestoreMsg({ kind: 'err', text: `Restore failed: ${(err as Error).message}` })
+    } finally {
+      setRestoring(false)
+    }
+  }
 
   return (
     <div style={S.wrapper}>
       <div style={S.header}>
         <div style={S.title}>Autoresearch Loop</div>
         <div style={S.headerActions}>
+          {restoreMsg && (
+            <span
+              style={{
+                fontSize: 'var(--type-ui-caption)',
+                color: restoreMsg.kind === 'ok' ? 'var(--status-done)' : 'var(--status-error)',
+              }}
+            >
+              {restoreMsg.text}
+            </span>
+          )}
           {isRunning && (
             <button style={S.secondaryButton} onClick={() => void loop.stop()}>Stop</button>
           )}
-          {!isRunning && loop.status?.bestCommitSha && (
-            <button style={S.secondaryButton} onClick={() => void loop.restoreBest()}>Restore Best</button>
+          {!isRunning && hasImprovement && (
+            <button
+              style={S.secondaryButton}
+              disabled={restoring}
+              onClick={() => void handleRestoreBest()}
+            >
+              {restoring ? 'Restoring…' : 'Restore Best'}
+            </button>
           )}
         </div>
       </div>

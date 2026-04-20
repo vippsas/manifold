@@ -40,6 +40,7 @@ export interface LoopStatus {
   currentIteration: number
   bestScore?: number
   bestCommitSha?: string
+  baselineSha?: string
   startedAt?: number
   stoppedAt?: number
   errorMessage?: string

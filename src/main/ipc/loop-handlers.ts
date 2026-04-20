@@ -44,6 +44,7 @@ export function registerLoopHandlers(deps: IpcDependencies): void {
   ipcMain.handle('loop:restore-best', async (_event, sessionId: string) => {
     const status = loopRunner.getStatus(sessionId)
     if (!status?.bestCommitSha) throw new Error('No best commit recorded yet')
+    if (status.bestCommitSha === status.baselineSha) throw new Error('No improvement to restore — best is still the baseline')
     const worktreePath = sessionManager.getSession(sessionId)?.worktreePath
     if (!worktreePath) throw new Error(`No worktree for session ${sessionId}`)
     await loopRunner.restoreToCommit(worktreePath, status.bestCommitSha)
