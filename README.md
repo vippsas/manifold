@@ -98,7 +98,7 @@ Panels can be shown, hidden, and rearranged to suit your workflow. The current p
 Key developer workflows:
 
 - Open an existing local repository or clone one from GitHub
-- Start an agent on a fresh `manifold/*` worktree branch
+- Start an agent on a fresh worktree branch (branches are named `manifold/<description>` automatically)
 - Start an agent directly on the current branch when you do not want a worktree
 - Continue work from an existing branch or from an open pull request
 - Resume a stopped agent in place
