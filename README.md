@@ -168,7 +168,7 @@ Each iteration has a configurable time limit; if the agent exceeds it, Manifold 
 
 Developer view includes a search system that goes beyond file text search.
 
-- Search modes: `code`, `memory`, or `everything`
+- Search modes: `code` (file contents), `memory` (captured session data), or `everything` (both)
 - Search scopes: the current session, all sessions for the current project, or across all registered projects — depending on mode
 - Match modes: literal or regex
 - Saved searches and recent searches are persisted per project
