@@ -91,6 +91,14 @@ export function LoopPanel(): React.JSX.Element {
   const dock = useDockState()
   const sessionId = dock.sessionId
   const loop = useLoop(sessionId)
+  const [restoreMsg, setRestoreMsg] = useState<{ kind: 'ok' | 'err'; text: string } | null>(null)
+  const [restoring, setRestoring] = useState(false)
+
+  useEffect(() => {
+    if (!restoreMsg) return
+    const t = window.setTimeout(() => setRestoreMsg(null), 4000)
+    return () => window.clearTimeout(t)
+  }, [restoreMsg])
 
   if (!sessionId) {
     return (
@@ -109,15 +117,6 @@ export function LoopPanel(): React.JSX.Element {
   const isRunning = loop.status?.state === 'running'
   const hasConfig = loop.config !== null
   const hasImprovement = !!loop.status?.bestCommitSha && loop.status.bestCommitSha !== loop.status.baselineSha
-
-  const [restoreMsg, setRestoreMsg] = useState<{ kind: 'ok' | 'err'; text: string } | null>(null)
-  const [restoring, setRestoring] = useState(false)
-
-  useEffect(() => {
-    if (!restoreMsg) return
-    const t = window.setTimeout(() => setRestoreMsg(null), 4000)
-    return () => window.clearTimeout(t)
-  }, [restoreMsg])
 
   const handleRestoreBest = async (): Promise<void> => {
     setRestoring(true)
