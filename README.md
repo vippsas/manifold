@@ -38,14 +38,14 @@ Download the latest `.dmg` from the [GitHub Releases page](https://github.com/vi
 
 ### Runtime Binaries
 
-| Runtime | Binary Manifold looks for | Notes |
-| --- | --- | --- |
-| Claude Code | `claude` | Used in both Developer and Simple view. |
-| Codex | `codex` | Used in both Developer and Simple view. |
-| Copilot | `copilot` | Available in the built-in runtime list. |
-| Gemini CLI | `gemini` | Available in both Developer and Simple view. |
-| Claude Code (Ollama) | `ollama` | Launches through `ollama launch claude`; model selection is required. |
-| Codex (Ollama) | `ollama` | Launches through `ollama launch codex`; model selection is required. |
+| Runtime | Binary Manifold looks for | Install | Notes |
+| --- | --- | --- | --- |
+| Claude Code | `claude` | [claude.com/claude-code](https://www.claude.com/product/claude-code) | Used in both Developer and Simple view. |
+| Codex | `codex` | [github.com/openai/codex](https://github.com/openai/codex) | Used in both Developer and Simple view. |
+| Copilot | `copilot` | [github.com/github/copilot-cli](https://github.com/github/copilot-cli) | Available in the built-in runtime list. |
+| Gemini CLI | `gemini` | [github.com/google-gemini/gemini-cli](https://github.com/google-gemini/gemini-cli) | Available in both Developer and Simple view. |
+| Claude Code (Ollama) | `ollama` | [ollama.com](https://ollama.com) | Launches through `ollama launch claude`; model selection is required. |
+| Codex (Ollama) | `ollama` | [ollama.com](https://ollama.com) | Launches through `ollama launch codex`; model selection is required. |
 
 On startup, Manifold resolves your login-shell `PATH` and appends common binary directories like `~/.local/bin`, `/opt/homebrew/bin`, and `/usr/local/bin` so CLIs installed outside Finder's default environment still show up.
 
