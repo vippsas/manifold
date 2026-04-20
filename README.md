@@ -186,10 +186,10 @@ By default, Manifold stores its state under `~/.manifold/`.
 | `~/.manifold/projects.json` | Registered projects |
 | `~/.manifold/memory/*.db` | Per-project SQLite memory stores |
 | `~/.manifold/debug.log` | Debug logging |
-| `<storagePath>/worktrees/...` | Managed git worktrees |
-| `<storagePath>/projects/...` | Simple-view app projects |
+| `~/.manifold/worktrees/...` | Managed git worktrees (default location) |
+| `~/.manifold/projects/...` | Simple-view app projects (default location) |
 
-The storage root is configurable in Settings.
+The storage root (`~/.manifold` by default) is configurable in Settings → Storage Path.
 
 ## Local Development
 
