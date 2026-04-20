@@ -1,6 +1,8 @@
 import { spawn } from 'node:child_process'
 import { execFile } from 'node:child_process'
 import { promisify } from 'node:util'
+import { readFile } from 'node:fs/promises'
+import { resolve as resolvePath } from 'node:path'
 import type { BrowserWindow } from 'electron'
 import type { SessionManager } from '../session/session-manager'
 import type { GitOperations } from '../git/git-operations'
@@ -155,12 +157,14 @@ export function createJudgeAdapter(sessionManager: SessionManager, gitOps: GitOp
       if (!runtime) return { failure: `runtime not found: ${session.runtimeId}` }
 
       const rubric = request.rubric.trim() || 'Rate overall quality of the change.'
+      const programSpec = await readProgramSpec(session.worktreePath, request.programFile)
       const prompt = buildJudgePrompt({
         rubric,
         maxScore: request.maxScore,
         evalStdout: request.evalStdout,
         diff: request.diff,
         hasEvalCommand: request.hasEvalCommand,
+        programSpec,
       })
 
       let output: string
@@ -191,20 +195,33 @@ interface JudgePromptInput {
   evalStdout: string
   diff: string
   hasEvalCommand: boolean
+  programSpec: string | null
 }
 
+const PROGRAM_SPEC_CHAR_LIMIT = 8_000
+
 function buildJudgePrompt(input: JudgePromptInput): string {
-  const { rubric, maxScore, evalStdout, diff, hasEvalCommand } = input
+  const { rubric, maxScore, evalStdout, diff, hasEvalCommand, programSpec } = input
   const diffExcerpt = truncate(diff, DIFF_CHAR_LIMIT)
 
   const lines: string[] = [
     `You are judging a code change on a 0–${maxScore} integer scale.`,
     `Score strictly against the rubric below. Do not invent extra criteria.`,
-    '',
-    `Rubric:`,
-    rubric,
-    '',
   ]
+
+  if (!hasEvalCommand) {
+    lines.push(
+      `NO EVAL COMMAND IS CONFIGURED for this loop. Do NOT mention "eval", "eval output",`,
+      `"evalStdoutTail", or speculate about why eval is missing. There is no eval — judge`,
+      `the diff directly against the rubric and the task spec below. If a rubric criterion`,
+      `references eval output, read it as "does the diff itself demonstrate the change" and`,
+      `score it on the diff alone. Do NOT penalize for absent eval output.`,
+    )
+  }
+
+  lines.push('', `Task specification (from program.md):`, '```', truncate(programSpec?.trim() || '(program.md is empty or missing)', PROGRAM_SPEC_CHAR_LIMIT), '```', '')
+
+  lines.push(`Rubric:`, rubric, '')
 
   if (hasEvalCommand) {
     const stdoutExcerpt = truncate(evalStdout, STDOUT_CHAR_LIMIT)
@@ -213,12 +230,6 @@ function buildJudgePrompt(input: JudgePromptInput): string {
       '```',
       stdoutExcerpt || '(no output)',
       '```',
-      '',
-    )
-  } else {
-    lines.push(
-      `No eval command is configured for this loop — judge the diff directly against the rubric.`,
-      `If the rubric mentions eval output, interpret it as "does the diff itself demonstrate the change works" and do NOT penalize for missing eval output.`,
       '',
     )
   }
@@ -230,13 +241,22 @@ function buildJudgePrompt(input: JudgePromptInput): string {
     '```',
     '',
     `Instructions:`,
-    `1. Briefly apply each rubric criterion to the diff${hasEvalCommand ? ' and eval output' : ''}. Be concrete.`,
+    `1. Briefly apply each rubric criterion to the diff${hasEvalCommand ? ' and eval output' : ''} in light of the task specification. Be concrete.`,
     `2. On the very last line, output EXACTLY this format and nothing else:`,
     `   FINAL_SCORE: <integer between 0 and ${maxScore}>`,
     `The last line is parsed mechanically — any deviation will be treated as a judge failure.`,
   )
 
   return lines.join('\n')
+}
+
+async function readProgramSpec(worktreePath: string, programFile: string): Promise<string | null> {
+  if (!programFile.trim()) return null
+  try {
+    return await readFile(resolvePath(worktreePath, programFile), 'utf8')
+  } catch {
+    return null
+  }
 }
 
 function extractScore(output: string, maxScore: number): number | null {

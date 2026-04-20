@@ -18,7 +18,7 @@ interface FormState {
   maxIterations: string
 }
 
-const DEFAULT_JUDGE_RUBRIC = 'Rate 0-10 based on: 1) does the eval output show the change works? 2) is the diff minimal and focused? 3) any regressions or red flags?'
+const DEFAULT_JUDGE_RUBRIC = 'Rate 0-10 based on: 1) does the change actually solve the task in program.md? 2) is the diff minimal and focused? 3) any regressions or red flags?'
 
 const DEFAULT_FORM: FormState = {
   programFile: 'program.md',

@@ -31,6 +31,7 @@ export interface JudgeRequest {
   evalStdout: string
   diff: string
   hasEvalCommand: boolean
+  programFile: string
 }
 
 export interface JudgeResult {
@@ -232,6 +233,7 @@ export class LoopRunner {
         evalStdout: evalResult.stdout,
         diff,
         hasEvalCommand: !skipEval,
+        programFile: config.programFile,
       }, abort.signal)
       score = result.score
       failure = result.failure
