@@ -279,12 +279,12 @@ Manifold is released under the MIT License. See [LICENSE](LICENSE) for the full 
 
 Releases happen in two steps so the version bump lands on `main` before the tag is created.
 
-1. Prepare the release PR:
+1. Prepare the release PR (choose one based on the change):
 
 ```bash
-./release.sh patch
-./release.sh minor
-./release.sh major
+./release.sh patch   # bug fixes and small changes
+./release.sh minor   # new features, backwards compatible
+./release.sh major   # breaking changes
 ```
 
 2. After that PR is merged, publish the release:
