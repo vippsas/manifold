@@ -1185,6 +1185,16 @@ select:focus-visible {
   to { transform: rotate(360deg); }
 }
 
+@keyframes ai-pulse {
+  0%, 100% { box-shadow: 0 0 0 0 var(--accent-subtle); }
+  50% { box-shadow: 0 0 0 4px var(--accent-subtle); }
+}
+
+@keyframes loop-progress-sweep {
+  0% { transform: translateX(-100%); }
+  100% { transform: translateX(400%); }
+}
+
 .spinner {
   display: inline-block;
   width: 14px;

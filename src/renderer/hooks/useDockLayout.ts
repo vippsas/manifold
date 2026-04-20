@@ -41,15 +41,17 @@ export interface UseDockLayoutResult {
   editorPanelIds: string[]
 }
 
-export function useDockLayout(sessionId: string | null, showIdeasTab: boolean): UseDockLayoutResult {
+export function useDockLayout(sessionId: string | null, showIdeasTab: boolean, showLoopTab: boolean): UseDockLayoutResult {
   const apiRef = useRef<DockviewApi | null>(null)
   const saveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const sessionIdRef = useRef(sessionId)
   const showIdeasTabRef = useRef(showIdeasTab)
+  const showLoopTabRef = useRef(showLoopTab)
   const editorPanelIdsRef = useRef<Set<string>>(new Set())
   const nextEditorPanelIndexRef = useRef(1)
   sessionIdRef.current = sessionId
   showIdeasTabRef.current = showIdeasTab
+  showLoopTabRef.current = showLoopTab
 
   const [, setLayoutVersion] = useState(0)
   const bumpVersion = useCallback(() => setLayoutVersion((value) => value + 1), [])
@@ -77,7 +79,7 @@ export function useDockLayout(sessionId: string | null, showIdeasTab: boolean): 
     }, 500)
   }, [])
 
-  const buildDefaultLayout = useCallback((api: DockviewApi) => applyDefaultLayout(api, { showIdeasTab }), [showIdeasTab])
+  const buildDefaultLayout = useCallback((api: DockviewApi) => applyDefaultLayout(api, { showIdeasTab, showLoopTab }), [showIdeasTab, showLoopTab])
   const buildMinimalLayout = useCallback((api: DockviewApi) => applyMinimalPanels(api), [])
 
   const applyIdeasTabSetting = useCallback((api: DockviewApi, showOnEnable: boolean): boolean => {
@@ -101,6 +103,27 @@ export function useDockLayout(sessionId: string | null, showIdeasTab: boolean): 
     return true
   }, [refs])
 
+  const applyLoopTabSetting = useCallback((api: DockviewApi, showOnEnable: boolean): boolean => {
+    if (!sessionIdRef.current) return false
+
+    const loopPanel = api.getPanel('loop')
+    if (!showLoopTabRef.current) {
+      if (!loopPanel) return false
+      hidePanel(api, 'loop', closedPanelSnapshots, refs)
+      return true
+    }
+
+    if (!showOnEnable || loopPanel) return false
+
+    const snapshot = closedPanelSnapshots.current.get('loop')
+    if (snapshot) {
+      showPanelFromSnapshot(api, 'loop', snapshot, closedPanelSnapshots, refs)
+    } else {
+      showPanelFromHints(api, 'loop', refs)
+    }
+    return true
+  }, [refs])
+
   const focusPanel = useCallback((id: string): void => {
     const panel = apiRef.current?.getPanel(id)
     if (panel && !panel.api.isActive) panel.api.setActive()
@@ -112,14 +135,15 @@ export function useDockLayout(sessionId: string | null, showIdeasTab: boolean): 
     const sid = sessionIdRef.current
     if (sid) {
       void loadOrBuildLayout(api, sid, buildDefaultLayout, refs).then(() => {
-        const visibilityChanged = applyIdeasTabSetting(api, false)
+        const ideasChanged = applyIdeasTabSetting(api, false)
+        const loopChanged = applyLoopTabSetting(api, false)
         syncPanels(api)
         sidebarWidthsRef.current = getSidebarWidths(api)
         if (ensureSearchPanelInWorkspace(api, editorPanelIdsRef.current)) {
           lastLayoutRef.current = api.toJSON()
           saveLayout()
         }
-        if (visibilityChanged) saveLayout()
+        if (ideasChanged || loopChanged) saveLayout()
         bumpVersion()
       })
     } else {
@@ -169,7 +193,7 @@ export function useDockLayout(sessionId: string | null, showIdeasTab: boolean): 
       saveLayout()
       bumpVersion()
     })
-  }, [applyIdeasTabSetting, buildDefaultLayout, buildMinimalLayout, bumpVersion, saveLayout, syncPanels])
+  }, [applyIdeasTabSetting, applyLoopTabSetting, buildDefaultLayout, buildMinimalLayout, bumpVersion, saveLayout, syncPanels])
 
   const prevSessionRef = useRef(sessionId)
   useEffect(() => {
@@ -193,17 +217,18 @@ export function useDockLayout(sessionId: string | null, showIdeasTab: boolean): 
     }
 
     void loadOrBuildLayout(api, sessionId, buildDefaultLayout, refs).then(() => {
-      const visibilityChanged = applyIdeasTabSetting(api, false)
+      const ideasChanged = applyIdeasTabSetting(api, false)
+      const loopChanged = applyLoopTabSetting(api, false)
       syncPanels(api)
       sidebarWidthsRef.current = getSidebarWidths(api)
       if (ensureSearchPanelInWorkspace(api, editorPanelIdsRef.current)) {
         lastLayoutRef.current = api.toJSON()
         saveLayout()
       }
-      if (visibilityChanged) saveLayout()
+      if (ideasChanged || loopChanged) saveLayout()
       bumpVersion()
     })
-  }, [sessionId, applyIdeasTabSetting, buildDefaultLayout, buildMinimalLayout, bumpVersion, saveLayout, syncPanels])
+  }, [sessionId, applyIdeasTabSetting, applyLoopTabSetting, buildDefaultLayout, buildMinimalLayout, bumpVersion, saveLayout, syncPanels])
 
   const previousShowIdeasTabRef = useRef(showIdeasTab)
   useEffect(() => {
@@ -225,6 +250,27 @@ export function useDockLayout(sessionId: string | null, showIdeasTab: boolean): 
     saveLayout()
     bumpVersion()
   }, [applyIdeasTabSetting, bumpVersion, saveLayout, showIdeasTab, syncPanels])
+
+  const previousShowLoopTabRef = useRef(showLoopTab)
+  useEffect(() => {
+    const previous = previousShowLoopTabRef.current
+    previousShowLoopTabRef.current = showLoopTab
+    if (previous === showLoopTab) return
+
+    const api = apiRef.current
+    if (!api || !sessionIdRef.current) return
+
+    const visibilityChanged = applyLoopTabSetting(api, showLoopTab)
+    if (!visibilityChanged) {
+      bumpVersion()
+      return
+    }
+
+    syncPanels(api)
+    lastLayoutRef.current = api.toJSON()
+    saveLayout()
+    bumpVersion()
+  }, [applyLoopTabSetting, bumpVersion, saveLayout, showLoopTab, syncPanels])
 
   const ensureEditorPanel = useCallback((preferredPanelId?: string | null): string => {
     const api = apiRef.current
@@ -334,6 +380,7 @@ export function useDockLayout(sessionId: string | null, showIdeasTab: boolean): 
     const api = apiRef.current
     if (!api) return
     if (id === 'backgroundAgent' && !showIdeasTabRef.current) return
+    if (id === 'loop' && !showLoopTabRef.current) return
 
     if (id === 'editor') {
       const visibleEditorPanels = Array.from(editorPanelIdsRef.current)
@@ -405,6 +452,7 @@ export function useDockLayout(sessionId: string | null, showIdeasTab: boolean): 
 
   const hiddenPanels = PANEL_IDS
     .filter((id) => showIdeasTab || id !== 'backgroundAgent')
+    .filter((id) => showLoopTab || id !== 'loop')
     .filter((id) => !isPanelVisible(id)) as DockPanelId[]
   const editorPanelIds = Array.from(editorPanelIdsRef.current).sort((left, right) => (
     parseEditorPanelOrder(left) - parseEditorPanelOrder(right)

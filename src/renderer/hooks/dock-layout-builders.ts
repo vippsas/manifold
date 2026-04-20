@@ -7,6 +7,7 @@ import {
 
 interface DefaultLayoutOptions {
   showIdeasTab: boolean
+  showLoopTab: boolean
 }
 
 export function applyDefaultLayout(api: DockviewApi, options: DefaultLayoutOptions): void {
@@ -44,6 +45,16 @@ export function applyDefaultLayout(api: DockviewApi, options: DefaultLayoutOptio
       id: 'backgroundAgent',
       component: 'backgroundAgent',
       title: PANEL_TITLES.backgroundAgent,
+      inactive: true,
+      position: { referencePanel: 'agent', direction: 'within' },
+    })
+  }
+
+  if (options.showLoopTab) {
+    api.addPanel({
+      id: 'loop',
+      component: 'loop',
+      title: PANEL_TITLES.loop,
       inactive: true,
       position: { referencePanel: 'agent', direction: 'within' },
     })

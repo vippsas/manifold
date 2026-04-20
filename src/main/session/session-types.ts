@@ -1,4 +1,5 @@
 import type { AgentSession } from '../../shared/types'
+import type { LoopConfig, LoopStatus } from '../../shared/loop-types'
 import type { SimpleRuntimeOutputMode } from '../agent/simple-runtime'
 import type { NlInputBuffer, RollingOutputBuffer } from './nl-command-translator'
 
@@ -39,4 +40,8 @@ export interface InternalSession extends AgentSession {
   nlHintShown?: boolean
   /** Whether the NL hint ghost text is currently visible (cleared on keystroke) */
   nlHintActive?: boolean
+  /** Autoresearch loop configuration for this session, if any */
+  loopConfig?: LoopConfig
+  /** Latest loop run status; kept even after the runner completes so the UI can show history */
+  loopStatus?: LoopStatus
 }

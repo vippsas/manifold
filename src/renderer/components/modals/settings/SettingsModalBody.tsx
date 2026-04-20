@@ -22,12 +22,14 @@ interface Props {
   onStoragePathChange: (path: string) => void
   defaultRuntime: string
   showIdeasTab: boolean
+  showLoopTab: boolean
   theme: string
   scrollbackLines: number
   terminalFontFamily: string
   defaultBaseBranch: string
   onRuntimeChange: (id: string) => void
   onShowIdeasTabChange: (enabled: boolean) => void
+  onShowLoopTabChange: (enabled: boolean) => void
   onThemeChange: (theme: string) => void
   onScrollbackChange: (lines: number) => void
   onTerminalFontFamilyChange: (font: string) => void
