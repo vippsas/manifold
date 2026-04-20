@@ -21,6 +21,27 @@ export interface LoopGitAdapter {
   stageAllAndCommit(worktreePath: string, message: string): Promise<string>
   hardReset(worktreePath: string, sha: string): Promise<void>
   getChangedFilesCount(worktreePath: string): Promise<number>
+  getDiff(worktreePath: string, sinceSha: string): Promise<string>
+}
+
+export interface JudgeRequest {
+  sessionId: string
+  rubric: string
+  maxScore: number
+  evalStdout: string
+  diff: string
+  iterationIndex: number
+  previousBestScore?: number
+}
+
+export interface JudgeResult {
+  score?: number
+  failure?: string
+  rawOutput?: string
+}
+
+export interface LoopJudgeAdapter {
+  judge(request: JudgeRequest, signal: AbortSignal): Promise<JudgeResult>
 }
 
 export interface EvalOutcome {
@@ -48,6 +69,7 @@ export interface LoopRunnerDeps {
   session: LoopSessionAdapter
   git: LoopGitAdapter
   evalRunner: LoopEvalRunner
+  judge: LoopJudgeAdapter
   emitter: LoopEmitter
   iterationLog: LoopIterationLog
   waitForTurnEnd: WaitForTurnEnd
@@ -162,10 +184,9 @@ export class LoopRunner {
 
     const baseForIter = await this.deps.git.getHeadSha(worktreePath)
 
-    this.deps.session.sendInput(
-      config.sessionId,
-      renderPrompt(PROMPT_TEMPLATE, config) + '\n',
-    )
+    this.deps.session.sendInput(config.sessionId, renderPrompt(PROMPT_TEMPLATE, config))
+    await new Promise((r) => setTimeout(r, 400))
+    this.deps.session.sendInput(config.sessionId, '\r')
 
     const turn = await this.deps.waitForTurnEnd(config.sessionId, config.budgetSeconds, abort.signal)
 
@@ -182,33 +203,59 @@ export class LoopRunner {
       return { ...base, outcome: 'failed', finishedAt: this.now(), errorMessage: 'no changes' }
     }
 
+    const skipEval = config.metric.kind === 'llm-judge' && !config.evalCommand.trim()
     let evalResult: EvalOutcome
-    try {
-      evalResult = await this.deps.evalRunner.run(worktreePath, config.evalCommand, config.budgetSeconds, abort.signal)
-    } catch (err) {
-      await this.safeReset(worktreePath, baseForIter)
-      return { ...base, outcome: 'failed', finishedAt: this.now(), errorMessage: `eval crashed: ${(err as Error).message}` }
+    if (skipEval) {
+      evalResult = { stdout: '', exitCode: 0, timedOut: false }
+    } else {
+      try {
+        evalResult = await this.deps.evalRunner.run(worktreePath, config.evalCommand, config.budgetSeconds, abort.signal)
+      } catch (err) {
+        await this.safeReset(worktreePath, baseForIter)
+        return { ...base, outcome: 'failed', finishedAt: this.now(), errorMessage: `eval crashed: ${(err as Error).message}` }
+      }
+
+      if (evalResult.timedOut) {
+        await this.safeReset(worktreePath, baseForIter)
+        return { ...base, outcome: 'failed', finishedAt: this.now(), errorMessage: 'eval timed out', evalStdoutTail: tail(evalResult.stdout) }
+      }
     }
 
-    if (evalResult.timedOut) {
-      await this.safeReset(worktreePath, baseForIter)
-      return { ...base, outcome: 'failed', finishedAt: this.now(), errorMessage: 'eval timed out', evalStdoutTail: tail(evalResult.stdout) }
+    let score: number | undefined
+    let failure: string | undefined
+    let judgeOutputTail: string | undefined
+    if (config.metric.kind === 'llm-judge') {
+      const diff = await this.safeDiff(worktreePath, run.baselineSha)
+      const result = await this.deps.judge.judge({
+        sessionId: config.sessionId,
+        rubric: config.metric.rubric,
+        maxScore: config.metric.maxScore,
+        evalStdout: evalResult.stdout,
+        diff,
+        iterationIndex: index,
+        previousBestScore: status.bestScore,
+      }, abort.signal)
+      score = result.score
+      failure = result.failure
+      if (result.rawOutput) judgeOutputTail = tail(result.rawOutput)
+    } else {
+      const parsed = parseMetric(evalResult.stdout, evalResult.exitCode, config.metric)
+      if ('failure' in parsed) failure = parsed.failure
+      else score = parsed.score
     }
-
-    const parsed = parseMetric(evalResult.stdout, evalResult.exitCode, config.metric)
-    if ('failure' in parsed) {
+    if (failure !== undefined || score === undefined) {
       await this.safeReset(worktreePath, baseForIter)
-      return { ...base, outcome: 'failed', finishedAt: this.now(), errorMessage: parsed.failure, evalStdoutTail: tail(evalResult.stdout) }
+      return { ...base, outcome: 'failed', finishedAt: this.now(), errorMessage: failure ?? 'no score', evalStdoutTail: tail(evalResult.stdout), judgeOutputTail }
     }
 
     const metricDirection = 'direction' in config.metric ? config.metric.direction : 'minimize'
-    const improved = isImprovement(parsed.score, status.bestScore, metricDirection)
+    const improved = isImprovement(score, status.bestScore, metricDirection)
 
     let outcome: IterationOutcome
     let commitSha: string | undefined
     if (improved) {
-      commitSha = await this.deps.git.stageAllAndCommit(worktreePath, `loop: iteration ${index} (score=${parsed.score})`)
-      status.bestScore = parsed.score
+      commitSha = await this.deps.git.stageAllAndCommit(worktreePath, `loop: iteration ${index} (score=${score})`)
+      status.bestScore = score
       status.bestCommitSha = commitSha
       outcome = 'improved'
     } else {
@@ -219,15 +266,20 @@ export class LoopRunner {
     return {
       ...base,
       outcome,
-      score: parsed.score,
+      score,
       commitSha,
       finishedAt: this.now(),
       evalStdoutTail: tail(evalResult.stdout),
+      judgeOutputTail,
     }
   }
 
   private async safeReset(worktreePath: string, sha: string): Promise<void> {
     try { await this.deps.git.hardReset(worktreePath, sha) } catch { /* best-effort */ }
+  }
+
+  private async safeDiff(worktreePath: string, sha: string): Promise<string> {
+    try { return await this.deps.git.getDiff(worktreePath, sha) } catch { return '' }
   }
 
   private publish(run: RunState): void {

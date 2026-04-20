@@ -69,6 +69,22 @@ export function registerFileHandlers(deps: IpcDependencies): void {
     return fileWatcher.readFile(resolved)
   })
 
+  ipcMain.handle('files:read-if-exists', (_event, sessionId: string, filePath: string) => {
+    const session = sessionManager.getSession(sessionId)
+    if (!session) throw new Error(`Session not found: ${sessionId}`)
+    const resolved = resolve(session.worktreePath, filePath)
+    if (!isPathAllowed(resolved, session)) {
+      throw new Error('Path traversal denied: file outside allowed directories')
+    }
+    try {
+      return fileWatcher.readFile(resolved)
+    } catch (err) {
+      const code = (err as NodeJS.ErrnoException).code
+      if (code === 'ENOENT' || (err as Error).message.includes('ENOENT')) return null
+      throw err
+    }
+  })
+
   ipcMain.handle('files:read-data-url', (_event, sessionId: string, filePath: string) => {
     const session = sessionManager.getSession(sessionId)
     if (!session) throw new Error(`Session not found: ${sessionId}`)

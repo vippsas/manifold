@@ -83,7 +83,7 @@ export function App(): React.JSX.Element {
   useStatusNotification(outputtingSessionIds, settings.notificationSound)
   const { diff, changedFiles, refreshDiff } = useDiff(activeSessionId)
   const dockLayoutKey = activeSessionId ?? activeSuperagentId
-  const dockLayout = useDockLayout(dockLayoutKey, settings.showIdeasTab)
+  const dockLayout = useDockLayout(dockLayoutKey, settings.showIdeasTab, settings.showLoopTab)
   const webPreview = useWebPreview(activeSessionId)
 
   const { superagentFileReader, superagentFileWriter } = useMemo(() => {

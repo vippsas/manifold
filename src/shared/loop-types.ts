@@ -4,6 +4,7 @@ export type MetricSpec =
   | { kind: 'stdout-regex'; pattern: string; direction: MetricDirection }
   | { kind: 'json-path'; path: string; direction: MetricDirection }
   | { kind: 'exit-code'; direction: 'minimize' }
+  | { kind: 'llm-judge'; rubric: string; maxScore: number; direction: 'maximize' }
 
 export interface LoopConfig {
   sessionId: string
@@ -26,6 +27,7 @@ export interface LoopIteration {
   outcome: IterationOutcome
   commitSha?: string
   evalStdoutTail?: string
+  judgeOutputTail?: string
   agentSummary?: string
   errorMessage?: string
 }

@@ -5,6 +5,7 @@ import type {
   LoopSessionAdapter,
   LoopGitAdapter,
   LoopEvalRunner,
+  LoopJudgeAdapter,
   LoopEmitter,
   LoopIterationLog as LoopIterationLogPort,
   WaitForTurnEnd,
@@ -57,6 +58,19 @@ function makeFakeGit(): LoopGitAdapter & { commits: Array<{ msg: string; sha: st
       headShas.push(sha)
     },
     getChangedFilesCount: async () => changedFiles.shift() ?? 0,
+    getDiff: async () => '',
+  }
+}
+
+function makeFakeJudge(results: Array<{ score: number } | { failure: string }> = []): LoopJudgeAdapter & { calls: Array<{ rubric: string; maxScore: number; evalStdout: string; diff: string }> } {
+  const calls: Array<{ rubric: string; maxScore: number; evalStdout: string; diff: string }> = []
+  const queue = [...results]
+  return {
+    calls,
+    async judge(request) {
+      calls.push({ rubric: request.rubric, maxScore: request.maxScore, evalStdout: request.evalStdout, diff: request.diff })
+      return queue.shift() ?? { failure: 'no judge result queued' }
+    },
   }
 }
 
@@ -118,6 +132,7 @@ function buildDeps(partial: Partial<LoopRunnerDeps>): {
   session: ReturnType<typeof makeFakeSession>
   git: ReturnType<typeof makeFakeGit>
   evalRunner: LoopEvalRunner
+  judge: ReturnType<typeof makeFakeJudge>
   emitter: ReturnType<typeof makeFakeEmitter>
   iterationLog: ReturnType<typeof makeFakeLog>
   composed: LoopRunnerDeps
@@ -125,18 +140,20 @@ function buildDeps(partial: Partial<LoopRunnerDeps>): {
   const session = makeFakeSession()
   const git = makeFakeGit()
   const evalRunner = partial.evalRunner ?? makeFakeEval([{ stdout: 'ms=42', exitCode: 0 }])
+  const judge = (partial.judge as ReturnType<typeof makeFakeJudge>) ?? makeFakeJudge()
   const emitter = makeFakeEmitter()
   const iterationLog = makeFakeLog()
   const composed: LoopRunnerDeps = {
     session,
     git,
     evalRunner,
+    judge,
     emitter,
     iterationLog,
     waitForTurnEnd: partial.waitForTurnEnd ?? makeWait(['ended']),
     now: partial.now ?? ((): number => 1_700_000_000_000),
   }
-  return { session, git, evalRunner, emitter, iterationLog, composed }
+  return { session, git, evalRunner, judge, emitter, iterationLog, composed }
 }
 
 describe('LoopRunner.start — single iteration, improvement', () => {
@@ -150,8 +167,9 @@ describe('LoopRunner.start — single iteration, improvement', () => {
 
   it('prompts the agent', async () => {
     await env.runner.start(baseConfig())
-    expect(env.deps.session.inputs.length).toBe(1)
+    expect(env.deps.session.inputs.length).toBe(2)
     expect(env.deps.session.inputs[0]).toContain('program.md')
+    expect(env.deps.session.inputs[1]).toBe('\r')
   })
 
   it('commits on improvement', async () => {
@@ -181,6 +199,73 @@ describe('LoopRunner.start — single iteration, improvement', () => {
     const status = env.runner.getStatus(SESSION_ID)
     expect(status?.state).toBe('finished')
     expect(status?.bestScore).toBe(42)
+  })
+})
+
+describe('LoopRunner.start — llm-judge metric', () => {
+  it('calls the judge instead of parseMetric and uses its score', async () => {
+    const judge = makeFakeJudge([{ score: 8 }])
+    const env = buildRunner({
+      evalRunner: makeFakeEval([{ stdout: 'built', exitCode: 0 }]),
+      judge,
+    })
+    env.deps.git.changedFiles.push(1)
+    env.deps.git.getDiff = async () => 'diff --git a/foo b/foo\n+bar'
+
+    await env.runner.start(baseConfig({
+      metric: { kind: 'llm-judge', rubric: 'Cleanliness', maxScore: 10, direction: 'maximize' },
+    }))
+
+    expect(judge.calls).toHaveLength(1)
+    expect(judge.calls[0].rubric).toBe('Cleanliness')
+    expect(judge.calls[0].maxScore).toBe(10)
+    expect(judge.calls[0].evalStdout).toContain('built')
+    expect(judge.calls[0].diff).toContain('diff --git')
+    const iter = env.deps.iterationLog.appended[0]
+    expect(iter.outcome).toBe('improved')
+    expect(iter.score).toBe(8)
+  })
+
+  it('skips the eval subprocess when command is blank', async () => {
+    let evalCalled = false
+    const evalRunner: LoopEvalRunner = {
+      run: async () => {
+        evalCalled = true
+        return { stdout: '', exitCode: 0, timedOut: false }
+      },
+    }
+    const env = buildRunner({
+      evalRunner,
+      judge: makeFakeJudge([{ score: 7 }]),
+    })
+    env.deps.git.changedFiles.push(1)
+
+    await env.runner.start(baseConfig({
+      evalCommand: '   ',
+      metric: { kind: 'llm-judge', rubric: 'r', maxScore: 10, direction: 'maximize' },
+    }))
+
+    expect(evalCalled).toBe(false)
+    const iter = env.deps.iterationLog.appended[0]
+    expect(iter.outcome).toBe('improved')
+    expect(iter.score).toBe(7)
+  })
+
+  it('marks iteration failed when the judge returns failure', async () => {
+    const env = buildRunner({
+      evalRunner: makeFakeEval([{ stdout: 'ok', exitCode: 0 }]),
+      judge: makeFakeJudge([{ failure: 'runtime exploded' }]),
+    })
+    env.deps.git.changedFiles.push(1)
+
+    await env.runner.start(baseConfig({
+      metric: { kind: 'llm-judge', rubric: 'r', maxScore: 10, direction: 'maximize' },
+    }))
+
+    const iter = env.deps.iterationLog.appended[0]
+    expect(iter.outcome).toBe('failed')
+    expect(iter.errorMessage).toContain('runtime exploded')
+    expect(env.deps.git.resets.length).toBe(1)
   })
 })
 

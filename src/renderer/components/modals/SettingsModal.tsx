@@ -17,6 +17,7 @@ interface SettingsModalProps {
 export function SettingsModal({ visible, settings, onSave, onClose, onPreviewTheme }: SettingsModalProps): React.JSX.Element | null {
   const [defaultRuntime, setDefaultRuntime] = useState(settings.defaultRuntime)
   const [showIdeasTab, setShowIdeasTab] = useState(settings.showIdeasTab)
+  const [showLoopTab, setShowLoopTab] = useState(settings.showLoopTab)
   const [theme, setTheme] = useState(settings.theme)
   const [scrollbackLines, setScrollbackLines] = useState(settings.scrollbackLines)
   const [terminalFontFamily, setTerminalFontFamily] = useState(settings.terminalFontFamily)
@@ -45,6 +46,7 @@ export function SettingsModal({ visible, settings, onSave, onClose, onPreviewThe
     const nextProvisioners = settings.provisioning?.provisioners ?? DEFAULT_SETTINGS.provisioning.provisioners
     setDefaultRuntime(settings.defaultRuntime)
     setShowIdeasTab(settings.showIdeasTab)
+    setShowLoopTab(settings.showLoopTab)
     setTheme(settings.theme)
     setScrollbackLines(settings.scrollbackLines)
     setTerminalFontFamily(settings.terminalFontFamily)
@@ -75,6 +77,7 @@ export function SettingsModal({ visible, settings, onSave, onClose, onPreviewThe
     onSave({
       defaultRuntime,
       showIdeasTab,
+      showLoopTab,
       theme,
       scrollbackLines,
       terminalFontFamily,
@@ -93,7 +96,7 @@ export function SettingsModal({ visible, settings, onSave, onClose, onPreviewThe
     if (modeChanged) {
       window.electronAPI.invoke('app:switch-mode', uiMode)
     }
-  }, [defaultRuntime, showIdeasTab, theme, scrollbackLines, terminalFontFamily, defaultBaseBranch, storagePath, notificationSound, shellPrompt, shellHistoryScope, uiMode, density, autoGenerateMessages, settings.uiMode, searchAiSettings, provisioners, onSave, onClose])
+  }, [defaultRuntime, showIdeasTab, showLoopTab, theme, scrollbackLines, terminalFontFamily, defaultBaseBranch, storagePath, notificationSound, shellPrompt, shellHistoryScope, uiMode, density, autoGenerateMessages, settings.uiMode, searchAiSettings, provisioners, onSave, onClose])
 
   if (!visible) return null
 
@@ -120,12 +123,14 @@ export function SettingsModal({ visible, settings, onSave, onClose, onPreviewThe
           onStoragePathChange={setStoragePath}
           defaultRuntime={defaultRuntime}
           showIdeasTab={showIdeasTab}
+          showLoopTab={showLoopTab}
           theme={theme}
           scrollbackLines={scrollbackLines}
           terminalFontFamily={terminalFontFamily}
           defaultBaseBranch={defaultBaseBranch}
           onRuntimeChange={setDefaultRuntime}
           onShowIdeasTabChange={setShowIdeasTab}
+          onShowLoopTabChange={setShowLoopTab}
           onThemeChange={setTheme}
           onScrollbackChange={setScrollbackLines}
           onTerminalFontFamilyChange={setTerminalFontFamily}

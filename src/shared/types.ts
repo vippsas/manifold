@@ -68,6 +68,7 @@ export interface ManifoldSettings {
   setupCompleted: boolean
   defaultRuntime: string
   showIdeasTab: boolean
+  showLoopTab: boolean
   theme: string
   scrollbackLines: number
   terminalFontFamily: string

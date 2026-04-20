@@ -30,6 +30,7 @@ const ALLOWED_INVOKE_CHANNELS = [
   'files:write-for-superagent-project',
   'files:fleet-changes',
   'files:read',
+  'files:read-if-exists',
   'files:read-data-url',
   'files:write',
   'files:delete',
