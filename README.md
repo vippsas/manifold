@@ -269,7 +269,7 @@ Contributions are welcome. A quick outline:
 4. Run `npm run typecheck` and `npm test` — both must pass.
 5. Open a pull request describing the change and the testing you ran.
 
-See [CONTRIBUTING.md](CONTRIBUTING.md) for the full contributor setup, code conventions, test commands, and PR workflow.
+See [CONTRIBUTING.md](CONTRIBUTING.md) for the full contributor setup, code conventions, test commands, and pull request workflow.
 
 ## License
 
