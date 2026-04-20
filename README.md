@@ -159,7 +159,7 @@ The **Loop** dock panel runs a Karpathy-style iterative research cycle on an age
 4. Commit on improvement, hard-reset the worktree on regression
 5. Repeat until you stop it or the budget is exhausted
 
-Each iteration is time-boxed (`budgetSeconds`, SIGTERM → SIGKILL escalation) and appended to `<worktree>/.manifold/loop.jsonl`. The panel tracks the best score so far and offers **Restore Best** to jump back to the commit that produced it.
+Each iteration has a configurable time limit; if the agent exceeds it, Manifold stops it automatically. Results are logged to `<worktree>/.manifold/loop.jsonl`. The panel tracks the best score so far and offers **Restore Best** to jump back to the commit that produced it.
 
 ## Search And Memory
 
