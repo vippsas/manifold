@@ -189,23 +189,20 @@ The storage root is configurable in Settings.
 
 ### Commands
 
-```bash
-npm install
-npm run dev
-npm run build
-npm run typecheck
-npm test
-```
+| Command | Purpose |
+| --- | --- |
+| `npm install` | Install dependencies. Run once after cloning, and again when `package.json` changes. |
+| `npm run dev` | Launch Electron in development mode with hot reload via electron-vite. Auto-rebuilds native modules. |
+| `npm start` | Run the built app locally. Also auto-rebuilds native Electron modules. |
+| `npm run build` | Produce a production build of main, preload, and renderer bundles. |
+| `npm run dist` | Build and package a macOS `.dmg` for distribution. |
+| `npm run typecheck` | Full TypeScript check (runs both `typecheck:node` and `typecheck:web`). |
+| `npm run typecheck:node` | Typecheck main process, preload, and shared code (`tsconfig.node.json`). |
+| `npm run typecheck:web` | Typecheck renderer and shared code (`tsconfig.web.json`). |
+| `npm test` | Run the full vitest suite once. |
+| `npm run test:watch` | Run vitest in watch mode while iterating on tests. |
 
-Useful additional commands:
-
-```bash
-npm run typecheck:node
-npm run typecheck:web
-npm run test:watch
-```
-
-`npm run dev` and `npm start` automatically rebuild the native Electron modules they depend on.
+Before opening a pull request, make sure `npm run typecheck` and `npm test` both pass.
 
 ## Architecture
 
