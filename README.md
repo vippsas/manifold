@@ -111,7 +111,10 @@ Key developer workflows:
 
 1. Open a local repo or clone one from the welcome/onboarding flow.
 2. Pick a project in the sidebar.
-3. Launch an agent.
+3. Launch an agent with a task description, for example:
+
+   > Add input validation to the login form and write unit tests for the new checks.
+
 4. Watch output in the terminal, steer it manually when needed, and review changes in the editor and diff views.
 5. Commit from the status bar and create a PR through `gh` when the branch is ready.
 
