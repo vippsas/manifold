@@ -116,7 +116,7 @@ Key developer workflows:
    > Add input validation to the login form and write unit tests for the new checks.
 
 4. Watch output in the terminal, steer it manually when needed, and review changes in the editor and diff views.
-5. Commit from the status bar and create a PR through `gh` when the branch is ready.
+5. Commit from the status bar and open a pull request through `gh` when the branch is ready.
 
 ### Launching Agents
 
