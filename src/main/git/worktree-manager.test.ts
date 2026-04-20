@@ -195,6 +195,29 @@ describe('WorktreeManager', () => {
       )
       expect(mockSpawn).toHaveBeenCalledTimes(1)
     })
+
+    it('also removes the worktree metadata file after git succeeds', async () => {
+      mockSpawnSequence([{ stdout: '' }])
+      const { removeWorktreeMeta } = await import('./worktree-meta')
+
+      await manager.removeWorktree('/repo', '/mock-home/.manifold/worktrees/proj/repo-oslo')
+
+      expect(removeWorktreeMeta).toHaveBeenCalledWith(
+        '/mock-home/.manifold/worktrees/proj/repo-oslo',
+      )
+    })
+
+    it('propagates errors from git worktree remove without touching metadata', async () => {
+      mockSpawnSequence([{ stdout: '', exitCode: 128, stderr: 'fatal: is not a working tree' }])
+      const { removeWorktreeMeta } = await import('./worktree-meta')
+
+      await expect(
+        manager.removeWorktree('/repo', '/mock-home/.manifold/worktrees/proj/repo-oslo'),
+      ).rejects.toThrow()
+
+      // Metadata must not be removed if git failed — the worktree still exists on disk
+      expect(removeWorktreeMeta).not.toHaveBeenCalled()
+    })
   })
 
   describe('listWorktrees', () => {
