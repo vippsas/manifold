@@ -115,6 +115,7 @@ const ALLOWED_INVOKE_CHANNELS = [
   'loop:config',
   'loop:set-config',
   'loop:restore-best',
+  'loop:clear',
 ] as const
 
 const ALLOWED_SEND_CHANNELS = [

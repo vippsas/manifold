@@ -160,6 +160,28 @@ describe('PtyPool', () => {
     })
   })
 
+  describe('pushOutput', () => {
+    it('delivers injected data to all registered data listeners without writing to the pty', () => {
+      const handle = pool.spawn('sh', [], { cwd: '/tmp' })
+      const listener1 = vi.fn()
+      const listener2 = vi.fn()
+      pool.onData(handle.id, listener1)
+      pool.onData(handle.id, listener2)
+
+      pool.pushOutput(handle.id, 'synthetic output')
+
+      expect(listener1).toHaveBeenCalledWith('synthetic output')
+      expect(listener2).toHaveBeenCalledWith('synthetic output')
+      expect(mockPtyProcess.write).not.toHaveBeenCalled()
+    })
+
+    it('silently no-ops when pty not found instead of throwing', () => {
+      const listener = vi.fn()
+      expect(() => pool.pushOutput('non-existent', 'data')).not.toThrow()
+      expect(listener).not.toHaveBeenCalled()
+    })
+  })
+
   describe('killAll', () => {
     it('kills all active ptys', () => {
       pool.spawn('sh', [], { cwd: '/tmp' })

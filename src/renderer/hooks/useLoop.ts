@@ -9,6 +9,7 @@ export interface UseLoopResult {
   stop: () => Promise<void>
   saveConfig: (config: LoopConfig) => Promise<void>
   restoreBest: () => Promise<{ sha: string }>
+  clear: () => Promise<void>
   reload: () => Promise<void>
 }
 
@@ -77,5 +78,12 @@ export function useLoop(sessionId: string | null): UseLoopResult {
     return (await window.electronAPI.invoke('loop:restore-best', sessionId)) as { sha: string }
   }, [sessionId])
 
-  return { status, iterations, config, start, stop, saveConfig, restoreBest, reload }
+  const clear = useCallback(async (): Promise<void> => {
+    if (!sessionId) return
+    await window.electronAPI.invoke('loop:clear', sessionId)
+    setIterations([])
+    setStatus(null)
+  }, [sessionId])
+
+  return { status, iterations, config, start, stop, saveConfig, restoreBest, clear, reload }
 }

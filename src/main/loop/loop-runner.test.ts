@@ -104,6 +104,7 @@ function makeFakeLog(): LoopIterationLogPort & { appended: LoopIteration[] } {
     appended,
     append: async (_wt, iter) => { appended.push(iter) },
     readAll: async () => [...appended],
+    clear: async () => { appended.length = 0 },
   }
 }
 
@@ -309,6 +310,25 @@ describe('LoopRunner.start — regression discards', () => {
     const iters = env.deps.iterationLog.appended
     expect(iters[0].outcome).toBe('improved')
     expect(iters[1].outcome).toBe('regressed')
+    const status = env.runner.getStatus(SESSION_ID)
+    expect(status?.bestScore).toBe(10)
+  })
+
+  it('commits instead of resetting on regression when alwaysAdvance is enabled', async () => {
+    const env = buildRunner({
+      evalRunner: makeFakeEval([
+        { stdout: 'ms=10', exitCode: 0 },  // improvement → commits
+        { stdout: 'ms=50', exitCode: 0 },  // regression → still commits
+      ]),
+    })
+    env.deps.git.changedFiles.push(2, 2)
+    await env.runner.start(baseConfig({ maxIterations: 2, alwaysAdvance: true }))
+    expect(env.deps.git.commits.length).toBe(2)
+    expect(env.deps.git.resets.length).toBe(0)
+    const iters = env.deps.iterationLog.appended
+    expect(iters[0].outcome).toBe('improved')
+    expect(iters[1].outcome).toBe('regressed')
+    expect(iters[1].commitSha).toBeTruthy()
     const status = env.runner.getStatus(SESSION_ID)
     expect(status?.bestScore).toBe(10)
   })

@@ -16,6 +16,7 @@ interface FormState {
   judgeMaxScore: string
   budgetSeconds: string
   maxIterations: string
+  alwaysAdvance: boolean
 }
 
 const DEFAULT_JUDGE_RUBRIC = 'Rate 0-10 based on: 1) does the change actually solve the task? 2) is the diff minimal and focused? 3) any regressions or red flags?'
@@ -32,6 +33,7 @@ const DEFAULT_FORM: FormState = {
   judgeMaxScore: '10',
   budgetSeconds: '60',
   maxIterations: '5',
+  alwaysAdvance: false,
 }
 
 function formFromConfig(cfg: LoopConfig | null): FormState {
@@ -49,6 +51,7 @@ function formFromConfig(cfg: LoopConfig | null): FormState {
     judgeMaxScore: m.kind === 'llm-judge' ? String(m.maxScore) : DEFAULT_FORM.judgeMaxScore,
     budgetSeconds: String(cfg.budgetSeconds),
     maxIterations: String(cfg.maxIterations ?? 20),
+    alwaysAdvance: cfg.alwaysAdvance ?? false,
   }
 }
 
@@ -84,6 +87,7 @@ function configFromForm(sessionId: string, form: FormState): LoopConfig | { erro
     metric,
     budgetSeconds: budget,
     maxIterations: maxIter,
+    alwaysAdvance: form.alwaysAdvance,
   }
 }
 
@@ -117,6 +121,16 @@ export function LoopPanel(): React.JSX.Element {
   const isRunning = loop.status?.state === 'running'
   const hasConfig = loop.config !== null
   const hasImprovement = !!loop.status?.bestCommitSha && loop.status.bestCommitSha !== loop.status.baselineSha
+  const canClear = !isRunning && (loop.iterations.length > 0 || loop.status !== null)
+
+  const handleClear = async (): Promise<void> => {
+    if (!window.confirm('Clear all iteration history for this loop? This cannot be undone.')) return
+    try {
+      await loop.clear()
+    } catch (err) {
+      setRestoreMsg({ kind: 'err', text: `Clear failed: ${(err as Error).message}` })
+    }
+  }
 
   const handleRestoreBest = async (): Promise<void> => {
     setRestoring(true)
@@ -155,6 +169,11 @@ export function LoopPanel(): React.JSX.Element {
               onClick={() => void handleRestoreBest()}
             >
               {restoring ? 'Restoring…' : 'Restore Best'}
+            </button>
+          )}
+          {canClear && (
+            <button style={S.secondaryButton} onClick={() => void handleClear()}>
+              Clear
             </button>
           )}
         </div>
@@ -207,22 +226,24 @@ export function LoopPanel(): React.JSX.Element {
 
 function LoopIntro(): React.JSX.Element {
   return (
-    <div style={S.intro}>
-      <div style={S.introTitle}>What is this?</div>
-      <div>
-        The loop repeatedly asks the agent to edit your target files, then runs your eval
-        command to score the result. Improvements are committed; regressions are discarded
-        via <code>git reset --hard</code>. Git is the undo buffer.
+    <details style={S.disclosure}>
+      <summary style={S.disclosureSummary}>What is this?</summary>
+      <div style={{ ...S.disclosureBody, padding: '0 var(--space-sm) var(--space-sm)' }}>
+        <div>
+          The loop repeatedly asks the agent to edit your target files, then runs your eval
+          command to score the result. Improvements are committed; regressions are discarded
+          via <code>git reset --hard</code>. Git is the undo buffer.
+        </div>
+        <div style={S.introSection}>
+          <span style={S.introTag}>Good for</span>
+          <span>tasks with an automatable scalar metric — test pass/fail, benchmark timing, bundle size, lint error count. Anywhere you&apos;d otherwise guess-and-check.</span>
+        </div>
+        <div style={S.introSection}>
+          <span style={S.introTagMuted}>Avoid for</span>
+          <span>open-ended design work, subjective quality (&ldquo;make the UI nicer&rdquo;), or one-shot changes you already know how to make. If you can&apos;t write an eval command that decides &ldquo;better,&rdquo; don&apos;t loop.</span>
+        </div>
       </div>
-      <div style={S.introSection}>
-        <span style={S.introTag}>Good for</span>
-        <span>tasks with an automatable scalar metric — test pass/fail, benchmark timing, bundle size, lint error count. Anywhere you&apos;d otherwise guess-and-check.</span>
-      </div>
-      <div style={S.introSection}>
-        <span style={S.introTagMuted}>Avoid for</span>
-        <span>open-ended design work, subjective quality (&ldquo;make the UI nicer&rdquo;), or one-shot changes you already know how to make. If you can&apos;t write an eval command that decides &ldquo;better,&rdquo; don&apos;t loop.</span>
-      </div>
-    </div>
+    </details>
   )
 }
 
@@ -390,16 +411,38 @@ function LoopConfigForm({ sessionId, initialConfig, disabled, onStart, onSave }:
         </div>
       )}
 
-      <div style={S.inputRow}>
-        <div style={{ ...S.field, flex: 1 }}>
-          <label style={S.label}>Budget (seconds)</label>
-          <input style={S.input} value={form.budgetSeconds} onChange={(e) => update('budgetSeconds', e.target.value)} disabled={disabled} />
+      <details style={S.disclosure} open={form.alwaysAdvance}>
+        <summary style={S.disclosureSummary}>Advanced</summary>
+        <div style={S.disclosureBody}>
+          <div style={S.inputRow}>
+            <div style={{ ...S.field, flex: 1 }}>
+              <label style={S.label}>Budget (seconds)</label>
+              <input style={S.input} value={form.budgetSeconds} onChange={(e) => update('budgetSeconds', e.target.value)} disabled={disabled} />
+            </div>
+            <div style={{ ...S.field, flex: 1 }}>
+              <label style={S.label}>Max iterations</label>
+              <input style={S.input} value={form.maxIterations} onChange={(e) => update('maxIterations', e.target.value)} disabled={disabled} />
+            </div>
+          </div>
+
+          <label style={S.checkboxRow}>
+            <input
+              type="checkbox"
+              style={S.checkbox}
+              checked={form.alwaysAdvance}
+              onChange={(e) => update('alwaysAdvance', e.target.checked)}
+              disabled={disabled}
+            />
+            <span style={S.checkboxLabel}>
+              <span>Roll forward regardless of score</span>
+              <span style={S.checkboxHint}>
+                Commit every iteration&apos;s changes even when the score regresses. The best score
+                is still tracked, but regressions are no longer reset to the previous commit.
+              </span>
+            </span>
+          </label>
         </div>
-        <div style={{ ...S.field, flex: 1 }}>
-          <label style={S.label}>Max iterations</label>
-          <input style={S.input} value={form.maxIterations} onChange={(e) => update('maxIterations', e.target.value)} disabled={disabled} />
-        </div>
-      </div>
+      </details>
 
       {error && <div style={{ color: 'var(--status-error)', fontSize: 'var(--type-ui-small)' }}>{error}</div>}
 
@@ -454,7 +497,15 @@ function describeMetric(m: LoopConfig['metric']): string {
 }
 
 function IterationList({ iterations }: { iterations: import('../../../shared/loop-types').LoopIteration[] }): React.JSX.Element {
-  const sorted = useMemo(() => [...iterations].sort((a, b) => b.index - a.index), [iterations])
+  const sorted = useMemo(
+    () => [...iterations].sort((a, b) => {
+      const aTime = a.finishedAt ?? a.startedAt
+      const bTime = b.finishedAt ?? b.startedAt
+      if (bTime !== aTime) return bTime - aTime
+      return b.index - a.index
+    }),
+    [iterations],
+  )
   const [expanded, setExpanded] = useState<number | null>(null)
   return (
     <div style={S.iterList}>

@@ -22,6 +22,16 @@ export async function appendIteration(worktreePath: string, iter: LoopIteration)
   await fs.appendFile(logPath, JSON.stringify(iter) + '\n', 'utf8')
 }
 
+export async function clearIterations(worktreePath: string): Promise<void> {
+  const logPath = iterationLogPath(worktreePath)
+  try {
+    await fs.unlink(logPath)
+  } catch (err) {
+    if ((err as NodeJS.ErrnoException).code === 'ENOENT') return
+    throw err
+  }
+}
+
 export async function readAllIterations(worktreePath: string): Promise<LoopIteration[]> {
   const logPath = iterationLogPath(worktreePath)
   let content: string
