@@ -63,7 +63,7 @@ If a runtime command is not found, install it (see the links above) and make sur
 
 ## Two Modes
 
-Manifold ships with two separate renderer experiences and lets you switch between them from the app.
+Manifold ships with two UI modes and lets you switch between them from within the app.
 
 ### Simple View
 
