@@ -73,7 +73,7 @@ It is optimized for quickly building local web apps from chat:
 
 - Creates a managed project under your Manifold storage directory
 - Uses your configured default runtime to scaffold and iterate on the app
-- Constrains the generated app to a local stack: **React 19**, **TypeScript**, **Vite**, **Dexie/IndexedDB**, and **CSS Modules**
+- Constrains the generated app to a local stack: **React 19**, **TypeScript**, **Vite**, **Dexie/IndexedDB** (browser-local database), and **CSS Modules**
 - Runs `npm install` and `npm run dev` so the preview can come up immediately
 - Persists chat history and reopens existing apps from the dashboard
 - Lets you jump into Developer view for the same project when you need terminals, diffs, or git tools
