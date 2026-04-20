@@ -103,7 +103,7 @@ Key developer workflows:
 - Continue work from an existing branch or from an open pull request
 - Resume a stopped agent in place
 - Generate commit messages and PR copy with the same runtime the session used
-- Detect merge conflicts and inspect ahead/behind state against the configured base branch
+- Detect merge conflicts and see how many commits your branch is ahead of or behind the base branch
 
 ## Typical Workflow
 
