@@ -159,7 +159,7 @@ The **Loop** dock panel runs an automated improve-and-evaluate cycle on an agent
 1. Prompt the agent with your instruction
 2. Run a user-defined evaluation command
 3. Extract a numeric score from the result (process exit code, a regex match on stdout, or a JSON field)
-4. Commit on improvement, hard-reset the worktree on regression
+4. Commit the changes if the score improved, or discard them and revert to the previous state if it regressed
 5. Repeat until you stop it or the budget is exhausted
 
 Each iteration has a configurable time limit; if the agent exceeds it, Manifold stops it automatically. Results are logged to `.manifold/loop.jsonl` inside the worktree. The panel tracks the best score so far and offers **Restore Best** to jump back to the commit that produced it.
