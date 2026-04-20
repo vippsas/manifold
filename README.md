@@ -154,7 +154,7 @@ Superagents are useful when a task spans several repositories at once — for ex
 
 ## Autoresearch Loop
 
-The **Loop** dock panel runs a Karpathy-style iterative research cycle on an agent session:
+The **Loop** dock panel runs an automated improve-and-evaluate cycle on an agent session:
 
 1. Prompt the agent with your instruction
 2. Run a user-defined evaluation command
