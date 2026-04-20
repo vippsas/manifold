@@ -246,7 +246,7 @@ Important main-process services include:
 - `SessionManager` for starting, stopping, and resuming agent sessions, and finding existing worktrees on disk
 - `WorktreeManager` and `BranchCheckoutManager` for creating, switching, and removing git worktrees
 - `PtyPool` for terminal processes
-- `GitOperationsManager` and `PrCreator` for commit/PR workflows
+- `GitOperationsManager` and `PrCreator` for generating commits, commit messages, and opening GitHub pull requests
 - `DevServerManager` for local preview sessions in Simple view
 - `MemoryStore`, `MemoryCapture`, `MemoryCompressor`, and `MemoryInjector` for local memory
 - search services for exact text search, AI-sorted results, and AI-answered questions
