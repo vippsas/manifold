@@ -172,7 +172,7 @@ Developer view includes a search system that goes beyond file text search.
 - Search scopes: active session, project sessions, or broader workspace context depending on mode
 - Match modes: literal or regex
 - Saved searches and recent searches are persisted per project
-- `Ask AI` can answer grounded questions from retrieved results or rerank exact results, depending on settings
+- `Ask AI` can answer questions using the retrieved results as context, or re-sort exact matches by relevance, depending on settings
 
 Manifold also captures session data locally and stores it per project in SQLite:
 
