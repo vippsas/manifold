@@ -264,6 +264,53 @@ describe('SessionManager', () => {
     })
   })
 
+  describe('interruptSession', () => {
+    it('kills the pty for a running session', async () => {
+      await sessionManager.createSession({
+        projectId: 'proj-1',
+        runtimeId: 'claude',
+        prompt: 'test',
+      })
+
+      sessionManager.interruptSession('session-uuid-1')
+
+      expect(ptyPool.kill).toHaveBeenCalledWith('pty-1')
+      // Session itself is not removed — interrupt only kills the pty
+      expect(sessionManager.getSession('session-uuid-1')).toBeDefined()
+    })
+
+    it('silently no-ops for unknown session', () => {
+      expect(() => sessionManager.interruptSession('nope')).not.toThrow()
+      expect(ptyPool.kill).not.toHaveBeenCalled()
+    })
+
+    it('silently no-ops for dormant session with no pty', async () => {
+      ;(worktreeManager.listWorktrees as ReturnType<typeof vi.fn>).mockResolvedValue([
+        { branch: 'manifold/bergen', path: '/repo/.manifold/worktrees/manifold-bergen' },
+      ])
+
+      const sessions = await sessionManager.discoverSessionsForProject('proj-1')
+      const dormantId = sessions[0].id
+
+      expect(() => sessionManager.interruptSession(dormantId)).not.toThrow()
+      expect(ptyPool.kill).not.toHaveBeenCalled()
+    })
+
+    it('swallows errors thrown by ptyPool.kill (pty may have exited)', async () => {
+      await sessionManager.createSession({
+        projectId: 'proj-1',
+        runtimeId: 'claude',
+        prompt: 'test',
+      })
+
+      ;(ptyPool.kill as ReturnType<typeof vi.fn>).mockImplementation(() => {
+        throw new Error('PTY not found')
+      })
+
+      expect(() => sessionManager.interruptSession('session-uuid-1')).not.toThrow()
+    })
+  })
+
   describe('getSession', () => {
     it('returns the public session info', async () => {
       await sessionManager.createSession({
