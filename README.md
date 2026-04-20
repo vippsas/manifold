@@ -132,7 +132,10 @@ Agent states shown in the UI are `running`, `waiting`, `done`, and `error`.
 ### Building Apps In Simple View
 
 1. Create a new app card.
-2. Describe the app you want.
+2. Describe the app you want, for example:
+
+   > A to-do list app with local storage, where items can be checked off and deleted.
+
 3. Let the runtime scaffold the project and start the dev server.
 4. Continue iterating through chat while previewing the app live.
 5. Switch to Developer view when you need direct file, terminal, or git access.
