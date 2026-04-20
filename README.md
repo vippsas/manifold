@@ -6,7 +6,7 @@ Each agent gets its own git worktree when you want isolation, so multiple agents
 
 Around the terminals, Manifold adds the workspace tools you'd expect: code browsing, diffs, shell tabs, search, previews, commits, and pull requests.
 
-Supports the built-in runtimes in this repo today: **Claude Code**, **Codex**, **Copilot**, **Gemini CLI**, and **Ollama-backed Claude/Codex**.
+Supported runtimes: **Claude Code**, **Codex**, **Copilot**, **Gemini CLI**, and **Ollama-backed Claude/Codex**.
 
 ![Manifold](manifold.jpg)
 
