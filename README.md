@@ -235,7 +235,7 @@ Before opening a pull request, make sure `npm run typecheck` and `npm test` both
 
 Manifold follows Electron's multi-process model with strict context isolation:
 
-- `src/main/`: PTYs, git/worktree operations, search, memory, settings, and app lifecycle
+- `src/main/`: terminal processes (PTYs), git/worktree operations, search, memory, settings, and app lifecycle
 - `src/preload/`: security bridge that exposes a controlled set of main-process operations to the UI
 - `src/renderer/`: the Developer workspace UI
 - `src/renderer-simple/`: the Simple app-builder UI
