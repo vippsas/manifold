@@ -188,10 +188,10 @@ By default, Manifold stores its state under `~/.manifold/`.
 
 | Path | Purpose |
 | --- | --- |
-| `~/.manifold/config.json` | User settings |
-| `~/.manifold/projects.json` | Registered projects |
+| `~/.manifold/config.json` | User settings (storage path, default runtime, theme, etc.) |
+| `~/.manifold/projects.json` | Registered projects (name, path, base branch) |
 | `~/.manifold/memory/*.db` | Per-project SQLite memory stores |
-| `~/.manifold/debug.log` | Debug logging |
+| `~/.manifold/debug.log` | Debug log — check here first when something goes wrong |
 | `~/.manifold/worktrees/...` | Managed git worktrees (default location) |
 | `~/.manifold/projects/...` | Simple-view app projects (default location) |
 
