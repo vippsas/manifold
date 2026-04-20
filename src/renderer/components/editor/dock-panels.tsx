@@ -11,6 +11,7 @@ import { ProjectSidebar } from '../sidebar/ProjectSidebar'
 import { WebPreview } from '../terminal/WebPreview'
 import { SearchPanel } from '../search/SearchPanel'
 import { BackgroundAgentPanel } from '../background-agent/BackgroundAgentPanel'
+import { LoopPanel } from '../loop/LoopPanel'
 import { SuperagentFleetTree } from '../sidebar/SuperagentFleetTree'
 import { SuperagentAgentPanel, restartOverlayStyles } from './SuperagentAgentPanel'
 import { DockStateContext, useDockState } from './dock-panel-types'
@@ -28,6 +29,7 @@ export const PANEL_COMPONENTS: Record<string, React.FC<any>> = {
   webPreview: WebPreviewPanel,
   search: SearchPanel,
   backgroundAgent: BackgroundAgentPanel,
+  loop: LoopPanel,
 }
 
 function AgentPanel(): React.JSX.Element {

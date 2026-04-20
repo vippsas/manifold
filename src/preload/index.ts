@@ -108,6 +108,13 @@ const ALLOWED_INVOKE_CHANNELS = [
   'superagent:toggle-auto-approve',
   'superagent:approval-response',
   'superagent:list-pending-approvals',
+  'loop:start',
+  'loop:stop',
+  'loop:status',
+  'loop:iterations',
+  'loop:config',
+  'loop:set-config',
+  'loop:restore-best',
 ] as const
 
 const ALLOWED_SEND_CHANNELS = [
@@ -139,6 +146,9 @@ const ALLOWED_LISTEN_CHANNELS = [
   'superagent:status',
   'superagent:child-spawned',
   'superagent:list-changed',
+  'loop:status-changed',
+  'loop:iteration',
+  'loop:eval-output',
 ] as const
 
 type InvokeChannel = (typeof ALLOWED_INVOKE_CHANNELS)[number]

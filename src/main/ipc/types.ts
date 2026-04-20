@@ -11,6 +11,7 @@ import { BranchCheckoutManager } from '../git/branch-checkout-manager'
 import { DockLayoutStore } from '../store/dock-layout-store'
 import { SearchViewStore } from '../store/search-view-store'
 import { BackgroundAgentHost } from '../background-agent-host/background-agent-host'
+import type { LoopRunner } from '../loop/loop-runner'
 import type { ChatAdapter } from '../agent/chat-adapter'
 import type { ChatStore } from '../store/chat-store'
 import type { MemoryStore } from '../memory/memory-store'
@@ -31,6 +32,7 @@ export interface IpcDependencies {
   dockLayoutStore: DockLayoutStore
   searchViewStore: SearchViewStore
   backgroundAgentHost: BackgroundAgentHost
+  loopRunner: LoopRunner
   chatAdapter: ChatAdapter
   chatStore: ChatStore
   memoryStore: MemoryStore

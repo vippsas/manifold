@@ -11,6 +11,7 @@ const PANEL_LABELS: Record<DockPanelId, string> = {
   shell: 'Shell',
   search: 'Search',
   backgroundAgent: 'Ideas',
+  loop: 'Loop',
 }
 
 interface StatusBarProps {

@@ -35,6 +35,15 @@ import { MemoryCapture } from '../memory/memory-capture'
 import { MemoryCompressor } from '../memory/memory-compressor'
 import { MemoryInjector } from '../memory/memory-injector'
 import { VercelHealthCheck } from '../deploy/vercel-health-check'
+import { LoopRunner } from '../loop/loop-runner'
+import {
+  createSessionAdapter,
+  createGitAdapter,
+  createEvalRunner,
+  createEmitter,
+  createIterationLog,
+  createWaitForTurnEnd,
+} from '../loop/loop-adapters'
 import * as path from 'node:path'
 import { SuperagentStore } from '../superagent/superagent-store'
 import { ApprovalBroker } from '../superagent/approval-broker'
@@ -111,6 +120,15 @@ sessionManager.setGitOps(gitOps)
 
 const vercelHealthCheck = new VercelHealthCheck()
 
+const loopRunner = new LoopRunner({
+  session: createSessionAdapter(sessionManager),
+  git: createGitAdapter(),
+  evalRunner: createEvalRunner(),
+  emitter: createEmitter(() => mainWindow),
+  iterationLog: createIterationLog(),
+  waitForTurnEnd: createWaitForTurnEnd(sessionManager),
+})
+
 const memoryStore = new MemoryStore()
 const memoryCapture = new MemoryCapture(chatAdapter, memoryStore, (sid) => sessionManager.getSession(sid))
 const memoryCompressor = new MemoryCompressor(memoryStore, settingsStore)
@@ -134,6 +152,7 @@ const ipcDeps = {
   dockLayoutStore,
   searchViewStore,
   backgroundAgentHost,
+  loopRunner,
   chatAdapter,
   chatStore,
   memoryStore,
