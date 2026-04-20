@@ -55,7 +55,7 @@ Before launching Manifold, confirm the prerequisites are reachable from your she
 
 ```bash
 git --version            # any recent Git
-gh --version             # optional, needed for PR creation
+gh --version             # optional, needed for pull request creation
 claude --version         # or: codex --version / gemini --version / copilot --version
 ```
 
