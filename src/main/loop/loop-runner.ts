@@ -205,6 +205,13 @@ export class LoopRunner {
 
     const baseForIter = await this.deps.git.getHeadSha(worktreePath)
 
+    if (config.clearContextEachIteration && index > 1) {
+      this.deps.session.sendInput(config.sessionId, '/clear')
+      await new Promise((r) => setTimeout(r, 200))
+      this.deps.session.sendInput(config.sessionId, '\r')
+      await new Promise((r) => setTimeout(r, 800))
+    }
+
     this.deps.session.sendInput(config.sessionId, renderPrompt(PROMPT_TEMPLATE, config))
     await new Promise((r) => setTimeout(r, 400))
     this.deps.session.sendInput(config.sessionId, '\r')
