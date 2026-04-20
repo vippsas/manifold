@@ -251,7 +251,7 @@ Important main-process services include:
 - `MemoryStore`, `MemoryCapture`, `MemoryCompressor`, and `MemoryInjector` for local memory
 - search services for exact search, AI reranking, and AI-grounded answers
 
-Renderer-side previews are restricted to localhost webview URLs.
+For security, embedded web previews are limited to `localhost` URLs only — they cannot load external sites.
 
 ## External Provisioners
 
