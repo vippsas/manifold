@@ -17,6 +17,7 @@ interface FormState {
   budgetSeconds: string
   maxIterations: string
   alwaysAdvance: boolean
+  clearContextEachIteration: boolean
 }
 
 const DEFAULT_JUDGE_RUBRIC = 'Rate 0-10 based on: 1) does the change actually solve the task? 2) is the diff minimal and focused? 3) any regressions or red flags?'
@@ -34,6 +35,7 @@ const DEFAULT_FORM: FormState = {
   budgetSeconds: '60',
   maxIterations: '5',
   alwaysAdvance: false,
+  clearContextEachIteration: false,
 }
 
 function formFromConfig(cfg: LoopConfig | null): FormState {
@@ -52,6 +54,7 @@ function formFromConfig(cfg: LoopConfig | null): FormState {
     budgetSeconds: String(cfg.budgetSeconds),
     maxIterations: String(cfg.maxIterations ?? 20),
     alwaysAdvance: cfg.alwaysAdvance ?? false,
+    clearContextEachIteration: cfg.clearContextEachIteration ?? false,
   }
 }
 
@@ -88,6 +91,7 @@ function configFromForm(sessionId: string, form: FormState): LoopConfig | { erro
     budgetSeconds: budget,
     maxIterations: maxIter,
     alwaysAdvance: form.alwaysAdvance,
+    clearContextEachIteration: form.clearContextEachIteration,
   }
 }
 
@@ -438,6 +442,24 @@ function LoopConfigForm({ sessionId, initialConfig, disabled, onStart, onSave }:
               <span style={S.checkboxHint}>
                 Commit every iteration&apos;s changes even when the score regresses. The best score
                 is still tracked, but regressions are no longer reset to the previous commit.
+              </span>
+            </span>
+          </label>
+
+          <label style={S.checkboxRow}>
+            <input
+              type="checkbox"
+              style={S.checkbox}
+              checked={form.clearContextEachIteration}
+              onChange={(e) => update('clearContextEachIteration', e.target.checked)}
+              disabled={disabled}
+            />
+            <span style={S.checkboxLabel}>
+              <span>Clear agent context between iterations</span>
+              <span style={S.checkboxHint}>
+                Sends <code>/clear</code> before each iteration so the agent starts fresh. Prevents
+                context pollution from prior attempts at the cost of losing what was already tried.
+                Best for independent attempts; turn off for iterative refinement.
               </span>
             </span>
           </label>

@@ -16,6 +16,7 @@ export interface LoopConfig {
   maxIterations?: number
   maxWallClockMinutes?: number
   alwaysAdvance?: boolean
+  clearContextEachIteration?: boolean
 }
 
 export type IterationOutcome = 'improved' | 'regressed' | 'failed' | 'aborted'
