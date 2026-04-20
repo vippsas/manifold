@@ -244,7 +244,7 @@ Manifold follows Electron's multi-process model with strict context isolation:
 Important main-process services include:
 
 - `SessionManager` for agent lifecycle and session discovery
-- `WorktreeManager` and `BranchCheckoutManager` for repository isolation/worktree flows
+- `WorktreeManager` and `BranchCheckoutManager` for creating, switching, and removing git worktrees
 - `PtyPool` for terminal processes
 - `GitOperationsManager` and `PrCreator` for commit/PR workflows
 - `DevServerManager` for local preview sessions in Simple view
