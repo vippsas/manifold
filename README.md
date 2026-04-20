@@ -123,7 +123,7 @@ Key developer workflows:
 In Developer view, a new agent can start in four ways:
 
 - **New branch**: the default path, using a dedicated git worktree
-- **Current branch**: runs directly in the project checkout (`noWorktree`)
+- **Current branch**: runs directly in the project checkout, without creating a separate worktree
 - **Existing branch**: continue work already in progress
 - **Open pull request**: fetch/select a PR branch and continue from there
 
