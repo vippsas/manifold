@@ -1,9 +1,19 @@
 import * as fs from 'node:fs/promises'
 import * as path from 'node:path'
+import * as os from 'node:os'
+import { createHash } from 'node:crypto'
 import type { LoopIteration } from '../../shared/loop-types'
 
+function userLoopLogDir(): string {
+  return path.join(os.homedir(), '.manifold', 'loop-logs')
+}
+
+function worktreeKey(worktreePath: string): string {
+  return createHash('sha256').update(worktreePath).digest('hex').slice(0, 16)
+}
+
 export function iterationLogPath(worktreePath: string): string {
-  return path.join(worktreePath, '.manifold', 'loop.jsonl')
+  return path.join(userLoopLogDir(), `${worktreeKey(worktreePath)}.jsonl`)
 }
 
 export async function appendIteration(worktreePath: string, iter: LoopIteration): Promise<void> {

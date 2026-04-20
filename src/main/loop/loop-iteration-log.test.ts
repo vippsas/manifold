@@ -5,13 +5,26 @@ import * as path from 'node:path'
 import { appendIteration, readAllIterations, iterationLogPath } from './loop-iteration-log'
 import type { LoopIteration } from '../../shared/loop-types'
 
+let tmpHome: string
 let tmpWorktree: string
+let prevHome: string | undefined
+let prevUserProfile: string | undefined
 
 beforeEach(async () => {
-  tmpWorktree = await fs.mkdtemp(path.join(os.tmpdir(), 'loop-iter-log-'))
+  tmpHome = await fs.mkdtemp(path.join(os.tmpdir(), 'loop-iter-log-home-'))
+  tmpWorktree = await fs.mkdtemp(path.join(os.tmpdir(), 'loop-iter-log-wt-'))
+  prevHome = process.env.HOME
+  prevUserProfile = process.env.USERPROFILE
+  process.env.HOME = tmpHome
+  process.env.USERPROFILE = tmpHome
 })
 
 afterEach(async () => {
+  if (prevHome === undefined) delete process.env.HOME
+  else process.env.HOME = prevHome
+  if (prevUserProfile === undefined) delete process.env.USERPROFILE
+  else process.env.USERPROFILE = prevUserProfile
+  await fs.rm(tmpHome, { recursive: true, force: true })
   await fs.rm(tmpWorktree, { recursive: true, force: true })
 })
 
@@ -27,8 +40,16 @@ function sample(overrides: Partial<LoopIteration> = {}): LoopIteration {
 }
 
 describe('iterationLogPath', () => {
-  it('returns <worktree>/.manifold/loop.jsonl', () => {
-    expect(iterationLogPath('/my/wt')).toBe('/my/wt/.manifold/loop.jsonl')
+  it('stores logs under the user home, not inside the worktree', () => {
+    const logPath = iterationLogPath('/my/wt')
+    expect(logPath.startsWith(path.join(tmpHome, '.manifold', 'loop-logs'))).toBe(true)
+    expect(logPath.includes('/my/wt/')).toBe(false)
+    expect(logPath.endsWith('.jsonl')).toBe(true)
+  })
+
+  it('produces a stable path for the same worktree and a different path for a different worktree', () => {
+    expect(iterationLogPath('/my/wt')).toBe(iterationLogPath('/my/wt'))
+    expect(iterationLogPath('/my/wt')).not.toBe(iterationLogPath('/other/wt'))
   })
 })
 
@@ -39,10 +60,9 @@ describe('readAllIterations', () => {
 })
 
 describe('appendIteration + readAllIterations', () => {
-  it('creates .manifold directory on first append', async () => {
+  it('does not create a .manifold directory inside the worktree', async () => {
     await appendIteration(tmpWorktree, sample())
-    const stat = await fs.stat(path.join(tmpWorktree, '.manifold'))
-    expect(stat.isDirectory()).toBe(true)
+    await expect(fs.stat(path.join(tmpWorktree, '.manifold'))).rejects.toMatchObject({ code: 'ENOENT' })
   })
 
   it('round-trips a single iteration', async () => {
@@ -64,7 +84,7 @@ describe('appendIteration + readAllIterations', () => {
   it('skips malformed lines when reading', async () => {
     const iter = sample()
     await appendIteration(tmpWorktree, iter)
-    await fs.appendFile(path.join(tmpWorktree, '.manifold', 'loop.jsonl'), '{not json\n')
+    await fs.appendFile(iterationLogPath(tmpWorktree), '{not json\n')
     expect(await readAllIterations(tmpWorktree)).toEqual([iter])
   })
 })
