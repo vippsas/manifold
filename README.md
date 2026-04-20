@@ -2,7 +2,9 @@
 
 Manifold is a macOS desktop app for running CLI coding agents side by side on the same codebase.
 
-It gives each agent its own git worktree when you want isolation, keeps the agent in a real terminal instead of a wrapper UI, and adds the workspace tools you need around it: code browsing, diffs, shell tabs, search, previews, commits, and pull requests.
+Each agent gets its own git worktree when you want isolation, so multiple agents can work on the same repo without branch conflicts. Agents run in real terminals, not wrapper UIs, so you can read and steer their output directly.
+
+Around the terminals, Manifold adds the workspace tools you'd expect: code browsing, diffs, shell tabs, search, previews, commits, and pull requests.
 
 Supports the built-in runtimes in this repo today: **Claude Code**, **Codex**, **Copilot**, **Gemini CLI**, and **Ollama-backed Claude/Codex**.
 
