@@ -109,7 +109,7 @@ Key developer workflows:
 
 ### Work On An Existing Repository
 
-1. Open a local repo or clone one from the welcome/onboarding flow.
+1. Open a local repo using the **Add Project** button, or clone one from the welcome screen.
 2. Pick a project in the sidebar.
 3. Launch an agent with a task description, for example:
 
