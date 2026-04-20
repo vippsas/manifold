@@ -144,7 +144,7 @@ Agent states shown in the UI are `running`, `waiting`, `done`, and `error`.
 
 A **Superagent** is a Claude Code orchestrator session that spawns and supervises child agents across multiple repositories through a local tool server (MCP).
 
-- Lives in its own sidebar section, separate from per-repo agents
+- Lives in its own sidebar section, separate from single-repository agents
 - Spawns child agents on any registered repository and streams their output back
 - Requires approval for each tool call that modifies files or runs commands, with an option to auto-approve for the session
 - Shows overall status based on all child agents: `running` if any are still working, `error` if any failed, `done` when all finish
