@@ -31,7 +31,7 @@ Download the latest `.dmg` from the [GitHub Releases page](https://github.com/vi
 | Requirement | Notes |
 | --- | --- |
 | macOS | The packaged app and build scripts currently target macOS only. |
-| Git | Required for repository management, worktrees, diffs, commits, and PR flows. |
+| Git | Required for repository management, worktrees, diffs, commits, and pull request flows. |
 | One supported CLI agent on your `PATH` | Manifold checks for the runtime binaries directly. |
 | GitHub CLI (`gh`) | Optional, but required for creating pull requests from inside the app. |
 | Ollama + at least one pulled model | Optional, only needed for the Ollama-backed runtimes. |
