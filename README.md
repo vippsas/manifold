@@ -180,7 +180,7 @@ Manifold also captures session data locally and stores it per project in SQLite:
 - observations
 - session summaries
 
-That memory is used for search and for context injection/compression when sessions are resumed.
+That memory is used for search and to give the agent relevant history when a session is resumed.
 
 ## Local Data
 
