@@ -125,7 +125,7 @@ In Developer view, a new agent can start in four ways:
 - **New branch**: the default path, using a dedicated git worktree
 - **Current branch**: runs directly in the project checkout, without creating a separate worktree
 - **Existing branch**: continue work already in progress
-- **Open pull request**: fetch/select a PR branch and continue from there
+- **Open pull request**: select an open pull request, check out its branch, and continue work from there
 
 Agent states shown in the UI are `running`, `waiting`, `done`, and `error`.
 
