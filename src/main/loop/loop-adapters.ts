@@ -15,7 +15,7 @@ import type {
   EvalOutcome,
   WaitForTurnEnd,
 } from './loop-runner'
-import { appendIteration, readAllIterations } from './loop-iteration-log'
+import { appendIteration, readAllIterations, clearIterations } from './loop-iteration-log'
 import type { LoopConfig, LoopStatus } from '../../shared/loop-types'
 
 const execFileAsync = promisify(execFile)
@@ -287,6 +287,7 @@ export function createIterationLog(): LoopIterationLog {
   return {
     append: appendIteration,
     readAll: readAllIterations,
+    clear: clearIterations,
   }
 }
 

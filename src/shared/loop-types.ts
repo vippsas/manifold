@@ -15,6 +15,7 @@ export interface LoopConfig {
   budgetSeconds: number
   maxIterations?: number
   maxWallClockMinutes?: number
+  alwaysAdvance?: boolean
 }
 
 export type IterationOutcome = 'improved' | 'regressed' | 'failed' | 'aborted'

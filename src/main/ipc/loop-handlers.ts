@@ -41,6 +41,11 @@ export function registerLoopHandlers(deps: IpcDependencies): void {
     return internal.loopConfig
   })
 
+  ipcMain.handle('loop:clear', async (_event, sessionId: string) => {
+    await loopRunner.clearIterations(sessionId)
+    return loopRunner.getStatus(sessionId)
+  })
+
   ipcMain.handle('loop:restore-best', async (_event, sessionId: string) => {
     const status = loopRunner.getStatus(sessionId)
     if (!status?.bestCommitSha) throw new Error('No best commit recorded yet')

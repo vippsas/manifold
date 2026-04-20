@@ -61,6 +61,7 @@ export interface LoopEmitter {
 export interface LoopIterationLog {
   append(worktreePath: string, iter: LoopIteration): Promise<void>
   readAll(worktreePath: string): Promise<LoopIteration[]>
+  clear(worktreePath: string): Promise<void>
 }
 
 export type WaitForTurnEnd = (sessionId: string, budgetSeconds: number, signal: AbortSignal) => Promise<'ended' | 'timeout' | 'aborted'>
@@ -163,6 +164,22 @@ export class LoopRunner {
     await this.deps.git.hardReset(worktreePath, sha)
   }
 
+  async clearIterations(sessionId: string): Promise<void> {
+    if (this.runs.has(sessionId)) {
+      throw new Error('Cannot clear iterations while loop is running — stop it first')
+    }
+    const worktreePath = this.deps.session.getWorktreePath(sessionId)
+    if (!worktreePath) throw new Error(`No worktree for session ${sessionId}`)
+    await this.deps.iterationLog.clear(worktreePath)
+    const cleared: LoopStatus = {
+      sessionId,
+      state: 'idle',
+      currentIteration: 0,
+    }
+    this.deps.session.setLoopStatus(sessionId, cleared)
+    this.deps.emitter.emit('loop:status-changed', cleared)
+  }
+
   private async drive(run: RunState, worktreePath: string): Promise<void> {
     const { config, status, abort } = run
     const maxIter = config.maxIterations ?? 40
@@ -262,6 +279,9 @@ export class LoopRunner {
       status.bestScore = score
       status.bestCommitSha = commitSha
       outcome = 'improved'
+    } else if (config.alwaysAdvance) {
+      commitSha = await this.deps.git.stageAllAndCommit(worktreePath, `loop: iteration ${index} (score=${score}, rolled forward)`)
+      outcome = 'regressed'
     } else {
       await this.safeReset(worktreePath, baseForIter)
       outcome = 'regressed'
