@@ -17,7 +17,7 @@ Supported runtimes: **Claude Code**, **Codex**, **Copilot**, **Gemini CLI**, and
 - Switch between a full **Developer** workspace and a lightweight **Simple** app-builder view
 - Launch work on a new branch, the current branch, an existing branch, or an open PR
 - Orchestrate fleets of agents across repositories with **Superagent** sessions, with per-tool approvals
-- Run autoresearch **Loop** cycles that prompt, evaluate, and auto-commit on improvement or reset on regression
+- Run automated **Loop** cycles that prompt an agent, evaluate the result, and commit on improvement or revert on regression
 - Review changes with diffs, a file tree, split editors, shell tabs, and embedded localhost previews
 - Search code, captured session memory, or both, with an optional AI mode that answers questions or surfaces the most relevant results
 - Keep project state, chat history, dock layout, open files, and shell tabs across restarts
