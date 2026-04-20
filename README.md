@@ -49,6 +49,18 @@ Download the latest `.dmg` from the [GitHub Releases page](https://github.com/vi
 
 On startup, Manifold resolves your login-shell `PATH` and appends common binary directories like `~/.local/bin`, `/opt/homebrew/bin`, and `/usr/local/bin` so CLIs installed outside Finder's default environment still show up.
 
+### Verify Your Setup
+
+Before launching Manifold, confirm the prerequisites are reachable from your shell:
+
+```bash
+git --version            # any recent Git
+gh --version             # optional, needed for PR creation
+claude --version         # or: codex --version / gemini --version / copilot --version
+```
+
+If a runtime command is not found, install it (see the links above) and make sure its binary is on your `PATH`.
+
 ## Two Modes
 
 Manifold ships with two separate renderer experiences and lets you switch between them from the app.
