@@ -152,7 +152,7 @@ A **Superagent** is a Claude Code orchestrator session that spawns and supervise
 
 Superagents are useful when a task spans several repositories at once — for example, landing a change that touches both a backend and a frontend repo, or running the same refactor across many services.
 
-## Autoresearch Loop
+## Automated Loop
 
 The **Loop** dock panel runs an automated improve-and-evaluate cycle on an agent session:
 
