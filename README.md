@@ -14,6 +14,8 @@ Supports the built-in runtimes in this repo today: **Claude Code**, **Codex**, *
 - Use the full agent terminal directly, with live PTY output and manual input at any time
 - Switch between a full **Developer** workspace and a lightweight **Simple** app-builder view
 - Launch work on a new branch, the current branch, an existing branch, or an open PR
+- Orchestrate fleets of agents across repositories with **Superagent** sessions, with per-tool approvals
+- Run autoresearch **Loop** cycles that prompt, evaluate, and auto-commit on improvement or reset on regression
 - Review changes with diffs, a file tree, split editors, shell tabs, and embedded localhost previews
 - Search code, captured session memory, or both, with optional AI answer/rerank modes
 - Keep project state, chat history, dock layout, open files, and shell tabs across restarts
@@ -117,6 +119,30 @@ Agent states shown in the UI are `running`, `waiting`, `done`, and `error`.
 3. Let the runtime scaffold the project and start the dev server.
 4. Continue iterating through chat while previewing the app live.
 5. Switch to Developer view when you need direct file, terminal, or git access.
+
+## Superagent
+
+A **Superagent** is a Claude Code orchestrator session that spawns and supervises child agents across multiple repositories through a local MCP server.
+
+- Lives in its own sidebar section, separate from per-repo agents
+- Spawns child agents on any registered repository and streams their output back
+- Routes every mutating tool call through a renderer-side approval inbox, with optional session-scoped auto-approve
+- Derives overall status from the fleet: `running` if any child is running, `error` if any child errored, `done` when all children finish
+- Uses a two-pane layout: orchestrator terminal alongside the fleet view and approval inbox
+
+Superagents are useful when a task spans several repositories at once — for example, landing a change that touches both a backend and a frontend repo, or running the same refactor across many services.
+
+## Autoresearch Loop
+
+The **Loop** dock panel runs a Karpathy-style iterative research cycle on an agent session:
+
+1. Prompt the agent with your instruction
+2. Run a user-defined evaluation command
+3. Parse a metric from the result (`exit-code`, `stdout-regex` capture, or `json-path`)
+4. Commit on improvement, hard-reset the worktree on regression
+5. Repeat until you stop it or the budget is exhausted
+
+Each iteration is time-boxed (`budgetSeconds`, SIGTERM → SIGKILL escalation) and appended to `<worktree>/.manifold/loop.jsonl`. The panel tracks the best score so far and offers **Restore Best** to jump back to the commit that produced it.
 
 ## Search And Memory
 
