@@ -84,7 +84,7 @@ Simple view is intended for local prototyping and iteration. Deployment is not i
 
 Developer view is the full workspace for repository work.
 
-The layout is dockable rather than fixed, and the current panel set includes:
+Panels can be shown, hidden, and rearranged to suit your workflow. The current panel set includes:
 
 - Repositories sidebar
 - Agent terminal
