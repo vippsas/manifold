@@ -248,7 +248,7 @@ Important main-process services include:
 - `PtyPool` for terminal processes
 - `GitOperationsManager` and `PrCreator` for generating commits, commit messages, and opening GitHub pull requests
 - `DevServerManager` for local preview sessions in Simple view
-- `MemoryStore`, `MemoryCapture`, `MemoryCompressor`, and `MemoryInjector` for local memory
+- `MemoryStore` (SQLite storage), `MemoryCapture` (records session data), `MemoryCompressor` (summarises long sessions), and `MemoryInjector` (provides history to resumed sessions)
 - search services for exact text search, AI-sorted results, and AI-answered questions
 
 For security, embedded web previews are limited to `localhost` URLs only — they cannot load external sites.
