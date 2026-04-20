@@ -127,7 +127,7 @@ In Developer view, a new agent can start in four ways:
 - **Existing branch**: continue work already in progress
 - **Open pull request**: select an open pull request, check out its branch, and continue work from there
 
-Agent states shown in the UI are `running`, `waiting`, `done`, and `error`.
+Agent states shown in the UI: `running` (actively working), `waiting` (paused for input), `done` (finished successfully), and `error` (stopped on failure).
 
 ### Building Apps In Simple View
 
