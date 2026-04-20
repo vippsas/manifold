@@ -13,7 +13,7 @@ Supports the built-in runtimes in this repo today: **Claude Code**, **Codex**, *
 ## Highlights
 
 - Run multiple agents in parallel on one repository without branch collisions
-- Use the full agent terminal directly, with live PTY output and manual input at any time
+- Use the full agent terminal directly, with live streaming output and manual input at any time
 - Switch between a full **Developer** workspace and a lightweight **Simple** app-builder view
 - Launch work on a new branch, the current branch, an existing branch, or an open PR
 - Orchestrate fleets of agents across repositories with **Superagent** sessions, with per-tool approvals
