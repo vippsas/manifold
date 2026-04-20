@@ -16,7 +16,7 @@ Supported runtimes: **Claude Code**, **Codex**, **Copilot**, **Gemini CLI**, and
 - Use the full agent terminal directly, with live streaming output and manual input at any time
 - Switch between a full **Developer** workspace and a lightweight **Simple** app-builder view
 - Launch work on a new branch, the current branch, an existing branch, or an open PR
-- Orchestrate fleets of agents across repositories with **Superagent** sessions, with per-tool approvals
+- Coordinate multiple agents across repositories with **Superagent** sessions, with per-tool approvals
 - Run automated **Loop** cycles that prompt an agent, evaluate the result, and commit on improvement or revert on regression
 - Review changes with diffs, a file tree, split editors, shell tabs, and embedded localhost previews
 - Search code, captured session memory, or both, with an optional AI mode that answers questions or surfaces the most relevant results
