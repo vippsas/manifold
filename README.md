@@ -236,7 +236,7 @@ Before opening a pull request, make sure `npm run typecheck` and `npm test` both
 Manifold follows Electron's multi-process model, where the UI has no direct access to Node.js or the filesystem — all system calls go through a controlled bridge:
 
 - `src/main/`: terminal processes (PTYs), git/worktree operations, search, memory, settings, and app lifecycle
-- `src/preload/`: security bridge that exposes a controlled set of main-process operations to the UI
+- `src/preload/`: the bridge layer — whitelists which Node.js operations the UI is allowed to call
 - `src/renderer/`: the Developer workspace UI
 - `src/renderer-simple/`: the Simple app-builder UI
 - `src/shared/`: shared types, defaults, prompts, and theme data
