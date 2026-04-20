@@ -19,7 +19,7 @@ Supports the built-in runtimes in this repo today: **Claude Code**, **Codex**, *
 - Orchestrate fleets of agents across repositories with **Superagent** sessions, with per-tool approvals
 - Run autoresearch **Loop** cycles that prompt, evaluate, and auto-commit on improvement or reset on regression
 - Review changes with diffs, a file tree, split editors, shell tabs, and embedded localhost previews
-- Search code, captured session memory, or both, with optional AI answer/rerank modes
+- Search code, captured session memory, or both, with an optional AI mode that answers questions or surfaces the most relevant results
 - Keep project state, chat history, dock layout, open files, and shell tabs across restarts
 
 ## Install
