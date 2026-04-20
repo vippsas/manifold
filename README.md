@@ -22,7 +22,7 @@ Supports the built-in runtimes in this repo today: **Claude Code**, **Codex**, *
 
 ## Install
 
-Download the latest `.dmg` from the repository's GitHub Releases page, open it, and drag Manifold to `Applications`.
+Download the latest `.dmg` from the [GitHub Releases page](https://github.com/vippsas/manifold/releases), open it, and drag Manifold to `Applications`.
 
 ### Requirements
 
