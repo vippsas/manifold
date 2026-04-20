@@ -47,7 +47,7 @@ Download the latest `.dmg` from the [GitHub Releases page](https://github.com/vi
 | Claude Code (Ollama) | `ollama` | [ollama.com](https://ollama.com) | Launches through `ollama launch claude`; model selection is required. |
 | Codex (Ollama) | `ollama` | [ollama.com](https://ollama.com) | Launches through `ollama launch codex`; model selection is required. |
 
-On startup, Manifold resolves your login-shell `PATH` and appends common binary directories like `~/.local/bin`, `/opt/homebrew/bin`, and `/usr/local/bin` so CLIs installed outside Finder's default environment still show up.
+On startup, Manifold reads the `PATH` from your shell profile and appends common binary directories like `~/.local/bin`, `/opt/homebrew/bin`, and `/usr/local/bin` so CLIs installed via Homebrew or similar tools are found even when Manifold is launched from Finder.
 
 ### Verify Your Setup
 
