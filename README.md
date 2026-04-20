@@ -251,6 +251,10 @@ Contributions are welcome. A quick outline:
 
 See [CONTRIBUTING.md](CONTRIBUTING.md) for the full contributor setup, code conventions, test commands, and PR workflow.
 
+## License
+
+Manifold is released under the MIT License. See [LICENSE](LICENSE) for the full text.
+
 ## Releasing
 
 Releases happen in two steps so the version bump lands on `main` before the tag is created.
