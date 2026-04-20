@@ -1,6 +1,6 @@
 # Manifold
 
-Manifold is a macOS desktop app for running CLI coding agents side by side on the same codebase.
+Manifold is a macOS desktop app for running AI coding assistants (Claude Code, Codex, Gemini CLI, and others) side by side on the same codebase.
 
 Each agent gets its own git worktree when you want isolation, so multiple agents can work on the same repo without branch conflicts. Agents run in real terminals, not wrapper UIs, so you can read and steer their output directly.
 
