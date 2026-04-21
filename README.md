@@ -69,7 +69,7 @@ Manifold ships with two UI modes and lets you switch between them from within th
 
 Simple view is the default UI mode on a fresh install.
 
-It is optimized for quickly building local web apps from chat:
+It is optimized for quickly building local web apps by describing what you want in a chat interface:
 
 - Creates a project folder under your Manifold storage directory and tracks it automatically
 - Uses the default runtime you set in Settings to scaffold and iterate on the app
