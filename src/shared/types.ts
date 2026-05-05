@@ -82,6 +82,7 @@ export interface ManifoldSettings {
   memory?: import('./memory-types').MemorySettings
   search?: SearchSettings
   provisioning?: import('./provisioning-types').ProvisioningSettings
+  transcription?: import('./watch-types').TranscriptionSettings
 }
 
 export interface SearchAiSettings {
