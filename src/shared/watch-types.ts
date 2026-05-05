@@ -11,6 +11,22 @@ export interface TranscriptionSettings {
 export interface WatchSetupStatus {
   ffmpeg: boolean
   ytdlp: boolean
-  claudeCli: boolean
-  apiKeyKind: 'openai' | 'azure' | null
+  hasBrew: boolean
+  provider: TranscriptionProvider
+  hasApiKey: boolean
+}
+
+export interface WatchFrameRef {
+  path: string
+  timestampSeconds: number
+}
+
+export interface WatchRunResult {
+  ok: boolean
+  error?: string
+  workDir?: string
+  reportPath?: string
+  frameCount?: number
+  frames?: WatchFrameRef[]
+  transcriptSource?: 'captions' | 'openai' | 'azure' | 'none'
 }

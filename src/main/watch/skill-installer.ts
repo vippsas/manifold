@@ -85,7 +85,7 @@ function installFolder(
 }
 
 // Stable content hash over the source tree so any patch to the bundled skill
-// (e.g. whisper.py) re-installs even when plugin.json version is unchanged.
+// (e.g. SKILL.md) re-installs even when plugin.json version is unchanged.
 function hashSourceTree(sourceDir: string): string {
   const hash = crypto.createHash('sha256')
   const entries: string[] = []

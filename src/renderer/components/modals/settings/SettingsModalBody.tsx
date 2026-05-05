@@ -15,7 +15,7 @@ const SETTINGS_TABS: Array<{ id: SettingsTabId; label: string; description: stri
   { id: 'general', label: 'General', description: 'Workspace defaults, appearance, and terminal behavior.' },
   { id: 'search-ai', label: 'Search AI', description: 'Answer mode, reranking, runtime, and retrieval limits.' },
   { id: 'provisioning', label: 'Provisioning', description: 'Provisioner configuration, health checks, and template catalogs.' },
-  { id: 'transcription', label: 'Transcription', description: 'OpenAI or Azure OpenAI Whisper credentials for the /watch skill.' },
+  { id: 'transcription', label: 'Transcription', description: 'OpenAI or Azure OpenAI credentials used by the Watch panel for video transcription.' },
 ]
 
 interface Props {
