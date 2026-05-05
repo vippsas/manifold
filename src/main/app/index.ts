@@ -29,7 +29,8 @@ import { ChatStore } from '../store/chat-store'
 import { ChatAdapter } from '../agent/chat-adapter'
 import { setupAutoUpdater } from './auto-updater'
 import { ModeSwitcher } from './mode-switcher'
-import { createWindow } from './window-factory'
+import { createWindow, rebuildAppMenu } from './window-factory'
+import { PowerManager } from './power-manager'
 import { MemoryStore } from '../memory/memory-store'
 import { MemoryCapture } from '../memory/memory-capture'
 import { MemoryCompressor } from '../memory/memory-compressor'
@@ -58,6 +59,7 @@ let mainWindow: BrowserWindow | null = null
 
 // ── Module instances ─────────────────────────────────────────────────
 const settingsStore = new SettingsStore()
+const powerManager = new PowerManager()
 const projectRegistry = new ProjectRegistry()
 const worktreeManager = new WorktreeManager(settingsStore.getSettings().storagePath)
 const branchCheckout = new BranchCheckoutManager(settingsStore.getSettings().storagePath)
@@ -165,6 +167,19 @@ const ipcDeps = {
   approvalBroker,
 }
 
+function toggleKeepAwake(): void {
+  const next = !settingsStore.getSettings().keepAwake
+  settingsStore.updateSettings({ keepAwake: next })
+  if (next) {
+    powerManager.enable()
+  } else {
+    powerManager.disable()
+  }
+  if (mainWindow) {
+    rebuildAppMenu(mainWindow, { keepAwake: next, onToggleKeepAwake: toggleKeepAwake })
+  }
+}
+
 function doCreateWindow(): void {
   const win = createWindow({
     getSettings: () => settingsStore.getSettings(),
@@ -173,6 +188,7 @@ function doCreateWindow(): void {
       fileWatcher.setMainWindow(w)
     },
     ipcDeps,
+    onToggleKeepAwake: toggleKeepAwake,
   })
   mainWindow = win
   win.on('closed', () => { mainWindow = null })
@@ -187,6 +203,9 @@ modeSwitcher.register(
 
 // ── App lifecycle ────────────────────────────────────────────────────
 app.whenReady().then(async () => {
+  if (settingsStore.getSettings().keepAwake) {
+    powerManager.enable()
+  }
   doCreateWindow()
   setupAutoUpdater()
 
@@ -231,4 +250,5 @@ app.on('before-quit', async () => {
   ptyPool.killAll()
   await fileWatcher.unwatchAll()
   memoryStore.close()
+  powerManager.disable()
 })
