@@ -1,6 +1,7 @@
 import * as fs from 'node:fs'
 import * as path from 'node:path'
 import * as os from 'node:os'
+import * as crypto from 'node:crypto'
 import { execFileSync } from 'node:child_process'
 
 export interface InstallOptions {
@@ -31,11 +32,12 @@ export function installWatchSkills(opts: InstallOptions): InstallResult {
   }
 
   const sourceVersion = readSourceVersion(opts.sourceDir)
-  installClaudeCodePlugin(opts.sourceDir, homeDir, sourceVersion, result)
+  const sourceFingerprint = `${sourceVersion}+${hashSourceTree(opts.sourceDir)}`
+  installClaudeCodePlugin(opts.sourceDir, homeDir, sourceVersion, sourceFingerprint, result)
 
   if (hasCodex) {
     const codexTarget = path.join(homeDir, '.codex', 'skills', PLUGIN_NAME)
-    installFolder(opts.sourceDir, codexTarget, sourceVersion, result)
+    installFolder(opts.sourceDir, codexTarget, sourceFingerprint, result)
   }
 
   return result
@@ -45,10 +47,11 @@ function installClaudeCodePlugin(
   sourceDir: string,
   homeDir: string,
   version: string,
+  fingerprint: string,
   result: InstallResult,
 ): void {
   const installPath = path.join(homeDir, '.claude', 'plugins', 'cache', MARKETPLACE, PLUGIN_NAME, version)
-  installFolder(sourceDir, installPath, version, result)
+  installFolder(sourceDir, installPath, fingerprint, result)
   if (result.errors.some((e) => e.startsWith(installPath))) return
 
   try {
@@ -62,22 +65,47 @@ function installClaudeCodePlugin(
 function installFolder(
   sourceDir: string,
   target: string,
-  version: string,
+  fingerprint: string,
   result: InstallResult,
 ): void {
   try {
-    const installedVersion = readMarker(target)
-    if (installedVersion && installedVersion === version) {
+    const installedFingerprint = readMarker(target)
+    if (installedFingerprint && installedFingerprint === fingerprint) {
       result.skipped.push(target)
       return
     }
     fs.rmSync(target, { recursive: true, force: true })
     fs.mkdirSync(target, { recursive: true })
     copyRecursive(sourceDir, target)
-    fs.writeFileSync(path.join(target, VERSION_MARKER), version)
+    fs.writeFileSync(path.join(target, VERSION_MARKER), fingerprint)
     result.installed.push(target)
   } catch (err) {
     result.errors.push(`${target}: ${err instanceof Error ? err.message : String(err)}`)
+  }
+}
+
+// Stable content hash over the source tree so any patch to the bundled skill
+// (e.g. whisper.py) re-installs even when plugin.json version is unchanged.
+function hashSourceTree(sourceDir: string): string {
+  const hash = crypto.createHash('sha256')
+  const entries: string[] = []
+  walk(sourceDir, sourceDir, entries)
+  entries.sort()
+  for (const rel of entries) {
+    hash.update(rel)
+    hash.update('\0')
+    hash.update(fs.readFileSync(path.join(sourceDir, rel)))
+    hash.update('\0')
+  }
+  return hash.digest('hex').slice(0, 16)
+}
+
+function walk(rootDir: string, dir: string, out: string[]): void {
+  for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
+    if (entry.name === VERSION_MARKER) continue
+    const sp = path.join(dir, entry.name)
+    if (entry.isDirectory()) walk(rootDir, sp, out)
+    else if (entry.isFile()) out.push(path.relative(rootDir, sp))
   }
 }
 

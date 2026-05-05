@@ -80,13 +80,22 @@ describe('installWatchSkills', () => {
     expect(result.installed).toContain(path.join(tmpHome, '.codex', 'skills', 'watch'))
   })
 
-  it('skips when version marker matches', () => {
+  it('skips when source contents are unchanged', () => {
     writeSourceSkill('0.1.2')
     installWatchSkills({ sourceDir: tmpSrc, homeDir: tmpHome, hasCodex: false })
-    fs.writeFileSync(path.join(tmpSrc, 'SKILL.md'), '# changed but version unchanged')
     const result = installWatchSkills({ sourceDir: tmpSrc, homeDir: tmpHome, hasCodex: false })
     expect(result.skipped.length).toBeGreaterThan(0)
-    expect(fs.readFileSync(path.join(expectedClaudePath(), 'SKILL.md'), 'utf-8')).toBe('# watch')
+    expect(result.installed.length).toBe(0)
+  })
+
+  it('reinstalls when source contents change even at same version', () => {
+    writeSourceSkill('0.1.2')
+    installWatchSkills({ sourceDir: tmpSrc, homeDir: tmpHome, hasCodex: false })
+    fs.writeFileSync(path.join(tmpSrc, 'SKILL.md'), '# patched contents (version unchanged)')
+    const result = installWatchSkills({ sourceDir: tmpSrc, homeDir: tmpHome, hasCodex: false })
+    expect(result.installed.length).toBeGreaterThan(0)
+    expect(fs.readFileSync(path.join(expectedClaudePath(), 'SKILL.md'), 'utf-8'))
+      .toBe('# patched contents (version unchanged)')
   })
 
   it('reinstalls when version changes', () => {

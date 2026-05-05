@@ -29,10 +29,10 @@ GROQ_ENDPOINT = "https://api.groq.com/openai/v1/audio/transcriptions"
 GROQ_MODEL = "whisper-large-v3"
 
 OPENAI_ENDPOINT = "https://api.openai.com/v1/audio/transcriptions"
-OPENAI_MODEL = "whisper-1"
+OPENAI_MODEL = "gpt-4o-transcribe"
 
 AZURE_API_VERSION = "2024-06-01"
-AZURE_DEFAULT_DEPLOYMENT = "whisper-1"
+AZURE_DEFAULT_DEPLOYMENT = "gpt-4o-transcribe"
 
 
 def load_api_key(preferred: str | None = None) -> tuple[str, str] | tuple[None, None]:
@@ -155,9 +155,12 @@ RETRY_BASE_DELAY = 2.0
 
 
 def _post_whisper(endpoint: str, api_key: str, model: str, audio_path: Path) -> dict:
+    # gpt-4o-transcribe rejects verbose_json (only json/text supported);
+    # whisper-* models support verbose_json for timestamped segments.
+    response_format = "json" if "gpt-4o" in model else "verbose_json"
     fields = {
         "model": model,
-        "response_format": "verbose_json",
+        "response_format": response_format,
         "temperature": "0",
     }
     body, boundary = _build_multipart(fields, audio_path)
@@ -250,8 +253,12 @@ def _post_azure_whisper(api_key: str, audio_path: Path) -> dict:
     deployment = (os.environ.get("AZURE_OPENAI_DEPLOYMENT") or AZURE_DEFAULT_DEPLOYMENT).strip()
     endpoint = f"{endpoint_base}/openai/deployments/{deployment}/audio/transcriptions?api-version={AZURE_API_VERSION}"
 
+    # gpt-4o-transcribe deployments don't support verbose_json. Pick response
+    # format from the deployment name; assume json unless the deployment name
+    # explicitly references whisper.
+    response_format = "verbose_json" if "whisper" in deployment.lower() else "json"
     fields = {
-        "response_format": "verbose_json",
+        "response_format": response_format,
         "temperature": "0",
     }
     body, boundary = _build_multipart(fields, audio_path)
