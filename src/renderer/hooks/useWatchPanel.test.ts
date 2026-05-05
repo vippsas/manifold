@@ -1,6 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { renderHook, act } from '@testing-library/react'
 import { useWatchPanel } from './useWatchPanel'
+import { __watchPanelStoreTestHooks } from './watchPanelStore'
 
 const invoke = vi.fn()
 const onListener = vi.fn(() => () => undefined)
@@ -8,6 +9,7 @@ const onListener = vi.fn(() => () => undefined)
 beforeEach(() => {
   invoke.mockReset()
   onListener.mockClear()
+  __watchPanelStoreTestHooks.reset()
   ;(window as unknown as {
     electronAPI: { invoke: typeof invoke; on: typeof onListener }
   }).electronAPI = { invoke, on: onListener } as never
@@ -62,6 +64,34 @@ describe('useWatchPanel', () => {
     await act(async () => { await result.current.runWatch('https://x') })
     expect(result.current.frames).toHaveLength(2)
     expect(result.current.frames[1].timestampSeconds).toBe(7)
+  })
+
+  it('frames persist across remounts for the same session', async () => {
+    invoke.mockResolvedValueOnce({
+      ok: true,
+      frames: [{ path: '/tmp/x/f1.jpg', timestampSeconds: 0 }],
+    })
+    const first = renderHook(() => useWatchPanel('s1'))
+    await act(async () => { await first.result.current.runWatch('https://x') })
+    expect(first.result.current.frames).toHaveLength(1)
+    first.unmount()
+
+    const remounted = renderHook(() => useWatchPanel('s1'))
+    expect(remounted.result.current.frames).toHaveLength(1)
+    expect(remounted.result.current.frames[0].path).toBe('/tmp/x/f1.jpg')
+  })
+
+  it('frames are scoped per session', async () => {
+    invoke.mockResolvedValueOnce({
+      ok: true,
+      frames: [{ path: '/tmp/a/f.jpg', timestampSeconds: 0 }],
+    })
+    const a = renderHook(() => useWatchPanel('s1'))
+    await act(async () => { await a.result.current.runWatch('https://a') })
+    a.unmount()
+
+    const b = renderHook(() => useWatchPanel('s2'))
+    expect(b.result.current.frames).toHaveLength(0)
   })
 
   it('readFrame invokes watch:read-frame with the path', async () => {
