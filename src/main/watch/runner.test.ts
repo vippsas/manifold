@@ -15,17 +15,17 @@ function makeSm(present: boolean, status: 'running' | 'waiting' | 'done' = 'runn
 }
 
 describe('runWatch', () => {
-  it('writes /watch <url> <q>\\r into PTY when session running', () => {
+  it('writes /watch:watch <url> <q>\\r into PTY when session running', () => {
     const sm = makeSm(true)
     const r = runWatch(sm as unknown as SessionManager, 's1', 'https://x', 'why?')
     expect(r).toEqual({ ok: true })
-    expect(sm.sendInput).toHaveBeenCalledWith('s1', '/watch https://x why?\r')
+    expect(sm.sendInput).toHaveBeenCalledWith('s1', '/watch:watch https://x why?\r')
   })
 
   it('omits question when undefined', () => {
     const sm = makeSm(true)
     runWatch(sm as unknown as SessionManager, 's1', 'https://x')
-    expect(sm.sendInput).toHaveBeenCalledWith('s1', '/watch https://x\r')
+    expect(sm.sendInput).toHaveBeenCalledWith('s1', '/watch:watch https://x\r')
   })
 
   it('rejects when no session', () => {

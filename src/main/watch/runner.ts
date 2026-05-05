@@ -19,9 +19,11 @@ export function runWatch(
     return { ok: false, error: 'Session is not running' }
   }
   const q = question?.trim()
-  // Use \r (carriage return) — PTYs interpret \r as Enter. \n only inserts a
-  // newline character into the input field, which is why /watch never submitted.
-  const command = q ? `/watch ${trimmedUrl} ${q}\r` : `/watch ${trimmedUrl}\r`
+  // Claude Code namespaces plugin commands as /<plugin>:<command>. The watch
+  // plugin's command is also called "watch", hence /watch:watch. Using just
+  // /watch fails with "Unknown command".
+  // \r (carriage return) submits; \n only inserts a literal newline.
+  const command = q ? `/watch:watch ${trimmedUrl} ${q}\r` : `/watch:watch ${trimmedUrl}\r`
   try {
     sessionManager.sendInput(sessionId, command)
     return { ok: true }
