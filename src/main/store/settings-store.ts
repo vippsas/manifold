@@ -3,6 +3,7 @@ import * as path from 'node:path'
 import * as os from 'node:os'
 import type { ManifoldSettings } from '../../shared/types'
 import { DEFAULT_SETTINGS } from '../../shared/defaults'
+import { writeWatchEnv } from '../watch/env-writer'
 
 const CONFIG_DIR = path.join(os.homedir(), '.manifold')
 const CONFIG_FILE = path.join(CONFIG_DIR, 'config.json')
@@ -81,6 +82,13 @@ export class SettingsStore {
   updateSettings(partial: Partial<ManifoldSettings>): ManifoldSettings {
     this.settings = { ...this.settings, ...partial }
     this.writeToDisk()
+    if (partial.transcription) {
+      try {
+        writeWatchEnv(partial.transcription)
+      } catch (err) {
+        console.warn('[settings-store] failed to write watch env:', err)
+      }
+    }
     return { ...this.settings }
   }
 }
