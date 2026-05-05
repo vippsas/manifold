@@ -51,6 +51,8 @@ import { ApprovalBroker } from '../superagent/approval-broker'
 import { McpBridgeServer } from '../superagent/mcp-bridge-server'
 import { SuperagentManager } from '../superagent/superagent-manager'
 import { getRuntimeById } from '../agent/runtimes'
+import { installWatchSkills } from '../watch/skill-installer'
+import { getBundledWatchSkillPath } from '../watch/resource-path'
 
 let mainWindow: BrowserWindow | null = null
 
@@ -187,6 +189,15 @@ modeSwitcher.register(
 app.whenReady().then(async () => {
   doCreateWindow()
   setupAutoUpdater()
+
+  try {
+    const result = installWatchSkills({ sourceDir: getBundledWatchSkillPath() })
+    if (result.errors.length > 0) {
+      console.warn('[watch] skill install errors:', result.errors)
+    }
+  } catch (err) {
+    console.warn('[watch] skill install failed:', err)
+  }
 
   try {
     await mcpBridge.start()

@@ -60,6 +60,14 @@ export function applyDefaultLayout(api: DockviewApi, options: DefaultLayoutOptio
     })
   }
 
+  api.addPanel({
+    id: 'watch',
+    component: 'watch',
+    title: PANEL_TITLES.watch,
+    inactive: true,
+    position: { referencePanel: 'agent', direction: 'within' },
+  })
+
   const filesPanel = api.addPanel({
     id: 'fileTree',
     component: 'fileTree',
