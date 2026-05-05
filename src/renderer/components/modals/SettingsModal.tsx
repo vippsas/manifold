@@ -2,6 +2,7 @@ import React, { useState, useEffect, useCallback, useRef } from 'react'
 import { DEFAULT_SETTINGS } from '../../../shared/defaults'
 import type { ProvisionerConfig, ProvisionerStatus } from '../../../shared/provisioning-types'
 import type { DensitySetting, ManifoldSettings } from '../../../shared/types'
+import type { TranscriptionSettings } from '../../../shared/watch-types'
 import { modalStyles } from './SettingsModal.styles'
 import { SettingsModalBody, type SettingsTabId } from './settings/SettingsModalBody'
 import { validateProvisioners } from './settings/provisioning-settings-helpers'
@@ -32,6 +33,9 @@ export function SettingsModal({ visible, settings, onSave, onClose, onPreviewThe
   const [searchAiSettings, setSearchAiSettings] = useState(settings.search?.ai ?? DEFAULT_SETTINGS.search.ai)
   const [provisioners, setProvisioners] = useState<ProvisionerConfig[]>(settings.provisioning?.provisioners ?? DEFAULT_SETTINGS.provisioning.provisioners)
   const [provisionerStatuses, setProvisionerStatuses] = useState<ProvisionerStatus[]>([])
+  const [transcription, setTranscription] = useState<TranscriptionSettings>(
+    settings.transcription ?? DEFAULT_SETTINGS.transcription ?? { provider: 'none' }
+  )
   const [pickerOpen, setPickerOpen] = useState(false)
   const [activeTab, setActiveTab] = useState<SettingsTabId>('general')
   const overlayRef = useRef<HTMLDivElement>(null)
@@ -60,6 +64,7 @@ export function SettingsModal({ visible, settings, onSave, onClose, onPreviewThe
     setAutoGenerateMessages(settings.autoGenerateMessages)
     setSearchAiSettings(settings.search?.ai ?? DEFAULT_SETTINGS.search.ai)
     setProvisioners(nextProvisioners)
+    setTranscription(settings.transcription ?? DEFAULT_SETTINGS.transcription ?? { provider: 'none' })
     setPickerOpen(false)
     setActiveTab('general')
     void loadProvisionerStatuses(nextProvisioners)
@@ -91,12 +96,13 @@ export function SettingsModal({ visible, settings, onSave, onClose, onPreviewThe
       autoGenerateMessages,
       search: { ai: searchAiSettings },
       provisioning: { provisioners },
+      transcription,
     })
     onClose()
     if (modeChanged) {
       window.electronAPI.invoke('app:switch-mode', uiMode)
     }
-  }, [defaultRuntime, showIdeasTab, showLoopTab, theme, scrollbackLines, terminalFontFamily, defaultBaseBranch, storagePath, notificationSound, shellPrompt, shellHistoryScope, uiMode, density, autoGenerateMessages, settings.uiMode, searchAiSettings, provisioners, onSave, onClose])
+  }, [defaultRuntime, showIdeasTab, showLoopTab, theme, scrollbackLines, terminalFontFamily, defaultBaseBranch, storagePath, notificationSound, shellPrompt, shellHistoryScope, uiMode, density, autoGenerateMessages, settings.uiMode, searchAiSettings, provisioners, transcription, onSave, onClose])
 
   if (!visible) return null
 
@@ -163,6 +169,8 @@ export function SettingsModal({ visible, settings, onSave, onClose, onPreviewThe
             const catalog = (await window.electronAPI.invoke('provisioning:refresh-templates', provisionerId, provisioners)) as { provisioners: ProvisionerStatus[] }
             setProvisionerStatuses((current) => mergeStatuses(current, catalog.provisioners))
           }}
+          transcription={transcription}
+          onTranscriptionChange={setTranscription}
         />
 
         <div style={modalStyles.footer}>

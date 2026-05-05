@@ -1,18 +1,21 @@
 import React from 'react'
 import type { ProvisionerConfig, ProvisionerStatus } from '../../../../shared/provisioning-types'
 import type { DensitySetting, SearchAiSettings } from '../../../../shared/types'
+import type { TranscriptionSettings } from '../../../../shared/watch-types'
 import { modalStyles } from '../SettingsModal.styles'
 import { SearchAiSettingsSection } from './SearchAiSettingsSection'
 import { GeneralSettingsSection } from './GeneralSettingsSection'
 import { ProvisioningSettingsSection } from './ProvisioningSettingsSection'
+import { TranscriptionSettingsSection } from './TranscriptionSettingsSection'
 import { SectionCard, SectionHeader } from './SettingsSectionLayout'
 
-export type SettingsTabId = 'general' | 'search-ai' | 'provisioning'
+export type SettingsTabId = 'general' | 'search-ai' | 'provisioning' | 'transcription'
 
 const SETTINGS_TABS: Array<{ id: SettingsTabId; label: string; description: string }> = [
   { id: 'general', label: 'General', description: 'Workspace defaults, appearance, and terminal behavior.' },
   { id: 'search-ai', label: 'Search AI', description: 'Answer mode, reranking, runtime, and retrieval limits.' },
   { id: 'provisioning', label: 'Provisioning', description: 'Provisioner configuration, health checks, and template catalogs.' },
+  { id: 'transcription', label: 'Transcription', description: 'OpenAI or Azure OpenAI Whisper credentials for the /watch skill.' },
 ]
 
 interface Props {
@@ -56,6 +59,8 @@ interface Props {
   onProvisionersChange: (value: ProvisionerConfig[]) => void
   onCheckProvisionerHealth: (provisionerId?: string) => Promise<void>
   onRefreshProvisionerCatalog: (provisionerId?: string) => Promise<void>
+  transcription: TranscriptionSettings
+  onTranscriptionChange: (value: TranscriptionSettings) => void
 }
 
 export function SettingsModalBody(props: Props): React.JSX.Element {
@@ -102,6 +107,9 @@ export function SettingsModalBody(props: Props): React.JSX.Element {
               onCheckHealth={props.onCheckProvisionerHealth}
               onRefreshCatalog={props.onRefreshProvisionerCatalog}
             />
+          )}
+          {props.activeTab === 'transcription' && (
+            <TranscriptionSettingsSection value={props.transcription} onChange={props.onTranscriptionChange} />
           )}
         </div>
       </div>
