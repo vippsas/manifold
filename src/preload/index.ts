@@ -116,6 +116,9 @@ const ALLOWED_INVOKE_CHANNELS = [
   'loop:set-config',
   'loop:restore-best',
   'loop:clear',
+  'watch:run',
+  'watch:setup-status',
+  'watch:install-skills',
 ] as const
 
 const ALLOWED_SEND_CHANNELS = [
