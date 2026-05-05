@@ -19,7 +19,9 @@ export function runWatch(
     return { ok: false, error: 'Session is not running' }
   }
   const q = question?.trim()
-  const command = q ? `/watch ${trimmedUrl} ${q}\n` : `/watch ${trimmedUrl}\n`
+  // Use \r (carriage return) — PTYs interpret \r as Enter. \n only inserts a
+  // newline character into the input field, which is why /watch never submitted.
+  const command = q ? `/watch ${trimmedUrl} ${q}\r` : `/watch ${trimmedUrl}\r`
   try {
     sessionManager.sendInput(sessionId, command)
     return { ok: true }
