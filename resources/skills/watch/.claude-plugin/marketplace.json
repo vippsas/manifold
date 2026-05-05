@@ -1,21 +1,20 @@
 {
   "name": "claude-video",
   "metadata": {
-    "description": "Give Claude a video input. /watch downloads, extracts frames, transcribes, and hands it all to Claude."
+    "description": "Manifold-bundled video viewer skill. Driven by the Manifold app's Watch panel; the active Claude Code agent reads pre-staged frames and answers grounded in the transcript."
   },
   "owner": {
-    "name": "Bradley Bonanno"
+    "name": "Manifold"
   },
   "plugins": [
     {
       "name": "watch",
-      "description": "Watch a video (URL or local path). Downloads with yt-dlp, extracts frames with ffmpeg, transcribes via captions or Whisper.",
+      "description": "Watch a video. Driven by Manifold's Watch panel; main process handles download, frame extraction, and gpt-4o-transcribe transcription.",
       "author": {
-        "name": "Bradley Bonanno"
+        "name": "Manifold"
       },
       "source": "./",
-      "category": "productivity",
-      "homepage": "https://github.com/bradautomates/claude-video"
+      "category": "productivity"
     }
   ]
 }

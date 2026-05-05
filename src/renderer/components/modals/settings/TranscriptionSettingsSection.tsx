@@ -27,11 +27,11 @@ export function TranscriptionSettingsSection({ value, onChange }: Props): React.
     <>
       <SectionHeader
         title="Transcription"
-        description="Provider used by the bundled /watch skill when a video has no native captions. Captions-only mode is fine if you don't analyze captionless content."
+        description="Provider used by the Watch panel when a video has no native captions. Captions-only mode is fine if you don't analyze captionless content."
       />
       <SectionCard
         title="Provider"
-        description="Pick OpenAI or Azure OpenAI Whisper. Keys are written to ~/.config/watch/.env (mode 0600)."
+        description="Pick OpenAI or Azure OpenAI. Manifold uses gpt-4o-transcribe; keys stay in your Manifold config."
       >
         <div style={{ display: 'flex', gap: 16 }}>
           {(['none', 'openai', 'azure'] as const).map((p) => (
@@ -87,7 +87,7 @@ export function TranscriptionSettingsSection({ value, onChange }: Props): React.
                 type="text"
                 style={inputStyle}
                 value={value.azureDeployment ?? ''}
-                placeholder="whisper-1"
+                placeholder="gpt-4o-transcribe"
                 onChange={(e) => onChange({ ...value, azureDeployment: e.target.value })}
               />
             </div>

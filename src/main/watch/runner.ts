@@ -1,33 +1,63 @@
+import { runWatchPipeline } from './pipeline'
 import type { SessionManager } from '../session/session-manager'
+import type { TranscriptionSettings, WatchRunResult } from '../../shared/watch-types'
+import type { PipelineHooks } from './pipeline'
 
-export interface RunWatchResult {
-  ok: boolean
-  error?: string
+export interface RunWatchDeps {
+  sessionManager: SessionManager
+  getTranscription: () => TranscriptionSettings
 }
 
-export function runWatch(
-  sessionManager: SessionManager,
-  sessionId: string,
-  url: string,
-  question?: string,
-): RunWatchResult {
-  const trimmedUrl = url.trim()
-  if (!trimmedUrl) return { ok: false, error: 'URL is required' }
-  const session = sessionManager.getSession(sessionId)
+export interface RunWatchOptions {
+  sessionId: string
+  source: string
+  question?: string
+  hooks?: PipelineHooks
+}
+
+export async function runWatch(deps: RunWatchDeps, opts: RunWatchOptions): Promise<WatchRunResult> {
+  const trimmed = opts.source.trim()
+  if (!trimmed) return { ok: false, error: 'Source is required' }
+
+  const session = deps.sessionManager.getSession(opts.sessionId)
   if (!session) return { ok: false, error: 'Session not found' }
   if (session.status !== 'running' && session.status !== 'waiting') {
     return { ok: false, error: 'Session is not running' }
   }
-  const q = question?.trim()
-  // Claude Code namespaces plugin commands as /<plugin>:<command>. The watch
-  // plugin's command is also called "watch", hence /watch:watch. Using just
-  // /watch fails with "Unknown command".
-  // \r (carriage return) submits; \n only inserts a literal newline.
-  const command = q ? `/watch:watch ${trimmedUrl} ${q}\r` : `/watch:watch ${trimmedUrl}\r`
+
+  let result
   try {
-    sessionManager.sendInput(sessionId, command)
-    return { ok: true }
+    result = await runWatchPipeline(
+      { source: trimmed },
+      deps.getTranscription(),
+      opts.hooks,
+    )
   } catch (err) {
-    return { ok: false, error: err instanceof Error ? err.message : 'PTY write failed' }
+    return { ok: false, error: err instanceof Error ? err.message : 'Pipeline failed' }
+  }
+
+  const question = opts.question?.trim()
+  // Quote the workdir path so paths with spaces survive Claude Code's tokenizer.
+  const command = question
+    ? `/watch:watch "${result.workDir}" ${question}\r`
+    : `/watch:watch "${result.workDir}"\r`
+
+  try {
+    deps.sessionManager.sendInput(opts.sessionId, command)
+  } catch (err) {
+    return {
+      ok: false,
+      error: err instanceof Error ? err.message : 'Failed to write to PTY',
+      workDir: result.workDir,
+    }
+  }
+
+  return {
+    ok: true,
+    workDir: result.workDir,
+    reportPath: result.reportPath,
+    frameCount: result.frames.length,
+    frames: result.frames.map((f) => ({ path: f.path, timestampSeconds: f.timestampSeconds })),
+    transcriptSource: result.transcript.source,
   }
 }

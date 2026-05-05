@@ -119,6 +119,8 @@ const ALLOWED_INVOKE_CHANNELS = [
   'watch:run',
   'watch:setup-status',
   'watch:install-skills',
+  'watch:install-binaries',
+  'watch:read-frame',
 ] as const
 
 const ALLOWED_SEND_CHANNELS = [
@@ -153,6 +155,8 @@ const ALLOWED_LISTEN_CHANNELS = [
   'loop:status-changed',
   'loop:iteration',
   'loop:eval-output',
+  'watch:progress',
+  'watch:install-progress',
 ] as const
 
 type InvokeChannel = (typeof ALLOWED_INVOKE_CHANNELS)[number]

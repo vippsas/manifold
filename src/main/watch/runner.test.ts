@@ -1,6 +1,12 @@
-import { describe, it, expect, vi } from 'vitest'
+import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { runWatch } from './runner'
 import type { SessionManager } from '../session/session-manager'
+import type { TranscriptionSettings } from '../../shared/watch-types'
+
+const pipelineMock = vi.fn()
+vi.mock('./pipeline', () => ({
+  runWatchPipeline: (...args: unknown[]) => pipelineMock(...args),
+}))
 
 interface FakeSm {
   getSession: ReturnType<typeof vi.fn>
@@ -14,44 +20,105 @@ function makeSm(present: boolean, status: 'running' | 'waiting' | 'done' = 'runn
   }
 }
 
+const transcription: TranscriptionSettings = { provider: 'none' }
+
+beforeEach(() => { pipelineMock.mockReset() })
+
 describe('runWatch', () => {
-  it('writes /watch:watch <url> <q>\\r into PTY when session running', () => {
+  it('runs the pipeline and writes /watch:watch <workdir> into the PTY', async () => {
     const sm = makeSm(true)
-    const r = runWatch(sm as unknown as SessionManager, 's1', 'https://x', 'why?')
-    expect(r).toEqual({ ok: true })
-    expect(sm.sendInput).toHaveBeenCalledWith('s1', '/watch:watch https://x why?\r')
+    pipelineMock.mockResolvedValueOnce({
+      workDir: '/tmp/watch-abc',
+      reportPath: '/tmp/watch-abc/report.md',
+      frames: [
+        { path: '/tmp/watch-abc/frames/frame_0001.jpg', timestampSeconds: 0 },
+        { path: '/tmp/watch-abc/frames/frame_0002.jpg', timestampSeconds: 5 },
+      ],
+      transcript: { source: 'captions' },
+    })
+    const result = await runWatch(
+      { sessionManager: sm as unknown as SessionManager, getTranscription: () => transcription },
+      { sessionId: 's1', source: 'https://x', question: 'why?' },
+    )
+    expect(result.ok).toBe(true)
+    expect(result.workDir).toBe('/tmp/watch-abc')
+    expect(result.frameCount).toBe(2)
+    expect(result.frames).toEqual([
+      { path: '/tmp/watch-abc/frames/frame_0001.jpg', timestampSeconds: 0 },
+      { path: '/tmp/watch-abc/frames/frame_0002.jpg', timestampSeconds: 5 },
+    ])
+    expect(sm.sendInput).toHaveBeenCalledWith('s1', '/watch:watch "/tmp/watch-abc" why?\r')
   })
 
-  it('omits question when undefined', () => {
+  it('omits the question when not provided', async () => {
     const sm = makeSm(true)
-    runWatch(sm as unknown as SessionManager, 's1', 'https://x')
-    expect(sm.sendInput).toHaveBeenCalledWith('s1', '/watch:watch https://x\r')
+    pipelineMock.mockResolvedValueOnce({
+      workDir: '/tmp/wd',
+      reportPath: '/tmp/wd/report.md',
+      frames: [],
+      transcript: { source: 'none' },
+    })
+    await runWatch(
+      { sessionManager: sm as unknown as SessionManager, getTranscription: () => transcription },
+      { sessionId: 's1', source: 'https://x' },
+    )
+    expect(sm.sendInput).toHaveBeenCalledWith('s1', '/watch:watch "/tmp/wd"\r')
   })
 
-  it('rejects when no session', () => {
+  it('rejects when no session', async () => {
     const sm = makeSm(false)
-    expect(runWatch(sm as unknown as SessionManager, 's1', 'x')).toEqual({ ok: false, error: 'Session not found' })
+    const r = await runWatch(
+      { sessionManager: sm as unknown as SessionManager, getTranscription: () => transcription },
+      { sessionId: 's1', source: 'x' },
+    )
+    expect(r).toEqual({ ok: false, error: 'Session not found' })
+    expect(pipelineMock).not.toHaveBeenCalled()
   })
 
-  it('rejects empty url', () => {
+  it('rejects empty source without running pipeline', async () => {
     const sm = makeSm(true)
-    expect(runWatch(sm as unknown as SessionManager, 's1', '   ')).toEqual({ ok: false, error: 'URL is required' })
-    expect(sm.sendInput).not.toHaveBeenCalled()
+    const r = await runWatch(
+      { sessionManager: sm as unknown as SessionManager, getTranscription: () => transcription },
+      { sessionId: 's1', source: '   ' },
+    )
+    expect(r).toEqual({ ok: false, error: 'Source is required' })
+    expect(pipelineMock).not.toHaveBeenCalled()
   })
 
-  it('rejects when session not running', () => {
+  it('rejects when session is not running', async () => {
     const sm = makeSm(true, 'done')
-    expect(runWatch(sm as unknown as SessionManager, 's1', 'x')).toEqual({ ok: false, error: 'Session is not running' })
+    const r = await runWatch(
+      { sessionManager: sm as unknown as SessionManager, getTranscription: () => transcription },
+      { sessionId: 's1', source: 'x' },
+    )
+    expect(r).toEqual({ ok: false, error: 'Session is not running' })
   })
 
-  it('accepts waiting status', () => {
-    const sm = makeSm(true, 'waiting')
-    expect(runWatch(sm as unknown as SessionManager, 's1', 'x')).toEqual({ ok: true })
+  it('returns pipeline error when the pipeline rejects', async () => {
+    const sm = makeSm(true)
+    pipelineMock.mockRejectedValueOnce(new Error('yt-dlp missing'))
+    const r = await runWatch(
+      { sessionManager: sm as unknown as SessionManager, getTranscription: () => transcription },
+      { sessionId: 's1', source: 'https://x' },
+    )
+    expect(r).toEqual({ ok: false, error: 'yt-dlp missing' })
   })
 
-  it('returns error message when sendInput throws', () => {
+  it('returns PTY error but keeps workDir when sendInput throws', async () => {
     const sm = makeSm(true)
     sm.sendInput.mockImplementationOnce(() => { throw new Error('PTY closed') })
-    expect(runWatch(sm as unknown as SessionManager, 's1', 'x')).toEqual({ ok: false, error: 'PTY closed' })
+    pipelineMock.mockResolvedValueOnce({
+      workDir: '/tmp/wd',
+      reportPath: '/tmp/wd/report.md',
+      frames: [],
+      transcript: { source: 'none' },
+    })
+    const r = await runWatch(
+      { sessionManager: sm as unknown as SessionManager, getTranscription: () => transcription },
+      { sessionId: 's1', source: 'x' },
+    )
+    expect(r.ok).toBe(false)
+    expect(r.error).toBe('PTY closed')
+    expect(r.workDir).toBe('/tmp/wd')
   })
 })
