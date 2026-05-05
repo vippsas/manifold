@@ -42,9 +42,10 @@ function resolveThemeType(theme: string): 'dark' | 'light' {
 }
 
 interface WindowFactoryDeps {
-  getSettings: () => { theme?: string; uiMode?: string }
+  getSettings: () => { theme?: string; uiMode?: string; keepAwake?: boolean }
   wireMainWindow: (win: BrowserWindow) => void
   ipcDeps: IpcDependencies
+  onToggleKeepAwake: () => void
 }
 
 let ipcHandlersRegistered = false
@@ -122,9 +123,21 @@ export function createWindow(deps: WindowFactoryDeps): BrowserWindow {
     debugLog(`[renderer] process gone: reason=${details.reason} exitCode=${details.exitCode}`)
   })
 
-  Menu.setApplicationMenu(buildAppMenu(win))
+  Menu.setApplicationMenu(
+    buildAppMenu(win, {
+      keepAwake: deps.getSettings().keepAwake ?? false,
+      onToggleKeepAwake: deps.onToggleKeepAwake,
+    }),
+  )
 
   return win
+}
+
+export function rebuildAppMenu(
+  win: BrowserWindow,
+  options: { keepAwake: boolean; onToggleKeepAwake: () => void },
+): void {
+  Menu.setApplicationMenu(buildAppMenu(win, options))
 }
 
 function loadRenderer(window: BrowserWindow, simple: boolean): void {

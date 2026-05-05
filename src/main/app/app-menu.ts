@@ -1,6 +1,11 @@
 import { BrowserWindow, Menu } from 'electron'
 
-export function buildAppMenu(mainWindow: BrowserWindow): Menu {
+export interface AppMenuOptions {
+  keepAwake: boolean
+  onToggleKeepAwake: () => void
+}
+
+export function buildAppMenu(mainWindow: BrowserWindow, options: AppMenuOptions): Menu {
   const menuTemplate: Electron.MenuItemConstructorOptions[] = [
     {
       label: 'Manifold',
@@ -15,9 +20,16 @@ export function buildAppMenu(mainWindow: BrowserWindow): Menu {
           click: () => mainWindow?.webContents.send('show-update-log'),
         },
         {
-          label: 'Settings\u2026',
+          label: 'Settings…',
           accelerator: 'CmdOrCtrl+,',
           click: () => mainWindow?.webContents.send('show-settings'),
+        },
+        { type: 'separator' },
+        {
+          label: 'Keep Mac Awake',
+          type: 'checkbox',
+          checked: options.keepAwake,
+          click: () => options.onToggleKeepAwake(),
         },
         { type: 'separator' },
         { role: 'services' },

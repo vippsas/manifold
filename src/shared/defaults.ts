@@ -16,6 +16,7 @@ export const DEFAULT_SETTINGS: ManifoldSettings = {
   uiMode: 'simple',
   density: 'comfortable' as const,
   autoGenerateMessages: true,
+  keepAwake: false,
   memory: {
     enabled: true,
     compressionRuntime: 'auto',

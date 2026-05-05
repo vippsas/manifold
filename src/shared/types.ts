@@ -79,6 +79,7 @@ export interface ManifoldSettings {
   uiMode: 'developer' | 'simple'
   density: DensitySetting
   autoGenerateMessages: boolean
+  keepAwake: boolean
   memory?: import('./memory-types').MemorySettings
   search?: SearchSettings
   provisioning?: import('./provisioning-types').ProvisioningSettings
