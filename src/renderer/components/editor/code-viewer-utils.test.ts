@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest'
 import {
+  extractMarkdownFrontmatter,
   getFileTabLabels,
   isExternalMarkdownHref,
   isHtmlFile,
@@ -196,5 +197,60 @@ describe('isExternalMarkdownHref', () => {
 
   it('does not treat file urls as external', () => {
     expect(isExternalMarkdownHref('file:///repo/readme.md')).toBe(false)
+  })
+})
+
+describe('extractMarkdownFrontmatter', () => {
+  it('returns empty entries when content has no frontmatter', () => {
+    const result = extractMarkdownFrontmatter('# Heading\n\nbody')
+    expect(result.entries).toEqual([])
+    expect(result.body).toBe('# Heading\n\nbody')
+  })
+
+  it('parses simple key/value pairs and strips them from the body', () => {
+    const content = [
+      '---',
+      'title: Hello',
+      'author: "Sven Malvik"',
+      "draft: 'true'",
+      '---',
+      '',
+      '# Heading',
+    ].join('\n')
+
+    const result = extractMarkdownFrontmatter(content)
+
+    expect(result.entries).toEqual([
+      { key: 'title', value: 'Hello' },
+      { key: 'author', value: 'Sven Malvik' },
+      { key: 'draft', value: 'true' },
+    ])
+    expect(result.body).toBe('\n# Heading')
+  })
+
+  it('preserves inline list values verbatim', () => {
+    const content = '---\nlabels: [a, b, c]\n---\nbody'
+    const result = extractMarkdownFrontmatter(content)
+    expect(result.entries).toEqual([{ key: 'labels', value: '[a, b, c]' }])
+  })
+
+  it('treats indented lines as continuations of the previous value', () => {
+    const content = '---\ndescription: Line one\n  Line two\n---\nbody'
+    const result = extractMarkdownFrontmatter(content)
+    expect(result.entries).toEqual([{ key: 'description', value: 'Line one Line two' }])
+  })
+
+  it('returns no entries when frontmatter block is empty', () => {
+    const content = '---\n\n---\nbody'
+    const result = extractMarkdownFrontmatter(content)
+    expect(result.entries).toEqual([])
+    expect(result.body).toBe(content)
+  })
+
+  it('ignores frontmatter that does not start at the very top of the file', () => {
+    const content = 'preamble\n---\ntitle: Hello\n---\n'
+    const result = extractMarkdownFrontmatter(content)
+    expect(result.entries).toEqual([])
+    expect(result.body).toBe(content)
   })
 })
