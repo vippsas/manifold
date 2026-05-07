@@ -3,7 +3,9 @@ import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
 import { MermaidBlock } from '../MermaidBlock'
 import {
+  extractMarkdownFrontmatter,
   isExternalMarkdownHref,
+  type MarkdownFrontmatterEntry,
   resolveMarkdownLinkedFilePath,
   resolveMarkdownPreviewSource,
 } from '../code-viewer-utils'
@@ -28,6 +30,10 @@ export function MarkdownPreview({
   const markdownComponents = useMemo(
     () => createMarkdownComponents(filePath, onOpenLinkedFile),
     [filePath, onOpenLinkedFile],
+  )
+  const { entries: frontmatterEntries, body: markdownBody } = useMemo(
+    () => extractMarkdownFrontmatter(fileContent),
+    [fileContent],
   )
 
   const persistScrollPosition = useCallback((): void => {
@@ -61,8 +67,22 @@ export function MarkdownPreview({
       onScroll={persistScrollPosition}
       onMouseDownCapture={persistScrollPosition}
     >
-      <ReactMarkdown remarkPlugins={[remarkGfm]} components={markdownComponents}>{fileContent}</ReactMarkdown>
+      {frontmatterEntries.length > 0 && <FrontmatterBlock entries={frontmatterEntries} />}
+      <ReactMarkdown remarkPlugins={[remarkGfm]} components={markdownComponents}>{markdownBody}</ReactMarkdown>
     </div>
+  )
+}
+
+function FrontmatterBlock({ entries }: { entries: MarkdownFrontmatterEntry[] }): React.JSX.Element {
+  return (
+    <dl className="markdown-frontmatter" aria-label="Frontmatter">
+      {entries.map(({ key, value }) => (
+        <div className="markdown-frontmatter__row" key={key}>
+          <dt className="markdown-frontmatter__key">{key}</dt>
+          <dd className="markdown-frontmatter__value">{value || '—'}</dd>
+        </div>
+      ))}
+    </dl>
   )
 }
 
