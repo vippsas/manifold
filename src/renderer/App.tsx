@@ -128,7 +128,7 @@ export function App(): React.JSX.Element {
   })
 
   const { additionalTrees, additionalBranches } = useAdditionalDirs(activeSessionId, activeSession?.additionalDirs)
-  const { tree, changes: watcherChanges, deleteFile, renameFile, createFile, createDir, importPaths, revealInFinder, openInTerminal } = useFileWatcher(activeSessionId, appEffects.handleFilesChanged)
+  const { tree, changes: watcherChanges, deleteFile, renameFile, createFile, createDir, importPaths, movePath, revealInFinder, openInTerminal } = useFileWatcher(activeSessionId, appEffects.handleFilesChanged)
   const mergedChanges = useMemo(() => mergeFileChanges(changedFiles, watcherChanges), [changedFiles, watcherChanges])
   const viewState = useViewState(activeSessionId, tree)
 
@@ -136,9 +136,9 @@ export function App(): React.JSX.Element {
     return dockLayout.ensureEditorPanel(preferredPaneId ?? codeView.activeEditorPaneId)
   }, [codeView.activeEditorPaneId, dockLayout])
 
-  const { handleSelectFile, handleDeleteFile, handleRenameFile, handleCreateFile, handleCreateDir, handleImportPaths, handleRevealInFinder, handleOpenInTerminal, handleCopyAbsolutePath, handleCopyRelativePath } = useFileOperations(
+  const { handleSelectFile, handleDeleteFile, handleRenameFile, handleCreateFile, handleCreateDir, handleImportPaths, handleMovePath, handleRevealInFinder, handleOpenInTerminal, handleCopyAbsolutePath, handleCopyRelativePath } = useFileOperations(
     viewState.expandAncestors, codeView.handleSelectFile, codeView.handleCloseFile, codeView.handleRenameOpenFile,
-    ensureEditorVisible, deleteFile, renameFile, createFile, createDir, importPaths, revealInFinder, openInTerminal,
+    ensureEditorVisible, deleteFile, renameFile, createFile, createDir, importPaths, movePath, revealInFinder, openInTerminal,
   )
 
   useSessionStatePersistence(activeSessionId, viewState, codeView)
@@ -308,7 +308,7 @@ export function App(): React.JSX.Element {
     onActivateEditorPane: handleActivateEditorPane, onSplitEditorPane: handleSplitEditorPane,
     onMoveFileToPane: handleMoveFileToPane, onMoveFileToSplitPane: handleMoveFileToSplitPane,
     onDeleteFile: handleDeleteFile, onRenameFile: handleRenameFile,
-    onCreateFile: handleCreateFile, onCreateDir: handleCreateDir, onImportPaths: handleImportPaths,
+    onCreateFile: handleCreateFile, onCreateDir: handleCreateDir, onImportPaths: handleImportPaths, onMovePath: handleMovePath,
     onRevealInFinder: handleRevealInFinder, onOpenInTerminal: handleOpenInTerminal,
     onCopyAbsolutePath: handleCopyAbsolutePath, onCopyRelativePath: handleCopyRelativePath,
     worktreeRootPath: tree?.path ?? undefined, tree, additionalTrees, additionalBranches,

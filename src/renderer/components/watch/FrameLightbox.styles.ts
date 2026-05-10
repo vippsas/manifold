@@ -27,4 +27,18 @@ export const lightboxStyles: Record<string, CSSProperties> = {
     border: '1px solid var(--border-subtle, rgba(255,255,255,0.2))',
     fontSize: 12, cursor: 'pointer',
   },
+  controls: {
+    display: 'flex', alignItems: 'center', gap: 6,
+  },
+  navButton: {
+    width: 28, height: 24, borderRadius: 4,
+    background: 'var(--bg-input, rgba(255,255,255,0.12))',
+    color: 'var(--text-default, #fff)',
+    border: '1px solid var(--border-subtle, rgba(255,255,255,0.2))',
+    fontSize: 16, lineHeight: 1, cursor: 'pointer',
+    display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+  },
+  navButtonDisabled: {
+    opacity: 0.4, cursor: 'default',
+  },
 }

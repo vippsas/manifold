@@ -30,6 +30,7 @@ export interface FrameInfo {
   index: number
   timestampSeconds: number
   path: string
+  hdPath?: string
 }
 
 export interface FrameExtractionResult {
@@ -46,6 +47,7 @@ export interface PipelineOptions {
   endSeconds?: number
   maxFrames?: number
   resolutionPx?: number
+  hdResolutionPx?: number
   fpsOverride?: number
 }
 

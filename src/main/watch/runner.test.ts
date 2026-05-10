@@ -47,7 +47,8 @@ describe('runWatch', () => {
       { path: '/tmp/watch-abc/frames/frame_0001.jpg', timestampSeconds: 0 },
       { path: '/tmp/watch-abc/frames/frame_0002.jpg', timestampSeconds: 5 },
     ])
-    expect(sm.sendInput).toHaveBeenCalledWith('s1', '/watch:watch "/tmp/watch-abc" why?\r')
+    expect(sm.sendInput).toHaveBeenNthCalledWith(1, 's1', '/watch:watch "/tmp/watch-abc" why?')
+    expect(sm.sendInput).toHaveBeenNthCalledWith(2, 's1', '\r')
   })
 
   it('omits the question when not provided', async () => {
@@ -62,7 +63,8 @@ describe('runWatch', () => {
       { sessionManager: sm as unknown as SessionManager, getTranscription: () => transcription },
       { sessionId: 's1', source: 'https://x' },
     )
-    expect(sm.sendInput).toHaveBeenCalledWith('s1', '/watch:watch "/tmp/wd"\r')
+    expect(sm.sendInput).toHaveBeenNthCalledWith(1, 's1', '/watch:watch "/tmp/wd"')
+    expect(sm.sendInput).toHaveBeenNthCalledWith(2, 's1', '\r')
   })
 
   it('rejects when no session', async () => {

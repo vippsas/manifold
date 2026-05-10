@@ -2,7 +2,7 @@ import * as fs from 'node:fs'
 import * as os from 'node:os'
 import * as path from 'node:path'
 import { download } from './downloader'
-import { extractWithAutoFps, formatTime, getMetadata } from './frame-extractor'
+import { extract, extractWithAutoFps, formatTime, getMetadata } from './frame-extractor'
 import { filterRange, formatTranscript, parseVtt } from './vtt-parser'
 import { transcribeVideo } from './transcriber'
 import type { PipelineOptions, PipelineResult, TranscriptResult } from './types'
@@ -69,6 +69,29 @@ export async function runWatchPipeline(
     fpsOverride: opts.fpsOverride,
   })
 
+  const hdResolutionPx = opts.hdResolutionPx ?? 1280
+  let hdFramesByIndex: Map<number, string> = new Map()
+  if (hdResolutionPx > resolutionPx && extraction.frames.length > 0) {
+    try {
+      const hdFrames = await extract({
+        videoPath: dl.videoPath,
+        outDir: path.join(workDir, 'frames-hd'),
+        fps: extraction.fps,
+        resolutionPx: hdResolutionPx,
+        maxFrames,
+        startSeconds,
+        endSeconds,
+      })
+      hdFramesByIndex = new Map(hdFrames.map((f) => [f.index, f.path]))
+    } catch (err) {
+      log(`[watch] HD frame extraction failed (lightbox will use analysis frames): ${err instanceof Error ? err.message : String(err)}`)
+    }
+  }
+  const enrichedFrames = extraction.frames.map((f) => ({
+    ...f,
+    hdPath: hdFramesByIndex.get(f.index),
+  }))
+
   hooks.onStage?.('transcribe')
   let transcript: TranscriptResult = { segments: [], source: 'none' }
 
@@ -114,7 +137,7 @@ export async function runWatchPipeline(
     maxFrames,
     resolutionPx,
     framesDir: path.join(workDir, 'frames'),
-    frames: extraction.frames,
+    frames: enrichedFrames,
     transcript,
   })
   const reportPath = path.join(workDir, 'report.md')
@@ -124,7 +147,7 @@ export async function runWatchPipeline(
     workDir,
     reportPath,
     framesDir: path.join(workDir, 'frames'),
-    frames: extraction.frames,
+    frames: enrichedFrames,
     metadata: meta,
     transcript,
     fps: extraction.fps,

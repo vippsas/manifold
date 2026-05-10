@@ -6,17 +6,24 @@ import { thumbStripStyles as s } from './FrameThumbnailStrip.styles'
 interface Props {
   frames: WatchFrameRef[]
   readFrame: (path: string) => Promise<string>
-  onSelect: (frame: WatchFrameRef, dataUrl: string) => void
+  onSelect: (frame: WatchFrameRef) => void
+  onLoaded?: (path: string, dataUrl: string) => void
 }
 
-export function FrameThumbnailStrip({ frames, readFrame, onSelect }: Props): React.JSX.Element | null {
+export function FrameThumbnailStrip({ frames, readFrame, onSelect, onLoaded }: Props): React.JSX.Element | null {
   if (frames.length === 0) return null
   return (
     <div style={s.container}>
       <div style={s.label}>Frames ({frames.length})</div>
       <div style={s.strip}>
         {frames.map((frame) => (
-          <Thumbnail key={frame.path} frame={frame} readFrame={readFrame} onSelect={onSelect} />
+          <Thumbnail
+            key={frame.path}
+            frame={frame}
+            readFrame={readFrame}
+            onSelect={onSelect}
+            onLoaded={onLoaded}
+          />
         ))}
       </div>
     </div>
@@ -26,24 +33,29 @@ export function FrameThumbnailStrip({ frames, readFrame, onSelect }: Props): Rea
 interface ThumbProps {
   frame: WatchFrameRef
   readFrame: (path: string) => Promise<string>
-  onSelect: (frame: WatchFrameRef, dataUrl: string) => void
+  onSelect: (frame: WatchFrameRef) => void
+  onLoaded?: (path: string, dataUrl: string) => void
 }
 
-function Thumbnail({ frame, readFrame, onSelect }: ThumbProps): React.JSX.Element {
+function Thumbnail({ frame, readFrame, onSelect, onLoaded }: ThumbProps): React.JSX.Element {
   const [dataUrl, setDataUrl] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
     let cancelled = false
     void readFrame(frame.path).then(
-      (url) => { if (!cancelled) setDataUrl(url) },
+      (url) => {
+        if (cancelled) return
+        setDataUrl(url)
+        onLoaded?.(frame.path, url)
+      },
       (err) => { if (!cancelled) setError(err instanceof Error ? err.message : 'load failed') },
     )
     return () => { cancelled = true }
-  }, [frame.path, readFrame])
+  }, [frame.path, readFrame, onLoaded])
 
   const handleClick = (): void => {
-    if (dataUrl) onSelect(frame, dataUrl)
+    if (dataUrl) onSelect(frame)
   }
 
   return (

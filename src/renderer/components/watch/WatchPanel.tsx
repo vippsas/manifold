@@ -1,10 +1,9 @@
-import React, { useEffect, useState } from 'react'
+import React, { useCallback, useEffect, useState } from 'react'
 import { useDockState } from '../editor/dock-panel-types'
 import { useWatchPanel } from '../../hooks/useWatchPanel'
 import { watchStyles as s } from './WatchPanel.styles'
 import { FrameThumbnailStrip } from './FrameThumbnailStrip'
 import { FrameLightbox } from './FrameLightbox'
-import type { WatchFrameRef } from '../../../shared/watch-types'
 
 export function WatchPanel(): React.JSX.Element {
   const dock = useDockState()
@@ -25,9 +24,19 @@ export function WatchPanel(): React.JSX.Element {
   const [error, setError] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
   const [installing, setInstalling] = useState(false)
-  const [lightbox, setLightbox] = useState<{ frame: WatchFrameRef; dataUrl: string } | null>(null)
+  const [lightboxIndex, setLightboxIndex] = useState<number | null>(null)
+  const [thumbCache, setThumbCache] = useState<Record<string, string>>({})
 
   useEffect(() => { void refreshSetupStatus() }, [refreshSetupStatus])
+
+  const handleThumbLoaded = useCallback((path: string, dataUrl: string) => {
+    setThumbCache((prev) => (prev[path] === dataUrl ? prev : { ...prev, [path]: dataUrl }))
+  }, [])
+
+  const handleThumbSelect = useCallback((frame: { path: string }) => {
+    const idx = frames.findIndex((f) => f.path === frame.path)
+    if (idx >= 0) setLightboxIndex(idx)
+  }, [frames])
 
   const canRun = !!sessionId && isRunning && url.trim().length > 0 && !busy
   const binariesMissing = setupStatus !== null && (!setupStatus.ffmpeg || !setupStatus.ytdlp)
@@ -114,7 +123,8 @@ export function WatchPanel(): React.JSX.Element {
       <FrameThumbnailStrip
         frames={frames}
         readFrame={readFrame}
-        onSelect={(frame, dataUrl) => setLightbox({ frame, dataUrl })}
+        onLoaded={handleThumbLoaded}
+        onSelect={handleThumbSelect}
       />
 
       {setupStatus && (
@@ -142,11 +152,14 @@ export function WatchPanel(): React.JSX.Element {
         </div>
       )}
 
-      {lightbox && (
+      {lightboxIndex !== null && frames[lightboxIndex] && (
         <FrameLightbox
-          dataUrl={lightbox.dataUrl}
-          timestampSeconds={lightbox.frame.timestampSeconds}
-          onClose={() => setLightbox(null)}
+          frames={frames}
+          currentIndex={lightboxIndex}
+          thumbDataUrl={thumbCache[frames[lightboxIndex].path] ?? ''}
+          readFrame={readFrame}
+          onIndexChange={setLightboxIndex}
+          onClose={() => setLightboxIndex(null)}
         />
       )}
     </div>
