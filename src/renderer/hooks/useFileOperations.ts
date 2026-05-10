@@ -8,6 +8,7 @@ export interface UseFileOperationsResult {
   handleCreateFile: (dirPath: string, fileName: string) => Promise<boolean>
   handleCreateDir: (dirPath: string, dirName: string) => Promise<boolean>
   handleImportPaths: (dirPath: string, sourcePaths: string[]) => Promise<string | null>
+  handleMovePath: (sourcePath: string, targetDir: string, options?: { overwrite?: boolean }) => Promise<string | null>
   handleRevealInFinder: (filePath: string) => Promise<void>
   handleOpenInTerminal: (dirPath: string) => Promise<void>
   handleCopyAbsolutePath: (filePath: string) => void
@@ -25,6 +26,7 @@ export function useFileOperations(
   createFile: (dirPath: string, fileName: string) => Promise<boolean>,
   createDir: (dirPath: string, dirName: string) => Promise<boolean>,
   importPaths: (dirPath: string, sourcePaths: string[]) => Promise<string | null>,
+  movePath: (sourcePath: string, targetDir: string, overwrite?: boolean) => Promise<string | null>,
   revealInFinder: (filePath: string) => Promise<void>,
   openInTerminal: (dirPath: string) => Promise<void>
 ): UseFileOperationsResult {
@@ -79,6 +81,19 @@ export function useFileOperations(
     [importPaths]
   )
 
+  const handleMovePath = useCallback(
+    async (sourcePath: string, targetDir: string, options?: { overwrite?: boolean }): Promise<string | null> => {
+      const error = await movePath(sourcePath, targetDir, options?.overwrite)
+      if (!error) {
+        const baseName = sourcePath.slice(sourcePath.lastIndexOf('/') + 1)
+        const newPath = targetDir === '/' ? `/${baseName}` : `${targetDir}/${baseName}`
+        codeViewRenameOpenFile(sourcePath, newPath)
+      }
+      return error
+    },
+    [movePath, codeViewRenameOpenFile]
+  )
+
   const handleRevealInFinder = useCallback(
     async (filePath: string): Promise<void> => {
       await revealInFinder(filePath)
@@ -108,6 +123,7 @@ export function useFileOperations(
     handleCreateFile,
     handleCreateDir,
     handleImportPaths,
+    handleMovePath,
     handleRevealInFinder,
     handleOpenInTerminal,
     handleCopyAbsolutePath,

@@ -59,8 +59,12 @@ export function NodeRow({
 
   const handleDragStart = useCallback((e: React.DragEvent<HTMLDivElement>): void => {
     if (!dragRootPath) return
-    writeFileTreeDragData(e.dataTransfer, getDraggedTreePath(node.path, dragRootPath))
-  }, [dragRootPath, node.path])
+    writeFileTreeDragData(
+      e.dataTransfer,
+      getDraggedTreePath(node.path, dragRootPath),
+      { sourcePath: node.path, rootPath: dragRootPath, isDirectory: node.isDirectory },
+    )
+  }, [dragRootPath, node.path, node.isDirectory])
 
   return (
     <div

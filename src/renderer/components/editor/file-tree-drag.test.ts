@@ -1,9 +1,12 @@
 import { describe, expect, it, vi } from 'vitest'
 import {
   FILE_TREE_DRAG_MIME,
+  FILE_TREE_MOVE_MIME,
   getDraggedTreePath,
   hasFileTreeDragData,
+  hasInternalMoveDragData,
   readFileTreeDragData,
+  readInternalMoveDragData,
   writeFileTreeDragData,
 } from './file-tree-drag'
 
@@ -45,5 +48,27 @@ describe('file-tree-drag', () => {
     expect(readFileTreeDragData(dataTransfer)).toBe('src/main.ts')
     expect(dataTransfer.setData).toHaveBeenCalledWith(FILE_TREE_DRAG_MIME, 'src/main.ts')
     expect(dataTransfer.setData).toHaveBeenCalledWith('text/plain', 'src/main.ts')
+    expect(hasInternalMoveDragData(dataTransfer)).toBe(false)
+  })
+
+  it('writes and reads internal move data when supplied', () => {
+    const dataTransfer = createMockDataTransfer()
+
+    writeFileTreeDragData(dataTransfer, 'src/main.ts', {
+      sourcePath: '/repo/src/main.ts', rootPath: '/repo', isDirectory: false,
+    })
+
+    expect(dataTransfer.effectAllowed).toBe('copyMove')
+    expect(hasInternalMoveDragData(dataTransfer)).toBe(true)
+    expect(readInternalMoveDragData(dataTransfer)).toEqual({
+      sourcePath: '/repo/src/main.ts', rootPath: '/repo', isDirectory: false,
+    })
+    expect(dataTransfer.setData).toHaveBeenCalledWith(FILE_TREE_MOVE_MIME, expect.any(String))
+  })
+
+  it('returns null when reading malformed move data', () => {
+    const dataTransfer = createMockDataTransfer()
+    dataTransfer.setData(FILE_TREE_MOVE_MIME, 'not-json')
+    expect(readInternalMoveDragData(dataTransfer)).toBeNull()
   })
 })

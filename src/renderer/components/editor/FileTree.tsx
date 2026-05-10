@@ -1,17 +1,13 @@
-import React, { useCallback, useMemo, useState } from 'react'
+import React, { useCallback, useMemo } from 'react'
 import type { FileTreeNode, FileChange, FileChangeType } from '../../../shared/types'
 import { TreeNode } from './tree-node'
 import { ContextMenu } from './ContextMenu'
 import type { ContextMenuAction } from './ContextMenu'
 import { treeStyles } from './FileTree.styles'
-import {
-  collectDroppedPaths,
-  describeDropTarget,
-  hasDraggedFiles,
-  resolveDropDirectory,
-} from './file-tree-drop'
+import { describeDropTarget } from './file-tree-drop'
 import { WorkspaceRootHeader, shortenPath, filterTree } from './file-tree-helpers'
 import { useFileTreeEditing } from './useFileTreeEditing'
+import { useFileTreeDragDrop } from './useFileTreeDragDrop'
 
 interface FileTreeProps {
   tree: FileTreeNode | null
@@ -32,6 +28,7 @@ interface FileTreeProps {
   onCreateFile?: (dirPath: string, fileName: string) => Promise<boolean>
   onCreateDir?: (dirPath: string, dirName: string) => Promise<boolean>
   onImportPaths?: (dirPath: string, sourcePaths: string[]) => Promise<string | null>
+  onMovePath?: (sourcePath: string, targetDir: string, options?: { overwrite?: boolean }) => Promise<string | null>
   onRevealInFinder?: (filePath: string) => Promise<void>
   onOpenInTerminal?: (dirPath: string) => Promise<void>
   onCopyAbsolutePath?: (filePath: string) => void
@@ -42,7 +39,7 @@ interface FileTreeProps {
 export function FileTree({
   tree, additionalTrees, additionalBranches, rootLabels, primaryBranch,
   changes, additionalChanges, activeFilePath, openFilePaths, expandedPaths, onToggleExpand, onSelectFile,
-  onDeleteFile, onRenameFile, onCreateFile, onCreateDir, onImportPaths,
+  onDeleteFile, onRenameFile, onCreateFile, onCreateDir, onImportPaths, onMovePath,
   onRevealInFinder, onOpenInTerminal, onCopyAbsolutePath, onCopyRelativePath,
   worktreeRootPath,
 }: FileTreeProps): React.JSX.Element {
@@ -50,11 +47,8 @@ export function FileTree({
     expandedPaths, onToggleExpand,
     onRenameFile, onDeleteFile, onCreateFile, onCreateDir,
   )
-
-  const [isDraggingFiles, setIsDraggingFiles] = useState(false)
-  const [dropTargetPath, setDropTargetPath] = useState<string | null>(null)
-  const [importError, setImportError] = useState<string | null>(null)
   const defaultDropDir = worktreeRootPath ?? tree?.path ?? null
+  const dnd = useFileTreeDragDrop({ tree, additionalTrees, defaultDropDir, onImportPaths, onMovePath })
 
   const changeMap = useMemo(() => {
     const map = new Map<string, FileChangeType>()
@@ -85,53 +79,6 @@ export function FileTree({
     }
     return result
   }, [additionalTrees, editing.filterQuery])
-
-  const updateDropTarget = useCallback((target: EventTarget | null): string | null => {
-    const nextTarget = resolveDropDirectory(target, defaultDropDir)
-    setDropTargetPath(nextTarget)
-    return nextTarget
-  }, [defaultDropDir])
-
-  const clearDropState = useCallback((): void => {
-    setIsDraggingFiles(false)
-    setDropTargetPath(null)
-  }, [])
-
-  const handleDragEnter = useCallback((e: React.DragEvent<HTMLDivElement>): void => {
-    if (!hasDraggedFiles(e.dataTransfer)) return
-    e.preventDefault()
-    setImportError(null)
-    setIsDraggingFiles(true)
-    updateDropTarget(e.target)
-  }, [updateDropTarget])
-
-  const handleDragOver = useCallback((e: React.DragEvent<HTMLDivElement>): void => {
-    if (!hasDraggedFiles(e.dataTransfer)) return
-    e.preventDefault()
-    e.dataTransfer.dropEffect = 'copy'
-    setIsDraggingFiles(true)
-    updateDropTarget(e.target)
-  }, [updateDropTarget])
-
-  const handleDragLeave = useCallback((e: React.DragEvent<HTMLDivElement>): void => {
-    if (e.currentTarget.contains(e.relatedTarget as Node | null)) return
-    clearDropState()
-  }, [clearDropState])
-
-  const handleDrop = useCallback(async (e: React.DragEvent<HTMLDivElement>): Promise<void> => {
-    if (!hasDraggedFiles(e.dataTransfer)) { clearDropState(); return }
-    e.preventDefault()
-    const targetDir = updateDropTarget(e.target)
-    clearDropState()
-    if (!targetDir || !onImportPaths) return
-    const sourcePaths = collectDroppedPaths(
-      Array.from(e.dataTransfer.files),
-      (file) => window.electronAPI.getPathForFile(file)
-    )
-    if (sourcePaths.length === 0) { setImportError('Could not read the dropped file paths.'); return }
-    const error = await onImportPaths(targetDir, sourcePaths)
-    setImportError(error)
-  }, [clearDropState, onImportPaths, updateDropTarget])
 
   const buildContextMenuItems = useCallback((targetNode: FileTreeNode | null): (ContextMenuAction | 'separator')[] => {
     const items: (ContextMenuAction | 'separator')[] = []
@@ -180,6 +127,11 @@ export function FileTree({
     dragRootPath: worktreeRootPath ?? tree?.path ?? null,
   }
 
+  const isDraggingAny = dnd.isDraggingFiles || dnd.isDraggingInternal
+  const dropTargetLabel = describeDropTarget(dnd.dropTargetPath ?? defaultDropDir)
+  const overlayLabel = dnd.isDraggingInternal ? `Move to ${dropTargetLabel}` : `Import to ${dropTargetLabel}`
+  const bannerLabel = dnd.isDraggingInternal ? `Drop to move into ${dropTargetLabel}` : `Drop to import into ${dropTargetLabel}`
+
   return (
     <div style={treeStyles.wrapper}>
       <div style={treeStyles.filterContainer}>
@@ -191,20 +143,19 @@ export function FileTree({
         />
         {editing.filterQuery && (
           <button style={treeStyles.filterClear} onClick={() => editing.setFilterQuery('')} title="Clear filter">
-            {'\u00D7'}
+            {'×'}
           </button>
         )}
       </div>
-      {(isDraggingFiles || importError) && (
-        <div style={{ ...treeStyles.statusBanner, ...(importError ? treeStyles.statusBannerError : treeStyles.statusBannerInfo) }}>
-          {importError ?? `Drop to import into ${describeDropTarget(dropTargetPath ?? defaultDropDir)}`}
+      {(isDraggingAny || dnd.importError) && (
+        <div style={{ ...treeStyles.statusBanner, ...(dnd.importError ? treeStyles.statusBannerError : treeStyles.statusBannerInfo) }}>
+          {dnd.importError ?? bannerLabel}
         </div>
       )}
       <div
-        style={{ ...treeStyles.treeContainer, ...(isDraggingFiles ? treeStyles.treeContainerDragActive : {}) }}
+        style={{ ...treeStyles.treeContainer, ...(isDraggingAny ? treeStyles.treeContainerDragActive : {}) }}
         onContextMenu={(e) => { e.preventDefault(); editing.setContextMenu({ x: e.clientX, y: e.clientY, node: null }) }}
-        onDragEnter={handleDragEnter} onDragOver={handleDragOver}
-        onDragLeave={handleDragLeave} onDrop={(e) => { void handleDrop(e) }}
+        {...dnd.handlers}
       >
         {filteredTree ? (
           <>
@@ -230,9 +181,9 @@ export function FileTree({
         ) : (
           <div style={treeStyles.empty}>No files to display</div>
         )}
-        {isDraggingFiles && (
+        {isDraggingAny && (
           <div style={treeStyles.dropOverlay}>
-            <div style={treeStyles.dropOverlayLabel}>{`Import to ${describeDropTarget(dropTargetPath ?? defaultDropDir)}`}</div>
+            <div style={treeStyles.dropOverlayLabel}>{overlayLabel}</div>
           </div>
         )}
       </div>
@@ -252,6 +203,21 @@ export function FileTree({
             <div style={treeStyles.dialogActions}>
               <button style={treeStyles.dialogCancel} onClick={editing.handleCancelDelete}>Cancel</button>
               <button style={treeStyles.dialogConfirm} onClick={editing.handleConfirmDelete}>Delete</button>
+            </div>
+          </div>
+        </div>
+      )}
+      {dnd.pendingOverwrite && (
+        <div style={treeStyles.dialogOverlay} onClick={dnd.cancelOverwrite}>
+          <div style={treeStyles.dialog} onClick={(e) => e.stopPropagation()}>
+            <div style={treeStyles.dialogTitle}>Replace existing item?</div>
+            <div style={treeStyles.dialogMessage}>
+              <strong>{describeDropTarget(dnd.pendingOverwrite.newPath)}</strong> already exists in{' '}
+              <strong>{describeDropTarget(dnd.pendingOverwrite.targetDir)}</strong>. Replace it with the moved item?
+            </div>
+            <div style={treeStyles.dialogActions}>
+              <button style={treeStyles.dialogCancel} onClick={dnd.cancelOverwrite}>Cancel</button>
+              <button style={treeStyles.dialogConfirm} onClick={() => { void dnd.confirmOverwrite() }}>Replace</button>
             </div>
           </div>
         </div>

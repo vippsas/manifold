@@ -14,6 +14,7 @@ interface UseFileWatcherResult {
   createFile: (dirPath: string, fileName: string) => Promise<boolean>
   createDir: (dirPath: string, dirName: string) => Promise<boolean>
   importPaths: (dirPath: string, sourcePaths: string[]) => Promise<string | null>
+  movePath: (sourcePath: string, targetDir: string, overwrite?: boolean) => Promise<string | null>
   revealInFinder: (filePath: string) => Promise<void>
   openInTerminal: (dirPath: string) => Promise<void>
 }
@@ -160,6 +161,31 @@ export function useFileWatcher(
     [sessionId]
   )
 
+  const movePath = useCallback(
+    async (sourcePath: string, targetDir: string, overwrite?: boolean): Promise<string | null> => {
+      if (!sessionId) return 'No active session'
+      const baseName = sourcePath.slice(sourcePath.lastIndexOf('/') + 1)
+      const newPath = targetDir === '/' ? `/${baseName}` : `${targetDir}/${baseName}`
+      try {
+        if (overwrite) {
+          try {
+            await window.electronAPI.invoke('files:delete', sessionId, newPath)
+          } catch {
+            // Target may not exist (race) — proceed to rename
+          }
+        }
+        const result = (await window.electronAPI.invoke('files:rename', sessionId, sourcePath, newPath)) as
+          | { tree: FileTreeNode }
+          | undefined
+        if (result?.tree) setTree(result.tree)
+        return null
+      } catch (err: unknown) {
+        return err instanceof Error ? err.message : String(err)
+      }
+    },
+    [sessionId]
+  )
+
   const importPaths = useCallback(
     async (dirPath: string, sourcePaths: string[]): Promise<string | null> => {
       if (!sessionId) return 'No active session'
@@ -204,6 +230,7 @@ export function useFileWatcher(
     createFile,
     createDir,
     importPaths,
+    movePath,
     revealInFinder,
     openInTerminal,
   }

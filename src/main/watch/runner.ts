@@ -39,11 +39,15 @@ export async function runWatch(deps: RunWatchDeps, opts: RunWatchOptions): Promi
   const question = opts.question?.trim()
   // Quote the workdir path so paths with spaces survive Claude Code's tokenizer.
   const command = question
-    ? `/watch:watch "${result.workDir}" ${question}\r`
-    : `/watch:watch "${result.workDir}"\r`
+    ? `/watch:watch "${result.workDir}" ${question}`
+    : `/watch:watch "${result.workDir}"`
 
   try {
+    // Type the slash command, then submit it with Enter after a short delay so
+    // the agent's TUI registers the command before the carriage return.
     deps.sessionManager.sendInput(opts.sessionId, command)
+    await new Promise((r) => setTimeout(r, 400))
+    deps.sessionManager.sendInput(opts.sessionId, '\r')
   } catch (err) {
     return {
       ok: false,
@@ -57,7 +61,11 @@ export async function runWatch(deps: RunWatchDeps, opts: RunWatchOptions): Promi
     workDir: result.workDir,
     reportPath: result.reportPath,
     frameCount: result.frames.length,
-    frames: result.frames.map((f) => ({ path: f.path, timestampSeconds: f.timestampSeconds })),
+    frames: result.frames.map((f) => ({
+      path: f.path,
+      timestampSeconds: f.timestampSeconds,
+      hdPath: f.hdPath,
+    })),
     transcriptSource: result.transcript.source,
   }
 }

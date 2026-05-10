@@ -19,6 +19,7 @@ export interface WatchSetupStatus {
 export interface WatchFrameRef {
   path: string
   timestampSeconds: number
+  hdPath?: string
 }
 
 export interface WatchRunResult {

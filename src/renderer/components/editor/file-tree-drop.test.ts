@@ -4,6 +4,8 @@ import {
   describeDropTarget,
   hasDraggedFiles,
   resolveDropDirectory,
+  resolveDropRootPath,
+  validateInternalMove,
 } from './file-tree-drop'
 
 describe('file-tree-drop', () => {
@@ -51,5 +53,50 @@ describe('file-tree-drop', () => {
   it('formats the drop target label', () => {
     expect(describeDropTarget('/repo/src')).toBe('src')
     expect(describeDropTarget(null)).toBe('project root')
+  })
+
+  it('resolves the drop root path', () => {
+    const root = document.createElement('div')
+    root.dataset.treeRootPath = '/repo/extra'
+    const target = document.createElement('div')
+    root.appendChild(target)
+    document.body.replaceChildren(root)
+
+    expect(resolveDropRootPath(target)).toBe('/repo/extra')
+  })
+
+  describe('validateInternalMove', () => {
+    it('accepts a move into a sibling directory', () => {
+      const result = validateInternalMove('/repo/src/a.ts', '/repo', '/repo/lib', '/repo')
+      expect(result).toEqual({ ok: true, newPath: '/repo/lib/a.ts' })
+    })
+
+    it('rejects a move into the current parent', () => {
+      const result = validateInternalMove('/repo/src/a.ts', '/repo', '/repo/src', '/repo')
+      expect(result.ok).toBe(false)
+      expect(result.reason).toBe('Already in this folder.')
+    })
+
+    it('rejects moving a folder into itself', () => {
+      const result = validateInternalMove('/repo/src', '/repo', '/repo/src', '/repo')
+      expect(result.ok).toBe(false)
+    })
+
+    it('rejects moving a folder into its descendant', () => {
+      const result = validateInternalMove('/repo/src', '/repo', '/repo/src/sub', '/repo')
+      expect(result.ok).toBe(false)
+      expect(result.reason).toMatch(/itself/)
+    })
+
+    it('rejects moving across worktrees', () => {
+      const result = validateInternalMove('/repo/a.ts', '/repo', '/other/lib', '/other')
+      expect(result.ok).toBe(false)
+      expect(result.reason).toMatch(/worktrees/)
+    })
+
+    it('allows a move when target root is unknown', () => {
+      const result = validateInternalMove('/repo/a.ts', '/repo', '/repo/lib', null)
+      expect(result.ok).toBe(true)
+    })
   })
 })
