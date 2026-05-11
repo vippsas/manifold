@@ -59,19 +59,6 @@ export function buildChangeFingerprint(rootPath: string, changes: FileChange[]):
     .join('|')
 }
 
-export function buildDirFingerprint(dirPath: string): string {
-  try {
-    const entries = fs.readdirSync(dirPath, { withFileTypes: true })
-    return entries
-      .filter(isVisibleEntry)
-      .map((e) => `${e.name}:${e.isDirectory() ? 'd' : 'f'}`)
-      .sort()
-      .join('|')
-  } catch {
-    return ''
-  }
-}
-
 export const EXCLUDED_DIRS = new Set([
   'node_modules', '.git', 'dist', 'build', 'coverage', '.cache', '.turbo',
   '.next',

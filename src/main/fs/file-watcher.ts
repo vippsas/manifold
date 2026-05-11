@@ -6,10 +6,10 @@ import {
   gitStatus,
   parseStatusWithConflicts,
   buildChangeFingerprint,
-  buildDirFingerprint,
   isVisibleEntry,
   directoriesFirstComparator,
 } from './file-watcher-utils'
+import { NoopTreeWatcher, type TreeWatcher } from './tree-watcher'
 
 const POLL_INTERVAL_MS = 2000
 
@@ -18,7 +18,6 @@ interface PollEntry {
   sessionId: string
   lastStatus: string
   lastChangeFingerprint: string
-  lastDirFingerprint: string
   polling: boolean
 }
 
@@ -28,9 +27,14 @@ export class FileWatcher {
   private polls: Map<string, PollEntry> = new Map()
   private mainWindow: BrowserWindow | null = null
   private gitStatusFn: GitStatusFn
+  private treeWatcher: TreeWatcher
 
-  constructor(gitStatusFn?: GitStatusFn) {
+  constructor(gitStatusFn?: GitStatusFn, treeWatcher?: TreeWatcher) {
     this.gitStatusFn = gitStatusFn ?? gitStatus
+    this.treeWatcher = treeWatcher ?? new NoopTreeWatcher()
+    this.treeWatcher.setOnTreeChanged((sessionId) => {
+      this.sendToRenderer('files:tree-changed', { sessionId })
+    })
   }
 
   setMainWindow(window: BrowserWindow): void {
@@ -80,10 +84,10 @@ export class FileWatcher {
       sessionId,
       lastStatus: '',
       lastChangeFingerprint: '',
-      lastDirFingerprint: '',
       polling: false,
     }
     this.polls.set(worktreePath, entry)
+    this.treeWatcher.watch(worktreePath, sessionId)
 
     // Run initial poll immediately
     void this.poll(worktreePath)
@@ -98,10 +102,8 @@ export class FileWatcher {
       const status = await this.gitStatusFn(worktreePath)
       const { changes, conflicts } = parseStatusWithConflicts(status)
       const changeFingerprint = buildChangeFingerprint(worktreePath, changes)
-      const dirFingerprint = buildDirFingerprint(worktreePath)
 
       const gitChanged = status !== entry.lastStatus || changeFingerprint !== entry.lastChangeFingerprint
-      const dirChanged = dirFingerprint !== entry.lastDirFingerprint
 
       if (gitChanged) {
         entry.lastStatus = status
@@ -114,11 +116,6 @@ export class FileWatcher {
           sessionId: entry.sessionId,
           conflicts,
         })
-      }
-
-      if (dirChanged) {
-        entry.lastDirFingerprint = dirFingerprint
-        this.sendToRenderer('files:tree-changed', { sessionId: entry.sessionId })
       }
     } catch {
       // Worktree may not exist yet or git may fail — skip this tick
@@ -157,6 +154,7 @@ export class FileWatcher {
     if (!entry) return
     clearInterval(entry.timer)
     this.polls.delete(worktreePath)
+    await this.treeWatcher.unwatch(worktreePath)
   }
 
   async unwatchAll(): Promise<void> {
@@ -164,6 +162,7 @@ export class FileWatcher {
       clearInterval(entry.timer)
     }
     this.polls.clear()
+    await this.treeWatcher.unwatchAll()
   }
 
   getFileTree(dirPath: string): FileTreeNode {
