@@ -16,6 +16,7 @@ import { WorktreeManager } from '../git/worktree-manager'
 import { PtyPool } from '../agent/pty-pool'
 import { SessionManager } from '../session/session-manager'
 import { FileWatcher } from '../fs/file-watcher'
+import { ChokidarTreeWatcher } from '../fs/tree-watcher'
 import { DiffProvider } from '../git/diff-provider'
 import { PrCreator } from '../git/pr-creator'
 import { ViewStateStore } from '../store/view-state-store'
@@ -64,7 +65,7 @@ const projectRegistry = new ProjectRegistry()
 const worktreeManager = new WorktreeManager(settingsStore.getSettings().storagePath)
 const branchCheckout = new BranchCheckoutManager(settingsStore.getSettings().storagePath)
 const ptyPool = new PtyPool()
-const fileWatcher = new FileWatcher()
+const fileWatcher = new FileWatcher(undefined, new ChokidarTreeWatcher())
 const sessionManager = new SessionManager(worktreeManager, ptyPool, projectRegistry, branchCheckout, fileWatcher)
 const diffProvider = new DiffProvider()
 
