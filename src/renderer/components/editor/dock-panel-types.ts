@@ -7,6 +7,9 @@ import type { FileOpenRequest } from './file-open-request'
 
 export interface DockAppState {
   sessionId: string | null
+  /** The "primary" session for the active worktree (the one represented in the
+   *  sidebar). May equal sessionId, or differ when a sibling dock tab is active. */
+  primarySessionId: string | null
   searchFocusRequestKey: number
   requestedSearchMode: SearchMode | null
   scrollbackLines: number

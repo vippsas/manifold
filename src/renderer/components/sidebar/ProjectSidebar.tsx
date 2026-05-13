@@ -5,6 +5,7 @@ import { sidebarStyles } from './ProjectSidebar.styles'
 import { AgentItem, formatBranchLabel, runtimeLabel } from './AgentItem'
 import { SuperagentList } from './SuperagentList'
 import { createDialogStyles } from '../workbench-style-primitives'
+import { dedupeSessionsByWorktree } from '../../hooks/agent-siblings'
 
 const deleteDialogStyles = createDialogStyles('360px')
 
@@ -218,32 +219,42 @@ function ProjectList({
   return (
     <div style={sidebarStyles.list}>
       {/* Tier 1: Active project — expanded with agents */}
-      {activeProject !== null && (
-        <div className="sidebar-project-group sidebar-project-group--active sidebar-project-group--has-agents">
-          <ProjectItem
-            project={activeProject}
-            isActive={true}
-            onSelect={handleProjectClick}
-            onRemove={onRemove}
+      {activeProject !== null && (() => {
+        const projectSessions = allProjectSessions[activeProject.id] ?? []
+        const activeWorktreePath = projectSessions.find((s) => s.id === activeSessionId)?.worktreePath ?? null
+        const primarySessions = dedupeSessionsByWorktree(projectSessions)
+        return (
+          <div className="sidebar-project-group sidebar-project-group--active sidebar-project-group--has-agents">
+            <ProjectItem
+              project={activeProject}
+              isActive={true}
+              onSelect={handleProjectClick}
+              onRemove={onRemove}
 
-            isFetching={fetchingProjectId === activeProject.id}
-            fetchResult={lastFetchedProjectId === activeProject.id ? fetchResult : null}
-            fetchError={lastFetchedProjectId === activeProject.id ? fetchError : null}
-            onFetch={() => onFetchProject(activeProject.id)}
-          />
-          {(allProjectSessions[activeProject.id] ?? []).map((session) => (
-            <AgentItem
-              key={session.id}
-              session={session}
-              projectPath={activeProject.path}
-              isActive={session.id === activeSessionId}
-              isOutputting={outputtingSessionIds.has(session.id)}
-              onSelect={(sessionId) => onSelectSession(sessionId, activeProject.id)}
-              onDelete={() => onRequestDeleteAgent(session, activeProject.path)}
+              isFetching={fetchingProjectId === activeProject.id}
+              fetchResult={lastFetchedProjectId === activeProject.id ? fetchResult : null}
+              fetchError={lastFetchedProjectId === activeProject.id ? fetchError : null}
+              onFetch={() => onFetchProject(activeProject.id)}
             />
-          ))}
-        </div>
-      )}
+            {primarySessions.map((session) => {
+              const siblingOutputting = projectSessions.some(
+                (s) => s.worktreePath === session.worktreePath && outputtingSessionIds.has(s.id),
+              )
+              return (
+                <AgentItem
+                  key={session.id}
+                  session={session}
+                  projectPath={activeProject.path}
+                  isActive={session.worktreePath !== '' && session.worktreePath === activeWorktreePath}
+                  isOutputting={siblingOutputting}
+                  onSelect={(sessionId) => onSelectSession(sessionId, activeProject.id)}
+                  onDelete={() => onRequestDeleteAgent(session, activeProject.path)}
+                />
+              )
+            })}
+          </div>
+        )
+      })()}
 
       {/* Tier 2: Other projects with agents — collapsed with mini status dots */}
       {withAgentsProjects.length > 0 && (

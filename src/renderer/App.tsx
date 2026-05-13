@@ -22,6 +22,8 @@ import { useFileOperations } from './hooks/useFileOperations'
 import { useAppOverlays } from './hooks/useAppOverlays'
 import { useWebPreview } from './hooks/useWebPreview'
 import { useDockLayout, isEditorPanelId } from './hooks/useDockLayout'
+import { useAgentSiblingDockTabs } from './hooks/useAgentSiblingDockTabs'
+import { getPrimarySession, parseSiblingSessionId } from './hooks/agent-siblings'
 import { useAppEffects } from './hooks/useAppEffects'
 import { PANEL_COMPONENTS, DockStateContext } from './components/editor/dock-panels'
 import type { DockAppState } from './components/editor/dock-panel-types'
@@ -82,8 +84,23 @@ export function App(): React.JSX.Element {
   const activeSuperagent = superagents.find((s) => s.id === activeSuperagentId) ?? null
   useStatusNotification(outputtingSessionIds, settings.notificationSound)
   const { diff, changedFiles, refreshDiff } = useDiff(activeSessionId)
-  const dockLayoutKey = activeSessionId ?? activeSuperagentId
+  const activeWorktreePath = activeSession?.worktreePath ?? null
+  const activeProjectSessions = activeProjectId ? sessionsByProject[activeProjectId] ?? [] : []
+  const primarySession = getPrimarySession(activeProjectSessions, activeWorktreePath)
+  const primarySessionId = primarySession?.id ?? null
+  // Key dockview layout by primary session (worktree-stable) so switching
+  // between sibling tabs doesn't tear down the layout.
+  const dockLayoutKey = primarySessionId ?? activeSessionId ?? activeSuperagentId
   const dockLayout = useDockLayout(dockLayoutKey, settings.showIdeasTab, settings.showLoopTab)
+  useAgentSiblingDockTabs({
+    apiRef: dockLayout.apiRef,
+    layoutVersion: dockLayout.layoutVersion,
+    sessions: activeProjectSessions,
+    activeWorktreePath,
+    primarySessionId,
+    activeSessionId,
+    onSelectSession: setActiveSession,
+  })
   const webPreview = useWebPreview(activeSessionId)
 
   const { superagentFileReader, superagentFileWriter } = useMemo(() => {
@@ -252,9 +269,14 @@ export function App(): React.JSX.Element {
     dockLayout.focusPanel(targetPaneId)
   }, [codeView, dockLayout])
   const handleClosePanel = useCallback((panelId: string): void => {
+    const siblingSessionId = parseSiblingSessionId(panelId)
+    if (siblingSessionId) {
+      void overlays.handleDeleteAgent(siblingSessionId)
+      return
+    }
     if (isEditorPanelId(panelId)) { codeView.removePane(panelId, dockLayout.editorPanelIds.find((id) => id !== panelId) ?? null) }
     dockLayout.closePanel(panelId)
-  }, [codeView, dockLayout])
+  }, [codeView, dockLayout, overlays])
 
   const handleCreateNewProject = useCallback(async (options: CreateProjectOptions): Promise<boolean> => {
     appEffects.setCreatingProject(true)
@@ -294,6 +316,7 @@ export function App(): React.JSX.Element {
   const baseBranch = activeProject?.baseBranch ?? settings.defaultBaseBranch
   const dockState: DockAppState = {
     sessionId: activeSessionId,
+    primarySessionId,
     searchFocusRequestKey: appEffects.searchFocusRequestKey,
     requestedSearchMode: appEffects.requestedSearchMode,
     scrollbackLines: settings.scrollbackLines,
