@@ -319,6 +319,8 @@ export function App(): React.JSX.Element {
     shellBranchName: activeSession?.branchName ?? null,
     shellProjectName: projects.find((p) => p.id === activeProjectId)?.name ?? null,
     baseBranch, defaultRuntime: settings.defaultRuntime,
+    activeSessionWorktreePath: activeSession?.worktreePath ?? null,
+    activeSessionNoWorktree: activeSession?.noWorktree ?? false,
     onLaunchAgent: overlays.handleLaunchAgent, projects, activeProjectId,
     allProjectSessions: sessionsByProject, outputtingSessionIds,
     onSelectProject: (id: string) => { setActiveSuperagentId(null); setActiveProject(id) },

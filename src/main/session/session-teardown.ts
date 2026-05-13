@@ -100,7 +100,7 @@ export class SessionTeardown {
     try { await this.getMemoryCompressor?.()?.compressSession(session) }
     catch (err) { debugLog(`[session] memory compression failed: ${err}`) }
 
-    if (!session.noWorktree) {
+    if (!session.noWorktree && !this.hasOtherLiveSessionsOnPath(sessionId, worktreePath)) {
       try {
         await gitExec(['worktree', 'remove', worktreePath, '--force'], this.projectRegistry.getProject(projectId)?.path ?? '')
         await removeWorktreeMeta(worktreePath)
@@ -116,5 +116,16 @@ export class SessionTeardown {
     if (!project) throw new Error(`Project not found: ${projectId}`)
 
     return { projectPath: project.path, branchName, taskDescription }
+  }
+
+  private hasOtherLiveSessionsOnPath(excludeId: string, worktreePath: string): boolean {
+    for (const other of this.sessions.values()) {
+      if (other.id === excludeId) continue
+      if (other.worktreePath !== worktreePath) continue
+      if (other.pid == null) continue
+      if (!other.ptyId) continue
+      return true
+    }
+    return false
   }
 }
