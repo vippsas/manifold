@@ -1,4 +1,5 @@
-import React, { useCallback, useEffect, useRef, useState } from 'react'
+import React, { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react'
+import { createPortal } from 'react-dom'
 import type { AgentRuntime, SpawnAgentOptions } from '../../../shared/types'
 
 interface AddSiblingAgentButtonProps {
@@ -16,7 +17,9 @@ export function AddSiblingAgentButton({
 }: AddSiblingAgentButtonProps): React.JSX.Element | null {
   const [open, setOpen] = useState(false)
   const [runtimes, setRuntimes] = useState<AgentRuntime[]>([])
-  const wrapperRef = useRef<HTMLDivElement>(null)
+  const [popoverCoords, setPopoverCoords] = useState<{ top: number; right: number } | null>(null)
+  const buttonRef = useRef<HTMLButtonElement>(null)
+  const popoverRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
     if (!open) return
@@ -25,10 +28,22 @@ export function AddSiblingAgentButton({
     })
   }, [open])
 
+  useLayoutEffect(() => {
+    if (!open || !buttonRef.current) return
+    const rect = buttonRef.current.getBoundingClientRect()
+    setPopoverCoords({
+      top: rect.bottom + 6,
+      right: window.innerWidth - rect.right,
+    })
+  }, [open])
+
   useEffect(() => {
     if (!open) return
     const handler = (e: MouseEvent): void => {
-      if (!wrapperRef.current?.contains(e.target as Node)) setOpen(false)
+      const target = e.target as Node
+      if (buttonRef.current?.contains(target)) return
+      if (popoverRef.current?.contains(target)) return
+      setOpen(false)
     }
     window.addEventListener('mousedown', handler)
     return () => window.removeEventListener('mousedown', handler)
@@ -51,18 +66,23 @@ export function AddSiblingAgentButton({
   if (!projectId || !worktreePath || noWorktree) return null
 
   return (
-    <div ref={wrapperRef} style={styles.wrapper}>
+    <>
       <button
+        ref={buttonRef}
         type="button"
-        onClick={() => setOpen((prev) => !prev)}
-        style={styles.button}
+        onClick={(e) => { e.stopPropagation(); setOpen((prev) => !prev) }}
+        className="dock-tab__close"
         aria-label="Add agent on this worktree"
         title="Add agent on this worktree"
       >
         +
       </button>
-      {open && (
-        <div style={styles.popover} role="menu">
+      {open && popoverCoords && createPortal(
+        <div
+          ref={popoverRef}
+          style={{ ...styles.popover, top: popoverCoords.top, right: popoverCoords.right }}
+          role="menu"
+        >
           <div style={styles.popoverHeader}>Add agent here</div>
           {runtimes.length === 0 ? (
             <div style={styles.empty}>No runtimes available</div>
@@ -79,37 +99,16 @@ export function AddSiblingAgentButton({
               </button>
             ))
           )}
-        </div>
+        </div>,
+        document.body
       )}
-    </div>
+    </>
   )
 }
 
 const styles: Record<string, React.CSSProperties> = {
-  wrapper: {
-    position: 'absolute',
-    top: 8,
-    right: 8,
-    zIndex: 5,
-  },
-  button: {
-    width: 24,
-    height: 24,
-    borderRadius: 6,
-    background: 'color-mix(in srgb, var(--bg-secondary) 85%, transparent)',
-    border: '1px solid var(--border)',
-    color: 'var(--text-secondary)',
-    fontSize: 14,
-    lineHeight: 1,
-    cursor: 'pointer',
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
   popover: {
-    position: 'absolute',
-    top: 30,
-    right: 0,
+    position: 'fixed',
     minWidth: 180,
     background: 'var(--bg-secondary)',
     border: '1px solid var(--border)',
@@ -119,6 +118,7 @@ const styles: Record<string, React.CSSProperties> = {
     display: 'flex',
     flexDirection: 'column',
     gap: 2,
+    zIndex: 9999,
   },
   popoverHeader: {
     fontSize: 11,
