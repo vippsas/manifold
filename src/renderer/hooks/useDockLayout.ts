@@ -39,6 +39,7 @@ export interface UseDockLayoutResult {
   resetLayout: () => void
   hiddenPanels: DockPanelId[]
   editorPanelIds: string[]
+  layoutVersion: number
 }
 
 export function useDockLayout(sessionId: string | null, showIdeasTab: boolean, showLoopTab: boolean): UseDockLayoutResult {
@@ -53,7 +54,7 @@ export function useDockLayout(sessionId: string | null, showIdeasTab: boolean, s
   showIdeasTabRef.current = showIdeasTab
   showLoopTabRef.current = showLoopTab
 
-  const [, setLayoutVersion] = useState(0)
+  const [layoutVersion, setLayoutVersion] = useState(0)
   const bumpVersion = useCallback(() => setLayoutVersion((value) => value + 1), [])
 
   const lastLayoutRef = useRef<SerializedDockview | null>(null)
@@ -461,6 +462,6 @@ export function useDockLayout(sessionId: string | null, showIdeasTab: boolean, s
   return {
     apiRef, onReady, togglePanel, closePanel, focusPanel,
     ensureEditorPanel, splitEditorPane, findEditorPanelForSplit, isPanelVisible,
-    resetLayout, hiddenPanels, editorPanelIds,
+    resetLayout, hiddenPanels, editorPanelIds, layoutVersion,
   }
 }

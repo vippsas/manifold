@@ -16,6 +16,7 @@ import { WatchPanel } from '../watch/WatchPanel'
 import { SuperagentFleetTree } from '../sidebar/SuperagentFleetTree'
 import { SuperagentAgentPanel, restartOverlayStyles } from './SuperagentAgentPanel'
 import { DockStateContext, useDockState } from './dock-panel-types'
+import { parseSiblingSessionId } from '../../hooks/agent-siblings'
 export type { DockAppState } from './dock-panel-types'
 export { DockStateContext } from './dock-panel-types'
 
@@ -34,21 +35,34 @@ export const PANEL_COMPONENTS: Record<string, React.FC<any>> = {
   watch: WatchPanel,
 }
 
-function AgentPanel(): React.JSX.Element {
+function AgentPanel({ api }: { api?: { id: string } } = {}): React.JSX.Element {
   const s = useDockState()
   const activeProject = s.projects.find((p) => p.id === s.activeProjectId)
 
+  const panelId = api?.id ?? 'agent'
+  const siblingSessionId = parseSiblingSessionId(panelId)
+  const targetSessionId = siblingSessionId ?? s.primarySessionId ?? s.sessionId
+
+  const projectSessions = s.activeProjectId
+    ? s.allProjectSessions[s.activeProjectId] ?? []
+    : []
+  const targetSession = targetSessionId
+    ? projectSessions.find((session) => session.id === targetSessionId) ?? null
+    : null
+  const targetRuntimeId = targetSession?.runtimeId ?? null
+  const targetStatus = targetSession?.status ?? null
+
   const handleRestart = useCallback(() => {
-    if (s.sessionId && s.activeSessionRuntimeId) {
-      void s.onResumeAgent(s.sessionId, s.activeSessionRuntimeId)
+    if (targetSessionId && targetRuntimeId) {
+      void s.onResumeAgent(targetSessionId, targetRuntimeId)
     }
-  }, [s.sessionId, s.activeSessionRuntimeId, s.onResumeAgent])
+  }, [targetSessionId, targetRuntimeId, s])
 
   if (s.activeSuperagentId) {
     return <SuperagentAgentPanel />
   }
 
-  if (!s.sessionId && s.activeProjectId && activeProject) {
+  if (!targetSessionId && s.activeProjectId && activeProject) {
     return (
       <OnboardingView
         variant="no-agent"
@@ -63,16 +77,16 @@ function AgentPanel(): React.JSX.Element {
     )
   }
 
-  if (!s.sessionId) {
+  if (!targetSessionId) {
     return <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%', color: 'var(--text-muted)', fontSize: 12 }}>Select a repository to get started</div>
   }
 
-  const isExited = s.activeSessionStatus === 'done' || s.activeSessionStatus === 'error'
+  const isExited = targetStatus === 'done' || targetStatus === 'error'
 
   return (
     <div style={{ position: 'relative', height: '100%' }}>
       <TerminalPane
-        sessionId={s.sessionId}
+        sessionId={targetSessionId}
         scrollbackLines={s.scrollbackLines}
         terminalFontFamily={s.terminalFontFamily}
         label="Agent"
