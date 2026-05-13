@@ -64,6 +64,8 @@ export interface DockAppState {
   // Agent creation
   baseBranch: string
   defaultRuntime: string
+  activeSessionWorktreePath: string | null
+  activeSessionNoWorktree: boolean
   onLaunchAgent: (options: SpawnAgentOptions) => Promise<unknown>
   // Projects panel
   projects: Project[]
