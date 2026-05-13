@@ -15,6 +15,7 @@ import { LoopPanel } from '../loop/LoopPanel'
 import { WatchPanel } from '../watch/WatchPanel'
 import { SuperagentFleetTree } from '../sidebar/SuperagentFleetTree'
 import { SuperagentAgentPanel, restartOverlayStyles } from './SuperagentAgentPanel'
+import { AddSiblingAgentButton } from './AddSiblingAgentButton'
 import { DockStateContext, useDockState } from './dock-panel-types'
 export type { DockAppState } from './dock-panel-types'
 export { DockStateContext } from './dock-panel-types'
@@ -78,6 +79,14 @@ function AgentPanel(): React.JSX.Element {
         label="Agent"
         xtermTheme={s.xtermTheme}
       />
+      {!isExited && (
+        <AddSiblingAgentButton
+          projectId={s.activeProjectId}
+          worktreePath={s.activeSessionWorktreePath}
+          noWorktree={s.activeSessionNoWorktree}
+          onLaunch={s.onLaunchAgent}
+        />
+      )}
       {isExited && (
         <div style={restartOverlayStyles.container}>
           <button onClick={handleRestart} style={restartOverlayStyles.button}>
