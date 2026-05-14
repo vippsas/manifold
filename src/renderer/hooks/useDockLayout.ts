@@ -33,7 +33,7 @@ export interface UseDockLayoutResult {
   togglePanel: (id: DockPanelId) => void
   closePanel: (id: string) => void
   focusPanel: (id: string) => void
-  openSiblingPanel: (sessionId: string, title?: string) => void
+  openSiblingPanel: (sessionId: string, title?: string, referencePanelId?: string) => void
   /** Close a sibling tab without killing the underlying agent session. */
   closeSiblingPanel: (sessionId: string) => void
   ensureEditorPanel: (preferredPanelId?: string | null) => string
@@ -141,19 +141,22 @@ export function useDockLayout(sessionId: string | null, showIdeasTab: boolean, s
     if (panel) api.removePanel(panel)
   }, [])
 
-  const openSiblingPanel = useCallback((sessionId: string, title?: string): void => {
+  const openSiblingPanel = useCallback((sessionId: string, title?: string, referencePanelId?: string): void => {
     const api = apiRef.current
     if (!api) return
     const panelId = siblingPanelId(sessionId)
     let panel = api.getPanel(panelId)
     if (!panel) {
-      const agentPanel = api.getPanel('agent')
-      if (!agentPanel) return
+      // Prefer the previous sibling's panel as the reference so the new tab
+      // lands in whatever group the user has dragged that sibling to (custom
+      // split panes preserved). Fall back to the agent group otherwise.
+      const refId = referencePanelId && api.getPanel(referencePanelId) ? referencePanelId : 'agent'
+      if (!api.getPanel(refId)) return
       api.addPanel({
         id: panelId,
         component: 'agent',
         title: title ?? 'Agent',
-        position: { referencePanel: 'agent', direction: 'within' },
+        position: { referencePanel: refId, direction: 'within' },
         inactive: false,
       })
       panel = api.getPanel(panelId)

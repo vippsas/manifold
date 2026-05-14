@@ -23,6 +23,48 @@ const listeners = new Map<string, Set<() => void>>()
 
 let ipcInitialized = false
 
+// Persisted slice of WatchSessionState — only user-intent fields (URL).
+// Run-state (siblings/frames/dispatched flag) is intentionally NOT persisted
+// because sibling agent sessions don't survive app restart.
+interface PersistedSessionState {
+  url: string
+}
+const STORAGE_KEY = 'manifold.watch.session-state'
+let persistTimer: ReturnType<typeof setTimeout> | null = null
+
+function readPersisted(): Record<string, PersistedSessionState> {
+  if (typeof localStorage === 'undefined') return {}
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY)
+    if (!raw) return {}
+    return JSON.parse(raw) as Record<string, PersistedSessionState>
+  } catch { return {} }
+}
+
+function hydrate(): void {
+  const persisted = readPersisted()
+  for (const [sessionId, value] of Object.entries(persisted)) {
+    if (value && typeof value.url === 'string' && value.url) {
+      stateMap.set(sessionId, { ...EMPTY_STATE, url: value.url })
+    }
+  }
+}
+
+function schedulePersist(): void {
+  if (typeof localStorage === 'undefined') return
+  if (persistTimer) clearTimeout(persistTimer)
+  persistTimer = setTimeout(() => {
+    persistTimer = null
+    try {
+      const out: Record<string, PersistedSessionState> = {}
+      for (const [sid, state] of stateMap.entries()) {
+        if (state.url) out[sid] = { url: state.url }
+      }
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(out))
+    } catch { /* quota or serialization failure — best effort */ }
+  }, 500)
+}
+
 interface PlaylistProgressEvent {
   sessionId?: string
   entryIndex?: number
@@ -41,11 +83,13 @@ function update(sessionId: string, updater: (cur: WatchSessionState) => WatchSes
   const next = updater(cur)
   stateMap.set(sessionId, next)
   notify(sessionId)
+  if (next.url !== cur.url) schedulePersist()
 }
 
 function ensureIpc(): void {
   if (ipcInitialized) return
   ipcInitialized = true
+  hydrate()
   window.electronAPI.on('watch:playlist-progress', (event: unknown) => {
     const ev = event as PlaylistProgressEvent
     if (!ev.sessionId || typeof ev.entryIndex !== 'number') return
@@ -109,6 +153,7 @@ export const watchPanelStore = {
   delete(sessionId: string): void {
     stateMap.delete(sessionId)
     listeners.delete(sessionId)
+    schedulePersist()
   },
 }
 
@@ -117,5 +162,7 @@ export const __watchPanelStoreTestHooks = {
     stateMap.clear()
     listeners.clear()
     ipcInitialized = false
+    if (persistTimer) { clearTimeout(persistTimer); persistTimer = null }
+    try { if (typeof localStorage !== 'undefined') localStorage.removeItem(STORAGE_KEY) } catch { /* */ }
   },
 }

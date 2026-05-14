@@ -18,6 +18,7 @@ interface Props {
   canImprove: boolean
   dispatched: boolean
   siblingByIndex: Record<number, string>
+  activeSiblingIndex: number | null
   framesByIndex: Record<number, WatchFrameRef[]>
   readFrame: (path: string) => Promise<string>
   onThumbLoaded: (path: string, dataUrl: string) => void
@@ -75,6 +76,7 @@ export function WatchPlaylistPreview(props: Props): React.JSX.Element | null {
           dispatched={props.dispatched}
           hasSibling={!!props.siblingByIndex[i]}
           frames={props.framesByIndex[i]}
+          isActive={props.activeSiblingIndex === i}
           readFrame={props.readFrame}
           onThumbLoaded={props.onThumbLoaded}
           onQuestionChange={props.onQuestionChange}
@@ -100,6 +102,7 @@ interface CardProps {
   dispatched: boolean
   hasSibling: boolean
   frames?: WatchFrameRef[]
+  isActive: boolean
   readFrame: (path: string) => Promise<string>
   onThumbLoaded: (path: string, dataUrl: string) => void
   onQuestionChange: (index: number, value: string) => void
@@ -109,7 +112,7 @@ interface CardProps {
   onSelectFrame: (cardIndex: number, frameIndex: number) => void
 }
 
-function PlaylistEntryCard({ index, entry, question, selected, showCheckbox, showIndexLabel, improving, improveDisabled, dispatched, hasSibling, frames, readFrame, onThumbLoaded, onQuestionChange, onImprove, onToggleSelected, onOpenSibling, onSelectFrame }: CardProps): React.JSX.Element {
+function PlaylistEntryCard({ index, entry, question, selected, showCheckbox, showIndexLabel, improving, improveDisabled, dispatched, hasSibling, frames, isActive, readFrame, onThumbLoaded, onQuestionChange, onImprove, onToggleSelected, onOpenSibling, onSelectFrame }: CardProps): React.JSX.Element {
   const clickable = dispatched && hasSibling
   const handleCardClick = clickable ? () => onOpenSibling(index) : undefined
   return (
@@ -118,6 +121,7 @@ function PlaylistEntryCard({ index, entry, question, selected, showCheckbox, sho
         ...s.card,
         ...(selected ? {} : s.cardDeselected),
         ...(clickable ? s.cardClickable : {}),
+        ...(isActive ? s.cardActive : {}),
       }}
       onClick={handleCardClick}
       role={clickable ? 'button' : undefined}
@@ -262,6 +266,11 @@ const s: Record<string, CSSProperties> = {
   indexLabel: { fontSize: 10, fontWeight: 600, opacity: 0.55, letterSpacing: 0.4 },
   cardDeselected: { opacity: 0.55 },
   cardClickable: { cursor: 'pointer', borderColor: 'var(--accent)' },
+  cardActive: {
+    borderColor: 'var(--accent)',
+    boxShadow: '0 0 0 1px var(--accent), 0 0 12px var(--accent-subtle)',
+    background: 'var(--accent-subtle)',
+  },
   cardCheckbox: {
     width: 16, height: 16, margin: 0, flexShrink: 0, cursor: 'pointer',
     accentColor: 'var(--accent)', alignSelf: 'flex-start', marginTop: 2,

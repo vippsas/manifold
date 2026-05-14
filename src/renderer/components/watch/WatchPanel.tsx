@@ -6,6 +6,7 @@ import { watchStyles as s } from './WatchPanel.styles'
 import { FrameLightbox } from './FrameLightbox'
 import { WatchPlaylistPreview } from './WatchPlaylistPreview'
 import { WatchSetupStatusBar } from './WatchSetupStatusBar'
+import { siblingPanelId } from '../../hooks/agent-siblings'
 
 const PLAYLIST_SOFT_CAP = 10
 
@@ -54,6 +55,10 @@ export function WatchPanel(): React.JSX.Element {
   const selectedEntries = preview.entries
     .map((entry, index) => ({ entry, index }))
     .filter(({ index }) => preview.selectedIndices.has(index))
+  const activeSiblingIndex = openSiblingId
+    ? Object.entries(siblingByIndex).find(([, sid]) => sid === openSiblingId)?.[0] ?? null
+    : null
+  const activeSiblingIndexNum = activeSiblingIndex !== null ? Number(activeSiblingIndex) : null
   const ready = !preview.loading && preview.entries.length > 0
   const canRun = !!sessionId && isRunning && !busy && ready && selectedEntries.length > 0 && !playlistDispatched
   const canImprove = !!sessionId && isRunning && improvingIndex === null && !busy
@@ -150,18 +155,24 @@ export function WatchPanel(): React.JSX.Element {
         canImprove={canImprove}
         dispatched={playlistDispatched}
         siblingByIndex={siblingByIndex}
+        activeSiblingIndex={activeSiblingIndexNum}
         framesByIndex={playlistFrames}
         readFrame={readFrame}
         onThumbLoaded={handleThumbLoaded}
         onOpenSibling={(index) => {
           const sid = siblingByIndex[index]
           if (!sid) return
-          // Just remove the previous tab from dockview — DO NOT delete the
-          // agent session (the user navigates among videos and may come back).
+          // Open the new sibling in the same dock group as the previous one
+          // so any custom split/pane layout the user set up is preserved.
+          // Order: add new first (joins the group), then remove old — keeps
+          // the group alive across the swap.
+          const refPanelId = openSiblingId && openSiblingId !== sid
+            ? siblingPanelId(openSiblingId)
+            : undefined
+          dock.onOpenSibling(sid, preview.entries[index]?.title, refPanelId)
           if (openSiblingId && openSiblingId !== sid) {
             dock.onCloseSiblingPanel(openSiblingId)
           }
-          dock.onOpenSibling(sid, preview.entries[index]?.title)
           setOpenSiblingId(sid)
         }}
         onSelectFrame={(cardIndex, frameIndex) => setLightbox({ cardIndex, frameIndex })}
