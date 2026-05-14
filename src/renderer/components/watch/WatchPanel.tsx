@@ -60,16 +60,22 @@ export function WatchPanel(): React.JSX.Element {
   const selectedEntries = preview.entries
     .map((entry, index) => ({ entry, index }))
     .filter(({ index }) => preview.selectedIndices.has(index))
+  // Only selected entries that don't yet have a sibling are eligible for a
+  // Run — already-dispatched entries are locked to navigation mode.
+  const pendingEntries = selectedEntries.filter(({ index }) => !siblingByIndex[index])
+  const hasAnySibling = Object.keys(siblingByIndex).length > 0
   const activeSiblingIndex = openSiblingId
     ? Object.entries(siblingByIndex).find(([, sid]) => sid === openSiblingId)?.[0] ?? null
     : null
   const activeSiblingIndexNum = activeSiblingIndex !== null ? Number(activeSiblingIndex) : null
   const ready = !preview.loading && preview.entries.length > 0
-  const canRun = !!sessionId && isRunning && !busy && ready && selectedEntries.length > 0 && !playlistDispatched
+  const canRun = !!sessionId && isRunning && !busy && ready && pendingEntries.length > 0
   const canImprove = !!sessionId && isRunning && improvingIndex === null && !busy
-  const runLabel = selectedEntries.length > 1
-    ? (playlistDispatched ? 'Dispatched' : `Run all (${selectedEntries.length})`)
-    : (playlistDispatched ? 'Dispatched' : 'Run')
+  const runLabel = pendingEntries.length === 0
+    ? (hasAnySibling ? 'All dispatched' : 'Run')
+    : pendingEntries.length > 1
+      ? `Run (${pendingEntries.length})`
+      : 'Run'
 
   const handleImprove = async (index: number): Promise<void> => {
     const current = preview.entryQuestions[index] ?? ''
@@ -88,27 +94,30 @@ export function WatchPanel(): React.JSX.Element {
 
   const handleRun = async (): Promise<void> => {
     setError(null)
-    if (selectedEntries.length > PLAYLIST_SOFT_CAP) {
+    if (pendingEntries.length === 0) return
+    if (pendingEntries.length > PLAYLIST_SOFT_CAP) {
       const ok = window.confirm(
-        `This will spawn ${selectedEntries.length} sibling agents. Continue?`,
+        `This will spawn ${pendingEntries.length} sibling agents. Continue?`,
       )
       if (!ok) return
     }
     setBusy(true)
     try {
-      const result = await runPlaylist(selectedEntries.map(({ entry, index }) => ({
+      const result = await runPlaylist(pendingEntries.map(({ entry, index }) => ({
         url: entry.url,
         question: preview.entryQuestions[index]?.trim() || undefined,
         title: entry.title,
         originalIndex: index,
       })))
       if (!result.ok) throw new Error(result.error ?? 'Run failed')
-      const map: Record<number, string> = {}
-      selectedEntries.forEach(({ index }, i) => {
+      // Merge new siblings into the existing map — previously-dispatched
+      // entries keep their session IDs so navigation to them still works.
+      const merged: Record<number, string> = { ...siblingByIndex }
+      pendingEntries.forEach(({ index }, i) => {
         const sid = result.entryResults?.[i]?.sessionId
-        if (sid) map[index] = sid
+        if (sid) merged[index] = sid
       })
-      setSiblingByIndex(map)
+      setSiblingByIndex(merged)
       setPlaylistDispatched(true)
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed')
@@ -185,7 +194,6 @@ export function WatchPanel(): React.JSX.Element {
         onToggleSelected={preview.toggleEntrySelected}
         onToggleAll={preview.setAllEntriesSelected}
         canImprove={canImprove}
-        dispatched={playlistDispatched}
         siblingByIndex={siblingByIndex}
         activeSiblingIndex={activeSiblingIndexNum}
         framesByIndex={playlistFrames}

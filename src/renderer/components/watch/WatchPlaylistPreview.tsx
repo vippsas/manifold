@@ -16,7 +16,6 @@ interface Props {
   onToggleSelected: (index: number) => void
   onToggleAll: (selected: boolean) => void
   canImprove: boolean
-  dispatched: boolean
   siblingByIndex: Record<number, string>
   activeSiblingIndex: number | null
   framesByIndex: Record<number, WatchFrameRef[]>
@@ -73,7 +72,6 @@ export function WatchPlaylistPreview(props: Props): React.JSX.Element | null {
           showIndexLabel={isMultiEntry}
           improving={props.improvingIndex === i}
           improveDisabled={!props.canImprove || (props.improvingIndex !== null && props.improvingIndex !== i)}
-          dispatched={props.dispatched}
           hasSibling={!!props.siblingByIndex[i]}
           frames={props.framesByIndex[i]}
           isActive={props.activeSiblingIndex === i}
@@ -99,7 +97,6 @@ interface CardProps {
   showIndexLabel: boolean
   improving: boolean
   improveDisabled: boolean
-  dispatched: boolean
   hasSibling: boolean
   frames?: WatchFrameRef[]
   isActive: boolean
@@ -112,31 +109,22 @@ interface CardProps {
   onSelectFrame: (cardIndex: number, frameIndex: number) => void
 }
 
-function PlaylistEntryCard({ index, entry, question, selected, showCheckbox, showIndexLabel, improving, improveDisabled, dispatched, hasSibling, frames, isActive, readFrame, onThumbLoaded, onQuestionChange, onImprove, onToggleSelected, onOpenSibling, onSelectFrame }: CardProps): React.JSX.Element {
-  const clickable = dispatched && hasSibling
-  const handleCardClick = clickable ? () => onOpenSibling(index) : undefined
+function PlaylistEntryCard({ index, entry, question, selected, showCheckbox, showIndexLabel, improving, improveDisabled, hasSibling, frames, isActive, readFrame, onThumbLoaded, onQuestionChange, onImprove, onToggleSelected, onOpenSibling, onSelectFrame }: CardProps): React.JSX.Element {
   return (
     <div
       style={{
         ...s.card,
         ...(selected ? {} : s.cardDeselected),
-        ...(clickable ? s.cardClickable : {}),
+        ...(hasSibling ? s.cardClickable : {}),
         ...(isActive ? s.cardActive : {}),
       }}
-      onClick={handleCardClick}
-      role={clickable ? 'button' : undefined}
-      tabIndex={clickable ? 0 : undefined}
-      onKeyDown={clickable
-        ? (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onOpenSibling(index) } }
-        : undefined}
     >
       <div style={s.cardTop}>
-        {!dispatched && showCheckbox && (
+        {showCheckbox && (
           <input
             type="checkbox"
             checked={selected}
             onChange={() => onToggleSelected(index)}
-            onClick={(e) => e.stopPropagation()}
             aria-label={`Include video #${index + 1} in run`}
             style={s.cardCheckbox}
           />
@@ -147,12 +135,8 @@ function PlaylistEntryCard({ index, entry, question, selected, showCheckbox, sho
           <div style={{ ...s.thumb, ...s.thumbFallback }}>🎬</div>
         )}
         <div style={s.meta}>
-          {(showIndexLabel || clickable) && (
-            <div style={s.indexLabel}>
-              {showIndexLabel ? `#${index + 1}` : ''}
-              {showIndexLabel && clickable ? ' · ' : ''}
-              {clickable ? 'click to open agent →' : ''}
-            </div>
+          {showIndexLabel && (
+            <div style={s.indexLabel}>#{index + 1}</div>
           )}
           <div style={s.title}>{entry.title ?? 'Untitled video'}</div>
           <div style={s.subRow}>
@@ -160,16 +144,25 @@ function PlaylistEntryCard({ index, entry, question, selected, showCheckbox, sho
             {entry.durationSeconds !== undefined && (
               <span style={s.duration}>{formatDuration(entry.durationSeconds)}</span>
             )}
+            {hasSibling && (
+              <button
+                type="button"
+                onClick={() => onOpenSibling(index)}
+                style={s.openAgentButton}
+                title="Open the sibling agent for this video"
+              >
+                Open agent →
+              </button>
+            )}
           </div>
         </div>
       </div>
-      {!dispatched && (
-      <div style={s.questionRow} onClick={(e) => e.stopPropagation()}>
+      <div style={s.questionRow}>
         <textarea
           style={s.textarea}
           value={question}
           onChange={(e) => onQuestionChange(index, e.target.value)}
-          placeholder="Custom question (optional)"
+          placeholder={hasSibling ? 'Question already sent to the agent (edit for re-run)' : 'Custom question (optional)'}
           rows={2}
         />
         <button
@@ -193,7 +186,6 @@ function PlaylistEntryCard({ index, entry, question, selected, showCheckbox, sho
           )}
         </button>
       </div>
-      )}
       {frames && frames.length > 0 && (
         <div onClick={(e) => e.stopPropagation()}>
           <FrameThumbnailStrip
@@ -224,7 +216,9 @@ const s: Record<string, CSSProperties> = {
   container: {
     display: 'flex', flexDirection: 'column', gap: 8,
     flex: 1, minHeight: 0, overflowY: 'auto',
-    paddingRight: 4,
+    // Symmetric padding so the active-card glow (box-shadow extending
+    // outside the card) isn't clipped on the left edge by overflow:auto.
+    padding: '2px 4px',
   },
   header: {
     position: 'sticky', top: 0, zIndex: 1,
@@ -265,7 +259,15 @@ const s: Record<string, CSSProperties> = {
   meta: { flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', gap: 2 },
   indexLabel: { fontSize: 10, fontWeight: 600, opacity: 0.55, letterSpacing: 0.4 },
   cardDeselected: { opacity: 0.55 },
-  cardClickable: { cursor: 'pointer', borderColor: 'var(--accent)' },
+  cardClickable: { borderColor: 'var(--accent)' },
+  openAgentButton: {
+    marginLeft: 'auto',
+    padding: '2px 8px', borderRadius: 4,
+    border: '1px solid var(--accent)',
+    background: 'transparent', color: 'var(--accent)',
+    fontSize: 11, fontWeight: 600,
+    cursor: 'pointer',
+  },
   cardActive: {
     borderColor: 'var(--accent)',
     boxShadow: '0 0 0 1px var(--accent), 0 0 12px var(--accent-subtle)',
