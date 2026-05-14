@@ -20,6 +20,7 @@ import {
   type DockPanelId,
   type LayoutRefs,
 } from './dock-layout-helpers'
+import { siblingPanelId } from './agent-siblings'
 import { applyDefaultLayout, applyMinimalPanels, syncEditorPanelIds } from './dock-layout-builders'
 import { ensureSearchPanelInWorkspace } from './dock-layout-search'
 
@@ -32,6 +33,9 @@ export interface UseDockLayoutResult {
   togglePanel: (id: DockPanelId) => void
   closePanel: (id: string) => void
   focusPanel: (id: string) => void
+  openSiblingPanel: (sessionId: string, title?: string) => void
+  /** Close a sibling tab without killing the underlying agent session. */
+  closeSiblingPanel: (sessionId: string) => void
   ensureEditorPanel: (preferredPanelId?: string | null) => string
   splitEditorPane: (referencePanelId: string, direction: EditorSplitDirection) => string | null
   findEditorPanelForSplit: (referencePanelId: string, direction: EditorSplitDirection) => string | null
@@ -127,6 +131,33 @@ export function useDockLayout(sessionId: string | null, showIdeasTab: boolean, s
 
   const focusPanel = useCallback((id: string): void => {
     const panel = apiRef.current?.getPanel(id)
+    if (panel && !panel.api.isActive) panel.api.setActive()
+  }, [])
+
+  const closeSiblingPanel = useCallback((sessionId: string): void => {
+    const api = apiRef.current
+    if (!api) return
+    const panel = api.getPanel(siblingPanelId(sessionId))
+    if (panel) api.removePanel(panel)
+  }, [])
+
+  const openSiblingPanel = useCallback((sessionId: string, title?: string): void => {
+    const api = apiRef.current
+    if (!api) return
+    const panelId = siblingPanelId(sessionId)
+    let panel = api.getPanel(panelId)
+    if (!panel) {
+      const agentPanel = api.getPanel('agent')
+      if (!agentPanel) return
+      api.addPanel({
+        id: panelId,
+        component: 'agent',
+        title: title ?? 'Agent',
+        position: { referencePanel: 'agent', direction: 'within' },
+        inactive: false,
+      })
+      panel = api.getPanel(panelId)
+    }
     if (panel && !panel.api.isActive) panel.api.setActive()
   }, [])
 
@@ -461,6 +492,7 @@ export function useDockLayout(sessionId: string | null, showIdeasTab: boolean, s
 
   return {
     apiRef, onReady, togglePanel, closePanel, focusPanel,
+    openSiblingPanel, closeSiblingPanel,
     ensureEditorPanel, splitEditorPane, findEditorPanelForSplit, isPanelVisible,
     resetLayout, hiddenPanels, editorPanelIds, layoutVersion,
   }

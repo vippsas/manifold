@@ -445,6 +445,7 @@ export class SessionManager {
       additionalDirs: session.additionalDirs,
       noWorktree: session.noWorktree,
       parentSuperagentId: session.parentSuperagentId,
+      groupId: session.groupId,
     }
   }
 }

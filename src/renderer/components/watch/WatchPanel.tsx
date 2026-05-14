@@ -1,31 +1,49 @@
 import React, { useCallback, useEffect, useState } from 'react'
 import { useDockState } from '../editor/dock-panel-types'
 import { useWatchPanel } from '../../hooks/useWatchPanel'
+import { useWatchUrlPreview } from '../../hooks/useWatchUrlPreview'
 import { watchStyles as s } from './WatchPanel.styles'
-import { FrameThumbnailStrip } from './FrameThumbnailStrip'
 import { FrameLightbox } from './FrameLightbox'
+import { WatchPlaylistPreview } from './WatchPlaylistPreview'
+import { WatchSetupStatusBar } from './WatchSetupStatusBar'
+
+const PLAYLIST_SOFT_CAP = 10
 
 export function WatchPanel(): React.JSX.Element {
   const dock = useDockState()
-  const sessionId = dock.sessionId
+  // Key Watch panel state by the primary (worktree-stable) session, not the
+  // currently-active one. Clicking a sibling agent tab changes activeSessionId
+  // but should not reset the Watch panel — the primary owns this worktree's
+  // Watch state. runPlaylist also uses this so the primer goes to the primary.
+  const sessionId = dock.primarySessionId ?? dock.sessionId
   const isRunning = dock.activeSessionStatus === 'running' || dock.activeSessionStatus === 'waiting'
   const {
     setupStatus,
     refreshSetupStatus,
-    runWatch,
+    runPlaylist,
     installBinaries,
-    progressLog,
-    currentStage,
-    frames,
+    improveQuestion,
+    peekUrl,
+    peekPlaylist,
+    playlistFrames,
     readFrame,
+    url,
+    setUrl,
+    siblingByIndex,
+    setSiblingByIndex,
+    playlistDispatched,
+    setPlaylistDispatched,
+    openSiblingId,
+    setOpenSiblingId,
   } = useWatchPanel(sessionId)
-  const [url, setUrl] = useState('')
-  const [question, setQuestion] = useState('')
   const [error, setError] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
   const [installing, setInstalling] = useState(false)
-  const [lightboxIndex, setLightboxIndex] = useState<number | null>(null)
+  const [improvingIndex, setImprovingIndex] = useState<number | null>(null)
   const [thumbCache, setThumbCache] = useState<Record<string, string>>({})
+  const [lightbox, setLightbox] = useState<{ cardIndex: number; frameIndex: number } | null>(null)
+
+  const preview = useWatchUrlPreview(url, { peekUrl, peekPlaylist })
 
   useEffect(() => { void refreshSetupStatus() }, [refreshSetupStatus])
 
@@ -33,21 +51,55 @@ export function WatchPanel(): React.JSX.Element {
     setThumbCache((prev) => (prev[path] === dataUrl ? prev : { ...prev, [path]: dataUrl }))
   }, [])
 
-  const handleThumbSelect = useCallback((frame: { path: string }) => {
-    const idx = frames.findIndex((f) => f.path === frame.path)
-    if (idx >= 0) setLightboxIndex(idx)
-  }, [frames])
+  const selectedEntries = preview.entries
+    .map((entry, index) => ({ entry, index }))
+    .filter(({ index }) => preview.selectedIndices.has(index))
+  const ready = !preview.loading && preview.entries.length > 0
+  const canRun = !!sessionId && isRunning && !busy && ready && selectedEntries.length > 0 && !playlistDispatched
+  const canImprove = !!sessionId && isRunning && improvingIndex === null && !busy
+  const runLabel = selectedEntries.length > 1
+    ? (playlistDispatched ? 'Dispatched' : `Run all (${selectedEntries.length})`)
+    : (playlistDispatched ? 'Dispatched' : 'Run')
 
-  const canRun = !!sessionId && isRunning && url.trim().length > 0 && !busy
-  const binariesMissing = setupStatus !== null && (!setupStatus.ffmpeg || !setupStatus.ytdlp)
+  const handleImprove = async (index: number): Promise<void> => {
+    const current = preview.entryQuestions[index] ?? ''
+    if (!current.trim()) return
+    setError(null)
+    setImprovingIndex(index)
+    try {
+      const improved = await improveQuestion(current)
+      if (improved) preview.setEntryQuestion(index, improved)
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Improve failed')
+    } finally {
+      setImprovingIndex(null)
+    }
+  }
 
   const handleRun = async (): Promise<void> => {
     setError(null)
+    if (selectedEntries.length > PLAYLIST_SOFT_CAP) {
+      const ok = window.confirm(
+        `This will spawn ${selectedEntries.length} sibling agents. Continue?`,
+      )
+      if (!ok) return
+    }
     setBusy(true)
     try {
-      await runWatch(url, question.trim() || undefined)
-      setUrl('')
-      setQuestion('')
+      const result = await runPlaylist(selectedEntries.map(({ entry, index }) => ({
+        url: entry.url,
+        question: preview.entryQuestions[index]?.trim() || undefined,
+        title: entry.title,
+        originalIndex: index,
+      })))
+      if (!result.ok) throw new Error(result.error ?? 'Run failed')
+      const map: Record<number, string> = {}
+      selectedEntries.forEach(({ index }, i) => {
+        const sid = result.entryResults?.[i]?.sessionId
+        if (sid) map[index] = sid
+      })
+      setSiblingByIndex(map)
+      setPlaylistDispatched(true)
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed')
     } finally {
@@ -70,107 +122,91 @@ export function WatchPanel(): React.JSX.Element {
     }
   }
 
-  const stageLabel = currentStage
-    ? ({
-        download: 'Downloading…',
-        frames: 'Extracting frames…',
-        transcribe: 'Transcribing…',
-        report: 'Finalizing…',
-      } as Record<string, string>)[currentStage] ?? currentStage
-    : null
-
   return (
     <div style={s.container}>
       <div>
-        <div style={s.label}>Video URL or local path</div>
+        <div style={s.label}>Video, public playlist, or local path</div>
         <input
           style={s.input}
           value={url}
           onChange={(e) => setUrl(e.target.value)}
-          placeholder="https://youtu.be/… or /path/to/recording.mp4"
+          placeholder="https://youtu.be/… , a public playlist URL, or /path/to/recording.mp4"
           autoFocus
         />
+        <div style={s.inputHint}>Playlists must be public — private and unlisted are not supported.</div>
       </div>
-      <div>
-        <div style={s.label}>Question (optional)</div>
-        <textarea
-          style={s.textarea}
-          value={question}
-          onChange={(e) => setQuestion(e.target.value)}
-          placeholder="What's the hook in the first 3 seconds?"
-          rows={3}
-        />
-      </div>
+      <WatchPlaylistPreview
+        loading={preview.loading}
+        playlistTitle={preview.playlistTitle ?? undefined}
+        uploader={preview.uploader ?? undefined}
+        entries={preview.entries}
+        questions={preview.entryQuestions}
+        selectedIndices={preview.selectedIndices}
+        improvingIndex={improvingIndex}
+        onQuestionChange={preview.setEntryQuestion}
+        onImprove={(i) => void handleImprove(i)}
+        onToggleSelected={preview.toggleEntrySelected}
+        onToggleAll={preview.setAllEntriesSelected}
+        canImprove={canImprove}
+        dispatched={playlistDispatched}
+        siblingByIndex={siblingByIndex}
+        framesByIndex={playlistFrames}
+        readFrame={readFrame}
+        onThumbLoaded={handleThumbLoaded}
+        onOpenSibling={(index) => {
+          const sid = siblingByIndex[index]
+          if (!sid) return
+          // Just remove the previous tab from dockview — DO NOT delete the
+          // agent session (the user navigates among videos and may come back).
+          if (openSiblingId && openSiblingId !== sid) {
+            dock.onCloseSiblingPanel(openSiblingId)
+          }
+          dock.onOpenSibling(sid, preview.entries[index]?.title)
+          setOpenSiblingId(sid)
+        }}
+        onSelectFrame={(cardIndex, frameIndex) => setLightbox({ cardIndex, frameIndex })}
+      />
       <div style={s.row}>
         <button
           type="button"
           onClick={handleRun}
           disabled={!canRun}
-          style={{ ...s.runButton, ...(canRun ? {} : s.runButtonDisabled) }}
+          aria-busy={busy}
+          style={{
+            ...s.runButton,
+            ...(busy ? s.runButtonBusy : {}),
+            ...(canRun || busy ? {} : s.runButtonDisabled),
+          }}
         >
-          {busy ? (stageLabel ?? 'Working…') : 'Run'}
+          {busy ? (
+            <>
+              <span style={s.runSpinner} aria-hidden />
+              <span>Working…</span>
+            </>
+          ) : (
+            runLabel
+          )}
         </button>
         {!sessionId && <span style={s.hint}>Select a project and start an agent first.</span>}
         {sessionId && !isRunning && <span style={s.hint}>Active agent is not running.</span>}
-        {stageLabel && <span style={s.stage}>{stageLabel}</span>}
       </div>
       {error && <div style={s.error}>{error}</div>}
-
-      {progressLog.length > 0 && (
-        <div style={s.log}>{progressLog.join('\n')}</div>
-      )}
-
-      <FrameThumbnailStrip
-        frames={frames}
-        readFrame={readFrame}
-        onLoaded={handleThumbLoaded}
-        onSelect={handleThumbSelect}
-      />
+      {!error && preview.error && <div style={s.error}>{preview.error}</div>}
 
       {setupStatus && (
-        <div style={s.status}>
-          <SetupDot label="ffmpeg" ok={setupStatus.ffmpeg} />
-          <SetupDot label="yt-dlp" ok={setupStatus.ytdlp} />
-          <SetupDot
-            label={
-              setupStatus.provider === 'none'
-                ? 'no transcription (captions only)'
-                : `${setupStatus.provider} ${setupStatus.hasApiKey ? 'configured' : 'key missing'}`
-            }
-            ok={setupStatus.provider === 'none' ? true : setupStatus.hasApiKey}
-          />
-          {binariesMissing && (
-            <button
-              type="button"
-              onClick={handleInstall}
-              disabled={installing}
-              style={s.installButton}
-            >
-              {installing ? 'Installing…' : setupStatus.hasBrew ? 'Install via brew' : 'Install Homebrew first'}
-            </button>
-          )}
-        </div>
+        <WatchSetupStatusBar status={setupStatus} installing={installing} onInstall={() => void handleInstall()} />
       )}
 
-      {lightboxIndex !== null && frames[lightboxIndex] && (
+      {lightbox && playlistFrames[lightbox.cardIndex]?.[lightbox.frameIndex] && (
         <FrameLightbox
-          frames={frames}
-          currentIndex={lightboxIndex}
-          thumbDataUrl={thumbCache[frames[lightboxIndex].path] ?? ''}
+          frames={playlistFrames[lightbox.cardIndex]}
+          currentIndex={lightbox.frameIndex}
+          thumbDataUrl={thumbCache[playlistFrames[lightbox.cardIndex][lightbox.frameIndex].path] ?? ''}
           readFrame={readFrame}
-          onIndexChange={setLightboxIndex}
-          onClose={() => setLightboxIndex(null)}
+          onIndexChange={(i) => setLightbox((cur) => cur ? { ...cur, frameIndex: i } : null)}
+          onClose={() => setLightbox(null)}
         />
       )}
     </div>
-  )
-}
-
-function SetupDot({ label, ok }: { label: string; ok: boolean }): React.JSX.Element {
-  return (
-    <span>
-      <span style={{ ...s.dot, ...(ok ? s.dotOk : s.dotMissing) }} />
-      {label}
-    </span>
   )
 }

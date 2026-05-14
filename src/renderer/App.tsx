@@ -374,7 +374,11 @@ export function App(): React.JSX.Element {
     fetchingProjectId: fetchProject.fetchingProjectId, lastFetchedProjectId: fetchProject.lastFetchedProjectId,
     fetchResult: fetchProject.fetchResult, fetchError: fetchProject.fetchError,
     onFetchProject: fetchProject.fetchProject, previewUrl: webPreview.previewUrl,
-    onShowSearchPanel: appEffects.showSearchPanel, onClosePanel: handleClosePanel, activeSessionStatus: activeSession?.status ?? null,
+    onShowSearchPanel: appEffects.showSearchPanel, onClosePanel: handleClosePanel,
+    onFocusPanel: dockLayout.focusPanel,
+    onOpenSibling: dockLayout.openSiblingPanel,
+    onCloseSiblingPanel: dockLayout.closeSiblingPanel,
+    activeSessionStatus: activeSession?.status ?? null,
     activeSessionRuntimeId: activeSession?.runtimeId ?? null, onResumeAgent: resumeAgent,
   }
 

@@ -30,6 +30,13 @@ export interface AgentSession {
   noWorktree?: boolean
   /** If set, this agent was spawned by a superagent and is listed as a child. */
   parentSuperagentId?: string
+  /**
+   * If set, this agent belongs to a group of siblings spawned together (e.g.
+   * by a Watch playlist run). Grouped siblings are hidden from the default
+   * dock tab bar; the group's owner UI (e.g. the Watch panel) handles
+   * navigation to them.
+   */
+  groupId?: string
 }
 
 export interface Project {
@@ -136,6 +143,12 @@ export interface SpawnAgentOptions {
    * spawn an interactive session inside it.
    */
   existingWorktreePath?: string
+  /**
+   * Tags the session as part of a sibling group (e.g. a Watch playlist run).
+   * Grouped siblings are hidden from the default dock tab bar; the group's
+   * owner UI handles navigation to them.
+   */
+  groupId?: string
 }
 
 export interface CreatePROptions {

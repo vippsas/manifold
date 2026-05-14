@@ -78,6 +78,9 @@ function makeDockState(overrides: Partial<DockAppState> = {}): DockAppState {
     previewUrl: null,
     onShowSearchPanel: vi.fn(),
     onClosePanel: vi.fn(),
+    onFocusPanel: vi.fn(),
+    onOpenSibling: vi.fn(),
+    onCloseSiblingPanel: vi.fn(),
     ...overrides,
   }
 }
