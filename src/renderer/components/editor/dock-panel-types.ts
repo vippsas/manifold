@@ -105,6 +105,9 @@ export interface DockAppState {
   // Layout
   onShowSearchPanel: (mode: SearchMode) => void
   onClosePanel: (id: string) => void
+  onFocusPanel: (id: string) => void
+  onOpenSibling: (sessionId: string, title?: string, referencePanelId?: string) => void
+  onCloseSiblingPanel: (sessionId: string) => void
 }
 
 export const DockStateContext = createContext<DockAppState | null>(null)

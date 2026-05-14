@@ -189,6 +189,7 @@ export class SessionCreator {
       additionalDirs: [],
       noWorktree: options.noWorktree,
       parentSuperagentId: options.parentSuperagentId,
+      groupId: options.groupId,
       nonInteractive: options.nonInteractive,
       nonInteractiveOutputMode,
     }

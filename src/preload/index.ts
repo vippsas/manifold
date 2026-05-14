@@ -116,11 +116,13 @@ const ALLOWED_INVOKE_CHANNELS = [
   'loop:set-config',
   'loop:restore-best',
   'loop:clear',
-  'watch:run',
   'watch:setup-status',
   'watch:install-skills',
   'watch:install-binaries',
   'watch:read-frame',
+  'watch:peek',
+  'watch:peek-playlist',
+  'watch:run-playlist',
 ] as const
 
 const ALLOWED_SEND_CHANNELS = [
@@ -155,8 +157,8 @@ const ALLOWED_LISTEN_CHANNELS = [
   'loop:status-changed',
   'loop:iteration',
   'loop:eval-output',
-  'watch:progress',
   'watch:install-progress',
+  'watch:playlist-progress',
 ] as const
 
 type InvokeChannel = (typeof ALLOWED_INVOKE_CHANNELS)[number]

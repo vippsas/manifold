@@ -1,34 +1,75 @@
 import type { WatchFrameRef } from '../../shared/watch-types'
 
 export interface WatchSessionState {
-  frames: WatchFrameRef[]
-  progressLog: string[]
-  currentStage: string | null
+  /** Per-entry frame thumbnails for playlist runs, keyed by entry index. */
+  playlistFrames: Record<number, WatchFrameRef[]>
+  /** Persisted Watch-panel UI state so it survives dockview re-mounts. */
+  url: string
+  siblingByIndex: Record<number, string>
+  playlistDispatched: boolean
+  openSiblingId: string | null
 }
 
 const EMPTY_STATE: WatchSessionState = Object.freeze({
-  frames: [],
-  progressLog: [],
-  currentStage: null,
+  playlistFrames: {},
+  url: '',
+  siblingByIndex: {},
+  playlistDispatched: false,
+  openSiblingId: null,
 }) as WatchSessionState
 
 const stateMap = new Map<string, WatchSessionState>()
 const listeners = new Map<string, Set<() => void>>()
 
 let ipcInitialized = false
-// The session that triggered the most recent install — used to route
-// session-less `watch:install-progress` events back to a session's log.
-let installLogTarget: string | null = null
 
-interface ProgressEvent {
-  sessionId?: string
-  kind?: 'log' | 'stage'
-  line?: string
-  stage?: string
+// Persisted slice of WatchSessionState — only user-intent fields (URL).
+// Run-state (siblings/frames/dispatched flag) is intentionally NOT persisted
+// because sibling agent sessions don't survive app restart.
+interface PersistedSessionState {
+  url: string
+}
+const STORAGE_KEY = 'manifold.watch.session-state'
+let persistTimer: ReturnType<typeof setTimeout> | null = null
+
+function readPersisted(): Record<string, PersistedSessionState> {
+  if (typeof localStorage === 'undefined') return {}
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY)
+    if (!raw) return {}
+    return JSON.parse(raw) as Record<string, PersistedSessionState>
+  } catch { return {} }
 }
 
-interface InstallProgressEvent {
-  line?: string
+function hydrate(): void {
+  const persisted = readPersisted()
+  for (const [sessionId, value] of Object.entries(persisted)) {
+    if (value && typeof value.url === 'string' && value.url) {
+      stateMap.set(sessionId, { ...EMPTY_STATE, url: value.url })
+    }
+  }
+}
+
+function schedulePersist(): void {
+  if (typeof localStorage === 'undefined') return
+  if (persistTimer) clearTimeout(persistTimer)
+  persistTimer = setTimeout(() => {
+    persistTimer = null
+    try {
+      const out: Record<string, PersistedSessionState> = {}
+      for (const [sid, state] of stateMap.entries()) {
+        if (state.url) out[sid] = { url: state.url }
+      }
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(out))
+    } catch { /* quota or serialization failure — best effort */ }
+  }, 500)
+}
+
+interface PlaylistProgressEvent {
+  sessionId?: string
+  entryIndex?: number
+  kind?: 'log' | 'stage' | 'frames'
+  payload?: unknown
 }
 
 function notify(sessionId: string): void {
@@ -42,33 +83,24 @@ function update(sessionId: string, updater: (cur: WatchSessionState) => WatchSes
   const next = updater(cur)
   stateMap.set(sessionId, next)
   notify(sessionId)
+  if (next.url !== cur.url) schedulePersist()
 }
 
 function ensureIpc(): void {
   if (ipcInitialized) return
   ipcInitialized = true
-  window.electronAPI.on('watch:progress', (event: unknown) => {
-    const ev = event as ProgressEvent
-    if (!ev.sessionId) return
-    if (ev.kind === 'log' && ev.line) {
-      const line = ev.line
+  hydrate()
+  window.electronAPI.on('watch:playlist-progress', (event: unknown) => {
+    const ev = event as PlaylistProgressEvent
+    if (!ev.sessionId || typeof ev.entryIndex !== 'number') return
+    if (ev.kind === 'frames' && Array.isArray(ev.payload)) {
+      const frames = ev.payload as WatchFrameRef[]
+      const entryIndex = ev.entryIndex
       update(ev.sessionId, (cur) => ({
         ...cur,
-        progressLog: [...cur.progressLog, line].slice(-200),
+        playlistFrames: { ...cur.playlistFrames, [entryIndex]: frames },
       }))
-    } else if (ev.kind === 'stage' && ev.stage) {
-      const stage = ev.stage
-      update(ev.sessionId, (cur) => ({ ...cur, currentStage: stage }))
     }
-  })
-  window.electronAPI.on('watch:install-progress', (event: unknown) => {
-    const ev = event as InstallProgressEvent
-    if (!ev.line || !installLogTarget) return
-    const line = ev.line
-    update(installLogTarget, (cur) => ({
-      ...cur,
-      progressLog: [...cur.progressLog, line].slice(-200),
-    }))
   })
 }
 
@@ -95,24 +127,33 @@ export const watchPanelStore = {
       if (s.size === 0) listeners.delete(sessionId)
     }
   },
-  setFrames(sessionId: string, frames: WatchFrameRef[]): void {
-    update(sessionId, (cur) => ({ ...cur, frames }))
+  setUrl(sessionId: string, url: string): void {
+    update(sessionId, (cur) => {
+      if (cur.url === url) return cur
+      // Setting a new URL resets everything tied to the previous run.
+      return {
+        ...cur,
+        url,
+        playlistFrames: {},
+        siblingByIndex: {},
+        playlistDispatched: false,
+        openSiblingId: null,
+      }
+    })
   },
-  setStage(sessionId: string, stage: string | null): void {
-    update(sessionId, (cur) => ({ ...cur, currentStage: stage }))
+  setSiblingByIndex(sessionId: string, map: Record<number, string>): void {
+    update(sessionId, (cur) => ({ ...cur, siblingByIndex: map }))
   },
-  clearProgressLog(sessionId: string): void {
-    update(sessionId, (cur) => ({ ...cur, progressLog: [] }))
+  setPlaylistDispatched(sessionId: string, value: boolean): void {
+    update(sessionId, (cur) => ({ ...cur, playlistDispatched: value }))
   },
-  resetForRun(sessionId: string): void {
-    update(sessionId, () => ({ frames: [], progressLog: [], currentStage: 'download' }))
-  },
-  setInstallLogTarget(sessionId: string | null): void {
-    installLogTarget = sessionId
+  setOpenSiblingId(sessionId: string, value: string | null): void {
+    update(sessionId, (cur) => ({ ...cur, openSiblingId: value }))
   },
   delete(sessionId: string): void {
     stateMap.delete(sessionId)
     listeners.delete(sessionId)
+    schedulePersist()
   },
 }
 
@@ -120,7 +161,8 @@ export const __watchPanelStoreTestHooks = {
   reset(): void {
     stateMap.clear()
     listeners.clear()
-    installLogTarget = null
     ipcInitialized = false
+    if (persistTimer) { clearTimeout(persistTimer); persistTimer = null }
+    try { if (typeof localStorage !== 'undefined') localStorage.removeItem(STORAGE_KEY) } catch { /* */ }
   },
 }

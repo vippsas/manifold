@@ -22,6 +22,55 @@ export interface WatchFrameRef {
   hdPath?: string
 }
 
+export interface WatchPeekResult {
+  ok: boolean
+  title?: string
+  uploader?: string
+  durationSeconds?: number
+  thumbnailDataUrl?: string
+  webpageUrl?: string
+  error?: string
+}
+
+export interface WatchPlaylistEntry {
+  url: string
+  title?: string
+  uploader?: string
+  durationSeconds?: number
+  thumbnailDataUrl?: string
+}
+
+export interface WatchPlaylistPeekResult {
+  ok: boolean
+  playlistTitle?: string
+  uploader?: string
+  entries: WatchPlaylistEntry[]
+  error?: string
+}
+
+export interface WatchPlaylistEntryInput {
+  url: string
+  question?: string
+  title?: string
+  /** Caller-supplied original index. Used so per-entry events
+   *  (frames, sessionId) round-trip with the index the renderer renders by. */
+  originalIndex?: number
+}
+
+export interface WatchPlaylistRunResult {
+  ok: boolean
+  error?: string
+  spawnedSessionIds?: string[]
+  aggregateDir?: string
+  entryResults?: Array<{
+    url: string
+    ok: boolean
+    error?: string
+    workDir?: string
+    sessionId?: string
+  }>
+}
+
 export interface WatchRunResult {
   ok: boolean
   error?: string
