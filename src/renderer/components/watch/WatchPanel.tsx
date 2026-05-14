@@ -1,10 +1,11 @@
 import React, { useCallback, useEffect, useState } from 'react'
 import { useDockState } from '../editor/dock-panel-types'
 import { useWatchPanel } from '../../hooks/useWatchPanel'
-import { useWatchUrlPreview } from '../../hooks/useWatchUrlPreview'
+import { useWatchUrlPreview, clearWatchPreviewCaches } from '../../hooks/useWatchUrlPreview'
 import { watchStyles as s } from './WatchPanel.styles'
 import { FrameLightbox } from './FrameLightbox'
 import { WatchPlaylistPreview } from './WatchPlaylistPreview'
+import { WatchActivePlayer } from './WatchActivePlayer'
 import { WatchSetupStatusBar } from './WatchSetupStatusBar'
 import { siblingPanelId } from '../../hooks/agent-siblings'
 
@@ -43,10 +44,14 @@ export function WatchPanel(): React.JSX.Element {
   const [improvingIndex, setImprovingIndex] = useState<number | null>(null)
   const [thumbCache, setThumbCache] = useState<Record<string, string>>({})
   const [lightbox, setLightbox] = useState<{ cardIndex: number; frameIndex: number } | null>(null)
+  const [playerHidden, setPlayerHidden] = useState(false)
 
   const preview = useWatchUrlPreview(url, { peekUrl, peekPlaylist })
 
   useEffect(() => { void refreshSetupStatus() }, [refreshSetupStatus])
+  // Clicking a different video should re-reveal the player for the new video,
+  // even if the previous one was hidden.
+  useEffect(() => { setPlayerHidden(false) }, [openSiblingId])
 
   const handleThumbLoaded = useCallback((path: string, dataUrl: string) => {
     setThumbCache((prev) => (prev[path] === dataUrl ? prev : { ...prev, [path]: dataUrl }))
@@ -112,6 +117,15 @@ export function WatchPanel(): React.JSX.Element {
     }
   }
 
+  const handleClearCache = useCallback((): void => {
+    // Wipe the peek + user-state caches (in-memory + localStorage), then
+    // ask the preview hook to re-peek for the current URL. The sibling
+    // mapping / dispatched flag in the store stay intact — only the peek
+    // cache is invalidated.
+    clearWatchPreviewCaches()
+    preview.forceRefresh()
+  }, [preview])
+
   const handleInstall = async (): Promise<void> => {
     setError(null)
     setInstalling(true)
@@ -140,6 +154,24 @@ export function WatchPanel(): React.JSX.Element {
         />
         <div style={s.inputHint}>Playlists must be public — private and unlisted are not supported.</div>
       </div>
+      {(() => {
+        const activeEntry = activeSiblingIndexNum !== null
+          ? preview.entries[activeSiblingIndexNum] ?? null
+          : null
+        if (!activeEntry) return null
+        if (playerHidden) {
+          return (
+            <button
+              type="button"
+              onClick={() => setPlayerHidden(false)}
+              style={s.showVideoButton}
+            >
+              ▶ Show video player
+            </button>
+          )
+        }
+        return <WatchActivePlayer entry={activeEntry} onHide={() => setPlayerHidden(true)} />
+      })()}
       <WatchPlaylistPreview
         loading={preview.loading}
         playlistTitle={preview.playlistTitle ?? undefined}
@@ -205,7 +237,12 @@ export function WatchPanel(): React.JSX.Element {
       {!error && preview.error && <div style={s.error}>{preview.error}</div>}
 
       {setupStatus && (
-        <WatchSetupStatusBar status={setupStatus} installing={installing} onInstall={() => void handleInstall()} />
+        <WatchSetupStatusBar
+          status={setupStatus}
+          installing={installing}
+          onInstall={() => void handleInstall()}
+          onClearCache={handleClearCache}
+        />
       )}
 
       {lightbox && playlistFrames[lightbox.cardIndex]?.[lightbox.frameIndex] && (

@@ -27,6 +27,7 @@ interface State {
   setAllEntriesSelected: (selected: boolean) => void
   setEntryQuestion: (index: number, value: string) => void
   resetPreview: () => void
+  forceRefresh: () => void
 }
 
 interface CachedPeek {
@@ -82,6 +83,120 @@ function schedulePersistCaches(): void {
   }, 500)
 }
 
+function entriesEqual(a: WatchPlaylistEntry[], b: WatchPlaylistEntry[]): boolean {
+  if (a.length !== b.length) return false
+  for (let i = 0; i < a.length; i++) {
+    if (a[i].url !== b[i].url || a[i].title !== b[i].title) return false
+  }
+  return true
+}
+
+interface RevalidateApply {
+  applyEntries: (e: WatchPlaylistEntry[]) => void
+  applyTitle: (t: string | null) => void
+  applyUploader: (u: string | null) => void
+  applyQuestions: (q: string[]) => void
+  applySelected: (s: Set<number>) => void
+}
+
+/**
+ * Background refresh of a cached peek. If YouTube has changed the playlist
+ * (added/removed/reordered videos), update the cache and the UI. User edits
+ * (questions, selections) are preserved by entry URL so customizations stick
+ * to the right video.
+ */
+async function revalidate(
+  trimmed: string,
+  mode: UrlMode,
+  peekUrl: (u: string) => Promise<WatchPeekResult>,
+  peekPlaylist: (u: string) => Promise<WatchPlaylistPeekResult>,
+  isCancelled: () => boolean,
+  apply: RevalidateApply,
+): Promise<void> {
+  try {
+    let fresh: CachedPeek | null = null
+    if (mode === 'playlist') {
+      const r = await peekPlaylist(trimmed)
+      if (r.ok) fresh = { entries: r.entries, playlistTitle: r.playlistTitle ?? null, uploader: r.uploader ?? null }
+    } else if (mode === 'video') {
+      const r = await peekUrl(trimmed)
+      if (r.ok) {
+        fresh = {
+          entries: [{
+            url: r.webpageUrl ?? trimmed,
+            title: r.title,
+            uploader: r.uploader,
+            durationSeconds: r.durationSeconds,
+            thumbnailDataUrl: r.thumbnailDataUrl,
+          }],
+          playlistTitle: null,
+          uploader: null,
+        }
+      }
+    }
+    if (!fresh || isCancelled()) return
+
+    const old = peekCache.get(trimmed)
+    if (old && entriesEqual(old.entries, fresh.entries)) {
+      // Entries identical — only update if metadata changed.
+      if (old.playlistTitle !== fresh.playlistTitle || old.uploader !== fresh.uploader) {
+        peekCache.set(trimmed, fresh)
+        schedulePersistCaches()
+        apply.applyTitle(fresh.playlistTitle)
+        apply.applyUploader(fresh.uploader)
+      }
+      return
+    }
+
+    // Entries changed. Update cache + UI, and preserve user customizations
+    // by entry URL (so e.g. a question attached to video X stays on video X
+    // even if videos before it were removed).
+    peekCache.set(trimmed, fresh)
+    const oldUser = userStateCache.get(trimmed)
+    const oldUrlToIdx = new Map((old?.entries ?? []).map((e, i) => [e.url, i]))
+    const oldQuestions = oldUser?.entryQuestions ?? []
+    const oldSelectedSet = new Set(oldUser?.selectedIndices ?? (old?.entries.map((_, i) => i) ?? []))
+    const newQuestions = fresh.entries.map((e) => {
+      const oldIdx = oldUrlToIdx.get(e.url)
+      return oldIdx !== undefined ? (oldQuestions[oldIdx] ?? '') : ''
+    })
+    const newSelected = new Set<number>()
+    fresh.entries.forEach((e, newIdx) => {
+      const oldIdx = oldUrlToIdx.get(e.url)
+      // Existing entry → preserve selection state. New entry → selected by default.
+      if (oldIdx === undefined || oldSelectedSet.has(oldIdx)) newSelected.add(newIdx)
+    })
+    userStateCache.set(trimmed, {
+      entryQuestions: newQuestions,
+      selectedIndices: Array.from(newSelected),
+    })
+    schedulePersistCaches()
+    apply.applyEntries(fresh.entries)
+    apply.applyTitle(fresh.playlistTitle)
+    apply.applyUploader(fresh.uploader)
+    apply.applyQuestions(newQuestions)
+    apply.applySelected(newSelected)
+  } catch {
+    // Network/yt-dlp blip — keep the cached entries, try again on next mount.
+  }
+}
+
+/**
+ * Wipe the peek + user-state caches (in-memory + localStorage). Used by the
+ * "Clear cache" UI affordance so the next peek hits yt-dlp fresh.
+ */
+export function clearWatchPreviewCaches(): void {
+  peekCache.clear()
+  userStateCache.clear()
+  if (cacheSaveTimer) { clearTimeout(cacheSaveTimer); cacheSaveTimer = null }
+  if (typeof localStorage !== 'undefined') {
+    try {
+      localStorage.removeItem(PEEK_STORAGE_KEY)
+      localStorage.removeItem(USER_STATE_STORAGE_KEY)
+    } catch { /* */ }
+  }
+}
+
 export const __watchUrlPreviewTestHooks = {
   reset(): void {
     peekCache.clear()
@@ -129,6 +244,10 @@ export function useWatchUrlPreview(url: string, deps: Deps): State {
   const [error, setError] = useState<string | null>(null)
   const [entryQuestions, setEntryQuestions] = useState<string[]>(() => getInitialQuestions(url))
   const [selectedIndices, setSelectedIndices] = useState<Set<number>>(() => getInitialSelectedIndices(url))
+  // Bumping this counter forces the URL effect to re-run (e.g. after the
+  // user clicks Clear cache).
+  const [refreshCounter, setRefreshCounter] = useState(0)
+  const forceRefresh = useCallback(() => setRefreshCounter((n) => n + 1), [])
 
   useEffect(() => {
     const trimmed = url.trim()
@@ -143,7 +262,12 @@ export function useWatchUrlPreview(url: string, deps: Deps): State {
       return
     }
 
+    let cancelled = false
+
     // Cache hit: hydrate immediately, skip the IPC and the debounce flash.
+    // Then re-peek in the background (stale-while-revalidate) so changes to
+    // the playlist on YouTube — added/removed videos — are picked up without
+    // forcing the user to wait on every panel mount.
     const cached = peekCache.get(trimmed)
     if (cached) {
       setEntries(cached.entries)
@@ -159,10 +283,15 @@ export function useWatchUrlPreview(url: string, deps: Deps): State {
         setEntryQuestions(new Array(cached.entries.length).fill(''))
         setSelectedIndices(new Set(cached.entries.map((_, i) => i)))
       }
-      return
+      void revalidate(trimmed, mode, peekUrl, peekPlaylist, () => cancelled, {
+        applyEntries: setEntries,
+        applyTitle: setPlaylistTitle,
+        applyUploader: setUploader,
+        applyQuestions: setEntryQuestions,
+        applySelected: setSelectedIndices,
+      })
+      return () => { cancelled = true }
     }
-
-    let cancelled = false
     setLoading(true)
     setError(null)
     setEntries([])
@@ -225,7 +354,7 @@ export function useWatchUrlPreview(url: string, deps: Deps): State {
       cancelled = true
       clearTimeout(timer)
     }
-  }, [url, mode, peekUrl, peekPlaylist])
+  }, [url, mode, peekUrl, peekPlaylist, refreshCounter])
 
   // Persist user edits to the per-URL cache so they survive remounts.
   const cacheUserState = useCallback((q: string[], s: Set<number>) => {
@@ -280,6 +409,7 @@ export function useWatchUrlPreview(url: string, deps: Deps): State {
     toggleEntrySelected, setAllEntriesSelected,
     setEntryQuestion,
     resetPreview,
+    forceRefresh,
   }
 }
 

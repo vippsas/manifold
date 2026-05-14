@@ -77,6 +77,14 @@ export const watchStyles: Record<string, CSSProperties> = {
   dot: { width: 8, height: 8, borderRadius: '50%', display: 'inline-block', marginRight: 4 },
   dotOk: { background: '#3a7' },
   dotMissing: { background: '#c44' },
+  showVideoButton: {
+    alignSelf: 'flex-start',
+    padding: '4px 10px', borderRadius: 4,
+    border: '1px solid var(--border-subtle)',
+    background: 'transparent', color: 'var(--text-default)',
+    fontSize: 11, fontWeight: 600, letterSpacing: 0.4, textTransform: 'uppercase',
+    cursor: 'pointer',
+  },
   logToggle: {
     alignSelf: 'flex-start',
     padding: '2px 8px', borderRadius: 4,

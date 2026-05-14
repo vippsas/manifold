@@ -6,9 +6,10 @@ interface Props {
   status: WatchSetupStatus
   installing: boolean
   onInstall: () => void
+  onClearCache: () => void
 }
 
-export function WatchSetupStatusBar({ status, installing, onInstall }: Props): React.JSX.Element {
+export function WatchSetupStatusBar({ status, installing, onInstall, onClearCache }: Props): React.JSX.Element {
   const binariesMissing = !status.ffmpeg || !status.ytdlp
   return (
     <div style={s.status}>
@@ -32,6 +33,14 @@ export function WatchSetupStatusBar({ status, installing, onInstall }: Props): R
           {installing ? 'Installing…' : status.hasBrew ? 'Install via brew' : 'Install Homebrew first'}
         </button>
       )}
+      <button
+        type="button"
+        onClick={onClearCache}
+        title="Clear cached playlist metadata and force a fresh peek"
+        style={s.installButton}
+      >
+        Clear cache
+      </button>
     </div>
   )
 }
