@@ -30,6 +30,10 @@ export interface RunPlaylistOptions {
   /** Called as soon as each entry's pipeline produces frames, so the UI can
    *  show thumbnails progressively per card. */
   onEntryFramesReady?: (entryIndex: number, frames: WatchFrameRef[]) => void
+  /** Called as soon as each entry's sibling agent session is spawned, so the
+   *  UI can reveal the "Open agent" button per entry without waiting for the
+   *  whole playlist run to finish. */
+  onEntrySpawned?: (entryIndex: number, sessionId: string) => void
   /** Override the aggregates root (tests). Defaults to ~/.manifold/watch-aggregates. */
   aggregatesRoot?: string
   /** Override the runId (tests). Defaults to a timestamp-based id. */
@@ -65,7 +69,8 @@ export async function runWatchPlaylist(
 
   // Spawn one sibling agent per entry upfront so dock tabs appear immediately.
   const spawnedSessionIds: string[] = []
-  for (const entry of opts.entries) {
+  for (let i = 0; i < opts.entries.length; i++) {
+    const entry = opts.entries[i]
     try {
       const sibling = await deps.sessionManager.createSession({
         projectId: baseSession.projectId,
@@ -75,6 +80,11 @@ export async function runWatchPlaylist(
         groupId: runId,
       })
       spawnedSessionIds.push(sibling.id)
+      try {
+        opts.onEntrySpawned?.(entry.originalIndex ?? i, sibling.id)
+      } catch {
+        // Renderer may have unsubscribed; non-fatal.
+      }
     } catch (err) {
       return {
         ok: false,

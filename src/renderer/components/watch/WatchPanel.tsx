@@ -38,6 +38,8 @@ export function WatchPanel(): React.JSX.Element {
     setPlaylistDispatched,
     openSiblingId,
     setOpenSiblingId,
+    focusedEntryIndex,
+    setFocusedEntryIndex,
   } = useWatchPanel(sessionId)
   const [error, setError] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
@@ -46,9 +48,6 @@ export function WatchPanel(): React.JSX.Element {
   const [thumbCache, setThumbCache] = useState<Record<string, string>>({})
   const [lightbox, setLightbox] = useState<{ cardIndex: number; frameIndex: number } | null>(null)
   const [playerHidden, setPlayerHidden] = useState(false)
-  // Which entry's video is shown in the player above the list. Independent
-  // of `openSiblingId` so the player works before any agent is dispatched.
-  const [focusedEntryIndex, setFocusedEntryIndex] = useState<number | null>(null)
 
   const preview = useWatchUrlPreview(url, { peekUrl, peekPlaylist })
 

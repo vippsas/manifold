@@ -60,6 +60,11 @@ export function registerWatchHandlers(deps: IpcDependencies): void {
             sender.send('watch:playlist-progress', { sessionId, entryIndex: i, kind: 'frames', payload: frames })
           }
         },
+        onEntrySpawned: (i, siblingSessionId) => {
+          if (win && !win.isDestroyed()) {
+            sender.send('watch:playlist-progress', { sessionId, entryIndex: i, kind: 'sibling', payload: siblingSessionId })
+          }
+        },
       },
     )
   })
