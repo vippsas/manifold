@@ -1,4 +1,4 @@
-import { BrowserWindow, Menu, nativeTheme, session, shell } from 'electron'
+import { BrowserWindow, Menu, nativeTheme, shell } from 'electron'
 import { join } from 'node:path'
 import { debugLog } from './debug-log'
 import { buildAppMenu } from './app-menu'
@@ -49,34 +49,12 @@ interface WindowFactoryDeps {
 }
 
 let ipcHandlersRegistered = false
-let youtubeReferrerInstalled = false
-
-// YouTube's embedded player returns "Error 153 — Video player configuration
-// error" when the iframe's Referer doesn't look like a real web origin (the
-// Electron renderer loads from `file://` in production and `http://localhost`
-// in dev). Spoofing the Referer to `https://www.youtube.com/` lets the embed
-// load. This affects only the renderer's webContents requests; main-process
-// HTTP calls (e.g. thumbnail fetches) use Node's net stack and are untouched.
-function installYoutubeReferrerOverride(): void {
-  if (youtubeReferrerInstalled) return
-  youtubeReferrerInstalled = true
-  session.defaultSession.webRequest.onBeforeSendHeaders(
-    { urls: ['https://*.youtube.com/*', 'https://*.googlevideo.com/*', 'https://*.ytimg.com/*'] },
-    (details, callback) => {
-      details.requestHeaders['Referer'] = 'https://www.youtube.com/'
-      details.requestHeaders['Origin'] = 'https://www.youtube.com'
-      callback({ requestHeaders: details.requestHeaders })
-    },
-  )
-}
 
 export function createWindow(deps: WindowFactoryDeps): BrowserWindow {
   const settings = deps.getSettings()
   const theme = settings.theme ?? 'dracula'
   const simple = settings.uiMode === 'simple'
   nativeTheme.themeSource = resolveThemeType(theme)
-
-  installYoutubeReferrerOverride()
 
   const win = new BrowserWindow({
     width: 1400,
@@ -163,6 +141,10 @@ export function rebuildAppMenu(
 }
 
 function loadRenderer(window: BrowserWindow, simple: boolean): void {
+  // ELECTRON_RENDERER_URL is set by electron-vite in dev and by the
+  // local-renderer-server in prod (see src/main/app/index.ts). The fallback
+  // file:// path only runs if the local server failed to bind — embed
+  // providers (YouTube, etc.) will reject the file:// origin there.
   if (process.env.ELECTRON_RENDERER_URL) {
     const base = process.env.ELECTRON_RENDERER_URL
     const page = simple ? '/renderer-simple/index.html' : '/renderer/index.html'
