@@ -63,7 +63,7 @@ export function useAgentSession(projectId: string | null): UseAgentSessionResult
 
   const spawnAgent = useSpawnAgent(projectId, refreshSessions, setSessions, setActiveSessionId)
   const killAgent = useKillAgent()
-  const deleteAgent = useDeleteAgent(setSessions, setActiveSessionId)
+  const deleteAgent = useDeleteAgent(sessions, setSessions, setActiveSessionId)
   const resumeAgent = useResumeAgent(setSessions)
 
   const setActiveSession = useCallback((sessionId: string | null): void => {
@@ -262,11 +262,33 @@ function useKillAgent(): (sessionId: string) => Promise<void> {
 }
 
 function useDeleteAgent(
+  sessions: AgentSession[],
   setSessions: React.Dispatch<React.SetStateAction<AgentSession[]>>,
   setActiveSessionId: React.Dispatch<React.SetStateAction<string | null>>
 ): (sessionId: string) => Promise<void> {
+  // Keep a ref so the returned callback's identity doesn't churn on every
+  // sessions update but still sees the current list.
+  const sessionsRef = useRef(sessions)
+  sessionsRef.current = sessions
+
   return useCallback(
     async (sessionId: string): Promise<void> => {
+      const target = sessionsRef.current.find((s) => s.id === sessionId)
+      // For real worktrees, kill every sibling on the path AND remove the
+      // worktree in a single main-process operation. Killing one session at a
+      // time leaves siblings that keep the worktree alive, which then trips
+      // SessionDiscovery into resurrecting the agent on the next sessions sync.
+      if (target && target.worktreePath && !target.noWorktree) {
+        await window.electronAPI.invoke('agent:kill-worktree', target.worktreePath)
+        const killedPath = target.worktreePath
+        setSessions((prev) => prev.filter((s) => s.worktreePath !== killedPath))
+        setActiveSessionId((prev) =>
+          prev && sessionsRef.current.find((s) => s.id === prev)?.worktreePath === killedPath
+            ? null
+            : prev,
+        )
+        return
+      }
       await window.electronAPI.invoke('agent:kill', sessionId)
       setSessions((prev) => prev.filter((s) => s.id !== sessionId))
       setActiveSessionId((prev) => (prev === sessionId ? null : prev))

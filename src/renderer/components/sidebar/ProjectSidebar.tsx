@@ -78,11 +78,21 @@ export function ProjectSidebar({
     setPendingDelete(null)
   }, [deletingSessionId])
 
+  const pendingSiblingCount = pendingDelete
+    ? (allProjectSessions[pendingDelete.session.projectId] ?? [])
+        .filter((s) => s.worktreePath !== '' && s.worktreePath === pendingDelete.session.worktreePath)
+        .length
+    : 0
+
   const handleConfirmDelete = useCallback(async (): Promise<void> => {
     if (!pendingDelete) return
 
     setDeletingSessionId(pendingDelete.session.id)
     try {
+      // onDeleteAgent routes through useDeleteAgent, which calls
+      // agent:kill-worktree for worktree-based sessions. That kills every
+      // sibling on the worktree and removes the worktree atomically — the
+      // sidebar doesn't need to enumerate siblings itself.
       await onDeleteAgent(pendingDelete.session.id)
       setPendingDelete(null)
     } catch {
@@ -138,6 +148,7 @@ export function ProjectSidebar({
       </div>
       <DeleteAgentDialog
         pendingDelete={pendingDelete}
+        siblingCount={pendingSiblingCount}
         deleting={deletingSessionId === pendingDelete?.session.id}
         onCancel={handleCancelDelete}
         onConfirm={handleConfirmDelete}
@@ -372,6 +383,7 @@ function ProjectList({
 
 interface DeleteAgentDialogProps {
   pendingDelete: { session: AgentSession; projectPath: string } | null
+  siblingCount: number
   deleting: boolean
   onCancel: () => void
   onConfirm: () => Promise<void>
@@ -379,6 +391,7 @@ interface DeleteAgentDialogProps {
 
 function DeleteAgentDialog({
   pendingDelete,
+  siblingCount,
   deleting,
   onCancel,
   onConfirm,
@@ -394,9 +407,12 @@ function DeleteAgentDialog({
 
   const { session, projectPath } = pendingDelete
   const label = formatBranchLabel(session.branchName, projectPath)
+  const multi = siblingCount > 1
   const actionText = session.noWorktree
     ? 'This will stop the agent.'
-    : 'This will stop the agent and remove its worktree.'
+    : multi
+      ? `This will stop all ${siblingCount} agents on this worktree and remove the worktree.`
+      : 'This will stop the agent and remove its worktree.'
 
   return (
     <div

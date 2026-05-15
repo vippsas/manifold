@@ -254,18 +254,69 @@ export class SessionManager {
         (s) => s.worktreePath === session.worktreePath
       )
       if (!sharedWithOther) {
-        try {
-          await this.worktreeManager.removeWorktree(
-            this.projectRegistry.getProject(session.projectId)?.path ?? '',
-            session.worktreePath
-          )
-        } catch {
-          // Worktree cleanup is best-effort
+        const projectPath = this.projectRegistry.getProject(session.projectId)?.path
+        if (!projectPath) {
+          debugLog(`[session] worktree remove skipped — project ${session.projectId} not found in registry (worktree ${session.worktreePath} left on disk)`)
+        } else {
+          try {
+            await this.worktreeManager.removeWorktree(projectPath, session.worktreePath)
+          } catch (err) {
+            debugLog(`[session] worktree remove failed for ${session.worktreePath}: ${err}`)
+          }
         }
       }
     }
 
     this.notifySessionsChanged(projectId)
+  }
+
+  /**
+   * Kill every session whose worktreePath matches, then remove the worktree
+   * itself. Done as a single main-process operation so siblings can't keep the
+   * worktree alive between renderer-driven session deletes (which then triggers
+   * SessionDiscovery to resurrect the agent on the next sessions sync).
+   */
+  async killAllSessionsOnWorktree(worktreePath: string): Promise<void> {
+    const matching = Array.from(this.sessions.values()).filter(
+      (s) => s.worktreePath === worktreePath,
+    )
+    debugLog(`[session] killAllSessionsOnWorktree path=${worktreePath} count=${matching.length}`)
+    if (matching.length === 0) return
+
+    const projectId = matching[0].projectId
+    const noWorktree = matching.some((s) => s.noWorktree)
+
+    for (const session of matching) {
+      this.sessions.delete(session.id)
+      if (this.fileWatcher) {
+        for (const dir of session.additionalDirs) {
+          this.fileWatcher.unwatchAdditionalDir(dir, session.id)
+        }
+      }
+      this.memoryCapture?.stopCapturing(session.id)
+      this.chatAdapter?.clearSession(session.id)
+      if (session.ptyId) {
+        try { this.ptyPool.kill(session.ptyId) } catch { /* already exited */ }
+      }
+      if (session.devServerPtyId) {
+        try { this.ptyPool.kill(session.devServerPtyId) } catch { /* already exited */ }
+      }
+    }
+
+    if (!noWorktree && projectId) {
+      const projectPath = this.projectRegistry.getProject(projectId)?.path
+      if (!projectPath) {
+        debugLog(`[session] worktree remove skipped — project ${projectId} not found in registry (worktree ${worktreePath} left on disk)`)
+      } else {
+        try {
+          await this.worktreeManager.removeWorktree(projectPath, worktreePath)
+        } catch (err) {
+          debugLog(`[session] worktree remove failed for ${worktreePath}: ${err}`)
+        }
+      }
+    }
+
+    if (projectId) this.notifySessionsChanged(projectId)
   }
 
   async resumeSession(sessionId: string, runtimeId: string): Promise<AgentSession> {

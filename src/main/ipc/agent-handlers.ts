@@ -6,6 +6,7 @@ import { SpawnAgentOptions } from '../../shared/types'
 import { pickRandomNorwegianCityName } from '../../shared/norwegian-cities'
 import { generateBranchName } from '../git/branch-namer'
 import { acceptSuggestion, dismissSuggestion } from '../session/shell-suggestion'
+import { debugLog } from '../app/debug-log'
 import type { IpcDependencies } from './types'
 
 const NO_WORKTREE_ERROR =
@@ -98,11 +99,26 @@ export function registerAgentHandlers(deps: IpcDependencies): void {
 
   ipcMain.handle('agent:kill', async (_event, sessionId: string) => {
     const session = sessionManager.getSession(sessionId)
+    debugLog(`[agent:kill] sessionId=${sessionId} found=${!!session} worktreePath=${session?.worktreePath ?? 'n/a'} noWorktree=${session?.noWorktree ?? 'n/a'}`)
     if (session) {
       await fileWatcher.unwatch(session.worktreePath)
     }
     await sessionManager.killSession(sessionId)
     viewStateStore.delete(sessionId)
+    debugLog(`[agent:kill] done sessionId=${sessionId}`)
+  })
+
+  ipcMain.handle('agent:kill-worktree', async (_event, worktreePath: string) => {
+    debugLog(`[agent:kill-worktree] path=${worktreePath}`)
+    const idsBefore = Array.from(sessionManager.listSessions())
+      .filter((s) => s.worktreePath === worktreePath)
+      .map((s) => s.id)
+    if (worktreePath) {
+      await fileWatcher.unwatch(worktreePath)
+    }
+    await sessionManager.killAllSessionsOnWorktree(worktreePath)
+    for (const id of idsBefore) viewStateStore.delete(id)
+    debugLog(`[agent:kill-worktree] done path=${worktreePath} killed=${idsBefore.length}`)
   })
 
   ipcMain.handle('agent:delete-app', async (_event, sessionId: string, projectId: string) => {
