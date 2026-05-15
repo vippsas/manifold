@@ -16,6 +16,7 @@ const ALLOWED_INVOKE_CHANNELS = [
   'provisioning:create',
   'agent:spawn',
   'agent:kill',
+  'agent:kill-worktree',
   'agent:interrupt',
   'agent:input',
   'agent:resize',

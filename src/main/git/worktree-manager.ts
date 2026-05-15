@@ -1,8 +1,10 @@
 import * as fs from 'node:fs'
+import * as fsp from 'node:fs/promises'
 import * as path from 'node:path'
 import { generateBranchName } from './branch-namer'
 import { prepareManagedWorktree } from './managed-worktree'
 import { readWorktreeMeta, removeWorktreeMeta } from './worktree-meta'
+import { debugLog } from '../app/debug-log'
 import { gitExec } from './git-exec'
 
 export interface WorktreeInfo {
@@ -80,13 +82,39 @@ export class WorktreeManager {
   }
 
   async removeWorktree(projectPath: string, worktreePath: string): Promise<void> {
+    // Always remove the sidecar metadata first, regardless of what happens with
+    // the git operations below. SessionDiscovery uses the metadata's presence to
+    // resurrect sessions on every `agent:sessions` call — if the sidecar
+    // survives, the deleted agent reappears in the sidebar after each click.
+    await removeWorktreeMeta(worktreePath)
+
     try {
       await gitExec(['worktree', 'remove', worktreePath, '--force'], projectPath)
-    } catch {
+      return
+    } catch (err1) {
+      debugLog(`[worktree] remove --force failed for ${worktreePath}: ${err1}`)
+    }
+
+    try {
       // Locked worktrees require a second --force (git 2.20+).
       await gitExec(['worktree', 'remove', '--force', '--force', worktreePath], projectPath)
+      return
+    } catch (err2) {
+      debugLog(`[worktree] remove -f -f failed for ${worktreePath}: ${err2}`)
     }
-    await removeWorktreeMeta(worktreePath)
+
+    // Last resort: nuke the directory and prune git's admin entry so neither
+    // `git worktree list` nor SessionDiscovery picks it up again.
+    try {
+      await fsp.rm(worktreePath, { recursive: true, force: true })
+    } catch (err) {
+      debugLog(`[worktree] fs.rm failed for ${worktreePath}: ${err}`)
+    }
+    try {
+      await gitExec(['worktree', 'prune'], projectPath)
+    } catch (err) {
+      debugLog(`[worktree] prune failed in ${projectPath}: ${err}`)
+    }
   }
 
   async listWorktrees(projectPath: string): Promise<WorktreeInfo[]> {

@@ -6,6 +6,14 @@ vi.mock('node:fs', () => ({
   mkdirSync: vi.fn(),
 }))
 
+vi.mock('node:fs/promises', () => ({
+  rm: vi.fn().mockResolvedValue(undefined),
+}))
+
+vi.mock('../app/debug-log', () => ({
+  debugLog: vi.fn(),
+}))
+
 vi.mock('node:path', () => ({
   join: (...args: string[]) => args.join('/'),
   basename: (p: string) => p.split('/').pop() || '',
@@ -196,7 +204,7 @@ describe('WorktreeManager', () => {
       expect(mockSpawn).toHaveBeenCalledTimes(1)
     })
 
-    it('also removes the worktree metadata file after git succeeds', async () => {
+    it('also removes the worktree metadata file', async () => {
       mockSpawnSequence([{ stdout: '' }])
       const { removeWorktreeMeta } = await import('./worktree-meta')
 
@@ -207,16 +215,35 @@ describe('WorktreeManager', () => {
       )
     })
 
-    it('propagates errors from git worktree remove without touching metadata', async () => {
-      mockSpawnSequence([{ stdout: '', exitCode: 128, stderr: 'fatal: is not a working tree' }])
+    it('retries with -f -f when the first --force fails (locked worktree)', async () => {
+      mockSpawnSequence([
+        { stdout: '', exitCode: 1, stderr: 'fatal: ...is locked...' },
+        { stdout: '' },
+      ])
+
+      await manager.removeWorktree('/repo', '/mock-home/.manifold/worktrees/proj/repo-oslo')
+
+      expect(mockSpawn).toHaveBeenNthCalledWith(
+        2,
+        'git',
+        ['worktree', 'remove', '--force', '--force', '/mock-home/.manifold/worktrees/proj/repo-oslo'],
+        { cwd: '/repo', stdio: ['ignore', 'pipe', 'pipe'] },
+      )
+    })
+
+    it('removes metadata even when git removal fails so discovery does not resurrect the session', async () => {
+      mockSpawnSequence([
+        { stdout: '', exitCode: 1, stderr: 'fatal: ...' },
+        { stdout: '', exitCode: 1, stderr: 'fatal: ...' },
+        { stdout: '' }, // worktree prune
+      ])
       const { removeWorktreeMeta } = await import('./worktree-meta')
 
-      await expect(
-        manager.removeWorktree('/repo', '/mock-home/.manifold/worktrees/proj/repo-oslo'),
-      ).rejects.toThrow()
+      await manager.removeWorktree('/repo', '/mock-home/.manifold/worktrees/proj/repo-oslo')
 
-      // Metadata must not be removed if git failed — the worktree still exists on disk
-      expect(removeWorktreeMeta).not.toHaveBeenCalled()
+      expect(removeWorktreeMeta).toHaveBeenCalledWith(
+        '/mock-home/.manifold/worktrees/proj/repo-oslo',
+      )
     })
   })
 
