@@ -1,7 +1,8 @@
-import React, { useCallback, useEffect, useState } from 'react'
+import React, { useCallback, useEffect, useRef, useState } from 'react'
 import { useDockState } from '../editor/dock-panel-types'
 import { useWatchPanel } from '../../hooks/useWatchPanel'
 import { useWatchUrlPreview, clearWatchPreviewCaches } from '../../hooks/useWatchUrlPreview'
+import { watchPanelStore } from '../../hooks/watchPanelStore'
 import { watchStyles as s } from './WatchPanel.styles'
 import { FrameLightbox } from './FrameLightbox'
 import { WatchPlaylistPreview } from './WatchPlaylistPreview'
@@ -52,6 +53,24 @@ export function WatchPanel(): React.JSX.Element {
   const preview = useWatchUrlPreview(url, { peekUrl, peekPlaylist })
 
   useEffect(() => { void refreshSetupStatus() }, [refreshSetupStatus])
+  // When the playlist's contents shift (e.g. a video was removed externally
+  // and Clear cache forced a re-peek), re-key the frame thumbnails and
+  // sibling-agent mapping by URL. Without this, frames captured at index N
+  // would render under whatever video is now at index N — a different video.
+  const prevEntryUrlsRef = useRef<string[]>([])
+  useEffect(() => {
+    const prev = prevEntryUrlsRef.current
+    const next = preview.entries.map((e) => e.url)
+    prevEntryUrlsRef.current = next
+    if (!sessionId || prev.length === 0) return
+    const identical = prev.length === next.length && prev.every((u, i) => u === next[i])
+    if (identical) return
+    watchPanelStore.remapPlaylistEntries(
+      sessionId,
+      prev.map((url) => ({ url })),
+      next.map((url) => ({ url })),
+    )
+  }, [preview.entries, sessionId])
   // Re-reveal the player whenever the focused entry changes, even if the
   // previous one was hidden.
   useEffect(() => { setPlayerHidden(false) }, [focusedEntryIndex])

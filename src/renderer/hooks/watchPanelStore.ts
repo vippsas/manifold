@@ -150,6 +150,39 @@ export const watchPanelStore = {
   setOpenSiblingId(sessionId: string, value: string | null): void {
     update(sessionId, (cur) => ({ ...cur, openSiblingId: value }))
   },
+  /**
+   * Re-key `playlistFrames` and `siblingByIndex` by entry URL when the
+   * playlist contents change (e.g. a video was removed and the user clicked
+   * Clear cache). Without this, frames captured at index N would render under
+   * whatever video is now at index N — a different video.
+   */
+  remapPlaylistEntries(
+    sessionId: string,
+    oldEntries: { url: string }[],
+    newEntries: { url: string }[],
+  ): void {
+    const sameLength = oldEntries.length === newEntries.length
+    const identical = sameLength && oldEntries.every((e, i) => e.url === newEntries[i].url)
+    if (identical) return
+    const newUrlToIdx = new Map(newEntries.map((e, i) => [e.url, i]))
+    update(sessionId, (cur) => {
+      const nextFrames: WatchSessionState['playlistFrames'] = {}
+      for (const [oldIdxStr, fr] of Object.entries(cur.playlistFrames)) {
+        const url = oldEntries[Number(oldIdxStr)]?.url
+        if (url === undefined) continue
+        const newIdx = newUrlToIdx.get(url)
+        if (newIdx !== undefined) nextFrames[newIdx] = fr
+      }
+      const nextSiblings: WatchSessionState['siblingByIndex'] = {}
+      for (const [oldIdxStr, sid] of Object.entries(cur.siblingByIndex)) {
+        const url = oldEntries[Number(oldIdxStr)]?.url
+        if (url === undefined) continue
+        const newIdx = newUrlToIdx.get(url)
+        if (newIdx !== undefined) nextSiblings[newIdx] = sid
+      }
+      return { ...cur, playlistFrames: nextFrames, siblingByIndex: nextSiblings }
+    })
+  },
   delete(sessionId: string): void {
     stateMap.delete(sessionId)
     listeners.delete(sessionId)
@@ -164,5 +197,10 @@ export const __watchPanelStoreTestHooks = {
     ipcInitialized = false
     if (persistTimer) { clearTimeout(persistTimer); persistTimer = null }
     try { if (typeof localStorage !== 'undefined') localStorage.removeItem(STORAGE_KEY) } catch { /* */ }
+  },
+  seedFrames(sessionId: string, frames: Record<number, WatchFrameRef[]>): void {
+    const cur = stateMap.get(sessionId) ?? EMPTY_STATE
+    stateMap.set(sessionId, { ...cur, playlistFrames: frames })
+    notify(sessionId)
   },
 }
