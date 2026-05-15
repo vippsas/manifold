@@ -8,6 +8,10 @@ export interface WatchSessionState {
   siblingByIndex: Record<number, string>
   playlistDispatched: boolean
   openSiblingId: string | null
+  /** Index of the entry whose card is highlighted and whose video shows in
+   *  the player above the list. Persisted so it survives dockview re-mounts
+   *  triggered by opening a sibling agent. */
+  focusedEntryIndex: number | null
 }
 
 const EMPTY_STATE: WatchSessionState = Object.freeze({
@@ -16,6 +20,7 @@ const EMPTY_STATE: WatchSessionState = Object.freeze({
   siblingByIndex: {},
   playlistDispatched: false,
   openSiblingId: null,
+  focusedEntryIndex: null,
 }) as WatchSessionState
 
 const stateMap = new Map<string, WatchSessionState>()
@@ -68,7 +73,7 @@ function schedulePersist(): void {
 interface PlaylistProgressEvent {
   sessionId?: string
   entryIndex?: number
-  kind?: 'log' | 'stage' | 'frames'
+  kind?: 'log' | 'stage' | 'frames' | 'sibling'
   payload?: unknown
 }
 
@@ -99,6 +104,13 @@ function ensureIpc(): void {
       update(ev.sessionId, (cur) => ({
         ...cur,
         playlistFrames: { ...cur.playlistFrames, [entryIndex]: frames },
+      }))
+    } else if (ev.kind === 'sibling' && typeof ev.payload === 'string') {
+      const siblingSessionId = ev.payload
+      const entryIndex = ev.entryIndex
+      update(ev.sessionId, (cur) => ({
+        ...cur,
+        siblingByIndex: { ...cur.siblingByIndex, [entryIndex]: siblingSessionId },
       }))
     }
   })
@@ -138,7 +150,14 @@ export const watchPanelStore = {
         siblingByIndex: {},
         playlistDispatched: false,
         openSiblingId: null,
+        focusedEntryIndex: null,
       }
+    })
+  },
+  setFocusedEntryIndex(sessionId: string, value: number | null): void {
+    update(sessionId, (cur) => {
+      if (cur.focusedEntryIndex === value) return cur
+      return { ...cur, focusedEntryIndex: value }
     })
   },
   setSiblingByIndex(sessionId: string, map: Record<number, string>): void {
@@ -180,7 +199,12 @@ export const watchPanelStore = {
         const newIdx = newUrlToIdx.get(url)
         if (newIdx !== undefined) nextSiblings[newIdx] = sid
       }
-      return { ...cur, playlistFrames: nextFrames, siblingByIndex: nextSiblings }
+      let nextFocused = cur.focusedEntryIndex
+      if (nextFocused !== null) {
+        const url = oldEntries[nextFocused]?.url
+        nextFocused = url !== undefined ? (newUrlToIdx.get(url) ?? null) : null
+      }
+      return { ...cur, playlistFrames: nextFrames, siblingByIndex: nextSiblings, focusedEntryIndex: nextFocused }
     })
   },
   delete(sessionId: string): void {
