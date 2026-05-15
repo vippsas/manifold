@@ -80,7 +80,12 @@ export class WorktreeManager {
   }
 
   async removeWorktree(projectPath: string, worktreePath: string): Promise<void> {
-    await gitExec(['worktree', 'remove', worktreePath, '--force'], projectPath)
+    try {
+      await gitExec(['worktree', 'remove', worktreePath, '--force'], projectPath)
+    } catch {
+      // Locked worktrees require a second --force (git 2.20+).
+      await gitExec(['worktree', 'remove', '--force', '--force', worktreePath], projectPath)
+    }
     await removeWorktreeMeta(worktreePath)
   }
 

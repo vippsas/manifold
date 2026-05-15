@@ -254,13 +254,15 @@ export class SessionManager {
         (s) => s.worktreePath === session.worktreePath
       )
       if (!sharedWithOther) {
-        try {
-          await this.worktreeManager.removeWorktree(
-            this.projectRegistry.getProject(session.projectId)?.path ?? '',
-            session.worktreePath
-          )
-        } catch {
-          // Worktree cleanup is best-effort
+        const projectPath = this.projectRegistry.getProject(session.projectId)?.path
+        if (!projectPath) {
+          debugLog(`[session] worktree remove skipped — project ${session.projectId} not found in registry (worktree ${session.worktreePath} left on disk)`)
+        } else {
+          try {
+            await this.worktreeManager.removeWorktree(projectPath, session.worktreePath)
+          } catch (err) {
+            debugLog(`[session] worktree remove failed for ${session.worktreePath}: ${err}`)
+          }
         }
       }
     }
