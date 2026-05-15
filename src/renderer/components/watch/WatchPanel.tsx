@@ -45,13 +45,27 @@ export function WatchPanel(): React.JSX.Element {
   const [thumbCache, setThumbCache] = useState<Record<string, string>>({})
   const [lightbox, setLightbox] = useState<{ cardIndex: number; frameIndex: number } | null>(null)
   const [playerHidden, setPlayerHidden] = useState(false)
+  // Which entry's video is shown in the player above the list. Independent
+  // of `openSiblingId` so the player works before any agent is dispatched.
+  const [focusedEntryIndex, setFocusedEntryIndex] = useState<number | null>(null)
 
   const preview = useWatchUrlPreview(url, { peekUrl, peekPlaylist })
 
   useEffect(() => { void refreshSetupStatus() }, [refreshSetupStatus])
-  // Clicking a different video should re-reveal the player for the new video,
-  // even if the previous one was hidden.
-  useEffect(() => { setPlayerHidden(false) }, [openSiblingId])
+  // Re-reveal the player whenever the focused entry changes, even if the
+  // previous one was hidden.
+  useEffect(() => { setPlayerHidden(false) }, [focusedEntryIndex])
+  // Default focus to the first selected entry (or first entry overall) once
+  // the playlist preview loads. Reset to null when the URL clears.
+  useEffect(() => {
+    if (preview.entries.length === 0) {
+      if (focusedEntryIndex !== null) setFocusedEntryIndex(null)
+      return
+    }
+    if (focusedEntryIndex !== null && focusedEntryIndex < preview.entries.length) return
+    const firstSelected = preview.entries.findIndex((_, i) => preview.selectedIndices.has(i))
+    setFocusedEntryIndex(firstSelected >= 0 ? firstSelected : 0)
+  }, [preview.entries, preview.selectedIndices, focusedEntryIndex])
 
   const handleThumbLoaded = useCallback((path: string, dataUrl: string) => {
     setThumbCache((prev) => (prev[path] === dataUrl ? prev : { ...prev, [path]: dataUrl }))
@@ -64,10 +78,6 @@ export function WatchPanel(): React.JSX.Element {
   // Run — already-dispatched entries are locked to navigation mode.
   const pendingEntries = selectedEntries.filter(({ index }) => !siblingByIndex[index])
   const hasAnySibling = Object.keys(siblingByIndex).length > 0
-  const activeSiblingIndex = openSiblingId
-    ? Object.entries(siblingByIndex).find(([, sid]) => sid === openSiblingId)?.[0] ?? null
-    : null
-  const activeSiblingIndexNum = activeSiblingIndex !== null ? Number(activeSiblingIndex) : null
   const ready = !preview.loading && preview.entries.length > 0
   const canRun = !!sessionId && isRunning && !busy && ready && pendingEntries.length > 0
   const canImprove = !!sessionId && isRunning && improvingIndex === null && !busy
@@ -164,8 +174,8 @@ export function WatchPanel(): React.JSX.Element {
         <div style={s.inputHint}>Playlists must be public — private and unlisted are not supported.</div>
       </div>
       {(() => {
-        const activeEntry = activeSiblingIndexNum !== null
-          ? preview.entries[activeSiblingIndexNum] ?? null
+        const activeEntry = focusedEntryIndex !== null
+          ? preview.entries[focusedEntryIndex] ?? null
           : null
         if (!activeEntry) return null
         if (playerHidden) {
@@ -195,7 +205,8 @@ export function WatchPanel(): React.JSX.Element {
         onToggleAll={preview.setAllEntriesSelected}
         canImprove={canImprove}
         siblingByIndex={siblingByIndex}
-        activeSiblingIndex={activeSiblingIndexNum}
+        focusedIndex={focusedEntryIndex}
+        onFocus={setFocusedEntryIndex}
         framesByIndex={playlistFrames}
         readFrame={readFrame}
         onThumbLoaded={handleThumbLoaded}
@@ -214,6 +225,7 @@ export function WatchPanel(): React.JSX.Element {
             dock.onCloseSiblingPanel(openSiblingId)
           }
           setOpenSiblingId(sid)
+          setFocusedEntryIndex(index)
         }}
         onSelectFrame={(cardIndex, frameIndex) => setLightbox({ cardIndex, frameIndex })}
       />

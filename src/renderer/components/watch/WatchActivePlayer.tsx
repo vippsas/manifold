@@ -17,10 +17,15 @@ export function WatchActivePlayer({ entry, onHide }: Props): React.JSX.Element |
         <iframe
           // `key` forces a fresh iframe when the video changes — without it,
           // YouTube's embed sometimes keeps the old player state.
+          // Attributes match YouTube's oembed-recommended embed exactly:
+          // `?feature=oembed`, full `allow` list, and an explicit referrer
+          // policy. Some videos fail with "Error 152" if any of these are
+          // missing or if the Referer is rewritten to a youtube.com origin.
           key={videoId}
-          src={`https://www.youtube.com/embed/${videoId}`}
+          src={`https://www.youtube.com/embed/${videoId}?feature=oembed`}
           title={entry.title ?? 'Video'}
-          allow="accelerometer; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+          allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+          referrerPolicy="strict-origin-when-cross-origin"
           allowFullScreen
           style={s.iframe}
         />

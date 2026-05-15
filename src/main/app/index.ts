@@ -2,6 +2,7 @@ import { app, BrowserWindow } from 'electron'
 import type { AgentStatus } from '../../shared/types'
 import { loadShellPath } from './shell-path'
 import { configureDevProfilePaths } from './dev-profile'
+import { startLocalRendererServer, type LocalRendererServer } from './local-renderer-server'
 
 loadShellPath()
 configureDevProfilePaths(app)
@@ -203,7 +204,21 @@ modeSwitcher.register(
 )
 
 // ── App lifecycle ────────────────────────────────────────────────────
+let localRendererServer: LocalRendererServer | null = null
+
 app.whenReady().then(async () => {
+  // Production-only: serve the renderer over http://127.0.0.1 instead of
+  // file://. Embed providers (YouTube, Vimeo, Twitter, …) reject parents
+  // whose serialized origin is `null`/`file://`, surfacing as e.g. YouTube
+  // "Error 152". A loopback HTTP origin replicates the dev environment.
+  if (!process.env.ELECTRON_RENDERER_URL) {
+    try {
+      localRendererServer = await startLocalRendererServer(path.join(__dirname, '..'))
+      process.env.ELECTRON_RENDERER_URL = localRendererServer.url
+    } catch (err) {
+      console.error('[renderer] failed to start local server, falling back to file://:', err)
+    }
+  }
   if (settingsStore.getSettings().keepAwake) {
     powerManager.enable()
   }
@@ -250,6 +265,7 @@ app.on('before-quit', async () => {
   sessionManager.killAllSessions()
   ptyPool.killAll()
   await fileWatcher.unwatchAll()
+  await localRendererServer?.close()
   memoryStore.close()
   powerManager.disable()
 })

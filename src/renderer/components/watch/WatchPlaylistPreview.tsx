@@ -17,7 +17,8 @@ interface Props {
   onToggleAll: (selected: boolean) => void
   canImprove: boolean
   siblingByIndex: Record<number, string>
-  activeSiblingIndex: number | null
+  focusedIndex: number | null
+  onFocus: (index: number) => void
   framesByIndex: Record<number, WatchFrameRef[]>
   readFrame: (path: string) => Promise<string>
   onThumbLoaded: (path: string, dataUrl: string) => void
@@ -74,13 +75,14 @@ export function WatchPlaylistPreview(props: Props): React.JSX.Element | null {
           improveDisabled={!props.canImprove || (props.improvingIndex !== null && props.improvingIndex !== i)}
           hasSibling={!!props.siblingByIndex[i]}
           frames={props.framesByIndex[i]}
-          isActive={props.activeSiblingIndex === i}
+          isActive={props.focusedIndex === i}
           readFrame={props.readFrame}
           onThumbLoaded={props.onThumbLoaded}
           onQuestionChange={props.onQuestionChange}
           onImprove={props.onImprove}
           onToggleSelected={props.onToggleSelected}
           onOpenSibling={props.onOpenSibling}
+          onFocus={props.onFocus}
           onSelectFrame={props.onSelectFrame}
         />
       ))}
@@ -106,10 +108,12 @@ interface CardProps {
   onImprove: (index: number) => void
   onToggleSelected: (index: number) => void
   onOpenSibling: (index: number) => void
+  onFocus: (index: number) => void
   onSelectFrame: (cardIndex: number, frameIndex: number) => void
 }
 
-function PlaylistEntryCard({ index, entry, question, selected, showCheckbox, showIndexLabel, improving, improveDisabled, hasSibling, frames, isActive, readFrame, onThumbLoaded, onQuestionChange, onImprove, onToggleSelected, onOpenSibling, onSelectFrame }: CardProps): React.JSX.Element {
+function PlaylistEntryCard({ index, entry, question, selected, showCheckbox, showIndexLabel, improving, improveDisabled, hasSibling, frames, isActive, readFrame, onThumbLoaded, onQuestionChange, onImprove, onToggleSelected, onOpenSibling, onFocus, onSelectFrame }: CardProps): React.JSX.Element {
+  const focus = (): void => onFocus(index)
   return (
     <div
       style={{
@@ -130,15 +134,22 @@ function PlaylistEntryCard({ index, entry, question, selected, showCheckbox, sho
           />
         )}
         {entry.thumbnailDataUrl ? (
-          <img src={entry.thumbnailDataUrl} alt="" style={s.thumb} />
+          <img
+            src={entry.thumbnailDataUrl}
+            alt=""
+            style={{ ...s.thumb, ...s.thumbClickable }}
+            onClick={focus}
+          />
         ) : (
-          <div style={{ ...s.thumb, ...s.thumbFallback }}>🎬</div>
+          <div style={{ ...s.thumb, ...s.thumbFallback, ...s.thumbClickable }} onClick={focus}>🎬</div>
         )}
         <div style={s.meta}>
           {showIndexLabel && (
             <div style={s.indexLabel}>#{index + 1}</div>
           )}
-          <div style={s.title}>{entry.title ?? 'Untitled video'}</div>
+          <div style={{ ...s.title, ...s.titleClickable }} onClick={focus}>
+            {entry.title ?? 'Untitled video'}
+          </div>
           <div style={s.subRow}>
             {entry.uploader && <span>{entry.uploader}</span>}
             {entry.durationSeconds !== undefined && (
@@ -256,6 +267,8 @@ const s: Record<string, CSSProperties> = {
     display: 'flex', alignItems: 'center', justifyContent: 'center',
     fontSize: 24, opacity: 0.5,
   },
+  thumbClickable: { cursor: 'pointer' },
+  titleClickable: { cursor: 'pointer' },
   meta: { flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', gap: 2 },
   indexLabel: { fontSize: 10, fontWeight: 600, opacity: 0.55, letterSpacing: 0.4 },
   cardDeselected: { opacity: 0.55 },
