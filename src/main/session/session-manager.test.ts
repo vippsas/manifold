@@ -262,6 +262,36 @@ describe('SessionManager', () => {
       await sessionManager.killSession('session-uuid-1')
       expect(sessionManager.getSession('session-uuid-1')).toBeUndefined()
     })
+
+    it('does not remove worktree when another session still uses the same path', async () => {
+      // Base session — owns the worktree.
+      await sessionManager.createSession({
+        projectId: 'proj-1',
+        runtimeId: 'claude',
+        prompt: 'base',
+      })
+      // Sibling session — joined the base's worktree (e.g. watch playlist sibling).
+      await sessionManager.createSession({
+        projectId: 'proj-1',
+        runtimeId: 'claude',
+        prompt: 'sibling',
+        existingWorktreePath: '/repo/.manifold/worktrees/manifold-oslo',
+      })
+
+      // Closing the sibling tab must not remove the worktree —
+      // the base agent still depends on it.
+      await sessionManager.killSession('session-uuid-2')
+
+      expect(worktreeManager.removeWorktree).not.toHaveBeenCalled()
+      expect(sessionManager.getSession('session-uuid-1')).toBeDefined()
+
+      // Closing the base afterwards (last user of the path) removes the worktree.
+      await sessionManager.killSession('session-uuid-1')
+      expect(worktreeManager.removeWorktree).toHaveBeenCalledWith(
+        '/repo',
+        '/repo/.manifold/worktrees/manifold-oslo',
+      )
+    })
   })
 
   describe('interruptSession', () => {

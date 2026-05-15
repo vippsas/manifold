@@ -246,13 +246,22 @@ export class SessionManager {
     }
 
     if (session.projectId && !session.noWorktree) {
-      try {
-        await this.worktreeManager.removeWorktree(
-          this.projectRegistry.getProject(session.projectId)?.path ?? '',
-          session.worktreePath
-        )
-      } catch {
-        // Worktree cleanup is best-effort
+      // Skip removal if another live session shares this worktree path
+      // (e.g. watch playlist siblings or superagent fleet members spawned via
+      // existingWorktreePath). The session that created the worktree will
+      // clean it up when it itself is closed.
+      const sharedWithOther = Array.from(this.sessions.values()).some(
+        (s) => s.worktreePath === session.worktreePath
+      )
+      if (!sharedWithOther) {
+        try {
+          await this.worktreeManager.removeWorktree(
+            this.projectRegistry.getProject(session.projectId)?.path ?? '',
+            session.worktreePath
+          )
+        } catch {
+          // Worktree cleanup is best-effort
+        }
       }
     }
 
