@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
-import { render, screen, fireEvent, act } from '@testing-library/react'
+import { render, screen, fireEvent } from '@testing-library/react'
 import React from 'react'
 import { ProjectSidebar } from './ProjectSidebar'
 import type { Project, AgentSession } from '../../../shared/types'
@@ -40,7 +40,7 @@ function renderSidebar(overrides = {}) {
     onSelectSession: vi.fn(),
     onRemoveProject: vi.fn(),
     onUpdateProject: vi.fn(),
-    onDeleteAgent: vi.fn(),
+    onRequestDeleteAgent: vi.fn(),
     onNewAgent: vi.fn(),
     onNewProject: vi.fn(),
     fetchingProjectId: null,
@@ -163,13 +163,15 @@ describe('ProjectSidebar', () => {
     expect(agentButton).toHaveClass('sidebar-item-row--active')
   })
 
-  it('opens a confirmation dialog when agent delete button is clicked', () => {
+  it('calls onRequestDeleteAgent when agent delete button is clicked', () => {
     const { props } = renderSidebar()
 
     fireEvent.click(screen.getByLabelText('Delete oslo'))
 
-    expect(screen.getByRole('dialog', { name: 'Delete agent' })).toBeInTheDocument()
-    expect(props.onDeleteAgent).not.toHaveBeenCalled()
+    expect(props.onRequestDeleteAgent).toHaveBeenCalledTimes(1)
+    const [session, projectPath] = props.onRequestDeleteAgent.mock.calls[0]
+    expect(session.id).toBe('s1')
+    expect(projectPath).toBe('/repos/alpha')
   })
 
   it('does not trigger onSelectSession when delete button is clicked', () => {
@@ -185,25 +187,6 @@ describe('ProjectSidebar', () => {
 
     expect(screen.getByLabelText('Delete oslo')).toBeInTheDocument()
     expect(screen.getByLabelText('Delete bergen')).toBeInTheDocument()
-  })
-
-  it('calls onDeleteAgent after confirming agent deletion', async () => {
-    const { props } = renderSidebar()
-
-    fireEvent.click(screen.getByLabelText('Delete oslo'))
-    await act(async () => {
-      fireEvent.click(screen.getByRole('button', { name: 'Delete' }))
-    })
-
-    expect(props.onDeleteAgent).toHaveBeenCalledWith('s1')
-  })
-
-  it('mentions that the local branch will be kept in the delete dialog', () => {
-    renderSidebar()
-
-    fireEvent.click(screen.getByLabelText('Delete oslo'))
-
-    expect(screen.getByText(/The local branch will be kept\./)).toBeInTheDocument()
   })
 
   it('selects first session when clicking a collapsed project with agents', () => {

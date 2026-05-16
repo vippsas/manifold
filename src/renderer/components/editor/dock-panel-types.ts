@@ -79,7 +79,7 @@ export interface DockAppState {
   onSelectSession: (sessionId: string, projectId: string) => void
   onRemoveProject: (id: string) => void
   onUpdateProject: (id: string, partial: Partial<Omit<Project, 'id'>>) => void
-  onDeleteAgent: (id: string) => Promise<void>
+  onRequestDeleteAgent: (session: AgentSession, projectPath: string) => void
   onNewAgentFromHeader: () => void
   newAgentFocusTrigger: number
   onNewProject: () => void

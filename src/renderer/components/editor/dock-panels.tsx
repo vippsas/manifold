@@ -241,7 +241,7 @@ function ProjectsPanel(): React.JSX.Element {
       onSelectSession={s.onSelectSession}
       onRemoveProject={s.onRemoveProject}
       onUpdateProject={s.onUpdateProject}
-      onDeleteAgent={s.onDeleteAgent}
+      onRequestDeleteAgent={s.onRequestDeleteAgent}
       onNewAgent={s.onNewAgentFromHeader}
       onNewProject={s.onNewProject}
       superagents={s.superagents}

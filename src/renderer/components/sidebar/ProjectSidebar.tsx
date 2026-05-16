@@ -2,12 +2,9 @@ import React, { useCallback, useState } from 'react'
 import type { Project, AgentSession } from '../../../shared/types'
 import type { Superagent } from '../../../shared/superagent-types'
 import { sidebarStyles } from './ProjectSidebar.styles'
-import { AgentItem, formatBranchLabel, runtimeLabel } from './AgentItem'
+import { AgentItem } from './AgentItem'
 import { SuperagentList } from './SuperagentList'
-import { createDialogStyles } from '../workbench-style-primitives'
 import { dedupeSessionsByWorktree } from '../../hooks/agent-siblings'
-
-const deleteDialogStyles = createDialogStyles('360px')
 
 interface ProjectSidebarProps {
   projects: Project[]
@@ -19,7 +16,7 @@ interface ProjectSidebarProps {
   onSelectSession: (sessionId: string, projectId: string) => void
   onRemoveProject: (id: string) => void
   onUpdateProject: (id: string, partial: Partial<Omit<Project, 'id'>>) => void
-  onDeleteAgent: (id: string) => Promise<void>
+  onRequestDeleteAgent: (session: AgentSession, projectPath: string) => void
   onNewAgent: () => void
   onNewProject: () => void
   superagents?: Superagent[]
@@ -44,7 +41,7 @@ export function ProjectSidebar({
   onSelectSession,
   onRemoveProject,
   onUpdateProject,
-  onDeleteAgent,
+  onRequestDeleteAgent,
   onNewAgent,
   onNewProject,
   superagents,
@@ -58,9 +55,6 @@ export function ProjectSidebar({
   fetchError,
   onFetchProject,
 }: ProjectSidebarProps): React.JSX.Element {
-  const [pendingDelete, setPendingDelete] = useState<{ session: AgentSession; projectPath: string } | null>(null)
-  const [deletingSessionId, setDeletingSessionId] = useState<string | null>(null)
-
   const handleRemove = useCallback(
     (e: React.MouseEvent, id: string): void => {
       e.stopPropagation()
@@ -69,91 +63,49 @@ export function ProjectSidebar({
     [onRemoveProject]
   )
 
-  const handleRequestDeleteAgent = useCallback((session: AgentSession, projectPath: string): void => {
-    setPendingDelete({ session, projectPath })
-  }, [])
-
-  const handleCancelDelete = useCallback((): void => {
-    if (deletingSessionId) return
-    setPendingDelete(null)
-  }, [deletingSessionId])
-
-  const pendingSiblingCount = pendingDelete
-    ? (allProjectSessions[pendingDelete.session.projectId] ?? [])
-        .filter((s) => s.worktreePath !== '' && s.worktreePath === pendingDelete.session.worktreePath)
-        .length
-    : 0
-
-  const handleConfirmDelete = useCallback(async (): Promise<void> => {
-    if (!pendingDelete) return
-
-    setDeletingSessionId(pendingDelete.session.id)
-    try {
-      // onDeleteAgent routes through useDeleteAgent, which calls
-      // agent:kill-worktree for worktree-based sessions. That kills every
-      // sibling on the worktree and removes the worktree atomically — the
-      // sidebar doesn't need to enumerate siblings itself.
-      await onDeleteAgent(pendingDelete.session.id)
-      setPendingDelete(null)
-    } catch {
-      // Keep the confirmation dialog open if deletion fails.
-    } finally {
-      setDeletingSessionId(null)
-    }
-  }, [onDeleteAgent, pendingDelete])
-
   return (
-    <>
-      <div style={sidebarStyles.root}>
-        {superagents && onSelectSuperagent && (
-          <SuperagentList
-            superagents={superagents}
-            projects={projects}
-            activeSuperagentId={activeSuperagentId ?? null}
-            onSelect={onSelectSuperagent}
-            onRemove={onRemoveSuperagent}
-            allProjectSessions={allProjectSessions}
-            activeSessionId={activeSessionId}
-            outputtingSessionIds={outputtingSessionIds}
-            onSelectSession={onSelectSession}
-            onSpawnFleetAgent={onSpawnFleetAgent}
-            onDeleteAgent={handleRequestDeleteAgent}
-          />
-        )}
-        <ProjectList
+    <div style={sidebarStyles.root}>
+      {superagents && onSelectSuperagent && (
+        <SuperagentList
+          superagents={superagents}
           projects={projects}
-          activeProjectId={activeSuperagentId ? null : activeProjectId}
+          activeSuperagentId={activeSuperagentId ?? null}
+          onSelect={onSelectSuperagent}
+          onRemove={onRemoveSuperagent}
           allProjectSessions={allProjectSessions}
           activeSessionId={activeSessionId}
           outputtingSessionIds={outputtingSessionIds}
-          onSelectProject={onSelectProject}
           onSelectSession={onSelectSession}
-          onRequestDeleteAgent={handleRequestDeleteAgent}
-          onRemove={handleRemove}
-          onUpdateProject={onUpdateProject}
-          fetchingProjectId={fetchingProjectId}
-          lastFetchedProjectId={lastFetchedProjectId}
-          fetchResult={fetchResult}
-          fetchError={fetchError}
-          onFetchProject={onFetchProject}
+          onSpawnFleetAgent={onSpawnFleetAgent}
+          onDeleteAgent={onRequestDeleteAgent}
         />
-        <div style={sidebarStyles.actions}>
-          <button type="button" onClick={onNewAgent} className="sidebar-action-button sidebar-action-button--primary" style={sidebarStyles.actionButtonPrimary}>
-            + New Agent
-          </button>
-          <button type="button" onClick={onNewProject} className="sidebar-action-button" style={sidebarStyles.actionButton}>
-            + New Repository
-          </button>
-        </div>
-      </div>
-      <DeleteAgentDialog
-        pendingDelete={pendingDelete}
-        siblingCount={pendingSiblingCount}
-        deleting={deletingSessionId === pendingDelete?.session.id}
-        onCancel={handleCancelDelete}
-        onConfirm={handleConfirmDelete}
+      )}
+      <ProjectList
+        projects={projects}
+        activeProjectId={activeSuperagentId ? null : activeProjectId}
+        allProjectSessions={allProjectSessions}
+        activeSessionId={activeSessionId}
+        outputtingSessionIds={outputtingSessionIds}
+        onSelectProject={onSelectProject}
+        onSelectSession={onSelectSession}
+        onRequestDeleteAgent={onRequestDeleteAgent}
+        onRemove={handleRemove}
+        onUpdateProject={onUpdateProject}
+        fetchingProjectId={fetchingProjectId}
+        lastFetchedProjectId={lastFetchedProjectId}
+        fetchResult={fetchResult}
+        fetchError={fetchError}
+        onFetchProject={onFetchProject}
       />
-    </>
+      <div style={sidebarStyles.actions}>
+        <button type="button" onClick={onNewAgent} className="sidebar-action-button sidebar-action-button--primary" style={sidebarStyles.actionButtonPrimary}>
+          + New Agent
+        </button>
+        <button type="button" onClick={onNewProject} className="sidebar-action-button" style={sidebarStyles.actionButton}>
+          + New Repository
+        </button>
+      </div>
+    </div>
   )
 }
 
@@ -377,88 +329,6 @@ function ProjectList({
           )}
         </>
       )}
-    </div>
-  )
-}
-
-interface DeleteAgentDialogProps {
-  pendingDelete: { session: AgentSession; projectPath: string } | null
-  siblingCount: number
-  deleting: boolean
-  onCancel: () => void
-  onConfirm: () => Promise<void>
-}
-
-function DeleteAgentDialog({
-  pendingDelete,
-  siblingCount,
-  deleting,
-  onCancel,
-  onConfirm,
-}: DeleteAgentDialogProps): React.JSX.Element | null {
-  const handleKeyDown = useCallback(
-    (e: React.KeyboardEvent<HTMLDivElement>): void => {
-      if (e.key === 'Escape' && !deleting) onCancel()
-    },
-    [deleting, onCancel]
-  )
-
-  if (!pendingDelete) return null
-
-  const { session, projectPath } = pendingDelete
-  const label = formatBranchLabel(session.branchName, projectPath)
-  const multi = siblingCount > 1
-  const actionText = session.noWorktree
-    ? 'This will stop the agent.'
-    : multi
-      ? `This will stop all ${siblingCount} agents on this worktree and remove the worktree.`
-      : 'This will stop the agent and remove its worktree.'
-
-  return (
-    <div
-      onClick={deleting ? undefined : onCancel}
-      onKeyDown={handleKeyDown}
-      style={deleteDialogStyles.overlay}
-      role="dialog"
-      aria-modal="true"
-      aria-label="Delete agent"
-    >
-      <div style={deleteDialogStyles.panel} onClick={(e) => e.stopPropagation()}>
-        <div style={deleteDialogStyles.header}>
-          <span style={deleteDialogStyles.title}>Delete agent</span>
-          <button
-            type="button"
-            onClick={onCancel}
-            style={deleteDialogStyles.closeButton}
-            aria-label="Close delete dialog"
-            disabled={deleting}
-          >
-            &times;
-          </button>
-        </div>
-        <div style={deleteDialogStyles.body}>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
-            <strong style={{ color: 'var(--text-primary)' }}>{label}</strong>
-            <span style={{ color: 'var(--text-secondary)', fontSize: 'var(--type-ui-small)' }}>
-              {runtimeLabel(session.runtimeId)}
-            </span>
-          </div>
-          <p style={{ margin: 0, color: 'var(--text-secondary)', lineHeight: 1.5 }}>
-            {actionText} The local branch will be kept.
-          </p>
-        </div>
-        <div style={deleteDialogStyles.footer}>
-          <button type="button" onClick={onCancel} style={deleteDialogStyles.secondaryButton} disabled={deleting}>Cancel</button>
-          <button
-            type="button"
-            onClick={() => void onConfirm()}
-            style={{ ...deleteDialogStyles.primaryButton, background: 'var(--error)' }}
-            disabled={deleting}
-          >
-            {deleting ? 'Deleting...' : 'Delete'}
-          </button>
-        </div>
-      </div>
     </div>
   )
 }
