@@ -13,6 +13,7 @@ const PANEL_LABELS: Record<DockPanelId, string> = {
   backgroundAgent: 'Ideas',
   loop: 'Loop',
   watch: 'Watch',
+  verdicts: 'Verdicts',
 }
 
 const PANEL_BUTTON_LABELS: Partial<Record<DockPanelId, string>> = {
