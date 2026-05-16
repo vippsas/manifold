@@ -196,4 +196,53 @@ describe('DiffProvider', () => {
       expect(changes).toContainEqual({ path: 'new/untracked.ts', type: 'added' })
     })
   })
+
+  // ---- getDiffStats ----
+
+  describe('getDiffStats', () => {
+    it('parses numstat output into added/removed/filesChanged', async () => {
+      queueSpawn('5\t2\tsrc/a.ts\n0\t10\tsrc/b.ts\n')
+
+      const stats = await provider.getDiffStats('/worktree', 'main')
+
+      expect(stats).toEqual({
+        diffLines: { added: 5, removed: 12 },
+        filesChanged: 2,
+      })
+    })
+
+    it('returns zero stats when output is empty', async () => {
+      queueSpawn('')
+
+      const stats = await provider.getDiffStats('/worktree', 'main')
+
+      expect(stats).toEqual({
+        diffLines: { added: 0, removed: 0 },
+        filesChanged: 0,
+      })
+    })
+
+    it('returns zero stats when worktree does not exist', async () => {
+      existsSyncMock.mockReturnValue(false)
+
+      const stats = await provider.getDiffStats('/nonexistent', 'main')
+
+      expect(stats).toEqual({
+        diffLines: { added: 0, removed: 0 },
+        filesChanged: 0,
+      })
+      expect(spawnMock).not.toHaveBeenCalled()
+    })
+
+    it('returns zero stats when git diff fails', async () => {
+      queueSpawn('', 'no commits', 128)
+
+      const stats = await provider.getDiffStats('/worktree', 'main')
+
+      expect(stats).toEqual({
+        diffLines: { added: 0, removed: 0 },
+        filesChanged: 0,
+      })
+    })
+  })
 })
