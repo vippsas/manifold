@@ -52,6 +52,7 @@ const ALLOWED_INVOKE_CHANNELS = [
   'branch:suggest',
   'shell:create',
   'shell:kill',
+  'shell:predict-suggestion',
   'shell:accept-suggestion',
   'shell:dismiss-suggestion',
   'storage:open-dialog',

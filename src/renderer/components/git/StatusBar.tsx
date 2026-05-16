@@ -15,6 +15,10 @@ const PANEL_LABELS: Record<DockPanelId, string> = {
   watch: 'Watch',
 }
 
+const PANEL_BUTTON_LABELS: Partial<Record<DockPanelId, string>> = {
+  shell: 'Open Shell',
+}
+
 interface StatusBarProps {
   activeSession: AgentSession | null
   changedFiles: FileChange[]
@@ -106,10 +110,12 @@ export function StatusBar({
               key={id}
               type="button"
               onClick={() => dockLayout.togglePanel(id)}
-              className="statusbar-button"
+              className={`statusbar-button${id === 'shell' ? ' statusbar-button--shell' : ''}`}
+              aria-label={PANEL_BUTTON_LABELS[id] ?? `Show ${PANEL_LABELS[id]}`}
               title={`Show ${PANEL_LABELS[id]}`}
             >
-              {PANEL_LABELS[id]}
+              {id === 'shell' && <span className="statusbar-shell-icon" aria-hidden>&gt;_</span>}
+              {PANEL_BUTTON_LABELS[id] ?? PANEL_LABELS[id]}
             </button>
           ))}
         </span>

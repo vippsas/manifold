@@ -248,8 +248,6 @@ function createDockState(overrides: Partial<DockAppState> = {}): DockAppState {
     worktreeShellSessionId: null,
     projectShellSessionId: null,
     worktreeCwd: null,
-    shellBranchName: null,
-    shellProjectName: null,
     baseBranch: 'main',
     defaultRuntime: 'codex',
     onLaunchAgent: vi.fn(),

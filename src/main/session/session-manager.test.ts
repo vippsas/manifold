@@ -16,6 +16,15 @@ vi.mock('../agent/runtimes', () => ({
         env: undefined,
       }
     }
+    if (id === 'codex') {
+      return {
+        id: 'codex',
+        name: 'Codex',
+        binary: 'codex',
+        args: [],
+        env: undefined,
+      }
+    }
     return undefined
   }),
 }))

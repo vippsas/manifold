@@ -54,8 +54,18 @@
 
 .dockview-theme-manifold .dv-tabs-and-actions-container > .dv-tabs-container {
   display: flex;
-  flex: 1 1 0;
+  flex: 0 1 auto;
   flex-wrap: nowrap;
+  min-width: 0;
+  overflow: hidden;
+}
+
+.dockview-theme-manifold .dv-tabs-and-actions-container > .dv-left-actions-container {
+  align-items: center;
+  display: flex;
+  flex: 0 1 auto;
+  flex-wrap: nowrap;
+  min-height: var(--dv-tabs-and-actions-container-height);
   min-width: 0;
   overflow: hidden;
 }

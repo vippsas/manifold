@@ -208,6 +208,10 @@ export function registerAgentHandlers(deps: IpcDependencies): void {
     await sessionManager.killSession(sessionId)
   })
 
+  ipcMain.handle('shell:predict-suggestion', (_event, sessionId: string) => {
+    sessionManager.triggerShellSuggestion(sessionId)
+  })
+
   ipcMain.handle('shell:accept-suggestion', (_event, sessionId: string) => {
     const session = sessionManager.getInternalSession(sessionId)
     if (!session) return false

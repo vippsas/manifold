@@ -1,5 +1,5 @@
 import { describe, it, expect, vi } from 'vitest'
-import { render, screen } from '@testing-library/react'
+import { fireEvent, render, screen } from '@testing-library/react'
 import React from 'react'
 import { StatusBar } from './StatusBar'
 import type { AgentSession, FileChange } from '../../../shared/types'
@@ -22,20 +22,25 @@ const sampleChangedFiles: FileChange[] = [
   { path: 'src/old.ts', type: 'deleted' },
 ]
 
-function mockDockLayout(): UseDockLayoutResult {
-  return {
+function mockDockLayout(overrides: Partial<UseDockLayoutResult> = {}): UseDockLayoutResult {
+  const layout: UseDockLayoutResult = {
     apiRef: { current: null },
     onReady: vi.fn(),
     togglePanel: vi.fn(),
     closePanel: vi.fn(),
     focusPanel: vi.fn(),
+    openSiblingPanel: vi.fn(),
+    closeSiblingPanel: vi.fn(),
     ensureEditorPanel: vi.fn().mockReturnValue('editor'),
     splitEditorPane: vi.fn().mockReturnValue(null),
+    findEditorPanelForSplit: vi.fn().mockReturnValue(null),
     isPanelVisible: () => true,
     resetLayout: vi.fn(),
     hiddenPanels: [],
     editorPanelIds: [],
+    layoutVersion: 0,
   }
+  return { ...layout, ...overrides }
 }
 
 describe('StatusBar', () => {
@@ -128,5 +133,24 @@ describe('StatusBar', () => {
     )
 
     expect(screen.getByText('main')).toBeInTheDocument()
+  })
+
+  it('renders a prominent open shell button when the shell panel is hidden', () => {
+    const togglePanel = vi.fn()
+    render(
+      <StatusBar
+        activeSession={sampleSession}
+        changedFiles={[]}
+        baseBranch="main"
+        dockLayout={mockDockLayout({ hiddenPanels: ['shell'], togglePanel })}
+      />,
+    )
+
+    const shellButton = screen.getByRole('button', { name: /open shell/i })
+    expect(shellButton).toHaveClass('statusbar-button--shell')
+    expect(shellButton).toHaveTextContent('>_')
+
+    fireEvent.click(shellButton)
+    expect(togglePanel).toHaveBeenCalledWith('shell')
   })
 })

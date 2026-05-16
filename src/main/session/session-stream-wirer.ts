@@ -10,7 +10,21 @@ import { debugLog } from '../app/debug-log'
 import type { InternalSession } from './session-types'
 import type { SimpleRuntimeOutputMode } from '../agent/simple-runtime'
 import type { GitOperationsManager } from '../git/git-operations'
-import { predictNextCommand, dismissSuggestion, injectGhostText } from './shell-suggestion'
+import { predictNextCommand, dismissSuggestion } from './shell-suggestion'
+
+function stripTerminalControls(text: string): string {
+  return text
+    .replace(/\x1b\][^\x07\x1b]*(?:\x07|\x1b\\)/g, '')
+    .replace(/\x1b\[[0-?]*[ -/]*[@-~]/g, '')
+    .replace(/\x1b[ -/]*[@-~]/g, '')
+    .replace(/[\x00-\x08\x0b\x0c\x0e-\x1f\x7f]/g, '')
+}
+
+export function hasShellPromptAtEnd(output: string): boolean {
+  const clean = stripTerminalControls(output.slice(-2000)).replace(/\r/g, '\n')
+  const lastLine = clean.split('\n').pop() ?? ''
+  return /❯\s*$/.test(lastLine)
+}
 
 export class SessionStreamWirer {
   private gitOps: GitOperationsManager | undefined
@@ -113,17 +127,13 @@ export class SessionStreamWirer {
         this.checkVercelDeploy(session)
       }
 
-      // Detect Manifold shell prompt and trigger AI command prediction.
-      // Skip if a prediction is already in flight to avoid flooding the AI runtime.
-      if (session.runtimeId === '__shell__' && this.gitOps && data.includes('❯')
+      // Detect Manifold shell prompt and trigger AI command prediction immediately.
+      // Use the accumulated buffer so prompt detection still works if PTY chunks
+      // split the prompt glyph away from the current output chunk.
+      if (session.runtimeId === '__shell__' && this.gitOps && hasShellPromptAtEnd(session.outputBuffer)
           && !session.shellSuggestion?.pending && !session.nlPending) {
         dismissSuggestion(session, this.ptyPool)
-        if (!session.nlInputBuffer?.hasBufferedInput() && !session.nlHintShown) {
-          // First prompt: show hint ghost text teaching the user about # prefix
-          session.nlHintShown = true
-          session.nlHintActive = true
-          injectGhostText(this.ptyPool, session.ptyId, '# ask AI for help...')
-        } else if (!session.nlInputBuffer?.hasBufferedInput()) {
+        if (!session.nlInputBuffer?.hasBufferedInput()) {
           void predictNextCommand(session, this.ptyPool, this.gitOps)
         }
       }
