@@ -7,6 +7,7 @@ import { watchStyles as s } from './WatchPanel.styles'
 import { FrameLightbox } from './FrameLightbox'
 import { WatchPlaylistPreview } from './WatchPlaylistPreview'
 import { WatchActivePlayer } from './WatchActivePlayer'
+import { WatchHeader } from './WatchHeader'
 import { WatchSetupStatusBar } from './WatchSetupStatusBar'
 import { siblingPanelId } from '../../hooks/agent-siblings'
 
@@ -189,17 +190,15 @@ export function WatchPanel(): React.JSX.Element {
 
   return (
     <div style={s.container}>
-      <div>
-        <div style={s.label}>Video, public playlist, or local path</div>
-        <input
-          style={s.input}
-          value={url}
-          onChange={(e) => setUrl(e.target.value)}
-          placeholder="https://youtu.be/… , a public playlist URL, or /path/to/recording.mp4"
-          autoFocus
-        />
-        <div style={s.inputHint}>Playlists must be public — private and unlisted are not supported.</div>
-      </div>
+      <WatchHeader
+        url={url}
+        onUrlChange={setUrl}
+        onRun={handleRun}
+        canRun={canRun}
+        busy={busy}
+        runLabel={runLabel}
+        showExamples={!url && preview.entries.length === 0}
+      />
       {(() => {
         const activeEntry = focusedEntryIndex !== null
           ? preview.entries[focusedEntryIndex] ?? null
@@ -256,30 +255,12 @@ export function WatchPanel(): React.JSX.Element {
         }}
         onSelectFrame={(cardIndex, frameIndex) => setLightbox({ cardIndex, frameIndex })}
       />
-      <div style={s.row}>
-        <button
-          type="button"
-          onClick={handleRun}
-          disabled={!canRun}
-          aria-busy={busy}
-          style={{
-            ...s.runButton,
-            ...(busy ? s.runButtonBusy : {}),
-            ...(canRun || busy ? {} : s.runButtonDisabled),
-          }}
-        >
-          {busy ? (
-            <>
-              <span style={s.runSpinner} aria-hidden />
-              <span>Working…</span>
-            </>
-          ) : (
-            runLabel
-          )}
-        </button>
-        {!sessionId && <span style={s.hint}>Select a project and start an agent first.</span>}
-        {sessionId && !isRunning && <span style={s.hint}>Active agent is not running.</span>}
-      </div>
+      {(!sessionId || !isRunning) && (
+        <div style={s.hintRow}>
+          {!sessionId && <span>Select a project and start an agent to enable Run.</span>}
+          {sessionId && !isRunning && <span>Active agent is not running.</span>}
+        </div>
+      )}
       {error && <div style={s.error}>{error}</div>}
       {!error && preview.error && <div style={s.error}>{preview.error}</div>}
 
