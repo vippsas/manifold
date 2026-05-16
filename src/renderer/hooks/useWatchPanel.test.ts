@@ -235,6 +235,27 @@ describe('useWatchPanel', () => {
     expect(result.current.playlistDispatched).toBe(false)
   })
 
+  it('derives playlistDispatched from merged siblings, not OR of booleans', async () => {
+    // Edge case: snapshot has dispatched=true but its siblings have already
+    // been filtered out (e.g. all dead sessions). Naively OR-ing would leave
+    // dispatched=true with an empty siblingByIndex — inconsistent state.
+    invoke.mockImplementation(async (channel: string) => {
+      if (channel === 'watch:state-get') {
+        return {
+          url: 'https://playlist',
+          playlistFrames: {},
+          siblingByIndex: {},
+          playlistDispatched: true,
+        }
+      }
+      return undefined
+    })
+    const { result } = renderHook(() => useWatchPanel('s1'))
+    await waitFor(() => expect(result.current.url).toBe('https://playlist'))
+    expect(result.current.siblingByIndex).toEqual({})
+    expect(result.current.playlistDispatched).toBe(false)
+  })
+
   it('merges live sibling events with the hydrated snapshot', async () => {
     let resolveSnapshot: (snap: unknown) => void = () => undefined
     invoke.mockImplementation(async (channel: string) => {

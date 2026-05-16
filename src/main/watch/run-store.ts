@@ -8,6 +8,7 @@ import type {
   WatchSessionSnapshot,
 } from '../../shared/watch-types'
 import type { AgentSession } from '../../shared/types'
+import { debugLog } from '../app/debug-log'
 
 const CONFIG_DIR = path.join(os.homedir(), '.manifold')
 const STATE_FILE = path.join(CONFIG_DIR, 'watch-runs.json')
@@ -52,6 +53,9 @@ export interface StartWatchRunOptions {
 
 export class WatchRunStore {
   private state: StoredWatchRunState
+  // True when we couldn't read an existing state file (e.g. EACCES). We then
+  // skip writes to avoid clobbering data we can't see.
+  private readOnly = false
 
   constructor(private stateFile: string = STATE_FILE) {
     this.state = this.loadFromDisk()
@@ -94,6 +98,16 @@ export class WatchRunStore {
   setUrl(session: AgentSession, url: string): WatchSessionSnapshot {
     const key = this.keyForSession(session)
     const previous = this.state.sessions[key]
+    if (
+      previous &&
+      previous.url === url &&
+      previous.ownerSessionId === session.id &&
+      previous.ownerWorktreePath === session.worktreePath
+    ) {
+      // No-op: avoid a synchronous JSON write per keystroke when the URL
+      // input emits an unchanged value.
+      return this.getSnapshot(session)
+    }
     const activeRun = previous?.activeRunId ? this.state.runs[previous.activeRunId] : undefined
     this.state.sessions[key] = {
       key,
@@ -220,21 +234,41 @@ export class WatchRunStore {
   }
 
   private loadFromDisk(): StoredWatchRunState {
+    let raw: string
     try {
-      if (!fs.existsSync(this.stateFile)) return { sessions: {}, runs: {} }
-      const raw = fs.readFileSync(this.stateFile, 'utf-8')
+      raw = fs.readFileSync(this.stateFile, 'utf-8')
+    } catch (err) {
+      if ((err as NodeJS.ErrnoException).code === 'ENOENT') return { sessions: {}, runs: {} }
+      // Don't wipe a state file we couldn't read — that loses user history
+      // forever. Log and bail with empty in-memory state; do not overwrite.
+      debugLog(`WatchRunStore: cannot read ${this.stateFile}: ${err}`)
+      this.readOnly = true
+      return { sessions: {}, runs: {} }
+    }
+    try {
       const parsed = JSON.parse(raw) as Partial<StoredWatchRunState>
       return {
         sessions: parsed.sessions && typeof parsed.sessions === 'object' ? parsed.sessions : {},
         runs: parsed.runs && typeof parsed.runs === 'object' ? parsed.runs : {},
       }
-    } catch {
+    } catch (err) {
+      // Corruption: preserve the broken file for forensics before resetting.
+      const backup = `${this.stateFile}.corrupt.${Date.now()}`
+      try { fs.renameSync(this.stateFile, backup) } catch { /* best-effort */ }
+      debugLog(`WatchRunStore: corrupt state file moved to ${backup}: ${err}`)
       return { sessions: {}, runs: {} }
     }
   }
 
   private writeToDisk(): void {
-    fs.mkdirSync(path.dirname(this.stateFile), { recursive: true })
-    fs.writeFileSync(this.stateFile, JSON.stringify(this.state, null, 2), 'utf-8')
+    if (this.readOnly) return
+    try {
+      fs.mkdirSync(path.dirname(this.stateFile), { recursive: true })
+      fs.writeFileSync(this.stateFile, JSON.stringify(this.state, null, 2), 'utf-8')
+    } catch (err) {
+      // Don't crash the playlist worker on disk-full — it'd mask the cause as
+      // a pipeline failure. Log and leave state in memory; next write retries.
+      debugLog(`WatchRunStore: failed to persist ${this.stateFile}: ${err}`)
+    }
   }
 }

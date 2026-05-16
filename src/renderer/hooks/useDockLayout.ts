@@ -66,7 +66,17 @@ export function useDockLayout(
   showLoopTabRef.current = showLoopTab
   liveSessionsRef.current = liveSessions
 
-  const liveSiblingIds = useCallback(() => new Set(liveSessionsRef.current.map((s) => s.id)), [])
+  // Returns `undefined` (defer filtering) when the sessions list hasn't been
+  // populated yet, so an empty initial snapshot doesn't strip live sibling
+  // tabs from a saved layout. Once sessions are present, return a real Set
+  // so genuinely dead siblings are filtered out as orphans.
+  // `useAgentSiblingDockTabs` reconciles sibling panels against the current
+  // session list after this hook runs, so any orphans that slip through the
+  // deferred path get removed before they can render.
+  const liveSiblingIds = useCallback((): Set<string> | undefined => {
+    if (liveSessionsRef.current.length === 0) return undefined
+    return new Set(liveSessionsRef.current.map((s) => s.id))
+  }, [])
 
   const [layoutVersion, setLayoutVersion] = useState(0)
   const bumpVersion = useCallback(() => setLayoutVersion((value) => value + 1), [])

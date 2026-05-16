@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState, useSyncExternalStore } from 'react'
+import { useCallback, useEffect, useRef, useState, useSyncExternalStore } from 'react'
 import type { WatchSetupStatus, WatchFrameRef, WatchPeekResult, WatchPlaylistPeekResult, WatchPlaylistEntryInput, WatchPlaylistRunResult, WatchSessionSnapshot } from '../../shared/watch-types'
 import { watchPanelStore } from './watchPanelStore'
 
@@ -50,7 +50,10 @@ export function useWatchPanel(activeSessionId: string | null): UseWatchPanel {
         if (cancelled) return
         watchPanelStore.hydrateSession(activeSessionId, snapshot as WatchSessionSnapshot)
       })
-      .catch(() => {})
+      .catch((err) => {
+        if (cancelled) return
+        console.error(`[useWatchPanel] failed to hydrate session ${activeSessionId}:`, err)
+      })
     return () => { cancelled = true }
   }, [activeSessionId])
 
@@ -112,10 +115,24 @@ export function useWatchPanel(activeSessionId: string | null): UseWatchPanel {
     return (improved ?? '').trim() || trimmed
   }, [activeSessionId])
 
+  // Debounce the persistence IPC so a long URL doesn't trigger one
+  // synchronous JSON write per keystroke. The in-memory store updates
+  // immediately so the UI stays responsive.
+  const persistUrlTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  useEffect(() => () => {
+    if (persistUrlTimerRef.current) clearTimeout(persistUrlTimerRef.current)
+  }, [])
   const setUrl = useCallback((url: string) => {
     if (!activeSessionId) return
     watchPanelStore.setUrl(activeSessionId, url)
-    void Promise.resolve(window.electronAPI.invoke('watch:state-set-url', activeSessionId, url)).catch(() => {})
+    if (persistUrlTimerRef.current) clearTimeout(persistUrlTimerRef.current)
+    persistUrlTimerRef.current = setTimeout(() => {
+      persistUrlTimerRef.current = null
+      void Promise.resolve(window.electronAPI.invoke('watch:state-set-url', activeSessionId, url))
+        .catch((err) => {
+          console.error(`[useWatchPanel] failed to persist URL for ${activeSessionId}:`, err)
+        })
+    }, 300)
   }, [activeSessionId])
   const setSiblingByIndex = useCallback((map: Record<number, string>) => {
     if (activeSessionId) watchPanelStore.setSiblingByIndex(activeSessionId, map)

@@ -267,7 +267,9 @@ describe('sanitizeDockLayout', () => {
     expect(leaf.data.activeView).toBe('agent:live-1')
   })
 
-  it('strips all sibling panels when no live session set is provided', () => {
+  it('keeps sibling panels when no live session set is provided (deferred filter)', () => {
+    // When sessions haven't loaded yet the caller passes `undefined` so live
+    // sibling tabs aren't wiped from the saved layout on first-load races.
     const saved = {
       grid: {
         root: {
@@ -279,7 +281,23 @@ describe('sanitizeDockLayout', () => {
       panels: { agent: {}, 'agent:s1': {} },
     } as unknown as SerializedDockview
 
-    const sanitized = sanitizeDockLayout(saved) as SerializedDockview
+    const sanitized = sanitizeDockLayout(saved)
+    expect(sanitized).toBe(saved)
+  })
+
+  it('strips all sibling panels when an empty live session set is provided', () => {
+    const saved = {
+      grid: {
+        root: {
+          type: 'leaf',
+          size: 1000,
+          data: { id: 'workspace', views: ['agent', 'agent:s1'], activeView: 'agent:s1' },
+        },
+      },
+      panels: { agent: {}, 'agent:s1': {} },
+    } as unknown as SerializedDockview
+
+    const sanitized = sanitizeDockLayout(saved, new Set<string>()) as SerializedDockview
     expect(Object.keys(sanitized.panels)).toEqual(['agent'])
   })
 })

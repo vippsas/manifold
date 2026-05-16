@@ -198,7 +198,11 @@ export const watchPanelStore = {
       const mergedSiblings = { ...snapshot.siblingByIndex, ...cur.siblingByIndex }
       const mergedFrames = { ...snapshot.playlistFrames, ...cur.playlistFrames }
       const nextUrl = cur.url || snapshot.url
-      const nextDispatched = cur.playlistDispatched || snapshot.playlistDispatched
+      // Derive `dispatched` from the merged siblings — OR-ing the booleans
+      // can leave dispatched=true with an empty siblingByIndex (the producer
+      // derives the same field from siblingByIndex size, so the consumer must
+      // match).
+      const nextDispatched = Object.keys(mergedSiblings).length > 0
       const nextOpenSiblingId = cur.openSiblingId && Object.values(mergedSiblings).includes(cur.openSiblingId)
         ? cur.openSiblingId
         : null

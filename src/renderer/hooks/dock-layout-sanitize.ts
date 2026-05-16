@@ -10,11 +10,15 @@ function isSupportedSavedPanelId(panelId: string, liveSiblingSessionIds?: Set<st
   if (isEditorPanelId(panelId)) return true
   if (SUPPORTED_OPTIONAL_PANEL_IDS.has(panelId)) return true
   if (isSiblingPanelId(panelId)) {
-    // Sibling panels are runtime-only — only allow them through if the
-    // backing session is currently live. Stale entries from a previous app
-    // run would otherwise render as orphan "Session not found" tabs.
+    // Sibling panels are runtime-only. Three cases:
+    //   * `liveSiblingSessionIds` is a Set: keep only panels whose session
+    //     is currently live; strip orphans from a prior app run.
+    //   * `liveSiblingSessionIds` is undefined: caller signals it doesn't
+    //     yet know which sessions are live (e.g. project still loading).
+    //     Keep the panel; `useAgentSiblingDockTabs` reconciles afterwards.
+    if (liveSiblingSessionIds === undefined) return true
     const sid = parseSiblingSessionId(panelId)
-    return !!sid && !!liveSiblingSessionIds?.has(sid)
+    return !!sid && liveSiblingSessionIds.has(sid)
   }
   return false
 }
