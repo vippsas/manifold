@@ -230,7 +230,7 @@ function createDockState(overrides: Partial<DockAppState> = {}): DockAppState {
     onSelectSession: vi.fn(),
     onRemoveProject: vi.fn(),
     onUpdateProject: vi.fn(),
-    onDeleteAgent: vi.fn(),
+    onRequestDeleteAgent: vi.fn(),
     onNewAgentFromHeader: vi.fn(),
     newAgentFocusTrigger: 0,
     onNewProject: vi.fn(),

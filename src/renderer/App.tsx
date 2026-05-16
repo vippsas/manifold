@@ -42,6 +42,7 @@ import { NewSuperagentModal } from './components/modals/NewSuperagentModal'
 import { useSuperagents } from './hooks/useSuperagents'
 import { DockTab, EmptyWatermark } from './DockTab'
 import { TitleBar } from './components/TitleBar'
+import { DeleteAgentDialog } from './components/sidebar/DeleteAgentDialog'
 import type { FileOpenRequest } from './components/editor/file-open-request'
 import type { CreateProjectOptions } from '../shared/types'
 import { deriveBranchName } from '../shared/derive-branch-name'
@@ -271,12 +272,16 @@ export function App(): React.JSX.Element {
   const handleClosePanel = useCallback((panelId: string): void => {
     const siblingSessionId = parseSiblingSessionId(panelId)
     if (siblingSessionId) {
-      void overlays.handleDeleteAgent(siblingSessionId)
+      const session = (sessionsByProject[activeProjectId ?? ''] ?? []).find((s) => s.id === siblingSessionId)
+        ?? Object.values(sessionsByProject).flat().find((s) => s.id === siblingSessionId)
+      if (!session) return
+      const projectPath = projects.find((p) => p.id === session.projectId)?.path ?? ''
+      overlays.requestDeleteAgent(session, projectPath)
       return
     }
     if (isEditorPanelId(panelId)) { codeView.removePane(panelId, dockLayout.editorPanelIds.find((id) => id !== panelId) ?? null) }
     dockLayout.closePanel(panelId)
-  }, [codeView, dockLayout, overlays])
+  }, [codeView, dockLayout, overlays, sessionsByProject, activeProjectId, projects])
 
   const handleCreateNewProject = useCallback(async (options: CreateProjectOptions): Promise<boolean> => {
     appEffects.setCreatingProject(true)
@@ -349,7 +354,7 @@ export function App(): React.JSX.Element {
     onSelectProject: (id: string) => { setActiveSuperagentId(null); setActiveProject(id) },
     onSelectSession: (sessionId: string, projectId: string) => { setActiveSuperagentId(null); overlays.handleSelectSession(sessionId, projectId) },
     onRemoveProject: removeProject,
-    onUpdateProject: updateProject, onDeleteAgent: overlays.handleDeleteAgent,
+    onUpdateProject: updateProject, onRequestDeleteAgent: overlays.requestDeleteAgent,
     onNewAgentFromHeader: () => { setActiveSuperagentId(null); overlays.handleNewAgentFromHeader() }, newAgentFocusTrigger: overlays.newAgentFocusTrigger,
     onNewProject: () => appEffects.setShowOnboarding(true),
     onNewSuperagent: () => setNewSuperagentVisible(true),
@@ -437,6 +442,17 @@ export function App(): React.JSX.Element {
         <ConflictPanel sessionId={activeSessionId} conflicts={gitOps.conflicts} onAiGenerate={gitOps.aiGenerate}
           onResolveConflict={gitOps.resolveConflict} onSelectFile={handleSelectFile} onClose={overlays.handleClosePanel} />
       )}
+      <DeleteAgentDialog
+        pendingDelete={overlays.pendingDelete}
+        siblingCount={overlays.pendingDelete
+          ? (sessionsByProject[overlays.pendingDelete.session.projectId] ?? [])
+              .filter((s) => s.worktreePath !== '' && s.worktreePath === overlays.pendingDelete?.session.worktreePath)
+              .length
+          : 0}
+        deleting={overlays.deletingSessionId === overlays.pendingDelete?.session.id}
+        onCancel={overlays.cancelDeleteAgent}
+        onConfirm={overlays.confirmDeleteAgent}
+      />
       <SettingsModal visible={overlays.showSettings} settings={settings} onSave={overlays.handleSaveSettings}
         onClose={() => overlays.setShowSettings(false)} onPreviewTheme={setPreviewThemeId} />
       <AboutOverlay visible={overlays.showAbout} version={overlays.appVersion} onClose={() => overlays.setShowAbout(false)} />

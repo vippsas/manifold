@@ -1,5 +1,6 @@
-import { useState, useCallback, useEffect } from 'react'
-import type { SpawnAgentOptions, ManifoldSettings } from '../../shared/types'
+import { useState, useCallback, useEffect, useMemo } from 'react'
+import type { SpawnAgentOptions, ManifoldSettings, AgentSession } from '../../shared/types'
+import type { PendingDelete } from '../components/sidebar/DeleteAgentDialog'
 
 export interface UseAppOverlaysResult {
   activePanel: 'commit' | 'pr' | 'conflicts' | null
@@ -14,10 +15,15 @@ export interface UseAppOverlaysResult {
   handleCommit: (message: string) => Promise<void>
   handleClosePanel: () => void
   handleLaunchAgent: (options: SpawnAgentOptions) => Promise<unknown>
-  handleDeleteAgent: (sessionId: string) => Promise<void>
   handleSelectSession: (sessionId: string, projectId: string) => void
   handleSaveSettings: (partial: Partial<ManifoldSettings>) => void
   handleSetupComplete: () => void
+  // Delete-agent confirmation
+  pendingDelete: PendingDelete | null
+  deletingSessionId: string | null
+  requestDeleteAgent: (session: AgentSession, projectPath: string) => void
+  cancelDeleteAgent: () => void
+  confirmDeleteAgent: () => Promise<void>
 }
 
 export function useAppOverlays(
@@ -36,6 +42,8 @@ export function useAppOverlays(
   const [showAbout, setShowAbout] = useState(false)
   const [appVersion, setAppVersion] = useState('')
   const [newAgentFocusTrigger, setNewAgentFocusTrigger] = useState(0)
+  const [pendingDelete, setPendingDelete] = useState<PendingDelete | null>(null)
+  const [deletingSessionId, setDeletingSessionId] = useState<string | null>(null)
 
   const handleCommit = useCallback(async (message: string): Promise<void> => {
     await commit(message)
@@ -49,10 +57,29 @@ export function useAppOverlays(
     return spawnAgent(options)
   }, [spawnAgent])
 
-  const handleDeleteAgent = useCallback(async (sessionId: string): Promise<void> => {
-    await deleteAgent(sessionId)
-    removeSession(sessionId)
-  }, [deleteAgent, removeSession])
+  const requestDeleteAgent = useCallback((session: AgentSession, projectPath: string): void => {
+    setPendingDelete({ session, projectPath })
+  }, [])
+
+  const cancelDeleteAgent = useCallback((): void => {
+    if (deletingSessionId) return
+    setPendingDelete(null)
+  }, [deletingSessionId])
+
+  const confirmDeleteAgent = useCallback(async (): Promise<void> => {
+    if (!pendingDelete) return
+    const sessionId = pendingDelete.session.id
+    setDeletingSessionId(sessionId)
+    try {
+      await deleteAgent(sessionId)
+      removeSession(sessionId)
+      setPendingDelete(null)
+    } catch {
+      // Keep the confirmation dialog open if deletion fails.
+    } finally {
+      setDeletingSessionId(null)
+    }
+  }, [deleteAgent, removeSession, pendingDelete])
 
   const handleSelectSession = useCallback((sessionId: string, projectId: string): void => {
     setActiveSession(sessionId)
@@ -86,7 +113,7 @@ export function useAppOverlays(
     return unsub
   }, [])
 
-  return {
+  return useMemo(() => ({
     activePanel,
     setActivePanel,
     handleNewAgentFromHeader,
@@ -99,9 +126,18 @@ export function useAppOverlays(
     handleCommit,
     handleClosePanel,
     handleLaunchAgent,
-    handleDeleteAgent,
     handleSelectSession,
     handleSaveSettings,
     handleSetupComplete,
-  }
+    pendingDelete,
+    deletingSessionId,
+    requestDeleteAgent,
+    cancelDeleteAgent,
+    confirmDeleteAgent,
+  }), [
+    activePanel, handleNewAgentFromHeader, newAgentFocusTrigger,
+    showSettings, showAbout, appVersion, handleCommit, handleClosePanel,
+    handleLaunchAgent, handleSelectSession, handleSaveSettings, handleSetupComplete,
+    pendingDelete, deletingSessionId, requestDeleteAgent, cancelDeleteAgent, confirmDeleteAgent,
+  ])
 }
