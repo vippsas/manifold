@@ -117,3 +117,67 @@ describe('VerdictRecorder', () => {
     await expect(recorder.onSessionTerminated('nope')).resolves.not.toThrow()
   })
 })
+
+describe('VerdictRecorder per-event hooks', () => {
+  let tmp: string
+
+  beforeEach(() => { tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'verdict-rec-h-')) })
+  afterEach(() => { fs.rmSync(tmp, { recursive: true, force: true }) })
+
+  it('increments humanEdits only when status is not running', () => {
+    const { store, recorder } = makeRecorder(tmp)
+    recorder.onSessionCreated({
+      sessionId: 's1', projectId: 'p1', branch: 'manifold/foo',
+      runtime: 'claude', taskPrompt: 't', worktreePath: '/tmp/wt', baseBranch: 'main',
+    })
+    recorder.onStatus('s1', 'running')
+    recorder.onFilesChanged('s1')        // ignored — agent is running
+    recorder.onStatus('s1', 'waiting')
+    recorder.onFilesChanged('s1')        // counted
+    recorder.onFilesChanged('s1')        // counted
+    expect(store.getBySessionId('s1')!.metrics.humanEdits).toBe(2)
+  })
+
+  it('increments agentCommits and sets outcome=committed_only', () => {
+    const { store, recorder } = makeRecorder(tmp)
+    recorder.onSessionCreated({
+      sessionId: 's1', projectId: 'p1', branch: 'manifold/foo',
+      runtime: 'claude', taskPrompt: 't', worktreePath: '/tmp/wt', baseBranch: 'main',
+    })
+    recorder.onAgentCommit('s1')
+    const rec = store.getBySessionId('s1')!
+    expect(rec.metrics.agentCommits).toBe(1)
+    expect(rec.outcome).toBe('committed_only')
+  })
+
+  it('onPrCreated sets outcome=pr_created and stores prUrl', () => {
+    const { store, recorder } = makeRecorder(tmp)
+    recorder.onSessionCreated({
+      sessionId: 's1', projectId: 'p1', branch: 'manifold/foo',
+      runtime: 'claude', taskPrompt: 't', worktreePath: '/tmp/wt', baseBranch: 'main',
+    })
+    recorder.onPrCreated('s1', 'https://github.com/o/r/pull/9')
+    const rec = store.getBySessionId('s1')!
+    expect(rec.outcome).toBe('pr_created')
+    expect(rec.metrics.prUrl).toBe('https://github.com/o/r/pull/9')
+  })
+
+  it('finalize keeps pr_created outcome when branch not merged', async () => {
+    const { store, recorder } = makeRecorder(tmp)
+    recorder.onSessionCreated({
+      sessionId: 's1', projectId: 'p1', branch: 'manifold/foo',
+      runtime: 'claude', taskPrompt: 't', worktreePath: '/tmp/wt', baseBranch: 'main',
+    })
+    recorder.onPrCreated('s1', 'https://example/1')
+    await recorder.onSessionTerminated('s1')
+    expect(store.getBySessionId('s1')!.outcome).toBe('pr_created')
+  })
+
+  it('hooks for unknown sessionId are silently ignored', () => {
+    const { recorder } = makeRecorder(tmp)
+    expect(() => recorder.onStatus('nope', 'running')).not.toThrow()
+    expect(() => recorder.onFilesChanged('nope')).not.toThrow()
+    expect(() => recorder.onAgentCommit('nope')).not.toThrow()
+    expect(() => recorder.onPrCreated('nope', 'u')).not.toThrow()
+  })
+})

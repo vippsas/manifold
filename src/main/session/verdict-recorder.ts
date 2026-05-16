@@ -31,6 +31,7 @@ interface ActiveSession {
   worktreePath: string
   baseBranch: string
   createdAtMs: number
+  lastStatus: string
 }
 
 export class VerdictRecorder {
@@ -63,6 +64,46 @@ export class VerdictRecorder {
       worktreePath: event.worktreePath,
       baseBranch: event.baseBranch,
       createdAtMs: created.getTime(),
+      lastStatus: 'unknown',
+    })
+  }
+
+  onStatus(sessionId: string, status: string): void {
+    const tracked = this.active.get(sessionId)
+    if (!tracked) return
+    tracked.lastStatus = status
+  }
+
+  onFilesChanged(sessionId: string): void {
+    const tracked = this.active.get(sessionId)
+    if (!tracked) return
+    if (tracked.lastStatus === 'running') return
+    const existing = this.deps.store.getBySessionId(sessionId)
+    if (!existing) return
+    this.deps.store.upsert({
+      ...existing,
+      metrics: { ...existing.metrics, humanEdits: existing.metrics.humanEdits + 1 },
+    })
+  }
+
+  onAgentCommit(sessionId: string): void {
+    const existing = this.deps.store.getBySessionId(sessionId)
+    if (!existing) return
+    const next: VerdictRecord = {
+      ...existing,
+      metrics: { ...existing.metrics, agentCommits: existing.metrics.agentCommits + 1 },
+    }
+    if (next.outcome === 'unknown') next.outcome = 'committed_only'
+    this.deps.store.upsert(next)
+  }
+
+  onPrCreated(sessionId: string, prUrl: string): void {
+    const existing = this.deps.store.getBySessionId(sessionId)
+    if (!existing) return
+    this.deps.store.upsert({
+      ...existing,
+      outcome: 'pr_created',
+      metrics: { ...existing.metrics, prUrl },
     })
   }
 
