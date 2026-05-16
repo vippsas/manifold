@@ -19,6 +19,8 @@ interface Props {
   onRuntimeChange: (id: string) => void
   onShowIdeasTabChange: (enabled: boolean) => void
   onShowLoopTabChange: (enabled: boolean) => void
+  showVerdictsTab: boolean
+  onShowVerdictsTabChange: (enabled: boolean) => void
   onThemeChange: (theme: string) => void
   onScrollbackChange: (lines: number) => void
   onTerminalFontFamilyChange: (font: string) => void
@@ -92,6 +94,11 @@ export function GeneralSettingsSection(props: Props): React.JSX.Element {
               <input type="checkbox" checked={props.showLoopTab} onChange={(event) => props.onShowLoopTabChange(event.target.checked)} style={modalStyles.checkboxInput} />
               Show Loop tab
               <span style={modalStyles.helpText}>Exposes the experimental autoresearch loop (edit → eval → keep-or-discard) in the agent pane.</span>
+            </label>
+            <label style={{ ...modalStyles.checkboxField, ...modalStyles.fieldSpanFull }}>
+              <input type="checkbox" checked={props.showVerdictsTab} onChange={(event) => props.onShowVerdictsTabChange(event.target.checked)} style={modalStyles.checkboxInput} />
+              Show Verdicts tab
+              <span style={modalStyles.helpText}>Adds a Verdicts panel showing per-runtime quality metrics and recent sessions.</span>
             </label>
           </div>
         </SectionCard>

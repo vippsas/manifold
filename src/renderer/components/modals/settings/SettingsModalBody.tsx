@@ -33,6 +33,8 @@ interface Props {
   onRuntimeChange: (id: string) => void
   onShowIdeasTabChange: (enabled: boolean) => void
   onShowLoopTabChange: (enabled: boolean) => void
+  showVerdictsTab: boolean
+  onShowVerdictsTabChange: (enabled: boolean) => void
   onThemeChange: (theme: string) => void
   onScrollbackChange: (lines: number) => void
   onTerminalFontFamilyChange: (font: string) => void

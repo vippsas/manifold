@@ -19,6 +19,7 @@ export function SettingsModal({ visible, settings, onSave, onClose, onPreviewThe
   const [defaultRuntime, setDefaultRuntime] = useState(settings.defaultRuntime)
   const [showIdeasTab, setShowIdeasTab] = useState(settings.showIdeasTab)
   const [showLoopTab, setShowLoopTab] = useState(settings.showLoopTab)
+  const [showVerdictsTab, setShowVerdictsTab] = useState(settings.showVerdictsTab)
   const [theme, setTheme] = useState(settings.theme)
   const [scrollbackLines, setScrollbackLines] = useState(settings.scrollbackLines)
   const [terminalFontFamily, setTerminalFontFamily] = useState(settings.terminalFontFamily)
@@ -52,6 +53,7 @@ export function SettingsModal({ visible, settings, onSave, onClose, onPreviewThe
     setDefaultRuntime(settings.defaultRuntime)
     setShowIdeasTab(settings.showIdeasTab)
     setShowLoopTab(settings.showLoopTab)
+    setShowVerdictsTab(settings.showVerdictsTab)
     setTheme(settings.theme)
     setScrollbackLines(settings.scrollbackLines)
     setTerminalFontFamily(settings.terminalFontFamily)
@@ -85,6 +87,7 @@ export function SettingsModal({ visible, settings, onSave, onClose, onPreviewThe
       defaultRuntime,
       showIdeasTab,
       showLoopTab,
+      showVerdictsTab,
       theme,
       scrollbackLines,
       terminalFontFamily,
@@ -105,7 +108,7 @@ export function SettingsModal({ visible, settings, onSave, onClose, onPreviewThe
     if (modeChanged) {
       window.electronAPI.invoke('app:switch-mode', uiMode)
     }
-  }, [defaultRuntime, showIdeasTab, showLoopTab, theme, scrollbackLines, terminalFontFamily, defaultBaseBranch, storagePath, notificationSound, shellPrompt, shellHistoryScope, uiMode, density, autoGenerateMessages, showCommitAndPrButtons, settings.uiMode, searchAiSettings, provisioners, transcription, onSave, onClose])
+  }, [defaultRuntime, showIdeasTab, showLoopTab, showVerdictsTab, theme, scrollbackLines, terminalFontFamily, defaultBaseBranch, storagePath, notificationSound, shellPrompt, shellHistoryScope, uiMode, density, autoGenerateMessages, showCommitAndPrButtons, settings.uiMode, searchAiSettings, provisioners, transcription, onSave, onClose])
 
   if (!visible) return null
 
@@ -140,6 +143,8 @@ export function SettingsModal({ visible, settings, onSave, onClose, onPreviewThe
           onRuntimeChange={setDefaultRuntime}
           onShowIdeasTabChange={setShowIdeasTab}
           onShowLoopTabChange={setShowLoopTab}
+          showVerdictsTab={showVerdictsTab}
+          onShowVerdictsTabChange={setShowVerdictsTab}
           onThemeChange={setTheme}
           onScrollbackChange={setScrollbackLines}
           onTerminalFontFamilyChange={setTerminalFontFamily}
