@@ -236,6 +236,52 @@ describe('sanitizeDockLayout', () => {
 
     expect(sanitizeDockLayout(saved)).toBeNull()
   })
+
+  it('strips sibling agent panels whose backing session is not live', () => {
+    const saved = {
+      grid: {
+        root: {
+          type: 'leaf',
+          size: 1000,
+          data: {
+            id: 'workspace',
+            views: ['agent', 'agent:dead-1', 'agent:live-1'],
+            activeView: 'agent:live-1',
+          },
+        },
+      },
+      panels: {
+        agent: {},
+        'agent:dead-1': {},
+        'agent:live-1': {},
+      },
+    } as unknown as SerializedDockview
+
+    const sanitized = sanitizeDockLayout(saved, new Set(['live-1'])) as SerializedDockview
+    expect(Object.keys(sanitized.panels)).toEqual(['agent', 'agent:live-1'])
+    const leaf = sanitized.grid.root as {
+      type: 'leaf'
+      data: { views: string[]; activeView?: string }
+    }
+    expect(leaf.data.views).toEqual(['agent', 'agent:live-1'])
+    expect(leaf.data.activeView).toBe('agent:live-1')
+  })
+
+  it('strips all sibling panels when no live session set is provided', () => {
+    const saved = {
+      grid: {
+        root: {
+          type: 'leaf',
+          size: 1000,
+          data: { id: 'workspace', views: ['agent', 'agent:s1'], activeView: 'agent:s1' },
+        },
+      },
+      panels: { agent: {}, 'agent:s1': {} },
+    } as unknown as SerializedDockview
+
+    const sanitized = sanitizeDockLayout(saved) as SerializedDockview
+    expect(Object.keys(sanitized.panels)).toEqual(['agent'])
+  })
 })
 
 describe('applyLayoutChangePreservingSidebarWidths', () => {

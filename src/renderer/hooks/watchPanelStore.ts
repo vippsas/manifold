@@ -28,9 +28,10 @@ const listeners = new Map<string, Set<() => void>>()
 
 let ipcInitialized = false
 
-// Persisted slice of WatchSessionState — only user-intent fields (URL).
-// Run-state (siblings/frames/dispatched flag) is intentionally NOT persisted
-// because sibling agent sessions don't survive app restart.
+// localStorage holds only the URL (immediate-use, survives reload before
+// the main-process WatchRunStore has rehydrated). Run-state (siblings/frames)
+// is fetched from the main process via watch:state-get and filtered to live
+// sessions, so dead siblings from a prior app run never reappear.
 interface PersistedSessionState {
   url: string
 }
@@ -187,27 +188,36 @@ export const watchPanelStore = {
   },
   hydrateSession(sessionId: string, snapshot: WatchSessionSnapshot): void {
     update(sessionId, (cur) => {
-      const nextUrl = snapshot.url || cur.url
-      const nextOpenSiblingId = cur.openSiblingId && Object.values(snapshot.siblingByIndex).includes(cur.openSiblingId)
+      // The user may have typed a different URL while the snapshot was
+      // in flight — drop the stale snapshot rather than clobber the new URL
+      // (and the run-state that belongs to it).
+      if (cur.url && snapshot.url && cur.url !== snapshot.url) return cur
+
+      // Merge: live entries (sibling/frame events that arrived between mount
+      // and snapshot resolution) win over the on-disk snapshot.
+      const mergedSiblings = { ...snapshot.siblingByIndex, ...cur.siblingByIndex }
+      const mergedFrames = { ...snapshot.playlistFrames, ...cur.playlistFrames }
+      const nextUrl = cur.url || snapshot.url
+      const nextDispatched = cur.playlistDispatched || snapshot.playlistDispatched
+      const nextOpenSiblingId = cur.openSiblingId && Object.values(mergedSiblings).includes(cur.openSiblingId)
         ? cur.openSiblingId
         : null
       if (
         nextUrl === cur.url &&
-        snapshot.playlistDispatched === cur.playlistDispatched &&
+        nextDispatched === cur.playlistDispatched &&
         nextOpenSiblingId === cur.openSiblingId &&
-        sameFrameMap(snapshot.playlistFrames, cur.playlistFrames) &&
-        sameStringMap(snapshot.siblingByIndex, cur.siblingByIndex)
+        sameFrameMap(mergedFrames, cur.playlistFrames) &&
+        sameStringMap(mergedSiblings, cur.siblingByIndex)
       ) {
         return cur
       }
       return {
         ...cur,
         url: nextUrl,
-        playlistFrames: snapshot.playlistFrames,
-        siblingByIndex: snapshot.siblingByIndex,
-        playlistDispatched: snapshot.playlistDispatched,
+        playlistFrames: mergedFrames,
+        siblingByIndex: mergedSiblings,
+        playlistDispatched: nextDispatched,
         openSiblingId: nextOpenSiblingId,
-        focusedEntryIndex: cur.focusedEntryIndex,
       }
     })
   },

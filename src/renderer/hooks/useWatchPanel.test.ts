@@ -208,6 +208,58 @@ describe('useWatchPanel', () => {
     expect(result.current.playlistDispatched).toBe(true)
   })
 
+  it('does not clobber a freshly-typed URL when a stale snapshot arrives', async () => {
+    let resolveSnapshot: (snap: unknown) => void = () => undefined
+    invoke.mockImplementation(async (channel: string) => {
+      if (channel === 'watch:state-get') {
+        return new Promise((res) => { resolveSnapshot = res })
+      }
+      if (channel === 'watch:state-set-url') return undefined
+      return undefined
+    })
+    const { result } = renderHook(() => useWatchPanel('s1'))
+    // User types a new URL before the snapshot resolves.
+    act(() => { result.current.setUrl('https://new-url') })
+    // Now the stale snapshot from a previous run finally arrives.
+    act(() => {
+      resolveSnapshot({
+        url: 'https://stale-url',
+        playlistFrames: { 0: [{ path: '/tmp/old/frame.jpg', timestampSeconds: 1 }] },
+        siblingByIndex: { 0: 'old-sib' },
+        playlistDispatched: true,
+      })
+    })
+    await waitFor(() => expect(result.current.url).toBe('https://new-url'))
+    expect(result.current.siblingByIndex).toEqual({})
+    expect(result.current.playlistFrames).toEqual({})
+    expect(result.current.playlistDispatched).toBe(false)
+  })
+
+  it('merges live sibling events with the hydrated snapshot', async () => {
+    let resolveSnapshot: (snap: unknown) => void = () => undefined
+    invoke.mockImplementation(async (channel: string) => {
+      if (channel === 'watch:state-get') {
+        return new Promise((res) => { resolveSnapshot = res })
+      }
+      if (channel === 'watch:state-set-url') return undefined
+      return undefined
+    })
+    const { result } = renderHook(() => useWatchPanel('s1'))
+    // Live sibling event arrives first (e.g. via watch:playlist-progress).
+    act(() => { result.current.setSiblingByIndex({ 2: 'live-sib' }) })
+    // Snapshot for a different index resolves later.
+    act(() => {
+      resolveSnapshot({
+        url: '',
+        playlistFrames: {},
+        siblingByIndex: { 0: 'old-sib' },
+        playlistDispatched: true,
+      })
+    })
+    await waitFor(() => expect(result.current.siblingByIndex[2]).toBe('live-sib'))
+    expect(result.current.siblingByIndex[0]).toBe('old-sib')
+  })
+
   it('setUrl resets post-run state when changing URLs', async () => {
     const { result } = renderHook(() => useWatchPanel('s1'))
     act(() => {

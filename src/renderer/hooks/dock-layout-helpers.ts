@@ -1,6 +1,14 @@
 import type { DockviewApi, SerializedDockview } from 'dockview'
 import { getRelativeLocation, type Orientation } from 'dockview-core'
-import { isSiblingPanelId } from './agent-siblings'
+
+export { sanitizeDockLayout } from './dock-layout-sanitize'
+export {
+  loadOrBuildLayout,
+  applyMinimalLayout,
+  hidePanel,
+  showPanelFromSnapshot,
+  showPanelFromHints,
+} from './dock-layout-loader'
 
 export const PANEL_IDS = ['projects', 'agent', 'editor', 'fileTree', 'modifiedFiles', 'shell', 'search', 'backgroundAgent', 'loop', 'watch'] as const
 export type DockPanelId = (typeof PANEL_IDS)[number]
@@ -20,10 +28,10 @@ export const PANEL_TITLES: Record<DockPanelId, string> = {
   watch: 'Watch',
 }
 
-type Direction = 'right' | 'left' | 'above' | 'below' | 'within'
+export type Direction = 'right' | 'left' | 'above' | 'below' | 'within'
 
 // Fallback positions when no snapshot exists (matches default layout).
-const PANEL_RESTORE_HINTS: Record<DockPanelId, Array<{ ref: DockPanelId; dir: Direction }>> = {
+export const PANEL_RESTORE_HINTS: Record<DockPanelId, Array<{ ref: DockPanelId; dir: Direction }>> = {
   projects: [{ ref: 'agent', dir: 'left' }, { ref: 'editor', dir: 'left' }, { ref: 'fileTree', dir: 'left' }],
   agent: [{ ref: 'editor', dir: 'within' }, { ref: 'search', dir: 'within' }, { ref: 'backgroundAgent', dir: 'within' }, { ref: 'projects', dir: 'right' }, { ref: 'fileTree', dir: 'left' }, { ref: 'shell', dir: 'above' }],
   editor: [{ ref: 'agent', dir: 'within' }, { ref: 'search', dir: 'within' }, { ref: 'backgroundAgent', dir: 'within' }, { ref: 'shell', dir: 'above' }],
@@ -71,7 +79,7 @@ export interface LayoutRefs {
 
 /** Anchor panels that define the sidebars (protected from resize redistribution).
  *  modifiedFiles is intentionally excluded — it can be dragged to the center. */
-const SIDEBAR_PANEL_IDS = new Set<string>(['projects', 'fileTree'])
+export const SIDEBAR_PANEL_IDS = new Set<string>(['projects', 'fileTree'])
 
 /** Read a panel group's current pixel width (0 if unavailable). */
 function getPanelWidth(api: DockviewApi, panelId: string): number {
@@ -183,7 +191,7 @@ export function restoreSidebarWidth(api: DockviewApi, width: number): void {
 // ── Serialized layout tree helpers ──────────────────────────────────────
 // dockview doesn't export the node types so we define them locally.
 
-type GridNode =
+export type GridNode =
   | { type: 'branch'; data: GridNode[]; size: number }
   | { type: 'leaf'; data: { views: string[]; id: string; activeView?: string }; size: number }
 
@@ -202,63 +210,12 @@ export function getGridSignature(layout: SerializedDockview): string {
   return nodeSignature(layout.grid.root as GridNode)
 }
 
-// ── Bottom-panel height helpers ───────────────────────────────────────
-
-/**
- * Walk the grid tree and set the leaf containing `panelId` to `fraction`
- * of its parent branch total, scaling siblings to fill the remainder.
- * Returns true if the node was found and patched.
- */
-function applyHeightInTree(node: GridNode, panelId: string, fraction: number): boolean {
-  if (node.type !== 'branch') return false
-
-  const idx = node.data.findIndex((c) =>
-    c.type === 'leaf' && c.data.views.includes(panelId))
-
-  if (idx >= 0) {
-    const total = node.data.reduce((s, c) => s + c.size, 0)
-    const panelSize = Math.round(total * fraction)
-    const remaining = total - panelSize
-    const otherTotal = node.data.reduce((s, c, i) => s + (i === idx ? 0 : c.size), 0)
-    const scale = otherTotal > 0 ? remaining / otherTotal : 1
-    for (let i = 0; i < node.data.length; i++) {
-      node.data[i].size = i === idx ? panelSize : Math.round(node.data[i].size * scale)
-    }
-    return true
-  }
-
-  return node.data.some((child) => applyHeightInTree(child, panelId, fraction))
-}
-
-/** Patch the serialised grid so `panelId` occupies `fraction` of its parent branch. */
-function applyPanelHeightFraction(api: DockviewApi, panelId: string, fraction: number, refs?: LayoutRefs): void {
-  try {
-    const json = api.toJSON()
-    if (!applyHeightInTree(json.grid.root as GridNode, panelId, fraction)) return
-    if (refs) refs.isRestoringRef.current = true
-    try { api.fromJSON(json) } finally { if (refs) refs.isRestoringRef.current = false }
-    if (refs) refs.lastLayoutRef.current = api.toJSON()
-  } catch (err) {
-    console.warn(`[applyPanelHeightFraction] failed for '${panelId}':`, err)
-  }
-}
-
-const RETIRED_PANEL_IDS = new Set(['memory'])
-const SUPPORTED_OPTIONAL_PANEL_IDS = new Set(['webPreview'])
-
-function isSupportedSavedPanelId(panelId: string): boolean {
-  return PANEL_IDS.includes(panelId as DockPanelId) ||
-    isEditorPanelId(panelId) ||
-    isSiblingPanelId(panelId) ||
-    SUPPORTED_OPTIONAL_PANEL_IDS.has(panelId)
-}
-
-function treeContainsPanel(node: GridNode, panelId: string): boolean {
+export function treeContainsPanel(node: GridNode, panelId: string): boolean {
   if (node.type === 'leaf') return node.data.views.includes(panelId)
   return node.data.some((child) => treeContainsPanel(child, panelId))
 }
 
-function removeLeafFromTree(parent: GridNode & { type: 'branch' }, panelId: string): number {
+export function removeLeafFromTree(parent: GridNode & { type: 'branch' }, panelId: string): number {
   for (let i = 0; i < parent.data.length; i++) {
     const child = parent.data[i]
 
@@ -288,242 +245,3 @@ function removeLeafFromTree(parent: GridNode & { type: 'branch' }, panelId: stri
   return 0
 }
 
-function stripInvalidPanelsFromTree(node: GridNode, validPanelIds: Set<string>): GridNode | null {
-  if (node.type === 'leaf') {
-    const views = node.data.views.filter((view) => validPanelIds.has(view))
-    if (views.length === 0) return null
-    node.data.views = views
-    if (!node.data.activeView || !views.includes(node.data.activeView)) {
-      node.data.activeView = views[0]
-    }
-    return node
-  }
-
-  const nextChildren = node.data
-    .map((child) => stripInvalidPanelsFromTree(child, validPanelIds))
-    .filter((child): child is GridNode => child !== null)
-
-  if (nextChildren.length === 0) return null
-  if (nextChildren.length === 1) {
-    const [onlyChild] = nextChildren
-    onlyChild.size = node.size
-    return onlyChild
-  }
-
-  node.data = nextChildren
-  return node
-}
-
-export function sanitizeDockLayout(saved: SerializedDockview): SerializedDockview | null {
-  const savedPanels = (saved.panels ?? {}) as Record<string, unknown>
-  const savedPanelIds = Object.keys(savedPanels)
-  const validPanelIds = new Set(savedPanelIds.filter((panelId) => (
-    !RETIRED_PANEL_IDS.has(panelId) && isSupportedSavedPanelId(panelId)
-  )))
-
-  if (validPanelIds.size === 0) return null
-
-  if (!layoutNeedsSanitization(saved, validPanelIds)) return saved
-
-  const sanitized = JSON.parse(JSON.stringify(saved)) as SerializedDockview
-  const root = stripInvalidPanelsFromTree(sanitized.grid.root as GridNode, validPanelIds)
-  if (!root) return null
-
-  sanitized.grid.root = root
-
-  const referencedPanelIds = new Set(collectPanelIds(root))
-  for (const panelId of Object.keys((sanitized.panels ?? {}) as Record<string, unknown>)) {
-    if (!referencedPanelIds.has(panelId)) {
-      delete (sanitized.panels as Record<string, unknown>)[panelId]
-    }
-  }
-
-  if (Object.keys((sanitized.panels ?? {}) as Record<string, unknown>).length === 0) return null
-
-  return sanitized
-}
-
-function layoutNeedsSanitization(saved: SerializedDockview, validPanelIds: Set<string>): boolean {
-  const savedPanels = (saved.panels ?? {}) as Record<string, unknown>
-
-  for (const panelId of Object.keys(savedPanels)) {
-    if (!validPanelIds.has(panelId)) return true
-  }
-
-  return treeNeedsSanitization(saved.grid.root as GridNode, validPanelIds)
-}
-
-function treeNeedsSanitization(node: GridNode, validPanelIds: Set<string>): boolean {
-  if (node.type === 'leaf') {
-    if (node.data.views.length === 0) return true
-    if (node.data.views.some((view) => !validPanelIds.has(view))) return true
-    if (!node.data.activeView || !node.data.views.includes(node.data.activeView)) return true
-    return false
-  }
-
-  if (node.data.length === 0) return true
-  return node.data.some((child) => treeNeedsSanitization(child, validPanelIds))
-}
-
-function collectPanelIds(node: GridNode): string[] {
-  if (node.type === 'leaf') return [...node.data.views]
-  return node.data.flatMap(collectPanelIds)
-}
-
-// ── Layout loading helpers ──────────────────────────────────────────────
-
-function isCorruptedMinimalLayout(saved: SerializedDockview): boolean {
-  const panelIds = new Set(Object.keys(saved.panels))
-  return panelIds.size === 2 && panelIds.has('projects') && panelIds.has('agent')
-}
-
-export async function loadOrBuildLayout(
-  api: DockviewApi,
-  sessionId: string,
-  buildDefault: (api: DockviewApi) => void,
-  refs: LayoutRefs,
-): Promise<void> {
-  try {
-    const rawSaved = (await window.electronAPI.invoke('dock-layout:get', sessionId)) as SerializedDockview | null
-    const saved = rawSaved ? sanitizeDockLayout(rawSaved) : null
-    if (saved && saved.grid && saved.panels && !isCorruptedMinimalLayout(saved)) {
-      refs.isRestoringRef.current = true
-      try {
-        api.fromJSON(saved)
-      } finally {
-        refs.isRestoringRef.current = false
-      }
-      refs.lastLayoutRef.current = saved
-      if (saved !== rawSaved) {
-        void window.electronAPI.invoke('dock-layout:set', sessionId, saved).catch(() => {})
-      }
-      return
-    }
-  } catch (err) {
-    console.warn('[loadOrBuildLayout] failed to restore saved layout for session', sessionId, '- falling back to default:', err)
-  }
-  refs.isRestoringRef.current = true
-  try {
-    api.clear()
-    buildDefault(api)
-  } finally {
-    refs.isRestoringRef.current = false
-  }
-  refs.lastLayoutRef.current = api.toJSON()
-  void window.electronAPI.invoke('dock-layout:set', sessionId, refs.lastLayoutRef.current).catch(() => {})
-}
-
-export function applyMinimalLayout(
-  api: DockviewApi,
-  buildMinimal: (api: DockviewApi) => void,
-  refs: LayoutRefs,
-): void {
-  refs.isRestoringRef.current = true
-  try {
-    api.clear()
-    buildMinimal(api)
-  } finally {
-    refs.isRestoringRef.current = false
-  }
-  refs.lastLayoutRef.current = api.toJSON()
-}
-
-// ── Panel hide/show helpers ────────────────────────────────────────────
-
-export function hidePanel(
-  api: DockviewApi,
-  id: DockPanelId,
-  closedPanelSnapshots: React.MutableRefObject<Map<DockPanelId, SerializedDockview>>,
-  refs: LayoutRefs,
-): void {
-  const preRemovalLayout = api.toJSON()
-  closedPanelSnapshots.current.set(id, preRemovalLayout)
-
-  const json = JSON.parse(JSON.stringify(preRemovalLayout)) as SerializedDockview
-  const root = json.grid.root as GridNode
-  if (root.type === 'branch') {
-    const freed = removeLeafFromTree(root, id)
-    if (freed > 0 && root.data.length > 0) {
-      const isSidebarNode = (c: GridNode) => {
-        const views = c.type === 'leaf' ? c.data.views : []
-        return views.some((v) => SIDEBAR_PANEL_IDS.has(v)) ||
-          (c.type === 'branch' && Array.from(SIDEBAR_PANEL_IDS).some((sid) => treeContainsPanel(c, sid)))
-      }
-      const targets = root.data.filter((c) => !isSidebarNode(c))
-      if (targets.length > 0) {
-        const share = freed / targets.length
-        for (const t of targets) t.size = Math.round(t.size + share)
-      } else {
-        const total = root.data.reduce((s, c) => s + c.size, 0)
-        const scale = (total + freed) / total
-        for (const c of root.data) c.size = Math.round(c.size * scale)
-      }
-    }
-  }
-  delete (json.panels as Record<string, unknown>)[id]
-
-  refs.isRestoringRef.current = true
-  try {
-    api.fromJSON(json)
-  } catch (err) {
-    console.warn(`[hidePanel] failed to apply layout after hiding '${id}':`, err)
-  } finally {
-    refs.isRestoringRef.current = false
-  }
-  refs.lastLayoutRef.current = api.toJSON()
-}
-
-export function showPanelFromSnapshot(
-  api: DockviewApi,
-  id: DockPanelId,
-  snapshot: SerializedDockview,
-  closedPanelSnapshots: React.MutableRefObject<Map<DockPanelId, SerializedDockview>>,
-  refs: LayoutRefs,
-): void {
-  const currentlyVisible = new Set(
-    PANEL_IDS.filter((pid) => api.getPanel(pid) !== undefined)
-  )
-  const widths = getSidebarWidths(api)
-
-  refs.isRestoringRef.current = true
-  try {
-    api.fromJSON(snapshot)
-    for (const pid of PANEL_IDS) {
-      if (pid !== id && !currentlyVisible.has(pid)) {
-        const p = api.getPanel(pid)
-        if (p) api.removePanel(p)
-      }
-    }
-  } finally {
-    refs.isRestoringRef.current = false
-  }
-
-  restoreSidebarWidths(api, widths, refs)
-  refs.lastLayoutRef.current = api.toJSON()
-  closedPanelSnapshots.current.delete(id)
-}
-
-export function showPanelFromHints(api: DockviewApi, id: DockPanelId, refs?: LayoutRefs): void {
-  const hints = PANEL_RESTORE_HINTS[id]
-  let position: { referencePanel: ReturnType<DockviewApi['getPanel']>; direction: Direction } | undefined
-  let usedDirection: Direction | undefined
-  for (const hint of hints) {
-    const ref = api.getPanel(hint.ref)
-    if (ref) {
-      position = { referencePanel: ref, direction: hint.dir }
-      usedDirection = hint.dir
-      break
-    }
-  }
-  applyLayoutChangePreservingSidebarWidths(api, () => {
-    api.addPanel({
-      id,
-      component: id,
-      title: PANEL_TITLES[id],
-      ...(position ? { position } : {}),
-    })
-    if (usedDirection === 'below') {
-      applyPanelHeightFraction(api, id, 1 / 3, refs)
-    }
-  }, refs)
-}

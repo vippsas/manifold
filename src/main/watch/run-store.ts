@@ -13,6 +13,10 @@ const CONFIG_DIR = path.join(os.homedir(), '.manifold')
 const STATE_FILE = path.join(CONFIG_DIR, 'watch-runs.json')
 export const WATCH_RUNS_ROOT = path.join(CONFIG_DIR, 'watch-runs')
 
+// Cap retained runs across all sessions. Each run keeps extracted frames on
+// disk (potentially hundreds of MB), so unbounded retention leaks storage.
+const MAX_RETAINED_RUNS = 20
+
 interface StoredWatchSession {
   key: string
   ownerSessionId: string
@@ -133,7 +137,35 @@ export class WatchRunStore {
       updatedAt: now,
       entries,
     }
+    this.evictOldRuns()
     this.writeToDisk()
+  }
+
+  /**
+   * Drop the oldest runs once we exceed MAX_RETAINED_RUNS, deleting their
+   * on-disk frame and aggregate directories. Never evicts a run that is the
+   * active run of any session.
+   */
+  private evictOldRuns(): void {
+    const activeRunIds = new Set<string>()
+    for (const session of Object.values(this.state.sessions)) {
+      if (session.activeRunId) activeRunIds.add(session.activeRunId)
+    }
+    const evictable = Object.values(this.state.runs)
+      .filter((run) => !activeRunIds.has(run.runId))
+      .sort((a, b) => a.createdAt.localeCompare(b.createdAt))
+    const overflow = Object.keys(this.state.runs).length - MAX_RETAINED_RUNS
+    if (overflow <= 0) return
+    for (let i = 0; i < overflow && i < evictable.length; i++) {
+      const run = evictable[i]
+      delete this.state.runs[run.runId]
+      this.removeRunDirs(run)
+    }
+  }
+
+  private removeRunDirs(run: StoredWatchRun): void {
+    try { fs.rmSync(path.join(WATCH_RUNS_ROOT, run.runId), { recursive: true, force: true }) } catch { /* best-effort */ }
+    try { fs.rmSync(run.aggregateDir, { recursive: true, force: true }) } catch { /* best-effort */ }
   }
 
   markEntrySpawned(runId: string, originalIndex: number, sessionId: string): void {

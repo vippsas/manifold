@@ -55,6 +55,36 @@ describe('WatchRunStore', () => {
     expect(snapshot.playlistDispatched).toBe(true)
   })
 
+  it('evicts oldest runs and removes their on-disk dirs once the cap is exceeded', () => {
+    const store = new WatchRunStore(stateFile)
+    const base = session()
+    const runDirs: string[] = []
+    // Start 25 runs on the same session. Each new startRun overwrites
+    // activeRunId, so all prior runs become non-active and evictable.
+    for (let i = 0; i < 25; i++) {
+      const runId = `run-${String(i).padStart(2, '0')}`
+      const aggregateDir = path.join(tmpDir, 'aggs', runId)
+      fs.mkdirSync(aggregateDir, { recursive: true })
+      fs.writeFileSync(path.join(aggregateDir, 'marker.txt'), 'x')
+      runDirs.push(aggregateDir)
+      store.startRun(base, {
+        runId,
+        sourceUrl: `https://video/${i}`,
+        aggregateDir,
+        entries: [{ url: `https://video/${i}` }],
+      })
+    }
+
+    // First 5 runs (oldest non-active) should have been evicted from disk.
+    for (let i = 0; i < 5; i++) {
+      expect(fs.existsSync(runDirs[i])).toBe(false)
+    }
+    // The remaining (newest 20) should still exist.
+    for (let i = 5; i < 25; i++) {
+      expect(fs.existsSync(runDirs[i])).toBe(true)
+    }
+  })
+
   it('filters sibling ids that are no longer live while keeping frames', () => {
     const store = new WatchRunStore(stateFile)
     const base = session()
