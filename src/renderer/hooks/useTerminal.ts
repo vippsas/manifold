@@ -6,7 +6,11 @@ import { WebLinksAddon } from '@xterm/addon-web-links'
 import { WebglAddon } from '@xterm/addon-webgl'
 import { Unicode11Addon } from '@xterm/addon-unicode11'
 import '@xterm/xterm/css/xterm.css'
-import { filterTerminalResponses } from '../terminal-input-filter'
+import {
+  filterTerminalResponses,
+  includesInterruptSignal,
+  INTERRUPT_TERMINAL_MODE_RESET,
+} from '../terminal-input-filter'
 import {
   loadWebFont,
   resolveFontFamily,
@@ -102,6 +106,7 @@ export function useTerminal({ sessionId, scrollbackLines, terminalFontFamily, xt
 
     let disposed = false
     let ready = false
+    let interruptResetTimer: ReturnType<typeof setTimeout> | null = null
 
     // Load the user's font as a web font on initial terminal creation so PUA
     // glyphs render correctly from the start (the font-change effect only fires
@@ -155,6 +160,9 @@ export function useTerminal({ sessionId, scrollbackLines, terminalFontFamily, xt
           if (!disposed && buffer) {
             terminal.write(buffer as string)
           }
+          if (!disposed) {
+            void window.electronAPI.invoke('shell:predict-suggestion', sessionId)
+          }
         })
       }, 300)
     })
@@ -184,6 +192,12 @@ export function useTerminal({ sessionId, scrollbackLines, terminalFontFamily, xt
       if (sessionId) {
         const filtered = filterTerminalResponses(data)
         if (filtered) {
+          if (includesInterruptSignal(filtered)) {
+            if (interruptResetTimer) clearTimeout(interruptResetTimer)
+            interruptResetTimer = setTimeout(() => {
+              if (!disposed) terminal.write(INTERRUPT_TERMINAL_MODE_RESET)
+            }, 50)
+          }
           if (filtered === '\t') {
             // Tab key: try to accept AI suggestion first, fall through to normal tab if none
             void window.electronAPI.invoke('shell:accept-suggestion', sessionId).then((accepted) => {
@@ -215,6 +229,7 @@ export function useTerminal({ sessionId, scrollbackLines, terminalFontFamily, xt
       disposed = true
       terminalRef.current = null
       fitAddonRef.current = null
+      if (interruptResetTimer) clearTimeout(interruptResetTimer)
       unsubscribe?.()
       onDataDisposable.dispose()
       resizeObserver.disconnect()

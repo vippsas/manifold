@@ -1,16 +1,15 @@
 // @vitest-environment node
-import { describe, expect, it, vi } from 'vitest'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 vi.mock('./shell-suggestion', () => ({
   predictNextCommand: vi.fn(),
   dismissSuggestion: vi.fn(),
-  injectGhostText: vi.fn(),
 }))
 
 import { ChatAdapter } from '../agent/chat-adapter'
-import { SessionStreamWirer } from './session-stream-wirer'
+import { hasShellPromptAtEnd, SessionStreamWirer } from './session-stream-wirer'
 import { NlInputBuffer } from './nl-command-translator'
-import { predictNextCommand, injectGhostText } from './shell-suggestion'
+import { predictNextCommand } from './shell-suggestion'
 import type { InternalSession } from './session-types'
 
 class FakePtyPool {
@@ -53,6 +52,10 @@ function createSession(): InternalSession {
 }
 
 describe('SessionStreamWirer', () => {
+  beforeEach(() => {
+    vi.clearAllMocks()
+  })
+
   it('does not promote preview URLs mentioned only in assistant text', () => {
     const ptyPool = new FakePtyPool()
     const chatAdapter = new ChatAdapter()
@@ -121,7 +124,7 @@ describe('SessionStreamWirer', () => {
     })
   })
 
-  it('does not append shell hints or suggestions when the prompt already has text', () => {
+  it('predicts immediately on the first empty shell prompt', () => {
     const ptyPool = new FakePtyPool()
     const sendToRenderer = vi.fn()
 
@@ -136,7 +139,57 @@ describe('SessionStreamWirer', () => {
 
     const session = createSession()
     session.runtimeId = '__shell__'
-    session.nlHintShown = false
+    session.nlInputBuffer = new NlInputBuffer()
+
+    wirer.setGitOps({ aiGenerate: vi.fn() } as never)
+    wirer.wireOutputStreaming(session.ptyId, session)
+
+    ptyPool.emitData(session.ptyId, 'app ❯ ')
+
+    expect(vi.mocked(predictNextCommand)).toHaveBeenCalledWith(session, ptyPool, expect.anything())
+  })
+
+  it('detects shell prompts from the accumulated output buffer', () => {
+    const ptyPool = new FakePtyPool()
+    const sendToRenderer = vi.fn()
+
+    const wirer = new SessionStreamWirer(
+      ptyPool as never,
+      () => null,
+      sendToRenderer,
+      undefined,
+      vi.fn(),
+      vi.fn(),
+    )
+
+    const session = createSession()
+    session.runtimeId = '__shell__'
+    session.nlInputBuffer = new NlInputBuffer()
+
+    wirer.setGitOps({ aiGenerate: vi.fn() } as never)
+    wirer.wireOutputStreaming(session.ptyId, session)
+
+    ptyPool.emitData(session.ptyId, '\x1b[36mapp ')
+    ptyPool.emitData(session.ptyId, '\x1b[37m❯\x1b[39m \x1b[?2004h')
+
+    expect(vi.mocked(predictNextCommand)).toHaveBeenCalledWith(session, ptyPool, expect.anything())
+  })
+
+  it('does not predict when the prompt already has text', () => {
+    const ptyPool = new FakePtyPool()
+    const sendToRenderer = vi.fn()
+
+    const wirer = new SessionStreamWirer(
+      ptyPool as never,
+      () => null,
+      sendToRenderer,
+      undefined,
+      vi.fn(),
+      vi.fn(),
+    )
+
+    const session = createSession()
+    session.runtimeId = '__shell__'
     session.nlInputBuffer = new NlInputBuffer()
     session.nlInputBuffer.feed('npm run dev')
 
@@ -145,8 +198,14 @@ describe('SessionStreamWirer', () => {
 
     ptyPool.emitData(session.ptyId, '❯ ')
 
-    expect(vi.mocked(injectGhostText)).not.toHaveBeenCalled()
     expect(vi.mocked(predictNextCommand)).not.toHaveBeenCalled()
     expect(sendToRenderer).toHaveBeenCalledWith('agent:output', { sessionId: session.id, data: '❯ ' })
+  })
+
+  it('recognizes a Manifold shell prompt at the end of ANSI-styled output', () => {
+    expect(hasShellPromptAtEnd('\x1b[36mapp\x1b[39m \x1b[37m❯\x1b[39m \x1b[?2004h')).toBe(true)
+    expect(hasShellPromptAtEnd('\x1b[36mapp\x1b[39m \x1b[37m❯\x1b[39m \x07')).toBe(true)
+    expect(hasShellPromptAtEnd('app ❯ npm test')).toBe(false)
+    expect(hasShellPromptAtEnd('build output\n')).toBe(false)
   })
 })

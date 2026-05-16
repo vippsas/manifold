@@ -1,5 +1,9 @@
 import { describe, it, expect } from 'vitest'
-import { filterTerminalResponses } from './terminal-input-filter'
+import {
+  filterTerminalResponses,
+  includesInterruptSignal,
+  INTERRUPT_TERMINAL_MODE_RESET,
+} from './terminal-input-filter'
 
 describe('filterTerminalResponses', () => {
   // --- Pass-through: normal user input ---
@@ -107,5 +111,15 @@ describe('filterTerminalResponses', () => {
 
   it('does not strip partial CPR-like sequence without R suffix', () => {
     expect(filterTerminalResponses('\x1b[2;1H')).toBe('\x1b[2;1H') // cursor position set, not report
+  })
+
+  it('detects Ctrl+C input for terminal mode reset', () => {
+    expect(includesInterruptSignal('\x03')).toBe(true)
+    expect(includesInterruptSignal('abc\x03')).toBe(true)
+    expect(includesInterruptSignal('\x1b[A')).toBe(false)
+  })
+
+  it('defines the interrupt reset as terminal control sequences only', () => {
+    expect(INTERRUPT_TERMINAL_MODE_RESET).toBe('\x1b[?1l\x1b>')
   })
 })

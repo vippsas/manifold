@@ -8,6 +8,9 @@ import type { InternalSession } from './session-types'
 
 const HISTORY_LINES = 20
 const SUGGESTION_TIMEOUT_MS = 30_000
+const SUGGESTION_MODEL_ARGS = ['--model', 'gpt-5.4-mini']
+const PENDING_SUGGESTION_TEXT = '...'
+const FALLBACK_SUGGESTION = 'git status'
 
 /**
  * Parse a single zsh history line, stripping extended history format.
@@ -58,7 +61,7 @@ export function buildSuggestionPrompt(
     ? `\nRecent terminal output:\n${terminalOutput}\n`
     : ''
 
-  return `You are a shell command predictor. Based on the shell history, git status, and recent terminal output below, predict the single most likely next command the user will run. Reply with ONLY the command, nothing else. No explanation, no markdown, no quotes. If there is nothing useful to do, reply with an empty line.
+  return `You are a shell command predictor. Based on the shell history, git status, and recent terminal output below, predict the single most likely next command the user will run. Reply with ONLY the command, nothing else. No explanation, no markdown, no quotes. If there is not enough context, reply with: ${FALLBACK_SUGGESTION}
 
 Shell history (most recent last):
 ${historyBlock}
@@ -104,20 +107,40 @@ function resolveHistoryPath(session: InternalSession): string | null {
  * Inject ghost text (dimmed suggestion) after the cursor position.
  */
 export function injectGhostText(ptyPool: PtyPool, ptyId: string, text: string): void {
-  const ghost = `\x1b7\x1b[2m${text}\x1b8`
+  const cursorBack = text.length > 0 ? `\x1b[${text.length}D` : ''
+  const ghost = `\x1b[2m${text}\x1b[22m${cursorBack}`
   ptyPool.pushOutput(ptyId, ghost)
 }
 
 /**
- * Clear ghost text by restoring saved cursor position and erasing to end of line.
+ * Clear ghost text from the current cursor position to the end of the line.
  */
 export function clearGhostText(ptyPool: PtyPool, ptyId: string): void {
-  const clear = `\x1b8\x1b[K`
-  ptyPool.pushOutput(ptyId, clear)
+  ptyPool.pushOutput(ptyId, '\x1b[K')
 }
 
 function hasBufferedPromptInput(session: InternalSession): boolean {
   return session.nlInputBuffer?.hasBufferedInput() ?? false
+}
+
+function finishPendingSuggestion(
+  session: InternalSession,
+  ptyPool: PtyPool,
+  suggestionState: NonNullable<InternalSession['shellSuggestion']>,
+  suggestion: string | null,
+): void {
+  if (suggestionState.ghostVisible && session.ptyId) {
+    clearGhostText(ptyPool, session.ptyId)
+    suggestionState.ghostVisible = false
+  }
+
+  suggestionState.pending = false
+  suggestionState.activeSuggestion = suggestion
+
+  if (suggestion && session.ptyId) {
+    injectGhostText(ptyPool, session.ptyId, suggestion)
+    suggestionState.ghostVisible = true
+  }
 }
 
 /**
@@ -140,6 +163,8 @@ export async function predictNextCommand(
   const suggestionState = session.shellSuggestion
   suggestionState.pending = true
   suggestionState.activeSuggestion = null
+  injectGhostText(ptyPool, session.ptyId, PENDING_SUGGESTION_TEXT)
+  suggestionState.ghostVisible = true
 
   try {
     const historyPath = resolveHistoryPath(session)
@@ -149,13 +174,13 @@ export async function predictNextCommand(
     ])
 
     if (!suggestionState.pending || hasBufferedPromptInput(session)) {
-      suggestionState.pending = false
+      finishPendingSuggestion(session, ptyPool, suggestionState, null)
       return
     }
 
-    const runtime = getRuntimeById('claude')
+    const runtime = getRuntimeById('codex')
     if (!runtime) {
-      suggestionState.pending = false
+      finishPendingSuggestion(session, ptyPool, suggestionState, FALLBACK_SUGGESTION)
       return
     }
 
@@ -172,26 +197,23 @@ export async function predictNextCommand(
       runtime,
       prompt,
       session.worktreePath,
-      runtime.aiModelArgs ?? [],
+      SUGGESTION_MODEL_ARGS,
       { timeoutMs: SUGGESTION_TIMEOUT_MS, silent: true },
     )
 
     if (!suggestionState.pending || hasBufferedPromptInput(session)) {
-      suggestionState.pending = false
+      finishPendingSuggestion(session, ptyPool, suggestionState, null)
       return
     }
 
-    const suggestion = result.trim()
-    if (!suggestion || suggestion.includes('\n')) {
-      suggestionState.pending = false
-      return
-    }
-
-    suggestionState.activeSuggestion = suggestion
-    suggestionState.pending = false
-    injectGhostText(ptyPool, session.ptyId, suggestion)
+    const suggestion = result.trim().split('\n')[0].trim() || FALLBACK_SUGGESTION
+    finishPendingSuggestion(session, ptyPool, suggestionState, suggestion)
   } catch {
-    suggestionState.pending = false
+    if (suggestionState.pending && !hasBufferedPromptInput(session)) {
+      finishPendingSuggestion(session, ptyPool, suggestionState, FALLBACK_SUGGESTION)
+    } else {
+      finishPendingSuggestion(session, ptyPool, suggestionState, null)
+    }
   }
 }
 
@@ -209,6 +231,7 @@ export function acceptSuggestion(
   ptyPool.write(session.ptyId, suggestion)
   session.shellSuggestion!.pending = false
   session.shellSuggestion!.activeSuggestion = null
+  session.shellSuggestion!.ghostVisible = false
   return true
 }
 
@@ -223,8 +246,9 @@ export function dismissSuggestion(
 
   session.shellSuggestion.pending = false
 
-  if (session.shellSuggestion.activeSuggestion && session.ptyId) {
+  if (session.shellSuggestion.ghostVisible && session.ptyId) {
     clearGhostText(ptyPool, session.ptyId)
   }
   session.shellSuggestion.activeSuggestion = null
+  session.shellSuggestion.ghostVisible = false
 }

@@ -212,8 +212,6 @@ function ModifiedFilesPanel(): React.JSX.Element {
 
 function ShellPanel(): React.JSX.Element {
   const s = useDockState()
-  const projectName = s.activeSuperagent ? s.activeSuperagent.name : s.shellProjectName
-  const branchName = s.activeSuperagent ? 'coordination' : s.shellBranchName
   return (
     <ShellTabs
       worktreeSessionId={s.worktreeShellSessionId}
@@ -222,8 +220,6 @@ function ShellPanel(): React.JSX.Element {
       scrollbackLines={s.scrollbackLines}
       terminalFontFamily={s.terminalFontFamily}
       xtermTheme={s.xtermTheme}
-      branchName={branchName}
-      projectName={projectName}
     />
   )
 }

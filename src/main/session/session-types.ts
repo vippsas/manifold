@@ -8,6 +8,8 @@ export interface ShellSuggestionState {
   activeSuggestion: string | null
   /** Whether a prediction request is in flight */
   pending: boolean
+  /** Whether ghost text is currently drawn in the terminal */
+  ghostVisible?: boolean
 }
 
 export interface InternalSession extends AgentSession {
@@ -36,10 +38,6 @@ export interface InternalSession extends AgentSession {
   nlOutputBuffer?: RollingOutputBuffer
   /** Whether an NL translation request is in flight */
   nlPending?: boolean
-  /** Whether the first-prompt NL hint ghost text has been shown */
-  nlHintShown?: boolean
-  /** Whether the NL hint ghost text is currently visible (cleared on keystroke) */
-  nlHintActive?: boolean
   /** Autoresearch loop configuration for this session, if any */
   loopConfig?: LoopConfig
   /** Latest loop run status; kept even after the runner completes so the UI can show history */

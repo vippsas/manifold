@@ -28,6 +28,7 @@ import { useAppEffects } from './hooks/useAppEffects'
 import { PANEL_COMPONENTS, DockStateContext } from './components/editor/dock-panels'
 import type { DockAppState } from './components/editor/dock-panel-types'
 import { EditorHeaderActions } from './components/editor/EditorHeaderActions'
+import { ShellHeaderActions } from './components/terminal/ShellHeaderActions'
 import { OnboardingView } from './components/modals/OnboardingView'
 import { SettingsModal } from './components/modals/SettingsModal'
 import { AboutOverlay } from './components/modals/AboutOverlay'
@@ -339,8 +340,6 @@ export function App(): React.JSX.Element {
     expandedPaths: viewState.expandedPaths, onToggleExpand: viewState.onToggleExpand, worktreeRoot: tree?.path ?? null,
     worktreeShellSessionId: worktreeSessionId, projectShellSessionId: projectSessionId,
     worktreeCwd: worktreeShellCwd,
-    shellBranchName: activeSession?.branchName ?? null,
-    shellProjectName: projects.find((p) => p.id === activeProjectId)?.name ?? null,
     baseBranch, defaultRuntime: settings.defaultRuntime,
     activeSessionWorktreePath: activeSession?.worktreePath ?? null,
     activeSessionNoWorktree: activeSession?.noWorktree ?? false,
@@ -415,7 +414,8 @@ export function App(): React.JSX.Element {
           <div style={{ flex: 1, overflow: 'hidden' }}>
             <DockviewReact className={`dockview-theme-dark dockview-theme-manifold${!activeSessionId && !activeSuperagentId ? ' dockview-minimal' : ''}`}
               components={PANEL_COMPONENTS} onReady={(e) => dockLayout.onReady(e.api)}
-              defaultTabComponent={DockTab} rightHeaderActionsComponent={EditorHeaderActions}
+              defaultTabComponent={DockTab} leftHeaderActionsComponent={ShellHeaderActions}
+              rightHeaderActionsComponent={EditorHeaderActions}
               watermarkComponent={EmptyWatermark} />
           </div>
         </DockStateContext.Provider>

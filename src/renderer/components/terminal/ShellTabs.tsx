@@ -2,6 +2,7 @@ import React, { useState, useRef, useCallback, useEffect } from 'react'
 import type { ITheme } from '@xterm/xterm'
 import { useTerminal } from '../../hooks/useTerminal'
 import { shellTabStyles as styles } from './ShellTabs.styles'
+import { registerShellHeaderControls, unregisterShellHeaderControls } from './shell-header-controls'
 import {
   useSyncCacheOnAgentChange, useKeepCacheInSync, usePersistTabs,
   useRestoreTabsFromDisk, usePersistOnChange, useCleanupOnUnmount,
@@ -15,26 +16,6 @@ interface ShellTabsProps {
   scrollbackLines: number
   terminalFontFamily?: string
   xtermTheme?: ITheme
-  branchName?: string | null
-  projectName?: string | null
-}
-
-function ContextBar({ projectName, branchName, cwd }: {
-  projectName?: string | null; branchName?: string | null; cwd?: string | null
-}): React.JSX.Element | null {
-  if (!cwd) return null
-  const sep = <span style={styles.contextSeparator}>{'\u203A'}</span>
-  // Shorten cwd: show last two path segments
-  const segments = cwd.split('/')
-  const shortPath = segments.length > 2 ? segments.slice(-2).join('/') : cwd
-
-  return (
-    <div style={styles.contextBar}>
-      {projectName && <><span>{projectName}</span>{sep}</>}
-      {branchName && <><span>{branchName}</span>{sep}</>}
-      <span style={{ opacity: 0.6 }}>{shortPath}</span>
-    </div>
-  )
 }
 
 function ExtraShellTerminal({
@@ -46,6 +27,7 @@ function ExtraShellTerminal({
   return (
     <div
       ref={containerRef as React.RefObject<HTMLDivElement>}
+      className="terminal-host"
       style={{ ...styles.terminalContainer, display: isActive ? 'block' : 'none' }}
     />
   )
@@ -54,7 +36,6 @@ function ExtraShellTerminal({
 export function ShellTabs({
   worktreeSessionId, projectSessionId, worktreeCwd,
   scrollbackLines, terminalFontFamily, xtermTheme,
-  branchName, projectName,
 }: ShellTabsProps): React.JSX.Element {
   const [activeTab, setActiveTab] = useState<string>(worktreeSessionId ? 'worktree' : 'project')
 
@@ -115,23 +96,35 @@ export function ShellTabs({
     [worktreeSessionId]
   )
 
+  const addShellFromHeader = useCallback(() => {
+    void addShell()
+  }, [addShell])
+
+  const headerControls = React.useMemo(() => ({
+    effectiveTab,
+    worktreeSessionId,
+    extraShells,
+    onSetActiveTab: setActiveTab,
+    onRemoveShell: removeShell,
+    onAddShell: addShellFromHeader,
+  }), [effectiveTab, worktreeSessionId, extraShells, removeShell, addShellFromHeader])
+
+  useEffect(() => {
+    registerShellHeaderControls(headerControls)
+    return () => unregisterShellHeaderControls(headerControls)
+  }, [headerControls])
+
   return (
     <div style={styles.wrapper}>
-      <ShellTabBar
-        effectiveTab={effectiveTab} worktreeSessionId={worktreeSessionId}
-        extraShells={extraShells} onSetActiveTab={setActiveTab}
-        onRemoveShell={removeShell} onAddShell={() => void addShell()}
-      />
-      {effectiveTab !== 'project' && (
-        <ContextBar projectName={projectName} branchName={branchName} cwd={worktreeCwd} />
-      )}
       <div style={styles.terminalArea}>
         <div
           ref={worktreeTerminal.containerRef as React.RefObject<HTMLDivElement>}
+          className="terminal-host"
           style={{ ...styles.terminalContainer, display: effectiveTab === 'worktree' ? 'block' : 'none' }}
         />
         <div
           ref={projectTerminal.containerRef as React.RefObject<HTMLDivElement>}
+          className="terminal-host"
           style={{ ...styles.terminalContainer, display: effectiveTab === 'project' ? 'block' : 'none' }}
         />
         {extraShells.map((shell) => (
@@ -157,61 +150,4 @@ function resolveEffectiveTab(activeTab: string, worktreeSessionId: string | null
     }
   }
   return tab
-}
-
-function ShellTabBar({
-  effectiveTab, worktreeSessionId, extraShells,
-  onSetActiveTab, onRemoveShell, onAddShell,
-}: {
-  effectiveTab: string; worktreeSessionId: string | null; extraShells: ExtraShell[]
-  onSetActiveTab: (tab: string) => void; onRemoveShell: (id: string) => void
-  onAddShell: () => void
-}): React.JSX.Element {
-  const isMainTab = effectiveTab === 'worktree' || effectiveTab === 'project'
-  const showingProject = effectiveTab === 'project'
-
-  return (
-    <div style={styles.tabBar}>
-      <button
-        style={{
-          ...styles.tab,
-          ...(isMainTab ? styles.tabActive : {}),
-          ...(!worktreeSessionId && !showingProject ? styles.tabDisabled : {}),
-        }}
-        onClick={() => onSetActiveTab(worktreeSessionId ? 'worktree' : 'project')}
-      >
-        {showingProject ? 'Repository' : 'Worktree'}
-      </button>
-      <button
-        style={styles.toggleButton}
-        onClick={() => onSetActiveTab(showingProject ? 'worktree' : 'project')}
-        disabled={!worktreeSessionId}
-        title={showingProject ? 'Switch to worktree' : 'Switch to repository'}
-      >
-        {'\u21C5'}
-      </button>
-      {extraShells.map((shell) => {
-        const tabId = `extra-${shell.sessionId}`
-        return (
-          <button
-            key={shell.sessionId}
-            style={{ ...styles.tab, ...(effectiveTab === tabId ? styles.tabActive : {}) }}
-            onClick={() => onSetActiveTab(tabId)}
-          >
-            <span>{shell.label}</span>
-            <span
-              role="button" style={styles.tabCloseButton}
-              onClick={(e) => { e.stopPropagation(); onRemoveShell(shell.sessionId) }}
-              title={`Close ${shell.label}`}
-            >
-              x
-            </span>
-          </button>
-        )
-      })}
-      {worktreeSessionId && (
-        <button style={styles.addTabButton} onClick={onAddShell} title="New shell tab">+</button>
-      )}
-    </div>
-  )
 }

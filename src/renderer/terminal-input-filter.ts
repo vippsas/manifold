@@ -11,6 +11,11 @@ const cursorPositionReport = /\x1b\[\d+;\d+R/g
 // Focus events: \x1b[I (focus in) and \x1b[O (focus out)
 const focusEvent = /\x1b\[[IO]/g
 
+// Reset xterm cursor-key and keypad modes after Ctrl+C. Some interrupted
+// processes leave application cursor mode enabled, which can make the next
+// arrow key leak as a literal escape sequence at the shell prompt.
+export const INTERRUPT_TERMINAL_MODE_RESET = '\x1b[?1l\x1b>'
+
 /**
  * Strip known terminal response sequences from xterm.js onData output.
  * Returns the cleaned string, or `null` if the entire input consisted
@@ -23,4 +28,8 @@ export function filterTerminalResponses(data: string): string | null {
     .replace(focusEvent, '')
 
   return filtered.length > 0 ? filtered : null
+}
+
+export function includesInterruptSignal(data: string): boolean {
+  return data.includes('\x03')
 }

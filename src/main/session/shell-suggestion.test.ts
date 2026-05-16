@@ -5,17 +5,37 @@ vi.mock('node:fs', () => ({
   readFileSync: vi.fn(),
 }))
 
+const execFileMock = vi.hoisted(() => (
+  vi.fn((_file: string, _args: string[], _options: unknown, callback: (err: Error | null, stdout: string) => void) => {
+    callback(null, '## main\n')
+  })
+))
+
+vi.mock('node:child_process', () => ({
+  default: { execFile: execFileMock },
+  execFile: execFileMock,
+}))
+
 vi.mock('../agent/runtimes', () => ({
   getRuntimeById: vi.fn(() => ({
-    id: 'claude',
+    id: 'codex',
     aiModelArgs: [],
   })),
 }))
 
 import * as fs from 'node:fs'
+import { getRuntimeById } from '../agent/runtimes'
 import type { InternalSession } from './session-types'
 import { NlInputBuffer } from './nl-command-translator'
-import { buildSuggestionPrompt, readRecentHistory, parseZshHistoryLine, dismissSuggestion } from './shell-suggestion'
+import {
+  buildSuggestionPrompt,
+  clearGhostText,
+  dismissSuggestion,
+  injectGhostText,
+  parseZshHistoryLine,
+  predictNextCommand,
+  readRecentHistory,
+} from './shell-suggestion'
 
 const mockExistsSync = vi.mocked(fs.existsSync)
 const mockReadFileSync = vi.mocked(fs.readFileSync)
@@ -130,7 +150,79 @@ describe('dismissSuggestion', () => {
 
     dismissSuggestion(session, ptyPool as never)
 
-    expect(session.shellSuggestion).toEqual({ activeSuggestion: null, pending: false })
+    expect(session.shellSuggestion).toEqual({ activeSuggestion: null, pending: false, ghostVisible: false })
     expect(ptyPool.pushOutput).not.toHaveBeenCalled()
+  })
+
+  it('clears visible pending ghost text when dismissed', () => {
+    const session = createShellSession()
+    const ptyPool = { pushOutput: vi.fn() }
+    session.shellSuggestion = { activeSuggestion: null, pending: true, ghostVisible: true }
+
+    dismissSuggestion(session, ptyPool as never)
+
+    expect(ptyPool.pushOutput).toHaveBeenCalledWith('pty-1', '\x1b[K')
+    expect(session.shellSuggestion).toEqual({ activeSuggestion: null, pending: false, ghostVisible: false })
+  })
+})
+
+describe('ghost text rendering', () => {
+  it('draws ghost text inline and moves the cursor back without save/restore cursor state', () => {
+    const ptyPool = { pushOutput: vi.fn() }
+
+    injectGhostText(ptyPool as never, 'pty-1', 'git status')
+
+    expect(ptyPool.pushOutput).toHaveBeenCalledWith('pty-1', '\x1b[2mgit status\x1b[22m\x1b[10D')
+  })
+
+  it('clears from the live cursor instead of restoring a stale saved cursor', () => {
+    const ptyPool = { pushOutput: vi.fn() }
+
+    clearGhostText(ptyPool as never, 'pty-1')
+
+    expect(ptyPool.pushOutput).toHaveBeenCalledWith('pty-1', '\x1b[K')
+  })
+})
+
+describe('predictNextCommand', () => {
+  beforeEach(() => {
+    vi.clearAllMocks()
+  })
+
+  it('uses Codex as the shell suggestion runtime', async () => {
+    const session = createShellSession()
+    const ptyPool = { pushOutput: vi.fn() }
+    const gitOps = { aiGenerate: vi.fn().mockResolvedValue('npm test') }
+
+    await predictNextCommand(session, ptyPool as never, gitOps as never)
+
+    expect(getRuntimeById).toHaveBeenCalledWith('codex')
+    expect(gitOps.aiGenerate).toHaveBeenCalledWith(
+      expect.objectContaining({ id: 'codex' }),
+      expect.any(String),
+      '/tmp/app',
+      ['--model', 'gpt-5.4-mini'],
+      { timeoutMs: 30_000, silent: true },
+    )
+    expect(ptyPool.pushOutput).toHaveBeenNthCalledWith(1, 'pty-1', expect.stringContaining('...'))
+    expect(ptyPool.pushOutput).toHaveBeenNthCalledWith(2, 'pty-1', '\x1b[K')
+    expect(ptyPool.pushOutput).toHaveBeenNthCalledWith(3, 'pty-1', expect.stringContaining('npm test'))
+    expect(session.shellSuggestion).toEqual({
+      activeSuggestion: 'npm test',
+      pending: false,
+      ghostVisible: true,
+    })
+  })
+
+  it('falls back to git status when Codex returns an empty suggestion', async () => {
+    const session = createShellSession()
+    const ptyPool = { pushOutput: vi.fn() }
+    const gitOps = { aiGenerate: vi.fn().mockResolvedValue('\n') }
+
+    await predictNextCommand(session, ptyPool as never, gitOps as never)
+
+    expect(ptyPool.pushOutput).toHaveBeenNthCalledWith(2, 'pty-1', '\x1b[K')
+    expect(ptyPool.pushOutput).toHaveBeenNthCalledWith(3, 'pty-1', expect.stringContaining('git status'))
+    expect(session.shellSuggestion?.activeSuggestion).toBe('git status')
   })
 })

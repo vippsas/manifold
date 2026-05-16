@@ -61,7 +61,11 @@ export function TerminalPane({
       onDragLeave={handleDragLeave}
       onDrop={handleDrop}
     >
-      <div ref={containerRef as React.RefCallback<HTMLDivElement> | React.RefObject<HTMLDivElement> | null} style={paneStyles.container} />
+      <div
+        ref={containerRef as React.RefCallback<HTMLDivElement> | React.RefObject<HTMLDivElement> | null}
+        className="terminal-host"
+        style={paneStyles.container}
+      />
       {isDropTarget && (
         <div style={paneStyles.dropOverlay}>
           <div style={paneStyles.dropLabel}>Drop to insert relative path</div>
