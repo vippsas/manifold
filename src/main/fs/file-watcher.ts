@@ -1,7 +1,5 @@
 import * as fs from 'node:fs'
 import * as path from 'node:path'
-import { execFile } from 'node:child_process'
-import { promisify } from 'node:util'
 import { FileTreeNode } from '../../shared/types'
 import type { BrowserWindow } from 'electron'
 import type { VerdictRecorder } from '../session/verdict-recorder'
@@ -13,14 +11,9 @@ import {
   directoriesFirstComparator,
 } from './file-watcher-utils'
 import { NoopTreeWatcher, type TreeWatcher } from './tree-watcher'
+import { VerdictPollForwarder, type HeadShaFn } from './verdict-poll-forwarder'
 
 const POLL_INTERVAL_MS = 2000
-const execFileAsync = promisify(execFile)
-
-async function defaultHeadSha(cwd: string): Promise<string> {
-  const { stdout } = await execFileAsync('git', ['rev-parse', 'HEAD'], { cwd })
-  return stdout.trim()
-}
 
 interface PollEntry {
   timer: ReturnType<typeof setInterval>
@@ -31,27 +24,26 @@ interface PollEntry {
 }
 
 type GitStatusFn = (cwd: string) => Promise<string>
-type HeadShaFn = (cwd: string) => Promise<string>
 
 export class FileWatcher {
   private polls: Map<string, PollEntry> = new Map()
   private mainWindow: BrowserWindow | null = null
   private gitStatusFn: GitStatusFn
-  private headShaFn: HeadShaFn
   private treeWatcher: TreeWatcher
-  private lastHeadSha: Map<string, string> = new Map()
-  private verdictRecorder: VerdictRecorder | null = null
+  private readonly verdictForwarder: VerdictPollForwarder
 
   constructor(gitStatusFn?: GitStatusFn, treeWatcher?: TreeWatcher, headShaFn?: HeadShaFn) {
     this.gitStatusFn = gitStatusFn ?? gitStatus
-    this.headShaFn = headShaFn ?? defaultHeadSha
+    this.verdictForwarder = new VerdictPollForwarder(headShaFn)
     this.treeWatcher = treeWatcher ?? new NoopTreeWatcher()
     this.treeWatcher.setOnTreeChanged((sessionId) => {
       this.sendToRenderer('files:tree-changed', { sessionId })
     })
   }
 
-  setVerdictRecorder(recorder: VerdictRecorder): void { this.verdictRecorder = recorder }
+  setVerdictRecorder(recorder: VerdictRecorder): void {
+    this.verdictForwarder.setRecorder(recorder)
+  }
 
   setMainWindow(window: BrowserWindow): void {
     this.mainWindow = window
@@ -132,18 +124,7 @@ export class FileWatcher {
           sessionId: entry.sessionId,
           conflicts,
         })
-
-        if (this.verdictRecorder) {
-          try {
-            const head = await this.headShaFn(worktreePath)
-            const previous = this.lastHeadSha.get(worktreePath)
-            if (head && previous && head !== previous) {
-              this.verdictRecorder.onAgentCommit(entry.sessionId)
-            }
-            if (head) this.lastHeadSha.set(worktreePath, head)
-          } catch { /* worktree gone, ignore */ }
-          this.verdictRecorder.onFilesChanged(entry.sessionId)
-        }
+        await this.verdictForwarder.notifyGitChange(worktreePath, entry.sessionId)
       }
     } catch {
       // Worktree may not exist yet or git may fail — skip this tick
