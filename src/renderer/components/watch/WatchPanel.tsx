@@ -18,8 +18,10 @@ const PLAYLIST_SOFT_CAP = 10
 // horizontal real estate is used instead of pushing the playlist offscreen.
 const WIDE_LAYOUT_THRESHOLD_PX = 760
 // Past this width single-column cards leave half the panel empty, so the
-// playlist switches to a two-column grid.
-const TWO_COLUMN_CARDS_THRESHOLD_PX = 1080
+// playlist switches to a two-column grid. Tuned to match the side-by-side
+// hero threshold — once that layout activates, the cards row below also
+// has enough horizontal room for two columns.
+const TWO_COLUMN_CARDS_THRESHOLD_PX = 720
 
 export function WatchPanel(): React.JSX.Element {
   const dock = useDockState()
