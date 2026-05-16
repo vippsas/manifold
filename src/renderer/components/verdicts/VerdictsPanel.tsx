@@ -73,7 +73,8 @@ export function VerdictsPanel(): React.JSX.Element {
               <thead>
                 <tr>
                   <th style={styles.th}>When</th>
-                  <th style={styles.th}>Agent</th>
+                  <th style={styles.th}>Runtime</th>
+                  <th style={styles.th}>Outcome</th>
                   <th style={styles.th}>Prompt</th>
                   <th style={styles.th}></th>
                 </tr>
@@ -82,7 +83,8 @@ export function VerdictsPanel(): React.JSX.Element {
                 {recent.map((rec) => (
                   <tr key={rec.sessionId}>
                     <td style={styles.td}>{formatTime(rec.createdAt)}</td>
-                    <td style={styles.td}>{`${rec.runtime} — ${rec.outcome}`}</td>
+                    <td style={styles.td}>{rec.runtime}</td>
+                    <td style={styles.td}>{rec.outcome}</td>
                     <td style={{ ...styles.td, ...styles.promptCell }}>{renderPromptPreview(rec.taskPrompt)}</td>
                     <td style={styles.td}>
                       {rec.metrics.prUrl ? (

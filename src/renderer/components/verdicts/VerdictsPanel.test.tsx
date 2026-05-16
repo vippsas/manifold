@@ -45,8 +45,8 @@ describe('VerdictsPanel', () => {
       record({ sessionId: 'b', runtime: 'codex', outcome: 'discarded', createdAt: '2026-05-16T02:00:00Z', taskPrompt: { kind: 'full', text: 'fix bug' } }),
     ])
     renderWith('p1')
-    await waitFor(() => expect(screen.getByText('claude')).toBeTruthy())
-    expect(screen.getByText('codex')).toBeTruthy()
+    await waitFor(() => expect(screen.getAllByText('claude').length).toBeGreaterThan(0))
+    expect(screen.getAllByText('codex').length).toBeGreaterThan(0)
     expect(screen.getByText('fix bug')).toBeTruthy()
   })
 
