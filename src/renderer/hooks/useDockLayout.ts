@@ -555,6 +555,7 @@ export function useDockLayout(
   const hiddenPanels = PANEL_IDS
     .filter((id) => showIdeasTab || id !== 'backgroundAgent')
     .filter((id) => showLoopTab || id !== 'loop')
+    .filter((id) => showVerdictsTab || id !== 'verdicts')
     .filter((id) => !isPanelVisible(id)) as DockPanelId[]
   const editorPanelIds = Array.from(editorPanelIdsRef.current).sort((left, right) => (
     parseEditorPanelOrder(left) - parseEditorPanelOrder(right)
