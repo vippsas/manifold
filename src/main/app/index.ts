@@ -56,6 +56,7 @@ import { SuperagentManager } from '../superagent/superagent-manager'
 import { getRuntimeById } from '../agent/runtimes'
 import { installWatchSkills } from '../watch/skill-installer'
 import { getBundledWatchSkillPath } from '../watch/resource-path'
+import { WatchRunStore } from '../watch/run-store'
 
 let mainWindow: BrowserWindow | null = null
 
@@ -113,6 +114,7 @@ const shellTabStore = new ShellTabStore()
 const gitOps = new GitOperationsManager()
 const dockLayoutStore = new DockLayoutStore()
 const searchViewStore = new SearchViewStore()
+const watchRunStore = new WatchRunStore()
 const backgroundAgentHost = new BackgroundAgentHost({
   settingsStore,
   projectRegistry,
@@ -167,6 +169,7 @@ const ipcDeps = {
   vercelHealthCheck,
   superagentManager,
   approvalBroker,
+  watchRunStore,
 }
 
 function toggleKeepAwake(): void {

@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState, useSyncExternalStore } from 'react'
-import type { WatchSetupStatus, WatchFrameRef, WatchPeekResult, WatchPlaylistPeekResult, WatchPlaylistEntryInput, WatchPlaylistRunResult } from '../../shared/watch-types'
+import type { WatchSetupStatus, WatchFrameRef, WatchPeekResult, WatchPlaylistPeekResult, WatchPlaylistEntryInput, WatchPlaylistRunResult, WatchSessionSnapshot } from '../../shared/watch-types'
 import { watchPanelStore } from './watchPanelStore'
 
 interface UseWatchPanel {
@@ -42,6 +42,18 @@ export function useWatchPanel(activeSessionId: string | null): UseWatchPanel {
     watchPanelStore.init()
   }, [])
 
+  useEffect(() => {
+    if (!activeSessionId) return
+    let cancelled = false
+    void Promise.resolve(window.electronAPI.invoke('watch:state-get', activeSessionId))
+      .then((snapshot) => {
+        if (cancelled) return
+        watchPanelStore.hydrateSession(activeSessionId, snapshot as WatchSessionSnapshot)
+      })
+      .catch(() => {})
+    return () => { cancelled = true }
+  }, [activeSessionId])
+
   const subscribe = useCallback(
     (listener: () => void) => watchPanelStore.subscribe(activeSessionId, listener),
     [activeSessionId],
@@ -83,8 +95,9 @@ export function useWatchPanel(activeSessionId: string | null): UseWatchPanel {
       'watch:run-playlist',
       activeSessionId,
       entries,
+      sessionState.url,
     )) as WatchPlaylistRunResult
-  }, [activeSessionId])
+  }, [activeSessionId, sessionState.url])
 
   const improveQuestion = useCallback(async (question: string): Promise<string> => {
     if (!activeSessionId) throw new Error('No active session')
@@ -100,7 +113,9 @@ export function useWatchPanel(activeSessionId: string | null): UseWatchPanel {
   }, [activeSessionId])
 
   const setUrl = useCallback((url: string) => {
-    if (activeSessionId) watchPanelStore.setUrl(activeSessionId, url)
+    if (!activeSessionId) return
+    watchPanelStore.setUrl(activeSessionId, url)
+    void Promise.resolve(window.electronAPI.invoke('watch:state-set-url', activeSessionId, url)).catch(() => {})
   }, [activeSessionId])
   const setSiblingByIndex = useCallback((map: Record<number, string>) => {
     if (activeSessionId) watchPanelStore.setSiblingByIndex(activeSessionId, map)

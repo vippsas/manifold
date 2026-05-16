@@ -17,6 +17,7 @@ import type { ChatStore } from '../store/chat-store'
 import type { MemoryStore } from '../memory/memory-store'
 import type { AgentSession } from '../../shared/types'
 import type { VercelHealthCheck } from '../deploy/vercel-health-check'
+import type { WatchRunStore } from '../watch/run-store'
 
 export interface IpcDependencies {
   settingsStore: SettingsStore
@@ -39,6 +40,7 @@ export interface IpcDependencies {
   vercelHealthCheck: VercelHealthCheck
   superagentManager: import('../superagent/superagent-manager').SuperagentManager
   approvalBroker: import('../superagent/approval-broker').ApprovalBroker
+  watchRunStore: WatchRunStore
 }
 
 export function resolveSession(sessionManager: SessionManager, sessionId: string): AgentSession {

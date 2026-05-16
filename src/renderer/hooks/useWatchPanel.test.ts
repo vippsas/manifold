@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { renderHook, act } from '@testing-library/react'
+import { renderHook, act, waitFor } from '@testing-library/react'
 import { useWatchPanel } from './useWatchPanel'
 import { __watchPanelStoreTestHooks } from './watchPanelStore'
 
@@ -10,6 +10,12 @@ beforeEach(() => {
   invoke.mockReset()
   onListener.mockClear()
   __watchPanelStoreTestHooks.reset()
+  invoke.mockImplementation(async (channel: string) => {
+    if (channel === 'watch:state-get' || channel === 'watch:state-set-url') {
+      return { url: '', playlistFrames: {}, siblingByIndex: {}, playlistDispatched: false }
+    }
+    return undefined
+  })
   ;(window as unknown as {
     electronAPI: { invoke: typeof invoke; on: typeof onListener }
   }).electronAPI = { invoke, on: onListener } as never
@@ -17,8 +23,14 @@ beforeEach(() => {
 
 describe('useWatchPanel', () => {
   it('refreshSetupStatus stores response', async () => {
-    invoke.mockResolvedValueOnce({
-      ffmpeg: true, ytdlp: true, hasBrew: true, provider: 'openai', hasApiKey: true,
+    invoke.mockImplementation(async (channel: string) => {
+      if (channel === 'watch:setup-status') {
+        return { ffmpeg: true, ytdlp: true, hasBrew: true, provider: 'openai', hasApiKey: true }
+      }
+      if (channel === 'watch:state-get' || channel === 'watch:state-set-url') {
+        return { url: '', playlistFrames: {}, siblingByIndex: {}, playlistDispatched: false }
+      }
+      return undefined
     })
     const { result } = renderHook(() => useWatchPanel('s1'))
     await act(async () => { await result.current.refreshSetupStatus() })
@@ -28,7 +40,13 @@ describe('useWatchPanel', () => {
   })
 
   it('peekUrl invokes watch:peek', async () => {
-    invoke.mockResolvedValueOnce({ ok: true, title: 'Hello', durationSeconds: 42 })
+    invoke.mockImplementation(async (channel: string) => {
+      if (channel === 'watch:peek') return { ok: true, title: 'Hello', durationSeconds: 42 }
+      if (channel === 'watch:state-get' || channel === 'watch:state-set-url') {
+        return { url: '', playlistFrames: {}, siblingByIndex: {}, playlistDispatched: false }
+      }
+      return undefined
+    })
     const { result } = renderHook(() => useWatchPanel('s1'))
     const peek = await result.current.peekUrl('https://youtu.be/abc')
     expect(invoke).toHaveBeenCalledWith('watch:peek', 'https://youtu.be/abc')
@@ -37,7 +55,13 @@ describe('useWatchPanel', () => {
   })
 
   it('peekPlaylist invokes watch:peek-playlist', async () => {
-    invoke.mockResolvedValueOnce({ ok: true, entries: [{ url: 'https://a' }] })
+    invoke.mockImplementation(async (channel: string) => {
+      if (channel === 'watch:peek-playlist') return { ok: true, entries: [{ url: 'https://a' }] }
+      if (channel === 'watch:state-get' || channel === 'watch:state-set-url') {
+        return { url: '', playlistFrames: {}, siblingByIndex: {}, playlistDispatched: false }
+      }
+      return undefined
+    })
     const { result } = renderHook(() => useWatchPanel('s1'))
     const r = await result.current.peekPlaylist('https://youtube.com/playlist?list=x')
     expect(invoke).toHaveBeenCalledWith('watch:peek-playlist', 'https://youtube.com/playlist?list=x')
@@ -45,13 +69,20 @@ describe('useWatchPanel', () => {
   })
 
   it('runPlaylist invokes watch:run-playlist with session id and entries', async () => {
-    invoke.mockResolvedValueOnce({ ok: true, spawnedSessionIds: ['sib-1'] })
+    invoke.mockImplementation(async (channel: string) => {
+      if (channel === 'watch:run-playlist') return { ok: true, spawnedSessionIds: ['sib-1'] }
+      if (channel === 'watch:state-get' || channel === 'watch:state-set-url') {
+        return { url: '', playlistFrames: {}, siblingByIndex: {}, playlistDispatched: false }
+      }
+      return undefined
+    })
     const { result } = renderHook(() => useWatchPanel('s1'))
     const r = await result.current.runPlaylist([{ url: 'https://a', question: 'why?' }])
     expect(invoke).toHaveBeenCalledWith(
       'watch:run-playlist',
       's1',
       [{ url: 'https://a', question: 'why?' }],
+      '',
     )
     expect(r.ok).toBe(true)
   })
@@ -65,16 +96,24 @@ describe('useWatchPanel', () => {
   it('runPlaylist rejects when entries is empty', async () => {
     const { result } = renderHook(() => useWatchPanel('s1'))
     await expect(result.current.runPlaylist([])).rejects.toThrow(/No entries/)
-    expect(invoke).not.toHaveBeenCalled()
+    expect(invoke).not.toHaveBeenCalledWith('watch:run-playlist', expect.anything(), expect.anything(), expect.anything())
   })
 
   it('improveQuestion invokes git:ai-generate with the user prompt embedded', async () => {
-    invoke.mockResolvedValueOnce('Improved prompt text.')
+    invoke.mockImplementation(async (channel: string) => {
+      if (channel === 'git:ai-generate') return 'Improved prompt text.'
+      if (channel === 'watch:state-get' || channel === 'watch:state-set-url') {
+        return { url: '', playlistFrames: {}, siblingByIndex: {}, playlistDispatched: false }
+      }
+      return undefined
+    })
     const { result } = renderHook(() => useWatchPanel('s1'))
     let improved = ''
     await act(async () => { improved = await result.current.improveQuestion('  do the thing  ') })
     expect(improved).toBe('Improved prompt text.')
-    const [channel, sid, prompt] = invoke.mock.calls[0]
+    const gitCall = invoke.mock.calls.find(([name]) => name === 'git:ai-generate')
+    expect(gitCall).toBeDefined()
+    const [channel, sid, prompt] = gitCall as [string, string, string]
     expect(channel).toBe('git:ai-generate')
     expect(sid).toBe('s1')
     expect(prompt).toContain('do the thing')
@@ -90,11 +129,17 @@ describe('useWatchPanel', () => {
   it('improveQuestion rejects when the question is blank', async () => {
     const { result } = renderHook(() => useWatchPanel('s1'))
     await expect(result.current.improveQuestion('   ')).rejects.toThrow(/empty/)
-    expect(invoke).not.toHaveBeenCalled()
+    expect(invoke).not.toHaveBeenCalledWith('git:ai-generate', expect.anything(), expect.anything())
   })
 
   it('improveQuestion falls back to the original when the agent returns empty', async () => {
-    invoke.mockResolvedValueOnce('   ')
+    invoke.mockImplementation(async (channel: string) => {
+      if (channel === 'git:ai-generate') return '   '
+      if (channel === 'watch:state-get' || channel === 'watch:state-set-url') {
+        return { url: '', playlistFrames: {}, siblingByIndex: {}, playlistDispatched: false }
+      }
+      return undefined
+    })
     const { result } = renderHook(() => useWatchPanel('s1'))
     let improved = ''
     await act(async () => { improved = await result.current.improveQuestion('keep me') })
@@ -102,7 +147,13 @@ describe('useWatchPanel', () => {
   })
 
   it('readFrame invokes watch:read-frame with the path', async () => {
-    invoke.mockResolvedValueOnce('data:image/jpeg;base64,abc')
+    invoke.mockImplementation(async (channel: string) => {
+      if (channel === 'watch:read-frame') return 'data:image/jpeg;base64,abc'
+      if (channel === 'watch:state-get' || channel === 'watch:state-set-url') {
+        return { url: '', playlistFrames: {}, siblingByIndex: {}, playlistDispatched: false }
+      }
+      return undefined
+    })
     const { result } = renderHook(() => useWatchPanel('s1'))
     const url = await result.current.readFrame('/tmp/manifold-watch-x/frames/frame_0001.jpg')
     expect(invoke).toHaveBeenCalledWith('watch:read-frame', '/tmp/manifold-watch-x/frames/frame_0001.jpg')
@@ -110,13 +161,22 @@ describe('useWatchPanel', () => {
   })
 
   it('installBinaries refreshes status afterwards', async () => {
-    invoke
-      .mockResolvedValueOnce({ installed: ['ffmpeg'], alreadyPresent: ['yt-dlp'], errors: [] })
-      .mockResolvedValueOnce({ ffmpeg: true, ytdlp: true, hasBrew: true, provider: 'none', hasApiKey: false })
+    invoke.mockImplementation(async (channel: string) => {
+      if (channel === 'watch:install-binaries') {
+        return { installed: ['ffmpeg'], alreadyPresent: ['yt-dlp'], errors: [] }
+      }
+      if (channel === 'watch:setup-status') {
+        return { ffmpeg: true, ytdlp: true, hasBrew: true, provider: 'none', hasApiKey: false }
+      }
+      if (channel === 'watch:state-get' || channel === 'watch:state-set-url') {
+        return { url: '', playlistFrames: {}, siblingByIndex: {}, playlistDispatched: false }
+      }
+      return undefined
+    })
     const { result } = renderHook(() => useWatchPanel('s1'))
     await act(async () => { await result.current.installBinaries() })
-    expect(invoke).toHaveBeenNthCalledWith(1, 'watch:install-binaries')
-    expect(invoke).toHaveBeenNthCalledWith(2, 'watch:setup-status')
+    expect(invoke).toHaveBeenCalledWith('watch:install-binaries')
+    expect(invoke).toHaveBeenCalledWith('watch:setup-status')
   })
 
   it('persists url through the store across remounts', async () => {
@@ -127,6 +187,25 @@ describe('useWatchPanel', () => {
 
     const remounted = renderHook(() => useWatchPanel('s1'))
     expect(remounted.result.current.url).toBe('https://youtu.be/abc')
+  })
+
+  it('hydrates persisted watch run state from the main process', async () => {
+    invoke.mockImplementation(async (channel: string) => {
+      if (channel === 'watch:state-get') {
+        return {
+          url: 'https://playlist',
+          playlistFrames: { 1: [{ path: '/tmp/manifold-watch-x/frame.jpg', timestampSeconds: 12 }] },
+          siblingByIndex: { 1: 'sib-1' },
+          playlistDispatched: true,
+        }
+      }
+      return undefined
+    })
+    const { result } = renderHook(() => useWatchPanel('s1'))
+    await waitFor(() => expect(result.current.url).toBe('https://playlist'))
+    expect(result.current.siblingByIndex).toEqual({ 1: 'sib-1' })
+    expect(result.current.playlistFrames[1][0].timestampSeconds).toBe(12)
+    expect(result.current.playlistDispatched).toBe(true)
   })
 
   it('setUrl resets post-run state when changing URLs', async () => {

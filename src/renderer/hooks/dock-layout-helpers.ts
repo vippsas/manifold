@@ -1,5 +1,6 @@
 import type { DockviewApi, SerializedDockview } from 'dockview'
 import { getRelativeLocation, type Orientation } from 'dockview-core'
+import { isSiblingPanelId } from './agent-siblings'
 
 export const PANEL_IDS = ['projects', 'agent', 'editor', 'fileTree', 'modifiedFiles', 'shell', 'search', 'backgroundAgent', 'loop', 'watch'] as const
 export type DockPanelId = (typeof PANEL_IDS)[number]
@@ -248,6 +249,7 @@ const SUPPORTED_OPTIONAL_PANEL_IDS = new Set(['webPreview'])
 function isSupportedSavedPanelId(panelId: string): boolean {
   return PANEL_IDS.includes(panelId as DockPanelId) ||
     isEditorPanelId(panelId) ||
+    isSiblingPanelId(panelId) ||
     SUPPORTED_OPTIONAL_PANEL_IDS.has(panelId)
 }
 

@@ -48,14 +48,17 @@ function makeSm(opts: {
 const transcription: TranscriptionSettings = { provider: 'none' }
 
 let tmpAggregatesRoot: string
+let tmpWorkRoot: string
 
 beforeEach(() => {
   pipelineMock.mockReset()
   tmpAggregatesRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'manifold-watch-aggs-'))
+  tmpWorkRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'manifold-watch-runs-'))
 })
 
 afterEach(() => {
   fs.rmSync(tmpAggregatesRoot, { recursive: true, force: true })
+  fs.rmSync(tmpWorkRoot, { recursive: true, force: true })
 })
 
 const RUN_ID = 'test-run'
@@ -65,6 +68,7 @@ function runOpts(overrides: Partial<Parameters<typeof runWatchPlaylist>[1]> = {}
     sessionId: 'base',
     entries: [],
     aggregatesRoot: tmpAggregatesRoot,
+    workRoot: tmpWorkRoot,
     runId: RUN_ID,
     ...overrides,
   }
