@@ -40,6 +40,8 @@ export function WatchPanel(): React.JSX.Element {
     setOpenSiblingId,
     focusedEntryIndex,
     setFocusedEntryIndex,
+    playerHidden,
+    setPlayerHidden,
   } = useWatchPanel(sessionId)
   const [error, setError] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
@@ -47,7 +49,6 @@ export function WatchPanel(): React.JSX.Element {
   const [improvingIndex, setImprovingIndex] = useState<number | null>(null)
   const [thumbCache, setThumbCache] = useState<Record<string, string>>({})
   const [lightbox, setLightbox] = useState<{ cardIndex: number; frameIndex: number } | null>(null)
-  const [playerHidden, setPlayerHidden] = useState(false)
 
   const preview = useWatchUrlPreview(url, { peekUrl, peekPlaylist })
 
@@ -70,9 +71,17 @@ export function WatchPanel(): React.JSX.Element {
       next.map((url) => ({ url })),
     )
   }, [preview.entries, sessionId])
-  // Re-reveal the player whenever the focused entry changes, even if the
-  // previous one was hidden.
-  useEffect(() => { setPlayerHidden(false) }, [focusedEntryIndex])
+  // Re-reveal the player when the user moves focus to a different entry, so
+  // the new entry's video shows even if the previous one was hidden. Guard
+  // against firing on mount: navigating away and back must not auto-expand
+  // the player the user collapsed.
+  const prevFocusRef = useRef<number | null | undefined>(undefined)
+  useEffect(() => {
+    if (prevFocusRef.current !== undefined && prevFocusRef.current !== focusedEntryIndex) {
+      setPlayerHidden(false)
+    }
+    prevFocusRef.current = focusedEntryIndex
+  }, [focusedEntryIndex, setPlayerHidden])
   // Default focus to the first selected entry (or first entry overall) once
   // the playlist preview loads. Reset to null when the URL clears.
   useEffect(() => {

@@ -18,11 +18,13 @@ interface UseWatchPanel {
   playlistDispatched: boolean
   openSiblingId: string | null
   focusedEntryIndex: number | null
+  playerHidden: boolean
   setUrl: (url: string) => void
   setSiblingByIndex: (map: Record<number, string>) => void
   setPlaylistDispatched: (v: boolean) => void
   setOpenSiblingId: (id: string | null) => void
   setFocusedEntryIndex: (value: number | null) => void
+  setPlayerHidden: (value: boolean) => void
 }
 
 const IMPROVE_PROMPT_META = [
@@ -146,6 +148,9 @@ export function useWatchPanel(activeSessionId: string | null): UseWatchPanel {
   const setFocusedEntryIndex = useCallback((value: number | null) => {
     if (activeSessionId) watchPanelStore.setFocusedEntryIndex(activeSessionId, value)
   }, [activeSessionId])
+  const setPlayerHidden = useCallback((value: boolean) => {
+    if (activeSessionId) watchPanelStore.setPlayerHidden(activeSessionId, value)
+  }, [activeSessionId])
 
   return {
     setupStatus,
@@ -162,10 +167,12 @@ export function useWatchPanel(activeSessionId: string | null): UseWatchPanel {
     playlistDispatched: sessionState.playlistDispatched,
     openSiblingId: sessionState.openSiblingId,
     focusedEntryIndex: sessionState.focusedEntryIndex,
+    playerHidden: sessionState.playerHidden,
     setUrl,
     setSiblingByIndex,
     setPlaylistDispatched,
     setOpenSiblingId,
     setFocusedEntryIndex,
+    setPlayerHidden,
   }
 }

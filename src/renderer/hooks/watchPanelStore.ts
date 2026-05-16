@@ -12,6 +12,9 @@ export interface WatchSessionState {
    *  the player above the list. Persisted so it survives dockview re-mounts
    *  triggered by opening a sibling agent. */
   focusedEntryIndex: number | null
+  /** Whether the user has collapsed the embedded video player. Persisted so
+   *  navigating away and back doesn't re-expand it. */
+  playerHidden: boolean
 }
 
 const EMPTY_STATE: WatchSessionState = Object.freeze({
@@ -21,6 +24,7 @@ const EMPTY_STATE: WatchSessionState = Object.freeze({
   playlistDispatched: false,
   openSiblingId: null,
   focusedEntryIndex: null,
+  playerHidden: false,
 }) as WatchSessionState
 
 const stateMap = new Map<string, WatchSessionState>()
@@ -184,6 +188,12 @@ export const watchPanelStore = {
     update(sessionId, (cur) => {
       if (cur.focusedEntryIndex === value) return cur
       return { ...cur, focusedEntryIndex: value }
+    })
+  },
+  setPlayerHidden(sessionId: string, value: boolean): void {
+    update(sessionId, (cur) => {
+      if (cur.playerHidden === value) return cur
+      return { ...cur, playerHidden: value }
     })
   },
   hydrateSession(sessionId: string, snapshot: WatchSessionSnapshot): void {
