@@ -88,6 +88,8 @@ const ALLOWED_INVOKE_CHANNELS = [
   'memory:delete',
   'memory:clear',
   'memory:settings',
+  'verdicts:list',
+  'verdicts:get',
   'search:context',
   'search:view-state:get',
   'search:view-state:set',

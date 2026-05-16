@@ -18,6 +18,8 @@ import type { MemoryStore } from '../memory/memory-store'
 import type { AgentSession } from '../../shared/types'
 import type { VercelHealthCheck } from '../deploy/vercel-health-check'
 import type { WatchRunStore } from '../watch/run-store'
+import { VerdictStore } from '../store/verdict-store'
+import type { VerdictRecorder } from '../session/verdict-recorder'
 
 export interface IpcDependencies {
   settingsStore: SettingsStore
@@ -41,6 +43,8 @@ export interface IpcDependencies {
   superagentManager: import('../superagent/superagent-manager').SuperagentManager
   approvalBroker: import('../superagent/approval-broker').ApprovalBroker
   watchRunStore: WatchRunStore
+  verdictStore: VerdictStore
+  verdictRecorder?: VerdictRecorder
 }
 
 export function resolveSession(sessionManager: SessionManager, sessionId: string): AgentSession {

@@ -1,12 +1,19 @@
-export type TranscriptionProvider = 'openai' | 'azure' | 'none'
+export type AiServiceProvider = 'openai' | 'azure' | 'none'
 
-export interface TranscriptionSettings {
-  provider: TranscriptionProvider
+export interface AiServiceSettings {
+  provider: AiServiceProvider
   openaiApiKey?: string
   azureApiKey?: string
   azureEndpoint?: string
-  azureDeployment?: string
+  azureDeployment?: string          // transcription deployment (existing)
+  chatModel?: string                // text/chat model (default 'gpt-5.1')
+  azureChatDeployment?: string      // Azure chat deployment (no default)
 }
+
+/** @deprecated Use AiServiceSettings. Kept as alias during migration. */
+export type TranscriptionSettings = AiServiceSettings
+/** @deprecated Use AiServiceProvider. */
+export type TranscriptionProvider = AiServiceProvider
 
 export interface WatchSetupStatus {
   ffmpeg: boolean

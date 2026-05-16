@@ -79,6 +79,19 @@ export class GitOperationsManager {
     }
   }
 
+  async isBranchMerged(worktreePath: string, baseBranch: string, branch: string): Promise<boolean> {
+    try {
+      await execFileAsync(
+        'git',
+        ['merge-base', '--is-ancestor', branch, baseBranch],
+        { cwd: worktreePath },
+      )
+      return true
+    } catch {
+      return false
+    }
+  }
+
   async getConflicts(worktreePath: string): Promise<string[]> {
     try {
       const stdout = await getManagedWorktreeStatus(worktreePath)

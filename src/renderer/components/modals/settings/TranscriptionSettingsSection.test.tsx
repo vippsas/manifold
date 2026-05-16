@@ -38,4 +38,24 @@ describe('TranscriptionSettingsSection', () => {
     fireEvent.change(input as HTMLInputElement, { target: { value: 'sk-new' } })
     expect(onChange).toHaveBeenCalledWith({ provider: 'openai', openaiApiKey: 'sk-new' })
   })
+
+  it('shows chat model input for openai with default placeholder', () => {
+    render(<TranscriptionSettingsSection value={{ provider: 'openai' }} onChange={vi.fn()} />)
+    const input = screen.getByText('CHAT_MODEL').parentElement?.querySelector('input') as HTMLInputElement
+    expect(input).toBeTruthy()
+    expect(input.placeholder).toBe('gpt-5.1')
+  })
+
+  it('emits chatModel change for openai', () => {
+    const onChange = vi.fn()
+    render(<TranscriptionSettingsSection value={{ provider: 'openai' }} onChange={onChange} />)
+    const input = screen.getByText('CHAT_MODEL').parentElement?.querySelector('input') as HTMLInputElement
+    fireEvent.change(input, { target: { value: 'gpt-4o-mini' } })
+    expect(onChange).toHaveBeenCalledWith({ provider: 'openai', chatModel: 'gpt-4o-mini' })
+  })
+
+  it('shows azure chat deployment input for azure', () => {
+    render(<TranscriptionSettingsSection value={{ provider: 'azure' }} onChange={vi.fn()} />)
+    expect(screen.getByText('AZURE_OPENAI_CHAT_DEPLOYMENT')).toBeTruthy()
+  })
 })

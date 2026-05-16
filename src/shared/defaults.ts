@@ -6,6 +6,7 @@ export const DEFAULT_SETTINGS: ManifoldSettings = {
   defaultRuntime: 'claude',
   showIdeasTab: false,
   showLoopTab: false,
+  showVerdictsTab: false,
   theme: 'manifold-atelier',
   scrollbackLines: 5000,
   terminalFontFamily: '',

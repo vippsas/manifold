@@ -1,7 +1,7 @@
 import React from 'react'
 import type { ProvisionerConfig, ProvisionerStatus } from '../../../../shared/provisioning-types'
 import type { DensitySetting, SearchAiSettings } from '../../../../shared/types'
-import type { TranscriptionSettings } from '../../../../shared/watch-types'
+import type { AiServiceSettings } from '../../../../shared/watch-types'
 import { modalStyles } from '../SettingsModal.styles'
 import { SearchAiSettingsSection } from './SearchAiSettingsSection'
 import { GeneralSettingsSection } from './GeneralSettingsSection'
@@ -33,6 +33,8 @@ interface Props {
   onRuntimeChange: (id: string) => void
   onShowIdeasTabChange: (enabled: boolean) => void
   onShowLoopTabChange: (enabled: boolean) => void
+  showVerdictsTab: boolean
+  onShowVerdictsTabChange: (enabled: boolean) => void
   onThemeChange: (theme: string) => void
   onScrollbackChange: (lines: number) => void
   onTerminalFontFamilyChange: (font: string) => void
@@ -61,8 +63,8 @@ interface Props {
   onProvisionersChange: (value: ProvisionerConfig[]) => void
   onCheckProvisionerHealth: (provisionerId?: string) => Promise<void>
   onRefreshProvisionerCatalog: (provisionerId?: string) => Promise<void>
-  transcription: TranscriptionSettings
-  onTranscriptionChange: (value: TranscriptionSettings) => void
+  transcription: AiServiceSettings
+  onTranscriptionChange: (value: AiServiceSettings) => void
 }
 
 export function SettingsModalBody(props: Props): React.JSX.Element {

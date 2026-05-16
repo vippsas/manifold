@@ -1,10 +1,10 @@
 import React from 'react'
-import type { TranscriptionSettings } from '../../../../shared/watch-types'
+import type { AiServiceSettings } from '../../../../shared/watch-types'
 import { SectionCard, SectionHeader } from './SettingsSectionLayout'
 
 interface Props {
-  value: TranscriptionSettings
-  onChange: (next: TranscriptionSettings) => void
+  value: AiServiceSettings
+  onChange: (next: AiServiceSettings) => void
 }
 
 const inputStyle: React.CSSProperties = {
@@ -16,7 +16,7 @@ const inputStyle: React.CSSProperties = {
 const labelStyle: React.CSSProperties = { fontSize: 12, opacity: 0.75, marginBottom: 4, display: 'block' }
 const fieldRow: React.CSSProperties = { display: 'flex', flexDirection: 'column', gap: 4, marginTop: 8 }
 
-const PROVIDER_LABELS: Record<TranscriptionSettings['provider'], string> = {
+const PROVIDER_LABELS: Record<AiServiceSettings['provider'], string> = {
   none: 'None (captions only)',
   openai: 'OpenAI',
   azure: 'Azure OpenAI',
@@ -49,15 +49,27 @@ export function TranscriptionSettingsSection({ value, onChange }: Props): React.
         </div>
 
         {value.provider === 'openai' && (
-          <div style={fieldRow}>
-            <label style={labelStyle}>OPENAI_API_KEY</label>
-            <input
-              type="password"
-              style={inputStyle}
-              value={value.openaiApiKey ?? ''}
-              onChange={(e) => onChange({ ...value, openaiApiKey: e.target.value })}
-            />
-          </div>
+          <>
+            <div style={fieldRow}>
+              <label style={labelStyle}>OPENAI_API_KEY</label>
+              <input
+                type="password"
+                style={inputStyle}
+                value={value.openaiApiKey ?? ''}
+                onChange={(e) => onChange({ ...value, openaiApiKey: e.target.value })}
+              />
+            </div>
+            <div style={fieldRow}>
+              <label style={labelStyle}>CHAT_MODEL</label>
+              <input
+                type="text"
+                style={inputStyle}
+                value={value.chatModel ?? ''}
+                placeholder="gpt-5.1"
+                onChange={(e) => onChange({ ...value, chatModel: e.target.value })}
+              />
+            </div>
+          </>
         )}
 
         {value.provider === 'azure' && (
@@ -89,6 +101,16 @@ export function TranscriptionSettingsSection({ value, onChange }: Props): React.
                 value={value.azureDeployment ?? ''}
                 placeholder="gpt-4o-transcribe"
                 onChange={(e) => onChange({ ...value, azureDeployment: e.target.value })}
+              />
+            </div>
+            <div style={fieldRow}>
+              <label style={labelStyle}>AZURE_OPENAI_CHAT_DEPLOYMENT</label>
+              <input
+                type="text"
+                style={inputStyle}
+                value={value.azureChatDeployment ?? ''}
+                placeholder="gpt-4o-mini"
+                onChange={(e) => onChange({ ...value, azureChatDeployment: e.target.value })}
               />
             </div>
           </>

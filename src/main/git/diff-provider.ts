@@ -41,6 +41,31 @@ export class DiffProvider {
     return diffParts.join('\n')
   }
 
+  async getDiffStats(
+    worktreePath: string,
+    baseBranch: string,
+  ): Promise<{ diffLines: { added: number; removed: number }; filesChanged: number }> {
+    if (!existsSync(worktreePath)) {
+      return { diffLines: { added: 0, removed: 0 }, filesChanged: 0 }
+    }
+    try {
+      const stdout = await gitExec(['diff', '--numstat', '--find-renames', baseBranch], worktreePath)
+      let added = 0, removed = 0, filesChanged = 0
+      for (const line of stdout.split('\n')) {
+        if (!line.trim()) continue
+        const [a, r] = line.split('\t')
+        const aNum = parseInt(a, 10)
+        const rNum = parseInt(r, 10)
+        if (!Number.isNaN(aNum)) added += aNum
+        if (!Number.isNaN(rNum)) removed += rNum
+        filesChanged += 1
+      }
+      return { diffLines: { added, removed }, filesChanged }
+    } catch {
+      return { diffLines: { added: 0, removed: 0 }, filesChanged: 0 }
+    }
+  }
+
   async getChangedFiles(worktreePath: string, baseBranch: string): Promise<FileChange[]> {
     if (!existsSync(worktreePath)) return []
 

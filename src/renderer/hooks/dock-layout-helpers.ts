@@ -10,7 +10,7 @@ export {
   showPanelFromHints,
 } from './dock-layout-loader'
 
-export const PANEL_IDS = ['projects', 'agent', 'editor', 'fileTree', 'modifiedFiles', 'shell', 'search', 'backgroundAgent', 'loop', 'watch'] as const
+export const PANEL_IDS = ['projects', 'agent', 'editor', 'fileTree', 'modifiedFiles', 'shell', 'search', 'backgroundAgent', 'loop', 'watch', 'verdicts'] as const
 export type DockPanelId = (typeof PANEL_IDS)[number]
 export const EDITOR_PANEL_ID_PREFIX = 'editor:'
 export type EditorSplitDirection = 'right' | 'below'
@@ -26,6 +26,7 @@ export const PANEL_TITLES: Record<DockPanelId, string> = {
   backgroundAgent: 'Ideas',
   loop: 'Loop',
   watch: 'Watch',
+  verdicts: 'Verdicts',
 }
 
 export type Direction = 'right' | 'left' | 'above' | 'below' | 'within'
@@ -42,6 +43,7 @@ export const PANEL_RESTORE_HINTS: Record<DockPanelId, Array<{ ref: DockPanelId; 
   backgroundAgent: [{ ref: 'editor', dir: 'within' }, { ref: 'agent', dir: 'within' }, { ref: 'search', dir: 'within' }],
   loop: [{ ref: 'editor', dir: 'within' }, { ref: 'agent', dir: 'within' }, { ref: 'search', dir: 'within' }, { ref: 'backgroundAgent', dir: 'within' }],
   watch: [{ ref: 'editor', dir: 'within' }, { ref: 'agent', dir: 'within' }, { ref: 'search', dir: 'within' }, { ref: 'loop', dir: 'within' }],
+  verdicts: [{ ref: 'editor', dir: 'within' }, { ref: 'agent', dir: 'within' }, { ref: 'search', dir: 'within' }, { ref: 'backgroundAgent', dir: 'within' }],
 }
 
 export function isEditorPanelId(panelId: string): boolean {

@@ -32,7 +32,7 @@ describe('applyDefaultLayout', () => {
   it('adds the default editor as a workspace tab beside the agent tabs', () => {
     const { api, addPanel } = createApi()
 
-    applyDefaultLayout(api as never, { showIdeasTab: true, showLoopTab: true })
+    applyDefaultLayout(api as never, { showIdeasTab: true, showLoopTab: true, showVerdictsTab: false })
 
     expect(addPanel).toHaveBeenNthCalledWith(3, {
       id: 'editor',
@@ -60,7 +60,7 @@ describe('applyDefaultLayout', () => {
   it('still omits Ideas when that setting is disabled', () => {
     const { api, addPanel } = createApi()
 
-    applyDefaultLayout(api as never, { showIdeasTab: false, showLoopTab: false })
+    applyDefaultLayout(api as never, { showIdeasTab: false, showLoopTab: false, showVerdictsTab: false })
 
     expect(addPanel).toHaveBeenCalledWith({
       id: 'editor',

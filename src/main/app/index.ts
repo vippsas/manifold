@@ -57,6 +57,9 @@ import { getRuntimeById } from '../agent/runtimes'
 import { installWatchSkills } from '../watch/skill-installer'
 import { getBundledWatchSkillPath } from '../watch/resource-path'
 import { WatchRunStore } from '../watch/run-store'
+import { VerdictStore } from '../store/verdict-store'
+import { VerdictRecorder } from '../session/verdict-recorder'
+import { summarizeMiddle } from '../store/prompt-summarizer'
 
 let mainWindow: BrowserWindow | null = null
 
@@ -148,6 +151,17 @@ sessionManager.setMemoryCapture(memoryCapture)
 sessionManager.setMemoryCompressor(memoryCompressor)
 sessionManager.setMemoryInjector(memoryInjector)
 
+const verdictStore = new VerdictStore()
+const verdictRecorder = new VerdictRecorder({
+  store: verdictStore,
+  getAiSettings: () => settingsStore.getSettings().transcription ?? { provider: 'none' },
+  getDiffStats: (wt, base) => diffProvider.getDiffStats(wt, base),
+  isBranchMerged: (wt, base, branch) => gitOps.isBranchMerged(wt, base, branch),
+  summarize: (middle, settings) => summarizeMiddle(middle, settings),
+})
+sessionManager.setVerdictRecorder(verdictRecorder)
+fileWatcher.setVerdictRecorder(verdictRecorder)
+
 const ipcDeps = {
   settingsStore,
   projectRegistry,
@@ -170,6 +184,8 @@ const ipcDeps = {
   superagentManager,
   approvalBroker,
   watchRunStore,
+  verdictStore,
+  verdictRecorder,
 }
 
 function toggleKeepAwake(): void {

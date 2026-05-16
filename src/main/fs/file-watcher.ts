@@ -2,6 +2,7 @@ import * as fs from 'node:fs'
 import * as path from 'node:path'
 import { FileTreeNode } from '../../shared/types'
 import type { BrowserWindow } from 'electron'
+import type { VerdictRecorder } from '../session/verdict-recorder'
 import {
   gitStatus,
   parseStatusWithConflicts,
@@ -10,6 +11,7 @@ import {
   directoriesFirstComparator,
 } from './file-watcher-utils'
 import { NoopTreeWatcher, type TreeWatcher } from './tree-watcher'
+import { VerdictPollForwarder, type HeadShaFn } from './verdict-poll-forwarder'
 
 const POLL_INTERVAL_MS = 2000
 
@@ -28,13 +30,19 @@ export class FileWatcher {
   private mainWindow: BrowserWindow | null = null
   private gitStatusFn: GitStatusFn
   private treeWatcher: TreeWatcher
+  private readonly verdictForwarder: VerdictPollForwarder
 
-  constructor(gitStatusFn?: GitStatusFn, treeWatcher?: TreeWatcher) {
+  constructor(gitStatusFn?: GitStatusFn, treeWatcher?: TreeWatcher, headShaFn?: HeadShaFn) {
     this.gitStatusFn = gitStatusFn ?? gitStatus
+    this.verdictForwarder = new VerdictPollForwarder(headShaFn)
     this.treeWatcher = treeWatcher ?? new NoopTreeWatcher()
     this.treeWatcher.setOnTreeChanged((sessionId) => {
       this.sendToRenderer('files:tree-changed', { sessionId })
     })
+  }
+
+  setVerdictRecorder(recorder: VerdictRecorder): void {
+    this.verdictForwarder.setRecorder(recorder)
   }
 
   setMainWindow(window: BrowserWindow): void {
@@ -116,6 +124,7 @@ export class FileWatcher {
           sessionId: entry.sessionId,
           conflicts,
         })
+        await this.verdictForwarder.notifyGitChange(worktreePath, entry.sessionId)
       }
     } catch {
       // Worktree may not exist yet or git may fail — skip this tick

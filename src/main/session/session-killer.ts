@@ -6,6 +6,7 @@ import type { ChatAdapter } from '../agent/chat-adapter'
 import type { MemoryCapture } from '../memory/memory-capture'
 import type { ProjectRegistry } from '../store/project-registry'
 import type { InternalSession } from './session-types'
+import type { VerdictRecorder } from './verdict-recorder'
 
 interface SessionKillerDeps {
   sessions: Map<string, InternalSession>
@@ -19,7 +20,11 @@ interface SessionKillerDeps {
 }
 
 export class SessionKiller {
+  private verdictRecorder: VerdictRecorder | null = null
+
   constructor(private deps: SessionKillerDeps) {}
+
+  setVerdictRecorder(recorder: VerdictRecorder): void { this.verdictRecorder = recorder }
 
   async killSession(sessionId: string): Promise<void> {
     const session = this.deps.sessions.get(sessionId)
@@ -28,6 +33,7 @@ export class SessionKiller {
 
     this.deps.sessions.delete(sessionId)
     this.cleanupSession(session)
+    void this.verdictRecorder?.onSessionTerminated(sessionId)
 
     if (session.projectId && !session.noWorktree) {
       await this.removeWorktreeIfUnused(session)
@@ -49,6 +55,7 @@ export class SessionKiller {
     for (const session of matching) {
       this.deps.sessions.delete(session.id)
       this.cleanupSession(session)
+      void this.verdictRecorder?.onSessionTerminated(session.id)
     }
 
     if (!noWorktree && projectId) {
