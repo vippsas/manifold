@@ -34,7 +34,7 @@ export function registerDiffHandler(deps: IpcDependencies): void {
 }
 
 export function registerPrHandler(deps: IpcDependencies): void {
-  const { sessionManager, projectRegistry, prCreator } = deps
+  const { sessionManager, projectRegistry, prCreator, verdictRecorder } = deps
 
   ipcMain.handle('pr:create', async (_event, options: CreatePROptions) => {
     const session = sessionManager.getSession(options.sessionId)
@@ -47,6 +47,8 @@ export function registerPrHandler(deps: IpcDependencies): void {
       body: options.body,
       baseBranch: project.baseBranch
     })
+
+    verdictRecorder?.onPrCreated(options.sessionId, url)
 
     return url
   })

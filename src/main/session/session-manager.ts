@@ -22,6 +22,7 @@ import { ShellSessionController } from './shell-session-controller'
 import { SessionKiller } from './session-killer'
 import { toPublicSession } from './session-public'
 import { SessionIoController } from './session-io-controller'
+import type { VerdictRecorder } from './verdict-recorder'
 
 
 export class SessionManager {
@@ -39,6 +40,7 @@ export class SessionManager {
   private shellController: ShellSessionController
   private killer: SessionKiller
   private ioController: SessionIoController
+  private verdictRecorder: VerdictRecorder | null = null
 
   constructor(
     private worktreeManager: WorktreeManager,
@@ -118,6 +120,11 @@ export class SessionManager {
 
   setMemoryInjector(injector: MemoryInjector): void { this.memoryInjector = injector }
 
+  setVerdictRecorder(recorder: VerdictRecorder): void {
+    this.verdictRecorder = recorder
+    this.killer.setVerdictRecorder(recorder)
+  }
+
   setGitOps(gitOps: GitOperationsManager): void {
     this.streamWirer.setGitOps(gitOps)
     this.shellController.setGitOps(gitOps)
@@ -130,10 +137,11 @@ export class SessionManager {
   setStatusListener(listener: (sessionId: string, status: string) => void): void { this.statusListener = listener }
 
   private sendToRenderer(channel: string, ...args: unknown[]): void {
-    if (channel === 'agent:status' && this.statusListener) {
+    if (channel === 'agent:status') {
       const payload = args[0] as { sessionId?: string; status?: string } | undefined
       if (payload?.sessionId && payload.status) {
-        this.statusListener(payload.sessionId, payload.status)
+        this.statusListener?.(payload.sessionId, payload.status)
+        this.verdictRecorder?.onStatus(payload.sessionId, payload.status)
       }
     }
     if (this.mainWindow && !this.mainWindow.isDestroyed()) {
@@ -162,6 +170,18 @@ export class SessionManager {
     this.sessions.set(session.id, session)
     this.memoryCapture?.startCapturing(session.id)
     this.notifySessionsChanged(session.projectId)
+    if (this.verdictRecorder && !session.noWorktree && session.worktreePath) {
+      const baseBranch = this.projectRegistry.getProject(session.projectId)?.baseBranch ?? 'main'
+      this.verdictRecorder.onSessionCreated({
+        sessionId: session.id,
+        projectId: session.projectId,
+        branch: session.branchName,
+        runtime: session.runtimeId,
+        taskPrompt: session.taskDescription ?? '',
+        worktreePath: session.worktreePath,
+        baseBranch,
+      })
+    }
     return toPublicSession(session)
   }
 
