@@ -35,7 +35,7 @@ describe('VerdictsPanel', () => {
 
   it('shows empty state when no active project', () => {
     renderWith(null)
-    expect(screen.getByText(/no sessions captured yet/i)).toBeTruthy()
+    expect(screen.getByText(/select a project/i)).toBeTruthy()
     expect(mockInvoke).not.toHaveBeenCalled()
   })
 
