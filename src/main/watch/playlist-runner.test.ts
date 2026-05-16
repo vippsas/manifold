@@ -162,6 +162,37 @@ describe('runWatchPlaylist', () => {
     expect(r.error).toMatch(/spawn boom/)
   })
 
+  it('reveals each sibling via onEntrySpawned only after its /watch:watch command is sent', async () => {
+    const sm = makeSm()
+    const events: Array<{ kind: 'input' | 'spawned'; payload: string }> = []
+    sm.sendInput.mockImplementation((sid: string, val: string) => {
+      events.push({ kind: 'input', payload: `${sid}:${val}` })
+    })
+    pipelineMock.mockImplementation(async ({ source }: { source: string }) => ({
+      workDir: `/tmp/wd-${source.slice(-1)}`,
+      reportPath: '',
+      frames: [],
+      transcript: { source: 'none' },
+    }))
+
+    await runWatchPlaylist(
+      { sessionManager: sm as unknown as SessionManager, getTranscription: () => transcription },
+      runOpts({
+        entries: [{ url: 'https://x/1' }],
+        onEntrySpawned: (idx, sid) => events.push({ kind: 'spawned', payload: `${idx}:${sid}` }),
+      }),
+    )
+
+    // The slash command must be observed *before* onEntrySpawned fires —
+    // otherwise the renderer would surface "Open agent" on an empty agent.
+    const cmdIndex = events.findIndex((e) =>
+      e.kind === 'input' && e.payload.startsWith('sib-1:/watch:watch'),
+    )
+    const spawnedIndex = events.findIndex((e) => e.kind === 'spawned')
+    expect(cmdIndex).toBeGreaterThanOrEqual(0)
+    expect(spawnedIndex).toBeGreaterThan(cmdIndex)
+  })
+
   it('records per-entry pipeline failures without aborting the run', async () => {
     const sm = makeSm()
     pipelineMock

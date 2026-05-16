@@ -32,9 +32,11 @@ export interface RunPlaylistOptions {
   /** Called as soon as each entry's pipeline produces frames, so the UI can
    *  show thumbnails progressively per card. */
   onEntryFramesReady?: (entryIndex: number, frames: WatchFrameRef[]) => void
-  /** Called as soon as each entry's sibling agent session is spawned, so the
-   *  UI can reveal the "Open agent" button per entry without waiting for the
-   *  whole playlist run to finish. */
+  /** Called once an entry's sibling agent has received its `/watch:watch`
+   *  context command, so the UI can reveal the "Open agent" button only
+   *  after the agent is ready to answer questions about the video. Revealing
+   *  the button earlier (e.g. right after createSession) lets the user open
+   *  an empty agent and ask questions before the watch context lands. */
   onEntrySpawned?: (entryIndex: number, sessionId: string) => void
   /** Override the aggregates root (tests). Defaults to ~/.manifold/watch-aggregates. */
   aggregatesRoot?: string
@@ -82,12 +84,15 @@ export async function runWatchPlaylist(
     entries: opts.entries,
   })
 
-  // Spawn one sibling agent per entry upfront so dock tabs appear immediately.
+  // Spawn one sibling agent per entry upfront so each PTY is ready to
+  // receive its `/watch:watch` command the moment its pipeline finishes.
+  // We deliberately *do not* notify the renderer here — the "Open agent"
+  // button must stay hidden until the agent has been primed with context
+  // (see onEntrySpawned doc).
   const spawnedSessionIds: string[] = []
   for (let i = 0; i < opts.entries.length; i++) {
-    const entry = opts.entries[i]
-    const originalIndex = entry.originalIndex ?? i
     try {
+      const entry = opts.entries[i]
       const sibling = await deps.sessionManager.createSession({
         projectId: baseSession.projectId,
         runtimeId: baseSession.runtimeId,
@@ -96,12 +101,6 @@ export async function runWatchPlaylist(
         groupId: runId,
       })
       spawnedSessionIds.push(sibling.id)
-      deps.watchRunStore?.markEntrySpawned(runId, originalIndex, sibling.id)
-      try {
-        opts.onEntrySpawned?.(originalIndex, sibling.id)
-      } catch {
-        // Renderer may have unsubscribed; non-fatal.
-      }
     } catch (err) {
       return {
         ok: false,
@@ -158,6 +157,14 @@ export async function runWatchPlaylist(
         deps.sessionManager.sendInput(siblingId, command)
         await new Promise((r) => setTimeout(r, AGENT_INPUT_DELAY_MS))
         deps.sessionManager.sendInput(siblingId, '\r')
+        // Now that the watch context has been queued to the agent, expose
+        // the sibling to the renderer ("Open agent" button) and the store.
+        deps.watchRunStore?.markEntrySpawned(runId, originalIndex, siblingId)
+        try {
+          opts.onEntrySpawned?.(originalIndex, siblingId)
+        } catch {
+          // Renderer may have unsubscribed; non-fatal.
+        }
         entryResults[i].ok = true
         entryResults[i].workDir = result.workDir
         deps.watchRunStore?.markEntryReady(runId, originalIndex, result.workDir)
