@@ -4,21 +4,15 @@ import { watchStyles as s } from './WatchPanel.styles'
 interface Props {
   url: string
   onUrlChange: (next: string) => void
-  onRun: () => void
-  canRun: boolean
-  busy: boolean
-  runLabel: string
   showExamples: boolean
 }
 
 /**
- * Hero + URL bar for the Watch panel. Combines the intro copy, the input,
- * and the inline Run button into one cohesive block, with optional example
- * chips shown only on the empty default state.
+ * Hero + URL bar for the Watch panel. The Run button lives separately
+ * below the playlist preview so the user always confirms their card
+ * selection before dispatching.
  */
-export function WatchHeader({
-  url, onUrlChange, onRun, canRun, busy, runLabel, showExamples,
-}: Props): React.JSX.Element {
+export function WatchHeader({ url, onUrlChange, showExamples }: Props): React.JSX.Element {
   const [focused, setFocused] = useState(false)
   return (
     <>
@@ -46,26 +40,6 @@ export function WatchHeader({
             placeholder="https://youtu.be/… , a public playlist URL, or /path/to/recording.mp4"
             autoFocus
           />
-          <button
-            type="button"
-            onClick={onRun}
-            disabled={!canRun}
-            aria-busy={busy}
-            style={{
-              ...s.runInline,
-              ...(busy ? s.runInlineBusy : {}),
-              ...(canRun || busy ? {} : s.runInlineDisabled),
-            }}
-          >
-            {busy ? (
-              <>
-                <span style={s.runSpinner} aria-hidden />
-                <span>Working…</span>
-              </>
-            ) : (
-              runLabel
-            )}
-          </button>
         </div>
         <div style={s.inputHint}>Playlists must be public — private and unlisted are not supported.</div>
         {showExamples && (

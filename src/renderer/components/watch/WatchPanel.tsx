@@ -6,12 +6,17 @@ import { watchPanelStore } from '../../hooks/watchPanelStore'
 import { watchStyles as s } from './WatchPanel.styles'
 import { FrameLightbox } from './FrameLightbox'
 import { WatchPlaylistPreview } from './WatchPlaylistPreview'
-import { WatchActivePlayer } from './WatchActivePlayer'
 import { WatchHeader } from './WatchHeader'
+import { WatchPlayerSlot } from './WatchPlayerSlot'
+import { useContainerWidth } from '../../hooks/useContainerWidth'
 import { WatchSetupStatusBar } from './WatchSetupStatusBar'
 import { siblingPanelId } from '../../hooks/agent-siblings'
 
 const PLAYLIST_SOFT_CAP = 10
+// Below this width the panel stays in a stacked single-column layout. Above
+// it, the hero/URL bar and the active video player split side-by-side so
+// horizontal real estate is used instead of pushing the playlist offscreen.
+const WIDE_LAYOUT_THRESHOLD_PX = 760
 
 export function WatchPanel(): React.JSX.Element {
   const dock = useDockState()
@@ -72,17 +77,14 @@ export function WatchPanel(): React.JSX.Element {
       next.map((url) => ({ url })),
     )
   }, [preview.entries, sessionId])
-  // Re-reveal the player when the user moves focus to a different entry, so
-  // the new entry's video shows even if the previous one was hidden. Guard
-  // against firing on mount: navigating away and back must not auto-expand
-  // the player the user collapsed.
-  const prevFocusRef = useRef<number | null | undefined>(undefined)
-  useEffect(() => {
-    if (prevFocusRef.current !== undefined && prevFocusRef.current !== focusedEntryIndex) {
-      setPlayerHidden(false)
-    }
-    prevFocusRef.current = focusedEntryIndex
-  }, [focusedEntryIndex, setPlayerHidden])
+  // Re-reveal the player only on explicit user focus actions (card click,
+  // open-agent). Inferring "user changed focus" from focusedEntryIndex
+  // updates also fires for the auto-focus effect during preview loading
+  // and on dock remount, which would clobber the user's hide preference.
+  const handleUserFocus = useCallback((index: number | null) => {
+    setFocusedEntryIndex(index)
+    setPlayerHidden(false)
+  }, [setFocusedEntryIndex, setPlayerHidden])
   // Default focus to the first selected entry (or first entry overall) once
   // the playlist preview loads. Reset to null when the URL clears.
   useEffect(() => {
@@ -188,35 +190,43 @@ export function WatchPanel(): React.JSX.Element {
     }
   }
 
+  const { ref: containerRef, width: containerWidth } = useContainerWidth()
+  const activeEntry = focusedEntryIndex !== null
+    ? preview.entries[focusedEntryIndex] ?? null
+    : null
+  const playerNode = (
+    <WatchPlayerSlot
+      entry={activeEntry}
+      hidden={playerHidden}
+      onHide={() => setPlayerHidden(true)}
+      onShow={() => setPlayerHidden(false)}
+    />
+  )
+  const header = (
+    <WatchHeader
+      url={url}
+      onUrlChange={setUrl}
+      showExamples={!url && preview.entries.length === 0}
+    />
+  )
+  // Side-by-side layout: only when the panel is wide enough AND there's a
+  // player to put next to the URL bar. Otherwise the right column would be
+  // empty and waste space.
+  const wide = containerWidth >= WIDE_LAYOUT_THRESHOLD_PX && activeEntry !== null
+
   return (
-    <div style={s.container}>
-      <WatchHeader
-        url={url}
-        onUrlChange={setUrl}
-        onRun={handleRun}
-        canRun={canRun}
-        busy={busy}
-        runLabel={runLabel}
-        showExamples={!url && preview.entries.length === 0}
-      />
-      {(() => {
-        const activeEntry = focusedEntryIndex !== null
-          ? preview.entries[focusedEntryIndex] ?? null
-          : null
-        if (!activeEntry) return null
-        if (playerHidden) {
-          return (
-            <button
-              type="button"
-              onClick={() => setPlayerHidden(false)}
-              style={s.showVideoButton}
-            >
-              ▶ Show video player
-            </button>
-          )
-        }
-        return <WatchActivePlayer entry={activeEntry} onHide={() => setPlayerHidden(true)} />
-      })()}
+    <div ref={containerRef} style={s.container}>
+      {wide ? (
+        <div style={s.splitRow}>
+          <div style={s.splitLeft}>{header}</div>
+          <div style={s.splitRight}>{playerNode}</div>
+        </div>
+      ) : (
+        <>
+          {header}
+          {playerNode}
+        </>
+      )}
       <WatchPlaylistPreview
         loading={preview.loading}
         playlistTitle={preview.playlistTitle ?? undefined}
@@ -232,7 +242,7 @@ export function WatchPanel(): React.JSX.Element {
         canImprove={canImprove}
         siblingByIndex={siblingByIndex}
         focusedIndex={focusedEntryIndex}
-        onFocus={setFocusedEntryIndex}
+        onFocus={handleUserFocus}
         framesByIndex={playlistFrames}
         readFrame={readFrame}
         onThumbLoaded={handleThumbLoaded}
@@ -251,16 +261,34 @@ export function WatchPanel(): React.JSX.Element {
             dock.onCloseSiblingPanel(openSiblingId)
           }
           setOpenSiblingId(sid)
-          setFocusedEntryIndex(index)
+          handleUserFocus(index)
         }}
         onSelectFrame={(cardIndex, frameIndex) => setLightbox({ cardIndex, frameIndex })}
       />
-      {(!sessionId || !isRunning) && (
-        <div style={s.hintRow}>
-          {!sessionId && <span>Select a project and start an agent to enable Run.</span>}
-          {sessionId && !isRunning && <span>Active agent is not running.</span>}
-        </div>
-      )}
+      <div style={s.runRow}>
+        <button
+          type="button"
+          onClick={handleRun}
+          disabled={!canRun}
+          aria-busy={busy}
+          style={{
+            ...s.runButton,
+            ...(busy ? s.runButtonBusy : {}),
+            ...(canRun || busy ? {} : s.runButtonDisabled),
+          }}
+        >
+          {busy ? (
+            <>
+              <span style={s.runSpinner} aria-hidden />
+              <span>Working…</span>
+            </>
+          ) : (
+            runLabel
+          )}
+        </button>
+        {!sessionId && <span style={s.hint}>Select a project and start an agent first.</span>}
+        {sessionId && !isRunning && <span style={s.hint}>Active agent is not running.</span>}
+      </div>
       {error && <div style={s.error}>{error}</div>}
       {!error && preview.error && <div style={s.error}>{preview.error}</div>}
 

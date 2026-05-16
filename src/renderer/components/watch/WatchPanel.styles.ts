@@ -9,6 +9,19 @@ export const watchStyles: Record<string, CSSProperties> = {
     fontSize: 'var(--type-ui)',
     boxSizing: 'border-box',
   },
+  splitRow: {
+    display: 'flex', alignItems: 'flex-start',
+    gap: 'var(--space-lg)',
+  },
+  splitLeft: {
+    flex: '1 1 0',
+    minWidth: 0,
+    display: 'flex', flexDirection: 'column', gap: 'var(--space-md)',
+  },
+  splitRight: {
+    flex: '1 1 0',
+    minWidth: 0,
+  },
   hero: {
     display: 'flex', alignItems: 'flex-start', gap: 'var(--space-md)',
     paddingBottom: 'var(--space-sm)',
@@ -148,13 +161,27 @@ export const watchStyles: Record<string, CSSProperties> = {
     fontFamily: 'inherit', resize: 'vertical', boxSizing: 'border-box',
   },
   row: { display: 'flex', alignItems: 'center', gap: 8 },
-  runButton: {
-    display: 'inline-flex', alignItems: 'center', gap: 8,
-    padding: '8px 16px', borderRadius: 6, border: 'none',
-    background: 'var(--accent)', color: 'var(--accent-fg)',
-    fontSize: 13, fontWeight: 600, cursor: 'pointer',
+  runRow: {
+    display: 'flex', alignItems: 'center', gap: 'var(--space-md)',
+    paddingTop: 'var(--space-sm)',
+    borderTop: '1px solid var(--divider, var(--border))',
+    marginTop: 'auto',
   },
-  runButtonDisabled: { opacity: 0.5, cursor: 'not-allowed' },
+  runButton: {
+    display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+    gap: 8, minWidth: 120,
+    padding: '10px 22px', borderRadius: 'var(--radius-md)', border: 'none',
+    background: 'linear-gradient(135deg, var(--accent), var(--accent-hover))',
+    color: 'var(--accent-text)',
+    fontSize: 'var(--type-ui)', fontWeight: 600, letterSpacing: 0.2,
+    cursor: 'pointer',
+    boxShadow: 'var(--shadow-subtle)',
+    transition: 'filter 200ms ease, opacity 200ms ease, transform 150ms ease',
+  },
+  runButtonDisabled: {
+    opacity: 0.5, cursor: 'not-allowed',
+    filter: 'saturate(0.4)', boxShadow: 'none',
+  },
   runButtonBusy: {
     cursor: 'progress',
     animation: 'ai-pulse 1.4s ease-in-out infinite',
