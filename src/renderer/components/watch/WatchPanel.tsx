@@ -77,14 +77,21 @@ export function WatchPanel(): React.JSX.Element {
       next.map((url) => ({ url })),
     )
   }, [preview.entries, sessionId])
-  // Re-reveal the player only on explicit user focus actions (card click,
-  // open-agent). Inferring "user changed focus" from focusedEntryIndex
-  // updates also fires for the auto-focus effect during preview loading
-  // and on dock remount, which would clobber the user's hide preference.
-  const handleUserFocus = useCallback((index: number | null) => {
+  // Card click: focusing a different video re-reveals the player so the
+  // user actually sees what they just clicked on. Inferring this from
+  // focusedEntryIndex changes is unsafe (the auto-focus effect and the
+  // preview-reload-on-remount path both touch the index), so we only do
+  // it from an explicit user click handler.
+  const handleCardFocus = useCallback((index: number | null) => {
     setFocusedEntryIndex(index)
     setPlayerHidden(false)
   }, [setFocusedEntryIndex, setPlayerHidden])
+  // Opening a sibling agent moves the user away from the Watch tab. It
+  // should not also un-hide the player — when they come back the player
+  // would be visible despite their earlier hide.
+  const handleOpenSiblingFocus = useCallback((index: number | null) => {
+    setFocusedEntryIndex(index)
+  }, [setFocusedEntryIndex])
   // Default focus to the first selected entry (or first entry overall) once
   // the playlist preview loads. Reset to null when the URL clears.
   useEffect(() => {
@@ -242,7 +249,7 @@ export function WatchPanel(): React.JSX.Element {
         canImprove={canImprove}
         siblingByIndex={siblingByIndex}
         focusedIndex={focusedEntryIndex}
-        onFocus={handleUserFocus}
+        onFocus={handleCardFocus}
         framesByIndex={playlistFrames}
         readFrame={readFrame}
         onThumbLoaded={handleThumbLoaded}
@@ -261,7 +268,7 @@ export function WatchPanel(): React.JSX.Element {
             dock.onCloseSiblingPanel(openSiblingId)
           }
           setOpenSiblingId(sid)
-          handleUserFocus(index)
+          handleOpenSiblingFocus(index)
         }}
         onSelectFrame={(cardIndex, frameIndex) => setLightbox({ cardIndex, frameIndex })}
       />
