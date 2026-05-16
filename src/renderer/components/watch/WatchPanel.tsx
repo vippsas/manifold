@@ -17,6 +17,9 @@ const PLAYLIST_SOFT_CAP = 10
 // it, the hero/URL bar and the active video player split side-by-side so
 // horizontal real estate is used instead of pushing the playlist offscreen.
 const WIDE_LAYOUT_THRESHOLD_PX = 760
+// Past this width single-column cards leave half the panel empty, so the
+// playlist switches to a two-column grid.
+const TWO_COLUMN_CARDS_THRESHOLD_PX = 1080
 
 export function WatchPanel(): React.JSX.Element {
   const dock = useDockState()
@@ -235,6 +238,7 @@ export function WatchPanel(): React.JSX.Element {
         </>
       )}
       <WatchPlaylistPreview
+        columns={containerWidth >= TWO_COLUMN_CARDS_THRESHOLD_PX ? 2 : 1}
         loading={preview.loading}
         playlistTitle={preview.playlistTitle ?? undefined}
         uploader={preview.uploader ?? undefined}
