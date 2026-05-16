@@ -1,15 +1,16 @@
 import * as fs from 'node:fs'
 import * as os from 'node:os'
 import * as path from 'node:path'
+import { WATCH_RUNS_ROOT } from './run-store'
 
-const ALLOWED_PREFIX = path.join(os.tmpdir(), 'manifold-watch-')
+const TEMP_ALLOWED_PREFIX = path.join(os.tmpdir(), 'manifold-watch-')
 const ALLOWED_EXTENSIONS = new Set(['.jpg', '.jpeg', '.png'])
 
 export class FramePathError extends Error {}
 
 export function readFrameAsDataUrl(framePath: string): string {
   const resolved = path.resolve(framePath)
-  if (!resolved.startsWith(ALLOWED_PREFIX)) {
+  if (!isAllowedFramePath(resolved)) {
     throw new FramePathError(`Path outside Manifold watch workdir: ${resolved}`)
   }
   const ext = path.extname(resolved).toLowerCase()
@@ -22,4 +23,11 @@ export function readFrameAsDataUrl(framePath: string): string {
   const data = fs.readFileSync(resolved)
   const mime = ext === '.png' ? 'image/png' : 'image/jpeg'
   return `data:${mime};base64,${data.toString('base64')}`
+}
+
+function isAllowedFramePath(resolved: string): boolean {
+  const runsRoot = path.resolve(WATCH_RUNS_ROOT)
+  return resolved.startsWith(TEMP_ALLOWED_PREFIX) ||
+    resolved === runsRoot ||
+    resolved.startsWith(runsRoot + path.sep)
 }

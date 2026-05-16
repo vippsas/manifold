@@ -129,7 +129,7 @@ export class SessionCreator {
       this.streamWirer.wireExitHandling(ptyHandle.id, session)
     }
 
-    if (!options.noWorktree) {
+    if (!options.noWorktree && !options.existingWorktreePath) {
       writeWorktreeMeta(worktree.path, {
         runtimeId: options.runtimeId,
         taskDescription: options.userMessage || options.prompt || undefined,

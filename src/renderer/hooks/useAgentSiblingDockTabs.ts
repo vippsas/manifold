@@ -42,6 +42,7 @@ export function useAgentSiblingDockTabs({
     const api = apiRef.current
     if (!api) return
     if (!api.getPanel('agent')) return
+    if (activeSessionId && !activeWorktreePath) return
 
     const siblingsOnWorktree = activeWorktreePath
       ? sessions.filter(

@@ -6,11 +6,22 @@ import { watchPanelStore } from '../../hooks/watchPanelStore'
 import { watchStyles as s } from './WatchPanel.styles'
 import { FrameLightbox } from './FrameLightbox'
 import { WatchPlaylistPreview } from './WatchPlaylistPreview'
-import { WatchActivePlayer } from './WatchActivePlayer'
+import { WatchHeader } from './WatchHeader'
+import { WatchPlayerSlot } from './WatchPlayerSlot'
+import { useContainerWidth } from '../../hooks/useContainerWidth'
 import { WatchSetupStatusBar } from './WatchSetupStatusBar'
 import { siblingPanelId } from '../../hooks/agent-siblings'
 
 const PLAYLIST_SOFT_CAP = 10
+// Below this width the panel stays in a stacked single-column layout. Above
+// it, the hero/URL bar and the active video player split side-by-side so
+// horizontal real estate is used instead of pushing the playlist offscreen.
+const WIDE_LAYOUT_THRESHOLD_PX = 760
+// Past this width single-column cards leave half the panel empty, so the
+// playlist switches to a two-column grid. Tuned to match the side-by-side
+// hero threshold — once that layout activates, the cards row below also
+// has enough horizontal room for two columns.
+const TWO_COLUMN_CARDS_THRESHOLD_PX = 720
 
 export function WatchPanel(): React.JSX.Element {
   const dock = useDockState()
@@ -40,6 +51,8 @@ export function WatchPanel(): React.JSX.Element {
     setOpenSiblingId,
     focusedEntryIndex,
     setFocusedEntryIndex,
+    playerHidden,
+    setPlayerHidden,
   } = useWatchPanel(sessionId)
   const [error, setError] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
@@ -47,7 +60,6 @@ export function WatchPanel(): React.JSX.Element {
   const [improvingIndex, setImprovingIndex] = useState<number | null>(null)
   const [thumbCache, setThumbCache] = useState<Record<string, string>>({})
   const [lightbox, setLightbox] = useState<{ cardIndex: number; frameIndex: number } | null>(null)
-  const [playerHidden, setPlayerHidden] = useState(false)
 
   const preview = useWatchUrlPreview(url, { peekUrl, peekPlaylist })
 
@@ -70,9 +82,21 @@ export function WatchPanel(): React.JSX.Element {
       next.map((url) => ({ url })),
     )
   }, [preview.entries, sessionId])
-  // Re-reveal the player whenever the focused entry changes, even if the
-  // previous one was hidden.
-  useEffect(() => { setPlayerHidden(false) }, [focusedEntryIndex])
+  // Card click: focusing a different video re-reveals the player so the
+  // user actually sees what they just clicked on. Inferring this from
+  // focusedEntryIndex changes is unsafe (the auto-focus effect and the
+  // preview-reload-on-remount path both touch the index), so we only do
+  // it from an explicit user click handler.
+  const handleCardFocus = useCallback((index: number | null) => {
+    setFocusedEntryIndex(index)
+    setPlayerHidden(false)
+  }, [setFocusedEntryIndex, setPlayerHidden])
+  // Opening a sibling agent moves the user away from the Watch tab. It
+  // should not also un-hide the player — when they come back the player
+  // would be visible despite their earlier hide.
+  const handleOpenSiblingFocus = useCallback((index: number | null) => {
+    setFocusedEntryIndex(index)
+  }, [setFocusedEntryIndex])
   // Default focus to the first selected entry (or first entry overall) once
   // the playlist preview loads. Reset to null when the URL clears.
   useEffect(() => {
@@ -178,38 +202,45 @@ export function WatchPanel(): React.JSX.Element {
     }
   }
 
+  const { ref: containerRef, width: containerWidth } = useContainerWidth()
+  const activeEntry = focusedEntryIndex !== null
+    ? preview.entries[focusedEntryIndex] ?? null
+    : null
+  const playerNode = (
+    <WatchPlayerSlot
+      entry={activeEntry}
+      hidden={playerHidden}
+      onHide={() => setPlayerHidden(true)}
+      onShow={() => setPlayerHidden(false)}
+    />
+  )
+  const header = (
+    <WatchHeader
+      url={url}
+      onUrlChange={setUrl}
+      showExamples={!url && preview.entries.length === 0}
+    />
+  )
+  // Side-by-side layout: only when the panel is wide enough AND there's a
+  // player to put next to the URL bar. Otherwise the right column would be
+  // empty and waste space.
+  const wide = containerWidth >= WIDE_LAYOUT_THRESHOLD_PX && activeEntry !== null
+
   return (
-    <div style={s.container}>
-      <div>
-        <div style={s.label}>Video, public playlist, or local path</div>
-        <input
-          style={s.input}
-          value={url}
-          onChange={(e) => setUrl(e.target.value)}
-          placeholder="https://youtu.be/… , a public playlist URL, or /path/to/recording.mp4"
-          autoFocus
-        />
-        <div style={s.inputHint}>Playlists must be public — private and unlisted are not supported.</div>
-      </div>
-      {(() => {
-        const activeEntry = focusedEntryIndex !== null
-          ? preview.entries[focusedEntryIndex] ?? null
-          : null
-        if (!activeEntry) return null
-        if (playerHidden) {
-          return (
-            <button
-              type="button"
-              onClick={() => setPlayerHidden(false)}
-              style={s.showVideoButton}
-            >
-              ▶ Show video player
-            </button>
-          )
-        }
-        return <WatchActivePlayer entry={activeEntry} onHide={() => setPlayerHidden(true)} />
-      })()}
+    <div ref={containerRef} style={s.container}>
+      {wide ? (
+        <div style={s.splitRow}>
+          <div style={s.splitLeft}>{header}</div>
+          <div style={s.splitRight}>{playerNode}</div>
+        </div>
+      ) : (
+        <>
+          {header}
+          {playerNode}
+        </>
+      )}
       <WatchPlaylistPreview
+        columns={containerWidth >= TWO_COLUMN_CARDS_THRESHOLD_PX ? 2 : 1}
         loading={preview.loading}
         playlistTitle={preview.playlistTitle ?? undefined}
         uploader={preview.uploader ?? undefined}
@@ -224,7 +255,7 @@ export function WatchPanel(): React.JSX.Element {
         canImprove={canImprove}
         siblingByIndex={siblingByIndex}
         focusedIndex={focusedEntryIndex}
-        onFocus={setFocusedEntryIndex}
+        onFocus={handleCardFocus}
         framesByIndex={playlistFrames}
         readFrame={readFrame}
         onThumbLoaded={handleThumbLoaded}
@@ -243,11 +274,11 @@ export function WatchPanel(): React.JSX.Element {
             dock.onCloseSiblingPanel(openSiblingId)
           }
           setOpenSiblingId(sid)
-          setFocusedEntryIndex(index)
+          handleOpenSiblingFocus(index)
         }}
         onSelectFrame={(cardIndex, frameIndex) => setLightbox({ cardIndex, frameIndex })}
       />
-      <div style={s.row}>
+      <div style={s.runRow}>
         <button
           type="button"
           onClick={handleRun}

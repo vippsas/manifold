@@ -3,6 +3,7 @@ import * as os from 'node:os'
 import * as path from 'node:path'
 import { runWatchPipeline } from './pipeline'
 import { DEFAULT_WATCH_QUESTION } from './runner'
+import { WATCH_RUNS_ROOT, type WatchRunStore } from './run-store'
 import type { SessionManager } from '../session/session-manager'
 import type {
   TranscriptionSettings,
@@ -21,6 +22,7 @@ const AGGREGATES_ROOT = path.join(os.homedir(), '.manifold', 'watch-aggregates')
 export interface RunPlaylistDeps {
   sessionManager: SessionManager
   getTranscription: () => TranscriptionSettings
+  watchRunStore?: WatchRunStore
 }
 
 export interface RunPlaylistOptions {
@@ -30,14 +32,20 @@ export interface RunPlaylistOptions {
   /** Called as soon as each entry's pipeline produces frames, so the UI can
    *  show thumbnails progressively per card. */
   onEntryFramesReady?: (entryIndex: number, frames: WatchFrameRef[]) => void
-  /** Called as soon as each entry's sibling agent session is spawned, so the
-   *  UI can reveal the "Open agent" button per entry without waiting for the
-   *  whole playlist run to finish. */
+  /** Called once an entry's sibling agent has received its `/watch:watch`
+   *  context command, so the UI can reveal the "Open agent" button only
+   *  after the agent is ready to answer questions about the video. Revealing
+   *  the button earlier (e.g. right after createSession) lets the user open
+   *  an empty agent and ask questions before the watch context lands. */
   onEntrySpawned?: (entryIndex: number, sessionId: string) => void
   /** Override the aggregates root (tests). Defaults to ~/.manifold/watch-aggregates. */
   aggregatesRoot?: string
+  /** Override the persisted work root (tests). Defaults to ~/.manifold/watch-runs/<runId>. */
+  workRoot?: string
   /** Override the runId (tests). Defaults to a timestamp-based id. */
   runId?: string
+  /** Original video/playlist URL entered by the user. */
+  sourceUrl?: string
 }
 
 export async function runWatchPlaylist(
@@ -58,20 +66,33 @@ export async function runWatchPlaylist(
   // will be told where to read them from.
   const runId = opts.runId ?? `${new Date().toISOString().replace(/[:.]/g, '-')}-${Math.random().toString(36).slice(2, 8)}`
   const aggregateDir = path.join(opts.aggregatesRoot ?? AGGREGATES_ROOT, runId)
+  const workRoot = opts.workRoot ?? path.join(WATCH_RUNS_ROOT, runId)
   try {
     fs.mkdirSync(aggregateDir, { recursive: true })
+    fs.mkdirSync(workRoot, { recursive: true })
   } catch (err) {
     return {
       ok: false,
-      error: `Could not create aggregate dir: ${err instanceof Error ? err.message : String(err)}`,
+      error: `Could not create watch run dir: ${err instanceof Error ? err.message : String(err)}`,
     }
   }
 
-  // Spawn one sibling agent per entry upfront so dock tabs appear immediately.
+  deps.watchRunStore?.startRun(baseSession, {
+    runId,
+    sourceUrl: opts.sourceUrl ?? opts.entries[0]?.url ?? '',
+    aggregateDir,
+    entries: opts.entries,
+  })
+
+  // Spawn one sibling agent per entry upfront so each PTY is ready to
+  // receive its `/watch:watch` command the moment its pipeline finishes.
+  // We deliberately *do not* notify the renderer here — the "Open agent"
+  // button must stay hidden until the agent has been primed with context
+  // (see onEntrySpawned doc).
   const spawnedSessionIds: string[] = []
   for (let i = 0; i < opts.entries.length; i++) {
-    const entry = opts.entries[i]
     try {
+      const entry = opts.entries[i]
       const sibling = await deps.sessionManager.createSession({
         projectId: baseSession.projectId,
         runtimeId: baseSession.runtimeId,
@@ -80,11 +101,6 @@ export async function runWatchPlaylist(
         groupId: runId,
       })
       spawnedSessionIds.push(sibling.id)
-      try {
-        opts.onEntrySpawned?.(entry.originalIndex ?? i, sibling.id)
-      } catch {
-        // Renderer may have unsubscribed; non-fatal.
-      }
     } catch (err) {
       return {
         ok: false,
@@ -113,20 +129,23 @@ export async function runWatchPlaylist(
       const i = next++
       if (i >= opts.entries.length) return
       const entry = opts.entries[i]
+      const originalIndex = entry.originalIndex ?? i
       const siblingId = spawnedSessionIds[i]
       entryResults[i].sessionId = siblingId
       try {
         const result = await runWatchPipeline(
-          { source: entry.url },
+          { source: entry.url, workDir: entryWorkDir(workRoot, originalIndex) },
           transcription,
           opts.hooks?.(i),
         )
+        const frames = result.frames.map((f) => ({
+          path: f.path,
+          timestampSeconds: f.timestampSeconds,
+          hdPath: f.hdPath,
+        }))
+        deps.watchRunStore?.markEntryFrames(runId, originalIndex, frames)
         try {
-          opts.onEntryFramesReady?.(entry.originalIndex ?? i, result.frames.map((f) => ({
-            path: f.path,
-            timestampSeconds: f.timestampSeconds,
-            hdPath: f.hdPath,
-          })))
+          opts.onEntryFramesReady?.(originalIndex, frames)
         } catch {
           // Renderer may have unsubscribed; non-fatal.
         }
@@ -138,16 +157,31 @@ export async function runWatchPlaylist(
         deps.sessionManager.sendInput(siblingId, command)
         await new Promise((r) => setTimeout(r, AGENT_INPUT_DELAY_MS))
         deps.sessionManager.sendInput(siblingId, '\r')
+        // Now that the watch context has been queued to the agent, expose
+        // the sibling to the renderer ("Open agent" button) and the store.
+        deps.watchRunStore?.markEntrySpawned(runId, originalIndex, siblingId)
+        try {
+          opts.onEntrySpawned?.(originalIndex, siblingId)
+        } catch {
+          // Renderer may have unsubscribed; non-fatal.
+        }
         entryResults[i].ok = true
         entryResults[i].workDir = result.workDir
+        deps.watchRunStore?.markEntryReady(runId, originalIndex, result.workDir)
       } catch (err) {
-        entryResults[i].error = err instanceof Error ? err.message : 'Pipeline failed'
+        const message = err instanceof Error ? err.message : 'Pipeline failed'
+        entryResults[i].error = message
+        deps.watchRunStore?.markEntryError(runId, originalIndex, message)
       }
     }
   })
   await Promise.all(workers)
 
   return { ok: true, spawnedSessionIds, entryResults, aggregateDir }
+}
+
+function entryWorkDir(workRoot: string, originalIndex: number): string {
+  return path.join(workRoot, `entry-${String(originalIndex + 1).padStart(4, '0')}`)
 }
 
 /**

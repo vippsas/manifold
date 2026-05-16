@@ -80,3 +80,26 @@ export interface WatchRunResult {
   frames?: WatchFrameRef[]
   transcriptSource?: 'captions' | 'openai' | 'azure' | 'none'
 }
+
+export type WatchRunEntryStatus = 'queued' | 'processing' | 'ready' | 'error'
+
+export interface WatchRunEntryState {
+  originalIndex: number
+  url: string
+  title?: string
+  question?: string
+  siblingSessionId?: string
+  workDir?: string
+  frames: WatchFrameRef[]
+  status: WatchRunEntryStatus
+  error?: string
+}
+
+export interface WatchSessionSnapshot {
+  url: string
+  playlistFrames: Record<number, WatchFrameRef[]>
+  siblingByIndex: Record<number, string>
+  playlistDispatched: boolean
+  runId?: string
+  entries?: WatchRunEntryState[]
+}

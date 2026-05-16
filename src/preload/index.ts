@@ -123,6 +123,8 @@ const ALLOWED_INVOKE_CHANNELS = [
   'watch:read-frame',
   'watch:peek',
   'watch:peek-playlist',
+  'watch:state-get',
+  'watch:state-set-url',
   'watch:run-playlist',
 ] as const
 

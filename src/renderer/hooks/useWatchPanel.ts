@@ -1,5 +1,5 @@
-import { useCallback, useEffect, useState, useSyncExternalStore } from 'react'
-import type { WatchSetupStatus, WatchFrameRef, WatchPeekResult, WatchPlaylistPeekResult, WatchPlaylistEntryInput, WatchPlaylistRunResult } from '../../shared/watch-types'
+import { useCallback, useEffect, useRef, useState, useSyncExternalStore } from 'react'
+import type { WatchSetupStatus, WatchFrameRef, WatchPeekResult, WatchPlaylistPeekResult, WatchPlaylistEntryInput, WatchPlaylistRunResult, WatchSessionSnapshot } from '../../shared/watch-types'
 import { watchPanelStore } from './watchPanelStore'
 
 interface UseWatchPanel {
@@ -18,11 +18,13 @@ interface UseWatchPanel {
   playlistDispatched: boolean
   openSiblingId: string | null
   focusedEntryIndex: number | null
+  playerHidden: boolean
   setUrl: (url: string) => void
   setSiblingByIndex: (map: Record<number, string>) => void
   setPlaylistDispatched: (v: boolean) => void
   setOpenSiblingId: (id: string | null) => void
   setFocusedEntryIndex: (value: number | null) => void
+  setPlayerHidden: (value: boolean) => void
 }
 
 const IMPROVE_PROMPT_META = [
@@ -41,6 +43,21 @@ export function useWatchPanel(activeSessionId: string | null): UseWatchPanel {
   useEffect(() => {
     watchPanelStore.init()
   }, [])
+
+  useEffect(() => {
+    if (!activeSessionId) return
+    let cancelled = false
+    void Promise.resolve(window.electronAPI.invoke('watch:state-get', activeSessionId))
+      .then((snapshot) => {
+        if (cancelled) return
+        watchPanelStore.hydrateSession(activeSessionId, snapshot as WatchSessionSnapshot)
+      })
+      .catch((err) => {
+        if (cancelled) return
+        console.error(`[useWatchPanel] failed to hydrate session ${activeSessionId}:`, err)
+      })
+    return () => { cancelled = true }
+  }, [activeSessionId])
 
   const subscribe = useCallback(
     (listener: () => void) => watchPanelStore.subscribe(activeSessionId, listener),
@@ -83,8 +100,9 @@ export function useWatchPanel(activeSessionId: string | null): UseWatchPanel {
       'watch:run-playlist',
       activeSessionId,
       entries,
+      sessionState.url,
     )) as WatchPlaylistRunResult
-  }, [activeSessionId])
+  }, [activeSessionId, sessionState.url])
 
   const improveQuestion = useCallback(async (question: string): Promise<string> => {
     if (!activeSessionId) throw new Error('No active session')
@@ -99,8 +117,24 @@ export function useWatchPanel(activeSessionId: string | null): UseWatchPanel {
     return (improved ?? '').trim() || trimmed
   }, [activeSessionId])
 
+  // Debounce the persistence IPC so a long URL doesn't trigger one
+  // synchronous JSON write per keystroke. The in-memory store updates
+  // immediately so the UI stays responsive.
+  const persistUrlTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  useEffect(() => () => {
+    if (persistUrlTimerRef.current) clearTimeout(persistUrlTimerRef.current)
+  }, [])
   const setUrl = useCallback((url: string) => {
-    if (activeSessionId) watchPanelStore.setUrl(activeSessionId, url)
+    if (!activeSessionId) return
+    watchPanelStore.setUrl(activeSessionId, url)
+    if (persistUrlTimerRef.current) clearTimeout(persistUrlTimerRef.current)
+    persistUrlTimerRef.current = setTimeout(() => {
+      persistUrlTimerRef.current = null
+      void Promise.resolve(window.electronAPI.invoke('watch:state-set-url', activeSessionId, url))
+        .catch((err) => {
+          console.error(`[useWatchPanel] failed to persist URL for ${activeSessionId}:`, err)
+        })
+    }, 300)
   }, [activeSessionId])
   const setSiblingByIndex = useCallback((map: Record<number, string>) => {
     if (activeSessionId) watchPanelStore.setSiblingByIndex(activeSessionId, map)
@@ -113,6 +147,9 @@ export function useWatchPanel(activeSessionId: string | null): UseWatchPanel {
   }, [activeSessionId])
   const setFocusedEntryIndex = useCallback((value: number | null) => {
     if (activeSessionId) watchPanelStore.setFocusedEntryIndex(activeSessionId, value)
+  }, [activeSessionId])
+  const setPlayerHidden = useCallback((value: boolean) => {
+    if (activeSessionId) watchPanelStore.setPlayerHidden(activeSessionId, value)
   }, [activeSessionId])
 
   return {
@@ -130,10 +167,12 @@ export function useWatchPanel(activeSessionId: string | null): UseWatchPanel {
     playlistDispatched: sessionState.playlistDispatched,
     openSiblingId: sessionState.openSiblingId,
     focusedEntryIndex: sessionState.focusedEntryIndex,
+    playerHidden: sessionState.playerHidden,
     setUrl,
     setSiblingByIndex,
     setPlaylistDispatched,
     setOpenSiblingId,
     setFocusedEntryIndex,
+    setPlayerHidden,
   }
 }

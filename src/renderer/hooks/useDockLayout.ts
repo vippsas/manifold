@@ -21,6 +21,7 @@ import {
   type LayoutRefs,
 } from './dock-layout-helpers'
 import { siblingPanelId } from './agent-siblings'
+import type { AgentSession } from '../../shared/types'
 import { applyDefaultLayout, applyMinimalPanels, syncEditorPanelIds } from './dock-layout-builders'
 import { ensureSearchPanelInWorkspace } from './dock-layout-search'
 
@@ -46,17 +47,36 @@ export interface UseDockLayoutResult {
   layoutVersion: number
 }
 
-export function useDockLayout(sessionId: string | null, showIdeasTab: boolean, showLoopTab: boolean): UseDockLayoutResult {
+export function useDockLayout(
+  sessionId: string | null,
+  showIdeasTab: boolean,
+  showLoopTab: boolean,
+  liveSessions: AgentSession[] = [],
+): UseDockLayoutResult {
   const apiRef = useRef<DockviewApi | null>(null)
   const saveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const sessionIdRef = useRef(sessionId)
   const showIdeasTabRef = useRef(showIdeasTab)
   const showLoopTabRef = useRef(showLoopTab)
+  const liveSessionsRef = useRef(liveSessions)
   const editorPanelIdsRef = useRef<Set<string>>(new Set())
   const nextEditorPanelIndexRef = useRef(1)
   sessionIdRef.current = sessionId
   showIdeasTabRef.current = showIdeasTab
   showLoopTabRef.current = showLoopTab
+  liveSessionsRef.current = liveSessions
+
+  // Returns `undefined` (defer filtering) when the sessions list hasn't been
+  // populated yet, so an empty initial snapshot doesn't strip live sibling
+  // tabs from a saved layout. Once sessions are present, return a real Set
+  // so genuinely dead siblings are filtered out as orphans.
+  // `useAgentSiblingDockTabs` reconciles sibling panels against the current
+  // session list after this hook runs, so any orphans that slip through the
+  // deferred path get removed before they can render.
+  const liveSiblingIds = useCallback((): Set<string> | undefined => {
+    if (liveSessionsRef.current.length === 0) return undefined
+    return new Set(liveSessionsRef.current.map((s) => s.id))
+  }, [])
 
   const [layoutVersion, setLayoutVersion] = useState(0)
   const bumpVersion = useCallback(() => setLayoutVersion((value) => value + 1), [])
@@ -169,7 +189,7 @@ export function useDockLayout(sessionId: string | null, showIdeasTab: boolean, s
 
     const sid = sessionIdRef.current
     if (sid) {
-      void loadOrBuildLayout(api, sid, buildDefaultLayout, refs).then(() => {
+      void loadOrBuildLayout(api, sid, buildDefaultLayout, refs, liveSiblingIds()).then(() => {
         const ideasChanged = applyIdeasTabSetting(api, false)
         const loopChanged = applyLoopTabSetting(api, false)
         syncPanels(api)
@@ -228,7 +248,7 @@ export function useDockLayout(sessionId: string | null, showIdeasTab: boolean, s
       saveLayout()
       bumpVersion()
     })
-  }, [applyIdeasTabSetting, applyLoopTabSetting, buildDefaultLayout, buildMinimalLayout, bumpVersion, saveLayout, syncPanels])
+  }, [applyIdeasTabSetting, applyLoopTabSetting, buildDefaultLayout, buildMinimalLayout, bumpVersion, saveLayout, syncPanels, liveSiblingIds])
 
   const prevSessionRef = useRef(sessionId)
   useEffect(() => {
@@ -251,7 +271,7 @@ export function useDockLayout(sessionId: string | null, showIdeasTab: boolean, s
       return
     }
 
-    void loadOrBuildLayout(api, sessionId, buildDefaultLayout, refs).then(() => {
+    void loadOrBuildLayout(api, sessionId, buildDefaultLayout, refs, liveSiblingIds()).then(() => {
       const ideasChanged = applyIdeasTabSetting(api, false)
       const loopChanged = applyLoopTabSetting(api, false)
       syncPanels(api)
@@ -263,7 +283,7 @@ export function useDockLayout(sessionId: string | null, showIdeasTab: boolean, s
       if (ideasChanged || loopChanged) saveLayout()
       bumpVersion()
     })
-  }, [sessionId, applyIdeasTabSetting, applyLoopTabSetting, buildDefaultLayout, buildMinimalLayout, bumpVersion, saveLayout, syncPanels])
+  }, [sessionId, applyIdeasTabSetting, applyLoopTabSetting, buildDefaultLayout, buildMinimalLayout, bumpVersion, saveLayout, syncPanels, liveSiblingIds])
 
   const previousShowIdeasTabRef = useRef(showIdeasTab)
   useEffect(() => {

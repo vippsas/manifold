@@ -91,7 +91,7 @@ export function App(): React.JSX.Element {
   // Key dockview layout by primary session (worktree-stable) so switching
   // between sibling tabs doesn't tear down the layout.
   const dockLayoutKey = primarySessionId ?? activeSessionId ?? activeSuperagentId
-  const dockLayout = useDockLayout(dockLayoutKey, settings.showIdeasTab, settings.showLoopTab)
+  const dockLayout = useDockLayout(dockLayoutKey, settings.showIdeasTab, settings.showLoopTab, activeProjectSessions)
   useAgentSiblingDockTabs({
     apiRef: dockLayout.apiRef,
     layoutVersion: dockLayout.layoutVersion,

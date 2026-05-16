@@ -24,20 +24,29 @@ interface Props {
   onThumbLoaded: (path: string, dataUrl: string) => void
   onOpenSibling: (index: number) => void
   onSelectFrame: (cardIndex: number, frameIndex: number) => void
+  /** Number of card columns. Defaults to 1; the panel passes 2 when the
+   *  container is wide enough that single-column cards leave the right
+   *  half of the screen empty. */
+  columns?: number
 }
 
 export function WatchPlaylistPreview(props: Props): React.JSX.Element | null {
-  const { loading, playlistTitle, uploader, entries, selectedIndices } = props
+  const { loading, playlistTitle, uploader, entries, selectedIndices, columns = 1 } = props
   if (!loading && entries.length === 0) return null
 
   const isMultiEntry = entries.length > 1
   const allSelected = !loading && entries.length > 0 && selectedIndices.size === entries.length
   const someSelected = !loading && selectedIndices.size > 0 && !allSelected
 
+  const useGrid = columns >= 2 && !loading && entries.length > 1
+  const gridStyle: CSSProperties = useGrid
+    ? { ...s.container, ...s.containerGrid, gridTemplateColumns: `repeat(${columns}, minmax(0, 1fr))` }
+    : s.container
+
   return (
-    <div style={s.container}>
+    <div style={gridStyle}>
       {(loading || isMultiEntry) && (
-        <div style={s.header}>
+        <div style={{ ...s.header, ...(useGrid ? s.headerSpan : {}) }}>
           {loading ? (
             <span style={s.loadingLabel}>
               <span style={s.spinner} aria-hidden />
@@ -231,6 +240,11 @@ const s: Record<string, CSSProperties> = {
     // outside the card) isn't clipped on the left edge by overflow:auto.
     padding: '2px 4px',
   },
+  containerGrid: {
+    display: 'grid', gap: 10,
+    alignContent: 'start',
+  },
+  headerSpan: { gridColumn: '1 / -1' },
   header: {
     position: 'sticky', top: 0, zIndex: 1,
     background: 'var(--bg-default)',

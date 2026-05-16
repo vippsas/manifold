@@ -1,4 +1,4 @@
-import type { WatchFrameRef } from '../../shared/watch-types'
+import type { WatchFrameRef, WatchSessionSnapshot } from '../../shared/watch-types'
 
 export interface WatchSessionState {
   /** Per-entry frame thumbnails for playlist runs, keyed by entry index. */
@@ -12,6 +12,9 @@ export interface WatchSessionState {
    *  the player above the list. Persisted so it survives dockview re-mounts
    *  triggered by opening a sibling agent. */
   focusedEntryIndex: number | null
+  /** Whether the user has collapsed the embedded video player. Persisted so
+   *  navigating away and back doesn't re-expand it. */
+  playerHidden: boolean
 }
 
 const EMPTY_STATE: WatchSessionState = Object.freeze({
@@ -21,6 +24,7 @@ const EMPTY_STATE: WatchSessionState = Object.freeze({
   playlistDispatched: false,
   openSiblingId: null,
   focusedEntryIndex: null,
+  playerHidden: false,
 }) as WatchSessionState
 
 const stateMap = new Map<string, WatchSessionState>()
@@ -28,9 +32,10 @@ const listeners = new Map<string, Set<() => void>>()
 
 let ipcInitialized = false
 
-// Persisted slice of WatchSessionState — only user-intent fields (URL).
-// Run-state (siblings/frames/dispatched flag) is intentionally NOT persisted
-// because sibling agent sessions don't survive app restart.
+// localStorage holds only the URL (immediate-use, survives reload before
+// the main-process WatchRunStore has rehydrated). Run-state (siblings/frames)
+// is fetched from the main process via watch:state-get and filtered to live
+// sessions, so dead siblings from a prior app run never reappear.
 interface PersistedSessionState {
   url: string
 }
@@ -86,9 +91,34 @@ function notify(sessionId: string): void {
 function update(sessionId: string, updater: (cur: WatchSessionState) => WatchSessionState): void {
   const cur = stateMap.get(sessionId) ?? EMPTY_STATE
   const next = updater(cur)
+  if (next === cur) return
   stateMap.set(sessionId, next)
   notify(sessionId)
   if (next.url !== cur.url) schedulePersist()
+}
+
+function sameStringMap(left: Record<number, string>, right: Record<number, string>): boolean {
+  const leftEntries = Object.entries(left)
+  const rightEntries = Object.entries(right)
+  if (leftEntries.length !== rightEntries.length) return false
+  return leftEntries.every(([key, value]) => right[Number(key)] === value)
+}
+
+function sameFrameMap(left: Record<number, WatchFrameRef[]>, right: Record<number, WatchFrameRef[]>): boolean {
+  const leftEntries = Object.entries(left)
+  const rightEntries = Object.entries(right)
+  if (leftEntries.length !== rightEntries.length) return false
+  return leftEntries.every(([key, leftFrames]) => {
+    const rightFrames = right[Number(key)]
+    if (!rightFrames || rightFrames.length !== leftFrames.length) return false
+    return leftFrames.every((frame, index) => {
+      const other = rightFrames[index]
+      return other &&
+        other.path === frame.path &&
+        other.hdPath === frame.hdPath &&
+        other.timestampSeconds === frame.timestampSeconds
+    })
+  })
 }
 
 function ensureIpc(): void {
@@ -158,6 +188,51 @@ export const watchPanelStore = {
     update(sessionId, (cur) => {
       if (cur.focusedEntryIndex === value) return cur
       return { ...cur, focusedEntryIndex: value }
+    })
+  },
+  setPlayerHidden(sessionId: string, value: boolean): void {
+    update(sessionId, (cur) => {
+      if (cur.playerHidden === value) return cur
+      return { ...cur, playerHidden: value }
+    })
+  },
+  hydrateSession(sessionId: string, snapshot: WatchSessionSnapshot): void {
+    update(sessionId, (cur) => {
+      // The user may have typed a different URL while the snapshot was
+      // in flight — drop the stale snapshot rather than clobber the new URL
+      // (and the run-state that belongs to it).
+      if (cur.url && snapshot.url && cur.url !== snapshot.url) return cur
+
+      // Merge: live entries (sibling/frame events that arrived between mount
+      // and snapshot resolution) win over the on-disk snapshot.
+      const mergedSiblings = { ...snapshot.siblingByIndex, ...cur.siblingByIndex }
+      const mergedFrames = { ...snapshot.playlistFrames, ...cur.playlistFrames }
+      const nextUrl = cur.url || snapshot.url
+      // Derive `dispatched` from the merged siblings — OR-ing the booleans
+      // can leave dispatched=true with an empty siblingByIndex (the producer
+      // derives the same field from siblingByIndex size, so the consumer must
+      // match).
+      const nextDispatched = Object.keys(mergedSiblings).length > 0
+      const nextOpenSiblingId = cur.openSiblingId && Object.values(mergedSiblings).includes(cur.openSiblingId)
+        ? cur.openSiblingId
+        : null
+      if (
+        nextUrl === cur.url &&
+        nextDispatched === cur.playlistDispatched &&
+        nextOpenSiblingId === cur.openSiblingId &&
+        sameFrameMap(mergedFrames, cur.playlistFrames) &&
+        sameStringMap(mergedSiblings, cur.siblingByIndex)
+      ) {
+        return cur
+      }
+      return {
+        ...cur,
+        url: nextUrl,
+        playlistFrames: mergedFrames,
+        siblingByIndex: mergedSiblings,
+        playlistDispatched: nextDispatched,
+        openSiblingId: nextOpenSiblingId,
+      }
     })
   },
   setSiblingByIndex(sessionId: string, map: Record<number, string>): void {
