@@ -49,15 +49,27 @@ export function TranscriptionSettingsSection({ value, onChange }: Props): React.
         </div>
 
         {value.provider === 'openai' && (
-          <div style={fieldRow}>
-            <label style={labelStyle}>OPENAI_API_KEY</label>
-            <input
-              type="password"
-              style={inputStyle}
-              value={value.openaiApiKey ?? ''}
-              onChange={(e) => onChange({ ...value, openaiApiKey: e.target.value })}
-            />
-          </div>
+          <>
+            <div style={fieldRow}>
+              <label style={labelStyle}>OPENAI_API_KEY</label>
+              <input
+                type="password"
+                style={inputStyle}
+                value={value.openaiApiKey ?? ''}
+                onChange={(e) => onChange({ ...value, openaiApiKey: e.target.value })}
+              />
+            </div>
+            <div style={fieldRow}>
+              <label style={labelStyle}>CHAT_MODEL</label>
+              <input
+                type="text"
+                style={inputStyle}
+                value={value.chatModel ?? ''}
+                placeholder="gpt-5.1"
+                onChange={(e) => onChange({ ...value, chatModel: e.target.value })}
+              />
+            </div>
+          </>
         )}
 
         {value.provider === 'azure' && (
@@ -89,6 +101,16 @@ export function TranscriptionSettingsSection({ value, onChange }: Props): React.
                 value={value.azureDeployment ?? ''}
                 placeholder="gpt-4o-transcribe"
                 onChange={(e) => onChange({ ...value, azureDeployment: e.target.value })}
+              />
+            </div>
+            <div style={fieldRow}>
+              <label style={labelStyle}>AZURE_OPENAI_CHAT_DEPLOYMENT</label>
+              <input
+                type="text"
+                style={inputStyle}
+                value={value.azureChatDeployment ?? ''}
+                placeholder="gpt-4o-mini"
+                onChange={(e) => onChange({ ...value, azureChatDeployment: e.target.value })}
               />
             </div>
           </>
