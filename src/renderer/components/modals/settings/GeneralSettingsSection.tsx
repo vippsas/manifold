@@ -38,6 +38,8 @@ interface Props {
   onDensityChange: (density: DensitySetting) => void
   autoGenerateMessages: boolean
   onAutoGenerateMessagesChange: (enabled: boolean) => void
+  showCommitAndPrButtons: boolean
+  onShowCommitAndPrButtonsChange: (enabled: boolean) => void
   searchAiSettings: SearchAiSettings
 }
 
@@ -75,6 +77,11 @@ export function GeneralSettingsSection(props: Props): React.JSX.Element {
             <label style={{ ...modalStyles.checkboxField, ...modalStyles.fieldSpanFull }}>
               <input type="checkbox" checked={props.autoGenerateMessages} onChange={(event) => props.onAutoGenerateMessagesChange(event.target.checked)} style={modalStyles.checkboxInput} />
               Auto-generate AI messages for commits and PRs
+            </label>
+            <label style={{ ...modalStyles.checkboxField, ...modalStyles.fieldSpanFull }}>
+              <input type="checkbox" checked={props.showCommitAndPrButtons} onChange={(event) => props.onShowCommitAndPrButtonsChange(event.target.checked)} style={modalStyles.checkboxInput} />
+              Show Commit and Create PR buttons in the status bar
+              <span style={modalStyles.helpText}>Reveals the quick-action buttons that open the commit and PR panels from the status bar.</span>
             </label>
             <label style={{ ...modalStyles.checkboxField, ...modalStyles.fieldSpanFull }}>
               <input type="checkbox" checked={props.showIdeasTab} onChange={(event) => props.onShowIdeasTabChange(event.target.checked)} style={modalStyles.checkboxInput} />

@@ -30,6 +30,7 @@ export function SettingsModal({ visible, settings, onSave, onClose, onPreviewThe
   const [uiMode, setUiMode] = useState(settings.uiMode)
   const [density, setDensity] = useState<DensitySetting>(settings.density)
   const [autoGenerateMessages, setAutoGenerateMessages] = useState(settings.autoGenerateMessages)
+  const [showCommitAndPrButtons, setShowCommitAndPrButtons] = useState(settings.showCommitAndPrButtons)
   const [searchAiSettings, setSearchAiSettings] = useState(settings.search?.ai ?? DEFAULT_SETTINGS.search.ai)
   const [provisioners, setProvisioners] = useState<ProvisionerConfig[]>(settings.provisioning?.provisioners ?? DEFAULT_SETTINGS.provisioning.provisioners)
   const [provisionerStatuses, setProvisionerStatuses] = useState<ProvisionerStatus[]>([])
@@ -62,6 +63,7 @@ export function SettingsModal({ visible, settings, onSave, onClose, onPreviewThe
     setUiMode(settings.uiMode)
     setDensity(settings.density)
     setAutoGenerateMessages(settings.autoGenerateMessages)
+    setShowCommitAndPrButtons(settings.showCommitAndPrButtons)
     setSearchAiSettings(settings.search?.ai ?? DEFAULT_SETTINGS.search.ai)
     setProvisioners(nextProvisioners)
     setTranscription(settings.transcription ?? DEFAULT_SETTINGS.transcription ?? { provider: 'none' })
@@ -94,6 +96,7 @@ export function SettingsModal({ visible, settings, onSave, onClose, onPreviewThe
       uiMode,
       density,
       autoGenerateMessages,
+      showCommitAndPrButtons,
       search: { ai: searchAiSettings },
       provisioning: { provisioners },
       transcription,
@@ -102,7 +105,7 @@ export function SettingsModal({ visible, settings, onSave, onClose, onPreviewThe
     if (modeChanged) {
       window.electronAPI.invoke('app:switch-mode', uiMode)
     }
-  }, [defaultRuntime, showIdeasTab, showLoopTab, theme, scrollbackLines, terminalFontFamily, defaultBaseBranch, storagePath, notificationSound, shellPrompt, shellHistoryScope, uiMode, density, autoGenerateMessages, settings.uiMode, searchAiSettings, provisioners, transcription, onSave, onClose])
+  }, [defaultRuntime, showIdeasTab, showLoopTab, theme, scrollbackLines, terminalFontFamily, defaultBaseBranch, storagePath, notificationSound, shellPrompt, shellHistoryScope, uiMode, density, autoGenerateMessages, showCommitAndPrButtons, settings.uiMode, searchAiSettings, provisioners, transcription, onSave, onClose])
 
   if (!visible) return null
 
@@ -156,6 +159,8 @@ export function SettingsModal({ visible, settings, onSave, onClose, onPreviewThe
           onDensityChange={setDensity}
           autoGenerateMessages={autoGenerateMessages}
           onAutoGenerateMessagesChange={setAutoGenerateMessages}
+          showCommitAndPrButtons={showCommitAndPrButtons}
+          onShowCommitAndPrButtonsChange={setShowCommitAndPrButtons}
           searchAiSettings={searchAiSettings}
           onSearchAiSettingsChange={setSearchAiSettings}
           provisioners={provisioners}

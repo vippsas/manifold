@@ -52,6 +52,8 @@ interface Props {
   onDensityChange: (density: DensitySetting) => void
   autoGenerateMessages: boolean
   onAutoGenerateMessagesChange: (enabled: boolean) => void
+  showCommitAndPrButtons: boolean
+  onShowCommitAndPrButtonsChange: (enabled: boolean) => void
   searchAiSettings: SearchAiSettings
   onSearchAiSettingsChange: (value: SearchAiSettings) => void
   provisioners: ProvisionerConfig[]

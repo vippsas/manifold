@@ -422,7 +422,8 @@ export function App(): React.JSX.Element {
         <StatusBar activeSession={activeSession} changedFiles={mergedChanges} baseBranch={baseBranch} dockLayout={dockLayout}
           conflicts={gitOps.conflicts} aheadBehind={gitOps.aheadBehind} onCommit={() => overlays.setActivePanel('commit')}
           onCreatePR={() => overlays.setActivePanel('pr')} onShowConflicts={() => overlays.setActivePanel('conflicts')}
-          onOpenSettings={() => overlays.setShowSettings(true)} />
+          onOpenSettings={() => overlays.setShowSettings(true)}
+          showCommitAndPrButtons={settings.showCommitAndPrButtons} />
       </div>
       {overlays.activePanel === 'commit' && activeSessionId && (
         <CommitPanel changedFiles={mergedChanges} diff={diff} autoGenerateMessages={autoGenerateMessages}

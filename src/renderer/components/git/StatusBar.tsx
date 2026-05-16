@@ -26,6 +26,7 @@ interface StatusBarProps {
   onCreatePR?: () => void
   onShowConflicts?: () => void
   onOpenSettings?: () => void
+  showCommitAndPrButtons?: boolean
 }
 
 export function StatusBar({
@@ -39,6 +40,7 @@ export function StatusBar({
   onCreatePR,
   onShowConflicts,
   onOpenSettings,
+  showCommitAndPrButtons = false,
 }: StatusBarProps): React.JSX.Element {
   const hasConflicts = conflicts.length > 0
   const hasChanges = changedFiles.length > 0
@@ -74,7 +76,7 @@ export function StatusBar({
             >
               Conflicts ({conflicts.length})
             </button>
-          ) : hasChanges && onCommit ? (
+          ) : showCommitAndPrButtons && hasChanges && onCommit ? (
             <button
               type="button"
               onClick={onCommit}
@@ -84,7 +86,7 @@ export function StatusBar({
               Commit
             </button>
           ) : null}
-          {hasAhead && onCreatePR && (
+          {showCommitAndPrButtons && hasAhead && onCreatePR && (
             <button
               type="button"
               onClick={onCreatePR}
