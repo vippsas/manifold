@@ -3,7 +3,7 @@ import * as path from 'node:path'
 import { execFile } from 'node:child_process'
 import { promisify } from 'node:util'
 import type { TranscriptSegment, TranscriptSource } from './types'
-import type { TranscriptionSettings } from '../../shared/watch-types'
+import type { AiServiceSettings } from '../../shared/watch-types'
 
 const execFileP = promisify(execFile)
 
@@ -46,7 +46,7 @@ export const defaultExtractAudio: AudioExtractor = async (videoPath, outPath) =>
 export interface TranscribeOptions {
   videoPath: string
   audioOutPath: string
-  settings: TranscriptionSettings
+  settings: AiServiceSettings
   fetchImpl?: typeof fetch
   extractAudio?: AudioExtractor
 }

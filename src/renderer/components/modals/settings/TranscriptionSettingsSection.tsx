@@ -1,10 +1,10 @@
 import React from 'react'
-import type { TranscriptionSettings } from '../../../../shared/watch-types'
+import type { AiServiceSettings } from '../../../../shared/watch-types'
 import { SectionCard, SectionHeader } from './SettingsSectionLayout'
 
 interface Props {
-  value: TranscriptionSettings
-  onChange: (next: TranscriptionSettings) => void
+  value: AiServiceSettings
+  onChange: (next: AiServiceSettings) => void
 }
 
 const inputStyle: React.CSSProperties = {
@@ -16,7 +16,7 @@ const inputStyle: React.CSSProperties = {
 const labelStyle: React.CSSProperties = { fontSize: 12, opacity: 0.75, marginBottom: 4, display: 'block' }
 const fieldRow: React.CSSProperties = { display: 'flex', flexDirection: 'column', gap: 4, marginTop: 8 }
 
-const PROVIDER_LABELS: Record<TranscriptionSettings['provider'], string> = {
+const PROVIDER_LABELS: Record<AiServiceSettings['provider'], string> = {
   none: 'None (captions only)',
   openai: 'OpenAI',
   azure: 'Azure OpenAI',
