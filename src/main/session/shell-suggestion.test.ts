@@ -204,14 +204,38 @@ describe('predictNextCommand', () => {
       ['--model', 'gpt-5.4-mini'],
       { timeoutMs: 30_000, silent: true },
     )
-    expect(ptyPool.pushOutput).toHaveBeenNthCalledWith(1, 'pty-1', expect.stringContaining('...'))
-    expect(ptyPool.pushOutput).toHaveBeenNthCalledWith(2, 'pty-1', '\x1b[K')
-    expect(ptyPool.pushOutput).toHaveBeenNthCalledWith(3, 'pty-1', expect.stringContaining('npm test'))
+    expect(ptyPool.pushOutput).toHaveBeenCalledTimes(1)
+    expect(ptyPool.pushOutput).toHaveBeenCalledWith('pty-1', expect.stringContaining('npm test'))
     expect(session.shellSuggestion).toEqual({
       activeSuggestion: 'npm test',
       pending: false,
       ghostVisible: true,
     })
+  })
+
+  it('does not paint a placeholder before the suggestion arrives', async () => {
+    const session = createShellSession()
+    const ptyPool = { pushOutput: vi.fn() }
+    let resolveAi: (value: string) => void = () => {}
+    const gitOps = {
+      aiGenerate: vi.fn(() => new Promise<string>((resolve) => { resolveAi = resolve })),
+    }
+
+    const pending = predictNextCommand(session, ptyPool as never, gitOps as never)
+
+    // Let the synchronous setup + the awaited Promise.all settle so aiGenerate is in flight.
+    await Promise.resolve()
+    await Promise.resolve()
+
+    expect(gitOps.aiGenerate).toHaveBeenCalled()
+    expect(ptyPool.pushOutput).not.toHaveBeenCalled()
+    expect(session.shellSuggestion).toEqual({ activeSuggestion: null, pending: true })
+
+    resolveAi('npm test')
+    await pending
+
+    expect(ptyPool.pushOutput).toHaveBeenCalledTimes(1)
+    expect(ptyPool.pushOutput).toHaveBeenCalledWith('pty-1', expect.stringContaining('npm test'))
   })
 
   it('falls back to git status when Codex returns an empty suggestion', async () => {
@@ -221,8 +245,8 @@ describe('predictNextCommand', () => {
 
     await predictNextCommand(session, ptyPool as never, gitOps as never)
 
-    expect(ptyPool.pushOutput).toHaveBeenNthCalledWith(2, 'pty-1', '\x1b[K')
-    expect(ptyPool.pushOutput).toHaveBeenNthCalledWith(3, 'pty-1', expect.stringContaining('git status'))
+    expect(ptyPool.pushOutput).toHaveBeenCalledTimes(1)
+    expect(ptyPool.pushOutput).toHaveBeenCalledWith('pty-1', expect.stringContaining('git status'))
     expect(session.shellSuggestion?.activeSuggestion).toBe('git status')
   })
 })

@@ -10,7 +10,7 @@ import { debugLog } from '../app/debug-log'
 import type { InternalSession } from './session-types'
 import type { SimpleRuntimeOutputMode } from '../agent/simple-runtime'
 import type { GitOperationsManager } from '../git/git-operations'
-import { predictNextCommand, dismissSuggestion } from './shell-suggestion'
+import { predictNextCommand } from './shell-suggestion'
 
 function stripTerminalControls(text: string): string {
   return text
@@ -131,8 +131,8 @@ export class SessionStreamWirer {
       // Use the accumulated buffer so prompt detection still works if PTY chunks
       // split the prompt glyph away from the current output chunk.
       if (session.runtimeId === '__shell__' && this.gitOps && hasShellPromptAtEnd(session.outputBuffer)
-          && !session.shellSuggestion?.pending && !session.nlPending) {
-        dismissSuggestion(session, this.ptyPool)
+          && !session.shellSuggestion?.pending && !session.shellSuggestion?.activeSuggestion
+          && !session.nlPending) {
         if (!session.nlInputBuffer?.hasBufferedInput()) {
           void predictNextCommand(session, this.ptyPool, this.gitOps)
         }

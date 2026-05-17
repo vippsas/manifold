@@ -202,6 +202,32 @@ describe('SessionStreamWirer', () => {
     expect(sendToRenderer).toHaveBeenCalledWith('agent:output', { sessionId: session.id, data: '❯ ' })
   })
 
+  it('does not re-predict when a suggestion is already active', () => {
+    const ptyPool = new FakePtyPool()
+    const sendToRenderer = vi.fn()
+
+    const wirer = new SessionStreamWirer(
+      ptyPool as never,
+      () => null,
+      sendToRenderer,
+      undefined,
+      vi.fn(),
+      vi.fn(),
+    )
+
+    const session = createSession()
+    session.runtimeId = '__shell__'
+    session.nlInputBuffer = new NlInputBuffer()
+    session.shellSuggestion = { activeSuggestion: 'git status', pending: false, ghostVisible: true }
+
+    wirer.setGitOps({ aiGenerate: vi.fn() } as never)
+    wirer.wireOutputStreaming(session.ptyId, session)
+
+    ptyPool.emitData(session.ptyId, 'app ❯ ')
+
+    expect(vi.mocked(predictNextCommand)).not.toHaveBeenCalled()
+  })
+
   it('recognizes a Manifold shell prompt at the end of ANSI-styled output', () => {
     expect(hasShellPromptAtEnd('\x1b[36mapp\x1b[39m \x1b[37m❯\x1b[39m \x1b[?2004h')).toBe(true)
     expect(hasShellPromptAtEnd('\x1b[36mapp\x1b[39m \x1b[37m❯\x1b[39m \x07')).toBe(true)

@@ -9,7 +9,6 @@ import type { InternalSession } from './session-types'
 const HISTORY_LINES = 20
 const SUGGESTION_TIMEOUT_MS = 30_000
 const SUGGESTION_MODEL_ARGS = ['--model', 'gpt-5.4-mini']
-const PENDING_SUGGESTION_TEXT = '...'
 const FALLBACK_SUGGESTION = 'git status'
 
 /**
@@ -163,8 +162,6 @@ export async function predictNextCommand(
   const suggestionState = session.shellSuggestion
   suggestionState.pending = true
   suggestionState.activeSuggestion = null
-  injectGhostText(ptyPool, session.ptyId, PENDING_SUGGESTION_TEXT)
-  suggestionState.ghostVisible = true
 
   try {
     const historyPath = resolveHistoryPath(session)
