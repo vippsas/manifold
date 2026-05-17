@@ -44,7 +44,11 @@ export class VerdictRecorder {
 
   onSessionCreated(event: SessionCreatedEvent): void {
     const created = this.now()
-    const record: VerdictRecord = {
+    const existing = this.deps.store.getBySessionId(event.sessionId)
+    // Idempotent: if a record already exists (e.g. session is being re-adopted
+    // after an app restart via SessionDiscovery), preserve its metrics and
+    // createdAt — only re-populate this.active so subsequent events flow.
+    const record: VerdictRecord = existing ?? {
       sessionId: event.sessionId,
       projectId: event.projectId,
       branch: event.branch,
@@ -59,11 +63,14 @@ export class VerdictRecorder {
         filesChanged: 0,
       },
     }
-    this.deps.store.upsert(record)
+    if (!existing) this.deps.store.upsert(record)
+    const createdAtMs = existing
+      ? new Date(existing.createdAt).getTime()
+      : created.getTime()
     this.active.set(event.sessionId, {
       worktreePath: event.worktreePath,
       baseBranch: event.baseBranch,
-      createdAtMs: created.getTime(),
+      createdAtMs: Number.isFinite(createdAtMs) ? createdAtMs : created.getTime(),
       lastStatus: 'unknown',
     })
   }
@@ -95,6 +102,10 @@ export class VerdictRecorder {
     }
     if (next.outcome === 'unknown') next.outcome = 'committed_only'
     this.deps.store.upsert(next)
+  }
+
+  getDetectedPrUrl(sessionId: string): string | null {
+    return this.deps.store.getBySessionId(sessionId)?.metrics.prUrl ?? null
   }
 
   onPrCreated(sessionId: string, prUrl: string): void {
