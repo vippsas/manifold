@@ -77,4 +77,43 @@ describe('VerdictsPanel', () => {
       expect(link.href).toBe('https://github.com/o/r/pull/1')
     })
   })
+
+  it('renders per-session metric chips when activity is present', async () => {
+    mockInvoke.mockResolvedValue([
+      record({
+        sessionId: 'm', outcome: 'committed_only',
+        metrics: { agentCommits: 2, humanEdits: 7, diffLines: { added: 42, removed: 5 }, filesChanged: 3 },
+      }),
+    ])
+    renderWith('p1')
+    await waitFor(() => expect(screen.getByLabelText(/2 agent commits/)).toBeTruthy())
+    expect(screen.getByLabelText(/7 human edits/)).toBeTruthy()
+    expect(screen.getByLabelText(/3 files changed/)).toBeTruthy()
+    expect(screen.getByLabelText(/42 lines added, 5 lines removed/)).toBeTruthy()
+  })
+
+  it('omits chips with zero value but keeps the others', async () => {
+    mockInvoke.mockResolvedValue([
+      record({
+        sessionId: 'p', outcome: 'pr_created',
+        metrics: { agentCommits: 1, humanEdits: 0, diffLines: { added: 0, removed: 0 }, filesChanged: 0, prUrl: 'https://example/1' },
+      }),
+    ])
+    renderWith('p1')
+    await waitFor(() => expect(screen.getByLabelText(/1 agent commits/)).toBeTruthy())
+    expect(screen.queryByLabelText(/human edits/)).toBeNull()
+    expect(screen.queryByLabelText(/files changed/)).toBeNull()
+    expect(screen.queryByLabelText(/lines added/)).toBeNull()
+  })
+
+  it('shows "no activity" placeholder when all metrics are zero', async () => {
+    mockInvoke.mockResolvedValue([
+      record({
+        sessionId: 'z', outcome: 'discarded',
+        metrics: { agentCommits: 0, humanEdits: 0, diffLines: { added: 0, removed: 0 }, filesChanged: 0 },
+      }),
+    ])
+    renderWith('p1')
+    await waitFor(() => expect(screen.getByLabelText(/no activity captured/i)).toBeTruthy())
+  })
 })
