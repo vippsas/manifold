@@ -1,5 +1,5 @@
 import React, { useMemo, useRef, useState, useCallback, useEffect } from 'react'
-import Editor, { DiffEditor, type OnMount, type DiffOnMount } from '@monaco-editor/react'
+import { DiffEditor, type OnMount, type DiffOnMount } from '@monaco-editor/react'
 import type { editor as monacoEditor } from 'monaco-editor'
 import type { OpenFile } from '../../hooks/useCodeView'
 import { viewerStyles } from './CodeViewer.styles'
@@ -17,6 +17,8 @@ import {
   registerEditorPaneModeControls,
   unregisterEditorPaneModeControls,
 } from './editor-pane-mode-controls'
+import { useAutoSave } from './useAutoSave'
+import { EditorContent } from './EditorContent'
 
 interface CodeViewerProps {
   paneId?: string
@@ -40,7 +42,7 @@ interface CodeViewerProps {
 const previewPathsByPane = new Map<string, Set<string>>()
 const scrollPositionsByFile = new Map<string, number>()
 
-const BASE_EDITOR_OPTIONS = {
+const DIFF_EDITOR_OPTIONS = {
   minimap: { enabled: false },
   scrollBeyondLastLine: false,
   fontSize: 13,
@@ -48,12 +50,6 @@ const BASE_EDITOR_OPTIONS = {
   lineNumbers: 'on' as const,
   renderLineHighlight: 'none' as const,
   wordWrap: 'on' as const,
-}
-
-const EDITABLE_OPTIONS = { ...BASE_EDITOR_OPTIONS, readOnly: false }
-
-const DIFF_EDITOR_OPTIONS = {
-  ...BASE_EDITOR_OPTIONS,
   readOnly: true,
   renderSideBySide: false,
   renderIndicators: true,
@@ -90,6 +86,8 @@ export function CodeViewer({
   const lastFileOpenRequestRef = useRef(lastFileOpenRequest)
   activeFilePathRef.current = activeFilePath
   lastFileOpenRequestRef.current = lastFileOpenRequest
+
+  const { onChange: handleEditorChange } = useAutoSave(activeFilePath, onSaveFile)
 
   const [previewPaths, setPreviewPaths] = useState<Set<string>>(
     () => previewPathsByPane.get(paneId) ?? new Set(),
@@ -284,6 +282,7 @@ export function CodeViewer({
             language={language}
             monacoTheme={monacoTheme}
             onMount={handleEditorMount}
+            onChange={handleEditorChange}
           />
         )}
       </div>
@@ -291,39 +290,3 @@ export function CodeViewer({
   )
 }
 
-interface EditorContentProps {
-  filePath: string | null
-  fileContent: string | null
-  refreshVersion: number
-  language: string
-  monacoTheme: string
-  onMount?: OnMount
-}
-
-function EditorContent({
-  filePath,
-  fileContent,
-  refreshVersion,
-  language,
-  monacoTheme,
-  onMount,
-}: EditorContentProps): React.JSX.Element {
-  if (fileContent !== null) {
-    return (
-      <Editor
-        key={`${filePath ?? '__no-file__'}:${refreshVersion}`}
-        defaultValue={fileContent}
-        language={language}
-        theme={monacoTheme}
-        options={EDITABLE_OPTIONS}
-        onMount={onMount}
-      />
-    )
-  }
-
-  return (
-    <div style={viewerStyles.empty}>
-      Select a file to view its contents
-    </div>
-  )
-}
