@@ -246,6 +246,47 @@ export const verdictsPanelStyles: Record<string, React.CSSProperties> = {
     whiteSpace: 'nowrap',
     lineHeight: 1.4,
   },
+  metricStrip: {
+    display: 'flex',
+    flexWrap: 'wrap',
+    gap: 'var(--space-xs)',
+    marginTop: 4,
+  },
+  metricChip: {
+    display: 'inline-flex',
+    alignItems: 'center',
+    gap: 4,
+    fontSize: 'var(--type-ui-caption)',
+    color: 'var(--text-muted)',
+    fontFamily: 'var(--font-mono)',
+    padding: '0 6px',
+    height: 18,
+    borderRadius: 'var(--radius-xs)',
+    background: 'color-mix(in srgb, var(--text-muted) 8%, transparent)',
+    lineHeight: 1,
+  },
+  metricChipLabel: {
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+    color: 'var(--text-muted)',
+    opacity: 0.85,
+  },
+  metricChipValue: {
+    color: 'var(--text-secondary)',
+  },
+  metricChipAdded: {
+    color: 'var(--status-done)',
+  },
+  metricChipRemoved: {
+    color: 'var(--status-error)',
+  },
+  metricStripEmpty: {
+    fontSize: 'var(--type-ui-caption)',
+    color: 'var(--text-muted)',
+    fontFamily: 'var(--font-mono)',
+    marginTop: 4,
+    opacity: 0.6,
+  },
   recentRight: {
     display: 'flex',
     alignItems: 'center',

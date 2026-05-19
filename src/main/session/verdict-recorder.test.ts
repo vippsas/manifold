@@ -180,4 +180,52 @@ describe('VerdictRecorder per-event hooks', () => {
     expect(() => recorder.onAgentCommit('nope')).not.toThrow()
     expect(() => recorder.onPrCreated('nope', 'u')).not.toThrow()
   })
+
+  it('onSessionCreated preserves existing metrics when called again for the same session (re-adoption after restart)', () => {
+    const { store, recorder } = makeRecorder(tmp)
+    recorder.onSessionCreated({
+      sessionId: 's1', projectId: 'p1', branch: 'manifold/foo',
+      runtime: 'claude', taskPrompt: 'original', worktreePath: '/tmp/wt', baseBranch: 'main',
+    })
+    recorder.onAgentCommit('s1')
+    recorder.onPrCreated('s1', 'https://example/1')
+    const before = store.getBySessionId('s1')!
+
+    // Simulate re-adoption: SessionDiscovery sees the worktree on next launch
+    // and re-registers the same sessionId. Metrics + createdAt + prUrl must survive.
+    recorder.onSessionCreated({
+      sessionId: 's1', projectId: 'p1', branch: 'manifold/foo',
+      runtime: 'claude', taskPrompt: 'NEW PROMPT', worktreePath: '/tmp/wt', baseBranch: 'main',
+    })
+    const after = store.getBySessionId('s1')!
+    expect(after.createdAt).toBe(before.createdAt)
+    expect(after.metrics.agentCommits).toBe(1)
+    expect(after.metrics.prUrl).toBe('https://example/1')
+    expect(after.outcome).toBe('pr_created')
+    expect(after.taskPrompt).toEqual(before.taskPrompt)
+  })
+
+  it('events flow again after re-adoption of a re-registered session', () => {
+    const { store, recorder } = makeRecorder(tmp)
+    recorder.onSessionCreated({
+      sessionId: 's1', projectId: 'p1', branch: 'manifold/foo',
+      runtime: 'claude', taskPrompt: 't', worktreePath: '/tmp/wt', baseBranch: 'main',
+    })
+    recorder.onAgentCommit('s1')
+
+    // Re-register (simulates app restart + SessionDiscovery).
+    recorder.onSessionCreated({
+      sessionId: 's1', projectId: 'p1', branch: 'manifold/foo',
+      runtime: 'claude', taskPrompt: 't', worktreePath: '/tmp/wt', baseBranch: 'main',
+    })
+
+    // After re-registration, edits & PR events should be honored again.
+    recorder.onStatus('s1', 'waiting')
+    recorder.onFilesChanged('s1')
+    recorder.onPrCreated('s1', 'https://example/2')
+    const rec = store.getBySessionId('s1')!
+    expect(rec.metrics.humanEdits).toBe(1)
+    expect(rec.metrics.prUrl).toBe('https://example/2')
+    expect(rec.outcome).toBe('pr_created')
+  })
 })

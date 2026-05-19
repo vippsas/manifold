@@ -8,7 +8,7 @@ import {
   outcomeLabels,
   outcomeChipStyle,
 } from './VerdictsPanel.styles'
-import type { TaskPrompt, VerdictRecord, VerdictOutcome } from '../../../shared/verdict-types'
+import type { TaskPrompt, VerdictMetrics, VerdictRecord, VerdictOutcome } from '../../../shared/verdict-types'
 
 const RECENT_LIMIT = 50
 const PROMPT_PREVIEW_CHARS = 96
@@ -168,6 +168,7 @@ function renderRecentSessions(recent: VerdictRecord[]): React.JSX.Element {
                   <span style={s.recentTime}>{formatTime(rec.createdAt)}</span>
                 </div>
                 <div style={s.recentPrompt}>{renderPromptPreview(rec.taskPrompt)}</div>
+                <MetricStrip metrics={rec.metrics} />
               </div>
               <div style={s.recentRight}>
                 <span style={{ ...s.outcomeChip, ...outcomeChipStyle(rec.outcome) }}>
@@ -182,6 +183,45 @@ function renderRecentSessions(recent: VerdictRecord[]): React.JSX.Element {
         })}
       </div>
     </section>
+  )
+}
+
+function MetricStrip({ metrics }: { metrics: VerdictMetrics }): React.JSX.Element {
+  const { agentCommits, humanEdits, filesChanged, diffLines } = metrics
+  const hasDiff = diffLines.added > 0 || diffLines.removed > 0
+  const hasAnything = agentCommits > 0 || humanEdits > 0 || filesChanged > 0 || hasDiff
+
+  if (!hasAnything) {
+    return <div style={s.metricStripEmpty} aria-label="no activity captured">no activity</div>
+  }
+
+  return (
+    <div style={s.metricStrip} aria-label="session metrics">
+      {agentCommits > 0 && (
+        <Chip label="commits" value={String(agentCommits)} ariaLabel={`${agentCommits} agent commits`} />
+      )}
+      {humanEdits > 0 && (
+        <Chip label="edits" value={String(humanEdits)} ariaLabel={`${humanEdits} human edits`} />
+      )}
+      {filesChanged > 0 && (
+        <Chip label="files" value={String(filesChanged)} ariaLabel={`${filesChanged} files changed`} />
+      )}
+      {hasDiff && (
+        <span style={s.metricChip} aria-label={`${diffLines.added} lines added, ${diffLines.removed} lines removed`}>
+          <span style={s.metricChipAdded}>+{diffLines.added}</span>
+          <span style={s.metricChipRemoved}>−{diffLines.removed}</span>
+        </span>
+      )}
+    </div>
+  )
+}
+
+function Chip({ label, value, ariaLabel }: { label: string; value: string; ariaLabel?: string }): React.JSX.Element {
+  return (
+    <span style={s.metricChip} aria-label={ariaLabel}>
+      <span style={s.metricChipValue}>{value}</span>
+      <span style={s.metricChipLabel}>{label}</span>
+    </span>
   )
 }
 

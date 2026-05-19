@@ -123,6 +123,7 @@ export class SessionManager {
   setVerdictRecorder(recorder: VerdictRecorder): void {
     this.verdictRecorder = recorder
     this.killer.setVerdictRecorder(recorder)
+    this.discovery.setVerdictRecorder(recorder)
   }
 
   setGitOps(gitOps: GitOperationsManager): void {
@@ -142,6 +143,16 @@ export class SessionManager {
       if (payload?.sessionId && payload.status) {
         this.statusListener?.(payload.sessionId, payload.status)
         this.verdictRecorder?.onStatus(payload.sessionId, payload.status)
+      }
+    }
+    if (channel === 'agent:exit') {
+      const payload = args[0] as { sessionId?: string } | undefined
+      // Natural PTY exit needs to finalize the verdict (terminatedAt, durationMs,
+      // final diff stats, merged check). killSession also triggers PTY exit, but
+      // onSessionTerminated is idempotent — second call no-ops because this.active
+      // is cleared after the first.
+      if (payload?.sessionId) {
+        void this.verdictRecorder?.onSessionTerminated(payload.sessionId)
       }
     }
     if (this.mainWindow && !this.mainWindow.isDestroyed()) {

@@ -7,9 +7,11 @@ import { gitExec } from '../git/git-exec'
 import { prepareManagedWorktree } from '../git/managed-worktree'
 import { debugLog } from '../app/debug-log'
 import type { InternalSession } from './session-types'
+import type { VerdictRecorder } from './verdict-recorder'
 
 export class SessionDiscovery {
   private discoveryInFlight = new Map<string, Promise<void>>()
+  private verdictRecorder: VerdictRecorder | null = null
 
   constructor(
     private sessions: Map<string, InternalSession>,
@@ -17,6 +19,24 @@ export class SessionDiscovery {
     private projectRegistry: ProjectRegistry,
     private fileWatcher: FileWatcher | undefined,
   ) {}
+
+  setVerdictRecorder(recorder: VerdictRecorder): void {
+    this.verdictRecorder = recorder
+  }
+
+  private adoptForVerdict(session: InternalSession, baseBranch: string): void {
+    if (!this.verdictRecorder) return
+    if (session.noWorktree || !session.worktreePath) return
+    this.verdictRecorder.onSessionCreated({
+      sessionId: session.id,
+      projectId: session.projectId,
+      branch: session.branchName,
+      runtime: session.runtimeId,
+      taskPrompt: session.taskDescription ?? '',
+      worktreePath: session.worktreePath,
+      baseBranch,
+    })
+  }
 
   async discoverSessionsForProject(projectId: string): Promise<void> {
     // Serialize concurrent calls for the same project to prevent duplicate sessions.
@@ -74,6 +94,7 @@ export class SessionDiscovery {
           ollamaModel: meta?.ollamaModel,
         }
         this.sessions.set(session.id, session)
+        this.adoptForVerdict(session, project.baseBranch)
 
         if (meta?.additionalDirs) {
           for (const dir of meta.additionalDirs) {
