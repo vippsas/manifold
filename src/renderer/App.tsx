@@ -528,7 +528,7 @@ export function App(): React.JSX.Element {
               watermarkComponent={EmptyWatermark} />
           </div>
         </DockStateContext.Provider>
-        <StatusBar activeSession={activeSession} changedFiles={mergedChanges} baseBranch={baseBranch} projectIsGit={activeProjectIsGit} dockLayout={dockLayout}
+        <StatusBar activeSession={activeSession} changedFiles={mergedChanges} baseBranch={baseBranch} projectIsGit={activeProjectIsGit} dockLayout={dockLayout} hasSuperagent={Boolean(activeSuperagent)}
           conflicts={gitOps.conflicts} aheadBehind={gitOps.aheadBehind} onCommit={() => overlays.setActivePanel('commit')}
           onCreatePR={() => overlays.setActivePanel('pr')} onShowConflicts={() => overlays.setActivePanel('conflicts')}
           onOpenSettings={() => overlays.setShowSettings(true)}

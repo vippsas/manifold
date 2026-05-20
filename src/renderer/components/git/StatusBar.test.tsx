@@ -135,6 +135,36 @@ describe('StatusBar', () => {
     expect(screen.getByText('main')).toBeInTheDocument()
   })
 
+  it('renders the open shell button on the superagent home tab (no active session)', () => {
+    const togglePanel = vi.fn()
+    render(
+      <StatusBar
+        activeSession={null}
+        changedFiles={[]}
+        baseBranch="main"
+        hasSuperagent
+        dockLayout={mockDockLayout({ hiddenPanels: ['shell'], togglePanel })}
+      />,
+    )
+
+    const shellButton = screen.getByRole('button', { name: /open shell/i })
+    fireEvent.click(shellButton)
+    expect(togglePanel).toHaveBeenCalledWith('shell')
+  })
+
+  it('does not render panel toggle buttons when there is no session or superagent', () => {
+    render(
+      <StatusBar
+        activeSession={null}
+        changedFiles={[]}
+        baseBranch="main"
+        dockLayout={mockDockLayout({ hiddenPanels: ['shell'] })}
+      />,
+    )
+
+    expect(screen.queryByRole('button', { name: /open shell/i })).not.toBeInTheDocument()
+  })
+
   it('renders a prominent open shell button when the shell panel is hidden', () => {
     const togglePanel = vi.fn()
     render(
