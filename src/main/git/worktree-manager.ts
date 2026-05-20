@@ -45,6 +45,42 @@ export class WorktreeManager {
     return { branch, path: worktreePath }
   }
 
+  async createWorktreeFromBranch(
+    projectPath: string,
+    projectName: string,
+    branch: string,
+    baseBranch: string,
+  ): Promise<WorktreeInfo> {
+    const worktreeBase = this.getWorktreeBase(projectName)
+    fs.mkdirSync(worktreeBase, { recursive: true })
+
+    const safeDirName = branch.replace(/\//g, '-')
+    const worktreePath = path.join(worktreeBase, safeDirName)
+
+    if (fs.existsSync(worktreePath)) {
+      await gitExec(['reset', '--mixed', 'HEAD'], worktreePath).catch((err) => {
+        debugLog(`[worktree] reset --mixed HEAD failed for reused ${worktreePath}: ${err}`)
+      })
+      await prepareManagedWorktree(worktreePath)
+      return { branch, path: worktreePath }
+    }
+
+    await gitExec(['worktree', 'prune'], projectPath).catch((err) => {
+      debugLog(`[worktree] prune failed before add for ${projectPath}: ${err}`)
+    })
+
+    const currentBranch = (await gitExec(['rev-parse', '--abbrev-ref', 'HEAD'], projectPath)).trim()
+    if (currentBranch === branch) {
+      await gitExec(['checkout', baseBranch], projectPath)
+    }
+
+    await gitExec(['worktree', 'add', worktreePath, branch], projectPath)
+    await gitExec(['reset', '--mixed', 'HEAD'], worktreePath)
+    await prepareManagedWorktree(worktreePath)
+
+    return { branch, path: worktreePath }
+  }
+
   private async ensureBaseRef(projectPath: string, baseBranch: string): Promise<void> {
     try {
       await gitExec(['rev-parse', '--verify', baseBranch], projectPath)

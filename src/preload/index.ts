@@ -105,6 +105,7 @@ const ALLOWED_INVOKE_CHANNELS = [
   'background-agent:get-status',
   'superagent:list',
   'superagent:create',
+  'superagent:add-project',
   'superagent:kill',
   'superagent:remove',
   'superagent:spawn-fleet-agent',

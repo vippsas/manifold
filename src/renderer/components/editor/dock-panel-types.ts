@@ -4,6 +4,7 @@ import type { AgentStatus, FileTreeNode, FileChange, Project, AgentSession, Spaw
 import type { SearchMode } from '../../../shared/search-types'
 import type { EditorPaneView, OpenFile } from '../../hooks/useCodeView'
 import type { FileOpenRequest } from './file-open-request'
+import type { SessionSelectionOptions } from '../../session-selection'
 
 export interface DockAppState {
   sessionId: string | null
@@ -64,6 +65,7 @@ export interface DockAppState {
   worktreeCwd: string | null
   // Agent creation
   baseBranch: string
+  activeProjectIsGit: boolean
   defaultRuntime: string
   activeSessionWorktreePath: string | null
   activeSessionNoWorktree: boolean
@@ -71,10 +73,11 @@ export interface DockAppState {
   // Projects panel
   projects: Project[]
   activeProjectId: string | null
+  suppressedProjectIds?: ReadonlySet<string>
   allProjectSessions: Record<string, AgentSession[]>
   outputtingSessionIds: Set<string>
   onSelectProject: (id: string) => void
-  onSelectSession: (sessionId: string, projectId: string) => void
+  onSelectSession: (sessionId: string, projectId: string, options?: SessionSelectionOptions) => void
   onRemoveProject: (id: string) => void
   onUpdateProject: (id: string, partial: Partial<Omit<Project, 'id'>>) => void
   onRequestDeleteAgent: (session: AgentSession, projectPath: string) => void
@@ -88,6 +91,7 @@ export interface DockAppState {
   onSelectSuperagent?: (id: string) => void
   onResumeSuperagent?: (id: string) => Promise<void>
   onRemoveSuperagent?: (id: string) => Promise<void>
+  onRequestAddProjectToSuperagent?: (superagentId: string) => void
   onSpawnFleetAgent?: (superagentId: string, projectId: string) => Promise<void>
   fetchingProjectId: string | null
   lastFetchedProjectId: string | null

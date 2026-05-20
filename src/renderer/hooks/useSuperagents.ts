@@ -1,9 +1,14 @@
 import { useCallback, useEffect, useState } from 'react'
-import type { Superagent, SuperagentCreateOptions } from '../../shared/superagent-types'
+import type {
+  Superagent,
+  SuperagentCreateOptions,
+  SuperagentProjectAddition,
+} from '../../shared/superagent-types'
 
 export interface UseSuperagentsResult {
   superagents: Superagent[]
   createSuperagent: (opts: SuperagentCreateOptions) => Promise<Superagent>
+  addProjectToSuperagent: (superagentId: string, addition: SuperagentProjectAddition) => Promise<Superagent>
   killSuperagent: (id: string) => Promise<void>
   removeSuperagent: (id: string) => Promise<void>
   resumeSuperagent: (id: string) => Promise<void>
@@ -31,6 +36,12 @@ export function useSuperagents(): UseSuperagentsResult {
     return s
   }, [refresh])
 
+  const addProjectToSuperagent = useCallback(async (superagentId: string, addition: SuperagentProjectAddition) => {
+    const s = (await window.electronAPI.invoke('superagent:add-project', superagentId, addition)) as Superagent
+    await refresh()
+    return s
+  }, [refresh])
+
   const killSuperagent = useCallback(async (id: string) => {
     await window.electronAPI.invoke('superagent:kill', id)
     await refresh()
@@ -51,5 +62,13 @@ export function useSuperagents(): UseSuperagentsResult {
     await refresh()
   }, [refresh])
 
-  return { superagents, createSuperagent, killSuperagent, removeSuperagent, resumeSuperagent, toggleAutoApprove }
+  return {
+    superagents,
+    createSuperagent,
+    addProjectToSuperagent,
+    killSuperagent,
+    removeSuperagent,
+    resumeSuperagent,
+    toggleAutoApprove,
+  }
 }

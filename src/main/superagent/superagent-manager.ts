@@ -2,8 +2,10 @@ import { randomUUID } from 'node:crypto'
 import * as fs from 'node:fs'
 import * as path from 'node:path'
 import type { AgentRuntime } from '../../shared/types'
-import type { Superagent, SuperagentCreateOptions } from '../../shared/superagent-types'
+import type { Superagent, SuperagentCreateOptions, SuperagentProjectAddition } from '../../shared/superagent-types'
 import type { AgentStatus } from '../../shared/types'
+import { isGitProject } from '../../shared/project-kind'
+import { sortProjectsByName } from '../../shared/project-sort'
 import { OrchestratorMcpServer } from './orchestrator-mcp-server'
 import { buildOrchestratorPrompt } from './orchestrator-prompt'
 import { setupCoordinationDir, slugifyName } from './superagent-coordination'
@@ -16,6 +18,7 @@ import {
 } from './superagent-fleet'
 import type { SuperagentManagerDeps } from './superagent-manager-deps'
 import { getOrchestratorLauncher } from './runtime-launchers'
+import { debugLog } from '../app/debug-log'
 
 export type { SuperagentManagerDeps } from './superagent-manager-deps'
 
@@ -70,9 +73,11 @@ export class SuperagentManager {
       throw new Error(`Runtime "${runtime.name}" does not support superagent orchestration`)
     }
 
-    const fleet = options.fleetProjectIds
-      .map((pid) => this.deps.projectRegistry.getProject(pid))
-      .filter(Boolean)
+    const fleet = sortProjectsByName(options.fleetProjectIds.map((projectId) => {
+      const project = this.deps.projectRegistry.getProject(projectId)
+      if (!project) throw new Error(`Project not found: ${projectId}`)
+      return project
+    }))
 
     const desiredBranch = `manifold/${slugifyName(options.name)}`
     const branchName = await findAvailableFleetBranch(this.deps.worktreeManager, fleet, desiredBranch)
@@ -98,7 +103,7 @@ export class SuperagentManager {
       name: options.name,
       taskDescription: options.taskDescription,
       runtimeId: options.runtimeId,
-      fleetProjectIds: [...options.fleetProjectIds],
+      fleetProjectIds: fleet.map((project) => project.id),
       fleetWorktreePaths,
       branchName,
       childSessionIds: [],
@@ -115,6 +120,60 @@ export class SuperagentManager {
     this.deps.emitListChanged()
 
     return this.deps.store.get(id) ?? superagent
+  }
+
+  async addProjectToFleet(superagentId: string, addition: SuperagentProjectAddition): Promise<Superagent> {
+    const { projectId, reuseSessionId } = addition
+    const superagent = this.deps.store.get(superagentId)
+    if (!superagent) throw new Error(`Superagent not found: ${superagentId}`)
+    if (superagent.fleetProjectIds.includes(projectId)) {
+      const adopted = this.adoptExistingSession(superagentId, superagent, projectId, reuseSessionId)
+      this.deps.emitListChanged()
+      return adopted
+    }
+
+    const project = this.deps.projectRegistry.getProject(projectId)
+    if (!project) throw new Error(`Project not found: ${projectId}`)
+
+    const worktreeInfo = isGitProject(project)
+      ? await (async () => {
+          const branchExists = await this.deps.worktreeManager.branchExists(project.path, superagent.branchName)
+          return branchExists && this.deps.worktreeManager.createWorktreeFromBranch
+            ? this.deps.worktreeManager.createWorktreeFromBranch(
+                project.path,
+                project.name,
+                superagent.branchName,
+                project.baseBranch,
+              )
+            : this.deps.worktreeManager.createWorktree(
+                project.path,
+                project.baseBranch,
+                project.name,
+                superagent.branchName,
+              )
+        })()
+      : { branch: superagent.branchName, path: project.path }
+
+    const nextFleet = sortProjectsByName([
+      ...superagent.fleetProjectIds
+        .map((id) => this.deps.projectRegistry.getProject(id))
+        .filter((entry): entry is typeof project => Boolean(entry)),
+      project,
+    ])
+
+    const updated = this.deps.store.update(superagentId, {
+      fleetProjectIds: nextFleet.map((entry) => entry.id),
+      fleetWorktreePaths: {
+        ...(superagent.fleetWorktreePaths ?? {}),
+        [projectId]: worktreeInfo.path,
+      },
+    })
+    if (!updated) throw new Error(`Superagent not found: ${superagentId}`)
+
+    const adopted = this.adoptExistingSession(superagentId, updated, projectId, reuseSessionId)
+    this.persistFleetContext(adopted)
+    this.deps.emitListChanged()
+    return adopted
   }
 
   async resume(superagentId: string): Promise<void> {
@@ -206,6 +265,29 @@ export class SuperagentManager {
     this.deps.emitStatus(id, 'running')
   }
 
+  private persistFleetContext(superagent: Superagent): void {
+    const fleet = sortProjectsByName(
+      superagent.fleetProjectIds
+        .map((projectId) => this.deps.projectRegistry.getProject(projectId))
+        .filter(Boolean),
+    )
+    const persistentContext = buildOrchestratorPrompt({
+      taskDescription: superagent.taskDescription,
+      initialPrompt: '',
+      fleet,
+      fleetWorktreePaths: superagent.fleetWorktreePaths,
+      branchName: superagent.branchName,
+    })
+    try {
+      fs.writeFileSync(path.join(superagent.coordinationPath, 'AGENTS.md'), persistentContext + '\n')
+    } catch (err) {
+      // Best-effort write — the next resume rewrites AGENTS.md. Log so a
+      // persistent failure (permissions, ENOSPC) is diagnosable when the
+      // orchestrator appears to be running with stale fleet context.
+      debugLog(`[superagent] persistFleetContext write failed for ${superagent.id}: ${(err as Error)?.message}`)
+    }
+  }
+
   async kill(superagentId: string): Promise<void> {
     const entry = this.active.get(superagentId)
     if (entry) {
@@ -260,11 +342,50 @@ export class SuperagentManager {
       .find((s) => s && s.projectId === projectId && s.worktreePath === worktreePath)
     if (existing) return { id: existing.id }
 
+    let targetWorktreePath = worktreePath
+    const project = this.deps.projectRegistry.getProject(projectId)
+    if (!project) throw new Error(`Project not found: ${projectId}`)
+
+    if (isGitProject(project) && !fs.existsSync(targetWorktreePath)) {
+
+      let restored: { path: string } | null = null
+      if (this.deps.worktreeManager.createWorktreeFromBranch) {
+        restored = await this.deps.worktreeManager.createWorktreeFromBranch(
+          project.path,
+          project.name,
+          superagent.branchName,
+          project.baseBranch,
+        )
+      } else if (!(await this.deps.worktreeManager.branchExists(project.path, superagent.branchName))) {
+        restored = await this.deps.worktreeManager.createWorktree(
+          project.path,
+          project.baseBranch,
+          project.name,
+          superagent.branchName,
+        )
+      } else {
+        throw new Error(`Fleet worktree for project ${projectId} is missing and cannot be restored`)
+      }
+
+      targetWorktreePath = restored.path
+      if (targetWorktreePath !== worktreePath) {
+        this.deps.store.update(superagentId, {
+          fleetWorktreePaths: {
+            ...(superagent.fleetWorktreePaths ?? {}),
+            [projectId]: targetWorktreePath,
+          },
+        })
+        this.deps.emitListChanged()
+      }
+    }
+
     const session = await this.deps.sessionManager.createSession({
       projectId,
       runtimeId: superagent.runtimeId,
       prompt: '',
-      existingWorktreePath: worktreePath,
+      ...(isGitProject(project)
+        ? { existingWorktreePath: targetWorktreePath }
+        : { noWorktree: true }),
       parentSuperagentId: superagentId,
     })
 
@@ -276,6 +397,41 @@ export class SuperagentManager {
 
   setAutoApprove(superagentId: string, value: boolean): void {
     this.deps.store.update(superagentId, { autoApprove: value })
+  }
+
+  private adoptExistingSession(
+    superagentId: string,
+    superagent: Superagent,
+    projectId: string,
+    reuseSessionId?: string,
+  ): Superagent {
+    if (!reuseSessionId) return superagent
+
+    const session = this.deps.sessionManager.getSession(reuseSessionId)
+    if (!session) throw new Error(`Session not found: ${reuseSessionId}`)
+    if (session.projectId !== projectId) {
+      throw new Error(`Session ${reuseSessionId} does not belong to project ${projectId}`)
+    }
+    if (session.noWorktree) {
+      throw new Error('No-worktree sessions cannot be reused in a superagent fleet')
+    }
+    if (session.parentSuperagentId && session.parentSuperagentId !== superagentId) {
+      throw new Error(`Session ${reuseSessionId} already belongs to another superagent`)
+    }
+
+    const fleetWorktreePath = superagent.fleetWorktreePaths?.[projectId]
+    if (!fleetWorktreePath) {
+      throw new Error(`No fleet worktree for project ${projectId}`)
+    }
+    if (session.worktreePath !== fleetWorktreePath) {
+      throw new Error(
+        `Session ${reuseSessionId} is not on the superagent worktree for project ${projectId}`,
+      )
+    }
+
+    this.deps.sessionManager.setParentSuperagent(reuseSessionId, superagentId)
+    this.deps.store.addChild(superagentId, reuseSessionId)
+    return this.deps.store.get(superagentId) ?? superagent
   }
 
   handleToolCall(superagentId: string, name: string, args: Record<string, unknown>): Promise<Record<string, unknown>> {

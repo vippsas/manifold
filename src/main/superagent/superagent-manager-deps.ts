@@ -1,4 +1,4 @@
-import type { AgentStatus } from '../../shared/types'
+import type { AgentSession, AgentStatus } from '../../shared/types'
 import type { ApprovalBroker } from './approval-broker'
 import type { McpBridgeServer } from './mcp-bridge-server'
 import type { SuperagentStore } from './superagent-store'
@@ -16,6 +16,7 @@ export interface SuperagentManagerDeps {
   sessionManager: {
     getSession: (id: string) => any
     createSession: (opts: any) => Promise<any>
+    setParentSuperagent: (sessionId: string, parentSuperagentId?: string) => AgentSession
     killSession: (id: string) => Promise<void>
     getOutputBuffer: (id: string) => string
     sendInput: (id: string, data: string) => void

@@ -123,13 +123,27 @@ describe('ProjectRegistry', () => {
       const b = registry.listProjects()
       expect(a).not.toBe(b)
     })
+
+    it('returns projects sorted alphabetically by name', () => {
+      const projects = [
+        { id: '2', name: 'zeta', path: '/zeta', baseBranch: 'main', addedAt: '2024-01-02' },
+        { id: '1', name: 'alpha', path: '/alpha', baseBranch: 'main', addedAt: '2024-01-01' },
+      ]
+      mockExistsSync.mockReturnValue(true)
+      mockReadFileSync.mockReturnValue(JSON.stringify(projects))
+
+      const registry = new ProjectRegistry()
+      expect(registry.listProjects().map((project) => project.name)).toEqual(['alpha', 'zeta'])
+    })
   })
 
   describe('addProject', () => {
     it('adds a new project and persists to disk', async () => {
       mockExistsSync.mockReturnValue(false)
-      // git branch -a --format=... returns 'main'
-      setupGitMock([{ stdout: 'main\n' }])
+      setupGitMock([
+        { stdout: 'true\n' },
+        { stdout: 'main\n' },
+      ])
 
       const registry = new ProjectRegistry()
       const project = await registry.addProject('/my-project')
@@ -138,14 +152,34 @@ describe('ProjectRegistry', () => {
       expect(project.name).toBe('my-project')
       expect(project.path).toBe('/my-project')
       expect(project.baseBranch).toBe('main')
+      expect(project.kind).toBe('git')
       expect(project.addedAt).toBeTruthy()
       expect(mockWriteFileSync).toHaveBeenCalledOnce()
     })
 
+    it('keeps the stored project list alphabetized after adding', async () => {
+      const projects = [
+        { id: '1', name: 'zeta', path: '/zeta', baseBranch: 'main', addedAt: '2024-01-01' },
+      ]
+      mockExistsSync.mockReturnValue(true)
+      mockReadFileSync.mockReturnValue(JSON.stringify(projects))
+      setupGitMock([
+        { stdout: 'true\n' },
+        { stdout: 'main\n' },
+      ])
+
+      const registry = new ProjectRegistry()
+      await registry.addProject('/alpha')
+
+      expect(registry.listProjects().map((project) => project.name)).toEqual(['alpha', 'zeta'])
+    })
+
     it('detects master as base branch when main is absent', async () => {
       mockExistsSync.mockReturnValue(false)
-      // git branch -a --format=... returns only 'master' (no 'main')
-      setupGitMock([{ stdout: 'master\n' }])
+      setupGitMock([
+        { stdout: 'true\n' },
+        { stdout: 'master\n' },
+      ])
 
       const registry = new ProjectRegistry()
       const project = await registry.addProject('/my-project')
@@ -154,9 +188,8 @@ describe('ProjectRegistry', () => {
 
     it('falls back to current branch when neither main nor master exist', async () => {
       mockExistsSync.mockReturnValue(false)
-      // First call: git branch -a --format=... returns only 'develop' (no main or master)
-      // Second call: git branch --show-current returns 'develop'
       setupGitMock([
+        { stdout: 'true\n' },
         { stdout: 'develop\n' },
         { stdout: 'develop\n' },
       ])
@@ -166,17 +199,30 @@ describe('ProjectRegistry', () => {
       expect(project.baseBranch).toBe('develop')
     })
 
-    it('falls back to main when git throws', async () => {
+    it('falls back to main when branch detection throws inside a git repository', async () => {
       mockExistsSync.mockReturnValue(false)
-      // git branch -a fails with non-zero exit code
-      setupGitMock([{ stdout: '', exitCode: 128 }])
+      setupGitMock([
+        { stdout: 'true\n' },
+        { stdout: '', exitCode: 128 },
+      ])
 
       const registry = new ProjectRegistry()
       const project = await registry.addProject('/my-project')
       expect(project.baseBranch).toBe('main')
+      expect(project.kind).toBe('git')
     })
 
-    it('falls back to main when spawn emits error', async () => {
+    it('stores a plain folder when the git probe fails', async () => {
+      mockExistsSync.mockReturnValue(false)
+      setupGitMock([{ stdout: '', exitCode: 128 }])
+
+      const registry = new ProjectRegistry()
+      const project = await registry.addProject('/my-project')
+      expect(project.baseBranch).toBe('')
+      expect(project.kind).toBe('folder')
+    })
+
+    it('stores a plain folder when the git probe cannot spawn', async () => {
       mockExistsSync.mockReturnValue(false)
       mockSpawn.mockImplementation(() => {
         const emitter = new EventEmitter()
@@ -189,13 +235,16 @@ describe('ProjectRegistry', () => {
 
       const registry = new ProjectRegistry()
       const project = await registry.addProject('/my-project')
-      expect(project.baseBranch).toBe('main')
+      expect(project.baseBranch).toBe('')
+      expect(project.kind).toBe('folder')
     })
 
     it('returns existing project when path already registered (deduplication)', async () => {
       mockExistsSync.mockReturnValue(false)
-      // git branch -a --format=... returns 'main'
-      setupGitMock([{ stdout: 'main\n' }])
+      setupGitMock([
+        { stdout: 'true\n' },
+        { stdout: 'main\n' },
+      ])
       mockUuidv4.mockReturnValueOnce('id-1' as unknown as ReturnType<typeof uuidv4>)
 
       const registry = new ProjectRegistry()
@@ -210,7 +259,10 @@ describe('ProjectRegistry', () => {
   describe('removeProject', () => {
     it('removes a project by id and persists', async () => {
       mockExistsSync.mockReturnValue(false)
-      setupGitMock([{ stdout: 'main\n' }])
+      setupGitMock([
+        { stdout: 'true\n' },
+        { stdout: 'main\n' },
+      ])
 
       const registry = new ProjectRegistry()
       const project = await registry.addProject('/my-project')

@@ -301,6 +301,22 @@ describe('SessionManager', () => {
         '/repo/.manifold/worktrees/manifold-oslo',
       )
     })
+
+    it('keeps the fleet worktree when deleting a superagent child session', async () => {
+      await sessionManager.createSession({
+        projectId: 'proj-1',
+        runtimeId: 'claude',
+        prompt: 'fleet child',
+        existingWorktreePath: '/repo/.manifold/worktrees/manifold-oslo',
+        parentSuperagentId: 'super-1',
+      })
+
+      await sessionManager.killSession('session-uuid-1')
+
+      expect(ptyPool.kill).toHaveBeenCalledWith('pty-1')
+      expect(worktreeManager.removeWorktree).not.toHaveBeenCalled()
+      expect(sessionManager.getSession('session-uuid-1')).toBeUndefined()
+    })
   })
 
   describe('interruptSession', () => {
@@ -401,6 +417,21 @@ describe('SessionManager', () => {
 
     it('returns undefined for unknown session', () => {
       expect(sessionManager.getSession('nope')).toBeUndefined()
+    })
+  })
+
+  describe('setParentSuperagent', () => {
+    it('updates session ownership in memory', async () => {
+      await sessionManager.createSession({
+        projectId: 'proj-1',
+        runtimeId: 'claude',
+        prompt: 'test',
+      })
+
+      const updated = sessionManager.setParentSuperagent('session-uuid-1', 'super-1')
+
+      expect(updated.parentSuperagentId).toBe('super-1')
+      expect(sessionManager.getSession('session-uuid-1')?.parentSuperagentId).toBe('super-1')
     })
   })
 
@@ -534,6 +565,16 @@ describe('SessionManager', () => {
       expect(sessions[0].pid).toBeNull()
       expect(sessions[0].projectId).toBe('proj-1')
       expect(sessions[1].branchName).toBe('manifold/oslo')
+    })
+
+    it('returns no sessions for registered paths that are not git repositories', async () => {
+      ;(worktreeManager.listWorktrees as ReturnType<typeof vi.fn>).mockRejectedValue(
+        new Error('git worktree failed (code 128): fatal: not a git repository (or any of the parent directories): .git'),
+      )
+
+      const sessions = await sessionManager.discoverSessionsForProject('proj-1')
+
+      expect(sessions).toEqual([])
     })
 
     it('does not duplicate sessions already tracked in memory', async () => {

@@ -27,6 +27,13 @@ import { getPrimarySession, parseSiblingSessionId } from './hooks/agent-siblings
 import { useAppEffects } from './hooks/useAppEffects'
 import { PANEL_COMPONENTS, DockStateContext } from './components/editor/dock-panels'
 import type { DockAppState } from './components/editor/dock-panel-types'
+import {
+  collectSuperagentChildSessionIds,
+  collectSuperagentFleetWorktreePaths,
+  filterStandaloneProjectSessions,
+  type SessionSelectionOptions,
+  shouldPreserveSuperagentSelection,
+} from './session-selection'
 import { EditorHeaderActions } from './components/editor/EditorHeaderActions'
 import { ShellHeaderActions } from './components/terminal/ShellHeaderActions'
 import { OnboardingView } from './components/modals/OnboardingView'
@@ -39,13 +46,15 @@ import { CommitPanel } from './components/git/CommitPanel'
 import { PRPanel } from './components/git/PRPanel'
 import { ConflictPanel } from './components/git/ConflictPanel'
 import { WelcomeDialog } from './components/modals/WelcomeDialog'
+import { AddSuperagentProjectModal } from './components/modals/AddSuperagentProjectModal'
 import { NewSuperagentModal } from './components/modals/NewSuperagentModal'
 import { useSuperagents } from './hooks/useSuperagents'
 import { DockTab, EmptyWatermark } from './DockTab'
 import { TitleBar } from './components/TitleBar'
 import { DeleteAgentDialog } from './components/sidebar/DeleteAgentDialog'
 import type { FileOpenRequest } from './components/editor/file-open-request'
-import type { CreateProjectOptions } from '../shared/types'
+import type { AgentSession, CreateProjectOptions } from '../shared/types'
+import { isGitProject } from '../shared/project-kind'
 import { deriveBranchName } from '../shared/derive-branch-name'
 import { pickRandomNorwegianCityName } from '../shared/norwegian-cities'
 
@@ -62,6 +71,22 @@ export function App(): React.JSX.Element {
   const { projects, activeProjectId, addProject, cloneProject, createNewProject, removeProject, updateProject, setActiveProject, error: projectError } = useProjects()
   const { sessions, activeSessionId, activeSession, spawnAgent, deleteAgent, setActiveSession, resumeAgent, outputtingSessionIds } = useAgentSession(activeProjectId)
   const { sessionsByProject, removeSession } = useAllProjectSessions(projects, activeProjectId, sessions)
+  const [activeSuperagentId, setActiveSuperagentId] = useState<string | null>(null)
+  const [addProjectSuperagentId, setAddProjectSuperagentId] = useState<string | null>(null)
+  const [pendingSuperagentProjectIds, setPendingSuperagentProjectIds] = useState<string[]>([])
+  const { superagents, createSuperagent, addProjectToSuperagent, removeSuperagent, resumeSuperagent } = useSuperagents()
+  const superagentChildSessionIds = useMemo(
+    () => collectSuperagentChildSessionIds(superagents),
+    [superagents],
+  )
+  const superagentFleetWorktreePaths = useMemo(
+    () => collectSuperagentFleetWorktreePaths(superagents),
+    [superagents],
+  )
+  const suppressedProjectIds = useMemo(
+    () => new Set(pendingSuperagentProjectIds),
+    [pendingSuperagentProjectIds],
+  )
 
   // On startup, prefer selecting a project that has active agents
   const didAutoSelectRef = useRef(false)
@@ -69,21 +94,33 @@ export function App(): React.JSX.Element {
     if (didAutoSelectRef.current) return
     const projectIds = Object.keys(sessionsByProject)
     if (projectIds.length < 2) return // not yet loaded
-    const currentSessions = activeProjectId ? sessionsByProject[activeProjectId] ?? [] : []
+    const currentSessions = activeProjectId
+      && !suppressedProjectIds.has(activeProjectId)
+      ? filterStandaloneProjectSessions(
+          sessionsByProject[activeProjectId] ?? [],
+          superagentChildSessionIds,
+          superagentFleetWorktreePaths,
+        )
+      : []
     if (currentSessions.length > 0) {
       didAutoSelectRef.current = true
       return
     }
-    const projectWithAgents = projects.find((p) => (sessionsByProject[p.id] ?? []).length > 0)
+    const projectWithAgents = projects.find((p) => (
+      !suppressedProjectIds.has(p.id)
+      && filterStandaloneProjectSessions(
+        sessionsByProject[p.id] ?? [],
+        superagentChildSessionIds,
+        superagentFleetWorktreePaths,
+      ).length > 0
+    ))
     if (projectWithAgents) {
       didAutoSelectRef.current = true
       setActiveProject(projectWithAgents.id)
     }
-  }, [sessionsByProject, activeProjectId, projects, setActiveProject])
-
-  const [activeSuperagentId, setActiveSuperagentId] = useState<string | null>(null)
-  const { superagents, createSuperagent, removeSuperagent, resumeSuperagent } = useSuperagents()
+  }, [sessionsByProject, activeProjectId, projects, setActiveProject, suppressedProjectIds, superagentChildSessionIds, superagentFleetWorktreePaths])
   const activeSuperagent = superagents.find((s) => s.id === activeSuperagentId) ?? null
+  const addProjectSuperagent = superagents.find((s) => s.id === addProjectSuperagentId) ?? null
   useStatusNotification(outputtingSessionIds, settings.notificationSound)
   const { diff, changedFiles, refreshDiff } = useDiff(activeSessionId)
   const activeWorktreePath = activeSession?.worktreePath ?? null
@@ -101,6 +138,7 @@ export function App(): React.JSX.Element {
     activeWorktreePath,
     primarySessionId,
     activeSessionId,
+    disabled: Boolean(activeSuperagentId),
     onSelectSession: setActiveSession,
   })
   const webPreview = useWebPreview(activeSessionId)
@@ -319,7 +357,32 @@ export function App(): React.JSX.Element {
     finally { appEffects.setCloningProject(false) }
   }, [cloneProject, appEffects])
 
-  const baseBranch = activeProject?.baseBranch ?? settings.defaultBaseBranch
+  const resolveStandaloneSessions = useCallback(async (projectId: string): Promise<AgentSession[]> => {
+    try {
+      const sessions = (await window.electronAPI.invoke('agent:sessions', projectId)) as AgentSession[]
+      return filterStandaloneProjectSessions(sessions, superagentChildSessionIds, superagentFleetWorktreePaths)
+    } catch (err) {
+      console.error('[App] resolveStandaloneSessions failed:', err)
+      return []
+    }
+  }, [superagentChildSessionIds, superagentFleetWorktreePaths])
+
+  const openSuperagentChildPanel = useCallback((
+    sessionId: string,
+    projectId: string,
+    options?: SessionSelectionOptions,
+  ): boolean => {
+    if (!activeSuperagentId) return false
+    if (!shouldPreserveSuperagentSelection(activeSuperagent, projectId, options)) return false
+    const projectName = projects.find((project) => project.id === projectId)?.name
+    dockLayout.openSiblingPanel(sessionId, projectName)
+    return true
+  }, [activeSuperagent, activeSuperagentId, dockLayout, projects])
+
+  const activeProjectIsGit = isGitProject(activeProject)
+  const baseBranch = activeProjectIsGit
+    ? activeProject?.baseBranch ?? settings.defaultBaseBranch
+    : ''
   const dockState: DockAppState = {
     sessionId: activeSessionId,
     primarySessionId,
@@ -345,13 +408,20 @@ export function App(): React.JSX.Element {
     expandedPaths: viewState.expandedPaths, onToggleExpand: viewState.onToggleExpand, worktreeRoot: tree?.path ?? null,
     worktreeShellSessionId: worktreeSessionId, projectShellSessionId: projectSessionId,
     worktreeCwd: worktreeShellCwd,
-    baseBranch, defaultRuntime: settings.defaultRuntime,
+    baseBranch,
+    activeProjectIsGit,
+    defaultRuntime: settings.defaultRuntime,
     activeSessionWorktreePath: activeSession?.worktreePath ?? null,
     activeSessionNoWorktree: activeSession?.noWorktree ?? false,
     onLaunchAgent: overlays.handleLaunchAgent, projects, activeProjectId,
+    suppressedProjectIds,
     allProjectSessions: sessionsByProject, outputtingSessionIds,
     onSelectProject: (id: string) => { setActiveSuperagentId(null); setActiveProject(id) },
-    onSelectSession: (sessionId: string, projectId: string) => { setActiveSuperagentId(null); overlays.handleSelectSession(sessionId, projectId) },
+    onSelectSession: (sessionId: string, projectId: string, options?: SessionSelectionOptions) => {
+      if (openSuperagentChildPanel(sessionId, projectId, options)) return
+      setActiveSuperagentId(null)
+      overlays.handleSelectSession(sessionId, projectId)
+    },
     onRemoveProject: removeProject,
     onUpdateProject: updateProject, onRequestDeleteAgent: overlays.requestDeleteAgent,
     onNewAgentFromHeader: () => { setActiveSuperagentId(null); overlays.handleNewAgentFromHeader() }, newAgentFocusTrigger: overlays.newAgentFocusTrigger,
@@ -365,13 +435,21 @@ export function App(): React.JSX.Element {
     onRemoveSuperagent: async (id: string) => {
       await removeSuperagent(id)
       setActiveSuperagentId((current) => (current === id ? null : current))
+      setAddProjectSuperagentId((current) => (current === id ? null : current))
+      setPendingSuperagentProjectIds([])
     },
+    onRequestAddProjectToSuperagent: (id: string) => setAddProjectSuperagentId(id),
     onSpawnFleetAgent: async (superagentId: string, projectId: string) => {
       const result = (await window.electronAPI.invoke(
         'superagent:spawn-fleet-agent',
         superagentId,
         projectId,
       )) as { id: string }
+      if (activeSuperagentId === superagentId && openSuperagentChildPanel(
+        result.id,
+        projectId,
+        { preserveSuperagent: true },
+      )) return
       setActiveSuperagentId(null)
       overlays.handleSelectSession(result.id, projectId)
     },
@@ -424,22 +502,22 @@ export function App(): React.JSX.Element {
               watermarkComponent={EmptyWatermark} />
           </div>
         </DockStateContext.Provider>
-        <StatusBar activeSession={activeSession} changedFiles={mergedChanges} baseBranch={baseBranch} dockLayout={dockLayout}
+        <StatusBar activeSession={activeSession} changedFiles={mergedChanges} baseBranch={baseBranch} projectIsGit={activeProjectIsGit} dockLayout={dockLayout}
           conflicts={gitOps.conflicts} aheadBehind={gitOps.aheadBehind} onCommit={() => overlays.setActivePanel('commit')}
           onCreatePR={() => overlays.setActivePanel('pr')} onShowConflicts={() => overlays.setActivePanel('conflicts')}
           onOpenSettings={() => overlays.setShowSettings(true)}
-          showCommitAndPrButtons={settings.showCommitAndPrButtons} />
+          showCommitAndPrButtons={settings.showCommitAndPrButtons && activeProjectIsGit} />
       </div>
-      {overlays.activePanel === 'commit' && activeSessionId && (
+      {overlays.activePanel === 'commit' && activeSessionId && activeProjectIsGit && (
         <CommitPanel changedFiles={mergedChanges} diff={diff} autoGenerateMessages={autoGenerateMessages}
           onCommit={overlays.handleCommit} onAiGenerate={gitOps.aiGenerate} onClose={overlays.handleClosePanel} />
       )}
-      {overlays.activePanel === 'pr' && activeSessionId && activeSession && (
+      {overlays.activePanel === 'pr' && activeSessionId && activeSession && activeProjectIsGit && (
         <PRPanel sessionId={activeSessionId} branchName={activeSession.branchName} baseBranch={baseBranch}
           autoGenerateMessages={autoGenerateMessages} onAiGenerate={gitOps.aiGenerate}
           getPRContext={gitOps.getPRContext} onClose={overlays.handleClosePanel} />
       )}
-      {overlays.activePanel === 'conflicts' && activeSessionId && (
+      {overlays.activePanel === 'conflicts' && activeSessionId && activeProjectIsGit && (
         <ConflictPanel sessionId={activeSessionId} conflicts={gitOps.conflicts} onAiGenerate={gitOps.aiGenerate}
           onResolveConflict={gitOps.resolveConflict} onSelectFile={handleSelectFile} onClose={overlays.handleClosePanel} />
       )}
@@ -471,12 +549,32 @@ export function App(): React.JSX.Element {
         visible={newSuperagentVisible}
         projects={projects}
         defaultRuntime={settings.defaultRuntime}
+        projectError={projectError}
+        onAddProject={() => addProject(undefined, { activate: false })}
         onLaunch={async (opts) => {
           const sa = await createSuperagent(opts)
           setActiveSuperagentId(sa.id)
           setNewSuperagentVisible(false)
         }}
         onClose={() => setNewSuperagentVisible(false)}
+      />
+      <AddSuperagentProjectModal
+        visible={addProjectSuperagent !== null}
+        superagent={addProjectSuperagent}
+        projects={projects}
+        projectError={projectError}
+        onAddProject={() => addProject(undefined, { activate: false })}
+        onResolveStandaloneSessions={resolveStandaloneSessions}
+        onSelectionChange={setPendingSuperagentProjectIds}
+        onAddToFleet={async (superagentId, additions) => {
+          for (const addition of additions) {
+            await addProjectToSuperagent(superagentId, addition)
+          }
+        }}
+        onClose={() => {
+          setPendingSuperagentProjectIds([])
+          setAddProjectSuperagentId(null)
+        }}
       />
       {updateNotification.updateReady && (
         <UpdateToast version={updateNotification.version} onRestart={updateNotification.install} onDismiss={updateNotification.dismiss} />

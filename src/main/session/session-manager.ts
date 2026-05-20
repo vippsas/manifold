@@ -23,6 +23,7 @@ import { SessionKiller } from './session-killer'
 import { toPublicSession } from './session-public'
 import { SessionIoController } from './session-io-controller'
 import type { VerdictRecorder } from './verdict-recorder'
+import { isGitProject } from '../../shared/project-kind'
 
 
 export class SessionManager {
@@ -165,7 +166,11 @@ export class SessionManager {
   }
 
   async createSession(options: SpawnAgentOptions): Promise<AgentSession> {
-    if (options.noWorktree) {
+    const project = this.projectRegistry.getProject(options.projectId)
+    if (!project) throw new Error(`Project not found: ${options.projectId}`)
+    const noWorktree = Boolean(options.noWorktree || !isGitProject(project))
+
+    if (noWorktree) {
       const existingNoWorktree = Array.from(this.sessions.values()).find(
         (s) => s.noWorktree && s.projectId === options.projectId
       )
@@ -182,7 +187,6 @@ export class SessionManager {
     this.memoryCapture?.startCapturing(session.id)
     this.notifySessionsChanged(session.projectId)
     if (this.verdictRecorder && !session.noWorktree && session.worktreePath) {
-      const baseBranch = this.projectRegistry.getProject(session.projectId)?.baseBranch ?? 'main'
       this.verdictRecorder.onSessionCreated({
         sessionId: session.id,
         projectId: session.projectId,
@@ -190,7 +194,7 @@ export class SessionManager {
         runtime: session.runtimeId,
         taskPrompt: session.taskDescription ?? '',
         worktreePath: session.worktreePath,
-        baseBranch,
+        baseBranch: project.baseBranch || 'main',
       })
     }
     return toPublicSession(session)
@@ -253,6 +257,17 @@ export class SessionManager {
 
   async killInteractiveSession(sessionId: string): Promise<{ projectPath: string; branchName: string; taskDescription?: string }> { return this.teardown.killInteractiveSession(sessionId) }
 
+  setParentSuperagent(sessionId: string, parentSuperagentId?: string): AgentSession {
+    const session = this.sessions.get(sessionId)
+    if (!session) throw new Error(`Session not found: ${sessionId}`)
+    session.parentSuperagentId = parentSuperagentId
+    if (!session.noWorktree && session.worktreePath) {
+      this.persistSessionMeta(session)
+    }
+    this.notifySessionsChanged(session.projectId)
+    return toPublicSession(session)
+  }
+
   async startDevServerSession(
     projectId: string,
     branchName: string,
@@ -280,6 +295,10 @@ export class SessionManager {
   triggerShellSuggestion(sessionId: string): void { this.shellController.triggerSuggestion(sessionId) }
 
   private persistAdditionalDirs(session: InternalSession): void {
+    this.persistSessionMeta(session)
+  }
+
+  private persistSessionMeta(session: InternalSession): void {
     writeWorktreeMeta(session.worktreePath, {
       runtimeId: session.runtimeId,
       taskDescription: session.taskDescription,
@@ -287,6 +306,7 @@ export class SessionManager {
       simplePromptInstructions: session.simplePromptInstructions,
       additionalDirs: session.additionalDirs,
       ollamaModel: session.ollamaModel,
+      parentSuperagentId: session.parentSuperagentId,
     }).catch(() => {})
   }
 

@@ -1,6 +1,8 @@
 import { useCallback, useState } from 'react'
 import type { Superagent } from '../../../shared/superagent-types'
 import type { AgentSession, Project } from '../../../shared/types'
+import type { SessionSelectionOptions } from '../../session-selection'
+import { sortProjectsByName } from '../../../shared/project-sort'
 import { sidebarStyles } from './ProjectSidebar.styles'
 import { ActiveSuperagentGroup } from './ActiveSuperagentGroup'
 import { DeleteSuperagentDialog } from './DeleteSuperagentDialog'
@@ -14,7 +16,8 @@ interface SuperagentListProps {
   allProjectSessions?: Record<string, AgentSession[]>
   activeSessionId?: string | null
   outputtingSessionIds?: Set<string>
-  onSelectSession?: (sessionId: string, projectId: string) => void
+  onSelectSession?: (sessionId: string, projectId: string, options?: SessionSelectionOptions) => void
+  onRequestAddProject?: (superagentId: string) => void
   onSpawnFleetAgent?: (superagentId: string, projectId: string) => Promise<void>
   onDeleteAgent?: (session: AgentSession, projectPath: string) => void
 }
@@ -29,6 +32,7 @@ export function SuperagentList({
   activeSessionId,
   outputtingSessionIds,
   onSelectSession,
+  onRequestAddProject,
   onSpawnFleetAgent,
   onDeleteAgent,
 }: SuperagentListProps) {
@@ -72,8 +76,12 @@ export function SuperagentList({
   if (superagents.length === 0) return null
 
   const repoLabel = (s: Superagent): string =>
-    s.fleetProjectIds
-      .map((id) => projects.find((p) => p.id === id)?.name ?? id)
+    sortProjectsByName(
+      s.fleetProjectIds
+        .map((id) => projects.find((project) => project.id === id))
+        .filter((project): project is Project => Boolean(project)),
+    )
+      .map((project) => project.name)
       .join(', ')
 
   const isAlive = (status: Superagent['status']): boolean =>
@@ -102,6 +110,7 @@ export function SuperagentList({
                 spawningKey={spawningKey}
                 onSelect={onSelect}
                 onSelectSession={onSelectSession}
+                onRequestAddProject={onRequestAddProject}
                 onSpawnFleetAgent={handleSpawnFleetAgent}
                 onDeleteAgent={onDeleteAgent}
                 onRequestDelete={(e) => handleRequestDelete(e, s)}

@@ -3,6 +3,7 @@ import { render, screen, fireEvent } from '@testing-library/react'
 import React from 'react'
 import { ProjectSidebar } from './ProjectSidebar'
 import type { Project, AgentSession } from '../../../shared/types'
+import type { Superagent } from '../../../shared/superagent-types'
 
 const mockInvoke = vi.fn()
 
@@ -27,6 +28,22 @@ const sampleSessions: AgentSession[] = [
   { id: 's1', projectId: 'p1', runtimeId: 'claude', branchName: 'alpha/oslo', worktreePath: '/wt1', status: 'running', pid: 1, additionalDirs: [] },
   { id: 's2', projectId: 'p1', runtimeId: 'codex', branchName: 'alpha/bergen', worktreePath: '/wt2', status: 'waiting', pid: 2, additionalDirs: [] },
 ]
+
+const sampleSuperagent: Superagent = {
+  id: 'sa-1',
+  name: '123',
+  taskDescription: '',
+  runtimeId: 'codex',
+  fleetProjectIds: ['p1'],
+  fleetWorktreePaths: { p1: '/wt2' },
+  branchName: 'manifold/123',
+  childSessionIds: ['s2'],
+  coordinationPath: '/coordination',
+  createdAt: '2024-01-01T00:00:00.000Z',
+  pid: 1,
+  status: 'running',
+  autoApprove: false,
+}
 
 function renderSidebar(overrides = {}) {
   const defaultProps = {
@@ -210,5 +227,97 @@ describe('ProjectSidebar', () => {
     renderSidebar({ allProjectSessions: { p1: legacySessions, p2: [] } })
 
     expect(screen.getByText('oslo')).toBeInTheDocument()
+  })
+
+  it('marks superagent child clicks so they stay in superagent context', () => {
+    const superagentSessions: AgentSession[] = [
+      { id: 's2', projectId: 'p1', runtimeId: 'codex', branchName: 'manifold/123', worktreePath: '/wt2', status: 'waiting', pid: 2, additionalDirs: [] },
+    ]
+    const { props } = renderSidebar({
+      allProjectSessions: { p1: superagentSessions, p2: [] },
+      superagents: [sampleSuperagent],
+      activeSuperagentId: 'sa-1',
+      onSelectSuperagent: vi.fn(),
+      onRemoveSuperagent: vi.fn(),
+      onSpawnFleetAgent: vi.fn(),
+    })
+
+    fireEvent.click(screen.getByTitle('Codex - manifold/123'))
+
+    expect(props.onSelectSession).toHaveBeenCalledWith(
+      's2',
+      'p1',
+      { preserveSuperagent: true },
+    )
+  })
+
+  it('hides superagent child sessions from the standard repository sections', () => {
+    const childOnlySessions: AgentSession[] = [
+      { id: 's2', projectId: 'p1', runtimeId: 'codex', branchName: 'manifold/123', worktreePath: '/wt2', status: 'waiting', pid: 2, additionalDirs: [] },
+    ]
+    const { props } = renderSidebar({
+      activeProjectId: 'p2',
+      allProjectSessions: { p1: childOnlySessions, p2: [] },
+      superagents: [sampleSuperagent],
+      onSelectSuperagent: vi.fn(),
+    })
+
+    expect(screen.queryByText('With agents')).not.toBeInTheDocument()
+    expect(screen.queryByTitle('Codex - manifold/123')).not.toBeInTheDocument()
+
+    fireEvent.click(screen.getByText('Repositories'))
+    fireEvent.click(screen.getByText('Alpha'))
+
+    expect(props.onSelectProject).toHaveBeenCalledWith('p1')
+    expect(props.onSelectSession).not.toHaveBeenCalled()
+  })
+
+  it('hides dormant fleet worktrees from the standard repository sections before a child agent is started', () => {
+    const reservedFleetSuperagent: Superagent = {
+      ...sampleSuperagent,
+      childSessionIds: [],
+    }
+    const dormantFleetSessions: AgentSession[] = [
+      { id: 's-fleet', projectId: 'p1', runtimeId: '', branchName: 'manifold/123', worktreePath: '/wt2', status: 'done', pid: null, additionalDirs: [] },
+    ]
+
+    renderSidebar({
+      activeProjectId: 'p2',
+      allProjectSessions: { p1: dormantFleetSessions, p2: [] },
+      superagents: [reservedFleetSuperagent],
+      onSelectSuperagent: vi.fn(),
+    })
+
+    expect(screen.queryByText('With agents')).not.toBeInTheDocument()
+    expect(screen.queryByText('Alpha')).not.toBeInTheDocument()
+  })
+
+  it('offers a plus action to add repositories to an active superagent', () => {
+    const onRequestAddProjectToSuperagent = vi.fn()
+
+    renderSidebar({
+      superagents: [sampleSuperagent],
+      activeSuperagentId: 'sa-1',
+      onSelectSuperagent: vi.fn(),
+      onRequestAddProjectToSuperagent,
+    })
+
+    fireEvent.click(screen.getByLabelText('Add repository to 123'))
+
+    expect(onRequestAddProjectToSuperagent).toHaveBeenCalledWith('sa-1')
+  })
+
+  it('suppresses projects that are pending superagent assignment from the standard sections', () => {
+    const sessionsForP2: AgentSession[] = [
+      { id: 's3', projectId: 'p2', runtimeId: 'gemini', branchName: 'beta/stavanger', worktreePath: '/wt3', status: 'running', pid: 3, additionalDirs: [] },
+    ]
+
+    renderSidebar({
+      allProjectSessions: { p1: sampleSessions, p2: sessionsForP2 },
+      suppressedProjectIds: new Set(['p2']),
+    })
+
+    expect(screen.queryByText('With agents')).not.toBeInTheDocument()
+    expect(screen.queryByText('Beta')).not.toBeInTheDocument()
   })
 })

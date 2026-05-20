@@ -39,6 +39,13 @@ export const sidebarStyles: Record<string, React.CSSProperties> = {
     lineHeight: 1,
     background: 'transparent',
   },
+  addButton: {
+    fontSize: 'var(--type-ui-small)',
+    color: 'var(--accent)',
+    padding: 0,
+    lineHeight: 1,
+    background: 'transparent',
+  },
   agentItem: {
     cursor: 'pointer',
     margin: '0',

@@ -37,6 +37,22 @@ describe('useProjects', () => {
     expect(result.current.projects).toEqual(sampleProjects)
   })
 
+  it('sorts fetched projects alphabetically by name', async () => {
+    mockInvoke.mockResolvedValue([
+      sampleProjects[1],
+      sampleProjects[0],
+    ])
+
+    const { result } = renderHook(() => useProjects())
+
+    await waitFor(() => {
+      expect(result.current.loading).toBe(false)
+    })
+
+    expect(result.current.projects.map((project) => project.name)).toEqual(['Project A', 'Project B'])
+    expect(result.current.activeProjectId).toBe('p1')
+  })
+
   it('sets the first project as active by default', async () => {
     mockInvoke.mockResolvedValue(sampleProjects)
 
@@ -81,6 +97,28 @@ describe('useProjects', () => {
       expect(mockInvoke).toHaveBeenCalledWith('projects:add', '/new')
       expect(result.current.projects).toHaveLength(1)
       expect(result.current.activeProjectId).toBe('p-new')
+    })
+
+    it('can add a project without activating it', async () => {
+      const addedProject = { id: 'p-new', name: 'Aardvark', path: '/aardvark', baseBranch: 'main', addedAt: '2024-01-03' }
+      mockInvoke.mockImplementation((channel: string) => {
+        if (channel === 'projects:list') return Promise.resolve(sampleProjects)
+        if (channel === 'projects:add') return Promise.resolve(addedProject)
+        return Promise.resolve(undefined)
+      })
+
+      const { result } = renderHook(() => useProjects())
+
+      await waitFor(() => {
+        expect(result.current.loading).toBe(false)
+      })
+
+      await act(async () => {
+        await result.current.addProject('/aardvark', { activate: false })
+      })
+
+      expect(result.current.activeProjectId).toBe('p1')
+      expect(result.current.projects.map((project) => project.name)).toEqual(['Aardvark', 'Project A', 'Project B'])
     })
 
     it('opens a dialog when no path provided', async () => {
@@ -143,9 +181,15 @@ describe('useProjects', () => {
   describe('createNewProject', () => {
     it('creates a project with explicit repo metadata', async () => {
       const createdProject = { id: 'p-new', name: 'Timer', path: '/projects/timer', baseBranch: 'main', addedAt: '2024-01-03' }
-      mockInvoke
-        .mockResolvedValueOnce([]) // initial list
-        .mockResolvedValueOnce(createdProject)
+      let listedProjects: typeof sampleProjects | typeof createdProject[] = []
+      mockInvoke.mockImplementation((channel: string) => {
+        if (channel === 'projects:list') return Promise.resolve(listedProjects)
+        if (channel === 'projects:create-new') {
+          listedProjects = [createdProject]
+          return Promise.resolve(createdProject)
+        }
+        return Promise.resolve(undefined)
+      })
 
       const { result } = renderHook(() => useProjects())
 
@@ -316,11 +360,14 @@ describe('useProjects', () => {
         expect(result.current.loading).toBe(false)
       })
 
-      act(() => {
+      await act(async () => {
         result.current.setActiveProject('p2')
       })
 
-      expect(result.current.activeProjectId).toBe('p2')
+      await waitFor(() => {
+        expect(result.current.activeProjectId).toBe('p2')
+        expect(result.current.loading).toBe(false)
+      })
     })
   })
 })

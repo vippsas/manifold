@@ -1,3 +1,4 @@
+import * as path from 'node:path'
 import { v4 as uuidv4 } from 'uuid'
 import { SpawnAgentOptions } from '../../shared/types'
 import { getRuntimeById } from '../agent/runtimes'
@@ -6,7 +7,7 @@ import { BranchCheckoutManager } from '../git/branch-checkout-manager'
 import { PtyPool } from '../agent/pty-pool'
 import { ProjectRegistry } from '../store/project-registry'
 import { SessionStreamWirer } from './session-stream-wirer'
-import { writeWorktreeMeta } from '../git/worktree-meta'
+import { readWorktreeMeta, writeWorktreeMeta } from '../git/worktree-meta'
 import { gitExec } from '../git/git-exec'
 import { generateBranchName } from '../git/branch-namer'
 import { pickRandomNorwegianCityName } from '../../shared/norwegian-cities'
@@ -15,6 +16,7 @@ import type { MemoryInjector } from '../memory/memory-injector'
 import { debugLog } from '../app/debug-log'
 import type { InternalSession } from './session-types'
 import { buildSimpleRuntimeCommand } from '../agent/simple-runtime'
+import { isGitProject } from '../../shared/project-kind'
 
 export class SessionCreator {
   constructor(
@@ -30,14 +32,20 @@ export class SessionCreator {
   async create(options: SpawnAgentOptions): Promise<InternalSession> {
     const project = this.resolveProject(options.projectId)
     const runtime = this.resolveRuntime(options.runtimeId)
+    const projectIsGit = isGitProject(project)
+    const noWorktree = Boolean(options.noWorktree || !projectIsGit)
 
     let worktree: { branch: string; path: string }
 
     if (options.existingWorktreePath) {
-      const branch = (await gitExec(['rev-parse', '--abbrev-ref', 'HEAD'], options.existingWorktreePath)).trim()
+      const branch = projectIsGit
+        ? (await gitExec(['rev-parse', '--abbrev-ref', 'HEAD'], options.existingWorktreePath)).trim()
+        : path.basename(options.existingWorktreePath) || project.name
       worktree = { branch, path: options.existingWorktreePath }
-    } else if (options.noWorktree) {
-      if (options.stayOnBranch) {
+    } else if (noWorktree) {
+      if (!projectIsGit) {
+        worktree = { branch: project.name, path: project.path }
+      } else if (options.stayOnBranch) {
         const branch = (await gitExec(['rev-parse', '--abbrev-ref', 'HEAD'], project.path)).trim()
         worktree = { branch, path: project.path }
       } else if (options.existingBranch) {
@@ -111,7 +119,8 @@ export class SessionCreator {
       rows: options.rows
     })
 
-    const session = this.buildSession(options, worktree, ptyHandle, nonInteractiveOutputMode)
+    const session = this.buildSession(options, worktree, ptyHandle, nonInteractiveOutputMode, noWorktree)
+    const existingMeta = noWorktree ? null : await readWorktreeMeta(worktree.path)
 
     // Map session→project so chat messages are persisted under the projectId
     this.getChatAdapter()?.setSessionProject(session.id, options.projectId)
@@ -129,13 +138,15 @@ export class SessionCreator {
       this.streamWirer.wireExitHandling(ptyHandle.id, session)
     }
 
-    if (!options.noWorktree && !options.existingWorktreePath) {
+    if (!noWorktree) {
       writeWorktreeMeta(worktree.path, {
         runtimeId: options.runtimeId,
-        taskDescription: options.userMessage || options.prompt || undefined,
-        simpleTemplateTitle: options.simpleTemplateTitle,
-        simplePromptInstructions: options.simplePromptInstructions,
-        ollamaModel: options.ollamaModel,
+        taskDescription: options.userMessage || options.prompt || existingMeta?.taskDescription,
+        simpleTemplateTitle: options.simpleTemplateTitle ?? existingMeta?.simpleTemplateTitle,
+        simplePromptInstructions: options.simplePromptInstructions ?? existingMeta?.simplePromptInstructions,
+        additionalDirs: existingMeta?.additionalDirs ?? [],
+        ollamaModel: options.ollamaModel ?? existingMeta?.ollamaModel,
+        parentSuperagentId: options.parentSuperagentId ?? existingMeta?.parentSuperagentId,
       }).catch(() => {})
     }
 
@@ -154,7 +165,7 @@ export class SessionCreator {
     }
   }
 
-  private resolveProject(projectId: string): { name: string; path: string; baseBranch: string } {
+  private resolveProject(projectId: string): { name: string; path: string; baseBranch: string; kind?: 'git' | 'folder' } {
     const project = this.projectRegistry.getProject(projectId)
     if (!project) throw new Error(`Project not found: ${projectId}`)
     return project
@@ -170,7 +181,8 @@ export class SessionCreator {
     options: SpawnAgentOptions,
     worktree: { branch: string; path: string },
     ptyHandle: { id: string; pid: number },
-    nonInteractiveOutputMode?: InternalSession['nonInteractiveOutputMode']
+    nonInteractiveOutputMode?: InternalSession['nonInteractiveOutputMode'],
+    noWorktree = false,
   ): InternalSession {
     return {
       id: uuidv4(),
@@ -187,7 +199,7 @@ export class SessionCreator {
       simplePromptInstructions: options.simplePromptInstructions,
       ollamaModel: options.ollamaModel,
       additionalDirs: [],
-      noWorktree: options.noWorktree,
+      noWorktree,
       parentSuperagentId: options.parentSuperagentId,
       groupId: options.groupId,
       nonInteractive: options.nonInteractive,

@@ -46,6 +46,7 @@ interface NoAgentProps {
   projectId: string
   projectName: string
   baseBranch: string
+  isGitProject: boolean
   defaultRuntime: string
   onLaunch: (options: SpawnAgentOptions) => Promise<unknown>
   focusTrigger?: number
@@ -128,6 +129,7 @@ export function OnboardingView(props: OnboardingViewProps): React.JSX.Element {
           <NewAgentForm
             projectId={props.projectId}
             baseBranch={props.baseBranch}
+            isGitProject={props.isGitProject}
             defaultRuntime={props.defaultRuntime}
             onLaunch={props.onLaunch}
             focusTrigger={props.focusTrigger}
