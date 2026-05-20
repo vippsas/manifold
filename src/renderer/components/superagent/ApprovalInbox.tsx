@@ -1,8 +1,17 @@
 import { useApprovalInbox } from '../../hooks/useApprovalInbox'
+import type { ApprovalRequest, ApprovalResponse } from '../../../shared/superagent-types'
 import * as s from './ApprovalInbox.styles'
 
-export function ApprovalInbox({ superagentId }: { superagentId: string }) {
-  const { pending, respond } = useApprovalInbox(superagentId)
+interface ApprovalInboxProps {
+  superagentId: string
+  pending?: ApprovalRequest[]
+  respond?: (requestId: string, decision: ApprovalResponse['decision']) => Promise<void>
+}
+
+export function ApprovalInbox({ superagentId, pending: providedPending, respond: providedRespond }: ApprovalInboxProps) {
+  const hookState = useApprovalInbox(superagentId)
+  const pending = providedPending ?? hookState.pending
+  const respond = providedRespond ?? hookState.respond
   if (pending.length === 0) {
     return <div style={s.root}><div style={s.empty}>No pending approvals.</div></div>
   }

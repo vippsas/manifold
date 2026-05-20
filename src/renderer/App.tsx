@@ -23,6 +23,7 @@ import { useAppOverlays } from './hooks/useAppOverlays'
 import { useWebPreview } from './hooks/useWebPreview'
 import { useDockLayout, isEditorPanelId } from './hooks/useDockLayout'
 import { useAgentSiblingDockTabs } from './hooks/useAgentSiblingDockTabs'
+import { useSuperagentChildDockTabs } from './hooks/useSuperagentChildDockTabs'
 import { getPrimarySession, parseSiblingSessionId } from './hooks/agent-siblings'
 import { useAppEffects } from './hooks/useAppEffects'
 import { PANEL_COMPONENTS, DockStateContext } from './components/editor/dock-panels'
@@ -74,7 +75,7 @@ export function App(): React.JSX.Element {
   const [activeSuperagentId, setActiveSuperagentId] = useState<string | null>(null)
   const [addProjectSuperagentId, setAddProjectSuperagentId] = useState<string | null>(null)
   const [pendingSuperagentProjectIds, setPendingSuperagentProjectIds] = useState<string[]>([])
-  const { superagents, createSuperagent, addProjectToSuperagent, removeSuperagent, resumeSuperagent } = useSuperagents()
+  const { superagents, createSuperagent, addProjectToSuperagent, removeSuperagent, resumeSuperagent, toggleAutoApprove } = useSuperagents()
   const superagentChildSessionIds = useMemo(
     () => collectSuperagentChildSessionIds(superagents),
     [superagents],
@@ -127,9 +128,10 @@ export function App(): React.JSX.Element {
   const activeProjectSessions = activeProjectId ? sessionsByProject[activeProjectId] ?? [] : []
   const primarySession = getPrimarySession(activeProjectSessions, activeWorktreePath)
   const primarySessionId = primarySession?.id ?? null
-  // Key dockview layout by primary session (worktree-stable) so switching
-  // between sibling tabs doesn't tear down the layout.
-  const dockLayoutKey = primarySessionId ?? activeSessionId ?? activeSuperagentId
+  // Key dockview by superagent when active so child-session selection can
+  // change without tearing down the fleet layout. Outside superagent mode,
+  // keep the existing worktree-stable behavior for sibling tabs.
+  const dockLayoutKey = activeSuperagentId ?? primarySessionId ?? activeSessionId
   const dockLayout = useDockLayout(dockLayoutKey, settings.showIdeasTab, settings.showLoopTab, settings.showVerdictsTab, activeProjectSessions)
   useAgentSiblingDockTabs({
     apiRef: dockLayout.apiRef,
@@ -140,6 +142,30 @@ export function App(): React.JSX.Element {
     activeSessionId,
     disabled: Boolean(activeSuperagentId),
     onSelectSession: setActiveSession,
+  })
+  const focusSuperagentHome = useCallback((): void => {
+    setActiveSession(null)
+    dockLayout.focusPanel('agent')
+  }, [dockLayout, setActiveSession])
+
+  const selectSuperagentChildSession = useCallback((
+    sessionId: string,
+    projectId: string,
+  ): void => {
+    const projectName = projects.find((project) => project.id === projectId)?.name
+    setActiveProject(projectId)
+    setActiveSession(sessionId)
+    dockLayout.openSiblingPanel(sessionId, projectName, 'agent')
+  }, [dockLayout, projects, setActiveProject, setActiveSession])
+
+  useSuperagentChildDockTabs({
+    apiRef: dockLayout.apiRef,
+    layoutVersion: dockLayout.layoutVersion,
+    superagent: activeSuperagent,
+    projects,
+    allProjectSessions: sessionsByProject,
+    onSelectChildSession: selectSuperagentChildSession,
+    onSelectSuperagentHome: focusSuperagentHome,
   })
   const webPreview = useWebPreview(activeSessionId)
 
@@ -373,10 +399,9 @@ export function App(): React.JSX.Element {
   ): boolean => {
     if (!activeSuperagentId) return false
     if (!shouldPreserveSuperagentSelection(activeSuperagent, projectId, options)) return false
-    const projectName = projects.find((project) => project.id === projectId)?.name
-    dockLayout.openSiblingPanel(sessionId, projectName)
+    selectSuperagentChildSession(sessionId, projectId)
     return true
-  }, [activeSuperagent, activeSuperagentId, dockLayout, projects])
+  }, [activeSuperagent, activeSuperagentId, selectSuperagentChildSession])
 
   const activeProjectIsGit = isGitProject(activeProject)
   const baseBranch = activeProjectIsGit
@@ -430,7 +455,9 @@ export function App(): React.JSX.Element {
     activeSuperagentId,
     activeSuperagent,
     onSelectSuperagent: (id) => { setActiveSession(null); setActiveSuperagentId(id) },
+    onSelectSuperagentHome: focusSuperagentHome,
     onResumeSuperagent: (id: string) => resumeSuperagent(id),
+    onToggleSuperagentAutoApprove: (id: string, value: boolean) => toggleAutoApprove(id, value),
     onRemoveSuperagent: async (id: string) => {
       await removeSuperagent(id)
       setActiveSuperagentId((current) => (current === id ? null : current))

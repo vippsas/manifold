@@ -1,0 +1,112 @@
+import { renderHook } from '@testing-library/react'
+import { describe, expect, it, vi } from 'vitest'
+import type { DockviewApi } from 'dockview'
+import type { AgentSession } from '../../shared/types'
+import { siblingPanelId } from './agent-siblings'
+import { useAgentSiblingDockTabs } from './useAgentSiblingDockTabs'
+
+interface MockGroup {
+  element: {
+    getBoundingClientRect: () => { top: number; left: number }
+  }
+  panels: MockPanel[]
+}
+
+interface MockPanel {
+  id: string
+  group: MockGroup
+  api: {
+    isActive: boolean
+    setActive: ReturnType<typeof vi.fn>
+  }
+}
+
+function buildPanel(id: string, group: MockGroup): MockPanel {
+  const panel = {
+    id,
+    group,
+    api: {
+      isActive: false,
+      setActive: vi.fn(() => {
+        panel.api.isActive = true
+      }),
+    },
+  }
+  group.panels.push(panel)
+  return panel
+}
+
+describe('useAgentSiblingDockTabs', () => {
+  it('opens new sibling tabs in the top-left workspace group', () => {
+    const topLeftGroup: MockGroup = {
+      element: { getBoundingClientRect: () => ({ top: 0, left: 260 }) },
+      panels: [],
+    }
+    const lowerGroup: MockGroup = {
+      element: { getBoundingClientRect: () => ({ top: 180, left: 420 }) },
+      panels: [],
+    }
+
+    const editorPanel = buildPanel('editor', topLeftGroup)
+    const searchPanel = buildPanel('search', topLeftGroup)
+    const agentPanel = buildPanel('agent', lowerGroup)
+
+    const panels = new Map<string, MockPanel>([
+      [editorPanel.id, editorPanel],
+      [searchPanel.id, searchPanel],
+      [agentPanel.id, agentPanel],
+    ])
+
+    const addPanel = vi.fn()
+    const api = {
+      getPanel: ((panelId: string) => panels.get(panelId)) as DockviewApi['getPanel'],
+      addPanel,
+      onDidActivePanelChange: (() => ({ dispose() {} })) as DockviewApi['onDidActivePanelChange'],
+    } as DockviewApi
+
+    Object.defineProperty(api, 'panels', {
+      get: () => Array.from(panels.values()),
+    })
+
+    const sessions: AgentSession[] = [
+      {
+        id: 'primary',
+        projectId: 'p1',
+        runtimeId: 'codex',
+        branchName: 'manifold/main',
+        worktreePath: '/worktrees/main',
+        status: 'running',
+        pid: 1,
+        additionalDirs: [],
+      },
+      {
+        id: 'sibling-1',
+        projectId: 'p1',
+        runtimeId: 'claude',
+        branchName: 'manifold/main',
+        worktreePath: '/worktrees/main',
+        status: 'waiting',
+        pid: 2,
+        additionalDirs: [],
+      },
+    ]
+
+    renderHook(() => useAgentSiblingDockTabs({
+      apiRef: { current: api },
+      layoutVersion: 1,
+      sessions,
+      activeWorktreePath: '/worktrees/main',
+      primarySessionId: 'primary',
+      activeSessionId: 'primary',
+      onSelectSession: vi.fn(),
+    }))
+
+    expect(addPanel).toHaveBeenCalledWith({
+      id: siblingPanelId('sibling-1'),
+      component: 'agent',
+      title: 'Claude',
+      position: { referencePanel: 'editor', direction: 'within' },
+      inactive: true,
+    })
+  })
+})
