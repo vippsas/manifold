@@ -40,6 +40,22 @@ describe('ApprovalBroker', () => {
     expect(onAutoApprove).toHaveBeenCalledWith('s1')
   })
 
+  it('reports resolved approvals to subscribers', async () => {
+    const onResolved = vi.fn()
+    broker = new ApprovalBroker({ emit: (r) => emitted.push(r), onResolved })
+    const promise = broker.requestApproval('s1', 'spawn_agent', { projectId: 'p1' })
+    broker.respond({ requestId: emitted[0].requestId, decision: 'approve' })
+    await expect(promise).resolves.toBe('approve')
+    expect(onResolved).toHaveBeenCalledWith(
+      expect.objectContaining({
+        superagentId: 's1',
+        toolName: 'spawn_agent',
+        args: { projectId: 'p1' },
+      }),
+      'approve',
+    )
+  })
+
   it('ignores responses with unknown requestId', () => {
     expect(() =>
       broker.respond({ requestId: 'missing', decision: 'approve' }),

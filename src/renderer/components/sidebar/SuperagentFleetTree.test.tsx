@@ -117,4 +117,59 @@ describe('SuperagentFleetTree', () => {
       { preserveSuperagent: true },
     )
   })
+
+  it('lets the fleet header navigate back to the superagent terminal', async () => {
+    mockInvoke.mockImplementation((channel: string, _superagentId: string, projectId?: string) => {
+      if (channel === 'files:tree-for-superagent-project' && projectId) {
+        return Promise.resolve(rootTree(superagent.fleetWorktreePaths[projectId]))
+      }
+      if (channel === 'files:fleet-changes') {
+        return Promise.resolve({})
+      }
+      return Promise.resolve(undefined)
+    })
+
+    const onSelectSuperagentHome = vi.fn()
+
+    render(
+      <SuperagentFleetTree
+        superagent={superagent}
+        projects={projects}
+        allProjectSessions={allProjectSessions}
+        onSelectSession={vi.fn()}
+        onSelectSuperagentHome={onSelectSuperagentHome}
+      />,
+    )
+
+    fireEvent.click(await screen.findByRole('button', { name: /123/i }))
+    expect(onSelectSuperagentHome).toHaveBeenCalledTimes(1)
+  })
+
+  it('keeps child agents visible by default and lets the user collapse them', async () => {
+    mockInvoke.mockImplementation((channel: string, _superagentId: string, projectId?: string) => {
+      if (channel === 'files:tree-for-superagent-project' && projectId) {
+        return Promise.resolve(rootTree(superagent.fleetWorktreePaths[projectId]))
+      }
+      if (channel === 'files:fleet-changes') {
+        return Promise.resolve({})
+      }
+      return Promise.resolve(undefined)
+    })
+
+    render(
+      <SuperagentFleetTree
+        superagent={superagent}
+        projects={projects}
+        allProjectSessions={allProjectSessions}
+        onSelectSession={vi.fn()}
+      />,
+    )
+
+    await screen.findByTitle('kong-gateway — running')
+    expect(screen.getByTitle('vce-terraform — waiting')).toBeInTheDocument()
+
+    fireEvent.click(screen.getByRole('button', { name: 'Hide' }))
+    expect(screen.queryByTitle('kong-gateway — running')).toBeNull()
+    expect(screen.getByRole('button', { name: 'Show' })).toBeInTheDocument()
+  })
 })

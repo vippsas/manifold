@@ -6,6 +6,7 @@ import {
   PANEL_IDS,
   PANEL_TITLES,
   applyMinimalLayout,
+  findTopLeftWorkspaceReferencePanel,
   findAdjacentEditorPanelId,
   getGridSignature,
   getSidebarWidths,
@@ -185,22 +186,20 @@ export function useDockLayout(
     if (panel) api.removePanel(panel)
   }, [])
 
-  const openSiblingPanel = useCallback((sessionId: string, title?: string, referencePanelId?: string): void => {
+  const openSiblingPanel = useCallback((sessionId: string, title?: string, _referencePanelId?: string): void => {
     const api = apiRef.current
     if (!api) return
     const panelId = siblingPanelId(sessionId)
     let panel = api.getPanel(panelId)
     if (!panel) {
-      // Prefer the previous sibling's panel as the reference so the new tab
-      // lands in whatever group the user has dragged that sibling to (custom
-      // split panes preserved). Fall back to the agent group otherwise.
-      const refId = referencePanelId && api.getPanel(referencePanelId) ? referencePanelId : 'agent'
-      if (!api.getPanel(refId)) return
+      const refId = findTopLeftWorkspaceReferencePanel(api) ?? 'agent'
+      const referencePanel = api.getPanel(refId)
+      if (!referencePanel) return
       api.addPanel({
         id: panelId,
         component: 'agent',
         title: title ?? 'Agent',
-        position: { referencePanel: refId, direction: 'within' },
+        position: { referencePanel, direction: 'within' },
         inactive: false,
       })
       panel = api.getPanel(panelId)

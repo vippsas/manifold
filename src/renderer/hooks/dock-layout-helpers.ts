@@ -106,6 +106,46 @@ export function getSidebarWidth(api: DockviewApi): number {
   return getPanelWidth(api, 'projects')
 }
 
+const NON_WORKSPACE_PANEL_IDS = new Set<string>(['projects', 'fileTree', 'modifiedFiles'])
+
+export function findTopLeftWorkspaceReferencePanel(api: DockviewApi): string | null {
+  const seenGroups = new Set<unknown>()
+  const candidates: Array<{ panelId: string; top: number; left: number }> = []
+
+  for (const panel of api.panels) {
+    if (NON_WORKSPACE_PANEL_IDS.has(panel.id)) continue
+
+    const group = panel.group
+    if (!group || seenGroups.has(group)) continue
+    seenGroups.add(group)
+
+    const rect = group.element?.getBoundingClientRect?.()
+    if (!rect) continue
+
+    const referencePanel = group.panels.find(
+      (groupPanel) => !NON_WORKSPACE_PANEL_IDS.has(groupPanel.id),
+    )
+    if (!referencePanel) continue
+
+    candidates.push({
+      panelId: referencePanel.id,
+      top: rect.top,
+      left: rect.left,
+    })
+  }
+
+  if (candidates.length === 0) {
+    return api.getPanel('agent')?.id ?? null
+  }
+
+  candidates.sort((left, right) => (
+    left.top - right.top
+    || left.left - right.left
+    || left.panelId.localeCompare(right.panelId)
+  ))
+  return candidates[0]?.panelId ?? null
+}
+
 /** Capture both sidebar widths. */
 export function getSidebarWidths(api: DockviewApi): { left: number; right: number } {
   return {
@@ -246,4 +286,3 @@ export function removeLeafFromTree(parent: GridNode & { type: 'branch' }, panelI
   }
   return 0
 }
-

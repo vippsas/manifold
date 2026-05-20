@@ -10,6 +10,7 @@ type Decision = 'approve' | 'deny'
 export interface ApprovalBrokerDeps {
   emit: (request: ApprovalRequest) => void
   onAutoApprove?: (superagentId: string) => void
+  onResolved?: (request: ApprovalRequest, decision: ApprovalResponse['decision']) => void
 }
 
 interface PendingEntry {
@@ -45,6 +46,7 @@ export class ApprovalBroker {
     const entry = this.pending.get(response.requestId)
     if (!entry) return
     this.pending.delete(response.requestId)
+    this.deps.onResolved?.(entry.request, response.decision)
     if (response.decision === 'approve-all') {
       this.deps.onAutoApprove?.(entry.request.superagentId)
       entry.resolve('approve')

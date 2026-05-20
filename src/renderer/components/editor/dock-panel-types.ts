@@ -89,7 +89,9 @@ export interface DockAppState {
   activeSuperagentId?: string | null
   activeSuperagent?: import('../../../shared/superagent-types').Superagent | null
   onSelectSuperagent?: (id: string) => void
+  onSelectSuperagentHome?: () => void
   onResumeSuperagent?: (id: string) => Promise<void>
+  onToggleSuperagentAutoApprove?: (id: string, value: boolean) => Promise<void>
   onRemoveSuperagent?: (id: string) => Promise<void>
   onRequestAddProjectToSuperagent?: (superagentId: string) => void
   onSpawnFleetAgent?: (superagentId: string, projectId: string) => Promise<void>

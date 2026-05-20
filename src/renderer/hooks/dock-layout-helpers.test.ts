@@ -4,6 +4,7 @@ import { Orientation } from 'dockview-core'
 import {
   applyLayoutChangePreservingSidebarWidths,
   findAdjacentEditorPanelId,
+  findTopLeftWorkspaceReferencePanel,
   sanitizeDockLayout,
   showPanelFromHints,
 } from './dock-layout-helpers'
@@ -78,6 +79,56 @@ describe('findAdjacentEditorPanelId', () => {
       ],
       'below',
     )).toBe('editor:2')
+  })
+})
+
+describe('findTopLeftWorkspaceReferencePanel', () => {
+  it('picks the visually top-left workspace group and ignores sidebar groups', () => {
+    interface MockGroup {
+      element: {
+        getBoundingClientRect: () => { top: number; left: number }
+      }
+      panels: MockPanel[]
+    }
+
+    interface MockPanel {
+      id: string
+      group: MockGroup
+    }
+
+    const makeGroup = (top: number, left: number): MockGroup => ({
+      element: {
+        getBoundingClientRect: () => ({ top, left }),
+      },
+      panels: [],
+    })
+
+    const projectsGroup = makeGroup(0, 0)
+    const topLeftGroup = makeGroup(0, 320)
+    const lowerGroup = makeGroup(200, 420)
+    const filesGroup = makeGroup(0, 1220)
+
+    const makePanel = (id: string, group: MockGroup): MockPanel => {
+      const panel = { id, group }
+      group.panels.push(panel)
+      return panel
+    }
+
+    const panels = [
+      makePanel('projects', projectsGroup),
+      makePanel('editor', topLeftGroup),
+      makePanel('search', topLeftGroup),
+      makePanel('agent', lowerGroup),
+      makePanel('shell', lowerGroup),
+      makePanel('fileTree', filesGroup),
+    ]
+
+    const api = {
+      panels,
+      getPanel: vi.fn((panelId: string) => panels.find((panel) => panel.id === panelId)),
+    } as unknown as DockviewApi
+
+    expect(findTopLeftWorkspaceReferencePanel(api)).toBe('editor')
   })
 })
 

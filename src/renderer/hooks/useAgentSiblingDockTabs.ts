@@ -2,6 +2,7 @@ import { useEffect, useRef } from 'react'
 import type { DockviewApi } from 'dockview'
 import type { AgentSession } from '../../shared/types'
 import { isSiblingPanelId, parseSiblingSessionId, siblingPanelId } from './agent-siblings'
+import { findTopLeftWorkspaceReferencePanel } from './dock-layout-helpers'
 
 interface Options {
   apiRef: React.MutableRefObject<DockviewApi | null>
@@ -72,11 +73,12 @@ export function useAgentSiblingDockTabs({
     for (const session of desiredSessions) {
       const panelId = siblingPanelId(session.id)
       if (api.getPanel(panelId)) continue
+      const referencePanelId = findTopLeftWorkspaceReferencePanel(api) ?? 'agent'
       api.addPanel({
         id: panelId,
         component: 'agent',
         title: tabTitle(session),
-        position: { referencePanel: 'agent', direction: 'within' },
+        position: { referencePanel: referencePanelId, direction: 'within' },
         inactive: session.id !== activeSessionId,
       })
     }

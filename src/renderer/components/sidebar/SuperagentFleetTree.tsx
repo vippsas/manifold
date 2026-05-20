@@ -11,6 +11,7 @@ interface SuperagentFleetTreeProps {
   projects: Project[]
   allProjectSessions: Record<string, AgentSession[]>
   onSelectSession: (sessionId: string, projectId: string, options?: SessionSelectionOptions) => void
+  onSelectSuperagentHome?: () => void
   onSelectFile?: (path: string) => void
 }
 
@@ -19,6 +20,7 @@ export function SuperagentFleetTree({
   projects,
   allProjectSessions,
   onSelectSession,
+  onSelectSuperagentHome,
   onSelectFile,
 }: SuperagentFleetTreeProps): React.JSX.Element {
   const fleetProjects = useMemo(
@@ -38,6 +40,11 @@ export function SuperagentFleetTree({
 
   const [trees, setTrees] = useState<Map<string, FileTreeNode>>(new Map())
   const [expandedPaths, setExpandedPaths] = useState<Set<string>>(new Set())
+  const [childAgentsCollapsed, setChildAgentsCollapsed] = useState(false)
+
+  useEffect(() => {
+    setChildAgentsCollapsed(false)
+  }, [superagent.id])
 
   useEffect(() => {
     let cancelled = false
@@ -127,34 +134,57 @@ export function SuperagentFleetTree({
 
   return (
     <div style={styles.root}>
-      <div style={styles.headerBlock}>
-        <div style={styles.header}>Fleet</div>
-        <div style={styles.subheader}>{superagent.name}</div>
-      </div>
-      {childSessions.length > 0 && (
-        <div style={styles.agentsGroup}>
-          <div style={styles.agentsHeader}>Child agents</div>
-          {childSessions.map(({ session, project }) => (
-            <div
-              key={session.id}
-              onClick={() => onSelectSession(
-                session.id,
-                project.id,
-                { preserveSuperagent: true },
-              )}
-              style={styles.sessionRow}
-              className="sidebar-item-row"
-              title={`${project.name} — ${session.status}`}
-            >
-              <span style={statusDotStyle(session.status)} />
-              <div style={styles.sessionText}>
-                <span style={styles.sessionName}>{project.name}</span>
-                <span style={styles.sessionMeta}>{session.status}</span>
-              </div>
-            </div>
-          ))}
+      <div style={styles.agentsGroup}>
+        <div style={styles.agentsHeaderRow}>
+          <div style={styles.agentsHeader}>Agents</div>
+          <button
+            type="button"
+            onClick={() => setChildAgentsCollapsed((value) => !value)}
+            style={styles.collapseButton}
+            title={childAgentsCollapsed ? 'Show child agents' : 'Hide child agents'}
+          >
+            {childAgentsCollapsed ? 'Show' : 'Hide'}
+          </button>
         </div>
-      )}
+        <button
+          type="button"
+          onClick={onSelectSuperagentHome}
+          style={styles.superagentRow}
+          className="sidebar-item-row"
+          title={`Open ${superagent.name}`}
+        >
+          <span style={styles.superagentBadge}>S</span>
+          <div style={styles.superagentText}>
+            <span style={styles.superagentName}>{superagent.name}</span>
+            <span style={styles.superagentMeta}>Superagent</span>
+          </div>
+        </button>
+        {!childAgentsCollapsed && (
+          childSessions.length > 0 ? (
+            childSessions.map(({ session, project }) => (
+              <div
+                key={session.id}
+                onClick={() => onSelectSession(
+                  session.id,
+                  project.id,
+                  { preserveSuperagent: true },
+                )}
+                style={styles.sessionRow}
+                className="sidebar-item-row"
+                title={`${project.name} — ${session.status}`}
+              >
+                <span style={statusDotStyle(session.status)} />
+                <div style={styles.sessionText}>
+                  <span style={styles.sessionName}>{project.name}</span>
+                  <span style={styles.sessionMeta}>{session.status}</span>
+                </div>
+              </div>
+            ))
+          ) : (
+            <div style={styles.emptyAgents}>No child agents yet</div>
+          )
+        )}
+      </div>
       <div style={styles.treeWrapper}>
         {fleetProjects.length === 0 ? (
           <div style={styles.empty}>No fleet projects</div>
@@ -201,12 +231,71 @@ const statusDotStyle = (status: AgentSession['status']): React.CSSProperties => 
 
 const styles = {
   root: { display: 'flex', flexDirection: 'column' as const, height: '100%', overflow: 'hidden' },
-  headerBlock: { padding: '8px 8px 4px 8px' },
-  header: { fontSize: 11, color: 'var(--text-muted)', textTransform: 'uppercase' as const, letterSpacing: 1 },
-  subheader: { fontSize: 13, color: 'var(--text-primary)', fontWeight: 600 },
+  superagentRow: {
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'flex-start',
+    gap: 8,
+    width: '100%',
+    margin: 0,
+    padding: '0 8px 0 6px',
+    minHeight: 28,
+    border: 'none',
+    borderRadius: 'var(--radius-sm)',
+    background: 'transparent',
+    cursor: 'pointer',
+    textAlign: 'left' as const,
+    color: 'inherit',
+  },
+  superagentBadge: {
+    display: 'inline-flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    width: 16,
+    height: 16,
+    borderRadius: '999px',
+    background: 'color-mix(in srgb, var(--warning), transparent 78%)',
+    border: '1px solid color-mix(in srgb, var(--warning), transparent 52%)',
+    color: 'var(--warning-text, var(--warning))',
+    fontSize: 10,
+    fontWeight: 700,
+    flexShrink: 0,
+  },
+  superagentText: {
+    display: 'flex',
+    flexDirection: 'column' as const,
+    minWidth: 0,
+    gap: 1,
+  },
+  superagentName: {
+    fontSize: 12,
+    color: 'var(--text-primary)',
+    fontWeight: 600,
+    minWidth: 0,
+    overflow: 'hidden',
+    textOverflow: 'ellipsis',
+    whiteSpace: 'nowrap' as const,
+  },
+  superagentMeta: { fontSize: 10, color: 'var(--text-muted)' },
   empty: { fontSize: 12, color: 'var(--text-muted)', padding: 8 },
-  agentsGroup: { display: 'flex', flexDirection: 'column' as const, gap: 2, padding: '4px 8px 8px 8px', borderBottom: '1px solid var(--border)' },
+  agentsGroup: {
+    display: 'flex',
+    flexDirection: 'column' as const,
+    gap: 2,
+    padding: '6px 8px 8px 8px',
+    borderBottom: '1px solid var(--border)',
+  },
+  agentsHeaderRow: { display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8, padding: '2px 0' },
   agentsHeader: { fontSize: 10, color: 'var(--text-muted)', textTransform: 'uppercase' as const, letterSpacing: 0.5, padding: '2px 0' },
+  collapseButton: {
+    border: 'none',
+    background: 'transparent',
+    color: 'var(--text-secondary)',
+    cursor: 'pointer',
+    padding: '0 2px',
+    fontSize: 11,
+    fontWeight: 500,
+  },
   sessionRow: {
     display: 'flex', alignItems: 'center', gap: 6,
     padding: '4px 6px', cursor: 'pointer', borderRadius: 4,
@@ -221,5 +310,6 @@ const styles = {
   },
   sessionName: { flex: 1, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' as const },
   sessionMeta: { fontSize: 10, color: 'var(--text-muted)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' as const },
+  emptyAgents: { fontSize: 11, color: 'var(--text-muted)', padding: '2px 0 4px 0' },
   treeWrapper: { flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column' as const },
 }

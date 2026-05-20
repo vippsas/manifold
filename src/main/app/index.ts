@@ -60,6 +60,7 @@ import { WatchRunStore } from '../watch/run-store'
 import { VerdictStore } from '../store/verdict-store'
 import { VerdictRecorder } from '../session/verdict-recorder'
 import { summarizeMiddle } from '../store/prompt-summarizer'
+import type { ApprovalRequest, ApprovalResponse } from '../../shared/superagent-types'
 
 let mainWindow: BrowserWindow | null = null
 
@@ -78,8 +79,14 @@ const diffProvider = new DiffProvider()
 const manifoldHome = path.join(app.getPath('home'), '.manifold')
 const superagentStore = new SuperagentStore(path.join(manifoldHome, 'superagents.json'))
 const approvalBroker = new ApprovalBroker({
-  emit: (req) => { mainWindow?.webContents.send('superagent:approval-request', req) },
+  emit: (req) => {
+    mainWindow?.webContents.send('superagent:approval-request', req)
+    superagentManagerRef?.appendSystemOutput(req.superagentId, formatApprovalRequestedMessage(req))
+  },
   onAutoApprove: (id) => { superagentManagerRef?.setAutoApprove(id, true) },
+  onResolved: (req, decision) => {
+    superagentManagerRef?.appendSystemOutput(req.superagentId, formatApprovalResolvedMessage(req, decision))
+  },
 })
 let superagentManagerRef: SuperagentManager | null = null
 const mcpBridge = new McpBridgeServer({
@@ -288,3 +295,28 @@ app.on('before-quit', async () => {
   memoryStore.close()
   powerManager.disable()
 })
+
+function formatApprovalRequestedMessage(req: ApprovalRequest): string {
+  return [
+    '',
+    `[Manifold approval required] ${req.toolName} ${JSON.stringify(req.args)}`,
+    'Approve this in the Approval Inbox below, or enable auto-approve for this superagent.',
+    '',
+  ].join('\r\n')
+}
+
+function formatApprovalResolvedMessage(
+  req: ApprovalRequest,
+  decision: ApprovalResponse['decision'],
+): string {
+  const label = decision === 'approve-all'
+    ? 'approved; auto-approve enabled for subsequent tool calls.'
+    : decision === 'approve'
+      ? 'approved.'
+      : 'denied.'
+  return [
+    '',
+    `[Manifold approval ${label}] ${req.toolName}`,
+    '',
+  ].join('\r\n')
+}

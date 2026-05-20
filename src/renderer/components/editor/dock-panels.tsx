@@ -159,6 +159,7 @@ function FileTreePanel(): React.JSX.Element {
         projects={s.projects}
         allProjectSessions={s.allProjectSessions}
         onSelectSession={s.onSelectSession}
+        onSelectSuperagentHome={s.onSelectSuperagentHome}
         onSelectFile={s.onSelectFileFromFileTree}
       />
     )

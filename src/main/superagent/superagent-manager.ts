@@ -59,6 +59,13 @@ export class SuperagentManager {
     return this.outputBuffers.get(superagentId) ?? ''
   }
 
+  appendSystemOutput(superagentId: string, data: string): void {
+    const prev = this.outputBuffers.get(superagentId) ?? ''
+    const next = prev + data
+    this.outputBuffers.set(superagentId, next.length > MAX_OUTPUT_BUFFER ? next.slice(-MAX_OUTPUT_BUFFER) : next)
+    this.deps.emitOutput(superagentId, data)
+  }
+
   async create(options: SuperagentCreateOptions): Promise<Superagent> {
     if (options.fleetProjectIds.length === 0) {
       throw new Error('Fleet must contain at least one project')
