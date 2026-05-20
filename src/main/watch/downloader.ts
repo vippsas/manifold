@@ -2,6 +2,7 @@ import * as fs from 'node:fs'
 import * as path from 'node:path'
 import { spawn } from 'node:child_process'
 import type { DownloadResult } from './types'
+import { ensureYtDlp } from './yt-dlp-fetcher'
 
 const VIDEO_EXTS = new Set(['.mp4', '.mkv', '.webm', '.mov', '.m4v', '.avi', '.flv', '.wmv'])
 
@@ -58,7 +59,8 @@ export async function downloadUrl(
     url,
   ]
 
-  await runProcess('yt-dlp', args, progress?.onLog)
+  const ytDlpPath = await ensureYtDlp({ onLog: progress?.onLog })
+  await runProcess(ytDlpPath, args, progress?.onLog)
 
   const video = pickVideo(outDir)
   if (!video) {
@@ -148,7 +150,7 @@ function runProcess(
     proc.stderr?.on('data', handleData)
     proc.on('error', (err) => {
       if ((err as NodeJS.ErrnoException).code === 'ENOENT') {
-        reject(new Error(`${command} is not installed. Install with: brew install ${command}`))
+        reject(new Error(`yt-dlp binary missing at ${command} — restart watch to re-download.`))
       } else {
         reject(err)
       }

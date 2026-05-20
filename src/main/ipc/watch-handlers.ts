@@ -6,6 +6,7 @@ import { detectWatchSetup, clearWatchSetupCache } from '../watch/setup-detector'
 import { installWatchSkills } from '../watch/skill-installer'
 import { getBundledWatchSkillPath } from '../watch/resource-path'
 import { ensureBinaries } from '../watch/binary-installer'
+import { ensureYtDlp } from '../watch/yt-dlp-fetcher'
 import { readFrameAsDataUrl } from '../watch/frame-reader'
 import { peekVideo, peekPlaylist } from '../watch/peek'
 
@@ -92,6 +93,17 @@ export function registerWatchHandlers(deps: IpcDependencies): void {
       }
     }
     clearWatchSetupCache()
-    return ensureBinaries(['ffmpeg', 'yt-dlp'], { onLog: emit })
+    const result = await ensureBinaries(['ffmpeg'], { onLog: emit })
+    try {
+      await ensureYtDlp({ onLog: emit })
+      result.installed.push('yt-dlp')
+    } catch (err) {
+      result.errors.push({
+        binary: 'yt-dlp',
+        message: err instanceof Error ? err.message : String(err),
+      })
+    }
+    clearWatchSetupCache()
+    return result
   })
 }

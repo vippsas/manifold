@@ -16,7 +16,6 @@ export interface InstallResult {
 
 const BREW_FORMULAE: Record<string, string> = {
   ffmpeg: 'ffmpeg',
-  yt_dlp: 'yt-dlp',
 }
 
 export async function hasBinary(name: string): Promise<boolean> {

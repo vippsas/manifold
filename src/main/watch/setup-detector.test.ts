@@ -16,10 +16,20 @@ describe('detectWatchSetup', () => {
   })
 
   it('returns false flags when which() returns false', () => {
-    const status = detectWatchSetup({ cacheMs: 0, which: () => false })
+    const status = detectWatchSetup({ cacheMs: 0, which: () => false, hasBundled: () => false })
     expect(status).toEqual({
       ffmpeg: false, ytdlp: false, hasBrew: false, provider: 'none', hasApiKey: false,
     })
+  })
+
+  it('reports ytdlp=true when only the bundled binary is present', () => {
+    const status = detectWatchSetup({
+      cacheMs: 0,
+      which: () => false,
+      hasBundled: (b) => b === 'yt-dlp',
+    })
+    expect(status.ytdlp).toBe(true)
+    expect(status.ffmpeg).toBe(false)
   })
 
   it('flags missing API key when provider is openai but no key', () => {
