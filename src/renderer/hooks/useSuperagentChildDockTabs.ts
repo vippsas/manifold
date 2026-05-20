@@ -79,9 +79,14 @@ export function useSuperagentChildDockTabs({
     const agentPanel = api.getPanel('agent')
     if (!agentPanel) return
 
-    const desiredChildSessionIds = new Set(
-      childSessions.map(({ session }) => session.id),
-    )
+    // Source of truth for "which sibling panels should exist" is the
+    // superagent's childSessionIds — NOT `childSessions`, which depends on
+    // sessionsByProject and goes stale during a project switch. Clicking a
+    // sub-agent calls setActiveProject, and until the async refetch completes,
+    // resolveChildSessions can't find the session and would drop it from
+    // `childSessions`. Removing the (active) panel here makes dockview
+    // auto-activate a neighbor (e.g. Search), losing focus on the sub-agent.
+    const desiredChildSessionIds = new Set(superagent.childSessionIds)
 
     for (const panel of [...api.panels]) {
       if (!isSiblingPanelId(panel.id)) continue

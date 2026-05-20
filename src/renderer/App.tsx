@@ -24,7 +24,7 @@ import { useWebPreview } from './hooks/useWebPreview'
 import { useDockLayout, isEditorPanelId } from './hooks/useDockLayout'
 import { useAgentSiblingDockTabs } from './hooks/useAgentSiblingDockTabs'
 import { useSuperagentChildDockTabs } from './hooks/useSuperagentChildDockTabs'
-import { getPrimarySession, parseSiblingSessionId } from './hooks/agent-siblings'
+import { getPrimarySession, parseSiblingSessionId, siblingPanelId } from './hooks/agent-siblings'
 import { useAppEffects } from './hooks/useAppEffects'
 import { PANEL_COMPONENTS, DockStateContext } from './components/editor/dock-panels'
 import type { DockAppState } from './components/editor/dock-panel-types'
@@ -132,7 +132,7 @@ export function App(): React.JSX.Element {
   // change without tearing down the fleet layout. Outside superagent mode,
   // keep the existing worktree-stable behavior for sibling tabs.
   const dockLayoutKey = activeSuperagentId ?? primarySessionId ?? activeSessionId
-  const dockLayout = useDockLayout(dockLayoutKey, settings.showIdeasTab, settings.showLoopTab, settings.showVerdictsTab, activeProjectSessions)
+  const dockLayout = useDockLayout(dockLayoutKey, settings.showIdeasTab, settings.showLoopTab, settings.showVerdictsTab, !activeSuperagentId, activeProjectSessions)
   useAgentSiblingDockTabs({
     apiRef: dockLayout.apiRef,
     layoutVersion: dockLayout.layoutVersion,
@@ -167,6 +167,25 @@ export function App(): React.JSX.Element {
     onSelectChildSession: selectSuperagentChildSession,
     onSelectSuperagentHome: focusSuperagentHome,
   })
+
+  // Keep the dock's active panel in sync with the superagent + session state.
+  // Declared AFTER useSuperagentChildDockTabs so this effect runs last in the
+  // effect phase — meaning any sibling panels useSuperagentChildDockTabs just
+  // added are guaranteed to exist when we look them up here.
+  //
+  // Deliberately does NOT depend on layoutVersion — that would cause clicks on
+  // unrelated tabs (Editor, Search, etc.) to be reverted. Re-fires on
+  // layoutReloadVersion so a fresh layout (from a session/superagent switch)
+  // doesn't end up showing whatever tab was active in the saved JSON.
+  useEffect(() => {
+    if (!activeSuperagentId) return
+    const api = dockLayout.apiRef.current
+    if (!api) return
+    const targetId = activeSessionId ? siblingPanelId(activeSessionId) : 'agent'
+    const panel = api.getPanel(targetId)
+    if (!panel) return
+    if (!panel.api.isActive) panel.api.setActive()
+  }, [activeSessionId, activeSuperagentId, dockLayout.apiRef, dockLayout.layoutReloadVersion])
   const webPreview = useWebPreview(activeSessionId)
 
   const { superagentFileReader, superagentFileWriter } = useMemo(() => {
@@ -454,7 +473,7 @@ export function App(): React.JSX.Element {
     superagents,
     activeSuperagentId,
     activeSuperagent,
-    onSelectSuperagent: (id) => { setActiveSession(null); setActiveSuperagentId(id) },
+    onSelectSuperagent: (id) => { setActiveSuperagentId(id); focusSuperagentHome() },
     onSelectSuperagentHome: focusSuperagentHome,
     onResumeSuperagent: (id: string) => resumeSuperagent(id),
     onToggleSuperagentAutoApprove: (id: string, value: boolean) => toggleAutoApprove(id, value),
