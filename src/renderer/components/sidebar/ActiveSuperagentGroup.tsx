@@ -1,5 +1,7 @@
 import type { Superagent } from '../../../shared/superagent-types'
 import type { AgentSession, Project } from '../../../shared/types'
+import type { SessionSelectionOptions } from '../../session-selection'
+import { sortProjectsByName } from '../../../shared/project-sort'
 import { sidebarStyles } from './ProjectSidebar.styles'
 import { AgentItem } from './AgentItem'
 
@@ -14,7 +16,8 @@ interface ActiveSuperagentGroupProps {
   outputtingSessionIds?: Set<string>
   spawningKey: string | null
   onSelect: (id: string) => void
-  onSelectSession?: (sessionId: string, projectId: string) => void
+  onSelectSession?: (sessionId: string, projectId: string, options?: SessionSelectionOptions) => void
+  onRequestAddProject?: (superagentId: string) => void
   onSpawnFleetAgent: (superagentId: string, projectId: string) => void
   onDeleteAgent?: (session: AgentSession, projectPath: string) => void
   onRequestDelete?: (e: React.MouseEvent) => void
@@ -33,11 +36,18 @@ export function ActiveSuperagentGroup({
   spawningKey,
   onSelect,
   onSelectSession,
+  onRequestAddProject,
   onSpawnFleetAgent,
   onDeleteAgent,
   onRequestDelete,
   canRemove,
 }: ActiveSuperagentGroupProps) {
+  const fleetProjects = sortProjectsByName(
+    s.fleetProjectIds
+      .map((projectId) => projects.find((project) => project.id === projectId))
+      .filter((project): project is Project => Boolean(project)),
+  )
+
   return (
     <div className="sidebar-project-group sidebar-project-group--active sidebar-project-group--has-agents">
       <div
@@ -57,8 +67,25 @@ export function ActiveSuperagentGroup({
         <span className="truncate sidebar-row-label" style={sidebarStyles.itemName}>
           {s.name}
         </span>
-        {canRemove && onRequestDelete && (
+        {(onRequestAddProject || (canRemove && onRequestDelete)) && (
           <div className="sidebar-item-actions" style={sidebarStyles.itemRight}>
+            {onRequestAddProject && (
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.stopPropagation()
+                  onRequestAddProject(s.id)
+                }}
+                onKeyDown={(e) => e.stopPropagation()}
+                className="sidebar-icon-button"
+                style={sidebarStyles.addButton}
+                aria-label={`Add repository to ${s.name}`}
+                title="Add repository to superagent"
+              >
+                +
+              </button>
+            )}
+            {canRemove && onRequestDelete && (
             <button
               type="button"
               onClick={onRequestDelete}
@@ -70,6 +97,7 @@ export function ActiveSuperagentGroup({
             >
               &times;
             </button>
+            )}
           </div>
         )}
       </div>
@@ -77,17 +105,13 @@ export function ActiveSuperagentGroup({
         <span className={`status-dot${alive ? '' : ' status-dot--hidden'}`} style={{ width: 6, height: 6 }} />
         <span className="truncate">{repoLabel} &middot; {s.status}</span>
       </div>
-      {s.fleetProjectIds.map((projectId) => {
-        const project = projects.find((p) => p.id === projectId)
-        if (!project) return null
+      {fleetProjects.map((project) => {
+        const projectId = project.id
         const projectSessions = allProjectSessions?.[projectId] ?? []
         const childSession = projectSessions.find(
           (ps) => s.childSessionIds.includes(ps.id) && ps.worktreePath === s.fleetWorktreePaths?.[projectId],
         )
-        const branchSuffix = childSession
-          ? childSession.branchName.replace(/^manifold\//, '')
-          : s.branchName.replace(/^manifold\//, '')
-        const combinedLabel = `${project.name}/${branchSuffix}`
+        const displayLabel = project.name
         if (childSession && onSelectSession) {
           return (
             <AgentItem
@@ -96,9 +120,13 @@ export function ActiveSuperagentGroup({
               projectPath={project.path}
               isActive={childSession.id === activeSessionId}
               isOutputting={outputtingSessionIds?.has(childSession.id) ?? false}
-              onSelect={(sessionId) => onSelectSession(sessionId, projectId)}
+              onSelect={(sessionId) => onSelectSession(
+                sessionId,
+                projectId,
+                { preserveSuperagent: true },
+              )}
               onDelete={() => onDeleteAgent?.(childSession, project.path)}
-              labelOverride={combinedLabel}
+              labelOverride={displayLabel}
             />
           )
         }
@@ -130,7 +158,7 @@ export function ActiveSuperagentGroup({
                   flex: 1,
                 }}
               >
-                {combinedLabel}
+                {displayLabel}
               </span>
             </div>
             <span className="truncate sidebar-secondary-text" style={{ paddingLeft: '16px' }}>

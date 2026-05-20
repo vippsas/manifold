@@ -1,6 +1,8 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react'
 import type { Superagent } from '../../../shared/superagent-types'
 import type { Project, AgentSession, FileTreeNode, FileChange } from '../../../shared/types'
+import type { SessionSelectionOptions } from '../../session-selection'
+import { sortProjectsByName } from '../../../shared/project-sort'
 import { FileTree } from '../editor/FileTree'
 import { useSuperagentFleetChanges } from '../../hooks/useSuperagentFleetChanges'
 
@@ -8,7 +10,7 @@ interface SuperagentFleetTreeProps {
   superagent: Superagent
   projects: Project[]
   allProjectSessions: Record<string, AgentSession[]>
-  onSelectSession: (sessionId: string, projectId: string) => void
+  onSelectSession: (sessionId: string, projectId: string, options?: SessionSelectionOptions) => void
   onSelectFile?: (path: string) => void
 }
 
@@ -19,9 +21,14 @@ export function SuperagentFleetTree({
   onSelectSession,
   onSelectFile,
 }: SuperagentFleetTreeProps): React.JSX.Element {
-  const fleetProjects = superagent.fleetProjectIds
-    .map((id) => projects.find((p) => p.id === id))
-    .filter((p): p is Project => Boolean(p))
+  const fleetProjects = useMemo(
+    () => sortProjectsByName(
+      superagent.fleetProjectIds
+        .map((id) => projects.find((p) => p.id === id))
+        .filter((p): p is Project => Boolean(p)),
+    ),
+    [projects, superagent.fleetProjectIds],
+  )
 
   const worktreePathFor = useCallback(
     (projectId: string, fallbackPath: string): string =>
@@ -68,11 +75,11 @@ export function SuperagentFleetTree({
     [onSelectFile],
   )
 
-  const childSessions = fleetProjects.flatMap((project) =>
+  const childSessions = useMemo(() => fleetProjects.flatMap((project) =>
     (allProjectSessions[project.id] ?? [])
-      .filter((s) => superagent.childSessionIds.includes(s.id))
-      .map((s) => ({ session: s, projectId: project.id }))
-  )
+      .filter((session) => superagent.childSessionIds.includes(session.id))
+      .map((session) => ({ session, project }))
+  ), [allProjectSessions, fleetProjects, superagent.childSessionIds])
 
   const fleetChanges = useSuperagentFleetChanges(superagent.id)
 
@@ -113,10 +120,10 @@ export function SuperagentFleetTree({
   const additionalBranches = useMemo(() => {
     const map = new Map<string, string | null>()
     for (const wt of additionalTrees.keys()) {
-      map.set(wt, superagent.branchName)
+      map.set(wt, '')
     }
     return map
-  }, [additionalTrees, superagent.branchName])
+  }, [additionalTrees])
 
   return (
     <div style={styles.root}>
@@ -127,17 +134,23 @@ export function SuperagentFleetTree({
       {childSessions.length > 0 && (
         <div style={styles.agentsGroup}>
           <div style={styles.agentsHeader}>Child agents</div>
-          {childSessions.map(({ session, projectId }) => (
+          {childSessions.map(({ session, project }) => (
             <div
               key={session.id}
-              onClick={() => onSelectSession(session.id, projectId)}
+              onClick={() => onSelectSession(
+                session.id,
+                project.id,
+                { preserveSuperagent: true },
+              )}
               style={styles.sessionRow}
               className="sidebar-item-row"
-              title={session.worktreePath}
+              title={`${project.name} — ${session.status}`}
             >
               <span style={statusDotStyle(session.status)} />
-              <span style={styles.sessionName}>{session.branchName}</span>
-              <span style={styles.sessionStatus}>{session.status}</span>
+              <div style={styles.sessionText}>
+                <span style={styles.sessionName}>{project.name}</span>
+                <span style={styles.sessionMeta}>{session.status}</span>
+              </div>
             </div>
           ))}
         </div>
@@ -153,7 +166,8 @@ export function SuperagentFleetTree({
             additionalTrees={additionalTrees.size > 0 ? additionalTrees : undefined}
             additionalBranches={additionalBranches.size > 0 ? additionalBranches : undefined}
             rootLabels={rootLabels}
-            primaryBranch={superagent.branchName}
+            flattenRoots={true}
+            primaryBranch=""
             changes={primaryChanges}
             additionalChanges={additionalChanges.size > 0 ? additionalChanges : undefined}
             activeFilePath={null}
@@ -198,7 +212,14 @@ const styles = {
     padding: '4px 6px', cursor: 'pointer', borderRadius: 4,
     fontSize: 12,
   },
+  sessionText: {
+    display: 'flex',
+    flexDirection: 'column' as const,
+    minWidth: 0,
+    gap: 1,
+    flex: 1,
+  },
   sessionName: { flex: 1, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' as const },
-  sessionStatus: { fontSize: 10, color: 'var(--text-muted)' },
+  sessionMeta: { fontSize: 10, color: 'var(--text-muted)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' as const },
   treeWrapper: { flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column' as const },
 }

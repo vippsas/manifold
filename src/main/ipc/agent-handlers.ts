@@ -8,6 +8,7 @@ import { generateBranchName } from '../git/branch-namer'
 import { acceptSuggestion, dismissSuggestion } from '../session/shell-suggestion'
 import { debugLog } from '../app/debug-log'
 import type { IpcDependencies } from './types'
+import { isGitProject } from '../../shared/project-kind'
 
 const NO_WORKTREE_ERROR =
   'A no-worktree agent is already running for this project. ' +
@@ -35,14 +36,17 @@ export function resolveShellHistoryDir(cwd: string, scope: 'project' | 'global')
 
 async function clearDormantNoWorktreeSessions(
   deps: Pick<IpcDependencies, 'sessionManager' | 'fileWatcher'>,
+  projectIsGit: boolean,
   options: SpawnAgentOptions,
 ): Promise<void> {
+  const requiresNoWorktree = Boolean(options.noWorktree || !projectIsGit)
+
   const sessions = deps.sessionManager.listSessions()
     .filter((session) => session.projectId === options.projectId && session.noWorktree)
 
   for (const session of sessions) {
     const internal = deps.sessionManager.getInternalSession(session.id)
-    if (!options.noWorktree) continue
+    if (!requiresNoWorktree) continue
     if (internal?.ptyId || internal?.devServerPtyId || internal?.status === 'running') {
       throw new Error(NO_WORKTREE_ERROR)
     }
@@ -62,12 +66,15 @@ export function registerAgentHandlers(deps: IpcDependencies): void {
   ipcMain.handle('branch:suggest', async (_event, projectId: string, taskDescription: string) => {
     const project = deps.projectRegistry.getProject(projectId)
     if (!project) throw new Error(`Project not found: ${projectId}`)
+    if (!isGitProject(project)) return project.name
     const branchHint = taskDescription?.trim() || pickRandomNorwegianCityName()
     return generateBranchName(project.path, branchHint)
   })
 
   ipcMain.handle('agent:spawn', async (_event, options: SpawnAgentOptions) => {
-    await clearDormantNoWorktreeSessions(deps, options)
+    const project = deps.projectRegistry.getProject(options.projectId)
+    if (!project) throw new Error(`Project not found: ${options.projectId}`)
+    await clearDormantNoWorktreeSessions(deps, isGitProject(project), options)
     const session = await sessionManager.createSession(options)
     fileWatcher.watch(session.worktreePath, session.id)
     return session
@@ -227,18 +234,21 @@ export function registerAgentHandlers(deps: IpcDependencies): void {
   ipcMain.handle('git:list-branches', async (_event, projectId: string) => {
     const project = deps.projectRegistry.getProject(projectId)
     if (!project) throw new Error(`Project not found: ${projectId}`)
+    if (!isGitProject(project)) throw new Error('This project is a plain folder, not a git repository')
     return deps.branchCheckout.listBranches(project.path)
   })
 
   ipcMain.handle('git:list-prs', async (_event, projectId: string) => {
     const project = deps.projectRegistry.getProject(projectId)
     if (!project) throw new Error(`Project not found: ${projectId}`)
+    if (!isGitProject(project)) throw new Error('This project is a plain folder, not a git repository')
     return deps.branchCheckout.listOpenPRs(project.path)
   })
 
   ipcMain.handle('git:fetch-pr-branch', async (_event, projectId: string, prIdentifier: string) => {
     const project = deps.projectRegistry.getProject(projectId)
     if (!project) throw new Error(`Project not found: ${projectId}`)
+    if (!isGitProject(project)) throw new Error('This project is a plain folder, not a git repository')
     const branch = await deps.branchCheckout.fetchPRBranch(project.path, prIdentifier)
     return { branch }
   })

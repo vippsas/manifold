@@ -24,6 +24,11 @@ export interface SuperagentCreateOptions {
   initialPrompt: string
 }
 
+export interface SuperagentProjectAddition {
+  projectId: string
+  reuseSessionId?: string
+}
+
 export type ApprovalToolName =
   | 'spawn_agent'
   | 'send_prompt'

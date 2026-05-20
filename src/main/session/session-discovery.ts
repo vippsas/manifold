@@ -1,5 +1,6 @@
 import { v4 as uuidv4 } from 'uuid'
-import { WorktreeManager } from '../git/worktree-manager'
+import { WorktreeManager, type WorktreeInfo } from '../git/worktree-manager'
+import { isGitRepositoryError } from '../git/git-errors'
 import { ProjectRegistry } from '../store/project-registry'
 import type { FileWatcher } from '../fs/file-watcher'
 import { readWorktreeMeta } from '../git/worktree-meta'
@@ -8,6 +9,7 @@ import { prepareManagedWorktree } from '../git/managed-worktree'
 import { debugLog } from '../app/debug-log'
 import type { InternalSession } from './session-types'
 import type { VerdictRecorder } from './verdict-recorder'
+import { isGitProject } from '../../shared/project-kind'
 
 export class SessionDiscovery {
   private discoveryInFlight = new Map<string, Promise<void>>()
@@ -59,8 +61,20 @@ export class SessionDiscovery {
   private async doDiscoverSessionsForProject(projectId: string): Promise<void> {
     const project = this.projectRegistry.getProject(projectId)
     if (!project) throw new Error('Project not found: ' + projectId)
+    if (!isGitProject(project)) {
+      return
+    }
 
-    const worktrees = await this.worktreeManager.listWorktrees(project.path)
+    let worktrees: WorktreeInfo[]
+    try {
+      worktrees = await this.worktreeManager.listWorktrees(project.path)
+    } catch (error) {
+      if (isGitRepositoryError(error)) {
+        debugLog(`[session] skipping session discovery for non-git project ${project.path}`)
+        return
+      }
+      throw error
+    }
 
     const trackedPaths = new Set(
       Array.from(this.sessions.values())
@@ -92,6 +106,7 @@ export class SessionDiscovery {
           simplePromptInstructions: meta?.simplePromptInstructions,
           additionalDirs: meta?.additionalDirs ?? [],
           ollamaModel: meta?.ollamaModel,
+          parentSuperagentId: meta?.parentSuperagentId,
         }
         this.sessions.set(session.id, session)
         this.adoptForVerdict(session, project.baseBranch)
@@ -159,6 +174,10 @@ export class SessionDiscovery {
     for (const project of projects) {
       // Already have sessions for this project — skip
       if (Array.from(this.sessions.values()).some((s) => s.projectId === project.id)) {
+        continue
+      }
+
+      if (!isGitProject(project)) {
         continue
       }
 

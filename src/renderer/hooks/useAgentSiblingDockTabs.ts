@@ -10,6 +10,7 @@ interface Options {
   activeWorktreePath: string | null
   primarySessionId: string | null
   activeSessionId: string | null
+  disabled?: boolean
   onSelectSession: (sessionId: string) => void
 }
 
@@ -31,6 +32,7 @@ export function useAgentSiblingDockTabs({
   activeWorktreePath,
   primarySessionId,
   activeSessionId,
+  disabled = false,
   onSelectSession,
 }: Options): void {
   const onSelectRef = useRef(onSelectSession)
@@ -41,6 +43,7 @@ export function useAgentSiblingDockTabs({
   useEffect(() => {
     const api = apiRef.current
     if (!api) return
+    if (disabled) return
     if (!api.getPanel('agent')) return
     if (activeSessionId && !activeWorktreePath) return
 
@@ -89,11 +92,12 @@ export function useAgentSiblingDockTabs({
         if (activePanel && !activePanel.api.isActive) activePanel.api.setActive()
       }
     }
-  }, [apiRef, layoutVersion, sessions, activeWorktreePath, primarySessionId, activeSessionId])
+  }, [apiRef, disabled, layoutVersion, sessions, activeWorktreePath, primarySessionId, activeSessionId])
 
   useEffect(() => {
     const api = apiRef.current
     if (!api) return
+    if (disabled) return
     const sub = api.onDidActivePanelChange((panel) => {
       if (!panel) return
       if (panel.id === 'agent') {
@@ -105,5 +109,5 @@ export function useAgentSiblingDockTabs({
       if (sid) onSelectRef.current(sid)
     })
     return () => sub.dispose()
-  }, [apiRef, layoutVersion])
+  }, [apiRef, disabled, layoutVersion])
 }

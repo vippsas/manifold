@@ -16,6 +16,7 @@ export interface SuperagentManagerDeps {
   sessionManager: {
     getSession: (id: string) => any
     createSession: (opts: any) => Promise<any>
+    setParentSuperagent: (sessionId: string, parentSuperagentId?: string) => any
     killSession: (id: string) => Promise<void>
     getOutputBuffer: (id: string) => string
     sendInput: (id: string, data: string) => void

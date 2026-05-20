@@ -144,6 +144,60 @@ describe('registerProjectHandlers', () => {
     expect(result).toEqual(project)
   })
 
+  it('adds a selected folder through projects:add without extra git validation', async () => {
+    const { registerProjectHandlers } = await import('./project-handlers')
+    const project = {
+      id: 'project-2',
+      name: 'plain-folder',
+      path: '/workspace/plain-folder',
+      baseBranch: '',
+      addedAt: '2026-04-01T00:00:00.000Z',
+      kind: 'folder',
+    }
+    const deps = {
+      projectRegistry: {
+        listProjects: vi.fn(() => []),
+        addProject: vi.fn(async () => project),
+      },
+    }
+
+    registerProjectHandlers(deps as never)
+    const handler = electronMocks.handlers.get('projects:add')
+    if (!handler) throw new Error('projects:add handler was not registered')
+
+    const result = await handler({}, '/workspace/plain-folder')
+
+    expect(processMocks.execFile).not.toHaveBeenCalled()
+    expect(deps.projectRegistry.addProject).toHaveBeenCalledWith('/workspace/plain-folder')
+    expect(result).toEqual(project)
+  })
+
+  it('adds a git repository through projects:add when the registry returns one', async () => {
+    const { registerProjectHandlers } = await import('./project-handlers')
+    const project = {
+      id: 'project-3',
+      name: 'repo',
+      path: '/workspace/repo',
+      baseBranch: 'main',
+      addedAt: '2026-04-01T00:00:00.000Z',
+      kind: 'git',
+    }
+
+    const deps = {
+      projectRegistry: {
+        listProjects: vi.fn(() => []),
+        addProject: vi.fn(async () => project),
+      },
+    }
+
+    registerProjectHandlers(deps as never)
+    const handler = electronMocks.handlers.get('projects:add')
+    if (!handler) throw new Error('projects:add handler was not registered')
+
+    await expect(handler({}, '/workspace/repo')).resolves.toEqual(project)
+    expect(deps.projectRegistry.addProject).toHaveBeenCalledWith('/workspace/repo')
+  })
+
   it('rejects duplicate explicit repository names instead of silently renaming them', async () => {
     const { registerProjectHandlers } = await import('./project-handlers')
     fsMocks.existsSync.mockImplementation((target: string) => target === '/workspace/projects/timer-app')

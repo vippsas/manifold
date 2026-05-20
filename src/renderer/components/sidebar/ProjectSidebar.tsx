@@ -1,6 +1,13 @@
 import React, { useCallback, useState } from 'react'
 import type { Project, AgentSession } from '../../../shared/types'
 import type { Superagent } from '../../../shared/superagent-types'
+import { isGitProject } from '../../../shared/project-kind'
+import {
+  collectSuperagentChildSessionIds,
+  collectSuperagentFleetWorktreePaths,
+  filterStandaloneProjectSessions,
+  type SessionSelectionOptions,
+} from '../../session-selection'
 import { sidebarStyles } from './ProjectSidebar.styles'
 import { AgentItem } from './AgentItem'
 import { SuperagentList } from './SuperagentList'
@@ -9,11 +16,12 @@ import { dedupeSessionsByWorktree } from '../../hooks/agent-siblings'
 interface ProjectSidebarProps {
   projects: Project[]
   activeProjectId: string | null
+  suppressedProjectIds?: ReadonlySet<string>
   allProjectSessions: Record<string, AgentSession[]>
   activeSessionId: string | null
   outputtingSessionIds: Set<string>
   onSelectProject: (id: string) => void
-  onSelectSession: (sessionId: string, projectId: string) => void
+  onSelectSession: (sessionId: string, projectId: string, options?: SessionSelectionOptions) => void
   onRemoveProject: (id: string) => void
   onUpdateProject: (id: string, partial: Partial<Omit<Project, 'id'>>) => void
   onRequestDeleteAgent: (session: AgentSession, projectPath: string) => void
@@ -23,6 +31,7 @@ interface ProjectSidebarProps {
   activeSuperagentId?: string | null
   onSelectSuperagent?: (id: string) => void
   onRemoveSuperagent?: (id: string) => Promise<void>
+  onRequestAddProjectToSuperagent?: (superagentId: string) => void
   onSpawnFleetAgent?: (superagentId: string, projectId: string) => Promise<void>
   fetchingProjectId: string | null
   lastFetchedProjectId: string | null
@@ -34,6 +43,7 @@ interface ProjectSidebarProps {
 export function ProjectSidebar({
   projects,
   activeProjectId,
+  suppressedProjectIds,
   allProjectSessions,
   activeSessionId,
   outputtingSessionIds,
@@ -48,6 +58,7 @@ export function ProjectSidebar({
   activeSuperagentId,
   onSelectSuperagent,
   onRemoveSuperagent,
+  onRequestAddProjectToSuperagent,
   onSpawnFleetAgent,
   fetchingProjectId,
   lastFetchedProjectId,
@@ -76,14 +87,16 @@ export function ProjectSidebar({
           activeSessionId={activeSessionId}
           outputtingSessionIds={outputtingSessionIds}
           onSelectSession={onSelectSession}
+          onRequestAddProject={onRequestAddProjectToSuperagent}
           onSpawnFleetAgent={onSpawnFleetAgent}
           onDeleteAgent={onRequestDeleteAgent}
         />
       )}
-      <ProjectList
-        projects={projects}
-        activeProjectId={activeSuperagentId ? null : activeProjectId}
-        allProjectSessions={allProjectSessions}
+        <ProjectList
+          projects={projects}
+          activeProjectId={activeSuperagentId ? null : activeProjectId}
+          suppressedProjectIds={suppressedProjectIds}
+          allProjectSessions={allProjectSessions}
         activeSessionId={activeSessionId}
         outputtingSessionIds={outputtingSessionIds}
         onSelectProject={onSelectProject}
@@ -91,6 +104,7 @@ export function ProjectSidebar({
         onRequestDeleteAgent={onRequestDeleteAgent}
         onRemove={handleRemove}
         onUpdateProject={onUpdateProject}
+        superagents={superagents}
         fetchingProjectId={fetchingProjectId}
         lastFetchedProjectId={lastFetchedProjectId}
         fetchResult={fetchResult}
@@ -112,14 +126,16 @@ export function ProjectSidebar({
 interface ProjectListProps {
   projects: Project[]
   activeProjectId: string | null
+  suppressedProjectIds?: ReadonlySet<string>
   allProjectSessions: Record<string, AgentSession[]>
   activeSessionId: string | null
   outputtingSessionIds: Set<string>
   onSelectProject: (id: string) => void
-  onSelectSession: (sessionId: string, projectId: string) => void
+  onSelectSession: (sessionId: string, projectId: string, options?: SessionSelectionOptions) => void
   onRequestDeleteAgent: (session: AgentSession, projectPath: string) => void
   onRemove: (e: React.MouseEvent, id: string) => void
   onUpdateProject: (id: string, partial: Partial<Omit<Project, 'id'>>) => void
+  superagents?: Superagent[]
   fetchingProjectId: string | null
   lastFetchedProjectId: string | null
   fetchResult: { updatedBranch: string; commitCount: number } | null
@@ -130,6 +146,7 @@ interface ProjectListProps {
 function ProjectList({
   projects,
   activeProjectId,
+  suppressedProjectIds,
   allProjectSessions,
   activeSessionId,
   outputtingSessionIds,
@@ -138,6 +155,7 @@ function ProjectList({
   onRequestDeleteAgent,
   onRemove,
   onUpdateProject,
+  superagents,
   fetchingProjectId,
   lastFetchedProjectId,
   fetchResult,
@@ -145,33 +163,50 @@ function ProjectList({
   onFetchProject,
 }: ProjectListProps): React.JSX.Element {
   const [reposExpanded, setReposExpanded] = useState(false)
+  const superagentChildSessionIds = collectSuperagentChildSessionIds(superagents)
+  const superagentFleetWorktreePaths = collectSuperagentFleetWorktreePaths(superagents)
+  const visibleProjects = projects.filter((project) => !suppressedProjectIds?.has(project.id))
 
   const handleProjectClick = useCallback(
     (projectId: string): void => {
-      const sessions = allProjectSessions[projectId] ?? []
+      const sessions = filterStandaloneProjectSessions(
+        allProjectSessions[projectId] ?? [],
+        superagentChildSessionIds,
+        superagentFleetWorktreePaths,
+      )
       if (sessions.length > 0) {
         onSelectSession(sessions[0].id, projectId)
       } else {
         onSelectProject(projectId)
       }
     },
-    [allProjectSessions, onSelectProject, onSelectSession]
+    [allProjectSessions, onSelectProject, onSelectSession, superagentChildSessionIds, superagentFleetWorktreePaths]
   )
 
   // Tier 1: currently active project
-  const activeProject = projects.find((p) => p.id === activeProjectId) ?? null
+  const activeProject = visibleProjects.find((p) => p.id === activeProjectId) ?? null
 
   // Tier 2: other projects that have running sessions
-  const withAgentsProjects = projects.filter(
-    (p) => p.id !== activeProjectId && (allProjectSessions[p.id] ?? []).length > 0
+  const withAgentsProjects = visibleProjects.filter(
+    (p) => p.id !== activeProjectId
+      && filterStandaloneProjectSessions(
+        allProjectSessions[p.id] ?? [],
+        superagentChildSessionIds,
+        superagentFleetWorktreePaths,
+      ).length > 0
   )
 
   // Tier 3: projects with no sessions
-  const inactiveProjects = projects.filter(
-    (p) => p.id !== activeProjectId && (allProjectSessions[p.id] ?? []).length === 0
+  const inactiveProjects = visibleProjects.filter(
+    (p) => p.id !== activeProjectId
+      && filterStandaloneProjectSessions(
+        allProjectSessions[p.id] ?? [],
+        superagentChildSessionIds,
+        superagentFleetWorktreePaths,
+      ).length === 0
   )
 
-  if (projects.length === 0) {
+  if (visibleProjects.length === 0) {
     return (
       <div style={sidebarStyles.list}>
         <div style={sidebarStyles.empty}>No repositories yet</div>
@@ -183,7 +218,11 @@ function ProjectList({
     <div style={sidebarStyles.list}>
       {/* Tier 1: Active project — expanded with agents */}
       {activeProject !== null && (() => {
-        const projectSessions = allProjectSessions[activeProject.id] ?? []
+        const projectSessions = filterStandaloneProjectSessions(
+          allProjectSessions[activeProject.id] ?? [],
+          superagentChildSessionIds,
+          superagentFleetWorktreePaths,
+        )
         const activeWorktreePath = projectSessions.find((s) => s.id === activeSessionId)?.worktreePath ?? null
         const primarySessions = dedupeSessionsByWorktree(projectSessions)
         return (
@@ -225,7 +264,11 @@ function ProjectList({
           <div style={sidebarStyles.sectionDivider} />
           <div style={sidebarStyles.sectionLabel}>With agents</div>
           {withAgentsProjects.map((project) => {
-            const projectSessions = allProjectSessions[project.id] ?? []
+            const projectSessions = filterStandaloneProjectSessions(
+              allProjectSessions[project.id] ?? [],
+              superagentChildSessionIds,
+              superagentFleetWorktreePaths,
+            )
             return (
               <div
                 key={project.id}
@@ -354,6 +397,7 @@ function ProjectItem({
   fetchError,
   onFetch,
 }: ProjectItemProps): React.JSX.Element {
+  const gitProject = isGitProject(project)
 
   const handleClick = useCallback((): void => {
     onSelect(project.id)
@@ -394,18 +438,20 @@ function ProjectItem({
           {project.name}
         </span>
         <div className="sidebar-item-actions" style={sidebarStyles.itemRight}>
-          <button
-            type="button"
-            onClick={(e) => { e.stopPropagation(); onFetch() }}
-            onKeyDown={stopKeyPropagation}
-            className="sidebar-icon-button"
-            style={sidebarStyles.removeButton}
-            aria-label={`Fetch ${project.name}`}
-            title="Fetch latest from remote"
-            disabled={isFetching}
-          >
-            {isFetching ? '...' : '\u21BB'}
-          </button>
+          {gitProject && (
+            <button
+              type="button"
+              onClick={(e) => { e.stopPropagation(); onFetch() }}
+              onKeyDown={stopKeyPropagation}
+              className="sidebar-icon-button"
+              style={sidebarStyles.removeButton}
+              aria-label={`Fetch ${project.name}`}
+              title="Fetch latest from remote"
+              disabled={isFetching}
+            >
+              {isFetching ? '...' : '\u21BB'}
+            </button>
+          )}
           <button
             type="button"
             onClick={handleRemoveClick}

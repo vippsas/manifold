@@ -3,6 +3,8 @@ import * as path from 'node:path'
 import * as os from 'node:os'
 import { v4 as uuidv4 } from 'uuid'
 import { Project } from '../../shared/types'
+import { isGitProject } from '../../shared/project-kind'
+import { sortProjectsByName } from '../../shared/project-sort'
 import { gitExec } from '../git/git-exec'
 
 const CONFIG_DIR = path.join(os.homedir(), '.manifold')
@@ -40,6 +42,19 @@ export class ProjectRegistry {
     fs.writeFileSync(PROJECTS_FILE, JSON.stringify(this.projects, null, 2), 'utf-8')
   }
 
+  private sortProjects(): void {
+    this.projects = sortProjectsByName(this.projects)
+  }
+
+  private async detectProjectKind(projectPath: string): Promise<Project['kind']> {
+    try {
+      const stdout = await gitExec(['rev-parse', '--is-inside-work-tree'], projectPath)
+      return stdout.trim() === 'true' ? 'git' : 'folder'
+    } catch {
+      return 'folder'
+    }
+  }
+
   private async detectBaseBranch(projectPath: string): Promise<string> {
     try {
       const stdout = await gitExec(['branch', '-a', '--format=%(refname:short)'], projectPath)
@@ -58,7 +73,7 @@ export class ProjectRegistry {
   }
 
   listProjects(): Project[] {
-    return [...this.projects]
+    return sortProjectsByName(this.projects)
   }
 
   async addProject(projectPath: string): Promise<Project> {
@@ -68,16 +83,19 @@ export class ProjectRegistry {
       return existing
     }
 
-    const baseBranch = await this.detectBaseBranch(resolvedPath)
+    const kind = await this.detectProjectKind(resolvedPath)
+    const baseBranch = isGitProject({ kind }) ? await this.detectBaseBranch(resolvedPath) : ''
     const project: Project = {
       id: uuidv4(),
       name: path.basename(resolvedPath),
       path: resolvedPath,
       baseBranch,
-      addedAt: new Date().toISOString()
+      addedAt: new Date().toISOString(),
+      kind,
     }
 
     this.projects.push(project)
+    this.sortProjects()
     this.writeToDisk()
     return project
   }
@@ -98,6 +116,7 @@ export class ProjectRegistry {
     const project = this.projects.find((p) => p.id === id)
     if (!project) return undefined
     Object.assign(project, partial)
+    this.sortProjects()
     this.writeToDisk()
     return { ...project }
   }

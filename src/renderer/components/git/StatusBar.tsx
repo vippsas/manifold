@@ -3,7 +3,7 @@ import type { AgentSession, FileChange, AheadBehind } from '../../../shared/type
 import type { UseDockLayoutResult, DockPanelId } from '../../hooks/useDockLayout'
 
 const PANEL_LABELS: Record<DockPanelId, string> = {
-  projects: 'Repositories',
+  projects: 'Projects',
   agent: 'Agent',
   editor: 'Editor',
   fileTree: 'Files',
@@ -24,6 +24,7 @@ interface StatusBarProps {
   activeSession: AgentSession | null
   changedFiles: FileChange[]
   baseBranch: string
+  projectIsGit?: boolean
   dockLayout: UseDockLayoutResult
   conflicts?: string[]
   aheadBehind?: AheadBehind
@@ -38,6 +39,7 @@ export function StatusBar({
   activeSession,
   changedFiles,
   baseBranch,
+  projectIsGit = true,
   dockLayout,
   conflicts = [],
   aheadBehind,
@@ -121,9 +123,11 @@ export function StatusBar({
           ))}
         </span>
       )}
-      <span className="statusbar-item">
-        base: <span className="mono">{baseBranch}</span>
-      </span>
+      {projectIsGit && (
+        <span className="statusbar-item">
+          base: <span className="mono">{baseBranch}</span>
+        </span>
+      )}
       {onOpenSettings && (
         <button
           type="button"
