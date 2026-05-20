@@ -1,5 +1,6 @@
 import { spawn } from 'node:child_process'
 import type { WatchPeekResult, WatchPlaylistPeekResult, WatchPlaylistEntry } from '../../shared/watch-types'
+import { ensureYtDlp } from './yt-dlp-fetcher'
 
 const PEEK_TIMEOUT_MS = 8_000
 const PLAYLIST_PEEK_TIMEOUT_MS = 20_000
@@ -79,10 +80,11 @@ function formatYtDlpError(message: string): string {
   return message
 }
 
-function dumpJson(url: string, extraArgs: string[] = ['--no-playlist'], timeoutMs = PEEK_TIMEOUT_MS): Promise<RawInfo> {
+async function dumpJson(url: string, extraArgs: string[] = ['--no-playlist'], timeoutMs = PEEK_TIMEOUT_MS): Promise<RawInfo> {
+  const ytDlpPath = await ensureYtDlp()
   return new Promise((resolve, reject) => {
     const proc = spawn(
-      'yt-dlp',
+      ytDlpPath,
       ['-J', ...extraArgs, '--no-warnings', '--skip-download', url],
       { stdio: ['ignore', 'pipe', 'pipe'] },
     )

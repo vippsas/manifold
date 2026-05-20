@@ -11,6 +11,7 @@ interface Props {
 
 export function WatchSetupStatusBar({ status, installing, onInstall, onClearCache }: Props): React.JSX.Element {
   const binariesMissing = !status.ffmpeg || !status.ytdlp
+  const ffmpegNeedsBrew = !status.ffmpeg && !status.hasBrew
   return (
     <div style={s.status}>
       <SetupDot label="ffmpeg" ok={status.ffmpeg} />
@@ -30,7 +31,7 @@ export function WatchSetupStatusBar({ status, installing, onInstall, onClearCach
           disabled={installing}
           style={s.installButton}
         >
-          {installing ? 'Installing…' : status.hasBrew ? 'Install via brew' : 'Install Homebrew first'}
+          {installing ? 'Installing…' : ffmpegNeedsBrew ? 'Install Homebrew first' : 'Install missing tools'}
         </button>
       )}
       <button
