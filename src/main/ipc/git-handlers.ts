@@ -1,5 +1,6 @@
 import { ipcMain } from 'electron'
 import { CreatePROptions, AheadBehind, FetchResult } from '../../shared/types'
+import { isGitProject } from '../../shared/project-kind'
 import { getRuntimeById } from '../agent/runtimes'
 import type { IpcDependencies } from './types'
 import { resolveSession } from './types'
@@ -14,6 +15,7 @@ export function registerDiffHandler(deps: IpcDependencies): void {
     if (!session) return { diff: '', changedFiles: [] }
     const project = projectRegistry.getProject(session.projectId)
     if (!project) throw new Error(`Project not found: ${session.projectId}`)
+    if (!isGitProject(project)) return { diff: '', changedFiles: [] }
 
     const [diff, changedFiles] = await Promise.all([
       diffProvider.getDiff(session.worktreePath, project.baseBranch),
@@ -28,6 +30,7 @@ export function registerDiffHandler(deps: IpcDependencies): void {
     if (!session) throw new Error(`Session not found: ${sessionId}`)
     const project = projectRegistry.getProject(session.projectId)
     if (!project) throw new Error(`Project not found: ${session.projectId}`)
+    if (!isGitProject(project)) return ''
 
     return diffProvider.getOriginalContent(session.worktreePath, project.baseBranch, relativePath)
   })
@@ -41,6 +44,7 @@ export function registerPrHandler(deps: IpcDependencies): void {
     if (!session) throw new Error(`Session not found: ${options.sessionId}`)
     const project = projectRegistry.getProject(session.projectId)
     if (!project) throw new Error(`Project not found: ${session.projectId}`)
+    if (!isGitProject(project)) throw new Error('This project is a plain folder, not a git repository')
 
     const url = await prCreator.createPR(session.worktreePath, session.branchName, {
       title: options.title,
@@ -58,7 +62,11 @@ export function registerGitHandlers(deps: IpcDependencies): void {
   const { gitOps, sessionManager, projectRegistry } = deps
 
   ipcMain.handle('git:commit', async (_event, sessionId: string, message: string) => {
-    await gitOps.commit(resolveSession(sessionManager, sessionId).worktreePath, message)
+    const session = resolveSession(sessionManager, sessionId)
+    const project = projectRegistry.getProject(session.projectId)
+    if (!project) throw new Error(`Project not found: ${session.projectId}`)
+    if (!isGitProject(project)) throw new Error('This project is a plain folder, not a git repository')
+    await gitOps.commit(session.worktreePath, message)
   })
 
   ipcMain.handle('git:ai-generate', async (_event, sessionId: string, prompt: string) => {
@@ -72,6 +80,7 @@ export function registerGitHandlers(deps: IpcDependencies): void {
     const session = resolveSession(sessionManager, sessionId)
     const project = projectRegistry.getProject(session.projectId)
     if (!project) throw new Error(`Project not found: ${session.projectId}`)
+    if (!isGitProject(project)) return { ahead: 0, behind: 0 }
     return gitOps.getAheadBehind(session.worktreePath, project.baseBranch)
   })
 
@@ -83,12 +92,14 @@ export function registerGitHandlers(deps: IpcDependencies): void {
     const session = resolveSession(sessionManager, sessionId)
     const project = projectRegistry.getProject(session.projectId)
     if (!project) throw new Error(`Project not found: ${session.projectId}`)
+    if (!isGitProject(project)) return { commits: '', diffStat: '', diffPatch: '' }
     return gitOps.getPRContext(session.worktreePath, project.baseBranch)
   })
 
   ipcMain.handle('git:fetch', async (_event, projectId: string): Promise<FetchResult> => {
     const project = projectRegistry.getProject(projectId)
     if (!project) throw new Error(`Project not found: ${projectId}`)
+    if (!isGitProject(project)) throw new Error('This project is a plain folder, not a git repository')
     return gitOps.fetchAndUpdate(project.path, project.baseBranch)
   })
 }

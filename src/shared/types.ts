@@ -39,12 +39,15 @@ export interface AgentSession {
   groupId?: string
 }
 
+export type ProjectKind = 'git' | 'folder'
+
 export interface Project {
   id: string
   name: string
   path: string
   baseBranch: string
   addedAt: string
+  kind?: ProjectKind
   simpleTemplateTitle?: string
   simplePromptInstructions?: string
 }

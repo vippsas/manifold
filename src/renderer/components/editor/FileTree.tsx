@@ -15,6 +15,8 @@ interface FileTreeProps {
   additionalBranches?: Map<string, string | null>
   /** Optional display names per worktree root path. Keys: primary tree path, plus additional tree paths. */
   rootLabels?: Map<string, string>
+  /** Render the root directory contents directly when a workspace header is shown. */
+  flattenRoots?: boolean
   primaryBranch: string | null
   changes: FileChange[]
   additionalChanges?: Map<string, FileChange[]>
@@ -37,7 +39,7 @@ interface FileTreeProps {
 }
 
 export function FileTree({
-  tree, additionalTrees, additionalBranches, rootLabels, primaryBranch,
+  tree, additionalTrees, additionalBranches, rootLabels, flattenRoots = false, primaryBranch,
   changes, additionalChanges, activeFilePath, openFilePaths, expandedPaths, onToggleExpand, onSelectFile,
   onDeleteFile, onRenameFile, onCreateFile, onCreateDir, onImportPaths, onMovePath,
   onRevealInFinder, onOpenInTerminal, onCopyAbsolutePath, onCopyRelativePath,
@@ -131,6 +133,21 @@ export function FileTree({
   const dropTargetLabel = describeDropTarget(dnd.dropTargetPath ?? defaultDropDir)
   const overlayLabel = dnd.isDraggingInternal ? `Move to ${dropTargetLabel}` : `Import to ${dropTargetLabel}`
   const bannerLabel = dnd.isDraggingInternal ? `Drop to move into ${dropTargetLabel}` : `Drop to import into ${dropTargetLabel}`
+  const hasAdditionalRoots = Boolean(filteredAdditionalTrees && filteredAdditionalTrees.size > 0)
+  const shouldShowPrimaryHeader = Boolean(filteredTree && (hasAdditionalRoots || rootLabels?.has(filteredTree.path)))
+
+  const renderWorkspaceTree = useCallback((node: FileTreeNode): React.JSX.Element => {
+    if (!flattenRoots || !node.isDirectory || !node.children || node.children.length === 0) {
+      return <TreeNode node={node} depth={0} {...treeNodeProps} />
+    }
+    return (
+      <>
+        {node.children.map((child) => (
+          <TreeNode key={child.path} node={child} depth={0} {...treeNodeProps} />
+        ))}
+      </>
+    )
+  }, [flattenRoots, treeNodeProps])
 
   return (
     <div style={treeStyles.wrapper}>
@@ -159,19 +176,28 @@ export function FileTree({
       >
         {filteredTree ? (
           <>
-            {filteredAdditionalTrees && filteredAdditionalTrees.size > 0 ? (
+            {hasAdditionalRoots ? (
               <>
                 <div data-tree-root-path={filteredTree.path}>
                   <WorkspaceRootHeader name={rootLabels?.get(filteredTree.path) ?? filteredTree.name} subtitle={primaryBranch} isAdditional={false} />
-                  <TreeNode node={filteredTree} depth={0} {...treeNodeProps} />
+                  {renderWorkspaceTree(filteredTree)}
                 </div>
                 {Array.from(filteredAdditionalTrees.entries()).map(([dirPath, dirTree]) => (
                   <div key={dirPath} data-tree-root-path={dirPath}>
                     <WorkspaceRootHeader name={rootLabels?.get(dirPath) ?? dirTree.name} subtitle={additionalBranches?.get(dirPath) ?? shortenPath(dirPath)} isAdditional={true} />
-                    <TreeNode node={dirTree} depth={0} {...treeNodeProps} />
+                    {renderWorkspaceTree(dirTree)}
                   </div>
                 ))}
               </>
+            ) : shouldShowPrimaryHeader ? (
+              <div data-tree-root-path={filteredTree.path}>
+                <WorkspaceRootHeader
+                  name={rootLabels?.get(filteredTree.path) ?? filteredTree.name}
+                  subtitle={primaryBranch}
+                  isAdditional={false}
+                />
+                {renderWorkspaceTree(filteredTree)}
+              </div>
             ) : (
               <div data-tree-root-path={filteredTree.path}>
                 <TreeNode node={filteredTree} depth={0} {...treeNodeProps} />

@@ -49,7 +49,9 @@ function AgentPanel({ api }: { api?: { id: string } } = {}): React.JSX.Element {
     ? s.allProjectSessions[s.activeProjectId] ?? []
     : []
   const targetSession = targetSessionId
-    ? projectSessions.find((session) => session.id === targetSessionId) ?? null
+    ? projectSessions.find((session) => session.id === targetSessionId)
+      ?? Object.values(s.allProjectSessions).flat().find((session) => session.id === targetSessionId)
+      ?? null
     : null
   const targetRuntimeId = targetSession?.runtimeId ?? null
   const targetStatus = targetSession?.status ?? null
@@ -60,7 +62,7 @@ function AgentPanel({ api }: { api?: { id: string } } = {}): React.JSX.Element {
     }
   }, [targetSessionId, targetRuntimeId, s])
 
-  if (s.activeSuperagentId) {
+  if (s.activeSuperagentId && !siblingSessionId) {
     return <SuperagentAgentPanel />
   }
 
@@ -71,6 +73,7 @@ function AgentPanel({ api }: { api?: { id: string } } = {}): React.JSX.Element {
         projectId={s.activeProjectId}
         projectName={activeProject.name}
         baseBranch={s.baseBranch}
+        isGitProject={s.activeProjectIsGit}
         defaultRuntime={s.defaultRuntime}
         onLaunch={s.onLaunchAgent}
         focusTrigger={s.newAgentFocusTrigger}
@@ -232,6 +235,7 @@ function ProjectsPanel(): React.JSX.Element {
     <ProjectSidebar
       projects={s.projects}
       activeProjectId={s.activeProjectId}
+      suppressedProjectIds={s.suppressedProjectIds}
       allProjectSessions={s.allProjectSessions}
       activeSessionId={s.sessionId}
       outputtingSessionIds={s.outputtingSessionIds}
@@ -246,6 +250,7 @@ function ProjectsPanel(): React.JSX.Element {
       activeSuperagentId={s.activeSuperagentId}
       onSelectSuperagent={s.onSelectSuperagent}
       onRemoveSuperagent={s.onRemoveSuperagent}
+      onRequestAddProjectToSuperagent={s.onRequestAddProjectToSuperagent}
       onSpawnFleetAgent={s.onSpawnFleetAgent}
       fetchingProjectId={s.fetchingProjectId}
       lastFetchedProjectId={s.lastFetchedProjectId}

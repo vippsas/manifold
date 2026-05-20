@@ -40,12 +40,14 @@ const segmentedStyles = {
 export function NewAgentForm({
   projectId,
   baseBranch,
+  isGitProject,
   defaultRuntime,
   onLaunch,
   focusTrigger,
 }: {
   projectId: string
   baseBranch: string
+  isGitProject: boolean
   defaultRuntime: string
   onLaunch: (options: SpawnAgentOptions) => Promise<unknown>
   focusTrigger?: number
@@ -87,6 +89,7 @@ export function NewAgentForm({
   }, [])
 
   useEffect(() => {
+    if (!isGitProject) return
     if (branchMode !== 'new' || !useExisting || existingSubTab !== 'branch') return
     setBranchesLoading(true)
     setError('')
@@ -95,9 +98,10 @@ export function NewAgentForm({
       .then((list) => setBranches(list as BranchInfo[]))
       .catch((err) => setError(`Failed to load branches: ${(err as Error).message}`))
       .finally(() => setBranchesLoading(false))
-  }, [branchMode, useExisting, existingSubTab, projectId])
+  }, [branchMode, useExisting, existingSubTab, isGitProject, projectId])
 
   useEffect(() => {
+    if (!isGitProject) return
     if (branchMode !== 'new' || !useExisting || existingSubTab !== 'pr') return
     setPrsLoading(true)
     setError('')
@@ -106,7 +110,7 @@ export function NewAgentForm({
       .then((list) => setPrs(list as PRInfo[]))
       .catch((err) => setError(`Failed to load PRs: ${(err as Error).message}`))
       .finally(() => setPrsLoading(false))
-  }, [branchMode, useExisting, existingSubTab, projectId])
+  }, [branchMode, useExisting, existingSubTab, isGitProject, projectId])
 
   const selectedRuntime = runtimes.find((r) => r.id === runtimeId)
   const runtimeInstalled = selectedRuntime?.installed !== false
@@ -128,6 +132,15 @@ export function NewAgentForm({
       setTaskDescription(resolvedTaskDescription)
 
       const launchOptions = (() => {
+        if (!isGitProject) {
+          return {
+            projectId,
+            runtimeId,
+            prompt: resolvedTaskDescription,
+            noWorktree: true,
+          } satisfies SpawnAgentOptions
+        }
+
         if (branchMode === 'current') {
           return {
             projectId,
@@ -169,29 +182,37 @@ export function NewAgentForm({
         }
       }
     },
-    [branchMode, useExisting, existingSubTab, projectId, runtimeId, taskDescription, selectedBranch, selectedPr, canSubmit, onLaunch]
+    [branchMode, useExisting, existingSubTab, projectId, runtimeId, taskDescription, selectedBranch, selectedPr, canSubmit, isGitProject, onLaunch]
   )
 
   return (
     <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-lg)', width: 420, maxWidth: '90%' }}>
-      <div style={segmentedStyles.container}>
-        <button
-          type="button"
-          onClick={() => setBranchMode('new')}
-          style={{ ...segmentedStyles.button, ...(branchMode === 'new' ? segmentedStyles.buttonActive : {}) }}
-        >
-          New branch
-        </button>
-        <button
-          type="button"
-          onClick={() => setBranchMode('current')}
-          style={{ ...segmentedStyles.button, ...(branchMode === 'current' ? segmentedStyles.buttonActive : {}) }}
-        >
-          Current branch
-        </button>
-      </div>
+      {isGitProject && (
+        <div style={segmentedStyles.container}>
+          <button
+            type="button"
+            onClick={() => setBranchMode('new')}
+            style={{ ...segmentedStyles.button, ...(branchMode === 'new' ? segmentedStyles.buttonActive : {}) }}
+          >
+            New branch
+          </button>
+          <button
+            type="button"
+            onClick={() => setBranchMode('current')}
+            style={{ ...segmentedStyles.button, ...(branchMode === 'current' ? segmentedStyles.buttonActive : {}) }}
+          >
+            Current branch
+          </button>
+        </div>
+      )}
 
-      {branchMode === 'current' && (
+      {!isGitProject && (
+        <p style={modalStyles.infoText}>
+          This folder is not a Git repository. The agent will work directly in the folder and can still read and edit documents.
+        </p>
+      )}
+
+      {isGitProject && branchMode === 'current' && (
         <p style={modalStyles.infoText}>
           The agent will work directly on your current branch.
         </p>
@@ -223,7 +244,7 @@ export function NewAgentForm({
             </p>
           )}
 
-          {branchMode === 'new' && (
+          {isGitProject && branchMode === 'new' && (
             <>
               <label style={modalStyles.checkboxLabel}>
                 <input type="checkbox" checked={useExisting} onChange={(e) => setUseExisting(e.target.checked)} />

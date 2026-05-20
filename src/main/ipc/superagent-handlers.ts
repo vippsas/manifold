@@ -1,6 +1,10 @@
 import { ipcMain } from 'electron'
 import type { IpcDependencies } from './types'
-import type { SuperagentCreateOptions, ApprovalResponse } from '../../shared/superagent-types'
+import type {
+  SuperagentCreateOptions,
+  ApprovalResponse,
+  SuperagentProjectAddition,
+} from '../../shared/superagent-types'
 
 export function registerSuperagentHandlers(deps: IpcDependencies): void {
   const { superagentManager, approvalBroker } = deps
@@ -9,6 +13,10 @@ export function registerSuperagentHandlers(deps: IpcDependencies): void {
 
   ipcMain.handle('superagent:create', async (_e, options: SuperagentCreateOptions) => {
     return superagentManager.create(options)
+  })
+
+  ipcMain.handle('superagent:add-project', async (_e, superagentId: string, addition: SuperagentProjectAddition) => {
+    return superagentManager.addProjectToFleet(superagentId, addition)
   })
 
   ipcMain.handle('superagent:kill', async (_e, id: string) => {

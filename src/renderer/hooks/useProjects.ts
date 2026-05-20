@@ -1,12 +1,13 @@
 import { useState, useEffect, useCallback } from 'react'
 import type { CreateProjectOptions, Project } from '../../shared/types'
+import { sortProjectsByName } from '../../shared/project-sort'
 
 interface UseProjectsResult {
   projects: Project[]
   activeProjectId: string | null
   loading: boolean
   error: string | null
-  addProject: (path?: string) => Promise<void>
+  addProject: (path?: string, options?: { activate?: boolean }) => Promise<Project | null>
   cloneProject: (url: string) => Promise<boolean>
   createNewProject: (options: CreateProjectOptions) => Promise<Project | null>
   removeProject: (id: string) => Promise<void>
@@ -25,9 +26,10 @@ export function useProjects(): UseProjectsResult {
     setError(null)
     try {
       const result = (await window.electronAPI.invoke('projects:list')) as Project[]
-      setProjects(result)
-      if (result.length > 0 && !activeProjectId) {
-        setActiveProjectId(result[0].id)
+      const sorted = sortProjectsByName(result)
+      setProjects(sorted)
+      if (sorted.length > 0 && !activeProjectId) {
+        setActiveProjectId(sorted[0].id)
       }
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : String(err)
@@ -41,19 +43,27 @@ export function useProjects(): UseProjectsResult {
     void fetchProjects()
   }, [fetchProjects])
 
-  const addProject = useCallback(async (path?: string): Promise<void> => {
+  const addProject = useCallback(async (
+    path?: string,
+    options?: { activate?: boolean },
+  ): Promise<Project | null> => {
+    setError(null)
     try {
       let projectPath = path
       if (!projectPath) {
         projectPath = (await window.electronAPI.invoke('projects:open-dialog')) as string | undefined
-        if (!projectPath) return
+        if (!projectPath) return null
       }
       const project = (await window.electronAPI.invoke('projects:add', projectPath)) as Project
-      setProjects((prev) => [...prev, project])
-      setActiveProjectId(project.id)
+      setProjects((prev) => sortProjectsByName([...prev, project]))
+      if (options?.activate !== false) {
+        setActiveProjectId(project.id)
+      }
+      return project
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : String(err)
       setError(message)
+      return null
     }
   }, [])
 
@@ -61,7 +71,7 @@ export function useProjects(): UseProjectsResult {
     setError(null)
     try {
       const project = (await window.electronAPI.invoke('projects:create-new', options)) as Project
-      setProjects((prev) => [...prev, project])
+      setProjects((prev) => sortProjectsByName([...prev, project]))
       setActiveProjectId(project.id)
       return project
     } catch (err: unknown) {
@@ -78,7 +88,7 @@ export function useProjects(): UseProjectsResult {
       if (!targetDir) return false // user cancelled
       const project = (await window.electronAPI.invoke('projects:clone', url, targetDir)) as Project | undefined
       if (!project) return false
-      setProjects((prev) => [...prev, project])
+      setProjects((prev) => sortProjectsByName([...prev, project]))
       setActiveProjectId(project.id)
       return true
     } catch (err: unknown) {
@@ -103,7 +113,7 @@ export function useProjects(): UseProjectsResult {
     try {
       const updated = (await window.electronAPI.invoke('projects:update', id, partial)) as Project | undefined
       if (updated) {
-        setProjects((prev) => prev.map((p) => (p.id === id ? updated : p)))
+        setProjects((prev) => sortProjectsByName(prev.map((p) => (p.id === id ? updated : p))))
       }
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : String(err)

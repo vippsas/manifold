@@ -85,6 +85,8 @@ export class SessionKiller {
   }
 
   private async removeWorktreeIfUnused(session: InternalSession): Promise<void> {
+    if (session.parentSuperagentId) return
+
     const sharedWithOther = Array.from(this.deps.sessions.values()).some(
       (other) => other.worktreePath === session.worktreePath,
     )

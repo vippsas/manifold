@@ -1,5 +1,8 @@
+import { isGitProject } from '../../shared/project-kind'
+
 export interface FleetWorktreeManager {
   createWorktree: (projectPath: string, baseBranch: string, projectName: string, branchName?: string) => Promise<{ branch: string; path: string }>
+  createWorktreeFromBranch?: (projectPath: string, projectName: string, branch: string, baseBranch: string) => Promise<{ branch: string; path: string }>
   removeWorktree: (projectPath: string, worktreePath: string) => Promise<void>
   branchExists: (projectPath: string, branch: string) => Promise<boolean>
 }
@@ -9,6 +12,7 @@ export interface FleetProject {
   path: string
   name: string
   baseBranch: string
+  kind?: 'git' | 'folder'
 }
 
 export async function findAvailableFleetBranch(
@@ -18,6 +22,7 @@ export async function findAvailableFleetBranch(
 ): Promise<string> {
   const isFree = async (candidate: string): Promise<boolean> => {
     for (const project of fleet) {
+      if (!isGitProject(project)) continue
       if (await worktreeManager.branchExists(project.path, candidate)) return false
     }
     return true
@@ -39,6 +44,10 @@ export async function createFleetWorktrees(
   const result: Record<string, string> = {}
   try {
     for (const project of fleet) {
+      if (!isGitProject(project)) {
+        result[project.id] = project.path
+        continue
+      }
       const info = await worktreeManager.createWorktree(
         project.path,
         project.baseBranch,
@@ -101,6 +110,7 @@ export async function removeFleetWorktreesExcept(
     if (inUse.has(worktreePath)) continue
     const projectPath = getProjectPath(projectId)
     if (!projectPath) continue
+    if (projectPath === worktreePath) continue
     try {
       await worktreeManager.removeWorktree(projectPath, worktreePath)
     } catch {

@@ -1,4 +1,5 @@
 import type { Project } from '../../shared/types'
+import { isGitProject } from '../../shared/project-kind'
 
 export interface OrchestratorPromptInput {
   taskDescription: string
@@ -17,8 +18,9 @@ export function buildOrchestratorPrompt({
 }: OrchestratorPromptInput): string {
   const fleetList = fleet.map((p) => {
     const worktreePath = fleetWorktreePaths?.[p.id] ?? p.path
-    const branchPart = branchName ? `, branch=${branchName}` : ''
-    return `- ${p.name} (id=${p.id}, path=${worktreePath}${branchPart}, base=${p.baseBranch})`
+    const branchPart = branchName && isGitProject(p) ? `, branch=${branchName}` : ''
+    const basePart = isGitProject(p) ? `, base=${p.baseBranch}` : ', mode=plain-folder'
+    return `- ${p.name} (id=${p.id}, path=${worktreePath}${branchPart}${basePart})`
   }).join('\n')
   const lines: string[] = [
     'You are a Manifold superagent — an orchestrator, not a coding agent.',
@@ -29,7 +31,7 @@ export function buildOrchestratorPrompt({
     lines.push(`Task: ${taskDescription}`, '')
   }
   lines.push(
-    `Fleet (${fleet.length} ${fleet.length === 1 ? 'repo' : 'repos'}, each already checked out on branch ${branchName ?? '<branch>'}):`,
+    `Fleet (${fleet.length} ${fleet.length === 1 ? 'project' : 'projects'}):`,
     fleetList,
     '',
     'Tools (namespace: `manifold-orchestrator`, call these — do not use your built-in file/search tools on the cwd):',

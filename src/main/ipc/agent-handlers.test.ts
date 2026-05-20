@@ -47,6 +47,9 @@ describe('registerAgentHandlers', () => {
       noWorktree: true,
     }))
     const deps = {
+      projectRegistry: {
+        getProject: vi.fn(() => ({ id: 'proj-1', name: 'repo', path: '/repo', baseBranch: 'main' })),
+      },
       sessionManager: {
         listSessions: vi.fn(() => [{
           id: 'old-session',
@@ -104,6 +107,9 @@ describe('registerAgentHandlers', () => {
   it('keeps blocking when an active no-worktree session still has a process', async () => {
     const { registerAgentHandlers } = await import('./agent-handlers')
     const deps = {
+      projectRegistry: {
+        getProject: vi.fn(() => ({ id: 'proj-1', name: 'repo', path: '/repo', baseBranch: 'main' })),
+      },
       sessionManager: {
         listSessions: vi.fn(() => [{
           id: 'active-session',
@@ -167,6 +173,9 @@ describe('registerAgentHandlers', () => {
       noWorktree: false,
     }))
     const deps = {
+      projectRegistry: {
+        getProject: vi.fn(() => ({ id: 'proj-1', name: 'repo', path: '/repo', baseBranch: 'main' })),
+      },
       sessionManager: {
         listSessions: vi.fn(() => [{
           id: 'dormant-simple',
