@@ -188,6 +188,49 @@ describe('useSuperagentChildDockTabs', () => {
     ])
   })
 
+  it('keeps existing sibling panels during a stale-session-list window', () => {
+    // Reproduces the focus-jumps-to-Search bug: after a user clicks a
+    // sub-agent that lives in a different project, setActiveProject triggers
+    // an async session refetch. Until that completes, sessionsByProject for
+    // the new project is stale, so resolveChildSessions can't find the
+    // clicked session and drops it from `childSessions`. The effect must
+    // still keep the existing panel — removing the active panel would make
+    // dockview auto-activate a neighbor (Search), stealing focus.
+    const dockview = buildMockDockview()
+
+    // Seed the layout with both sibling panels (the steady-state).
+    renderHook(() => useSuperagentChildDockTabs({
+      apiRef: dockview.apiRef,
+      layoutVersion: 1,
+      superagent,
+      projects,
+      allProjectSessions,
+      onSelectChildSession: vi.fn(),
+      onSelectSuperagentHome: vi.fn(),
+    }))
+
+    // Now simulate the stale window: superagent.childSessionIds still lists
+    // both, but allProjectSessions is missing the data for s1's project.
+    const staleAllProjectSessions: Record<string, AgentSession[]> = {
+      p1: [],
+      p2: allProjectSessions.p2,
+    }
+
+    renderHook(() => useSuperagentChildDockTabs({
+      apiRef: dockview.apiRef,
+      layoutVersion: 2,
+      superagent,
+      projects,
+      allProjectSessions: staleAllProjectSessions,
+      onSelectChildSession: vi.fn(),
+      onSelectSuperagentHome: vi.fn(),
+    }))
+
+    expect(dockview.superagentGroup.panels.map((panel) => panel.id)).toContain(
+      siblingPanelId('s1'),
+    )
+  })
+
   it('syncs dock tab activation back into superagent navigation callbacks', () => {
     const dockview = buildMockDockview()
     const onSelectChildSession = vi.fn()

@@ -46,6 +46,10 @@ export interface UseDockLayoutResult {
   hiddenPanels: DockPanelId[]
   editorPanelIds: string[]
   layoutVersion: number
+  /** Bumps only when the dock layout is fully reloaded (e.g. session/superagent
+   * switch). Use this — not layoutVersion — to schedule one-shot work that
+   * should fire after a reload, not on every panel activation. */
+  layoutReloadVersion: number
 }
 
 export function useDockLayout(
@@ -53,6 +57,7 @@ export function useDockLayout(
   showIdeasTab: boolean,
   showLoopTab: boolean,
   showVerdictsTab: boolean,
+  showWatchTab: boolean,
   liveSessions: AgentSession[] = [],
 ): UseDockLayoutResult {
   const apiRef = useRef<DockviewApi | null>(null)
@@ -61,6 +66,7 @@ export function useDockLayout(
   const showIdeasTabRef = useRef(showIdeasTab)
   const showLoopTabRef = useRef(showLoopTab)
   const showVerdictsTabRef = useRef(showVerdictsTab)
+  const showWatchTabRef = useRef(showWatchTab)
   const liveSessionsRef = useRef(liveSessions)
   const editorPanelIdsRef = useRef<Set<string>>(new Set())
   const nextEditorPanelIndexRef = useRef(1)
@@ -68,6 +74,7 @@ export function useDockLayout(
   showIdeasTabRef.current = showIdeasTab
   showLoopTabRef.current = showLoopTab
   showVerdictsTabRef.current = showVerdictsTab
+  showWatchTabRef.current = showWatchTab
   liveSessionsRef.current = liveSessions
 
   // Returns `undefined` (defer filtering) when the sessions list hasn't been
@@ -84,6 +91,12 @@ export function useDockLayout(
 
   const [layoutVersion, setLayoutVersion] = useState(0)
   const bumpVersion = useCallback(() => setLayoutVersion((value) => value + 1), [])
+  // Bumps only when loadOrBuildLayout finishes (i.e. layout was replaced by
+  // a session/superagent switch). Distinct from layoutVersion, which also
+  // bumps on every panel activation or drag — that's too noisy for callers
+  // that want to re-apply initial focus after a reload.
+  const [layoutReloadVersion, setLayoutReloadVersion] = useState(0)
+  const bumpReloadVersion = useCallback(() => setLayoutReloadVersion((value) => value + 1), [])
 
   const lastLayoutRef = useRef<SerializedDockview | null>(null)
   const closedPanelSnapshots = useRef<Map<DockPanelId, SerializedDockview>>(new Map())
@@ -108,7 +121,7 @@ export function useDockLayout(
     }, 500)
   }, [])
 
-  const buildDefaultLayout = useCallback((api: DockviewApi) => applyDefaultLayout(api, { showIdeasTab, showLoopTab, showVerdictsTab }), [showIdeasTab, showLoopTab, showVerdictsTab])
+  const buildDefaultLayout = useCallback((api: DockviewApi) => applyDefaultLayout(api, { showIdeasTab, showLoopTab, showVerdictsTab, showWatchTab }), [showIdeasTab, showLoopTab, showVerdictsTab, showWatchTab])
   const buildMinimalLayout = useCallback((api: DockviewApi) => applyMinimalPanels(api), [])
 
   const applyIdeasTabSetting = useCallback((api: DockviewApi, showOnEnable: boolean): boolean => {
@@ -174,6 +187,27 @@ export function useDockLayout(
     return true
   }, [refs])
 
+  const applyWatchTabSetting = useCallback((api: DockviewApi, showOnEnable: boolean): boolean => {
+    if (!sessionIdRef.current) return false
+
+    const watchPanel = api.getPanel('watch')
+    if (!showWatchTabRef.current) {
+      if (!watchPanel) return false
+      hidePanel(api, 'watch', closedPanelSnapshots, refs)
+      return true
+    }
+
+    if (!showOnEnable || watchPanel) return false
+
+    const snapshot = closedPanelSnapshots.current.get('watch')
+    if (snapshot) {
+      showPanelFromSnapshot(api, 'watch', snapshot, closedPanelSnapshots, refs)
+    } else {
+      showPanelFromHints(api, 'watch', refs)
+    }
+    return true
+  }, [refs])
+
   const focusPanel = useCallback((id: string): void => {
     const panel = apiRef.current?.getPanel(id)
     if (panel && !panel.api.isActive) panel.api.setActive()
@@ -195,11 +229,17 @@ export function useDockLayout(
       const refId = findTopLeftWorkspaceReferencePanel(api) ?? 'agent'
       const referencePanel = api.getPanel(refId)
       if (!referencePanel) return
+      // Insert right after the reference panel so a freshly-created sibling
+      // lands next to its anchor (e.g. 'agent') instead of at the end of the
+      // tab strip. Avoids a visible flicker to the last tab when the panel
+      // didn't exist yet at click time.
+      const referenceIndex = referencePanel.group.panels.indexOf(referencePanel)
+      const insertIndex = referenceIndex >= 0 ? referenceIndex + 1 : undefined
       api.addPanel({
         id: panelId,
         component: 'agent',
         title: title ?? 'Agent',
-        position: { referencePanel, direction: 'within' },
+        position: { referencePanel, direction: 'within', index: insertIndex },
         inactive: false,
       })
       panel = api.getPanel(panelId)
@@ -216,14 +256,16 @@ export function useDockLayout(
         const ideasChanged = applyIdeasTabSetting(api, false)
         const loopChanged = applyLoopTabSetting(api, false)
         const verdictsChanged = applyVerdictsTabSetting(api, false)
+        const watchChanged = applyWatchTabSetting(api, false)
         syncPanels(api)
         sidebarWidthsRef.current = getSidebarWidths(api)
         if (ensureSearchPanelInWorkspace(api, editorPanelIdsRef.current)) {
           lastLayoutRef.current = api.toJSON()
           saveLayout()
         }
-        if (ideasChanged || loopChanged || verdictsChanged) saveLayout()
+        if (ideasChanged || loopChanged || verdictsChanged || watchChanged) saveLayout()
         bumpVersion()
+        bumpReloadVersion()
       })
     } else {
       applyMinimalLayout(api, buildMinimalLayout, refs)
@@ -272,7 +314,7 @@ export function useDockLayout(
       saveLayout()
       bumpVersion()
     })
-  }, [applyIdeasTabSetting, applyLoopTabSetting, applyVerdictsTabSetting, buildDefaultLayout, buildMinimalLayout, bumpVersion, saveLayout, syncPanels, liveSiblingIds])
+  }, [applyIdeasTabSetting, applyLoopTabSetting, applyVerdictsTabSetting, applyWatchTabSetting, buildDefaultLayout, buildMinimalLayout, bumpVersion, bumpReloadVersion, saveLayout, syncPanels, liveSiblingIds])
 
   const prevSessionRef = useRef(sessionId)
   useEffect(() => {
@@ -299,16 +341,18 @@ export function useDockLayout(
       const ideasChanged = applyIdeasTabSetting(api, false)
       const loopChanged = applyLoopTabSetting(api, false)
       const verdictsChanged = applyVerdictsTabSetting(api, false)
+      const watchChanged = applyWatchTabSetting(api, false)
       syncPanels(api)
       sidebarWidthsRef.current = getSidebarWidths(api)
       if (ensureSearchPanelInWorkspace(api, editorPanelIdsRef.current)) {
         lastLayoutRef.current = api.toJSON()
         saveLayout()
       }
-      if (ideasChanged || loopChanged || verdictsChanged) saveLayout()
+      if (ideasChanged || loopChanged || verdictsChanged || watchChanged) saveLayout()
       bumpVersion()
+      bumpReloadVersion()
     })
-  }, [sessionId, applyIdeasTabSetting, applyLoopTabSetting, applyVerdictsTabSetting, buildDefaultLayout, buildMinimalLayout, bumpVersion, saveLayout, syncPanels, liveSiblingIds])
+  }, [sessionId, applyIdeasTabSetting, applyLoopTabSetting, applyVerdictsTabSetting, applyWatchTabSetting, buildDefaultLayout, buildMinimalLayout, bumpVersion, bumpReloadVersion, saveLayout, syncPanels, liveSiblingIds])
 
   const previousShowIdeasTabRef = useRef(showIdeasTab)
   useEffect(() => {
@@ -372,6 +416,27 @@ export function useDockLayout(
     saveLayout()
     bumpVersion()
   }, [applyVerdictsTabSetting, bumpVersion, saveLayout, showVerdictsTab, syncPanels])
+
+  const previousShowWatchTabRef = useRef(showWatchTab)
+  useEffect(() => {
+    const previous = previousShowWatchTabRef.current
+    previousShowWatchTabRef.current = showWatchTab
+    if (previous === showWatchTab) return
+
+    const api = apiRef.current
+    if (!api || !sessionIdRef.current) return
+
+    const visibilityChanged = applyWatchTabSetting(api, showWatchTab)
+    if (!visibilityChanged) {
+      bumpVersion()
+      return
+    }
+
+    syncPanels(api)
+    lastLayoutRef.current = api.toJSON()
+    saveLayout()
+    bumpVersion()
+  }, [applyWatchTabSetting, bumpVersion, saveLayout, showWatchTab, syncPanels])
 
   const ensureEditorPanel = useCallback((preferredPanelId?: string | null): string => {
     const api = apiRef.current
@@ -564,6 +629,6 @@ export function useDockLayout(
     apiRef, onReady, togglePanel, closePanel, focusPanel,
     openSiblingPanel, closeSiblingPanel,
     ensureEditorPanel, splitEditorPane, findEditorPanelForSplit, isPanelVisible,
-    resetLayout, hiddenPanels, editorPanelIds, layoutVersion,
+    resetLayout, hiddenPanels, editorPanelIds, layoutVersion, layoutReloadVersion,
   }
 }
