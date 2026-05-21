@@ -25,6 +25,7 @@ import { siblingPanelId } from './agent-siblings'
 import type { AgentSession } from '../../shared/types'
 import { applyDefaultLayout, applyMinimalPanels, syncEditorPanelIds } from './dock-layout-builders'
 import { ensureSearchPanelInWorkspace } from './dock-layout-search'
+import { ensureEditorPanelInWorkspace } from './dock-layout-editor'
 
 export type { DockPanelId, EditorSplitDirection } from './dock-layout-helpers'
 export { isEditorPanelId } from './dock-layout-helpers'
@@ -253,6 +254,7 @@ export function useDockLayout(
     const sid = sessionIdRef.current
     if (sid) {
       void loadOrBuildLayout(api, sid, buildDefaultLayout, refs, liveSiblingIds()).then(() => {
+        const editorChanged = ensureEditorPanelInWorkspace(api)
         const ideasChanged = applyIdeasTabSetting(api, false)
         const loopChanged = applyLoopTabSetting(api, false)
         const verdictsChanged = applyVerdictsTabSetting(api, false)
@@ -263,7 +265,7 @@ export function useDockLayout(
           lastLayoutRef.current = api.toJSON()
           saveLayout()
         }
-        if (ideasChanged || loopChanged || verdictsChanged || watchChanged) saveLayout()
+        if (editorChanged || ideasChanged || loopChanged || verdictsChanged || watchChanged) saveLayout()
         bumpVersion()
         bumpReloadVersion()
       })
@@ -442,6 +444,12 @@ export function useDockLayout(
     const api = apiRef.current
     if (!api) return preferredPanelId ?? 'editor'
 
+    let layoutChanged = ensureEditorPanelInWorkspace(api)
+    if (layoutChanged) {
+      syncPanels(api)
+      sidebarWidthsRef.current = getSidebarWidths(api)
+    }
+
     const visibleEditorPanels = Array.from(editorPanelIdsRef.current).sort((left, right) => (
       parseEditorPanelOrder(left) - parseEditorPanelOrder(right)
     ))
@@ -451,12 +459,18 @@ export function useDockLayout(
       : visibleEditorPanels[0]
 
     if (existingPanelId) {
+      if (layoutChanged) {
+        lastLayoutRef.current = api.toJSON()
+        saveLayout()
+        bumpVersion()
+      }
       focusPanel(existingPanelId)
       return existingPanelId
     }
 
     showPanelFromHints(api, 'editor', refs)
     syncPanels(api)
+    layoutChanged = true
     saveLayout()
     bumpVersion()
     focusPanel('editor')

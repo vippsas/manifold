@@ -29,7 +29,7 @@ function createApi() {
 }
 
 describe('applyDefaultLayout', () => {
-  it('adds the default editor as a workspace tab beside the agent tabs', () => {
+  it('adds the default editor as its own split beside the agent panel', () => {
     const { api, addPanel } = createApi()
 
     applyDefaultLayout(api as never, { showIdeasTab: true, showLoopTab: true, showVerdictsTab: false, showWatchTab: true })
@@ -39,14 +39,14 @@ describe('applyDefaultLayout', () => {
       component: 'editor',
       title: 'Editor',
       inactive: true,
-      position: { referencePanel: 'agent', direction: 'within' },
+      position: { referencePanel: 'agent', direction: 'right' },
     })
     expect(addPanel).toHaveBeenNthCalledWith(4, {
       id: 'search',
       component: 'search',
       title: 'Search',
       inactive: true,
-      position: { referencePanel: 'agent', direction: 'within' },
+      position: { referencePanel: 'editor', direction: 'within' },
     })
     expect(addPanel).toHaveBeenNthCalledWith(5, {
       id: 'backgroundAgent',
@@ -67,7 +67,7 @@ describe('applyDefaultLayout', () => {
       component: 'editor',
       title: 'Editor',
       inactive: true,
-      position: { referencePanel: 'agent', direction: 'within' },
+      position: { referencePanel: 'agent', direction: 'right' },
     })
     expect(addPanel).not.toHaveBeenCalledWith(
       expect.objectContaining({ id: 'backgroundAgent' }),
