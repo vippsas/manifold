@@ -20,6 +20,8 @@ export const codexLauncher: OrchestratorLauncher = {
       codexHome,
       sharedBridgeScriptPath,
       ctx.coordinationPath,
+      ctx.superagentId,
+      ctx.mcpSocketPath,
     )
 
     // Carry over user auth so the shared superagent CODEX_HOME still signs in. If
@@ -58,6 +60,8 @@ function ensureSharedCodexConfig(
   codexHome: string,
   bridgeScriptPath: string,
   coordinationPath: string,
+  superagentId: string,
+  mcpSocketPath: string,
 ): void {
   const configPath = path.join(codexHome, 'config.toml')
   const userConfigPath = path.join(os.homedir(), '.codex', 'config.toml')
@@ -83,17 +87,23 @@ function ensureSharedCodexConfig(
     }
   }
 
-  const manifoldServerHeader = '[mcp_servers.manifold-orchestrator]'
-  if (!config.includes(manifoldServerHeader)) {
-    config = appendTomlBlock(
-      config,
-      [
-        manifoldServerHeader,
-        'command = "node"',
-        `args = ${JSON.stringify([bridgeScriptPath])}`,
-      ].join('\n'),
-    )
-  }
+  config = upsertTomlSection(
+    config,
+    '[mcp_servers.manifold-orchestrator]',
+    [
+      'command = "node"',
+      `args = ${JSON.stringify([bridgeScriptPath])}`,
+    ],
+  )
+
+  config = upsertTomlSection(
+    config,
+    '[mcp_servers.manifold-orchestrator.env]',
+    [
+      `MANIFOLD_SUPERAGENT_ID = ${JSON.stringify(superagentId)}`,
+      `MANIFOLD_MCP_SOCKET = ${JSON.stringify(mcpSocketPath)}`,
+    ],
+  )
 
   const projectTrustHeader = `[projects.${JSON.stringify(coordinationPath)}]`
   if (!config.includes(projectTrustHeader)) {
@@ -107,6 +117,69 @@ function ensureSharedCodexConfig(
   }
 
   fs.writeFileSync(configPath, ensureTrailingNewline(config))
+}
+
+function upsertTomlSection(config: string, header: string, bodyLines: string[]): string {
+  const lines = config.length > 0 ? config.split(/\r?\n/) : []
+  const sectionStarts = findSectionStarts(lines, header)
+
+  if (sectionStarts.length === 0) {
+    return appendTomlBlock(config, [header, ...bodyLines].join('\n'))
+  }
+
+  const keyPrefixes = bodyLines.map((bodyLine) => `${bodyLine.split(' = ', 1)[0] ?? ''} =`)
+  const preservedLines = sectionStarts
+    .flatMap((sectionStart) => {
+      const sectionEnd = findSectionEnd(lines, sectionStart)
+      return lines.slice(sectionStart + 1, sectionEnd)
+    })
+    .filter((line) => !keyPrefixes.some((keyPrefix) => line.startsWith(keyPrefix)))
+    .filter((line) => line.trim().length > 0)
+
+  const firstSectionStart = sectionStarts[0]
+  const nextLines = [
+    ...lines.slice(0, firstSectionStart),
+    header,
+    ...bodyLines,
+    ...preservedLines,
+    ...stripSections(lines.slice(firstSectionStart), sectionStarts.map((start) => start - firstSectionStart)),
+  ]
+
+  return nextLines.join('\n').replace(/\n{3,}/g, '\n\n')
+}
+
+function findSectionStarts(lines: string[], header: string): number[] {
+  const matches: number[] = []
+  lines.forEach((line, index) => {
+    if (line.trim() === header) matches.push(index)
+  })
+  return matches
+}
+
+function findSectionEnd(lines: string[], sectionStart: number): number {
+  for (let index = sectionStart + 1; index < lines.length; index += 1) {
+    const line = lines[index]?.trim() ?? ''
+    if (line.startsWith('[') && line.endsWith(']')) return index
+  }
+
+  return lines.length
+}
+
+function stripSections(lines: string[], relativeSectionStarts: number[]): string[] {
+  const sectionStarts = new Set(relativeSectionStarts)
+  const output: string[] = []
+
+  for (let index = 0; index < lines.length; ) {
+    if (!sectionStarts.has(index)) {
+      output.push(lines[index] ?? '')
+      index += 1
+      continue
+    }
+
+    index = findSectionEnd(lines, index)
+  }
+
+  return output
 }
 
 function listLegacySuperagentConfigPaths(superagentsRoot: string): string[] {
