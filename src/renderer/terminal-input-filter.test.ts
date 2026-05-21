@@ -48,18 +48,18 @@ describe('filterTerminalResponses', () => {
     expect(filterTerminalResponses('\x1b]11;rgb:ffff/ffff/ffff\x07')).toBeNull()
   })
 
-  // --- Strip: Cursor Position Reports ---
+  // --- Pass-through: Cursor Position Reports ---
 
-  it('strips simple CPR', () => {
-    expect(filterTerminalResponses('\x1b[1;1R')).toBeNull()
+  it('passes through simple CPR', () => {
+    expect(filterTerminalResponses('\x1b[1;1R')).toBe('\x1b[1;1R')
   })
 
-  it('strips multi-digit CPR', () => {
-    expect(filterTerminalResponses('\x1b[24;80R')).toBeNull()
+  it('passes through multi-digit CPR', () => {
+    expect(filterTerminalResponses('\x1b[24;80R')).toBe('\x1b[24;80R')
   })
 
-  it('strips CPR like the one seen in the bug', () => {
-    expect(filterTerminalResponses('\x1b[2;1R')).toBeNull()
+  it('passes through CPR like the one seen in the gh auth prompt', () => {
+    expect(filterTerminalResponses('\x1b[2;1R')).toBe('\x1b[2;1R')
   })
 
   // --- Strip: Focus events ---
@@ -76,16 +76,16 @@ describe('filterTerminalResponses', () => {
 
   it('strips responses but keeps user input', () => {
     const data = '\x1b[I' + 'ls -la' + '\x1b[2;1R'
-    expect(filterTerminalResponses(data)).toBe('ls -la')
+    expect(filterTerminalResponses(data)).toBe('ls -la\x1b[2;1R')
   })
 
   it('strips multiple response types in one string', () => {
     const data = '\x1b]11;rgb:0c0c/1010/2121\x1b\\\x1b[2;1R\x1b[I'
-    expect(filterTerminalResponses(data)).toBeNull()
+    expect(filterTerminalResponses(data)).toBe('\x1b[2;1R')
   })
 
   it('returns null when all data is responses', () => {
-    const data = '\x1b[I\x1b[O\x1b[1;1R'
+    const data = '\x1b[I\x1b[O'
     expect(filterTerminalResponses(data)).toBeNull()
   })
 
