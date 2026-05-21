@@ -1,0 +1,5 @@
+blank_issues_enabled: true
+contact_links:
+  - name: General discussion
+    url: https://github.com/svenmalvik/manifold/discussions
+    about: Use Discussions for open-ended ideas or questions that are not actionable issues.
