@@ -56,15 +56,17 @@ describe('detectWatchSetup', () => {
 
   it('caches results within cacheMs window', () => {
     const which = vi.fn(() => true)
-    detectWatchSetup({ cacheMs: 10_000, which })
-    detectWatchSetup({ cacheMs: 10_000, which })
+    const hasBundled = () => false
+    detectWatchSetup({ cacheMs: 10_000, which, hasBundled })
+    detectWatchSetup({ cacheMs: 10_000, which, hasBundled })
     expect(which.mock.calls.length).toBe(3)
   })
 
   it('skips cache when cacheMs is 0', () => {
     const which = vi.fn(() => true)
-    detectWatchSetup({ cacheMs: 0, which })
-    detectWatchSetup({ cacheMs: 0, which })
+    const hasBundled = () => false
+    detectWatchSetup({ cacheMs: 0, which, hasBundled })
+    detectWatchSetup({ cacheMs: 0, which, hasBundled })
     expect(which.mock.calls.length).toBe(6)
   })
 })
