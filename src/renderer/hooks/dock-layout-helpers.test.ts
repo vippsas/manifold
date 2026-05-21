@@ -384,7 +384,7 @@ describe('applyLayoutChangePreservingSidebarWidths', () => {
 })
 
 describe('showPanelFromHints', () => {
-  it('restores the editor into the existing agent tab group', () => {
+  it('restores the editor beside the existing agent panel', () => {
     const agentPanel = { id: 'agent' }
     const addPanel = vi.fn()
     const api = {
@@ -399,11 +399,11 @@ describe('showPanelFromHints', () => {
       id: 'editor',
       component: 'editor',
       title: 'Editor',
-      position: { referencePanel: agentPanel, direction: 'within' },
+      position: { referencePanel: agentPanel, direction: 'right' },
     })
   })
 
-  it('restores the agent into the existing editor tab group', () => {
+  it('restores the agent beside the existing editor panel', () => {
     const editorPanel = { id: 'editor' }
     const addPanel = vi.fn()
     const api = {
@@ -418,7 +418,7 @@ describe('showPanelFromHints', () => {
       id: 'agent',
       component: 'agent',
       title: 'Agent',
-      position: { referencePanel: editorPanel, direction: 'within' },
+      position: { referencePanel: editorPanel, direction: 'left' },
     })
   })
 })
