@@ -63,6 +63,9 @@ describe('codexLauncher', () => {
     expect(config).toContain('model = "gpt-5.4"')
     expect(config).toContain('[mcp_servers.manifold-orchestrator]')
     expect(config).toContain(`args = ${JSON.stringify([path.join(sharedCodexHome, 'mcp-bridge.js')])}`)
+    expect(config).toContain('[mcp_servers.manifold-orchestrator.env]')
+    expect(config).toContain('MANIFOLD_SUPERAGENT_ID = "sid-1"')
+    expect(config).toContain('MANIFOLD_MCP_SOCKET = "/tmp/manifold.sock"')
     expect(config).toContain(`[projects.${JSON.stringify(coordinationPath)}]`)
     expect(config).toContain('trust_level = "trusted"')
     expect(fs.readFileSync(path.join(sharedCodexHome, 'auth.json'), 'utf-8')).toBe('{"token":"abc"}')
@@ -118,7 +121,16 @@ describe('codexLauncher', () => {
     const sharedConfigPath = path.join(tmp, 'superagents', '.codex-home', 'config.toml')
     fs.appendFileSync(
       sharedConfigPath,
-      '\n[mcp_servers.manifold-orchestrator.tools.spawn_agent]\napproval_mode = "approve"\n',
+      [
+        '',
+        '[mcp_servers.manifold-orchestrator.env]',
+        'MANIFOLD_SUPERAGENT_ID = "stale-superagent"',
+        'MANIFOLD_MCP_SOCKET = "/tmp/stale.sock"',
+        '',
+        '[mcp_servers.manifold-orchestrator.tools.spawn_agent]',
+        'approval_mode = "approve"',
+        '',
+      ].join('\n'),
     )
 
     const secondCoordinationPath = path.join(tmp, 'superagents', 'sid-2')
@@ -138,7 +150,12 @@ describe('codexLauncher', () => {
     const sharedConfig = fs.readFileSync(sharedConfigPath, 'utf-8')
     expect(spec.env.CODEX_HOME).toBe(path.join(tmp, 'superagents', '.codex-home'))
     expect(countMatches(sharedConfig, /^\[mcp_servers\.manifold-orchestrator\]$/gm)).toBe(1)
+    expect(countMatches(sharedConfig, /^\[mcp_servers\.manifold-orchestrator\.env\]$/gm)).toBe(1)
     expect(countMatches(sharedConfig, /^\[mcp_servers\.manifold-orchestrator\.tools\.spawn_agent\]$/gm)).toBe(1)
+    expect(sharedConfig).toContain('MANIFOLD_SUPERAGENT_ID = "sid-2"')
+    expect(sharedConfig).toContain('MANIFOLD_MCP_SOCKET = "/tmp/manifold.sock"')
+    expect(sharedConfig).not.toContain('stale-superagent')
+    expect(sharedConfig).not.toContain('/tmp/stale.sock')
     expect(sharedConfig).toContain(`[projects.${JSON.stringify(secondCoordinationPath)}]`)
   })
 })
