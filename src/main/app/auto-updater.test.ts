@@ -7,9 +7,11 @@ const mocks = vi.hoisted(() => {
   const mockCheckForUpdatesAndNotify = vi.fn()
   const mockReadFileSync = vi.fn()
   const mockWriteFileSync = vi.fn()
+  const mockOpenExternal = vi.fn()
   const debugLog = vi.fn()
   const mockApp = {
     isPackaged: true,
+    getVersion: vi.fn(() => '0.2.17'),
   }
   const autoUpdater = {
     autoDownload: false,
@@ -27,6 +29,7 @@ const mocks = vi.hoisted(() => {
     mockCheckForUpdatesAndNotify,
     mockReadFileSync,
     mockWriteFileSync,
+    mockOpenExternal,
     debugLog,
     mockApp,
     autoUpdater,
@@ -37,6 +40,9 @@ vi.mock('electron', () => ({
   app: mocks.mockApp,
   BrowserWindow: {
     getAllWindows: mocks.mockGetAllWindows,
+  },
+  shell: {
+    openExternal: mocks.mockOpenExternal,
   },
 }))
 
@@ -89,6 +95,7 @@ describe('setupAutoUpdater', () => {
     vi.resetModules()
     vi.clearAllMocks()
     vi.useFakeTimers()
+    vi.unstubAllGlobals()
     mocks.updaterHandlers.clear()
     mocks.mockGetAllWindows.mockReturnValue([])
     mocks.mockCheckForUpdatesAndNotify.mockResolvedValue(undefined)
@@ -221,6 +228,54 @@ describe('setupAutoUpdater', () => {
       '/tmp/manifold-debug.log',
       '2026-04-18T15:13:07.000Z [renderer] process gone: reason=crashed exitCode=1\n',
       'utf8',
+    )
+  })
+
+  it('loads release notes for the current version from GitHub', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({
+        tag_name: 'v0.2.17',
+        name: 'Manifold v0.2.17',
+        body: '## Summary\n- Improved updates',
+        html_url: 'https://github.com/vippsas/manifold/releases/tag/v0.2.17',
+        published_at: '2026-05-20T12:00:00.000Z',
+      }),
+    }))
+
+    const { getReleaseNotes } = await import('./auto-updater')
+
+    await expect(getReleaseNotes()).resolves.toEqual({
+      version: '0.2.17',
+      name: 'Manifold v0.2.17',
+      body: '## Summary\n- Improved updates',
+      url: 'https://github.com/vippsas/manifold/releases/tag/v0.2.17',
+      publishedAt: '2026-05-20T12:00:00.000Z',
+      source: 'github',
+    })
+  })
+
+  it('returns a fallback release note when GitHub is unavailable', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({
+      ok: false,
+      status: 404,
+    }))
+
+    const { getReleaseNotes } = await import('./auto-updater')
+    const notes = await getReleaseNotes('0.2.99')
+
+    expect(notes.source).toBe('fallback')
+    expect(notes.version).toBe('0.2.99')
+    expect(notes.url).toContain('/releases/tag/v0.2.99')
+  })
+
+  it('opens the current release notes on GitHub', async () => {
+    const { openReleaseNotesExternal } = await import('./auto-updater')
+
+    await openReleaseNotesExternal()
+
+    expect(mocks.mockOpenExternal).toHaveBeenCalledWith(
+      'https://github.com/vippsas/manifold/releases/tag/v0.2.17',
     )
   })
 })

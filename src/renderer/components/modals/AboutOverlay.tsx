@@ -5,9 +5,10 @@ interface AboutOverlayProps {
   visible: boolean
   version: string
   onClose: () => void
+  onViewReleaseNotes: () => void
 }
 
-export function AboutOverlay({ visible, version, onClose }: AboutOverlayProps): React.JSX.Element | null {
+export function AboutOverlay({ visible, version, onClose, onViewReleaseNotes }: AboutOverlayProps): React.JSX.Element | null {
   const overlayRef = useRef<HTMLDivElement>(null)
 
   const handleOverlayClick = useCallback(
@@ -48,6 +49,7 @@ export function AboutOverlay({ visible, version, onClose }: AboutOverlayProps): 
           <span style={aboutStyles.origin}>Norway &middot; 2026</span>
         </div>
         <div style={aboutStyles.footer}>
+          <button type="button" onClick={onViewReleaseNotes} style={aboutStyles.releaseNotesButton}>View Release Notes</button>
           <button type="button" onClick={onClose} style={aboutStyles.closeFooterButton}>Close</button>
         </div>
       </div>

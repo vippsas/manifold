@@ -3,6 +3,7 @@ import type { ManifoldSettings } from './types'
 export const DEFAULT_SETTINGS: ManifoldSettings = {
   storagePath: '',
   setupCompleted: false,
+  lastSeenReleaseNotesVersion: '',
   defaultRuntime: 'claude',
   showIdeasTab: false,
   showLoopTab: false,

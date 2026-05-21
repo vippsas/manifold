@@ -16,8 +16,12 @@ export function buildAppMenu(mainWindow: BrowserWindow, options: AppMenuOptions)
         },
         { type: 'separator' },
         {
-          label: 'Update',
+          label: "What's New",
           click: () => mainWindow?.webContents.send('show-update-log'),
+        },
+        {
+          label: 'Check for Updates...',
+          click: () => mainWindow?.webContents.send('show-update-check'),
         },
         {
           label: 'Settings…',

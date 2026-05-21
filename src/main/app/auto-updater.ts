@@ -1,17 +1,21 @@
-import { app, BrowserWindow } from 'electron'
+import { app, BrowserWindow, shell } from 'electron'
 import { readFileSync, writeFileSync } from 'node:fs'
 import { autoUpdater } from 'electron-updater'
 import { DEBUG_LOG, debugLog } from './debug-log'
+import type { ReleaseNotes } from '../../shared/types'
 
 const HOURLY_UPDATE_CHECK_MS = 60 * 60 * 1000
 const RETRY_UPDATE_CHECK_DELAYS_MS = [5_000, 15_000, 60_000] as const
 const UPDATE_LOG_LINE_LIMIT = 80
 const FORCE_DEV_UPDATES = process.env.MANIFOLD_FORCE_DEV_UPDATES === '1'
+const RELEASE_NOTES_API_BASE = 'https://api.github.com/repos/vippsas/manifold/releases'
+const RELEASE_NOTES_WEB_BASE = 'https://github.com/vippsas/manifold/releases'
 
 let updaterInitialized = false
 let updateCheckInFlight = false
 let updateRetryAttempt = 0
 let pendingUpdateRetryTimer: ReturnType<typeof setTimeout> | null = null
+const releaseNotesCache = new Map<string, ReleaseNotes>()
 
 function shouldRunAutoUpdater(): boolean {
   return app.isPackaged || FORCE_DEV_UPDATES
@@ -97,6 +101,76 @@ export function clearUpdateLog(): void {
     if ((error as NodeJS.ErrnoException | undefined)?.code === 'ENOENT') return
     throw error
   }
+}
+
+function normalizeVersion(version: string): string {
+  return version.replace(/^v/i, '')
+}
+
+function buildReleaseNotesUrl(version: string): string {
+  return `${RELEASE_NOTES_WEB_BASE}/tag/v${normalizeVersion(version)}`
+}
+
+function buildFallbackReleaseNotes(version: string, message?: string): ReleaseNotes {
+  const normalizedVersion = normalizeVersion(version)
+  const details = message ? `\n\n${message}` : ''
+  return {
+    version: normalizedVersion,
+    name: `Manifold v${normalizedVersion}`,
+    body: `# Manifold v${normalizedVersion}\n\nRelease notes are not available in-app right now.${details}\n\nUse **Open on GitHub** for the full release page.`,
+    url: buildReleaseNotesUrl(normalizedVersion),
+    publishedAt: null,
+    source: 'fallback',
+  }
+}
+
+export async function getReleaseNotes(version = app.getVersion()): Promise<ReleaseNotes> {
+  const normalizedVersion = normalizeVersion(version)
+  const cached = releaseNotesCache.get(normalizedVersion)
+  if (cached) return cached
+
+  try {
+    const response = await fetch(`${RELEASE_NOTES_API_BASE}/tags/v${normalizedVersion}`, {
+      headers: {
+        Accept: 'application/vnd.github+json',
+        'User-Agent': 'Manifold Desktop',
+      },
+    })
+
+    if (!response.ok) {
+      const fallback = buildFallbackReleaseNotes(normalizedVersion, `GitHub returned ${response.status}.`)
+      releaseNotesCache.set(normalizedVersion, fallback)
+      return fallback
+    }
+
+    const payload = await response.json() as {
+      tag_name?: string
+      name?: string
+      body?: string
+      html_url?: string
+      published_at?: string
+    }
+
+    const notes: ReleaseNotes = {
+      version: normalizeVersion(payload.tag_name ?? normalizedVersion),
+      name: payload.name?.trim() || `Manifold v${normalizedVersion}`,
+      body: payload.body?.trim() || `# Manifold v${normalizedVersion}\n\nNo release notes were provided for this version yet.`,
+      url: payload.html_url || buildReleaseNotesUrl(normalizedVersion),
+      publishedAt: payload.published_at ?? null,
+      source: 'github',
+    }
+    releaseNotesCache.set(normalizedVersion, notes)
+    return notes
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error)
+    const fallback = buildFallbackReleaseNotes(normalizedVersion, `Failed to load release notes: ${message}`)
+    releaseNotesCache.set(normalizedVersion, fallback)
+    return fallback
+  }
+}
+
+export async function openReleaseNotesExternal(version = app.getVersion()): Promise<void> {
+  await shell.openExternal(buildReleaseNotesUrl(version))
 }
 
 export async function checkForUpdates(reason: 'startup' | 'scheduled' | 'manual' | 'retry' = 'manual'): Promise<void> {
