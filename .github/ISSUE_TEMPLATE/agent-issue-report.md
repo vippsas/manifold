@@ -1,0 +1,88 @@
+---
+name: Agent issue report
+about: For Codex, Claude, or other agents to log a bug, regression, UX issue, or follow-up work item.
+title: "[agent] "
+labels: ["agent-reported"]
+assignees: []
+---
+
+## Summary
+
+<!-- One short paragraph. State the issue, impact, and where it shows up. -->
+
+## Issue Type
+
+- [ ] Bug
+- [ ] Regression
+- [ ] UX issue
+- [ ] Reliability issue
+- [ ] Performance issue
+- [ ] Documentation gap
+- [ ] Follow-up work
+
+## Priority
+
+- [ ] P0 - blocks core workflow
+- [ ] P1 - severe but workaround exists
+- [ ] P2 - important but non-blocking
+- [ ] P3 - minor or polish
+
+## Agent Context
+
+- Agent: <!-- Codex / Claude / Gemini / other -->
+- Runtime / model: <!-- e.g. codex CLI, Claude Code, model if known -->
+- Task or prompt being executed:
+- Session ID / run link:
+- Worktree path:
+- Branch:
+- Commit SHA:
+
+## Area
+
+<!-- UI surface, feature area, file path, or subsystem -->
+
+## Expected Behavior
+
+<!-- What should have happened -->
+
+## Actual Behavior
+
+<!-- What happened instead -->
+
+## Steps to Reproduce
+
+1. 
+2. 
+3. 
+
+## Evidence
+
+### Screenshots or Screen Recording
+
+<!-- Upload screenshots directly to the issue and embed or list them here -->
+
+![Screenshot](upload-screenshot-here)
+
+### Logs, Output, or Error Text
+
+```text
+Paste relevant logs, terminal output, stack traces, or IPC errors here.
+```
+
+## Frequency
+
+- [ ] Happened once
+- [ ] Intermittent
+- [ ] Reproducible every time
+
+## Suspected Cause
+
+<!-- Optional. Keep this factual and tied to evidence. -->
+
+## Suggested Next Step
+
+<!-- Optional. Describe the smallest useful follow-up action. -->
+
+## Validation After Fix
+
+<!-- What should be retested once addressed -->
