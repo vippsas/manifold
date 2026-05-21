@@ -115,6 +115,35 @@ describe('SessionIoController post-interrupt drain', () => {
     expect(writes).toEqual([{ ptyId: 'pty-1', data: 'hello\r' }])
   })
 
+  it('bypasses shell prompt helpers while an interactive program owns the terminal', () => {
+    const handleInput = vi.fn(() => true)
+    shellController = {
+      handleInput,
+    } as unknown as ShellSessionController
+    controller = new SessionIoController({
+      sessions,
+      ptyPool,
+      shellController,
+      getMemoryCapture: () => null,
+      spawnPrintModeFollowUp: () => {},
+      trackActivity: () => {},
+    })
+
+    const session = makeSession({
+      outputBuffer: 'Authenticate Git with your GitHub credentials? (Y/n) ',
+    })
+    sessions.set(session.id, session)
+
+    controller.sendInput(session.id, 'y')
+    controller.sendInput(session.id, '\r')
+
+    expect(handleInput).not.toHaveBeenCalled()
+    expect(writes).toEqual([
+      { ptyId: 'pty-1', data: 'y' },
+      { ptyId: 'pty-1', data: '\r' },
+    ])
+  })
+
   it('cleans up pending drain timer when killAllSessions is called', () => {
     const session = makeSession()
     sessions.set(session.id, session)
