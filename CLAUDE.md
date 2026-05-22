@@ -1,105 +1,65 @@
 # CLAUDE.md
 
-This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
+Behavioral guidelines to reduce common LLM coding mistakes. Merge with project-specific instructions as needed.
 
-## What is Manifold?
+**Tradeoff:** These guidelines bias toward caution over speed. For trivial tasks, use judgment.
 
-Manifold is an Electron desktop app that orchestrates multiple CLI coding agents (Claude Code, Codex, Gemini CLI) working in parallel on the same project. Each agent runs in its own git worktree so agents can work on isolated branches simultaneously without conflicts.
+## 1. Think Before Coding
 
-## Commands
+**Don't assume. Don't hide confusion. Surface tradeoffs.**
 
-```bash
-npm run dev          # Start Electron in dev mode (hot reload via electron-vite)
-npm run build        # Production build
-npm run dist         # Build + package macOS DMG
-npm run typecheck    # Full typecheck (delegates to tsconfig.node.json + tsconfig.web.json via project references)
-npm test             # Run all tests (vitest)
-npm run test:watch   # Watch mode
-npx vitest run src/main/pty-pool.test.ts  # Run a single test file
-npm run typecheck && npm test             # Must pass before reporting any task complete
+Before implementing:
+- State your assumptions explicitly. If uncertain, ask.
+- If multiple interpretations exist, present them - don't pick silently.
+- If a simpler approach exists, say so. Push back when warranted.
+- If something is unclear, stop. Name what's confusing. Ask.
+
+## 2. Simplicity First
+
+**Minimum code that solves the problem. Nothing speculative.**
+
+- No features beyond what was asked.
+- No abstractions for single-use code.
+- No "flexibility" or "configurability" that wasn't requested.
+- No error handling for impossible scenarios.
+- If you write 200 lines and it could be 50, rewrite it.
+
+Ask yourself: "Would a senior engineer say this is overcomplicated?" If yes, simplify.
+
+## 3. Surgical Changes
+
+**Touch only what you must. Clean up only your own mess.**
+
+When editing existing code:
+- Don't "improve" adjacent code, comments, or formatting.
+- Don't refactor things that aren't broken.
+- Match existing style, even if you'd do it differently.
+- If you notice unrelated dead code, mention it - don't delete it.
+
+When your changes create orphans:
+- Remove imports/variables/functions that YOUR changes made unused.
+- Don't remove pre-existing dead code unless asked.
+
+The test: Every changed line should trace directly to the user's request.
+
+## 4. Goal-Driven Execution
+
+**Define success criteria. Loop until verified.**
+
+Transform tasks into verifiable goals:
+- "Add validation" → "Write tests for invalid inputs, then make them pass"
+- "Fix the bug" → "Write a test that reproduces it, then make it pass"
+- "Refactor X" → "Ensure tests pass before and after"
+
+For multi-step tasks, state a brief plan:
+```
+1. [Step] → verify: [check]
+2. [Step] → verify: [check]
+3. [Step] → verify: [check]
 ```
 
-## Worktree Git Health
-- This project uses git worktrees heavily. Worktree index corruption is a known recurring issue.
-- Before committing in a worktree, run `git status` first — if it errors, follow the git recovery playbook in the global CLAUDE.md rather than retrying.
-- When running `git` commands in agent worktree paths (`~/.manifold/worktrees/`), always verify you're operating on the intended worktree, not the main repo.
+Strong success criteria let you loop independently. Weak criteria ("make it work") require constant clarification.
 
-## Architecture
+---
 
-### Process Boundary (Electron)
-
-The app follows the standard Electron three-process model with strict context isolation:
-
-- **Main process** (`src/main/`) — Node.js runtime. Owns all system resources: PTY processes, git worktrees, file system, settings. All business logic lives here.
-- **Preload** (`src/preload/index.ts`) — Bridge layer. Exposes a whitelist of IPC channels via `contextBridge`. Three channel types: invoke (request/response), send (renderer→main fire-and-forget), and listen (main→renderer push).
-- **Renderer** (`src/renderer/`) — React UI. No direct Node.js access. Communicates exclusively through `window.electronAPI.invoke()`, `window.electronAPI.send()`, and `window.electronAPI.on()`.
-
-### Main Process Modules
-
-All instantiated in `src/main/index.ts` and wired together via dependency injection into `registerIpcHandlers()`:
-
-| Module | Responsibility |
-|---|---|
-| `SessionManager` | Lifecycle of agent sessions — create, resume, kill, discover dormant worktrees. Owns the `Map<string, InternalSession>`. |
-| `WorktreeManager` | Creates/removes git worktrees. Uses a configurable `storagePath` (default `~/.manifold/worktrees/<projectName>/`). |
-| `PtyPool` | Spawns and manages PTY processes via `node-pty`. Provides data/exit event subscriptions per PTY. |
-| `ProjectRegistry` | CRUD for registered projects (stored in `~/.manifold/projects.json`). |
-| `SettingsStore` | Reads/writes `~/.manifold/config.json`. Resolves defaults at load time (empty `storagePath` → `~/.manifold`). |
-| `StatusDetector` | Pattern-matches agent PTY output to detect `running`/`waiting`/`done`/`error` status. |
-| `DiffProvider` | Git diff between worktree branch and project base branch. |
-| `FileWatcher` | Watches worktree directories via chokidar, pushes `files:changed` events to renderer. Also polls `git status` for conflict detection (`agent:conflicts`). |
-| `GitOperationsManager` | Commit, AI-generated commit messages, ahead/behind counts, conflict resolution, PR context extraction. |
-| `PrCreator` | Creates GitHub PRs via `gh` CLI for agent worktree branches. |
-| `ShellTabStore` | Persists user's shell tab layout per worktree path across app restarts (stored in `~/.manifold/shell-tabs.json`). |
-| `ViewStateStore` | Persists per-session UI state (open files, active tab, code view mode) across restarts. |
-| `BranchNamer` | AI-generated branch name suggestions from task descriptions (calls Claude API via CLI). |
-| `Runtimes` | Discovers available agent CLIs on the system (`listRuntimes`, `getRuntimeById`). |
-
-### Data Flow
-
-1. User clicks "New Agent" → renderer invokes `agent:spawn` IPC
-2. `SessionManager.createSession()` → `WorktreeManager.createWorktree()` → `PtyPool.spawn()` → writes initial prompt to PTY stdin
-3. PTY output streams back via `agent:output` push channel → rendered in xterm.js terminal
-4. `StatusDetector` pattern-matches output to update agent status → pushed via `agent:status`
-
-### Renderer Structure
-
-- **`App.tsx`** — Root component. Composes all hooks and passes props down. No context providers; pure props drilling.
-- **Hooks** (`src/renderer/hooks/`) — All state management. Each hook handles one domain (projects, sessions, settings, terminal, git, etc.).
-- **Components** (`src/renderer/components/`) — Presentational. `MainPanes` handles the four-pane resizable layout (agent terminal | code viewer | file tree | shell terminal).
-- **Styles** — Component styles are co-located in `*.styles.ts` files exporting plain objects (not CSS modules).
-
-### IPC Channel Convention
-
-- Invoke (request/response): `domain:action` — e.g., `agent:spawn`, `files:read`, `settings:get`
-- Send (renderer→main, fire-and-forget): `domain:event` — e.g., `theme:changed`
-- Listen (main→renderer push): `domain:event` — e.g., `agent:output`, `agent:status`, `files:changed`
-
-Adding a new IPC channel requires updating three places: `ipc-handlers.ts` (handler), `preload/index.ts` (whitelist), and the renderer hook that calls it.
-
-**Checklist for new IPC channels:**
-1. `src/main/ipc-handlers.ts` — add handler
-2. `src/preload/index.ts` — add to whitelist
-3. Renderer hook — add invoke/send/on call
-4. `src/shared/` — add types if needed
-
-Forgetting any step causes silent failures that are hard to debug.
-
-### TypeScript Configuration
-
-Two tsconfig project references via root `tsconfig.json`:
-- `tsconfig.node.json` — covers `src/main/`, `src/preload/`, `src/shared/`, and `electron.vite.config.ts`
-- `tsconfig.web.json` — covers `src/renderer/` and `src/shared/`
-
-Both target ES2022 with strict mode. The `npm run typecheck` command checks both via project references. To check a single side: `npm run typecheck:node` or `npm run typecheck:web`.
-
-### Key Conventions
-
-- Agent worktree branches are always prefixed with `manifold/` (e.g., `manifold/oslo`). `WorktreeManager.listWorktrees()` filters on this prefix.
-- Settings config lives at `~/.manifold/config.json`. Agent worktrees stored under the user-configurable `storagePath` (defaults to `~/.manifold/`).
-- `src/shared/` contains types and defaults imported by both main and renderer. Must stay free of Node.js-specific imports (resolved at runtime in main process only).
-- Tests are co-located with source files (`*.test.ts` / `*.test.tsx`).
-- Path aliases `@shared`, `@main`, `@renderer` are available in vitest (defined in `vitest.config.ts`). Not available in the Electron build itself — use relative imports in production code.
-- The `preload/index.ts` `on()` method returns an unsubscribe function — renderer hooks must call it in effect cleanup to avoid EventEmitter memory leaks.
-- On macOS, the main process resolves the user's shell `PATH` at startup (`loadShellPath()`) and appends common binary directories (`~/.local/bin`, `/opt/homebrew/bin`, etc.) to ensure spawned agent CLIs are discoverable.
-- Debug logs are written to `~/.manifold/debug.log`.
+**These guidelines are working if:** fewer unnecessary changes in diffs, fewer rewrites due to overcomplication, and clarifying questions come before implementation rather than after mistakes.
