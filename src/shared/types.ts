@@ -76,6 +76,7 @@ export type DensitySetting = 'compact' | 'comfortable' | 'spacious'
 export interface ManifoldSettings {
   storagePath: string
   setupCompleted: boolean
+  lastSeenReleaseNotesVersion: string
   defaultRuntime: string
   showIdeasTab: boolean
   showLoopTab: boolean
@@ -96,6 +97,15 @@ export interface ManifoldSettings {
   search?: SearchSettings
   provisioning?: import('./provisioning-types').ProvisioningSettings
   transcription?: import('./watch-types').AiServiceSettings
+}
+
+export interface ReleaseNotes {
+  version: string
+  name: string
+  body: string
+  url: string
+  publishedAt: string | null
+  source: 'github' | 'fallback'
 }
 
 export interface SearchAiSettings {

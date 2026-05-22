@@ -579,9 +579,17 @@ export function App(): React.JSX.Element {
       />
       <SettingsModal visible={overlays.showSettings} settings={settings} onSave={overlays.handleSaveSettings}
         onClose={() => overlays.setShowSettings(false)} onPreviewTheme={setPreviewThemeId} />
-      <AboutOverlay visible={overlays.showAbout} version={overlays.appVersion} onClose={() => overlays.setShowAbout(false)} />
+      <AboutOverlay
+        visible={overlays.showAbout}
+        version={overlays.appVersion}
+        onClose={() => overlays.setShowAbout(false)}
+        onViewReleaseNotes={updateLog.openReleaseNotes}
+      />
       <UpdateLogOverlay
         visible={updateLog.visible}
+        activeTab={updateLog.activeTab}
+        currentVersion={updateLog.currentVersion}
+        releaseNotes={updateLog.releaseNotes}
         log={updateLog.log}
         loading={updateLog.loading}
         error={updateLog.error}
@@ -589,6 +597,8 @@ export function App(): React.JSX.Element {
         onRefresh={() => { void updateLog.refresh() }}
         onClean={() => { void updateLog.clear() }}
         onCheckForUpdates={() => { void updateLog.checkForUpdates() }}
+        onOpenExternal={() => { void updateLog.openReleaseNotesExternal() }}
+        onSelectTab={updateLog.setActiveTab}
       />
       <NewSuperagentModal
         visible={newSuperagentVisible}
@@ -622,7 +632,12 @@ export function App(): React.JSX.Element {
         }}
       />
       {updateNotification.updateReady && (
-        <UpdateToast version={updateNotification.version} onRestart={updateNotification.install} onDismiss={updateNotification.dismiss} />
+        <UpdateToast
+          version={updateNotification.version}
+          onRestart={updateNotification.install}
+          onDismiss={updateNotification.dismiss}
+          onViewReleaseNotes={updateLog.openReleaseNotes}
+        />
       )}
       {appEffects.showOnboarding && (
         <div style={{ position: 'absolute', inset: 0, zIndex: 100, background: 'var(--bg-primary)' }}>

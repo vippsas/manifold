@@ -41,8 +41,19 @@ const styles: Record<string, React.CSSProperties> = {
   },
   footer: {
     display: 'flex',
+    gap: '8px',
     justifyContent: 'flex-end',
     padding: '0 12px 10px 12px',
+  },
+  notesButton: {
+    fontSize: '12px',
+    fontWeight: 500,
+    padding: '5px 14px',
+    borderRadius: '4px',
+    background: 'var(--control-bg)',
+    color: 'var(--text-primary)',
+    border: '1px solid var(--control-border)',
+    cursor: 'pointer',
   },
   restartButton: {
     fontSize: '12px',
@@ -59,9 +70,10 @@ interface UpdateToastProps {
   version: string | null
   onRestart: () => void
   onDismiss: () => void
+  onViewReleaseNotes: () => void
 }
 
-export function UpdateToast({ version, onRestart, onDismiss }: UpdateToastProps): React.JSX.Element {
+export function UpdateToast({ version, onRestart, onDismiss, onViewReleaseNotes }: UpdateToastProps): React.JSX.Element {
   return (
     <div style={styles.container} role="alert">
       <div style={styles.header}>
@@ -74,6 +86,9 @@ export function UpdateToast({ version, onRestart, onDismiss }: UpdateToastProps)
         Manifold v{version ?? 'latest'} is ready. Restart to update.
       </div>
       <div style={styles.footer}>
+        <button onClick={onViewReleaseNotes} style={styles.notesButton}>
+          What Changed?
+        </button>
         <button onClick={onRestart} style={styles.restartButton}>
           Restart
         </button>

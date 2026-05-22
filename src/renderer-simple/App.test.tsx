@@ -65,6 +65,26 @@ vi.mock('../shared/useUpdateNotification', () => ({
   }),
 }))
 
+vi.mock('../shared/useUpdateLog', () => ({
+  useUpdateLog: () => ({
+    visible: false,
+    activeTab: 'releaseNotes',
+    currentVersion: '0.2.17',
+    releaseNotes: null,
+    log: '',
+    loading: false,
+    error: null,
+    close: vi.fn(),
+    refresh: vi.fn(),
+    clear: vi.fn(),
+    checkForUpdates: vi.fn(),
+    openReleaseNotes: vi.fn(),
+    openDiagnostics: vi.fn(),
+    openReleaseNotesExternal: vi.fn(),
+    setActiveTab: vi.fn(),
+  }),
+}))
+
 vi.mock('../shared/UpdateToast', () => ({
   UpdateToast: () => null,
 }))

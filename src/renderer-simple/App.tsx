@@ -209,6 +209,7 @@ export function App(): React.JSX.Element {
       version={updateNotification.version}
       onRestart={updateNotification.install}
       onDismiss={updateNotification.dismiss}
+      onViewReleaseNotes={updateLog.openReleaseNotes}
     />
   ) : null
 
@@ -228,6 +229,9 @@ export function App(): React.JSX.Element {
         {updateToast}
         <UpdateLogOverlay
           visible={updateLog.visible}
+          activeTab={updateLog.activeTab}
+          currentVersion={updateLog.currentVersion}
+          releaseNotes={updateLog.releaseNotes}
           log={updateLog.log}
           loading={updateLog.loading}
           error={updateLog.error}
@@ -235,6 +239,8 @@ export function App(): React.JSX.Element {
           onRefresh={() => { void updateLog.refresh() }}
           onClean={() => { void updateLog.clear() }}
           onCheckForUpdates={() => { void updateLog.checkForUpdates() }}
+          onOpenExternal={() => { void updateLog.openReleaseNotesExternal() }}
+          onSelectTab={updateLog.setActiveTab}
         />
       </ErrorBoundary>
     )
@@ -344,6 +350,9 @@ export function App(): React.JSX.Element {
     {updateToast}
     <UpdateLogOverlay
       visible={updateLog.visible}
+      activeTab={updateLog.activeTab}
+      currentVersion={updateLog.currentVersion}
+      releaseNotes={updateLog.releaseNotes}
       log={updateLog.log}
       loading={updateLog.loading}
       error={updateLog.error}
@@ -351,6 +360,8 @@ export function App(): React.JSX.Element {
       onRefresh={() => { void updateLog.refresh() }}
       onClean={() => { void updateLog.clear() }}
       onCheckForUpdates={() => { void updateLog.checkForUpdates() }}
+      onOpenExternal={() => { void updateLog.openReleaseNotesExternal() }}
+      onSelectTab={updateLog.setActiveTab}
     />
     </>
   )

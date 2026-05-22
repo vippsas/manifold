@@ -33,4 +33,7 @@ export const aboutStyles: Record<string, React.CSSProperties> = {
   closeFooterButton: {
     ...base.secondaryButton,
   },
+  releaseNotesButton: {
+    ...base.primaryButton,
+  },
 }
