@@ -17,6 +17,17 @@ Use this skill when the user asks to:
 
 Do not use it for issue creation only.
 
+## Base Branch Default
+
+Unless the user explicitly asks for another base branch, assume the PR should target `main`.
+
+That default affects both:
+
+- the branch you prepare locally
+- the base branch you pass when creating the PR
+
+Do not silently target a feature branch or the current branch's upstream just because that is where the worktree started.
+
 ## Naming Rules
 
 The branch pushed to the remote should be named after the bug fix or primary change.
@@ -59,20 +70,42 @@ Avoid titles like:
 ## Workflow
 
 1. Check `git status` and current branch.
-2. Fetch the latest base branch if the user asked for the latest `main` or latest base.
-3. If needed, create a clean fix-named branch from the intended base branch.
-4. Stage only the intended changes.
-5. Commit with a message that describes the main fix.
-6. Push the fix-named branch to origin.
-7. Create the PR against the requested base branch.
-8. Link related issues in the PR body when appropriate.
+2. Determine the intended base branch. Default to `main` unless the user specified another base.
+3. Fetch the latest remote state for that base branch before preparing the PR branch.
+4. If the PR targets `main`, check whether the local branch needs to be rebased, merged, or recreated from the latest `origin/main`.
+5. If needed, create a clean fix-named branch from the intended base branch.
+6. Stage only the intended changes.
+7. Commit with a message that describes the main fix.
+8. Push the fix-named branch to origin.
+9. Create the PR against the requested base branch.
+10. Link related issues in the PR body when appropriate.
+
+## Sync Requirement For `main`
+
+When the PR should target `main`, do not open the PR until you have checked whether the work needs to be brought up to date with `origin/main`.
+
+Minimum expectation:
+
+- run `git fetch origin main`
+- compare the working branch against `origin/main`
+- if the branch is behind, decide whether to rebase onto `origin/main`, merge `origin/main`, or create a fresh branch from `origin/main` and move the change there
+
+Preferred order:
+
+1. Rebase onto `origin/main` when that is safe and consistent with the repo workflow.
+2. If rebasing is not appropriate, at least merge or pull the latest `main` changes into the branch before opening the PR.
+3. If the current branch is noisy, unrelated, or based on the wrong branch, create a new fix-named branch from the updated `main` and continue there.
+
+Do not assume the current worktree branch is current enough just because it already has an upstream.
 
 ## Branch Selection
 
 Before pushing:
 
 - If the current branch already cleanly matches the fix, keep it.
+- If the PR should target `main`, prefer a branch that is based on the latest `origin/main`.
 - If it does not match the fix, create a new branch with a fix-based name.
+- If the current branch was forked from the wrong base, create a new fix-based branch from the intended base instead of opening the PR from the old branch.
 - Do not open a PR from an unrelated branch just because the changes happen to be there.
 
 ## PR Body
