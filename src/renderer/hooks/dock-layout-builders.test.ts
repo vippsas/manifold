@@ -29,26 +29,14 @@ function createApi() {
 }
 
 describe('applyDefaultLayout', () => {
-  it('adds the default editor as its own split beside the agent panel', () => {
+  it('omits the editor and search panels — they are added lazily when needed', () => {
     const { api, addPanel } = createApi()
 
     applyDefaultLayout(api as never, { showIdeasTab: true, showLoopTab: true, showVerdictsTab: false, showWatchTab: true })
 
+    expect(addPanel).not.toHaveBeenCalledWith(expect.objectContaining({ id: 'editor' }))
+    expect(addPanel).not.toHaveBeenCalledWith(expect.objectContaining({ id: 'search' }))
     expect(addPanel).toHaveBeenNthCalledWith(3, {
-      id: 'editor',
-      component: 'editor',
-      title: 'Editor',
-      inactive: true,
-      position: { referencePanel: 'agent', direction: 'right' },
-    })
-    expect(addPanel).toHaveBeenNthCalledWith(4, {
-      id: 'search',
-      component: 'search',
-      title: 'Search',
-      inactive: true,
-      position: { referencePanel: 'editor', direction: 'within' },
-    })
-    expect(addPanel).toHaveBeenNthCalledWith(5, {
       id: 'backgroundAgent',
       component: 'backgroundAgent',
       title: 'Ideas',
@@ -57,16 +45,15 @@ describe('applyDefaultLayout', () => {
     })
   })
 
-  it('still omits Ideas when that setting is disabled', () => {
+  it('positions the file tree beside the agent panel', () => {
     const { api, addPanel } = createApi()
 
-    applyDefaultLayout(api as never, { showIdeasTab: false, showLoopTab: false, showVerdictsTab: false, showWatchTab: true })
+    applyDefaultLayout(api as never, { showIdeasTab: false, showLoopTab: false, showVerdictsTab: false, showWatchTab: false })
 
     expect(addPanel).toHaveBeenCalledWith({
-      id: 'editor',
-      component: 'editor',
-      title: 'Editor',
-      inactive: true,
+      id: 'fileTree',
+      component: 'fileTree',
+      title: 'Files',
       position: { referencePanel: 'agent', direction: 'right' },
     })
     expect(addPanel).not.toHaveBeenCalledWith(

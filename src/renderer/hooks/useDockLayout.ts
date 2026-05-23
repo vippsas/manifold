@@ -254,7 +254,6 @@ export function useDockLayout(
     const sid = sessionIdRef.current
     if (sid) {
       void loadOrBuildLayout(api, sid, buildDefaultLayout, refs, liveSiblingIds()).then(() => {
-        const editorChanged = ensureEditorPanelInWorkspace(api)
         const ideasChanged = applyIdeasTabSetting(api, false)
         const loopChanged = applyLoopTabSetting(api, false)
         const verdictsChanged = applyVerdictsTabSetting(api, false)
@@ -265,7 +264,7 @@ export function useDockLayout(
           lastLayoutRef.current = api.toJSON()
           saveLayout()
         }
-        if (editorChanged || ideasChanged || loopChanged || verdictsChanged || watchChanged) saveLayout()
+        if (ideasChanged || loopChanged || verdictsChanged || watchChanged) saveLayout()
         bumpVersion()
         bumpReloadVersion()
       })

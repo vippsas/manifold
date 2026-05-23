@@ -26,22 +26,6 @@ export function applyDefaultLayout(api: DockviewApi, options: DefaultLayoutOptio
     position: { referencePanel: projectsPanel, direction: 'right' },
   })
 
-  api.addPanel({
-    id: 'editor',
-    component: 'editor',
-    title: PANEL_TITLES.editor,
-    inactive: true,
-    position: { referencePanel: 'agent', direction: 'right' },
-  })
-
-  api.addPanel({
-    id: 'search',
-    component: 'search',
-    title: PANEL_TITLES.search,
-    inactive: true,
-    position: { referencePanel: 'editor', direction: 'within' },
-  })
-
   if (options.showIdeasTab) {
     api.addPanel({
       id: 'backgroundAgent',
@@ -86,7 +70,7 @@ export function applyDefaultLayout(api: DockviewApi, options: DefaultLayoutOptio
     id: 'fileTree',
     component: 'fileTree',
     title: PANEL_TITLES.fileTree,
-    position: { referencePanel: 'editor', direction: 'right' },
+    position: { referencePanel: 'agent', direction: 'right' },
   })
 
   api.addPanel({
@@ -109,13 +93,6 @@ export function applyDefaultLayout(api: DockviewApi, options: DefaultLayoutOptio
       children[0].size = Math.round(total / 6)     // projects
       children[2].size = Math.round(total / 6)     // files
       children[1].size = total - children[0].size - children[2].size // agent
-      api.fromJSON(json as SerializedDockview)
-    } else if (children && children.length === 4) {
-      const total = children.reduce((s, c) => s + c.size, 0)
-      children[0].size = Math.round(total / 6) // projects
-      children[3].size = Math.round(total / 6) // files
-      children[1].size = Math.round(total / 3) // agent
-      children[2].size = total - children[0].size - children[1].size - children[3].size // editor
       api.fromJSON(json as SerializedDockview)
     }
   } catch (err) {
