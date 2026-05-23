@@ -39,6 +39,18 @@ export function collectSuperagentFleetWorktreePaths(
   return worktreePaths
 }
 
+export function collectSuperagentFleetProjectIds(
+  superagents: readonly Pick<Superagent, 'fleetProjectIds'>[] | undefined,
+): Set<string> {
+  const projectIds = new Set<string>()
+  for (const superagent of superagents ?? []) {
+    for (const projectId of superagent.fleetProjectIds) {
+      projectIds.add(projectId)
+    }
+  }
+  return projectIds
+}
+
 export function filterStandaloneProjectSessions<T extends Pick<AgentSession, 'id' | 'parentSuperagentId' | 'worktreePath'>>(
   sessions: readonly T[],
   superagentChildSessionIds: ReadonlySet<string>,

@@ -251,11 +251,11 @@ describe('ProjectSidebar', () => {
     )
   })
 
-  it('hides superagent child sessions from the standard repository sections', () => {
+  it('hides fleet-owned projects and their sessions from the standard repository sections', () => {
     const childOnlySessions: AgentSession[] = [
       { id: 's2', projectId: 'p1', runtimeId: 'codex', branchName: 'manifold/123', worktreePath: '/wt2', status: 'waiting', pid: 2, additionalDirs: [] },
     ]
-    const { props } = renderSidebar({
+    renderSidebar({
       activeProjectId: 'p2',
       allProjectSessions: { p1: childOnlySessions, p2: [] },
       superagents: [sampleSuperagent],
@@ -264,12 +264,8 @@ describe('ProjectSidebar', () => {
 
     expect(screen.queryByText('With agents')).not.toBeInTheDocument()
     expect(screen.queryByTitle('Codex - manifold/123')).not.toBeInTheDocument()
-
-    fireEvent.click(screen.getByText('Repositories'))
-    fireEvent.click(screen.getByText('Alpha'))
-
-    expect(props.onSelectProject).toHaveBeenCalledWith('p1')
-    expect(props.onSelectSession).not.toHaveBeenCalled()
+    expect(screen.queryByText('Repositories')).not.toBeInTheDocument()
+    expect(screen.queryByText('Alpha')).not.toBeInTheDocument()
   })
 
   it('hides dormant fleet worktrees from the standard repository sections before a child agent is started', () => {

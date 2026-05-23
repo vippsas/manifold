@@ -4,6 +4,7 @@ import type { Superagent } from '../../../shared/superagent-types'
 import { isGitProject } from '../../../shared/project-kind'
 import {
   collectSuperagentChildSessionIds,
+  collectSuperagentFleetProjectIds,
   collectSuperagentFleetWorktreePaths,
   filterStandaloneProjectSessions,
   type SessionSelectionOptions,
@@ -165,6 +166,7 @@ function ProjectList({
   const [reposExpanded, setReposExpanded] = useState(false)
   const superagentChildSessionIds = collectSuperagentChildSessionIds(superagents)
   const superagentFleetWorktreePaths = collectSuperagentFleetWorktreePaths(superagents)
+  const superagentFleetProjectIds = collectSuperagentFleetProjectIds(superagents)
   const visibleProjects = projects.filter((project) => !suppressedProjectIds?.has(project.id))
 
   const handleProjectClick = useCallback(
@@ -196,9 +198,12 @@ function ProjectList({
       ).length > 0
   )
 
-  // Tier 3: projects with no sessions
+  // Tier 3: projects with no sessions. Excludes projects owned by any superagent
+  // fleet — those are reachable via the superagent and would otherwise create a
+  // standalone session in a fleet-reserved worktree that the sidebar then hides.
   const inactiveProjects = visibleProjects.filter(
     (p) => p.id !== activeProjectId
+      && !superagentFleetProjectIds.has(p.id)
       && filterStandaloneProjectSessions(
         allProjectSessions[p.id] ?? [],
         superagentChildSessionIds,
