@@ -70,7 +70,12 @@ export function useProjects(): UseProjectsResult {
   const createNewProject = useCallback(async (options: CreateProjectOptions): Promise<Project | null> => {
     setError(null)
     try {
-      const project = (await window.electronAPI.invoke('projects:create-new', options)) as Project
+      let targetDir = options.targetDir
+      if (!targetDir) {
+        targetDir = (await window.electronAPI.invoke('projects:create-new-dialog', options.description)) as string | undefined
+        if (!targetDir) return null
+      }
+      const project = (await window.electronAPI.invoke('projects:create-new', { ...options, targetDir })) as Project
       setProjects((prev) => sortProjectsByName([...prev, project]))
       setActiveProjectId(project.id)
       return project

@@ -9,6 +9,7 @@ const ALLOWED_INVOKE_CHANNELS = [
   'projects:clone',
   'projects:clone-dialog',
   'projects:create-new',
+  'projects:create-new-dialog',
   'provisioning:list-templates',
   'provisioning:refresh-templates',
   'provisioning:get-statuses',

@@ -179,11 +179,12 @@ describe('useProjects', () => {
   })
 
   describe('createNewProject', () => {
-    it('creates a project with explicit repo metadata', async () => {
-      const createdProject = { id: 'p-new', name: 'Timer', path: '/projects/timer', baseBranch: 'main', addedAt: '2024-01-03' }
+    it('prompts for a target directory and creates the project there', async () => {
+      const createdProject = { id: 'p-new', name: 'Timer', path: '/picked/timer', baseBranch: 'main', addedAt: '2024-01-03' }
       let listedProjects: typeof sampleProjects | typeof createdProject[] = []
       mockInvoke.mockImplementation((channel: string) => {
         if (channel === 'projects:list') return Promise.resolve(listedProjects)
+        if (channel === 'projects:create-new-dialog') return Promise.resolve('/picked/timer')
         if (channel === 'projects:create-new') {
           listedProjects = [createdProject]
           return Promise.resolve(createdProject)
@@ -200,22 +201,45 @@ describe('useProjects', () => {
       await act(async () => {
         await result.current.createNewProject({
           description: 'Build a timer app',
-          repoName: 'timer-app',
         })
       })
 
+      expect(mockInvoke).toHaveBeenCalledWith('projects:create-new-dialog', 'Build a timer app')
       expect(mockInvoke).toHaveBeenCalledWith('projects:create-new', {
         description: 'Build a timer app',
-        repoName: 'timer-app',
+        targetDir: '/picked/timer',
       })
       expect(result.current.projects).toContainEqual(createdProject)
       expect(result.current.activeProjectId).toBe('p-new')
     })
 
+    it('returns null when the user cancels the directory picker', async () => {
+      mockInvoke.mockImplementation((channel: string) => {
+        if (channel === 'projects:list') return Promise.resolve([])
+        if (channel === 'projects:create-new-dialog') return Promise.resolve(undefined)
+        return Promise.resolve(undefined)
+      })
+
+      const { result } = renderHook(() => useProjects())
+
+      await waitFor(() => {
+        expect(result.current.loading).toBe(false)
+      })
+
+      let returned: unknown
+      await act(async () => {
+        returned = await result.current.createNewProject({ description: 'Build a timer app' })
+      })
+
+      expect(returned).toBeNull()
+      expect(mockInvoke).not.toHaveBeenCalledWith('projects:create-new', expect.anything())
+    })
+
     it('sets error when project creation fails', async () => {
       mockInvoke
-        .mockResolvedValueOnce([])
-        .mockRejectedValueOnce(new Error('name already exists'))
+        .mockResolvedValueOnce([]) // projects:list on mount
+        .mockResolvedValueOnce('/picked/timer') // projects:create-new-dialog
+        .mockRejectedValueOnce(new Error('Directory already exists: /picked/timer'))
 
       const { result } = renderHook(() => useProjects())
 
@@ -226,11 +250,10 @@ describe('useProjects', () => {
       await act(async () => {
         await result.current.createNewProject({
           description: 'Build a timer app',
-          repoName: 'timer-app',
         })
       })
 
-      expect(result.current.error).toBe('name already exists')
+      expect(result.current.error).toBe('Directory already exists: /picked/timer')
     })
   })
 

@@ -96,42 +96,54 @@ export function registerProjectHandlers(deps: IpcDependencies): void {
       const description = payload.description.trim()
       const requestedRepoName = typeof payload.repoName === 'string' ? payload.repoName : undefined
       const explicitRepoName = requestedRepoName !== undefined
+      const targetDir = typeof payload.targetDir === 'string' && path.isAbsolute(payload.targetDir)
+        ? payload.targetDir
+        : undefined
       const settings = deps.settingsStore.getSettings()
       const runtime = getRuntimeById(settings.defaultRuntime)
       const projectsBase = path.join(settings.storagePath, 'projects')
 
-      // Generate a catchy project name via AI, fall back to slugified description
-      let baseSlug = explicitRepoName ? slugifyRepoName(requestedRepoName) : suggestRepoName(description)
-      if (explicitRepoName && !baseSlug) {
-        throw new Error('A repository name is required')
-      }
+      let projectDir: string
 
-      if (!explicitRepoName && runtime?.binary) {
-        const namePrompt =
-          `Suggest a short, catchy project name (1-3 words) for this project idea:\n\n` +
-          `${description}\n\n` +
-          `Output ONLY the project name in lowercase with hyphens instead of spaces. ` +
-          `No explanation, no quotes, no punctuation. Example: pixel-forge`
-        const aiName = await runAIPrompt(runtime.binary, namePrompt)
-        const cleaned = slugifyRepoName(aiName)
-        if (cleaned) {
-          baseSlug = cleaned
+      if (targetDir) {
+        if (existsSync(targetDir)) {
+          throw new Error(`Directory already exists: ${targetDir}`)
         }
-      }
-
-      let slug = baseSlug
-      let projectDir = path.join(projectsBase, slug)
-
-      if (explicitRepoName) {
-        if (existsSync(projectDir)) {
-          throw new Error(`A repository named "${slug}" already exists`)
-        }
+        projectDir = targetDir
       } else {
-        let suffix = 2
-        while (existsSync(projectDir)) {
-          slug = `${baseSlug}-${suffix}`
-          projectDir = path.join(projectsBase, slug)
-          suffix++
+        // Generate a catchy project name via AI, fall back to slugified description
+        let baseSlug = explicitRepoName ? slugifyRepoName(requestedRepoName) : suggestRepoName(description)
+        if (explicitRepoName && !baseSlug) {
+          throw new Error('A repository name is required')
+        }
+
+        if (!explicitRepoName && runtime?.binary) {
+          const namePrompt =
+            `Suggest a short, catchy project name (1-3 words) for this project idea:\n\n` +
+            `${description}\n\n` +
+            `Output ONLY the project name in lowercase with hyphens instead of spaces. ` +
+            `No explanation, no quotes, no punctuation. Example: pixel-forge`
+          const aiName = await runAIPrompt(runtime.binary, namePrompt)
+          const cleaned = slugifyRepoName(aiName)
+          if (cleaned) {
+            baseSlug = cleaned
+          }
+        }
+
+        let slug = baseSlug
+        projectDir = path.join(projectsBase, slug)
+
+        if (explicitRepoName) {
+          if (existsSync(projectDir)) {
+            throw new Error(`A repository named "${slug}" already exists`)
+          }
+        } else {
+          let suffix = 2
+          while (existsSync(projectDir)) {
+            slug = `${baseSlug}-${suffix}`
+            projectDir = path.join(projectsBase, slug)
+            suffix++
+          }
         }
       }
 
@@ -189,6 +201,24 @@ export function registerProjectHandlers(deps: IpcDependencies): void {
       title: 'Clone repository to...',
       defaultPath: path.join(os.homedir(), repoName),
       buttonLabel: 'Clone',
+      nameFieldLabel: 'Folder name:',
+      properties: ['createDirectory'],
+    })
+    if (result.canceled || !result.filePath) return undefined
+    return result.filePath
+  })
+
+  ipcMain.handle('projects:create-new-dialog', async (event, description: string) => {
+    const window = BrowserWindow.fromWebContents(event.sender)
+    if (!window) throw new Error('No BrowserWindow found for event sender')
+    const desc = typeof description === 'string' ? description.trim() : ''
+    const suggested = suggestRepoName(desc)
+    const settings = deps.settingsStore.getSettings()
+    const projectsBase = path.join(settings.storagePath, 'projects')
+    const result = await dialog.showSaveDialog(window, {
+      title: 'Create project in...',
+      defaultPath: path.join(projectsBase, suggested),
+      buttonLabel: 'Create',
       nameFieldLabel: 'Folder name:',
       properties: ['createDirectory'],
     })

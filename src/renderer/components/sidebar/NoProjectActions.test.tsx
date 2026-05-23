@@ -1,6 +1,6 @@
 import React from 'react'
 import { describe, it, expect, vi } from 'vitest'
-import { fireEvent, render, screen, waitFor, within } from '@testing-library/react'
+import { fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { NoProjectActions } from './NoProjectActions'
 
 function renderActions(overrides: Partial<React.ComponentProps<typeof NoProjectActions>> = {}) {
@@ -21,42 +21,28 @@ function renderActions(overrides: Partial<React.ComponentProps<typeof NoProjectA
 }
 
 describe('NoProjectActions', () => {
-  it('opens a repository-name dialog before creating a new project', () => {
-    renderActions()
+  it('submits the description directly when Go is clicked', async () => {
+    const onCreateNewProject = vi.fn(async () => true)
+    renderActions({ onCreateNewProject })
 
     fireEvent.change(screen.getByPlaceholderText('Describe your project idea...'), {
       target: { value: 'Build a focus timer' },
     })
     fireEvent.click(screen.getByRole('button', { name: 'Go' }))
 
-    expect(screen.getByRole('dialog', { name: 'Choose repository name' })).toBeInTheDocument()
-    expect(screen.getByDisplayValue('build-a-focus-timer')).toBeInTheDocument()
-    expect(screen.getByText('Initial branch')).toBeInTheDocument()
-    expect(screen.getByText('main')).toBeInTheDocument()
+    await waitFor(() => {
+      expect(onCreateNewProject).toHaveBeenCalledWith({
+        description: 'Build a focus timer',
+      })
+    })
   })
 
-  it('submits the chosen repository name and sanitizes it', async () => {
+  it('does not submit when description is empty', () => {
     const onCreateNewProject = vi.fn(async () => true)
     renderActions({ onCreateNewProject })
 
-    fireEvent.change(screen.getByPlaceholderText('Describe your project idea...'), {
-      target: { value: 'Build a timer app' },
-    })
     fireEvent.click(screen.getByRole('button', { name: 'Go' }))
 
-    const dialog = screen.getByRole('dialog', { name: 'Choose repository name' })
-    const repoNameInput = within(dialog).getAllByRole('textbox')[0]
-
-    fireEvent.change(repoNameInput, {
-      target: { value: 'Timer App 2!' },
-    })
-    fireEvent.click(screen.getByRole('button', { name: 'Create Repository' }))
-
-    await waitFor(() => {
-      expect(onCreateNewProject).toHaveBeenCalledWith({
-        description: 'Build a timer app',
-        repoName: 'timer-app-2',
-      })
-    })
+    expect(onCreateNewProject).not.toHaveBeenCalled()
   })
 })
