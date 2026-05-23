@@ -120,6 +120,57 @@ describe('useUpdateLog', () => {
     expect(mockInvoke).toHaveBeenCalledWith('settings:update', { lastSeenReleaseNotesVersion: '0.2.17' })
   })
 
+  it('fetches release notes for the pending update version when one is provided', async () => {
+    const { result } = renderHook(() => useUpdateLog())
+
+    await waitFor(() => {
+      expect(mockInvoke).toHaveBeenCalledWith('app:version')
+    })
+
+    act(() => {
+      result.current.openReleaseNotes('0.2.20')
+    })
+
+    expect(result.current.visible).toBe(true)
+    expect(result.current.activeTab).toBe('releaseNotes')
+    expect(result.current.currentVersion).toBe('0.2.20')
+
+    await waitFor(() => {
+      expect(mockInvoke).toHaveBeenCalledWith('release-notes:get', '0.2.20')
+      expect(result.current.releaseNotes?.version).toBe('0.2.20')
+    })
+  })
+
+  it('reverts to the installed version after closing a pending-update view', async () => {
+    const { result } = renderHook(() => useUpdateLog())
+
+    await waitFor(() => {
+      expect(mockInvoke).toHaveBeenCalledWith('app:version')
+    })
+
+    act(() => {
+      result.current.openReleaseNotes('0.2.20')
+    })
+
+    await waitFor(() => {
+      expect(result.current.currentVersion).toBe('0.2.20')
+    })
+
+    act(() => {
+      result.current.close()
+    })
+
+    expect(result.current.currentVersion).toBe('0.2.17')
+
+    act(() => {
+      updateLogListener?.()
+    })
+
+    await waitFor(() => {
+      expect(mockInvoke).toHaveBeenLastCalledWith('release-notes:get', '0.2.17')
+    })
+  })
+
   it('clears the diagnostics log through IPC and refreshes the content', async () => {
     mockInvoke
       .mockImplementationOnce((channel: string) => {

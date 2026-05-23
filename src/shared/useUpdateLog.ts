@@ -15,7 +15,7 @@ export interface UseUpdateLogResult {
   refresh: () => Promise<void>
   clear: () => Promise<void>
   checkForUpdates: () => Promise<void>
-  openReleaseNotes: () => void
+  openReleaseNotes: (version?: string) => void
   openDiagnostics: () => void
   openReleaseNotesExternal: () => Promise<void>
   setActiveTab: (tab: UpdateCenterTab) => void
@@ -37,11 +37,14 @@ function resolveErrorMessage(error: unknown): string {
 export function useUpdateLog(): UseUpdateLogResult {
   const [visible, setVisible] = useState(false)
   const [activeTab, setActiveTab] = useState<UpdateCenterTab>('releaseNotes')
-  const [currentVersion, setCurrentVersion] = useState('')
+  const [installedVersion, setInstalledVersion] = useState('')
+  const [targetVersion, setTargetVersion] = useState<string | null>(null)
   const [releaseNotes, setReleaseNotes] = useState<ReleaseNotes | null>(null)
   const [log, setLog] = useState('')
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
+
+  const displayVersion = targetVersion || installedVersion
 
   const refreshReleaseNotes = useCallback(async (version?: string): Promise<void> => {
     setReleaseNotes(await loadReleaseNotes(version))
@@ -58,17 +61,18 @@ export function useUpdateLog(): UseUpdateLogResult {
       if (activeTab === 'diagnostics') {
         await refreshDiagnostics()
       } else {
-        await refreshReleaseNotes(currentVersion || undefined)
+        await refreshReleaseNotes(displayVersion || undefined)
       }
     } catch (err) {
       setError(resolveErrorMessage(err))
     } finally {
       setLoading(false)
     }
-  }, [activeTab, currentVersion, refreshDiagnostics, refreshReleaseNotes])
+  }, [activeTab, displayVersion, refreshDiagnostics, refreshReleaseNotes])
 
   const close = useCallback((): void => {
     setVisible(false)
+    setTargetVersion(null)
   }, [])
 
   const openTab = useCallback((tab: UpdateCenterTab): void => {
@@ -76,7 +80,8 @@ export function useUpdateLog(): UseUpdateLogResult {
     setActiveTab(tab)
   }, [])
 
-  const openReleaseNotes = useCallback((): void => {
+  const openReleaseNotes = useCallback((version?: string): void => {
+    setTargetVersion(version ?? null)
     openTab('releaseNotes')
   }, [openTab])
 
@@ -111,11 +116,12 @@ export function useUpdateLog(): UseUpdateLogResult {
   }, [refreshDiagnostics])
 
   const openReleaseNotesExternal = useCallback(async (): Promise<void> => {
-    await window.electronAPI.invoke('release-notes:open-external', currentVersion || releaseNotes?.version)
-  }, [currentVersion, releaseNotes?.version])
+    await window.electronAPI.invoke('release-notes:open-external', displayVersion || releaseNotes?.version)
+  }, [displayVersion, releaseNotes?.version])
 
   useEffect(() => {
     const unsubLog = window.electronAPI.on('show-update-log', () => {
+      setTargetVersion(null)
       setVisible(true)
       setActiveTab('releaseNotes')
     })
@@ -140,7 +146,7 @@ export function useUpdateLog(): UseUpdateLogResult {
           window.electronAPI.invoke('settings:get') as Promise<{ lastSeenReleaseNotesVersion?: string }>,
         ])
         if (cancelled) return
-        setCurrentVersion(version)
+        setInstalledVersion(version)
         if (settings.lastSeenReleaseNotesVersion !== version) {
           setVisible(true)
           setActiveTab('releaseNotes')
@@ -164,7 +170,7 @@ export function useUpdateLog(): UseUpdateLogResult {
   return {
     visible,
     activeTab,
-    currentVersion,
+    currentVersion: displayVersion,
     releaseNotes,
     log,
     loading,
