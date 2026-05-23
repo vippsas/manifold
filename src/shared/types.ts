@@ -55,6 +55,7 @@ export interface Project {
 export interface CreateProjectOptions {
   description: string
   repoName?: string
+  targetDir?: string
 }
 
 export type FileChangeType = 'added' | 'modified' | 'deleted'

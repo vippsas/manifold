@@ -1,8 +1,5 @@
 import React, { useRef, useState, useCallback } from 'react'
 import type { CreateProjectOptions } from '../../../shared/types'
-import { slugifyRepoName, suggestRepoName } from '../../../shared/repo-name'
-import { createDialogStyles } from '../workbench-style-primitives'
-import { useAutoFocus } from '../../hooks/useAutoFocus'
 
 const buttonStyle: React.CSSProperties = {
   padding: '8px 20px',
@@ -19,51 +16,6 @@ const secondaryButtonStyle: React.CSSProperties = {
   ...buttonStyle,
   color: 'var(--text-primary)',
   backgroundColor: 'var(--bg-input)',
-}
-
-const repoDialogBaseStyles = createDialogStyles('440px')
-
-const repoDialogStyles: Record<string, React.CSSProperties> = {
-  ...repoDialogBaseStyles,
-  panel: {
-    ...repoDialogBaseStyles.panel,
-    display: 'flex',
-    flexDirection: 'column',
-  },
-  description: {
-    margin: 0,
-    fontSize: 'var(--type-ui-small)',
-    lineHeight: 1.6,
-    color: 'var(--text-secondary)',
-  },
-  repoNameInput: {
-    ...repoDialogBaseStyles.input,
-    padding: '0 var(--space-md)',
-    fontFamily: 'var(--font-mono)',
-  },
-  detailsCard: {
-    display: 'grid',
-    gap: 'var(--space-sm)',
-    padding: 'var(--space-md)',
-    borderRadius: 'var(--radius-sm)',
-    border: '1px solid var(--border)',
-    background: 'color-mix(in srgb, var(--bg-elevated) 86%, transparent)',
-  },
-  detailRow: {
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    gap: 'var(--space-md)',
-  },
-  detailLabel: {
-    fontSize: 'var(--type-ui-small)',
-    color: 'var(--text-secondary)',
-  },
-  detailValue: {
-    fontSize: 'var(--type-ui-small)',
-    color: 'var(--text-primary)',
-    fontFamily: 'var(--font-mono)',
-  },
 }
 
 export function NoProjectActions({
@@ -83,48 +35,20 @@ export function NoProjectActions({
 }): React.JSX.Element {
   const [description, setDescription] = useState('')
   const [cloneUrl, setCloneUrl] = useState('')
-  const [repoName, setRepoName] = useState('')
   const [showClone, setShowClone] = useState(false)
-  const [showRepoNameDialog, setShowRepoNameDialog] = useState(false)
   const formRef = useRef<HTMLFormElement>(null)
 
-  const openRepoNameDialog = useCallback((): void => {
-    const trimmed = description.trim()
-    if (trimmed && !creatingProject) {
-      setRepoName(suggestRepoName(trimmed))
-      setShowRepoNameDialog(true)
-    }
-  }, [description, creatingProject])
-
   const handleCreateSubmit = useCallback(
-    (e: React.FormEvent): void => {
-      e.preventDefault()
-      openRepoNameDialog()
-    },
-    [openRepoNameDialog]
-  )
-
-  const handleConfirmCreate = useCallback(
     async (e: React.FormEvent): Promise<void> => {
       e.preventDefault()
-      const trimmedDescription = description.trim()
-      const normalizedRepoName = slugifyRepoName(repoName)
-      if (!trimmedDescription || !normalizedRepoName || creatingProject) {
-        return
-      }
-
-      const created = await onCreateNewProject({
-        description: trimmedDescription,
-        repoName: normalizedRepoName,
-      })
-
+      const trimmed = description.trim()
+      if (!trimmed || creatingProject) return
+      const created = await onCreateNewProject({ description: trimmed })
       if (created) {
         setDescription('')
-        setRepoName('')
-        setShowRepoNameDialog(false)
       }
     },
-    [description, repoName, creatingProject, onCreateNewProject]
+    [description, creatingProject, onCreateNewProject]
   )
 
   const handleCloneSubmit = useCallback(
@@ -142,11 +66,6 @@ export function NoProjectActions({
     [cloneUrl, cloningProject, onCloneProject]
   )
 
-  const handleCloseRepoDialog = useCallback((): void => {
-    if (creatingProject) return
-    setShowRepoNameDialog(false)
-  }, [creatingProject])
-
   const canSubmit = description.trim().length > 0 && !creatingProject
 
   return (
@@ -154,7 +73,7 @@ export function NoProjectActions({
       <div style={{ fontSize: 15, fontWeight: 500, color: 'var(--text-primary)' }}>
         Start a new project
       </div>
-      <form ref={formRef} onSubmit={handleCreateSubmit} style={{ display: 'flex', flexDirection: 'column', gap: 10, width: 480, maxWidth: '90%' }}>
+      <form ref={formRef} onSubmit={(e) => void handleCreateSubmit(e)} style={{ display: 'flex', flexDirection: 'column', gap: 10, width: 480, maxWidth: '90%' }}>
         <div style={{ position: 'relative' }}>
           <textarea
             value={description}
@@ -199,11 +118,13 @@ export function NoProjectActions({
               alignItems: 'center',
               gap: 6,
             }}
+            aria-busy={creatingProject || undefined}
           >
-            Go
+            {creatingProject && <span className="spinner" aria-hidden="true" />}
+            {creatingProject ? 'Creating…' : 'Go'}
           </button>
         </div>
-        {createError && !showClone && !showRepoNameDialog && (
+        {createError && !showClone && (
           <div style={{ fontSize: 12, color: 'var(--error, #f44)' }}>{createError}</div>
         )}
       </form>
@@ -261,128 +182,6 @@ export function NoProjectActions({
           )}
         </>
       )}
-      <RepoNameDialog
-        visible={showRepoNameDialog}
-        repoName={repoName}
-        creatingProject={creatingProject}
-        error={showRepoNameDialog ? createError : null}
-        onRepoNameChange={(value) => setRepoName(slugifyRepoName(value))}
-        onClose={handleCloseRepoDialog}
-        onSubmit={handleConfirmCreate}
-      />
     </>
-  )
-}
-
-function RepoNameDialog({
-  visible,
-  repoName,
-  creatingProject,
-  error,
-  onRepoNameChange,
-  onClose,
-  onSubmit,
-}: {
-  visible: boolean
-  repoName: string
-  creatingProject?: boolean
-  error?: string | null
-  onRepoNameChange: (value: string) => void
-  onClose: () => void
-  onSubmit: (e: React.FormEvent) => Promise<void>
-}): React.JSX.Element | null {
-  const overlayRef = useRef<HTMLDivElement>(null)
-  const inputRef = useRef<HTMLInputElement>(null)
-
-  useAutoFocus(visible, inputRef)
-
-  const canSubmit = repoName.trim().length > 0 && !creatingProject
-
-  const handleOverlayClick = useCallback(
-    (e: React.MouseEvent): void => {
-      if (e.target === overlayRef.current) {
-        onClose()
-      }
-    },
-    [onClose]
-  )
-
-  const handleKeyDown = useCallback(
-    (e: React.KeyboardEvent): void => {
-      if (e.key === 'Escape') {
-        e.preventDefault()
-        onClose()
-      }
-    },
-    [onClose]
-  )
-
-  if (!visible) return null
-
-  return (
-    <div
-      ref={overlayRef}
-      onClick={handleOverlayClick}
-      onKeyDown={handleKeyDown}
-      style={repoDialogStyles.overlay}
-      role="dialog"
-      aria-modal="true"
-      aria-label="Choose repository name"
-    >
-      <form onSubmit={(e) => void onSubmit(e)} style={repoDialogStyles.panel}>
-        <div style={repoDialogStyles.header}>
-          <span style={repoDialogStyles.title}>Choose repository name</span>
-          <button type="button" onClick={onClose} style={repoDialogStyles.closeButton} aria-label="Close repository name dialog">
-            &times;
-          </button>
-        </div>
-        <div style={repoDialogStyles.body}>
-          <p style={repoDialogStyles.description}>
-            Confirm the repository folder name before Manifold creates the repo.
-          </p>
-          <label style={repoDialogStyles.label}>
-            Repository name
-            <input
-              ref={inputRef}
-              type="text"
-              value={repoName}
-              onChange={(e) => onRepoNameChange(e.target.value)}
-              placeholder="new-project"
-              disabled={creatingProject}
-              style={repoDialogStyles.repoNameInput}
-            />
-            <span style={repoDialogStyles.helpText}>Use lowercase letters, numbers, and hyphens.</span>
-          </label>
-          <div style={repoDialogStyles.detailsCard}>
-            <div style={repoDialogStyles.detailRow}>
-              <span style={repoDialogStyles.detailLabel}>Folder name</span>
-              <code style={repoDialogStyles.detailValue}>{repoName || 'choose-a-name'}</code>
-            </div>
-            <div style={repoDialogStyles.detailRow}>
-              <span style={repoDialogStyles.detailLabel}>Initial branch</span>
-              <code style={repoDialogStyles.detailValue}>main</code>
-            </div>
-          </div>
-          {error && <p style={repoDialogStyles.errorText}>{error}</p>}
-        </div>
-        <div style={repoDialogStyles.footer}>
-          <button type="button" onClick={onClose} style={repoDialogStyles.cancelButton}>Cancel</button>
-          <button
-            type="submit"
-            disabled={!canSubmit}
-            style={{
-              ...repoDialogStyles.saveButton,
-              opacity: canSubmit ? 1 : 0.55,
-              display: 'inline-flex',
-              alignItems: 'center',
-              gap: 'var(--space-sm)',
-            }}
-          >
-            {creatingProject && <span className="spinner" />}
-            {creatingProject ? 'Creating...' : 'Create Repository'}
-          </button>
-        </div>
-      </form>
-    </div>
   )
 }
