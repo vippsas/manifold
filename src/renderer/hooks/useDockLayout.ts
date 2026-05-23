@@ -443,7 +443,10 @@ export function useDockLayout(
     const api = apiRef.current
     if (!api) return preferredPanelId ?? 'editor'
 
-    let layoutChanged = ensureEditorPanelInWorkspace(api)
+    let layoutChanged = false
+    applyLayoutChangePreservingSidebarWidths(api, () => {
+      layoutChanged = ensureEditorPanelInWorkspace(api)
+    }, refs)
     if (layoutChanged) {
       syncPanels(api)
       sidebarWidthsRef.current = getSidebarWidths(api)
