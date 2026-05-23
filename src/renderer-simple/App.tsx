@@ -209,7 +209,7 @@ export function App(): React.JSX.Element {
       version={updateNotification.version}
       onRestart={updateNotification.install}
       onDismiss={updateNotification.dismiss}
-      onViewReleaseNotes={updateLog.openReleaseNotes}
+      onViewReleaseNotes={() => updateLog.openReleaseNotes(updateNotification.version ?? undefined)}
     />
   ) : null
 
