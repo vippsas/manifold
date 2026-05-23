@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import {
   collectSuperagentChildSessionIds,
+  collectSuperagentFleetProjectIds,
   collectSuperagentFleetWorktreePaths,
   filterStandaloneProjectSessions,
   shouldPreserveSuperagentSelection,
@@ -39,6 +40,13 @@ describe('shouldPreserveSuperagentSelection', () => {
       { fleetWorktreePaths: { p1: '/wt-1' } },
       { fleetWorktreePaths: { p2: '/wt-2' } },
     ]))).toEqual(['/wt-1', '/wt-2'])
+  })
+
+  it('collects fleet project ids from all superagents and dedupes', () => {
+    expect(Array.from(collectSuperagentFleetProjectIds([
+      { fleetProjectIds: ['p1', 'p2'] },
+      { fleetProjectIds: ['p2', 'p3'] },
+    ]))).toEqual(['p1', 'p2', 'p3'])
   })
 
   it('filters superagent-owned child sessions out of the standard project list', () => {
