@@ -23,14 +23,14 @@ export interface UseAppOverlaysResult {
   deletingSessionId: string | null
   requestDeleteAgent: (session: AgentSession, projectPath: string) => void
   cancelDeleteAgent: () => void
-  confirmDeleteAgent: () => Promise<void>
+  confirmDeleteAgent: (mode?: 'session' | 'worktree') => Promise<void>
 }
 
 export function useAppOverlays(
   commit: (message: string) => Promise<void>,
   refreshDiff: () => Promise<void>,
   spawnAgent: (options: SpawnAgentOptions) => Promise<unknown>,
-  deleteAgent: (sessionId: string) => Promise<void>,
+  deleteAgent: (sessionId: string, mode?: 'session' | 'worktree') => Promise<void>,
   removeSession: (sessionId: string) => void,
   updateSettings: (partial: Partial<ManifoldSettings>) => Promise<void>,
   setActiveSession: (sessionId: string | null) => void,
@@ -66,12 +66,12 @@ export function useAppOverlays(
     setPendingDelete(null)
   }, [deletingSessionId])
 
-  const confirmDeleteAgent = useCallback(async (): Promise<void> => {
+  const confirmDeleteAgent = useCallback(async (mode?: 'session' | 'worktree'): Promise<void> => {
     if (!pendingDelete) return
     const sessionId = pendingDelete.session.id
     setDeletingSessionId(sessionId)
     try {
-      await deleteAgent(sessionId)
+      await deleteAgent(sessionId, mode)
       removeSession(sessionId)
       setPendingDelete(null)
     } catch {
