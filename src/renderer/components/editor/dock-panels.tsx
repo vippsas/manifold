@@ -72,10 +72,14 @@ function AgentPanel({ api }: { api?: { id: string } } = {}): React.JSX.Element {
         variant="no-agent"
         projectId={s.activeProjectId}
         projectName={activeProject.name}
+        projectPath={activeProject.path}
         baseBranch={s.baseBranch}
         isGitProject={s.activeProjectIsGit}
         defaultRuntime={s.defaultRuntime}
         onLaunch={s.onLaunchAgent}
+        existingSessions={projectSessions}
+        onResumeSession={s.onResumeAgent}
+        onDeleteSession={(session) => s.onRequestDeleteAgent(session, activeProject.path)}
         focusTrigger={s.newAgentFocusTrigger}
         onNewSuperagent={s.onNewSuperagent}
       />

@@ -1,6 +1,6 @@
 import React from 'react'
-import { describe, expect, it, vi } from 'vitest'
-import { render, screen } from '@testing-library/react'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { render, screen, waitFor } from '@testing-library/react'
 import type { DockAppState } from './dock-panel-types'
 import { DockStateContext } from './dock-panel-types'
 import { PANEL_COMPONENTS } from './dock-panels'
@@ -16,6 +16,16 @@ vi.mock('./SuperagentAgentPanel', () => ({
   SuperagentAgentPanel: () => <div>superagent-panel</div>,
   restartOverlayStyles: {},
 }))
+
+const mockInvoke = vi.fn()
+
+beforeEach(() => {
+  vi.clearAllMocks()
+  ;(window as unknown as { electronAPI: unknown }).electronAPI = {
+    invoke: mockInvoke,
+    on: vi.fn(() => vi.fn()),
+  }
+})
 
 function makeDockState(overrides: Partial<DockAppState> = {}): DockAppState {
   return {
@@ -56,6 +66,7 @@ function makeDockState(overrides: Partial<DockAppState> = {}): DockAppState {
     worktreeCwd: null,
     baseBranch: 'main',
     defaultRuntime: 'codex',
+    activeProjectIsGit: true,
     activeSessionWorktreePath: null,
     activeSessionNoWorktree: false,
     onLaunchAgent: vi.fn(),
@@ -136,5 +147,45 @@ describe('AgentPanel in superagent mode', () => {
 
     expect(screen.getByText('terminal:Agent:child-1')).toBeInTheDocument()
     expect(screen.queryByText('superagent-panel')).toBeNull()
+  })
+
+  it('surfaces dormant worktrees in the no-agent view', async () => {
+    mockInvoke.mockResolvedValue([
+      { id: 'codex', name: 'Codex', installed: true },
+    ])
+    const AgentPanel = PANEL_COMPONENTS.agent
+
+    render(
+      <DockStateContext.Provider value={makeDockState({
+        activeProjectId: 'p1',
+        activeProjectIsGit: true,
+        activeSuperagentId: null,
+        superagents: [],
+        allProjectSessions: {
+          p1: [
+            {
+              id: 'dormant-1',
+              projectId: 'p1',
+              runtimeId: 'codex',
+              branchName: 'manifold/dormant-worktree',
+              worktreePath: '/worktrees/kong-gateway/manifold-dormant',
+              status: 'done',
+              pid: null,
+              additionalDirs: [],
+            },
+          ],
+        },
+      })}
+      >
+        <AgentPanel />
+      </DockStateContext.Provider>,
+    )
+
+    await waitFor(() => {
+      expect(screen.getByText('Existing worktrees')).toBeInTheDocument()
+    })
+    expect(screen.getAllByText('kong-gateway')).toHaveLength(2)
+    expect(screen.getByText('Worktree: manifold-dormant')).toBeInTheDocument()
+    expect(screen.getByText('Agent: Codex')).toBeInTheDocument()
   })
 })
