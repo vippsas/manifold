@@ -145,7 +145,7 @@ export class SessionCreator {
         simplePromptInstructions: options.simplePromptInstructions ?? existingMeta?.simplePromptInstructions,
         additionalDirs: existingMeta?.additionalDirs ?? [],
         ollamaModel: options.ollamaModel ?? existingMeta?.ollamaModel,
-        parentSuperagentId: options.parentSuperagentId ?? existingMeta?.parentSuperagentId,
+        parentSuperagentId: options.parentSuperagentId,
       }).catch(() => {})
     }
 

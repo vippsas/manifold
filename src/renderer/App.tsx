@@ -29,6 +29,7 @@ import { useAppEffects } from './hooks/useAppEffects'
 import { PANEL_COMPONENTS, DockStateContext } from './components/editor/dock-panels'
 import type { DockAppState } from './components/editor/dock-panel-types'
 import {
+  collectSuperagentIds,
   collectSuperagentChildSessionIds,
   collectSuperagentFleetWorktreePaths,
   filterStandaloneProjectSessions,
@@ -76,6 +77,10 @@ export function App(): React.JSX.Element {
   const [addProjectSuperagentId, setAddProjectSuperagentId] = useState<string | null>(null)
   const [pendingSuperagentProjectIds, setPendingSuperagentProjectIds] = useState<string[]>([])
   const { superagents, createSuperagent, addProjectToSuperagent, removeSuperagent, resumeSuperagent, toggleAutoApprove } = useSuperagents()
+  const superagentIds = useMemo(
+    () => collectSuperagentIds(superagents),
+    [superagents],
+  )
   const superagentChildSessionIds = useMemo(
     () => collectSuperagentChildSessionIds(superagents),
     [superagents],
@@ -100,6 +105,7 @@ export function App(): React.JSX.Element {
       ? filterStandaloneProjectSessions(
           sessionsByProject[activeProjectId] ?? [],
           superagentChildSessionIds,
+          superagentIds,
           superagentFleetWorktreePaths,
         )
       : []
@@ -112,6 +118,7 @@ export function App(): React.JSX.Element {
       && filterStandaloneProjectSessions(
         sessionsByProject[p.id] ?? [],
         superagentChildSessionIds,
+        superagentIds,
         superagentFleetWorktreePaths,
       ).length > 0
     ))
@@ -119,7 +126,7 @@ export function App(): React.JSX.Element {
       didAutoSelectRef.current = true
       setActiveProject(projectWithAgents.id)
     }
-  }, [sessionsByProject, activeProjectId, projects, setActiveProject, suppressedProjectIds, superagentChildSessionIds, superagentFleetWorktreePaths])
+  }, [sessionsByProject, activeProjectId, projects, setActiveProject, suppressedProjectIds, superagentChildSessionIds, superagentFleetWorktreePaths, superagentIds])
   const activeSuperagent = superagents.find((s) => s.id === activeSuperagentId) ?? null
   const addProjectSuperagent = superagents.find((s) => s.id === addProjectSuperagentId) ?? null
   useStatusNotification(outputtingSessionIds, settings.notificationSound)
@@ -405,11 +412,11 @@ export function App(): React.JSX.Element {
   const resolveStandaloneSessions = useCallback(async (projectId: string): Promise<AgentSession[]> => {
     try {
       const sessions = (await window.electronAPI.invoke('agent:sessions', projectId)) as AgentSession[]
-      return filterStandaloneProjectSessions(sessions, superagentChildSessionIds, superagentFleetWorktreePaths)
+      return filterStandaloneProjectSessions(sessions, superagentChildSessionIds, superagentIds, superagentFleetWorktreePaths)
     } catch {
       return []
     }
-  }, [superagentChildSessionIds, superagentFleetWorktreePaths])
+  }, [superagentChildSessionIds, superagentFleetWorktreePaths, superagentIds])
 
   const openSuperagentChildPanel = useCallback((
     sessionId: string,

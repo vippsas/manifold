@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import {
+  collectSuperagentIds,
   collectSuperagentChildSessionIds,
   collectSuperagentFleetProjectIds,
   collectSuperagentFleetWorktreePaths,
@@ -35,6 +36,13 @@ describe('shouldPreserveSuperagentSelection', () => {
     ]))).toEqual(['s1', 's2', 's3'])
   })
 
+  it('collects superagent ids from all superagents', () => {
+    expect(Array.from(collectSuperagentIds([
+      { id: 'sa-1' },
+      { id: 'sa-2' },
+    ]))).toEqual(['sa-1', 'sa-2'])
+  })
+
   it('collects fleet worktree paths from all superagents', () => {
     expect(Array.from(collectSuperagentFleetWorktreePaths([
       { fleetWorktreePaths: { p1: '/wt-1' } },
@@ -54,8 +62,16 @@ describe('shouldPreserveSuperagentSelection', () => {
       { id: 'standalone-1', worktreePath: '/wt-1' },
       { id: 'child-live', parentSuperagentId: 'sa-1', worktreePath: '/wt-2' },
       { id: 'child-discovered', worktreePath: '/wt-3' },
-    ], new Set(['child-discovered']))).toEqual([
+    ], new Set(['child-discovered']), new Set(['sa-1']))).toEqual([
       { id: 'standalone-1', worktreePath: '/wt-1' },
+    ])
+  })
+
+  it('keeps orphaned child-tagged sessions in the standard project list', () => {
+    expect(filterStandaloneProjectSessions([
+      { id: 'orphaned', parentSuperagentId: 'sa-missing', worktreePath: '/wt-1' },
+    ], new Set(), new Set(['sa-live']))).toEqual([
+      { id: 'orphaned', parentSuperagentId: 'sa-missing', worktreePath: '/wt-1' },
     ])
   })
 
@@ -63,7 +79,7 @@ describe('shouldPreserveSuperagentSelection', () => {
     expect(filterStandaloneProjectSessions([
       { id: 'standalone-1', worktreePath: '/wt-1' },
       { id: 'fleet-slot', worktreePath: '/wt-fleet' },
-    ], new Set(), new Set(['/wt-fleet']))).toEqual([
+    ], new Set(), undefined, new Set(['/wt-fleet']))).toEqual([
       { id: 'standalone-1', worktreePath: '/wt-1' },
     ])
   })
