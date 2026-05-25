@@ -1,11 +1,30 @@
 import React, { useRef, useState, useCallback, useEffect } from 'react'
-import type { SpawnAgentOptions, AgentRuntime, BranchInfo, PRInfo } from '../../../shared/types'
+import type { SpawnAgentOptions, AgentRuntime, BranchInfo, PRInfo, AgentSession } from '../../../shared/types'
 import { modalStyles } from './NewTaskModal.styles'
 import { TaskDescriptionField, AgentDropdown, BranchPicker, PRPicker } from '../new-task'
 import type { ExistingSubTab } from '../new-task'
 import { pickRandomNorwegianCityName } from '../../../shared/norwegian-cities'
+import { runtimeLabel } from '../sidebar/AgentItem'
 
 type BranchMode = 'current' | 'new'
+
+function basename(input: string): string {
+  const parts = input.split(/[\\/]/).filter(Boolean)
+  return parts.at(-1) ?? input
+}
+
+function describeWorktree(projectPath: string, worktreePath: string): string {
+  if (worktreePath === projectPath) {
+    return basename(projectPath)
+  }
+  return basename(worktreePath)
+}
+
+function truncateWords(input: string, maxWords: number): string {
+  const words = input.trim().split(/\s+/).filter(Boolean)
+  if (words.length <= maxWords) return input.trim()
+  return `${words.slice(0, maxWords).join(' ')}...`
+}
 
 const segmentedStyles = {
   container: {
@@ -39,17 +58,25 @@ const segmentedStyles = {
 
 export function NewAgentForm({
   projectId,
+  projectPath,
   baseBranch,
   isGitProject,
   defaultRuntime,
   onLaunch,
+  existingSessions = [],
+  onResumeSession,
+  onDeleteSession,
   focusTrigger,
 }: {
   projectId: string
+  projectPath: string
   baseBranch: string
   isGitProject: boolean
   defaultRuntime: string
   onLaunch: (options: SpawnAgentOptions) => Promise<unknown>
+  existingSessions?: AgentSession[]
+  onResumeSession?: (sessionId: string, runtimeId: string) => Promise<void>
+  onDeleteSession?: (session: AgentSession) => void
   focusTrigger?: number
 }): React.JSX.Element {
   const [branchMode, setBranchMode] = useState<BranchMode>('new')
@@ -114,6 +141,11 @@ export function NewAgentForm({
 
   const selectedRuntime = runtimes.find((r) => r.id === runtimeId)
   const runtimeInstalled = selectedRuntime?.installed !== false
+  const reusableSessions = existingSessions.filter((session) => (
+    (session.status === 'done' || session.status === 'error')
+    && !session.noWorktree
+    && !session.groupId
+  ))
 
   const canSubmit = (() => {
     if (!runtimeInstalled) return false
@@ -187,6 +219,63 @@ export function NewAgentForm({
 
   return (
     <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-lg)', width: 420, maxWidth: '90%' }}>
+      {reusableSessions.length > 0 && (
+        <section style={modalStyles.infoCard}>
+          <div style={modalStyles.infoCardTitle}>Existing worktrees</div>
+          <div style={modalStyles.infoCardText}>
+            Managed worktrees already exist for this repository. You can reconnect to one or remove it before starting a new agent.
+          </div>
+          <div style={modalStyles.infoCardList}>
+            {reusableSessions.map((session) => {
+              const canResumeSession = Boolean(session.runtimeId)
+              const repoName = basename(projectPath)
+              const worktreeLabel = describeWorktree(projectPath, session.worktreePath)
+              const agentLabel = canResumeSession
+                ? runtimeLabel(session.runtimeId)
+                : 'Missing runtime metadata'
+              const contextLabel = session.taskDescription
+                ? truncateWords(session.taskDescription, 12)
+                : session.branchName
+              return (
+                <div key={session.id} style={modalStyles.infoCardRow}>
+                  <div style={{ minWidth: 0, flex: 1, display: 'flex', flexDirection: 'column', gap: '2px' }}>
+                    <span style={modalStyles.infoCardPrimary}>
+                      {repoName}
+                    </span>
+                    <span style={modalStyles.infoCardMeta}>
+                      {`Worktree: ${worktreeLabel}`}
+                    </span>
+                    <span style={modalStyles.infoCardSecondary}>
+                      {`Agent: ${agentLabel}`}
+                    </span>
+                    <span style={modalStyles.infoCardContext} title={session.taskDescription ?? session.branchName}>
+                      {contextLabel}
+                    </span>
+                  </div>
+                  <div style={modalStyles.infoCardActions}>
+                    <button
+                      type="button"
+                      onClick={() => { if (canResumeSession) void onResumeSession?.(session.id, session.runtimeId) }}
+                      disabled={!canResumeSession}
+                      style={modalStyles.inlineActionButton}
+                    >
+                      Resume
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => onDeleteSession?.(session)}
+                      style={modalStyles.inlineDangerButton}
+                    >
+                      Delete
+                    </button>
+                  </div>
+                </div>
+              )
+            })}
+          </div>
+        </section>
+      )}
+
       {isGitProject && (
         <div style={segmentedStyles.container}>
           <button

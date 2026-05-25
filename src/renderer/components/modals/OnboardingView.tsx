@@ -1,5 +1,5 @@
 import React from 'react'
-import type { CreateProjectOptions, SpawnAgentOptions } from '../../../shared/types'
+import type { AgentSession, CreateProjectOptions, SpawnAgentOptions } from '../../../shared/types'
 import { NewAgentForm } from './NewAgentForm'
 import { NoProjectActions } from '../sidebar/NoProjectActions'
 
@@ -45,10 +45,14 @@ interface NoAgentProps {
   variant: 'no-agent'
   projectId: string
   projectName: string
+  projectPath: string
   baseBranch: string
   isGitProject: boolean
   defaultRuntime: string
   onLaunch: (options: SpawnAgentOptions) => Promise<unknown>
+  existingSessions?: AgentSession[]
+  onResumeSession?: (sessionId: string, runtimeId: string) => Promise<void>
+  onDeleteSession?: (session: AgentSession) => void
   focusTrigger?: number
   onNewSuperagent?: () => void
 }
@@ -128,10 +132,14 @@ export function OnboardingView(props: OnboardingViewProps): React.JSX.Element {
           </div>
           <NewAgentForm
             projectId={props.projectId}
+            projectPath={props.projectPath}
             baseBranch={props.baseBranch}
             isGitProject={props.isGitProject}
             defaultRuntime={props.defaultRuntime}
             onLaunch={props.onLaunch}
+            existingSessions={props.existingSessions}
+            onResumeSession={props.onResumeSession}
+            onDeleteSession={props.onDeleteSession}
             focusTrigger={props.focusTrigger}
           />
           {props.onNewSuperagent && (

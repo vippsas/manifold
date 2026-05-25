@@ -30,7 +30,9 @@ beforeEach(() => {
 function renderForm(overrides = {}) {
   const props = {
     projectId: 'proj-1',
+    projectPath: '/repos/proj-1',
     baseBranch: 'main',
+    isGitProject: true,
     defaultRuntime: 'claude',
     onLaunch: vi.fn().mockResolvedValue({ id: 'session-1' }),
     ...overrides,
@@ -92,5 +94,62 @@ describe('NewAgentForm', () => {
       expect(screen.getByText('Failed to start agent.')).toBeInTheDocument()
       expect(screen.getByText('Start Agent')).toBeEnabled()
     })
+  })
+
+  it('renders existing worktrees with resume and delete actions', async () => {
+    const onResumeSession = vi.fn().mockResolvedValue(undefined)
+    const onDeleteSession = vi.fn()
+    const existingSession = {
+      id: 'session-dormant',
+      projectId: 'proj-1',
+      runtimeId: 'claude',
+      branchName: 'manifold/existing-branch',
+      worktreePath: '/repos/proj-1/.manifold/worktrees/existing',
+      status: 'done' as const,
+      pid: null,
+      taskDescription: 'Existing task',
+      additionalDirs: [],
+    }
+
+    renderForm({
+      existingSessions: [existingSession],
+      onResumeSession,
+      onDeleteSession,
+    })
+    await waitFor(() => expect(mockInvoke).toHaveBeenCalledWith('runtimes:list'))
+
+    expect(screen.getByText('Existing worktrees')).toBeInTheDocument()
+    expect(screen.getByText('proj-1')).toBeInTheDocument()
+    expect(screen.getByText('Worktree: existing')).toBeInTheDocument()
+    expect(screen.getByText('Agent: Claude')).toBeInTheDocument()
+    expect(screen.getByText('Existing task')).toBeInTheDocument()
+
+    fireEvent.click(screen.getByRole('button', { name: 'Resume' }))
+    await waitFor(() => {
+      expect(onResumeSession).toHaveBeenCalledWith('session-dormant', 'claude')
+    })
+
+    fireEvent.click(screen.getByRole('button', { name: 'Delete' }))
+    expect(onDeleteSession).toHaveBeenCalledWith(existingSession)
+  })
+
+  it('truncates long task context in existing worktrees rows', async () => {
+    renderForm({
+      existingSessions: [{
+        id: 'session-long',
+        projectId: 'proj-1',
+        runtimeId: 'claude',
+        branchName: 'manifold/very-long',
+        worktreePath: '/repos/proj-1/.manifold/worktrees/very-long',
+        status: 'done' as const,
+        pid: null,
+        taskDescription: 'Inspect this repository and summarize what it is for while keeping the report concise and focused on practical structure details',
+        additionalDirs: [],
+      }],
+    })
+    await waitFor(() => expect(mockInvoke).toHaveBeenCalledWith('runtimes:list'))
+
+    expect(screen.getByText('Agent: Claude')).toBeInTheDocument()
+    expect(screen.getByText('Inspect this repository and summarize what it is for while keeping the...')).toBeInTheDocument()
   })
 })
