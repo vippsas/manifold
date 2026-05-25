@@ -346,6 +346,51 @@ describe('CodeViewer', () => {
     expect(screen.queryByTestId('monaco-editor')).not.toBeInTheDocument()
   })
 
+  it('keeps linked markdown targets in preview mode across a pane remount', async () => {
+    function Wrapper(): React.JSX.Element {
+      const files = React.useMemo<Record<string, string>>(() => ({
+        '/repo/docs/readme.md': '[Child note](./notes/child.md)',
+        '/repo/docs/notes/child.md': '# Child preview',
+      }), [])
+      const [activeFilePath, setActiveFilePath] = React.useState('/repo/docs/readme.md')
+      const [lastFileOpenRequest, setLastFileOpenRequest] = React.useState<FileOpenRequest>(
+        makeOpenRequest({ path: '/repo/docs/readme.md' }),
+      )
+
+      return (
+        <CodeViewer
+          key={activeFilePath}
+          paneId="editor-preview-remount-test"
+          sessionId="session-1"
+          fileDiffText={null}
+          originalContent={null}
+          openFiles={Object.entries(files).map(([path, content]) => makeOpenFile({ path, content }))}
+          activeFilePath={activeFilePath}
+          fileContent={files[activeFilePath]}
+          lastFileOpenRequest={lastFileOpenRequest}
+          theme="manifold-dark"
+          onSelectTab={vi.fn()}
+          onOpenLinkedFile={(filePath) => {
+            setActiveFilePath(filePath)
+            setLastFileOpenRequest(makeOpenRequest({ path: filePath, source: 'markdownPreview' }))
+          }}
+          onCloseTab={vi.fn()}
+          onSaveFile={vi.fn()}
+        />
+      )
+    }
+
+    render(<Wrapper />)
+
+    const link = await screen.findByRole('link', { name: 'Child note' })
+    fireEvent.click(link)
+
+    await waitFor(() => {
+      expect(screen.getByTestId('markdown-preview')).toHaveTextContent('# Child preview')
+    })
+    expect(screen.queryByTestId('monaco-editor')).not.toBeInTheDocument()
+  })
+
   it('preserves markdown preview scroll when pane activation remounts the viewer', async () => {
     function Wrapper(): React.JSX.Element {
       const [activations, setActivations] = React.useState(0)

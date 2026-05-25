@@ -105,6 +105,14 @@ export function CodeViewer({
     activeFilePath,
   })
 
+  const updatePreviewPaths = useCallback((updater: (prev: Set<string>) => Set<string>): void => {
+    setPreviewPaths((prev) => {
+      const next = updater(prev)
+      previewPathsByPane.set(paneId, next)
+      return next
+    })
+  }, [paneId])
+
   useEffect(() => {
     previewPathsByPane.set(paneId, previewPaths)
   }, [paneId, previewPaths])
@@ -112,13 +120,13 @@ export function CodeViewer({
   // Auto-open markdown files in preview mode
   useEffect(() => {
     if (activeFilePath && isMarkdownFile(activeFilePath) && !previewPaths.has(activeFilePath)) {
-      setPreviewPaths((prev) => {
+      updatePreviewPaths((prev) => {
         const next = new Set(prev)
         next.add(activeFilePath)
         return next
       })
     }
-  }, [activeFilePath])
+  }, [activeFilePath, previewPaths, updatePreviewPaths])
 
   useEffect(() => {
     saveRef.current = onSaveFile
@@ -164,7 +172,7 @@ export function CodeViewer({
   }, [])
 
   const handleOpenLinkedFile = useCallback((filePath: string): void => {
-    setPreviewPaths((prev) => {
+    updatePreviewPaths((prev) => {
       if (prev.has(filePath)) return prev
       const next = new Set(prev)
       next.add(filePath)
@@ -172,7 +180,7 @@ export function CodeViewer({
     })
     setDiffMode(false)
     onOpenLinkedFile(filePath)
-  }, [onOpenLinkedFile])
+  }, [onOpenLinkedFile, updatePreviewPaths])
 
   const hasTabs = openFiles.length > 0
   const showPreviewToggle = hasTabs && isPreviewable
@@ -180,7 +188,7 @@ export function CodeViewer({
 
   const showEditorMode = useCallback(() => {
     if (activeFilePath) {
-      setPreviewPaths((prev) => {
+      updatePreviewPaths((prev) => {
         if (!prev.has(activeFilePath)) return prev
         const next = new Set(prev)
         next.delete(activeFilePath)
@@ -188,25 +196,25 @@ export function CodeViewer({
       })
     }
     setDiffMode(false)
-  }, [activeFilePath])
+  }, [activeFilePath, updatePreviewPaths])
 
   const showPreviewMode = useCallback(() => {
     if (!activeFilePath || !isPreviewable) return
 
-    setPreviewPaths((prev) => {
+    updatePreviewPaths((prev) => {
       if (prev.has(activeFilePath)) return prev
       const next = new Set(prev)
       next.add(activeFilePath)
       return next
     })
     setDiffMode(false)
-  }, [activeFilePath, isPreviewable])
+  }, [activeFilePath, isPreviewable, updatePreviewPaths])
 
   const showDiffMode = useCallback(() => {
     if (!hasDiff) return
 
     if (activeFilePath) {
-      setPreviewPaths((prev) => {
+      updatePreviewPaths((prev) => {
         if (!prev.has(activeFilePath)) return prev
         const next = new Set(prev)
         next.delete(activeFilePath)
@@ -214,7 +222,7 @@ export function CodeViewer({
       })
     }
     setDiffMode(true)
-  }, [activeFilePath, hasDiff])
+  }, [activeFilePath, hasDiff, updatePreviewPaths])
 
   useEffect(() => {
     revealRequestedLocation(editorRef.current, activeFilePath, lastFileOpenRequest)
@@ -289,4 +297,3 @@ export function CodeViewer({
     </div>
   )
 }
-
