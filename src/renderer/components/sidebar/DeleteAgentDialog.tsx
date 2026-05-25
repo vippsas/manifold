@@ -1,9 +1,19 @@
 import React, { useCallback } from 'react'
 import type { AgentSession } from '../../../shared/types'
-import { formatBranchLabel, runtimeLabel } from './AgentItem'
+import { runtimeLabel } from './AgentItem'
 import { createDialogStyles } from '../workbench-style-primitives'
 
-const deleteDialogStyles = createDialogStyles('360px')
+const deleteDialogStyles = createDialogStyles('420px')
+
+function basename(input: string): string {
+  const parts = input.split(/[\\/]/).filter(Boolean)
+  return parts.at(-1) ?? input
+}
+
+function describeWorktree(projectPath: string, worktreePath: string): string {
+  if (worktreePath === projectPath) return basename(projectPath)
+  return basename(worktreePath)
+}
 
 export interface PendingDelete {
   session: AgentSession
@@ -15,7 +25,7 @@ interface DeleteAgentDialogProps {
   siblingCount: number
   deleting: boolean
   onCancel: () => void
-  onConfirm: () => Promise<void>
+  onConfirm: (mode?: 'session' | 'worktree') => Promise<void>
 }
 
 export function DeleteAgentDialog({
@@ -35,13 +45,14 @@ export function DeleteAgentDialog({
   if (!pendingDelete) return null
 
   const { session, projectPath } = pendingDelete
-  const label = formatBranchLabel(session.branchName, projectPath)
+  const repoName = basename(projectPath)
+  const worktreeName = describeWorktree(projectPath, session.worktreePath)
   const multi = siblingCount > 1
   const actionText = session.noWorktree
-    ? 'This will stop the agent.'
+    ? 'Close this agent.'
     : multi
-      ? `This will stop all ${siblingCount} agents on this worktree and remove the worktree.`
-      : 'This will stop the agent and remove its worktree.'
+      ? 'Close this agent, or delete the whole worktree.'
+      : 'Delete this agent and its worktree.'
 
   return (
     <div
@@ -67,25 +78,85 @@ export function DeleteAgentDialog({
         </div>
         <div style={deleteDialogStyles.body}>
           <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
-            <strong style={{ color: 'var(--text-primary)' }}>{label}</strong>
-            <span style={{ color: 'var(--text-secondary)', fontSize: 'var(--type-ui-small)' }}>
-              {runtimeLabel(session.runtimeId)}
+            <strong style={{ color: 'var(--text-primary)', fontSize: 'var(--type-ui-small)' }}>{repoName}</strong>
+            <span
+              style={{
+                color: 'var(--text-muted)',
+                fontSize: '11px',
+                fontFamily: 'var(--font-mono)',
+                whiteSpace: 'nowrap',
+                overflow: 'hidden',
+                textOverflow: 'ellipsis',
+              }}
+              title={`Worktree: ${worktreeName}`}
+            >
+              {`Worktree: ${worktreeName}`}
+            </span>
+            <span style={{ color: 'var(--text-muted)', fontSize: 'var(--type-ui-caption)' }}>
+              {`Agent: ${runtimeLabel(session.runtimeId)}`}
             </span>
           </div>
-          <p style={{ margin: 0, color: 'var(--text-secondary)', lineHeight: 1.5 }}>
-            {actionText} The local branch will be kept.
-          </p>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+            <p style={{ margin: 0, color: 'var(--text-secondary)', lineHeight: 1.45 }}>
+              {actionText}
+            </p>
+            <p style={{ margin: 0, color: 'var(--text-muted)', lineHeight: 1.4, fontSize: 'var(--type-ui-small)' }}>
+              The local branch will be kept.
+            </p>
+          </div>
         </div>
         <div style={deleteDialogStyles.footer}>
-          <button type="button" onClick={onCancel} style={deleteDialogStyles.secondaryButton} disabled={deleting}>Cancel</button>
           <button
             type="button"
-            onClick={() => void onConfirm()}
-            style={{ ...deleteDialogStyles.primaryButton, background: 'var(--error)' }}
+            onClick={onCancel}
+            style={{
+              ...deleteDialogStyles.secondaryButton,
+              color: 'var(--text-muted)',
+              background: 'transparent',
+            }}
             disabled={deleting}
           >
-            {deleting ? 'Deleting...' : 'Delete'}
+            Cancel
           </button>
+          {multi && !session.noWorktree ? (
+            <>
+              <button
+                type="button"
+                onClick={() => void onConfirm('session')}
+                style={{
+                  ...deleteDialogStyles.primaryButton,
+                  background: 'var(--control-bg)',
+                  color: 'var(--text-primary)',
+                  border: '1px solid var(--control-border)',
+                  boxShadow: 'none',
+                }}
+                disabled={deleting}
+              >
+                {deleting ? 'Closing...' : 'Close Agent'}
+              </button>
+              <button
+                type="button"
+                onClick={() => void onConfirm('worktree')}
+                style={{
+                  ...deleteDialogStyles.primaryButton,
+                  background: 'color-mix(in srgb, var(--error) 78%, black)',
+                  color: 'white',
+                }}
+                disabled={deleting}
+              >
+                {deleting ? 'Deleting...' : 'Delete Worktree'}
+              </button>
+            </>
+          ) : (
+            <button
+              type="button"
+              onClick={() => void onConfirm(session.noWorktree ? 'session' : 'worktree')}
+              style={{ ...deleteDialogStyles.primaryButton, background: 'var(--error)' }}
+              disabled={deleting}
+            >
+              {deleting ? 'Deleting...' : 'Delete'}
+            </button>
+          )}
         </div>
       </div>
     </div>

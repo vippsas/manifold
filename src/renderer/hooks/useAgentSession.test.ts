@@ -153,4 +153,46 @@ describe('useAgentSession', () => {
     expect(result.current.sessions).toEqual([])
     expect(result.current.activeSessionId).toBeNull()
   })
+
+  it('can close only one sibling agent without deleting the shared worktree', async () => {
+    const sessionA = { ...makeSession('s1', 'p1'), worktreePath: '/tmp/shared' }
+    const sessionB = { ...makeSession('s2', 'p1'), worktreePath: '/tmp/shared' }
+
+    mockInvoke.mockResolvedValueOnce([sessionA, sessionB])
+
+    const { result } = renderHook(() => useAgentSession('p1'))
+
+    await waitFor(() => {
+      expect(result.current.sessions).toEqual([sessionA, sessionB])
+    })
+
+    await act(async () => {
+      await result.current.deleteAgent('s2', 'session')
+    })
+
+    expect(mockInvoke).toHaveBeenLastCalledWith('agent:kill', 's2')
+    expect(result.current.sessions).toEqual([sessionA])
+    expect(result.current.activeSessionId).toBe('s1')
+  })
+
+  it('can still delete an entire shared worktree explicitly', async () => {
+    const sessionA = { ...makeSession('s1', 'p1'), worktreePath: '/tmp/shared' }
+    const sessionB = { ...makeSession('s2', 'p1'), worktreePath: '/tmp/shared' }
+
+    mockInvoke.mockResolvedValueOnce([sessionA, sessionB])
+
+    const { result } = renderHook(() => useAgentSession('p1'))
+
+    await waitFor(() => {
+      expect(result.current.sessions).toEqual([sessionA, sessionB])
+    })
+
+    await act(async () => {
+      await result.current.deleteAgent('s2', 'worktree')
+    })
+
+    expect(mockInvoke).toHaveBeenLastCalledWith('agent:kill-worktree', '/tmp/shared')
+    expect(result.current.sessions).toEqual([])
+    expect(result.current.activeSessionId).toBeNull()
+  })
 })
