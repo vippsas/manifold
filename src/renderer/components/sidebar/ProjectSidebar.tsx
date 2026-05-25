@@ -3,6 +3,7 @@ import type { Project, AgentSession } from '../../../shared/types'
 import type { Superagent } from '../../../shared/superagent-types'
 import { isGitProject } from '../../../shared/project-kind'
 import {
+  collectSuperagentIds,
   collectSuperagentChildSessionIds,
   collectSuperagentFleetProjectIds,
   collectSuperagentFleetWorktreePaths,
@@ -164,6 +165,7 @@ function ProjectList({
   onFetchProject,
 }: ProjectListProps): React.JSX.Element {
   const [reposExpanded, setReposExpanded] = useState(false)
+  const superagentIds = collectSuperagentIds(superagents)
   const superagentChildSessionIds = collectSuperagentChildSessionIds(superagents)
   const superagentFleetWorktreePaths = collectSuperagentFleetWorktreePaths(superagents)
   const superagentFleetProjectIds = collectSuperagentFleetProjectIds(superagents)
@@ -174,6 +176,7 @@ function ProjectList({
       const sessions = filterStandaloneProjectSessions(
         allProjectSessions[projectId] ?? [],
         superagentChildSessionIds,
+        superagentIds,
         superagentFleetWorktreePaths,
       )
       if (sessions.length > 0) {
@@ -182,7 +185,7 @@ function ProjectList({
         onSelectProject(projectId)
       }
     },
-    [allProjectSessions, onSelectProject, onSelectSession, superagentChildSessionIds, superagentFleetWorktreePaths]
+    [allProjectSessions, onSelectProject, onSelectSession, superagentChildSessionIds, superagentFleetWorktreePaths, superagentIds]
   )
 
   // Tier 1: currently active project
@@ -194,6 +197,7 @@ function ProjectList({
       && filterStandaloneProjectSessions(
         allProjectSessions[p.id] ?? [],
         superagentChildSessionIds,
+        superagentIds,
         superagentFleetWorktreePaths,
       ).length > 0
   )
@@ -207,6 +211,7 @@ function ProjectList({
       && filterStandaloneProjectSessions(
         allProjectSessions[p.id] ?? [],
         superagentChildSessionIds,
+        superagentIds,
         superagentFleetWorktreePaths,
       ).length === 0
   )
@@ -226,6 +231,7 @@ function ProjectList({
         const projectSessions = filterStandaloneProjectSessions(
           allProjectSessions[activeProject.id] ?? [],
           superagentChildSessionIds,
+          superagentIds,
           superagentFleetWorktreePaths,
         )
         const activeWorktreePath = projectSessions.find((s) => s.id === activeSessionId)?.worktreePath ?? null
@@ -272,6 +278,7 @@ function ProjectList({
             const projectSessions = filterStandaloneProjectSessions(
               allProjectSessions[project.id] ?? [],
               superagentChildSessionIds,
+              superagentIds,
               superagentFleetWorktreePaths,
             )
             return (
