@@ -1,8 +1,9 @@
 import React from 'react'
 import { describe, it, expect, vi } from 'vitest'
-import { fireEvent, render, screen, waitFor } from '@testing-library/react'
+import { act, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import type { OpenFile } from '../../hooks/useCodeView'
 import { CodeViewer } from './CodeViewer'
+import { getEditorPaneModeControls } from './editor-pane-mode-controls'
 import type { FileOpenRequest } from './file-open-request'
 
 vi.mock('@monaco-editor/react', async () => {
@@ -344,6 +345,30 @@ describe('CodeViewer', () => {
       expect(screen.getByTestId('markdown-preview')).toHaveTextContent('# Child preview')
     })
     expect(screen.queryByTestId('monaco-editor')).not.toBeInTheDocument()
+  })
+
+  it('switches a previewed markdown file to editor mode when the user toggles editor', async () => {
+    const paneId = 'editor-md-toggle-test'
+    renderViewer({
+      paneId,
+      openFiles: [makeOpenFile({ path: '/repo/readme.md', content: '# Hello' })],
+      activeFilePath: '/repo/readme.md',
+      fileContent: '# Hello',
+      lastFileOpenRequest: makeOpenRequest({ path: '/repo/readme.md' }),
+    })
+
+    await waitFor(() => {
+      expect(screen.getByTestId('markdown-preview')).toHaveTextContent('# Hello')
+    })
+
+    act(() => {
+      getEditorPaneModeControls(paneId)?.showEditor()
+    })
+
+    await waitFor(() => {
+      expect(screen.getByTestId('monaco-editor')).toHaveTextContent('# Hello')
+    })
+    expect(screen.queryByTestId('markdown-preview')).not.toBeInTheDocument()
   })
 
   it('keeps linked markdown targets in preview mode across a pane remount', async () => {
