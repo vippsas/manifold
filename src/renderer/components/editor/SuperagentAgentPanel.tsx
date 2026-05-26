@@ -1,18 +1,67 @@
-import React from 'react'
+import React, { useCallback } from 'react'
+import type { ITheme } from '@xterm/xterm'
 import { TerminalPane } from '../terminal/TerminalPane'
 import { ApprovalInbox } from '../superagent/ApprovalInbox'
 import { useApprovalInbox } from '../../hooks/useApprovalInbox'
 import { useDockState } from './dock-panel-types'
 
+interface SuperagentTerminalViewProps {
+  superagentId: string
+  scrollbackLines: number
+  terminalFontFamily?: string
+  xtermTheme?: ITheme
+  isDormant: boolean
+  onRestart?: () => void
+}
+
+// Memoized so unrelated dock-state churn (file clicks, expanded paths, etc.)
+// doesn't reconcile the xterm subtree on every render of the outer panel.
+const SuperagentTerminalView = React.memo(function SuperagentTerminalView({
+  superagentId,
+  scrollbackLines,
+  terminalFontFamily,
+  xtermTheme,
+  isDormant,
+  onRestart,
+}: SuperagentTerminalViewProps): React.JSX.Element {
+  return (
+    <div style={terminalWrapperStyle}>
+      <TerminalPane
+        sessionId={superagentId}
+        scrollbackLines={scrollbackLines}
+        terminalFontFamily={terminalFontFamily}
+        label="Superagent"
+        xtermTheme={xtermTheme}
+      />
+      {isDormant && onRestart && (
+        <div style={restartOverlayStyles.container}>
+          <button onClick={onRestart} style={restartOverlayStyles.button}>
+            Restart Superagent
+          </button>
+        </div>
+      )}
+    </div>
+  )
+})
+
+const terminalWrapperStyle: React.CSSProperties = { flex: 1, minHeight: 0, position: 'relative' }
+
 export function SuperagentAgentPanel(): React.JSX.Element | null {
   const s = useDockState()
-  if (!s.activeSuperagentId) return null
-  const activeSuperagent = s.superagents?.find((sa) => sa.id === s.activeSuperagentId)
-  const isDormant = activeSuperagent?.status === 'done' || activeSuperagent?.status === 'error'
   const superagentId = s.activeSuperagentId
   const onResume = s.onResumeSuperagent
+  const handleRestart = useCallback(() => {
+    if (superagentId && onResume) {
+      void onResume(superagentId)
+    }
+  }, [superagentId, onResume])
+  // Hooks must run unconditionally; useApprovalInbox returns an empty pending
+  // list when given a non-matching id, which is fine for the null case below.
+  const { pending, respond } = useApprovalInbox(superagentId ?? '')
+  if (!superagentId) return null
+  const activeSuperagent = s.superagents?.find((sa) => sa.id === superagentId)
+  const isDormant = activeSuperagent?.status === 'done' || activeSuperagent?.status === 'error'
   const onToggleAutoApprove = s.onToggleSuperagentAutoApprove
-  const { pending, respond } = useApprovalInbox(superagentId)
   return (
     <div style={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
       {activeSuperagent && onToggleAutoApprove && (
@@ -52,25 +101,14 @@ export function SuperagentAgentPanel(): React.JSX.Element | null {
           </div>
         </div>
       )}
-      <div style={{ flex: 1, minHeight: 0, position: 'relative' }}>
-        <TerminalPane
-          sessionId={superagentId}
-          scrollbackLines={s.scrollbackLines}
-          terminalFontFamily={s.terminalFontFamily}
-          label="Superagent"
-          xtermTheme={s.xtermTheme}
-        />
-        {isDormant && onResume && (
-          <div style={restartOverlayStyles.container}>
-            <button
-              onClick={() => { void onResume(superagentId) }}
-              style={restartOverlayStyles.button}
-            >
-              Restart Superagent
-            </button>
-          </div>
-        )}
-      </div>
+      <SuperagentTerminalView
+        superagentId={superagentId}
+        scrollbackLines={s.scrollbackLines}
+        terminalFontFamily={s.terminalFontFamily}
+        xtermTheme={s.xtermTheme}
+        isDormant={isDormant}
+        onRestart={onResume ? handleRestart : undefined}
+      />
       <div style={{ borderTop: '1px solid var(--border)', background: 'var(--bg-secondary)' }}>
         <ApprovalInbox superagentId={superagentId} pending={pending} respond={respond} />
       </div>

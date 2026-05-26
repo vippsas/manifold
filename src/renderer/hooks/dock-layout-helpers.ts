@@ -220,8 +220,16 @@ export function applyLayoutChangePreservingSidebarWidths(
   applyChange: () => void,
   refs?: LayoutRefs,
 ): void {
+  // Snapshot the grid structure before applying the change. If applyChange()
+  // turns out to be a no-op (structurally), skip restoreSidebarWidths — it
+  // calls api.fromJSON() which forces dockview to tear down and remount
+  // every panel, unmounting xterm in the agent pane and flashing a fresh
+  // replay. Only pay that cost when the structure actually changed.
+  const beforeSignature = getGridSignature(api.toJSON())
   const widths = getSidebarWidths(api)
   applyChange()
+  const afterSignature = getGridSignature(api.toJSON())
+  if (beforeSignature === afterSignature) return
   restoreSidebarWidths(api, widths, refs)
 }
 

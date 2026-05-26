@@ -37,6 +37,49 @@ export const PANEL_COMPONENTS: Record<string, React.FC<any>> = {
   watch: WatchPanel,
 }
 
+interface AgentTerminalViewProps {
+  sessionId: string
+  scrollbackLines: number
+  terminalFontFamily?: string
+  xtermTheme?: import('@xterm/xterm').ITheme
+  isExited: boolean
+  onRestart: () => void
+}
+
+// Memoized so file clicks (which mutate unrelated dock-state fields like
+// lastFileOpenRequest, openFiles, etc.) don't tear through the terminal subtree.
+// The outer AgentPanel still re-renders on every context change, but its
+// returned element here is shallow-equal across those renders and short-circuits.
+const AgentTerminalView = React.memo(function AgentTerminalView({
+  sessionId,
+  scrollbackLines,
+  terminalFontFamily,
+  xtermTheme,
+  isExited,
+  onRestart,
+}: AgentTerminalViewProps): React.JSX.Element {
+  return (
+    <div style={agentTerminalWrapperStyle}>
+      <TerminalPane
+        sessionId={sessionId}
+        scrollbackLines={scrollbackLines}
+        terminalFontFamily={terminalFontFamily}
+        label="Agent"
+        xtermTheme={xtermTheme}
+      />
+      {isExited && (
+        <div style={restartOverlayStyles.container}>
+          <button onClick={onRestart} style={restartOverlayStyles.button}>
+            Restart Agent
+          </button>
+        </div>
+      )}
+    </div>
+  )
+})
+
+const agentTerminalWrapperStyle: React.CSSProperties = { position: 'relative', height: '100%' }
+
 function AgentPanel({ api }: { api?: { id: string } } = {}): React.JSX.Element {
   const s = useDockState()
   const activeProject = s.projects.find((p) => p.id === s.activeProjectId)
@@ -56,11 +99,12 @@ function AgentPanel({ api }: { api?: { id: string } } = {}): React.JSX.Element {
   const targetRuntimeId = targetSession?.runtimeId ?? null
   const targetStatus = targetSession?.status ?? null
 
+  const onResumeAgent = s.onResumeAgent
   const handleRestart = useCallback(() => {
     if (targetSessionId && targetRuntimeId) {
-      void s.onResumeAgent(targetSessionId, targetRuntimeId)
+      void onResumeAgent(targetSessionId, targetRuntimeId)
     }
-  }, [targetSessionId, targetRuntimeId, s])
+  }, [targetSessionId, targetRuntimeId, onResumeAgent])
 
   if (s.activeSuperagentId && !siblingSessionId) {
     return <SuperagentAgentPanel />
@@ -93,22 +137,14 @@ function AgentPanel({ api }: { api?: { id: string } } = {}): React.JSX.Element {
   const isExited = targetStatus === 'done' || targetStatus === 'error'
 
   return (
-    <div style={{ position: 'relative', height: '100%' }}>
-      <TerminalPane
-        sessionId={targetSessionId}
-        scrollbackLines={s.scrollbackLines}
-        terminalFontFamily={s.terminalFontFamily}
-        label="Agent"
-        xtermTheme={s.xtermTheme}
-      />
-      {isExited && (
-        <div style={restartOverlayStyles.container}>
-          <button onClick={handleRestart} style={restartOverlayStyles.button}>
-            Restart Agent
-          </button>
-        </div>
-      )}
-    </div>
+    <AgentTerminalView
+      sessionId={targetSessionId}
+      scrollbackLines={s.scrollbackLines}
+      terminalFontFamily={s.terminalFontFamily}
+      xtermTheme={s.xtermTheme}
+      isExited={isExited}
+      onRestart={handleRestart}
+    />
   )
 }
 

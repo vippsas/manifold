@@ -371,7 +371,16 @@ describe('applyLayoutChangePreservingSidebarWidths', () => {
     } as unknown as DockviewApi
 
     applyLayoutChangePreservingSidebarWidths(api, () => {
-      layout = createWorkspaceLayout(260, 490, 250)
+      const next = createWorkspaceLayout(260, 490, 250)
+      // Mutate structure (add a panel to the workspace group) so the grid
+      // signature differs from the original.
+      const root = next.grid.root as {
+        type: 'branch'
+        data: Array<{ type: 'leaf'; data: { views: string[] } }>
+      }
+      const workspaceGroup = root.data[1]
+      workspaceGroup.data.views = [...workspaceGroup.data.views, 'shell']
+      layout = next
     })
 
     expect(fromJSON).toHaveBeenCalledTimes(1)
@@ -381,9 +390,41 @@ describe('applyLayoutChangePreservingSidebarWidths', () => {
     }
     expect(root.data.map((node) => node.size)).toEqual([200, 600, 200])
   })
+
+  it('skips fromJSON when applyChange leaves the grid structure untouched', () => {
+    // A filetree click runs ensureEditorPanel even when the editor is already
+    // present in a different group, so applyChange is structurally a no-op.
+    // In that case we must not re-deserialize the layout — doing so remounts
+    // dockview panels and tears down xterm in the agent pane.
+    let layout = createWorkspaceLayout()
+    const fromJSON = vi.fn((json: SerializedDockview) => {
+      layout = json
+    })
+    const api = {
+      width: 1000,
+      toJSON: vi.fn(() => layout),
+      fromJSON,
+      getPanel: vi.fn((panelId: string) => {
+        if (panelId === 'projects') return { group: { element: { offsetWidth: 200 } } }
+        if (panelId === 'fileTree') return { group: { element: { offsetWidth: 200 } } }
+        return undefined
+      }),
+    } as unknown as DockviewApi
+
+    applyLayoutChangePreservingSidebarWidths(api, () => {
+      // no structural change
+    })
+
+    expect(fromJSON).not.toHaveBeenCalled()
+  })
 })
 
 describe('showPanelFromHints', () => {
+  const emptyLayout: SerializedDockview = {
+    grid: { root: { type: 'branch', size: 0, data: [] } },
+    panels: {},
+  } as unknown as SerializedDockview
+
   it('restores the editor beside the existing agent panel', () => {
     const agentPanel = { id: 'agent' }
     const addPanel = vi.fn()
@@ -391,6 +432,8 @@ describe('showPanelFromHints', () => {
       width: 0,
       getPanel: vi.fn((id: string) => (id === 'agent' ? agentPanel : undefined)),
       addPanel,
+      toJSON: vi.fn(() => emptyLayout),
+      fromJSON: vi.fn(),
     }
 
     showPanelFromHints(api as never, 'editor')
@@ -410,6 +453,8 @@ describe('showPanelFromHints', () => {
       width: 0,
       getPanel: vi.fn((id: string) => (id === 'editor' ? editorPanel : undefined)),
       addPanel,
+      toJSON: vi.fn(() => emptyLayout),
+      fromJSON: vi.fn(),
     }
 
     showPanelFromHints(api as never, 'agent')
