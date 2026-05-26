@@ -117,16 +117,19 @@ export function CodeViewer({
     previewPathsByPane.set(paneId, previewPaths)
   }, [paneId, previewPaths])
 
-  // Auto-open markdown files in preview mode
+  // Auto-open markdown files in preview mode. Intentionally omits previewPaths
+  // from deps: re-running when previewPaths changes would undo a manual switch
+  // to editor mode by re-adding the active file.
   useEffect(() => {
-    if (activeFilePath && isMarkdownFile(activeFilePath) && !previewPaths.has(activeFilePath)) {
+    if (activeFilePath && isMarkdownFile(activeFilePath)) {
       updatePreviewPaths((prev) => {
+        if (prev.has(activeFilePath)) return prev
         const next = new Set(prev)
         next.add(activeFilePath)
         return next
       })
     }
-  }, [activeFilePath, previewPaths, updatePreviewPaths])
+  }, [activeFilePath, updatePreviewPaths])
 
   useEffect(() => {
     saveRef.current = onSaveFile
