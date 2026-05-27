@@ -1,4 +1,4 @@
-import { ipcMain } from 'electron'
+import { BrowserWindow, ipcMain } from 'electron'
 import { mkdirSync } from 'node:fs'
 import { ManifoldSettings, SessionViewState } from '../../shared/types'
 import { SavedShellState } from '../store/shell-tab-store'
@@ -17,7 +17,13 @@ export function registerSettingsHandlers(deps: IpcDependencies): void {
     if (partial.storagePath) {
       mkdirSync(partial.storagePath, { recursive: true })
     }
-    return settingsStore.updateSettings(partial)
+    const updated = settingsStore.updateSettings(partial)
+    for (const win of BrowserWindow.getAllWindows()) {
+      if (!win.isDestroyed()) {
+        win.webContents.send('settings:changed', updated)
+      }
+    }
+    return updated
   })
 }
 
