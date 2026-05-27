@@ -149,7 +149,12 @@ export class SessionCreator {
         ollamaModel: options.ollamaModel ?? existingMeta?.ollamaModel,
         parentSuperagentId: options.parentSuperagentId,
         nonInteractive: options.nonInteractive,
-      }).catch(() => {})
+      }).catch((err) => {
+        console.error(
+          `[session-creator] writeWorktreeMeta failed for ${worktree.path} — nonInteractive=${options.nonInteractive} may be lost on next launch:`,
+          err,
+        )
+      })
     }
 
     await this.getMemoryInjector?.()?.injectContext(session)

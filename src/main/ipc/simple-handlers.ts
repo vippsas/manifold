@@ -17,6 +17,12 @@ export function registerSimpleHandlers(deps: IpcDependencies): void {
     if (session?.projectId && session.worktreePath) {
       return chatAdapter.loadMessages(sessionId, session.worktreePath, session.projectId)
     }
+    if (session && (!session.projectId || !session.worktreePath)) {
+      console.warn(
+        `[simple:chat-messages] session ${sessionId} missing projectId or worktreePath — chat history will appear empty and new messages will not persist`,
+        { projectId: session.projectId, worktreePath: session.worktreePath },
+      )
+    }
     return messages
   })
 
@@ -80,6 +86,11 @@ export function registerSimpleHandlers(deps: IpcDependencies): void {
       if (chatAdapter.getMessages(sessionId).length === 0) {
         chatAdapter.loadMessages(sessionId, session.worktreePath, session.projectId)
       }
+    } else if (session) {
+      console.warn(
+        `[simple:subscribe-chat] session ${sessionId} missing projectId or worktreePath — new messages will not be persisted to disk`,
+        { projectId: session.projectId, worktreePath: session.worktreePath },
+      )
     }
 
     // Unsubscribe any existing listener for this window+session to avoid duplicates

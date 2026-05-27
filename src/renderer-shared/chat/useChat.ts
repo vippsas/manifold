@@ -31,18 +31,28 @@ export function useChat(sessionId: string | null): {
     // for this session. Idempotent — the handler de-dupes per window+session.
     // Without this, restored chat sessions never get live updates (App.tsx
     // only subscribes for newly-promoted drafts).
-    void window.electronAPI.invoke('simple:subscribe-chat', sessionId)
-    window.electronAPI.invoke('simple:chat-messages', sessionId).then((msgs) => {
-      setMessages((prev) => mergeMessages(prev, msgs as ChatMessage[]))
+    window.electronAPI.invoke('simple:subscribe-chat', sessionId).catch((err) => {
+      console.error(`[useChat] simple:subscribe-chat failed for ${sessionId}:`, err)
     })
+    window.electronAPI.invoke('simple:chat-messages', sessionId)
+      .then((msgs) => {
+        setMessages((prev) => mergeMessages(prev, msgs as ChatMessage[]))
+      })
+      .catch((err) => {
+        console.error(`[useChat] simple:chat-messages failed for ${sessionId}:`, err)
+      })
     return unsub
   }, [sessionId])
 
   const sendMessage = useCallback(
     (text: string) => {
       if (!sessionId) return
-      window.electronAPI.invoke('simple:send-message', sessionId, text)
-      window.electronAPI.invoke('agent:input', sessionId, text)
+      window.electronAPI.invoke('simple:send-message', sessionId, text).catch((err) => {
+        console.error(`[useChat] simple:send-message failed for ${sessionId}:`, err)
+      })
+      window.electronAPI.invoke('agent:input', sessionId, text).catch((err) => {
+        console.error(`[useChat] agent:input failed for ${sessionId}:`, err)
+      })
       const userMsg: ChatMessage = {
         id: `local-${Date.now()}`,
         sessionId,

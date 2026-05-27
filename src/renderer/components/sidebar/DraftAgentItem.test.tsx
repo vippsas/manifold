@@ -2,9 +2,10 @@ import { describe, it, expect, vi } from 'vitest'
 import { render, screen, fireEvent } from '@testing-library/react'
 import React from 'react'
 import { DraftAgentItem } from './DraftAgentItem'
+import type { DraftChat, DraftId } from '../../../shared/draft-chat'
 
-const draft = {
-  id: 'draft-1',
+const draft: DraftChat = {
+  id: 'draft-1' as DraftId,
   projectId: 'p1',
   runtimeId: 'claude',
   branchName: 'manifold/oslo',

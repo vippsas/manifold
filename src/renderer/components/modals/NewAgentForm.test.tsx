@@ -184,15 +184,37 @@ describe('NewAgentForm', () => {
     expect(screen.queryByText('Start Agent')).not.toBeInTheDocument()
   })
 
-  it('persists mode changes via settings:update so the next launch defaults to the new mode', async () => {
+  it('does not persist mode on pill click — only on submit', async () => {
     renderForm()
     await waitFor(() => expect(mockInvoke).toHaveBeenCalledWith('runtimes:list'))
 
     fireEvent.click(screen.getByText('Chat'))
-    expect(mockInvoke).toHaveBeenCalledWith('settings:update', { defaultAgentMode: 'chat' })
-
     fireEvent.click(screen.getByText('Interactive'))
-    expect(mockInvoke).toHaveBeenCalledWith('settings:update', { defaultAgentMode: 'interactive' })
+    fireEvent.click(screen.getByText('Chat'))
+
+    expect(mockInvoke).not.toHaveBeenCalledWith('settings:update', expect.anything())
+  })
+
+  it('persists defaultAgentMode on submit when the user changed mode', async () => {
+    renderForm()
+    await waitFor(() => expect(mockInvoke).toHaveBeenCalledWith('runtimes:list'))
+
+    fireEvent.click(screen.getByText('Chat'))
+    fireEvent.click(screen.getByText('Start Chat'))
+
+    await waitFor(() => {
+      expect(mockInvoke).toHaveBeenCalledWith('settings:update', { defaultAgentMode: 'chat' })
+    })
+  })
+
+  it('does not persist defaultAgentMode on submit when mode equals default', async () => {
+    renderForm({ defaultAgentMode: 'chat' as const })
+    await waitFor(() => expect(mockInvoke).toHaveBeenCalledWith('runtimes:list'))
+
+    fireEvent.click(screen.getByText('Start Chat'))
+
+    await waitFor(() => expect(mockInvoke).toHaveBeenCalledWith('runtimes:list'))
+    expect(mockInvoke).not.toHaveBeenCalledWith('settings:update', expect.anything())
   })
 
   it('truncates long task context in existing worktrees rows', async () => {

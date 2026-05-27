@@ -4,6 +4,7 @@ import React from 'react'
 import { ProjectSidebar } from './ProjectSidebar'
 import type { Project, AgentSession } from '../../../shared/types'
 import type { Superagent } from '../../../shared/superagent-types'
+import type { DraftId } from '../../../shared/draft-chat'
 
 const mockInvoke = vi.fn()
 
@@ -323,7 +324,7 @@ describe('ProjectSidebar', () => {
 
   it('renders a draft chat row when drafts are present for the active project', () => {
     renderSidebar({
-      drafts: [{ id: 'draft-1', projectId: 'p1', runtimeId: 'claude' }],
+      drafts: [{ id: 'draft-1' as DraftId, projectId: 'p1', runtimeId: 'claude' }],
     })
 
     expect(screen.getByText('New chat')).toBeInTheDocument()

@@ -5,6 +5,7 @@ import type { DockAppState } from './dock-panel-types'
 import { DockStateContext } from './dock-panel-types'
 import { PANEL_COMPONENTS } from './dock-panels'
 import { siblingPanelId } from '../../hooks/agent-siblings'
+import type { DraftId } from '../../../shared/draft-chat'
 
 vi.mock('../terminal/TerminalPane', () => ({
   TerminalPane: ({ sessionId, label }: { sessionId: string; label: string }) => (
@@ -275,7 +276,7 @@ describe('AgentPanel in superagent mode', () => {
         activeProjectId: 'p1',
         activeSuperagentId: null,
         superagents: [],
-        activeDraft: { id: 'draft-1', projectId: 'p1', runtimeId: 'claude', branchName: 'manifold/oslo' },
+        activeDraft: { id: 'draft-1' as DraftId, projectId: 'p1', runtimeId: 'claude', branchName: 'manifold/oslo' },
       })}>
         <AgentPanel />
       </DockStateContext.Provider>,

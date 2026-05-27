@@ -20,12 +20,16 @@ import { useUpdateNotification } from '../shared/useUpdateNotification'
 import { mergeFileChanges } from './hooks/useFileDiff'
 import { useFileOperations } from './hooks/useFileOperations'
 import { useAppOverlays } from './hooks/useAppOverlays'
-import { useDraftChats } from './hooks/useDraftChats'
+import { useDraftChatCoordinator } from './hooks/useDraftChatCoordinator'
+import { useEditorPaneHandlers } from './hooks/useEditorPaneHandlers'
+import { useSuperagentFileBridge } from './hooks/useSuperagentFileBridge'
+import { useAutoSelectActiveProject } from './hooks/useAutoSelectActiveProject'
+import { useProjectCreateHandlers } from './hooks/useProjectCreateHandlers'
 import { useWebPreview } from './hooks/useWebPreview'
-import { useDockLayout, isEditorPanelId } from './hooks/useDockLayout'
+import { useDockLayout } from './hooks/useDockLayout'
 import { useAgentSiblingDockTabs } from './hooks/useAgentSiblingDockTabs'
 import { useSuperagentChildDockTabs } from './hooks/useSuperagentChildDockTabs'
-import { getPrimarySession, parseSiblingSessionId, siblingPanelId } from './hooks/agent-siblings'
+import { getPrimarySession, siblingPanelId } from './hooks/agent-siblings'
 import { useAppEffects } from './hooks/useAppEffects'
 import { PANEL_COMPONENTS, DockStateContext } from './components/editor/dock-panels'
 import type { DockAppState } from './components/editor/dock-panel-types'
@@ -73,14 +77,7 @@ export function App(): React.JSX.Element {
   const { settings, updateSettings } = useSettings()
   const { projects, activeProjectId, addProject, cloneProject, createNewProject, removeProject, updateProject, setActiveProject, error: projectError } = useProjects()
   const { sessions, activeSessionId, activeSession, spawnAgent, deleteAgent, setActiveSession, resumeAgent, outputtingSessionIds } = useAgentSession(activeProjectId)
-  const { drafts, createDraft, discardDraft: discardDraftRaw } = useDraftChats()
-  const activeDraft = drafts.find((d) => d.id === activeSessionId) ?? null
-  const effectiveSessionId = activeDraft ? null : activeSessionId
-
-  const discardDraft = useCallback((id: string) => {
-    if (activeSessionId === id) setActiveSession(null)
-    discardDraftRaw(id)
-  }, [activeSessionId, setActiveSession, discardDraftRaw])
+  const { drafts, activeDraft, effectiveSessionId, createDraft, discardDraft, promoteDraft } = useDraftChatCoordinator(activeSessionId, setActiveSession, spawnAgent)
   const { sessionsByProject, removeSession } = useAllProjectSessions(projects, activeProjectId, sessions)
   const [activeSuperagentId, setActiveSuperagentId] = useState<string | null>(null)
   const [addProjectSuperagentId, setAddProjectSuperagentId] = useState<string | null>(null)
@@ -103,39 +100,10 @@ export function App(): React.JSX.Element {
     [pendingSuperagentProjectIds],
   )
 
-  // On startup, prefer selecting a project that has active agents
-  const didAutoSelectRef = useRef(false)
-  useEffect(() => {
-    if (didAutoSelectRef.current) return
-    const projectIds = Object.keys(sessionsByProject)
-    if (projectIds.length < 2) return // not yet loaded
-    const currentSessions = activeProjectId
-      && !suppressedProjectIds.has(activeProjectId)
-      ? filterStandaloneProjectSessions(
-          sessionsByProject[activeProjectId] ?? [],
-          superagentChildSessionIds,
-          superagentIds,
-          superagentFleetWorktreePaths,
-        )
-      : []
-    if (currentSessions.length > 0) {
-      didAutoSelectRef.current = true
-      return
-    }
-    const projectWithAgents = projects.find((p) => (
-      !suppressedProjectIds.has(p.id)
-      && filterStandaloneProjectSessions(
-        sessionsByProject[p.id] ?? [],
-        superagentChildSessionIds,
-        superagentIds,
-        superagentFleetWorktreePaths,
-      ).length > 0
-    ))
-    if (projectWithAgents) {
-      didAutoSelectRef.current = true
-      setActiveProject(projectWithAgents.id)
-    }
-  }, [sessionsByProject, activeProjectId, projects, setActiveProject, suppressedProjectIds, superagentChildSessionIds, superagentFleetWorktreePaths, superagentIds])
+  useAutoSelectActiveProject({
+    sessionsByProject, activeProjectId, projects, setActiveProject,
+    suppressedProjectIds, superagentChildSessionIds, superagentIds, superagentFleetWorktreePaths,
+  })
   const activeSuperagent = superagents.find((s) => s.id === activeSuperagentId) ?? null
   const addProjectSuperagent = superagents.find((s) => s.id === addProjectSuperagentId) ?? null
   useStatusNotification(outputtingSessionIds, settings.notificationSound)
@@ -204,38 +172,7 @@ export function App(): React.JSX.Element {
   }, [activeSessionId, activeSuperagentId, dockLayout.apiRef, dockLayout.layoutReloadVersion])
   const webPreview = useWebPreview(effectiveSessionId)
 
-  const { superagentFileReader, superagentFileWriter } = useMemo(() => {
-    if (!activeSuperagent) return { superagentFileReader: null, superagentFileWriter: null }
-    const worktreeEntries = Object.entries(activeSuperagent.fleetWorktreePaths ?? {})
-    if (worktreeEntries.length === 0) return { superagentFileReader: null, superagentFileWriter: null }
-    const resolveProjectId = (filePath: string): string => {
-      const match = worktreeEntries.find(
-        ([, root]) => filePath === root || filePath.startsWith(root.endsWith('/') ? root : root + '/'),
-      )
-      if (!match) throw new Error(`File ${filePath} is not under any fleet worktree`)
-      return match[0]
-    }
-    const reader = async (filePath: string): Promise<string> => {
-      const projectId = resolveProjectId(filePath)
-      return (await window.electronAPI.invoke(
-        'files:read-for-superagent-project',
-        activeSuperagent.id,
-        projectId,
-        filePath,
-      )) as string
-    }
-    const writer = async (filePath: string, content: string): Promise<void> => {
-      const projectId = resolveProjectId(filePath)
-      await window.electronAPI.invoke(
-        'files:write-for-superagent-project',
-        activeSuperagent.id,
-        projectId,
-        filePath,
-        content,
-      )
-    }
-    return { superagentFileReader: reader, superagentFileWriter: writer }
-  }, [activeSuperagent])
+  const { superagentFileReader, superagentFileWriter } = useSuperagentFileBridge(activeSuperagent)
 
   const codeView = useCodeView(effectiveSessionId, superagentFileReader, superagentFileWriter)
 
@@ -273,168 +210,35 @@ export function App(): React.JSX.Element {
   }, [sessionsByProject, gitOps.refreshAheadBehind])
 
   const fetchProject = useFetchProject(handleFetchSuccess)
-  const promoteDraft = useCallback(async (draftId: string, firstMessage: string): Promise<void> => {
-    const draft = drafts.find((d) => d.id === draftId)
-    if (!draft) return
-    const session = await spawnAgent({
-      projectId: draft.projectId,
-      runtimeId: draft.runtimeId,
-      prompt: firstMessage,
-      userMessage: firstMessage,
-      branchName: draft.branchName,
-      ollamaModel: draft.ollamaModel,
-      nonInteractive: true,
-    })
-    if (session) {
-      await window.electronAPI.invoke('simple:subscribe-chat', session.id)
-      setActiveSession(session.id)
-    }
-    discardDraftRaw(draftId)
-  }, [drafts, spawnAgent, discardDraftRaw, setActiveSession])
   const overlays = useAppOverlays(gitOps.commit, refreshDiff, spawnAgent, createDraft, deleteAgent, removeSession, updateSettings, setActiveSession, setActiveProject, activeProjectId)
   const { themeId, themeClass, xtermTheme, setPreviewThemeId } = useTheme(settings.theme)
   const densityClass = settings.density === 'comfortable' ? '' : `density-${settings.density}`
   const updateNotification = useUpdateNotification()
   const updateLog = useUpdateLog()
-  const [lastFileOpenRequest, setLastFileOpenRequest] = useState<FileOpenRequest>({ path: null, source: 'default' })
-  const [pendingSearchOpen, setPendingSearchOpen] = useState<SearchOpenTarget | null>(null)
   const [newSuperagentVisible, setNewSuperagentVisible] = useState(false)
   const worktreeShellCwd = activeSession?.worktreePath ?? activeSuperagent?.coordinationPath ?? null
   const shellProjectCwd = activeSession ? (activeProject?.path ?? null) : null
   const shellSessionKey = activeSessionId ?? activeSuperagentId
   const { worktreeSessionId, projectSessionId } = useShellSessions(worktreeShellCwd, shellProjectCwd, shellSessionKey)
 
-  const openSearchResultInActiveSession = useCallback((target: SearchOpenTarget): void => {
-    setLastFileOpenRequest({
-      path: target.path,
-      line: target.line,
-      column: target.column,
-      source: 'search',
-    })
+  const editorHandlers = useEditorPaneHandlers({
+    activeSessionId, activeProjectId, sessionsByProject, projects,
+    restoredSessionId: viewState.restoredSessionId,
+    codeView, dockLayout, ensureEditorVisible, handleSelectFile, setActiveSession,
+    onRequestDeleteAgent: overlays.requestDeleteAgent,
+  })
+  const {
+    lastFileOpenRequest,
+    handleSelectFileWithDefaultView, handleOpenSearchResult, handleOpenSearchResultInSplit,
+    handleSelectFileFromFileTree, handleSelectOpenFile, handleSelectFileFromMarkdownPreview,
+    handleActivateEditorPane, handleSplitEditorPane, handleMoveFileToPane, handleMoveFileToSplitPane,
+    handleClosePanel,
+  } = editorHandlers
 
-    if (target.openInSplit) {
-      const referencePaneId = ensureEditorVisible(codeView.activeEditorPaneId)
-      const splitPaneId = dockLayout.splitEditorPane(referencePaneId, 'right')
-      if (splitPaneId) {
-        codeView.createPane(splitPaneId, referencePaneId)
-        codeView.setActivePane(splitPaneId)
-        const targetPaneId = codeView.handleSelectFile(target.path, splitPaneId)
-        dockLayout.focusPanel(targetPaneId)
-        return
-      }
-    }
-
-    handleSelectFile(target.path)
-  }, [codeView, dockLayout, ensureEditorVisible, handleSelectFile])
-
-  useEffect(() => {
-    if (!pendingSearchOpen) return
-    if (!pendingSearchOpen.sessionId || pendingSearchOpen.sessionId !== activeSessionId) return
-    if (viewState.restoredSessionId !== activeSessionId) return
-
-    openSearchResultInActiveSession(pendingSearchOpen)
-    setPendingSearchOpen(null)
-  }, [activeSessionId, openSearchResultInActiveSession, pendingSearchOpen, viewState.restoredSessionId])
-
-  const handleSelectFileWithDefaultView = useCallback((filePath: string): void => {
-    setLastFileOpenRequest({ path: filePath, source: 'default' }); handleSelectFile(filePath)
-  }, [handleSelectFile])
-  const handleOpenSearchResult = useCallback((target: SearchOpenTarget): void => {
-    if (target.sessionId && target.sessionId !== activeSessionId) {
-      setPendingSearchOpen(target)
-      setActiveSession(target.sessionId)
-      return
-    }
-
-    setPendingSearchOpen(null)
-    openSearchResultInActiveSession(target)
-  }, [activeSessionId, openSearchResultInActiveSession, setActiveSession])
-  const handleOpenSearchResultInSplit = useCallback((target: SearchOpenTarget): void => {
-    handleOpenSearchResult({ ...target, openInSplit: true })
-  }, [handleOpenSearchResult])
-  const handleSelectFileFromFileTree = useCallback((filePath: string): void => {
-    setLastFileOpenRequest({ path: filePath, source: 'fileTree' }); handleSelectFile(filePath)
-  }, [handleSelectFile])
-  const handleSelectOpenFile = useCallback((filePath: string, paneId: string): void => {
-    codeView.setActivePane(paneId); const t = codeView.handleSelectFile(filePath, paneId); dockLayout.focusPanel(t)
-  }, [codeView, dockLayout])
-  const handleSelectFileFromMarkdownPreview = useCallback((filePath: string, paneId: string): void => {
-    setLastFileOpenRequest({ path: filePath, source: 'markdownPreview' })
-    codeView.setActivePane(paneId)
-    const targetPaneId = codeView.handleSelectFile(filePath, paneId)
-    dockLayout.focusPanel(targetPaneId)
-  }, [codeView, dockLayout])
-  const handleActivateEditorPane = useCallback((paneId: string): void => {
-    codeView.setActivePane(paneId); dockLayout.focusPanel(paneId)
-  }, [codeView, dockLayout])
-  const handleSplitEditorPane = useCallback((paneId: string, direction: 'right' | 'below'): void => {
-    const n = dockLayout.splitEditorPane(paneId, direction); if (!n) return; codeView.createPane(n, paneId); codeView.setActivePane(n)
-  }, [codeView, dockLayout])
-  const handleMoveFileToPane = useCallback((filePath: string, targetPaneId: string, sourcePaneId?: string | null): void => {
-    codeView.moveFileToPane(filePath, targetPaneId, sourcePaneId); codeView.setActivePane(targetPaneId); dockLayout.focusPanel(targetPaneId)
-  }, [codeView, dockLayout])
-  const handleMoveFileToSplitPane = useCallback((filePath: string, sourcePaneId: string, direction: 'right' | 'below'): void => {
-    const existingTargetPaneId = dockLayout.findEditorPanelForSplit(sourcePaneId, direction)
-    let targetPaneId = existingTargetPaneId
-
-    if (!targetPaneId) {
-      targetPaneId = dockLayout.splitEditorPane(sourcePaneId, direction)
-      if (!targetPaneId) return
-      codeView.createPane(targetPaneId, sourcePaneId)
-    }
-
-    codeView.moveFileToPane(filePath, targetPaneId, sourcePaneId)
-    codeView.setActivePane(targetPaneId)
-    dockLayout.focusPanel(targetPaneId)
-  }, [codeView, dockLayout])
-  const handleClosePanel = useCallback((panelId: string): void => {
-    const siblingSessionId = parseSiblingSessionId(panelId)
-    if (siblingSessionId) {
-      const session = (sessionsByProject[activeProjectId ?? ''] ?? []).find((s) => s.id === siblingSessionId)
-        ?? Object.values(sessionsByProject).flat().find((s) => s.id === siblingSessionId)
-      if (!session) return
-      const projectPath = projects.find((p) => p.id === session.projectId)?.path ?? ''
-      overlays.requestDeleteAgent(session, projectPath)
-      return
-    }
-    if (isEditorPanelId(panelId)) { codeView.removePane(panelId, dockLayout.editorPanelIds.find((id) => id !== panelId) ?? null) }
-    dockLayout.closePanel(panelId)
-  }, [codeView, dockLayout, overlays, sessionsByProject, activeProjectId, projects])
-
-  const handleCreateNewProject = useCallback(async (options: CreateProjectOptions): Promise<boolean> => {
-    appEffects.setCreatingProject(true)
-    try {
-      const project = await createNewProject(options)
-      if (!project) return false
-      appEffects.setShowOnboarding(false)
-      let branchName = deriveBranchName(pickRandomNorwegianCityName(), project.name)
-
-      try {
-        const suggested = await window.electronAPI.invoke('branch:suggest', project.id) as string
-        if (typeof suggested === 'string' && suggested.trim()) {
-          branchName = suggested
-        }
-      } catch {
-        // Keep the city-based fallback if branch suggestion fails.
-      }
-
-      void spawnAgent({
-        projectId: project.id,
-        runtimeId: settings.defaultRuntime,
-        prompt: options.description,
-        branchName,
-      })
-      return true
-    } finally { appEffects.setCreatingProject(false) }
-  }, [createNewProject, spawnAgent, settings.defaultRuntime, appEffects])
-  const handleAddProjectFromOnboarding = useCallback(async (path?: string): Promise<void> => {
-    await addProject(path); appEffects.setShowOnboarding(false)
-  }, [addProject, appEffects])
-  const handleCloneFromOnboarding = useCallback(async (url: string): Promise<boolean> => {
-    appEffects.setCloningProject(true)
-    try { const ok = await cloneProject(url); if (ok) appEffects.setShowOnboarding(false); return ok }
-    finally { appEffects.setCloningProject(false) }
-  }, [cloneProject, appEffects])
+  const { handleCreateNewProject, handleAddProjectFromOnboarding, handleCloneFromOnboarding } = useProjectCreateHandlers({
+    createNewProject, addProject, cloneProject, spawnAgent,
+    defaultRuntime: settings.defaultRuntime, appEffects,
+  })
 
   const resolveStandaloneSessions = useCallback(async (projectId: string): Promise<AgentSession[]> => {
     try {

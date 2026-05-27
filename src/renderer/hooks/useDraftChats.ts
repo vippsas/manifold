@@ -1,5 +1,5 @@
 import { useCallback, useState } from 'react'
-import type { DraftChat } from '../../shared/draft-chat'
+import { createDraftId, type DraftChat, type DraftId } from '../../shared/draft-chat'
 
 export interface UseDraftChatsResult {
   drafts: DraftChat[]
@@ -11,7 +11,7 @@ export function useDraftChats(): UseDraftChatsResult {
   const [drafts, setDrafts] = useState<DraftChat[]>([])
 
   const createDraft = useCallback((opts: Omit<DraftChat, 'id'>): DraftChat => {
-    const draft: DraftChat = { id: `draft-${crypto.randomUUID()}`, ...opts }
+    const draft: DraftChat = { id: createDraftId(), ...opts }
     setDrafts((prev) => [...prev, draft])
     return draft
   }, [])
@@ -22,3 +22,5 @@ export function useDraftChats(): UseDraftChatsResult {
 
   return { drafts, createDraft, discardDraft }
 }
+
+export type { DraftId }
