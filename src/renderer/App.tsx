@@ -75,6 +75,7 @@ export function App(): React.JSX.Element {
   const { sessions, activeSessionId, activeSession, spawnAgent, deleteAgent, setActiveSession, resumeAgent, outputtingSessionIds } = useAgentSession(activeProjectId)
   const { drafts, createDraft, discardDraft: discardDraftRaw } = useDraftChats()
   const activeDraft = drafts.find((d) => d.id === activeSessionId) ?? null
+  const effectiveSessionId = activeDraft ? null : activeSessionId
 
   const discardDraft = useCallback((id: string) => {
     if (activeSessionId === id) setActiveSession(null)
@@ -138,7 +139,7 @@ export function App(): React.JSX.Element {
   const activeSuperagent = superagents.find((s) => s.id === activeSuperagentId) ?? null
   const addProjectSuperagent = superagents.find((s) => s.id === addProjectSuperagentId) ?? null
   useStatusNotification(outputtingSessionIds, settings.notificationSound)
-  const { diff, changedFiles, refreshDiff } = useDiff(activeSessionId)
+  const { diff, changedFiles, refreshDiff } = useDiff(effectiveSessionId)
   const activeWorktreePath = activeSession?.worktreePath ?? null
   const activeProjectSessions = activeProjectId ? sessionsByProject[activeProjectId] ?? [] : []
   const primarySession = getPrimarySession(activeProjectSessions, activeWorktreePath)
@@ -201,7 +202,7 @@ export function App(): React.JSX.Element {
     if (!panel) return
     if (!panel.api.isActive) panel.api.setActive()
   }, [activeSessionId, activeSuperagentId, dockLayout.apiRef, dockLayout.layoutReloadVersion])
-  const webPreview = useWebPreview(activeSessionId)
+  const webPreview = useWebPreview(effectiveSessionId)
 
   const { superagentFileReader, superagentFileWriter } = useMemo(() => {
     if (!activeSuperagent) return { superagentFileReader: null, superagentFileWriter: null }
@@ -236,7 +237,7 @@ export function App(): React.JSX.Element {
     return { superagentFileReader: reader, superagentFileWriter: writer }
   }, [activeSuperagent])
 
-  const codeView = useCodeView(activeSessionId, superagentFileReader, superagentFileWriter)
+  const codeView = useCodeView(effectiveSessionId, superagentFileReader, superagentFileWriter)
 
   const appEffects = useAppEffects({
     activeSessionId,
@@ -244,10 +245,10 @@ export function App(): React.JSX.Element {
     setActiveProject, spawnAgent, refreshOpenFiles: codeView.refreshOpenFiles, refreshDiff,
   })
 
-  const { additionalTrees, additionalBranches } = useAdditionalDirs(activeSessionId, activeSession?.additionalDirs)
-  const { tree, changes: watcherChanges, deleteFile, renameFile, createFile, createDir, importPaths, movePath, revealInFinder, openInTerminal } = useFileWatcher(activeSessionId, appEffects.handleFilesChanged)
+  const { additionalTrees, additionalBranches } = useAdditionalDirs(effectiveSessionId, activeSession?.additionalDirs)
+  const { tree, changes: watcherChanges, deleteFile, renameFile, createFile, createDir, importPaths, movePath, revealInFinder, openInTerminal } = useFileWatcher(effectiveSessionId, appEffects.handleFilesChanged)
   const mergedChanges = useMemo(() => mergeFileChanges(changedFiles, watcherChanges), [changedFiles, watcherChanges])
-  const viewState = useViewState(activeSessionId, tree)
+  const viewState = useViewState(effectiveSessionId, tree)
 
   const ensureEditorVisible = useCallback((preferredPaneId?: string | null): string => {
     return dockLayout.ensureEditorPanel(preferredPaneId ?? codeView.activeEditorPaneId)
@@ -258,11 +259,11 @@ export function App(): React.JSX.Element {
     ensureEditorVisible, deleteFile, renameFile, createFile, createDir, importPaths, movePath, revealInFinder, openInTerminal,
   )
 
-  useSessionStatePersistence(activeSessionId, viewState, codeView)
+  useSessionStatePersistence(effectiveSessionId, viewState, codeView)
 
   const activeProject = projects.find((p) => p.id === activeProjectId) ?? null
   const autoGenerateMessages = settings.autoGenerateMessages
-  const gitOps = useGitOperations(activeSessionId)
+  const gitOps = useGitOperations(effectiveSessionId)
 
   const handleFetchSuccess = useCallback((projectId: string) => {
     for (const session of sessionsByProject[projectId] ?? []) {
@@ -460,7 +461,7 @@ export function App(): React.JSX.Element {
     ? activeProject?.baseBranch ?? settings.defaultBaseBranch
     : ''
   const dockState: DockAppState = {
-    sessionId: activeSessionId,
+    sessionId: effectiveSessionId,
     primarySessionId,
     searchFocusRequestKey: appEffects.searchFocusRequestKey,
     requestedSearchMode: appEffects.requestedSearchMode,
