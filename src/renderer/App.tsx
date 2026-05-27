@@ -288,8 +288,8 @@ export function App(): React.JSX.Element {
       await window.electronAPI.invoke('simple:subscribe-chat', session.id)
       setActiveSession(session.id)
     }
-    discardDraft(draftId)
-  }, [drafts, spawnAgent, discardDraft, setActiveSession])
+    discardDraftRaw(draftId)
+  }, [drafts, spawnAgent, discardDraftRaw, setActiveSession])
   const overlays = useAppOverlays(gitOps.commit, refreshDiff, spawnAgent, createDraft, deleteAgent, removeSession, updateSettings, setActiveSession, setActiveProject, activeProjectId)
   const { themeId, themeClass, xtermTheme, setPreviewThemeId } = useTheme(settings.theme)
   const densityClass = settings.density === 'comfortable' ? '' : `density-${settings.density}`
