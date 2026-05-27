@@ -84,6 +84,15 @@ export function AgentItem({ session, projectPath, isActive, isOutputting, onSele
     >
       <div className="sidebar-agent-main">
         <span className={`status-dot${session.status === 'done' || session.status === 'error' ? ' status-dot--hidden' : isOutputting ? ' status-dot--active' : ''}`} />
+        {session.nonInteractive && (
+          <span
+            aria-label="Chat agent"
+            title="Chat agent"
+            style={{ marginRight: 4, opacity: 0.8, fontSize: 11 }}
+          >
+            ◐
+          </span>
+        )}
         <span
           className="truncate sidebar-row-label"
           style={{
