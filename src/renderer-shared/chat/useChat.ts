@@ -1,6 +1,14 @@
 import { useState, useEffect, useCallback } from 'react'
 import type { ChatMessage } from '../../shared/simple-types'
 
+function mergeMessages(prev: ChatMessage[], incoming: ChatMessage[]): ChatMessage[] {
+  if (prev.length === 0) return incoming
+  const byId = new Map<string, ChatMessage>()
+  for (const m of incoming) byId.set(m.id, m)
+  for (const m of prev) if (!byId.has(m.id)) byId.set(m.id, m)
+  return Array.from(byId.values()).sort((a, b) => a.timestamp - b.timestamp)
+}
+
 export function useChat(sessionId: string | null): {
   messages: ChatMessage[]
   sendMessage: (text: string) => void
@@ -8,15 +16,16 @@ export function useChat(sessionId: string | null): {
   const [messages, setMessages] = useState<ChatMessage[]>([])
 
   useEffect(() => {
+    setMessages([])
     if (!sessionId) return
     window.electronAPI.invoke('simple:chat-messages', sessionId).then((msgs) => {
-      setMessages(msgs as ChatMessage[])
+      setMessages((prev) => mergeMessages(prev, msgs as ChatMessage[]))
     })
     const unsub = window.electronAPI.on('simple:chat-message', (msg: unknown) => {
       const chatMsg = msg as ChatMessage
       // Skip user messages — they're already added locally in sendMessage
       if (chatMsg.sessionId === sessionId && chatMsg.role !== 'user') {
-        setMessages((prev) => [...prev, chatMsg])
+        setMessages((prev) => prev.some((m) => m.id === chatMsg.id) ? prev : [...prev, chatMsg])
       }
     })
     return unsub
