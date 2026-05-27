@@ -73,8 +73,13 @@ export function App(): React.JSX.Element {
   const { settings, updateSettings } = useSettings()
   const { projects, activeProjectId, addProject, cloneProject, createNewProject, removeProject, updateProject, setActiveProject, error: projectError } = useProjects()
   const { sessions, activeSessionId, activeSession, spawnAgent, deleteAgent, setActiveSession, resumeAgent, outputtingSessionIds } = useAgentSession(activeProjectId)
-  const { drafts, createDraft, discardDraft } = useDraftChats()
+  const { drafts, createDraft, discardDraft: discardDraftRaw } = useDraftChats()
   const activeDraft = drafts.find((d) => d.id === activeSessionId) ?? null
+
+  const discardDraft = useCallback((id: string) => {
+    if (activeSessionId === id) setActiveSession(null)
+    discardDraftRaw(id)
+  }, [activeSessionId, setActiveSession, discardDraftRaw])
   const { sessionsByProject, removeSession } = useAllProjectSessions(projects, activeProjectId, sessions)
   const [activeSuperagentId, setActiveSuperagentId] = useState<string | null>(null)
   const [addProjectSuperagentId, setAddProjectSuperagentId] = useState<string | null>(null)

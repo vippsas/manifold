@@ -133,6 +133,38 @@ describe('NewAgentForm', () => {
     expect(onDeleteSession).toHaveBeenCalledWith(existingSession)
   })
 
+  it('renders the Interactive | Chat toggle, defaulting to Interactive', async () => {
+    renderForm()
+    await waitFor(() => expect(mockInvoke).toHaveBeenCalledWith('runtimes:list'))
+    expect(screen.getByText('Interactive')).toBeInTheDocument()
+    expect(screen.getByText('Chat')).toBeInTheDocument()
+  })
+
+  it('submits nonInteractive: false by default', async () => {
+    const { props } = renderForm()
+    await waitFor(() => expect(mockInvoke).toHaveBeenCalledWith('runtimes:list'))
+
+    fireEvent.click(screen.getByText('Start Agent'))
+
+    await waitFor(() => expect(props.onLaunch).toHaveBeenCalled())
+    expect(props.onLaunch).toHaveBeenCalledWith(
+      expect.objectContaining({ nonInteractive: false }),
+    )
+  })
+
+  it('submits nonInteractive: true when Chat is selected', async () => {
+    const { props } = renderForm()
+    await waitFor(() => expect(mockInvoke).toHaveBeenCalledWith('runtimes:list'))
+
+    fireEvent.click(screen.getByText('Chat'))
+    fireEvent.click(screen.getByText('Start Agent'))
+
+    await waitFor(() => expect(props.onLaunch).toHaveBeenCalled())
+    expect(props.onLaunch).toHaveBeenCalledWith(
+      expect.objectContaining({ nonInteractive: true }),
+    )
+  })
+
   it('truncates long task context in existing worktrees rows', async () => {
     renderForm({
       existingSessions: [{

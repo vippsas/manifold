@@ -7,6 +7,7 @@ import { pickRandomNorwegianCityName } from '../../../shared/norwegian-cities'
 import { runtimeLabel } from '../sidebar/AgentItem'
 
 type BranchMode = 'current' | 'new'
+type AgentMode = 'interactive' | 'chat'
 
 function basename(input: string): string {
   const parts = input.split(/[\\/]/).filter(Boolean)
@@ -79,6 +80,7 @@ export function NewAgentForm({
   onDeleteSession?: (session: AgentSession) => void
   focusTrigger?: number
 }): React.JSX.Element {
+  const [mode, setMode] = useState<AgentMode>('interactive')
   const [branchMode, setBranchMode] = useState<BranchMode>('new')
   const [taskDescription, setTaskDescription] = useState('')
   const [runtimeId, setRuntimeId] = useState(defaultRuntime)
@@ -198,8 +200,10 @@ export function NewAgentForm({
         return base
       })()
 
+      const finalOptions: SpawnAgentOptions = { ...launchOptions, nonInteractive: mode === 'chat' }
+
       try {
-        const session = await onLaunch(launchOptions)
+        const session = await onLaunch(finalOptions)
         if (!session && mountedRef.current) {
           setError('Failed to start agent.')
         }
@@ -214,11 +218,27 @@ export function NewAgentForm({
         }
       }
     },
-    [branchMode, useExisting, existingSubTab, projectId, runtimeId, taskDescription, selectedBranch, selectedPr, canSubmit, isGitProject, onLaunch]
+    [branchMode, useExisting, existingSubTab, projectId, runtimeId, taskDescription, selectedBranch, selectedPr, canSubmit, isGitProject, onLaunch, mode]
   )
 
   return (
     <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-lg)', width: 420, maxWidth: '90%' }}>
+      <div style={segmentedStyles.container}>
+        <button
+          type="button"
+          onClick={() => setMode('interactive')}
+          style={{ ...segmentedStyles.button, ...(mode === 'interactive' ? segmentedStyles.buttonActive : {}) }}
+        >
+          Interactive
+        </button>
+        <button
+          type="button"
+          onClick={() => setMode('chat')}
+          style={{ ...segmentedStyles.button, ...(mode === 'chat' ? segmentedStyles.buttonActive : {}) }}
+        >
+          Chat
+        </button>
+      </div>
       {reusableSessions.length > 0 && (
         <section style={modalStyles.infoCard}>
           <div style={modalStyles.infoCardTitle}>Existing worktrees</div>
