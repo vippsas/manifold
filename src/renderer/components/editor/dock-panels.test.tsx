@@ -17,6 +17,12 @@ vi.mock('./SuperagentAgentPanel', () => ({
   restartOverlayStyles: {},
 }))
 
+vi.mock('./AgentChatView', () => ({
+  AgentChatView: ({ sessionId }: { sessionId: string }) => (
+    <div>{`chat:${sessionId}`}</div>
+  ),
+}))
+
 const mockInvoke = vi.fn()
 
 beforeEach(() => {
@@ -187,5 +193,72 @@ describe('AgentPanel in superagent mode', () => {
     expect(screen.getAllByText('kong-gateway')).toHaveLength(2)
     expect(screen.getByText('Worktree: manifold-dormant')).toBeInTheDocument()
     expect(screen.getByText('Agent: Codex')).toBeInTheDocument()
+  })
+
+  it('renders AgentChatView when the target session is nonInteractive', () => {
+    const AgentPanel = PANEL_COMPONENTS.agent
+
+    render(
+      <DockStateContext.Provider value={makeDockState({
+        activeProjectId: 'p1',
+        sessionId: 'chat-1',
+        primarySessionId: 'chat-1',
+        activeSuperagentId: null,
+        superagents: [],
+        allProjectSessions: {
+          p1: [
+            {
+              id: 'chat-1',
+              projectId: 'p1',
+              runtimeId: 'claude',
+              branchName: 'manifold/oslo',
+              worktreePath: '/worktrees/kong-gateway/manifold-oslo',
+              status: 'running',
+              pid: 2,
+              additionalDirs: [],
+              nonInteractive: true,
+            },
+          ],
+        },
+      })}>
+        <AgentPanel />
+      </DockStateContext.Provider>,
+    )
+
+    expect(screen.getByText('chat:chat-1')).toBeInTheDocument()
+    expect(screen.queryByText(/^terminal:Agent:/)).toBeNull()
+  })
+
+  it('renders terminal for interactive sessions (regression guard)', () => {
+    const AgentPanel = PANEL_COMPONENTS.agent
+
+    render(
+      <DockStateContext.Provider value={makeDockState({
+        activeProjectId: 'p1',
+        sessionId: 'int-1',
+        primarySessionId: 'int-1',
+        activeSuperagentId: null,
+        superagents: [],
+        allProjectSessions: {
+          p1: [
+            {
+              id: 'int-1',
+              projectId: 'p1',
+              runtimeId: 'claude',
+              branchName: 'manifold/bergen',
+              worktreePath: '/worktrees/kong-gateway/manifold-bergen',
+              status: 'running',
+              pid: 3,
+              additionalDirs: [],
+            },
+          ],
+        },
+      })}>
+        <AgentPanel />
+      </DockStateContext.Provider>,
+    )
+
+    expect(screen.getByText('terminal:Agent:int-1')).toBeInTheDocument()
+    expect(screen.queryByText(/^chat:/)).toBeNull()
   })
 })

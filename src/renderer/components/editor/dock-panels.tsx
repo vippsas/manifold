@@ -16,6 +16,7 @@ import { VerdictsPanel } from '../verdicts/VerdictsPanel'
 import { WatchPanel } from '../watch/WatchPanel'
 import { SuperagentFleetTree } from '../sidebar/SuperagentFleetTree'
 import { SuperagentAgentPanel, restartOverlayStyles } from './SuperagentAgentPanel'
+import { AgentChatView } from './AgentChatView'
 import { DockStateContext, useDockState } from './dock-panel-types'
 import { parseSiblingSessionId } from '../../hooks/agent-siblings'
 export type { DockAppState } from './dock-panel-types'
@@ -135,6 +136,10 @@ function AgentPanel({ api }: { api?: { id: string } } = {}): React.JSX.Element {
   }
 
   const isExited = targetStatus === 'done' || targetStatus === 'error'
+
+  if (targetSession?.nonInteractive) {
+    return <AgentChatView sessionId={targetSessionId} />
+  }
 
   return (
     <AgentTerminalView
