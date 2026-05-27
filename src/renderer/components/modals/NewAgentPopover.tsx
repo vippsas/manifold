@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react'
 import type { SpawnAgentOptions, AgentRuntime } from '../../../shared/types'
 import { popoverStyles } from './NewAgentPopover.styles'
+import { NewAgentModeToggle, type NewAgentMode } from './NewAgentModeToggle'
 
 interface NewAgentPopoverProps {
   visible: boolean
@@ -23,6 +24,7 @@ export function NewAgentPopover({
   const [runtimes, setRuntimes] = useState<AgentRuntime[]>([])
   const [ollamaModel, setOllamaModel] = useState('')
   const [ollamaModels, setOllamaModels] = useState<string[]>([])
+  const [mode, setMode] = useState<NewAgentMode>('interactive')
   const overlayRef = useRef<HTMLDivElement>(null)
 
   useResetOnOpen(
@@ -35,6 +37,8 @@ export function NewAgentPopover({
     setOllamaModel,
     setOllamaModels
   )
+
+  useEffect(() => { if (visible) setMode('interactive') }, [visible])
 
   useEffect(() => {
     if (!visible) return
@@ -73,9 +77,10 @@ export function NewAgentPopover({
         prompt: '',
         branchName: branchName.trim() || undefined,
         ollamaModel: selectedRuntime?.needsModel ? ollamaModel : undefined,
+        nonInteractive: mode === 'chat',
       })
     },
-    [projectId, runtimeId, branchName, ollamaModel, selectedRuntime?.needsModel, onLaunch]
+    [projectId, runtimeId, branchName, ollamaModel, selectedRuntime?.needsModel, mode, onLaunch]
   )
 
   const handleOverlayClick = useCallback(
@@ -106,6 +111,9 @@ export function NewAgentPopover({
     >
       <form onSubmit={handleSubmit} style={popoverStyles.panel}>
         <PopoverHeader onClose={onClose} />
+        <div style={{ padding: '8px 16px 0' }}>
+          <NewAgentModeToggle value={mode} onChange={setMode} />
+        </div>
         <PopoverBody
           runtimeId={runtimeId}
           branchName={branchName}

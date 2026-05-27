@@ -149,4 +149,31 @@ describe('NewAgentPopover', () => {
       expect(branchInput.value).toBe('manifold/oslo')
     })
   })
+
+  it('defaults to Interactive mode and submits nonInteractive: false', () => {
+    const { props } = renderPopover()
+
+    const interactive = screen.getByRole('radio', { name: /interactive/i })
+    expect(interactive).toHaveAttribute('aria-checked', 'true')
+
+    const form = screen.getByText('Launch').closest('form')!
+    fireEvent.submit(form)
+
+    expect(props.onLaunch).toHaveBeenCalledWith(
+      expect.objectContaining({ nonInteractive: false }),
+    )
+  })
+
+  it('submits nonInteractive: true when Chat is selected', () => {
+    const { props } = renderPopover()
+
+    fireEvent.click(screen.getByRole('radio', { name: /chat/i }))
+
+    const form = screen.getByText('Launch').closest('form')!
+    fireEvent.submit(form)
+
+    expect(props.onLaunch).toHaveBeenCalledWith(
+      expect.objectContaining({ nonInteractive: true }),
+    )
+  })
 })
