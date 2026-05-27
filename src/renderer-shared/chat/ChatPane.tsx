@@ -242,8 +242,14 @@ export function ChatPane({ messages, onSend, onInterrupt, isThinking, durationMs
         <button
           style={isThinking ? styles.interruptButton : styles.sendButton}
           onClick={isThinking ? onInterrupt : handleSend}
+          aria-label={isThinking ? 'Stop' : 'Send'}
+          title={isThinking ? 'Stop' : 'Send'}
         >
-          {isThinking ? 'Interrupt' : 'Send'}
+          {isThinking ? (
+            <svg width="12" height="12" viewBox="0 0 12 12" aria-hidden="true">
+              <rect width="12" height="12" rx="1.5" fill="currentColor" />
+            </svg>
+          ) : 'Send'}
         </button>
       </div>
     </div>
