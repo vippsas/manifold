@@ -217,6 +217,14 @@ export class SessionManager {
     if (!session) throw new Error(`Session not found: ${sessionId}`)
     if (session.ptyId) return toPublicSession(session)
 
+    // Chat-mode sessions don't keep a long-running PTY — each message spawns
+    // a fresh print-mode process via spawnPrintModeFollowUp. Spawning the
+    // interactive runtime here would pollute the chat with TUI startup output.
+    if (session.nonInteractive) {
+      session.runtimeId = runtimeId
+      return toPublicSession(session)
+    }
+
     await resumeAgentSession(session, runtimeId, this.ptyPool, this.streamWirer, this.memoryInjector ?? undefined)
     this.memoryCapture?.startCapturing(sessionId)
     this.notifySessionsChanged(session.projectId)
@@ -307,6 +315,7 @@ export class SessionManager {
       additionalDirs: session.additionalDirs,
       ollamaModel: session.ollamaModel,
       parentSuperagentId: session.parentSuperagentId,
+      nonInteractive: session.nonInteractive,
     }).catch(() => {})
   }
 

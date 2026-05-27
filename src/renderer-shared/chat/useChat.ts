@@ -18,15 +18,22 @@ export function useChat(sessionId: string | null): {
   useEffect(() => {
     setMessages([])
     if (!sessionId) return
-    window.electronAPI.invoke('simple:chat-messages', sessionId).then((msgs) => {
-      setMessages((prev) => mergeMessages(prev, msgs as ChatMessage[]))
-    })
+    // Register the listener BEFORE subscribing on the main side so we can't
+    // miss a message the chat adapter pushes between subscribe and on.
     const unsub = window.electronAPI.on('simple:chat-message', (msg: unknown) => {
       const chatMsg = msg as ChatMessage
       // Skip user messages — they're already added locally in sendMessage
       if (chatMsg.sessionId === sessionId && chatMsg.role !== 'user') {
         setMessages((prev) => prev.some((m) => m.id === chatMsg.id) ? prev : [...prev, chatMsg])
       }
+    })
+    // Ensure the main process is pushing chat-message events to this window
+    // for this session. Idempotent — the handler de-dupes per window+session.
+    // Without this, restored chat sessions never get live updates (App.tsx
+    // only subscribes for newly-promoted drafts).
+    void window.electronAPI.invoke('simple:subscribe-chat', sessionId)
+    window.electronAPI.invoke('simple:chat-messages', sessionId).then((msgs) => {
+      setMessages((prev) => mergeMessages(prev, msgs as ChatMessage[]))
     })
     return unsub
   }, [sessionId])

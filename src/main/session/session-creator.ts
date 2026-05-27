@@ -146,6 +146,7 @@ export class SessionCreator {
         additionalDirs: existingMeta?.additionalDirs ?? [],
         ollamaModel: options.ollamaModel ?? existingMeta?.ollamaModel,
         parentSuperagentId: options.parentSuperagentId,
+        nonInteractive: options.nonInteractive,
       }).catch(() => {})
     }
 
