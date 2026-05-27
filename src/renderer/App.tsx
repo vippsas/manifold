@@ -279,11 +279,11 @@ export function App(): React.JSX.Element {
       ollamaModel: draft.ollamaModel,
       nonInteractive: true,
     })
-    discardDraft(draftId)
     if (session) {
-      await window.electronAPI.invoke('simple:subscribe-chat', (session as { id: string }).id)
-      setActiveSession((session as { id: string }).id)
+      await window.electronAPI.invoke('simple:subscribe-chat', session.id)
+      setActiveSession(session.id)
     }
+    discardDraft(draftId)
   }, [drafts, spawnAgent, discardDraft, setActiveSession])
   const overlays = useAppOverlays(gitOps.commit, refreshDiff, spawnAgent, createDraft, deleteAgent, removeSession, updateSettings, setActiveSession, setActiveProject, activeProjectId)
   const { themeId, themeClass, xtermTheme, setPreviewThemeId } = useTheme(settings.theme)
