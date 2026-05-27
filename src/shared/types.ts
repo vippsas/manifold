@@ -81,6 +81,7 @@ export interface ManifoldSettings {
   setupCompleted: boolean
   lastSeenReleaseNotesVersion: string
   defaultRuntime: string
+  defaultAgentMode?: 'interactive' | 'chat'
   showIdeasTab: boolean
   showLoopTab: boolean
   showVerdictsTab: boolean

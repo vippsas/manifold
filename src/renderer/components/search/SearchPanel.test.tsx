@@ -222,6 +222,7 @@ function createDockState(overrides: Partial<DockAppState> = {}): DockAppState {
     worktreeCwd: null,
     baseBranch: 'main',
     defaultRuntime: 'codex',
+    defaultAgentMode: 'interactive',
     onLaunchAgent: vi.fn(),
     projects: [],
     activeProjectId: 'project-1',

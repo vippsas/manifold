@@ -5,6 +5,7 @@ export const DEFAULT_SETTINGS: ManifoldSettings = {
   setupCompleted: false,
   lastSeenReleaseNotesVersion: '',
   defaultRuntime: 'claude',
+  defaultAgentMode: 'chat',
   showIdeasTab: false,
   showLoopTab: false,
   showVerdictsTab: false,

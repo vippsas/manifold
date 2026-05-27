@@ -34,6 +34,7 @@ function renderForm(overrides = {}) {
     baseBranch: 'main',
     isGitProject: true,
     defaultRuntime: 'claude',
+    defaultAgentMode: 'interactive' as const,
     onLaunch: vi.fn().mockResolvedValue({ id: 'session-1' }),
     ...overrides,
   }
@@ -173,6 +174,25 @@ describe('NewAgentForm', () => {
     fireEvent.click(screen.getByText('Chat'))
     expect(screen.getByText('Start Chat')).toBeInTheDocument()
     expect(screen.queryByText('Start Agent')).not.toBeInTheDocument()
+  })
+
+  it('honours defaultAgentMode="chat" as the initial mode', async () => {
+    renderForm({ defaultAgentMode: 'chat' })
+    await waitFor(() => expect(mockInvoke).toHaveBeenCalledWith('runtimes:list'))
+
+    expect(screen.getByText('Start Chat')).toBeInTheDocument()
+    expect(screen.queryByText('Start Agent')).not.toBeInTheDocument()
+  })
+
+  it('persists mode changes via settings:update so the next launch defaults to the new mode', async () => {
+    renderForm()
+    await waitFor(() => expect(mockInvoke).toHaveBeenCalledWith('runtimes:list'))
+
+    fireEvent.click(screen.getByText('Chat'))
+    expect(mockInvoke).toHaveBeenCalledWith('settings:update', { defaultAgentMode: 'chat' })
+
+    fireEvent.click(screen.getByText('Interactive'))
+    expect(mockInvoke).toHaveBeenCalledWith('settings:update', { defaultAgentMode: 'interactive' })
   })
 
   it('truncates long task context in existing worktrees rows', async () => {

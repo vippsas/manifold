@@ -488,6 +488,7 @@ export function App(): React.JSX.Element {
     baseBranch,
     activeProjectIsGit,
     defaultRuntime: settings.defaultRuntime,
+    defaultAgentMode: settings.defaultAgentMode ?? 'chat',
     activeSessionWorktreePath: activeSession?.worktreePath ?? null,
     activeSessionNoWorktree: activeSession?.noWorktree ?? false,
     onLaunchAgent: overlays.handleLaunchAgent, projects, activeProjectId,

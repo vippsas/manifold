@@ -49,6 +49,7 @@ interface NoAgentProps {
   baseBranch: string
   isGitProject: boolean
   defaultRuntime: string
+  defaultAgentMode: 'interactive' | 'chat'
   onLaunch: (options: SpawnAgentOptions) => Promise<unknown>
   existingSessions?: AgentSession[]
   onResumeSession?: (sessionId: string, runtimeId: string) => Promise<void>
@@ -136,6 +137,7 @@ export function OnboardingView(props: OnboardingViewProps): React.JSX.Element {
             baseBranch={props.baseBranch}
             isGitProject={props.isGitProject}
             defaultRuntime={props.defaultRuntime}
+            defaultAgentMode={props.defaultAgentMode}
             onLaunch={props.onLaunch}
             existingSessions={props.existingSessions}
             onResumeSession={props.onResumeSession}

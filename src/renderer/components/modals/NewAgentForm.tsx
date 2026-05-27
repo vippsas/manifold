@@ -63,6 +63,7 @@ export function NewAgentForm({
   baseBranch,
   isGitProject,
   defaultRuntime,
+  defaultAgentMode = 'chat',
   onLaunch,
   existingSessions = [],
   onResumeSession,
@@ -74,13 +75,18 @@ export function NewAgentForm({
   baseBranch: string
   isGitProject: boolean
   defaultRuntime: string
+  defaultAgentMode?: AgentMode
   onLaunch: (options: SpawnAgentOptions) => Promise<unknown>
   existingSessions?: AgentSession[]
   onResumeSession?: (sessionId: string, runtimeId: string) => Promise<void>
   onDeleteSession?: (session: AgentSession) => void
   focusTrigger?: number
 }): React.JSX.Element {
-  const [mode, setMode] = useState<AgentMode>('interactive')
+  const [mode, setModeState] = useState<AgentMode>(defaultAgentMode)
+  const setMode = useCallback((next: AgentMode) => {
+    setModeState(next)
+    void window.electronAPI.invoke('settings:update', { defaultAgentMode: next })
+  }, [])
   const [branchMode, setBranchMode] = useState<BranchMode>('new')
   const [taskDescription, setTaskDescription] = useState('')
   const [runtimeId, setRuntimeId] = useState(defaultRuntime)

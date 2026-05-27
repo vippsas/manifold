@@ -134,6 +134,7 @@ function AgentPanel({ api }: { api?: { id: string } } = {}): React.JSX.Element {
         baseBranch={s.baseBranch}
         isGitProject={s.activeProjectIsGit}
         defaultRuntime={s.defaultRuntime}
+        defaultAgentMode={s.defaultAgentMode}
         onLaunch={s.onLaunchAgent}
         existingSessions={projectSessions}
         onResumeSession={s.onResumeAgent}

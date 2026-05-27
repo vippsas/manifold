@@ -72,6 +72,7 @@ function makeDockState(overrides: Partial<DockAppState> = {}): DockAppState {
     worktreeCwd: null,
     baseBranch: 'main',
     defaultRuntime: 'codex',
+    defaultAgentMode: 'interactive',
     activeProjectIsGit: true,
     activeSessionWorktreePath: null,
     activeSessionNoWorktree: false,
