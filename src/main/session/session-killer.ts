@@ -1,3 +1,6 @@
+import * as fs from 'node:fs/promises'
+import * as os from 'node:os'
+import * as path from 'node:path'
 import type { PtyPool } from '../agent/pty-pool'
 import { debugLog } from '../app/debug-log'
 import type { FileWatcher } from '../fs/file-watcher'
@@ -82,6 +85,10 @@ export class SessionKiller {
     if (session.devServerPtyId) {
       try { this.deps.ptyPool.kill(session.devServerPtyId) } catch { /* already exited */ }
     }
+
+    const safeSessionId = session.id.replace(/[^a-zA-Z0-9_-]/g, '_')
+    const pastedImagesDir = path.join(os.tmpdir(), 'manifold-chat-images', safeSessionId)
+    void fs.rm(pastedImagesDir, { recursive: true, force: true }).catch(() => { /* best-effort */ })
   }
 
   private async removeWorktreeIfUnused(session: InternalSession): Promise<void> {

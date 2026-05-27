@@ -1,6 +1,7 @@
 import * as fs from 'node:fs/promises'
 import * as os from 'node:os'
 import * as path from 'node:path'
+import { randomUUID } from 'node:crypto'
 import { ipcMain } from 'electron'
 import { SpawnAgentOptions } from '../../shared/types'
 import { pickRandomNorwegianCityName } from '../../shared/norwegian-cities'
@@ -78,6 +79,23 @@ export function registerAgentHandlers(deps: IpcDependencies): void {
     const session = await sessionManager.createSession(options)
     fileWatcher.watch(session.worktreePath, session.id)
     return session
+  })
+
+  ipcMain.handle('chat:save-pasted-image', async (_event, sessionId: string, dataUrl: string) => {
+    const match = /^data:image\/([a-z0-9+]+);base64,(.+)$/i.exec(dataUrl)
+    if (!match) throw new Error('Invalid image data URL')
+    const mimeSubtype = match[1].toLowerCase()
+    const allowed: Record<string, string> = { png: 'png', jpeg: 'jpg', jpg: 'jpg', gif: 'gif', webp: 'webp' }
+    const ext = allowed[mimeSubtype]
+    if (!ext) throw new Error(`Unsupported image type: image/${mimeSubtype}`)
+    const buffer = Buffer.from(match[2], 'base64')
+    if (buffer.byteLength === 0) throw new Error('Empty image data')
+    const safeSessionId = sessionId.replace(/[^a-zA-Z0-9_-]/g, '_')
+    const dir = path.join(os.tmpdir(), 'manifold-chat-images', safeSessionId)
+    await fs.mkdir(dir, { recursive: true })
+    const filePath = path.join(dir, `${randomUUID()}.${ext}`)
+    await fs.writeFile(filePath, buffer)
+    return filePath
   })
 
   ipcMain.handle('agent:input', (_event, sessionId: string, input: string) => {

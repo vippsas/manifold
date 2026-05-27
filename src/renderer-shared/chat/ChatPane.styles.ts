@@ -19,6 +19,91 @@ export const inputRow: CSSProperties = {
   padding: '12px 16px',
 }
 
+export const inputColumn: CSSProperties = {
+  flex: 1,
+  display: 'flex',
+  flexDirection: 'column',
+  gap: 8,
+  minWidth: 0,
+  position: 'relative',
+  borderRadius: 20,
+  transition: 'box-shadow 120ms ease, background 120ms ease',
+}
+
+export const inputColumnDragOver: CSSProperties = {
+  background: 'color-mix(in srgb, var(--accent) 8%, transparent)',
+  boxShadow: '0 0 0 2px var(--accent) inset',
+}
+
+export const dropHint: CSSProperties = {
+  position: 'absolute',
+  inset: 0,
+  display: 'flex',
+  alignItems: 'center',
+  justifyContent: 'center',
+  pointerEvents: 'none',
+  fontSize: 13,
+  fontWeight: 600,
+  color: 'var(--accent)',
+  background: 'color-mix(in srgb, var(--accent) 10%, transparent)',
+  borderRadius: 20,
+  zIndex: 1,
+}
+
+export const thumbnailStrip: CSSProperties = {
+  display: 'flex',
+  alignItems: 'center',
+  gap: 8,
+  padding: '4px 6px',
+  background: 'var(--surface)',
+  border: '1px solid var(--border)',
+  borderRadius: 12,
+}
+
+export const thumbnailItem: CSSProperties = {
+  position: 'relative',
+  width: 44,
+  height: 44,
+  borderRadius: 8,
+  overflow: 'hidden',
+  flexShrink: 0,
+  border: '1px solid var(--border)',
+  background: 'var(--bg)',
+}
+
+export const thumbnailImage: CSSProperties = {
+  width: '100%',
+  height: '100%',
+  objectFit: 'cover',
+  display: 'block',
+}
+
+export const thumbnailRemove: CSSProperties = {
+  position: 'absolute',
+  top: 2,
+  right: 2,
+  width: 16,
+  height: 16,
+  padding: 0,
+  borderRadius: '50%',
+  border: 'none',
+  background: 'rgba(0, 0, 0, 0.65)',
+  color: '#fff',
+  fontSize: 11,
+  lineHeight: '16px',
+  cursor: 'pointer',
+  display: 'inline-flex',
+  alignItems: 'center',
+  justifyContent: 'center',
+}
+
+export const thumbnailCounter: CSSProperties = {
+  marginLeft: 'auto',
+  fontSize: 12,
+  color: 'var(--text-muted)',
+  paddingRight: 4,
+}
+
 export const input: CSSProperties = {
   flex: 1,
   padding: '12px 16px',

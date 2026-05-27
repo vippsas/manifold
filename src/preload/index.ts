@@ -20,6 +20,7 @@ const ALLOWED_INVOKE_CHANNELS = [
   'agent:kill-worktree',
   'agent:interrupt',
   'agent:input',
+  'chat:save-pasted-image',
   'agent:resize',
   'agent:sessions',
   'agent:resume',
