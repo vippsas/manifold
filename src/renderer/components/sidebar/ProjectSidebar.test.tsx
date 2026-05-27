@@ -65,6 +65,10 @@ function renderSidebar(overrides = {}) {
     fetchResult: null,
     fetchError: null,
     onFetchProject: vi.fn(),
+    drafts: [],
+    activeDraftId: null,
+    onSelectDraft: vi.fn(),
+    onDiscardDraft: vi.fn(),
     ...overrides,
   }
 
@@ -315,5 +319,13 @@ describe('ProjectSidebar', () => {
 
     expect(screen.queryByText('With agents')).not.toBeInTheDocument()
     expect(screen.queryByText('Beta')).not.toBeInTheDocument()
+  })
+
+  it('renders a draft chat row when drafts are present for the active project', () => {
+    renderSidebar({
+      drafts: [{ id: 'draft-1', projectId: 'p1', runtimeId: 'claude' }],
+    })
+
+    expect(screen.getByText('New chat')).toBeInTheDocument()
   })
 })

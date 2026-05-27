@@ -1,6 +1,8 @@
 import React, { useCallback, useState } from 'react'
 import type { Project, AgentSession } from '../../../shared/types'
 import type { Superagent } from '../../../shared/superagent-types'
+import type { DraftChat } from '../../../shared/draft-chat'
+import { DraftAgentItem } from './DraftAgentItem'
 import { isGitProject } from '../../../shared/project-kind'
 import {
   collectSuperagentIds,
@@ -40,6 +42,10 @@ interface ProjectSidebarProps {
   fetchResult: { updatedBranch: string; commitCount: number } | null
   fetchError: string | null
   onFetchProject: (projectId: string) => void
+  drafts: DraftChat[]
+  activeDraftId: string | null
+  onSelectDraft: (id: string) => void
+  onDiscardDraft: (id: string) => void
 }
 
 export function ProjectSidebar({
@@ -67,6 +73,10 @@ export function ProjectSidebar({
   fetchResult,
   fetchError,
   onFetchProject,
+  drafts,
+  activeDraftId,
+  onSelectDraft,
+  onDiscardDraft,
 }: ProjectSidebarProps): React.JSX.Element {
   const handleRemove = useCallback(
     (e: React.MouseEvent, id: string): void => {
@@ -112,6 +122,10 @@ export function ProjectSidebar({
         fetchResult={fetchResult}
         fetchError={fetchError}
         onFetchProject={onFetchProject}
+        drafts={drafts}
+        activeDraftId={activeDraftId}
+        onSelectDraft={onSelectDraft}
+        onDiscardDraft={onDiscardDraft}
       />
       <div style={sidebarStyles.actions}>
         <button type="button" onClick={onNewAgent} className="sidebar-action-button sidebar-action-button--primary" style={sidebarStyles.actionButtonPrimary}>
@@ -143,6 +157,10 @@ interface ProjectListProps {
   fetchResult: { updatedBranch: string; commitCount: number } | null
   fetchError: string | null
   onFetchProject: (projectId: string) => void
+  drafts: DraftChat[]
+  activeDraftId: string | null
+  onSelectDraft: (id: string) => void
+  onDiscardDraft: (id: string) => void
 }
 
 function ProjectList({
@@ -163,6 +181,10 @@ function ProjectList({
   fetchResult,
   fetchError,
   onFetchProject,
+  drafts,
+  activeDraftId,
+  onSelectDraft,
+  onDiscardDraft,
 }: ProjectListProps): React.JSX.Element {
   const [reposExpanded, setReposExpanded] = useState(false)
   const superagentIds = collectSuperagentIds(superagents)
@@ -265,6 +287,17 @@ function ProjectList({
                 />
               )
             })}
+            {drafts
+              .filter((d) => d.projectId === activeProject.id)
+              .map((d) => (
+                <DraftAgentItem
+                  key={d.id}
+                  draft={d}
+                  isActive={d.id === activeDraftId}
+                  onSelect={onSelectDraft}
+                  onDiscard={onDiscardDraft}
+                />
+              ))}
           </div>
         )
       })()}
