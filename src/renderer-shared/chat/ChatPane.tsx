@@ -275,14 +275,6 @@ export function ChatPane({ messages, onSend, onInterrupt, isThinking, durationMs
     return collected.filter((f) => ACCEPTED_IMAGE_MIME.has(f.type))
   }
 
-  const handlePaste = (e: React.ClipboardEvent<HTMLTextAreaElement>): void => {
-    if (!acceptImages) return
-    const imageFiles = collectImageFiles(e.clipboardData?.items, e.clipboardData?.files)
-    if (imageFiles.length === 0) return
-    e.preventDefault()
-    ingestImageFiles(imageFiles)
-  }
-
   const handleDragEnter = (e: React.DragEvent<HTMLDivElement>): void => {
     if (!acceptImages) return
     const types = e.dataTransfer?.types
@@ -454,7 +446,6 @@ export function ChatPane({ messages, onSend, onInterrupt, isThinking, durationMs
             value={input}
             onChange={(e) => setInput(e.target.value)}
             onKeyDown={handleInputKeyDown}
-            onPaste={handlePaste}
             placeholder="Tell the agent what to change..."
           />
         </div>
