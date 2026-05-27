@@ -484,3 +484,33 @@ describe('CodeViewer', () => {
   })
 
 })
+
+describe('CodeViewer image rendering', () => {
+  it('renders an <img> with the data URL when the active file is an image', () => {
+    const dataUrl = 'data:image/png;base64,iVBORw0KGgo='
+    renderViewer({
+      openFiles: [makeOpenFile({ path: '/repo/logo.png', content: dataUrl })],
+      activeFilePath: '/repo/logo.png',
+      fileContent: dataUrl,
+    })
+
+    const img = screen.getByRole('img')
+    expect(img).toHaveAttribute('src', dataUrl)
+    expect(screen.queryByTestId('monaco-editor')).toBeNull()
+  })
+
+  it('does not register preview or diff controls for image files', () => {
+    const dataUrl = 'data:image/png;base64,AA'
+    renderViewer({
+      paneId: 'editor-image-test',
+      openFiles: [makeOpenFile({ path: '/repo/logo.png', content: dataUrl })],
+      activeFilePath: '/repo/logo.png',
+      fileContent: dataUrl,
+      fileDiffText: 'diff --git a/foo b/foo\n',
+    })
+
+    const controls = getEditorPaneModeControls('editor-image-test')
+    expect(controls?.canShowPreview).toBe(false)
+    expect(controls?.canShowDiff).toBe(false)
+  })
+})

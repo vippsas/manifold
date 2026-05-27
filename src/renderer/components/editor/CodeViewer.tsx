@@ -6,10 +6,12 @@ import { viewerStyles } from './CodeViewer.styles'
 import {
   extensionToLanguage,
   isHtmlFile,
+  isImageFile,
   isMarkdownFile,
 } from './code-viewer-utils'
 import type { FileOpenRequest } from './file-open-request'
 import { TabBar, NoTabsHeader } from './CodeViewerTabs'
+import { ImagePreview } from './viewer/ImagePreview'
 import { MarkdownPreview } from './viewer/MarkdownPreview'
 import { revealRequestedLocation } from './viewer/reveal-requested-location'
 import { useResolvedHtmlPreview } from './viewer/useResolvedHtmlPreview'
@@ -95,6 +97,7 @@ export function CodeViewer({
   const [diffMode, setDiffMode] = useState(false)
   const isMd = isMarkdownFile(activeFilePath)
   const isHtml = isHtmlFile(activeFilePath)
+  const isImage = isImageFile(activeFilePath)
   const isPreviewable = isMd || isHtml
   const hasDiff = fileDiffText !== null
   const previewActive = isPreviewable && activeFilePath !== null && previewPaths.has(activeFilePath)
@@ -186,8 +189,8 @@ export function CodeViewer({
   }, [onOpenLinkedFile, updatePreviewPaths])
 
   const hasTabs = openFiles.length > 0
-  const showPreviewToggle = hasTabs && isPreviewable
-  const showDiffToggle = hasTabs && hasDiff
+  const showPreviewToggle = hasTabs && isPreviewable && !isImage
+  const showDiffToggle = hasTabs && hasDiff && !isImage
 
   const showEditorMode = useCallback(() => {
     if (activeFilePath) {
@@ -259,7 +262,9 @@ export function CodeViewer({
         <NoTabsHeader />
       )}
       <div style={viewerStyles.editorContainer} onMouseDown={onActivatePane}>
-        {previewActive && isHtml && resolvedHtml !== null ? (
+        {isImage && activeFilePath !== null && fileContent !== null ? (
+          <ImagePreview filePath={activeFilePath} dataUrl={fileContent} />
+        ) : previewActive && isHtml && resolvedHtml !== null ? (
           <iframe
             srcDoc={resolvedHtml}
             sandbox="allow-scripts"

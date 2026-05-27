@@ -122,4 +122,44 @@ describe('useCodeView', () => {
     ])
     expect(result.current.activeEditorPaneId).toBe('editor')
   })
+
+  it('reads image files via files:read-data-url and stores the data URL in content', async () => {
+    const dataUrl = 'data:image/png;base64,iVBORw0KGgo='
+    mockInvoke.mockImplementation(async (channel: string) => {
+      if (channel === 'files:read-data-url') return dataUrl
+      if (channel === 'files:read') return 'should not be used for images'
+      return null
+    })
+
+    const { result } = renderHook(() => useCodeView('session-1'))
+
+    act(() => {
+      result.current.handleSelectFile('/repo/logo.png')
+    })
+
+    await waitFor(() => {
+      expect(result.current.openFiles.map((file) => file.path)).toEqual(['/repo/logo.png'])
+    })
+
+    expect(mockInvoke).toHaveBeenCalledWith('files:read-data-url', 'session-1', '/repo/logo.png')
+    expect(mockInvoke).not.toHaveBeenCalledWith('files:read', 'session-1', '/repo/logo.png')
+    expect(result.current.activeFileContent).toBe(dataUrl)
+  })
+
+  it('still reads non-image files via files:read', async () => {
+    mockInvoke.mockResolvedValue('const value = 1')
+
+    const { result } = renderHook(() => useCodeView('session-1'))
+
+    act(() => {
+      result.current.handleSelectFile('/repo/file.ts')
+    })
+
+    await waitFor(() => {
+      expect(result.current.openFiles).toHaveLength(1)
+    })
+
+    expect(mockInvoke).toHaveBeenCalledWith('files:read', 'session-1', '/repo/file.ts')
+    expect(mockInvoke).not.toHaveBeenCalledWith('files:read-data-url', 'session-1', '/repo/file.ts')
+  })
 })

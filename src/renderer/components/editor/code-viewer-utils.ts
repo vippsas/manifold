@@ -35,6 +35,17 @@ export function isHtmlFile(filePath: string | null): boolean {
   return ext === 'html' || ext === 'htm'
 }
 
+// Must stay in sync with mimeTypeForFile in src/main/ipc/file-handlers.ts.
+const IMAGE_EXTENSIONS = new Set([
+  'png', 'jpg', 'jpeg', 'gif', 'webp', 'svg', 'bmp', 'ico', 'avif', 'apng',
+])
+
+export function isImageFile(filePath: string | null): boolean {
+  if (!filePath) return false
+  const ext = filePath.split('.').pop()?.toLowerCase() ?? ''
+  return IMAGE_EXTENSIONS.has(ext)
+}
+
 const URL_SCHEME_PATTERN = /^[a-zA-Z][a-zA-Z\d+.-]*:/
 
 export function isExternalMarkdownHref(href: string | null | undefined): boolean {
