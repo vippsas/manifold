@@ -2,7 +2,7 @@ import React, { useCallback, useRef, useState } from 'react'
 import type { AppStatus } from '../../shared/simple-types'
 import type { ChatMessage as ChatMessageType } from '../../shared/simple-types'
 import { StatusBanner } from './StatusBanner'
-import { ChatPane } from './ChatPane'
+import { ChatPane } from '../../renderer-shared/chat'
 import { PreviewPane } from './PreviewPane'
 import * as styles from './AppView.styles'
 

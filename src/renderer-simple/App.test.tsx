@@ -18,11 +18,8 @@ vi.mock('./hooks/useApps', () => ({
   useApps: () => mockUseApps(),
 }))
 
-vi.mock('./hooks/useAgentStatus', () => ({
+vi.mock('../renderer-shared/chat', () => ({
   useAgentStatus: () => mockUseAgentStatus(),
-}))
-
-vi.mock('./hooks/useChat', () => ({
   useChat: () => mockUseChat(),
 }))
 
