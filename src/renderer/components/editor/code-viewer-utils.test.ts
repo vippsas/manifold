@@ -4,10 +4,48 @@ import {
   getFileTabLabels,
   isExternalMarkdownHref,
   isHtmlFile,
+  isImageFile,
   parseDiffToLineRanges,
   resolveMarkdownLinkedFilePath,
   resolveMarkdownPreviewSource,
 } from './code-viewer-utils'
+
+describe('isImageFile', () => {
+  it('returns true for common raster extensions', () => {
+    expect(isImageFile('photo.png')).toBe(true)
+    expect(isImageFile('photo.jpg')).toBe(true)
+    expect(isImageFile('photo.jpeg')).toBe(true)
+    expect(isImageFile('photo.gif')).toBe(true)
+    expect(isImageFile('photo.webp')).toBe(true)
+    expect(isImageFile('photo.bmp')).toBe(true)
+    expect(isImageFile('photo.ico')).toBe(true)
+    expect(isImageFile('photo.avif')).toBe(true)
+    expect(isImageFile('photo.apng')).toBe(true)
+  })
+
+  it('returns true for svg', () => {
+    expect(isImageFile('icon.svg')).toBe(true)
+  })
+
+  it('is case-insensitive', () => {
+    expect(isImageFile('Photo.PNG')).toBe(true)
+    expect(isImageFile('Photo.JPEG')).toBe(true)
+  })
+
+  it('returns false for non-image extensions', () => {
+    expect(isImageFile('readme.md')).toBe(false)
+    expect(isImageFile('index.ts')).toBe(false)
+    expect(isImageFile('page.html')).toBe(false)
+  })
+
+  it('returns false for null', () => {
+    expect(isImageFile(null)).toBe(false)
+  })
+
+  it('returns false for files without an extension', () => {
+    expect(isImageFile('Dockerfile')).toBe(false)
+  })
+})
 
 describe('isHtmlFile', () => {
   it('returns true for .html extension', () => {
