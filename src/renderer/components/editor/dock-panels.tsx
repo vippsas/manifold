@@ -114,9 +114,12 @@ function AgentPanel({ api }: { api?: { id: string } } = {}): React.JSX.Element {
 
   if (s.activeDraft) {
     const activeDraft = s.activeDraft
+    const draftProject = s.projects.find((p) => p.id === activeDraft.projectId)
     return (
       <DraftChatView
         onFirstSend={(text) => { void s.promoteDraft(activeDraft.id, text) }}
+        projectName={draftProject?.name}
+        branchName={activeDraft.branchName}
       />
     )
   }
