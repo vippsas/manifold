@@ -14,8 +14,8 @@ export function registerSimpleHandlers(deps: IpcDependencies): void {
 
     // Hydrate from persisted store for dormant/restarted sessions
     const session = sessionManager.getSession(sessionId)
-    if (session?.projectId) {
-      return chatAdapter.loadMessages(sessionId, session.projectId)
+    if (session?.projectId && session.worktreePath) {
+      return chatAdapter.loadMessages(sessionId, session.worktreePath, session.projectId)
     }
     return messages
   })
@@ -72,13 +72,13 @@ export function registerSimpleHandlers(deps: IpcDependencies): void {
     const senderWindow = BrowserWindow.fromWebContents(event.sender)
     const key = `${event.sender.id}:${sessionId}`
 
-    // Ensure session→project mapping is set for new messages to be persisted
+    // Ensure session→storage mapping is set for new messages to be persisted
     const session = sessionManager.getSession(sessionId)
-    if (session?.projectId) {
-      chatAdapter.setSessionProject(sessionId, session.projectId)
+    if (session?.projectId && session.worktreePath) {
+      chatAdapter.setSessionStorage(sessionId, session.worktreePath, session.projectId)
       // Hydrate from store if not yet loaded
       if (chatAdapter.getMessages(sessionId).length === 0) {
-        chatAdapter.loadMessages(sessionId, session.projectId)
+        chatAdapter.loadMessages(sessionId, session.worktreePath, session.projectId)
       }
     }
 

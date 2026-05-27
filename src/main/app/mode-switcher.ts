@@ -95,7 +95,7 @@ export class ModeSwitcher {
     runtimeId?: string,
   ): Promise<PendingLaunchAction | null> {
     const context = await this.resetProjectState(projectId, sessionId)
-    this.deps.chatStore.delete(projectId)
+    this.deps.chatStore.deleteByProject(projectId)
     const branchName = await this.resolveBranchName(projectId, context.branchName)
     if (!branchName) return null
 
@@ -116,7 +116,7 @@ export class ModeSwitcher {
     if (!project) return null
 
     const context = await this.resetProjectState(projectId, sessionId)
-    this.deps.chatStore.delete(projectId)
+    this.deps.chatStore.deleteByProject(projectId)
     const branchName = await this.resolveBranchName(projectId, context.branchName)
     if (!branchName) return null
 

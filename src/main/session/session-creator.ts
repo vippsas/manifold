@@ -121,8 +121,10 @@ export class SessionCreator {
     const session = this.buildSession(options, worktree, ptyHandle, nonInteractiveOutputMode, noWorktree)
     const existingMeta = noWorktree ? null : await readWorktreeMeta(worktree.path)
 
-    // Map session→project so chat messages are persisted under the projectId
-    this.getChatAdapter()?.setSessionProject(session.id, options.projectId)
+    // Map session→storage so chat messages are persisted scoped to the worktree
+    // (not the project) — multiple chat-mode sessions in the same project each
+    // get their own chat history.
+    this.getChatAdapter()?.setSessionStorage(session.id, worktree.path, options.projectId)
 
     if (options.nonInteractive) {
       if (session.nonInteractiveOutputMode === 'plain-text') {
