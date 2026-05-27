@@ -43,7 +43,6 @@ const IMAGE_EXTENSIONS = new Set([
 export function isImageFile(filePath: string | null): boolean {
   if (!filePath) return false
   const ext = filePath.split('.').pop()?.toLowerCase() ?? ''
-  if (ext === filePath.toLowerCase()) return false
   return IMAGE_EXTENSIONS.has(ext)
 }
 
