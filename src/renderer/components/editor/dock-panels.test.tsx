@@ -137,6 +137,10 @@ function makeDockState(overrides: Partial<DockAppState> = {}): DockAppState {
     onFocusPanel: vi.fn(),
     onOpenSibling: vi.fn(),
     onCloseSiblingPanel: vi.fn(),
+    drafts: [],
+    activeDraft: null,
+    promoteDraft: vi.fn(async () => {}),
+    discardDraft: vi.fn(),
     ...overrides,
   }
 }
@@ -260,5 +264,22 @@ describe('AgentPanel in superagent mode', () => {
 
     expect(screen.getByText('terminal:Agent:int-1')).toBeInTheDocument()
     expect(screen.queryByText(/^chat:/)).toBeNull()
+  })
+
+  it('renders DraftChatView when an activeDraft is set', () => {
+    const AgentPanel = PANEL_COMPONENTS.agent
+
+    render(
+      <DockStateContext.Provider value={makeDockState({
+        activeProjectId: 'p1',
+        activeSuperagentId: null,
+        superagents: [],
+        activeDraft: { id: 'draft-1', projectId: 'p1', runtimeId: 'claude', branchName: 'manifold/oslo' },
+      })}>
+        <AgentPanel />
+      </DockStateContext.Provider>,
+    )
+
+    expect(screen.getByRole('textbox')).toBeInTheDocument()
   })
 })

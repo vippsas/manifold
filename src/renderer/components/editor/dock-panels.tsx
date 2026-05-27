@@ -17,6 +17,7 @@ import { WatchPanel } from '../watch/WatchPanel'
 import { SuperagentFleetTree } from '../sidebar/SuperagentFleetTree'
 import { SuperagentAgentPanel, restartOverlayStyles } from './SuperagentAgentPanel'
 import { AgentChatView } from './AgentChatView'
+import { DraftChatView } from './DraftChatView'
 import { DockStateContext, useDockState } from './dock-panel-types'
 import { parseSiblingSessionId } from '../../hooks/agent-siblings'
 export type { DockAppState } from './dock-panel-types'
@@ -109,6 +110,15 @@ function AgentPanel({ api }: { api?: { id: string } } = {}): React.JSX.Element {
 
   if (s.activeSuperagentId && !siblingSessionId) {
     return <SuperagentAgentPanel />
+  }
+
+  if (s.activeDraft) {
+    const activeDraft = s.activeDraft
+    return (
+      <DraftChatView
+        onFirstSend={(text) => { void s.promoteDraft(activeDraft.id, text) }}
+      />
+    )
   }
 
   if (!targetSessionId && s.activeProjectId && activeProject) {
@@ -303,6 +313,10 @@ function ProjectsPanel(): React.JSX.Element {
       fetchResult={s.fetchResult}
       fetchError={s.fetchError}
       onFetchProject={s.onFetchProject}
+      drafts={s.drafts}
+      activeDraftId={s.activeDraft?.id ?? null}
+      onSelectDraft={(id) => s.onSelectSession(id, s.activeProjectId ?? '')}
+      onDiscardDraft={s.discardDraft}
     />
   )
 }

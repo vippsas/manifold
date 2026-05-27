@@ -20,6 +20,7 @@ import { useUpdateNotification } from '../shared/useUpdateNotification'
 import { mergeFileChanges } from './hooks/useFileDiff'
 import { useFileOperations } from './hooks/useFileOperations'
 import { useAppOverlays } from './hooks/useAppOverlays'
+import { useDraftChats } from './hooks/useDraftChats'
 import { useWebPreview } from './hooks/useWebPreview'
 import { useDockLayout, isEditorPanelId } from './hooks/useDockLayout'
 import { useAgentSiblingDockTabs } from './hooks/useAgentSiblingDockTabs'
@@ -72,6 +73,8 @@ export function App(): React.JSX.Element {
   const { settings, updateSettings } = useSettings()
   const { projects, activeProjectId, addProject, cloneProject, createNewProject, removeProject, updateProject, setActiveProject, error: projectError } = useProjects()
   const { sessions, activeSessionId, activeSession, spawnAgent, deleteAgent, setActiveSession, resumeAgent, outputtingSessionIds } = useAgentSession(activeProjectId)
+  const { drafts, createDraft, discardDraft } = useDraftChats()
+  const activeDraft = drafts.find((d) => d.id === activeSessionId) ?? null
   const { sessionsByProject, removeSession } = useAllProjectSessions(projects, activeProjectId, sessions)
   const [activeSuperagentId, setActiveSuperagentId] = useState<string | null>(null)
   const [addProjectSuperagentId, setAddProjectSuperagentId] = useState<string | null>(null)
@@ -264,7 +267,25 @@ export function App(): React.JSX.Element {
   }, [sessionsByProject, gitOps.refreshAheadBehind])
 
   const fetchProject = useFetchProject(handleFetchSuccess)
-  const overlays = useAppOverlays(gitOps.commit, refreshDiff, spawnAgent, deleteAgent, removeSession, updateSettings, setActiveSession, setActiveProject, activeProjectId)
+  const promoteDraft = useCallback(async (draftId: string, firstMessage: string): Promise<void> => {
+    const draft = drafts.find((d) => d.id === draftId)
+    if (!draft) return
+    const session = await spawnAgent({
+      projectId: draft.projectId,
+      runtimeId: draft.runtimeId,
+      prompt: firstMessage,
+      userMessage: firstMessage,
+      branchName: draft.branchName,
+      ollamaModel: draft.ollamaModel,
+      nonInteractive: true,
+    })
+    discardDraft(draftId)
+    if (session) {
+      await window.electronAPI.invoke('simple:subscribe-chat', (session as { id: string }).id)
+      setActiveSession((session as { id: string }).id)
+    }
+  }, [drafts, spawnAgent, discardDraft, setActiveSession])
+  const overlays = useAppOverlays(gitOps.commit, refreshDiff, spawnAgent, createDraft, deleteAgent, removeSession, updateSettings, setActiveSession, setActiveProject, activeProjectId)
   const { themeId, themeClass, xtermTheme, setPreviewThemeId } = useTheme(settings.theme)
   const densityClass = settings.density === 'comfortable' ? '' : `density-${settings.density}`
   const updateNotification = useUpdateNotification()
@@ -514,6 +535,10 @@ export function App(): React.JSX.Element {
     onCloseSiblingPanel: dockLayout.closeSiblingPanel,
     activeSessionStatus: activeSession?.status ?? null,
     activeSessionRuntimeId: activeSession?.runtimeId ?? null, onResumeAgent: resumeAgent,
+    drafts,
+    activeDraft,
+    promoteDraft,
+    discardDraft,
   }
 
   if (!settings.setupCompleted) {
