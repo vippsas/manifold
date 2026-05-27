@@ -121,8 +121,10 @@ export class SessionCreator {
     const session = this.buildSession(options, worktree, ptyHandle, nonInteractiveOutputMode, noWorktree)
     const existingMeta = noWorktree ? null : await readWorktreeMeta(worktree.path)
 
-    // Map session→project so chat messages are persisted under the projectId
-    this.getChatAdapter()?.setSessionProject(session.id, options.projectId)
+    // Map session→storage so chat messages are persisted scoped to the worktree
+    // (not the project) — multiple chat-mode sessions in the same project each
+    // get their own chat history.
+    this.getChatAdapter()?.setSessionStorage(session.id, worktree.path, options.projectId)
 
     if (options.nonInteractive) {
       if (session.nonInteractiveOutputMode === 'plain-text') {
@@ -146,7 +148,13 @@ export class SessionCreator {
         additionalDirs: existingMeta?.additionalDirs ?? [],
         ollamaModel: options.ollamaModel ?? existingMeta?.ollamaModel,
         parentSuperagentId: options.parentSuperagentId,
-      }).catch(() => {})
+        nonInteractive: options.nonInteractive,
+      }).catch((err) => {
+        console.error(
+          `[session-creator] writeWorktreeMeta failed for ${worktree.path} — nonInteractive=${options.nonInteractive} may be lost on next launch:`,
+          err,
+        )
+      })
     }
 
     await this.getMemoryInjector?.()?.injectContext(session)

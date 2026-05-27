@@ -1,60 +1,16 @@
 import React, { useRef, useState, useCallback, useEffect } from 'react'
 import type { SpawnAgentOptions, AgentRuntime, BranchInfo, PRInfo, AgentSession } from '../../../shared/types'
 import { modalStyles } from './NewTaskModal.styles'
-import { TaskDescriptionField, AgentDropdown, BranchPicker, PRPicker } from '../new-task'
+import { TaskDescriptionField } from '../new-task'
 import type { ExistingSubTab } from '../new-task'
 import { pickRandomNorwegianCityName } from '../../../shared/norwegian-cities'
-import { runtimeLabel } from '../sidebar/AgentItem'
+import { segmentedStyles } from './NewAgentForm.styles'
+import { ReusableSessionsCard } from './ReusableSessionsCard'
+import { NewAgentAdvanced } from './NewAgentAdvanced'
+import { NewAgentModePill } from './NewAgentModePill'
 
 type BranchMode = 'current' | 'new'
-
-function basename(input: string): string {
-  const parts = input.split(/[\\/]/).filter(Boolean)
-  return parts.at(-1) ?? input
-}
-
-function describeWorktree(projectPath: string, worktreePath: string): string {
-  if (worktreePath === projectPath) {
-    return basename(projectPath)
-  }
-  return basename(worktreePath)
-}
-
-function truncateWords(input: string, maxWords: number): string {
-  const words = input.trim().split(/\s+/).filter(Boolean)
-  if (words.length <= maxWords) return input.trim()
-  return `${words.slice(0, maxWords).join(' ')}...`
-}
-
-const segmentedStyles = {
-  container: {
-    display: 'flex',
-    gap: 0,
-    background: 'var(--bg-input, rgba(255,255,255,0.03))',
-    borderRadius: 'var(--radius-md)',
-    padding: 3,
-    border: '1px solid var(--border)',
-  } as React.CSSProperties,
-  button: {
-    flex: 1,
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'center',
-    padding: '7px 24px',
-    border: 'none',
-    borderRadius: 'calc(var(--radius-md) - 2px)',
-    fontSize: 'var(--type-ui-small)',
-    fontWeight: 500,
-    cursor: 'pointer',
-    background: 'transparent',
-    color: 'var(--text-muted)',
-    transition: 'all var(--duration-normal) var(--ease-premium)',
-  } as React.CSSProperties,
-  buttonActive: {
-    background: 'var(--accent-subtle)',
-    color: 'var(--accent)',
-  } as React.CSSProperties,
-}
+type AgentMode = 'interactive' | 'chat'
 
 export function NewAgentForm({
   projectId,
@@ -62,6 +18,7 @@ export function NewAgentForm({
   baseBranch,
   isGitProject,
   defaultRuntime,
+  defaultAgentMode = 'chat',
   onLaunch,
   existingSessions = [],
   onResumeSession,
@@ -73,12 +30,14 @@ export function NewAgentForm({
   baseBranch: string
   isGitProject: boolean
   defaultRuntime: string
+  defaultAgentMode?: AgentMode
   onLaunch: (options: SpawnAgentOptions) => Promise<unknown>
   existingSessions?: AgentSession[]
   onResumeSession?: (sessionId: string, runtimeId: string) => Promise<void>
   onDeleteSession?: (session: AgentSession) => void
   focusTrigger?: number
 }): React.JSX.Element {
+  const [mode, setMode] = useState<AgentMode>(defaultAgentMode)
   const [branchMode, setBranchMode] = useState<BranchMode>('new')
   const [taskDescription, setTaskDescription] = useState('')
   const [runtimeId, setRuntimeId] = useState(defaultRuntime)
@@ -198,8 +157,19 @@ export function NewAgentForm({
         return base
       })()
 
+      const finalOptions: SpawnAgentOptions = { ...launchOptions, nonInteractive: mode === 'chat' }
+
+      // Persist the chosen mode so the next New Agent form (any repo) defaults to it.
+      // Done at submit (not on every pill click) to avoid flooding all renderers
+      // with settings:changed broadcasts when the user toggles back and forth.
+      if (mode !== defaultAgentMode) {
+        window.electronAPI.invoke('settings:update', { defaultAgentMode: mode }).catch((err) => {
+          console.error('[NewAgentForm] failed to persist defaultAgentMode:', err)
+        })
+      }
+
       try {
-        const session = await onLaunch(launchOptions)
+        const session = await onLaunch(finalOptions)
         if (!session && mountedRef.current) {
           setError('Failed to start agent.')
         }
@@ -214,67 +184,17 @@ export function NewAgentForm({
         }
       }
     },
-    [branchMode, useExisting, existingSubTab, projectId, runtimeId, taskDescription, selectedBranch, selectedPr, canSubmit, isGitProject, onLaunch]
+    [branchMode, useExisting, existingSubTab, projectId, runtimeId, taskDescription, selectedBranch, selectedPr, canSubmit, isGitProject, onLaunch, mode, defaultAgentMode]
   )
 
   return (
     <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-lg)', width: 420, maxWidth: '90%' }}>
-      {reusableSessions.length > 0 && (
-        <section style={modalStyles.infoCard}>
-          <div style={modalStyles.infoCardTitle}>Existing worktrees</div>
-          <div style={modalStyles.infoCardText}>
-            Managed worktrees already exist for this repository. You can reconnect to one or remove it before starting a new agent.
-          </div>
-          <div style={modalStyles.infoCardList}>
-            {reusableSessions.map((session) => {
-              const canResumeSession = Boolean(session.runtimeId)
-              const repoName = basename(projectPath)
-              const worktreeLabel = describeWorktree(projectPath, session.worktreePath)
-              const agentLabel = canResumeSession
-                ? runtimeLabel(session.runtimeId)
-                : 'Missing runtime metadata'
-              const contextLabel = session.taskDescription
-                ? truncateWords(session.taskDescription, 12)
-                : session.branchName
-              return (
-                <div key={session.id} style={modalStyles.infoCardRow}>
-                  <div style={{ minWidth: 0, flex: 1, display: 'flex', flexDirection: 'column', gap: '2px' }}>
-                    <span style={modalStyles.infoCardPrimary}>
-                      {repoName}
-                    </span>
-                    <span style={modalStyles.infoCardMeta}>
-                      {`Worktree: ${worktreeLabel}`}
-                    </span>
-                    <span style={modalStyles.infoCardSecondary}>
-                      {`Agent: ${agentLabel}`}
-                    </span>
-                    <span style={modalStyles.infoCardContext} title={session.taskDescription ?? session.branchName}>
-                      {contextLabel}
-                    </span>
-                  </div>
-                  <div style={modalStyles.infoCardActions}>
-                    <button
-                      type="button"
-                      onClick={() => { if (canResumeSession) void onResumeSession?.(session.id, session.runtimeId) }}
-                      disabled={!canResumeSession}
-                      style={modalStyles.inlineActionButton}
-                    >
-                      Resume
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => onDeleteSession?.(session)}
-                      style={modalStyles.inlineDangerButton}
-                    >
-                      Delete
-                    </button>
-                  </div>
-                </div>
-              )
-            })}
-          </div>
-        </section>
-      )}
+      <ReusableSessionsCard
+        projectPath={projectPath}
+        sessions={reusableSessions}
+        onResumeSession={onResumeSession}
+        onDeleteSession={onDeleteSession}
+      />
 
       {isGitProject && (
         <div style={segmentedStyles.container}>
@@ -325,74 +245,37 @@ export function NewAgentForm({
       </button>
 
       {showAdvanced && (
-        <>
-          <AgentDropdown value={runtimeId} onChange={setRuntimeId} runtimes={runtimes} />
-          {!runtimeInstalled && (
-            <p style={modalStyles.errorText}>
-              {selectedRuntime?.name ?? runtimeId} is not installed. Please install it first.
-            </p>
-          )}
-
-          {isGitProject && branchMode === 'new' && (
-            <>
-              <label style={modalStyles.checkboxLabel}>
-                <input type="checkbox" checked={useExisting} onChange={(e) => setUseExisting(e.target.checked)} />
-                Continue on an existing branch or PR
-              </label>
-
-              {useExisting && (
-                <>
-                  <div style={modalStyles.subTabBar}>
-                    <button type="button" onClick={() => setExistingSubTab('branch')} style={{ ...modalStyles.subTab, ...(existingSubTab === 'branch' ? modalStyles.subTabActive : {}) }}>
-                      Branch
-                    </button>
-                    <button type="button" onClick={() => setExistingSubTab('pr')} style={{ ...modalStyles.subTab, ...(existingSubTab === 'pr' ? modalStyles.subTabActive : {}) }}>
-                      Pull Request
-                    </button>
-                  </div>
-
-                  {existingSubTab === 'branch' && (
-                    <BranchPicker branches={branches} baseBranch={baseBranch} filter={branchFilter} onFilterChange={setBranchFilter} selected={selectedBranch} onSelect={setSelectedBranch} loading={branchesLoading} />
-                  )}
-
-                  {existingSubTab === 'pr' && (
-                    <PRPicker prs={prs} filter={prFilter} onFilterChange={setPrFilter} selected={selectedPr} onSelect={setSelectedPr} loading={prsLoading} />
-                  )}
-                </>
-              )}
-            </>
-          )}
-        </>
+        <NewAgentAdvanced
+          isGitProject={isGitProject}
+          branchMode={branchMode}
+          runtimeId={runtimeId}
+          runtimes={runtimes}
+          setRuntimeId={setRuntimeId}
+          runtimeInstalled={runtimeInstalled}
+          selectedRuntime={selectedRuntime}
+          useExisting={useExisting}
+          setUseExisting={setUseExisting}
+          existingSubTab={existingSubTab}
+          setExistingSubTab={setExistingSubTab}
+          branches={branches}
+          baseBranch={baseBranch}
+          branchFilter={branchFilter}
+          setBranchFilter={setBranchFilter}
+          selectedBranch={selectedBranch}
+          setSelectedBranch={setSelectedBranch}
+          branchesLoading={branchesLoading}
+          prs={prs}
+          prFilter={prFilter}
+          setPrFilter={setPrFilter}
+          selectedPr={selectedPr}
+          setSelectedPr={setSelectedPr}
+          prsLoading={prsLoading}
+        />
       )}
 
       {error && <p style={modalStyles.errorText}>{error}</p>}
 
-      <button
-        type="submit"
-        disabled={!canSubmit || loading}
-        style={{
-          width: '100%',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          height: 'var(--control-height)',
-          padding: '0 32px',
-          background: 'linear-gradient(135deg, var(--btn-bg), var(--btn-hover))',
-          color: 'var(--btn-text)',
-          border: 'none',
-          borderRadius: 'var(--radius-sm)',
-          fontSize: 'var(--type-ui)',
-          fontWeight: 500,
-          cursor: canSubmit && !loading ? 'pointer' : 'default',
-          letterSpacing: '0.02em',
-          boxShadow: 'var(--shadow-glow, var(--shadow-subtle))',
-          transition: 'filter var(--duration-normal) var(--ease-premium)',
-          marginTop: 'var(--space-sm)',
-          opacity: canSubmit && !loading ? 1 : 0.5,
-        }}
-      >
-        {loading ? 'Starting…' : 'Start Agent'}
-      </button>
+      <NewAgentModePill mode={mode} setMode={setMode} canSubmit={canSubmit} loading={loading} />
     </form>
   )
 }

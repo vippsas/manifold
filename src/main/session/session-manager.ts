@@ -6,7 +6,7 @@ import { ProjectRegistry } from '../store/project-registry'
 import { DevServerManager } from '../app/dev-server-manager'
 import { SessionCreator } from './session-creator'
 import { SessionTeardown } from './session-teardown'
-import { writeWorktreeMeta } from '../git/worktree-meta'
+import { persistSessionMeta } from './session-meta-persister'
 import { FileWatcher } from '../fs/file-watcher'
 import type { ChatAdapter } from '../agent/chat-adapter'
 import type { MemoryCapture } from '../memory/memory-capture'
@@ -24,7 +24,6 @@ import { toPublicSession } from './session-public'
 import { SessionIoController } from './session-io-controller'
 import type { VerdictRecorder } from './verdict-recorder'
 import { isGitProject } from '../../shared/project-kind'
-
 
 export class SessionManager {
   private sessions: Map<string, InternalSession> = new Map()
@@ -55,7 +54,7 @@ export class SessionManager {
       () => this.chatAdapter,
       this.sendToRenderer.bind(this),
       this.fileWatcher,
-      (session) => this.persistAdditionalDirs(session),
+      persistSessionMeta,
       (session) => this.devServer.startDevServer(session),
     )
     this.devServer = new DevServerManager(
@@ -217,6 +216,14 @@ export class SessionManager {
     if (!session) throw new Error(`Session not found: ${sessionId}`)
     if (session.ptyId) return toPublicSession(session)
 
+    // Chat-mode sessions don't keep a long-running PTY — each message spawns
+    // a fresh print-mode process via spawnPrintModeFollowUp. Spawning the
+    // interactive runtime here would pollute the chat with TUI startup output.
+    if (session.nonInteractive) {
+      session.runtimeId = runtimeId
+      return toPublicSession(session)
+    }
+
     await resumeAgentSession(session, runtimeId, this.ptyPool, this.streamWirer, this.memoryInjector ?? undefined)
     this.memoryCapture?.startCapturing(sessionId)
     this.notifySessionsChanged(session.projectId)
@@ -227,8 +234,8 @@ export class SessionManager {
   getOutputBuffer(sessionId: string): string { return this.sessions.get(sessionId)?.outputBuffer ?? '' }
 
   getSession(sessionId: string): AgentSession | undefined {
-    const session = this.sessions.get(sessionId)
-    return session ? toPublicSession(session) : undefined
+    const s = this.sessions.get(sessionId)
+    return s ? toPublicSession(s) : undefined
   }
 
   getInternalSession(sessionId: string): InternalSession | undefined { return this.sessions.get(sessionId) }
@@ -243,9 +250,7 @@ export class SessionManager {
 
   async discoverSessionsForProject(projectId: string): Promise<AgentSession[]> {
     await this.discovery.discoverSessionsForProject(projectId)
-    return Array.from(this.sessions.values())
-      .filter((s) => s.projectId === projectId)
-      .map(toPublicSession)
+    return Array.from(this.sessions.values()).filter((s) => s.projectId === projectId).map(toPublicSession)
   }
 
   async discoverAllSessions(simpleProjectsBase?: string): Promise<AgentSession[]> {
@@ -262,7 +267,7 @@ export class SessionManager {
     if (!session) throw new Error(`Session not found: ${sessionId}`)
     session.parentSuperagentId = parentSuperagentId
     if (!session.noWorktree && session.worktreePath) {
-      this.persistSessionMeta(session)
+      persistSessionMeta(session)
     }
     this.notifySessionsChanged(session.projectId)
     return toPublicSession(session)
@@ -288,26 +293,7 @@ export class SessionManager {
 
   killAllSessions(): void { this.ioController.killAllSessions() }
 
-  createShellSession(cwd: string, options?: { shellPrompt?: boolean; historyDir?: string }): { sessionId: string } {
-    return this.shellController.createShellSession(cwd, options)
-  }
+  createShellSession(cwd: string, options?: { shellPrompt?: boolean; historyDir?: string }): { sessionId: string } { return this.shellController.createShellSession(cwd, options) }
 
   triggerShellSuggestion(sessionId: string): void { this.shellController.triggerSuggestion(sessionId) }
-
-  private persistAdditionalDirs(session: InternalSession): void {
-    this.persistSessionMeta(session)
-  }
-
-  private persistSessionMeta(session: InternalSession): void {
-    writeWorktreeMeta(session.worktreePath, {
-      runtimeId: session.runtimeId,
-      taskDescription: session.taskDescription,
-      simpleTemplateTitle: session.simpleTemplateTitle,
-      simplePromptInstructions: session.simplePromptInstructions,
-      additionalDirs: session.additionalDirs,
-      ollamaModel: session.ollamaModel,
-      parentSuperagentId: session.parentSuperagentId,
-    }).catch(() => {})
-  }
-
 }

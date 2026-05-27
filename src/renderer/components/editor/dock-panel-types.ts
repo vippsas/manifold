@@ -5,6 +5,7 @@ import type { SearchMode } from '../../../shared/search-types'
 import type { EditorPaneView, OpenFile } from '../../hooks/useCodeView'
 import type { FileOpenRequest } from './file-open-request'
 import type { SessionSelectionOptions } from '../../session-selection'
+import type { DraftChat } from '../../../shared/draft-chat'
 
 export interface DockAppState {
   sessionId: string | null
@@ -112,6 +113,10 @@ export interface DockAppState {
   onFocusPanel: (id: string) => void
   onOpenSibling: (sessionId: string, title?: string, referencePanelId?: string) => void
   onCloseSiblingPanel: (sessionId: string) => void
+  drafts: DraftChat[]
+  activeDraft: DraftChat | null
+  promoteDraft: (draftId: string, firstMessage: string) => Promise<void>
+  discardDraft: (draftId: string) => void
 }
 
 export const DockStateContext = createContext<DockAppState | null>(null)

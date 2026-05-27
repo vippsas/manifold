@@ -121,9 +121,10 @@ interface Props {
   onInterrupt?: () => void
   isThinking?: boolean
   durationMs?: number | null
+  placeholder?: React.ReactNode
 }
 
-export function ChatPane({ messages, onSend, onInterrupt, isThinking, durationMs }: Props): React.JSX.Element {
+export function ChatPane({ messages, onSend, onInterrupt, isThinking, durationMs, placeholder }: Props): React.JSX.Element {
   const [input, setInput] = useState('')
   const [dismissedOptions, setDismissedOptions] = useState<Set<string>>(new Set())
   const messagesEndRef = useRef<HTMLDivElement>(null)
@@ -206,9 +207,16 @@ export function ChatPane({ messages, onSend, onInterrupt, isThinking, durationMs
     onSend(option)
   }
 
+  const showPlaceholder = messages.length === 0 && !isThinking && placeholder != null
+
   return (
     <div style={styles.container}>
       <div style={styles.messages}>
+        {showPlaceholder && (
+          <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+            {placeholder}
+          </div>
+        )}
         {messages.map((msg) => (
           <ChatMessage
             key={msg.id}
@@ -234,8 +242,14 @@ export function ChatPane({ messages, onSend, onInterrupt, isThinking, durationMs
         <button
           style={isThinking ? styles.interruptButton : styles.sendButton}
           onClick={isThinking ? onInterrupt : handleSend}
+          aria-label={isThinking ? 'Stop' : 'Send'}
+          title={isThinking ? 'Stop' : 'Send'}
         >
-          {isThinking ? 'Interrupt' : 'Send'}
+          {isThinking ? (
+            <svg width="12" height="12" viewBox="0 0 12 12" aria-hidden="true">
+              <rect width="12" height="12" rx="1.5" fill="currentColor" />
+            </svg>
+          ) : 'Send'}
         </button>
       </div>
     </div>

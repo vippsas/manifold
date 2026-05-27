@@ -1,0 +1,39 @@
+import { describe, it, expect, vi } from 'vitest'
+import { render, screen } from '@testing-library/react'
+import React from 'react'
+import { AgentItem } from './AgentItem'
+import type { AgentSession } from '../../../shared/types'
+
+function makeSession(overrides: Partial<AgentSession> = {}): AgentSession {
+  return {
+    id: 'sess-1',
+    projectId: 'proj-1',
+    runtimeId: 'claude',
+    branchName: 'manifold/oslo',
+    worktreePath: '/tmp/oslo',
+    status: 'running',
+    pid: 1234,
+    additionalDirs: [],
+    ...overrides,
+  }
+}
+
+describe('AgentItem chat glyph', () => {
+  const baseProps = {
+    projectPath: '/tmp/proj',
+    isActive: false,
+    isOutputting: false,
+    onSelect: vi.fn(),
+    onDelete: vi.fn(),
+  }
+
+  it('does not render the chat glyph for an interactive session', () => {
+    render(<AgentItem {...baseProps} session={makeSession()} />)
+    expect(screen.queryByLabelText('Chat agent')).not.toBeInTheDocument()
+  })
+
+  it('renders the chat glyph for a nonInteractive session', () => {
+    render(<AgentItem {...baseProps} session={makeSession({ nonInteractive: true })} />)
+    expect(screen.getByLabelText('Chat agent')).toBeInTheDocument()
+  })
+})

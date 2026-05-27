@@ -37,6 +37,8 @@ export interface AgentSession {
    * navigation to them.
    */
   groupId?: string
+  /** True when this session runs Claude in non-interactive (chat) mode. */
+  nonInteractive?: boolean
 }
 
 export type ProjectKind = 'git' | 'folder'
@@ -79,6 +81,7 @@ export interface ManifoldSettings {
   setupCompleted: boolean
   lastSeenReleaseNotesVersion: string
   defaultRuntime: string
+  defaultAgentMode?: 'interactive' | 'chat'
   showIdeasTab: boolean
   showLoopTab: boolean
   showVerdictsTab: boolean

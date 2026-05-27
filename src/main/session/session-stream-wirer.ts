@@ -211,6 +211,7 @@ export class SessionStreamWirer {
       // Guard against stale exit: if a new process has already replaced this one,
       // don't overwrite its 'running' status with 'waiting'.
       if (session.ptyId && session.ptyId !== ptyId) return
+      this.flushStreamJsonBuffer(session, ptyId)
       this.clearActivityTimer(session.id)
       this.sendToRenderer('agent:activity-state', {
         sessionId: session.id,
@@ -221,6 +222,26 @@ export class SessionStreamWirer {
       session.ptyId = ''
       this.sendToRenderer('agent:status', { sessionId: session.id, status: 'waiting' })
     })
+  }
+
+  /**
+   * Parse any trailing line left in the stream-json buffer at process exit.
+   * Without this, an assistant event whose final newline never arrived before
+   * the PTY closed would be silently dropped — surfacing as a "missing reply"
+   * that only reappears after the next chat-messages refetch.
+   */
+  private flushStreamJsonBuffer(session: InternalSession, ptyId: string): void {
+    const mode = session.nonInteractiveOutputMode
+    if (mode !== 'claude-stream-json' && mode !== 'codex-jsonl') return
+    const trailing = (session.streamJsonLineBuffer ?? '').trim()
+    session.streamJsonLineBuffer = ''
+    if (!trailing) return
+    try {
+      const event = JSON.parse(trailing)
+      this.handleStreamJsonEvent(session, event, ptyId, mode)
+    } catch {
+      // Non-JSON trailing data is not recoverable as a chat message.
+    }
   }
 
   /**

@@ -30,6 +30,7 @@ export function useAppOverlays(
   commit: (message: string) => Promise<void>,
   refreshDiff: () => Promise<void>,
   spawnAgent: (options: SpawnAgentOptions) => Promise<unknown>,
+  createDraftChat: (opts: { projectId: string; runtimeId: string; branchName?: string; ollamaModel?: string }) => { id: string },
   deleteAgent: (sessionId: string, mode?: 'session' | 'worktree') => Promise<void>,
   removeSession: (sessionId: string) => void,
   updateSettings: (partial: Partial<ManifoldSettings>) => Promise<void>,
@@ -54,8 +55,18 @@ export function useAppOverlays(
   const handleClosePanel = useCallback((): void => { setActivePanel(null) }, [])
 
   const handleLaunchAgent = useCallback((options: SpawnAgentOptions): Promise<unknown> => {
+    if (options.nonInteractive) {
+      const draft = createDraftChat({
+        projectId: options.projectId,
+        runtimeId: options.runtimeId,
+        branchName: options.branchName,
+        ollamaModel: options.ollamaModel,
+      })
+      setActiveSession(draft.id)
+      return Promise.resolve(draft)
+    }
     return spawnAgent(options)
-  }, [spawnAgent])
+  }, [spawnAgent, createDraftChat, setActiveSession])
 
   const requestDeleteAgent = useCallback((session: AgentSession, projectPath: string): void => {
     setPendingDelete({ session, projectPath })

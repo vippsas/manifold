@@ -8,6 +8,7 @@ export interface WorktreeMeta {
   additionalDirs?: string[]
   ollamaModel?: string
   parentSuperagentId?: string
+  nonInteractive?: boolean
 }
 
 /** Meta file stored as a sibling to the worktree directory, not inside it. */

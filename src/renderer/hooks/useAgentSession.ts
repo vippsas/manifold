@@ -202,6 +202,10 @@ function useAutoResume(
     const session = sessionsRef.current.find((s) => s.id === activeSessionId)
     if (!session || session.pid !== null || session.status !== 'done') return
     if (!session.runtimeId) return
+    // Chat-mode sessions spawn a fresh print-mode process per message; they
+    // intentionally have no persistent PTY between messages. Auto-resuming
+    // would launch an interactive runtime and stream its TUI output into chat.
+    if (session.nonInteractive) return
 
     void (async () => {
       try {

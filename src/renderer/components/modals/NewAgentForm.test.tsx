@@ -34,6 +34,7 @@ function renderForm(overrides = {}) {
     baseBranch: 'main',
     isGitProject: true,
     defaultRuntime: 'claude',
+    defaultAgentMode: 'interactive' as const,
     onLaunch: vi.fn().mockResolvedValue({ id: 'session-1' }),
     ...overrides,
   }
@@ -131,6 +132,89 @@ describe('NewAgentForm', () => {
 
     fireEvent.click(screen.getByRole('button', { name: 'Delete' }))
     expect(onDeleteSession).toHaveBeenCalledWith(existingSession)
+  })
+
+  it('renders the Interactive | Chat toggle, defaulting to Interactive', async () => {
+    renderForm()
+    await waitFor(() => expect(mockInvoke).toHaveBeenCalledWith('runtimes:list'))
+    expect(screen.getByText('Interactive')).toBeInTheDocument()
+    expect(screen.getByText('Chat')).toBeInTheDocument()
+  })
+
+  it('submits nonInteractive: false by default', async () => {
+    const { props } = renderForm()
+    await waitFor(() => expect(mockInvoke).toHaveBeenCalledWith('runtimes:list'))
+
+    fireEvent.click(screen.getByText('Start Agent'))
+
+    await waitFor(() => expect(props.onLaunch).toHaveBeenCalled())
+    expect(props.onLaunch).toHaveBeenCalledWith(
+      expect.objectContaining({ nonInteractive: false }),
+    )
+  })
+
+  it('submits nonInteractive: true when Chat is selected', async () => {
+    const { props } = renderForm()
+    await waitFor(() => expect(mockInvoke).toHaveBeenCalledWith('runtimes:list'))
+
+    fireEvent.click(screen.getByText('Chat'))
+    fireEvent.click(screen.getByText('Start Chat'))
+
+    await waitFor(() => expect(props.onLaunch).toHaveBeenCalled())
+    expect(props.onLaunch).toHaveBeenCalledWith(
+      expect.objectContaining({ nonInteractive: true }),
+    )
+  })
+
+  it('updates the submit button label to "Start Chat" when Chat is selected', async () => {
+    renderForm()
+    await waitFor(() => expect(mockInvoke).toHaveBeenCalledWith('runtimes:list'))
+
+    expect(screen.getByText('Start Agent')).toBeInTheDocument()
+    fireEvent.click(screen.getByText('Chat'))
+    expect(screen.getByText('Start Chat')).toBeInTheDocument()
+    expect(screen.queryByText('Start Agent')).not.toBeInTheDocument()
+  })
+
+  it('honours defaultAgentMode="chat" as the initial mode', async () => {
+    renderForm({ defaultAgentMode: 'chat' })
+    await waitFor(() => expect(mockInvoke).toHaveBeenCalledWith('runtimes:list'))
+
+    expect(screen.getByText('Start Chat')).toBeInTheDocument()
+    expect(screen.queryByText('Start Agent')).not.toBeInTheDocument()
+  })
+
+  it('does not persist mode on pill click — only on submit', async () => {
+    renderForm()
+    await waitFor(() => expect(mockInvoke).toHaveBeenCalledWith('runtimes:list'))
+
+    fireEvent.click(screen.getByText('Chat'))
+    fireEvent.click(screen.getByText('Interactive'))
+    fireEvent.click(screen.getByText('Chat'))
+
+    expect(mockInvoke).not.toHaveBeenCalledWith('settings:update', expect.anything())
+  })
+
+  it('persists defaultAgentMode on submit when the user changed mode', async () => {
+    renderForm()
+    await waitFor(() => expect(mockInvoke).toHaveBeenCalledWith('runtimes:list'))
+
+    fireEvent.click(screen.getByText('Chat'))
+    fireEvent.click(screen.getByText('Start Chat'))
+
+    await waitFor(() => {
+      expect(mockInvoke).toHaveBeenCalledWith('settings:update', { defaultAgentMode: 'chat' })
+    })
+  })
+
+  it('does not persist defaultAgentMode on submit when mode equals default', async () => {
+    renderForm({ defaultAgentMode: 'chat' as const })
+    await waitFor(() => expect(mockInvoke).toHaveBeenCalledWith('runtimes:list'))
+
+    fireEvent.click(screen.getByText('Start Chat'))
+
+    await waitFor(() => expect(mockInvoke).toHaveBeenCalledWith('runtimes:list'))
+    expect(mockInvoke).not.toHaveBeenCalledWith('settings:update', expect.anything())
   })
 
   it('truncates long task context in existing worktrees rows', async () => {

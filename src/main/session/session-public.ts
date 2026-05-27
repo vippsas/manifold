@@ -17,5 +17,6 @@ export function toPublicSession(session: InternalSession): AgentSession {
     noWorktree: session.noWorktree,
     parentSuperagentId: session.parentSuperagentId,
     groupId: session.groupId,
+    nonInteractive: session.nonInteractive,
   }
 }

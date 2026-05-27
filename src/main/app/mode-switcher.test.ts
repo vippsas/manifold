@@ -49,7 +49,7 @@ describe('ModeSwitcher', () => {
         updateSettings: vi.fn(),
         getSettings: vi.fn(() => ({ storagePath: '/Users/me/.manifold', defaultRuntime: 'claude' })),
       },
-      chatStore: { delete: vi.fn() },
+      chatStore: { delete: vi.fn(), deleteByProject: vi.fn() },
       projectRegistry: {
         getProject: vi.fn(() => ({
           id: 'proj-1',
@@ -135,7 +135,7 @@ describe('ModeSwitcher', () => {
     expect(deps.sessionManager.killInteractiveSession).toHaveBeenCalledWith('stale')
     expect(deps.sessionManager.killInteractiveSession).toHaveBeenCalledWith('active')
     expect(deps.sessionManager.killInteractiveSession).not.toHaveBeenCalledWith('other')
-    expect(deps.chatStore.delete).toHaveBeenCalledWith('proj-1')
+    expect(deps.chatStore.deleteByProject).toHaveBeenCalledWith('proj-1')
     expect(await consumeLaunch()).toEqual({
       kind: 'simple',
       app: expect.objectContaining({
@@ -159,7 +159,7 @@ describe('ModeSwitcher', () => {
         updateSettings: vi.fn(),
         getSettings: vi.fn(() => ({ storagePath: '/Users/me/.manifold', defaultRuntime: 'claude' })),
       },
-      chatStore: { delete: vi.fn() },
+      chatStore: { delete: vi.fn(), deleteByProject: vi.fn() },
       projectRegistry: {
         getProject: vi.fn(() => ({
           id: 'proj-1',
@@ -217,7 +217,7 @@ describe('ModeSwitcher', () => {
 
     expect(deps.sessionManager.killNonInteractiveSessions).toHaveBeenCalledWith('proj-1')
     expect(deps.sessionManager.killInteractiveSession).not.toHaveBeenCalled()
-    expect(deps.chatStore.delete).toHaveBeenCalledWith('proj-1')
+    expect(deps.chatStore.deleteByProject).toHaveBeenCalledWith('proj-1')
     expect(mocks.gitExec).toHaveBeenCalledWith(['checkout', 'main'], '/Users/me/.manifold/projects/clock')
     expect(await consumeLaunch()).toEqual({
       kind: 'developer',

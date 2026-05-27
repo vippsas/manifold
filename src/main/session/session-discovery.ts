@@ -107,6 +107,7 @@ export class SessionDiscovery {
           additionalDirs: meta?.additionalDirs ?? [],
           ollamaModel: meta?.ollamaModel,
           parentSuperagentId: meta?.parentSuperagentId,
+          nonInteractive: meta?.nonInteractive,
         }
         this.sessions.set(session.id, session)
         this.adoptForVerdict(session, project.baseBranch)

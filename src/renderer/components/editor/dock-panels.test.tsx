@@ -5,6 +5,7 @@ import type { DockAppState } from './dock-panel-types'
 import { DockStateContext } from './dock-panel-types'
 import { PANEL_COMPONENTS } from './dock-panels'
 import { siblingPanelId } from '../../hooks/agent-siblings'
+import type { DraftId } from '../../../shared/draft-chat'
 
 vi.mock('../terminal/TerminalPane', () => ({
   TerminalPane: ({ sessionId, label }: { sessionId: string; label: string }) => (
@@ -15,6 +16,12 @@ vi.mock('../terminal/TerminalPane', () => ({
 vi.mock('./SuperagentAgentPanel', () => ({
   SuperagentAgentPanel: () => <div>superagent-panel</div>,
   restartOverlayStyles: {},
+}))
+
+vi.mock('./AgentChatView', () => ({
+  AgentChatView: ({ sessionId }: { sessionId: string }) => (
+    <div>{`chat:${sessionId}`}</div>
+  ),
 }))
 
 const mockInvoke = vi.fn()
@@ -66,6 +73,7 @@ function makeDockState(overrides: Partial<DockAppState> = {}): DockAppState {
     worktreeCwd: null,
     baseBranch: 'main',
     defaultRuntime: 'codex',
+    defaultAgentMode: 'interactive',
     activeProjectIsGit: true,
     activeSessionWorktreePath: null,
     activeSessionNoWorktree: false,
@@ -131,6 +139,10 @@ function makeDockState(overrides: Partial<DockAppState> = {}): DockAppState {
     onFocusPanel: vi.fn(),
     onOpenSibling: vi.fn(),
     onCloseSiblingPanel: vi.fn(),
+    drafts: [],
+    activeDraft: null,
+    promoteDraft: vi.fn(async () => {}),
+    discardDraft: vi.fn(),
     ...overrides,
   }
 }
@@ -187,5 +199,89 @@ describe('AgentPanel in superagent mode', () => {
     expect(screen.getAllByText('kong-gateway')).toHaveLength(2)
     expect(screen.getByText('Worktree: manifold-dormant')).toBeInTheDocument()
     expect(screen.getByText('Agent: Codex')).toBeInTheDocument()
+  })
+
+  it('renders AgentChatView when the target session is nonInteractive', () => {
+    const AgentPanel = PANEL_COMPONENTS.agent
+
+    render(
+      <DockStateContext.Provider value={makeDockState({
+        activeProjectId: 'p1',
+        sessionId: 'chat-1',
+        primarySessionId: 'chat-1',
+        activeSuperagentId: null,
+        superagents: [],
+        allProjectSessions: {
+          p1: [
+            {
+              id: 'chat-1',
+              projectId: 'p1',
+              runtimeId: 'claude',
+              branchName: 'manifold/oslo',
+              worktreePath: '/worktrees/kong-gateway/manifold-oslo',
+              status: 'running',
+              pid: 2,
+              additionalDirs: [],
+              nonInteractive: true,
+            },
+          ],
+        },
+      })}>
+        <AgentPanel />
+      </DockStateContext.Provider>,
+    )
+
+    expect(screen.getByText('chat:chat-1')).toBeInTheDocument()
+    expect(screen.queryByText(/^terminal:Agent:/)).toBeNull()
+  })
+
+  it('renders terminal for interactive sessions (regression guard)', () => {
+    const AgentPanel = PANEL_COMPONENTS.agent
+
+    render(
+      <DockStateContext.Provider value={makeDockState({
+        activeProjectId: 'p1',
+        sessionId: 'int-1',
+        primarySessionId: 'int-1',
+        activeSuperagentId: null,
+        superagents: [],
+        allProjectSessions: {
+          p1: [
+            {
+              id: 'int-1',
+              projectId: 'p1',
+              runtimeId: 'claude',
+              branchName: 'manifold/bergen',
+              worktreePath: '/worktrees/kong-gateway/manifold-bergen',
+              status: 'running',
+              pid: 3,
+              additionalDirs: [],
+            },
+          ],
+        },
+      })}>
+        <AgentPanel />
+      </DockStateContext.Provider>,
+    )
+
+    expect(screen.getByText('terminal:Agent:int-1')).toBeInTheDocument()
+    expect(screen.queryByText(/^chat:/)).toBeNull()
+  })
+
+  it('renders DraftChatView when an activeDraft is set', () => {
+    const AgentPanel = PANEL_COMPONENTS.agent
+
+    render(
+      <DockStateContext.Provider value={makeDockState({
+        activeProjectId: 'p1',
+        activeSuperagentId: null,
+        superagents: [],
+        activeDraft: { id: 'draft-1' as DraftId, projectId: 'p1', runtimeId: 'claude', branchName: 'manifold/oslo' },
+      })}>
+        <AgentPanel />
+      </DockStateContext.Provider>,
+    )
+
+    expect(screen.getByRole('textbox')).toBeInTheDocument()
   })
 })

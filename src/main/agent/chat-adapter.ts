@@ -78,29 +78,32 @@ export class ChatAdapter {
   // Buffer raw (unstripped) output per session; strip on flush
   private outputBuffers = new Map<string, { raw: string; timer: ReturnType<typeof setTimeout> }>()
   private chatStore: ChatStore | null = null
-  private sessionProjectMap = new Map<string, string>()
+  private sessionStorage = new Map<string, { storageKey: string; projectId: string }>()
 
   setChatStore(store: ChatStore): void {
     this.chatStore = store
   }
 
-  setSessionProject(sessionId: string, projectId: string): void {
-    this.sessionProjectMap.set(sessionId, projectId)
+  setSessionStorage(sessionId: string, storageKey: string, projectId: string): void {
+    this.sessionStorage.set(sessionId, { storageKey, projectId })
   }
 
-  loadMessages(sessionId: string, projectId: string): ChatMessage[] {
+  loadMessages(sessionId: string, storageKey: string, projectId: string): ChatMessage[] {
     // Already have in-memory messages — return those
     const existing = this.messages.get(sessionId)
     if (existing && existing.length > 0) return existing
 
     // Try loading from persistent store
-    const persisted = this.chatStore?.get(projectId)
-    if (!persisted || persisted.length === 0) return []
+    const persisted = this.chatStore?.get(storageKey)
+    if (!persisted || persisted.length === 0) {
+      this.sessionStorage.set(sessionId, { storageKey, projectId })
+      return []
+    }
 
     // Re-key messages with the new sessionId
     const rekeyed = persisted.map(m => ({ ...m, sessionId }))
     this.messages.set(sessionId, rekeyed)
-    this.sessionProjectMap.set(sessionId, projectId)
+    this.sessionStorage.set(sessionId, { storageKey, projectId })
 
     // Update nextId to avoid collisions
     for (const m of rekeyed) {
@@ -180,7 +183,7 @@ export class ChatAdapter {
     }
     this.listeners.delete(sessionId)
     this.messages.delete(sessionId)
-    this.sessionProjectMap.delete(sessionId)
+    this.sessionStorage.delete(sessionId)
   }
 
   private addMessage(sessionId: string, role: ChatMessage['role'], text: string, options?: string[]): ChatMessage {
@@ -197,10 +200,10 @@ export class ChatAdapter {
     }
     this.messages.get(sessionId)!.push(message)
 
-    // Persist to disk if we know the projectId
-    const projectId = this.sessionProjectMap.get(sessionId)
-    if (projectId && this.chatStore) {
-      this.chatStore.set(projectId, this.messages.get(sessionId)!)
+    // Persist to disk if we know where to put it
+    const storage = this.sessionStorage.get(sessionId)
+    if (storage && this.chatStore) {
+      this.chatStore.set(storage.storageKey, storage.projectId, this.messages.get(sessionId)!)
     }
 
     this.listeners.get(sessionId)?.forEach(fn => fn(message))

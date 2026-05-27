@@ -147,8 +147,8 @@ export function registerAgentHandlers(deps: IpcDependencies): void {
       }
     }
 
-    // 3. Remove persisted chat history
-    deps.chatStore.delete(projectId)
+    // 3. Remove persisted chat history for every session in this project
+    deps.chatStore.deleteByProject(projectId)
 
     // 3b. Remove memory data
     deps.memoryStore.deleteProject(projectId)

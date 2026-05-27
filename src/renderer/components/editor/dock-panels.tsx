@@ -16,6 +16,8 @@ import { VerdictsPanel } from '../verdicts/VerdictsPanel'
 import { WatchPanel } from '../watch/WatchPanel'
 import { SuperagentFleetTree } from '../sidebar/SuperagentFleetTree'
 import { SuperagentAgentPanel, restartOverlayStyles } from './SuperagentAgentPanel'
+import { AgentChatView } from './AgentChatView'
+import { DraftChatView } from './DraftChatView'
 import { DockStateContext, useDockState } from './dock-panel-types'
 import { parseSiblingSessionId } from '../../hooks/agent-siblings'
 export type { DockAppState } from './dock-panel-types'
@@ -110,6 +112,18 @@ function AgentPanel({ api }: { api?: { id: string } } = {}): React.JSX.Element {
     return <SuperagentAgentPanel />
   }
 
+  if (s.activeDraft) {
+    const activeDraft = s.activeDraft
+    const draftProject = s.projects.find((p) => p.id === activeDraft.projectId)
+    return (
+      <DraftChatView
+        onFirstSend={(text) => { void s.promoteDraft(activeDraft.id, text) }}
+        projectName={draftProject?.name}
+        branchName={activeDraft.branchName}
+      />
+    )
+  }
+
   if (!targetSessionId && s.activeProjectId && activeProject) {
     return (
       <OnboardingView
@@ -120,6 +134,7 @@ function AgentPanel({ api }: { api?: { id: string } } = {}): React.JSX.Element {
         baseBranch={s.baseBranch}
         isGitProject={s.activeProjectIsGit}
         defaultRuntime={s.defaultRuntime}
+        defaultAgentMode={s.defaultAgentMode}
         onLaunch={s.onLaunchAgent}
         existingSessions={projectSessions}
         onResumeSession={s.onResumeAgent}
@@ -135,6 +150,10 @@ function AgentPanel({ api }: { api?: { id: string } } = {}): React.JSX.Element {
   }
 
   const isExited = targetStatus === 'done' || targetStatus === 'error'
+
+  if (targetSession?.nonInteractive) {
+    return <AgentChatView sessionId={targetSessionId} />
+  }
 
   return (
     <AgentTerminalView
@@ -298,6 +317,10 @@ function ProjectsPanel(): React.JSX.Element {
       fetchResult={s.fetchResult}
       fetchError={s.fetchError}
       onFetchProject={s.onFetchProject}
+      drafts={s.drafts}
+      activeDraftId={s.activeDraft?.id ?? null}
+      onSelectDraft={(id) => s.onSelectSession(id, s.activeProjectId ?? '')}
+      onDiscardDraft={s.discardDraft}
     />
   )
 }

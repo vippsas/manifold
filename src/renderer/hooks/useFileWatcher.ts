@@ -21,7 +21,8 @@ interface UseFileWatcherResult {
 
 export function useFileWatcher(
   sessionId: string | null,
-  onFilesChanged?: () => void
+  onFilesChanged?: () => void,
+  fallbackProjectId?: string | null,
 ): UseFileWatcherResult {
   const onFilesChangedRef = useRef(onFilesChanged)
   onFilesChangedRef.current = onFilesChanged
@@ -48,11 +49,26 @@ export function useFileWatcher(
   useEffect(() => {
     if (sessionId) {
       void refreshTree()
-    } else {
-      setTree(null)
-      setChanges([])
+      return
     }
-  }, [sessionId, refreshTree])
+    setChanges([])
+    if (!fallbackProjectId) {
+      setTree(null)
+      return
+    }
+    setLoading(true)
+    setError(null)
+    let cancelled = false
+    void window.electronAPI.invoke('files:tree-by-project', fallbackProjectId)
+      .then((result) => { if (!cancelled) setTree(result as FileTreeNode) })
+      .catch((err: unknown) => {
+        if (cancelled) return
+        const message = err instanceof Error ? err.message : String(err)
+        setError(message)
+      })
+      .finally(() => { if (!cancelled) setLoading(false) })
+    return () => { cancelled = true }
+  }, [sessionId, fallbackProjectId, refreshTree])
 
   useIpcListener<{ sessionId: string; changes: FileChange[] }>(
     'files:changed',
