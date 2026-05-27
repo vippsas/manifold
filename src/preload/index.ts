@@ -133,6 +133,10 @@ const ALLOWED_INVOKE_CHANNELS = [
   'watch:state-get',
   'watch:state-set-url',
   'watch:run-playlist',
+  'simple:chat-messages',
+  'simple:send-message',
+  'simple:subscribe-chat',
+  'simple:get-agent-status',
 ] as const
 
 const ALLOWED_SEND_CHANNELS = [
@@ -170,6 +174,7 @@ const ALLOWED_LISTEN_CHANNELS = [
   'loop:eval-output',
   'watch:install-progress',
   'watch:playlist-progress',
+  'simple:chat-message',
 ] as const
 
 type InvokeChannel = (typeof ALLOWED_INVOKE_CHANNELS)[number]
