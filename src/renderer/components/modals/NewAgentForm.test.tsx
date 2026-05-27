@@ -157,12 +157,22 @@ describe('NewAgentForm', () => {
     await waitFor(() => expect(mockInvoke).toHaveBeenCalledWith('runtimes:list'))
 
     fireEvent.click(screen.getByText('Chat'))
-    fireEvent.click(screen.getByText('Start Agent'))
+    fireEvent.click(screen.getByText('Start Chat'))
 
     await waitFor(() => expect(props.onLaunch).toHaveBeenCalled())
     expect(props.onLaunch).toHaveBeenCalledWith(
       expect.objectContaining({ nonInteractive: true }),
     )
+  })
+
+  it('updates the submit button label to "Start Chat" when Chat is selected', async () => {
+    renderForm()
+    await waitFor(() => expect(mockInvoke).toHaveBeenCalledWith('runtimes:list'))
+
+    expect(screen.getByText('Start Agent')).toBeInTheDocument()
+    fireEvent.click(screen.getByText('Chat'))
+    expect(screen.getByText('Start Chat')).toBeInTheDocument()
+    expect(screen.queryByText('Start Agent')).not.toBeInTheDocument()
   })
 
   it('truncates long task context in existing worktrees rows', async () => {

@@ -223,22 +223,6 @@ export function NewAgentForm({
 
   return (
     <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-lg)', width: 420, maxWidth: '90%' }}>
-      <div style={segmentedStyles.container}>
-        <button
-          type="button"
-          onClick={() => setMode('interactive')}
-          style={{ ...segmentedStyles.button, ...(mode === 'interactive' ? segmentedStyles.buttonActive : {}) }}
-        >
-          Interactive
-        </button>
-        <button
-          type="button"
-          onClick={() => setMode('chat')}
-          style={{ ...segmentedStyles.button, ...(mode === 'chat' ? segmentedStyles.buttonActive : {}) }}
-        >
-          Chat
-        </button>
-      </div>
       {reusableSessions.length > 0 && (
         <section style={modalStyles.infoCard}>
           <div style={modalStyles.infoCardTitle}>Existing worktrees</div>
@@ -387,32 +371,79 @@ export function NewAgentForm({
 
       {error && <p style={modalStyles.errorText}>{error}</p>}
 
-      <button
-        type="submit"
-        disabled={!canSubmit || loading}
-        style={{
-          width: '100%',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          height: 'var(--control-height)',
-          padding: '0 32px',
-          background: 'linear-gradient(135deg, var(--btn-bg), var(--btn-hover))',
-          color: 'var(--btn-text)',
-          border: 'none',
-          borderRadius: 'var(--radius-sm)',
-          fontSize: 'var(--type-ui)',
-          fontWeight: 500,
-          cursor: canSubmit && !loading ? 'pointer' : 'default',
-          letterSpacing: '0.02em',
-          boxShadow: 'var(--shadow-glow, var(--shadow-subtle))',
-          transition: 'filter var(--duration-normal) var(--ease-premium)',
-          marginTop: 'var(--space-sm)',
-          opacity: canSubmit && !loading ? 1 : 0.5,
-        }}
-      >
-        {loading ? 'Starting…' : 'Start Agent'}
-      </button>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 6, marginTop: 'var(--space-sm)' }}>
+        <div style={modePillStyles.container}>
+          <button
+            type="button"
+            onClick={() => setMode('interactive')}
+            style={{ ...modePillStyles.button, ...(mode === 'interactive' ? modePillStyles.buttonActive : {}) }}
+          >
+            Interactive
+          </button>
+          <span style={modePillStyles.separator} aria-hidden="true">·</span>
+          <button
+            type="button"
+            onClick={() => setMode('chat')}
+            style={{ ...modePillStyles.button, ...(mode === 'chat' ? modePillStyles.buttonActive : {}) }}
+          >
+            Chat
+          </button>
+        </div>
+        <button
+          type="submit"
+          disabled={!canSubmit || loading}
+          style={{
+            width: '100%',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            height: 'var(--control-height)',
+            padding: '0 32px',
+            background: 'linear-gradient(135deg, var(--btn-bg), var(--btn-hover))',
+            color: 'var(--btn-text)',
+            border: 'none',
+            borderRadius: 'var(--radius-sm)',
+            fontSize: 'var(--type-ui)',
+            fontWeight: 500,
+            cursor: canSubmit && !loading ? 'pointer' : 'default',
+            letterSpacing: '0.02em',
+            boxShadow: 'var(--shadow-glow, var(--shadow-subtle))',
+            transition: 'filter var(--duration-normal) var(--ease-premium)',
+            opacity: canSubmit && !loading ? 1 : 0.5,
+          }}
+        >
+          {loading ? 'Starting…' : mode === 'chat' ? 'Start Chat' : 'Start Agent'}
+        </button>
+      </div>
     </form>
   )
+}
+
+const modePillStyles = {
+  container: {
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 4,
+  } as React.CSSProperties,
+  button: {
+    background: 'transparent',
+    border: 'none',
+    padding: '2px 6px',
+    cursor: 'pointer',
+    color: 'var(--text-muted)',
+    fontSize: 11,
+    fontWeight: 500,
+    letterSpacing: '0.02em',
+    transition: 'color var(--duration-normal) var(--ease-premium)',
+  } as React.CSSProperties,
+  buttonActive: {
+    color: 'var(--accent)',
+  } as React.CSSProperties,
+  separator: {
+    color: 'var(--text-muted)',
+    fontSize: 11,
+    opacity: 0.5,
+    userSelect: 'none' as const,
+  } as React.CSSProperties,
 }
