@@ -1,4 +1,4 @@
-import React, { useCallback } from 'react'
+import React, { useCallback, useMemo } from 'react'
 import { TerminalPane } from '../terminal/TerminalPane'
 import { OnboardingView } from '../modals/OnboardingView'
 import { SuperagentAgentPanel, restartOverlayStyles } from './SuperagentAgentPanel'
@@ -6,6 +6,13 @@ import { AgentChatView } from './AgentChatView'
 import { DraftChatView } from './DraftChatView'
 import { useDockState } from './dock-panel-types'
 import { parseSiblingSessionId } from '../../hooks/agent-siblings'
+import { collectAgentMentionPaths, hasAgentPathDragData, readAgentPathDragData } from './file-tree-drag'
+import type { FileDropConfig } from '../../../renderer-shared/chat/ChatPane'
+
+const AGENT_CHAT_FILE_DROP: FileDropConfig = {
+  hasPath: hasAgentPathDragData,
+  readPath: readAgentPathDragData,
+}
 
 interface AgentTerminalViewProps {
   sessionId: string
@@ -53,6 +60,12 @@ const agentTerminalWrapperStyle: React.CSSProperties = { position: 'relative', h
 export function AgentPanel({ api }: { api?: { id: string } } = {}): React.JSX.Element {
   const s = useDockState()
   const activeProject = s.projects.find((p) => p.id === s.activeProjectId)
+
+  const mentionRoot = s.worktreeRootPath ?? s.tree?.path ?? ''
+  const mentionPaths = useMemo(
+    () => (mentionRoot ? collectAgentMentionPaths(s.tree, mentionRoot) : []),
+    [s.tree, mentionRoot],
+  )
 
   const panelId = api?.id ?? 'agent'
   const siblingSessionId = parseSiblingSessionId(panelId)
@@ -120,7 +133,7 @@ export function AgentPanel({ api }: { api?: { id: string } } = {}): React.JSX.El
   const isExited = targetStatus === 'done' || targetStatus === 'error'
 
   if (targetSession?.nonInteractive) {
-    return <AgentChatView sessionId={targetSessionId} />
+    return <AgentChatView sessionId={targetSessionId} mentionPaths={mentionPaths} fileDrop={AGENT_CHAT_FILE_DROP} />
   }
 
   return (

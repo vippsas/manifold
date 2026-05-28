@@ -1,4 +1,5 @@
 import { getRelativePath } from '../../../shared/relative-path'
+import type { FileTreeNode } from '../../../shared/types'
 
 export const AGENT_PATH_DRAG_MIME = 'application/x-manifold-file-tree-path'
 export const FILE_TREE_DRAG_MIME = AGENT_PATH_DRAG_MIME
@@ -12,6 +13,23 @@ export interface InternalMoveDragData {
 
 export function getDraggedTreePath(nodePath: string, rootPath: string): string {
   return getRelativePath(nodePath, rootPath)
+}
+
+/**
+ * Flatten a file tree into worktree-relative paths (files and directories),
+ * matching the relative form produced by drag-and-drop. Used to feed the chat
+ * `@FILENAME` autocomplete.
+ */
+export function collectAgentMentionPaths(tree: FileTreeNode | null, rootPath: string): string[] {
+  if (!tree) return []
+  const paths: string[] = []
+  const walk = (node: FileTreeNode): void => {
+    const rel = getRelativePath(node.path, rootPath)
+    if (rel && rel !== '.') paths.push(rel)
+    if (node.children) for (const child of node.children) walk(child)
+  }
+  walk(tree)
+  return paths
 }
 
 export function writeAgentPathDragData(
