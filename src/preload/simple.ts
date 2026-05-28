@@ -17,6 +17,7 @@ const ALLOWED_INVOKE_CHANNELS = [
   'agent:delete-app',
   'agent:start-dev-server',
   'agent:input',
+  'chat:save-pasted-image',
   'agent:resize',
   'agent:sessions',
   'agent:replay',
