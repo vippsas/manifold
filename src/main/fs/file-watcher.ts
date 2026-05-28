@@ -7,9 +7,8 @@ import {
   gitStatus,
   parseStatusWithConflicts,
   buildChangeFingerprint,
-  isVisibleEntry,
-  directoriesFirstComparator,
 } from './file-watcher-utils'
+import { buildFileTree } from './file-tree-builder'
 import { NoopTreeWatcher, type TreeWatcher } from './tree-watcher'
 import { VerdictPollForwarder, type HeadShaFn } from './verdict-poll-forwarder'
 
@@ -175,37 +174,7 @@ export class FileWatcher {
   }
 
   getFileTree(dirPath: string): FileTreeNode {
-    return this.buildTree(dirPath, path.basename(dirPath))
-  }
-
-  private buildTree(fullPath: string, name: string): FileTreeNode {
-    let stat: fs.Stats
-    try {
-      stat = fs.statSync(fullPath)
-    } catch {
-      return { name, path: fullPath, isDirectory: false }
-    }
-
-    if (!stat.isDirectory()) {
-      return { name, path: fullPath, isDirectory: false }
-    }
-
-    let entries: fs.Dirent[]
-    try {
-      entries = fs.readdirSync(fullPath, { withFileTypes: true })
-    } catch {
-      return { name, path: fullPath, isDirectory: true, children: [] }
-    }
-
-    const children = this.buildChildren(fullPath, entries)
-    return { name, path: fullPath, isDirectory: true, children }
-  }
-
-  private buildChildren(parentPath: string, entries: fs.Dirent[]): FileTreeNode[] {
-    return entries
-      .filter(isVisibleEntry)
-      .sort(directoriesFirstComparator)
-      .map((entry) => this.buildTree(path.join(parentPath, entry.name), entry.name))
+    return buildFileTree(dirPath)
   }
 
   readFile(filePath: string): string {

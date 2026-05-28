@@ -1,18 +1,15 @@
-import React, { useState, useEffect, useLayoutEffect, useCallback } from 'react'
+import React, { useState, useEffect, useLayoutEffect } from 'react'
 import { Dashboard } from './components/Dashboard'
 import type { StartAppRequest } from './components/Dashboard'
-import { AppView } from './components/AppView'
 import { SimpleTitleBar } from './components/SimpleTitleBar'
-import { DeployModal } from './components/DeployModal'
+import { ErrorBoundary } from './components/ErrorBoundary'
+import { AppViewWrapper } from './components/AppViewWrapper'
 import { useApps } from './hooks/useApps'
-import { useAgentStatus, useChat } from '../renderer-shared/chat'
-import { usePreview } from './hooks/usePreview'
-import { useDeploy } from './hooks/useDeploy'
+import { useAgentStatus } from '../renderer-shared/chat'
 import { buildSimplePrompt } from '../shared/simple-prompts'
 import type { SimpleApp } from '../shared/simple-types'
 import { loadTheme, migrateLegacyTheme } from '../shared/themes/registry'
-import { applyThemeCssVars } from '../shared/themes/adapter'
-import type { ConvertedTheme } from '../shared/themes/types'
+import { applySimpleThemeVars } from './simple-theme'
 import { useUpdateNotification } from '../shared/useUpdateNotification'
 import { useUpdateLog } from '../shared/useUpdateLog'
 import { UpdateToast } from '../shared/UpdateToast'
@@ -22,137 +19,6 @@ import type {
   ProvisioningCreateResult,
   ProvisioningOperationResult,
 } from '../shared/provisioning-types'
-
-const SIMPLE_RUNTIME_LABELS: Record<string, string> = {
-  claude: 'Claude Code',
-  codex: 'Codex',
-  gemini: 'Gemini',
-}
-
-function getSimpleRuntimeLabel(runtimeId?: string): string {
-  if (!runtimeId) return 'AI Assistant'
-  return SIMPLE_RUNTIME_LABELS[runtimeId] ?? runtimeId
-}
-
-class ErrorBoundary extends React.Component<
-  { children: React.ReactNode; onReset: () => void },
-  { error: Error | null }
-> {
-  state: { error: Error | null } = { error: null }
-  static getDerivedStateFromError(error: Error): { error: Error } {
-    return { error }
-  }
-  render(): React.ReactNode {
-    if (this.state.error) {
-      return (
-        <div style={{ padding: 32, color: '#f88', fontFamily: 'monospace' }}>
-          <h2>Something went wrong</h2>
-          <pre style={{ whiteSpace: 'pre-wrap', fontSize: 12 }}>{this.state.error.message}</pre>
-          <pre style={{ whiteSpace: 'pre-wrap', fontSize: 10, opacity: 0.7 }}>{this.state.error.stack}</pre>
-          <button
-            onClick={() => { this.setState({ error: null }); this.props.onReset() }}
-            style={{ marginTop: 16, padding: '8px 16px', cursor: 'pointer' }}
-          >
-            Back to Dashboard
-          </button>
-        </div>
-      )
-    }
-    return this.props.children
-  }
-}
-
-/** Apply theme CSS vars + alias the developer-view names to simple-mode names */
-function applySimpleThemeVars(theme: ConvertedTheme): void {
-  const vars = theme.cssVars
-  applyThemeCssVars(vars)
-  const root = document.documentElement
-  root.style.setProperty('--bg', vars['--bg-primary'])
-  root.style.setProperty('--surface', vars['--bg-secondary'])
-  root.style.setProperty('--text', vars['--text-primary'])
-  root.style.setProperty('--accent-dim', vars['--accent-dim'])
-  root.style.setProperty('--shadow-elevated', vars['--shadow-elevated'])
-  root.style.setProperty('--shadow-overlay', vars['--shadow-overlay'])
-  root.style.setProperty('--shadow-subtle', vars['--shadow-subtle'])
-  root.style.setProperty('--bg-chrome-hi', vars['--bg-chrome-hi'])
-  root.style.setProperty('--bg-chrome-lo', vars['--bg-chrome-lo'])
-}
-
-function AppViewWrapper({ app, onBack }: { app: SimpleApp; onBack: () => void }): React.JSX.Element {
-  const { status: agentStatus, durationMs } = useAgentStatus(app.sessionId)
-  const { messages, sendMessage } = useChat(app.sessionId)
-  const { previewUrl } = usePreview(app.sessionId)
-  const { deployStatus, liveUrl, showSetupModal, setupHealth, deploy, dismissModal, onSetupComplete } = useDeploy(app.sessionId)
-  const devServerStartedRef = React.useRef(false)
-
-  // When agent finishes and no preview URL was detected, auto-start the dev
-  // server so the preview pane picks up the URL without requiring navigation.
-  React.useEffect(() => {
-    if (agentStatus === 'done' && !previewUrl && !devServerStartedRef.current) {
-      devServerStartedRef.current = true
-      void window.electronAPI.invoke(
-        'agent:start-dev-server',
-        app.projectId,
-        app.branchName,
-        app.description,
-        app.simpleTemplateTitle,
-        app.simplePromptInstructions,
-        app.runtimeId ?? 'claude',
-      ).catch((error) => {
-        console.error('[AppViewWrapper] failed to start dev server:', error)
-      })
-    }
-  }, [
-    agentStatus,
-    previewUrl,
-    app.branchName,
-    app.description,
-    app.projectId,
-    app.runtimeId,
-    app.simplePromptInstructions,
-    app.simpleTemplateTitle,
-  ])
-
-  // Derive live display status instead of using the stale snapshot.
-  // The snapshot's initial value distinguishes new apps ('scaffolding')
-  // from reopened apps ('building') while the agent is running pre-URL.
-  const status: SimpleApp['status'] =
-    agentStatus === 'done' ? (previewUrl ? 'previewing' : 'live')
-    : agentStatus === 'error' ? 'error'
-    : agentStatus === 'waiting' ? (previewUrl ? 'previewing' : 'idle')
-    : previewUrl ? 'building'
-    : app.status
-
-  const interruptAgent = useCallback(() => {
-    window.electronAPI.invoke('agent:interrupt', app.sessionId)
-  }, [app.sessionId])
-
-  return (
-    <>
-      <AppView
-        status={status}
-        messages={messages}
-        previewUrl={previewUrl}
-        isAgentWorking={agentStatus === 'running'}
-        agentDurationMs={durationMs}
-        onSendMessage={sendMessage}
-        onInterrupt={interruptAgent}
-        onBack={onBack}
-        onDeploy={deploy}
-        liveUrl={liveUrl}
-        deployStatus={deployStatus}
-        runtimeLabel={getSimpleRuntimeLabel(app.runtimeId)}
-      />
-      {showSetupModal && setupHealth && (
-        <DeployModal
-          health={setupHealth}
-          onComplete={onSetupComplete}
-          onCancel={dismissModal}
-        />
-      )}
-    </>
-  )
-}
 
 type View = { kind: 'dashboard' } | { kind: 'app'; app: SimpleApp }
 

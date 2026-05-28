@@ -11,38 +11,11 @@ import type {
   UnifiedSearchResult,
 } from '../../shared/search-types'
 import type { AgentSession } from '../../shared/types'
-import { buildSearchQueryRequest, getDefaultSearchScope } from './search-request'
+import { buildSearchQueryRequest, formatSearchError, getDefaultSearchScope } from './search-request'
 import { useSearchAiAvailability } from './useSearchAiAvailability'
+import type { UseSearchResult } from './useSearch.types'
 
-export interface UseSearchResult {
-  context: SearchContextResponse | null
-  mode: SearchMode
-  setMode: (mode: SearchMode) => void
-  query: string
-  setQuery: (query: string) => void
-  scopeKind: SearchScopeKind
-  setScopeKind: (scope: SearchScopeKind) => void
-  matchMode: SearchMatchMode
-  setMatchMode: (mode: SearchMatchMode) => void
-  caseSensitive: boolean
-  setCaseSensitive: (value: boolean) => void
-  wholeWord: boolean
-  setWholeWord: (value: boolean) => void
-  memoryTypeFilter: ObservationType | null
-  setMemoryTypeFilter: (value: ObservationType | null) => void
-  memoryConceptFilter: string | null
-  setMemoryConceptFilter: (value: string | null) => void
-  results: UnifiedSearchResult[]
-  warnings: string[]
-  isSearching: boolean
-  canAskAi: boolean
-  aiAnswer: SearchAskResponse | null
-  isAsking: boolean
-  ask: () => Promise<void>
-  clearAiAnswer: () => void
-  aiError: string | null
-  error: string | null
-}
+export type { UseSearchResult } from './useSearch.types'
 
 export function useSearch(
   activeProjectId: string | null,
@@ -315,19 +288,4 @@ export function useSearch(
     aiError,
     error,
   }
-}
-
-function formatSearchError(error: unknown): string {
-  const message = error instanceof Error
-    ? error.message
-    : typeof error === 'string'
-      ? error
-      : ''
-
-  const normalized = message
-    .replace(/^Error invoking remote method '.*?':\s*/i, '')
-    .replace(/^(Error:\s*)+/i, '')
-    .trim()
-
-  return normalized || 'Search failed.'
 }

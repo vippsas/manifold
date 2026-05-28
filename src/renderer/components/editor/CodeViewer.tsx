@@ -1,4 +1,4 @@
-import React, { useMemo, useRef, useState, useCallback, useEffect } from 'react'
+import React, { useMemo, useRef, useCallback, useEffect } from 'react'
 import { DiffEditor, type OnMount, type DiffOnMount } from '@monaco-editor/react'
 import type { editor as monacoEditor } from 'monaco-editor'
 import type { OpenFile } from '../../hooks/useCodeView'
@@ -15,11 +15,8 @@ import { ImagePreview } from './viewer/ImagePreview'
 import { MarkdownPreview } from './viewer/MarkdownPreview'
 import { revealRequestedLocation } from './viewer/reveal-requested-location'
 import { useResolvedHtmlPreview } from './viewer/useResolvedHtmlPreview'
-import {
-  registerEditorPaneModeControls,
-  unregisterEditorPaneModeControls,
-} from './editor-pane-mode-controls'
 import { useAutoSave } from './useAutoSave'
+import { useCodeViewerModes } from './useCodeViewerModes'
 import { EditorContent } from './EditorContent'
 
 interface CodeViewerProps {
@@ -41,7 +38,6 @@ interface CodeViewerProps {
 }
 
 // Module-level state that survives component remounts (e.g. agent switches rebuild dockview layout)
-const previewPathsByPane = new Map<string, Set<string>>()
 const scrollPositionsByFile = new Map<string, number>()
 
 const DIFF_EDITOR_OPTIONS = {
@@ -91,16 +87,11 @@ export function CodeViewer({
 
   const { onChange: handleEditorChange } = useAutoSave(activeFilePath, onSaveFile)
 
-  const [previewPaths, setPreviewPaths] = useState<Set<string>>(
-    () => previewPathsByPane.get(paneId) ?? new Set(),
-  )
-  const [diffMode, setDiffMode] = useState(false)
-  const isMd = isMarkdownFile(activeFilePath)
   const isHtml = isHtmlFile(activeFilePath)
   const isImage = isImageFile(activeFilePath)
-  const isPreviewable = isMd || isHtml
+  const isPreviewable = isMarkdownFile(activeFilePath) || isHtml
   const hasDiff = fileDiffText !== null
-  const previewActive = isPreviewable && activeFilePath !== null && previewPaths.has(activeFilePath)
+  const hasTabs = openFiles.length > 0
   const resolvedHtml = useResolvedHtmlPreview({
     isHtml,
     fileContent,
@@ -108,43 +99,20 @@ export function CodeViewer({
     activeFilePath,
   })
 
-  const updatePreviewPaths = useCallback((updater: (prev: Set<string>) => Set<string>): void => {
-    setPreviewPaths((prev) => {
-      const next = updater(prev)
-      previewPathsByPane.set(paneId, next)
-      return next
-    })
-  }, [paneId])
-
-  useEffect(() => {
-    previewPathsByPane.set(paneId, previewPaths)
-  }, [paneId, previewPaths])
-
-  // Auto-open markdown files in preview mode. Intentionally omits previewPaths
-  // from deps: re-running when previewPaths changes would undo a manual switch
-  // to editor mode by re-adding the active file.
-  useEffect(() => {
-    if (activeFilePath && isMarkdownFile(activeFilePath)) {
-      updatePreviewPaths((prev) => {
-        if (prev.has(activeFilePath)) return prev
-        const next = new Set(prev)
-        next.add(activeFilePath)
-        return next
-      })
-    }
-  }, [activeFilePath, updatePreviewPaths])
+  const { previewActive, diffMode, handleOpenLinkedFile } = useCodeViewerModes({
+    paneId,
+    activeFilePath,
+    lastFileOpenRequest,
+    isPreviewable,
+    isImage,
+    hasDiff,
+    hasTabs,
+    onOpenLinkedFile,
+  })
 
   useEffect(() => {
     saveRef.current = onSaveFile
   }, [onSaveFile])
-
-  useEffect(() => {
-    if (lastFileOpenRequest.source !== 'default' && lastFileOpenRequest.path === activeFilePath) {
-      setDiffMode(false)
-      return
-    }
-    setDiffMode(hasDiff)
-  }, [hasDiff, activeFilePath, lastFileOpenRequest])
 
   const handleEditorMount: OnMount = useCallback((editor, monaco) => {
     editorRef.current = editor
@@ -177,75 +145,9 @@ export function CodeViewer({
     editor.getModifiedEditor().focus()
   }, [])
 
-  const handleOpenLinkedFile = useCallback((filePath: string): void => {
-    updatePreviewPaths((prev) => {
-      if (prev.has(filePath)) return prev
-      const next = new Set(prev)
-      next.add(filePath)
-      return next
-    })
-    setDiffMode(false)
-    onOpenLinkedFile(filePath)
-  }, [onOpenLinkedFile, updatePreviewPaths])
-
-  const hasTabs = openFiles.length > 0
-  const showPreviewToggle = hasTabs && isPreviewable && !isImage
-  const showDiffToggle = hasTabs && hasDiff && !isImage
-
-  const showEditorMode = useCallback(() => {
-    if (activeFilePath) {
-      updatePreviewPaths((prev) => {
-        if (!prev.has(activeFilePath)) return prev
-        const next = new Set(prev)
-        next.delete(activeFilePath)
-        return next
-      })
-    }
-    setDiffMode(false)
-  }, [activeFilePath, updatePreviewPaths])
-
-  const showPreviewMode = useCallback(() => {
-    if (!activeFilePath || !isPreviewable) return
-
-    updatePreviewPaths((prev) => {
-      if (prev.has(activeFilePath)) return prev
-      const next = new Set(prev)
-      next.add(activeFilePath)
-      return next
-    })
-    setDiffMode(false)
-  }, [activeFilePath, isPreviewable, updatePreviewPaths])
-
-  const showDiffMode = useCallback(() => {
-    if (!hasDiff) return
-
-    if (activeFilePath) {
-      updatePreviewPaths((prev) => {
-        if (!prev.has(activeFilePath)) return prev
-        const next = new Set(prev)
-        next.delete(activeFilePath)
-        return next
-      })
-    }
-    setDiffMode(true)
-  }, [activeFilePath, hasDiff, updatePreviewPaths])
-
   useEffect(() => {
     revealRequestedLocation(editorRef.current, activeFilePath, lastFileOpenRequest)
   }, [activeFilePath, lastFileOpenRequest])
-
-  useEffect(() => {
-    const controls = {
-      canShowPreview: showPreviewToggle,
-      canShowDiff: showDiffToggle,
-      showEditor: showEditorMode,
-      showPreview: showPreviewMode,
-      showDiff: showDiffMode,
-    }
-
-    registerEditorPaneModeControls(paneId, controls)
-    return () => unregisterEditorPaneModeControls(paneId, controls)
-  }, [paneId, showPreviewToggle, showDiffToggle, showEditorMode, showPreviewMode, showDiffMode])
 
   return (
     <div style={viewerStyles.wrapper} data-pane-id={paneId}>

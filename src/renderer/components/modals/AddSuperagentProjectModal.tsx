@@ -6,16 +6,11 @@ import type {
 } from '../../../shared/superagent-types'
 import { sortProjectsByName } from '../../../shared/project-sort'
 import * as s from './NewSuperagentModal.styles'
-
-type AddMode = 'new-slot' | 'reuse-session'
-
-interface ProjectSelectionState {
-  loading: boolean
-  standaloneCount: number
-  compatibleSessions: AgentSession[]
-  mode: AddMode
-  reuseSessionId: string | null
-}
+import {
+  type ProjectSelectionState,
+  dedupeSessionsByWorktree,
+  pluralizeAgents,
+} from './AddSuperagentProjectModal.helpers'
 
 interface AddSuperagentProjectModalProps {
   visible: boolean
@@ -27,20 +22,6 @@ interface AddSuperagentProjectModalProps {
   onSelectionChange?: (projectIds: string[]) => void
   onAddToFleet: (superagentId: string, additions: SuperagentProjectAddition[]) => Promise<void>
   onClose: () => void
-}
-
-function pluralizeAgents(count: number): string {
-  return count === 1 ? 'agent' : 'agents'
-}
-
-function dedupeSessionsByWorktree(sessions: AgentSession[]): AgentSession[] {
-  const seen = new Set<string>()
-  return sessions.filter((session) => {
-    const key = `${session.worktreePath}:${session.branchName}`
-    if (seen.has(key)) return false
-    seen.add(key)
-    return true
-  })
 }
 
 export function AddSuperagentProjectModal({

@@ -69,3 +69,18 @@ export function getDefaultSearchScope(
 
   return 'active-session'
 }
+
+export function formatSearchError(error: unknown): string {
+  const message = error instanceof Error
+    ? error.message
+    : typeof error === 'string'
+      ? error
+      : ''
+
+  const normalized = message
+    .replace(/^Error invoking remote method '.*?':\s*/i, '')
+    .replace(/^(Error:\s*)+/i, '')
+    .trim()
+
+  return normalized || 'Search failed.'
+}
