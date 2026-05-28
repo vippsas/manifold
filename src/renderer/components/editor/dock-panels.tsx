@@ -1,12 +1,10 @@
-import React, { useCallback, useMemo } from 'react'
+import React, { useMemo } from 'react'
 import { useFileDiff } from '../../hooks/useFileDiff'
-import { TerminalPane } from '../terminal/TerminalPane'
 import { CodeViewer } from './CodeViewer'
 import { FileTree } from './FileTree'
 import { ModifiedFiles } from '../git/ModifiedFiles'
 import { FleetModifiedFiles } from '../git/FleetModifiedFiles'
 import { ShellTabs } from '../terminal/ShellTabs'
-import { OnboardingView } from '../modals/OnboardingView'
 import { ProjectSidebar } from '../sidebar/ProjectSidebar'
 import { WebPreview } from '../terminal/WebPreview'
 import { SearchPanel } from '../search/SearchPanel'
@@ -15,11 +13,8 @@ import { LoopPanel } from '../loop/LoopPanel'
 import { VerdictsPanel } from '../verdicts/VerdictsPanel'
 import { WatchPanel } from '../watch/WatchPanel'
 import { SuperagentFleetTree } from '../sidebar/SuperagentFleetTree'
-import { SuperagentAgentPanel, restartOverlayStyles } from './SuperagentAgentPanel'
-import { AgentChatView } from './AgentChatView'
-import { DraftChatView } from './DraftChatView'
-import { DockStateContext, useDockState } from './dock-panel-types'
-import { parseSiblingSessionId } from '../../hooks/agent-siblings'
+import { AgentPanel } from './dock-agent-panel'
+import { useDockState } from './dock-panel-types'
 export type { DockAppState } from './dock-panel-types'
 export { DockStateContext } from './dock-panel-types'
 
@@ -37,134 +32,6 @@ export const PANEL_COMPONENTS: Record<string, React.FC<any>> = {
   loop: LoopPanel,
   verdicts: VerdictsPanel,
   watch: WatchPanel,
-}
-
-interface AgentTerminalViewProps {
-  sessionId: string
-  scrollbackLines: number
-  terminalFontFamily?: string
-  xtermTheme?: import('@xterm/xterm').ITheme
-  isExited: boolean
-  onRestart: () => void
-}
-
-// Memoized so file clicks (which mutate unrelated dock-state fields like
-// lastFileOpenRequest, openFiles, etc.) don't tear through the terminal subtree.
-// The outer AgentPanel still re-renders on every context change, but its
-// returned element here is shallow-equal across those renders and short-circuits.
-const AgentTerminalView = React.memo(function AgentTerminalView({
-  sessionId,
-  scrollbackLines,
-  terminalFontFamily,
-  xtermTheme,
-  isExited,
-  onRestart,
-}: AgentTerminalViewProps): React.JSX.Element {
-  return (
-    <div style={agentTerminalWrapperStyle}>
-      <TerminalPane
-        sessionId={sessionId}
-        scrollbackLines={scrollbackLines}
-        terminalFontFamily={terminalFontFamily}
-        label="Agent"
-        xtermTheme={xtermTheme}
-      />
-      {isExited && (
-        <div style={restartOverlayStyles.container}>
-          <button onClick={onRestart} style={restartOverlayStyles.button}>
-            Restart Agent
-          </button>
-        </div>
-      )}
-    </div>
-  )
-})
-
-const agentTerminalWrapperStyle: React.CSSProperties = { position: 'relative', height: '100%' }
-
-function AgentPanel({ api }: { api?: { id: string } } = {}): React.JSX.Element {
-  const s = useDockState()
-  const activeProject = s.projects.find((p) => p.id === s.activeProjectId)
-
-  const panelId = api?.id ?? 'agent'
-  const siblingSessionId = parseSiblingSessionId(panelId)
-  const targetSessionId = siblingSessionId ?? s.primarySessionId ?? s.sessionId
-
-  const projectSessions = s.activeProjectId
-    ? s.allProjectSessions[s.activeProjectId] ?? []
-    : []
-  const targetSession = targetSessionId
-    ? projectSessions.find((session) => session.id === targetSessionId)
-      ?? Object.values(s.allProjectSessions).flat().find((session) => session.id === targetSessionId)
-      ?? null
-    : null
-  const targetRuntimeId = targetSession?.runtimeId ?? null
-  const targetStatus = targetSession?.status ?? null
-
-  const onResumeAgent = s.onResumeAgent
-  const handleRestart = useCallback(() => {
-    if (targetSessionId && targetRuntimeId) {
-      void onResumeAgent(targetSessionId, targetRuntimeId)
-    }
-  }, [targetSessionId, targetRuntimeId, onResumeAgent])
-
-  if (s.activeSuperagentId && !siblingSessionId) {
-    return <SuperagentAgentPanel />
-  }
-
-  if (s.activeDraft) {
-    const activeDraft = s.activeDraft
-    const draftProject = s.projects.find((p) => p.id === activeDraft.projectId)
-    return (
-      <DraftChatView
-        onFirstSend={(text) => { void s.promoteDraft(activeDraft.id, text) }}
-        projectName={draftProject?.name}
-        branchName={activeDraft.branchName}
-      />
-    )
-  }
-
-  if (!targetSessionId && s.activeProjectId && activeProject) {
-    return (
-      <OnboardingView
-        variant="no-agent"
-        projectId={s.activeProjectId}
-        projectName={activeProject.name}
-        projectPath={activeProject.path}
-        baseBranch={s.baseBranch}
-        isGitProject={s.activeProjectIsGit}
-        defaultRuntime={s.defaultRuntime}
-        defaultAgentMode={s.defaultAgentMode}
-        onLaunch={s.onLaunchAgent}
-        existingSessions={projectSessions}
-        onResumeSession={s.onResumeAgent}
-        onDeleteSession={(session) => s.onRequestDeleteAgent(session, activeProject.path)}
-        focusTrigger={s.newAgentFocusTrigger}
-        onNewSuperagent={s.onNewSuperagent}
-      />
-    )
-  }
-
-  if (!targetSessionId) {
-    return <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%', color: 'var(--text-muted)', fontSize: 12 }}>Select a repository to get started</div>
-  }
-
-  const isExited = targetStatus === 'done' || targetStatus === 'error'
-
-  if (targetSession?.nonInteractive) {
-    return <AgentChatView sessionId={targetSessionId} />
-  }
-
-  return (
-    <AgentTerminalView
-      sessionId={targetSessionId}
-      scrollbackLines={s.scrollbackLines}
-      terminalFontFamily={s.terminalFontFamily}
-      xtermTheme={s.xtermTheme}
-      isExited={isExited}
-      onRestart={handleRestart}
-    />
-  )
 }
 
 function EditorPanel({ api }: { api: { id: string } }): React.JSX.Element {

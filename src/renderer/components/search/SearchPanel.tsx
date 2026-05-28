@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useRef } from 'react'
-import type { SearchScopeKind, UnifiedSearchResult } from '../../../shared/search-types'
+import type { SearchScopeKind } from '../../../shared/search-types'
 import { useSearch } from '../../hooks/useSearch'
 import { useSearchHistory } from '../../hooks/useSearchHistory'
 import { useDockState } from '../editor/dock-panel-types'
@@ -11,6 +11,7 @@ import { SavedSearchView } from './SavedSearchView'
 import { SearchResultCard } from './SearchResultCard'
 import { SearchMemoryFilters } from './filters/SearchMemoryFilters'
 import { useSearchResultSelection } from './useSearchResultSelection'
+import { useSearchResultOpening } from './useSearchResultOpening'
 import {
   getActiveContextSession,
   getEmptyState,
@@ -104,60 +105,17 @@ export function SearchPanel(): React.JSX.Element {
     return `${search.results.length} ${search.results.length === 1 ? 'result' : 'results'}`
   }, [hasCurrentSearch, search.aiAnswer, search.aiError, search.isAsking, search.isSearching, search.results.length])
 
+  const { openCodeResult, handleInputKeyDown } = useSearchResultOpening({
+    results: search.results,
+    selectedResult,
+    markCurrentSearchUsed: history.markCurrentSearchUsed,
+    onOpenSearchResult: dock.onOpenSearchResult,
+    onOpenSearchResultInSplit: dock.onOpenSearchResultInSplit,
+    moveSelection,
+  })
+
   if (!dock.activeProjectId) {
     return <div style={s.empty}>Select a project to search</div>
-  }
-
-  const openCodeResult = (filePath: string, line: number, column: number | undefined, sessionId?: string): void => {
-    void history.markCurrentSearchUsed(search.results.length)
-    dock.onOpenSearchResult({
-      path: filePath,
-      line,
-      column,
-      sessionId,
-    })
-  }
-
-  const openCodeResultInSplit = (filePath: string, line: number, column: number | undefined, sessionId?: string): void => {
-    void history.markCurrentSearchUsed(search.results.length)
-    dock.onOpenSearchResultInSplit({
-      path: filePath,
-      line,
-      column,
-      sessionId,
-    })
-  }
-
-  const openResult = (result: UnifiedSearchResult | null, inSplit = false): void => {
-    if (!result || result.source !== 'code') return
-    if (inSplit) {
-      openCodeResultInSplit(result.filePath, result.line, result.column, result.sessionId)
-      return
-    }
-    openCodeResult(result.filePath, result.line, result.column, result.sessionId)
-  }
-
-  const handleInputKeyDown = (event: React.KeyboardEvent<HTMLInputElement>): void => {
-    if (event.key === 'ArrowDown') {
-      event.preventDefault()
-      moveSelection(1)
-      return
-    }
-
-    if (event.key === 'ArrowUp') {
-      event.preventDefault()
-      moveSelection(-1)
-      return
-    }
-
-    if (event.key === 'Enter') {
-      event.preventDefault()
-      if (selectedResult?.source === 'code') {
-        openResult(selectedResult, event.altKey || event.metaKey)
-        return
-      }
-      void history.markCurrentSearchUsed(search.results.length)
-    }
   }
 
   return (

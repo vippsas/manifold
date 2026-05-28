@@ -2,128 +2,17 @@ import React, { useState, useRef, useEffect, useCallback, useLayoutEffect } from
 import type { ChatMessage as ChatMessageType } from '../../shared/simple-types'
 import { ChatMessage } from './ChatMessage'
 import * as styles from './ChatPane.styles'
+import { ThinkingIndicator } from './ChatThinkingIndicator'
+import { DurationBadge } from './ChatDurationBadge'
+import { MAX_PASTED_IMAGES, useChatImagePaste, type PastedImage } from './useChatImagePaste'
+
+export { MAX_PASTED_IMAGES, type PastedImage } from './useChatImagePaste'
 
 const INPUT_LINE_HEIGHT = 22
 const INPUT_CHROME_HEIGHT = 26
 const MAX_VISIBLE_LINES = 4
 const MIN_INPUT_HEIGHT = INPUT_LINE_HEIGHT + INPUT_CHROME_HEIGHT
 const MAX_INPUT_HEIGHT = INPUT_LINE_HEIGHT * MAX_VISIBLE_LINES + INPUT_CHROME_HEIGHT
-
-export const MAX_PASTED_IMAGES = 3
-const MAX_PASTED_IMAGE_BYTES = 10 * 1024 * 1024
-const ACCEPTED_IMAGE_MIME = new Set(['image/png', 'image/jpeg', 'image/gif', 'image/webp'])
-
-export interface PastedImage {
-  id: string
-  dataUrl: string
-  mime: string
-}
-
-const THINKING_PHRASES = [
-  'Thinking',
-  'Pondering',
-  'Reasoning',
-  'Connecting dots',
-  'Weaving ideas',
-  'Exploring paths',
-  'Working through it',
-  'Diving deep',
-  'Piecing it together',
-  'Mulling it over',
-  'Crafting a response',
-  'Mapping it out',
-  'Almost there',
-  'On it',
-]
-
-function pickRandom(phrases: string[], exclude: string): string {
-  const filtered = phrases.filter((p) => p !== exclude)
-  return filtered[Math.floor(Math.random() * filtered.length)]
-}
-
-function ThinkingIndicator(): React.JSX.Element {
-  const [phrase, setPhrase] = useState(() =>
-    THINKING_PHRASES[Math.floor(Math.random() * THINKING_PHRASES.length)]
-  )
-  const [visible, setVisible] = useState(true)
-
-  const rotate = useCallback(() => {
-    setVisible(false)
-    setTimeout(() => {
-      setPhrase((prev) => pickRandom(THINKING_PHRASES, prev))
-      setVisible(true)
-    }, 400)
-  }, [])
-
-  useEffect(() => {
-    const id = setInterval(rotate, 3000)
-    return () => clearInterval(id)
-  }, [rotate])
-
-  return (
-    <div style={{ display: 'flex', justifyContent: 'flex-start', marginBottom: 12 }}>
-      <div style={{
-        display: 'flex',
-        alignItems: 'center',
-        gap: 8,
-        padding: '4px 0',
-      }}>
-        {[0, 1, 2].map((i) => (
-          <span
-            key={i}
-            style={{
-              width: 5,
-              height: 5,
-              borderRadius: '50%',
-              background: 'var(--accent)',
-              animation: `typing-dot 1.4s ease-in-out ${i * 0.2}s infinite`,
-            }}
-          />
-        ))}
-        <span
-          style={{
-            fontSize: 14,
-            fontWeight: 500,
-            background: 'linear-gradient(90deg, var(--text-muted) 0%, var(--accent-hover) 50%, var(--text-muted) 100%)',
-            backgroundSize: '200% auto',
-            WebkitBackgroundClip: 'text',
-            WebkitTextFillColor: 'transparent',
-            animation: 'shimmer 2s linear infinite',
-            opacity: visible ? 1 : 0,
-            transition: 'opacity 0.4s ease',
-          }}
-        >
-          {phrase}...
-        </span>
-      </div>
-    </div>
-  )
-}
-
-function formatDuration(ms: number): string {
-  const totalSeconds = Math.round(ms / 1000)
-  if (totalSeconds < 60) return `${totalSeconds}s`
-  const minutes = Math.floor(totalSeconds / 60)
-  const seconds = totalSeconds % 60
-  return seconds > 0 ? `${minutes}m ${seconds}s` : `${minutes}m`
-}
-
-function DurationBadge({ durationMs }: { durationMs: number }): React.JSX.Element {
-  return (
-    <div style={{ display: 'flex', justifyContent: 'center', marginBottom: 12 }}>
-      <span style={{
-        fontSize: 12,
-        color: 'var(--text-muted)',
-        padding: '4px 12px',
-        borderRadius: 12,
-        background: 'var(--surface)',
-        border: '1px solid var(--border)',
-      }}>
-        Completed in {formatDuration(durationMs)}
-      </span>
-    </div>
-  )
-}
 
 interface Props {
   messages: ChatMessageType[]
@@ -137,20 +26,12 @@ interface Props {
 
 export function ChatPane({ messages, onSend, onInterrupt, isThinking, durationMs, placeholder, acceptImages = false }: Props): React.JSX.Element {
   const [input, setInput] = useState('')
-  const [images, setImages] = useState<PastedImage[]>([])
-  const [pasteNotice, setPasteNotice] = useState<string | null>(null)
-  const [isDraggingOver, setIsDraggingOver] = useState(false)
   const [dismissedOptions, setDismissedOptions] = useState<Set<string>>(new Set())
   const messagesEndRef = useRef<HTMLDivElement>(null)
   const inputRef = useRef<HTMLTextAreaElement>(null)
   const pendingSelectionRef = useRef<number | null>(null)
-  const dragDepthRef = useRef(0)
-  const imageCountRef = useRef(0)
-  const loadedDataUrlsRef = useRef<Set<string>>(new Set())
 
-  useEffect(() => {
-    imageCountRef.current = images.length
-  }, [images])
+  const { images, isDraggingOver, pasteNotice, removeImage, clearImages, dragHandlers } = useChatImagePaste(acceptImages, inputRef)
 
   useEffect(() => {
     inputRef.current?.focus()
@@ -203,159 +84,7 @@ export function ChatPane({ messages, onSend, onInterrupt, isThinking, durationMs
       onSend(message)
     }
     setInput('')
-    setImages([])
-    imageCountRef.current = 0
-    loadedDataUrlsRef.current.clear()
-    setPasteNotice(null)
-  }
-
-  const showPasteNotice = (text: string): void => {
-    setPasteNotice(text)
-    window.setTimeout(() => setPasteNotice((current) => (current === text ? null : current)), 2500)
-  }
-
-  const ingestImageFiles = useCallback((files: File[]): void => {
-    if (files.length === 0) return
-    const remaining = MAX_PASTED_IMAGES - imageCountRef.current
-    if (remaining <= 0) {
-      showPasteNotice(`You can attach at most ${MAX_PASTED_IMAGES} images.`)
-      return
-    }
-    if (files.length > remaining) {
-      showPasteNotice(`Only the first ${remaining} image${remaining === 1 ? '' : 's'} were added.`)
-    }
-    const accepted = files.slice(0, remaining)
-    for (const file of accepted) {
-      if (file.size > MAX_PASTED_IMAGE_BYTES) {
-        showPasteNotice('Image too large (max 10MB).')
-        continue
-      }
-      imageCountRef.current += 1
-      const id = `img-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`
-      const reader = new FileReader()
-      reader.onload = (): void => {
-        const result = reader.result
-        if (typeof result !== 'string') return
-        if (loadedDataUrlsRef.current.has(result)) {
-          imageCountRef.current = Math.max(0, imageCountRef.current - 1)
-          return
-        }
-        loadedDataUrlsRef.current.add(result)
-        setImages((current) => {
-          if (current.some((img) => img.id === id)) return current
-          if (current.length >= MAX_PASTED_IMAGES) return current
-          return [...current, { id, dataUrl: result, mime: file.type }]
-        })
-      }
-      reader.readAsDataURL(file)
-    }
-  }, [])
-
-  const collectImageFiles = (
-    items: DataTransferItemList | null | undefined,
-    fileList: FileList | null | undefined,
-  ): File[] => {
-    const collected: File[] = []
-    const seenKeys = new Set<string>()
-    const fileKey = (f: File): string => `${f.name}|${f.size}|${f.type}|${f.lastModified}`
-    const tryAdd = (file: File | null | undefined): void => {
-      if (!file) return
-      if (!file.type.startsWith('image/')) return
-      const key = fileKey(file)
-      if (seenKeys.has(key)) return
-      seenKeys.add(key)
-      collected.push(file)
-    }
-    if (items) {
-      for (const item of Array.from(items)) {
-        if (item.kind !== 'file') continue
-        if (item.type && !item.type.startsWith('image/')) continue
-        tryAdd(item.getAsFile())
-      }
-    }
-    if (fileList) {
-      for (const file of Array.from(fileList)) tryAdd(file)
-    }
-    return collected.filter((f) => ACCEPTED_IMAGE_MIME.has(f.type))
-  }
-
-  const handleDragEnter = (e: React.DragEvent<HTMLDivElement>): void => {
-    if (!acceptImages) return
-    const types = e.dataTransfer?.types
-    if (!types || !Array.from(types).includes('Files')) return
-    e.preventDefault()
-    dragDepthRef.current += 1
-    setIsDraggingOver(true)
-  }
-
-  const handleDragOver = (e: React.DragEvent<HTMLDivElement>): void => {
-    if (!acceptImages) return
-    const types = e.dataTransfer?.types
-    if (!types || !Array.from(types).includes('Files')) return
-    e.preventDefault()
-    if (e.dataTransfer) e.dataTransfer.dropEffect = 'copy'
-  }
-
-  const handleDragLeave = (e: React.DragEvent<HTMLDivElement>): void => {
-    if (!acceptImages) return
-    e.preventDefault()
-    dragDepthRef.current = Math.max(0, dragDepthRef.current - 1)
-    if (dragDepthRef.current === 0) setIsDraggingOver(false)
-  }
-
-  const handleDrop = (e: React.DragEvent<HTMLDivElement>): void => {
-    if (!acceptImages) return
-    e.preventDefault()
-    dragDepthRef.current = 0
-    setIsDraggingOver(false)
-    const imageFiles = collectImageFiles(e.dataTransfer?.items, e.dataTransfer?.files)
-    if (imageFiles.length === 0) {
-      showPasteNotice('Only PNG, JPEG, GIF, or WebP images are supported.')
-      return
-    }
-    ingestImageFiles(imageFiles)
-  }
-
-  useEffect(() => {
-    if (!acceptImages) return
-    const swallow = (e: DragEvent): void => {
-      if (!e.dataTransfer) return
-      if (!Array.from(e.dataTransfer.types).includes('Files')) return
-      e.preventDefault()
-    }
-    window.addEventListener('dragover', swallow)
-    window.addEventListener('drop', swallow)
-    return () => {
-      window.removeEventListener('dragover', swallow)
-      window.removeEventListener('drop', swallow)
-    }
-  }, [acceptImages])
-
-  useEffect(() => {
-    if (!acceptImages) return
-    const onPaste = (e: ClipboardEvent): void => {
-      const target = e.target as HTMLElement | null
-      const tag = target?.tagName
-      if (tag === 'INPUT' || (tag === 'TEXTAREA' && target !== inputRef.current)) return
-      if (target?.isContentEditable && target !== inputRef.current) return
-      const imageFiles = collectImageFiles(e.clipboardData?.items, e.clipboardData?.files)
-      if (imageFiles.length === 0) return
-      e.preventDefault()
-      ingestImageFiles(imageFiles)
-      inputRef.current?.focus()
-    }
-    window.addEventListener('paste', onPaste)
-    return () => window.removeEventListener('paste', onPaste)
-  }, [acceptImages, ingestImageFiles])
-
-  const removeImage = (id: string): void => {
-    setImages((prev) => {
-      const removed = prev.find((img) => img.id === id)
-      if (removed) loadedDataUrlsRef.current.delete(removed.dataUrl)
-      const next = prev.filter((img) => img.id !== id)
-      imageCountRef.current = next.length
-      return next
-    })
+    clearImages()
   }
 
   const insertLineBreak = (): void => {
@@ -413,10 +142,10 @@ export function ChatPane({ messages, onSend, onInterrupt, isThinking, durationMs
       <div style={styles.inputRow}>
         <div
           style={isDraggingOver ? { ...styles.inputColumn, ...styles.inputColumnDragOver } : styles.inputColumn}
-          onDragEnter={handleDragEnter}
-          onDragOver={handleDragOver}
-          onDragLeave={handleDragLeave}
-          onDrop={handleDrop}
+          onDragEnter={dragHandlers.onDragEnter}
+          onDragOver={dragHandlers.onDragOver}
+          onDragLeave={dragHandlers.onDragLeave}
+          onDrop={dragHandlers.onDrop}
         >
           {acceptImages && isDraggingOver && (
             <div style={styles.dropHint} role="status">Drop image to attach</div>

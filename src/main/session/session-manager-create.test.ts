@@ -1,0 +1,234 @@
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
+
+let uuidCounter = 0
+vi.mock('uuid', () => ({
+  v4: vi.fn(() => `session-uuid-${++uuidCounter}`),
+}))
+
+vi.mock('../agent/runtimes', () => ({
+  getRuntimeById: vi.fn((id: string) => {
+    if (id === 'claude') {
+      return { id: 'claude', name: 'Claude Code', binary: 'claude', args: ['--allow-dangerously-skip-permissions'], env: undefined }
+    }
+    if (id === 'codex') {
+      return { id: 'codex', name: 'Codex', binary: 'codex', args: [], env: undefined }
+    }
+    return undefined
+  }),
+}))
+
+vi.mock('../agent/status-detector', () => ({
+  detectStatus: vi.fn(() => 'running'),
+  detectVercelUrl: vi.fn(() => null),
+  detectVercelDeployFailure: vi.fn(() => false),
+}))
+
+vi.mock('../fs/add-dir-detector', () => ({
+  detectAddDir: vi.fn((output: string) => {
+    const match = output.match(/Added\s+(.+?)\s+as a working directory/)
+    return match ? match[1].replace(/\/+$/, '') : null
+  }),
+}))
+
+vi.mock('../git/git-exec', () => ({
+  gitExec: vi.fn().mockResolvedValue('main\n'),
+}))
+
+vi.mock('../git/managed-worktree', () => ({
+  prepareManagedWorktree: vi.fn().mockResolvedValue(undefined),
+}))
+
+import { SessionManager } from './session-manager'
+import { WorktreeManager } from '../git/worktree-manager'
+import { PtyPool } from '../agent/pty-pool'
+import { ProjectRegistry } from '../store/project-registry'
+import type { MemoryCapture } from '../memory/memory-capture'
+import {
+  createMockWorktreeManager,
+  createMockPtyPool,
+  createMockProjectRegistry,
+} from './session-manager.test-helpers'
+
+describe('SessionManager — create / input / queries', () => {
+  let worktreeManager: ReturnType<typeof createMockWorktreeManager>
+  let ptyPool: ReturnType<typeof createMockPtyPool>
+  let projectRegistry: ReturnType<typeof createMockProjectRegistry>
+  let memoryCapture: Pick<MemoryCapture, 'startCapturing' | 'stopCapturing' | 'recordInput'>
+  let sessionManager: SessionManager
+
+  beforeEach(() => {
+    vi.clearAllMocks()
+    vi.useFakeTimers()
+    uuidCounter = 0
+    worktreeManager = createMockWorktreeManager()
+    ptyPool = createMockPtyPool()
+    projectRegistry = createMockProjectRegistry()
+    memoryCapture = {
+      startCapturing: vi.fn(),
+      stopCapturing: vi.fn(),
+      recordInput: vi.fn(),
+    }
+    sessionManager = new SessionManager(
+      worktreeManager as unknown as WorktreeManager,
+      ptyPool as unknown as PtyPool,
+      projectRegistry as unknown as ProjectRegistry,
+    )
+    sessionManager.setMemoryCapture(memoryCapture as MemoryCapture)
+  })
+
+  afterEach(() => {
+    vi.useRealTimers()
+  })
+
+  describe('createSession', () => {
+    it('creates a session with worktree and pty', async () => {
+      const session = await sessionManager.createSession({
+        projectId: 'proj-1',
+        runtimeId: 'claude',
+        prompt: 'do something',
+      })
+
+      expect(session.id).toBe('session-uuid-1')
+      expect(session.projectId).toBe('proj-1')
+      expect(session.runtimeId).toBe('claude')
+      expect(session.branchName).toBe('manifold/oslo')
+      expect(session.status).toBe('running')
+      expect(session.pid).toBe(999)
+
+      expect(worktreeManager.createWorktree).toHaveBeenCalledWith('/repo', 'main', 'test', undefined, 'do something')
+      expect(ptyPool.spawn).toHaveBeenCalledWith(
+        'claude',
+        ['--allow-dangerously-skip-permissions'],
+        { cwd: '/repo/.manifold/worktrees/manifold-oslo', env: undefined },
+      )
+      expect(ptyPool.onData).toHaveBeenCalledWith('pty-1', expect.any(Function))
+      expect(ptyPool.onExit).toHaveBeenCalledWith('pty-1', expect.any(Function))
+    })
+
+    it('throws when project is not found', async () => {
+      await expect(
+        sessionManager.createSession({
+          projectId: 'non-existent',
+          runtimeId: 'claude',
+          prompt: 'test',
+        }),
+      ).rejects.toThrow('Project not found')
+    })
+
+    it('throws when runtime is not found', async () => {
+      await expect(
+        sessionManager.createSession({
+          projectId: 'proj-1',
+          runtimeId: 'unknown-runtime',
+          prompt: 'test',
+        }),
+      ).rejects.toThrow('Runtime not found')
+    })
+
+    it('does not auto-write prompt to pty', async () => {
+      await sessionManager.createSession({
+        projectId: 'proj-1',
+        runtimeId: 'claude',
+        prompt: 'hello world',
+      })
+
+      expect(ptyPool.write).not.toHaveBeenCalled()
+    })
+
+    it('passes custom branch name to worktree manager', async () => {
+      await sessionManager.createSession({
+        projectId: 'proj-1',
+        runtimeId: 'claude',
+        prompt: 'test',
+        branchName: 'manifold/custom',
+      })
+
+      expect(worktreeManager.createWorktree).toHaveBeenCalledWith('/repo', 'main', 'test', 'manifold/custom', 'test')
+    })
+  })
+
+  describe('sendInput', () => {
+    it('writes input to the session pty', async () => {
+      await sessionManager.createSession({
+        projectId: 'proj-1',
+        runtimeId: 'claude',
+        prompt: 'test',
+      })
+
+      sessionManager.sendInput('session-uuid-1', 'some input')
+      expect(memoryCapture.recordInput).toHaveBeenCalledWith('session-uuid-1', 'some input')
+      expect(ptyPool.write).toHaveBeenCalledWith('pty-1', 'some input')
+    })
+
+    it('throws for unknown session', () => {
+      expect(() => sessionManager.sendInput('nope', 'data')).toThrow('Session not found')
+    })
+
+    it('silently ignores input for dormant sessions without a PTY', async () => {
+      ;(worktreeManager.listWorktrees as ReturnType<typeof vi.fn>).mockResolvedValue([
+        { branch: 'manifold/bergen', path: '/repo/.manifold/worktrees/manifold-bergen' },
+      ])
+
+      const sessions = await sessionManager.discoverSessionsForProject('proj-1')
+      const dormantId = sessions[0].id
+
+      // Should not throw
+      sessionManager.sendInput(dormantId, 'hello')
+      expect(ptyPool.write).not.toHaveBeenCalled()
+    })
+  })
+
+  describe('getSession', () => {
+    it('returns the public session info', async () => {
+      await sessionManager.createSession({
+        projectId: 'proj-1',
+        runtimeId: 'claude',
+        prompt: 'test',
+      })
+
+      const session = sessionManager.getSession('session-uuid-1')
+      expect(session).toBeDefined()
+      expect(session!.id).toBe('session-uuid-1')
+      // Should not expose internal fields
+      expect((session as unknown as Record<string, unknown>)['ptyId']).toBeUndefined()
+      expect((session as unknown as Record<string, unknown>)['outputBuffer']).toBeUndefined()
+    })
+
+    it('returns undefined for unknown session', () => {
+      expect(sessionManager.getSession('nope')).toBeUndefined()
+    })
+  })
+
+  describe('setParentSuperagent', () => {
+    it('updates session ownership in memory', async () => {
+      await sessionManager.createSession({
+        projectId: 'proj-1',
+        runtimeId: 'claude',
+        prompt: 'test',
+      })
+
+      const updated = sessionManager.setParentSuperagent('session-uuid-1', 'super-1')
+
+      expect(updated.parentSuperagentId).toBe('super-1')
+      expect(sessionManager.getSession('session-uuid-1')?.parentSuperagentId).toBe('super-1')
+    })
+  })
+
+  describe('listSessions', () => {
+    it('returns all sessions', async () => {
+      await sessionManager.createSession({
+        projectId: 'proj-1',
+        runtimeId: 'claude',
+        prompt: 'test',
+      })
+
+      const sessions = sessionManager.listSessions()
+      expect(sessions).toHaveLength(1)
+      expect(sessions[0].id).toBe('session-uuid-1')
+    })
+
+    it('returns empty array initially', () => {
+      expect(sessionManager.listSessions()).toEqual([])
+    })
+  })
+})

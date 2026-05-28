@@ -1,9 +1,7 @@
-import { BrowserWindow } from 'electron'
 import { PtyPool } from '../agent/pty-pool'
-import { detectStatus, detectVercelUrl, detectVercelDeployFailure } from '../agent/status-detector'
+import { detectStatus } from '../agent/status-detector'
 import { detectAddDir } from '../fs/add-dir-detector'
 import { detectUrl } from '../fs/url-detector'
-import { parseOptions } from '../agent/chat-adapter'
 import type { ChatAdapter } from '../agent/chat-adapter'
 import type { FileWatcher } from '../fs/file-watcher'
 import { debugLog } from '../app/debug-log'
@@ -11,6 +9,8 @@ import type { InternalSession } from './session-types'
 import type { SimpleRuntimeOutputMode } from '../agent/simple-runtime'
 import type { GitOperationsManager } from '../git/git-operations'
 import { predictNextCommand } from './shell-suggestion'
+import { handleStreamJsonEvent, type StreamJsonCtx } from './session-stream-json'
+import { checkVercelDeploy } from './session-vercel-deploy'
 
 function stripTerminalControls(text: string): string {
   return text
@@ -41,6 +41,14 @@ export class SessionStreamWirer {
 
   setGitOps(gitOps: GitOperationsManager): void {
     this.gitOps = gitOps
+  }
+
+  private streamCtx(): StreamJsonCtx {
+    return {
+      getChatAdapter: this.getChatAdapter,
+      sendToRenderer: this.sendToRenderer,
+      onDevServerNeeded: this.onDevServerNeeded,
+    }
   }
 
   /**
@@ -124,7 +132,7 @@ export class SessionStreamWirer {
           })
         }
 
-        this.checkVercelDeploy(session)
+        checkVercelDeploy(session)
       }
 
       // Detect Manifold shell prompt and trigger AI command prediction immediately.
@@ -177,7 +185,7 @@ export class SessionStreamWirer {
       if (session.outputBuffer.length > 100_000) {
         session.outputBuffer = session.outputBuffer.slice(-50_000)
       }
-      this.checkVercelDeploy(session)
+      checkVercelDeploy(session)
       this.trackActivity(session)
       session.streamJsonLineBuffer = (session.streamJsonLineBuffer ?? '') + data
       this.sendToRenderer('agent:activity', { sessionId: session.id })
@@ -194,7 +202,7 @@ export class SessionStreamWirer {
         try {
           const event = JSON.parse(trimmed)
           debugLog(`[stream-json] event type=${event.type}`)
-          this.handleStreamJsonEvent(session, event, ptyId, outputMode)
+          handleStreamJsonEvent(this.streamCtx(), session, event, ptyId, outputMode)
         } catch {
           debugLog(`[stream-json] non-JSON line: ${trimmed.slice(0, 200)}`)
         }
@@ -238,7 +246,7 @@ export class SessionStreamWirer {
     if (!trailing) return
     try {
       const event = JSON.parse(trailing)
-      this.handleStreamJsonEvent(session, event, ptyId, mode)
+      handleStreamJsonEvent(this.streamCtx(), session, event, ptyId, mode)
     } catch {
       // Non-JSON trailing data is not recoverable as a chat message.
     }
@@ -271,162 +279,4 @@ export class SessionStreamWirer {
       }
     })
   }
-
-  private handleStreamJsonEvent(
-    session: InternalSession,
-    event: Record<string, unknown>,
-    ptyId: string | undefined,
-    outputMode: Exclude<SimpleRuntimeOutputMode, 'plain-text'>,
-  ): void {
-    if (outputMode === 'codex-jsonl') {
-      this.handleCodexJsonEvent(session, event, ptyId)
-      return
-    }
-
-    this.handleClaudeStreamJsonEvent(session, event, ptyId)
-  }
-
-  private handleClaudeStreamJsonEvent(session: InternalSession, event: Record<string, unknown>, ptyId?: string): void {
-    const type = event.type as string | undefined
-
-    if (type === 'assistant') {
-      // Each assistant turn emits an event with the full message content.
-      // Extract text blocks and send them to chat.
-      const message = event.message as { content?: Array<{ type: string; text?: string }> } | undefined
-      if (message?.content) {
-        const textParts = message.content
-          .filter(c => c.type === 'text' && c.text)
-          .map(c => c.text!)
-        if (textParts.length > 0) {
-          const text = textParts.join('\n')
-          const { cleanText, options } = parseOptions(text)
-          const adapter = this.getChatAdapter()
-
-          // Skip if the last agent message has identical text (avoids duplicates
-          // when the stream emits multiple assistant events with the same content)
-          const existing = adapter?.getMessages(session.id) ?? []
-          const lastAgent = [...existing].reverse().find(m => m.role === 'agent')
-          const textToCompare = options ? cleanText : text
-          if (lastAgent?.text === textToCompare) {
-            return
-          }
-
-          if (options) {
-            adapter?.addAgentMessageWithOptions(session.id, cleanText, options)
-          } else {
-            adapter?.addAgentMessage(session.id, text)
-          }
-        }
-      }
-    } else if (type === 'result') {
-      // Final result — only emit if no agent messages were sent (fallback)
-      const result = event.result as string | undefined
-      const subtype = event.subtype as string | undefined
-      if (result && subtype === 'success') {
-        const existing = this.getChatAdapter()?.getMessages(session.id) ?? []
-        const hasAgentMsg = existing.some(m => m.role === 'agent')
-        if (!hasAgentMsg) {
-          const { cleanText, options } = parseOptions(result)
-          const adapter = this.getChatAdapter()
-          if (options) {
-            adapter?.addAgentMessageWithOptions(session.id, cleanText, options)
-          } else {
-            adapter?.addAgentMessage(session.id, result)
-          }
-        }
-      }
-      // The result event signals the agent is done. Transition to 'waiting'
-      // immediately rather than waiting for the process to exit (which can
-      // linger for over a minute after the result is emitted).
-      // Guard: skip if a new process has already replaced this one.
-      if (!ptyId || session.ptyId === ptyId) {
-        if (!session.detectedUrl && !session.devServerPtyId) {
-          this.onDevServerNeeded(session)
-        } else {
-          session.status = 'waiting'
-          this.sendToRenderer('agent:status', { sessionId: session.id, status: 'waiting' })
-        }
-      }
-    }
-  }
-
-  private handleCodexJsonEvent(session: InternalSession, event: Record<string, unknown>, ptyId?: string): void {
-    const type = event.type as string | undefined
-
-    if (type === 'item.completed') {
-      const item = event.item as { type?: string; text?: string; message?: string } | undefined
-      if (item?.type === 'agent_message' && item.text) {
-        this.publishAgentText(session, item.text)
-        return
-      }
-      if (item?.type === 'error' && item.message) {
-        this.getChatAdapter()?.addSystemMessage(session.id, item.message)
-      }
-      return
-    }
-
-    if (type === 'error') {
-      const message = event.message as string | undefined
-      if (message) {
-        this.getChatAdapter()?.addSystemMessage(session.id, message)
-      }
-      return
-    }
-
-    if (type === 'turn.completed' && (!ptyId || session.ptyId === ptyId)) {
-      if (!session.detectedUrl && !session.devServerPtyId) {
-        this.onDevServerNeeded(session)
-      } else {
-        session.status = 'waiting'
-        this.sendToRenderer('agent:status', { sessionId: session.id, status: 'waiting' })
-      }
-    }
-  }
-
-  private checkVercelDeploy(session: InternalSession): void {
-    const vercelUrl = detectVercelUrl(session.outputBuffer)
-    if (vercelUrl && (!session.detectedVercelUrl || vercelUrl.length < session.detectedVercelUrl.length)) {
-      session.detectedVercelUrl = vercelUrl
-      for (const win of BrowserWindow.getAllWindows()) {
-        if (!win.isDestroyed()) {
-          win.webContents.send('simple:deploy-status-update', {
-            sessionId: session.id,
-            stage: 'live',
-            message: 'Deployed successfully',
-            url: vercelUrl,
-          })
-        }
-      }
-    }
-
-    if ((!session.detectedVercelUrl || session.detectedVercelUrl === '__failed__') && detectVercelDeployFailure(session.outputBuffer)) {
-      session.detectedVercelUrl = '__failed__'
-      for (const win of BrowserWindow.getAllWindows()) {
-        if (!win.isDestroyed()) {
-          win.webContents.send('simple:deploy-status-update', {
-            sessionId: session.id,
-            stage: 'error',
-            message: 'Deploy failed',
-          })
-        }
-      }
-    }
-  }
-
-  private publishAgentText(session: InternalSession, text: string): void {
-    const { cleanText, options } = parseOptions(text)
-    const adapter = this.getChatAdapter()
-
-    const existing = adapter?.getMessages(session.id) ?? []
-    const lastAgent = [...existing].reverse().find(m => m.role === 'agent')
-    const textToCompare = options ? cleanText : text
-    if (lastAgent?.text === textToCompare) return
-
-    if (options) {
-      adapter?.addAgentMessageWithOptions(session.id, cleanText, options)
-    } else {
-      adapter?.addAgentMessage(session.id, text)
-    }
-  }
-
 }

@@ -1,4 +1,5 @@
 import type { WatchFrameRef, WatchSessionSnapshot } from '../../shared/watch-types'
+import { sameFrameMap, sameStringMap } from './watch-state-equality'
 
 export interface WatchSessionState {
   /** Per-entry frame thumbnails for playlist runs, keyed by entry index. */
@@ -95,30 +96,6 @@ function update(sessionId: string, updater: (cur: WatchSessionState) => WatchSes
   stateMap.set(sessionId, next)
   notify(sessionId)
   if (next.url !== cur.url) schedulePersist()
-}
-
-function sameStringMap(left: Record<number, string>, right: Record<number, string>): boolean {
-  const leftEntries = Object.entries(left)
-  const rightEntries = Object.entries(right)
-  if (leftEntries.length !== rightEntries.length) return false
-  return leftEntries.every(([key, value]) => right[Number(key)] === value)
-}
-
-function sameFrameMap(left: Record<number, WatchFrameRef[]>, right: Record<number, WatchFrameRef[]>): boolean {
-  const leftEntries = Object.entries(left)
-  const rightEntries = Object.entries(right)
-  if (leftEntries.length !== rightEntries.length) return false
-  return leftEntries.every(([key, leftFrames]) => {
-    const rightFrames = right[Number(key)]
-    if (!rightFrames || rightFrames.length !== leftFrames.length) return false
-    return leftFrames.every((frame, index) => {
-      const other = rightFrames[index]
-      return other &&
-        other.path === frame.path &&
-        other.hdPath === frame.hdPath &&
-        other.timestampSeconds === frame.timestampSeconds
-    })
-  })
 }
 
 function ensureIpc(): void {

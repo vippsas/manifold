@@ -1,7 +1,8 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react'
 import { useDockState } from '../editor/dock-panel-types'
 import { useWatchPanel } from '../../hooks/useWatchPanel'
-import { useWatchUrlPreview, clearWatchPreviewCaches } from '../../hooks/useWatchUrlPreview'
+import { useWatchUrlPreview } from '../../hooks/useWatchUrlPreview'
+import { useWatchPanelActions } from '../../hooks/useWatchPanelActions'
 import { watchPanelStore } from '../../hooks/watchPanelStore'
 import { watchStyles as s } from './WatchPanel.styles'
 import { FrameLightbox } from './FrameLightbox'
@@ -12,7 +13,6 @@ import { useContainerWidth } from '../../hooks/useContainerWidth'
 import { WatchSetupStatusBar } from './WatchSetupStatusBar'
 import { siblingPanelId } from '../../hooks/agent-siblings'
 
-const PLAYLIST_SOFT_CAP = 10
 // Below this width the panel stays in a stacked single-column layout. Above
 // it, the hero/URL bar and the active video player split side-by-side so
 // horizontal real estate is used instead of pushing the playlist offscreen.
@@ -54,10 +54,6 @@ export function WatchPanel(): React.JSX.Element {
     playerHidden,
     setPlayerHidden,
   } = useWatchPanel(sessionId)
-  const [error, setError] = useState<string | null>(null)
-  const [busy, setBusy] = useState(false)
-  const [installing, setInstalling] = useState(false)
-  const [improvingIndex, setImprovingIndex] = useState<number | null>(null)
   const [thumbCache, setThumbCache] = useState<Record<string, string>>({})
   const [lightbox, setLightbox] = useState<{ cardIndex: number; frameIndex: number } | null>(null)
 
@@ -121,6 +117,21 @@ export function WatchPanel(): React.JSX.Element {
   const pendingEntries = selectedEntries.filter(({ index }) => !siblingByIndex[index])
   const hasAnySibling = Object.keys(siblingByIndex).length > 0
   const ready = !preview.loading && preview.entries.length > 0
+
+  const {
+    error, busy, installing, improvingIndex,
+    handleImprove, handleRun, handleClearCache, handleInstall,
+  } = useWatchPanelActions({
+    preview,
+    improveQuestion,
+    runPlaylist,
+    installBinaries,
+    siblingByIndex,
+    setSiblingByIndex,
+    setPlaylistDispatched,
+    pendingEntries,
+  })
+
   const canRun = !!sessionId && isRunning && !busy && ready && pendingEntries.length > 0
   const canImprove = !!sessionId && isRunning && improvingIndex === null && !busy
   const runLabel = pendingEntries.length === 0
@@ -128,79 +139,6 @@ export function WatchPanel(): React.JSX.Element {
     : pendingEntries.length > 1
       ? `Run (${pendingEntries.length})`
       : 'Run'
-
-  const handleImprove = async (index: number): Promise<void> => {
-    const current = preview.entryQuestions[index] ?? ''
-    if (!current.trim()) return
-    setError(null)
-    setImprovingIndex(index)
-    try {
-      const improved = await improveQuestion(current)
-      if (improved) preview.setEntryQuestion(index, improved)
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Improve failed')
-    } finally {
-      setImprovingIndex(null)
-    }
-  }
-
-  const handleRun = async (): Promise<void> => {
-    setError(null)
-    if (pendingEntries.length === 0) return
-    if (pendingEntries.length > PLAYLIST_SOFT_CAP) {
-      const ok = window.confirm(
-        `This will spawn ${pendingEntries.length} sibling agents. Continue?`,
-      )
-      if (!ok) return
-    }
-    setBusy(true)
-    try {
-      const result = await runPlaylist(pendingEntries.map(({ entry, index }) => ({
-        url: entry.url,
-        question: preview.entryQuestions[index]?.trim() || undefined,
-        title: entry.title,
-        originalIndex: index,
-      })))
-      if (!result.ok) throw new Error(result.error ?? 'Run failed')
-      // Merge new siblings into the existing map — previously-dispatched
-      // entries keep their session IDs so navigation to them still works.
-      const merged: Record<number, string> = { ...siblingByIndex }
-      pendingEntries.forEach(({ index }, i) => {
-        const sid = result.entryResults?.[i]?.sessionId
-        if (sid) merged[index] = sid
-      })
-      setSiblingByIndex(merged)
-      setPlaylistDispatched(true)
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed')
-    } finally {
-      setBusy(false)
-    }
-  }
-
-  const handleClearCache = useCallback((): void => {
-    // Wipe the peek + user-state caches (in-memory + localStorage), then
-    // ask the preview hook to re-peek for the current URL. The sibling
-    // mapping / dispatched flag in the store stay intact — only the peek
-    // cache is invalidated.
-    clearWatchPreviewCaches()
-    preview.forceRefresh()
-  }, [preview])
-
-  const handleInstall = async (): Promise<void> => {
-    setError(null)
-    setInstalling(true)
-    try {
-      const result = await installBinaries()
-      if (result.errors.length > 0) {
-        setError(result.errors.map((e) => `${e.binary}: ${e.message}`).join('\n'))
-      }
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Install failed')
-    } finally {
-      setInstalling(false)
-    }
-  }
 
   const { ref: containerRef, width: containerWidth } = useContainerWidth()
   const activeEntry = focusedEntryIndex !== null

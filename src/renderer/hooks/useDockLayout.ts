@@ -1,22 +1,12 @@
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import type { DockviewApi, SerializedDockview } from 'dockview'
-import { getGridLocation, type Orientation } from 'dockview-core'
 import {
-  applyLayoutChangePreservingSidebarWidths,
   PANEL_IDS,
-  PANEL_TITLES,
   applyMinimalLayout,
   findTopLeftWorkspaceReferencePanel,
-  findAdjacentEditorPanelId,
-  getGridSignature,
   getSidebarWidths,
-  hidePanel,
-  isEditorPanelId,
   loadOrBuildLayout,
   parseEditorPanelOrder,
-  restoreSidebarWidths,
-  showPanelFromHints,
-  showPanelFromSnapshot,
   type EditorSplitDirection,
   type DockPanelId,
   type LayoutRefs,
@@ -24,8 +14,11 @@ import {
 import { siblingPanelId } from './agent-siblings'
 import type { AgentSession } from '../../shared/types'
 import { applyDefaultLayout, applyMinimalPanels, syncEditorPanelIds } from './dock-layout-builders'
-import { ensureSearchPanelInWorkspace } from './dock-layout-search'
-import { ensureEditorPanelInWorkspace } from './dock-layout-editor'
+import type { DockLayoutCtx } from './dock-layout-context'
+import { reconcileLayoutAfterLoad, useTabVisibilityEffect } from './dock-layout-tabs'
+import { useEditorPanels } from './dock-layout-panels'
+import { useDockActions } from './dock-layout-actions'
+import { registerLayoutListeners } from './dock-layout-lifecycle'
 
 export type { DockPanelId, EditorSplitDirection } from './dock-layout-helpers'
 export { isEditorPanelId } from './dock-layout-helpers'
@@ -125,89 +118,26 @@ export function useDockLayout(
   const buildDefaultLayout = useCallback((api: DockviewApi) => applyDefaultLayout(api, { showIdeasTab, showLoopTab, showVerdictsTab, showWatchTab }), [showIdeasTab, showLoopTab, showVerdictsTab, showWatchTab])
   const buildMinimalLayout = useCallback((api: DockviewApi) => applyMinimalPanels(api), [])
 
-  const applyIdeasTabSetting = useCallback((api: DockviewApi, showOnEnable: boolean): boolean => {
-    if (!sessionIdRef.current) return false
-
-    const ideasPanel = api.getPanel('backgroundAgent')
-    if (!showIdeasTabRef.current) {
-      if (!ideasPanel) return false
-      hidePanel(api, 'backgroundAgent', closedPanelSnapshots, refs)
-      return true
-    }
-
-    if (!showOnEnable || ideasPanel) return false
-
-    const snapshot = closedPanelSnapshots.current.get('backgroundAgent')
-    if (snapshot) {
-      showPanelFromSnapshot(api, 'backgroundAgent', snapshot, closedPanelSnapshots, refs)
-    } else {
-      showPanelFromHints(api, 'backgroundAgent', refs)
-    }
-    return true
-  }, [refs])
-
-  const applyLoopTabSetting = useCallback((api: DockviewApi, showOnEnable: boolean): boolean => {
-    if (!sessionIdRef.current) return false
-
-    const loopPanel = api.getPanel('loop')
-    if (!showLoopTabRef.current) {
-      if (!loopPanel) return false
-      hidePanel(api, 'loop', closedPanelSnapshots, refs)
-      return true
-    }
-
-    if (!showOnEnable || loopPanel) return false
-
-    const snapshot = closedPanelSnapshots.current.get('loop')
-    if (snapshot) {
-      showPanelFromSnapshot(api, 'loop', snapshot, closedPanelSnapshots, refs)
-    } else {
-      showPanelFromHints(api, 'loop', refs)
-    }
-    return true
-  }, [refs])
-
-  const applyVerdictsTabSetting = useCallback((api: DockviewApi, showOnEnable: boolean): boolean => {
-    if (!sessionIdRef.current) return false
-
-    const verdictsPanel = api.getPanel('verdicts')
-    if (!showVerdictsTabRef.current) {
-      if (!verdictsPanel) return false
-      hidePanel(api, 'verdicts', closedPanelSnapshots, refs)
-      return true
-    }
-
-    if (!showOnEnable || verdictsPanel) return false
-
-    const snapshot = closedPanelSnapshots.current.get('verdicts')
-    if (snapshot) {
-      showPanelFromSnapshot(api, 'verdicts', snapshot, closedPanelSnapshots, refs)
-    } else {
-      showPanelFromHints(api, 'verdicts', refs)
-    }
-    return true
-  }, [refs])
-
-  const applyWatchTabSetting = useCallback((api: DockviewApi, showOnEnable: boolean): boolean => {
-    if (!sessionIdRef.current) return false
-
-    const watchPanel = api.getPanel('watch')
-    if (!showWatchTabRef.current) {
-      if (!watchPanel) return false
-      hidePanel(api, 'watch', closedPanelSnapshots, refs)
-      return true
-    }
-
-    if (!showOnEnable || watchPanel) return false
-
-    const snapshot = closedPanelSnapshots.current.get('watch')
-    if (snapshot) {
-      showPanelFromSnapshot(api, 'watch', snapshot, closedPanelSnapshots, refs)
-    } else {
-      showPanelFromHints(api, 'watch', refs)
-    }
-    return true
-  }, [refs])
+  const ctx = useMemo<DockLayoutCtx>(() => ({
+    apiRef,
+    sessionIdRef,
+    showIdeasTabRef,
+    showLoopTabRef,
+    showVerdictsTabRef,
+    showWatchTabRef,
+    editorPanelIdsRef,
+    nextEditorPanelIndexRef,
+    closedPanelSnapshots,
+    sidebarWidthsRef,
+    lastLayoutRef,
+    refs,
+    saveLayout,
+    syncPanels,
+    bumpVersion,
+    bumpReloadVersion,
+  // refs is rebuilt each render but wraps the same stable ref objects, so it
+  // is intentionally omitted from the dependency list.
+  }), [saveLayout, syncPanels, bumpVersion, bumpReloadVersion]) // eslint-disable-line react-hooks/exhaustive-deps
 
   const focusPanel = useCallback((id: string): void => {
     const panel = apiRef.current?.getPanel(id)
@@ -248,25 +178,16 @@ export function useDockLayout(
     if (panel && !panel.api.isActive) panel.api.setActive()
   }, [])
 
+  const { ensureEditorPanel, splitEditorPane, findEditorPanelForSplit } = useEditorPanels(ctx, focusPanel)
+  const { togglePanel, closePanel, isPanelVisible, resetLayout } = useDockActions(ctx, ensureEditorPanel, buildDefaultLayout)
+
   const onReady = useCallback((api: DockviewApi) => {
     apiRef.current = api
 
     const sid = sessionIdRef.current
     if (sid) {
       void loadOrBuildLayout(api, sid, buildDefaultLayout, refs, liveSiblingIds()).then(() => {
-        const ideasChanged = applyIdeasTabSetting(api, false)
-        const loopChanged = applyLoopTabSetting(api, false)
-        const verdictsChanged = applyVerdictsTabSetting(api, false)
-        const watchChanged = applyWatchTabSetting(api, false)
-        syncPanels(api)
-        sidebarWidthsRef.current = getSidebarWidths(api)
-        if (ensureSearchPanelInWorkspace(api, editorPanelIdsRef.current)) {
-          lastLayoutRef.current = api.toJSON()
-          saveLayout()
-        }
-        if (ideasChanged || loopChanged || verdictsChanged || watchChanged) saveLayout()
-        bumpVersion()
-        bumpReloadVersion()
+        reconcileLayoutAfterLoad(api, ctx)
       })
     } else {
       applyMinimalLayout(api, buildMinimalLayout, refs)
@@ -275,47 +196,8 @@ export function useDockLayout(
       bumpVersion()
     }
 
-    api.onDidRemovePanel((panel) => {
-      if (isRestoringRef.current) return
-
-      if (isEditorPanelId(panel.id)) {
-        editorPanelIdsRef.current.delete(panel.id)
-        bumpVersion()
-        return
-      }
-
-      const id = panel.id as DockPanelId
-      if (PANEL_IDS.includes(id) && lastLayoutRef.current) {
-        closedPanelSnapshots.current.set(id, lastLayoutRef.current)
-      }
-    })
-
-    api.onDidLayoutChange(() => {
-      if (isRestoringRef.current) return
-
-      const previousJson = lastLayoutRef.current
-      const currentJson = api.toJSON()
-
-      // Detect structural changes (panel moves/adds/removes) vs simple
-      // divider resizes by comparing the grid's panel arrangement.
-      const structureChanged = previousJson &&
-        getGridSignature(previousJson) !== getGridSignature(currentJson)
-
-      if (structureChanged && (sidebarWidthsRef.current.left > 0 || sidebarWidthsRef.current.right > 0)) {
-        // Structural change — restore pinned sidebar widths so only the
-        // center (agent) pane absorbs the size difference.
-        restoreSidebarWidths(api, sidebarWidthsRef.current, refs)
-      } else {
-        // Pure resize (user dragging a divider) — update pinned widths.
-        sidebarWidthsRef.current = getSidebarWidths(api)
-        lastLayoutRef.current = currentJson
-      }
-
-      syncPanels(api)
-      saveLayout()
-      bumpVersion()
-    })
-  }, [applyIdeasTabSetting, applyLoopTabSetting, applyVerdictsTabSetting, applyWatchTabSetting, buildDefaultLayout, buildMinimalLayout, bumpVersion, bumpReloadVersion, saveLayout, syncPanels, liveSiblingIds])
+    registerLayoutListeners(api, ctx)
+  }, [buildDefaultLayout, buildMinimalLayout, bumpVersion, syncPanels, liveSiblingIds, ctx]) // eslint-disable-line react-hooks/exhaustive-deps
 
   const prevSessionRef = useRef(sessionId)
   useEffect(() => {
@@ -339,298 +221,18 @@ export function useDockLayout(
     }
 
     void loadOrBuildLayout(api, sessionId, buildDefaultLayout, refs, liveSiblingIds()).then(() => {
-      const ideasChanged = applyIdeasTabSetting(api, false)
-      const loopChanged = applyLoopTabSetting(api, false)
-      const verdictsChanged = applyVerdictsTabSetting(api, false)
-      const watchChanged = applyWatchTabSetting(api, false)
-      syncPanels(api)
-      sidebarWidthsRef.current = getSidebarWidths(api)
-      if (ensureSearchPanelInWorkspace(api, editorPanelIdsRef.current)) {
-        lastLayoutRef.current = api.toJSON()
-        saveLayout()
-      }
-      if (ideasChanged || loopChanged || verdictsChanged || watchChanged) saveLayout()
-      bumpVersion()
-      bumpReloadVersion()
+      reconcileLayoutAfterLoad(api, ctx)
     })
-  }, [sessionId, applyIdeasTabSetting, applyLoopTabSetting, applyVerdictsTabSetting, applyWatchTabSetting, buildDefaultLayout, buildMinimalLayout, bumpVersion, bumpReloadVersion, saveLayout, syncPanels, liveSiblingIds])
+  }, [sessionId, buildDefaultLayout, buildMinimalLayout, bumpVersion, syncPanels, liveSiblingIds, ctx]) // eslint-disable-line react-hooks/exhaustive-deps
 
   const previousShowIdeasTabRef = useRef(showIdeasTab)
-  useEffect(() => {
-    const previous = previousShowIdeasTabRef.current
-    previousShowIdeasTabRef.current = showIdeasTab
-    if (previous === showIdeasTab) return
-
-    const api = apiRef.current
-    if (!api || !sessionIdRef.current) return
-
-    const visibilityChanged = applyIdeasTabSetting(api, showIdeasTab)
-    if (!visibilityChanged) {
-      bumpVersion()
-      return
-    }
-
-    syncPanels(api)
-    lastLayoutRef.current = api.toJSON()
-    saveLayout()
-    bumpVersion()
-  }, [applyIdeasTabSetting, bumpVersion, saveLayout, showIdeasTab, syncPanels])
-
+  useTabVisibilityEffect(showIdeasTab, 'backgroundAgent', previousShowIdeasTabRef, ctx)
   const previousShowLoopTabRef = useRef(showLoopTab)
-  useEffect(() => {
-    const previous = previousShowLoopTabRef.current
-    previousShowLoopTabRef.current = showLoopTab
-    if (previous === showLoopTab) return
-
-    const api = apiRef.current
-    if (!api || !sessionIdRef.current) return
-
-    const visibilityChanged = applyLoopTabSetting(api, showLoopTab)
-    if (!visibilityChanged) {
-      bumpVersion()
-      return
-    }
-
-    syncPanels(api)
-    lastLayoutRef.current = api.toJSON()
-    saveLayout()
-    bumpVersion()
-  }, [applyLoopTabSetting, bumpVersion, saveLayout, showLoopTab, syncPanels])
-
+  useTabVisibilityEffect(showLoopTab, 'loop', previousShowLoopTabRef, ctx)
   const previousShowVerdictsTabRef = useRef(showVerdictsTab)
-  useEffect(() => {
-    const previous = previousShowVerdictsTabRef.current
-    previousShowVerdictsTabRef.current = showVerdictsTab
-    if (previous === showVerdictsTab) return
-
-    const api = apiRef.current
-    if (!api || !sessionIdRef.current) return
-
-    const visibilityChanged = applyVerdictsTabSetting(api, showVerdictsTab)
-    if (!visibilityChanged) {
-      bumpVersion()
-      return
-    }
-
-    syncPanels(api)
-    lastLayoutRef.current = api.toJSON()
-    saveLayout()
-    bumpVersion()
-  }, [applyVerdictsTabSetting, bumpVersion, saveLayout, showVerdictsTab, syncPanels])
-
+  useTabVisibilityEffect(showVerdictsTab, 'verdicts', previousShowVerdictsTabRef, ctx)
   const previousShowWatchTabRef = useRef(showWatchTab)
-  useEffect(() => {
-    const previous = previousShowWatchTabRef.current
-    previousShowWatchTabRef.current = showWatchTab
-    if (previous === showWatchTab) return
-
-    const api = apiRef.current
-    if (!api || !sessionIdRef.current) return
-
-    const visibilityChanged = applyWatchTabSetting(api, showWatchTab)
-    if (!visibilityChanged) {
-      bumpVersion()
-      return
-    }
-
-    syncPanels(api)
-    lastLayoutRef.current = api.toJSON()
-    saveLayout()
-    bumpVersion()
-  }, [applyWatchTabSetting, bumpVersion, saveLayout, showWatchTab, syncPanels])
-
-  const ensureEditorPanel = useCallback((preferredPanelId?: string | null): string => {
-    const api = apiRef.current
-    if (!api) return preferredPanelId ?? 'editor'
-
-    let layoutChanged = false
-    applyLayoutChangePreservingSidebarWidths(api, () => {
-      layoutChanged = ensureEditorPanelInWorkspace(api)
-    }, refs)
-    if (layoutChanged) {
-      syncPanels(api)
-      sidebarWidthsRef.current = getSidebarWidths(api)
-    }
-
-    const visibleEditorPanels = Array.from(editorPanelIdsRef.current).sort((left, right) => (
-      parseEditorPanelOrder(left) - parseEditorPanelOrder(right)
-    ))
-
-    const existingPanelId = preferredPanelId && visibleEditorPanels.includes(preferredPanelId)
-      ? preferredPanelId
-      : visibleEditorPanels[0]
-
-    if (existingPanelId) {
-      if (layoutChanged) {
-        lastLayoutRef.current = api.toJSON()
-        saveLayout()
-        bumpVersion()
-      }
-      focusPanel(existingPanelId)
-      return existingPanelId
-    }
-
-    showPanelFromHints(api, 'editor', refs)
-    syncPanels(api)
-    layoutChanged = true
-    saveLayout()
-    bumpVersion()
-    focusPanel('editor')
-    return 'editor'
-  }, [bumpVersion, focusPanel, saveLayout, syncPanels])
-
-  const splitEditorPane = useCallback((referencePanelId: string, direction: EditorSplitDirection): string | null => {
-    const api = apiRef.current
-    if (!api) return null
-
-    const referencePanel = api.getPanel(referencePanelId) ?? api.getPanel(ensureEditorPanel(referencePanelId))
-    if (!referencePanel) return null
-
-    const newPanelId = `${PANEL_TITLES.editor.toLowerCase()}:${nextEditorPanelIndexRef.current}`
-    nextEditorPanelIndexRef.current += 1
-
-    applyLayoutChangePreservingSidebarWidths(api, () => {
-      api.addPanel({
-        id: newPanelId,
-        component: 'editor',
-        title: PANEL_TITLES.editor,
-        position: { referencePanel, direction },
-      })
-    }, refs)
-
-    const panel = api.getPanel(newPanelId)
-    if (!panel) return null
-    editorPanelIdsRef.current.add(newPanelId)
-    sidebarWidthsRef.current = getSidebarWidths(api)
-    panel.api.setActive()
-    lastLayoutRef.current = api.toJSON()
-    saveLayout()
-    bumpVersion()
-    return newPanelId
-  }, [bumpVersion, ensureEditorPanel, saveLayout])
-
-  const findEditorPanelForSplit = useCallback((referencePanelId: string, direction: EditorSplitDirection): string | null => {
-    const api = apiRef.current
-    if (!api) return null
-
-    const referencePanel = api.getPanel(referencePanelId) ?? api.getPanel(ensureEditorPanel(referencePanelId))
-    if (!referencePanel) return null
-
-    const referenceLocation = getGridLocation(referencePanel.group.element)
-    const rootOrientation = api.toJSON().grid.orientation as Orientation
-    const candidatePanels = Array.from(editorPanelIdsRef.current)
-      .filter((panelId) => panelId !== referencePanelId)
-      .map((panelId) => {
-        const panel = api.getPanel(panelId)
-        if (!panel) return null
-        return {
-          panelId,
-          location: getGridLocation(panel.group.element),
-        }
-      })
-      .filter((panel): panel is { panelId: string; location: number[] } => panel !== null)
-
-    return findAdjacentEditorPanelId(rootOrientation, referenceLocation, candidatePanels, direction)
-  }, [ensureEditorPanel])
-
-  const closePanel = useCallback((id: string): void => {
-    const api = apiRef.current
-    if (!api) return
-
-    if (isEditorPanelId(id)) {
-      const panel = api.getPanel(id)
-      if (!panel) return
-      const widths = getSidebarWidths(api)
-      api.removePanel(panel)
-      editorPanelIdsRef.current.delete(id)
-      restoreSidebarWidths(api, widths, refs)
-      lastLayoutRef.current = api.toJSON()
-      saveLayout()
-      bumpVersion()
-      return
-    }
-
-    const fixedPanelId = id as DockPanelId
-    const panel = api.getPanel(fixedPanelId)
-    if (!panel) return
-    hidePanel(api, fixedPanelId, closedPanelSnapshots, refs)
-    saveLayout()
-    bumpVersion()
-  }, [bumpVersion, saveLayout])
-
-  const togglePanel = useCallback((id: DockPanelId): void => {
-    const api = apiRef.current
-    if (!api) return
-    if (id === 'backgroundAgent' && !showIdeasTabRef.current) return
-    if (id === 'loop' && !showLoopTabRef.current) return
-
-    if (id === 'editor') {
-      const visibleEditorPanels = Array.from(editorPanelIdsRef.current)
-      if (visibleEditorPanels.length === 0) {
-        ensureEditorPanel()
-        return
-      }
-
-      const widths = getSidebarWidths(api)
-      for (const panelId of visibleEditorPanels) {
-        const panel = api.getPanel(panelId)
-        if (panel) api.removePanel(panel)
-      }
-
-      editorPanelIdsRef.current.clear()
-      restoreSidebarWidths(api, widths, refs)
-      lastLayoutRef.current = api.toJSON()
-      saveLayout()
-      bumpVersion()
-      return
-    }
-
-    const panel = api.getPanel(id)
-    if (panel) {
-      hidePanel(api, id, closedPanelSnapshots, refs)
-      saveLayout()
-      bumpVersion()
-      return
-    }
-
-    const snapshot = closedPanelSnapshots.current.get(id)
-    if (snapshot) {
-      showPanelFromSnapshot(api, id, snapshot, closedPanelSnapshots, refs)
-      syncPanels(api)
-      saveLayout()
-      bumpVersion()
-      return
-    }
-
-    showPanelFromHints(api, id, refs)
-    syncPanels(api)
-    saveLayout()
-    bumpVersion()
-  }, [bumpVersion, ensureEditorPanel, saveLayout, syncPanels])
-
-  const isPanelVisible = useCallback((id: DockPanelId): boolean => {
-    const api = apiRef.current
-    if (!api) return true
-    if (id === 'editor') return editorPanelIdsRef.current.size > 0
-    return api.getPanel(id) !== undefined
-  }, [])
-
-  const resetLayout = useCallback(() => {
-    const api = apiRef.current
-    if (!api) return
-    isRestoringRef.current = true
-    try {
-      api.clear()
-      buildDefaultLayout(api)
-    } finally {
-      isRestoringRef.current = false
-    }
-    closedPanelSnapshots.current.clear()
-    syncPanels(api)
-    sidebarWidthsRef.current = getSidebarWidths(api)
-    lastLayoutRef.current = api.toJSON()
-    bumpVersion()
-  }, [buildDefaultLayout, bumpVersion, syncPanels])
+  useTabVisibilityEffect(showWatchTab, 'watch', previousShowWatchTabRef, ctx)
 
   const hiddenPanels = PANEL_IDS
     .filter((id) => showIdeasTab || id !== 'backgroundAgent')

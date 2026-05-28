@@ -2,7 +2,6 @@ import { app, BrowserWindow } from 'electron'
 import type { AgentStatus } from '../../shared/types'
 import { loadShellPath } from './shell-path'
 import { configureDevProfilePaths } from './dev-profile'
-import { startLocalRendererServer, type LocalRendererServer } from './local-renderer-server'
 
 loadShellPath()
 configureDevProfilePaths(app)
@@ -29,8 +28,8 @@ import { SearchViewStore } from '../store/search-view-store'
 import { BackgroundAgentHost } from '../background-agent-host/background-agent-host'
 import { ChatStore } from '../store/chat-store'
 import { ChatAdapter } from '../agent/chat-adapter'
-import { setupAutoUpdater } from './auto-updater'
 import { ModeSwitcher } from './mode-switcher'
+import { registerAppLifecycle } from './app-lifecycle'
 import { createWindow, rebuildAppMenu } from './window-factory'
 import { PowerManager } from './power-manager'
 import { MemoryStore } from '../memory/memory-store'
@@ -54,8 +53,6 @@ import { ApprovalBroker } from '../superagent/approval-broker'
 import { McpBridgeServer } from '../superagent/mcp-bridge-server'
 import { SuperagentManager } from '../superagent/superagent-manager'
 import { getRuntimeById } from '../agent/runtimes'
-import { installWatchSkills } from '../watch/skill-installer'
-import { getBundledWatchSkillPath } from '../watch/resource-path'
 import { WatchRunStore } from '../watch/run-store'
 import { VerdictStore } from '../store/verdict-store'
 import { VerdictRecorder } from '../session/verdict-recorder'
@@ -230,70 +227,15 @@ modeSwitcher.register(
 )
 
 // ── App lifecycle ────────────────────────────────────────────────────
-let localRendererServer: LocalRendererServer | null = null
-
-app.whenReady().then(async () => {
-  // Production-only: serve the renderer over http://127.0.0.1 instead of
-  // file://. Embed providers (YouTube, Vimeo, Twitter, …) reject parents
-  // whose serialized origin is `null`/`file://`, surfacing as e.g. YouTube
-  // "Error 152". A loopback HTTP origin replicates the dev environment.
-  if (!process.env.ELECTRON_RENDERER_URL) {
-    try {
-      localRendererServer = await startLocalRendererServer(path.join(__dirname, '..'))
-      process.env.ELECTRON_RENDERER_URL = localRendererServer.url
-    } catch (err) {
-      console.error('[renderer] failed to start local server, falling back to file://:', err)
-    }
-  }
-  if (settingsStore.getSettings().keepAwake) {
-    powerManager.enable()
-  }
-  doCreateWindow()
-  setupAutoUpdater()
-
-  try {
-    const result = installWatchSkills({ sourceDir: getBundledWatchSkillPath() })
-    if (result.errors.length > 0) {
-      console.warn('[watch] skill install errors:', result.errors)
-    }
-  } catch (err) {
-    console.warn('[watch] skill install failed:', err)
-  }
-
-  try {
-    await mcpBridge.start()
-  } catch (err) {
-    console.error('Failed to start MCP bridge:', err)
-  }
-
-  try {
-    const settings = settingsStore.getSettings()
-    memoryStore.pruneAll(settings.memory?.rawRetentionDays ?? 30)
-  } catch {
-    // Best-effort pruning
-  }
-
-  app.on('activate', () => {
-    if (BrowserWindow.getAllWindows().length === 0) {
-      doCreateWindow()
-    }
-  })
-})
-
-app.on('window-all-closed', () => {
-  if (process.platform !== 'darwin') {
-    app.quit()
-  }
-})
-
-app.on('before-quit', async () => {
-  // Kill all active sessions and clean up
-  sessionManager.killAllSessions()
-  ptyPool.killAll()
-  await fileWatcher.unwatchAll()
-  await localRendererServer?.close()
-  memoryStore.close()
-  powerManager.disable()
+registerAppLifecycle({
+  settingsStore,
+  powerManager,
+  mcpBridge,
+  memoryStore,
+  sessionManager,
+  ptyPool,
+  fileWatcher,
+  createWindow: doCreateWindow,
 })
 
 function formatApprovalRequestedMessage(req: ApprovalRequest): string {
