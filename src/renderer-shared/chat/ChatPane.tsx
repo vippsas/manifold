@@ -146,6 +146,7 @@ export function ChatPane({ messages, onSend, onInterrupt, isThinking, durationMs
   const pendingSelectionRef = useRef<number | null>(null)
   const dragDepthRef = useRef(0)
   const imageCountRef = useRef(0)
+  const loadedDataUrlsRef = useRef<Set<string>>(new Set())
 
   useEffect(() => {
     imageCountRef.current = images.length
@@ -204,6 +205,7 @@ export function ChatPane({ messages, onSend, onInterrupt, isThinking, durationMs
     setInput('')
     setImages([])
     imageCountRef.current = 0
+    loadedDataUrlsRef.current.clear()
     setPasteNotice(null)
   }
 
@@ -234,6 +236,11 @@ export function ChatPane({ messages, onSend, onInterrupt, isThinking, durationMs
       reader.onload = (): void => {
         const result = reader.result
         if (typeof result !== 'string') return
+        if (loadedDataUrlsRef.current.has(result)) {
+          imageCountRef.current = Math.max(0, imageCountRef.current - 1)
+          return
+        }
+        loadedDataUrlsRef.current.add(result)
         setImages((current) => {
           if (current.some((img) => img.id === id)) return current
           if (current.length >= MAX_PASTED_IMAGES) return current
@@ -249,28 +256,25 @@ export function ChatPane({ messages, onSend, onInterrupt, isThinking, durationMs
     fileList: FileList | null | undefined,
   ): File[] => {
     const collected: File[] = []
-    const seen = new Set<File>()
+    const seenKeys = new Set<string>()
+    const fileKey = (f: File): string => `${f.name}|${f.size}|${f.type}|${f.lastModified}`
+    const tryAdd = (file: File | null | undefined): void => {
+      if (!file) return
+      if (!file.type.startsWith('image/')) return
+      const key = fileKey(file)
+      if (seenKeys.has(key)) return
+      seenKeys.add(key)
+      collected.push(file)
+    }
     if (items) {
       for (const item of Array.from(items)) {
         if (item.kind !== 'file') continue
         if (item.type && !item.type.startsWith('image/')) continue
-        const file = item.getAsFile()
-        if (!file) continue
-        if (file.type && !file.type.startsWith('image/')) continue
-        if (!seen.has(file)) {
-          seen.add(file)
-          collected.push(file)
-        }
+        tryAdd(item.getAsFile())
       }
     }
     if (fileList) {
-      for (const file of Array.from(fileList)) {
-        if (!file.type.startsWith('image/')) continue
-        if (!seen.has(file)) {
-          seen.add(file)
-          collected.push(file)
-        }
-      }
+      for (const file of Array.from(fileList)) tryAdd(file)
     }
     return collected.filter((f) => ACCEPTED_IMAGE_MIME.has(f.type))
   }
@@ -346,6 +350,8 @@ export function ChatPane({ messages, onSend, onInterrupt, isThinking, durationMs
 
   const removeImage = (id: string): void => {
     setImages((prev) => {
+      const removed = prev.find((img) => img.id === id)
+      if (removed) loadedDataUrlsRef.current.delete(removed.dataUrl)
       const next = prev.filter((img) => img.id !== id)
       imageCountRef.current = next.length
       return next
