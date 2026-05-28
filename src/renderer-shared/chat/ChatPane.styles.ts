@@ -107,7 +107,7 @@ export const thumbnailCounter: CSSProperties = {
 }
 
 export const input: CSSProperties = {
-  flex: 1,
+  width: '100%',
   padding: '12px 16px',
   minHeight: 48,
   maxHeight: 114,
