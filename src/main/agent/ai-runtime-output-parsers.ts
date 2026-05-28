@@ -17,6 +17,21 @@ export function extractClaudeText(event: Record<string, unknown>): string | null
   return null
 }
 
+/**
+ * Extract the available slash-command/skill names from a Claude `system/init`
+ * event. This is the authoritative list the Claude Code TUI uses for its `/`
+ * dropdown — built-ins, project/user commands, plugins, and skills all appear
+ * here as flat `name` or `plugin:name` strings (no descriptions). Returns null
+ * for any other event.
+ */
+export function extractSlashCommands(event: Record<string, unknown>): string[] | null {
+  if (event.type !== 'system' || event.subtype !== 'init') return null
+  const commands = event.slash_commands
+  if (!Array.isArray(commands)) return null
+  const names = commands.filter((c): c is string => typeof c === 'string')
+  return names.length > 0 ? names : null
+}
+
 export function extractClaudeFailure(event: Record<string, unknown>): string | null {
   if (typeof event.message === 'string' && event.type === 'error') {
     return normalizeFailureMessage(event.message)

@@ -1,4 +1,5 @@
 import { parseOptions } from '../agent/chat-adapter'
+import { extractSlashCommands } from '../agent/ai-runtime-output-parsers'
 import type { ChatAdapter } from '../agent/chat-adapter'
 import type { InternalSession } from './session-types'
 import type { SimpleRuntimeOutputMode } from '../agent/simple-runtime'
@@ -30,6 +31,13 @@ export function handleStreamJsonEvent(
 
 function handleClaudeStreamJsonEvent(ctx: StreamJsonCtx, session: InternalSession, event: Record<string, unknown>, ptyId?: string): void {
   const type = event.type as string | undefined
+
+  const slashCommands = extractSlashCommands(event)
+  if (slashCommands) {
+    session.slashCommands = slashCommands
+    ctx.sendToRenderer('agent:slash-commands', { sessionId: session.id, commands: slashCommands })
+    return
+  }
 
   if (type === 'assistant') {
     // Each assistant turn emits an event with the full message content.
