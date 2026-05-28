@@ -1,12 +1,16 @@
 import React, { useCallback } from 'react'
 import { ChatPane, useChat, useAgentStatus } from '../../../renderer-shared/chat'
-import type { PastedImage } from '../../../renderer-shared/chat/ChatPane'
+import type { PastedImage, FileDropConfig } from '../../../renderer-shared/chat/ChatPane'
 
 interface AgentChatViewProps {
   sessionId: string
+  /** Relative paths offered by the `@FILENAME` autocomplete. */
+  mentionPaths?: string[]
+  /** Enables drag-and-drop of file-tree paths into the composer. */
+  fileDrop?: FileDropConfig
 }
 
-export function AgentChatView({ sessionId }: AgentChatViewProps): React.JSX.Element {
+export function AgentChatView({ sessionId, mentionPaths, fileDrop }: AgentChatViewProps): React.JSX.Element {
   const { messages, sendMessage } = useChat(sessionId)
   const { status, durationMs } = useAgentStatus(sessionId)
   const interrupt = useCallback(() => {
@@ -46,6 +50,8 @@ export function AgentChatView({ sessionId }: AgentChatViewProps): React.JSX.Elem
         durationMs={durationMs}
         placeholder={<AgentChatEmptyState />}
         acceptImages
+        mentionPaths={mentionPaths}
+        fileDrop={fileDrop}
       />
     </div>
   )

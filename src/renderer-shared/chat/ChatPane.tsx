@@ -5,8 +5,11 @@ import * as styles from './ChatPane.styles'
 import { ThinkingIndicator } from './ChatThinkingIndicator'
 import { DurationBadge } from './ChatDurationBadge'
 import { MAX_PASTED_IMAGES, useChatImagePaste, type PastedImage } from './useChatImagePaste'
+import { useChatFileMentions, type FileDropConfig } from './useChatFileMentions'
+import { ChatMentionDropdown } from './ChatMentionDropdown'
 
 export { MAX_PASTED_IMAGES, type PastedImage } from './useChatImagePaste'
+export { type FileDropConfig } from './useChatFileMentions'
 
 const INPUT_LINE_HEIGHT = 22
 const INPUT_CHROME_HEIGHT = 26
@@ -22,9 +25,13 @@ interface Props {
   durationMs?: number | null
   placeholder?: React.ReactNode
   acceptImages?: boolean
+  /** Relative paths offered by the `@FILENAME` autocomplete. Undefined disables it. */
+  mentionPaths?: string[]
+  /** Enables drag-and-drop of file-tree paths into the composer. Undefined disables it. */
+  fileDrop?: FileDropConfig
 }
 
-export function ChatPane({ messages, onSend, onInterrupt, isThinking, durationMs, placeholder, acceptImages = false }: Props): React.JSX.Element {
+export function ChatPane({ messages, onSend, onInterrupt, isThinking, durationMs, placeholder, acceptImages = false, mentionPaths, fileDrop }: Props): React.JSX.Element {
   const [input, setInput] = useState('')
   const [dismissedOptions, setDismissedOptions] = useState<Set<string>>(new Set())
   const messagesEndRef = useRef<HTMLDivElement>(null)
@@ -32,6 +39,12 @@ export function ChatPane({ messages, onSend, onInterrupt, isThinking, durationMs
   const pendingSelectionRef = useRef<number | null>(null)
 
   const { images, isDraggingOver, pasteNotice, removeImage, clearImages, dragHandlers } = useChatImagePaste(acceptImages, inputRef)
+
+  const requestCursor = useCallback((pos: number): void => {
+    pendingSelectionRef.current = pos
+  }, [])
+
+  const mentions = useChatFileMentions({ paths: mentionPaths, fileDrop, input, setInput, inputRef, requestCursor })
 
   useEffect(() => {
     inputRef.current?.focus()
@@ -101,6 +114,7 @@ export function ChatPane({ messages, onSend, onInterrupt, isThinking, durationMs
   }
 
   const handleInputKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>): void => {
+    if (mentions.handleKeyDown(e)) return
     if (e.key !== 'Enter' || e.nativeEvent.isComposing) return
 
     e.preventDefault()
@@ -118,6 +132,27 @@ export function ChatPane({ messages, onSend, onInterrupt, isThinking, durationMs
   }
 
   const showPlaceholder = messages.length === 0 && !isThinking && placeholder != null
+
+  const combinedDragHandlers = {
+    onDragEnter: (e: React.DragEvent<HTMLDivElement>): void => {
+      if (mentions.isPathDrag(e.dataTransfer)) mentions.pathDragHandlers?.onDragEnter(e)
+      else dragHandlers.onDragEnter(e)
+    },
+    onDragOver: (e: React.DragEvent<HTMLDivElement>): void => {
+      if (mentions.isPathDrag(e.dataTransfer)) mentions.pathDragHandlers?.onDragOver(e)
+      else dragHandlers.onDragOver(e)
+    },
+    onDragLeave: (e: React.DragEvent<HTMLDivElement>): void => {
+      if (mentions.isPathDrag(e.dataTransfer)) mentions.pathDragHandlers?.onDragLeave(e)
+      else dragHandlers.onDragLeave(e)
+    },
+    onDrop: (e: React.DragEvent<HTMLDivElement>): void => {
+      if (mentions.isPathDrag(e.dataTransfer)) mentions.pathDragHandlers?.onDrop(e)
+      else dragHandlers.onDrop(e)
+    },
+  }
+
+  const isDragActive = isDraggingOver || mentions.isPathDragOver
 
   return (
     <div style={styles.container}>
@@ -141,14 +176,25 @@ export function ChatPane({ messages, onSend, onInterrupt, isThinking, durationMs
       </div>
       <div style={styles.inputRow}>
         <div
-          style={isDraggingOver ? { ...styles.inputColumn, ...styles.inputColumnDragOver } : styles.inputColumn}
-          onDragEnter={dragHandlers.onDragEnter}
-          onDragOver={dragHandlers.onDragOver}
-          onDragLeave={dragHandlers.onDragLeave}
-          onDrop={dragHandlers.onDrop}
+          style={isDragActive ? { ...styles.inputColumn, ...styles.inputColumnDragOver } : styles.inputColumn}
+          onDragEnter={combinedDragHandlers.onDragEnter}
+          onDragOver={combinedDragHandlers.onDragOver}
+          onDragLeave={combinedDragHandlers.onDragLeave}
+          onDrop={combinedDragHandlers.onDrop}
         >
+          {mentions.isPathDragOver && (
+            <div style={styles.dropHint} role="status">Drop to attach file</div>
+          )}
           {acceptImages && isDraggingOver && (
             <div style={styles.dropHint} role="status">Drop image to attach</div>
+          )}
+          {mentions.isOpen && (
+            <ChatMentionDropdown
+              suggestions={mentions.suggestions}
+              activeIndex={mentions.activeIndex}
+              onHover={mentions.setActiveIndex}
+              onSelect={mentions.choose}
+            />
           )}
           {acceptImages && images.length > 0 && (
             <div style={styles.thumbnailStrip} data-testid="paste-thumbnails">
@@ -179,8 +225,10 @@ export function ChatPane({ messages, onSend, onInterrupt, isThinking, durationMs
             style={styles.input}
             rows={1}
             value={input}
-            onChange={(e) => setInput(e.target.value)}
+            onChange={(e) => { setInput(e.target.value); mentions.refresh() }}
             onKeyDown={handleInputKeyDown}
+            onBlur={mentions.close}
+            onSelect={mentions.refresh}
             placeholder="Tell the agent what to change..."
           />
         </div>
