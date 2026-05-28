@@ -138,7 +138,7 @@ export function App(): React.JSX.Element {
   }, [sessionsByProject, gitOps.refreshAheadBehind])
 
   const fetchProject = useFetchProject(handleFetchSuccess)
-  const overlays = useAppOverlays(gitOps.commit, refreshDiff, spawnAgent, createDraft, deleteAgent, removeSession, updateSettings, setActiveSession, setActiveProject, activeProjectId)
+  const overlays = useAppOverlays(gitOps.commit, refreshDiff, spawnAgent, deleteAgent, removeSession, updateSettings, setActiveSession, setActiveProject, activeProjectId)
   const { themeId, themeClass, xtermTheme, setPreviewThemeId } = useTheme(settings.theme)
   const densityClass = settings.density === 'comfortable' ? '' : `density-${settings.density}`
   const updateNotification = useUpdateNotification()

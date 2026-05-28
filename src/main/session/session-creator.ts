@@ -96,11 +96,17 @@ export class SessionCreator {
       )
     }
 
+    // Chat-mode sessions created without a first user message defer runtime
+    // spawn until the user sends their first message in the chat panel. The
+    // session exists with a worktree but no PTY — sendInput will route to
+    // spawnPrintModeFollowUp, which spawns a fresh print-mode process per turn.
+    const deferRuntime = Boolean(options.nonInteractive) && !options.userMessage
+
     let commandBinary = runtime.binary
     let runtimeArgs = [...(runtime.args ?? [])]
     let nonInteractiveOutputMode: InternalSession['nonInteractiveOutputMode']
 
-    if (options.nonInteractive && options.prompt) {
+    if (options.nonInteractive && options.userMessage) {
       const simpleCommand = buildSimpleRuntimeCommand(options.runtimeId, options.prompt)
       commandBinary = simpleCommand.binary
       runtimeArgs = simpleCommand.args
@@ -109,16 +115,22 @@ export class SessionCreator {
       runtimeArgs.push('--model', options.ollamaModel)
     }
 
-    debugLog(`[session] nonInteractive=${options.nonInteractive}, runtimeArgs=${JSON.stringify(runtimeArgs)}`)
+    debugLog(`[session] nonInteractive=${options.nonInteractive}, deferRuntime=${deferRuntime}, runtimeArgs=${JSON.stringify(runtimeArgs)}`)
 
-    const ptyHandle = this.ptyPool.spawn(commandBinary, runtimeArgs, {
-      cwd: worktree.path,
-      env: runtime.env,
-      cols: options.cols,
-      rows: options.rows
-    })
+    const ptyHandle = deferRuntime
+      ? { id: '', pid: 0 }
+      : this.ptyPool.spawn(commandBinary, runtimeArgs, {
+          cwd: worktree.path,
+          env: runtime.env,
+          cols: options.cols,
+          rows: options.rows
+        })
 
     const session = this.buildSession(options, worktree, ptyHandle, nonInteractiveOutputMode, noWorktree)
+    if (deferRuntime) {
+      session.status = 'waiting'
+      session.pid = null
+    }
     const existingMeta = noWorktree ? null : await readWorktreeMeta(worktree.path)
 
     // Map session→storage so chat messages are persisted scoped to the worktree
@@ -127,13 +139,15 @@ export class SessionCreator {
     this.getChatAdapter()?.setSessionStorage(session.id, worktree.path, options.projectId)
 
     if (options.nonInteractive) {
-      if (session.nonInteractiveOutputMode === 'plain-text') {
-        this.streamWirer.wireOutputStreaming(ptyHandle.id, session)
-      } else {
-        this.streamWirer.wireStreamJsonOutput(ptyHandle.id, session, session.nonInteractiveOutputMode)
+      if (!deferRuntime) {
+        if (session.nonInteractiveOutputMode === 'plain-text') {
+          this.streamWirer.wireOutputStreaming(ptyHandle.id, session)
+        } else {
+          this.streamWirer.wireStreamJsonOutput(ptyHandle.id, session, session.nonInteractiveOutputMode)
+        }
+        this.streamWirer.wirePrintModeInitialExitHandling(ptyHandle.id, session)
+        this.getChatAdapter()?.addUserMessage(session.id, options.userMessage || options.prompt)
       }
-      this.streamWirer.wirePrintModeInitialExitHandling(ptyHandle.id, session)
-      this.getChatAdapter()?.addUserMessage(session.id, options.userMessage || options.prompt)
     } else {
       this.streamWirer.wireOutputStreaming(ptyHandle.id, session)
       this.streamWirer.wireExitHandling(ptyHandle.id, session)

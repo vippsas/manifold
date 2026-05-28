@@ -10,6 +10,8 @@ export const messages: CSSProperties = {
   flex: 1,
   overflowY: 'auto',
   padding: '24px 20px',
+  display: 'flex',
+  flexDirection: 'column',
 }
 
 export const inputRow: CSSProperties = {

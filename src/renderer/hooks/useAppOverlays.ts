@@ -2,6 +2,8 @@ import { useState, useCallback, useEffect, useMemo } from 'react'
 import type { SpawnAgentOptions, ManifoldSettings, AgentSession } from '../../shared/types'
 import type { PendingDelete } from '../components/sidebar/DeleteAgentDialog'
 
+interface SpawnedSession { id: string }
+
 export interface UseAppOverlaysResult {
   activePanel: 'commit' | 'pr' | 'conflicts' | null
   setActivePanel: (panel: 'commit' | 'pr' | 'conflicts' | null) => void
@@ -30,7 +32,6 @@ export function useAppOverlays(
   commit: (message: string) => Promise<void>,
   refreshDiff: () => Promise<void>,
   spawnAgent: (options: SpawnAgentOptions) => Promise<unknown>,
-  createDraftChat: (opts: { projectId: string; runtimeId: string; branchName?: string; ollamaModel?: string }) => { id: string },
   deleteAgent: (sessionId: string, mode?: 'session' | 'worktree') => Promise<void>,
   removeSession: (sessionId: string) => void,
   updateSettings: (partial: Partial<ManifoldSettings>) => Promise<void>,
@@ -54,19 +55,19 @@ export function useAppOverlays(
 
   const handleClosePanel = useCallback((): void => { setActivePanel(null) }, [])
 
-  const handleLaunchAgent = useCallback((options: SpawnAgentOptions): Promise<unknown> => {
-    if (options.nonInteractive) {
-      const draft = createDraftChat({
-        projectId: options.projectId,
-        runtimeId: options.runtimeId,
-        branchName: options.branchName,
-        ollamaModel: options.ollamaModel,
-      })
-      setActiveSession(draft.id)
-      return Promise.resolve(draft)
+  const handleLaunchAgent = useCallback(async (options: SpawnAgentOptions): Promise<unknown> => {
+    const session = (await spawnAgent(options)) as SpawnedSession | null
+    if (session && options.nonInteractive) {
+      // Subscribe so the chat panel receives agent messages once the first
+      // user message triggers spawnPrintModeFollowUp on the main side.
+      try {
+        await window.electronAPI.invoke('simple:subscribe-chat', session.id)
+      } catch (err) {
+        console.error(`[handleLaunchAgent] simple:subscribe-chat failed for ${session.id}:`, err)
+      }
     }
-    return spawnAgent(options)
-  }, [spawnAgent, createDraftChat, setActiveSession])
+    return session
+  }, [spawnAgent])
 
   const requestDeleteAgent = useCallback((session: AgentSession, projectPath: string): void => {
     setPendingDelete({ session, projectPath })
