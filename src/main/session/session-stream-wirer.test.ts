@@ -228,6 +228,40 @@ describe('SessionStreamWirer', () => {
     expect(vi.mocked(predictNextCommand)).not.toHaveBeenCalled()
   })
 
+  it('broadcasts slash commands from a Claude system/init event', () => {
+    const ptyPool = new FakePtyPool()
+    const sendToRenderer = vi.fn()
+
+    const wirer = new SessionStreamWirer(
+      ptyPool as never,
+      () => null,
+      sendToRenderer,
+      undefined,
+      vi.fn(),
+      vi.fn(),
+    )
+
+    const session = createSession()
+    session.runtimeId = 'claude'
+    session.nonInteractiveOutputMode = 'claude-stream-json'
+    wirer.wireStreamJsonOutput(session.ptyId, session, 'claude-stream-json')
+
+    ptyPool.emitData(
+      session.ptyId,
+      `${JSON.stringify({
+        type: 'system',
+        subtype: 'init',
+        slash_commands: ['review', 'commit-commands:commit'],
+      })}\n`,
+    )
+
+    expect(session.slashCommands).toEqual(['review', 'commit-commands:commit'])
+    expect(sendToRenderer).toHaveBeenCalledWith('agent:slash-commands', {
+      sessionId: session.id,
+      commands: ['review', 'commit-commands:commit'],
+    })
+  })
+
   it('recognizes a Manifold shell prompt at the end of ANSI-styled output', () => {
     expect(hasShellPromptAtEnd('\x1b[36mapp\x1b[39m \x1b[37m❯\x1b[39m \x1b[?2004h')).toBe(true)
     expect(hasShellPromptAtEnd('\x1b[36mapp\x1b[39m \x1b[37m❯\x1b[39m \x07')).toBe(true)

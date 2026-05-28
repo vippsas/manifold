@@ -28,6 +28,8 @@ export interface InternalSession extends AgentSession {
   /** Buffer for accumulating partial NDJSON lines from stream-json output */
   streamJsonLineBuffer?: string
   nonInteractiveOutputMode?: SimpleRuntimeOutputMode
+  /** Slash command/skill names from the Claude system/init event, for the chat `/` autocomplete */
+  slashCommands?: string[]
   /** Temp ZDOTDIR created for Manifold shell prompt — cleaned up on session exit */
   zdotdir?: string
   /** AI shell command suggestion state (shell sessions only) */

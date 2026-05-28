@@ -246,6 +246,8 @@ export class SessionManager {
 
   getSessionStatus(sessionId: string): string | null { return this.sessions.get(sessionId)?.status ?? null }
 
+  getSlashCommands(sessionId: string): string[] { return this.sessions.get(sessionId)?.slashCommands ?? [] }
+
   listSessions(): AgentSession[] { return Array.from(this.sessions.values()).map(toPublicSession) }
 
   async discoverSessionsForProject(projectId: string): Promise<AgentSession[]> {

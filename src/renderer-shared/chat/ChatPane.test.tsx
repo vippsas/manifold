@@ -91,6 +91,38 @@ describe('ChatPane', () => {
     })
   })
 
+  describe('/command autocomplete', () => {
+    const slashCommands = ['review', 'compact', 'commit-commands:commit']
+
+    it('shows suggestions when typing / at the start and inserts the chosen command', () => {
+      const onSend = vi.fn()
+      render(<ChatPane messages={[]} onSend={onSend} slashCommands={slashCommands} />)
+
+      const composer = screen.getByPlaceholderText('Tell the agent what to change...') as HTMLTextAreaElement
+      changeWithCursor(composer, '/rev')
+
+      const option = screen.getByText('review')
+      expect(option).toBeInTheDocument()
+
+      fireEvent.mouseDown(option)
+      expect(composer).toHaveValue('/review ')
+    })
+
+    it('does not show the dropdown when / is not at the start', () => {
+      render(<ChatPane messages={[]} onSend={vi.fn()} slashCommands={slashCommands} />)
+      const composer = screen.getByPlaceholderText('Tell the agent what to change...') as HTMLTextAreaElement
+      changeWithCursor(composer, 'hello /rev')
+      expect(screen.queryByRole('listbox')).not.toBeInTheDocument()
+    })
+
+    it('does not show the dropdown without commands', () => {
+      render(<ChatPane messages={[]} onSend={vi.fn()} />)
+      const composer = screen.getByPlaceholderText('Tell the agent what to change...') as HTMLTextAreaElement
+      changeWithCursor(composer, '/rev')
+      expect(screen.queryByRole('listbox')).not.toBeInTheDocument()
+    })
+  })
+
   describe('file-tree drag and drop', () => {
     const fileDrop: FileDropConfig = {
       hasPath: (dt) => Array.from(dt?.types ?? []).includes('app/path'),

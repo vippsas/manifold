@@ -74,6 +74,10 @@ export function registerSimpleHandlers(deps: IpcDependencies): void {
     return sessionManager.getSessionStatus(sessionId)
   })
 
+  ipcMain.handle('simple:get-slash-commands', (_event, sessionId: string) => {
+    return sessionManager.getSlashCommands(sessionId)
+  })
+
   ipcMain.handle('simple:subscribe-chat', (event, sessionId: string) => {
     const senderWindow = BrowserWindow.fromWebContents(event.sender)
     const key = `${event.sender.id}:${sessionId}`
