@@ -101,6 +101,7 @@ export function AgentPanel({ api }: { api?: { id: string } } = {}): React.JSX.El
         onFirstSend={(text) => { void s.promoteDraft(activeDraft.id, text) }}
         projectName={draftProject?.name}
         branchName={activeDraft.branchName}
+        slashCommands={draftProject?.slashCommands}
       />
     )
   }

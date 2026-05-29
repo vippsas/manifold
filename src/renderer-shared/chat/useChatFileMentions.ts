@@ -9,7 +9,11 @@ import {
   rankCommands,
 } from './chat-mention-utils'
 
-const MAX_SUGGESTIONS = 8
+// File mentions can number in the thousands, so keep their list short. The
+// command list is small and finite (and the dropdown scrolls), so show enough
+// that installed plugin/skill commands aren't hidden below the cap for `/`.
+const MAX_MENTION_SUGGESTIONS = 8
+const MAX_COMMAND_SUGGESTIONS = 50
 
 export interface FileDropConfig {
   /** True if the drag carries a file-tree path (checked during dragover, where data is unreadable). */
@@ -72,10 +76,10 @@ export function useChatFileMentions({ paths, commands, fileDrop, input, setInput
     if (!active) return []
     if (active.kind === 'command') {
       if (!commands || commands.length === 0) return []
-      return rankCommands(commands, active.query, MAX_SUGGESTIONS)
+      return rankCommands(commands, active.query, MAX_COMMAND_SUGGESTIONS)
     }
     if (!paths || paths.length === 0) return []
-    return rankMentionPaths(paths, active.query, MAX_SUGGESTIONS)
+    return rankMentionPaths(paths, active.query, MAX_MENTION_SUGGESTIONS)
   }, [active, paths, commands])
 
   const isOpen = active != null && suggestions.length > 0

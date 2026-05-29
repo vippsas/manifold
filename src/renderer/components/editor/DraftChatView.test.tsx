@@ -17,4 +17,13 @@ describe('DraftChatView', () => {
     fireEvent.keyDown(textbox, { key: 'Enter' })
     expect(onFirstSend).toHaveBeenCalledWith('hello')
   })
+
+  it('shows the / command autocomplete on the very first message, before a session exists', () => {
+    render(<DraftChatView onFirstSend={vi.fn()} slashCommands={['review', 'compact']} />)
+    const textbox = screen.getByRole('textbox') as HTMLTextAreaElement
+    fireEvent.change(textbox, { target: { value: '/rev' } })
+    textbox.setSelectionRange(4, 4)
+    fireEvent.select(textbox)
+    expect(screen.getByText('review')).toBeInTheDocument()
+  })
 })

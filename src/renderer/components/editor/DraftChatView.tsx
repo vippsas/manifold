@@ -5,9 +5,11 @@ interface DraftChatViewProps {
   onFirstSend: (text: string) => void
   projectName?: string
   branchName?: string
+  /** Slash command/skill names offered by the `/` autocomplete on the first message. */
+  slashCommands?: string[]
 }
 
-export function DraftChatView({ onFirstSend, projectName, branchName }: DraftChatViewProps): React.JSX.Element {
+export function DraftChatView({ onFirstSend, projectName, branchName, slashCommands }: DraftChatViewProps): React.JSX.Element {
   return (
     <div style={{ height: '100%' }}>
       <ChatPane
@@ -15,6 +17,7 @@ export function DraftChatView({ onFirstSend, projectName, branchName }: DraftCha
         onSend={onFirstSend}
         isThinking={false}
         durationMs={null}
+        slashCommands={slashCommands}
         placeholder={<DraftPlaceholder projectName={projectName} branchName={branchName} />}
       />
     </div>

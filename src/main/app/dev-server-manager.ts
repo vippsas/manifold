@@ -3,6 +3,7 @@ import { PtyPool } from '../agent/pty-pool'
 import { ProjectRegistry } from '../store/project-registry'
 import { getRuntimeById } from '../agent/runtimes'
 import { buildSimpleRuntimeCommand } from '../agent/simple-runtime'
+import { extractSlashCommands } from '../agent/ai-runtime-output-parsers'
 import { detectUrl } from '../fs/url-detector'
 import { gitExec } from '../git/git-exec'
 import type { ChatAdapter } from '../agent/chat-adapter'
@@ -42,6 +43,9 @@ export class DevServerManager {
         if (existing.devServerPtyId) {
           try { this.ptyPool.kill(existing.devServerPtyId) } catch { /* already exited */ }
         }
+        if (existing.slashCommandProbePtyId) {
+          try { this.ptyPool.kill(existing.slashCommandProbePtyId) } catch { /* already exited */ }
+        }
         this.getChatAdapter()?.clearSession(existing.id)
         this.sessions.delete(existing.id)
       }
@@ -75,11 +79,18 @@ export class DevServerManager {
       additionalDirs: [],
       noWorktree: true,
       nonInteractive: true,
+      // Seed the `/` autocomplete from the cached list so it works on the first message.
+      slashCommands: project.slashCommands,
     }
 
     this.sessions.set(session.id, session)
     this.getChatAdapter()?.addSystemMessage(session.id, 'Your app is running. Send a message to make changes.')
     this.startDevServer(session)
+
+    // Cache miss: capture the command list now so it's ready before the first message.
+    if (!project.slashCommands?.length) {
+      this.probeSlashCommands(session)
+    }
 
     return { sessionId: session.id }
   }
@@ -144,6 +155,12 @@ export class DevServerManager {
       session.ptyId = ''
     }
 
+    // A real message supersedes any in-flight slash-command probe.
+    if (session.slashCommandProbePtyId) {
+      try { this.ptyPool.kill(session.slashCommandProbePtyId) } catch { /* already exited */ }
+      session.slashCommandProbePtyId = undefined
+    }
+
     const adapter = this.getChatAdapter()
     const history = adapter?.getMessages(session.id) ?? []
     const followUpPrompt = buildSimpleFollowUpPrompt(
@@ -178,5 +195,58 @@ export class DevServerManager {
       this.streamWirer.wireStreamJsonOutput(ptyHandle.id, session, simpleCommand.outputMode)
     }
     this.streamWirer.wirePrintModeExitHandling(ptyHandle.id, session)
+  }
+
+  /**
+   * On a cache miss, spawn a throwaway Claude run solely to capture the
+   * `system/init` event — which carries the full slash-command/skill list — then
+   * kill it the instant that event arrives. Init is emitted before the model
+   * turn begins, so this costs effectively nothing. Only Claude reports this
+   * list in its stream-json output, so other runtimes are skipped.
+   *
+   * Called both here (simple-mode dev server) and from SessionManager.createSession
+   * for editor chat-mode agents, the other surface for the `/` autocomplete.
+   */
+  probeSlashCommands(session: InternalSession): void {
+    if (session.runtimeId !== 'claude') return
+    const runtime = getRuntimeById(session.runtimeId)
+    if (!runtime) return
+
+    const command = buildSimpleRuntimeCommand(session.runtimeId, 'hi')
+    const ptyHandle = this.ptyPool.spawn(command.binary, command.args, {
+      cwd: session.worktreePath,
+      env: runtime.env,
+    })
+    session.slashCommandProbePtyId = ptyHandle.id
+
+    let buffer = ''
+    let captured = false
+    this.ptyPool.onData(ptyHandle.id, (data: string) => {
+      if (captured) return
+      buffer += data
+      let newline: number
+      while ((newline = buffer.indexOf('\n')) !== -1) {
+        const line = buffer.slice(0, newline).trim()
+        buffer = buffer.slice(newline + 1)
+        if (!line) continue
+        let event: Record<string, unknown>
+        try { event = JSON.parse(line) as Record<string, unknown> } catch { continue }
+        const commands = extractSlashCommands(event)
+        if (commands) {
+          captured = true
+          session.slashCommands = commands
+          this.projectRegistry.updateProject(session.projectId, { slashCommands: commands })
+          this.sendToRenderer('agent:slash-commands', { sessionId: session.id, commands })
+          try { this.ptyPool.kill(ptyHandle.id) } catch { /* already exited */ }
+          return
+        }
+      }
+    })
+
+    this.ptyPool.onExit(ptyHandle.id, () => {
+      if (session.slashCommandProbePtyId === ptyHandle.id) {
+        session.slashCommandProbePtyId = undefined
+      }
+    })
   }
 }

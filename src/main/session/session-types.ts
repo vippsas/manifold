@@ -30,6 +30,8 @@ export interface InternalSession extends AgentSession {
   nonInteractiveOutputMode?: SimpleRuntimeOutputMode
   /** Slash command/skill names from the Claude system/init event, for the chat `/` autocomplete */
   slashCommands?: string[]
+  /** PTY id of an in-flight throwaway run that probes the slash-command list before the first message */
+  slashCommandProbePtyId?: string
   /** Temp ZDOTDIR created for Manifold shell prompt — cleaned up on session exit */
   zdotdir?: string
   /** AI shell command suggestion state (shell sessions only) */

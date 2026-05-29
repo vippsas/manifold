@@ -12,6 +12,8 @@ export interface StreamJsonCtx {
   getChatAdapter: () => ChatAdapter | null
   sendToRenderer: (channel: string, ...args: unknown[]) => void
   onDevServerNeeded: (session: InternalSession) => void
+  /** Persist the captured slash-command list so the chat `/` autocomplete is ready before the next session's first message. */
+  onSlashCommands?: (session: InternalSession, commands: string[]) => void
 }
 
 export function handleStreamJsonEvent(
@@ -35,6 +37,7 @@ function handleClaudeStreamJsonEvent(ctx: StreamJsonCtx, session: InternalSessio
   const slashCommands = extractSlashCommands(event)
   if (slashCommands) {
     session.slashCommands = slashCommands
+    ctx.onSlashCommands?.(session, slashCommands)
     ctx.sendToRenderer('agent:slash-commands', { sessionId: session.id, commands: slashCommands })
     return
   }

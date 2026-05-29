@@ -52,6 +52,8 @@ export interface Project {
   kind?: ProjectKind
   simpleTemplateTitle?: string
   simplePromptInstructions?: string
+  /** Cached slash-command/skill names from Claude's last `system/init`, so the chat `/` autocomplete is populated before the first message. */
+  slashCommands?: string[]
 }
 
 export interface CreateProjectOptions {

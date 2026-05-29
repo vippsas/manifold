@@ -1,4 +1,4 @@
-import React from 'react'
+import React, { useEffect, useRef } from 'react'
 import * as styles from './ChatMentionDropdown.styles'
 
 interface Props {
@@ -19,6 +19,13 @@ function dirname(path: string): string {
 }
 
 export function ChatMentionDropdown({ suggestions, activeIndex, onHover, onSelect }: Props): React.JSX.Element {
+  const activeRef = useRef<HTMLButtonElement>(null)
+
+  // Keep the keyboard-selected item visible when the list overflows and scrolls.
+  useEffect(() => {
+    activeRef.current?.scrollIntoView?.({ block: 'nearest' })
+  }, [activeIndex])
+
   return (
     <div style={styles.menu} role="listbox" aria-label="File suggestions">
       {suggestions.map((path, index) => {
@@ -26,6 +33,7 @@ export function ChatMentionDropdown({ suggestions, activeIndex, onHover, onSelec
         return (
           <button
             key={path}
+            ref={index === activeIndex ? activeRef : undefined}
             type="button"
             role="option"
             aria-selected={index === activeIndex}

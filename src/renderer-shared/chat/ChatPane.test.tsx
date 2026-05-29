@@ -115,6 +115,19 @@ describe('ChatPane', () => {
       expect(screen.queryByRole('listbox')).not.toBeInTheDocument()
     })
 
+    it('lists more than 8 commands for a bare / so installed plugin commands are not hidden', () => {
+      const many = Array.from({ length: 12 }, (_, i) => `own-skill-${i}`)
+      const installed = ['superpowers:brainstorming', 'commit-commands:commit']
+      render(<ChatPane messages={[]} onSend={vi.fn()} slashCommands={[...many, ...installed]} />)
+
+      const composer = screen.getByPlaceholderText('Tell the agent what to change...') as HTMLTextAreaElement
+      changeWithCursor(composer, '/')
+
+      // The old cap of 8 would have dropped these namespaced commands below the fold.
+      expect(screen.getByText('superpowers:brainstorming')).toBeInTheDocument()
+      expect(screen.getByText('commit-commands:commit')).toBeInTheDocument()
+    })
+
     it('does not show the dropdown without commands', () => {
       render(<ChatPane messages={[]} onSend={vi.fn()} />)
       const composer = screen.getByPlaceholderText('Tell the agent what to change...') as HTMLTextAreaElement
