@@ -3,7 +3,7 @@ import { execFile, spawn } from 'node:child_process'
 import { promisify } from 'node:util'
 import path from 'node:path'
 import os from 'node:os'
-import { existsSync, mkdirSync, writeFileSync, rmSync } from 'node:fs'
+import { existsSync, mkdirSync, rmSync } from 'node:fs'
 import type { IpcDependencies } from './types'
 import { getRuntimeById } from '../agent/runtimes'
 import type { CreateProjectOptions } from '../../shared/types'
@@ -150,29 +150,10 @@ export function registerProjectHandlers(deps: IpcDependencies): void {
       try {
         mkdirSync(projectDir, { recursive: true })
 
-        let readmeContent = `# ${description}\n\n${description}\n`
-        if (runtime?.binary) {
-          const aiContent = await runAIPrompt(
-            runtime.binary,
-            `I am starting a new project. Here is the project description:\n\n` +
-            `${description}\n\n` +
-            `Generate a README.md for this project. Include a title, description, ` +
-            `and relevant sections based on the project idea. Output only the raw ` +
-            `markdown content, nothing else.`,
-            projectDir
-          )
-          if (aiContent) {
-            readmeContent = aiContent
-          }
-        }
-
-        writeFileSync(path.join(projectDir, 'README.md'), readmeContent, 'utf-8')
-
         await execFileAsync('git', ['init', '--initial-branch=main'], { cwd: projectDir })
-        await execFileAsync('git', ['add', 'README.md'], { cwd: projectDir })
         await execFileAsync(
           'git',
-          ['-c', 'user.email=manifold@local', '-c', 'user.name=Manifold', 'commit', '-m', 'Initial commit'],
+          ['-c', 'user.email=manifold@local', '-c', 'user.name=Manifold', 'commit', '--allow-empty', '-m', 'Initial commit'],
           { cwd: projectDir }
         )
 

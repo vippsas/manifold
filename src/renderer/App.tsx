@@ -157,9 +157,15 @@ export function App(): React.JSX.Element {
   })
 
   const { handleCreateNewProject, handleAddProjectFromOnboarding, handleCloneFromOnboarding } = useProjectCreateHandlers({
-    createNewProject, addProject, cloneProject, spawnAgent,
+    createNewProject, addProject, cloneProject, spawnAgent, setActiveSession,
     defaultRuntime: settings.defaultRuntime, appEffects,
   })
+
+  // Keep the creating cover up until the freshly spawned agent's chat is on
+  // screen, then reveal it — this skips the brief "new agent" overview flash.
+  useEffect(() => {
+    if (appEffects.creatingProject && activeSession) appEffects.setCreatingProject(false)
+  }, [appEffects.creatingProject, activeSession, appEffects.setCreatingProject])
 
   const resolveStandaloneSessions = useCallback(async (projectId: string): Promise<AgentSession[]> => {
     try {

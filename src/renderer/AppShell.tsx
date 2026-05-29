@@ -223,7 +223,7 @@ export function AppShell(p: AppShellProps): React.JSX.Element {
           onDismiss={p.updateNotification.dismiss}
           onViewReleaseNotes={() => p.updateLog.openReleaseNotes(p.updateNotification.version ?? undefined)} />
       )}
-      {p.appEffects.showOnboarding && (
+      {(p.appEffects.showOnboarding || p.appEffects.creatingProject) && (
         <div style={{ position: 'absolute', inset: 0, zIndex: 100, background: 'var(--bg-primary)' }}>
           <OnboardingView variant="no-project" onAddProject={() => void p.handleAddProjectFromOnboarding()}
             onCloneProject={p.handleCloneFromOnboarding}
