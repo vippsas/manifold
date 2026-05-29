@@ -4,12 +4,10 @@ import { modalStyles } from './NewTaskModal.styles'
 import { TaskDescriptionField } from '../new-task'
 import type { ExistingSubTab } from '../new-task'
 import { pickRandomNorwegianCityName } from '../../../shared/norwegian-cities'
-import { segmentedStyles } from './NewAgentForm.styles'
 import { ReusableSessionsCard } from './ReusableSessionsCard'
 import { NewAgentAdvanced } from './NewAgentAdvanced'
 import { NewAgentModePill } from './NewAgentModePill'
 
-type BranchMode = 'current' | 'new'
 type AgentMode = 'interactive' | 'chat'
 
 export function NewAgentForm({
@@ -38,7 +36,6 @@ export function NewAgentForm({
   focusTrigger?: number
 }): React.JSX.Element {
   const [mode, setMode] = useState<AgentMode>(defaultAgentMode)
-  const [branchMode, setBranchMode] = useState<BranchMode>('new')
   const [taskDescription, setTaskDescription] = useState('')
   const [runtimeId, setRuntimeId] = useState(defaultRuntime)
   const [loading, setLoading] = useState(false)
@@ -76,7 +73,7 @@ export function NewAgentForm({
 
   useEffect(() => {
     if (!isGitProject) return
-    if (branchMode !== 'new' || !useExisting || existingSubTab !== 'branch') return
+    if (!useExisting || existingSubTab !== 'branch') return
     setBranchesLoading(true)
     setError('')
     void window.electronAPI
@@ -84,11 +81,11 @@ export function NewAgentForm({
       .then((list) => setBranches(list as BranchInfo[]))
       .catch((err) => setError(`Failed to load branches: ${(err as Error).message}`))
       .finally(() => setBranchesLoading(false))
-  }, [branchMode, useExisting, existingSubTab, isGitProject, projectId])
+  }, [useExisting, existingSubTab, isGitProject, projectId])
 
   useEffect(() => {
     if (!isGitProject) return
-    if (branchMode !== 'new' || !useExisting || existingSubTab !== 'pr') return
+    if (!useExisting || existingSubTab !== 'pr') return
     setPrsLoading(true)
     setError('')
     void window.electronAPI
@@ -96,7 +93,7 @@ export function NewAgentForm({
       .then((list) => setPrs(list as PRInfo[]))
       .catch((err) => setError(`Failed to load PRs: ${(err as Error).message}`))
       .finally(() => setPrsLoading(false))
-  }, [branchMode, useExisting, existingSubTab, isGitProject, projectId])
+  }, [useExisting, existingSubTab, isGitProject, projectId])
 
   const selectedRuntime = runtimes.find((r) => r.id === runtimeId)
   const runtimeInstalled = selectedRuntime?.installed !== false
@@ -108,8 +105,8 @@ export function NewAgentForm({
 
   const canSubmit = (() => {
     if (!runtimeInstalled) return false
-    if (branchMode === 'new' && useExisting && existingSubTab === 'branch' && !selectedBranch) return false
-    if (branchMode === 'new' && useExisting && existingSubTab === 'pr' && selectedPr === null) return false
+    if (useExisting && existingSubTab === 'branch' && !selectedBranch) return false
+    if (useExisting && existingSubTab === 'pr' && selectedPr === null) return false
     return true
   })()
 
@@ -132,27 +129,19 @@ export function NewAgentForm({
           } satisfies SpawnAgentOptions
         }
 
-        if (branchMode === 'current') {
-          return {
-            projectId,
-            runtimeId,
-            prompt: resolvedTaskDescription,
-            noWorktree: true,
-            stayOnBranch: true,
-          } satisfies SpawnAgentOptions
-        }
-
         const base: SpawnAgentOptions = {
           projectId,
           runtimeId,
           prompt: resolvedTaskDescription,
         }
 
+        // Selecting a branch or PR works in place on it (no worktree);
+        // leaving the picker empty creates a new worktree from the base branch.
         if (useExisting && existingSubTab === 'branch') {
-          return { ...base, existingBranch: selectedBranch }
+          return { ...base, existingBranch: selectedBranch, noWorktree: true }
         }
         if (useExisting && existingSubTab === 'pr') {
-          return { ...base, prIdentifier: String(selectedPr) }
+          return { ...base, prIdentifier: String(selectedPr), noWorktree: true }
         }
         return base
       })()
@@ -184,7 +173,7 @@ export function NewAgentForm({
         }
       }
     },
-    [branchMode, useExisting, existingSubTab, projectId, runtimeId, taskDescription, selectedBranch, selectedPr, canSubmit, isGitProject, onLaunch, mode, defaultAgentMode]
+    [useExisting, existingSubTab, projectId, runtimeId, taskDescription, selectedBranch, selectedPr, canSubmit, isGitProject, onLaunch, mode, defaultAgentMode]
   )
 
   return (
@@ -196,34 +185,9 @@ export function NewAgentForm({
         onDeleteSession={onDeleteSession}
       />
 
-      {isGitProject && (
-        <div style={segmentedStyles.container}>
-          <button
-            type="button"
-            onClick={() => setBranchMode('new')}
-            style={{ ...segmentedStyles.button, ...(branchMode === 'new' ? segmentedStyles.buttonActive : {}) }}
-          >
-            New branch
-          </button>
-          <button
-            type="button"
-            onClick={() => setBranchMode('current')}
-            style={{ ...segmentedStyles.button, ...(branchMode === 'current' ? segmentedStyles.buttonActive : {}) }}
-          >
-            Current branch
-          </button>
-        </div>
-      )}
-
       {!isGitProject && (
         <p style={modalStyles.infoText}>
           This folder is not a Git repository. The agent will work directly in the folder and can still read and edit documents.
-        </p>
-      )}
-
-      {isGitProject && branchMode === 'current' && (
-        <p style={modalStyles.infoText}>
-          The agent will work directly on your current branch.
         </p>
       )}
 
@@ -247,7 +211,6 @@ export function NewAgentForm({
       {showAdvanced && (
         <NewAgentAdvanced
           isGitProject={isGitProject}
-          branchMode={branchMode}
           runtimeId={runtimeId}
           runtimes={runtimes}
           setRuntimeId={setRuntimeId}
