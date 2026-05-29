@@ -266,6 +266,40 @@ describe('ProjectSidebar', () => {
     expect(screen.queryByText('Beta')).not.toBeInTheDocument()
   })
 
+  it('renames the active project on double-click and Enter', () => {
+    const { props } = renderSidebar()
+
+    fireEvent.doubleClick(screen.getByText('Alpha'))
+    const input = screen.getByLabelText('Repository name') as HTMLInputElement
+    fireEvent.change(input, { target: { value: 'Renamed' } })
+    fireEvent.keyDown(input, { key: 'Enter' })
+
+    expect(props.onUpdateProject).toHaveBeenCalledWith('p1', { name: 'Renamed' })
+  })
+
+  it('discards the rename on Escape', () => {
+    const { props } = renderSidebar()
+
+    fireEvent.doubleClick(screen.getByText('Alpha'))
+    const input = screen.getByLabelText('Repository name') as HTMLInputElement
+    fireEvent.change(input, { target: { value: 'Nope' } })
+    fireEvent.keyDown(input, { key: 'Escape' })
+
+    expect(props.onUpdateProject).not.toHaveBeenCalled()
+    expect(screen.getByText('Alpha')).toBeInTheDocument()
+  })
+
+  it('ignores a blank or unchanged rename', () => {
+    const { props } = renderSidebar()
+
+    fireEvent.doubleClick(screen.getByText('Alpha'))
+    const input = screen.getByLabelText('Repository name') as HTMLInputElement
+    fireEvent.change(input, { target: { value: '   ' } })
+    fireEvent.keyDown(input, { key: 'Enter' })
+
+    expect(props.onUpdateProject).not.toHaveBeenCalled()
+  })
+
   it('renders a draft chat row when drafts are present for the active project', () => {
     renderSidebar({
       drafts: [{ id: 'draft-1' as DraftId, projectId: 'p1', runtimeId: 'claude' }],

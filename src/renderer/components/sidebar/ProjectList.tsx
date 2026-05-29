@@ -51,6 +51,7 @@ export function ProjectList({
   onSelectSession,
   onRequestDeleteAgent,
   onRemove,
+  onUpdateProject,
   superagents,
   fetchingProjectId,
   lastFetchedProjectId,
@@ -142,6 +143,7 @@ export function ProjectList({
               fetchResult={lastFetchedProjectId === activeProject.id ? fetchResult : null}
               fetchError={lastFetchedProjectId === activeProject.id ? fetchError : null}
               onFetch={() => onFetchProject(activeProject.id)}
+              onRename={(name) => onUpdateProject(activeProject.id, { name })}
             />
             {primarySessions.map((session) => {
               const siblingOutputting = projectSessions.some(
