@@ -77,6 +77,28 @@ export const bubble = (isUser: boolean): CSSProperties => ({
   boxShadow: isUser ? undefined : 'var(--shadow-subtle)',
 })
 
+/** ~6 lines at fontSize 15 × lineHeight 1.6 (24px/line) — the cap for a collapsed user bubble. */
+export const COLLAPSED_MAX_HEIGHT = 144
+
+/** Clamps a long user message and fades its lower edge to transparent (works over any background). */
+export const userTextClamped: CSSProperties = {
+  maxHeight: COLLAPSED_MAX_HEIGHT,
+  overflow: 'hidden',
+  WebkitMaskImage: 'linear-gradient(to bottom, black 70%, transparent 100%)',
+  maskImage: 'linear-gradient(to bottom, black 70%, transparent 100%)',
+}
+
+export const collapseToggle: CSSProperties = {
+  marginTop: 6,
+  padding: 0,
+  background: 'none',
+  border: 'none',
+  cursor: 'pointer',
+  color: 'var(--accent)',
+  fontSize: 13,
+  fontWeight: 500,
+}
+
 export const optionsSection: CSSProperties = {
   marginTop: 14,
   display: 'flex',

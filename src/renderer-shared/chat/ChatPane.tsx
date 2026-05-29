@@ -31,9 +31,11 @@ interface Props {
   slashCommands?: string[]
   /** Enables drag-and-drop of file-tree paths into the composer. Undefined disables it. */
   fileDrop?: FileDropConfig
+  /** Clamp tall user messages to a few lines with a Show more / Show less toggle. */
+  collapsibleUserMessages?: boolean
 }
 
-export function ChatPane({ messages, onSend, onInterrupt, isThinking, durationMs, placeholder, acceptImages = false, mentionPaths, slashCommands, fileDrop }: Props): React.JSX.Element {
+export function ChatPane({ messages, onSend, onInterrupt, isThinking, durationMs, placeholder, acceptImages = false, mentionPaths, slashCommands, fileDrop, collapsibleUserMessages }: Props): React.JSX.Element {
   const [input, setInput] = useState('')
   const [dismissedOptions, setDismissedOptions] = useState<Set<string>>(new Set())
   const messagesEndRef = useRef<HTMLDivElement>(null)
@@ -170,6 +172,7 @@ export function ChatPane({ messages, onSend, onInterrupt, isThinking, durationMs
             message={msg}
             onOptionClick={(option) => handleOptionClick(msg.id, option)}
             hideOptions={dismissedOptions.has(msg.id)}
+            collapsible={collapsibleUserMessages}
             connectAbove={msg.role !== 'user' && messages[i - 1] != null && messages[i - 1].role !== 'user'}
             connectBelow={msg.role !== 'user' && messages[i + 1] != null && messages[i + 1].role !== 'user'}
           />

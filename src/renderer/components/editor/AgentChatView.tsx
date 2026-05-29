@@ -51,6 +51,7 @@ export function AgentChatView({ sessionId, mentionPaths, fileDrop }: AgentChatVi
         durationMs={durationMs}
         placeholder={<AgentChatEmptyState />}
         acceptImages
+        collapsibleUserMessages
         mentionPaths={mentionPaths}
         slashCommands={slashCommands}
         fileDrop={fileDrop}
