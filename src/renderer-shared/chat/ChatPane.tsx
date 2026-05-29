@@ -164,12 +164,14 @@ export function ChatPane({ messages, onSend, onInterrupt, isThinking, durationMs
             {placeholder}
           </div>
         )}
-        {messages.map((msg) => (
+        {messages.map((msg, i) => (
           <ChatMessage
             key={msg.id}
             message={msg}
             onOptionClick={(option) => handleOptionClick(msg.id, option)}
             hideOptions={dismissedOptions.has(msg.id)}
+            connectAbove={msg.role !== 'user' && messages[i - 1] != null && messages[i - 1].role !== 'user'}
+            connectBelow={msg.role !== 'user' && messages[i + 1] != null && messages[i + 1].role !== 'user'}
           />
         ))}
         {isThinking && <ThinkingIndicator />}
