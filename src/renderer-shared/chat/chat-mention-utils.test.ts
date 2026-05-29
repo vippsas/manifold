@@ -134,8 +134,8 @@ describe('applyCommand', () => {
 describe('rankCommands', () => {
   const commands = ['review', 'compact', 'clear', 'commit-commands:commit', 'superpowers:brainstorming']
 
-  it('returns all commands (capped) when the query is empty', () => {
-    expect(rankCommands(commands, '', 2)).toEqual(['review', 'compact'])
+  it('returns commands sorted alphabetically (capped) when the query is empty', () => {
+    expect(rankCommands(commands, '', 2)).toEqual(['clear', 'commit-commands:commit'])
   })
 
   it('ranks name-prefix matches first, shortest name wins ties', () => {

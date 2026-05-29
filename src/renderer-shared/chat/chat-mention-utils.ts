@@ -72,9 +72,9 @@ export function applyCommand(text: string, command: ActiveCommand, name: string)
   return { text: next, cursor: command.start + insert.length }
 }
 
-/** Rank commands against the query: name-prefix, then name after a `plugin:` namespace, then substring. */
+/** Rank commands against the query: name-prefix, then name after a `plugin:` namespace, then substring. With no query, list alphabetically. */
 export function rankCommands(commands: string[], query: string, limit: number): string[] {
-  if (!query) return commands.slice(0, limit)
+  if (!query) return [...commands].sort((a, b) => a.localeCompare(b)).slice(0, limit)
   const q = query.toLowerCase()
   const scored: { command: string; score: number }[] = []
   for (const command of commands) {
