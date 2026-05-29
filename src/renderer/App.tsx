@@ -295,6 +295,7 @@ export function App(): React.JSX.Element {
       resolveStandaloneSessions={resolveStandaloneSessions}
       dockLayout={dockLayout}
       hasSuperagent={Boolean(activeSuperagent)}
+      onRenameActiveProject={(name) => { if (activeProjectId) void updateProject(activeProjectId, { name }) }}
     />
   )
 }

@@ -1,4 +1,4 @@
-import React, { useCallback } from 'react'
+import React, { useCallback, useState } from 'react'
 import type { Project } from '../../../shared/types'
 import { isGitProject } from '../../../shared/project-kind'
 import { sidebarStyles } from './ProjectSidebar.styles'
@@ -12,6 +12,7 @@ interface ProjectItemProps {
   fetchResult: { updatedBranch: string; commitCount: number } | null
   fetchError: string | null
   onFetch: () => void
+  onRename?: (name: string) => void
 }
 
 export function ProjectItem({
@@ -23,8 +24,44 @@ export function ProjectItem({
   fetchResult,
   fetchError,
   onFetch,
+  onRename,
 }: ProjectItemProps): React.JSX.Element {
   const gitProject = isGitProject(project)
+  const [editing, setEditing] = useState(false)
+  const [draft, setDraft] = useState('')
+
+  const startEditing = useCallback((): void => {
+    if (!onRename) return
+    setDraft(project.name)
+    setEditing(true)
+  }, [onRename, project.name])
+
+  const focusAndSelect = useCallback((el: HTMLInputElement | null): void => {
+    if (el) {
+      el.focus()
+      el.select()
+    }
+  }, [])
+
+  const commitRename = useCallback((): void => {
+    const next = draft.trim()
+    if (next && next !== project.name) onRename?.(next)
+    setEditing(false)
+  }, [draft, project.name, onRename])
+
+  const handleNameKeyDown = useCallback(
+    (e: React.KeyboardEvent<HTMLInputElement>): void => {
+      e.stopPropagation()
+      if (e.key === 'Enter') {
+        e.preventDefault()
+        commitRename()
+      } else if (e.key === 'Escape') {
+        e.preventDefault()
+        setEditing(false)
+      }
+    },
+    [commitRename]
+  )
 
   const handleClick = useCallback((): void => {
     onSelect(project.id)
@@ -61,9 +98,27 @@ export function ProjectItem({
         role="button"
         tabIndex={0}
       >
-        <span className="truncate sidebar-row-label" style={sidebarStyles.itemName}>
-          {project.name}
-        </span>
+        {editing ? (
+          <input
+            ref={focusAndSelect}
+            value={draft}
+            onChange={(e) => setDraft(e.target.value)}
+            onBlur={commitRename}
+            onKeyDown={handleNameKeyDown}
+            onClick={(e) => e.stopPropagation()}
+            style={sidebarStyles.nameInput}
+            aria-label="Repository name"
+          />
+        ) : (
+          <span
+            className="truncate sidebar-row-label"
+            style={sidebarStyles.itemName}
+            onDoubleClick={(e) => { e.stopPropagation(); startEditing() }}
+            title={onRename ? 'Double-click to rename' : undefined}
+          >
+            {project.name}
+          </span>
+        )}
         <div className="sidebar-item-actions" style={sidebarStyles.itemRight}>
           {gitProject && (
             <button

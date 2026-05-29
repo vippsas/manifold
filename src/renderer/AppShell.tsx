@@ -91,6 +91,7 @@ export interface AppShellProps {
   // StatusBar dock layout adapter
   dockLayout: unknown
   hasSuperagent: boolean
+  onRenameActiveProject: (name: string) => void
 }
 
 export function AppShell(p: AppShellProps): React.JSX.Element {
@@ -114,9 +115,11 @@ export function AppShell(p: AppShellProps): React.JSX.Element {
     )
   }
 
+  const activeProjectName = p.projects.find((proj) => proj.id === p.activeProjectId)?.name
+
   return (
     <div className={`layout-root ${p.themeClass} ${p.densityClass}`}>
-      <TitleBar />
+      <TitleBar projectName={activeProjectName} onRename={p.onRenameActiveProject} />
       <div className="layout-main">
         <DockStateContext.Provider value={p.dockState}>
           <div style={{ flex: 1, overflow: 'hidden' }}>

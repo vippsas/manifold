@@ -25,6 +25,18 @@ export const sidebarStyles: Record<string, React.CSSProperties> = {
     flex: 1,
     minWidth: 0,
   },
+  nameInput: {
+    flex: 1,
+    minWidth: 0,
+    font: 'inherit',
+    fontWeight: 600,
+    color: 'var(--text-primary)',
+    background: 'var(--bg-input)',
+    border: '1px solid var(--accent)',
+    borderRadius: 'var(--radius-xs)',
+    padding: '0 4px',
+    outline: 'none',
+  },
   itemRight: {
     display: 'flex',
     alignItems: 'center',
