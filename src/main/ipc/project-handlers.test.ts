@@ -114,11 +114,7 @@ describe('registerProjectHandlers', () => {
     })
 
     expect(fsMocks.mkdirSync).toHaveBeenCalledWith('/workspace/projects/timer-app', { recursive: true })
-    expect(fsMocks.writeFileSync).toHaveBeenCalledWith(
-      '/workspace/projects/timer-app/README.md',
-      '# Build a timer app\n\nBuild a timer app\n',
-      'utf-8'
-    )
+    expect(fsMocks.writeFileSync).not.toHaveBeenCalled()
     expect(processMocks.execFile).toHaveBeenNthCalledWith(
       1,
       'git',
@@ -129,14 +125,7 @@ describe('registerProjectHandlers', () => {
     expect(processMocks.execFile).toHaveBeenNthCalledWith(
       2,
       'git',
-      ['add', 'README.md'],
-      { cwd: '/workspace/projects/timer-app' },
-      expect.any(Function)
-    )
-    expect(processMocks.execFile).toHaveBeenNthCalledWith(
-      3,
-      'git',
-      ['-c', 'user.email=manifold@local', '-c', 'user.name=Manifold', 'commit', '-m', 'Initial commit'],
+      ['-c', 'user.email=manifold@local', '-c', 'user.name=Manifold', 'commit', '--allow-empty', '-m', 'Initial commit'],
       { cwd: '/workspace/projects/timer-app' },
       expect.any(Function)
     )
