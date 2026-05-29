@@ -56,6 +56,7 @@ export class SessionManager {
       this.fileWatcher,
       persistSessionMeta,
       (session) => this.devServer.startDevServer(session),
+      (session, commands) => this.cacheSlashCommands(session.projectId, commands),
     )
     this.devServer = new DevServerManager(
       this.ptyPool,
@@ -183,6 +184,19 @@ export class SessionManager {
 
     const session = await this.sessionCreator.create(options)
     this.sessions.set(session.id, session)
+
+    // Chat-mode (nonInteractive) agents show a `/` command autocomplete before
+    // the first message is sent. Seed it from the project cache, and on a cache
+    // miss probe for the list, so commands don't only appear from the 2nd message.
+    if (session.nonInteractive) {
+      if (project.slashCommands?.length) {
+        session.slashCommands = project.slashCommands
+      } else if (!session.ptyId) {
+        // Deferred session (no first message yet) — probe before the user types.
+        this.devServer.probeSlashCommands(session)
+      }
+    }
+
     this.memoryCapture?.startCapturing(session.id)
     this.notifySessionsChanged(session.projectId)
     if (this.verdictRecorder && !session.noWorktree && session.worktreePath) {
@@ -245,6 +259,16 @@ export class SessionManager {
   getDetectedUrl(sessionId: string): string | null { return this.sessions.get(sessionId)?.detectedUrl ?? null }
 
   getSessionStatus(sessionId: string): string | null { return this.sessions.get(sessionId)?.status ?? null }
+
+  getSlashCommands(sessionId: string): string[] { return this.sessions.get(sessionId)?.slashCommands ?? [] }
+
+  /** Persist the captured slash-command list on the project so future chat sessions have it before the first message. */
+  private cacheSlashCommands(projectId: string, commands: string[]): void {
+    const project = this.projectRegistry.getProject(projectId)
+    if (project && JSON.stringify(project.slashCommands) !== JSON.stringify(commands)) {
+      this.projectRegistry.updateProject(projectId, { slashCommands: commands })
+    }
+  }
 
   listSessions(): AgentSession[] { return Array.from(this.sessions.values()).map(toPublicSession) }
 

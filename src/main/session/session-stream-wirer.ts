@@ -37,6 +37,7 @@ export class SessionStreamWirer {
     private fileWatcher: FileWatcher | undefined,
     private onPersistAdditionalDirs: (session: InternalSession) => void,
     private onDevServerNeeded: (session: InternalSession) => void,
+    private onSlashCommands?: (session: InternalSession, commands: string[]) => void,
   ) {}
 
   setGitOps(gitOps: GitOperationsManager): void {
@@ -48,6 +49,7 @@ export class SessionStreamWirer {
       getChatAdapter: this.getChatAdapter,
       sendToRenderer: this.sendToRenderer,
       onDevServerNeeded: this.onDevServerNeeded,
+      onSlashCommands: this.onSlashCommands,
     }
   }
 

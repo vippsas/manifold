@@ -1,5 +1,13 @@
 import { describe, expect, it } from 'vitest'
-import { findActiveMention, applyMention, insertMentionAtCursor, rankMentionPaths } from './chat-mention-utils'
+import {
+  findActiveMention,
+  applyMention,
+  insertMentionAtCursor,
+  rankMentionPaths,
+  findActiveCommand,
+  applyCommand,
+  rankCommands,
+} from './chat-mention-utils'
 
 describe('findActiveMention', () => {
   it('detects a mention at the start of the input', () => {
@@ -74,5 +82,71 @@ describe('rankMentionPaths', () => {
 
   it('excludes non-matching paths', () => {
     expect(rankMentionPaths(paths, 'app', 10)).not.toContain('README.md')
+  })
+})
+
+describe('findActiveCommand', () => {
+  it('detects a command at the start of the input', () => {
+    expect(findActiveCommand('/rev', 4)).toEqual({ start: 0, end: 4, query: 'rev' })
+  })
+
+  it('returns the bare trigger with an empty query', () => {
+    expect(findActiveCommand('/', 1)).toEqual({ start: 0, end: 1, query: '' })
+  })
+
+  it('reads only up to the cursor', () => {
+    expect(findActiveCommand('/review', 4)).toEqual({ start: 0, end: 4, query: 'rev' })
+  })
+
+  it('returns null when the slash is not at the start of the input', () => {
+    expect(findActiveCommand('hello /rev', 10)).toBeNull()
+  })
+
+  it('returns null once the command token contains whitespace (it has args now)', () => {
+    expect(findActiveCommand('/rev arg', 8)).toBeNull()
+  })
+
+  it('returns null when there is no slash', () => {
+    expect(findActiveCommand('rev', 3)).toBeNull()
+  })
+})
+
+describe('applyCommand', () => {
+  it('replaces the active token with /name and a trailing space', () => {
+    const command = { start: 0, end: 4, query: 'rev' }
+    expect(applyCommand('/rev', command, 'review')).toEqual({ text: '/review ', cursor: 8 })
+  })
+
+  it('preserves text after the cursor', () => {
+    const command = { start: 0, end: 2, query: 'r' }
+    expect(applyCommand('/r rest', command, 'review')).toEqual({ text: '/review  rest', cursor: 8 })
+  })
+
+  it('keeps a plugin-namespaced command name intact', () => {
+    const command = { start: 0, end: 4, query: 'com' }
+    expect(applyCommand('/com', command, 'commit-commands:commit')).toEqual({
+      text: '/commit-commands:commit ',
+      cursor: 24,
+    })
+  })
+})
+
+describe('rankCommands', () => {
+  const commands = ['review', 'compact', 'clear', 'commit-commands:commit', 'superpowers:brainstorming']
+
+  it('returns commands sorted alphabetically (capped) when the query is empty', () => {
+    expect(rankCommands(commands, '', 2)).toEqual(['clear', 'commit-commands:commit'])
+  })
+
+  it('ranks name-prefix matches first, shortest name wins ties', () => {
+    expect(rankCommands(commands, 'co', 10)[0]).toBe('compact')
+  })
+
+  it('matches the part after a plugin namespace', () => {
+    expect(rankCommands(commands, 'brain', 10)[0]).toBe('superpowers:brainstorming')
+  })
+
+  it('excludes non-matching commands', () => {
+    expect(rankCommands(commands, 'co', 10)).not.toContain('review')
   })
 })

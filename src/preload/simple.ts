@@ -33,6 +33,7 @@ const ALLOWED_INVOKE_CHANNELS = [
   'simple:chat-messages',
   'simple:get-preview-url',
   'simple:get-agent-status',
+  'simple:get-slash-commands',
   'simple:subscribe-chat',
   'simple:deploy',
   'simple:deploy-status',
@@ -49,6 +50,7 @@ const ALLOWED_SEND_CHANNELS = [
 
 const ALLOWED_LISTEN_CHANNELS = [
   'agent:status',
+  'agent:slash-commands',
   'agent:exit',
   'simple:chat-message',
   'simple:deploy-status-update',

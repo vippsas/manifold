@@ -145,6 +145,59 @@ describe('SessionManager — create / input / queries', () => {
 
       expect(worktreeManager.createWorktree).toHaveBeenCalledWith('/repo', 'main', 'test', 'manifold/custom', 'test')
     })
+
+    describe('slash-command autocomplete seeding (chat mode)', () => {
+      it('seeds a chat-mode session from the cached project list without probing', async () => {
+        ;(projectRegistry.getProject as ReturnType<typeof vi.fn>).mockReturnValue({
+          id: 'proj-1', name: 'test', path: '/repo', baseBranch: 'main', addedAt: '2024-01-01',
+          slashCommands: ['compact', 'superpowers:brainstorming'],
+        })
+
+        await sessionManager.createSession({
+          projectId: 'proj-1',
+          runtimeId: 'claude',
+          nonInteractive: true,
+        })
+
+        expect(sessionManager.getSlashCommands('session-uuid-1')).toEqual([
+          'compact', 'superpowers:brainstorming',
+        ])
+        // A cache hit must not spawn a throwaway probe process.
+        expect(ptyPool.spawn).not.toHaveBeenCalled()
+      })
+
+      it('probes for the command list when a deferred chat-mode session has no cache', async () => {
+        await sessionManager.createSession({
+          projectId: 'proj-1',
+          runtimeId: 'claude',
+          nonInteractive: true,
+        })
+
+        // Deferred chat sessions spawn no runtime PTY, so the only spawn is the probe.
+        expect(ptyPool.spawn).toHaveBeenCalledWith(
+          'claude',
+          expect.arrayContaining(['-p', 'hi', '--output-format', 'stream-json']),
+          expect.objectContaining({ cwd: '/repo/.manifold/worktrees/manifold-oslo' }),
+        )
+      })
+
+      it('does not seed or probe for an interactive session', async () => {
+        await sessionManager.createSession({
+          projectId: 'proj-1',
+          runtimeId: 'claude',
+          prompt: 'do something',
+        })
+
+        expect(sessionManager.getSlashCommands('session-uuid-1')).toEqual([])
+        // The only spawn is the interactive runtime itself — never a probe.
+        expect(ptyPool.spawn).toHaveBeenCalledTimes(1)
+        expect(ptyPool.spawn).toHaveBeenCalledWith(
+          'claude',
+          ['--allow-dangerously-skip-permissions'],
+          expect.anything(),
+        )
+      })
+    })
   })
 
   describe('sendInput', () => {

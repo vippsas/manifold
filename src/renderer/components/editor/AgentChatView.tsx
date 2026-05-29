@@ -1,5 +1,5 @@
 import React, { useCallback } from 'react'
-import { ChatPane, useChat, useAgentStatus } from '../../../renderer-shared/chat'
+import { ChatPane, useChat, useAgentStatus, useSlashCommands } from '../../../renderer-shared/chat'
 import type { PastedImage, FileDropConfig } from '../../../renderer-shared/chat/ChatPane'
 
 interface AgentChatViewProps {
@@ -13,6 +13,7 @@ interface AgentChatViewProps {
 export function AgentChatView({ sessionId, mentionPaths, fileDrop }: AgentChatViewProps): React.JSX.Element {
   const { messages, sendMessage } = useChat(sessionId)
   const { status, durationMs } = useAgentStatus(sessionId)
+  const slashCommands = useSlashCommands(sessionId)
   const interrupt = useCallback(() => {
     void window.electronAPI.invoke('agent:interrupt', sessionId)
   }, [sessionId])
@@ -51,6 +52,7 @@ export function AgentChatView({ sessionId, mentionPaths, fileDrop }: AgentChatVi
         placeholder={<AgentChatEmptyState />}
         acceptImages
         mentionPaths={mentionPaths}
+        slashCommands={slashCommands}
         fileDrop={fileDrop}
       />
     </div>

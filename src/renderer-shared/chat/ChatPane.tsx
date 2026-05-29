@@ -27,11 +27,13 @@ interface Props {
   acceptImages?: boolean
   /** Relative paths offered by the `@FILENAME` autocomplete. Undefined disables it. */
   mentionPaths?: string[]
+  /** Slash command/skill names offered by the `/` autocomplete. Undefined disables it. */
+  slashCommands?: string[]
   /** Enables drag-and-drop of file-tree paths into the composer. Undefined disables it. */
   fileDrop?: FileDropConfig
 }
 
-export function ChatPane({ messages, onSend, onInterrupt, isThinking, durationMs, placeholder, acceptImages = false, mentionPaths, fileDrop }: Props): React.JSX.Element {
+export function ChatPane({ messages, onSend, onInterrupt, isThinking, durationMs, placeholder, acceptImages = false, mentionPaths, slashCommands, fileDrop }: Props): React.JSX.Element {
   const [input, setInput] = useState('')
   const [dismissedOptions, setDismissedOptions] = useState<Set<string>>(new Set())
   const messagesEndRef = useRef<HTMLDivElement>(null)
@@ -44,7 +46,7 @@ export function ChatPane({ messages, onSend, onInterrupt, isThinking, durationMs
     pendingSelectionRef.current = pos
   }, [])
 
-  const mentions = useChatFileMentions({ paths: mentionPaths, fileDrop, input, setInput, inputRef, requestCursor })
+  const mentions = useChatFileMentions({ paths: mentionPaths, commands: slashCommands, fileDrop, input, setInput, inputRef, requestCursor })
 
   useEffect(() => {
     inputRef.current?.focus()

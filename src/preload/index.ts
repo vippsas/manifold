@@ -138,6 +138,7 @@ const ALLOWED_INVOKE_CHANNELS = [
   'simple:send-message',
   'simple:subscribe-chat',
   'simple:get-agent-status',
+  'simple:get-slash-commands',
 ] as const
 
 const ALLOWED_SEND_CHANNELS = [
@@ -149,6 +150,7 @@ const ALLOWED_LISTEN_CHANNELS = [
   'agent:activity',
   'agent:activity-state',
   'agent:status',
+  'agent:slash-commands',
   'agent:exit',
   'agent:sessions-changed',
   'agent:dirs-changed',

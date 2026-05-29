@@ -1,4 +1,5 @@
 import { parseOptions } from '../agent/chat-adapter'
+import { extractSlashCommands } from '../agent/ai-runtime-output-parsers'
 import type { ChatAdapter } from '../agent/chat-adapter'
 import type { InternalSession } from './session-types'
 import type { SimpleRuntimeOutputMode } from '../agent/simple-runtime'
@@ -11,6 +12,8 @@ export interface StreamJsonCtx {
   getChatAdapter: () => ChatAdapter | null
   sendToRenderer: (channel: string, ...args: unknown[]) => void
   onDevServerNeeded: (session: InternalSession) => void
+  /** Persist the captured slash-command list so the chat `/` autocomplete is ready before the next session's first message. */
+  onSlashCommands?: (session: InternalSession, commands: string[]) => void
 }
 
 export function handleStreamJsonEvent(
@@ -30,6 +33,14 @@ export function handleStreamJsonEvent(
 
 function handleClaudeStreamJsonEvent(ctx: StreamJsonCtx, session: InternalSession, event: Record<string, unknown>, ptyId?: string): void {
   const type = event.type as string | undefined
+
+  const slashCommands = extractSlashCommands(event)
+  if (slashCommands) {
+    session.slashCommands = slashCommands
+    ctx.onSlashCommands?.(session, slashCommands)
+    ctx.sendToRenderer('agent:slash-commands', { sessionId: session.id, commands: slashCommands })
+    return
+  }
 
   if (type === 'assistant') {
     // Each assistant turn emits an event with the full message content.

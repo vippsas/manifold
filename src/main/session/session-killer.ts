@@ -85,6 +85,9 @@ export class SessionKiller {
     if (session.devServerPtyId) {
       try { this.deps.ptyPool.kill(session.devServerPtyId) } catch { /* already exited */ }
     }
+    if (session.slashCommandProbePtyId) {
+      try { this.deps.ptyPool.kill(session.slashCommandProbePtyId) } catch { /* already exited */ }
+    }
 
     const safeSessionId = session.id.replace(/[^a-zA-Z0-9_-]/g, '_')
     const pastedImagesDir = path.join(os.tmpdir(), 'manifold-chat-images', safeSessionId)
