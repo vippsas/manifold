@@ -97,6 +97,10 @@
   --bg-overlay: var(--bg-secondary);
   --bg-elevated: var(--bg-secondary);
 
+  /* Compatibility aliases for shared chat components (renderer-shared) */
+  --surface: var(--bg-elevated);
+  --text: var(--text-primary);
+
   --control-bg: var(--bg-input);
   --control-border: var(--border);
   --control-bg-hover: rgba(255, 255, 255, 0.08);
