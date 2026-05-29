@@ -11,6 +11,7 @@ import type { MemoryStore } from '../memory/memory-store'
 import type { SessionManager } from '../session/session-manager'
 import type { PtyPool } from '../agent/pty-pool'
 import type { FileWatcher } from '../fs/file-watcher'
+import type { ChatStore } from '../store/chat-store'
 
 export interface AppLifecycleDeps {
   settingsStore: SettingsStore
@@ -21,6 +22,7 @@ export interface AppLifecycleDeps {
   ptyPool: PtyPool
   fileWatcher: FileWatcher
   createWindow: () => void
+  chatStore: ChatStore
 }
 
 /**
@@ -28,7 +30,7 @@ export interface AppLifecycleDeps {
  * on ready, re-create on activate, and cleanup on quit.
  */
 export function registerAppLifecycle(deps: AppLifecycleDeps): void {
-  const { settingsStore, powerManager, mcpBridge, memoryStore, sessionManager, ptyPool, fileWatcher, createWindow } = deps
+  const { settingsStore, powerManager, mcpBridge, memoryStore, sessionManager, ptyPool, fileWatcher, createWindow, chatStore } = deps
   let localRendererServer: LocalRendererServer | null = null
 
   void app.whenReady().then(async () => {
@@ -86,6 +88,8 @@ export function registerAppLifecycle(deps: AppLifecycleDeps): void {
   })
 
   app.on('before-quit', async () => {
+    // Persist any pending (debounced) chat writes before tearing down.
+    chatStore.flushSync()
     // Kill all active sessions and clean up
     sessionManager.killAllSessions()
     ptyPool.killAll()

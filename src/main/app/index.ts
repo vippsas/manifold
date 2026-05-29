@@ -235,6 +235,7 @@ registerAppLifecycle({
   sessionManager,
   ptyPool,
   fileWatcher,
+  chatStore,
   createWindow: doCreateWindow,
 })
 
