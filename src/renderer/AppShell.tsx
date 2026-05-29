@@ -116,12 +116,7 @@ export function AppShell(p: AppShellProps): React.JSX.Element {
 
   return (
     <div className={`layout-root ${p.themeClass} ${p.densityClass}`}>
-      <TitleBar
-        activeSessionProjectId={p.activeSession?.projectId}
-        activeSessionId={p.activeSessionId}
-        activeSessionRuntimeId={p.activeSession?.runtimeId}
-        activeSessionStatus={p.activeSession?.status}
-      />
+      <TitleBar />
       <div className="layout-main">
         <DockStateContext.Provider value={p.dockState}>
           <div style={{ flex: 1, overflow: 'hidden' }}>
