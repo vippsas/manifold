@@ -7,6 +7,64 @@ export const wrapper = (isUser: boolean): CSSProperties => ({
   marginBottom: 16,
 })
 
+/** Assistant message laid out as [thread gutter | content] so replies share a vertical timeline. */
+export const threadRow: CSSProperties = {
+  display: 'flex',
+  alignItems: 'stretch',
+  position: 'relative',
+  marginBottom: 16,
+}
+
+const GUTTER_WIDTH = 24
+const LINE_LEFT = 11
+const DOT_SIZE = 7
+const DOT_CENTER = 18
+
+/** Fixed-width column on the left of an assistant message that carries the timeline. */
+export const threadGutter: CSSProperties = {
+  width: GUTTER_WIDTH,
+  flexShrink: 0,
+  position: 'relative',
+}
+
+/** Line segment from the top of the message down to the node (drawn when a reply precedes it). */
+export const threadLineTop: CSSProperties = {
+  position: 'absolute',
+  left: LINE_LEFT,
+  top: 0,
+  height: DOT_CENTER,
+  borderLeft: '1px solid var(--border)',
+}
+
+/** Line segment from the node down through the gap to the next reply (drawn when a reply follows). */
+export const threadLineBottom: CSSProperties = {
+  position: 'absolute',
+  left: LINE_LEFT,
+  top: DOT_CENTER,
+  bottom: -16,
+  borderLeft: '1px solid var(--border)',
+}
+
+/** Accent node marking where each reply joins the thread. */
+export const threadDot: CSSProperties = {
+  position: 'absolute',
+  left: LINE_LEFT - DOT_SIZE / 2 + 0.5,
+  top: DOT_CENTER - DOT_SIZE / 2,
+  width: DOT_SIZE,
+  height: DOT_SIZE,
+  borderRadius: '50%',
+  background: 'var(--accent)',
+}
+
+/** Content column (bubble + options) sitting to the right of the gutter. */
+export const threadContent: CSSProperties = {
+  display: 'flex',
+  flexDirection: 'column',
+  alignItems: 'flex-start',
+  minWidth: 0,
+  flex: 1,
+}
+
 export const bubble = (isUser: boolean): CSSProperties => ({
   maxWidth: '85%',
   padding: '12px 16px',

@@ -8,13 +8,18 @@ interface Props {
   message: ChatMessageType
   onOptionClick?: (option: string) => void
   hideOptions?: boolean
+  /** A preceding reply exists — extend the timeline up to this node. */
+  connectAbove?: boolean
+  /** A following reply exists — extend the timeline down to the next node. */
+  connectBelow?: boolean
 }
 
-export function ChatMessage({ message, onOptionClick, hideOptions }: Props): React.JSX.Element {
+export function ChatMessage({ message, onOptionClick, hideOptions, connectAbove, connectBelow }: Props): React.JSX.Element {
   const isUser = message.role === 'user'
   const showOptions = !hideOptions && message.options && message.options.length > 0
-  return (
-    <div style={styles.wrapper(isUser)}>
+
+  const content = (
+    <>
       <div style={styles.bubble(isUser)} className={isUser ? '' : 'markdown-body'}>
         {isUser ? (
           message.text
@@ -57,6 +62,21 @@ export function ChatMessage({ message, onOptionClick, hideOptions }: Props): Rea
           <span style={styles.optionsHint}>or type your own answer below</span>
         </div>
       )}
+    </>
+  )
+
+  if (isUser) {
+    return <div style={styles.wrapper(true)}>{content}</div>
+  }
+
+  return (
+    <div style={styles.threadRow}>
+      <div style={styles.threadGutter}>
+        {connectAbove && <div style={styles.threadLineTop} />}
+        {connectBelow && <div style={styles.threadLineBottom} />}
+        <div style={styles.threadDot} />
+      </div>
+      <div style={styles.threadContent}>{content}</div>
     </div>
   )
 }
