@@ -6,7 +6,6 @@ import type { ExistingSubTab } from '../new-task'
 
 interface Props {
   isGitProject: boolean
-  branchMode: 'current' | 'new'
   runtimeId: string
   runtimes: AgentRuntime[]
   setRuntimeId: (id: string) => void
@@ -41,7 +40,7 @@ export function NewAgentAdvanced(p: Props): React.JSX.Element {
         </p>
       )}
 
-      {p.isGitProject && p.branchMode === 'new' && (
+      {p.isGitProject && (
         <>
           <label style={modalStyles.checkboxLabel}>
             <input type="checkbox" checked={p.useExisting} onChange={(e) => p.setUseExisting(e.target.checked)} />
@@ -60,7 +59,7 @@ export function NewAgentAdvanced(p: Props): React.JSX.Element {
               </div>
 
               {p.existingSubTab === 'branch' && (
-                <BranchPicker branches={p.branches} baseBranch={p.baseBranch} filter={p.branchFilter} onFilterChange={p.setBranchFilter} selected={p.selectedBranch} onSelect={p.setSelectedBranch} loading={p.branchesLoading} />
+                <BranchPicker branches={p.branches} baseBranch={p.baseBranch} allowBaseBranch filter={p.branchFilter} onFilterChange={p.setBranchFilter} selected={p.selectedBranch} onSelect={p.setSelectedBranch} loading={p.branchesLoading} />
               )}
 
               {p.existingSubTab === 'pr' && (

@@ -217,6 +217,75 @@ describe('NewAgentForm', () => {
     expect(mockInvoke).not.toHaveBeenCalledWith('settings:update', expect.anything())
   })
 
+  async function openBranchPicker() {
+    fireEvent.click(screen.getByText(/Advanced/))
+    fireEvent.click(screen.getByLabelText('Continue on an existing branch or PR'))
+    await waitFor(() => expect(mockInvoke).toHaveBeenCalledWith('git:list-branches', 'proj-1'))
+  }
+
+  it('does not create a worktree by default (empty picker)', async () => {
+    const { props } = renderForm()
+    await waitFor(() => expect(mockInvoke).toHaveBeenCalledWith('runtimes:list'))
+
+    fireEvent.click(screen.getByText('Start Agent'))
+
+    await waitFor(() => expect(props.onLaunch).toHaveBeenCalled())
+    const options = props.onLaunch.mock.calls[0][0]
+    expect(options.noWorktree).toBeUndefined()
+    expect(options.existingBranch).toBeUndefined()
+  })
+
+  it('selecting a branch works in place on it (existingBranch + noWorktree)', async () => {
+    mockInvoke.mockImplementation((channel: string) => {
+      if (channel === 'runtimes:list') {
+        return Promise.resolve([{ id: 'claude', name: 'Claude Code', binary: 'claude', installed: true }])
+      }
+      if (channel === 'git:list-branches') {
+        return Promise.resolve([
+          { name: 'main', source: 'both' },
+          { name: 'feature-x', source: 'local' },
+        ])
+      }
+      return Promise.resolve([])
+    })
+    const { props } = renderForm()
+    await waitFor(() => expect(mockInvoke).toHaveBeenCalledWith('runtimes:list'))
+
+    await openBranchPicker()
+    fireEvent.click(await screen.findByText('feature-x'))
+    fireEvent.click(screen.getByText('Start Agent'))
+
+    await waitFor(() => {
+      expect(props.onLaunch).toHaveBeenCalledWith(
+        expect.objectContaining({ existingBranch: 'feature-x', noWorktree: true }),
+      )
+    })
+  })
+
+  it('allows selecting the base branch to work in place on it', async () => {
+    mockInvoke.mockImplementation((channel: string) => {
+      if (channel === 'runtimes:list') {
+        return Promise.resolve([{ id: 'claude', name: 'Claude Code', binary: 'claude', installed: true }])
+      }
+      if (channel === 'git:list-branches') {
+        return Promise.resolve([{ name: 'main', source: 'both' }])
+      }
+      return Promise.resolve([])
+    })
+    const { props } = renderForm()
+    await waitFor(() => expect(mockInvoke).toHaveBeenCalledWith('runtimes:list'))
+
+    await openBranchPicker()
+    fireEvent.click(await screen.findByText('main'))
+    fireEvent.click(screen.getByText('Start Agent'))
+
+    await waitFor(() => {
+      expect(props.onLaunch).toHaveBeenCalledWith(
+        expect.objectContaining({ existingBranch: 'main', noWorktree: true }),
+      )
+    })
+  })
+
   it('truncates long task context in existing worktrees rows', async () => {
     renderForm({
       existingSessions: [{
