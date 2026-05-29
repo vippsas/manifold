@@ -2,6 +2,7 @@ import { app, BrowserWindow } from 'electron'
 import * as path from 'node:path'
 import { startLocalRendererServer, type LocalRendererServer } from './local-renderer-server'
 import { setupAutoUpdater } from './auto-updater'
+import { flushDebugLogSync } from './debug-log'
 import { installWatchSkills } from '../watch/skill-installer'
 import { getBundledWatchSkillPath } from '../watch/resource-path'
 import type { SettingsStore } from '../store/settings-store'
@@ -90,6 +91,8 @@ export function registerAppLifecycle(deps: AppLifecycleDeps): void {
   app.on('before-quit', async () => {
     // Persist any pending (debounced) chat writes before tearing down.
     chatStore.flushSync()
+    // Persist any buffered debug-log lines before exit.
+    flushDebugLogSync()
     // Kill all active sessions and clean up
     sessionManager.killAllSessions()
     ptyPool.killAll()
