@@ -166,8 +166,8 @@ export function NoProjectActions({
           gap: 10,
           flexWrap: 'wrap',
         }}>
-          <button onClick={() => setPromptMode('scratch')} style={buttonStyle}>Start from scratch</button>
-          <button onClick={() => setPromptMode('copied')} style={secondaryButtonStyle}>Start from copied instructions</button>
+          <button onClick={() => setPromptMode('copied')} style={buttonStyle}>Start from copied instructions</button>
+          <button onClick={() => setPromptMode('scratch')} style={secondaryButtonStyle}>Start from scratch</button>
           {createError && !showClone && (
             <div style={{ flexBasis: '100%', fontSize: 12, color: 'var(--error, #f44)', textAlign: 'center' }}>{createError}</div>
           )}

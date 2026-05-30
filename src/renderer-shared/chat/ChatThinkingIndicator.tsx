@@ -123,7 +123,7 @@ export function ThinkingIndicator(): React.JSX.Element {
   }, [])
 
   useEffect(() => {
-    const id = setInterval(rotate, 4500)
+    const id = setInterval(rotate, 7000)
     return () => clearInterval(id)
   }, [rotate])
 
