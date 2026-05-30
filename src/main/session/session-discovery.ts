@@ -1,6 +1,6 @@
 import { v4 as uuidv4 } from 'uuid'
 import { WorktreeManager, type WorktreeInfo } from '../git/worktree-manager'
-import { isGitRepositoryError } from '../git/git-errors'
+import { isGitRepositoryError, isMissingGitError } from '../git/git-errors'
 import { ProjectRegistry } from '../store/project-registry'
 import type { FileWatcher } from '../fs/file-watcher'
 import { readWorktreeMeta } from '../git/worktree-meta'
@@ -69,8 +69,8 @@ export class SessionDiscovery {
     try {
       worktrees = await this.worktreeManager.listWorktrees(project.path)
     } catch (error) {
-      if (isGitRepositoryError(error)) {
-        debugLog(`[session] skipping session discovery for non-git project ${project.path}`)
+      if (isGitRepositoryError(error) || isMissingGitError(error)) {
+        debugLog(`[session] skipping git session discovery for ${project.path}: ${(error as Error).message}`)
         return
       }
       throw error

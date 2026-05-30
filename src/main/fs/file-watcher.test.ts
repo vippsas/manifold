@@ -199,6 +199,22 @@ describe('FileWatcher', () => {
       // No crash, no event sent
       expect(mockWindow.webContents.send).not.toHaveBeenCalled()
     })
+
+    it('stops polling when git cannot spawn', async () => {
+      const error = Object.assign(new Error('spawn git ENOENT'), {
+        code: 'ENOENT',
+        syscall: 'spawn git',
+      })
+      mockGitStatus.mockRejectedValue(error)
+
+      watcher.watch('/repo/worktree', 'session-1')
+      await vi.advanceTimersByTimeAsync(10)
+
+      mockGitStatus.mockClear()
+      await vi.advanceTimersByTimeAsync(2000)
+
+      expect(mockGitStatus).not.toHaveBeenCalled()
+    })
   })
 
   describe('watchAdditionalDir', () => {

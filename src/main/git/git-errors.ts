@@ -13,3 +13,11 @@ export function isGitRepositoryError(error: unknown): boolean {
   return text.includes('not a git repository')
     || text.includes('this operation must be run in a work tree')
 }
+
+export function isMissingGitError(error: unknown): boolean {
+  const err = error as NodeJS.ErrnoException | undefined
+  return err?.code === 'ENOENT' && (
+    err.syscall === 'spawn git' ||
+    typeof err.message === 'string' && err.message.includes('spawn git ENOENT')
+  )
+}
