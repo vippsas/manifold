@@ -19,4 +19,15 @@ describe('repo-name helpers', () => {
   it('uses the description when no repository URL is present', () => {
     expect(suggestRepoName('Build a focus timer')).toBe('build-a-focus-timer')
   })
+
+  it('uses the repo name from a `gh repo clone owner/repo` command', () => {
+    const instructions = [
+      '## 1 - Clone the repository',
+      '```bash',
+      'gh repo clone acme/widget-store',
+      'cd widget-store',
+      '```',
+    ].join('\n')
+    expect(suggestRepoName(instructions)).toBe('widget-store')
+  })
 })
