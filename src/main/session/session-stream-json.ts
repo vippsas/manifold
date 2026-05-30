@@ -110,6 +110,11 @@ function handleClaudeStreamJsonEvent(ctx: StreamJsonCtx, session: InternalSessio
 function handleCodexJsonEvent(ctx: StreamJsonCtx, session: InternalSession, event: Record<string, unknown>, ptyId?: string): void {
   const type = event.type as string | undefined
 
+  if (type === 'thread.started') {
+    captureCodexThread(session, event.thread_id)
+    return
+  }
+
   if (type === 'event_msg') {
     const payload = event.payload as CodexEventPayload | undefined
     if (payload?.type === 'agent_message' && payload.message) {
@@ -147,6 +152,7 @@ function handleCodexJsonEvent(ctx: StreamJsonCtx, session: InternalSession, even
   }
 
   if (type === 'turn.completed' && (!ptyId || session.ptyId === ptyId)) {
+    publishGeneratedImagesFromThread(ctx, session)
     completeCodexTurn(ctx, session)
   }
 }
@@ -157,6 +163,15 @@ interface CodexEventPayload {
   saved_path?: string
   result?: string
   call_id?: string
+}
+
+function captureCodexThread(session: InternalSession, threadId: unknown): void {
+  if (typeof threadId !== 'string' || !threadId.trim()) return
+  const nextThreadId = threadId.trim()
+  if (session.codexThreadId !== nextThreadId) {
+    session.codexThreadId = nextThreadId
+    session.codexPublishedGeneratedImageSources = []
+  }
 }
 
 function publishAgentText(ctx: StreamJsonCtx, session: InternalSession, text: string): void {
@@ -179,12 +194,32 @@ function publishGeneratedImage(ctx: StreamJsonCtx, session: InternalSession, pay
   const savedPath = saveGeneratedImageToProject(session, payload) ?? payload.saved_path
   if (!savedPath) return
 
-  const imageRef = `[image: ${savedPath}]`
-  const adapter = ctx.getChatAdapter()
+  publishImageRef(ctx, session, savedPath)
+}
 
+function publishGeneratedImagesFromThread(ctx: StreamJsonCtx, session: InternalSession): void {
+  const sourcePaths = listGeneratedImagePathsForThread(session.codexThreadId)
+  if (sourcePaths.length === 0) return
+
+  const published = new Set(session.codexPublishedGeneratedImageSources ?? [])
+  for (const sourcePath of sourcePaths) {
+    const sourceKey = realpathSyncIfReadable(sourcePath)
+    if (!sourceKey || published.has(sourceKey)) continue
+
+    const savedPath = saveGeneratedImageToProject(session, { saved_path: sourcePath })
+    if (!savedPath) continue
+
+    published.add(sourceKey)
+    publishImageRef(ctx, session, savedPath)
+  }
+  session.codexPublishedGeneratedImageSources = [...published]
+}
+
+function publishImageRef(ctx: StreamJsonCtx, session: InternalSession, filePath: string): void {
+  const imageRef = `[image: ${filePath}]`
+  const adapter = ctx.getChatAdapter()
   const existing = adapter?.getMessages(session.id) ?? []
-  const lastAgent = [...existing].reverse().find(m => m.role === 'agent')
-  if (lastAgent?.text === imageRef) return
+  if (existing.some(m => m.role === 'agent' && m.text === imageRef)) return
 
   adapter?.addAgentMessage(session.id, imageRef)
 }
@@ -225,10 +260,36 @@ function imageBufferFromPayload(payload: CodexEventPayload): Buffer | null {
 function readTrustedGeneratedImageFile(filePath: string): Buffer | null {
   try {
     const resolved = fs.realpathSync(path.resolve(filePath))
-    const codexHome = process.env.CODEX_HOME || path.join(os.homedir(), '.codex')
-    const generatedDir = fs.realpathSync(path.join(codexHome, 'generated_images'))
+    const generatedDir = fs.realpathSync(codexGeneratedImagesDir())
     if (resolved !== generatedDir && !resolved.startsWith(generatedDir + path.sep)) return null
     return fs.readFileSync(resolved)
+  } catch {
+    return null
+  }
+}
+
+function listGeneratedImagePathsForThread(threadId: string | undefined): string[] {
+  if (!threadId || !/^[a-zA-Z0-9_-]+$/.test(threadId)) return []
+  try {
+    const generatedDir = fs.realpathSync(codexGeneratedImagesDir())
+    const threadDir = fs.realpathSync(path.join(generatedDir, threadId))
+    if (threadDir !== generatedDir && !threadDir.startsWith(generatedDir + path.sep)) return []
+    return fs.readdirSync(threadDir, { withFileTypes: true })
+      .filter((entry) => entry.isFile())
+      .map((entry) => path.join(threadDir, entry.name))
+  } catch {
+    return []
+  }
+}
+
+function codexGeneratedImagesDir(): string {
+  const codexHome = process.env.CODEX_HOME || path.join(os.homedir(), '.codex')
+  return path.join(codexHome, 'generated_images')
+}
+
+function realpathSyncIfReadable(filePath: string): string | null {
+  try {
+    return fs.realpathSync(path.resolve(filePath))
   } catch {
     return null
   }

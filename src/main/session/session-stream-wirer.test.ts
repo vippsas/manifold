@@ -198,6 +198,70 @@ describe('SessionStreamWirer', () => {
     }
   })
 
+  it('copies Codex thread-generated images when no image event is emitted', async () => {
+    const ptyPool = new FakePtyPool()
+    const chatAdapter = new ChatAdapter()
+    const codexHome = await mkdtemp(join(tmpdir(), 'manifold-codex-thread-images-'))
+    const sourceRoot = join(codexHome, 'generated_images', 'thread-1')
+    const worktreePath = await mkdtemp(join(tmpdir(), 'manifold-generated-image-project-'))
+
+    try {
+      vi.stubEnv('CODEX_HOME', codexHome)
+
+      const wirer = new SessionStreamWirer(
+        ptyPool as never,
+        () => chatAdapter,
+        vi.fn(),
+        undefined,
+        vi.fn(),
+        vi.fn(),
+      )
+
+      const session = createSession()
+      session.worktreePath = worktreePath
+      wirer.wireStreamJsonOutput(session.ptyId, session, 'codex-jsonl')
+
+      ptyPool.emitData(
+        session.ptyId,
+        `${JSON.stringify({ type: 'thread.started', thread_id: 'thread-1' })}\n` +
+        `${JSON.stringify({
+          type: 'item.completed',
+          item: {
+            type: 'agent_message',
+            text: 'Created the car image: a photorealistic modern sedan.',
+          },
+        })}\n`,
+      )
+
+      const sourcePath = join(sourceRoot, 'ig_car.png')
+      await mkdir(sourceRoot, { recursive: true })
+      await writeFile(sourcePath, Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]))
+
+      ptyPool.emitData(session.ptyId, `${JSON.stringify({ type: 'turn.completed' })}\n`)
+
+      const savedPath = join(worktreePath, 'public', 'generated-images', 'ig_car.png')
+      expect(await readFile(savedPath)).toEqual(Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]))
+      expect(chatAdapter.getMessages(session.id)).toEqual([
+        expect.objectContaining({
+          role: 'agent',
+          text: 'Created the car image: a photorealistic modern sedan.',
+        }),
+        expect.objectContaining({
+          role: 'agent',
+          text: `[image: ${savedPath}]`,
+        }),
+      ])
+
+      ptyPool.emitData(session.ptyId, `${JSON.stringify({ type: 'turn.completed' })}\n`)
+
+      expect(chatAdapter.getMessages(session.id).filter((m) => m.text === `[image: ${savedPath}]`)).toHaveLength(1)
+    } finally {
+      vi.unstubAllEnvs()
+      await rm(codexHome, { recursive: true, force: true })
+      await rm(worktreePath, { recursive: true, force: true })
+    }
+  })
+
   it('publishes Codex event_msg agent messages', () => {
     const ptyPool = new FakePtyPool()
     const chatAdapter = new ChatAdapter()
