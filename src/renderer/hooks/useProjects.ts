@@ -71,11 +71,12 @@ export function useProjects(): UseProjectsResult {
     setError(null)
     try {
       let targetDir = options.targetDir
-      if (!targetDir) {
+      if (!targetDir && options.projectKind !== 'folder') {
         targetDir = (await window.electronAPI.invoke('projects:create-new-dialog', options.description)) as string | undefined
         if (!targetDir) return null
       }
-      const project = (await window.electronAPI.invoke('projects:create-new', { ...options, targetDir })) as Project
+      const payload = targetDir ? { ...options, targetDir } : options
+      const project = (await window.electronAPI.invoke('projects:create-new', payload)) as Project
       setProjects((prev) => sortProjectsByName([...prev, project]))
       setActiveProjectId(project.id)
       return project

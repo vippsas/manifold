@@ -71,6 +71,59 @@ describe('useProjectCreateHandlers.handleCreateNewProject', () => {
     expect(opts.userMessage).toBe('Create a webapp.')
     expect(opts.nonInteractive).toBe(true)
     expect(opts.projectId).toBe('p1')
+    expect(opts.noWorktree).toBe(true)
+    expect(opts.stayOnBranch).toBe(true)
+    expect(opts.branchName).toBe('main')
+    expect(mockInvoke).not.toHaveBeenCalledWith('branch:suggest', expect.anything())
+  })
+
+  it('spawns copied-instruction projects without a worktree and keeps clone instructions at the project root', async () => {
+    const spawnAgent = vi.fn().mockResolvedValue(makeSession({ noWorktree: true }))
+    const args = makeArgs({
+      createNewProject: vi.fn().mockResolvedValue(makeProject({ kind: 'folder', baseBranch: '' })),
+      spawnAgent,
+    })
+    const { result } = renderHook(() => useProjectCreateHandlers(args))
+
+    await act(async () => {
+      await result.current.handleCreateNewProject({
+        description: 'Clone the prepared repository and continue.',
+        projectKind: 'folder',
+      })
+    })
+
+    expect(mockInvoke).not.toHaveBeenCalledWith('branch:suggest', expect.anything())
+    const opts = spawnAgent.mock.calls[0][0] as SpawnAgentOptions
+    expect(opts.prompt).toContain('use the current working directory as the project root')
+    expect(opts.prompt).toContain('git clone <url> .')
+    expect(opts.prompt).toContain('Clone the prepared repository and continue.')
+    expect(opts.userMessage).toBe('Clone the prepared repository and continue.')
+    expect(opts.branchName).toBe('pixel-forge')
+    expect(opts.noWorktree).toBe(true)
+  })
+
+  it('spawns copied-instruction repositories in place when creation already cloned the repo', async () => {
+    const spawnAgent = vi.fn().mockResolvedValue(makeSession({ noWorktree: true }))
+    const args = makeArgs({
+      createNewProject: vi.fn().mockResolvedValue(makeProject({ kind: 'git', baseBranch: 'main' })),
+      spawnAgent,
+    })
+    const { result } = renderHook(() => useProjectCreateHandlers(args))
+
+    await act(async () => {
+      await result.current.handleCreateNewProject({
+        description: 'Clone https://github.com/sven/pixel-forge.git and continue.',
+        projectKind: 'folder',
+      })
+    })
+
+    const opts = spawnAgent.mock.calls[0][0] as SpawnAgentOptions
+    expect(opts.prompt).toContain('has already been cloned into the current working directory')
+    expect(opts.prompt).toContain('Do not clone it again')
+    expect(opts.userMessage).toBe('Clone https://github.com/sven/pixel-forge.git and continue.')
+    expect(opts.branchName).toBe('main')
+    expect(opts.noWorktree).toBe(true)
+    expect(opts.stayOnBranch).toBe(true)
   })
 
   it('subscribes the spawned session to chat-message events so the first message appears', async () => {

@@ -133,6 +133,89 @@ describe('registerProjectHandlers', () => {
     expect(result).toEqual(project)
   })
 
+  it('clones a GitHub repository from copied instructions into an automatically named project directory', async () => {
+    const { registerProjectHandlers } = await import('./project-handlers')
+    const project = {
+      id: 'project-cloned',
+      name: 'copied-app',
+      path: '/workspace/projects/copied-app',
+      baseBranch: 'main',
+      addedAt: '2026-04-01T00:00:00.000Z',
+      kind: 'git',
+    }
+    const deps = {
+      settingsStore: {
+        getSettings: vi.fn(() => ({
+          storagePath: '/workspace',
+          defaultRuntime: 'claude',
+        })),
+      },
+      projectRegistry: {
+        listProjects: vi.fn(() => []),
+        addProject: vi.fn(async () => project),
+      },
+    }
+
+    registerProjectHandlers(deps as never)
+    const handler = electronMocks.handlers.get('projects:create-new')
+    if (!handler) throw new Error('projects:create-new handler was not registered')
+
+    const result = await handler({}, {
+      description: 'Clone https://github.com/sven/copied-app.git and continue.',
+      projectKind: 'folder',
+    })
+
+    expect(fsMocks.mkdirSync).toHaveBeenCalledWith('/workspace/projects', { recursive: true })
+    expect(processMocks.execFile).toHaveBeenCalledWith(
+      'git',
+      ['clone', '--', 'https://github.com/sven/copied-app.git', '/workspace/projects/copied-app'],
+      {},
+      expect.any(Function)
+    )
+    expect(processMocks.spawn).not.toHaveBeenCalled()
+    expect(deps.projectRegistry.addProject).toHaveBeenCalledWith('/workspace/projects/copied-app')
+    expect(result).toEqual(project)
+  })
+
+  it('creates a plain folder project without initializing git when copied instructions have no repository URL', async () => {
+    const { registerProjectHandlers } = await import('./project-handlers')
+    const project = {
+      id: 'project-plain',
+      name: 'copied-app',
+      path: '/workspace/projects/clone-the-prepared-repository',
+      baseBranch: '',
+      addedAt: '2026-04-01T00:00:00.000Z',
+      kind: 'folder',
+    }
+    const deps = {
+      settingsStore: {
+        getSettings: vi.fn(() => ({
+          storagePath: '/workspace',
+          defaultRuntime: 'claude',
+        })),
+      },
+      projectRegistry: {
+        listProjects: vi.fn(() => []),
+        addProject: vi.fn(async () => project),
+      },
+    }
+
+    registerProjectHandlers(deps as never)
+    const handler = electronMocks.handlers.get('projects:create-new')
+    if (!handler) throw new Error('projects:create-new handler was not registered')
+
+    const result = await handler({}, {
+      description: 'Clone the prepared repository.',
+      projectKind: 'folder',
+    })
+
+    expect(fsMocks.mkdirSync).toHaveBeenCalledWith('/workspace/projects/clone-the-prepared-repository', { recursive: true })
+    expect(processMocks.execFile).not.toHaveBeenCalled()
+    expect(processMocks.spawn).not.toHaveBeenCalled()
+    expect(deps.projectRegistry.addProject).toHaveBeenCalledWith('/workspace/projects/clone-the-prepared-repository', { kind: 'folder' })
+    expect(result).toEqual(project)
+  })
+
   it('adds a selected folder through projects:add without extra git validation', async () => {
     const { registerProjectHandlers } = await import('./project-handlers')
     const project = {
