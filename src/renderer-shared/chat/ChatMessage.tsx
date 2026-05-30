@@ -1,8 +1,20 @@
-import React, { useLayoutEffect, useRef, useState } from 'react'
+import React, { useEffect, useLayoutEffect, useRef, useState } from 'react'
 import Markdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
 import type { ChatMessage as ChatMessageType } from '../../shared/simple-types'
 import * as styles from './ChatMessage.styles'
+
+const IMAGE_REF = /\[image:\s*([^\]]+)\]/g
+
+/** Pull `[image: PATH]` references out of message text so they can render as thumbnails. */
+function splitImageRefs(text: string): { imagePaths: string[]; rest: string } {
+  const imagePaths: string[] = []
+  const rest = text.replace(IMAGE_REF, (_match, p: string) => {
+    imagePaths.push(p.trim())
+    return ''
+  }).trim()
+  return { imagePaths, rest }
+}
 
 interface Props {
   message: ChatMessageType
@@ -34,13 +46,26 @@ export function ChatMessage({ message, onOptionClick, hideOptions, connectAbove,
 
   const clamped = canCollapse && overflowing && !expanded
 
+  const { imagePaths, rest } = isUser ? splitImageRefs(message.text) : { imagePaths: [], rest: message.text }
+
   const content = (
     <>
       <div style={styles.bubble(isUser)} className={isUser ? '' : 'markdown-body'}>
         {isUser ? (
-          <div ref={canCollapse ? textRef : undefined} style={clamped ? styles.userTextClamped : undefined}>
-            {message.text}
-          </div>
+          <>
+            {imagePaths.length > 0 && (
+              <div style={rest ? styles.imageGrid : styles.imageGridOnly}>
+                {imagePaths.map((filePath, i) => (
+                  <ChatImageThumbnail key={`${filePath}-${i}`} filePath={filePath} />
+                ))}
+              </div>
+            )}
+            {rest && (
+              <div ref={canCollapse ? textRef : undefined} style={clamped ? styles.userTextClamped : undefined}>
+                {rest}
+              </div>
+            )}
+          </>
         ) : (
           <Markdown remarkPlugins={[remarkGfm]}>{message.text}</Markdown>
         )}
@@ -102,4 +127,23 @@ export function ChatMessage({ message, onOptionClick, hideOptions, connectAbove,
       <div style={styles.threadContent}>{content}</div>
     </div>
   )
+}
+
+/** Loads a pasted image from disk and renders it as a thumbnail inside the message bubble. */
+function ChatImageThumbnail({ filePath }: { filePath: string }): React.JSX.Element {
+  const [dataUrl, setDataUrl] = useState<string | null>(null)
+  const [failed, setFailed] = useState(false)
+
+  useEffect(() => {
+    let cancelled = false
+    window.electronAPI
+      .invoke('chat:read-pasted-image', filePath)
+      .then((result) => { if (!cancelled) setDataUrl(result as string) })
+      .catch(() => { if (!cancelled) setFailed(true) })
+    return () => { cancelled = true }
+  }, [filePath])
+
+  if (failed) return <span style={styles.imageFallback}>{`[image: ${filePath}]`}</span>
+  if (!dataUrl) return <div style={styles.imageLoading} aria-label="Loading image" />
+  return <img src={dataUrl} alt="Pasted attachment" style={styles.thumbnail} />
 }

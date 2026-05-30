@@ -99,6 +99,40 @@ export const collapseToggle: CSSProperties = {
   fontWeight: 500,
 }
 
+export const imageGrid: CSSProperties = {
+  display: 'flex',
+  flexWrap: 'wrap',
+  gap: 6,
+  marginBottom: 8,
+}
+
+export const imageGridOnly: CSSProperties = {
+  display: 'flex',
+  flexWrap: 'wrap',
+  gap: 6,
+}
+
+export const thumbnail: CSSProperties = {
+  maxWidth: 220,
+  maxHeight: 160,
+  borderRadius: 10,
+  objectFit: 'cover',
+  display: 'block',
+  border: '1px solid var(--border)',
+}
+
+export const imageLoading: CSSProperties = {
+  width: 120,
+  height: 90,
+  borderRadius: 10,
+  background: 'color-mix(in srgb, var(--text) 10%, transparent)',
+}
+
+export const imageFallback: CSSProperties = {
+  opacity: 0.7,
+  fontSize: 13,
+}
+
 export const optionsSection: CSSProperties = {
   marginTop: 14,
   display: 'flex',
