@@ -19,27 +19,38 @@ function GhostLinkButton({ onClick, children }: { onClick: () => void; children:
 }
 
 function ManifoldWordmark({ size = 'normal' }: { size?: 'normal' | 'large' }) {
-  const fontSize = size === 'large' ? 32 : 22
-  const trackingEm = size === 'large' ? '0.15em' : '0.12em'
-  const ruleWidth = size === 'large' ? 60 : 40
+  const glyphSize = size === 'large' ? 88 : 64
+  const ruleWidth = size === 'large' ? 72 : 48
   return (
     <div style={{ textAlign: 'center' }}>
-      <div style={{
-        fontSize,
-        fontWeight: 200,
-        letterSpacing: trackingEm,
-        color: 'var(--text-primary)',
-        opacity: 0.8,
-        fontFamily: 'var(--font-sans)',
-      }}>
-        MANIFOLD
-      </div>
+      <svg
+        width={glyphSize}
+        height={glyphSize}
+        viewBox="0 0 1024 1024"
+        role="img"
+        aria-label="Manifold"
+        style={{ display: 'block', margin: '0 auto' }}
+      >
+        <defs>
+          <mask id="onboarding-ghost-cutouts">
+            <rect width="1024" height="1024" fill="white" />
+            <circle cx="410" cy="440" r="52" fill="black" />
+            <circle cx="614" cy="440" r="52" fill="black" />
+            <path d="M 430 540 Q 512 610 594 540 Q 570 580 512 590 Q 454 580 430 540 Z" fill="black" />
+          </mask>
+        </defs>
+        <path
+          mask="url(#onboarding-ghost-cutouts)"
+          fill="var(--accent)"
+          d="M 512 180 C 340 180 260 310 260 440 L 260 700 Q 260 740 290 740 Q 320 710 350 740 Q 380 770 410 740 Q 440 710 470 740 Q 500 770 530 740 Q 560 710 590 740 Q 620 770 650 740 Q 680 710 710 740 Q 740 770 764 740 L 764 440 C 764 310 684 180 512 180 Z"
+        />
+      </svg>
       <div style={{
         width: ruleWidth,
-        height: 1,
-        background: 'linear-gradient(90deg, transparent, var(--accent), transparent)',
-        margin: '8px auto 0',
-        opacity: 0.5,
+        height: 2,
+        borderRadius: 1,
+        background: 'var(--accent)',
+        margin: '12px auto 0',
       }} />
     </div>
   )
