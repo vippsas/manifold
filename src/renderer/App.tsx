@@ -24,7 +24,6 @@ import { useEditorPaneHandlers } from './hooks/useEditorPaneHandlers'
 import { useSuperagentFileBridge } from './hooks/useSuperagentFileBridge'
 import { useAutoSelectActiveProject } from './hooks/useAutoSelectActiveProject'
 import { useProjectCreateHandlers } from './hooks/useProjectCreateHandlers'
-import { useWebPreview } from './hooks/useWebPreview'
 import { useDockLayout } from './hooks/useDockLayout'
 import { useAgentSiblingDockTabs } from './hooks/useAgentSiblingDockTabs'
 import { useSuperagentChildDockTabs } from './hooks/useSuperagentChildDockTabs'
@@ -105,11 +104,10 @@ export function App(): React.JSX.Element {
     if (!panel) return
     if (!panel.api.isActive) panel.api.setActive()
   }, [activeSessionId, activeSuperagentId, dockLayout.apiRef, dockLayout.layoutReloadVersion])
-  const webPreview = useWebPreview(effectiveSessionId)
   const { superagentFileReader, superagentFileWriter } = useSuperagentFileBridge(activeSuperagent)
   const codeView = useCodeView(effectiveSessionId, superagentFileReader, superagentFileWriter)
   const appEffects = useAppEffects({
-    activeSessionId, dockLayout, webPreviewUrl: webPreview.previewUrl, settings,
+    activeSessionId, dockLayout, settings,
     setActiveProject, spawnAgent, refreshOpenFiles: codeView.refreshOpenFiles, refreshDiff,
   })
   const { additionalTrees, additionalBranches } = useAdditionalDirs(effectiveSessionId, activeSession?.additionalDirs)
@@ -247,7 +245,7 @@ export function App(): React.JSX.Element {
     },
     fetchingProjectId: fetchProject.fetchingProjectId, lastFetchedProjectId: fetchProject.lastFetchedProjectId,
     fetchResult: fetchProject.fetchResult, fetchError: fetchProject.fetchError,
-    onFetchProject: fetchProject.fetchProject, previewUrl: webPreview.previewUrl,
+    onFetchProject: fetchProject.fetchProject,
     onShowSearchPanel: appEffects.showSearchPanel, onClosePanel: editorHandlers.handleClosePanel,
     onFocusPanel: dockLayout.focusPanel,
     onOpenSibling: dockLayout.openSiblingPanel, onCloseSiblingPanel: dockLayout.closeSiblingPanel,

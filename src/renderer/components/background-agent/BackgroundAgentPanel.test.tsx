@@ -271,7 +271,6 @@ function createDockState(overrides: Partial<DockAppState> = {}): DockAppState {
     activeSessionStatus: null,
     activeSessionRuntimeId: null,
     onResumeAgent: vi.fn(),
-    previewUrl: null,
     onShowSearchPanel: vi.fn(),
     onClosePanel: vi.fn(),
     onFocusPanel: vi.fn(),

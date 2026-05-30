@@ -5,7 +5,7 @@ import type { UseDockLayoutResult } from './useDockLayout'
 
 const listeners = new Map<string, (...args: unknown[]) => void>()
 
-function createInput(webPreviewUrl: string | null, activeSessionId: string | null = 'session-1') {
+function createInput(activeSessionId: string | null = 'session-1') {
   const panels = new Set<string>()
   const addPanel = vi.fn(({ id }: { id: string }) => {
     panels.add(id)
@@ -35,7 +35,6 @@ function createInput(webPreviewUrl: string | null, activeSessionId: string | nul
         hiddenPanels: [],
         editorPanelIds: ['editor'],
       } satisfies UseDockLayoutResult,
-      webPreviewUrl,
       settings: { defaultRuntime: 'codex' },
       setActiveProject: vi.fn(),
       spawnAgent: vi.fn(),
@@ -69,33 +68,8 @@ describe('useAppEffects', () => {
     vi.useRealTimers()
   })
 
-  it('does not recreate the preview panel after a manual close for the same URL', () => {
-    const { panels, addPanel, input } = createInput('http://127.0.0.1:5173')
-    const { rerender } = renderHook(({ webPreviewUrl }) => useAppEffects({ ...input, webPreviewUrl }), {
-      initialProps: { webPreviewUrl: input.webPreviewUrl },
-    })
-
-    expect(addPanel).toHaveBeenCalledTimes(1)
-    panels.delete('webPreview')
-    rerender({ webPreviewUrl: 'http://127.0.0.1:5173' })
-    expect(addPanel).toHaveBeenCalledTimes(1)
-  })
-
-  it('auto-opens the preview again after the preview URL is reset and detected again', () => {
-    const { panels, addPanel, input } = createInput('http://127.0.0.1:5173')
-    const { rerender } = renderHook(({ webPreviewUrl }) => useAppEffects({ ...input, webPreviewUrl }), {
-      initialProps: { webPreviewUrl: input.webPreviewUrl },
-    })
-
-    expect(addPanel).toHaveBeenCalledTimes(1)
-    panels.delete('webPreview')
-    rerender({ webPreviewUrl: null })
-    rerender({ webPreviewUrl: 'http://127.0.0.1:5173' })
-    expect(addPanel).toHaveBeenCalledTimes(2)
-  })
-
   it('uses the runtime provided by app:auto-spawn when present', () => {
-    const { input } = createInput(null)
+    const { input } = createInput()
     renderHook(() => useAppEffects({ ...input }))
 
     const autoSpawn = vi.mocked(window.electronAPI.on).mock.calls.find(([channel]) => channel === 'app:auto-spawn')?.[1]
@@ -119,7 +93,7 @@ describe('useAppEffects', () => {
       return null
     })
 
-    const { input } = createInput(null)
+    const { input } = createInput()
     renderHook(() => useAppEffects({ ...input }))
 
     await act(async () => {
@@ -138,7 +112,7 @@ describe('useAppEffects', () => {
   })
 
   it('debounces open file refreshes while the active agent is producing output', () => {
-    const { input } = createInput(null)
+    const { input } = createInput()
     renderHook(() => useAppEffects({ ...input }))
 
     act(() => {
@@ -156,7 +130,7 @@ describe('useAppEffects', () => {
   })
 
   it('flushes the pending refresh and updates diff when the active agent completes', () => {
-    const { input } = createInput(null)
+    const { input } = createInput()
     renderHook(() => useAppEffects({ ...input }))
 
     act(() => {
@@ -173,7 +147,7 @@ describe('useAppEffects', () => {
   })
 
   it('ignores output from background sessions', () => {
-    const { input } = createInput(null)
+    const { input } = createInput()
     renderHook(() => useAppEffects({ ...input }))
 
     act(() => {

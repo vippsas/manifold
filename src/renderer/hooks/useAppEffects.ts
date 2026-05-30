@@ -8,7 +8,6 @@ import { ensureSearchPanelInWorkspace } from './dock-layout-search'
 interface AppEffectsInput {
   activeSessionId: string | null
   dockLayout: UseDockLayoutResult
-  webPreviewUrl: string | null
   settings: { defaultRuntime: string }
   setActiveProject: (id: string) => void
   spawnAgent: (options: SpawnAgentOptions) => Promise<unknown>
@@ -35,7 +34,6 @@ export function useAppEffects(input: AppEffectsInput): AppEffectsResult {
   const [showOnboarding, setShowOnboarding] = useState(false)
   const [creatingProject, setCreatingProject] = useState(false)
   const [cloningProject, setCloningProject] = useState(false)
-  const lastAutoOpenedPreviewUrlRef = useRef<string | null>(null)
   const agentRefreshTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   const showSearchPanel = useCallback((mode: SearchMode) => {
@@ -118,27 +116,6 @@ export function useAppEffects(input: AppEffectsInput): AppEffectsResult {
     flushOpenFileRefresh()
     void input.refreshDiff()
   }), [flushOpenFileRefresh, input.activeSessionId, input.refreshDiff])
-
-  useEffect(() => {
-    const api = input.dockLayout.apiRef.current
-    if (!input.webPreviewUrl) {
-      lastAutoOpenedPreviewUrlRef.current = null
-      return
-    }
-    if (!api || input.webPreviewUrl === lastAutoOpenedPreviewUrlRef.current) return
-    if (!api.getPanel('webPreview')) {
-      const editorPanel = input.dockLayout.editorPanelIds[0]
-        ? api.getPanel(input.dockLayout.editorPanelIds[0])
-        : api.getPanel('editor')
-      api.addPanel({
-        id: 'webPreview',
-        component: 'webPreview',
-        title: 'Preview',
-        position: editorPanel ? { referencePanel: editorPanel, direction: 'within' } : undefined,
-      })
-    }
-    lastAutoOpenedPreviewUrlRef.current = input.webPreviewUrl
-  }, [input.dockLayout.apiRef, input.dockLayout.editorPanelIds, input.webPreviewUrl])
 
   const handleFilesChanged = useCallback(() => {
     void input.refreshOpenFiles()

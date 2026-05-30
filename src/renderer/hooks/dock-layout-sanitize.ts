@@ -2,8 +2,8 @@ import type { SerializedDockview } from 'dockview'
 import { isSiblingPanelId, parseSiblingSessionId } from './agent-siblings'
 import { PANEL_IDS, isEditorPanelId, type DockPanelId, type GridNode } from './dock-layout-helpers'
 
-const RETIRED_PANEL_IDS = new Set(['memory'])
-const SUPPORTED_OPTIONAL_PANEL_IDS = new Set(['webPreview'])
+const RETIRED_PANEL_IDS = new Set(['memory', 'webPreview'])
+const SUPPORTED_OPTIONAL_PANEL_IDS = new Set<string>()
 
 function isSupportedSavedPanelId(panelId: string, liveSiblingSessionIds?: Set<string>): boolean {
   if (PANEL_IDS.includes(panelId as DockPanelId)) return true

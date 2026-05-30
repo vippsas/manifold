@@ -6,7 +6,6 @@ import { ModifiedFiles } from '../git/ModifiedFiles'
 import { FleetModifiedFiles } from '../git/FleetModifiedFiles'
 import { ShellTabs } from '../terminal/ShellTabs'
 import { ProjectSidebar } from '../sidebar/ProjectSidebar'
-import { WebPreview } from '../terminal/WebPreview'
 import { SearchPanel } from '../search/SearchPanel'
 import { BackgroundAgentPanel } from '../background-agent/BackgroundAgentPanel'
 import { LoopPanel } from '../loop/LoopPanel'
@@ -26,7 +25,6 @@ export const PANEL_COMPONENTS: Record<string, React.FC<any>> = {
   modifiedFiles: ModifiedFilesPanel,
   shell: ShellPanel,
   projects: ProjectsPanel,
-  webPreview: WebPreviewPanel,
   search: SearchPanel,
   backgroundAgent: BackgroundAgentPanel,
   loop: LoopPanel,
@@ -192,14 +190,3 @@ function ProjectsPanel(): React.JSX.Element {
   )
 }
 
-function WebPreviewPanel(): React.JSX.Element {
-  const s = useDockState()
-  if (!s.previewUrl) {
-    return (
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%', color: 'var(--text-muted)', fontSize: '12px' }}>
-        No preview available
-      </div>
-    )
-  }
-  return <WebPreview url={s.previewUrl} />
-}
