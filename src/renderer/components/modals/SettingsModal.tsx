@@ -28,7 +28,6 @@ export function SettingsModal({ visible, settings, onSave, onClose, onPreviewThe
   const [notificationSound, setNotificationSound] = useState(settings.notificationSound)
   const [shellPrompt, setShellPrompt] = useState(settings.shellPrompt)
   const [shellHistoryScope, setShellHistoryScope] = useState(settings.shellHistoryScope)
-  const [uiMode, setUiMode] = useState(settings.uiMode)
   const [density, setDensity] = useState<DensitySetting>(settings.density)
   const [autoGenerateMessages, setAutoGenerateMessages] = useState(settings.autoGenerateMessages)
   const [showCommitAndPrButtons, setShowCommitAndPrButtons] = useState(settings.showCommitAndPrButtons)
@@ -62,7 +61,6 @@ export function SettingsModal({ visible, settings, onSave, onClose, onPreviewThe
     setNotificationSound(settings.notificationSound)
     setShellPrompt(settings.shellPrompt)
     setShellHistoryScope(settings.shellHistoryScope)
-    setUiMode(settings.uiMode)
     setDensity(settings.density)
     setAutoGenerateMessages(settings.autoGenerateMessages)
     setShowCommitAndPrButtons(settings.showCommitAndPrButtons)
@@ -82,7 +80,6 @@ export function SettingsModal({ visible, settings, onSave, onClose, onPreviewThe
       return
     }
 
-    const modeChanged = uiMode !== settings.uiMode
     onSave({
       defaultRuntime,
       showIdeasTab,
@@ -96,7 +93,6 @@ export function SettingsModal({ visible, settings, onSave, onClose, onPreviewThe
       notificationSound,
       shellPrompt,
       shellHistoryScope,
-      uiMode,
       density,
       autoGenerateMessages,
       showCommitAndPrButtons,
@@ -105,10 +101,7 @@ export function SettingsModal({ visible, settings, onSave, onClose, onPreviewThe
       transcription,
     })
     onClose()
-    if (modeChanged) {
-      window.electronAPI.invoke('app:switch-mode', uiMode)
-    }
-  }, [defaultRuntime, showIdeasTab, showLoopTab, showVerdictsTab, theme, scrollbackLines, terminalFontFamily, defaultBaseBranch, storagePath, notificationSound, shellPrompt, shellHistoryScope, uiMode, density, autoGenerateMessages, showCommitAndPrButtons, settings.uiMode, searchAiSettings, provisioners, transcription, onSave, onClose])
+  }, [defaultRuntime, showIdeasTab, showLoopTab, showVerdictsTab, theme, scrollbackLines, terminalFontFamily, defaultBaseBranch, storagePath, notificationSound, shellPrompt, shellHistoryScope, density, autoGenerateMessages, showCommitAndPrButtons, searchAiSettings, provisioners, transcription, onSave, onClose])
 
   if (!visible) return null
 
@@ -158,8 +151,6 @@ export function SettingsModal({ visible, settings, onSave, onClose, onPreviewThe
           onShellPromptChange={setShellPrompt}
           shellHistoryScope={shellHistoryScope}
           onShellHistoryScopeChange={setShellHistoryScope}
-          uiMode={uiMode}
-          onUiModeChange={setUiMode}
           density={density}
           onDensityChange={setDensity}
           autoGenerateMessages={autoGenerateMessages}
