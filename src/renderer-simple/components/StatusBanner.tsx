@@ -6,7 +6,7 @@ const STATUS_LABELS: Record<AppStatus, string> = {
   idle: 'Ready',
   scaffolding: 'Setting up project...',
   building: 'Building your app...',
-  previewing: 'Preview ready',
+  previewing: 'Ready',
   deploying: 'Deploying to Vercel...',
   live: 'Live',
   error: 'Something went wrong',

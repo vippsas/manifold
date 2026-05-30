@@ -77,7 +77,6 @@ function makeDockState(overrides: Partial<DockAppState> = {}): DockAppState {
     activeSessionStatus: null,
     activeSessionRuntimeId: null,
     onResumeAgent: async () => {},
-    previewUrl: null,
     onShowSearchPanel: () => {},
     onClosePanel: () => {},
     onFocusPanel: () => {},

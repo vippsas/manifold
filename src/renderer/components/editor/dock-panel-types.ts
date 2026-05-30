@@ -105,8 +105,6 @@ export interface DockAppState {
   activeSessionStatus: AgentStatus | null
   activeSessionRuntimeId: string | null
   onResumeAgent: (sessionId: string, runtimeId: string) => Promise<void>
-  // Web preview
-  previewUrl: string | null
   // Layout
   onShowSearchPanel: (mode: SearchMode) => void
   onClosePanel: (id: string) => void

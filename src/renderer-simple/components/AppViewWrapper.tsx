@@ -61,7 +61,6 @@ export function AppViewWrapper({ app, onBack }: { app: SimpleApp; onBack: () => 
       <AppView
         status={status}
         messages={messages}
-        previewUrl={previewUrl}
         isAgentWorking={agentStatus === 'running'}
         agentDurationMs={durationMs}
         onSendMessage={sendMessage}
