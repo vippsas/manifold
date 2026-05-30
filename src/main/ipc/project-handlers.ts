@@ -7,7 +7,7 @@ import { existsSync, mkdirSync, rmSync } from 'node:fs'
 import type { IpcDependencies } from './types'
 import { getRuntimeById } from '../agent/runtimes'
 import type { CreateProjectOptions } from '../../shared/types'
-import { slugifyRepoName, suggestRepoName } from '../../shared/repo-name'
+import { extractGitHubRepoUrlFromText, slugifyRepoName, suggestRepoName } from '../../shared/repo-name'
 
 const execFileAsync = promisify(execFile)
 
@@ -96,12 +96,14 @@ export function registerProjectHandlers(deps: IpcDependencies): void {
       const description = payload.description.trim()
       const requestedRepoName = typeof payload.repoName === 'string' ? payload.repoName : undefined
       const explicitRepoName = requestedRepoName !== undefined
+      const projectKind = payload.projectKind === 'folder' ? 'folder' : 'git'
       const targetDir = typeof payload.targetDir === 'string' && path.isAbsolute(payload.targetDir)
         ? payload.targetDir
         : undefined
       const settings = deps.settingsStore.getSettings()
       const runtime = getRuntimeById(settings.defaultRuntime)
       const projectsBase = path.join(settings.storagePath, 'projects')
+      const sourceRepoUrl = projectKind === 'folder' ? extractGitHubRepoUrlFromText(description) : null
 
       let projectDir: string
 
@@ -111,13 +113,14 @@ export function registerProjectHandlers(deps: IpcDependencies): void {
         }
         projectDir = targetDir
       } else {
-        // Generate a catchy project name via AI, fall back to slugified description
         let baseSlug = explicitRepoName ? slugifyRepoName(requestedRepoName) : suggestRepoName(description)
         if (explicitRepoName && !baseSlug) {
           throw new Error('A repository name is required')
         }
 
-        if (!explicitRepoName && runtime?.binary) {
+        // Scratch projects can use AI for a nicer name; copied-instruction
+        // projects stay local so they can start immediately.
+        if (!explicitRepoName && projectKind !== 'folder' && runtime?.binary) {
           const namePrompt =
             `Suggest a short, catchy project name (1-3 words) for this project idea:\n\n` +
             `${description}\n\n` +
@@ -148,7 +151,17 @@ export function registerProjectHandlers(deps: IpcDependencies): void {
       }
 
       try {
+        if (sourceRepoUrl) {
+          mkdirSync(path.dirname(projectDir), { recursive: true })
+          await execFileAsync('git', ['clone', '--', sourceRepoUrl, projectDir], {})
+          return projectRegistry.addProject(projectDir)
+        }
+
         mkdirSync(projectDir, { recursive: true })
+
+        if (projectKind === 'folder') {
+          return projectRegistry.addProject(projectDir, { kind: 'folder' })
+        }
 
         await execFileAsync('git', ['init', '--initial-branch=main'], { cwd: projectDir })
         await execFileAsync(

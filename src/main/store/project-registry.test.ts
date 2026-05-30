@@ -222,6 +222,17 @@ describe('ProjectRegistry', () => {
       expect(project.kind).toBe('folder')
     })
 
+    it('stores a forced plain folder without probing git', async () => {
+      mockExistsSync.mockReturnValue(false)
+
+      const registry = new ProjectRegistry()
+      const project = await registry.addProject('/my-project', { kind: 'folder' })
+
+      expect(project.baseBranch).toBe('')
+      expect(project.kind).toBe('folder')
+      expect(mockSpawn).not.toHaveBeenCalled()
+    })
+
     it('stores a plain folder when the git probe cannot spawn', async () => {
       mockExistsSync.mockReturnValue(false)
       mockSpawn.mockImplementation(() => {

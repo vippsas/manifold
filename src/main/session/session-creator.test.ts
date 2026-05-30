@@ -24,6 +24,7 @@ vi.mock('../git/worktree-meta', () => ({
 }))
 
 import { SessionCreator } from './session-creator'
+import { gitExec } from '../git/git-exec'
 import { readWorktreeMeta, writeWorktreeMeta } from '../git/worktree-meta'
 import type { WorktreeManager } from '../git/worktree-manager'
 import type { PtyPool } from '../agent/pty-pool'
@@ -88,5 +89,32 @@ describe('SessionCreator', () => {
         parentSuperagentId: undefined,
       }),
     )
+  })
+
+  it('runs no-worktree stay-on-branch sessions directly in the project path', async () => {
+    vi.mocked(gitExec).mockResolvedValueOnce('main\n')
+    const creator = new SessionCreator(
+      {} as WorktreeManager,
+      createPtyPool(),
+      createProjectRegistry(),
+      createStreamWirer(),
+      () => null,
+    )
+
+    const session = await creator.create({
+      projectId: 'proj-1',
+      runtimeId: 'codex',
+      prompt: 'build the app',
+      branchName: 'main',
+      noWorktree: true,
+      stayOnBranch: true,
+    })
+
+    expect(gitExec).toHaveBeenCalledWith(['rev-parse', '--abbrev-ref', 'HEAD'], '/repo')
+    expect(session.branchName).toBe('main')
+    expect(session.worktreePath).toBe('/repo')
+    expect(session.noWorktree).toBe(true)
+    expect(readWorktreeMeta).not.toHaveBeenCalled()
+    expect(writeWorktreeMeta).not.toHaveBeenCalled()
   })
 })

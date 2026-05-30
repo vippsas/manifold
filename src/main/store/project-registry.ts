@@ -2,7 +2,7 @@ import * as fs from 'node:fs'
 import * as path from 'node:path'
 import * as os from 'node:os'
 import { v4 as uuidv4 } from 'uuid'
-import { Project } from '../../shared/types'
+import type { Project, ProjectKind } from '../../shared/types'
 import { isGitProject } from '../../shared/project-kind'
 import { sortProjectsByName } from '../../shared/project-sort'
 import { gitExec } from '../git/git-exec'
@@ -76,14 +76,14 @@ export class ProjectRegistry {
     return sortProjectsByName(this.projects)
   }
 
-  async addProject(projectPath: string): Promise<Project> {
+  async addProject(projectPath: string, options: { kind?: ProjectKind } = {}): Promise<Project> {
     const resolvedPath = path.resolve(projectPath)
     const existing = this.projects.find((p) => p.path === resolvedPath)
     if (existing) {
       return existing
     }
 
-    const kind = await this.detectProjectKind(resolvedPath)
+    const kind = options.kind ?? await this.detectProjectKind(resolvedPath)
     const baseBranch = isGitProject({ kind }) ? await this.detectBaseBranch(resolvedPath) : ''
     const project: Project = {
       id: uuidv4(),

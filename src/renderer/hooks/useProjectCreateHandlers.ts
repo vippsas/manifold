@@ -1,7 +1,13 @@
 import { useCallback } from 'react'
 import type { CreateProjectOptions, SpawnAgentOptions, AgentSession, Project } from '../../shared/types'
-import { deriveBranchName } from '../../shared/derive-branch-name'
-import { pickRandomNorwegianCityName } from '../../shared/norwegian-cities'
+
+const COPIED_INSTRUCTIONS_WORKSPACE_NOTE =
+  'Workspace setup note: use the current working directory as the project root. ' +
+  'If the copied instructions ask you to clone a repository, clone it into the current directory ' +
+  '(for example, `git clone <url> .`) so the repository files are not nested inside another empty folder.\n\n'
+const COPIED_INSTRUCTIONS_CLONED_NOTE =
+  'Workspace setup note: the referenced repository has already been cloned into the current working directory. ' +
+  'Do not clone it again; continue from the files that are already here.\n\n'
 
 interface Args {
   createNewProject: (options: CreateProjectOptions) => Promise<Project | null>
@@ -38,19 +44,23 @@ export function useProjectCreateHandlers(args: Args): UseProjectCreateHandlersRe
         appEffects.setCreatingProject(false)
         return false
       }
-      let branchName = deriveBranchName(pickRandomNorwegianCityName(), project.name)
-      try {
-        const suggested = await window.electronAPI.invoke('branch:suggest', project.id) as string
-        if (typeof suggested === 'string' && suggested.trim()) branchName = suggested
-      } catch {
-        // Keep the city-based fallback if branch suggestion fails.
-      }
+      const copiedInstructions = options.projectKind === 'folder'
+      const createAsFolder = project.kind === 'folder'
+      const branchName = createAsFolder ? project.name : project.baseBranch || 'main'
+      const copiedInstructionsNote = createAsFolder
+        ? COPIED_INSTRUCTIONS_WORKSPACE_NOTE
+        : COPIED_INSTRUCTIONS_CLONED_NOTE
+      const agentPrompt = copiedInstructions
+        ? `${copiedInstructionsNote}${options.description}`
+        : options.description
       const session = await spawnAgent({
         projectId: project.id,
         runtimeId: defaultRuntime,
-        prompt: options.description,
+        prompt: agentPrompt,
         userMessage: options.description,
         branchName,
+        noWorktree: true,
+        ...(createAsFolder ? {} : { stayOnBranch: true }),
         nonInteractive: true,
       })
       if (!session) {

@@ -1,4 +1,5 @@
 import { v4 as uuidv4 } from 'uuid'
+import * as path from 'node:path'
 import { SpawnAgentOptions } from '../../shared/types'
 import { getRuntimeById } from '../agent/runtimes'
 import { WorktreeManager } from '../git/worktree-manager'

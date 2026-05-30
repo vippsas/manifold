@@ -202,6 +202,39 @@ describe('useProjects', () => {
       expect(result.current.activeProjectId).toBe('p-new')
     })
 
+    it('creates plain folder projects without prompting for a target directory', async () => {
+      const createdProject = { id: 'p-new', name: 'Timer', path: '/managed/timer', baseBranch: '', addedAt: '2024-01-03', kind: 'folder' }
+      let listedProjects: typeof createdProject[] = []
+      mockInvoke.mockImplementation((channel: string) => {
+        if (channel === 'projects:list') return Promise.resolve(listedProjects)
+        if (channel === 'projects:create-new') {
+          listedProjects = [createdProject]
+          return Promise.resolve(createdProject)
+        }
+        return Promise.resolve(undefined)
+      })
+
+      const { result } = renderHook(() => useProjects())
+
+      await waitFor(() => {
+        expect(result.current.loading).toBe(false)
+      })
+
+      await act(async () => {
+        await result.current.createNewProject({
+          description: 'Clone the prepared repository.',
+          projectKind: 'folder',
+        })
+      })
+
+      expect(mockInvoke).not.toHaveBeenCalledWith('projects:create-new-dialog', expect.anything())
+      expect(mockInvoke).toHaveBeenCalledWith('projects:create-new', {
+        description: 'Clone the prepared repository.',
+        projectKind: 'folder',
+      })
+      expect(result.current.projects).toContainEqual(createdProject)
+    })
+
     it('returns null when the user cancels the directory picker', async () => {
       mockInvoke.mockImplementation((channel: string) => {
         if (channel === 'projects:list') return Promise.resolve([])
