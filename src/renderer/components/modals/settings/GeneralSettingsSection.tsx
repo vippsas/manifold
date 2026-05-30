@@ -34,8 +34,6 @@ interface Props {
   onShellPromptChange: (enabled: boolean) => void
   shellHistoryScope: 'project' | 'global'
   onShellHistoryScopeChange: (scope: 'project' | 'global') => void
-  uiMode: 'developer' | 'simple'
-  onUiModeChange: (mode: 'developer' | 'simple') => void
   density: DensitySetting
   onDensityChange: (density: DensitySetting) => void
   autoGenerateMessages: boolean
@@ -132,13 +130,6 @@ export function GeneralSettingsSection(props: Props): React.JSX.Element {
               Terminal Font
               <input type="text" value={props.terminalFontFamily} onChange={(event) => props.onTerminalFontFamilyChange(event.target.value)} style={modalStyles.input} placeholder="SF Mono, Fira Code, Cascadia Code, Menlo" />
               <span style={modalStyles.helpText}>Set a Nerd Font (e.g. MesloLGS Nerd Font Mono) for oh-my-posh/Starship icons</span>
-            </label>
-            <label style={modalStyles.label}>
-              UI Mode
-              <select value={props.uiMode} onChange={(event) => props.onUiModeChange(event.target.value as 'developer' | 'simple')} style={modalStyles.select}>
-                <option value="developer">Developer (Manifold)</option>
-                <option value="simple">Simple</option>
-              </select>
             </label>
             <label style={modalStyles.label}>
               Density

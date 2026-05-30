@@ -53,7 +53,6 @@ let ipcHandlersRegistered = false
 export function createWindow(deps: WindowFactoryDeps): BrowserWindow {
   const settings = deps.getSettings()
   const theme = settings.theme ?? 'dracula'
-  const simple = settings.uiMode === 'simple'
   nativeTheme.themeSource = resolveThemeType(theme)
 
   const win = new BrowserWindow({
@@ -66,7 +65,7 @@ export function createWindow(deps: WindowFactoryDeps): BrowserWindow {
     trafficLightPosition: { x: 12, y: 12 },
     backgroundColor: resolveInitialBackground(theme),
     webPreferences: {
-      preload: join(__dirname, simple ? '../preload/simple.js' : '../preload/index.js'),
+      preload: join(__dirname, '../preload/index.js'),
       contextIsolation: true,
       nodeIntegration: false,
       webviewTag: true,
@@ -103,7 +102,7 @@ export function createWindow(deps: WindowFactoryDeps): BrowserWindow {
     ipcHandlersRegistered = true
   }
 
-  loadRenderer(win, simple)
+  loadRenderer(win)
 
   // Open external links in the user's default browser instead of inside the app.
   win.webContents.setWindowOpenHandler(({ url }) => {
@@ -140,17 +139,14 @@ export function rebuildAppMenu(
   Menu.setApplicationMenu(buildAppMenu(win, options))
 }
 
-function loadRenderer(window: BrowserWindow, simple: boolean): void {
+function loadRenderer(window: BrowserWindow): void {
   // ELECTRON_RENDERER_URL is set by electron-vite in dev and by the
   // local-renderer-server in prod (see src/main/app/index.ts). The fallback
   // file:// path only runs if the local server failed to bind — embed
   // providers (YouTube, etc.) will reject the file:// origin there.
   if (process.env.ELECTRON_RENDERER_URL) {
-    const base = process.env.ELECTRON_RENDERER_URL
-    const page = simple ? '/renderer-simple/index.html' : '/renderer/index.html'
-    window.loadURL(base + page)
+    window.loadURL(process.env.ELECTRON_RENDERER_URL + '/renderer/index.html')
   } else {
-    const page = simple ? '../renderer-simple/index.html' : '../renderer/index.html'
-    window.loadFile(join(__dirname, page))
+    window.loadFile(join(__dirname, '../renderer/index.html'))
   }
 }

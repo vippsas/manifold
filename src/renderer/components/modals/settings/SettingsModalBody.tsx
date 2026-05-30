@@ -48,8 +48,6 @@ interface Props {
   onShellPromptChange: (enabled: boolean) => void
   shellHistoryScope: 'project' | 'global'
   onShellHistoryScopeChange: (scope: 'project' | 'global') => void
-  uiMode: 'developer' | 'simple'
-  onUiModeChange: (mode: 'developer' | 'simple') => void
   density: DensitySetting
   onDensityChange: (density: DensitySetting) => void
   autoGenerateMessages: boolean
