@@ -23,7 +23,10 @@ describe('ensureEditorPanelInWorkspace', () => {
     })
   })
 
-  it('moves an existing editor panel out of the agent tab group', () => {
+  it('leaves an existing editor tabbed with the agent in place', () => {
+    // Regression: opening a file must not yank a user-placed editor back to
+    // the default split. If the user tabbed the editor alongside the agent,
+    // it should stay there across file opens.
     const sharedGroup = { id: 'group-shared' }
     const moveTo = vi.fn()
     const agentPanel = { id: 'agent', group: sharedGroup }
@@ -39,12 +42,9 @@ describe('ensureEditorPanelInWorkspace', () => {
 
     const changed = ensureEditorPanelInWorkspace(api as never)
 
-    expect(changed).toBe(true)
-    expect(moveTo).toHaveBeenCalledWith({
-      group: sharedGroup,
-      position: 'right',
-      skipSetActive: true,
-    })
+    expect(changed).toBe(false)
+    expect(moveTo).not.toHaveBeenCalled()
+    expect(api.addPanel).not.toHaveBeenCalled()
   })
 
   it('leaves the layout unchanged when editor is already split away from agent', () => {
