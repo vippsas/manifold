@@ -28,6 +28,10 @@ export interface InternalSession extends AgentSession {
   /** Buffer for accumulating partial NDJSON lines from stream-json output */
   streamJsonLineBuffer?: string
   nonInteractiveOutputMode?: SimpleRuntimeOutputMode
+  /** Current Codex JSONL thread id, used to discover generated image files that the CLI does not emit as events. */
+  codexThreadId?: string
+  /** Real paths of Codex generated image files already copied/published for this session. */
+  codexPublishedGeneratedImageSources?: string[]
   /** Slash command/skill names from the Claude system/init event, for the chat `/` autocomplete */
   slashCommands?: string[]
   /** PTY id of an in-flight throwaway run that probes the slash-command list before the first message */
