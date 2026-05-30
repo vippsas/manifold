@@ -2,6 +2,10 @@ const MAX_REPO_NAME_LENGTH = 60
 const GITHUB_REPO_PATTERN =
   /((?:https?:\/\/github\.com\/|git@github\.com:|ssh:\/\/git@github\.com\/)([a-z0-9_.-]+)\/([a-z0-9_.-]+?))(?:\.git)?(?=[\s#?)/.,;:]|$)/i
 
+// GitHub CLI shorthand, e.g. `gh repo clone owner/repo`, which has no host.
+const GH_CLI_CLONE_PATTERN =
+  /\bgh\s+repo\s+clone\s+([a-z0-9_.-]+)\/([a-z0-9_.-]+?)(?:\.git)?(?=[\s#?)/.,;:]|$)/i
+
 export function extractGitHubRepoUrlFromText(value: string): string | null {
   const match = value.match(GITHUB_REPO_PATTERN)
   if (!match) return null
@@ -10,7 +14,12 @@ export function extractGitHubRepoUrlFromText(value: string): string | null {
 
 function repoNameFromText(value: string): string {
   const match = value.match(GITHUB_REPO_PATTERN)
-  return match?.[3] ?? ''
+  if (match) return match[3]
+
+  const cli = value.match(GH_CLI_CLONE_PATTERN)
+  if (cli) return cli[2]
+
+  return ''
 }
 
 export function slugifyRepoName(value: string): string {
