@@ -1,33 +1,58 @@
 import type React from 'react'
 
-export const modePillStyles = {
-  container: {
+export const modeToggleStyles = {
+  wrapper: {
     display: 'flex',
+    flexDirection: 'column',
     alignItems: 'center',
-    justifyContent: 'center',
-    gap: 4,
+    gap: 'var(--space-md)',
+    marginTop: 'var(--space-xs)',
   } as React.CSSProperties,
-  button: {
-    background: 'transparent',
+  track: {
+    display: 'inline-flex',
+    alignItems: 'center',
+    gap: 2,
+    padding: 3,
+    background: 'var(--control-bg)',
+    border: '1px solid var(--control-border)',
+    borderRadius: 'var(--radius-pill)',
+    boxShadow: 'inset 0 1px 0 rgba(255, 255, 255, 0.03)',
+  } as React.CSSProperties,
+  segment: {
+    appearance: 'none',
     border: 'none',
-    padding: '2px 6px',
-    cursor: 'pointer',
+    background: 'transparent',
+    padding: '5px 18px',
+    borderRadius: 'var(--radius-pill)',
     color: 'var(--text-muted)',
-    fontSize: 11,
+    fontSize: 'var(--type-ui-small)',
     fontWeight: 500,
-    letterSpacing: '0.02em',
-    transition: 'color var(--duration-normal) var(--ease-premium)',
+    letterSpacing: '0.01em',
+    cursor: 'pointer',
+    transition: 'background var(--duration-normal) var(--ease-premium), color var(--duration-normal) var(--ease-premium)',
   } as React.CSSProperties,
-  buttonActive: {
+  segmentActive: {
+    background: 'var(--accent-subtle)',
     color: 'var(--accent)',
+    boxShadow: 'inset 0 0 0 1px var(--accent-subtle)',
   } as React.CSSProperties,
-  separator: {
-    color: 'var(--text-muted)',
-    fontSize: 11,
-    opacity: 0.5,
-    userSelect: 'none' as const,
+  segmentHover: {
+    color: 'var(--text-secondary)',
   } as React.CSSProperties,
 }
+
+export const onboardingLinkStyle = (hover: boolean): React.CSSProperties => ({
+  marginTop: 'var(--space-xs)',
+  padding: '6px 14px',
+  fontSize: 'var(--type-ui-small)',
+  fontWeight: 500,
+  color: hover ? 'var(--text-primary)' : 'var(--text-muted)',
+  background: hover ? 'var(--list-hover-bg)' : 'transparent',
+  border: 'none',
+  borderRadius: 'var(--radius-sm)',
+  cursor: 'pointer',
+  transition: 'color var(--duration-normal) var(--ease-premium), background var(--duration-normal) var(--ease-premium)',
+})
 
 export const startButtonStyle = (canSubmit: boolean, loading: boolean): React.CSSProperties => ({
   width: '100%',

@@ -1,7 +1,22 @@
 import React from 'react'
 import type { AgentSession, CreateProjectOptions, SpawnAgentOptions } from '../../../shared/types'
 import { NewAgentForm } from './NewAgentForm'
+import { onboardingLinkStyle } from './NewAgentForm.styles'
 import { NoProjectActions } from '../sidebar/NoProjectActions'
+
+function GhostLinkButton({ onClick, children }: { onClick: () => void; children: React.ReactNode }): React.JSX.Element {
+  const [hover, setHover] = React.useState(false)
+  return (
+    <button
+      onClick={onClick}
+      onMouseEnter={() => setHover(true)}
+      onMouseLeave={() => setHover(false)}
+      style={onboardingLinkStyle(hover)}
+    >
+      {children}
+    </button>
+  )
+}
 
 function ManifoldWordmark({ size = 'normal' }: { size?: 'normal' | 'large' }) {
   const fontSize = size === 'large' ? 32 : 22
@@ -84,7 +99,7 @@ export function OnboardingView(props: OnboardingViewProps): React.JSX.Element {
         flexDirection: 'column',
         alignItems: 'center',
         justifyContent: 'center',
-        gap: 24,
+        gap: 'var(--space-xl)',
         minHeight: 0,
         color: 'var(--text-secondary)',
         userSelect: 'none',
@@ -103,63 +118,36 @@ export function OnboardingView(props: OnboardingViewProps): React.JSX.Element {
             createError={props.createError}
           />
           {props.onBack && (
-            <button
-              onClick={props.onBack}
-              style={{
-                marginTop: 8,
-                padding: '6px 16px',
-                fontSize: 12,
-                color: 'var(--text-muted)',
-                backgroundColor: 'transparent',
-                border: 'none',
-                cursor: 'pointer',
-                textDecoration: 'underline',
-              }}
-            >
-              Back to workspace
-            </button>
+            <GhostLinkButton onClick={props.onBack}>Back to workspace</GhostLinkButton>
           )}
         </>
       ) : (
         <>
-          <div style={{
-            fontSize: 'var(--type-title)',
-            fontWeight: 300,
-            color: 'var(--text-primary)',
-            letterSpacing: 'var(--tracking-tight)',
-            marginBottom: 'var(--space-xl)',
-          }}>
-            New agent for <span style={{ color: 'var(--text-primary)', fontWeight: 500 }}>{props.projectName}</span>
+          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 'var(--space-lg)' }}>
+            <div style={{
+              fontSize: 'var(--type-title)',
+              fontWeight: 300,
+              color: 'var(--text-primary)',
+              letterSpacing: 'var(--tracking-tight)',
+            }}>
+              New agent for <span style={{ color: 'var(--text-primary)', fontWeight: 500 }}>{props.projectName}</span>
+            </div>
+            <NewAgentForm
+              projectId={props.projectId}
+              projectPath={props.projectPath}
+              baseBranch={props.baseBranch}
+              isGitProject={props.isGitProject}
+              defaultRuntime={props.defaultRuntime}
+              defaultAgentMode={props.defaultAgentMode}
+              onLaunch={props.onLaunch}
+              existingSessions={props.existingSessions}
+              onResumeSession={props.onResumeSession}
+              onDeleteSession={props.onDeleteSession}
+              focusTrigger={props.focusTrigger}
+            />
           </div>
-          <NewAgentForm
-            projectId={props.projectId}
-            projectPath={props.projectPath}
-            baseBranch={props.baseBranch}
-            isGitProject={props.isGitProject}
-            defaultRuntime={props.defaultRuntime}
-            defaultAgentMode={props.defaultAgentMode}
-            onLaunch={props.onLaunch}
-            existingSessions={props.existingSessions}
-            onResumeSession={props.onResumeSession}
-            onDeleteSession={props.onDeleteSession}
-            focusTrigger={props.focusTrigger}
-          />
           {props.onNewSuperagent && (
-            <button
-              onClick={props.onNewSuperagent}
-              style={{
-                marginTop: 8,
-                padding: '6px 16px',
-                fontSize: 12,
-                color: 'var(--text-muted)',
-                backgroundColor: 'transparent',
-                border: 'none',
-                cursor: 'pointer',
-                textDecoration: 'underline',
-              }}
-            >
-              + New Superagent
-            </button>
+            <GhostLinkButton onClick={props.onNewSuperagent}>+ New Superagent</GhostLinkButton>
           )}
         </>
       )}
