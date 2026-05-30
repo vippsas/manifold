@@ -15,6 +15,66 @@ const NO_WORKTREE_ERROR =
   'A no-worktree agent is already running for this project. ' +
   'Only one no-worktree agent can run at a time per project.'
 
+async function isWithinExistingDir(filePath: string, dirPath: string): Promise<boolean> {
+  try {
+    const baseDir = await fs.realpath(dirPath)
+    const resolved = await fs.realpath(path.resolve(filePath))
+    return resolved === baseDir || resolved.startsWith(baseDir + path.sep)
+  } catch {
+    return false
+  }
+}
+
+async function realpathIfReadable(filePath: string): Promise<string | null> {
+  try {
+    return await fs.realpath(path.resolve(filePath))
+  } catch {
+    return null
+  }
+}
+
+async function resolveReadableChatImagePath(filePath: string, projectGeneratedImageDirs: string[] = [], projectImageRoot?: string): Promise<string> {
+  const codexHome = process.env.CODEX_HOME || path.join(os.homedir(), '.codex')
+  const allowedDirs = [
+    path.join(os.tmpdir(), 'manifold-chat-images'),
+    path.join(codexHome, 'generated_images'),
+    ...projectGeneratedImageDirs,
+    ...(projectImageRoot ? [projectImageRoot] : []),
+  ]
+
+  const candidates = path.isAbsolute(filePath)
+    ? [filePath]
+    : [
+        ...(projectImageRoot ? [path.join(projectImageRoot, filePath)] : []),
+        filePath,
+      ]
+
+  for (const candidate of candidates) {
+    const resolved = await realpathIfReadable(candidate)
+    if (!resolved) continue
+    for (const dir of allowedDirs) {
+      if (await isWithinExistingDir(resolved, dir)) return resolved
+    }
+  }
+
+  throw new Error('Image path is outside the allowed chat image directories')
+}
+
+function sessionWorktreePath(deps: IpcDependencies, sessionId?: string): string | undefined {
+  return sessionId ? deps.sessionManager.getSession(sessionId)?.worktreePath : undefined
+}
+
+function projectGeneratedImageDirs(deps: IpcDependencies, sessionId?: string, sessionWorktree = sessionWorktreePath(deps, sessionId)): string[] {
+  const dirs: string[] = []
+  if (sessionWorktree) {
+    dirs.push(path.join(sessionWorktree, 'public', 'generated-images'))
+  }
+  for (const project of deps.projectRegistry?.listProjects?.() ?? []) {
+    dirs.push(path.join(project.path, 'public', 'generated-images'))
+  }
+  return dirs
+}
+
 /**
  * Resolve the shell history directory based on the scope setting.
  *
@@ -98,7 +158,7 @@ export function registerAgentHandlers(deps: IpcDependencies): void {
     return filePath
   })
 
-  ipcMain.handle('chat:read-pasted-image', async (_event, filePath: string) => {
+  ipcMain.handle('chat:read-pasted-image', async (_event, filePath: string, sessionId?: string) => {
     const ext = path.extname(filePath).toLowerCase().replace('.', '')
     const mimeMap: Record<string, string> = {
       png: 'image/png',
@@ -109,12 +169,9 @@ export function registerAgentHandlers(deps: IpcDependencies): void {
     }
     const mime = mimeMap[ext]
     if (!mime) throw new Error(`Unsupported image type: ${ext}`)
-    // Only ever read back images this app saved — never an arbitrary renderer-supplied path.
-    const baseDir = await fs.realpath(path.join(os.tmpdir(), 'manifold-chat-images'))
-    const resolved = await fs.realpath(path.resolve(filePath))
-    if (resolved !== baseDir && !resolved.startsWith(baseDir + path.sep)) {
-      throw new Error('Image path is outside the pasted-image directory')
-    }
+    // Only ever read back chat attachments, Codex generated images, or image files in the active worktree.
+    const worktreePath = sessionWorktreePath(deps, sessionId)
+    const resolved = await resolveReadableChatImagePath(filePath, projectGeneratedImageDirs(deps, sessionId, worktreePath), worktreePath)
     const buffer = await fs.readFile(resolved)
     return `data:${mime};base64,${buffer.toString('base64')}`
   })

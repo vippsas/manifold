@@ -1,3 +1,7 @@
+import * as fs from 'node:fs'
+import * as os from 'node:os'
+import * as path from 'node:path'
+import { randomUUID } from 'node:crypto'
 import { parseOptions } from '../agent/chat-adapter'
 import { extractSlashCommands } from '../agent/ai-runtime-output-parsers'
 import type { ChatAdapter } from '../agent/chat-adapter'
@@ -106,6 +110,22 @@ function handleClaudeStreamJsonEvent(ctx: StreamJsonCtx, session: InternalSessio
 function handleCodexJsonEvent(ctx: StreamJsonCtx, session: InternalSession, event: Record<string, unknown>, ptyId?: string): void {
   const type = event.type as string | undefined
 
+  if (type === 'event_msg') {
+    const payload = event.payload as CodexEventPayload | undefined
+    if (payload?.type === 'agent_message' && payload.message) {
+      publishAgentText(ctx, session, payload.message)
+      return
+    }
+    if (payload?.type === 'image_generation_end') {
+      publishGeneratedImage(ctx, session, payload)
+      return
+    }
+    if (payload?.type === 'task_complete' && (!ptyId || session.ptyId === ptyId)) {
+      completeCodexTurn(ctx, session)
+    }
+    return
+  }
+
   if (type === 'item.completed') {
     const item = event.item as { type?: string; text?: string; message?: string } | undefined
     if (item?.type === 'agent_message' && item.text) {
@@ -127,13 +147,16 @@ function handleCodexJsonEvent(ctx: StreamJsonCtx, session: InternalSession, even
   }
 
   if (type === 'turn.completed' && (!ptyId || session.ptyId === ptyId)) {
-    if (!session.detectedUrl && !session.devServerPtyId) {
-      ctx.onDevServerNeeded(session)
-    } else {
-      session.status = 'waiting'
-      ctx.sendToRenderer('agent:status', { sessionId: session.id, status: 'waiting' })
-    }
+    completeCodexTurn(ctx, session)
   }
+}
+
+interface CodexEventPayload {
+  type?: string
+  message?: string
+  saved_path?: string
+  result?: string
+  call_id?: string
 }
 
 function publishAgentText(ctx: StreamJsonCtx, session: InternalSession, text: string): void {
@@ -149,5 +172,102 @@ function publishAgentText(ctx: StreamJsonCtx, session: InternalSession, text: st
     adapter?.addAgentMessageWithOptions(session.id, cleanText, options)
   } else {
     adapter?.addAgentMessage(session.id, text)
+  }
+}
+
+function publishGeneratedImage(ctx: StreamJsonCtx, session: InternalSession, payload: CodexEventPayload): void {
+  const savedPath = saveGeneratedImageToProject(session, payload) ?? payload.saved_path
+  if (!savedPath) return
+
+  const imageRef = `[image: ${savedPath}]`
+  const adapter = ctx.getChatAdapter()
+
+  const existing = adapter?.getMessages(session.id) ?? []
+  const lastAgent = [...existing].reverse().find(m => m.role === 'agent')
+  if (lastAgent?.text === imageRef) return
+
+  adapter?.addAgentMessage(session.id, imageRef)
+}
+
+function saveGeneratedImageToProject(session: InternalSession, payload: CodexEventPayload): string | null {
+  try {
+    const buffer = imageBufferFromPayload(payload)
+    if (!buffer) return null
+
+    const ext = imageExtension(buffer)
+    if (!ext) return null
+
+    const baseName = sanitizeFileName(payload.call_id ?? sourceBaseName(payload.saved_path) ?? randomUUID())
+    const dir = path.join(session.worktreePath, 'public', 'generated-images')
+    const filePath = path.join(dir, `${baseName}.${ext}`)
+
+    fs.mkdirSync(dir, { recursive: true })
+    fs.writeFileSync(filePath, buffer)
+    return filePath
+  } catch {
+    return null
+  }
+}
+
+function imageBufferFromPayload(payload: CodexEventPayload): Buffer | null {
+  if (payload.result) {
+    const buffer = Buffer.from(payload.result, 'base64')
+    return buffer.byteLength > 0 ? buffer : null
+  }
+
+  if (payload.saved_path) {
+    return readTrustedGeneratedImageFile(payload.saved_path)
+  }
+
+  return null
+}
+
+function readTrustedGeneratedImageFile(filePath: string): Buffer | null {
+  try {
+    const resolved = fs.realpathSync(path.resolve(filePath))
+    const codexHome = process.env.CODEX_HOME || path.join(os.homedir(), '.codex')
+    const generatedDir = fs.realpathSync(path.join(codexHome, 'generated_images'))
+    if (resolved !== generatedDir && !resolved.startsWith(generatedDir + path.sep)) return null
+    return fs.readFileSync(resolved)
+  } catch {
+    return null
+  }
+}
+
+function imageExtension(buffer: Buffer): string | null {
+  if (buffer.length >= 8 &&
+      buffer[0] === 0x89 &&
+      buffer[1] === 0x50 &&
+      buffer[2] === 0x4e &&
+      buffer[3] === 0x47 &&
+      buffer[4] === 0x0d &&
+      buffer[5] === 0x0a &&
+      buffer[6] === 0x1a &&
+      buffer[7] === 0x0a) {
+    return 'png'
+  }
+  if (buffer.length >= 3 && buffer[0] === 0xff && buffer[1] === 0xd8 && buffer[2] === 0xff) return 'jpg'
+  if (buffer.length >= 12 && buffer.subarray(0, 4).toString('ascii') === 'RIFF' && buffer.subarray(8, 12).toString('ascii') === 'WEBP') return 'webp'
+  if (buffer.length >= 6 && (buffer.subarray(0, 6).toString('ascii') === 'GIF87a' || buffer.subarray(0, 6).toString('ascii') === 'GIF89a')) return 'gif'
+  return null
+}
+
+function sanitizeFileName(value: string): string {
+  const safe = value.replace(/[^a-zA-Z0-9_-]/g, '_').replace(/^_+|_+$/g, '')
+  return safe || randomUUID()
+}
+
+function sourceBaseName(filePath: string | undefined): string | null {
+  if (!filePath) return null
+  const ext = path.extname(filePath)
+  return path.basename(filePath, ext)
+}
+
+function completeCodexTurn(ctx: StreamJsonCtx, session: InternalSession): void {
+  if (!session.detectedUrl && !session.devServerPtyId) {
+    ctx.onDevServerNeeded(session)
+  } else {
+    session.status = 'waiting'
+    ctx.sendToRenderer('agent:status', { sessionId: session.id, status: 'waiting' })
   }
 }
