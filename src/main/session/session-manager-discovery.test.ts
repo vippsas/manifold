@@ -109,6 +109,18 @@ describe('SessionManager — discovery / resume', () => {
       expect(sessions).toEqual([])
     })
 
+    it('returns no sessions when git cannot spawn during discovery', async () => {
+      const error = Object.assign(new Error('spawn git ENOENT'), {
+        code: 'ENOENT',
+        syscall: 'spawn git',
+      })
+      ;(worktreeManager.listWorktrees as ReturnType<typeof vi.fn>).mockRejectedValue(error)
+
+      const sessions = await sessionManager.discoverSessionsForProject('proj-1')
+
+      expect(sessions).toEqual([])
+    })
+
     it('does not duplicate sessions already tracked in memory', async () => {
       await sessionManager.createSession({
         projectId: 'proj-1',

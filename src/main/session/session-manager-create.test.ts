@@ -43,6 +43,7 @@ import { WorktreeManager } from '../git/worktree-manager'
 import { PtyPool } from '../agent/pty-pool'
 import { ProjectRegistry } from '../store/project-registry'
 import type { MemoryCapture } from '../memory/memory-capture'
+import { gitExec } from '../git/git-exec'
 import {
   createMockWorktreeManager,
   createMockPtyPool,
@@ -197,6 +198,30 @@ describe('SessionManager — create / input / queries', () => {
           expect.anything(),
         )
       })
+    })
+  })
+
+  describe('startDevServerSession', () => {
+    it('starts the preview even when git cannot spawn for branch prep', async () => {
+      const error = Object.assign(new Error('spawn git ENOENT'), {
+        code: 'ENOENT',
+        syscall: 'spawn git',
+      })
+      vi.mocked(gitExec).mockRejectedValueOnce(error)
+
+      await expect(
+        sessionManager.startDevServerSession(
+          'proj-1',
+          'manifold/oslo',
+          'preview the app',
+          undefined,
+          undefined,
+          'codex',
+        ),
+      ).resolves.toEqual({ sessionId: 'session-uuid-1' })
+
+      expect(ptyPool.spawn).toHaveBeenCalledWith('npm', ['run', 'dev'], { cwd: '/repo' })
+      expect(sessionManager.getSession('session-uuid-1')?.status).toBe('running')
     })
   })
 

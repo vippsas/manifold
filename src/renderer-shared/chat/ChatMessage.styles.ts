@@ -115,10 +115,28 @@ export const imageGridOnly: CSSProperties = {
 export const thumbnail: CSSProperties = {
   maxWidth: 220,
   maxHeight: 160,
-  borderRadius: 10,
+  borderRadius: 9,
   objectFit: 'cover',
   display: 'block',
+}
+
+export const thumbnailButton: CSSProperties = {
+  display: 'block',
+  padding: 0,
   border: '1px solid var(--border)',
+  borderRadius: 10,
+  background: 'var(--surface)',
+  color: 'inherit',
+  cursor: 'zoom-in',
+  overflow: 'hidden',
+  boxShadow: 'var(--shadow-subtle)',
+  transition: 'border-color 150ms ease, box-shadow 150ms ease, transform 150ms ease',
+}
+
+export const thumbnailButtonHover: CSSProperties = {
+  ...thumbnailButton,
+  borderColor: 'var(--accent)',
+  boxShadow: 'var(--shadow-elevated)',
 }
 
 export const imageLoading: CSSProperties = {
@@ -131,6 +149,112 @@ export const imageLoading: CSSProperties = {
 export const imageFallback: CSSProperties = {
   opacity: 0.7,
   fontSize: 13,
+}
+
+export const lightboxBackdrop: CSSProperties = {
+  position: 'fixed',
+  inset: 0,
+  zIndex: 1000,
+  display: 'flex',
+  alignItems: 'center',
+  justifyContent: 'center',
+  padding: 24,
+  background: 'rgba(0, 0, 0, 0.72)',
+}
+
+export const lightboxPanel: CSSProperties = {
+  width: 'min(960px, calc(100vw - 48px))',
+  height: 'min(720px, calc(100vh - 48px))',
+  display: 'flex',
+  flexDirection: 'column',
+  minWidth: 0,
+  overflow: 'hidden',
+  background: 'var(--bg-overlay, var(--surface))',
+  border: '1px solid var(--border)',
+  borderRadius: 12,
+  boxShadow: 'var(--shadow-overlay)',
+}
+
+export const lightboxHeader: CSSProperties = {
+  minHeight: 44,
+  display: 'flex',
+  alignItems: 'center',
+  justifyContent: 'space-between',
+  gap: 12,
+  padding: '0 12px 0 16px',
+  borderBottom: '1px solid var(--border)',
+}
+
+export const lightboxTitle: CSSProperties = {
+  fontSize: 14,
+  fontWeight: 600,
+  color: 'var(--text)',
+}
+
+export const lightboxCloseButton: CSSProperties = {
+  width: 32,
+  height: 32,
+  padding: 0,
+  display: 'inline-flex',
+  alignItems: 'center',
+  justifyContent: 'center',
+  border: '1px solid transparent',
+  borderRadius: 8,
+  background: 'transparent',
+  color: 'var(--text)',
+  cursor: 'pointer',
+  fontSize: 24,
+  lineHeight: 1,
+}
+
+export const lightboxCanvas: CSSProperties = {
+  flex: 1,
+  minHeight: 0,
+  display: 'flex',
+  alignItems: 'center',
+  justifyContent: 'center',
+  padding: 16,
+  overflow: 'auto',
+  background: 'var(--bg-primary, var(--bg))',
+}
+
+export const lightboxImage: CSSProperties = {
+  maxWidth: '100%',
+  maxHeight: '100%',
+  objectFit: 'contain',
+  display: 'block',
+}
+
+export const lightboxFooter: CSSProperties = {
+  minHeight: 44,
+  display: 'flex',
+  alignItems: 'center',
+  gap: 12,
+  padding: '0 12px 0 16px',
+  borderTop: '1px solid var(--border)',
+}
+
+export const lightboxPath: CSSProperties = {
+  flex: 1,
+  minWidth: 0,
+  overflow: 'hidden',
+  textOverflow: 'ellipsis',
+  whiteSpace: 'nowrap',
+  fontSize: 12,
+  color: 'var(--text-muted)',
+  fontFamily: 'var(--font-mono)',
+}
+
+export const lightboxCopyButton: CSSProperties = {
+  flexShrink: 0,
+  padding: '6px 10px',
+  borderRadius: 8,
+  border: '1px solid var(--border)',
+  background: 'transparent',
+  color: 'var(--accent)',
+  cursor: 'pointer',
+  fontSize: 12,
+  fontWeight: 500,
 }
 
 export const optionsSection: CSSProperties = {

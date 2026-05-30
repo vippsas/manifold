@@ -1,4 +1,7 @@
 // @vitest-environment node
+import { mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises'
+import { tmpdir } from 'node:os'
+import { join } from 'node:path'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 vi.mock('./shell-suggestion', () => ({
@@ -94,6 +97,138 @@ describe('SessionStreamWirer', () => {
       expect.objectContaining({
         role: 'agent',
         text: 'Vite failed with 127.0.0.1:5173, so preview did not start.',
+      }),
+    ])
+  })
+
+  it('stores Codex generated image payloads in the project and publishes chat image references', async () => {
+    const ptyPool = new FakePtyPool()
+    const chatAdapter = new ChatAdapter()
+    const sendToRenderer = vi.fn()
+    const worktreePath = await mkdtemp(join(tmpdir(), 'manifold-generated-image-project-'))
+
+    try {
+      const wirer = new SessionStreamWirer(
+        ptyPool as never,
+        () => chatAdapter,
+        sendToRenderer,
+        undefined,
+        vi.fn(),
+        vi.fn(),
+      )
+
+      const session = createSession()
+      session.worktreePath = worktreePath
+      wirer.wireStreamJsonOutput(session.ptyId, session, 'codex-jsonl')
+
+      ptyPool.emitData(
+        session.ptyId,
+        `${JSON.stringify({
+          type: 'event_msg',
+          payload: {
+            type: 'image_generation_end',
+            call_id: 'ig_test_image',
+            result: Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]).toString('base64'),
+          },
+        })}\n`,
+      )
+
+      const savedPath = join(worktreePath, 'public', 'generated-images', 'ig_test_image.png')
+      expect(await readFile(savedPath)).toEqual(Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]))
+      expect(chatAdapter.getMessages(session.id)).toEqual([
+        expect.objectContaining({
+          role: 'agent',
+          text: `[image: ${savedPath}]`,
+        }),
+      ])
+    } finally {
+      await rm(worktreePath, { recursive: true, force: true })
+    }
+  })
+
+  it('copies Codex saved image paths into the project before publishing chat references', async () => {
+    const ptyPool = new FakePtyPool()
+    const chatAdapter = new ChatAdapter()
+    const codexHome = await mkdtemp(join(tmpdir(), 'manifold-codex-source-image-'))
+    const sourceRoot = join(codexHome, 'generated_images', 'turn-1')
+    const worktreePath = await mkdtemp(join(tmpdir(), 'manifold-generated-image-project-'))
+
+    try {
+      const sourcePath = join(sourceRoot, 'codex-image.png')
+      await mkdir(sourceRoot, { recursive: true })
+      await writeFile(sourcePath, Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]))
+      vi.stubEnv('CODEX_HOME', codexHome)
+
+      const wirer = new SessionStreamWirer(
+        ptyPool as never,
+        () => chatAdapter,
+        vi.fn(),
+        undefined,
+        vi.fn(),
+        vi.fn(),
+      )
+
+      const session = createSession()
+      session.worktreePath = worktreePath
+      wirer.wireStreamJsonOutput(session.ptyId, session, 'codex-jsonl')
+
+      ptyPool.emitData(
+        session.ptyId,
+        `${JSON.stringify({
+          type: 'event_msg',
+          payload: {
+            type: 'image_generation_end',
+            saved_path: sourcePath,
+          },
+        })}\n`,
+      )
+
+      const savedPath = join(worktreePath, 'public', 'generated-images', 'codex-image.png')
+      expect(await readFile(savedPath)).toEqual(Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]))
+      expect(chatAdapter.getMessages(session.id)).toEqual([
+        expect.objectContaining({
+          role: 'agent',
+          text: `[image: ${savedPath}]`,
+        }),
+      ])
+    } finally {
+      vi.unstubAllEnvs()
+      await rm(codexHome, { recursive: true, force: true })
+      await rm(worktreePath, { recursive: true, force: true })
+    }
+  })
+
+  it('publishes Codex event_msg agent messages', () => {
+    const ptyPool = new FakePtyPool()
+    const chatAdapter = new ChatAdapter()
+
+    const wirer = new SessionStreamWirer(
+      ptyPool as never,
+      () => chatAdapter,
+      vi.fn(),
+      undefined,
+      vi.fn(),
+      vi.fn(),
+    )
+
+    const session = createSession()
+    wirer.wireStreamJsonOutput(session.ptyId, session, 'codex-jsonl')
+
+    ptyPool.emitData(
+      session.ptyId,
+      `${JSON.stringify({
+        type: 'event_msg',
+        payload: {
+          type: 'agent_message',
+          message: 'Created a polished studio-style bike image.',
+        },
+      })}\n`,
+    )
+
+    expect(chatAdapter.getMessages(session.id)).toEqual([
+      expect.objectContaining({
+        role: 'agent',
+        text: 'Created a polished studio-style bike image.',
       }),
     ])
   })

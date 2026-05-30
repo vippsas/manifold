@@ -11,15 +11,17 @@ import {
 import { buildFileTree } from './file-tree-builder'
 import { NoopTreeWatcher, type TreeWatcher } from './tree-watcher'
 import { VerdictPollForwarder, type HeadShaFn } from './verdict-poll-forwarder'
+import { isMissingGitError } from '../git/git-errors'
 
 const POLL_INTERVAL_MS = 2000
 
 interface PollEntry {
-  timer: ReturnType<typeof setInterval>
+  timer: ReturnType<typeof setInterval> | null
   sessionId: string
   lastStatus: string
   lastChangeFingerprint: string
   polling: boolean
+  gitPollingDisabled?: boolean
 }
 
 type GitStatusFn = (cwd: string) => Promise<string>
@@ -79,7 +81,7 @@ export class FileWatcher {
     const key = `additional:${sessionId}:${dirPath}`
     const entry = this.polls.get(key)
     if (!entry) return
-    clearInterval(entry.timer)
+    if (entry.timer) clearInterval(entry.timer)
     this.polls.delete(key)
   }
 
@@ -102,7 +104,7 @@ export class FileWatcher {
 
   private async poll(worktreePath: string): Promise<void> {
     const entry = this.polls.get(worktreePath)
-    if (!entry || entry.polling) return
+    if (!entry || entry.polling || entry.gitPollingDisabled) return
 
     entry.polling = true
     try {
@@ -125,7 +127,8 @@ export class FileWatcher {
         })
         await this.verdictForwarder.notifyGitChange(worktreePath, entry.sessionId)
       }
-    } catch {
+    } catch (err) {
+      if (isMissingGitError(err)) this.disableGitPolling(worktreePath)
       // Worktree may not exist yet or git may fail — skip this tick
     } finally {
       entry.polling = false
@@ -134,7 +137,7 @@ export class FileWatcher {
 
   private async pollAdditionalDir(key: string, dirPath: string): Promise<void> {
     const entry = this.polls.get(key)
-    if (!entry || entry.polling) return
+    if (!entry || entry.polling || entry.gitPollingDisabled) return
 
     entry.polling = true
     try {
@@ -150,24 +153,33 @@ export class FileWatcher {
           source: dirPath,
         })
       }
-    } catch {
+    } catch (err) {
+      if (isMissingGitError(err)) this.disableGitPolling(key)
       // Directory may not be a git repo or may not exist — skip
     } finally {
       entry.polling = false
     }
   }
 
+  private disableGitPolling(key: string): void {
+    const entry = this.polls.get(key)
+    if (!entry || entry.gitPollingDisabled) return
+    if (entry.timer) clearInterval(entry.timer)
+    entry.timer = null
+    entry.gitPollingDisabled = true
+  }
+
   async unwatch(worktreePath: string): Promise<void> {
     const entry = this.polls.get(worktreePath)
     if (!entry) return
-    clearInterval(entry.timer)
+    if (entry.timer) clearInterval(entry.timer)
     this.polls.delete(worktreePath)
     await this.treeWatcher.unwatch(worktreePath)
   }
 
   async unwatchAll(): Promise<void> {
     for (const [, entry] of this.polls) {
-      clearInterval(entry.timer)
+      if (entry.timer) clearInterval(entry.timer)
     }
     this.polls.clear()
     await this.treeWatcher.unwatchAll()

@@ -11,6 +11,7 @@ import { debugLog } from './debug-log'
 import type { InternalSession } from '../session/session-types'
 import type { SessionStreamWirer } from '../session/session-stream-wirer'
 import { buildSimpleFollowUpPrompt } from '../../shared/simple-prompts'
+import { isGitProject } from '../../shared/project-kind'
 
 export class DevServerManager {
   constructor(
@@ -51,17 +52,7 @@ export class DevServerManager {
       }
     }
 
-    // Ensure we're on the correct branch (the project may be on main after a mode switch)
-    const currentBranch = (await gitExec(['branch', '--show-current'], project.path)).trim()
-    if (currentBranch !== branchName) {
-      try {
-        await gitExec(['checkout', branchName], project.path)
-      } catch {
-        // Branch may have been deleted (e.g. by worktree cleanup during mode switch).
-        // Stay on the current branch — it may still have the app code.
-        debugLog(`[session] checkout ${branchName} failed, staying on ${currentBranch}`)
-      }
-    }
+    await this.prepareBranchForPreview(project, branchName)
 
     const session: InternalSession = {
       id: uuidv4(),
@@ -93,6 +84,31 @@ export class DevServerManager {
     }
 
     return { sessionId: session.id }
+  }
+
+  private async prepareBranchForPreview(
+    project: NonNullable<ReturnType<ProjectRegistry['getProject']>>,
+    branchName: string,
+  ): Promise<void> {
+    if (!isGitProject(project)) return
+
+    let currentBranch = ''
+    try {
+      currentBranch = (await gitExec(['branch', '--show-current'], project.path)).trim()
+    } catch (err) {
+      debugLog(`[session] branch check failed for ${project.path}, starting dev server anyway: ${(err as Error).message}`)
+      return
+    }
+
+    if (currentBranch === branchName) return
+
+    try {
+      await gitExec(['checkout', branchName], project.path)
+    } catch {
+      // Branch may have been deleted (e.g. by worktree cleanup during mode switch).
+      // Stay on the current branch — it may still have the app code.
+      debugLog(`[session] checkout ${branchName} failed, staying on ${currentBranch}`)
+    }
   }
 
   /**
