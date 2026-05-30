@@ -98,6 +98,27 @@ export function registerAgentHandlers(deps: IpcDependencies): void {
     return filePath
   })
 
+  ipcMain.handle('chat:read-pasted-image', async (_event, filePath: string) => {
+    const ext = path.extname(filePath).toLowerCase().replace('.', '')
+    const mimeMap: Record<string, string> = {
+      png: 'image/png',
+      jpg: 'image/jpeg',
+      jpeg: 'image/jpeg',
+      gif: 'image/gif',
+      webp: 'image/webp',
+    }
+    const mime = mimeMap[ext]
+    if (!mime) throw new Error(`Unsupported image type: ${ext}`)
+    // Only ever read back images this app saved — never an arbitrary renderer-supplied path.
+    const baseDir = await fs.realpath(path.join(os.tmpdir(), 'manifold-chat-images'))
+    const resolved = await fs.realpath(path.resolve(filePath))
+    if (resolved !== baseDir && !resolved.startsWith(baseDir + path.sep)) {
+      throw new Error('Image path is outside the pasted-image directory')
+    }
+    const buffer = await fs.readFile(resolved)
+    return `data:${mime};base64,${buffer.toString('base64')}`
+  })
+
   ipcMain.handle('agent:input', (_event, sessionId: string, input: string) => {
     if (superagentManager.isSuperagent(sessionId)) {
       superagentManager.sendInput(sessionId, input)
