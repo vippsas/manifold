@@ -10,27 +10,17 @@ beforeEach(() => {
   vi.clearAllMocks()
   mockInvoke.mockImplementation((channel: string, provisionerId?: string) => {
     if (channel === 'provisioning:get-statuses') {
-      return Promise.resolve([
-        {
-          provisionerId: 'vercel-bundled',
-          provisionerLabel: 'Vercel Templates',
-          enabled: true,
-          source: 'cache',
-          state: 'healthy',
-          templateCount: 1,
-          summary: 'Using cached templates',
-        },
-      ])
+      return Promise.resolve([])
     }
     if (channel === 'provisioning:check-health') {
       return Promise.resolve([
         {
-          provisionerId: provisionerId ?? 'vercel-bundled',
-          provisionerLabel: 'Vercel Templates',
+          provisionerId: provisionerId ?? 'external-cli-1',
+          provisionerLabel: 'External Provisioner 1',
           enabled: true,
           source: 'none',
           state: 'healthy',
-          templateCount: 1,
+          templateCount: 0,
           summary: 'Healthy',
         },
       ])
@@ -69,8 +59,8 @@ describe('SettingsModal provisioning tab', () => {
     })
 
     fireEvent.click(screen.getByText('Add External Provisioner'))
-    fireEvent.change(screen.getByDisplayValue('External Provisioner 2'), { target: { value: 'Company Templates' } })
-    fireEvent.change(screen.getByDisplayValue('external-cli-2'), { target: { value: 'company-backstage' } })
+    fireEvent.change(screen.getByDisplayValue('External Provisioner 1'), { target: { value: 'Company Templates' } })
+    fireEvent.change(screen.getByDisplayValue('external-cli-1'), { target: { value: 'company-backstage' } })
     fireEvent.change(screen.getByPlaceholderText('/usr/local/bin/manifold-company-provisioner'), {
       target: { value: '/usr/local/bin/company-provisioner' },
     })
@@ -120,15 +110,15 @@ describe('SettingsModal provisioning tab', () => {
       target: { value: '/usr/local/bin/company-provisioner' },
     })
 
-    fireEvent.click(screen.getAllByText('Check Health')[1])
+    fireEvent.click(screen.getByText('Check Health'))
 
     await waitFor(() => {
       expect(mockInvoke).toHaveBeenCalledWith(
         'provisioning:check-health',
-        'external-cli-2',
+        'external-cli-1',
         expect.arrayContaining([
           expect.objectContaining({
-            id: 'external-cli-2',
+            id: 'external-cli-1',
             command: '/usr/local/bin/company-provisioner',
           }),
         ]),

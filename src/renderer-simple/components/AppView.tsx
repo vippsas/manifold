@@ -13,9 +13,6 @@ interface Props {
   onSendMessage: (text: string) => void
   onInterrupt?: () => void
   onBack: () => void
-  onDeploy: () => void
-  liveUrl?: string | null
-  deployStatus?: AppStatus | null
   runtimeLabel?: string
 }
 
@@ -27,9 +24,6 @@ export function AppView({
   onSendMessage,
   onInterrupt,
   onBack,
-  onDeploy,
-  liveUrl,
-  deployStatus,
   runtimeLabel,
 }: Props): React.JSX.Element {
   return (
@@ -38,10 +32,7 @@ export function AppView({
         status={status}
         isAgentWorking={isAgentWorking}
         onBack={onBack}
-        onDeploy={onDeploy}
         runtimeLabel={runtimeLabel}
-        liveUrl={liveUrl}
-        deployStatus={deployStatus}
       />
       <div style={styles.chatSide}>
         <ChatPane

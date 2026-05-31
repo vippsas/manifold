@@ -111,7 +111,7 @@ export function App(): React.JSX.Element {
     )
   }
 
-  const hasActiveApp = apps.some((app) => app.status === 'scaffolding' || app.status === 'building' || app.status === 'deploying')
+  const hasActiveApp = apps.some((app) => app.status === 'scaffolding' || app.status === 'building')
 
   return (
     <>

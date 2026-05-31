@@ -1,9 +1,7 @@
 import React, { useCallback } from 'react'
 import { AppView } from './AppView'
-import { DeployModal } from './DeployModal'
 import { useAgentStatus, useChat } from '../../renderer-shared/chat'
 import { usePreview } from '../hooks/usePreview'
-import { useDeploy } from '../hooks/useDeploy'
 import type { SimpleApp } from '../../shared/simple-types'
 import { getSimpleRuntimeLabel } from '../simple-theme'
 
@@ -11,7 +9,6 @@ export function AppViewWrapper({ app, onBack }: { app: SimpleApp; onBack: () => 
   const { status: agentStatus, durationMs } = useAgentStatus(app.sessionId)
   const { messages, sendMessage } = useChat(app.sessionId)
   const { previewUrl } = usePreview(app.sessionId)
-  const { deployStatus, liveUrl, showSetupModal, setupHealth, deploy, dismissModal, onSetupComplete } = useDeploy(app.sessionId)
   const devServerStartedRef = React.useRef(false)
 
   // When agent finishes and no preview URL was detected, auto-start the dev
@@ -57,27 +54,15 @@ export function AppViewWrapper({ app, onBack }: { app: SimpleApp; onBack: () => 
   }, [app.sessionId])
 
   return (
-    <>
-      <AppView
-        status={status}
-        messages={messages}
-        isAgentWorking={agentStatus === 'running'}
-        agentDurationMs={durationMs}
-        onSendMessage={sendMessage}
-        onInterrupt={interruptAgent}
-        onBack={onBack}
-        onDeploy={deploy}
-        liveUrl={liveUrl}
-        deployStatus={deployStatus}
-        runtimeLabel={getSimpleRuntimeLabel(app.runtimeId)}
-      />
-      {showSetupModal && setupHealth && (
-        <DeployModal
-          health={setupHealth}
-          onComplete={onSetupComplete}
-          onCancel={dismissModal}
-        />
-      )}
-    </>
+    <AppView
+      status={status}
+      messages={messages}
+      isAgentWorking={agentStatus === 'running'}
+      agentDurationMs={durationMs}
+      onSendMessage={sendMessage}
+      onInterrupt={interruptAgent}
+      onBack={onBack}
+      runtimeLabel={getSimpleRuntimeLabel(app.runtimeId)}
+    />
   )
 }

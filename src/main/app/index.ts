@@ -36,7 +36,6 @@ import { MemoryStore } from '../memory/memory-store'
 import { MemoryCapture } from '../memory/memory-capture'
 import { MemoryCompressor } from '../memory/memory-compressor'
 import { MemoryInjector } from '../memory/memory-injector'
-import { VercelHealthCheck } from '../deploy/vercel-health-check'
 import { LoopRunner } from '../loop/loop-runner'
 import {
   createSessionAdapter,
@@ -134,8 +133,6 @@ chatAdapter.setChatStore(chatStore)
 sessionManager.setChatAdapter(chatAdapter)
 sessionManager.setGitOps(gitOps)
 
-const vercelHealthCheck = new VercelHealthCheck()
-
 const loopRunner = new LoopRunner({
   session: createSessionAdapter(sessionManager),
   git: createGitAdapter(),
@@ -184,7 +181,6 @@ const ipcDeps = {
   chatAdapter,
   chatStore,
   memoryStore,
-  vercelHealthCheck,
   superagentManager,
   approvalBroker,
   watchRunStore,

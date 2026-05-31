@@ -20,7 +20,6 @@ export interface InternalSession extends AgentSession {
   simplePromptInstructions?: string
   ollamaModel?: string
   detectedUrl?: string
-  detectedVercelUrl?: string
   /** Timestamp of most recent PTY output — used for activity-state tracking */
   lastOutputTime?: number
   nonInteractive?: boolean

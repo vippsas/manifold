@@ -4,9 +4,7 @@ import { app } from 'electron'
 import type { ProvisionerConfig } from '../../shared/provisioning-types'
 import { ProvisioningError } from './provisioning-errors'
 
-const BUILTIN_PROVISIONERS: Record<string, string> = {
-  'vercel-bundled': 'vercel-provisioner.js',
-}
+const BUILTIN_PROVISIONERS: Record<string, string> = {}
 
 export function resolveProvisionerCommand(provisioner: ProvisionerConfig): { command: string; args: string[] } {
   if (provisioner.type === 'builtin') {
