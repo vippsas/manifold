@@ -43,11 +43,11 @@ describe('useSettings', () => {
     })
 
     expect(mockInvoke).toHaveBeenCalledWith('settings:get')
-    expect(result.current.settings.theme).toBe('manifold-atelier')
+    expect(result.current.settings.theme).toBe('jacob-co-dark')
   })
 
   it('preserves non-legacy theme IDs on fetch', async () => {
-    const customSettings = { ...DEFAULT_SETTINGS, theme: 'dracula' }
+    const customSettings = { ...DEFAULT_SETTINGS, theme: 'jacob-co-light' }
     mockInvoke.mockResolvedValue(customSettings)
 
     const { result } = renderHook(() => useSettings())
@@ -56,7 +56,7 @@ describe('useSettings', () => {
       expect(result.current.loading).toBe(false)
     })
 
-    expect(result.current.settings.theme).toBe('dracula')
+    expect(result.current.settings.theme).toBe('jacob-co-light')
   })
 
   it('handles fetch error', async () => {
@@ -96,7 +96,7 @@ describe('useSettings', () => {
     it('sends theme:changed IPC with type and background', async () => {
       mockInvoke
         .mockResolvedValueOnce(DEFAULT_SETTINGS)
-        .mockResolvedValueOnce({ ...DEFAULT_SETTINGS, theme: 'manifold-dark' })
+        .mockResolvedValueOnce({ ...DEFAULT_SETTINGS, theme: 'jacob-co-light' })
 
       const { result } = renderHook(() => useSettings())
 
@@ -105,7 +105,7 @@ describe('useSettings', () => {
       })
 
       await act(async () => {
-        await result.current.updateSettings({ theme: 'manifold-dark' })
+        await result.current.updateSettings({ theme: 'jacob-co-light' })
       })
 
       expect(mockSend).toHaveBeenCalledWith('theme:changed', expect.objectContaining({

@@ -4,13 +4,16 @@ import { titleBarStyles as styles } from './TitleBar.styles'
 interface TitleBarProps {
   projectName?: string
   onRename?: (name: string) => void
+  themeType?: 'dark' | 'light'
+  onToggleTheme?: () => void
 }
 
-export function TitleBar({ projectName, onRename }: TitleBarProps): React.JSX.Element {
+export function TitleBar({ projectName, onRename, themeType, onToggleTheme }: TitleBarProps): React.JSX.Element {
   const editable = Boolean(projectName && onRename)
   const [editing, setEditing] = useState(false)
   const [draft, setDraft] = useState('')
   const [hovered, setHovered] = useState(false)
+  const [themeHovered, setThemeHovered] = useState(false)
 
   const startEditing = useCallback((): void => {
     setDraft(projectName ?? '')
@@ -65,6 +68,19 @@ export function TitleBar({ projectName, onRename }: TitleBarProps): React.JSX.El
           </button>
         )}
       </div>
+      {onToggleTheme && (
+        <button
+          type="button"
+          onClick={onToggleTheme}
+          onMouseEnter={() => setThemeHovered(true)}
+          onMouseLeave={() => setThemeHovered(false)}
+          style={{ ...styles.themeToggle, ...(themeHovered ? styles.themeToggleHover : undefined) }}
+          title={themeType === 'dark' ? 'Switch to Light theme' : 'Switch to Dark theme'}
+          aria-label={themeType === 'dark' ? 'Switch to Light theme' : 'Switch to Dark theme'}
+        >
+          {themeType === 'dark' ? '☀' : '☾'}
+        </button>
+      )}
     </div>
   )
 }

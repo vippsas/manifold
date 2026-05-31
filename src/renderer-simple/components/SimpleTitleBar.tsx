@@ -8,6 +8,8 @@ interface SimpleTitleBarProps {
   runtimeId?: string
   disabled?: boolean
   onBack?: () => void
+  themeType?: 'dark' | 'light'
+  onToggleTheme?: () => void
 }
 
 export function SimpleTitleBar({
@@ -16,8 +18,11 @@ export function SimpleTitleBar({
   runtimeId,
   disabled,
   onBack,
+  themeType,
+  onToggleTheme,
 }: SimpleTitleBarProps): React.JSX.Element {
   const [hovered, setHovered] = useState(false)
+  const [themeHovered, setThemeHovered] = useState(false)
   const [showConfirm, setShowConfirm] = useState(false)
 
   const doSwitch = useCallback(() => {
@@ -41,6 +46,14 @@ export function SimpleTitleBar({
   const buttonStyle: React.CSSProperties = {
     ...styles.button,
     ...(hovered && {
+      color: 'var(--text-primary, var(--text))',
+      background: 'rgba(255, 255, 255, 0.08)',
+    }),
+  }
+
+  const themeToggleStyle: React.CSSProperties = {
+    ...styles.themeToggle,
+    ...(themeHovered && {
       color: 'var(--text-primary, var(--text))',
       background: 'rgba(255, 255, 255, 0.08)',
     }),
@@ -71,6 +84,19 @@ export function SimpleTitleBar({
         <span style={styles.buttonIcon}>◐</span>
         Developer View
       </button>
+      {onToggleTheme && (
+        <button
+          type="button"
+          style={themeToggleStyle}
+          title={themeType === 'dark' ? 'Switch to Light theme' : 'Switch to Dark theme'}
+          aria-label={themeType === 'dark' ? 'Switch to Light theme' : 'Switch to Dark theme'}
+          onClick={onToggleTheme}
+          onMouseEnter={() => setThemeHovered(true)}
+          onMouseLeave={() => setThemeHovered(false)}
+        >
+          {themeType === 'dark' ? '☀' : '☾'}
+        </button>
+      )}
       {showConfirm && (
         <ConfirmDialog
           title="Switch to Developer View"

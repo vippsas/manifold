@@ -60,3 +60,20 @@ export const button: CSSProperties = {
 export const buttonIcon: CSSProperties = {
   fontSize: 13,
 }
+
+export const themeToggle: CSSProperties = {
+  display: 'flex',
+  alignItems: 'center',
+  justifyContent: 'center',
+  width: 28,
+  height: 26,
+  marginLeft: 8,
+  border: '1px solid var(--border)',
+  borderRadius: 5,
+  fontSize: 13,
+  color: 'var(--text-secondary, var(--text-muted))',
+  background: 'rgba(255, 255, 255, 0.04)',
+  cursor: 'pointer',
+  // @ts-expect-error -- Electron-specific CSS property to make button clickable in drag region
+  WebkitAppRegion: 'no-drag',
+}

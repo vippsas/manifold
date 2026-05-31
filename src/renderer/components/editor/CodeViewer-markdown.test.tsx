@@ -119,7 +119,7 @@ describe('CodeViewer — markdown, links & tabs', () => {
           activeFilePath={activeFilePath}
           fileContent={files[activeFilePath]}
           lastFileOpenRequest={lastFileOpenRequest}
-          theme="manifold-dark"
+          theme="jacob-co-dark"
           onSelectTab={vi.fn()}
           onOpenLinkedFile={(filePath) => {
             setActiveFilePath(filePath)
@@ -189,7 +189,7 @@ describe('CodeViewer — markdown, links & tabs', () => {
           activeFilePath={activeFilePath}
           fileContent={files[activeFilePath]}
           lastFileOpenRequest={lastFileOpenRequest}
-          theme="manifold-dark"
+          theme="jacob-co-dark"
           onSelectTab={vi.fn()}
           onOpenLinkedFile={(filePath) => {
             setActiveFilePath(filePath)
@@ -228,7 +228,7 @@ describe('CodeViewer — markdown, links & tabs', () => {
           activeFilePath="/repo/readme.md"
           fileContent={'# Hello\n\n' + 'Line\n'.repeat(200)}
           lastFileOpenRequest={makeOpenRequest({ path: '/repo/readme.md' })}
-          theme="manifold-dark"
+          theme="jacob-co-dark"
           onActivatePane={() => setActivations((value) => value + 1)}
           onSelectTab={vi.fn()}
           onCloseTab={vi.fn()}

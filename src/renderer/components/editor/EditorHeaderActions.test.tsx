@@ -28,7 +28,7 @@ function makeDockState(overrides: Partial<DockAppState> = {}): DockAppState {
       fileContent: paneId === 'editor' ? 'const value = 1' : null,
     }),
     lastFileOpenRequest: { path: null, source: 'default' },
-    theme: 'manifold-dark',
+    theme: 'jacob-co-dark',
     onSelectFile: vi.fn(),
     onOpenSearchResult: vi.fn(),
     onOpenSearchResultInSplit: vi.fn(),
