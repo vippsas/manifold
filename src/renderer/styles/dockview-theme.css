@@ -29,10 +29,10 @@
   background: var(--divider);
 }
 .dockview-theme-manifold .dv-split-view-container.dv-horizontal > .dv-sash-container > .dv-sash {
-  width: 2px;
+  width: 1px;
 }
 .dockview-theme-manifold .dv-split-view-container.dv-vertical > .dv-sash-container > .dv-sash {
-  height: 2px;
+  height: 1px;
 }
 
 /* Grip dots — three subtle dots centered on the divider as a discoverable resize affordance */
