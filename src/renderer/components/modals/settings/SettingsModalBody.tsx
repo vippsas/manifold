@@ -11,11 +11,11 @@ import { SectionCard, SectionHeader } from './SettingsSectionLayout'
 
 export type SettingsTabId = 'general' | 'search-ai' | 'provisioning' | 'transcription'
 
-const SETTINGS_TABS: Array<{ id: SettingsTabId; label: string; description: string }> = [
-  { id: 'general', label: 'General', description: 'Workspace defaults, appearance, and terminal behavior.' },
-  { id: 'search-ai', label: 'Search AI', description: 'Answer mode, reranking, runtime, and retrieval limits.' },
-  { id: 'provisioning', label: 'Provisioning', description: 'Provisioner configuration, health checks, and template catalogs.' },
-  { id: 'transcription', label: 'Transcription', description: 'OpenAI or Azure OpenAI credentials used by the Watch panel for video transcription.' },
+const SETTINGS_TABS: Array<{ id: SettingsTabId; label: string }> = [
+  { id: 'general', label: 'General' },
+  { id: 'search-ai', label: 'Search AI' },
+  { id: 'provisioning', label: 'Provisioning' },
+  { id: 'transcription', label: 'Transcription' },
 ]
 
 interface Props {
@@ -69,7 +69,7 @@ export function SettingsModalBody(props: Props): React.JSX.Element {
   return (
     <div style={modalStyles.body}>
       <div style={modalStyles.settingsLayout}>
-        <div style={modalStyles.tabBar} role="tablist" aria-label="Settings sections">
+        <nav style={modalStyles.sidebar} role="tablist" aria-label="Settings sections" aria-orientation="vertical">
           {SETTINGS_TABS.map((tab) => {
             const isActive = props.activeTab === tab.id
             return (
@@ -81,15 +81,16 @@ export function SettingsModalBody(props: Props): React.JSX.Element {
                 aria-selected={isActive}
                 aria-controls={`settings-panel-${tab.id}`}
                 tabIndex={isActive ? 0 : -1}
-                style={{ ...modalStyles.tab, ...(isActive ? modalStyles.tabActive : {}) }}
+                style={{ ...modalStyles.navItem, ...(isActive ? modalStyles.navItemActive : {}) }}
+                onMouseEnter={(event) => { if (!isActive) event.currentTarget.style.background = 'var(--list-hover-bg)' }}
+                onMouseLeave={(event) => { if (!isActive) event.currentTarget.style.background = 'transparent' }}
                 onClick={() => props.onTabChange(tab.id)}
               >
-                <span style={modalStyles.tabTitle}>{tab.label}</span>
-                <span style={modalStyles.tabDescription}>{tab.description}</span>
+                {tab.label}
               </button>
             )
           })}
-        </div>
+        </nav>
 
         <div id={`settings-panel-${props.activeTab}`} role="tabpanel" aria-labelledby={`settings-tab-${props.activeTab}`} style={modalStyles.tabPanel}>
           {props.activeTab === 'general' && <GeneralSettingsSection {...props} />}
