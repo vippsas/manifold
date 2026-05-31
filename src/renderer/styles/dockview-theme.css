@@ -16,18 +16,66 @@
   --dv-activegroup-hiddenpanel-tab-color: var(--text-muted);
   --dv-inactivegroup-visiblepanel-tab-color: var(--text-secondary);
   --dv-inactivegroup-hiddenpanel-tab-color: var(--text-muted);
-  --dv-separator-border: rgba(255, 255, 255, 0.04);
+  --dv-separator-border: var(--divider);
   --dv-group-view-background-color: var(--bg-primary);
   --dv-drag-over-background-color: var(--accent-subtle, rgba(0, 122, 204, 0.15));
   --dv-drag-over-border-color: var(--accent);
 }
 
-/* Thin sash (resize handle) between panel groups */
+/* Thin sash (resize handle) between panel groups — 1px visible line, 8px grab zone */
+.dockview-theme-manifold .dv-split-view-container.dv-horizontal > .dv-sash-container > .dv-sash,
+.dockview-theme-manifold .dv-split-view-container.dv-vertical > .dv-sash-container > .dv-sash {
+  --grip-color: rgba(255, 255, 255, 0.28);
+  background: var(--divider);
+}
 .dockview-theme-manifold .dv-split-view-container.dv-horizontal > .dv-sash-container > .dv-sash {
-  width: 1px;
+  width: 2px;
 }
 .dockview-theme-manifold .dv-split-view-container.dv-vertical > .dv-sash-container > .dv-sash {
-  height: 1px;
+  height: 2px;
+}
+
+/* Grip dots — three subtle dots centered on the divider as a discoverable resize affordance */
+.dockview-theme-manifold .dv-split-view-container.dv-horizontal > .dv-sash-container > .dv-sash::after,
+.dockview-theme-manifold .dv-split-view-container.dv-vertical > .dv-sash-container > .dv-sash::after {
+  content: '';
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 3px;
+  height: 3px;
+  border-radius: 50%;
+  background: var(--grip-color);
+  transform: translate(-50%, -50%);
+  transition: background var(--duration-normal) var(--ease-premium);
+}
+/* Vertical divider → dots stacked vertically */
+.dockview-theme-manifold .dv-split-view-container.dv-horizontal > .dv-sash-container > .dv-sash::after {
+  box-shadow: 0 -12px 0 var(--grip-color), 0 -6px 0 var(--grip-color), 0 6px 0 var(--grip-color), 0 12px 0 var(--grip-color);
+}
+/* Horizontal divider → dots laid out in a row */
+.dockview-theme-manifold .dv-split-view-container.dv-vertical > .dv-sash-container > .dv-sash::after {
+  box-shadow: -12px 0 0 var(--grip-color), -6px 0 0 var(--grip-color), 6px 0 0 var(--grip-color), 12px 0 0 var(--grip-color);
+}
+
+/* Widen the invisible grab area to 12px centered on the line for an easy drag target */
+.dockview-theme-manifold .dv-split-view-container.dv-horizontal > .dv-sash-container > .dv-sash::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 50%;
+  width: 12px;
+  transform: translateX(-50%);
+}
+.dockview-theme-manifold .dv-split-view-container.dv-vertical > .dv-sash-container > .dv-sash::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 50%;
+  height: 12px;
+  transform: translateY(-50%);
 }
 
 /* Tab text styling */
@@ -36,10 +84,13 @@
   font-size: inherit;
 }
 
-/* Sash hover — use muted accent for resize handle highlight */
+/* Sash hover — use muted accent for resize handle highlight, brighten grip dots */
 .dockview-theme-manifold .dv-sash:hover {
   background: var(--accent-dim, var(--accent));
   transition: background var(--duration-normal) var(--ease-premium);
+}
+.dockview-theme-manifold .dv-sash:hover::after {
+  --grip-color: var(--accent);
 }
 
 .dockview-theme-manifold .dv-tabs-and-actions-container {
