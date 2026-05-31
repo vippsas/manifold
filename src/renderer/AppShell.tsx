@@ -93,6 +93,8 @@ export interface AppShellProps {
   hasSuperagent: boolean
   onRenameActiveProject: (name: string) => void
   onToggleTheme: () => void
+  themeFamily: 'jacob-co' | 'vipps-mobilepay'
+  onSelectThemeFamily: (family: 'jacob-co' | 'vipps-mobilepay') => void
 }
 
 export function AppShell(p: AppShellProps): React.JSX.Element {
@@ -100,7 +102,7 @@ export function AppShell(p: AppShellProps): React.JSX.Element {
   if (!p.settings.setupCompleted) {
     return (
       <div className={`layout-root ${p.themeClass} ${p.densityClass}`}>
-        <TitleBar themeType={themeType} onToggleTheme={p.onToggleTheme} />
+        <TitleBar themeType={themeType} onToggleTheme={p.onToggleTheme} themeFamily={p.themeFamily} onSelectThemeFamily={p.onSelectThemeFamily} />
         <WelcomeDialog onAddProject={() => void p.addProject()} onCloneProject={p.cloneProject} onComplete={p.overlays.handleSetupComplete} />
       </div>
     )
@@ -109,7 +111,7 @@ export function AppShell(p: AppShellProps): React.JSX.Element {
   if (p.projects.length === 0) {
     return (
       <div className={`layout-root ${p.themeClass} ${p.densityClass}`}>
-        <TitleBar themeType={themeType} onToggleTheme={p.onToggleTheme} />
+        <TitleBar themeType={themeType} onToggleTheme={p.onToggleTheme} themeFamily={p.themeFamily} onSelectThemeFamily={p.onSelectThemeFamily} />
         <OnboardingView variant="no-project" onAddProject={() => void p.handleAddProjectFromOnboarding()} onCloneProject={p.handleCloneFromOnboarding}
           onCreateNewProject={(desc) => void p.handleCreateNewProject(desc)} creatingProject={p.appEffects.creatingProject}
           cloningProject={p.appEffects.cloningProject} createError={p.projectError} />
@@ -121,7 +123,7 @@ export function AppShell(p: AppShellProps): React.JSX.Element {
 
   return (
     <div className={`layout-root ${p.themeClass} ${p.densityClass}`}>
-      <TitleBar projectName={activeProjectName} onRename={p.onRenameActiveProject} themeType={themeType} onToggleTheme={p.onToggleTheme} />
+      <TitleBar projectName={activeProjectName} onRename={p.onRenameActiveProject} themeType={themeType} onToggleTheme={p.onToggleTheme} themeFamily={p.themeFamily} onSelectThemeFamily={p.onSelectThemeFamily} />
       <div className="layout-main">
         <DockStateContext.Provider value={p.dockState}>
           <div style={{ flex: 1, overflow: 'hidden' }}>

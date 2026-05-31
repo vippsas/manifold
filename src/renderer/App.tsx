@@ -139,8 +139,16 @@ export function App(): React.JSX.Element {
   const overlays = useAppOverlays(gitOps.commit, refreshDiff, spawnAgent, deleteAgent, removeSession, updateSettings, setActiveSession, setActiveProject, activeProjectId)
   const { themeId, themeClass, xtermTheme, setPreviewThemeId } = useTheme(settings.theme)
   const toggleTheme = useCallback(() => {
-    const nextId = themeId === 'jacob-co-light' ? 'jacob-co-dark' : 'jacob-co-light'
+    const nextId = themeId.endsWith('-light')
+      ? themeId.replace(/-light$/, '-dark')
+      : themeId.replace(/-dark$/, '-light')
     void updateSettings({ theme: nextId })
+  }, [themeId, updateSettings])
+  const themeFamily: 'jacob-co' | 'vipps-mobilepay' =
+    themeId.startsWith('vipps-mobilepay') ? 'vipps-mobilepay' : 'jacob-co'
+  const selectThemeFamily = useCallback((family: 'jacob-co' | 'vipps-mobilepay') => {
+    const suffix = themeId.endsWith('-light') ? '-light' : '-dark'
+    void updateSettings({ theme: `${family}${suffix}` })
   }, [themeId, updateSettings])
   const densityClass = settings.density === 'comfortable' ? '' : `density-${settings.density}`
   const updateNotification = useUpdateNotification()
@@ -305,6 +313,8 @@ export function App(): React.JSX.Element {
       hasSuperagent={Boolean(activeSuperagent)}
       onRenameActiveProject={(name) => { if (activeProjectId) void updateProject(activeProjectId, { name }) }}
       onToggleTheme={toggleTheme}
+      themeFamily={themeFamily}
+      onSelectThemeFamily={selectThemeFamily}
     />
   )
 }
