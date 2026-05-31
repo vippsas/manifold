@@ -25,7 +25,7 @@
 /* Thin sash (resize handle) between panel groups — 1px visible line, 8px grab zone */
 .dockview-theme-manifold .dv-split-view-container.dv-horizontal > .dv-sash-container > .dv-sash,
 .dockview-theme-manifold .dv-split-view-container.dv-vertical > .dv-sash-container > .dv-sash {
-  --grip-color: rgba(255, 255, 255, 0.28);
+  --grip-color: var(--text-muted);
   background: var(--divider);
 }
 .dockview-theme-manifold .dv-split-view-container.dv-horizontal > .dv-sash-container > .dv-sash {
