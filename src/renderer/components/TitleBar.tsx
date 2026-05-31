@@ -1,19 +1,29 @@
 import React, { useCallback, useState } from 'react'
 import { titleBarStyles as styles } from './TitleBar.styles'
 
+type ThemeFamily = 'jacob-co' | 'vipps-mobilepay'
+
 interface TitleBarProps {
   projectName?: string
   onRename?: (name: string) => void
   themeType?: 'dark' | 'light'
   onToggleTheme?: () => void
+  themeFamily?: ThemeFamily
+  onSelectThemeFamily?: (family: ThemeFamily) => void
 }
 
-export function TitleBar({ projectName, onRename, themeType, onToggleTheme }: TitleBarProps): React.JSX.Element {
+const THEME_FAMILIES: { id: ThemeFamily; label: string }[] = [
+  { id: 'jacob-co', label: 'Jacob & Co' },
+  { id: 'vipps-mobilepay', label: 'Vipps' },
+]
+
+export function TitleBar({ projectName, onRename, themeType, onToggleTheme, themeFamily, onSelectThemeFamily }: TitleBarProps): React.JSX.Element {
   const editable = Boolean(projectName && onRename)
   const [editing, setEditing] = useState(false)
   const [draft, setDraft] = useState('')
   const [hovered, setHovered] = useState(false)
   const [themeHovered, setThemeHovered] = useState(false)
+  const [themesHovered, setThemesHovered] = useState(false)
 
   const startEditing = useCallback((): void => {
     setDraft(projectName ?? '')
@@ -68,6 +78,25 @@ export function TitleBar({ projectName, onRename, themeType, onToggleTheme }: Ti
           </button>
         )}
       </div>
+      {themeFamily && onSelectThemeFamily && (
+        <label style={styles.themesGroup}>
+          <span style={styles.themesLabel}>Themes</span>
+          <select
+            value={themeFamily}
+            onChange={(e) => onSelectThemeFamily(e.target.value as ThemeFamily)}
+            onMouseEnter={() => setThemesHovered(true)}
+            onMouseLeave={() => setThemesHovered(false)}
+            style={{ ...styles.themesSelect, ...(themesHovered ? styles.themesSelectHover : undefined) }}
+            aria-label="Theme"
+          >
+            {THEME_FAMILIES.map((family) => (
+              <option key={family.id} value={family.id}>
+                {family.label}
+              </option>
+            ))}
+          </select>
+        </label>
+      )}
       {onToggleTheme && (
         <button
           type="button"

@@ -4,6 +4,8 @@ describe('custom themes', () => {
   it.each([
     'jacob-co-dark',
     'jacob-co-light',
+    'vipps-mobilepay-dark',
+    'vipps-mobilepay-light',
   ])('%s includes colorful markdown token rules', (themeId) => {
     const rules = loadTheme(themeId).monacoTheme.rules
     const tokenSet = new Set(rules.map((rule) => rule.token))
