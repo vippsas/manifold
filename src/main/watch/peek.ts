@@ -2,7 +2,9 @@ import { spawn } from 'node:child_process'
 import type { WatchPeekResult, WatchPlaylistPeekResult, WatchPlaylistEntry } from '../../shared/watch-types'
 import { ensureYtDlp } from './yt-dlp-fetcher'
 
-const PEEK_TIMEOUT_MS = 8_000
+// YouTube's `-J` metadata dump now routinely takes 12–18s (it deciphers
+// signatures for every format), so an 8s cap timed out legitimate videos.
+const PEEK_TIMEOUT_MS = 25_000
 const PLAYLIST_PEEK_TIMEOUT_MS = 20_000
 const MAX_THUMBNAIL_BYTES = 2 * 1024 * 1024
 const PLAYLIST_MAX_ENTRIES = 50
