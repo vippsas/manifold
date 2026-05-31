@@ -21,7 +21,6 @@ export default defineConfig({
       rollupOptions: {
         input: {
           index: resolve(__dirname, 'src/preload/index.ts'),
-          simple: resolve(__dirname, 'src/preload/simple.ts'),
         }
       }
     }
@@ -32,7 +31,6 @@ export default defineConfig({
     optimizeDeps: {
       entries: [
         resolve(__dirname, 'src/renderer/index.html'),
-        resolve(__dirname, 'src/renderer-simple/index.html'),
       ],
       include: [
         'react',
@@ -47,7 +45,6 @@ export default defineConfig({
       rollupOptions: {
         input: {
           index: resolve(__dirname, 'src/renderer/index.html'),
-          simple: resolve(__dirname, 'src/renderer-simple/index.html'),
         }
       }
     }
