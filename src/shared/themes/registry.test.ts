@@ -1,11 +1,9 @@
 import { loadTheme } from './registry'
 
 describe('custom themes', () => {
-  const brandedThemeIds = ['dark', 'light'].map((variant) => `vip${'ps'}-${variant}`)
-
   it.each([
-    'manifold-dark',
-    ...brandedThemeIds,
+    'jacob-co-dark',
+    'jacob-co-light',
   ])('%s includes colorful markdown token rules', (themeId) => {
     const rules = loadTheme(themeId).monacoTheme.rules
     const tokenSet = new Set(rules.map((rule) => rule.token))

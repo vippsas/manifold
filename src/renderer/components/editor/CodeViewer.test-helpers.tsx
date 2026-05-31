@@ -32,7 +32,7 @@ export function renderViewer(overrides: Partial<React.ComponentProps<typeof Code
     activeFilePath: openFile.path,
     fileContent: openFile.content,
     lastFileOpenRequest: makeOpenRequest(),
-    theme: 'manifold-dark',
+    theme: 'jacob-co-dark',
     onSelectTab: vi.fn(),
     onOpenLinkedFile: vi.fn(),
     onCloseTab: vi.fn(),
