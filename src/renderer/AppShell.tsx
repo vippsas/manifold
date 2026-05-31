@@ -92,13 +92,15 @@ export interface AppShellProps {
   dockLayout: unknown
   hasSuperagent: boolean
   onRenameActiveProject: (name: string) => void
+  onToggleTheme: () => void
 }
 
 export function AppShell(p: AppShellProps): React.JSX.Element {
+  const themeType: 'dark' | 'light' = p.themeClass === 'theme-light' ? 'light' : 'dark'
   if (!p.settings.setupCompleted) {
     return (
       <div className={`layout-root ${p.themeClass} ${p.densityClass}`}>
-        <TitleBar />
+        <TitleBar themeType={themeType} onToggleTheme={p.onToggleTheme} />
         <WelcomeDialog onAddProject={() => void p.addProject()} onCloneProject={p.cloneProject} onComplete={p.overlays.handleSetupComplete} />
       </div>
     )
@@ -107,7 +109,7 @@ export function AppShell(p: AppShellProps): React.JSX.Element {
   if (p.projects.length === 0) {
     return (
       <div className={`layout-root ${p.themeClass} ${p.densityClass}`}>
-        <TitleBar />
+        <TitleBar themeType={themeType} onToggleTheme={p.onToggleTheme} />
         <OnboardingView variant="no-project" onAddProject={() => void p.handleAddProjectFromOnboarding()} onCloneProject={p.handleCloneFromOnboarding}
           onCreateNewProject={(desc) => void p.handleCreateNewProject(desc)} creatingProject={p.appEffects.creatingProject}
           cloningProject={p.appEffects.cloningProject} createError={p.projectError} />
@@ -119,7 +121,7 @@ export function AppShell(p: AppShellProps): React.JSX.Element {
 
   return (
     <div className={`layout-root ${p.themeClass} ${p.densityClass}`}>
-      <TitleBar projectName={activeProjectName} onRename={p.onRenameActiveProject} />
+      <TitleBar projectName={activeProjectName} onRename={p.onRenameActiveProject} themeType={themeType} onToggleTheme={p.onToggleTheme} />
       <div className="layout-main">
         <DockStateContext.Provider value={p.dockState}>
           <div style={{ flex: 1, overflow: 'hidden' }}>

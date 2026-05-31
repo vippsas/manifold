@@ -9,7 +9,7 @@ export const DEFAULT_SETTINGS: ManifoldSettings = {
   showIdeasTab: false,
   showLoopTab: false,
   showVerdictsTab: false,
-  theme: 'manifold-atelier',
+  theme: 'jacob-co-dark',
   scrollbackLines: 5000,
   terminalFontFamily: '',
   defaultBaseBranch: 'main',
