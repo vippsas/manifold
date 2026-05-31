@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useLayoutEffect } from 'react'
+import React, { useState, useEffect, useLayoutEffect, useCallback } from 'react'
 import { Dashboard } from './components/Dashboard'
 import type { StartAppRequest } from './components/Dashboard'
 import { SimpleTitleBar } from './components/SimpleTitleBar'
@@ -30,22 +30,34 @@ export function App(): React.JSX.Element {
   const activeApp = view.kind === 'app' ? view.app : null
   const { status: agentStatus } = useAgentStatus(activeApp?.sessionId ?? null)
   const isAgentBusy = agentStatus === 'running'
+  const [themeType, setThemeType] = useState<'dark' | 'light'>('dark')
+
+  const applyThemeById = useCallback((themeId: string) => {
+    const theme = loadTheme(themeId)
+    applySimpleThemeVars(theme)
+    setThemeType(theme.type)
+    window.electronAPI.send('theme:changed', {
+      type: theme.type,
+      background: theme.cssVars['--bg-primary'],
+    })
+  }, [])
+
+  const toggleTheme = useCallback(() => {
+    const nextId = themeType === 'dark' ? 'jacob-co-light' : 'jacob-co-dark'
+    applyThemeById(nextId)
+    void window.electronAPI.invoke('settings:update', { theme: nextId })
+  }, [themeType, applyThemeById])
 
   useLayoutEffect(() => {
     let cancelled = false
     void (async () => {
       const settings = (await window.electronAPI.invoke('settings:get')) as { theme?: string }
       if (cancelled) return
-      const themeId = migrateLegacyTheme(settings.theme ?? 'dracula')
-      const theme = loadTheme(themeId)
-      applySimpleThemeVars(theme)
-      window.electronAPI.send('theme:changed', {
-        type: theme.type,
-        background: theme.cssVars['--bg-primary'],
-      })
+      const themeId = migrateLegacyTheme(settings.theme ?? 'jacob-co-dark')
+      applyThemeById(themeId)
     })()
     return () => { cancelled = true }
-  }, [])
+  }, [applyThemeById])
 
   useEffect(() => {
     let cancelled = false
@@ -88,6 +100,8 @@ export function App(): React.JSX.Element {
             runtimeId={view.app.runtimeId}
             disabled={isAgentBusy}
             onBack={() => setView({ kind: 'dashboard' })}
+            themeType={themeType}
+            onToggleTheme={toggleTheme}
           />
           <AppViewWrapper app={view.app} onBack={() => setView({ kind: 'dashboard' })} />
         </div>
@@ -115,7 +129,7 @@ export function App(): React.JSX.Element {
 
   return (
     <>
-    <SimpleTitleBar disabled={hasActiveApp} />
+    <SimpleTitleBar disabled={hasActiveApp} themeType={themeType} onToggleTheme={toggleTheme} />
     <Dashboard
       apps={apps}
       onStart={async ({ name, description, templateQualifiedId, templateTitle, promptInstructions, inputs }: StartAppRequest) => {

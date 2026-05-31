@@ -124,7 +124,7 @@ beforeEach(() => {
   }
   mockInvoke.mockImplementation((channel: string, ...args: unknown[]) => {
     if (channel === 'settings:get') {
-      return Promise.resolve({ theme: 'manifold-dark', defaultRuntime: 'codex' })
+      return Promise.resolve({ theme: 'jacob-co-dark', defaultRuntime: 'codex' })
     }
     if (channel === 'app:consume-pending-launch') {
       return Promise.resolve(null)
@@ -150,7 +150,7 @@ describe('App', () => {
     mockUseAgentStatus.mockReturnValue({ status: 'done', durationMs: null })
     mockInvoke.mockImplementation((channel: string, ...args: unknown[]) => {
       if (channel === 'settings:get') {
-        return Promise.resolve({ theme: 'manifold-dark', defaultRuntime: 'codex' })
+        return Promise.resolve({ theme: 'jacob-co-dark', defaultRuntime: 'codex' })
       }
       if (channel === 'app:consume-pending-launch') {
         return Promise.resolve({ kind: 'simple', app: createApp({ status: 'building' }) })
@@ -214,7 +214,7 @@ describe('App', () => {
   it('reopens the existing session when a preview URL already exists', async () => {
     mockInvoke.mockImplementation((channel: string) => {
       if (channel === 'settings:get') {
-        return Promise.resolve({ theme: 'manifold-dark', defaultRuntime: 'codex' })
+        return Promise.resolve({ theme: 'jacob-co-dark', defaultRuntime: 'codex' })
       }
       if (channel === 'app:consume-pending-launch') {
         return Promise.resolve(null)

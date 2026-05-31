@@ -138,6 +138,10 @@ export function App(): React.JSX.Element {
   const fetchProject = useFetchProject(handleFetchSuccess)
   const overlays = useAppOverlays(gitOps.commit, refreshDiff, spawnAgent, deleteAgent, removeSession, updateSettings, setActiveSession, setActiveProject, activeProjectId)
   const { themeId, themeClass, xtermTheme, setPreviewThemeId } = useTheme(settings.theme)
+  const toggleTheme = useCallback(() => {
+    const nextId = themeId === 'jacob-co-light' ? 'jacob-co-dark' : 'jacob-co-light'
+    void updateSettings({ theme: nextId })
+  }, [themeId, updateSettings])
   const densityClass = settings.density === 'comfortable' ? '' : `density-${settings.density}`
   const updateNotification = useUpdateNotification()
   const updateLog = useUpdateLog()
@@ -300,6 +304,7 @@ export function App(): React.JSX.Element {
       dockLayout={dockLayout}
       hasSuperagent={Boolean(activeSuperagent)}
       onRenameActiveProject={(name) => { if (activeProjectId) void updateProject(activeProjectId, { name }) }}
+      onToggleTheme={toggleTheme}
     />
   )
 }

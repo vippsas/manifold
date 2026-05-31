@@ -65,4 +65,25 @@ export const titleBarStyles: Record<string, React.CSSProperties> = {
     textAlign: 'center',
     outline: 'none',
   },
+  themeToggle: {
+    // @ts-expect-error -- Electron-specific CSS property; opt out of window drag
+    WebkitAppRegion: 'no-drag',
+    flexShrink: 0,
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    width: 28,
+    height: 26,
+    border: '1px solid var(--border)',
+    borderRadius: 'var(--radius-sm)',
+    background: 'transparent',
+    fontSize: 13,
+    color: 'var(--text-secondary)',
+    cursor: 'pointer',
+    transition: 'background 150ms ease, color 150ms ease',
+  },
+  themeToggleHover: {
+    background: 'var(--list-hover-bg)',
+    color: 'var(--text-primary)',
+  },
 }
