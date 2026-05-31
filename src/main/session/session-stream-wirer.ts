@@ -10,7 +10,6 @@ import type { SimpleRuntimeOutputMode } from '../agent/simple-runtime'
 import type { GitOperationsManager } from '../git/git-operations'
 import { predictNextCommand } from './shell-suggestion'
 import { handleStreamJsonEvent, type StreamJsonCtx } from './session-stream-json'
-import { checkVercelDeploy } from './session-vercel-deploy'
 
 function stripTerminalControls(text: string): string {
   return text
@@ -133,8 +132,6 @@ export class SessionStreamWirer {
             url: urlResult.url,
           })
         }
-
-        checkVercelDeploy(session)
       }
 
       // Detect Manifold shell prompt and trigger AI command prediction immediately.
@@ -187,7 +184,6 @@ export class SessionStreamWirer {
       if (session.outputBuffer.length > 100_000) {
         session.outputBuffer = session.outputBuffer.slice(-50_000)
       }
-      checkVercelDeploy(session)
       this.trackActivity(session)
       session.streamJsonLineBuffer = (session.streamJsonLineBuffer ?? '') + data
       this.sendToRenderer('agent:activity', { sessionId: session.id })

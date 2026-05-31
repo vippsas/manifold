@@ -39,14 +39,7 @@ export const DEFAULT_SETTINGS: ManifoldSettings = {
     },
   },
   provisioning: {
-    provisioners: [
-      {
-        id: 'vercel-bundled',
-        label: 'Vercel Templates',
-        type: 'builtin',
-        enabled: true,
-      },
-    ],
+    provisioners: [],
   },
   transcription: {
     provider: 'none',

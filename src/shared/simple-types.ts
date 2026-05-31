@@ -9,7 +9,7 @@ export interface ChatMessage {
   options?: string[]
 }
 
-export type AppStatus = 'idle' | 'scaffolding' | 'building' | 'previewing' | 'deploying' | 'live' | 'error'
+export type AppStatus = 'idle' | 'scaffolding' | 'building' | 'previewing' | 'live' | 'error'
 
 export interface SimpleApp {
   sessionId: string
@@ -26,18 +26,6 @@ export interface SimpleApp {
   projectPath: string
   createdAt: number
   updatedAt: number
-}
-
-export interface DeploymentStatus {
-  sessionId: string
-  stage: AppStatus
-  message: string
-  url?: string
-}
-
-export interface VercelHealth {
-  cliInstalled: boolean
-  authenticated: boolean
 }
 
 // Re-export for backwards compatibility — prefer importing from simple-prompts directly.
