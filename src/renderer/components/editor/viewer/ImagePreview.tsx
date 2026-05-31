@@ -25,7 +25,7 @@ const styles: Record<string, React.CSSProperties> = {
   scrollArea: {
     width: '100%',
     height: '100%',
-    overflow: 'auto',
+    overflow: 'hidden',
     display: 'flex',
     alignItems: 'center',
     justifyContent: 'center',
@@ -38,7 +38,6 @@ const styles: Record<string, React.CSSProperties> = {
     objectFit: 'contain',
     userSelect: 'none',
     transformOrigin: 'center center',
-    transition: 'transform 80ms ease-out',
   },
   controls: {
     position: 'absolute',
@@ -75,26 +74,62 @@ const styles: Record<string, React.CSSProperties> = {
   },
 }
 
+interface Offset {
+  x: number
+  y: number
+}
+
+const ZERO_OFFSET: Offset = { x: 0, y: 0 }
+
 export function ImagePreview({ filePath, dataUrl }: ImagePreviewProps): React.JSX.Element {
   const wrapperRef = useRef<HTMLDivElement | null>(null)
+  const imageRef = useRef<HTMLImageElement | null>(null)
   const [scale, setScale] = useState(1)
+  const [offset, setOffset] = useState<Offset>(ZERO_OFFSET)
+  const [isDragging, setIsDragging] = useState(false)
+  const dragStart = useRef<{ pointerX: number; pointerY: number; offset: Offset } | null>(null)
+
+  // The panning range is half the amount by which the scaled image overflows
+  // its rendered (contained) size in each axis — so edges can't be dragged
+  // past the centre of the viewport.
+  const clampOffset = useCallback((next: Offset): Offset => {
+    const img = imageRef.current
+    if (!img) return next
+    const overflowX = Math.max(0, img.offsetWidth * scale - img.offsetWidth)
+    const overflowY = Math.max(0, img.offsetHeight * scale - img.offsetHeight)
+    return {
+      x: clamp(next.x, -overflowX / 2, overflowX / 2),
+      y: clamp(next.y, -overflowY / 2, overflowY / 2),
+    }
+  }, [scale])
 
   useEffect(() => {
     setScale(1)
+    setOffset(ZERO_OFFSET)
   }, [filePath])
+
+  // Re-clamp the pan offset when zoom changes (e.g. zooming back out should
+  // pull the image back toward centre).
+  useEffect(() => {
+    setOffset((prev) => clampOffset(prev))
+  }, [clampOffset])
 
   useEffect(() => {
     const el = wrapperRef.current
     if (!el) return
-    // macOS trackpad pinch gestures arrive as wheel events with ctrlKey set.
+    // macOS trackpad pinch gestures arrive as wheel events with ctrlKey set;
+    // a plain two-finger scroll pans the zoomed image instead.
     const onWheel = (e: WheelEvent): void => {
-      if (!e.ctrlKey) return
       e.preventDefault()
-      setScale((prev) => clamp(prev * Math.exp(-e.deltaY * WHEEL_SENSITIVITY), MIN_SCALE, MAX_SCALE))
+      if (e.ctrlKey) {
+        setScale((prev) => clamp(prev * Math.exp(-e.deltaY * WHEEL_SENSITIVITY), MIN_SCALE, MAX_SCALE))
+        return
+      }
+      setOffset((prev) => clampOffset({ x: prev.x - e.deltaX, y: prev.y - e.deltaY }))
     }
     el.addEventListener('wheel', onWheel, { passive: false })
     return () => el.removeEventListener('wheel', onWheel)
-  }, [])
+  }, [clampOffset])
 
   const zoomIn = useCallback(() => {
     setScale((prev) => clamp(prev * ZOOM_STEP, MIN_SCALE, MAX_SCALE))
@@ -102,16 +137,63 @@ export function ImagePreview({ filePath, dataUrl }: ImagePreviewProps): React.JS
   const zoomOut = useCallback(() => {
     setScale((prev) => clamp(prev / ZOOM_STEP, MIN_SCALE, MAX_SCALE))
   }, [])
-  const resetZoom = useCallback(() => setScale(1), [])
+  const resetZoom = useCallback(() => {
+    setScale(1)
+    setOffset(ZERO_OFFSET)
+  }, [])
+
+  const canPan = scale > 1
+
+  const onPointerDown = useCallback(
+    (e: React.PointerEvent<HTMLImageElement>) => {
+      if (!canPan) return
+      e.preventDefault()
+      e.currentTarget.setPointerCapture(e.pointerId)
+      dragStart.current = { pointerX: e.clientX, pointerY: e.clientY, offset }
+      setIsDragging(true)
+    },
+    [canPan, offset],
+  )
+
+  const onPointerMove = useCallback(
+    (e: React.PointerEvent<HTMLImageElement>) => {
+      const start = dragStart.current
+      if (!start) return
+      setOffset(
+        clampOffset({
+          x: start.offset.x + (e.clientX - start.pointerX),
+          y: start.offset.y + (e.clientY - start.pointerY),
+        }),
+      )
+    },
+    [clampOffset],
+  )
+
+  const endDrag = useCallback((e: React.PointerEvent<HTMLImageElement>) => {
+    if (!dragStart.current) return
+    e.currentTarget.releasePointerCapture(e.pointerId)
+    dragStart.current = null
+    setIsDragging(false)
+  }, [])
 
   return (
     <div ref={wrapperRef} style={styles.wrapper}>
       <div style={styles.scrollArea}>
         <img
+          ref={imageRef}
           src={dataUrl}
           alt={filePath}
           draggable={false}
-          style={{ ...styles.image, transform: `scale(${scale})` }}
+          onPointerDown={onPointerDown}
+          onPointerMove={onPointerMove}
+          onPointerUp={endDrag}
+          onPointerCancel={endDrag}
+          style={{
+            ...styles.image,
+            transform: `translate(${offset.x}px, ${offset.y}px) scale(${scale})`,
+            transition: isDragging ? 'none' : 'transform 80ms ease-out',
+            cursor: canPan ? (isDragging ? 'grabbing' : 'grab') : 'default',
+          }}
         />
       </div>
       <div style={styles.controls} role="toolbar" aria-label="Image zoom">

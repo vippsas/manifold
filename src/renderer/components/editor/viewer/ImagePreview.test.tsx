@@ -68,6 +68,17 @@ describe('ImagePreview', () => {
     expect(screen.getByRole('button', { name: 'Reset zoom' })).toHaveTextContent('100%')
   })
 
+  it('shows a default cursor (no panning) at 100% zoom', () => {
+    render(<ImagePreview filePath="/repo/logo.png" dataUrl="data:image/png;base64,AA" />)
+    expect(screen.getByRole('img')).toHaveStyle({ cursor: 'default' })
+  })
+
+  it('offers a grab cursor for panning once zoomed in', () => {
+    render(<ImagePreview filePath="/repo/logo.png" dataUrl="data:image/png;base64,AA" />)
+    fireEvent.click(screen.getByRole('button', { name: 'Zoom in' }))
+    expect(screen.getByRole('img')).toHaveStyle({ cursor: 'grab' })
+  })
+
   it('resets zoom when switching to a different file', () => {
     const { rerender } = render(
       <ImagePreview filePath="/repo/one.png" dataUrl="data:image/png;base64,AA" />,
