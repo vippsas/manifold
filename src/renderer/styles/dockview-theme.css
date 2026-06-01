@@ -78,6 +78,34 @@
   transform: translateY(-50%);
 }
 
+/* When a sidebar is collapsed flush to the window edge, the centered grab zone
+   half-clips off-screen. Anchor it inward and widen it so the collapsed handle
+   stays an easy double-click target for restoring the sidebar. */
+.dockview-theme-manifold .dv-split-view-container.dv-horizontal > .dv-sash-container > .dv-sash.dv-sash--edge-left::before {
+  left: 0;
+  width: 18px;
+  transform: none;
+}
+.dockview-theme-manifold .dv-split-view-container.dv-horizontal > .dv-sash-container > .dv-sash.dv-sash--edge-right::before {
+  left: auto;
+  right: 0;
+  width: 18px;
+  transform: none;
+}
+
+/* The visible grip dots are centered on the 1px line, which sits at the window
+   edge when a sidebar is collapsed — so they clip off-screen and the handle
+   looks like it vanished. Anchor the dots inward and brighten them so the
+   collapsed handle stays visible and reads as a grab target. */
+.dockview-theme-manifold .dv-split-view-container.dv-horizontal > .dv-sash-container > .dv-sash.dv-sash--edge-left::after {
+  left: 7px;
+  --grip-color: var(--text-secondary);
+}
+.dockview-theme-manifold .dv-split-view-container.dv-horizontal > .dv-sash-container > .dv-sash.dv-sash--edge-right::after {
+  left: -7px;
+  --grip-color: var(--text-secondary);
+}
+
 /* Tab text styling */
 .dockview-theme-manifold .dv-tab {
   font-family: inherit;

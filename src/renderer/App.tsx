@@ -25,6 +25,7 @@ import { useSuperagentFileBridge } from './hooks/useSuperagentFileBridge'
 import { useAutoSelectActiveProject } from './hooks/useAutoSelectActiveProject'
 import { useProjectCreateHandlers } from './hooks/useProjectCreateHandlers'
 import { useDockLayout } from './hooks/useDockLayout'
+import { useSidebarHandleCycle } from './hooks/useSidebarHandleCycle'
 import { useAgentSiblingDockTabs } from './hooks/useAgentSiblingDockTabs'
 import { useSuperagentChildDockTabs } from './hooks/useSuperagentChildDockTabs'
 import { getPrimarySession, siblingPanelId } from './hooks/agent-siblings'
@@ -73,6 +74,7 @@ export function App(): React.JSX.Element {
   // Key dockview by superagent when active so child-session selection can change without tearing down the fleet layout.
   const dockLayoutKey = activeSuperagentId ?? primarySessionId ?? activeSessionId
   const dockLayout = useDockLayout(dockLayoutKey, activeProjectSessions)
+  useSidebarHandleCycle(dockLayout.apiRef)
   useAgentSiblingDockTabs({
     apiRef: dockLayout.apiRef, layoutVersion: dockLayout.layoutVersion,
     sessions: activeProjectSessions, activeWorktreePath, primarySessionId, activeSessionId,
