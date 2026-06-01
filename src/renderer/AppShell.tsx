@@ -93,8 +93,8 @@ export interface AppShellProps {
   hasSuperagent: boolean
   onRenameActiveProject: (name: string) => void
   onToggleTheme: () => void
-  themeFamily: 'jacob-co' | 'vipps-mobilepay'
-  onSelectThemeFamily: (family: 'jacob-co' | 'vipps-mobilepay') => void
+  themeFamily: 'manifold' | 'vipps-mobilepay'
+  onSelectThemeFamily: (family: 'manifold' | 'vipps-mobilepay') => void
 }
 
 export function AppShell(p: AppShellProps): React.JSX.Element {

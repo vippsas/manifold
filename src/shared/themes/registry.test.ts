@@ -2,8 +2,8 @@ import { loadTheme } from './registry'
 
 describe('custom themes', () => {
   it.each([
-    'jacob-co-dark',
-    'jacob-co-light',
+    'manifold-dark',
+    'manifold-light',
     'vipps-mobilepay-dark',
     'vipps-mobilepay-light',
   ])('%s includes colorful markdown token rules', (themeId) => {
