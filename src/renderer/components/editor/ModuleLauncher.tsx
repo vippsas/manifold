@@ -28,7 +28,12 @@ export function ModuleLauncher(): React.JSX.Element | null {
 
   return (
     <ActionMenuButton
-      buttonLabel={<PlusIcon />}
+      buttonLabel={
+        <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+          <PlusIcon />
+          Apps
+        </span>
+      }
       title="Open module"
       menuLabel="Modules"
       items={items}
