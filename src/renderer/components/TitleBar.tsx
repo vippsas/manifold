@@ -1,7 +1,7 @@
 import React, { useCallback, useState } from 'react'
 import { titleBarStyles as styles } from './TitleBar.styles'
 
-type ThemeFamily = 'jacob-co' | 'vipps-mobilepay'
+type ThemeFamily = 'manifold' | 'vipps-mobilepay'
 
 interface TitleBarProps {
   projectName?: string
@@ -13,7 +13,7 @@ interface TitleBarProps {
 }
 
 const THEME_FAMILIES: { id: ThemeFamily; label: string }[] = [
-  { id: 'jacob-co', label: 'Jacob & Co' },
+  { id: 'manifold', label: 'Manifold' },
   { id: 'vipps-mobilepay', label: 'Vipps' },
 ]
 

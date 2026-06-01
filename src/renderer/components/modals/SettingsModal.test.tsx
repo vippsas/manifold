@@ -91,7 +91,7 @@ describe('SettingsModal', () => {
     expect(screen.getByDisplayValue('Claude Code')).toBeInTheDocument()
 
     // Theme button shows the current theme label
-    expect(screen.getByText('Jacob Co Dark')).toBeInTheDocument()
+    expect(screen.getByText('Manifold Dark')).toBeInTheDocument()
 
     // Scrollback lines input
     const scrollbackInput = screen.getByDisplayValue('5000') as HTMLInputElement
@@ -109,7 +109,7 @@ describe('SettingsModal', () => {
 
     expect(props.onSave).toHaveBeenCalledWith(
       expect.objectContaining({
-        theme: 'jacob-co-dark',
+        theme: 'manifold-dark',
         defaultRuntime: 'claude',
         showIdeasTab: false,
         scrollbackLines: 5000,
@@ -207,10 +207,10 @@ describe('SettingsModal', () => {
 
   it('shows theme label for the current theme', () => {
     renderModal({
-      settings: { ...DEFAULT_SETTINGS, theme: 'jacob-co-dark' },
+      settings: { ...DEFAULT_SETTINGS, theme: 'manifold-dark' },
     })
 
-    expect(screen.getByText('Jacob Co Dark')).toBeInTheDocument()
+    expect(screen.getByText('Manifold Dark')).toBeInTheDocument()
   })
 
   it('switches between settings tabs', () => {
