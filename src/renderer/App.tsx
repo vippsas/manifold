@@ -259,6 +259,11 @@ export function App(): React.JSX.Element {
     fetchResult: fetchProject.fetchResult, fetchError: fetchProject.fetchError,
     onFetchProject: fetchProject.fetchProject,
     onShowSearchPanel: appEffects.showSearchPanel, onClosePanel: editorHandlers.handleClosePanel,
+    onOpenModule: (id) => {
+      if (dockLayout.isPanelVisible(id)) dockLayout.focusPanel(id)
+      else dockLayout.togglePanel(id)
+    },
+    isModuleOpen: dockLayout.isPanelVisible,
     onFocusPanel: dockLayout.focusPanel,
     onOpenSibling: dockLayout.openSiblingPanel, onCloseSiblingPanel: dockLayout.closeSiblingPanel,
     activeSessionStatus: activeSession?.status ?? null,
