@@ -182,12 +182,25 @@ export const viewerStyles: Record<string, React.CSSProperties> = {
     color: 'var(--text-primary)',
     fontFamily: 'var(--font-sans)',
     textAlign: 'left' as const,
-    whiteSpace: 'nowrap' as const,
+    whiteSpace: 'normal' as const,
+    maxWidth: '260px',
     cursor: 'pointer',
   },
   actionMenuItemLabel: {
     fontSize: '0.92em',
     lineHeight: 1.2,
+  },
+  actionMenuItemText: {
+    display: 'flex',
+    flexDirection: 'column' as const,
+    gap: '2px',
+    minWidth: 0,
+  },
+  actionMenuItemDescription: {
+    fontSize: '0.82em',
+    lineHeight: 1.25,
+    color: 'var(--text-muted)',
+    whiteSpace: 'normal' as const,
   },
   closeButton: {
     display: 'flex',

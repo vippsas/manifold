@@ -85,9 +85,6 @@ export interface ManifoldSettings {
   lastSeenReleaseNotesVersion: string
   defaultRuntime: string
   defaultAgentMode?: 'interactive' | 'chat'
-  showIdeasTab: boolean
-  showLoopTab: boolean
-  showVerdictsTab: boolean
   theme: string
   scrollbackLines: number
   terminalFontFamily: string

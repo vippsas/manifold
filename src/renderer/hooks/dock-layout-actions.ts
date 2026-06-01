@@ -54,9 +54,6 @@ export function useDockActions(
   const togglePanel = useCallback((id: DockPanelId): void => {
     const api = ctx.apiRef.current
     if (!api) return
-    if (id === 'backgroundAgent' && !ctx.showIdeasTabRef.current) return
-    if (id === 'loop' && !ctx.showLoopTabRef.current) return
-
     if (id === 'editor') {
       const visibleEditorPanels = Array.from(ctx.editorPanelIdsRef.current)
       if (visibleEditorPanels.length === 0) {

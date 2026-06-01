@@ -5,7 +5,7 @@ import type { Superagent, CreateSuperagentInput } from '../shared/superagent-typ
 import type { DockAppState } from './components/editor/dock-panel-types'
 import type { UseAppOverlaysResult } from './hooks/useAppOverlays'
 import { PANEL_COMPONENTS, DockStateContext } from './components/editor/dock-panels'
-import { EditorHeaderActions } from './components/editor/EditorHeaderActions'
+import { WorkspaceHeaderActions } from './components/editor/WorkspaceHeaderActions'
 import { ShellHeaderActions } from './components/terminal/ShellHeaderActions'
 import { OnboardingView } from './components/modals/OnboardingView'
 import { SettingsModal } from './components/modals/SettingsModal'
@@ -133,7 +133,7 @@ export function AppShell(p: AppShellProps): React.JSX.Element {
               onReady={(e) => p.onDockReady(e.api)}
               defaultTabComponent={DockTab}
               leftHeaderActionsComponent={ShellHeaderActions}
-              rightHeaderActionsComponent={EditorHeaderActions}
+              rightHeaderActionsComponent={WorkspaceHeaderActions}
               watermarkComponent={EmptyWatermark}
             />
           </div>

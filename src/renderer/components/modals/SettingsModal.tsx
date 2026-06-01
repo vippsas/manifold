@@ -17,9 +17,6 @@ interface SettingsModalProps {
 
 export function SettingsModal({ visible, settings, onSave, onClose, onPreviewTheme }: SettingsModalProps): React.JSX.Element | null {
   const [defaultRuntime, setDefaultRuntime] = useState(settings.defaultRuntime)
-  const [showIdeasTab, setShowIdeasTab] = useState(settings.showIdeasTab)
-  const [showLoopTab, setShowLoopTab] = useState(settings.showLoopTab)
-  const [showVerdictsTab, setShowVerdictsTab] = useState(settings.showVerdictsTab)
   const [theme, setTheme] = useState(settings.theme)
   const [scrollbackLines, setScrollbackLines] = useState(settings.scrollbackLines)
   const [terminalFontFamily, setTerminalFontFamily] = useState(settings.terminalFontFamily)
@@ -50,9 +47,6 @@ export function SettingsModal({ visible, settings, onSave, onClose, onPreviewThe
     if (!visible) return
     const nextProvisioners = settings.provisioning?.provisioners ?? DEFAULT_SETTINGS.provisioning.provisioners
     setDefaultRuntime(settings.defaultRuntime)
-    setShowIdeasTab(settings.showIdeasTab)
-    setShowLoopTab(settings.showLoopTab)
-    setShowVerdictsTab(settings.showVerdictsTab)
     setTheme(settings.theme)
     setScrollbackLines(settings.scrollbackLines)
     setTerminalFontFamily(settings.terminalFontFamily)
@@ -82,9 +76,6 @@ export function SettingsModal({ visible, settings, onSave, onClose, onPreviewThe
 
     onSave({
       defaultRuntime,
-      showIdeasTab,
-      showLoopTab,
-      showVerdictsTab,
       theme,
       scrollbackLines,
       terminalFontFamily,
@@ -101,7 +92,7 @@ export function SettingsModal({ visible, settings, onSave, onClose, onPreviewThe
       transcription,
     })
     onClose()
-  }, [defaultRuntime, showIdeasTab, showLoopTab, showVerdictsTab, theme, scrollbackLines, terminalFontFamily, defaultBaseBranch, storagePath, notificationSound, shellPrompt, shellHistoryScope, density, autoGenerateMessages, showCommitAndPrButtons, searchAiSettings, provisioners, transcription, onSave, onClose])
+  }, [defaultRuntime, theme, scrollbackLines, terminalFontFamily, defaultBaseBranch, storagePath, notificationSound, shellPrompt, shellHistoryScope, density, autoGenerateMessages, showCommitAndPrButtons, searchAiSettings, provisioners, transcription, onSave, onClose])
 
   if (!visible) return null
 
@@ -127,17 +118,11 @@ export function SettingsModal({ visible, settings, onSave, onClose, onPreviewThe
           storagePath={storagePath}
           onStoragePathChange={setStoragePath}
           defaultRuntime={defaultRuntime}
-          showIdeasTab={showIdeasTab}
-          showLoopTab={showLoopTab}
           theme={theme}
           scrollbackLines={scrollbackLines}
           terminalFontFamily={terminalFontFamily}
           defaultBaseBranch={defaultBaseBranch}
           onRuntimeChange={setDefaultRuntime}
-          onShowIdeasTabChange={setShowIdeasTab}
-          onShowLoopTabChange={setShowLoopTab}
-          showVerdictsTab={showVerdictsTab}
-          onShowVerdictsTabChange={setShowVerdictsTab}
           onThemeChange={setTheme}
           onScrollbackChange={setScrollbackLines}
           onTerminalFontFamilyChange={setTerminalFontFamily}

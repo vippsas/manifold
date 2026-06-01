@@ -72,7 +72,7 @@ export function App(): React.JSX.Element {
   const primarySessionId = primarySession?.id ?? null
   // Key dockview by superagent when active so child-session selection can change without tearing down the fleet layout.
   const dockLayoutKey = activeSuperagentId ?? primarySessionId ?? activeSessionId
-  const dockLayout = useDockLayout(dockLayoutKey, settings.showIdeasTab, settings.showLoopTab, settings.showVerdictsTab, !activeSuperagentId, activeProjectSessions)
+  const dockLayout = useDockLayout(dockLayoutKey, activeProjectSessions)
   useAgentSiblingDockTabs({
     apiRef: dockLayout.apiRef, layoutVersion: dockLayout.layoutVersion,
     sessions: activeProjectSessions, activeWorktreePath, primarySessionId, activeSessionId,
@@ -259,6 +259,11 @@ export function App(): React.JSX.Element {
     fetchResult: fetchProject.fetchResult, fetchError: fetchProject.fetchError,
     onFetchProject: fetchProject.fetchProject,
     onShowSearchPanel: appEffects.showSearchPanel, onClosePanel: editorHandlers.handleClosePanel,
+    onOpenModule: (id) => {
+      if (dockLayout.isPanelVisible(id)) dockLayout.focusPanel(id)
+      else dockLayout.togglePanel(id)
+    },
+    isModuleOpen: dockLayout.isPanelVisible,
     onFocusPanel: dockLayout.focusPanel,
     onOpenSibling: dockLayout.openSiblingPanel, onCloseSiblingPanel: dockLayout.closeSiblingPanel,
     activeSessionStatus: activeSession?.status ?? null,

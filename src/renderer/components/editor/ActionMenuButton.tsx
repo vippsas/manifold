@@ -4,6 +4,7 @@ import { viewerStyles } from './CodeViewer.styles'
 export interface ActionMenuButtonItem {
   id: string
   label: string
+  description?: string
   action: () => void
 }
 
@@ -105,7 +106,14 @@ export function ActionMenuButton({
                 }}
                 role="menuitem"
               >
-                <span style={viewerStyles.actionMenuItemLabel}>{item.label}</span>
+                {item.description ? (
+                  <span style={viewerStyles.actionMenuItemText}>
+                    <span style={viewerStyles.actionMenuItemLabel}>{item.label}</span>
+                    <span style={viewerStyles.actionMenuItemDescription}>{item.description}</span>
+                  </span>
+                ) : (
+                  <span style={viewerStyles.actionMenuItemLabel}>{item.label}</span>
+                )}
               </button>
             ))}
           </div>

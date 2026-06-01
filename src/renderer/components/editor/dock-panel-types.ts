@@ -6,6 +6,7 @@ import type { EditorPaneView, OpenFile } from '../../hooks/useCodeView'
 import type { FileOpenRequest } from './file-open-request'
 import type { SessionSelectionOptions } from '../../session-selection'
 import type { DraftChat } from '../../../shared/draft-chat'
+import type { DockPanelId } from '../../hooks/dock-layout-helpers'
 
 export interface DockAppState {
   sessionId: string | null
@@ -108,6 +109,10 @@ export interface DockAppState {
   // Layout
   onShowSearchPanel: (mode: SearchMode) => void
   onClosePanel: (id: string) => void
+  /** Open a launcher module as a tab, or focus it if already open. */
+  onOpenModule: (id: DockPanelId) => void
+  /** Whether a launcher module currently has an open tab. */
+  isModuleOpen: (id: DockPanelId) => boolean
   onFocusPanel: (id: string) => void
   onOpenSibling: (sessionId: string, title?: string, referencePanelId?: string) => void
   onCloseSiblingPanel: (sessionId: string) => void
