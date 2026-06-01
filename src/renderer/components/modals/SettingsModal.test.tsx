@@ -111,7 +111,6 @@ describe('SettingsModal', () => {
       expect.objectContaining({
         theme: 'jacob-co-dark',
         defaultRuntime: 'claude',
-        showIdeasTab: false,
         scrollbackLines: 5000,
         defaultBaseBranch: 'main',
       }),
@@ -191,17 +190,6 @@ describe('SettingsModal', () => {
 
     expect(props.onSave).toHaveBeenCalledWith(
       expect.objectContaining({ defaultRuntime: 'codex' }),
-    )
-  })
-
-  it('saves the ideas tab visibility toggle', () => {
-    const { props } = renderModal()
-
-    fireEvent.click(screen.getByRole('checkbox', { name: /Show Ideas tab/i }))
-    fireEvent.click(screen.getByText('Save'))
-
-    expect(props.onSave).toHaveBeenCalledWith(
-      expect.objectContaining({ showIdeasTab: true }),
     )
   })
 

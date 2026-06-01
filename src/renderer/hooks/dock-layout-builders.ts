@@ -5,14 +5,7 @@ import {
   parseEditorPanelOrder,
 } from './dock-layout-helpers'
 
-interface DefaultLayoutOptions {
-  showIdeasTab: boolean
-  showLoopTab: boolean
-  showVerdictsTab: boolean
-  showWatchTab: boolean
-}
-
-export function applyDefaultLayout(api: DockviewApi, options: DefaultLayoutOptions): void {
+export function applyDefaultLayout(api: DockviewApi): void {
   const projectsPanel = api.addPanel({
     id: 'projects',
     component: 'projects',
@@ -25,46 +18,6 @@ export function applyDefaultLayout(api: DockviewApi, options: DefaultLayoutOptio
     title: PANEL_TITLES.agent,
     position: { referencePanel: projectsPanel, direction: 'right' },
   })
-
-  if (options.showIdeasTab) {
-    api.addPanel({
-      id: 'backgroundAgent',
-      component: 'backgroundAgent',
-      title: PANEL_TITLES.backgroundAgent,
-      inactive: true,
-      position: { referencePanel: 'agent', direction: 'within' },
-    })
-  }
-
-  if (options.showLoopTab) {
-    api.addPanel({
-      id: 'loop',
-      component: 'loop',
-      title: PANEL_TITLES.loop,
-      inactive: true,
-      position: { referencePanel: 'agent', direction: 'within' },
-    })
-  }
-
-  if (options.showVerdictsTab) {
-    api.addPanel({
-      id: 'verdicts',
-      component: 'verdicts',
-      title: PANEL_TITLES.verdicts,
-      inactive: true,
-      position: { referencePanel: 'agent', direction: 'within' },
-    })
-  }
-
-  if (options.showWatchTab) {
-    api.addPanel({
-      id: 'watch',
-      component: 'watch',
-      title: PANEL_TITLES.watch,
-      inactive: true,
-      position: { referencePanel: 'agent', direction: 'within' },
-    })
-  }
 
   const filesPanel = api.addPanel({
     id: 'fileTree',

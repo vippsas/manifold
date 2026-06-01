@@ -10,17 +10,11 @@ interface Props {
   storagePath: string
   onStoragePathChange: (path: string) => void
   defaultRuntime: string
-  showIdeasTab: boolean
-  showLoopTab: boolean
   theme: string
   scrollbackLines: number
   terminalFontFamily: string
   defaultBaseBranch: string
   onRuntimeChange: (id: string) => void
-  onShowIdeasTabChange: (enabled: boolean) => void
-  onShowLoopTabChange: (enabled: boolean) => void
-  showVerdictsTab: boolean
-  onShowVerdictsTabChange: (enabled: boolean) => void
   onThemeChange: (theme: string) => void
   onScrollbackChange: (lines: number) => void
   onTerminalFontFamilyChange: (font: string) => void
@@ -82,21 +76,6 @@ export function GeneralSettingsSection(props: Props): React.JSX.Element {
               <input type="checkbox" checked={props.showCommitAndPrButtons} onChange={(event) => props.onShowCommitAndPrButtonsChange(event.target.checked)} style={modalStyles.checkboxInput} />
               Show Commit and Create PR buttons in the status bar
               <span style={modalStyles.helpText}>Reveals the quick-action buttons that open the commit and PR panels from the status bar.</span>
-            </label>
-            <label style={{ ...modalStyles.checkboxField, ...modalStyles.fieldSpanFull }}>
-              <input type="checkbox" checked={props.showIdeasTab} onChange={(event) => props.onShowIdeasTabChange(event.target.checked)} style={modalStyles.checkboxInput} />
-              Show Ideas tab
-              <span style={modalStyles.helpText}>Keeps the experimental project ideas feed available in the agent/search pane.</span>
-            </label>
-            <label style={{ ...modalStyles.checkboxField, ...modalStyles.fieldSpanFull }}>
-              <input type="checkbox" checked={props.showLoopTab} onChange={(event) => props.onShowLoopTabChange(event.target.checked)} style={modalStyles.checkboxInput} />
-              Show Loop tab
-              <span style={modalStyles.helpText}>Exposes the experimental autoresearch loop (edit → eval → keep-or-discard) in the agent pane.</span>
-            </label>
-            <label style={{ ...modalStyles.checkboxField, ...modalStyles.fieldSpanFull }}>
-              <input type="checkbox" checked={props.showVerdictsTab} onChange={(event) => props.onShowVerdictsTabChange(event.target.checked)} style={modalStyles.checkboxInput} />
-              Show Verdicts tab
-              <span style={modalStyles.helpText}>Adds a Verdicts panel showing per-runtime quality metrics and recent sessions.</span>
             </label>
           </div>
         </SectionCard>

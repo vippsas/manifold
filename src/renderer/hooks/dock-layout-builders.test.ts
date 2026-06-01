@@ -32,23 +32,16 @@ describe('applyDefaultLayout', () => {
   it('omits the editor and search panels — they are added lazily when needed', () => {
     const { api, addPanel } = createApi()
 
-    applyDefaultLayout(api as never, { showIdeasTab: true, showLoopTab: true, showVerdictsTab: false, showWatchTab: true })
+    applyDefaultLayout(api as never)
 
     expect(addPanel).not.toHaveBeenCalledWith(expect.objectContaining({ id: 'editor' }))
     expect(addPanel).not.toHaveBeenCalledWith(expect.objectContaining({ id: 'search' }))
-    expect(addPanel).toHaveBeenNthCalledWith(3, {
-      id: 'backgroundAgent',
-      component: 'backgroundAgent',
-      title: 'Ideas',
-      inactive: true,
-      position: { referencePanel: 'agent', direction: 'within' },
-    })
   })
 
   it('positions the file tree beside the agent panel', () => {
     const { api, addPanel } = createApi()
 
-    applyDefaultLayout(api as never, { showIdeasTab: false, showLoopTab: false, showVerdictsTab: false, showWatchTab: false })
+    applyDefaultLayout(api as never)
 
     expect(addPanel).toHaveBeenCalledWith({
       id: 'fileTree',
@@ -56,8 +49,18 @@ describe('applyDefaultLayout', () => {
       title: 'Files',
       position: { referencePanel: 'agent', direction: 'right' },
     })
-    expect(addPanel).not.toHaveBeenCalledWith(
-      expect.objectContaining({ id: 'backgroundAgent' }),
-    )
+  })
+
+  it('adds only the core panels — launcher modules are opened on demand', () => {
+    const { api, addPanel } = createApi()
+
+    applyDefaultLayout(api as never)
+
+    const addedIds = addPanel.mock.calls.map((call) => call[0].id)
+    expect(addedIds).not.toContain('backgroundAgent')
+    expect(addedIds).not.toContain('loop')
+    expect(addedIds).not.toContain('verdicts')
+    expect(addedIds).not.toContain('watch')
+    expect(addedIds).toEqual(expect.arrayContaining(['projects', 'agent', 'fileTree', 'modifiedFiles']))
   })
 })

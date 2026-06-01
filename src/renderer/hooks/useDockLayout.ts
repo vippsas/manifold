@@ -15,10 +15,11 @@ import { siblingPanelId } from './agent-siblings'
 import type { AgentSession } from '../../shared/types'
 import { applyDefaultLayout, applyMinimalPanels, syncEditorPanelIds } from './dock-layout-builders'
 import type { DockLayoutCtx } from './dock-layout-context'
-import { reconcileLayoutAfterLoad, useTabVisibilityEffect } from './dock-layout-tabs'
+import { reconcileLayoutAfterLoad } from './dock-layout-tabs'
 import { useEditorPanels } from './dock-layout-panels'
 import { useDockActions } from './dock-layout-actions'
 import { registerLayoutListeners } from './dock-layout-lifecycle'
+import { LAUNCHER_MODULE_IDS } from '../modules/launcher-modules'
 
 export type { DockPanelId, EditorSplitDirection } from './dock-layout-helpers'
 export { isEditorPanelId } from './dock-layout-helpers'
@@ -48,27 +49,15 @@ export interface UseDockLayoutResult {
 
 export function useDockLayout(
   sessionId: string | null,
-  showIdeasTab: boolean,
-  showLoopTab: boolean,
-  showVerdictsTab: boolean,
-  showWatchTab: boolean,
   liveSessions: AgentSession[] = [],
 ): UseDockLayoutResult {
   const apiRef = useRef<DockviewApi | null>(null)
   const saveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const sessionIdRef = useRef(sessionId)
-  const showIdeasTabRef = useRef(showIdeasTab)
-  const showLoopTabRef = useRef(showLoopTab)
-  const showVerdictsTabRef = useRef(showVerdictsTab)
-  const showWatchTabRef = useRef(showWatchTab)
   const liveSessionsRef = useRef(liveSessions)
   const editorPanelIdsRef = useRef<Set<string>>(new Set())
   const nextEditorPanelIndexRef = useRef(1)
   sessionIdRef.current = sessionId
-  showIdeasTabRef.current = showIdeasTab
-  showLoopTabRef.current = showLoopTab
-  showVerdictsTabRef.current = showVerdictsTab
-  showWatchTabRef.current = showWatchTab
   liveSessionsRef.current = liveSessions
 
   // Returns `undefined` (defer filtering) when the sessions list hasn't been
@@ -115,16 +104,12 @@ export function useDockLayout(
     }, 500)
   }, [])
 
-  const buildDefaultLayout = useCallback((api: DockviewApi) => applyDefaultLayout(api, { showIdeasTab, showLoopTab, showVerdictsTab, showWatchTab }), [showIdeasTab, showLoopTab, showVerdictsTab, showWatchTab])
+  const buildDefaultLayout = useCallback((api: DockviewApi) => applyDefaultLayout(api), [])
   const buildMinimalLayout = useCallback((api: DockviewApi) => applyMinimalPanels(api), [])
 
   const ctx = useMemo<DockLayoutCtx>(() => ({
     apiRef,
     sessionIdRef,
-    showIdeasTabRef,
-    showLoopTabRef,
-    showVerdictsTabRef,
-    showWatchTabRef,
     editorPanelIdsRef,
     nextEditorPanelIndexRef,
     closedPanelSnapshots,
@@ -225,19 +210,8 @@ export function useDockLayout(
     })
   }, [sessionId, buildDefaultLayout, buildMinimalLayout, bumpVersion, syncPanels, liveSiblingIds, ctx]) // eslint-disable-line react-hooks/exhaustive-deps
 
-  const previousShowIdeasTabRef = useRef(showIdeasTab)
-  useTabVisibilityEffect(showIdeasTab, 'backgroundAgent', previousShowIdeasTabRef, ctx)
-  const previousShowLoopTabRef = useRef(showLoopTab)
-  useTabVisibilityEffect(showLoopTab, 'loop', previousShowLoopTabRef, ctx)
-  const previousShowVerdictsTabRef = useRef(showVerdictsTab)
-  useTabVisibilityEffect(showVerdictsTab, 'verdicts', previousShowVerdictsTabRef, ctx)
-  const previousShowWatchTabRef = useRef(showWatchTab)
-  useTabVisibilityEffect(showWatchTab, 'watch', previousShowWatchTabRef, ctx)
-
   const hiddenPanels = PANEL_IDS
-    .filter((id) => showIdeasTab || id !== 'backgroundAgent')
-    .filter((id) => showLoopTab || id !== 'loop')
-    .filter((id) => showVerdictsTab || id !== 'verdicts')
+    .filter((id) => !LAUNCHER_MODULE_IDS.has(id))
     .filter((id) => !isPanelVisible(id)) as DockPanelId[]
   const editorPanelIds = Array.from(editorPanelIdsRef.current).sort((left, right) => (
     parseEditorPanelOrder(left) - parseEditorPanelOrder(right)
