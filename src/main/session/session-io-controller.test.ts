@@ -144,6 +144,36 @@ describe('SessionIoController post-interrupt drain', () => {
     ])
   })
 
+  it('keeps routing keystrokes through NL helpers while typing a # query at the prompt', () => {
+    const handleInput = vi.fn(() => false)
+    shellController = {
+      handleInput,
+    } as unknown as ShellSessionController
+    controller = new SessionIoController({
+      sessions,
+      ptyPool,
+      shellController,
+      getMemoryCapture: () => null,
+      spawnPrintModeFollowUp: () => {},
+      trackActivity: () => {},
+    })
+
+    // Prompt is ready and waiting for input.
+    const session = makeSession({ outputBuffer: 'oslo ❯ ' })
+    sessions.set(session.id, session)
+
+    // Type "# ls" one character at a time. zsh echoes every keystroke, so the
+    // output buffer grows with the typed text and stops ending in ❯ after the
+    // first character — but we are still editing at the shell prompt.
+    for (const ch of ['#', ' ', 'l', 's']) {
+      controller.sendInput(session.id, ch)
+      session.outputBuffer += ch // simulate PTY echo arriving before next key
+    }
+
+    // Every keystroke must reach the NL command buffer, not just the first.
+    expect(handleInput).toHaveBeenCalledTimes(4)
+  })
+
   it('cleans up pending drain timer when killAllSessions is called', () => {
     const session = makeSession()
     sessions.set(session.id, session)
