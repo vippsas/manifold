@@ -1,7 +1,7 @@
 import React, { useCallback, useState } from 'react'
 import { titleBarStyles as styles } from './TitleBar.styles'
 
-type ThemeFamily = 'jacob-co' | 'vipps-mobilepay'
+type ThemeFamily = 'manifold' | 'garfield'
 
 interface TitleBarProps {
   projectName?: string
@@ -13,8 +13,8 @@ interface TitleBarProps {
 }
 
 const THEME_FAMILIES: { id: ThemeFamily; label: string }[] = [
-  { id: 'jacob-co', label: 'Jacob & Co' },
-  { id: 'vipps-mobilepay', label: 'Vipps' },
+  { id: 'manifold', label: 'Manifold' },
+  { id: 'garfield', label: 'Garfield' },
 ]
 
 export function TitleBar({ projectName, onRename, themeType, onToggleTheme, themeFamily, onSelectThemeFamily }: TitleBarProps): React.JSX.Element {

@@ -25,6 +25,21 @@ export function hasShellPromptAtEnd(output: string): boolean {
   return /❯\s*$/.test(lastLine)
 }
 
+/**
+ * True when the cursor sits on the Manifold shell prompt line — including while
+ * the user is mid-typing a command, where echoed keystrokes follow the `❯`
+ * marker (e.g. `oslo ❯ # ls`). `hasShellPromptAtEnd` only matches an *empty*
+ * prompt, so it can't gate input routing: as soon as a character is echoed the
+ * line no longer ends in `❯`. This relaxes that to "the prompt marker is on the
+ * current line", which stays true throughout typing but goes false once an
+ * interactive program (TUI/auth prompt) repaints the line without the marker.
+ */
+export function isAtShellPromptLine(output: string): boolean {
+  const clean = stripTerminalControls(output.slice(-2000)).replace(/\r/g, '\n')
+  const lastLine = clean.split('\n').pop() ?? ''
+  return lastLine.includes('❯')
+}
+
 export class SessionStreamWirer {
   private gitOps: GitOperationsManager | undefined
   private idleTimers = new Map<string, ReturnType<typeof setTimeout>>()
