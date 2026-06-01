@@ -2,7 +2,7 @@ import type { PtyPool } from '../agent/pty-pool'
 import type { MemoryCapture } from '../memory/memory-capture'
 import type { InternalSession } from './session-types'
 import type { ShellSessionController } from './shell-session-controller'
-import { hasShellPromptAtEnd } from './session-stream-wirer'
+import { isAtShellPromptLine } from './session-stream-wirer'
 
 interface SessionIoControllerDeps {
   sessions: Map<string, InternalSession>
@@ -73,7 +73,7 @@ export class SessionIoController {
       // Once an interactive program takes over the terminal, stop routing
       // keystrokes through Manifold's shell helpers. Prompt-only features like
       // NL command translation should not mediate input to TUIs or auth prompts.
-      if (!hasShellPromptAtEnd(session.outputBuffer)) {
+      if (!isAtShellPromptLine(session.outputBuffer)) {
         this.writeToPty(session, input)
         return
       }
