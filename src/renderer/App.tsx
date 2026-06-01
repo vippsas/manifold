@@ -144,9 +144,9 @@ export function App(): React.JSX.Element {
       : themeId.replace(/-dark$/, '-light')
     void updateSettings({ theme: nextId })
   }, [themeId, updateSettings])
-  const themeFamily: 'manifold' | 'vipps-mobilepay' =
-    themeId.startsWith('vipps-mobilepay') ? 'vipps-mobilepay' : 'manifold'
-  const selectThemeFamily = useCallback((family: 'manifold' | 'vipps-mobilepay') => {
+  const themeFamily: 'manifold' | 'garfield' =
+    themeId.startsWith('garfield') ? 'garfield' : 'manifold'
+  const selectThemeFamily = useCallback((family: 'manifold' | 'garfield') => {
     const suffix = themeId.endsWith('-light') ? '-light' : '-dark'
     void updateSettings({ theme: `${family}${suffix}` })
   }, [themeId, updateSettings])

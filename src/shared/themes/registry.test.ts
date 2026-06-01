@@ -4,8 +4,8 @@ describe('custom themes', () => {
   it.each([
     'manifold-dark',
     'manifold-light',
-    'vipps-mobilepay-dark',
-    'vipps-mobilepay-light',
+    'garfield-dark',
+    'garfield-light',
   ])('%s includes colorful markdown token rules', (themeId) => {
     const rules = loadTheme(themeId).monacoTheme.rules
     const tokenSet = new Set(rules.map((rule) => rule.token))
