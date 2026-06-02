@@ -17,4 +17,11 @@ describe('nextSidebarFraction', () => {
     // A sliver is closest to 0, so the next step restores the 1/6 default.
     expect(nextSidebarFraction(0.04)).toBeCloseTo(1 * SIXTH)
   })
+
+  it('walks the reverse 1/6 → 0 → 3/6 → 2/6 → 1/6 cycle when reversed', () => {
+    expect(nextSidebarFraction(1 * SIXTH, true)).toBe(0)
+    expect(nextSidebarFraction(0, true)).toBeCloseTo(3 * SIXTH)
+    expect(nextSidebarFraction(3 * SIXTH, true)).toBeCloseTo(2 * SIXTH)
+    expect(nextSidebarFraction(2 * SIXTH, true)).toBeCloseTo(1 * SIXTH)
+  })
 })

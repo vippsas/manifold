@@ -48,6 +48,8 @@ interface Props {
   onAutoGenerateMessagesChange: (enabled: boolean) => void
   showCommitAndPrButtons: boolean
   onShowCommitAndPrButtonsChange: (enabled: boolean) => void
+  sidebarResizeReversed: boolean
+  onSidebarResizeReversedChange: (enabled: boolean) => void
   searchAiSettings: SearchAiSettings
   onSearchAiSettingsChange: (value: SearchAiSettings) => void
   provisioners: ProvisionerConfig[]

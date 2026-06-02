@@ -17,6 +17,7 @@ export const DEFAULT_SETTINGS: ManifoldSettings = {
   density: 'comfortable' as const,
   autoGenerateMessages: true,
   showCommitAndPrButtons: false,
+  sidebarResizeReversed: false,
   keepAwake: false,
   memory: {
     enabled: true,

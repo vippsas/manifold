@@ -96,6 +96,7 @@ export interface ManifoldSettings {
   density: DensitySetting
   autoGenerateMessages: boolean
   showCommitAndPrButtons: boolean
+  sidebarResizeReversed: boolean
   keepAwake: boolean
   memory?: import('./memory-types').MemorySettings
   search?: SearchSettings
