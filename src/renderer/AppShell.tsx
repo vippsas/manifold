@@ -79,6 +79,7 @@ export interface AppShellProps {
   // Workspace modal wiring
   newWorkspaceVisible: boolean
   setNewWorkspaceVisible: (v: boolean) => void
+  defaultRuntime: string
   createWorkspace: (opts: WorkspaceCreateOptions) => Promise<Workspace>
   workspaces: Workspace[]
   addProjectWorkspaceId: string | null
@@ -195,6 +196,7 @@ export function AppShell(p: AppShellProps): React.JSX.Element {
         visible={p.newWorkspaceVisible}
         projects={p.projects}
         projectError={p.projectError}
+        defaultRuntime={p.defaultRuntime}
         onAddProject={() => p.addProject(undefined, { activate: false })}
         onCreate={(opts) => { void p.createWorkspace(opts); p.setNewWorkspaceVisible(false) }}
         onClose={() => p.setNewWorkspaceVisible(false)}

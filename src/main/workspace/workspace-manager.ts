@@ -38,6 +38,7 @@ export class WorkspaceManager {
       name: options.name,
       projectIds: [...options.projectIds],
       createdAt: new Date().toISOString(),
+      runtimeId: options.runtimeId,
     }
     this.deps.store.add(workspace)
     this.deps.emitListChanged()

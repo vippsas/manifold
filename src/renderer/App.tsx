@@ -205,7 +205,8 @@ export function App(): React.JSX.Element {
       setActiveWorkspaceId((current) => (current === id ? null : current))
     },
     onSpawnWorkspaceAgent: async (workspaceId: string, homeProjectId?: string) => {
-      const session = await spawnWorkspaceAgent(workspaceId, { runtimeId: settings.defaultRuntime, homeProjectId })
+      const ws = workspaces.find((w) => w.id === workspaceId)
+      const session = await spawnWorkspaceAgent(workspaceId, { runtimeId: ws?.runtimeId ?? settings.defaultRuntime, homeProjectId })
       setActiveWorkspaceId(workspaceId); overlays.handleSelectSession(session.id, session.projectId)
     },
     onAddProjectToWorkspace: (id: string) => setAddProjectWorkspaceId(id),
@@ -260,6 +261,7 @@ export function App(): React.JSX.Element {
       handleCreateNewProject={handleCreateNewProject}
       newWorkspaceVisible={newWorkspaceVisible}
       setNewWorkspaceVisible={setNewWorkspaceVisible}
+      defaultRuntime={settings.defaultRuntime}
       createWorkspace={createWorkspace}
       workspaces={workspaces}
       addProjectWorkspaceId={addProjectWorkspaceId}

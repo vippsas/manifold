@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
-import type { Project } from '../../../shared/types'
+import type { AgentRuntime, Project } from '../../../shared/types'
 import type { WorkspaceCreateOptions } from '../../../shared/workspace-types'
 import { styles as s } from './NewWorkspaceModal.styles'
 
@@ -7,15 +7,18 @@ export interface NewWorkspaceModalProps {
   visible: boolean
   projects: Project[]
   projectError?: string | null
+  defaultRuntime: string
   onAddProject: () => Promise<Project | null>
   onCreate: (options: WorkspaceCreateOptions) => void
   onClose: () => void
 }
 
-export function NewWorkspaceModal({ visible, projects, projectError, onAddProject, onCreate, onClose }: NewWorkspaceModalProps) {
+export function NewWorkspaceModal({ visible, projects, projectError, defaultRuntime, onAddProject, onCreate, onClose }: NewWorkspaceModalProps) {
   const [name, setName] = useState('')
   const [selected, setSelected] = useState<string[]>([])
   const [addingProject, setAddingProject] = useState(false)
+  const [runtimeId, setRuntimeId] = useState(defaultRuntime)
+  const [runtimes, setRuntimes] = useState<AgentRuntime[]>([])
 
   const sortedProjects = useMemo(() => [...projects].sort((a, b) => a.name.localeCompare(b.name)), [projects])
 
@@ -23,7 +26,9 @@ export function NewWorkspaceModal({ visible, projects, projectError, onAddProjec
     if (!visible) return
     setName('')
     setSelected([])
-  }, [visible])
+    setRuntimeId(defaultRuntime)
+    void window.electronAPI.invoke('runtimes:list').then((list) => setRuntimes(list as AgentRuntime[]))
+  }, [visible, defaultRuntime])
 
   const canSubmit = name.trim().length > 0 && selected.length > 0
 
@@ -47,6 +52,17 @@ export function NewWorkspaceModal({ visible, projects, projectError, onAddProjec
         <div style={s.field}>
           <label style={s.label}>Name</label>
           <input style={s.input} value={name} onChange={(e) => setName(e.target.value)} placeholder="e.g. cross-repo auth rename" />
+        </div>
+
+        <div style={s.field}>
+          <label style={s.label}>Runtime</label>
+          <select style={s.input} value={runtimeId} onChange={(e) => setRuntimeId(e.target.value)}>
+            {runtimes.map((rt) => (
+              <option key={rt.id} value={rt.id}>
+                {rt.name}{rt.installed === false ? ' (not installed)' : ''}
+              </option>
+            ))}
+          </select>
         </div>
 
         <div style={s.field}>
@@ -83,7 +99,7 @@ export function NewWorkspaceModal({ visible, projects, projectError, onAddProjec
           <button
             style={{ ...s.primaryButton, opacity: canSubmit ? 1 : 0.5, cursor: canSubmit ? 'pointer' : 'not-allowed' }}
             disabled={!canSubmit}
-            onClick={() => onCreate({ name, projectIds: selected })}
+            onClick={() => onCreate({ name, projectIds: selected, runtimeId })}
           >
             Create
           </button>

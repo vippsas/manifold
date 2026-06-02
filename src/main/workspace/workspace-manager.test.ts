@@ -52,6 +52,11 @@ describe('WorkspaceManager', () => {
     expect(deps.emitListChanged).toHaveBeenCalled()
   })
 
+  it('stores the chosen runtime on the workspace', () => {
+    const w = manager.create({ name: 'auth', projectIds: ['api', 'web'], runtimeId: 'codex' })
+    expect(manager.get(w.id)?.runtimeId).toBe('codex')
+  })
+
   it('create rejects an empty project list', () => {
     expect(() => manager.create({ name: 'x', projectIds: [] })).toThrow(/project/i)
   })
