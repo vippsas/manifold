@@ -54,7 +54,7 @@ describe('TitleBar', () => {
         }}
       />,
     )
-    expect(screen.getByLabelText('Search code and memory')).toBeInTheDocument()
+    expect(screen.getByLabelText('Search files, code and memory')).toBeInTheDocument()
     await flush() // drain the omnibox's useSearch mount effects (settings:get / search:context)
   })
 

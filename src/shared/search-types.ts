@@ -1,7 +1,7 @@
 import type { AgentStatus } from './types'
 import type { ObservationType } from './memory-types'
 
-export type SearchMode = 'code' | 'memory' | 'everything'
+export type SearchMode = 'code' | 'memory' | 'everything' | 'files'
 
 export type SearchScopeKind =
   | 'active-session'
@@ -63,7 +63,7 @@ export interface SearchContextResponse {
 
 export interface SearchResultBase {
   id: string
-  source: 'code' | 'memory'
+  source: 'code' | 'memory' | 'file'
   title: string
   snippet: string
   score?: number
@@ -85,6 +85,15 @@ export interface CodeSearchResult extends SearchResultBase {
   contextAfter?: string[]
 }
 
+export interface FileSearchResult extends SearchResultBase {
+  source: 'file'
+  filePath: string
+  rootPath: string
+  relativePath: string
+  /** Positions in `title` (the display path) matched by the fuzzy query, for highlighting. */
+  matchedIndices: number[]
+}
+
 export interface MemorySearchResultItem extends SearchResultBase {
   source: 'memory'
   memorySource: 'observation' | 'session_summary' | 'interaction'
@@ -94,7 +103,7 @@ export interface MemorySearchResultItem extends SearchResultBase {
   filesTouched?: string[]
 }
 
-export type UnifiedSearchResult = CodeSearchResult | MemorySearchResultItem
+export type UnifiedSearchResult = CodeSearchResult | MemorySearchResultItem | FileSearchResult
 
 export interface SearchQueryResponse {
   results: UnifiedSearchResult[]

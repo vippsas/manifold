@@ -2,7 +2,8 @@ import React, { useEffect, useMemo, useRef, useState } from 'react'
 import type { AgentSession } from '../../shared/types'
 import type { CodeSearchResult, MemorySearchResultItem, SearchMode, UnifiedSearchResult } from '../../shared/search-types'
 import { useSearch } from '../hooks/useSearch'
-import { splitHighlightedText } from './search/search-highlight'
+import { highlightByIndices, splitHighlightedText, type HighlightSegment } from './search/search-highlight'
+import { FileGlyph, MemoryGlyph, SearchGlyph } from './search/search-glyphs'
 import { titleBarSearchStyles as styles } from './TitleBarSearch.styles'
 
 export interface TitleBarSearchWiring {
@@ -19,26 +20,9 @@ export interface TitleBarSearchWiring {
 const SCOPES: { label: string; mode: SearchMode }[] = [
   { label: 'Everything', mode: 'everything' },
   { label: 'Code', mode: 'code' },
+  { label: 'Files', mode: 'files' },
   { label: 'Memory', mode: 'memory' },
 ]
-
-function SearchGlyph({ size = 14 }: { size?: number }): React.JSX.Element {
-  return (
-    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round">
-      <circle cx={11} cy={11} r={7} />
-      <line x1={21} y1={21} x2={16.65} y2={16.65} />
-    </svg>
-  )
-}
-
-function MemoryGlyph({ size = 14 }: { size?: number }): React.JSX.Element {
-  return (
-    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
-      <rect x={4} y={4} width={16} height={16} rx={2} />
-      <path d="M9 2v3M15 2v3M9 19v3M15 19v3M2 9h3M2 15h3M19 9h3M19 15h3" />
-    </svg>
-  )
-}
 
 function memoryMetaFor(result: MemorySearchResultItem): string {
   return `memory · ${result.memorySource.replace(/_/g, ' ')}`
@@ -70,9 +54,10 @@ export function TitleBarSearch({ search: wiring }: { search: TitleBarSearchWirin
     requestAnimationFrame(() => inputRef.current?.focus())
   }, [wiring.focusRequestKey, wiring.requestedMode, search.setMode])
 
+  const fileResults = useMemo(() => search.results.filter((r) => r.source === 'file'), [search.results])
   const codeResults = useMemo(() => search.results.filter((r) => r.source === 'code'), [search.results])
   const memoryResults = useMemo(() => search.results.filter((r) => r.source === 'memory'), [search.results])
-  const ordered = useMemo(() => [...codeResults, ...memoryResults], [codeResults, memoryResults])
+  const ordered = useMemo(() => [...fileResults, ...codeResults, ...memoryResults], [fileResults, codeResults, memoryResults])
 
   useEffect(() => {
     setActiveIndex(0)
@@ -82,11 +67,11 @@ export function TitleBarSearch({ search: wiring }: { search: TitleBarSearchWirin
 
   const openResult = (result: UnifiedSearchResult | undefined): void => {
     // Memory results aren't openable as files (mirrors the dock SearchPanel) — Enter/click is a no-op.
-    if (!result || result.source !== 'code') return
+    if (!result || (result.source !== 'code' && result.source !== 'file')) return
     wiring.onOpenSearchResult({
       path: result.filePath,
-      line: result.line,
-      column: result.column,
+      line: result.source === 'code' ? result.line : undefined,
+      column: result.source === 'code' ? result.column : undefined,
       sessionId: result.sessionId,
     })
     setFocused(false)
@@ -115,19 +100,19 @@ export function TitleBarSearch({ search: wiring }: { search: TitleBarSearchWirin
     }
   }
 
-  const renderHighlighted = (text: string): React.ReactNode => {
-    const segments = splitHighlightedText(text, {
-      query: search.query,
-      matchMode: search.matchMode,
-      caseSensitive: search.caseSensitive,
-      wholeWord: search.wholeWord,
-    })
-    return segments.map((segment, index) =>
+  const renderSegments = (segments: HighlightSegment[]): React.ReactNode =>
+    segments.map((segment, index) =>
       segment.match
         ? <mark key={index} style={styles.mark}>{segment.text}</mark>
         : <React.Fragment key={index}>{segment.text}</React.Fragment>,
     )
-  }
+
+  const renderHighlighted = (text: string): React.ReactNode => renderSegments(splitHighlightedText(text, {
+    query: search.query,
+    matchMode: search.matchMode,
+    caseSensitive: search.caseSensitive,
+    wholeWord: search.wholeWord,
+  }))
 
   const renderCodeLine = (lineNumber: number, text: string, current: boolean): React.JSX.Element => (
     <div key={lineNumber} style={{ ...styles.codeLine, ...(current ? styles.codeLineCurrent : undefined) }}>
@@ -149,28 +134,36 @@ export function TitleBarSearch({ search: wiring }: { search: TitleBarSearchWirin
     )
   }
 
-  const renderResult = (result: UnifiedSearchResult, index: number): React.JSX.Element => {
-    const isCode = result.source === 'code'
-    return (
-      <div
-        key={result.id}
-        style={{ ...styles.result, ...(isCode ? styles.resultCode : undefined), ...(index === activeIndex ? styles.resultActive : undefined) }}
-        onMouseEnter={() => setActiveIndex(index)}
-        onMouseDown={(event) => {
-          event.preventDefault()
-          openResult(result)
-        }}
-      >
-        <span style={styles.resultIcon}>{isCode ? <SearchGlyph /> : <MemoryGlyph />}</span>
-        <div style={styles.resultBody}>
-          <div style={styles.resultTitle}>{isCode ? result.title : renderHighlighted(result.title)}</div>
-          {isCode
-            ? renderCodePreview(result)
-            : <div style={styles.resultMeta}>{memoryMetaFor(result)}</div>}
-        </div>
-      </div>
-    )
+  const resultIcon = (result: UnifiedSearchResult): React.JSX.Element => {
+    if (result.source === 'file') return <FileGlyph />
+    if (result.source === 'code') return <SearchGlyph />
+    return <MemoryGlyph />
   }
+
+  const renderResultTitle = (result: UnifiedSearchResult): React.ReactNode => {
+    if (result.source === 'file') return renderSegments(highlightByIndices(result.title, result.matchedIndices))
+    if (result.source === 'code') return result.title
+    return renderHighlighted(result.title)
+  }
+
+  const renderResult = (result: UnifiedSearchResult, index: number): React.JSX.Element => (
+    <div
+      key={result.id}
+      style={{ ...styles.result, ...(result.source === 'code' ? styles.resultCode : undefined), ...(index === activeIndex ? styles.resultActive : undefined) }}
+      onMouseEnter={() => setActiveIndex(index)}
+      onMouseDown={(event) => {
+        event.preventDefault()
+        openResult(result)
+      }}
+    >
+      <span style={styles.resultIcon}>{resultIcon(result)}</span>
+      <div style={styles.resultBody}>
+        <div style={styles.resultTitle}>{renderResultTitle(result)}</div>
+        {result.source === 'code' && renderCodePreview(result)}
+        {result.source === 'memory' && <div style={styles.resultMeta}>{memoryMetaFor(result)}</div>}
+      </div>
+    </div>
+  )
 
   return (
     <div style={styles.wrap} ref={wrapRef}>
@@ -180,12 +173,12 @@ export function TitleBarSearch({ search: wiring }: { search: TitleBarSearchWirin
           ref={inputRef}
           className="titlebar-search-input"
           style={styles.input}
-          placeholder="Search code &amp; memory…"
+          placeholder="Search files, code &amp; memory…"
           value={search.query}
           onChange={(event) => search.setQuery(event.target.value)}
           onFocus={() => setFocused(true)}
           onKeyDown={handleKeyDown}
-          aria-label="Search code and memory"
+          aria-label="Search files, code and memory"
         />
         {search.query && (
           <button
@@ -222,23 +215,29 @@ export function TitleBarSearch({ search: wiring }: { search: TitleBarSearchWirin
             {search.error ? (
               <div style={styles.errorText}>{search.error}</div>
             ) : !trimmedQuery ? (
-              <div style={styles.empty}>Type to search code and memory.</div>
+              <div style={styles.empty}>Type to search files, code and memory.</div>
             ) : search.isSearching && ordered.length === 0 ? (
               <div style={styles.empty}>Searching…</div>
             ) : ordered.length === 0 ? (
               <div style={styles.empty}>No matches for &ldquo;{trimmedQuery}&rdquo;.</div>
             ) : (
               <>
+                {fileResults.length > 0 && (
+                  <div>
+                    <div style={styles.groupLabel}>Files</div>
+                    {fileResults.map((result, i) => renderResult(result, i))}
+                  </div>
+                )}
                 {codeResults.length > 0 && (
                   <div>
                     <div style={styles.groupLabel}>Code</div>
-                    {codeResults.map((result, i) => renderResult(result, i))}
+                    {codeResults.map((result, i) => renderResult(result, fileResults.length + i))}
                   </div>
                 )}
                 {memoryResults.length > 0 && (
                   <div>
                     <div style={styles.groupLabel}>Memory</div>
-                    {memoryResults.map((result, i) => renderResult(result, codeResults.length + i))}
+                    {memoryResults.map((result, i) => renderResult(result, fileResults.length + codeResults.length + i))}
                   </div>
                 )}
               </>

@@ -1,5 +1,5 @@
 import { basename, resolve } from 'node:path'
-import type { CodeSearchResult, SearchQueryRequest } from '../../shared/search-types'
+import type { CodeSearchResult, FileSearchResult, SearchQueryRequest } from '../../shared/search-types'
 import type { AgentSession } from '../../shared/types'
 
 export type CodeSearchRootKind = 'worktree' | 'additional-dir'
@@ -73,6 +73,37 @@ export function createCodeSearchResult(
     relativePath: displayRelativePath,
     line,
     column,
+    sessionId: root.session.id,
+    branchName: root.session.branchName,
+    runtimeId: root.session.runtimeId,
+  }
+}
+
+export function createFileSearchResult(
+  root: CodeSearchRoot,
+  relativePath: string,
+  score: number,
+  matchedIndices: number[],
+  matchIndex: number,
+): FileSearchResult {
+  const cleanRelativePath = relativePath.replace(/^\.\//, '')
+  const filePath = resolve(root.path, cleanRelativePath)
+  const prefix = root.kind === 'additional-dir' ? `[${basename(root.path)}] ` : ''
+  const displayRelativePath = `${prefix}${cleanRelativePath}`
+
+  return {
+    id: `${root.session.id}:${root.path}:${cleanRelativePath}:${matchIndex}`,
+    source: 'file',
+    title: displayRelativePath,
+    snippet: '',
+    score,
+    projectId: root.session.projectId,
+    filePath,
+    rootPath: root.path,
+    relativePath: displayRelativePath,
+    // matchedIndices come from the raw relative path; shift them past the
+    // display prefix so highlighting lines up with `title`.
+    matchedIndices: prefix ? matchedIndices.map((index) => index + prefix.length) : matchedIndices,
     sessionId: root.session.id,
     branchName: root.session.branchName,
     runtimeId: root.session.runtimeId,
