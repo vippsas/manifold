@@ -1,11 +1,19 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { render, screen, fireEvent } from '@testing-library/react'
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
+import { render, screen, fireEvent, act } from '@testing-library/react'
 import React from 'react'
 import { TitleBar } from './TitleBar'
 import { installElectronApi, mockInvoke } from '../hooks/useSearch.test-helpers'
 import { DEFAULT_SETTINGS } from '../../shared/defaults'
 
+async function flush(): Promise<void> {
+  await act(async () => {
+    await Promise.resolve()
+  })
+}
+
 beforeEach(() => {
+  vi.clearAllMocks()
+  vi.useFakeTimers()
   installElectronApi()
   mockInvoke.mockImplementation((channel: string) => {
     if (channel === 'settings:get') return Promise.resolve(DEFAULT_SETTINGS)
@@ -14,6 +22,10 @@ beforeEach(() => {
     }
     return Promise.resolve({ results: [], total: 0, tookMs: 0 })
   })
+})
+
+afterEach(() => {
+  vi.useRealTimers()
 })
 
 describe('TitleBar', () => {
@@ -58,7 +70,7 @@ describe('TitleBar', () => {
     expect(onRename).not.toHaveBeenCalled()
   })
 
-  it('renders the search omnibox when search wiring is provided', () => {
+  it('renders the search omnibox when search wiring is provided', async () => {
     render(
       <TitleBar
         projectName="Alpha"
@@ -72,6 +84,7 @@ describe('TitleBar', () => {
       />,
     )
     expect(screen.getByLabelText('Search code and memory')).toBeInTheDocument()
+    await flush() // drain the omnibox's useSearch mount effects (settings:get / search:context)
   })
 
   it('does not render the omnibox without search wiring', () => {
