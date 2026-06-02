@@ -123,7 +123,20 @@ export function AppShell(p: AppShellProps): React.JSX.Element {
 
   return (
     <div className={`layout-root ${p.themeClass} ${p.densityClass}`}>
-      <TitleBar projectName={activeProjectName} onRename={p.onRenameActiveProject} themeType={themeType} onToggleTheme={p.onToggleTheme} themeFamily={p.themeFamily} onSelectThemeFamily={p.onSelectThemeFamily} />
+      <TitleBar
+        projectName={activeProjectName}
+        onRename={p.onRenameActiveProject}
+        themeType={themeType}
+        onToggleTheme={p.onToggleTheme}
+        themeFamily={p.themeFamily}
+        onSelectThemeFamily={p.onSelectThemeFamily}
+        search={{
+          activeProjectId: p.dockState.activeProjectId,
+          activeSessionId: p.dockState.sessionId,
+          allProjectSessions: p.dockState.allProjectSessions,
+          onOpenSearchResult: p.dockState.onOpenSearchResult,
+        }}
+      />
       <div className="layout-main">
         <DockStateContext.Provider value={p.dockState}>
           <div style={{ flex: 1, overflow: 'hidden' }}>

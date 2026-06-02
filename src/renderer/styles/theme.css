@@ -1430,3 +1430,8 @@ select:focus-visible {
   border-top: 1px solid var(--border);
   margin: 1em 0;
 }
+
+/* ─── Title Bar Search (omnibox) ─── */
+.titlebar-search-input::placeholder {
+  color: var(--text-muted);
+}

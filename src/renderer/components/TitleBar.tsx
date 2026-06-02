@@ -1,5 +1,6 @@
 import React, { useCallback, useState } from 'react'
 import { titleBarStyles as styles } from './TitleBar.styles'
+import { TitleBarSearch, type TitleBarSearchWiring } from './TitleBarSearch'
 
 type ThemeFamily = 'manifold' | 'garfield'
 
@@ -10,6 +11,7 @@ interface TitleBarProps {
   onToggleTheme?: () => void
   themeFamily?: ThemeFamily
   onSelectThemeFamily?: (family: ThemeFamily) => void
+  search?: TitleBarSearchWiring
 }
 
 const THEME_FAMILIES: { id: ThemeFamily; label: string }[] = [
@@ -17,7 +19,7 @@ const THEME_FAMILIES: { id: ThemeFamily; label: string }[] = [
   { id: 'garfield', label: 'Garfield' },
 ]
 
-export function TitleBar({ projectName, onRename, themeType, onToggleTheme, themeFamily, onSelectThemeFamily }: TitleBarProps): React.JSX.Element {
+export function TitleBar({ projectName, onRename, themeType, onToggleTheme, themeFamily, onSelectThemeFamily, search }: TitleBarProps): React.JSX.Element {
   const editable = Boolean(projectName && onRename)
   const [editing, setEditing] = useState(false)
   const [draft, setDraft] = useState('')
@@ -78,6 +80,9 @@ export function TitleBar({ projectName, onRename, themeType, onToggleTheme, them
           </button>
         )}
       </div>
+      <div style={styles.sideSpacer} />
+      {search?.activeProjectId && <TitleBarSearch search={search} />}
+      <div style={styles.sideSpacer} />
       {themeFamily && onSelectThemeFamily && (
         <label style={styles.themesGroup}>
           <span style={styles.themesLabel}>Themes</span>

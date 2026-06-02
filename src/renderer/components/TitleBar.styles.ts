@@ -18,11 +18,16 @@ export const titleBarStyles: Record<string, React.CSSProperties> = {
     flexShrink: 0,
   },
   titleArea: {
-    flex: 1,
+    flexShrink: 0,
     display: 'flex',
-    justifyContent: 'center',
+    justifyContent: 'flex-start',
     alignItems: 'center',
     minWidth: 0,
+    maxWidth: '30%',
+  },
+  sideSpacer: {
+    flex: 1,
+    minWidth: 'var(--space-md)',
   },
   title: {
     fontSize: 13,
@@ -32,7 +37,7 @@ export const titleBarStyles: Record<string, React.CSSProperties> = {
   titleButton: {
     // @ts-expect-error -- Electron-specific CSS property; opt out of window drag
     WebkitAppRegion: 'no-drag',
-    maxWidth: '60%',
+    maxWidth: '100%',
     overflow: 'hidden',
     textOverflow: 'ellipsis',
     whiteSpace: 'nowrap',
