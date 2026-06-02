@@ -4,7 +4,6 @@ import type { AgentStatus, FileTreeNode, FileChange, Project, AgentSession, Spaw
 import type { SearchMode } from '../../../shared/search-types'
 import type { EditorPaneView, OpenFile } from '../../hooks/useCodeView'
 import type { FileOpenRequest } from './file-open-request'
-import type { SessionSelectionOptions } from '../../session-selection'
 import type { DraftChat } from '../../../shared/draft-chat'
 import type { DockPanelId } from '../../hooks/dock-layout-helpers'
 
@@ -79,25 +78,14 @@ export interface DockAppState {
   allProjectSessions: Record<string, AgentSession[]>
   outputtingSessionIds: Set<string>
   onSelectProject: (id: string) => void
-  onSelectSession: (sessionId: string, projectId: string, options?: SessionSelectionOptions) => void
+  onSelectSession: (sessionId: string, projectId: string) => void
   onRemoveProject: (id: string) => void
   onUpdateProject: (id: string, partial: Partial<Omit<Project, 'id'>>) => void
   onRequestDeleteAgent: (session: AgentSession, projectPath: string) => void
   onNewAgentFromHeader: () => void
   newAgentFocusTrigger: number
   onNewProject: () => void
-  onNewSuperagent?: () => void
   onNewWorkspace?: () => void
-  superagents?: import('../../../shared/superagent-types').Superagent[]
-  activeSuperagentId?: string | null
-  activeSuperagent?: import('../../../shared/superagent-types').Superagent | null
-  onSelectSuperagent?: (id: string) => void
-  onSelectSuperagentHome?: () => void
-  onResumeSuperagent?: (id: string) => Promise<void>
-  onToggleSuperagentAutoApprove?: (id: string, value: boolean) => Promise<void>
-  onRemoveSuperagent?: (id: string) => Promise<void>
-  onRequestAddProjectToSuperagent?: (superagentId: string) => void
-  onSpawnFleetAgent?: (superagentId: string, projectId: string) => Promise<void>
   workspaces?: import('../../../shared/workspace-types').Workspace[]
   activeWorkspaceId?: string | null
   sessionsByWorkspace?: Record<string, AgentSession[]>

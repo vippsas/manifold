@@ -1,16 +1,8 @@
 import React, { useCallback, useState } from 'react'
 import type { Project, AgentSession } from '../../../shared/types'
-import type { Superagent } from '../../../shared/superagent-types'
 import type { DraftChat } from '../../../shared/draft-chat'
 import { DraftAgentItem } from './DraftAgentItem'
-import {
-  collectSuperagentIds,
-  collectSuperagentChildSessionIds,
-  collectSuperagentFleetProjectIds,
-  collectSuperagentFleetWorktreePaths,
-  filterStandaloneProjectSessions,
-  type SessionSelectionOptions,
-} from '../../session-selection'
+import { filterStandaloneProjectSessions } from '../../session-selection'
 import { sidebarStyles } from './ProjectSidebar.styles'
 import { AgentItem } from './AgentItem'
 import { ProjectItem } from './ProjectItem'
@@ -24,11 +16,10 @@ export interface ProjectListProps {
   activeSessionId: string | null
   outputtingSessionIds: Set<string>
   onSelectProject: (id: string) => void
-  onSelectSession: (sessionId: string, projectId: string, options?: SessionSelectionOptions) => void
+  onSelectSession: (sessionId: string, projectId: string) => void
   onRequestDeleteAgent: (session: AgentSession, projectPath: string) => void
   onRemove: (e: React.MouseEvent, id: string) => void
   onUpdateProject: (id: string, partial: Partial<Omit<Project, 'id'>>) => void
-  superagents?: Superagent[]
   fetchingProjectId: string | null
   lastFetchedProjectId: string | null
   fetchResult: { updatedBranch: string; commitCount: number } | null
@@ -52,7 +43,6 @@ export function ProjectList({
   onRequestDeleteAgent,
   onRemove,
   onUpdateProject,
-  superagents,
   fetchingProjectId,
   lastFetchedProjectId,
   fetchResult,
@@ -64,53 +54,30 @@ export function ProjectList({
   onDiscardDraft,
 }: ProjectListProps): React.JSX.Element {
   const [reposExpanded, setReposExpanded] = useState(false)
-  const superagentIds = collectSuperagentIds(superagents)
-  const superagentChildSessionIds = collectSuperagentChildSessionIds(superagents)
-  const superagentFleetWorktreePaths = collectSuperagentFleetWorktreePaths(superagents)
-  const superagentFleetProjectIds = collectSuperagentFleetProjectIds(superagents)
   const visibleProjects = projects.filter((project) => !suppressedProjectIds?.has(project.id))
 
   const handleProjectClick = useCallback(
     (projectId: string): void => {
-      const sessions = filterStandaloneProjectSessions(
-        allProjectSessions[projectId] ?? [],
-        superagentChildSessionIds,
-        superagentIds,
-        superagentFleetWorktreePaths,
-      )
+      const sessions = filterStandaloneProjectSessions(allProjectSessions[projectId] ?? [])
       if (sessions.length > 0) {
         onSelectSession(sessions[0].id, projectId)
       } else {
         onSelectProject(projectId)
       }
     },
-    [allProjectSessions, onSelectProject, onSelectSession, superagentChildSessionIds, superagentFleetWorktreePaths, superagentIds]
+    [allProjectSessions, onSelectProject, onSelectSession]
   )
 
   const activeProject = visibleProjects.find((p) => p.id === activeProjectId) ?? null
 
   const withAgentsProjects = visibleProjects.filter(
     (p) => p.id !== activeProjectId
-      && filterStandaloneProjectSessions(
-        allProjectSessions[p.id] ?? [],
-        superagentChildSessionIds,
-        superagentIds,
-        superagentFleetWorktreePaths,
-      ).length > 0
+      && filterStandaloneProjectSessions(allProjectSessions[p.id] ?? []).length > 0
   )
 
-  // Excludes projects owned by any superagent fleet — those are reachable via
-  // the superagent and would otherwise create a standalone session in a
-  // fleet-reserved worktree that the sidebar then hides.
   const inactiveProjects = visibleProjects.filter(
     (p) => p.id !== activeProjectId
-      && !superagentFleetProjectIds.has(p.id)
-      && filterStandaloneProjectSessions(
-        allProjectSessions[p.id] ?? [],
-        superagentChildSessionIds,
-        superagentIds,
-        superagentFleetWorktreePaths,
-      ).length === 0
+      && filterStandaloneProjectSessions(allProjectSessions[p.id] ?? []).length === 0
   )
 
   if (visibleProjects.length === 0) {
@@ -124,12 +91,7 @@ export function ProjectList({
   return (
     <div style={sidebarStyles.list}>
       {activeProject !== null && (() => {
-        const projectSessions = filterStandaloneProjectSessions(
-          allProjectSessions[activeProject.id] ?? [],
-          superagentChildSessionIds,
-          superagentIds,
-          superagentFleetWorktreePaths,
-        )
+        const projectSessions = filterStandaloneProjectSessions(allProjectSessions[activeProject.id] ?? [])
         const activeWorktreePath = projectSessions.find((s) => s.id === activeSessionId)?.worktreePath ?? null
         const primarySessions = dedupeSessionsByWorktree(projectSessions)
         return (
@@ -181,12 +143,7 @@ export function ProjectList({
           <div style={sidebarStyles.sectionDivider} />
           <div style={sidebarStyles.sectionLabel}>With agents</div>
           {withAgentsProjects.map((project) => {
-            const projectSessions = filterStandaloneProjectSessions(
-              allProjectSessions[project.id] ?? [],
-              superagentChildSessionIds,
-              superagentIds,
-              superagentFleetWorktreePaths,
-            )
+            const projectSessions = filterStandaloneProjectSessions(allProjectSessions[project.id] ?? [])
             return (
               <div
                 key={project.id}

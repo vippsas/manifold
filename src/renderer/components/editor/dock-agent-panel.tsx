@@ -1,7 +1,6 @@
 import React, { useCallback, useMemo } from 'react'
 import { TerminalPane } from '../terminal/TerminalPane'
 import { OnboardingView } from '../modals/OnboardingView'
-import { SuperagentAgentPanel, restartOverlayStyles } from './SuperagentAgentPanel'
 import { AgentChatView } from './AgentChatView'
 import { DraftChatView } from './DraftChatView'
 import { useDockState } from './dock-panel-types'
@@ -57,6 +56,32 @@ const AgentTerminalView = React.memo(function AgentTerminalView({
 
 const agentTerminalWrapperStyle: React.CSSProperties = { position: 'relative', height: '100%' }
 
+const restartOverlayStyles: Record<string, React.CSSProperties> = {
+  container: {
+    position: 'absolute',
+    bottom: 0,
+    left: 0,
+    right: 0,
+    zIndex: 10,
+    display: 'flex',
+    justifyContent: 'center',
+    padding: '12px',
+    background: 'linear-gradient(transparent, var(--bg-primary) 40%)',
+    pointerEvents: 'none',
+  },
+  button: {
+    pointerEvents: 'auto',
+    padding: '6px 20px',
+    fontSize: '12px',
+    fontWeight: 600,
+    color: 'var(--bg-primary)',
+    background: 'var(--accent)',
+    border: 'none',
+    borderRadius: '4px',
+    cursor: 'pointer',
+  },
+}
+
 export function AgentPanel({ api }: { api?: { id: string } } = {}): React.JSX.Element {
   const s = useDockState()
   const activeProject = s.projects.find((p) => p.id === s.activeProjectId)
@@ -89,10 +114,6 @@ export function AgentPanel({ api }: { api?: { id: string } } = {}): React.JSX.El
     }
   }, [targetSessionId, targetRuntimeId, onResumeAgent])
 
-  if (s.activeSuperagentId && !siblingSessionId) {
-    return <SuperagentAgentPanel />
-  }
-
   if (s.activeDraft) {
     const activeDraft = s.activeDraft
     const draftProject = s.projects.find((p) => p.id === activeDraft.projectId)
@@ -122,7 +143,6 @@ export function AgentPanel({ api }: { api?: { id: string } } = {}): React.JSX.El
         onResumeSession={s.onResumeAgent}
         onDeleteSession={(session) => s.onRequestDeleteAgent(session, activeProject.path)}
         focusTrigger={s.newAgentFocusTrigger}
-        onNewSuperagent={s.onNewSuperagent}
         onNewWorkspace={s.onNewWorkspace}
       />
     )

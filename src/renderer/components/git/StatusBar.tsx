@@ -26,7 +26,6 @@ interface StatusBarProps {
   baseBranch: string
   projectIsGit?: boolean
   dockLayout: UseDockLayoutResult
-  hasSuperagent?: boolean
   conflicts?: string[]
   aheadBehind?: AheadBehind
   onCommit?: () => void
@@ -42,7 +41,6 @@ export function StatusBar({
   baseBranch,
   projectIsGit = true,
   dockLayout,
-  hasSuperagent = false,
   conflicts = [],
   aheadBehind,
   onCommit,
@@ -108,7 +106,7 @@ export function StatusBar({
         </span>
       )}
       <span className="statusbar-spacer" />
-      {(activeSession || hasSuperagent) && hiddenDockPanels.length > 0 && (
+      {activeSession && hiddenDockPanels.length > 0 && (
         <span className="statusbar-group">
           {hiddenDockPanels.map((id) => (
             <button

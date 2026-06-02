@@ -3,7 +3,6 @@ import { useFileDiff } from '../../hooks/useFileDiff'
 import { CodeViewer } from './CodeViewer'
 import { FileTree } from './FileTree'
 import { ModifiedFiles } from '../git/ModifiedFiles'
-import { FleetModifiedFiles } from '../git/FleetModifiedFiles'
 import { ShellTabs } from '../terminal/ShellTabs'
 import { ProjectSidebar } from '../sidebar/ProjectSidebar'
 import { SearchPanel } from '../search/SearchPanel'
@@ -11,7 +10,6 @@ import { BackgroundAgentPanel } from '../background-agent/BackgroundAgentPanel'
 import { LoopPanel } from '../loop/LoopPanel'
 import { VerdictsPanel } from '../verdicts/VerdictsPanel'
 import { WatchPanel } from '../watch/WatchPanel'
-import { SuperagentFleetTree } from '../sidebar/SuperagentFleetTree'
 import { AgentPanel } from './dock-agent-panel'
 import { useDockState } from './dock-panel-types'
 export type { DockAppState } from './dock-panel-types'
@@ -76,19 +74,6 @@ function FileTreePanel(): React.JSX.Element {
     [s.openFiles]
   )
 
-  if (s.activeSuperagent) {
-    return (
-      <SuperagentFleetTree
-        superagent={s.activeSuperagent}
-        projects={s.projects}
-        allProjectSessions={s.allProjectSessions}
-        onSelectSession={s.onSelectSession}
-        onSelectSuperagentHome={s.onSelectSuperagentHome}
-        onSelectFile={s.onSelectFileFromFileTree}
-      />
-    )
-  }
-
   return (
     <div style={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
       <FileTree
@@ -120,16 +105,6 @@ function FileTreePanel(): React.JSX.Element {
 
 function ModifiedFilesPanel(): React.JSX.Element {
   const s = useDockState()
-  if (s.activeSuperagent) {
-    return (
-      <FleetModifiedFiles
-        superagent={s.activeSuperagent}
-        projects={s.projects}
-        activeFilePath={s.activeFilePath}
-        onSelectFile={s.onSelectFileFromFileTree}
-      />
-    )
-  }
   return (
     <ModifiedFiles
       changes={s.changes}
@@ -171,12 +146,6 @@ function ProjectsPanel(): React.JSX.Element {
       onRequestDeleteAgent={s.onRequestDeleteAgent}
       onNewAgent={s.onNewAgentFromHeader}
       onNewProject={s.onNewProject}
-      superagents={s.superagents}
-      activeSuperagentId={s.activeSuperagentId}
-      onSelectSuperagent={s.onSelectSuperagent}
-      onRemoveSuperagent={s.onRemoveSuperagent}
-      onRequestAddProjectToSuperagent={s.onRequestAddProjectToSuperagent}
-      onSpawnFleetAgent={s.onSpawnFleetAgent}
       workspaces={s.workspaces}
       activeWorkspaceId={s.activeWorkspaceId}
       sessionsByWorkspace={s.sessionsByWorkspace}
