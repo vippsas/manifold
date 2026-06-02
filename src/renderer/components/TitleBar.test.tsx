@@ -80,6 +80,8 @@ describe('TitleBar', () => {
           activeSessionId: null,
           allProjectSessions: {},
           onOpenSearchResult: vi.fn(),
+          focusRequestKey: 0,
+          requestedMode: null,
         }}
       />,
     )

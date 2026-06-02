@@ -29,13 +29,12 @@ function createApi() {
 }
 
 describe('applyDefaultLayout', () => {
-  it('omits the editor and search panels — they are added lazily when needed', () => {
+  it('omits the editor panel — it is added lazily when needed', () => {
     const { api, addPanel } = createApi()
 
     applyDefaultLayout(api as never)
 
     expect(addPanel).not.toHaveBeenCalledWith(expect.objectContaining({ id: 'editor' }))
-    expect(addPanel).not.toHaveBeenCalledWith(expect.objectContaining({ id: 'search' }))
   })
 
   it('positions the file tree beside the agent panel', () => {

@@ -260,7 +260,7 @@ export function App(): React.JSX.Element {
     fetchingProjectId: fetchProject.fetchingProjectId, lastFetchedProjectId: fetchProject.lastFetchedProjectId,
     fetchResult: fetchProject.fetchResult, fetchError: fetchProject.fetchError,
     onFetchProject: fetchProject.fetchProject,
-    onShowSearchPanel: appEffects.showSearchPanel, onClosePanel: editorHandlers.handleClosePanel,
+    onFocusSearch: appEffects.focusSearch, onClosePanel: editorHandlers.handleClosePanel,
     onOpenModule: (id) => {
       if (dockLayout.isPanelVisible(id)) dockLayout.focusPanel(id)
       else dockLayout.togglePanel(id)

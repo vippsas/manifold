@@ -107,7 +107,7 @@ export interface DockAppState {
   activeSessionRuntimeId: string | null
   onResumeAgent: (sessionId: string, runtimeId: string) => Promise<void>
   // Layout
-  onShowSearchPanel: (mode: SearchMode) => void
+  onFocusSearch: (mode: SearchMode) => void
   onClosePanel: (id: string) => void
   /** Open a launcher module as a tab, or focus it if already open. */
   onOpenModule: (id: DockPanelId) => void

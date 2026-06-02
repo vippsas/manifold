@@ -6,7 +6,6 @@ import { ModifiedFiles } from '../git/ModifiedFiles'
 import { FleetModifiedFiles } from '../git/FleetModifiedFiles'
 import { ShellTabs } from '../terminal/ShellTabs'
 import { ProjectSidebar } from '../sidebar/ProjectSidebar'
-import { SearchPanel } from '../search/SearchPanel'
 import { BackgroundAgentPanel } from '../background-agent/BackgroundAgentPanel'
 import { LoopPanel } from '../loop/LoopPanel'
 import { VerdictsPanel } from '../verdicts/VerdictsPanel'
@@ -25,7 +24,6 @@ export const PANEL_COMPONENTS: Record<string, React.FC<any>> = {
   modifiedFiles: ModifiedFilesPanel,
   shell: ShellPanel,
   projects: ProjectsPanel,
-  search: SearchPanel,
   backgroundAgent: BackgroundAgentPanel,
   loop: LoopPanel,
   verdicts: VerdictsPanel,
