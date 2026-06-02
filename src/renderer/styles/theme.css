@@ -1320,6 +1320,20 @@ select:focus-visible {
   100% { transform: translateX(400%); }
 }
 
+/* ─── Search result reveal highlight ─── */
+/* Flashes a bright accent band on open, fading over ~1.5s into the persistent
+   subtle band below; the band lingers until the user moves the cursor or edits
+   (cleared in reveal-requested-location.ts). */
+@keyframes search-reveal-flash {
+  from { background: color-mix(in srgb, var(--accent) 45%, transparent); }
+  to   { background: var(--accent-subtle); }
+}
+
+.search-reveal-line {
+  background: var(--accent-subtle);
+  animation: search-reveal-flash 1.5s ease-out;
+}
+
 .spinner {
   display: inline-block;
   width: 14px;
@@ -1429,4 +1443,9 @@ select:focus-visible {
   border: none;
   border-top: 1px solid var(--border);
   margin: 1em 0;
+}
+
+/* ─── Title Bar Search (omnibox) ─── */
+.titlebar-search-input::placeholder {
+  color: var(--text-muted);
 }
