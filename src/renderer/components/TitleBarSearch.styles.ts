@@ -145,6 +145,39 @@ export const titleBarSearchStyles: Record<string, React.CSSProperties> = {
     overflow: 'hidden',
     textOverflow: 'ellipsis',
   },
+  resultCode: {
+    alignItems: 'flex-start',
+  },
+  code: {
+    display: 'flex',
+    flexDirection: 'column',
+    gap: 1,
+    marginTop: 4,
+    fontFamily: 'var(--font-mono)',
+    fontSize: 'var(--type-ui-caption)',
+  },
+  codeLine: {
+    display: 'grid',
+    gridTemplateColumns: '2.5em minmax(0, 1fr)',
+    gap: 'var(--space-sm)',
+    padding: '1px 6px',
+    borderRadius: 'var(--radius-xs)',
+    color: 'var(--text-secondary)',
+  },
+  codeLineCurrent: {
+    background: 'var(--control-bg-hover)',
+    color: 'var(--text-primary)',
+  },
+  codeLineNumber: {
+    textAlign: 'right',
+    color: 'var(--text-muted)',
+    userSelect: 'none',
+  },
+  codeLineText: {
+    minWidth: 0,
+    whiteSpace: 'pre-wrap',
+    wordBreak: 'break-word',
+  },
   mark: {
     color: 'var(--accent)',
     background: 'var(--accent-subtle)',

@@ -1,0 +1,211 @@
+.wrap {
+  position: relative;
+  width: min(440px, 46%);
+}
+
+/* ---- The always-visible field ---- */
+.field {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+  height: 26px;
+  padding: 0 var(--space-sm) 0 var(--space-md);
+  background: var(--bg-input);
+  border: 1px solid var(--control-border);
+  border-radius: var(--radius-pill);
+  color: var(--text-muted);
+  transition: border-color 150ms ease, box-shadow 150ms ease, color 150ms ease;
+}
+.fieldFocused {
+  border-color: var(--accent-dim);
+  box-shadow: 0 0 0 2px var(--accent-subtle), 0 0 10px var(--accent-subtle);
+  color: var(--accent);
+}
+.input {
+  flex: 1;
+  min-width: 0;
+  background: transparent;
+  border: none;
+  outline: none;
+  color: var(--text-primary);
+  font-family: var(--font-sans);
+  font-size: var(--type-ui-small);
+}
+.input::placeholder {
+  color: var(--text-muted);
+}
+.kbd {
+  font-family: var(--font-mono);
+  font-size: var(--type-ui-micro);
+  color: var(--text-muted);
+  border: 1px solid var(--control-border);
+  border-radius: var(--radius-xs);
+  padding: 1px 5px;
+}
+.clear {
+  border: none;
+  background: transparent;
+  color: var(--text-muted);
+  cursor: pointer;
+  font-size: 11px;
+  line-height: 1;
+  padding: 0 2px;
+  transition: color 150ms ease;
+}
+.clear:hover {
+  color: var(--text-primary);
+}
+
+/* ---- Anchored results dropdown ---- */
+.dropdown {
+  position: absolute;
+  top: calc(100% + 6px);
+  left: 0;
+  right: 0;
+  background: var(--bg-overlay);
+  border: 1px solid var(--control-border);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-overlay);
+  overflow: hidden;
+  z-index: 50;
+  animation: palette-rise 160ms ease;
+}
+
+.scopes {
+  display: flex;
+  gap: 6px;
+  padding: var(--space-sm) var(--space-md);
+  border-bottom: 1px solid var(--divider);
+}
+.scope {
+  font-size: var(--type-ui-caption);
+  padding: 2px 10px;
+  border-radius: var(--radius-pill);
+  border: 1px solid var(--control-border);
+  background: transparent;
+  color: var(--text-muted);
+  cursor: pointer;
+  transition: background 150ms ease, color 150ms ease;
+}
+.scope:hover {
+  color: var(--text-secondary);
+}
+.scopeActive {
+  background: var(--accent-subtle);
+  color: var(--accent);
+  border-color: var(--accent-dim);
+}
+
+.results {
+  max-height: 280px;
+  overflow-y: auto;
+  padding: var(--space-xs);
+}
+.groupLabel {
+  font-size: var(--type-ui-micro);
+  text-transform: uppercase;
+  letter-spacing: 0.6px;
+  color: var(--text-muted);
+  padding: 6px 10px 3px;
+}
+.empty {
+  padding: 14px 10px;
+  font-size: var(--type-ui-small);
+  color: var(--text-muted);
+}
+.result {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+  padding: 8px 10px;
+  border-radius: var(--radius-sm);
+  color: var(--text-secondary);
+  cursor: pointer;
+  transition: background 150ms ease, color 150ms ease;
+}
+.result:hover,
+.resultActive {
+  background: var(--accent-subtle);
+  color: var(--text-primary);
+}
+.resultIcon {
+  color: var(--text-muted);
+  display: grid;
+  place-items: center;
+}
+.result:hover .resultIcon,
+.resultActive .resultIcon {
+  color: var(--accent);
+}
+.resultBody {
+  min-width: 0;
+  flex: 1;
+}
+.resultTitle {
+  font-size: var(--type-ui-small);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.resultMeta {
+  font-size: var(--type-ui-micro);
+  color: var(--text-muted);
+  font-family: var(--font-mono);
+}
+.mark {
+  color: var(--gold);
+  background: var(--accent-subtle);
+  border-radius: var(--radius-xs);
+  padding: 0 1px;
+}
+
+.footer {
+  display: flex;
+  align-items: center;
+  gap: var(--space-md);
+  padding: var(--space-sm) var(--space-md);
+  border-top: 1px solid var(--divider);
+  background: var(--bg-chrome);
+  font-size: var(--type-ui-micro);
+  color: var(--text-muted);
+}
+.fkbd {
+  font-family: var(--font-mono);
+  border: 1px solid var(--control-border);
+  border-radius: var(--radius-xs);
+  padding: 1px 5px;
+}
+.aiRow {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex: 1;
+}
+.aiBadge {
+  background: var(--accent-subtle);
+  color: var(--accent);
+  padding: 1px 6px;
+  border-radius: var(--radius-xs);
+  font-size: var(--type-ui-micro);
+}
+.aiKbd {
+  margin-left: auto;
+  font-family: var(--font-mono);
+  border: 1px solid var(--control-border);
+  border-radius: var(--radius-xs);
+  padding: 1px 5px;
+}
+
+/* Idle attention ring drawing the eye to the field. */
+.spotlight {
+  position: relative;
+}
+.spotlight::after {
+  content: '';
+  position: absolute;
+  inset: -3px;
+  border-radius: inherit;
+  box-shadow: 0 0 0 2px var(--accent-dim);
+  animation: overlay-fade 600ms ease;
+  pointer-events: none;
+}

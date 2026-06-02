@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react'
 import type { AgentSession } from '../../shared/types'
-import type { SearchMode, UnifiedSearchResult } from '../../shared/search-types'
+import type { CodeSearchResult, MemorySearchResultItem, SearchMode, UnifiedSearchResult } from '../../shared/search-types'
 import { useSearch } from '../hooks/useSearch'
 import { splitHighlightedText } from './search/search-highlight'
 import { titleBarSearchStyles as styles } from './TitleBarSearch.styles'
@@ -36,8 +36,7 @@ function MemoryGlyph({ size = 14 }: { size?: number }): React.JSX.Element {
   )
 }
 
-function metaFor(result: UnifiedSearchResult): string {
-  if (result.source === 'code') return `${result.relativePath}:${result.line}`
+function memoryMetaFor(result: MemorySearchResultItem): string {
   return `memory · ${result.memorySource.replace(/_/g, ' ')}`
 }
 
@@ -101,7 +100,7 @@ export function TitleBarSearch({ search: wiring }: { search: TitleBarSearchWirin
     }
   }
 
-  const renderTitle = (text: string): React.ReactNode => {
+  const renderHighlighted = (text: string): React.ReactNode => {
     const segments = splitHighlightedText(text, {
       query: search.query,
       matchMode: search.matchMode,
@@ -115,23 +114,48 @@ export function TitleBarSearch({ search: wiring }: { search: TitleBarSearchWirin
     )
   }
 
-  const renderResult = (result: UnifiedSearchResult, index: number): React.JSX.Element => (
-    <div
-      key={result.id}
-      style={{ ...styles.result, ...(index === activeIndex ? styles.resultActive : undefined) }}
-      onMouseEnter={() => setActiveIndex(index)}
-      onMouseDown={(event) => {
-        event.preventDefault()
-        openResult(result)
-      }}
-    >
-      <span style={styles.resultIcon}>{result.source === 'memory' ? <MemoryGlyph /> : <SearchGlyph />}</span>
-      <div style={styles.resultBody}>
-        <div style={styles.resultTitle}>{renderTitle(result.title)}</div>
-        <div style={styles.resultMeta}>{metaFor(result)}</div>
-      </div>
+  const renderCodeLine = (lineNumber: number, text: string, current: boolean): React.JSX.Element => (
+    <div key={lineNumber} style={{ ...styles.codeLine, ...(current ? styles.codeLineCurrent : undefined) }}>
+      <span style={styles.codeLineNumber}>{lineNumber}</span>
+      <span style={styles.codeLineText}>{renderHighlighted(text)}</span>
     </div>
   )
+
+  const renderCodePreview = (result: CodeSearchResult): React.JSX.Element => {
+    const before = result.contextBefore ?? []
+    const after = result.contextAfter ?? []
+    const firstLine = result.line - before.length
+    return (
+      <div style={styles.code}>
+        {before.map((text, i) => renderCodeLine(firstLine + i, text, false))}
+        {renderCodeLine(result.line, result.snippet, true)}
+        {after.map((text, i) => renderCodeLine(result.line + i + 1, text, false))}
+      </div>
+    )
+  }
+
+  const renderResult = (result: UnifiedSearchResult, index: number): React.JSX.Element => {
+    const isCode = result.source === 'code'
+    return (
+      <div
+        key={result.id}
+        style={{ ...styles.result, ...(isCode ? styles.resultCode : undefined), ...(index === activeIndex ? styles.resultActive : undefined) }}
+        onMouseEnter={() => setActiveIndex(index)}
+        onMouseDown={(event) => {
+          event.preventDefault()
+          openResult(result)
+        }}
+      >
+        <span style={styles.resultIcon}>{isCode ? <SearchGlyph /> : <MemoryGlyph />}</span>
+        <div style={styles.resultBody}>
+          <div style={styles.resultTitle}>{isCode ? result.title : renderHighlighted(result.title)}</div>
+          {isCode
+            ? renderCodePreview(result)
+            : <div style={styles.resultMeta}>{memoryMetaFor(result)}</div>}
+        </div>
+      </div>
+    )
+  }
 
   return (
     <div style={styles.wrap} ref={wrapRef}>

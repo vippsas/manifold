@@ -1,0 +1,101 @@
+.panel {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-md);
+}
+
+.tagline {
+  font-size: var(--type-ui-small);
+  color: var(--text-secondary);
+  line-height: 1.5;
+}
+
+.prominence {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  align-self: flex-start;
+  font-size: var(--type-ui-caption);
+  padding: 3px 10px;
+  border-radius: var(--radius-pill);
+  background: var(--accent-subtle);
+  color: var(--accent);
+}
+
+.cols {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--space-md);
+}
+.colTitle {
+  font-size: var(--type-ui-caption);
+  text-transform: uppercase;
+  letter-spacing: 0.6px;
+  color: var(--text-muted);
+  margin-bottom: 6px;
+}
+.list {
+  margin: 0;
+  padding-left: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+.list li {
+  font-size: var(--type-ui-small);
+  color: var(--text-secondary);
+  line-height: 1.4;
+}
+.pros li::marker { color: var(--status-done); }
+.cons li::marker { color: var(--status-error); }
+
+.feedback {
+  border-top: 1px solid var(--divider);
+  padding-top: var(--space-md);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-sm);
+}
+.fieldLabel {
+  font-size: var(--type-ui-caption);
+  text-transform: uppercase;
+  letter-spacing: 0.6px;
+  color: var(--text-muted);
+}
+
+.stars {
+  display: flex;
+  gap: 4px;
+}
+.star {
+  font-size: 20px;
+  line-height: 1;
+  color: var(--text-muted);
+  transition: color 150ms ease, transform 150ms ease;
+}
+.star:hover { transform: scale(1.12); }
+.starOn { color: var(--gold); }
+
+.notes {
+  width: 100%;
+  min-height: 70px;
+  resize: vertical;
+  background: var(--bg-input);
+  border: 1px solid var(--control-border);
+  border-radius: var(--radius-sm);
+  color: var(--text-primary);
+  font-family: var(--font-sans);
+  font-size: var(--type-ui-small);
+  padding: var(--space-sm);
+  transition: border-color 150ms ease, box-shadow 150ms ease;
+}
+.notes:focus {
+  outline: none;
+  border-color: var(--accent-dim);
+  box-shadow: 0 0 0 2px var(--accent-subtle);
+}
+.saved {
+  font-size: var(--type-ui-micro);
+  color: var(--status-done);
+  height: 12px;
+}

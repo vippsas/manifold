@@ -86,8 +86,8 @@ describe('TitleBarSearch', () => {
     act(() => { vi.advanceTimersByTime(250) }) // fire the debounced search:query
     await flush()                      // flush the query response into state
 
-    // Assert on the meta line (a single text node — the title is split across <mark> nodes).
-    expect(screen.getByText('src/main/search/search-query-service.ts:14')).toBeInTheDocument()
+    // Code results render a snippet preview; the matched line's gutter number is a stable single text node.
+    expect(screen.getByText('14')).toBeInTheDocument()
 
     fireEvent.keyDown(input, { key: 'Enter' })
     expect(wiring.onOpenSearchResult).toHaveBeenCalledWith({
@@ -127,7 +127,7 @@ describe('TitleBarSearch', () => {
     act(() => { vi.advanceTimersByTime(250) })
     await flush()
 
-    expect(screen.getByText('src/main/search/search-index.ts:88')).toBeInTheDocument()
+    expect(screen.getByText('88')).toBeInTheDocument()
 
     fireEvent.keyDown(input, { key: 'ArrowDown' })
     fireEvent.keyDown(input, { key: 'Enter' })
@@ -137,6 +137,52 @@ describe('TitleBarSearch', () => {
       column: undefined,
       sessionId: undefined,
     })
+  })
+
+  it('renders a code preview with context lines, a gutter, and a highlighted match', async () => {
+    const previewResult = {
+      id: 'p1',
+      source: 'code' as const,
+      title: 'scripts/rebuild-better-sqlite3-node.mjs',
+      snippet: "npm_config_cache: '/tmp/manifold-npm-cache',",
+      filePath: '/abs/scripts/rebuild-better-sqlite3-node.mjs',
+      rootPath: '/abs',
+      relativePath: 'scripts/rebuild-better-sqlite3-node.mjs',
+      line: 19,
+      contextBefore: ["npm_config_build_from_source: 'true',"],
+      contextAfter: ['npm_config_nodedir: nodeRoot,'],
+    }
+    mockInvoke.mockImplementation((channel: string) => {
+      if (channel === 'settings:get') return Promise.resolve(DEFAULT_SETTINGS)
+      if (channel === 'search:context') {
+        return Promise.resolve({ projectId: 'project-1', activeSessionId: 'session-1', sessions: [] })
+      }
+      if (channel === 'search:query') {
+        return Promise.resolve({ results: [previewResult], total: 1, tookMs: 3 })
+      }
+      return Promise.reject(new Error(`Unexpected channel: ${channel}`))
+    })
+
+    render(<TitleBarSearch search={makeWiring()} />)
+    const input = screen.getByLabelText('Search code and memory')
+    fireEvent.focus(input)
+    fireEvent.change(input, { target: { value: 'manifold' } })
+
+    await flush()
+    act(() => { vi.advanceTimersByTime(250) })
+    await flush()
+
+    // File-path header
+    expect(screen.getByText('scripts/rebuild-better-sqlite3-node.mjs')).toBeInTheDocument()
+    // Line-number gutter spans 18–20 around the match on line 19
+    expect(screen.getByText('18')).toBeInTheDocument()
+    expect(screen.getByText('19')).toBeInTheDocument()
+    expect(screen.getByText('20')).toBeInTheDocument()
+    // Context lines render verbatim
+    expect(screen.getByText("npm_config_build_from_source: 'true',")).toBeInTheDocument()
+    expect(screen.getByText('npm_config_nodedir: nodeRoot,')).toBeInTheDocument()
+    // The matched term is highlighted inside the current line
+    expect(screen.getAllByText('manifold').some((node) => node.tagName === 'MARK')).toBe(true)
   })
 
   it('closes the dropdown on outside mousedown', () => {
