@@ -145,21 +145,6 @@ describe('SessionManager — kill / interrupt / resize', () => {
       )
     })
 
-    it('keeps the fleet worktree when deleting a superagent child session', async () => {
-      await sessionManager.createSession({
-        projectId: 'proj-1',
-        runtimeId: 'claude',
-        prompt: 'fleet child',
-        existingWorktreePath: '/repo/.manifold/worktrees/manifold-oslo',
-        parentSuperagentId: 'super-1',
-      })
-
-      await sessionManager.killSession('session-uuid-1')
-
-      expect(ptyPool.kill).toHaveBeenCalledWith('pty-1')
-      expect(worktreeManager.removeWorktree).not.toHaveBeenCalled()
-      expect(sessionManager.getSession('session-uuid-1')).toBeUndefined()
-    })
   })
 
   describe('interruptSession', () => {

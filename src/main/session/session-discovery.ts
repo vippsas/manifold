@@ -106,7 +106,6 @@ export class SessionDiscovery {
           simplePromptInstructions: meta?.simplePromptInstructions,
           additionalDirs: meta?.additionalDirs ?? [],
           ollamaModel: meta?.ollamaModel,
-          parentSuperagentId: meta?.parentSuperagentId,
           workspaceId: meta?.workspaceId,
           workspaceWorktreePaths: meta?.workspaceWorktreePaths,
           nonInteractive: meta?.nonInteractive,

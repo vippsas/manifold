@@ -28,8 +28,6 @@ export interface AgentSession {
   simplePromptInstructions?: string
   additionalDirs: string[]
   noWorktree?: boolean
-  /** If set, this agent was spawned by a superagent and is listed as a child. */
-  parentSuperagentId?: string
   /** If set, this agent belongs to a workspace; its working set spans the workspace's repos. */
   workspaceId?: string
   /** projectId -> worktree path for every repo in this agent's working set (incl. primary). Used to tear down the full set. */
@@ -159,11 +157,9 @@ export interface SpawnAgentOptions {
   cols?: number
   rows?: number
   ollamaModel?: string
-  /** If set, the spawned session is owned by this superagent. */
-  parentSuperagentId?: string
   /**
    * Attach the session to an existing worktree instead of creating a new one.
-   * Used when a superagent's fleet worktree already exists and we want to
+   * Used when a workspace's worktree already exists and we want to
    * spawn an interactive session inside it.
    */
   existingWorktreePath?: string

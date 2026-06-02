@@ -275,21 +275,6 @@ describe('SessionManager — create / input / queries', () => {
     })
   })
 
-  describe('setParentSuperagent', () => {
-    it('updates session ownership in memory', async () => {
-      await sessionManager.createSession({
-        projectId: 'proj-1',
-        runtimeId: 'claude',
-        prompt: 'test',
-      })
-
-      const updated = sessionManager.setParentSuperagent('session-uuid-1', 'super-1')
-
-      expect(updated.parentSuperagentId).toBe('super-1')
-      expect(sessionManager.getSession('session-uuid-1')?.parentSuperagentId).toBe('super-1')
-    })
-  })
-
   describe('listSessions', () => {
     it('returns all sessions', async () => {
       await sessionManager.createSession({
