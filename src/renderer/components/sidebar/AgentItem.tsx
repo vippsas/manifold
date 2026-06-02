@@ -39,9 +39,10 @@ interface AgentItemProps {
   onSelect: (id: string) => void
   onDelete: () => void
   labelOverride?: string
+  hideAdditionalDirs?: boolean
 }
 
-export function AgentItem({ session, projectPath, isActive, isOutputting, onSelect, onDelete, labelOverride }: AgentItemProps): React.JSX.Element {
+export function AgentItem({ session, projectPath, isActive, isOutputting, onSelect, onDelete, labelOverride, hideAdditionalDirs }: AgentItemProps): React.JSX.Element {
   const handleClick = useCallback((): void => {
     onSelect(session.id)
   }, [onSelect, session.id])
@@ -124,7 +125,7 @@ export function AgentItem({ session, projectPath, isActive, isOutputting, onSele
       >
         {secondaryLabel}
       </span>
-      {session.additionalDirs.length > 0 && (
+      {!hideAdditionalDirs && session.additionalDirs.length > 0 && (
         <div className="sidebar-aux-list">
           {session.additionalDirs.map((dir) => {
             const dirName = dir.split('/').filter(Boolean).pop() ?? dir

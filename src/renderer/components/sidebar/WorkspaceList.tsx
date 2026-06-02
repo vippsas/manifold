@@ -168,6 +168,7 @@ export function WorkspaceList({
                   onSelect={(sessionId) => onSelectSession(sessionId, session.projectId)}
                   onDelete={() => onDeleteAgent?.(session, project?.path ?? '')}
                   labelOverride={project?.name}
+                  hideAdditionalDirs
                 />
               )
             })}
