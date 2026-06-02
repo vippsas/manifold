@@ -15,24 +15,31 @@ export function DockTab({ api }: IDockviewPanelHeaderProps): React.JSX.Element {
     : null
   const isSuperagentTab = api.id === 'agent' && state?.activeSuperagentId
   const isSuperagentChildTab = Boolean(siblingSession?.parentSuperagentId)
+  const isWorkspaceTab = Boolean(siblingSession?.workspaceId)
   const displayTitle = isSuperagentTab
     ? state?.activeSuperagent?.name ?? 'Superagent'
     : title
   const roleLabel = isSuperagentTab
     ? 'S'
-    : isSuperagentChildTab
-      ? 'A'
-      : null
+    : isWorkspaceTab
+      ? 'W'
+      : isSuperagentChildTab
+        ? 'A'
+        : null
   const roleTitle = isSuperagentTab
     ? 'Superagent'
-    : isSuperagentChildTab
-      ? 'Agent'
-      : null
+    : isWorkspaceTab
+      ? 'Workspace'
+      : isSuperagentChildTab
+        ? 'Agent'
+        : null
   const roleClassName = isSuperagentTab
     ? 'dock-tab__role dock-tab__role--superagent'
-    : isSuperagentChildTab
-      ? 'dock-tab__role dock-tab__role--agent'
-      : null
+    : isWorkspaceTab
+      ? 'dock-tab__role dock-tab__role--workspace'
+      : isSuperagentChildTab
+        ? 'dock-tab__role dock-tab__role--agent'
+        : null
   const showAddSibling = api.id === 'agent'
     && state != null
     && !state.activeSuperagentId

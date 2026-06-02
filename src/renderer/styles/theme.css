@@ -443,6 +443,12 @@ select:focus-visible {
   border: 1px solid color-mix(in srgb, var(--accent), var(--border) 72%);
 }
 
+.dock-tab__role--workspace {
+  background: linear-gradient(135deg, var(--accent-subtle), color-mix(in srgb, var(--accent), transparent 74%));
+  color: var(--text-primary);
+  border: 1px solid color-mix(in srgb, var(--accent), var(--border) 72%);
+}
+
 .dock-tab--superagent .dock-tab__label {
   font-weight: 600;
   color: color-mix(in srgb, var(--warning), var(--text-primary) 22%);
