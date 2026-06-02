@@ -53,6 +53,7 @@ import { McpBridgeServer } from '../superagent/mcp-bridge-server'
 import { SuperagentManager } from '../superagent/superagent-manager'
 import { WorkspaceStore } from '../workspace/workspace-store'
 import { WorkspaceManager } from '../workspace/workspace-manager'
+import { migrateSuperagentsToWorkspaces } from '../workspace/workspace-migration'
 import { getRuntimeById } from '../agent/runtimes'
 import { WatchRunStore } from '../watch/run-store'
 import { VerdictStore } from '../store/verdict-store'
@@ -111,6 +112,7 @@ const superagentManager = new SuperagentManager({
   emitOutput: (sid, chunk) => { mainWindow?.webContents.send('agent:output', { sessionId: sid, data: chunk }) },
 })
 superagentManagerRef = superagentManager
+migrateSuperagentsToWorkspaces(path.join(manifoldHome, 'superagents.json'), path.join(manifoldHome, 'workspaces.json'))
 const workspaceStore = new WorkspaceStore(path.join(manifoldHome, 'workspaces.json'))
 const workspaceManager = new WorkspaceManager({
   store: workspaceStore,
