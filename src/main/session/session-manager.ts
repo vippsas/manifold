@@ -288,17 +288,6 @@ export class SessionManager {
 
   async killInteractiveSession(sessionId: string): Promise<{ projectPath: string; branchName: string; taskDescription?: string }> { return this.teardown.killInteractiveSession(sessionId) }
 
-  setParentSuperagent(sessionId: string, parentSuperagentId?: string): AgentSession {
-    const session = this.sessions.get(sessionId)
-    if (!session) throw new Error(`Session not found: ${sessionId}`)
-    session.parentSuperagentId = parentSuperagentId
-    if (!session.noWorktree && session.worktreePath) {
-      persistSessionMeta(session)
-    }
-    this.notifySessionsChanged(session.projectId)
-    return toPublicSession(session)
-  }
-
   async startDevServerSession(
     projectId: string,
     branchName: string,

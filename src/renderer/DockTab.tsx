@@ -13,32 +13,16 @@ export function DockTab({ api }: IDockviewPanelHeaderProps): React.JSX.Element {
         .flat()
         .find((session) => session.id === siblingSessionId)
     : null
-  const isSuperagentTab = api.id === 'agent' && state?.activeSuperagentId
-  const isSuperagentChildTab = Boolean(siblingSession?.parentSuperagentId)
-  const displayTitle = isSuperagentTab
-    ? state?.activeSuperagent?.name ?? 'Superagent'
-    : title
-  const roleLabel = isSuperagentTab
-    ? 'S'
-    : isSuperagentChildTab
-      ? 'A'
-      : null
-  const roleTitle = isSuperagentTab
-    ? 'Superagent'
-    : isSuperagentChildTab
-      ? 'Agent'
-      : null
-  const roleClassName = isSuperagentTab
-    ? 'dock-tab__role dock-tab__role--superagent'
-    : isSuperagentChildTab
-      ? 'dock-tab__role dock-tab__role--agent'
-      : null
+  const isWorkspaceTab = Boolean(siblingSession?.workspaceId)
+  const displayTitle = title
+  const roleLabel = isWorkspaceTab ? 'W' : null
+  const roleTitle = isWorkspaceTab ? 'Workspace' : null
+  const roleClassName = isWorkspaceTab ? 'dock-tab__role dock-tab__role--workspace' : null
   const showAddSibling = api.id === 'agent'
     && state != null
-    && !state.activeSuperagentId
     && (state.activeSessionStatus === 'running' || state.activeSessionStatus === 'waiting')
   return (
-    <div className={`dock-tab${isSuperagentTab ? ' dock-tab--superagent' : ''}${isSuperagentChildTab ? ' dock-tab--child-agent' : ''}`}>
+    <div className="dock-tab">
       {roleLabel && roleClassName && (
         <span className={roleClassName} title={roleTitle ?? undefined}>{roleLabel}</span>
       )}

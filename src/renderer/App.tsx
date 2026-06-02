@@ -22,25 +22,15 @@ import { useFileOperations } from './hooks/useFileOperations'
 import { useAppOverlays } from './hooks/useAppOverlays'
 import { useDraftChatCoordinator } from './hooks/useDraftChatCoordinator'
 import { useEditorPaneHandlers } from './hooks/useEditorPaneHandlers'
-import { useSuperagentFileBridge } from './hooks/useSuperagentFileBridge'
 import { useAutoSelectActiveProject } from './hooks/useAutoSelectActiveProject'
 import { useProjectCreateHandlers } from './hooks/useProjectCreateHandlers'
 import { useDockLayout } from './hooks/useDockLayout'
 import { useSidebarHandleCycle } from './hooks/useSidebarHandleCycle'
 import { useAgentSiblingDockTabs } from './hooks/useAgentSiblingDockTabs'
-import { useSuperagentChildDockTabs } from './hooks/useSuperagentChildDockTabs'
-import { getPrimarySession, siblingPanelId } from './hooks/agent-siblings'
+import { getPrimarySession } from './hooks/agent-siblings'
 import { useAppEffects } from './hooks/useAppEffects'
 import type { DockAppState } from './components/editor/dock-panel-types'
-import {
-  collectSuperagentIds,
-  collectSuperagentChildSessionIds,
-  collectSuperagentFleetWorktreePaths,
-  filterStandaloneProjectSessions,
-  type SessionSelectionOptions,
-  shouldPreserveSuperagentSelection,
-} from './session-selection'
-import { useSuperagents } from './hooks/useSuperagents'
+import { useWorkspaces } from './hooks/useWorkspaces'
 import type { AgentSession } from '../shared/types'
 import { isGitProject } from '../shared/project-kind'
 import { AppShell } from './AppShell'
@@ -51,64 +41,49 @@ export function App(): React.JSX.Element {
   const { sessions, activeSessionId, activeSession, spawnAgent, deleteAgent, setActiveSession, resumeAgent, outputtingSessionIds } = useAgentSession(activeProjectId)
   const { drafts, activeDraft, effectiveSessionId, createDraft, discardDraft, promoteDraft } = useDraftChatCoordinator(activeSessionId, setActiveSession, spawnAgent)
   const { sessionsByProject, removeSession } = useAllProjectSessions(projects, activeProjectId, sessions)
-  const [activeSuperagentId, setActiveSuperagentId] = useState<string | null>(null)
-  const [addProjectSuperagentId, setAddProjectSuperagentId] = useState<string | null>(null)
-  const [pendingSuperagentProjectIds, setPendingSuperagentProjectIds] = useState<string[]>([])
-  const { superagents, createSuperagent, addProjectToSuperagent, removeSuperagent, resumeSuperagent, toggleAutoApprove } = useSuperagents()
-  const superagentIds = useMemo(() => collectSuperagentIds(superagents), [superagents])
-  const superagentChildSessionIds = useMemo(() => collectSuperagentChildSessionIds(superagents), [superagents])
-  const superagentFleetWorktreePaths = useMemo(() => collectSuperagentFleetWorktreePaths(superagents), [superagents])
-  const suppressedProjectIds = useMemo(() => new Set(pendingSuperagentProjectIds), [pendingSuperagentProjectIds])
+  const { workspaces, createWorkspace, removeWorkspace, addProject: addProjectToWorkspace, removeProject: removeProjectFromWorkspace, spawnAgent: spawnWorkspaceAgent } = useWorkspaces()
+  const [activeWorkspaceId, setActiveWorkspaceId] = useState<string | null>(null)
+  const [newWorkspaceVisible, setNewWorkspaceVisible] = useState(false)
+  const [addProjectWorkspaceId, setAddProjectWorkspaceId] = useState<string | null>(null)
+  const suppressedProjectIds = useMemo(() => new Set<string>(), [])
+  const sessionsByWorkspace = useMemo(() => {
+    const map: Record<string, AgentSession[]> = {}
+    for (const sessions of Object.values(sessionsByProject ?? {})) {
+      for (const sx of sessions) {
+        if (sx.workspaceId) (map[sx.workspaceId] ??= []).push(sx)
+      }
+    }
+    return map
+  }, [sessionsByProject])
+  const workspaceIdBySession = useMemo(() => {
+    const map: Record<string, string> = {}
+    for (const sessions of Object.values(sessionsByProject ?? {})) {
+      for (const sx of sessions) {
+        if (sx.workspaceId) map[sx.id] = sx.workspaceId
+      }
+    }
+    return map
+  }, [sessionsByProject])
 
   useAutoSelectActiveProject({
     sessionsByProject, activeProjectId, projects, setActiveProject,
-    suppressedProjectIds, superagentChildSessionIds, superagentIds, superagentFleetWorktreePaths,
+    suppressedProjectIds,
   })
-  const activeSuperagent = superagents.find((s) => s.id === activeSuperagentId) ?? null
-  const addProjectSuperagent = superagents.find((s) => s.id === addProjectSuperagentId) ?? null
   useStatusNotification(outputtingSessionIds, settings.notificationSound)
   const { diff, changedFiles, refreshDiff } = useDiff(effectiveSessionId)
   const activeWorktreePath = activeSession?.worktreePath ?? null
   const activeProjectSessions = activeProjectId ? sessionsByProject[activeProjectId] ?? [] : []
   const primarySession = getPrimarySession(activeProjectSessions, activeWorktreePath)
   const primarySessionId = primarySession?.id ?? null
-  // Key dockview by superagent when active so child-session selection can change without tearing down the fleet layout.
-  const dockLayoutKey = activeSuperagentId ?? primarySessionId ?? activeSessionId
+  const dockLayoutKey = primarySessionId ?? activeSessionId
   const dockLayout = useDockLayout(dockLayoutKey, activeProjectSessions)
   useSidebarHandleCycle(dockLayout.apiRef, settings.sidebarResizeReversed)
   useAgentSiblingDockTabs({
     apiRef: dockLayout.apiRef, layoutVersion: dockLayout.layoutVersion,
     sessions: activeProjectSessions, activeWorktreePath, primarySessionId, activeSessionId,
-    disabled: Boolean(activeSuperagentId), onSelectSession: setActiveSession,
+    disabled: false, onSelectSession: setActiveSession,
   })
-  const focusSuperagentHome = useCallback((): void => {
-    setActiveSession(null); dockLayout.focusPanel('agent')
-  }, [dockLayout, setActiveSession])
-  const selectSuperagentChildSession = useCallback((sessionId: string, projectId: string): void => {
-    const projectName = projects.find((project) => project.id === projectId)?.name
-    setActiveProject(projectId); setActiveSession(sessionId)
-    dockLayout.openSiblingPanel(sessionId, projectName, 'agent')
-  }, [dockLayout, projects, setActiveProject, setActiveSession])
-  useSuperagentChildDockTabs({
-    apiRef: dockLayout.apiRef, layoutVersion: dockLayout.layoutVersion,
-    superagent: activeSuperagent, projects, allProjectSessions: sessionsByProject,
-    onSelectChildSession: selectSuperagentChildSession, onSelectSuperagentHome: focusSuperagentHome,
-  })
-  // Sync dock's active panel with superagent + session state. Declared AFTER
-  // useSuperagentChildDockTabs so sibling panels it adds are guaranteed to exist.
-  // Re-fires on layoutReloadVersion only; depending on layoutVersion would
-  // revert clicks on unrelated tabs.
-  useEffect(() => {
-    if (!activeSuperagentId) return
-    const api = dockLayout.apiRef.current
-    if (!api) return
-    const targetId = activeSessionId ? siblingPanelId(activeSessionId) : 'agent'
-    const panel = api.getPanel(targetId)
-    if (!panel) return
-    if (!panel.api.isActive) panel.api.setActive()
-  }, [activeSessionId, activeSuperagentId, dockLayout.apiRef, dockLayout.layoutReloadVersion])
-  const { superagentFileReader, superagentFileWriter } = useSuperagentFileBridge(activeSuperagent)
-  const codeView = useCodeView(effectiveSessionId, superagentFileReader, superagentFileWriter)
+  const codeView = useCodeView(effectiveSessionId)
   const appEffects = useAppEffects({
     activeSessionId, dockLayout, settings,
     setActiveProject, spawnAgent, refreshOpenFiles: codeView.refreshOpenFiles, refreshDiff,
@@ -165,10 +140,9 @@ export function App(): React.JSX.Element {
     themeClass === 'theme-light' ? 'light' : 'dark',
     interactiveAgentActive,
   )
-  const [newSuperagentVisible, setNewSuperagentVisible] = useState(false)
-  const worktreeShellCwd = activeSession?.worktreePath ?? activeSuperagent?.coordinationPath ?? null
+  const worktreeShellCwd = activeSession?.worktreePath ?? null
   const shellProjectCwd = activeSession ? (activeProject?.path ?? null) : null
-  const shellSessionKey = activeSessionId ?? activeSuperagentId
+  const shellSessionKey = activeSessionId
   const { worktreeSessionId, projectSessionId } = useShellSessions(worktreeShellCwd, shellProjectCwd, shellSessionKey)
 
   const editorHandlers = useEditorPaneHandlers({
@@ -188,22 +162,6 @@ export function App(): React.JSX.Element {
   useEffect(() => {
     if (appEffects.creatingProject && activeSession) appEffects.setCreatingProject(false)
   }, [appEffects.creatingProject, activeSession, appEffects.setCreatingProject])
-
-  const resolveStandaloneSessions = useCallback(async (projectId: string): Promise<AgentSession[]> => {
-    try {
-      const list = (await window.electronAPI.invoke('agent:sessions', projectId)) as AgentSession[]
-      return filterStandaloneProjectSessions(list, superagentChildSessionIds, superagentIds, superagentFleetWorktreePaths)
-    } catch {
-      return []
-    }
-  }, [superagentChildSessionIds, superagentFleetWorktreePaths, superagentIds])
-
-  const openSuperagentChildPanel = useCallback((sessionId: string, projectId: string, options?: SessionSelectionOptions): boolean => {
-    if (!activeSuperagentId) return false
-    if (!shouldPreserveSuperagentSelection(activeSuperagent, projectId, options)) return false
-    selectSuperagentChildSession(sessionId, projectId)
-    return true
-  }, [activeSuperagent, activeSuperagentId, selectSuperagentChildSession])
 
   const activeProjectIsGit = isGitProject(activeProject)
   const baseBranch = activeProjectIsGit ? activeProject?.baseBranch ?? settings.defaultBaseBranch : ''
@@ -240,33 +198,29 @@ export function App(): React.JSX.Element {
     activeSessionNoWorktree: activeSession?.noWorktree ?? false,
     onLaunchAgent: overlays.handleLaunchAgent, projects, activeProjectId, suppressedProjectIds,
     allProjectSessions: sessionsByProject, outputtingSessionIds,
-    onSelectProject: (id: string) => { setActiveSuperagentId(null); setActiveProject(id) },
-    onSelectSession: (sessionId: string, projectId: string, options?: SessionSelectionOptions) => {
-      if (openSuperagentChildPanel(sessionId, projectId, options)) return
-      setActiveSuperagentId(null); overlays.handleSelectSession(sessionId, projectId)
+    onSelectProject: (id: string) => { setActiveWorkspaceId(null); setActiveProject(id) },
+    onSelectSession: (sessionId: string, projectId: string) => {
+      setActiveWorkspaceId(workspaceIdBySession[sessionId] ?? null)
+      overlays.handleSelectSession(sessionId, projectId)
     },
     onRemoveProject: removeProject, onUpdateProject: updateProject, onRequestDeleteAgent: overlays.requestDeleteAgent,
-    onNewAgentFromHeader: () => { setActiveSuperagentId(null); overlays.handleNewAgentFromHeader() },
+    onNewAgentFromHeader: () => { setActiveWorkspaceId(null); overlays.handleNewAgentFromHeader() },
     newAgentFocusTrigger: overlays.newAgentFocusTrigger,
     onNewProject: () => appEffects.setShowOnboarding(true),
-    onNewSuperagent: () => setNewSuperagentVisible(true),
-    superagents, activeSuperagentId, activeSuperagent,
-    onSelectSuperagent: (id) => { setActiveSuperagentId(id); focusSuperagentHome() },
-    onSelectSuperagentHome: focusSuperagentHome,
-    onResumeSuperagent: (id: string) => resumeSuperagent(id),
-    onToggleSuperagentAutoApprove: (id: string, value: boolean) => toggleAutoApprove(id, value),
-    onRemoveSuperagent: async (id: string) => {
-      await removeSuperagent(id)
-      setActiveSuperagentId((current) => (current === id ? null : current))
-      setAddProjectSuperagentId((current) => (current === id ? null : current))
-      setPendingSuperagentProjectIds([])
+    workspaces, activeWorkspaceId, sessionsByWorkspace,
+    onNewWorkspace: () => setNewWorkspaceVisible(true),
+    onSelectWorkspace: (id: string) => { setActiveWorkspaceId(id) },
+    onRemoveWorkspace: async (id: string) => {
+      await removeWorkspace(id)
+      setActiveWorkspaceId((current) => (current === id ? null : current))
     },
-    onRequestAddProjectToSuperagent: (id: string) => setAddProjectSuperagentId(id),
-    onSpawnFleetAgent: async (superagentId: string, projectId: string) => {
-      const result = (await window.electronAPI.invoke('superagent:spawn-fleet-agent', superagentId, projectId)) as { id: string }
-      if (activeSuperagentId === superagentId && openSuperagentChildPanel(result.id, projectId, { preserveSuperagent: true })) return
-      setActiveSuperagentId(null); overlays.handleSelectSession(result.id, projectId)
+    onSpawnWorkspaceAgent: async (workspaceId: string, homeProjectId?: string) => {
+      const ws = workspaces.find((w) => w.id === workspaceId)
+      const session = await spawnWorkspaceAgent(workspaceId, { runtimeId: ws?.runtimeId ?? settings.defaultRuntime, homeProjectId })
+      setActiveWorkspaceId(workspaceId); overlays.handleSelectSession(session.id, session.projectId)
     },
+    onAddProjectToWorkspace: (id: string) => setAddProjectWorkspaceId(id),
+    onRemoveProjectFromWorkspace: (id: string, pid: string) => { void removeProjectFromWorkspace(id, pid) },
     fetchingProjectId: fetchProject.fetchingProjectId, lastFetchedProjectId: fetchProject.lastFetchedProjectId,
     fetchResult: fetchProject.fetchResult, fetchError: fetchProject.fetchError,
     onFetchProject: fetchProject.fetchProject,
@@ -291,11 +245,8 @@ export function App(): React.JSX.Element {
       projectError={projectError}
       activeProjectId={activeProjectId}
       activeSessionId={activeSessionId}
-      activeSuperagentId={activeSuperagentId}
-      activeSuperagent={activeSuperagent}
       activeSession={activeSession ?? null}
       activeProjectIsGit={activeProjectIsGit}
-      addProjectSuperagent={addProjectSuperagent}
       baseBranch={baseBranch}
       autoGenerateMessages={settings.autoGenerateMessages}
       diff={diff}
@@ -318,16 +269,16 @@ export function App(): React.JSX.Element {
       handleAddProjectFromOnboarding={handleAddProjectFromOnboarding}
       handleCloneFromOnboarding={handleCloneFromOnboarding}
       handleCreateNewProject={handleCreateNewProject}
-      newSuperagentVisible={newSuperagentVisible}
-      setNewSuperagentVisible={setNewSuperagentVisible}
-      createSuperagent={createSuperagent}
-      setActiveSuperagentId={setActiveSuperagentId}
-      addProjectToSuperagent={addProjectToSuperagent}
-      setPendingSuperagentProjectIds={setPendingSuperagentProjectIds}
-      setAddProjectSuperagentId={setAddProjectSuperagentId}
-      resolveStandaloneSessions={resolveStandaloneSessions}
+      newWorkspaceVisible={newWorkspaceVisible}
+      setNewWorkspaceVisible={setNewWorkspaceVisible}
+      defaultRuntime={settings.defaultRuntime}
+      createWorkspace={createWorkspace}
+      workspaces={workspaces}
+      addProjectWorkspaceId={addProjectWorkspaceId}
+      setAddProjectWorkspaceId={setAddProjectWorkspaceId}
+      addProjectToWorkspace={addProjectToWorkspace}
       dockLayout={dockLayout}
-      hasSuperagent={Boolean(activeSuperagent)}
+      onRenameActiveProject={(name) => { if (activeProjectId) void updateProject(activeProjectId, { name }) }}
       onToggleTheme={toggleTheme}
       themeFamily={themeFamily}
       onSelectThemeFamily={selectThemeFamily}

@@ -7,7 +7,6 @@ import { checkForUpdates, clearUpdateLog, getReleaseNotes, getUpdateLogExcerpt, 
 import { registerProjectHandlers } from '../ipc/project-handlers'
 import { registerAgentHandlers } from '../ipc/agent-handlers'
 import { registerFileHandlers } from '../ipc/file-handlers'
-import { registerSuperagentFileHandlers } from '../ipc/superagent-file-handlers'
 import { registerDiffHandler, registerPrHandler, registerGitHandlers } from '../ipc/git-handlers'
 import { registerSettingsHandlers, registerRuntimesHandler, registerOllamaHandler, registerViewStateHandlers, registerShellTabHandlers, registerDockLayoutHandlers } from '../ipc/settings-handlers'
 import { registerSimpleHandlers } from '../ipc/simple-handlers'
@@ -15,7 +14,7 @@ import { registerMemoryHandlers } from '../ipc/memory-handlers'
 import { registerSearchHandlers } from '../ipc/search-handlers'
 import { registerProvisioningHandlers } from '../ipc/provisioning-handlers'
 import { registerBackgroundAgentHandlers } from '../ipc/background-agent-handlers'
-import { registerSuperagentHandlers } from '../ipc/superagent-handlers'
+import { registerWorkspaceHandlers } from '../ipc/workspace-handlers'
 import { registerLoopHandlers } from '../ipc/loop-handlers'
 import { registerWatchHandlers } from '../ipc/watch-handlers'
 import { registerVerdictHandlers } from '../ipc/verdict-handlers'
@@ -26,7 +25,6 @@ export function registerIpcHandlers(deps: IpcDependencies): void {
   registerProjectHandlers(deps)
   registerAgentHandlers(deps)
   registerFileHandlers(deps)
-  registerSuperagentFileHandlers(deps)
   registerDiffHandler(deps)
   registerPrHandler(deps)
   registerSettingsHandlers(deps)
@@ -41,7 +39,7 @@ export function registerIpcHandlers(deps: IpcDependencies): void {
   registerSearchHandlers(deps)
   registerProvisioningHandlers(deps)
   registerBackgroundAgentHandlers(deps)
-  registerSuperagentHandlers(deps)
+  registerWorkspaceHandlers(deps)
   registerLoopHandlers(deps)
   registerWatchHandlers(deps)
   registerVerdictHandlers(deps)

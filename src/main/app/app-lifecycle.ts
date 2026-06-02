@@ -7,7 +7,6 @@ import { installWatchSkills } from '../watch/skill-installer'
 import { getBundledWatchSkillPath } from '../watch/resource-path'
 import type { SettingsStore } from '../store/settings-store'
 import type { PowerManager } from './power-manager'
-import type { McpBridgeServer } from '../superagent/mcp-bridge-server'
 import type { MemoryStore } from '../memory/memory-store'
 import type { SessionManager } from '../session/session-manager'
 import type { PtyPool } from '../agent/pty-pool'
@@ -17,7 +16,6 @@ import type { ChatStore } from '../store/chat-store'
 export interface AppLifecycleDeps {
   settingsStore: SettingsStore
   powerManager: PowerManager
-  mcpBridge: McpBridgeServer
   memoryStore: MemoryStore
   sessionManager: SessionManager
   ptyPool: PtyPool
@@ -31,7 +29,7 @@ export interface AppLifecycleDeps {
  * on ready, re-create on activate, and cleanup on quit.
  */
 export function registerAppLifecycle(deps: AppLifecycleDeps): void {
-  const { settingsStore, powerManager, mcpBridge, memoryStore, sessionManager, ptyPool, fileWatcher, createWindow, chatStore } = deps
+  const { settingsStore, powerManager, memoryStore, sessionManager, ptyPool, fileWatcher, createWindow, chatStore } = deps
   let localRendererServer: LocalRendererServer | null = null
 
   void app.whenReady().then(async () => {
@@ -60,12 +58,6 @@ export function registerAppLifecycle(deps: AppLifecycleDeps): void {
       }
     } catch (err) {
       console.warn('[watch] skill install failed:', err)
-    }
-
-    try {
-      await mcpBridge.start()
-    } catch (err) {
-      console.error('Failed to start MCP bridge:', err)
     }
 
     try {

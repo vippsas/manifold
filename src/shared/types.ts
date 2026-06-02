@@ -8,9 +8,6 @@ export interface AgentRuntime {
   env?: Record<string, string>
   installed?: boolean
   needsModel?: boolean
-  // True if the runtime accepts Claude-style `--mcp-config` / `--strict-mcp-config`
-  // flags, which the superagent orchestrator requires.
-  orchestratorCapable?: boolean
 }
 
 export type AgentStatus = 'running' | 'waiting' | 'done' | 'error'
@@ -28,8 +25,10 @@ export interface AgentSession {
   simplePromptInstructions?: string
   additionalDirs: string[]
   noWorktree?: boolean
-  /** If set, this agent was spawned by a superagent and is listed as a child. */
-  parentSuperagentId?: string
+  /** If set, this agent belongs to a workspace; its working set spans the workspace's repos. */
+  workspaceId?: string
+  /** projectId -> worktree path for every repo in this agent's working set (incl. primary). Used to tear down the full set. */
+  workspaceWorktreePaths?: Record<string, string>
   /**
    * If set, this agent belongs to a group of siblings spawned together (e.g.
    * by a Watch playlist run). Grouped siblings are hidden from the default
@@ -152,14 +151,18 @@ export interface SpawnAgentOptions {
   cols?: number
   rows?: number
   ollamaModel?: string
-  /** If set, the spawned session is owned by this superagent. */
-  parentSuperagentId?: string
   /**
    * Attach the session to an existing worktree instead of creating a new one.
-   * Used when a superagent's fleet worktree already exists and we want to
+   * Used when a workspace's worktree already exists and we want to
    * spawn an interactive session inside it.
    */
   existingWorktreePath?: string
+  /** If set, the spawned session belongs to this workspace. */
+  workspaceId?: string
+  /** Extra repo roots (the workspace's other repos) injected into the runtime at launch and recorded on the session. */
+  additionalDirs?: string[]
+  /** projectId -> worktree path for the full working set, persisted for teardown. */
+  workspaceWorktreePaths?: Record<string, string>
   /**
    * Tags the session as part of a sibling group (e.g. a Watch playlist run).
    * Grouped siblings are hidden from the default dock tab bar; the group's

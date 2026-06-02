@@ -8,15 +8,12 @@ interface Args {
   projects: Project[]
   setActiveProject: (id: string) => void
   suppressedProjectIds: ReadonlySet<string>
-  superagentChildSessionIds: ReadonlySet<string>
-  superagentIds: ReadonlySet<string>
-  superagentFleetWorktreePaths: ReadonlySet<string>
 }
 
 export function useAutoSelectActiveProject(args: Args): void {
   const {
     sessionsByProject, activeProjectId, projects, setActiveProject,
-    suppressedProjectIds, superagentChildSessionIds, superagentIds, superagentFleetWorktreePaths,
+    suppressedProjectIds,
   } = args
   const didAutoSelectRef = useRef(false)
 
@@ -25,10 +22,7 @@ export function useAutoSelectActiveProject(args: Args): void {
     const projectIds = Object.keys(sessionsByProject)
     if (projectIds.length < 2) return
     const currentSessions = activeProjectId && !suppressedProjectIds.has(activeProjectId)
-      ? filterStandaloneProjectSessions(
-          sessionsByProject[activeProjectId] ?? [],
-          superagentChildSessionIds, superagentIds, superagentFleetWorktreePaths,
-        )
+      ? filterStandaloneProjectSessions(sessionsByProject[activeProjectId] ?? [])
       : []
     if (currentSessions.length > 0) {
       didAutoSelectRef.current = true
@@ -36,14 +30,11 @@ export function useAutoSelectActiveProject(args: Args): void {
     }
     const projectWithAgents = projects.find((p) => (
       !suppressedProjectIds.has(p.id)
-      && filterStandaloneProjectSessions(
-        sessionsByProject[p.id] ?? [],
-        superagentChildSessionIds, superagentIds, superagentFleetWorktreePaths,
-      ).length > 0
+      && filterStandaloneProjectSessions(sessionsByProject[p.id] ?? []).length > 0
     ))
     if (projectWithAgents) {
       didAutoSelectRef.current = true
       setActiveProject(projectWithAgents.id)
     }
-  }, [sessionsByProject, activeProjectId, projects, setActiveProject, suppressedProjectIds, superagentChildSessionIds, superagentFleetWorktreePaths, superagentIds])
+  }, [sessionsByProject, activeProjectId, projects, setActiveProject, suppressedProjectIds])
 }

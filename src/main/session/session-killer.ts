@@ -10,6 +10,7 @@ import type { MemoryCapture } from '../memory/memory-capture'
 import type { ProjectRegistry } from '../store/project-registry'
 import type { InternalSession } from './session-types'
 import type { VerdictRecorder } from './verdict-recorder'
+import { removeWorkspaceWorktrees } from '../workspace/workspace-worktrees'
 
 interface SessionKillerDeps {
   sessions: Map<string, InternalSession>
@@ -38,7 +39,13 @@ export class SessionKiller {
     this.cleanupSession(session)
     void this.verdictRecorder?.onSessionTerminated(sessionId)
 
-    if (session.projectId && !session.noWorktree) {
+    if (session.workspaceWorktreePaths && Object.keys(session.workspaceWorktreePaths).length > 0) {
+      await removeWorkspaceWorktrees(
+        this.deps.worktreeManager,
+        session.workspaceWorktreePaths,
+        (pid) => this.deps.projectRegistry.getProject(pid)?.path,
+      )
+    } else if (session.projectId && !session.noWorktree) {
       await this.removeWorktreeIfUnused(session)
     }
 
@@ -61,7 +68,16 @@ export class SessionKiller {
       void this.verdictRecorder?.onSessionTerminated(session.id)
     }
 
-    if (!noWorktree && projectId) {
+    const workspaceSession = matching.find(
+      (s) => s.workspaceWorktreePaths && Object.keys(s.workspaceWorktreePaths).length > 0,
+    )
+    if (workspaceSession?.workspaceWorktreePaths) {
+      await removeWorkspaceWorktrees(
+        this.deps.worktreeManager,
+        workspaceSession.workspaceWorktreePaths,
+        (pid) => this.deps.projectRegistry.getProject(pid)?.path,
+      )
+    } else if (!noWorktree && projectId) {
       await this.removeWorktree(projectId, worktreePath)
     }
 
@@ -95,8 +111,6 @@ export class SessionKiller {
   }
 
   private async removeWorktreeIfUnused(session: InternalSession): Promise<void> {
-    if (session.parentSuperagentId) return
-
     const sharedWithOther = Array.from(this.deps.sessions.values()).some(
       (other) => other.worktreePath === session.worktreePath,
     )

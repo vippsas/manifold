@@ -96,35 +96,7 @@ describe('DockTab', () => {
     expect(screen.queryByRole('button', { name: 'New shell tab' })).toBeNull()
   })
 
-  it('shows a compact superagent role pill and name on the main agent tab', () => {
-    render(
-      <DockStateContext.Provider value={makeDockState({
-        activeSuperagentId: 'sa-1',
-        activeSuperagent: {
-          id: 'sa-1',
-          name: 'kubedeployerv2',
-          taskDescription: '',
-          runtimeId: 'codex',
-          fleetProjectIds: [],
-          fleetWorktreePaths: {},
-          branchName: 'manifold/kubedeployerv2',
-          childSessionIds: [],
-          coordinationPath: '/coordination',
-          createdAt: '2024-01-01T00:00:00.000Z',
-          pid: 1,
-          status: 'running',
-          autoApprove: false,
-        },
-      })}>
-        <DockTab {...makeHeaderProps('agent', 'Agent')} />
-      </DockStateContext.Provider>,
-    )
-
-    expect(screen.getByTitle('Superagent')).toHaveTextContent('S')
-    expect(screen.getByText('kubedeployerv2')).toBeInTheDocument()
-  })
-
-  it('shows a compact agent role pill on superagent child tabs', () => {
+  it('shows a compact workspace role pill on workspace child tabs', () => {
     render(
       <DockStateContext.Provider value={makeDockState({
         allProjectSessions: {
@@ -137,7 +109,7 @@ describe('DockTab', () => {
             status: 'running',
             pid: 1,
             additionalDirs: [],
-            parentSuperagentId: 'sa-1',
+            workspaceId: 'ws-1',
           }],
         },
       })}>
@@ -145,7 +117,7 @@ describe('DockTab', () => {
       </DockStateContext.Provider>,
     )
 
-    expect(screen.getByTitle('Agent')).toHaveTextContent('A')
+    expect(screen.getByTitle('Workspace')).toHaveTextContent('W')
     expect(screen.getByText('k8s-app-conf')).toBeInTheDocument()
   })
 })

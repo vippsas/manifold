@@ -7,7 +7,9 @@ export interface WorktreeMeta {
   simplePromptInstructions?: string
   additionalDirs?: string[]
   ollamaModel?: string
-  parentSuperagentId?: string
+  workspaceId?: string
+  /** projectId -> worktree path for the workspace agent's full working set (for teardown). */
+  workspaceWorktreePaths?: Record<string, string>
   nonInteractive?: boolean
 }
 

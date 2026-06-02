@@ -41,7 +41,7 @@ export interface UseDockLayoutResult {
   hiddenPanels: DockPanelId[]
   editorPanelIds: string[]
   layoutVersion: number
-  /** Bumps only when the dock layout is fully reloaded (e.g. session/superagent
+  /** Bumps only when the dock layout is fully reloaded (e.g. a session
    * switch). Use this — not layoutVersion — to schedule one-shot work that
    * should fire after a reload, not on every panel activation. */
   layoutReloadVersion: number
@@ -75,7 +75,7 @@ export function useDockLayout(
   const [layoutVersion, setLayoutVersion] = useState(0)
   const bumpVersion = useCallback(() => setLayoutVersion((value) => value + 1), [])
   // Bumps only when loadOrBuildLayout finishes (i.e. layout was replaced by
-  // a session/superagent switch). Distinct from layoutVersion, which also
+  // a session switch). Distinct from layoutVersion, which also
   // bumps on every panel activation or drag — that's too noisy for callers
   // that want to re-apply initial focus after a reload.
   const [layoutReloadVersion, setLayoutReloadVersion] = useState(0)

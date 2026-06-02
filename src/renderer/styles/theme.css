@@ -411,25 +411,10 @@ select:focus-visible {
   box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.06);
 }
 
-.dock-tab__role--superagent {
-  background: linear-gradient(135deg, var(--warning-subtle), color-mix(in srgb, var(--warning), transparent 70%));
-  color: var(--text-primary);
-  border: 1px solid color-mix(in srgb, var(--warning), var(--border) 72%);
-}
-
-.dock-tab__role--agent {
+.dock-tab__role--workspace {
   background: linear-gradient(135deg, var(--accent-subtle), color-mix(in srgb, var(--accent), transparent 74%));
   color: var(--text-primary);
   border: 1px solid color-mix(in srgb, var(--accent), var(--border) 72%);
-}
-
-.dock-tab--superagent .dock-tab__label {
-  font-weight: 600;
-  color: color-mix(in srgb, var(--warning), var(--text-primary) 22%);
-}
-
-.dock-tab--child-agent .dock-tab__label {
-  font-weight: 600;
 }
 
 .dock-tab__close {

@@ -13,11 +13,6 @@ vi.mock('../terminal/TerminalPane', () => ({
   ),
 }))
 
-vi.mock('./SuperagentAgentPanel', () => ({
-  SuperagentAgentPanel: () => <div>superagent-panel</div>,
-  restartOverlayStyles: {},
-}))
-
 vi.mock('./AgentChatView', () => ({
   AgentChatView: ({ sessionId }: { sessionId: string }) => (
     <div>{`chat:${sessionId}`}</div>
@@ -91,7 +86,7 @@ function makeDockState(overrides: Partial<DockAppState> = {}): DockAppState {
           status: 'running',
           pid: 1,
           additionalDirs: [],
-          parentSuperagentId: 'sa-1',
+          workspaceId: 'ws-1',
         },
       ],
     },
@@ -104,27 +99,6 @@ function makeDockState(overrides: Partial<DockAppState> = {}): DockAppState {
     onNewAgentFromHeader: vi.fn(),
     newAgentFocusTrigger: 0,
     onNewProject: vi.fn(),
-    superagents: [{
-      id: 'sa-1',
-      name: '123',
-      taskDescription: '',
-      runtimeId: 'codex',
-      fleetProjectIds: ['p1'],
-      fleetWorktreePaths: { p1: '/worktrees/kong-gateway/manifold-123' },
-      branchName: 'manifold/123',
-      childSessionIds: ['child-1'],
-      coordinationPath: '/coordination',
-      createdAt: '2024-01-01T00:00:00.000Z',
-      pid: 10,
-      status: 'running',
-      autoApprove: false,
-    }],
-    activeSuperagentId: 'sa-1',
-    activeSuperagent: null,
-    onSelectSuperagent: vi.fn(),
-    onResumeSuperagent: vi.fn(),
-    onRemoveSuperagent: vi.fn(),
-    onSpawnFleetAgent: vi.fn(),
     fetchingProjectId: null,
     lastFetchedProjectId: null,
     fetchResult: null,
@@ -147,8 +121,8 @@ function makeDockState(overrides: Partial<DockAppState> = {}): DockAppState {
   }
 }
 
-describe('AgentPanel in superagent mode', () => {
-  it('renders a child session terminal for sibling child panels without leaving superagent mode', () => {
+describe('AgentPanel', () => {
+  it('renders a child session terminal for sibling child panels', () => {
     const AgentPanel = PANEL_COMPONENTS.agent
 
     render(
@@ -158,7 +132,6 @@ describe('AgentPanel in superagent mode', () => {
     )
 
     expect(screen.getByText('terminal:Agent:child-1')).toBeInTheDocument()
-    expect(screen.queryByText('superagent-panel')).toBeNull()
   })
 
   it('surfaces dormant worktrees in the no-agent view', async () => {
@@ -171,8 +144,6 @@ describe('AgentPanel in superagent mode', () => {
       <DockStateContext.Provider value={makeDockState({
         activeProjectId: 'p1',
         activeProjectIsGit: true,
-        activeSuperagentId: null,
-        superagents: [],
         allProjectSessions: {
           p1: [
             {
@@ -209,8 +180,6 @@ describe('AgentPanel in superagent mode', () => {
         activeProjectId: 'p1',
         sessionId: 'chat-1',
         primarySessionId: 'chat-1',
-        activeSuperagentId: null,
-        superagents: [],
         allProjectSessions: {
           p1: [
             {
@@ -243,8 +212,6 @@ describe('AgentPanel in superagent mode', () => {
         activeProjectId: 'p1',
         sessionId: 'int-1',
         primarySessionId: 'int-1',
-        activeSuperagentId: null,
-        superagents: [],
         allProjectSessions: {
           p1: [
             {
@@ -274,8 +241,6 @@ describe('AgentPanel in superagent mode', () => {
     render(
       <DockStateContext.Provider value={makeDockState({
         activeProjectId: 'p1',
-        activeSuperagentId: null,
-        superagents: [],
         activeDraft: { id: 'draft-1' as DraftId, projectId: 'p1', runtimeId: 'claude', branchName: 'manifold/oslo' },
       })}>
         <AgentPanel />

@@ -3,7 +3,6 @@ import { render } from '@testing-library/react'
 import React from 'react'
 import { ProjectSidebar } from './ProjectSidebar'
 import type { Project, AgentSession } from '../../../shared/types'
-import type { Superagent } from '../../../shared/superagent-types'
 
 export const mockInvoke = vi.fn()
 
@@ -23,22 +22,6 @@ export const sampleSessions: AgentSession[] = [
   { id: 's1', projectId: 'p1', runtimeId: 'claude', branchName: 'alpha/oslo', worktreePath: '/wt1', status: 'running', pid: 1, additionalDirs: [] },
   { id: 's2', projectId: 'p1', runtimeId: 'codex', branchName: 'alpha/bergen', worktreePath: '/wt2', status: 'waiting', pid: 2, additionalDirs: [] },
 ]
-
-export const sampleSuperagent: Superagent = {
-  id: 'sa-1',
-  name: '123',
-  taskDescription: '',
-  runtimeId: 'codex',
-  fleetProjectIds: ['p1'],
-  fleetWorktreePaths: { p1: '/wt2' },
-  branchName: 'manifold/123',
-  childSessionIds: ['s2'],
-  coordinationPath: '/coordination',
-  createdAt: '2024-01-01T00:00:00.000Z',
-  pid: 1,
-  status: 'running',
-  autoApprove: false,
-}
 
 export function renderSidebar(overrides = {}) {
   const defaultProps = {

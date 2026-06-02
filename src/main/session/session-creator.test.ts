@@ -18,7 +18,6 @@ vi.mock('../git/worktree-meta', () => ({
   readWorktreeMeta: vi.fn().mockResolvedValue({
     runtimeId: 'codex',
     additionalDirs: [],
-    parentSuperagentId: 'super-stale',
   }),
   writeWorktreeMeta: vi.fn().mockResolvedValue(undefined),
 }))
@@ -65,7 +64,7 @@ describe('SessionCreator', () => {
     vi.clearAllMocks()
   })
 
-  it('does not inherit stale superagent ownership when reusing a standard worktree', async () => {
+  it('reuses an existing worktree when existingWorktreePath is provided', async () => {
     const creator = new SessionCreator(
       {} as WorktreeManager,
       createPtyPool(),
@@ -82,12 +81,11 @@ describe('SessionCreator', () => {
     })
 
     expect(readWorktreeMeta).toHaveBeenCalledWith('/repo/.manifold/worktrees/manifold-oslo')
-    expect(session.parentSuperagentId).toBeUndefined()
+    expect(session.worktreePath).toBe('/repo/.manifold/worktrees/manifold-oslo')
     expect(writeWorktreeMeta).toHaveBeenCalledWith(
       '/repo/.manifold/worktrees/manifold-oslo',
       expect.objectContaining({
         runtimeId: 'codex',
-        parentSuperagentId: undefined,
       }),
     )
   })

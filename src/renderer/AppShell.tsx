@@ -1,7 +1,7 @@
 import React from 'react'
 import { DockviewReact, type DockviewApi } from 'dockview'
 import type { Project, AgentSession, ManifoldSettings, FileChange, CreateProjectOptions } from '../shared/types'
-import type { Superagent, CreateSuperagentInput } from '../shared/superagent-types'
+import type { Workspace, WorkspaceCreateOptions } from '../shared/workspace-types'
 import type { DockAppState } from './components/editor/dock-panel-types'
 import type { UseAppOverlaysResult } from './hooks/useAppOverlays'
 import { PANEL_COMPONENTS, DockStateContext } from './components/editor/dock-panels'
@@ -18,8 +18,8 @@ import { CommitPanel } from './components/git/CommitPanel'
 import { PRPanel } from './components/git/PRPanel'
 import { ConflictPanel } from './components/git/ConflictPanel'
 import { WelcomeDialog } from './components/modals/WelcomeDialog'
-import { AddSuperagentProjectModal } from './components/modals/AddSuperagentProjectModal'
-import { NewSuperagentModal } from './components/modals/NewSuperagentModal'
+import { NewWorkspaceModal } from './components/modals/NewWorkspaceModal'
+import { AddWorkspaceProjectModal } from './components/modals/AddWorkspaceProjectModal'
 import { DockTab, EmptyWatermark } from './DockTab'
 import { TitleBar } from './components/TitleBar'
 import { DeleteAgentDialog } from './components/sidebar/DeleteAgentDialog'
@@ -31,11 +31,8 @@ export interface AppShellProps {
   projectError: string | null
   activeProjectId: string | null
   activeSessionId: string | null
-  activeSuperagentId: string | null
-  activeSuperagent: Superagent | null
   activeSession: AgentSession | null
   activeProjectIsGit: boolean
-  addProjectSuperagent: Superagent | null
   baseBranch: string
   autoGenerateMessages: boolean
   diff: string
@@ -75,23 +72,23 @@ export interface AppShellProps {
   // Top-level handlers/state
   handleSelectFile: (path: string) => void
   setPreviewThemeId: (id: string | null) => void
-  addProject: (path?: string, options?: { activate?: boolean }) => Promise<void>
+  addProject: (path?: string, options?: { activate?: boolean }) => Promise<Project | null>
   cloneProject: (url: string) => Promise<boolean>
   handleAddProjectFromOnboarding: (path?: string) => Promise<void>
   handleCloneFromOnboarding: (url: string) => Promise<boolean>
   handleCreateNewProject: (options: CreateProjectOptions) => Promise<boolean>
-  // Superagent modal wiring
-  newSuperagentVisible: boolean
-  setNewSuperagentVisible: (v: boolean) => void
-  createSuperagent: (opts: CreateSuperagentInput) => Promise<Superagent>
-  setActiveSuperagentId: (id: string | null) => void
-  addProjectToSuperagent: (superagentId: string, projectId: string) => Promise<void>
-  setPendingSuperagentProjectIds: (ids: string[]) => void
-  setAddProjectSuperagentId: (id: string | null) => void
-  resolveStandaloneSessions: (projectId: string) => Promise<AgentSession[]>
+  // Workspace modal wiring
+  newWorkspaceVisible: boolean
+  setNewWorkspaceVisible: (v: boolean) => void
+  defaultRuntime: string
+  createWorkspace: (opts: WorkspaceCreateOptions) => Promise<Workspace>
+  workspaces: Workspace[]
+  addProjectWorkspaceId: string | null
+  setAddProjectWorkspaceId: (id: string | null) => void
+  addProjectToWorkspace: (id: string, projectId: string) => Promise<void>
   // StatusBar dock layout adapter
   dockLayout: unknown
-  hasSuperagent: boolean
+  onRenameActiveProject: (name: string) => void
   onToggleTheme: () => void
   themeFamily: 'manifold' | 'garfield' | 'neon'
   onSelectThemeFamily: (family: 'manifold' | 'garfield' | 'neon') => void
@@ -142,7 +139,7 @@ export function AppShell(p: AppShellProps): React.JSX.Element {
         <DockStateContext.Provider value={p.dockState}>
           <div style={{ flex: 1, overflow: 'hidden' }}>
             <DockviewReact
-              className={`dockview-theme-dark dockview-theme-manifold${!p.activeSessionId && !p.activeSuperagentId ? ' dockview-minimal' : ''}`}
+              className={`dockview-theme-dark dockview-theme-manifold${!p.activeSessionId ? ' dockview-minimal' : ''}`}
               components={PANEL_COMPONENTS}
               onReady={(e) => p.onDockReady(e.api)}
               defaultTabComponent={DockTab}
@@ -158,7 +155,6 @@ export function AppShell(p: AppShellProps): React.JSX.Element {
           baseBranch={p.baseBranch}
           projectIsGit={p.activeProjectIsGit}
           dockLayout={p.dockLayout as never}
-          hasSuperagent={p.hasSuperagent}
           conflicts={p.gitOps.conflicts as never}
           aheadBehind={p.gitOps.aheadBehind as never}
           onCommit={() => p.overlays.setActivePanel('commit')}
@@ -211,33 +207,24 @@ export function AppShell(p: AppShellProps): React.JSX.Element {
         onOpenExternal={() => { void p.updateLog.openReleaseNotesExternal() }}
         onSelectTab={p.updateLog.setActiveTab as never}
       />
-      <NewSuperagentModal
-        visible={p.newSuperagentVisible}
+      <NewWorkspaceModal
+        visible={p.newWorkspaceVisible}
         projects={p.projects}
-        defaultRuntime={p.settings.defaultRuntime}
         projectError={p.projectError}
+        defaultRuntime={p.defaultRuntime}
         onAddProject={() => p.addProject(undefined, { activate: false })}
-        onLaunch={async (opts) => {
-          const sa = await p.createSuperagent(opts)
-          p.setActiveSuperagentId(sa.id)
-          p.setNewSuperagentVisible(false)
-        }}
-        onClose={() => p.setNewSuperagentVisible(false)}
+        onCreate={(opts) => { void p.createWorkspace(opts); p.setNewWorkspaceVisible(false) }}
+        onClose={() => p.setNewWorkspaceVisible(false)}
       />
-      <AddSuperagentProjectModal
-        visible={p.addProjectSuperagent !== null}
-        superagent={p.addProjectSuperagent}
+      <AddWorkspaceProjectModal
+        visible={p.addProjectWorkspaceId != null}
+        workspace={p.workspaces.find((w) => w.id === p.addProjectWorkspaceId) ?? null}
         projects={p.projects}
-        projectError={p.projectError}
-        onAddProject={() => p.addProject(undefined, { activate: false })}
-        onResolveStandaloneSessions={p.resolveStandaloneSessions}
-        onSelectionChange={p.setPendingSuperagentProjectIds}
-        onAddToFleet={async (superagentId, additions) => {
-          for (const addition of additions) {
-            await p.addProjectToSuperagent(superagentId, addition as never)
-          }
+        onAdd={async (workspaceId, projectIds) => {
+          for (const pid of projectIds) await p.addProjectToWorkspace(workspaceId, pid)
+          p.setAddProjectWorkspaceId(null)
         }}
-        onClose={() => { p.setPendingSuperagentProjectIds([]); p.setAddProjectSuperagentId(null) }}
+        onClose={() => p.setAddProjectWorkspaceId(null)}
       />
       {p.updateNotification.updateReady && (
         <UpdateToast version={p.updateNotification.version} onRestart={p.updateNotification.install}

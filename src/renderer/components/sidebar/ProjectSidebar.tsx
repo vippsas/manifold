@@ -1,11 +1,10 @@
 import React, { useCallback } from 'react'
 import type { Project, AgentSession } from '../../../shared/types'
-import type { Superagent } from '../../../shared/superagent-types'
 import type { DraftChat } from '../../../shared/draft-chat'
+import type { Workspace } from '../../../shared/workspace-types'
 import { sidebarStyles } from './ProjectSidebar.styles'
-import { SuperagentList } from './SuperagentList'
+import { WorkspaceList } from './WorkspaceList'
 import { ProjectList } from './ProjectList'
-import type { SessionSelectionOptions } from '../../session-selection'
 
 interface ProjectSidebarProps {
   projects: Project[]
@@ -15,18 +14,20 @@ interface ProjectSidebarProps {
   activeSessionId: string | null
   outputtingSessionIds: Set<string>
   onSelectProject: (id: string) => void
-  onSelectSession: (sessionId: string, projectId: string, options?: SessionSelectionOptions) => void
+  onSelectSession: (sessionId: string, projectId: string) => void
   onRemoveProject: (id: string) => void
   onUpdateProject: (id: string, partial: Partial<Omit<Project, 'id'>>) => void
   onRequestDeleteAgent: (session: AgentSession, projectPath: string) => void
   onNewAgent: () => void
   onNewProject: () => void
-  superagents?: Superagent[]
-  activeSuperagentId?: string | null
-  onSelectSuperagent?: (id: string) => void
-  onRemoveSuperagent?: (id: string) => Promise<void>
-  onRequestAddProjectToSuperagent?: (superagentId: string) => void
-  onSpawnFleetAgent?: (superagentId: string, projectId: string) => Promise<void>
+  workspaces?: Workspace[]
+  activeWorkspaceId?: string | null
+  sessionsByWorkspace?: Record<string, AgentSession[]>
+  onSelectWorkspace?: (id: string) => void
+  onRemoveWorkspace?: (id: string) => Promise<void>
+  onSpawnWorkspaceAgent?: (workspaceId: string, homeProjectId?: string) => void
+  onAddProjectToWorkspace?: (workspaceId: string) => void
+  onRemoveProjectFromWorkspace?: (workspaceId: string, projectId: string) => void
   fetchingProjectId: string | null
   lastFetchedProjectId: string | null
   fetchResult: { updatedBranch: string; commitCount: number } | null
@@ -52,12 +53,14 @@ export function ProjectSidebar({
   onRequestDeleteAgent,
   onNewAgent,
   onNewProject,
-  superagents,
-  activeSuperagentId,
-  onSelectSuperagent,
-  onRemoveSuperagent,
-  onRequestAddProjectToSuperagent,
-  onSpawnFleetAgent,
+  workspaces,
+  activeWorkspaceId,
+  sessionsByWorkspace,
+  onSelectWorkspace,
+  onRemoveWorkspace,
+  onSpawnWorkspaceAgent,
+  onAddProjectToWorkspace,
+  onRemoveProjectFromWorkspace,
   fetchingProjectId,
   lastFetchedProjectId,
   fetchResult,
@@ -78,25 +81,26 @@ export function ProjectSidebar({
 
   return (
     <div style={sidebarStyles.root}>
-      {superagents && onSelectSuperagent && (
-        <SuperagentList
-          superagents={superagents}
+      {workspaces && onSelectWorkspace && onRemoveWorkspace && onSpawnWorkspaceAgent && (
+        <WorkspaceList
+          workspaces={workspaces}
           projects={projects}
-          activeSuperagentId={activeSuperagentId ?? null}
-          onSelect={onSelectSuperagent}
-          onRemove={onRemoveSuperagent}
-          allProjectSessions={allProjectSessions}
+          activeWorkspaceId={activeWorkspaceId ?? null}
+          sessionsByWorkspace={sessionsByWorkspace ?? {}}
           activeSessionId={activeSessionId}
           outputtingSessionIds={outputtingSessionIds}
+          onSelectWorkspace={onSelectWorkspace}
+          onRemoveWorkspace={onRemoveWorkspace}
           onSelectSession={onSelectSession}
-          onRequestAddProject={onRequestAddProjectToSuperagent}
-          onSpawnFleetAgent={onSpawnFleetAgent}
+          onSpawnAgent={onSpawnWorkspaceAgent}
+          onAddProject={onAddProjectToWorkspace}
+          onRemoveProject={onRemoveProjectFromWorkspace}
           onDeleteAgent={onRequestDeleteAgent}
         />
       )}
       <ProjectList
         projects={projects}
-        activeProjectId={activeSuperagentId ? null : activeProjectId}
+        activeProjectId={activeProjectId}
         suppressedProjectIds={suppressedProjectIds}
         allProjectSessions={allProjectSessions}
         activeSessionId={activeSessionId}
@@ -106,7 +110,6 @@ export function ProjectSidebar({
         onRequestDeleteAgent={onRequestDeleteAgent}
         onRemove={handleRemove}
         onUpdateProject={onUpdateProject}
-        superagents={superagents}
         fetchingProjectId={fetchingProjectId}
         lastFetchedProjectId={lastFetchedProjectId}
         fetchResult={fetchResult}

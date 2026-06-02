@@ -38,8 +38,7 @@ export interface IpcDependencies {
   chatAdapter: ChatAdapter
   chatStore: ChatStore
   memoryStore: MemoryStore
-  superagentManager: import('../superagent/superagent-manager').SuperagentManager
-  approvalBroker: import('../superagent/approval-broker').ApprovalBroker
+  workspaceManager: import('../workspace/workspace-manager').WorkspaceManager
   watchRunStore: WatchRunStore
   verdictStore: VerdictStore
   verdictRecorder?: VerdictRecorder

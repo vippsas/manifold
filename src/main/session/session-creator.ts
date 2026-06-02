@@ -18,6 +18,7 @@ import type { InternalSession } from './session-types'
 import { buildSimpleRuntimeCommand } from '../agent/simple-runtime'
 import { claudeAnsiThemeArgs } from '../agent/claude-theme-args'
 import { isGitProject } from '../../shared/project-kind'
+import { buildWorkingSetArgs } from '../agent/working-set-args'
 
 export class SessionCreator {
   constructor(
@@ -118,6 +119,10 @@ export class SessionCreator {
       runtimeArgs.push('--model', options.ollamaModel)
     }
 
+    if (!options.nonInteractive && options.additionalDirs && options.additionalDirs.length > 0) {
+      runtimeArgs.push(...buildWorkingSetArgs(options.runtimeId, options.additionalDirs))
+    }
+
     // Match the embedded Claude Code's colors to Manifold's theme. Its
     // ANSI-palette theme renders through the terminal's colors, so Manifold's
     // themed palette controls it. Only for interactive Claude Code — print-mode
@@ -170,9 +175,10 @@ export class SessionCreator {
         taskDescription: options.userMessage || options.prompt || existingMeta?.taskDescription,
         simpleTemplateTitle: options.simpleTemplateTitle ?? existingMeta?.simpleTemplateTitle,
         simplePromptInstructions: options.simplePromptInstructions ?? existingMeta?.simplePromptInstructions,
-        additionalDirs: existingMeta?.additionalDirs ?? [],
+        additionalDirs: options.additionalDirs ?? existingMeta?.additionalDirs ?? [],
         ollamaModel: options.ollamaModel ?? existingMeta?.ollamaModel,
-        parentSuperagentId: options.parentSuperagentId,
+        workspaceId: options.workspaceId,
+        workspaceWorktreePaths: options.workspaceWorktreePaths,
         nonInteractive: options.nonInteractive,
       }).catch((err) => {
         console.error(
@@ -230,9 +236,10 @@ export class SessionCreator {
       simpleTemplateTitle: options.simpleTemplateTitle,
       simplePromptInstructions: options.simplePromptInstructions,
       ollamaModel: options.ollamaModel,
-      additionalDirs: [],
+      additionalDirs: options.additionalDirs ?? [],
       noWorktree,
-      parentSuperagentId: options.parentSuperagentId,
+      workspaceId: options.workspaceId,
+      workspaceWorktreePaths: options.workspaceWorktreePaths,
       groupId: options.groupId,
       nonInteractive: options.nonInteractive,
       nonInteractiveOutputMode,
