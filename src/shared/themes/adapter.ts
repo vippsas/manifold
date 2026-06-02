@@ -18,7 +18,7 @@ const DARK_ANSI = {
 }
 
 const LIGHT_ANSI = {
-  black: '#000000', red: '#cd3131', green: '#00bc00', yellow: '#949800',
+  black: '#000000', red: '#cd3131', green: '#00bc00', yellow: '#8A6D00',
   blue: '#0451a5', magenta: '#bc05bc', cyan: '#0598bc', white: '#555555',
 }
 
@@ -28,7 +28,7 @@ const DARK_BRIGHT_ANSI = {
 }
 
 const LIGHT_BRIGHT_ANSI = {
-  brightBlack: '#666666', brightRed: '#f14c4c', brightGreen: '#14ce14', brightYellow: '#b5ba00',
+  brightBlack: '#666666', brightRed: '#f14c4c', brightGreen: '#14ce14', brightYellow: '#A07A00',
   brightBlue: '#0066cc', brightMagenta: '#d670d6', brightCyan: '#07b3c8', brightWhite: '#000000',
 }
 

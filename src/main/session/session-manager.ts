@@ -48,6 +48,7 @@ export class SessionManager {
     private projectRegistry: ProjectRegistry,
     private branchCheckoutManager?: BranchCheckoutManager,
     private fileWatcher?: FileWatcher,
+    private getThemeType?: () => 'light' | 'dark',
   ) {
     this.streamWirer = new SessionStreamWirer(
       this.ptyPool,
@@ -80,6 +81,7 @@ export class SessionManager {
       () => this.chatAdapter,
       this.branchCheckoutManager,
       () => this.memoryInjector,
+      this.getThemeType,
     )
     this.teardown = new SessionTeardown(
       this.sessions,
