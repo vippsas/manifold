@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { splitHighlightedText } from './search-highlight'
+import { highlightByIndices, splitHighlightedText } from './search-highlight'
 
 describe('splitHighlightedText', () => {
   it('highlights literal matches case-insensitively by default', () => {
@@ -37,5 +37,27 @@ describe('splitHighlightedText', () => {
       caseSensitive: false,
       wholeWord: false,
     })).toEqual([{ text: 'TODO', match: false }])
+  })
+})
+
+describe('highlightByIndices', () => {
+  it('collapses contiguous matched indices into one segment', () => {
+    expect(highlightByIndices('release.sh', [0, 1, 2])).toEqual([
+      { text: 'rel', match: true },
+      { text: 'ease.sh', match: false },
+    ])
+  })
+
+  it('keeps scattered indices as separate segments', () => {
+    expect(highlightByIndices('abcd', [0, 2])).toEqual([
+      { text: 'a', match: true },
+      { text: 'b', match: false },
+      { text: 'c', match: true },
+      { text: 'd', match: false },
+    ])
+  })
+
+  it('returns plain text when there are no indices', () => {
+    expect(highlightByIndices('abc', [])).toEqual([{ text: 'abc', match: false }])
   })
 })
