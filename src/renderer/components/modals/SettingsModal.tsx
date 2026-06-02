@@ -28,6 +28,7 @@ export function SettingsModal({ visible, settings, onSave, onClose, onPreviewThe
   const [density, setDensity] = useState<DensitySetting>(settings.density)
   const [autoGenerateMessages, setAutoGenerateMessages] = useState(settings.autoGenerateMessages)
   const [showCommitAndPrButtons, setShowCommitAndPrButtons] = useState(settings.showCommitAndPrButtons)
+  const [sidebarResizeReversed, setSidebarResizeReversed] = useState(settings.sidebarResizeReversed)
   const [searchAiSettings, setSearchAiSettings] = useState(settings.search?.ai ?? DEFAULT_SETTINGS.search.ai)
   const [provisioners, setProvisioners] = useState<ProvisionerConfig[]>(settings.provisioning?.provisioners ?? DEFAULT_SETTINGS.provisioning.provisioners)
   const [provisionerStatuses, setProvisionerStatuses] = useState<ProvisionerStatus[]>([])
@@ -58,6 +59,7 @@ export function SettingsModal({ visible, settings, onSave, onClose, onPreviewThe
     setDensity(settings.density)
     setAutoGenerateMessages(settings.autoGenerateMessages)
     setShowCommitAndPrButtons(settings.showCommitAndPrButtons)
+    setSidebarResizeReversed(settings.sidebarResizeReversed)
     setSearchAiSettings(settings.search?.ai ?? DEFAULT_SETTINGS.search.ai)
     setProvisioners(nextProvisioners)
     setTranscription(settings.transcription ?? DEFAULT_SETTINGS.transcription ?? { provider: 'none' })
@@ -87,12 +89,13 @@ export function SettingsModal({ visible, settings, onSave, onClose, onPreviewThe
       density,
       autoGenerateMessages,
       showCommitAndPrButtons,
+      sidebarResizeReversed,
       search: { ai: searchAiSettings },
       provisioning: { provisioners },
       transcription,
     })
     onClose()
-  }, [defaultRuntime, theme, scrollbackLines, terminalFontFamily, defaultBaseBranch, storagePath, notificationSound, shellPrompt, shellHistoryScope, density, autoGenerateMessages, showCommitAndPrButtons, searchAiSettings, provisioners, transcription, onSave, onClose])
+  }, [defaultRuntime, theme, scrollbackLines, terminalFontFamily, defaultBaseBranch, storagePath, notificationSound, shellPrompt, shellHistoryScope, density, autoGenerateMessages, showCommitAndPrButtons, sidebarResizeReversed, searchAiSettings, provisioners, transcription, onSave, onClose])
 
   if (!visible) return null
 
@@ -142,6 +145,8 @@ export function SettingsModal({ visible, settings, onSave, onClose, onPreviewThe
           onAutoGenerateMessagesChange={setAutoGenerateMessages}
           showCommitAndPrButtons={showCommitAndPrButtons}
           onShowCommitAndPrButtonsChange={setShowCommitAndPrButtons}
+          sidebarResizeReversed={sidebarResizeReversed}
+          onSidebarResizeReversedChange={setSidebarResizeReversed}
           searchAiSettings={searchAiSettings}
           onSearchAiSettingsChange={setSearchAiSettings}
           provisioners={provisioners}

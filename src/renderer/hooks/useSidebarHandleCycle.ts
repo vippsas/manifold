@@ -15,15 +15,17 @@ const EDGE_THRESHOLD_PX = 12
 /**
  * Given a sidebar's current width fraction, return the next fraction in the
  * cycle. Snaps to the nearest cycle step first, so a manually dragged sidebar
- * still advances sensibly.
+ * still advances sensibly. When `reversed`, walks the cycle the other way, so
+ * the first double-click collapses (1/6 → 0 → 3/6 → 2/6 → 1/6).
  */
-export function nextSidebarFraction(currentFraction: number): number {
+export function nextSidebarFraction(currentFraction: number, reversed = false): number {
   const nearest = CYCLE.reduce(
     (best, fraction, index) =>
       Math.abs(fraction - currentFraction) < Math.abs(CYCLE[best] - currentFraction) ? index : best,
     0,
   )
-  return CYCLE[(nearest + 1) % CYCLE.length]
+  const step = reversed ? CYCLE.length - 1 : 1
+  return CYCLE[(nearest + step) % CYCLE.length]
 }
 
 function panelGroupElement(api: DockviewApi, panelId: string): HTMLElement | undefined {
@@ -81,7 +83,7 @@ function sidebarSideForSash(api: DockviewApi, sash: HTMLElement): SidebarSide | 
  * Advance the given sidebar to the next width in the cycle, keeping the
  * opposite sidebar pinned so only the center pane absorbs the difference.
  */
-function cycleSidebar(api: DockviewApi, side: SidebarSide): void {
+function cycleSidebar(api: DockviewApi, side: SidebarSide, reversed: boolean): void {
   const total = api.width
   if (total <= 0) return
 
@@ -91,7 +93,7 @@ function cycleSidebar(api: DockviewApi, side: SidebarSide): void {
   const targetGroup = api.getPanel(targetId)?.group
   if (!targetGroup) return
 
-  const nextWidth = Math.round(nextSidebarFraction(targetGroup.element.offsetWidth / total) * total)
+  const nextWidth = Math.round(nextSidebarFraction(targetGroup.element.offsetWidth / total, reversed) * total)
 
   // Lock the opposite sidebar at its current width so dockview routes the
   // whole delta to the center pane instead of splitting it across siblings.
@@ -115,10 +117,14 @@ function cycleSidebar(api: DockviewApi, side: SidebarSide): void {
 
 /**
  * Double-clicking a sidebar grab handle cycles that sidebar's width through
- * 1/6 → 2/6 → 3/6 → 0 → 1/6 of the window. Each handle drives its own adjacent
- * sidebar (left = repositories, right = files).
+ * 1/6 → 2/6 → 3/6 → 0 → 1/6 of the window (or the reverse,
+ * 1/6 → 0 → 3/6 → 2/6 → 1/6, when `reversed`). Each handle drives its own
+ * adjacent sidebar (left = repositories, right = files).
  */
-export function useSidebarHandleCycle(apiRef: React.MutableRefObject<DockviewApi | null>): void {
+export function useSidebarHandleCycle(
+  apiRef: React.MutableRefObject<DockviewApi | null>,
+  reversed = false,
+): void {
   useEffect(() => {
     const onDoubleClick = (event: MouseEvent): void => {
       const api = apiRef.current
@@ -126,9 +132,9 @@ export function useSidebarHandleCycle(apiRef: React.MutableRefObject<DockviewApi
       const sash = (event.target as HTMLElement | null)?.closest?.('.dv-sash') as HTMLElement | null
       if (!sash || !sash.closest('.dockview-theme-manifold')) return
       const side = sidebarSideForSash(api, sash)
-      if (side) cycleSidebar(api, side)
+      if (side) cycleSidebar(api, side, reversed)
     }
     document.addEventListener('dblclick', onDoubleClick)
     return () => document.removeEventListener('dblclick', onDoubleClick)
-  }, [apiRef])
+  }, [apiRef, reversed])
 }

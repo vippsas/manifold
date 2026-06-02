@@ -74,7 +74,7 @@ export function App(): React.JSX.Element {
   // Key dockview by superagent when active so child-session selection can change without tearing down the fleet layout.
   const dockLayoutKey = activeSuperagentId ?? primarySessionId ?? activeSessionId
   const dockLayout = useDockLayout(dockLayoutKey, activeProjectSessions)
-  useSidebarHandleCycle(dockLayout.apiRef)
+  useSidebarHandleCycle(dockLayout.apiRef, settings.sidebarResizeReversed)
   useAgentSiblingDockTabs({
     apiRef: dockLayout.apiRef, layoutVersion: dockLayout.layoutVersion,
     sessions: activeProjectSessions, activeWorktreePath, primarySessionId, activeSessionId,

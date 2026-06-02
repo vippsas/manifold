@@ -34,6 +34,8 @@ interface Props {
   onAutoGenerateMessagesChange: (enabled: boolean) => void
   showCommitAndPrButtons: boolean
   onShowCommitAndPrButtonsChange: (enabled: boolean) => void
+  sidebarResizeReversed: boolean
+  onSidebarResizeReversedChange: (enabled: boolean) => void
   searchAiSettings: SearchAiSettings
 }
 
@@ -134,6 +136,11 @@ export function GeneralSettingsSection(props: Props): React.JSX.Element {
                 <option value="global">Global</option>
               </select>
               <span style={modalStyles.helpText}>Per Project keeps history separate for each repository. Global shares history across all projects.</span>
+            </label>
+            <label style={{ ...modalStyles.checkboxField, ...modalStyles.fieldSpanFull }}>
+              <input type="checkbox" checked={props.sidebarResizeReversed} onChange={(event) => props.onSidebarResizeReversedChange(event.target.checked)} style={modalStyles.checkboxInput} />
+              Reverse sidebar resize direction
+              <span style={modalStyles.helpText}>Double-clicking a sidebar handle collapses it first, then steps through the wider sizes (1/6 → 0 → 3/6 → 2/6). Default grows wider first, then collapses.</span>
             </label>
           </div>
         </SectionCard>
