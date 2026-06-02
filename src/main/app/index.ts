@@ -1,5 +1,4 @@
 import { app, BrowserWindow } from 'electron'
-import type { AgentStatus } from '../../shared/types'
 import { loadShellPath } from './shell-path'
 import { configureDevProfilePaths } from './dev-profile'
 
@@ -47,19 +46,13 @@ import {
   createWaitForTurnEnd,
 } from '../loop/loop-adapters'
 import * as path from 'node:path'
-import { SuperagentStore } from '../superagent/superagent-store'
-import { ApprovalBroker } from '../superagent/approval-broker'
-import { McpBridgeServer } from '../superagent/mcp-bridge-server'
-import { SuperagentManager } from '../superagent/superagent-manager'
 import { WorkspaceStore } from '../workspace/workspace-store'
 import { WorkspaceManager } from '../workspace/workspace-manager'
 import { migrateSuperagentsToWorkspaces } from '../workspace/workspace-migration'
-import { getRuntimeById } from '../agent/runtimes'
 import { WatchRunStore } from '../watch/run-store'
 import { VerdictStore } from '../store/verdict-store'
 import { VerdictRecorder } from '../session/verdict-recorder'
 import { summarizeMiddle } from '../store/prompt-summarizer'
-import type { ApprovalRequest, ApprovalResponse } from '../../shared/superagent-types'
 
 let mainWindow: BrowserWindow | null = null
 
@@ -74,44 +67,8 @@ const fileWatcher = new FileWatcher(undefined, new ChokidarTreeWatcher())
 const sessionManager = new SessionManager(worktreeManager, ptyPool, projectRegistry, branchCheckout, fileWatcher)
 const diffProvider = new DiffProvider()
 
-// ── Superagent modules ───────────────────────────────────────────────
+// ── Workspace modules ────────────────────────────────────────────────
 const manifoldHome = path.join(app.getPath('home'), '.manifold')
-const superagentStore = new SuperagentStore(path.join(manifoldHome, 'superagents.json'))
-const approvalBroker = new ApprovalBroker({
-  emit: (req) => {
-    mainWindow?.webContents.send('superagent:approval-request', req)
-    superagentManagerRef?.appendSystemOutput(req.superagentId, formatApprovalRequestedMessage(req))
-  },
-  onAutoApprove: (id) => { superagentManagerRef?.setAutoApprove(id, true) },
-  onResolved: (req, decision) => {
-    superagentManagerRef?.appendSystemOutput(req.superagentId, formatApprovalResolvedMessage(req, decision))
-  },
-})
-let superagentManagerRef: SuperagentManager | null = null
-const mcpBridge = new McpBridgeServer({
-  socketPath: path.join(manifoldHome, 'mcp-bridge.sock'),
-  handleToolCall: (sid, name, args) => {
-    if (!superagentManagerRef) throw new Error('SuperagentManager not initialized')
-    return superagentManagerRef.handleToolCall(sid, name, args)
-  },
-})
-const superagentManager = new SuperagentManager({
-  store: superagentStore,
-  storageRoot: manifoldHome,
-  approvalBroker,
-  worktreeManager,
-  projectRegistry,
-  sessionManager,
-  diffProvider,
-  ptyPool,
-  runtimes: { getRuntimeById },
-  mcpBridge,
-  emitStatus: (sid, status) => { mainWindow?.webContents.send('superagent:status', { superagentId: sid, status }) },
-  emitListChanged: () => { mainWindow?.webContents.send('superagent:list-changed') },
-  emitChildSpawned: (sid, childId) => { mainWindow?.webContents.send('superagent:child-spawned', { superagentId: sid, sessionId: childId }) },
-  emitOutput: (sid, chunk) => { mainWindow?.webContents.send('agent:output', { sessionId: sid, data: chunk }) },
-})
-superagentManagerRef = superagentManager
 migrateSuperagentsToWorkspaces(path.join(manifoldHome, 'superagents.json'), path.join(manifoldHome, 'workspaces.json'))
 const workspaceStore = new WorkspaceStore(path.join(manifoldHome, 'workspaces.json'))
 const workspaceManager = new WorkspaceManager({
@@ -120,11 +77,6 @@ const workspaceManager = new WorkspaceManager({
   projectRegistry,
   sessionManager,
   emitListChanged: () => { mainWindow?.webContents.send('workspace:list-changed') },
-})
-sessionManager.setStatusListener((sessionId, status) => {
-  const session = sessionManager.getSession(sessionId)
-  const parentId = session?.parentSuperagentId
-  if (parentId) superagentManager.onChildStatusChange(parentId, sessionId, status as AgentStatus)
 })
 const prCreator = new PrCreator()
 const viewStateStore = new ViewStateStore()
@@ -193,8 +145,6 @@ const ipcDeps = {
   chatAdapter,
   chatStore,
   memoryStore,
-  superagentManager,
-  approvalBroker,
   workspaceManager,
   watchRunStore,
   verdictStore,
@@ -239,7 +189,6 @@ modeSwitcher.register(
 registerAppLifecycle({
   settingsStore,
   powerManager,
-  mcpBridge,
   memoryStore,
   sessionManager,
   ptyPool,
@@ -247,28 +196,3 @@ registerAppLifecycle({
   chatStore,
   createWindow: doCreateWindow,
 })
-
-function formatApprovalRequestedMessage(req: ApprovalRequest): string {
-  return [
-    '',
-    `[Manifold approval required] ${req.toolName} ${JSON.stringify(req.args)}`,
-    'Approve this in the Approval Inbox below, or enable auto-approve for this superagent.',
-    '',
-  ].join('\r\n')
-}
-
-function formatApprovalResolvedMessage(
-  req: ApprovalRequest,
-  decision: ApprovalResponse['decision'],
-): string {
-  const label = decision === 'approve-all'
-    ? 'approved; auto-approve enabled for subsequent tool calls.'
-    : decision === 'approve'
-      ? 'approved.'
-      : 'denied.'
-  return [
-    '',
-    `[Manifold approval ${label}] ${req.toolName}`,
-    '',
-  ].join('\r\n')
-}

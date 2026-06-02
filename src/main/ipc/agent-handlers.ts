@@ -122,7 +122,7 @@ async function clearDormantNoWorktreeSessions(
 }
 
 export function registerAgentHandlers(deps: IpcDependencies): void {
-  const { sessionManager, fileWatcher, viewStateStore, superagentManager } = deps
+  const { sessionManager, fileWatcher, viewStateStore } = deps
 
   ipcMain.handle('branch:suggest', async (_event, projectId: string, taskDescription: string) => {
     const project = deps.projectRegistry.getProject(projectId)
@@ -177,26 +177,14 @@ export function registerAgentHandlers(deps: IpcDependencies): void {
   })
 
   ipcMain.handle('agent:input', (_event, sessionId: string, input: string) => {
-    if (superagentManager.isSuperagent(sessionId)) {
-      superagentManager.sendInput(sessionId, input)
-      return
-    }
     sessionManager.sendInput(sessionId, input)
   })
 
   ipcMain.handle('agent:resize', (_event, sessionId: string, cols: number, rows: number) => {
-    if (superagentManager.isSuperagent(sessionId)) {
-      superagentManager.resize(sessionId, cols, rows)
-      return
-    }
     sessionManager.resize(sessionId, cols, rows)
   })
 
   ipcMain.handle('agent:interrupt', (_event, sessionId: string) => {
-    if (superagentManager.isSuperagent(sessionId)) {
-      superagentManager.interrupt(sessionId)
-      return
-    }
     sessionManager.interruptSession(sessionId)
   })
 
@@ -282,9 +270,6 @@ export function registerAgentHandlers(deps: IpcDependencies): void {
   })
 
   ipcMain.handle('agent:replay', (_event, sessionId: string) => {
-    if (superagentManager.isSuperagent(sessionId)) {
-      return superagentManager.getOutputBuffer(sessionId)
-    }
     return sessionManager.getOutputBuffer(sessionId)
   })
 
