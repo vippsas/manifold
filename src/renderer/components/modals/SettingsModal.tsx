@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react'
 import { DEFAULT_SETTINGS } from '../../../shared/defaults'
 import type { ProvisionerConfig, ProvisionerStatus } from '../../../shared/provisioning-types'
-import type { DensitySetting, ManifoldSettings } from '../../../shared/types'
+import type { ManifoldSettings } from '../../../shared/types'
 import type { TranscriptionSettings } from '../../../shared/watch-types'
 import { modalStyles } from './SettingsModal.styles'
 import { SettingsModalBody, type SettingsTabId } from './settings/SettingsModalBody'
@@ -25,7 +25,6 @@ export function SettingsModal({ visible, settings, onSave, onClose, onPreviewThe
   const [notificationSound, setNotificationSound] = useState(settings.notificationSound)
   const [shellPrompt, setShellPrompt] = useState(settings.shellPrompt)
   const [shellHistoryScope, setShellHistoryScope] = useState(settings.shellHistoryScope)
-  const [density, setDensity] = useState<DensitySetting>(settings.density)
   const [autoGenerateMessages, setAutoGenerateMessages] = useState(settings.autoGenerateMessages)
   const [showCommitAndPrButtons, setShowCommitAndPrButtons] = useState(settings.showCommitAndPrButtons)
   const [sidebarResizeReversed, setSidebarResizeReversed] = useState(settings.sidebarResizeReversed)
@@ -56,7 +55,6 @@ export function SettingsModal({ visible, settings, onSave, onClose, onPreviewThe
     setNotificationSound(settings.notificationSound)
     setShellPrompt(settings.shellPrompt)
     setShellHistoryScope(settings.shellHistoryScope)
-    setDensity(settings.density)
     setAutoGenerateMessages(settings.autoGenerateMessages)
     setShowCommitAndPrButtons(settings.showCommitAndPrButtons)
     setSidebarResizeReversed(settings.sidebarResizeReversed)
@@ -86,7 +84,6 @@ export function SettingsModal({ visible, settings, onSave, onClose, onPreviewThe
       notificationSound,
       shellPrompt,
       shellHistoryScope,
-      density,
       autoGenerateMessages,
       showCommitAndPrButtons,
       sidebarResizeReversed,
@@ -95,7 +92,7 @@ export function SettingsModal({ visible, settings, onSave, onClose, onPreviewThe
       transcription,
     })
     onClose()
-  }, [defaultRuntime, theme, scrollbackLines, terminalFontFamily, defaultBaseBranch, storagePath, notificationSound, shellPrompt, shellHistoryScope, density, autoGenerateMessages, showCommitAndPrButtons, sidebarResizeReversed, searchAiSettings, provisioners, transcription, onSave, onClose])
+  }, [defaultRuntime, theme, scrollbackLines, terminalFontFamily, defaultBaseBranch, storagePath, notificationSound, shellPrompt, shellHistoryScope, autoGenerateMessages, showCommitAndPrButtons, sidebarResizeReversed, searchAiSettings, provisioners, transcription, onSave, onClose])
 
   if (!visible) return null
 
@@ -139,8 +136,6 @@ export function SettingsModal({ visible, settings, onSave, onClose, onPreviewThe
           onShellPromptChange={setShellPrompt}
           shellHistoryScope={shellHistoryScope}
           onShellHistoryScopeChange={setShellHistoryScope}
-          density={density}
-          onDensityChange={setDensity}
           autoGenerateMessages={autoGenerateMessages}
           onAutoGenerateMessagesChange={setAutoGenerateMessages}
           showCommitAndPrButtons={showCommitAndPrButtons}

@@ -26,7 +26,6 @@ import { DeleteAgentDialog } from './components/sidebar/DeleteAgentDialog'
 
 export interface AppShellProps {
   themeClass: string
-  densityClass: string
   settings: ManifoldSettings
   projects: Project[]
   projectError: string | null
@@ -102,7 +101,7 @@ export function AppShell(p: AppShellProps): React.JSX.Element {
   const themeType: 'dark' | 'light' = p.themeClass === 'theme-light' ? 'light' : 'dark'
   if (!p.settings.setupCompleted) {
     return (
-      <div className={`layout-root ${p.themeClass} ${p.densityClass}`}>
+      <div className={`layout-root ${p.themeClass}`}>
         <TitleBar themeType={themeType} onToggleTheme={p.onToggleTheme} themeFamily={p.themeFamily} onSelectThemeFamily={p.onSelectThemeFamily} />
         <WelcomeDialog onAddProject={() => void p.addProject()} onCloneProject={p.cloneProject} onComplete={p.overlays.handleSetupComplete} />
       </div>
@@ -111,7 +110,7 @@ export function AppShell(p: AppShellProps): React.JSX.Element {
 
   if (p.projects.length === 0) {
     return (
-      <div className={`layout-root ${p.themeClass} ${p.densityClass}`}>
+      <div className={`layout-root ${p.themeClass}`}>
         <TitleBar themeType={themeType} onToggleTheme={p.onToggleTheme} themeFamily={p.themeFamily} onSelectThemeFamily={p.onSelectThemeFamily} />
         <OnboardingView variant="no-project" onAddProject={() => void p.handleAddProjectFromOnboarding()} onCloneProject={p.handleCloneFromOnboarding}
           onCreateNewProject={(desc) => void p.handleCreateNewProject(desc)} creatingProject={p.appEffects.creatingProject}
@@ -123,7 +122,7 @@ export function AppShell(p: AppShellProps): React.JSX.Element {
   const activeProjectName = p.projects.find((proj) => proj.id === p.activeProjectId)?.name
 
   return (
-    <div className={`layout-root ${p.themeClass} ${p.densityClass}`}>
+    <div className={`layout-root ${p.themeClass}`}>
       <TitleBar
         projectName={activeProjectName}
         themeType={themeType}
