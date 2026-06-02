@@ -92,8 +92,8 @@ export interface AppShellProps {
   dockLayout: unknown
   hasSuperagent: boolean
   onToggleTheme: () => void
-  themeFamily: 'manifold' | 'garfield'
-  onSelectThemeFamily: (family: 'manifold' | 'garfield') => void
+  themeFamily: 'manifold' | 'garfield' | 'neon'
+  onSelectThemeFamily: (family: 'manifold' | 'garfield' | 'neon') => void
 }
 
 export function AppShell(p: AppShellProps): React.JSX.Element {
