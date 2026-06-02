@@ -1,5 +1,5 @@
 import React, { useCallback } from 'react'
-import type { DensitySetting, SearchAiSettings } from '../../../../shared/types'
+import type { SearchAiSettings } from '../../../../shared/types'
 import { getThemeList } from '../../../../shared/themes/registry'
 import { ThemePicker } from '../ThemePicker'
 import { modalStyles } from '../SettingsModal.styles'
@@ -28,8 +28,6 @@ interface Props {
   onShellPromptChange: (enabled: boolean) => void
   shellHistoryScope: 'project' | 'global'
   onShellHistoryScopeChange: (scope: 'project' | 'global') => void
-  density: DensitySetting
-  onDensityChange: (density: DensitySetting) => void
   autoGenerateMessages: boolean
   onAutoGenerateMessagesChange: (enabled: boolean) => void
   showCommitAndPrButtons: boolean
@@ -111,14 +109,6 @@ export function GeneralSettingsSection(props: Props): React.JSX.Element {
               Terminal Font
               <input type="text" value={props.terminalFontFamily} onChange={(event) => props.onTerminalFontFamilyChange(event.target.value)} style={modalStyles.input} placeholder="SF Mono, Fira Code, Cascadia Code, Menlo" />
               <span style={modalStyles.helpText}>Set a Nerd Font (e.g. MesloLGS Nerd Font Mono) for oh-my-posh/Starship icons</span>
-            </label>
-            <label style={modalStyles.label}>
-              Density
-              <select value={props.density} onChange={(event) => props.onDensityChange(event.target.value as DensitySetting)} style={modalStyles.select}>
-                <option value="compact">Compact</option>
-                <option value="comfortable">Comfortable</option>
-                <option value="spacious">Spacious</option>
-              </select>
             </label>
             <label style={{ ...modalStyles.checkboxField, ...modalStyles.fieldSpanFull }}>
               <input type="checkbox" checked={props.notificationSound} onChange={(event) => props.onNotificationSoundChange(event.target.checked)} style={modalStyles.checkboxInput} />

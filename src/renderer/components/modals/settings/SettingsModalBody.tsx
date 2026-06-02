@@ -1,6 +1,6 @@
 import React from 'react'
 import type { ProvisionerConfig, ProvisionerStatus } from '../../../../shared/provisioning-types'
-import type { DensitySetting, SearchAiSettings } from '../../../../shared/types'
+import type { SearchAiSettings } from '../../../../shared/types'
 import type { AiServiceSettings } from '../../../../shared/watch-types'
 import { modalStyles } from '../SettingsModal.styles'
 import { SearchAiSettingsSection } from './SearchAiSettingsSection'
@@ -42,8 +42,6 @@ interface Props {
   onShellPromptChange: (enabled: boolean) => void
   shellHistoryScope: 'project' | 'global'
   onShellHistoryScopeChange: (scope: 'project' | 'global') => void
-  density: DensitySetting
-  onDensityChange: (density: DensitySetting) => void
   autoGenerateMessages: boolean
   onAutoGenerateMessagesChange: (enabled: boolean) => void
   showCommitAndPrButtons: boolean

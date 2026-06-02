@@ -155,7 +155,6 @@ export function App(): React.JSX.Element {
     const suffix = themeId.endsWith('-light') ? '-light' : '-dark'
     void updateSettings({ theme: `${family}${suffix}` })
   }, [themeId, updateSettings])
-  const densityClass = settings.density === 'comfortable' ? '' : `density-${settings.density}`
   const updateNotification = useUpdateNotification()
   const updateLog = useUpdateLog()
   // Embedded agents are themed at launch, so a light↔dark switch only applies
@@ -287,7 +286,6 @@ export function App(): React.JSX.Element {
   return (
     <AppShell
       themeClass={themeClass}
-      densityClass={densityClass}
       settings={settings}
       projects={projects}
       projectError={projectError}
