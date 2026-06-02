@@ -1,4 +1,4 @@
-import { useCallback, useState } from 'react'
+import { Fragment, useCallback, useState } from 'react'
 import type { Project, AgentSession } from '../../../shared/types'
 import type { Workspace } from '../../../shared/workspace-types'
 import { sidebarStyles } from './ProjectSidebar.styles'
@@ -62,8 +62,6 @@ export function WorkspaceList({
       <div style={sidebarStyles.sectionLabel}>Workspaces</div>
       {workspaces.map((w) => {
         const isActive = w.id === activeWorkspaceId
-        const sessions = sessionsByWorkspace[w.id] ?? []
-
         if (!isActive) {
           return (
             <div
@@ -88,6 +86,31 @@ export function WorkspaceList({
                 {w.name}
               </span>
             </div>
+          )
+        }
+
+        const sessions = sessionsByWorkspace[w.id] ?? []
+
+        const sessionsByProject = new Map<string, AgentSession[]>()
+        for (const session of sessions) {
+          const list = sessionsByProject.get(session.projectId)
+          if (list) list.push(session)
+          else sessionsByProject.set(session.projectId, [session])
+        }
+        const orphanSessions = sessions.filter((s) => !w.projectIds.includes(s.projectId))
+
+        const renderAgent = (session: AgentSession) => {
+          const project = projectById(session.projectId)
+          return (
+            <AgentItem
+              session={session}
+              projectPath={project?.path ?? ''}
+              isActive={session.id === activeSessionId}
+              isOutputting={outputtingSessionIds?.has(session.id) ?? false}
+              onSelect={(sessionId) => onSelectSession(sessionId, session.projectId)}
+              onDelete={() => onDeleteAgent?.(session, project?.path ?? '')}
+              hideAdditionalDirs
+            />
           )
         }
 
@@ -143,9 +166,10 @@ export function WorkspaceList({
             {w.projectIds.map((pid) => {
               const repo = projectById(pid)
               const repoName = repo?.name ?? pid
+              const repoSessions = sessionsByProject.get(pid) ?? []
               return (
+                <Fragment key={`repo-${pid}`}>
                 <div
-                  key={`repo-${pid}`}
                   className="sidebar-item-row sidebar-repo-row"
                   style={{ ...sidebarStyles.item, paddingLeft: 16 }}
                   title={repo?.path ?? pid}
@@ -183,44 +207,19 @@ export function WorkspaceList({
                     )}
                   </div>
                 </div>
+                {repoSessions.map((session) => (
+                  <div key={session.id} style={{ paddingLeft: 12 }}>
+                    {renderAgent(session)}
+                  </div>
+                ))}
+                </Fragment>
               )
             })}
-            {sessions.map((session) => {
-              const project = projectById(session.projectId)
-              return (
-                <AgentItem
-                  key={session.id}
-                  session={session}
-                  projectPath={project?.path ?? ''}
-                  isActive={session.id === activeSessionId}
-                  isOutputting={outputtingSessionIds?.has(session.id) ?? false}
-                  onSelect={(sessionId) => onSelectSession(sessionId, session.projectId)}
-                  onDelete={() => onDeleteAgent?.(session, project?.path ?? '')}
-                  labelOverride={project?.name}
-                  hideAdditionalDirs
-                />
-              )
-            })}
-            <div
-              onClick={() => onSpawnAgent(w.id)}
-              onKeyDown={(e) => {
-                if (e.key === 'Enter' || e.key === ' ') {
-                  e.preventDefault()
-                  onSpawnAgent(w.id)
-                }
-              }}
-              role="button"
-              tabIndex={0}
-              className="sidebar-item-row sidebar-agent-row sidebar-agent-row--exited"
-              title="Start an agent across this workspace"
-            >
-              <span
-                className="truncate sidebar-row-label"
-                style={{ ...sidebarStyles.agentBranch, color: 'var(--text-muted)', fontStyle: 'italic' }}
-              >
-                + Start agent
-              </span>
-            </div>
+            {orphanSessions.map((session) => (
+              <div key={session.id} style={{ paddingLeft: 12 }}>
+                {renderAgent(session)}
+              </div>
+            ))}
           </div>
         )
       })}
