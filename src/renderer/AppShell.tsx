@@ -135,6 +135,8 @@ export function AppShell(p: AppShellProps): React.JSX.Element {
           activeSessionId: p.dockState.sessionId,
           allProjectSessions: p.dockState.allProjectSessions,
           onOpenSearchResult: p.dockState.onOpenSearchResult,
+          focusRequestKey: p.dockState.searchFocusRequestKey,
+          requestedMode: p.dockState.requestedSearchMode,
         }}
       />
       <div className="layout-main">

@@ -10,6 +10,10 @@ export interface TitleBarSearchWiring {
   activeSessionId: string | null
   allProjectSessions: Record<string, AgentSession[]>
   onOpenSearchResult: (target: { path: string; line?: number; column?: number; sessionId?: string | null }) => void
+  /** Bumps when something (Cmd+Shift+F, the Memory panel) requests focus. */
+  focusRequestKey: number
+  /** Scope to switch to when focus is requested. */
+  requestedMode: SearchMode | null
 }
 
 const SCOPES: { label: string; mode: SearchMode }[] = [
@@ -46,6 +50,7 @@ export function TitleBarSearch({ search: wiring }: { search: TitleBarSearchWirin
   const [activeIndex, setActiveIndex] = useState(0)
   const wrapRef = useRef<HTMLDivElement>(null)
   const inputRef = useRef<HTMLInputElement>(null)
+  const handledFocusRequestKeyRef = useRef(0)
 
   useEffect(() => {
     const onDown = (event: MouseEvent): void => {
@@ -54,6 +59,16 @@ export function TitleBarSearch({ search: wiring }: { search: TitleBarSearchWirin
     document.addEventListener('mousedown', onDown)
     return () => document.removeEventListener('mousedown', onDown)
   }, [])
+
+  // Focus the input when an external trigger (Cmd+Shift+F, the Memory panel's
+  // "Open Search") bumps the request key, switching scope if one was asked for.
+  useEffect(() => {
+    if (wiring.focusRequestKey <= handledFocusRequestKeyRef.current) return
+    handledFocusRequestKeyRef.current = wiring.focusRequestKey
+    if (wiring.requestedMode) search.setMode(wiring.requestedMode)
+    setFocused(true)
+    requestAnimationFrame(() => inputRef.current?.focus())
+  }, [wiring.focusRequestKey, wiring.requestedMode, search.setMode])
 
   const codeResults = useMemo(() => search.results.filter((r) => r.source === 'code'), [search.results])
   const memoryResults = useMemo(() => search.results.filter((r) => r.source === 'memory'), [search.results])

@@ -74,7 +74,7 @@ function makeDockState(overrides: Partial<DockAppState> = {}): DockAppState {
     activeSessionStatus: null,
     activeSessionRuntimeId: null,
     onResumeAgent: vi.fn(),
-    onShowSearchPanel: vi.fn(),
+    onFocusSearch: vi.fn(),
     onClosePanel: vi.fn(),
     onOpenModule: vi.fn(),
     isModuleOpen: () => false,
@@ -157,7 +157,7 @@ describe('EditorHeaderActions', () => {
 
   it('does not render for non-editor panels', () => {
     renderHeaderActions({}, {
-      activePanel: { id: 'search' } as IDockviewHeaderActionsProps['activePanel'],
+      activePanel: { id: 'shell' } as IDockviewHeaderActionsProps['activePanel'],
     })
 
     expect(screen.queryByRole('button', { name: 'Pane actions' })).toBeNull()

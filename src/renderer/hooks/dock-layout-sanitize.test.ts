@@ -24,7 +24,7 @@ describe('sanitizeDockLayout', () => {
               size: 680,
               data: {
                 id: 'workspace',
-                views: ['agent', 'search'],
+                views: ['agent', 'shell'],
                 activeView: 'agent',
               },
             },
@@ -36,7 +36,7 @@ describe('sanitizeDockLayout', () => {
         modifiedFiles: {},
         memory: {},
         agent: {},
-        search: {},
+        shell: {},
       },
     } as unknown as SerializedDockview
 
@@ -94,7 +94,7 @@ describe('sanitizeDockLayout', () => {
               size: 700,
               data: {
                 id: 'workspace',
-                views: ['agent', 'search', 'unsupportedPanel'],
+                views: ['agent', 'shell', 'unsupportedPanel'],
                 activeView: 'unsupportedPanel',
               },
             },
@@ -104,7 +104,7 @@ describe('sanitizeDockLayout', () => {
       panels: {
         projects: {},
         agent: {},
-        search: {},
+        shell: {},
         unsupportedPanel: {},
       },
     } as unknown as SerializedDockview
@@ -117,9 +117,40 @@ describe('sanitizeDockLayout', () => {
 
     expect(sanitized).not.toBeNull()
     expect(root.type).toBe('leaf')
-    expect(root.data.views).toEqual(['agent', 'search'])
+    expect(root.data.views).toEqual(['agent', 'shell'])
     expect(root.data.activeView).toBe('agent')
-    expect(Object.keys(sanitized.panels)).toEqual(['agent', 'search'])
+    expect(Object.keys(sanitized.panels)).toEqual(['agent', 'shell'])
+  })
+
+  it('removes the retired search tab from saved layouts', () => {
+    const saved = {
+      grid: {
+        root: {
+          type: 'leaf',
+          size: 1000,
+          data: {
+            id: 'workspace',
+            views: ['agent', 'search'],
+            activeView: 'search',
+          },
+        },
+      },
+      panels: {
+        agent: {},
+        search: {},
+      },
+    } as unknown as SerializedDockview
+
+    const sanitized = sanitizeDockLayout(saved) as SerializedDockview
+    const leaf = sanitized.grid.root as {
+      type: 'leaf'
+      data: { views: string[]; activeView?: string }
+    }
+
+    expect(sanitized).not.toBeNull()
+    expect(Object.keys(sanitized.panels)).toEqual(['agent'])
+    expect(leaf.data.views).toEqual(['agent'])
+    expect(leaf.data.activeView).toBe('agent')
   })
 
   it('returns null when every grid leaf is empty after sanitization', () => {

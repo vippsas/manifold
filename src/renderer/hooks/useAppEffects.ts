@@ -3,7 +3,6 @@ import type { SearchMode } from '../../shared/search-types'
 import type { DockPanelId, UseDockLayoutResult } from './useDockLayout'
 import type { SpawnAgentOptions } from '../../shared/types'
 import type { PendingLaunchAction } from '../../shared/mode-switch-types'
-import { ensureSearchPanelInWorkspace } from './dock-layout-search'
 
 interface AppEffectsInput {
   activeSessionId: string | null
@@ -24,7 +23,7 @@ export interface AppEffectsResult {
   setCreatingProject: (v: boolean) => void
   cloningProject: boolean
   setCloningProject: (v: boolean) => void
-  showSearchPanel: (mode: SearchMode) => void
+  focusSearch: (mode: SearchMode) => void
   handleFilesChanged: () => void
 }
 
@@ -36,14 +35,13 @@ export function useAppEffects(input: AppEffectsInput): AppEffectsResult {
   const [cloningProject, setCloningProject] = useState(false)
   const agentRefreshTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
-  const showSearchPanel = useCallback((mode: SearchMode) => {
-    const api = input.dockLayout.apiRef.current
-    if (api) ensureSearchPanelInWorkspace(api, input.dockLayout.editorPanelIds)
-    else if (!input.dockLayout.isPanelVisible('search')) input.dockLayout.togglePanel('search')
+  // Focus the title-bar search omnibox. The bumped request key + requested
+  // mode are forwarded to TitleBarSearch, which focuses its input and switches
+  // scope. (There is no longer a separate Search dock panel.)
+  const focusSearch = useCallback((mode: SearchMode) => {
     setRequestedSearchMode(mode)
     setSearchFocusRequestKey((prev) => prev + 1)
-    queueMicrotask(() => input.dockLayout.apiRef.current?.getPanel('search')?.api.setActive())
-  }, [input.dockLayout])
+  }, [])
 
   const openDeveloperLaunch = useCallback((projectId: string, branchName?: string, runtimeId?: string, noWorktree?: boolean) => {
     input.setActiveProject(projectId)
@@ -75,8 +73,8 @@ export function useAppEffects(input: AppEffectsInput): AppEffectsResult {
   }), [input.dockLayout.togglePanel])
 
   useEffect(() => window.electronAPI.on('view:show-search', () => {
-    showSearchPanel('code')
-  }), [showSearchPanel])
+    focusSearch('code')
+  }), [focusSearch])
 
   useEffect(() => {
     let cancelled = false
@@ -131,7 +129,7 @@ export function useAppEffects(input: AppEffectsInput): AppEffectsResult {
     setCreatingProject,
     cloningProject,
     setCloningProject,
-    showSearchPanel,
+    focusSearch,
     handleFilesChanged,
   }
 }

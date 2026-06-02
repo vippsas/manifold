@@ -116,7 +116,7 @@ describe('findTopLeftWorkspaceReferencePanel', () => {
     const panels = [
       makePanel('projects', projectsGroup),
       makePanel('editor', topLeftGroup),
-      makePanel('search', topLeftGroup),
+      makePanel('backgroundAgent', topLeftGroup),
       makePanel('agent', lowerGroup),
       makePanel('shell', lowerGroup),
       makePanel('fileTree', filesGroup),

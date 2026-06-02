@@ -9,7 +9,6 @@ const PANEL_LABELS: Record<DockPanelId, string> = {
   fileTree: 'Files',
   modifiedFiles: 'Modified',
   shell: 'Shell',
-  search: 'Search',
   backgroundAgent: 'Ideas',
   loop: 'Loop',
   watch: 'Watch',

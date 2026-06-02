@@ -65,11 +65,11 @@ function buildMockDockview() {
 
   const agentPanel = createPanel('agent', 'kubedeployerv2', superagentGroup)
   const editorPanel = createPanel('editor', 'Editor', superagentGroup)
-  const searchPanel = createPanel('search', 'Search', superagentGroup)
+  const shellPanel = createPanel('shell', 'Shell', superagentGroup)
   panels.set(agentPanel.id, agentPanel)
   panels.set(editorPanel.id, editorPanel)
-  panels.set(searchPanel.id, searchPanel)
-  superagentGroup.panels.push(agentPanel, editorPanel, searchPanel)
+  panels.set(shellPanel.id, shellPanel)
+  superagentGroup.panels.push(agentPanel, editorPanel, shellPanel)
 
   const api: DockviewApi = {
     getPanel: ((id: string) => panels.get(id)) as DockviewApi['getPanel'],
@@ -184,7 +184,7 @@ describe('useSuperagentChildDockTabs', () => {
       siblingPanelId('s1'),
       siblingPanelId('s2'),
       'editor',
-      'search',
+      'shell',
     ])
   })
 

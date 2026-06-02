@@ -11,6 +11,8 @@ function makeWiring(overrides: Partial<TitleBarSearchWiring> = {}): TitleBarSear
     activeSessionId: 'session-1',
     allProjectSessions: {},
     onOpenSearchResult: vi.fn(),
+    focusRequestKey: 0,
+    requestedMode: null,
     ...overrides,
   }
 }

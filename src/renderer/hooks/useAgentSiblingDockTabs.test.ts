@@ -48,12 +48,12 @@ describe('useAgentSiblingDockTabs', () => {
     }
 
     const editorPanel = buildPanel('editor', topLeftGroup)
-    const searchPanel = buildPanel('search', topLeftGroup)
+    const shellPanel = buildPanel('shell', topLeftGroup)
     const agentPanel = buildPanel('agent', lowerGroup)
 
     const panels = new Map<string, MockPanel>([
       [editorPanel.id, editorPanel],
-      [searchPanel.id, searchPanel],
+      [shellPanel.id, shellPanel],
       [agentPanel.id, agentPanel],
     ])
 
