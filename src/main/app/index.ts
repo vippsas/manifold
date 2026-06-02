@@ -51,6 +51,8 @@ import { SuperagentStore } from '../superagent/superagent-store'
 import { ApprovalBroker } from '../superagent/approval-broker'
 import { McpBridgeServer } from '../superagent/mcp-bridge-server'
 import { SuperagentManager } from '../superagent/superagent-manager'
+import { WorkspaceStore } from '../workspace/workspace-store'
+import { WorkspaceManager } from '../workspace/workspace-manager'
 import { getRuntimeById } from '../agent/runtimes'
 import { WatchRunStore } from '../watch/run-store'
 import { VerdictStore } from '../store/verdict-store'
@@ -109,6 +111,14 @@ const superagentManager = new SuperagentManager({
   emitOutput: (sid, chunk) => { mainWindow?.webContents.send('agent:output', { sessionId: sid, data: chunk }) },
 })
 superagentManagerRef = superagentManager
+const workspaceStore = new WorkspaceStore(path.join(manifoldHome, 'workspaces.json'))
+const workspaceManager = new WorkspaceManager({
+  store: workspaceStore,
+  worktreeManager,
+  projectRegistry,
+  sessionManager,
+  emitListChanged: () => { mainWindow?.webContents.send('workspace:list-changed') },
+})
 sessionManager.setStatusListener((sessionId, status) => {
   const session = sessionManager.getSession(sessionId)
   const parentId = session?.parentSuperagentId
@@ -183,6 +193,7 @@ const ipcDeps = {
   memoryStore,
   superagentManager,
   approvalBroker,
+  workspaceManager,
   watchRunStore,
   verdictStore,
   verdictRecorder,
