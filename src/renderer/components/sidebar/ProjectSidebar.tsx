@@ -2,8 +2,10 @@ import React, { useCallback } from 'react'
 import type { Project, AgentSession } from '../../../shared/types'
 import type { Superagent } from '../../../shared/superagent-types'
 import type { DraftChat } from '../../../shared/draft-chat'
+import type { Workspace } from '../../../shared/workspace-types'
 import { sidebarStyles } from './ProjectSidebar.styles'
 import { SuperagentList } from './SuperagentList'
+import { WorkspaceList } from './WorkspaceList'
 import { ProjectList } from './ProjectList'
 import type { SessionSelectionOptions } from '../../session-selection'
 
@@ -27,6 +29,12 @@ interface ProjectSidebarProps {
   onRemoveSuperagent?: (id: string) => Promise<void>
   onRequestAddProjectToSuperagent?: (superagentId: string) => void
   onSpawnFleetAgent?: (superagentId: string, projectId: string) => Promise<void>
+  workspaces?: Workspace[]
+  activeWorkspaceId?: string | null
+  sessionsByWorkspace?: Record<string, AgentSession[]>
+  onSelectWorkspace?: (id: string) => void
+  onRemoveWorkspace?: (id: string) => Promise<void>
+  onSpawnWorkspaceAgent?: (workspaceId: string) => void
   fetchingProjectId: string | null
   lastFetchedProjectId: string | null
   fetchResult: { updatedBranch: string; commitCount: number } | null
@@ -58,6 +66,12 @@ export function ProjectSidebar({
   onRemoveSuperagent,
   onRequestAddProjectToSuperagent,
   onSpawnFleetAgent,
+  workspaces,
+  activeWorkspaceId,
+  sessionsByWorkspace,
+  onSelectWorkspace,
+  onRemoveWorkspace,
+  onSpawnWorkspaceAgent,
   fetchingProjectId,
   lastFetchedProjectId,
   fetchResult,
@@ -91,6 +105,21 @@ export function ProjectSidebar({
           onSelectSession={onSelectSession}
           onRequestAddProject={onRequestAddProjectToSuperagent}
           onSpawnFleetAgent={onSpawnFleetAgent}
+          onDeleteAgent={onRequestDeleteAgent}
+        />
+      )}
+      {workspaces && onSelectWorkspace && onRemoveWorkspace && onSpawnWorkspaceAgent && (
+        <WorkspaceList
+          workspaces={workspaces}
+          projects={projects}
+          activeWorkspaceId={activeWorkspaceId ?? null}
+          sessionsByWorkspace={sessionsByWorkspace ?? {}}
+          activeSessionId={activeSessionId}
+          outputtingSessionIds={outputtingSessionIds}
+          onSelectWorkspace={onSelectWorkspace}
+          onRemoveWorkspace={onRemoveWorkspace}
+          onSelectSession={onSelectSession}
+          onSpawnAgent={onSpawnWorkspaceAgent}
           onDeleteAgent={onRequestDeleteAgent}
         />
       )}
