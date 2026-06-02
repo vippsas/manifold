@@ -177,6 +177,12 @@ function ProjectsPanel(): React.JSX.Element {
       onRemoveSuperagent={s.onRemoveSuperagent}
       onRequestAddProjectToSuperagent={s.onRequestAddProjectToSuperagent}
       onSpawnFleetAgent={s.onSpawnFleetAgent}
+      workspaces={s.workspaces}
+      activeWorkspaceId={s.activeWorkspaceId}
+      sessionsByWorkspace={s.sessionsByWorkspace}
+      onSelectWorkspace={s.onSelectWorkspace}
+      onRemoveWorkspace={s.onRemoveWorkspace}
+      onSpawnWorkspaceAgent={s.onSpawnWorkspaceAgent}
       fetchingProjectId={s.fetchingProjectId}
       lastFetchedProjectId={s.lastFetchedProjectId}
       fetchResult={s.fetchResult}

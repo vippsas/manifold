@@ -123,6 +123,7 @@ export function AgentPanel({ api }: { api?: { id: string } } = {}): React.JSX.El
         onDeleteSession={(session) => s.onRequestDeleteAgent(session, activeProject.path)}
         focusTrigger={s.newAgentFocusTrigger}
         onNewSuperagent={s.onNewSuperagent}
+        onNewWorkspace={s.onNewWorkspace}
       />
     )
   }

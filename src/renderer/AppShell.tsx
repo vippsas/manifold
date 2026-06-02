@@ -2,6 +2,7 @@ import React from 'react'
 import { DockviewReact, type DockviewApi } from 'dockview'
 import type { Project, AgentSession, ManifoldSettings, FileChange, CreateProjectOptions } from '../shared/types'
 import type { Superagent, CreateSuperagentInput } from '../shared/superagent-types'
+import type { Workspace, WorkspaceCreateOptions } from '../shared/workspace-types'
 import type { DockAppState } from './components/editor/dock-panel-types'
 import type { UseAppOverlaysResult } from './hooks/useAppOverlays'
 import { PANEL_COMPONENTS, DockStateContext } from './components/editor/dock-panels'
@@ -19,6 +20,7 @@ import { ConflictPanel } from './components/git/ConflictPanel'
 import { WelcomeDialog } from './components/modals/WelcomeDialog'
 import { AddSuperagentProjectModal } from './components/modals/AddSuperagentProjectModal'
 import { NewSuperagentModal } from './components/modals/NewSuperagentModal'
+import { NewWorkspaceModal } from './components/modals/NewWorkspaceModal'
 import { DockTab, EmptyWatermark } from './DockTab'
 import { TitleBar } from './components/TitleBar'
 import { DeleteAgentDialog } from './components/sidebar/DeleteAgentDialog'
@@ -74,7 +76,7 @@ export interface AppShellProps {
   // Top-level handlers/state
   handleSelectFile: (path: string) => void
   setPreviewThemeId: (id: string | null) => void
-  addProject: (path?: string, options?: { activate?: boolean }) => Promise<void>
+  addProject: (path?: string, options?: { activate?: boolean }) => Promise<Project | null>
   cloneProject: (url: string) => Promise<boolean>
   handleAddProjectFromOnboarding: (path?: string) => Promise<void>
   handleCloneFromOnboarding: (url: string) => Promise<boolean>
@@ -88,6 +90,10 @@ export interface AppShellProps {
   setPendingSuperagentProjectIds: (ids: string[]) => void
   setAddProjectSuperagentId: (id: string | null) => void
   resolveStandaloneSessions: (projectId: string) => Promise<AgentSession[]>
+  // Workspace modal wiring
+  newWorkspaceVisible: boolean
+  setNewWorkspaceVisible: (v: boolean) => void
+  createWorkspace: (opts: WorkspaceCreateOptions) => Promise<Workspace>
   // StatusBar dock layout adapter
   dockLayout: unknown
   hasSuperagent: boolean
@@ -209,6 +215,14 @@ export function AppShell(p: AppShellProps): React.JSX.Element {
           p.setNewSuperagentVisible(false)
         }}
         onClose={() => p.setNewSuperagentVisible(false)}
+      />
+      <NewWorkspaceModal
+        visible={p.newWorkspaceVisible}
+        projects={p.projects}
+        projectError={p.projectError}
+        onAddProject={() => p.addProject(undefined, { activate: false })}
+        onCreate={(opts) => { void p.createWorkspace(opts); p.setNewWorkspaceVisible(false) }}
+        onClose={() => p.setNewWorkspaceVisible(false)}
       />
       <AddSuperagentProjectModal
         visible={p.addProjectSuperagent !== null}

@@ -40,6 +40,7 @@ import {
   shouldPreserveSuperagentSelection,
 } from './session-selection'
 import { useSuperagents } from './hooks/useSuperagents'
+import { useWorkspaces } from './hooks/useWorkspaces'
 import type { AgentSession } from '../shared/types'
 import { isGitProject } from '../shared/project-kind'
 import { AppShell } from './AppShell'
@@ -54,10 +55,31 @@ export function App(): React.JSX.Element {
   const [addProjectSuperagentId, setAddProjectSuperagentId] = useState<string | null>(null)
   const [pendingSuperagentProjectIds, setPendingSuperagentProjectIds] = useState<string[]>([])
   const { superagents, createSuperagent, addProjectToSuperagent, removeSuperagent, resumeSuperagent, toggleAutoApprove } = useSuperagents()
+  const { workspaces, createWorkspace, removeWorkspace, spawnAgent: spawnWorkspaceAgent } = useWorkspaces()
+  const [activeWorkspaceId, setActiveWorkspaceId] = useState<string | null>(null)
+  const [newWorkspaceVisible, setNewWorkspaceVisible] = useState(false)
   const superagentIds = useMemo(() => collectSuperagentIds(superagents), [superagents])
   const superagentChildSessionIds = useMemo(() => collectSuperagentChildSessionIds(superagents), [superagents])
   const superagentFleetWorktreePaths = useMemo(() => collectSuperagentFleetWorktreePaths(superagents), [superagents])
   const suppressedProjectIds = useMemo(() => new Set(pendingSuperagentProjectIds), [pendingSuperagentProjectIds])
+  const sessionsByWorkspace = useMemo(() => {
+    const map: Record<string, AgentSession[]> = {}
+    for (const sessions of Object.values(sessionsByProject ?? {})) {
+      for (const sx of sessions) {
+        if (sx.workspaceId) (map[sx.workspaceId] ??= []).push(sx)
+      }
+    }
+    return map
+  }, [sessionsByProject])
+  const workspaceIdBySession = useMemo(() => {
+    const map: Record<string, string> = {}
+    for (const sessions of Object.values(sessionsByProject ?? {})) {
+      for (const sx of sessions) {
+        if (sx.workspaceId) map[sx.id] = sx.workspaceId
+      }
+    }
+    return map
+  }, [sessionsByProject])
 
   useAutoSelectActiveProject({
     sessionsByProject, activeProjectId, projects, setActiveProject,
@@ -230,18 +252,19 @@ export function App(): React.JSX.Element {
     activeSessionNoWorktree: activeSession?.noWorktree ?? false,
     onLaunchAgent: overlays.handleLaunchAgent, projects, activeProjectId, suppressedProjectIds,
     allProjectSessions: sessionsByProject, outputtingSessionIds,
-    onSelectProject: (id: string) => { setActiveSuperagentId(null); setActiveProject(id) },
+    onSelectProject: (id: string) => { setActiveSuperagentId(null); setActiveWorkspaceId(null); setActiveProject(id) },
     onSelectSession: (sessionId: string, projectId: string, options?: SessionSelectionOptions) => {
       if (openSuperagentChildPanel(sessionId, projectId, options)) return
-      setActiveSuperagentId(null); overlays.handleSelectSession(sessionId, projectId)
+      setActiveSuperagentId(null); setActiveWorkspaceId(workspaceIdBySession[sessionId] ?? null)
+      overlays.handleSelectSession(sessionId, projectId)
     },
     onRemoveProject: removeProject, onUpdateProject: updateProject, onRequestDeleteAgent: overlays.requestDeleteAgent,
-    onNewAgentFromHeader: () => { setActiveSuperagentId(null); overlays.handleNewAgentFromHeader() },
+    onNewAgentFromHeader: () => { setActiveSuperagentId(null); setActiveWorkspaceId(null); overlays.handleNewAgentFromHeader() },
     newAgentFocusTrigger: overlays.newAgentFocusTrigger,
     onNewProject: () => appEffects.setShowOnboarding(true),
     onNewSuperagent: () => setNewSuperagentVisible(true),
     superagents, activeSuperagentId, activeSuperagent,
-    onSelectSuperagent: (id) => { setActiveSuperagentId(id); focusSuperagentHome() },
+    onSelectSuperagent: (id) => { setActiveWorkspaceId(null); setActiveSuperagentId(id); focusSuperagentHome() },
     onSelectSuperagentHome: focusSuperagentHome,
     onResumeSuperagent: (id: string) => resumeSuperagent(id),
     onToggleSuperagentAutoApprove: (id: string, value: boolean) => toggleAutoApprove(id, value),
@@ -255,7 +278,18 @@ export function App(): React.JSX.Element {
     onSpawnFleetAgent: async (superagentId: string, projectId: string) => {
       const result = (await window.electronAPI.invoke('superagent:spawn-fleet-agent', superagentId, projectId)) as { id: string }
       if (activeSuperagentId === superagentId && openSuperagentChildPanel(result.id, projectId, { preserveSuperagent: true })) return
-      setActiveSuperagentId(null); overlays.handleSelectSession(result.id, projectId)
+      setActiveSuperagentId(null); setActiveWorkspaceId(null); overlays.handleSelectSession(result.id, projectId)
+    },
+    workspaces, activeWorkspaceId, sessionsByWorkspace,
+    onNewWorkspace: () => setNewWorkspaceVisible(true),
+    onSelectWorkspace: (id: string) => { setActiveSuperagentId(null); setActiveWorkspaceId(id) },
+    onRemoveWorkspace: async (id: string) => {
+      await removeWorkspace(id)
+      setActiveWorkspaceId((current) => (current === id ? null : current))
+    },
+    onSpawnWorkspaceAgent: async (workspaceId: string) => {
+      const session = await spawnWorkspaceAgent(workspaceId, { runtimeId: settings.defaultRuntime })
+      setActiveSuperagentId(null); setActiveWorkspaceId(workspaceId); overlays.handleSelectSession(session.id, session.projectId)
     },
     fetchingProjectId: fetchProject.fetchingProjectId, lastFetchedProjectId: fetchProject.lastFetchedProjectId,
     fetchResult: fetchProject.fetchResult, fetchError: fetchProject.fetchError,
@@ -311,6 +345,9 @@ export function App(): React.JSX.Element {
       newSuperagentVisible={newSuperagentVisible}
       setNewSuperagentVisible={setNewSuperagentVisible}
       createSuperagent={createSuperagent}
+      newWorkspaceVisible={newWorkspaceVisible}
+      setNewWorkspaceVisible={setNewWorkspaceVisible}
+      createWorkspace={createWorkspace}
       setActiveSuperagentId={setActiveSuperagentId}
       addProjectToSuperagent={addProjectToSuperagent}
       setPendingSuperagentProjectIds={setPendingSuperagentProjectIds}

@@ -87,6 +87,7 @@ export interface DockAppState {
   newAgentFocusTrigger: number
   onNewProject: () => void
   onNewSuperagent?: () => void
+  onNewWorkspace?: () => void
   superagents?: import('../../../shared/superagent-types').Superagent[]
   activeSuperagentId?: string | null
   activeSuperagent?: import('../../../shared/superagent-types').Superagent | null
@@ -97,6 +98,12 @@ export interface DockAppState {
   onRemoveSuperagent?: (id: string) => Promise<void>
   onRequestAddProjectToSuperagent?: (superagentId: string) => void
   onSpawnFleetAgent?: (superagentId: string, projectId: string) => Promise<void>
+  workspaces?: import('../../../shared/workspace-types').Workspace[]
+  activeWorkspaceId?: string | null
+  sessionsByWorkspace?: Record<string, AgentSession[]>
+  onSelectWorkspace?: (id: string) => void
+  onRemoveWorkspace?: (id: string) => Promise<void>
+  onSpawnWorkspaceAgent?: (workspaceId: string) => void
   fetchingProjectId: string | null
   lastFetchedProjectId: string | null
   fetchResult: { updatedBranch: string; commitCount: number } | null

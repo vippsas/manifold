@@ -82,6 +82,7 @@ interface NoAgentProps {
   onDeleteSession?: (session: AgentSession) => void
   focusTrigger?: number
   onNewSuperagent?: () => void
+  onNewWorkspace?: () => void
 }
 
 type OnboardingViewProps = NoProjectProps | NoAgentProps
@@ -159,6 +160,9 @@ export function OnboardingView(props: OnboardingViewProps): React.JSX.Element {
           </div>
           {props.onNewSuperagent && (
             <GhostLinkButton onClick={props.onNewSuperagent}>+ New Superagent</GhostLinkButton>
+          )}
+          {props.onNewWorkspace && (
+            <GhostLinkButton onClick={props.onNewWorkspace}>+ New Workspace</GhostLinkButton>
           )}
         </>
       )}
