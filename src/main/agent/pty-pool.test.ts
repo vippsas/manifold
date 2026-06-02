@@ -65,6 +65,27 @@ describe('PtyPool', () => {
       pool.spawn('sh', [], { cwd: '/tmp' })
       expect(pool.getActivePtyIds()).toContain('mock-uuid-1')
     })
+
+    it('advertises truecolor capability so embedded CLIs render in color', () => {
+      pool.spawn('claude', [], { cwd: '/tmp' })
+
+      const callArgs = vi.mocked(pty.spawn).mock.calls[0][2]
+      expect(callArgs.env).toHaveProperty('COLORTERM', 'truecolor')
+      expect(callArgs.env).toHaveProperty('FORCE_COLOR', '3')
+    })
+
+    it('strips an inherited NO_COLOR so it cannot suppress color', () => {
+      const prev = process.env.NO_COLOR
+      process.env.NO_COLOR = '1'
+      try {
+        pool.spawn('claude', [], { cwd: '/tmp' })
+        const callArgs = vi.mocked(pty.spawn).mock.calls[0][2]
+        expect(callArgs.env).not.toHaveProperty('NO_COLOR')
+      } finally {
+        if (prev === undefined) delete process.env.NO_COLOR
+        else process.env.NO_COLOR = prev
+      }
+    })
   })
 
   describe('write', () => {
