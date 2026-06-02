@@ -12,6 +12,7 @@ import { useGitOperations } from './hooks/useGitOperations'
 import { useFetchProject } from './hooks/useFetchProject'
 import { useAllProjectSessions } from './hooks/useAllProjectSessions'
 import { useTheme } from './hooks/useTheme'
+import { useThemeChangeNotification } from './hooks/useThemeChangeNotification'
 import { useSessionStatePersistence } from './hooks/useSessionStatePersistence'
 import { useStatusNotification } from './hooks/useStatusNotification'
 import { useUpdateLog } from '../shared/useUpdateLog'
@@ -157,6 +158,14 @@ export function App(): React.JSX.Element {
   const densityClass = settings.density === 'comfortable' ? '' : `density-${settings.density}`
   const updateNotification = useUpdateNotification()
   const updateLog = useUpdateLog()
+  // Embedded agents are themed at launch, so a light↔dark switch only applies
+  // to newly launched agents — tell the user when one is already running.
+  const interactiveAgentActive = !!activeSession && !activeSession.nonInteractive
+    && (activeSession.status === 'running' || activeSession.status === 'waiting')
+  const themeChangeNotice = useThemeChangeNotification(
+    themeClass === 'theme-light' ? 'light' : 'dark',
+    interactiveAgentActive,
+  )
   const [newSuperagentVisible, setNewSuperagentVisible] = useState(false)
   const worktreeShellCwd = activeSession?.worktreePath ?? activeSuperagent?.coordinationPath ?? null
   const shellProjectCwd = activeSession ? (activeProject?.path ?? null) : null
@@ -301,6 +310,7 @@ export function App(): React.JSX.Element {
       gitOps={gitOps}
       updateLog={updateLog}
       updateNotification={updateNotification}
+      themeChangeNotice={themeChangeNotice}
       appEffects={appEffects}
       showCommitAndPrButtons={settings.showCommitAndPrButtons && activeProjectIsGit}
       handleSelectFile={handleSelectFile}

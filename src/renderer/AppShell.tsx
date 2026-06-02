@@ -12,6 +12,7 @@ import { SettingsModal } from './components/modals/SettingsModal'
 import { AboutOverlay } from './components/modals/AboutOverlay'
 import { UpdateLogOverlay } from './components/modals/UpdateLogOverlay'
 import { UpdateToast } from '../shared/UpdateToast'
+import { ThemeChangeToast } from '../shared/ThemeChangeToast'
 import { StatusBar } from './components/git/StatusBar'
 import { CommitPanel } from './components/git/CommitPanel'
 import { PRPanel } from './components/git/PRPanel'
@@ -69,6 +70,7 @@ export interface AppShellProps {
     openReleaseNotes: (version?: string) => void
   }
   updateNotification: { updateReady: boolean; version: string | null; install: () => void; dismiss: () => void }
+  themeChangeNotice: { show: boolean; mode: 'light' | 'dark'; dismiss: () => void }
   appEffects: { showOnboarding: boolean; setShowOnboarding: (v: boolean) => void; creatingProject: boolean; cloningProject: boolean }
   showCommitAndPrButtons: boolean
   // Top-level handlers/state
@@ -242,6 +244,9 @@ export function AppShell(p: AppShellProps): React.JSX.Element {
         <UpdateToast version={p.updateNotification.version} onRestart={p.updateNotification.install}
           onDismiss={p.updateNotification.dismiss}
           onViewReleaseNotes={() => p.updateLog.openReleaseNotes(p.updateNotification.version ?? undefined)} />
+      )}
+      {p.themeChangeNotice.show && (
+        <ThemeChangeToast mode={p.themeChangeNotice.mode} onDismiss={p.themeChangeNotice.dismiss} />
       )}
       {(p.appEffects.showOnboarding || p.appEffects.creatingProject) && (
         <div style={{ position: 'absolute', inset: 0, zIndex: 100, background: 'var(--bg-primary)' }}>
