@@ -96,6 +96,18 @@ describe('DockTab', () => {
     expect(screen.queryByRole('button', { name: 'New shell tab' })).toBeNull()
   })
 
+  it('marks the Shell dock tab so it matches its lighter sub-tabs', () => {
+    const { container } = render(<DockTab {...makeHeaderProps('shell', 'Shell')} />)
+
+    expect(container.querySelector('.dock-tab--shell')).not.toBeNull()
+  })
+
+  it('does not mark non-shell dock tabs with the shell modifier', () => {
+    const { container } = render(<DockTab {...makeHeaderProps('fileTree', 'Files')} />)
+
+    expect(container.querySelector('.dock-tab--shell')).toBeNull()
+  })
+
   it('shows a compact superagent role pill and name on the main agent tab', () => {
     render(
       <DockStateContext.Provider value={makeDockState({

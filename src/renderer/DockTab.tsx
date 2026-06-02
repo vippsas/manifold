@@ -15,6 +15,7 @@ export function DockTab({ api }: IDockviewPanelHeaderProps): React.JSX.Element {
     : null
   const isSuperagentTab = api.id === 'agent' && state?.activeSuperagentId
   const isSuperagentChildTab = Boolean(siblingSession?.parentSuperagentId)
+  const isShellTab = api.id === 'shell'
   const displayTitle = isSuperagentTab
     ? state?.activeSuperagent?.name ?? 'Superagent'
     : title
@@ -38,7 +39,7 @@ export function DockTab({ api }: IDockviewPanelHeaderProps): React.JSX.Element {
     && !state.activeSuperagentId
     && (state.activeSessionStatus === 'running' || state.activeSessionStatus === 'waiting')
   return (
-    <div className={`dock-tab${isSuperagentTab ? ' dock-tab--superagent' : ''}${isSuperagentChildTab ? ' dock-tab--child-agent' : ''}`}>
+    <div className={`dock-tab${isSuperagentTab ? ' dock-tab--superagent' : ''}${isSuperagentChildTab ? ' dock-tab--child-agent' : ''}${isShellTab ? ' dock-tab--shell' : ''}`}>
       {roleLabel && roleClassName && (
         <span className={roleClassName} title={roleTitle ?? undefined}>{roleLabel}</span>
       )}

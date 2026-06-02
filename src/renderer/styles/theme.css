@@ -415,6 +415,12 @@ select:focus-visible {
   min-width: 0;
 }
 
+/* Shell panel tab sits directly beside its lighter sub-tabs (Worktree, Shell N);
+   match their normal weight so it doesn't read as larger. */
+.dock-tab--shell {
+  font-weight: 400;
+}
+
 .dock-tab__role {
   display: inline-flex;
   align-items: center;
