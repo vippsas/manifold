@@ -5,12 +5,16 @@ import theme_manifold_dark from './data/Manifold Dark.json'
 import theme_manifold_light from './data/Manifold Light.json'
 import theme_garfield_dark from './data/Garfield Dark.json'
 import theme_garfield_light from './data/Garfield Light.json'
+import theme_neon_dark from './data/Neon Dark.json'
+import theme_neon_light from './data/Neon Light.json'
 
 export const themeDataByLabel: Record<string, unknown> = {
   "Manifold Dark": theme_manifold_dark,
   "Manifold Light": theme_manifold_light,
   "Garfield Dark": theme_garfield_dark,
   "Garfield Light": theme_garfield_light,
+  "Neon Dark": theme_neon_dark,
+  "Neon Light": theme_neon_light,
 }
 
 export const themeList: Record<string, string> = {
@@ -18,4 +22,6 @@ export const themeList: Record<string, string> = {
   "manifold-light": "Manifold Light",
   "garfield-dark": "Garfield Dark",
   "garfield-light": "Garfield Light",
+  "neon-dark": "Neon Dark",
+  "neon-light": "Neon Light",
 }
