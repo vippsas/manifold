@@ -40,9 +40,10 @@ export function App(): React.JSX.Element {
   const { sessions, activeSessionId, activeSession, spawnAgent, deleteAgent, setActiveSession, resumeAgent, outputtingSessionIds } = useAgentSession(activeProjectId)
   const { drafts, activeDraft, effectiveSessionId, createDraft, discardDraft, promoteDraft } = useDraftChatCoordinator(activeSessionId, setActiveSession, spawnAgent)
   const { sessionsByProject, removeSession } = useAllProjectSessions(projects, activeProjectId, sessions)
-  const { workspaces, createWorkspace, removeWorkspace, spawnAgent: spawnWorkspaceAgent } = useWorkspaces()
+  const { workspaces, createWorkspace, removeWorkspace, addProject: addProjectToWorkspace, spawnAgent: spawnWorkspaceAgent } = useWorkspaces()
   const [activeWorkspaceId, setActiveWorkspaceId] = useState<string | null>(null)
   const [newWorkspaceVisible, setNewWorkspaceVisible] = useState(false)
+  const [addProjectWorkspaceId, setAddProjectWorkspaceId] = useState<string | null>(null)
   const suppressedProjectIds = useMemo(() => new Set<string>(), [])
   const sessionsByWorkspace = useMemo(() => {
     const map: Record<string, AgentSession[]> = {}
@@ -207,6 +208,7 @@ export function App(): React.JSX.Element {
       const session = await spawnWorkspaceAgent(workspaceId, { runtimeId: settings.defaultRuntime })
       setActiveWorkspaceId(workspaceId); overlays.handleSelectSession(session.id, session.projectId)
     },
+    onAddProjectToWorkspace: (id: string) => setAddProjectWorkspaceId(id),
     fetchingProjectId: fetchProject.fetchingProjectId, lastFetchedProjectId: fetchProject.lastFetchedProjectId,
     fetchResult: fetchProject.fetchResult, fetchError: fetchProject.fetchError,
     onFetchProject: fetchProject.fetchProject,
@@ -258,6 +260,10 @@ export function App(): React.JSX.Element {
       newWorkspaceVisible={newWorkspaceVisible}
       setNewWorkspaceVisible={setNewWorkspaceVisible}
       createWorkspace={createWorkspace}
+      workspaces={workspaces}
+      addProjectWorkspaceId={addProjectWorkspaceId}
+      setAddProjectWorkspaceId={setAddProjectWorkspaceId}
+      addProjectToWorkspace={addProjectToWorkspace}
       dockLayout={dockLayout}
       onRenameActiveProject={(name) => { if (activeProjectId) void updateProject(activeProjectId, { name }) }}
       onToggleTheme={toggleTheme}

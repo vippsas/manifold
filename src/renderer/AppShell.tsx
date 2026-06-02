@@ -18,6 +18,7 @@ import { PRPanel } from './components/git/PRPanel'
 import { ConflictPanel } from './components/git/ConflictPanel'
 import { WelcomeDialog } from './components/modals/WelcomeDialog'
 import { NewWorkspaceModal } from './components/modals/NewWorkspaceModal'
+import { AddWorkspaceProjectModal } from './components/modals/AddWorkspaceProjectModal'
 import { DockTab, EmptyWatermark } from './DockTab'
 import { TitleBar } from './components/TitleBar'
 import { DeleteAgentDialog } from './components/sidebar/DeleteAgentDialog'
@@ -79,6 +80,10 @@ export interface AppShellProps {
   newWorkspaceVisible: boolean
   setNewWorkspaceVisible: (v: boolean) => void
   createWorkspace: (opts: WorkspaceCreateOptions) => Promise<Workspace>
+  workspaces: Workspace[]
+  addProjectWorkspaceId: string | null
+  setAddProjectWorkspaceId: (id: string | null) => void
+  addProjectToWorkspace: (id: string, projectId: string) => Promise<void>
   // StatusBar dock layout adapter
   dockLayout: unknown
   onRenameActiveProject: (name: string) => void
@@ -193,6 +198,16 @@ export function AppShell(p: AppShellProps): React.JSX.Element {
         onAddProject={() => p.addProject(undefined, { activate: false })}
         onCreate={(opts) => { void p.createWorkspace(opts); p.setNewWorkspaceVisible(false) }}
         onClose={() => p.setNewWorkspaceVisible(false)}
+      />
+      <AddWorkspaceProjectModal
+        visible={p.addProjectWorkspaceId != null}
+        workspace={p.workspaces.find((w) => w.id === p.addProjectWorkspaceId) ?? null}
+        projects={p.projects}
+        onAdd={async (workspaceId, projectIds) => {
+          for (const pid of projectIds) await p.addProjectToWorkspace(workspaceId, pid)
+          p.setAddProjectWorkspaceId(null)
+        }}
+        onClose={() => p.setAddProjectWorkspaceId(null)}
       />
       {p.updateNotification.updateReady && (
         <UpdateToast version={p.updateNotification.version} onRestart={p.updateNotification.install}

@@ -92,6 +92,7 @@ export interface DockAppState {
   onSelectWorkspace?: (id: string) => void
   onRemoveWorkspace?: (id: string) => Promise<void>
   onSpawnWorkspaceAgent?: (workspaceId: string) => void
+  onAddProjectToWorkspace?: (workspaceId: string) => void
   fetchingProjectId: string | null
   lastFetchedProjectId: string | null
   fetchResult: { updatedBranch: string; commitCount: number } | null

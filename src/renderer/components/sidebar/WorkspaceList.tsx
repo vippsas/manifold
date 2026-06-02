@@ -15,6 +15,7 @@ export interface WorkspaceListProps {
   onRemoveWorkspace: (id: string) => Promise<void>
   onSelectSession: (sessionId: string, projectId: string) => void
   onSpawnAgent: (workspaceId: string) => void
+  onAddProject?: (workspaceId: string) => void
   onDeleteAgent?: (session: AgentSession, projectPath: string) => void
 }
 
@@ -29,6 +30,7 @@ export function WorkspaceList({
   onRemoveWorkspace,
   onSelectSession,
   onSpawnAgent,
+  onAddProject,
   onDeleteAgent,
 }: WorkspaceListProps) {
   const [removing, setRemoving] = useState<string | null>(null)
@@ -107,6 +109,19 @@ export function WorkspaceList({
                 {w.name}
               </span>
               <div className="sidebar-item-actions" style={sidebarStyles.itemRight}>
+                {onAddProject && projects.some((p) => !w.projectIds.includes(p.id)) && (
+                  <button
+                    type="button"
+                    onClick={(e) => { e.stopPropagation(); onAddProject(w.id) }}
+                    onKeyDown={(e) => e.stopPropagation()}
+                    className="sidebar-icon-button"
+                    style={sidebarStyles.addButton}
+                    aria-label={`Add repository to ${w.name}`}
+                    title="Add repository to workspace"
+                  >
+                    +
+                  </button>
+                )}
                 <button
                   type="button"
                   onClick={(e) => {
@@ -123,6 +138,24 @@ export function WorkspaceList({
                 </button>
               </div>
             </div>
+            {w.projectIds.map((pid) => {
+              const repo = projectById(pid)
+              return (
+                <div
+                  key={`repo-${pid}`}
+                  className="sidebar-item-row sidebar-repo-row"
+                  style={{ ...sidebarStyles.item, paddingLeft: 16 }}
+                  title={repo?.path ?? pid}
+                >
+                  <span
+                    className="truncate sidebar-row-label"
+                    style={{ color: 'var(--text-secondary)', fontSize: 'var(--type-ui-small)' }}
+                  >
+                    {repo?.name ?? pid}
+                  </span>
+                </div>
+              )
+            })}
             {sessions.map((session) => {
               const project = projectById(session.projectId)
               return (
