@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
-import { render, screen, fireEvent, act } from '@testing-library/react'
+import { render, screen, act } from '@testing-library/react'
 import React from 'react'
 import { TitleBar } from './TitleBar'
 import { installElectronApi, mockInvoke } from '../hooks/useSearch.test-helpers'
@@ -34,47 +34,16 @@ describe('TitleBar', () => {
     expect(screen.getByText('Manifold')).toBeInTheDocument()
   })
 
-  it('renders the active project name as a rename button', () => {
-    render(<TitleBar projectName="Alpha" onRename={vi.fn()} />)
-    expect(screen.getByRole('button', { name: 'Alpha' })).toBeInTheDocument()
-  })
-
-  it('commits a new name on Enter', () => {
-    const onRename = vi.fn()
-    render(<TitleBar projectName="Alpha" onRename={onRename} />)
-    fireEvent.click(screen.getByRole('button', { name: 'Alpha' }))
-    const input = screen.getByLabelText('Project name')
-    fireEvent.change(input, { target: { value: 'Beta' } })
-    fireEvent.keyDown(input, { key: 'Enter' })
-    expect(onRename).toHaveBeenCalledWith('Beta')
-  })
-
-  it('discards the edit on Escape', () => {
-    const onRename = vi.fn()
-    render(<TitleBar projectName="Alpha" onRename={onRename} />)
-    fireEvent.click(screen.getByRole('button', { name: 'Alpha' }))
-    const input = screen.getByLabelText('Project name')
-    fireEvent.change(input, { target: { value: 'Beta' } })
-    fireEvent.keyDown(input, { key: 'Escape' })
-    expect(onRename).not.toHaveBeenCalled()
-    expect(screen.getByRole('button', { name: 'Alpha' })).toBeInTheDocument()
-  })
-
-  it('ignores an unchanged or empty name', () => {
-    const onRename = vi.fn()
-    render(<TitleBar projectName="Alpha" onRename={onRename} />)
-    fireEvent.click(screen.getByRole('button', { name: 'Alpha' }))
-    const input = screen.getByLabelText('Project name')
-    fireEvent.change(input, { target: { value: '   ' } })
-    fireEvent.keyDown(input, { key: 'Enter' })
-    expect(onRename).not.toHaveBeenCalled()
+  it('shows no name when a project is active', () => {
+    render(<TitleBar projectName="Alpha" />)
+    expect(screen.queryByText('Alpha')).not.toBeInTheDocument()
+    expect(screen.queryByText('Manifold')).not.toBeInTheDocument()
   })
 
   it('renders the search omnibox when search wiring is provided', async () => {
     render(
       <TitleBar
         projectName="Alpha"
-        onRename={vi.fn()}
         search={{
           activeProjectId: 'project-1',
           activeSessionId: null,
@@ -90,7 +59,7 @@ describe('TitleBar', () => {
   })
 
   it('does not render the omnibox without search wiring', () => {
-    render(<TitleBar projectName="Alpha" onRename={vi.fn()} />)
+    render(<TitleBar projectName="Alpha" />)
     expect(screen.queryByLabelText('Search code and memory')).not.toBeInTheDocument()
   })
 })

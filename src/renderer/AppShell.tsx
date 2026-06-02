@@ -91,7 +91,6 @@ export interface AppShellProps {
   // StatusBar dock layout adapter
   dockLayout: unknown
   hasSuperagent: boolean
-  onRenameActiveProject: (name: string) => void
   onToggleTheme: () => void
   themeFamily: 'manifold' | 'garfield'
   onSelectThemeFamily: (family: 'manifold' | 'garfield') => void
@@ -125,7 +124,6 @@ export function AppShell(p: AppShellProps): React.JSX.Element {
     <div className={`layout-root ${p.themeClass} ${p.densityClass}`}>
       <TitleBar
         projectName={activeProjectName}
-        onRename={p.onRenameActiveProject}
         themeType={themeType}
         onToggleTheme={p.onToggleTheme}
         themeFamily={p.themeFamily}
