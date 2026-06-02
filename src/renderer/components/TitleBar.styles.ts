@@ -34,42 +34,6 @@ export const titleBarStyles: Record<string, React.CSSProperties> = {
     fontWeight: 500,
     color: 'var(--text-muted)',
   },
-  titleButton: {
-    // @ts-expect-error -- Electron-specific CSS property; opt out of window drag
-    WebkitAppRegion: 'no-drag',
-    maxWidth: '100%',
-    overflow: 'hidden',
-    textOverflow: 'ellipsis',
-    whiteSpace: 'nowrap',
-    background: 'transparent',
-    border: '1px solid transparent',
-    borderRadius: 'var(--radius-sm)',
-    padding: '2px 10px',
-    fontSize: 13,
-    fontWeight: 500,
-    color: 'var(--text-secondary)',
-    cursor: 'text',
-    transition: 'background 150ms ease, color 150ms ease',
-  },
-  titleButtonHover: {
-    background: 'var(--list-hover-bg)',
-    color: 'var(--text-primary)',
-  },
-  titleInput: {
-    // @ts-expect-error -- Electron-specific CSS property; opt out of window drag
-    WebkitAppRegion: 'no-drag',
-    minWidth: 140,
-    maxWidth: '60%',
-    background: 'var(--bg-input)',
-    border: '1px solid var(--accent)',
-    borderRadius: 'var(--radius-sm)',
-    padding: '2px 10px',
-    fontSize: 13,
-    fontWeight: 500,
-    color: 'var(--text-primary)',
-    textAlign: 'center',
-    outline: 'none',
-  },
   themesGroup: {
     // @ts-expect-error -- Electron-specific CSS property; opt out of window drag
     WebkitAppRegion: 'no-drag',
