@@ -12,6 +12,7 @@ import { useGitOperations } from './hooks/useGitOperations'
 import { useFetchProject } from './hooks/useFetchProject'
 import { useAllProjectSessions } from './hooks/useAllProjectSessions'
 import { useTheme } from './hooks/useTheme'
+import { useThemeChangeNotification } from './hooks/useThemeChangeNotification'
 import { useSessionStatePersistence } from './hooks/useSessionStatePersistence'
 import { useStatusNotification } from './hooks/useStatusNotification'
 import { useUpdateLog } from '../shared/useUpdateLog'
@@ -121,15 +122,24 @@ export function App(): React.JSX.Element {
       : themeId.replace(/-dark$/, '-light')
     void updateSettings({ theme: nextId })
   }, [themeId, updateSettings])
-  const themeFamily: 'manifold' | 'garfield' =
-    themeId.startsWith('garfield') ? 'garfield' : 'manifold'
-  const selectThemeFamily = useCallback((family: 'manifold' | 'garfield') => {
+  const themeFamily: 'manifold' | 'garfield' | 'neon' =
+    themeId.startsWith('garfield') ? 'garfield'
+      : themeId.startsWith('neon') ? 'neon'
+        : 'manifold'
+  const selectThemeFamily = useCallback((family: 'manifold' | 'garfield' | 'neon') => {
     const suffix = themeId.endsWith('-light') ? '-light' : '-dark'
     void updateSettings({ theme: `${family}${suffix}` })
   }, [themeId, updateSettings])
-  const densityClass = settings.density === 'comfortable' ? '' : `density-${settings.density}`
   const updateNotification = useUpdateNotification()
   const updateLog = useUpdateLog()
+  // Embedded agents are themed at launch, so a light↔dark switch only applies
+  // to newly launched agents — tell the user when one is already running.
+  const interactiveAgentActive = !!activeSession && !activeSession.nonInteractive
+    && (activeSession.status === 'running' || activeSession.status === 'waiting')
+  const themeChangeNotice = useThemeChangeNotification(
+    themeClass === 'theme-light' ? 'light' : 'dark',
+    interactiveAgentActive,
+  )
   const worktreeShellCwd = activeSession?.worktreePath ?? null
   const shellProjectCwd = activeSession ? (activeProject?.path ?? null) : null
   const shellSessionKey = activeSessionId
@@ -214,7 +224,7 @@ export function App(): React.JSX.Element {
     fetchingProjectId: fetchProject.fetchingProjectId, lastFetchedProjectId: fetchProject.lastFetchedProjectId,
     fetchResult: fetchProject.fetchResult, fetchError: fetchProject.fetchError,
     onFetchProject: fetchProject.fetchProject,
-    onShowSearchPanel: appEffects.showSearchPanel, onClosePanel: editorHandlers.handleClosePanel,
+    onFocusSearch: appEffects.focusSearch, onClosePanel: editorHandlers.handleClosePanel,
     onOpenModule: (id) => {
       if (dockLayout.isPanelVisible(id)) dockLayout.focusPanel(id)
       else dockLayout.togglePanel(id)
@@ -230,7 +240,6 @@ export function App(): React.JSX.Element {
   return (
     <AppShell
       themeClass={themeClass}
-      densityClass={densityClass}
       settings={settings}
       projects={projects}
       projectError={projectError}
@@ -250,6 +259,7 @@ export function App(): React.JSX.Element {
       gitOps={gitOps}
       updateLog={updateLog}
       updateNotification={updateNotification}
+      themeChangeNotice={themeChangeNotice}
       appEffects={appEffects}
       showCommitAndPrButtons={settings.showCommitAndPrButtons && activeProjectIsGit}
       handleSelectFile={handleSelectFile}

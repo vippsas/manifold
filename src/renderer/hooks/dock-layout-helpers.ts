@@ -10,7 +10,7 @@ export {
   showPanelFromHints,
 } from './dock-layout-loader'
 
-export const PANEL_IDS = ['projects', 'agent', 'editor', 'fileTree', 'modifiedFiles', 'shell', 'search', 'backgroundAgent', 'loop', 'watch', 'verdicts'] as const
+export const PANEL_IDS = ['projects', 'agent', 'editor', 'fileTree', 'modifiedFiles', 'shell', 'backgroundAgent', 'loop', 'watch', 'verdicts'] as const
 export type DockPanelId = (typeof PANEL_IDS)[number]
 export const EDITOR_PANEL_ID_PREFIX = 'editor:'
 export type EditorSplitDirection = 'right' | 'below'
@@ -22,7 +22,6 @@ export const PANEL_TITLES: Record<DockPanelId, string> = {
   fileTree: 'Files',
   modifiedFiles: 'Modified Files',
   shell: 'Shell',
-  search: 'Search',
   backgroundAgent: 'Ideas',
   loop: 'Loop',
   watch: 'Watch',
@@ -34,16 +33,15 @@ export type Direction = 'right' | 'left' | 'above' | 'below' | 'within'
 // Fallback positions when no snapshot exists (matches default layout).
 export const PANEL_RESTORE_HINTS: Record<DockPanelId, Array<{ ref: DockPanelId; dir: Direction }>> = {
   projects: [{ ref: 'agent', dir: 'left' }, { ref: 'editor', dir: 'left' }, { ref: 'fileTree', dir: 'left' }],
-  agent: [{ ref: 'editor', dir: 'left' }, { ref: 'backgroundAgent', dir: 'within' }, { ref: 'search', dir: 'within' }, { ref: 'projects', dir: 'right' }, { ref: 'fileTree', dir: 'left' }, { ref: 'shell', dir: 'above' }],
-  editor: [{ ref: 'agent', dir: 'right' }, { ref: 'search', dir: 'within' }, { ref: 'shell', dir: 'above' }],
+  agent: [{ ref: 'editor', dir: 'left' }, { ref: 'backgroundAgent', dir: 'within' }, { ref: 'projects', dir: 'right' }, { ref: 'fileTree', dir: 'left' }, { ref: 'shell', dir: 'above' }],
+  editor: [{ ref: 'agent', dir: 'right' }, { ref: 'shell', dir: 'above' }],
   fileTree: [{ ref: 'modifiedFiles', dir: 'within' }, { ref: 'editor', dir: 'right' }, { ref: 'agent', dir: 'right' }],
   modifiedFiles: [{ ref: 'fileTree', dir: 'within' }, { ref: 'agent', dir: 'right' }],
   shell: [{ ref: 'agent', dir: 'below' }, { ref: 'editor', dir: 'below' }],
-  search: [{ ref: 'editor', dir: 'within' }, { ref: 'agent', dir: 'within' }, { ref: 'backgroundAgent', dir: 'within' }],
-  backgroundAgent: [{ ref: 'editor', dir: 'within' }, { ref: 'agent', dir: 'within' }, { ref: 'search', dir: 'within' }],
-  loop: [{ ref: 'editor', dir: 'within' }, { ref: 'agent', dir: 'within' }, { ref: 'search', dir: 'within' }, { ref: 'backgroundAgent', dir: 'within' }],
-  watch: [{ ref: 'editor', dir: 'within' }, { ref: 'agent', dir: 'within' }, { ref: 'search', dir: 'within' }, { ref: 'loop', dir: 'within' }],
-  verdicts: [{ ref: 'editor', dir: 'within' }, { ref: 'agent', dir: 'within' }, { ref: 'search', dir: 'within' }, { ref: 'backgroundAgent', dir: 'within' }],
+  backgroundAgent: [{ ref: 'editor', dir: 'within' }, { ref: 'agent', dir: 'within' }],
+  loop: [{ ref: 'editor', dir: 'within' }, { ref: 'agent', dir: 'within' }, { ref: 'backgroundAgent', dir: 'within' }],
+  watch: [{ ref: 'editor', dir: 'within' }, { ref: 'agent', dir: 'within' }, { ref: 'loop', dir: 'within' }],
+  verdicts: [{ ref: 'editor', dir: 'within' }, { ref: 'agent', dir: 'within' }, { ref: 'backgroundAgent', dir: 'within' }],
 }
 
 export function isEditorPanelId(panelId: string): boolean {

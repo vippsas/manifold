@@ -17,7 +17,8 @@ const buttonStyle: React.CSSProperties = {
 const secondaryButtonStyle: React.CSSProperties = {
   ...buttonStyle,
   color: 'var(--text-primary)',
-  backgroundColor: 'var(--bg-input)',
+  backgroundColor: 'var(--control-bg)',
+  border: '1px solid var(--control-border)',
 }
 
 const promptPlaceholderByMode: Record<PromptMode, string> = {

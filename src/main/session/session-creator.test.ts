@@ -23,6 +23,7 @@ vi.mock('../git/worktree-meta', () => ({
 }))
 
 import { SessionCreator } from './session-creator'
+import { getRuntimeById } from '../agent/runtimes'
 import { gitExec } from '../git/git-exec'
 import { readWorktreeMeta, writeWorktreeMeta } from '../git/worktree-meta'
 import type { WorktreeManager } from '../git/worktree-manager'
@@ -114,5 +115,67 @@ describe('SessionCreator', () => {
     expect(session.noWorktree).toBe(true)
     expect(readWorktreeMeta).not.toHaveBeenCalled()
     expect(writeWorktreeMeta).not.toHaveBeenCalled()
+  })
+
+  function createInteractiveClaude(getThemeType?: () => 'light' | 'dark') {
+    vi.mocked(getRuntimeById).mockReturnValueOnce({
+      id: 'claude',
+      name: 'Claude Code',
+      binary: 'claude',
+      args: ['--allow-dangerously-skip-permissions'],
+      env: undefined,
+    } as ReturnType<typeof getRuntimeById>)
+    const ptyPool = createPtyPool()
+    const creator = new SessionCreator(
+      {} as WorktreeManager,
+      ptyPool,
+      createProjectRegistry(),
+      createStreamWirer(),
+      () => null,
+      undefined,
+      undefined,
+      getThemeType,
+    )
+    return { creator, ptyPool }
+  }
+
+  it('launches interactive Claude Code with the light ANSI theme when Manifold is light', async () => {
+    vi.mocked(gitExec).mockResolvedValueOnce('main\n')
+    const { creator, ptyPool } = createInteractiveClaude(() => 'light')
+
+    await creator.create({
+      projectId: 'proj-1',
+      runtimeId: 'claude',
+      prompt: 'hi',
+      branchName: 'main',
+      noWorktree: true,
+      stayOnBranch: true,
+    })
+
+    expect(ptyPool.spawn).toHaveBeenCalledWith(
+      'claude',
+      expect.arrayContaining(['--settings', '{"theme":"light-ansi"}']),
+      expect.anything(),
+    )
+  })
+
+  it('defaults to the dark ANSI theme when no Manifold theme is known', async () => {
+    vi.mocked(gitExec).mockResolvedValueOnce('main\n')
+    const { creator, ptyPool } = createInteractiveClaude()
+
+    await creator.create({
+      projectId: 'proj-1',
+      runtimeId: 'claude',
+      prompt: 'hi',
+      branchName: 'main',
+      noWorktree: true,
+      stayOnBranch: true,
+    })
+
+    expect(ptyPool.spawn).toHaveBeenCalledWith(
+      'claude',
+      expect.arrayContaining(['--settings', '{"theme":"dark-ansi"}']),
+      expect.anything(),
+    )
   })
 })

@@ -1,4 +1,4 @@
-import type { CodeSearchResult, UnifiedSearchResult } from '../../shared/search-types'
+import type { CodeSearchResult, FileSearchResult, MemorySearchResultItem, UnifiedSearchResult } from '../../shared/search-types'
 
 export function buildSearchAnswerPrompt(question: string, citations: UnifiedSearchResult[]): string {
   const sourceBlocks = citations.map((citation, index) => formatSourceBlock(citation, index + 1))
@@ -36,18 +36,30 @@ export function buildSearchRerankPrompt(query: string, citations: UnifiedSearchR
 
 function formatSourceBlock(result: UnifiedSearchResult, sourceIndex: number): string {
   const sourceId = `S${sourceIndex}`
-  const metadata = result.source === 'code'
-    ? formatCodeMetadata(result)
-    : formatMemoryMetadata(result)
+  const metadata = formatMetadata(result)
 
   const body = result.source === 'code'
     ? formatCodeSnippet(result)
-    : result.snippet
+    : result.source === 'file'
+      ? result.relativePath
+      : result.snippet
 
   return [
     `[${sourceId}] ${metadata}`,
     body,
   ].join('\n')
+}
+
+function formatMetadata(result: UnifiedSearchResult): string {
+  if (result.source === 'code') return formatCodeMetadata(result)
+  if (result.source === 'file') return formatFileMetadata(result)
+  return formatMemoryMetadata(result)
+}
+
+function formatFileMetadata(result: FileSearchResult): string {
+  return ['File', result.relativePath, result.branchName, result.runtimeId]
+    .filter(Boolean)
+    .join(' | ')
 }
 
 function formatCodeMetadata(result: CodeSearchResult): string {
@@ -62,7 +74,7 @@ function formatCodeMetadata(result: CodeSearchResult): string {
   return parts.filter(Boolean).join(' | ')
 }
 
-function formatMemoryMetadata(result: Exclude<UnifiedSearchResult, CodeSearchResult>): string {
+function formatMemoryMetadata(result: MemorySearchResultItem): string {
   const parts = [
     'Memory',
     result.memorySource,

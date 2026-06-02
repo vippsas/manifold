@@ -23,6 +23,13 @@ vi.mock('../search/code-search-service', () => ({
   })),
 }))
 
+vi.mock('../search/file-search-service', () => ({
+  searchFilesInSessions: vi.fn(async () => ({
+    results: [],
+    warnings: [],
+  })),
+}))
+
 describe('registerSearchHandlers', () => {
   beforeEach(() => {
     vi.resetModules()

@@ -129,26 +129,6 @@
   --shadow-elevated: 0 4px 16px rgba(0, 0, 0, 0.3), inset 0 1px 0 rgba(255, 255, 255, 0.06);
 }
 
-/* ── Density presets ── */
-.density-compact {
-  --chrome-tab-height: 28px;
-  --chrome-row-height: 24px;
-  --chrome-status-height: 22px;
-  --control-height: 26px;
-  --row-gap: 2px;
-  --space-lg: 18px;
-}
-
-.density-spacious {
-  --chrome-tab-height: 40px;
-  --chrome-row-height: 38px;
-  --chrome-status-height: 28px;
-  --control-height: 36px;
-  --row-gap: 8px;
-  --space-lg: 24px;
-  --space-xl: 32px;
-}
-
 /* ── Micro-interactions ── */
 button:active,
 [role="button"]:active {
@@ -1305,6 +1285,20 @@ select:focus-visible {
   100% { transform: translateX(400%); }
 }
 
+/* ─── Search result reveal highlight ─── */
+/* Flashes a bright accent band on open, fading over ~1.5s into the persistent
+   subtle band below; the band lingers until the user moves the cursor or edits
+   (cleared in reveal-requested-location.ts). */
+@keyframes search-reveal-flash {
+  from { background: color-mix(in srgb, var(--accent) 45%, transparent); }
+  to   { background: var(--accent-subtle); }
+}
+
+.search-reveal-line {
+  background: var(--accent-subtle);
+  animation: search-reveal-flash 1.5s ease-out;
+}
+
 .spinner {
   display: inline-block;
   width: 14px;
@@ -1414,4 +1408,9 @@ select:focus-visible {
   border: none;
   border-top: 1px solid var(--border);
   margin: 1em 0;
+}
+
+/* ─── Title Bar Search (omnibox) ─── */
+.titlebar-search-input::placeholder {
+  color: var(--text-muted);
 }

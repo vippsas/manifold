@@ -12,6 +12,7 @@ import { SettingsModal } from './components/modals/SettingsModal'
 import { AboutOverlay } from './components/modals/AboutOverlay'
 import { UpdateLogOverlay } from './components/modals/UpdateLogOverlay'
 import { UpdateToast } from '../shared/UpdateToast'
+import { ThemeChangeToast } from '../shared/ThemeChangeToast'
 import { StatusBar } from './components/git/StatusBar'
 import { CommitPanel } from './components/git/CommitPanel'
 import { PRPanel } from './components/git/PRPanel'
@@ -25,7 +26,6 @@ import { DeleteAgentDialog } from './components/sidebar/DeleteAgentDialog'
 
 export interface AppShellProps {
   themeClass: string
-  densityClass: string
   settings: ManifoldSettings
   projects: Project[]
   projectError: string | null
@@ -66,6 +66,7 @@ export interface AppShellProps {
     openReleaseNotes: (version?: string) => void
   }
   updateNotification: { updateReady: boolean; version: string | null; install: () => void; dismiss: () => void }
+  themeChangeNotice: { show: boolean; mode: 'light' | 'dark'; dismiss: () => void }
   appEffects: { showOnboarding: boolean; setShowOnboarding: (v: boolean) => void; creatingProject: boolean; cloningProject: boolean }
   showCommitAndPrButtons: boolean
   // Top-level handlers/state
@@ -89,15 +90,15 @@ export interface AppShellProps {
   dockLayout: unknown
   onRenameActiveProject: (name: string) => void
   onToggleTheme: () => void
-  themeFamily: 'manifold' | 'garfield'
-  onSelectThemeFamily: (family: 'manifold' | 'garfield') => void
+  themeFamily: 'manifold' | 'garfield' | 'neon'
+  onSelectThemeFamily: (family: 'manifold' | 'garfield' | 'neon') => void
 }
 
 export function AppShell(p: AppShellProps): React.JSX.Element {
   const themeType: 'dark' | 'light' = p.themeClass === 'theme-light' ? 'light' : 'dark'
   if (!p.settings.setupCompleted) {
     return (
-      <div className={`layout-root ${p.themeClass} ${p.densityClass}`}>
+      <div className={`layout-root ${p.themeClass}`}>
         <TitleBar themeType={themeType} onToggleTheme={p.onToggleTheme} themeFamily={p.themeFamily} onSelectThemeFamily={p.onSelectThemeFamily} />
         <WelcomeDialog onAddProject={() => void p.addProject()} onCloneProject={p.cloneProject} onComplete={p.overlays.handleSetupComplete} />
       </div>
@@ -106,7 +107,7 @@ export function AppShell(p: AppShellProps): React.JSX.Element {
 
   if (p.projects.length === 0) {
     return (
-      <div className={`layout-root ${p.themeClass} ${p.densityClass}`}>
+      <div className={`layout-root ${p.themeClass}`}>
         <TitleBar themeType={themeType} onToggleTheme={p.onToggleTheme} themeFamily={p.themeFamily} onSelectThemeFamily={p.onSelectThemeFamily} />
         <OnboardingView variant="no-project" onAddProject={() => void p.handleAddProjectFromOnboarding()} onCloneProject={p.handleCloneFromOnboarding}
           onCreateNewProject={(desc) => void p.handleCreateNewProject(desc)} creatingProject={p.appEffects.creatingProject}
@@ -118,8 +119,22 @@ export function AppShell(p: AppShellProps): React.JSX.Element {
   const activeProjectName = p.projects.find((proj) => proj.id === p.activeProjectId)?.name
 
   return (
-    <div className={`layout-root ${p.themeClass} ${p.densityClass}`}>
-      <TitleBar projectName={activeProjectName} onRename={p.onRenameActiveProject} themeType={themeType} onToggleTheme={p.onToggleTheme} themeFamily={p.themeFamily} onSelectThemeFamily={p.onSelectThemeFamily} />
+    <div className={`layout-root ${p.themeClass}`}>
+      <TitleBar
+        projectName={activeProjectName}
+        themeType={themeType}
+        onToggleTheme={p.onToggleTheme}
+        themeFamily={p.themeFamily}
+        onSelectThemeFamily={p.onSelectThemeFamily}
+        search={{
+          activeProjectId: p.dockState.activeProjectId,
+          activeSessionId: p.dockState.sessionId,
+          allProjectSessions: p.dockState.allProjectSessions,
+          onOpenSearchResult: p.dockState.onOpenSearchResult,
+          focusRequestKey: p.dockState.searchFocusRequestKey,
+          requestedMode: p.dockState.requestedSearchMode,
+        }}
+      />
       <div className="layout-main">
         <DockStateContext.Provider value={p.dockState}>
           <div style={{ flex: 1, overflow: 'hidden' }}>
@@ -215,6 +230,9 @@ export function AppShell(p: AppShellProps): React.JSX.Element {
         <UpdateToast version={p.updateNotification.version} onRestart={p.updateNotification.install}
           onDismiss={p.updateNotification.dismiss}
           onViewReleaseNotes={() => p.updateLog.openReleaseNotes(p.updateNotification.version ?? undefined)} />
+      )}
+      {p.themeChangeNotice.show && (
+        <ThemeChangeToast mode={p.themeChangeNotice.mode} onDismiss={p.themeChangeNotice.dismiss} />
       )}
       {(p.appEffects.showOnboarding || p.appEffects.creatingProject) && (
         <div style={{ position: 'absolute', inset: 0, zIndex: 100, background: 'var(--bg-primary)' }}>

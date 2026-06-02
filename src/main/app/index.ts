@@ -1,4 +1,5 @@
-import { app, BrowserWindow } from 'electron'
+import { app, BrowserWindow, nativeTheme } from 'electron'
+import type { AgentStatus } from '../../shared/types'
 import { loadShellPath } from './shell-path'
 import { configureDevProfilePaths } from './dev-profile'
 
@@ -63,7 +64,11 @@ const worktreeManager = new WorktreeManager(settingsStore.getSettings().storageP
 const branchCheckout = new BranchCheckoutManager(settingsStore.getSettings().storagePath)
 const ptyPool = new PtyPool()
 const fileWatcher = new FileWatcher(undefined, new ChokidarTreeWatcher())
-const sessionManager = new SessionManager(worktreeManager, ptyPool, projectRegistry, branchCheckout, fileWatcher)
+// nativeTheme tracks Manifold's current light/dark theme — the renderer's
+// `theme:changed` IPC (see mode-switcher) sets themeSource on every theme
+// change. Used to launch the embedded Claude Code with a matching ANSI theme.
+const getThemeType = (): 'light' | 'dark' => (nativeTheme.shouldUseDarkColors ? 'dark' : 'light')
+const sessionManager = new SessionManager(worktreeManager, ptyPool, projectRegistry, branchCheckout, fileWatcher, getThemeType)
 const diffProvider = new DiffProvider()
 
 // ── Workspace modules ────────────────────────────────────────────────

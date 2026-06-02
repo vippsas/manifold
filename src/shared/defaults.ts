@@ -14,7 +14,6 @@ export const DEFAULT_SETTINGS: ManifoldSettings = {
   shellPrompt: true,
   shellHistoryScope: 'project',
   uiMode: 'developer',
-  density: 'comfortable' as const,
   autoGenerateMessages: true,
   showCommitAndPrButtons: false,
   sidebarResizeReversed: false,

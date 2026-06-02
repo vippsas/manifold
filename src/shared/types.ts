@@ -76,8 +76,6 @@ export interface FileTreeNode {
   children?: FileTreeNode[]
 }
 
-export type DensitySetting = 'compact' | 'comfortable' | 'spacious'
-
 export interface ManifoldSettings {
   storagePath: string
   setupCompleted: boolean
@@ -92,7 +90,6 @@ export interface ManifoldSettings {
   shellPrompt: boolean
   shellHistoryScope: 'project' | 'global'
   uiMode: 'developer' | 'simple'
-  density: DensitySetting
   autoGenerateMessages: boolean
   showCommitAndPrButtons: boolean
   sidebarResizeReversed: boolean

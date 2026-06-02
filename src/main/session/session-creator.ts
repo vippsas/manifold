@@ -16,6 +16,7 @@ import type { MemoryInjector } from '../memory/memory-injector'
 import { debugLog } from '../app/debug-log'
 import type { InternalSession } from './session-types'
 import { buildSimpleRuntimeCommand } from '../agent/simple-runtime'
+import { claudeAnsiThemeArgs } from '../agent/claude-theme-args'
 import { isGitProject } from '../../shared/project-kind'
 import { buildWorkingSetArgs } from '../agent/working-set-args'
 
@@ -28,6 +29,7 @@ export class SessionCreator {
     private getChatAdapter: () => ChatAdapter | null,
     private branchCheckoutManager?: BranchCheckoutManager,
     private getMemoryInjector?: () => MemoryInjector | null,
+    private getThemeType?: () => 'light' | 'dark',
   ) {}
 
   async create(options: SpawnAgentOptions): Promise<InternalSession> {
@@ -119,6 +121,14 @@ export class SessionCreator {
 
     if (!options.nonInteractive && options.additionalDirs && options.additionalDirs.length > 0) {
       runtimeArgs.push(...buildWorkingSetArgs(options.runtimeId, options.additionalDirs))
+    }
+
+    // Match the embedded Claude Code's colors to Manifold's theme. Its
+    // ANSI-palette theme renders through the terminal's colors, so Manifold's
+    // themed palette controls it. Only for interactive Claude Code — print-mode
+    // output isn't a themed TUI, and non-claude runtimes don't take --settings.
+    if (!options.nonInteractive && commandBinary === 'claude') {
+      runtimeArgs.push(...claudeAnsiThemeArgs(this.getThemeType?.() ?? 'dark'))
     }
 
     debugLog(`[session] nonInteractive=${options.nonInteractive}, deferRuntime=${deferRuntime}, runtimeArgs=${JSON.stringify(runtimeArgs)}`)

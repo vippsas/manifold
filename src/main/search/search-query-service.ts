@@ -4,6 +4,7 @@ import type { AgentSession } from '../../shared/types'
 import { isNoise, sanitizeMemoryText, truncate } from '../memory/memory-capture'
 import { buildMemoryFtsQuery } from '../memory/store/memory-fts-query'
 import { searchCodeInSessions } from './code-search-service'
+import { searchFilesInSessions } from './file-search-service'
 import type { IpcDependencies } from '../ipc/types'
 
 interface SearchQueryDeps {
@@ -19,10 +20,15 @@ export async function executeSearchQuery(
   const warnings: string[] = []
   const sessions = await resolveScopeSessions(deps.sessionManager, request)
 
-  const codeResponse = request.mode === 'memory'
-    ? { results: [], warnings: [] }
-    : (await searchCodeInSessions(sessions, request))
-  warnings.push(...codeResponse.warnings)
+  const wantsCode = request.mode === 'code' || request.mode === 'everything'
+  const wantsFiles = request.mode === 'files' || request.mode === 'code' || request.mode === 'everything'
+
+  const emptyResponse = { results: [], warnings: [] as string[] }
+  const [codeResponse, fileResponse] = await Promise.all([
+    wantsCode ? searchCodeInSessions(sessions, request) : Promise.resolve(emptyResponse),
+    wantsFiles ? searchFilesInSessions(sessions, request) : Promise.resolve(emptyResponse),
+  ])
+  warnings.push(...codeResponse.warnings, ...fileResponse.warnings)
 
   const memoryDecision = shouldSearchMemory(request)
   if (memoryDecision.warning) {
@@ -33,7 +39,7 @@ export async function executeSearchQuery(
     ? searchMemory(deps.memoryStore, request)
     : []
 
-  const merged = mergeResults(request.mode, codeResponse.results, memoryResults, request.limit ?? 100)
+  const merged = mergeResults(request.mode, fileResponse.results, codeResponse.results, memoryResults, request.limit ?? 100)
   return {
     results: merged,
     total: merged.length,
@@ -43,7 +49,7 @@ export async function executeSearchQuery(
 }
 
 function shouldSearchMemory(request: SearchQueryRequest): { enabled: boolean; warning?: string } {
-  if (request.mode === 'code') {
+  if (request.mode === 'code' || request.mode === 'files') {
     return { enabled: false }
   }
   if (request.mode === 'memory' && request.matchMode === 'regex') {
@@ -196,24 +202,24 @@ function toScopedMemoryId(projectId: string, id: string, shouldPrefixIds: boolea
   return shouldPrefixIds ? `${projectId}:${id}` : id
 }
 
+// In combined modes, cap filename matches so a broad query can't crowd out
+// code or memory results. The dedicated `files` mode shows them all.
+const FILE_RESULTS_IN_COMBINED = 25
+
 function mergeResults(
   mode: SearchQueryRequest['mode'],
+  fileResults: UnifiedSearchResult[],
   codeResults: UnifiedSearchResult[],
   memoryResults: UnifiedSearchResult[],
   limit: number,
 ): UnifiedSearchResult[] {
-  if (mode === 'code') return codeResults.slice(0, limit)
+  if (mode === 'files') return fileResults.slice(0, limit)
   if (mode === 'memory') return memoryResults.slice(0, limit)
 
-  return [...codeResults, ...memoryResults]
-    .sort((left, right) => {
-      if (left.source !== right.source) return left.source === 'code' ? -1 : 1
-      const leftScore = left.score ?? 0
-      const rightScore = right.score ?? 0
-      if (leftScore !== rightScore) return leftScore - rightScore
-      return left.title.localeCompare(right.title)
-    })
-    .slice(0, limit)
+  const files = fileResults.slice(0, FILE_RESULTS_IN_COMBINED)
+  // Files first (high-signal), then code, then memory.
+  if (mode === 'code') return [...files, ...codeResults].slice(0, limit)
+  return [...files, ...codeResults, ...memoryResults].slice(0, limit)
 }
 
 interface InteractionRow {
