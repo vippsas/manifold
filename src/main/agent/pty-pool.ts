@@ -23,11 +23,26 @@ export class PtyPool {
     options: { cwd: string; env?: Record<string, string>; cols?: number; rows?: number }
   ): PtyHandle {
     const id = uuidv4()
-    const env = { ...process.env, ...(options.env ?? {}) } as Record<string, string>
+    const env = {
+      ...process.env,
+      // Advertise color capability the way a real terminal (e.g. iTerm2) does.
+      // The PTY runs xterm-256color and xterm.js renders truecolor, but tools
+      // like Claude Code (chalk/Ink via supports-color) only emit color when the
+      // environment says the terminal supports it. Without these, color
+      // detection depends on the host's inherited env and silently collapses to
+      // a single foreground color on some machines. (#395)
+      COLORTERM: 'truecolor',
+      FORCE_COLOR: '3',
+      ...(options.env ?? {}),
+    } as Record<string, string>
     // Manifold spawns agents as child PTY processes. If Manifold itself was
     // launched from inside Claude Code, the CLAUDECODE env var leaks through
     // and makes Claude Code refuse to start ("nested session" detection).
     delete env.CLAUDECODE
+    // An inherited NO_COLOR would suppress all ANSI output, undoing the color
+    // capability we just advertised. Strip it so Manifold's themed terminal
+    // stays colored regardless of the host shell's preference. (#395)
+    delete env.NO_COLOR
 
     debugLog(`[pty-pool] spawn file=${file} args=${JSON.stringify(args)} cwd=${options.cwd} cols=${options.cols} rows=${options.rows}`)
     debugLog(`[pty-pool] PATH=${env.PATH?.split(':').slice(0, 5).join(':')}...`)
