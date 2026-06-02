@@ -67,6 +67,7 @@ export function TitleBarSearch({ search: wiring }: { search: TitleBarSearchWirin
   const trimmedQuery = search.query.trim()
 
   const openResult = (result: UnifiedSearchResult | undefined): void => {
+    // Memory results aren't openable as files (mirrors the dock SearchPanel) — Enter/click is a no-op.
     if (!result || result.source !== 'code') return
     wiring.onOpenSearchResult({
       path: result.filePath,
@@ -192,13 +193,13 @@ export function TitleBarSearch({ search: wiring }: { search: TitleBarSearchWirin
                 {codeResults.length > 0 && (
                   <div>
                     <div style={styles.groupLabel}>Code</div>
-                    {codeResults.map((result) => renderResult(result, ordered.indexOf(result)))}
+                    {codeResults.map((result, i) => renderResult(result, i))}
                   </div>
                 )}
                 {memoryResults.length > 0 && (
                   <div>
                     <div style={styles.groupLabel}>Memory</div>
-                    {memoryResults.map((result) => renderResult(result, ordered.indexOf(result)))}
+                    {memoryResults.map((result, i) => renderResult(result, codeResults.length + i))}
                   </div>
                 )}
               </>

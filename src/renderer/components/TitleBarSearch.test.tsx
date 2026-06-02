@@ -97,4 +97,53 @@ describe('TitleBarSearch', () => {
       sessionId: undefined,
     })
   })
+
+  it('moves selection with ArrowDown and opens the second result on Enter', async () => {
+    const secondResult = {
+      ...CODE_RESULT,
+      id: 'r2',
+      filePath: '/abs/src/main/search/search-index.ts',
+      relativePath: 'src/main/search/search-index.ts',
+      line: 88,
+    }
+    mockInvoke.mockImplementation((channel: string) => {
+      if (channel === 'settings:get') return Promise.resolve(DEFAULT_SETTINGS)
+      if (channel === 'search:context') {
+        return Promise.resolve({ projectId: 'project-1', activeSessionId: 'session-1', sessions: [] })
+      }
+      if (channel === 'search:query') {
+        return Promise.resolve({ results: [CODE_RESULT, secondResult], total: 2, tookMs: 3 })
+      }
+      return Promise.reject(new Error(`Unexpected channel: ${channel}`))
+    })
+
+    const wiring = makeWiring()
+    render(<TitleBarSearch search={wiring} />)
+    const input = screen.getByLabelText('Search code and memory')
+    fireEvent.focus(input)
+    fireEvent.change(input, { target: { value: 'search' } })
+
+    await flush()
+    act(() => { vi.advanceTimersByTime(250) })
+    await flush()
+
+    expect(screen.getByText('src/main/search/search-index.ts:88')).toBeInTheDocument()
+
+    fireEvent.keyDown(input, { key: 'ArrowDown' })
+    fireEvent.keyDown(input, { key: 'Enter' })
+    expect(wiring.onOpenSearchResult).toHaveBeenCalledWith({
+      path: '/abs/src/main/search/search-index.ts',
+      line: 88,
+      column: undefined,
+      sessionId: undefined,
+    })
+  })
+
+  it('closes the dropdown on outside mousedown', () => {
+    render(<TitleBarSearch search={makeWiring()} />)
+    fireEvent.focus(screen.getByLabelText('Search code and memory'))
+    expect(screen.getByRole('button', { name: 'Everything' })).toBeInTheDocument()
+    fireEvent.mouseDown(document.body)
+    expect(screen.queryByRole('button', { name: 'Everything' })).not.toBeInTheDocument()
+  })
 })
