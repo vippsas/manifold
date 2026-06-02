@@ -16,4 +16,6 @@ export interface WorkspaceSpawnAgentOptions {
   runtimeId: string
   prompt?: string
   branchName?: string
+  /** Repo to use as the agent cwd/primary; defaults to the first repo when absent or unknown. */
+  homeProjectId?: string
 }

@@ -14,8 +14,9 @@ export interface WorkspaceListProps {
   onSelectWorkspace: (id: string) => void
   onRemoveWorkspace: (id: string) => Promise<void>
   onSelectSession: (sessionId: string, projectId: string) => void
-  onSpawnAgent: (workspaceId: string) => void
+  onSpawnAgent: (workspaceId: string, homeProjectId?: string) => void
   onAddProject?: (workspaceId: string) => void
+  onRemoveProject?: (workspaceId: string, projectId: string) => void
   onDeleteAgent?: (session: AgentSession, projectPath: string) => void
 }
 
@@ -31,6 +32,7 @@ export function WorkspaceList({
   onSelectSession,
   onSpawnAgent,
   onAddProject,
+  onRemoveProject,
   onDeleteAgent,
 }: WorkspaceListProps) {
   const [removing, setRemoving] = useState<string | null>(null)
@@ -140,6 +142,7 @@ export function WorkspaceList({
             </div>
             {w.projectIds.map((pid) => {
               const repo = projectById(pid)
+              const repoName = repo?.name ?? pid
               return (
                 <div
                   key={`repo-${pid}`}
@@ -151,8 +154,34 @@ export function WorkspaceList({
                     className="truncate sidebar-row-label"
                     style={{ color: 'var(--text-secondary)', fontSize: 'var(--type-ui-small)' }}
                   >
-                    {repo?.name ?? pid}
+                    {repoName}
                   </span>
+                  <div className="sidebar-item-actions" style={sidebarStyles.itemRight}>
+                    <button
+                      type="button"
+                      onClick={(e) => { e.stopPropagation(); onSpawnAgent(w.id, pid) }}
+                      onKeyDown={(e) => e.stopPropagation()}
+                      className="sidebar-icon-button"
+                      style={sidebarStyles.addButton}
+                      aria-label={`Start agent in ${repoName}`}
+                      title="Start agent here"
+                    >
+                      &#9654;
+                    </button>
+                    {onRemoveProject && w.projectIds.length > 1 && (
+                      <button
+                        type="button"
+                        onClick={(e) => { e.stopPropagation(); onRemoveProject(w.id, pid) }}
+                        onKeyDown={(e) => e.stopPropagation()}
+                        className="sidebar-icon-button"
+                        style={sidebarStyles.removeButton}
+                        aria-label={`Remove ${repoName} from workspace`}
+                        title="Remove repository from workspace"
+                      >
+                        &times;
+                      </button>
+                    )}
+                  </div>
                 </div>
               )
             })}

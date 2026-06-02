@@ -153,6 +153,7 @@ function ProjectsPanel(): React.JSX.Element {
       onRemoveWorkspace={s.onRemoveWorkspace}
       onSpawnWorkspaceAgent={s.onSpawnWorkspaceAgent}
       onAddProjectToWorkspace={s.onAddProjectToWorkspace}
+      onRemoveProjectFromWorkspace={s.onRemoveProjectFromWorkspace}
       fetchingProjectId={s.fetchingProjectId}
       lastFetchedProjectId={s.lastFetchedProjectId}
       fetchResult={s.fetchResult}

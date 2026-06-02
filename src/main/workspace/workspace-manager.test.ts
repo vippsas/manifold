@@ -16,6 +16,7 @@ function makeDeps(tmpDir: string) {
   const projects: Record<string, { id: string; name: string; path: string; baseBranch: string; kind: 'git' }> = {
     api: { id: 'api', name: 'api', path: '/repo/api', baseBranch: 'main', kind: 'git' },
     web: { id: 'web', name: 'web', path: '/repo/web', baseBranch: 'main', kind: 'git' },
+    shared: { id: 'shared', name: 'shared', path: '/repo/shared', baseBranch: 'main', kind: 'git' },
   }
   const createSession = vi.fn(async (opts: Record<string, unknown>) => ({ id: 'sess-1', ...opts }))
   return {
@@ -67,6 +68,39 @@ describe('WorkspaceManager', () => {
       workspaceId: w.id,
       workspaceWorktreePaths: { api: '/repo/api/.wt/manifold/auth', web: '/repo/web/.wt/manifold/auth' },
     }))
+  })
+
+  it('spawnAgent homes the agent in the chosen repo while still spanning the others', async () => {
+    const w = manager.create({ name: 'auth', projectIds: ['api', 'web'] })
+    await manager.spawnAgent(w.id, { runtimeId: 'claude', homeProjectId: 'web' })
+    expect(deps._createSession).toHaveBeenCalledWith(expect.objectContaining({
+      projectId: 'web',
+      existingWorktreePath: '/repo/web/.wt/manifold/auth',
+      additionalDirs: ['/repo/api/.wt/manifold/auth'],
+    }))
+  })
+
+  it('keeps the other repos in their original order when the home repo is in the middle', async () => {
+    const w = manager.create({ name: 'auth', projectIds: ['api', 'web', 'shared'] })
+    await manager.spawnAgent(w.id, { runtimeId: 'claude', homeProjectId: 'web' })
+    expect(deps._createSession).toHaveBeenCalledWith(expect.objectContaining({
+      projectId: 'web',
+      existingWorktreePath: '/repo/web/.wt/manifold/auth',
+      // api stays before shared; only web is pulled to the front
+      additionalDirs: ['/repo/api/.wt/manifold/auth', '/repo/shared/.wt/manifold/auth'],
+    }))
+  })
+
+  it('removeProject removes a repo when more than one remains', () => {
+    const w = manager.create({ name: 'auth', projectIds: ['api', 'web'] })
+    manager.removeProject(w.id, 'api')
+    expect(manager.get(w.id)?.projectIds).toEqual(['web'])
+  })
+
+  it('removeProject refuses to empty a workspace (keeps the last repo)', () => {
+    const w = manager.create({ name: 'auth', projectIds: ['api'] })
+    manager.removeProject(w.id, 'api')
+    expect(manager.get(w.id)?.projectIds).toEqual(['api'])
   })
 
   it('remove deletes the workspace record', () => {

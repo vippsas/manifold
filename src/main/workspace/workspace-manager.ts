@@ -56,6 +56,10 @@ export class WorkspaceManager {
   }
 
   removeProject(id: string, projectId: string): void {
+    const workspace = this.deps.store.get(id)
+    // Never empty a workspace — one with no repos can't spawn an agent. The UI also
+    // hides the last repo's remove button, but guard here for any direct caller.
+    if (workspace && workspace.projectIds.length <= 1) return
     this.deps.store.removeProject(id, projectId)
     this.deps.emitListChanged()
   }
@@ -70,6 +74,14 @@ export class WorkspaceManager {
       if (!project) throw new Error(`Project not found: ${pid}`)
       return { id: project.id, path: project.path, name: project.name, baseBranch: project.baseBranch, kind: project.kind }
     })
+
+    // Home the agent in the chosen repo: move it to the front (its cwd/primary), keeping
+    // the others in their relative order. Unknown/absent homeProjectId keeps the default (first repo).
+    if (options.homeProjectId && projects.some((p) => p.id === options.homeProjectId)) {
+      const home = projects.find((p) => p.id === options.homeProjectId)!
+      const rest = projects.filter((p) => p.id !== options.homeProjectId)
+      projects.splice(0, projects.length, home, ...rest)
+    }
 
     const baseBranch = options.branchName ?? `manifold/${slugify(workspace.name)}`
     const branchName = await findAvailableWorkspaceBranch(this.deps.worktreeManager, projects, baseBranch)

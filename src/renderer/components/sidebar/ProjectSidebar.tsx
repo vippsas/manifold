@@ -25,8 +25,9 @@ interface ProjectSidebarProps {
   sessionsByWorkspace?: Record<string, AgentSession[]>
   onSelectWorkspace?: (id: string) => void
   onRemoveWorkspace?: (id: string) => Promise<void>
-  onSpawnWorkspaceAgent?: (workspaceId: string) => void
+  onSpawnWorkspaceAgent?: (workspaceId: string, homeProjectId?: string) => void
   onAddProjectToWorkspace?: (workspaceId: string) => void
+  onRemoveProjectFromWorkspace?: (workspaceId: string, projectId: string) => void
   fetchingProjectId: string | null
   lastFetchedProjectId: string | null
   fetchResult: { updatedBranch: string; commitCount: number } | null
@@ -59,6 +60,7 @@ export function ProjectSidebar({
   onRemoveWorkspace,
   onSpawnWorkspaceAgent,
   onAddProjectToWorkspace,
+  onRemoveProjectFromWorkspace,
   fetchingProjectId,
   lastFetchedProjectId,
   fetchResult,
@@ -92,6 +94,7 @@ export function ProjectSidebar({
           onSelectSession={onSelectSession}
           onSpawnAgent={onSpawnWorkspaceAgent}
           onAddProject={onAddProjectToWorkspace}
+          onRemoveProject={onRemoveProjectFromWorkspace}
           onDeleteAgent={onRequestDeleteAgent}
         />
       )}

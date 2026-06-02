@@ -40,7 +40,7 @@ export function App(): React.JSX.Element {
   const { sessions, activeSessionId, activeSession, spawnAgent, deleteAgent, setActiveSession, resumeAgent, outputtingSessionIds } = useAgentSession(activeProjectId)
   const { drafts, activeDraft, effectiveSessionId, createDraft, discardDraft, promoteDraft } = useDraftChatCoordinator(activeSessionId, setActiveSession, spawnAgent)
   const { sessionsByProject, removeSession } = useAllProjectSessions(projects, activeProjectId, sessions)
-  const { workspaces, createWorkspace, removeWorkspace, addProject: addProjectToWorkspace, spawnAgent: spawnWorkspaceAgent } = useWorkspaces()
+  const { workspaces, createWorkspace, removeWorkspace, addProject: addProjectToWorkspace, removeProject: removeProjectFromWorkspace, spawnAgent: spawnWorkspaceAgent } = useWorkspaces()
   const [activeWorkspaceId, setActiveWorkspaceId] = useState<string | null>(null)
   const [newWorkspaceVisible, setNewWorkspaceVisible] = useState(false)
   const [addProjectWorkspaceId, setAddProjectWorkspaceId] = useState<string | null>(null)
@@ -204,11 +204,12 @@ export function App(): React.JSX.Element {
       await removeWorkspace(id)
       setActiveWorkspaceId((current) => (current === id ? null : current))
     },
-    onSpawnWorkspaceAgent: async (workspaceId: string) => {
-      const session = await spawnWorkspaceAgent(workspaceId, { runtimeId: settings.defaultRuntime })
+    onSpawnWorkspaceAgent: async (workspaceId: string, homeProjectId?: string) => {
+      const session = await spawnWorkspaceAgent(workspaceId, { runtimeId: settings.defaultRuntime, homeProjectId })
       setActiveWorkspaceId(workspaceId); overlays.handleSelectSession(session.id, session.projectId)
     },
     onAddProjectToWorkspace: (id: string) => setAddProjectWorkspaceId(id),
+    onRemoveProjectFromWorkspace: (id: string, pid: string) => { void removeProjectFromWorkspace(id, pid) },
     fetchingProjectId: fetchProject.fetchingProjectId, lastFetchedProjectId: fetchProject.lastFetchedProjectId,
     fetchResult: fetchProject.fetchResult, fetchError: fetchProject.fetchError,
     onFetchProject: fetchProject.fetchProject,
