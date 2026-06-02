@@ -10,6 +10,8 @@ export function persistSessionMeta(session: InternalSession): void {
     additionalDirs: session.additionalDirs,
     ollamaModel: session.ollamaModel,
     parentSuperagentId: session.parentSuperagentId,
+    workspaceId: session.workspaceId,
+    workspaceWorktreePaths: session.workspaceWorktreePaths,
     nonInteractive: session.nonInteractive,
   }).catch((err) => {
     console.error(
