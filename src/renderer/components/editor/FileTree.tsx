@@ -5,19 +5,17 @@ import { ContextMenu } from './ContextMenu'
 import type { ContextMenuAction } from './ContextMenu'
 import { treeStyles } from './FileTree.styles'
 import { describeDropTarget } from './file-tree-drop'
-import { WorkspaceRootHeader, shortenPath, filterTree } from './file-tree-helpers'
+import { WorkspaceRootHeader, filterTree } from './file-tree-helpers'
 import { useFileTreeEditing } from './useFileTreeEditing'
 import { useFileTreeDragDrop } from './useFileTreeDragDrop'
 
 interface FileTreeProps {
   tree: FileTreeNode | null
   additionalTrees?: Map<string, FileTreeNode>
-  additionalBranches?: Map<string, string | null>
   /** Optional display names per worktree root path. Keys: primary tree path, plus additional tree paths. */
   rootLabels?: Map<string, string>
   /** Render the root directory contents directly when a workspace header is shown. */
   flattenRoots?: boolean
-  primaryBranch: string | null
   changes: FileChange[]
   additionalChanges?: Map<string, FileChange[]>
   activeFilePath: string | null
@@ -39,7 +37,7 @@ interface FileTreeProps {
 }
 
 export function FileTree({
-  tree, additionalTrees, additionalBranches, rootLabels, flattenRoots = false, primaryBranch,
+  tree, additionalTrees, rootLabels, flattenRoots = false,
   changes, additionalChanges, activeFilePath, openFilePaths, expandedPaths, onToggleExpand, onSelectFile,
   onDeleteFile, onRenameFile, onCreateFile, onCreateDir, onImportPaths, onMovePath,
   onRevealInFinder, onOpenInTerminal, onCopyAbsolutePath, onCopyRelativePath,
@@ -179,12 +177,12 @@ export function FileTree({
             {hasAdditionalRoots ? (
               <>
                 <div data-tree-root-path={filteredTree.path}>
-                  <WorkspaceRootHeader name={rootLabels?.get(filteredTree.path) ?? filteredTree.name} subtitle={primaryBranch} isAdditional={false} />
+                  <WorkspaceRootHeader name={rootLabels?.get(filteredTree.path) ?? filteredTree.name} isAdditional={false} />
                   {renderWorkspaceTree(filteredTree)}
                 </div>
                 {Array.from(filteredAdditionalTrees.entries()).map(([dirPath, dirTree]) => (
                   <div key={dirPath} data-tree-root-path={dirPath}>
-                    <WorkspaceRootHeader name={rootLabels?.get(dirPath) ?? dirTree.name} subtitle={additionalBranches?.get(dirPath) ?? shortenPath(dirPath)} isAdditional={true} />
+                    <WorkspaceRootHeader name={rootLabels?.get(dirPath) ?? dirTree.name} isAdditional={true} />
                     {renderWorkspaceTree(dirTree)}
                   </div>
                 ))}
@@ -193,7 +191,6 @@ export function FileTree({
               <div data-tree-root-path={filteredTree.path}>
                 <WorkspaceRootHeader
                   name={rootLabels?.get(filteredTree.path) ?? filteredTree.name}
-                  subtitle={primaryBranch}
                   isAdditional={false}
                 />
                 {renderWorkspaceTree(filteredTree)}

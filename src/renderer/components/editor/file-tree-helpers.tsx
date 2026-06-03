@@ -3,11 +3,9 @@ import type { FileTreeNode } from '../../../shared/types'
 
 export function WorkspaceRootHeader({
   name,
-  subtitle,
   isAdditional,
 }: {
   name: string
-  subtitle: string | null
   isAdditional: boolean
 }): React.JSX.Element {
   return (
@@ -40,31 +38,8 @@ export function WorkspaceRootHeader({
           </span>
         )}
       </div>
-      {subtitle && (
-        <div
-          style={{
-            fontSize: '0.92em',
-            fontWeight: 400,
-            color: 'var(--text-tertiary, rgba(255,255,255,0.35))',
-            marginTop: '2px',
-            overflow: 'hidden',
-            textOverflow: 'ellipsis',
-            whiteSpace: 'nowrap' as const,
-          }}
-        >
-          {subtitle}
-        </div>
-      )}
     </div>
   )
-}
-
-export function shortenPath(fullPath: string): string {
-  const match = fullPath.match(/^\/(?:Users|home)\/[^/]+/)
-  if (match) {
-    return '~' + fullPath.slice(match[0].length)
-  }
-  return fullPath
 }
 
 export function filterTree(node: FileTreeNode, query: string): FileTreeNode | null {

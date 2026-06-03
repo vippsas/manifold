@@ -30,6 +30,7 @@ import { useAgentSiblingDockTabs } from './hooks/useAgentSiblingDockTabs'
 import { getPrimarySession } from './hooks/agent-siblings'
 import { useAppEffects } from './hooks/useAppEffects'
 import type { DockAppState } from './components/editor/dock-panel-types'
+import { buildRootLabels } from './components/editor/file-tree-labels'
 import { useWorkspaces } from './hooks/useWorkspaces'
 import type { AgentSession } from '../shared/types'
 import { isGitProject } from '../shared/project-kind'
@@ -166,6 +167,13 @@ export function App(): React.JSX.Element {
   const activeProjectIsGit = isGitProject(activeProject)
   const baseBranch = activeProjectIsGit ? activeProject?.baseBranch ?? settings.defaultBaseBranch : ''
 
+  const rootLabels = useMemo(() => buildRootLabels({
+    primaryTreePath: tree?.path ?? null,
+    additionalRootPaths: Array.from(additionalTrees?.keys() ?? []),
+    activeSession,
+    projects,
+  }), [tree?.path, additionalTrees, activeSession, projects])
+
   const dockState: DockAppState = {
     sessionId: effectiveSessionId, primarySessionId,
     searchFocusRequestKey: appEffects.searchFocusRequestKey, requestedSearchMode: appEffects.requestedSearchMode,
@@ -188,7 +196,7 @@ export function App(): React.JSX.Element {
     onCreateFile: handleCreateFile, onCreateDir: handleCreateDir, onImportPaths: handleImportPaths, onMovePath: handleMovePath,
     onRevealInFinder: handleRevealInFinder, onOpenInTerminal: handleOpenInTerminal,
     onCopyAbsolutePath: handleCopyAbsolutePath, onCopyRelativePath: handleCopyRelativePath,
-    worktreeRootPath: tree?.path ?? undefined, tree, additionalTrees, additionalBranches,
+    worktreeRootPath: tree?.path ?? undefined, tree, additionalTrees, additionalBranches, rootLabels,
     primaryBranch: activeSession?.branchName ?? null, changes: mergedChanges,
     expandedPaths: viewState.expandedPaths, onToggleExpand: viewState.onToggleExpand, worktreeRoot: tree?.path ?? null,
     worktreeShellSessionId: worktreeSessionId, projectShellSessionId: projectSessionId,
