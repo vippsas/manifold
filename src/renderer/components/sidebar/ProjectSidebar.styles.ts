@@ -58,6 +58,16 @@ export const sidebarStyles: Record<string, React.CSSProperties> = {
     lineHeight: 1,
     background: 'transparent',
   },
+  newWorkspaceButton: {
+    fontSize: 'var(--type-title)',
+    color: 'var(--accent)',
+    padding: 0,
+    lineHeight: 1,
+    background: 'transparent',
+    width: 20,
+    height: 20,
+    opacity: 1,
+  },
   agentItem: {
     cursor: 'pointer',
     margin: '0',
