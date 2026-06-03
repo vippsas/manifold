@@ -57,8 +57,8 @@ export function WorkspaceList({
     [onRemoveWorkspace],
   )
 
-  if (workspaces.length === 0) return null
-
+  // The header (label + "New workspace" +) always renders — even with zero
+  // workspaces — so it's the always-available entry point for creating the first one.
   return (
     <div style={{ paddingTop: 8 }}>
       <div style={{ ...sidebarStyles.sectionLabel, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>

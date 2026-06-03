@@ -128,7 +128,7 @@ export function ProjectSidebar({
         onSelectDraft={onSelectDraft}
         onDiscardDraft={onDiscardDraft}
       />
-      <div style={{ ...sidebarStyles.actions, flexDirection: 'column' }}>
+      <div style={sidebarStyles.actions}>
         <button
           type="button"
           onClick={() => {
@@ -141,14 +141,9 @@ export function ProjectSidebar({
         >
           <span className="truncate">{activeWorkspace ? `+ New Agent in ${activeWorkspace.name}` : '+ New Agent'}</span>
         </button>
-        <div style={{ display: 'flex', gap: 'var(--space-xs)' }}>
-          <button type="button" onClick={() => onNewWorkspace?.()} className="sidebar-action-button" style={sidebarStyles.actionButton}>
-            + New Workspace
-          </button>
-          <button type="button" onClick={onNewProject} className="sidebar-action-button" style={sidebarStyles.actionButton}>
-            + New Repository
-          </button>
-        </div>
+        <button type="button" onClick={onNewProject} className="sidebar-action-button" style={sidebarStyles.actionButton}>
+          + New Repository
+        </button>
       </div>
     </div>
   )

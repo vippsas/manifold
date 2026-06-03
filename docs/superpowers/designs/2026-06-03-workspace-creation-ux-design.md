@@ -4,6 +4,14 @@
 **Date:** 2026-06-03
 **Related:** `docs/superpowers/designs/2026-06-02-workspaces-design.md` (the Workspaces feature this refines)
 
+> **Revision 2026-06-03 (post-review):** dropped the footer `+ New Workspace`
+> button. The **single** sidebar entry point for creating a workspace is now the
+> `+` on the **Workspaces** section header, and that header **always renders**
+> (even with zero workspaces) so the `+` is always reachable. This replaces
+> Section 1's "footer button + conditional header" with "header `+` only,
+> always rendered". Section 2 (context-aware `+ New Agent`) and Section 3
+> (removed onboarding ghost link) are unchanged.
+
 ## Summary
 
 Make **creating a workspace** a first-class, discoverable action and stop the

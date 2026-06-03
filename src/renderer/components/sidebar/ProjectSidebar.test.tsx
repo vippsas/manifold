@@ -118,11 +118,16 @@ describe('ProjectSidebar', () => {
     expect(props.onNewAgent).toHaveBeenCalled()
   })
 
-  it('calls onNewWorkspace when the footer + New Workspace button is clicked', () => {
-    const { props } = renderSidebar()
+  it('shows the Workspaces header + even when there are no workspaces (and has no footer button)', () => {
+    const { props } = renderSidebar({
+      workspaces: [],
+      onSelectWorkspace: vi.fn(),
+      onRemoveWorkspace: vi.fn(),
+      onSpawnWorkspaceAgent: vi.fn(),
+    })
 
-    fireEvent.click(screen.getByText('+ New Workspace'))
-
+    expect(screen.queryByText('+ New Workspace')).not.toBeInTheDocument()
+    fireEvent.click(screen.getByLabelText('New workspace'))
     expect(props.onNewWorkspace).toHaveBeenCalled()
   })
 
