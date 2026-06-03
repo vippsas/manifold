@@ -28,15 +28,22 @@ describe('FavoriteStarButton', () => {
     expect(screen.getByLabelText('Add api-gateway to Favorites')).toBeTruthy()
   })
 
+  it('shows a filled star and "Remove from Favorites" label when favorited', () => {
+    renderWithContext({ isFavorite: vi.fn().mockReturnValue(true) })
+    const btn = screen.getByLabelText('Remove api-gateway from Favorites')
+    expect(btn).toBeTruthy()
+    expect(btn.getAttribute('aria-pressed')).toBe('true')
+    expect(btn.textContent).toBe('★')
+  })
+
   it('toggles favorite and stops row activation on click', () => {
     const onToggleFavorite = vi.fn()
-    const { value } = renderWithContext({ onToggleFavorite })
+    renderWithContext({ onToggleFavorite })
     const btn = screen.getByLabelText('Add api-gateway to Favorites')
     const clickEvent = new MouseEvent('click', { bubbles: true, cancelable: true })
     const stop = vi.spyOn(clickEvent, 'stopPropagation')
     fireEvent(btn, clickEvent)
     expect(onToggleFavorite).toHaveBeenCalledWith('repo', 'p1')
     expect(stop).toHaveBeenCalled()
-    expect(value.isFavorite).toBeDefined()
   })
 })
