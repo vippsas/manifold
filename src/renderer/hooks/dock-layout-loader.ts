@@ -1,15 +1,10 @@
 import type { DockviewApi, SerializedDockview } from 'dockview'
 import { sanitizeDockLayout } from './dock-layout-sanitize'
 import {
-  PANEL_IDS,
   PANEL_RESTORE_HINTS,
   PANEL_TITLES,
-  SIDEBAR_PANEL_IDS,
   applyLayoutChangePreservingSidebarWidths,
-  getSidebarWidths,
-  removeLeafFromTree,
-  restoreSidebarWidths,
-  treeContainsPanel,
+  withPinnedSidebars,
   type Direction,
   type DockPanelId,
   type GridNode,
@@ -17,38 +12,22 @@ import {
 } from './dock-layout-helpers'
 
 /**
- * Walk the grid tree and set the leaf containing `panelId` to `fraction`
- * of its parent branch total, scaling siblings to fill the remainder.
- * Returns true if the node was found and patched.
+ * Size the group containing `panelId` to roughly `fraction` of the dock height,
+ * in place. Replaces an api.fromJSON() patch that tore down and remounted every
+ * panel; a group setSize resizes without remounting, leaving the agent
+ * terminal (and its xterm scrollback) intact.
  */
-function applyHeightInTree(node: GridNode, panelId: string, fraction: number): boolean {
-  if (node.type !== 'branch') return false
-
-  const idx = node.data.findIndex((c) =>
-    c.type === 'leaf' && c.data.views.includes(panelId))
-
-  if (idx >= 0) {
-    const total = node.data.reduce((s, c) => s + c.size, 0)
-    const panelSize = Math.round(total * fraction)
-    const remaining = total - panelSize
-    const otherTotal = node.data.reduce((s, c, i) => s + (i === idx ? 0 : c.size), 0)
-    const scale = otherTotal > 0 ? remaining / otherTotal : 1
-    for (let i = 0; i < node.data.length; i++) {
-      node.data[i].size = i === idx ? panelSize : Math.round(node.data[i].size * scale)
-    }
-    return true
-  }
-
-  return node.data.some((child) => applyHeightInTree(child, panelId, fraction))
-}
-
-/** Patch the serialised grid so `panelId` occupies `fraction` of its parent branch. */
 function applyPanelHeightFraction(api: DockviewApi, panelId: string, fraction: number, refs?: LayoutRefs): void {
+  if (api.height <= 0) return
+  const group = api.getPanel(panelId)?.group
+  if (!group) return
   try {
-    const json = api.toJSON()
-    if (!applyHeightInTree(json.grid.root as GridNode, panelId, fraction)) return
     if (refs) refs.isRestoringRef.current = true
-    try { api.fromJSON(json) } finally { if (refs) refs.isRestoringRef.current = false }
+    try {
+      group.api.setSize({ height: Math.round(api.height * fraction) })
+    } finally {
+      if (refs) refs.isRestoringRef.current = false
+    }
     if (refs) refs.lastLayoutRef.current = api.toJSON()
   } catch (err) {
     console.warn(`[applyPanelHeightFraction] failed for '${panelId}':`, err)
@@ -118,41 +97,100 @@ export function hidePanel(
   closedPanelSnapshots: React.MutableRefObject<Map<DockPanelId, SerializedDockview>>,
   refs: LayoutRefs,
 ): void {
-  const preRemovalLayout = api.toJSON()
-  closedPanelSnapshots.current.set(id, preRemovalLayout)
+  // Remember the full layout so the panel can be reopened where it was.
+  closedPanelSnapshots.current.set(id, api.toJSON())
 
-  const json = JSON.parse(JSON.stringify(preRemovalLayout)) as SerializedDockview
-  const root = json.grid.root as GridNode
-  if (root.type === 'branch') {
-    const freed = removeLeafFromTree(root, id)
-    if (freed > 0 && root.data.length > 0) {
-      const isSidebarNode = (c: GridNode) => {
-        const views = c.type === 'leaf' ? c.data.views : []
-        return views.some((v) => SIDEBAR_PANEL_IDS.has(v)) ||
-          (c.type === 'branch' && Array.from(SIDEBAR_PANEL_IDS).some((sid) => treeContainsPanel(c, sid)))
-      }
-      const targets = root.data.filter((c) => !isSidebarNode(c))
-      if (targets.length > 0) {
-        const share = freed / targets.length
-        for (const t of targets) t.size = Math.round(t.size + share)
-      } else {
-        const total = root.data.reduce((s, c) => s + c.size, 0)
-        const scale = (total + freed) / total
-        for (const c of root.data) c.size = Math.round(c.size * scale)
-      }
-    }
-  }
-  delete (json.panels as Record<string, unknown>)[id]
+  const panel = api.getPanel(id)
+  if (!panel) return
 
-  refs.isRestoringRef.current = true
-  try {
-    api.fromJSON(json)
-  } catch (err) {
-    console.warn(`[hidePanel] failed to apply layout after hiding '${id}':`, err)
-  } finally {
-    refs.isRestoringRef.current = false
-  }
+  // Remove the panel in place. api.removePanel only unmounts THIS panel and
+  // hands its space to its branch siblings; every other panel — including the
+  // agent terminal — stays mounted. Pinning the sidebars keeps the freed space
+  // on the center pane rather than letting the sidebars widen.
+  withPinnedSidebars(api, () => api.removePanel(panel), id)
   refs.lastLayoutRef.current = api.toJSON()
+}
+
+type ReopenAxis = 'width' | 'height'
+export interface ReopenPlacement {
+  referencePanelId: string
+  direction: Direction
+  size?: { axis: ReopenAxis; px: number }
+}
+
+const orthogonalOri = (o: ReopenOrientation): ReopenOrientation => (o === 'HORIZONTAL' ? 'VERTICAL' : 'HORIZONTAL')
+type ReopenOrientation = 'HORIZONTAL' | 'VERTICAL'
+
+/** Indices from the grid root down to the leaf containing `panelId` ([] = root leaf). */
+function findLeafPath(node: GridNode, panelId: string): number[] | null {
+  if (node.type === 'leaf') return node.data.views.includes(panelId) ? [] : null
+  for (let i = 0; i < node.data.length; i++) {
+    const sub = findLeafPath(node.data[i], panelId)
+    if (sub) return [i, ...sub]
+  }
+  return null
+}
+
+/** First surviving panel in a subtree; `fromEnd` walks children in reverse so
+ *  the chosen panel is the one bordering the reopened pane. */
+function aliveInSubtree(node: GridNode, isAlive: (id: string) => boolean, fromEnd: boolean): string | undefined {
+  if (node.type === 'leaf') return node.data.views.find(isAlive)
+  const order = fromEnd ? [...node.data].reverse() : node.data
+  for (const child of order) {
+    const found = aliveInSubtree(child, isAlive, fromEnd)
+    if (found) return found
+  }
+  return undefined
+}
+
+/**
+ * Work out exactly where a closed pane should reopen, from the layout snapshot
+ * taken when it was hidden — its original tab group if a co-tenant survives,
+ * otherwise the side of its surviving neighbour (preferring the pane that sat
+ * before it, so it lands back in its old slot) plus its captured size. Returns
+ * undefined when nothing adjacent survives, so the caller falls back to hints.
+ * Branch orientation alternates from grid.orientation each level down.
+ */
+export function computeReopenPlacement(
+  snapshot: SerializedDockview,
+  panelId: string,
+  isAlive: (panelId: string) => boolean,
+): ReopenPlacement | undefined {
+  const root = snapshot.grid.root as GridNode
+  const path = findLeafPath(root, panelId)
+  if (!path || path.length === 0) return undefined
+
+  const parentPath = path.slice(0, -1)
+  const pIndex = path[path.length - 1]
+  let parent: GridNode = root
+  for (const idx of parentPath) {
+    if (parent.type !== 'branch') return undefined
+    parent = parent.data[idx]
+  }
+  if (parent.type !== 'branch') return undefined
+
+  const leafNode = parent.data[pIndex]
+  if (leafNode?.type === 'leaf') {
+    const mate = leafNode.data.views.filter((v) => v !== panelId).find(isAlive)
+    if (mate) return { referencePanelId: mate, direction: 'within' }
+  }
+
+  const rootOri = (snapshot.grid.orientation as ReopenOrientation) ?? 'HORIZONTAL'
+  const parentOri = parentPath.length % 2 === 0 ? rootOri : orthogonalOri(rootOri)
+  const axis: ReopenAxis = parentOri === 'HORIZONTAL' ? 'width' : 'height'
+  const px = leafNode?.size ?? 0
+
+  for (const [sibIndex, before] of [[pIndex - 1, true], [pIndex + 1, false]] as const) {
+    const sibling = parent.data[sibIndex]
+    if (!sibling) continue
+    const ref = aliveInSubtree(sibling, isAlive, before)
+    if (!ref) continue
+    const direction: Direction = parentOri === 'HORIZONTAL'
+      ? (before ? 'right' : 'left')
+      : (before ? 'below' : 'above')
+    return { referencePanelId: ref, direction, ...(px > 0 ? { size: { axis, px } } : {}) }
+  }
+  return undefined
 }
 
 export function showPanelFromSnapshot(
@@ -162,26 +200,28 @@ export function showPanelFromSnapshot(
   closedPanelSnapshots: React.MutableRefObject<Map<DockPanelId, SerializedDockview>>,
   refs: LayoutRefs,
 ): void {
-  const currentlyVisible = new Set(
-    PANEL_IDS.filter((pid) => api.getPanel(pid) !== undefined)
-  )
-  const widths = getSidebarWidths(api)
-
-  refs.isRestoringRef.current = true
-  try {
-    api.fromJSON(snapshot)
-    for (const pid of PANEL_IDS) {
-      if (pid !== id && !currentlyVisible.has(pid)) {
-        const p = api.getPanel(pid)
-        if (p) api.removePanel(p)
+  const placement = computeReopenPlacement(snapshot, id, (pid) => api.getPanel(pid) !== undefined)
+  if (placement) {
+    // Reopen at its exact prior position, in place — no api.fromJSON(), no remount.
+    withPinnedSidebars(api, () => {
+      api.addPanel({
+        id,
+        component: id,
+        title: PANEL_TITLES[id],
+        position: { referencePanel: placement.referencePanelId, direction: placement.direction },
+      })
+      if (placement.size) {
+        const group = api.getPanel(id)?.group
+        group?.api.setSize(placement.size.axis === 'width'
+          ? { width: placement.size.px }
+          : { height: placement.size.px })
       }
-    }
-  } finally {
-    refs.isRestoringRef.current = false
+    }, id)
+    refs.lastLayoutRef.current = api.toJSON()
+  } else {
+    // Nothing adjacent survived — reopen at its default spot.
+    showPanelFromHints(api, id, refs)
   }
-
-  restoreSidebarWidths(api, widths, refs)
-  refs.lastLayoutRef.current = api.toJSON()
   closedPanelSnapshots.current.delete(id)
 }
 

@@ -132,59 +132,67 @@ describe('findTopLeftWorkspaceReferencePanel', () => {
 })
 
 describe('applyLayoutChangePreservingSidebarWidths', () => {
-  it('restores left and right sidebar widths after a structural layout change', () => {
+  interface MockGroup {
+    element: { offsetWidth: number }
+    api: { setConstraints: ReturnType<typeof vi.fn> }
+  }
+  const makeGroup = (offsetWidth: number): MockGroup => ({
+    element: { offsetWidth },
+    api: { setConstraints: vi.fn() },
+  })
+
+  it('re-pins drifted sidebar widths in place (no fromJSON remount) after a structural change', () => {
     let layout = createWorkspaceLayout()
-    const fromJSON = vi.fn((json: SerializedDockview) => {
-      layout = json
-    })
+    const fromJSON = vi.fn((json: SerializedDockview) => { layout = json })
+    const projectsGroup = makeGroup(200)
+    const filesGroup = makeGroup(200)
     const api = {
       width: 1000,
       toJSON: vi.fn(() => layout),
       fromJSON,
       getPanel: vi.fn((panelId: string) => {
-        if (panelId === 'projects') return { group: { element: { offsetWidth: 200 } } }
-        if (panelId === 'fileTree') return { group: { element: { offsetWidth: 200 } } }
+        if (panelId === 'projects') return { group: projectsGroup }
+        if (panelId === 'fileTree') return { group: filesGroup }
         return undefined
       }),
     } as unknown as DockviewApi
 
     applyLayoutChangePreservingSidebarWidths(api, () => {
+      // Structural change: add a panel so the grid signature differs.
       const next = createWorkspaceLayout(260, 490, 250)
-      // Mutate structure (add a panel to the workspace group) so the grid
-      // signature differs from the original.
-      const root = next.grid.root as {
-        type: 'branch'
-        data: Array<{ type: 'leaf'; data: { views: string[] } }>
-      }
-      const workspaceGroup = root.data[1]
-      workspaceGroup.data.views = [...workspaceGroup.data.views, 'shell']
+      const root = next.grid.root as { type: 'branch'; data: Array<{ type: 'leaf'; data: { views: string[] } }> }
+      root.data[1].data.views = [...root.data[1].data.views, 'shell']
       layout = next
+      // Simulate dockview shrinking the sidebars while redistributing space.
+      projectsGroup.element.offsetWidth = 150
+      filesGroup.element.offsetWidth = 150
     })
 
-    expect(fromJSON).toHaveBeenCalledTimes(1)
-    const root = layout.grid.root as {
-      type: 'branch'
-      data: Array<{ size: number }>
-    }
-    expect(root.data.map((node) => node.size)).toEqual([200, 600, 200])
+    // Widths are restored in place via group constraints — never by reloading
+    // the serialized layout (which would remount every panel and flash xterm).
+    expect(fromJSON).not.toHaveBeenCalled()
+    expect(projectsGroup.api.setConstraints).toHaveBeenCalledWith({ minimumWidth: 200, maximumWidth: 200 })
+    expect(filesGroup.api.setConstraints).toHaveBeenCalledWith({ minimumWidth: 200, maximumWidth: 200 })
+    // Each pinned sidebar is then released back to free resize.
+    expect(projectsGroup.api.setConstraints).toHaveBeenLastCalledWith({ minimumWidth: 0, maximumWidth: Number.MAX_SAFE_INTEGER })
+    expect(filesGroup.api.setConstraints).toHaveBeenLastCalledWith({ minimumWidth: 0, maximumWidth: Number.MAX_SAFE_INTEGER })
   })
 
-  it('skips fromJSON when applyChange leaves the grid structure untouched', () => {
+  it('does nothing when applyChange leaves the grid structure untouched', () => {
     // A filetree click runs ensureEditorPanel even when the editor is already
     // present in a different group, so applyChange is structurally a no-op.
-    // In that case we must not re-deserialize the layout — doing so remounts
-    // dockview panels and tears down xterm in the agent pane.
+    // In that case we must not touch sidebar sizing at all.
     let layout = createWorkspaceLayout()
-    const fromJSON = vi.fn((json: SerializedDockview) => {
-      layout = json
-    })
+    const fromJSON = vi.fn((json: SerializedDockview) => { layout = json })
+    const projectsGroup = makeGroup(200)
+    const filesGroup = makeGroup(200)
     const api = {
       width: 1000,
       toJSON: vi.fn(() => layout),
       fromJSON,
       getPanel: vi.fn((panelId: string) => {
-        if (panelId === 'projects') return { group: { element: { offsetWidth: 200 } } }
-        if (panelId === 'fileTree') return { group: { element: { offsetWidth: 200 } } }
+        if (panelId === 'projects') return { group: projectsGroup }
+        if (panelId === 'fileTree') return { group: filesGroup }
         return undefined
       }),
     } as unknown as DockviewApi
@@ -194,6 +202,8 @@ describe('applyLayoutChangePreservingSidebarWidths', () => {
     })
 
     expect(fromJSON).not.toHaveBeenCalled()
+    expect(projectsGroup.api.setConstraints).not.toHaveBeenCalled()
+    expect(filesGroup.api.setConstraints).not.toHaveBeenCalled()
   })
 })
 
