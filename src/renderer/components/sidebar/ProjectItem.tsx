@@ -2,6 +2,7 @@ import React, { useCallback, useState } from 'react'
 import type { Project } from '../../../shared/types'
 import { isGitProject } from '../../../shared/project-kind'
 import { sidebarStyles } from './ProjectSidebar.styles'
+import { FavoriteStarButton } from './FavoriteStarButton'
 
 interface ProjectItemProps {
   project: Project
@@ -120,6 +121,7 @@ export function ProjectItem({
           </span>
         )}
         <div className="sidebar-item-actions" style={sidebarStyles.itemRight}>
+          <FavoriteStarButton kind="repo" id={project.id} name={project.name} />
           {gitProject && (
             <button
               type="button"

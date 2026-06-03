@@ -6,6 +6,7 @@ import { filterStandaloneProjectSessions } from '../../session-selection'
 import { sidebarStyles } from './ProjectSidebar.styles'
 import { AgentItem } from './AgentItem'
 import { ProjectItem } from './ProjectItem'
+import { FavoriteStarButton } from './FavoriteStarButton'
 import { dedupeSessionsByWorktree } from '../../hooks/agent-siblings'
 
 export interface ProjectListProps {
@@ -249,9 +250,12 @@ export function ProjectList({
                 >
                   <span
                     className="truncate sidebar-row-label"
-                    style={{ color: 'var(--text-muted)', fontSize: 'var(--type-ui-small)' }}
+                    style={{ color: 'var(--text-muted)', fontSize: 'var(--type-ui-small)', flex: 1, minWidth: 0 }}
                   >
                     {project.name}
+                  </span>
+                  <span className="sidebar-item-actions" style={{ marginLeft: 'auto', flexShrink: 0 }}>
+                    <FavoriteStarButton kind="repo" id={project.id} name={project.name} />
                   </span>
                 </div>
               ))}

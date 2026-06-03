@@ -742,6 +742,33 @@ select:focus-visible {
   opacity: 1;
 }
 
+.sidebar-favorite-star {
+  opacity: 0;
+  pointer-events: none;
+}
+
+.sidebar-item-row:hover .sidebar-favorite-star,
+.sidebar-item-row:focus-within .sidebar-favorite-star,
+.sidebar-item-row--active .sidebar-favorite-star,
+.sidebar-project-group--collapsed:hover .sidebar-favorite-star,
+.sidebar-inactive-project:hover .sidebar-favorite-star {
+  opacity: 0.95;
+  pointer-events: auto;
+}
+
+/* A favorited star stays visible even when the row is not hovered. */
+.sidebar-favorite-star.is-favorite {
+  opacity: 1;
+  pointer-events: auto;
+  color: var(--accent);
+}
+
+/* The Favorites-section rows are always interactive (no hover-reveal). */
+.sidebar-favorite-row .sidebar-favorite-star {
+  opacity: 1;
+  pointer-events: auto;
+}
+
 .sidebar-action-button {
   min-height: var(--control-height);
 }
