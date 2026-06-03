@@ -14,12 +14,13 @@ Supported runtimes: **Claude Code**, **Codex**, **Copilot**, **Gemini CLI**, and
 
 - Run multiple agents in parallel on one repository without branch collisions
 - Use the full agent terminal directly, with live streaming output and manual input at any time
-- Switch between a full **Developer** workspace and a lightweight **Simple** app-builder view
+- Group several repositories into a **Workspace** and run one agent across all of them, each repo mounted through the runtime's own multi-directory flag
 - Launch work on a new branch, the current branch, an existing branch, or an open pull request
-- Coordinate multiple agents across repositories with **Superagent** sessions, with per-tool approvals
+- Spin up a brand-new local web app from a one-line description, scaffolded on a constrained React/Vite stack with a live preview
 - Run automated **Loop** cycles that prompt an agent, evaluate the result, and commit on improvement or revert on regression
+- Surface source-backed ideas for a project with the **Project Ideas** background research agent
 - Review changes with diffs, a file tree, split editors, shell tabs, and embedded localhost previews
-- Search code, captured session memory, or both, with an optional AI mode that answers questions or surfaces the most relevant results
+- Search code, file names, captured session memory, or everything at once, with an optional AI mode that answers questions or surfaces the most relevant results
 - Keep project state, chat history, dock layout, open files, and shell tabs across restarts
 
 ## Install
@@ -40,10 +41,10 @@ Download the latest `.dmg` from the [GitHub Releases page](https://github.com/vi
 
 | Runtime | Binary Manifold looks for | Install | Notes |
 | --- | --- | --- | --- |
-| Claude Code | `claude` | [claude.com/claude-code](https://www.claude.com/product/claude-code) | Used in both Developer and Simple view. |
-| Codex | `codex` | [github.com/openai/codex](https://github.com/openai/codex) | Used in both Developer and Simple view. |
+| Claude Code | `claude` | [claude.com/claude-code](https://www.claude.com/product/claude-code) | Available in the built-in runtime list. |
+| Codex | `codex` | [github.com/openai/codex](https://github.com/openai/codex) | Available in the built-in runtime list. |
 | Copilot | `copilot` | [github.com/github/copilot-cli](https://github.com/github/copilot-cli) | Available in the built-in runtime list. |
-| Gemini CLI | `gemini` | [github.com/google-gemini/gemini-cli](https://github.com/google-gemini/gemini-cli) | Available in both Developer and Simple view. |
+| Gemini CLI | `gemini` | [github.com/google-gemini/gemini-cli](https://github.com/google-gemini/gemini-cli) | Available in the built-in runtime list. |
 | Claude Code (Ollama) | `ollama` | [ollama.com](https://ollama.com) | Launches through `ollama launch claude`; model selection is required. |
 | Codex (Ollama) | `ollama` | [ollama.com](https://ollama.com) | Launches through `ollama launch codex`; model selection is required. |
 
@@ -61,30 +62,9 @@ claude --version         # or: codex --version / gemini --version / copilot --ve
 
 If a runtime command is not found, install it (see the links above) and make sure its binary is on your `PATH`.
 
-## Two Modes
+## The Workspace
 
-Manifold ships with two UI modes and lets you switch between them from within the app.
-
-### Simple View
-
-Simple view is the default UI mode on a fresh install.
-
-It is optimized for quickly building local web apps by describing what you want in a chat interface:
-
-- Creates a project folder under your Manifold storage directory and tracks it automatically
-- Uses the default runtime you set in Settings to scaffold and iterate on the app
-- Constrains the generated app to a local stack: **React 19**, **TypeScript**, **Vite**, **Dexie/IndexedDB** (browser-local database), and **CSS Modules**
-- Runs `npm install` and `npm run dev` so the preview can come up immediately
-- Persists chat history and reopens existing apps from the dashboard
-- Lets you jump into Developer view for the same project when you need terminals, diffs, or git tools
-
-Simple view is intended for local prototyping and iteration. Deployment is not implemented yet.
-
-### Developer View
-
-Developer view is the full workspace for repository work.
-
-Panels can be shown, hidden, and rearranged to suit your workflow. The current panel set includes:
+Manifold opens straight into its full developer workspace — a panelled layout you can rearrange to suit your workflow. The current panel set includes:
 
 - Repositories sidebar
 - Agent terminal
@@ -95,15 +75,37 @@ Panels can be shown, hidden, and rearranged to suit your workflow. The current p
 - Web preview
 - One or more editor panes
 
-Key developer workflows:
+Key workflows:
 
 - Open an existing local repository or clone one from GitHub
-- Start an agent on a fresh worktree branch (branches are named `manifold/<description>` automatically)
+- Start an agent on a fresh worktree branch (branches are named `<repo>/<task-slug>` automatically, for example `manifold/fix-login-bug`)
 - Start an agent directly on the current branch when you do not want a worktree
 - Continue work from an existing branch or from an open pull request
 - Resume a stopped agent in place
 - Generate commit messages and pull request descriptions using the same agent runtime the session used
 - Detect merge conflicts and see how many commits your branch is ahead of or behind the base branch
+
+## Working Across Multiple Repositories
+
+A **Workspace** groups several repositories into one working set so a single agent can operate across all of them at once.
+
+- Create one from the **New Workspace** action in the sidebar and pick the repositories — and the runtime — it should include
+- The first repository is the agent's working directory; the others are mounted through the runtime's own multi-directory flag (`--add-dir` for Claude, Codex, and Copilot; `--include-directories` for Gemini)
+- When the agent starts, Manifold creates a worktree for every git repository in the set, all on the same branch (`manifold/<workspace-name>` by default), and removes them again when the session ends
+- Add or remove repositories from a workspace at any time from its sidebar section
+
+Workspaces are useful when a task spans several repositories at once — for example, landing a change that touches both a backend and a frontend repo, or running the same refactor across many services. A workspace agent sees every included repository from the start; there is no orchestration layer or per-tool approval step in between.
+
+## Building a Local App From a Prompt
+
+When no project is selected, the sidebar offers **Start from scratch** (and **Start from copied instructions**) to create a brand-new local web app from a one-line description:
+
+- Manifold creates a project folder under your storage directory (`~/.manifold/projects/...`) and tracks it automatically
+- An agent scaffolds and iterates on the app, constrained to a local stack: **React 19**, **TypeScript**, **Vite**, **Dexie/IndexedDB** (browser-local database), and **CSS Modules**
+- It runs `npm install` and `npm run dev` so the live preview comes up immediately
+- You keep iterating through a chat panel while previewing the app, with the full terminal, diff, and git tools always one click away
+
+This flow is intended for local prototyping and iteration. Deployment is not implemented.
 
 ## Typical Workflow
 
@@ -120,7 +122,7 @@ Key developer workflows:
 
 ### Launching Agents
 
-In Developer view, a new agent can start in four ways:
+A new agent can start in four ways:
 
 - **New branch**: the default path, using a dedicated git worktree
 - **Current branch**: runs directly in the project checkout, without creating a separate worktree
@@ -129,46 +131,32 @@ In Developer view, a new agent can start in four ways:
 
 Agent states shown in the UI: `running` (actively working), `waiting` (paused for input), `done` (finished successfully), and `error` (stopped on failure).
 
-### Building Apps In Simple View
-
-1. Create a new app card.
-2. Describe the app you want, for example:
-
-   > A to-do list app with local storage, where items can be checked off and deleted.
-
-3. Let the runtime scaffold the project and start the dev server.
-4. Continue iterating through chat while previewing the app live.
-5. Switch to Developer view when you need direct file, terminal, or git access.
-
-## Superagent
-
-A **Superagent** is a special Claude Code agent that acts as a coordinator — it spawns and supervises other agents across multiple repositories through a local tool server (MCP).
-
-- Lives in its own sidebar section, separate from single-repository agents
-- Spawns child agents on any registered repository and streams their output back
-- Requires approval for each tool call that modifies files or runs commands, with an option to auto-approve for the session
-- Shows overall status based on all child agents: `running` if any are still working, `error` if any failed, `done` when all finish
-- Uses a two-pane layout: the orchestrating agent's terminal alongside a list of child agents and any pending approvals
-
-Superagents are useful when a task spans several repositories at once — for example, landing a change that touches both a backend and a frontend repo, or running the same refactor across many services.
-
 ## Automated Loop
 
 The **Loop** dock panel runs an automated improve-and-evaluate cycle on an agent session:
 
 1. Prompt the agent with your instruction
 2. Run a user-defined evaluation command
-3. Extract a numeric score from the result (process exit code, a regex match on stdout, or a JSON field)
+3. Extract a numeric score from the result — a process exit code, a regex match on stdout, a field from JSON output, or an LLM judge
 4. Commit the changes if the score improved, or discard them and revert to the previous state if it regressed
 5. Repeat until you stop it or the maximum number of iterations is reached
 
-Each iteration has a configurable time limit; if the agent exceeds it, Manifold stops it automatically. Results are logged to `.manifold/loop.jsonl` inside the worktree. The panel tracks the best score so far and offers **Restore Best** to jump back to the commit that produced it.
+Each iteration has a configurable time limit; if the agent exceeds it, Manifold stops it automatically. Results are logged per worktree under `~/.manifold/loop-logs/`. The panel tracks the best score so far and offers **Restore Best** to jump back to the commit that produced it.
+
+## Project Ideas
+
+The **Project Ideas** dock panel runs a background research agent for the active project:
+
+- Builds a profile of the project — its summary, stack, workflows, and recent changes
+- Researches focused topics on the web and proposes source-backed suggestions across feature opportunities, architecture improvements, pattern transfers, and ecosystem shifts
+- Attaches supporting sources and confidence, novelty, effort, and impact ratings to each suggestion
+- Runs in the background with refresh, pause, resume, stop, and clear controls, and lets you rate suggestions to tune what surfaces
 
 ## Search And Memory
 
-Developer view includes a search system that goes beyond file text search.
+The workspace includes a search system that goes beyond file text search.
 
-- Search modes: `code` (file contents), `memory` (captured session data), or `everything` (both)
+- Search modes: `code` (file contents), `files` (file names), `memory` (captured session data), or `everything` (code and memory together)
 - Search scopes: the current session, all sessions for the current project, or across all registered projects — depending on mode
 - Match modes: literal or regex
 - Saved searches and recent searches are persisted per project
@@ -191,9 +179,10 @@ By default, Manifold stores its state under `~/.manifold/`.
 | `~/.manifold/config.json` | User settings (storage path, default runtime, theme, etc.) |
 | `~/.manifold/projects.json` | Registered projects (name, path, base branch) |
 | `~/.manifold/memory/*.db` | Per-project SQLite memory stores |
+| `~/.manifold/loop-logs/*.jsonl` | Automated Loop iteration logs (one file per worktree) |
 | `~/.manifold/debug.log` | Debug log — check here first when something goes wrong |
 | `~/.manifold/worktrees/...` | Managed git worktrees (default location) |
-| `~/.manifold/projects/...` | Simple-view app projects (default location) |
+| `~/.manifold/projects/...` | Locally generated app projects (default location) |
 
 The storage root (`~/.manifold` by default) is configurable in Settings → Storage Path.
 
@@ -223,31 +212,31 @@ cd manifold
 | `npm start` | Run the built app locally. Also auto-rebuilds native Electron modules. |
 | `npm run build` | Produce a production build of main, preload, and renderer bundles. |
 | `npm run dist` | Build and package a macOS `.dmg` for distribution. |
-| `npm run typecheck` | Full TypeScript check (runs both `typecheck:node` and `typecheck:web`). |
 | `npm run typecheck:node` | Typecheck main process, preload, and shared code (`tsconfig.node.json`). |
 | `npm run typecheck:web` | Typecheck renderer and shared code (`tsconfig.web.json`). |
 | `npm test` | Run the full vitest suite once. |
 | `npm run test:watch` | Run vitest in watch mode while iterating on tests. |
 
-Before opening a pull request, make sure `npm run typecheck` and `npm test` both pass.
+Before opening a pull request, make sure `npm run typecheck:node`, `npm run typecheck:web`, and `npm test` all pass.
 
 ## Architecture
 
 Manifold follows Electron's multi-process model, where the UI has no direct access to Node.js or the filesystem — all system calls go through a controlled bridge:
 
-- `src/main/`: terminal processes (PTYs), git/worktree operations, search, memory, settings, and app lifecycle
+- `src/main/`: terminal processes (PTYs), git/worktree operations, workspaces, search, memory, settings, and app lifecycle
 - `src/preload/`: the bridge layer — whitelists which Node.js operations the UI is allowed to call
-- `src/renderer/`: the Developer workspace UI
-- `src/renderer-simple/`: the Simple app-builder UI
+- `src/renderer/`: the developer workspace UI, including the draft-chat app-builder flow
+- `src/renderer-shared/`: chat components shared across renderer surfaces
 - `src/shared/`: shared types, defaults, prompts, and theme data
 
 Important main-process services include:
 
 - `SessionManager` for starting, stopping, and resuming agent sessions, and finding existing worktrees on disk
 - `WorktreeManager` and `BranchCheckoutManager` for creating, switching, and removing git worktrees
+- `WorkspaceManager` for grouping repositories and spawning a single agent across all of them
 - `PtyPool` for terminal processes
 - `GitOperationsManager` and `PrCreator` for generating commits, commit messages, and opening GitHub pull requests
-- `DevServerManager` for local preview sessions in Simple view
+- `DevServerManager` for the live preview of locally generated apps
 - `MemoryStore` (SQLite storage), `MemoryCapture` (records session data), `MemoryCompressor` (summarises long sessions), and `MemoryInjector` (provides history to resumed sessions)
 - search services for exact text search, AI-sorted results, and AI-answered questions
 
@@ -266,7 +255,7 @@ Contributions are welcome. A quick outline:
 1. Fork the repo and create a branch from `main`.
 2. Follow the [Local Development](#local-development) steps to get the app running.
 3. Make your change, keeping it focused and small where possible.
-4. Run `npm run typecheck` and `npm test` — both must pass.
+4. Run `npm run typecheck:node`, `npm run typecheck:web`, and `npm test` — all must pass.
 5. Open a pull request describing the change and the testing you ran.
 
 See [CONTRIBUTING.md](CONTRIBUTING.md) for the full contributor setup, code conventions, test commands, and pull request workflow.
