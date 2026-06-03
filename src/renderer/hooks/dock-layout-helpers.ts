@@ -152,64 +152,83 @@ export function getSidebarWidths(api: DockviewApi): { left: number; right: numbe
   }
 }
 
+type SidebarGroup = NonNullable<NonNullable<ReturnType<DockviewApi['getPanel']>>['group']>
+
+function sidebarGroup(api: DockviewApi, panelId: string): SidebarGroup | undefined {
+  return api.getPanel(panelId)?.group ?? undefined
+}
+
 /**
- * Restore both sidebar widths by patching the serialized grid tree.
- * Sequential setSize calls interfere with each other (dockview redistributes
- * freed space proportionally), so we patch sizes in the JSON and reload.
+ * Pin a group to an exact width and return a fn that releases it back to free
+ * resize. While pinned, dockview routes any size delta onto the unpinned
+ * (center) panes. Crucially this resizes in place — unlike api.fromJSON(), it
+ * does NOT tear down and remount panels, so the agent terminal is untouched.
+ */
+function pinGroupWidth(group: SidebarGroup, width: number): () => void {
+  group.api.setConstraints({ minimumWidth: width, maximumWidth: width })
+  return () => group.api.setConstraints({ minimumWidth: 0, maximumWidth: Number.MAX_SAFE_INTEGER })
+}
+
+/**
+ * Restore both sidebar widths in place by pinning each sidebar group to its
+ * captured pixel width, then releasing it. Replaces an earlier approach that
+ * patched the serialized grid and called api.fromJSON(), which tore down and
+ * remounted every panel (disposing the agent's xterm and flashing a fresh
+ * scrollback replay). Pinning both sidebars first forces the difference onto
+ * the center pane; releasing leaves them freely draggable afterward.
  */
 export function restoreSidebarWidths(api: DockviewApi, widths: { left: number; right: number }, refs?: LayoutRefs): void {
   if (widths.left <= 0 && widths.right <= 0) return
   if (api.width <= 0) return
+
+  const targets: Array<{ group: SidebarGroup; width: number }> = []
+  for (const [panelId, width] of [['projects', widths.left], ['fileTree', widths.right]] as const) {
+    if (width <= 0) continue
+    const group = sidebarGroup(api, panelId)
+    if (!group) continue
+    // Already at the target width — skip to avoid needless relayout and the
+    // re-entrant onDidLayoutChange loop it would otherwise trigger.
+    if (Math.abs(group.element.offsetWidth - width) <= 1) continue
+    targets.push({ group, width })
+  }
+  if (targets.length === 0) return
+
+  if (refs) refs.isRestoringRef.current = true
   try {
-    const json = api.toJSON()
-    const root = (json as { grid: { root: GridNode } }).grid.root
-    if (root.type !== 'branch' || root.data.length < 2) return
-
-    const total = root.data.reduce((s, c) => s + c.size, 0)
-    if (total <= 0) return
-
-    // Find which root children contain the sidebars
-    const leftIdx = root.data.findIndex((c) =>
-      c.type === 'leaf' ? c.data.views.includes('projects') : treeContainsPanel(c, 'projects'))
-    const rightIdx = root.data.findIndex((c) =>
-      c.type === 'leaf'
-        ? c.data.views.includes('fileTree')
-        : treeContainsPanel(c, 'fileTree'))
-
-    let consumed = 0
-    if (leftIdx >= 0 && widths.left > 0) {
-      const leftSize = Math.round((widths.left / api.width) * total)
-      root.data[leftIdx].size = leftSize
-      consumed += leftSize
-    } else if (leftIdx >= 0) {
-      consumed += root.data[leftIdx].size
-    }
-    if (rightIdx >= 0 && rightIdx !== leftIdx && widths.right > 0) {
-      const rightSize = Math.round((widths.right / api.width) * total)
-      root.data[rightIdx].size = rightSize
-      consumed += rightSize
-    } else if (rightIdx >= 0 && rightIdx !== leftIdx) {
-      consumed += root.data[rightIdx].size
-    }
-
-    // Give remaining space to center panels
-    const centerNodes = root.data.filter((_, i) => i !== leftIdx && i !== rightIdx)
-    const remaining = total - consumed
-    if (centerNodes.length > 0 && remaining > 0) {
-      const centerTotal = centerNodes.reduce((s, c) => s + c.size, 0)
-      const scale = centerTotal > 0 ? remaining / centerTotal : 1
-      for (const c of centerNodes) c.size = Math.round(c.size * scale)
-    }
-
-    if (refs) refs.isRestoringRef.current = true
-    try {
-      api.fromJSON(json)
-    } finally {
-      if (refs) refs.isRestoringRef.current = false
-    }
-    if (refs) refs.lastLayoutRef.current = api.toJSON()
+    // Pin all sidebars before releasing any, so each delta lands on the center
+    // pane rather than being split across the still-unpinned sibling sidebar.
+    const releases = targets.map(({ group, width }) => pinGroupWidth(group, width))
+    for (const release of releases) release()
   } catch (err) {
     console.warn('[restoreSidebarWidths] failed to restore sidebar widths:', err)
+  } finally {
+    if (refs) refs.isRestoringRef.current = false
+  }
+  if (refs) refs.lastLayoutRef.current = api.toJSON()
+}
+
+/**
+ * Run a structural layout mutation (imperative addPanel/removePanel) with the
+ * sidebars pinned to their current widths, so only the center pane absorbs the
+ * change. Imperative add/remove + in-place pinning never remounts sibling
+ * panels — unlike the api.fromJSON() round-trip this replaces, which remounted
+ * everything and flashed the agent terminal.
+ */
+export function withPinnedSidebars(api: DockviewApi, applyChange: () => void, excludePanelId?: string): void {
+  const releases: Array<() => void> = []
+  if (api.width > 0) {
+    for (const panelId of SIDEBAR_PANEL_IDS) {
+      if (panelId === excludePanelId) continue
+      const group = sidebarGroup(api, panelId)
+      const width = group?.element.offsetWidth ?? 0
+      if (!group || width <= 0) continue
+      releases.push(pinGroupWidth(group, width))
+    }
+  }
+  try {
+    applyChange()
+  } finally {
+    for (const release of releases) release()
   }
 }
 
@@ -218,11 +237,10 @@ export function applyLayoutChangePreservingSidebarWidths(
   applyChange: () => void,
   refs?: LayoutRefs,
 ): void {
-  // Snapshot the grid structure before applying the change. If applyChange()
-  // turns out to be a no-op (structurally), skip restoreSidebarWidths — it
-  // calls api.fromJSON() which forces dockview to tear down and remount
-  // every panel, unmounting xterm in the agent pane and flashing a fresh
-  // replay. Only pay that cost when the structure actually changed.
+  // Capture sidebar widths, apply the change, and restore the widths in place
+  // only if the structure actually changed. restoreSidebarWidths now resizes
+  // via group constraints (no api.fromJSON()), so this no longer remounts the
+  // agent pane; the structure check still avoids needless relayout churn.
   const beforeSignature = getGridSignature(api.toJSON())
   const widths = getSidebarWidths(api)
   applyChange()
@@ -256,39 +274,4 @@ function nodeSignature(node: GridNode): string {
 
 export function getGridSignature(layout: SerializedDockview): string {
   return nodeSignature(layout.grid.root as GridNode)
-}
-
-export function treeContainsPanel(node: GridNode, panelId: string): boolean {
-  if (node.type === 'leaf') return node.data.views.includes(panelId)
-  return node.data.some((child) => treeContainsPanel(child, panelId))
-}
-
-export function removeLeafFromTree(parent: GridNode & { type: 'branch' }, panelId: string): number {
-  for (let i = 0; i < parent.data.length; i++) {
-    const child = parent.data[i]
-
-    if (child.type === 'leaf' && child.data.views.includes(panelId)) {
-      if (child.data.views.length > 1) {
-        child.data.views = child.data.views.filter((v) => v !== panelId)
-        if (child.data.activeView === panelId) child.data.activeView = child.data.views[0]
-        return 0
-      }
-      parent.data.splice(i, 1)
-      return child.size
-    }
-
-    if (child.type === 'branch' && treeContainsPanel(child, panelId)) {
-      const freed = removeLeafFromTree(child, panelId)
-      if (child.data.length === 1) {
-        const promoted = child.data[0]
-        promoted.size = child.size
-        parent.data[i] = promoted
-      } else if (freed > 0) {
-        const scale = child.size / (child.size - freed)
-        for (const sibling of child.data) sibling.size = Math.round(sibling.size * scale)
-      }
-      return 0
-    }
-  }
-  return 0
 }
