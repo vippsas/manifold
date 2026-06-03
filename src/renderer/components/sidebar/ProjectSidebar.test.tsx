@@ -287,4 +287,18 @@ describe('ProjectSidebar', () => {
 
     expect(screen.getByText('New chat')).toBeInTheDocument()
   })
+
+  it('renders a + on the Workspaces header that calls onNewWorkspace', () => {
+    const { props } = renderSidebar({
+      workspaces: [{ id: 'ws1', name: 'auth-refactor', projectIds: ['p1'], createdAt: '2024-01-01' }],
+      activeWorkspaceId: 'ws1',
+      onSelectWorkspace: vi.fn(),
+      onRemoveWorkspace: vi.fn(),
+      onSpawnWorkspaceAgent: vi.fn(),
+    })
+
+    fireEvent.click(screen.getByLabelText('New workspace'))
+
+    expect(props.onNewWorkspace).toHaveBeenCalled()
+  })
 })

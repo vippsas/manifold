@@ -102,6 +102,7 @@ export function ProjectSidebar({
           onAddProject={onAddProjectToWorkspace}
           onRemoveProject={onRemoveProjectFromWorkspace}
           onDeleteAgent={onRequestDeleteAgent}
+          onNewWorkspace={onNewWorkspace}
         />
       )}
       <ProjectList

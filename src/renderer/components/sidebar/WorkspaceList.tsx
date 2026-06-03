@@ -18,6 +18,7 @@ export interface WorkspaceListProps {
   onAddProject?: (workspaceId: string) => void
   onRemoveProject?: (workspaceId: string, projectId: string) => void
   onDeleteAgent?: (session: AgentSession, projectPath: string) => void
+  onNewWorkspace?: () => void
 }
 
 export function WorkspaceList({
@@ -34,6 +35,7 @@ export function WorkspaceList({
   onAddProject,
   onRemoveProject,
   onDeleteAgent,
+  onNewWorkspace,
 }: WorkspaceListProps) {
   const [removing, setRemoving] = useState<string | null>(null)
 
@@ -59,7 +61,21 @@ export function WorkspaceList({
 
   return (
     <div style={{ paddingTop: 8 }}>
-      <div style={sidebarStyles.sectionLabel}>Workspaces</div>
+      <div style={{ ...sidebarStyles.sectionLabel, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+        <span>Workspaces</span>
+        {onNewWorkspace && (
+          <button
+            type="button"
+            onClick={onNewWorkspace}
+            className="sidebar-icon-button"
+            style={sidebarStyles.addButton}
+            aria-label="New workspace"
+            title="New workspace"
+          >
+            +
+          </button>
+        )}
+      </div>
       {workspaces.map((w) => {
         const isActive = w.id === activeWorkspaceId
         if (!isActive) {
