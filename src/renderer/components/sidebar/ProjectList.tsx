@@ -11,6 +11,7 @@ import { dedupeSessionsByWorktree } from '../../hooks/agent-siblings'
 export interface ProjectListProps {
   projects: Project[]
   activeProjectId: string | null
+  activeWorkspaceId?: string | null
   suppressedProjectIds?: ReadonlySet<string>
   allProjectSessions: Record<string, AgentSession[]>
   activeSessionId: string | null
@@ -33,7 +34,8 @@ export interface ProjectListProps {
 
 export function ProjectList({
   projects,
-  activeProjectId,
+  activeProjectId: activeProjectIdProp,
+  activeWorkspaceId,
   suppressedProjectIds,
   allProjectSessions,
   activeSessionId,
@@ -55,6 +57,11 @@ export function ProjectList({
 }: ProjectListProps): React.JSX.Element {
   const [reposExpanded, setReposExpanded] = useState(false)
   const visibleProjects = projects.filter((project) => !suppressedProjectIds?.has(project.id))
+
+  // While a workspace is focused, its repos and sessions are shown under the
+  // Workspaces section. Don't also highlight the workspace's home repo as an
+  // active standalone project here — that double-highlights one repo.
+  const activeProjectId = activeWorkspaceId ? null : activeProjectIdProp
 
   const handleProjectClick = useCallback(
     (projectId: string): void => {

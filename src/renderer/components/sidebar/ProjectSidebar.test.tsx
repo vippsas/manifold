@@ -188,6 +188,32 @@ describe('ProjectSidebar', () => {
     expect(screen.queryByText('Beta')).not.toBeInTheDocument()
   })
 
+  it('does not highlight the home repo as an active standalone project while a workspace session is active', () => {
+    // A workspace session is shown under its workspace; its home repo must not
+    // ALSO appear as an active (highlighted) standalone project in the list —
+    // otherwise a workspace and a repo look selected at the same time.
+    const workspaceSession: AgentSession = {
+      id: 's1', projectId: 'p1', runtimeId: 'claude', branchName: 'alpha/oslo',
+      worktreePath: '/wt1', status: 'running', pid: 1, additionalDirs: [], workspaceId: 'ws1',
+    }
+
+    renderSidebar({
+      activeProjectId: 'p1',
+      activeSessionId: 's1',
+      allProjectSessions: { p1: [workspaceSession], p2: [] },
+      workspaces: [{ id: 'ws1', name: 'MANIFOLD-WS', projectIds: ['p1'], createdAt: '2024-01-01' }],
+      activeWorkspaceId: 'ws1',
+      sessionsByWorkspace: { ws1: [workspaceSession] },
+      onSelectWorkspace: vi.fn(),
+      onRemoveWorkspace: vi.fn(),
+      onSpawnWorkspaceAgent: vi.fn(),
+    })
+
+    // The active ProjectItem (and only it) renders a "Remove <name>" button;
+    // its absence means the home repo is no longer doubly highlighted.
+    expect(screen.queryByLabelText('Remove Alpha')).not.toBeInTheDocument()
+  })
+
   it('renames the active project on double-click and Enter', () => {
     const { props } = renderSidebar()
 
