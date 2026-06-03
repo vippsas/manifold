@@ -58,8 +58,8 @@ describe('FileWatcher — file operations', () => {
 
       mockReaddirSync
         .mockReturnValueOnce([
-          { name: 'file.ts', isDirectory: () => false },
-          { name: 'src', isDirectory: () => true },
+          { name: 'file.ts', isDirectory: () => false, isSymbolicLink: () => false },
+          { name: 'src', isDirectory: () => true, isSymbolicLink: () => false },
         ] as unknown as ReturnType<typeof fs.readdirSync>)
         .mockReturnValueOnce([] as unknown as ReturnType<typeof fs.readdirSync>)
 
@@ -77,10 +77,10 @@ describe('FileWatcher — file operations', () => {
         .mockReturnValueOnce({ isDirectory: () => false } as unknown as fs.Stats)
 
       mockReaddirSync.mockReturnValueOnce([
-        { name: '.git', isDirectory: () => true },
-        { name: 'node_modules', isDirectory: () => true },
-        { name: '.env', isDirectory: () => false },
-        { name: 'index.ts', isDirectory: () => false },
+        { name: '.git', isDirectory: () => true, isSymbolicLink: () => false },
+        { name: 'node_modules', isDirectory: () => true, isSymbolicLink: () => false },
+        { name: '.env', isDirectory: () => false, isSymbolicLink: () => false },
+        { name: 'index.ts', isDirectory: () => false, isSymbolicLink: () => false },
       ] as unknown as ReturnType<typeof fs.readdirSync>)
 
       const tree = watcher.getFileTree('/repo/worktree')

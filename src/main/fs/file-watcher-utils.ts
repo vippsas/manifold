@@ -67,7 +67,10 @@ export const EXCLUDED_DIRS = new Set([
 ])
 
 export function isVisibleEntry(entry: fs.Dirent): boolean {
-  return !(entry.isDirectory() && EXCLUDED_DIRS.has(entry.name))
+  // Symlinked dirs report isDirectory() === false, so check isSymbolicLink()
+  // too — otherwise a symlinked node_modules (common in worktrees) slips past
+  // the filter and buildFileTree follows it (statSync) into the whole tree.
+  return !((entry.isDirectory() || entry.isSymbolicLink()) && EXCLUDED_DIRS.has(entry.name))
 }
 
 export function directoriesFirstComparator(a: fs.Dirent, b: fs.Dirent): number {
