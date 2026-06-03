@@ -82,7 +82,7 @@ export function WorkspaceList({
             type="button"
             onClick={onNewWorkspace}
             className="sidebar-icon-button"
-            style={sidebarStyles.addButton}
+            style={sidebarStyles.newWorkspaceButton}
             aria-label="New workspace"
             title="New workspace"
           >
