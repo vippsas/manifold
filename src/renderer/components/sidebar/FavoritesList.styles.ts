@@ -22,12 +22,6 @@ export const favoritesStyles: Record<string, React.CSSProperties> = {
     flex: 1,
     minWidth: 0,
   },
-  glyph: {
-    flexShrink: 0,
-    width: 14,
-    textAlign: 'center' as const,
-    opacity: 0.8,
-  },
   badge: {
     flexShrink: 0,
     fontSize: 'var(--type-ui-caption)',

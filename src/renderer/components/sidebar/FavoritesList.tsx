@@ -2,6 +2,8 @@ import React, { useContext, useState } from 'react'
 import { DockStateContext } from '../editor/dock-panel-types'
 import { sidebarStyles } from './ProjectSidebar.styles'
 import { favoritesStyles } from './FavoritesList.styles'
+import { WorkspaceGlyph } from './WorkspaceGlyph'
+import { RepoGlyph } from './RepoGlyph'
 
 export function FavoritesList(): React.JSX.Element | null {
   const state = useContext(DockStateContext)
@@ -38,7 +40,7 @@ export function FavoritesList(): React.JSX.Element | null {
           style={{ ...favoritesStyles.row, ...(dragIndex === index ? favoritesStyles.rowDragging : undefined) }}
           title={fav.name}
         >
-          <span style={favoritesStyles.glyph} aria-hidden="true">{fav.kind === 'workspace' ? '◧' : '▢'}</span>
+          {fav.kind === 'workspace' ? <WorkspaceGlyph /> : <RepoGlyph />}
           <span className="truncate" style={favoritesStyles.name}>{fav.name}</span>
           {index < 9 && <span style={favoritesStyles.badge}>⌘{index + 1}</span>}
         </div>
