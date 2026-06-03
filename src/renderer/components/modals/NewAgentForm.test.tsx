@@ -290,7 +290,7 @@ describe('NewAgentForm', () => {
     renderForm({ compact: true })
     await waitFor(() => expect(mockInvoke).toHaveBeenCalledWith('runtimes:list'))
     // AI/runtime picker is shown directly (not behind Advanced)
-    expect(screen.getByLabelText('Agent runtime')).toBeInTheDocument()
+    expect(screen.getByLabelText('Agent')).toBeInTheDocument()
     // No Advanced toggle, no resume controls
     expect(screen.queryByText('Advanced')).not.toBeInTheDocument()
     expect(screen.queryByText('Continue on an existing branch or PR')).not.toBeInTheDocument()

@@ -18,7 +18,6 @@ export function AgentDropdown({
         value={value}
         onChange={(e) => onChange(e.target.value)}
         style={modalStyles.select}
-        aria-label="Agent runtime"
       >
         {runtimes.map((rt) => (
           <option key={rt.id} value={rt.id}>

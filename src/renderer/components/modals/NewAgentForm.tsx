@@ -179,9 +179,11 @@ export function NewAgentForm({
     [useExisting, existingSubTab, projectId, runtimeId, taskDescription, selectedBranch, selectedPr, canSubmit, isGitProject, onLaunch, mode, defaultAgentMode]
   )
 
+  const formStyle = { display: 'flex', flexDirection: 'column', gap: 'var(--space-lg)', width: 420, maxWidth: '90%' } as const
+
   if (compact) {
     return (
-      <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-lg)', width: 420, maxWidth: '90%' }}>
+      <form onSubmit={handleSubmit} style={formStyle}>
         <TaskDescriptionField
           value={taskDescription}
           onChange={setTaskDescription}
@@ -197,7 +199,7 @@ export function NewAgentForm({
   }
 
   return (
-    <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-lg)', width: 420, maxWidth: '90%' }}>
+    <form onSubmit={handleSubmit} style={formStyle}>
       <ReusableSessionsCard
         projectPath={projectPath}
         sessions={reusableSessions}
