@@ -136,30 +136,30 @@ export function ProjectSidebar({
         onDiscardDraft={onDiscardDraft}
       />
       <div style={sidebarStyles.actions}>
-        {onNewWorkspace && (
-          <button
-            type="button"
-            onClick={onNewWorkspace}
-            className="sidebar-action-button"
-            style={sidebarStyles.actionButtonWorkspace}
-            title="New Workspace"
-          >
-            + New Workspace
-          </button>
-        )}
+        <button
+          type="button"
+          onClick={onNewAgent}
+          className="sidebar-action-button sidebar-action-button--primary"
+          style={sidebarStyles.actionButtonPrimary}
+          title={activeWorkspace ? `New Agent in ${activeWorkspace.name}` : 'New Agent'}
+        >
+          <span className="truncate">{activeWorkspace ? `+ New Agent in ${activeWorkspace.name}` : '+ New Agent'}</span>
+        </button>
         <div style={sidebarStyles.actionsRow}>
-          <button
-            type="button"
-            onClick={onNewAgent}
-            className="sidebar-action-button sidebar-action-button--primary"
-            style={sidebarStyles.actionButtonPrimary}
-            title={activeWorkspace ? `New Agent in ${activeWorkspace.name}` : 'New Agent'}
-          >
-            <span className="truncate">{activeWorkspace ? `+ New Agent in ${activeWorkspace.name}` : '+ New Agent'}</span>
-          </button>
           <button type="button" onClick={onNewProject} className="sidebar-action-button" style={sidebarStyles.actionButton}>
             + New Repository
           </button>
+          {onNewWorkspace && (
+            <button
+              type="button"
+              onClick={onNewWorkspace}
+              className="sidebar-action-button"
+              style={sidebarStyles.actionButton}
+              title="New Workspace"
+            >
+              + New Workspace
+            </button>
+          )}
         </div>
       </div>
     </div>
