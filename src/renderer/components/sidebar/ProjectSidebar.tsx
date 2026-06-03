@@ -20,6 +20,7 @@ interface ProjectSidebarProps {
   onRequestDeleteAgent: (session: AgentSession, projectPath: string) => void
   onNewAgent: () => void
   onNewProject: () => void
+  onNewWorkspace?: () => void
   workspaces?: Workspace[]
   activeWorkspaceId?: string | null
   sessionsByWorkspace?: Record<string, AgentSession[]>
@@ -53,6 +54,7 @@ export function ProjectSidebar({
   onRequestDeleteAgent,
   onNewAgent,
   onNewProject,
+  onNewWorkspace,
   workspaces,
   activeWorkspaceId,
   sessionsByWorkspace,
@@ -78,6 +80,10 @@ export function ProjectSidebar({
     },
     [onRemoveProject]
   )
+
+  const activeWorkspace = activeWorkspaceId
+    ? workspaces?.find((w) => w.id === activeWorkspaceId)
+    : undefined
 
   return (
     <div style={sidebarStyles.root}>
@@ -121,13 +127,27 @@ export function ProjectSidebar({
         onSelectDraft={onSelectDraft}
         onDiscardDraft={onDiscardDraft}
       />
-      <div style={sidebarStyles.actions}>
-        <button type="button" onClick={onNewAgent} className="sidebar-action-button sidebar-action-button--primary" style={sidebarStyles.actionButtonPrimary}>
-          + New Agent
+      <div style={{ ...sidebarStyles.actions, flexDirection: 'column' }}>
+        <button
+          type="button"
+          onClick={() => {
+            if (activeWorkspace && onSpawnWorkspaceAgent) onSpawnWorkspaceAgent(activeWorkspace.id)
+            else onNewAgent()
+          }}
+          className="sidebar-action-button sidebar-action-button--primary"
+          style={{ ...sidebarStyles.actionButtonPrimary, display: 'flex', alignItems: 'center', justifyContent: 'center', height: 'var(--control-height)', overflow: 'hidden' }}
+          title={activeWorkspace ? `New agent in ${activeWorkspace.name}` : 'New agent'}
+        >
+          <span className="truncate">{activeWorkspace ? `+ New Agent in ${activeWorkspace.name}` : '+ New Agent'}</span>
         </button>
-        <button type="button" onClick={onNewProject} className="sidebar-action-button" style={sidebarStyles.actionButton}>
-          + New Repository
-        </button>
+        <div style={{ display: 'flex', gap: 'var(--space-xs)' }}>
+          <button type="button" onClick={() => onNewWorkspace?.()} className="sidebar-action-button" style={sidebarStyles.actionButton}>
+            + New Workspace
+          </button>
+          <button type="button" onClick={onNewProject} className="sidebar-action-button" style={sidebarStyles.actionButton}>
+            + New Repository
+          </button>
+        </div>
       </div>
     </div>
   )

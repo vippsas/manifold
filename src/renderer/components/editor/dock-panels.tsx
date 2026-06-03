@@ -144,6 +144,7 @@ function ProjectsPanel(): React.JSX.Element {
       onRequestDeleteAgent={s.onRequestDeleteAgent}
       onNewAgent={s.onNewAgentFromHeader}
       onNewProject={s.onNewProject}
+      onNewWorkspace={s.onNewWorkspace}
       workspaces={s.workspaces}
       activeWorkspaceId={s.activeWorkspaceId}
       sessionsByWorkspace={s.sessionsByWorkspace}

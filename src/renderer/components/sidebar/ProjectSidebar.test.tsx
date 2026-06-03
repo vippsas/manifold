@@ -118,6 +118,38 @@ describe('ProjectSidebar', () => {
     expect(props.onNewAgent).toHaveBeenCalled()
   })
 
+  it('calls onNewWorkspace when the footer + New Workspace button is clicked', () => {
+    const { props } = renderSidebar()
+
+    fireEvent.click(screen.getByText('+ New Workspace'))
+
+    expect(props.onNewWorkspace).toHaveBeenCalled()
+  })
+
+  it('labels the primary button with the active workspace and spawns into it', () => {
+    const onSpawnWorkspaceAgent = vi.fn()
+    const { props } = renderSidebar({
+      workspaces: [{ id: 'ws1', name: 'auth-refactor', projectIds: ['p1'], createdAt: '2024-01-01' }],
+      activeWorkspaceId: 'ws1',
+      onSelectWorkspace: vi.fn(),
+      onRemoveWorkspace: vi.fn(),
+      onSpawnWorkspaceAgent,
+    })
+
+    fireEvent.click(screen.getByText('+ New Agent in auth-refactor'))
+
+    expect(onSpawnWorkspaceAgent).toHaveBeenCalledWith('ws1')
+    expect(props.onNewAgent).not.toHaveBeenCalled()
+  })
+
+  it('keeps the plain + New Agent label and handler when no workspace is active', () => {
+    const { props } = renderSidebar()
+
+    fireEvent.click(screen.getByText('+ New Agent'))
+
+    expect(props.onNewAgent).toHaveBeenCalled()
+  })
+
   it('highlights the active agent item', () => {
     renderSidebar({ activeSessionId: 's1' })
 
