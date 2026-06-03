@@ -8,6 +8,8 @@ describe('custom themes', () => {
     'garfield-light',
     'neon-dark',
     'neon-light',
+    'royal-dark',
+    'royal-light',
   ])('%s includes colorful markdown token rules', (themeId) => {
     const rules = loadTheme(themeId).monacoTheme.rules
     const tokenSet = new Set(rules.map((rule) => rule.token))
