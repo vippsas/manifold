@@ -22,7 +22,6 @@ export interface WorkspaceListProps {
   onAddProject?: (workspaceId: string) => void
   onRemoveProject?: (workspaceId: string, projectId: string) => void
   onDeleteAgent?: (session: AgentSession, projectPath: string) => void
-  onNewWorkspace?: () => void
   onFetchProject?: (projectId: string) => void
   fetchingProjectId?: string | null
   lastFetchedProjectId?: string | null
@@ -45,7 +44,6 @@ export function WorkspaceList({
   onAddProject,
   onRemoveProject,
   onDeleteAgent,
-  onNewWorkspace,
   onFetchProject,
   fetchingProjectId,
   lastFetchedProjectId,
@@ -72,25 +70,11 @@ export function WorkspaceList({
     [onRemoveWorkspace],
   )
 
-  // The header (label + "New workspace" +) always renders — even with zero
-  // workspaces — so it's the always-available entry point for creating the first one.
+  // The header label always renders — even with zero workspaces — so the section
+  // stays visible. Creating a workspace lives in the "+ New Workspace" action-bar button.
   return (
     <div style={{ paddingTop: 8 }}>
-      <div style={{ ...sidebarStyles.sectionLabel, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-        <span>Workspaces</span>
-        {onNewWorkspace && (
-          <button
-            type="button"
-            onClick={onNewWorkspace}
-            className="sidebar-icon-button"
-            style={sidebarStyles.newWorkspaceButton}
-            aria-label="New workspace"
-            title="New workspace"
-          >
-            +
-          </button>
-        )}
-      </div>
+      <div style={sidebarStyles.sectionLabel}>Workspaces</div>
       {workspaces.map((w) => {
         const isActive = w.id === activeWorkspaceId
         if (!isActive) {
