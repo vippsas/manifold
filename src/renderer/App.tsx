@@ -233,9 +233,8 @@ export function App(): React.JSX.Element {
       homeProjectId: string,
       options: { runtimeId: string; prompt: string; nonInteractive?: boolean },
     ) => {
-      const ws = workspaces.find((w) => w.id === workspaceId)
       const session = await spawnWorkspaceAgent(workspaceId, {
-        runtimeId: options.runtimeId ?? ws?.runtimeId ?? settings.defaultRuntime,
+        runtimeId: options.runtimeId,
         homeProjectId,
         prompt: options.prompt,
         nonInteractive: options.nonInteractive,
