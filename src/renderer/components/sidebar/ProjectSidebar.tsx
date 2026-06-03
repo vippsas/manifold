@@ -136,8 +136,8 @@ export function ProjectSidebar({
             else onNewAgent()
           }}
           className="sidebar-action-button sidebar-action-button--primary"
-          style={{ ...sidebarStyles.actionButtonPrimary, display: 'flex', alignItems: 'center', justifyContent: 'center', height: 'var(--control-height)', overflow: 'hidden' }}
-          title={activeWorkspace ? `New agent in ${activeWorkspace.name}` : 'New agent'}
+          style={sidebarStyles.actionButtonPrimary}
+          title={activeWorkspace ? `New Agent in ${activeWorkspace.name}` : 'New Agent'}
         >
           <span className="truncate">{activeWorkspace ? `+ New Agent in ${activeWorkspace.name}` : '+ New Agent'}</span>
         </button>
