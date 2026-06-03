@@ -763,12 +763,6 @@ select:focus-visible {
   color: var(--accent);
 }
 
-/* The Favorites-section rows are always interactive (no hover-reveal). */
-.sidebar-favorite-row .sidebar-favorite-star {
-  opacity: 1;
-  pointer-events: auto;
-}
-
 .sidebar-action-button {
   min-height: var(--control-height);
 }
