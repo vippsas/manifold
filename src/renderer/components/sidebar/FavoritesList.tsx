@@ -38,7 +38,7 @@ export function FavoritesList(): React.JSX.Element | null {
           style={{ ...favoritesStyles.row, ...(dragIndex === index ? favoritesStyles.rowDragging : undefined) }}
           title={fav.name}
         >
-          <span style={favoritesStyles.glyph} aria-hidden>{fav.kind === 'workspace' ? '◧' : '▢'}</span>
+          <span style={favoritesStyles.glyph} aria-hidden="true">{fav.kind === 'workspace' ? '◧' : '▢'}</span>
           <span className="truncate" style={favoritesStyles.name}>{fav.name}</span>
           {index < 9 && <span style={favoritesStyles.badge}>⌘{index + 1}</span>}
         </div>

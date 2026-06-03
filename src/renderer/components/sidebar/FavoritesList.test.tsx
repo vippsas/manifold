@@ -49,4 +49,16 @@ describe('FavoritesList', () => {
     fireEvent.click(screen.getByText('billing'))
     expect(onActivateFavorite).toHaveBeenCalledWith({ kind: 'repo', id: 'p2', name: 'billing' })
   })
+
+  it('reorders via drag-and-drop', () => {
+    const onReorderFavorites = vi.fn()
+    renderList([
+      { kind: 'repo', id: 'p1', name: 'api-gateway' },
+      { kind: 'repo', id: 'p2', name: 'billing' },
+    ], { onReorderFavorites })
+    const rows = screen.getAllByRole('button')
+    fireEvent.dragStart(rows[1])
+    fireEvent.drop(rows[0])
+    expect(onReorderFavorites).toHaveBeenCalledWith(1, 0)
+  })
 })
