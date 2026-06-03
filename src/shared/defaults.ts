@@ -17,6 +17,7 @@ export const DEFAULT_SETTINGS: ManifoldSettings = {
   autoGenerateMessages: true,
   showCommitAndPrButtons: false,
   sidebarResizeReversed: false,
+  favorites: [],
   keepAwake: false,
   memory: {
     enabled: true,

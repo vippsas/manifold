@@ -55,6 +55,21 @@ export interface Project {
   slashCommands?: string[]
 }
 
+export type FavoriteKind = 'repo' | 'workspace'
+
+/** A persisted favorite: a typed pointer to a Project or Workspace by id. */
+export interface FavoriteRef {
+  kind: FavoriteKind
+  id: string
+}
+
+/** A favorite resolved against the live project/workspace lists, for display. */
+export interface ResolvedFavorite {
+  kind: FavoriteKind
+  id: string
+  name: string
+}
+
 export interface CreateProjectOptions {
   description: string
   repoName?: string
@@ -93,6 +108,8 @@ export interface ManifoldSettings {
   autoGenerateMessages: boolean
   showCommitAndPrButtons: boolean
   sidebarResizeReversed: boolean
+  /** Ordered, typed favorites. Index 0 maps to ⌘1. */
+  favorites?: FavoriteRef[]
   keepAwake: boolean
   memory?: import('./memory-types').MemorySettings
   search?: SearchSettings
