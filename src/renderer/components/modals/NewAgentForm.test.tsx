@@ -286,6 +286,16 @@ describe('NewAgentForm', () => {
     })
   })
 
+  it('in compact mode shows the AI picker and hides Advanced + resume', async () => {
+    renderForm({ compact: true })
+    await waitFor(() => expect(mockInvoke).toHaveBeenCalledWith('runtimes:list'))
+    // AI/runtime picker is shown directly (not behind Advanced)
+    expect(screen.getByLabelText('Agent runtime')).toBeInTheDocument()
+    // No Advanced toggle, no resume controls
+    expect(screen.queryByText('Advanced')).not.toBeInTheDocument()
+    expect(screen.queryByText('Continue on an existing branch or PR')).not.toBeInTheDocument()
+  })
+
   it('truncates long task context in existing worktrees rows', async () => {
     renderForm({
       existingSessions: [{
