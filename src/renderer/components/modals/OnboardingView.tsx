@@ -3,6 +3,7 @@ import type { AgentSession, CreateProjectOptions, SpawnAgentOptions } from '../.
 import { NewAgentForm } from './NewAgentForm'
 import { onboardingLinkStyle } from './NewAgentForm.styles'
 import { NoProjectActions } from '../sidebar/NoProjectActions'
+import { WorkspaceGlyph } from '../sidebar/WorkspaceGlyph'
 
 function GhostLinkButton({ onClick, children }: { onClick: () => void; children: React.ReactNode }): React.JSX.Element {
   const [hover, setHover] = React.useState(false)
@@ -82,6 +83,8 @@ interface NoAgentProps {
   onDeleteSession?: (session: AgentSession) => void
   focusTrigger?: number
   compact?: boolean
+  /** When set, this agent belongs to the named workspace (multi-root). Shows a "WORKSPACE · {name}" eyebrow. */
+  workspaceName?: string
 }
 
 type OnboardingViewProps = NoProjectProps | NoAgentProps
@@ -135,13 +138,21 @@ export function OnboardingView(props: OnboardingViewProps): React.JSX.Element {
       ) : (
         <>
           <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 'var(--space-lg)' }}>
-            <div style={{
-              fontSize: 'var(--type-title)',
-              fontWeight: 300,
-              color: 'var(--text-primary)',
-              letterSpacing: 'var(--tracking-tight)',
-            }}>
-              New agent for <span style={{ color: 'var(--text-primary)', fontWeight: 500 }}>{props.projectName}</span>
+            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 'var(--space-xs)' }}>
+              {props.workspaceName && (
+                <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                  <WorkspaceGlyph active />
+                  <span className="sidebar-workspace-eyebrow">Workspace · {props.workspaceName}</span>
+                </div>
+              )}
+              <div style={{
+                fontSize: 'var(--type-title)',
+                fontWeight: 300,
+                color: 'var(--text-primary)',
+                letterSpacing: 'var(--tracking-tight)',
+              }}>
+                New agent for <span style={{ color: 'var(--text-primary)', fontWeight: 500 }}>{props.projectName}</span>
+              </div>
             </div>
             <NewAgentForm
               projectId={props.projectId}
