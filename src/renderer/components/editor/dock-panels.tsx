@@ -77,8 +77,7 @@ function FileTreePanel(): React.JSX.Element {
       <FileTree
         tree={s.tree}
         additionalTrees={s.additionalTrees}
-        additionalBranches={s.additionalBranches}
-        primaryBranch={s.primaryBranch}
+        rootLabels={s.rootLabels}
         changes={s.changes}
         activeFilePath={s.activeFilePath}
         openFilePaths={openFilePaths}

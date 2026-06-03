@@ -54,6 +54,8 @@ export interface DockAppState {
   tree: FileTreeNode | null
   additionalTrees?: Map<string, FileTreeNode>
   additionalBranches?: Map<string, string | null>
+  /** Display names per workspace file-tree root path (repo names). */
+  rootLabels?: Map<string, string>
   primaryBranch: string | null
   changes: FileChange[]
   expandedPaths: Set<string>
