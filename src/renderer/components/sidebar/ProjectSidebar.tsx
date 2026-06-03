@@ -101,6 +101,7 @@ export function ProjectSidebar({
       <ProjectList
         projects={projects}
         activeProjectId={activeProjectId}
+        activeWorkspaceId={activeWorkspaceId}
         suppressedProjectIds={suppressedProjectIds}
         allProjectSessions={allProjectSessions}
         activeSessionId={activeSessionId}
