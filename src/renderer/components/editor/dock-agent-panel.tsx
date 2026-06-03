@@ -7,6 +7,7 @@ import { useDockState } from './dock-panel-types'
 import { parseSiblingSessionId } from '../../hooks/agent-siblings'
 import { collectAgentMentionPaths, hasAgentPathDragData, readAgentPathDragData } from './file-tree-drag'
 import type { FileDropConfig } from '../../../renderer-shared/chat/ChatPane'
+import type { SpawnAgentOptions } from '../../../shared/types'
 
 const AGENT_CHAT_FILE_DROP: FileDropConfig = {
   hasPath: hasAgentPathDragData,
@@ -127,22 +128,35 @@ export function AgentPanel({ api }: { api?: { id: string } } = {}): React.JSX.El
     )
   }
 
+  const workspaceForRepo = s.activeWorkspaceId
+    ? s.workspaces?.find((w) => w.id === s.activeWorkspaceId && !!s.activeProjectId && w.projectIds.includes(s.activeProjectId))
+    : undefined
+
   if (!targetSessionId && s.activeProjectId && activeProject) {
+    const projectId = s.activeProjectId
+    const onLaunch = workspaceForRepo && s.onLaunchWorkspaceAgent
+      ? (opts: SpawnAgentOptions) => s.onLaunchWorkspaceAgent!(workspaceForRepo.id, projectId, {
+          runtimeId: opts.runtimeId,
+          prompt: opts.prompt,
+          nonInteractive: opts.nonInteractive,
+        })
+      : s.onLaunchAgent
     return (
       <OnboardingView
         variant="no-agent"
-        projectId={s.activeProjectId}
+        projectId={projectId}
         projectName={activeProject.name}
         projectPath={activeProject.path}
         baseBranch={s.baseBranch}
         isGitProject={s.activeProjectIsGit}
         defaultRuntime={s.defaultRuntime}
         defaultAgentMode={s.defaultAgentMode}
-        onLaunch={s.onLaunchAgent}
+        onLaunch={onLaunch}
         existingSessions={projectSessions}
         onResumeSession={s.onResumeAgent}
         onDeleteSession={(session) => s.onRequestDeleteAgent(session, activeProject.path)}
         focusTrigger={s.newAgentFocusTrigger}
+        compact={!!workspaceForRepo}
       />
     )
   }

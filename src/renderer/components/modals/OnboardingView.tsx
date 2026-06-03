@@ -81,6 +81,7 @@ interface NoAgentProps {
   onResumeSession?: (sessionId: string, runtimeId: string) => Promise<void>
   onDeleteSession?: (session: AgentSession) => void
   focusTrigger?: number
+  compact?: boolean
 }
 
 type OnboardingViewProps = NoProjectProps | NoAgentProps
@@ -154,6 +155,7 @@ export function OnboardingView(props: OnboardingViewProps): React.JSX.Element {
               onResumeSession={props.onResumeSession}
               onDeleteSession={props.onDeleteSession}
               focusTrigger={props.focusTrigger}
+              compact={props.compact}
             />
           </div>
         </>
