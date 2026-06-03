@@ -103,6 +103,11 @@ export function ProjectSidebar({
           onRemoveProject={onRemoveProjectFromWorkspace}
           onDeleteAgent={onRequestDeleteAgent}
           onNewWorkspace={onNewWorkspace}
+          onFetchProject={onFetchProject}
+          fetchingProjectId={fetchingProjectId}
+          lastFetchedProjectId={lastFetchedProjectId}
+          fetchResult={fetchResult}
+          fetchError={fetchError}
         />
       )}
       <ProjectList

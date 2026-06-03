@@ -118,6 +118,22 @@ describe('ProjectSidebar', () => {
     expect(props.onNewAgent).toHaveBeenCalled()
   })
 
+  it('fetches a workspace repo from its refresh button', () => {
+    const onFetchProject = vi.fn()
+    renderSidebar({
+      workspaces: [{ id: 'ws1', name: 'auth-refactor', projectIds: ['p1'], createdAt: '2024-01-01' }],
+      activeWorkspaceId: 'ws1',
+      onSelectWorkspace: vi.fn(),
+      onRemoveWorkspace: vi.fn(),
+      onSpawnWorkspaceAgent: vi.fn(),
+      onFetchProject,
+    })
+
+    fireEvent.click(screen.getByLabelText('Fetch Alpha'))
+
+    expect(onFetchProject).toHaveBeenCalledWith('p1')
+  })
+
   it('renders an active workspace as a labeled card with a Workspace eyebrow', () => {
     renderSidebar({
       workspaces: [{ id: 'ws1', name: 'auth-refactor', projectIds: ['p1', 'p2'], createdAt: '2024-01-01' }],
