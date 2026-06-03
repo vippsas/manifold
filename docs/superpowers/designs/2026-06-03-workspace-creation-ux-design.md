@@ -21,6 +21,14 @@
 > count. Token-only styling (`WorkspaceList.tsx` + `.sidebar-workspace-card` /
 > `.sidebar-workspace-eyebrow` in `theme.css`).
 
+> **Revision 3 2026-06-03 (active-repo placement):** the active repo was always
+> pinned at the top of `ProjectList`, so a repo-with-agents rendered *above* the
+> "With agents" header (and looked nested under the workspace above it). Now: an
+> active repo that **has** standalone agents renders as the first, expanded item
+> **under "With agents"**; an active repo with **no** agents stays pinned at the
+> top (otherwise it'd be hidden in the collapsed "Repositories" list). Pre-existing
+> `ProjectList` behavior, included here as sidebar-hierarchy polish.
+
 ## Summary
 
 Make **creating a workspace** a first-class, discoverable action and stop the

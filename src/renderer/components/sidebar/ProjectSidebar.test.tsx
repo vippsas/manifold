@@ -245,8 +245,36 @@ describe('ProjectSidebar', () => {
       suppressedProjectIds: new Set(['p2']),
     })
 
-    expect(screen.queryByText('With agents')).not.toBeInTheDocument()
+    // p2 is suppressed — its name is gone from the list
     expect(screen.queryByText('Beta')).not.toBeInTheDocument()
+    // the active project's own agents still render (now under "With agents")
+    expect(screen.getByText('oslo')).toBeInTheDocument()
+  })
+
+  it('places the active repo with agents under the "With agents" header', () => {
+    renderSidebar({ allProjectSessions: { p1: sampleSessions, p2: [] } })
+
+    const header = screen.getByText('With agents')
+    const activeAgent = screen.getByText('oslo')
+    // The active repo's card + agents render AFTER the section header
+    expect(
+      header.compareDocumentPosition(activeAgent) & Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeTruthy()
+  })
+
+  it('keeps the active repo pinned above the sections when it has no agents', () => {
+    const sessionsForP2: AgentSession[] = [
+      { id: 's3', projectId: 'p2', runtimeId: 'gemini', branchName: 'beta/stavanger', worktreePath: '/wt3', status: 'running', pid: 3, additionalDirs: [] },
+    ]
+
+    renderSidebar({ activeProjectId: 'p1', allProjectSessions: { p1: [], p2: sessionsForP2 } })
+
+    const activeName = screen.getByText('Alpha')
+    const header = screen.getByText('With agents')
+    // The active (agent-less) repo card sits BEFORE the "With agents" header
+    expect(
+      activeName.compareDocumentPosition(header) & Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeTruthy()
   })
 
   it('does not highlight the home repo as an active standalone project while a workspace session is active', () => {

@@ -87,6 +87,60 @@ export function ProjectList({
       && filterStandaloneProjectSessions(allProjectSessions[p.id] ?? []).length === 0
   )
 
+  // When the active repo has standalone agents it belongs under the "With agents"
+  // header (rendered first, expanded). When it has none, it stays pinned at the
+  // top so it isn't hidden inside the collapsed "Repositories" list.
+  const activeHasAgents = activeProject !== null
+    && filterStandaloneProjectSessions(allProjectSessions[activeProject.id] ?? []).length > 0
+
+  const renderActiveProjectCard = (project: Project): React.JSX.Element => {
+    const projectSessions = filterStandaloneProjectSessions(allProjectSessions[project.id] ?? [])
+    const activeWorktreePath = projectSessions.find((s) => s.id === activeSessionId)?.worktreePath ?? null
+    const primarySessions = dedupeSessionsByWorktree(projectSessions)
+    return (
+      <div className="sidebar-project-group sidebar-project-group--active sidebar-project-group--has-agents">
+        <ProjectItem
+          project={project}
+          isActive={true}
+          onSelect={handleProjectClick}
+          onRemove={onRemove}
+          isFetching={fetchingProjectId === project.id}
+          fetchResult={lastFetchedProjectId === project.id ? fetchResult : null}
+          fetchError={lastFetchedProjectId === project.id ? fetchError : null}
+          onFetch={() => onFetchProject(project.id)}
+          onRename={(name) => onUpdateProject(project.id, { name })}
+        />
+        {primarySessions.map((session) => {
+          const siblingOutputting = projectSessions.some(
+            (s) => s.worktreePath === session.worktreePath && outputtingSessionIds.has(s.id),
+          )
+          return (
+            <AgentItem
+              key={session.id}
+              session={session}
+              projectPath={project.path}
+              isActive={session.worktreePath !== '' && session.worktreePath === activeWorktreePath}
+              isOutputting={siblingOutputting}
+              onSelect={(sessionId) => onSelectSession(sessionId, project.id)}
+              onDelete={() => onRequestDeleteAgent(session, project.path)}
+            />
+          )
+        })}
+        {drafts
+          .filter((d) => d.projectId === project.id)
+          .map((d) => (
+            <DraftAgentItem
+              key={d.id}
+              draft={d}
+              isActive={d.id === activeDraftId}
+              onSelect={onSelectDraft}
+              onDiscard={onDiscardDraft}
+            />
+          ))}
+      </div>
+    )
+  }
+
   if (visibleProjects.length === 0) {
     return (
       <div style={sidebarStyles.list}>
@@ -97,58 +151,13 @@ export function ProjectList({
 
   return (
     <div style={sidebarStyles.list}>
-      {activeProject !== null && (() => {
-        const projectSessions = filterStandaloneProjectSessions(allProjectSessions[activeProject.id] ?? [])
-        const activeWorktreePath = projectSessions.find((s) => s.id === activeSessionId)?.worktreePath ?? null
-        const primarySessions = dedupeSessionsByWorktree(projectSessions)
-        return (
-          <div className="sidebar-project-group sidebar-project-group--active sidebar-project-group--has-agents">
-            <ProjectItem
-              project={activeProject}
-              isActive={true}
-              onSelect={handleProjectClick}
-              onRemove={onRemove}
-              isFetching={fetchingProjectId === activeProject.id}
-              fetchResult={lastFetchedProjectId === activeProject.id ? fetchResult : null}
-              fetchError={lastFetchedProjectId === activeProject.id ? fetchError : null}
-              onFetch={() => onFetchProject(activeProject.id)}
-              onRename={(name) => onUpdateProject(activeProject.id, { name })}
-            />
-            {primarySessions.map((session) => {
-              const siblingOutputting = projectSessions.some(
-                (s) => s.worktreePath === session.worktreePath && outputtingSessionIds.has(s.id),
-              )
-              return (
-                <AgentItem
-                  key={session.id}
-                  session={session}
-                  projectPath={activeProject.path}
-                  isActive={session.worktreePath !== '' && session.worktreePath === activeWorktreePath}
-                  isOutputting={siblingOutputting}
-                  onSelect={(sessionId) => onSelectSession(sessionId, activeProject.id)}
-                  onDelete={() => onRequestDeleteAgent(session, activeProject.path)}
-                />
-              )
-            })}
-            {drafts
-              .filter((d) => d.projectId === activeProject.id)
-              .map((d) => (
-                <DraftAgentItem
-                  key={d.id}
-                  draft={d}
-                  isActive={d.id === activeDraftId}
-                  onSelect={onSelectDraft}
-                  onDiscard={onDiscardDraft}
-                />
-              ))}
-          </div>
-        )
-      })()}
+      {activeProject !== null && !activeHasAgents && renderActiveProjectCard(activeProject)}
 
-      {withAgentsProjects.length > 0 && (
+      {(activeHasAgents || withAgentsProjects.length > 0) && (
         <>
           <div style={sidebarStyles.sectionDivider} />
           <div style={sidebarStyles.sectionLabel}>With agents</div>
+          {activeProject !== null && activeHasAgents && renderActiveProjectCard(activeProject)}
           {withAgentsProjects.map((project) => {
             const projectSessions = filterStandaloneProjectSessions(allProjectSessions[project.id] ?? [])
             return (
