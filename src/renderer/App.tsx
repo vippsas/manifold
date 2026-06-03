@@ -48,6 +48,10 @@ export function App(): React.JSX.Element {
     settings, updateSettings, projects, workspaces,
   )
   const activateFavorite = useCallback((fav: ResolvedFavorite): void => {
+    // Branches are intentionally asymmetric: the repo branch mirrors onSelectProject
+    // (clear workspace, set project; session is NOT cleared) so a ⌘-jump matches a
+    // sidebar repo click, while the workspace branch mirrors onSelectWorkspaceRepo
+    // (set home repo and clear the session).
     if (fav.kind === 'repo') {
       setActiveWorkspaceId(null)
       setActiveProject(fav.id)
