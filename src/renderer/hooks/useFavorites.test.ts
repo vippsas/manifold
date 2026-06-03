@@ -72,4 +72,31 @@ describe('useFavorites', () => {
       ],
     })
   })
+
+  it('reorderFavorites drops stale refs on persist (operates on visible order)', () => {
+    const updateSettings = vi.fn().mockResolvedValue(undefined)
+    const settings = makeSettings([
+      { kind: 'repo', id: 'gone' },
+      { kind: 'repo', id: 'p1' },
+      { kind: 'repo', id: 'p2' },
+    ])
+    const { result } = renderHook(() => useFavorites(settings, updateSettings, projects, workspaces))
+    // Visible order is [p1, p2] (gone is filtered out); swap them.
+    act(() => { result.current.reorderFavorites(1, 0) })
+    expect(updateSettings).toHaveBeenCalledWith({
+      favorites: [
+        { kind: 'repo', id: 'p2' },
+        { kind: 'repo', id: 'p1' },
+      ],
+    })
+  })
+
+  it('reorderFavorites is a no-op when indices are out of bounds', () => {
+    const updateSettings = vi.fn().mockResolvedValue(undefined)
+    const settings = makeSettings([{ kind: 'repo', id: 'p1' }, { kind: 'repo', id: 'p2' }])
+    const { result } = renderHook(() => useFavorites(settings, updateSettings, projects, workspaces))
+    act(() => { result.current.reorderFavorites(5, 0) })
+    act(() => { result.current.reorderFavorites(0, -1) })
+    expect(updateSettings).not.toHaveBeenCalled()
+  })
 })

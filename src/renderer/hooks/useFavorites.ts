@@ -22,6 +22,7 @@ export function useFavorites(
   projects: Project[],
   workspaces: Workspace[],
 ): UseFavoritesResult {
+  // Stabilizes the empty-array reference when settings.favorites is undefined.
   const raw = useMemo<FavoriteRef[]>(() => settings.favorites ?? [], [settings.favorites])
 
   const resolveName = useCallback(
@@ -46,7 +47,11 @@ export function useFavorites(
     [raw],
   )
 
-  /** Persist only refs that currently resolve (cleans up stale entries on change). */
+  /**
+   * Persist only refs that currently resolve (cleans up stale entries on change).
+   * Runs on BOTH toggleFavorite and reorderFavorites, so every mutation prunes
+   * unresolved refs from what gets written.
+   */
   const persist = useCallback(
     (next: FavoriteRef[]): void => {
       const pruned = next.filter((ref) => resolveName(ref) !== null)
@@ -73,6 +78,7 @@ export function useFavorites(
       if (fromIndex < 0 || fromIndex >= order.length || toIndex < 0 || toIndex >= order.length) return
       const [moved] = order.splice(fromIndex, 1)
       order.splice(toIndex, 0, moved)
+      // persist() prunes unresolved refs, so we write the pruned visible order.
       persist(order)
     },
     [favorites, persist],
