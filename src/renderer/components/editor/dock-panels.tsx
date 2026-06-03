@@ -150,7 +150,6 @@ function ProjectsPanel(): React.JSX.Element {
       sessionsByWorkspace={s.sessionsByWorkspace}
       onSelectWorkspace={s.onSelectWorkspace}
       onRemoveWorkspace={s.onRemoveWorkspace}
-      onSpawnWorkspaceAgent={s.onSpawnWorkspaceAgent}
       onSelectWorkspaceRepo={s.onSelectWorkspaceRepo}
       onAddProjectToWorkspace={s.onAddProjectToWorkspace}
       onRemoveProjectFromWorkspace={s.onRemoveProjectFromWorkspace}

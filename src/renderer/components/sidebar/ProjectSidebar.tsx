@@ -26,7 +26,6 @@ interface ProjectSidebarProps {
   sessionsByWorkspace?: Record<string, AgentSession[]>
   onSelectWorkspace?: (id: string) => void
   onRemoveWorkspace?: (id: string) => Promise<void>
-  onSpawnWorkspaceAgent?: (workspaceId: string, homeProjectId?: string) => void
   onSelectWorkspaceRepo?: (workspaceId: string, projectId: string) => void
   onAddProjectToWorkspace?: (workspaceId: string) => void
   onRemoveProjectFromWorkspace?: (workspaceId: string, projectId: string) => void
@@ -61,7 +60,6 @@ export function ProjectSidebar({
   sessionsByWorkspace,
   onSelectWorkspace,
   onRemoveWorkspace,
-  onSpawnWorkspaceAgent,
   onSelectWorkspaceRepo,
   onAddProjectToWorkspace,
   onRemoveProjectFromWorkspace,
@@ -89,7 +87,7 @@ export function ProjectSidebar({
 
   return (
     <div style={sidebarStyles.root}>
-      {workspaces && onSelectWorkspace && onRemoveWorkspace && onSpawnWorkspaceAgent && (
+      {workspaces && onSelectWorkspace && onRemoveWorkspace && (
         <WorkspaceList
           workspaces={workspaces}
           projects={projects}

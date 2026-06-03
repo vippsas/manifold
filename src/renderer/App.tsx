@@ -226,20 +226,6 @@ export function App(): React.JSX.Element {
       await removeWorkspace(id)
       setActiveWorkspaceId((current) => (current === id ? null : current))
     },
-    onSpawnWorkspaceAgent: async (
-      workspaceId: string,
-      homeProjectId?: string,
-      opts?: { runtimeId?: string; prompt?: string; nonInteractive?: boolean },
-    ) => {
-      const ws = workspaces.find((w) => w.id === workspaceId)
-      const session = await spawnWorkspaceAgent(workspaceId, {
-        runtimeId: opts?.runtimeId ?? ws?.runtimeId ?? settings.defaultRuntime,
-        homeProjectId,
-        prompt: opts?.prompt,
-        nonInteractive: opts?.nonInteractive,
-      })
-      setActiveWorkspaceId(workspaceId); overlays.handleSelectSession(session.id, session.projectId)
-    },
     onLaunchWorkspaceAgent: async (
       workspaceId: string,
       homeProjectId: string,
@@ -252,6 +238,13 @@ export function App(): React.JSX.Element {
         nonInteractive: options.nonInteractive,
       })
       setActiveWorkspaceId(workspaceId); overlays.handleSelectSession(session.id, session.projectId)
+      if (options.nonInteractive) {
+        try {
+          await window.electronAPI.invoke('simple:subscribe-chat', session.id)
+        } catch (err) {
+          console.error(`[onLaunchWorkspaceAgent] simple:subscribe-chat failed for ${session.id}:`, err)
+        }
+      }
       return session
     },
     onAddProjectToWorkspace: (id: string) => setAddProjectWorkspaceId(id),
