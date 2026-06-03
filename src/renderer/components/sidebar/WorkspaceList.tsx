@@ -5,6 +5,7 @@ import { sidebarStyles } from './ProjectSidebar.styles'
 import { AgentItem } from './AgentItem'
 import { WorkspaceGlyph } from './WorkspaceGlyph'
 import { isGitProject } from '../../../shared/project-kind'
+import { FavoriteStarButton } from './FavoriteStarButton'
 
 export interface WorkspaceListProps {
   workspaces: Workspace[]
@@ -121,6 +122,9 @@ export function WorkspaceList({
               <span style={{ fontSize: 'var(--type-ui-caption)', color: 'var(--text-muted)', flexShrink: 0 }}>
                 {w.projectIds.length} {w.projectIds.length === 1 ? 'repo' : 'repos'}
               </span>
+              <span style={{ flexShrink: 0, display: 'flex', alignItems: 'center' }}>
+                <FavoriteStarButton kind="workspace" id={w.id} name={w.name} />
+              </span>
             </div>
           )
         }
@@ -172,6 +176,7 @@ export function WorkspaceList({
                 <span className="truncate" style={{ minWidth: 0 }}>{w.name}</span>
               </span>
               <div className="sidebar-item-actions" style={sidebarStyles.itemRight}>
+                <FavoriteStarButton kind="workspace" id={w.id} name={w.name} />
                 {onAddProject && projects.some((p) => !w.projectIds.includes(p.id)) && (
                   <button
                     type="button"

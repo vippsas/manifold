@@ -158,6 +158,7 @@ const ALLOWED_LISTEN_CHANNELS = [
   'updater:status',
   'view:toggle-panel',
   'view:show-search',
+  'view:jump-favorite',
   'preview:url-detected',
   'app:auto-spawn',
   'provisioning:progress',

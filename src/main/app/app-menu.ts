@@ -68,32 +68,32 @@ export function buildAppMenu(mainWindow: BrowserWindow, options: AppMenuOptions)
       submenu: [
         {
           label: 'Toggle Projects',
-          accelerator: 'CmdOrCtrl+1',
+          accelerator: 'CmdOrCtrl+Alt+1',
           click: () => mainWindow?.webContents.send('view:toggle-panel', 'projects'),
         },
         {
           label: 'Toggle Agent',
-          accelerator: 'CmdOrCtrl+2',
+          accelerator: 'CmdOrCtrl+Alt+2',
           click: () => mainWindow?.webContents.send('view:toggle-panel', 'agent'),
         },
         {
           label: 'Toggle Editor',
-          accelerator: 'CmdOrCtrl+3',
+          accelerator: 'CmdOrCtrl+Alt+3',
           click: () => mainWindow?.webContents.send('view:toggle-panel', 'editor'),
         },
         {
           label: 'Toggle Files',
-          accelerator: 'CmdOrCtrl+4',
+          accelerator: 'CmdOrCtrl+Alt+4',
           click: () => mainWindow?.webContents.send('view:toggle-panel', 'fileTree'),
         },
         {
           label: 'Toggle Modified Files',
-          accelerator: 'CmdOrCtrl+5',
+          accelerator: 'CmdOrCtrl+Alt+5',
           click: () => mainWindow?.webContents.send('view:toggle-panel', 'modifiedFiles'),
         },
         {
           label: 'Toggle Shell',
-          accelerator: 'CmdOrCtrl+6',
+          accelerator: 'CmdOrCtrl+Alt+6',
           click: () => mainWindow?.webContents.send('view:toggle-panel', 'shell'),
         },
         { type: 'separator' },
@@ -107,6 +107,14 @@ export function buildAppMenu(mainWindow: BrowserWindow, options: AppMenuOptions)
         { type: 'separator' },
         { role: 'togglefullscreen' },
       ],
+    },
+    {
+      label: 'Go',
+      submenu: Array.from({ length: 9 }, (_, i) => ({
+        label: `Jump to Favorite ${i + 1}`,
+        accelerator: `CmdOrCtrl+${i + 1}`,
+        click: () => mainWindow?.webContents.send('view:jump-favorite', i),
+      })),
     },
     {
       label: 'Window',

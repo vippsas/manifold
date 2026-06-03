@@ -15,7 +15,7 @@ function createInput(activeSessionId: string | null = 'session-1') {
     if (panels.has(id) || id === 'editor') return { api: { setActive: vi.fn() } }
     return undefined
   })
-  const apiRef = { current: { addPanel, getPanel } } as UseDockLayoutResult['apiRef']
+  const apiRef = { current: { addPanel, getPanel } } as unknown as UseDockLayoutResult['apiRef']
 
   return {
     panels,
@@ -28,18 +28,24 @@ function createInput(activeSessionId: string | null = 'session-1') {
         togglePanel: vi.fn(),
         closePanel: vi.fn(),
         focusPanel: vi.fn(),
+        openSiblingPanel: vi.fn(),
+        closeSiblingPanel: vi.fn(),
         ensureEditorPanel: vi.fn(() => 'editor'),
         splitEditorPane: vi.fn(() => null),
+        findEditorPanelForSplit: vi.fn(() => null),
         isPanelVisible: vi.fn(() => true),
         resetLayout: vi.fn(),
         hiddenPanels: [],
         editorPanelIds: ['editor'],
+        layoutVersion: 0,
+        layoutReloadVersion: 0,
       } satisfies UseDockLayoutResult,
       settings: { defaultRuntime: 'codex' },
       setActiveProject: vi.fn(),
       spawnAgent: vi.fn(),
       refreshOpenFiles: vi.fn().mockResolvedValue(undefined),
       refreshDiff: vi.fn().mockResolvedValue(undefined),
+      jumpToFavorite: vi.fn(),
     },
   }
 }
@@ -155,5 +161,15 @@ describe('useAppEffects', () => {
       vi.advanceTimersByTime(200)
     })
     expect(input.refreshOpenFiles).not.toHaveBeenCalled()
+  })
+
+  it('jumps to the favorite at the index from view:jump-favorite', () => {
+    const { input } = createInput()
+    renderHook(() => useAppEffects({ ...input }))
+
+    act(() => {
+      emit('view:jump-favorite', 2)
+    })
+    expect(input.jumpToFavorite).toHaveBeenCalledWith(2)
   })
 })

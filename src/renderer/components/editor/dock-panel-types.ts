@@ -1,6 +1,6 @@
 import { createContext, useContext } from 'react'
 import type { ITheme } from '@xterm/xterm'
-import type { AgentStatus, FileTreeNode, FileChange, Project, AgentSession, SpawnAgentOptions } from '../../../shared/types'
+import type { AgentStatus, FileTreeNode, FileChange, Project, AgentSession, SpawnAgentOptions, FavoriteKind, ResolvedFavorite } from '../../../shared/types'
 import type { SearchMode } from '../../../shared/search-types'
 import type { EditorPaneView, OpenFile } from '../../hooks/useCodeView'
 import type { FileOpenRequest } from './file-open-request'
@@ -120,6 +120,12 @@ export interface DockAppState {
   activeDraft: DraftChat | null
   promoteDraft: (draftId: string, firstMessage: string) => Promise<void>
   discardDraft: (draftId: string) => void
+  // Favorites
+  favorites: ResolvedFavorite[]
+  isFavorite: (kind: FavoriteKind, id: string) => boolean
+  onToggleFavorite: (kind: FavoriteKind, id: string) => void
+  onReorderFavorites: (fromIndex: number, toIndex: number) => void
+  onActivateFavorite: (favorite: ResolvedFavorite) => void
 }
 
 export const DockStateContext = createContext<DockAppState | null>(null)

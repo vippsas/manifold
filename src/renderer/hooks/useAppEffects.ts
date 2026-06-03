@@ -12,6 +12,7 @@ interface AppEffectsInput {
   spawnAgent: (options: SpawnAgentOptions) => Promise<unknown>
   refreshOpenFiles: () => Promise<void>
   refreshDiff: () => Promise<void>
+  jumpToFavorite: (index: number) => void
 }
 
 export interface AppEffectsResult {
@@ -75,6 +76,10 @@ export function useAppEffects(input: AppEffectsInput): AppEffectsResult {
   useEffect(() => window.electronAPI.on('view:show-search', () => {
     focusSearch('code')
   }), [focusSearch])
+
+  useEffect(() => window.electronAPI.on('view:jump-favorite', (index: unknown) => {
+    input.jumpToFavorite(index as number)
+  }), [input.jumpToFavorite])
 
   useEffect(() => {
     let cancelled = false

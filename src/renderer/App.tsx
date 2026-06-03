@@ -32,7 +32,8 @@ import { useAppEffects } from './hooks/useAppEffects'
 import type { DockAppState } from './components/editor/dock-panel-types'
 import { buildRootLabels } from './components/editor/file-tree-labels'
 import { useWorkspaces } from './hooks/useWorkspaces'
-import type { AgentSession } from '../shared/types'
+import { useFavorites } from './hooks/useFavorites'
+import type { AgentSession, ResolvedFavorite } from '../shared/types'
 import { isGitProject } from '../shared/project-kind'
 import { AppShell } from './AppShell'
 
@@ -44,6 +45,28 @@ export function App(): React.JSX.Element {
   const { sessionsByProject, removeSession } = useAllProjectSessions(projects, activeProjectId, sessions)
   const { workspaces, createWorkspace, removeWorkspace, addProject: addProjectToWorkspace, removeProject: removeProjectFromWorkspace, spawnAgent: spawnWorkspaceAgent } = useWorkspaces()
   const [activeWorkspaceId, setActiveWorkspaceId] = useState<string | null>(null)
+  const { favorites, isFavorite, toggleFavorite, reorderFavorites } = useFavorites(
+    settings, updateSettings, projects, workspaces,
+  )
+  const activateFavorite = useCallback((fav: ResolvedFavorite): void => {
+    // Branches are intentionally asymmetric: the repo branch mirrors onSelectProject
+    // (clear workspace, set project; session is NOT cleared) so a ⌘-jump matches a
+    // sidebar repo click, while the workspace branch mirrors onSelectWorkspaceRepo
+    // (set home repo and clear the session).
+    if (fav.kind === 'repo') {
+      setActiveWorkspaceId(null)
+      setActiveProject(fav.id)
+    } else {
+      const ws = workspaces.find((w) => w.id === fav.id)
+      setActiveWorkspaceId(fav.id)
+      if (ws && ws.projectIds[0]) setActiveProject(ws.projectIds[0])
+      setActiveSession(null)
+    }
+  }, [workspaces, setActiveProject, setActiveSession])
+  const jumpToFavorite = useCallback((index: number): void => {
+    const fav = favorites[index]
+    if (fav) activateFavorite(fav)
+  }, [favorites, activateFavorite])
   const [newWorkspaceVisible, setNewWorkspaceVisible] = useState(false)
   const [addProjectWorkspaceId, setAddProjectWorkspaceId] = useState<string | null>(null)
   const suppressedProjectIds = useMemo(() => new Set<string>(), [])
@@ -88,6 +111,7 @@ export function App(): React.JSX.Element {
   const appEffects = useAppEffects({
     activeSessionId, dockLayout, settings,
     setActiveProject, spawnAgent, refreshOpenFiles: codeView.refreshOpenFiles, refreshDiff,
+    jumpToFavorite,
   })
   const { additionalTrees, additionalBranches } = useAdditionalDirs(effectiveSessionId, activeSession?.additionalDirs)
   const { tree, changes: watcherChanges, deleteFile, renameFile, createFile, createDir, importPaths, movePath, revealInFinder, openInTerminal } = useFileWatcher(effectiveSessionId, appEffects.handleFilesChanged, activeDraft?.projectId ?? null)
@@ -271,6 +295,8 @@ export function App(): React.JSX.Element {
     activeSessionStatus: activeSession?.status ?? null,
     activeSessionRuntimeId: activeSession?.runtimeId ?? null, onResumeAgent: resumeAgent,
     drafts, activeDraft, promoteDraft, discardDraft,
+    favorites, isFavorite, onToggleFavorite: toggleFavorite,
+    onReorderFavorites: reorderFavorites, onActivateFavorite: activateFavorite,
   }
 
   return (
