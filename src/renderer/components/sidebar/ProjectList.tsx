@@ -254,7 +254,7 @@ export function ProjectList({
                   >
                     {project.name}
                   </span>
-                  <span className="sidebar-item-actions" style={{ marginLeft: 'auto', flexShrink: 0 }}>
+                  <span style={{ marginLeft: 'auto', flexShrink: 0, display: 'flex', alignItems: 'center' }}>
                     <FavoriteStarButton kind="repo" id={project.id} name={project.name} />
                   </span>
                 </div>

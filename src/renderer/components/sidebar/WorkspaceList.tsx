@@ -122,7 +122,7 @@ export function WorkspaceList({
               <span style={{ fontSize: 'var(--type-ui-caption)', color: 'var(--text-muted)', flexShrink: 0 }}>
                 {w.projectIds.length} {w.projectIds.length === 1 ? 'repo' : 'repos'}
               </span>
-              <span className="sidebar-item-actions" style={{ flexShrink: 0 }}>
+              <span style={{ flexShrink: 0, display: 'flex', alignItems: 'center' }}>
                 <FavoriteStarButton kind="workspace" id={w.id} name={w.name} />
               </span>
             </div>
