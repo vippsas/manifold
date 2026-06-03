@@ -91,7 +91,8 @@ export interface DockAppState {
   sessionsByWorkspace?: Record<string, AgentSession[]>
   onSelectWorkspace?: (id: string) => void
   onRemoveWorkspace?: (id: string) => Promise<void>
-  onSpawnWorkspaceAgent?: (workspaceId: string, homeProjectId?: string) => void
+  onSpawnWorkspaceAgent?: (workspaceId: string, homeProjectId?: string, opts?: { runtimeId?: string; prompt?: string; nonInteractive?: boolean }) => void
+  onLaunchWorkspaceAgent?: (workspaceId: string, homeProjectId: string, options: { runtimeId: string; prompt: string; nonInteractive?: boolean }) => Promise<unknown>
   onAddProjectToWorkspace?: (workspaceId: string) => void
   onRemoveProjectFromWorkspace?: (workspaceId: string, projectId: string) => void
   fetchingProjectId: string | null
