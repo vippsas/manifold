@@ -13,21 +13,19 @@ export function useAdditionalDirs(activeSessionId: string | null, initialDirs: s
   const [additionalTrees, setAdditionalTrees] = useState<Map<string, FileTreeNode>>(new Map())
   const [additionalBranches, setAdditionalBranches] = useState<Map<string, string | null>>(new Map())
 
-  // Seed from the already-fetched session data (avoids a redundant global discovery call)
+  // Seed from the already-fetched session data (avoids a redundant global discovery call).
+  // Reset trees/branches to the current session's dirs so roots from a previously selected
+  // session (e.g. a workspace's repos) don't leak into a single-repo agent with no additional dirs.
   useEffect(() => {
-    if (!activeSessionId) {
-      setAdditionalDirs([])
-      setAdditionalTrees(new Map())
-      setAdditionalBranches(new Map())
-      return
-    }
+    setAdditionalDirs(initialDirs)
+    setAdditionalTrees(new Map())
+    setAdditionalBranches(new Map())
 
-    if (initialDirs.length > 0) {
-      setAdditionalDirs(initialDirs)
-      for (const dir of initialDirs) {
-        fetchTree(activeSessionId, dir)
-        fetchBranch(activeSessionId, dir)
-      }
+    if (!activeSessionId) return
+
+    for (const dir of initialDirs) {
+      fetchTree(activeSessionId, dir)
+      fetchBranch(activeSessionId, dir)
     }
   }, [activeSessionId, initialDirs.join(',')])
 
