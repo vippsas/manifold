@@ -90,7 +90,7 @@ export interface FileSearchResult extends SearchResultBase {
   filePath: string
   rootPath: string
   relativePath: string
-  /** Positions in `title` (the display path) matched by the fuzzy query, for highlighting. */
+  /** Positions in `title` (the display path) matched by the query substring, for highlighting. */
   matchedIndices: number[]
 }
 
