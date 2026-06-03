@@ -127,6 +127,9 @@
   --shadow-popover: 0 8px 24px rgba(0, 0, 0, 0.4), 0 0 0 1px rgba(255, 255, 255, 0.04), inset 0 1px 0 rgba(255, 255, 255, 0.06);
   --shadow-overlay: 0 20px 60px rgba(0, 0, 0, 0.5), 0 0 0 1px rgba(255, 255, 255, 0.05), inset 0 1px 0 rgba(255, 255, 255, 0.08);
   --shadow-elevated: 0 4px 16px rgba(0, 0, 0, 0.3), inset 0 1px 0 rgba(255, 255, 255, 0.06);
+  /* Accent-derived halo for primary CTAs; the theme adapter overrides this at
+     runtime with a per-theme glow. Falls back to the elevated shadow pre-JS. */
+  --shadow-glow: var(--shadow-elevated);
 }
 
 /* ── Micro-interactions ── */
@@ -777,6 +780,7 @@ select:focus-visible {
 
 .sidebar-action-button--primary:hover {
   filter: brightness(1.12);
+  box-shadow: var(--shadow-glow);
 }
 
 /* ─── Markdown Preview ─── */
@@ -1153,6 +1157,7 @@ select:focus-visible {
 
 .git-panel-btn--primary:hover:not(:disabled) {
   filter: brightness(1.12);
+  box-shadow: var(--shadow-glow);
 }
 
 .git-panel-btn--secondary {
