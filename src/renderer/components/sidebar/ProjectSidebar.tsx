@@ -27,6 +27,7 @@ interface ProjectSidebarProps {
   onSelectWorkspace?: (id: string) => void
   onRemoveWorkspace?: (id: string) => Promise<void>
   onSpawnWorkspaceAgent?: (workspaceId: string, homeProjectId?: string) => void
+  onSelectWorkspaceRepo?: (workspaceId: string, projectId: string) => void
   onAddProjectToWorkspace?: (workspaceId: string) => void
   onRemoveProjectFromWorkspace?: (workspaceId: string, projectId: string) => void
   fetchingProjectId: string | null
@@ -61,6 +62,7 @@ export function ProjectSidebar({
   onSelectWorkspace,
   onRemoveWorkspace,
   onSpawnWorkspaceAgent,
+  onSelectWorkspaceRepo,
   onAddProjectToWorkspace,
   onRemoveProjectFromWorkspace,
   fetchingProjectId,
@@ -98,7 +100,8 @@ export function ProjectSidebar({
           onSelectWorkspace={onSelectWorkspace}
           onRemoveWorkspace={onRemoveWorkspace}
           onSelectSession={onSelectSession}
-          onSpawnAgent={onSpawnWorkspaceAgent}
+          onSelectRepo={onSelectWorkspaceRepo}
+          activeProjectId={activeProjectId}
           onAddProject={onAddProjectToWorkspace}
           onRemoveProject={onRemoveProjectFromWorkspace}
           onDeleteAgent={onRequestDeleteAgent}
@@ -136,10 +139,7 @@ export function ProjectSidebar({
       <div style={sidebarStyles.actions}>
         <button
           type="button"
-          onClick={() => {
-            if (activeWorkspace && onSpawnWorkspaceAgent) onSpawnWorkspaceAgent(activeWorkspace.id)
-            else onNewAgent()
-          }}
+          onClick={onNewAgent}
           className="sidebar-action-button sidebar-action-button--primary"
           style={sidebarStyles.actionButtonPrimary}
           title={activeWorkspace ? `New Agent in ${activeWorkspace.name}` : 'New Agent'}

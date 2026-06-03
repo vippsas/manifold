@@ -171,7 +171,7 @@ describe('ProjectSidebar', () => {
     expect(props.onNewWorkspace).toHaveBeenCalled()
   })
 
-  it('labels the primary button with the active workspace and spawns into it', () => {
+  it('labels the primary button with the active workspace and opens the New-Agent form', () => {
     const onSpawnWorkspaceAgent = vi.fn()
     const { props } = renderSidebar({
       workspaces: [{ id: 'ws1', name: 'auth-refactor', projectIds: ['p1'], createdAt: '2024-01-01' }],
@@ -183,8 +183,25 @@ describe('ProjectSidebar', () => {
 
     fireEvent.click(screen.getByText('+ New Agent in auth-refactor'))
 
-    expect(onSpawnWorkspaceAgent).toHaveBeenCalledWith('ws1')
-    expect(props.onNewAgent).not.toHaveBeenCalled()
+    expect(props.onNewAgent).toHaveBeenCalled()
+    expect(onSpawnWorkspaceAgent).not.toHaveBeenCalled()
+  })
+
+  it('selecting a workspace repo calls onSelectWorkspaceRepo and no longer shows a play button', () => {
+    const onSelectWorkspaceRepo = vi.fn()
+    renderSidebar({
+      workspaces: [{ id: 'ws1', name: 'auth-refactor', projectIds: ['p1', 'p2'], createdAt: '2024-01-01' }],
+      activeWorkspaceId: 'ws1',
+      onSelectWorkspace: vi.fn(),
+      onRemoveWorkspace: vi.fn(),
+      onSpawnWorkspaceAgent: vi.fn(),
+      onSelectWorkspaceRepo,
+      suppressedProjectIds: new Set(['p1', 'p2']),
+    })
+
+    expect(screen.queryByLabelText('Start agent in Alpha')).not.toBeInTheDocument()
+    fireEvent.click(screen.getByText('Alpha'))
+    expect(onSelectWorkspaceRepo).toHaveBeenCalledWith('ws1', 'p1')
   })
 
   it('keeps the plain + New Agent label and handler when no workspace is active', () => {

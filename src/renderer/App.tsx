@@ -204,7 +204,19 @@ export function App(): React.JSX.Element {
       overlays.handleSelectSession(sessionId, projectId)
     },
     onRemoveProject: removeProject, onUpdateProject: updateProject, onRequestDeleteAgent: overlays.requestDeleteAgent,
-    onNewAgentFromHeader: () => { setActiveWorkspaceId(null); overlays.handleNewAgentFromHeader() },
+    onNewAgentFromHeader: () => {
+      if (activeWorkspaceId) {
+        const ws = workspaces.find((w) => w.id === activeWorkspaceId)
+        const home = activeProjectId && ws?.projectIds.includes(activeProjectId) ? activeProjectId : ws?.projectIds[0]
+        if (home) setActiveProject(home)
+        overlays.handleNewAgentFromHeader()
+      } else {
+        setActiveWorkspaceId(null); overlays.handleNewAgentFromHeader()
+      }
+    },
+    onSelectWorkspaceRepo: (workspaceId: string, projectId: string) => {
+      setActiveWorkspaceId(workspaceId); setActiveProject(projectId); setActiveSession(null)
+    },
     newAgentFocusTrigger: overlays.newAgentFocusTrigger,
     onNewProject: () => appEffects.setShowOnboarding(true),
     workspaces, activeWorkspaceId, sessionsByWorkspace,

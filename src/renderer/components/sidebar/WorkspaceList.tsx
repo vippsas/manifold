@@ -29,13 +29,14 @@ export interface WorkspaceListProps {
   workspaces: Workspace[]
   projects: Project[]
   activeWorkspaceId: string | null
+  activeProjectId?: string | null
   sessionsByWorkspace: Record<string, AgentSession[]>
   activeSessionId?: string | null
   outputtingSessionIds?: Set<string>
   onSelectWorkspace: (id: string) => void
   onRemoveWorkspace: (id: string) => Promise<void>
   onSelectSession: (sessionId: string, projectId: string) => void
-  onSpawnAgent: (workspaceId: string, homeProjectId?: string) => void
+  onSelectRepo?: (workspaceId: string, projectId: string) => void
   onAddProject?: (workspaceId: string) => void
   onRemoveProject?: (workspaceId: string, projectId: string) => void
   onDeleteAgent?: (session: AgentSession, projectPath: string) => void
@@ -51,13 +52,14 @@ export function WorkspaceList({
   workspaces,
   projects,
   activeWorkspaceId,
+  activeProjectId,
   sessionsByWorkspace,
   activeSessionId,
   outputtingSessionIds,
   onSelectWorkspace,
   onRemoveWorkspace,
   onSelectSession,
-  onSpawnAgent,
+  onSelectRepo,
   onAddProject,
   onRemoveProject,
   onDeleteAgent,
@@ -226,9 +228,13 @@ export function WorkspaceList({
               return (
                 <Fragment key={`repo-${pid}`}>
                 <div
-                  className="sidebar-item-row sidebar-repo-row"
+                  className={`sidebar-item-row sidebar-repo-row${activeProjectId === pid ? ' sidebar-item-row--active' : ''}`}
                   style={{ ...sidebarStyles.item, paddingLeft: 16 }}
                   title={repo?.path ?? pid}
+                  role="button"
+                  tabIndex={0}
+                  onClick={() => onSelectRepo?.(w.id, pid)}
+                  onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onSelectRepo?.(w.id, pid) } }}
                 >
                   <span
                     className="truncate sidebar-row-label"
@@ -251,17 +257,6 @@ export function WorkspaceList({
                         {fetchingProjectId === pid ? '...' : '↻'}
                       </button>
                     )}
-                    <button
-                      type="button"
-                      onClick={(e) => { e.stopPropagation(); onSpawnAgent(w.id, pid) }}
-                      onKeyDown={(e) => e.stopPropagation()}
-                      className="sidebar-icon-button"
-                      style={sidebarStyles.addButton}
-                      aria-label={`Start agent in ${repoName}`}
-                      title="Start agent here"
-                    >
-                      &#9654;
-                    </button>
                     {onRemoveProject && w.projectIds.length > 1 && (
                       <button
                         type="button"
