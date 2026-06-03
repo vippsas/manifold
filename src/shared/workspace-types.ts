@@ -21,4 +21,6 @@ export interface WorkspaceSpawnAgentOptions {
   branchName?: string
   /** Repo to use as the agent cwd/primary; defaults to the first repo when absent or unknown. */
   homeProjectId?: string
+  /** When true, launch in non-interactive (Chat) mode; mirrors SpawnAgentOptions.nonInteractive. */
+  nonInteractive?: boolean
 }

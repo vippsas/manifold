@@ -97,6 +97,7 @@ export class WorkspaceManager {
       additionalDirs,
       workspaceId,
       workspaceWorktreePaths: worktreePaths,
+      nonInteractive: options.nonInteractive,
     })
   }
 }
