@@ -471,7 +471,7 @@ select:focus-visible {
   gap: 4px;
   min-height: calc(var(--chrome-status-height) - 4px);
   padding: 0 6px;
-  border: 1px solid transparent;
+  border: 1px solid var(--control-border);
   border-radius: var(--radius-xs);
   color: var(--text-secondary);
   background: transparent;
@@ -506,6 +506,12 @@ select:focus-visible {
   font-size: var(--type-ui-caption);
   font-weight: 700;
   line-height: 1;
+}
+
+.statusbar-button--accent,
+.statusbar-button--success,
+.statusbar-button--warning {
+  border-color: transparent;
 }
 
 .statusbar-button--accent {
