@@ -12,6 +12,15 @@
 > always rendered". Section 2 (context-aware `+ New Agent`) and Section 3
 > (removed onboarding ghost link) are unchanged.
 
+> **Revision 2 2026-06-03 (visual hierarchy):** a workspace didn't read as a
+> distinct entity — a collapsed workspace was bare grey text that looked like a
+> header for the repo card beneath it. Fix: the **active** workspace now renders
+> as a labeled container card (reuses the repo-card elevation, accent-tinted
+> border) with a layers glyph + a "WORKSPACE" eyebrow above the name; a
+> **collapsed** workspace becomes a compact chip with the glyph + an "N repos"
+> count. Token-only styling (`WorkspaceList.tsx` + `.sidebar-workspace-card` /
+> `.sidebar-workspace-eyebrow` in `theme.css`).
+
 ## Summary
 
 Make **creating a workspace** a first-class, discoverable action and stop the

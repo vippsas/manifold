@@ -688,6 +688,22 @@ select:focus-visible {
   font-weight: 500;
 }
 
+/* Active workspace renders as a labeled container card (reuses the repo-card
+   elevation) with an accent-tinted border to read as a workspace, not a repo. */
+.sidebar-project-group--has-agents.sidebar-workspace-card {
+  border-color: color-mix(in srgb, var(--accent), transparent 58%);
+}
+
+.sidebar-workspace-eyebrow {
+  font-size: var(--type-ui-micro);
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--accent);
+  opacity: 0.85;
+  line-height: 1.1;
+}
+
 .sidebar-aux-list {
   padding-left: 14px;
   padding-top: 1px;

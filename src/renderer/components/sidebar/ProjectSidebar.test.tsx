@@ -118,6 +118,30 @@ describe('ProjectSidebar', () => {
     expect(props.onNewAgent).toHaveBeenCalled()
   })
 
+  it('renders an active workspace as a labeled card with a Workspace eyebrow', () => {
+    renderSidebar({
+      workspaces: [{ id: 'ws1', name: 'auth-refactor', projectIds: ['p1', 'p2'], createdAt: '2024-01-01' }],
+      activeWorkspaceId: 'ws1',
+      onSelectWorkspace: vi.fn(),
+      onRemoveWorkspace: vi.fn(),
+      onSpawnWorkspaceAgent: vi.fn(),
+    })
+
+    expect(screen.getByText('Workspace')).toBeInTheDocument()
+  })
+
+  it('shows a repo count on a collapsed workspace', () => {
+    renderSidebar({
+      workspaces: [{ id: 'ws1', name: 'auth-refactor', projectIds: ['p1', 'p2'], createdAt: '2024-01-01' }],
+      activeWorkspaceId: null,
+      onSelectWorkspace: vi.fn(),
+      onRemoveWorkspace: vi.fn(),
+      onSpawnWorkspaceAgent: vi.fn(),
+    })
+
+    expect(screen.getByText('2 repos')).toBeInTheDocument()
+  })
+
   it('shows the Workspaces header + even when there are no workspaces (and has no footer button)', () => {
     const { props } = renderSidebar({
       workspaces: [],
