@@ -57,8 +57,9 @@ export function splitHighlightedText(
 
 /**
  * Split text into match/non-match segments from an explicit set of character
- * indices (used for fuzzy filename highlighting, where matches aren't a single
- * contiguous regex span). Contiguous matched indices collapse into one segment.
+ * indices (used for filename match highlighting, where the match is supplied as
+ * character positions rather than a regex span). Contiguous matched indices
+ * collapse into one segment.
  */
 export function highlightByIndices(text: string, indices: number[]): HighlightSegment[] {
   if (!text || indices.length === 0) {

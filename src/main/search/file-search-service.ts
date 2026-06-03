@@ -2,7 +2,7 @@ import { execFile, spawn } from 'node:child_process'
 import { promisify } from 'node:util'
 import type { FileSearchResult, SearchQueryRequest } from '../../shared/search-types'
 import type { AgentSession } from '../../shared/types'
-import { fuzzyScore } from './fuzzy-match'
+import { substringScore } from './substring-match'
 import { isRipgrepUnavailable } from './ripgrep-engine'
 import { buildCodeSearchRoots, createFileSearchResult, type CodeSearchRoot } from './search-engine'
 
@@ -52,7 +52,7 @@ export async function searchFilesInSessions(
 
     let matchIndex = 0
     for (const relativePath of listing.paths) {
-      const match = fuzzyScore(query, relativePath)
+      const match = substringScore(query, relativePath)
       if (!match) continue
       results.push(createFileSearchResult(root, relativePath, match.score, match.indices, matchIndex))
       matchIndex += 1
