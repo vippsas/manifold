@@ -1,8 +1,10 @@
 import { Fragment, useCallback, useState } from 'react'
-import type { Project, AgentSession } from '../../../shared/types'
+import type { Project, AgentSession, FetchResult } from '../../../shared/types'
 import type { Workspace } from '../../../shared/workspace-types'
+import { isGitProject } from '../../../shared/project-kind'
 import { sidebarStyles } from './ProjectSidebar.styles'
 import { AgentItem } from './AgentItem'
+import { FetchMessage } from './FetchMessage'
 
 export interface WorkspaceListProps {
   workspaces: Workspace[]
@@ -18,6 +20,13 @@ export interface WorkspaceListProps {
   onAddProject?: (workspaceId: string) => void
   onRemoveProject?: (workspaceId: string, projectId: string) => void
   onDeleteAgent?: (session: AgentSession, projectPath: string) => void
+  fetchingProjectId: string | null
+  lastFetchedProjectId: string | null
+  fetchResult: Pick<FetchResult, 'updatedBranch' | 'commitCount'> | null
+  fetchError: string | null
+  onFetchProject: (projectId: string) => void
+  fetchingWorkspaceId: string | null
+  onFetchWorkspace: (workspaceId: string) => void
 }
 
 export function WorkspaceList({
@@ -34,6 +43,13 @@ export function WorkspaceList({
   onAddProject,
   onRemoveProject,
   onDeleteAgent,
+  fetchingProjectId,
+  lastFetchedProjectId,
+  fetchResult,
+  fetchError,
+  onFetchProject,
+  fetchingWorkspaceId,
+  onFetchWorkspace,
 }: WorkspaceListProps) {
   const [removing, setRemoving] = useState<string | null>(null)
 
@@ -134,6 +150,20 @@ export function WorkspaceList({
                 {w.name}
               </span>
               <div className="sidebar-item-actions" style={sidebarStyles.itemRight}>
+                {w.projectIds.some((pid) => isGitProject(projectById(pid))) && (
+                  <button
+                    type="button"
+                    onClick={(e) => { e.stopPropagation(); onFetchWorkspace(w.id) }}
+                    onKeyDown={(e) => e.stopPropagation()}
+                    className="sidebar-icon-button"
+                    style={sidebarStyles.removeButton}
+                    aria-label={`Fetch all repositories in ${w.name}`}
+                    title="Fetch latest for all repositories"
+                    disabled={fetchingWorkspaceId === w.id}
+                  >
+                    {fetchingWorkspaceId === w.id ? '...' : '↻'}
+                  </button>
+                )}
                 {onAddProject && projects.some((p) => !w.projectIds.includes(p.id)) && (
                   <button
                     type="button"
@@ -181,6 +211,20 @@ export function WorkspaceList({
                     {repoName}
                   </span>
                   <div className="sidebar-item-actions" style={sidebarStyles.itemRight}>
+                    {isGitProject(repo) && (
+                      <button
+                        type="button"
+                        onClick={(e) => { e.stopPropagation(); onFetchProject(pid) }}
+                        onKeyDown={(e) => e.stopPropagation()}
+                        className="sidebar-icon-button"
+                        style={sidebarStyles.removeButton}
+                        aria-label={`Fetch ${repoName}`}
+                        title="Fetch latest from remote"
+                        disabled={fetchingProjectId === pid}
+                      >
+                        {fetchingProjectId === pid ? '...' : '↻'}
+                      </button>
+                    )}
                     <button
                       type="button"
                       onClick={(e) => { e.stopPropagation(); onSpawnAgent(w.id, pid) }}
@@ -207,6 +251,9 @@ export function WorkspaceList({
                     )}
                   </div>
                 </div>
+                {lastFetchedProjectId === pid && (
+                  <FetchMessage result={fetchResult} error={fetchError} />
+                )}
                 {repoSessions.map((session) => (
                   <div key={session.id} style={{ paddingLeft: 12 }}>
                     {renderAgent(session)}

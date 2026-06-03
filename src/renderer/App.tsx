@@ -45,6 +45,7 @@ export function App(): React.JSX.Element {
   const [activeWorkspaceId, setActiveWorkspaceId] = useState<string | null>(null)
   const [newWorkspaceVisible, setNewWorkspaceVisible] = useState(false)
   const [addProjectWorkspaceId, setAddProjectWorkspaceId] = useState<string | null>(null)
+  const [fetchingWorkspaceId, setFetchingWorkspaceId] = useState<string | null>(null)
   const suppressedProjectIds = useMemo(() => new Set<string>(), [])
   const sessionsByWorkspace = useMemo(() => {
     const map: Record<string, AgentSession[]> = {}
@@ -114,6 +115,23 @@ export function App(): React.JSX.Element {
   }, [sessionsByProject, gitOps.refreshAheadBehind])
 
   const fetchProject = useFetchProject(handleFetchSuccess)
+
+  // Refresh-all: fetch every git repo in a workspace, one at a time so the
+  // single-fetch hook drives each repo's spinner in turn.
+  const handleFetchWorkspace = useCallback(async (workspaceId: string): Promise<void> => {
+    const ws = workspaces.find((w) => w.id === workspaceId)
+    if (!ws) return
+    setFetchingWorkspaceId(workspaceId)
+    try {
+      for (const pid of ws.projectIds) {
+        if (isGitProject(projects.find((p) => p.id === pid))) {
+          await fetchProject.fetchProject(pid)
+        }
+      }
+    } finally {
+      setFetchingWorkspaceId(null)
+    }
+  }, [workspaces, projects, fetchProject.fetchProject])
   const overlays = useAppOverlays(gitOps.commit, refreshDiff, spawnAgent, deleteAgent, removeSession, updateSettings, setActiveSession, setActiveProject, activeProjectId)
   const { themeId, themeClass, xtermTheme, setPreviewThemeId } = useTheme(settings.theme)
   const toggleTheme = useCallback(() => {
@@ -224,6 +242,7 @@ export function App(): React.JSX.Element {
     fetchingProjectId: fetchProject.fetchingProjectId, lastFetchedProjectId: fetchProject.lastFetchedProjectId,
     fetchResult: fetchProject.fetchResult, fetchError: fetchProject.fetchError,
     onFetchProject: fetchProject.fetchProject,
+    fetchingWorkspaceId, onFetchWorkspace: handleFetchWorkspace,
     onFocusSearch: appEffects.focusSearch, onClosePanel: editorHandlers.handleClosePanel,
     onOpenModule: (id) => {
       if (dockLayout.isPanelVisible(id)) dockLayout.focusPanel(id)

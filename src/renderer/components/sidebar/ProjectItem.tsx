@@ -2,6 +2,7 @@ import React, { useCallback, useState } from 'react'
 import type { Project } from '../../../shared/types'
 import { isGitProject } from '../../../shared/project-kind'
 import { sidebarStyles } from './ProjectSidebar.styles'
+import { FetchMessage } from './FetchMessage'
 
 interface ProjectItemProps {
   project: Project
@@ -147,18 +148,7 @@ export function ProjectItem({
           </button>
         </div>
       </div>
-      {fetchResult && (
-        <div style={sidebarStyles.fetchMessage}>
-          {fetchResult.commitCount > 0
-            ? `Updated ${fetchResult.updatedBranch}: ${fetchResult.commitCount} new commit${fetchResult.commitCount !== 1 ? 's' : ''}`
-            : `${fetchResult.updatedBranch} is up to date`}
-        </div>
-      )}
-      {fetchError && (
-        <div style={{ ...sidebarStyles.fetchMessage, color: 'var(--error, #f44)' }}>
-          {fetchError}
-        </div>
-      )}
+      <FetchMessage result={fetchResult} error={fetchError} />
     </>
   )
 }

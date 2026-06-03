@@ -43,6 +43,8 @@ export function renderSidebar(overrides = {}) {
     fetchResult: null,
     fetchError: null,
     onFetchProject: vi.fn(),
+    fetchingWorkspaceId: null,
+    onFetchWorkspace: vi.fn(),
     drafts: [],
     activeDraftId: null,
     onSelectDraft: vi.fn(),

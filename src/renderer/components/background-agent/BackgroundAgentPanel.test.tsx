@@ -268,6 +268,8 @@ function createDockState(overrides: Partial<DockAppState> = {}): DockAppState {
     fetchResult: null,
     fetchError: null,
     onFetchProject: vi.fn(),
+    fetchingWorkspaceId: null,
+    onFetchWorkspace: vi.fn(),
     activeSessionStatus: null,
     activeSessionRuntimeId: null,
     onResumeAgent: vi.fn(),

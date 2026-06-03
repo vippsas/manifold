@@ -256,3 +256,42 @@ describe('ProjectSidebar', () => {
     expect(screen.getByText('New chat')).toBeInTheDocument()
   })
 })
+
+describe('ProjectSidebar workspace repo fetch', () => {
+  const workspaceOverrides = {
+    activeProjectId: null,
+    allProjectSessions: { p1: [], p2: [] },
+    workspaces: [{ id: 'ws1', name: 'MANIFOLD-WS', projectIds: ['p1', 'p2'], createdAt: '2024-01-01' }],
+    activeWorkspaceId: 'ws1',
+    sessionsByWorkspace: { ws1: [] },
+    onSelectWorkspace: vi.fn(),
+    onRemoveWorkspace: vi.fn(),
+    onSpawnWorkspaceAgent: vi.fn(),
+  }
+
+  it('fetches a single repo when its refresh icon is clicked', () => {
+    const { props } = renderSidebar(workspaceOverrides)
+
+    fireEvent.click(screen.getByLabelText('Fetch Alpha'))
+
+    expect(props.onFetchProject).toHaveBeenCalledWith('p1')
+  })
+
+  it('fetches every repo when the workspace refresh-all icon is clicked', () => {
+    const { props } = renderSidebar(workspaceOverrides)
+
+    fireEvent.click(screen.getByLabelText('Fetch all repositories in MANIFOLD-WS'))
+
+    expect(props.onFetchWorkspace).toHaveBeenCalledWith('ws1')
+  })
+
+  it('shows the fetch result under the repo that was fetched', () => {
+    renderSidebar({
+      ...workspaceOverrides,
+      lastFetchedProjectId: 'p1',
+      fetchResult: { updatedBranch: 'main', commitCount: 2 },
+    })
+
+    expect(screen.getByText('Updated main: 2 new commits')).toBeInTheDocument()
+  })
+})

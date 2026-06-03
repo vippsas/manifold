@@ -33,6 +33,8 @@ interface ProjectSidebarProps {
   fetchResult: { updatedBranch: string; commitCount: number } | null
   fetchError: string | null
   onFetchProject: (projectId: string) => void
+  fetchingWorkspaceId?: string | null
+  onFetchWorkspace?: (workspaceId: string) => void
   drafts: DraftChat[]
   activeDraftId: string | null
   onSelectDraft: (id: string) => void
@@ -66,6 +68,8 @@ export function ProjectSidebar({
   fetchResult,
   fetchError,
   onFetchProject,
+  fetchingWorkspaceId,
+  onFetchWorkspace,
   drafts,
   activeDraftId,
   onSelectDraft,
@@ -81,7 +85,7 @@ export function ProjectSidebar({
 
   return (
     <div style={sidebarStyles.root}>
-      {workspaces && onSelectWorkspace && onRemoveWorkspace && onSpawnWorkspaceAgent && (
+      {workspaces && onSelectWorkspace && onRemoveWorkspace && onSpawnWorkspaceAgent && onFetchWorkspace && (
         <WorkspaceList
           workspaces={workspaces}
           projects={projects}
@@ -96,6 +100,13 @@ export function ProjectSidebar({
           onAddProject={onAddProjectToWorkspace}
           onRemoveProject={onRemoveProjectFromWorkspace}
           onDeleteAgent={onRequestDeleteAgent}
+          fetchingProjectId={fetchingProjectId}
+          lastFetchedProjectId={lastFetchedProjectId}
+          fetchResult={fetchResult}
+          fetchError={fetchError}
+          onFetchProject={onFetchProject}
+          fetchingWorkspaceId={fetchingWorkspaceId ?? null}
+          onFetchWorkspace={onFetchWorkspace}
         />
       )}
       <ProjectList
