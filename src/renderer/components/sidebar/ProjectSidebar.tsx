@@ -20,12 +20,13 @@ interface ProjectSidebarProps {
   onRequestDeleteAgent: (session: AgentSession, projectPath: string) => void
   onNewAgent: () => void
   onNewProject: () => void
+  onNewWorkspace?: () => void
   workspaces?: Workspace[]
   activeWorkspaceId?: string | null
   sessionsByWorkspace?: Record<string, AgentSession[]>
   onSelectWorkspace?: (id: string) => void
   onRemoveWorkspace?: (id: string) => Promise<void>
-  onSpawnWorkspaceAgent?: (workspaceId: string, homeProjectId?: string) => void
+  onSelectWorkspaceRepo?: (workspaceId: string, projectId: string) => void
   onAddProjectToWorkspace?: (workspaceId: string) => void
   onRemoveProjectFromWorkspace?: (workspaceId: string, projectId: string) => void
   fetchingProjectId: string | null
@@ -53,12 +54,13 @@ export function ProjectSidebar({
   onRequestDeleteAgent,
   onNewAgent,
   onNewProject,
+  onNewWorkspace,
   workspaces,
   activeWorkspaceId,
   sessionsByWorkspace,
   onSelectWorkspace,
   onRemoveWorkspace,
-  onSpawnWorkspaceAgent,
+  onSelectWorkspaceRepo,
   onAddProjectToWorkspace,
   onRemoveProjectFromWorkspace,
   fetchingProjectId,
@@ -79,9 +81,13 @@ export function ProjectSidebar({
     [onRemoveProject]
   )
 
+  const activeWorkspace = activeWorkspaceId
+    ? workspaces?.find((w) => w.id === activeWorkspaceId)
+    : undefined
+
   return (
     <div style={sidebarStyles.root}>
-      {workspaces && onSelectWorkspace && onRemoveWorkspace && onSpawnWorkspaceAgent && (
+      {workspaces && onSelectWorkspace && onRemoveWorkspace && (
         <WorkspaceList
           workspaces={workspaces}
           projects={projects}
@@ -92,10 +98,17 @@ export function ProjectSidebar({
           onSelectWorkspace={onSelectWorkspace}
           onRemoveWorkspace={onRemoveWorkspace}
           onSelectSession={onSelectSession}
-          onSpawnAgent={onSpawnWorkspaceAgent}
+          onSelectRepo={onSelectWorkspaceRepo}
+          activeProjectId={activeProjectId}
           onAddProject={onAddProjectToWorkspace}
           onRemoveProject={onRemoveProjectFromWorkspace}
           onDeleteAgent={onRequestDeleteAgent}
+          onNewWorkspace={onNewWorkspace}
+          onFetchProject={onFetchProject}
+          fetchingProjectId={fetchingProjectId}
+          lastFetchedProjectId={lastFetchedProjectId}
+          fetchResult={fetchResult}
+          fetchError={fetchError}
         />
       )}
       <ProjectList
@@ -122,8 +135,14 @@ export function ProjectSidebar({
         onDiscardDraft={onDiscardDraft}
       />
       <div style={sidebarStyles.actions}>
-        <button type="button" onClick={onNewAgent} className="sidebar-action-button sidebar-action-button--primary" style={sidebarStyles.actionButtonPrimary}>
-          + New Agent
+        <button
+          type="button"
+          onClick={onNewAgent}
+          className="sidebar-action-button sidebar-action-button--primary"
+          style={sidebarStyles.actionButtonPrimary}
+          title={activeWorkspace ? `New Agent in ${activeWorkspace.name}` : 'New Agent'}
+        >
+          <span className="truncate">{activeWorkspace ? `+ New Agent in ${activeWorkspace.name}` : '+ New Agent'}</span>
         </button>
         <button type="button" onClick={onNewProject} className="sidebar-action-button" style={sidebarStyles.actionButton}>
           + New Repository

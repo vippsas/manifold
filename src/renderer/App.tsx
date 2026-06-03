@@ -204,7 +204,19 @@ export function App(): React.JSX.Element {
       overlays.handleSelectSession(sessionId, projectId)
     },
     onRemoveProject: removeProject, onUpdateProject: updateProject, onRequestDeleteAgent: overlays.requestDeleteAgent,
-    onNewAgentFromHeader: () => { setActiveWorkspaceId(null); overlays.handleNewAgentFromHeader() },
+    onNewAgentFromHeader: () => {
+      if (activeWorkspaceId) {
+        const ws = workspaces.find((w) => w.id === activeWorkspaceId)
+        const home = activeProjectId && ws?.projectIds.includes(activeProjectId) ? activeProjectId : ws?.projectIds[0]
+        if (home) setActiveProject(home)
+        overlays.handleNewAgentFromHeader()
+      } else {
+        setActiveWorkspaceId(null); overlays.handleNewAgentFromHeader()
+      }
+    },
+    onSelectWorkspaceRepo: (workspaceId: string, projectId: string) => {
+      setActiveWorkspaceId(workspaceId); setActiveProject(projectId); setActiveSession(null)
+    },
     newAgentFocusTrigger: overlays.newAgentFocusTrigger,
     onNewProject: () => appEffects.setShowOnboarding(true),
     workspaces, activeWorkspaceId, sessionsByWorkspace,
@@ -214,10 +226,26 @@ export function App(): React.JSX.Element {
       await removeWorkspace(id)
       setActiveWorkspaceId((current) => (current === id ? null : current))
     },
-    onSpawnWorkspaceAgent: async (workspaceId: string, homeProjectId?: string) => {
-      const ws = workspaces.find((w) => w.id === workspaceId)
-      const session = await spawnWorkspaceAgent(workspaceId, { runtimeId: ws?.runtimeId ?? settings.defaultRuntime, homeProjectId })
+    onLaunchWorkspaceAgent: async (
+      workspaceId: string,
+      homeProjectId: string,
+      options: { runtimeId: string; prompt: string; nonInteractive?: boolean },
+    ) => {
+      const session = await spawnWorkspaceAgent(workspaceId, {
+        runtimeId: options.runtimeId,
+        homeProjectId,
+        prompt: options.prompt,
+        nonInteractive: options.nonInteractive,
+      })
       setActiveWorkspaceId(workspaceId); overlays.handleSelectSession(session.id, session.projectId)
+      if (options.nonInteractive) {
+        try {
+          await window.electronAPI.invoke('simple:subscribe-chat', session.id)
+        } catch (err) {
+          console.error(`[onLaunchWorkspaceAgent] simple:subscribe-chat failed for ${session.id}:`, err)
+        }
+      }
+      return session
     },
     onAddProjectToWorkspace: (id: string) => setAddProjectWorkspaceId(id),
     onRemoveProjectFromWorkspace: (id: string, pid: string) => { void removeProjectFromWorkspace(id, pid) },

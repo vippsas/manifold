@@ -118,6 +118,100 @@ describe('ProjectSidebar', () => {
     expect(props.onNewAgent).toHaveBeenCalled()
   })
 
+  it('fetches a workspace repo from its refresh button', () => {
+    const onFetchProject = vi.fn()
+    renderSidebar({
+      workspaces: [{ id: 'ws1', name: 'auth-refactor', projectIds: ['p1'], createdAt: '2024-01-01' }],
+      activeWorkspaceId: 'ws1',
+      onSelectWorkspace: vi.fn(),
+      onRemoveWorkspace: vi.fn(),
+      onSpawnWorkspaceAgent: vi.fn(),
+      onFetchProject,
+    })
+
+    fireEvent.click(screen.getByLabelText('Fetch Alpha'))
+
+    expect(onFetchProject).toHaveBeenCalledWith('p1')
+  })
+
+  it('renders an active workspace as a labeled card with a Workspace eyebrow', () => {
+    renderSidebar({
+      workspaces: [{ id: 'ws1', name: 'auth-refactor', projectIds: ['p1', 'p2'], createdAt: '2024-01-01' }],
+      activeWorkspaceId: 'ws1',
+      onSelectWorkspace: vi.fn(),
+      onRemoveWorkspace: vi.fn(),
+      onSpawnWorkspaceAgent: vi.fn(),
+    })
+
+    expect(screen.getByText('Workspace')).toBeInTheDocument()
+  })
+
+  it('shows a repo count on a collapsed workspace', () => {
+    renderSidebar({
+      workspaces: [{ id: 'ws1', name: 'auth-refactor', projectIds: ['p1', 'p2'], createdAt: '2024-01-01' }],
+      activeWorkspaceId: null,
+      onSelectWorkspace: vi.fn(),
+      onRemoveWorkspace: vi.fn(),
+      onSpawnWorkspaceAgent: vi.fn(),
+    })
+
+    expect(screen.getByText('2 repos')).toBeInTheDocument()
+  })
+
+  it('shows the Workspaces header + even when there are no workspaces (and has no footer button)', () => {
+    const { props } = renderSidebar({
+      workspaces: [],
+      onSelectWorkspace: vi.fn(),
+      onRemoveWorkspace: vi.fn(),
+      onSpawnWorkspaceAgent: vi.fn(),
+    })
+
+    expect(screen.queryByText('+ New Workspace')).not.toBeInTheDocument()
+    fireEvent.click(screen.getByLabelText('New workspace'))
+    expect(props.onNewWorkspace).toHaveBeenCalled()
+  })
+
+  it('labels the primary button with the active workspace and opens the New-Agent form', () => {
+    const onSpawnWorkspaceAgent = vi.fn()
+    const { props } = renderSidebar({
+      workspaces: [{ id: 'ws1', name: 'auth-refactor', projectIds: ['p1'], createdAt: '2024-01-01' }],
+      activeWorkspaceId: 'ws1',
+      onSelectWorkspace: vi.fn(),
+      onRemoveWorkspace: vi.fn(),
+      onSpawnWorkspaceAgent,
+    })
+
+    fireEvent.click(screen.getByText('+ New Agent in auth-refactor'))
+
+    expect(props.onNewAgent).toHaveBeenCalled()
+    expect(onSpawnWorkspaceAgent).not.toHaveBeenCalled()
+  })
+
+  it('selecting a workspace repo calls onSelectWorkspaceRepo and no longer shows a play button', () => {
+    const onSelectWorkspaceRepo = vi.fn()
+    renderSidebar({
+      workspaces: [{ id: 'ws1', name: 'auth-refactor', projectIds: ['p1', 'p2'], createdAt: '2024-01-01' }],
+      activeWorkspaceId: 'ws1',
+      onSelectWorkspace: vi.fn(),
+      onRemoveWorkspace: vi.fn(),
+      onSpawnWorkspaceAgent: vi.fn(),
+      onSelectWorkspaceRepo,
+      suppressedProjectIds: new Set(['p1', 'p2']),
+    })
+
+    expect(screen.queryByLabelText('Start agent in Alpha')).not.toBeInTheDocument()
+    fireEvent.click(screen.getByText('Alpha'))
+    expect(onSelectWorkspaceRepo).toHaveBeenCalledWith('ws1', 'p1')
+  })
+
+  it('keeps the plain + New Agent label and handler when no workspace is active', () => {
+    const { props } = renderSidebar()
+
+    fireEvent.click(screen.getByText('+ New Agent'))
+
+    expect(props.onNewAgent).toHaveBeenCalled()
+  })
+
   it('highlights the active agent item', () => {
     renderSidebar({ activeSessionId: 's1' })
 
@@ -184,8 +278,36 @@ describe('ProjectSidebar', () => {
       suppressedProjectIds: new Set(['p2']),
     })
 
-    expect(screen.queryByText('With agents')).not.toBeInTheDocument()
+    // p2 is suppressed — its name is gone from the list
     expect(screen.queryByText('Beta')).not.toBeInTheDocument()
+    // the active project's own agents still render (now under "With agents")
+    expect(screen.getByText('oslo')).toBeInTheDocument()
+  })
+
+  it('places the active repo with agents under the "With agents" header', () => {
+    renderSidebar({ allProjectSessions: { p1: sampleSessions, p2: [] } })
+
+    const header = screen.getByText('With agents')
+    const activeAgent = screen.getByText('oslo')
+    // The active repo's card + agents render AFTER the section header
+    expect(
+      header.compareDocumentPosition(activeAgent) & Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeTruthy()
+  })
+
+  it('keeps the active repo pinned above the sections when it has no agents', () => {
+    const sessionsForP2: AgentSession[] = [
+      { id: 's3', projectId: 'p2', runtimeId: 'gemini', branchName: 'beta/stavanger', worktreePath: '/wt3', status: 'running', pid: 3, additionalDirs: [] },
+    ]
+
+    renderSidebar({ activeProjectId: 'p1', allProjectSessions: { p1: [], p2: sessionsForP2 } })
+
+    const activeName = screen.getByText('Alpha')
+    const header = screen.getByText('With agents')
+    // The active (agent-less) repo card sits BEFORE the "With agents" header
+    expect(
+      activeName.compareDocumentPosition(header) & Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeTruthy()
   })
 
   it('does not highlight the home repo as an active standalone project while a workspace session is active', () => {
@@ -254,5 +376,19 @@ describe('ProjectSidebar', () => {
     })
 
     expect(screen.getByText('New chat')).toBeInTheDocument()
+  })
+
+  it('renders a + on the Workspaces header that calls onNewWorkspace', () => {
+    const { props } = renderSidebar({
+      workspaces: [{ id: 'ws1', name: 'auth-refactor', projectIds: ['p1'], createdAt: '2024-01-01' }],
+      activeWorkspaceId: 'ws1',
+      onSelectWorkspace: vi.fn(),
+      onRemoveWorkspace: vi.fn(),
+      onSpawnWorkspaceAgent: vi.fn(),
+    })
+
+    fireEvent.click(screen.getByLabelText('New workspace'))
+
+    expect(props.onNewWorkspace).toHaveBeenCalled()
   })
 })

@@ -100,6 +100,11 @@ export const sidebarStyles: Record<string, React.CSSProperties> = {
   },
   actionButtonPrimary: {
     flex: 1,
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    height: 'var(--control-height)',
+    overflow: 'hidden',
     padding: '0 var(--space-sm)',
     background: 'var(--accent-subtle)',
     border: '1px solid transparent',
@@ -108,7 +113,7 @@ export const sidebarStyles: Record<string, React.CSSProperties> = {
     fontWeight: 600,
     color: 'var(--accent)',
     textAlign: 'center' as const,
-  },
+  } as React.CSSProperties,
   actionButton: {
     flex: 1,
     display: 'flex',

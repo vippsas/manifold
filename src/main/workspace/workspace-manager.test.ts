@@ -113,4 +113,12 @@ describe('WorkspaceManager', () => {
     expect(manager.remove(w.id)).toBe(true)
     expect(manager.list()).toHaveLength(0)
   })
+
+  it('forwards nonInteractive to createSession', async () => {
+    const w = manager.create({ name: 'auth', projectIds: ['api', 'web'] })
+    await manager.spawnAgent(w.id, { runtimeId: 'claude', nonInteractive: true })
+    expect(deps._createSession).toHaveBeenCalledWith(expect.objectContaining({
+      nonInteractive: true,
+    }))
+  })
 })

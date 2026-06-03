@@ -7,6 +7,7 @@ import { pickRandomNorwegianCityName } from '../../../shared/norwegian-cities'
 import { ReusableSessionsCard } from './ReusableSessionsCard'
 import { NewAgentAdvanced } from './NewAgentAdvanced'
 import { NewAgentModePill } from './NewAgentModePill'
+import { AgentDropdown } from '../new-task/AgentDropdown'
 
 type AgentMode = 'interactive' | 'chat'
 
@@ -22,6 +23,7 @@ export function NewAgentForm({
   onResumeSession,
   onDeleteSession,
   focusTrigger,
+  compact = false,
 }: {
   projectId: string
   projectPath: string
@@ -34,6 +36,7 @@ export function NewAgentForm({
   onResumeSession?: (sessionId: string, runtimeId: string) => Promise<void>
   onDeleteSession?: (session: AgentSession) => void
   focusTrigger?: number
+  compact?: boolean
 }): React.JSX.Element {
   const [mode, setMode] = useState<AgentMode>(defaultAgentMode)
   const [taskDescription, setTaskDescription] = useState('')
@@ -176,8 +179,27 @@ export function NewAgentForm({
     [useExisting, existingSubTab, projectId, runtimeId, taskDescription, selectedBranch, selectedPr, canSubmit, isGitProject, onLaunch, mode, defaultAgentMode]
   )
 
+  const formStyle = { display: 'flex', flexDirection: 'column', gap: 'var(--space-lg)', width: 420, maxWidth: '90%' } as const
+
+  if (compact) {
+    return (
+      <form onSubmit={handleSubmit} style={formStyle}>
+        <TaskDescriptionField
+          value={taskDescription}
+          onChange={setTaskDescription}
+          inputRef={inputRef}
+          canSubmit={canSubmit}
+          loading={loading}
+        />
+        <AgentDropdown value={runtimeId} onChange={setRuntimeId} runtimes={runtimes} />
+        {error && <p style={modalStyles.errorText}>{error}</p>}
+        <NewAgentModePill mode={mode} setMode={setMode} canSubmit={canSubmit} loading={loading} />
+      </form>
+    )
+  }
+
   return (
-    <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-lg)', width: 420, maxWidth: '90%' }}>
+    <form onSubmit={handleSubmit} style={formStyle}>
       <ReusableSessionsCard
         projectPath={projectPath}
         sessions={reusableSessions}

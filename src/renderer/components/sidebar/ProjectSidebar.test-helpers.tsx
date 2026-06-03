@@ -38,6 +38,7 @@ export function renderSidebar(overrides = {}) {
     onRequestDeleteAgent: vi.fn(),
     onNewAgent: vi.fn(),
     onNewProject: vi.fn(),
+    onNewWorkspace: vi.fn(),
     fetchingProjectId: null,
     lastFetchedProjectId: null,
     fetchResult: null,
