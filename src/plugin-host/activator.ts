@@ -1,10 +1,9 @@
 // src/plugin-host/activator.ts
-import type { ManifoldApi, ManifoldContext, PluginModule } from '../shared/plugins/api-types'
+import type { ManifoldContext, PluginModule } from '../shared/plugins/api-types'
 
-export interface ActivationTarget { id: string; root: string; main: string; capabilities?: string[] }
+export interface ActivationTarget { id: string; root: string; main: string; kind: 'manifold' | 'vscode'; capabilities?: string[] }
 
 type LoadModule = (target: ActivationTarget) => PluginModule
-type MakeApi = (target: ActivationTarget) => ManifoldApi
 
 interface ActivePlugin { module: PluginModule; context: ManifoldContext }
 
@@ -12,19 +11,14 @@ interface ActivePlugin { module: PluginModule; context: ManifoldContext }
 export class Activator {
   private readonly active = new Map<string, ActivePlugin>()
 
-  constructor(private readonly loadModule: LoadModule, private readonly makeApi: MakeApi) {}
+  constructor(private readonly loadModule: LoadModule) {}
 
-  isActive(id: string): boolean {
-    return this.active.has(id)
-  }
+  isActive(id: string): boolean { return this.active.has(id) }
 
   async activate(target: ActivationTarget): Promise<void> {
     if (this.active.has(target.id)) return
     const module = this.loadModule(target)
     const context: ManifoldContext = { subscriptions: [], pluginUri: target.root }
-    // makeApi is consumed via the require interceptor in production; passing it
-    // here keeps the activator testable and the API wired per target.
-    void this.makeApi
     this.active.set(target.id, { module, context })
     await module.activate?.(context)
   }

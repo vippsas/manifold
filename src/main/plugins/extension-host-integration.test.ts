@@ -329,8 +329,8 @@ describe('extension host command round-trip (in-memory, no process)', () => {
         ctx.subscriptions.push(api.commands.registerCommand('x.ping', (name) => `pong:${name ?? 'world'}`))
       },
     }
-    const activator = new Activator(() => mod, () => api)
-    await activator.activate({ id: 'p.x', root: '/x', main: './out/p.js' })
+    const activator = new Activator(() => mod)
+    await activator.activate({ id: 'p.x', root: '/x', main: './out/p.js', kind: 'manifold' })
     await new Promise((resolve) => setTimeout(resolve, 0)) // let the $registerCommand RPC settle
 
     expect(commands.has('x.ping')).toBe(true)
@@ -344,8 +344,8 @@ describe('extension host command round-trip (in-memory, no process)', () => {
         ctx.subscriptions.push(api.commands.registerCommand('x.greet', (who) => `hi ${who}`))
       },
     }
-    const activator = new Activator(() => mod, () => api)
-    await activator.activate({ id: 'p.y', root: '/y', main: './out/p.js' })
+    const activator = new Activator(() => mod)
+    await activator.activate({ id: 'p.y', root: '/y', main: './out/p.js', kind: 'manifold' })
     await new Promise((resolve) => setTimeout(resolve, 0))
 
     expect(await api.commands.executeCommand<string>('x.greet', 'there')).toBe('hi there')

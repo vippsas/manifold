@@ -7,17 +7,17 @@ describe('Activator', () => {
   it('calls activate with a context and tracks the plugin as active', async () => {
     const activate = vi.fn()
     const mod: PluginModule = { activate }
-    const act = new Activator(() => mod, () => ({ commands: {} as never }))
-    await act.activate({ id: 'p.a', root: '/x', main: './out/p.js' })
+    const act = new Activator(() => mod)
+    await act.activate({ id: 'p.a', root: '/x', main: './out/p.js', kind: 'manifold' })
     expect(activate).toHaveBeenCalledTimes(1)
     expect(act.isActive('p.a')).toBe(true)
   })
 
   it('is idempotent — activating twice runs activate once', async () => {
     const activate = vi.fn()
-    const act = new Activator(() => ({ activate }), () => ({ commands: {} as never }))
-    await act.activate({ id: 'p.a', root: '/x', main: './out/p.js' })
-    await act.activate({ id: 'p.a', root: '/x', main: './out/p.js' })
+    const act = new Activator(() => ({ activate }))
+    await act.activate({ id: 'p.a', root: '/x', main: './out/p.js', kind: 'manifold' })
+    await act.activate({ id: 'p.a', root: '/x', main: './out/p.js', kind: 'manifold' })
     expect(activate).toHaveBeenCalledTimes(1)
   })
 
@@ -26,9 +26,8 @@ describe('Activator', () => {
     const deactivate = vi.fn()
     const act = new Activator(
       () => ({ activate: (ctx) => { ctx.subscriptions.push({ dispose }) }, deactivate }),
-      () => ({ commands: {} as never }),
     )
-    await act.activate({ id: 'p.a', root: '/x', main: './out/p.js' })
+    await act.activate({ id: 'p.a', root: '/x', main: './out/p.js', kind: 'manifold' })
     await act.deactivate('p.a')
     expect(deactivate).toHaveBeenCalledTimes(1)
     expect(dispose).toHaveBeenCalledTimes(1)

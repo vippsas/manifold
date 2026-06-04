@@ -87,7 +87,7 @@ export class PluginManager {
   async activate(pluginId: string): Promise<void> {
     const p = this.plugins.find((x) => x.id === pluginId)
     if (!p || !p.manifest.main) return
-    await this.host.activate({ id: p.id, root: p.root, main: p.manifest.main, capabilities: p.manifest.capabilities ?? [] })
+    await this.host.activate({ id: p.id, root: p.root, main: p.manifest.main, kind: p.kind, capabilities: p.manifest.capabilities ?? [] })
   }
 
   executeContributedCommand(id: string, args: unknown[]): Promise<unknown> {
@@ -101,7 +101,7 @@ export class PluginManager {
   async openView(viewId: string): Promise<void> {
     const plugin = this.plugins.find((p) => p.manifest.contributes?.views?.some((v) => v.id === viewId))
     if (!plugin || !plugin.manifest.main) return
-    await this.host.resolveView({ id: plugin.id, root: plugin.root, main: plugin.manifest.main, capabilities: plugin.manifest.capabilities ?? [] }, viewId)
+    await this.host.resolveView({ id: plugin.id, root: plugin.root, main: plugin.manifest.main, kind: plugin.kind, capabilities: plugin.manifest.capabilities ?? [] }, viewId)
   }
 
   deliverWebviewMessage(viewId: string, message: unknown): void {
