@@ -6,10 +6,9 @@
   "description": "Example plugin — panel arrives in a later phase.",
   "engines": { "manifold": "^0.3.0" },
   "main": "./out/plugin.js",
-  "activationEvents": ["onView:manifold.hello.panel"],
+  "activationEvents": ["onStartupFinished", "onCommand:manifold.hello.ping"],
   "contributes": {
-    "views": [
-      { "id": "manifold.hello.panel", "title": "Hello (plugin)", "description": "Example plugin panel.", "launcher": true }
-    ]
+    "views": [ { "id": "manifold.hello.panel", "title": "Hello (plugin)", "description": "Example plugin panel.", "launcher": true } ],
+    "commands": [ { "command": "manifold.hello.ping", "title": "Hello: Ping" } ]
   }
 }

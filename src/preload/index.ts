@@ -134,6 +134,8 @@ const ALLOWED_INVOKE_CHANNELS = [
   'simple:get-slash-commands',
   'plugins:list-contributions',
   'plugins:list',
+  'plugins:activate',
+  'plugins:execute-command',
 ] as const
 
 const ALLOWED_SEND_CHANNELS = [

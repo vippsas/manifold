@@ -4,4 +4,7 @@ import type { IpcDependencies } from './types'
 export function registerPluginHandlers(deps: IpcDependencies): void {
   ipcMain.handle('plugins:list-contributions', () => deps.pluginManager.listViewContributions())
   ipcMain.handle('plugins:list', () => deps.pluginManager.listPlugins())
+  ipcMain.handle('plugins:activate', (_e, id: string) => deps.pluginManager.activate(id))
+  ipcMain.handle('plugins:execute-command', (_e, id: string, args: unknown[] = []) =>
+    deps.pluginManager.executeContributedCommand(id, args))
 }
