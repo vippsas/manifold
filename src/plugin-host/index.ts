@@ -4,7 +4,7 @@ import { RpcEndpoint, PLUGIN_ACTIVATION, PLUGIN_COMMANDS, PLUGIN_WEBVIEW, PLUGIN
 import { Activator, type ActivationTarget } from './activator'
 import { createApi } from './api-impl'
 import { createWindowApi } from './window-api'
-import { installManifoldRequire } from './require-interceptor'
+import { installPluginRequire, registerPluginApis } from './require-interceptor'
 import { buildGatedApi } from './gated-api'
 import { createStorageApi } from './storage-api'
 import { WorkspaceContext } from './workspace-api'
@@ -29,7 +29,7 @@ let currentApi: unknown = buildGatedApi([], sharedNamespaces, {
   workspace: () => workspaceContext.makeApi(),
   configuration: () => configContext.makeApi(endpoint, ''),
 })
-installManifoldRequire(() => currentApi)
+installPluginRequire()
 
 const activator = new Activator(
   // eslint-disable-next-line @typescript-eslint/no-var-requires, @typescript-eslint/no-explicit-any
@@ -39,6 +39,7 @@ const activator = new Activator(
       workspace: () => workspaceContext.makeApi(),
       configuration: () => configContext.makeApi(endpoint, t.id),
     })
+    registerPluginApis(t.root, { manifold: currentApi })
     return require(join(t.root, t.main))
   },
   // makeApi (used by future per-call needs); harmless to return currentApi
