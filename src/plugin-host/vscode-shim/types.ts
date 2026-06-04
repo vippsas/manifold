@@ -16,8 +16,7 @@ export function notImplemented(api: string): (...args: unknown[]) => never {
 
 export class Disposable {
   private disposed = false
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  constructor(private readonly callOnDispose: (...args: any[]) => any) {}
+  constructor(private readonly callOnDispose: () => unknown) {}
   static from(...items: { dispose(): unknown }[]): Disposable {
     return new Disposable(() => { for (const i of items) { try { i.dispose() } catch { /* ignore */ } } })
   }
@@ -51,6 +50,7 @@ export class Uri {
   static file(path: string): Uri { return new Uri('file', '', path, '', '') }
   static parse(value: string): Uri {
     const m = /^([a-zA-Z][a-zA-Z0-9+.-]*):\/\/([^/?#]*)([^?#]*)(?:\?([^#]*))?(?:#(.*))?$/.exec(value)
+    // Fallback: treat as a raw file path (handles plain paths and single-slash schemes not used by command-only extensions).
     if (!m) return new Uri('file', '', value, '', '')
     return new Uri(m[1], m[2] ?? '', m[3] ?? '', m[4] ?? '', m[5] ?? '')
   }
@@ -61,7 +61,7 @@ export class Uri {
     return new Uri(change.scheme ?? this.scheme, this.authority, change.path ?? this.path, this.query, this.fragment)
   }
   toString(): string {
-    const a = this.authority || this.scheme === 'file' ? '//' + this.authority : ''
+    const a = (this.authority || this.scheme === 'file') ? '//' + this.authority : ''
     return `${this.scheme}:${a}${this.path}${this.query ? '?' + this.query : ''}${this.fragment ? '#' + this.fragment : ''}`
   }
 }

@@ -11,6 +11,10 @@ describe('vscode-shim types', () => {
     expect(cb).toHaveBeenCalledOnce()
   })
 
+  it('Disposable.from swallows errors thrown by member disposables', () => {
+    expect(() => Disposable.from({ dispose() { throw new Error('boom') } }).dispose()).not.toThrow()
+  })
+
   it('EventEmitter fires listeners and stops after dispose of the subscription', () => {
     const e = new EventEmitter<number>(); const seen: number[] = []
     const sub = e.event((n) => seen.push(n))
@@ -22,6 +26,20 @@ describe('vscode-shim types', () => {
     const u = Uri.file('/tmp/x.txt')
     expect(u.scheme).toBe('file'); expect(u.fsPath).toBe('/tmp/x.txt')
     expect(Uri.joinPath(u, '..', 'y.txt').fsPath).toBe('/tmp/y.txt')
+    expect(Uri.file('/tmp/x.txt').toString()).toBe('file:///tmp/x.txt')
+  })
+
+  it('Uri.parse decomposes scheme/path/query/fragment and round-trips toString', () => {
+    const u = Uri.parse('https://host.com/path?q=1#frag')
+    expect(u.scheme).toBe('https')
+    expect(u.path).toBe('/path')
+    expect(u.query).toBe('q=1')
+    expect(u.fragment).toBe('frag')
+    expect(u.toString()).toBe('https://host.com/path?q=1#frag')
+  })
+
+  it('Uri.with overrides path', () => {
+    expect(Uri.file('/a').with({ path: '/b' }).fsPath).toBe('/b')
   })
 
   it('enums expose the constants extensions reference at module-eval', () => {
