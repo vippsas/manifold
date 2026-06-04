@@ -23,9 +23,14 @@ Dev smokes for the whole system — run `npm run dev` and confirm in a real wind
 - Hello panel renders (validates the I4 `frame-src 'self'` fix for the `srcdoc` iframe); **Ping** round-trips; the **+1 counter persists across reload** (storage); **Active project** shows/updates on project switch (workspace).
 - `~/.manifold/debug.log` shows `[plugins] discovered N plugin(s)` and no host crash.
 
-## Held / packaging
-- `extraResources` for `resources/plugins` in `package.json` build config (needed so built-in plugins ship in packaged `.dmg`s; dev works without it).
-- `.gitignore` ignores `out/`, so `resources/plugins/hello/out/plugin.js` is force-added. Add a negation like `!resources/plugins/*/out/` before there are many built-in plugins.
+## Held / packaging — ✅ RESOLVED (built-in plugins pipeline)
+Both held items were resolved by the "built-in plugins as first-class" work (plan `2026-06-04-manifold-builtin-plugins-pipeline.md`):
+- ✅ `extraResources` now ships `resources/plugins` → `plugins` (commit `f1cda68`), landing at `process.resourcesPath/plugins` where `getBundledPluginsDir()` reads in a packaged app.
+- ✅ The `.gitignore` `out/` force-add problem is gone: built-in plugins are now authored in TypeScript under `src/` and compiled by `scripts/build-plugins.mjs` (run in `build`/`predev`/`pretest`/`predist`), so `out/` stays an ignored build artifact (no force-add). `hello` was converted to `src/` to dogfood it; `hello-vscode` remains a committed prebuilt fixture (it represents an unmodified external `.vsix` and B2 loads it from disk — intentionally not built from `src`).
+
+### Owed verification (Electron-only; not runnable in CI here)
+- **Packaging proof:** `npx electron-builder --dir` (unpacked, no sign/notarize), then confirm `dist/mac*/Manifold.app/Contents/Resources/plugins/hello/out/plugin.js` exists — proves built-ins ride a packaged build. (Needs a full app build + native rebuild; not run as part of the pipeline tasks.)
+- **Dev smoke:** `npm run dev` → `~/.manifold/debug.log` shows discovery of the built-in plugins (now built from `src/`), no skip errors.
 
 ## VS Code shim — before running real (unmodified) extensions
 - **Synchronous state/config reads.** `vscode.Memento.get`, `WorkspaceConfiguration.get`/`has` are synchronous in the real API, but the shim returns Promises (reads cross the RPC boundary). Real extensions call these without `await` (`if (config.get('x'))`, arithmetic on a returned number), so they silently misbehave. Fix before third-party extensions: preload the plugin's storage + config into an in-memory snapshot at activation (await once), expose synchronous `get`, and write through `update` asynchronously. Requires a `$getAll(pluginId)` on HOST_STORAGE/HOST_CONFIG and an async context-build step in the loader. (Phase A fixtures await, so current validation is unaffected.)
