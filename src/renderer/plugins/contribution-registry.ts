@@ -14,6 +14,19 @@ export interface RegisteredPanel extends PanelContribution {
 /** id → contribution. Map insertion order is preserved and defines launcher order. */
 const panels = new Map<string, RegisteredPanel>()
 
+type Listener = () => void
+const listeners = new Set<Listener>()
+
+/** Subscribe to registry changes; returns an unsubscribe fn. */
+export function subscribeContributions(listener: Listener): () => void {
+  listeners.add(listener)
+  return () => { listeners.delete(listener) }
+}
+
+function notify(): void {
+  for (const listener of listeners) listener()
+}
+
 function seed(): void {
   panels.clear()
   for (const panel of INTERNAL_PANELS) panels.set(panel.id, panel)
@@ -23,6 +36,7 @@ seed()
 /** Add (or replace) a panel contribution. Phase 1 plugins call this at activation. */
 export function registerPanelContribution(panel: RegisteredPanel): void {
   panels.set(panel.id, panel)
+  notify()
 }
 
 /** All registered panel contributions, in registration order. */
@@ -49,4 +63,5 @@ export function getPanelComponents(): Record<string, React.FC<any>> {
 /** Reset the registry to just the built-in internal contributions (for tests). */
 export function resetToInternal(): void {
   seed()
+  notify()
 }
