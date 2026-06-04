@@ -40,8 +40,9 @@ export interface ManifoldPluginManifest {
   version: string
   displayName?: string
   description?: string
-  engines: { manifold: string }
-  /** Extension-host entry (relative to the plugin root). Consumed in Phase 1b. */
+  /** Manifold-native plugins set `manifold`; VS Code extensions set `vscode`. */
+  engines: { manifold?: string; vscode?: string }
+  /** Extension-host entry (relative to the plugin root). */
   main?: string
   activationEvents?: string[]
   contributes?: PluginContributions
@@ -56,4 +57,6 @@ export interface PluginDescriptor {
   /** Absolute path to the plugin folder. */
   root: string
   origin: 'builtin' | 'user'
+  /** Which API surface the entry module is authored against. */
+  kind: 'manifold' | 'vscode'
 }

@@ -25,6 +25,7 @@ describe('scanPluginDir', () => {
     expect(r.plugins).toHaveLength(1)
     expect(r.plugins[0].id).toBe('manifold.hello')
     expect(r.plugins[0].origin).toBe('builtin')
+    expect(r.plugins[0].kind).toBe('manifold')
   })
   it('records an error for invalid JSON and for invalid manifests, skipping them', () => {
     const bad = join(dir, 'bad'); mkdirSync(bad); writeFileSync(join(bad, 'package.json'), '{ not json')

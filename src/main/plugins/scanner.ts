@@ -3,6 +3,7 @@ import { readdirSync, readFileSync, existsSync, statSync } from 'node:fs'
 import { join } from 'node:path'
 import type { PluginDescriptor } from '../../shared/plugins/manifest'
 import { parseManifest } from './manifest'
+import { parseVscodeManifest } from './vscode-manifest'
 
 export interface ScanResult {
   plugins: PluginDescriptor[]
@@ -25,7 +26,9 @@ export function scanPluginDir(dir: string, origin: 'builtin' | 'user'): ScanResu
       errors.push({ path: manifestPath, error: `invalid JSON: ${String(err)}` })
       continue
     }
-    const result = parseManifest(raw)
+    const enginesKey = (raw as { engines?: Record<string, unknown> } | null)?.engines
+    const isVscode = !!enginesKey && typeof enginesKey.vscode === 'string'
+    const result = isVscode ? parseVscodeManifest(raw) : parseManifest(raw)
     if (!result.ok) {
       errors.push({ path: manifestPath, error: result.error })
       continue
@@ -35,6 +38,7 @@ export function scanPluginDir(dir: string, origin: 'builtin' | 'user'): ScanResu
       manifest: result.manifest,
       root,
       origin,
+      kind: isVscode ? 'vscode' : 'manifold',
     })
   }
   return { plugins, errors }
