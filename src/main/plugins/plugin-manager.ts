@@ -5,6 +5,7 @@ import { scanPluginDir } from './scanner'
 import { getBundledPluginsDir, getUserPluginsDir } from './plugin-paths'
 import { debugLog } from '../app/debug-log'
 import { ExtensionHost } from './extension-host'
+import { PluginStorageStore } from './plugin-storage-store'
 
 export interface PluginPanelContribution extends PanelContribution {
   pluginId: string
@@ -30,9 +31,11 @@ export function viewContributionsOf(plugins: PluginDescriptor[]): PluginPanelCon
 
 export class PluginManager {
   private plugins: PluginDescriptor[] = []
-  private readonly host = new ExtensionHost()
+  private readonly host: ExtensionHost
 
-  constructor(private readonly storagePath: string) {}
+  constructor(private readonly storagePath: string) {
+    this.host = new ExtensionHost(new PluginStorageStore(storagePath))
+  }
 
   /** Discover built-in + user plugins. Errors are logged and skipped. */
   scan(): void {
@@ -56,7 +59,7 @@ export class PluginManager {
   async activate(pluginId: string): Promise<void> {
     const p = this.plugins.find((x) => x.id === pluginId)
     if (!p || !p.manifest.main) return
-    await this.host.activate({ id: p.id, root: p.root, main: p.manifest.main })
+    await this.host.activate({ id: p.id, root: p.root, main: p.manifest.main, capabilities: p.manifest.capabilities ?? [] })
   }
 
   executeContributedCommand(id: string, args: unknown[]): Promise<unknown> {
@@ -70,7 +73,7 @@ export class PluginManager {
   async openView(viewId: string): Promise<void> {
     const plugin = this.plugins.find((p) => p.manifest.contributes?.views?.some((v) => v.id === viewId))
     if (!plugin || !plugin.manifest.main) return
-    await this.host.resolveView({ id: plugin.id, root: plugin.root, main: plugin.manifest.main }, viewId)
+    await this.host.resolveView({ id: plugin.id, root: plugin.root, main: plugin.manifest.main, capabilities: plugin.manifest.capabilities ?? [] }, viewId)
   }
 
   deliverWebviewMessage(viewId: string, message: unknown): void {

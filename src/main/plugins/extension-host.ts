@@ -1,10 +1,11 @@
 // src/main/plugins/extension-host.ts
 import { utilityProcess, type UtilityProcess } from 'electron'
 import { join } from 'node:path'
-import { RpcEndpoint, HOST_COMMANDS, HOST_WINDOW, PLUGIN_ACTIVATION, PLUGIN_COMMANDS, PLUGIN_WEBVIEW, type RpcMessage } from '../../shared/plugins/rpc'
+import { RpcEndpoint, HOST_COMMANDS, HOST_WINDOW, HOST_STORAGE, PLUGIN_ACTIVATION, PLUGIN_COMMANDS, PLUGIN_WEBVIEW, type RpcMessage } from '../../shared/plugins/rpc'
 import { CommandRegistry } from './command-registry'
 import { debugLog } from '../app/debug-log'
 import type { ActivationTarget } from '../../plugin-host/activator'
+import type { PluginStorageStore } from './plugin-storage-store'
 
 interface PluginActivationProxy { $activate(t: ActivationTarget): Promise<void>; $deactivate(id: string): Promise<void> }
 interface PluginCommandsProxy { $invokeCommand(id: string, args: unknown[]): Promise<unknown> }
@@ -15,6 +16,8 @@ export class ExtensionHost {
   private endpoint: RpcEndpoint | null = null
   private readonly commands = new CommandRegistry()
   private send: ((channel: string, ...args: unknown[]) => void) | null = null
+
+  constructor(private readonly storage: PluginStorageStore) {}
 
   setSend(fn: (channel: string, ...args: unknown[]) => void): void { this.send = fn }
 
@@ -36,6 +39,10 @@ export class ExtensionHost {
     endpoint.registerService(HOST_WINDOW, {
       $setHtml: (viewId: string, html: string) => { this.send?.('plugins:webview-html', viewId, html) },
       $postToWebview: (viewId: string, message: unknown) => { this.send?.('plugins:webview-message', viewId, message) },
+    })
+    endpoint.registerService(HOST_STORAGE, {
+      $get: (pluginId: string, key: string) => this.storage.get(pluginId, key),
+      $update: (pluginId: string, key: string, value: unknown) => { this.storage.update(pluginId, key, value) },
     })
     this.child = child
     this.endpoint = endpoint
