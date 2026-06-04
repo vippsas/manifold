@@ -7,6 +7,7 @@
   "engines": { "manifold": "^0.3.0" },
   "main": "./out/plugin.js",
   "activationEvents": ["onStartupFinished", "onCommand:manifold.hello.ping"],
+  "capabilities": ["storage"],
   "contributes": {
     "views": [ { "id": "manifold.hello.panel", "title": "Hello (plugin)", "description": "Example plugin panel.", "launcher": true } ],
     "commands": [ { "command": "manifold.hello.ping", "title": "Hello: Ping" } ]
