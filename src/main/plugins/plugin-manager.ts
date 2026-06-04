@@ -4,6 +4,7 @@ import type { PanelContribution } from '../../shared/plugins/contributions'
 import { scanPluginDir } from './scanner'
 import { getBundledPluginsDir, getUserPluginsDir } from './plugin-paths'
 import { debugLog } from '../app/debug-log'
+import { ExtensionHost } from './extension-host'
 
 export interface PluginPanelContribution extends PanelContribution {
   pluginId: string
@@ -29,6 +30,7 @@ export function viewContributionsOf(plugins: PluginDescriptor[]): PluginPanelCon
 
 export class PluginManager {
   private plugins: PluginDescriptor[] = []
+  private readonly host = new ExtensionHost()
 
   constructor(private readonly storagePath: string) {}
 
@@ -49,5 +51,15 @@ export class PluginManager {
 
   listViewContributions(): PluginPanelContribution[] {
     return viewContributionsOf(this.plugins)
+  }
+
+  async activate(pluginId: string): Promise<void> {
+    const p = this.plugins.find((x) => x.id === pluginId)
+    if (!p || !p.manifest.main) return
+    await this.host.activate({ id: p.id, root: p.root, main: p.manifest.main })
+  }
+
+  executeContributedCommand(id: string, args: unknown[]): Promise<unknown> {
+    return this.host.executeContributedCommand(id, args)
   }
 }
