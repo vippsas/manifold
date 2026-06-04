@@ -42,9 +42,15 @@ const activator = new Activator((t: ActivationTarget): PluginModule => {
     // eslint-disable-next-line @typescript-eslint/no-var-requires
     const mod = require(join(t.root, t.main)) as PluginModule
     const ctx = createContext()
-    // VS Code's activate(context) receives the vscode ExtensionContext.
+    // VS Code's activate(context) receives the vscode ExtensionContext. We bridge
+    // ctx.subscriptions into the Activator's ManifoldContext so deactivate() disposes
+    // them via the single disposal path (see followup I3). Snapshot is taken at
+    // activate-time; extensions overwhelmingly register during activate.
     return {
-      activate: () => mod.activate?.(ctx as never),
+      activate: async (manifoldCtx) => {
+        await mod.activate?.(ctx as never)
+        manifoldCtx.subscriptions.push(...(ctx.subscriptions as { dispose(): void }[]))
+      },
       deactivate: () => mod.deactivate?.(),
     }
   }
