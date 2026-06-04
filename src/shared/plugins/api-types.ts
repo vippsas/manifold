@@ -1,6 +1,9 @@
 // src/shared/plugins/api-types.ts
 export interface Disposable { dispose(): void }
 
+export interface ProjectInfo { id: string; name: string; path: string }
+export interface SessionInfo { id: string; status: string; branchName?: string }
+
 export interface ManifoldContext {
   subscriptions: Disposable[]
   /** Absolute path to the plugin's folder. */
@@ -33,6 +36,12 @@ export interface ManifoldApi {
       get<T = unknown>(key: string, defaultValue?: T): Promise<T | undefined>
       update(key: string, value: unknown): Promise<void>
     }
+  }
+  workspace: {
+    readonly activeProject: ProjectInfo | undefined
+    readonly activeSession: SessionInfo | undefined
+    onDidChangeActiveProject(listener: (project: ProjectInfo | undefined) => void): Disposable
+    onDidChangeActiveSession(listener: (session: SessionInfo | undefined) => void): Disposable
   }
 }
 

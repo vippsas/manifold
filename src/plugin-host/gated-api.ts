@@ -1,7 +1,6 @@
 // src/plugin-host/gated-api.ts
 import type { ManifoldApi } from '../shared/plugins/api-types'
 
-/** Thrown when a plugin accesses an API namespace it did not declare. */
 export class CapabilityError extends Error {
   constructor(capability: string) {
     super(`Missing capability: "${capability}". Declare it in your plugin manifest's "capabilities".`)
@@ -9,23 +8,27 @@ export class CapabilityError extends Error {
   }
 }
 
-type StorageApi = ManifoldApi['storage']
+export interface GatedFactories {
+  storage: () => ManifoldApi['storage']
+  workspace: () => ManifoldApi['workspace']
+}
 
-/** Wrap the shared commands/window namespaces with a per-plugin, capability-gated
- *  view. `commands` and `window` are always available; `storage` requires the
- *  "storage" capability (else accessing it throws CapabilityError). */
 export function buildGatedApi(
   capabilities: string[],
   shared: Pick<ManifoldApi, 'commands' | 'window'>,
-  makeStorage: () => StorageApi,
+  factories: GatedFactories,
 ): ManifoldApi {
   const caps = new Set(capabilities)
   return {
     commands: shared.commands,
     window: shared.window,
-    get storage(): StorageApi {
+    get storage(): ManifoldApi['storage'] {
       if (!caps.has('storage')) throw new CapabilityError('storage')
-      return makeStorage()
+      return factories.storage()
+    },
+    get workspace(): ManifoldApi['workspace'] {
+      if (!caps.has('workspace:read')) throw new CapabilityError('workspace:read')
+      return factories.workspace()
     },
   }
 }

@@ -1,11 +1,12 @@
 import { describe, expect, it } from 'vitest'
-import { RpcEndpoint, HOST_COMMANDS, PLUGIN_COMMANDS, HOST_WINDOW, PLUGIN_WEBVIEW, HOST_STORAGE, type RpcMessage } from '../../shared/plugins/rpc'
+import { RpcEndpoint, HOST_COMMANDS, PLUGIN_COMMANDS, HOST_WINDOW, PLUGIN_WEBVIEW, HOST_STORAGE, PLUGIN_WORKSPACE, type RpcMessage } from '../../shared/plugins/rpc'
 import { CommandRegistry } from './command-registry'
 import { Activator } from '../../plugin-host/activator'
 import { createApi } from '../../plugin-host/api-impl'
 import { createWindowApi } from '../../plugin-host/window-api'
 import { createStorageApi } from '../../plugin-host/storage-api'
 import { buildGatedApi, CapabilityError } from '../../plugin-host/gated-api'
+import { WorkspaceContext } from '../../plugin-host/workspace-api'
 import type { PluginModule } from '../../shared/plugins/api-types'
 
 /**
@@ -147,7 +148,8 @@ function wireStorageHostAndMain(): {
 describe('extension host gated-storage round-trip (in-memory, no process)', () => {
   it('storage.global.update then get returns the stored value', async () => {
     const { host, shared } = wireStorageHostAndMain()
-    const api = buildGatedApi(['storage'], shared as never, () => createStorageApi(host, 'p.x'))
+    const workspaceCtx = new WorkspaceContext()
+    const api = buildGatedApi(['storage'], shared as never, { storage: () => createStorageApi(host, 'p.x'), workspace: () => workspaceCtx.makeApi() })
     await api.storage.global.update('n', 7)
     await new Promise((resolve) => setTimeout(resolve, 0)) // let RPC settle
     expect(await api.storage.global.get('n')).toBe(7)
@@ -155,8 +157,67 @@ describe('extension host gated-storage round-trip (in-memory, no process)', () =
 
   it('accessing storage without the capability throws CapabilityError', () => {
     const { host, shared } = wireStorageHostAndMain()
-    const gatedNoCap = buildGatedApi([], shared as never, () => createStorageApi(host, 'p.x'))
+    const workspaceCtx = new WorkspaceContext()
+    const gatedNoCap = buildGatedApi([], shared as never, { storage: () => createStorageApi(host, 'p.x'), workspace: () => workspaceCtx.makeApi() })
     expect(() => gatedNoCap.storage).toThrow(CapabilityError)
+  })
+})
+
+/**
+ * Wire a host endpoint with PLUGIN_WORKSPACE service + a main-side proxy for workspace.
+ */
+function wireWorkspaceHostAndMain(): {
+  pluginWorkspace: { $setActiveContext(ctx: unknown): Promise<void> }
+  workspaceContext: WorkspaceContext
+  shared: Pick<ReturnType<typeof createApi>['api'], 'commands'> & { window: ReturnType<typeof createWindowApi>['windowApi'] }
+  host: RpcEndpoint
+} {
+  let host!: RpcEndpoint
+  let main!: RpcEndpoint
+  main = new RpcEndpoint({ post: (m: RpcMessage) => queueMicrotask(() => host.handleMessage(m)) })
+  host = new RpcEndpoint({ post: (m: RpcMessage) => queueMicrotask(() => main.handleMessage(m)) })
+
+  const workspaceContext = new WorkspaceContext()
+  host.registerService(PLUGIN_WORKSPACE, {
+    $setActiveContext: (ctx: { project?: unknown; session?: unknown }) => workspaceContext.setActiveContext(ctx as never),
+  })
+
+  const pluginWorkspace = main.getProxy<{ $setActiveContext(ctx: unknown): Promise<void> }>(PLUGIN_WORKSPACE)
+
+  // Build shared namespaces from the host side (commands + window).
+  const { api: commandsApi } = createApi(host)
+  const { windowApi } = createWindowApi(host)
+  const shared = { commands: commandsApi.commands, window: windowApi }
+
+  return { pluginWorkspace, workspaceContext, shared, host }
+}
+
+describe('extension host workspace round-trip (in-memory, no process)', () => {
+  it('$setActiveContext updates activeProject and fires onDidChangeActiveProject listener', async () => {
+    const { pluginWorkspace, workspaceContext, shared } = wireWorkspaceHostAndMain()
+    const api = buildGatedApi(['workspace:read'], shared as never, {
+      storage: () => ({ global: {} as never }),
+      workspace: () => workspaceContext.makeApi(),
+    })
+
+    const fired: unknown[] = []
+    api.workspace.onDidChangeActiveProject((p) => fired.push(p))
+
+    await pluginWorkspace.$setActiveContext({ project: { id: 'p', name: 'P', path: '/p' } })
+    await new Promise((resolve) => setTimeout(resolve, 0)) // let RPC settle
+
+    expect(api.workspace.activeProject?.id).toBe('p')
+    expect(fired).toHaveLength(1)
+    expect((fired[0] as { id: string }).id).toBe('p')
+  })
+
+  it('accessing workspace without workspace:read throws CapabilityError', () => {
+    const { workspaceContext, shared } = wireWorkspaceHostAndMain()
+    const api = buildGatedApi([], shared as never, {
+      storage: () => ({ global: {} as never }),
+      workspace: () => workspaceContext.makeApi(),
+    })
+    expect(() => api.workspace).toThrow(CapabilityError)
   })
 })
 
