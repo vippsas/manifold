@@ -3,13 +3,14 @@ import { RpcEndpoint, HOST_MESSAGES, type RpcMessage } from '../../shared/plugin
 
 // A minimal in-memory transport pair.
 function pair(): [RpcEndpoint, RpcEndpoint] {
-  const a = new RpcEndpoint({ post: (m: RpcMessage) => void b.handleMessage(m) })
-  const b = new RpcEndpoint({ post: (m: RpcMessage) => void a.handleMessage(m) })
+  const a = new RpcEndpoint({ post: (m: RpcMessage) => queueMicrotask(() => void b.handleMessage(m)) })
+  const b = new RpcEndpoint({ post: (m: RpcMessage) => queueMicrotask(() => void a.handleMessage(m)) })
   return [a, b]
 }
 
 describe('HOST_MESSAGES service contract', () => {
-  it('forwards showMessage to the renderer channel and returns undefined (no buttons)', async () => {
+  it('$showMessage RPC call reaches the registered handler and returns undefined (no buttons)', async () => {
+    // In-memory contract only. The real ExtensionHost handler (debugLog + send 'plugins:notification') runs inside ensure()'s forked utilityProcess and is exercised by the Phase B dev smoke.
     const [host, main] = pair()
     const sent: unknown[] = []
     main.registerService(HOST_MESSAGES, {

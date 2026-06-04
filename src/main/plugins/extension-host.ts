@@ -51,10 +51,11 @@ export class ExtensionHost {
       $get: (pluginId: string, key: string) => this.getConfig?.(pluginId, key),
     })
     endpoint.registerService(HOST_MESSAGES, {
+      // Phase B: _items (button labels) deferred — no selection UI yet, so this always resolves undefined.
       $showMessage: (level: string, message: string, _items: string[]) => {
         debugLog(`[plugins] message(${level}): ${message}`)
-        this.send?.('plugins:notification', level, message)
-        return undefined
+        if (this.send) this.send('plugins:notification', level, message)
+        else debugLog('[plugins] notification dropped: main window not ready')
       },
     })
     this.child = child
