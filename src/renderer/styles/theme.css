@@ -490,18 +490,15 @@ select:focus-visible {
 .statusbar-button--shell {
   min-width: 96px;
   padding: 0 var(--space-sm);
-  border-color: var(--accent);
+  border-color: color-mix(in srgb, var(--accent), transparent 70%);
   border-radius: var(--radius-sm);
-  background: linear-gradient(135deg, var(--accent), var(--accent-hover));
-  color: var(--accent-text);
-  font-weight: 700;
-  box-shadow: 0 0 0 1px var(--accent-subtle), var(--shadow-subtle);
+  color: var(--accent);
 }
 
 .statusbar-button--shell:hover {
-  background: linear-gradient(135deg, var(--accent), var(--accent-hover));
-  color: var(--accent-text);
-  filter: brightness(1.12);
+  border-color: var(--accent);
+  background: var(--statusbar-hover-bg);
+  color: var(--accent);
 }
 
 .statusbar-shell-icon {

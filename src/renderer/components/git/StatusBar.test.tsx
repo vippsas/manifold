@@ -148,7 +148,7 @@ describe('StatusBar', () => {
     expect(screen.queryByRole('button', { name: /open shell/i })).not.toBeInTheDocument()
   })
 
-  it('renders a prominent open shell button when the shell panel is hidden', () => {
+  it('renders an open shell button when the shell panel is hidden', () => {
     const togglePanel = vi.fn()
     render(
       <StatusBar
