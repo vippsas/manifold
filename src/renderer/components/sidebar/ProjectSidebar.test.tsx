@@ -158,7 +158,7 @@ describe('ProjectSidebar', () => {
     expect(screen.getByText('2 repos')).toBeInTheDocument()
   })
 
-  it('shows the + New Workspace action button even when there are no workspaces (and no header +)', () => {
+  it('shows the + button beside the Workspaces label even when there are no workspaces', () => {
     const { props } = renderSidebar({
       workspaces: [],
       onSelectWorkspace: vi.fn(),
@@ -166,8 +166,8 @@ describe('ProjectSidebar', () => {
       onSpawnWorkspaceAgent: vi.fn(),
     })
 
-    expect(screen.queryByLabelText('New workspace')).not.toBeInTheDocument()
-    fireEvent.click(screen.getByText('+ New Workspace'))
+    expect(screen.queryByText('+ New Workspace')).not.toBeInTheDocument()
+    fireEvent.click(screen.getByLabelText('New Workspace'))
     expect(props.onNewWorkspace).toHaveBeenCalled()
   })
 
@@ -378,7 +378,7 @@ describe('ProjectSidebar', () => {
     expect(screen.getByText('New chat')).toBeInTheDocument()
   })
 
-  it('renders a + New Workspace action button that calls onNewWorkspace', () => {
+  it('renders a + button beside the Workspaces label that calls onNewWorkspace', () => {
     const { props } = renderSidebar({
       workspaces: [{ id: 'ws1', name: 'auth-refactor', projectIds: ['p1'], createdAt: '2024-01-01' }],
       activeWorkspaceId: 'ws1',
@@ -387,7 +387,7 @@ describe('ProjectSidebar', () => {
       onSpawnWorkspaceAgent: vi.fn(),
     })
 
-    fireEvent.click(screen.getByText('+ New Workspace'))
+    fireEvent.click(screen.getByLabelText('New Workspace'))
 
     expect(props.onNewWorkspace).toHaveBeenCalled()
   })

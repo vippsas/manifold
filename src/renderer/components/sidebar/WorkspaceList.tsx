@@ -17,6 +17,7 @@ export interface WorkspaceListProps {
   outputtingSessionIds?: Set<string>
   onSelectWorkspace: (id: string) => void
   onRemoveWorkspace: (id: string) => Promise<void>
+  onNewWorkspace?: () => void
   onSelectSession: (sessionId: string, projectId: string) => void
   onSelectRepo?: (workspaceId: string, projectId: string) => void
   onAddProject?: (workspaceId: string) => void
@@ -39,6 +40,7 @@ export function WorkspaceList({
   outputtingSessionIds,
   onSelectWorkspace,
   onRemoveWorkspace,
+  onNewWorkspace,
   onSelectSession,
   onSelectRepo,
   onAddProject,
@@ -71,10 +73,24 @@ export function WorkspaceList({
   )
 
   // The header label always renders — even with zero workspaces — so the section
-  // stays visible. Creating a workspace lives in the "+ New Workspace" action-bar button.
+  // stays visible. The "+" beside the label creates a new workspace.
   return (
     <div style={{ paddingTop: 8 }}>
-      <div style={sidebarStyles.sectionLabel}>Workspaces</div>
+      <div style={sidebarStyles.sectionHeader}>
+        <span style={{ ...sidebarStyles.sectionLabel, padding: 0, marginBottom: 0 }}>Workspaces</span>
+        {onNewWorkspace && (
+          <button
+            type="button"
+            onClick={onNewWorkspace}
+            className="sidebar-icon-button"
+            style={sidebarStyles.sectionAddButton}
+            aria-label="New Workspace"
+            title="New Workspace"
+          >
+            +
+          </button>
+        )}
+      </div>
       {workspaces.map((w) => {
         const isActive = w.id === activeWorkspaceId
         if (!isActive) {

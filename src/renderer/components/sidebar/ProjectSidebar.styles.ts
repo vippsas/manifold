@@ -104,7 +104,8 @@ export const sidebarStyles: Record<string, React.CSSProperties> = {
     gap: 'var(--space-xs)',
   },
   actionButtonPrimary: {
-    width: '100%',
+    flex: 1,
+    minWidth: 0,
     display: 'flex',
     alignItems: 'center',
     justifyContent: 'center',
@@ -165,6 +166,22 @@ export const sidebarStyles: Record<string, React.CSSProperties> = {
     color: 'color-mix(in srgb, var(--accent), transparent 60%)',
     padding: '0 var(--space-sm)',
     marginBottom: 'var(--space-xs)',
+  } as React.CSSProperties,
+  sectionHeader: {
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    padding: '0 var(--space-sm)',
+    marginBottom: 'var(--space-xs)',
+  } as React.CSSProperties,
+  sectionAddButton: {
+    width: 22,
+    height: 22,
+    fontSize: '16px',
+    fontWeight: 600,
+    lineHeight: 1,
+    color: 'var(--accent)',
+    flexShrink: 0,
   } as React.CSSProperties,
   sectionDivider: {
     height: 1,
