@@ -29,6 +29,7 @@ export function createVscodeShim(deps: VscodeShimDeps): {
       registerCommand: deps.commands.registerCommand,
       executeCommand: deps.commands.executeCommand,
       // VS Code's registerTextEditorCommand etc. are not supported yet.
+      // Returns [] rather than throwing: extensions commonly gate on command existence at startup; full enumeration is deferred.
       getCommands: () => Promise.resolve([] as string[]),
     },
     window: createShimWindow(deps.messagesProxy),
