@@ -1,8 +1,9 @@
 import { describe, expect, it } from 'vitest'
-import { RpcEndpoint, HOST_COMMANDS, PLUGIN_COMMANDS, type RpcMessage } from '../../shared/plugins/rpc'
+import { RpcEndpoint, HOST_COMMANDS, PLUGIN_COMMANDS, HOST_WINDOW, PLUGIN_WEBVIEW, type RpcMessage } from '../../shared/plugins/rpc'
 import { CommandRegistry } from './command-registry'
 import { Activator } from '../../plugin-host/activator'
 import { createApi } from '../../plugin-host/api-impl'
+import { createWindowApi } from '../../plugin-host/window-api'
 import type { PluginModule } from '../../shared/plugins/api-types'
 
 /**
@@ -34,6 +35,85 @@ function wireHostAndMain(): { api: ReturnType<typeof createApi>['api']; commands
 
   return { api, commands }
 }
+
+/**
+ * Wire a main-side and host-side RpcEndpoint for the window API round-trip,
+ * mirroring the command wiring helper above.
+ */
+function wireWindowHostAndMain(): {
+  windowApi: ReturnType<typeof createWindowApi>['windowApi']
+  pluginWebview: { $resolveView(viewId: string): Promise<void>; $deliverMessage(viewId: string, message: unknown): Promise<void> }
+  capturedHtml: () => string
+  capturedPostToWebview: () => unknown[]
+} {
+  let host!: RpcEndpoint
+  let main!: RpcEndpoint
+  main = new RpcEndpoint({ post: (m: RpcMessage) => queueMicrotask(() => host.handleMessage(m)) })
+  host = new RpcEndpoint({ post: (m: RpcMessage) => queueMicrotask(() => main.handleMessage(m)) })
+
+  // Host side: build the window API + register PLUGIN_WEBVIEW service.
+  const { windowApi, resolveView, deliverMessage } = createWindowApi(host)
+  host.registerService(PLUGIN_WEBVIEW, {
+    $resolveView: (viewId: string) => resolveView(viewId),
+    $deliverMessage: (viewId: string, message: unknown) => deliverMessage(viewId, message),
+  })
+
+  // Main side: HOST_WINDOW service capturing $setHtml and $postToWebview calls.
+  const htmlCaptures: string[] = []
+  const postCaptures: unknown[] = []
+  main.registerService(HOST_WINDOW, {
+    $setHtml: (_viewId: string, html: string) => { htmlCaptures.push(html) },
+    $postToWebview: (_viewId: string, message: unknown) => { postCaptures.push(message) },
+  })
+
+  // Main-side proxy to call PLUGIN_WEBVIEW methods.
+  const pluginWebview = main.getProxy<{ $resolveView(viewId: string): Promise<void>; $deliverMessage(viewId: string, message: unknown): Promise<void> }>(PLUGIN_WEBVIEW)
+
+  return {
+    windowApi,
+    pluginWebview,
+    capturedHtml: () => htmlCaptures[htmlCaptures.length - 1] ?? '',
+    capturedPostToWebview: () => postCaptures,
+  }
+}
+
+describe('extension host window round-trip (in-memory, no process)', () => {
+  it('resolving a registered provider sets html on the HOST_WINDOW service', async () => {
+    const { windowApi, pluginWebview, capturedHtml } = wireWindowHostAndMain()
+
+    windowApi.registerWebviewViewProvider('test.view', {
+      resolveWebviewView(view) {
+        view.webview.html = 'X'
+      },
+    })
+
+    await pluginWebview.$resolveView('test.view')
+    await new Promise((resolve) => setTimeout(resolve, 0)) // let the $setHtml RPC settle
+
+    expect(capturedHtml()).toBe('X')
+  })
+
+  it('deliverMessage fires the provider onDidReceiveMessage listener, and postMessage reaches $postToWebview', async () => {
+    const { windowApi, pluginWebview, capturedPostToWebview } = wireWindowHostAndMain()
+
+    windowApi.registerWebviewViewProvider('test.view2', {
+      resolveWebviewView(view) {
+        view.webview.html = 'Y'
+        view.webview.onDidReceiveMessage((msg) => {
+          view.webview.postMessage({ pong: true, echo: msg })
+        })
+      },
+    })
+
+    await pluginWebview.$resolveView('test.view2')
+    await new Promise((resolve) => setTimeout(resolve, 0))
+
+    await pluginWebview.$deliverMessage('test.view2', { hi: 1 })
+    await new Promise((resolve) => setTimeout(resolve, 0)) // let the $postToWebview RPC settle
+
+    expect(capturedPostToWebview()).toEqual([{ pong: true, echo: { hi: 1 } }])
+  })
+})
 
 describe('extension host command round-trip (in-memory, no process)', () => {
   it('activate → registerCommand → execute returns the handler result across the boundary', async () => {

@@ -14,6 +14,8 @@ export interface RpcTransport {
 export const HOST_COMMANDS = 'HostCommands'        // main, called by host
 export const PLUGIN_ACTIVATION = 'PluginActivation' // host, called by main
 export const PLUGIN_COMMANDS = 'PluginCommands'     // host, called by main
+export const HOST_WINDOW = 'HostWindow'             // main, called by host
+export const PLUGIN_WEBVIEW = 'PluginWebview'       // host, called by main
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type ServiceImpl = Record<string, (...args: any[]) => unknown>

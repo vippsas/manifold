@@ -11,7 +11,7 @@ interface HostCommandsProxy {
 /** Builds the shared `manifold` API and the PluginCommands service backed by
  *  locally-registered handlers. (Phase 1b: a single shared API for all plugins.) */
 export function createApi(endpoint: RpcEndpoint): {
-  api: ManifoldApi
+  api: Pick<ManifoldApi, 'commands'>
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   invokeLocalCommand(id: string, args: unknown[]): unknown
 } {
@@ -19,7 +19,7 @@ export function createApi(endpoint: RpcEndpoint): {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const handlers = new Map<string, (...args: any[]) => unknown>()
 
-  const api: ManifoldApi = {
+  const api: Pick<ManifoldApi, 'commands'> = {
     commands: {
       registerCommand(id, handler): Disposable {
         handlers.set(id, handler)

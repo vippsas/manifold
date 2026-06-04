@@ -1,8 +1,9 @@
 // src/plugin-host/index.ts
 import { join } from 'node:path'
-import { RpcEndpoint, PLUGIN_ACTIVATION, PLUGIN_COMMANDS, type RpcMessage } from '../shared/plugins/rpc'
+import { RpcEndpoint, PLUGIN_ACTIVATION, PLUGIN_COMMANDS, PLUGIN_WEBVIEW, type RpcMessage } from '../shared/plugins/rpc'
 import { Activator, type ActivationTarget } from './activator'
 import { createApi } from './api-impl'
+import { createWindowApi } from './window-api'
 import { installManifoldRequire } from './require-interceptor'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -14,7 +15,9 @@ const parentPort = (process as any).parentPort as {
 const endpoint = new RpcEndpoint({ post: (m) => parentPort.postMessage(m) })
 parentPort.on('message', (e) => { void endpoint.handleMessage(e.data) })
 
-const { api, invokeLocalCommand } = createApi(endpoint)
+const { api: commandsApi, invokeLocalCommand } = createApi(endpoint)
+const { windowApi, resolveView, deliverMessage } = createWindowApi(endpoint)
+const api = { ...commandsApi, window: windowApi }
 installManifoldRequire(api)
 
 const activator = new Activator(
@@ -29,4 +32,8 @@ endpoint.registerService(PLUGIN_ACTIVATION, {
 })
 endpoint.registerService(PLUGIN_COMMANDS, {
   $invokeCommand: (id: string, args: unknown[]) => invokeLocalCommand(id, args),
+})
+endpoint.registerService(PLUGIN_WEBVIEW, {
+  $resolveView: (viewId: string) => resolveView(viewId),
+  $deliverMessage: (viewId: string, message: unknown) => deliverMessage(viewId, message),
 })
