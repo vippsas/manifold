@@ -29,3 +29,15 @@ Dev smokes for the whole system — run `npm run dev` and confirm in a real wind
 
 ## VS Code shim — before running real (unmodified) extensions
 - **Synchronous state/config reads.** `vscode.Memento.get`, `WorkspaceConfiguration.get`/`has` are synchronous in the real API, but the shim returns Promises (reads cross the RPC boundary). Real extensions call these without `await` (`if (config.get('x'))`, arithmetic on a returned number), so they silently misbehave. Fix before third-party extensions: preload the plugin's storage + config into an in-memory snapshot at activation (await once), expose synchronous `get`, and write through `update` asynchronously. Requires a `$getAll(pluginId)` on HOST_STORAGE/HOST_CONFIG and an async context-build step in the loader. (Phase A fixtures await, so current validation is unaffected.)
+
+## VS Code shim — Phase A/B dev smoke (owed; Electron-only)
+
+Run `npm run build` then `npm run dev` and confirm in a real window (none of this is runnable in CI):
+
+- `~/.manifold/debug.log` shows `[plugins] discovered N plugin(s)` with N including BOTH `manifold.hello` and `manifold.hello-vscode`, and no host crash / no `VscodeShimError` during discovery or activation.
+- Trigger the VS Code extension's command `helloVscode.hello` (via the command palette/dev trigger, or `pluginManager.executeContributedCommand('helloVscode.hello', [])` on the dev IPC path used in earlier phase smokes).
+- Confirm the log shows `[plugins] message(info): Hello from a VS Code extension (greet #1)` (proves the unmodified extension's `require('vscode')` → shim → `window.showInformationMessage` → HOST_MESSAGES path).
+- Re-run the command (or relaunch) and confirm the greet count INCREMENTS — proving `context.globalState` persists through HOST_STORAGE (the `global:greetCount` key).
+- If a `VscodeShimError: vscode.<api> is not yet implemented` appears, it names exactly which deferred API a future phase must implement — record it here.
+
+Result (fill in when run): _pending_
