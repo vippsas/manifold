@@ -1,0 +1,15 @@
+{
+  "name": "hello",
+  "publisher": "manifold",
+  "version": "0.0.1",
+  "displayName": "Hello",
+  "description": "Example plugin — panel arrives in a later phase.",
+  "engines": { "manifold": "^0.3.0" },
+  "main": "./out/plugin.js",
+  "activationEvents": ["onView:manifold.hello.panel"],
+  "contributes": {
+    "views": [
+      { "id": "manifold.hello.panel", "title": "Hello (plugin)", "description": "Example plugin panel.", "launcher": true }
+    ]
+  }
+}
