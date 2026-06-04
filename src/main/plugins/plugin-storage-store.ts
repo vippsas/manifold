@@ -1,13 +1,20 @@
 // src/main/plugins/plugin-storage-store.ts
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs'
-import { join } from 'node:path'
+import { join, resolve, sep } from 'node:path'
 
 /** Per-plugin key/value JSON storage under <storageRoot>/plugin-storage/<id>.json. */
 export class PluginStorageStore {
   constructor(private readonly storageRoot: string) {}
 
   private fileFor(pluginId: string): string {
-    return join(this.storageRoot, 'plugin-storage', `${pluginId}.json`)
+    // Defense in depth: even though plugin ids are charset-validated at manifest
+    // parse time, never let an id escape the plugin-storage directory.
+    const dir = resolve(this.storageRoot, 'plugin-storage')
+    const file = resolve(dir, `${pluginId}.json`)
+    if (file !== `${dir}${sep}${pluginId}.json` || !file.startsWith(dir + sep)) {
+      throw new Error(`unsafe plugin id for storage: ${pluginId}`)
+    }
+    return file
   }
 
   private read(pluginId: string): Record<string, unknown> {

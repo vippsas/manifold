@@ -25,6 +25,12 @@ describe('parseManifest', () => {
   it('requires engines.manifold', () => {
     expect(parseManifest({ ...valid, engines: {} }).ok).toBe(false)
   })
+  it('rejects ids that could escape the storage path (traversal/charset)', () => {
+    expect(parseManifest({ ...valid, name: '../../../../tmp/pwned' }).ok).toBe(false)
+    expect(parseManifest({ ...valid, publisher: '..' }).ok).toBe(false)
+    expect(parseManifest({ ...valid, name: 'Has Spaces' }).ok).toBe(false)
+    expect(parseManifest({ ...valid, name: 'evil/slash' }).ok).toBe(false)
+  })
   it('rejects malformed view contributions', () => {
     expect(parseManifest({ ...valid, contributes: { views: 'x' } }).ok).toBe(false)
     expect(parseManifest({ ...valid, contributes: { views: [{ id: 'a' }] } }).ok).toBe(false)

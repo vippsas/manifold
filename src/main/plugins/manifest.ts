@@ -13,6 +13,16 @@ export function parseManifest(raw: unknown): ManifestParseResult {
       return { ok: false, error: `missing or invalid "${field}"` }
     }
   }
+  // `name` and `publisher` form the plugin id (`publisher.name`), which is used in
+  // filesystem paths (per-plugin storage). Restrict to a safe charset so an id can
+  // never contain path separators or `..` (defends the storage path when the
+  // first-party trust boundary opens to third-party plugins). See PluginStorageStore.
+  const ID_SEGMENT = /^[a-z0-9][a-z0-9-]*$/
+  for (const field of ['name', 'publisher'] as const) {
+    if (!ID_SEGMENT.test(m[field] as string)) {
+      return { ok: false, error: `"${field}" must be lowercase alphanumeric with hyphens (matched against ${ID_SEGMENT})` }
+    }
+  }
   const engines = m.engines as Record<string, unknown> | undefined
   if (!engines || typeof engines.manifold !== 'string') {
     return { ok: false, error: 'missing "engines.manifold"' }
