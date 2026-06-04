@@ -21,6 +21,8 @@ describe('parseVscodeManifest', () => {
   })
   it('requires name/publisher/version and engines.vscode', () => {
     expect(parseVscodeManifest({ ...valid, name: undefined }).ok).toBe(false)
+    expect(parseVscodeManifest({ ...valid, publisher: undefined }).ok).toBe(false)
+    expect(parseVscodeManifest({ ...valid, version: undefined }).ok).toBe(false)
     expect(parseVscodeManifest({ ...valid, engines: {} }).ok).toBe(false)
   })
   it('accepts mixed-case publisher/name (VS Code allows it) but rejects path-unsafe ids', () => {
@@ -28,5 +30,15 @@ describe('parseVscodeManifest', () => {
     expect(parseVscodeManifest({ ...valid, name: '../escape' }).ok).toBe(false)
     expect(parseVscodeManifest({ ...valid, publisher: '..' }).ok).toBe(false)
     expect(parseVscodeManifest({ ...valid, name: 'has space' }).ok).toBe(false)
+  })
+  it('leaves contributes undefined when there are no commands', () => {
+    const r = parseVscodeManifest({ ...valid, contributes: { commands: [] } })
+    expect(r.ok).toBe(true)
+    if (r.ok) expect(r.manifest.contributes).toBeUndefined()
+  })
+  it('filters non-string activationEvents', () => {
+    const r = parseVscodeManifest({ ...valid, activationEvents: ['onCommand:foo', 42, null] })
+    expect(r.ok).toBe(true)
+    if (r.ok) expect(r.manifest.activationEvents).toEqual(['onCommand:foo'])
   })
 })

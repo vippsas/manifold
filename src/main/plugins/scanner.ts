@@ -26,7 +26,7 @@ export function scanPluginDir(dir: string, origin: 'builtin' | 'user'): ScanResu
       errors.push({ path: manifestPath, error: `invalid JSON: ${String(err)}` })
       continue
     }
-    const enginesKey = (raw as { engines?: Record<string, unknown> } | null)?.engines
+    const enginesKey = (raw as { engines?: Record<string, unknown> }).engines
     const isVscode = !!enginesKey && typeof enginesKey.vscode === 'string'
     const result = isVscode ? parseVscodeManifest(raw) : parseManifest(raw)
     if (!result.ok) {

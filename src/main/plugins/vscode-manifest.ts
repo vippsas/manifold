@@ -20,7 +20,7 @@ export function parseVscodeManifest(raw: unknown): VscodeManifestParseResult {
   }
   for (const field of ['name', 'publisher'] as const) {
     if (!ID_SEGMENT.test(m[field] as string)) {
-      return { ok: false, error: `"${field}" must match ${ID_SEGMENT} (path-safe id segment)` }
+      return { ok: false, error: `"${field}" must be alphanumeric with hyphens (matched against ${ID_SEGMENT})` }
     }
   }
   const engines = m.engines as Record<string, unknown> | undefined

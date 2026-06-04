@@ -40,7 +40,7 @@ export interface ManifoldPluginManifest {
   version: string
   displayName?: string
   description?: string
-  /** Manifold-native plugins set `manifold`; VS Code extensions set `vscode`. */
+  /** Exactly one key is present in practice: manifold-native plugins set `manifold`, VS Code extensions set `vscode` (enforced by the parsers). */
   engines: { manifold?: string; vscode?: string }
   /** Extension-host entry (relative to the plugin root). */
   main?: string
