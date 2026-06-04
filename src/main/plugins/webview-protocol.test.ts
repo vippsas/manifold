@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { WebviewContentStore } from './webview-content-store'
-import { injectNonce, buildCsp } from './webview-protocol'
+import { injectNonce, buildCsp, renderWebviewResponse } from './webview-protocol'
 
 describe('WebviewContentStore', () => {
   it('stores html per view and bumps version on each set', () => {
@@ -31,5 +31,37 @@ describe('buildCsp', () => {
     expect(csp).toMatch(/style-src[^;]*'unsafe-inline'/)
     // script-src must NOT contain unsafe-inline (nonce only)
     expect(csp).not.toMatch(/script-src[^;]*'unsafe-inline'/)
+  })
+})
+
+describe('renderWebviewResponse', () => {
+  it('returns 404 for a missing view', () => {
+    const s = new WebviewContentStore()
+    const r = renderWebviewResponse(s, 'manifold-webview://view/does.not.exist?v=1')
+    expect(r.status).toBe(404)
+  })
+
+  it('serves a stored view with a matching nonce in body and csp', () => {
+    const s = new WebviewContentStore()
+    s.set('manifold.hello.panel', '<script>x()</script>')
+    const r = renderWebviewResponse(s, 'manifold-webview://view/manifold.hello.panel?v=3')
+    expect(r.status).toBe(200)
+    expect(r.csp).toContain("script-src 'nonce-")
+    expect(r.body).toContain('<script nonce="')
+    // The nonce injected into the served script must equal the nonce in the CSP,
+    // otherwise the script could not execute under its own policy.
+    const bodyNonce = r.body.match(/<script nonce="([^"]+)"/)?.[1]
+    const cspNonce = r.csp?.match(/script-src 'nonce-([^']+)'/)?.[1]
+    expect(bodyNonce).toBeTruthy()
+    expect(cspNonce).toBeTruthy()
+    expect(bodyNonce).toBe(cspNonce)
+  })
+
+  it('returns 404 after the view is deleted', () => {
+    const s = new WebviewContentStore()
+    s.set('view.gone', '<h1>bye</h1>')
+    expect(renderWebviewResponse(s, 'manifold-webview://view/view.gone').status).toBe(200)
+    s.delete('view.gone')
+    expect(renderWebviewResponse(s, 'manifold-webview://view/view.gone').status).toBe(404)
   })
 })
