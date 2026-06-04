@@ -1,7 +1,7 @@
 import { afterEach, describe, expect, it } from 'vitest'
 import { resolve } from 'node:path'
 import { createRequire } from 'node:module'
-import { RpcEndpoint, HOST_COMMANDS, HOST_MESSAGES, HOST_STORAGE, PLUGIN_ACTIVATION, PLUGIN_COMMANDS, type RpcMessage } from '../../shared/plugins/rpc'
+import { RpcEndpoint, HOST_COMMANDS, HOST_CONFIG, HOST_MESSAGES, HOST_STORAGE, PLUGIN_ACTIVATION, PLUGIN_COMMANDS, type RpcMessage } from '../../shared/plugins/rpc'
 import { Activator, type ActivationTarget } from '../../plugin-host/activator'
 import { createApi } from '../../plugin-host/api-impl'
 import { installPluginRequire, registerPluginApis, unregisterPluginApis, resolvePluginModule } from '../../plugin-host/require-interceptor'
@@ -24,7 +24,7 @@ const cjsRequire = createRequire(import.meta.url)
  * queueMicrotask, so `await` points (storage round-trips during activation,
  * the message round-trip during execute) resolve naturally.
  */
-function connect(): { host: RpcEndpoint; main: RpcEndpoint } {
+function wireHostAndMain(): { host: RpcEndpoint; main: RpcEndpoint } {
   let host!: RpcEndpoint
   let main!: RpcEndpoint
   main = new RpcEndpoint({ post: (m: RpcMessage) => queueMicrotask(() => host.handleMessage(m)) })
@@ -32,18 +32,21 @@ function connect(): { host: RpcEndpoint; main: RpcEndpoint } {
   return { host, main }
 }
 
-// installPluginRequire() patches Module._load process-wide and stays installed,
-// but it only intercepts when a frame is registered for the requester's root.
-// Unregistering the fixture root after each test scopes the behavior so the
-// global patch never affects other suites.
-afterEach(() => {
-  unregisterPluginApis(FIXTURE)
-})
-
 describe('vscode shim end-to-end (in-memory RPC)', () => {
+  // installPluginRequire() patches Module._load process-wide and stays installed,
+  // but it only intercepts when a frame is registered for the requester's root.
+  // Unregistering the fixture root after each test scopes the behavior so the
+  // global patch never affects other suites. Evicting the fixture from the
+  // require cache forces watch-mode re-runs to re-execute its top-level
+  // `require('vscode')` against a fresh shim instead of a stale cached one.
+  afterEach(() => {
+    unregisterPluginApis(FIXTURE)
+    delete (cjsRequire as NodeRequire).cache[FIXTURE_MAIN]
+  })
+
   it('activates an unmodified vscode extension and runs its command', async () => {
-    const { host, main } = connect()
-    const messages: Array<{ level: string; message: string }> = []
+    const { host, main } = wireHostAndMain()
+    const messages: Array<{ level: string; message: string; items: string[] }> = []
     const store = new Map<string, unknown>()
     const registry = new CommandRegistry()
 
@@ -55,19 +58,24 @@ describe('vscode shim end-to-end (in-memory RPC)', () => {
       $executeCommand: (id: string, args: unknown[]) => registry.execute(id, args),
     })
     main.registerService(HOST_MESSAGES, {
-      $showMessage: (level: string, message: string) => { messages.push({ level, message }); return undefined },
+      $showMessage: (level: string, message: string, items: string[]) => { messages.push({ level, message, items }); return undefined },
     })
     main.registerService(HOST_STORAGE, {
       $get: (_id: string, key: string) => store.get(key),
       $update: (_id: string, key: string, value: unknown) => { store.set(key, value) },
     })
+    // The fixture doesn't read configuration, but give the shim a real (no-op)
+    // HOST_CONFIG channel so a stray config read can't misroute to storage.
+    main.registerService(HOST_CONFIG, {
+      $get: () => undefined,
+    })
 
     // --- Host side: shared command API + the shim, wired into the Activator. ---
     const { api: commandsApi, invokeLocalCommand } = createApi(host)
+    // getProxy<never>: the concrete per-service proxy interfaces aren't exported from rpc.ts, so we structurally escape and rely on the shim's own typed deps.
     const messagesProxy = host.getProxy<never>(HOST_MESSAGES)
     const storageProxy = host.getProxy<never>(HOST_STORAGE)
-    // The fixture doesn't read configuration; reuse a harmless proxy to satisfy deps.
-    const configProxy = host.getProxy<never>(HOST_STORAGE)
+    const configProxy = host.getProxy<never>(HOST_CONFIG)
 
     installPluginRequire()
 
@@ -117,7 +125,7 @@ describe('vscode shim end-to-end (in-memory RPC)', () => {
     expect(result).toBe('greeted:1')
 
     // showInformationMessage reached HOST_MESSAGES.
-    expect(messages).toEqual([{ level: 'info', message: 'Hello from a VS Code extension (greet #1)' }])
+    expect(messages).toEqual([{ level: 'info', message: 'Hello from a VS Code extension (greet #1)', items: [] }])
 
     // globalState.update persisted to HOST_STORAGE under the global-prefixed key.
     expect(store.get('global:greetCount')).toBe(1)
