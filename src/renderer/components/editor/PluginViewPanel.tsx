@@ -37,9 +37,11 @@ export function PluginViewPanel({ api }: { api: { id: string } }): React.JSX.Ele
   }, [viewId])
 
   const onLoad = (): void => {
+    if (version === 0) return // about:blank — not the real content; keep buffering
     loadedRef.current = true
     const w = iframeRef.current?.contentWindow
-    if (w) { for (const m of pendingRef.current) w.postMessage(m, '*'); pendingRef.current = [] }
+    if (w) for (const m of pendingRef.current) w.postMessage(m, '*')
+    pendingRef.current = []
   }
 
   return (
