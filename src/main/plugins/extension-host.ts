@@ -1,7 +1,7 @@
 // src/main/plugins/extension-host.ts
 import { utilityProcess, type UtilityProcess } from 'electron'
 import { join } from 'node:path'
-import { RpcEndpoint, HOST_COMMANDS, HOST_WINDOW, HOST_STORAGE, HOST_CONFIG, PLUGIN_ACTIVATION, PLUGIN_COMMANDS, PLUGIN_WEBVIEW, PLUGIN_WORKSPACE, PLUGIN_CONFIG, type RpcMessage } from '../../shared/plugins/rpc'
+import { RpcEndpoint, HOST_COMMANDS, HOST_WINDOW, HOST_STORAGE, HOST_CONFIG, HOST_MESSAGES, PLUGIN_ACTIVATION, PLUGIN_COMMANDS, PLUGIN_WEBVIEW, PLUGIN_WORKSPACE, PLUGIN_CONFIG, type RpcMessage } from '../../shared/plugins/rpc'
 import { CommandRegistry } from './command-registry'
 import { debugLog } from '../app/debug-log'
 import type { ActivationTarget } from '../../plugin-host/activator'
@@ -49,6 +49,13 @@ export class ExtensionHost {
     })
     endpoint.registerService(HOST_CONFIG, {
       $get: (pluginId: string, key: string) => this.getConfig?.(pluginId, key),
+    })
+    endpoint.registerService(HOST_MESSAGES, {
+      $showMessage: (level: string, message: string, _items: string[]) => {
+        debugLog(`[plugins] message(${level}): ${message}`)
+        this.send?.('plugins:notification', level, message)
+        return undefined
+      },
     })
     this.child = child
     this.endpoint = endpoint
