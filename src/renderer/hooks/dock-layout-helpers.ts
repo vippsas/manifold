@@ -237,16 +237,18 @@ export function applyLayoutChangePreservingSidebarWidths(
   applyChange: () => void,
   refs?: LayoutRefs,
 ): void {
-  // Capture sidebar widths, apply the change, and restore the widths in place
-  // only if the structure actually changed. restoreSidebarWidths now resizes
-  // via group constraints (no api.fromJSON()), so this no longer remounts the
-  // agent pane; the structure check still avoids needless relayout churn.
+  // Pin the sidebars to their current pixel widths *for the duration of* the
+  // structural mutation, so dockview routes the freed/needed space onto the
+  // center pane instead of redistributing it proportionally across the
+  // sidebars. The pin must be held while addPanel/removePanel runs: dockview
+  // only honours group constraints during the layout pass those calls trigger,
+  // so pinning *after* the mutation (as this used to) is a no-op that lets both
+  // sidebars drift — the cause of them resizing whenever the editor opened.
   const beforeSignature = getGridSignature(api.toJSON())
-  const widths = getSidebarWidths(api)
-  applyChange()
-  const afterSignature = getGridSignature(api.toJSON())
-  if (beforeSignature === afterSignature) return
-  restoreSidebarWidths(api, widths, refs)
+  withPinnedSidebars(api, applyChange)
+  if (refs && getGridSignature(api.toJSON()) !== beforeSignature) {
+    refs.lastLayoutRef.current = api.toJSON()
+  }
 }
 
 /** Restore the left sidebar to a specific pixel width. */

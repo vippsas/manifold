@@ -141,7 +141,7 @@ describe('applyLayoutChangePreservingSidebarWidths', () => {
     api: { setConstraints: vi.fn() },
   })
 
-  it('re-pins drifted sidebar widths in place (no fromJSON remount) after a structural change', () => {
+  it('pins sidebar widths in place (no fromJSON remount) across a structural change', () => {
     let layout = createWorkspaceLayout()
     const fromJSON = vi.fn((json: SerializedDockview) => { layout = json })
     const projectsGroup = makeGroup(200)
@@ -163,13 +163,10 @@ describe('applyLayoutChangePreservingSidebarWidths', () => {
       const root = next.grid.root as { type: 'branch'; data: Array<{ type: 'leaf'; data: { views: string[] } }> }
       root.data[1].data.views = [...root.data[1].data.views, 'shell']
       layout = next
-      // Simulate dockview shrinking the sidebars while redistributing space.
-      projectsGroup.element.offsetWidth = 150
-      filesGroup.element.offsetWidth = 150
     })
 
-    // Widths are restored in place via group constraints — never by reloading
-    // the serialized layout (which would remount every panel and flash xterm).
+    // Widths are held via group constraints — never by reloading the
+    // serialized layout (which would remount every panel and flash xterm).
     expect(fromJSON).not.toHaveBeenCalled()
     expect(projectsGroup.api.setConstraints).toHaveBeenCalledWith({ minimumWidth: 200, maximumWidth: 200 })
     expect(filesGroup.api.setConstraints).toHaveBeenCalledWith({ minimumWidth: 200, maximumWidth: 200 })
@@ -178,18 +175,18 @@ describe('applyLayoutChangePreservingSidebarWidths', () => {
     expect(filesGroup.api.setConstraints).toHaveBeenLastCalledWith({ minimumWidth: 0, maximumWidth: Number.MAX_SAFE_INTEGER })
   })
 
-  it('does nothing when applyChange leaves the grid structure untouched', () => {
-    // A filetree click runs ensureEditorPanel even when the editor is already
-    // present in a different group, so applyChange is structurally a no-op.
-    // In that case we must not touch sidebar sizing at all.
+  it('pins both sidebars before the structural mutation runs, not after', () => {
+    // The fix: dockview only honours group constraints during the layout pass
+    // that addPanel/removePanel triggers, so the sidebars must already be
+    // pinned by the time applyChange runs. Pinning afterwards is a no-op and
+    // lets both sidebars drift (the reported bug).
     let layout = createWorkspaceLayout()
-    const fromJSON = vi.fn((json: SerializedDockview) => { layout = json })
     const projectsGroup = makeGroup(200)
     const filesGroup = makeGroup(200)
     const api = {
       width: 1000,
       toJSON: vi.fn(() => layout),
-      fromJSON,
+      fromJSON: vi.fn(),
       getPanel: vi.fn((panelId: string) => {
         if (panelId === 'projects') return { group: projectsGroup }
         if (panelId === 'fileTree') return { group: filesGroup }
@@ -197,13 +194,22 @@ describe('applyLayoutChangePreservingSidebarWidths', () => {
       }),
     } as unknown as DockviewApi
 
+    const wasPinned = (group: typeof projectsGroup): boolean =>
+      group.api.setConstraints.mock.calls.some(([c]) => c.maximumWidth === 200)
+
+    let pinnedDuringChange: [boolean, boolean] | undefined
     applyLayoutChangePreservingSidebarWidths(api, () => {
-      // no structural change
+      pinnedDuringChange = [wasPinned(projectsGroup), wasPinned(filesGroup)]
+      const next = createWorkspaceLayout(260, 490, 250)
+      const root = next.grid.root as { type: 'branch'; data: Array<{ data: { views: string[] } }> }
+      root.data[1].data.views = [...root.data[1].data.views, 'shell']
+      layout = next
     })
 
-    expect(fromJSON).not.toHaveBeenCalled()
-    expect(projectsGroup.api.setConstraints).not.toHaveBeenCalled()
-    expect(filesGroup.api.setConstraints).not.toHaveBeenCalled()
+    expect(pinnedDuringChange).toEqual([true, true])
+    // Both sidebars are released again afterwards (free to resize).
+    expect(projectsGroup.api.setConstraints).toHaveBeenLastCalledWith({ minimumWidth: 0, maximumWidth: Number.MAX_SAFE_INTEGER })
+    expect(filesGroup.api.setConstraints).toHaveBeenLastCalledWith({ minimumWidth: 0, maximumWidth: Number.MAX_SAFE_INTEGER })
   })
 })
 

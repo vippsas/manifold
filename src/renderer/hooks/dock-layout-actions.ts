@@ -5,7 +5,7 @@ import {
   showPanelFromHints,
   showPanelFromSnapshot,
   getSidebarWidths,
-  restoreSidebarWidths,
+  withPinnedSidebars,
   isEditorPanelId,
   type DockPanelId,
 } from './dock-layout-helpers'
@@ -33,10 +33,11 @@ export function useDockActions(
     if (isEditorPanelId(id)) {
       const panel = api.getPanel(id)
       if (!panel) return
-      const widths = getSidebarWidths(api)
-      api.removePanel(panel)
+      // Pin the sidebars while the editor pane is removed so its freed space
+      // lands on the center pane, not on the sidebars (which dockview would
+      // otherwise widen proportionally).
+      withPinnedSidebars(api, () => api.removePanel(panel))
       ctx.editorPanelIdsRef.current.delete(id)
-      restoreSidebarWidths(api, widths, refs)
       ctx.lastLayoutRef.current = api.toJSON()
       saveLayout()
       bumpVersion()
@@ -61,14 +62,17 @@ export function useDockActions(
         return
       }
 
-      const widths = getSidebarWidths(api)
-      for (const panelId of visibleEditorPanels) {
-        const panel = api.getPanel(panelId)
-        if (panel) api.removePanel(panel)
-      }
+      // Pin the sidebars while the editor panes are removed so their freed
+      // space lands on the center pane, not on the sidebars (which dockview
+      // would otherwise widen proportionally).
+      withPinnedSidebars(api, () => {
+        for (const panelId of visibleEditorPanels) {
+          const panel = api.getPanel(panelId)
+          if (panel) api.removePanel(panel)
+        }
+      })
 
       ctx.editorPanelIdsRef.current.clear()
-      restoreSidebarWidths(api, widths, refs)
       ctx.lastLayoutRef.current = api.toJSON()
       saveLayout()
       bumpVersion()
