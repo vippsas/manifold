@@ -8,6 +8,7 @@ export class CommandRegistry {
   private readonly owners = new Map<string, string>()
   private onCollisionCb: ((message: string) => void) | null = null
 
+  // Single consumer expected (ExtensionHost); replace with an array if multiple listeners are ever needed.
   onCollision(cb: (message: string) => void): void { this.onCollisionCb = cb }
 
   register(id: string, owner: string, invoke: Invoker): void {

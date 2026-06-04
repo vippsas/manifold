@@ -38,7 +38,7 @@ export class ExtensionHost {
     this.commands.onCollision((msg) => debugLog(`[plugins] ${msg}`))
     endpoint.registerService(HOST_COMMANDS, {
       $registerCommand: (id: string) => { this.commands.register(id, this.activatingPluginId ?? 'unknown', (cid, args) => pluginCommands.$invokeCommand(cid, args)) },
-      $unregisterCommand: (id: string) => { this.commands.unregister(id, this.activatingPluginId ?? 'unknown') },
+      $unregisterCommand: (id: string) => { this.commands.unregister(id, this.commands.ownerOf(id) ?? 'unknown') },
       $executeCommand: (id: string, args: unknown[]) => this.commands.execute(id, args),
     })
     endpoint.registerService(HOST_WINDOW, {
@@ -68,13 +68,21 @@ export class ExtensionHost {
   async activate(target: ActivationTarget): Promise<void> {
     const { endpoint } = this.ensure()
     this.activatingPluginId = target.id
-    await endpoint.getProxy<PluginActivationProxy>(PLUGIN_ACTIVATION).$activate(target)
+    try {
+      await endpoint.getProxy<PluginActivationProxy>(PLUGIN_ACTIVATION).$activate(target)
+    } finally {
+      this.activatingPluginId = null
+    }
   }
 
   async resolveView(target: ActivationTarget, viewId: string): Promise<void> {
     const { endpoint } = this.ensure()
     this.activatingPluginId = target.id
-    await endpoint.getProxy<PluginActivationProxy>(PLUGIN_ACTIVATION).$activate(target)
+    try {
+      await endpoint.getProxy<PluginActivationProxy>(PLUGIN_ACTIVATION).$activate(target)
+    } finally {
+      this.activatingPluginId = null
+    }
     await endpoint.getProxy<{ $resolveView(viewId: string): Promise<void> }>(PLUGIN_WEBVIEW).$resolveView(viewId)
   }
 

@@ -20,21 +20,31 @@ describe('CommandRegistry', () => {
     reg.unregister('cmd.a', 'pub.test')
     expect(reg.has('cmd.a')).toBe(false)
   })
-  it('keeps the first registrant on cross-owner id collision and reports it', () => {
+  it('keeps the first registrant on cross-owner id collision and reports it', async () => {
     const reg = new CommandRegistry()
     const warnings: string[] = []
     reg.onCollision((msg) => warnings.push(msg))
     reg.register('shared.cmd', 'pub.a', async () => 'A')
     reg.register('shared.cmd', 'pub.b', async () => 'B') // collision — ignored
     expect(reg.ownerOf('shared.cmd')).toBe('pub.a')
+    expect(await reg.execute('shared.cmd', [])).toBe('A')
     expect(warnings).toHaveLength(1)
     expect(warnings[0]).toMatch(/shared\.cmd/)
   })
-  it('lets the same owner re-register (idempotent reactivation)', () => {
+  it('ignores unregister from a non-owner', async () => {
+    const reg = new CommandRegistry()
+    reg.register('c', 'pub.a', async () => 1)
+    reg.unregister('c', 'pub.b')
+    expect(reg.has('c')).toBe(true)
+    reg.unregister('c', 'pub.a')
+    expect(reg.has('c')).toBe(false)
+  })
+  it('lets the same owner re-register (idempotent reactivation)', async () => {
     const reg = new CommandRegistry()
     reg.register('c', 'pub.a', async () => 1)
     reg.register('c', 'pub.a', async () => 2)
     expect(reg.has('c')).toBe(true)
     expect(reg.ownerOf('c')).toBe('pub.a')
+    expect(await reg.execute('c', [])).toBe(2)
   })
 })
