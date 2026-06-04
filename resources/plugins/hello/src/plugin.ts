@@ -1,14 +1,16 @@
-const manifold = require('manifold')
+import type { ManifoldContext, WebviewView, ProjectInfo } from 'manifold'
+// eslint-disable-next-line @typescript-eslint/no-var-requires
+const manifold = require('manifold') as typeof import('manifold')
 
-exports.activate = (context) => {
+export function activate(context: ManifoldContext): void {
   context.subscriptions.push(
-    manifold.commands.registerCommand('manifold.hello.ping', (name) => `pong:${name ?? 'world'}`),
+    manifold.commands.registerCommand('manifold.hello.ping', (name?: string) => `pong:${name ?? 'world'}`),
   )
   context.subscriptions.push(
     manifold.window.registerWebviewViewProvider('manifold.hello.panel', {
-      async resolveWebviewView(view) {
-        const initial = (await manifold.storage.global.get('count', 0))
-        const greeting = await manifold.configuration.get('greeting', 'Hello')
+      async resolveWebviewView(view: WebviewView) {
+        const initial = (await manifold.storage.global.get('count', 0)) as number
+        const greeting = (await manifold.configuration.get('greeting', 'Hello')) as string
         view.webview.html = `<!doctype html><html><body style="font-family:system-ui;padding:14px;color:#ddd;background:#1e1e1e">
           <h3 id="greet" style="margin-top:0">${greeting} from a Manifold plugin 👋</h3>
           <p>Clicks (persisted): <b id="count">${initial}</b></p>
@@ -22,15 +24,17 @@ exports.activate = (context) => {
               if (e.data && e.data.type === 'greeting') document.getElementById('greet').textContent = e.data.value + ' from a Manifold plugin 👋'
             })
           </script></body></html>`
-        const sendProject = (p) => view.webview.postMessage({ type: 'project', name: p ? p.name : '(none)' })
+        const sendProject = (p: { name: string } | undefined): void => {
+          view.webview.postMessage({ type: 'project', name: p ? p.name : '(none)' })
+        }
         sendProject(manifold.workspace.activeProject)
-        context.subscriptions.push(manifold.workspace.onDidChangeActiveProject((p) => sendProject(p)))
+        context.subscriptions.push(manifold.workspace.onDidChangeActiveProject((p: ProjectInfo | undefined) => sendProject(p)))
         context.subscriptions.push(manifold.configuration.onDidChange(async () => {
           view.webview.postMessage({ type: 'greeting', value: await manifold.configuration.get('greeting', 'Hello') })
         }))
-        view.webview.onDidReceiveMessage(async (msg) => {
-          if (msg && msg.type === 'inc') {
-            const next = (await manifold.storage.global.get('count', 0)) + 1
+        view.webview.onDidReceiveMessage(async (msg: unknown) => {
+          if (msg && (msg as { type?: string }).type === 'inc') {
+            const next = ((await manifold.storage.global.get('count', 0)) as number) + 1
             await manifold.storage.global.update('count', next)
             view.webview.postMessage({ type: 'count', value: next })
           }
@@ -39,4 +43,5 @@ exports.activate = (context) => {
     }),
   )
 }
-exports.deactivate = () => {}
+
+export function deactivate(): void {}
