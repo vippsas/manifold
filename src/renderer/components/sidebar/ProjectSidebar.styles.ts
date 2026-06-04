@@ -104,7 +104,8 @@ export const sidebarStyles: Record<string, React.CSSProperties> = {
     gap: 'var(--space-xs)',
   },
   actionButtonPrimary: {
-    width: '100%',
+    flex: 1,
+    minWidth: 0,
     display: 'flex',
     alignItems: 'center',
     justifyContent: 'center',
