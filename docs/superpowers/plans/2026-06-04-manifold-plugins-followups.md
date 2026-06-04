@@ -47,3 +47,10 @@ Run `npm run build` then `npm run dev` and confirm in a real window (none of thi
 - If a `VscodeShimError: vscode.<api> is not yet implemented` appears, it names exactly which deferred API a future phase must implement — record it here.
 
 Result (fill in when run): _pending_
+
+## Phase C1 — webview via manifold-webview scheme + nonce CSP (✅ shipped)
+Fixes the live bug where the plugin panel's inline `<script>` was blocked by the app's `script-src 'self'` (a `srcdoc` iframe inherits the parent CSP). Plugin webview HTML is now served from a privileged `manifold-webview://view/<id>?v=<n>` origin (`src/main/plugins/webview-protocol.ts`) with a fresh **per-serve nonce CSP** (`default-src 'none'; script-src 'nonce-…'; style-src 'unsafe-inline'; …`), nonce-injected into the plugin's `<script>` tags. `PluginViewPanel` loads from that scheme (no more `srcDoc`) and buffers host→iframe messages until the iframe's `onLoad`. The iframe stays `sandbox="allow-scripts"` (opaque origin). The vscode-shim `window.registerWebviewViewProvider` now delegates to the real host impl.
+
+Automated gates: 666 tests green; typecheck node 16 / web 37 / plugins 0; `npm run build` produces the host bundle + built-in plugin out. Dev-smoke (Electron-only) — confirm in **+ Apps → Hello (plugin)**: the **+1 button increments**, active project + greeting updates arrive, and there is **no** `about:srcdoc … script-src` CSP error. _Result: pending user confirmation._
+
+Remaining C-phase: **C1b** `vscode.window.createWebviewPanel` (programmatic panels — needs a host→renderer open-panel channel); **C2** TreeView/`TreeDataProvider` + view containers; **C3** QuickPick/InputBox; **C4** StatusBar/withProgress/OutputChannel.
