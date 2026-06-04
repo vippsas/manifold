@@ -1,0 +1,37 @@
+// src/plugin-host/activator.test.ts
+import { describe, expect, it, vi } from 'vitest'
+import { Activator } from './activator'
+import type { PluginModule } from '../shared/plugins/api-types'
+
+describe('Activator', () => {
+  it('calls activate with a context and tracks the plugin as active', async () => {
+    const activate = vi.fn()
+    const mod: PluginModule = { activate }
+    const act = new Activator(() => mod, () => ({ commands: {} as never }))
+    await act.activate({ id: 'p.a', root: '/x', main: './out/p.js' })
+    expect(activate).toHaveBeenCalledTimes(1)
+    expect(act.isActive('p.a')).toBe(true)
+  })
+
+  it('is idempotent — activating twice runs activate once', async () => {
+    const activate = vi.fn()
+    const act = new Activator(() => ({ activate }), () => ({ commands: {} as never }))
+    await act.activate({ id: 'p.a', root: '/x', main: './out/p.js' })
+    await act.activate({ id: 'p.a', root: '/x', main: './out/p.js' })
+    expect(activate).toHaveBeenCalledTimes(1)
+  })
+
+  it('runs deactivate and disposes subscriptions', async () => {
+    const dispose = vi.fn()
+    const deactivate = vi.fn()
+    const act = new Activator(
+      () => ({ activate: (ctx) => { ctx.subscriptions.push({ dispose }) }, deactivate }),
+      () => ({ commands: {} as never }),
+    )
+    await act.activate({ id: 'p.a', root: '/x', main: './out/p.js' })
+    await act.deactivate('p.a')
+    expect(deactivate).toHaveBeenCalledTimes(1)
+    expect(dispose).toHaveBeenCalledTimes(1)
+    expect(act.isActive('p.a')).toBe(false)
+  })
+})
