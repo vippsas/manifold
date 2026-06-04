@@ -99,6 +99,7 @@ export function ProjectSidebar({
           outputtingSessionIds={outputtingSessionIds}
           onSelectWorkspace={onSelectWorkspace}
           onRemoveWorkspace={onRemoveWorkspace}
+          onNewWorkspace={onNewWorkspace}
           onSelectSession={onSelectSession}
           onSelectRepo={onSelectWorkspaceRepo}
           activeProjectId={activeProjectId}
@@ -149,17 +150,6 @@ export function ProjectSidebar({
           <button type="button" onClick={onNewProject} className="sidebar-action-button" style={sidebarStyles.actionButton}>
             + New Repository
           </button>
-          {onNewWorkspace && (
-            <button
-              type="button"
-              onClick={onNewWorkspace}
-              className="sidebar-action-button"
-              style={sidebarStyles.actionButton}
-              title="New Workspace"
-            >
-              + New Workspace
-            </button>
-          )}
         </div>
       </div>
     </div>
