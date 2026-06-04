@@ -291,6 +291,7 @@ export function App(): React.JSX.Element {
       else dockLayout.togglePanel(id)
     },
     isModuleOpen: dockLayout.isPanelVisible,
+    onOpenPluginView: dockLayout.openPluginView,
     onFocusPanel: dockLayout.focusPanel,
     onOpenSibling: dockLayout.openSiblingPanel, onCloseSiblingPanel: dockLayout.closeSiblingPanel,
     activeSessionStatus: activeSession?.status ?? null,

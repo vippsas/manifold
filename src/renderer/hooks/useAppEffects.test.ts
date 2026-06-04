@@ -39,6 +39,7 @@ function createInput(activeSessionId: string | null = 'session-1') {
         editorPanelIds: ['editor'],
         layoutVersion: 0,
         layoutReloadVersion: 0,
+        openPluginView: vi.fn(),
       } satisfies UseDockLayoutResult,
       settings: { defaultRuntime: 'codex' },
       setActiveProject: vi.fn(),

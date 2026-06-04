@@ -19,7 +19,7 @@ export function ModuleLauncher(): React.JSX.Element | null {
 
   const items: ActionMenuButtonItem[] = contributions.map((c) => {
     if (c.source === 'plugin') {
-      return { id: c.id, label: `${c.title} (soon)`, description: c.description, action: () => {} }
+      return { id: c.id, label: c.title, description: c.description, action: () => state.onOpenPluginView(c.id, c.title) }
     }
     const open = state.isModuleOpen(c.id as DockPanelId)
     return {

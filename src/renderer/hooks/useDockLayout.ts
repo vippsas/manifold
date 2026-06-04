@@ -45,6 +45,8 @@ export interface UseDockLayoutResult {
    * switch). Use this — not layoutVersion — to schedule one-shot work that
    * should fire after a reload, not on every panel activation. */
   layoutReloadVersion: number
+  /** Open a plugin-contributed view as a dock panel (or focus it if already open). */
+  openPluginView: (viewId: string, title: string) => void
 }
 
 export function useDockLayout(
@@ -163,6 +165,16 @@ export function useDockLayout(
     if (panel && !panel.api.isActive) panel.api.setActive()
   }, [])
 
+  const openPluginView = useCallback((viewId: string, title: string): void => {
+    const api = apiRef.current
+    if (!api) return
+    const existing = api.getPanel(viewId)
+    if (existing) { existing.api.setActive(); return }
+    const referencePanelId = findTopLeftWorkspaceReferencePanel(api) ?? 'agent'
+    api.addPanel({ id: viewId, component: 'pluginView', title, position: { referencePanel: referencePanelId, direction: 'within' } })
+    bumpVersion()
+  }, [bumpVersion]) // eslint-disable-line react-hooks/exhaustive-deps
+
   const { ensureEditorPanel, splitEditorPane, findEditorPanelForSplit } = useEditorPanels(ctx, focusPanel)
   const { togglePanel, closePanel, isPanelVisible, resetLayout } = useDockActions(ctx, ensureEditorPanel, buildDefaultLayout)
 
@@ -222,5 +234,6 @@ export function useDockLayout(
     openSiblingPanel, closeSiblingPanel,
     ensureEditorPanel, splitEditorPane, findEditorPanelForSplit, isPanelVisible,
     resetLayout, hiddenPanels, editorPanelIds, layoutVersion, layoutReloadVersion,
+    openPluginView,
   }
 }

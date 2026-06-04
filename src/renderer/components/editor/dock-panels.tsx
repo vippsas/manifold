@@ -6,6 +6,7 @@ import { ModifiedFiles } from '../git/ModifiedFiles'
 import { ShellTabs } from '../terminal/ShellTabs'
 import { ProjectSidebar } from '../sidebar/ProjectSidebar'
 import { AgentPanel } from './dock-agent-panel'
+import { PluginViewPanel } from './PluginViewPanel'
 import { getPanelComponents } from '../../plugins/contribution-registry'
 import { useDockState } from './dock-panel-types'
 export type { DockAppState } from './dock-panel-types'
@@ -19,6 +20,7 @@ export const PANEL_COMPONENTS: Record<string, React.FC<any>> = {
   modifiedFiles: ModifiedFilesPanel,
   shell: ShellPanel,
   projects: ProjectsPanel,
+  pluginView: PluginViewPanel,
   // backgroundAgent, loop, verdicts, watch — sourced from the contribution
   // registry (registered as internal contributions in src/renderer/plugins).
   ...getPanelComponents(),
