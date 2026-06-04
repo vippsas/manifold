@@ -54,6 +54,7 @@ import { VerdictStore } from '../store/verdict-store'
 import { VerdictRecorder } from '../session/verdict-recorder'
 import { summarizeMiddle } from '../store/prompt-summarizer'
 import { PluginManager } from '../plugins/plugin-manager'
+import { registerWebviewSchemePrivileged } from '../plugins/webview-protocol'
 
 let mainWindow: BrowserWindow | null = null
 
@@ -193,6 +194,9 @@ modeSwitcher.register(
   () => mainWindow,
   (win) => { mainWindow = win }
 )
+
+// Register the manifold-webview:// privileged scheme BEFORE app.whenReady().
+registerWebviewSchemePrivileged()
 
 // ── App lifecycle ────────────────────────────────────────────────────
 registerAppLifecycle({
