@@ -1,0 +1,54 @@
+// src/renderer/plugins/internal-contributions.ts
+import type React from 'react'
+import type { PanelContribution } from '../../shared/plugins/contributions'
+import { PANEL_TITLES } from '../hooks/dock-layout-helpers'
+import { BackgroundAgentPanel } from '../components/background-agent/BackgroundAgentPanel'
+import { LoopPanel } from '../components/loop/LoopPanel'
+import { VerdictsPanel } from '../components/verdicts/VerdictsPanel'
+import { WatchPanel } from '../components/watch/WatchPanel'
+
+/** An internal (built-in) panel contribution: a PanelContribution plus the
+ *  renderer component that draws it. Plugin contributions (Phase 1) render via a
+ *  webview instead and carry no component. */
+export interface InternalPanel extends PanelContribution {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  component: React.FC<any>
+}
+
+/** The four built-in modules formerly hardcoded in launcher-modules.ts and
+ *  dock-panels.tsx. Array order defines their order in the "+ Apps" menu.
+ *  Titles are sourced from PANEL_TITLES so titles stay in one place. */
+export const INTERNAL_PANELS: InternalPanel[] = [
+  {
+    id: 'backgroundAgent',
+    title: PANEL_TITLES.backgroundAgent,
+    description: 'Experimental project ideas feed.',
+    launcher: true,
+    source: 'internal',
+    component: BackgroundAgentPanel,
+  },
+  {
+    id: 'loop',
+    title: PANEL_TITLES.loop,
+    description: 'Autoresearch loop: edit → eval → keep-or-discard.',
+    launcher: true,
+    source: 'internal',
+    component: LoopPanel,
+  },
+  {
+    id: 'verdicts',
+    title: PANEL_TITLES.verdicts,
+    description: 'Per-runtime quality metrics and recent sessions.',
+    launcher: true,
+    source: 'internal',
+    component: VerdictsPanel,
+  },
+  {
+    id: 'watch',
+    title: PANEL_TITLES.watch,
+    description: 'Analyze a video with its transcript and extracted frames.',
+    launcher: true,
+    source: 'internal',
+    component: WatchPanel,
+  },
+]
