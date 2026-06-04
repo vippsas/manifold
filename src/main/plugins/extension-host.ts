@@ -17,6 +17,7 @@ export class ExtensionHost {
   private readonly commands = new CommandRegistry()
   private send: ((channel: string, ...args: unknown[]) => void) | null = null
   private getConfig: ((pluginId: string, key: string) => unknown) | null = null
+  private activatingPluginId: string | null = null
 
   constructor(private readonly storage: PluginStorageStore) {}
 
@@ -34,9 +35,10 @@ export class ExtensionHost {
     child.on('exit', (code) => { debugLog(`[plugins] host exited (${code})`); this.child = null; this.endpoint = null })
     // HostCommands: host registers command ids here; execution routes back to the host.
     const pluginCommands = endpoint.getProxy<PluginCommandsProxy>(PLUGIN_COMMANDS)
+    this.commands.onCollision((msg) => debugLog(`[plugins] ${msg}`))
     endpoint.registerService(HOST_COMMANDS, {
-      $registerCommand: (id: string) => { this.commands.register(id, (cid, args) => pluginCommands.$invokeCommand(cid, args)) },
-      $unregisterCommand: (id: string) => { this.commands.unregister(id) },
+      $registerCommand: (id: string) => { this.commands.register(id, this.activatingPluginId ?? 'unknown', (cid, args) => pluginCommands.$invokeCommand(cid, args)) },
+      $unregisterCommand: (id: string) => { this.commands.unregister(id, this.activatingPluginId ?? 'unknown') },
       $executeCommand: (id: string, args: unknown[]) => this.commands.execute(id, args),
     })
     endpoint.registerService(HOST_WINDOW, {
@@ -65,11 +67,13 @@ export class ExtensionHost {
 
   async activate(target: ActivationTarget): Promise<void> {
     const { endpoint } = this.ensure()
+    this.activatingPluginId = target.id
     await endpoint.getProxy<PluginActivationProxy>(PLUGIN_ACTIVATION).$activate(target)
   }
 
   async resolveView(target: ActivationTarget, viewId: string): Promise<void> {
     const { endpoint } = this.ensure()
+    this.activatingPluginId = target.id
     await endpoint.getProxy<PluginActivationProxy>(PLUGIN_ACTIVATION).$activate(target)
     await endpoint.getProxy<{ $resolveView(viewId: string): Promise<void> }>(PLUGIN_WEBVIEW).$resolveView(viewId)
   }

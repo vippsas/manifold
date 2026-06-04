@@ -32,8 +32,8 @@ function wireHostAndMain(): { api: ReturnType<typeof createApi>['api']; commands
   const commands = new CommandRegistry()
   const pluginCommands = main.getProxy<{ $invokeCommand(id: string, args: unknown[]): Promise<unknown> }>(PLUGIN_COMMANDS)
   main.registerService(HOST_COMMANDS, {
-    $registerCommand: (id: string) => { commands.register(id, (cid, args) => pluginCommands.$invokeCommand(cid, args)) },
-    $unregisterCommand: (id: string) => { commands.unregister(id) },
+    $registerCommand: (id: string) => { commands.register(id, 'test.plugin', (cid, args) => pluginCommands.$invokeCommand(cid, args)) },
+    $unregisterCommand: (id: string) => { commands.unregister(id, 'test.plugin') },
     $executeCommand: (id: string, args: unknown[]) => commands.execute(id, args),
   })
 
