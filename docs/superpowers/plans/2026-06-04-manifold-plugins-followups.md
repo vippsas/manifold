@@ -26,3 +26,6 @@ Dev smokes for the whole system — run `npm run dev` and confirm in a real wind
 ## Held / packaging
 - `extraResources` for `resources/plugins` in `package.json` build config (needed so built-in plugins ship in packaged `.dmg`s; dev works without it).
 - `.gitignore` ignores `out/`, so `resources/plugins/hello/out/plugin.js` is force-added. Add a negation like `!resources/plugins/*/out/` before there are many built-in plugins.
+
+## VS Code shim — before running real (unmodified) extensions
+- **Synchronous state/config reads.** `vscode.Memento.get`, `WorkspaceConfiguration.get`/`has` are synchronous in the real API, but the shim returns Promises (reads cross the RPC boundary). Real extensions call these without `await` (`if (config.get('x'))`, arithmetic on a returned number), so they silently misbehave. Fix before third-party extensions: preload the plugin's storage + config into an in-memory snapshot at activation (await once), expose synchronous `get`, and write through `update` asynchronously. Requires a `$getAll(pluginId)` on HOST_STORAGE/HOST_CONFIG and an async context-build step in the loader. (Phase A fixtures await, so current validation is unaffected.)
