@@ -39,6 +39,7 @@ const activator = new Activator(
       workspace: () => workspaceContext.makeApi(),
       configuration: () => configContext.makeApi(endpoint, t.id),
     })
+    // buildGatedApi returns a fresh object per activation, so this snapshot isolates each plugin's API even though `currentApi` is reassigned on the next activation.
     registerPluginApis(t.root, { manifold: currentApi })
     return require(join(t.root, t.main))
   },
@@ -48,6 +49,7 @@ const activator = new Activator(
 
 endpoint.registerService(PLUGIN_ACTIVATION, {
   $activate: (t: ActivationTarget) => activator.activate(t),
+  // TODO(deactivation): also unregisterPluginApis for this plugin's root (needs an id→root map; tracked in followups).
   $deactivate: (id: string) => activator.deactivate(id),
 })
 endpoint.registerService(PLUGIN_COMMANDS, {

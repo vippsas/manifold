@@ -24,8 +24,12 @@ export function resolvePluginModule(request: 'manifold' | 'vscode', requesterPat
   return undefined
 }
 
+let installed = false
+
 /** Patch Node's module loader so plugin files get Manifold-backed `manifold`/`vscode`. */
 export function installPluginRequire(): void {
+  if (installed) return
+  installed = true
   // eslint-disable-next-line @typescript-eslint/no-var-requires, @typescript-eslint/no-explicit-any
   const Module = require('module') as any
   const originalLoad = Module._load
