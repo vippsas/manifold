@@ -16,6 +16,7 @@ export interface VscodeShimDeps {
   messagesProxy: { $showMessage(level: 'info' | 'warning' | 'error', message: string, items: string[]): Promise<string | undefined> }
   configProxy: { $get(pluginId: string, key: string): Promise<unknown> }
   storageProxy: { $get(pluginId: string, key: string): Promise<unknown>; $update(pluginId: string, key: string, value: unknown): Promise<void> }
+  windowApi: { registerWebviewViewProvider(viewId: string, provider: unknown): { dispose(): void } }
   pluginId: string
   extensionPath: string
 }
@@ -32,7 +33,7 @@ export function createVscodeShim(deps: VscodeShimDeps): {
       // Returns [] rather than throwing: extensions commonly gate on command existence at startup; full enumeration is deferred.
       getCommands: () => Promise.resolve([] as string[]),
     },
-    window: createShimWindow(deps.messagesProxy),
+    window: createShimWindow(deps.messagesProxy, deps.windowApi),
     workspace: createShimWorkspace(deps.configProxy, deps.pluginId),
     // Intentional soft stubs (not notImplemented): these are common no-arg probes
     // at activation; failing loud would break startup. openExternal resolves false

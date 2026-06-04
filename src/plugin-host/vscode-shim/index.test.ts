@@ -11,6 +11,7 @@ function deps(): VscodeShimDeps {
     messagesProxy: { $showMessage: vi.fn().mockResolvedValue(undefined) },
     configProxy: { $get: vi.fn().mockResolvedValue(undefined) },
     storageProxy: { $get: vi.fn().mockResolvedValue(undefined), $update: vi.fn().mockResolvedValue(undefined) },
+    windowApi: { registerWebviewViewProvider: vi.fn(() => ({ dispose: vi.fn() })) },
     pluginId: 'pub.ext',
     extensionPath: '/ext',
   }
@@ -50,5 +51,20 @@ describe('createVscodeShim', () => {
     const cfg = (vscode.workspace as { getConfiguration(s: string): { get(k: string): Promise<unknown> } }).getConfiguration('x')
     expect(await cfg.get('y')).toBe('val')
     expect(d.configProxy.$get).toHaveBeenCalledWith('pub.ext', 'x.y')
+  })
+
+  it('wires registerWebviewViewProvider to the real windowApi', () => {
+    const d = deps()
+    const { vscode } = createVscodeShim(d)
+    const provider = { resolveWebviewView() {} }
+    ;(vscode.window as { registerWebviewViewProvider(id: string, p: unknown): unknown }).registerWebviewViewProvider('v.id', provider)
+    expect(d.windowApi.registerWebviewViewProvider).toHaveBeenCalledWith('v.id', provider)
+  })
+
+  it('createWebviewPanel still throws (stays notImplemented)', () => {
+    const { vscode } = createVscodeShim(deps())
+    expect(() =>
+      (vscode.window as { createWebviewPanel(...args: unknown[]): unknown }).createWebviewPanel('t', 'T', 1, {})
+    ).toThrow()
   })
 })

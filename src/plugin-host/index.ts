@@ -36,6 +36,7 @@ const activator = new Activator((t: ActivationTarget): PluginModule => {
     const { vscode, createContext } = createVscodeShim({
       commands: commandsApi.commands,
       messagesProxy, configProxy, storageProxy,
+      windowApi,
       pluginId: t.id, extensionPath: t.root,
     })
     registerPluginApis(t.root, { vscode })
