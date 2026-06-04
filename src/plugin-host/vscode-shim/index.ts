@@ -34,6 +34,9 @@ export function createVscodeShim(deps: VscodeShimDeps): {
     },
     window: createShimWindow(deps.messagesProxy),
     workspace: createShimWorkspace(deps.configProxy, deps.pluginId),
+    // Intentional soft stubs (not notImplemented): these are common no-arg probes
+    // at activation; failing loud would break startup. openExternal resolves false
+    // (honest "didn't open"), clipboard reads empty. Revisit when these are wired.
     env: {
       openExternal: (_uri: unknown) => Promise.resolve(false),
       clipboard: { readText: () => Promise.resolve(''), writeText: (_v: string) => Promise.resolve() },
