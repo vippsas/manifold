@@ -6,6 +6,7 @@ import { CommandRegistry } from './command-registry'
 import { debugLog } from '../app/debug-log'
 import type { ActivationTarget } from '../../plugin-host/activator'
 import type { PluginStorageStore } from './plugin-storage-store'
+import { webviewContentStore } from './webview-content-store'
 
 interface PluginActivationProxy { $activate(t: ActivationTarget): Promise<void>; $deactivate(id: string): Promise<void> }
 interface PluginCommandsProxy { $invokeCommand(id: string, args: unknown[]): Promise<unknown> }
@@ -42,7 +43,10 @@ export class ExtensionHost {
       $executeCommand: (id: string, args: unknown[]) => this.commands.execute(id, args),
     })
     endpoint.registerService(HOST_WINDOW, {
-      $setHtml: (viewId: string, html: string) => { this.send?.('plugins:webview-html', viewId, html) },
+      $setHtml: (viewId: string, html: string) => {
+        const version = webviewContentStore.set(viewId, html)
+        this.send?.('plugins:webview-html', viewId, version)
+      },
       $postToWebview: (viewId: string, message: unknown) => { this.send?.('plugins:webview-message', viewId, message) },
     })
     endpoint.registerService(HOST_STORAGE, {
