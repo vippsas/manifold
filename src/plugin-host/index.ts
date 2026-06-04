@@ -1,6 +1,6 @@
 // src/plugin-host/index.ts
 import { join } from 'node:path'
-import { RpcEndpoint, PLUGIN_ACTIVATION, PLUGIN_COMMANDS, PLUGIN_WEBVIEW, PLUGIN_WORKSPACE, type RpcMessage } from '../shared/plugins/rpc'
+import { RpcEndpoint, PLUGIN_ACTIVATION, PLUGIN_COMMANDS, PLUGIN_WEBVIEW, PLUGIN_WORKSPACE, PLUGIN_CONFIG, type RpcMessage } from '../shared/plugins/rpc'
 import { Activator, type ActivationTarget } from './activator'
 import { createApi } from './api-impl'
 import { createWindowApi } from './window-api'
@@ -8,6 +8,7 @@ import { installManifoldRequire } from './require-interceptor'
 import { buildGatedApi } from './gated-api'
 import { createStorageApi } from './storage-api'
 import { WorkspaceContext } from './workspace-api'
+import { ConfigContext } from './config-api'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 const parentPort = (process as any).parentPort as {
@@ -22,9 +23,11 @@ const { api: commandsApi, invokeLocalCommand } = createApi(endpoint)
 const { windowApi, resolveView, deliverMessage } = createWindowApi(endpoint)
 const sharedNamespaces = { commands: commandsApi.commands, window: windowApi }
 const workspaceContext = new WorkspaceContext()
+const configContext = new ConfigContext()
 let currentApi: unknown = buildGatedApi([], sharedNamespaces, {
   storage: () => createStorageApi(endpoint, ''),
   workspace: () => workspaceContext.makeApi(),
+  configuration: () => configContext.makeApi(endpoint, ''),
 })
 installManifoldRequire(() => currentApi)
 
@@ -34,6 +37,7 @@ const activator = new Activator(
     currentApi = buildGatedApi(t.capabilities ?? [], sharedNamespaces, {
       storage: () => createStorageApi(endpoint, t.id),
       workspace: () => workspaceContext.makeApi(),
+      configuration: () => configContext.makeApi(endpoint, t.id),
     })
     return require(join(t.root, t.main))
   },
@@ -54,4 +58,7 @@ endpoint.registerService(PLUGIN_WEBVIEW, {
 })
 endpoint.registerService(PLUGIN_WORKSPACE, {
   $setActiveContext: (ctx: { project?: unknown; session?: unknown }) => workspaceContext.setActiveContext(ctx as never),
+})
+endpoint.registerService(PLUGIN_CONFIG, {
+  $onDidChange: (pluginId: string) => configContext.notifyChanged(pluginId),
 })

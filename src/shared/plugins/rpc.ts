@@ -18,6 +18,8 @@ export const HOST_WINDOW = 'HostWindow'             // main, called by host
 export const PLUGIN_WEBVIEW = 'PluginWebview'       // host, called by main
 export const HOST_STORAGE = 'HostStorage'           // main, called by host
 export const PLUGIN_WORKSPACE = 'PluginWorkspace'   // host, called by main
+export const HOST_CONFIG = 'HostConfig'             // main, called by host
+export const PLUGIN_CONFIG = 'PluginConfig'         // host, called by main
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type ServiceImpl = Record<string, (...args: any[]) => unknown>

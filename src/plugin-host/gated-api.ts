@@ -11,6 +11,7 @@ export class CapabilityError extends Error {
 export interface GatedFactories {
   storage: () => ManifoldApi['storage']
   workspace: () => ManifoldApi['workspace']
+  configuration: () => ManifoldApi['configuration']
 }
 
 export function buildGatedApi(
@@ -29,6 +30,10 @@ export function buildGatedApi(
     get workspace(): ManifoldApi['workspace'] {
       if (!caps.has('workspace:read')) throw new CapabilityError('workspace:read')
       return factories.workspace()
+    },
+    get configuration(): ManifoldApi['configuration'] {
+      if (!caps.has('configuration')) throw new CapabilityError('configuration')
+      return factories.configuration()
     },
   }
 }

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { RpcEndpoint, HOST_COMMANDS, PLUGIN_COMMANDS, HOST_WINDOW, PLUGIN_WEBVIEW, HOST_STORAGE, PLUGIN_WORKSPACE, type RpcMessage } from '../../shared/plugins/rpc'
+import { RpcEndpoint, HOST_COMMANDS, PLUGIN_COMMANDS, HOST_WINDOW, PLUGIN_WEBVIEW, HOST_STORAGE, PLUGIN_WORKSPACE, HOST_CONFIG, PLUGIN_CONFIG, type RpcMessage } from '../../shared/plugins/rpc'
 import { CommandRegistry } from './command-registry'
 import { Activator } from '../../plugin-host/activator'
 import { createApi } from '../../plugin-host/api-impl'
@@ -7,6 +7,7 @@ import { createWindowApi } from '../../plugin-host/window-api'
 import { createStorageApi } from '../../plugin-host/storage-api'
 import { buildGatedApi, CapabilityError } from '../../plugin-host/gated-api'
 import { WorkspaceContext } from '../../plugin-host/workspace-api'
+import { ConfigContext } from '../../plugin-host/config-api'
 import type { PluginModule } from '../../shared/plugins/api-types'
 
 /**
@@ -149,7 +150,7 @@ describe('extension host gated-storage round-trip (in-memory, no process)', () =
   it('storage.global.update then get returns the stored value', async () => {
     const { host, shared } = wireStorageHostAndMain()
     const workspaceCtx = new WorkspaceContext()
-    const api = buildGatedApi(['storage'], shared as never, { storage: () => createStorageApi(host, 'p.x'), workspace: () => workspaceCtx.makeApi() })
+    const api = buildGatedApi(['storage'], shared as never, { storage: () => createStorageApi(host, 'p.x'), workspace: () => workspaceCtx.makeApi(), configuration: () => ({ get: async () => undefined, onDidChange: () => ({ dispose: () => undefined }) }) })
     await api.storage.global.update('n', 7)
     await new Promise((resolve) => setTimeout(resolve, 0)) // let RPC settle
     expect(await api.storage.global.get('n')).toBe(7)
@@ -158,7 +159,7 @@ describe('extension host gated-storage round-trip (in-memory, no process)', () =
   it('accessing storage without the capability throws CapabilityError', () => {
     const { host, shared } = wireStorageHostAndMain()
     const workspaceCtx = new WorkspaceContext()
-    const gatedNoCap = buildGatedApi([], shared as never, { storage: () => createStorageApi(host, 'p.x'), workspace: () => workspaceCtx.makeApi() })
+    const gatedNoCap = buildGatedApi([], shared as never, { storage: () => createStorageApi(host, 'p.x'), workspace: () => workspaceCtx.makeApi(), configuration: () => ({ get: async () => undefined, onDidChange: () => ({ dispose: () => undefined }) }) })
     expect(() => gatedNoCap.storage).toThrow(CapabilityError)
   })
 })
@@ -198,6 +199,7 @@ describe('extension host workspace round-trip (in-memory, no process)', () => {
     const api = buildGatedApi(['workspace:read'], shared as never, {
       storage: () => ({ global: {} as never }),
       workspace: () => workspaceContext.makeApi(),
+      configuration: () => ({ get: async () => undefined, onDidChange: () => ({ dispose: () => undefined }) }),
     })
 
     const fired: unknown[] = []
@@ -216,8 +218,105 @@ describe('extension host workspace round-trip (in-memory, no process)', () => {
     const api = buildGatedApi([], shared as never, {
       storage: () => ({ global: {} as never }),
       workspace: () => workspaceContext.makeApi(),
+      configuration: () => ({ get: async () => undefined, onDidChange: () => ({ dispose: () => undefined }) }),
     })
     expect(() => api.workspace).toThrow(CapabilityError)
+  })
+})
+
+/**
+ * Wire a host endpoint with PLUGIN_CONFIG service + a fake main HOST_CONFIG backed by an in-memory map.
+ */
+function wireConfigHostAndMain(): {
+  configContext: ConfigContext
+  mainPluginConfig: { $onDidChange(pluginId: string): Promise<void> }
+  shared: Pick<ReturnType<typeof createApi>['api'], 'commands'> & { window: ReturnType<typeof createWindowApi>['windowApi'] }
+  host: RpcEndpoint
+  configStore: Map<string, unknown>
+} {
+  let host!: RpcEndpoint
+  let main!: RpcEndpoint
+  main = new RpcEndpoint({ post: (m: RpcMessage) => queueMicrotask(() => host.handleMessage(m)) })
+  host = new RpcEndpoint({ post: (m: RpcMessage) => queueMicrotask(() => main.handleMessage(m)) })
+
+  // Fake HOST_CONFIG service on the main side backed by an in-memory Map.
+  const configStore = new Map<string, unknown>()
+  main.registerService(HOST_CONFIG, {
+    $get: (pluginId: string, key: string) => configStore.get(`${pluginId}::${key}`),
+  })
+
+  // ConfigContext on the host side + register the PLUGIN_CONFIG service.
+  const configContext = new ConfigContext()
+  host.registerService(PLUGIN_CONFIG, {
+    $onDidChange: (pluginId: string) => configContext.notifyChanged(pluginId),
+  })
+
+  // Main-side proxy to call PLUGIN_CONFIG.$onDidChange.
+  const mainPluginConfig = main.getProxy<{ $onDidChange(pluginId: string): Promise<void> }>(PLUGIN_CONFIG)
+
+  // Build shared namespaces from the host side (commands + window).
+  const { api: commandsApi } = createApi(host)
+  const { windowApi } = createWindowApi(host)
+  const shared = { commands: commandsApi.commands, window: windowApi }
+
+  return { configContext, mainPluginConfig, shared, host, configStore }
+}
+
+describe('extension host configuration round-trip (in-memory, no process)', () => {
+  it('configuration.get returns the value from the host store', async () => {
+    const { configContext, shared, host, configStore } = wireConfigHostAndMain()
+    configStore.set('p.test::greeting', 'Hello')
+    const workspaceCtx = new WorkspaceContext()
+    const api = buildGatedApi(['configuration'], shared as never, {
+      storage: () => ({ global: {} as never }),
+      workspace: () => workspaceCtx.makeApi(),
+      configuration: () => configContext.makeApi(host, 'p.test'),
+    })
+
+    const value = await api.configuration.get('greeting', 'default')
+    expect(value).toBe('Hello')
+  })
+
+  it('configuration.get returns the defaultValue when the host has no entry', async () => {
+    const { configContext, shared, host } = wireConfigHostAndMain()
+    const workspaceCtx = new WorkspaceContext()
+    const api = buildGatedApi(['configuration'], shared as never, {
+      storage: () => ({ global: {} as never }),
+      workspace: () => workspaceCtx.makeApi(),
+      configuration: () => configContext.makeApi(host, 'p.missing'),
+    })
+
+    const value = await api.configuration.get('key', 'fallback')
+    expect(value).toBe('fallback')
+  })
+
+  it('$onDidChange round-trip: calling main proxy fires the plugin listener', async () => {
+    const { configContext, mainPluginConfig, shared, host } = wireConfigHostAndMain()
+    const workspaceCtx = new WorkspaceContext()
+    const api = buildGatedApi(['configuration'], shared as never, {
+      storage: () => ({ global: {} as never }),
+      workspace: () => workspaceCtx.makeApi(),
+      configuration: () => configContext.makeApi(host, 'p.listen'),
+    })
+
+    const fired: number[] = []
+    api.configuration.onDidChange(() => fired.push(1))
+
+    await mainPluginConfig.$onDidChange('p.listen')
+    await new Promise((resolve) => setTimeout(resolve, 0)) // let RPC settle
+
+    expect(fired).toHaveLength(1)
+  })
+
+  it('accessing configuration without the capability throws CapabilityError', () => {
+    const { configContext, shared, host } = wireConfigHostAndMain()
+    const workspaceCtx = new WorkspaceContext()
+    const api = buildGatedApi([], shared as never, {
+      storage: () => ({ global: {} as never }),
+      workspace: () => workspaceCtx.makeApi(),
+      configuration: () => configContext.makeApi(host, 'p.denied'),
+    })
+    expect(() => api.configuration).toThrow(CapabilityError)
   })
 })
 

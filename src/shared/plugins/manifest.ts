@@ -17,10 +17,21 @@ export interface PluginCommandContribution {
   title: string
 }
 
+export interface PluginConfigurationProperty {
+  type: 'string' | 'number' | 'boolean'
+  default?: unknown
+  description?: string
+  enum?: string[]
+}
+export interface PluginConfiguration {
+  title?: string
+  properties?: Record<string, PluginConfigurationProperty>
+}
+
 export interface PluginContributions {
   views?: PluginViewContribution[]
   commands?: PluginCommandContribution[]
-  configuration?: unknown
+  configuration?: PluginConfiguration
 }
 
 export interface ManifoldPluginManifest {

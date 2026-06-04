@@ -43,6 +43,10 @@ export interface ManifoldApi {
     onDidChangeActiveProject(listener: (project: ProjectInfo | undefined) => void): Disposable
     onDidChangeActiveSession(listener: (session: SessionInfo | undefined) => void): Disposable
   }
+  configuration: {
+    get<T = unknown>(key: string, defaultValue?: T): Promise<T | undefined>
+    onDidChange(listener: () => void): Disposable
+  }
 }
 
 /** Shape a plugin's entry module must export. */
