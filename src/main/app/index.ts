@@ -178,6 +178,7 @@ function doCreateWindow(): void {
     wireMainWindow: (w) => {
       sessionManager.setMainWindow(w)
       fileWatcher.setMainWindow(w)
+      pluginManager.setMainWindow(w)
     },
     ipcDeps,
     onToggleKeepAwake: toggleKeepAwake,

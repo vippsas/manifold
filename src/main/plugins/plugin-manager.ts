@@ -62,4 +62,18 @@ export class PluginManager {
   executeContributedCommand(id: string, args: unknown[]): Promise<unknown> {
     return this.host.executeContributedCommand(id, args)
   }
+
+  setMainWindow(win: import('electron').BrowserWindow): void {
+    this.host.setSend((channel, ...args) => { if (!win.isDestroyed()) win.webContents.send(channel, ...args) })
+  }
+
+  async openView(viewId: string): Promise<void> {
+    const plugin = this.plugins.find((p) => p.manifest.contributes?.views?.some((v) => v.id === viewId))
+    if (!plugin || !plugin.manifest.main) return
+    await this.host.resolveView({ id: plugin.id, root: plugin.root, main: plugin.manifest.main }, viewId)
+  }
+
+  deliverWebviewMessage(viewId: string, message: unknown): void {
+    this.host.deliverWebviewMessage(viewId, message)
+  }
 }

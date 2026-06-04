@@ -136,6 +136,8 @@ const ALLOWED_INVOKE_CHANNELS = [
   'plugins:list',
   'plugins:activate',
   'plugins:execute-command',
+  'plugins:open-view',
+  'plugins:webview-to-host',
 ] as const
 
 const ALLOWED_SEND_CHANNELS = [
@@ -173,6 +175,8 @@ const ALLOWED_LISTEN_CHANNELS = [
   'watch:install-progress',
   'watch:playlist-progress',
   'simple:chat-message',
+  'plugins:webview-html',
+  'plugins:webview-message',
 ] as const
 
 type InvokeChannel = (typeof ALLOWED_INVOKE_CHANNELS)[number]

@@ -1,7 +1,7 @@
 // src/main/plugins/extension-host.ts
 import { utilityProcess, type UtilityProcess } from 'electron'
 import { join } from 'node:path'
-import { RpcEndpoint, HOST_COMMANDS, PLUGIN_ACTIVATION, PLUGIN_COMMANDS, type RpcMessage } from '../../shared/plugins/rpc'
+import { RpcEndpoint, HOST_COMMANDS, HOST_WINDOW, PLUGIN_ACTIVATION, PLUGIN_COMMANDS, PLUGIN_WEBVIEW, type RpcMessage } from '../../shared/plugins/rpc'
 import { CommandRegistry } from './command-registry'
 import { debugLog } from '../app/debug-log'
 import type { ActivationTarget } from '../../plugin-host/activator'
@@ -14,6 +14,9 @@ export class ExtensionHost {
   private child: UtilityProcess | null = null
   private endpoint: RpcEndpoint | null = null
   private readonly commands = new CommandRegistry()
+  private send: ((channel: string, ...args: unknown[]) => void) | null = null
+
+  setSend(fn: (channel: string, ...args: unknown[]) => void): void { this.send = fn }
 
   /** Lazily fork the host process and wire RPC. */
   private ensure(): { endpoint: RpcEndpoint } {
@@ -30,6 +33,10 @@ export class ExtensionHost {
       $unregisterCommand: (id: string) => { this.commands.unregister(id) },
       $executeCommand: (id: string, args: unknown[]) => this.commands.execute(id, args),
     })
+    endpoint.registerService(HOST_WINDOW, {
+      $setHtml: (viewId: string, html: string) => { this.send?.('plugins:webview-html', viewId, html) },
+      $postToWebview: (viewId: string, message: unknown) => { this.send?.('plugins:webview-message', viewId, message) },
+    })
     this.child = child
     this.endpoint = endpoint
     return { endpoint }
@@ -38,6 +45,17 @@ export class ExtensionHost {
   async activate(target: ActivationTarget): Promise<void> {
     const { endpoint } = this.ensure()
     await endpoint.getProxy<PluginActivationProxy>(PLUGIN_ACTIVATION).$activate(target)
+  }
+
+  async resolveView(target: ActivationTarget, viewId: string): Promise<void> {
+    const { endpoint } = this.ensure()
+    await endpoint.getProxy<PluginActivationProxy>(PLUGIN_ACTIVATION).$activate(target)
+    await endpoint.getProxy<{ $resolveView(viewId: string): Promise<void> }>(PLUGIN_WEBVIEW).$resolveView(viewId)
+  }
+
+  deliverWebviewMessage(viewId: string, message: unknown): void {
+    const { endpoint } = this.ensure()
+    void endpoint.getProxy<{ $deliverMessage(viewId: string, message: unknown): Promise<void> }>(PLUGIN_WEBVIEW).$deliverMessage(viewId, message)
   }
 
   /** Execute a contributed command (app/dev entry point). */
