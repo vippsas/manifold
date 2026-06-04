@@ -1,8 +1,8 @@
 import React from 'react'
 import { ActionMenuButton, type ActionMenuButtonItem } from './ActionMenuButton'
 import { DockStateContext } from './dock-panel-types'
-import { PANEL_TITLES } from '../../hooks/dock-layout-helpers'
-import { LAUNCHER_MODULES } from '../../modules/launcher-modules'
+import { useLauncherContributions } from '../../plugins/use-contributions'
+import type { DockPanelId } from '../../hooks/dock-layout-helpers'
 
 function PlusIcon(): React.JSX.Element {
   return (
@@ -14,15 +14,19 @@ function PlusIcon(): React.JSX.Element {
 
 export function ModuleLauncher(): React.JSX.Element | null {
   const state = React.useContext(DockStateContext)
+  const contributions = useLauncherContributions()
   if (!state) return null
 
-  const items: ActionMenuButtonItem[] = LAUNCHER_MODULES.map((mod) => {
-    const open = state.isModuleOpen(mod.id)
+  const items: ActionMenuButtonItem[] = contributions.map((c) => {
+    if (c.source === 'plugin') {
+      return { id: c.id, label: `${c.title} (soon)`, description: c.description, action: () => {} }
+    }
+    const open = state.isModuleOpen(c.id as DockPanelId)
     return {
-      id: mod.id,
-      label: `${open ? '✓ ' : ''}${PANEL_TITLES[mod.id]}`,
-      description: mod.description,
-      action: () => state.onOpenModule(mod.id),
+      id: c.id,
+      label: `${open ? '✓ ' : ''}${c.title}`,
+      description: c.description,
+      action: () => state.onOpenModule(c.id as DockPanelId),
     }
   })
 
