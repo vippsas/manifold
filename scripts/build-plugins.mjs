@@ -4,7 +4,7 @@
 import { build } from 'esbuild'
 import { readdirSync, existsSync, readFileSync, statSync } from 'node:fs'
 import { join, dirname, basename, resolve } from 'node:path'
-import { fileURLToPath } from 'node:url'
+import { fileURLToPath, pathToFileURL } from 'node:url'
 
 const HERE = dirname(fileURLToPath(import.meta.url))
 const DEFAULT_PLUGINS_DIR = resolve(HERE, '..', 'resources', 'plugins')
@@ -44,7 +44,7 @@ export async function buildPlugins(pluginsDir = DEFAULT_PLUGINS_DIR) {
   return built
 }
 
-if (import.meta.url === `file://${process.argv[1]}`) {
+if (import.meta.url === pathToFileURL(process.argv[1]).href) {
   buildPlugins()
     .then((b) => { console.log(`[build-plugins] built ${b.length} plugin(s): ${b.join(', ') || '(none)'}`) })
     .catch((err) => { console.error('[build-plugins] failed:', err); process.exit(1) })
