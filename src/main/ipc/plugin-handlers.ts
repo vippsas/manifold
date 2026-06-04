@@ -11,4 +11,7 @@ export function registerPluginHandlers(deps: IpcDependencies): void {
   ipcMain.handle('plugins:webview-to-host', (_e, viewId: string, message: unknown) => {
     deps.pluginManager.deliverWebviewMessage(viewId, message); return true
   })
+  ipcMain.handle('plugins:set-active-context', (_e, context: unknown) => {
+    deps.pluginManager.setActiveContext((context ?? {}) as never); return true
+  })
 }

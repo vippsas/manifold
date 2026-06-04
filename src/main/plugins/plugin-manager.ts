@@ -79,4 +79,8 @@ export class PluginManager {
   deliverWebviewMessage(viewId: string, message: unknown): void {
     this.host.deliverWebviewMessage(viewId, message)
   }
+
+  setActiveContext(context: { project?: unknown; session?: unknown }): void {
+    this.host.setActiveContext(context)
+  }
 }

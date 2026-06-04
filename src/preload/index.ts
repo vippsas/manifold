@@ -138,6 +138,7 @@ const ALLOWED_INVOKE_CHANNELS = [
   'plugins:execute-command',
   'plugins:open-view',
   'plugins:webview-to-host',
+  'plugins:set-active-context',
 ] as const
 
 const ALLOWED_SEND_CHANNELS = [
