@@ -10,6 +10,11 @@ export interface LauncherModule {
   description: string
 }
 
+// TODO(phase-1): widen LauncherModule.id to `string` before any plugin contributes
+// a launcher panel. The `as DockPanelId` cast is safe only while the sole launcher
+// contributions are the four built-in modules (whose ids are valid DockPanelIds);
+// a plugin id like 'example.hello' would make this cast a lie and break
+// LAUNCHER_MODULE_IDS.has(pluginId) in useDockLayout.ts.
 export const LAUNCHER_MODULES: readonly LauncherModule[] = getLauncherContributions()
   .map((c) => ({ id: c.id as DockPanelId, description: c.description }))
 

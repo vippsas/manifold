@@ -2,7 +2,6 @@
 import { describe, expect, it, afterEach } from 'vitest'
 import {
   getLauncherContributions,
-  getLauncherContributionIds,
   getPanelComponents,
   getPanelContributions,
   registerPanelContribution,
@@ -16,12 +15,6 @@ describe('contribution-registry', () => {
     expect(getLauncherContributions().map((p) => p.id)).toEqual([
       'backgroundAgent', 'loop', 'verdicts', 'watch',
     ])
-  })
-
-  it('exposes launcher ids as a set', () => {
-    expect([...getLauncherContributionIds()].sort()).toEqual(
-      ['backgroundAgent', 'loop', 'verdicts', 'watch'],
-    )
   })
 
   it('returns a component for each internal panel', () => {

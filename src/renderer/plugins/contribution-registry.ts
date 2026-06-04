@@ -35,11 +35,6 @@ export function getLauncherContributions(): RegisteredPanel[] {
   return [...panels.values()].filter((p) => p.launcher)
 }
 
-/** The set of launcher panel ids. */
-export function getLauncherContributionIds(): Set<string> {
-  return new Set(getLauncherContributions().map((p) => p.id))
-}
-
 /** id → renderer component, for contributions that have one (internal modules). */
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 export function getPanelComponents(): Record<string, React.FC<any>> {
