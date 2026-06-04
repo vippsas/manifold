@@ -28,6 +28,12 @@ export interface ManifoldApi {
   window: {
     registerWebviewViewProvider(viewId: string, provider: WebviewViewProvider): Disposable
   }
+  storage: {
+    global: {
+      get<T = unknown>(key: string, defaultValue?: T): Promise<T | undefined>
+      update(key: string, value: unknown): Promise<void>
+    }
+  }
 }
 
 /** Shape a plugin's entry module must export. */

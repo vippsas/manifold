@@ -5,6 +5,8 @@ import { Activator, type ActivationTarget } from './activator'
 import { createApi } from './api-impl'
 import { createWindowApi } from './window-api'
 import { installManifoldRequire } from './require-interceptor'
+import { buildGatedApi } from './gated-api'
+import { createStorageApi } from './storage-api'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 const parentPort = (process as any).parentPort as {
@@ -17,13 +19,18 @@ parentPort.on('message', (e) => { void endpoint.handleMessage(e.data) })
 
 const { api: commandsApi, invokeLocalCommand } = createApi(endpoint)
 const { windowApi, resolveView, deliverMessage } = createWindowApi(endpoint)
-const api = { ...commandsApi, window: windowApi }
-installManifoldRequire(api)
+const sharedNamespaces = { commands: commandsApi.commands, window: windowApi }
+let currentApi: unknown = buildGatedApi([], sharedNamespaces, () => createStorageApi(endpoint, ''))
+installManifoldRequire(() => currentApi)
 
 const activator = new Activator(
   // eslint-disable-next-line @typescript-eslint/no-var-requires, @typescript-eslint/no-explicit-any
-  (t: ActivationTarget) => require(join(t.root, t.main)),
-  () => api,
+  (t) => {
+    currentApi = buildGatedApi(t.capabilities ?? [], sharedNamespaces, () => createStorageApi(endpoint, t.id))
+    return require(join(t.root, t.main))
+  },
+  // makeApi (used by future per-call needs); harmless to return currentApi
+  () => currentApi as never,
 )
 
 endpoint.registerService(PLUGIN_ACTIVATION, {

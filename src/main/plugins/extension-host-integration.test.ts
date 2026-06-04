@@ -1,9 +1,11 @@
 import { describe, expect, it } from 'vitest'
-import { RpcEndpoint, HOST_COMMANDS, PLUGIN_COMMANDS, HOST_WINDOW, PLUGIN_WEBVIEW, type RpcMessage } from '../../shared/plugins/rpc'
+import { RpcEndpoint, HOST_COMMANDS, PLUGIN_COMMANDS, HOST_WINDOW, PLUGIN_WEBVIEW, HOST_STORAGE, type RpcMessage } from '../../shared/plugins/rpc'
 import { CommandRegistry } from './command-registry'
 import { Activator } from '../../plugin-host/activator'
 import { createApi } from '../../plugin-host/api-impl'
 import { createWindowApi } from '../../plugin-host/window-api'
+import { createStorageApi } from '../../plugin-host/storage-api'
+import { buildGatedApi, CapabilityError } from '../../plugin-host/gated-api'
 import type { PluginModule } from '../../shared/plugins/api-types'
 
 /**
@@ -112,6 +114,49 @@ describe('extension host window round-trip (in-memory, no process)', () => {
     await new Promise((resolve) => setTimeout(resolve, 0)) // let the $postToWebview RPC settle
 
     expect(capturedPostToWebview()).toEqual([{ pong: true, echo: { hi: 1 } }])
+  })
+})
+
+/**
+ * Wire a host endpoint and a fake main HOST_STORAGE service backed by an in-memory Map.
+ */
+function wireStorageHostAndMain(): {
+  host: RpcEndpoint
+  shared: Pick<ReturnType<typeof createApi>['api'], 'commands'> & { window: ReturnType<typeof createWindowApi>['windowApi'] }
+} {
+  let host!: RpcEndpoint
+  let main!: RpcEndpoint
+  main = new RpcEndpoint({ post: (m: RpcMessage) => queueMicrotask(() => host.handleMessage(m)) })
+  host = new RpcEndpoint({ post: (m: RpcMessage) => queueMicrotask(() => main.handleMessage(m)) })
+
+  // Fake HOST_STORAGE service on the main side backed by an in-memory Map.
+  const store = new Map<string, unknown>()
+  main.registerService(HOST_STORAGE, {
+    $get: (pluginId: string, key: string) => store.get(`${pluginId}::${key}`),
+    $update: (pluginId: string, key: string, value: unknown) => { store.set(`${pluginId}::${key}`, value) },
+  })
+
+  // Build shared namespaces from the host side (commands + window).
+  const { api: commandsApi } = createApi(host)
+  const { windowApi } = createWindowApi(host)
+  const shared = { commands: commandsApi.commands, window: windowApi }
+
+  return { host, shared }
+}
+
+describe('extension host gated-storage round-trip (in-memory, no process)', () => {
+  it('storage.global.update then get returns the stored value', async () => {
+    const { host, shared } = wireStorageHostAndMain()
+    const api = buildGatedApi(['storage'], shared as never, () => createStorageApi(host, 'p.x'))
+    await api.storage.global.update('n', 7)
+    await new Promise((resolve) => setTimeout(resolve, 0)) // let RPC settle
+    expect(await api.storage.global.get('n')).toBe(7)
+  })
+
+  it('accessing storage without the capability throws CapabilityError', () => {
+    const { host, shared } = wireStorageHostAndMain()
+    const gatedNoCap = buildGatedApi([], shared as never, () => createStorageApi(host, 'p.x'))
+    expect(() => gatedNoCap.storage).toThrow(CapabilityError)
   })
 })
 

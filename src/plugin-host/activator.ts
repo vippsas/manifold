@@ -1,7 +1,7 @@
 // src/plugin-host/activator.ts
 import type { ManifoldApi, ManifoldContext, PluginModule } from '../shared/plugins/api-types'
 
-export interface ActivationTarget { id: string; root: string; main: string }
+export interface ActivationTarget { id: string; root: string; main: string; capabilities?: string[] }
 
 type LoadModule = (target: ActivationTarget) => PluginModule
 type MakeApi = (target: ActivationTarget) => ManifoldApi
