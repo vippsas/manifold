@@ -1,7 +1,7 @@
 // src/main/plugins/extension-host.ts
 import { utilityProcess, type UtilityProcess } from 'electron'
 import { join } from 'node:path'
-import { RpcEndpoint, HOST_COMMANDS, HOST_WINDOW, HOST_STORAGE, PLUGIN_ACTIVATION, PLUGIN_COMMANDS, PLUGIN_WEBVIEW, PLUGIN_WORKSPACE, type RpcMessage } from '../../shared/plugins/rpc'
+import { RpcEndpoint, HOST_COMMANDS, HOST_WINDOW, HOST_STORAGE, HOST_CONFIG, PLUGIN_ACTIVATION, PLUGIN_COMMANDS, PLUGIN_WEBVIEW, PLUGIN_WORKSPACE, PLUGIN_CONFIG, type RpcMessage } from '../../shared/plugins/rpc'
 import { CommandRegistry } from './command-registry'
 import { debugLog } from '../app/debug-log'
 import type { ActivationTarget } from '../../plugin-host/activator'
@@ -16,8 +16,11 @@ export class ExtensionHost {
   private endpoint: RpcEndpoint | null = null
   private readonly commands = new CommandRegistry()
   private send: ((channel: string, ...args: unknown[]) => void) | null = null
+  private getConfig: ((pluginId: string, key: string) => unknown) | null = null
 
   constructor(private readonly storage: PluginStorageStore) {}
+
+  setConfigResolver(fn: (pluginId: string, key: string) => unknown): void { this.getConfig = fn }
 
   setSend(fn: (channel: string, ...args: unknown[]) => void): void { this.send = fn }
 
@@ -43,6 +46,9 @@ export class ExtensionHost {
     endpoint.registerService(HOST_STORAGE, {
       $get: (pluginId: string, key: string) => this.storage.get(pluginId, key),
       $update: (pluginId: string, key: string, value: unknown) => { this.storage.update(pluginId, key, value) },
+    })
+    endpoint.registerService(HOST_CONFIG, {
+      $get: (pluginId: string, key: string) => this.getConfig?.(pluginId, key),
     })
     this.child = child
     this.endpoint = endpoint
@@ -74,6 +80,11 @@ export class ExtensionHost {
   executeContributedCommand(id: string, args: unknown[]): Promise<unknown> {
     this.ensure()
     return this.commands.execute(id, args)
+  }
+
+  notifyConfigChanged(pluginId: string): void {
+    const { endpoint } = this.ensure()
+    void endpoint.getProxy<{ $onDidChange(id: string): Promise<void> }>(PLUGIN_CONFIG).$onDidChange(pluginId)
   }
 
   dispose(): void { this.child?.kill(); this.child = null; this.endpoint = null }

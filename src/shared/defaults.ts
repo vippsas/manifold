@@ -42,4 +42,5 @@ export const DEFAULT_SETTINGS: ManifoldSettings = {
   transcription: {
     provider: 'none',
   },
+  pluginConfig: {},
 }

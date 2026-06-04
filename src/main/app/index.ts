@@ -131,7 +131,7 @@ const verdictRecorder = new VerdictRecorder({
 sessionManager.setVerdictRecorder(verdictRecorder)
 fileWatcher.setVerdictRecorder(verdictRecorder)
 
-const pluginManager = new PluginManager(settingsStore.getSettings().storagePath)
+const pluginManager = new PluginManager(settingsStore.getSettings().storagePath, settingsStore)
 pluginManager.scan()
 
 const ipcDeps = {

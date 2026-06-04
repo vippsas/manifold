@@ -115,6 +115,7 @@ export interface ManifoldSettings {
   search?: SearchSettings
   provisioning?: import('./provisioning-types').ProvisioningSettings
   transcription?: import('./watch-types').AiServiceSettings
+  pluginConfig?: Record<string, Record<string, unknown>>
 }
 
 export interface ReleaseNotes {

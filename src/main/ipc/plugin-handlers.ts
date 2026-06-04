@@ -14,4 +14,6 @@ export function registerPluginHandlers(deps: IpcDependencies): void {
   ipcMain.handle('plugins:set-active-context', (_e, context: unknown) => {
     deps.pluginManager.setActiveContext((context ?? {}) as never); return true
   })
+  ipcMain.handle('plugins:get-config', (_e, pluginId: string) => deps.pluginManager.getConfig(pluginId))
+  ipcMain.handle('plugins:set-config', (_e, pluginId: string, key: string, value: unknown) => { deps.pluginManager.setConfig(pluginId, key, value); return true })
 }

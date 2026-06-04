@@ -29,12 +29,40 @@ export function viewContributionsOf(plugins: PluginDescriptor[]): PluginPanelCon
   return out
 }
 
+/** Pure helper: user override wins; falls back to manifest default; undefined when neither. */
+export function mergeConfigValue(override: unknown, manifestDefault: unknown): unknown {
+  return override !== undefined ? override : manifestDefault
+}
+
 export class PluginManager {
   private plugins: PluginDescriptor[] = []
   private readonly host: ExtensionHost
 
-  constructor(private readonly storagePath: string) {
+  constructor(private readonly storagePath: string, private readonly settings: import('../store/settings-store').SettingsStore) {
     this.host = new ExtensionHost(new PluginStorageStore(storagePath))
+    this.host.setConfigResolver((id, key) => this.getConfigValue(id, key))
+  }
+
+  getConfigValue(pluginId: string, key: string): unknown {
+    const override = this.settings.getSettings().pluginConfig?.[pluginId]?.[key]
+    const plugin = this.plugins.find((p) => p.id === pluginId)
+    const manifestDefault = plugin?.manifest.contributes?.configuration?.properties?.[key]?.default
+    return mergeConfigValue(override, manifestDefault)
+  }
+
+  getConfig(pluginId: string): { properties: Record<string, unknown>; values: Record<string, unknown> } {
+    const plugin = this.plugins.find((p) => p.id === pluginId)
+    const properties = plugin?.manifest.contributes?.configuration?.properties ?? {}
+    const values: Record<string, unknown> = {}
+    for (const key of Object.keys(properties)) values[key] = this.getConfigValue(pluginId, key)
+    return { properties, values }
+  }
+
+  setConfig(pluginId: string, key: string, value: unknown): void {
+    const current = this.settings.getSettings().pluginConfig ?? {}
+    const pluginValues = { ...(current[pluginId] ?? {}), [key]: value }
+    this.settings.updateSettings({ pluginConfig: { ...current, [pluginId]: pluginValues } })
+    this.host.notifyConfigChanged(pluginId)
   }
 
   /** Discover built-in + user plugins. Errors are logged and skipped. */
