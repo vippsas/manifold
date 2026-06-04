@@ -42,6 +42,7 @@ export interface IpcDependencies {
   watchRunStore: WatchRunStore
   verdictStore: VerdictStore
   verdictRecorder?: VerdictRecorder
+  pluginManager: import('../plugins/plugin-manager').PluginManager
 }
 
 export function resolveSession(sessionManager: SessionManager, sessionId: string): AgentSession {

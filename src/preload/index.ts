@@ -132,6 +132,8 @@ const ALLOWED_INVOKE_CHANNELS = [
   'simple:subscribe-chat',
   'simple:get-agent-status',
   'simple:get-slash-commands',
+  'plugins:list-contributions',
+  'plugins:list',
 ] as const
 
 const ALLOWED_SEND_CHANNELS = [

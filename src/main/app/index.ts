@@ -53,6 +53,7 @@ import { WatchRunStore } from '../watch/run-store'
 import { VerdictStore } from '../store/verdict-store'
 import { VerdictRecorder } from '../session/verdict-recorder'
 import { summarizeMiddle } from '../store/prompt-summarizer'
+import { PluginManager } from '../plugins/plugin-manager'
 
 let mainWindow: BrowserWindow | null = null
 
@@ -130,6 +131,9 @@ const verdictRecorder = new VerdictRecorder({
 sessionManager.setVerdictRecorder(verdictRecorder)
 fileWatcher.setVerdictRecorder(verdictRecorder)
 
+const pluginManager = new PluginManager(settingsStore.getSettings().storagePath)
+pluginManager.scan()
+
 const ipcDeps = {
   settingsStore,
   projectRegistry,
@@ -152,6 +156,7 @@ const ipcDeps = {
   watchRunStore,
   verdictStore,
   verdictRecorder,
+  pluginManager,
 }
 
 function toggleKeepAwake(): void {
