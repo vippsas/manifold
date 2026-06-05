@@ -98,8 +98,10 @@ export function QuickPickModal({ req, onPick }: QuickPickModalProps): React.JSX.
       }
       if (e.key === 'Enter') {
         e.preventDefault()
-        const item = filtered[clampedIndex]
-        if (item) onPick(item)
+        // Always resolve: filtered[clampedIndex] is undefined when the list is
+        // empty, which cancels the pick rather than leaving the plugin's awaited
+        // showQuickPick hanging forever.
+        onPick(filtered[clampedIndex])
       }
     },
     [filtered, clampedIndex, onPick],
@@ -117,7 +119,10 @@ export function QuickPickModal({ req, onPick }: QuickPickModalProps): React.JSX.
   return (
     <div
       ref={overlayRef}
-      style={styles.overlay}
+      // Scoped z-index bump so the plugin modal sits above portal popovers
+      // (9999), keeping toasts (10000) above it. Does not touch the shared
+      // dialogPrimitives, so other app modals retain their z-index.
+      style={{ ...styles.overlay, zIndex: 9001 }}
       onClick={handleOverlayClick}
       role="dialog"
       aria-modal="true"
@@ -147,7 +152,7 @@ export function QuickPickModal({ req, onPick }: QuickPickModalProps): React.JSX.
             ) : (
               filtered.map((item, idx) => (
                 <div
-                  key={item.label}
+                  key={`${idx}:${item.label}`}
                   role="option"
                   aria-selected={idx === clampedIndex}
                   style={{

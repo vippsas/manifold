@@ -122,6 +122,24 @@ describe('PluginUiHost', () => {
       fireEvent.keyDown(input, { key: 'Enter' })
       expect(mockInvoke).toHaveBeenCalledWith('plugins:ui-response', 'u1d', 'prefilled')
     })
+
+    it('responds with undefined on backdrop click', async () => {
+      render(<PluginUiHost />)
+      await flush()
+
+      act(() => {
+        fireUiRequest({
+          requestId: 'u1e',
+          kind: 'inputBox',
+          options: { prompt: 'Name?' },
+        })
+      })
+
+      // The backdrop is the dialog overlay; clicking it (target === overlay) cancels.
+      fireEvent.click(screen.getByRole('dialog'))
+
+      expect(mockInvoke).toHaveBeenCalledWith('plugins:ui-response', 'u1e', undefined)
+    })
   })
 
   describe('quickPick', () => {
@@ -208,6 +226,46 @@ describe('PluginUiHost', () => {
 
       expect(mockInvoke).toHaveBeenCalledWith('plugins:ui-response', 'u2d', { label: 'Second' })
     })
+
+    it('cancels (undefined) on Enter when the filter matches nothing', async () => {
+      render(<PluginUiHost />)
+      await flush()
+
+      act(() => {
+        fireUiRequest({
+          requestId: 'u2e',
+          kind: 'quickPick',
+          items: [{ label: 'Alpha' }, { label: 'Beta' }],
+          options: {},
+        })
+      })
+
+      const filterInput = screen.getByRole('textbox')
+      // Non-matching filter → empty list; Enter must resolve undefined, not hang.
+      fireEvent.change(filterInput, { target: { value: 'zzzzz' } })
+      fireEvent.keyDown(filterInput, { key: 'Enter' })
+
+      expect(mockInvoke).toHaveBeenCalledWith('plugins:ui-response', 'u2e', undefined)
+    })
+
+    it('responds with undefined on backdrop click', async () => {
+      render(<PluginUiHost />)
+      await flush()
+
+      act(() => {
+        fireUiRequest({
+          requestId: 'u2f',
+          kind: 'quickPick',
+          items: [{ label: 'OnlyItem' }],
+          options: {},
+        })
+      })
+
+      // The backdrop is the dialog overlay; clicking it (target === overlay) cancels.
+      fireEvent.click(screen.getByRole('dialog'))
+
+      expect(mockInvoke).toHaveBeenCalledWith('plugins:ui-response', 'u2f', undefined)
+    })
   })
 
   describe('message toast with actions', () => {
@@ -257,6 +315,38 @@ describe('PluginUiHost', () => {
       fireEvent.click(screen.getByRole('button', { name: 'Dismiss' }))
 
       expect(mockInvoke).toHaveBeenCalledWith('plugins:ui-response', 'u3b', undefined)
+    })
+
+    it('auto-dismisses an action-less toast after 5s (responds undefined)', async () => {
+      vi.useFakeTimers()
+      try {
+        render(<PluginUiHost />)
+        await act(async () => {
+          await Promise.resolve()
+        })
+
+        act(() => {
+          fireUiRequest({
+            requestId: 'u3c',
+            kind: 'message',
+            level: 'info',
+            message: 'Auto bye',
+            actions: [],
+          })
+        })
+
+        expect(screen.getByText('Auto bye')).toBeInTheDocument()
+        expect(mockInvoke).not.toHaveBeenCalled()
+
+        // Advance past the 5s auto-dismiss window.
+        act(() => {
+          vi.advanceTimersByTime(5000)
+        })
+
+        expect(mockInvoke).toHaveBeenCalledWith('plugins:ui-response', 'u3c', undefined)
+      } finally {
+        vi.useRealTimers()
+      }
     })
   })
 

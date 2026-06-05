@@ -59,7 +59,10 @@ export function InputBoxModal({ req, onSubmit }: InputBoxModalProps): React.JSX.
   return (
     <div
       ref={overlayRef}
-      style={styles.overlay}
+      // Scoped z-index bump so the plugin modal sits above portal popovers
+      // (9999), keeping toasts (10000) above it. Does not touch the shared
+      // dialogPrimitives, so other app modals retain their z-index.
+      style={{ ...styles.overlay, zIndex: 9001 }}
       onClick={handleOverlayClick}
       role="dialog"
       aria-modal="true"
