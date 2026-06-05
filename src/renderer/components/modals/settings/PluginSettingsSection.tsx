@@ -71,24 +71,56 @@ export function PluginSettingsSection(): React.JSX.Element {
   }, [])
 
   function handleToggleEnabled(pluginId: string, nextEnabled: boolean): void {
+    // Snapshot the prior enabled state so we can revert if persistence fails.
+    let prevEnabled = nextEnabled
     setPlugins((prev) =>
-      prev.map((p) =>
-        p.id === pluginId ? { ...p, enabled: nextEnabled } : p
-      )
+      prev.map((p) => {
+        if (p.id !== pluginId) return p
+        prevEnabled = p.enabled
+        return { ...p, enabled: nextEnabled }
+      })
     )
-    void invoke('plugins:set-enabled', pluginId, nextEnabled)
+    void invoke('plugins:set-enabled', pluginId, nextEnabled).catch((err: unknown) => {
+      // Persistence failed (host crash / activation failure): the optimistic UI
+      // now lies about persisted state, so roll it back. There is no renderer
+      // API to push an arbitrary error toast (the toast system is driven only by
+      // plugin-originated `plugins:ui-request` IPC events), so log instead.
+      // eslint-disable-next-line no-console
+      console.error(`[PluginSettingsSection] failed to set enabled=${nextEnabled} for "${pluginId}":`, err)
+      setPlugins((prev) =>
+        prev.map((p) => (p.id === pluginId ? { ...p, enabled: prevEnabled } : p))
+      )
+    })
   }
 
   function handleChange(pluginId: string, key: string, rawValue: unknown, propType: 'string' | 'number' | 'boolean'): void {
     const coerced: unknown = propType === 'number' ? Number(rawValue) : rawValue
+    // Snapshot the prior value so we can revert if persistence fails.
+    let hadPrev = false
+    let prevValue: unknown
     setPlugins((prev) =>
-      prev.map((p) =>
-        p.id === pluginId
-          ? { ...p, values: { ...p.values, [key]: coerced } }
-          : p
-      )
+      prev.map((p) => {
+        if (p.id !== pluginId) return p
+        hadPrev = Object.prototype.hasOwnProperty.call(p.values, key)
+        prevValue = p.values[key]
+        return { ...p, values: { ...p.values, [key]: coerced } }
+      })
     )
-    void invoke('plugins:set-config', pluginId, key, coerced)
+    void invoke('plugins:set-config', pluginId, key, coerced).catch((err: unknown) => {
+      // Persistence failed: roll back the optimistic value so the field doesn't
+      // lie about what's stored. See note above re: lack of a renderer toast API.
+      // eslint-disable-next-line no-console
+      console.error(`[PluginSettingsSection] failed to set config "${key}" for "${pluginId}":`, err)
+      setPlugins((prev) =>
+        prev.map((p) => {
+          if (p.id !== pluginId) return p
+          const nextValues = { ...p.values }
+          if (hadPrev) nextValues[key] = prevValue
+          else delete nextValues[key]
+          return { ...p, values: nextValues }
+        })
+      )
+    })
   }
 
   if (loading) {

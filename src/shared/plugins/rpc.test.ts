@@ -37,4 +37,28 @@ describe('RpcEndpoint', () => {
     const proxy = a.getProxy<{ $x: () => Promise<void> }>('Missing')
     await expect(proxy.$x()).rejects.toThrow(/Missing/)
   })
+
+  it('rejectAllPending rejects every in-flight call (e.g. when the host process dies)', async () => {
+    // Transport posts into the void, so the call never gets a reply and stays pending.
+    const endpoint = new RpcEndpoint({ post: () => {} })
+    const proxy = endpoint.getProxy<{ $hang: () => Promise<void> }>('Svc')
+    const inflight = proxy.$hang()
+    endpoint.rejectAllPending('plugin host exited')
+    await expect(inflight).rejects.toThrow('plugin host exited')
+  })
+
+  it('rejectAllPending is a no-op when there are no pending calls', () => {
+    const endpoint = new RpcEndpoint({ post: () => {} })
+    expect(() => endpoint.rejectAllPending('host exited')).not.toThrow()
+  })
+
+  it('a later reply for an already-rejected id is ignored (no crash)', async () => {
+    let deliver: (() => void) | undefined
+    const endpoint = new RpcEndpoint({ post: (m) => { if (m.t === 'req') deliver = () => endpoint.handleMessage({ t: 'rep', id: m.id, ok: true, value: 1 }) } })
+    const inflight = endpoint.getProxy<{ $x: () => Promise<number> }>('Svc').$x()
+    endpoint.rejectAllPending('host exited')
+    await expect(inflight).rejects.toThrow('host exited')
+    // The host's (late) reply arrives after the endpoint gave up — must be dropped silently.
+    expect(() => deliver?.()).not.toThrow()
+  })
 })

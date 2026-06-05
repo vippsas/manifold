@@ -3,6 +3,7 @@ import { utilityProcess, type UtilityProcess } from 'electron'
 import { join } from 'node:path'
 import { RpcEndpoint, HOST_COMMANDS, HOST_WINDOW, HOST_STORAGE, HOST_CONFIG, HOST_TREE, HOST_UI, PLUGIN_ACTIVATION, PLUGIN_COMMANDS, PLUGIN_WEBVIEW, PLUGIN_WORKSPACE, PLUGIN_CONFIG, PLUGIN_TREE, type RpcMessage } from '../../shared/plugins/rpc'
 import { CommandRegistry } from './command-registry'
+import { createHostCommandsService } from './host-commands-service'
 import { debugLog } from '../app/debug-log'
 import type { ActivationTarget } from '../../plugin-host/activator'
 import type { PluginStorageStore } from './plugin-storage-store'
@@ -20,7 +21,6 @@ export class ExtensionHost {
   private readonly commands = new CommandRegistry()
   private send: ((channel: string, ...args: unknown[]) => void) | null = null
   private getConfig: ((pluginId: string, key: string) => unknown) | null = null
-  private activatingPluginId: string | null = null
   private readonly ui = new UiRequestBroker(() => this.send)
 
   constructor(private readonly storage: PluginStorageStore) {}
@@ -36,15 +36,23 @@ export class ExtensionHost {
     const child = utilityProcess.fork(modulePath, [], { serviceName: 'manifold-plugin-host' })
     const endpoint = new RpcEndpoint({ post: (m) => child.postMessage(m) })
     child.on('message', (m: RpcMessage) => { void endpoint.handleMessage(m) })
-    child.on('exit', (code) => { debugLog(`[plugins] host exited (${code})`); this.child = null; this.endpoint = null })
+    // When the host process dies (clean exit or a fatal error), reject every in-flight RPC
+    // so awaiting callers fail loudly instead of hanging forever (C2), and clear the command
+    // registry so a re-forked host starts clean instead of inheriting dead-plugin ids (C4).
+    const onHostDown = (reason: string): void => {
+      endpoint.rejectAllPending(reason)
+      this.commands.clear()
+      this.child = null
+      this.endpoint = null
+    }
+    child.on('exit', (code) => { debugLog(`[plugins] host exited (${code})`); onHostDown(`plugin host exited (code ${code ?? 'unknown'})`) })
+    // C3: a fatal error in the host process (e.g. a plugin crashing it) — surface it and recover like an exit.
+    child.on('error', (type, location) => { debugLog(`[plugins] host process error: ${type} @ ${location}`); onHostDown(`plugin host error: ${type}`) })
     // HostCommands: host registers command ids here; execution routes back to the host.
+    // pluginId is threaded so ownership is enforced (no cross-plugin hijack/unregister) — see host-commands-service.
     const pluginCommands = endpoint.getProxy<PluginCommandsProxy>(PLUGIN_COMMANDS)
     this.commands.onCollision((msg) => debugLog(`[plugins] ${msg}`))
-    endpoint.registerService(HOST_COMMANDS, {
-      $registerCommand: (id: string) => { this.commands.register(id, this.activatingPluginId ?? 'unknown', (cid, args) => pluginCommands.$invokeCommand(cid, args)) },
-      $unregisterCommand: (id: string) => { this.commands.unregister(id, this.commands.ownerOf(id) ?? 'unknown') },
-      $executeCommand: (id: string, args: unknown[]) => this.commands.execute(id, args),
-    })
+    endpoint.registerService(HOST_COMMANDS, createHostCommandsService(this.commands, (id, args) => pluginCommands.$invokeCommand(id, args)))
     endpoint.registerService(HOST_WINDOW, {
       $setHtml: (viewId: string, html: string) => {
         const version = webviewContentStore.set(viewId, html)
@@ -74,33 +82,18 @@ export class ExtensionHost {
 
   async activate(target: ActivationTarget): Promise<void> {
     const { endpoint } = this.ensure()
-    this.activatingPluginId = target.id
-    try {
-      await endpoint.getProxy<PluginActivationProxy>(PLUGIN_ACTIVATION).$activate(target)
-    } finally {
-      this.activatingPluginId = null
-    }
+    await endpoint.getProxy<PluginActivationProxy>(PLUGIN_ACTIVATION).$activate(target)
   }
 
   async resolveView(target: ActivationTarget, viewId: string): Promise<void> {
     const { endpoint } = this.ensure()
-    this.activatingPluginId = target.id
-    try {
-      await endpoint.getProxy<PluginActivationProxy>(PLUGIN_ACTIVATION).$activate(target)
-    } finally {
-      this.activatingPluginId = null
-    }
+    await endpoint.getProxy<PluginActivationProxy>(PLUGIN_ACTIVATION).$activate(target)
     await endpoint.getProxy<{ $resolveView(viewId: string): Promise<void> }>(PLUGIN_WEBVIEW).$resolveView(viewId)
   }
 
   async treeGetChildren(target: ActivationTarget, viewId: string, parentNodeId: string | undefined): Promise<unknown> {
     const { endpoint } = this.ensure()
-    this.activatingPluginId = target.id
-    try {
-      await endpoint.getProxy<PluginActivationProxy>(PLUGIN_ACTIVATION).$activate(target)
-    } finally {
-      this.activatingPluginId = null
-    }
+    await endpoint.getProxy<PluginActivationProxy>(PLUGIN_ACTIVATION).$activate(target)
     return endpoint.getProxy<{ $getChildren(viewId: string, parentNodeId: string | undefined): Promise<unknown> }>(PLUGIN_TREE).$getChildren(viewId, parentNodeId)
   }
 
@@ -127,5 +120,12 @@ export class ExtensionHost {
 
   resolveUi(requestId: string, value: unknown): void { this.ui.resolve(requestId, value) }
 
-  dispose(): void { this.ui.flush(); this.child?.kill(); this.child = null; this.endpoint = null }
+  dispose(): void {
+    this.ui.flush()
+    this.endpoint?.rejectAllPending('extension host disposed')
+    this.commands.clear()
+    this.child?.kill()
+    this.child = null
+    this.endpoint = null
+  }
 }

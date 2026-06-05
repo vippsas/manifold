@@ -1,5 +1,6 @@
 // src/plugin-host/gated-api.ts
 import type { ManifoldApi } from '../shared/plugins/api-types'
+import type { Capability } from '../shared/plugins/manifest'
 
 export class CapabilityError extends Error {
   constructor(capability: string) {
@@ -15,11 +16,11 @@ export interface GatedFactories {
 }
 
 export function buildGatedApi(
-  capabilities: string[],
+  capabilities: Capability[],
   shared: Pick<ManifoldApi, 'commands' | 'window'>,
   factories: GatedFactories,
 ): ManifoldApi {
-  const caps = new Set(capabilities)
+  const caps = new Set<Capability>(capabilities)
   return {
     commands: shared.commands,
     window: shared.window,

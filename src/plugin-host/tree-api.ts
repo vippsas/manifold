@@ -21,7 +21,7 @@ export class TreeRegistry {
     this.views.get(viewId)?.sub?.dispose()
     state.sub = provider.onDidChangeTreeData?.(() => { state.elements.clear(); this.refreshCb?.(viewId) })
     this.views.set(viewId, state)
-    return { dispose: () => { state.sub?.dispose(); this.views.delete(viewId) } }
+    return { dispose: () => { state.sub?.dispose(); if (this.views.get(viewId) === state) this.views.delete(viewId) } }
   }
 
   hasView(viewId: string): boolean { return this.views.has(viewId) }

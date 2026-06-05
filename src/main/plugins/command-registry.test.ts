@@ -47,4 +47,16 @@ describe('CommandRegistry', () => {
     expect(reg.ownerOf('c')).toBe('pub.a')
     expect(await reg.execute('c', [])).toBe(2)
   })
+  it('clear() drops all commands and owners (used when the host re-forks)', () => {
+    const reg = new CommandRegistry()
+    reg.register('a', 'pub.a', async () => 1)
+    reg.register('b', 'pub.b', async () => 2)
+    reg.clear()
+    expect(reg.has('a')).toBe(false)
+    expect(reg.has('b')).toBe(false)
+    expect(reg.ownerOf('a')).toBeUndefined()
+    // After a clear, a fresh owner can claim a previously-registered id (no stale-owner block).
+    reg.register('a', 'pub.c', async () => 3)
+    expect(reg.ownerOf('a')).toBe('pub.c')
+  })
 })

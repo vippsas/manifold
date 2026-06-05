@@ -30,6 +30,14 @@ export class CommandRegistry {
   has(id: string): boolean { return this.invokers.has(id) }
   ownerOf(id: string): string | undefined { return this.owners.get(id) }
 
+  /** Drop all registrations. Called when the extension host process exits so a
+   *  re-forked host starts clean — otherwise stale ids (owned by the dead host's
+   *  plugins) would block the re-activated plugins from re-registering them. */
+  clear(): void {
+    this.invokers.clear()
+    this.owners.clear()
+  }
+
   async execute(id: string, args: unknown[]): Promise<unknown> {
     const invoke = this.invokers.get(id)
     if (!invoke) throw new Error(`command not found: ${id}`)

@@ -1,6 +1,15 @@
 // src/shared/plugins/manifest.ts
 /** A plugin's package.json, modeled on VS Code's extension manifest. */
 
+/** Capabilities gate access to the privileged `manifold` API namespaces. This is the
+ *  single source of truth: the manifest field, the parser, and the gated-api checks all
+ *  key off it (see gated-api.ts), so a typo can't silently grant nothing or escape gating. */
+export const CAPABILITIES = ['storage', 'workspace:read', 'configuration'] as const
+export type Capability = typeof CAPABILITIES[number]
+export function isCapability(value: unknown): value is Capability {
+  return typeof value === 'string' && (CAPABILITIES as readonly string[]).includes(value)
+}
+
 export interface PluginViewContribution {
   /** Stable, globally-unique view id, e.g. "manifold.hello.panel". */
   id: string
@@ -48,7 +57,7 @@ export interface ManifoldPluginManifest {
   main?: string
   activationEvents?: string[]
   contributes?: PluginContributions
-  capabilities?: string[]
+  capabilities?: Capability[]
 }
 
 /** A plugin discovered on disk. */

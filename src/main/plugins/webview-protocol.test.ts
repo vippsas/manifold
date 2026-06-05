@@ -1,6 +1,12 @@
-import { describe, expect, it } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { WebviewContentStore } from './webview-content-store'
 import { injectNonce, buildCsp, renderWebviewResponse } from './webview-protocol'
+
+const debugLogMock = vi.hoisted(() => vi.fn())
+vi.mock('../app/debug-log', () => ({ debugLog: debugLogMock }))
+
+beforeEach(() => debugLogMock.mockClear())
+afterEach(() => debugLogMock.mockClear())
 
 describe('WebviewContentStore', () => {
   it('stores html per view and bumps version on each set', () => {
@@ -20,6 +26,39 @@ describe('injectNonce', () => {
   })
   it('does not touch non-script tags', () => {
     expect(injectNonce('<div>x</div>', 'N')).toBe('<div>x</div>')
+  })
+
+  it('warns via debugLog when a <script> tag cannot be nonced (attribute value contains ">")', () => {
+    // The naive /<script\b([^>]*)>/ regex stops at the first '>', so the literal
+    // '>' inside data-foo="a>b" makes this tag impossible to nonce → CSP blocks it.
+    const html = '<script data-foo="a>b">go()</script>'
+    const out = injectNonce(html, 'N0NCE', 'view.bad')
+    // No valid nonce was injected onto the (only) script tag.
+    expect(out).not.toContain('nonce="N0NCE"')
+    expect(debugLogMock).toHaveBeenCalledTimes(1)
+    const msg = debugLogMock.mock.calls[0][0] as string
+    expect(msg).toContain('view.bad')
+  })
+
+  it('warns via debugLog when only some <script> tags get a nonce', () => {
+    const html = '<script>ok()</script><script data-x="a>b">bad()</script>'
+    injectNonce(html, 'N0NCE', 'view.partial')
+    expect(debugLogMock).toHaveBeenCalledTimes(1)
+    expect(debugLogMock.mock.calls[0][0]).toContain('view.partial')
+  })
+
+  it('does not warn for well-formed first-party HTML', () => {
+    injectNonce('<script>a()</script><script type="module">b()</script>', 'N0NCE', 'view.ok')
+    expect(debugLogMock).not.toHaveBeenCalled()
+  })
+
+  it('does not re-inject a nonce into a <script> that already has one', () => {
+    const out = injectNonce('<script nonce="EXISTING">a()</script>', 'N0NCE', 'view.pre')
+    // Exactly one nonce attribute, and the CSP nonce replaces (or is unified with)
+    // the pre-existing one rather than appending a duplicate.
+    expect((out.match(/nonce=/g) ?? []).length).toBe(1)
+    expect(out).not.toContain('nonce="EXISTING" nonce=')
+    expect(out).not.toContain('nonce="N0NCE" nonce=')
   })
 })
 
@@ -55,6 +94,14 @@ describe('renderWebviewResponse', () => {
     expect(bodyNonce).toBeTruthy()
     expect(cspNonce).toBeTruthy()
     expect(bodyNonce).toBe(cspNonce)
+  })
+
+  it('warns with the viewId when a stored view has an un-nonceable <script>', () => {
+    const s = new WebviewContentStore()
+    s.set('manifold.broken.panel', '<script data-foo="a>b">x()</script>')
+    renderWebviewResponse(s, 'manifold-webview://view/manifold.broken.panel?v=1')
+    expect(debugLogMock).toHaveBeenCalledTimes(1)
+    expect(debugLogMock.mock.calls[0][0]).toContain('manifold.broken.panel')
   })
 
   it('returns 404 after the view is deleted', () => {

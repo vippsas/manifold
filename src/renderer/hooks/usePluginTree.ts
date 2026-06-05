@@ -26,8 +26,24 @@ export function usePluginTree(viewId: string): {
   )
 
   useEffect(() => {
-    void window.electronAPI.invoke('plugins:open-tree-view', viewId).then(() => loadRoots(false))
-    const off = window.electronAPI.on('plugins:tree-refresh', (...args: unknown[]) => { if (args[0] === viewId) void loadRoots(true) })
+    void window.electronAPI
+      .invoke('plugins:open-tree-view', viewId)
+      .then(() => loadRoots(false))
+      .catch((err: unknown) => {
+        // Activation failure (or a failed initial root load) would otherwise be
+        // an unhandled rejection. No renderer toast API exists for arbitrary
+        // errors, so log it; the tree simply stays empty.
+        // eslint-disable-next-line no-console
+        console.error(`[usePluginTree] failed to open tree view "${viewId}":`, err)
+      })
+    const off = window.electronAPI.on('plugins:tree-refresh', (...args: unknown[]) => {
+      if (args[0] === viewId) {
+        void loadRoots(true).catch((err: unknown) => {
+          // eslint-disable-next-line no-console
+          console.error(`[usePluginTree] failed to refresh tree view "${viewId}":`, err)
+        })
+      }
+    })
     return () => { off() }
   }, [viewId, loadRoots])
 

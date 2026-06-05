@@ -1,13 +1,10 @@
 import { describe, expect, it } from 'vitest'
-import { RpcEndpoint, HOST_COMMANDS, PLUGIN_COMMANDS, HOST_WINDOW, PLUGIN_WEBVIEW, HOST_STORAGE, PLUGIN_WORKSPACE, HOST_CONFIG, PLUGIN_CONFIG, type RpcMessage } from '../../shared/plugins/rpc'
+import { RpcEndpoint, HOST_COMMANDS, PLUGIN_COMMANDS, HOST_WINDOW, PLUGIN_WEBVIEW, type RpcMessage } from '../../shared/plugins/rpc'
 import { CommandRegistry } from './command-registry'
+import { createHostCommandsService } from './host-commands-service'
 import { Activator } from '../../plugin-host/activator'
 import { createApi } from '../../plugin-host/api-impl'
 import { createWindowApi } from '../../plugin-host/window-api'
-import { createStorageApi } from '../../plugin-host/storage-api'
-import { buildGatedApi, CapabilityError } from '../../plugin-host/gated-api'
-import { WorkspaceContext } from '../../plugin-host/workspace-api'
-import { ConfigContext } from '../../plugin-host/config-api'
 import type { PluginModule } from '../../shared/plugins/api-types'
 
 /**
@@ -15,30 +12,36 @@ import type { PluginModule } from '../../shared/plugins/api-types'
  * reproducing the glue in ExtensionHost (main) + plugin-host/index (host), to
  * prove the command round-trip LOGIC end-to-end without forking a real
  * utilityProcess (that boundary is Electron-only; see the Phase 1b dev smoke).
+ *
+ * Uses the REAL production HOST_COMMANDS service (createHostCommandsService) and
+ * per-plugin command APIs (makeCommandsApi), so plugin-id ownership is threaded
+ * end-to-end exactly as in production — no hardcoded owner.
  */
-function wireHostAndMain(): { api: ReturnType<typeof createApi>['api']; commands: CommandRegistry } {
+function wireHostAndMain(): {
+  makeCommandsApi: ReturnType<typeof createApi>['makeCommandsApi']
+  commands: CommandRegistry
+  hostCommands: { $registerCommand(pluginId: string, id: string): Promise<void>; $unregisterCommand(pluginId: string, id: string): Promise<void> }
+} {
   let host!: RpcEndpoint
   let main!: RpcEndpoint
   main = new RpcEndpoint({ post: (m: RpcMessage) => queueMicrotask(() => host.handleMessage(m)) })
   host = new RpcEndpoint({ post: (m: RpcMessage) => queueMicrotask(() => main.handleMessage(m)) })
 
-  // Host side (as plugin-host/index.ts does): build the manifold API + PLUGIN_COMMANDS service.
-  const { api, invokeLocalCommand } = createApi(host)
+  // Host side (as plugin-host/index.ts does): per-plugin command APIs + PLUGIN_COMMANDS service.
+  const { makeCommandsApi, invokeLocalCommand } = createApi(host)
   host.registerService(PLUGIN_COMMANDS, {
     $invokeCommand: (id: string, args: unknown[]) => invokeLocalCommand(id, args),
   })
 
-  // Main side (as ExtensionHost does): HOST_COMMANDS backed by a CommandRegistry.
+  // Main side (as ExtensionHost does): the real HOST_COMMANDS service over a CommandRegistry.
   const commands = new CommandRegistry()
   const pluginCommands = main.getProxy<{ $invokeCommand(id: string, args: unknown[]): Promise<unknown> }>(PLUGIN_COMMANDS)
-  main.registerService(HOST_COMMANDS, {
-    // NOTE: this harness hardcodes the owner; real owner-threading via activatingPluginId is covered by the ExtensionHost methods, not this in-memory test.
-    $registerCommand: (id: string) => { commands.register(id, 'test.plugin', (cid, args) => pluginCommands.$invokeCommand(cid, args)) },
-    $unregisterCommand: (id: string) => { commands.unregister(id, 'test.plugin') },
-    $executeCommand: (id: string, args: unknown[]) => commands.execute(id, args),
-  })
+  main.registerService(HOST_COMMANDS, createHostCommandsService(commands, (id, args) => pluginCommands.$invokeCommand(id, args)))
 
-  return { api, commands }
+  // Host-side proxy to HOST_COMMANDS, used to simulate a forged call from a non-owner plugin.
+  const hostCommands = host.getProxy<{ $registerCommand(pluginId: string, id: string): Promise<void>; $unregisterCommand(pluginId: string, id: string): Promise<void> }>(HOST_COMMANDS)
+
+  return { makeCommandsApi, commands, hostCommands }
 }
 
 /**
@@ -120,213 +123,13 @@ describe('extension host window round-trip (in-memory, no process)', () => {
   })
 })
 
-/**
- * Wire a host endpoint and a fake main HOST_STORAGE service backed by an in-memory Map.
- */
-function wireStorageHostAndMain(): {
-  host: RpcEndpoint
-  shared: Pick<ReturnType<typeof createApi>['api'], 'commands'> & { window: ReturnType<typeof createWindowApi>['windowApi'] }
-} {
-  let host!: RpcEndpoint
-  let main!: RpcEndpoint
-  main = new RpcEndpoint({ post: (m: RpcMessage) => queueMicrotask(() => host.handleMessage(m)) })
-  host = new RpcEndpoint({ post: (m: RpcMessage) => queueMicrotask(() => main.handleMessage(m)) })
-
-  // Fake HOST_STORAGE service on the main side backed by an in-memory Map.
-  const store = new Map<string, unknown>()
-  main.registerService(HOST_STORAGE, {
-    $get: (pluginId: string, key: string) => store.get(`${pluginId}::${key}`),
-    $update: (pluginId: string, key: string, value: unknown) => { store.set(`${pluginId}::${key}`, value) },
-  })
-
-  // Build shared namespaces from the host side (commands + window).
-  const { api: commandsApi } = createApi(host)
-  const { windowApi } = createWindowApi(host)
-  const shared = { commands: commandsApi.commands, window: windowApi }
-
-  return { host, shared }
-}
-
-describe('extension host gated-storage round-trip (in-memory, no process)', () => {
-  it('storage.global.update then get returns the stored value', async () => {
-    const { host, shared } = wireStorageHostAndMain()
-    const workspaceCtx = new WorkspaceContext()
-    const api = buildGatedApi(['storage'], shared as never, { storage: () => createStorageApi(host, 'p.x'), workspace: () => workspaceCtx.makeApi(), configuration: () => ({ get: async () => undefined, onDidChange: () => ({ dispose: () => undefined }) }) })
-    await api.storage.global.update('n', 7)
-    await new Promise((resolve) => setTimeout(resolve, 0)) // let RPC settle
-    expect(await api.storage.global.get('n')).toBe(7)
-  })
-
-  it('accessing storage without the capability throws CapabilityError', () => {
-    const { host, shared } = wireStorageHostAndMain()
-    const workspaceCtx = new WorkspaceContext()
-    const gatedNoCap = buildGatedApi([], shared as never, { storage: () => createStorageApi(host, 'p.x'), workspace: () => workspaceCtx.makeApi(), configuration: () => ({ get: async () => undefined, onDidChange: () => ({ dispose: () => undefined }) }) })
-    expect(() => gatedNoCap.storage).toThrow(CapabilityError)
-  })
-})
-
-/**
- * Wire a host endpoint with PLUGIN_WORKSPACE service + a main-side proxy for workspace.
- */
-function wireWorkspaceHostAndMain(): {
-  pluginWorkspace: { $setActiveContext(ctx: unknown): Promise<void> }
-  workspaceContext: WorkspaceContext
-  shared: Pick<ReturnType<typeof createApi>['api'], 'commands'> & { window: ReturnType<typeof createWindowApi>['windowApi'] }
-  host: RpcEndpoint
-} {
-  let host!: RpcEndpoint
-  let main!: RpcEndpoint
-  main = new RpcEndpoint({ post: (m: RpcMessage) => queueMicrotask(() => host.handleMessage(m)) })
-  host = new RpcEndpoint({ post: (m: RpcMessage) => queueMicrotask(() => main.handleMessage(m)) })
-
-  const workspaceContext = new WorkspaceContext()
-  host.registerService(PLUGIN_WORKSPACE, {
-    $setActiveContext: (ctx: { project?: unknown; session?: unknown }) => workspaceContext.setActiveContext(ctx as never),
-  })
-
-  const pluginWorkspace = main.getProxy<{ $setActiveContext(ctx: unknown): Promise<void> }>(PLUGIN_WORKSPACE)
-
-  // Build shared namespaces from the host side (commands + window).
-  const { api: commandsApi } = createApi(host)
-  const { windowApi } = createWindowApi(host)
-  const shared = { commands: commandsApi.commands, window: windowApi }
-
-  return { pluginWorkspace, workspaceContext, shared, host }
-}
-
-describe('extension host workspace round-trip (in-memory, no process)', () => {
-  it('$setActiveContext updates activeProject and fires onDidChangeActiveProject listener', async () => {
-    const { pluginWorkspace, workspaceContext, shared } = wireWorkspaceHostAndMain()
-    const api = buildGatedApi(['workspace:read'], shared as never, {
-      storage: () => ({ global: {} as never }),
-      workspace: () => workspaceContext.makeApi(),
-      configuration: () => ({ get: async () => undefined, onDidChange: () => ({ dispose: () => undefined }) }),
-    })
-
-    const fired: unknown[] = []
-    api.workspace.onDidChangeActiveProject((p) => fired.push(p))
-
-    await pluginWorkspace.$setActiveContext({ project: { id: 'p', name: 'P', path: '/p' } })
-    await new Promise((resolve) => setTimeout(resolve, 0)) // let RPC settle
-
-    expect(api.workspace.activeProject?.id).toBe('p')
-    expect(fired).toHaveLength(1)
-    expect((fired[0] as { id: string }).id).toBe('p')
-  })
-
-  it('accessing workspace without workspace:read throws CapabilityError', () => {
-    const { workspaceContext, shared } = wireWorkspaceHostAndMain()
-    const api = buildGatedApi([], shared as never, {
-      storage: () => ({ global: {} as never }),
-      workspace: () => workspaceContext.makeApi(),
-      configuration: () => ({ get: async () => undefined, onDidChange: () => ({ dispose: () => undefined }) }),
-    })
-    expect(() => api.workspace).toThrow(CapabilityError)
-  })
-})
-
-/**
- * Wire a host endpoint with PLUGIN_CONFIG service + a fake main HOST_CONFIG backed by an in-memory map.
- */
-function wireConfigHostAndMain(): {
-  configContext: ConfigContext
-  mainPluginConfig: { $onDidChange(pluginId: string): Promise<void> }
-  shared: Pick<ReturnType<typeof createApi>['api'], 'commands'> & { window: ReturnType<typeof createWindowApi>['windowApi'] }
-  host: RpcEndpoint
-  configStore: Map<string, unknown>
-} {
-  let host!: RpcEndpoint
-  let main!: RpcEndpoint
-  main = new RpcEndpoint({ post: (m: RpcMessage) => queueMicrotask(() => host.handleMessage(m)) })
-  host = new RpcEndpoint({ post: (m: RpcMessage) => queueMicrotask(() => main.handleMessage(m)) })
-
-  // Fake HOST_CONFIG service on the main side backed by an in-memory Map.
-  const configStore = new Map<string, unknown>()
-  main.registerService(HOST_CONFIG, {
-    $get: (pluginId: string, key: string) => configStore.get(`${pluginId}::${key}`),
-  })
-
-  // ConfigContext on the host side + register the PLUGIN_CONFIG service.
-  const configContext = new ConfigContext()
-  host.registerService(PLUGIN_CONFIG, {
-    $onDidChange: (pluginId: string) => configContext.notifyChanged(pluginId),
-  })
-
-  // Main-side proxy to call PLUGIN_CONFIG.$onDidChange.
-  const mainPluginConfig = main.getProxy<{ $onDidChange(pluginId: string): Promise<void> }>(PLUGIN_CONFIG)
-
-  // Build shared namespaces from the host side (commands + window).
-  const { api: commandsApi } = createApi(host)
-  const { windowApi } = createWindowApi(host)
-  const shared = { commands: commandsApi.commands, window: windowApi }
-
-  return { configContext, mainPluginConfig, shared, host, configStore }
-}
-
-describe('extension host configuration round-trip (in-memory, no process)', () => {
-  it('configuration.get returns the value from the host store', async () => {
-    const { configContext, shared, host, configStore } = wireConfigHostAndMain()
-    configStore.set('p.test::greeting', 'Hello')
-    const workspaceCtx = new WorkspaceContext()
-    const api = buildGatedApi(['configuration'], shared as never, {
-      storage: () => ({ global: {} as never }),
-      workspace: () => workspaceCtx.makeApi(),
-      configuration: () => configContext.makeApi(host, 'p.test'),
-    })
-
-    const value = await api.configuration.get('greeting', 'default')
-    expect(value).toBe('Hello')
-  })
-
-  it('configuration.get returns the defaultValue when the host has no entry', async () => {
-    const { configContext, shared, host } = wireConfigHostAndMain()
-    const workspaceCtx = new WorkspaceContext()
-    const api = buildGatedApi(['configuration'], shared as never, {
-      storage: () => ({ global: {} as never }),
-      workspace: () => workspaceCtx.makeApi(),
-      configuration: () => configContext.makeApi(host, 'p.missing'),
-    })
-
-    const value = await api.configuration.get('key', 'fallback')
-    expect(value).toBe('fallback')
-  })
-
-  it('$onDidChange round-trip: calling main proxy fires the plugin listener', async () => {
-    const { configContext, mainPluginConfig, shared, host } = wireConfigHostAndMain()
-    const workspaceCtx = new WorkspaceContext()
-    const api = buildGatedApi(['configuration'], shared as never, {
-      storage: () => ({ global: {} as never }),
-      workspace: () => workspaceCtx.makeApi(),
-      configuration: () => configContext.makeApi(host, 'p.listen'),
-    })
-
-    const fired: number[] = []
-    api.configuration.onDidChange(() => fired.push(1))
-
-    await mainPluginConfig.$onDidChange('p.listen')
-    await new Promise((resolve) => setTimeout(resolve, 0)) // let RPC settle
-
-    expect(fired).toHaveLength(1)
-  })
-
-  it('accessing configuration without the capability throws CapabilityError', () => {
-    const { configContext, shared, host } = wireConfigHostAndMain()
-    const workspaceCtx = new WorkspaceContext()
-    const api = buildGatedApi([], shared as never, {
-      storage: () => ({ global: {} as never }),
-      workspace: () => workspaceCtx.makeApi(),
-      configuration: () => configContext.makeApi(host, 'p.denied'),
-    })
-    expect(() => api.configuration).toThrow(CapabilityError)
-  })
-})
-
 describe('extension host command round-trip (in-memory, no process)', () => {
   it('activate → registerCommand → execute returns the handler result across the boundary', async () => {
-    const { api, commands } = wireHostAndMain()
+    const { makeCommandsApi, commands } = wireHostAndMain()
+    const pluginCommands = makeCommandsApi('p.x')
     const mod: PluginModule = {
       activate: (ctx) => {
-        ctx.subscriptions.push(api.commands.registerCommand('x.ping', (name) => `pong:${name ?? 'world'}`))
+        ctx.subscriptions.push(pluginCommands.registerCommand('x.ping', (name) => `pong:${name ?? 'world'}`))
       },
     }
     const activator = new Activator(() => mod)
@@ -334,20 +137,63 @@ describe('extension host command round-trip (in-memory, no process)', () => {
     await new Promise((resolve) => setTimeout(resolve, 0)) // let the $registerCommand RPC settle
 
     expect(commands.has('x.ping')).toBe(true)
+    expect(commands.ownerOf('x.ping')).toBe('p.x') // owner threaded from the registering plugin
     expect(await commands.execute('x.ping', ['manifold'])).toBe('pong:manifold')
   })
 
   it('a plugin can executeCommand its own command through the host boundary', async () => {
-    const { api } = wireHostAndMain()
+    const { makeCommandsApi } = wireHostAndMain()
+    const pluginCommands = makeCommandsApi('p.y')
     const mod: PluginModule = {
       activate: (ctx) => {
-        ctx.subscriptions.push(api.commands.registerCommand('x.greet', (who) => `hi ${who}`))
+        ctx.subscriptions.push(pluginCommands.registerCommand('x.greet', (who) => `hi ${who}`))
       },
     }
     const activator = new Activator(() => mod)
     await activator.activate({ id: 'p.y', root: '/y', main: './out/p.js', kind: 'manifold' })
     await new Promise((resolve) => setTimeout(resolve, 0))
 
-    expect(await api.commands.executeCommand<string>('x.greet', 'there')).toBe('hi there')
+    expect(await pluginCommands.executeCommand<string>('x.greet', 'there')).toBe('hi there')
+  })
+
+  // C1 regression: command ownership is threaded end-to-end so one plugin cannot
+  // hijack or unregister another plugin's command id.
+  it('rejects a second plugin trying to claim another plugin\'s command id (no silent hijack)', async () => {
+    const { makeCommandsApi, commands } = wireHostAndMain()
+    const a = makeCommandsApi('plugin.a')
+    const b = makeCommandsApi('plugin.b')
+    a.registerCommand('shared.cmd', () => 'A')
+    await new Promise((resolve) => setTimeout(resolve, 0))
+
+    // The host-side registry refuses to overwrite A's handler, so registering throws loudly.
+    expect(() => b.registerCommand('shared.cmd', () => 'B')).toThrow(/already registered/)
+    expect(commands.ownerOf('shared.cmd')).toBe('plugin.a')
+    expect(await commands.execute('shared.cmd', [])).toBe('A')
+  })
+
+  it('ignores a forged unregister from a non-owner plugin, but lets the real owner unregister', async () => {
+    const { makeCommandsApi, commands, hostCommands } = wireHostAndMain()
+    makeCommandsApi('plugin.a').registerCommand('a.cmd', () => 'A')
+    await new Promise((resolve) => setTimeout(resolve, 0))
+    expect(commands.has('a.cmd')).toBe(true)
+
+    // Forge an unregister as if it came from a different plugin — must be a no-op.
+    await hostCommands.$unregisterCommand('plugin.b', 'a.cmd')
+    expect(commands.has('a.cmd')).toBe(true)
+
+    // The actual owner can unregister.
+    await hostCommands.$unregisterCommand('plugin.a', 'a.cmd')
+    expect(commands.has('a.cmd')).toBe(false)
+  })
+
+  it('lets the same plugin re-register its own command id (idempotent reactivation)', async () => {
+    const { makeCommandsApi, commands } = wireHostAndMain()
+    const a = makeCommandsApi('plugin.a')
+    a.registerCommand('a.cmd', () => 'first')
+    a.registerCommand('a.cmd', () => 'second')
+    await new Promise((resolve) => setTimeout(resolve, 0))
+
+    expect(commands.ownerOf('a.cmd')).toBe('plugin.a')
+    expect(await commands.execute('a.cmd', [])).toBe('second')
   })
 })

@@ -35,4 +35,25 @@ describe('parseManifest', () => {
     expect(parseManifest({ ...valid, contributes: { views: 'x' } }).ok).toBe(false)
     expect(parseManifest({ ...valid, contributes: { views: [{ id: 'a' }] } }).ok).toBe(false)
   })
+  it('accepts known capabilities and returns them typed', () => {
+    const r = parseManifest({ ...valid, capabilities: ['storage', 'workspace:read', 'configuration'] })
+    expect(r.ok).toBe(true)
+    if (r.ok) expect(r.manifest.capabilities).toEqual(['storage', 'workspace:read', 'configuration'])
+  })
+  it('rejects an unknown capability (a typo must not silently grant nothing)', () => {
+    expect(parseManifest({ ...valid, capabilities: ['storage', 'workspace'] }).ok).toBe(false)
+    expect(parseManifest({ ...valid, capabilities: ['root'] }).ok).toBe(false)
+  })
+  it('rejects capabilities that are not an array', () => {
+    expect(parseManifest({ ...valid, capabilities: 'storage' }).ok).toBe(false)
+  })
+  it('does not pass raw unvalidated fields through (no `as unknown as`)', () => {
+    // A non-string `main` must not survive as a typed string; it is coerced to undefined.
+    const r = parseManifest({ ...valid, main: 42 })
+    expect(r.ok).toBe(true)
+    if (r.ok) expect(r.manifest.main).toBeUndefined()
+    // An arbitrary extra field on the raw input must not appear on the parsed manifest.
+    const r2 = parseManifest({ ...valid, bogusField: 'x' }) as { ok: boolean; manifest: Record<string, unknown> }
+    if (r2.ok) expect('bogusField' in r2.manifest).toBe(false)
+  })
 })

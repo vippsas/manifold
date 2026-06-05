@@ -52,4 +52,19 @@ describe('TreeRegistry', () => {
     await reg.getChildren('v', undefined)
     expect(await reg.getChildren('v', 'bogus')).toEqual([])
   })
+
+  it('disposing a stale registration handle does not remove a newer registration of the same viewId', async () => {
+    const reg = new TreeRegistry()
+    const first = reg.register('view.x', provider())
+    const second = reg.register('view.x', provider())
+    // Dispose the FIRST (now stale) handle — it must not evict the live second registration.
+    first.dispose()
+    expect(reg.hasView('view.x')).toBe(true)
+    const roots = await reg.getChildren('view.x', undefined)
+    expect(roots.map((r) => r.label)).toEqual(['A', 'B'])
+    // Disposing the live second handle still tears the view down.
+    second.dispose()
+    expect(reg.hasView('view.x')).toBe(false)
+    await expect(reg.getChildren('view.x', undefined)).rejects.toThrow()
+  })
 })

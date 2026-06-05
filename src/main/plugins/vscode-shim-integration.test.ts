@@ -8,6 +8,7 @@ import { createWindowApi } from '../../plugin-host/window-api'
 import { installPluginRequire, registerPluginApis, unregisterPluginApis, resolvePluginModule } from '../../plugin-host/require-interceptor'
 import { createVscodeShim } from '../../plugin-host/vscode-shim'
 import { CommandRegistry } from './command-registry'
+import { createHostCommandsService } from './host-commands-service'
 import type { PluginModule } from '../../shared/plugins/api-types'
 import type { MessageLevel } from '../../shared/plugins/ui'
 
@@ -54,11 +55,7 @@ describe('vscode shim end-to-end (in-memory RPC)', () => {
 
     // --- Main side: HOST_* services (as ExtensionHost wires them). ---
     const pluginCommands = main.getProxy<{ $invokeCommand(id: string, args: unknown[]): Promise<unknown> }>(PLUGIN_COMMANDS)
-    main.registerService(HOST_COMMANDS, {
-      $registerCommand: (id: string) => { registry.register(id, 'manifold.hello-vscode', (cid, args) => pluginCommands.$invokeCommand(cid, args)) },
-      $unregisterCommand: (id: string) => { registry.unregister(id, 'manifold.hello-vscode') },
-      $executeCommand: (id: string, args: unknown[]) => registry.execute(id, args),
-    })
+    main.registerService(HOST_COMMANDS, createHostCommandsService(registry, (id, args) => pluginCommands.$invokeCommand(id, args)))
     main.registerService(HOST_UI, {
       $showMessage: (level: MessageLevel, message: string, actions: string[]) => { messages.push({ level, message, actions }); return Promise.resolve(undefined) },
       $showQuickPick: () => Promise.resolve(undefined),
@@ -75,7 +72,7 @@ describe('vscode shim end-to-end (in-memory RPC)', () => {
     })
 
     // --- Host side: shared command API + the shim, wired into the Activator. ---
-    const { api: commandsApi, invokeLocalCommand } = createApi(host)
+    const { makeCommandsApi, invokeLocalCommand } = createApi(host)
     const { windowApi } = createWindowApi(host)
     const storageProxy = host.getProxy<never>(HOST_STORAGE)
     const configProxy = host.getProxy<never>(HOST_CONFIG)
@@ -84,7 +81,7 @@ describe('vscode shim end-to-end (in-memory RPC)', () => {
 
     const activator = new Activator((t: ActivationTarget): PluginModule => {
       const { vscode, createContext } = createVscodeShim({
-        commands: commandsApi.commands,
+        commands: makeCommandsApi(t.id),
         windowApi,
         configProxy: configProxy as never,
         storageProxy: storageProxy as never,

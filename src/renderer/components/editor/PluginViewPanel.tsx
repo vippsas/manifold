@@ -22,14 +22,22 @@ export function PluginViewPanel({ api }: { api: { id: string } }): React.JSX.Ele
     const offMsg = window.electronAPI.on('plugins:webview-message', (id: unknown, msg: unknown) => {
       if (id === viewId) post(msg)
     })
-    void window.electronAPI.invoke('plugins:open-view', viewId)
+    void window.electronAPI.invoke('plugins:open-view', viewId).catch((err: unknown) => {
+      // Activation failure would otherwise be an unhandled rejection. No
+      // renderer toast API exists for arbitrary errors, so log it.
+      // eslint-disable-next-line no-console
+      console.error(`[PluginViewPanel] failed to open view "${viewId}":`, err)
+    })
     return () => { offHtml(); offMsg() }
   }, [viewId])
 
   useEffect(() => {
     const onMessage = (e: MessageEvent): void => {
       if (e.source && e.source === iframeRef.current?.contentWindow) {
-        void window.electronAPI.invoke('plugins:webview-to-host', viewId, e.data)
+        void window.electronAPI.invoke('plugins:webview-to-host', viewId, e.data).catch((err: unknown) => {
+          // eslint-disable-next-line no-console
+          console.error(`[PluginViewPanel] webview-to-host failed for "${viewId}":`, err)
+        })
       }
     }
     window.addEventListener('message', onMessage)

@@ -18,14 +18,19 @@ const parentPort = (process as any).parentPort as {
   postMessage(message: RpcMessage): void
 }
 
+// C3: a throwing plugin must not silently take down the whole host. Surface the failure
+// on stderr (captured in the app log); on a fatal uncaught exception, exit so the main
+// process rejects in-flight RPCs and can re-fork a clean host.
+process.on('uncaughtException', (err) => { console.error('[plugin-host] uncaughtException:', err); process.exit(1) })
+process.on('unhandledRejection', (reason) => { console.error('[plugin-host] unhandledRejection:', reason) })
+
 const endpoint = new RpcEndpoint({ post: (m) => parentPort.postMessage(m) })
 parentPort.on('message', (e) => { void endpoint.handleMessage(e.data) })
 
-const { api: commandsApi, invokeLocalCommand } = createApi(endpoint)
+const { makeCommandsApi, invokeLocalCommand } = createApi(endpoint)
 const { windowApi, resolveView, deliverMessage, treeGetChildren, onTreeRefresh } = createWindowApi(endpoint)
 const hostTree = endpoint.getProxy<{ $refresh(viewId: string): Promise<void> }>(HOST_TREE)
 onTreeRefresh((viewId) => { void hostTree.$refresh(viewId) })
-const sharedNamespaces = { commands: commandsApi.commands, window: windowApi }
 const workspaceContext = new WorkspaceContext()
 const configContext = new ConfigContext()
 const configProxy = endpoint.getProxy<{ $get(id: string, key: string): Promise<unknown> }>(HOST_CONFIG)
@@ -35,7 +40,7 @@ installPluginRequire()
 const activator = new Activator((t: ActivationTarget): PluginModule => {
   if (t.kind === 'vscode') {
     const { vscode, createContext } = createVscodeShim({
-      commands: commandsApi.commands,
+      commands: makeCommandsApi(t.id),
       configProxy, storageProxy,
       windowApi,
       pluginId: t.id, extensionPath: t.root,
@@ -56,7 +61,7 @@ const activator = new Activator((t: ActivationTarget): PluginModule => {
       deactivate: () => mod.deactivate?.(),
     }
   }
-  const manifold = buildGatedApi(t.capabilities ?? [], sharedNamespaces, {
+  const manifold = buildGatedApi(t.capabilities ?? [], { commands: makeCommandsApi(t.id), window: windowApi }, {
     storage: () => createStorageApi(endpoint, t.id),
     workspace: () => workspaceContext.makeApi(),
     configuration: () => configContext.makeApi(endpoint, t.id),

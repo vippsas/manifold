@@ -53,6 +53,16 @@ export class RpcEndpoint {
     })
   }
 
+  /** Reject every in-flight call. Called when the peer (e.g. the plugin host
+   *  utilityProcess) dies, so awaiting callers fail loudly instead of hanging
+   *  forever. A late reply for an id rejected here is dropped by handleMessage
+   *  (the id is no longer pending). */
+  rejectAllPending(reason: string): void {
+    const error = new Error(reason)
+    for (const waiter of this.pending.values()) waiter.reject(error)
+    this.pending.clear()
+  }
+
   async handleMessage(message: RpcMessage): Promise<void> {
     if (message.t === 'req') {
       const service = this.services.get(message.ctx)

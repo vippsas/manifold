@@ -141,4 +141,77 @@ describe('PluginSettingsSection', () => {
     render(<PluginSettingsSection />)
     await screen.findByText('No plugins installed')
   })
+
+  it('reverts the enable toggle when plugins:set-enabled rejects (and does not leak an unhandled rejection)', async () => {
+    const consoleError = vi.spyOn(console, 'error').mockImplementation(() => {})
+    const unhandled: unknown[] = []
+    const onUnhandled = (e: PromiseRejectionEvent): void => { unhandled.push(e.reason); e.preventDefault() }
+    window.addEventListener('unhandledrejection', onUnhandled)
+    try {
+      const invoke = vi.fn(async (channel: string, ...args: unknown[]) => {
+        if (channel === 'plugins:list') return [MOCK_PLUGIN_A, MOCK_PLUGIN_B]
+        if (channel === 'plugins:get-config') return MOCK_CONFIG_A
+        if (channel === 'plugins:set-enabled') throw new Error('host crashed')
+        return undefined
+      })
+      // @ts-expect-error test stub
+      global.window.electronAPI = { invoke, on: vi.fn(() => () => {}) }
+
+      const { container } = render(<PluginSettingsSection />)
+      await findByDisplayValue(container, 'Hi')
+      const enableBCheckbox = container.querySelector('#pub\\.b-enabled') as HTMLInputElement
+      expect(enableBCheckbox.checked).toBe(false)
+
+      // Optimistically flips to checked, then the rejecting IPC call must revert it.
+      fireEvent.click(enableBCheckbox)
+
+      await waitFor(() => {
+        const cb = container.querySelector('#pub\\.b-enabled') as HTMLInputElement
+        expect(cb.checked).toBe(false)
+      })
+
+      // Error was surfaced via the renderer's logging fallback, not swallowed.
+      expect(consoleError).toHaveBeenCalled()
+      // No unhandled promise rejection escaped.
+      await Promise.resolve()
+      expect(unhandled).toEqual([])
+    } finally {
+      window.removeEventListener('unhandledrejection', onUnhandled)
+      consoleError.mockRestore()
+    }
+  })
+
+  it('reverts a config field change when plugins:set-config rejects', async () => {
+    const consoleError = vi.spyOn(console, 'error').mockImplementation(() => {})
+    const unhandled: unknown[] = []
+    const onUnhandled = (e: PromiseRejectionEvent): void => { unhandled.push(e.reason); e.preventDefault() }
+    window.addEventListener('unhandledrejection', onUnhandled)
+    try {
+      const invoke = vi.fn(async (channel: string, ...args: unknown[]) => {
+        if (channel === 'plugins:list') return [MOCK_PLUGIN_A, MOCK_PLUGIN_B]
+        if (channel === 'plugins:get-config') return MOCK_CONFIG_A
+        if (channel === 'plugins:set-config') throw new Error('host crashed')
+        return undefined
+      })
+      // @ts-expect-error test stub
+      global.window.electronAPI = { invoke, on: vi.fn(() => () => {}) }
+
+      const { container } = render(<PluginSettingsSection />)
+      const input = await findByDisplayValue(container, 'Hi') as HTMLInputElement
+      fireEvent.change(input, { target: { value: 'Howdy' } })
+
+      // After the rejecting set-config, the field reverts to the prior value.
+      await waitFor(() => {
+        const reverted = container.querySelector('#pub\\.a-greeting') as HTMLInputElement
+        expect(reverted.value).toBe('Hi')
+      })
+
+      expect(consoleError).toHaveBeenCalled()
+      await Promise.resolve()
+      expect(unhandled).toEqual([])
+    } finally {
+      window.removeEventListener('unhandledrejection', onUnhandled)
+      consoleError.mockRestore()
+    }
+  })
 })
