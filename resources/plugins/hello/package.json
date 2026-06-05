@@ -1,0 +1,21 @@
+{
+  "name": "hello",
+  "publisher": "manifold",
+  "version": "0.0.1",
+  "displayName": "Hello",
+  "description": "Example plugin — panel arrives in a later phase.",
+  "engines": { "manifold": "^0.3.0" },
+  "main": "./out/plugin.js",
+  "activationEvents": ["onStartupFinished", "onCommand:manifold.hello.ping"],
+  "capabilities": ["storage", "workspace:read", "configuration"],
+  "contributes": {
+    "views": [ { "id": "manifold.hello.panel", "title": "Hello (plugin)", "description": "Example plugin panel.", "launcher": true } ],
+    "commands": [ { "command": "manifold.hello.ping", "title": "Hello: Ping" }, { "command": "manifold.hello.demoUi", "title": "Hello: Demo UI" } ],
+    "configuration": {
+      "title": "Hello",
+      "properties": {
+        "greeting": { "type": "string", "default": "Hello", "description": "Greeting shown in the panel." }
+      }
+    }
+  }
+}

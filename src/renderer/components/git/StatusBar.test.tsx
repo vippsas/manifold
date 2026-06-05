@@ -39,6 +39,9 @@ function mockDockLayout(overrides: Partial<UseDockLayoutResult> = {}): UseDockLa
     hiddenPanels: [],
     editorPanelIds: [],
     layoutVersion: 0,
+    layoutReloadVersion: 0,
+    openPluginView: vi.fn(),
+    openPluginTreeView: vi.fn(),
   }
   return { ...layout, ...overrides }
 }

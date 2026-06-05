@@ -18,6 +18,7 @@ import { registerWorkspaceHandlers } from '../ipc/workspace-handlers'
 import { registerLoopHandlers } from '../ipc/loop-handlers'
 import { registerWatchHandlers } from '../ipc/watch-handlers'
 import { registerVerdictHandlers } from '../ipc/verdict-handlers'
+import { registerPluginHandlers } from '../ipc/plugin-handlers'
 export type { IpcDependencies } from '../ipc/types'
 import type { IpcDependencies } from '../ipc/types'
 
@@ -43,6 +44,7 @@ export function registerIpcHandlers(deps: IpcDependencies): void {
   registerLoopHandlers(deps)
   registerWatchHandlers(deps)
   registerVerdictHandlers(deps)
+  registerPluginHandlers(deps)
 
   // Load a local font file as base64 so the renderer can create a web font
   // from it, bypassing macOS canvas PUA character rendering limitations.

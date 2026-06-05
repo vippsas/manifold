@@ -115,6 +115,12 @@ export interface ManifoldSettings {
   search?: SearchSettings
   provisioning?: import('./provisioning-types').ProvisioningSettings
   transcription?: import('./watch-types').AiServiceSettings
+  pluginConfig?: Record<string, Record<string, unknown>>
+  /** Plugin IDs that have been explicitly disabled by the user. */
+  disabledPlugins?: string[]
+  /** Internal: whether the default-disabled plugin set has been seeded into
+   *  `disabledPlugins` once. Prevents re-disabling a plugin the user later enables. */
+  pluginDefaultsSeeded?: boolean
 }
 
 export interface ReleaseNotes {

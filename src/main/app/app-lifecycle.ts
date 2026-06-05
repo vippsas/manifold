@@ -5,6 +5,7 @@ import { setupAutoUpdater } from './auto-updater'
 import { flushDebugLogSync } from './debug-log'
 import { installWatchSkills } from '../watch/skill-installer'
 import { getBundledWatchSkillPath } from '../watch/resource-path'
+import { installWebviewProtocol } from '../plugins/webview-protocol'
 import type { SettingsStore } from '../store/settings-store'
 import type { PowerManager } from './power-manager'
 import type { MemoryStore } from '../memory/memory-store'
@@ -48,6 +49,7 @@ export function registerAppLifecycle(deps: AppLifecycleDeps): void {
     if (settingsStore.getSettings().keepAwake) {
       powerManager.enable()
     }
+    installWebviewProtocol()
     createWindow()
     setupAutoUpdater()
 

@@ -8,14 +8,16 @@ import { GeneralSettingsSection } from './GeneralSettingsSection'
 import { ProvisioningSettingsSection } from './ProvisioningSettingsSection'
 import { TranscriptionSettingsSection } from './TranscriptionSettingsSection'
 import { SectionCard, SectionHeader } from './SettingsSectionLayout'
+import { PluginSettingsSection } from './PluginSettingsSection'
 
-export type SettingsTabId = 'general' | 'search-ai' | 'provisioning' | 'transcription'
+export type SettingsTabId = 'general' | 'search-ai' | 'provisioning' | 'transcription' | 'plugins'
 
 const SETTINGS_TABS: Array<{ id: SettingsTabId; label: string }> = [
   { id: 'general', label: 'General' },
   { id: 'search-ai', label: 'Search AI' },
   { id: 'provisioning', label: 'Provisioning' },
   { id: 'transcription', label: 'Transcription' },
+  { id: 'plugins', label: 'Plugins' },
 ]
 
 interface Props {
@@ -108,6 +110,7 @@ export function SettingsModalBody(props: Props): React.JSX.Element {
           {props.activeTab === 'transcription' && (
             <TranscriptionSettingsSection value={props.transcription} onChange={props.onTranscriptionChange} />
           )}
+          {props.activeTab === 'plugins' && <PluginSettingsSection />}
         </div>
       </div>
     </div>

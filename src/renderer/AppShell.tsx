@@ -23,6 +23,8 @@ import { AddWorkspaceProjectModal } from './components/modals/AddWorkspaceProjec
 import { DockTab, EmptyWatermark } from './DockTab'
 import { TitleBar } from './components/TitleBar'
 import { DeleteAgentDialog } from './components/sidebar/DeleteAgentDialog'
+import { useLoadPluginContributions } from './plugins/use-contributions'
+import { PluginUiHost } from './components/plugin-ui/PluginUiHost'
 
 export interface AppShellProps {
   themeClass: string
@@ -95,6 +97,7 @@ export interface AppShellProps {
 }
 
 export function AppShell(p: AppShellProps): React.JSX.Element {
+  useLoadPluginContributions()
   const themeType: 'dark' | 'light' = p.themeClass === 'theme-light' ? 'light' : 'dark'
   if (!p.settings.setupCompleted) {
     return (
@@ -244,6 +247,7 @@ export function AppShell(p: AppShellProps): React.JSX.Element {
             onBack={() => p.appEffects.setShowOnboarding(false)} />
         </div>
       )}
+      <PluginUiHost />
     </div>
   )
 }

@@ -42,4 +42,10 @@ export const DEFAULT_SETTINGS: ManifoldSettings = {
   transcription: {
     provider: 'none',
   },
+  pluginConfig: {},
+  // The hello-world sample plugins (the 3 bundled demos + the mark-wiemer.helloworld-2022
+  // VS Code sample) ship disabled by default; users can enable them in Settings → Plugins.
+  // (disabledPlugins is new in this release; settings-store seeds this set into existing
+  // configs once — see resolveDefaults — so the default applies to current installs too.)
+  disabledPlugins: ['manifold.hello', 'manifold.hello-tree', 'manifold.hello-vscode', 'mark-wiemer.helloworld-2022'],
 }

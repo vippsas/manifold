@@ -53,6 +53,8 @@ import { WatchRunStore } from '../watch/run-store'
 import { VerdictStore } from '../store/verdict-store'
 import { VerdictRecorder } from '../session/verdict-recorder'
 import { summarizeMiddle } from '../store/prompt-summarizer'
+import { PluginManager } from '../plugins/plugin-manager'
+import { registerWebviewSchemePrivileged } from '../plugins/webview-protocol'
 
 let mainWindow: BrowserWindow | null = null
 
@@ -130,6 +132,9 @@ const verdictRecorder = new VerdictRecorder({
 sessionManager.setVerdictRecorder(verdictRecorder)
 fileWatcher.setVerdictRecorder(verdictRecorder)
 
+const pluginManager = new PluginManager(settingsStore.getSettings().storagePath, settingsStore)
+pluginManager.scan()
+
 const ipcDeps = {
   settingsStore,
   projectRegistry,
@@ -152,6 +157,8 @@ const ipcDeps = {
   watchRunStore,
   verdictStore,
   verdictRecorder,
+  pluginManager,
+  send: (channel: string, ...args: unknown[]) => { if (mainWindow && !mainWindow.isDestroyed()) mainWindow.webContents.send(channel, ...args) },
 }
 
 function toggleKeepAwake(): void {
@@ -173,6 +180,7 @@ function doCreateWindow(): void {
     wireMainWindow: (w) => {
       sessionManager.setMainWindow(w)
       fileWatcher.setMainWindow(w)
+      pluginManager.setMainWindow(w)
     },
     ipcDeps,
     onToggleKeepAwake: toggleKeepAwake,
@@ -187,6 +195,9 @@ modeSwitcher.register(
   () => mainWindow,
   (win) => { mainWindow = win }
 )
+
+// Register the manifold-webview:// privileged scheme BEFORE app.whenReady().
+registerWebviewSchemePrivileged()
 
 // ── App lifecycle ────────────────────────────────────────────────────
 registerAppLifecycle({

@@ -132,6 +132,19 @@ const ALLOWED_INVOKE_CHANNELS = [
   'simple:subscribe-chat',
   'simple:get-agent-status',
   'simple:get-slash-commands',
+  'plugins:list-contributions',
+  'plugins:list',
+  'plugins:activate',
+  'plugins:execute-command',
+  'plugins:open-view',
+  'plugins:webview-to-host',
+  'plugins:set-active-context',
+  'plugins:get-config',
+  'plugins:set-config',
+  'plugins:open-tree-view',
+  'plugins:tree-get-children',
+  'plugins:ui-response',
+  'plugins:set-enabled',
 ] as const
 
 const ALLOWED_SEND_CHANNELS = [
@@ -169,6 +182,11 @@ const ALLOWED_LISTEN_CHANNELS = [
   'watch:install-progress',
   'watch:playlist-progress',
   'simple:chat-message',
+  'plugins:webview-html',
+  'plugins:webview-message',
+  'plugins:tree-refresh',
+  'plugins:ui-request',
+  'plugins:contributions-changed',
 ] as const
 
 type InvokeChannel = (typeof ALLOWED_INVOKE_CHANNELS)[number]

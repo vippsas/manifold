@@ -189,6 +189,14 @@ export function App(): React.JSX.Element {
     if (appEffects.creatingProject && activeSession) appEffects.setCreatingProject(false)
   }, [appEffects.creatingProject, activeSession, appEffects.setCreatingProject])
 
+  // Push active workspace context to the plugin host whenever project or session changes.
+  useEffect(() => {
+    void window.electronAPI.invoke('plugins:set-active-context', {
+      project: activeProject ? { id: activeProject.id, name: activeProject.name, path: activeProject.path } : undefined,
+      session: activeSession ? { id: activeSession.id, status: activeSession.status, branchName: activeSession.branchName } : undefined,
+    })
+  }, [activeProject?.id, activeProject?.name, activeProject?.path, activeSession?.id, activeSession?.status, activeSession?.branchName])
+
   const activeProjectIsGit = isGitProject(activeProject)
   const baseBranch = activeProjectIsGit ? activeProject?.baseBranch ?? settings.defaultBaseBranch : ''
 
@@ -291,6 +299,8 @@ export function App(): React.JSX.Element {
       else dockLayout.togglePanel(id)
     },
     isModuleOpen: dockLayout.isPanelVisible,
+    onOpenPluginView: dockLayout.openPluginView,
+    onOpenPluginTreeView: dockLayout.openPluginTreeView,
     onFocusPanel: dockLayout.focusPanel,
     onOpenSibling: dockLayout.openSiblingPanel, onCloseSiblingPanel: dockLayout.closeSiblingPanel,
     activeSessionStatus: activeSession?.status ?? null,

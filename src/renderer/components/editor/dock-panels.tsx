@@ -5,11 +5,10 @@ import { FileTree } from './FileTree'
 import { ModifiedFiles } from '../git/ModifiedFiles'
 import { ShellTabs } from '../terminal/ShellTabs'
 import { ProjectSidebar } from '../sidebar/ProjectSidebar'
-import { BackgroundAgentPanel } from '../background-agent/BackgroundAgentPanel'
-import { LoopPanel } from '../loop/LoopPanel'
-import { VerdictsPanel } from '../verdicts/VerdictsPanel'
-import { WatchPanel } from '../watch/WatchPanel'
 import { AgentPanel } from './dock-agent-panel'
+import { PluginViewPanel } from './PluginViewPanel'
+import { PluginTreeViewPanel } from './PluginTreeViewPanel'
+import { getPanelComponents } from '../../plugins/contribution-registry'
 import { useDockState } from './dock-panel-types'
 export type { DockAppState } from './dock-panel-types'
 export { DockStateContext } from './dock-panel-types'
@@ -22,10 +21,11 @@ export const PANEL_COMPONENTS: Record<string, React.FC<any>> = {
   modifiedFiles: ModifiedFilesPanel,
   shell: ShellPanel,
   projects: ProjectsPanel,
-  backgroundAgent: BackgroundAgentPanel,
-  loop: LoopPanel,
-  verdicts: VerdictsPanel,
-  watch: WatchPanel,
+  pluginView: PluginViewPanel,
+  pluginTreeView: PluginTreeViewPanel,
+  // backgroundAgent, loop, verdicts, watch — sourced from the contribution
+  // registry (registered as internal contributions in src/renderer/plugins).
+  ...getPanelComponents(),
 }
 
 function EditorPanel({ api }: { api: { id: string } }): React.JSX.Element {
