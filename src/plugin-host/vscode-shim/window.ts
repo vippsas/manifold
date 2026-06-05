@@ -7,6 +7,8 @@ interface HostMessagesProxy {
 
 interface RealWindowApi {
   registerWebviewViewProvider(viewId: string, provider: unknown): { dispose(): void }
+  registerTreeDataProvider(viewId: string, provider: unknown): { dispose(): void }
+  createTreeView(viewId: string, options: unknown): { dispose(): void }
 }
 
 export function createShimWindow(host: HostMessagesProxy, windowApi: RealWindowApi): Record<string, unknown> {
@@ -18,9 +20,8 @@ export function createShimWindow(host: HostMessagesProxy, windowApi: RealWindowA
     showWarningMessage: show('warning'),
     showErrorMessage: show('error'),
     registerWebviewViewProvider: (viewId: string, provider: unknown) => windowApi.registerWebviewViewProvider(viewId, provider),
-    // Deferred surface — present so references resolve, but throws when called.
-    createTreeView: notImplemented('window.createTreeView'),
-    registerTreeDataProvider: notImplemented('window.registerTreeDataProvider'),
+    registerTreeDataProvider: (viewId: string, provider: unknown) => windowApi.registerTreeDataProvider(viewId, provider),
+    createTreeView: (viewId: string, options: unknown) => windowApi.createTreeView(viewId, options),
     createWebviewPanel: notImplemented('window.createWebviewPanel'),
     showQuickPick: notImplemented('window.showQuickPick'),
     showInputBox: notImplemented('window.showInputBox'),

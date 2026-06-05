@@ -1,6 +1,8 @@
 // src/plugin-host/window-api.ts
 import { HOST_WINDOW, type RpcEndpoint } from '../shared/plugins/rpc'
-import type { Disposable, WebviewView, WebviewViewProvider } from '../shared/plugins/api-types'
+import type { Disposable, TreeDataProvider, TreeView, WebviewView, WebviewViewProvider } from '../shared/plugins/api-types'
+import { TreeRegistry } from './tree-api'
+import type { SerializedTreeItem } from '../shared/plugins/tree'
 
 interface HostWindowProxy {
   $setHtml(viewId: string, html: string): Promise<void>
@@ -9,18 +11,32 @@ interface HostWindowProxy {
 
 /** Builds the `manifold.window` API and the host-side view-resolution logic. */
 export function createWindowApi(endpoint: RpcEndpoint): {
-  windowApi: { registerWebviewViewProvider(viewId: string, provider: WebviewViewProvider): Disposable }
+  windowApi: {
+    registerWebviewViewProvider(viewId: string, provider: WebviewViewProvider): Disposable
+    registerTreeDataProvider(viewId: string, provider: TreeDataProvider): Disposable
+    createTreeView(viewId: string, options: { treeDataProvider: TreeDataProvider }): TreeView
+  }
   resolveView(viewId: string): Promise<void>
   deliverMessage(viewId: string, message: unknown): void
+  treeGetChildren(viewId: string, parentNodeId: string | undefined): Promise<SerializedTreeItem[]>
+  onTreeRefresh(cb: (viewId: string) => void): void
 } {
   const host = endpoint.getProxy<HostWindowProxy>(HOST_WINDOW)
   const providers = new Map<string, WebviewViewProvider>()
   const listeners = new Map<string, Set<(m: unknown) => void>>()
+  const treeRegistry = new TreeRegistry()
 
   const windowApi = {
     registerWebviewViewProvider(viewId: string, provider: WebviewViewProvider): Disposable {
       providers.set(viewId, provider)
       return { dispose: () => { providers.delete(viewId); listeners.delete(viewId) } }
+    },
+    registerTreeDataProvider(viewId: string, provider: TreeDataProvider): Disposable {
+      return treeRegistry.register(viewId, provider)
+    },
+    createTreeView(viewId: string, options: { treeDataProvider: TreeDataProvider }): TreeView {
+      const d = treeRegistry.register(viewId, options.treeDataProvider)
+      return { dispose: d.dispose }
     },
   }
 
@@ -47,5 +63,13 @@ export function createWindowApi(endpoint: RpcEndpoint): {
     for (const listener of set) listener(message)
   }
 
-  return { windowApi, resolveView, deliverMessage }
+  function treeGetChildren(viewId: string, parentNodeId: string | undefined): Promise<SerializedTreeItem[]> {
+    return treeRegistry.getChildren(viewId, parentNodeId)
+  }
+
+  function onTreeRefresh(cb: (viewId: string) => void): void {
+    treeRegistry.onRefresh(cb)
+  }
+
+  return { windowApi, resolveView, deliverMessage, treeGetChildren, onTreeRefresh }
 }

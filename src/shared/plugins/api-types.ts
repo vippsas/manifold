@@ -46,8 +46,8 @@ export interface ManifoldApi {
   }
   window: {
     registerWebviewViewProvider(viewId: string, provider: WebviewViewProvider): Disposable
-    registerTreeDataProvider?(viewId: string, provider: TreeDataProvider): Disposable
-    createTreeView?(viewId: string, options: { treeDataProvider: TreeDataProvider }): TreeView
+    registerTreeDataProvider(viewId: string, provider: TreeDataProvider): Disposable
+    createTreeView(viewId: string, options: { treeDataProvider: TreeDataProvider }): TreeView
   }
   storage: {
     global: {

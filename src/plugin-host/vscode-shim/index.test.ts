@@ -11,7 +11,11 @@ function deps(): VscodeShimDeps {
     messagesProxy: { $showMessage: vi.fn().mockResolvedValue(undefined) },
     configProxy: { $get: vi.fn().mockResolvedValue(undefined) },
     storageProxy: { $get: vi.fn().mockResolvedValue(undefined), $update: vi.fn().mockResolvedValue(undefined) },
-    windowApi: { registerWebviewViewProvider: vi.fn(() => ({ dispose: vi.fn() })) },
+    windowApi: {
+      registerWebviewViewProvider: vi.fn(() => ({ dispose: vi.fn() })),
+      registerTreeDataProvider: vi.fn(() => ({ dispose: vi.fn() })),
+      createTreeView: vi.fn(() => ({ dispose: vi.fn() })),
+    },
     pluginId: 'pub.ext',
     extensionPath: '/ext',
   }
@@ -66,5 +70,13 @@ describe('createVscodeShim', () => {
     expect(() =>
       (vscode.window as { createWebviewPanel(...args: unknown[]): unknown }).createWebviewPanel('t', 'T', 1, {})
     ).toThrow()
+  })
+
+  it('wires createTreeView to the real windowApi', () => {
+    const d = deps()
+    const { vscode } = createVscodeShim(d)
+    const treeDataProvider = { getChildren: () => [], getTreeItem: () => ({ label: 'x' }) }
+    ;(vscode.window as { createTreeView(id: string, opts: unknown): unknown }).createTreeView('v', { treeDataProvider })
+    expect(d.windowApi.createTreeView).toHaveBeenCalledWith('v', { treeDataProvider })
   })
 })

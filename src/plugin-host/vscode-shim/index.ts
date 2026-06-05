@@ -16,7 +16,11 @@ export interface VscodeShimDeps {
   messagesProxy: { $showMessage(level: 'info' | 'warning' | 'error', message: string, items: string[]): Promise<string | undefined> }
   configProxy: { $get(pluginId: string, key: string): Promise<unknown> }
   storageProxy: { $get(pluginId: string, key: string): Promise<unknown>; $update(pluginId: string, key: string, value: unknown): Promise<void> }
-  windowApi: { registerWebviewViewProvider(viewId: string, provider: unknown): { dispose(): void } }
+  windowApi: {
+    registerWebviewViewProvider(viewId: string, provider: unknown): { dispose(): void }
+    registerTreeDataProvider(viewId: string, provider: unknown): { dispose(): void }
+    createTreeView(viewId: string, options: unknown): { dispose(): void }
+  }
   pluginId: string
   extensionPath: string
 }
