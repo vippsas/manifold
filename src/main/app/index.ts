@@ -158,6 +158,7 @@ const ipcDeps = {
   verdictStore,
   verdictRecorder,
   pluginManager,
+  send: (channel: string, ...args: unknown[]) => { if (mainWindow && !mainWindow.isDestroyed()) mainWindow.webContents.send(channel, ...args) },
 }
 
 function toggleKeepAwake(): void {

@@ -144,6 +144,7 @@ const ALLOWED_INVOKE_CHANNELS = [
   'plugins:open-tree-view',
   'plugins:tree-get-children',
   'plugins:ui-response',
+  'plugins:set-enabled',
 ] as const
 
 const ALLOWED_SEND_CHANNELS = [
@@ -185,6 +186,7 @@ const ALLOWED_LISTEN_CHANNELS = [
   'plugins:webview-message',
   'plugins:tree-refresh',
   'plugins:ui-request',
+  'plugins:contributions-changed',
 ] as const
 
 type InvokeChannel = (typeof ALLOWED_INVOKE_CHANNELS)[number]

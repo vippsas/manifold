@@ -43,6 +43,7 @@ export interface IpcDependencies {
   verdictStore: VerdictStore
   verdictRecorder?: VerdictRecorder
   pluginManager: import('../plugins/plugin-manager').PluginManager
+  send?: (channel: string, ...args: unknown[]) => void
 }
 
 export function resolveSession(sessionManager: SessionManager, sessionId: string): AgentSession {
