@@ -43,5 +43,8 @@ export const DEFAULT_SETTINGS: ManifoldSettings = {
     provider: 'none',
   },
   pluginConfig: {},
-  disabledPlugins: [],
+  // The bundled "hello" demo plugins ship disabled by default; users can enable
+  // them in Settings → Plugins. (disabledPlugins is new in this release, so this
+  // default applies to existing installs too — until the user toggles a plugin.)
+  disabledPlugins: ['manifold.hello', 'manifold.hello-tree', 'manifold.hello-vscode'],
 }

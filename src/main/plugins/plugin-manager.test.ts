@@ -1,6 +1,7 @@
 // src/main/plugins/plugin-manager.test.ts
 import { describe, expect, it } from 'vitest'
 import { viewContributionsOf, mergeConfigValue, PluginManager } from './plugin-manager'
+import { DEFAULT_SETTINGS } from '../../shared/defaults'
 import type { PluginDescriptor } from '../../shared/plugins/manifest'
 import type { ManifoldSettings } from '../../shared/types'
 
@@ -77,5 +78,25 @@ describe('PluginManager enable/disable', () => {
     const ids = mgr.listViewContributions().map((c) => c.pluginId)
     expect(ids).toContain('p.enabled')
     expect(ids).not.toContain('p.disabled')
+  })
+})
+
+describe('bundled hello demo plugins disabled by default', () => {
+  const HELLO_IDS = ['manifold.hello', 'manifold.hello-tree', 'manifold.hello-vscode']
+
+  it('reports each bundled hello plugin as disabled under DEFAULT_SETTINGS', () => {
+    const mgr = makeManager({ disabledPlugins: DEFAULT_SETTINGS.disabledPlugins })
+    for (const id of HELLO_IDS) expect(mgr.isEnabled(id)).toBe(false)
+  })
+
+  it('keeps the bundled hello views out of the launcher by default, while other plugins stay visible', () => {
+    const mgr = makeManager({ disabledPlugins: DEFAULT_SETTINGS.disabledPlugins })
+    ;(mgr as never as { plugins: PluginDescriptor[] }).plugins = [
+      desc('manifold.hello', [{ id: 'manifold.hello.panel', title: 'Hello', launcher: true }]),
+      desc('manifold.hello-tree', [{ id: 'manifold.hello-tree.view', title: 'Hello Tree', launcher: true }]),
+      desc('acme.real', [{ id: 'acme.real.view', title: 'Real', launcher: true }]),
+    ]
+    const ids = mgr.listViewContributions().map((c) => c.pluginId)
+    expect(ids).toEqual(['acme.real'])
   })
 })
