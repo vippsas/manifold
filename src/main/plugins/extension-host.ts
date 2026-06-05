@@ -1,12 +1,14 @@
 // src/main/plugins/extension-host.ts
 import { utilityProcess, type UtilityProcess } from 'electron'
 import { join } from 'node:path'
-import { RpcEndpoint, HOST_COMMANDS, HOST_WINDOW, HOST_STORAGE, HOST_CONFIG, HOST_MESSAGES, HOST_TREE, PLUGIN_ACTIVATION, PLUGIN_COMMANDS, PLUGIN_WEBVIEW, PLUGIN_WORKSPACE, PLUGIN_CONFIG, PLUGIN_TREE, type RpcMessage } from '../../shared/plugins/rpc'
+import { RpcEndpoint, HOST_COMMANDS, HOST_WINDOW, HOST_STORAGE, HOST_CONFIG, HOST_MESSAGES, HOST_TREE, HOST_UI, PLUGIN_ACTIVATION, PLUGIN_COMMANDS, PLUGIN_WEBVIEW, PLUGIN_WORKSPACE, PLUGIN_CONFIG, PLUGIN_TREE, type RpcMessage } from '../../shared/plugins/rpc'
 import { CommandRegistry } from './command-registry'
 import { debugLog } from '../app/debug-log'
 import type { ActivationTarget } from '../../plugin-host/activator'
 import type { PluginStorageStore } from './plugin-storage-store'
 import { webviewContentStore } from './webview-content-store'
+import { UiRequestBroker } from './ui-broker'
+import type { MessageLevel, UiRequest } from '../../shared/plugins/ui'
 
 interface PluginActivationProxy { $activate(t: ActivationTarget): Promise<void>; $deactivate(id: string): Promise<void> }
 interface PluginCommandsProxy { $invokeCommand(id: string, args: unknown[]): Promise<unknown> }
@@ -19,6 +21,7 @@ export class ExtensionHost {
   private send: ((channel: string, ...args: unknown[]) => void) | null = null
   private getConfig: ((pluginId: string, key: string) => unknown) | null = null
   private activatingPluginId: string | null = null
+  private readonly ui = new UiRequestBroker(() => this.send)
 
   constructor(private readonly storage: PluginStorageStore) {}
 
@@ -63,6 +66,11 @@ export class ExtensionHost {
         if (this.send) this.send('plugins:notification', level, message)
         else debugLog('[plugins] notification dropped: main window not ready')
       },
+    })
+    endpoint.registerService(HOST_UI, {
+      $showMessage: (level: MessageLevel, message: string, actions: string[]) => this.ui.request({ kind: 'message', level, message, actions } as Omit<UiRequest, 'requestId'>),
+      $showQuickPick: (items: unknown, options: unknown) => this.ui.request({ kind: 'quickPick', items, options } as Omit<UiRequest, 'requestId'>),
+      $showInputBox: (options: unknown) => this.ui.request({ kind: 'inputBox', options } as Omit<UiRequest, 'requestId'>),
     })
     endpoint.registerService(HOST_TREE, {
       $refresh: (viewId: string) => { this.send?.('plugins:tree-refresh', viewId) },
@@ -125,5 +133,7 @@ export class ExtensionHost {
     void endpoint.getProxy<{ $onDidChange(id: string): Promise<void> }>(PLUGIN_CONFIG).$onDidChange(pluginId)
   }
 
-  dispose(): void { this.child?.kill(); this.child = null; this.endpoint = null }
+  resolveUi(requestId: string, value: unknown): void { this.ui.resolve(requestId, value) }
+
+  dispose(): void { this.ui.flush(); this.child?.kill(); this.child = null; this.endpoint = null }
 }

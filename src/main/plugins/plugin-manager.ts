@@ -121,6 +121,8 @@ export class PluginManager {
     this.host.deliverWebviewMessage(viewId, message)
   }
 
+  resolveUiResponse(requestId: string, value: unknown): void { this.host.resolveUi(requestId, value) }
+
   setActiveContext(context: { project?: unknown; session?: unknown }): void {
     this.host.setActiveContext(context)
   }
