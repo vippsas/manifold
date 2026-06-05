@@ -79,4 +79,12 @@ describe('createVscodeShim', () => {
     ;(vscode.window as { createTreeView(id: string, opts: unknown): unknown }).createTreeView('v', { treeDataProvider })
     expect(d.windowApi.createTreeView).toHaveBeenCalledWith('v', { treeDataProvider })
   })
+
+  it('wires registerTreeDataProvider to the real windowApi', () => {
+    const d = deps()
+    const { vscode } = createVscodeShim(d)
+    const provider = { getChildren() { return [] }, getTreeItem() { return { label: 'x' } } }
+    ;(vscode.window as { registerTreeDataProvider(id: string, p: unknown): unknown }).registerTreeDataProvider('v.id', provider)
+    expect(d.windowApi.registerTreeDataProvider).toHaveBeenCalledWith('v.id', provider)
+  })
 })

@@ -36,4 +36,20 @@ describe('TreeRegistry', () => {
     const reg = new TreeRegistry()
     await expect(reg.getChildren('nope', undefined)).rejects.toThrow()
   })
+
+  it('uses TreeItem.id as the nodeId when provided', async () => {
+    const reg = new TreeRegistry()
+    reg.register('v', { getChildren: (el?: string) => (el ? [] : ['x']), getTreeItem: () => ({ label: 'X', id: 'custom-id' }) })
+    const roots = await reg.getChildren('v', undefined)
+    expect(roots[0].nodeId).toBe('custom-id')
+    // and it resolves by that id:
+    expect(await reg.getChildren('v', 'custom-id')).toEqual([]) // 'x' has no children
+  })
+
+  it('returns [] for an unknown/stale nodeId (not roots)', async () => {
+    const reg = new TreeRegistry()
+    reg.register('v', { getChildren: (el?: string) => (el ? [] : ['root1']), getTreeItem: (el: string) => ({ label: el }) })
+    await reg.getChildren('v', undefined)
+    expect(await reg.getChildren('v', 'bogus')).toEqual([])
+  })
 })

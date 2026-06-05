@@ -31,6 +31,7 @@ export class TreeRegistry {
     const state = this.views.get(viewId)
     if (!state) throw new Error(`no tree provider for view: ${viewId}`)
     const parentEl = parentNodeId === undefined ? undefined : state.elements.get(parentNodeId)
+    if (parentNodeId !== undefined && parentEl === undefined) return [] // stale/unknown node (e.g. post-refresh) — not roots
     const children = (await state.provider.getChildren(parentEl as never)) ?? []
     const out: SerializedTreeItem[] = []
     for (const el of children) {
