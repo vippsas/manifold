@@ -83,3 +83,8 @@ Renderer side: `PluginUiHost` component mounts in the app shell and handles the 
 - **C3b** — multi-select QuickPick (`canPickMany`); `InputBox` `validateInput` callback; `QuickPickItem` detail/alwaysShow/separator support.
 - **C4** — `StatusBarItem` (`createStatusBarItem`), `withProgress` (notification progress), `OutputChannel` (`createOutputChannel`).
 - **C2b** — view-containers, context menus, inline actions (deferred from C2).
+
+## Plugin enable/disable from Settings (✅ shipped, plan `2026-06-05-…-enable-disable.md`)
+A persisted `disabledPlugins: string[]` setting; `PluginManager.isEnabled/setEnabled` filters disabled plugins out of `listViewContributions()` and guards the activate/openView/openTreeView/treeGetChildren paths. `plugins:list` is enriched with `enabled`; `plugins:set-enabled` persists + pushes `plugins:contributions-changed`, which the renderer uses to re-fetch contributions and re-seed the registry so the **+ Apps** launcher updates live. The Settings → Plugins tab lists ALL plugins with an enable/disable toggle (config fields shown only when enabled + contributed).
+Gates: 718 tests; typecheck node 16 / web 37 / plugins 0; build OK. Dev-smoke (Electron-only): Settings → Plugins → toggle a plugin off → it disappears from + Apps live; toggle on → reappears; restart → persisted.
+**Known limitation:** deactivation isn't wired (followup I3), so disabling a plugin that's already activated this session removes it from the launcher + blocks new activation immediately, but the running instance lives until app restart.
