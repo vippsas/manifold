@@ -26,7 +26,6 @@ const labelStyle: React.CSSProperties = { fontSize: 12, opacity: 0.75, marginBot
 const descStyle: React.CSSProperties = { fontSize: 11, opacity: 0.55, marginTop: 2 }
 const fieldRow: React.CSSProperties = { display: 'flex', flexDirection: 'column', gap: 4, marginTop: 8 }
 
-const subtitleStyle: React.CSSProperties = { fontSize: 11, opacity: 0.55, marginBottom: 2 }
 const disabledNoteStyle: React.CSSProperties = { fontSize: 11, opacity: 0.55, marginTop: 4, fontStyle: 'italic' }
 
 function invoke<T>(channel: string, ...args: unknown[]): Promise<T> {
@@ -130,7 +129,6 @@ export function PluginSettingsSection(): React.JSX.Element {
                 {plugin.enabled ? 'Enabled' : 'Disabled'}
               </label>
             </div>
-            <div style={subtitleStyle}>{plugin.id}</div>
             {!plugin.enabled && (
               <div style={disabledNoteStyle}>Disabled — hidden from + Apps</div>
             )}
