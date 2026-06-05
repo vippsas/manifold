@@ -23,6 +23,7 @@ export function viewContributionsOf(plugins: PluginDescriptor[]): PluginPanelCon
         launcher: v.launcher ?? false,
         source: 'plugin',
         pluginId: p.id,
+        kind: v.type === 'tree' ? 'tree' : 'webview',
       })
     }
   }

@@ -41,4 +41,38 @@ describe('parseVscodeManifest', () => {
     expect(r.ok).toBe(true)
     if (r.ok) expect(r.manifest.activationEvents).toEqual(['onCommand:foo'])
   })
+  it('maps contributes.views (container keyed) to tree PluginViewContributions', () => {
+    const r = parseVscodeManifest({
+      ...valid,
+      contributes: { views: { myContainer: [{ id: 'v1', name: 'View One' }] } },
+    })
+    expect(r.ok).toBe(true)
+    if (r.ok) {
+      expect(r.manifest.contributes?.views).toEqual([
+        { id: 'v1', title: 'View One', type: 'tree', launcher: true },
+      ])
+    }
+  })
+  it('includes both commands and views when both are present', () => {
+    const r = parseVscodeManifest({
+      ...valid,
+      contributes: {
+        commands: [{ command: 'demo.hello', title: 'Demo: Hello' }],
+        views: { panel: [{ id: 'demo.view', name: 'Demo View' }] },
+      },
+    })
+    expect(r.ok).toBe(true)
+    if (r.ok) {
+      expect(r.manifest.contributes?.commands).toHaveLength(1)
+      expect(r.manifest.contributes?.views).toHaveLength(1)
+    }
+  })
+  it('ignores malformed or absent contributes.views gracefully', () => {
+    const noViews = parseVscodeManifest({ ...valid, contributes: { commands: [{ command: 'x', title: 'X' }] } })
+    expect(noViews.ok).toBe(true)
+    if (noViews.ok) expect(noViews.manifest.contributes?.views).toBeUndefined()
+    const arrayViews = parseVscodeManifest({ ...valid, contributes: { views: [{ id: 'x', name: 'X' }] } })
+    expect(arrayViews.ok).toBe(true)
+    if (arrayViews.ok) expect(arrayViews.manifest.contributes?.views).toBeUndefined()
+  })
 })

@@ -32,9 +32,13 @@ describe('viewContributionsOf', () => {
       desc('p.b', [{ id: 'b.view', title: 'B' }]),
     ])
     expect(out).toEqual([
-      { id: 'a.view', title: 'A', description: 'desc', launcher: true, source: 'plugin', pluginId: 'p.a' },
-      { id: 'b.view', title: 'B', description: '', launcher: false, source: 'plugin', pluginId: 'p.b' },
+      { id: 'a.view', title: 'A', description: 'desc', launcher: true, source: 'plugin', pluginId: 'p.a', kind: 'webview' },
+      { id: 'b.view', title: 'B', description: '', launcher: false, source: 'plugin', pluginId: 'p.b', kind: 'webview' },
     ])
+  })
+  it('sets kind=tree for views with type=tree', () => {
+    const out = viewContributionsOf([desc('p.d', [{ id: 'd.view', title: 'D', type: 'tree', launcher: true }])])
+    expect(out[0].kind).toBe('tree')
   })
   it('returns [] when a plugin has no views', () => {
     expect(viewContributionsOf([desc('p.c', [])])).toEqual([])

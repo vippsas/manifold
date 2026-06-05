@@ -1,5 +1,5 @@
 // src/main/plugins/vscode-manifest.ts
-import type { ManifoldPluginManifest, PluginCommandContribution } from '../../shared/plugins/manifest'
+import type { ManifoldPluginManifest, PluginCommandContribution, PluginViewContribution } from '../../shared/plugins/manifest'
 
 export type VscodeManifestParseResult =
   | { ok: true; manifest: ManifoldPluginManifest }
@@ -41,6 +41,26 @@ export function parseVscodeManifest(raw: unknown): VscodeManifestParseResult {
     }
   }
 
+  // Map VS Code contributes.views (object keyed by container id → array of {id, name})
+  // to Manifold PluginViewContribution[] with type 'tree'.
+  const rawViews = (m.contributes as Record<string, unknown> | undefined)?.views
+  const views: PluginViewContribution[] = []
+  if (rawViews !== null && typeof rawViews === 'object' && !Array.isArray(rawViews)) {
+    for (const containerViews of Object.values(rawViews as Record<string, unknown>)) {
+      if (Array.isArray(containerViews)) {
+        for (const v of containerViews) {
+          if (typeof v === 'object' && v !== null) {
+            const view = v as Record<string, unknown>
+            if (typeof view.id === 'string' && typeof view.name === 'string') {
+              views.push({ id: view.id, title: view.name, type: 'tree', launcher: true })
+            }
+          }
+        }
+      }
+    }
+  }
+
+  const hasContributes = commands.length > 0 || views.length > 0
   const manifest: ManifoldPluginManifest = {
     name: m.name as string,
     publisher: m.publisher as string,
@@ -52,7 +72,12 @@ export function parseVscodeManifest(raw: unknown): VscodeManifestParseResult {
     activationEvents: Array.isArray(m.activationEvents)
       ? (m.activationEvents.filter((e) => typeof e === 'string') as string[])
       : undefined,
-    contributes: commands.length > 0 ? { commands } : undefined,
+    contributes: hasContributes
+      ? {
+          ...(commands.length > 0 ? { commands } : {}),
+          ...(views.length > 0 ? { views } : {}),
+        }
+      : undefined,
   }
   return { ok: true, manifest }
 }
