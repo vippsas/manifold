@@ -104,6 +104,18 @@ export class PluginManager {
     await this.host.resolveView({ id: plugin.id, root: plugin.root, main: plugin.manifest.main, kind: plugin.kind, capabilities: plugin.manifest.capabilities ?? [] }, viewId)
   }
 
+  async openTreeView(viewId: string): Promise<void> {
+    const plugin = this.plugins.find((p) => p.manifest.contributes?.views?.some((v) => v.id === viewId))
+    if (!plugin || !plugin.manifest.main) return
+    await this.host.activate({ id: plugin.id, root: plugin.root, main: plugin.manifest.main, kind: plugin.kind, capabilities: plugin.manifest.capabilities ?? [] })
+  }
+
+  async treeGetChildren(viewId: string, parentNodeId: string | undefined): Promise<unknown> {
+    const plugin = this.plugins.find((p) => p.manifest.contributes?.views?.some((v) => v.id === viewId))
+    if (!plugin || !plugin.manifest.main) return []
+    return this.host.treeGetChildren({ id: plugin.id, root: plugin.root, main: plugin.manifest.main, kind: plugin.kind, capabilities: plugin.manifest.capabilities ?? [] }, viewId, parentNodeId)
+  }
+
   deliverWebviewMessage(viewId: string, message: unknown): void {
     this.host.deliverWebviewMessage(viewId, message)
   }

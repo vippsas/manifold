@@ -16,4 +16,6 @@ export function registerPluginHandlers(deps: IpcDependencies): void {
   })
   ipcMain.handle('plugins:get-config', (_e, pluginId: string) => deps.pluginManager.getConfig(pluginId))
   ipcMain.handle('plugins:set-config', (_e, pluginId: string, key: string, value: unknown) => { deps.pluginManager.setConfig(pluginId, key, value); return true })
+  ipcMain.handle('plugins:open-tree-view', (_e, viewId: string) => deps.pluginManager.openTreeView(viewId))
+  ipcMain.handle('plugins:tree-get-children', (_e, viewId: string, parentNodeId: string | undefined) => deps.pluginManager.treeGetChildren(viewId, parentNodeId))
 }

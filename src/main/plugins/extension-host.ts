@@ -1,7 +1,7 @@
 // src/main/plugins/extension-host.ts
 import { utilityProcess, type UtilityProcess } from 'electron'
 import { join } from 'node:path'
-import { RpcEndpoint, HOST_COMMANDS, HOST_WINDOW, HOST_STORAGE, HOST_CONFIG, HOST_MESSAGES, PLUGIN_ACTIVATION, PLUGIN_COMMANDS, PLUGIN_WEBVIEW, PLUGIN_WORKSPACE, PLUGIN_CONFIG, type RpcMessage } from '../../shared/plugins/rpc'
+import { RpcEndpoint, HOST_COMMANDS, HOST_WINDOW, HOST_STORAGE, HOST_CONFIG, HOST_MESSAGES, HOST_TREE, PLUGIN_ACTIVATION, PLUGIN_COMMANDS, PLUGIN_WEBVIEW, PLUGIN_WORKSPACE, PLUGIN_CONFIG, PLUGIN_TREE, type RpcMessage } from '../../shared/plugins/rpc'
 import { CommandRegistry } from './command-registry'
 import { debugLog } from '../app/debug-log'
 import type { ActivationTarget } from '../../plugin-host/activator'
@@ -64,6 +64,9 @@ export class ExtensionHost {
         else debugLog('[plugins] notification dropped: main window not ready')
       },
     })
+    endpoint.registerService(HOST_TREE, {
+      $refresh: (viewId: string) => { this.send?.('plugins:tree-refresh', viewId) },
+    })
     this.child = child
     this.endpoint = endpoint
     return { endpoint }
@@ -88,6 +91,17 @@ export class ExtensionHost {
       this.activatingPluginId = null
     }
     await endpoint.getProxy<{ $resolveView(viewId: string): Promise<void> }>(PLUGIN_WEBVIEW).$resolveView(viewId)
+  }
+
+  async treeGetChildren(target: ActivationTarget, viewId: string, parentNodeId: string | undefined): Promise<unknown> {
+    const { endpoint } = this.ensure()
+    this.activatingPluginId = target.id
+    try {
+      await endpoint.getProxy<PluginActivationProxy>(PLUGIN_ACTIVATION).$activate(target)
+    } finally {
+      this.activatingPluginId = null
+    }
+    return endpoint.getProxy<{ $getChildren(viewId: string, parentNodeId: string | undefined): Promise<unknown> }>(PLUGIN_TREE).$getChildren(viewId, parentNodeId)
   }
 
   deliverWebviewMessage(viewId: string, message: unknown): void {

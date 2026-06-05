@@ -1,6 +1,6 @@
 // src/plugin-host/index.ts
 import { join } from 'node:path'
-import { RpcEndpoint, PLUGIN_ACTIVATION, PLUGIN_COMMANDS, PLUGIN_WEBVIEW, PLUGIN_WORKSPACE, PLUGIN_CONFIG, HOST_MESSAGES, HOST_CONFIG, HOST_STORAGE, type RpcMessage } from '../shared/plugins/rpc'
+import { RpcEndpoint, PLUGIN_ACTIVATION, PLUGIN_COMMANDS, PLUGIN_WEBVIEW, PLUGIN_WORKSPACE, PLUGIN_CONFIG, HOST_MESSAGES, HOST_CONFIG, HOST_STORAGE, HOST_TREE, PLUGIN_TREE, type RpcMessage } from '../shared/plugins/rpc'
 import { Activator, type ActivationTarget } from './activator'
 import { createApi } from './api-impl'
 import { createWindowApi } from './window-api'
@@ -22,7 +22,9 @@ const endpoint = new RpcEndpoint({ post: (m) => parentPort.postMessage(m) })
 parentPort.on('message', (e) => { void endpoint.handleMessage(e.data) })
 
 const { api: commandsApi, invokeLocalCommand } = createApi(endpoint)
-const { windowApi, resolveView, deliverMessage } = createWindowApi(endpoint)
+const { windowApi, resolveView, deliverMessage, treeGetChildren, onTreeRefresh } = createWindowApi(endpoint)
+const hostTree = endpoint.getProxy<{ $refresh(viewId: string): Promise<void> }>(HOST_TREE)
+onTreeRefresh((viewId) => { void hostTree.$refresh(viewId) })
 const sharedNamespaces = { commands: commandsApi.commands, window: windowApi }
 const workspaceContext = new WorkspaceContext()
 const configContext = new ConfigContext()
@@ -82,4 +84,7 @@ endpoint.registerService(PLUGIN_WORKSPACE, {
 })
 endpoint.registerService(PLUGIN_CONFIG, {
   $onDidChange: (pluginId: string) => configContext.notifyChanged(pluginId),
+})
+endpoint.registerService(PLUGIN_TREE, {
+  $getChildren: (viewId: string, parentNodeId: string | undefined) => treeGetChildren(viewId, parentNodeId),
 })
