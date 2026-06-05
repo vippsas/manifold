@@ -13,6 +13,11 @@ function nodeIcon(icon: string | undefined): string {
   return ICON_MAP[icon] ?? '•'
 }
 
+/** Node ids of items whose collapsibleState is 'expanded' (auto-expand on render). */
+function expandedNodeIds(items: SerializedTreeItem[]): string[] {
+  return items.filter((i) => i.collapsibleState === 'expanded').map((i) => i.nodeId)
+}
+
 interface PluginTreeProps {
   roots: SerializedTreeItem[]
   /** Changing this key collapses all rows and resets the children cache. */
@@ -112,26 +117,63 @@ function TreeRows({ items, depth, expanded, pending, childrenCache, onToggle, on
 }
 
 export function PluginTree({ roots, reloadKey, loadChildren, onActivate }: PluginTreeProps): React.JSX.Element {
-  const [expanded, setExpanded] = useState<Set<string>>(new Set())
+  // Initialize expansion from roots flagged 'expanded' (auto-expand).
+  const [expanded, setExpanded] = useState<Set<string>>(() => new Set(expandedNodeIds(roots)))
   const [pending, setPending] = useState<Set<string>>(new Set())
   const [childrenCache, setChildrenCache] = useState<Map<string, SerializedTreeItem[]>>(new Map())
   const prevReloadKeyRef = useRef(reloadKey)
+  // Bumped on every reset so in-flight loads from a previous generation can be
+  // discarded before they repopulate a freshly-cleared cache (refresh race).
+  const genRef = useRef(0)
 
   // Reset expansion and cache when reloadKey changes (tree was refreshed).
   useEffect(() => {
     if (reloadKey !== prevReloadKeyRef.current) {
       prevReloadKeyRef.current = reloadKey
-      setExpanded(new Set())
+      genRef.current++
+      setExpanded(new Set(expandedNodeIds(roots)))
       setPending(new Set())
       setChildrenCache(new Map())
     }
-  }, [reloadKey])
+  }, [reloadKey, roots])
+
+  // Single load path: any node that is expanded but lacks cached children and
+  // isn't already loading gets a (generation-guarded) load. Drives both
+  // click-expand and auto-expand uniformly. On success, cascade auto-expand
+  // into any newly-loaded children flagged 'expanded'.
+  useEffect(() => {
+    for (const nodeId of expanded) {
+      if (childrenCache.has(nodeId) || pending.has(nodeId)) continue
+      const gen = genRef.current
+      setPending((prev) => new Set([...prev, nodeId]))
+      void loadChildren(nodeId)
+        .then((children) => {
+          if (genRef.current !== gen) return
+          setChildrenCache((prev) => new Map([...prev, [nodeId, children]]))
+          setPending((prev) => {
+            const next = new Set(prev)
+            next.delete(nodeId)
+            return next
+          })
+          const autoExpand = expandedNodeIds(children)
+          if (autoExpand.length > 0) setExpanded((prev) => new Set([...prev, ...autoExpand]))
+        })
+        .catch((err: unknown) => {
+          if (genRef.current !== gen) return
+          // eslint-disable-next-line no-console
+          console.warn(`PluginTree: failed to load children for "${nodeId}"`, err)
+          setPending((prev) => {
+            const next = new Set(prev)
+            next.delete(nodeId)
+            return next
+          })
+        })
+    }
+  }, [expanded, childrenCache, pending, loadChildren])
 
   const handleToggle = (item: SerializedTreeItem): void => {
     const nodeId = item.nodeId
-    const isExpanded = expanded.has(nodeId)
-
-    if (isExpanded) {
+    if (expanded.has(nodeId)) {
       // Collapse
       setExpanded((prev) => {
         const next = new Set(prev)
@@ -139,19 +181,8 @@ export function PluginTree({ roots, reloadKey, loadChildren, onActivate }: Plugi
         return next
       })
     } else {
-      // Expand — if we don't have children yet, load them
+      // Expand — the load effect handles fetching children if needed.
       setExpanded((prev) => new Set([...prev, nodeId]))
-      if (!childrenCache.has(nodeId)) {
-        setPending((prev) => new Set([...prev, nodeId]))
-        void loadChildren(nodeId).then((children) => {
-          setChildrenCache((prev) => new Map([...prev, [nodeId, children]]))
-          setPending((prev) => {
-            const next = new Set(prev)
-            next.delete(nodeId)
-            return next
-          })
-        })
-      }
     }
   }
 

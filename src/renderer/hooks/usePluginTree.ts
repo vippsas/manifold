@@ -10,10 +10,13 @@ export function usePluginTree(viewId: string): {
   const [roots, setRoots] = useState<SerializedTreeItem[]>([])
   const [reloadKey, setReloadKey] = useState(0)
 
-  const loadRoots = useCallback(async (): Promise<void> => {
+  // `isRefresh` controls whether we bump reloadKey. The initial mount load must
+  // NOT bump it (that would make PluginTree reset its just-initialized state);
+  // only an explicit refresh should reset the tree's expansion + cache.
+  const loadRoots = useCallback(async (isRefresh: boolean): Promise<void> => {
     const items = (await window.electronAPI.invoke('plugins:tree-get-children', viewId, undefined)) as SerializedTreeItem[]
     setRoots(items ?? [])
-    setReloadKey((k) => k + 1)
+    if (isRefresh) setReloadKey((k) => k + 1)
   }, [viewId])
 
   const loadChildren = useCallback(
@@ -23,9 +26,9 @@ export function usePluginTree(viewId: string): {
   )
 
   useEffect(() => {
-    void window.electronAPI.invoke('plugins:open-tree-view', viewId).then(() => loadRoots())
-    const off = window.electronAPI.on('plugins:tree-refresh', (...args: unknown[]) => { if (args[0] === viewId) void loadRoots() })
-    return () => { off?.() }
+    void window.electronAPI.invoke('plugins:open-tree-view', viewId).then(() => loadRoots(false))
+    const off = window.electronAPI.on('plugins:tree-refresh', (...args: unknown[]) => { if (args[0] === viewId) void loadRoots(true) })
+    return () => { off() }
   }, [viewId, loadRoots])
 
   return { roots, loadChildren, reloadKey }

@@ -24,6 +24,12 @@ const ROOT_LEAF: SerializedTreeItem = {
   command: { command: 'myExtension.open', args: ['/path'] },
 }
 
+const ROOT_AUTO_EXPANDED: SerializedTreeItem = {
+  nodeId: 'parent-2',
+  label: 'Auto Parent',
+  collapsibleState: 'expanded',
+}
+
 describe('PluginTree', () => {
   it('renders root labels', () => {
     const loadChildren = vi.fn()
@@ -106,5 +112,48 @@ describe('PluginTree', () => {
     )
 
     expect(screen.queryByText('Child Node')).not.toBeInTheDocument()
+  })
+
+  it('caches children: re-expanding a node does not reload', async () => {
+    const loadChildren = vi.fn().mockResolvedValue([CHILD_ITEM])
+    const onActivate = vi.fn()
+    render(
+      <PluginTree
+        roots={[ROOT_COLLAPSIBLE]}
+        reloadKey={0}
+        loadChildren={loadChildren}
+        onActivate={onActivate}
+      />,
+    )
+
+    // Expand → load
+    fireEvent.click(screen.getByText('Parent Node'))
+    await waitFor(() => expect(screen.getByText('Child Node')).toBeInTheDocument())
+
+    // Collapse
+    fireEvent.click(screen.getByText('Parent Node'))
+    await waitFor(() => expect(screen.queryByText('Child Node')).not.toBeInTheDocument())
+
+    // Re-expand → served from cache, no second load
+    fireEvent.click(screen.getByText('Parent Node'))
+    await waitFor(() => expect(screen.getByText('Child Node')).toBeInTheDocument())
+
+    expect(loadChildren).toHaveBeenCalledTimes(1)
+  })
+
+  it('auto-expands a root flagged "expanded" and loads its children without a click', async () => {
+    const loadChildren = vi.fn().mockResolvedValue([CHILD_ITEM])
+    const onActivate = vi.fn()
+    render(
+      <PluginTree
+        roots={[ROOT_AUTO_EXPANDED]}
+        reloadKey={0}
+        loadChildren={loadChildren}
+        onActivate={onActivate}
+      />,
+    )
+
+    await waitFor(() => expect(loadChildren).toHaveBeenCalledWith('parent-2'))
+    await waitFor(() => expect(screen.getByText('Child Node')).toBeInTheDocument())
   })
 })
