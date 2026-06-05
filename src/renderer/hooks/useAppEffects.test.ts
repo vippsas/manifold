@@ -40,6 +40,7 @@ function createInput(activeSessionId: string | null = 'session-1') {
         layoutVersion: 0,
         layoutReloadVersion: 0,
         openPluginView: vi.fn(),
+        openPluginTreeView: vi.fn(),
       } satisfies UseDockLayoutResult,
       settings: { defaultRuntime: 'codex' },
       setActiveProject: vi.fn(),

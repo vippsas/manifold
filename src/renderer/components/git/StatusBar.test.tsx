@@ -41,6 +41,7 @@ function mockDockLayout(overrides: Partial<UseDockLayoutResult> = {}): UseDockLa
     layoutVersion: 0,
     layoutReloadVersion: 0,
     openPluginView: vi.fn(),
+    openPluginTreeView: vi.fn(),
   }
   return { ...layout, ...overrides }
 }

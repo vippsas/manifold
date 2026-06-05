@@ -115,6 +115,8 @@ export interface DockAppState {
   isModuleOpen: (id: DockPanelId) => boolean
   /** Open a plugin-contributed view as a dock panel. */
   onOpenPluginView: (viewId: string, title: string) => void
+  /** Open a plugin-contributed tree view as a native dock panel. */
+  onOpenPluginTreeView: (viewId: string, title: string) => void
   onFocusPanel: (id: string) => void
   onOpenSibling: (sessionId: string, title?: string, referencePanelId?: string) => void
   onCloseSiblingPanel: (sessionId: string) => void

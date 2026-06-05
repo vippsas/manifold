@@ -300,6 +300,7 @@ export function App(): React.JSX.Element {
     },
     isModuleOpen: dockLayout.isPanelVisible,
     onOpenPluginView: dockLayout.openPluginView,
+    onOpenPluginTreeView: dockLayout.openPluginTreeView,
     onFocusPanel: dockLayout.focusPanel,
     onOpenSibling: dockLayout.openSiblingPanel, onCloseSiblingPanel: dockLayout.closeSiblingPanel,
     activeSessionStatus: activeSession?.status ?? null,
