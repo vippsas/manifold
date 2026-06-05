@@ -10,6 +10,22 @@ export interface ManifoldContext {
   pluginUri: string
 }
 
+export interface TreeItem {
+  label: string
+  collapsibleState?: 0 | 1 | 2  // None | Collapsed | Expanded (matches vscode.TreeItemCollapsibleState)
+  id?: string
+  description?: string
+  tooltip?: string
+  iconPath?: string             // codicon-ish name (subset)
+  command?: { command: string; arguments?: unknown[] }
+}
+export interface TreeDataProvider<T = unknown> {
+  getChildren(element?: T): T[] | undefined | Promise<T[] | undefined>
+  getTreeItem(element: T): TreeItem | Promise<TreeItem>
+  onDidChangeTreeData?: (listener: () => void) => Disposable
+}
+export interface TreeView extends Disposable { /* C2: opaque handle; reveal/selection deferred */ }
+
 export interface WebviewView {
   webview: {
     html: string
@@ -30,6 +46,8 @@ export interface ManifoldApi {
   }
   window: {
     registerWebviewViewProvider(viewId: string, provider: WebviewViewProvider): Disposable
+    registerTreeDataProvider?(viewId: string, provider: TreeDataProvider): Disposable
+    createTreeView?(viewId: string, options: { treeDataProvider: TreeDataProvider }): TreeView
   }
   storage: {
     global: {

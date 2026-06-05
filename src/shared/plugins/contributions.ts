@@ -25,4 +25,6 @@ export interface PanelContribution {
   launcher: boolean
   /** Origin of the contribution. */
   source: ContributionSource
+  /** 'webview' (default) or 'tree'. */
+  kind?: 'webview' | 'tree'
 }

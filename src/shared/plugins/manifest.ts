@@ -10,6 +10,8 @@ export interface PluginViewContribution {
   description?: string
   /** Whether the view appears in the "+ Apps" launcher. */
   launcher?: boolean
+  /** 'webview' (iframe, default) or 'tree' (native TreeDataProvider). */
+  type?: 'webview' | 'tree'
 }
 
 export interface PluginCommandContribution {

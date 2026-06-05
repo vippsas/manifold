@@ -21,6 +21,8 @@ export const PLUGIN_WORKSPACE = 'PluginWorkspace'   // host, called by main
 export const HOST_CONFIG = 'HostConfig'             // main, called by host
 export const PLUGIN_CONFIG = 'PluginConfig'         // host, called by main
 export const HOST_MESSAGES = 'HostMessages'         // main, called by host
+export const HOST_TREE = 'HostTree'                 // main, called by host (refresh notifications)
+export const PLUGIN_TREE = 'PluginTree'             // host, called by main (get children)
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type ServiceImpl = Record<string, (...args: any[]) => unknown>
