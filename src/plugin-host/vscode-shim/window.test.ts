@@ -48,7 +48,7 @@ describe('shim window', () => {
     expect(() => (w as { createWebviewPanel: () => unknown }).createWebviewPanel()).toThrow(/createWebviewPanel/)
   })
 
-  it('createTreeView throws a VscodeShimError (deferred to Phase C)', () => {
+  it('createTreeView delegates to windowApi', () => {
     const windowApi = makeWindowApi({ createTreeView: vi.fn(() => ({ dispose: vi.fn() })) })
     const w = createShimWindow(windowApi)
     // createTreeView is delegated to windowApi — calling with no args is fine (windowApi.createTreeView returns a disposable)
