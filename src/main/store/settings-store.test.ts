@@ -91,7 +91,7 @@ describe('SettingsStore', () => {
   })
 
   describe('default-disabled plugin seeding', () => {
-    const HELLO = ['manifold.hello', 'manifold.hello-tree', 'manifold.hello-vscode']
+    const HELLO = ['manifold.hello', 'manifold.hello-tree', 'manifold.hello-vscode', 'mark-wiemer.helloworld-2022']
 
     it('seeds the default-disabled plugins into a pre-existing config that lacks the marker', () => {
       // A config written before this release: has disabledPlugins but no pluginDefaultsSeeded.

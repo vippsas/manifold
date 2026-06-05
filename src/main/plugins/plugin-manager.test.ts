@@ -81,10 +81,10 @@ describe('PluginManager enable/disable', () => {
   })
 })
 
-describe('bundled hello demo plugins disabled by default', () => {
-  const HELLO_IDS = ['manifold.hello', 'manifold.hello-tree', 'manifold.hello-vscode']
+describe('hello-world sample plugins disabled by default', () => {
+  const HELLO_IDS = ['manifold.hello', 'manifold.hello-tree', 'manifold.hello-vscode', 'mark-wiemer.helloworld-2022']
 
-  it('reports each bundled hello plugin as disabled under DEFAULT_SETTINGS', () => {
+  it('reports each hello-world sample plugin as disabled under DEFAULT_SETTINGS', () => {
     const mgr = makeManager({ disabledPlugins: DEFAULT_SETTINGS.disabledPlugins })
     for (const id of HELLO_IDS) expect(mgr.isEnabled(id)).toBe(false)
   })
