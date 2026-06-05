@@ -6,6 +6,15 @@ export function activate(context: ManifoldContext): void {
   context.subscriptions.push(
     manifold.commands.registerCommand('manifold.hello.ping', (name?: string) => `pong:${name ?? 'world'}`),
   )
+  context.subscriptions.push(manifold.commands.registerCommand('manifold.hello.demoUi', async () => {
+    const name = await manifold.window.showInputBox({ prompt: 'What is your name?', placeholder: 'e.g. Daisy' })
+    if (name === undefined) return
+    const color = await manifold.window.showQuickPick(['Red', 'Green', 'Blue'], { placeholder: 'Pick a color' })
+    if (color === undefined) return
+    const choice = await manifold.window.showInformationMessage(`Hi ${name} — you picked ${String(color)}.`, 'Nice', 'Meh')
+    // choice is the clicked button label or undefined
+    return `${name}:${String(color)}:${choice ?? 'dismissed'}`
+  }))
   context.subscriptions.push(
     manifold.window.registerWebviewViewProvider('manifold.hello.panel', {
       async resolveWebviewView(view: WebviewView) {

@@ -10,7 +10,7 @@
   "capabilities": ["storage", "workspace:read", "configuration"],
   "contributes": {
     "views": [ { "id": "manifold.hello.panel", "title": "Hello (plugin)", "description": "Example plugin panel.", "launcher": true } ],
-    "commands": [ { "command": "manifold.hello.ping", "title": "Hello: Ping" } ],
+    "commands": [ { "command": "manifold.hello.ping", "title": "Hello: Ping" }, { "command": "manifold.hello.demoUi", "title": "Hello: Demo UI" } ],
     "configuration": {
       "title": "Hello",
       "properties": {

@@ -61,3 +61,25 @@ A functional, lazily-loaded native tree for plugins. `manifold.window.registerTr
 Automated gates: 684 tests green; typecheck node 16 / web 37 / plugins 0; `npm run build` builds host + `hello`/`hello-tree`. Dev-smoke (Electron-only): open **+ Apps → Hello Tree** → expand **Fruits** (lazy children load), click **Counter: N** (increments + tree refreshes). _Result: pending user confirmation._
 
 Remaining: **C2b** view-containers (activity-bar grouping), context menus (`contextValue` + `view/item/context`), inline actions, rich/file icons, reveal/selection. **C3** QuickPick/InputBox. **C4** StatusBar/withProgress/OutputChannel. **D** auth (Entra) + `FileSystemProvider` + the resources API — still required before `vscode-azurestorage`/`azureresourcegroups` actually function.
+
+## Phase C3 — UI primitives (✅ shipped)
+
+Native + vscode-shim `showInformationMessage`/`showWarningMessage`/`showErrorMessage`/`showQuickPick`/`showInputBox` all flow over a unified **HOST_UI request→response broker**: the plugin host sends a `plugins:ui-request` IPC with a typed payload (`showMessage` / `showQuickPick` / `showInputBox`), blocks on a `Promise` keyed by a `reqId`, and the renderer resolves it via `plugins:ui-response` once the user acts. The legacy `HOST_MESSAGES` channel (one-way fire-and-forget toasts) is retired; all UI calls are now two-way. The vscode-shim `window.show*Message`/`showQuickPick`/`showInputBox` methods delegate to the same host-side broker.
+
+Renderer side: `PluginUiHost` component mounts in the app shell and handles the three request types:
+- **showMessage** → a toast notification (`showInformationMessage` / `showWarningMessage` / `showErrorMessage`) with zero or more action buttons; resolves with the clicked button label or `undefined` (dismissed).
+- **showQuickPick** → a `QuickPick` overlay (filterable list, arrow+Enter navigation, Escape = cancel); accepts `string[]` or `QuickPickItem[]`; resolves with the selected item or `undefined`.
+- **showInputBox** → an `InputBox` overlay (prompt, placeholder, optional `validateInput`); resolves with the entered string or `undefined` (cancelled).
+
+`InputBoxOptions` / `QuickPickOptions` / `QuickPickItem` are defined in `src/shared/plugins/ui.ts` and exposed via `ManifoldApi`/`api-types.ts`.
+
+**Demo command** (`manifold.hello.demoUi`) added to `resources/plugins/hello`: runs the three primitives in sequence — input box → quick pick of 3 colors → info toast with two buttons — and returns `name:color:buttonOrDismissed`.
+
+**Automated gates:** 60/60 vitest (plugins) green; typecheck plugins 0; typecheck node 16; `npm run build:plugins` builds `hello` + `hello-tree`.
+
+**Dev-smoke (Electron-only, pending user confirmation):** run the `hello` plugin's `manifold.hello.demoUi` command (via the panel or `plugins:execute-command`) → an input box prompts for a name → a quick pick of Red/Green/Blue appears (type to filter, arrow/Enter to select) → an info toast with **Nice** and **Meh** buttons resolves to the clicked button label. The return value is logged as `name:color:buttonOrDismissed`.
+
+**Remaining:**
+- **C3b** — multi-select QuickPick (`canPickMany`); `InputBox` `validateInput` callback; `QuickPickItem` detail/alwaysShow/separator support.
+- **C4** — `StatusBarItem` (`createStatusBarItem`), `withProgress` (notification progress), `OutputChannel` (`createOutputChannel`).
+- **C2b** — view-containers, context menus, inline actions (deferred from C2).
