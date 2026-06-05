@@ -183,7 +183,6 @@ const ALLOWED_LISTEN_CHANNELS = [
   'simple:chat-message',
   'plugins:webview-html',
   'plugins:webview-message',
-  'plugins:notification',
   'plugins:tree-refresh',
   'plugins:ui-request',
 ] as const

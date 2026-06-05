@@ -1,13 +1,15 @@
 import { afterEach, describe, expect, it } from 'vitest'
 import { resolve } from 'node:path'
 import { createRequire } from 'node:module'
-import { RpcEndpoint, HOST_COMMANDS, HOST_CONFIG, HOST_MESSAGES, HOST_STORAGE, PLUGIN_ACTIVATION, PLUGIN_COMMANDS, type RpcMessage } from '../../shared/plugins/rpc'
+import { RpcEndpoint, HOST_COMMANDS, HOST_CONFIG, HOST_STORAGE, HOST_UI, PLUGIN_ACTIVATION, PLUGIN_COMMANDS, type RpcMessage } from '../../shared/plugins/rpc'
 import { Activator, type ActivationTarget } from '../../plugin-host/activator'
 import { createApi } from '../../plugin-host/api-impl'
+import { createWindowApi } from '../../plugin-host/window-api'
 import { installPluginRequire, registerPluginApis, unregisterPluginApis, resolvePluginModule } from '../../plugin-host/require-interceptor'
 import { createVscodeShim } from '../../plugin-host/vscode-shim'
 import { CommandRegistry } from './command-registry'
 import type { PluginModule } from '../../shared/plugins/api-types'
+import type { MessageLevel } from '../../shared/plugins/ui'
 
 const FIXTURE = resolve(__dirname, '../../../resources/plugins/hello-vscode')
 const FIXTURE_MAIN = resolve(FIXTURE, 'out/extension.js')
@@ -46,7 +48,7 @@ describe('vscode shim end-to-end (in-memory RPC)', () => {
 
   it('activates an unmodified vscode extension and runs its command', async () => {
     const { host, main } = wireHostAndMain()
-    const messages: Array<{ level: string; message: string; items: string[] }> = []
+    const messages: Array<{ level: string; message: string; actions: string[] }> = []
     const store = new Map<string, unknown>()
     const registry = new CommandRegistry()
 
@@ -57,8 +59,10 @@ describe('vscode shim end-to-end (in-memory RPC)', () => {
       $unregisterCommand: (id: string) => { registry.unregister(id, 'manifold.hello-vscode') },
       $executeCommand: (id: string, args: unknown[]) => registry.execute(id, args),
     })
-    main.registerService(HOST_MESSAGES, {
-      $showMessage: (level: string, message: string, items: string[]) => { messages.push({ level, message, items }); return undefined },
+    main.registerService(HOST_UI, {
+      $showMessage: (level: MessageLevel, message: string, actions: string[]) => { messages.push({ level, message, actions }); return Promise.resolve(undefined) },
+      $showQuickPick: () => Promise.resolve(undefined),
+      $showInputBox: () => Promise.resolve(undefined),
     })
     main.registerService(HOST_STORAGE, {
       $get: (_id: string, key: string) => store.get(key),
@@ -72,8 +76,7 @@ describe('vscode shim end-to-end (in-memory RPC)', () => {
 
     // --- Host side: shared command API + the shim, wired into the Activator. ---
     const { api: commandsApi, invokeLocalCommand } = createApi(host)
-    // getProxy<never>: the concrete per-service proxy interfaces aren't exported from rpc.ts, so we structurally escape and rely on the shim's own typed deps.
-    const messagesProxy = host.getProxy<never>(HOST_MESSAGES)
+    const { windowApi } = createWindowApi(host)
     const storageProxy = host.getProxy<never>(HOST_STORAGE)
     const configProxy = host.getProxy<never>(HOST_CONFIG)
 
@@ -82,7 +85,7 @@ describe('vscode shim end-to-end (in-memory RPC)', () => {
     const activator = new Activator((t: ActivationTarget): PluginModule => {
       const { vscode, createContext } = createVscodeShim({
         commands: commandsApi.commands,
-        messagesProxy: messagesProxy as never,
+        windowApi,
         configProxy: configProxy as never,
         storageProxy: storageProxy as never,
         pluginId: t.id,
@@ -124,8 +127,8 @@ describe('vscode shim end-to-end (in-memory RPC)', () => {
     const result = await registry.execute('helloVscode.hello', [])
     expect(result).toBe('greeted:1')
 
-    // showInformationMessage reached HOST_MESSAGES.
-    expect(messages).toEqual([{ level: 'info', message: 'Hello from a VS Code extension (greet #1)', items: [] }])
+    // showInformationMessage reached HOST_UI.
+    expect(messages).toEqual([{ level: 'info', message: 'Hello from a VS Code extension (greet #1)', actions: [] }])
 
     // globalState.update persisted to HOST_STORAGE under the global-prefixed key.
     expect(store.get('global:greetCount')).toBe(1)

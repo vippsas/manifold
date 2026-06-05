@@ -50,11 +50,11 @@ export interface ManifoldApi {
     registerWebviewViewProvider(viewId: string, provider: WebviewViewProvider): Disposable
     registerTreeDataProvider(viewId: string, provider: TreeDataProvider): Disposable
     createTreeView(viewId: string, options: { treeDataProvider: TreeDataProvider }): TreeView
-    showInformationMessage?(message: string, ...actions: string[]): Promise<string | undefined>
-    showWarningMessage?(message: string, ...actions: string[]): Promise<string | undefined>
-    showErrorMessage?(message: string, ...actions: string[]): Promise<string | undefined>
-    showQuickPick?(items: ReadonlyArray<string | QuickPickItem>, options?: QuickPickOptions): Promise<QuickPickItem | string | undefined>
-    showInputBox?(options?: InputBoxOptions): Promise<string | undefined>
+    showInformationMessage(message: string, ...actions: string[]): Promise<string | undefined>
+    showWarningMessage(message: string, ...actions: string[]): Promise<string | undefined>
+    showErrorMessage(message: string, ...actions: string[]): Promise<string | undefined>
+    showQuickPick(items: ReadonlyArray<string | QuickPickItem>, options?: QuickPickOptions): Promise<QuickPickItem | string | undefined>
+    showInputBox(options?: InputBoxOptions): Promise<string | undefined>
   }
   storage: {
     global: {

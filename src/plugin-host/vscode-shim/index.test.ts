@@ -8,13 +8,17 @@ function deps(): VscodeShimDeps {
       registerCommand: vi.fn(() => ({ dispose: vi.fn() })),
       executeCommand: vi.fn().mockResolvedValue(undefined),
     },
-    messagesProxy: { $showMessage: vi.fn().mockResolvedValue(undefined) },
     configProxy: { $get: vi.fn().mockResolvedValue(undefined) },
     storageProxy: { $get: vi.fn().mockResolvedValue(undefined), $update: vi.fn().mockResolvedValue(undefined) },
     windowApi: {
       registerWebviewViewProvider: vi.fn(() => ({ dispose: vi.fn() })),
       registerTreeDataProvider: vi.fn(() => ({ dispose: vi.fn() })),
       createTreeView: vi.fn(() => ({ dispose: vi.fn() })),
+      showInformationMessage: vi.fn().mockResolvedValue(undefined),
+      showWarningMessage: vi.fn().mockResolvedValue(undefined),
+      showErrorMessage: vi.fn().mockResolvedValue(undefined),
+      showQuickPick: vi.fn().mockResolvedValue(undefined),
+      showInputBox: vi.fn().mockResolvedValue(undefined),
     },
     pluginId: 'pub.ext',
     extensionPath: '/ext',
@@ -41,11 +45,40 @@ describe('createVscodeShim', () => {
     expect(d.storageProxy.$update).toHaveBeenCalledWith('pub.ext', 'global:k', 1)
   })
 
-  it('wires window to messagesProxy', async () => {
+  it('wires showInformationMessage to windowApi', async () => {
     const d = deps()
     const { vscode } = createVscodeShim(d)
     await (vscode.window as { showInformationMessage(m: string): Promise<unknown> }).showInformationMessage('hi')
-    expect(d.messagesProxy.$showMessage).toHaveBeenCalledWith('info', 'hi', [])
+    expect(d.windowApi.showInformationMessage).toHaveBeenCalledWith('hi')
+  })
+
+  it('wires showWarningMessage to windowApi', async () => {
+    const d = deps()
+    const { vscode } = createVscodeShim(d)
+    await (vscode.window as { showWarningMessage(m: string): Promise<unknown> }).showWarningMessage('warn')
+    expect(d.windowApi.showWarningMessage).toHaveBeenCalledWith('warn')
+  })
+
+  it('wires showErrorMessage to windowApi', async () => {
+    const d = deps()
+    const { vscode } = createVscodeShim(d)
+    await (vscode.window as { showErrorMessage(m: string): Promise<unknown> }).showErrorMessage('err')
+    expect(d.windowApi.showErrorMessage).toHaveBeenCalledWith('err')
+  })
+
+  it('wires showQuickPick to windowApi', async () => {
+    const d = deps()
+    const { vscode } = createVscodeShim(d)
+    const items = [{ label: 'a' }, { label: 'b' }]
+    await (vscode.window as { showQuickPick(items: unknown, opts?: unknown): Promise<unknown> }).showQuickPick(items, { placeholder: 'choose' })
+    expect(d.windowApi.showQuickPick).toHaveBeenCalledWith(items, { placeholder: 'choose' })
+  })
+
+  it('wires showInputBox to windowApi', async () => {
+    const d = deps()
+    const { vscode } = createVscodeShim(d)
+    await (vscode.window as { showInputBox(opts?: unknown): Promise<unknown> }).showInputBox({ prompt: 'type here' })
+    expect(d.windowApi.showInputBox).toHaveBeenCalledWith({ prompt: 'type here' })
   })
 
   it('wires workspace to configProxy', async () => {

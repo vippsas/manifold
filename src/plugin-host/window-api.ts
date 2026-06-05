@@ -1,12 +1,20 @@
 // src/plugin-host/window-api.ts
-import { HOST_WINDOW, type RpcEndpoint } from '../shared/plugins/rpc'
+import { HOST_WINDOW, HOST_UI, type RpcEndpoint } from '../shared/plugins/rpc'
 import type { Disposable, TreeDataProvider, TreeView, WebviewView, WebviewViewProvider } from '../shared/plugins/api-types'
 import { TreeRegistry } from './tree-api'
 import type { SerializedTreeItem } from '../shared/plugins/tree'
+import { normalizeQuickPickItems } from '../shared/plugins/ui'
+import type { QuickPickItem, QuickPickOptions, InputBoxOptions } from '../shared/plugins/ui'
 
 interface HostWindowProxy {
   $setHtml(viewId: string, html: string): Promise<void>
   $postToWebview(viewId: string, message: unknown): Promise<void>
+}
+
+interface HostUiProxy {
+  $showMessage(level: string, message: string, actions: string[]): Promise<string | undefined>
+  $showQuickPick(items: QuickPickItem[], options: QuickPickOptions): Promise<QuickPickItem | undefined>
+  $showInputBox(options: InputBoxOptions): Promise<string | undefined>
 }
 
 /** Builds the `manifold.window` API and the host-side view-resolution logic. */
@@ -15,6 +23,11 @@ export function createWindowApi(endpoint: RpcEndpoint): {
     registerWebviewViewProvider(viewId: string, provider: WebviewViewProvider): Disposable
     registerTreeDataProvider(viewId: string, provider: TreeDataProvider): Disposable
     createTreeView(viewId: string, options: { treeDataProvider: TreeDataProvider }): TreeView
+    showInformationMessage(message: string, ...actions: string[]): Promise<string | undefined>
+    showWarningMessage(message: string, ...actions: string[]): Promise<string | undefined>
+    showErrorMessage(message: string, ...actions: string[]): Promise<string | undefined>
+    showQuickPick(items: ReadonlyArray<string | QuickPickItem>, options?: QuickPickOptions): Promise<QuickPickItem | string | undefined>
+    showInputBox(options?: InputBoxOptions): Promise<string | undefined>
   }
   resolveView(viewId: string): Promise<void>
   deliverMessage(viewId: string, message: unknown): void
@@ -22,6 +35,7 @@ export function createWindowApi(endpoint: RpcEndpoint): {
   onTreeRefresh(cb: (viewId: string) => void): void
 } {
   const host = endpoint.getProxy<HostWindowProxy>(HOST_WINDOW)
+  const hostUi = endpoint.getProxy<HostUiProxy>(HOST_UI)
   const providers = new Map<string, WebviewViewProvider>()
   const listeners = new Map<string, Set<(m: unknown) => void>>()
   const treeRegistry = new TreeRegistry()
@@ -38,6 +52,15 @@ export function createWindowApi(endpoint: RpcEndpoint): {
       const d = treeRegistry.register(viewId, options.treeDataProvider)
       return { dispose: d.dispose }
     },
+    showInformationMessage: (message: string, ...actions: string[]) => hostUi.$showMessage('info', message, actions),
+    showWarningMessage: (message: string, ...actions: string[]) => hostUi.$showMessage('warning', message, actions),
+    showErrorMessage: (message: string, ...actions: string[]) => hostUi.$showMessage('error', message, actions),
+    showQuickPick: async (items: ReadonlyArray<string | QuickPickItem>, options: QuickPickOptions = {}) => {
+      const wasStrings = items.every((i) => typeof i === 'string')
+      const picked = await hostUi.$showQuickPick(normalizeQuickPickItems(items), options)
+      return wasStrings && picked ? picked.label : picked
+    },
+    showInputBox: (options: InputBoxOptions = {}) => hostUi.$showInputBox(options),
   }
 
   async function resolveView(viewId: string): Promise<void> {

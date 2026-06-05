@@ -1,6 +1,6 @@
 // src/plugin-host/index.ts
 import { join } from 'node:path'
-import { RpcEndpoint, PLUGIN_ACTIVATION, PLUGIN_COMMANDS, PLUGIN_WEBVIEW, PLUGIN_WORKSPACE, PLUGIN_CONFIG, HOST_MESSAGES, HOST_CONFIG, HOST_STORAGE, HOST_TREE, PLUGIN_TREE, type RpcMessage } from '../shared/plugins/rpc'
+import { RpcEndpoint, PLUGIN_ACTIVATION, PLUGIN_COMMANDS, PLUGIN_WEBVIEW, PLUGIN_WORKSPACE, PLUGIN_CONFIG, HOST_CONFIG, HOST_STORAGE, HOST_TREE, PLUGIN_TREE, type RpcMessage } from '../shared/plugins/rpc'
 import { Activator, type ActivationTarget } from './activator'
 import { createApi } from './api-impl'
 import { createWindowApi } from './window-api'
@@ -28,7 +28,6 @@ onTreeRefresh((viewId) => { void hostTree.$refresh(viewId) })
 const sharedNamespaces = { commands: commandsApi.commands, window: windowApi }
 const workspaceContext = new WorkspaceContext()
 const configContext = new ConfigContext()
-const messagesProxy = endpoint.getProxy<{ $showMessage(l: 'info' | 'warning' | 'error', m: string, i: string[]): Promise<string | undefined> }>(HOST_MESSAGES)
 const configProxy = endpoint.getProxy<{ $get(id: string, key: string): Promise<unknown> }>(HOST_CONFIG)
 const storageProxy = endpoint.getProxy<{ $get(id: string, key: string): Promise<unknown>; $update(id: string, key: string, v: unknown): Promise<void> }>(HOST_STORAGE)
 installPluginRequire()
@@ -37,7 +36,7 @@ const activator = new Activator((t: ActivationTarget): PluginModule => {
   if (t.kind === 'vscode') {
     const { vscode, createContext } = createVscodeShim({
       commands: commandsApi.commands,
-      messagesProxy, configProxy, storageProxy,
+      configProxy, storageProxy,
       windowApi,
       pluginId: t.id, extensionPath: t.root,
     })

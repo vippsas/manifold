@@ -1,7 +1,7 @@
 // src/main/plugins/extension-host.ts
 import { utilityProcess, type UtilityProcess } from 'electron'
 import { join } from 'node:path'
-import { RpcEndpoint, HOST_COMMANDS, HOST_WINDOW, HOST_STORAGE, HOST_CONFIG, HOST_MESSAGES, HOST_TREE, HOST_UI, PLUGIN_ACTIVATION, PLUGIN_COMMANDS, PLUGIN_WEBVIEW, PLUGIN_WORKSPACE, PLUGIN_CONFIG, PLUGIN_TREE, type RpcMessage } from '../../shared/plugins/rpc'
+import { RpcEndpoint, HOST_COMMANDS, HOST_WINDOW, HOST_STORAGE, HOST_CONFIG, HOST_TREE, HOST_UI, PLUGIN_ACTIVATION, PLUGIN_COMMANDS, PLUGIN_WEBVIEW, PLUGIN_WORKSPACE, PLUGIN_CONFIG, PLUGIN_TREE, type RpcMessage } from '../../shared/plugins/rpc'
 import { CommandRegistry } from './command-registry'
 import { debugLog } from '../app/debug-log'
 import type { ActivationTarget } from '../../plugin-host/activator'
@@ -58,14 +58,6 @@ export class ExtensionHost {
     })
     endpoint.registerService(HOST_CONFIG, {
       $get: (pluginId: string, key: string) => this.getConfig?.(pluginId, key),
-    })
-    endpoint.registerService(HOST_MESSAGES, {
-      // Phase B: _items (button labels) deferred — no selection UI yet, so this always resolves undefined.
-      $showMessage: (level: string, message: string, _items: string[]) => {
-        debugLog(`[plugins] message(${level}): ${message}`)
-        if (this.send) this.send('plugins:notification', level, message)
-        else debugLog('[plugins] notification dropped: main window not ready')
-      },
     })
     endpoint.registerService(HOST_UI, {
       $showMessage: (level: MessageLevel, message: string, actions: string[]) => this.ui.request({ kind: 'message', level, message, actions } as Omit<UiRequest, 'requestId'>),
