@@ -1,12 +1,23 @@
 // src/main/plugins/plugin-manager.test.ts
 import { describe, expect, it } from 'vitest'
-import { viewContributionsOf, mergeConfigValue } from './plugin-manager'
+import { viewContributionsOf, mergeConfigValue, PluginManager } from './plugin-manager'
 import type { PluginDescriptor } from '../../shared/plugins/manifest'
+import type { ManifoldSettings } from '../../shared/types'
 
 const desc = (id: string, views: unknown[]): PluginDescriptor => ({
-  id, root: '/x', origin: 'user',
+  id, root: '/x', origin: 'user', kind: 'manifold',
   manifest: { name: id, publisher: 'p', version: '1.0.0', engines: { manifold: '^0.3.0' }, contributes: { views: views as never } },
 })
+
+function makeManager(initial: Partial<ManifoldSettings> = {}) {
+  let settings: ManifoldSettings = { storagePath: '/tmp', setupCompleted: false, lastSeenReleaseNotesVersion: '', defaultRuntime: 'claude', theme: 'dark', scrollbackLines: 5000, terminalFontFamily: '', defaultBaseBranch: 'main', notificationSound: true, shellPrompt: true, shellHistoryScope: 'project', uiMode: 'developer', autoGenerateMessages: true, showCommitAndPrButtons: false, sidebarResizeReversed: false, keepAwake: false, ...initial }
+  const store = {
+    getSettings: () => settings,
+    updateSettings: (patch: Partial<ManifoldSettings>) => { settings = { ...settings, ...patch } },
+  }
+  const mgr = new PluginManager('/tmp', store as never)
+  return mgr
+}
 
 describe('mergeConfigValue', () => {
   it('returns the override when it is defined', () => {
@@ -42,5 +53,29 @@ describe('viewContributionsOf', () => {
   })
   it('returns [] when a plugin has no views', () => {
     expect(viewContributionsOf([desc('p.c', [])])).toEqual([])
+  })
+})
+
+describe('PluginManager enable/disable', () => {
+  it('isEnabled defaults true; setEnabled persists disable then re-enable', () => {
+    const mgr = makeManager()
+    expect(mgr.isEnabled('manifold.x')).toBe(true)
+    mgr.setEnabled('manifold.x', false)
+    expect(mgr.isEnabled('manifold.x')).toBe(false)
+    mgr.setEnabled('manifold.x', true)
+    expect(mgr.isEnabled('manifold.x')).toBe(true)
+  })
+
+  it('listViewContributions hides disabled plugins', () => {
+    const mgr = makeManager()
+    // Seed plugins directly via the private field using type cast
+    ;(mgr as never as { plugins: PluginDescriptor[] }).plugins = [
+      desc('p.enabled', [{ id: 'enabled.view', title: 'Enabled', launcher: true }]),
+      desc('p.disabled', [{ id: 'disabled.view', title: 'Disabled', launcher: true }]),
+    ]
+    mgr.setEnabled('p.disabled', false)
+    const ids = mgr.listViewContributions().map((c) => c.pluginId)
+    expect(ids).toContain('p.enabled')
+    expect(ids).not.toContain('p.disabled')
   })
 })

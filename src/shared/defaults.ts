@@ -43,4 +43,5 @@ export const DEFAULT_SETTINGS: ManifoldSettings = {
     provider: 'none',
   },
   pluginConfig: {},
+  disabledPlugins: [],
 }

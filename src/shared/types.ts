@@ -116,6 +116,8 @@ export interface ManifoldSettings {
   provisioning?: import('./provisioning-types').ProvisioningSettings
   transcription?: import('./watch-types').AiServiceSettings
   pluginConfig?: Record<string, Record<string, unknown>>
+  /** Plugin IDs that have been explicitly disabled by the user. */
+  disabledPlugins?: string[]
 }
 
 export interface ReleaseNotes {

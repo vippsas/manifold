@@ -44,6 +44,16 @@ export class PluginManager {
     this.host.setConfigResolver((id, key) => this.getConfigValue(id, key))
   }
 
+  isEnabled(pluginId: string): boolean {
+    return !(this.settings.getSettings().disabledPlugins ?? []).includes(pluginId)
+  }
+
+  setEnabled(pluginId: string, enabled: boolean): void {
+    const cur = this.settings.getSettings().disabledPlugins ?? []
+    const next = enabled ? cur.filter((id) => id !== pluginId) : Array.from(new Set([...cur, pluginId]))
+    this.settings.updateSettings({ disabledPlugins: next })
+  }
+
   getConfigValue(pluginId: string, key: string): unknown {
     const override = this.settings.getSettings().pluginConfig?.[pluginId]?.[key]
     const plugin = this.plugins.find((p) => p.id === pluginId)
@@ -82,12 +92,12 @@ export class PluginManager {
   }
 
   listViewContributions(): PluginPanelContribution[] {
-    return viewContributionsOf(this.plugins)
+    return viewContributionsOf(this.plugins.filter((p) => this.isEnabled(p.id)))
   }
 
   async activate(pluginId: string): Promise<void> {
     const p = this.plugins.find((x) => x.id === pluginId)
-    if (!p || !p.manifest.main) return
+    if (!p || !p.manifest.main || !this.isEnabled(p.id)) return
     await this.host.activate({ id: p.id, root: p.root, main: p.manifest.main, kind: p.kind, capabilities: p.manifest.capabilities ?? [] })
   }
 
@@ -101,19 +111,19 @@ export class PluginManager {
 
   async openView(viewId: string): Promise<void> {
     const plugin = this.plugins.find((p) => p.manifest.contributes?.views?.some((v) => v.id === viewId))
-    if (!plugin || !plugin.manifest.main) return
+    if (!plugin || !plugin.manifest.main || !this.isEnabled(plugin.id)) return
     await this.host.resolveView({ id: plugin.id, root: plugin.root, main: plugin.manifest.main, kind: plugin.kind, capabilities: plugin.manifest.capabilities ?? [] }, viewId)
   }
 
   async openTreeView(viewId: string): Promise<void> {
     const plugin = this.plugins.find((p) => p.manifest.contributes?.views?.some((v) => v.id === viewId))
-    if (!plugin || !plugin.manifest.main) return
+    if (!plugin || !plugin.manifest.main || !this.isEnabled(plugin.id)) return
     await this.host.activate({ id: plugin.id, root: plugin.root, main: plugin.manifest.main, kind: plugin.kind, capabilities: plugin.manifest.capabilities ?? [] })
   }
 
   async treeGetChildren(viewId: string, parentNodeId: string | undefined): Promise<unknown> {
     const plugin = this.plugins.find((p) => p.manifest.contributes?.views?.some((v) => v.id === viewId))
-    if (!plugin || !plugin.manifest.main) return []
+    if (!plugin || !plugin.manifest.main || !this.isEnabled(plugin.id)) return []
     return this.host.treeGetChildren({ id: plugin.id, root: plugin.root, main: plugin.manifest.main, kind: plugin.kind, capabilities: plugin.manifest.capabilities ?? [] }, viewId, parentNodeId)
   }
 
