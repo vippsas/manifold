@@ -19,4 +19,14 @@ describe('UiRequestBroker', () => {
     const broker = new UiRequestBroker(() => () => {})
     expect(() => broker.resolve('nope', 'x')).not.toThrow()
   })
+  it('flush() resolves all pending requests to undefined', async () => {
+    const broker = new UiRequestBroker(() => () => {})
+    const a = broker.request({ kind: 'inputBox', options: {} })
+    const b = broker.request({ kind: 'message', level: 'info', message: 'x', actions: [] })
+    broker.flush()
+    expect(await a).toBeUndefined()
+    expect(await b).toBeUndefined()
+    // after flush, a late resolve for an already-flushed id is a no-op
+    expect(() => broker.resolve('ui1', 'late')).not.toThrow()
+  })
 })
