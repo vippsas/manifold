@@ -19,10 +19,12 @@ vi.mock('node:os', () => ({
 import * as fs from 'node:fs'
 import { SettingsStore } from './settings-store'
 
-/** DEFAULT_SETTINGS has storagePath: '', but resolveDefaults() fills it in at runtime. */
+/** DEFAULT_SETTINGS has storagePath: '', but resolveDefaults() fills it in at runtime;
+ *  it also seeds the default-disabled plugins once and sets the pluginDefaultsSeeded marker. */
 const RESOLVED_DEFAULTS = {
   ...DEFAULT_SETTINGS,
   storagePath: '/mock-home/.manifold',
+  pluginDefaultsSeeded: true,
 }
 
 const mockExistsSync = vi.mocked(fs.existsSync)
@@ -85,6 +87,45 @@ describe('SettingsStore', () => {
 
       const store = new SettingsStore()
       expect(store.getSettings()).toEqual(RESOLVED_DEFAULTS)
+    })
+  })
+
+  describe('default-disabled plugin seeding', () => {
+    const HELLO = ['manifold.hello', 'manifold.hello-tree', 'manifold.hello-vscode']
+
+    it('seeds the default-disabled plugins into a pre-existing config that lacks the marker', () => {
+      // A config written before this release: has disabledPlugins but no pluginDefaultsSeeded.
+      mockExistsSync.mockReturnValue(true)
+      mockReadFileSync.mockReturnValue(JSON.stringify({ disabledPlugins: [] }))
+
+      const store = new SettingsStore()
+      const s = store.getSettings()
+      expect(s.disabledPlugins).toEqual(expect.arrayContaining(HELLO))
+      expect(s.pluginDefaultsSeeded).toBe(true)
+    })
+
+    it('preserves user-disabled ids while adding the defaults (no duplicates)', () => {
+      mockExistsSync.mockReturnValue(true)
+      mockReadFileSync.mockReturnValue(JSON.stringify({ disabledPlugins: ['acme.custom', 'manifold.hello'] }))
+
+      const store = new SettingsStore()
+      const ids = store.getSettings().disabledPlugins ?? []
+      expect(ids).toEqual(expect.arrayContaining([...HELLO, 'acme.custom']))
+      expect(ids.filter((i) => i === 'manifold.hello')).toHaveLength(1)
+    })
+
+    it('does NOT re-disable a plugin the user already enabled (marker already set)', () => {
+      // User previously enabled manifold.hello; the marker was persisted with that choice.
+      mockExistsSync.mockReturnValue(true)
+      mockReadFileSync.mockReturnValue(JSON.stringify({
+        pluginDefaultsSeeded: true,
+        disabledPlugins: ['manifold.hello-tree', 'manifold.hello-vscode'],
+      }))
+
+      const store = new SettingsStore()
+      const ids = store.getSettings().disabledPlugins ?? []
+      expect(ids).not.toContain('manifold.hello')
+      expect(ids).toEqual(['manifold.hello-tree', 'manifold.hello-vscode'])
     })
   })
 
