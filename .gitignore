@@ -3,3 +3,5 @@ out/
 dist/
 .manifold/
 .DS_Store
+# Superpowers brainstorm artifacts
+.superpowers/
