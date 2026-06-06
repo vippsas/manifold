@@ -18,6 +18,8 @@ import { useResolvedHtmlPreview } from './viewer/useResolvedHtmlPreview'
 import { useAutoSave } from './useAutoSave'
 import { useCodeViewerModes } from './useCodeViewerModes'
 import { EditorContent } from './EditorContent'
+import { useEditorStatusBar } from './useEditorStatusBar'
+import { EditorStatusBar } from './EditorStatusBar'
 import { DEFAULT_SETTINGS } from '../../../shared/defaults'
 import type { EditorSettings } from '../../../shared/types'
 import { buildEditorOptions } from './build-editor-options'
@@ -114,12 +116,23 @@ export function CodeViewer({
     onOpenLinkedFile,
   })
 
+  const { statusInfo, bindEditor } = useEditorStatusBar(language)
+
+  // Must mirror the editor-container render ternary's fall-through to <EditorContent>:
+  // if a new preview/diff branch is added there, negate it here too.
+  const showPlainEditor =
+    !(isImage && activeFilePath !== null && fileContent !== null) &&
+    !(previewActive && isHtml && resolvedHtml !== null) &&
+    !(previewActive && fileContent !== null && !isHtml && activeFilePath !== null) &&
+    !(diffMode && fileContent !== null)
+
   useEffect(() => {
     saveRef.current = onSaveFile
   }, [onSaveFile])
 
   const handleEditorMount: OnMount = useCallback((editor, monaco) => {
     editorRef.current = editor
+    bindEditor(editor)
     editor.addCommand(monaco.KeyMod.CtrlCmd | monaco.KeyCode.KeyS, () => {
       const filePath = activeFilePathRef.current
       if (!filePath) return
@@ -143,7 +156,7 @@ export function CodeViewer({
 
     revealRequestedLocation(editor, activeFilePathRef.current, lastFileOpenRequestRef.current)
     editor.focus()
-  }, [])
+  }, [bindEditor])
 
   const handleDiffEditorMount: DiffOnMount = useCallback((editor) => {
     editor.getModifiedEditor().focus()
@@ -209,6 +222,9 @@ export function CodeViewer({
           />
         )}
       </div>
+      {showPlainEditor && fileContent !== null && activeFilePath !== null && (
+        <EditorStatusBar info={statusInfo} />
+      )}
     </div>
   )
 }
