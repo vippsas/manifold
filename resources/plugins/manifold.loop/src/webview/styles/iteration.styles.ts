@@ -15,6 +15,7 @@ export const iterationStyles: Record<string, React.CSSProperties> = {
     padding: '6px 8px',
     background: 'var(--bg-elevated)',
     border: '1px solid var(--border)',
+    borderLeft: '3px solid var(--text-muted)',
     borderRadius: 'var(--radius-sm)',
     fontSize: 'var(--type-ui-small)',
   },
@@ -65,6 +66,15 @@ export const iterationStyles: Record<string, React.CSSProperties> = {
   iterRowClickable: {
     cursor: 'pointer',
   },
+  iterRowBest: {
+    background: 'var(--accent-subtle)',
+    borderColor: 'var(--accent-dim)',
+  },
+  iterStar: {
+    color: 'var(--accent)',
+    fontSize: 'var(--type-ui-small)',
+    flexShrink: 0,
+  },
   iterToggle: {
     color: 'var(--text-muted)',
     fontSize: 'var(--type-ui-caption)',
@@ -97,10 +107,9 @@ export const outcomeColors: Record<string, { bg: string; fg: string }> = {
   aborted: { bg: 'color-mix(in srgb, var(--text-muted) 18%, transparent)', fg: 'var(--text-muted)' },
 }
 
-export const stateColors: Record<string, string> = {
-  idle: 'var(--text-muted)',
-  running: 'var(--status-running)',
-  paused: 'var(--status-waiting)',
-  finished: 'var(--status-done)',
-  error: 'var(--status-error)',
+export const outcomeBorder: Record<string, string> = {
+  improved: 'var(--status-done)',
+  regressed: 'var(--status-waiting)',
+  failed: 'var(--status-error)',
+  aborted: 'var(--text-muted)',
 }

@@ -262,3 +262,37 @@ describe('LoopEngine — getIterations', () => {
     expect((await env.engine.getIterations()).length).toBe(1)
   })
 })
+
+describe('LoopEngine — restart numbering', () => {
+  it('continues iteration indices across a stop/restart instead of restarting at 1', async () => {
+    // Two separate runs against the same (persistent) log. The second start must NOT
+    // re-use indices already in the log, or the history shows duplicate iteration numbers.
+    const env = buildEngine({
+      evalRunner: makeFakeEval([{ stdout: 'ms=42', exitCode: 0 }, { stdout: 'ms=40', exitCode: 0 }]),
+      runTurn: makeRunTurn(['ended', 'ended']).fn,
+    })
+    env.git.changedFiles.push(1, 1)
+
+    await env.engine.start(baseConfig({ maxIterations: 1 })) // run 1 → index 1
+    await env.engine.start(baseConfig({ maxIterations: 1 })) // run 2 → index 2 (not 1 again)
+
+    const indices = env.log.appended.map((i) => i.index)
+    expect(indices).toEqual([1, 2])
+    expect(new Set(indices).size).toBe(indices.length) // no duplicate numbers
+  })
+
+  it('still respects maxIterations per run after resuming numbering', async () => {
+    const env = buildEngine({
+      evalRunner: makeFakeEval([
+        { stdout: 'ms=42', exitCode: 0 }, { stdout: 'ms=41', exitCode: 0 }, { stdout: 'ms=40', exitCode: 0 },
+      ]),
+      runTurn: makeRunTurn(['ended', 'ended', 'ended']).fn,
+    })
+    env.git.changedFiles.push(1, 1, 1)
+
+    await env.engine.start(baseConfig({ maxIterations: 1 })) // → [1]
+    await env.engine.start(baseConfig({ maxIterations: 2 })) // → [2, 3], not capped by prior count
+
+    expect(env.log.appended.map((i) => i.index)).toEqual([1, 2, 3])
+  })
+})
