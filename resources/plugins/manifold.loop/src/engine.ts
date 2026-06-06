@@ -77,10 +77,14 @@ export class LoopEngine {
 
     await this.deps.store.setConfig(config.sessionId, config)
     const baselineSha = await this.deps.git.getHeadSha(worktreePath)
+    // Continue numbering from the persistent log: the log survives a stop, so starting
+    // again from 0 would re-emit indices that already exist and duplicate history rows.
+    const priorIterations = await this.deps.iterationLog.readAll(worktreePath)
+    const resumeIndex = priorIterations.reduce((max, it) => (it.index > max ? it.index : max), 0)
     const status: LoopStatus = {
       sessionId: config.sessionId,
       state: 'running',
-      currentIteration: 0,
+      currentIteration: resumeIndex,
       bestCommitSha: baselineSha,
       baselineSha,
       startedAt: this.now(),
@@ -163,7 +167,11 @@ export class LoopEngine {
     const maxIter = config.maxIterations ?? DEFAULT_MAX_ITERATIONS
     const maxWallMs = (config.maxWallClockMinutes ?? 24 * 60) * 60 * 1000
 
-    while (status.state === 'running' && status.currentIteration < maxIter) {
+    // `maxIterations` is per-run; `currentIteration` is the absolute, log-wide index
+    // (seeded from prior runs in start()). Track them separately so resuming numbering
+    // doesn't shrink how many iterations this run is allowed.
+    let ranThisRun = 0
+    while (status.state === 'running' && ranThisRun < maxIter) {
       if (abort.signal.aborted) return
       if (this.now() - run.startWallMs > maxWallMs) return
       if (this.deps.activeSessionId() !== run.targetSessionId) {
@@ -172,6 +180,7 @@ export class LoopEngine {
         return
       }
 
+      ranThisRun += 1
       status.currentIteration += 1
       const iter = await this.runOneIteration(run)
       await this.deps.iterationLog.append(run.worktreePath, iter)
