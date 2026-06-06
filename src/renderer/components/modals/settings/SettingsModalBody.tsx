@@ -1,19 +1,21 @@
 import React from 'react'
 import type { ProvisionerConfig, ProvisionerStatus } from '../../../../shared/provisioning-types'
-import type { SearchAiSettings } from '../../../../shared/types'
+import type { SearchAiSettings, EditorSettings } from '../../../../shared/types'
 import type { AiServiceSettings } from '../../../../shared/watch-types'
 import { modalStyles } from '../SettingsModal.styles'
 import { SearchAiSettingsSection } from './SearchAiSettingsSection'
 import { GeneralSettingsSection } from './GeneralSettingsSection'
+import { EditorSettingsSection } from './EditorSettingsSection'
 import { ProvisioningSettingsSection } from './ProvisioningSettingsSection'
 import { TranscriptionSettingsSection } from './TranscriptionSettingsSection'
 import { SectionCard, SectionHeader } from './SettingsSectionLayout'
 import { PluginSettingsSection } from './PluginSettingsSection'
 
-export type SettingsTabId = 'general' | 'search-ai' | 'provisioning' | 'transcription' | 'plugins'
+export type SettingsTabId = 'general' | 'editor' | 'search-ai' | 'provisioning' | 'transcription' | 'plugins'
 
 const SETTINGS_TABS: Array<{ id: SettingsTabId; label: string }> = [
   { id: 'general', label: 'General' },
+  { id: 'editor', label: 'Editor' },
   { id: 'search-ai', label: 'Search AI' },
   { id: 'provisioning', label: 'Provisioning' },
   { id: 'transcription', label: 'Transcription' },
@@ -52,6 +54,8 @@ interface Props {
   onSidebarResizeReversedChange: (enabled: boolean) => void
   searchAiSettings: SearchAiSettings
   onSearchAiSettingsChange: (value: SearchAiSettings) => void
+  editorSettings: EditorSettings
+  onEditorSettingsChange: (value: EditorSettings) => void
   provisioners: ProvisionerConfig[]
   provisionerStatuses: ProvisionerStatus[]
   onProvisionersChange: (value: ProvisionerConfig[]) => void
@@ -90,6 +94,9 @@ export function SettingsModalBody(props: Props): React.JSX.Element {
 
         <div id={`settings-panel-${props.activeTab}`} role="tabpanel" aria-labelledby={`settings-tab-${props.activeTab}`} style={modalStyles.tabPanel}>
           {props.activeTab === 'general' && <GeneralSettingsSection {...props} />}
+          {props.activeTab === 'editor' && (
+            <EditorSettingsSection value={props.editorSettings} onChange={props.onEditorSettingsChange} />
+          )}
           {props.activeTab === 'search-ai' && (
             <>
               <SectionHeader title="Search AI" description="Configure when Ask AI answers directly, when it reranks exact results, and how much context is retrieved for each request." />
