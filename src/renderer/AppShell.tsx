@@ -215,7 +215,7 @@ export function AppShell(p: AppShellProps): React.JSX.Element {
         projects={p.projects}
         projectError={p.projectError}
         defaultRuntime={p.defaultRuntime}
-        onAddProject={() => p.addProject(undefined, { activate: false })}
+        onAddProject={() => p.addProject()}
         onCreate={(opts) => { void p.createWorkspace(opts); p.setNewWorkspaceVisible(false) }}
         onClose={() => p.setNewWorkspaceVisible(false)}
       />
