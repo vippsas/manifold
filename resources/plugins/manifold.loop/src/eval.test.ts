@@ -12,13 +12,13 @@ describe('parseMetric — stdout-regex', () => {
 
   it('returns failure when the pattern does not match', () => {
     const result = parseMetric('no number here', 0, spec)
-    expect(result.failure).toContain('no match')
+    expect('failure' in result ? result.failure : undefined).toContain('no match')
   })
 
   it('returns failure when capture group 1 is not numeric', () => {
     const spec2: MetricSpec = { kind: 'stdout-regex', pattern: 'result=(\\S+)', direction: 'maximize' }
     const result = parseMetric('result=failed', 0, spec2)
-    expect(result.failure).toContain('not a number')
+    expect('failure' in result ? result.failure : undefined).toContain('not a number')
   })
 })
 
@@ -37,12 +37,12 @@ describe('parseMetric — json-path', () => {
 
   it('fails when stdout is not valid JSON', () => {
     const result = parseMetric('not json', 0, spec)
-    expect(result.failure).toContain('json')
+    expect('failure' in result ? result.failure : undefined).toContain('json')
   })
 
   it('fails when the path does not resolve to a number', () => {
     const result = parseMetric('{"results":{"meanMs":"slow"}}', 0, spec)
-    expect(result.failure).toContain('not a number')
+    expect('failure' in result ? result.failure : undefined).toContain('not a number')
   })
 
   it('ignores leading non-JSON lines and parses the last JSON block', () => {

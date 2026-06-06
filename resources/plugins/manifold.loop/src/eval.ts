@@ -23,6 +23,10 @@ export function parseMetric(stdout: string, exitCode: number, spec: MetricSpec):
     return { score: value }
   }
 
+  if (spec.kind !== 'json-path') {
+    return { failure: `unsupported metric kind for parseMetric: ${spec.kind}` }
+  }
+
   const jsonText = extractLastJsonBlock(stdout)
   if (jsonText === null) return { failure: 'could not find json in stdout' }
   let parsed: unknown
