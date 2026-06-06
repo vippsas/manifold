@@ -221,6 +221,10 @@ export function NewAgentForm({
         loading={loading}
       />
 
+      {error && <p style={modalStyles.errorText}>{error}</p>}
+
+      <NewAgentModePill mode={mode} setMode={setMode} canSubmit={canSubmit} loading={loading} />
+
       <button
         type="button"
         onClick={() => setShowAdvanced((prev) => !prev)}
@@ -257,10 +261,6 @@ export function NewAgentForm({
           prsLoading={prsLoading}
         />
       )}
-
-      {error && <p style={modalStyles.errorText}>{error}</p>}
-
-      <NewAgentModePill mode={mode} setMode={setMode} canSubmit={canSubmit} loading={loading} />
     </form>
   )
 }
