@@ -149,4 +149,29 @@ export const formStyles: Record<string, React.CSSProperties> = {
     cursor: 'pointer',
     transition: 'background 200ms ease, color 200ms ease',
   },
+  segmentGroup: {
+    display: 'flex',
+    gap: 4,
+    flexWrap: 'wrap',
+  },
+  segmentGroupDisabled: {
+    opacity: 0.6,
+  },
+  segment: {
+    background: 'var(--bg-input)',
+    border: '1px solid var(--control-border)',
+    color: 'var(--text-secondary)',
+    borderRadius: 'var(--radius-pill)',
+    padding: '5px 12px',
+    fontSize: 'var(--type-ui-small)',
+    fontFamily: 'var(--font-sans)',
+    cursor: 'pointer',
+    transition: 'background 150ms ease, color 150ms ease, border-color 150ms ease',
+  },
+  segmentActive: {
+    background: 'var(--accent)',
+    borderColor: 'var(--accent)',
+    color: 'var(--accent-text)',
+    fontWeight: 600,
+  },
 }
