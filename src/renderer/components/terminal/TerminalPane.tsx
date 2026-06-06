@@ -2,6 +2,7 @@ import React, { useCallback, useState } from 'react'
 import type { ITheme } from '@xterm/xterm'
 import { useTerminal } from '../../hooks/useTerminal'
 import { hasAgentPathDragData, readAgentPathDragData } from '../editor/file-tree-drag'
+import { collectDroppedPaths, hasDraggedFiles } from '../editor/file-tree-drop'
 
 interface TerminalPaneProps {
   sessionId: string | null
@@ -26,13 +27,13 @@ export function TerminalPane({
   }, [])
 
   const handleDragEnter = useCallback((e: React.DragEvent<HTMLDivElement>): void => {
-    if (!sessionId || !hasAgentPathDragData(e.dataTransfer)) return
+    if (!sessionId || !hasTerminalPathDragData(e.dataTransfer)) return
     e.preventDefault()
     setIsDropTarget(true)
   }, [sessionId])
 
   const handleDragOver = useCallback((e: React.DragEvent<HTMLDivElement>): void => {
-    if (!sessionId || !hasAgentPathDragData(e.dataTransfer)) return
+    if (!sessionId || !hasTerminalPathDragData(e.dataTransfer)) return
     e.preventDefault()
     e.dataTransfer.dropEffect = 'copy'
     setIsDropTarget(true)
@@ -44,12 +45,14 @@ export function TerminalPane({
   }, [clearDropTarget])
 
   const handleDrop = useCallback((e: React.DragEvent<HTMLDivElement>): void => {
-    if (!sessionId) return
-    const relativePath = readAgentPathDragData(e.dataTransfer)
+    const hasPathData = hasTerminalPathDragData(e.dataTransfer)
     clearDropTarget()
-    if (!relativePath) return
+    if (!hasPathData) return
     e.preventDefault()
-    void window.electronAPI.invoke('agent:input', sessionId, relativePath)
+    if (!sessionId) return
+    const input = readTerminalDropInput(e.dataTransfer)
+    if (!input) return
+    void window.electronAPI.invoke('agent:input', sessionId, input)
     focusTerminal()
   }, [clearDropTarget, focusTerminal, sessionId])
 
@@ -68,11 +71,36 @@ export function TerminalPane({
       />
       {isDropTarget && (
         <div style={paneStyles.dropOverlay}>
-          <div style={paneStyles.dropLabel}>Drop to insert relative path</div>
+          <div style={paneStyles.dropLabel}>Drop to insert path</div>
         </div>
       )}
     </div>
   )
+}
+
+function hasTerminalPathDragData(dataTransfer: DataTransfer | null): boolean {
+  return hasAgentPathDragData(dataTransfer) || hasDraggedFiles(dataTransfer)
+}
+
+function readTerminalDropInput(dataTransfer: DataTransfer | null): string | null {
+  const relativePath = readAgentPathDragData(dataTransfer)
+  if (relativePath) return relativePath
+  if (!dataTransfer || !hasDraggedFiles(dataTransfer)) return null
+
+  const paths = collectDroppedPaths(
+    Array.from(dataTransfer.files),
+    (file) => window.electronAPI.getPathForFile(file),
+  )
+
+  return paths.length > 0 ? paths.map(quoteShellPath).join(' ') : null
+}
+
+const shellSafePathPattern = /^[A-Za-z0-9_@%+=:,./-]+$/
+
+function quoteShellPath(path: string): string {
+  return shellSafePathPattern.test(path)
+    ? path
+    : `'${path.replace(/'/g, "'\\''")}'`
 }
 
 const paneStyles: Record<string, React.CSSProperties> = {
