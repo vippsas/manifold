@@ -1,5 +1,5 @@
 // resources/plugins/manifold.loop/src/eval-runner.ts
-// Ported from src/main/loop/loop-adapters.ts (createEvalRunner). Pure Node — no manifold import.
+// Runs the loop's eval command in the worktree. Pure Node — no manifold import.
 import { spawn } from 'node:child_process'
 
 export interface EvalOutcome { stdout: string; exitCode: number; timedOut: boolean }
@@ -17,12 +17,17 @@ export function createEvalRunner(): LoopEvalRunner {
         let stderr = ''
         let timedOut = false
         let settled = false
+        let killTimer: ReturnType<typeof setTimeout> | undefined
 
         const timer = setTimeout(() => {
           timedOut = true
           try { child.kill('SIGTERM') } catch { /* already exited */ }
-          setTimeout(() => { try { child.kill('SIGKILL') } catch { /* ok */ } }, 2000)
+          killTimer = setTimeout(() => { try { child.kill('SIGKILL') } catch { /* ok */ } }, 2000)
         }, budgetSeconds * 1000)
+
+        // Clear both the budget timer and the (possibly-pending) SIGKILL fallback so a
+        // child that exits promptly after SIGTERM doesn't leave a timer holding the event loop.
+        const clearTimers = (): void => { clearTimeout(timer); if (killTimer) clearTimeout(killTimer) }
 
         const onAbort = (): void => { try { child.kill('SIGTERM') } catch { /* ok */ } }
         signal.addEventListener('abort', onAbort, { once: true })
@@ -33,14 +38,14 @@ export function createEvalRunner(): LoopEvalRunner {
         child.on('error', (err: Error) => {
           if (settled) return
           settled = true
-          clearTimeout(timer)
+          clearTimers()
           signal.removeEventListener('abort', onAbort)
           reject(err)
         })
         child.on('close', (code: number | null) => {
           if (settled) return
           settled = true
-          clearTimeout(timer)
+          clearTimers()
           signal.removeEventListener('abort', onAbort)
           resolve({
             stdout: stdout + (stderr ? `\n---stderr---\n${stderr}` : ''),

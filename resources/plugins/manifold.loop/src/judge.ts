@@ -1,7 +1,6 @@
 // resources/plugins/manifold.loop/src/judge.ts
-// buildJudgePrompt + extractScore (and helpers) are copied verbatim from
-// src/main/loop/loop-judge-adapter.ts. createJudge() drives manifold.lm instead of
-// gitOps.aiGenerate; the lm handle is injected so this file is manifold-free and unit-testable.
+// buildJudgePrompt + extractScore (and helpers) for the autoresearch loop. createJudge()
+// drives manifold.lm; the lm handle is injected so this file is manifold-free and unit-testable.
 
 const DIFF_CHAR_LIMIT = 24_000
 const STDOUT_CHAR_LIMIT = 8_000

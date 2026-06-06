@@ -3,8 +3,9 @@
     "module": "CommonJS",
     "moduleResolution": "Node",
     "target": "ES2021",
-    "lib": ["ES2021"],
+    "lib": ["ES2021", "DOM", "DOM.Iterable"],
     "types": ["node"],
+    "jsx": "react-jsx",
     "strict": true,
     "noEmit": true,
     "esModuleInterop": true,
@@ -14,6 +15,7 @@
   },
   "include": [
     "resources/plugins/*/src/**/*.ts",
+    "resources/plugins/*/src/**/*.tsx",
     "src/shared/plugins/manifold-module.d.ts",
     "src/shared/plugins/api-types.ts"
   ]

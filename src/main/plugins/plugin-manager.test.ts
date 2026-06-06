@@ -1,9 +1,12 @@
 // src/main/plugins/plugin-manager.test.ts
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
 import { viewContributionsOf, mergeConfigValue, PluginManager } from './plugin-manager'
 import { DEFAULT_SETTINGS } from '../../shared/defaults'
 import type { PluginDescriptor } from '../../shared/plugins/manifest'
 import type { ManifoldSettings } from '../../shared/types'
+import { debugLog } from '../app/debug-log'
+
+vi.mock('../app/debug-log', () => ({ debugLog: vi.fn(), flushDebugLog: vi.fn(), flushDebugLogSync: vi.fn() }))
 
 const desc = (id: string, views: unknown[]): PluginDescriptor => ({
   id, root: '/x', origin: 'user', kind: 'manifold',
@@ -78,6 +81,15 @@ describe('PluginManager enable/disable', () => {
     const ids = mgr.listViewContributions().map((c) => c.pluginId)
     expect(ids).toContain('p.enabled')
     expect(ids).not.toContain('p.disabled')
+  })
+})
+
+describe('PluginManager openView logging', () => {
+  it('calls debugLog when no enabled plugin owns the viewId', async () => {
+    const mgr = makeManager()
+    vi.mocked(debugLog).mockClear()
+    await mgr.openView('unknown.view')
+    expect(debugLog).toHaveBeenCalledWith('[plugins] openView("unknown.view"): no enabled plugin owns this view')
   })
 })
 

@@ -24,7 +24,6 @@ function recordingEngine(): EngineFacade & { calls: string[] } {
   return {
     calls,
     getStatus: async () => ({ sessionId: 's1', state: 'running', currentIteration: 2 }),
-    getStatusSync: () => ({ sessionId: 's1', state: 'running', currentIteration: 0 }),
     getIterations: async () => [{ index: 1, startedAt: 0, outcome: 'improved' }],
     getConfig: async () => null,
     start: async () => { calls.push('start') },
@@ -135,5 +134,32 @@ describe('createWebviewHost — actions', () => {
     v.fire({ type: 'improveWithAi', draft: 'd', evalCommand: 'e', targetGlobs: 'g' }); await new Promise((r) => setTimeout(r, 0))
     const ai = v.posted.find((m) => (m as { type?: string }).type === 'aiResult') as { ok: boolean; text: string }
     expect(ai.ok).toBe(true); expect(ai.text).toBe('improved text')
+  })
+
+  it('surfaces a start() failure as startResult so the optimistic running UI can revert', async () => {
+    const engine = recordingEngine()
+    engine.start = async () => { throw new Error('no active worktree') }
+    const host = createWebviewHost({ engine, ...baseOpts() })
+    const v = fakeView(); await host.provider.resolveWebviewView(v as never)
+    v.fire({ type: 'start', config: { sessionId: 's1' } }); await new Promise((r) => setTimeout(r, 0))
+    const sr = v.posted.find((m) => (m as { type?: string }).type === 'startResult') as { ok: boolean; error: string }
+    expect(sr).toBeTruthy(); expect(sr.ok).toBe(false); expect(sr.error).toBe('no active worktree')
+  })
+
+  it('ignores inbound messages that are not a valid WebviewMsg (sandbox trust boundary)', async () => {
+    const engine = recordingEngine()
+    const host = createWebviewHost({ engine, ...baseOpts() })
+    const v = fakeView(); await host.provider.resolveWebviewView(v as never)
+    v.fire({ type: 'totally-bogus' }); v.fire(null); v.fire('nope'); v.fire(42)
+    await new Promise((r) => setTimeout(r, 0))
+    expect(engine.calls).toEqual([])
+  })
+
+  it('restoreBest with no active session posts a failed restoreResult', async () => {
+    const host = createWebviewHost({ engine: recordingEngine(), ...baseOpts(), getActiveSessionId: () => null })
+    const v = fakeView(); await host.provider.resolveWebviewView(v as never)
+    v.fire({ type: 'restoreBest' }); await new Promise((r) => setTimeout(r, 0))
+    const rr = v.posted.find((m) => (m as { type?: string }).type === 'restoreResult') as { ok: boolean; error: string }
+    expect(rr.ok).toBe(false); expect(rr.error).toBe('no active session')
   })
 })

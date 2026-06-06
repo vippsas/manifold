@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
 import { RpcEndpoint, HOST_UI, type RpcMessage } from '../shared/plugins/rpc'
 import { createWindowApi } from './window-api'
 import type { QuickPickItem, QuickPickOptions } from '../shared/plugins/ui'
@@ -12,6 +12,17 @@ function wireHostAndMain(): { host: RpcEndpoint; main: RpcEndpoint } {
   host = new RpcEndpoint({ post: (m: RpcMessage) => queueMicrotask(() => void main.handleMessage(m)) })
   return { host, main }
 }
+
+describe('createWindowApi resolveView logging', () => {
+  it('logs console.error when no provider is registered for the viewId', async () => {
+    const { host } = wireHostAndMain()
+    const { resolveView } = createWindowApi(host)
+    const spy = vi.spyOn(console, 'error').mockImplementation(() => {})
+    await resolveView('unregistered.id')
+    expect(spy).toHaveBeenCalledWith('[plugin-host] resolveView: no WebviewViewProvider registered for "unregistered.id"')
+    spy.mockRestore()
+  })
+})
 
 describe('createWindowApi showQuickPick return contract', () => {
   it('string[] input → string out; QuickPickItem[] input → item out', async () => {

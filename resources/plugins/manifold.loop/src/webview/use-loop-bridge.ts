@@ -46,7 +46,6 @@ export function useLoopBridge(): LoopBridge {
         aiResolver.current = null
         return
       }
-      if (m.type === 'actionError') { restoreResolver.current?.reject(new Error(m.message)); restoreResolver.current = null; return }
       setState((s) => applyHostMsg(s, m))
     }
     window.addEventListener('message', onMessage)
@@ -56,7 +55,7 @@ export function useLoopBridge(): LoopBridge {
 
   return {
     ...state,
-    start: (config) => { setState((s) => ({ ...s, status: { sessionId: config.sessionId, state: 'running', currentIteration: 0 }, iterations: [], config })); postToHost({ type: 'start', config }) },
+    start: (config) => { setState((s) => ({ ...s, status: { sessionId: config.sessionId, state: 'running', currentIteration: 0 }, iterations: [], config, startError: null })); postToHost({ type: 'start', config }) },
     stop: () => postToHost({ type: 'stop' }),
     saveConfig: (config) => { setState((s) => ({ ...s, config })); postToHost({ type: 'saveConfig', config }) },
     clear: () => postToHost({ type: 'clearRequest' }),

@@ -18,8 +18,20 @@ describe('applyHostMsg', () => {
     const s = applyHostMsg(base, { type: 'iteration', iteration: { index: 1, startedAt: 0, outcome: 'failed' } })
     expect(s.iterations.length).toBe(1)
   })
-  it('ignores aiResult/restoreResult/actionError (handled outside the reducer)', () => {
+  it('ignores aiResult/restoreResult (handled outside the reducer by the bridge)', () => {
     const base = applyHostMsg(EMPTY_LOOP_STATE, { type: 'init', sessionId: 's1', status: null, iterations: [], config: null })
     expect(applyHostMsg(base, { type: 'aiResult', ok: true, text: 'x' })).toBe(base)
+    expect(applyHostMsg(base, { type: 'restoreResult', ok: true, sha: 'abc' })).toBe(base)
+  })
+  it('startResult failure reverts the optimistic running status and records the error', () => {
+    // Mimic the bridge's optimistic start: status flipped to running before the host replied.
+    const optimistic = { sessionId: 's1', status: { sessionId: 's1', state: 'running' as const, currentIteration: 0 }, iterations: [], config: null, startError: null }
+    const s = applyHostMsg(optimistic, { type: 'startResult', ok: false, error: 'no active worktree' })
+    expect(s.status).toBeNull()
+    expect(s.startError).toBe('no active worktree')
+  })
+  it('startResult success clears any prior startError', () => {
+    const withError = { ...EMPTY_LOOP_STATE, startError: 'boom' }
+    expect(applyHostMsg(withError, { type: 'startResult', ok: true }).startError).toBeNull()
   })
 })

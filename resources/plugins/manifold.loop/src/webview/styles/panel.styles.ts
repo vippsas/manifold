@@ -1,7 +1,7 @@
 import type React from 'react'
 
 // Panel chrome, status bar, intro, pending-iteration card, and disclosure styles.
-// Ported verbatim from src/renderer/components/loop/LoopPanel.styles.ts.
+// (Originally lifted from the built-in loop panel, removed in #447; this is now canonical.)
 export const panelStyles: Record<string, React.CSSProperties> = {
   wrapper: {
     display: 'flex',
@@ -49,6 +49,13 @@ export const panelStyles: Record<string, React.CSSProperties> = {
     gap: 'var(--space-sm)',
     padding: 'var(--space-lg)',
     textAlign: 'center',
+  },
+  startError: {
+    padding: 'var(--space-xs) var(--space-sm)',
+    border: '1px solid var(--status-error)',
+    borderRadius: 4,
+    color: 'var(--status-error)',
+    fontSize: 'var(--type-ui-caption)',
   },
   statusBar: {
     display: 'flex',

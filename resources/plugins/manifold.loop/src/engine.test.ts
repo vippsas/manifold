@@ -1,6 +1,15 @@
 import { describe, it, expect } from 'vitest'
-import { LoopEngine } from './engine'
+import { LoopEngine, type TurnOutcome } from './engine'
 import { SESSION_ID, WORKTREE, baseConfig, buildEngine, makeFakeEval, makeFakeJudge, makeFakeGit, makeFakeLog, makeFakeStore, makeRunTurn } from './engine.test-helpers'
+
+/** A runTurn whose single turn stays pending until `resolve()` is called — lets a test
+ *  observe the engine while a run is genuinely in progress (runs.set has happened). */
+function controllableRunTurn(): { fn: () => Promise<TurnOutcome>; resolve: (o: TurnOutcome) => void } {
+  let resolve!: (o: TurnOutcome) => void
+  const p = new Promise<TurnOutcome>((r) => { resolve = r })
+  return { fn: () => p, resolve }
+}
+const flush = (): Promise<void> => new Promise((r) => setTimeout(r, 0))
 
 describe('LoopEngine — single iteration improvement', () => {
   it('prompts with the inline program text and commits on improvement', async () => {
@@ -124,6 +133,124 @@ describe('LoopEngine — start guards', () => {
     const env = buildEngine()
     env.setActive(undefined)
     await expect(env.engine.start(baseConfig())).rejects.toThrow(/no active agent/i)
+  })
+
+  it('rejects an invalid config before doing anything', async () => {
+    const env = buildEngine()
+    await expect(env.engine.start(baseConfig({ budgetSeconds: 0 }))).rejects.toThrow(/budgetSeconds must be positive/)
+    expect(env.git.commits.length).toBe(0)
+    expect(env.store.configs.size).toBe(0) // nothing persisted on a rejected start
+  })
+
+  it('rejects a second start while one is already running', async () => {
+    const turn = controllableRunTurn()
+    const env = buildEngine({ runTurn: turn.fn })
+    env.git.changedFiles.push(1)
+    const running = env.engine.start(baseConfig())
+    await flush() // let start() reach the (pending) runTurn — the run is now in the map
+    await expect(env.engine.start(baseConfig())).rejects.toThrow(/already running/i)
+    turn.resolve('ended')
+    await running
+  })
+})
+
+describe('LoopEngine — setConfig', () => {
+  it('persists a valid config', async () => {
+    const env = buildEngine()
+    await env.engine.setConfig(SESSION_ID, baseConfig())
+    expect(env.store.configs.get(SESSION_ID)?.sessionId).toBe(SESSION_ID)
+  })
+  it('rejects an invalid config without persisting', async () => {
+    const env = buildEngine()
+    await expect(env.engine.setConfig(SESSION_ID, baseConfig({ program: '' }))).rejects.toThrow(/program/)
+    expect(env.store.configs.size).toBe(0)
+  })
+})
+
+describe('LoopEngine — restoreBest', () => {
+  it('hard-resets to the best commit after an improvement', async () => {
+    const env = buildEngine({ evalRunner: makeFakeEval([{ stdout: 'ms=42', exitCode: 0 }]) })
+    env.git.changedFiles.push(1)
+    await env.engine.start(baseConfig())
+    const best = (await env.engine.getStatus(SESSION_ID))?.bestCommitSha
+    expect(best).toBeTruthy()
+    const { sha } = await env.engine.restoreBest(SESSION_ID)
+    expect(sha).toBe(best)
+    expect(env.git.resets).toContain(best)
+  })
+
+  it('throws (no destructive reset) when best is still the baseline', async () => {
+    // A run whose only iteration fails never commits, so bestCommitSha stays === baselineSha.
+    const env = buildEngine({ evalRunner: makeFakeEval([{ stdout: 'no metric', exitCode: 0 }]) })
+    env.git.changedFiles.push(1)
+    await env.engine.start(baseConfig())
+    const resetsAfterRun = env.git.resets.length
+    await expect(env.engine.restoreBest(SESSION_ID)).rejects.toThrow(/baseline/)
+    expect(env.git.resets.length).toBe(resetsAfterRun) // restoreBest did not reset
+  })
+
+  it('throws when no best commit is recorded yet', async () => {
+    const env = buildEngine()
+    await expect(env.engine.restoreBest('never-run')).rejects.toThrow(/no best commit/i)
+  })
+})
+
+describe('LoopEngine — clear', () => {
+  it('wipes the log, persists idle status, and emits status', async () => {
+    const env = buildEngine({ evalRunner: makeFakeEval([{ stdout: 'ms=42', exitCode: 0 }]) })
+    env.git.changedFiles.push(1)
+    await env.engine.start(baseConfig())
+    expect(env.log.appended.length).toBe(1)
+    const cleared = await env.engine.clear(SESSION_ID)
+    expect(cleared.state).toBe('idle')
+    expect(env.log.appended.length).toBe(0)
+    expect((await env.engine.getStatus(SESSION_ID))?.state).toBe('idle')
+    expect(env.events.some((e) => e.event === 'status' && (e.payload as { state: string }).state === 'idle')).toBe(true)
+  })
+
+  it('refuses to clear while a loop is running', async () => {
+    const turn = controllableRunTurn()
+    const env = buildEngine({ runTurn: turn.fn })
+    env.git.changedFiles.push(1)
+    const running = env.engine.start(baseConfig())
+    await flush()
+    await expect(env.engine.clear(SESSION_ID)).rejects.toThrow(/stop it first/i)
+    turn.resolve('ended')
+    await running
+  })
+})
+
+describe('LoopEngine — eval failure paths', () => {
+  it('resets and marks failed when the eval command crashes', async () => {
+    const env = buildEngine({ evalRunner: { run: async () => { throw new Error('spawn ENOENT') } } })
+    env.git.changedFiles.push(1)
+    await env.engine.start(baseConfig())
+    expect(env.log.appended[0].outcome).toBe('failed')
+    expect(env.log.appended[0].errorMessage).toContain('eval crashed')
+    expect(env.git.resets.length).toBe(1)
+  })
+
+  it('resets and marks failed when the eval times out', async () => {
+    const env = buildEngine({ evalRunner: makeFakeEval([{ stdout: 'partial', exitCode: 124, timedOut: true }]) })
+    env.git.changedFiles.push(1)
+    await env.engine.start(baseConfig())
+    expect(env.log.appended[0].outcome).toBe('failed')
+    expect(env.log.appended[0].errorMessage).toContain('eval timed out')
+    expect(env.git.resets.length).toBe(1)
+  })
+})
+
+describe('LoopEngine — wall-clock cutoff', () => {
+  it('stops before running any iteration once the wall-clock budget is exceeded', async () => {
+    // now() returns the start time for startedAt + startWallMs, then jumps far past the
+    // 1-minute budget for the first drive() check.
+    let calls = 0
+    const now = (): number => { calls += 1; return calls <= 2 ? 1000 : 1000 + 999_999_999 }
+    const env = buildEngine({ now })
+    env.git.changedFiles.push(1)
+    await env.engine.start(baseConfig({ maxIterations: 5, maxWallClockMinutes: 1 }))
+    expect(env.log.appended.length).toBe(0)
+    expect((await env.engine.getStatus(SESSION_ID))?.state).toBe('finished')
   })
 })
 

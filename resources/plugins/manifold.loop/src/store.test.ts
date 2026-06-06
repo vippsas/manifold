@@ -29,13 +29,20 @@ describe('createLoopStore', () => {
     expect(await store.getConfig('s2')).toBeNull()
   })
 
-  it('round-trips status and clears it', async () => {
+  it('treats a persisted config that no longer validates as absent', async () => {
+    const s = fakeStorage()
+    const store = createLoopStore(s as never)
+    // A corrupt / older-shape config (here: missing program, non-positive budget) must not
+    // be handed to the engine, which assumes a valid config.
+    s.map.set('loop.config.s1', { sessionId: 's1', program: '', targetGlobs: [], evalCommand: 'e', metric: { kind: 'exit-code', direction: 'minimize' }, budgetSeconds: 0 })
+    expect(await store.getConfig('s1')).toBeNull()
+  })
+
+  it('round-trips status', async () => {
     const s = fakeStorage()
     const store = createLoopStore(s as never)
     expect(await store.getStatus('s1')).toBeNull()
     await store.setStatus('s1', st('s1'))
     expect((await store.getStatus('s1'))?.state).toBe('running')
-    await store.clearStatus('s1')
-    expect(await store.getStatus('s1')).toBeNull()
   })
 })

@@ -65,7 +65,7 @@ export function createWindowApi(endpoint: RpcEndpoint): {
 
   async function resolveView(viewId: string): Promise<void> {
     const provider = providers.get(viewId)
-    if (!provider) return
+    if (!provider) { console.error(`[plugin-host] resolveView: no WebviewViewProvider registered for "${viewId}"`); return }
     const viewListeners = new Set<(m: unknown) => void>()
     listeners.set(viewId, viewListeners)
     let html = ''
@@ -82,7 +82,7 @@ export function createWindowApi(endpoint: RpcEndpoint): {
 
   function deliverMessage(viewId: string, message: unknown): void {
     const set = listeners.get(viewId)
-    if (!set) return
+    if (!set) { console.warn(`[plugin-host] deliverMessage: no listener for "${viewId}" (message dropped)`); return }
     for (const listener of set) listener(message)
   }
 

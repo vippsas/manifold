@@ -1,7 +1,7 @@
 import type React from 'react'
 
 // Iteration-list row styles + outcome/state color maps.
-// Ported verbatim from src/renderer/components/loop/LoopPanel.styles.ts.
+// (Originally lifted from the built-in loop panel, removed in #447; this is now canonical.)
 export const iterationStyles: Record<string, React.CSSProperties> = {
   iterList: {
     display: 'flex',

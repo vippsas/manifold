@@ -105,6 +105,9 @@ export function LoopPanel(): React.JSX.Element {
       )}
 
       <div style={S.content}>
+        {loop.startError && (
+          <div style={S.startError} role="alert">{loop.startError}</div>
+        )}
         {!isRunning && <LoopIntro />}
         {!hasConfig || !isRunning ? (
           <LoopConfigForm
