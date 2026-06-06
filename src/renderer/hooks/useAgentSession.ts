@@ -78,11 +78,16 @@ export function useAgentSession(projectId: string | null): UseAgentSessionResult
 
 function useFetchSessionsOnProjectChange(
   projectId: string | null,
-  _activeSessionId: string | null,
+  activeSessionId: string | null,
   setSessions: React.Dispatch<React.SetStateAction<AgentSession[]>>,
   setActiveSessionId: React.Dispatch<React.SetStateAction<string | null>>
 ): (preferredSessionId?: string | null) => Promise<AgentSession[] | null> {
   const requestIdRef = useRef(0)
+  // Remembers the last active session per project so re-entering a repo
+  // restores the agent that was selected, instead of resetting to the first.
+  const lastSessionByProjectRef = useRef<Map<string, string>>(new Map())
+  const activeSessionIdRef = useRef(activeSessionId)
+  activeSessionIdRef.current = activeSessionId
 
   const syncSessions = useCallback(
     async (preferredSessionId?: string | null): Promise<AgentSession[] | null> => {
@@ -109,7 +114,14 @@ function useFetchSessionsOnProjectChange(
       return
     }
 
-    void syncSessions()
+    void syncSessions(lastSessionByProjectRef.current.get(projectId) ?? null)
+
+    return () => {
+      // On leaving this project, record whichever agent is active so we can
+      // restore it on return. Runs before the next project's effect reads it.
+      const remembered = activeSessionIdRef.current
+      if (remembered) lastSessionByProjectRef.current.set(projectId, remembered)
+    }
   }, [projectId, setSessions, setActiveSessionId, syncSessions])
 
   useIpcListener<AgentSessionsChangedEvent>(

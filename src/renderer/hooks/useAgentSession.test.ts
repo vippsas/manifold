@@ -175,6 +175,43 @@ describe('useAgentSession', () => {
     expect(result.current.activeSessionId).toBe('s1')
   })
 
+  it('restores the last selected agent when switching back to a repo', async () => {
+    const p1a = makeSession('s1', 'p1')
+    const p1b = makeSession('s2', 'p1')
+    const p2a = makeSession('s3', 'p2')
+
+    mockInvoke.mockImplementation((channel: string, arg: string) => {
+      if (channel === 'agent:sessions') {
+        if (arg === 'p1') return Promise.resolve([p1a, p1b])
+        if (arg === 'p2') return Promise.resolve([p2a])
+      }
+      return Promise.resolve(undefined)
+    })
+
+    const { result, rerender } = renderHook(({ pid }) => useAgentSession(pid), {
+      initialProps: { pid: 'p1' as string | null },
+    })
+
+    await waitFor(() => {
+      expect(result.current.sessions).toEqual([p1a, p1b])
+    })
+
+    act(() => {
+      result.current.setActiveSession('s2')
+    })
+    expect(result.current.activeSessionId).toBe('s2')
+
+    rerender({ pid: 'p2' })
+    await waitFor(() => {
+      expect(result.current.activeSessionId).toBe('s3')
+    })
+
+    rerender({ pid: 'p1' })
+    await waitFor(() => {
+      expect(result.current.activeSessionId).toBe('s2')
+    })
+  })
+
   it('can still delete an entire shared worktree explicitly', async () => {
     const sessionA = { ...makeSession('s1', 'p1'), worktreePath: '/tmp/shared' }
     const sessionB = { ...makeSession('s2', 'p1'), worktreePath: '/tmp/shared' }
