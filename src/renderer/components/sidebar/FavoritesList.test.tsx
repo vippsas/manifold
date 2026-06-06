@@ -56,9 +56,28 @@ describe('FavoritesList', () => {
       { kind: 'repo', id: 'p1', name: 'api-gateway' },
       { kind: 'repo', id: 'p2', name: 'billing' },
     ], { onReorderFavorites })
-    const rows = screen.getAllByRole('button')
-    fireEvent.dragStart(rows[1])
-    fireEvent.drop(rows[0])
+    const apiRow = screen.getByText('api-gateway').closest('[role="button"]') as HTMLElement
+    const billingRow = screen.getByText('billing').closest('[role="button"]') as HTMLElement
+    fireEvent.dragStart(billingRow)
+    fireEvent.drop(apiRow)
     expect(onReorderFavorites).toHaveBeenCalledWith(1, 0)
+  })
+
+  it('collapses favorites to a header-only row', () => {
+    renderList([
+      { kind: 'workspace', id: 'w1', name: 'ML Pipeline' },
+      { kind: 'repo', id: 'p2', name: 'billing' },
+    ])
+
+    fireEvent.click(screen.getByTitle('Collapse Favorites'))
+
+    expect(screen.getByText('Favorites')).toBeTruthy()
+    expect(screen.queryByText('ML Pipeline')).not.toBeInTheDocument()
+    expect(screen.queryByText('billing')).not.toBeInTheDocument()
+
+    fireEvent.click(screen.getByTitle('Expand Favorites'))
+
+    expect(screen.getByText('ML Pipeline')).toBeTruthy()
+    expect(screen.getByText('billing')).toBeTruthy()
   })
 })

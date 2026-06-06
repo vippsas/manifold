@@ -8,6 +8,7 @@ import { AgentItem } from './AgentItem'
 import { ProjectItem } from './ProjectItem'
 import { FavoriteStarButton } from './FavoriteStarButton'
 import { dedupeSessionsByWorktree } from '../../hooks/agent-siblings'
+import { SidebarSectionHeader } from './SidebarSectionHeader'
 
 export interface ProjectListProps {
   projects: Project[]
@@ -56,6 +57,7 @@ export function ProjectList({
   onSelectDraft,
   onDiscardDraft,
 }: ProjectListProps): React.JSX.Element {
+  const [withAgentsExpanded, setWithAgentsExpanded] = useState(true)
   const [reposExpanded, setReposExpanded] = useState(false)
   const visibleProjects = projects.filter((project) => !suppressedProjectIds?.has(project.id))
 
@@ -93,6 +95,7 @@ export function ProjectList({
   // top so it isn't hidden inside the collapsed "Repositories" list.
   const activeHasAgents = activeProject !== null
     && filterStandaloneProjectSessions(allProjectSessions[activeProject.id] ?? []).length > 0
+  const withAgentsCount = (activeHasAgents ? 1 : 0) + withAgentsProjects.length
 
   const renderActiveProjectCard = (project: Project): React.JSX.Element => {
     const projectSessions = filterStandaloneProjectSessions(allProjectSessions[project.id] ?? [])
@@ -157,79 +160,67 @@ export function ProjectList({
       {(activeHasAgents || withAgentsProjects.length > 0) && (
         <>
           <div style={sidebarStyles.sectionDivider} />
-          <div style={sidebarStyles.sectionLabel}>With agents</div>
-          {activeProject !== null && activeHasAgents && renderActiveProjectCard(activeProject)}
-          {withAgentsProjects.map((project) => {
-            const projectSessions = filterStandaloneProjectSessions(allProjectSessions[project.id] ?? [])
-            return (
-              <div
-                key={project.id}
-                style={sidebarStyles.collapsedProject}
-                onClick={() => handleProjectClick(project.id)}
-                onKeyDown={(e) => {
-                  if (e.key === 'Enter' || e.key === ' ') {
-                    e.preventDefault()
-                    handleProjectClick(project.id)
-                  }
-                }}
-                role="button"
-                tabIndex={0}
-                className="sidebar-project-group sidebar-project-group--has-agents sidebar-project-group--collapsed"
-              >
-                <span
-                  className="truncate sidebar-row-label"
-                  style={{ ...sidebarStyles.item, color: 'var(--text-secondary)', fontSize: 'var(--type-ui-small)' }}
-                >
-                  {project.name}
-                </span>
-                <div style={sidebarStyles.miniStatusDots}>
-                  {projectSessions
-                    .filter((session) => session.status !== 'done' && session.status !== 'error')
-                    .map((session) => (
-                      <span
-                        key={session.id}
-                        title={session.branchName}
-                        className={outputtingSessionIds.has(session.id) ? 'status-dot--active' : ''}
-                        style={{ ...sidebarStyles.miniDot, background: 'var(--accent)' }}
-                      />
-                    ))}
-                </div>
-              </div>
-            )
-          })}
+          <SidebarSectionHeader
+            label="With agents"
+            count={withAgentsCount}
+            expanded={withAgentsExpanded}
+            onToggle={() => setWithAgentsExpanded((prev) => !prev)}
+          />
+          {withAgentsExpanded && (
+            <>
+              {activeProject !== null && activeHasAgents && renderActiveProjectCard(activeProject)}
+              {withAgentsProjects.map((project) => {
+                const projectSessions = filterStandaloneProjectSessions(allProjectSessions[project.id] ?? [])
+                return (
+                  <div
+                    key={project.id}
+                    style={sidebarStyles.collapsedProject}
+                    onClick={() => handleProjectClick(project.id)}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter' || e.key === ' ') {
+                        e.preventDefault()
+                        handleProjectClick(project.id)
+                      }
+                    }}
+                    role="button"
+                    tabIndex={0}
+                    className="sidebar-project-group sidebar-project-group--has-agents sidebar-project-group--collapsed"
+                  >
+                    <span
+                      className="truncate sidebar-row-label"
+                      style={{ ...sidebarStyles.item, color: 'var(--text-secondary)', fontSize: 'var(--type-ui-small)' }}
+                    >
+                      {project.name}
+                    </span>
+                    <div style={sidebarStyles.miniStatusDots}>
+                      {projectSessions
+                        .filter((session) => session.status !== 'done' && session.status !== 'error')
+                        .map((session) => (
+                          <span
+                            key={session.id}
+                            title={session.branchName}
+                            className={outputtingSessionIds.has(session.id) ? 'status-dot--active' : ''}
+                            style={{ ...sidebarStyles.miniDot, background: 'var(--accent)' }}
+                          />
+                        ))}
+                    </div>
+                  </div>
+                )
+              })}
+            </>
+          )}
         </>
       )}
 
       {inactiveProjects.length > 0 && (
         <>
           <div style={sidebarStyles.sectionDivider} />
-          <div
-            style={sidebarStyles.sectionLabelToggle}
-            onClick={() => setReposExpanded((prev) => !prev)}
-            onKeyDown={(e) => {
-              if (e.key === 'Enter' || e.key === ' ') {
-                e.preventDefault()
-                setReposExpanded((prev) => !prev)
-              }
-            }}
-            role="button"
-            tabIndex={0}
-          >
-            <svg
-              width="10"
-              height="10"
-              viewBox="0 0 10 10"
-              style={{
-                transform: reposExpanded ? 'rotate(90deg)' : 'rotate(0deg)',
-                transition: 'transform 0.1s ease',
-                flexShrink: 0,
-              }}
-            >
-              <path d="M3 1L7 5L3 9" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
-            </svg>
-            <span>Repositories</span>
-            <span style={sidebarStyles.sectionCount}>{inactiveProjects.length}</span>
-          </div>
+          <SidebarSectionHeader
+            label="Repositories"
+            count={inactiveProjects.length}
+            expanded={reposExpanded}
+            onToggle={() => setReposExpanded((prev) => !prev)}
+          />
           {reposExpanded && (
             <div style={sidebarStyles.inactiveList}>
               {inactiveProjects.map((project) => (

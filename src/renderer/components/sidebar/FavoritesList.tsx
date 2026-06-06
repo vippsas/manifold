@@ -4,18 +4,25 @@ import { sidebarStyles } from './ProjectSidebar.styles'
 import { favoritesStyles } from './FavoritesList.styles'
 import { WorkspaceGlyph } from './WorkspaceGlyph'
 import { RepoGlyph } from './RepoGlyph'
+import { SidebarSectionHeader } from './SidebarSectionHeader'
 
 export function FavoritesList(): React.JSX.Element | null {
   const state = useContext(DockStateContext)
   const [dragIndex, setDragIndex] = useState<number | null>(null)
+  const [expanded, setExpanded] = useState(true)
 
   if (!state || state.favorites.length === 0) return null
   const { favorites, onActivateFavorite, onReorderFavorites } = state
 
   return (
     <div style={favoritesStyles.section}>
-      <div style={sidebarStyles.sectionLabel}>Favorites</div>
-      {favorites.map((fav, index) => (
+      <SidebarSectionHeader
+        label="Favorites"
+        count={favorites.length}
+        expanded={expanded}
+        onToggle={() => setExpanded((prev) => !prev)}
+      />
+      {expanded && favorites.map((fav, index) => (
         <div
           key={`${fav.kind}-${fav.id}`}
           role="button"
