@@ -60,7 +60,6 @@ export function makeFakeStore(): LoopStore & { configs: Map<string, LoopConfig>;
     setConfig: async (id, c) => { configs.set(id, c) },
     getStatus: async (id) => statuses.get(id) ?? null,
     setStatus: async (id, s) => { statuses.set(id, s) },
-    clearStatus: async (id) => { statuses.delete(id) },
   }
 }
 

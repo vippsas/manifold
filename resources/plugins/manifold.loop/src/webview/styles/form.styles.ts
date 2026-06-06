@@ -1,7 +1,7 @@
 import type React from 'react'
 
 // Config-form field, input, button, and AI-button styles.
-// Ported verbatim from src/renderer/components/loop/LoopPanel.styles.ts.
+// (Originally lifted from the built-in loop panel, removed in #447; this is now canonical.)
 export const formStyles: Record<string, React.CSSProperties> = {
   form: {
     display: 'flex',

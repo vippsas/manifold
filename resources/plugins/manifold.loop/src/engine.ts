@@ -1,8 +1,8 @@
 // resources/plugins/manifold.loop/src/engine.ts
-// Ported from src/main/loop/loop-runner.ts. Differences: sendInput+waitForTurnEnd collapse
-// into runTurn; config/status persist via the injected store; the active session is pinned
-// at start and re-checked each iteration. No `manifold` import (all deps injected).
-import type { LoopConfig, LoopIteration, LoopStatus, IterationOutcome } from './types'
+// The autoresearch loop engine: sendInput+waitForTurnEnd collapse into runTurn; config/status
+// persist via the injected store; the active session is pinned at start and re-checked each
+// iteration. No `manifold` import (all deps injected, so it's unit-testable).
+import { parseLoopConfig, DEFAULT_MAX_ITERATIONS, type LoopConfig, type LoopIteration, type LoopStatus, type IterationOutcome } from './types'
 import { parseMetric, isImprovement } from './eval'
 import type { LoopGitAdapter } from './git'
 import type { LoopEvalRunner, EvalOutcome } from './eval-runner'
@@ -65,6 +65,8 @@ export class LoopEngine {
 
   /** Run the loop to completion. The plugin command invokes this fire-and-forget. */
   async start(config: LoopConfig): Promise<void> {
+    const parsed = parseLoopConfig(config)
+    if ('error' in parsed) throw new Error(parsed.error)
     if (this.runs.has(config.sessionId)) {
       throw new Error(`Loop already running for session ${config.sessionId}`)
     }
@@ -123,6 +125,8 @@ export class LoopEngine {
   }
 
   async setConfig(sessionId: string, config: LoopConfig): Promise<LoopConfig> {
+    const parsed = parseLoopConfig(config)
+    if ('error' in parsed) throw new Error(parsed.error)
     await this.deps.store.setConfig(sessionId, config)
     return config
   }
@@ -156,7 +160,7 @@ export class LoopEngine {
 
   private async drive(run: RunState): Promise<void> {
     const { config, status, abort } = run
-    const maxIter = config.maxIterations ?? 40
+    const maxIter = config.maxIterations ?? DEFAULT_MAX_ITERATIONS
     const maxWallMs = (config.maxWallClockMinutes ?? 24 * 60) * 60 * 1000
 
     while (status.state === 'running' && status.currentIteration < maxIter) {
@@ -267,7 +271,10 @@ export class LoopEngine {
   }
 
   private async safeReset(worktreePath: string, sha: string): Promise<void> {
-    try { await this.deps.git.hardReset(worktreePath, sha) } catch { /* best-effort */ }
+    // A failed reset is consequential: the next iteration would run on top of un-reverted,
+    // rejected changes and poison the experiment. Best-effort, but log so it's diagnosable.
+    try { await this.deps.git.hardReset(worktreePath, sha) }
+    catch (err) { console.error('[loop-plugin] failed to reset worktree after a rejected iteration:', (err as Error).message) }
   }
 
   private async safeDiff(worktreePath: string, sha: string): Promise<string> {

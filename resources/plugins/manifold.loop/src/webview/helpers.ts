@@ -1,4 +1,4 @@
-import type { LoopConfig, MetricSpec } from '../types'
+import { DEFAULT_MAX_ITERATIONS, type LoopConfig, type MetricSpec } from '../types'
 
 export interface FormState {
   program: string
@@ -29,7 +29,7 @@ export const DEFAULT_FORM: FormState = {
   judgeRubric: DEFAULT_JUDGE_RUBRIC,
   judgeMaxScore: '10',
   budgetSeconds: '60',
-  maxIterations: '5',
+  maxIterations: String(DEFAULT_MAX_ITERATIONS),
   alwaysAdvance: false,
   clearContextEachIteration: false,
 }
@@ -48,7 +48,7 @@ export function formFromConfig(cfg: LoopConfig | null): FormState {
     judgeRubric: m.kind === 'llm-judge' ? m.rubric : DEFAULT_FORM.judgeRubric,
     judgeMaxScore: m.kind === 'llm-judge' ? String(m.maxScore) : DEFAULT_FORM.judgeMaxScore,
     budgetSeconds: String(cfg.budgetSeconds),
-    maxIterations: String(cfg.maxIterations ?? 20),
+    maxIterations: String(cfg.maxIterations ?? DEFAULT_MAX_ITERATIONS),
     alwaysAdvance: cfg.alwaysAdvance ?? false,
     clearContextEachIteration: cfg.clearContextEachIteration ?? false,
   }

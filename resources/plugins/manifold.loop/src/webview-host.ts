@@ -4,11 +4,10 @@
 // and bridges engine events to the view. No `manifold` import (everything injected → testable).
 import type { WebviewViewProvider, WebviewView } from 'manifold'
 import type { LoopConfig } from './types'
-import type { WebviewMsg } from './webview/protocol'
+import { isWebviewMsg, type WebviewMsg } from './webview/protocol'
 
 export interface EngineFacade {
   getStatus(sessionId: string): Promise<unknown>
-  getStatusSync(sessionId: string): unknown
   getIterations(): Promise<unknown[]>
   getConfig(sessionId: string): Promise<unknown>
   start(config: LoopConfig): Promise<void>
@@ -67,9 +66,21 @@ export function createWebviewHost(opts: WebviewHostOptions): {
     const sessionId = opts.getActiveSessionId()
     switch (msg.type) {
       case 'ready': await sendInit(); break
-      case 'start': void opts.engine.start(msg.config); break
+      case 'start':
+        // start() runs the loop to completion; awaiting it here only surfaces the early
+        // validation rejections (invalid config, no worktree/session, already running) —
+        // otherwise the optimistic "running" UI would hang forever (the engine publishes
+        // real status events for the success path).
+        try { await opts.engine.start(msg.config) }
+        catch (e) { post({ type: 'startResult', ok: false, error: (e as Error).message }) }
+        break
       case 'stop': if (sessionId) await opts.engine.stop(sessionId); break
-      case 'saveConfig': if (sessionId) await opts.engine.setConfig(sessionId, msg.config); break
+      case 'saveConfig':
+        if (sessionId) {
+          try { await opts.engine.setConfig(sessionId, msg.config) }
+          catch (e) { console.error('[loop-plugin] saveConfig failed:', (e as Error).message) }
+        }
+        break
       case 'restoreBest':
         if (!sessionId) { post({ type: 'restoreResult', ok: false, error: 'no active session' }); break }
         try { const { sha } = await opts.engine.restoreBest(sessionId); post({ type: 'restoreResult', ok: true, sha }) }
@@ -89,7 +100,7 @@ export function createWebviewHost(opts: WebviewHostOptions): {
     resolveWebviewView(v: WebviewView): void {
       view = v
       v.webview.html = buildWebviewHtml(opts.readBundle())
-      v.webview.onDidReceiveMessage((raw: unknown) => { void handle(raw as WebviewMsg) })
+      v.webview.onDidReceiveMessage((raw: unknown) => { if (isWebviewMsg(raw)) void handle(raw) })
     },
   }
 

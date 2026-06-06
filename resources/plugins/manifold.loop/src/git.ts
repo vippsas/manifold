@@ -1,5 +1,5 @@
 // resources/plugins/manifold.loop/src/git.ts
-// Ported from src/main/loop/loop-adapters.ts (createGitAdapter). Pure Node — no manifold import.
+// Git adapter for the autoresearch loop. Pure Node — no manifold import (so it's unit-testable).
 import { execFile } from 'node:child_process'
 import { promisify } from 'node:util'
 
