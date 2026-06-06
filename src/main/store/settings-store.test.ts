@@ -166,6 +166,25 @@ describe('SettingsStore', () => {
       expect(settings.search?.ai.runtimeId).toBe(DEFAULT_SETTINGS.search.ai.runtimeId)
       expect(settings.search?.ai.citationLimit).toBe(DEFAULT_SETTINGS.search.ai.citationLimit)
     })
+
+    it('fills in default editor settings when absent', () => {
+      mockExistsSync.mockReturnValue(false)
+      const store = new SettingsStore()
+      expect(store.getSettings().editor).toEqual(DEFAULT_SETTINGS.editor)
+    })
+
+    it('deep-merges partial editor settings with defaults', () => {
+      mockExistsSync.mockReturnValue(true)
+      mockReadFileSync.mockReturnValue(JSON.stringify({ editor: { fontSize: 16 } }))
+
+      const store = new SettingsStore()
+      const editor = store.getSettings().editor
+      expect(editor?.fontSize).toBe(16)
+      expect(editor?.fontFamily).toBe(DEFAULT_SETTINGS.editor?.fontFamily)
+      expect(editor?.wordWrap).toBe(DEFAULT_SETTINGS.editor?.wordWrap)
+      expect(editor?.minimap).toBe(DEFAULT_SETTINGS.editor?.minimap)
+      expect(editor?.tabSize).toBe(DEFAULT_SETTINGS.editor?.tabSize)
+    })
   })
 
   describe('updateSettings', () => {

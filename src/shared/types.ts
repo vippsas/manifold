@@ -91,6 +91,14 @@ export interface FileTreeNode {
   children?: FileTreeNode[]
 }
 
+export interface EditorSettings {
+  fontSize: number
+  fontFamily: string
+  wordWrap: 'on' | 'off'
+  minimap: boolean
+  tabSize: number
+}
+
 export interface ManifoldSettings {
   storagePath: string
   setupCompleted: boolean
@@ -113,6 +121,7 @@ export interface ManifoldSettings {
   keepAwake: boolean
   memory?: import('./memory-types').MemorySettings
   search?: SearchSettings
+  editor?: EditorSettings
   provisioning?: import('./provisioning-types').ProvisioningSettings
   transcription?: import('./watch-types').AiServiceSettings
   pluginConfig?: Record<string, Record<string, unknown>>
