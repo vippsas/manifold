@@ -107,14 +107,6 @@ export const outcomeColors: Record<string, { bg: string; fg: string }> = {
   aborted: { bg: 'color-mix(in srgb, var(--text-muted) 18%, transparent)', fg: 'var(--text-muted)' },
 }
 
-export const stateColors: Record<string, string> = {
-  idle: 'var(--text-muted)',
-  running: 'var(--status-running)',
-  paused: 'var(--status-waiting)',
-  finished: 'var(--status-done)',
-  error: 'var(--status-error)',
-}
-
 export const outcomeBorder: Record<string, string> = {
   improved: 'var(--status-done)',
   regressed: 'var(--status-waiting)',
