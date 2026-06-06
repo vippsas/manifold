@@ -110,12 +110,12 @@ function renderHeaderActions(
 }
 
 describe('EditorHeaderActions', () => {
-  it('shows file mode actions in the dock header when preview or diff is available', () => {
+  it('shows the current mode and toggles to the next view on one click', () => {
     const showPreview = vi.fn()
-
     const controls: EditorPaneModeControls = {
       canShowPreview: true,
-      canShowDiff: true,
+      canShowDiff: false,
+      mode: 'editor',
       showEditor: vi.fn(),
       showPreview,
       showDiff: vi.fn(),
@@ -124,9 +124,11 @@ describe('EditorHeaderActions', () => {
 
     const { unmount } = renderHeaderActions()
 
-    fireEvent.click(screen.getByRole('button', { name: 'File mode options' }))
-    fireEvent.click(screen.getByRole('menuitem', { name: 'Preview' }))
-
+    // A single button shows the current mode and advertises the next one.
+    const toggle = screen.getByRole('button', { name: 'Editor' })
+    expect(toggle).toHaveAttribute('title', 'Switch to Preview')
+    // One click switches to Preview.
+    fireEvent.click(toggle)
     expect(showPreview).toHaveBeenCalledTimes(1)
 
     unmount()
@@ -155,12 +157,46 @@ describe('EditorHeaderActions', () => {
     expect(onMoveFileToPane).toHaveBeenCalledWith('/repo/file.ts', 'editor:1', 'editor')
   })
 
+  it('cycles editor → preview → diff → editor when all three views exist', () => {
+    const showEditor = vi.fn()
+    const showPreview = vi.fn()
+    const showDiff = vi.fn()
+    const base = { canShowPreview: true, canShowDiff: true, showEditor, showPreview, showDiff }
+
+    // editor → preview
+    let controls: EditorPaneModeControls = { ...base, mode: 'editor' }
+    registerEditorPaneModeControls('editor', controls)
+    let view = renderHeaderActions()
+    fireEvent.click(screen.getByRole('button', { name: 'Editor' }))
+    expect(showPreview).toHaveBeenCalledTimes(1)
+    view.unmount()
+    unregisterEditorPaneModeControls('editor', controls)
+
+    // preview → diff
+    controls = { ...base, mode: 'preview' }
+    registerEditorPaneModeControls('editor', controls)
+    view = renderHeaderActions()
+    fireEvent.click(screen.getByRole('button', { name: 'Preview' }))
+    expect(showDiff).toHaveBeenCalledTimes(1)
+    view.unmount()
+    unregisterEditorPaneModeControls('editor', controls)
+
+    // diff → editor (wraps around)
+    controls = { ...base, mode: 'diff' }
+    registerEditorPaneModeControls('editor', controls)
+    view = renderHeaderActions()
+    fireEvent.click(screen.getByRole('button', { name: 'Diff' }))
+    expect(showEditor).toHaveBeenCalledTimes(1)
+    view.unmount()
+    unregisterEditorPaneModeControls('editor', controls)
+  })
+
   it('does not render for non-editor panels', () => {
     renderHeaderActions({}, {
       activePanel: { id: 'shell' } as IDockviewHeaderActionsProps['activePanel'],
     })
 
     expect(screen.queryByRole('button', { name: 'Pane actions' })).toBeNull()
-    expect(screen.queryByRole('button', { name: 'File mode options' })).toBeNull()
+    expect(screen.queryByRole('button', { name: 'Editor' })).toBeNull()
   })
 })

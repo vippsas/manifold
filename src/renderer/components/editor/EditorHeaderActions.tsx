@@ -7,17 +7,6 @@ import {
   subscribeEditorPaneModeControls,
 } from './editor-pane-mode-controls'
 
-function ModeButtonIcon(): React.JSX.Element {
-  return (
-    <svg aria-hidden="true" width="12" height="12" viewBox="0 0 12 12" fill="none">
-      <rect x="1.5" y="1.5" width="9" height="9" rx="1.75" stroke="currentColor" strokeWidth="1.1" />
-      <path d="M3.1 4.1H8.9" stroke="currentColor" strokeWidth="1.1" strokeLinecap="round" />
-      <path d="M3.1 6H8.9" stroke="currentColor" strokeWidth="1.1" strokeLinecap="round" opacity="0.72" />
-      <path d="M3.1 7.9H6.6" stroke="currentColor" strokeWidth="1.1" strokeLinecap="round" opacity="0.48" />
-    </svg>
-  )
-}
-
 function PaneButtonIcon(): React.JSX.Element {
   return (
     <svg aria-hidden="true" width="12" height="12" viewBox="0 0 12 12" fill="none">
@@ -27,6 +16,21 @@ function PaneButtonIcon(): React.JSX.Element {
       <path d="M7 7.8H9.3" stroke="currentColor" strokeWidth="1.1" strokeLinecap="round" opacity="0.62" />
     </svg>
   )
+}
+
+function SwapIcon(): React.JSX.Element {
+  return (
+    <svg aria-hidden="true" width="11" height="11" viewBox="0 0 12 12" fill="none">
+      <path d="M2.5 4.25H9L7.25 2.5" stroke="currentColor" strokeWidth="1.1" strokeLinecap="round" strokeLinejoin="round" />
+      <path d="M9.5 7.75H3L4.75 9.5" stroke="currentColor" strokeWidth="1.1" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  )
+}
+
+const MODE_LABEL: Record<'editor' | 'preview' | 'diff', string> = {
+  editor: 'Editor',
+  preview: 'Preview',
+  diff: 'Diff',
 }
 
 export function EditorHeaderActions({ activePanel }: IDockviewHeaderActionsProps): React.JSX.Element | null {
@@ -80,49 +84,48 @@ export function EditorHeaderActions({ activePanel }: IDockviewHeaderActionsProps
     }
   }
 
-  const modeItems: ActionMenuButtonItem[] = []
+  // A single toggle button: shows the current view mode and cycles to the next
+  // available one on click (a 2-way toggle when only Editor+Preview or
+  // Editor+Diff exist; a 3-way cycle for a changed markdown file).
+  let modeToggle: { label: string; nextLabel: string; isEditor: boolean; cycle: () => void } | null = null
 
   if (pane.activeFilePath && modeControls && (modeControls.canShowPreview || modeControls.canShowDiff)) {
-    modeItems.push({
-      id: 'mode-editor',
-      label: 'Editor',
-      action: () => {
+    const available: Array<'editor' | 'preview' | 'diff'> = ['editor']
+    if (modeControls.canShowPreview) available.push('preview')
+    if (modeControls.canShowDiff) available.push('diff')
+
+    const current = available.includes(modeControls.mode) ? modeControls.mode : 'editor'
+    const next = available[(available.indexOf(current) + 1) % available.length]
+
+    modeToggle = {
+      label: MODE_LABEL[current],
+      nextLabel: MODE_LABEL[next],
+      isEditor: current === 'editor',
+      cycle: () => {
         state.onActivateEditorPane(paneId)
-        modeControls.showEditor()
+        if (next === 'editor') modeControls.showEditor()
+        else if (next === 'preview') modeControls.showPreview()
+        else modeControls.showDiff()
       },
-    })
-
-    if (modeControls.canShowPreview) {
-      modeItems.push({
-        id: 'mode-preview',
-        label: 'Preview',
-        action: () => {
-          state.onActivateEditorPane(paneId)
-          modeControls.showPreview()
-        },
-      })
-    }
-
-    if (modeControls.canShowDiff) {
-      modeItems.push({
-        id: 'mode-diff',
-        label: 'Diff',
-        action: () => {
-          state.onActivateEditorPane(paneId)
-          modeControls.showDiff()
-        },
-      })
     }
   }
 
   return (
     <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
-      <ActionMenuButton
-        buttonLabel={<ModeButtonIcon />}
-        title="File mode options"
-        menuLabel="File mode options"
-        items={modeItems}
-      />
+      {modeToggle && (
+        <button
+          type="button"
+          onClick={modeToggle.cycle}
+          title={`Switch to ${modeToggle.nextLabel}`}
+          style={{
+            ...modeToggleStyles.button,
+            ...(modeToggle.isEditor ? {} : modeToggleStyles.buttonAlt),
+          }}
+        >
+          <SwapIcon />
+          {modeToggle.label}
+        </button>
+      )}
       <ActionMenuButton
         buttonLabel={<PaneButtonIcon />}
         title="Pane actions"
@@ -131,4 +134,25 @@ export function EditorHeaderActions({ activePanel }: IDockviewHeaderActionsProps
       />
     </div>
   )
+}
+
+const modeToggleStyles: Record<string, React.CSSProperties> = {
+  button: {
+    display: 'inline-flex',
+    alignItems: 'center',
+    gap: '4px',
+    padding: '1px 8px',
+    fontSize: '11px',
+    lineHeight: 1.7,
+    background: 'transparent',
+    color: 'var(--text-secondary)',
+    border: '1px solid var(--border)',
+    borderRadius: '4px',
+    cursor: 'pointer',
+    whiteSpace: 'nowrap',
+  },
+  buttonAlt: {
+    color: 'var(--accent)',
+    borderColor: 'var(--accent)',
+  },
 }

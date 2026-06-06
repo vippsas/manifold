@@ -10,6 +10,11 @@ import {
 // rebuild dockview layout).
 const previewPathsByPane = new Map<string, Set<string>>()
 
+// Tracks files already auto-defaulted to preview (per pane), so the markdown
+// auto-preview only applies on first open and never overrides a later manual
+// switch to editor mode.
+const autoPreviewedPathsByPane = new Map<string, Set<string>>()
+
 interface UseCodeViewerModesParams {
   paneId: string
   activeFilePath: string | null
@@ -60,19 +65,22 @@ export function useCodeViewerModes({
     previewPathsByPane.set(paneId, previewPaths)
   }, [paneId, previewPaths])
 
-  // Auto-open markdown files in preview mode. Intentionally omits previewPaths
-  // from deps: re-running when previewPaths changes would undo a manual switch
-  // to editor mode by re-adding the active file.
+  // Auto-open markdown files in preview mode — but only the FIRST time a file is
+  // opened in this pane. After that the user's explicit Editor/Preview choice
+  // (stored in previewPaths) is respected on revisits.
   useEffect(() => {
-    if (activeFilePath && isMarkdownFile(activeFilePath)) {
-      updatePreviewPaths((prev) => {
-        if (prev.has(activeFilePath)) return prev
-        const next = new Set(prev)
-        next.add(activeFilePath)
-        return next
-      })
-    }
-  }, [activeFilePath, updatePreviewPaths])
+    if (!activeFilePath || !isMarkdownFile(activeFilePath)) return
+    const seen = autoPreviewedPathsByPane.get(paneId) ?? new Set<string>()
+    if (seen.has(activeFilePath)) return
+    seen.add(activeFilePath)
+    autoPreviewedPathsByPane.set(paneId, seen)
+    updatePreviewPaths((prev) => {
+      if (prev.has(activeFilePath)) return prev
+      const next = new Set(prev)
+      next.add(activeFilePath)
+      return next
+    })
+  }, [activeFilePath, paneId, updatePreviewPaths])
 
   useEffect(() => {
     if (lastFileOpenRequest.source !== 'default' && lastFileOpenRequest.path === activeFilePath) {
@@ -134,10 +142,13 @@ export function useCodeViewerModes({
     setDiffMode(true)
   }, [activeFilePath, hasDiff, updatePreviewPaths])
 
+  const mode: 'editor' | 'preview' | 'diff' = previewActive ? 'preview' : diffMode ? 'diff' : 'editor'
+
   useEffect(() => {
     const controls = {
       canShowPreview: showPreviewToggle,
       canShowDiff: showDiffToggle,
+      mode,
       showEditor: showEditorMode,
       showPreview: showPreviewMode,
       showDiff: showDiffMode,
@@ -145,7 +156,7 @@ export function useCodeViewerModes({
 
     registerEditorPaneModeControls(paneId, controls)
     return () => unregisterEditorPaneModeControls(paneId, controls)
-  }, [paneId, showPreviewToggle, showDiffToggle, showEditorMode, showPreviewMode, showDiffMode])
+  }, [paneId, showPreviewToggle, showDiffToggle, mode, showEditorMode, showPreviewMode, showDiffMode])
 
   return { previewActive, diffMode, handleOpenLinkedFile }
 }
