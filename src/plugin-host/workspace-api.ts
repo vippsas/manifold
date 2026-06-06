@@ -1,5 +1,5 @@
 // src/plugin-host/workspace-api.ts
-import type { Disposable, ProjectInfo, SessionInfo, ManifoldApi } from '../shared/plugins/api-types'
+import type { Disposable, ProjectInfo, SessionInfo, WorkspaceFolder, ManifoldApi } from '../shared/plugins/api-types'
 
 export interface ActiveContext { project?: ProjectInfo; session?: SessionInfo }
 
@@ -18,12 +18,19 @@ export class WorkspaceContext {
     if (sessionChanged) for (const l of this.sessionListeners) l(next.session)
   }
 
+  get activeSessionId(): string | undefined { return this.context.session?.id }
+
   /** Per-plugin workspace namespace reading this shared context. */
   makeApi(): ManifoldApi['workspace'] {
     const self = this
     return {
       get activeProject(): ProjectInfo | undefined { return self.context.project },
       get activeSession(): SessionInfo | undefined { return self.context.session },
+      get workspaceFolders(): readonly WorkspaceFolder[] | undefined {
+        const session = self.context.session
+        if (!session?.worktreePath) return undefined
+        return [{ name: session.branchName ?? session.id, uri: session.worktreePath }]
+      },
       onDidChangeActiveProject(listener): Disposable {
         self.projectListeners.add(listener)
         return { dispose: () => self.projectListeners.delete(listener) }

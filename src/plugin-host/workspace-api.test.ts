@@ -54,3 +54,24 @@ describe('WorkspaceContext', () => {
     expect(listener).toHaveBeenCalledTimes(1) // still 1, not called after dispose
   })
 })
+
+describe('WorkspaceContext — workspaceFolders', () => {
+  it('is undefined when there is no active session', () => {
+    const ctx = new WorkspaceContext()
+    expect(ctx.makeApi().workspaceFolders).toBeUndefined()
+    expect(ctx.activeSessionId).toBeUndefined()
+  })
+
+  it('reflects the active session worktree path and id', () => {
+    const ctx = new WorkspaceContext()
+    ctx.setActiveContext({ session: { id: 's1', status: 'running', branchName: 'feat/x', worktreePath: '/wt/s1' } })
+    expect(ctx.activeSessionId).toBe('s1')
+    expect(ctx.makeApi().workspaceFolders).toEqual([{ name: 'feat/x', uri: '/wt/s1' }])
+  })
+
+  it('is undefined when the active session has no worktree path', () => {
+    const ctx = new WorkspaceContext()
+    ctx.setActiveContext({ session: { id: 's1', status: 'running' } })
+    expect(ctx.makeApi().workspaceFolders).toBeUndefined()
+  })
+})
