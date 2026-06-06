@@ -122,6 +122,37 @@ describe('sanitizeDockLayout', () => {
     expect(Object.keys(sanitized.panels)).toEqual(['agent', 'shell'])
   })
 
+  it('removes the retired loop tab from saved layouts', () => {
+    const saved = {
+      grid: {
+        root: {
+          type: 'leaf',
+          size: 1000,
+          data: {
+            id: 'workspace',
+            views: ['agent', 'loop'],
+            activeView: 'loop',
+          },
+        },
+      },
+      panels: {
+        agent: {},
+        loop: {},
+      },
+    } as unknown as SerializedDockview
+
+    const sanitized = sanitizeDockLayout(saved) as SerializedDockview
+    const leaf = sanitized.grid.root as {
+      type: 'leaf'
+      data: { views: string[]; activeView?: string }
+    }
+
+    expect(sanitized).not.toBeNull()
+    expect(Object.keys(sanitized.panels)).toEqual(['agent'])
+    expect(leaf.data.views).toEqual(['agent'])
+    expect(leaf.data.activeView).toBe('agent')
+  })
+
   it('removes the retired search tab from saved layouts', () => {
     const saved = {
       grid: {

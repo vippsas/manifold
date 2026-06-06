@@ -123,19 +123,19 @@ export class PluginManager {
 
   async openView(viewId: string): Promise<void> {
     const plugin = this.plugins.find((p) => p.manifest.contributes?.views?.some((v) => v.id === viewId))
-    if (!plugin || !plugin.manifest.main || !this.isEnabled(plugin.id)) return
+    if (!plugin || !plugin.manifest.main || !this.isEnabled(plugin.id)) { debugLog(`[plugins] openView("${viewId}"): no enabled plugin owns this view`); return }
     await this.host.resolveView({ id: plugin.id, root: plugin.root, main: plugin.manifest.main, kind: plugin.kind, capabilities: plugin.manifest.capabilities ?? [], origin: plugin.origin }, viewId)
   }
 
   async openTreeView(viewId: string): Promise<void> {
     const plugin = this.plugins.find((p) => p.manifest.contributes?.views?.some((v) => v.id === viewId))
-    if (!plugin || !plugin.manifest.main || !this.isEnabled(plugin.id)) return
+    if (!plugin || !plugin.manifest.main || !this.isEnabled(plugin.id)) { debugLog(`[plugins] openTreeView("${viewId}"): no enabled plugin owns this view`); return }
     await this.host.activate({ id: plugin.id, root: plugin.root, main: plugin.manifest.main, kind: plugin.kind, capabilities: plugin.manifest.capabilities ?? [], origin: plugin.origin })
   }
 
   async treeGetChildren(viewId: string, parentNodeId: string | undefined): Promise<unknown> {
     const plugin = this.plugins.find((p) => p.manifest.contributes?.views?.some((v) => v.id === viewId))
-    if (!plugin || !plugin.manifest.main || !this.isEnabled(plugin.id)) return []
+    if (!plugin || !plugin.manifest.main || !this.isEnabled(plugin.id)) { debugLog(`[plugins] treeGetChildren("${viewId}"): no enabled plugin owns this view`); return [] }
     return this.host.treeGetChildren({ id: plugin.id, root: plugin.root, main: plugin.manifest.main, kind: plugin.kind, capabilities: plugin.manifest.capabilities ?? [], origin: plugin.origin }, viewId, parentNodeId)
   }
 

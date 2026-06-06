@@ -67,6 +67,18 @@ describe('injectNonce', () => {
     expect(debugLogMock).not.toHaveBeenCalled()
   })
 
+  it('leaves an inlined bundle intact inside a full webview document (only the wrapper is nonced)', () => {
+    // Mirrors the served shape: buildWebviewHtml wraps the bundle as `<script>…</script>`
+    // after escaping `</script` → `<\/script`. The bundle here carries the React-DOM literal
+    // and another escaped close; both must survive injectNonce byte-for-byte.
+    const bundle = '(()=>{var a=document.createElement("div");a.innerHTML="<script><\\/script>";var s="x<\\/script>y";})()'
+    const html = `<!doctype html><html><head><meta charset="utf-8"></head><body><div id="root"></div><script>${bundle}</script></body></html>`
+    const out = injectNonce(html, 'N0NCE', 'view.full')
+    expect(out).toContain(`<script nonce="N0NCE">${bundle}</script>`)
+    expect((out.match(/nonce=/g) ?? []).length).toBe(1)
+    expect(debugLogMock).not.toHaveBeenCalled()
+  })
+
   it('does not re-inject a nonce into a <script> that already has one', () => {
     const out = injectNonce('<script nonce="EXISTING">a()</script>', 'N0NCE', 'view.pre')
     // Exactly one nonce attribute, and the CSP nonce replaces (or is unified with)

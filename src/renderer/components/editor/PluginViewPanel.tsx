@@ -46,6 +46,10 @@ export function PluginViewPanel({ api }: { api: { id: string } }): React.JSX.Ele
   useEffect(() => {
     const onMessage = (e: MessageEvent): void => {
       if (e.source && e.source === iframeRef.current?.contentWindow) {
+        // The webview posts 'ready' once its own message listener is attached. The theme
+        // sent in onLoad can race that listener (postMessage isn't buffered), leaving the UI
+        // on fallback colors; re-send it here, now that we know the webview is listening.
+        if ((e.data as { type?: unknown } | null)?.type === 'ready') postTheme()
         void window.electronAPI.invoke('plugins:webview-to-host', viewId, e.data).catch((err: unknown) => {
           // eslint-disable-next-line no-console
           console.error(`[PluginViewPanel] webview-to-host failed for "${viewId}":`, err)
@@ -54,7 +58,7 @@ export function PluginViewPanel({ api }: { api: { id: string } }): React.JSX.Ele
     }
     window.addEventListener('message', onMessage)
     return () => window.removeEventListener('message', onMessage)
-  }, [viewId])
+  }, [viewId]) // eslint-disable-line react-hooks/exhaustive-deps
 
   const onLoad = (): void => {
     if (version === 0) return // about:blank — not the real content; keep buffering
