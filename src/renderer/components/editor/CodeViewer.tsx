@@ -24,6 +24,7 @@ import { DEFAULT_SETTINGS } from '../../../shared/defaults'
 import type { EditorSettings } from '../../../shared/types'
 import { buildEditorOptions } from './build-editor-options'
 import { useDiffGutter } from './useDiffGutter'
+import { registerEditorNavCommands } from './editor-nav-commands'
 
 interface CodeViewerProps {
   paneId?: string
@@ -146,6 +147,7 @@ export function CodeViewer({
     bindEditor(editor)
     monacoRef.current = monacoApi
     setMountTick((tick) => tick + 1)
+    registerEditorNavCommands(editor, monacoApi)
     editor.addCommand(monacoApi.KeyMod.CtrlCmd | monacoApi.KeyCode.KeyS, () => {
       const filePath = activeFilePathRef.current
       if (!filePath) return
