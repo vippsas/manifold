@@ -1,0 +1,22 @@
+{
+  "name": "loop",
+  "publisher": "manifold",
+  "version": "0.0.1",
+  "displayName": "Autoresearch Loop",
+  "description": "Edit → eval → keep-or-discard loop, as a plugin.",
+  "engines": { "manifold": "^0.3.0" },
+  "main": "./out/plugin.js",
+  "activationEvents": ["onCommand:manifold.loop.start", "onCommand:manifold.loop.status"],
+  "capabilities": ["agent:control", "lm", "workspace:read", "storage"],
+  "contributes": {
+    "commands": [
+      { "command": "manifold.loop.start", "title": "Loop: Start" },
+      { "command": "manifold.loop.stop", "title": "Loop: Stop" },
+      { "command": "manifold.loop.status", "title": "Loop: Status" },
+      { "command": "manifold.loop.iterations", "title": "Loop: Iterations" },
+      { "command": "manifold.loop.clear", "title": "Loop: Clear" },
+      { "command": "manifold.loop.restoreBest", "title": "Loop: Restore Best" },
+      { "command": "manifold.loop.setConfig", "title": "Loop: Set Config" }
+    ]
+  }
+}
