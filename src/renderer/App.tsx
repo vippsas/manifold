@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useMemo, useState } from 'react'
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useProjects } from './hooks/useProjects'
 import { useAgentSession } from './hooks/useAgentSession'
 import { useFileWatcher } from './hooks/useFileWatcher'
@@ -36,6 +36,7 @@ import { useFavorites } from './hooks/useFavorites'
 import type { AgentSession, ResolvedFavorite } from '../shared/types'
 import { isGitProject } from '../shared/project-kind'
 import { AppShell } from './AppShell'
+import { QuickOpen } from './components/editor/QuickOpen'
 
 export function App(): React.JSX.Element {
   const { settings, updateSettings } = useSettings()
@@ -67,6 +68,7 @@ export function App(): React.JSX.Element {
     const fav = favorites[index]
     if (fav) activateFavorite(fav)
   }, [favorites, activateFavorite])
+  const [quickOpenVisible, setQuickOpenVisible] = useState(false)
   const [newWorkspaceVisible, setNewWorkspaceVisible] = useState(false)
   const [addProjectWorkspaceId, setAddProjectWorkspaceId] = useState<string | null>(null)
   const suppressedProjectIds = useMemo(() => new Set<string>(), [])
@@ -197,6 +199,27 @@ export function App(): React.JSX.Element {
     })
   }, [activeProject?.id, activeProject?.name, activeProject?.path, activeSession?.id, activeSession?.status, activeSession?.branchName])
 
+  // Mirror the active session id into a ref so the (mount-only) Cmd+P handler
+  // reads the current value without re-registering the listener.
+  const quickOpenSessionRef = useRef(effectiveSessionId)
+  quickOpenSessionRef.current = effectiveSessionId
+
+  // Global Cmd+P opens Quick Open from anywhere (VS Code-style), including while
+  // focus is in an input/editor — intentional: this is the primary file-nav gesture.
+  useEffect(() => {
+    const onKeyDown = (event: KeyboardEvent): void => {
+      if (event.metaKey && !event.shiftKey && !event.altKey && !event.ctrlKey && (event.key === 'p' || event.key === 'P')) {
+        // No worktree to search, or a modal owns the screen — don't open behind it.
+        if (!quickOpenSessionRef.current) return
+        if (document.querySelector('[role="dialog"][aria-modal="true"]')) return
+        event.preventDefault()
+        setQuickOpenVisible(true)
+      }
+    }
+    window.addEventListener('keydown', onKeyDown)
+    return () => window.removeEventListener('keydown', onKeyDown)
+  }, [])
+
   const activeProjectIsGit = isGitProject(activeProject)
   const baseBranch = activeProjectIsGit ? activeProject?.baseBranch ?? settings.defaultBaseBranch : ''
 
@@ -312,50 +335,62 @@ export function App(): React.JSX.Element {
   }
 
   return (
-    <AppShell
-      themeClass={themeClass}
-      settings={settings}
-      projects={projects}
-      projectError={projectError}
-      activeProjectId={activeProjectId}
-      activeSessionId={activeSessionId}
-      activeSession={activeSession ?? null}
-      activeProjectIsGit={activeProjectIsGit}
-      baseBranch={baseBranch}
-      autoGenerateMessages={settings.autoGenerateMessages}
-      diff={diff}
-      mergedChanges={mergedChanges}
-      sessionsByProject={sessionsByProject}
-      dockState={dockState}
-      onDockReady={dockLayout.onReady}
-      dockLayoutSlot={null}
-      overlays={overlays}
-      gitOps={gitOps}
-      updateLog={updateLog}
-      updateNotification={updateNotification}
-      themeChangeNotice={themeChangeNotice}
-      appEffects={appEffects}
-      showCommitAndPrButtons={settings.showCommitAndPrButtons && activeProjectIsGit}
-      handleSelectFile={handleSelectFile}
-      setPreviewThemeId={setPreviewThemeId}
-      addProject={addProject}
-      cloneProject={cloneProject}
-      handleAddProjectFromOnboarding={handleAddProjectFromOnboarding}
-      handleCloneFromOnboarding={handleCloneFromOnboarding}
-      handleCreateNewProject={handleCreateNewProject}
-      newWorkspaceVisible={newWorkspaceVisible}
-      setNewWorkspaceVisible={setNewWorkspaceVisible}
-      defaultRuntime={settings.defaultRuntime}
-      createWorkspace={createWorkspace}
-      workspaces={workspaces}
-      addProjectWorkspaceId={addProjectWorkspaceId}
-      setAddProjectWorkspaceId={setAddProjectWorkspaceId}
-      addProjectToWorkspace={addProjectToWorkspace}
-      dockLayout={dockLayout}
-      onRenameActiveProject={(name) => { if (activeProjectId) void updateProject(activeProjectId, { name }) }}
-      onToggleTheme={toggleTheme}
-      themeFamily={themeFamily}
-      onSelectThemeFamily={selectThemeFamily}
-    />
+    <>
+      <AppShell
+        themeClass={themeClass}
+        settings={settings}
+        projects={projects}
+        projectError={projectError}
+        activeProjectId={activeProjectId}
+        activeSessionId={activeSessionId}
+        activeSession={activeSession ?? null}
+        activeProjectIsGit={activeProjectIsGit}
+        baseBranch={baseBranch}
+        autoGenerateMessages={settings.autoGenerateMessages}
+        diff={diff}
+        mergedChanges={mergedChanges}
+        sessionsByProject={sessionsByProject}
+        dockState={dockState}
+        onDockReady={dockLayout.onReady}
+        dockLayoutSlot={null}
+        overlays={overlays}
+        gitOps={gitOps}
+        updateLog={updateLog}
+        updateNotification={updateNotification}
+        themeChangeNotice={themeChangeNotice}
+        appEffects={appEffects}
+        showCommitAndPrButtons={settings.showCommitAndPrButtons && activeProjectIsGit}
+        handleSelectFile={handleSelectFile}
+        setPreviewThemeId={setPreviewThemeId}
+        addProject={addProject}
+        cloneProject={cloneProject}
+        handleAddProjectFromOnboarding={handleAddProjectFromOnboarding}
+        handleCloneFromOnboarding={handleCloneFromOnboarding}
+        handleCreateNewProject={handleCreateNewProject}
+        newWorkspaceVisible={newWorkspaceVisible}
+        setNewWorkspaceVisible={setNewWorkspaceVisible}
+        defaultRuntime={settings.defaultRuntime}
+        createWorkspace={createWorkspace}
+        workspaces={workspaces}
+        addProjectWorkspaceId={addProjectWorkspaceId}
+        setAddProjectWorkspaceId={setAddProjectWorkspaceId}
+        addProjectToWorkspace={addProjectToWorkspace}
+        dockLayout={dockLayout}
+        onRenameActiveProject={(name) => { if (activeProjectId) void updateProject(activeProjectId, { name }) }}
+        onToggleTheme={toggleTheme}
+        themeFamily={themeFamily}
+        onSelectThemeFamily={selectThemeFamily}
+      />
+      <QuickOpen
+        visible={quickOpenVisible && effectiveSessionId !== null}
+        sessionId={effectiveSessionId}
+        worktreeRoot={tree?.path ?? null}
+        onSelect={(absolutePath) => {
+          editorHandlers.handleSelectFileWithDefaultView(absolutePath)
+          setQuickOpenVisible(false)
+        }}
+        onClose={() => setQuickOpenVisible(false)}
+      />
+    </>
   )
 }
