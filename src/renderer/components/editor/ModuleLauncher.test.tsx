@@ -19,10 +19,10 @@ function renderWithState(overrides: Partial<DockAppState>) {
 }
 
 describe('ModuleLauncher', () => {
-  it('lists all four modules in the menu', () => {
+  it('lists all three modules in the menu', () => {
     renderWithState({})
     fireEvent.click(screen.getByRole('button', { name: /open module/i }))
-    for (const label of ['Ideas', 'Loop', 'Verdicts', 'Watch']) {
+    for (const label of ['Ideas', 'Verdicts', 'Watch']) {
       expect(screen.getByRole('menuitem', { name: new RegExp(label) })).toBeInTheDocument()
     }
   })
@@ -35,9 +35,9 @@ describe('ModuleLauncher', () => {
   })
 
   it('marks open modules with a check', () => {
-    renderWithState({ isModuleOpen: (id) => id === 'loop' })
+    renderWithState({ isModuleOpen: (id) => id === 'verdicts' })
     fireEvent.click(screen.getByRole('button', { name: /open module/i }))
-    expect(screen.getByRole('menuitem', { name: /✓ Loop/ })).toBeInTheDocument()
+    expect(screen.getByRole('menuitem', { name: /✓ Verdicts/ })).toBeInTheDocument()
   })
 
   it('renders nothing without dock state', () => {
