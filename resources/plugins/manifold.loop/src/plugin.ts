@@ -13,6 +13,7 @@ import { createJudge } from './judge'
 import { createLoopStore } from './store'
 import { appendIteration, readAllIterations, clearIterations } from './iteration-log'
 import { createWebviewHost } from './webview-host'
+import { buildImproveInstruction } from './improve-instruction'
 
 /** Bridge an AbortSignal to a manifold CancellationToken for agents.runTurn. */
 function tokenFromSignal(signal: AbortSignal): CancellationToken {
@@ -48,9 +49,18 @@ export function activate(context: ManifoldContext): void {
     engine,
     readBundle: () => readFileSync(join(context.pluginUri, 'out', 'webview.js'), 'utf8'),
     getActiveSessionId: () => manifold.agents.activeAgent?.sessionId ?? null,
+    confirmClear: async () => (await manifold.window.showWarningMessage('Clear all iteration history for this loop? This cannot be undone.', 'Clear')) === 'Clear',
+    improveWithAi: async (args) => {
+      const models = await manifold.lm.selectChatModels()
+      const model = models[0]
+      if (!model) throw new Error('no language model available — is a default runtime configured?')
+      const res = await model.sendRequest(buildImproveInstruction(args))
+      return res.text
+    },
   })
   engine.setEmit(host.emit)
   context.subscriptions.push(manifold.window.registerWebviewViewProvider('manifold.loop.panel', host.provider))
+  context.subscriptions.push(manifold.workspace.onDidChangeActiveSession(() => host.refresh()))
 
   const reg = (id: string, handler: (...args: never[]) => unknown): void => {
     context.subscriptions.push(manifold.commands.registerCommand(id, handler as (...a: unknown[]) => unknown))
