@@ -41,6 +41,7 @@ const ALLOWED_INVOKE_CHANNELS = [
   'files:open-terminal',
   'files:dir-branch',
   'files:search-content',
+  'files:list',
   'diff:get',
   'diff:file-original',
   'pr:create',
