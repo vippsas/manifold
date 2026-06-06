@@ -3,9 +3,9 @@ import { LAUNCHER_MODULES, LAUNCHER_MODULE_IDS } from './launcher-modules'
 import { PANEL_TITLES } from '../hooks/dock-layout-helpers'
 
 describe('launcher-modules registry', () => {
-  it('lists the four optional modules in order', () => {
+  it('lists the optional modules in order', () => {
     expect(LAUNCHER_MODULES.map((m) => m.id)).toEqual([
-      'backgroundAgent', 'loop', 'verdicts', 'watch',
+      'backgroundAgent', 'verdicts', 'watch',
     ])
   })
 

@@ -11,15 +11,15 @@ import {
 afterEach(() => resetToInternal())
 
 describe('contribution-registry', () => {
-  it('is seeded with the four internal launcher modules in order', () => {
+  it('is seeded with the internal launcher modules in order', () => {
     expect(getLauncherContributions().map((p) => p.id)).toEqual([
-      'backgroundAgent', 'loop', 'verdicts', 'watch',
+      'backgroundAgent', 'verdicts', 'watch',
     ])
   })
 
   it('returns a component for each internal panel', () => {
     const components = getPanelComponents()
-    for (const id of ['backgroundAgent', 'loop', 'verdicts', 'watch']) {
+    for (const id of ['backgroundAgent', 'verdicts', 'watch']) {
       expect(typeof components[id]).toBe('function')
     }
   })
@@ -43,7 +43,7 @@ describe('contribution-registry', () => {
     })
     resetToInternal()
     expect(getLauncherContributions().map((p) => p.id)).toEqual([
-      'backgroundAgent', 'loop', 'verdicts', 'watch',
+      'backgroundAgent', 'verdicts', 'watch',
     ])
   })
 })
