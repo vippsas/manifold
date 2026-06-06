@@ -3,9 +3,9 @@ import { describe, expect, it } from 'vitest'
 import { INTERNAL_PANELS } from './internal-contributions'
 
 describe('INTERNAL_PANELS', () => {
-  it('lists the four built-in modules in launcher order', () => {
+  it('lists the built-in modules in launcher order', () => {
     expect(INTERNAL_PANELS.map((p) => p.id)).toEqual([
-      'backgroundAgent', 'loop', 'verdicts', 'watch',
+      'backgroundAgent', 'verdicts', 'watch',
     ])
   })
 

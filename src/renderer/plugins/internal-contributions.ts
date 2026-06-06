@@ -3,7 +3,6 @@ import type React from 'react'
 import type { PanelContribution } from '../../shared/plugins/contributions'
 import { PANEL_TITLES } from '../hooks/dock-layout-helpers'
 import { BackgroundAgentPanel } from '../components/background-agent/BackgroundAgentPanel'
-import { LoopPanel } from '../components/loop/LoopPanel'
 import { VerdictsPanel } from '../components/verdicts/VerdictsPanel'
 import { WatchPanel } from '../components/watch/WatchPanel'
 
@@ -15,9 +14,10 @@ export interface InternalPanel extends PanelContribution {
   component: React.FC<any>
 }
 
-/** The four built-in modules formerly hardcoded in launcher-modules.ts and
+/** The built-in modules formerly hardcoded in launcher-modules.ts and
  *  dock-panels.tsx. Array order defines their order in the "+ Apps" menu.
- *  Titles are sourced from PANEL_TITLES so titles stay in one place. */
+ *  Titles are sourced from PANEL_TITLES so titles stay in one place.
+ *  (Loop moved out to the manifold.loop plugin in Phase C.) */
 export const INTERNAL_PANELS: InternalPanel[] = [
   {
     id: 'backgroundAgent',
@@ -26,14 +26,6 @@ export const INTERNAL_PANELS: InternalPanel[] = [
     launcher: true,
     source: 'internal',
     component: BackgroundAgentPanel,
-  },
-  {
-    id: 'loop',
-    title: PANEL_TITLES.loop,
-    description: 'Autoresearch loop: edit → eval → keep-or-discard.',
-    launcher: true,
-    source: 'internal',
-    component: LoopPanel,
   },
   {
     id: 'verdicts',
