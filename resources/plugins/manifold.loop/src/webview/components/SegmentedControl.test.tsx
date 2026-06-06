@@ -13,7 +13,7 @@ describe('SegmentedControl', () => {
   it('marks the active option with aria-checked and calls onChange on click', () => {
     const onChange = vi.fn()
     render(<SegmentedControl options={OPTS} value="b" onChange={onChange} ariaLabel="Pick" />)
-    expect(screen.getByRole('radio', { name: 'Beta' })).toHaveAttribute('aria-checked', 'true')
+    expect(screen.getByRole('radio', { name: 'Beta' }).getAttribute('aria-checked')).toBe('true')
     fireEvent.click(screen.getByRole('radio', { name: 'Gamma' }))
     expect(onChange).toHaveBeenCalledWith('c')
   })
