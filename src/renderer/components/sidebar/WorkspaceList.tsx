@@ -6,6 +6,7 @@ import { AgentItem } from './AgentItem'
 import { WorkspaceGlyph } from './WorkspaceGlyph'
 import { isGitProject } from '../../../shared/project-kind'
 import { FavoriteStarButton } from './FavoriteStarButton'
+import { SidebarSectionHeader } from './SidebarSectionHeader'
 
 export interface WorkspaceListProps {
   workspaces: Workspace[]
@@ -53,6 +54,7 @@ export function WorkspaceList({
   fetchError,
 }: WorkspaceListProps) {
   const [removing, setRemoving] = useState<string | null>(null)
+  const [workspacesExpanded, setWorkspacesExpanded] = useState(true)
 
   const projectById = useCallback(
     (id: string) => projects.find((p) => p.id === id),
@@ -76,9 +78,12 @@ export function WorkspaceList({
   // stays visible. The "+" beside the label creates a new workspace.
   return (
     <div style={{ paddingTop: 8 }}>
-      <div style={sidebarStyles.sectionHeader}>
-        <span style={{ ...sidebarStyles.sectionLabel, padding: 0, marginBottom: 0 }}>Workspaces</span>
-        {onNewWorkspace && (
+      <SidebarSectionHeader
+        label="Workspaces"
+        count={workspaces.length}
+        expanded={workspacesExpanded}
+        onToggle={() => setWorkspacesExpanded((prev) => !prev)}
+        action={onNewWorkspace && (
           <button
             type="button"
             onClick={onNewWorkspace}
@@ -90,8 +95,8 @@ export function WorkspaceList({
             +
           </button>
         )}
-      </div>
-      {workspaces.map((w) => {
+      />
+      {workspacesExpanded && workspaces.map((w) => {
         const isActive = w.id === activeWorkspaceId
         if (!isActive) {
           return (

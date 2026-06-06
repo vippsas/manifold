@@ -295,6 +295,23 @@ describe('ProjectSidebar', () => {
     ).toBeTruthy()
   })
 
+  it('collapses the With agents section to a header-only row', () => {
+    renderSidebar({ allProjectSessions: { p1: sampleSessions, p2: [] } })
+
+    expect(screen.getByText('oslo')).toBeInTheDocument()
+    expect(screen.getByTitle('Collapse With agents')).toHaveAttribute('aria-expanded', 'true')
+
+    fireEvent.click(screen.getByTitle('Collapse With agents'))
+
+    expect(screen.getByText('With agents')).toBeInTheDocument()
+    expect(screen.queryByText('oslo')).not.toBeInTheDocument()
+    expect(screen.getByTitle('Expand With agents')).toHaveAttribute('aria-expanded', 'false')
+
+    fireEvent.click(screen.getByTitle('Expand With agents'))
+
+    expect(screen.getByText('oslo')).toBeInTheDocument()
+  })
+
   it('keeps the active repo pinned above the sections when it has no agents', () => {
     const sessionsForP2: AgentSession[] = [
       { id: 's3', projectId: 'p2', runtimeId: 'gemini', branchName: 'beta/stavanger', worktreePath: '/wt3', status: 'running', pid: 3, additionalDirs: [] },
@@ -390,5 +407,27 @@ describe('ProjectSidebar', () => {
     fireEvent.click(screen.getByLabelText('New Workspace'))
 
     expect(props.onNewWorkspace).toHaveBeenCalled()
+  })
+
+  it('collapses the Workspaces section while keeping its header action available', () => {
+    const { props } = renderSidebar({
+      workspaces: [{ id: 'ws1', name: 'auth-refactor', projectIds: ['p1'], createdAt: '2024-01-01' }],
+      activeWorkspaceId: null,
+      onSelectWorkspace: vi.fn(),
+      onRemoveWorkspace: vi.fn(),
+    })
+
+    expect(screen.getByText('auth-refactor')).toBeInTheDocument()
+
+    fireEvent.click(screen.getByTitle('Collapse Workspaces'))
+
+    expect(screen.getByText('Workspaces')).toBeInTheDocument()
+    expect(screen.queryByText('auth-refactor')).not.toBeInTheDocument()
+    fireEvent.click(screen.getByLabelText('New Workspace'))
+    expect(props.onNewWorkspace).toHaveBeenCalled()
+
+    fireEvent.click(screen.getByTitle('Expand Workspaces'))
+
+    expect(screen.getByText('auth-refactor')).toBeInTheDocument()
   })
 })
