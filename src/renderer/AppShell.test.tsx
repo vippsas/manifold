@@ -1,0 +1,164 @@
+import { fireEvent, render, screen, waitFor } from '@testing-library/react'
+import { describe, expect, it, vi, beforeEach } from 'vitest'
+import type { AppShellProps } from './AppShell'
+import { AppShell } from './AppShell'
+
+vi.mock('dockview', async () => {
+  const React = await import('react')
+  return {
+    DockviewReact: ({ onReady }: { onReady?: (event: { api: unknown }) => void }) => {
+      React.useEffect(() => {
+        onReady?.({ api: {} })
+      }, [onReady])
+      return React.createElement('div', { 'data-testid': 'dockview' })
+    },
+  }
+})
+
+vi.mock('./components/editor/dock-panels', async () => {
+  const React = await import('react')
+  return {
+    PANEL_COMPONENTS: {},
+    DockStateContext: React.createContext(null),
+  }
+})
+
+vi.mock('./components/TitleBar', async () => {
+  const React = await import('react')
+  return { TitleBar: () => React.createElement('div', { 'data-testid': 'titlebar' }) }
+})
+
+vi.mock('./components/git/StatusBar', async () => {
+  const React = await import('react')
+  return { StatusBar: () => React.createElement('div', { 'data-testid': 'statusbar' }) }
+})
+
+vi.mock('./components/sidebar/DeleteAgentDialog', async () => {
+  const React = await import('react')
+  return { DeleteAgentDialog: () => React.createElement('div', { 'data-testid': 'delete-agent-dialog' }) }
+})
+
+vi.mock('./components/modals/SettingsModal', async () => {
+  const React = await import('react')
+  return { SettingsModal: () => React.createElement('div', { 'data-testid': 'settings-modal' }) }
+})
+
+vi.mock('./components/modals/AboutOverlay', async () => {
+  const React = await import('react')
+  return { AboutOverlay: () => React.createElement('div', { 'data-testid': 'about-overlay' }) }
+})
+
+vi.mock('./components/modals/UpdateLogOverlay', async () => {
+  const React = await import('react')
+  return { UpdateLogOverlay: () => React.createElement('div', { 'data-testid': 'update-log-overlay' }) }
+})
+
+vi.mock('./components/plugin-ui/PluginUiHost', async () => {
+  const React = await import('react')
+  return { PluginUiHost: () => React.createElement('div', { 'data-testid': 'plugin-ui-host' }) }
+})
+
+vi.mock('./plugins/use-contributions', () => ({
+  useLoadPluginContributions: vi.fn(),
+}))
+
+const project = {
+  id: 'p1',
+  name: 'Alpha',
+  path: '/repos/alpha',
+  baseBranch: 'main',
+  addedAt: '2024-01-01',
+}
+
+function makeProps(overrides: Partial<AppShellProps> = {}): AppShellProps {
+  return {
+    themeClass: 'theme-dark',
+    settings: { setupCompleted: true } as AppShellProps['settings'],
+    projects: [project],
+    projectError: null,
+    activeProjectId: 'p1',
+    activeSessionId: null,
+    activeSession: null,
+    activeProjectIsGit: true,
+    baseBranch: 'main',
+    autoGenerateMessages: false,
+    diff: '',
+    mergedChanges: [],
+    sessionsByProject: { p1: [] },
+    dockState: { activeProjectId: 'p1', sessionId: null, allProjectSessions: { p1: [] } } as unknown as AppShellProps['dockState'],
+    onDockReady: vi.fn(),
+    dockLayoutSlot: null,
+    overlays: { activePanel: null } as unknown as AppShellProps['overlays'],
+    gitOps: {
+      conflicts: null,
+      aheadBehind: null,
+      aiGenerate: vi.fn(),
+      getPRContext: vi.fn(),
+      resolveConflict: vi.fn(),
+    },
+    updateLog: {
+      visible: false,
+      activeTab: 'release-notes',
+      currentVersion: '0.0.0',
+      releaseNotes: null,
+      log: null,
+      loading: false,
+      error: null,
+      close: vi.fn(),
+      refresh: vi.fn(),
+      clear: vi.fn(),
+      checkForUpdates: vi.fn(),
+      openReleaseNotesExternal: vi.fn(),
+      setActiveTab: vi.fn(),
+      openReleaseNotes: vi.fn(),
+    },
+    updateNotification: { updateReady: false, version: null, install: vi.fn(), dismiss: vi.fn() },
+    themeChangeNotice: { show: false, mode: 'dark', dismiss: vi.fn() },
+    appEffects: { showOnboarding: false, setShowOnboarding: vi.fn(), creatingProject: false, cloningProject: false },
+    showCommitAndPrButtons: false,
+    handleSelectFile: vi.fn(),
+    setPreviewThemeId: vi.fn(),
+    addProject: vi.fn().mockResolvedValue(null),
+    cloneProject: vi.fn().mockResolvedValue(false),
+    handleAddProjectFromOnboarding: vi.fn().mockResolvedValue(undefined),
+    handleCloneFromOnboarding: vi.fn().mockResolvedValue(false),
+    handleCreateNewProject: vi.fn().mockResolvedValue(false),
+    newWorkspaceVisible: true,
+    setNewWorkspaceVisible: vi.fn(),
+    defaultRuntime: 'claude',
+    createWorkspace: vi.fn().mockResolvedValue({ id: 'w1', name: 'Workspace', projectIds: ['p1'], createdAt: '2024-01-01' }),
+    workspaces: [],
+    addProjectWorkspaceId: null,
+    setAddProjectWorkspaceId: vi.fn(),
+    addProjectToWorkspace: vi.fn().mockResolvedValue(undefined),
+    dockLayout: {},
+    onRenameActiveProject: vi.fn(),
+    onToggleTheme: vi.fn(),
+    themeFamily: 'manifold',
+    onSelectThemeFamily: vi.fn(),
+    ...overrides,
+  }
+}
+
+beforeEach(() => {
+  vi.clearAllMocks()
+  ;(window as unknown as Record<string, unknown>).electronAPI = {
+    invoke: vi.fn().mockResolvedValue([]),
+    on: vi.fn(() => vi.fn()),
+  }
+})
+
+describe('AppShell', () => {
+  it('lets the workspace modal add repositories with the default activation behavior', async () => {
+    const addProject = vi.fn().mockResolvedValue({ ...project, id: 'p2', name: 'Beta', path: '/repos/beta' })
+
+    render(<AppShell {...makeProps({ addProject })} />)
+
+    fireEvent.click(screen.getByRole('button', { name: '+ Add repository' }))
+
+    await waitFor(() => {
+      expect(addProject).toHaveBeenCalledTimes(1)
+    })
+    expect(addProject).toHaveBeenCalledWith()
+  })
+})

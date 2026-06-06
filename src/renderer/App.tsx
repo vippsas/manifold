@@ -180,8 +180,14 @@ export function App(): React.JSX.Element {
     onRequestDeleteAgent: overlays.requestDeleteAgent,
   })
 
+  const addProjectFromOnboarding = useCallback(async (path?: string) => {
+    const project = await addProject(path)
+    if (project) setActiveWorkspaceId(null)
+    return project
+  }, [addProject, setActiveWorkspaceId])
+
   const { handleCreateNewProject, handleAddProjectFromOnboarding, handleCloneFromOnboarding } = useProjectCreateHandlers({
-    createNewProject, addProject, cloneProject, spawnAgent, setActiveSession,
+    createNewProject, addProject: addProjectFromOnboarding, cloneProject, spawnAgent, setActiveSession,
     defaultRuntime: settings.defaultRuntime, appEffects,
   })
 
