@@ -50,6 +50,11 @@ export const panelStyles: Record<string, React.CSSProperties> = {
     padding: 'var(--space-lg)',
     textAlign: 'center',
   },
+  emptyGlyph: {
+    fontSize: 28,
+    color: 'var(--text-muted)',
+    opacity: 0.5,
+  },
   startError: {
     padding: 'var(--space-xs) var(--space-sm)',
     border: '1px solid var(--status-error)',

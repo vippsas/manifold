@@ -1,9 +1,10 @@
 import React, { useEffect, useState } from 'react'
-import type { LoopConfig } from '../../types'
-import { loopPanelStyles as S, stateColors } from '../styles'
-import { describeMetric } from '../helpers'
+import { loopPanelStyles as S } from '../styles'
+import { bestIterationIndex } from '../run-view'
 import { LoopConfigForm } from './LoopConfigForm'
 import { IterationList } from './LoopIterationList'
+import { LiveRunCard } from './LiveRunCard'
+import { ScoreTrend } from './ScoreTrend'
 import { useLoopBridge } from '../use-loop-bridge'
 
 export function LoopPanel(): React.JSX.Element {
@@ -22,10 +23,10 @@ export function LoopPanel(): React.JSX.Element {
     return (
       <div style={S.wrapper}>
         <div style={S.empty}>
+          <div style={S.emptyGlyph} aria-hidden="true">↻</div>
           <div>Select a session to configure an autoresearch loop.</div>
           <div style={{ color: 'var(--text-muted)' }}>
-            The loop repeatedly asks the agent to edit files, then runs an eval command
-            to decide whether each attempt is an improvement.
+            The loop repeatedly asks the agent to edit files, then runs an eval command to decide whether each attempt is an improvement.
           </div>
         </div>
       </div>
@@ -33,11 +34,9 @@ export function LoopPanel(): React.JSX.Element {
   }
 
   const isRunning = loop.status?.state === 'running'
-  const hasConfig = loop.config !== null
   const hasImprovement = !!loop.status?.bestCommitSha && loop.status.bestCommitSha !== loop.status.baselineSha
   const canClear = !isRunning && (loop.iterations.length > 0 || loop.status !== null)
-
-  const handleClear = (): void => { loop.clear() }
+  const bestIndex = bestIterationIndex(loop.iterations, loop.status?.bestCommitSha)
 
   const handleRestoreBest = async (): Promise<void> => {
     setRestoring(true)
@@ -57,79 +56,48 @@ export function LoopPanel(): React.JSX.Element {
         <div style={S.title}>Autoresearch Loop</div>
         <div style={S.headerActions}>
           {restoreMsg && (
-            <span
-              style={{
-                fontSize: 'var(--type-ui-caption)',
-                color: restoreMsg.kind === 'ok' ? 'var(--status-done)' : 'var(--status-error)',
-              }}
-            >
+            <span style={{ fontSize: 'var(--type-ui-caption)', color: restoreMsg.kind === 'ok' ? 'var(--status-done)' : 'var(--status-error)' }}>
               {restoreMsg.text}
             </span>
           )}
-          {isRunning && (
-            <button style={S.secondaryButton} onClick={() => loop.stop()}>Stop</button>
-          )}
           {!isRunning && hasImprovement && (
-            <button
-              style={S.secondaryButton}
-              disabled={restoring}
-              onClick={() => void handleRestoreBest()}
-            >
+            <button style={S.secondaryButton} disabled={restoring} onClick={() => void handleRestoreBest()}>
               {restoring ? 'Restoring…' : 'Restore Best'}
             </button>
           )}
-          {canClear && (
-            <button style={S.secondaryButton} onClick={handleClear}>
-              Clear
-            </button>
-          )}
+          {canClear && <button style={S.secondaryButton} onClick={() => loop.clear()}>Clear</button>}
         </div>
       </div>
 
-      {loop.status && (
-        <div style={{ ...S.statusBar, ...(isRunning ? S.statusBarRunning : null) }}>
-          <div style={{ ...S.stateDot, background: stateColors[loop.status.state] ?? 'var(--text-muted)' }} />
-          <div>{loop.status.state}</div>
-          <div style={{ color: 'var(--text-muted)' }}>
-            iter {loop.status.currentIteration}
-          </div>
-          {loop.status.bestScore !== undefined && (
-            <span style={S.bestBadge}>best {loop.status.bestScore}</span>
-          )}
-          {isRunning && (
-            <span style={S.statusBarShimmer} aria-hidden="true">
-              <span style={S.statusBarShimmerFill} />
-            </span>
-          )}
-        </div>
-      )}
-
       <div style={S.content}>
-        {loop.startError && (
-          <div style={S.startError} role="alert">{loop.startError}</div>
-        )}
-        {!isRunning && <LoopIntro />}
-        {!hasConfig || !isRunning ? (
-          <LoopConfigForm
-            sessionId={sessionId}
-            initialConfig={loop.config}
-            disabled={isRunning}
-            onStart={(cfg) => loop.start(cfg)}
-            onSave={(cfg) => loop.saveConfig(cfg)}
-            onImproveWithAi={loop.improveWithAi}
-          />
-        ) : null}
+        {loop.startError && <div style={S.startError} role="alert">{loop.startError}</div>}
 
-        {isRunning && loop.config && loop.status && (
-          <PendingIterationCard
-            iterationNumber={loop.iterations.length + 1}
+        {isRunning && loop.config && loop.status ? (
+          <LiveRunCard
+            status={loop.status}
             config={loop.config}
+            iterationNumber={loop.iterations.length + 1}
+            onStop={() => loop.stop()}
           />
+        ) : (
+          <>
+            <LoopIntro />
+            <LoopConfigForm
+              sessionId={sessionId}
+              initialConfig={loop.config}
+              disabled={false}
+              onStart={(cfg) => loop.start(cfg)}
+              onSave={(cfg) => loop.saveConfig(cfg)}
+              onImproveWithAi={loop.improveWithAi}
+            />
+          </>
         )}
 
-        {loop.iterations.length > 0 && (
-          <IterationList iterations={loop.iterations} />
+        {loop.config && (
+          <ScoreTrend iterations={loop.iterations} metric={loop.config.metric} bestCommitSha={loop.status?.bestCommitSha} />
         )}
+
+        {loop.iterations.length > 0 && <IterationList iterations={loop.iterations} bestIndex={bestIndex} />}
       </div>
     </div>
   )
@@ -141,9 +109,7 @@ function LoopIntro(): React.JSX.Element {
       <summary style={S.disclosureSummary}>What is this?</summary>
       <div style={{ ...S.disclosureBody, padding: '0 var(--space-sm) var(--space-sm)' }}>
         <div>
-          The loop repeatedly asks the agent to edit your target files, then runs your eval
-          command to score the result. Improvements are committed; regressions are discarded
-          via <code>git reset --hard</code>. Git is the undo buffer.
+          The loop repeatedly asks the agent to edit your target files, then runs your eval command to score the result. Improvements are committed; regressions are discarded via <code>git reset --hard</code>. Git is the undo buffer.
         </div>
         <div style={S.introSection}>
           <span style={S.introTag}>Good for</span>
@@ -155,31 +121,5 @@ function LoopIntro(): React.JSX.Element {
         </div>
       </div>
     </details>
-  )
-}
-
-function PendingIterationCard({ iterationNumber, config }: { iterationNumber: number; config: LoopConfig }): React.JSX.Element {
-  const maxIter = config.maxIterations ?? '∞'
-  return (
-    <div style={S.pendingCard}>
-      <div style={S.pendingHeader}>
-        <span style={S.pendingPulse} aria-hidden="true" />
-        <span>Iteration {iterationNumber} of {maxIter} in progress…</span>
-      </div>
-      <div style={S.pendingProgressTrack} aria-hidden="true">
-        <div style={S.pendingProgressBar} />
-      </div>
-      <div style={S.pendingMeta}>
-        <span style={S.pendingMetaLabel}>Eval</span>
-        <span style={S.pendingMetaValue}>{config.evalCommand}</span>
-        <span style={S.pendingMetaLabel}>Targets</span>
-        <span style={S.pendingMetaValue}>{config.targetGlobs.join(', ')}</span>
-        <span style={S.pendingMetaLabel}>Metric</span>
-        <span style={S.pendingMetaValue}>{describeMetric(config.metric)}</span>
-      </div>
-      <div style={S.pendingHint}>
-        The agent is editing target files, then the eval command will run with a {config.budgetSeconds}s timeout. Result will appear here once scored.
-      </div>
-    </div>
   )
 }
