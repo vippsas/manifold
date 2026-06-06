@@ -1583,3 +1583,20 @@ manifest (Task 2) and `plugin.ts` (Task 10).
 **Scope:** one plugin, engine + commands + tests; UI deferred to B2; core loop untouched
 (asserted Task 11). Standalone (copies, no cross-tree imports) so Phase C deletion can't
 break it.
+
+---
+
+## Owed verification (B1)
+
+Automated coverage is complete (53 plugin tests; full suite 1795 green; typechecks at
+baseline node=16/web=36, plugins clean; build:plugins emits `manifold.loop/out/plugin.js`).
+The engine can only be exercised end-to-end against a **live agent session**, which is not
+runnable headlessly here. Owed dev smoke:
+
+1. `npm run dev`.
+2. With an active agent session, invoke `manifold.loop.setConfig` then `manifold.loop.start`
+   (via the contributed-command path) with a real `LoopConfig`.
+3. Confirm the agent is driven, eval runs, improvements commit, and iterations append to
+   `~/.manifold/loop-logs/<hash>.jsonl` — parity with the built-in loop panel.
+4. Confirm `~/.manifold/debug.log` shows the plugin discovered with no capability/restriction
+   errors (it holds `agent:control`/`lm`, gated to builtin origin).
