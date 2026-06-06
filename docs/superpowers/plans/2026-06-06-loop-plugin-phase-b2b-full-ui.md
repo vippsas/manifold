@@ -909,3 +909,18 @@ index re-exports `loopPanelStyles`/`outcomeColors`/`stateColors` consumed by all
 
 **Scope:** parity UI port + wiring; built-in loop untouched (asserted Task 11); no Phase C
 removal. Styles split is the one structural change (driven by < 300 LOC).
+
+---
+
+## Owed verification (B2b)
+
+Automated coverage complete: 74 plugin tests (incl. helpers, improve-instruction, loop-state,
+webview-host full dispatch); full suite 1819 green; typechecks baseline (node 16 / web 36 /
+plugins clean); build emits `out/{plugin,webview}.js`; built-in loop untouched; all files <300.
+The React interaction needs a browser, so the owed dev smoke is:
+
+1. `npm run dev`; open "Loop (plugin)" with an active session.
+2. Configure a loop (program, metric) and Start; watch iterations stream and the status bar update.
+3. Stop mid-run; Clear (the host confirm dialog appears); Restore Best (after an improvement);
+   Improve with AI (rewrites the program field via manifold.lm).
+4. Toggle the app theme; confirm colors follow.
