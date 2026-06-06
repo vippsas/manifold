@@ -10,7 +10,7 @@
   "capabilities": ["agent:control", "lm", "workspace:read", "storage"],
   "contributes": {
     "views": [
-      { "id": "manifold.loop.panel", "title": "Loop (plugin)", "description": "Autoresearch loop (plugin).", "launcher": true }
+      { "id": "manifold.loop.panel", "title": "Autoresearch Loop", "description": "Autoresearch loop: edit → eval → keep-or-discard.", "launcher": true }
     ],
     "commands": [
       { "command": "manifold.loop.start", "title": "Loop: Start" },
