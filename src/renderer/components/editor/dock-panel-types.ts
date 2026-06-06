@@ -1,6 +1,6 @@
 import { createContext, useContext } from 'react'
 import type { ITheme } from '@xterm/xterm'
-import type { AgentStatus, FileTreeNode, FileChange, Project, AgentSession, SpawnAgentOptions, FavoriteKind, ResolvedFavorite } from '../../../shared/types'
+import type { AgentStatus, FileTreeNode, FileChange, Project, AgentSession, SpawnAgentOptions, FavoriteKind, ResolvedFavorite, EditorSettings } from '../../../shared/types'
 import type { SearchMode } from '../../../shared/search-types'
 import type { EditorPaneView, OpenFile } from '../../hooks/useCodeView'
 import type { FileOpenRequest } from './file-open-request'
@@ -17,6 +17,7 @@ export interface DockAppState {
   scrollbackLines: number
   terminalFontFamily?: string
   xtermTheme?: ITheme
+  editorSettings?: EditorSettings
   // Editor
   diffText: string
   openFiles: OpenFile[]

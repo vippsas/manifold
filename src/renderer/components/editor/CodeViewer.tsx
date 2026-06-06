@@ -1,4 +1,4 @@
-import React, { useMemo, useRef, useCallback, useEffect } from 'react'
+import React, { useMemo, useRef, useCallback, useEffect, useState } from 'react'
 import { DiffEditor, type OnMount, type DiffOnMount } from '@monaco-editor/react'
 import type { editor as monacoEditor } from 'monaco-editor'
 import type { OpenFile } from '../../hooks/useCodeView'
@@ -18,6 +18,13 @@ import { useResolvedHtmlPreview } from './viewer/useResolvedHtmlPreview'
 import { useAutoSave } from './useAutoSave'
 import { useCodeViewerModes } from './useCodeViewerModes'
 import { EditorContent } from './EditorContent'
+import { useEditorStatusBar } from './useEditorStatusBar'
+import { EditorStatusBar } from './EditorStatusBar'
+import { DEFAULT_SETTINGS } from '../../../shared/defaults'
+import type { EditorSettings } from '../../../shared/types'
+import { buildEditorOptions } from './build-editor-options'
+import { useDiffGutter } from './useDiffGutter'
+import { registerEditorNavCommands } from './editor-nav-commands'
 
 interface CodeViewerProps {
   paneId?: string
@@ -29,6 +36,7 @@ interface CodeViewerProps {
   fileContent: string | null
   lastFileOpenRequest: FileOpenRequest
   theme: string
+  editorSettings?: EditorSettings
   onActivatePane?: () => void
   onSelectTab: (filePath: string) => void
   onMoveTabToSplitPane?: (filePath: string, direction: 'right' | 'below') => void
@@ -40,20 +48,6 @@ interface CodeViewerProps {
 // Module-level state that survives component remounts (e.g. agent switches rebuild dockview layout)
 const scrollPositionsByFile = new Map<string, number>()
 
-const DIFF_EDITOR_OPTIONS = {
-  minimap: { enabled: false },
-  scrollBeyondLastLine: false,
-  fontSize: 13,
-  fontFamily: "'SF Mono', 'Fira Code', Menlo, Consolas, monospace",
-  lineNumbers: 'on' as const,
-  renderLineHighlight: 'none' as const,
-  wordWrap: 'on' as const,
-  readOnly: true,
-  renderSideBySide: false,
-  renderIndicators: true,
-  renderMarginRevertIcon: false,
-}
-
 export function CodeViewer({
   paneId = 'editor',
   sessionId,
@@ -64,6 +58,7 @@ export function CodeViewer({
   fileContent,
   lastFileOpenRequest,
   theme,
+  editorSettings = DEFAULT_SETTINGS.editor as EditorSettings,
   onActivatePane = () => {},
   onSelectTab,
   onMoveTabToSplitPane,
@@ -72,6 +67,19 @@ export function CodeViewer({
   onSaveFile,
 }: CodeViewerProps): React.JSX.Element {
   const monacoTheme = theme
+  const editableOptions = useMemo(
+    () => buildEditorOptions(editorSettings, { readOnly: false }),
+    [editorSettings],
+  )
+  const diffOptions = useMemo(
+    () => ({
+      ...buildEditorOptions(editorSettings, { readOnly: true }),
+      renderSideBySide: false,
+      renderIndicators: true,
+      renderMarginRevertIcon: false,
+    }),
+    [editorSettings],
+  )
   const language = useMemo(() => extensionToLanguage(activeFilePath), [activeFilePath])
   const activeOpenFile = useMemo(
     () => openFiles.find((file) => file.path === activeFilePath) ?? null,
@@ -79,6 +87,8 @@ export function CodeViewer({
   )
   const activeRefreshVersion = activeOpenFile?.refreshVersion ?? 0
   const editorRef = useRef<monacoEditor.IStandaloneCodeEditor | null>(null)
+  const monacoRef = useRef<typeof import('monaco-editor') | null>(null)
+  const [mountTick, setMountTick] = useState(0)
   const saveRef = useRef(onSaveFile)
   const activeFilePathRef = useRef(activeFilePath)
   const lastFileOpenRequestRef = useRef(lastFileOpenRequest)
@@ -110,13 +120,35 @@ export function CodeViewer({
     onOpenLinkedFile,
   })
 
+  const { statusInfo, bindEditor } = useEditorStatusBar(language)
+
+  // Must mirror the editor-container render ternary's fall-through to <EditorContent>:
+  // if a new preview/diff branch is added there, negate it here too.
+  const showPlainEditor =
+    !(isImage && activeFilePath !== null && fileContent !== null) &&
+    !(previewActive && isHtml && resolvedHtml !== null) &&
+    !(previewActive && fileContent !== null && !isHtml && activeFilePath !== null) &&
+    !(diffMode && fileContent !== null)
+
+  useDiffGutter({
+    editorRef,
+    monacoRef,
+    active: showPlainEditor && fileContent !== null,
+    mountTick,
+    diffText: fileDiffText,
+  })
+
   useEffect(() => {
     saveRef.current = onSaveFile
   }, [onSaveFile])
 
-  const handleEditorMount: OnMount = useCallback((editor, monaco) => {
+  const handleEditorMount: OnMount = useCallback((editor, monacoApi) => {
     editorRef.current = editor
-    editor.addCommand(monaco.KeyMod.CtrlCmd | monaco.KeyCode.KeyS, () => {
+    bindEditor(editor)
+    monacoRef.current = monacoApi
+    setMountTick((tick) => tick + 1)
+    registerEditorNavCommands(editor, monacoApi)
+    editor.addCommand(monacoApi.KeyMod.CtrlCmd | monacoApi.KeyCode.KeyS, () => {
       const filePath = activeFilePathRef.current
       if (!filePath) return
       saveRef.current?.(filePath, editor.getValue())
@@ -139,7 +171,7 @@ export function CodeViewer({
 
     revealRequestedLocation(editor, activeFilePathRef.current, lastFileOpenRequestRef.current)
     editor.focus()
-  }, [])
+  }, [bindEditor])
 
   const handleDiffEditorMount: DiffOnMount = useCallback((editor) => {
     editor.getModifiedEditor().focus()
@@ -189,7 +221,7 @@ export function CodeViewer({
             modified={fileContent}
             language={language}
             theme={monacoTheme}
-            options={DIFF_EDITOR_OPTIONS}
+            options={diffOptions}
             onMount={handleDiffEditorMount}
           />
         ) : (
@@ -199,11 +231,15 @@ export function CodeViewer({
             refreshVersion={activeRefreshVersion}
             language={language}
             monacoTheme={monacoTheme}
+            options={editableOptions}
             onMount={handleEditorMount}
             onChange={handleEditorChange}
           />
         )}
       </div>
+      {showPlainEditor && fileContent !== null && activeFilePath !== null && (
+        <EditorStatusBar info={statusInfo} />
+      )}
     </div>
   )
 }

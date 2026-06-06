@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react'
 import { DEFAULT_SETTINGS } from '../../../shared/defaults'
 import type { ProvisionerConfig, ProvisionerStatus } from '../../../shared/provisioning-types'
-import type { ManifoldSettings } from '../../../shared/types'
+import type { ManifoldSettings, EditorSettings } from '../../../shared/types'
 import type { TranscriptionSettings } from '../../../shared/watch-types'
 import { modalStyles } from './SettingsModal.styles'
 import { SettingsModalBody, type SettingsTabId } from './settings/SettingsModalBody'
@@ -29,6 +29,7 @@ export function SettingsModal({ visible, settings, onSave, onClose, onPreviewThe
   const [showCommitAndPrButtons, setShowCommitAndPrButtons] = useState(settings.showCommitAndPrButtons)
   const [sidebarResizeReversed, setSidebarResizeReversed] = useState(settings.sidebarResizeReversed)
   const [searchAiSettings, setSearchAiSettings] = useState(settings.search?.ai ?? DEFAULT_SETTINGS.search.ai)
+  const [editorSettings, setEditorSettings] = useState<EditorSettings>(settings.editor ?? DEFAULT_SETTINGS.editor!)
   const [provisioners, setProvisioners] = useState<ProvisionerConfig[]>(settings.provisioning?.provisioners ?? DEFAULT_SETTINGS.provisioning.provisioners)
   const [provisionerStatuses, setProvisionerStatuses] = useState<ProvisionerStatus[]>([])
   const [transcription, setTranscription] = useState<TranscriptionSettings>(
@@ -59,6 +60,7 @@ export function SettingsModal({ visible, settings, onSave, onClose, onPreviewThe
     setShowCommitAndPrButtons(settings.showCommitAndPrButtons)
     setSidebarResizeReversed(settings.sidebarResizeReversed)
     setSearchAiSettings(settings.search?.ai ?? DEFAULT_SETTINGS.search.ai)
+    setEditorSettings(settings.editor ?? DEFAULT_SETTINGS.editor!)
     setProvisioners(nextProvisioners)
     setTranscription(settings.transcription ?? DEFAULT_SETTINGS.transcription ?? { provider: 'none' })
     setPickerOpen(false)
@@ -88,11 +90,12 @@ export function SettingsModal({ visible, settings, onSave, onClose, onPreviewThe
       showCommitAndPrButtons,
       sidebarResizeReversed,
       search: { ai: searchAiSettings },
+      editor: editorSettings,
       provisioning: { provisioners },
       transcription,
     })
     onClose()
-  }, [defaultRuntime, theme, scrollbackLines, terminalFontFamily, defaultBaseBranch, storagePath, notificationSound, shellPrompt, shellHistoryScope, autoGenerateMessages, showCommitAndPrButtons, sidebarResizeReversed, searchAiSettings, provisioners, transcription, onSave, onClose])
+  }, [defaultRuntime, theme, scrollbackLines, terminalFontFamily, defaultBaseBranch, storagePath, notificationSound, shellPrompt, shellHistoryScope, autoGenerateMessages, showCommitAndPrButtons, sidebarResizeReversed, searchAiSettings, editorSettings, provisioners, transcription, onSave, onClose])
 
   if (!visible) return null
 
@@ -144,6 +147,8 @@ export function SettingsModal({ visible, settings, onSave, onClose, onPreviewThe
           onSidebarResizeReversedChange={setSidebarResizeReversed}
           searchAiSettings={searchAiSettings}
           onSearchAiSettingsChange={setSearchAiSettings}
+          editorSettings={editorSettings}
+          onEditorSettingsChange={setEditorSettings}
           provisioners={provisioners}
           provisionerStatuses={provisionerStatuses}
           onProvisionersChange={setProvisioners}

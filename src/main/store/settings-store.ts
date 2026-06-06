@@ -33,6 +33,12 @@ export class SettingsStore {
         ...settings.search?.ai,
       },
     }
+    // The optional `editor?` field types both operands as `EditorSettings | undefined`,
+    // so the spread widens to a partial; assert back to the complete type.
+    settings.editor = {
+      ...DEFAULT_SETTINGS.editor,
+      ...settings.editor,
+    } as ManifoldSettings['editor']
     const userProvisioners = settings.provisioning?.provisioners?.length
       ? settings.provisioning.provisioners.map((provisioner) => ({ ...provisioner }))
       : []

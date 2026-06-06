@@ -36,6 +36,13 @@ export const DEFAULT_SETTINGS: ManifoldSettings = {
       maxContextResults: 8,
     },
   },
+  editor: {
+    fontSize: 13,
+    fontFamily: "'SF Mono', 'Fira Code', Menlo, Consolas, monospace",
+    wordWrap: 'off',
+    minimap: false,
+    tabSize: 2,
+  },
   provisioning: {
     provisioners: [],
   },

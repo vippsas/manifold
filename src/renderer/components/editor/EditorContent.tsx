@@ -1,18 +1,7 @@
 import React from 'react'
 import Editor, { type OnMount } from '@monaco-editor/react'
+import type { editor as monacoEditor } from 'monaco-editor'
 import { viewerStyles } from './CodeViewer.styles'
-
-const BASE_EDITOR_OPTIONS = {
-  minimap: { enabled: false },
-  scrollBeyondLastLine: false,
-  fontSize: 13,
-  fontFamily: "'SF Mono', 'Fira Code', Menlo, Consolas, monospace",
-  lineNumbers: 'on' as const,
-  renderLineHighlight: 'none' as const,
-  wordWrap: 'on' as const,
-}
-
-const EDITABLE_OPTIONS = { ...BASE_EDITOR_OPTIONS, readOnly: false }
 
 interface EditorContentProps {
   filePath: string | null
@@ -20,6 +9,7 @@ interface EditorContentProps {
   refreshVersion: number
   language: string
   monacoTheme: string
+  options: monacoEditor.IStandaloneEditorConstructionOptions
   onMount?: OnMount
   onChange?: (value: string | undefined) => void
 }
@@ -30,6 +20,7 @@ export function EditorContent({
   refreshVersion,
   language,
   monacoTheme,
+  options,
   onMount,
   onChange,
 }: EditorContentProps): React.JSX.Element {
@@ -40,7 +31,7 @@ export function EditorContent({
         defaultValue={fileContent}
         language={language}
         theme={monacoTheme}
-        options={EDITABLE_OPTIONS}
+        options={options}
         onMount={onMount}
         onChange={onChange}
       />

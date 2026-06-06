@@ -1,6 +1,7 @@
 export interface EditorPaneModeControls {
   canShowPreview: boolean
   canShowDiff: boolean
+  mode: 'editor' | 'preview' | 'diff'
   showEditor: () => void
   showPreview: () => void
   showDiff: () => void

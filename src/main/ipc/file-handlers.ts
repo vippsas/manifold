@@ -5,6 +5,7 @@ import { extname, resolve } from 'node:path'
 import { promisify } from 'node:util'
 import type { IpcDependencies } from './types'
 import type { AgentSession } from '../../shared/types'
+import { listWorktreeFiles } from '../fs/list-files'
 
 const execFileAsync = promisify(execFile)
 
@@ -204,6 +205,12 @@ export function registerFileHandlers(deps: IpcDependencies): void {
       }
       throw err
     }
+  })
+
+  ipcMain.handle('files:list', async (_event, sessionId: string) => {
+    const session = sessionManager.getSession(sessionId)
+    if (!session) throw new Error(`Session not found: ${sessionId}`)
+    return listWorktreeFiles(session.worktreePath)
   })
 }
 

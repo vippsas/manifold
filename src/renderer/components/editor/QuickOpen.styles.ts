@@ -1,0 +1,60 @@
+import React from 'react'
+
+export const quickOpenStyles: Record<string, React.CSSProperties> = {
+  overlay: {
+    position: 'fixed',
+    inset: 0,
+    zIndex: 300,
+    display: 'flex',
+    justifyContent: 'center',
+    alignItems: 'flex-start',
+    paddingTop: '12vh',
+    background: 'rgba(0, 0, 0, 0.35)',
+  },
+  panel: {
+    width: 'min(600px, 90vw)',
+    maxHeight: '60vh',
+    display: 'flex',
+    flexDirection: 'column',
+    background: 'var(--bg-secondary)',
+    border: '1px solid var(--border)',
+    borderRadius: '8px',
+    boxShadow: 'var(--shadow-popover)',
+    overflow: 'hidden',
+  },
+  input: {
+    padding: '10px 12px',
+    fontSize: '13px',
+    color: 'var(--text-primary)',
+    background: 'var(--bg-input)',
+    border: 'none',
+    borderBottom: '1px solid var(--border)',
+    outline: 'none',
+  },
+  list: {
+    margin: 0,
+    padding: '4px',
+    listStyle: 'none',
+    overflowY: 'auto',
+  },
+  item: {
+    padding: '6px 8px',
+    fontSize: '12px',
+    fontFamily: 'var(--font-mono)',
+    color: 'var(--text-secondary)',
+    borderRadius: '4px',
+    cursor: 'pointer',
+    whiteSpace: 'nowrap',
+    overflow: 'hidden',
+    textOverflow: 'ellipsis',
+  },
+  itemActive: {
+    background: 'var(--list-hover-bg)',
+    color: 'var(--text-primary)',
+  },
+  empty: {
+    padding: '8px',
+    fontSize: '12px',
+    color: 'var(--text-muted)',
+  },
+}

@@ -234,4 +234,23 @@ export const viewerStyles: Record<string, React.CSSProperties> = {
     color: 'var(--text-muted)',
     fontSize: '13px',
   },
+  statusBar: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: '12px',
+    height: '22px',
+    padding: '0 10px',
+    flexShrink: 0,
+    borderTop: '1px solid var(--border)',
+    background: 'var(--bg-secondary)',
+    color: 'var(--text-muted)',
+    fontSize: '11px',
+    fontFamily: 'var(--font-mono)',
+  },
+  statusItem: {
+    whiteSpace: 'nowrap' as const,
+  },
+  statusSpacer: {
+    flex: 1,
+  },
 }
