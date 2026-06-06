@@ -40,6 +40,22 @@ export async function buildPlugins(pluginsDir = DEFAULT_PLUGINS_DIR) {
       logLevel: 'warning',
     })
     built.push(entry)
+
+    // Optional webview UI: bundle src/webview/index.tsx → out/webview.js (browser IIFE).
+    const webviewEntry = join(srcDir, 'webview', 'index.tsx')
+    if (existsSync(webviewEntry)) {
+      await build({
+        entryPoints: [webviewEntry],
+        outfile: resolve(root, 'out', 'webview.js'),
+        bundle: true,
+        platform: 'browser',
+        format: 'iife',
+        target: 'es2020',
+        jsx: 'automatic',
+        define: { 'process.env.NODE_ENV': '"production"' },
+        logLevel: 'warning',
+      })
+    }
   }
   return built
 }

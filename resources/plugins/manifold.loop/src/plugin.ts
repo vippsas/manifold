@@ -3,6 +3,8 @@ import type { ManifoldContext, CancellationToken } from 'manifold'
 // eslint-disable-next-line @typescript-eslint/no-var-requires
 const manifold = require('manifold') as typeof import('manifold')
 
+import { join } from 'node:path'
+import { readFileSync } from 'node:fs'
 import type { LoopConfig } from './types'
 import { LoopEngine, type RunTurn } from './engine'
 import { createGitAdapter } from './git'
@@ -10,6 +12,7 @@ import { createEvalRunner } from './eval-runner'
 import { createJudge } from './judge'
 import { createLoopStore } from './store'
 import { appendIteration, readAllIterations, clearIterations } from './iteration-log'
+import { createWebviewHost } from './webview-host'
 
 /** Bridge an AbortSignal to a manifold CancellationToken for agents.runTurn. */
 function tokenFromSignal(signal: AbortSignal): CancellationToken {
@@ -40,6 +43,14 @@ export function activate(context: ManifoldContext): void {
     worktreePath: () => manifold.workspace.workspaceFolders?.[0]?.uri,
     store: createLoopStore(manifold.storage),
   })
+
+  const host = createWebviewHost({
+    engine,
+    readBundle: () => readFileSync(join(context.pluginUri, 'out', 'webview.js'), 'utf8'),
+    getActiveSessionId: () => manifold.agents.activeAgent?.sessionId ?? null,
+  })
+  engine.setEmit(host.emit)
+  context.subscriptions.push(manifold.window.registerWebviewViewProvider('manifold.loop.panel', host.provider))
 
   const reg = (id: string, handler: (...args: never[]) => unknown): void => {
     context.subscriptions.push(manifold.commands.registerCommand(id, handler as (...a: unknown[]) => unknown))

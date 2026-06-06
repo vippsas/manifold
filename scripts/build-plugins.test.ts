@@ -12,6 +12,8 @@ beforeAll(() => {
   mkdirSync(join(a, 'src'), { recursive: true })
   writeFileSync(join(a, 'package.json'), JSON.stringify({ name: 'alpha', publisher: 'm', version: '1.0.0', engines: { manifold: '^0.3.0' }, main: './out/plugin.js' }))
   writeFileSync(join(a, 'src', 'plugin.ts'), `const manifold = require('manifold'); export function activate(){ manifold.commands.registerCommand('a.x', () => 1) }`)
+  mkdirSync(join(a, 'src', 'webview'), { recursive: true })
+  writeFileSync(join(a, 'src', 'webview', 'index.tsx'), `document.title = 'mf-webview-ok'`)
   const b = join(root, 'beta')
   mkdirSync(join(b, 'out'), { recursive: true })
   writeFileSync(join(b, 'package.json'), JSON.stringify({ name: 'beta', publisher: 'm', version: '1.0.0', engines: { vscode: '^1.104.0' }, main: './out/extension.js' }))
@@ -28,6 +30,13 @@ describe('buildPlugins', () => {
     const code = readFileSync(out, 'utf8')
     expect(code).toContain('a.x')
     expect(code).toContain('require("manifold")')
+  })
+
+  it('also bundles a webview entry to out/webview.js when present', async () => {
+    await buildPlugins(root)
+    const out = join(root, 'alpha', 'out', 'webview.js')
+    expect(existsSync(out)).toBe(true)
+    expect(readFileSync(out, 'utf8')).toContain('mf-webview-ok')
   })
 
   it('skips plugins without a src/ dir (prebuilt) and leaves their out untouched', async () => {

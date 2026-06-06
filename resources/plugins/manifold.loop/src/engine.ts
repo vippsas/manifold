@@ -50,10 +50,17 @@ export class LoopEngine {
   private runs = new Map<string, RunState>()
   private readonly deps: LoopEngineDeps
   private readonly now: () => number
+  private emit?: (event: 'status' | 'iteration', payload: unknown) => void
 
   constructor(deps: LoopEngineDeps) {
     this.deps = deps
     this.now = deps.now ?? ((): number => Date.now())
+    this.emit = deps.emit
+  }
+
+  /** Override the event sink after construction (used to bridge to the webview). */
+  setEmit(fn: (event: 'status' | 'iteration', payload: unknown) => void): void {
+    this.emit = fn
   }
 
   /** Run the loop to completion. The plugin command invokes this fire-and-forget. */
@@ -133,7 +140,7 @@ export class LoopEngine {
     await this.deps.iterationLog.clear(worktreePath)
     const cleared: LoopStatus = { sessionId, state: 'idle', currentIteration: 0 }
     await this.deps.store.setStatus(sessionId, cleared)
-    this.deps.emit?.('status', cleared)
+    this.emit?.('status', cleared)
     return cleared
   }
 
@@ -164,7 +171,7 @@ export class LoopEngine {
       status.currentIteration += 1
       const iter = await this.runOneIteration(run)
       await this.deps.iterationLog.append(run.worktreePath, iter)
-      this.deps.emit?.('iteration', iter)
+      this.emit?.('iteration', iter)
       await this.publish(run)
     }
   }
@@ -269,7 +276,7 @@ export class LoopEngine {
 
   private async publish(run: RunState): Promise<void> {
     await this.deps.store.setStatus(run.config.sessionId, { ...run.status })
-    this.deps.emit?.('status', { ...run.status })
+    this.emit?.('status', { ...run.status })
   }
 }
 
