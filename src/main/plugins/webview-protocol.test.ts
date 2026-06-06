@@ -52,6 +52,21 @@ describe('injectNonce', () => {
     expect(debugLogMock).not.toHaveBeenCalled()
   })
 
+  it('does not nonce a "<script>" substring inside a script body (regression: inlined React bundle)', () => {
+    // React DOM ships the literal `"<script><\/script>"` inside its bundle. A <script>
+    // element's body is raw text that ends only at </script>, so a "<script>" occurring
+    // inside the body must NOT be treated as a real tag — splicing nonce="…" into it
+    // breaks out of the JS string ("Unexpected identifier <nonce>") and the panel renders
+    // blank. (buildWebviewHtml has already escaped the closing tag to <\/script>.)
+    const body = 'a.innerHTML = "<script><\\/script>";'
+    const out = injectNonce(`<script>${body}</script>`, 'N0NCE', 'view.react')
+    expect(out).toBe(`<script nonce="N0NCE">${body}</script>`)
+    // The inner substring is untouched: exactly one nonce attribute total.
+    expect((out.match(/nonce=/g) ?? []).length).toBe(1)
+    // A faithfully-nonced first-party bundle must not trigger the incomplete-injection warning.
+    expect(debugLogMock).not.toHaveBeenCalled()
+  })
+
   it('does not re-inject a nonce into a <script> that already has one', () => {
     const out = injectNonce('<script nonce="EXISTING">a()</script>', 'N0NCE', 'view.pre')
     // Exactly one nonce attribute, and the CSP nonce replaces (or is unified with)

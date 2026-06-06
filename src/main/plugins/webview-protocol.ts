@@ -15,37 +15,64 @@ export const WEBVIEW_SCHEME = 'manifold-webview'
  *
  * The CSP is `script-src 'nonce-…'` under `default-src 'none'`, so any `<script>`
  * that does NOT receive the nonce is silently BLOCKED — the panel renders blank
- * with no console error. The naive `/<script\b([^>]*)>/` regex truncates at the
- * first `>`, so a literal `>` inside an attribute value (e.g. `data-x="a>b"`)
- * makes that tag impossible to nonce. To keep an otherwise-invisible failure
- * observable, we count `<script` occurrences vs. tags actually nonced and emit a
- * `debugLog` warning (tagged with `context`, normally the viewId) on a mismatch.
+ * with no console error. To keep that otherwise-invisible failure observable, we
+ * count real `<script>` tags vs. tags actually nonced and emit a `debugLog` warning
+ * (tagged with `context`, normally the viewId) on a mismatch.
  *
- * A `<script>` that already carries a `nonce=` attribute is left untouched: adding
- * a second `nonce` attribute is ignored by the parser, which would defeat the CSP.
- * It counts as "covered" (not a mismatch).
+ * This scans `<script>` tags with a small state machine rather than a global regex
+ * because a `<script>` element's body is RAW TEXT that ends only at `</script`: a
+ * `<script>` substring inside inlined JS (e.g. React DOM ships the literal
+ * `"<script><\/script>"`) is content, NOT a new tag. A regex that nonced it would
+ * splice `nonce="…"` into the JS string, break out of the literal, and corrupt the
+ * whole bundle ("Unexpected identifier <nonce>") — a blank panel. So after noncing
+ * an opening tag we skip its body verbatim up to the next `</script` (callers must
+ * already have escaped any `</script` inside inlined JS, as buildWebviewHtml does).
+ *
+ * Per-tag rules: a tag whose attributes contain an unbalanced quote is a TRUNCATED,
+ * malformed tag (a literal `>` inside an attribute value, e.g. `data-x="a>b"`) and is
+ * left untouched so we don't corrupt it (the mismatch check flags it). A tag that
+ * already carries a `nonce=` is left as-is (a second nonce is ignored by the parser,
+ * defeating the CSP) and counts as covered.
  */
 export function injectNonce(html: string, nonce: string, context = ''): string {
+  const lower = html.toLowerCase()
+  let out = ''
+  let pos = 0
+  let total = 0
   let nonced = 0
-  const out = html.replace(/<script\b([^>]*)>/gi, (m, attrs: string) => {
-    // The regex stops at the first '>'. If a quote in `attrs` is left open, that
-    // '>' was inside an attribute value (e.g. data-x="a>b") and this is a
-    // TRUNCATED, malformed tag — injecting here would corrupt it, so skip it and
-    // let the mismatch check below flag it.
-    if (hasUnbalancedQuote(attrs)) return m
-    // Already has a nonce attribute: don't append a duplicate (the HTML parser
-    // ignores the second one, which would defeat the CSP nonce). Count as covered.
-    if (/\bnonce\s*=/i.test(attrs)) {
-      nonced++
-      return m
+  for (;;) {
+    const open = lower.indexOf('<script', pos)
+    if (open < 0) { out += html.slice(pos); break }
+    // Require a word boundary after "<script" (matches the prior /<script\b/), so
+    // "<scripting" isn't mistaken for a tag.
+    const after = html[open + 7]
+    if (after !== undefined && /[a-z0-9_]/i.test(after)) {
+      out += html.slice(pos, open + 7)
+      pos = open + 7
+      continue
     }
-    nonced++
-    return `<script${attrs} nonce="${nonce}">`
-  })
-  // `<script` occurrences we did not (or could not) nonce are exactly the tags the
+    const tagEnd = html.indexOf('>', open)
+    if (tagEnd < 0) { total++; out += html.slice(pos); break } // unterminated tag
+    total++
+    const attrs = html.slice(open + 7, tagEnd)
+    out += html.slice(pos, open)
+    if (hasUnbalancedQuote(attrs)) {
+      out += html.slice(open, tagEnd + 1) // malformed: leave untouched, flagged below
+    } else if (/\bnonce\s*=/i.test(attrs)) {
+      out += html.slice(open, tagEnd + 1); nonced++ // already nonced
+    } else {
+      out += `<script${attrs} nonce="${nonce}">`; nonced++
+    }
+    pos = tagEnd + 1
+    // Skip the script body verbatim so "<script" inside inlined JS isn't re-noticed.
+    const close = lower.indexOf('</script', pos)
+    if (close < 0) { out += html.slice(pos); break }
+    out += html.slice(pos, close)
+    pos = close
+  }
+  // Real `<script>` tags we did not (or could not) nonce are exactly the ones the
   // CSP will silently block — surfacing them turns a blank panel into a debuggable
   // log line instead of an invisible failure.
-  const total = (html.match(/<script\b/gi) ?? []).length
   if (total > nonced) {
     const where = context ? ` for ${context}` : ''
     debugLog(
