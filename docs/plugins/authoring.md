@@ -46,8 +46,14 @@ Declare only what you need:
 | Capability | Unlocks |
 |------------|---------|
 | `storage` | `manifold.storage.global` — persistent key/value store |
-| `workspace:read` | `manifold.workspace.activeProject`, `onDidChangeActiveProject`, `activeSession`, `onDidChangeActiveSession` |
+| `workspace:read` | `manifold.workspace.activeProject`, `activeSession`, `workspaceFolders`, `onDidChangeActiveProject`, `onDidChangeActiveSession` |
 | `configuration` | `manifold.configuration.get`, `manifold.configuration.onDidChange` |
+| `agent:control` | `manifold.agents.activeAgent` — drive the active session's agent. **Built-in plugins only.** |
+| `lm` | `manifold.lm` — one-shot language-model requests via the active session runtime. **Built-in plugins only.** |
+
+The `agent:control` and `lm` capabilities are **privileged**: even when declared, they
+are granted only to built-in plugins (those discovered with `origin: 'builtin'`). A
+user-installed plugin that declares them fails at first use with a restriction error.
 
 ### `contributes`
 
@@ -104,12 +110,41 @@ Requires the `storage` capability.
 
 ```typescript
 manifold.workspace.activeProject: ProjectInfo | undefined   // { id, name, path }
-manifold.workspace.activeSession: SessionInfo | undefined   // { id, status, branchName? }
+manifold.workspace.activeSession: SessionInfo | undefined   // { id, status, branchName?, worktreePath? }
+manifold.workspace.workspaceFolders: readonly WorkspaceFolder[] | undefined  // active session's worktree; { name, uri } where uri is the worktree fs path
 manifold.workspace.onDidChangeActiveProject(listener): Disposable
 manifold.workspace.onDidChangeActiveSession(listener): Disposable
 ```
 
 Requires the `workspace:read` capability.
+
+### `manifold.agents` *(capability `agent:control`, built-in plugins only)*
+
+```typescript
+manifold.agents.activeAgent: AgentSession | undefined
+interface AgentSession {
+  readonly sessionId: string
+  runTurn(prompt: string, opts?: { budgetSeconds?: number; clearContext?: boolean }, token?: CancellationToken): Promise<'ended' | 'timeout' | 'aborted'>
+}
+```
+
+`runTurn` sends `prompt` to the live agent (optionally `/clear`-ing context first) and
+resolves when the agent's turn ends, the budget elapses (`budgetSeconds`, default 300), or
+the `CancellationToken` fires. `activeAgent` is `undefined` when no session is active.
+
+### `manifold.lm` *(capability `lm`, built-in plugins only)*
+
+```typescript
+manifold.lm.selectChatModels(): Promise<LanguageModelChat[]>
+interface LanguageModelChat {
+  readonly id: string
+  sendRequest(prompt: string, opts?: { timeoutMs?: number }, token?: CancellationToken): Promise<{ text: string }>
+}
+```
+
+Modeled on VS Code's Language Model API. Phase A is one-shot (non-streaming):
+`selectChatModels()` returns the active session's runtime model, or `[]` when no session is
+active; `sendRequest` runs a single generation in the active session's worktree.
 
 ### `manifold.configuration`
 
