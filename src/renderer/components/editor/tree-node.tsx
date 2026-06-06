@@ -7,12 +7,11 @@ export interface TreeNodeProps {
   depth: number
   changeMap: Map<string, FileChangeType>
   activeFilePath: string | null
-  selectedFilePath: string | null
+  selectedPaths: Set<string>
   openFilePaths: Set<string>
   expandedPaths: Set<string>
-  onToggleExpand: (path: string) => void
-  onHighlightFile: (path: string) => void
-  onSelectFile: (path: string) => void
+  onRowClick: (e: React.MouseEvent, node: FileTreeNode) => void
+  filterQuery?: string
   onRequestDelete?: (path: string, name: string, isDirectory: boolean) => void
   renamingPath: string | null
   renameValue: string
@@ -35,12 +34,11 @@ export function TreeNode({
   depth,
   changeMap,
   activeFilePath,
-  selectedFilePath,
+  selectedPaths,
   openFilePaths,
   expandedPaths,
-  onToggleExpand,
-  onHighlightFile,
-  onSelectFile,
+  onRowClick,
+  filterQuery,
   onRequestDelete,
   renamingPath,
   renameValue,
@@ -68,19 +66,13 @@ export function TreeNode({
     }
   }, [onConfirmCreate, onCancelCreate])
 
-  const handleClick = useCallback((): void => {
-    if (node.isDirectory) {
-      onToggleExpand(node.path)
-    } else {
-      onHighlightFile(node.path)
-      onSelectFile(node.path)
-    }
-  }, [node.isDirectory, node.path, onToggleExpand, onHighlightFile, onSelectFile])
+  const handleClick = useCallback((e: React.MouseEvent): void => {
+    onRowClick(e, node)
+  }, [node, onRowClick])
 
   const handleDoubleClick = useCallback((): void => {
-    if (node.isDirectory) return
     onStartRename?.(node.path, node.name)
-  }, [node.isDirectory, node.path, node.name, onStartRename])
+  }, [node.path, node.name, onStartRename])
 
   const handleDelete = useCallback((e: React.MouseEvent): void => {
     e.stopPropagation()
@@ -102,7 +94,7 @@ export function TreeNode({
         depth={depth}
         expanded={expanded}
         isActive={!node.isDirectory && node.path === activeFilePath}
-        isSelected={!node.isDirectory && node.path === selectedFilePath}
+        isSelected={selectedPaths.has(node.path)}
         changeType={changeType ?? null}
         onClick={handleClick}
         onDoubleClick={handleDoubleClick}
@@ -114,6 +106,7 @@ export function TreeNode({
         onCancelRename={onCancelRename}
         onContextMenu={handleContextMenu}
         dragRootPath={dragRootPath}
+        filterQuery={filterQuery}
       />
       {node.isDirectory && expanded && (
         <>
@@ -136,12 +129,11 @@ export function TreeNode({
                 depth={depth + 1}
                 changeMap={changeMap}
                 activeFilePath={activeFilePath}
-                selectedFilePath={selectedFilePath}
+                selectedPaths={selectedPaths}
                 openFilePaths={openFilePaths}
                 expandedPaths={expandedPaths}
-                onToggleExpand={onToggleExpand}
-                onHighlightFile={onHighlightFile}
-                onSelectFile={onSelectFile}
+                onRowClick={onRowClick}
+                filterQuery={filterQuery}
                 onRequestDelete={onRequestDelete}
                 renamingPath={renamingPath}
                 renameValue={renameValue}

@@ -1,4 +1,5 @@
 import React, { useEffect, useRef } from 'react'
+import { createPortal } from 'react-dom'
 import { contextMenuStyles } from './ContextMenu.styles'
 
 export interface ContextMenuAction {
@@ -37,7 +38,11 @@ export function ContextMenu({ x, y, items, onClose }: ContextMenuProps): React.J
     }
   }, [x, y])
 
-  return (
+  // Render into document.body so `position: fixed` resolves against the viewport.
+  // Inside the tree the menu sits within dockview's `.dv-render-overlay`, whose
+  // `transform`/`contain` establish a containing block that would otherwise offset
+  // the menu from the cursor's clientX/clientY.
+  return createPortal(
     <>
       <div style={contextMenuStyles.overlay} onClick={onClose} onContextMenu={(e) => { e.preventDefault(); onClose() }} />
       <div ref={menuRef} style={{ ...contextMenuStyles.menu, left: x, top: y }}>
@@ -56,6 +61,7 @@ export function ContextMenu({ x, y, items, onClose }: ContextMenuProps): React.J
           )
         )}
       </div>
-    </>
+    </>,
+    document.body,
   )
 }

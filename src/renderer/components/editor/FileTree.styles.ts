@@ -109,6 +109,10 @@ export const treeStyles: Record<string, React.CSSProperties> = {
     textOverflow: 'ellipsis',
     whiteSpace: 'nowrap' as const,
   },
+  matchHighlight: {
+    color: 'var(--accent)',
+    fontWeight: 700,
+  },
   indicator: {
     flexShrink: 0,
     fontSize: '11px',
@@ -221,6 +225,21 @@ export const treeStyles: Record<string, React.CSSProperties> = {
     background: 'transparent',
     border: 'none',
     flexShrink: 0,
+  },
+  toolbarBtn: {
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    width: '20px',
+    height: '20px',
+    marginLeft: '2px',
+    borderRadius: '3px',
+    color: 'var(--text-muted)',
+    cursor: 'pointer',
+    background: 'transparent',
+    border: 'none',
+    flexShrink: 0,
+    transition: 'color 150ms ease, background 150ms ease',
   },
   statusBanner: {
     padding: '6px 8px',

@@ -2,8 +2,6 @@ import { useCallback, useState } from 'react'
 import type { FileTreeNode } from '../../../shared/types'
 
 export interface FileTreeEditingState {
-  selectedFilePath: string | null
-  setSelectedFilePath: (path: string | null) => void
   pendingDelete: { path: string; name: string; isDirectory: boolean } | null
   renamingPath: string | null
   renameValue: string
@@ -36,7 +34,6 @@ export function useFileTreeEditing(
   onCreateFile?: (dirPath: string, fileName: string) => Promise<boolean>,
   onCreateDir?: (dirPath: string, dirName: string) => Promise<boolean>,
 ): FileTreeEditingState {
-  const [selectedFilePath, setSelectedFilePath] = useState<string | null>(null)
   const [pendingDelete, setPendingDelete] = useState<{ path: string; name: string; isDirectory: boolean } | null>(null)
   const [renamingPath, setRenamingPath] = useState<string | null>(null)
   const [renameValue, setRenameValue] = useState('')
@@ -129,7 +126,6 @@ export function useFileTreeEditing(
   }, [createError])
 
   return {
-    selectedFilePath, setSelectedFilePath,
     pendingDelete,
     renamingPath, renameValue, setRenameValue,
     contextMenu, setContextMenu,

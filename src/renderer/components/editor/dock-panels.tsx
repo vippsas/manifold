@@ -95,6 +95,7 @@ function FileTreePanel(): React.JSX.Element {
         onOpenInTerminal={s.onOpenInTerminal}
         onCopyAbsolutePath={s.onCopyAbsolutePath}
         onCopyRelativePath={s.onCopyRelativePath}
+        onOpenFileToSide={(path) => s.onOpenSearchResultInSplit({ path, sessionId: s.sessionId })}
         worktreeRootPath={s.worktreeRootPath}
       />
     </div>

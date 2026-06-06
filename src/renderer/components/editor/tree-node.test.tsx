@@ -1,3 +1,4 @@
+import type React from 'react'
 import { describe, it, expect, vi } from 'vitest'
 import { fireEvent, render, screen } from '@testing-library/react'
 import type { FileTreeNode } from '../../../shared/types'
@@ -15,14 +16,12 @@ function makeFileNode(overrides: Partial<FileTreeNode> = {}): FileTreeNode {
 function renderTreeNode({
   node = makeFileNode(),
   openFilePaths = new Set<string>(),
-  onHighlightFile = vi.fn(),
-  onSelectFile = vi.fn(),
+  onRowClick = vi.fn(),
   onStartRename = vi.fn(),
 }: {
   node?: FileTreeNode
   openFilePaths?: Set<string>
-  onHighlightFile?: (path: string) => void
-  onSelectFile?: (path: string) => void
+  onRowClick?: (e: React.MouseEvent, node: FileTreeNode) => void
   onStartRename?: (path: string, name: string) => void
 } = {}) {
   render(
@@ -31,12 +30,10 @@ function renderTreeNode({
       depth={0}
       changeMap={new Map()}
       activeFilePath={null}
-      selectedFilePath={null}
+      selectedPaths={new Set()}
       openFilePaths={openFilePaths}
       expandedPaths={new Set()}
-      onToggleExpand={vi.fn()}
-      onHighlightFile={onHighlightFile}
-      onSelectFile={onSelectFile}
+      onRowClick={onRowClick}
       renamingPath={null}
       renameValue=""
       onRenameValueChange={vi.fn()}
@@ -47,31 +44,38 @@ function renderTreeNode({
   )
 
   return {
-    onHighlightFile,
-    onSelectFile,
+    onRowClick,
     onStartRename,
     row: screen.getByTitle(node.path),
   }
 }
 
 describe('TreeNode', () => {
-  it('opens the file and highlights it on single click', () => {
+  it('delegates single click to onRowClick with the node', () => {
     const node = makeFileNode()
-    const onHighlightFile = vi.fn()
-    const onSelectFile = vi.fn()
-    const { row } = renderTreeNode({ node, onHighlightFile, onSelectFile })
+    const onRowClick = vi.fn()
+    const { row } = renderTreeNode({ node, onRowClick })
 
     fireEvent.click(row)
 
-    expect(onHighlightFile).toHaveBeenCalledWith(node.path)
-    expect(onSelectFile).toHaveBeenCalledWith(node.path)
+    expect(onRowClick).toHaveBeenCalledTimes(1)
+    expect(onRowClick.mock.calls[0][1]).toEqual(node)
   })
 
   it('starts rename on double click', () => {
     const node = makeFileNode()
     const onStartRename = vi.fn()
-    const onSelectFile = vi.fn()
-    const { row } = renderTreeNode({ node, onSelectFile, onStartRename })
+    const { row } = renderTreeNode({ node, onStartRename })
+
+    fireEvent.doubleClick(row)
+
+    expect(onStartRename).toHaveBeenCalledWith(node.path, node.name)
+  })
+
+  it('starts rename on double click for directories', () => {
+    const node = makeFileNode({ name: 'src', path: '/repo/src', isDirectory: true, children: [] })
+    const onStartRename = vi.fn()
+    const { row } = renderTreeNode({ node, onStartRename })
 
     fireEvent.doubleClick(row)
 
