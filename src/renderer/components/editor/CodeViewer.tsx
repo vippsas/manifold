@@ -1,4 +1,4 @@
-import React, { useMemo, useRef, useCallback, useEffect } from 'react'
+import React, { useMemo, useRef, useCallback, useEffect, useState } from 'react'
 import { DiffEditor, type OnMount, type DiffOnMount } from '@monaco-editor/react'
 import type { editor as monacoEditor } from 'monaco-editor'
 import type { OpenFile } from '../../hooks/useCodeView'
@@ -23,6 +23,7 @@ import { EditorStatusBar } from './EditorStatusBar'
 import { DEFAULT_SETTINGS } from '../../../shared/defaults'
 import type { EditorSettings } from '../../../shared/types'
 import { buildEditorOptions } from './build-editor-options'
+import { useDiffGutter } from './useDiffGutter'
 
 interface CodeViewerProps {
   paneId?: string
@@ -85,6 +86,8 @@ export function CodeViewer({
   )
   const activeRefreshVersion = activeOpenFile?.refreshVersion ?? 0
   const editorRef = useRef<monacoEditor.IStandaloneCodeEditor | null>(null)
+  const monacoRef = useRef<typeof import('monaco-editor') | null>(null)
+  const [mountTick, setMountTick] = useState(0)
   const saveRef = useRef(onSaveFile)
   const activeFilePathRef = useRef(activeFilePath)
   const lastFileOpenRequestRef = useRef(lastFileOpenRequest)
@@ -126,14 +129,24 @@ export function CodeViewer({
     !(previewActive && fileContent !== null && !isHtml && activeFilePath !== null) &&
     !(diffMode && fileContent !== null)
 
+  useDiffGutter({
+    editorRef,
+    monacoRef,
+    active: showPlainEditor && fileContent !== null,
+    mountTick,
+    diffText: fileDiffText,
+  })
+
   useEffect(() => {
     saveRef.current = onSaveFile
   }, [onSaveFile])
 
-  const handleEditorMount: OnMount = useCallback((editor, monaco) => {
+  const handleEditorMount: OnMount = useCallback((editor, monacoApi) => {
     editorRef.current = editor
     bindEditor(editor)
-    editor.addCommand(monaco.KeyMod.CtrlCmd | monaco.KeyCode.KeyS, () => {
+    monacoRef.current = monacoApi
+    setMountTick((tick) => tick + 1)
+    editor.addCommand(monacoApi.KeyMod.CtrlCmd | monacoApi.KeyCode.KeyS, () => {
       const filePath = activeFilePathRef.current
       if (!filePath) return
       saveRef.current?.(filePath, editor.getValue())

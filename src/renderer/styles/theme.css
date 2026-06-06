@@ -1277,6 +1277,17 @@ select:focus-visible {
   background: var(--list-hover-bg);
 }
 
+/* ─── Editor Git Gutter Bars ─── */
+.editor-gutter--added {
+  border-left: 3px solid var(--diff-added-gutter);
+}
+.editor-gutter--modified {
+  border-left: 3px solid var(--accent);
+}
+.editor-gutter--deleted {
+  border-left: 3px solid var(--diff-deleted-gutter);
+}
+
 /* ─── Monaco Diff Gutter Decorations ─── */
 .diff-gutter-added {
   background: var(--success) !important;
