@@ -4,7 +4,44 @@ import type { QuickPickItem, QuickPickOptions, InputBoxOptions } from './ui'
 export interface Disposable { dispose(): void }
 
 export interface ProjectInfo { id: string; name: string; path: string }
-export interface SessionInfo { id: string; status: string; branchName?: string }
+export interface SessionInfo { id: string; status: string; branchName?: string; worktreePath?: string }
+
+export interface CancellationToken {
+  readonly isCancellationRequested: boolean
+  onCancellationRequested(listener: () => void): Disposable
+}
+
+export type TurnOutcome = 'ended' | 'timeout' | 'aborted'
+
+/** A live agent session a built-in plugin can drive. VS Code has no agent-turn
+ *  concept, so this is Manifold-specific (gated by the `agent:control` capability). */
+export interface AgentSession {
+  readonly sessionId: string
+  /** Send a prompt to the live agent and resolve when its turn ends. */
+  runTurn(
+    prompt: string,
+    opts?: { budgetSeconds?: number; clearContext?: boolean },
+    token?: CancellationToken,
+  ): Promise<TurnOutcome>
+}
+
+/** A language model handle, modeled on VS Code's `LanguageModelChat`. Phase A is
+ *  one-shot (non-streaming); gated by the `lm` capability. */
+export interface LanguageModelChat {
+  readonly id: string
+  sendRequest(
+    prompt: string,
+    opts?: { timeoutMs?: number },
+    token?: CancellationToken,
+  ): Promise<{ text: string }>
+}
+
+/** A workspace folder, modeled on VS Code's `WorkspaceFolder`. */
+export interface WorkspaceFolder {
+  readonly name: string
+  /** Absolute filesystem path of the worktree. */
+  readonly uri: string
+}
 
 export interface ManifoldContext {
   subscriptions: Disposable[]
@@ -65,12 +102,19 @@ export interface ManifoldApi {
   workspace: {
     readonly activeProject: ProjectInfo | undefined
     readonly activeSession: SessionInfo | undefined
+    readonly workspaceFolders: readonly WorkspaceFolder[] | undefined
     onDidChangeActiveProject(listener: (project: ProjectInfo | undefined) => void): Disposable
     onDidChangeActiveSession(listener: (session: SessionInfo | undefined) => void): Disposable
   }
   configuration: {
     get<T = unknown>(key: string, defaultValue?: T): Promise<T | undefined>
     onDidChange(listener: () => void): Disposable
+  }
+  agents: {
+    readonly activeAgent: AgentSession | undefined
+  }
+  lm: {
+    selectChatModels(): Promise<LanguageModelChat[]>
   }
 }
 

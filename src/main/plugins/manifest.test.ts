@@ -1,6 +1,7 @@
 // src/main/plugins/manifest.test.ts
 import { describe, expect, it } from 'vitest'
 import { parseManifest } from './manifest'
+import { isCapability, isBuiltinOnlyCapability } from '../../shared/plugins/manifest'
 
 const valid = {
   name: 'hello', publisher: 'manifold', version: '0.0.1',
@@ -40,6 +41,11 @@ describe('parseManifest', () => {
     expect(r.ok).toBe(true)
     if (r.ok) expect(r.manifest.capabilities).toEqual(['storage', 'workspace:read', 'configuration'])
   })
+  it('accepts the new privileged capabilities (agent:control, lm)', () => {
+    const r = parseManifest({ ...valid, capabilities: ['agent:control', 'lm'] })
+    expect(r.ok).toBe(true)
+    if (r.ok) expect(r.manifest.capabilities).toEqual(['agent:control', 'lm'])
+  })
   it('rejects an unknown capability (a typo must not silently grant nothing)', () => {
     expect(parseManifest({ ...valid, capabilities: ['storage', 'workspace'] }).ok).toBe(false)
     expect(parseManifest({ ...valid, capabilities: ['root'] }).ok).toBe(false)
@@ -55,5 +61,20 @@ describe('parseManifest', () => {
     // An arbitrary extra field on the raw input must not appear on the parsed manifest.
     const r2 = parseManifest({ ...valid, bogusField: 'x' }) as { ok: boolean; manifest: Record<string, unknown> }
     if (r2.ok) expect('bogusField' in r2.manifest).toBe(false)
+  })
+})
+
+describe('capabilities', () => {
+  it('recognizes the new privileged capabilities', () => {
+    expect(isCapability('agent:control')).toBe(true)
+    expect(isCapability('lm')).toBe(true)
+    expect(isCapability('storage')).toBe(true)
+    expect(isCapability('not-a-cap')).toBe(false)
+  })
+  it('marks agent:control and lm as builtin-only', () => {
+    expect(isBuiltinOnlyCapability('agent:control')).toBe(true)
+    expect(isBuiltinOnlyCapability('lm')).toBe(true)
+    expect(isBuiltinOnlyCapability('storage')).toBe(false)
+    expect(isBuiltinOnlyCapability('workspace:read')).toBe(false)
   })
 })

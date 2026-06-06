@@ -23,6 +23,8 @@ export const PLUGIN_CONFIG = 'PluginConfig'         // host, called by main
 export const HOST_TREE = 'HostTree'                 // main, called by host (refresh notifications)
 export const PLUGIN_TREE = 'PluginTree'             // host, called by main (get children)
 export const HOST_UI = 'HostUi'                     // main, called by host (interactive UI, returns a value)
+export const HOST_AGENTS = 'HostAgents'             // main, called by host (drive a session's agent)
+export const HOST_LM = 'HostLm'                     // main, called by host (one-shot language-model requests)
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type ServiceImpl = Record<string, (...args: any[]) => unknown>

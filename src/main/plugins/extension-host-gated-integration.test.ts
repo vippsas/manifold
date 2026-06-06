@@ -42,11 +42,19 @@ function wireStorageHostAndMain(): {
   return { host, shared }
 }
 
+// Privileged factories are not exercised by these gating tests; stub them so the
+// GatedFactories shape is satisfied. Origin is 'builtin' (the caps under test here
+// are not builtin-only, so origin does not affect them).
+const PRIV_STUBS = {
+  agents: () => ({ activeAgent: undefined } as never),
+  lm: () => ({ selectChatModels: async () => [] } as never),
+}
+
 describe('extension host gated-storage round-trip (in-memory, no process)', () => {
   it('storage.global.update then get returns the stored value', async () => {
     const { host, shared } = wireStorageHostAndMain()
     const workspaceCtx = new WorkspaceContext()
-    const api = buildGatedApi(['storage'], shared as never, { storage: () => createStorageApi(host, 'p.x'), workspace: () => workspaceCtx.makeApi(), configuration: () => ({ get: async () => undefined, onDidChange: () => ({ dispose: () => undefined }) }) })
+    const api = buildGatedApi(['storage'], 'builtin', shared as never, { ...PRIV_STUBS, storage: () => createStorageApi(host, 'p.x'), workspace: () => workspaceCtx.makeApi(), configuration: () => ({ get: async () => undefined, onDidChange: () => ({ dispose: () => undefined }) }) })
     await api.storage.global.update('n', 7)
     await new Promise((resolve) => setTimeout(resolve, 0)) // let RPC settle
     expect(await api.storage.global.get('n')).toBe(7)
@@ -55,7 +63,7 @@ describe('extension host gated-storage round-trip (in-memory, no process)', () =
   it('accessing storage without the capability throws CapabilityError', () => {
     const { host, shared } = wireStorageHostAndMain()
     const workspaceCtx = new WorkspaceContext()
-    const gatedNoCap = buildGatedApi([], shared as never, { storage: () => createStorageApi(host, 'p.x'), workspace: () => workspaceCtx.makeApi(), configuration: () => ({ get: async () => undefined, onDidChange: () => ({ dispose: () => undefined }) }) })
+    const gatedNoCap = buildGatedApi([], 'builtin', shared as never, { ...PRIV_STUBS, storage: () => createStorageApi(host, 'p.x'), workspace: () => workspaceCtx.makeApi(), configuration: () => ({ get: async () => undefined, onDidChange: () => ({ dispose: () => undefined }) }) })
     expect(() => gatedNoCap.storage).toThrow(CapabilityError)
   })
 })
@@ -92,7 +100,7 @@ function wireWorkspaceHostAndMain(): {
 describe('extension host workspace round-trip (in-memory, no process)', () => {
   it('$setActiveContext updates activeProject and fires onDidChangeActiveProject listener', async () => {
     const { pluginWorkspace, workspaceContext, shared } = wireWorkspaceHostAndMain()
-    const api = buildGatedApi(['workspace:read'], shared as never, {
+    const api = buildGatedApi(['workspace:read'], 'builtin', shared as never, { ...PRIV_STUBS,
       storage: () => ({ global: {} as never }),
       workspace: () => workspaceContext.makeApi(),
       configuration: () => ({ get: async () => undefined, onDidChange: () => ({ dispose: () => undefined }) }),
@@ -111,7 +119,7 @@ describe('extension host workspace round-trip (in-memory, no process)', () => {
 
   it('accessing workspace without workspace:read throws CapabilityError', () => {
     const { workspaceContext, shared } = wireWorkspaceHostAndMain()
-    const api = buildGatedApi([], shared as never, {
+    const api = buildGatedApi([], 'builtin', shared as never, { ...PRIV_STUBS,
       storage: () => ({ global: {} as never }),
       workspace: () => workspaceContext.makeApi(),
       configuration: () => ({ get: async () => undefined, onDidChange: () => ({ dispose: () => undefined }) }),
@@ -163,7 +171,7 @@ describe('extension host configuration round-trip (in-memory, no process)', () =
     const { configContext, shared, host, configStore } = wireConfigHostAndMain()
     configStore.set('p.test::greeting', 'Hello')
     const workspaceCtx = new WorkspaceContext()
-    const api = buildGatedApi(['configuration'], shared as never, {
+    const api = buildGatedApi(['configuration'], 'builtin', shared as never, { ...PRIV_STUBS,
       storage: () => ({ global: {} as never }),
       workspace: () => workspaceCtx.makeApi(),
       configuration: () => configContext.makeApi(host, 'p.test'),
@@ -176,7 +184,7 @@ describe('extension host configuration round-trip (in-memory, no process)', () =
   it('configuration.get returns the defaultValue when the host has no entry', async () => {
     const { configContext, shared, host } = wireConfigHostAndMain()
     const workspaceCtx = new WorkspaceContext()
-    const api = buildGatedApi(['configuration'], shared as never, {
+    const api = buildGatedApi(['configuration'], 'builtin', shared as never, { ...PRIV_STUBS,
       storage: () => ({ global: {} as never }),
       workspace: () => workspaceCtx.makeApi(),
       configuration: () => configContext.makeApi(host, 'p.missing'),
@@ -189,7 +197,7 @@ describe('extension host configuration round-trip (in-memory, no process)', () =
   it('$onDidChange round-trip: calling main proxy fires the plugin listener', async () => {
     const { configContext, mainPluginConfig, shared, host } = wireConfigHostAndMain()
     const workspaceCtx = new WorkspaceContext()
-    const api = buildGatedApi(['configuration'], shared as never, {
+    const api = buildGatedApi(['configuration'], 'builtin', shared as never, { ...PRIV_STUBS,
       storage: () => ({ global: {} as never }),
       workspace: () => workspaceCtx.makeApi(),
       configuration: () => configContext.makeApi(host, 'p.listen'),
@@ -207,7 +215,7 @@ describe('extension host configuration round-trip (in-memory, no process)', () =
   it('accessing configuration without the capability throws CapabilityError', () => {
     const { configContext, shared, host } = wireConfigHostAndMain()
     const workspaceCtx = new WorkspaceContext()
-    const api = buildGatedApi([], shared as never, {
+    const api = buildGatedApi([], 'builtin', shared as never, { ...PRIV_STUBS,
       storage: () => ({ global: {} as never }),
       workspace: () => workspaceCtx.makeApi(),
       configuration: () => configContext.makeApi(host, 'p.denied'),
