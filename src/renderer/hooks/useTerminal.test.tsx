@@ -5,6 +5,7 @@ import { INTERRUPT_TERMINAL_MODE_RESET } from '../terminal-input-filter'
 
 interface MockTerminalInstance {
   write: ReturnType<typeof vi.fn>
+  attachCustomKeyEventHandler: ReturnType<typeof vi.fn>
   onDataHandler: ((data: string) => void) | null
 }
 
@@ -68,6 +69,13 @@ function TerminalHarness(): React.JSX.Element {
   return <div ref={containerRef} />
 }
 
+function getCustomKeyHandler(): (event: KeyboardEvent) => boolean {
+  const terminal = terminalMockState.instances[0]
+  const handler = terminal.attachCustomKeyEventHandler.mock.calls[0]?.[0]
+  if (!handler) throw new Error('custom key handler was not attached')
+  return handler as (event: KeyboardEvent) => boolean
+}
+
 describe('useTerminal', () => {
   beforeEach(() => {
     vi.useFakeTimers()
@@ -112,5 +120,40 @@ describe('useTerminal', () => {
     })
 
     expect(terminal.write).toHaveBeenCalledWith(INTERRUPT_TERMINAL_MODE_RESET)
+  })
+
+  it('translates macOS shell editing shortcuts to shell control sequences', () => {
+    render(<TerminalHarness />)
+    const handleKey = getCustomKeyHandler()
+
+    const shortcuts: Array<{ event: KeyboardEventInit; expected: string }> = [
+      { event: { key: 'Backspace', metaKey: true }, expected: '\x15' },
+      { event: { key: 'Delete', metaKey: true }, expected: '\x0b' },
+      { event: { key: 'ArrowLeft', metaKey: true }, expected: '\x01' },
+      { event: { key: 'ArrowRight', metaKey: true }, expected: '\x05' },
+      { event: { key: 'Backspace', altKey: true }, expected: '\x1b\x7f' },
+      { event: { key: 'Delete', altKey: true }, expected: '\x1bd' },
+      { event: { key: 'ArrowLeft', altKey: true }, expected: '\x1bb' },
+      { event: { key: 'ArrowRight', altKey: true }, expected: '\x1bf' },
+    ]
+
+    for (const shortcut of shortcuts) {
+      vi.mocked(window.electronAPI.invoke).mockClear()
+
+      expect(handleKey(new KeyboardEvent('keydown', shortcut.event))).toBe(false)
+      expect(window.electronAPI.invoke).toHaveBeenCalledWith(
+        'agent:input',
+        'shell-1',
+        shortcut.expected,
+      )
+    }
+  })
+
+  it('does not send shell editing shortcuts on keyup', () => {
+    render(<TerminalHarness />)
+    const handleKey = getCustomKeyHandler()
+
+    expect(handleKey(new KeyboardEvent('keyup', { key: 'Backspace', metaKey: true }))).toBe(true)
+    expect(window.electronAPI.invoke).not.toHaveBeenCalledWith('agent:input', 'shell-1', '\x15')
   })
 })
