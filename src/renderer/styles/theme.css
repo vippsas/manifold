@@ -626,7 +626,7 @@ select:focus-visible {
   width: 100%;
   min-height: 18px;
   position: relative;
-  padding-right: 18px;
+  padding-right: 38px;
 }
 
 .sidebar-row-label {

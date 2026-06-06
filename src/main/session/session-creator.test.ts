@@ -65,6 +65,11 @@ describe('SessionCreator', () => {
   })
 
   it('reuses an existing worktree when existingWorktreePath is provided', async () => {
+    vi.mocked(readWorktreeMeta).mockResolvedValueOnce({
+      runtimeId: 'codex',
+      displayName: 'Persisted agent',
+      additionalDirs: [],
+    })
     const creator = new SessionCreator(
       {} as WorktreeManager,
       createPtyPool(),
@@ -81,10 +86,12 @@ describe('SessionCreator', () => {
     })
 
     expect(readWorktreeMeta).toHaveBeenCalledWith('/repo/.manifold/worktrees/manifold-oslo')
+    expect(session.displayName).toBe('Persisted agent')
     expect(session.worktreePath).toBe('/repo/.manifold/worktrees/manifold-oslo')
     expect(writeWorktreeMeta).toHaveBeenCalledWith(
       '/repo/.manifold/worktrees/manifold-oslo',
       expect.objectContaining({
+        displayName: 'Persisted agent',
         runtimeId: 'codex',
       }),
     )

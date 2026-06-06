@@ -176,6 +176,7 @@ export class WorktreeManager {
     // Filter to only Manifold-managed worktrees (those with metadata files)
     const entries: WorktreeInfo[] = []
     for (const wt of candidates) {
+      if (wt.path === projectPath) continue
       const meta = await readWorktreeMeta(wt.path)
       if (meta) {
         entries.push(wt)

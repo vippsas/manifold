@@ -20,6 +20,7 @@ export interface AgentSession {
   worktreePath: string
   status: AgentStatus
   pid: number | null
+  displayName?: string
   taskDescription?: string
   simpleTemplateTitle?: string
   simplePromptInstructions?: string

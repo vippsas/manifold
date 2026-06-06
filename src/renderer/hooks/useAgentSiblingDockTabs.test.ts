@@ -14,21 +14,27 @@ interface MockGroup {
 
 interface MockPanel {
   id: string
+  title?: string
   group: MockGroup
   api: {
     isActive: boolean
     setActive: ReturnType<typeof vi.fn>
+    setTitle: ReturnType<typeof vi.fn>
   }
 }
 
 function buildPanel(id: string, group: MockGroup): MockPanel {
   const panel = {
     id,
+    title: id,
     group,
     api: {
       isActive: false,
       setActive: vi.fn(() => {
         panel.api.isActive = true
+      }),
+      setTitle: vi.fn((title: string) => {
+        panel.title = title
       }),
     },
   }
@@ -108,5 +114,66 @@ describe('useAgentSiblingDockTabs', () => {
       position: { referencePanel: 'editor', direction: 'within' },
       inactive: true,
     })
+  })
+
+  it('updates existing primary and sibling tab titles from display names', () => {
+    const group: MockGroup = {
+      element: { getBoundingClientRect: () => ({ top: 0, left: 0 }) },
+      panels: [],
+    }
+    const agentPanel = buildPanel('agent', group)
+    const siblingPanel = buildPanel(siblingPanelId('sibling-1'), group)
+    const panels = new Map<string, MockPanel>([
+      [agentPanel.id, agentPanel],
+      [siblingPanel.id, siblingPanel],
+    ])
+    const api = {
+      getPanel: ((panelId: string) => panels.get(panelId)) as DockviewApi['getPanel'],
+      addPanel: vi.fn(),
+      removePanel: vi.fn((panel: MockPanel) => panels.delete(panel.id)),
+      onDidActivePanelChange: (() => ({ dispose() {} })) as DockviewApi['onDidActivePanelChange'],
+    } as DockviewApi
+
+    Object.defineProperty(api, 'panels', {
+      get: () => Array.from(panels.values()),
+    })
+
+    const sessions: AgentSession[] = [
+      {
+        id: 'primary',
+        projectId: 'p1',
+        runtimeId: 'codex',
+        branchName: 'manifold/main',
+        worktreePath: '/worktrees/main',
+        status: 'running',
+        pid: 1,
+        displayName: 'Main agent',
+        additionalDirs: [],
+      },
+      {
+        id: 'sibling-1',
+        projectId: 'p1',
+        runtimeId: 'claude',
+        branchName: 'manifold/main',
+        worktreePath: '/worktrees/main',
+        status: 'waiting',
+        pid: 2,
+        displayName: 'Review agent',
+        additionalDirs: [],
+      },
+    ]
+
+    renderHook(() => useAgentSiblingDockTabs({
+      apiRef: { current: api },
+      layoutVersion: 1,
+      sessions,
+      activeWorktreePath: '/worktrees/main',
+      primarySessionId: 'primary',
+      activeSessionId: 'primary',
+      onSelectSession: vi.fn(),
+    }))
+
+    expect(agentPanel.api.setTitle).toHaveBeenCalledWith('Main agent')
+    expect(siblingPanel.api.setTitle).toHaveBeenCalledWith('Review agent')
   })
 })

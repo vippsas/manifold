@@ -16,8 +16,20 @@ interface Options {
 }
 
 function tabTitle(session: AgentSession): string {
+  const displayName = session.displayName?.trim()
+  if (displayName) return displayName
   const runtime = RUNTIME_LABELS[session.runtimeId] ?? session.runtimeId
   return runtime
+}
+
+function primaryTabTitle(session: AgentSession | null | undefined): string {
+  return session?.displayName?.trim() || 'Agent'
+}
+
+function setPanelTitle(panel: unknown, title: string): void {
+  const target = panel as { title?: string; api?: { title?: string; setTitle?: (title: string) => void } }
+  if (target.title === title || target.api?.title === title) return
+  target.api?.setTitle?.(title)
 }
 
 const RUNTIME_LABELS: Record<string, string> = {
@@ -48,6 +60,12 @@ export function useAgentSiblingDockTabs({
     if (!api.getPanel('agent')) return
     if (activeSessionId && !activeWorktreePath) return
 
+    const primaryPanel = api.getPanel('agent')
+    const primarySession = primarySessionId
+      ? sessions.find((s) => s.id === primarySessionId)
+      : null
+    if (primaryPanel) setPanelTitle(primaryPanel, primaryTabTitle(primarySession))
+
     const siblingsOnWorktree = activeWorktreePath
       ? sessions.filter(
           (s) => s.worktreePath === activeWorktreePath && s.id !== primarySessionId,
@@ -68,6 +86,11 @@ export function useAgentSiblingDockTabs({
       if (!sid || !knownSessionIds.has(sid)) {
         api.removePanel(panel)
       }
+    }
+
+    for (const session of siblingsOnWorktree) {
+      const panel = api.getPanel(siblingPanelId(session.id))
+      if (panel) setPanelTitle(panel, tabTitle(session))
     }
 
     for (const session of desiredSessions) {

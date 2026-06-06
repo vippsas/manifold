@@ -85,6 +85,8 @@ describe('WorktreeManager — listWorktrees', () => {
 
   beforeEach(() => {
     vi.clearAllMocks()
+    vi.mocked(readWorktreeMeta).mockReset()
+    vi.mocked(readWorktreeMeta).mockResolvedValue(null)
     manager = new WorktreeManager('/mock-home/.manifold')
   })
 
@@ -104,8 +106,6 @@ describe('WorktreeManager — listWorktrees', () => {
 
       mockSpawnReturns(porcelain)
       const mockReadMeta = vi.mocked(readWorktreeMeta)
-      // Main repo: no metadata
-      mockReadMeta.mockResolvedValueOnce(null)
       // repo/oslo worktree: has metadata
       mockReadMeta.mockResolvedValueOnce({ runtimeId: 'claude' })
       // feature/login worktree: has metadata
@@ -122,6 +122,30 @@ describe('WorktreeManager — listWorktrees', () => {
         branch: 'feature/login',
         path: '/mock-home/.manifold/worktrees/proj/feature-login',
       })
+    })
+
+    it('excludes the main project checkout even when it has metadata', async () => {
+      const porcelain = [
+        'worktree /repo',
+        'branch refs/heads/feature/no-worktree',
+        '',
+        'worktree /mock-home/.manifold/worktrees/proj/repo-oslo',
+        'branch refs/heads/repo/oslo',
+        '',
+      ].join('\n')
+
+      mockSpawnReturns(porcelain)
+      const mockReadMeta = vi.mocked(readWorktreeMeta)
+      mockReadMeta.mockResolvedValueOnce({ runtimeId: 'codex', displayName: 'No-worktree agent' })
+
+      const result = await manager.listWorktrees('/repo')
+
+      expect(result).toEqual([{
+        branch: 'repo/oslo',
+        path: '/mock-home/.manifold/worktrees/proj/repo-oslo',
+      }])
+      expect(mockReadMeta).toHaveBeenCalledTimes(1)
+      expect(mockReadMeta).toHaveBeenCalledWith('/mock-home/.manifold/worktrees/proj/repo-oslo')
     })
 
     it('excludes worktrees without metadata files', async () => {

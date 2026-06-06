@@ -148,6 +148,9 @@ export class SessionCreator {
       session.pid = null
     }
     const existingMeta = noWorktree ? null : await readWorktreeMeta(worktree.path)
+    if (existingMeta?.displayName) {
+      session.displayName = existingMeta.displayName
+    }
 
     // Map session→storage so chat messages are persisted scoped to the worktree
     // (not the project) — multiple chat-mode sessions in the same project each
@@ -172,6 +175,7 @@ export class SessionCreator {
     if (!noWorktree) {
       writeWorktreeMeta(worktree.path, {
         runtimeId: options.runtimeId,
+        displayName: session.displayName,
         taskDescription: options.userMessage || options.prompt || existingMeta?.taskDescription,
         simpleTemplateTitle: options.simpleTemplateTitle ?? existingMeta?.simpleTemplateTitle,
         simplePromptInstructions: options.simplePromptInstructions ?? existingMeta?.simplePromptInstructions,

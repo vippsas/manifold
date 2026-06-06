@@ -288,6 +288,40 @@ describe('registerAgentHandlers', () => {
     expect(mocks.generateBranchName).toHaveBeenCalledWith('/repo', 'Ship launch checklist')
   })
 
+  it('renames an agent through IPC', async () => {
+    const { registerAgentHandlers } = await import('./agent-handlers')
+    const deps = {
+      sessionManager: {
+        listSessions: vi.fn(() => []),
+        renameSession: vi.fn(async () => ({
+          id: 'sess-1',
+          projectId: 'proj-1',
+          runtimeId: 'codex',
+          branchName: 'manifold/oslo',
+          worktreePath: '/wt',
+          status: 'running',
+          pid: 1,
+          displayName: 'Release agent',
+          additionalDirs: [],
+        })),
+      },
+      fileWatcher: {
+        unwatch: vi.fn(),
+        watch: vi.fn(),
+      },
+      viewStateStore: { delete: vi.fn() },
+    }
+
+    registerAgentHandlers(deps as never)
+    const handler = mocks.handlers.get('agent:rename')
+    if (!handler) throw new Error('agent:rename handler was not registered')
+
+    const result = await handler({}, 'sess-1', 'Release agent')
+
+    expect(deps.sessionManager.renameSession).toHaveBeenCalledWith('sess-1', 'Release agent')
+    expect(result).toMatchObject({ displayName: 'Release agent' })
+  })
+
   it('reads saved chat images from the temp image directory', async () => {
     const { registerAgentHandlers } = await import('./agent-handlers')
     const tempRoot = await mkdtemp(join(tmpdir(), 'manifold-chat-images-test-'))

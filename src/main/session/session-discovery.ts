@@ -101,6 +101,7 @@ export class SessionDiscovery {
           pid: null,
           ptyId: '',
           outputBuffer: '',
+          displayName: meta?.displayName,
           taskDescription: meta?.taskDescription,
           simpleTemplateTitle: meta?.simpleTemplateTitle,
           simplePromptInstructions: meta?.simplePromptInstructions,
@@ -129,22 +130,24 @@ export class SessionDiscovery {
       try {
         const branch = (await gitExec(['branch', '--show-current'], project.path)).trim()
         if (branch && branch !== project.baseBranch) {
+          const meta = await readWorktreeMeta(project.path)
           const session: InternalSession = {
             id: uuidv4(),
             projectId,
-            runtimeId: '',
+            runtimeId: meta?.runtimeId ?? '',
             branchName: branch,
             worktreePath: project.path,
             status: 'done',
             pid: null,
             ptyId: '',
             outputBuffer: '',
-            taskDescription: undefined,
-            simpleTemplateTitle: project.simpleTemplateTitle,
-            simplePromptInstructions: project.simplePromptInstructions,
-            additionalDirs: [],
+            displayName: meta?.displayName,
+            taskDescription: meta?.taskDescription,
+            simpleTemplateTitle: meta?.simpleTemplateTitle ?? project.simpleTemplateTitle,
+            simplePromptInstructions: meta?.simplePromptInstructions ?? project.simplePromptInstructions,
+            additionalDirs: meta?.additionalDirs ?? [],
             noWorktree: true,
-            nonInteractive: true,
+            nonInteractive: meta?.nonInteractive ?? true,
           }
           this.sessions.set(session.id, session)
         }
@@ -209,22 +212,24 @@ export class SessionDiscovery {
           }
 
           if (branch) {
+            const meta = await readWorktreeMeta(project.path)
             const session: InternalSession = {
               id: uuidv4(),
               projectId: project.id,
-              runtimeId: '',
+              runtimeId: meta?.runtimeId ?? '',
               branchName: branch,
               worktreePath: project.path,
               status: 'done',
               pid: null,
               ptyId: '',
               outputBuffer: '',
-              taskDescription: undefined,
-              simpleTemplateTitle: project.simpleTemplateTitle,
-              simplePromptInstructions: project.simplePromptInstructions,
-              additionalDirs: [],
+              displayName: meta?.displayName,
+              taskDescription: meta?.taskDescription,
+              simpleTemplateTitle: meta?.simpleTemplateTitle ?? project.simpleTemplateTitle,
+              simplePromptInstructions: meta?.simplePromptInstructions ?? project.simplePromptInstructions,
+              additionalDirs: meta?.additionalDirs ?? [],
               noWorktree: true,
-              nonInteractive: true,
+              nonInteractive: meta?.nonInteractive ?? true,
             }
             this.sessions.set(session.id, session)
           }

@@ -1,5 +1,5 @@
 import { describe, it, expect, vi } from 'vitest'
-import { render, screen } from '@testing-library/react'
+import { fireEvent, render, screen } from '@testing-library/react'
 import React from 'react'
 import { AgentItem } from './AgentItem'
 import type { AgentSession } from '../../../shared/types'
@@ -35,5 +35,34 @@ describe('AgentItem chat glyph', () => {
   it('renders the chat glyph for a nonInteractive session', () => {
     render(<AgentItem {...baseProps} session={makeSession({ nonInteractive: true })} />)
     expect(screen.getByLabelText('Chat agent')).toBeInTheDocument()
+  })
+})
+
+describe('AgentItem rename', () => {
+  const baseProps = {
+    projectPath: '/tmp/proj',
+    isActive: false,
+    isOutputting: false,
+    onSelect: vi.fn(),
+    onDelete: vi.fn(),
+  }
+
+  it('uses displayName as the primary label when present', () => {
+    render(<AgentItem {...baseProps} session={makeSession({ displayName: 'Release agent' })} />)
+
+    expect(screen.getByText('Release agent')).toBeInTheDocument()
+    expect(screen.getByTitle('Release agent - manifold/oslo')).toBeInTheDocument()
+  })
+
+  it('commits a renamed agent label from the inline editor', () => {
+    const onRename = vi.fn()
+    render(<AgentItem {...baseProps} session={makeSession()} onRename={onRename} />)
+
+    fireEvent.click(screen.getByRole('button', { name: 'Rename oslo' }))
+    const input = screen.getByLabelText('Agent name')
+    fireEvent.change(input, { target: { value: 'Release agent' } })
+    fireEvent.keyDown(input, { key: 'Enter' })
+
+    expect(onRename).toHaveBeenCalledWith('Release agent')
   })
 })
