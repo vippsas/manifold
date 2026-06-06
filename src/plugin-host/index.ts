@@ -8,6 +8,8 @@ import { installPluginRequire, registerPluginApis } from './require-interceptor'
 import { buildGatedApi } from './gated-api'
 import { createStorageApi } from './storage-api'
 import { WorkspaceContext } from './workspace-api'
+import { createAgentsApi } from './agents-api'
+import { createLmApi } from './lm-api'
 import { ConfigContext } from './config-api'
 import { createVscodeShim } from './vscode-shim'
 import type { PluginModule } from '../shared/plugins/api-types'
@@ -32,6 +34,8 @@ const { windowApi, resolveView, deliverMessage, treeGetChildren, onTreeRefresh }
 const hostTree = endpoint.getProxy<{ $refresh(viewId: string): Promise<void> }>(HOST_TREE)
 onTreeRefresh((viewId) => { void hostTree.$refresh(viewId) })
 const workspaceContext = new WorkspaceContext()
+const agentsApi = createAgentsApi(endpoint, workspaceContext)
+const lmApi = createLmApi(endpoint, workspaceContext)
 const configContext = new ConfigContext()
 const configProxy = endpoint.getProxy<{ $get(id: string, key: string): Promise<unknown> }>(HOST_CONFIG)
 const storageProxy = endpoint.getProxy<{ $get(id: string, key: string): Promise<unknown>; $update(id: string, key: string, v: unknown): Promise<void> }>(HOST_STORAGE)
@@ -61,10 +65,12 @@ const activator = new Activator((t: ActivationTarget): PluginModule => {
       deactivate: () => mod.deactivate?.(),
     }
   }
-  const manifold = buildGatedApi(t.capabilities ?? [], { commands: makeCommandsApi(t.id), window: windowApi }, {
+  const manifold = buildGatedApi(t.capabilities ?? [], t.origin ?? 'user', { commands: makeCommandsApi(t.id), window: windowApi }, {
     storage: () => createStorageApi(endpoint, t.id),
     workspace: () => workspaceContext.makeApi(),
     configuration: () => configContext.makeApi(endpoint, t.id),
+    agents: () => agentsApi,
+    lm: () => lmApi,
   })
   registerPluginApis(t.root, { manifold })
   // eslint-disable-next-line @typescript-eslint/no-var-requires

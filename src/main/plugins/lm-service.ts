@@ -2,13 +2,13 @@
 // Main-side service backing manifold.lm — one-shot LLM generation via the active
 // session's runtime, mirroring how src/main/loop/loop-judge-adapter.ts calls aiGenerate.
 import type { SessionManager } from '../session/session-manager'
-import type { GitOperations } from '../git/git-operations'
+import type { GitOperationsManager } from '../git/git-operations'
 import { getRuntimeById } from '../agent/runtimes'
 
 const DEFAULT_TIMEOUT_MS = 120_000
 
 type SessionAccess = Pick<SessionManager, 'getSession'>
-type GitAccess = Pick<GitOperations, 'aiGenerate'>
+type GitAccess = Pick<GitOperationsManager, 'aiGenerate'>
 type RuntimeResolver = typeof getRuntimeById
 
 export interface LmService {

@@ -1,7 +1,7 @@
 // src/main/plugins/extension-host.ts
 import { utilityProcess, type UtilityProcess } from 'electron'
 import { join } from 'node:path'
-import { RpcEndpoint, HOST_COMMANDS, HOST_WINDOW, HOST_STORAGE, HOST_CONFIG, HOST_TREE, HOST_UI, PLUGIN_ACTIVATION, PLUGIN_COMMANDS, PLUGIN_WEBVIEW, PLUGIN_WORKSPACE, PLUGIN_CONFIG, PLUGIN_TREE, type RpcMessage } from '../../shared/plugins/rpc'
+import { RpcEndpoint, HOST_COMMANDS, HOST_WINDOW, HOST_STORAGE, HOST_CONFIG, HOST_TREE, HOST_UI, HOST_AGENTS, HOST_LM, PLUGIN_ACTIVATION, PLUGIN_COMMANDS, PLUGIN_WEBVIEW, PLUGIN_WORKSPACE, PLUGIN_CONFIG, PLUGIN_TREE, type RpcMessage } from '../../shared/plugins/rpc'
 import { CommandRegistry } from './command-registry'
 import { createHostCommandsService } from './host-commands-service'
 import { debugLog } from '../app/debug-log'
@@ -10,6 +10,8 @@ import type { PluginStorageStore } from './plugin-storage-store'
 import { webviewContentStore } from './webview-content-store'
 import { UiRequestBroker } from './ui-broker'
 import type { MessageLevel, UiRequest } from '../../shared/plugins/ui'
+import type { AgentControlService } from './agent-control-service'
+import type { LmService } from './lm-service'
 
 interface PluginActivationProxy { $activate(t: ActivationTarget): Promise<void>; $deactivate(id: string): Promise<void> }
 interface PluginCommandsProxy { $invokeCommand(id: string, args: unknown[]): Promise<unknown> }
@@ -23,7 +25,11 @@ export class ExtensionHost {
   private getConfig: ((pluginId: string, key: string) => unknown) | null = null
   private readonly ui = new UiRequestBroker(() => this.send)
 
-  constructor(private readonly storage: PluginStorageStore) {}
+  constructor(
+    private readonly storage: PluginStorageStore,
+    private readonly agentControl: AgentControlService,
+    private readonly lm: LmService,
+  ) {}
 
   setConfigResolver(fn: (pluginId: string, key: string) => unknown): void { this.getConfig = fn }
 
@@ -74,6 +80,14 @@ export class ExtensionHost {
     })
     endpoint.registerService(HOST_TREE, {
       $refresh: (viewId: string) => { this.send?.('plugins:tree-refresh', viewId) },
+    })
+    endpoint.registerService(HOST_AGENTS, {
+      $runTurn: (sessionId: string, prompt: string, opts: { budgetSeconds?: number; clearContext?: boolean } | undefined) => this.agentControl.runTurn(sessionId, prompt, opts),
+      $cancelTurn: (sessionId: string) => { this.agentControl.cancelTurn(sessionId) },
+    })
+    endpoint.registerService(HOST_LM, {
+      $selectChatModels: (sessionId: string | undefined) => this.lm.selectChatModels(sessionId),
+      $sendRequest: (sessionId: string | undefined, prompt: string, opts: { timeoutMs?: number } | undefined) => this.lm.sendRequest(sessionId, prompt, opts),
     })
     this.child = child
     this.endpoint = endpoint

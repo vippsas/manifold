@@ -6,6 +6,11 @@ import { getBundledPluginsDir, getUserPluginsDir } from './plugin-paths'
 import { debugLog } from '../app/debug-log'
 import { ExtensionHost } from './extension-host'
 import { PluginStorageStore } from './plugin-storage-store'
+import { createAgentControlService } from './agent-control-service'
+import { createLmService } from './lm-service'
+import type { SessionManager } from '../session/session-manager'
+import type { GitOperationsManager } from '../git/git-operations'
+import type { SessionInfo } from '../../shared/plugins/api-types'
 
 export interface PluginPanelContribution extends PanelContribution {
   pluginId: string
@@ -39,8 +44,15 @@ export class PluginManager {
   private plugins: PluginDescriptor[] = []
   private readonly host: ExtensionHost
 
-  constructor(private readonly storagePath: string, private readonly settings: import('../store/settings-store').SettingsStore) {
-    this.host = new ExtensionHost(new PluginStorageStore(storagePath))
+  constructor(
+    private readonly storagePath: string,
+    private readonly settings: import('../store/settings-store').SettingsStore,
+    private readonly sessionManager: SessionManager,
+    gitOps: GitOperationsManager,
+  ) {
+    const agentControl = createAgentControlService(this.sessionManager)
+    const lm = createLmService(this.sessionManager, gitOps)
+    this.host = new ExtensionHost(new PluginStorageStore(storagePath), agentControl, lm)
     this.host.setConfigResolver((id, key) => this.getConfigValue(id, key))
   }
 
@@ -98,7 +110,7 @@ export class PluginManager {
   async activate(pluginId: string): Promise<void> {
     const p = this.plugins.find((x) => x.id === pluginId)
     if (!p || !p.manifest.main || !this.isEnabled(p.id)) return
-    await this.host.activate({ id: p.id, root: p.root, main: p.manifest.main, kind: p.kind, capabilities: p.manifest.capabilities ?? [] })
+    await this.host.activate({ id: p.id, root: p.root, main: p.manifest.main, kind: p.kind, capabilities: p.manifest.capabilities ?? [], origin: p.origin })
   }
 
   executeContributedCommand(id: string, args: unknown[]): Promise<unknown> {
@@ -112,19 +124,19 @@ export class PluginManager {
   async openView(viewId: string): Promise<void> {
     const plugin = this.plugins.find((p) => p.manifest.contributes?.views?.some((v) => v.id === viewId))
     if (!plugin || !plugin.manifest.main || !this.isEnabled(plugin.id)) return
-    await this.host.resolveView({ id: plugin.id, root: plugin.root, main: plugin.manifest.main, kind: plugin.kind, capabilities: plugin.manifest.capabilities ?? [] }, viewId)
+    await this.host.resolveView({ id: plugin.id, root: plugin.root, main: plugin.manifest.main, kind: plugin.kind, capabilities: plugin.manifest.capabilities ?? [], origin: plugin.origin }, viewId)
   }
 
   async openTreeView(viewId: string): Promise<void> {
     const plugin = this.plugins.find((p) => p.manifest.contributes?.views?.some((v) => v.id === viewId))
     if (!plugin || !plugin.manifest.main || !this.isEnabled(plugin.id)) return
-    await this.host.activate({ id: plugin.id, root: plugin.root, main: plugin.manifest.main, kind: plugin.kind, capabilities: plugin.manifest.capabilities ?? [] })
+    await this.host.activate({ id: plugin.id, root: plugin.root, main: plugin.manifest.main, kind: plugin.kind, capabilities: plugin.manifest.capabilities ?? [], origin: plugin.origin })
   }
 
   async treeGetChildren(viewId: string, parentNodeId: string | undefined): Promise<unknown> {
     const plugin = this.plugins.find((p) => p.manifest.contributes?.views?.some((v) => v.id === viewId))
     if (!plugin || !plugin.manifest.main || !this.isEnabled(plugin.id)) return []
-    return this.host.treeGetChildren({ id: plugin.id, root: plugin.root, main: plugin.manifest.main, kind: plugin.kind, capabilities: plugin.manifest.capabilities ?? [] }, viewId, parentNodeId)
+    return this.host.treeGetChildren({ id: plugin.id, root: plugin.root, main: plugin.manifest.main, kind: plugin.kind, capabilities: plugin.manifest.capabilities ?? [], origin: plugin.origin }, viewId, parentNodeId)
   }
 
   deliverWebviewMessage(viewId: string, message: unknown): void {
@@ -133,7 +145,12 @@ export class PluginManager {
 
   resolveUiResponse(requestId: string, value: unknown): void { this.host.resolveUi(requestId, value) }
 
-  setActiveContext(context: { project?: unknown; session?: unknown }): void {
-    this.host.setActiveContext(context)
+  setActiveContext(context: { project?: unknown; session?: SessionInfo }): void {
+    let session = context.session
+    if (session?.id) {
+      const worktreePath = this.sessionManager.getSession(session.id)?.worktreePath
+      if (worktreePath) session = { ...session, worktreePath }
+    }
+    this.host.setActiveContext({ ...context, session })
   }
 }

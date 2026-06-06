@@ -2,7 +2,7 @@
 import type { ManifoldContext, PluginModule } from '../shared/plugins/api-types'
 import type { Capability } from '../shared/plugins/manifest'
 
-export interface ActivationTarget { id: string; root: string; main: string; kind: 'manifold' | 'vscode'; capabilities?: Capability[] }
+export interface ActivationTarget { id: string; root: string; main: string; kind: 'manifold' | 'vscode'; capabilities?: Capability[]; origin?: 'builtin' | 'user' }
 
 type LoadModule = (target: ActivationTarget) => PluginModule
 
