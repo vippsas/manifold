@@ -55,6 +55,7 @@ function EditorPanel({ api }: { api: { id: string } }): React.JSX.Element {
       fileContent={pane.fileContent}
       lastFileOpenRequest={s.lastFileOpenRequest}
       theme={s.theme}
+      editorSettings={s.editorSettings}
       onActivatePane={() => s.onActivateEditorPane(paneId)}
       onSelectTab={(filePath) => s.onSelectOpenFile(filePath, paneId)}
       onMoveTabToSplitPane={(filePath, direction) => s.onMoveFileToSplitPane(filePath, paneId, direction)}

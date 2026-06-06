@@ -211,6 +211,7 @@ export function App(): React.JSX.Element {
     sessionId: effectiveSessionId, primarySessionId,
     searchFocusRequestKey: appEffects.searchFocusRequestKey, requestedSearchMode: appEffects.requestedSearchMode,
     scrollbackLines: settings.scrollbackLines, terminalFontFamily: settings.terminalFontFamily, xtermTheme, diffText: diff,
+    editorSettings: settings.editor,
     openFiles: codeView.openFiles, activeFilePath: codeView.activeFilePath,
     activeEditorPaneId: codeView.activeEditorPaneId, editorPaneIds: dockLayout.editorPanelIds,
     getEditorPane: codeView.getEditorPane, lastFileOpenRequest: editorHandlers.lastFileOpenRequest, theme: themeId,

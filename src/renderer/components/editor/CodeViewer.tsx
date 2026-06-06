@@ -18,6 +18,9 @@ import { useResolvedHtmlPreview } from './viewer/useResolvedHtmlPreview'
 import { useAutoSave } from './useAutoSave'
 import { useCodeViewerModes } from './useCodeViewerModes'
 import { EditorContent } from './EditorContent'
+import { DEFAULT_SETTINGS } from '../../../shared/defaults'
+import type { EditorSettings } from '../../../shared/types'
+import { buildEditorOptions } from './build-editor-options'
 
 interface CodeViewerProps {
   paneId?: string
@@ -29,6 +32,7 @@ interface CodeViewerProps {
   fileContent: string | null
   lastFileOpenRequest: FileOpenRequest
   theme: string
+  editorSettings?: EditorSettings
   onActivatePane?: () => void
   onSelectTab: (filePath: string) => void
   onMoveTabToSplitPane?: (filePath: string, direction: 'right' | 'below') => void
@@ -40,20 +44,6 @@ interface CodeViewerProps {
 // Module-level state that survives component remounts (e.g. agent switches rebuild dockview layout)
 const scrollPositionsByFile = new Map<string, number>()
 
-const DIFF_EDITOR_OPTIONS = {
-  minimap: { enabled: false },
-  scrollBeyondLastLine: false,
-  fontSize: 13,
-  fontFamily: "'SF Mono', 'Fira Code', Menlo, Consolas, monospace",
-  lineNumbers: 'on' as const,
-  renderLineHighlight: 'none' as const,
-  wordWrap: 'on' as const,
-  readOnly: true,
-  renderSideBySide: false,
-  renderIndicators: true,
-  renderMarginRevertIcon: false,
-}
-
 export function CodeViewer({
   paneId = 'editor',
   sessionId,
@@ -64,6 +54,7 @@ export function CodeViewer({
   fileContent,
   lastFileOpenRequest,
   theme,
+  editorSettings = DEFAULT_SETTINGS.editor as EditorSettings,
   onActivatePane = () => {},
   onSelectTab,
   onMoveTabToSplitPane,
@@ -72,6 +63,19 @@ export function CodeViewer({
   onSaveFile,
 }: CodeViewerProps): React.JSX.Element {
   const monacoTheme = theme
+  const editableOptions = useMemo(
+    () => buildEditorOptions(editorSettings, { readOnly: false }),
+    [editorSettings],
+  )
+  const diffOptions = useMemo(
+    () => ({
+      ...buildEditorOptions(editorSettings, { readOnly: true }),
+      renderSideBySide: false,
+      renderIndicators: true,
+      renderMarginRevertIcon: false,
+    }),
+    [editorSettings],
+  )
   const language = useMemo(() => extensionToLanguage(activeFilePath), [activeFilePath])
   const activeOpenFile = useMemo(
     () => openFiles.find((file) => file.path === activeFilePath) ?? null,
@@ -189,7 +193,7 @@ export function CodeViewer({
             modified={fileContent}
             language={language}
             theme={monacoTheme}
-            options={DIFF_EDITOR_OPTIONS}
+            options={diffOptions}
             onMount={handleDiffEditorMount}
           />
         ) : (
@@ -199,6 +203,7 @@ export function CodeViewer({
             refreshVersion={activeRefreshVersion}
             language={language}
             monacoTheme={monacoTheme}
+            options={editableOptions}
             onMount={handleEditorMount}
             onChange={handleEditorChange}
           />
