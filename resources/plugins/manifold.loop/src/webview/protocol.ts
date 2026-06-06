@@ -8,6 +8,7 @@ export type HostMsg =
   | { type: 'init'; sessionId: string | null; status: LoopStatus | null; iterations: LoopIteration[]; config: LoopConfig | null }
   | { type: 'status'; status: LoopStatus }
   | { type: 'iteration'; iteration: LoopIteration }
+  | { type: 'restoreResult'; ok: boolean; sha?: string; error?: string }
   | { type: 'aiResult'; ok: boolean; text?: string; error?: string }
   | { type: 'actionError'; message: string }
 
