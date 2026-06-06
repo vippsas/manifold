@@ -751,3 +751,18 @@ only there. View id `manifold.loop.panel` matches manifest (Task 6), provider re
 **Scope:** plumbing + minimal webview; interactive UI deferred to B2b. The one core change
 (`PluginViewPanel` theme injection) is generic plugin infra and additive; built-in loop is
 untouched (asserted Task 7).
+
+---
+
+## Owed verification (B2a)
+
+Automated coverage complete: build-plugins emits `out/webview.js`; webview-host (5) + theme-vars
+(2) + full suite (1803) green; typechecks at baseline (node 16 / web 36 / plugins clean); all
+touched files < 300 LOC; built-in loop untouched. The React rendering + real CSP + live theming
+need a browser, so the owed dev smoke is:
+
+1. `npm run dev`; open the **"Loop (plugin)"** panel from the "+ Apps" launcher.
+2. Confirm it renders themed text ("Select a session…" with no active session; state row with one).
+3. With an active session, run `manifold.loop.start` (command) with a real config; watch the
+   panel's state + iteration count update live.
+4. Toggle the app theme; confirm the panel's colors follow (host-injected CSS vars).
