@@ -6,9 +6,12 @@
   "description": "Edit → eval → keep-or-discard loop, as a plugin.",
   "engines": { "manifold": "^0.3.0" },
   "main": "./out/plugin.js",
-  "activationEvents": ["onCommand:manifold.loop.start", "onCommand:manifold.loop.status"],
+  "activationEvents": ["onCommand:manifold.loop.start", "onCommand:manifold.loop.status", "onView:manifold.loop.panel"],
   "capabilities": ["agent:control", "lm", "workspace:read", "storage"],
   "contributes": {
+    "views": [
+      { "id": "manifold.loop.panel", "title": "Loop (plugin)", "description": "Autoresearch loop (plugin).", "launcher": true }
+    ],
     "commands": [
       { "command": "manifold.loop.start", "title": "Loop: Start" },
       { "command": "manifold.loop.stop", "title": "Loop: Stop" },
