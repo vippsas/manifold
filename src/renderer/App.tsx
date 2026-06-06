@@ -140,6 +140,12 @@ export function App(): React.JSX.Element {
     void gitOps.refreshAheadBehind()
   }, [sessionsByProject, gitOps.refreshAheadBehind])
 
+  const renameAgent = useCallback((sessionId: string, displayName: string): void => {
+    void window.electronAPI.invoke('agent:rename', sessionId, displayName).catch((err) => {
+      console.error('[App] failed to rename agent:', err)
+    })
+  }, [])
+
   const fetchProject = useFetchProject(handleFetchSuccess)
   const overlays = useAppOverlays(gitOps.commit, refreshDiff, spawnAgent, deleteAgent, removeSession, updateSettings, setActiveSession, setActiveProject, activeProjectId)
   const { themeId, themeClass, xtermTheme, setPreviewThemeId } = useTheme(settings.theme)
@@ -274,7 +280,7 @@ export function App(): React.JSX.Element {
       setActiveWorkspaceId(workspaceIdBySession[sessionId] ?? null)
       overlays.handleSelectSession(sessionId, projectId)
     },
-    onRemoveProject: removeProject, onUpdateProject: updateProject, onRequestDeleteAgent: overlays.requestDeleteAgent,
+    onRemoveProject: removeProject, onUpdateProject: updateProject, onRenameAgent: renameAgent, onRequestDeleteAgent: overlays.requestDeleteAgent,
     onNewAgentFromHeader: () => {
       if (activeWorkspaceId) {
         const ws = workspaces.find((w) => w.id === activeWorkspaceId)

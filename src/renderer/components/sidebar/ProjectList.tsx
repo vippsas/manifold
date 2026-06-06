@@ -21,6 +21,7 @@ export interface ProjectListProps {
   onSelectProject: (id: string) => void
   onSelectSession: (sessionId: string, projectId: string) => void
   onRequestDeleteAgent: (session: AgentSession, projectPath: string) => void
+  onRenameAgent: (sessionId: string, displayName: string) => void
   onRemove: (e: React.MouseEvent, id: string) => void
   onUpdateProject: (id: string, partial: Partial<Omit<Project, 'id'>>) => void
   fetchingProjectId: string | null
@@ -45,6 +46,7 @@ export function ProjectList({
   onSelectProject,
   onSelectSession,
   onRequestDeleteAgent,
+  onRenameAgent,
   onRemove,
   onUpdateProject,
   fetchingProjectId,
@@ -127,6 +129,7 @@ export function ProjectList({
               isOutputting={siblingOutputting}
               onSelect={(sessionId) => onSelectSession(sessionId, project.id)}
               onDelete={() => onRequestDeleteAgent(session, project.path)}
+              onRename={(displayName) => onRenameAgent(session.id, displayName)}
             />
           )
         })}
@@ -198,7 +201,7 @@ export function ProjectList({
                         .map((session) => (
                           <span
                             key={session.id}
-                            title={session.branchName}
+                            title={session.displayName?.trim() || session.branchName}
                             className={outputtingSessionIds.has(session.id) ? 'status-dot--active' : ''}
                             style={{ ...sidebarStyles.miniDot, background: 'var(--accent)' }}
                           />

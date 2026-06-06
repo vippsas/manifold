@@ -65,6 +65,7 @@ function makeDockState(overrides: Partial<DockAppState> = {}): DockAppState {
     onSelectSession: () => {},
     onRemoveProject: () => {},
     onUpdateProject: () => {},
+    onRenameAgent: () => {},
     onRequestDeleteAgent: () => {},
     onNewAgentFromHeader: () => {},
     newAgentFocusTrigger: 0,

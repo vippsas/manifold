@@ -86,6 +86,20 @@ export const sidebarStyles: Record<string, React.CSSProperties> = {
     cursor: 'pointer',
     background: 'transparent',
   },
+  agentRenameButton: {
+    fontSize: 'var(--type-ui-caption)',
+    color: 'var(--text-muted)',
+    padding: 0,
+    lineHeight: 1,
+    flexShrink: 0,
+    cursor: 'pointer',
+    background: 'transparent',
+  },
+  agentNameInput: {
+    fontFamily: 'var(--font-mono)',
+    fontSize: 'inherit',
+    fontWeight: 600,
+  },
   empty: {
     padding: '16px 12px',
     color: 'var(--text-muted)',

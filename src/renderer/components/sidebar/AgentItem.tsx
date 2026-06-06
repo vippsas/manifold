@@ -1,4 +1,4 @@
-import React, { useCallback } from 'react'
+import React, { useCallback, useState } from 'react'
 import type { AgentSession } from '../../../shared/types'
 import { sidebarStyles } from './ProjectSidebar.styles'
 
@@ -38,23 +38,29 @@ interface AgentItemProps {
   isOutputting: boolean
   onSelect: (id: string) => void
   onDelete: () => void
+  onRename?: (displayName: string) => void
   labelOverride?: string
   hideAdditionalDirs?: boolean
 }
 
-export function AgentItem({ session, projectPath, isActive, isOutputting, onSelect, onDelete, labelOverride, hideAdditionalDirs }: AgentItemProps): React.JSX.Element {
+export function AgentItem({ session, projectPath, isActive, isOutputting, onSelect, onDelete, onRename, labelOverride, hideAdditionalDirs }: AgentItemProps): React.JSX.Element {
+  const [editing, setEditing] = useState(false)
+  const [draft, setDraft] = useState('')
+
   const handleClick = useCallback((): void => {
+    if (editing) return
     onSelect(session.id)
-  }, [onSelect, session.id])
+  }, [editing, onSelect, session.id])
 
   const handleKeyDown = useCallback(
     (e: React.KeyboardEvent<HTMLDivElement>): void => {
       if (e.key === 'Enter' || e.key === ' ') {
+        if (editing) return
         e.preventDefault()
         onSelect(session.id)
       }
     },
-    [onSelect, session.id]
+    [editing, onSelect, session.id]
   )
 
   const handleDelete = useCallback(
@@ -69,17 +75,58 @@ export function AgentItem({ session, projectPath, isActive, isOutputting, onSele
     e.stopPropagation()
   }, [])
 
-  const primaryLabel = labelOverride ?? formatBranchLabel(session.branchName, projectPath)
+  const displayName = session.displayName?.trim()
+  const primaryLabel = displayName || labelOverride || formatBranchLabel(session.branchName, projectPath)
+  const currentEditableLabel = displayName || primaryLabel
   const secondaryLabel = session.taskDescription
     ? `${session.taskDescription} \u00B7 ${runtimeLabel(session.runtimeId)}`
     : runtimeLabel(session.runtimeId)
+
+  const startEditing = useCallback(
+    (e: React.MouseEvent): void => {
+      e.stopPropagation()
+      if (!onRename) return
+      setDraft(currentEditableLabel)
+      setEditing(true)
+    },
+    [currentEditableLabel, onRename],
+  )
+
+  const commitRename = useCallback((): void => {
+    const nextName = draft.trim()
+    if (nextName && nextName !== currentEditableLabel) {
+      onRename?.(nextName)
+    }
+    setEditing(false)
+  }, [currentEditableLabel, draft, onRename])
+
+  const handleNameKeyDown = useCallback(
+    (e: React.KeyboardEvent<HTMLInputElement>): void => {
+      e.stopPropagation()
+      if (e.key === 'Enter') {
+        e.preventDefault()
+        commitRename()
+      } else if (e.key === 'Escape') {
+        e.preventDefault()
+        setEditing(false)
+      }
+    },
+    [commitRename],
+  )
+
+  const focusAndSelect = useCallback((el: HTMLInputElement | null): void => {
+    if (el) {
+      el.focus()
+      el.select()
+    }
+  }, [])
 
   return (
     <div
       onClick={handleClick}
       onKeyDown={handleKeyDown}
       className={`sidebar-item-row sidebar-agent-row ${session.status === 'done' || session.status === 'error' ? 'sidebar-agent-row--exited' : 'sidebar-agent-row--alive'}${isActive ? ' sidebar-item-row--active' : ''}`}
-      title={`${runtimeLabel(session.runtimeId)} - ${session.branchName}`}
+      title={displayName ? `${displayName} - ${session.branchName}` : `${runtimeLabel(session.runtimeId)} - ${session.branchName}`}
       role="button"
       tabIndex={0}
     >
@@ -94,18 +141,46 @@ export function AgentItem({ session, projectPath, isActive, isOutputting, onSele
             ◐
           </span>
         )}
-        <span
-          className="truncate sidebar-row-label"
-          style={{
-            ...sidebarStyles.agentBranch,
-            color: isActive ? 'var(--accent)' : 'var(--text-secondary)',
-            fontWeight: isActive ? 600 : 400,
-            flex: 1,
-          }}
-        >
-          {primaryLabel}
-        </span>
+        {editing ? (
+          <input
+            ref={focusAndSelect}
+            value={draft}
+            onChange={(e) => setDraft(e.target.value)}
+            onBlur={commitRename}
+            onKeyDown={handleNameKeyDown}
+            onClick={(e) => e.stopPropagation()}
+            style={{ ...sidebarStyles.nameInput, ...sidebarStyles.agentNameInput }}
+            aria-label="Agent name"
+          />
+        ) : (
+          <span
+            className="truncate sidebar-row-label"
+            style={{
+              ...sidebarStyles.agentBranch,
+              color: isActive ? 'var(--accent)' : 'var(--text-secondary)',
+              fontWeight: isActive ? 600 : 400,
+              flex: 1,
+            }}
+            onDoubleClick={(e) => { e.stopPropagation(); startEditing(e) }}
+            title={onRename ? 'Double-click to rename' : undefined}
+          >
+            {primaryLabel}
+          </span>
+        )}
         <div className="sidebar-item-actions">
+          {onRename && (
+            <button
+              type="button"
+              onClick={startEditing}
+              onKeyDown={stopKeyPropagation}
+              className="sidebar-icon-button"
+              style={sidebarStyles.agentRenameButton}
+              aria-label={`Rename ${primaryLabel}`}
+              title="Rename agent"
+            >
+              &#9998;
+            </button>
+          )}
           <button
             type="button"
             onClick={handleDelete}

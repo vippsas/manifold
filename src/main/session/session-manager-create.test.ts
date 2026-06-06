@@ -292,4 +292,37 @@ describe('SessionManager — create / input / queries', () => {
       expect(sessionManager.listSessions()).toEqual([])
     })
   })
+
+  describe('renameSession', () => {
+    it('updates the session display name and notifies renderers', async () => {
+      const window = {
+        isDestroyed: vi.fn(() => false),
+        webContents: { send: vi.fn() },
+      }
+      sessionManager.setMainWindow(window as never)
+      await sessionManager.createSession({
+        projectId: 'proj-1',
+        runtimeId: 'claude',
+        prompt: 'test',
+      })
+
+      const renamed = await sessionManager.renameSession('session-uuid-1', '  Release agent  ')
+
+      expect(renamed.displayName).toBe('Release agent')
+      expect(sessionManager.getSession('session-uuid-1')?.displayName).toBe('Release agent')
+      expect(window.webContents.send).toHaveBeenCalledWith('agent:sessions-changed', { projectId: 'proj-1' })
+    })
+
+    it('rejects empty display names', async () => {
+      await sessionManager.createSession({
+        projectId: 'proj-1',
+        runtimeId: 'claude',
+        prompt: 'test',
+      })
+
+      await expect(sessionManager.renameSession('session-uuid-1', '   ')).rejects.toThrow(
+        'Agent name cannot be empty',
+      )
+    })
+  })
 })

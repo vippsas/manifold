@@ -142,6 +142,7 @@ function ProjectsPanel(): React.JSX.Element {
       onSelectSession={s.onSelectSession}
       onRemoveProject={s.onRemoveProject}
       onUpdateProject={s.onUpdateProject}
+      onRenameAgent={s.onRenameAgent}
       onRequestDeleteAgent={s.onRequestDeleteAgent}
       onNewAgent={s.onNewAgentFromHeader}
       onNewProject={s.onNewProject}
@@ -166,4 +167,3 @@ function ProjectsPanel(): React.JSX.Element {
     />
   )
 }
-

@@ -35,6 +35,7 @@ export function renderSidebar(overrides = {}) {
     onSelectSession: vi.fn(),
     onRemoveProject: vi.fn(),
     onUpdateProject: vi.fn(),
+    onRenameAgent: vi.fn(),
     onRequestDeleteAgent: vi.fn(),
     onNewAgent: vi.fn(),
     onNewProject: vi.fn(),

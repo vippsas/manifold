@@ -24,6 +24,7 @@ export interface WorkspaceListProps {
   onAddProject?: (workspaceId: string) => void
   onRemoveProject?: (workspaceId: string, projectId: string) => void
   onDeleteAgent?: (session: AgentSession, projectPath: string) => void
+  onRenameAgent?: (sessionId: string, displayName: string) => void
   onFetchProject?: (projectId: string) => void
   fetchingProjectId?: string | null
   lastFetchedProjectId?: string | null
@@ -47,6 +48,7 @@ export function WorkspaceList({
   onAddProject,
   onRemoveProject,
   onDeleteAgent,
+  onRenameAgent,
   onFetchProject,
   fetchingProjectId,
   lastFetchedProjectId,
@@ -154,6 +156,7 @@ export function WorkspaceList({
               isOutputting={outputtingSessionIds?.has(session.id) ?? false}
               onSelect={(sessionId) => onSelectSession(sessionId, session.projectId)}
               onDelete={() => onDeleteAgent?.(session, project?.path ?? '')}
+              onRename={(displayName) => onRenameAgent?.(session.id, displayName)}
               hideAdditionalDirs
             />
           )

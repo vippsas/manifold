@@ -14,6 +14,7 @@ export interface ShellSuggestionState {
 export interface InternalSession extends AgentSession {
   ptyId: string
   outputBuffer: string
+  displayName?: string
   taskDescription?: string
   simpleTemplateTitle?: string
   simplePromptInstructions?: string

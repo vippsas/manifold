@@ -47,6 +47,7 @@ export function DeleteAgentDialog({
   const { session, projectPath } = pendingDelete
   const repoName = basename(projectPath)
   const worktreeName = describeWorktree(projectPath, session.worktreePath)
+  const agentLabel = session.displayName?.trim() || runtimeLabel(session.runtimeId)
   const multi = siblingCount > 1
   const actionText = session.noWorktree
     ? 'Close this agent.'
@@ -93,7 +94,7 @@ export function DeleteAgentDialog({
               {`Worktree: ${worktreeName}`}
             </span>
             <span style={{ color: 'var(--text-muted)', fontSize: 'var(--type-ui-caption)' }}>
-              {`Agent: ${runtimeLabel(session.runtimeId)}`}
+              {`Agent: ${agentLabel}`}
             </span>
           </div>
           <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>

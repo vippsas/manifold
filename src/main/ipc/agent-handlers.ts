@@ -184,6 +184,10 @@ export function registerAgentHandlers(deps: IpcDependencies): void {
     sessionManager.resize(sessionId, cols, rows)
   })
 
+  ipcMain.handle('agent:rename', async (_event, sessionId: string, displayName: string) => {
+    return sessionManager.renameSession(sessionId, displayName)
+  })
+
   ipcMain.handle('agent:interrupt', (_event, sessionId: string) => {
     sessionManager.interruptSession(sessionId)
   })

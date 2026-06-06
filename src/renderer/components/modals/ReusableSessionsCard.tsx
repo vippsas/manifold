@@ -39,7 +39,8 @@ export function ReusableSessionsCard({ projectPath, sessions, onResumeSession, o
           const canResumeSession = Boolean(session.runtimeId)
           const repoName = basename(projectPath)
           const worktreeLabel = describeWorktree(projectPath, session.worktreePath)
-          const agentLabel = canResumeSession ? runtimeLabel(session.runtimeId) : 'Missing runtime metadata'
+          const agentLabel = session.displayName?.trim()
+            || (canResumeSession ? runtimeLabel(session.runtimeId) : 'Missing runtime metadata')
           const contextLabel = session.taskDescription
             ? truncateWords(session.taskDescription, 12)
             : session.branchName

@@ -4,6 +4,7 @@ import type { InternalSession } from './session-types'
 export function persistSessionMeta(session: InternalSession): void {
   writeWorktreeMeta(session.worktreePath, {
     runtimeId: session.runtimeId,
+    displayName: session.displayName,
     taskDescription: session.taskDescription,
     simpleTemplateTitle: session.simpleTemplateTitle,
     simplePromptInstructions: session.simplePromptInstructions,

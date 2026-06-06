@@ -18,6 +18,7 @@ interface ProjectSidebarProps {
   onSelectSession: (sessionId: string, projectId: string) => void
   onRemoveProject: (id: string) => void
   onUpdateProject: (id: string, partial: Partial<Omit<Project, 'id'>>) => void
+  onRenameAgent: (sessionId: string, displayName: string) => void
   onRequestDeleteAgent: (session: AgentSession, projectPath: string) => void
   onNewAgent: () => void
   onNewProject: () => void
@@ -52,6 +53,7 @@ export function ProjectSidebar({
   onSelectSession,
   onRemoveProject,
   onUpdateProject,
+  onRenameAgent,
   onRequestDeleteAgent,
   onNewAgent,
   onNewProject,
@@ -106,6 +108,7 @@ export function ProjectSidebar({
           onAddProject={onAddProjectToWorkspace}
           onRemoveProject={onRemoveProjectFromWorkspace}
           onDeleteAgent={onRequestDeleteAgent}
+          onRenameAgent={onRenameAgent}
           onFetchProject={onFetchProject}
           fetchingProjectId={fetchingProjectId}
           lastFetchedProjectId={lastFetchedProjectId}
@@ -126,6 +129,7 @@ export function ProjectSidebar({
         onRequestDeleteAgent={onRequestDeleteAgent}
         onRemove={handleRemove}
         onUpdateProject={onUpdateProject}
+        onRenameAgent={onRenameAgent}
         fetchingProjectId={fetchingProjectId}
         lastFetchedProjectId={lastFetchedProjectId}
         fetchResult={fetchResult}

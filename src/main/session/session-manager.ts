@@ -247,6 +247,19 @@ export class SessionManager {
     return toPublicSession(session)
   }
 
+  async renameSession(sessionId: string, displayName: string): Promise<AgentSession> {
+    const session = this.sessions.get(sessionId)
+    if (!session) throw new Error(`Session not found: ${sessionId}`)
+    const nextName = displayName.trim()
+    if (!nextName) throw new Error('Agent name cannot be empty')
+
+    session.displayName = nextName
+    persistSessionMeta(session)
+    this.notifySessionsChanged(session.projectId)
+
+    return toPublicSession(session)
+  }
+
   getOutputBuffer(sessionId: string): string { return this.sessions.get(sessionId)?.outputBuffer ?? '' }
 
   getSession(sessionId: string): AgentSession | undefined {

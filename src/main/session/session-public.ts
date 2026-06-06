@@ -10,6 +10,7 @@ export function toPublicSession(session: InternalSession): AgentSession {
     worktreePath: session.worktreePath,
     status: session.status,
     pid: session.pid,
+    displayName: session.displayName,
     taskDescription: session.taskDescription,
     simpleTemplateTitle: session.simpleTemplateTitle,
     simplePromptInstructions: session.simplePromptInstructions,
