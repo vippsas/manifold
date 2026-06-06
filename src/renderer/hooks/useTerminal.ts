@@ -36,6 +36,26 @@ interface UseTerminalResult {
   focusTerminal: () => void
 }
 
+function getShellEditShortcut(event: KeyboardEvent): string | null {
+  if (event.type !== 'keydown') return null
+
+  if (event.metaKey) {
+    if (event.key === 'Backspace') return '\x15' // Cmd+Delete: kill to start of line
+    if (event.key === 'Delete') return '\x0b' // Cmd+Forward Delete: kill to end of line
+    if (event.key === 'ArrowLeft') return '\x01' // Cmd+Left: start of line
+    if (event.key === 'ArrowRight') return '\x05' // Cmd+Right: end of line
+  }
+
+  if (event.altKey) {
+    if (event.key === 'Backspace') return '\x1b\x7f' // Option+Delete: kill word backward
+    if (event.key === 'Delete') return '\x1bd' // Option+Forward Delete: kill word forward
+    if (event.key === 'ArrowLeft') return '\x1bb' // Option+Left: word backward
+    if (event.key === 'ArrowRight') return '\x1bf' // Option+Right: word forward
+  }
+
+  return null
+}
+
 export function useTerminal({ sessionId, scrollbackLines, terminalFontFamily, xtermTheme }: UseTerminalOptions): UseTerminalResult {
   const containerRef = useRef<HTMLDivElement | null>(null)
   const terminalRef = useRef<Terminal | null>(null)
@@ -167,12 +187,13 @@ export function useTerminal({ sessionId, scrollbackLines, terminalFontFamily, xt
       }, 300)
     })
 
-    // Translate macOS Cmd+Backspace to Ctrl+U (kill line backward)
+    // Translate common macOS shell editing shortcuts to readline-friendly input.
     // Translate Shift+Enter to newline (for multiline input in Claude Code)
     terminal.attachCustomKeyEventHandler((event: KeyboardEvent) => {
-      if (event.type === 'keydown' && event.metaKey && event.key === 'Backspace') {
+      const editShortcut = getShellEditShortcut(event)
+      if (editShortcut) {
         if (sessionId) {
-          void window.electronAPI.invoke('agent:input', sessionId, '\x15')
+          void window.electronAPI.invoke('agent:input', sessionId, editShortcut)
         }
         return false
       }
