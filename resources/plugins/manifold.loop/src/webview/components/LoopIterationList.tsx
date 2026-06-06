@@ -1,8 +1,8 @@
 import React, { useMemo, useState } from 'react'
 import type { LoopIteration } from '../../types'
-import { loopPanelStyles as S, outcomeColors } from '../styles'
+import { loopPanelStyles as S, outcomeColors, outcomeBorder } from '../styles'
 
-export function IterationList({ iterations }: { iterations: LoopIteration[] }): React.JSX.Element {
+export function IterationList({ iterations, bestIndex }: { iterations: LoopIteration[]; bestIndex: number | null }): React.JSX.Element {
   const sorted = useMemo(
     () => [...iterations].sort((a, b) => {
       const aTime = a.finishedAt ?? a.startedAt
@@ -19,15 +19,22 @@ export function IterationList({ iterations }: { iterations: LoopIteration[] }): 
         const colors = outcomeColors[iter.outcome] ?? outcomeColors.failed
         const canExpand = Boolean(iter.judgeOutputTail?.trim())
         const isOpen = expanded === iter.index
+        const isBest = bestIndex !== null && iter.index === bestIndex
         return (
           <div key={iter.index} style={S.iterGroup}>
             <div
-              style={{ ...S.iterRow, ...(canExpand ? S.iterRowClickable : null) }}
+              style={{
+                ...S.iterRow,
+                borderLeft: `3px solid ${outcomeBorder[iter.outcome] ?? 'var(--text-muted)'}`,
+                ...(isBest ? S.iterRowBest : null),
+                ...(canExpand ? S.iterRowClickable : null),
+              }}
               onClick={canExpand ? () => setExpanded(isOpen ? null : iter.index) : undefined}
               role={canExpand ? 'button' : undefined}
               tabIndex={canExpand ? 0 : undefined}
             >
               <div style={S.iterIndex}>#{iter.index}</div>
+              {isBest && <span style={S.iterStar} title="Best so far">★</span>}
               <span style={{ ...S.iterOutcome, background: colors.bg, color: colors.fg }}>{iter.outcome}</span>
               {iter.score !== undefined && (
                 <span style={S.iterScore}>
