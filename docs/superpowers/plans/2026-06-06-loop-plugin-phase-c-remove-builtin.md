@@ -346,3 +346,17 @@ gates in Task 6/7 prove no dangling references remain.
 
 **Scope:** deletion + reference cleanup + manifest retitle; no migration (history persists via
 the shared log path; config was in-memory). The plugin (unchanged) is the loop after this.
+
+---
+
+## Owed verification (Phase C)
+
+Automated: full suite green (264 files / 1783 tests — deleted core-loop tests no longer run);
+`typecheck:node` **13** (down from 16; deleted loop files held 3 pre-existing baseline errors,
+no new errors), `typecheck:web` 36, `typecheck:plugins` clean; `build:plugins` emits
+`manifold.loop/out/{plugin,webview}.js`; no `loop:` channels or `loop` module references remain
+in `src/`. Three launcher/contribution tests were updated (they asserted `loop` by string id).
+
+Owed dev smoke (`npm run dev`): the "+ Apps" launcher shows a single **"Autoresearch Loop"**
+entry (the plugin); it opens, configures, runs a loop with live iterations, and shows prior
+history from `~/.manifold/loop-logs`. No built-in loop panel remains.
