@@ -4,10 +4,23 @@ import { PANEL_IDS, isEditorPanelId, type DockPanelId, type GridNode } from './d
 
 const RETIRED_PANEL_IDS = new Set(['memory', 'webPreview', 'search', 'loop'])
 const SUPPORTED_OPTIONAL_PANEL_IDS = new Set<string>()
+const PLUGIN_PANEL_COMPONENTS = new Set(['pluginView', 'pluginTreeView'])
 
-function isSupportedSavedPanelId(panelId: string, liveSiblingSessionIds?: Set<string>): boolean {
+function isPluginPanel(panelId: string, savedPanels: Record<string, unknown>): boolean {
+  const panel = savedPanels[panelId]
+  if (typeof panel !== 'object' || panel === null) return false
+  const component = (panel as { component?: unknown }).component
+  return typeof component === 'string' && PLUGIN_PANEL_COMPONENTS.has(component)
+}
+
+function isSupportedSavedPanelId(
+  panelId: string,
+  savedPanels: Record<string, unknown>,
+  liveSiblingSessionIds?: Set<string>,
+): boolean {
   if (PANEL_IDS.includes(panelId as DockPanelId)) return true
   if (isEditorPanelId(panelId)) return true
+  if (isPluginPanel(panelId, savedPanels)) return true
   if (SUPPORTED_OPTIONAL_PANEL_IDS.has(panelId)) return true
   if (isSiblingPanelId(panelId)) {
     // Sibling panels are runtime-only. Three cases:
@@ -56,7 +69,7 @@ export function sanitizeDockLayout(
   const savedPanels = (saved.panels ?? {}) as Record<string, unknown>
   const savedPanelIds = Object.keys(savedPanels)
   const validPanelIds = new Set(savedPanelIds.filter((panelId) => (
-    !RETIRED_PANEL_IDS.has(panelId) && isSupportedSavedPanelId(panelId, liveSiblingSessionIds)
+    !RETIRED_PANEL_IDS.has(panelId) && isSupportedSavedPanelId(panelId, savedPanels, liveSiblingSessionIds)
   )))
 
   if (validPanelIds.size === 0) return null

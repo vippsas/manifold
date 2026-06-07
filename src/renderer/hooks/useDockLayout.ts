@@ -95,6 +95,10 @@ export function useDockLayout(
     syncEditorPanelIds(api, editorPanelIdsRef, nextEditorPanelIndexRef)
   }, [])
 
+  const persistLayout = useCallback((sid: string, layout: SerializedDockview) => {
+    void window.electronAPI.invoke('dock-layout:set', sid, layout)
+  }, [])
+
   const saveLayout = useCallback(() => {
     const api = apiRef.current
     const sid = sessionIdRef.current
@@ -104,9 +108,20 @@ export function useDockLayout(
 
     saveTimerRef.current = setTimeout(() => {
       const json = api.toJSON()
-      void window.electronAPI.invoke('dock-layout:set', sid, json)
+      saveTimerRef.current = null
+      persistLayout(sid, json)
     }, 500)
-  }, [])
+  }, [persistLayout])
+
+  const flushPendingLayoutSave = useCallback((sid: string | null): void => {
+    if (!saveTimerRef.current) return
+    clearTimeout(saveTimerRef.current)
+    saveTimerRef.current = null
+
+    const api = apiRef.current
+    if (!api || !sid) return
+    persistLayout(sid, api.toJSON())
+  }, [persistLayout])
 
   const buildDefaultLayout = useCallback((api: DockviewApi) => applyDefaultLayout(api), [])
   const buildMinimalLayout = useCallback((api: DockviewApi) => applyMinimalPanels(api), [])
@@ -174,8 +189,9 @@ export function useDockLayout(
     if (existing) { existing.api.setActive(); return }
     const referencePanelId = findTopLeftWorkspaceReferencePanel(api) ?? 'agent'
     api.addPanel({ id: viewId, component: 'pluginView', title, position: { referencePanel: referencePanelId, direction: 'within' } })
+    saveLayout()
     bumpVersion()
-  }, [bumpVersion]) // eslint-disable-line react-hooks/exhaustive-deps
+  }, [bumpVersion, saveLayout]) // eslint-disable-line react-hooks/exhaustive-deps
 
   const openPluginTreeView = useCallback((viewId: string, title: string): void => {
     const api = apiRef.current
@@ -184,8 +200,9 @@ export function useDockLayout(
     if (existing) { existing.api.setActive(); return }
     const referencePanelId = findTopLeftWorkspaceReferencePanel(api) ?? 'agent'
     api.addPanel({ id: viewId, component: 'pluginTreeView', title, position: { referencePanel: referencePanelId, direction: 'within' } })
+    saveLayout()
     bumpVersion()
-  }, [bumpVersion]) // eslint-disable-line react-hooks/exhaustive-deps
+  }, [bumpVersion, saveLayout]) // eslint-disable-line react-hooks/exhaustive-deps
 
   const { ensureEditorPanel, splitEditorPane, findEditorPanelForSplit } = useEditorPanels(ctx, focusPanel)
   const { togglePanel, closePanel, isPanelVisible, resetLayout } = useDockActions(ctx, ensureEditorPanel, buildDefaultLayout)
@@ -210,16 +227,14 @@ export function useDockLayout(
 
   const prevSessionRef = useRef(sessionId)
   useEffect(() => {
-    if (sessionId === prevSessionRef.current) return
+    const previousSessionId = prevSessionRef.current
+    if (sessionId === previousSessionId) return
     prevSessionRef.current = sessionId
 
     const api = apiRef.current
     if (!api) return
 
-    if (saveTimerRef.current) {
-      clearTimeout(saveTimerRef.current)
-      saveTimerRef.current = null
-    }
+    flushPendingLayoutSave(previousSessionId)
 
     if (!sessionId) {
       applyMinimalLayout(api, buildMinimalLayout, refs)
@@ -232,7 +247,7 @@ export function useDockLayout(
     void loadOrBuildLayout(api, sessionId, buildDefaultLayout, refs, liveSiblingIds()).then(() => {
       reconcileLayoutAfterLoad(api, ctx)
     })
-  }, [sessionId, buildDefaultLayout, buildMinimalLayout, bumpVersion, syncPanels, liveSiblingIds, ctx]) // eslint-disable-line react-hooks/exhaustive-deps
+  }, [sessionId, buildDefaultLayout, buildMinimalLayout, bumpVersion, syncPanels, liveSiblingIds, ctx, flushPendingLayoutSave]) // eslint-disable-line react-hooks/exhaustive-deps
 
   const hiddenPanels = PANEL_IDS
     .filter((id) => !LAUNCHER_MODULE_IDS.has(id))
