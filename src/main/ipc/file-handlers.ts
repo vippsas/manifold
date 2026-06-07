@@ -1,4 +1,4 @@
-import { ipcMain, shell } from 'electron'
+import { clipboard, ipcMain, shell } from 'electron'
 import * as fs from 'node:fs'
 import { execFile, spawn } from 'node:child_process'
 import { extname, resolve } from 'node:path'
@@ -162,6 +162,36 @@ export function registerFileHandlers(deps: IpcDependencies): void {
     return { tree: fileWatcher.getFileTree(session.worktreePath) }
   })
 
+  ipcMain.handle('files:paste-image', (_event, sessionId: string, dirPath: string, dataUrl: string) => {
+    const session = sessionManager.getSession(sessionId)
+    if (!session) throw new Error(`Session not found: ${sessionId}`)
+    const resolvedDir = resolvePasteTargetDir(session, dirPath)
+    const { ext, buffer } = decodeImageDataUrl(dataUrl)
+    const filePath = writePastedImage(session, resolvedDir, ext, buffer)
+
+    const source = session.additionalDirs.find((additionalDir) => isUnderDir(resolvedDir, additionalDir))
+    fileWatcher.notifyTreeChanged(sessionId, source)
+
+    return { path: filePath, tree: fileWatcher.getFileTree(session.worktreePath) }
+  })
+
+  ipcMain.handle('files:paste-clipboard-image', (_event, sessionId: string, dirPath: string) => {
+    const session = sessionManager.getSession(sessionId)
+    if (!session) throw new Error(`Session not found: ${sessionId}`)
+    const image = clipboard.readImage()
+    if (image.isEmpty()) return { pasted: false }
+
+    const resolvedDir = resolvePasteTargetDir(session, dirPath)
+    const buffer = image.toPNG()
+    if (buffer.byteLength === 0) return { pasted: false }
+    const filePath = writePastedImage(session, resolvedDir, 'png', buffer)
+
+    const source = session.additionalDirs.find((additionalDir) => isUnderDir(resolvedDir, additionalDir))
+    fileWatcher.notifyTreeChanged(sessionId, source)
+
+    return { pasted: true, path: filePath, tree: fileWatcher.getFileTree(session.worktreePath) }
+  })
+
   ipcMain.handle('files:reveal', (_event, sessionId: string, filePath: string) => {
     const session = sessionManager.getSession(sessionId)
     if (!session) throw new Error(`Session not found: ${sessionId}`)
@@ -212,6 +242,47 @@ export function registerFileHandlers(deps: IpcDependencies): void {
     if (!session) throw new Error(`Session not found: ${sessionId}`)
     return listWorktreeFiles(session.worktreePath)
   })
+}
+
+function resolvePasteTargetDir(session: AgentSession, dirPath: string): string {
+  const resolvedDir = resolve(session.worktreePath, dirPath || session.worktreePath)
+  if (!isPathAllowed(resolvedDir, session)) {
+    throw new Error('Path traversal denied: directory outside allowed directories')
+  }
+  if (!fs.statSync(resolvedDir).isDirectory()) {
+    throw new Error(`Paste target is not a directory: ${resolvedDir}`)
+  }
+  return resolvedDir
+}
+
+function decodeImageDataUrl(dataUrl: string): { ext: string; buffer: Buffer } {
+  const match = /^data:image\/([a-z0-9+]+);base64,(.+)$/i.exec(dataUrl)
+  if (!match) throw new Error('Invalid image data URL')
+  const mimeSubtype = match[1].toLowerCase()
+  const allowed: Record<string, string> = { png: 'png', jpeg: 'jpg', jpg: 'jpg', gif: 'gif', webp: 'webp' }
+  const ext = allowed[mimeSubtype]
+  if (!ext) throw new Error(`Unsupported image type: image/${mimeSubtype}`)
+  const buffer = Buffer.from(match[2], 'base64')
+  if (buffer.byteLength === 0) throw new Error('Empty image data')
+  return { ext, buffer }
+}
+
+function nextPastedImagePath(dirPath: string, ext: string, session: AgentSession): string {
+  for (let index = 0; index < 1000; index += 1) {
+    const suffix = index === 0 ? '' : `-${index}`
+    const filePath = resolve(dirPath, `pasted-image${suffix}.${ext}`)
+    if (!isUnderDir(filePath, dirPath) || !isPathAllowed(filePath, session)) {
+      throw new Error('Path traversal denied: file outside allowed directories')
+    }
+    if (!fs.existsSync(filePath)) return filePath
+  }
+  throw new Error(`Could not choose a unique pasted image name in ${dirPath}`)
+}
+
+function writePastedImage(session: AgentSession, dirPath: string, ext: string, buffer: Buffer): string {
+  const filePath = nextPastedImagePath(dirPath, ext, session)
+  fs.writeFileSync(filePath, buffer)
+  return filePath
 }
 
 function readFileAsDataUrl(filePath: string): string {

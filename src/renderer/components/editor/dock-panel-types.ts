@@ -45,6 +45,8 @@ export interface DockAppState {
   onCreateFile?: (dirPath: string, fileName: string) => Promise<boolean>
   onCreateDir?: (dirPath: string, dirName: string) => Promise<boolean>
   onImportPaths?: (dirPath: string, sourcePaths: string[]) => Promise<string | null>
+  onPasteImage?: (dirPath: string, dataUrl: string) => Promise<string | null>
+  onPasteClipboardImage?: (dirPath: string) => Promise<{ pasted: boolean; error: string | null }>
   onMovePath?: (sourcePath: string, targetDir: string, options?: { overwrite?: boolean }) => Promise<string | null>
   onRevealInFinder?: (filePath: string) => Promise<void>
   onOpenInTerminal?: (dirPath: string) => Promise<void>

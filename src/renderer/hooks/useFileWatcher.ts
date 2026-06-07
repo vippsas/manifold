@@ -14,6 +14,8 @@ interface UseFileWatcherResult {
   createFile: (dirPath: string, fileName: string) => Promise<boolean>
   createDir: (dirPath: string, dirName: string) => Promise<boolean>
   importPaths: (dirPath: string, sourcePaths: string[]) => Promise<string | null>
+  pasteImage: (dirPath: string, dataUrl: string) => Promise<string | null>
+  pasteClipboardImage: (dirPath: string) => Promise<{ pasted: boolean; error: string | null }>
   movePath: (sourcePath: string, targetDir: string, overwrite?: boolean) => Promise<string | null>
   revealInFinder: (filePath: string) => Promise<void>
   openInTerminal: (dirPath: string) => Promise<void>
@@ -218,6 +220,38 @@ export function useFileWatcher(
     [sessionId]
   )
 
+  const pasteImage = useCallback(
+    async (dirPath: string, dataUrl: string): Promise<string | null> => {
+      if (!sessionId) return 'No active session'
+      try {
+        const result = (await window.electronAPI.invoke('files:paste-image', sessionId, dirPath, dataUrl)) as
+          | { tree: FileTreeNode }
+          | undefined
+        if (result?.tree) setTree(result.tree)
+        return null
+      } catch (err: unknown) {
+        return err instanceof Error ? err.message : String(err)
+      }
+    },
+    [sessionId]
+  )
+
+  const pasteClipboardImage = useCallback(
+    async (dirPath: string): Promise<{ pasted: boolean; error: string | null }> => {
+      if (!sessionId) return { pasted: false, error: 'No active session' }
+      try {
+        const result = (await window.electronAPI.invoke('files:paste-clipboard-image', sessionId, dirPath)) as
+          | { pasted: boolean; tree?: FileTreeNode }
+          | undefined
+        if (result?.tree) setTree(result.tree)
+        return { pasted: Boolean(result?.pasted), error: null }
+      } catch (err: unknown) {
+        return { pasted: false, error: err instanceof Error ? err.message : String(err) }
+      }
+    },
+    [sessionId]
+  )
+
   const revealInFinder = useCallback(
     async (filePath: string): Promise<void> => {
       if (!sessionId) return
@@ -246,6 +280,8 @@ export function useFileWatcher(
     createFile,
     createDir,
     importPaths,
+    pasteImage,
+    pasteClipboardImage,
     movePath,
     revealInFinder,
     openInTerminal,
