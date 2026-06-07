@@ -47,10 +47,15 @@ export function LoopConfigForm({ sessionId, initialConfig, disabled, onStart, on
     return result
   }
 
+  function submitStart(): void {
+    const cfg = build()
+    if (cfg) onStart(cfg)
+  }
+
   return (
     <form
       style={S.form}
-      onSubmit={(e) => { e.preventDefault(); const cfg = build(); if (cfg) onStart(cfg) }}
+      onSubmit={(e) => { e.preventDefault(); submitStart() }}
     >
       <section style={S.group}>
         <div style={S.sectionHeader}>Task</div>
@@ -99,7 +104,7 @@ export function LoopConfigForm({ sessionId, initialConfig, disabled, onStart, on
       {error && <div style={{ color: 'var(--status-error)', fontSize: 'var(--type-ui-small)' }}>{error}</div>}
 
       <div style={{ display: 'flex', gap: 'var(--space-sm)' }}>
-        <button type="submit" style={S.primaryButton} disabled={disabled}>Start Loop</button>
+        <button type="button" style={S.primaryButton} onClick={submitStart} disabled={disabled}>Start Loop</button>
         <button type="button" style={S.secondaryButton} onClick={() => { const cfg = build(); if (cfg) onSave(cfg) }} disabled={disabled}>Save</button>
       </div>
     </form>
