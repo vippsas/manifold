@@ -83,7 +83,7 @@ export function useRestoreTabsFromDisk(
       }
 
       if (shells.length > 0) {
-        const cacheEntry = cache.get(agentKey) ?? { shells: [], counter: 3 }
+        const cacheEntry = cache.get(agentKey) ?? { shells: [], counter: 2 }
         cacheEntry.shells = shells
         cacheEntry.counter = saved.counter
         cache.set(agentKey, cacheEntry)

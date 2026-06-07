@@ -67,6 +67,8 @@ export interface DockAppState {
   worktreeShellSessionId: string | null
   projectShellSessionId: string | null
   worktreeCwd: string | null
+  shellPrompt: boolean
+  onShellPromptChange: (enabled: boolean) => void
   // Agent creation
   baseBranch: string
   activeProjectIsGit: boolean

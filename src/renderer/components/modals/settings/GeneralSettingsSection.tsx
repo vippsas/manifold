@@ -24,8 +24,6 @@ interface Props {
   onPickerToggle: (open: boolean) => void
   notificationSound: boolean
   onNotificationSoundChange: (enabled: boolean) => void
-  shellPrompt: boolean
-  onShellPromptChange: (enabled: boolean) => void
   shellHistoryScope: 'project' | 'global'
   onShellHistoryScopeChange: (scope: 'project' | 'global') => void
   autoGenerateMessages: boolean
@@ -113,11 +111,6 @@ export function GeneralSettingsSection(props: Props): React.JSX.Element {
             <label style={{ ...modalStyles.checkboxField, ...modalStyles.fieldSpanFull }}>
               <input type="checkbox" checked={props.notificationSound} onChange={(event) => props.onNotificationSoundChange(event.target.checked)} style={modalStyles.checkboxInput} />
               Play sound when agent stops running
-            </label>
-            <label style={{ ...modalStyles.checkboxField, ...modalStyles.fieldSpanFull }}>
-              <input type="checkbox" checked={props.shellPrompt} onChange={(event) => props.onShellPromptChange(event.target.checked)} style={modalStyles.checkboxInput} />
-              Use Manifold prompt in worktree shells
-              <span style={modalStyles.helpText}>Shows a clean minimal prompt instead of your shell theme. Disable to keep your own prompt.</span>
             </label>
             <label style={modalStyles.label}>
               Shell History

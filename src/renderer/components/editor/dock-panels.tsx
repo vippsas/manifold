@@ -121,6 +121,8 @@ function ShellPanel(): React.JSX.Element {
       worktreeSessionId={s.worktreeShellSessionId}
       projectSessionId={s.projectShellSessionId}
       worktreeCwd={s.worktreeCwd}
+      shellPrompt={s.shellPrompt}
+      onShellPromptChange={s.onShellPromptChange}
       scrollbackLines={s.scrollbackLines}
       terminalFontFamily={s.terminalFontFamily}
       xtermTheme={s.xtermTheme}

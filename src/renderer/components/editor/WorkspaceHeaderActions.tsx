@@ -2,6 +2,7 @@ import React from 'react'
 import type { IDockviewHeaderActionsProps } from 'dockview'
 import { EditorHeaderActions } from './EditorHeaderActions'
 import { ModuleLauncher } from './ModuleLauncher'
+import { ShellPromptHeaderAction } from '../terminal/ShellHeaderActions'
 
 /** Right-side header actions for every dock group: the editor pane/mode
  *  actions (which self-gate to editor panes) plus the module launcher,
@@ -13,6 +14,7 @@ export function WorkspaceHeaderActions(props: IDockviewHeaderActionsProps): Reac
     <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
       <EditorHeaderActions {...props} />
       {ownsAgent && <ModuleLauncher />}
+      <ShellPromptHeaderAction {...props} />
     </div>
   )
 }
