@@ -1,7 +1,7 @@
 // resources/plugins/manifold.loop/src/engine.ts
 // The autoresearch loop engine: sendInput+waitForTurnEnd collapse into runTurn; config/status
-// persist via the injected store; the active session is pinned at start and re-checked each
-// iteration. No `manifold` import (all deps injected, so it's unit-testable).
+// persist via the injected store; the active session is pinned at start. No `manifold`
+// import (all deps injected, so it's unit-testable).
 import { parseLoopConfig, DEFAULT_MAX_ITERATIONS, type LoopConfig, type LoopIteration, type LoopStatus, type IterationOutcome } from './types'
 import { parseMetric, isImprovement } from './eval'
 import type { LoopGitAdapter } from './git'
@@ -10,7 +10,7 @@ import type { Judge } from './judge'
 import type { LoopStore } from './store'
 
 export type TurnOutcome = 'ended' | 'timeout' | 'aborted'
-export type RunTurn = (prompt: string, opts: { budgetSeconds: number; clearContext: boolean }, signal: AbortSignal) => Promise<TurnOutcome>
+export type RunTurn = (sessionId: string, prompt: string, opts: { budgetSeconds: number; clearContext: boolean }, signal: AbortSignal) => Promise<TurnOutcome>
 
 export interface LoopIterationLogPort {
   append(worktreePath: string, iter: LoopIteration): Promise<void>
@@ -174,11 +174,6 @@ export class LoopEngine {
     while (status.state === 'running' && ranThisRun < maxIter) {
       if (abort.signal.aborted) return
       if (this.now() - run.startWallMs > maxWallMs) return
-      if (this.deps.activeSessionId() !== run.targetSessionId) {
-        status.state = 'error'
-        status.errorMessage = 'active session changed'
-        return
-      }
 
       ranThisRun += 1
       status.currentIteration += 1
@@ -199,7 +194,7 @@ export class LoopEngine {
     const baseForIter = await this.deps.git.getHeadSha(wt)
 
     const clearContext = !!config.clearContextEachIteration && index > 1
-    const turn = await this.deps.runTurn(renderPrompt(PROMPT_TEMPLATE, config), { budgetSeconds: config.budgetSeconds, clearContext }, abort.signal)
+    const turn = await this.deps.runTurn(run.targetSessionId, renderPrompt(PROMPT_TEMPLATE, config), { budgetSeconds: config.budgetSeconds, clearContext }, abort.signal)
 
     if (turn === 'aborted') {
       return { ...base, outcome: 'aborted', finishedAt: this.now(), errorMessage: 'stopped by user' }

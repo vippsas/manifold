@@ -10,21 +10,28 @@ interface HostAgentsProxy {
 
 export function createAgentsApi(endpoint: RpcEndpoint, workspace: WorkspaceContext): ManifoldApi['agents'] {
   const host = endpoint.getProxy<HostAgentsProxy>(HOST_AGENTS)
+  const makeAgent = (sessionId: string): AgentSession | undefined => {
+    if (!sessionId) return undefined
+    return {
+      sessionId,
+      async runTurn(prompt, opts, token?: CancellationToken): Promise<TurnOutcome> {
+        const sub = token?.onCancellationRequested(() => { void host.$cancelTurn(sessionId) })
+        try {
+          return await host.$runTurn(sessionId, prompt, opts)
+        } finally {
+          sub?.dispose()
+        }
+      },
+    }
+  }
+
   return {
     get activeAgent(): AgentSession | undefined {
       const sessionId = workspace.activeSessionId
-      if (!sessionId) return undefined
-      return {
-        sessionId,
-        async runTurn(prompt, opts, token?: CancellationToken): Promise<TurnOutcome> {
-          const sub = token?.onCancellationRequested(() => { void host.$cancelTurn(sessionId) })
-          try {
-            return await host.$runTurn(sessionId, prompt, opts)
-          } finally {
-            sub?.dispose()
-          }
-        },
-      }
+      return sessionId ? makeAgent(sessionId) : undefined
+    },
+    getAgent(sessionId: string): AgentSession | undefined {
+      return makeAgent(sessionId)
     },
   }
 }

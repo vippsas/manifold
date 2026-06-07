@@ -35,6 +35,21 @@ describe('agents-api over RPC', () => {
     expect(calls).toEqual([['s1', 'PROMPT', { budgetSeconds: 30 }]])
   })
 
+  it('getAgent(sessionId).runTurn forwards to the requested session instead of the active one', async () => {
+    const { host, main } = wirePair()
+    const calls: unknown[][] = []
+    main.registerService(HOST_AGENTS, {
+      $runTurn: (sid: string, prompt: string, opts: unknown) => { calls.push([sid, prompt, opts]); return 'ended' },
+      $cancelTurn: () => undefined,
+    })
+    const ws = new WorkspaceContext()
+    ws.setActiveContext({ session: { id: 'active-session', status: 'running', worktreePath: '/wt-active' } })
+    const agents = createAgentsApi(host, ws)
+    const outcome = await agents.getAgent('pinned-session')!.runTurn('PROMPT', { budgetSeconds: 30 })
+    expect(outcome).toBe('ended')
+    expect(calls).toEqual([['pinned-session', 'PROMPT', { budgetSeconds: 30 }]])
+  })
+
   it('a cancellation token triggers $cancelTurn', async () => {
     const { host, main } = wirePair()
     let cancelled: string | undefined
