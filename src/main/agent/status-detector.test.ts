@@ -20,7 +20,7 @@ vi.mock('./runtimes', () => ({
   }),
 }))
 
-import { detectStatus } from './status-detector'
+import { detectStatus, hasCodexInteractivePrompt } from './status-detector'
 
 describe('detectStatus', () => {
   beforeEach(() => {
@@ -69,13 +69,73 @@ describe('detectStatus', () => {
       expect(detectStatus(output, 'codex')).toBe('waiting')
     })
 
+    it('detects waiting when long final output pushes the working marker out of range', () => {
+      const output = [
+        '› Write tests for @filename gpt-5.5 xhigh · ~/.manifold/worktrees/Stories/ainews-alesund • Working (47s • esc to interrupt)',
+        'Completed work.\n'.repeat(250),
+        '─────────────────────────────────────────────────────────────────────',
+        '› Write tests for @filename gpt-5.5 xhigh · ~/.manifold/worktrees/Stories/ainews-alesund',
+      ].join('\n')
+      expect(detectStatus(output, 'codex')).toBe('waiting')
+    })
+
+    it('detects waiting when the Codex prompt metadata wraps onto the final line', () => {
+      const output = [
+        '• Updated research/20260607-120639-boris-loops-codex-workflows/linkedin-article.md.',
+        'Conversation interrupted — tell the model what to do differently.',
+        '› Use /skills to list available skills',
+        '',
+        'gpt-5.5 xhigh · ~/.manifold/worktrees/Stories/ainews-alesund',
+      ].join('\n')
+      expect(detectStatus(output, 'codex')).toBe('waiting')
+    })
+
     it('does not treat the Codex working line as waiting', () => {
       const output = '› Write tests for @filename gpt-5.5 xhigh · ~/.manifold/worktrees/Stories/ainews-alesund • Working (42s • esc to interrupt)'
       expect(detectStatus(output, 'codex')).toBe('running')
     })
 
+    it('keeps strict status running when stale working text contaminates the prompt tail', () => {
+      const output = [
+        '• Done. Changed only research/20260607-120639-boris-loops-codex-workflows/linkedin-article.md.',
+        'No tests or benchmarks run.',
+        '› Implement {feature}',
+        'gpt-5.5 xhigh · ~/.manifold/worktrees/Stories/ainews-alesund',
+        '• Working (12s • esc to interrupt)',
+      ].join('\n')
+      expect(detectStatus(output, 'codex')).toBe('running')
+      expect(hasCodexInteractivePrompt(output, { allowActiveMarker: true })).toBe(true)
+    })
+
     it('does not treat the initial Codex prompt echo as waiting before work starts', () => {
       const output = '› Write tests for @filename gpt-5.5 xhigh · ~/.manifold/worktrees/Stories/ainews-alesund'
+      expect(detectStatus(output, 'codex')).toBe('running')
+    })
+
+    it('does not treat the initial wrapped Codex prompt as waiting before work starts', () => {
+      const output = [
+        '› Use /skills to list available skills',
+        '',
+        'gpt-5.5 xhigh · ~/.manifold/worktrees/Stories/ainews-alesund',
+      ].join('\n')
+      expect(detectStatus(output, 'codex')).toBe('running')
+    })
+
+    it('does not treat repeated Codex prompt lines as waiting before work starts', () => {
+      const output = [
+        '› Write tests for @filename gpt-5.5 xhigh · ~/.manifold/worktrees/Stories/ainews-alesund',
+        '› Write tests for @filename gpt-5.5 xhigh · ~/.manifold/worktrees/Stories/ainews-alesund',
+      ].join('\n')
+      expect(detectStatus(output, 'codex')).toBe('running')
+    })
+
+    it('does not treat repeated wrapped Codex prompts as waiting before work starts', () => {
+      const output = [
+        '› Use /skills to list available skills',
+        'gpt-5.5 xhigh · ~/.manifold/worktrees/Stories/ainews-alesund',
+        '› Use /skills to list available skills',
+        'gpt-5.5 xhigh · ~/.manifold/worktrees/Stories/ainews-alesund',
+      ].join('\n')
       expect(detectStatus(output, 'codex')).toBe('running')
     })
   })

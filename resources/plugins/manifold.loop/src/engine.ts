@@ -200,8 +200,14 @@ export class LoopEngine {
       return { ...base, outcome: 'aborted', finishedAt: this.now(), errorMessage: 'stopped by user' }
     }
     if (turn === 'timeout') {
-      await this.safeReset(wt, baseForIter)
-      return { ...base, outcome: 'aborted', finishedAt: this.now(), errorMessage: 'agent turn exceeded budget' }
+      const commitSha = await this.keepOrResetRejectedChanges(run, baseForIter, 'timeout')
+      return {
+        ...base,
+        outcome: 'aborted',
+        commitSha,
+        finishedAt: this.now(),
+        errorMessage: commitSha ? 'agent turn exceeded budget; rolled forward' : 'agent turn exceeded budget',
+      }
     }
 
     const changed = await this.deps.git.getChangedFilesCount(wt)
@@ -279,6 +285,18 @@ export class LoopEngine {
     // rejected changes and poison the experiment. Best-effort, but log so it's diagnosable.
     try { await this.deps.git.hardReset(worktreePath, sha) }
     catch (err) { console.error('[loop-plugin] failed to reset worktree after a rejected iteration:', (err as Error).message) }
+  }
+
+  private async keepOrResetRejectedChanges(run: RunState, baseForIter: string, reason: string): Promise<string | undefined> {
+    if (run.config.alwaysAdvance) {
+      const changed = await this.deps.git.getChangedFilesCount(run.worktreePath)
+      if (changed > 0) {
+        return this.deps.git.stageAllAndCommit(run.worktreePath, `loop: iteration ${run.status.currentIteration} (${reason}, rolled forward)`)
+      }
+      return undefined
+    }
+    await this.safeReset(run.worktreePath, baseForIter)
+    return undefined
   }
 
   private async safeDiff(worktreePath: string, sha: string): Promise<string> {

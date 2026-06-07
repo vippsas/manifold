@@ -1,7 +1,15 @@
 import { describe, it, expect } from 'vitest'
 import { createAgentControlService, createTurnEndWaiter } from './agent-control-service'
 
-interface FakeInternal { status: string; lastOutputTime?: number; lastTurnCompletedTime?: number; nonInteractive?: boolean; ptyId?: string }
+interface FakeInternal {
+  status: string
+  runtimeId?: string
+  outputBuffer?: string
+  lastOutputTime?: number
+  lastTurnCompletedTime?: number
+  nonInteractive?: boolean
+  ptyId?: string
+}
 
 function fakeSessionManager(opts: {
   worktreePath?: string | null
@@ -37,6 +45,86 @@ describe('createTurnEndWaiter', () => {
     const wait = createTurnEndWaiter(sm as never, { now, sleep, pollMs: 100, idleGraceMs: 500 })
     const outcome = await wait('s1', 1, new AbortController().signal)
     expect(outcome).toBe('timeout')
+  })
+
+  it("returns 'ended' once idle even when terminal repaint output continues", async () => {
+    let t = 0
+    const now = (): number => t
+    const sleep = async (ms: number): Promise<void> => { t += ms }
+    const sm = fakeSessionManager({ internal: () => ({ status: 'waiting', lastOutputTime: t }) })
+    const wait = createTurnEndWaiter(sm as never, { now, sleep, pollMs: 100, idleGraceMs: 500 })
+    const outcome = await wait('s1', 60, new AbortController().signal)
+    expect(outcome).toBe('ended')
+  })
+
+  it("returns 'ended' when the Codex output buffer grew into a final prompt even if output timestamps lag", async () => {
+    let t = 1000
+    const now = (): number => t
+    const sleep = async (ms: number): Promise<void> => { t += ms }
+    const outputBuffer = [
+      'Done. I made one small prose edit.',
+      '› Find and fix a bug in @filename',
+      'gpt-5.5 xhigh · ~/.manifold/worktrees/Stories/ainews-alesund',
+    ].join('\n')
+    const sm = fakeSessionManager({
+      internal: () => ({ status: 'waiting', runtimeId: 'codex', outputBuffer, lastOutputTime: 0 }),
+    })
+    const wait = createTurnEndWaiter(sm as never, { now, sleep, pollMs: 100, idleGraceMs: 500 })
+    const outcome = await wait('s1', 60, new AbortController().signal, { turnStartedAt: 1000, outputLengthAtStart: 0 })
+    expect(outcome).toBe('ended')
+  })
+
+  it("does not end a Codex turn from prompt echo alone", async () => {
+    let t = 1000
+    const now = (): number => t
+    const sleep = async (ms: number): Promise<void> => { t += ms }
+    const outputBuffer = [
+      '› Find and fix a bug in @filename',
+      'gpt-5.5 xhigh · ~/.manifold/worktrees/Stories/ainews-alesund',
+    ].join('\n')
+    const sm = fakeSessionManager({
+      internal: () => ({ status: 'waiting', runtimeId: 'codex', outputBuffer, lastOutputTime: 0 }),
+    })
+    const wait = createTurnEndWaiter(sm as never, { now, sleep, pollMs: 100, idleGraceMs: 500 })
+    const outcome = await wait('s1', 1, new AbortController().signal, { turnStartedAt: 1000, outputLengthAtStart: 0 })
+    expect(outcome).toBe('timeout')
+  })
+
+  it("returns 'ended' when the output buffer shows a Codex prompt even if stored status is still running", async () => {
+    let t = 0
+    const now = (): number => t
+    const sleep = async (ms: number): Promise<void> => { t += ms }
+    const outputBuffer = [
+      '• Updated research/20260607-120639-boris-loops-codex-workflows/linkedin-article.md.',
+      'One small change: tightened the close.',
+      '› Write tests for @filename',
+      'gpt-5.5 xhigh · ~/.manifold/worktrees/Stories/ainews-alesund',
+    ].join('\n')
+    const sm = fakeSessionManager({
+      internal: () => ({ status: 'running', runtimeId: 'codex', outputBuffer, lastOutputTime: t }),
+    })
+    const wait = createTurnEndWaiter(sm as never, { now, sleep, pollMs: 100, idleGraceMs: 500 })
+    const outcome = await wait('s1', 60, new AbortController().signal)
+    expect(outcome).toBe('ended')
+  })
+
+  it("returns 'ended' for a silent Codex prompt even when stale working text remains in the raw stream", async () => {
+    let t = 1000
+    const now = (): number => t
+    const sleep = async (ms: number): Promise<void> => { t += ms }
+    const outputBuffer = [
+      '• Done. Changed only research/20260607-120639-boris-loops-codex-workflows/linkedin-article.md.',
+      'No tests or benchmarks run.',
+      '› Implement {feature}',
+      'gpt-5.5 xhigh · ~/.manifold/worktrees/Stories/ainews-alesund',
+      '• Working (12s • esc to interrupt)',
+    ].join('\n')
+    const sm = fakeSessionManager({
+      internal: () => ({ status: 'running', runtimeId: 'codex', outputBuffer, lastOutputTime: 1000 }),
+    })
+    const wait = createTurnEndWaiter(sm as never, { now, sleep, pollMs: 100, idleGraceMs: 500 })
+    const outcome = await wait('s1', 60, new AbortController().signal, { turnStartedAt: 900, outputLengthAtStart: 0 })
+    expect(outcome).toBe('ended')
   })
 
   it("returns 'aborted' when the signal is already aborted", async () => {
@@ -105,7 +193,7 @@ describe('createAgentControlService', () => {
   })
 
   it('passes the spawned non-interactive agent PTY id to the waiter', async () => {
-    const internal: FakeInternal = { status: 'running', nonInteractive: true, ptyId: '' }
+    const internal: FakeInternal = { status: 'running', outputBuffer: 'previous output', nonInteractive: true, ptyId: '' }
     const sm = fakeSessionManager({
       internal: () => internal,
       onInput: (text) => {
@@ -123,7 +211,7 @@ describe('createAgentControlService', () => {
 
     await svc.runTurn('s1', 'PROMPT')
 
-    expect(seenContexts).toEqual([expect.objectContaining({ agentPtyId: 'pty-turn', turnStartedAt: expect.any(Number) })])
+    expect(seenContexts).toEqual([expect.objectContaining({ agentPtyId: 'pty-turn', turnStartedAt: expect.any(Number), outputLengthAtStart: 'previous output'.length })])
   })
 
   it("cancelTurn aborts an in-flight turn and resolves 'aborted'", async () => {

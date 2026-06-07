@@ -9,7 +9,7 @@ const PLUGIN_PANEL_COMPONENTS = new Set(['pluginView', 'pluginTreeView'])
 function isPluginPanel(panelId: string, savedPanels: Record<string, unknown>): boolean {
   const panel = savedPanels[panelId]
   if (typeof panel !== 'object' || panel === null) return false
-  const component = (panel as { component?: unknown }).component
+  const component = (panel as { contentComponent?: unknown }).contentComponent
   return typeof component === 'string' && PLUGIN_PANEL_COMPONENTS.has(component)
 }
 

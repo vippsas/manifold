@@ -56,7 +56,7 @@ function createApi(): DockviewApi {
       panels: Object.fromEntries(
         [...panels.values()].map((panel) => [
           panel.id,
-          { component: panel.component, title: panel.title },
+          { id: panel.id, contentComponent: panel.component, title: panel.title },
         ]),
       ),
     })),
@@ -112,8 +112,8 @@ describe('useDockLayout plugin panels', () => {
       'session-1',
       expect.objectContaining({
         panels: expect.objectContaining({
-          'manifold.loop.panel': expect.objectContaining({ component: 'pluginView' }),
-          'publisher.tree': expect.objectContaining({ component: 'pluginTreeView' }),
+          'manifold.loop.panel': expect.objectContaining({ contentComponent: 'pluginView' }),
+          'publisher.tree': expect.objectContaining({ contentComponent: 'pluginTreeView' }),
         }),
       }),
     )
@@ -137,7 +137,7 @@ describe('useDockLayout plugin panels', () => {
       'session-1',
       expect.objectContaining({
         panels: expect.objectContaining({
-          'manifold.loop.panel': expect.objectContaining({ component: 'pluginView' }),
+          'manifold.loop.panel': expect.objectContaining({ contentComponent: 'pluginView' }),
         }),
       }),
     )

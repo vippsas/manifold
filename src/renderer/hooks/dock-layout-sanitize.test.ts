@@ -198,9 +198,9 @@ describe('sanitizeDockLayout', () => {
         },
       },
       panels: {
-        agent: { component: 'agent' },
-        'manifold.loop.panel': { component: 'pluginView', title: 'Autoresearch Loop' },
-        'publisher.tree': { component: 'pluginTreeView', title: 'Plugin Tree' },
+        agent: { id: 'agent', contentComponent: 'agent' },
+        'manifold.loop.panel': { id: 'manifold.loop.panel', contentComponent: 'pluginView', title: 'Autoresearch Loop' },
+        'publisher.tree': { id: 'publisher.tree', contentComponent: 'pluginTreeView', title: 'Plugin Tree' },
       },
     } as unknown as SerializedDockview
 
