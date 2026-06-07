@@ -286,12 +286,13 @@ export function registerAgentHandlers(deps: IpcDependencies): void {
     return sessionManager.discoverAllSessions(simpleProjectsBase)
   })
 
-  ipcMain.handle('shell:create', (_event, cwd: string) => {
+  ipcMain.handle('shell:create', (_event, cwd: string, options?: { mode?: 'manifold' | 'system' }) => {
     const settings = deps.settingsStore.getSettings()
     const historyDir = resolveShellHistoryDir(cwd, settings.shellHistoryScope)
+    const useManifoldShell = options?.mode !== 'system'
     return sessionManager.createShellSession(cwd, {
-      shellPrompt: settings.shellPrompt,
-      historyDir,
+      shellPrompt: useManifoldShell,
+      historyDir: useManifoldShell ? historyDir : undefined,
     })
   })
 

@@ -11,8 +11,11 @@ const state = {
   editorPaneIds: [],
 } as unknown as DockAppState
 
-function props(panelIds: string[]): IDockviewHeaderActionsProps {
-  return { panels: panelIds.map((id) => ({ id })) } as unknown as IDockviewHeaderActionsProps
+function props(panelIds: string[], activePanelId = panelIds[0]): IDockviewHeaderActionsProps {
+  return {
+    panels: panelIds.map((id) => ({ id })),
+    activePanel: { id: activePanelId },
+  } as unknown as IDockviewHeaderActionsProps
 }
 
 describe('WorkspaceHeaderActions', () => {

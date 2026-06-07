@@ -4,7 +4,10 @@ import type React from 'react'
 export interface ExtraShell {
   sessionId: string
   label: string
+  mode: ShellMode
 }
+
+export type ShellMode = 'manifold' | 'system'
 
 export type ShellCacheRef = React.RefObject<Map<string, { shells: ExtraShell[]; counter: number }>>
 
@@ -39,7 +42,7 @@ export function usePersistTabs(
   return useCallback(
     (shells: ExtraShell[], counter: number) => {
       if (!worktreeCwd) return
-      const tabs = shells.length === 0 ? [] : shells.map((s) => ({ label: s.label, cwd: worktreeCwd }))
+      const tabs = shells.length === 0 ? [] : shells.map((s) => ({ label: s.label, cwd: worktreeCwd, mode: s.mode }))
       void window.electronAPI.invoke('shell-tabs:set', persistKey, { tabs, counter })
     },
     [persistKey, worktreeCwd]
@@ -67,7 +70,7 @@ export function useRestoreTabsFromDisk(
 
     void (async () => {
       const saved = (await window.electronAPI.invoke('shell-tabs:get', persistKey)) as {
-        tabs: { label: string; cwd: string }[]
+        tabs: { label: string; cwd: string; mode?: ShellMode }[]
         counter: number
       } | null
       if (!saved || saved.tabs.length === 0) return
@@ -75,15 +78,16 @@ export function useRestoreTabsFromDisk(
       const shells: ExtraShell[] = []
       for (const tab of saved.tabs) {
         try {
-          const result = (await window.electronAPI.invoke('shell:create', tab.cwd)) as { sessionId: string }
-          shells.push({ sessionId: result.sessionId, label: tab.label })
+          const mode: ShellMode = tab.mode === 'system' ? 'system' : 'manifold'
+          const result = (await window.electronAPI.invoke('shell:create', tab.cwd, { mode })) as { sessionId: string }
+          shells.push({ sessionId: result.sessionId, label: tab.label, mode })
         } catch {
           // skip failed shell creation
         }
       }
 
       if (shells.length > 0) {
-        const cacheEntry = cache.get(agentKey) ?? { shells: [], counter: 3 }
+        const cacheEntry = cache.get(agentKey) ?? { shells: [], counter: 2 }
         cacheEntry.shells = shells
         cacheEntry.counter = saved.counter
         cache.set(agentKey, cacheEntry)

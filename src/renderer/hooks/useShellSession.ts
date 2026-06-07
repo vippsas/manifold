@@ -20,7 +20,7 @@ function useShellLifecycle(key: string | null, cwd: string | null): string | nul
     let cancelled = false
 
     void (async () => {
-      const result = (await window.electronAPI.invoke('shell:create', cwd)) as { sessionId: string }
+      const result = (await window.electronAPI.invoke('shell:create', cwd, { mode: 'manifold' })) as { sessionId: string }
       if (!cancelled) {
         cacheRef.current.set(key, result.sessionId)
         setSessionId(result.sessionId)
@@ -56,9 +56,9 @@ export function useShellSessions(
 ): { worktreeSessionId: string | null; projectSessionId: string | null } {
   // Worktree path is already unique per agent
   const worktreeSessionId = useShellLifecycle(worktreeCwd, worktreeCwd)
-  // Project path is shared across agents — use agent session ID to give each its own shell
-  const projectKey = agentSessionId ? `project:${agentSessionId}` : null
-  const projectSessionId = useShellLifecycle(projectKey, projectCwd)
+  // No-worktree sessions still need a project-root shell fallback.
+  const projectKey = !worktreeCwd && agentSessionId ? `project:${agentSessionId}` : null
+  const projectSessionId = useShellLifecycle(projectKey, projectKey ? projectCwd : null)
 
   return { worktreeSessionId, projectSessionId }
 }

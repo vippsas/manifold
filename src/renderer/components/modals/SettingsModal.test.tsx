@@ -100,6 +100,8 @@ describe('SettingsModal', () => {
     // Default base branch input
     const branchInput = screen.getByDisplayValue('main') as HTMLInputElement
     expect(branchInput).toBeInTheDocument()
+
+    expect(screen.queryByText('Use Manifold prompt in worktree shells')).toBeNull()
   })
 
   it('calls onSave with settings when Save is clicked', () => {

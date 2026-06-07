@@ -1,12 +1,12 @@
-import type { ExtraShell } from './shell-tabs-hooks'
+import type { ExtraShell, ShellMode } from './shell-tabs-hooks'
 
 export interface ShellHeaderControls {
-  effectiveTab: string
-  worktreeSessionId: string | null
+  activeTab: string
+  canAddShell: boolean
   extraShells: ExtraShell[]
   onSetActiveTab: (tab: string) => void
   onRemoveShell: (id: string) => void
-  onAddShell: () => void
+  onAddShell: (mode: ShellMode) => void
 }
 
 let currentControls: ShellHeaderControls | null = null

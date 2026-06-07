@@ -7,7 +7,7 @@ import {
   useSyncCacheOnAgentChange, useKeepCacheInSync, usePersistTabs,
   useRestoreTabsFromDisk, usePersistOnChange, useCleanupOnUnmount,
 } from './shell-tabs-hooks'
-import type { ExtraShell } from './shell-tabs-hooks'
+import type { ExtraShell, ShellMode } from './shell-tabs-hooks'
 
 interface ShellTabsProps {
   worktreeSessionId: string | null
@@ -37,18 +37,19 @@ export function ShellTabs({
   worktreeSessionId, projectSessionId, worktreeCwd,
   scrollbackLines, terminalFontFamily, xtermTheme,
 }: ShellTabsProps): React.JSX.Element {
-  const [activeTab, setActiveTab] = useState<string>(worktreeSessionId ? 'worktree' : 'project')
+  const [activeTab, setActiveTab] = useState<string>('main')
+  const mainSessionId = worktreeSessionId ?? projectSessionId
 
   useEffect(() => {
-    if (worktreeSessionId) setActiveTab('worktree')
-  }, [worktreeSessionId])
+    setActiveTab('main')
+  }, [mainSessionId])
 
   const extraShellCacheRef = useRef(new Map<string, { shells: ExtraShell[]; counter: number }>())
   const agentKey = worktreeSessionId ?? '__none__'
   const persistKey = worktreeCwd ?? '__none__'
 
   if (!extraShellCacheRef.current.has(agentKey)) {
-    extraShellCacheRef.current.set(agentKey, { shells: [], counter: 3 })
+    extraShellCacheRef.current.set(agentKey, { shells: [], counter: 2 })
   }
 
   const [extraShells, setExtraShells] = useState<ExtraShell[]>(
@@ -64,20 +65,19 @@ export function ShellTabs({
   useRestoreTabsFromDisk(worktreeCwd, persistKey, agentKey, extraShellCacheRef, restoredRef, setExtraShells)
   usePersistOnChange(extraShells, agentKey, persistKey, restoredRef, extraShellCacheRef, persistTabs)
 
-  const worktreeTerminal = useTerminal({ sessionId: worktreeSessionId, scrollbackLines, terminalFontFamily, xtermTheme })
-  const projectTerminal = useTerminal({ sessionId: projectSessionId, scrollbackLines, terminalFontFamily, xtermTheme })
+  const mainTerminal = useTerminal({ sessionId: mainSessionId, scrollbackLines, terminalFontFamily, xtermTheme })
 
   useCleanupOnUnmount(extraShellCacheRef)
 
-  const effectiveTab = resolveEffectiveTab(activeTab, worktreeSessionId, extraShells)
+  const resolvedTab = resolveActiveTab(activeTab, extraShells)
 
-  const addShell = useCallback(async () => {
+  const addShell = useCallback(async (mode: ShellMode) => {
     if (!worktreeCwd) return
     try {
-      const result = (await window.electronAPI.invoke('shell:create', worktreeCwd)) as { sessionId: string }
+      const result = (await window.electronAPI.invoke('shell:create', worktreeCwd, { mode })) as { sessionId: string }
       const entry = extraShellCacheRef.current.get(agentKey)
-      const counter = entry ? entry.counter++ : 3
-      setExtraShells((prev) => [...prev, { sessionId: result.sessionId, label: `Shell ${counter}` }])
+      const counter = entry ? entry.counter++ : 2
+      setExtraShells((prev) => [...prev, { sessionId: result.sessionId, label: shellLabel(mode, counter), mode }])
       setActiveTab(`extra-${result.sessionId}`)
     } catch {
       // shell:create failed -- ignore silently, user can retry
@@ -89,25 +89,25 @@ export function ShellTabs({
       void window.electronAPI.invoke('shell:kill', sessionId).catch(() => {})
       setExtraShells((prev) => prev.filter((s) => s.sessionId !== sessionId))
       setActiveTab((prev) => {
-        if (prev === `extra-${sessionId}`) return worktreeSessionId ? 'worktree' : 'project'
+        if (prev === `extra-${sessionId}`) return 'main'
         return prev
       })
     },
-    [worktreeSessionId]
+    []
   )
 
-  const addShellFromHeader = useCallback(() => {
-    void addShell()
+  const addShellFromHeader = useCallback((mode: ShellMode) => {
+    void addShell(mode)
   }, [addShell])
 
   const headerControls = React.useMemo(() => ({
-    effectiveTab,
-    worktreeSessionId,
+    activeTab: resolvedTab,
+    canAddShell: Boolean(worktreeSessionId),
     extraShells,
     onSetActiveTab: setActiveTab,
     onRemoveShell: removeShell,
     onAddShell: addShellFromHeader,
-  }), [effectiveTab, worktreeSessionId, extraShells, removeShell, addShellFromHeader])
+  }), [resolvedTab, worktreeSessionId, extraShells, removeShell, addShellFromHeader])
 
   useEffect(() => {
     registerShellHeaderControls(headerControls)
@@ -118,21 +118,16 @@ export function ShellTabs({
     <div style={styles.wrapper}>
       <div style={styles.terminalArea}>
         <div
-          ref={worktreeTerminal.containerRef as React.RefObject<HTMLDivElement>}
+          ref={mainTerminal.containerRef as React.RefObject<HTMLDivElement>}
           className="terminal-host"
-          style={{ ...styles.terminalContainer, display: effectiveTab === 'worktree' ? 'block' : 'none' }}
-        />
-        <div
-          ref={projectTerminal.containerRef as React.RefObject<HTMLDivElement>}
-          className="terminal-host"
-          style={{ ...styles.terminalContainer, display: effectiveTab === 'project' ? 'block' : 'none' }}
+          style={{ ...styles.terminalContainer, display: resolvedTab === 'main' ? 'block' : 'none' }}
         />
         {extraShells.map((shell) => (
           <ExtraShellTerminal
             key={shell.sessionId} sessionId={shell.sessionId}
             scrollbackLines={scrollbackLines} terminalFontFamily={terminalFontFamily}
             xtermTheme={xtermTheme}
-            isActive={effectiveTab === `extra-${shell.sessionId}`}
+            isActive={resolvedTab === `extra-${shell.sessionId}`}
           />
         ))}
       </div>
@@ -140,14 +135,19 @@ export function ShellTabs({
   )
 }
 
-function resolveEffectiveTab(activeTab: string, worktreeSessionId: string | null, extraShells: ExtraShell[]): string {
+function resolveActiveTab(activeTab: string, extraShells: ExtraShell[]): string {
   let tab = activeTab
-  if (!worktreeSessionId && tab === 'worktree') tab = 'project'
+  if (tab === 'main') return tab
   if (tab.startsWith('extra-')) {
     const shellId = tab.slice(6)
     if (!extraShells.find((s) => s.sessionId === shellId)) {
-      tab = worktreeSessionId ? 'worktree' : 'project'
+      tab = 'main'
     }
+    return tab
   }
-  return tab
+  return 'main'
+}
+
+function shellLabel(mode: ShellMode, counter: number): string {
+  return `${mode === 'system' ? 'System' : 'Manifold'} ${counter}`
 }
