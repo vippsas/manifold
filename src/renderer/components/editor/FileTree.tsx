@@ -36,6 +36,7 @@ interface FileTreeProps {
   onRenameFile?: (oldPath: string, newPath: string) => void
   onCreateFile?: (dirPath: string, fileName: string) => Promise<boolean>
   onCreateDir?: (dirPath: string, dirName: string) => Promise<boolean>
+  onRefresh?: () => Promise<void> | void
   onImportPaths?: (dirPath: string, sourcePaths: string[]) => Promise<string | null>
   onPasteImage?: (dirPath: string, dataUrl: string) => Promise<string | null>
   onPasteClipboardImage?: (dirPath: string) => Promise<{ pasted: boolean; error: string | null }>
@@ -51,7 +52,7 @@ interface FileTreeProps {
 export function FileTree({
   tree, additionalTrees, rootLabels, flattenRoots = false,
   changes, additionalChanges, activeFilePath, openFilePaths, expandedPaths, onToggleExpand, onSelectFile,
-  onDeleteFile, onRenameFile, onCreateFile, onCreateDir, onImportPaths, onPasteImage, onPasteClipboardImage, onMovePath,
+  onDeleteFile, onRenameFile, onCreateFile, onCreateDir, onRefresh, onImportPaths, onPasteImage, onPasteClipboardImage, onMovePath,
   onRevealInFinder, onOpenInTerminal, onCopyAbsolutePath, onCopyRelativePath, onOpenFileToSide,
   worktreeRootPath,
 }: FileTreeProps): React.JSX.Element {
@@ -215,6 +216,7 @@ export function FileTree({
         filterQuery={editing.filterQuery}
         onFilterChange={editing.setFilterQuery}
         onClearFilter={() => editing.setFilterQuery('')}
+        onRefresh={onRefresh}
         onExpandAll={handleExpandAll}
         onCollapseAll={handleCollapseAll}
       />

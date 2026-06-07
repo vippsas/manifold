@@ -241,6 +241,10 @@ export const treeStyles: Record<string, React.CSSProperties> = {
     flexShrink: 0,
     transition: 'color 150ms ease, background 150ms ease',
   },
+  toolbarBtnDisabled: {
+    opacity: 0.55,
+    cursor: 'default',
+  },
   statusBanner: {
     padding: '6px 8px',
     fontSize: '11px',
