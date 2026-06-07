@@ -2,6 +2,7 @@ import { describe, it, expect, afterEach } from 'vitest'
 import * as fs from 'node:fs'
 import * as os from 'node:os'
 import * as path from 'node:path'
+import { spawnSync } from 'node:child_process'
 import { buildShellEnv, buildWelcomeMessage, createManifoldZdotdir } from './shell-prompt'
 import { resolveShellHistoryDir } from '../ipc/agent-handlers'
 
@@ -33,11 +34,24 @@ describe('buildWelcomeMessage', () => {
 
 describe('createManifoldZdotdir', () => {
   let zdotdir: string | null = null
+  let userZdotdir: string | null = null
+  const originalZdotdir = process.env.ZDOTDIR
+  const zshAvailable = spawnSync('zsh', ['-fc', 'exit 0']).status === 0
+  const itIfZsh = zshAvailable ? it : it.skip
 
   afterEach(() => {
     if (zdotdir) {
       fs.rmSync(zdotdir, { recursive: true, force: true })
       zdotdir = null
+    }
+    if (userZdotdir) {
+      fs.rmSync(userZdotdir, { recursive: true, force: true })
+      userZdotdir = null
+    }
+    if (originalZdotdir === undefined) {
+      delete process.env.ZDOTDIR
+    } else {
+      process.env.ZDOTDIR = originalZdotdir
     }
   })
 
@@ -64,6 +78,73 @@ describe('createManifoldZdotdir', () => {
     zdotdir = createManifoldZdotdir('oslo')
     const rc = fs.readFileSync(path.join(zdotdir, '.zshrc'), 'utf-8')
     expect(rc).not.toContain('HISTFILE')
+  })
+
+  itIfZsh('removes external prompt-manager hooks before setting the Manifold prompt', () => {
+    userZdotdir = fs.mkdtempSync(path.join(os.tmpdir(), 'manifold-user-zdotdir-'))
+    fs.writeFileSync(
+      path.join(userZdotdir, '.zshrc'),
+      `
+autoload -Uz add-zsh-hook
+function _omp_precmd() {}
+function _omp_preexec() {}
+function prompt_ohmyposh_precmd() {}
+function starship_precmd() {}
+function _omp_zle-line-init() {}
+function user_precmd() {}
+add-zsh-hook precmd _omp_precmd
+add-zsh-hook preexec _omp_preexec
+add-zsh-hook precmd prompt_ohmyposh_precmd
+add-zsh-hook precmd starship_precmd
+add-zsh-hook precmd user_precmd
+zle -N zle-line-init _omp_zle-line-init
+export POSH_SESSION_ID=external
+export STARSHIP_SESSION_KEY=external
+PROMPT='external prompt'
+RPROMPT='external right prompt'
+`,
+      'utf-8',
+    )
+
+    process.env.ZDOTDIR = userZdotdir
+    zdotdir = createManifoldZdotdir('oslo')
+
+    const result = spawnSync(
+      'zsh',
+      [
+        '-i',
+        '-c',
+        [
+          'print -r -- "precmd=${precmd_functions[*]-}"',
+          'print -r -- "preexec=${preexec_functions[*]-}"',
+          'print -r -- "prompt=$PROMPT"',
+          'print -r -- "rprompt=$RPROMPT"',
+          'print -r -- "posh=${POSH_SESSION_ID-}"',
+          'print -r -- "starship=${STARSHIP_SESSION_KEY-}"',
+          'print -r -- "zle_line_init=${widgets[zle-line-init]-}"',
+        ].join('; '),
+      ],
+      {
+        env: { ...process.env, ZDOTDIR: zdotdir },
+        encoding: 'utf-8',
+      },
+    )
+
+    expect(result.status).toBe(0)
+    expect(result.stderr).toBe('')
+    expect(result.stdout).toContain('precmd=user_precmd')
+    expect(result.stdout).toContain('preexec=')
+    expect(result.stdout).not.toContain('_omp_precmd')
+    expect(result.stdout).not.toContain('_omp_preexec')
+    expect(result.stdout).not.toContain('prompt_ohmyposh_precmd')
+    expect(result.stdout).not.toContain('starship_precmd')
+    expect(result.stdout).toContain('prompt=%F{cyan}oslo%f %F{white}❯%f ')
+    expect(result.stdout).toContain('rprompt=')
+    expect(result.stdout).toContain('posh=')
+    expect(result.stdout).toContain('starship=')
+    expect(result.stdout).not.toContain('posh=external')
+    expect(result.stdout).not.toContain('starship=external')
+    expect(result.stdout).not.toContain('_omp_zle-line-init')
   })
 })
 
