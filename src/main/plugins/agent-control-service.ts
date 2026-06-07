@@ -5,6 +5,7 @@
 // core copy is removed in Phase C when loop becomes a plugin.
 import type { SessionManager } from '../session/session-manager'
 import type { TurnOutcome } from '../../shared/plugins/api-types'
+import { detectStatus, hasCodexInteractivePrompt } from '../agent/status-detector'
 
 type SessionAccess = Pick<SessionManager, 'getSession' | 'getInternalSession' | 'sendInput'>
 
@@ -21,6 +22,7 @@ export interface TurnEndWaiterOptions {
 export interface WaitForTurnEndContext {
   agentPtyId?: string
   turnStartedAt?: number
+  outputLengthAtStart?: number
 }
 
 export type WaitForTurnEnd = (sessionId: string, budgetSeconds: number, signal: AbortSignal, context?: WaitForTurnEndContext) => Promise<TurnOutcome>
@@ -47,20 +49,41 @@ export function createTurnEndWaiter(sm: SessionAccess, options: TurnEndWaiterOpt
       if (signal.aborted) return 'aborted'
       const internal = sm.getInternalSession(sessionId)
       const status = internal?.status ?? 'done'
+      if (status === 'done') return 'ended'
+      const isCodexInteractive = internal?.runtimeId === 'codex' && !!internal.outputBuffer
+      const detectedStatus = internal?.runtimeId && internal.outputBuffer
+        ? detectStatus(internal.outputBuffer, internal.runtimeId)
+        : status
+      const hasCodexIdlePrompt = isCodexInteractive
+        ? hasCodexInteractivePrompt(internal.outputBuffer, { allowActiveMarker: true })
+        : false
+      const effectiveStatus = isCodexInteractive
+        ? (status === 'waiting' && detectedStatus === 'waiting' ? 'waiting' : detectedStatus)
+        : idleStates.has(status) ? status : detectedStatus
       const lastOutput = internal?.lastOutputTime ?? 0
       const lastTurnCompleted = internal?.lastTurnCompletedTime ?? 0
+      const outputLength = internal?.outputBuffer?.length ?? 0
       if (lastOutput > turnStart) sawPostPromptOutput = true
+      if (
+        context?.outputLengthAtStart !== undefined &&
+        outputLength > context.outputLengthAtStart &&
+        internal?.runtimeId === 'codex' &&
+        detectedStatus === 'waiting'
+      ) {
+        sawPostPromptOutput = true
+      }
       const agentPtyEnded = !!context?.agentPtyId && !!internal?.nonInteractive && !internal.ptyId
       const sawTurnCompleted = lastTurnCompleted > turnStart
 
-      const isIdle = idleStates.has(status)
+      const isIdle = idleStates.has(effectiveStatus)
       if (!isIdle) idleSince = null
       else if (idleSince === null) idleSince = now()
 
       const t = now()
       const silenceMs = t - Math.max(lastOutput, turnStart)
       const idleMs = idleSince === null ? 0 : t - idleSince
-      if (sawPostPromptOutput && isIdle && idleMs >= idleGraceMs && silenceMs >= idleGraceMs) return 'ended'
+      if (sawPostPromptOutput && isIdle && idleMs >= idleGraceMs) return 'ended'
+      if (sawPostPromptOutput && hasCodexIdlePrompt && silenceMs >= idleGraceMs) return 'ended'
       if (sawTurnCompleted && silenceMs >= idleGraceMs) return 'ended'
       if (agentPtyEnded && silenceMs >= idleGraceMs) return 'ended'
 
@@ -104,12 +127,14 @@ export function createAgentControlService(sm: SessionAccess, options: AgentContr
           sm.sendInput(sessionId, '\r')
           await sleep(800)
         }
-        const turnStartedAt = sm.getInternalSession(sessionId)?.nonInteractive ? Date.now() : undefined
+        const beforePrompt = sm.getInternalSession(sessionId)
+        const turnStartedAt = beforePrompt?.nonInteractive ? Date.now() : undefined
+        const outputLengthAtStart = beforePrompt?.outputBuffer?.length
         sm.sendInput(sessionId, prompt)
         const agentPtyId = sm.getInternalSession(sessionId)?.ptyId || undefined
         await sleep(400)
         sm.sendInput(sessionId, '\r')
-        return await waitForTurnEnd(sessionId, opts?.budgetSeconds ?? DEFAULT_BUDGET_SECONDS, abort.signal, { agentPtyId, turnStartedAt })
+        return await waitForTurnEnd(sessionId, opts?.budgetSeconds ?? DEFAULT_BUDGET_SECONDS, abort.signal, { agentPtyId, turnStartedAt, outputLengthAtStart })
       } finally {
         inflight.delete(sessionId)
       }

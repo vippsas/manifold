@@ -101,6 +101,17 @@ describe('LoopEngine — failure paths', () => {
     await env.engine.start(baseConfig())
     expect(env.log.appended[0].outcome).toBe('aborted')
   })
+
+  it('rolls forward changed timeout iterations when alwaysAdvance is set', async () => {
+    const env = buildEngine({ runTurn: makeRunTurn(['timeout']).fn })
+    env.git.changedFiles.push(1)
+    await env.engine.start(baseConfig({ alwaysAdvance: true }))
+    expect(env.log.appended[0].outcome).toBe('aborted')
+    expect(env.log.appended[0].commitSha).toBeTruthy()
+    expect(env.log.appended[0].errorMessage).toContain('rolled forward')
+    expect(env.git.commits.length).toBe(1)
+    expect(env.git.resets.length).toBe(0)
+  })
 })
 
 describe('LoopEngine — session pinning', () => {

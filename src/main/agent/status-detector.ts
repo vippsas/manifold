@@ -90,20 +90,50 @@ export function detectStatus(output: string, runtimeId: string): AgentStatus {
   return 'running'
 }
 
-function hasCodexInteractivePrompt(output: string): boolean {
-  const normalized = stripAnsi(output)
-  const marker = normalized.lastIndexOf('› ')
+export function hasCodexInteractivePrompt(output: string, opts: { allowActiveMarker?: boolean } = {}): boolean {
+  const normalized = stripTerminalControls(output).replace(/\r/g, '\n').trimEnd()
+  const marker = normalized.lastIndexOf('›')
   if (marker === -1) return false
 
-  const beforePrompt = normalized.slice(0, marker)
-  if (!/Working|esc to interrupt|Interrupt to stop/i.test(beforePrompt)) return false
-
   const promptTail = normalized.slice(marker)
-  if (/Working|esc to interrupt|Interrupt to stop/i.test(promptTail)) return false
+  if (!isCodexPromptBlock(promptTail, opts.allowActiveMarker ?? false)) return false
 
-  return /gpt-[\w.-]+|\/model to change|~\/|\.manifold/.test(promptTail)
+  return hasPriorCodexTurnActivity(normalized.slice(0, marker))
 }
 
-function stripAnsi(value: string): string {
-  return value.replace(/\x1b\[[0-?]*[ -/]*[@-~]/g, '')
+const CODEX_ACTIVE_MARKER = /[•·]\s*Working\b|esc to interrupt|Interrupt to stop/i
+const CODEX_PROMPT_HINT = /gpt-[\w.-]+|\/model to change|~\/|\.manifold|\/skills to list available skills/i
+
+function isCodexPromptBlock(value: string, allowActiveMarker: boolean): boolean {
+  const trimmed = value.trim()
+  if (!trimmed.startsWith('›')) return false
+  if (!allowActiveMarker && CODEX_ACTIVE_MARKER.test(trimmed)) return false
+  if (allowActiveMarker) {
+    const lines = trimmed.split('\n').map((line) => line.trim()).filter(Boolean)
+    const activePromptLine = lines.some((line) =>
+      CODEX_ACTIVE_MARKER.test(line) &&
+      (line.startsWith('›') || CODEX_PROMPT_HINT.test(line))
+    )
+    if (activePromptLine) return false
+  }
+  return CODEX_PROMPT_HINT.test(trimmed)
+}
+
+function hasPriorCodexTurnActivity(value: string): boolean {
+  const lines = value.split('\n').map((line) => line.trim()).filter(Boolean)
+  return lines.some((line) => !isCodexPromptFragment(line))
+}
+
+function isCodexPromptFragment(line: string): boolean {
+  if (CODEX_ACTIVE_MARKER.test(line)) return false
+  if (line.startsWith('›')) return true
+  return CODEX_PROMPT_HINT.test(line)
+}
+
+function stripTerminalControls(value: string): string {
+  return value
+    .replace(/\x1b\][^\x07\x1b]*(?:\x07|\x1b\\)/g, '')
+    .replace(/\x1b\[[0-?]*[ -/]*[@-~]/g, '')
+    .replace(/\x1b[ -/]*[@-~]/g, '')
+    .replace(/[\x00-\x08\x0b\x0c\x0e-\x1f\x7f]/g, '')
 }
