@@ -22,6 +22,8 @@ export interface InternalSession extends AgentSession {
   detectedUrl?: string
   /** Timestamp of most recent PTY output — used for activity-state tracking */
   lastOutputTime?: number
+  /** Timestamp of the most recent structured agent turn-complete event. */
+  lastTurnCompletedTime?: number
   nonInteractive?: boolean
   devServerPtyId?: string
   /** Buffer for accumulating partial NDJSON lines from stream-json output */

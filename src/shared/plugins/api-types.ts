@@ -112,6 +112,7 @@ export interface ManifoldApi {
   }
   agents: {
     readonly activeAgent: AgentSession | undefined
+    getAgent(sessionId: string): AgentSession | undefined
   }
   lm: {
     selectChatModels(): Promise<LanguageModelChat[]>

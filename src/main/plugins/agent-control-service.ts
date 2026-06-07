@@ -18,11 +18,18 @@ export interface TurnEndWaiterOptions {
   idleGraceMs?: number
 }
 
-export type WaitForTurnEnd = (sessionId: string, budgetSeconds: number, signal: AbortSignal) => Promise<TurnOutcome>
+export interface WaitForTurnEndContext {
+  agentPtyId?: string
+  turnStartedAt?: number
+}
 
-/** Wait for an agent session's turn to end after a prompt was sent. A turn is
- *  "ended" only when the session has produced output since the prompt AND has
- *  been idle + output-silent for the grace period. */
+export type WaitForTurnEnd = (sessionId: string, budgetSeconds: number, signal: AbortSignal, context?: WaitForTurnEndContext) => Promise<TurnOutcome>
+
+/** Wait for an agent session's turn to end after a prompt was sent. Interactive
+ *  turns end after post-prompt output plus idle/output silence. Stream-json
+ *  turns may instead report a structured completion event or finish their
+ *  one-shot PTY while preview/dev-server plumbing still keeps the session
+ *  status at "running". */
 export function createTurnEndWaiter(sm: SessionAccess, options: TurnEndWaiterOptions = {}): WaitForTurnEnd {
   const now = options.now ?? ((): number => Date.now())
   const sleep = options.sleep ?? ((ms: number): Promise<void> => new Promise((r) => setTimeout(r, ms)))
@@ -30,8 +37,8 @@ export function createTurnEndWaiter(sm: SessionAccess, options: TurnEndWaiterOpt
   const idleGraceMs = options.idleGraceMs ?? IDLE_GRACE_MS
   const idleStates = new Set(['done', 'waiting'])
 
-  return async (sessionId, budgetSeconds, signal) => {
-    const turnStart = now()
+  return async (sessionId, budgetSeconds, signal, context) => {
+    const turnStart = context?.turnStartedAt ?? now()
     const deadline = turnStart + budgetSeconds * 1000
     let idleSince: number | null = null
     let sawPostPromptOutput = false
@@ -41,7 +48,10 @@ export function createTurnEndWaiter(sm: SessionAccess, options: TurnEndWaiterOpt
       const internal = sm.getInternalSession(sessionId)
       const status = internal?.status ?? 'done'
       const lastOutput = internal?.lastOutputTime ?? 0
+      const lastTurnCompleted = internal?.lastTurnCompletedTime ?? 0
       if (lastOutput > turnStart) sawPostPromptOutput = true
+      const agentPtyEnded = !!context?.agentPtyId && !!internal?.nonInteractive && !internal.ptyId
+      const sawTurnCompleted = lastTurnCompleted > turnStart
 
       const isIdle = idleStates.has(status)
       if (!isIdle) idleSince = null
@@ -51,6 +61,8 @@ export function createTurnEndWaiter(sm: SessionAccess, options: TurnEndWaiterOpt
       const silenceMs = t - Math.max(lastOutput, turnStart)
       const idleMs = idleSince === null ? 0 : t - idleSince
       if (sawPostPromptOutput && isIdle && idleMs >= idleGraceMs && silenceMs >= idleGraceMs) return 'ended'
+      if (sawTurnCompleted && silenceMs >= idleGraceMs) return 'ended'
+      if (agentPtyEnded && silenceMs >= idleGraceMs) return 'ended'
 
       await sleep(pollMs)
     }
@@ -92,10 +104,12 @@ export function createAgentControlService(sm: SessionAccess, options: AgentContr
           sm.sendInput(sessionId, '\r')
           await sleep(800)
         }
+        const turnStartedAt = sm.getInternalSession(sessionId)?.nonInteractive ? Date.now() : undefined
         sm.sendInput(sessionId, prompt)
+        const agentPtyId = sm.getInternalSession(sessionId)?.ptyId || undefined
         await sleep(400)
         sm.sendInput(sessionId, '\r')
-        return await waitForTurnEnd(sessionId, opts?.budgetSeconds ?? DEFAULT_BUDGET_SECONDS, abort.signal)
+        return await waitForTurnEnd(sessionId, opts?.budgetSeconds ?? DEFAULT_BUDGET_SECONDS, abort.signal, { agentPtyId, turnStartedAt })
       } finally {
         inflight.delete(sessionId)
       }

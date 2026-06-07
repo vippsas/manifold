@@ -28,11 +28,11 @@ function tokenFromSignal(signal: AbortSignal): CancellationToken {
 }
 
 export function activate(context: ManifoldContext): void {
-  const runTurn: RunTurn = async (prompt, opts, signal) => {
-    const agent = manifold.agents.activeAgent
+  const runTurn: RunTurn = async (sessionId, prompt, opts, signal) => {
+    const agent = manifold.agents.getAgent(sessionId)
     // No agent means the loop genuinely can't proceed — surface it as an error rather than
     // 'aborted', which the engine logs as "stopped by user" (misleading and non-actionable).
-    if (!agent) throw new Error('no active agent session')
+    if (!agent) throw new Error(`no agent session ${sessionId}`)
     return agent.runTurn(prompt, { budgetSeconds: opts.budgetSeconds, clearContext: opts.clearContext }, tokenFromSignal(signal))
   }
 

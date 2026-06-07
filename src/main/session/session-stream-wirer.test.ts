@@ -297,6 +297,29 @@ describe('SessionStreamWirer', () => {
     ])
   })
 
+  it('records Codex turn completion time from structured events', () => {
+    const ptyPool = new FakePtyPool()
+    const onDevServerNeeded = vi.fn()
+
+    const wirer = new SessionStreamWirer(
+      ptyPool as never,
+      () => null,
+      vi.fn(),
+      undefined,
+      vi.fn(),
+      onDevServerNeeded,
+    )
+
+    const session = createSession()
+    const before = Date.now()
+    wirer.wireStreamJsonOutput(session.ptyId, session, 'codex-jsonl')
+
+    ptyPool.emitData(session.ptyId, `${JSON.stringify({ type: 'turn.completed' })}\n`)
+
+    expect(session.lastTurnCompletedTime).toBeGreaterThanOrEqual(before)
+    expect(onDevServerNeeded).toHaveBeenCalledWith(session)
+  })
+
   it('still promotes preview URLs from actual plain-text process output', () => {
     const ptyPool = new FakePtyPool()
     const sendToRenderer = vi.fn()

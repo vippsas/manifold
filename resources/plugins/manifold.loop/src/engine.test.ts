@@ -104,17 +104,23 @@ describe('LoopEngine — failure paths', () => {
 })
 
 describe('LoopEngine — session pinning', () => {
-  it('errors when the active session changes mid-run', async () => {
+  it('continues running the pinned session when the active session changes mid-run', async () => {
     const git = makeFakeGit(); git.changedFiles.push(1, 1)
     const log = makeFakeLog()
     let active: string | undefined = SESSION_ID
     let turns = 0
+    const sessionIds: string[] = []
     const engine = new LoopEngine({
       git,
       evalRunner: makeFakeEval([{ stdout: 'ms=10', exitCode: 0 }, { stdout: 'ms=9', exitCode: 0 }]),
       judge: makeFakeJudge(),
       iterationLog: log,
-      runTurn: async () => { turns += 1; if (turns === 1) active = 'other'; return 'ended' },
+      runTurn: async (sessionId) => {
+        sessionIds.push(sessionId)
+        turns += 1
+        if (turns === 1) active = 'other'
+        return 'ended'
+      },
       activeSessionId: () => active,
       worktreePath: () => WORKTREE,
       store: makeFakeStore(),
@@ -122,9 +128,10 @@ describe('LoopEngine — session pinning', () => {
     })
     await engine.start(baseConfig({ maxIterations: 2 }))
     const status = await engine.getStatus(SESSION_ID)
-    expect(status?.state).toBe('error')
-    expect(status?.errorMessage).toContain('active session changed')
-    expect(log.appended.length).toBe(1) // iteration 1 ran; iteration 2 blocked by the guard
+    expect(status?.state).toBe('finished')
+    expect(status?.errorMessage).toBeUndefined()
+    expect(log.appended.length).toBe(2)
+    expect(sessionIds).toEqual([SESSION_ID, SESSION_ID])
   })
 })
 

@@ -66,7 +66,7 @@ export function makeFakeStore(): LoopStore & { configs: Map<string, LoopConfig>;
 export function makeRunTurn(outcomes: Array<TurnOutcome>): { fn: LoopEngineDeps['runTurn']; prompts: string[] } {
   const queue = [...outcomes]
   const prompts: string[] = []
-  return { prompts, fn: async (prompt, _opts, signal) => { prompts.push(prompt); if (signal.aborted) return 'aborted'; return queue.shift() ?? 'ended' } }
+  return { prompts, fn: async (_sessionId, prompt, _opts, signal) => { prompts.push(prompt); if (signal.aborted) return 'aborted'; return queue.shift() ?? 'ended' } }
 }
 
 export function baseConfig(overrides: Partial<LoopConfig> = {}): LoopConfig {

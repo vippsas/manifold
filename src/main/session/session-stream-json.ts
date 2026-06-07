@@ -97,6 +97,7 @@ function handleClaudeStreamJsonEvent(ctx: StreamJsonCtx, session: InternalSessio
     // linger for over a minute after the result is emitted).
     // Guard: skip if a new process has already replaced this one.
     if (!ptyId || session.ptyId === ptyId) {
+      markTurnCompleted(session)
       if (!session.detectedUrl && !session.devServerPtyId) {
         ctx.onDevServerNeeded(session)
       } else {
@@ -325,10 +326,15 @@ function sourceBaseName(filePath: string | undefined): string | null {
 }
 
 function completeCodexTurn(ctx: StreamJsonCtx, session: InternalSession): void {
+  markTurnCompleted(session)
   if (!session.detectedUrl && !session.devServerPtyId) {
     ctx.onDevServerNeeded(session)
   } else {
     session.status = 'waiting'
     ctx.sendToRenderer('agent:status', { sessionId: session.id, status: 'waiting' })
   }
+}
+
+function markTurnCompleted(session: InternalSession): void {
+  session.lastTurnCompletedTime = Date.now()
 }
