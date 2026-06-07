@@ -57,6 +57,27 @@ describe('detectStatus', () => {
     it('detects waiting from "codex>" prompt', () => {
       expect(detectStatus('codex> ', 'codex')).toBe('waiting')
     })
+
+    it('detects waiting from the interactive Codex prompt line', () => {
+      const output = [
+        '› Write tests for @filename gpt-5.5 xhigh · ~/.manifold/worktrees/Stories/ainews-alesund • Working (47s • esc to interrupt)',
+        '• Updated research/20260607-120639-boris-loops-codex-workflows/linkedin-article.md.',
+        'No tests or benchmarks run, per instruction.',
+        '─────────────────────────────────────────────────────────────────────',
+        '› Write tests for @filename gpt-5.5 xhigh · ~/.manifold/worktrees/Stories/ainews-alesund',
+      ].join('\n')
+      expect(detectStatus(output, 'codex')).toBe('waiting')
+    })
+
+    it('does not treat the Codex working line as waiting', () => {
+      const output = '› Write tests for @filename gpt-5.5 xhigh · ~/.manifold/worktrees/Stories/ainews-alesund • Working (42s • esc to interrupt)'
+      expect(detectStatus(output, 'codex')).toBe('running')
+    })
+
+    it('does not treat the initial Codex prompt echo as waiting before work starts', () => {
+      const output = '› Write tests for @filename gpt-5.5 xhigh · ~/.manifold/worktrees/Stories/ainews-alesund'
+      expect(detectStatus(output, 'codex')).toBe('running')
+    })
   })
 
   describe('Gemini patterns', () => {
