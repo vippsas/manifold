@@ -16,6 +16,10 @@ import type { LmService } from './lm-service'
 interface PluginActivationProxy { $activate(t: ActivationTarget): Promise<void>; $deactivate(id: string): Promise<void> }
 interface PluginCommandsProxy { $invokeCommand(id: string, args: unknown[]): Promise<unknown> }
 
+function rpcErrorMessage(err: unknown): string {
+  return err instanceof Error ? err.message : String(err)
+}
+
 /** Owns the plugin extension-host utilityProcess and the main-side RPC services. */
 export class ExtensionHost {
   private child: UtilityProcess | null = null
@@ -111,14 +115,22 @@ export class ExtensionHost {
     return endpoint.getProxy<{ $getChildren(viewId: string, parentNodeId: string | undefined): Promise<unknown> }>(PLUGIN_TREE).$getChildren(viewId, parentNodeId)
   }
 
+  private observeNotification(label: string, promise: Promise<unknown>): void {
+    void promise.catch((err) => {
+      const message = rpcErrorMessage(err)
+      if (message === 'extension host disposed' || message.startsWith('plugin host exited')) return
+      debugLog(`[plugins] ${label} failed: ${message}`)
+    })
+  }
+
   deliverWebviewMessage(viewId: string, message: unknown): void {
     const { endpoint } = this.ensure()
-    void endpoint.getProxy<{ $deliverMessage(viewId: string, message: unknown): Promise<void> }>(PLUGIN_WEBVIEW).$deliverMessage(viewId, message)
+    this.observeNotification('deliverWebviewMessage', endpoint.getProxy<{ $deliverMessage(viewId: string, message: unknown): Promise<void> }>(PLUGIN_WEBVIEW).$deliverMessage(viewId, message))
   }
 
   setActiveContext(context: { project?: unknown; session?: unknown }): void {
     const { endpoint } = this.ensure()
-    void endpoint.getProxy<{ $setActiveContext(ctx: unknown): Promise<void> }>(PLUGIN_WORKSPACE).$setActiveContext(context)
+    this.observeNotification('setActiveContext', endpoint.getProxy<{ $setActiveContext(ctx: unknown): Promise<void> }>(PLUGIN_WORKSPACE).$setActiveContext(context))
   }
 
   /** Execute a contributed command (app/dev entry point). */
@@ -129,7 +141,7 @@ export class ExtensionHost {
 
   notifyConfigChanged(pluginId: string): void {
     const { endpoint } = this.ensure()
-    void endpoint.getProxy<{ $onDidChange(id: string): Promise<void> }>(PLUGIN_CONFIG).$onDidChange(pluginId)
+    this.observeNotification('notifyConfigChanged', endpoint.getProxy<{ $onDidChange(id: string): Promise<void> }>(PLUGIN_CONFIG).$onDidChange(pluginId))
   }
 
   resolveUi(requestId: string, value: unknown): void { this.ui.resolve(requestId, value) }
