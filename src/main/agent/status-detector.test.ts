@@ -95,6 +95,23 @@ describe('detectStatus', () => {
       expect(detectStatus(output, 'codex')).toBe('running')
     })
 
+    it('does not treat an active Codex prompt line as idle in relaxed mode', () => {
+      const output = [
+        'Prior completed output.',
+        '› Write tests for @filename gpt-5.5 xhigh · ~/.manifold/worktrees/Stories/ainews-alesund • Working (42s • esc to interrupt)',
+      ].join('\n')
+      expect(hasCodexInteractivePrompt(output, { allowActiveMarker: true })).toBe(false)
+    })
+
+    it('does not treat an active wrapped Codex metadata line as idle in relaxed mode', () => {
+      const output = [
+        'Prior completed output.',
+        '› Write tests for @filename',
+        'gpt-5.5 xhigh · ~/.manifold/worktrees/Stories/ainews-alesund • Working (42s • esc to interrupt)',
+      ].join('\n')
+      expect(hasCodexInteractivePrompt(output, { allowActiveMarker: true })).toBe(false)
+    })
+
     it('keeps strict status running when stale working text contaminates the prompt tail', () => {
       const output = [
         '• Done. Changed only research/20260607-120639-boris-loops-codex-workflows/linkedin-article.md.',

@@ -108,6 +108,14 @@ function isCodexPromptBlock(value: string, allowActiveMarker: boolean): boolean 
   const trimmed = value.trim()
   if (!trimmed.startsWith('›')) return false
   if (!allowActiveMarker && CODEX_ACTIVE_MARKER.test(trimmed)) return false
+  if (allowActiveMarker) {
+    const lines = trimmed.split('\n').map((line) => line.trim()).filter(Boolean)
+    const activePromptLine = lines.some((line) =>
+      CODEX_ACTIVE_MARKER.test(line) &&
+      (line.startsWith('›') || CODEX_PROMPT_HINT.test(line))
+    )
+    if (activePromptLine) return false
+  }
   return CODEX_PROMPT_HINT.test(trimmed)
 }
 

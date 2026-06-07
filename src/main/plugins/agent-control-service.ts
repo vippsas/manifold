@@ -49,14 +49,16 @@ export function createTurnEndWaiter(sm: SessionAccess, options: TurnEndWaiterOpt
       if (signal.aborted) return 'aborted'
       const internal = sm.getInternalSession(sessionId)
       const status = internal?.status ?? 'done'
+      if (status === 'done') return 'ended'
+      const isCodexInteractive = internal?.runtimeId === 'codex' && !!internal.outputBuffer
       const detectedStatus = internal?.runtimeId && internal.outputBuffer
         ? detectStatus(internal.outputBuffer, internal.runtimeId)
         : status
-      const hasCodexIdlePrompt = internal?.runtimeId === 'codex' && internal.outputBuffer
+      const hasCodexIdlePrompt = isCodexInteractive
         ? hasCodexInteractivePrompt(internal.outputBuffer, { allowActiveMarker: true })
         : false
-      const effectiveStatus = internal?.runtimeId === 'codex' && internal.outputBuffer
-        ? detectedStatus
+      const effectiveStatus = isCodexInteractive
+        ? (status === 'waiting' && detectedStatus === 'waiting' ? 'waiting' : detectedStatus)
         : idleStates.has(status) ? status : detectedStatus
       const lastOutput = internal?.lastOutputTime ?? 0
       const lastTurnCompleted = internal?.lastTurnCompletedTime ?? 0

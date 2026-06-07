@@ -127,6 +127,31 @@ describe('createTurnEndWaiter', () => {
     expect(outcome).toBe('ended')
   })
 
+  it("does not end an active silent Codex prompt whose prompt line still says Working", async () => {
+    let t = 1000
+    const now = (): number => t
+    const sleep = async (ms: number): Promise<void> => { t += ms }
+    const outputBuffer = [
+      'Prior completed output.',
+      '› Implement {feature} gpt-5.5 xhigh · ~/.manifold/worktrees/Stories/ainews-alesund • Working (12s • esc to interrupt)',
+    ].join('\n')
+    const sm = fakeSessionManager({
+      internal: () => ({ status: 'running', runtimeId: 'codex', outputBuffer, lastOutputTime: 1000 }),
+    })
+    const wait = createTurnEndWaiter(sm as never, { now, sleep, pollMs: 100, idleGraceMs: 500 })
+    const outcome = await wait('s1', 1, new AbortController().signal, { turnStartedAt: 900, outputLengthAtStart: 0 })
+    expect(outcome).toBe('timeout')
+  })
+
+  it("returns 'ended' for an exited Codex session even without a final prompt", async () => {
+    const sm = fakeSessionManager({
+      internal: () => ({ status: 'done', runtimeId: 'codex', outputBuffer: 'partial output without prompt', lastOutputTime: 0 }),
+    })
+    const wait = createTurnEndWaiter(sm as never, { now: () => 1000 })
+    const outcome = await wait('s1', 60, new AbortController().signal, { turnStartedAt: 1000 })
+    expect(outcome).toBe('ended')
+  })
+
   it("returns 'aborted' when the signal is already aborted", async () => {
     const sm = fakeSessionManager({})
     const wait = createTurnEndWaiter(sm as never, {})
