@@ -184,6 +184,38 @@ describe('sanitizeDockLayout', () => {
     expect(leaf.data.activeView).toBe('agent')
   })
 
+  it('keeps plugin webview and tree panels in saved layouts', () => {
+    const saved = {
+      grid: {
+        root: {
+          type: 'leaf',
+          size: 1000,
+          data: {
+            id: 'workspace',
+            views: ['agent', 'manifold.loop.panel', 'publisher.tree'],
+            activeView: 'manifold.loop.panel',
+          },
+        },
+      },
+      panels: {
+        agent: { component: 'agent' },
+        'manifold.loop.panel': { component: 'pluginView', title: 'Autoresearch Loop' },
+        'publisher.tree': { component: 'pluginTreeView', title: 'Plugin Tree' },
+      },
+    } as unknown as SerializedDockview
+
+    const sanitized = sanitizeDockLayout(saved) as SerializedDockview
+    const leaf = sanitized.grid.root as {
+      type: 'leaf'
+      data: { views: string[]; activeView?: string }
+    }
+
+    expect(sanitized).toBe(saved)
+    expect(Object.keys(sanitized.panels)).toEqual(['agent', 'manifold.loop.panel', 'publisher.tree'])
+    expect(leaf.data.views).toEqual(['agent', 'manifold.loop.panel', 'publisher.tree'])
+    expect(leaf.data.activeView).toBe('manifold.loop.panel')
+  })
+
   it('returns null when every grid leaf is empty after sanitization', () => {
     const saved = {
       grid: {
