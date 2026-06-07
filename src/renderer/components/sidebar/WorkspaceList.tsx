@@ -7,6 +7,7 @@ import { WorkspaceGlyph } from './WorkspaceGlyph'
 import { isGitProject } from '../../../shared/project-kind'
 import { FavoriteStarButton } from './FavoriteStarButton'
 import { SidebarSectionHeader } from './SidebarSectionHeader'
+import { useSidebarSectionState } from './sidebar-section-state'
 
 export interface WorkspaceListProps {
   workspaces: Workspace[]
@@ -56,7 +57,7 @@ export function WorkspaceList({
   fetchError,
 }: WorkspaceListProps) {
   const [removing, setRemoving] = useState<string | null>(null)
-  const [workspacesExpanded, setWorkspacesExpanded] = useState(true)
+  const [workspacesExpanded, toggleWorkspacesExpanded] = useSidebarSectionState('workspaces', true)
 
   const projectById = useCallback(
     (id: string) => projects.find((p) => p.id === id),
@@ -84,7 +85,7 @@ export function WorkspaceList({
         label="Workspaces"
         count={workspaces.length}
         expanded={workspacesExpanded}
-        onToggle={() => setWorkspacesExpanded((prev) => !prev)}
+        onToggle={toggleWorkspacesExpanded}
         action={onNewWorkspace && (
           <button
             type="button"

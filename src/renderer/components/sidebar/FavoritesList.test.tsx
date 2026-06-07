@@ -1,9 +1,10 @@
-import { describe, it, expect, vi } from 'vitest'
-import { render, screen, fireEvent } from '@testing-library/react'
+import { beforeEach, describe, it, expect, vi } from 'vitest'
+import { cleanup, render, screen, fireEvent } from '@testing-library/react'
 import { FavoritesList } from './FavoritesList'
 import { DockStateContext } from '../editor/dock-panel-types'
 import type { DockAppState } from '../editor/dock-panel-types'
 import type { ResolvedFavorite } from '../../../shared/types'
+import { installLocalStorage } from './ProjectSidebar.test-helpers'
 
 function renderList(favorites: ResolvedFavorite[], overrides: Partial<DockAppState> = {}) {
   const value = {
@@ -23,6 +24,10 @@ function renderList(favorites: ResolvedFavorite[], overrides: Partial<DockAppSta
 }
 
 describe('FavoritesList', () => {
+  beforeEach(() => {
+    installLocalStorage()
+  })
+
   it('renders nothing when there are no favorites', () => {
     const { container } = render(
       <DockStateContext.Provider value={{ favorites: [], onActivateFavorite: vi.fn(), onReorderFavorites: vi.fn() } as unknown as DockAppState}>
@@ -79,5 +84,21 @@ describe('FavoritesList', () => {
 
     expect(screen.getByText('ML Pipeline')).toBeTruthy()
     expect(screen.getByText('billing')).toBeTruthy()
+  })
+
+  it('restores the persisted favorites collapsed state', () => {
+    const favorites: ResolvedFavorite[] = [
+      { kind: 'workspace', id: 'w1', name: 'ML Pipeline' },
+      { kind: 'repo', id: 'p2', name: 'billing' },
+    ]
+    renderList(favorites)
+
+    fireEvent.click(screen.getByTitle('Collapse Favorites'))
+    cleanup()
+    renderList(favorites)
+
+    expect(screen.getByTitle('Expand Favorites')).toHaveAttribute('aria-expanded', 'false')
+    expect(screen.queryByText('ML Pipeline')).not.toBeInTheDocument()
+    expect(screen.queryByText('billing')).not.toBeInTheDocument()
   })
 })

@@ -5,11 +5,12 @@ import { favoritesStyles } from './FavoritesList.styles'
 import { WorkspaceGlyph } from './WorkspaceGlyph'
 import { RepoGlyph } from './RepoGlyph'
 import { SidebarSectionHeader } from './SidebarSectionHeader'
+import { useSidebarSectionState } from './sidebar-section-state'
 
 export function FavoritesList(): React.JSX.Element | null {
   const state = useContext(DockStateContext)
   const [dragIndex, setDragIndex] = useState<number | null>(null)
-  const [expanded, setExpanded] = useState(true)
+  const [expanded, toggleExpanded] = useSidebarSectionState('favorites', true)
 
   if (!state || state.favorites.length === 0) return null
   const { favorites, onActivateFavorite, onReorderFavorites } = state
@@ -20,7 +21,7 @@ export function FavoritesList(): React.JSX.Element | null {
         label="Favorites"
         count={favorites.length}
         expanded={expanded}
-        onToggle={() => setExpanded((prev) => !prev)}
+        onToggle={toggleExpanded}
       />
       {expanded && favorites.map((fav, index) => (
         <div

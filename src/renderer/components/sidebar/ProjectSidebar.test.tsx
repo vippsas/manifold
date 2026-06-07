@@ -3,12 +3,14 @@ import { screen, fireEvent } from '@testing-library/react'
 import type { AgentSession } from '../../../shared/types'
 import {
   installElectronApi,
+  installLocalStorage,
   renderSidebar,
   sampleSessions,
 } from './ProjectSidebar.test-helpers'
 
 beforeEach(() => {
   vi.clearAllMocks()
+  installLocalStorage()
   installElectronApi()
 })
 
@@ -310,6 +312,34 @@ describe('ProjectSidebar', () => {
     fireEvent.click(screen.getByTitle('Expand With agents'))
 
     expect(screen.getByText('oslo')).toBeInTheDocument()
+  })
+
+  it('restores persisted section collapsed states after remount', () => {
+    const { unmount } = renderSidebar({
+      workspaces: [{ id: 'ws1', name: 'auth-refactor', projectIds: ['p1'], createdAt: '2024-01-01' }],
+      activeWorkspaceId: null,
+      onSelectWorkspace: vi.fn(),
+      onRemoveWorkspace: vi.fn(),
+    })
+
+    fireEvent.click(screen.getByTitle('Collapse Workspaces'))
+    fireEvent.click(screen.getByTitle('Collapse With agents'))
+    fireEvent.click(screen.getByTitle('Expand Repositories'))
+    unmount()
+
+    renderSidebar({
+      workspaces: [{ id: 'ws1', name: 'auth-refactor', projectIds: ['p1'], createdAt: '2024-01-01' }],
+      activeWorkspaceId: null,
+      onSelectWorkspace: vi.fn(),
+      onRemoveWorkspace: vi.fn(),
+    })
+
+    expect(screen.getByTitle('Expand Workspaces')).toHaveAttribute('aria-expanded', 'false')
+    expect(screen.queryByText('auth-refactor')).not.toBeInTheDocument()
+    expect(screen.getByTitle('Expand With agents')).toHaveAttribute('aria-expanded', 'false')
+    expect(screen.queryByText('oslo')).not.toBeInTheDocument()
+    expect(screen.getByTitle('Collapse Repositories')).toHaveAttribute('aria-expanded', 'true')
+    expect(screen.getByText('Beta')).toBeInTheDocument()
   })
 
   it('keeps the active repo pinned above the sections when it has no agents', () => {
