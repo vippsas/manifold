@@ -1,13 +1,8 @@
 import { useState, useEffect, useRef } from 'react'
 
-interface CachedShellSession {
-  sessionId: string
-  refreshToken: string
-}
-
-function useShellLifecycle(key: string | null, cwd: string | null, refreshToken: string): string | null {
+function useShellLifecycle(key: string | null, cwd: string | null): string | null {
   const [sessionId, setSessionId] = useState<string | null>(null)
-  const cacheRef = useRef(new Map<string, CachedShellSession>())
+  const cacheRef = useRef(new Map<string, string>())
 
   useEffect(() => {
     if (!key || !cwd) {
@@ -18,20 +13,16 @@ function useShellLifecycle(key: string | null, cwd: string | null, refreshToken:
     // Reuse cached session if we've already created a shell for this key
     const cached = cacheRef.current.get(key)
     if (cached) {
-      if (cached.refreshToken === refreshToken) {
-        setSessionId(cached.sessionId)
-        return
-      }
-      cacheRef.current.delete(key)
-      void window.electronAPI.invoke('agent:kill', cached.sessionId).catch(() => {})
+      setSessionId(cached)
+      return
     }
 
     let cancelled = false
 
     void (async () => {
-      const result = (await window.electronAPI.invoke('shell:create', cwd)) as { sessionId: string }
+      const result = (await window.electronAPI.invoke('shell:create', cwd, { mode: 'manifold' })) as { sessionId: string }
       if (!cancelled) {
-        cacheRef.current.set(key, { sessionId: result.sessionId, refreshToken })
+        cacheRef.current.set(key, result.sessionId)
         setSessionId(result.sessionId)
       } else {
         void window.electronAPI.invoke('agent:kill', result.sessionId).catch(() => {})
@@ -42,14 +33,14 @@ function useShellLifecycle(key: string | null, cwd: string | null, refreshToken:
       cancelled = true
       // Don't kill the session — it stays cached for reuse when switching back
     }
-  }, [key, cwd, refreshToken])
+  }, [key, cwd])
 
   // Clean up all cached sessions on unmount
   useEffect(() => {
     const cache = cacheRef.current
     return () => {
-      for (const entry of cache.values()) {
-        void window.electronAPI.invoke('agent:kill', entry.sessionId).catch(() => {})
+      for (const id of cache.values()) {
+        void window.electronAPI.invoke('agent:kill', id).catch(() => {})
       }
       cache.clear()
     }
@@ -61,15 +52,13 @@ function useShellLifecycle(key: string | null, cwd: string | null, refreshToken:
 export function useShellSessions(
   worktreeCwd: string | null,
   projectCwd: string | null,
-  agentSessionId: string | null,
-  shellPrompt: boolean
+  agentSessionId: string | null
 ): { worktreeSessionId: string | null; projectSessionId: string | null } {
-  const promptRefreshToken = shellPrompt ? 'manifold-prompt' : 'native-prompt'
   // Worktree path is already unique per agent
-  const worktreeSessionId = useShellLifecycle(worktreeCwd, worktreeCwd, promptRefreshToken)
+  const worktreeSessionId = useShellLifecycle(worktreeCwd, worktreeCwd)
   // No-worktree sessions still need a project-root shell fallback.
   const projectKey = !worktreeCwd && agentSessionId ? `project:${agentSessionId}` : null
-  const projectSessionId = useShellLifecycle(projectKey, projectKey ? projectCwd : null, promptRefreshToken)
+  const projectSessionId = useShellLifecycle(projectKey, projectKey ? projectCwd : null)
 
   return { worktreeSessionId, projectSessionId }
 }

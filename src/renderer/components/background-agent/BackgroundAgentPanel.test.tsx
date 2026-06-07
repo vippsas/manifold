@@ -248,8 +248,6 @@ function createDockState(overrides: Partial<DockAppState> = {}): DockAppState {
     worktreeShellSessionId: null,
     projectShellSessionId: null,
     worktreeCwd: null,
-    shellPrompt: true,
-    onShellPromptChange: vi.fn(),
     baseBranch: 'main',
     defaultRuntime: 'codex',
     defaultAgentMode: 'interactive',

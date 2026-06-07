@@ -50,8 +50,6 @@ function makeDockState(overrides: Partial<DockAppState> = {}): DockAppState {
     worktreeShellSessionId: null,
     projectShellSessionId: null,
     worktreeCwd: null,
-    shellPrompt: true,
-    onShellPromptChange: () => {},
     baseBranch: 'main',
     activeProjectIsGit: true,
     defaultRuntime: 'codex',

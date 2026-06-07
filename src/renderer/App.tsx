@@ -177,7 +177,7 @@ export function App(): React.JSX.Element {
   const worktreeShellCwd = activeSession?.worktreePath ?? null
   const shellProjectCwd = activeSession ? (activeProject?.path ?? null) : null
   const shellSessionKey = activeSessionId
-  const { worktreeSessionId, projectSessionId } = useShellSessions(worktreeShellCwd, shellProjectCwd, shellSessionKey, settings.shellPrompt)
+  const { worktreeSessionId, projectSessionId } = useShellSessions(worktreeShellCwd, shellProjectCwd, shellSessionKey)
 
   const editorHandlers = useEditorPaneHandlers({
     activeSessionId, activeProjectId, sessionsByProject, projects,
@@ -270,8 +270,6 @@ export function App(): React.JSX.Element {
     expandedPaths: viewState.expandedPaths, onToggleExpand: viewState.onToggleExpand, worktreeRoot: tree?.path ?? null,
     worktreeShellSessionId: worktreeSessionId, projectShellSessionId: projectSessionId,
     worktreeCwd: worktreeShellCwd,
-    shellPrompt: settings.shellPrompt,
-    onShellPromptChange: (enabled) => { void updateSettings({ shellPrompt: enabled }) },
     baseBranch, activeProjectIsGit,
     defaultRuntime: settings.defaultRuntime, defaultAgentMode: settings.defaultAgentMode ?? 'chat',
     activeSessionWorktreePath: activeSession?.worktreePath ?? null,

@@ -22,18 +22,26 @@ beforeEach(() => {
 })
 
 describe('useShellSessions', () => {
-  it('recreates the worktree shell when the prompt mode changes', async () => {
-    const { result, rerender, unmount } = renderHook(
-      ({ shellPrompt }) => useShellSessions('/worktree', '/project', 'agent-1', shellPrompt),
-      { initialProps: { shellPrompt: true } },
+  it('creates the primary worktree shell as a Manifold shell', async () => {
+    const { result, unmount } = renderHook(
+      () => useShellSessions('/worktree', '/project', 'agent-1'),
     )
 
     await waitFor(() => expect(result.current.worktreeSessionId).toBe('shell-1'))
 
-    rerender({ shellPrompt: false })
+    expect(mockInvoke).toHaveBeenCalledWith('shell:create', '/worktree', { mode: 'manifold' })
 
-    await waitFor(() => expect(result.current.worktreeSessionId).toBe('shell-2'))
-    expect(mockInvoke).toHaveBeenCalledWith('agent:kill', 'shell-1')
+    unmount()
+  })
+
+  it('creates a project fallback shell as a Manifold shell when there is no worktree cwd', async () => {
+    const { result, unmount } = renderHook(
+      () => useShellSessions(null, '/project', 'agent-1'),
+    )
+
+    await waitFor(() => expect(result.current.projectSessionId).toBe('shell-1'))
+
+    expect(mockInvoke).toHaveBeenCalledWith('shell:create', '/project', { mode: 'manifold' })
 
     unmount()
   })

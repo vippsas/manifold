@@ -7,14 +7,12 @@ import {
   useSyncCacheOnAgentChange, useKeepCacheInSync, usePersistTabs,
   useRestoreTabsFromDisk, usePersistOnChange, useCleanupOnUnmount,
 } from './shell-tabs-hooks'
-import type { ExtraShell } from './shell-tabs-hooks'
+import type { ExtraShell, ShellMode } from './shell-tabs-hooks'
 
 interface ShellTabsProps {
   worktreeSessionId: string | null
   projectSessionId: string | null
   worktreeCwd: string | null
-  shellPrompt: boolean
-  onShellPromptChange: (enabled: boolean) => void
   scrollbackLines: number
   terminalFontFamily?: string
   xtermTheme?: ITheme
@@ -37,7 +35,6 @@ function ExtraShellTerminal({
 
 export function ShellTabs({
   worktreeSessionId, projectSessionId, worktreeCwd,
-  shellPrompt, onShellPromptChange,
   scrollbackLines, terminalFontFamily, xtermTheme,
 }: ShellTabsProps): React.JSX.Element {
   const [activeTab, setActiveTab] = useState<string>('main')
@@ -73,55 +70,14 @@ export function ShellTabs({
   useCleanupOnUnmount(extraShellCacheRef)
 
   const resolvedTab = resolveActiveTab(activeTab, extraShells)
-  const previousShellPromptRef = useRef(shellPrompt)
 
-  useEffect(() => {
-    if (previousShellPromptRef.current === shellPrompt) return
-    previousShellPromptRef.current = shellPrompt
-    if (!worktreeCwd || extraShells.length === 0) return
-
-    let cancelled = false
-    const shellsToRefresh = extraShells
-    const activeExtraLabel = shellsToRefresh.find((shell) => `extra-${shell.sessionId}` === activeTab)?.label ?? null
-
-    void (async () => {
-      const refreshedShells: ExtraShell[] = []
-      for (const shell of shellsToRefresh) {
-        void window.electronAPI.invoke('shell:kill', shell.sessionId).catch(() => {})
-        try {
-          const result = (await window.electronAPI.invoke('shell:create', worktreeCwd)) as { sessionId: string }
-          refreshedShells.push({ sessionId: result.sessionId, label: shell.label })
-        } catch {
-          // skip failed shell refresh; remaining refreshed tabs still stay usable
-        }
-      }
-
-      if (cancelled) {
-        for (const shell of refreshedShells) {
-          void window.electronAPI.invoke('shell:kill', shell.sessionId).catch(() => {})
-        }
-        return
-      }
-
-      setExtraShells(refreshedShells)
-      if (activeExtraLabel) {
-        const refreshedActive = refreshedShells.find((shell) => shell.label === activeExtraLabel)
-        setActiveTab(refreshedActive ? `extra-${refreshedActive.sessionId}` : 'main')
-      }
-    })()
-
-    return () => {
-      cancelled = true
-    }
-  }, [activeTab, extraShells, shellPrompt, worktreeCwd])
-
-  const addShell = useCallback(async () => {
+  const addShell = useCallback(async (mode: ShellMode) => {
     if (!worktreeCwd) return
     try {
-      const result = (await window.electronAPI.invoke('shell:create', worktreeCwd)) as { sessionId: string }
+      const result = (await window.electronAPI.invoke('shell:create', worktreeCwd, { mode })) as { sessionId: string }
       const entry = extraShellCacheRef.current.get(agentKey)
       const counter = entry ? entry.counter++ : 2
-      setExtraShells((prev) => [...prev, { sessionId: result.sessionId, label: `Shell ${counter}` }])
+      setExtraShells((prev) => [...prev, { sessionId: result.sessionId, label: shellLabel(mode, counter), mode }])
       setActiveTab(`extra-${result.sessionId}`)
     } catch {
       // shell:create failed -- ignore silently, user can retry
@@ -140,20 +96,18 @@ export function ShellTabs({
     []
   )
 
-  const addShellFromHeader = useCallback(() => {
-    void addShell()
+  const addShellFromHeader = useCallback((mode: ShellMode) => {
+    void addShell(mode)
   }, [addShell])
 
   const headerControls = React.useMemo(() => ({
     activeTab: resolvedTab,
     canAddShell: Boolean(worktreeSessionId),
-    shellPrompt,
     extraShells,
     onSetActiveTab: setActiveTab,
     onRemoveShell: removeShell,
     onAddShell: addShellFromHeader,
-    onShellPromptChange,
-  }), [resolvedTab, worktreeSessionId, shellPrompt, extraShells, removeShell, addShellFromHeader, onShellPromptChange])
+  }), [resolvedTab, worktreeSessionId, extraShells, removeShell, addShellFromHeader])
 
   useEffect(() => {
     registerShellHeaderControls(headerControls)
@@ -192,4 +146,8 @@ function resolveActiveTab(activeTab: string, extraShells: ExtraShell[]): string 
     return tab
   }
   return 'main'
+}
+
+function shellLabel(mode: ShellMode, counter: number): string {
+  return `${mode === 'system' ? 'System' : 'Manifold'} ${counter}`
 }

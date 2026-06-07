@@ -1,14 +1,12 @@
-import type { ExtraShell } from './shell-tabs-hooks'
+import type { ExtraShell, ShellMode } from './shell-tabs-hooks'
 
 export interface ShellHeaderControls {
   activeTab: string
   canAddShell: boolean
-  shellPrompt: boolean
   extraShells: ExtraShell[]
   onSetActiveTab: (tab: string) => void
   onRemoveShell: (id: string) => void
-  onAddShell: () => void
-  onShellPromptChange: (enabled: boolean) => void
+  onAddShell: (mode: ShellMode) => void
 }
 
 let currentControls: ShellHeaderControls | null = null
