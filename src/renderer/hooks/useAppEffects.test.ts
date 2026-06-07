@@ -1,7 +1,7 @@
 import { act, renderHook } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { useAppEffects } from './useAppEffects'
-import type { UseDockLayoutResult } from './useDockLayout'
+import type { UseDockLayoutResult } from './dock-layout/useDockLayout'
 
 const listeners = new Map<string, (...args: unknown[]) => void>()
 

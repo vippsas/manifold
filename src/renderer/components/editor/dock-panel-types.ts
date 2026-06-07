@@ -5,7 +5,7 @@ import type { SearchMode } from '../../../shared/search-types'
 import type { EditorPaneView, OpenFile } from '../../hooks/useCodeView'
 import type { FileOpenRequest } from './file-open-request'
 import type { DraftChat } from '../../../shared/draft-chat'
-import type { DockPanelId } from '../../hooks/dock-layout-helpers'
+import type { DockPanelId } from '../../hooks/dock-layout/dock-layout-helpers'
 
 export interface DockAppState {
   sessionId: string | null

@@ -1,6 +1,6 @@
 import React from 'react'
 import type { AgentSession, FileChange, AheadBehind } from '../../../shared/types'
-import type { UseDockLayoutResult, DockPanelId } from '../../hooks/useDockLayout'
+import type { UseDockLayoutResult, DockPanelId } from '../../hooks/dock-layout/useDockLayout'
 
 const PANEL_LABELS: Record<DockPanelId, string> = {
   projects: 'Projects',

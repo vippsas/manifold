@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import type { SearchMode } from '../../shared/search-types'
-import type { DockPanelId, UseDockLayoutResult } from './useDockLayout'
+import type { DockPanelId, UseDockLayoutResult } from './dock-layout/useDockLayout'
 import type { SpawnAgentOptions } from '../../shared/types'
 import type { PendingLaunchAction } from '../../shared/mode-switch-types'
 

@@ -2,7 +2,7 @@ import { useEffect, useRef } from 'react'
 import type { DockviewApi } from 'dockview'
 import type { AgentSession } from '../../shared/types'
 import { isSiblingPanelId, parseSiblingSessionId, siblingPanelId } from './agent-siblings'
-import { findTopLeftWorkspaceReferencePanel } from './dock-layout-helpers'
+import { findTopLeftWorkspaceReferencePanel } from './dock-layout/dock-layout-helpers'
 
 interface Options {
   apiRef: React.MutableRefObject<DockviewApi | null>

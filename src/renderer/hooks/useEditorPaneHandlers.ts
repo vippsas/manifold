@@ -2,7 +2,7 @@ import { useCallback, useEffect, useState } from 'react'
 import type { AgentSession, Project } from '../../shared/types'
 import type { FileOpenRequest } from '../components/editor/file-open-request'
 import { parseSiblingSessionId } from './agent-siblings'
-import { isEditorPanelId } from './useDockLayout'
+import { isEditorPanelId } from './dock-layout/useDockLayout'
 
 interface SearchOpenTarget {
   path: string

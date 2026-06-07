@@ -2,7 +2,7 @@ import React from 'react'
 import { ActionMenuButton, type ActionMenuButtonItem } from './ActionMenuButton'
 import { DockStateContext } from './dock-panel-types'
 import { useLauncherContributions } from '../../plugins/use-contributions'
-import type { DockPanelId } from '../../hooks/dock-layout-helpers'
+import type { DockPanelId } from '../../hooks/dock-layout/dock-layout-helpers'
 
 function PlusIcon(): React.JSX.Element {
   return (

@@ -1,7 +1,7 @@
 // src/renderer/plugins/internal-contributions.ts
 import type React from 'react'
 import type { PanelContribution } from '../../shared/plugins/contributions'
-import { PANEL_TITLES } from '../hooks/dock-layout-helpers'
+import { PANEL_TITLES } from '../hooks/dock-layout/dock-layout-helpers'
 import { BackgroundAgentPanel } from '../components/background-agent/BackgroundAgentPanel'
 import { VerdictsPanel } from '../components/verdicts/VerdictsPanel'
 import { WatchPanel } from '../components/watch/WatchPanel'
