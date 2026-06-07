@@ -73,14 +73,53 @@ if [[ -f "${userZdotdir}/.zshrc" ]]; then
   source "${userZdotdir}/.zshrc"
 fi
 
-# Disable prompt managers that override PROMPT via precmd hooks
-unset STARSHIP_SESSION_KEY STARSHIP_SHELL 2>/dev/null
-if (( \${+functions[_p9k_precmd]} )); then
-  add-zsh-hook -d precmd _p9k_precmd 2>/dev/null
-fi
-if (( \${+functions[_omp_precmd]} )); then
-  add-zsh-hook -d precmd _omp_precmd 2>/dev/null
-fi
+# Disable prompt managers that continue rendering through hooks/widgets
+unset STARSHIP_SESSION_KEY STARSHIP_SHELL POSH_SESSION_ID POSH_SHELL POSH_SHELL_VERSION POSH_THEME POSH_PROMPT_COUNT POWERLINE_COMMAND 2>/dev/null
+
+function manifold_remove_prompt_manager_hooks() {
+  emulate -L zsh
+  autoload -Uz add-zsh-hook
+  local hook fn pattern
+  local -a prompt_hook_patterns
+  prompt_hook_patterns=(
+    '_omp_*'
+    'prompt_ohmyposh_*'
+    'starship_*'
+    '_p9k_*'
+    'prompt_powerlevel9k_*'
+    'prompt_powerlevel10k_*'
+  )
+
+  for hook in precmd preexec chpwd periodic; do
+    local hook_array="\${hook}_functions"
+    for fn in \${(P)hook_array}; do
+      for pattern in "\${prompt_hook_patterns[@]}"; do
+        if [[ "\${fn}" == \${~pattern} ]]; then
+          add-zsh-hook -d "\${hook}" "\${fn}" 2>/dev/null
+          break
+        fi
+      done
+    done
+  done
+}
+manifold_remove_prompt_manager_hooks
+unset -f manifold_remove_prompt_manager_hooks 2>/dev/null
+
+function manifold_restore_omp_widgets() {
+  emulate -L zsh
+  local widget backup
+  for widget in self-insert zle-line-init; do
+    backup="._omp_original::\${widget}"
+    if [[ -n "\${widgets[\$backup]-}" ]]; then
+      zle -A "\${backup}" "\${widget}" 2>/dev/null
+      zle -D "\${backup}" 2>/dev/null
+    elif [[ "\${widgets[\$widget]-}" == user:_omp_* ]]; then
+      zle -D "\${widget}" 2>/dev/null
+    fi
+  done
+}
+manifold_restore_omp_widgets
+unset -f manifold_restore_omp_widgets 2>/dev/null
 ${historyBlock}
 # Enable # as comment character in interactive mode (required for NL command translator)
 setopt INTERACTIVE_COMMENTS
