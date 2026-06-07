@@ -1,4 +1,4 @@
-import React, { useCallback, useState } from 'react'
+import React, { useCallback } from 'react'
 import type { Project, AgentSession } from '../../../shared/types'
 import type { DraftChat } from '../../../shared/draft-chat'
 import { DraftAgentItem } from './DraftAgentItem'
@@ -9,6 +9,7 @@ import { ProjectItem } from './ProjectItem'
 import { FavoriteStarButton } from './FavoriteStarButton'
 import { dedupeSessionsByWorktree } from '../../hooks/agent-siblings'
 import { SidebarSectionHeader } from './SidebarSectionHeader'
+import { useSidebarSectionState } from './sidebar-section-state'
 
 export interface ProjectListProps {
   projects: Project[]
@@ -59,8 +60,8 @@ export function ProjectList({
   onSelectDraft,
   onDiscardDraft,
 }: ProjectListProps): React.JSX.Element {
-  const [withAgentsExpanded, setWithAgentsExpanded] = useState(true)
-  const [reposExpanded, setReposExpanded] = useState(false)
+  const [withAgentsExpanded, toggleWithAgentsExpanded] = useSidebarSectionState('withAgents', true)
+  const [reposExpanded, toggleReposExpanded] = useSidebarSectionState('repositories', false)
   const visibleProjects = projects.filter((project) => !suppressedProjectIds?.has(project.id))
 
   // While a workspace is focused, its repos and sessions are shown under the
@@ -167,7 +168,7 @@ export function ProjectList({
             label="With agents"
             count={withAgentsCount}
             expanded={withAgentsExpanded}
-            onToggle={() => setWithAgentsExpanded((prev) => !prev)}
+            onToggle={toggleWithAgentsExpanded}
           />
           {withAgentsExpanded && (
             <>
@@ -222,7 +223,7 @@ export function ProjectList({
             label="Repositories"
             count={inactiveProjects.length}
             expanded={reposExpanded}
-            onToggle={() => setReposExpanded((prev) => !prev)}
+            onToggle={toggleReposExpanded}
           />
           {reposExpanded && (
             <div style={sidebarStyles.inactiveList}>
