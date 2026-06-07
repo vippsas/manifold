@@ -44,6 +44,7 @@ export interface DockAppState {
   onRenameFile?: (oldPath: string, newPath: string) => void
   onCreateFile?: (dirPath: string, fileName: string) => Promise<boolean>
   onCreateDir?: (dirPath: string, dirName: string) => Promise<boolean>
+  onRefreshFileTree?: () => Promise<void>
   onImportPaths?: (dirPath: string, sourcePaths: string[]) => Promise<string | null>
   onPasteImage?: (dirPath: string, dataUrl: string) => Promise<string | null>
   onPasteClipboardImage?: (dirPath: string) => Promise<{ pasted: boolean; error: string | null }>

@@ -24,7 +24,7 @@ export function useAdditionalDirs(activeSessionId: string | null, initialDirs: s
     if (!activeSessionId) return
 
     for (const dir of initialDirs) {
-      fetchTree(activeSessionId, dir)
+      void fetchTree(activeSessionId, dir)
       fetchBranch(activeSessionId, dir)
     }
   }, [activeSessionId, initialDirs.join(',')])
@@ -42,7 +42,7 @@ export function useAdditionalDirs(activeSessionId: string | null, initialDirs: s
       setAdditionalDirs(dirs)
 
       for (const dir of dirs) {
-        fetchTree(activeSessionId, dir)
+        void fetchTree(activeSessionId, dir)
         fetchBranch(activeSessionId, dir)
       }
     })
@@ -58,7 +58,7 @@ export function useAdditionalDirs(activeSessionId: string | null, initialDirs: s
       const { sessionId, source } = payload as { sessionId: string; source?: string }
       if (sessionId !== activeSessionId || !source) return
       if (additionalDirs.includes(source)) {
-        fetchTree(activeSessionId, source)
+        void fetchTree(activeSessionId, source)
       }
     }
 
@@ -71,8 +71,8 @@ export function useAdditionalDirs(activeSessionId: string | null, initialDirs: s
     }
   }, [activeSessionId, additionalDirs])
 
-  function fetchTree(sessionId: string, dirPath: string): void {
-    window.electronAPI.invoke('files:tree-dir', sessionId, dirPath).then((tree) => {
+  async function fetchTree(sessionId: string, dirPath: string): Promise<void> {
+    await window.electronAPI.invoke('files:tree-dir', sessionId, dirPath).then((tree) => {
       setAdditionalTrees((prev) => {
         const next = new Map(prev)
         next.set(dirPath, tree as FileTreeNode)
@@ -93,7 +93,7 @@ export function useAdditionalDirs(activeSessionId: string | null, initialDirs: s
 
   const refreshTree = useCallback(async (dirPath: string) => {
     if (!activeSessionId) return
-    fetchTree(activeSessionId, dirPath)
+    await fetchTree(activeSessionId, dirPath)
   }, [activeSessionId])
 
   return { additionalDirs, additionalTrees, additionalBranches, refreshTree }

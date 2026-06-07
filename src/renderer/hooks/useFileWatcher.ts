@@ -34,11 +34,15 @@ export function useFileWatcher(
   const [error, setError] = useState<string | null>(null)
 
   const refreshTree = useCallback(async (): Promise<void> => {
-    if (!sessionId) return
+    if (!sessionId && !fallbackProjectId) return
     setLoading(true)
     setError(null)
     try {
-      const result = (await window.electronAPI.invoke('files:tree', sessionId)) as FileTreeNode
+      const result = (await (
+        sessionId
+          ? window.electronAPI.invoke('files:tree', sessionId)
+          : window.electronAPI.invoke('files:tree-by-project', fallbackProjectId)
+      )) as FileTreeNode
       setTree(result)
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : String(err)
@@ -46,7 +50,7 @@ export function useFileWatcher(
     } finally {
       setLoading(false)
     }
-  }, [sessionId])
+  }, [sessionId, fallbackProjectId])
 
   useEffect(() => {
     if (sessionId) {

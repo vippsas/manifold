@@ -115,10 +115,16 @@ export function App(): React.JSX.Element {
     setActiveProject, spawnAgent, refreshOpenFiles: codeView.refreshOpenFiles, refreshDiff,
     jumpToFavorite,
   })
-  const { additionalTrees, additionalBranches } = useAdditionalDirs(effectiveSessionId, activeSession?.additionalDirs)
-  const { tree, changes: watcherChanges, deleteFile, renameFile, createFile, createDir, importPaths, pasteImage, pasteClipboardImage, movePath, revealInFinder, openInTerminal } = useFileWatcher(effectiveSessionId, appEffects.handleFilesChanged, activeDraft?.projectId ?? null)
+  const { additionalDirs, additionalTrees, additionalBranches, refreshTree: refreshAdditionalTree } = useAdditionalDirs(effectiveSessionId, activeSession?.additionalDirs)
+  const { tree, changes: watcherChanges, refreshTree: refreshPrimaryTree, deleteFile, renameFile, createFile, createDir, importPaths, pasteImage, pasteClipboardImage, movePath, revealInFinder, openInTerminal } = useFileWatcher(effectiveSessionId, appEffects.handleFilesChanged, activeDraft?.projectId ?? null)
   const mergedChanges = useMemo(() => mergeFileChanges(changedFiles, watcherChanges), [changedFiles, watcherChanges])
   const viewState = useViewState(effectiveSessionId, tree)
+  const handleRefreshFileTree = useCallback(async (): Promise<void> => {
+    await Promise.all([
+      refreshPrimaryTree(),
+      ...additionalDirs.map((dir) => refreshAdditionalTree(dir)),
+    ])
+  }, [additionalDirs, refreshAdditionalTree, refreshPrimaryTree])
 
   const ensureEditorVisible = useCallback((preferredPaneId?: string | null): string => {
     return dockLayout.ensureEditorPanel(preferredPaneId ?? codeView.activeEditorPaneId)
@@ -262,7 +268,7 @@ export function App(): React.JSX.Element {
     onMoveFileToPane: editorHandlers.handleMoveFileToPane,
     onMoveFileToSplitPane: editorHandlers.handleMoveFileToSplitPane,
     onDeleteFile: handleDeleteFile, onRenameFile: handleRenameFile,
-    onCreateFile: handleCreateFile, onCreateDir: handleCreateDir, onImportPaths: handleImportPaths, onPasteImage: pasteImage, onPasteClipboardImage: pasteClipboardImage, onMovePath: handleMovePath,
+    onCreateFile: handleCreateFile, onCreateDir: handleCreateDir, onRefreshFileTree: handleRefreshFileTree, onImportPaths: handleImportPaths, onPasteImage: pasteImage, onPasteClipboardImage: pasteClipboardImage, onMovePath: handleMovePath,
     onRevealInFinder: handleRevealInFinder, onOpenInTerminal: handleOpenInTerminal,
     onCopyAbsolutePath: handleCopyAbsolutePath, onCopyRelativePath: handleCopyRelativePath,
     worktreeRootPath: tree?.path ?? undefined, tree, additionalTrees, additionalBranches, rootLabels,

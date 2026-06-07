@@ -89,6 +89,7 @@ function FileTreePanel(): React.JSX.Element {
         onRenameFile={s.onRenameFile}
         onCreateFile={s.onCreateFile}
         onCreateDir={s.onCreateDir}
+        onRefresh={s.onRefreshFileTree}
         onImportPaths={s.onImportPaths}
         onPasteImage={s.onPasteImage}
         onPasteClipboardImage={s.onPasteClipboardImage}
