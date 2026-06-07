@@ -59,6 +59,7 @@ export function convertTheme(themeJson: MonacoThemeJson, _themeId: string): Conv
   const success = isDark ? '#66bb6a' : '#388e3c'
   const warning = isDark ? '#ffa726' : '#f57c00'
   const error = isDark ? '#ef5350' : '#d32f2f'
+  const running = c('terminal.ansiCyan') ?? (isDark ? '#4ac9c9' : '#00838f')
 
   // ── CSS variable mapping ───────────────────────────────────────
   // Surface hierarchy: sidebar (deepest) → primary (editor) → secondary (headers)
@@ -99,6 +100,10 @@ export function convertTheme(themeJson: MonacoThemeJson, _themeId: string): Conv
     '--success': success,
     '--warning': warning,
     '--error': error,
+    '--status-done': success,
+    '--status-waiting': warning,
+    '--status-error': error,
+    '--status-running': running,
 
     '--diff-added-bg': c('diffEditor.insertedTextBackground')
       ?? (isDark ? 'rgba(102, 187, 106, 0.12)' : 'rgba(56, 142, 60, 0.08)'),

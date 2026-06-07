@@ -75,6 +75,10 @@
   --success: #66bb6a;
   --warning: #ffa726;
   --error: #ef5350;
+  --status-done: var(--success);
+  --status-waiting: var(--warning);
+  --status-error: var(--error);
+  --status-running: #4ac9c9;
 
   --border: #4d4f5c;
   --divider: #3f4150;
