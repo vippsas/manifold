@@ -38,6 +38,8 @@ const ALLOWED_INVOKE_CHANNELS = [
   'files:create-file',
   'files:create-dir',
   'files:import',
+  'files:paste-image',
+  'files:paste-clipboard-image',
   'files:reveal',
   'files:open-terminal',
   'files:dir-branch',

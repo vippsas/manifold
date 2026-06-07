@@ -16,9 +16,10 @@ const NODES: VisibleNode[] = [
   { node: file('gamma.ts', '/gamma.ts'), depth: 0, parentPath: null },
 ]
 
-function Harness({ onOpenFile, onRename }: {
+function Harness({ onOpenFile, onRename, onPaste }: {
   onOpenFile?: (p: string) => void
   onRename?: (n: FileTreeNode) => void
+  onPaste?: () => void
 }): React.JSX.Element {
   const selection = useFileTreeSelection()
   const containerRef = useRef<HTMLDivElement>(null)
@@ -30,6 +31,7 @@ function Harness({ onOpenFile, onRename }: {
     onToggleExpand: vi.fn(),
     onOpenFile: onOpenFile ?? vi.fn(),
     onRename,
+    onPaste,
   })
   return (
     <div ref={containerRef} tabIndex={0} onKeyDown={onKeyDown} data-testid="tree" data-cursor={selection.cursorPath ?? ''}>
@@ -84,5 +86,13 @@ describe('useFileTreeKeyboard', () => {
     const tree = getByTestId('tree')
     fireEvent.keyDown(tree, { key: 'g' })
     expect(tree.getAttribute('data-cursor')).toBe('/gamma.ts')
+  })
+
+  it('invokes paste on Cmd+V', () => {
+    const onPaste = vi.fn()
+    const { getByTestId } = render(<Harness onPaste={onPaste} />)
+    const tree = getByTestId('tree')
+    fireEvent.keyDown(tree, { key: 'v', metaKey: true })
+    expect(onPaste).toHaveBeenCalled()
   })
 })

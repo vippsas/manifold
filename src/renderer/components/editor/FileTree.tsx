@@ -14,6 +14,7 @@ import { useFileTreeEditing } from './useFileTreeEditing'
 import { useFileTreeSelection } from './useFileTreeSelection'
 import { useFileTreeKeyboard } from './useFileTreeKeyboard'
 import { useFileTreeClipboard } from './useFileTreeClipboard'
+import { useFileTreePaste } from './useFileTreePaste'
 import { useFileTreeViewActions } from './useFileTreeViewActions'
 import { useFileTreeDragDrop } from './useFileTreeDragDrop'
 
@@ -36,6 +37,8 @@ interface FileTreeProps {
   onCreateFile?: (dirPath: string, fileName: string) => Promise<boolean>
   onCreateDir?: (dirPath: string, dirName: string) => Promise<boolean>
   onImportPaths?: (dirPath: string, sourcePaths: string[]) => Promise<string | null>
+  onPasteImage?: (dirPath: string, dataUrl: string) => Promise<string | null>
+  onPasteClipboardImage?: (dirPath: string) => Promise<{ pasted: boolean; error: string | null }>
   onMovePath?: (sourcePath: string, targetDir: string, options?: { overwrite?: boolean }) => Promise<string | null>
   onRevealInFinder?: (filePath: string) => Promise<void>
   onOpenInTerminal?: (dirPath: string) => Promise<void>
@@ -48,7 +51,7 @@ interface FileTreeProps {
 export function FileTree({
   tree, additionalTrees, rootLabels, flattenRoots = false,
   changes, additionalChanges, activeFilePath, openFilePaths, expandedPaths, onToggleExpand, onSelectFile,
-  onDeleteFile, onRenameFile, onCreateFile, onCreateDir, onImportPaths, onMovePath,
+  onDeleteFile, onRenameFile, onCreateFile, onCreateDir, onImportPaths, onPasteImage, onPasteClipboardImage, onMovePath,
   onRevealInFinder, onOpenInTerminal, onCopyAbsolutePath, onCopyRelativePath, onOpenFileToSide,
   worktreeRootPath,
 }: FileTreeProps): React.JSX.Element {
@@ -128,11 +131,15 @@ export function FileTree({
     tree, additionalTrees, expandedPaths, onToggleExpand, activeFilePath, containerRef,
   })
 
-  const pasteTargetDir = useCallback((): string => {
-    const node = selection.cursorPath ? visibleNodes.find((v) => v.node.path === selection.cursorPath)?.node : undefined
-    if (node) return node.isDirectory ? node.path : node.path.substring(0, node.path.lastIndexOf('/'))
-    return worktreeRootPath ?? tree?.path ?? ''
-  }, [selection.cursorPath, visibleNodes, worktreeRootPath, tree?.path])
+  const fileTreePaste = useFileTreePaste({
+    clipboard,
+    visibleNodes,
+    cursorPath: selection.cursorPath,
+    worktreeRootPath,
+    treePath: tree?.path,
+    onPasteImage,
+    onPasteClipboardImage,
+  })
 
   const keyboard = useFileTreeKeyboard({
     visibleNodes,
@@ -145,7 +152,7 @@ export function FileTree({
     onDelete: onDeleteFile ? handleDeleteNodes : undefined,
     onCopy: onImportPaths ? clipboard.copy : undefined,
     onCut: onMovePath ? clipboard.cut : undefined,
-    onPaste: () => { void clipboard.paste(pasteTargetDir()) },
+    onPaste: fileTreePaste.handleKeyboardPaste,
   })
 
   const menuConfig = useMemo<FileTreeMenuConfig>(() => ({
@@ -184,6 +191,7 @@ export function FileTree({
   }
 
   const isDraggingAny = dnd.isDraggingFiles || dnd.isDraggingInternal
+  const operationError = dnd.importError ?? fileTreePaste.pasteError
   const dropTargetLabel = describeDropTarget(dnd.dropTargetPath ?? defaultDropDir)
   const overlayLabel = dnd.isDraggingInternal ? `Move to ${dropTargetLabel}` : `Import to ${dropTargetLabel}`
   const bannerLabel = dnd.isDraggingInternal ? `Drop to move into ${dropTargetLabel}` : `Drop to import into ${dropTargetLabel}`
@@ -210,15 +218,16 @@ export function FileTree({
         onExpandAll={handleExpandAll}
         onCollapseAll={handleCollapseAll}
       />
-      {(isDraggingAny || dnd.importError) && (
-        <div style={{ ...treeStyles.statusBanner, ...(dnd.importError ? treeStyles.statusBannerError : treeStyles.statusBannerInfo) }}>
-          {dnd.importError ?? bannerLabel}
+      {(isDraggingAny || operationError) && (
+        <div style={{ ...treeStyles.statusBanner, ...(operationError ? treeStyles.statusBannerError : treeStyles.statusBannerInfo) }}>
+          {operationError ?? bannerLabel}
         </div>
       )}
       <div
         ref={containerRef}
         tabIndex={0}
         onKeyDown={keyboard.onKeyDown}
+        onPaste={fileTreePaste.handlePaste}
         style={{ ...treeStyles.treeContainer, outline: 'none', ...(isDraggingAny ? treeStyles.treeContainerDragActive : {}) }}
         onContextMenu={(e) => { e.preventDefault(); editing.setContextMenu({ x: e.clientX, y: e.clientY, node: null }) }}
         {...dnd.handlers}

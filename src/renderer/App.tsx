@@ -116,7 +116,7 @@ export function App(): React.JSX.Element {
     jumpToFavorite,
   })
   const { additionalTrees, additionalBranches } = useAdditionalDirs(effectiveSessionId, activeSession?.additionalDirs)
-  const { tree, changes: watcherChanges, deleteFile, renameFile, createFile, createDir, importPaths, movePath, revealInFinder, openInTerminal } = useFileWatcher(effectiveSessionId, appEffects.handleFilesChanged, activeDraft?.projectId ?? null)
+  const { tree, changes: watcherChanges, deleteFile, renameFile, createFile, createDir, importPaths, pasteImage, pasteClipboardImage, movePath, revealInFinder, openInTerminal } = useFileWatcher(effectiveSessionId, appEffects.handleFilesChanged, activeDraft?.projectId ?? null)
   const mergedChanges = useMemo(() => mergeFileChanges(changedFiles, watcherChanges), [changedFiles, watcherChanges])
   const viewState = useViewState(effectiveSessionId, tree)
 
@@ -262,7 +262,7 @@ export function App(): React.JSX.Element {
     onMoveFileToPane: editorHandlers.handleMoveFileToPane,
     onMoveFileToSplitPane: editorHandlers.handleMoveFileToSplitPane,
     onDeleteFile: handleDeleteFile, onRenameFile: handleRenameFile,
-    onCreateFile: handleCreateFile, onCreateDir: handleCreateDir, onImportPaths: handleImportPaths, onMovePath: handleMovePath,
+    onCreateFile: handleCreateFile, onCreateDir: handleCreateDir, onImportPaths: handleImportPaths, onPasteImage: pasteImage, onPasteClipboardImage: pasteClipboardImage, onMovePath: handleMovePath,
     onRevealInFinder: handleRevealInFinder, onOpenInTerminal: handleOpenInTerminal,
     onCopyAbsolutePath: handleCopyAbsolutePath, onCopyRelativePath: handleCopyRelativePath,
     worktreeRootPath: tree?.path ?? undefined, tree, additionalTrees, additionalBranches, rootLabels,
