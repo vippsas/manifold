@@ -71,6 +71,9 @@ function escapeRegex(str: string): string {
 export function detectStatus(output: string, runtimeId: string): AgentStatus {
   // Only check the last few lines for status detection
   const recentOutput = output.slice(-2000)
+  if (runtimeId === 'codex' && hasCodexInteractivePrompt(recentOutput)) {
+    return 'waiting'
+  }
   const patterns = buildPatternsForRuntime(runtimeId)
 
   for (const { pattern, status } of patterns) {
@@ -85,4 +88,22 @@ export function detectStatus(output: string, runtimeId: string): AgentStatus {
   }
 
   return 'running'
+}
+
+function hasCodexInteractivePrompt(output: string): boolean {
+  const normalized = stripAnsi(output)
+  const marker = normalized.lastIndexOf('› ')
+  if (marker === -1) return false
+
+  const beforePrompt = normalized.slice(0, marker)
+  if (!/Working|esc to interrupt|Interrupt to stop/i.test(beforePrompt)) return false
+
+  const promptTail = normalized.slice(marker)
+  if (/Working|esc to interrupt|Interrupt to stop/i.test(promptTail)) return false
+
+  return /gpt-[\w.-]+|\/model to change|~\/|\.manifold/.test(promptTail)
+}
+
+function stripAnsi(value: string): string {
+  return value.replace(/\x1b\[[0-?]*[ -/]*[@-~]/g, '')
 }
