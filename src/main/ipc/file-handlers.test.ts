@@ -42,6 +42,7 @@ function makeDeps(session: AgentSession, tree: FileTreeNode): IpcDependencies {
     projectRegistry: { getProject: vi.fn() },
     fileWatcher: {
       getFileTree: vi.fn(() => tree),
+      createFile: vi.fn(),
       notifyTreeChanged: vi.fn(),
     },
   } as unknown as IpcDependencies
@@ -160,6 +161,27 @@ describe('registerFileHandlers', () => {
 
       expect(await handler({}, 'sess-1', root)).toEqual({ pasted: false })
       expect(deps.fileWatcher.notifyTreeChanged).not.toHaveBeenCalled()
+    } finally {
+      await rm(root, { recursive: true, force: true })
+    }
+  })
+
+  it('notifies tree listeners after creating a file', async () => {
+    const { registerFileHandlers } = await import('./file-handlers')
+    const root = await mkdtemp(join(tmpdir(), 'manifold-create-file-test-'))
+    const tree: FileTreeNode = { name: 'repo', path: root, isDirectory: true, children: [] }
+
+    try {
+      const deps = makeDeps(makeSession(root), tree)
+      registerFileHandlers(deps)
+      const handler = mocks.handlers.get('files:create-file')
+      if (!handler) throw new Error('files:create-file handler was not registered')
+
+      const result = handler({}, 'sess-1', root, 'new-file.ts')
+
+      expect(result).toEqual({ tree })
+      expect(deps.fileWatcher.createFile).toHaveBeenCalledWith(join(root, 'new-file.ts'))
+      expect(deps.fileWatcher.notifyTreeChanged).toHaveBeenCalledWith('sess-1', undefined)
     } finally {
       await rm(root, { recursive: true, force: true })
     }
