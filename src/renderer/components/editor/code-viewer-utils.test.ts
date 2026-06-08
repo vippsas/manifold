@@ -5,6 +5,7 @@ import {
   isExternalMarkdownHref,
   isHtmlFile,
   isImageFile,
+  isPdfFile,
   parseDiffToLineRanges,
   resolveMarkdownLinkedFilePath,
   resolveMarkdownPreviewSource,
@@ -63,6 +64,25 @@ describe('isHtmlFile', () => {
   })
   it('returns false for null', () => {
     expect(isHtmlFile(null)).toBe(false)
+  })
+})
+
+describe('isPdfFile', () => {
+  it('returns true for .pdf extension', () => {
+    expect(isPdfFile('report.pdf')).toBe(true)
+  })
+  it('is case-insensitive', () => {
+    expect(isPdfFile('Report.PDF')).toBe(true)
+  })
+  it('returns false for non-pdf files', () => {
+    expect(isPdfFile('photo.png')).toBe(false)
+    expect(isPdfFile('readme.md')).toBe(false)
+  })
+  it('returns false for null', () => {
+    expect(isPdfFile(null)).toBe(false)
+  })
+  it('returns false for files without an extension', () => {
+    expect(isPdfFile('Dockerfile')).toBe(false)
   })
 })
 

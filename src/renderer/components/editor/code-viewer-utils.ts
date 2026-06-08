@@ -59,3 +59,9 @@ export function isImageFile(filePath: string | null): boolean {
   const ext = filePath.split('.').pop()?.toLowerCase() ?? ''
   return IMAGE_EXTENSIONS.has(ext)
 }
+
+export function isPdfFile(filePath: string | null): boolean {
+  if (!filePath) return false
+  const ext = filePath.split('.').pop()?.toLowerCase() ?? ''
+  return ext === 'pdf'
+}

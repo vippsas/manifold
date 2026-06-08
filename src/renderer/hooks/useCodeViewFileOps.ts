@@ -1,5 +1,5 @@
 import { useCallback, useRef } from 'react'
-import { isImageFile } from '../components/editor/code-viewer-utils'
+import { isImageFile, isPdfFile } from '../components/editor/code-viewer-utils'
 import type { EditorPaneState } from './editor-pane-utils'
 import {
   closeFileInPane,
@@ -105,7 +105,7 @@ export function useCodeViewFileOps(
 
       void (async (): Promise<void> => {
         try {
-          const ipcChannel = isImageFile(filePath) ? 'files:read-data-url' : 'files:read'
+          const ipcChannel = isImageFile(filePath) || isPdfFile(filePath) ? 'files:read-data-url' : 'files:read'
           const content = readFileOverrideRef.current
             ? await readFileOverrideRef.current(filePath)
             : ((await window.electronAPI.invoke(
@@ -217,7 +217,7 @@ export function useCodeViewFileOps(
         .filter((file) => openFilePaths.has(file.path))
         .map(async (file) => {
           try {
-            const ipcChannel = isImageFile(file.path) ? 'files:read-data-url' : 'files:read'
+            const ipcChannel = isImageFile(file.path) || isPdfFile(file.path) ? 'files:read-data-url' : 'files:read'
             const content = readFileOverrideRef.current
               ? await readFileOverrideRef.current(file.path)
               : ((await window.electronAPI.invoke(
