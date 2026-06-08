@@ -3,6 +3,14 @@
 Append-only. **Newest first.** One `##` entry per operation, prefixed
 `ingest | sync | lint | structure`. Quick feed: `grep "^## \[" log.md | head`.
 
+## [structure] 2026-06-08 — Trim the CLAUDE.md schema to in-loop essentials
+
+`CLAUDE.md`/`AGENTS.md` is loaded into every agent's context every session, so §5 now keeps
+only the rules an agent acts on mid-task (same-PR updates, code-as-ground-truth + writer ≠
+verifier, don't freshen frozen specs, run the lint) and points to [`docs/llm-wiki.md`](docs/llm-wiki.md)
+for the full schema and [`docs/README.md`](docs/README.md) for the doc map, lint, and routine.
+No rules dropped — the depth already lives in those two docs.
+
 ## [structure] 2026-06-08 — Wire up the self-firing doc-sync agent
 
 Closed the loop from `docs/llm-wiki.md` ("Then make it self-firing"):

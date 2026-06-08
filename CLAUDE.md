@@ -62,42 +62,19 @@ Strong success criteria let you loop independently. Weak criteria ("make it work
 
 ## 5. Documentation wiki (keep docs in sync with code)
 
-Manifold keeps a **living reference layer** under [`docs/architecture/`](docs/architecture)
-that tracks the code. The doc map is [`docs/README.md`](docs/README.md); the append-only
-run record is [`log.md`](log.md); the rationale is [`docs/llm-wiki.md`](docs/llm-wiki.md).
-This schema governs that layer.
+`docs/architecture/` is a living reference layer that tracks the code — each page binds to a
+`covers:` code path in its frontmatter. **Full schema & rationale:**
+[`docs/llm-wiki.md`](docs/llm-wiki.md). **Doc map, lint, and the self-firing routine:**
+[`docs/README.md`](docs/README.md).
 
-- **`covers:` binding.** Every living page declares the code path(s) it documents in
-  YAML frontmatter: `covers: [src/main/<area>]`, plus `description:`, `updated:` (ISO
-  date), and `owner: see .github/CODEOWNERS`. The binding is what makes drift measurable.
-  Files that can't carry frontmatter (the root [`README.md`](README.md)) declare the same
-  binding in an HTML comment: `<!-- wiki-covers: a, b -->`.
-- **Code is ground truth.** Verify every claim against *current code*, never against
-  sibling docs. The pass that **checks** a page must be a different pass than the one
-  that **wrote** it — a writer can't certify its own output. Cite `file:line`.
-- **Staleness is measured from git.** A page is stale when commits hit its `covers:`
-  path after its `updated:` date:
-  `git rev-list --count $(git log -1 --format=%h -- <page>)..HEAD -- <covers>`.
-- **When you change code, update its page(s) in the same PR** and bump `updated:`. A new
-  `src/main/*` subsystem ⇒ a new page, added to the [`docs/README.md`](docs/README.md) map.
-- **The root [`README.md`](README.md) is the user-facing front door**, tracked via its
-  `wiki-covers:` binding to the runtime registry, `package.json` scripts, and storage
-  defaults. It is editorial: a stale flag means *review*, not always edit — update it in
-  the same PR only when a change is actually user-visible (a runtime, an npm script, the
-  `~/.manifold/**` layout). Keep deep internals in the wiki, not the README.
-- **Lint** — `bash scripts/wiki-lint.sh` runs the checks over both frontmatter- and
-  HTML-comment-bound pages: stale pages (git gap), broken covers refs, missing subsystem
-  pages, orphans (page not in the doc map), and frozen-spec misuse. Record notable
-  findings in [`log.md`](log.md).
-- **Self-firing.** A daily scheduled routine fires the `wiki-doc-sync` skill: lint → one
-  doc-sync PR per stale architecture page (the README is review-only). A human approves
-  the PRs — the git signal does the noticing.
-- **Living vs. frozen.** `docs/superpowers/`, `docs/planning/`, and `docs/research/` are
-  point-in-time specs — raw historical evidence. Never "freshen" them, and never cite a
-  superseded spec as current truth. Only the living layer tracks the code.
-
-`log.md` entries are newest-first, one `##` heading each, prefixed
-`ingest | sync | lint | structure` (feed: `grep "^## \[" log.md | head`).
+In-loop rules:
+- **Change code ⇒ update its covering page(s) in the same PR**, bumping `updated:`. A new
+  `src/main/*` subsystem ⇒ a new page, added to the [doc map](docs/README.md).
+- **Code is ground truth.** Verify every doc claim against current code and cite `file:line`;
+  a pass other than the writer certifies it — a writer can't certify its own output.
+- **Never freshen frozen specs** (`docs/superpowers|planning|research`) or cite one as
+  current; only `docs/architecture/` tracks the code.
+- Check drift with `bash scripts/wiki-lint.sh` (a daily routine runs it and PRs stale pages).
 
 ---
 
