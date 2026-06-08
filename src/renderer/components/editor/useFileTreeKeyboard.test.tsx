@@ -38,6 +38,8 @@ function Harness({ onOpenFile, onRename, onPaste }: {
       {NODES.map((v) => (
         <div key={v.node.path} data-tree-path={v.node.path} tabIndex={0}>{v.node.name}</div>
       ))}
+      {/* Stands in for the inline create/rename field that lives inside the tree. */}
+      <input data-testid="name-input" />
     </div>
   )
 }
@@ -86,6 +88,26 @@ describe('useFileTreeKeyboard', () => {
     const tree = getByTestId('tree')
     fireEvent.keyDown(tree, { key: 'g' })
     expect(tree.getAttribute('data-cursor')).toBe('/gamma.ts')
+  })
+
+  it('ignores keystrokes that originate from an inline input (create/rename field)', () => {
+    const { getByTestId } = render(<Harness />)
+    const tree = getByTestId('tree')
+    const input = getByTestId('name-input')
+    // Typing the first letter of a filename must not trigger tree type-ahead,
+    // which would steal focus from the field and close it (issue #483).
+    fireEvent.keyDown(input, { key: 'g' })
+    expect(tree.getAttribute('data-cursor')).toBe('')
+  })
+
+  it('does not open a file when Enter is pressed inside an inline input', () => {
+    const onOpenFile = vi.fn()
+    const { getByTestId } = render(<Harness onOpenFile={onOpenFile} />)
+    const tree = getByTestId('tree')
+    const input = getByTestId('name-input')
+    fireEvent.keyDown(tree, { key: 'ArrowDown' })
+    fireEvent.keyDown(input, { key: 'Enter' })
+    expect(onOpenFile).not.toHaveBeenCalled()
   })
 
   it('invokes paste on Cmd+V', () => {

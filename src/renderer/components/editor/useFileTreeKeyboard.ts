@@ -63,6 +63,11 @@ export function useFileTreeKeyboard(params: UseFileTreeKeyboardParams): {
   }, [selection.selectedPaths, byPath])
 
   const onKeyDown = useCallback((e: React.KeyboardEvent<HTMLDivElement>): void => {
+    // Keystrokes bubble up from the inline create/rename <input> that lives inside
+    // the tree. Without this guard, typing the first letter of a filename would
+    // trigger type-ahead/navigation, steal focus from the field, and close it (#483).
+    const target = e.target as HTMLElement
+    if (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.isContentEditable) return
     if (!visibleNodes.length) return
     const mod = e.metaKey || e.ctrlKey
     const cursor = selection.cursorPath
