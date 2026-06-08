@@ -12,6 +12,7 @@ interface PdfPreviewProps {
 const MIN_SCALE = 0.25
 const MAX_SCALE = 4
 const ZOOM_STEP = 1.2
+const WHEEL_SENSITIVITY = 0.01
 // US Letter at 72dpi — placeholder size until the first page's real size loads.
 const DEFAULT_PAGE = { width: 612, height: 792 }
 
@@ -150,6 +151,19 @@ export function PdfPreview({ filePath, dataUrl }: PdfPreviewProps): React.JSX.El
   useEffect(() => {
     scrollRef.current?.scrollTo({ top: 0 })
   }, [filePath])
+
+  useEffect(() => {
+    if (scrollEl === null) return
+    // macOS trackpad pinch gestures arrive as wheel events with ctrlKey set;
+    // a plain two-finger scroll is left alone so the page list scrolls normally.
+    const onWheel = (e: WheelEvent): void => {
+      if (!e.ctrlKey) return
+      e.preventDefault()
+      setScale((prev) => clamp(prev * Math.exp(-e.deltaY * WHEEL_SENSITIVITY), MIN_SCALE, MAX_SCALE))
+    }
+    scrollEl.addEventListener('wheel', onWheel, { passive: false })
+    return () => scrollEl.removeEventListener('wheel', onWheel)
+  }, [scrollEl])
 
   const zoomIn = (): void => setScale((s) => clamp(s * ZOOM_STEP, MIN_SCALE, MAX_SCALE))
   const zoomOut = (): void => setScale((s) => clamp(s / ZOOM_STEP, MIN_SCALE, MAX_SCALE))
