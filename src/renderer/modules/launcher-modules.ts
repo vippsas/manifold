@@ -1,5 +1,5 @@
 // src/renderer/modules/launcher-modules.ts
-import type { DockPanelId } from '../hooks/dock-layout-helpers'
+import type { DockPanelId } from '../hooks/dock-layout/dock-layout-helpers'
 import { getLauncherContributions } from '../plugins/contribution-registry'
 
 /** A module that can be opened on demand from the tab-strip "+" launcher.

@@ -11,15 +11,15 @@ import {
   type DockPanelId,
   type LayoutRefs,
 } from './dock-layout-helpers'
-import { siblingPanelId } from './agent-siblings'
-import type { AgentSession } from '../../shared/types'
+import { siblingPanelId } from '../agent-siblings'
+import type { AgentSession } from '../../../shared/types'
 import { applyDefaultLayout, applyMinimalPanels, syncEditorPanelIds } from './dock-layout-builders'
 import type { DockLayoutCtx } from './dock-layout-context'
 import { reconcileLayoutAfterLoad } from './dock-layout-tabs'
 import { useEditorPanels } from './dock-layout-panels'
 import { useDockActions } from './dock-layout-actions'
 import { registerLayoutListeners } from './dock-layout-lifecycle'
-import { LAUNCHER_MODULE_IDS } from '../modules/launcher-modules'
+import { LAUNCHER_MODULE_IDS } from '../../modules/launcher-modules'
 
 export type { DockPanelId, EditorSplitDirection } from './dock-layout-helpers'
 export { isEditorPanelId } from './dock-layout-helpers'

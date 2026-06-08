@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { LAUNCHER_MODULES, LAUNCHER_MODULE_IDS } from './launcher-modules'
-import { PANEL_TITLES } from '../hooks/dock-layout-helpers'
+import { PANEL_TITLES } from '../hooks/dock-layout/dock-layout-helpers'
 
 describe('launcher-modules registry', () => {
   it('lists the optional modules in order', () => {
