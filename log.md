@@ -3,6 +3,16 @@
 Append-only. **Newest first.** One `##` entry per operation, prefixed
 `ingest | sync | lint | structure`. Quick feed: `grep "^## \[" log.md | head`.
 
+## [structure] 2026-06-08 — Track the root README.md and add a lint script
+
+Brought the user-facing `README.md` under the same drift discipline as the architecture
+pages, and made the lint runnable:
+
+- Trimmed the README's duplicated "Important main-process services" list down to a link to the [doc map](docs/README.md) — the wiki is now the single source of truth for that detail. Kept the high-level `src/*` layer map and the localhost-preview security note.
+- Bound the README to the code its user-facing tables track, via an HTML comment (frontmatter renders badly on the GitHub landing page): `<!-- wiki-covers: src/main/agent/runtimes.ts, package.json, src/shared/defaults.ts -->` — the runtime registry, npm scripts, and storage defaults.
+- Added `scripts/wiki-lint.sh` — runs the five checks over both frontmatter- and HTML-comment-bound pages. First run: **20 tracked pages**, structural checks **PASS** (README flagged stale pre-commit, as expected; resolves once this change lands).
+- Added the user-facing sync rule to the `CLAUDE.md` schema: a PR changing a runtime, an npm script, or the `~/.manifold/**` layout updates `README.md` in the same PR; stale = review, not always edit.
+
 ## [lint] 2026-06-08 — First lint of the architecture wiki: clean
 
 Ran the five schema checks over the freshly backfilled layer:

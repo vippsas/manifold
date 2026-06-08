@@ -70,6 +70,8 @@ This schema governs that layer.
 - **`covers:` binding.** Every living page declares the code path(s) it documents in
   YAML frontmatter: `covers: [src/main/<area>]`, plus `description:`, `updated:` (ISO
   date), and `owner: see .github/CODEOWNERS`. The binding is what makes drift measurable.
+  Files that can't carry frontmatter (the root [`README.md`](README.md)) declare the same
+  binding in an HTML comment: `<!-- wiki-covers: a, b -->`.
 - **Code is ground truth.** Verify every claim against *current code*, never against
   sibling docs. The pass that **checks** a page must be a different pass than the one
   that **wrote** it — a writer can't certify its own output. Cite `file:line`.
@@ -78,9 +80,15 @@ This schema governs that layer.
   `git rev-list --count $(git log -1 --format=%h -- <page>)..HEAD -- <covers>`.
 - **When you change code, update its page(s) in the same PR** and bump `updated:`. A new
   `src/main/*` subsystem ⇒ a new page, added to the [`docs/README.md`](docs/README.md) map.
-- **Lint** (record findings in [`log.md`](log.md)): stale pages (git gap), broken code
-  refs (a named file/symbol that no longer exists), missing subsystem pages, orphans
-  (page not in the doc map), and frozen-spec misuse.
+- **The root [`README.md`](README.md) is the user-facing front door**, tracked via its
+  `wiki-covers:` binding to the runtime registry, `package.json` scripts, and storage
+  defaults. It is editorial: a stale flag means *review*, not always edit — update it in
+  the same PR only when a change is actually user-visible (a runtime, an npm script, the
+  `~/.manifold/**` layout). Keep deep internals in the wiki, not the README.
+- **Lint** — `bash scripts/wiki-lint.sh` runs the checks over both frontmatter- and
+  HTML-comment-bound pages: stale pages (git gap), broken covers refs, missing subsystem
+  pages, orphans (page not in the doc map), and frozen-spec misuse. Record notable
+  findings in [`log.md`](log.md).
 - **Living vs. frozen.** `docs/superpowers/`, `docs/planning/`, and `docs/research/` are
   point-in-time specs — raw historical evidence. Never "freshen" them, and never cite a
   superseded spec as current truth. Only the living layer tracks the code.

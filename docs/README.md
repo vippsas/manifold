@@ -96,6 +96,12 @@ superseded spec as if it were current truth.
 - **Pattern & rationale:** [`docs/llm-wiki.md`](llm-wiki.md)
 - **Schema & conventions:** [`CLAUDE.md`](../CLAUDE.md) / `AGENTS.md`
 - **Run log:** [`log.md`](../log.md)
+- **Lint:** `bash scripts/wiki-lint.sh` — runs the drift checks over every tracked page.
 
 When a PR changes code under a `covers:` path, update the matching page(s) in the same
 PR and bump their `updated:` date. New `src/main/*` subsystem ⇒ new page here.
+
+The user-facing [`README.md`](../README.md) is tracked too: it carries a
+`<!-- wiki-covers: … -->` comment binding it to the runtime registry, `package.json`
+scripts, and storage defaults, so the lint flags it when those drift. It's editorial,
+though — a stale flag is a prompt to review the front-door copy, not always to edit.
