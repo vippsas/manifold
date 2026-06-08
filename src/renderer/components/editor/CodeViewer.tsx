@@ -14,6 +14,7 @@ import type { FileOpenRequest } from './file-open-request'
 import { TabBar, NoTabsHeader } from './CodeViewerTabs'
 import { ImagePreview } from './viewer/ImagePreview'
 import { PdfPreview } from './viewer/PdfPreview'
+import { PdfErrorBoundary } from './viewer/PdfErrorBoundary'
 import { MarkdownPreview } from './viewer/MarkdownPreview'
 import { revealRequestedLocation } from './viewer/reveal-requested-location'
 import { useResolvedHtmlPreview } from './viewer/useResolvedHtmlPreview'
@@ -201,7 +202,9 @@ export function CodeViewer({
       )}
       <div style={viewerStyles.editorContainer} onMouseDown={onActivatePane}>
         {isPdf && activeFilePath !== null && fileContent !== null ? (
-          <PdfPreview filePath={activeFilePath} dataUrl={fileContent} />
+          <PdfErrorBoundary key={activeFilePath}>
+            <PdfPreview filePath={activeFilePath} dataUrl={fileContent} />
+          </PdfErrorBoundary>
         ) : isImage && activeFilePath !== null && fileContent !== null ? (
           <ImagePreview filePath={activeFilePath} dataUrl={fileContent} />
         ) : previewActive && isHtml && resolvedHtml !== null ? (

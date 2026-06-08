@@ -112,8 +112,18 @@ export function PdfPreview({ filePath, dataUrl }: PdfPreviewProps): React.JSX.El
     setEstimate(DEFAULT_PAGE)
     setScale(1)
     setError(null)
-    ensurePdfWorker()
-    const task = getDocument({ data: dataUrlToBytes(dataUrl) })
+
+    let task
+    try {
+      ensurePdfWorker()
+      task = getDocument({ data: dataUrlToBytes(dataUrl) })
+    } catch (err) {
+      // Keep any synchronous failure (bad data URL, worker setup) inside the
+      // viewer's own error state instead of letting it unmount the editor.
+      setError(err instanceof Error ? err.message : 'Failed to load PDF')
+      return
+    }
+
     task.promise
       .then(async (loaded) => {
         if (cancelled) {
