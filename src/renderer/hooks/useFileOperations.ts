@@ -62,9 +62,16 @@ export function useFileOperations(
 
   const handleCreateFile = useCallback(
     async (dirPath: string, fileName: string): Promise<boolean> => {
-      return createFile(dirPath, fileName)
+      const success = await createFile(dirPath, fileName)
+      if (success) {
+        // Open the new file straight away so it's addressable without reaching
+        // for Quick Open / search to find what was just created.
+        const newPath = dirPath === '/' ? `/${fileName}` : `${dirPath}/${fileName}`
+        handleSelectFile(newPath)
+      }
+      return success
     },
-    [createFile]
+    [createFile, handleSelectFile]
   )
 
   const handleCreateDir = useCallback(
