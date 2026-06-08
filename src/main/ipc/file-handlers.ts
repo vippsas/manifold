@@ -315,6 +315,8 @@ function mimeTypeForFile(filePath: string): string {
       return 'image/svg+xml'
     case '.webp':
       return 'image/webp'
+    case '.pdf':
+      return 'application/pdf'
     default:
       return 'application/octet-stream'
   }

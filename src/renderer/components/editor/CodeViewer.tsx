@@ -8,10 +8,12 @@ import {
   isHtmlFile,
   isImageFile,
   isMarkdownFile,
+  isPdfFile,
 } from './code-viewer-utils'
 import type { FileOpenRequest } from './file-open-request'
 import { TabBar, NoTabsHeader } from './CodeViewerTabs'
 import { ImagePreview } from './viewer/ImagePreview'
+import { PdfPreview } from './viewer/PdfPreview'
 import { MarkdownPreview } from './viewer/MarkdownPreview'
 import { revealRequestedLocation } from './viewer/reveal-requested-location'
 import { useResolvedHtmlPreview } from './viewer/useResolvedHtmlPreview'
@@ -99,6 +101,7 @@ export function CodeViewer({
 
   const isHtml = isHtmlFile(activeFilePath)
   const isImage = isImageFile(activeFilePath)
+  const isPdf = isPdfFile(activeFilePath)
   const isPreviewable = isMarkdownFile(activeFilePath) || isHtml
   const hasDiff = fileDiffText !== null
   const hasTabs = openFiles.length > 0
@@ -125,6 +128,7 @@ export function CodeViewer({
   // Must mirror the editor-container render ternary's fall-through to <EditorContent>:
   // if a new preview/diff branch is added there, negate it here too.
   const showPlainEditor =
+    !(isPdf && activeFilePath !== null && fileContent !== null) &&
     !(isImage && activeFilePath !== null && fileContent !== null) &&
     !(previewActive && isHtml && resolvedHtml !== null) &&
     !(previewActive && fileContent !== null && !isHtml && activeFilePath !== null) &&
@@ -196,7 +200,9 @@ export function CodeViewer({
         <NoTabsHeader />
       )}
       <div style={viewerStyles.editorContainer} onMouseDown={onActivatePane}>
-        {isImage && activeFilePath !== null && fileContent !== null ? (
+        {isPdf && activeFilePath !== null && fileContent !== null ? (
+          <PdfPreview filePath={activeFilePath} dataUrl={fileContent} />
+        ) : isImage && activeFilePath !== null && fileContent !== null ? (
           <ImagePreview filePath={activeFilePath} dataUrl={fileContent} />
         ) : previewActive && isHtml && resolvedHtml !== null ? (
           <iframe
