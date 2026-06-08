@@ -3,6 +3,13 @@
 Append-only. **Newest first.** One `##` entry per operation, prefixed
 `ingest | sync | lint | structure`. Quick feed: `grep "^## \[" log.md | head`.
 
+## [structure] 2026-06-08 — Wire up the self-firing doc-sync agent
+
+Closed the loop from `docs/llm-wiki.md` ("Then make it self-firing"):
+
+- Added the `wiki-doc-sync` skill (`.claude/skills/wiki-doc-sync/SKILL.md`): runs `scripts/wiki-lint.sh`, and for each `STALE` architecture page re-verifies it against current code, applies surgical fixes, bumps `updated:`, and opens **one doc-sync PR per page**. The README is review-only (editorial — never auto-edited). The lint certifies the fix (writer ≠ verifier); a human approves the PR.
+- Scheduled a **daily** Claude routine to fire `/wiki-doc-sync`. The git staleness signal fires the work; the human only approves. Effective once this branch lands on `main` (the skill + lint script ship with it); the routine no-ops until then.
+
 ## [structure] 2026-06-08 — Track the root README.md and add a lint script
 
 Brought the user-facing `README.md` under the same drift discipline as the architecture

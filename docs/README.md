@@ -97,6 +97,7 @@ superseded spec as if it were current truth.
 - **Schema & conventions:** [`CLAUDE.md`](../CLAUDE.md) / `AGENTS.md`
 - **Run log:** [`log.md`](../log.md)
 - **Lint:** `bash scripts/wiki-lint.sh` — runs the drift checks over every tracked page.
+- **Self-firing:** the [`wiki-doc-sync`](../.claude/skills/wiki-doc-sync/SKILL.md) skill, fired daily by a scheduled Claude routine, lints and opens one doc-sync PR per stale page for review.
 
 When a PR changes code under a `covers:` path, update the matching page(s) in the same
 PR and bump their `updated:` date. New `src/main/*` subsystem ⇒ new page here.

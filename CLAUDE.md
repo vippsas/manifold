@@ -89,6 +89,9 @@ This schema governs that layer.
   HTML-comment-bound pages: stale pages (git gap), broken covers refs, missing subsystem
   pages, orphans (page not in the doc map), and frozen-spec misuse. Record notable
   findings in [`log.md`](log.md).
+- **Self-firing.** A daily scheduled routine fires the `wiki-doc-sync` skill: lint → one
+  doc-sync PR per stale architecture page (the README is review-only). A human approves
+  the PRs — the git signal does the noticing.
 - **Living vs. frozen.** `docs/superpowers/`, `docs/planning/`, and `docs/research/` are
   point-in-time specs — raw historical evidence. Never "freshen" them, and never cite a
   superseded spec as current truth. Only the living layer tracks the code.
