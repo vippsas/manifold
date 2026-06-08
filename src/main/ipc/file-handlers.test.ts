@@ -186,4 +186,27 @@ describe('registerFileHandlers', () => {
       await rm(root, { recursive: true, force: true })
     }
   })
+
+  it('includes the additional directory source when creating a file there', async () => {
+    const { registerFileHandlers } = await import('./file-handlers')
+    const root = await mkdtemp(join(tmpdir(), 'manifold-create-file-additional-test-'))
+    const additionalDir = join(root, 'additional')
+    const tree: FileTreeNode = { name: 'repo', path: root, isDirectory: true, children: [] }
+
+    try {
+      await mkdir(additionalDir)
+      const deps = makeDeps(makeSession(root, [additionalDir]), tree)
+      registerFileHandlers(deps)
+      const handler = mocks.handlers.get('files:create-file')
+      if (!handler) throw new Error('files:create-file handler was not registered')
+
+      const result = handler({}, 'sess-1', additionalDir, 'new-file.ts')
+
+      expect(result).toEqual({ tree })
+      expect(deps.fileWatcher.createFile).toHaveBeenCalledWith(join(additionalDir, 'new-file.ts'))
+      expect(deps.fileWatcher.notifyTreeChanged).toHaveBeenCalledWith('sess-1', additionalDir)
+    } finally {
+      await rm(root, { recursive: true, force: true })
+    }
+  })
 })

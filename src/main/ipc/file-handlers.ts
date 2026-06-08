@@ -128,8 +128,8 @@ export function registerFileHandlers(deps: IpcDependencies): void {
       throw new Error('Path traversal denied: file outside allowed directories')
     }
     fileWatcher.createFile(filePath)
-    const source = session.additionalDirs.find((additionalDir) => isUnderDir(resolvedDir, additionalDir))
-    fileWatcher.notifyTreeChanged(sessionId, source)
+    const additionalDirSource = session.additionalDirs.find((additionalDir) => isUnderDir(resolvedDir, additionalDir))
+    fileWatcher.notifyTreeChanged(sessionId, additionalDirSource)
     return { tree: fileWatcher.getFileTree(session.worktreePath) }
   })
 
