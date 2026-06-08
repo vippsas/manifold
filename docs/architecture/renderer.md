@@ -1,0 +1,121 @@
+---
+description: How the Manifold renderer (developer workspace UI) is structured — the React entry, the dockview panel layout, and the preload-only boundary to main.
+covers: [src/renderer]
+updated: 2026-06-08
+owner: see .github/CODEOWNERS
+---
+
+# Renderer — developer workspace UI structure
+
+The *renderer* is the Electron renderer-process React app: the developer workspace
+window with its repositories sidebar, agent terminal/chat, editors, file tree, shells,
+and modules. It is a pure UI layer — it owns no agent, git, or filesystem state. Every
+cross-process call goes through `window.electronAPI`, the narrow channel-allowlisting
+bridge exposed by the preload. This page is an orientation map of the renderer's
+structure: the entry chain, the dockview-based panel system, and the major directory
+boundaries. Individual panels and hooks are catalogued only enough to locate them.
+
+## Covered code
+
+- `src/renderer/index.tsx` — process entry: imports `monaco-setup`, mounts `<App/>` in `React.StrictMode` via `createRoot`, and pulls in dockview + theme CSS (`index.tsx:14`).
+- `src/renderer/App.tsx` — the single stateful container. Composes ~30 hooks into one `DockAppState` object and renders `<AppShell/>` + `<QuickOpen/>` (`App.tsx:41`, `:251`).
+- `src/renderer/AppShell.tsx` — presentational shell: title bar, the `DockviewReact` host, status bar, and all modals/overlays/toasts (`AppShell.tsx:99`).
+- `src/renderer/DockTab.tsx` — `DockTab` (the per-panel tab header) and `EmptyWatermark` (the empty-group drop hint).
+- `src/renderer/monaco-setup.ts` — wires `MonacoEnvironment.getWorker` to the per-language Vite `?worker` bundles and calls `loader.config({ monaco })`.
+- `src/renderer/components/` — all UI by surface: `editor/`, `terminal/`, `sidebar/`, `git/`, `search/`, `modals/`, `verdicts/`, `watch/`, `memory/`, `new-task/`, `background-agent/`, `plugin-ui/`.
+- `src/renderer/hooks/` — ~57 hooks; data/state lives here (`useProjects`, `useAgentSession`, `useFileWatcher`, `useDiff`, …) plus the `dock-layout/` subsystem that drives dockview.
+- `src/renderer/modules/launcher-modules.ts` — derives the "+ Apps" launcher list from the contribution registry.
+- `src/renderer/plugins/` — the renderer-side panel contribution registry (`contribution-registry.ts`, `internal-contributions.ts`, `use-contributions.ts`).
+- `src/renderer-shared/chat/` — chat UI/logic (`ChatPane`, `useChat`, `useAgentStatus`, `useSlashCommands`) factored into its own top-level dir so chat surfaces can share it.
+
+Not detailed here: the per-component internals (each `components/*` subtree), `styles/` CSS, `assets/`, and the leaf helpers `session-selection.ts` / `terminal-input-filter.ts`.
+
+## How it works
+
+**Entry chain.** `index.tsx` is the only entry. It runs `monaco-setup` first (so the
+Monaco workers are registered before any editor mounts), then renders `<App/>` under
+`React.StrictMode` — which means every component mounts, unmounts, and remounts once in
+dev. `App` is the lone stateful node: it calls all the data hooks, assembles them into a
+single `DockAppState` (`App.tsx:251`), and hands that plus top-level handlers to the
+otherwise-presentational `AppShell`. `AppShell` short-circuits to `WelcomeDialog` (setup
+incomplete) or `OnboardingView` (no projects) before rendering the full workspace
+(`AppShell.tsx:102`, `:111`).
+
+**Panel layout (dockview).** The workspace is a single `DockviewReact` instance
+(`AppShell.tsx:144`). Panels are registered by string id in `PANEL_COMPONENTS`
+(`components/editor/dock-panels.tsx:17`); the id→component table is the authoritative
+panel set. `DockAppState` is published to every panel through `DockStateContext`
+(`AppShell.tsx:142`), so panels read props via `useDockState()` rather than prop-drilling.
+Tab headers use `DockTab`; empty groups show `EmptyWatermark`; the left/right header-action
+slots host `ShellHeaderActions` and `WorkspaceHeaderActions`. The default arrangement is
+`projects | agent | (fileTree+modifiedFiles)` at a 1:4:1 width ratio
+(`hooks/dock-layout/dock-layout-builders.ts:8`). All add/remove/focus/split/resize logic
+lives in the `hooks/dock-layout/` subsystem behind `useDockLayout`, whose return value is
+the dock control surface consumed by `App` (`useDockLayout.ts:259`).
+
+**The panel set.** Panel ids are fixed in `PANEL_IDS` with display titles in
+`PANEL_TITLES` (`hooks/dock-layout/dock-layout-helpers.ts:13`, `:18`):
+
+- `projects` → **Repositories** — `ProjectSidebar` (repos, sessions, workspaces, drafts).
+- `agent` → **Agent** — `AgentPanel` (`components/editor/dock-agent-panel.tsx:86`): renders a draft chat, an `OnboardingView` (no agent yet), an `AgentChatView` (non-interactive chat-mode), or an xterm `TerminalPane` (interactive runtime) depending on session state.
+- `editor` → **Editor** — `EditorPanel` wrapping `CodeViewer` (Monaco); split editors get ids prefixed `editor:` and each registers its own pane.
+- `fileTree` → **Files** — `FileTree` over the worktree + any additional dirs.
+- `modifiedFiles` → **Modified Files** — `ModifiedFiles` diff list.
+- `shell` → **Shell** — `ShellTabs` (worktree + project shell PTYs).
+- `backgroundAgent` / `watch` / `verdicts` → **Ideas / Watch / Verdicts** — built-in modules sourced from the contribution registry, not hardcoded in `PANEL_COMPONENTS`.
+- `pluginView` / `pluginTreeView` — webview hosts for plugin contributions.
+
+Note: **Search** is not a dock panel — it lives in the title bar (`TitleBarSearch`,
+wired through `AppShell.tsx:132`). **Web preview** is likewise not a standalone panel:
+HTML files render in an `<iframe>` inside the editor's `CodeViewer`
+(`components/editor/CodeViewer.tsx:211`, resolved by `viewer/useResolvedHtmlPreview.ts`),
+alongside the markdown/image/PDF previews in `components/editor/viewer/`.
+
+**Modules & the contribution registry.** Built-in modules (Ideas, Verdicts, Watch) are
+registered as internal contributions (`plugins/internal-contributions.ts:21`) into the
+in-memory registry (`plugins/contribution-registry.ts:15`). `dock-panels.tsx` spreads
+`getPanelComponents()` into `PANEL_COMPONENTS` so registered modules become real
+dockview panels, and `launcher-modules.ts` filters `launcher: true` entries to populate
+the "+ Apps" menu. `use-contributions.ts` (`useLoadPluginContributions`, called at the top
+of `AppShell`) subscribes the React tree to registry changes so plugin-contributed panels
+appear without a reload. (The Loop module has moved out to the `manifold.loop` plugin.)
+
+**Monaco.** `monaco-setup.ts` is imported for its side effects only: it assigns
+`self.MonacoEnvironment.getWorker` to route each language label to its dedicated worker
+bundle (`json`/`css`/`html`/`typescript`/`editor`) and registers the `monaco` instance
+with `@monaco-editor/react`'s `loader`. The actual editor component is `CodeViewer`.
+
+**Shared chat.** `src/renderer-shared/chat/` holds the chat surface — `ChatPane` plus the
+`useChat` / `useAgentStatus` / `useSlashCommands` hooks (`chat/index.ts`). Inside the
+renderer it backs both the developer draft chat (`DraftChatView`) and the live chat-mode
+agent (`AgentChatView`), which the agent panel switches between
+(`dock-agent-panel.tsx:118`, `:171`). It is a separate top-level dir, not under
+`src/renderer/`, so it stays independent of the workspace shell.
+
+## Key types and entry points
+
+- `App` — `App.tsx:41`. The single source of UI state; builds `DockAppState` and renders the shell.
+- `DockAppState` — `components/editor/dock-panel-types.ts`. The context object every dock panel reads via `useDockState()`; assembled in `App.tsx:251`.
+- `PANEL_COMPONENTS` — `components/editor/dock-panels.tsx:17`. id→component registry = the panel set.
+- `PANEL_IDS` / `PANEL_TITLES` — `hooks/dock-layout/dock-layout-helpers.ts:13`, `:18`. Canonical panel id and title lists.
+- `useDockLayout` — `hooks/dock-layout/useDockLayout.ts`. Public dock control surface (`togglePanel`, `focusPanel`, `ensureEditorPanel`, `openPluginView`, `resetLayout`, …) returned at `:259`.
+- `DockTab` / `EmptyWatermark` — `DockTab.tsx:7` / `:50`. Tab header and empty-group watermark.
+- `registerPanelContribution` / `getLauncherContributions` — `plugins/contribution-registry.ts:37`, `:48`. Module registry API.
+- `electronAPI` — `src/preload/index.ts:203`, typed by `src/shared/electron-api.d.ts:1`. The only renderer→main door.
+
+## Interactions
+
+- **Preload / IPC** (`src/preload/index.ts`): the renderer calls `window.electronAPI.invoke/send/on` exclusively. The preload allowlists every channel (`ALLOWED_INVOKE_CHANNELS` etc.) and rejects anything else, then exposes the API via `contextBridge.exposeInMainWorld('electronAPI', …)` (`:235`). There is no direct `ipcRenderer` access from renderer code; `getPathForFile` (drag-drop) is the one non-IPC helper.
+- **Main subsystems**: hooks invoke channels owned by main — `agent:*` (`useAgentSession`), `git:*` (`useDiff`, `useGitOperations`, `useFetchProject`), `files:*` (`useFileWatcher`, `useCodeView`), `projects:*` (`useProjects`), `simple:*`/`chat:*` (chat), and `plugins:*` (`App.tsx:214` pushes active project/session context to the plugin host).
+- **Session subsystem** (`src/main/session`): `App` listens for `agent:output`/`agent:status`/`agent:sessions-changed` via the session hooks; `TerminalPane` streams agent PTY output and `AgentChatView` consumes chat-mode NDJSON.
+- **Plugin UI** (`components/plugin-ui/PluginUiHost`, rendered at `AppShell.tsx:250`): hosts plugin-contributed surfaces; `pluginView`/`pluginTreeView` dock panels render plugin webviews.
+- **Theme**: `useTheme` resolves the theme id to a body class + xterm theme; `index.tsx` loads `styles/theme.css` and `styles/dockview-theme.css`; the dockview host toggles `dockview-minimal` when no session is active (`AppShell.tsx:145`).
+
+## Invariants & gotchas
+
+- **Main is reachable only through `window.electronAPI`.** The preload allowlists channels by name; a typo or a new channel that isn't added to the allowlist is silently dropped (`send`/`on`) or rejected (`invoke`). Renderer code must never assume `ipcRenderer`/`fs`/`child_process` exist.
+- **`App` is the only stateful node.** State and IPC live in `App` + hooks; `AppShell` and the panels are presentational and read everything from props or `DockStateContext`. Adding state to a panel breaks the single-source assumption (and the dock-state memo discipline).
+- **Panels are dictionary-driven.** A panel exists iff its id is in `PANEL_COMPONENTS`; built-in *modules* additionally come from the contribution registry spread. Adding a panel means a `PANEL_IDS`/`PANEL_TITLES` entry plus a registry or `PANEL_COMPONENTS` entry — not new JSX in the shell.
+- **StrictMode double-mounts in dev.** Every panel (notably the agent terminal) mounts twice on first render; effects and layout code under `dock-layout/` must be idempotent and resize in place rather than rebuild on remount.
+- **"Search" and "Web preview" aren't dock panels.** Search is the title-bar `TitleBarSearch`; HTML preview is an `<iframe>` inside `CodeViewer`. Looking for them in `PANEL_COMPONENTS` will fail.
+- **Monaco workers must be configured before an editor mounts.** `monaco-setup` is imported as the first line of `index.tsx` for exactly this reason; reordering it breaks worker resolution.

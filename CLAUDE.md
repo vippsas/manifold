@@ -60,6 +60,34 @@ For multi-step tasks, state a brief plan:
 
 Strong success criteria let you loop independently. Weak criteria ("make it work") require constant clarification.
 
+## 5. Documentation wiki (keep docs in sync with code)
+
+Manifold keeps a **living reference layer** under [`docs/architecture/`](docs/architecture)
+that tracks the code. The doc map is [`docs/README.md`](docs/README.md); the append-only
+run record is [`log.md`](log.md); the rationale is [`docs/llm-wiki.md`](docs/llm-wiki.md).
+This schema governs that layer.
+
+- **`covers:` binding.** Every living page declares the code path(s) it documents in
+  YAML frontmatter: `covers: [src/main/<area>]`, plus `description:`, `updated:` (ISO
+  date), and `owner: see .github/CODEOWNERS`. The binding is what makes drift measurable.
+- **Code is ground truth.** Verify every claim against *current code*, never against
+  sibling docs. The pass that **checks** a page must be a different pass than the one
+  that **wrote** it — a writer can't certify its own output. Cite `file:line`.
+- **Staleness is measured from git.** A page is stale when commits hit its `covers:`
+  path after its `updated:` date:
+  `git rev-list --count $(git log -1 --format=%h -- <page>)..HEAD -- <covers>`.
+- **When you change code, update its page(s) in the same PR** and bump `updated:`. A new
+  `src/main/*` subsystem ⇒ a new page, added to the [`docs/README.md`](docs/README.md) map.
+- **Lint** (record findings in [`log.md`](log.md)): stale pages (git gap), broken code
+  refs (a named file/symbol that no longer exists), missing subsystem pages, orphans
+  (page not in the doc map), and frozen-spec misuse.
+- **Living vs. frozen.** `docs/superpowers/`, `docs/planning/`, and `docs/research/` are
+  point-in-time specs — raw historical evidence. Never "freshen" them, and never cite a
+  superseded spec as current truth. Only the living layer tracks the code.
+
+`log.md` entries are newest-first, one `##` heading each, prefixed
+`ingest | sync | lint | structure` (feed: `grep "^## \[" log.md | head`).
+
 ---
 
 **These guidelines are working if:** fewer unnecessary changes in diffs, fewer rewrites due to overcomplication, and clarifying questions come before implementation rather than after mistakes.
