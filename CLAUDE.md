@@ -60,6 +60,22 @@ For multi-step tasks, state a brief plan:
 
 Strong success criteria let you loop independently. Weak criteria ("make it work") require constant clarification.
 
+## 5. Documentation wiki (keep docs in sync with code)
+
+`docs/architecture/` is a living reference layer that tracks the code — each page binds to a
+`covers:` code path in its frontmatter. **Full schema & rationale:**
+[`docs/llm-wiki.md`](docs/llm-wiki.md). **Doc map, lint, and the self-firing routine:**
+[`docs/README.md`](docs/README.md).
+
+In-loop rules:
+- **Change code ⇒ update its covering page(s) in the same PR**, bumping `updated:`. A new
+  `src/main/*` subsystem ⇒ a new page, added to the [doc map](docs/README.md).
+- **Code is ground truth.** Verify every doc claim against current code and cite `file:line`;
+  a pass other than the writer certifies it — a writer can't certify its own output.
+- **Never freshen frozen specs** (`docs/superpowers|planning|research`) or cite one as
+  current; only `docs/architecture/` tracks the code.
+- Check drift with `bash scripts/wiki-lint.sh` (a daily routine runs it and PRs stale pages).
+
 ---
 
 **These guidelines are working if:** fewer unnecessary changes in diffs, fewer rewrites due to overcomplication, and clarifying questions come before implementation rather than after mistakes.

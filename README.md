@@ -1,3 +1,5 @@
+<!-- wiki-covers: src/main/agent/runtimes.ts, package.json, src/shared/defaults.ts -->
+
 # Manifold
 
 Manifold is a macOS desktop app for running AI coding assistants (Claude Code, Codex, Gemini CLI, and others) side by side on the same codebase.
@@ -229,16 +231,7 @@ Manifold follows Electron's multi-process model, where the UI has no direct acce
 - `src/renderer-shared/`: chat components shared across renderer surfaces
 - `src/shared/`: shared types, defaults, prompts, and theme data
 
-Important main-process services include:
-
-- `SessionManager` for starting, stopping, and resuming agent sessions, and finding existing worktrees on disk
-- `WorktreeManager` and `BranchCheckoutManager` for creating, switching, and removing git worktrees
-- `WorkspaceManager` for grouping repositories and spawning a single agent across all of them
-- `PtyPool` for terminal processes
-- `GitOperationsManager` and `PrCreator` for generating commits, commit messages, and opening GitHub pull requests
-- `DevServerManager` for the live preview of locally generated apps
-- `MemoryStore` (SQLite storage), `MemoryCapture` (records session data), `MemoryCompressor` (summarises long sessions), and `MemoryInjector` (provides history to resumed sessions)
-- search services for exact text search, AI-sorted results, and AI-answered questions
+For a subsystem-by-subsystem map of the main process — sessions, worktrees, runtimes, memory, search, plugins, and the rest — see the contributor [documentation map](docs/README.md).
 
 For security, embedded web previews are limited to `localhost` URLs only — they cannot load external sites.
 
