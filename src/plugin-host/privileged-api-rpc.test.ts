@@ -86,4 +86,19 @@ describe('lm-api over RPC', () => {
     expect(res.text).toBe('OK')
     expect(calls).toEqual([['select', 's1'], ['send', 's1', 'PROMPT', { timeoutMs: 1000 }]])
   })
+
+  it('selectChatModels(sessionId) targets the requested session instead of the active one', async () => {
+    const { host, main } = wirePair()
+    const calls: unknown[][] = []
+    main.registerService(HOST_LM, {
+      $selectChatModels: (sid: string | undefined) => { calls.push(['select', sid]); return [{ id: 'm1' }] },
+      $sendRequest: (sid: string | undefined, prompt: string, opts: unknown) => { calls.push(['send', sid, prompt, opts]); return { text: 'OK' } },
+    })
+    const ws = new WorkspaceContext()
+    ws.setActiveContext({ session: { id: 'active-session', status: 'running', worktreePath: '/wt-active' } })
+    const lm = createLmApi(host, ws)
+    const models = await lm.selectChatModels('pinned-session')
+    await models[0].sendRequest('PROMPT', { timeoutMs: 1000 })
+    expect(calls).toEqual([['select', 'pinned-session'], ['send', 'pinned-session', 'PROMPT', { timeoutMs: 1000 }]])
+  })
 })

@@ -21,14 +21,16 @@ export interface Judge { judge(request: JudgeRequest, signal: AbortSignal): Prom
 
 /** Minimal shape of manifold.lm needed here (injected; keeps this file manifold-free). */
 export interface LmLike {
-  selectChatModels(): Promise<Array<{ sendRequest(prompt: string, opts?: { timeoutMs?: number }): Promise<{ text: string }> }>>
+  selectChatModels(sessionId?: string): Promise<Array<{ sendRequest(prompt: string, opts?: { timeoutMs?: number }): Promise<{ text: string }> }>>
 }
 
 export function createJudge(lm: LmLike): Judge {
   return {
     async judge(request, signal) {
       if (signal.aborted) return { failure: 'aborted before judge ran' }
-      const models = await lm.selectChatModels()
+      // Pin the judge model to the loop's session so it doesn't follow the active
+      // agent: switching to another agent/repo mid-run must not redirect the judge.
+      const models = await lm.selectChatModels(request.sessionId)
       const model = models[0]
       if (!model) return { failure: 'no language model available' }
 
