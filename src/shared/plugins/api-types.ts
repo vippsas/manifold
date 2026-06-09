@@ -115,7 +115,10 @@ export interface ManifoldApi {
     getAgent(sessionId: string): AgentSession | undefined
   }
   lm: {
-    selectChatModels(): Promise<LanguageModelChat[]>
+    /** Resolve language models. Pass `sessionId` to target a specific agent
+     *  session's runtime (e.g. a loop pinned to its starting session); omit it
+     *  to use the currently-active session. */
+    selectChatModels(sessionId?: string): Promise<LanguageModelChat[]>
   }
 }
 

@@ -1,7 +1,7 @@
 ---
 description: The plugin authoring API contract — the `manifold` runtime module, manifest fields, capabilities, and `contributes` that built-in plugins are written against.
 covers: [src/shared/plugins]
-updated: 2026-06-08
+updated: 2026-06-09
 owner: see .github/CODEOWNERS
 ---
 
@@ -45,7 +45,7 @@ plugin folder path.
 - `workspace` — read-only `activeProject` / `activeSession` / `workspaceFolders` getters plus `onDidChangeActiveProject` / `onDidChangeActiveSession` (`api-types.ts:102`). Gated by `workspace:read`.
 - `configuration` — `get<T>(key, default?)` and `onDidChange(listener)` (`api-types.ts:109`). Gated by `configuration`.
 - `agents` — `activeAgent` getter and `getAgent(sessionId)` (`api-types.ts:113`). Gated by `agent:control`, **built-in only**.
-- `lm` — `selectChatModels()` (`api-types.ts:117`). Gated by `lm`, **built-in only**.
+- `lm` — `selectChatModels(sessionId?)` (`api-types.ts:117`). Gated by `lm`, **built-in only**. An explicit `sessionId` pins the model to that session's runtime; omit it for the active session.
 
 **Capability gating.** `CAPABILITIES` (`manifest.ts:7`) is the single source of truth:
 `['storage', 'workspace:read', 'configuration', 'agent:control', 'lm']`. The manifest
@@ -88,7 +88,7 @@ The reference plugin is `resources/plugins/hello/` — `package.json` declares
 
 - **Host / loader** (`src/main/plugins`, `src/plugin-host`): discovers plugins into `PluginDescriptor`s, builds the gated `ManifoldApi` per plugin (`gated-api.ts`), and serves each namespace's calls. The full lifecycle is `docs/architecture/plugins.md`.
 - **RPC boundary** (`rpc.ts`): the plugin host runs in a separate process; every gated namespace call is an `RpcMessage` over `RpcEndpoint`, dispatched by the `HOST_*`/`PLUGIN_*` context id (`HOST_AGENTS`, `HOST_LM`, `HOST_STORAGE`, …). `rejectAllPending()` fails in-flight calls loudly if the host process dies.
-- **Sessions / agents** (`src/main/session`, see `docs/architecture/session.md`): `agents.activeAgent` / `getAgent` resolve to a live `SessionManager` session; `runTurn` drives a real agent turn. `lm.selectChatModels()` and `sendRequest` run against the active session's runtime in its worktree.
+- **Sessions / agents** (`src/main/session`, see `docs/architecture/session.md`): `agents.activeAgent` / `getAgent` resolve to a live `SessionManager` session; `runTurn` drives a real agent turn. `lm.selectChatModels(sessionId?)` and `sendRequest` run against the given session's runtime in its worktree — or the active session's when `sessionId` is omitted (`lm-api.ts:14`). The loop judge passes its pinned session so switching the active agent mid-run doesn't redirect the request.
 - **Workspace** (see `docs/architecture/workspace.md`): `workspace.activeProject` / `activeSession` / `workspaceFolders` mirror the active project + session and its worktree path (`WorkspaceFolder.uri` is the worktree's absolute fs path).
 - **Renderer UI**: webview/tree contributions surface in the dock + "+ Apps" launcher; `window.show*`/`showQuickPick`/`showInputBox` round-trip to the renderer's UI host as `UiRequest`s (`ui.ts:9`); tree items cross as `SerializedTreeItem` (`tree.ts:6`).
 - **Build** (`scripts/build-plugins.mjs`, `npm run build:plugins`): esbuild compiles `src/plugin.ts` → `out/plugin.js` with `manifold` and `vscode` marked external (the host injects them). Details in `docs/plugins/authoring.md`.

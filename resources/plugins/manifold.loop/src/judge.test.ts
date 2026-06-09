@@ -40,6 +40,14 @@ describe('createJudge', () => {
     expect(r.score).toBe(8)
   })
 
+  it('selects the model for the pinned request session, not the active one', async () => {
+    const seen: Array<string | undefined> = []
+    const lm = { selectChatModels: async (sessionId?: string) => { seen.push(sessionId); return [{ id: 'm', sendRequest: async () => ({ text: 'FINAL_SCORE: 5' }) }] } }
+    const judge = createJudge(lm as never)
+    await judge.judge({ sessionId: 'pinned-session', rubric: 'r', maxScore: 10, evalStdout: '', diff: 'd', hasEvalCommand: false, program: 'p' }, new AbortController().signal)
+    expect(seen).toEqual(['pinned-session'])
+  })
+
   it('fails when no model is available', async () => {
     const judge = createJudge({ selectChatModels: async () => [] } as never)
     const r = await judge.judge({ sessionId: 's', rubric: 'r', maxScore: 10, evalStdout: '', diff: 'd', hasEvalCommand: false, program: 'p' }, new AbortController().signal)
