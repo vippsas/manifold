@@ -23,6 +23,10 @@ import { checkProvisionerHealth } from './provisioning-health'
 import type { SettingsStore } from '../store/settings-store'
 import type { ProjectRegistry } from '../store/project-registry'
 
+// A real create (scaffold + push a repo) can take far longer than the default
+// 60s catalog/health budget; give it a generous timeout so it isn't killed mid-provision.
+const CREATE_TIMEOUT_MS = 10 * 60_000
+
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null
 }
@@ -122,6 +126,7 @@ export class ProvisioningDispatcher {
         provisioner,
         { protocolVersion: PROVISIONER_PROTOCOL_VERSION, operation: 'create', requestId, templateId, inputs: request.inputs },
         (payload) => onProgress?.({ ...payload, requestId, templateQualifiedId: request.templateQualifiedId }),
+        { timeoutMs: CREATE_TIMEOUT_MS },
       )
 
       onProgress?.({ requestId, templateQualifiedId: request.templateQualifiedId, message: 'Cloning repository into managed storage...', stage: 'cloning', status: 'running' })
@@ -275,9 +280,10 @@ export class ProvisioningDispatcher {
     provisioner: ProvisionerConfig,
     request: Parameters<typeof runProvisionerRequest<T>>[2],
     onProgress?: (payload: ProvisioningProgressPayload) => void,
+    options?: Parameters<typeof runProvisionerRequest<T>>[4],
   ): Promise<T> {
     const { command, args } = resolveProvisionerCommand(provisioner)
-    return await runProvisionerRequest<T>(command, args, request, onProgress)
+    return await runProvisionerRequest<T>(command, args, request, onProgress, options)
   }
 
   private getCache(): ProvisioningCatalogCache {

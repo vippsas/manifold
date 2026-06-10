@@ -50,8 +50,11 @@ export function registerProvisioningHandlers(deps: IpcDependencies): void {
 
   ipcMain.handle('provisioning:create', async (event, request: ProvisioningCreateRequest) => {
     const dispatcher = new ProvisioningDispatcher(deps.settingsStore, deps.projectRegistry)
+    const sender = event.sender
     return await dispatcher.create(request, (payload) => {
-      event.sender.send('provisioning:progress', payload)
+      if (!sender.isDestroyed()) {
+        sender.send('provisioning:progress', payload)
+      }
     })
   })
 }
