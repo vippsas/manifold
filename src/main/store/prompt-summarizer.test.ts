@@ -1,6 +1,6 @@
 import { describe, it, expect, vi } from 'vitest'
 import { summarizeMiddle, DEFAULT_CHAT_MODEL } from './prompt-summarizer'
-import type { AiServiceSettings } from '../../shared/watch-types'
+import type { AiServiceSettings } from '../../shared/plugins/api-types'
 
 function jsonResponse(body: unknown, status = 200): Response {
   return new Response(JSON.stringify(body), { status, headers: { 'content-type': 'application/json' } })

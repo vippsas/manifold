@@ -4,7 +4,7 @@ import * as path from 'node:path'
 import * as os from 'node:os'
 import { VerdictStore } from '../store/verdict-store'
 import { VerdictRecorder } from './verdict-recorder'
-import type { AiServiceSettings } from '../../shared/watch-types'
+import type { AiServiceSettings } from '../../shared/plugins/api-types'
 
 function makeRecorder(tmp: string, opts: Partial<{
   diffLines: { added: number; removed: number }

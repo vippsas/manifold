@@ -1,6 +1,6 @@
 import type { VerdictStore } from '../store/verdict-store'
 import type { VerdictRecord, TaskPrompt } from '../../shared/verdict-types'
-import type { AiServiceSettings } from '../../shared/watch-types'
+import type { AiServiceSettings } from '../../shared/plugins/api-types'
 
 const FULL_THRESHOLD = 2048
 const HEAD_TAIL_BYTES = 1024

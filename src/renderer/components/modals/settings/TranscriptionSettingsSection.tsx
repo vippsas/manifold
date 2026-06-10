@@ -1,5 +1,5 @@
 import React from 'react'
-import type { AiServiceSettings } from '../../../../shared/watch-types'
+import type { AiServiceSettings } from '../../../../shared/plugins/api-types'
 import { SectionCard, SectionHeader } from './SettingsSectionLayout'
 
 interface Props {

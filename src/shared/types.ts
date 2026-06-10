@@ -124,7 +124,7 @@ export interface ManifoldSettings {
   search?: SearchSettings
   editor?: EditorSettings
   provisioning?: import('./provisioning-types').ProvisioningSettings
-  transcription?: import('./watch-types').AiServiceSettings
+  transcription?: import('./plugins/api-types').AiServiceSettings
   pluginConfig?: Record<string, Record<string, unknown>>
   /** Plugin IDs that have been explicitly disabled by the user. */
   disabledPlugins?: string[]
