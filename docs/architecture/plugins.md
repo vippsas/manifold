@@ -1,7 +1,7 @@
 ---
 description: How Manifold's main process discovers, loads, gates, and tears down plugins — the host side that forks the extension-host utility process and enforces capabilities.
 covers: [src/main/plugins, src/plugin-host]
-updated: 2026-06-10
+updated: 2026-06-11
 owner: see .github/CODEOWNERS
 ---
 
@@ -11,8 +11,9 @@ The plugin *host* is the main-process machinery that finds plugins on disk, fork
 sandboxed extension-host utility process to run their code, and brokers every call
 between that process and the rest of the app. It is also the trust boundary: plugins
 declare *capabilities* in their manifest, and the host decides which API namespaces a
-plugin may touch — including two privileged namespaces (`agent:control`, `lm`) that are
-restricted to built-in plugins no matter what their manifest claims.
+plugin may touch — including the privileged capabilities (`agent:control`, `agent:spawn`,
+`lm`, `transcription:read`) that are restricted to built-in plugins no matter what their
+manifest claims.
 
 The API surface plugin authors consume from inside their code (`manifold.*` / `vscode.*`)
 is documented separately in [Authoring Built-in Manifold Plugins](../plugins/authoring.md).
@@ -28,6 +29,7 @@ process (`src/plugin-host`) where that is where loading/gating actually executes
 - `src/main/plugins/extension-host.ts` — `ExtensionHost`: forks `plugin-host.js`, registers the main-side RPC services, owns disposal.
 - `src/main/plugins/command-registry.ts` / `host-commands-service.ts` — command ownership (`CommandRegistry`) and its RPC service.
 - `src/main/plugins/agent-control-service.ts` / `lm-service.ts` — the privileged main-side services behind `agent:control` / `lm`.
+- `src/main/plugins/agent-spawn-service.ts` — the privileged main-side service behind `agent:spawn`: spawn a sibling session next to a base session, raw PTY input (`sendText`), TUI-ready polling (`whenReady`), status/kill.
 - `src/main/plugins/plugin-storage-store.ts` — per-plugin key/value JSON storage with path-escape defense.
 - `src/main/plugins/webview-protocol.ts` / `webview-content-store.ts` — the `manifold-webview://` scheme, nonce-CSP injection, and the HTML store.
 - `src/main/plugins/ui-broker.ts` — `UiRequestBroker`: bridges host UI prompts to the renderer and awaits the reply.
@@ -83,26 +85,37 @@ non-plugin requires fall through to the original `Module._load`. There is no `ma
 package on disk; the name resolves purely through this interceptor.
 
 **Capability gating.** The frame for a manifold plugin is `buildGatedApi(capabilities,
-origin, …)` (`plugin-host/index.ts:68`, `gated-api.ts:27`). `commands` and `window` are
-always available; `storage`, `workspace`, `configuration`, `agents`, and `lm` are lazy
-getters that call `requireCap()` on first access. `requireCap` throws `CapabilityError`
-when the capability isn't declared, and `RestrictedCapabilityError` when a built-in-only
-capability is requested by a non-built-in plugin (`gated-api.ts:34`). The built-in-only
-set is `BUILTIN_ONLY_CAPABILITIES = ['agent:control', 'lm']` (`shared/plugins/manifest.ts:14`),
-so even a user plugin that declares `agent:control` in its manifest is denied at the
-getter because its `origin !== 'builtin'`. These two namespaces are backed in the main
-process by `AgentControlService` (drives a session's agent for one turn,
-`agent-control-service.ts:110`) and `LmService` (one-shot generation via the active
-session's runtime, `lm-service.ts:19`) — exactly the powers that warrant the restriction.
+origin, …)` (`plugin-host/index.ts:72`, `gated-api.ts:28`). `commands` and `window` are
+always available; `storage`, `workspace`, `configuration`, `agents`, `lm`, and
+`transcription` are lazy getters that call `requireCap()` on first access. `requireCap`
+throws `CapabilityError` when the capability isn't declared, and
+`RestrictedCapabilityError` when a built-in-only capability is requested by a
+non-built-in plugin (`gated-api.ts:35`). The built-in-only set is
+`BUILTIN_ONLY_CAPABILITIES = ['agent:control', 'agent:spawn', 'lm', 'transcription:read']`
+(`shared/plugins/manifest.ts:14`), so even a user plugin that declares one in its manifest
+is denied at the getter because its `origin !== 'builtin'`. The `agents` namespace is the
+one shared gate: either `agent:control` or `agent:spawn` admits it, and the factory
+receives the declared capability set so each method re-checks its own capability
+(`gated-api.ts:48`, `plugin-host/agents-api.ts:30`). These namespaces are backed in the
+main process by `AgentControlService` (drives a session's agent for one turn,
+`agent-control-service.ts:110`), `AgentSpawnService` (sibling-session spawn + raw PTY
+input, `agent-spawn-service.ts:32`), `LmService` (one-shot generation via the active
+session's runtime, `lm-service.ts:19`), and the transcription-settings resolver
+(`extension-host.ts:70`, set by `PluginManager` from the core settings store) — exactly
+the powers that warrant the restriction.
 
 The `gated-api.ts` getter check runs *inside* the host process, alongside untrusted
 plugin code, so it is a convenience gate, not the trust boundary. The authoritative check
-is on the main side: the host-side `agents`/`lm` proxies thread the calling plugin's
-`pluginId` into every `HOST_AGENTS`/`HOST_LM` RPC (`agents-api.ts`, `lm-api.ts`), and the
-main handlers call `assertBuiltin(pluginId, …)` — resolving the plugin's `origin` via
-`PluginManager` and rejecting any non-builtin (or unknown) caller before
-`AgentControlService`/`LmService` runs (`extension-host.ts`). A plugin that reaches the RPC
-endpoint directly, bypassing `buildGatedApi`, is still refused.
+is on the main side: the host-side `agents`/`lm`/`transcription` proxies thread the
+calling plugin's `pluginId` into every `HOST_AGENTS`/`HOST_LM`/`HOST_TRANSCRIPTION` RPC
+(`agents-api.ts`, `lm-api.ts`, `transcription-api.ts`), and the main handlers call
+`assertBuiltin(pluginId, …)` — resolving the plugin's `origin` via `PluginManager` and
+rejecting any non-builtin (or unknown) caller before the privileged service runs
+(`extension-host.ts:166-182`). A plugin that reaches the RPC endpoint directly, bypassing
+`buildGatedApi`, is still refused. `AgentSession.reveal()` is the one main-side push in
+the set: it forwards `plugins:reveal-session` to the renderer, which opens the session's
+dock panel via `openSiblingPanel` (`extension-host.ts:174`,
+`src/renderer/hooks/useAppEffects.ts:86`).
 
 **Commands.** Command ids are owned end-to-end. A plugin's `commands.registerCommand`
 threads its `pluginId` to the host's `$registerCommand`, which calls
@@ -119,7 +132,12 @@ sets HTML via the host's `$setHtml`, which writes the `webviewContentStore` and 
 `plugins:webview-html` event with a new version (`extension-host.ts:67`). The renderer
 loads `manifold-webview://view/<id>?v=<n>`; `installWebviewProtocol()` serves it from the
 store, injecting a **fresh per-request nonce CSP** and adding that nonce to every
-`<script>` tag (`webview-protocol.ts:146`, `:37`). Tree views skip HTML entirely and pull
+`<script>` tag (`webview-protocol.ts:157`, `:37`). A view whose manifest declares
+`frameSources` (exact https origins, validated in `manifest.ts:22`) gets a `frame-src`
+clause appended to its CSP only: `scan()` registers each view's sources into the
+content store (`plugin-manager.ts:120`, `webview-content-store.ts:18`) and `buildCsp`
+widens the policy per request (`webview-protocol.ts:102`); every other view keeps the
+no-frames default. Tree views skip HTML entirely and pull
 nodes through `treeGetChildren()` (`plugin-manager.ts:136`). Interactive prompts
 (`window.showMessage` etc.) go through `UiRequestBroker`, which emits `plugins:ui-request`
 and resolves when the renderer replies via `plugins:ui-response` (`ui-broker.ts:10`).
@@ -166,7 +184,7 @@ disabled plugin (`extension-host.ts`, `plugin-manager.ts:63`).
 
 ## Invariants & gotchas
 
-- **`agent:control` and `lm` are built-in-only — re-enforced on the trusted main side, not just at the host getter.** Declaring them in a user plugin's manifest passes parse-time validation (they are valid capabilities) but throws `RestrictedCapabilityError` the moment the plugin touches `manifold.agents` / `manifold.lm` (`gated-api.ts:36`). That getter check runs inside the host process, so it is not authoritative: every `HOST_AGENTS`/`HOST_LM` RPC also carries the calling `pluginId`, and the main handlers call `assertBuiltin()` to reject any non-builtin/unknown caller before driving an agent or the LLM (`extension-host.ts`) — so a plugin can't escape the gate by hitting the RPC endpoint directly. The restriction keys on `origin === 'builtin'`, which the scanner sets from *which directory* the plugin was found in (`scanner.ts:13`) — not from anything the plugin can self-declare.
+- **`agent:control`, `agent:spawn`, `lm`, and `transcription:read` are built-in-only — re-enforced on the trusted main side, not just at the host getter.** Declaring them in a user plugin's manifest passes parse-time validation (they are valid capabilities) but throws `RestrictedCapabilityError` the moment the plugin touches `manifold.agents` / `manifold.lm` / `manifold.transcription` (`gated-api.ts:37`). That getter check runs inside the host process, so it is not authoritative: every `HOST_AGENTS`/`HOST_LM`/`HOST_TRANSCRIPTION` RPC also carries the calling `pluginId`, and the main handlers call `assertBuiltin()` to reject any non-builtin/unknown caller before driving an agent, spawning a session, reading API keys, or the LLM (`extension-host.ts:166-182`) — so a plugin can't escape the gate by hitting the RPC endpoint directly. The restriction keys on `origin === 'builtin'`, which the scanner sets from *which directory* the plugin was found in (`scanner.ts:13`) — not from anything the plugin can self-declare.
 - **`activationEvents` is parsed but not yet event-driven.** Both parsers carry `activationEvents` into the manifest (`manifest.ts:107`, `vscode-manifest.ts:72`), but no host code matches them. Activation happens explicitly via the `plugins:activate` IPC, or lazily the first time a view is opened / a tree is queried / a webview message is delivered (each of `openView`, `treeGetChildren`, `deliverWebviewMessage`, `setActiveContext` calls `ensure()` + `$activate`). Don't assume `onCommand:` etc. lazy-activates a plugin.
 - **The host process re-forks on crash (with backoff); in-flight RPCs reject, they don't hang.** A plugin that crashes the utility process triggers `onHostDown`, which rejects every pending call, flushes pending UI prompts, and clears the `CommandRegistry` so the re-forked host starts clean (`extension-host.ts`, `command-registry.ts:36`). Awaiting callers fail loudly with `plugin host exited (code …)`. A crash circuit-breaker counts crashes within a window and, once tripped, makes `ensure()` refuse to re-fork until an exponential backoff elapses — so a host that crashes on `activate()` backs off instead of re-forking on every `setActiveContext`/`openView`/… call.
 - **Plugin ids are charset-validated *and* path-checked at write time.** Even though `parseManifest` restricts the id charset, `PluginStorageStore.fileFor()` re-verifies the resolved path stays inside `<storage>/plugin-storage/` before any read/write (`plugin-storage-store.ts:10`). Corrupt storage JSON is backed up to `.bak` (once) rather than silently overwritten (`plugin-storage-store.ts:43`).
