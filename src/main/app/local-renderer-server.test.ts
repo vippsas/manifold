@@ -19,10 +19,14 @@ afterEach(() => {
   }
 })
 
+// agent: false forces a fresh, non-pooled socket per request. The server uses a
+// fixed PREFERRED_PORT and is recreated for each test; with Node's default
+// keepAlive agent, a pooled socket from a prior test points at the now-closed
+// server and the reused connection fails with ECONNRESET / socket hang up.
 function get(url: string): Promise<{ status: number; body: string }> {
   return new Promise((resolve, reject) => {
     http
-      .get(url, (res) => {
+      .get(url, { agent: false }, (res) => {
         let body = ''
         res.on('data', (chunk) => {
           body += chunk
@@ -76,7 +80,7 @@ describe('local-renderer-server', () => {
     const srv = await startLocalRendererServer(root)
     try {
       const res = await new Promise<{ status: number }>((resolve, reject) => {
-        const req = http.request(srv.url, { method: 'POST' }, (r) => {
+        const req = http.request(srv.url, { method: 'POST', agent: false }, (r) => {
           resolve({ status: r.statusCode ?? 0 })
         })
         req.on('error', reject)
