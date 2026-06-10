@@ -81,6 +81,14 @@ export function useAppEffects(input: AppEffectsInput): AppEffectsResult {
     input.jumpToFavorite(index as number)
   }), [input.jumpToFavorite])
 
+  // A plugin asked the app to surface an agent session's panel (manifold.agents
+  // AgentSession.reveal — e.g. the watch plugin's "Open agent" button).
+  useEffect(() => window.electronAPI.on('plugins:reveal-session', (...args: unknown[]) => {
+    const [sessionId, title] = args as [unknown, unknown]
+    if (typeof sessionId !== 'string' || sessionId.length === 0) return
+    input.dockLayout.openSiblingPanel(sessionId, typeof title === 'string' ? title : undefined)
+  }), [input.dockLayout.openSiblingPanel])
+
   useEffect(() => {
     let cancelled = false
     void (async () => {
