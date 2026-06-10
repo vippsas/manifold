@@ -121,7 +121,10 @@ export class VerdictRecorder {
   async onSessionTerminated(sessionId: string): Promise<void> {
     const existing = this.deps.store.getBySessionId(sessionId)
     const tracked = this.active.get(sessionId)
-    if (!existing || !tracked) return
+    if (!existing || !tracked) {
+      this.active.delete(sessionId)
+      return
+    }
 
     const { diffLines, filesChanged } = await safe(
       () => this.deps.getDiffStats(tracked.worktreePath, tracked.baseBranch),

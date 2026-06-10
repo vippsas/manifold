@@ -116,6 +116,19 @@ describe('VerdictRecorder', () => {
     const { recorder } = makeRecorder(tmp)
     await expect(recorder.onSessionTerminated('nope')).resolves.not.toThrow()
   })
+
+  it('drops the active entry when the store row is already gone on termination', async () => {
+    const { store, recorder } = makeRecorder(tmp)
+    recorder.onSessionCreated({
+      sessionId: 's1', projectId: 'p1', branch: 'manifold/foo',
+      runtime: 'claude', taskPrompt: 't', worktreePath: '/tmp/wt', baseBranch: 'main',
+    })
+    // Simulate the store record being removed out from under a tracked session.
+    vi.spyOn(store, 'getBySessionId').mockReturnValue(null)
+    await recorder.onSessionTerminated('s1')
+    const active = (recorder as unknown as { active: Map<string, unknown> }).active
+    expect(active.has('s1')).toBe(false)
+  })
 })
 
 describe('VerdictRecorder per-event hooks', () => {
