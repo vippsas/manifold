@@ -52,6 +52,16 @@ describe('ToolDetector', () => {
       expect(events[0].toolName).toBe('Bash')
       expect(events[0].inputSummary).toBe('npm run typecheck')
     })
+
+    it('does not throw on Bash with empty parens', () => {
+      let events: ReturnType<typeof detector.detect> = []
+      expect(() => {
+        events = detector.detect('⏺ Bash()')
+      }).not.toThrow()
+      expect(events).toHaveLength(1)
+      expect(events[0].toolName).toBe('Bash')
+      expect(events[0].inputSummary).toBe('')
+    })
   })
 
   describe('Gemini CLI patterns', () => {

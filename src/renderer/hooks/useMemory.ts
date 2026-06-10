@@ -47,7 +47,7 @@ export function useMemory(activeProjectId: string | null): UseMemoryResult {
   const [searchQuery, setSearchQueryState] = useState('')
   const [timelineHasMore, setTimelineHasMore] = useState(false)
 
-  const timelineCursorRef = useRef<number | null>(null)
+  const timelineCursorRef = useRef<string | null>(null)
   const debounceTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   const search = useCallback(async (query: string, type?: ObservationType, concepts?: string[]) => {

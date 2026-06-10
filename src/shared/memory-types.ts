@@ -111,7 +111,8 @@ export interface MemorySearchResponse {
 
 export interface MemoryTimelineRequest {
   projectId: string
-  cursor?: number
+  // Opaque compound cursor "<createdAt>:<id>" from a previous page's nextCursor.
+  cursor?: string
   limit?: number
   type?: ObservationType
   concepts?: string[]
@@ -167,7 +168,7 @@ export type MemoryTimelineItem =
 
 export interface MemoryTimelineResponse {
   items: MemoryTimelineItem[]
-  nextCursor: number | null
+  nextCursor: string | null
 }
 
 export interface MemoryStats {

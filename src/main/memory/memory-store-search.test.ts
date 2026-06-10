@@ -97,6 +97,58 @@ describe('MemoryStore search behavior', () => {
     })
   })
 
+  describe('combined search filters before LIMIT', () => {
+    it('returns a type-matching observation even when it ranks below the limit', () => {
+      // Insert one matching observation of the wanted type, then many of another
+      // type that all share the search term and rank higher / equal.
+      context.store.insertObservation(createObservation({
+        id: 'obs-wanted',
+        type: 'error_resolution',
+        title: 'database lock resolved',
+        summary: 'database database database fixed the lock',
+      }))
+      for (let i = 0; i < 25; i++) {
+        context.store.insertObservation(createObservation({
+          id: `obs-noise-${i}`,
+          type: 'decision',
+          title: `database choice ${i}`,
+          summary: 'database database database design decision',
+        }))
+      }
+
+      const result = context.store.search(PROJECT, 'database', { type: 'error_resolution', limit: 5 })
+
+      // Filtering in SQL (before LIMIT) must surface the single matching row even
+      // though 25 same-term rows of another type exist.
+      expect(result.results).toHaveLength(1)
+      expect(result.results[0].id).toBe('obs-wanted')
+    })
+
+    it('returns a concept-matching observation even when it ranks below the limit', () => {
+      context.store.insertObservation(createObservation({
+        id: 'obs-concept',
+        type: 'bugfix',
+        title: 'token database fix',
+        summary: 'database database database token validation',
+        concepts: ['gotcha'],
+      }))
+      for (let i = 0; i < 25; i++) {
+        context.store.insertObservation(createObservation({
+          id: `obs-plain-${i}`,
+          type: 'feature',
+          title: `database feature ${i}`,
+          summary: 'database database database new endpoint',
+          concepts: ['what-changed'],
+        }))
+      }
+
+      const result = context.store.search(PROJECT, 'database', { concepts: ['gotcha'], limit: 5 })
+
+      expect(result.results).toHaveLength(1)
+      expect(result.results[0].id).toBe('obs-concept')
+    })
+  })
+
   describe('session summaries and combined search', () => {
     it('inserts and retrieves summaries', () => {
       context.store.insertSessionSummary(createSessionSummary())

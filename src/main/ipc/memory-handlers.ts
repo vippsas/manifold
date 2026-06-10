@@ -16,6 +16,22 @@ import { parseObservationRow, parseSessionSummaryRow } from '../memory/memory-st
 import { isNoise, sanitizeMemoryText, truncate } from '../memory/memory-capture'
 import { buildMemoryFtsQuery } from '../memory/store/memory-fts-query'
 
+// Decode an opaque "<createdAt>:<id>" timeline cursor into its compound parts.
+// Absent/malformed cursor => first page: a timestamp above any real row, with an
+// id sentinel that never matches the equal-timestamp tiebreak branch.
+function parseTimelineCursor(cursor?: string): { createdAt: number; id: string } {
+  if (cursor) {
+    const sep = cursor.indexOf(':')
+    if (sep !== -1) {
+      const createdAt = Number(cursor.slice(0, sep))
+      if (Number.isFinite(createdAt)) {
+        return { createdAt, id: cursor.slice(sep + 1) }
+      }
+    }
+  }
+  return { createdAt: Date.now() + 1, id: '' }
+}
+
 function getInteractionRoleLabel(role: string): string {
   return role === 'user'
     ? 'You'
@@ -156,14 +172,17 @@ export function registerMemoryHandlers(deps: IpcDependencies): void {
   ipcMain.handle('memory:timeline', (_event, request: MemoryTimelineRequest): MemoryTimelineResponse => {
     const db = memoryStore.getDb(request.projectId)
     const limit = request.limit ?? 20
-    const cursor = request.cursor ?? Date.now() + 1
+    const { createdAt: cursorTime, id: cursorId } = parseTimelineCursor(request.cursor)
 
+    // Compound (createdAt, id) bound so rows sharing a timestamp at the page
+    // boundary are not skipped: a row passes when it is older, or equal-timestamp
+    // but sorts after the cursor id in the merged "(createdAt DESC, id ASC)" order.
     let observationSql = `
       SELECT id, projectId, sessionId, type, title, summary, narrative, facts, concepts, filesTouched, createdAt
       FROM observations
-      WHERE createdAt < ?
+      WHERE (createdAt < ? OR (createdAt = ? AND id > ?))
     `
-    const observationParams: unknown[] = [cursor]
+    const observationParams: unknown[] = [cursorTime, cursorTime, cursorId]
 
     if (request.type) {
       observationSql += ' AND type = ?'
@@ -176,7 +195,7 @@ export function registerMemoryHandlers(deps: IpcDependencies): void {
       observationParams.push(...request.concepts)
     }
 
-    observationSql += ' ORDER BY createdAt DESC LIMIT ?'
+    observationSql += ' ORDER BY createdAt DESC, id ASC LIMIT ?'
     observationParams.push(limit + 1)
 
     const observationRows = db.prepare(observationSql).all(...observationParams) as Array<Record<string, unknown>>
@@ -195,10 +214,10 @@ export function registerMemoryHandlers(deps: IpcDependencies): void {
         : (db.prepare(`
             SELECT *
             FROM session_summaries
-            WHERE createdAt < ?
-            ORDER BY createdAt DESC
+            WHERE (createdAt < ? OR (createdAt = ? AND id > ?))
+            ORDER BY createdAt DESC, id ASC
             LIMIT ?
-          `).all(cursor, limit + 1) as Array<Record<string, unknown>>)
+          `).all(cursorTime, cursorTime, cursorId, limit + 1) as Array<Record<string, unknown>>)
           .map(parseSessionSummaryRow)
           .map(toSessionSummaryTimelineItem)
 
@@ -208,10 +227,10 @@ export function registerMemoryHandlers(deps: IpcDependencies): void {
         : (db.prepare(`
             SELECT id, sessionId, role, text, timestamp
             FROM interactions
-            WHERE timestamp < ?
-            ORDER BY timestamp DESC
+            WHERE (timestamp < ? OR (timestamp = ? AND ('interaction-' || id) > ?))
+            ORDER BY timestamp DESC, id ASC
             LIMIT ?
-          `).all(cursor, (limit + 1) * 4) as Array<{
+          `).all(cursorTime, cursorTime, cursorId, (limit + 1) * 4) as Array<{
             id: number
             sessionId: string
             role: string
@@ -229,9 +248,10 @@ export function registerMemoryHandlers(deps: IpcDependencies): void {
 
     const page = items.slice(0, limit)
     const hasMore = items.length > limit
+    const last = page[page.length - 1]
     return {
       items: page,
-      nextCursor: hasMore && page.length > 0 ? page[page.length - 1].createdAt : null,
+      nextCursor: hasMore && last ? `${last.createdAt}:${last.id}` : null,
     }
   })
 
