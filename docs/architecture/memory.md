@@ -1,7 +1,7 @@
 ---
 description: Per-project session memory — the SQLite store, interaction capture, AI/regex compression, and the (currently disabled) resume-time context injector.
 covers: [src/main/memory]
-updated: 2026-06-08
+updated: 2026-06-10
 owner: see .github/CODEOWNERS
 ---
 
@@ -77,7 +77,8 @@ which FTS-matches observations and summaries, applies `type`/`concepts`/`runtime
 and orders by FTS `rank` (`memory-store-search.ts:17`). The handler then optionally unions in
 raw-interaction FTS matches (only when no runtime/concept filter and type is unset or
 `task_summary`) and re-sorts by rank (`memory-handlers.ts:94`). `memory:timeline` paginates
-observations + summaries + interactions by `createdAt`/`timestamp` cursor; `memory:stats`
+observations + summaries + interactions by an opaque compound `(createdAt, id)` cursor — the
+id tiebreak keeps rows that share a timestamp at the page boundary from being skipped; `memory:stats`
 returns counts via a single aggregate query (`memory-store.ts:175`).
 
 **Injection.** `MemoryInjector.injectContext()` is called on create and resume
@@ -89,7 +90,9 @@ but nothing writes the block into a worktree today.
 
 **Lifecycle & pruning.** All four collaborators are constructed once in `app/index.ts:95`–`101`
 and wired into `SessionManager`. On startup `memoryStore.pruneAll(rawRetentionDays ?? 30)`
-deletes interactions older than the retention window (`app-lifecycle.ts:67`); on quit
+deletes interactions older than the retention window (`app-lifecycle.ts:67`), opening each
+historical `.db` open-prune-close so it does not leak a cached handle (a live cached handle is
+reused in place); on quit
 `memoryStore.close()` closes every cached DB (`app-lifecycle.ts:95`). `memory:clear` and
 `agent:delete-project` call `deleteProject`, which closes the handle and unlinks the `.db`,
 `-wal`, and `-shm` files (`memory-store.ts:201`).

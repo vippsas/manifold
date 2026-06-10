@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest'
 import * as fs from 'node:fs'
 import * as path from 'node:path'
 import { createObservation, createSessionSummary, PROJECT, SESSION, useMemoryStoreTestContext, WORKTREE_PATH } from './memory-store-test-helpers'
+import { MemoryStore } from './memory-store'
 
 const context = useMemoryStoreTestContext()
 
@@ -112,6 +113,32 @@ describe('MemoryStore core behavior', () => {
       context.store.pruneAll(30)
       expect(context.store.getSessionInteractions('proj-a', 's1')).toHaveLength(1)
       expect(context.store.getSessionInteractions('proj-b', 's2')).toHaveLength(0)
+    })
+
+    it('pruneAll does not cache handles for historical .db files', () => {
+      // Create a .db on disk via a throwaway store, then drop its handle.
+      const seed = new MemoryStore(context.tmpDir)
+      seed.insertInteraction('historical', 's1', 'user', 'old', Date.now() - 100 * 24 * 60 * 60 * 1000)
+      seed.close()
+
+      const dbs = (context.store as unknown as { dbs: Map<string, unknown> }).dbs
+      expect(dbs.has('historical')).toBe(false)
+
+      context.store.pruneAll(30)
+
+      // The historical project was pruned without leaving an open cached handle.
+      expect(dbs.has('historical')).toBe(false)
+    })
+
+    it('pruneAll reuses an already-open handle without reopening', () => {
+      const live = context.store.getDb('live-proj')
+      context.store.insertInteraction('live-proj', 's1', 'user', 'old', Date.now() - 100 * 24 * 60 * 60 * 1000)
+
+      context.store.pruneAll(30)
+
+      // The live cached handle is preserved (same instance, still open).
+      expect(context.store.getDb('live-proj')).toBe(live)
+      expect(live.open).toBe(true)
     })
 
     it('removes the database file', () => {

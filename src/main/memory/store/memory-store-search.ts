@@ -25,28 +25,19 @@ export function searchMemoryRecords(
     return { results: [], total: 0 }
   }
 
-  let observationResults = searchObservationRows(db, ftsQuery, limit)
-  let summaryResults = searchSummaryRows(db, ftsQuery, limit)
+  // Concepts and runtimeId filters exclude observations and summaries respectively;
+  // skip querying them entirely so the SQL LIMIT applies to the surviving rows.
+  const hasConceptFilter = !!(options?.concepts && options.concepts.length > 0)
+  const wantObservations = !options?.runtimeId
+  const wantSummaries =
+    !hasConceptFilter && (!options?.type || options.type === 'task_summary')
 
-  if (options?.type) {
-    observationResults = observationResults.filter((result) => result.type === options.type)
-    if (options.type !== 'task_summary') {
-      summaryResults = []
-    }
-  }
-
-  if (options?.concepts && options.concepts.length > 0) {
-    const conceptSet = new Set(options.concepts)
-    observationResults = observationResults.filter((result) =>
-      result.concepts?.some((concept) => conceptSet.has(concept)) ?? false,
-    )
-    summaryResults = []
-  }
-
-  if (options?.runtimeId) {
-    observationResults = []
-    summaryResults = summaryResults.filter((result) => result.runtimeId === options.runtimeId)
-  }
+  const observationResults = wantObservations
+    ? searchObservationRows(db, ftsQuery, limit, options)
+    : []
+  const summaryResults = wantSummaries
+    ? searchSummaryRows(db, ftsQuery, limit, options?.runtimeId)
+    : []
 
   const results = [...observationResults, ...summaryResults]
     .sort((left, right) => (left.rank ?? 0) - (right.rank ?? 0))
@@ -141,17 +132,33 @@ function searchObservationRows(
   db: Database.Database,
   query: string,
   limit: number,
+  options?: MemoryStoreSearchOptions,
 ): MemorySearchResult[] {
-  const rows = db.prepare(`
+  let sql = `
     SELECT o.id, o.type, o.title, o.summary, o.sessionId, s.runtimeId, s.branchName, s.worktreePath,
            o.createdAt, o.concepts, o.filesTouched, rank
     FROM observations_fts f
     JOIN observations o ON o.rowid = f.rowid
     LEFT JOIN sessions s ON s.sessionId = o.sessionId
     WHERE observations_fts MATCH ?
-    ORDER BY rank
-    LIMIT ?
-  `).all(query, limit) as ObservationSearchRow[]
+  `
+  const params: unknown[] = [query]
+
+  if (options?.type) {
+    sql += ' AND o.type = ?'
+    params.push(options.type)
+  }
+
+  if (options?.concepts && options.concepts.length > 0) {
+    const placeholders = options.concepts.map(() => '?').join(', ')
+    sql += ` AND EXISTS (SELECT 1 FROM json_each(o.concepts) WHERE value IN (${placeholders}))`
+    params.push(...options.concepts)
+  }
+
+  sql += ' ORDER BY rank LIMIT ?'
+  params.push(limit)
+
+  const rows = db.prepare(sql).all(...params) as ObservationSearchRow[]
 
   return rows.map((row) => ({
     id: row.id,
@@ -174,8 +181,9 @@ function searchSummaryRows(
   db: Database.Database,
   query: string,
   limit: number,
+  runtimeId?: string,
 ): MemorySearchResult[] {
-  const rows = db.prepare(`
+  let sql = `
     SELECT s.id, s.sessionId, s.runtimeId, s.branchName, sessions.worktreePath,
            s.taskDescription AS title,
            s.whatWasDone AS summary, s.createdAt, rank
@@ -183,9 +191,18 @@ function searchSummaryRows(
     JOIN session_summaries s ON s.rowid = f.rowid
     LEFT JOIN sessions ON sessions.sessionId = s.sessionId
     WHERE session_summaries_fts MATCH ?
-    ORDER BY rank
-    LIMIT ?
-  `).all(query, limit) as SessionSummarySearchRow[]
+  `
+  const params: unknown[] = [query]
+
+  if (runtimeId) {
+    sql += ' AND s.runtimeId = ?'
+    params.push(runtimeId)
+  }
+
+  sql += ' ORDER BY rank LIMIT ?'
+  params.push(limit)
+
+  const rows = db.prepare(sql).all(...params) as SessionSummarySearchRow[]
 
   return rows.map((row) => ({
     id: row.id,

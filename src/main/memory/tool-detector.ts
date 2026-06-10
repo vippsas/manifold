@@ -26,7 +26,7 @@ const CLAUDE_PATTERNS: ToolPattern[] = [
   {
     toolName: 'Bash',
     pattern: /⏺ Bash\(([^)]*)\)|Bash:\s*(.+)/,
-    extractInput: (m) => (m[1] || m[2]).trim(),
+    extractInput: (m) => (m[1] || m[2] || '').trim(),
   },
   {
     toolName: 'Search',

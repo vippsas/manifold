@@ -193,8 +193,24 @@ export class MemoryStore {
 
   pruneAll(retentionDays: number): void {
     if (!fs.existsSync(this.basePath)) return
+    const cutoff = Date.now() - retentionDays * 24 * 60 * 60 * 1000
     for (const file of fs.readdirSync(this.basePath).filter((entry) => entry.endsWith('.db'))) {
-      this.prune(file.replace('.db', ''), retentionDays)
+      const projectId = file.replace('.db', '')
+      const cached = this.dbs.get(projectId)
+      if (cached) {
+        cached.prepare('DELETE FROM interactions WHERE timestamp < ?').run(cutoff)
+        continue
+      }
+      // Open-prune-close without caching so historical projects don't leak open handles.
+      const db = new Database(path.join(this.basePath, file))
+      try {
+        db.pragma('journal_mode = WAL')
+        db.exec(MEMORY_STORE_SCHEMA_SQL)
+        applyMemoryStoreMigrations(db)
+        db.prepare('DELETE FROM interactions WHERE timestamp < ?').run(cutoff)
+      } finally {
+        db.close()
+      }
     }
   }
 
