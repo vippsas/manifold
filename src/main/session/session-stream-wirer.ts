@@ -271,6 +271,9 @@ export class SessionStreamWirer {
    */
   wirePrintModeInitialExitHandling(ptyId: string, session: InternalSession): void {
     this.ptyPool.onExit(ptyId, () => {
+      // Guard against stale exit: if a follow-up turn has already replaced this
+      // PTY, don't wipe its ptyId/pid or spawn a dev server mid-turn.
+      if (session.ptyId && session.ptyId !== ptyId) return
       this.clearActivityTimer(session.id)
       this.sendToRenderer('agent:activity-state', {
         sessionId: session.id,
