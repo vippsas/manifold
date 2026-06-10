@@ -6,6 +6,7 @@ import type { Project, ProjectKind } from '../../shared/types'
 import { isGitProject } from '../../shared/project-kind'
 import { sortProjectsByName } from '../../shared/project-sort'
 import { gitExec } from '../git/git-exec'
+import { writeFileAtomicSync } from './atomic-write'
 
 const CONFIG_DIR = path.join(os.homedir(), '.manifold')
 const PROJECTS_FILE = path.join(CONFIG_DIR, 'projects.json')
@@ -39,7 +40,7 @@ export class ProjectRegistry {
 
   private writeToDisk(): void {
     this.ensureConfigDir()
-    fs.writeFileSync(PROJECTS_FILE, JSON.stringify(this.projects, null, 2), 'utf-8')
+    writeFileAtomicSync(PROJECTS_FILE, JSON.stringify(this.projects, null, 2))
   }
 
   private sortProjects(): void {
@@ -85,6 +86,14 @@ export class ProjectRegistry {
 
     const kind = options.kind ?? await this.detectProjectKind(resolvedPath)
     const baseBranch = isGitProject({ kind }) ? await this.detectBaseBranch(resolvedPath) : ''
+    // Re-check after the awaited git execs above: a concurrent addProject for the
+    // same path may have appended in the meantime. Without this a duplicate entry
+    // (same path, different id) would be created.
+    const raced = this.projects.find((p) => p.path === resolvedPath)
+    if (raced) {
+      return raced
+    }
+
     const project: Project = {
       id: uuidv4(),
       name: path.basename(resolvedPath),

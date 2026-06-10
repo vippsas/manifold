@@ -76,10 +76,44 @@ describe('VerdictStore', () => {
     expect(store.getBySessionId('missing')).toBeNull()
   })
 
+  it('deleteByProject drops every record for that project and persists', () => {
+    const file = path.join(tmp, 'v.json')
+    const store = new VerdictStore(file)
+    store.upsert(record({ sessionId: 'a', projectId: 'p1' }))
+    store.upsert(record({ sessionId: 'b', projectId: 'p2' }))
+    store.upsert(record({ sessionId: 'c', projectId: 'p1' }))
+
+    store.deleteByProject('p1')
+
+    expect(store.listByProject('p1')).toEqual([])
+    expect(store.listByProject('p2').map((r) => r.sessionId)).toEqual(['b'])
+    // Persisted: a fresh instance does not resurrect p1's verdicts.
+    const reloaded = new VerdictStore(file)
+    expect(reloaded.listByProject('p1')).toEqual([])
+    expect(reloaded.listByProject('p2').length).toBe(1)
+  })
+
+  it('deleteByProject is a no-op (no write) when nothing matches', () => {
+    const file = path.join(tmp, 'v.json')
+    const store = new VerdictStore(file)
+    store.deleteByProject('absent')
+    expect(fs.existsSync(file)).toBe(false)
+  })
+
   it('tolerates corrupt JSON on load (returns empty)', () => {
     const file = path.join(tmp, 'v.json')
     fs.writeFileSync(file, 'not json', 'utf-8')
     const store = new VerdictStore(file)
     expect(store.listByProject('p1')).toEqual([])
+  })
+
+  it('writes atomically (tmp + rename) and leaves no tmp file behind (#525)', () => {
+    const file = path.join(tmp, 'v.json')
+    const store = new VerdictStore(file)
+    store.upsert(record({ sessionId: 'abc' }))
+    // The destination exists and the sibling tmp has been renamed away.
+    expect(fs.existsSync(file)).toBe(true)
+    expect(fs.existsSync(`${file}.tmp`)).toBe(false)
+    expect(JSON.parse(fs.readFileSync(file, 'utf-8'))[0].sessionId).toBe('abc')
   })
 })

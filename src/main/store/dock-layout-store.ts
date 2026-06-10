@@ -1,6 +1,7 @@
 import * as fs from 'node:fs'
 import * as path from 'node:path'
 import * as os from 'node:os'
+import { writeFileAtomicSync } from './atomic-write'
 
 const CONFIG_DIR = path.join(os.homedir(), '.manifold')
 const STATE_FILE = path.join(CONFIG_DIR, 'dock-layout.json')
@@ -35,7 +36,7 @@ export class DockLayoutStore {
   private writeToDisk(): void {
     this.ensureConfigDir()
     const obj = Object.fromEntries(this.state)
-    fs.writeFileSync(STATE_FILE, JSON.stringify(obj, null, 2), 'utf-8')
+    writeFileAtomicSync(STATE_FILE, JSON.stringify(obj, null, 2))
   }
 
   get(sessionId: string): unknown | null {

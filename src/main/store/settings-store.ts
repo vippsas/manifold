@@ -4,6 +4,7 @@ import * as os from 'node:os'
 import type { ManifoldSettings } from '../../shared/types'
 import { DEFAULT_SETTINGS } from '../../shared/defaults'
 import { clearWatchSetupCache } from '../watch/setup-detector'
+import { writeFileAtomicSync } from './atomic-write'
 
 const CONFIG_DIR = path.join(os.homedir(), '.manifold')
 const CONFIG_FILE = path.join(CONFIG_DIR, 'config.json')
@@ -88,7 +89,7 @@ export class SettingsStore {
 
   private writeToDisk(): void {
     this.ensureConfigDir()
-    fs.writeFileSync(CONFIG_FILE, JSON.stringify(this.settings, null, 2), 'utf-8')
+    writeFileAtomicSync(CONFIG_FILE, JSON.stringify(this.settings, null, 2))
   }
 
   getSettings(): ManifoldSettings {

@@ -5,6 +5,7 @@ import {
   EMPTY_PROJECT_SEARCH_VIEW_STATE,
   type ProjectSearchViewState,
 } from '../../shared/search-view-state'
+import { writeFileAtomicSync } from './atomic-write'
 
 const CONFIG_DIR = path.join(os.homedir(), '.manifold')
 const STATE_FILE = path.join(CONFIG_DIR, 'search-view-state.json')
@@ -38,7 +39,7 @@ export class SearchViewStore {
 
   private writeToDisk(): void {
     this.ensureConfigDir()
-    fs.writeFileSync(STATE_FILE, JSON.stringify(Object.fromEntries(this.state), null, 2), 'utf-8')
+    writeFileAtomicSync(STATE_FILE, JSON.stringify(Object.fromEntries(this.state), null, 2))
   }
 
   get(projectId: string): ProjectSearchViewState {

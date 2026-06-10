@@ -1,6 +1,7 @@
 import * as fs from 'node:fs'
 import * as path from 'node:path'
 import * as os from 'node:os'
+import { writeFileAtomicSync } from './atomic-write'
 
 export interface SavedShellTab {
   label: string
@@ -36,7 +37,10 @@ export class ShellTabStore {
       if (typeof parsed !== 'object' || parsed === null || Array.isArray(parsed)) {
         return new Map()
       }
-      return new Map(Object.entries(parsed as Record<string, SavedShellState>))
+      const valid = Object.entries(parsed as Record<string, unknown>).filter(
+        (e): e is [string, SavedShellState] => isValidShellState(e[1]),
+      )
+      return new Map(valid)
     } catch {
       return new Map()
     }
@@ -45,7 +49,7 @@ export class ShellTabStore {
   private writeToDisk(): void {
     this.ensureConfigDir()
     const obj = Object.fromEntries(this.state)
-    fs.writeFileSync(STATE_FILE, JSON.stringify(obj, null, 2), 'utf-8')
+    writeFileAtomicSync(STATE_FILE, JSON.stringify(obj, null, 2))
   }
 
   get(agentKey: string): SavedShellState | null {
@@ -66,4 +70,14 @@ export class ShellTabStore {
     this.state.delete(agentKey)
     this.writeToDisk()
   }
+}
+
+/**
+ * Validate the fields `get()` touches so a hand-edited/corrupt-but-valid-JSON
+ * entry is dropped on load instead of throwing later (e.g. `entry.tabs.map(...)`).
+ */
+function isValidShellState(value: unknown): value is SavedShellState {
+  if (typeof value !== 'object' || value === null) return false
+  const v = value as Record<string, unknown>
+  return Array.isArray(v.tabs) && typeof v.counter === 'number'
 }

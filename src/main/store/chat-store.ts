@@ -7,6 +7,10 @@ import type { ChatMessage } from '../../shared/simple-types'
 const MAX_MESSAGES_PER_KEY = 200
 const STORE_VERSION = 3
 const DEFAULT_FLUSH_DELAY_MS = 500
+/** Chat session files untouched for longer than this are pruned (deleted, not
+ *  loaded) on startup so resident memory and startup I/O do not grow forever
+ *  with the total number of sessions ever created. */
+const DEFAULT_RETENTION_MS = 90 * 24 * 60 * 60 * 1000 // 90 days
 
 interface ChatEntry {
   projectId: string
@@ -41,15 +45,23 @@ export class ChatStore {
   private dirty = new Set<string>()
   private removed = new Set<string>()
   private flushTimer: ReturnType<typeof setTimeout> | null = null
+  private flushChain: Promise<void> = Promise.resolve()
+  private tmpCounter = 0
   private readonly chatDir: string
   private readonly legacyFile: string
   private readonly flushDelayMs: number
+  private readonly retentionMs: number
 
-  constructor(basePath?: string, flushDelayMs: number = DEFAULT_FLUSH_DELAY_MS) {
+  constructor(
+    basePath?: string,
+    flushDelayMs: number = DEFAULT_FLUSH_DELAY_MS,
+    retentionMs: number = DEFAULT_RETENTION_MS,
+  ) {
     const base = basePath ?? path.join(os.homedir(), '.manifold')
     this.chatDir = path.join(base, 'chat')
     this.legacyFile = path.join(base, 'chat-history.json')
     this.flushDelayMs = flushDelayMs
+    this.retentionMs = retentionMs
     this.migrateLegacyIfPresent()
     this.loadFromDisk()
   }
@@ -89,8 +101,17 @@ export class ChatStore {
     if (changed) this.scheduleFlush()
   }
 
-  /** Async coalesced flush of pending writes and removals. */
-  async flush(): Promise<void> {
+  /**
+   * Async coalesced flush of pending writes and removals. Serialized on a single
+   * in-flight promise so an overlapping flush (a `set()` re-scheduling during the
+   * awaited writes) never runs concurrently against the same files.
+   */
+  flush(): Promise<void> {
+    this.flushChain = this.flushChain.then(() => this.runFlush())
+    return this.flushChain
+  }
+
+  private async runFlush(): Promise<void> {
     const { keys, removals } = this.drainPending()
     if (keys.length === 0 && removals.length === 0) return
     await fs.promises.mkdir(this.chatDir, { recursive: true })
@@ -160,16 +181,22 @@ export class ChatStore {
     return JSON.stringify(payload)
   }
 
+  /** Unique tmp path per write so concurrent async/sync writes for the same key
+   *  never share a `.tmp` file and produce a truncated/mixed result on rename. */
+  private nextTmpPath(full: string): string {
+    return `${full}.${process.pid}.${this.tmpCounter++}.tmp`
+  }
+
   private async writeSessionFile(storageKey: string, entry: ChatEntry): Promise<void> {
     const full = path.join(this.chatDir, this.fileNameFor(storageKey))
-    const tmp = `${full}.tmp`
+    const tmp = this.nextTmpPath(full)
     await fs.promises.writeFile(tmp, this.serialize(storageKey, entry), 'utf-8')
     await fs.promises.rename(tmp, full)
   }
 
   private writeSessionFileSync(storageKey: string, entry: ChatEntry): void {
     const full = path.join(this.chatDir, this.fileNameFor(storageKey))
-    const tmp = `${full}.tmp`
+    const tmp = this.nextTmpPath(full)
     fs.writeFileSync(tmp, this.serialize(storageKey, entry), 'utf-8')
     fs.renameSync(tmp, full)
   }
@@ -181,10 +208,20 @@ export class ChatStore {
     } catch {
       return // directory does not exist yet
     }
+    const staleBefore = Date.now() - this.retentionMs
     for (const file of files) {
       if (!file.endsWith('.json')) continue
+      const fullPath = path.join(this.chatDir, file)
       try {
-        const raw = fs.readFileSync(path.join(this.chatDir, file), 'utf-8')
+        if (fs.statSync(fullPath).mtimeMs < staleBefore) {
+          fs.unlinkSync(fullPath) // prune: too old to keep resident
+          continue
+        }
+      } catch {
+        continue // stat/unlink failed — skip without loading
+      }
+      try {
+        const raw = fs.readFileSync(fullPath, 'utf-8')
         const parsed = JSON.parse(raw) as Partial<StoredSession>
         if (
           parsed.version !== STORE_VERSION ||

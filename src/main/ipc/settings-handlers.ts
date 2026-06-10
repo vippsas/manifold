@@ -40,7 +40,7 @@ export function registerOllamaHandler(): void {
 }
 
 export function registerViewStateHandlers(deps: IpcDependencies): void {
-  const { viewStateStore } = deps
+  const { viewStateStore, dockLayoutStore } = deps
 
   ipcMain.handle('view-state:get', (_event, sessionId: string) => {
     return viewStateStore.get(sessionId)
@@ -52,6 +52,7 @@ export function registerViewStateHandlers(deps: IpcDependencies): void {
 
   ipcMain.handle('view-state:delete', (_event, sessionId: string) => {
     viewStateStore.delete(sessionId)
+    dockLayoutStore.delete(sessionId)
   })
 }
 
