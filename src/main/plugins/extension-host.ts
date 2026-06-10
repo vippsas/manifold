@@ -18,6 +18,16 @@ interface PluginCommandsProxy { $invokeCommand(id: string, args: unknown[]): Pro
 
 const MAIN_TO_HOST_RPC_TIMEOUT_MS = 5 * 60_000
 
+// Crash circuit-breaker: a plugin that crashes the host during activate() would otherwise
+// be re-forked (and re-crash) on every activate/openView/treeGetChildren/setActiveContext.
+// After CRASH_THRESHOLD crashes inside CRASH_WINDOW_MS, refuse to re-fork until a backoff
+// delay (doubling per consecutive crash, capped) has elapsed, so the loop backs off instead
+// of spinning. The window resets once the host stays up past it.
+const CRASH_THRESHOLD = 3
+const CRASH_WINDOW_MS = 10_000
+const CRASH_BACKOFF_BASE_MS = 1_000
+const CRASH_BACKOFF_MAX_MS = 30_000
+
 function rpcErrorMessage(err: unknown): string {
   return err instanceof Error ? err.message : String(err)
 }
@@ -30,23 +40,73 @@ export class ExtensionHost {
   private send: ((channel: string, ...args: unknown[]) => void) | null = null
   private getConfig: ((pluginId: string, key: string) => unknown) | null = null
   private isPluginEnabled: ((pluginId: string) => boolean) | null = null
+  private getPluginOrigin: ((pluginId: string) => 'builtin' | 'user' | undefined) | null = null
   private readonly ui = new UiRequestBroker(() => this.send)
+  // Crash circuit-breaker state (see CRASH_* constants).
+  private crashCount = 0
+  private firstCrashAt = 0
+  private blockedUntil = 0
+  private readonly now: () => number
 
   constructor(
     private readonly storage: PluginStorageStore,
     private readonly agentControl: AgentControlService,
     private readonly lm: LmService,
-  ) {}
+    now: () => number = () => Date.now(),
+  ) {
+    this.now = now
+  }
 
   setConfigResolver(fn: (pluginId: string, key: string) => unknown): void { this.getConfig = fn }
 
   setEnabledResolver(fn: (pluginId: string) => boolean): void { this.isPluginEnabled = fn }
 
+  setOriginResolver(fn: (pluginId: string) => 'builtin' | 'user' | undefined): void { this.getPluginOrigin = fn }
+
   setSend(fn: (channel: string, ...args: unknown[]) => void): void { this.send = fn }
+
+  /** Trust-boundary check for the builtin-only privileged services (agent:control / lm).
+   *  The host-side gate runs in the same process as untrusted plugin code, so it is not
+   *  authoritative: re-validate the caller's origin here, on the trusted main side, before
+   *  driving an agent or the LLM. A non-builtin (or unknown) plugin is rejected even if it
+   *  reaches the RPC endpoint directly without going through buildGatedApi. */
+  private assertBuiltin(pluginId: string, service: string): void {
+    if (this.getPluginOrigin?.(pluginId) !== 'builtin') {
+      throw new Error(`"${service}" is restricted to built-in plugins`)
+    }
+  }
+
+  /** Record a host crash and arm exponential backoff once the host crashes
+   *  CRASH_THRESHOLD times inside CRASH_WINDOW_MS. A crash after the window has
+   *  elapsed since the first one starts a fresh window. */
+  private recordCrash(): void {
+    const t = this.now()
+    if (this.crashCount === 0 || t - this.firstCrashAt > CRASH_WINDOW_MS) {
+      this.crashCount = 1
+      this.firstCrashAt = t
+    } else {
+      this.crashCount++
+    }
+    if (this.crashCount >= CRASH_THRESHOLD) {
+      const overage = this.crashCount - CRASH_THRESHOLD
+      const delay = Math.min(CRASH_BACKOFF_BASE_MS * 2 ** overage, CRASH_BACKOFF_MAX_MS)
+      this.blockedUntil = t + delay
+      debugLog(`[plugins] host crashed ${this.crashCount}x; backing off ${delay}ms`)
+    }
+  }
 
   /** Lazily fork the host process and wire RPC. */
   private ensure(): { endpoint: RpcEndpoint } {
     if (this.endpoint) return { endpoint: this.endpoint }
+    // Circuit-breaker: after a crash storm, refuse to re-fork until the backoff elapses so a
+    // host that crashes on activate() doesn't spin (see CRASH_* + recordCrash).
+    const t = this.now()
+    if (this.blockedUntil > t) {
+      throw new Error('plugin host is backing off after repeated crashes')
+    }
+    // Once the crash window has fully elapsed, forget stale crashes so a later isolated
+    // crash starts a fresh count instead of escalating the backoff from old failures.
+    if (this.crashCount > 0 && t - this.firstCrashAt > CRASH_WINDOW_MS) this.crashCount = 0
     const modulePath = join(__dirname, 'plugin-host.js') // out/main/plugin-host.js (sibling of out/main/index.js)
     const child = utilityProcess.fork(modulePath, [], { serviceName: 'manifold-plugin-host' })
     // Time out main→host calls so a plugin whose activate()/resolveView/getChildren never
@@ -57,17 +117,19 @@ export class ExtensionHost {
     const endpoint = new RpcEndpoint({ post: (m) => child.postMessage(m) }, MAIN_TO_HOST_RPC_TIMEOUT_MS)
     child.on('message', (m: RpcMessage) => { void endpoint.handleMessage(m) })
     // When the host process dies (clean exit or a fatal error), reject every in-flight RPC
-    // so awaiting callers fail loudly instead of hanging forever (C2), and clear the command
-    // registry so a re-forked host starts clean instead of inheriting dead-plugin ids (C4).
+    // so awaiting callers fail loudly instead of hanging forever (C2), settle any pending
+    // renderer UI prompts so their promises don't leak (PL5), and clear the command registry
+    // so a re-forked host starts clean instead of inheriting dead-plugin ids (C4).
     const onHostDown = (reason: string): void => {
       endpoint.rejectAllPending(reason)
+      this.ui.flush()
       this.commands.clear()
       this.child = null
       this.endpoint = null
     }
-    child.on('exit', (code) => { debugLog(`[plugins] host exited (${code})`); onHostDown(`plugin host exited (code ${code ?? 'unknown'})`) })
+    child.on('exit', (code) => { debugLog(`[plugins] host exited (${code})`); if (code) this.recordCrash(); onHostDown(`plugin host exited (code ${code ?? 'unknown'})`) })
     // C3: a fatal error in the host process (e.g. a plugin crashing it) — surface it and recover like an exit.
-    child.on('error', (type, location) => { debugLog(`[plugins] host process error: ${type} @ ${location}`); onHostDown(`plugin host error: ${type}`) })
+    child.on('error', (type, location) => { debugLog(`[plugins] host process error: ${type} @ ${location}`); this.recordCrash(); onHostDown(`plugin host error: ${type}`) })
     // HostCommands: host registers command ids here; execution routes back to the host.
     // pluginId is threaded so ownership is enforced (no cross-plugin hijack/unregister) — see host-commands-service.
     const pluginCommands = endpoint.getProxy<PluginCommandsProxy>(PLUGIN_COMMANDS)
@@ -96,12 +158,12 @@ export class ExtensionHost {
       $refresh: (viewId: string) => { this.send?.('plugins:tree-refresh', viewId) },
     })
     endpoint.registerService(HOST_AGENTS, {
-      $runTurn: (sessionId: string, prompt: string, opts: { budgetSeconds?: number; clearContext?: boolean } | undefined) => this.agentControl.runTurn(sessionId, prompt, opts),
-      $cancelTurn: (sessionId: string) => { this.agentControl.cancelTurn(sessionId) },
+      $runTurn: (pluginId: string, sessionId: string, prompt: string, opts: { budgetSeconds?: number; clearContext?: boolean } | undefined) => { this.assertBuiltin(pluginId, 'agent:control'); return this.agentControl.runTurn(sessionId, prompt, opts) },
+      $cancelTurn: (pluginId: string, sessionId: string) => { this.assertBuiltin(pluginId, 'agent:control'); this.agentControl.cancelTurn(sessionId) },
     })
     endpoint.registerService(HOST_LM, {
-      $selectChatModels: (sessionId: string | undefined) => this.lm.selectChatModels(sessionId),
-      $sendRequest: (sessionId: string | undefined, prompt: string, opts: { timeoutMs?: number } | undefined) => this.lm.sendRequest(sessionId, prompt, opts),
+      $selectChatModels: (pluginId: string, sessionId: string | undefined) => { this.assertBuiltin(pluginId, 'lm'); return this.lm.selectChatModels(sessionId) },
+      $sendRequest: (pluginId: string, sessionId: string | undefined, prompt: string, opts: { timeoutMs?: number } | undefined) => { this.assertBuiltin(pluginId, 'lm'); return this.lm.sendRequest(sessionId, prompt, opts) },
     })
     this.child = child
     this.endpoint = endpoint
