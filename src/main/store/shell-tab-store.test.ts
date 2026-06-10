@@ -5,6 +5,7 @@ vi.mock('node:fs', () => ({
   readFileSync: vi.fn(),
   writeFileSync: vi.fn(),
   mkdirSync: vi.fn(),
+  renameSync: vi.fn(),
 }))
 
 vi.mock('node:path', () => ({
@@ -63,6 +64,23 @@ describe('ShellTabStore', () => {
       })
       const store = new ShellTabStore()
       expect(store.get('/any')).toBeNull()
+    })
+
+    it('drops malformed-but-valid-JSON entries on load and keeps good ones (#532)', () => {
+      const onDisk = {
+        good: { tabs: [{ label: 'Shell 1', cwd: '/wt' }], counter: 2 },
+        // tabs is an object, not an array — would throw on get()'s tabs.map(...).
+        badTabs: { tabs: { nope: true }, counter: 1 },
+        // counter missing/wrong type.
+        badCounter: { tabs: [], counter: 'two' },
+      }
+      mockExistsSync.mockReturnValue(true)
+      mockReadFileSync.mockReturnValue(JSON.stringify(onDisk))
+
+      const store = new ShellTabStore()
+      expect(store.get('good')?.counter).toBe(2)
+      expect(store.get('badTabs')).toBeNull()
+      expect(store.get('badCounter')).toBeNull()
     })
   })
 

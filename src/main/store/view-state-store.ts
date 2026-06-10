@@ -2,6 +2,7 @@ import * as fs from 'node:fs'
 import * as path from 'node:path'
 import * as os from 'node:os'
 import type { SessionViewState } from '../../shared/types'
+import { writeFileAtomicSync } from './atomic-write'
 
 const CONFIG_DIR = path.join(os.homedir(), '.manifold')
 const STATE_FILE = path.join(CONFIG_DIR, 'view-state.json')
@@ -27,7 +28,10 @@ export class ViewStateStore {
       if (typeof parsed !== 'object' || parsed === null || Array.isArray(parsed)) {
         return new Map()
       }
-      return new Map(Object.entries(parsed as Record<string, SessionViewState>))
+      const valid = Object.entries(parsed as Record<string, unknown>).filter(
+        (e): e is [string, SessionViewState] => isValidViewState(e[1]),
+      )
+      return new Map(valid)
     } catch {
       return new Map()
     }
@@ -36,7 +40,7 @@ export class ViewStateStore {
   private writeToDisk(): void {
     this.ensureConfigDir()
     const obj = Object.fromEntries(this.state)
-    fs.writeFileSync(STATE_FILE, JSON.stringify(obj, null, 2), 'utf-8')
+    writeFileAtomicSync(STATE_FILE, JSON.stringify(obj, null, 2))
   }
 
   get(sessionId: string): SessionViewState | null {
@@ -70,4 +74,21 @@ export class ViewStateStore {
     this.state.delete(sessionId)
     this.writeToDisk()
   }
+}
+
+/**
+ * Validate the fields `get()` touches so a hand-edited/corrupt-but-valid-JSON
+ * entry is dropped on load instead of throwing later (e.g. `[...entry.openFilePaths]`).
+ */
+function isValidViewState(value: unknown): value is SessionViewState {
+  if (typeof value !== 'object' || value === null) return false
+  const v = value as Record<string, unknown>
+  if (!Array.isArray(v.openFilePaths) || !Array.isArray(v.expandedPaths)) return false
+  if (v.editorPanes !== undefined) {
+    if (!Array.isArray(v.editorPanes)) return false
+    if (!v.editorPanes.every((pane) => Array.isArray((pane as { openFilePaths?: unknown })?.openFilePaths))) {
+      return false
+    }
+  }
+  return true
 }

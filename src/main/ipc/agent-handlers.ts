@@ -122,7 +122,7 @@ async function clearDormantNoWorktreeSessions(
 }
 
 export function registerAgentHandlers(deps: IpcDependencies): void {
-  const { sessionManager, fileWatcher, viewStateStore } = deps
+  const { sessionManager, fileWatcher, viewStateStore, dockLayoutStore } = deps
 
   ipcMain.handle('branch:suggest', async (_event, projectId: string, taskDescription: string) => {
     const project = deps.projectRegistry.getProject(projectId)
@@ -202,6 +202,7 @@ export function registerAgentHandlers(deps: IpcDependencies): void {
       await sessionManager.killSession(sessionId)
     }
     viewStateStore.delete(sessionId)
+    dockLayoutStore.delete(sessionId)
     debugLog(`[agent:kill] done sessionId=${sessionId}`)
   })
 
@@ -214,7 +215,10 @@ export function registerAgentHandlers(deps: IpcDependencies): void {
       await fileWatcher.unwatch(worktreePath)
     }
     await sessionManager.killAllSessionsOnWorktree(worktreePath)
-    for (const id of idsBefore) viewStateStore.delete(id)
+    for (const id of idsBefore) {
+      viewStateStore.delete(id)
+      dockLayoutStore.delete(id)
+    }
     debugLog(`[agent:kill-worktree] done path=${worktreePath} killed=${idsBefore.length}`)
   })
 
@@ -225,6 +229,7 @@ export function registerAgentHandlers(deps: IpcDependencies): void {
       await fileWatcher.unwatch(session.worktreePath)
       await sessionManager.killSession(sessionId)
       viewStateStore.delete(sessionId)
+      dockLayoutStore.delete(sessionId)
     }
 
     // 2. Remove the project directory from disk
@@ -242,6 +247,9 @@ export function registerAgentHandlers(deps: IpcDependencies): void {
 
     // 3b. Remove memory data
     deps.memoryStore.deleteProject(projectId)
+
+    // 3c. Remove persisted run verdicts for this project
+    deps.verdictStore.deleteByProject(projectId)
 
     // 4. Remove project from registry
     deps.projectRegistry.removeProject(projectId)

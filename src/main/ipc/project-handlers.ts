@@ -53,7 +53,7 @@ function runAIPrompt(binary: string, prompt: string, cwd?: string): Promise<stri
 }
 
 export function registerProjectHandlers(deps: IpcDependencies): void {
-  const { projectRegistry } = deps
+  const { projectRegistry, verdictStore } = deps
 
   ipcMain.handle('projects:list', () => {
     return projectRegistry.listProjects()
@@ -183,6 +183,7 @@ export function registerProjectHandlers(deps: IpcDependencies): void {
   )
 
   ipcMain.handle('projects:remove', (_event, projectId: string) => {
+    verdictStore.deleteByProject(projectId)
     return projectRegistry.removeProject(projectId)
   })
 

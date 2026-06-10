@@ -2,6 +2,7 @@ import * as fs from 'node:fs'
 import * as path from 'node:path'
 import * as os from 'node:os'
 import type { VerdictRecord } from '../../shared/verdict-types'
+import { writeFileAtomicSync } from './atomic-write'
 
 const DEFAULT_PATH = path.join(os.homedir(), '.manifold', 'verdicts.json')
 const MAX_PER_PROJECT = 1000
@@ -29,7 +30,7 @@ export class VerdictStore {
 
   private writeToDisk(): void {
     fs.mkdirSync(path.dirname(this.file), { recursive: true })
-    fs.writeFileSync(this.file, JSON.stringify(this.records, null, 2), 'utf-8')
+    writeFileAtomicSync(this.file, JSON.stringify(this.records, null, 2))
   }
 
   upsert(record: VerdictRecord): void {
@@ -51,6 +52,14 @@ export class VerdictStore {
     const evictCount = indicesForProject.length - MAX_PER_PROJECT
     const toDrop = new Set(indicesForProject.slice(0, evictCount))
     this.records = this.records.filter((_, i) => !toDrop.has(i))
+  }
+
+  deleteByProject(projectId: string): void {
+    const before = this.records.length
+    this.records = this.records.filter((r) => r.projectId !== projectId)
+    if (this.records.length !== before) {
+      this.writeToDisk()
+    }
   }
 
   getBySessionId(sessionId: string): VerdictRecord | null {

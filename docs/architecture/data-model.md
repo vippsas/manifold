@@ -1,7 +1,7 @@
 ---
 description: The on-disk data model under ~/.manifold — every file and directory Manifold persists, which module owns each path, and the two distinct roots (hardcoded config home vs. configurable storage root).
 covers: [src/main/store, src/shared/defaults.ts]
-updated: 2026-06-08
+updated: 2026-06-10
 owner: see .github/CODEOWNERS
 ---
 
@@ -48,7 +48,7 @@ The layout, file by file. Paths are written as `<configHome>` (= `os.homedir()/.
 fixed) or `<storageRoot>` (= `settings.storagePath`, configurable, default `<configHome>`).
 
 **`<configHome>/config.json`** — the `ManifoldSettings` object. `SettingsStore` reads it on
-construction; a missing/corrupt file falls back to `DEFAULT_SETTINGS` (`settings-store.ts:73`).
+construction; a missing/corrupt file falls back to `DEFAULT_SETTINGS` (`settings-store.ts:74`).
 `resolveDefaults()` is the migration seam: it backfills `storagePath`, deep-merges
 `memory`/`search`/`editor`, reconciles built-in provisioners, and one-time-seeds
 `disabledPlugins` (`settings-store.ts:22`). Every `updateSettings()` rewrites the whole file
@@ -151,9 +151,10 @@ ship inside the app under `resources/plugins`, not here (`plugin-paths.ts:7`).
 - **`storagePath: ''` means "unresolved", not "cwd".** `DEFAULT_SETTINGS` ships the empty
   string; `resolveDefaults` is the *only* place it becomes a real path
   (`settings-store.ts:24`). Read `storagePath` only after `SettingsStore` construction.
-- **Stores fail soft to empty/default state.** Missing or corrupt JSON yields
-  `DEFAULT_SETTINGS` / `[]` / `{}` rather than throwing (`settings-store.ts:84`,
-  `project-registry.ts:35`, `background-agent-store.ts:92`). A truncated file silently
+- **Stores fail soft to empty/default state.** Missing or wholly unparseable JSON yields
+  `DEFAULT_SETTINGS` / `[]` / `{}` rather than throwing (`settings-store.ts:86`,
+  `project-registry.ts:35`, `background-agent-store.ts:92`). Writes are atomic (tmp + `rename`
+  via `store/atomic-write.ts`), so a crash mid-write no longer truncates a file and silently
   resets that store on next launch.
 - **`projects.json` ≠ `<storageRoot>/projects/`.** The former is the registry of pointers to
   repos anywhere; the latter is the folder where Manifold *generates* new apps. Same word,

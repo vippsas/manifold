@@ -8,6 +8,7 @@ vi.mock('node:fs', () => ({
   readFileSync: vi.fn(),
   writeFileSync: vi.fn(),
   mkdirSync: vi.fn(),
+  renameSync: vi.fn(),
 }))
 
 vi.mock('node:path', () => ({
@@ -264,6 +265,32 @@ describe('ProjectRegistry', () => {
 
       expect(first).toEqual(second)
       expect(registry.listProjects()).toHaveLength(1)
+    })
+
+    it('two concurrent adds for the same path produce a single entry (#528)', async () => {
+      mockExistsSync.mockReturnValue(false)
+      // Force the git probe to fail so each add resolves to a plain folder after
+      // one awaited (and therefore interleavable) git exec.
+      mockSpawn.mockImplementation(() => {
+        const emitter = new EventEmitter()
+        Object.assign(emitter, { stdout: new EventEmitter(), stderr: new EventEmitter() })
+        process.nextTick(() => emitter.emit('error', new Error('spawn ENOENT')))
+        return emitter as unknown as ChildProcess
+      })
+      mockUuidv4
+        .mockReturnValueOnce('id-a' as unknown as ReturnType<typeof uuidv4>)
+        .mockReturnValueOnce('id-b' as unknown as ReturnType<typeof uuidv4>)
+
+      const registry = new ProjectRegistry()
+      const [a, b] = await Promise.all([
+        registry.addProject('/race'),
+        registry.addProject('/race'),
+      ])
+
+      // Exactly one entry, and both callers see the same project (no duplicate id).
+      expect(registry.listProjects()).toHaveLength(1)
+      expect(a.path).toBe('/race')
+      expect(a.id).toBe(b.id)
     })
   })
 

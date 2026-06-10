@@ -5,6 +5,7 @@ vi.mock('node:fs', () => ({
   readFileSync: vi.fn(),
   writeFileSync: vi.fn(),
   mkdirSync: vi.fn(),
+  renameSync: vi.fn(),
 }))
 
 vi.mock('node:path', () => ({
@@ -67,6 +68,30 @@ describe('ViewStateStore', () => {
 
       const store = new ViewStateStore()
       expect(store.get('any')).toBeNull()
+    })
+
+    it('drops malformed-but-valid-JSON entries on load and keeps good ones (#532)', () => {
+      const onDisk = {
+        good: { openFilePaths: ['a.ts'], activeFilePath: 'a.ts', expandedPaths: ['/src'] },
+        // openFilePaths is a string, not an array — would throw on get() spread.
+        badOpenPaths: { openFilePaths: 'oops', activeFilePath: null, expandedPaths: [] },
+        // editorPanes present but a pane lacks an array openFilePaths.
+        badPane: {
+          openFilePaths: [],
+          activeFilePath: null,
+          expandedPaths: [],
+          editorPanes: [{ id: 'e', openFilePaths: null }],
+        },
+      }
+      mockExistsSync.mockReturnValue(true)
+      mockReadFileSync.mockReturnValue(JSON.stringify(onDisk))
+
+      const store = new ViewStateStore()
+      // Good entry survives and reads without throwing.
+      expect(store.get('good')?.openFilePaths).toEqual(['a.ts'])
+      // Bad entries are dropped, not surfaced as throwing get() calls.
+      expect(store.get('badOpenPaths')).toBeNull()
+      expect(store.get('badPane')).toBeNull()
     })
   })
 

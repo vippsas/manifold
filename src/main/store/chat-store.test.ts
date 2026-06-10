@@ -196,4 +196,75 @@ describe('ChatStore', () => {
       expect(fs.readFileSync(`${legacyFile()}.bak`, 'utf-8')).toBe(body)
     })
   })
+
+  describe('startup retention pruning (#530)', () => {
+    it('prunes session files older than the retention window on load', async () => {
+      const s1 = new ChatStore(baseDir, 10_000)
+      s1.set('/wt/old', 'p1', [msg('1', 's1', 'stale')])
+      s1.set('/wt/fresh', 'p1', [msg('2', 's2', 'recent')])
+      await s1.flush()
+      expect(sessionFiles()).toHaveLength(2)
+
+      // Age the "old" file's mtime well past a 1-day retention window.
+      const files = fs.readdirSync(chatDir()).filter((f) => f.endsWith('.json'))
+      const oldFile = files.find((f) => {
+        const parsed = JSON.parse(fs.readFileSync(path.join(chatDir(), f), 'utf-8'))
+        return parsed.storageKey === '/wt/old'
+      })!
+      const past = Date.now() - 5 * 24 * 60 * 60 * 1000
+      fs.utimesSync(path.join(chatDir(), oldFile), past / 1000, past / 1000)
+
+      const retention = 24 * 60 * 60 * 1000 // 1 day
+      const s2 = new ChatStore(baseDir, 10_000, retention)
+      expect(s2.get('/wt/old')).toBeNull()
+      expect(s2.get('/wt/fresh')?.[0].text).toBe('recent')
+      // The stale file is deleted from disk, not merely skipped.
+      expect(sessionFiles()).toHaveLength(1)
+    })
+
+    it('keeps all files when none are older than the window', async () => {
+      const s1 = new ChatStore(baseDir, 10_000)
+      s1.set('/wt/a', 'p1', [msg('1', 's1', 'a')])
+      await s1.flush()
+      const s2 = new ChatStore(baseDir, 10_000, 24 * 60 * 60 * 1000)
+      expect(s2.get('/wt/a')?.[0].text).toBe('a')
+      expect(sessionFiles()).toHaveLength(1)
+    })
+  })
+
+  describe('overlapping flushes (#531)', () => {
+    it('serializes concurrent flushes for the same key without truncation', async () => {
+      const store = new ChatStore(baseDir, 10_000)
+      // Schedule a write, then mutate the same key and trigger a second flush
+      // while the first is still in flight.
+      store.set('/wt/a', 'p1', [msg('1', 's1', 'first')])
+      const p1 = store.flush()
+      store.set('/wt/a', 'p1', [msg('2', 's1', 'second')])
+      const p2 = store.flush()
+      await Promise.all([p1, p2])
+
+      // Exactly one file, parseable, holding the last write — never truncated/mixed.
+      expect(sessionFiles()).toHaveLength(1)
+      const reloaded = new ChatStore(baseDir, 10_000)
+      expect(reloaded.get('/wt/a')?.map((m) => m.text)).toEqual(['second'])
+      // No leftover .tmp files.
+      expect(fs.readdirSync(chatDir()).some((f) => f.includes('.tmp'))).toBe(false)
+    })
+
+    it('flushSync during a pending async flush leaves a consistent file', async () => {
+      const store = new ChatStore(baseDir, 10_000)
+      store.set('/wt/a', 'p1', [msg('1', 's1', 'async')])
+      const pending = store.flush()
+      store.set('/wt/a', 'p1', [msg('2', 's1', 'sync')])
+      store.flushSync()
+      await pending
+
+      expect(sessionFiles()).toHaveLength(1)
+      const reloaded = new ChatStore(baseDir, 10_000)
+      const texts = reloaded.get('/wt/a')?.map((m) => m.text)
+      // Last-writer-wins; the file is always one consistent version, never mixed.
+      expect(texts === undefined ? undefined : texts.length).toBe(1)
+      expect(fs.readdirSync(chatDir()).some((f) => f.includes('.tmp'))).toBe(false)
+    })
+  })
 })
