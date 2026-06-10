@@ -1,7 +1,7 @@
 ---
 description: How the Manifold renderer (developer workspace UI) is structured — the React entry, the dockview panel layout, and the preload-only boundary to main.
 covers: [src/renderer]
-updated: 2026-06-08
+updated: 2026-06-11
 owner: see .github/CODEOWNERS
 ---
 
@@ -22,7 +22,7 @@ boundaries. Individual panels and hooks are catalogued only enough to locate the
 - `src/renderer/AppShell.tsx` — presentational shell: title bar, the `DockviewReact` host, status bar, and all modals/overlays/toasts (`AppShell.tsx:99`).
 - `src/renderer/DockTab.tsx` — `DockTab` (the per-panel tab header) and `EmptyWatermark` (the empty-group drop hint).
 - `src/renderer/monaco-setup.ts` — wires `MonacoEnvironment.getWorker` to the per-language Vite `?worker` bundles and calls `loader.config({ monaco })`.
-- `src/renderer/components/` — all UI by surface: `editor/`, `terminal/`, `sidebar/`, `git/`, `search/`, `modals/`, `verdicts/`, `watch/`, `memory/`, `new-task/`, `background-agent/`, `plugin-ui/`.
+- `src/renderer/components/` — all UI by surface: `editor/`, `terminal/`, `sidebar/`, `git/`, `search/`, `modals/`, `verdicts/`, `memory/`, `new-task/`, `background-agent/`, `plugin-ui/`.
 - `src/renderer/hooks/` — ~57 hooks; data/state lives here (`useProjects`, `useAgentSession`, `useFileWatcher`, `useDiff`, …) plus the `dock-layout/` subsystem that drives dockview.
 - `src/renderer/modules/launcher-modules.ts` — derives the "+ Apps" launcher list from the contribution registry.
 - `src/renderer/plugins/` — the renderer-side panel contribution registry (`contribution-registry.ts`, `internal-contributions.ts`, `use-contributions.ts`).
@@ -62,7 +62,7 @@ the dock control surface consumed by `App` (`useDockLayout.ts:259`).
 - `fileTree` → **Files** — `FileTree` over the worktree + any additional dirs.
 - `modifiedFiles` → **Modified Files** — `ModifiedFiles` diff list.
 - `shell` → **Shell** — `ShellTabs` (worktree + project shell PTYs).
-- `backgroundAgent` / `watch` / `verdicts` → **Ideas / Watch / Verdicts** — built-in modules sourced from the contribution registry, not hardcoded in `PANEL_COMPONENTS`.
+- `backgroundAgent` / `verdicts` → **Ideas / Verdicts** — built-in modules sourced from the contribution registry, not hardcoded in `PANEL_COMPONENTS`.
 - `pluginView` / `pluginTreeView` — webview hosts for plugin contributions.
 
 Note: **Search** is not a dock panel — it lives in the title bar (`TitleBarSearch`,
@@ -71,7 +71,7 @@ HTML files render in an `<iframe>` inside the editor's `CodeViewer`
 (`components/editor/CodeViewer.tsx:211`, resolved by `viewer/useResolvedHtmlPreview.ts`),
 alongside the markdown/image/PDF previews in `components/editor/viewer/`.
 
-**Modules & the contribution registry.** Built-in modules (Ideas, Verdicts, Watch) are
+**Modules & the contribution registry.** Built-in modules (Ideas, Verdicts) are
 registered as internal contributions (`plugins/internal-contributions.ts:21`) into the
 in-memory registry (`plugins/contribution-registry.ts:15`). `dock-panels.tsx` spreads
 `getPanelComponents()` into `PANEL_COMPONENTS` so registered modules become real
