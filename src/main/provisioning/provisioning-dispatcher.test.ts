@@ -193,6 +193,50 @@ describe('ProvisioningDispatcher', () => {
     expect(result.ok).toBe(true)
   })
 
+  it('gives create a generous timeout instead of the 60s default', async () => {
+    const storageRoot = createStorageRoot()
+    const { dispatcher } = createDispatcher([
+      {
+        id: 'company-ok',
+        label: 'Company Templates',
+        type: 'cli',
+        enabled: true,
+        command: process.execPath,
+        args: [fixturePath, 'good'],
+      },
+    ], storageRoot)
+
+    const runSpy = vi.spyOn(provisionerProcess, 'runProvisionerRequest').mockImplementation(async (_command, _args, request) => {
+      if (request.operation === 'create') {
+        return {
+          displayName: 'ledger-service',
+          repoUrl: '/tmp/fake-repo',
+          defaultBranch: 'main',
+          metadata: { source: 'fixture' },
+        } as ProvisioningReadyResult as never
+      }
+      throw new Error(`Unexpected request operation: ${request.operation}`)
+    })
+
+    vi.spyOn(materializer, 'materializeProvisionedProject').mockResolvedValue({
+      id: 'project-1',
+      name: 'ledger-service',
+      path: path.join(storageRoot, 'projects', 'ledger-service'),
+      baseBranch: 'main',
+      addedAt: new Date().toISOString(),
+    })
+
+    await dispatcher.create({
+      templateQualifiedId: 'company-ok:company-service',
+      inputs: { name: 'ledger-service', description: 'Track company ledger entries.' },
+    })
+
+    const createCall = runSpy.mock.calls.find(([, , request]) => request.operation === 'create')
+    expect(createCall).toBeDefined()
+    const options = createCall?.[4]
+    expect(options?.timeoutMs).toBeGreaterThan(60_000)
+  })
+
   it('cleans up the managed directory when clone fails', async () => {
     const storageRoot = createStorageRoot()
     const { dispatcher } = createDispatcher([

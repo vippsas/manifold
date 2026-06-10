@@ -1,7 +1,7 @@
 ---
 description: The main-process host that discovers provisioners, spawns the CLI over stdin/stdout, streams JSON-line events, and turns a result into a real project.
 covers: [src/main/provisioning]
-updated: 2026-06-08
+updated: 2026-06-10
 owner: see .github/CODEOWNERS
 ---
 
@@ -61,8 +61,9 @@ Every event must carry the matching `protocolVersion` or the request rejects wit
 `protocol_error` (`provisioner-process.ts:62`). A `progress` event invokes the `onProgress`
 callback; an `error` event rejects via `fromProvisionerErrorPayload`; a `result` event
 resolves with `event.result` (`provisioner-process.ts:90`). A 60 s default timeout
-(15 s for health) `SIGTERM`s the child; spawn errors, non-zero exits, and malformed JSON all
-reject with a typed `ProvisioningError`.
+(15 s for health, 10 min for `create` since scaffolding + pushing a repo can be slow —
+`provisioning-dispatcher.ts:CREATE_TIMEOUT_MS`) `SIGTERM`s the child; spawn errors, non-zero
+exits, and malformed JSON all reject with a typed `ProvisioningError`.
 
 **List & cache.** `listTemplates()` (`provisioning-dispatcher.ts:73`) runs every enabled
 provisioner in parallel via `loadProvisionerCatalog()`. If a non-stale cache entry exists
@@ -104,7 +105,7 @@ provisioner's `metadata`.
 
 ## Interactions
 
-- **IPC** (`src/main/ipc/provisioning-handlers.ts`): registers `provisioning:list-templates`, `provisioning:refresh-templates` (forces `fresh`), `provisioning:get-statuses`, `provisioning:check-health`, and `provisioning:create`. Create progress is streamed back to the renderer over `provisioning:progress` (`provisioning-handlers.ts:54`). A `draftProvisioners` argument lets the settings UI evaluate not-yet-saved provisioner configs by swapping in a synthetic `SettingsStore` (`provisioning-handlers.ts:11`).
+- **IPC** (`src/main/ipc/provisioning-handlers.ts`): registers `provisioning:list-templates`, `provisioning:refresh-templates` (forces `fresh`), `provisioning:get-statuses`, `provisioning:check-health`, and `provisioning:create`. Create progress is streamed back to the renderer over `provisioning:progress`, guarded by `sender.isDestroyed()` so a window destroyed mid-provision can't crash the main process (`provisioning-handlers.ts:56`). A `draftProvisioners` argument lets the settings UI evaluate not-yet-saved provisioner configs by swapping in a synthetic `SettingsStore` (`provisioning-handlers.ts:11`).
 - **Settings** (`src/main/store/settings-store.ts`): owns `settings.provisioning.provisioners`, the builtin auto-registration merge (`:42`), and the `storagePath` that anchors both the projects directory and the catalog cache.
 - **Store / projects** (`src/main/store/project-registry.ts`): `addProject()` (`:79`) is what turns a freshly cloned directory into a `Project` (resolving its `baseBranch`); it is the boundary where provisioning hands off to the rest of the app.
 - **External tools**: `gh` and `git` (via `node:child_process`) perform the clone; the provisioner executable itself is any program that speaks the protocol.

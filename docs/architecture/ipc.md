@@ -1,7 +1,7 @@
 ---
 description: How Manifold's main-process services are exposed to the renderer over Electron IPC — the channel namespaces, the handler registration pattern, and how handlers delegate to subsystem managers.
 covers: [src/main/ipc]
-updated: 2026-06-08
+updated: 2026-06-10
 owner: see .github/CODEOWNERS
 ---
 
@@ -59,7 +59,7 @@ handlers (or the managers they call) emit via `webContents.send` / `event.sender
 Examples: `settings:changed` is broadcast to all live windows after `settings:update`
 (`settings-handlers.ts:23`), `simple:chat-message` is pushed per chat subscription
 (`simple-handlers.ts:69`), `provisioning:progress` streams during a create
-(`provisioning-handlers.ts:54`), and `watch:playlist-progress` / `watch:install-progress`
+(`provisioning-handlers.ts:56`, guarded by `sender.isDestroyed()`), and `watch:playlist-progress` / `watch:install-progress`
 stream log/stage/frame events (`watch-handlers.ts:56`). `SessionManager` separately pushes
 `agent:output`/`agent:status`/`agent:sessions-changed` through its own `sendToRenderer`
 (see `session.md`).
