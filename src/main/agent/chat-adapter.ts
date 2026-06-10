@@ -3,6 +3,16 @@ import type { ChatStore } from '../store/chat-store'
 
 type MessageListener = (message: ChatMessage) => void
 
+// Cap the raw per-session PTY buffer so an interactive TUI repainting faster
+// than the quiet-period debounce can't grow it without bound (mirrors the 100KB
+// outputBuffer cap in session-stream-wirer).
+const MAX_RAW_BUFFER_BYTES = 100_000
+// Force a flush once the buffer is this old even if output never goes quiet,
+// so a continuously-repainting turn can't defer the debounce indefinitely.
+const MAX_BUFFER_AGE_MS = 3_000
+// Cap the in-memory message array per session, matching the persisted store cap.
+const MAX_MESSAGES_PER_SESSION = 200
+
 /**
  * Strip all ANSI/VT100 escape sequences from terminal output.
  * Must be applied AFTER buffering raw chunks to avoid split-sequence artifacts.
@@ -76,7 +86,7 @@ export class ChatAdapter {
   private listeners = new Map<string, Set<MessageListener>>()
   private nextId = 1
   // Buffer raw (unstripped) output per session; strip on flush
-  private outputBuffers = new Map<string, { raw: string; timer: ReturnType<typeof setTimeout> }>()
+  private outputBuffers = new Map<string, { raw: string; timer: ReturnType<typeof setTimeout>; firstAppend: number }>()
   private chatStore: ChatStore | null = null
   private sessionStorage = new Map<string, { storageKey: string; projectId: string }>()
 
@@ -139,7 +149,19 @@ export class ChatAdapter {
     if (existing) {
       clearTimeout(existing.timer)
       existing.raw += rawOutput
+      // Cap the buffer so a TUI repainting faster than the debounce can't grow
+      // it without bound (keep the most recent bytes — the current screen state).
+      if (existing.raw.length > MAX_RAW_BUFFER_BYTES) {
+        existing.raw = existing.raw.slice(-MAX_RAW_BUFFER_BYTES)
+      }
     }
+
+    // Force a flush if the buffer has aged past the max even though output keeps
+    // arriving; otherwise the 300ms quiet-period debounce can be reset forever.
+    const firstAppend = existing?.firstAppend ?? Date.now()
+    const delay = existing
+      ? Math.max(0, Math.min(300, firstAppend + MAX_BUFFER_AGE_MS - Date.now()))
+      : 300
 
     const timer = setTimeout(() => {
       const buf = this.outputBuffers.get(sessionId)
@@ -150,12 +172,12 @@ export class ChatAdapter {
           this.addAgentMessage(sessionId, cleaned)
         }
       }
-    }, 300)
+    }, delay)
 
     if (existing) {
       existing.timer = timer
     } else {
-      this.outputBuffers.set(sessionId, { raw: rawOutput, timer })
+      this.outputBuffers.set(sessionId, { raw: rawOutput, timer, firstAppend })
     }
   }
 
@@ -198,7 +220,13 @@ export class ChatAdapter {
     if (!this.messages.has(sessionId)) {
       this.messages.set(sessionId, [])
     }
-    this.messages.get(sessionId)!.push(message)
+    const list = this.messages.get(sessionId)!
+    list.push(message)
+    // Cap the in-memory array, matching the persisted store cap, so a long turn
+    // can't grow it without bound.
+    if (list.length > MAX_MESSAGES_PER_SESSION) {
+      list.splice(0, list.length - MAX_MESSAGES_PER_SESSION)
+    }
 
     // Persist to disk if we know where to put it
     const storage = this.sessionStorage.get(sessionId)
