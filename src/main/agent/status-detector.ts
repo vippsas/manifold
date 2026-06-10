@@ -17,7 +17,7 @@ const RUNTIME_PATTERNS: Record<string, readonly StatusPattern[]> = {
     { pattern: /❯/, status: 'waiting' },
     { pattern: /waiting for input/i, status: 'waiting' },
     { pattern: /Do you want to proceed/i, status: 'waiting' },
-    { pattern: /Allow|Deny|Yes|No.*\?/i, status: 'waiting' },
+    { pattern: /\b(?:Allow|Deny|Yes|No)\b.*\?/i, status: 'waiting' },
     { pattern: /Interrupt to stop/, status: 'running' }
   ],
   codex: [
@@ -27,12 +27,26 @@ const RUNTIME_PATTERNS: Record<string, readonly StatusPattern[]> = {
   copilot: [
     { pattern: /> $/, status: 'waiting' },
     { pattern: /❯/, status: 'waiting' },
-    { pattern: /Allow|Deny|Yes|No.*\?/i, status: 'waiting' }
+    { pattern: /\b(?:Allow|Deny|Yes|No)\b.*\?/i, status: 'waiting' }
   ],
   gemini: [
     { pattern: /❯/, status: 'waiting' },
     { pattern: />>> $/, status: 'waiting' }
   ]
+}
+
+// Compiled pattern sets are stable for a given runtime, but detectStatus runs
+// once per PTY data chunk. Memoize so RegExp objects are built once per runtime
+// rather than recompiled on every chunk. (#511)
+const patternCache = new Map<string, StatusPattern[]>()
+
+function getPatternsForRuntime(runtimeId: string): StatusPattern[] {
+  let patterns = patternCache.get(runtimeId)
+  if (!patterns) {
+    patterns = buildPatternsForRuntime(runtimeId)
+    patternCache.set(runtimeId, patterns)
+  }
+  return patterns
 }
 
 function buildPatternsForRuntime(runtimeId: string): StatusPattern[] {
@@ -74,7 +88,7 @@ export function detectStatus(output: string, runtimeId: string): AgentStatus {
   if (runtimeId === 'codex' && hasCodexInteractivePrompt(recentOutput)) {
     return 'waiting'
   }
-  const patterns = buildPatternsForRuntime(runtimeId)
+  const patterns = getPatternsForRuntime(runtimeId)
 
   for (const { pattern, status } of patterns) {
     if (pattern.test(recentOutput)) {
@@ -82,11 +96,7 @@ export function detectStatus(output: string, runtimeId: string): AgentStatus {
     }
   }
 
-  // If there's output but no pattern matched, the agent is running
-  if (recentOutput.trim().length > 0) {
-    return 'running'
-  }
-
+  // No pattern matched: the agent is running.
   return 'running'
 }
 

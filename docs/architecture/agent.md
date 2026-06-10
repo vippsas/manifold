@@ -1,7 +1,7 @@
 ---
 description: The AI runtimes layer and PTY pool — the runtime registry, command building (interactive vs print-mode), theme/ANSI sync, and the process boundary the session subsystem spawns into.
 covers: [src/main/agent]
-updated: 2026-06-08
+updated: 2026-06-10
 owner: see .github/CODEOWNERS
 ---
 
@@ -79,15 +79,21 @@ inherited `NO_COLOR` so themed agents emit color regardless of the host shell (#
 `CLAUDECODE` so a Manifold launched *from inside* Claude Code doesn't trip nested-session detection.
 Listeners are fan-out arrays — `onData`/`onExit` push callbacks that `wireListeners`
 (`pty-pool.ts:73`) invokes for every chunk/exit; on exit the entry is deleted from the map.
-`pushOutput` (`pty-pool.ts:101`) injects text into the *listener* stream without writing to the
+`pushOutput` (`pty-pool.ts:111`) injects text into the *listener* stream without writing to the
 process (used for shell ghost suggestions and resumed-session welcome banners). `kill`/`killAll`
 terminate; missing-id lookups throw for `write`/`resize`/`onData`/`onExit` but no-op for `kill`.
+`kill` (`pty-pool.ts:123`) sends node-pty's default signal, drops the entry from the active map,
+and parks the handle in `pendingKills` with a grace timer; if `onExit` hasn't fired after the
+grace period it escalates to `SIGKILL` so a child that traps/ignores the default signal can't
+linger as a zombie (#502).
 
-**Status detection.** `detectStatus(output, runtimeId)` (`status-detector.ts:71`) inspects the last
+**Status detection.** `detectStatus(output, runtimeId)` inspects the last
 2000 chars against per-runtime regexes (`RUNTIME_PATTERNS`, `status-detector.ts:15`) plus the
 runtime's `waitingPattern` (split on `|`, escaped) and common error patterns; Codex gets a dedicated
-prompt-block heuristic (`hasCodexInteractivePrompt`, `:93`). Anything non-empty with no match is
-`'running'`.
+prompt-block heuristic (`hasCodexInteractivePrompt`). The Allow/Deny/Yes/No prompt regex is
+word-boundary anchored so substrings like "yesterday"/"denying" don't falsely mark a session
+waiting, and the compiled pattern set is memoized per runtime (`getPatternsForRuntime`) rather than
+rebuilt on every chunk (#511). Anything with no match is `'running'`.
 
 ## Key types and entry points
 
@@ -97,7 +103,7 @@ prompt-block heuristic (`hasCodexInteractivePrompt`, `:93`). Anything non-empty 
 - `buildSimpleRuntimeCommand(runtimeId, prompt)` — `simple-runtime.ts:12`. Print-mode args + `SimpleRuntimeOutputMode`.
 - `buildAiRuntimeCommand(runtime, prompt, extraArgs)` — `ai-runtime-command.ts:20`. One-shot helper command; pair with `parseAiRuntimeOutput`/`parseAiRuntimeFailure`.
 - `claudeAnsiThemeArgs(themeType)` / `buildWorkingSetArgs(runtimeId, dirs)` — `claude-theme-args.ts:9` / `working-set-args.ts:6`. Interactive arg adornments.
-- `detectStatus(output, runtimeId)` — `status-detector.ts:71`. Output → `AgentStatus`.
+- `detectStatus(output, runtimeId)` — `status-detector.ts:85`. Output → `AgentStatus`.
 
 ## Interactions
 

@@ -111,6 +111,42 @@ describe('PtyPool', () => {
     it('does nothing if pty not found', () => {
       expect(() => pool.kill('non-existent')).not.toThrow()
     })
+
+    it('escalates to SIGKILL when the child ignores the default kill signal', () => {
+      vi.useFakeTimers()
+      try {
+        const handle = pool.spawn('sh', [], { cwd: '/tmp' })
+        pool.kill(handle.id)
+        // Default signal sent, but the child has not reported exit yet.
+        expect(mockPtyProcess.kill).toHaveBeenCalledTimes(1)
+        expect(mockPtyProcess.kill).toHaveBeenLastCalledWith()
+
+        vi.advanceTimersByTime(2000)
+
+        expect(mockPtyProcess.kill).toHaveBeenCalledTimes(2)
+        expect(mockPtyProcess.kill).toHaveBeenLastCalledWith('SIGKILL')
+      } finally {
+        vi.useRealTimers()
+      }
+    })
+
+    it('does not escalate to SIGKILL when the child exits within the grace period', () => {
+      vi.useFakeTimers()
+      try {
+        const handle = pool.spawn('sh', [], { cwd: '/tmp' })
+        pool.kill(handle.id)
+        expect(mockPtyProcess.kill).toHaveBeenCalledTimes(1)
+
+        // Child reports exit before the grace period elapses.
+        mockOnExitCallback!({ exitCode: 0, signal: 1 })
+        vi.advanceTimersByTime(5000)
+
+        // No second (SIGKILL) call.
+        expect(mockPtyProcess.kill).toHaveBeenCalledTimes(1)
+      } finally {
+        vi.useRealTimers()
+      }
+    })
   })
 
   describe('resize', () => {

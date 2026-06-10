@@ -44,6 +44,16 @@ describe('detectStatus', () => {
       expect(detectStatus('Allow this action? Yes/No?', 'claude')).toBe('waiting')
     })
 
+    it('does not treat substrings like "yesterday" or "denying" as a waiting prompt', () => {
+      expect(detectStatus('I finished that yesterday and moved on.', 'claude')).toBe('running')
+      expect(detectStatus('The CI is denying the merge for now.', 'claude')).toBe('running')
+      expect(detectStatus('Keeping an eye on the eyes of the build.', 'claude')).toBe('running')
+    })
+
+    it('does not treat "yesterday?" without a Yes/No keyword as waiting', () => {
+      expect(detectStatus('Was the deploy yesterday?', 'claude')).toBe('running')
+    })
+
     it('detects running from "Interrupt to stop"', () => {
       expect(detectStatus('Processing... Interrupt to stop', 'claude')).toBe('running')
     })
