@@ -2,8 +2,8 @@
   "name": "watch",
   "publisher": "manifold",
   "version": "0.0.1",
-  "displayName": "Watch (plugin)",
-  "description": "Watch videos with sibling analysis agents, as a plugin.",
+  "displayName": "Watch",
+  "description": "Watch videos with sibling analysis agents.",
   "engines": { "manifold": "^0.3.0" },
   "main": "./out/plugin.js",
   "activationEvents": ["onView:manifold.watch.panel"],
@@ -12,7 +12,7 @@
     "views": [
       {
         "id": "manifold.watch.panel",
-        "title": "Watch (plugin)",
+        "title": "Watch",
         "description": "Watch videos with sibling analysis agents.",
         "launcher": true,
         "frameSources": ["https://www.youtube.com"]
