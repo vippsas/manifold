@@ -36,6 +36,21 @@ export interface LanguageModelChat {
   ): Promise<{ text: string }>
 }
 
+/** App-level AI-service settings (transcription + chat keys), shared with core
+ *  consumers (settings UI, verdict-recorder, prompt-summarizer). Exposed to
+ *  built-in plugins via `manifold.transcription` (gated by `transcription:read`). */
+export type AiServiceProvider = 'openai' | 'azure' | 'none'
+
+export interface AiServiceSettings {
+  provider: AiServiceProvider
+  openaiApiKey?: string
+  azureApiKey?: string
+  azureEndpoint?: string
+  azureDeployment?: string          // transcription deployment (existing)
+  chatModel?: string                // text/chat model (default 'gpt-5.1')
+  azureChatDeployment?: string      // Azure chat deployment (no default)
+}
+
 /** A workspace folder, modeled on VS Code's `WorkspaceFolder`. */
 export interface WorkspaceFolder {
   readonly name: string
