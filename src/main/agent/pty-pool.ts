@@ -14,8 +14,17 @@ interface PtyEntry {
   exitListeners: Array<(exitCode: number, signal?: number) => void>
 }
 
+// Grace period after the default kill signal before escalating to SIGKILL. A
+// child that traps/ignores SIGHUP (or an orphaned grandchild of `npm run dev`)
+// would otherwise survive as a zombie with no remaining handle to it. (#502)
+const SIGKILL_GRACE_MS = 2000
+
 export class PtyPool {
   private ptys: Map<string, PtyEntry> = new Map()
+  // Processes that were sent the default kill signal but have not yet reported
+  // exit. The handle is retained here (after the entry leaves `ptys`) only long
+  // enough to escalate to SIGKILL if the grace period elapses. (#502)
+  private pendingKills: Map<string, { process: pty.IPty; timer: ReturnType<typeof setTimeout> }> = new Map()
 
   spawn(
     file: string,
@@ -84,6 +93,11 @@ export class PtyPool {
 
     proc.onExit(({ exitCode, signal }: { exitCode: number; signal?: number }) => {
       debugLog(`[pty-pool] exit pid=${proc.pid} code=${exitCode} signal=${signal}`)
+      const pending = this.pendingKills.get(id)
+      if (pending) {
+        clearTimeout(pending.timer)
+        this.pendingKills.delete(id)
+      }
       for (const listener of entry.exitListeners) {
         listener(exitCode, signal)
       }
@@ -109,8 +123,26 @@ export class PtyPool {
   kill(id: string): void {
     const entry = this.ptys.get(id)
     if (!entry) return
-    entry.process.kill()
+    // Send the default termination signal first, then drop the entry from the
+    // active map. We keep the process handle in `pendingKills` until onExit
+    // fires; if the child traps/ignores the signal and is still alive after the
+    // grace period, escalate to SIGKILL so it can't linger as a zombie. (#502)
+    const proc = entry.process
     this.ptys.delete(id)
+    proc.kill()
+    const timer = setTimeout(() => {
+      // Still pending means onExit never fired — force-kill it.
+      if (this.pendingKills.has(id)) {
+        this.pendingKills.delete(id)
+        try {
+          proc.kill('SIGKILL')
+        } catch {
+          // Process may have exited between the check and the signal.
+        }
+      }
+    }, SIGKILL_GRACE_MS)
+    timer.unref?.()
+    this.pendingKills.set(id, { process: proc, timer })
   }
 
   resize(id: string, cols: number, rows: number): void {
