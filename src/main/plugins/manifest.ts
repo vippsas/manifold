@@ -14,6 +14,17 @@ export type ManifestParseResult =
   | { ok: true; manifest: ManifoldPluginManifest }
   | { ok: false; error: string }
 
+/** frameSources entries widen the webview CSP, so they are validated strictly:
+ *  each must be exactly an https origin (no path, query, wildcard, or trailing
+ *  slash) — `new URL(v).origin === v` rejects every other shape except `*`,
+ *  which the WHATWG parser tolerates in hostnames and is rejected explicitly
+ *  (a wildcard would widen frame-src to arbitrary subdomains). */
+function isHttpsOrigin(value: string): boolean {
+  let url: URL
+  try { url = new URL(value) } catch { return false }
+  return url.protocol === 'https:' && url.origin === value && !url.hostname.includes('*')
+}
+
 export function parseManifest(raw: unknown): ManifestParseResult {
   if (typeof raw !== 'object' || raw === null) return { ok: false, error: 'manifest is not an object' }
   const m = raw as Record<string, unknown>
@@ -60,12 +71,23 @@ export function parseManifest(raw: unknown): ManifestParseResult {
       const view = v as Record<string, unknown>
       if (typeof view.id !== 'string' || view.id.length === 0) return { ok: false, error: 'view contribution missing "id"' }
       if (typeof view.title !== 'string' || view.title.length === 0) return { ok: false, error: `view "${String(view.id)}" missing "title"` }
+      let frameSources: string[] | undefined
+      if (view.frameSources !== undefined) {
+        if (!Array.isArray(view.frameSources)) return { ok: false, error: `view "${String(view.id)}" "frameSources" must be an array` }
+        for (const src of view.frameSources) {
+          if (typeof src !== 'string' || !isHttpsOrigin(src)) {
+            return { ok: false, error: `view "${String(view.id)}" invalid frameSources entry ${JSON.stringify(src)} (must be exactly an https:// origin)` }
+          }
+        }
+        frameSources = view.frameSources as string[]
+      }
       views.push({
         id: view.id,
         title: view.title,
         description: typeof view.description === 'string' ? view.description : undefined,
         launcher: typeof view.launcher === 'boolean' ? view.launcher : undefined,
         type: view.type === 'tree' || view.type === 'webview' ? view.type : undefined,
+        frameSources,
       })
     }
   }

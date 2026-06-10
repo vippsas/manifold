@@ -58,6 +58,39 @@ describe('parseManifest', () => {
   it('rejects capabilities that are not an array', () => {
     expect(parseManifest({ ...valid, capabilities: 'storage' }).ok).toBe(false)
   })
+  it('accepts view frameSources that are exact https origins', () => {
+    const r = parseManifest({
+      ...valid,
+      contributes: { views: [{ id: 'v1', title: 'V', frameSources: ['https://www.youtube.com'] }] },
+    })
+    expect(r.ok).toBe(true)
+    if (r.ok) expect(r.manifest.contributes?.views?.[0].frameSources).toEqual(['https://www.youtube.com'])
+  })
+  it.each([
+    ['http origin', 'http://www.youtube.com'],
+    ['path suffix', 'https://www.youtube.com/embed'],
+    ['trailing slash', 'https://www.youtube.com/'],
+    ['wildcard', 'https://*.youtube.com'],
+    ['not a url', 'youtube.com'],
+  ])('rejects frameSources entry: %s', (_label, src) => {
+    const r = parseManifest({
+      ...valid,
+      contributes: { views: [{ id: 'v1', title: 'V', frameSources: [src] }] },
+    })
+    expect(r.ok).toBe(false)
+  })
+  it('rejects non-array frameSources', () => {
+    const r = parseManifest({
+      ...valid,
+      contributes: { views: [{ id: 'v1', title: 'V', frameSources: 'https://www.youtube.com' }] },
+    })
+    expect(r.ok).toBe(false)
+  })
+  it('omits frameSources when not declared', () => {
+    const r = parseManifest({ ...valid, contributes: { views: [{ id: 'v1', title: 'V' }] } })
+    expect(r.ok).toBe(true)
+    if (r.ok) expect(r.manifest.contributes?.views?.[0].frameSources).toBeUndefined()
+  })
   it('does not pass raw unvalidated fields through (no `as unknown as`)', () => {
     // A non-string `main` must not survive as a typed string; it is coerced to undefined.
     const r = parseManifest({ ...valid, main: 42 })
