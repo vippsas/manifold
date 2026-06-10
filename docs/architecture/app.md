@@ -106,7 +106,8 @@ It also owns `theme:changed`, which sets `nativeTheme.themeSource` and the windo
 events to `debugLog` + a `updater:status` broadcast, fires a startup check, and schedules an
 hourly one. `checkForUpdates()` (`:176`) de-dupes concurrent checks and retries transient
 failures (5xx, timeout, missing `latest-mac.yml`) on a `[5s, 15s, 60s]` backoff. Release notes
-are fetched from the GitHub API and cached, with a static fallback (`getReleaseNotes`, `:127`).
+are fetched from the GitHub API and cached on success; transient failures (non-2xx, network error)
+return a fallback without caching so the next call retries the live API (`getReleaseNotes`, `:127`).
 
 ## Key types and entry points
 
