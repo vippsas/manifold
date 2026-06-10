@@ -46,6 +46,8 @@ export interface RunPlaylistOptions {
   runId?: string
   /** Original video/playlist URL entered by the user. */
   sourceUrl?: string
+  /** Optional signal to cancel an in-progress run (e.g. Watch panel closed). */
+  signal?: AbortSignal
 }
 
 export async function runWatchPlaylist(
@@ -102,6 +104,10 @@ export async function runWatchPlaylist(
       })
       spawnedSessionIds.push(sibling.id)
     } catch (err) {
+      // Kill any siblings that were already spawned before the failure.
+      for (const sid of spawnedSessionIds) {
+        deps.sessionManager.killSession(sid).catch(() => { /* best effort */ })
+      }
       return {
         ok: false,
         error: err instanceof Error ? err.message : 'Failed to spawn sibling agent',
@@ -133,10 +139,12 @@ export async function runWatchPlaylist(
       const siblingId = spawnedSessionIds[i]
       entryResults[i].sessionId = siblingId
       try {
+        const pipelineHooks = opts.hooks?.(i) ?? {}
+        if (opts.signal) pipelineHooks.signal = opts.signal
         const result = await runWatchPipeline(
           { source: entry.url, workDir: entryWorkDir(workRoot, originalIndex) },
           transcription,
-          opts.hooks?.(i),
+          pipelineHooks,
         )
         const frames = result.frames.map((f) => ({
           path: f.path,
@@ -172,6 +180,9 @@ export async function runWatchPlaylist(
         const message = err instanceof Error ? err.message : 'Pipeline failed'
         entryResults[i].error = message
         deps.watchRunStore?.markEntryError(runId, originalIndex, message)
+        // The sibling agent never received its /watch:watch context; kill it
+        // to avoid leaving an orphaned PTY session.
+        deps.sessionManager.killSession(siblingId).catch(() => { /* best effort */ })
       }
     }
   })

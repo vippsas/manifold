@@ -51,37 +51,45 @@ export function registerWatchHandlers(deps: IpcDependencies): void {
   ipcMain.handle('watch:run-playlist', async (event, sessionId: string, entries: WatchPlaylistEntryInput[], sourceUrl?: string) => {
     const sender = event.sender
     const win = BrowserWindow.fromWebContents(sender)
+    const ctrl = new AbortController()
+    const onClose = (): void => ctrl.abort()
+    win?.once('closed', onClose)
     const emit = (index: number, kind: 'log' | 'stage', payload: string): void => {
       if (win && !win.isDestroyed()) {
         sender.send('watch:playlist-progress', { sessionId, entryIndex: index, kind, payload })
       }
     }
-    return runWatchPlaylist(
-      {
-        sessionManager,
-        watchRunStore,
-        getTranscription: () => settingsStore.getSettings().transcription ?? { provider: 'none' },
-      },
-      {
-        sessionId,
-        entries,
-        sourceUrl,
-        hooks: (i) => ({
-          onLog: (line) => emit(i, 'log', line),
-          onStage: (stage) => emit(i, 'stage', stage),
-        }),
-        onEntryFramesReady: (i, frames) => {
-          if (win && !win.isDestroyed()) {
-            sender.send('watch:playlist-progress', { sessionId, entryIndex: i, kind: 'frames', payload: frames })
-          }
+    try {
+      return await runWatchPlaylist(
+        {
+          sessionManager,
+          watchRunStore,
+          getTranscription: () => settingsStore.getSettings().transcription ?? { provider: 'none' },
         },
-        onEntrySpawned: (i, siblingSessionId) => {
-          if (win && !win.isDestroyed()) {
-            sender.send('watch:playlist-progress', { sessionId, entryIndex: i, kind: 'sibling', payload: siblingSessionId })
-          }
+        {
+          sessionId,
+          entries,
+          sourceUrl,
+          signal: ctrl.signal,
+          hooks: (i) => ({
+            onLog: (line) => emit(i, 'log', line),
+            onStage: (stage) => emit(i, 'stage', stage),
+          }),
+          onEntryFramesReady: (i, frames) => {
+            if (win && !win.isDestroyed()) {
+              sender.send('watch:playlist-progress', { sessionId, entryIndex: i, kind: 'frames', payload: frames })
+            }
+          },
+          onEntrySpawned: (i, siblingSessionId) => {
+            if (win && !win.isDestroyed()) {
+              sender.send('watch:playlist-progress', { sessionId, entryIndex: i, kind: 'sibling', payload: siblingSessionId })
+            }
+          },
         },
-      },
-    )
+      )
+    } finally {
+      win?.off('closed', onClose)
+    }
   })
 
   ipcMain.handle('watch:install-binaries', async (event) => {

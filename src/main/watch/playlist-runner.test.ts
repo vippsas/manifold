@@ -16,6 +16,7 @@ interface FakeSm {
   getSession: ReturnType<typeof vi.fn>
   createSession: ReturnType<typeof vi.fn>
   sendInput: ReturnType<typeof vi.fn>
+  killSession: ReturnType<typeof vi.fn>
 }
 
 function makeSm(opts: {
@@ -42,6 +43,7 @@ function makeSm(opts: {
       return { id: `sib-${n}` }
     }),
     sendInput: vi.fn(),
+    killSession: vi.fn().mockResolvedValue(undefined),
   }
 }
 
@@ -160,6 +162,36 @@ describe('runWatchPlaylist', () => {
     )
     expect(r.ok).toBe(false)
     expect(r.error).toMatch(/spawn boom/)
+  })
+
+  it('kills already-spawned siblings when a later sibling spawn fails', async () => {
+    const sm = makeSm()
+    let callCount = 0
+    sm.createSession.mockImplementation(async () => {
+      callCount++
+      if (callCount >= 2) throw new Error('spawn boom on second')
+      return { id: `sib-${callCount}` }
+    })
+    const r = await runWatchPlaylist(
+      { sessionManager: sm as unknown as SessionManager, getTranscription: () => transcription },
+      runOpts({ entries: [{ url: 'https://x/1' }, { url: 'https://x/2' }] }),
+    )
+    expect(r.ok).toBe(false)
+    // The first sibling (sib-1) was already spawned and must be killed.
+    expect(sm.killSession).toHaveBeenCalledWith('sib-1')
+  })
+
+  it('kills the sibling session when its pipeline fails', async () => {
+    const sm = makeSm()
+    pipelineMock.mockRejectedValueOnce(new Error('yt-dlp boom'))
+    const r = await runWatchPlaylist(
+      { sessionManager: sm as unknown as SessionManager, getTranscription: () => transcription },
+      runOpts({ entries: [{ url: 'https://x/1' }] }),
+    )
+    expect(r.ok).toBe(true)
+    expect(r.entryResults![0]).toMatchObject({ ok: false, error: expect.stringMatching(/yt-dlp boom/) })
+    // Orphaned sibling must be killed since it never received /watch context.
+    expect(sm.killSession).toHaveBeenCalledWith('sib-1')
   })
 
   it('reveals each sibling via onEntrySpawned only after its /watch:watch command is sent', async () => {

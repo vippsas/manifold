@@ -31,8 +31,11 @@ export function resolveLocal(source: string): DownloadResult {
   }
 }
 
+const DOWNLOAD_TIMEOUT_MS = 10 * 60 * 1000 // 10 minutes
+
 export interface DownloadProgress {
   onLog?: (line: string) => void
+  signal?: AbortSignal
 }
 
 export async function downloadUrl(
@@ -60,7 +63,7 @@ export async function downloadUrl(
   ]
 
   const ytDlpPath = await ensureYtDlp({ onLog: progress?.onLog })
-  await runProcess(ytDlpPath, args, progress?.onLog)
+  await runProcess(ytDlpPath, args, progress?.onLog, progress?.signal)
 
   const video = pickVideo(outDir)
   if (!video) {
@@ -130,8 +133,14 @@ function runProcess(
   command: string,
   args: string[],
   onLog?: (line: string) => void,
+  signal?: AbortSignal,
 ): Promise<void> {
   return new Promise((resolve, reject) => {
+    if (signal?.aborted) {
+      reject(new Error('Download aborted'))
+      return
+    }
+
     let proc
     try {
       proc = spawn(command, args, { stdio: ['ignore', 'pipe', 'pipe'] })
@@ -139,22 +148,59 @@ function runProcess(
       reject(err instanceof Error ? err : new Error(String(err)))
       return
     }
+
+    let settled = false
+    const stderrLines: string[] = []
+
+    const killProc = (reason: string): void => {
+      if (settled) return
+      settled = true
+      proc.kill('SIGTERM')
+      setTimeout(() => {
+        try { proc.kill('SIGKILL') } catch { /* already gone */ }
+      }, 2000)
+      reject(new Error(reason))
+    }
+
+    const watchdog = setTimeout(() => {
+      killProc(`yt-dlp timed out after ${DOWNLOAD_TIMEOUT_MS / 1000}s`)
+    }, DOWNLOAD_TIMEOUT_MS)
+
+    const onAbort = (): void => killProc('Download aborted')
+    signal?.addEventListener('abort', onAbort)
+
     const handleData = (chunk: Buffer): void => {
-      if (!onLog) return
       const text = chunk.toString('utf-8')
       for (const line of text.split(/\r?\n/)) {
-        if (line.trim()) onLog(line)
+        if (!line.trim()) continue
+        onLog?.(line)
+        stderrLines.push(line)
       }
     }
     proc.stdout?.on('data', handleData)
     proc.stderr?.on('data', handleData)
     proc.on('error', (err) => {
+      if (settled) return
+      settled = true
+      clearTimeout(watchdog)
+      signal?.removeEventListener('abort', onAbort)
       if ((err as NodeJS.ErrnoException).code === 'ENOENT') {
         reject(new Error(`yt-dlp binary missing at ${command} — restart watch to re-download.`))
       } else {
         reject(err)
       }
     })
-    proc.on('close', () => resolve())
+    proc.on('close', (code) => {
+      if (settled) return
+      settled = true
+      clearTimeout(watchdog)
+      signal?.removeEventListener('abort', onAbort)
+      if (code !== 0 && code !== null) {
+        const tail = stderrLines.slice(-5).join('\n')
+        reject(new Error(`yt-dlp exited with code ${code}${tail ? `\n${tail}` : ''}`))
+      } else {
+        resolve()
+      }
+    })
   })
 }
