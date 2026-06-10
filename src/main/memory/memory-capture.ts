@@ -140,6 +140,7 @@ export class MemoryCapture {
     this.lastCompressedTimestamp.delete(sessionId)
     this.inputBuffers.delete(sessionId)
     this.recentUserInputs.delete(sessionId)
+    this.memoryCompressor?.clearSession(sessionId)
   }
 
   recordInput(sessionId: string, input: string): void {

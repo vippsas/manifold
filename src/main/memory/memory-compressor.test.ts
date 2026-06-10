@@ -292,5 +292,39 @@ describe('MemoryCompressor', () => {
     it('returns empty array for unknown session', () => {
       expect(compressor.getToolEvents('unknown')).toEqual([])
     })
+
+    it('clearSession removes the entry so getToolEvents returns empty', () => {
+      compressor.addToolEvents('sess-1', [
+        { toolName: 'Read', inputSummary: 'file.ts', timestamp: 1000 },
+      ])
+      expect(compressor.getToolEvents('sess-1')).toHaveLength(1)
+      compressor.clearSession('sess-1')
+      expect(compressor.getToolEvents('sess-1')).toEqual([])
+    })
+
+    it('clearSession on unknown session is a no-op', () => {
+      expect(() => compressor.clearSession('never-existed')).not.toThrow()
+    })
+  })
+
+  describe('compressIncremental', () => {
+    it('parses toolEvents from DB rows (not left as JSON string)', () => {
+      store.upsertSession(PROJECT, SESSION, 'claude', 'main', 'test task', '/tmp')
+      // Insert 5 interactions with toolEvents stored as JSON (as the DB stores them)
+      for (let i = 0; i < 5; i++) {
+        store.insertInteraction(PROJECT, SESSION, 'agent', `agent message ${i}`, 1000 + i, [
+          { toolName: 'Edit', inputSummary: `src/file${i}.ts`, timestamp: 1000 + i },
+        ])
+      }
+
+      // compressIncremental should parse tool events and produce observations with filesTouched
+      const newTs = compressor.compressIncremental(PROJECT, SESSION, 0)
+      expect(newTs).toBeGreaterThan(0)
+
+      const observations = store.getObservationsBySession(PROJECT, SESSION)
+      // At least one observation should have filesTouched populated from the parsed tool events
+      const withFiles = observations.filter((o) => o.filesTouched.length > 0)
+      expect(withFiles.length).toBeGreaterThan(0)
+    })
   })
 })

@@ -101,7 +101,7 @@ reused in place); on quit
 
 - `MemoryStore` — `memory-store.ts:17`. Surface: `getDb`, `upsertSession`/`endSession`, `insertInteraction`/`insertObservation`/`insertSessionSummary`, `search`/`searchObservations`, the `getRecent*`/`getSessionInteractions`/`getObservationsBySession` readers, `getStats`, `prune`/`pruneAll`, `deleteObservation`/`deleteProject`, `close`.
 - `MemoryCapture` — `memory-capture.ts:92`. `startCapturing`/`stopCapturing`, `recordInput`, `setMemoryCompressor`.
-- `MemoryCompressor` — `memory-compressor.ts:20`. `compressIncremental` (sync, regex), `compressSession` (async, AI+fallback), `addToolEvents`/`getToolEvents`.
+- `MemoryCompressor` — `memory-compressor.ts:20`. `compressIncremental` (sync, regex), `compressSession` (async, AI+fallback), `addToolEvents`/`getToolEvents`/`clearSession`.
 - `MemoryInjector` — `memory-injector.ts:39`. `injectContext` (no-op today), `buildContextMarkdown`, `cleanupContextFile`.
 - `ToolDetector.detect()` — `tool-detector.ts:60`. PTY text → `ToolUseEvent[]`.
 - `buildCompressionPrompt` / `parseCompressionResponse` / `buildRegexFallbackResult` — the compression pipeline's prompt, parser, and AI-free fallback.
@@ -124,4 +124,4 @@ reused in place); on quit
 - **Two compression tiers, different triggers.** Incremental compression is regex-only and fires every 5 interactions mid-session; full compression is AI-first (falling back to regex) and fires once at developer-mode teardown. A session killed outside the teardown path gets only the incremental observations, no summary.
 - **`compressIncremental` waits for a full batch.** It returns the unchanged `sinceTimestamp` until ≥5 new interactions exist (`memory-compressor.ts:51`), so the high-water mark only advances in batches of five.
 - **`endSession` only runs via `compressSession`.** `sessions.endedAt` is stamped in `compressSession`'s `finally` (`memory-compressor.ts:132`); sessions that never reach teardown keep `endedAt = NULL`.
-- **Tool-event buffers are in-memory per compressor.** `addToolEvents` accumulates in a `Map` cleared only by `compressSession`; tool events are not persisted independently of the interaction/observation rows that reference them.
+- **Tool-event buffers are in-memory per compressor.** `addToolEvents` accumulates in a `Map` cleared by `compressSession`'s `finally` (teardown path) and by `MemoryCapture.stopCapturing` via `clearSession` (all other kill paths); tool events are not persisted independently of the interaction/observation rows that reference them.
