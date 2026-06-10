@@ -30,4 +30,27 @@ describe('repo-name helpers', () => {
     ].join('\n')
     expect(suggestRepoName(instructions)).toBe('widget-store')
   })
+
+  it('does not truncate repo names containing dots', () => {
+    expect(extractGitHubRepoUrlFromText('Clone https://github.com/acme/next.js to start.')).toBe(
+      'https://github.com/acme/next.js.git'
+    )
+    expect(suggestRepoName('Clone https://github.com/acme/next.js to start.')).toBe('next-js')
+  })
+
+  it('still strips an explicit .git suffix for dotted repo names', () => {
+    expect(extractGitHubRepoUrlFromText('git@github.com:acme/next.js.git here')).toBe(
+      'git@github.com:acme/next.js.git'
+    )
+  })
+
+  it('treats a trailing sentence period as a boundary, not part of a dotted name', () => {
+    expect(extractGitHubRepoUrlFromText('Go to https://github.com/acme/next.js. Next step.')).toBe(
+      'https://github.com/acme/next.js.git'
+    )
+  })
+
+  it('does not truncate dotted repo names from a `gh repo clone` command', () => {
+    expect(suggestRepoName('gh repo clone acme/next.js')).toBe('next-js')
+  })
 })
