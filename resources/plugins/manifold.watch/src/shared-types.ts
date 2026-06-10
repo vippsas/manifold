@@ -1,0 +1,119 @@
+// Ported from src/shared/watch-types.ts. AiServiceProvider/AiServiceSettings are
+// inlined (copied from src/shared/plugins/api-types.ts) because the plugin
+// cannot import app `src/` modules.
+
+/** App-level AI-service settings (transcription + chat keys), shared with core
+ *  consumers (settings UI, verdict-recorder, prompt-summarizer). Exposed to
+ *  built-in plugins via `manifold.transcription` (gated by `transcription:read`). */
+export type AiServiceProvider = 'openai' | 'azure' | 'none'
+
+export interface AiServiceSettings {
+  provider: AiServiceProvider
+  openaiApiKey?: string
+  azureApiKey?: string
+  azureEndpoint?: string
+  azureDeployment?: string          // transcription deployment (existing)
+  chatModel?: string                // text/chat model (default 'gpt-5.1')
+  azureChatDeployment?: string      // Azure chat deployment (no default)
+}
+
+/** @deprecated Use AiServiceSettings. Kept as alias during migration. */
+export type TranscriptionSettings = AiServiceSettings
+/** @deprecated Use AiServiceProvider. */
+export type TranscriptionProvider = AiServiceProvider
+
+export interface WatchSetupStatus {
+  ffmpeg: boolean
+  ytdlp: boolean
+  hasBrew: boolean
+  provider: TranscriptionProvider
+  hasApiKey: boolean
+}
+
+export interface WatchFrameRef {
+  path: string
+  timestampSeconds: number
+  hdPath?: string
+}
+
+export interface WatchPeekResult {
+  ok: boolean
+  title?: string
+  uploader?: string
+  durationSeconds?: number
+  thumbnailDataUrl?: string
+  webpageUrl?: string
+  error?: string
+}
+
+export interface WatchPlaylistEntry {
+  url: string
+  title?: string
+  uploader?: string
+  durationSeconds?: number
+  thumbnailDataUrl?: string
+}
+
+export interface WatchPlaylistPeekResult {
+  ok: boolean
+  playlistTitle?: string
+  uploader?: string
+  entries: WatchPlaylistEntry[]
+  error?: string
+}
+
+export interface WatchPlaylistEntryInput {
+  url: string
+  question?: string
+  title?: string
+  /** Caller-supplied original index. Used so per-entry events
+   *  (frames, sessionId) round-trip with the index the renderer renders by. */
+  originalIndex?: number
+}
+
+export interface WatchPlaylistRunResult {
+  ok: boolean
+  error?: string
+  spawnedSessionIds?: string[]
+  aggregateDir?: string
+  entryResults?: Array<{
+    url: string
+    ok: boolean
+    error?: string
+    workDir?: string
+    sessionId?: string
+  }>
+}
+
+export interface WatchRunResult {
+  ok: boolean
+  error?: string
+  workDir?: string
+  reportPath?: string
+  frameCount?: number
+  frames?: WatchFrameRef[]
+  transcriptSource?: 'captions' | 'openai' | 'azure' | 'none'
+}
+
+export type WatchRunEntryStatus = 'queued' | 'processing' | 'ready' | 'error'
+
+export interface WatchRunEntryState {
+  originalIndex: number
+  url: string
+  title?: string
+  question?: string
+  siblingSessionId?: string
+  workDir?: string
+  frames: WatchFrameRef[]
+  status: WatchRunEntryStatus
+  error?: string
+}
+
+export interface WatchSessionSnapshot {
+  url: string
+  playlistFrames: Record<number, WatchFrameRef[]>
+  siblingByIndex: Record<number, string>
+  playlistDispatched: boolean
+  runId?: string
+  entries?: WatchRunEntryState[]
+}
