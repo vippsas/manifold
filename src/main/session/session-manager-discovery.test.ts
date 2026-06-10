@@ -243,6 +243,29 @@ describe('SessionManager — discovery / resume', () => {
         'Runtime not found',
       )
     })
+
+    it('concurrent resume calls spawn exactly one PTY and return the same session', async () => {
+      ;(worktreeManager.listWorktrees as ReturnType<typeof vi.fn>).mockResolvedValue([
+        { branch: 'manifold/bergen', path: '/repo/.manifold/worktrees/manifold-bergen' },
+      ])
+
+      const sessions = await sessionManager.discoverSessionsForProject('proj-1')
+      const dormantId = sessions[0].id
+
+      // Fire two resume calls simultaneously — neither has awaited yet so ptyId is still ''
+      const [a, b] = await Promise.all([
+        sessionManager.resumeSession(dormantId, 'claude'),
+        sessionManager.resumeSession(dormantId, 'claude'),
+      ])
+
+      // Only one PTY must have been spawned
+      expect(ptyPool.spawn).toHaveBeenCalledTimes(1)
+      // Both callers must receive the same session
+      expect(a.id).toBe(dormantId)
+      expect(b.id).toBe(dormantId)
+      expect(a.status).toBe('running')
+      expect(b.status).toBe('running')
+    })
   })
 
   describe('killSession on dormant sessions', () => {
