@@ -46,12 +46,13 @@ export function registerFileHandlers(deps: IpcDependencies): void {
   ipcMain.handle('files:dir-branch', async (_event, sessionId: string, dirPath: string) => {
     const session = sessionManager.getSession(sessionId)
     if (!session) throw new Error(`Session not found: ${sessionId}`)
-    if (!isPathAllowed(dirPath, session)) {
+    const resolved = resolve(session.worktreePath, dirPath)
+    if (!isPathAllowed(resolved, session)) {
       throw new Error(`Directory not in allowed paths: ${dirPath}`)
     }
     try {
       const { stdout } = await execFileAsync('git', ['rev-parse', '--abbrev-ref', 'HEAD'], {
-        cwd: dirPath,
+        cwd: resolved,
         timeout: 5000,
       })
       return stdout.trim() || null

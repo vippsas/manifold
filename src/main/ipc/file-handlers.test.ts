@@ -147,6 +147,22 @@ describe('registerFileHandlers', () => {
     }
   })
 
+  it('rejects a ../ traversal dirPath for files:dir-branch', async () => {
+    const { registerFileHandlers } = await import('./file-handlers')
+    const root = await mkdtemp(join(tmpdir(), 'manifold-dir-branch-test-'))
+    const tree: FileTreeNode = { name: 'repo', path: root, isDirectory: true, children: [] }
+
+    try {
+      registerFileHandlers(makeDeps(makeSession(root), tree))
+      const handler = mocks.handlers.get('files:dir-branch')
+      if (!handler) throw new Error('files:dir-branch handler was not registered')
+
+      await expect(handler({}, 'sess-1', '../../../etc')).rejects.toThrow('Directory not in allowed paths')
+    } finally {
+      await rm(root, { recursive: true, force: true })
+    }
+  })
+
   it('returns pasted=false when the system clipboard has no image', async () => {
     const { registerFileHandlers } = await import('./file-handlers')
     const root = await mkdtemp(join(tmpdir(), 'manifold-paste-clipboard-image-test-'))
