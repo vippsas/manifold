@@ -101,6 +101,38 @@ describe('SessionStreamWirer', () => {
     ])
   })
 
+  it('ignores a stale initial-exit when a follow-up turn has replaced the PTY', () => {
+    const ptyPool = new FakePtyPool()
+    const sendToRenderer = vi.fn()
+    const onDevServerNeeded = vi.fn()
+
+    const wirer = new SessionStreamWirer(
+      ptyPool as never,
+      () => null,
+      sendToRenderer,
+      undefined,
+      vi.fn(),
+      onDevServerNeeded,
+    )
+
+    const session = createSession()
+    wirer.wirePrintModeInitialExitHandling(session.ptyId, session)
+
+    // A follow-up turn killed the initial PTY and assigned a new one.
+    const initialPtyId = session.ptyId
+    session.ptyId = 'pty-followup'
+    session.pid = 999
+    session.status = 'running'
+
+    // The killed PTY's exit event still fires after the swap.
+    ptyPool.emitExit(initialPtyId, 0)
+
+    // The stale exit must not wipe the follow-up's ptyId/pid or spawn a dev server.
+    expect(session.ptyId).toBe('pty-followup')
+    expect(session.pid).toBe(999)
+    expect(onDevServerNeeded).not.toHaveBeenCalled()
+  })
+
   it('stores Codex generated image payloads in the project and publishes chat image references', async () => {
     const ptyPool = new FakePtyPool()
     const chatAdapter = new ChatAdapter()

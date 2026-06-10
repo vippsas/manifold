@@ -4,20 +4,20 @@ import type { AgentSession, CancellationToken, ManifoldApi, TurnOutcome } from '
 import type { WorkspaceContext } from './workspace-api'
 
 interface HostAgentsProxy {
-  $runTurn(sessionId: string, prompt: string, opts: { budgetSeconds?: number; clearContext?: boolean } | undefined): Promise<TurnOutcome>
-  $cancelTurn(sessionId: string): Promise<void>
+  $runTurn(pluginId: string, sessionId: string, prompt: string, opts: { budgetSeconds?: number; clearContext?: boolean } | undefined): Promise<TurnOutcome>
+  $cancelTurn(pluginId: string, sessionId: string): Promise<void>
 }
 
-export function createAgentsApi(endpoint: RpcEndpoint, workspace: WorkspaceContext): ManifoldApi['agents'] {
+export function createAgentsApi(endpoint: RpcEndpoint, workspace: WorkspaceContext, pluginId: string): ManifoldApi['agents'] {
   const host = endpoint.getProxy<HostAgentsProxy>(HOST_AGENTS)
   const makeAgent = (sessionId: string): AgentSession | undefined => {
     if (!sessionId) return undefined
     return {
       sessionId,
       async runTurn(prompt, opts, token?: CancellationToken): Promise<TurnOutcome> {
-        const sub = token?.onCancellationRequested(() => { void host.$cancelTurn(sessionId) })
+        const sub = token?.onCancellationRequested(() => { void host.$cancelTurn(pluginId, sessionId) })
         try {
-          return await host.$runTurn(sessionId, prompt, opts)
+          return await host.$runTurn(pluginId, sessionId, prompt, opts)
         } finally {
           sub?.dispose()
         }

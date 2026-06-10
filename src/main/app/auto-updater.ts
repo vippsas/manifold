@@ -1,5 +1,5 @@
 import { app, BrowserWindow, shell } from 'electron'
-import { readFileSync, writeFileSync } from 'node:fs'
+import { openSync, closeSync, readSync, statSync, readFileSync, writeFileSync } from 'node:fs'
 import { autoUpdater } from 'electron-updater'
 import { DEBUG_LOG, debugLog } from './debug-log'
 import type { ReleaseNotes } from '../../shared/types'
@@ -7,6 +7,9 @@ import type { ReleaseNotes } from '../../shared/types'
 const HOURLY_UPDATE_CHECK_MS = 60 * 60 * 1000
 const RETRY_UPDATE_CHECK_DELAYS_MS = [5_000, 15_000, 60_000] as const
 const UPDATE_LOG_LINE_LIMIT = 80
+// Read at most ~256 KB from the tail of debug.log to avoid blocking the main thread
+// when the file is large (issue #501).
+const DEBUG_LOG_TAIL_BYTES = 256 * 1024
 const FORCE_DEV_UPDATES = process.env.MANIFOLD_FORCE_DEV_UPDATES === '1'
 const RELEASE_NOTES_API_BASE = 'https://api.github.com/repos/vippsas/manifold/releases'
 const RELEASE_NOTES_WEB_BASE = 'https://github.com/vippsas/manifold/releases'
@@ -67,10 +70,26 @@ function broadcastStatus(status: 'available' | 'downloaded', version: string): v
   }
 }
 
+function readLogTail(path: string, maxBytes: number): string {
+  const fd = openSync(path, 'r')
+  try {
+    const { size } = statSync(path)
+    const readSize = Math.min(size, maxBytes)
+    const offset = size - readSize
+    const buf = Buffer.allocUnsafe(readSize)
+    const bytesRead = readSync(fd, buf, 0, readSize, offset)
+    return buf.slice(0, bytesRead).toString('utf8')
+  } finally {
+    closeSync(fd)
+  }
+}
+
 function readUpdaterLogExcerpt(): string {
   try {
-    const contents = readFileSync(DEBUG_LOG, 'utf8')
-    const lines = contents
+    const tail = readLogTail(DEBUG_LOG, DEBUG_LOG_TAIL_BYTES)
+    // When reading from the tail the first line may be a partial line; drop it if the
+    // tail didn't start at offset 0 (heuristic: no newline at the beginning).
+    const lines = tail
       .split(/\r?\n/)
       .filter((line) => line.includes('[updater]') && !line.includes('skipping update checks in dev because the app is not packaged'))
       .slice(-UPDATE_LOG_LINE_LIMIT)
@@ -138,9 +157,8 @@ export async function getReleaseNotes(version = app.getVersion()): Promise<Relea
     })
 
     if (!response.ok) {
-      const fallback = buildFallbackReleaseNotes(normalizedVersion, `GitHub returned ${response.status}.`)
-      releaseNotesCache.set(normalizedVersion, fallback)
-      return fallback
+      // Don't cache transient failures — a later retry should fetch real notes (#507).
+      return buildFallbackReleaseNotes(normalizedVersion, `GitHub returned ${response.status}.`)
     }
 
     const payload = await response.json() as {
@@ -163,9 +181,8 @@ export async function getReleaseNotes(version = app.getVersion()): Promise<Relea
     return notes
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error)
-    const fallback = buildFallbackReleaseNotes(normalizedVersion, `Failed to load release notes: ${message}`)
-    releaseNotesCache.set(normalizedVersion, fallback)
-    return fallback
+    // Don't cache network/transient errors — a later retry should fetch real notes (#507).
+    return buildFallbackReleaseNotes(normalizedVersion, `Failed to load release notes: ${message}`)
   }
 }
 
@@ -187,7 +204,13 @@ export async function checkForUpdates(reason: 'startup' | 'scheduled' | 'manual'
   debugLog(`[updater] triggering ${reason} update check`)
 
   try {
-    await autoUpdater.checkForUpdatesAndNotify()
+    const result = await autoUpdater.checkForUpdatesAndNotify()
+    // null means the updater is not active (e.g. dev / unpackaged build).
+    // In that case none of the autoUpdater events fire, so we must reset the
+    // flag here to prevent every subsequent check from being silently skipped (#508).
+    if (result === null) {
+      finishUpdateCheck()
+    }
   } catch (error) {
     finishUpdateCheck()
     const message = error instanceof Error ? error.message : String(error)

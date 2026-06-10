@@ -52,6 +52,44 @@ function makeMocks(sessions: Map<string, InternalSession>) {
   }
 }
 
+describe('SessionTeardown.killNonInteractiveSessions', () => {
+  beforeEach(() => {
+    vi.mocked(gitExec).mockClear()
+    vi.mocked(gitExec).mockResolvedValue('')
+  })
+
+  it('skips onKillSession when a session is removed mid-loop and continues to the next session', async () => {
+    const a = makeSession({ id: 'sess-a', nonInteractive: true })
+    const b = makeSession({ id: 'sess-b', nonInteractive: true, ptyId: '' })
+    const sessions = new Map<string, InternalSession>([[a.id, a], [b.id, b]])
+    const { teardown, onKillSession } = makeMocks(sessions)
+
+    // Simulate concurrent removal of sess-a between when toKill is built and when
+    // onKillSession is reached for it (e.g. it was killed via agent:kill concurrently).
+    // We do this by removing it after the snapshot is taken but before onKillSession runs.
+    const { getManagedWorktreeStatus } = await import('../git/managed-worktree')
+    let callCount = 0
+    vi.mocked(getManagedWorktreeStatus).mockImplementation(async () => {
+      callCount++
+      if (callCount === 1) {
+        // Remove sess-a from the live map during first iteration (simulates concurrent kill)
+        sessions.delete('sess-a')
+      }
+      return ''
+    })
+
+    const result = await teardown.killNonInteractiveSessions('proj-1')
+
+    // sess-a was removed from the map before onKillSession reached it
+    expect(onKillSession).not.toHaveBeenCalledWith('sess-a')
+    // sess-b was still present so it should have been killed
+    expect(onKillSession).toHaveBeenCalledWith('sess-b')
+    // Both IDs are reported as killed (loop didn't abort)
+    expect(result.killedIds).toContain('sess-a')
+    expect(result.killedIds).toContain('sess-b')
+  })
+})
+
 describe('SessionTeardown.killInteractiveSession', () => {
   beforeEach(() => {
     vi.mocked(gitExec).mockClear()

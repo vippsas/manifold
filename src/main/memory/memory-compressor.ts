@@ -10,6 +10,7 @@ import { debugLog } from '../app/debug-log'
 import type { CompressionResult, RegexFallbackContext } from './memory-compression-types'
 import { parseCompressionResponse } from './memory-parse'
 import { buildRegexFallbackResult as computeRegexFallbackResult } from './memory-regex-fallback'
+import { parseInteractionRow } from './memory-store'
 
 const MIN_INTERACTIONS_FOR_COMPRESSION = 3
 const INCREMENTAL_BATCH_SIZE = 5
@@ -35,6 +36,10 @@ export class MemoryCompressor {
     return this.sessionToolEvents.get(sessionId) ?? []
   }
 
+  clearSession(sessionId: string): void {
+    this.sessionToolEvents.delete(sessionId)
+  }
+
   /**
    * Incremental compression — runs periodically during a live session.
    * Uses regex extraction (instant, no AI cost) on the latest batch of interactions
@@ -42,11 +47,12 @@ export class MemoryCompressor {
    */
   compressIncremental(projectId: string, sessionId: string, sinceTimestamp: number): number {
     const db = this.memoryStore.getDb(projectId)
-    const interactions = db
+    const rows = db
       .prepare(
         'SELECT * FROM interactions WHERE sessionId = ? AND timestamp > ? ORDER BY timestamp ASC',
       )
-      .all(sessionId, sinceTimestamp) as MemoryInteraction[]
+      .all(sessionId, sinceTimestamp) as Record<string, unknown>[]
+    const interactions = rows.map(parseInteractionRow)
 
     if (interactions.length < INCREMENTAL_BATCH_SIZE) {
       return sinceTimestamp

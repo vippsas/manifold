@@ -95,6 +95,15 @@ process by `AgentControlService` (drives a session's agent for one turn,
 `agent-control-service.ts:110`) and `LmService` (one-shot generation via the active
 session's runtime, `lm-service.ts:19`) — exactly the powers that warrant the restriction.
 
+The `gated-api.ts` getter check runs *inside* the host process, alongside untrusted
+plugin code, so it is a convenience gate, not the trust boundary. The authoritative check
+is on the main side: the host-side `agents`/`lm` proxies thread the calling plugin's
+`pluginId` into every `HOST_AGENTS`/`HOST_LM` RPC (`agents-api.ts`, `lm-api.ts`), and the
+main handlers call `assertBuiltin(pluginId, …)` — resolving the plugin's `origin` via
+`PluginManager` and rejecting any non-builtin (or unknown) caller before
+`AgentControlService`/`LmService` runs (`extension-host.ts`). A plugin that reaches the RPC
+endpoint directly, bypassing `buildGatedApi`, is still refused.
+
 **Commands.** Command ids are owned end-to-end. A plugin's `commands.registerCommand`
 threads its `pluginId` to the host's `$registerCommand`, which calls
 `CommandRegistry.register(id, owner, …)` (`host-commands-service.ts:24`). The registry is
@@ -116,14 +125,21 @@ nodes through `treeGetChildren()` (`plugin-manager.ts:136`). Interactive prompts
 and resolves when the renderer replies via `plugins:ui-response` (`ui-broker.ts:10`).
 
 **Lifecycle / disposal.** The host process is forked lazily and recovers on death: an
-`exit` or `error` event rejects every in-flight RPC and clears the `CommandRegistry`, then
-nulls `child`/`endpoint` so the next call re-forks a clean host (`onHostDown`,
-`extension-host.ts:52`). In the child, an uncaught exception is logged and exits the
-process (so main can re-fork), while an unhandled rejection is only logged
-(`plugin-host/index.ts:26`). `ExtensionHost.dispose()` flushes pending UI, rejects
-pending RPCs, clears commands, and kills the child (`extension-host.ts`). The
-`Activator.deactivate()` path runs the plugin's `deactivate()` and disposes its
-`context.subscriptions` (`activator.ts:27`), and the host's `$deactivate` then
+`exit` or `error` event rejects every in-flight RPC, **flushes pending renderer UI prompts**
+(so a `$showMessage`/`$showQuickPick`/`$showInputBox` awaiting a reply settles instead of
+leaking its promise), and clears the `CommandRegistry`, then nulls `child`/`endpoint` so the
+next call re-forks a clean host (`onHostDown`, `extension-host.ts`). To stop a plugin that
+crashes during `activate()` from re-forking and re-crashing in a tight loop, a
+**crash circuit-breaker** counts crashes (non-zero `exit` / `error`) within a window
+(`CRASH_THRESHOLD` in `CRASH_WINDOW_MS`); once tripped, `ensure()` refuses to re-fork until
+an exponential backoff elapses, and the window resets when the host stays up. In the child,
+an uncaught exception is logged and exits the process (so main can re-fork), while an
+unhandled rejection is only logged (`plugin-host/index.ts:26`). `ExtensionHost.dispose()`
+flushes pending UI, rejects pending RPCs, clears commands, and kills the child
+(`extension-host.ts`); `PluginManager.dispose()` calls it, and the app `before-quit` handler
+invokes `pluginManager.dispose()` so the forked utility process doesn't orphan on quit
+(`app-lifecycle.ts`). The `Activator.deactivate()` path runs the plugin's `deactivate()` and
+disposes its `context.subscriptions` (`activator.ts:27`), and the host's `$deactivate` then
 `unregisterPluginApis(root)` so the plugin's `require('manifold')` frame is removed too
 (`plugin-host/index.ts:87`). Disabling a plugin (`setEnabled(id, false)`) fires this
 deactivate path on the host, and `executeContributedCommand` refuses a command owned by a
@@ -150,9 +166,9 @@ disabled plugin (`extension-host.ts`, `plugin-manager.ts:63`).
 
 ## Invariants & gotchas
 
-- **`agent:control` and `lm` are built-in-only — enforced at the getter, not just the manifest.** Declaring them in a user plugin's manifest passes parse-time validation (they are valid capabilities) but throws `RestrictedCapabilityError` the moment the plugin touches `manifold.agents` / `manifold.lm` (`gated-api.ts:36`). The restriction keys on `origin === 'builtin'`, which the scanner sets from *which directory* the plugin was found in (`scanner.ts:13`) — not from anything the plugin can self-declare.
+- **`agent:control` and `lm` are built-in-only — re-enforced on the trusted main side, not just at the host getter.** Declaring them in a user plugin's manifest passes parse-time validation (they are valid capabilities) but throws `RestrictedCapabilityError` the moment the plugin touches `manifold.agents` / `manifold.lm` (`gated-api.ts:36`). That getter check runs inside the host process, so it is not authoritative: every `HOST_AGENTS`/`HOST_LM` RPC also carries the calling `pluginId`, and the main handlers call `assertBuiltin()` to reject any non-builtin/unknown caller before driving an agent or the LLM (`extension-host.ts`) — so a plugin can't escape the gate by hitting the RPC endpoint directly. The restriction keys on `origin === 'builtin'`, which the scanner sets from *which directory* the plugin was found in (`scanner.ts:13`) — not from anything the plugin can self-declare.
 - **`activationEvents` is parsed but not yet event-driven.** Both parsers carry `activationEvents` into the manifest (`manifest.ts:107`, `vscode-manifest.ts:72`), but no host code matches them. Activation happens explicitly via the `plugins:activate` IPC, or lazily the first time a view is opened / a tree is queried / a webview message is delivered (each of `openView`, `treeGetChildren`, `deliverWebviewMessage`, `setActiveContext` calls `ensure()` + `$activate`). Don't assume `onCommand:` etc. lazy-activates a plugin.
-- **The host process re-forks on crash; in-flight RPCs reject, they don't hang.** A plugin that crashes the utility process triggers `onHostDown`, which rejects every pending call and clears the `CommandRegistry` so the re-forked host starts clean (`extension-host.ts:52`, `command-registry.ts:36`). Awaiting callers fail loudly with `plugin host exited (code …)`.
+- **The host process re-forks on crash (with backoff); in-flight RPCs reject, they don't hang.** A plugin that crashes the utility process triggers `onHostDown`, which rejects every pending call, flushes pending UI prompts, and clears the `CommandRegistry` so the re-forked host starts clean (`extension-host.ts`, `command-registry.ts:36`). Awaiting callers fail loudly with `plugin host exited (code …)`. A crash circuit-breaker counts crashes within a window and, once tripped, makes `ensure()` refuse to re-fork until an exponential backoff elapses — so a host that crashes on `activate()` backs off instead of re-forking on every `setActiveContext`/`openView`/… call.
 - **Plugin ids are charset-validated *and* path-checked at write time.** Even though `parseManifest` restricts the id charset, `PluginStorageStore.fileFor()` re-verifies the resolved path stays inside `<storage>/plugin-storage/` before any read/write (`plugin-storage-store.ts:10`). Corrupt storage JSON is backed up to `.bak` (once) rather than silently overwritten (`plugin-storage-store.ts:43`).
 - **Webview scripts must be nonced or they silently fail.** The CSP is `default-src 'none'; script-src 'nonce-…'`, so any `<script>` the injector misses is blocked and the panel renders blank with no console error; `injectNonce` emits a `debugLog` warning when `nonced < total` so the otherwise-invisible failure is traceable (`webview-protocol.ts:76`). `registerWebviewSchemePrivileged()` must run *before* `app.whenReady()` and `installWebviewProtocol()` *after* it.
 - **Command id ownership is first-writer-wins on both sides.** The local handler map in the host (`api-impl.ts`) and the main-side `CommandRegistry` both refuse a cross-owner overwrite, so a second plugin can neither hijack nor unregister another plugin's command (`command-registry.ts:14`).

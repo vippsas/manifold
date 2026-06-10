@@ -198,7 +198,9 @@ export function registerAgentHandlers(deps: IpcDependencies): void {
     // killSession → SessionKiller.cleanupSession unwatches the worktree, but only
     // when no surviving session still shares it. Unwatching here unconditionally
     // would kill file/git events for sibling sessions on the same worktree (#534).
-    await sessionManager.killSession(sessionId)
+    if (sessionManager.hasSession(sessionId)) {
+      await sessionManager.killSession(sessionId)
+    }
     viewStateStore.delete(sessionId)
     debugLog(`[agent:kill] done sessionId=${sessionId}`)
   })

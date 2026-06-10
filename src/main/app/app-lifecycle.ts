@@ -13,6 +13,7 @@ import type { SessionManager } from '../session/session-manager'
 import type { PtyPool } from '../agent/pty-pool'
 import type { FileWatcher } from '../fs/file-watcher'
 import type { ChatStore } from '../store/chat-store'
+import type { PluginManager } from '../plugins/plugin-manager'
 
 export interface AppLifecycleDeps {
   settingsStore: SettingsStore
@@ -23,6 +24,7 @@ export interface AppLifecycleDeps {
   fileWatcher: FileWatcher
   createWindow: () => void
   chatStore: ChatStore
+  pluginManager: PluginManager
 }
 
 /**
@@ -30,7 +32,7 @@ export interface AppLifecycleDeps {
  * on ready, re-create on activate, and cleanup on quit.
  */
 export function registerAppLifecycle(deps: AppLifecycleDeps): void {
-  const { settingsStore, powerManager, memoryStore, sessionManager, ptyPool, fileWatcher, createWindow, chatStore } = deps
+  const { settingsStore, powerManager, memoryStore, sessionManager, ptyPool, fileWatcher, createWindow, chatStore, pluginManager } = deps
   let localRendererServer: LocalRendererServer | null = null
 
   void app.whenReady().then(async () => {
@@ -90,6 +92,8 @@ export function registerAppLifecycle(deps: AppLifecycleDeps): void {
     // Kill all active sessions and clean up
     sessionManager.killAllSessions()
     ptyPool.killAll()
+    // Kill the forked plugin-host utility process so it doesn't orphan on quit.
+    pluginManager.dispose()
     await fileWatcher.unwatchAll()
     await localRendererServer?.close()
     memoryStore.close()

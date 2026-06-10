@@ -1,8 +1,10 @@
 import { isGitProject } from '../../shared/project-kind'
+import { removeWorktreeMeta } from '../git/worktree-meta'
 
 export interface WorktreeSetManager {
   createWorktree: (projectPath: string, baseBranch: string, projectName: string, branchName?: string) => Promise<{ branch: string; path: string }>
   removeWorktree: (projectPath: string, worktreePath: string) => Promise<void>
+  deleteBranch: (projectPath: string, branch: string) => Promise<void>
   branchExists: (projectPath: string, branch: string) => Promise<boolean>
 }
 
@@ -61,8 +63,12 @@ export async function buildWorkspaceWorkingSet(
       worktreePaths[project.id] = info.path
     }
   } catch (err) {
+    // removeWorktree never deletes the branch created by `worktree add -b`, so
+    // also delete `branchName` in each succeeded repo — otherwise every partial
+    // failure leaks a manifold/<name> branch and pushes future spawns to -2, -3.
     for (const { projectPath, worktreePath } of created) {
       try { await worktreeManager.removeWorktree(projectPath, worktreePath) } catch { /* ignore */ }
+      try { await worktreeManager.deleteBranch(projectPath, branchName) } catch { /* ignore */ }
     }
     throw err
   }
@@ -79,7 +85,14 @@ export async function removeWorkspaceWorktrees(
 ): Promise<void> {
   for (const [projectId, worktreePath] of Object.entries(worktreePaths)) {
     const projectPath = getProjectPath(projectId)
-    if (!projectPath) continue
+    if (!projectPath) {
+      // Project was deregistered: we can't run `git worktree remove` without its
+      // repo, but the surviving .manifold.json sidecar keeps the dead worktree
+      // resurrectable by SessionDiscovery if the project is ever re-added. Drop
+      // the sidecar so re-adding the project can't revive it.
+      try { await removeWorktreeMeta(worktreePath) } catch { /* best-effort */ }
+      continue
+    }
     if (projectPath === worktreePath) continue // non-git passthrough — edited in place, never delete
     try { await worktreeManager.removeWorktree(projectPath, worktreePath) } catch { /* best-effort */ }
   }

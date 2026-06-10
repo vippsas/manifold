@@ -55,6 +55,7 @@ export class PluginManager {
     this.host = new ExtensionHost(new PluginStorageStore(storagePath), agentControl, lm)
     this.host.setConfigResolver((id, key) => this.getConfigValue(id, key))
     this.host.setEnabledResolver((id) => this.isEnabled(id))
+    this.host.setOriginResolver((id) => this.plugins.find((p) => p.id === id)?.origin)
   }
 
   isEnabled(pluginId: string): boolean {
@@ -151,6 +152,10 @@ export class PluginManager {
   }
 
   resolveUiResponse(requestId: string, value: unknown): void { this.host.resolveUi(requestId, value) }
+
+  /** Tear down the plugin host (kills the forked utility process and settles pending RPC/UI).
+   *  Wired into app before-quit so the host child doesn't orphan on shutdown. */
+  dispose(): void { this.host.dispose() }
 
   setActiveContext(context: { project?: unknown; session?: SessionInfo }): void {
     let session = context.session

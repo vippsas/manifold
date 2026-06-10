@@ -37,17 +37,20 @@ helper, passing each the shared `this.sessions` map and lambdas (`sendToRenderer
 (`session-manager.ts:45`). Memory/verdict collaborators are wired post-construction via
 setters (`setMemoryCapture`, `setVerdictRecorder`, `setGitOps`, …).
 
-**Create.** `createSession()` (`session-manager.ts:170`) enforces the one-`noWorktree`-agent-per-project
-rule, then delegates to `SessionCreator.create()` (`session-creator.ts:35`). The creator
-resolves a worktree from the many `SpawnAgentOptions` shapes — existing path, `stayOnBranch`,
-`existingBranch`, PR checkout, or a fresh `WorktreeManager.createWorktree()` — then resolves
-the runtime via `getRuntimeById()`. Chat-mode sessions created without a first message
-*defer* the runtime spawn (`deferRuntime`, `session-creator.ts:107`): the session exists in
-`waiting` status with `ptyId: ''` and no PTY; the first message later routes through
-`spawnPrintModeFollowUp`. Otherwise `PtyPool.spawn()` starts the process, the stream wirer
-attaches handlers, and `writeWorktreeMeta()` persists the runtime/task/displayName so the
-session is rediscoverable. Back in the manager, the new session is added to the map, memory
-capture starts, and the renderer is told via `agent:sessions-changed`.
+**Create.** `createSession()` (`session-manager.ts:175`) enforces the one-`noWorktree`-agent-per-project
+rule, then delegates to `SessionCreator.create()` (`session-creator.ts:35`). For `noWorktree`
+sessions the call is serialized via `createNoWorktreeInFlight` (`session-manager.ts:47`) — a
+per-project in-flight promise map that coalesces concurrent spawns so only one session is ever
+created (TOCTOU guard). The creator resolves a worktree from the many `SpawnAgentOptions`
+shapes — existing path, `stayOnBranch`, `existingBranch`, PR checkout, or a fresh
+`WorktreeManager.createWorktree()` — then resolves the runtime via `getRuntimeById()`.
+Chat-mode sessions created without a first message *defer* the runtime spawn (`deferRuntime`,
+`session-creator.ts:107`): the session exists in `waiting` status with `ptyId: ''` and no PTY;
+the first message later routes through `spawnPrintModeFollowUp`. Otherwise `PtyPool.spawn()`
+starts the process, the stream wirer attaches handlers, and `writeWorktreeMeta()` persists
+the runtime/task/displayName so the session is rediscoverable. Back in the manager, the new
+session is added to the map, memory capture starts, and the renderer is told via
+`agent:sessions-changed`.
 
 **Run.** `SessionStreamWirer.wireOutputStreaming()` (`session-stream-wirer.ts:112`) is the hot
 path. Each PTY chunk appends to `session.outputBuffer` (capped at 100 KB, trimmed to 50 KB),
@@ -70,12 +73,14 @@ worktrees before killing and, for worktree-based sessions, checkout the base bra
 afterward — but deliberately skip the base checkout for `noWorktree` sessions to avoid
 exposing build artifacts (`session-teardown.ts:53`).
 
-**Resume.** `resumeSession()` (`session-manager.ts:230`) is a no-op when a PTY already exists,
+**Resume.** `resumeSession()` (`session-manager.ts:260`) is a no-op when a PTY already exists,
 and for chat-mode sessions only updates `runtimeId` (they never hold a long-running PTY).
-For interactive sessions it calls `resumeAgentSession()` (`session-resume.ts:13`), which
-re-reads worktree meta for missing fields, refreshes managed-worktree guards, injects memory
-context, spawns a new PTY, and re-wires output/exit. This is the path that brings a dormant
-discovered session back to life.
+For interactive sessions it serializes concurrent calls via `resumeInFlight`
+(`session-manager.ts:45`) — a per-session-id in-flight promise map that ensures at most one
+PTY is spawned even if two callers race before either's spawn completes. It calls
+`resumeAgentSession()` (`session-resume.ts:13`), which re-reads worktree meta for missing
+fields, refreshes managed-worktree guards, injects memory context, spawns a new PTY, and
+re-wires output/exit. This is the path that brings a dormant discovered session back to life.
 
 **Discover-on-disk.** On launch the renderer's `agent:sessions` IPC calls
 `discoverSessionsForProject()` or `discoverAllSessions()`. `SessionDiscovery`
@@ -102,7 +107,7 @@ the repo is parked on base (`session-discovery.ts:198`).
 
 - **Agent runtimes / PTY** (`src/main/agent`): `PtyPool.spawn/write/kill/onData/onExit` is the process boundary; `getRuntimeById()` resolves the binary/args/env; `buildSimpleRuntimeCommand()` builds print-mode args; `claudeAnsiThemeArgs()` syncs the embedded Claude Code palette to Manifold's theme.
 - **Git / worktrees** (`src/main/git`): `WorktreeManager`, `BranchCheckoutManager`, `worktree-meta` (`readWorktreeMeta`/`writeWorktreeMeta`), `managed-worktree` (`prepareManagedWorktree`, `commitManagedWorktree`), and raw `gitExec`. Session meta lives in the worktree, not a central store — that is what makes discovery possible.
-- **IPC** (`src/main/ipc/agent-handlers.ts`): `agent:spawn` → `createSession`, `agent:resume` → `resumeSession` (`:270`), `agent:kill`/`agent:kill-worktree` → killers, `agent:sessions` → discovery (`:280`), `agent:replay` → `getOutputBuffer`, plus the `shell:*` handlers.
+- **IPC** (`src/main/ipc/agent-handlers.ts`): `agent:spawn` → `createSession`, `agent:resume` → `resumeSession`, `agent:kill`/`agent:kill-worktree` → killers, `agent:sessions` → discovery, `agent:replay` → `getOutputBuffer`, plus the `shell:*` handlers.
 - **Renderer / preload** (`src/preload/index.ts:151`): the renderer never touches the map; it listens to `agent:output`, `agent:activity`, `agent:activity-state`, `agent:status`, `agent:exit`, and `agent:sessions-changed`, all emitted through `SessionManager.sendToRenderer`.
 - **Store** (`src/main/store`): `ProjectRegistry` resolves project path/baseBranch and caches `slashCommands`; `VerdictStore` backs the verdict recorder.
 - **Memory** (`src/main/memory`): `MemoryCapture` (start/stop per session), `MemoryInjector.injectContext()` (on create and resume), `MemoryCompressor.compressSession()` (on developer-mode teardown).
@@ -110,12 +115,12 @@ the repo is parked on base (`session-discovery.ts:198`).
 
 ## Invariants & gotchas
 
-- **Discovery is serialized.** Concurrent `discoverSessionsForProject` calls for the same project (two renderer hooks racing) would each see zero sessions and create duplicates; `discoveryInFlight` de-dupes by project id, with `'__all__'` as the key for `discoverAllSessions` (`session-discovery.ts:43`, `:160`).
-- **At most one `noWorktree` agent per project.** Enforced in `createSession()` (`session-manager.ts:175`); a second one throws.
+- **Concurrent-spawn guards.** Three operations carry in-flight promise maps to prevent races: `discoveryInFlight` (`session-discovery.ts:15`) serializes `discoverSessionsForProject` per project id; `createNoWorktreeInFlight` (`session-manager.ts:47`) coalesces concurrent `noWorktree` `createSession` calls; `resumeInFlight` (`session-manager.ts:45`) deduplicates concurrent `resumeSession` calls so only one PTY is ever spawned per session.
+- **At most one `noWorktree` agent per project.** Enforced in `createSession()` (`session-manager.ts:175`); concurrent calls are serialized via `createNoWorktreeInFlight` — the second caller coalesces onto the same in-flight promise so only one session is created.
 - **Deferred chat sessions have `ptyId: ''` and status `waiting`.** Treat empty `ptyId` as "no live process"; `resumeSession` and many helpers short-circuit on it. Each chat turn is a fresh print-mode process, not a persistent PTY.
 - **Worktree removal is path-shared-aware.** A worktree is only removed when no other session references its path (`removeWorktreeIfUnused` / `hasOtherLiveSessionsOnPath`); workspace sessions remove the whole `workspaceWorktreePaths` set instead.
 - **Teardown skips base checkout for `noWorktree`.** Checking out base in the live repo dir would drop `.gitignore` and surface `node_modules` as untracked, breaking the next spawn (`session-teardown.ts:53`).
 - **Meta is the source of truth on disk.** If `writeWorktreeMeta` fails, `nonInteractive` and friends are lost on next launch (both `session-creator.ts:187` and `session-meta-persister.ts:16` log this loudly). Discovery reconstructs sessions purely from worktree meta + branch state.
 - **`outputBuffer` is bounded.** It is trimmed to the trailing 50 KB once over 100 KB, so detectors and `agent:replay` only ever see recent output.
-- **Stale print-mode exits are guarded.** `wirePrintModeExitHandling` ignores an exit whose `ptyId` no longer matches the session's current one, so a slow-closing previous turn can't overwrite a newer turn's `running` status (`session-stream-wirer.ts:230`).
+- **Stale print-mode exits are guarded.** Both `wirePrintModeExitHandling` and `wirePrintModeInitialExitHandling` ignore an exit whose `ptyId` no longer matches the session's current one, so a slow-closing previous turn can't overwrite a newer turn's `running` status or wipe its `ptyId`/`pid` (`session-stream-wirer.ts:230`, `:272`).
 - **No `await` between spawn and listener wiring.** `create()` reads worktree meta *before* `PtyPool.spawn()` (`session-creator.ts:141`, `:145`) so wiring (`session-creator.ts:169`, `:177`) runs synchronously after spawn. A process that exits during an await gap would have its pool entry deleted, so `onData`/`onExit` wiring would throw `'PTY not found'`, reject `create()`, and strand the freshly created worktree (#496).

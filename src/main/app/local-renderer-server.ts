@@ -78,7 +78,13 @@ function handleRequest(req: IncomingMessage, res: ServerResponse, root: string):
     res.writeHead(400).end()
     return
   }
-  const rel = decodeURIComponent(url.pathname).replace(/^\/+/, '') || 'index.html'
+  let rel: string
+  try {
+    rel = decodeURIComponent(url.pathname).replace(/^\/+/, '') || 'index.html'
+  } catch {
+    res.writeHead(400).end()
+    return
+  }
   const resolved = normalize(join(root, rel))
   if (resolved !== root && !resolved.startsWith(root + sep)) {
     res.writeHead(403).end()
@@ -106,5 +112,5 @@ function handleRequest(req: IncomingMessage, res: ServerResponse, root: string):
     res.end()
     return
   }
-  createReadStream(resolved).pipe(res)
+  createReadStream(resolved).on('error', () => res.destroy()).pipe(res)
 }

@@ -2,6 +2,7 @@ import React from 'react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { act, render } from '@testing-library/react'
 import { INTERRUPT_TERMINAL_MODE_RESET } from '../terminal-input-filter'
+import { loadWebFont } from './terminal-font'
 
 interface MockTerminalInstance {
   write: ReturnType<typeof vi.fn>
@@ -155,5 +156,69 @@ describe('useTerminal', () => {
 
     expect(handleKey(new KeyboardEvent('keyup', { key: 'Backspace', metaKey: true }))).toBe(true)
     expect(window.electronAPI.invoke).not.toHaveBeenCalledWith('agent:input', 'shell-1', '\x15')
+  })
+})
+
+describe('loadWebFont', () => {
+  beforeEach(() => {
+    ;(window as unknown as Record<string, unknown>).electronAPI = {
+      invoke: vi.fn(),
+      send: vi.fn(),
+      on: vi.fn(() => () => {}),
+      getPathForFile: vi.fn(),
+    }
+    ;(global as unknown as Record<string, unknown>).FontFace = class {
+      load = vi.fn().mockResolvedValue(undefined)
+    }
+    ;(global as unknown as Record<string, unknown>).document = {
+      fonts: { add: vi.fn() },
+    }
+  })
+
+  afterEach(() => {
+    vi.restoreAllMocks()
+  })
+
+  it('loads different fonts independently (per-font cache keying)', async () => {
+    const invoke = window.electronAPI.invoke as ReturnType<typeof vi.fn>
+    invoke.mockImplementation((_channel: string, font: string) =>
+      Promise.resolve(`data:font/ttf;base64,${font}-bytes`),
+    )
+
+    const r1 = await loadWebFont('FontA-unique-test-1')
+    const r2 = await loadWebFont('FontB-unique-test-2')
+
+    expect(r1).toBe(true)
+    expect(r2).toBe(true)
+    // Both fonts requested their own data — two separate IPC calls
+    expect(invoke).toHaveBeenCalledWith('font:load-data', 'FontA-unique-test-1')
+    expect(invoke).toHaveBeenCalledWith('font:load-data', 'FontB-unique-test-2')
+  })
+
+  it('returns cached result for the same font without re-fetching', async () => {
+    const invoke = window.electronAPI.invoke as ReturnType<typeof vi.fn>
+    invoke.mockResolvedValue('data:font/ttf;base64,abc')
+
+    await loadWebFont('FontC-unique-test-3')
+    invoke.mockClear()
+    const result = await loadWebFont('FontC-unique-test-3')
+
+    expect(result).toBe(true)
+    // No second IPC call — served from cache
+    expect(invoke).not.toHaveBeenCalled()
+  })
+
+  it('resets the in-flight entry on failure so the next call retries', async () => {
+    const invoke = window.electronAPI.invoke as ReturnType<typeof vi.fn>
+    // First call fails
+    invoke.mockRejectedValueOnce(new Error('network error'))
+    const r1 = await loadWebFont('FontD-unique-test-4')
+    expect(r1).toBe(false)
+
+    // Second call should retry (invoke called again)
+    invoke.mockResolvedValueOnce('data:font/ttf;base64,abc')
+    const r2 = await loadWebFont('FontD-unique-test-4')
+    expect(r2).toBe(true)
+    expect(invoke).toHaveBeenCalledTimes(2)
   })
 })

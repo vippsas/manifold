@@ -72,7 +72,6 @@ export function useTerminal({ sessionId, scrollbackLines, terminalFontFamily, xt
   // Loads the font file as a web font to bypass Chromium canvas PUA limitations.
   useEffect(() => {
     const terminal = terminalRef.current
-    console.log('[useTerminal] font effect: terminalFontFamily =', terminalFontFamily, 'terminal exists =', !!terminal)
     if (!terminal) return
     const cleaned = cleanFontName(terminalFontFamily)
     if (!cleaned) {
@@ -83,9 +82,7 @@ export function useTerminal({ sessionId, scrollbackLines, terminalFontFamily, xt
     }
     // First apply the system font immediately, then upgrade to web font
     terminal.options.fontFamily = resolveFontFamily(terminalFontFamily)
-    console.log('[useTerminal] font effect: loading web font for', cleaned)
     void loadWebFont(cleaned).then((loaded) => {
-      console.log('[useTerminal] font effect: web font loaded =', loaded)
       if (terminalRef.current === terminal) {
         terminal.options.fontFamily = resolveFontFamily(terminalFontFamily, loaded)
         terminal.clearTextureAtlas()
@@ -132,14 +129,10 @@ export function useTerminal({ sessionId, scrollbackLines, terminalFontFamily, xt
     // glyphs render correctly from the start (the font-change effect only fires
     // when terminalFontFamily changes, not on first mount).
     const cleanedFont = cleanFontName(terminalFontFamily)
-    console.log('[useTerminal] main effect: cleanedFont =', cleanedFont)
     if (cleanedFont) {
       void loadWebFont(cleanedFont).then((loaded) => {
-        console.log('[useTerminal] main effect: loadWebFont resolved, loaded =', loaded, 'disposed =', disposed)
         if (!disposed && loaded) {
-          const resolved = resolveFontFamily(terminalFontFamily, true)
-          console.log('[useTerminal] main effect: setting fontFamily to', resolved)
-          terminal.options.fontFamily = resolved
+          terminal.options.fontFamily = resolveFontFamily(terminalFontFamily, true)
           terminal.clearTextureAtlas()
           fitAddonRef.current?.fit()
         }

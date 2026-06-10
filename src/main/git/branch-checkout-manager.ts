@@ -2,10 +2,14 @@ import * as fs from 'node:fs'
 import * as path from 'node:path'
 import { spawn } from 'node:child_process'
 import { gitExec } from './git-exec'
+import { withRepoLock } from './repo-lock'
 import { prepareManagedWorktree } from './managed-worktree'
 import type { BranchInfo, PRInfo } from '../../shared/types'
 
-function ghExec(args: string[], cwd: string): Promise<string> {
+/** Cap network-touching commands (fetch, gh pr) so a hung child can't wedge an IPC handler. */
+const NETWORK_TIMEOUT_MS = 30_000
+
+function ghExec(args: string[], cwd: string, timeoutMs?: number): Promise<string> {
   return new Promise((resolve, reject) => {
     const child = spawn('gh', args, {
       cwd,
@@ -13,11 +17,28 @@ function ghExec(args: string[], cwd: string): Promise<string> {
     })
     const chunks: Buffer[] = []
     const errChunks: Buffer[] = []
+
+    let timedOut = false
+    let timer: NodeJS.Timeout | undefined
+    if (timeoutMs && timeoutMs > 0) {
+      timer = setTimeout(() => {
+        timedOut = true
+        child.kill('SIGKILL')
+      }, timeoutMs)
+      timer.unref?.()
+    }
+
     child.stdout!.on('data', (data: Buffer) => chunks.push(data))
     child.stderr!.on('data', (data: Buffer) => errChunks.push(data))
-    child.on('error', reject)
+    child.on('error', (err) => {
+      if (timer) clearTimeout(timer)
+      reject(err)
+    })
     child.on('close', (code) => {
-      if (code !== 0) {
+      if (timer) clearTimeout(timer)
+      if (timedOut) {
+        reject(new Error(`gh ${args[0]} timed out after ${timeoutMs}ms`))
+      } else if (code !== 0) {
         reject(new Error(`gh ${args[0]} failed (code ${code}): ${Buffer.concat(errChunks).toString('utf8')}`))
       } else {
         resolve(Buffer.concat(chunks).toString('utf8'))
@@ -30,9 +51,13 @@ export class BranchCheckoutManager {
   constructor(private storagePath: string) {}
 
   async listBranches(projectPath: string): Promise<BranchInfo[]> {
-    // Fetch latest from all remotes (best-effort)
+    // Fetch latest from all remotes (best-effort). `fetch --prune` mutates
+    // remote-tracking refs, so serialize it against concurrent checkouts /
+    // worktree adds on the same repo to avoid git-lock errors mid-spawn.
     try {
-      await gitExec(['fetch', '--all', '--prune'], projectPath)
+      await withRepoLock(projectPath, () =>
+        gitExec(['fetch', '--all', '--prune'], projectPath, { timeoutMs: NETWORK_TIMEOUT_MS })
+      )
     } catch {
       // Fetch may fail (no remote, network issues) — continue with local data
     }
@@ -98,7 +123,8 @@ export class BranchCheckoutManager {
   async listOpenPRs(projectPath: string): Promise<PRInfo[]> {
     const raw = await ghExec(
       ['pr', 'list', '--state=open', '--json', 'number,title,headRefName,author', '--limit', '50'],
-      projectPath
+      projectPath,
+      NETWORK_TIMEOUT_MS
     )
     const parsed = JSON.parse(raw) as Array<{
       number: number
@@ -120,12 +146,13 @@ export class BranchCheckoutManager {
     const branchName = (
       await ghExec(
         ['pr', 'view', prNumber, '--json', 'headRefName', '-q', '.headRefName'],
-        projectPath
+        projectPath,
+        NETWORK_TIMEOUT_MS
       )
     ).trim()
 
     // Fetch the branch from origin so it's available locally
-    await gitExec(['fetch', 'origin', branchName], projectPath)
+    await gitExec(['fetch', 'origin', branchName], projectPath, { timeoutMs: NETWORK_TIMEOUT_MS })
 
     return branchName
   }
@@ -149,21 +176,26 @@ export class BranchCheckoutManager {
       return { branch, path: existingWorktreePath }
     }
 
-    // If the branch is currently checked out in the main repo, switch the main
-    // repo to the base branch first — git refuses to create a worktree for a
-    // branch that is already checked out elsewhere.
-    const currentBranch = (await gitExec(['rev-parse', '--abbrev-ref', 'HEAD'], projectPath)).trim()
-    if (currentBranch === branch) {
-      await gitExec(['checkout', baseBranch], projectPath)
-    }
+    // Serialize the mutating sequence: the checkout in the primary repo races
+    // with concurrent listBranches fetches / worktree adds against the same repo
+    // (git's own locks turn those races into hard errors mid-spawn).
+    return withRepoLock(projectPath, async () => {
+      // If the branch is currently checked out in the main repo, switch the main
+      // repo to the base branch first — git refuses to create a worktree for a
+      // branch that is already checked out elsewhere.
+      const currentBranch = (await gitExec(['rev-parse', '--abbrev-ref', 'HEAD'], projectPath)).trim()
+      if (currentBranch === branch) {
+        await gitExec(['checkout', baseBranch], projectPath)
+      }
 
-    // No -b flag: check out existing branch, don't create new
-    await gitExec(['worktree', 'add', worktreePath, branch], projectPath)
-    // Reset the freshly created worktree index so stale admin/index state cannot leak across sessions.
-    await gitExec(['reset', '--mixed', 'HEAD'], worktreePath)
-    await prepareManagedWorktree(worktreePath)
+      // No -b flag: check out existing branch, don't create new
+      await gitExec(['worktree', 'add', worktreePath, branch], projectPath)
+      // Reset the freshly created worktree index so stale admin/index state cannot leak across sessions.
+      await gitExec(['reset', '--mixed', 'HEAD'], worktreePath)
+      await prepareManagedWorktree(worktreePath)
 
-    return { branch, path: worktreePath }
+      return { branch, path: worktreePath }
+    })
   }
 
   private async findExistingWorktreePath(projectPath: string, branch: string): Promise<string | null> {

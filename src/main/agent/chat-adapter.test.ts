@@ -132,6 +132,43 @@ describe('ChatAdapter', () => {
     expect(messages[0].text).toBe('Hello world test')
   })
 
+  it('force-flushes a continuously repainting buffer past the max age', () => {
+    // A TUI that repaints faster than the 300ms quiet period would otherwise
+    // keep resetting the debounce forever; the max-age cap must flush it.
+    for (let i = 0; i < 100; i++) {
+      adapter.processPtyOutput('session-1', 'tick ')
+      vi.advanceTimersByTime(100) // never idle for 300ms
+    }
+    const messages = adapter.getMessages('session-1')
+    expect(messages.length).toBeGreaterThan(0)
+    expect(messages[0].text).toContain('tick')
+  })
+
+  it('caps the raw buffer so unbounded repaint output cannot grow it', () => {
+    // Append far more than the 100KB cap before letting it flush.
+    const chunk = 'x'.repeat(50_000)
+    for (let i = 0; i < 10; i++) {
+      adapter.processPtyOutput('session-1', chunk)
+      vi.advanceTimersByTime(50)
+    }
+    vi.advanceTimersByTime(300)
+    const messages = adapter.getMessages('session-1')
+    expect(messages).toHaveLength(1)
+    // Cleaned text derives from a buffer capped at 100KB, not the ~500KB appended.
+    expect(messages[0].text.length).toBeLessThanOrEqual(100_000)
+  })
+
+  it('caps the in-memory message array at 200', () => {
+    for (let i = 0; i < 250; i++) {
+      adapter.addUserMessage('session-1', `msg ${i}`)
+    }
+    const messages = adapter.getMessages('session-1')
+    expect(messages).toHaveLength(200)
+    // Oldest messages are evicted; the newest is retained.
+    expect(messages[messages.length - 1].text).toBe('msg 249')
+    expect(messages[0].text).toBe('msg 50')
+  })
+
   describe('clearSession', () => {
     it('removes messages for a session', () => {
       adapter.addUserMessage('session-1', 'hello')

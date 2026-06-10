@@ -23,6 +23,19 @@ const mocks = vi.hoisted(() => {
     checkForUpdatesAndNotify: mockCheckForUpdatesAndNotify,
   }
 
+  // Tail-read mocks: simulate reading a file via fd-based API.
+  let _tailContent = ''
+  const mockOpenSync = vi.fn(() => 99)
+  const mockCloseSync = vi.fn()
+  const mockStatSync = vi.fn(() => ({ size: Buffer.byteLength(_tailContent, 'utf8') }))
+  const mockReadSync = vi.fn((_fd: number, buf: Buffer, _offset: number, length: number, position: number) => {
+    const content = Buffer.from(_tailContent, 'utf8')
+    const slice = content.slice(position, position + length)
+    slice.copy(buf)
+    return slice.length
+  })
+  function setTailContent(s: string): void { _tailContent = s }
+
   return {
     updaterHandlers,
     mockGetAllWindows,
@@ -33,6 +46,11 @@ const mocks = vi.hoisted(() => {
     debugLog,
     mockApp,
     autoUpdater,
+    mockOpenSync,
+    mockCloseSync,
+    mockStatSync,
+    mockReadSync,
+    setTailContent,
   }
 })
 
@@ -56,11 +74,19 @@ vi.mock('node:fs', async (importOriginal) => {
     ...actual,
     readFileSync: mocks.mockReadFileSync,
     writeFileSync: mocks.mockWriteFileSync,
+    openSync: mocks.mockOpenSync,
+    closeSync: mocks.mockCloseSync,
+    statSync: mocks.mockStatSync,
+    readSync: mocks.mockReadSync,
     default: {
       ...(actual as unknown as { default?: object }).default,
       ...actual,
       readFileSync: mocks.mockReadFileSync,
       writeFileSync: mocks.mockWriteFileSync,
+      openSync: mocks.mockOpenSync,
+      closeSync: mocks.mockCloseSync,
+      statSync: mocks.mockStatSync,
+      readSync: mocks.mockReadSync,
     },
   }
 })
@@ -101,6 +127,7 @@ describe('setupAutoUpdater', () => {
     mocks.mockCheckForUpdatesAndNotify.mockResolvedValue(undefined)
     mocks.mockReadFileSync.mockReset()
     mocks.mockWriteFileSync.mockReset()
+    mocks.setTailContent('')
     mocks.mockApp.isPackaged = true
     mocks.autoUpdater.autoDownload = false
     mocks.autoUpdater.autoInstallOnAppQuit = false
@@ -199,7 +226,7 @@ describe('setupAutoUpdater', () => {
   })
 
   it('filters out dev-only updater noise from the log excerpt', async () => {
-    mocks.mockReadFileSync.mockReturnValue([
+    mocks.setTailContent([
       '2026-04-18T15:13:06.253Z [updater] triggering startup update check',
       '2026-04-18T15:13:06.254Z [updater] checking for update…',
       '2026-04-18T15:13:18.302Z [updater] error: 504 ',
@@ -277,5 +304,88 @@ describe('setupAutoUpdater', () => {
     expect(mocks.mockOpenExternal).toHaveBeenCalledWith(
       'https://github.com/vippsas/manifold/releases/tag/v0.2.17',
     )
+  })
+
+  // #507 — fallback release notes must not be cached so a subsequent call can return real notes
+  it('does not cache a fallback from a failed fetch so a retry can return real notes', async () => {
+    const fetchMock = vi.fn()
+      .mockResolvedValueOnce({ ok: false, status: 503 })
+      .mockResolvedValue({
+        ok: true,
+        json: async () => ({
+          tag_name: 'v0.2.99',
+          name: 'Manifold v0.2.99',
+          body: '## Real notes',
+          html_url: 'https://github.com/releases/tag/v0.2.99',
+          published_at: '2026-06-01T00:00:00Z',
+        }),
+      })
+    vi.stubGlobal('fetch', fetchMock)
+
+    const { getReleaseNotes } = await import('./auto-updater')
+
+    const first = await getReleaseNotes('0.2.99')
+    expect(first.source).toBe('fallback')
+
+    const second = await getReleaseNotes('0.2.99')
+    expect(second.source).toBe('github')
+    expect(second.body).toBe('## Real notes')
+  })
+
+  it('does not cache a fallback from a network error so a retry can return real notes', async () => {
+    const fetchMock = vi.fn()
+      .mockRejectedValueOnce(new Error('Failed to fetch'))
+      .mockResolvedValue({
+        ok: true,
+        json: async () => ({
+          tag_name: 'v0.3.00',
+          name: 'Manifold v0.3.00',
+          body: '## Real notes v0.3.00',
+          html_url: 'https://github.com/releases/tag/v0.3.00',
+          published_at: '2026-06-02T00:00:00Z',
+        }),
+      })
+    vi.stubGlobal('fetch', fetchMock)
+
+    const { getReleaseNotes } = await import('./auto-updater')
+
+    const first = await getReleaseNotes('0.3.00')
+    expect(first.source).toBe('fallback')
+
+    const second = await getReleaseNotes('0.3.00')
+    expect(second.source).toBe('github')
+  })
+
+  // #508 — updateCheckInFlight must not get stuck when checkForUpdatesAndNotify resolves null (dev)
+  it('does not block a second check when the first resolves null (dev mode)', async () => {
+    mocks.mockCheckForUpdatesAndNotify.mockResolvedValue(null)
+    mocks.mockApp.isPackaged = true // packaged so setupAutoUpdater runs, but updater returns null
+
+    const { checkForUpdates } = await import('./auto-updater')
+
+    await checkForUpdates('manual')
+    // If the flag was stuck we'd get "updater is busy" and skip the call
+    await checkForUpdates('manual')
+
+    expect(mocks.mockCheckForUpdatesAndNotify).toHaveBeenCalledTimes(2)
+  })
+
+  // #501 — getUpdateLogExcerpt reads only the tail, not the whole file
+  it('reads only the tail of debug.log to build the updater excerpt', async () => {
+    // Fill content larger than would be useful, check that openSync/statSync/readSync are used
+    const lines = Array.from({ length: 200 }, (_, i) =>
+      `2026-04-18T15:13:${String(i).padStart(2, '0')}.000Z [updater] check ${i}`,
+    ).join('\n')
+    mocks.setTailContent(lines)
+
+    const { getUpdateLogExcerpt } = await import('./auto-updater')
+
+    const excerpt = getUpdateLogExcerpt()
+    expect(mocks.mockOpenSync).toHaveBeenCalledWith('/tmp/manifold-debug.log', 'r')
+    expect(mocks.mockCloseSync).toHaveBeenCalled()
+    // Should return at most UPDATE_LOG_LINE_LIMIT (80) lines
+    const excerptLines = excerpt.split('\n')
+    expect(excerptLines.length).toBeLessThanOrEqual(80)
+    expect(excerpt).toContain('[updater] check')
   })
 })

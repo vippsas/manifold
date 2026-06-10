@@ -34,8 +34,6 @@ const { windowApi, resolveView, deliverMessage, treeGetChildren, onTreeRefresh }
 const hostTree = endpoint.getProxy<{ $refresh(viewId: string): Promise<void> }>(HOST_TREE)
 onTreeRefresh((viewId) => { void hostTree.$refresh(viewId) })
 const workspaceContext = new WorkspaceContext()
-const agentsApi = createAgentsApi(endpoint, workspaceContext)
-const lmApi = createLmApi(endpoint, workspaceContext)
 const configContext = new ConfigContext()
 const configProxy = endpoint.getProxy<{ $get(id: string, key: string): Promise<unknown> }>(HOST_CONFIG)
 const storageProxy = endpoint.getProxy<{ $get(id: string, key: string): Promise<unknown>; $update(id: string, key: string, v: unknown): Promise<void> }>(HOST_STORAGE)
@@ -74,8 +72,11 @@ const activator = new Activator((t: ActivationTarget): PluginModule => {
     storage: () => createStorageApi(endpoint, t.id),
     workspace: () => workspaceContext.makeApi(),
     configuration: () => configContext.makeApi(endpoint, t.id),
-    agents: () => agentsApi,
-    lm: () => lmApi,
+    // Bind the privileged agent/lm RPCs to this plugin's id so the main side can
+    // re-validate the caller's origin at the trust boundary (a host-local gate is
+    // not authoritative — the plugin shares this process). See ExtensionHost.
+    agents: () => createAgentsApi(endpoint, workspaceContext, t.id),
+    lm: () => createLmApi(endpoint, workspaceContext, t.id),
   })
   registerPluginApis(t.root, { manifold })
   // eslint-disable-next-line @typescript-eslint/no-var-requires

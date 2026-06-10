@@ -70,6 +70,13 @@ export function registerSimpleHandlers(deps: IpcDependencies): void {
       }
     })
     chatSubscriptions.set(key, unsub)
+
+    // Clean up when the sender window is destroyed so the entry doesn't linger
+    event.sender.once('destroyed', () => {
+      chatSubscriptions.get(key)?.()
+      chatSubscriptions.delete(key)
+    })
+
     return true
   })
 }
