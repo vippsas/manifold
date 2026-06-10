@@ -98,6 +98,27 @@ describe('buildCsp', () => {
     // script-src must NOT contain unsafe-inline (nonce only)
     expect(csp).not.toMatch(/script-src[^;]*'unsafe-inline'/)
   })
+  it('has no frame-src without frame sources (empty list included)', () => {
+    expect(buildCsp('N0NCE')).not.toContain('frame-src')
+    expect(buildCsp('N0NCE', [])).not.toContain('frame-src')
+  })
+  it('appends frame-src for declared origins', () => {
+    const csp = buildCsp('N0NCE', ['https://www.youtube.com', 'https://player.vimeo.com'])
+    expect(csp).toContain('frame-src https://www.youtube.com https://player.vimeo.com')
+    // The rest of the policy is unchanged.
+    expect(csp).toContain("default-src 'none'")
+  })
+})
+
+describe('WebviewContentStore frame sources', () => {
+  it('stores and clears frame sources per view', () => {
+    const s = new WebviewContentStore()
+    s.setFrameSources('view.a', ['https://www.youtube.com'])
+    expect(s.getFrameSources('view.a')).toEqual(['https://www.youtube.com'])
+    s.setFrameSources('view.a', [])
+    expect(s.getFrameSources('view.a')).toBeUndefined()
+    expect(s.getFrameSources('never-set')).toBeUndefined()
+  })
 })
 
 describe('renderWebviewResponse', () => {
@@ -121,6 +142,17 @@ describe('renderWebviewResponse', () => {
     expect(bodyNonce).toBeTruthy()
     expect(cspNonce).toBeTruthy()
     expect(bodyNonce).toBe(cspNonce)
+  })
+
+  it('serves a frame-src CSP only for views with registered frame sources', () => {
+    const s = new WebviewContentStore()
+    s.set('with-frames', '<html></html>')
+    s.set('plain', '<html></html>')
+    s.setFrameSources('with-frames', ['https://www.youtube.com'])
+    const withFrames = renderWebviewResponse(s, 'manifold-webview://view/with-frames?v=1')
+    const plain = renderWebviewResponse(s, 'manifold-webview://view/plain?v=1')
+    expect(withFrames.csp).toContain('frame-src https://www.youtube.com')
+    expect(plain.csp).not.toContain('frame-src')
   })
 
   it('warns with the viewId when a stored view has an un-nonceable <script>', () => {

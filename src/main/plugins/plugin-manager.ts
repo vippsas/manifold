@@ -6,6 +6,7 @@ import { getBundledPluginsDir, getUserPluginsDir } from './plugin-paths'
 import { debugLog } from '../app/debug-log'
 import { ExtensionHost } from './extension-host'
 import { PluginStorageStore } from './plugin-storage-store'
+import { webviewContentStore } from './webview-content-store'
 import { createAgentControlService } from './agent-control-service'
 import { createLmService } from './lm-service'
 import { createAgentSpawnService } from './agent-spawn-service'
@@ -31,6 +32,18 @@ export function viewContributionsOf(plugins: PluginDescriptor[]): PluginPanelCon
         pluginId: p.id,
         kind: v.type === 'tree' ? 'tree' : 'webview',
       })
+    }
+  }
+  return out
+}
+
+/** Pure: collect each view's manifest-declared frameSources, keyed by view id
+ *  (empty array when a view declares none, so stale registrations clear on rescan). */
+export function frameSourcesOf(plugins: PluginDescriptor[]): Array<[string, string[]]> {
+  const out: Array<[string, string[]]> = []
+  for (const p of plugins) {
+    for (const v of p.manifest.contributes?.views ?? []) {
+      out.push([v.id, v.frameSources ?? []])
     }
   }
   return out
@@ -102,6 +115,11 @@ export class PluginManager {
     const builtin = scanPluginDir(getBundledPluginsDir(), 'builtin')
     const user = scanPluginDir(getUserPluginsDir(this.storagePath), 'user')
     this.plugins = [...builtin.plugins, ...user.plugins]
+    // Register manifest-declared frameSources so the manifold-webview protocol can
+    // widen CSP frame-src for exactly these views (see webview-protocol buildCsp).
+    for (const [viewId, sources] of frameSourcesOf(this.plugins)) {
+      webviewContentStore.setFrameSources(viewId, sources)
+    }
     for (const e of [...builtin.errors, ...user.errors]) {
       debugLog(`[plugins] skipped ${e.path}: ${e.error}`)
     }
