@@ -25,4 +25,14 @@ describe('search arg builders', () => {
   it('passes the full requested limit to git grep fallback', () => {
     expect(buildGitGrepArgs(createRequest(), 100)).toContain('100')
   })
+
+  it('places a dashed ripgrep query after a -- separator so it is a literal pattern', () => {
+    for (const query of ['-x', '--pre=/tmp/x']) {
+      const args = buildRipgrepArgs(createRequest({ query }), 100)
+      const separatorIndex = args.indexOf('--')
+      const queryIndex = args.indexOf(query)
+      expect(separatorIndex).toBeGreaterThanOrEqual(0)
+      expect(queryIndex).toBeGreaterThan(separatorIndex)
+    }
+  })
 })
