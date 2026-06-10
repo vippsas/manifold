@@ -11,6 +11,7 @@ import type { TranscriptionSettings } from '../../shared/watch-types'
 export interface PipelineHooks {
   onLog?: (line: string) => void
   onStage?: (stage: 'download' | 'frames' | 'transcribe' | 'report') => void
+  signal?: AbortSignal
 }
 
 export async function runWatchPipeline(
@@ -19,17 +20,35 @@ export async function runWatchPipeline(
   hooks: PipelineHooks = {},
 ): Promise<PipelineResult> {
   const log = hooks.onLog ?? (() => {})
+  const ownedWorkDir = !opts.workDir
   const workDir = opts.workDir
     ? path.resolve(opts.workDir)
     : fs.mkdtempSync(path.join(os.tmpdir(), 'manifold-watch-'))
   fs.mkdirSync(workDir, { recursive: true })
+
+  try {
+    return await runWatchPipelineInner(opts, transcription, hooks, workDir, log)
+  } finally {
+    if (ownedWorkDir) {
+      try { fs.rmSync(workDir, { recursive: true, force: true }) } catch { /* best effort */ }
+    }
+  }
+}
+
+async function runWatchPipelineInner(
+  opts: PipelineOptions,
+  transcription: TranscriptionSettings,
+  hooks: PipelineHooks,
+  workDir: string,
+  log: (line: string) => void,
+): Promise<PipelineResult> {
 
   const maxFrames = clampInt(opts.maxFrames ?? 80, 1, 100)
   const resolutionPx = opts.resolutionPx ?? 512
 
   hooks.onStage?.('download')
   log(`[watch] working dir: ${workDir}`)
-  const dl = await download(opts.source, path.join(workDir, 'download'), { onLog: log })
+  const dl = await download(opts.source, path.join(workDir, 'download'), { onLog: log, signal: hooks.signal })
 
   const meta = await getMetadata(dl.videoPath)
   const fullDuration = meta.durationSeconds
@@ -92,6 +111,11 @@ export async function runWatchPipeline(
     hdPath: hdFramesByIndex.get(f.index),
   }))
 
+  // Video is no longer needed after frame extraction; remove it to free disk space.
+  if (dl.downloaded) {
+    try { fs.rmSync(dl.videoPath) } catch { /* best effort */ }
+  }
+
   hooks.onStage?.('transcribe')
   let transcript: TranscriptResult = { segments: [], source: 'none' }
 
@@ -107,11 +131,12 @@ export async function runWatchPipeline(
   }
 
   if (transcript.segments.length === 0 && transcription.provider !== 'none') {
+    const audioOutPath = path.join(workDir, 'audio.mp3')
     try {
       log(`[watch] transcribing audio via ${transcription.provider} (gpt-4o-transcribe)…`)
       const result = await transcribeVideo({
         videoPath: dl.videoPath,
-        audioOutPath: path.join(workDir, 'audio.mp3'),
+        audioOutPath,
         settings: transcription,
       })
       transcript = { segments: result.segments, source: result.source }
@@ -120,6 +145,8 @@ export async function runWatchPipeline(
       const message = err instanceof Error ? err.message : String(err)
       log(`[watch] transcription failed: ${message}`)
     }
+    // Remove extracted audio after transcription to free disk space.
+    try { fs.rmSync(audioOutPath, { force: true }) } catch { /* best effort */ }
   }
 
   hooks.onStage?.('report')

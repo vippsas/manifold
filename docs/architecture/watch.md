@@ -1,7 +1,7 @@
 ---
 description: How Manifold's Watch feature downloads a video, extracts auto-scaled frames, builds a timestamped transcript, and assembles the markdown report the Watch panel/skill reads.
 covers: [src/main/watch]
-updated: 2026-06-08
+updated: 2026-06-10
 owner: see .github/CODEOWNERS
 ---
 
@@ -34,18 +34,22 @@ subsystem produces it, it does not read it.
 
 ## How it works
 
-`runWatchPipeline()` (`pipeline.ts:16`) is the single-video entry point. It takes
+`runWatchPipeline()` (`pipeline.ts:17`) is the single-video entry point. It takes
 `PipelineOptions`, a `TranscriptionSettings`, and optional `PipelineHooks` (`onLog`,
-`onStage`), picks a working dir (the caller's `workDir` or a fresh
-`manifold-watch-*` tmp dir), clamps `maxFrames` to 1–100, and runs four stages.
+`onStage`, `signal`), picks a working dir (the caller's `workDir` or a fresh
+`manifold-watch-*` tmp dir), clamps `maxFrames` to 1–100, and runs four stages. When
+the pipeline created its own tmp dir (no `workDir` supplied), it removes it in a `finally`
+regardless of success or failure.
 
-**Download.** `download()` (`downloader.ts:96`) branches on `isUrl()`: a URL goes to
-`downloadUrl()` (`downloader.ts:38`), which invokes yt-dlp with a `height<=720` format,
-`--merge-output-format mp4`, `--write-info-json`, and `--write-subs`/`--write-auto-subs`
-for English VTT captions, then picks the produced video and subtitle files
-(`pickVideo`/`pickSubtitle`). A non-URL source is resolved in place by `resolveLocal()`
-(`downloader.ts:18`) with `subtitlePath: null`. The yt-dlp binary itself is resolved by
-`ensureYtDlp()` (`yt-dlp-fetcher.ts:29`), which returns the cached binary at
+**Download.** `download()` (`downloader.ts:99`) branches on `isUrl()`: a URL goes to
+`downloadUrl()` (`downloader.ts:41`), which invokes yt-dlp via `runProcess()` with a
+`height<=720` format, `--merge-output-format mp4`, `--write-info-json`, and
+`--write-subs`/`--write-auto-subs` for English VTT captions, then picks the produced video
+and subtitle files (`pickVideo`/`pickSubtitle`). `runProcess()` guards the child with a 10-
+minute watchdog timer (SIGTERM + SIGKILL fallback) and an optional `AbortSignal`; a non-zero
+exit code rejects with the last stderr lines. A non-URL source is resolved in place by
+`resolveLocal()` (`downloader.ts:18`) with `subtitlePath: null`. The yt-dlp binary itself is
+resolved by `ensureYtDlp()` (`yt-dlp-fetcher.ts:29`), which returns the cached binary at
 `~/.manifold/bin/yt-dlp` or streams the platform asset from the yt-dlp latest release,
 de-duping concurrent installs via a shared `pending` promise.
 
@@ -62,6 +66,9 @@ as `offset + index/fps`. When `hdResolutionPx > resolutionPx`, a second `extract
 the same fps produces higher-res `frames-hd` images keyed back onto each frame as `hdPath`
 (best-effort — failure only logs) (`pipeline.ts:72`).
 
+After frame extraction, the downloaded video file is removed if it was fetched (`dl.downloaded`),
+freeing disk space before the transcription stage.
+
 **Transcript.** If yt-dlp produced subtitles, `parseVtt()` (`vtt-parser.ts:11`) parses the
 VTT cues (stripping tags, de-duplicating rolling-caption repeats) and, for a focus range,
 `filterRange()` (`vtt-parser.ts:53`) keeps overlapping segments; source is `'captions'`. If
@@ -70,7 +77,8 @@ there are no caption segments and the provider isn't `'none'`, `transcribeVideo(
 `transcriber.ts:21`) and POSTs it to OpenAI or Azure `gpt-4o-transcribe`. Because that model
 returns only a text blob, `textToSegments()` (`transcriber.ts:147`) wraps the whole text as
 a single `t=0` segment. Any transcript failure is caught and logged; the pipeline proceeds
-frames-only with `source: 'none'`.
+frames-only with `source: 'none'`. The extracted `audio.mp3` is removed after transcription
+(whether it succeeded or failed) to keep only frames and the report in the work dir.
 
 **Report.** `renderReport()` (`pipeline.ts:178`) writes `report.md` into the work dir: a
 metadata header (source, title, duration, focus range, frame count/fps/size, transcript
@@ -80,19 +88,25 @@ For unfocused videos over 10 minutes it injects a sparse-coverage accuracy warni
 function returns a `PipelineResult` carrying `reportPath`, `framesDir`, enriched `frames`,
 `metadata`, `transcript`, and the focus window.
 
-**Playlist fan-out.** `runWatchPlaylist()` (`playlist-runner.ts:51`) spawns one sibling
+**Playlist fan-out.** `runWatchPlaylist()` (`playlist-runner.ts:53`) spawns one sibling
 agent per entry up front (sharing the base session's worktree), optionally primes the base
-"meta" agent with where sibling answers will land (`primeMetaAgent`, `playlist-runner.ts:203`),
+"meta" agent with where sibling answers will land (`primeMetaAgent`, `playlist-runner.ts:207`),
 then runs the entry pipelines through a worker pool capped at `PIPELINE_CONCURRENCY = 3`
-(`playlist-runner.ts:16`, `:127`). As each pipeline finishes it waits for the sibling's TUI
-prompt (`waitUntilSiblingReady`, `:192`), types a `/watch:watch "<workDir>" <question>` slash
+(`playlist-runner.ts:16`, `:133`). An optional `signal` field on `RunPlaylistOptions` is
+forwarded into each pipeline's `PipelineHooks.signal` so that panel-close aborts reach the
+yt-dlp child. If a sibling spawn throws mid-loop, all previously spawned siblings are killed
+before returning an error. If a pipeline fails, its sibling (which never received its
+`/watch:watch` context) is also killed to avoid orphaned PTY sessions. The IPC handler
+(`watch-handlers.ts:51`) wires this via an `AbortController` whose `abort()` fires on
+`BrowserWindow 'closed'`. As each pipeline finishes it waits for the sibling's TUI prompt
+(`waitUntilSiblingReady`, `:196`), types a `/watch:watch "<workDir>" <question>` slash
 command (the question defaults to `DEFAULT_WATCH_QUESTION`, `runner.ts:1`) augmented with a
 "save your answer to `sibling-N.md`" instruction, and records progress in the run store.
 
 ## Key types and entry points
 
-- `runWatchPipeline()` — `pipeline.ts:16`. Single-video orchestrator; returns `PipelineResult` (`types.ts:54`).
-- `PipelineOptions` / `PipelineHooks` — `types.ts:43` / `pipeline.ts:11`. Source, focus range, frame budget, resolution; `onLog`/`onStage` callbacks.
+- `runWatchPipeline()` — `pipeline.ts:17`. Single-video orchestrator; returns `PipelineResult` (`types.ts:54`).
+- `PipelineOptions` / `PipelineHooks` — `types.ts:43` / `pipeline.ts:11`. Source, focus range, frame budget, resolution; `onLog`/`onStage`/`signal` callbacks.
 - `download()` — `downloader.ts:96`. URL → yt-dlp, local path → passthrough; yields `DownloadResult` (`types.ts:9`).
 - `extractWithAutoFps()` — `frame-extractor.ts:151`. Auto-fps decision + ffmpeg extraction → `FrameExtractionResult` (`types.ts:36`).
 - `transcribeVideo()` — `transcriber.ts:59`. Audio extraction + provider POST; `TranscriberError`/`MissingKeyError` for failure modes.
@@ -118,5 +132,7 @@ command (the question defaults to `DEFAULT_WATCH_QUESTION`, `runner.ts:1`) augme
 - **Transcript failure is non-fatal; download/frame failure is not.** Subtitle-parse and transcription errors are caught and downgraded to `source: 'none'` (`pipeline.ts:104`, `:119`), but a failed download or frame extraction rejects the whole pipeline.
 - **Frame reads are sandboxed.** `readFrameAsDataUrl()` only serves `.jpg/.jpeg/.png` under the `manifold-watch-` tmp prefix or `WATCH_RUNS_ROOT`, throwing `FramePathError` otherwise (`frame-reader.ts:28`) — the renderer can't read arbitrary paths.
 - **Run retention is bounded and destructive.** `WatchRunStore` keeps at most `MAX_RETAINED_RUNS = 20` runs, and evicting a run `rmSync`s its frame and aggregate directories (`run-store.ts:163`); it never evicts a session's active run.
+- **Source video and audio are deleted mid-pipeline.** After frame extraction the downloaded video is removed (`pipeline.ts:114`); after transcription `audio.mp3` is removed (`pipeline.ts:148`). Only `frames/`, `frames-hd/`, and `report.md` survive in the work dir.
+- **yt-dlp download is bounded.** `runProcess()` (`downloader.ts:132`) sets a 10-minute watchdog; a stalled download is SIGTERMed then SIGKILLed and the pipeline rejects.
 - **Store reads fail safe.** An unreadable state file flips the store `readOnly` (writes skipped, no clobber); a corrupt one is renamed to `.corrupt.<ts>` before resetting (`run-store.ts:236`).
 - **Siblings are typed into, with timing slack.** The runner waits up to 30 s for a sibling's prompt then proceeds anyway, and inserts a 400 ms delay before sending `\r` so the command isn't swallowed by the welcome banner (`playlist-runner.ts:156`, `:194`).
