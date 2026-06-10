@@ -277,7 +277,7 @@ export function App(): React.JSX.Element {
     worktreeShellSessionId: worktreeSessionId, projectShellSessionId: projectSessionId,
     worktreeCwd: worktreeShellCwd,
     baseBranch, activeProjectIsGit,
-    defaultRuntime: settings.defaultRuntime, defaultAgentMode: settings.defaultAgentMode ?? 'chat',
+    defaultRuntime: settings.defaultRuntime, defaultAgentMode: settings.defaultAgentMode ?? 'interactive',
     activeSessionWorktreePath: activeSession?.worktreePath ?? null,
     activeSessionNoWorktree: activeSession?.noWorktree ?? false,
     onLaunchAgent: overlays.handleLaunchAgent, projects, activeProjectId, suppressedProjectIds,

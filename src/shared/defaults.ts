@@ -5,7 +5,7 @@ export const DEFAULT_SETTINGS: ManifoldSettings = {
   setupCompleted: false,
   lastSeenReleaseNotesVersion: '',
   defaultRuntime: 'claude',
-  defaultAgentMode: 'chat',
+  defaultAgentMode: 'interactive',
   theme: 'manifold-dark',
   scrollbackLines: 5000,
   terminalFontFamily: '',
