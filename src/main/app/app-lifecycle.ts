@@ -97,9 +97,14 @@ export function registerAppLifecycle(deps: AppLifecycleDeps): void {
     killInFlightAiGenerateChildren()
     // Kill the forked plugin-host utility process so it doesn't orphan on quit.
     pluginManager.dispose()
-    await fileWatcher.unwatchAll()
-    await localRendererServer?.close()
+    // Durability-critical, synchronous teardown must run BEFORE the first await:
+    // Electron does not await async before-quit listeners, so anything after the
+    // first await may not execute before the process exits (e.g. the SQLite WAL
+    // would never be checkpoint-closed and the power-save blocker would linger).
     memoryStore.close()
     powerManager.disable()
+    // Best-effort async teardown; the OS reclaims these handles on exit anyway.
+    await fileWatcher.unwatchAll()
+    await localRendererServer?.close()
   })
 }
