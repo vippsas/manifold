@@ -27,6 +27,9 @@ export interface PluginViewContribution {
   launcher?: boolean
   /** 'webview' (iframe, default) or 'tree' (native TreeDataProvider). */
   type?: 'webview' | 'tree'
+  /** Exact https origins this view's webview may embed in iframes (CSP frame-src).
+   *  Omitted/empty = no frames allowed (the default CSP). */
+  frameSources?: string[]
 }
 
 export interface PluginCommandContribution {
