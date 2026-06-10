@@ -52,6 +52,49 @@ describe('RpcEndpoint', () => {
     expect(() => endpoint.rejectAllPending('host exited')).not.toThrow()
   })
 
+  it('rejects a call whose reply never arrives, after the timeout', async () => {
+    vi.useFakeTimers()
+    try {
+      // Transport posts into the void: the request is sent but no reply ever comes back.
+      const endpoint = new RpcEndpoint({ post: () => {} }, 50)
+      const inflight = endpoint.getProxy<{ $hang: () => Promise<void> }>('Svc').$hang()
+      const assertion = expect(inflight).rejects.toThrow(/rpc timeout after 50ms: Svc\.\$hang/)
+      await vi.advanceTimersByTimeAsync(50)
+      await assertion
+    } finally {
+      vi.useRealTimers()
+    }
+  })
+
+  it('does not time out by default (timeout opt-in; host→main calls stay long-lived)', async () => {
+    vi.useFakeTimers()
+    try {
+      const endpoint = new RpcEndpoint({ post: () => {} }) // no timeout argument
+      const inflight = endpoint.getProxy<{ $hang: () => Promise<void> }>('Svc').$hang()
+      let settled = false
+      void inflight.then(() => { settled = true }, () => { settled = true })
+      await vi.advanceTimersByTimeAsync(10 * 60_000)
+      expect(settled).toBe(false)
+    } finally {
+      vi.useRealTimers()
+    }
+  })
+
+  it('a reply that arrives before the timeout cancels it (no late rejection)', async () => {
+    vi.useFakeTimers()
+    try {
+      let deliver: (() => void) | undefined
+      const endpoint = new RpcEndpoint({ post: (m) => { if (m.t === 'req') deliver = () => endpoint.handleMessage({ t: 'rep', id: m.id, ok: true, value: 7 }) } }, 50)
+      const inflight = endpoint.getProxy<{ $x: () => Promise<number> }>('Svc').$x()
+      deliver?.()
+      expect(await inflight).toBe(7)
+      // Advancing past the timeout must not reject anything — the timer was cleared on reply.
+      await vi.advanceTimersByTimeAsync(100)
+    } finally {
+      vi.useRealTimers()
+    }
+  })
+
   it('a later reply for an already-rejected id is ignored (no crash)', async () => {
     let deliver: (() => void) | undefined
     const endpoint = new RpcEndpoint({ post: (m) => { if (m.t === 'req') deliver = () => endpoint.handleMessage({ t: 'rep', id: m.id, ok: true, value: 1 }) } })

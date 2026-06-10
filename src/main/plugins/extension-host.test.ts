@@ -12,9 +12,12 @@ interface FakeChild {
 
 interface HostForTest {
   activate(target: ActivationTarget): Promise<void>
+  deactivate(id: string): Promise<void>
   deliverWebviewMessage(viewId: string, message: unknown): void
   setActiveContext(context: { project?: unknown; session?: unknown }): void
   notifyConfigChanged(pluginId: string): void
+  executeContributedCommand(id: string, args: unknown[]): Promise<unknown>
+  setEnabledResolver(fn: (pluginId: string) => boolean): void
 }
 
 const mocks = vi.hoisted(() => {
@@ -134,5 +137,49 @@ describe('ExtensionHost shutdown', () => {
     latestChild().emit('exit', 1)
 
     await expect(activation).rejects.toThrow('plugin host exited (code 1)')
+  })
+
+  it('deactivate sends a $deactivate RPC for the plugin id', async () => {
+    const host = await createHost()
+    // Fork the child first (deactivate is a no-op before the host exists).
+    void host.activate({ id: 'plugin.test', root: '/tmp/plugin.test', main: 'index.js', kind: 'manifold' })
+    const child = latestChild()
+    child.posted.length = 0
+    void host.deactivate('plugin.test')
+    const req = child.posted.find((m): m is Extract<RpcMessage, { t: 'req' }> => (m as RpcMessage).t === 'req' && (m as { method: string }).method === '$deactivate')
+    expect(req?.args).toEqual(['plugin.test'])
+  })
+
+  it('deactivate is a no-op when the host has not been forked', async () => {
+    const host = await createHost()
+    await host.deactivate('plugin.test')
+    expect(mocks.children.length).toBe(0)
+  })
+
+  it('refuses to execute a command owned by a disabled plugin', async () => {
+    const host = await createHost()
+    host.setEnabledResolver((id) => id !== 'plugin.disabled')
+    // Register a command for the disabled plugin by simulating the host's HostCommands RPC.
+    const { HOST_COMMANDS } = await import('../../shared/plugins/rpc')
+    const child = (() => { void host.executeContributedCommand('noop', []).catch(() => {}); return latestChild() })()
+    child.emit('message', { t: 'req', id: 9001, ctx: HOST_COMMANDS, method: '$registerCommand', args: ['plugin.disabled', 'cmd.x'] } satisfies RpcMessage)
+    await settle()
+    await expect(host.executeContributedCommand('cmd.x', [])).rejects.toThrow('disabled plugin')
+  })
+
+  it('still executes a command owned by an enabled plugin', async () => {
+    const host = await createHost()
+    host.setEnabledResolver(() => true)
+    const { HOST_COMMANDS } = await import('../../shared/plugins/rpc')
+    void host.executeContributedCommand('noop', []).catch(() => {})
+    const child = latestChild()
+    child.emit('message', { t: 'req', id: 9002, ctx: HOST_COMMANDS, method: '$registerCommand', args: ['plugin.enabled', 'cmd.y'] } satisfies RpcMessage)
+    await settle()
+    // The command routes back to the host as a $invokeCommand RPC (no reply here) — it does
+    // not reject synchronously with the disabled-plugin error, which is what we assert.
+    const exec = host.executeContributedCommand('cmd.y', [])
+    const invoke = child.posted.find((m): m is Extract<RpcMessage, { t: 'req' }> => (m as RpcMessage).t === 'req' && (m as { method: string }).method === '$invokeCommand')
+    expect(invoke?.args).toEqual(['cmd.y', []])
+    void exec.catch(() => {})
   })
 })

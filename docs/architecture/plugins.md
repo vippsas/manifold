@@ -1,7 +1,7 @@
 ---
 description: How Manifold's main process discovers, loads, gates, and tears down plugins — the host side that forks the extension-host utility process and enforces capabilities.
 covers: [src/main/plugins, src/plugin-host]
-updated: 2026-06-08
+updated: 2026-06-10
 owner: see .github/CODEOWNERS
 ---
 
@@ -121,9 +121,13 @@ nulls `child`/`endpoint` so the next call re-forks a clean host (`onHostDown`,
 `extension-host.ts:52`). In the child, an uncaught exception is logged and exits the
 process (so main can re-fork), while an unhandled rejection is only logged
 (`plugin-host/index.ts:26`). `ExtensionHost.dispose()` flushes pending UI, rejects
-pending RPCs, clears commands, and kills the child (`extension-host.ts:149`). The
+pending RPCs, clears commands, and kills the child (`extension-host.ts`). The
 `Activator.deactivate()` path runs the plugin's `deactivate()` and disposes its
-`context.subscriptions` (`activator.ts:27`).
+`context.subscriptions` (`activator.ts:27`), and the host's `$deactivate` then
+`unregisterPluginApis(root)` so the plugin's `require('manifold')` frame is removed too
+(`plugin-host/index.ts:87`). Disabling a plugin (`setEnabled(id, false)`) fires this
+deactivate path on the host, and `executeContributedCommand` refuses a command owned by a
+disabled plugin (`extension-host.ts`, `plugin-manager.ts:63`).
 
 ## Key types and entry points
 
@@ -152,4 +156,5 @@ pending RPCs, clears commands, and kills the child (`extension-host.ts:149`). Th
 - **Plugin ids are charset-validated *and* path-checked at write time.** Even though `parseManifest` restricts the id charset, `PluginStorageStore.fileFor()` re-verifies the resolved path stays inside `<storage>/plugin-storage/` before any read/write (`plugin-storage-store.ts:10`). Corrupt storage JSON is backed up to `.bak` (once) rather than silently overwritten (`plugin-storage-store.ts:43`).
 - **Webview scripts must be nonced or they silently fail.** The CSP is `default-src 'none'; script-src 'nonce-…'`, so any `<script>` the injector misses is blocked and the panel renders blank with no console error; `injectNonce` emits a `debugLog` warning when `nonced < total` so the otherwise-invisible failure is traceable (`webview-protocol.ts:76`). `registerWebviewSchemePrivileged()` must run *before* `app.whenReady()` and `installWebviewProtocol()` *after* it.
 - **Command id ownership is first-writer-wins on both sides.** The local handler map in the host (`api-impl.ts`) and the main-side `CommandRegistry` both refuse a cross-owner overwrite, so a second plugin can neither hijack nor unregister another plugin's command (`command-registry.ts:14`).
-- **`unregisterPluginApis` is not called on deactivate yet.** `$deactivate` runs the lifecycle but leaves the plugin's API frame registered in the require interceptor (`plugin-host/index.ts:82` TODO). It is cleaned up only when the whole host process is torn down.
+- **Disabling a plugin deactivates it.** `setEnabled(id, false)` runs the host's `$deactivate` (fire-and-forget), which disposes the plugin's `context.subscriptions` (commands + workspace/config/tree listeners) and `unregisterPluginApis(root)` for its `require('manifold')` frame (`plugin-host/index.ts:87`). As a window guard before that round-trips, `executeContributedCommand` rejects a command owned by a disabled plugin and `deliverWebviewMessage` drops messages to a disabled view's owner (`extension-host.ts`, `plugin-manager.ts`).
+- **Main→host RPC calls time out; host→main calls don't.** The main-side endpoint rejects an outbound call (`$activate`/`$resolveView`/`$getChildren`/`$invokeCommand`/…) whose reply never arrives, so a plugin whose `activate()` returns a never-resolving promise can't hang the IPC caller forever (`extension-host.ts`, 5-min bound). The host→main endpoint has no timeout (`rpc.ts` default 0): agent turns, LM requests, and UI prompts there are intentionally long-lived.

@@ -31,10 +31,14 @@ type ServiceImpl = Record<string, (...args: any[]) => unknown>
 
 export class RpcEndpoint {
   private seq = 0
-  private readonly pending = new Map<number, { resolve: (v: unknown) => void; reject: (e: Error) => void }>()
+  private readonly pending = new Map<number, { resolve: (v: unknown) => void; reject: (e: Error) => void; timer: ReturnType<typeof setTimeout> | undefined }>()
   private readonly services = new Map<string, ServiceImpl>()
 
-  constructor(private readonly transport: RpcTransport) {}
+  /** `callTimeoutMs > 0` rejects any outbound call whose reply never arrives, so a plugin
+   *  whose activate() returns a never-resolving promise (without crashing the host) can't
+   *  hang the caller forever. Off by default (0): only the main→host endpoint opts in, since
+   *  the host→main direction carries intentionally long calls (agent turns, LM, UI prompts). */
+  constructor(private readonly transport: RpcTransport, private readonly callTimeoutMs = 0) {}
 
   registerService(ctx: string, impl: ServiceImpl): void {
     this.services.set(ctx, impl)
@@ -50,7 +54,16 @@ export class RpcEndpoint {
   private call(ctx: string, method: string, args: unknown[]): Promise<unknown> {
     const id = ++this.seq
     return new Promise((resolve, reject) => {
-      this.pending.set(id, { resolve, reject })
+      let timer: ReturnType<typeof setTimeout> | undefined
+      if (this.callTimeoutMs > 0) {
+        timer = setTimeout(() => {
+          if (!this.pending.delete(id)) return
+          reject(new Error(`rpc timeout after ${this.callTimeoutMs}ms: ${ctx}.${method}`))
+        }, this.callTimeoutMs)
+        // Don't keep the process alive solely to fire a pending-call timeout.
+        timer.unref?.()
+      }
+      this.pending.set(id, { resolve, reject, timer })
       this.transport.post({ t: 'req', id, ctx, method, args })
     })
   }
@@ -61,7 +74,7 @@ export class RpcEndpoint {
    *  (the id is no longer pending). */
   rejectAllPending(reason: string): void {
     const error = new Error(reason)
-    for (const waiter of this.pending.values()) waiter.reject(error)
+    for (const waiter of this.pending.values()) { clearTimeout(waiter.timer); waiter.reject(error) }
     this.pending.clear()
   }
 
@@ -82,6 +95,7 @@ export class RpcEndpoint {
     const waiter = this.pending.get(message.id)
     if (!waiter) return
     this.pending.delete(message.id)
+    clearTimeout(waiter.timer)
     if (message.ok) waiter.resolve(message.value)
     else waiter.reject(new Error(message.error))
   }
