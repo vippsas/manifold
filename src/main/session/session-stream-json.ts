@@ -1,4 +1,4 @@
-import * as fs from 'node:fs'
+import * as fs from 'node:fs/promises'
 import * as os from 'node:os'
 import * as path from 'node:path'
 import { randomUUID } from 'node:crypto'
@@ -123,7 +123,7 @@ function handleCodexJsonEvent(ctx: StreamJsonCtx, session: InternalSession, even
       return
     }
     if (payload?.type === 'image_generation_end') {
-      publishGeneratedImage(ctx, session, payload)
+      void publishGeneratedImage(ctx, session, payload)
       return
     }
     if (payload?.type === 'task_complete' && (!ptyId || session.ptyId === ptyId)) {
@@ -153,7 +153,7 @@ function handleCodexJsonEvent(ctx: StreamJsonCtx, session: InternalSession, even
   }
 
   if (type === 'turn.completed' && (!ptyId || session.ptyId === ptyId)) {
-    publishGeneratedImagesFromThread(ctx, session)
+    void publishGeneratedImagesFromThread(ctx, session)
     completeCodexTurn(ctx, session)
   }
 }
@@ -191,23 +191,23 @@ function publishAgentText(ctx: StreamJsonCtx, session: InternalSession, text: st
   }
 }
 
-function publishGeneratedImage(ctx: StreamJsonCtx, session: InternalSession, payload: CodexEventPayload): void {
-  const savedPath = saveGeneratedImageToProject(session, payload) ?? payload.saved_path
+async function publishGeneratedImage(ctx: StreamJsonCtx, session: InternalSession, payload: CodexEventPayload): Promise<void> {
+  const savedPath = (await saveGeneratedImageToProject(session, payload)) ?? payload.saved_path
   if (!savedPath) return
 
   publishImageRef(ctx, session, savedPath)
 }
 
-function publishGeneratedImagesFromThread(ctx: StreamJsonCtx, session: InternalSession): void {
-  const sourcePaths = listGeneratedImagePathsForThread(session.codexThreadId)
+async function publishGeneratedImagesFromThread(ctx: StreamJsonCtx, session: InternalSession): Promise<void> {
+  const sourcePaths = await listGeneratedImagePathsForThread(session.codexThreadId)
   if (sourcePaths.length === 0) return
 
   const published = new Set(session.codexPublishedGeneratedImageSources ?? [])
   for (const sourcePath of sourcePaths) {
-    const sourceKey = realpathSyncIfReadable(sourcePath)
+    const sourceKey = await realpathIfReadable(sourcePath)
     if (!sourceKey || published.has(sourceKey)) continue
 
-    const savedPath = saveGeneratedImageToProject(session, { saved_path: sourcePath })
+    const savedPath = await saveGeneratedImageToProject(session, { saved_path: sourcePath })
     if (!savedPath) continue
 
     published.add(sourceKey)
@@ -225,9 +225,9 @@ function publishImageRef(ctx: StreamJsonCtx, session: InternalSession, filePath:
   adapter?.addAgentMessage(session.id, imageRef)
 }
 
-function saveGeneratedImageToProject(session: InternalSession, payload: CodexEventPayload): string | null {
+async function saveGeneratedImageToProject(session: InternalSession, payload: CodexEventPayload): Promise<string | null> {
   try {
-    const buffer = imageBufferFromPayload(payload)
+    const buffer = await imageBufferFromPayload(payload)
     if (!buffer) return null
 
     const ext = imageExtension(buffer)
@@ -237,15 +237,15 @@ function saveGeneratedImageToProject(session: InternalSession, payload: CodexEve
     const dir = path.join(session.worktreePath, 'public', 'generated-images')
     const filePath = path.join(dir, `${baseName}.${ext}`)
 
-    fs.mkdirSync(dir, { recursive: true })
-    fs.writeFileSync(filePath, buffer)
+    await fs.mkdir(dir, { recursive: true })
+    await fs.writeFile(filePath, buffer)
     return filePath
   } catch {
     return null
   }
 }
 
-function imageBufferFromPayload(payload: CodexEventPayload): Buffer | null {
+async function imageBufferFromPayload(payload: CodexEventPayload): Promise<Buffer | null> {
   if (payload.result) {
     const buffer = Buffer.from(payload.result, 'base64')
     return buffer.byteLength > 0 ? buffer : null
@@ -258,24 +258,25 @@ function imageBufferFromPayload(payload: CodexEventPayload): Buffer | null {
   return null
 }
 
-function readTrustedGeneratedImageFile(filePath: string): Buffer | null {
+async function readTrustedGeneratedImageFile(filePath: string): Promise<Buffer | null> {
   try {
-    const resolved = fs.realpathSync(path.resolve(filePath))
-    const generatedDir = fs.realpathSync(codexGeneratedImagesDir())
+    const resolved = await fs.realpath(path.resolve(filePath))
+    const generatedDir = await fs.realpath(codexGeneratedImagesDir())
     if (resolved !== generatedDir && !resolved.startsWith(generatedDir + path.sep)) return null
-    return fs.readFileSync(resolved)
+    return await fs.readFile(resolved)
   } catch {
     return null
   }
 }
 
-function listGeneratedImagePathsForThread(threadId: string | undefined): string[] {
+async function listGeneratedImagePathsForThread(threadId: string | undefined): Promise<string[]> {
   if (!threadId || !/^[a-zA-Z0-9_-]+$/.test(threadId)) return []
   try {
-    const generatedDir = fs.realpathSync(codexGeneratedImagesDir())
-    const threadDir = fs.realpathSync(path.join(generatedDir, threadId))
+    const generatedDir = await fs.realpath(codexGeneratedImagesDir())
+    const threadDir = await fs.realpath(path.join(generatedDir, threadId))
     if (threadDir !== generatedDir && !threadDir.startsWith(generatedDir + path.sep)) return []
-    return fs.readdirSync(threadDir, { withFileTypes: true })
+    const entries = await fs.readdir(threadDir, { withFileTypes: true })
+    return entries
       .filter((entry) => entry.isFile())
       .map((entry) => path.join(threadDir, entry.name))
   } catch {
@@ -288,9 +289,9 @@ function codexGeneratedImagesDir(): string {
   return path.join(codexHome, 'generated_images')
 }
 
-function realpathSyncIfReadable(filePath: string): string | null {
+async function realpathIfReadable(filePath: string): Promise<string | null> {
   try {
-    return fs.realpathSync(path.resolve(filePath))
+    return await fs.realpath(path.resolve(filePath))
   } catch {
     return null
   }
