@@ -95,6 +95,14 @@ describe('PluginManager enable/disable', () => {
     expect(deliver).toHaveBeenCalledWith('v.view', { hi: true })
   })
 
+  it('dispose() tears down the plugin host', () => {
+    const mgr = makeManager()
+    const host = (mgr as never as { host: { dispose: () => void } }).host
+    const dispose = vi.spyOn(host, 'dispose').mockImplementation(() => {})
+    mgr.dispose()
+    expect(dispose).toHaveBeenCalledTimes(1)
+  })
+
   it('listViewContributions hides disabled plugins', () => {
     const mgr = makeManager()
     // Seed plugins directly via the private field using type cast

@@ -189,5 +189,6 @@ registerAppLifecycle({
   ptyPool,
   fileWatcher,
   chatStore,
+  pluginManager,
   createWindow: doCreateWindow,
 })
