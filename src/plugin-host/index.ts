@@ -4,7 +4,7 @@ import { RpcEndpoint, PLUGIN_ACTIVATION, PLUGIN_COMMANDS, PLUGIN_WEBVIEW, PLUGIN
 import { Activator, type ActivationTarget } from './activator'
 import { createApi } from './api-impl'
 import { createWindowApi } from './window-api'
-import { installPluginRequire, registerPluginApis } from './require-interceptor'
+import { installPluginRequire, registerPluginApis, unregisterPluginApis } from './require-interceptor'
 import { buildGatedApi } from './gated-api'
 import { createStorageApi } from './storage-api'
 import { WorkspaceContext } from './workspace-api'
@@ -41,7 +41,12 @@ const configProxy = endpoint.getProxy<{ $get(id: string, key: string): Promise<u
 const storageProxy = endpoint.getProxy<{ $get(id: string, key: string): Promise<unknown>; $update(id: string, key: string, v: unknown): Promise<void> }>(HOST_STORAGE)
 installPluginRequire()
 
+// id → root, captured at load time so $deactivate can unregister the plugin's API frame
+// from the require interceptor (otherwise the frame leaks until the whole host is torn down).
+const pluginRoots = new Map<string, string>()
+
 const activator = new Activator((t: ActivationTarget): PluginModule => {
+  pluginRoots.set(t.id, t.root)
   if (t.kind === 'vscode') {
     const { vscode, createContext } = createVscodeShim({
       commands: makeCommandsApi(t.id),
@@ -79,8 +84,11 @@ const activator = new Activator((t: ActivationTarget): PluginModule => {
 
 endpoint.registerService(PLUGIN_ACTIVATION, {
   $activate: (t: ActivationTarget) => activator.activate(t),
-  // TODO(deactivation): also unregisterPluginApis for this plugin's root (needs an id→root map; tracked in followups).
-  $deactivate: (id: string) => activator.deactivate(id),
+  $deactivate: async (id: string) => {
+    await activator.deactivate(id)
+    const root = pluginRoots.get(id)
+    if (root !== undefined) { unregisterPluginApis(root); pluginRoots.delete(id) }
+  },
 })
 endpoint.registerService(PLUGIN_COMMANDS, {
   $invokeCommand: (id: string, args: unknown[]) => invokeLocalCommand(id, args),

@@ -54,6 +54,7 @@ export class PluginManager {
     const lm = createLmService(this.sessionManager, gitOps)
     this.host = new ExtensionHost(new PluginStorageStore(storagePath), agentControl, lm)
     this.host.setConfigResolver((id, key) => this.getConfigValue(id, key))
+    this.host.setEnabledResolver((id) => this.isEnabled(id))
   }
 
   isEnabled(pluginId: string): boolean {
@@ -64,6 +65,10 @@ export class PluginManager {
     const cur = this.settings.getSettings().disabledPlugins ?? []
     const next = enabled ? cur.filter((id) => id !== pluginId) : Array.from(new Set([...cur, pluginId]))
     this.settings.updateSettings({ disabledPlugins: next })
+    // Disabling must actually tear the plugin down — run its deactivate() so subscriptions
+    // (commands, workspace/config/tree listeners) and its require('manifold') API frame are
+    // disposed in the host. Fire-and-forget: the IPC reply needn't await the host round-trip.
+    if (!enabled) void this.host.deactivate(pluginId).catch((err) => debugLog(`[plugins] deactivate("${pluginId}") failed: ${err instanceof Error ? err.message : String(err)}`))
   }
 
   getConfigValue(pluginId: string, key: string): unknown {
@@ -140,6 +145,8 @@ export class PluginManager {
   }
 
   deliverWebviewMessage(viewId: string, message: unknown): void {
+    const plugin = this.plugins.find((p) => p.manifest.contributes?.views?.some((v) => v.id === viewId))
+    if (plugin && !this.isEnabled(plugin.id)) { debugLog(`[plugins] deliverWebviewMessage("${viewId}"): owning plugin is disabled`); return }
     this.host.deliverWebviewMessage(viewId, message)
   }
 

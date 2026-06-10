@@ -70,6 +70,31 @@ describe('PluginManager enable/disable', () => {
     expect(mgr.isEnabled('manifold.x')).toBe(true)
   })
 
+  it('disabling a plugin calls host.deactivate; enabling does not', () => {
+    const mgr = makeManager()
+    const host = (mgr as never as { host: { deactivate: (id: string) => Promise<void> } }).host
+    const deactivate = vi.spyOn(host, 'deactivate').mockResolvedValue(undefined)
+    mgr.setEnabled('p.x', false)
+    expect(deactivate).toHaveBeenCalledWith('p.x')
+    deactivate.mockClear()
+    mgr.setEnabled('p.x', true)
+    expect(deactivate).not.toHaveBeenCalled()
+  })
+
+  it('deliverWebviewMessage is dropped when the owning plugin is disabled', () => {
+    const mgr = makeManager()
+    const host = (mgr as never as { host: { deliverWebviewMessage: (v: string, m: unknown) => void } }).host
+    const deliver = vi.spyOn(host, 'deliverWebviewMessage').mockImplementation(() => {})
+    ;(mgr as never as { plugins: PluginDescriptor[] }).plugins = [desc('p.v', [{ id: 'v.view', title: 'V' }])]
+    mgr.setEnabled('p.v', false)
+    deliver.mockClear()
+    mgr.deliverWebviewMessage('v.view', { hi: true })
+    expect(deliver).not.toHaveBeenCalled()
+    mgr.setEnabled('p.v', true)
+    mgr.deliverWebviewMessage('v.view', { hi: true })
+    expect(deliver).toHaveBeenCalledWith('v.view', { hi: true })
+  })
+
   it('listViewContributions hides disabled plugins', () => {
     const mgr = makeManager()
     // Seed plugins directly via the private field using type cast

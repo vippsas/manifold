@@ -53,6 +53,34 @@ describe('TreeRegistry', () => {
     expect(await reg.getChildren('v', 'bogus')).toEqual([])
   })
 
+  it('does not grow elements when re-fetching an id-less node repeatedly', async () => {
+    const reg = new TreeRegistry()
+    // id-less provider: one root with two id-less children. Each getTreeItem omits `id`,
+    // so nodeIds are minted as `n${seq}` — the leak case from the audit.
+    reg.register('v', {
+      getChildren: (el?: string) => (el === undefined ? ['root'] : el === 'root' ? ['c1', 'c2'] : []),
+      getTreeItem: (el: string) => ({ label: el, id: el === 'root' ? 'root' : undefined }),
+    })
+    const elements = () => (reg as never as { views: Map<string, { elements: Map<string, unknown> }> }).views.get('v')!.elements
+    const roots = await reg.getChildren('v', undefined)
+    // Re-expand the same parent 50 times; without scoping, elements would gain 2 per call.
+    for (let i = 0; i < 50; i++) await reg.getChildren('v', roots[0].nodeId)
+    // Bounded: 'root' + exactly its 2 current children, not 'root' + 100 stale handles.
+    expect(elements().size).toBe(3)
+    // The latest children still resolve (handles are live, just replaced each fetch).
+    const kids = await reg.getChildren('v', roots[0].nodeId)
+    expect(kids.map((k) => k.label)).toEqual(['c1', 'c2'])
+    expect(elements().size).toBe(3)
+  })
+
+  it('does not grow elements when re-fetching id-less roots repeatedly', async () => {
+    const reg = new TreeRegistry()
+    reg.register('v', { getChildren: (el?: string) => (el === undefined ? ['a', 'b'] : []), getTreeItem: (el: string) => ({ label: el }) })
+    const elements = () => (reg as never as { views: Map<string, { elements: Map<string, unknown> }> }).views.get('v')!.elements
+    for (let i = 0; i < 50; i++) await reg.getChildren('v', undefined)
+    expect(elements().size).toBe(2)
+  })
+
   it('disposing a stale registration handle does not remove a newer registration of the same viewId', async () => {
     const reg = new TreeRegistry()
     const first = reg.register('view.x', provider())

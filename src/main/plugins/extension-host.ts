@@ -16,6 +16,8 @@ import type { LmService } from './lm-service'
 interface PluginActivationProxy { $activate(t: ActivationTarget): Promise<void>; $deactivate(id: string): Promise<void> }
 interface PluginCommandsProxy { $invokeCommand(id: string, args: unknown[]): Promise<unknown> }
 
+const MAIN_TO_HOST_RPC_TIMEOUT_MS = 5 * 60_000
+
 function rpcErrorMessage(err: unknown): string {
   return err instanceof Error ? err.message : String(err)
 }
@@ -27,6 +29,7 @@ export class ExtensionHost {
   private readonly commands = new CommandRegistry()
   private send: ((channel: string, ...args: unknown[]) => void) | null = null
   private getConfig: ((pluginId: string, key: string) => unknown) | null = null
+  private isPluginEnabled: ((pluginId: string) => boolean) | null = null
   private readonly ui = new UiRequestBroker(() => this.send)
 
   constructor(
@@ -37,6 +40,8 @@ export class ExtensionHost {
 
   setConfigResolver(fn: (pluginId: string, key: string) => unknown): void { this.getConfig = fn }
 
+  setEnabledResolver(fn: (pluginId: string) => boolean): void { this.isPluginEnabled = fn }
+
   setSend(fn: (channel: string, ...args: unknown[]) => void): void { this.send = fn }
 
   /** Lazily fork the host process and wire RPC. */
@@ -44,7 +49,12 @@ export class ExtensionHost {
     if (this.endpoint) return { endpoint: this.endpoint }
     const modulePath = join(__dirname, 'plugin-host.js') // out/main/plugin-host.js (sibling of out/main/index.js)
     const child = utilityProcess.fork(modulePath, [], { serviceName: 'manifold-plugin-host' })
-    const endpoint = new RpcEndpoint({ post: (m) => child.postMessage(m) })
+    // Time out main→host calls so a plugin whose activate()/resolveView/getChildren never
+    // resolves can't hang the IPC caller forever. 5 min clears the slowest legit call (a
+    // command handler that drives a 300s agent turn) while bounding a truly stuck one. The
+    // host→main direction is not timed out (its endpoint defaults to 0): agent turns, LM
+    // requests, and UI prompts there are intentionally long-lived.
+    const endpoint = new RpcEndpoint({ post: (m) => child.postMessage(m) }, MAIN_TO_HOST_RPC_TIMEOUT_MS)
     child.on('message', (m: RpcMessage) => { void endpoint.handleMessage(m) })
     // When the host process dies (clean exit or a fatal error), reject every in-flight RPC
     // so awaiting callers fail loudly instead of hanging forever (C2), and clear the command
@@ -103,6 +113,14 @@ export class ExtensionHost {
     await endpoint.getProxy<PluginActivationProxy>(PLUGIN_ACTIVATION).$activate(target)
   }
 
+  /** Deactivate a plugin: run its deactivate() and dispose its subscriptions in the host
+   *  (which unregisters its commands + tree/workspace listeners and its require('manifold')
+   *  API frame). No-op if the host hasn't been forked — nothing is active to tear down. */
+  async deactivate(id: string): Promise<void> {
+    if (!this.endpoint) return
+    await this.endpoint.getProxy<PluginActivationProxy>(PLUGIN_ACTIVATION).$deactivate(id)
+  }
+
   async resolveView(target: ActivationTarget, viewId: string): Promise<void> {
     const { endpoint } = this.ensure()
     await endpoint.getProxy<PluginActivationProxy>(PLUGIN_ACTIVATION).$activate(target)
@@ -133,9 +151,15 @@ export class ExtensionHost {
     this.observeNotification('setActiveContext', endpoint.getProxy<{ $setActiveContext(ctx: unknown): Promise<void> }>(PLUGIN_WORKSPACE).$setActiveContext(context))
   }
 
-  /** Execute a contributed command (app/dev entry point). */
+  /** Execute a contributed command (app/dev entry point). Refuses commands owned by a
+   *  disabled plugin so a 'disabled' plugin's commands no longer run (its registrations
+   *  also tear down on disable; this guards the window before that round-trips). */
   executeContributedCommand(id: string, args: unknown[]): Promise<unknown> {
     this.ensure()
+    const owner = this.commands.ownerOf(id)
+    if (owner !== undefined && this.isPluginEnabled?.(owner) === false) {
+      return Promise.reject(new Error(`command "${id}" belongs to a disabled plugin`))
+    }
     return this.commands.execute(id, args)
   }
 
