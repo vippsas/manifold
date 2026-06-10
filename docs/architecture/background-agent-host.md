@@ -77,14 +77,19 @@ progress event calls `store.setProjectState()`, which writes the full state to d
 (`src/renderer/hooks/useBackgroundAgent.ts:164`). So the host streams by *persisting +
 polling*, not by emitting `agent:*` events the way `SessionManager` does.
 
-**Pause / stop.** Control is cooperative and checked between topics. `pauseSuggestions`/
-`stopSuggestions` call `requestRefreshAction()` (`background-agent-host.ts:158`), which sets
-`execution.requestedAction` on the live handle and writes a `pause_requested`/
-`stop_requested` status. The runner reads that flag in `applyControlState()`
-(`background-agent-refresh-runner.ts:265`) before and after each topic: `pause` snapshots a
-resumable `paused` state (keeping `pendingRefresh`), `stop` clears `pendingRefresh`. Stop
-issued while already paused short-circuits in the host without a live handle
-(`background-agent-host.ts:83`).
+**Pause / stop.** `pauseSuggestions`/`stopSuggestions` call `requestRefreshAction()`
+(`background-agent-host.ts:158`), which sets `execution.requestedAction` on the live handle,
+writes a `pause_requested`/`stop_requested` status, and `abort()`s the handle's
+`AbortController` (`background-agent-host.ts:172`). That signal is threaded into the running
+topic's model subprocess (`research()` → `runBackgroundAgentPrompt` → `GitOperationsManager.aiGenerate`),
+so the in-flight model CLI is killed (SIGTERM→SIGKILL) instead of running to completion or its
+research-mode minimum timeout. The killed topic yields no result, so the runner stops scanning
+topics in the research client (`background-agent-research-client.ts:92`) and does **not** record
+the interrupted topic as completed (`background-agent-refresh-runner.ts:175`). The runner then
+reads `requestedAction` in `applyControlState()` (`background-agent-refresh-runner.ts:275`):
+`pause` snapshots a resumable `paused` state (keeping `pendingRefresh`; the interrupted topic
+re-runs on resume), `stop` clears `pendingRefresh`. Stop issued while already paused
+short-circuits in the host without a live handle (`background-agent-host.ts:83`).
 
 **Resume.** `resumeSuggestions()` only proceeds when the persisted status is `paused` and a
 `pendingRefresh` exists (`background-agent-host.ts:70`). `runResume()`
@@ -103,7 +108,7 @@ mid-run counts toward that run's ranking as well as every later refresh.
 - `BackgroundAgentHost` — `background-agent-host.ts:36`. Public surface listed above; `startRefresh`/`requestRefreshAction`/`getLiveProjectState` are private.
 - `BackgroundAgentRefreshRunner` — `background-agent-refresh-runner.ts:39`. `runFresh`, `runResume`, `continueRefresh`, `finishReadyState`, `applyControlState`.
 - `BackgroundAgentProjectState` — `background-agent-types.ts:20`. Extends the public `BackgroundAgentSnapshot` (`background-agent/schemas/background-agent-types`) with `feedback[]` and `pendingRefresh`. `toSnapshot()` (`background-agent-types.ts:87`) strips those before returning over IPC.
-- `BackgroundAgentRefreshExecutionControl` — `background-agent-refresh-state.ts:10`. The single mutable `{ requestedAction }` flag the host and runner share to coordinate pause/stop.
+- `BackgroundAgentRefreshExecutionControl` — `background-agent-refresh-state.ts:10`. The mutable `{ requestedAction, abortController }` handle the host and runner share to coordinate pause/stop; `abortController` kills the in-flight model subprocess on stop/pause.
 - `resolveBackgroundAgentRuntime()` / `runBackgroundAgentPrompt()` — `background-agent-runtime.ts:24` / `:57`. The non-interactive process boundary.
 - `BackgroundAgentStore` — `background-agent-store.ts:20`. JSON persistence at `~/.manifold/background-agent/state.json`.
 
@@ -121,8 +126,8 @@ mid-run counts toward that run's ranking as well as every later refresh.
 - **One refresh per project at a time.** `inFlightRefreshes` keys by project id; a second `refresh`/`resume` joins the existing promise rather than starting a parallel run (`background-agent-host.ts:134`). There is no global concurrency cap across projects.
 - **No PTY, no event stream.** Unlike `SessionManager`, this host never emits `agent:*` events. Progress is only observable by polling `background-agent:get-status`, which reads the persisted state. If the renderer stops polling, it sees nothing until the final snapshot resolves.
 - **State lives on disk, full-rewrite per step.** Every `setProjectState` serializes the entire `state.json` (`background-agent-store.ts:97`). A refresh writes once per phase and once per topic, so the file is rewritten many times during a run.
-- **Cooperative cancel only.** `pause`/`stop` take effect *between* topics, never mid-prompt; a request set during a topic waits for that runtime call to finish (or time out) before the status flips to `paused`/`stopped` (`background-agent-refresh-runner.ts:265`).
+- **Stop/pause aborts the running topic.** `pause`/`stop` `abort()` the handle's `AbortController`, which kills the in-flight model subprocess (SIGTERM→SIGKILL via `aiGenerate`) rather than waiting for that runtime call to finish or hit its research-mode minimum timeout. The interrupted topic is not recorded as completed; the status then flips to `paused`/`stopped` in `applyControlState()` (`background-agent-host.ts:172`, `background-agent-research-client.ts:92`, `background-agent-refresh-runner.ts:275`).
 - **Stale-refresh recovery.** If the process died mid-run, the persisted status still reads `isRefreshing: true` but no handle exists. `getLiveProjectState()` detects this (`isRefreshing` true with nothing in `inFlightRefreshes`) and rewrites it to a recovered `error` state that is resumable iff `pendingRefresh` survived (`background-agent-host.ts:193`, `background-agent-refresh-state.ts:125`).
-- **Resume needs a `pending` checkpoint.** Resume is a no-op unless status is `paused` and `pendingRefresh` is non-null; a `stop` clears `pendingRefresh`, so a stopped run can only be re-`refresh`ed, never resumed (`background-agent-host.ts:70`, `background-agent-refresh-runner.ts:265`).
-- **One failed topic ≠ failed run.** `RuntimeWebResearchClient.research()` converts a topic error into an empty result and continues; only profiling/topic-generation failures (outside the loop) fail the whole refresh (`background-agent-research-client.ts:86`, `background-agent-refresh-runner.ts:88`).
+- **Resume needs a `pending` checkpoint.** Resume is a no-op unless status is `paused` and `pendingRefresh` is non-null; a `stop` clears `pendingRefresh`, so a stopped run can only be re-`refresh`ed, never resumed (`background-agent-host.ts:70`, `background-agent-refresh-runner.ts:275`).
+- **One failed topic ≠ failed run.** `RuntimeWebResearchClient.research()` converts a non-abort topic error into an empty result and continues; only profiling/topic-generation failures (outside the loop) fail the whole refresh (`background-agent-research-client.ts:87`, `background-agent-refresh-runner.ts:88`).
 - **Model output is untrusted JSON.** `parseResearchOutput` tolerates fenced/garbage output and `normalizeSources`/`normalizeSuggestionHints` drop malformed entries and clamp to `maxSourcesPerTopic`/`maxSuggestionsPerTopic`; the prompt explicitly forbids invented sources and local file access (`background-agent-research-prompt.ts:21`).

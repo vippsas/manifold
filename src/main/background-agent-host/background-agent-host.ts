@@ -140,6 +140,7 @@ export class BackgroundAgentHost {
     const current = this.getLiveProjectState(projectId)
     const execution: RefreshExecutionHandle = {
       requestedAction: null,
+      abortController: new AbortController(),
       promise: Promise.resolve({} as BackgroundAgentSnapshot),
     }
     execution.promise = mode === 'resume'
@@ -166,6 +167,9 @@ export class BackgroundAgentHost {
     }
 
     execution.requestedAction = action
+    // Kill the running topic's model subprocess now rather than letting it run
+    // to completion / its research-mode minimum timeout; its result is discarded.
+    execution.abortController.abort()
     const nextState = withStatus(current, {
       phase: current.status.phase,
       isRefreshing: true,

@@ -290,6 +290,45 @@ describe('BackgroundAgentHost', () => {
     expect(stoppedSnapshot.status.refreshState).toBe('stopped')
     expect(store.getProjectState('project-1').pendingRefresh).toBeNull()
   })
+
+  it('aborts the in-flight model subprocess on stop and discards the interrupted topic', async () => {
+    const projectPath = createTempProject({
+      'package.json': JSON.stringify({ name: 'background-agent-test', description: 'Test project' }),
+      'README.md': '# Test project\n\nA repo for background agent host tests.',
+    })
+    const store = new BackgroundAgentStore(path.join(projectPath, '.background-agent-state.json'))
+
+    let capturedSignal: AbortSignal | undefined
+    let resolveResearch: ((value: WebResearchResult[]) => void) | null = null
+    const webResearchClient: WebResearchClient = {
+      // Mimic the real client: when aborted, the killed subprocess yields no
+      // result for the interrupted topic (empty array).
+      research: vi.fn((_topics: WebResearchTopic[], _ctx: WebResearchContext, _onProgress, signal?: AbortSignal) => {
+        capturedSignal = signal
+        return new Promise<WebResearchResult[]>((resolve) => {
+          resolveResearch = resolve
+          signal?.addEventListener('abort', () => resolve([]))
+        })
+      }),
+    }
+    const host = createHost(projectPath, store, webResearchClient)
+
+    const refreshPromise = host.refreshSuggestions('project-1', null)
+    await vi.waitFor(() => expect(webResearchClient.research).toHaveBeenCalledTimes(1))
+    expect(capturedSignal?.aborted).toBe(false)
+
+    const stopRequested = host.stopSuggestions('project-1')
+    expect(stopRequested.status.refreshState).toBe('stop_requested')
+    // Stop aborts the signal threaded into the running topic's model subprocess.
+    expect(capturedSignal?.aborted).toBe(true)
+
+    const stoppedSnapshot = await refreshPromise
+
+    expect(stoppedSnapshot.status.refreshState).toBe('stopped')
+    expect(store.getProjectState('project-1').pendingRefresh).toBeNull()
+    // The interrupted topic is not recorded as completed.
+    expect(resolveResearch).not.toBeNull()
+  })
 })
 
 function createHost(projectPath: string, store: BackgroundAgentStore, webResearchClient: WebResearchClient): BackgroundAgentHost {

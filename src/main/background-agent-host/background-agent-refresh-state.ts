@@ -9,6 +9,12 @@ export type RequestedRefreshAction = 'pause' | 'stop'
 
 export interface BackgroundAgentRefreshExecutionControl {
   requestedAction: RequestedRefreshAction | null
+  /**
+   * Aborts the in-flight model subprocess when stop/pause is requested, so the
+   * running topic's model CLI is killed instead of running to completion / its
+   * research-mode minimum timeout.
+   */
+  abortController: AbortController
 }
 
 export function withStatus(

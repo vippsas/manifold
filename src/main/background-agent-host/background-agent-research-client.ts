@@ -42,6 +42,7 @@ export class RuntimeWebResearchClient implements WebResearchClient {
     topics: WebResearchTopic[],
     context: WebResearchContext,
     onProgress?: (event: WebResearchProgressEvent) => void,
+    signal?: AbortSignal,
   ): Promise<WebResearchResult[]> {
     const results: WebResearchResult[] = []
 
@@ -58,7 +59,7 @@ export class RuntimeWebResearchClient implements WebResearchClient {
 
       try {
         const prompt = buildResearchPrompt(topic, context, this.maxSourcesPerTopic, this.maxSuggestionsPerTopic)
-        const output = await this.runTopicPromptWithRetry(topic, context, prompt, onProgress, current, topics.length)
+        const output = await this.runTopicPromptWithRetry(topic, context, prompt, onProgress, current, topics.length, signal)
 
         const parsed = parseResearchOutput(output)
         results.push({
@@ -84,6 +85,13 @@ export class RuntimeWebResearchClient implements WebResearchClient {
             : 'No candidate ideas survived the evidence bar for this topic.',
         })
       } catch (error) {
+        // The model subprocess was killed because the refresh was stopped/paused;
+        // its result is discarded. Stop scanning topics and return what completed
+        // so the runner can flip to the paused/stopped state without recording an
+        // empty result for the interrupted topic.
+        if (signal?.aborted) {
+          break
+        }
         const message = summarizeResearchError(error)
         console.warn('[background-agent] research topic failed; continuing with partial results', {
           topicId: topic.id,
@@ -112,6 +120,7 @@ export class RuntimeWebResearchClient implements WebResearchClient {
     onProgress: ResearchProgressReporter | undefined,
     current: number,
     total: number,
+    signal?: AbortSignal,
   ): Promise<string> {
     let attempt = 0
 
@@ -124,6 +133,7 @@ export class RuntimeWebResearchClient implements WebResearchClient {
           mode: 'research',
           silent: true,
           logLabel: attempt === 0 ? topic.id : `${topic.id}-retry-${attempt}`,
+          signal,
         })
       } catch (error) {
         if (attempt >= this.maxRetryAttempts || !shouldRetryResearchRun(error)) {

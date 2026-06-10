@@ -39,7 +39,7 @@ vi.mock('./managed-worktree', () => ({
   stageManagedWorktreePath: mockStageManagedWorktreePath,
 }))
 
-import { GitOperationsManager } from './git-operations'
+import { GitOperationsManager, killInFlightAiGenerateChildren } from './git-operations'
 import {
   commitManagedWorktree,
   getManagedWorktreeStatus,
@@ -316,6 +316,88 @@ describe('GitOperationsManager core', () => {
       }, 'prompt', '/cwd')).rejects.toThrow(
         'AI runtime "claude" failed to start: ENOENT',
       )
+    })
+
+    it('rejects without spawning when the signal is already aborted', async () => {
+      const controller = new AbortController()
+      controller.abort()
+
+      await expect(git.aiGenerate(
+        { id: 'claude', name: 'Claude', binary: '/usr/local/bin/claude' },
+        'prompt',
+        '/worktree',
+        [],
+        { signal: controller.signal },
+      )).rejects.toThrow('AI runtime "claude" aborted before start')
+      expect(mockSpawn).not.toHaveBeenCalled()
+    })
+
+    it('aborts the in-flight child: SIGTERM then SIGKILL, and rejects', async () => {
+      vi.useFakeTimers()
+      try {
+        const kill = vi.fn()
+        const child = Object.assign(new EventEmitter(), {
+          stdout: new EventEmitter(),
+          stderr: new EventEmitter(),
+          stdin: { on: vi.fn(), end: vi.fn() },
+          kill,
+        })
+        mockSpawn.mockReturnValue(child)
+        const controller = new AbortController()
+
+        const promise = git.aiGenerate(
+          { id: 'claude', name: 'Claude', binary: '/usr/local/bin/claude' },
+          'prompt',
+          '/worktree',
+          [],
+          { signal: controller.signal, silent: true },
+        )
+        const assertion = expect(promise).rejects.toThrow('AI runtime "claude" aborted')
+
+        controller.abort()
+        expect(kill).toHaveBeenCalledWith('SIGTERM')
+
+        await vi.advanceTimersByTimeAsync(2_000)
+        expect(kill).toHaveBeenCalledWith('SIGKILL')
+
+        await assertion
+      } finally {
+        vi.useRealTimers()
+      }
+    })
+
+    it('killInFlightAiGenerateChildren kills an in-flight child on quit', async () => {
+      vi.useFakeTimers()
+      try {
+        const kill = vi.fn()
+        const child = Object.assign(new EventEmitter(), {
+          stdout: new EventEmitter(),
+          stderr: new EventEmitter(),
+          stdin: { on: vi.fn(), end: vi.fn() },
+          kill,
+        })
+        mockSpawn.mockReturnValue(child)
+
+        // Spawn a long-running child that never closes on its own.
+        const promise = git.aiGenerate(
+          { id: 'claude', name: 'Claude', binary: '/usr/local/bin/claude' },
+          'prompt',
+          '/worktree',
+          [],
+          { silent: true },
+        )
+
+        killInFlightAiGenerateChildren()
+        expect(kill).toHaveBeenCalledWith('SIGTERM')
+        await vi.advanceTimersByTimeAsync(2_000)
+        expect(kill).toHaveBeenCalledWith('SIGKILL')
+
+        // Let the child close so the spawned promise settles and is cleaned up.
+        child.emit('close', null)
+        await expect(promise).rejects.toThrow(/AI runtime "claude"/)
+      } finally {
+        vi.useRealTimers()
+      }
     })
   })
 })

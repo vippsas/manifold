@@ -19,6 +19,8 @@ interface RunBackgroundAgentPromptOptions {
   mode?: 'default' | 'research'
   silent?: boolean
   logLabel?: string
+  /** Aborts the in-flight model subprocess when the refresh is stopped/paused. */
+  signal?: AbortSignal
 }
 
 export function resolveBackgroundAgentRuntime(
@@ -79,6 +81,7 @@ export async function runBackgroundAgentPrompt(
       {
         timeoutMs,
         silent: options.silent,
+        signal: options.signal,
       },
     )
     debugLog(
