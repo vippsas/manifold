@@ -23,10 +23,13 @@ export function useAdditionalDirs(activeSessionId: string | null, initialDirs: s
 
     if (!activeSessionId) return
 
+    let cancelled = false
+    const isCancelled = (): boolean => cancelled
     for (const dir of initialDirs) {
-      void fetchTree(activeSessionId, dir)
-      fetchBranch(activeSessionId, dir)
+      void fetchTree(activeSessionId, dir, isCancelled)
+      fetchBranch(activeSessionId, dir, isCancelled)
     }
+    return () => { cancelled = true }
   }, [activeSessionId, initialDirs.join(',')])
 
   // Listen for new dirs added
@@ -71,8 +74,9 @@ export function useAdditionalDirs(activeSessionId: string | null, initialDirs: s
     }
   }, [activeSessionId, additionalDirs])
 
-  async function fetchTree(sessionId: string, dirPath: string): Promise<void> {
+  async function fetchTree(sessionId: string, dirPath: string, isCancelled?: () => boolean): Promise<void> {
     await window.electronAPI.invoke('files:tree-dir', sessionId, dirPath).then((tree) => {
+      if (isCancelled?.()) return
       setAdditionalTrees((prev) => {
         const next = new Map(prev)
         next.set(dirPath, tree as FileTreeNode)
@@ -81,8 +85,9 @@ export function useAdditionalDirs(activeSessionId: string | null, initialDirs: s
     }).catch(() => {})
   }
 
-  function fetchBranch(sessionId: string, dirPath: string): void {
+  function fetchBranch(sessionId: string, dirPath: string, isCancelled?: () => boolean): void {
     window.electronAPI.invoke('files:dir-branch', sessionId, dirPath).then((branch) => {
+      if (isCancelled?.()) return
       setAdditionalBranches((prev) => {
         const next = new Map(prev)
         next.set(dirPath, branch as string | null)

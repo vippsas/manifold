@@ -9,6 +9,7 @@ interface ViewStatePersistence {
     activeEditorPaneId: string | null,
   ) => void
   restoreCodeView: RestoredCodeViewState | null
+  restoredSessionId: string | null
 }
 
 /**
@@ -34,10 +35,11 @@ export function useSessionStatePersistence(
     prevSessionRef.current = activeSessionId
   }, [activeSessionId, viewState.saveCurrentState])
 
-  // Restore state when viewState provides it
+  // Restore state when viewState provides it for the currently active session.
+  // Guard against a stale restore from a session we've already switched away from.
   useEffect(() => {
-    if (viewState.restoreCodeView) {
+    if (viewState.restoreCodeView && viewState.restoredSessionId === activeSessionId) {
       codeView.restoreState(viewState.restoreCodeView)
     }
-  }, [viewState.restoreCodeView, codeView.restoreState])
+  }, [viewState.restoreCodeView, viewState.restoredSessionId, activeSessionId, codeView.restoreState])
 }

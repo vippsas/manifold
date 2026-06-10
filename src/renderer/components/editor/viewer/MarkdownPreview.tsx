@@ -9,8 +9,12 @@ import {
   resolveMarkdownLinkedFilePath,
   resolveMarkdownPreviewSource,
 } from '../code-viewer-utils'
+import { setBounded } from '../bounded-cache'
 
+// LRU-capped so this remount-surviving cache doesn't grow without bound as
+// markdown files/panes/sessions open and close.
 const markdownScrollPositionsByPreview = new Map<string, number>()
+const MAX_MARKDOWN_SCROLL_POSITIONS = 200
 
 interface MarkdownPreviewProps {
   paneId: string
@@ -39,7 +43,7 @@ export function MarkdownPreview({
   const persistScrollPosition = useCallback((): void => {
     const container = containerRef.current
     if (!container) return
-    markdownScrollPositionsByPreview.set(scrollKey, container.scrollTop)
+    setBounded(markdownScrollPositionsByPreview, scrollKey, container.scrollTop, MAX_MARKDOWN_SCROLL_POSITIONS)
   }, [scrollKey])
 
   useLayoutEffect(() => {
@@ -56,7 +60,7 @@ export function MarkdownPreview({
     () => {
       const container = containerRef.current
       if (!container) return
-      markdownScrollPositionsByPreview.set(scrollKey, container.scrollTop)
+      setBounded(markdownScrollPositionsByPreview, scrollKey, container.scrollTop, MAX_MARKDOWN_SCROLL_POSITIONS)
     }
   ), [scrollKey])
 

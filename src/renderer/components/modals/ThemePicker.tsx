@@ -23,6 +23,12 @@ export function ThemePicker({ currentThemeId, onSelect, onCancel, onPreview }: T
   const inputRef = useRef<HTMLInputElement>(null)
   const listRef = useRef<HTMLDivElement>(null)
   const originalThemeIdRef = useRef(currentThemeId)
+  // Tracks whether a hover/keyboard preview is currently applied app-wide, and
+  // whether the user committed a real selection. Read by the unmount cleanup,
+  // which fires when Settings closes (or the Hide toggle collapses the picker)
+  // without an explicit Escape — the only path that previously reverted.
+  const previewActiveRef = useRef(false)
+  const confirmedRef = useRef(false)
 
   const filtered = useMemo(() => {
     let list = themes
@@ -39,6 +45,7 @@ export function ThemePicker({ currentThemeId, onSelect, onCancel, onPreview }: T
 
   const applyPreview = useCallback((themeId: string) => {
     setPreviewedId(themeId)
+    previewActiveRef.current = true
     const theme = loadTheme(themeId)
     applyThemeCssVars(theme.cssVars)
     void loader.init().then((monaco) => {
@@ -50,6 +57,7 @@ export function ThemePicker({ currentThemeId, onSelect, onCancel, onPreview }: T
   }, [onPreview])
 
   const revertPreview = useCallback(() => {
+    previewActiveRef.current = false
     const origId = originalThemeIdRef.current
     const theme = loadTheme(origId)
     applyThemeCssVars(theme.cssVars)
@@ -63,8 +71,24 @@ export function ThemePicker({ currentThemeId, onSelect, onCancel, onPreview }: T
 
   const handleConfirm = useCallback(() => {
     const theme = filtered[selectedIndex]
-    if (theme) onSelect(theme.id)
+    if (theme) {
+      confirmedRef.current = true
+      onSelect(theme.id)
+    }
   }, [filtered, selectedIndex, onSelect])
+
+  // Keep the latest revert available to the unmount cleanup without re-running it.
+  const revertPreviewRef = useRef(revertPreview)
+  revertPreviewRef.current = revertPreview
+
+  // When the picker unmounts (Settings closed, or the Hide toggle collapsed it)
+  // without an Escape and without a committed selection, revert the live preview
+  // so the app doesn't stay on an unsaved theme.
+  useEffect(() => () => {
+    if (previewActiveRef.current && !confirmedRef.current) {
+      revertPreviewRef.current()
+    }
+  }, [])
 
   const handleCancel = useCallback(() => {
     revertPreview()
@@ -120,7 +144,7 @@ export function ThemePicker({ currentThemeId, onSelect, onCancel, onPreview }: T
             isSelected={index === selectedIndex}
             isCurrent={theme.id === currentThemeId}
             onMouseEnter={() => { setSelectedIndex(index); applyPreview(theme.id) }}
-            onClick={() => { setSelectedIndex(index); onSelect(theme.id) }}
+            onClick={() => { setSelectedIndex(index); confirmedRef.current = true; onSelect(theme.id) }}
           />
         ))}
         {filtered.length === 0 && (

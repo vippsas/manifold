@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react'
+import { createPortal } from 'react-dom'
 import type { WatchFrameRef } from '../../../shared/watch-types'
 import { formatTimestamp } from './watch-format'
 import { lightboxStyles as s } from './FrameLightbox.styles'
@@ -65,7 +66,9 @@ export function FrameLightbox({
   const hasPrev = currentIndex > 0
   const hasNext = currentIndex < frames.length - 1
 
-  return (
+  // Portal to document.body so the fixed full-screen backdrop covers the
+  // viewport, not just the dockview panel (whose transform is a containing block).
+  return createPortal(
     <div role="dialog" aria-label="Frame preview" style={s.backdrop} onClick={onClose}>
       <div style={s.frame} onClick={(e) => e.stopPropagation()}>
         <img src={displayUrl} alt={`Frame at ${formatTimestamp(frame.timestampSeconds)}`} style={s.image} />
@@ -100,6 +103,7 @@ export function FrameLightbox({
           </span>
         </div>
       </div>
-    </div>
+    </div>,
+    document.body,
   )
 }

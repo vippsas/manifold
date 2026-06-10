@@ -133,6 +133,8 @@ export function useViewState(activeSessionId: string | null, tree: FileTreeNode 
           }
         }
 
+        if (cancelled) return
+
         const normalizedPanes = normalizeEditorPanes(
           paneState,
           openFiles.map((file) => file.path),

@@ -140,16 +140,14 @@ export function useCodeViewFileOps(
   )
 
   const handleCloseFile = useCallback((filePath: string, paneId?: string | null): void => {
-    setters.setEditorPanes((prev) => {
-      const next = prev.map((pane) => {
-        if (paneId && pane.id !== paneId) return pane
-        if (!pane.openFilePaths.includes(filePath)) return pane
-        return closeFileInPane(pane, filePath)
-      })
-
-      setters.setOpenFiles((currentFiles) => pruneUnusedOpenFiles(currentFiles, next))
-      return next
+    const next = refs.editorPanesRef.current.map((pane) => {
+      if (paneId && pane.id !== paneId) return pane
+      if (!pane.openFilePaths.includes(filePath)) return pane
+      return closeFileInPane(pane, filePath)
     })
+
+    setters.setEditorPanes(next)
+    setters.setOpenFiles((currentFiles) => pruneUnusedOpenFiles(currentFiles, next))
   }, [])
 
   const handleSaveFile = useCallback(

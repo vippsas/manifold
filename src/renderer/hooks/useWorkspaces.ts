@@ -15,8 +15,12 @@ export function useWorkspaces(): UseWorkspacesResult {
   const [workspaces, setWorkspaces] = useState<Workspace[]>([])
 
   const refresh = useCallback(async () => {
-    const list = await window.electronAPI.invoke('workspace:list')
-    setWorkspaces(list as Workspace[])
+    try {
+      const list = await window.electronAPI.invoke('workspace:list')
+      setWorkspaces(list as Workspace[])
+    } catch (err) {
+      console.error('[useWorkspaces] failed to refresh workspace list', err)
+    }
   }, [])
 
   useEffect(() => { void refresh() }, [refresh])

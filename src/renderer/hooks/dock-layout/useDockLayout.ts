@@ -249,6 +249,15 @@ export function useDockLayout(
     })
   }, [sessionId, buildDefaultLayout, buildMinimalLayout, bumpVersion, syncPanels, liveSiblingIds, ctx, flushPendingLayoutSave]) // eslint-disable-line react-hooks/exhaustive-deps
 
+  // Clear any pending debounced save on unmount so it can't fire api.toJSON()
+  // on a disposed dockview (onboarding<->main transitions, StrictMode remount).
+  useEffect(() => () => {
+    if (saveTimerRef.current) {
+      clearTimeout(saveTimerRef.current)
+      saveTimerRef.current = null
+    }
+  }, [])
+
   const hiddenPanels = PANEL_IDS
     .filter((id) => !LAUNCHER_MODULE_IDS.has(id))
     .filter((id) => !isPanelVisible(id)) as DockPanelId[]

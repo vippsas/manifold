@@ -176,13 +176,11 @@ export function useWatchUrlPreview(url: string, deps: Deps): State {
   }, [url])
 
   const setEntryQuestion = useCallback((index: number, value: string) => {
-    setEntryQuestions((prev) => {
-      const next = prev.slice()
-      next[index] = value
-      cacheUserState(next, selectedIndices)
-      return next
-    })
-  }, [cacheUserState, selectedIndices])
+    const next = entryQuestions.slice()
+    next[index] = value
+    setEntryQuestions(next)
+    cacheUserState(next, selectedIndices)
+  }, [cacheUserState, entryQuestions, selectedIndices])
 
   const resetPreview = useCallback(() => {
     setEntries([])
@@ -194,23 +192,19 @@ export function useWatchUrlPreview(url: string, deps: Deps): State {
   }, [])
 
   const toggleEntrySelected = useCallback((index: number) => {
-    setSelectedIndices((prev) => {
-      const next = new Set(prev)
-      if (next.has(index)) next.delete(index)
-      else next.add(index)
-      cacheUserState(entryQuestions, next)
-      return next
-    })
-  }, [cacheUserState, entryQuestions])
+    const next = new Set(selectedIndices)
+    if (next.has(index)) next.delete(index)
+    else next.add(index)
+    setSelectedIndices(next)
+    cacheUserState(entryQuestions, next)
+  }, [cacheUserState, entryQuestions, selectedIndices])
 
   const setAllEntriesSelected = useCallback((selected: boolean) => {
-    setSelectedIndices(() => {
-      const next = !selected || entries.length === 0
-        ? new Set<number>()
-        : new Set(entries.map((_, i) => i))
-      cacheUserState(entryQuestions, next)
-      return next
-    })
+    const next = !selected || entries.length === 0
+      ? new Set<number>()
+      : new Set(entries.map((_, i) => i))
+    setSelectedIndices(next)
+    cacheUserState(entryQuestions, next)
   }, [cacheUserState, entries, entryQuestions])
 
   return {

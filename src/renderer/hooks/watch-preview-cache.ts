@@ -26,13 +26,38 @@ export const userStateCache = new Map<string, CachedUserState>()
 const PEEK_STORAGE_KEY = 'manifold.watch.peek-cache'
 const USER_STATE_STORAGE_KEY = 'manifold.watch.user-state-cache'
 
+// Cap the number of previewed URLs we keep in memory / persist. Map iteration
+// order is insertion order, so evicting from the front drops the least-recently
+// inserted URLs. Without this the caches grow monotonically per previewed URL.
+const MAX_CACHED_URLS = 50
+
+/** Insert into peek+user-state caches, evicting the oldest URL(s) past the cap. */
+function setCappedPeek(url: string, peek: CachedPeek): void {
+  peekCache.delete(url)
+  peekCache.set(url, peek)
+  while (peekCache.size > MAX_CACHED_URLS) {
+    const oldest = peekCache.keys().next().value as string | undefined
+    if (oldest === undefined) break
+    peekCache.delete(oldest)
+    userStateCache.delete(oldest)
+  }
+}
+
+/** Strip base64 thumbnails from entries before persisting to localStorage. */
+function stripThumbnails(peek: CachedPeek): CachedPeek {
+  return {
+    ...peek,
+    entries: peek.entries.map(({ thumbnailDataUrl: _omit, ...rest }) => rest),
+  }
+}
+
 ;(function hydrateCaches(): void {
   if (typeof localStorage === 'undefined') return
   try {
     const peek = localStorage.getItem(PEEK_STORAGE_KEY)
     if (peek) {
       for (const [k, v] of Object.entries(JSON.parse(peek) as Record<string, CachedPeek>)) {
-        if (v && Array.isArray(v.entries)) peekCache.set(k, v)
+        if (v && Array.isArray(v.entries)) setCappedPeek(k, v)
       }
     }
     const user = localStorage.getItem(USER_STATE_STORAGE_KEY)
@@ -53,7 +78,9 @@ export function schedulePersistCaches(): void {
   cacheSaveTimer = setTimeout(() => {
     cacheSaveTimer = null
     try {
-      localStorage.setItem(PEEK_STORAGE_KEY, JSON.stringify(Object.fromEntries(peekCache)))
+      const persistablePeek: Record<string, CachedPeek> = {}
+      for (const [k, v] of peekCache) persistablePeek[k] = stripThumbnails(v)
+      localStorage.setItem(PEEK_STORAGE_KEY, JSON.stringify(persistablePeek))
       localStorage.setItem(USER_STATE_STORAGE_KEY, JSON.stringify(Object.fromEntries(userStateCache)))
     } catch { /* quota or serialization failure — best effort */ }
   }, 500)
@@ -116,7 +143,7 @@ export async function revalidate(
     if (old && entriesEqual(old.entries, fresh.entries)) {
       // Entries identical — only update if metadata changed.
       if (old.playlistTitle !== fresh.playlistTitle || old.uploader !== fresh.uploader) {
-        peekCache.set(trimmed, fresh)
+        setCappedPeek(trimmed, fresh)
         schedulePersistCaches()
         apply.applyTitle(fresh.playlistTitle)
         apply.applyUploader(fresh.uploader)
@@ -127,7 +154,7 @@ export async function revalidate(
     // Entries changed. Update cache + UI, and preserve user customizations
     // by entry URL (so e.g. a question attached to video X stays on video X
     // even if videos before it were removed).
-    peekCache.set(trimmed, fresh)
+    setCappedPeek(trimmed, fresh)
     const oldUser = userStateCache.get(trimmed)
     const oldUrlToIdx = new Map((old?.entries ?? []).map((e, i) => [e.url, i]))
     const oldQuestions = oldUser?.entryQuestions ?? []

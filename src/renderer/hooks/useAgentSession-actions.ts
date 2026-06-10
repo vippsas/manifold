@@ -1,5 +1,6 @@
 import { useCallback, useRef } from 'react'
 import type { AgentSession, SpawnAgentOptions } from '../../shared/types'
+import { watchPanelStore } from './watchPanelStore'
 
 export function useSpawnAgent(
   currentProjectId: string | null,
@@ -60,6 +61,9 @@ export function useDeleteAgent(
       if (mode === 'worktree' && target && target.worktreePath && !target.noWorktree) {
         await window.electronAPI.invoke('agent:kill-worktree', target.worktreePath)
         const killedPath = target.worktreePath
+        for (const s of sessionsRef.current) {
+          if (s.worktreePath === killedPath) watchPanelStore.delete(s.id)
+        }
         setSessions((prev) => prev.filter((s) => s.worktreePath !== killedPath))
         setActiveSessionId((prev) =>
           prev && sessionsRef.current.find((s) => s.id === prev)?.worktreePath === killedPath
@@ -69,6 +73,7 @@ export function useDeleteAgent(
         return
       }
       await window.electronAPI.invoke('agent:kill', sessionId)
+      watchPanelStore.delete(sessionId)
       setSessions((prev) => prev.filter((s) => s.id !== sessionId))
       setActiveSessionId((prev) => (prev === sessionId ? null : prev))
     },

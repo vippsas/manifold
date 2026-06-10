@@ -5,10 +5,13 @@ import {
   registerEditorPaneModeControls,
   unregisterEditorPaneModeControls,
 } from './editor-pane-mode-controls'
+import { addBounded } from './bounded-cache'
 
 // Module-level state that survives component remounts (e.g. agent switches
-// rebuild dockview layout).
+// rebuild dockview layout). The per-pane Sets accumulate file paths and never
+// shed closed tabs, so they're capped to stay bounded across a long session.
 const previewPathsByPane = new Map<string, Set<string>>()
+const MAX_PATHS_PER_PANE = 200
 
 // Tracks files already auto-defaulted to preview (per pane), so the markdown
 // auto-preview only applies on first open and never overrides a later manual
@@ -72,7 +75,7 @@ export function useCodeViewerModes({
     if (!activeFilePath || !isMarkdownFile(activeFilePath)) return
     const seen = autoPreviewedPathsByPane.get(paneId) ?? new Set<string>()
     if (seen.has(activeFilePath)) return
-    seen.add(activeFilePath)
+    addBounded(seen, activeFilePath, MAX_PATHS_PER_PANE)
     autoPreviewedPathsByPane.set(paneId, seen)
     updatePreviewPaths((prev) => {
       if (prev.has(activeFilePath)) return prev
