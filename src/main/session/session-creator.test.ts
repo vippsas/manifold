@@ -185,4 +185,57 @@ describe('SessionCreator', () => {
       expect.anything(),
     )
   })
+
+  it('wires PTY listeners with no await gap so a fast-exiting runtime is not stranded (#496)', async () => {
+    // Model the real pool/wirer contract: spawn registers a live pty id, and
+    // wiring a pty that is no longer live throws 'PTY not found'.
+    const livePtys = new Set<string>()
+    const ptyPool = {
+      spawn: vi.fn(() => {
+        livePtys.add('pty-1')
+        return { id: 'pty-1', pid: 123 }
+      }),
+    } as unknown as PtyPool
+    const requireLive = (ptyId: string) => {
+      if (!livePtys.has(ptyId)) throw new Error('PTY not found')
+    }
+    const streamWirer = {
+      wireOutputStreaming: vi.fn((ptyId: string) => requireLive(ptyId)),
+      wireExitHandling: vi.fn((ptyId: string) => requireLive(ptyId)),
+      wireStreamJsonOutput: vi.fn((ptyId: string) => requireLive(ptyId)),
+      wirePrintModeInitialExitHandling: vi.fn((ptyId: string) => requireLive(ptyId)),
+    } as unknown as SessionStreamWirer
+    const worktreeManager = {
+      createWorktree: vi.fn().mockResolvedValue({
+        branch: 'manifold/oslo',
+        path: '/repo/.manifold/worktrees/manifold-oslo',
+      }),
+    } as unknown as WorktreeManager
+
+    // Simulate the spawned process exiting during the worktree-meta read: its
+    // pool entry is deleted in the await window, before listeners are wired.
+    vi.mocked(readWorktreeMeta).mockImplementationOnce(async () => {
+      livePtys.delete('pty-1')
+      return { runtimeId: 'codex', additionalDirs: [] }
+    })
+
+    const creator = new SessionCreator(
+      worktreeManager,
+      ptyPool,
+      createProjectRegistry(),
+      streamWirer,
+      () => null,
+    )
+
+    const session = await creator.create({
+      projectId: 'proj-1',
+      runtimeId: 'codex',
+      prompt: 'test',
+    })
+
+    // Session is returned and tracks the freshly created worktree; listeners
+    // were wired against the live pty spawned after the meta read.
+    expect(session.worktreePath).toBe('/repo/.manifold/worktrees/manifold-oslo')
+    expect(streamWirer.wireOutputStreaming).toHaveBeenCalledWith('pty-1', expect.anything())
+  })
 })

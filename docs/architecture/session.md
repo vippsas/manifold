@@ -1,7 +1,7 @@
 ---
 description: How Manifold agent sessions are created, run, stopped, resumed, and rediscovered from on-disk worktrees.
 covers: [src/main/session]
-updated: 2026-06-08
+updated: 2026-06-10
 owner: see .github/CODEOWNERS
 ---
 
@@ -116,3 +116,4 @@ the repo is parked on base (`session-discovery.ts:198`).
 - **Meta is the source of truth on disk.** If `writeWorktreeMeta` fails, `nonInteractive` and friends are lost on next launch (both `session-creator.ts:187` and `session-meta-persister.ts:16` log this loudly). Discovery reconstructs sessions purely from worktree meta + branch state.
 - **`outputBuffer` is bounded.** It is trimmed to the trailing 50 KB once over 100 KB, so detectors and `agent:replay` only ever see recent output.
 - **Stale print-mode exits are guarded.** `wirePrintModeExitHandling` ignores an exit whose `ptyId` no longer matches the session's current one, so a slow-closing previous turn can't overwrite a newer turn's `running` status (`session-stream-wirer.ts:230`).
+- **No `await` between spawn and listener wiring.** `create()` reads worktree meta *before* `PtyPool.spawn()` (`session-creator.ts:141`, `:145`) so wiring (`session-creator.ts:169`, `:177`) runs synchronously after spawn. A process that exits during an await gap would have its pool entry deleted, so `onData`/`onExit` wiring would throw `'PTY not found'`, reject `create()`, and strand the freshly created worktree (#496).

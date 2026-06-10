@@ -133,6 +133,13 @@ export class SessionCreator {
 
     debugLog(`[session] nonInteractive=${options.nonInteractive}, deferRuntime=${deferRuntime}, runtimeArgs=${JSON.stringify(runtimeArgs)}`)
 
+    // Read worktree metadata BEFORE spawning the PTY. The spawn must be
+    // immediately followed by listener wiring with no await in between: a
+    // process that exits during an await gap has its pool entry deleted, so
+    // wiring would throw 'PTY not found', reject create(), and strand the
+    // freshly created worktree (#496).
+    const existingMeta = noWorktree ? null : await readWorktreeMeta(worktree.path)
+
     const ptyHandle = deferRuntime
       ? { id: '', pid: 0 }
       : this.ptyPool.spawn(commandBinary, runtimeArgs, {
@@ -147,7 +154,6 @@ export class SessionCreator {
       session.status = 'waiting'
       session.pid = null
     }
-    const existingMeta = noWorktree ? null : await readWorktreeMeta(worktree.path)
     if (existingMeta?.displayName) {
       session.displayName = existingMeta.displayName
     }
