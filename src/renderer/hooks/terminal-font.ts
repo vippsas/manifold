@@ -2,8 +2,8 @@ import type { ITerminalOptions, ITheme } from '@xterm/xterm'
 
 const DEFAULT_FONT_STACK = "'SF Mono', 'Fira Code', 'Cascadia Code', Menlo, Consolas, monospace"
 const WEB_FONT_ALIAS = 'ManifoldTerminal'
-let webFontLoaded = false
-let webFontLoading: Promise<boolean> | null = null
+const webFontLoaded = new Set<string>()
+const webFontLoading = new Map<string, Promise<boolean>>()
 
 /**
  * Load the user's font as a web font from its file data. System fonts accessed
@@ -11,26 +11,26 @@ let webFontLoading: Promise<boolean> | null = null
  * actual font file bytes as a web font bypasses this platform limitation.
  */
 export function loadWebFont(fontFamily: string): Promise<boolean> {
-  if (webFontLoaded) return Promise.resolve(true)
-  if (webFontLoading) return webFontLoading
-  webFontLoading = (async () => {
+  if (webFontLoaded.has(fontFamily)) return Promise.resolve(true)
+  const inflight = webFontLoading.get(fontFamily)
+  if (inflight) return inflight
+  const promise = (async () => {
     try {
-      console.log('[useTerminal] loadWebFont: requesting font data for', fontFamily)
       const dataUrl = await window.electronAPI.invoke('font:load-data', fontFamily) as string | null
-      console.log('[useTerminal] loadWebFont: got data URL?', !!dataUrl, dataUrl ? `(${dataUrl.length} chars)` : '')
       if (!dataUrl) return false
       const face = new FontFace(WEB_FONT_ALIAS, `url(${dataUrl})`)
       await face.load()
       document.fonts.add(face)
-      webFontLoaded = true
-      console.log('[useTerminal] loadWebFont: web font loaded and added to document.fonts')
+      webFontLoaded.add(fontFamily)
       return true
     } catch (err) {
-      console.error('[useTerminal] loadWebFont: failed', err)
+      console.error('[terminal-font] loadWebFont: failed', err)
+      webFontLoading.delete(fontFamily)
       return false
     }
   })()
-  return webFontLoading
+  webFontLoading.set(fontFamily, promise)
+  return promise
 }
 
 export function resolveFontFamily(terminalFontFamily?: string, useWebFont = false): string {
