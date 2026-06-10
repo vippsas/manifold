@@ -46,6 +46,11 @@ describe('parseManifest', () => {
     expect(r.ok).toBe(true)
     if (r.ok) expect(r.manifest.capabilities).toEqual(['agent:control', 'lm'])
   })
+  it('accepts the agent:spawn and transcription:read capabilities', () => {
+    const r = parseManifest({ ...valid, capabilities: ['agent:spawn', 'transcription:read'] })
+    expect(r.ok).toBe(true)
+    if (r.ok) expect(r.manifest.capabilities).toEqual(['agent:spawn', 'transcription:read'])
+  })
   it('rejects an unknown capability (a typo must not silently grant nothing)', () => {
     expect(parseManifest({ ...valid, capabilities: ['storage', 'workspace'] }).ok).toBe(false)
     expect(parseManifest({ ...valid, capabilities: ['root'] }).ok).toBe(false)
