@@ -61,8 +61,11 @@ Watch skills, and prunes old raw memory. `activate` recreates a window if none e
 dock behavior); `window-all-closed` quits on non-darwin. `before-quit` is the teardown path:
 flush debounced chat writes synchronously, flush buffered debug-log lines, kill all sessions
 and PTYs, kill any in-flight `aiGenerate` model subprocesses
-(`killInFlightAiGenerateChildren()`, so they don't orphan), unwatch files, close the renderer
-server, close the memory store, and release the power blocker (`app-lifecycle.ts:88`).
+(`killInFlightAiGenerateChildren()`, so they don't orphan), and dispose the plugin host. Then —
+*before the first `await`*, because Electron does not await async `before-quit` listeners —
+synchronously close the memory store (checkpointing the SQLite WAL) and release the power
+blocker; the best-effort async steps (unwatch files, close the renderer server) run last
+(`app-lifecycle.ts:88`).
 
 **Window creation.** `createWindow()` (`window-factory.ts:53`) resolves the theme type/background
 from the saved theme, builds a 1400×900 `BrowserWindow` with a `hiddenInset` title bar and

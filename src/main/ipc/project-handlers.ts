@@ -53,7 +53,7 @@ function runAIPrompt(binary: string, prompt: string, cwd?: string): Promise<stri
 }
 
 export function registerProjectHandlers(deps: IpcDependencies): void {
-  const { projectRegistry, verdictStore } = deps
+  const { projectRegistry, verdictStore, chatStore, memoryStore } = deps
 
   ipcMain.handle('projects:list', () => {
     return projectRegistry.listProjects()
@@ -183,7 +183,14 @@ export function registerProjectHandlers(deps: IpcDependencies): void {
   )
 
   ipcMain.handle('projects:remove', (_event, projectId: string) => {
+    // Drop all Manifold-side data derived from this project. The project id is a
+    // fresh uuid on every add, so re-adding the same path can never re-associate
+    // this data — keeping it would orphan the memory db (+wal/shm) and chat files
+    // forever. (The on-disk repo itself is intentionally left untouched; only
+    // agent:delete-app removes the directory.)
     verdictStore.deleteByProject(projectId)
+    chatStore.deleteByProject(projectId)
+    memoryStore.deleteProject(projectId)
     return projectRegistry.removeProject(projectId)
   })
 
