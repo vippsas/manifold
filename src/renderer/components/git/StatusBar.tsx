@@ -10,7 +10,6 @@ const PANEL_LABELS: Record<DockPanelId, string> = {
   modifiedFiles: 'Modified',
   shell: 'Shell',
   backgroundAgent: 'Ideas',
-  watch: 'Watch',
   verdicts: 'Verdicts',
 }
 

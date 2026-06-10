@@ -5,7 +5,7 @@ import { INTERNAL_PANELS } from './internal-contributions'
 describe('INTERNAL_PANELS', () => {
   it('lists the built-in modules in launcher order', () => {
     expect(INTERNAL_PANELS.map((p) => p.id)).toEqual([
-      'backgroundAgent', 'verdicts', 'watch',
+      'backgroundAgent', 'verdicts',
     ])
   })
 

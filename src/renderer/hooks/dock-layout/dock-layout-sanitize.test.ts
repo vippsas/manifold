@@ -153,6 +153,37 @@ describe('sanitizeDockLayout', () => {
     expect(leaf.data.activeView).toBe('agent')
   })
 
+  it('removes the retired builtin watch tab from saved layouts', () => {
+    const saved = {
+      grid: {
+        root: {
+          type: 'leaf',
+          size: 1000,
+          data: {
+            id: 'workspace',
+            views: ['agent', 'watch'],
+            activeView: 'watch',
+          },
+        },
+      },
+      panels: {
+        agent: {},
+        watch: {},
+      },
+    } as unknown as SerializedDockview
+
+    const sanitized = sanitizeDockLayout(saved) as SerializedDockview
+    const leaf = sanitized.grid.root as {
+      type: 'leaf'
+      data: { views: string[]; activeView?: string }
+    }
+
+    expect(sanitized).not.toBeNull()
+    expect(Object.keys(sanitized.panels)).toEqual(['agent'])
+    expect(leaf.data.views).toEqual(['agent'])
+    expect(leaf.data.activeView).toBe('agent')
+  })
+
   it('removes the retired search tab from saved layouts', () => {
     const saved = {
       grid: {

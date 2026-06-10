@@ -4,7 +4,6 @@ import type { PanelContribution } from '../../shared/plugins/contributions'
 import { PANEL_TITLES } from '../hooks/dock-layout/dock-layout-helpers'
 import { BackgroundAgentPanel } from '../components/background-agent/BackgroundAgentPanel'
 import { VerdictsPanel } from '../components/verdicts/VerdictsPanel'
-import { WatchPanel } from '../components/watch/WatchPanel'
 
 /** An internal (built-in) panel contribution: a PanelContribution plus the
  *  renderer component that draws it. Plugin contributions (Phase 1) render via a
@@ -17,7 +16,8 @@ export interface InternalPanel extends PanelContribution {
 /** The built-in modules formerly hardcoded in launcher-modules.ts and
  *  dock-panels.tsx. Array order defines their order in the "+ Apps" menu.
  *  Titles are sourced from PANEL_TITLES so titles stay in one place.
- *  (Loop moved out to the manifold.loop plugin in Phase C.) */
+ *  (Loop moved out to the manifold.loop plugin in Phase C; Watch to the
+ *  manifold.watch plugin in Phase 3.) */
 export const INTERNAL_PANELS: InternalPanel[] = [
   {
     id: 'backgroundAgent',
@@ -34,13 +34,5 @@ export const INTERNAL_PANELS: InternalPanel[] = [
     launcher: true,
     source: 'internal',
     component: VerdictsPanel,
-  },
-  {
-    id: 'watch',
-    title: PANEL_TITLES.watch,
-    description: 'Analyze a video with its transcript and extracted frames.',
-    launcher: true,
-    source: 'internal',
-    component: WatchPanel,
   },
 ]
