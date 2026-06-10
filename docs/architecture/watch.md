@@ -1,7 +1,7 @@
 ---
 description: How Manifold's Watch feature downloads a video, extracts auto-scaled frames, builds a timestamped transcript, and assembles the markdown report the Watch panel/skill reads.
 covers: [src/main/watch]
-updated: 2026-06-10
+updated: 2026-06-11
 owner: see .github/CODEOWNERS
 ---
 
@@ -14,6 +14,13 @@ and subtitles, `ffmpeg`/`ffprobe` for frames, audio, and metadata — orchestrat
 linear pipeline. A separate playlist runner fans the pipeline out across sibling agents.
 The report is consumed by the bundled `watch` Claude Code skill and the Watch panel; this
 subsystem produces it, it does not read it.
+
+> **Transitional:** watch is being converted to a plugin
+> (`docs/superpowers/specs/2026-06-11-watch-plugin-design.md`). A complete port currently
+> coexists at `resources/plugins/manifold.watch/` — same pipeline modules driven through
+> `manifold.agents`/`manifold.transcription`, with the panel served as a plugin webview
+> ("Watch (plugin)" in the launcher). This builtin remains canonical until the Phase 3
+> removal PR, after which this page's `covers:` rebinds to the plugin.
 
 ## Covered code
 
