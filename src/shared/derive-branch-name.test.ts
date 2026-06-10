@@ -80,4 +80,29 @@ describe('deriveBranchName', () => {
   it('lowercases the repo name', () => {
     expect(deriveBranchName('fix bug', 'MyApp')).toBe('myapp/fix-bug')
   })
+
+  it('produces a valid bounded ref when the repo prefix exceeds the max length', () => {
+    const longRepo = 'a'.repeat(45)
+    const result = deriveBranchName('implement authentication middleware validation', longRepo)
+    // Must not be an invalid trailing-slash ref.
+    expect(result).not.toMatch(/\/$/)
+    // Must keep the prefix and a non-empty slug.
+    expect(result).toMatch(new RegExp(`^${longRepo}/.+`))
+  })
+
+  it('never produces a trailing-slash ref when the slug would otherwise be sliced empty', () => {
+    // prefix (46) > MAX_LENGTH (40), so the old negative-slice emitted "<repo>/".
+    const longRepo = 'c'.repeat(45)
+    const result = deriveBranchName('hi', longRepo)
+    expect(result).not.toMatch(/\/$/)
+    expect(result).toMatch(new RegExp(`^${longRepo}/.+`))
+  })
+
+  it('falls back to a slug when the prefix alone exceeds the max length', () => {
+    const longRepo = 'b'.repeat(40)
+    const result = deriveBranchName('fix login bug', longRepo)
+    expect(result).not.toMatch(/\/$/)
+    expect(result.startsWith(`${longRepo}/`)).toBe(true)
+    expect(result.length).toBeGreaterThan(longRepo.length + 1)
+  })
 })

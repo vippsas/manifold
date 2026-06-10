@@ -20,7 +20,11 @@ export function deriveBranchName(description: string, repoName: string): string 
   let slug = words.join('-')
   const maxSlugLen = MAX_LENGTH - prefix.length
   if (slug.length > maxSlugLen) {
-    slug = slug.slice(0, maxSlugLen).replace(/-[^-]*$/, '')
+    // When the prefix alone meets or exceeds MAX_LENGTH the budget is <= 0, so a
+    // word-boundary truncation would slice from the end (or empty the slug and
+    // emit an invalid `<repo>/` ref). Fall back to the first word in that case.
+    const truncated = maxSlugLen > 0 ? slug.slice(0, maxSlugLen).replace(/-[^-]*$/, '') : ''
+    slug = truncated || words[0]
   }
 
   return `${prefix}${slug}`

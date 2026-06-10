@@ -1,10 +1,19 @@
 const MAX_REPO_NAME_LENGTH = 60
-const GITHUB_REPO_PATTERN =
-  /((?:https?:\/\/github\.com\/|git@github\.com:|ssh:\/\/git@github\.com\/)([a-z0-9_.-]+)\/([a-z0-9_.-]+?))(?:\.git)?(?=[\s#?)/.,;:]|$)/i
+// The boundary after the repo name treats `.` as a delimiter only when it is not
+// followed by another name char, so name-internal dots (e.g. `next.js`) are kept
+// while a trailing sentence period (`next.js. `) is excluded. A literal `.git`
+// suffix is still stripped explicitly.
+const REPO_BOUNDARY = String.raw`(?:[\s#?)/,;:]|\.(?![a-z0-9_-])|$)`
+const GITHUB_REPO_PATTERN = new RegExp(
+  String.raw`((?:https?:\/\/github\.com\/|git@github\.com:|ssh:\/\/git@github\.com\/)([a-z0-9_.-]+)\/([a-z0-9_-][a-z0-9_.-]*?))(?:\.git)?(?=${REPO_BOUNDARY})`,
+  'i',
+)
 
 // GitHub CLI shorthand, e.g. `gh repo clone owner/repo`, which has no host.
-const GH_CLI_CLONE_PATTERN =
-  /\bgh\s+repo\s+clone\s+([a-z0-9_.-]+)\/([a-z0-9_.-]+?)(?:\.git)?(?=[\s#?)/.,;:]|$)/i
+const GH_CLI_CLONE_PATTERN = new RegExp(
+  String.raw`\bgh\s+repo\s+clone\s+([a-z0-9_.-]+)\/([a-z0-9_-][a-z0-9_.-]*?)(?:\.git)?(?=${REPO_BOUNDARY})`,
+  'i',
+)
 
 export function extractGitHubRepoUrlFromText(value: string): string | null {
   const match = value.match(GITHUB_REPO_PATTERN)
