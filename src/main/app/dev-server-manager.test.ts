@@ -18,7 +18,7 @@ describe('DevServerManager — session eviction', () => {
     const sessions = new Map<string, InternalSession>([[evicted.id, evicted]])
 
     const memoryCapture = { stopCapturing: vi.fn() }
-    const fileWatcher = { unwatchAdditionalDir: vi.fn() }
+    const fileWatcher = { unwatchAdditionalDir: vi.fn(), unwatch: vi.fn() }
     const chatAdapter = {
       addSystemMessage: vi.fn(),
       clearSession: vi.fn(),
