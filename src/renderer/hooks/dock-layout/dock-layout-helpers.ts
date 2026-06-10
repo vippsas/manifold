@@ -196,6 +196,11 @@ export function restoreSidebarWidths(api: DockviewApi, widths: { left: number; r
     // Pin all sidebars before releasing any, so each delta lands on the center
     // pane rather than being split across the still-unpinned sibling sidebar.
     const releases = targets.map(({ group, width }) => pinGroupWidth(group, width))
+    // setConstraints is lazy — dockview honours it only during a layout pass,
+    // and unlike withPinnedSidebars there is no addPanel/removePanel here to
+    // trigger one. Force a same-size pass while pinned: it clamps each sidebar
+    // to its pinned width and routes the delta onto the unpinned center pane.
+    api.layout(api.width, api.height, true)
     for (const release of releases) release()
   } catch (err) {
     console.warn('[restoreSidebarWidths] failed to restore sidebar widths:', err)
