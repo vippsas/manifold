@@ -118,7 +118,7 @@ async function postAzure(
 async function buildFormData(audioPath: string, fields: Record<string, string>): Promise<FormData> {
   const fd = new FormData()
   for (const [k, v] of Object.entries(fields)) fd.append(k, v)
-  const buffer = fs.readFileSync(audioPath)
+  const buffer = await fs.promises.readFile(audioPath)
   const blob = new Blob([new Uint8Array(buffer)], { type: 'audio/mpeg' })
   fd.append('file', blob, path.basename(audioPath))
   return fd
