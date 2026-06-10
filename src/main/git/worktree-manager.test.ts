@@ -188,6 +188,32 @@ describe('WorktreeManager', () => {
         manager.createWorktree('/repo', 'develop', 'proj-1', 'repo/oslo')
       ).rejects.toThrow('Base branch "develop" does not exist')
     })
+
+    it('rolls back the worktree and branch when a post-add step fails', async () => {
+      mockSpawnSequence([
+        { stdout: 'abc123\n' },                              // rev-parse --verify main (base ref OK)
+        { stdout: '' },                                      // worktree add -b
+        { stdout: '', exitCode: 1, stderr: 'fatal: reset' }, // reset --mixed HEAD (fails)
+        { stdout: '' },                                      // rollback: worktree remove --force
+        { stdout: '' },                                      // rollback: branch -D
+      ])
+
+      await expect(
+        manager.createWorktree('/repo', 'main', 'proj-1', 'repo/oslo')
+      ).rejects.toThrow()
+
+      // The orphan worktree is removed and its branch deleted.
+      expect(mockSpawn).toHaveBeenCalledWith(
+        'git',
+        ['worktree', 'remove', expect.stringContaining('repo-oslo'), '--force'],
+        { cwd: '/repo', stdio: ['ignore', 'pipe', 'pipe'] },
+      )
+      expect(mockSpawn).toHaveBeenCalledWith(
+        'git',
+        ['branch', '-D', 'repo/oslo'],
+        { cwd: '/repo', stdio: ['ignore', 'pipe', 'pipe'] },
+      )
+    })
   })
 
   describe('removeWorktree', () => {
@@ -244,6 +270,36 @@ describe('WorktreeManager', () => {
       expect(removeWorktreeMeta).toHaveBeenCalledWith(
         '/mock-home/.manifold/worktrees/proj/repo-oslo',
       )
+    })
+
+    it('removes the worktree before deleting the meta sidecar', async () => {
+      mockSpawnSequence([{ stdout: '' }]) // worktree remove --force
+      const { removeWorktreeMeta } = await import('./worktree-meta')
+      const calls: string[] = []
+      ;(removeWorktreeMeta as ReturnType<typeof vi.fn>).mockImplementation(async () => { calls.push('meta') })
+      mockSpawn.mockImplementation(() => { calls.push('git'); return fakeSpawnResult('') })
+
+      await manager.removeWorktree('/repo', '/mock-home/.manifold/worktrees/proj/repo-oslo')
+
+      // Git worktree removal must happen first; the meta sidecar is dropped after.
+      expect(calls).toEqual(['git', 'meta'])
+    })
+
+    it('keeps the meta sidecar when every removal path (incl. fs.rm) fails', async () => {
+      mockSpawnSequence([
+        { stdout: '', exitCode: 1, stderr: 'fatal: ...' }, // remove --force
+        { stdout: '', exitCode: 1, stderr: 'fatal: ...' }, // remove -f -f
+        { stdout: '' },                                    // worktree prune
+      ])
+      const fsp = await import('node:fs/promises')
+      ;(fsp.rm as ReturnType<typeof vi.fn>).mockRejectedValueOnce(new Error('EBUSY'))
+      const { removeWorktreeMeta } = await import('./worktree-meta')
+
+      await manager.removeWorktree('/repo', '/mock-home/.manifold/worktrees/proj/repo-oslo')
+
+      // The orphan stays on disk and in `git worktree list`; keep the meta so it
+      // remains visible to Manifold and removable later.
+      expect(removeWorktreeMeta).not.toHaveBeenCalled()
     })
   })
 

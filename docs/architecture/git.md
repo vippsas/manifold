@@ -1,7 +1,7 @@
 ---
 description: How Manifold creates, lists, and removes git worktrees, checks out branches/PRs, persists per-session worktree meta, and runs raw git/gh for commits, diffs, and PR creation.
 covers: [src/main/git]
-updated: 2026-06-08
+updated: 2026-06-10
 owner: see .github/CODEOWNERS
 ---
 
@@ -44,21 +44,29 @@ branch name (caller-supplied or `generateBranchName`), makes the per-project wor
 (`/` → `-`), calls `ensureBaseRef` (which bootstraps an empty repo with an
 `--allow-empty` initial commit), then `git worktree add -b <branch> <path> <base>`. It
 immediately runs `git reset --mixed HEAD` so stale index/admin state can't leak across
-sessions, then `prepareManagedWorktree`. `createWorktreeFromBranch` (`worktree-manager.ts:48`)
+sessions, then `prepareManagedWorktree`. If any post-`add` step throws, it rolls the `add`
+back (remove the worktree, `git branch -D` the new branch) so no orphan branch+dir leaks —
+the meta sidecar isn't written until `session-creator` runs, so without rollback the orphan
+would be invisible to `listWorktrees`. `createWorktreeFromBranch` (`worktree-manager.ts:73`)
 is the no-`-b` variant for an existing branch: it reuses the path if it exists, prunes, and
 switches the main repo off the branch first if that branch is currently checked out there
-(git refuses a worktree for an already-checked-out branch).
+(git refuses a worktree for an already-checked-out branch). All mutating sequences run under a
+per-repo lock (`repo-lock.ts`) so concurrent spawns/checkouts on the same repo can't race git's
+own index/worktree locks.
 
-**List worktrees.** `listWorktrees()` (`worktree-manager.ts:152`) parses
+**List worktrees.** `listWorktrees()` (`worktree-manager.ts:200`) parses
 `git worktree list --porcelain`, skips the main repo path, and — critically — keeps only
 worktrees that have a meta sidecar (`readWorktreeMeta` non-null). That filter is what makes
 "Manifold-managed" worktrees distinct from any the user created by hand.
 
-**Remove a worktree.** `removeWorktree()` (`worktree-manager.ts:116`) deletes the meta sidecar
-*first*, then tries `git worktree remove --force`, then `--force --force` (locked worktrees),
-and finally falls back to `fs.rm` + `git worktree prune`. The meta is removed before anything
-else because `SessionDiscovery` resurrects sessions from the sidecar's presence — leaving it
-would make a deleted agent reappear in the sidebar.
+**Remove a worktree.** `removeWorktree()` (`worktree-manager.ts:150`, under the per-repo lock)
+tries `git worktree remove --force`, then `--force --force` (locked worktrees), and finally
+falls back to `fs.rm` + `git worktree prune`. The meta sidecar is removed *last* — only after
+the worktree is actually gone (a successful `remove` or a successful `fs.rm`). Removing it
+up-front would orphan the worktree if *every* removal path failed: it would stay on disk and in
+`git worktree list` yet be invisible to Manifold forever. Keeping the meta until removal
+succeeds makes that failure recoverable, and the worktree being gone is what stops
+`SessionDiscovery` resurrecting a deleted agent from the sidecar's presence.
 
 **Worktree meta.** The `WorktreeMeta` record (`worktree-meta.ts:3`) holds `runtimeId`,
 `displayName`, `taskDescription`, simple-mode template fields, `additionalDirs`,
@@ -79,11 +87,11 @@ session layer rebuild dormant sessions on the next launch.
 renames the index aside, runs `reset --mixed HEAD`, re-applies the guards, and retries once.
 
 **Branch & PR checkout.** `BranchCheckoutManager.listBranches()`
-(`branch-checkout-manager.ts:32`) best-effort `fetch --all --prune`, lists local + remote refs
+(`branch-checkout-manager.ts:53`) best-effort `fetch --all --prune`, lists local + remote refs
 via `git branch -a`, drops branches already checked out in a worktree, and tags each result
 `local` / `remote` / `both`. `listOpenPRs` and `fetchPRBranch` shell out to `gh`
-(`ghExec`, `branch-checkout-manager.ts:8`) — `parsePRNumber` accepts a bare number or a
-`/pull/<n>` URL. Its own `createWorktreeFromBranch` (`branch-checkout-manager.ts:133`)
+(`ghExec`, `branch-checkout-manager.ts:12`) — `parsePRNumber` accepts a bare number or a
+`/pull/<n>` URL. Its own `createWorktreeFromBranch` (`branch-checkout-manager.ts:160`)
 mirrors `WorktreeManager`'s existing-branch path and is what `SessionCreator` calls for
 `existingBranch` / PR-checkout spawns.
 
@@ -101,15 +109,16 @@ PR URL.
 
 ## Key types and entry points
 
-- `WorktreeManager` — `worktree-manager.ts:15`. `createWorktree`, `createWorktreeFromBranch`, `removeWorktree`, `listWorktrees`, `branchExists`. Constructed with the user's `storagePath`.
-- `BranchCheckoutManager` — `branch-checkout-manager.ts:29`. `listBranches`, `listOpenPRs`, `fetchPRBranch`, `createWorktreeFromBranch`.
+- `WorktreeManager` — `worktree-manager.ts:15`. `createWorktree`, `createWorktreeFromBranch`, `removeWorktree`, `listWorktrees`, `branchExists`, `deleteBranch`. Constructed with the user's `storagePath`.
+- `BranchCheckoutManager` — `branch-checkout-manager.ts:50`. `listBranches`, `listOpenPRs`, `fetchPRBranch`, `createWorktreeFromBranch`.
 - `WorktreeMeta` / `readWorktreeMeta` / `writeWorktreeMeta` / `removeWorktreeMeta` — `worktree-meta.ts:3`. The durable per-session sidecar.
 - `commitManagedWorktree` / `prepareManagedWorktree` / `getManagedWorktreeStatus` — `managed-worktree.ts:66` / `:19` / `:49`.
 - `GitOperationsManager` — `git-operations.ts:24`. `commit`, `fetchAndUpdate`, `getAheadBehind`, `isBranchMerged`, `getConflicts`, `resolveConflict`, `getPRContext`, `aiGenerate`.
 - `PrCreator` — `pr-creator.ts:6`. `isGhAvailable`, `pushBranch`, `createPR`.
 - `DiffProvider` — `diff-provider.ts:10`. `getDiff`, `getDiffStats`, `getChangedFiles`, `getOriginalContent`.
 - `generateBranchName` — `branch-namer.ts:24`. `<repo>/<slug>`, deduplicated with a numeric suffix.
-- `gitExec` — `git-exec.ts:8`. The shared low-level git runner.
+- `gitExec` — `git-exec.ts:8`. The shared low-level git runner; takes an optional `timeoutMs` that `SIGKILL`s the child.
+- `withRepoLock` — `repo-lock.ts`. Per-repo promise queue that serializes mutating git operations on the same repo path.
 
 ## Interactions
 
@@ -121,12 +130,14 @@ PR URL.
 
 ## Invariants & gotchas
 
-- **Meta sidecar lives outside the worktree.** It is `<worktreePath>.manifold.json`, a *sibling* of the directory (`worktree-meta.ts:18`), so it persists across `git worktree remove` and is invisible to git. Discovery keys off its presence; `removeWorktree` deletes it *first* so a removed agent can't reappear in the sidebar (`worktree-manager.ts:118`).
-- **A worktree is "managed" only if it has meta.** `listWorktrees` filters out any worktree (and the main repo) without a sidecar (`worktree-manager.ts:176`), so hand-rolled worktrees are ignored.
-- **Removal degrades gracefully.** `--force` → `--force --force` → `fs.rm` + `prune`; every failure is logged via `debugLog` but never thrown, so teardown can't get wedged on a locked worktree (`worktree-manager.ts:123`).
-- **Fresh worktrees are reset.** Both create paths run `git reset --mixed HEAD` right after `worktree add` to drop stale index/admin state that could otherwise leak between sessions (`worktree-manager.ts:42`, `branch-checkout-manager.ts:163`).
+- **Meta sidecar lives outside the worktree.** It is `<worktreePath>.manifold.json`, a *sibling* of the directory (`worktree-meta.ts:18`), so it persists across `git worktree remove` and is invisible to git. Discovery keys off its presence; `removeWorktree` deletes it *last* — only once the worktree is actually gone — so a removal that fails outright keeps the orphan visible-and-removable rather than invisible forever (`worktree-manager.ts:150`).
+- **Mutating git ops are serialized per repo.** `withRepoLock(projectPath, …)` (`repo-lock.ts`) chains create/remove/checkout/fetch on a given repo so concurrent spawns can't collide on git's index/worktree locks or both pass a branch-existence check (`worktree-manager.ts`, `branch-checkout-manager.ts`).
+- **A worktree is "managed" only if it has meta.** `listWorktrees` filters out any worktree (and the main repo) without a sidecar (`worktree-manager.ts:227`), so hand-rolled worktrees are ignored.
+- **Removal degrades gracefully.** `--force` → `--force --force` → `fs.rm` + `prune`; every failure is logged via `debugLog` but never thrown, so teardown can't get wedged on a locked worktree (`worktree-manager.ts:150`).
+- **Network commands have a kill timeout.** `gitExec`/`ghExec` take a timeout that `SIGKILL`s the child and rejects, applied to `fetch`/`gh pr` so a hung child (e.g. git prompting on `/dev/tty`) can't wedge an IPC handler (`git-exec.ts`, `branch-checkout-manager.ts`).
+- **Fresh worktrees are reset.** Both create paths run `git reset --mixed HEAD` right after `worktree add` to drop stale index/admin state that could otherwise leak between sessions (`worktree-manager.ts:45`, `branch-checkout-manager.ts:194`).
 - **Index poisoning self-heals.** Staging/commit/status retry once after renaming a corrupt index aside and re-running `reset --mixed HEAD` (`managed-worktree.ts:106`); the bad index is kept as `index.manifold-bad-<ts>` rather than deleted.
-- **Empty repos are bootstrapped.** `ensureBaseRef` creates an `--allow-empty` "Initial commit" so a brand-new repo with no refs can still host a worktree (`worktree-manager.ts:94`).
+- **Empty repos are bootstrapped.** `ensureBaseRef` creates an `--allow-empty` "Initial commit" so a brand-new repo with no refs can still host a worktree (`worktree-manager.ts:107`).
 - **Diffs never mutate the index.** `DiffProvider` compares the working tree to the base ref directly and tolerates a branch with no commits yet (each git call is wrapped in try/catch returning empty) (`diff-provider.ts:29`).
 - **`gh` is required for PR/branch features.** `PrCreator.createPR` throws a friendly "GitHub CLI not installed/authenticated" error if `gh --version` fails (`pr-creator.ts:36`); `listOpenPRs`/`fetchPRBranch` will reject if `gh` is missing.
 - **`resolveConflict` guards path traversal.** It rejects a resolved path that escapes the worktree before writing (`git-operations.ts:111`).
