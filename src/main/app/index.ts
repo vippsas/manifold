@@ -165,7 +165,9 @@ function doCreateWindow(): void {
     onToggleKeepAwake: toggleKeepAwake,
   })
   mainWindow = win
-  win.on('closed', () => { mainWindow = null })
+  // Only null out if this is still the live window — a stale 'closed' from a
+  // previous window (e.g. during a mode switch) must not clobber the new one.
+  win.on('closed', () => { if (mainWindow === win) mainWindow = null })
 }
 
 const modeSwitcher = new ModeSwitcher({ settingsStore, sessionManager, projectRegistry, chatStore })

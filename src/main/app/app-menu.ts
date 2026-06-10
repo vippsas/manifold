@@ -6,27 +6,33 @@ export interface AppMenuOptions {
 }
 
 export function buildAppMenu(mainWindow: BrowserWindow, options: AppMenuOptions): Menu {
+  // On macOS, closing the window (Cmd+W) keeps the app alive but destroys this
+  // captured BrowserWindow. The reference is non-null but destroyed, so optional
+  // chaining doesn't help — guard with isDestroyed() before touching webContents.
+  const send = (channel: string, ...args: unknown[]): void => {
+    if (mainWindow && !mainWindow.isDestroyed()) mainWindow.webContents.send(channel, ...args)
+  }
   const menuTemplate: Electron.MenuItemConstructorOptions[] = [
     {
       label: 'Manifold',
       submenu: [
         {
           label: 'About Manifold',
-          click: () => mainWindow?.webContents.send('show-about'),
+          click: () => send('show-about'),
         },
         { type: 'separator' },
         {
           label: "What's New",
-          click: () => mainWindow?.webContents.send('show-update-log'),
+          click: () => send('show-update-log'),
         },
         {
           label: 'Check for Updates...',
-          click: () => mainWindow?.webContents.send('show-update-check'),
+          click: () => send('show-update-check'),
         },
         {
           label: 'Settings…',
           accelerator: 'CmdOrCtrl+,',
-          click: () => mainWindow?.webContents.send('show-settings'),
+          click: () => send('show-settings'),
         },
         { type: 'separator' },
         {
@@ -59,7 +65,7 @@ export function buildAppMenu(mainWindow: BrowserWindow, options: AppMenuOptions)
         {
           label: 'Find in Files',
           accelerator: 'CmdOrCtrl+Shift+F',
-          click: () => mainWindow?.webContents.send('view:show-search'),
+          click: () => send('view:show-search'),
         },
       ],
     },
@@ -69,32 +75,32 @@ export function buildAppMenu(mainWindow: BrowserWindow, options: AppMenuOptions)
         {
           label: 'Toggle Projects',
           accelerator: 'CmdOrCtrl+Alt+1',
-          click: () => mainWindow?.webContents.send('view:toggle-panel', 'projects'),
+          click: () => send('view:toggle-panel', 'projects'),
         },
         {
           label: 'Toggle Agent',
           accelerator: 'CmdOrCtrl+Alt+2',
-          click: () => mainWindow?.webContents.send('view:toggle-panel', 'agent'),
+          click: () => send('view:toggle-panel', 'agent'),
         },
         {
           label: 'Toggle Editor',
           accelerator: 'CmdOrCtrl+Alt+3',
-          click: () => mainWindow?.webContents.send('view:toggle-panel', 'editor'),
+          click: () => send('view:toggle-panel', 'editor'),
         },
         {
           label: 'Toggle Files',
           accelerator: 'CmdOrCtrl+Alt+4',
-          click: () => mainWindow?.webContents.send('view:toggle-panel', 'fileTree'),
+          click: () => send('view:toggle-panel', 'fileTree'),
         },
         {
           label: 'Toggle Modified Files',
           accelerator: 'CmdOrCtrl+Alt+5',
-          click: () => mainWindow?.webContents.send('view:toggle-panel', 'modifiedFiles'),
+          click: () => send('view:toggle-panel', 'modifiedFiles'),
         },
         {
           label: 'Toggle Shell',
           accelerator: 'CmdOrCtrl+Alt+6',
-          click: () => mainWindow?.webContents.send('view:toggle-panel', 'shell'),
+          click: () => send('view:toggle-panel', 'shell'),
         },
         { type: 'separator' },
         { role: 'reload' },
@@ -113,7 +119,7 @@ export function buildAppMenu(mainWindow: BrowserWindow, options: AppMenuOptions)
       submenu: Array.from({ length: 9 }, (_, i) => ({
         label: `Jump to Favorite ${i + 1}`,
         accelerator: `CmdOrCtrl+${i + 1}`,
-        click: () => mainWindow?.webContents.send('view:jump-favorite', i),
+        click: () => send('view:jump-favorite', i),
       })),
     },
     {

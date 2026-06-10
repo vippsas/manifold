@@ -74,7 +74,9 @@ menu is set last.
 
 **App menu.** `buildAppMenu()` (`app-menu.ts:8`) is almost entirely a router: every custom
 item (`About`, `What's New`, `Settings…`, panel toggles, `Find in Files`, `Jump to Favorite N`)
-does `mainWindow.webContents.send(...)` to a renderer channel; the rest are built-in roles.
+sends to a renderer channel via a local `send` helper that guards with `isDestroyed()` — the
+captured window survives a macOS Cmd+W as a destroyed (non-null) object, so optional chaining
+alone would still throw on `.webContents`; the rest are built-in roles.
 The only stateful item is the `Keep Mac Awake` checkbox, whose `checked` state is passed in and
 re-rendered via `rebuildAppMenu()` when toggled (`index.ts:143`).
 
