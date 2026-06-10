@@ -46,7 +46,9 @@ export class SessionTeardown {
         debugLog(`[session] auto-commit failed: ${err}`)
       }
 
-      await this.onKillSession(session.id)
+      if (this.sessions.has(session.id)) {
+        await this.onKillSession(session.id)
+      }
       killedIds.push(session.id)
     }
 
