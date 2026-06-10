@@ -1,6 +1,6 @@
 import { execFile, spawn } from 'node:child_process'
 import { writeFile } from 'node:fs/promises'
-import { join, resolve, normalize } from 'node:path'
+import { join, resolve, normalize, sep } from 'node:path'
 import { promisify } from 'node:util'
 import type { AheadBehind, FetchResult } from '../../shared/types'
 import type { AgentRuntime } from '../../shared/types'
@@ -14,6 +14,9 @@ import {
 const execFileAsync = promisify(execFile)
 
 const DEFAULT_AI_GENERATE_TIMEOUT_MS = 30_000
+
+/** Grace period after SIGTERM on timeout before escalating to SIGKILL. */
+const AI_GENERATE_KILL_GRACE_MS = 2_000
 
 interface AiGenerateOptions {
   timeoutMs?: number
@@ -108,7 +111,7 @@ export class GitOperationsManager {
     resolvedContent: string
   ): Promise<void> {
     const resolved = resolve(worktreePath, normalize(filePath))
-    if (!resolved.startsWith(worktreePath)) {
+    if (resolved !== worktreePath && !resolved.startsWith(worktreePath + sep)) {
       throw new Error('Path traversal denied: file outside worktree')
     }
     await writeFile(resolved, resolvedContent, 'utf-8')
@@ -134,13 +137,28 @@ export class GitOperationsManager {
       const stdoutChunks: Buffer[] = []
       const stderrChunks: Buffer[] = []
       let settled = false
-      let timedOut = false
+      let killTimer: NodeJS.Timeout | undefined
       child.stdout?.on('data', (data: Buffer) => stdoutChunks.push(data))
       child.stderr?.on('data', (data: Buffer) => stderrChunks.push(data))
 
       const timer = setTimeout(() => {
-        timedOut = true
+        // Reject immediately rather than waiting for 'close', which may never
+        // fire if the child ignores SIGTERM or a grandchild inherits stdout.
+        // Escalate to SIGKILL after a grace period so the process is reaped.
         child.kill('SIGTERM')
+        killTimer = setTimeout(() => child.kill('SIGKILL'), AI_GENERATE_KILL_GRACE_MS)
+        killTimer.unref?.()
+        settle(() => {
+          if (!options.silent) {
+            console.error('[aiGenerate] timed out:', {
+              runtime: runtime.id,
+              timeoutMs,
+            })
+          }
+          reject(new Error(
+            `AI runtime "${runtime.id}" failed (timed out): timed out after ${timeoutMs / 1000} seconds`,
+          ))
+        })
       }, timeoutMs)
 
       const settle = (callback: () => void) => {
@@ -163,6 +181,7 @@ export class GitOperationsManager {
       })
 
       child.on('close', (code) => {
+        if (killTimer) clearTimeout(killTimer)
         settle(() => {
           const stdout = Buffer.concat(stdoutChunks).toString('utf8')
           const stderr = Buffer.concat(stderrChunks).toString('utf8').trim()
@@ -172,9 +191,7 @@ export class GitOperationsManager {
             return
           }
 
-          const failure = timedOut
-            ? `timed out after ${timeoutMs / 1000} seconds`
-            : parseAiRuntimeFailure(command.outputMode, stdout, stderr)
+          const failure = parseAiRuntimeFailure(command.outputMode, stdout, stderr)
           const codeLabel = code === null ? 'terminated' : `exit code ${code}`
           const message = failure
             ? `AI runtime "${runtime.id}" failed (${codeLabel}): ${failure}`
@@ -193,6 +210,9 @@ export class GitOperationsManager {
         })
       })
 
+      // Swallow EPIPE etc. if the child exits/SIGKILLs while stdin is buffered;
+      // stdin stream errors are not covered by child.on('error').
+      child.stdin?.on('error', () => {})
       child.stdin?.end()
     })
   }
@@ -201,11 +221,15 @@ export class GitOperationsManager {
     worktreePath: string,
     baseBranch: string
   ): Promise<{ commits: string; diffStat: string; diffPatch: string }> {
+    // Large real-branch diffs easily exceed execFile's default 1MB maxBuffer;
+    // without a larger limit the diff call rejects and the blanket catch below
+    // would leave AI PR generation with zero context.
+    const PR_CONTEXT_MAX_BUFFER = 50 * 1024 * 1024
     try {
       const [logResult, statResult, diffResult] = await Promise.all([
-        execFileAsync('git', ['log', '--oneline', `${baseBranch}..HEAD`], { cwd: worktreePath }),
-        execFileAsync('git', ['diff', '--stat', `${baseBranch}..HEAD`], { cwd: worktreePath }),
-        execFileAsync('git', ['diff', `${baseBranch}..HEAD`], { cwd: worktreePath }),
+        execFileAsync('git', ['log', '--oneline', `${baseBranch}..HEAD`], { cwd: worktreePath, maxBuffer: PR_CONTEXT_MAX_BUFFER }),
+        execFileAsync('git', ['diff', '--stat', `${baseBranch}..HEAD`], { cwd: worktreePath, maxBuffer: PR_CONTEXT_MAX_BUFFER }),
+        execFileAsync('git', ['diff', `${baseBranch}..HEAD`], { cwd: worktreePath, maxBuffer: PR_CONTEXT_MAX_BUFFER }),
       ])
       return {
         commits: logResult.stdout.trim(),

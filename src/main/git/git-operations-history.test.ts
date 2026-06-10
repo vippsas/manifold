@@ -47,14 +47,24 @@ describe('GitOperationsManager history', () => {
       expect(ctx.diffStat).toBe('src/a.ts | 10 ++++\n src/b.ts |  3 ---')
       expect(ctx.diffPatch).toBe('diff --git a/src/a.ts b/src/a.ts\n+new line')
       expect(mockExecFileAsync).toHaveBeenCalledWith(
-        'git', ['log', '--oneline', 'main..HEAD'], { cwd: '/worktree' },
+        'git', ['log', '--oneline', 'main..HEAD'], { cwd: '/worktree', maxBuffer: 50 * 1024 * 1024 },
       )
       expect(mockExecFileAsync).toHaveBeenCalledWith(
-        'git', ['diff', '--stat', 'main..HEAD'], { cwd: '/worktree' },
+        'git', ['diff', '--stat', 'main..HEAD'], { cwd: '/worktree', maxBuffer: 50 * 1024 * 1024 },
       )
       expect(mockExecFileAsync).toHaveBeenCalledWith(
-        'git', ['diff', 'main..HEAD'], { cwd: '/worktree' },
+        'git', ['diff', 'main..HEAD'], { cwd: '/worktree', maxBuffer: 50 * 1024 * 1024 },
       )
+    })
+
+    it('passes a large maxBuffer to every git call so large diffs are not dropped', async () => {
+      mockExecFileAsync.mockResolvedValue({ stdout: '', stderr: '' })
+
+      await git.getPRContext('/worktree', 'main')
+
+      for (const call of mockExecFileAsync.mock.calls) {
+        expect(call[2]).toMatchObject({ maxBuffer: 50 * 1024 * 1024 })
+      }
     })
 
     it('truncates diffPatch to 6000 chars', async () => {

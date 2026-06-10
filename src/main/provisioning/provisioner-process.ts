@@ -168,6 +168,9 @@ export async function runProvisionerRequest<T>(
       }))
     })
 
+    // Swallow EPIPE etc. if the child exits/SIGKILLs while stdin is buffered;
+    // stdin stream errors are not covered by child.on('error').
+    child.stdin.on('error', () => {})
     child.stdin.write(JSON.stringify(request))
     child.stdin.end()
   })

@@ -1,7 +1,7 @@
 ---
 description: How Manifold creates, lists, and removes git worktrees, checks out branches/PRs, persists per-session worktree meta, and runs raw git/gh for commits, diffs, and PR creation.
 covers: [src/main/git]
-updated: 2026-06-08
+updated: 2026-06-10
 owner: see .github/CODEOWNERS
 ---
 
@@ -129,4 +129,4 @@ PR URL.
 - **Empty repos are bootstrapped.** `ensureBaseRef` creates an `--allow-empty` "Initial commit" so a brand-new repo with no refs can still host a worktree (`worktree-manager.ts:94`).
 - **Diffs never mutate the index.** `DiffProvider` compares the working tree to the base ref directly and tolerates a branch with no commits yet (each git call is wrapped in try/catch returning empty) (`diff-provider.ts:29`).
 - **`gh` is required for PR/branch features.** `PrCreator.createPR` throws a friendly "GitHub CLI not installed/authenticated" error if `gh --version` fails (`pr-creator.ts:36`); `listOpenPRs`/`fetchPRBranch` will reject if `gh` is missing.
-- **`resolveConflict` guards path traversal.** It rejects a resolved path that escapes the worktree before writing (`git-operations.ts:111`).
+- **`resolveConflict` guards path traversal.** It rejects a resolved path that escapes the worktree before writing, requiring a `path.sep` boundary so a sibling worktree sharing a name prefix is also rejected (`git-operations.ts:114`).

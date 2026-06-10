@@ -149,6 +149,14 @@ describe('GitOperationsManager core', () => {
       ).rejects.toThrow('Path traversal denied')
     })
 
+    it('rejects a sibling worktree that shares a name prefix', async () => {
+      // '/worktrees/manifold-mo' must not match '/worktrees/manifold-mo-i-rana-7'.
+      await expect(
+        git.resolveConflict('/worktrees/manifold-mo', '../manifold-mo-i-rana-7/x', 'content'),
+      ).rejects.toThrow('Path traversal denied')
+      expect(mockWriteFile).not.toHaveBeenCalled()
+    })
+
     it('writes file and runs git add for valid paths', async () => {
       mockWriteFile.mockResolvedValue(undefined)
       mockStageManagedWorktreePath.mockResolvedValue(undefined)
@@ -179,7 +187,7 @@ describe('GitOperationsManager core', () => {
       const child = Object.assign(new EventEmitter(), {
         stdout: new EventEmitter(),
         stderr: new EventEmitter(),
-        stdin: { end: vi.fn() },
+        stdin: { on: vi.fn(), end: vi.fn() },
         kill: vi.fn(),
       })
       mockSpawn.mockReturnValue(child)
@@ -251,11 +259,49 @@ describe('GitOperationsManager core', () => {
       )
     })
 
+    it('rejects on timeout and escalates to SIGKILL when the child ignores SIGTERM', async () => {
+      vi.useFakeTimers()
+      try {
+        // Child never emits 'close' (SIGTERM ignored / grandchild holds stdout).
+        const kill = vi.fn()
+        const child = Object.assign(new EventEmitter(), {
+          stdout: new EventEmitter(),
+          stderr: new EventEmitter(),
+          stdin: { on: vi.fn(), end: vi.fn() },
+          kill,
+        })
+        mockSpawn.mockReturnValue(child)
+
+        const promise = git.aiGenerate(
+          { id: 'claude', name: 'Claude', binary: '/usr/local/bin/claude' },
+          'prompt',
+          '/worktree',
+          [],
+          { timeoutMs: 1_000, silent: true },
+        )
+        const assertion = expect(promise).rejects.toThrow(
+          'AI runtime "claude" failed (timed out): timed out after 1 seconds',
+        )
+
+        // Fire the timeout: rejects immediately and sends SIGTERM.
+        await vi.advanceTimersByTimeAsync(1_000)
+        expect(kill).toHaveBeenCalledWith('SIGTERM')
+
+        // After the grace period, escalate to SIGKILL.
+        await vi.advanceTimersByTimeAsync(2_000)
+        expect(kill).toHaveBeenCalledWith('SIGKILL')
+
+        await assertion
+      } finally {
+        vi.useRealTimers()
+      }
+    })
+
     it('rejects on spawn error', async () => {
       const child = Object.assign(new EventEmitter(), {
         stdout: new EventEmitter(),
         stderr: new EventEmitter(),
-        stdin: { end: vi.fn() },
+        stdin: { on: vi.fn(), end: vi.fn() },
         kill: vi.fn(),
       })
       mockSpawn.mockReturnValue(child)
