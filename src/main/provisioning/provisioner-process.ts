@@ -56,9 +56,17 @@ export async function runProvisionerRequest<T>(
 
     const finish = (): void => {
       clearTimeout(timer)
+      child.kill('SIGTERM')
+      // Detach data listeners so the process can exit and buffers stop growing.
+      child.stdout.removeAllListeners('data')
+      child.stderr.removeAllListeners('data')
+      stdoutBuffer = ''
+      stderrBuffer = ''
     }
 
     const maybeResolveOrReject = (event: ProvisionerEvent<T>): void => {
+      if (settled) return
+
       if (event.protocolVersion !== PROVISIONER_PROTOCOL_VERSION) {
         settled = true
         finish()
@@ -112,7 +120,6 @@ export async function runProvisionerRequest<T>(
             reject(new ProvisioningError('protocol_error', `Invalid provisioner JSON output: ${String(err)}`, {
               code: 'invalid_provisioner_json',
             }))
-            child.kill('SIGTERM')
             return
           }
         }
@@ -142,8 +149,10 @@ export async function runProvisionerRequest<T>(
 
     child.on('close', (code) => {
       if (settled) return
-      finish()
+      // Read buffers before finish() clears them.
       const trailing = stdoutBuffer.trim()
+      const stderrText = stderrBuffer.trim()
+      finish()
       if (trailing) {
         try {
           maybeResolveOrReject(JSON.parse(trailing) as ProvisionerEvent<T>)
@@ -152,7 +161,6 @@ export async function runProvisionerRequest<T>(
           // Fall through to command failure below.
         }
       }
-      const stderrText = stderrBuffer.trim()
       debugLog(`[provisioning] provisioner exited with code ${code ?? 'unknown'}: ${stderrText.slice(0, 500)}`)
       reject(new ProvisioningError('provisioner_unavailable', stderrText || `Provisioner exited with code ${code ?? 'unknown'}`, {
         code: 'provisioner_exit_failure',
