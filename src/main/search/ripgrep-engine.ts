@@ -145,7 +145,7 @@ export function buildRipgrepArgs(request: SearchQueryRequest, limit: number): st
     args.push('-g', `!${glob}`)
   }
 
-  args.push(request.query.trim(), '.')
+  args.push('--', request.query.trim(), '.')
   return args
 }
 
