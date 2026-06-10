@@ -80,19 +80,10 @@ export function createWindow(deps: WindowFactoryDeps): BrowserWindow {
     webPreferences.contextIsolation = true
 
     const url = params.src || ''
-    const isLocalhost = /^https?:\/\/(localhost|127\.0\.0\.1|0\.0\.0\.0)(:\d+)?/.test(url)
+    const isLocalhost = /^https?:\/\/(localhost|127\.0\.0\.1|0\.0\.0\.0)(:\d+)?(\/|$)/.test(url)
     if (!isLocalhost) {
       _event.preventDefault()
     }
-  })
-
-  // Suppress ERR_ABORTED (-3) from webview when dev server restarts or shuts down.
-  win.webContents.on('did-attach-webview', (_event, webContents) => {
-    webContents.on('did-fail-load', (failEvent, errorCode) => {
-      if (errorCode === -3) {
-        failEvent.preventDefault()
-      }
-    })
   })
 
   deps.wireMainWindow(win)
