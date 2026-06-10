@@ -183,6 +183,7 @@ const ALLOWED_LISTEN_CHANNELS = [
   'plugins:tree-refresh',
   'plugins:ui-request',
   'plugins:contributions-changed',
+  'plugins:reveal-session',
 ] as const
 
 type InvokeChannel = (typeof ALLOWED_INVOKE_CHANNELS)[number]

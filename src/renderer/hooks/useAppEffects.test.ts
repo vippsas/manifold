@@ -174,4 +174,30 @@ describe('useAppEffects', () => {
     })
     expect(input.jumpToFavorite).toHaveBeenCalledWith(2)
   })
+
+  it('opens the sibling panel on plugins:reveal-session', () => {
+    const { input } = createInput()
+    renderHook(() => useAppEffects({ ...input }))
+
+    const reveal = vi.mocked(window.electronAPI.on).mock.calls.find(([channel]) => channel === 'plugins:reveal-session')?.[1]
+    if (!reveal) throw new Error('plugins:reveal-session handler was not registered')
+
+    act(() => {
+      reveal('sess-42', 'Watching: intro')
+    })
+    expect(input.dockLayout.openSiblingPanel).toHaveBeenCalledWith('sess-42', 'Watching: intro')
+  })
+
+  it('ignores reveal events without a session id', () => {
+    const { input } = createInput()
+    renderHook(() => useAppEffects({ ...input }))
+
+    const reveal = vi.mocked(window.electronAPI.on).mock.calls.find(([channel]) => channel === 'plugins:reveal-session')?.[1]
+    if (!reveal) throw new Error('plugins:reveal-session handler was not registered')
+
+    act(() => {
+      reveal(undefined, 'x')
+    })
+    expect(input.dockLayout.openSiblingPanel).not.toHaveBeenCalled()
+  })
 })
