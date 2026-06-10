@@ -41,6 +41,10 @@ export class SessionManager {
   private killer: SessionKiller
   private ioController: SessionIoController
   private verdictRecorder: VerdictRecorder | null = null
+  /** Dedup concurrent resume calls for the same session id. */
+  private resumeInFlight = new Map<string, Promise<AgentSession>>()
+  /** Dedup concurrent noWorktree createSession calls for the same project id. */
+  private createNoWorktreeInFlight = new Map<string, Promise<AgentSession>>()
 
   constructor(
     private worktreeManager: WorktreeManager,
@@ -174,16 +178,41 @@ export class SessionManager {
     const noWorktree = Boolean(options.noWorktree || !isGitProject(project))
 
     if (noWorktree) {
-      const existingNoWorktree = Array.from(this.sessions.values()).find(
-        (s) => s.noWorktree && s.projectId === options.projectId
-      )
-      if (existingNoWorktree) {
-        throw new Error(
-          'A no-worktree agent is already running for this project. ' +
-          'Only one no-worktree agent can run at a time per project.'
-        )
+      // Serialize concurrent noWorktree spawns for the same project to prevent
+      // two callers both passing the duplicate check before either has registered
+      // its session (TOCTOU). The second caller awaits the first and then gets
+      // the "already running" error on re-check.
+      const inflight = this.createNoWorktreeInFlight.get(options.projectId)
+      if (inflight) {
+        return inflight
+      }
+      const promise = this.doCreateNoWorktreeSession(options)
+      this.createNoWorktreeInFlight.set(options.projectId, promise)
+      try {
+        return await promise
+      } finally {
+        this.createNoWorktreeInFlight.delete(options.projectId)
       }
     }
+
+    return this.doCreateSession(options)
+  }
+
+  private async doCreateNoWorktreeSession(options: SpawnAgentOptions): Promise<AgentSession> {
+    const existingNoWorktree = Array.from(this.sessions.values()).find(
+      (s) => s.noWorktree && s.projectId === options.projectId
+    )
+    if (existingNoWorktree) {
+      throw new Error(
+        'A no-worktree agent is already running for this project. ' +
+        'Only one no-worktree agent can run at a time per project.'
+      )
+    }
+    return this.doCreateSession(options)
+  }
+
+  private async doCreateSession(options: SpawnAgentOptions): Promise<AgentSession> {
+    const project = this.projectRegistry.getProject(options.projectId)!
 
     const session = await this.sessionCreator.create(options)
     this.sessions.set(session.id, session)
@@ -241,11 +270,24 @@ export class SessionManager {
       return toPublicSession(session)
     }
 
-    await resumeAgentSession(session, runtimeId, this.ptyPool, this.streamWirer, this.memoryInjector ?? undefined)
-    this.memoryCapture?.startCapturing(sessionId)
-    this.notifySessionsChanged(session.projectId)
+    // Deduplicate concurrent resume calls for the same session to prevent two
+    // callers both reading ptyId='' before either spawn completes, each spawning
+    // a PTY and leaving the first one orphaned and unkillable.
+    const inflight = this.resumeInFlight.get(sessionId)
+    if (inflight) return inflight
 
-    return toPublicSession(session)
+    const promise = resumeAgentSession(session, runtimeId, this.ptyPool, this.streamWirer, this.memoryInjector ?? undefined)
+      .then(() => {
+        this.memoryCapture?.startCapturing(sessionId)
+        this.notifySessionsChanged(session.projectId)
+        return toPublicSession(session)
+      })
+      .finally(() => {
+        this.resumeInFlight.delete(sessionId)
+      })
+
+    this.resumeInFlight.set(sessionId, promise)
+    return promise
   }
 
   async renameSession(sessionId: string, displayName: string): Promise<AgentSession> {

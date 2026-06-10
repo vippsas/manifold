@@ -199,6 +199,52 @@ describe('SessionManager — create / input / queries', () => {
     })
   })
 
+  describe('noWorktree uniqueness', () => {
+    // Use a folder (non-git) project to avoid git clean-tree checks in session-creator
+    beforeEach(() => {
+      ;(projectRegistry.getProject as ReturnType<typeof vi.fn>).mockImplementation((id: string) => {
+        if (id === 'proj-folder') {
+          return { id: 'proj-folder', name: 'folder-app', path: '/folder', baseBranch: 'main', addedAt: '2024-01-01', kind: 'folder' }
+        }
+        if (id === 'proj-1') {
+          return { id: 'proj-1', name: 'test', path: '/repo', baseBranch: 'main', addedAt: '2024-01-01' }
+        }
+        return undefined
+      })
+    })
+
+    it('throws when a no-worktree agent already exists for the project', async () => {
+      await sessionManager.createSession({
+        projectId: 'proj-folder',
+        runtimeId: 'claude',
+        prompt: 'first',
+      })
+
+      await expect(
+        sessionManager.createSession({
+          projectId: 'proj-folder',
+          runtimeId: 'claude',
+          prompt: 'second',
+        }),
+      ).rejects.toThrow('A no-worktree agent is already running for this project')
+    })
+
+    it('concurrent noWorktree spawns for the same project only create one session', async () => {
+      // Fire two concurrent creates — neither has completed when the other starts.
+      // The in-flight guard coalesces both callers onto the same promise so only
+      // one session is ever registered in the session map.
+      const [a, b] = await Promise.all([
+        sessionManager.createSession({ projectId: 'proj-folder', runtimeId: 'claude', prompt: 'a' }),
+        sessionManager.createSession({ projectId: 'proj-folder', runtimeId: 'claude', prompt: 'b' }),
+      ])
+
+      // Both callers receive the same session — only one PTY was spawned
+      expect(a.id).toBe(b.id)
+      expect(sessionManager.listSessions()).toHaveLength(1)
+      expect(ptyPool.spawn).toHaveBeenCalledTimes(1)
+    })
+  })
+
   describe('startDevServerSession', () => {
     it('starts the preview even when git cannot spawn for branch prep', async () => {
       const error = Object.assign(new Error('spawn git ENOENT'), {
