@@ -15,7 +15,6 @@ import type { ChatAdapter } from '../agent/chat-adapter'
 import type { ChatStore } from '../store/chat-store'
 import type { MemoryStore } from '../memory/memory-store'
 import type { AgentSession } from '../../shared/types'
-import type { WatchRunStore } from '../watch/run-store'
 import { VerdictStore } from '../store/verdict-store'
 import type { VerdictRecorder } from '../session/verdict-recorder'
 
@@ -37,7 +36,6 @@ export interface IpcDependencies {
   chatStore: ChatStore
   memoryStore: MemoryStore
   workspaceManager: import('../workspace/workspace-manager').WorkspaceManager
-  watchRunStore: WatchRunStore
   verdictStore: VerdictStore
   verdictRecorder?: VerdictRecorder
   pluginManager: import('../plugins/plugin-manager').PluginManager

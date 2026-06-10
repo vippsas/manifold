@@ -3,8 +3,6 @@ import * as path from 'node:path'
 import { startLocalRendererServer, type LocalRendererServer } from './local-renderer-server'
 import { setupAutoUpdater } from './auto-updater'
 import { flushDebugLogSync } from './debug-log'
-import { installWatchSkills } from '../watch/skill-installer'
-import { getBundledWatchSkillPath } from '../watch/resource-path'
 import { installWebviewProtocol } from '../plugins/webview-protocol'
 import { killInFlightAiGenerateChildren } from '../git/git-operations'
 import type { SettingsStore } from '../store/settings-store'
@@ -55,15 +53,6 @@ export function registerAppLifecycle(deps: AppLifecycleDeps): void {
     installWebviewProtocol()
     createWindow()
     setupAutoUpdater()
-
-    try {
-      const result = installWatchSkills({ sourceDir: getBundledWatchSkillPath() })
-      if (result.errors.length > 0) {
-        console.warn('[watch] skill install errors:', result.errors)
-      }
-    } catch (err) {
-      console.warn('[watch] skill install failed:', err)
-    }
 
     try {
       const settings = settingsStore.getSettings()
