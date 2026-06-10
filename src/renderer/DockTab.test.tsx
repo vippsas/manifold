@@ -9,7 +9,11 @@ import { siblingPanelId } from './hooks/agent-siblings'
 
 function makeHeaderProps(id: string, title: string): IDockviewPanelHeaderProps {
   return {
-    api: { id, title } as IDockviewPanelHeaderProps['api'],
+    api: {
+      id,
+      title,
+      onDidTitleChange: () => ({ dispose: () => {} }),
+    } as unknown as IDockviewPanelHeaderProps['api'],
   } as IDockviewPanelHeaderProps
 }
 

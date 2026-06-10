@@ -1,4 +1,5 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react'
+import { createPortal } from 'react-dom'
 import { viewerStyles } from './CodeViewer.styles'
 
 export interface ActionMenuButtonItem {
@@ -83,7 +84,7 @@ export function ActionMenuButton({
           <span style={viewerStyles.iconCaret} />
         </span>
       </button>
-      {menu && (
+      {menu && createPortal(
         <>
           <div style={viewerStyles.actionMenuOverlay} onClick={() => setMenu(null)} />
           <div
@@ -117,7 +118,8 @@ export function ActionMenuButton({
               </button>
             ))}
           </div>
-        </>
+        </>,
+        document.body,
       )}
     </>
   )

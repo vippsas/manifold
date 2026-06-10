@@ -1,4 +1,5 @@
 import React from 'react'
+import { createPortal } from 'react-dom'
 import type { OpenFile } from '../../hooks/useCodeView'
 import { viewerStyles } from './CodeViewer.styles'
 import { fileName, getFileTabLabels, type FileTabLabel } from './code-viewer-utils'
@@ -91,7 +92,7 @@ export function TabBar({
           ))}
         </div>
       </div>
-      {menu && onMoveToSplitPane ? (
+      {menu && onMoveToSplitPane ? createPortal(
         <>
           <div style={viewerStyles.actionMenuOverlay} onClick={() => setMenu(null)} />
           <div
@@ -128,7 +129,8 @@ export function TabBar({
               <span style={viewerStyles.actionMenuItemLabel}>Split pane to the bottom</span>
             </button>
           </div>
-        </>
+        </>,
+        document.body,
       ) : null}
     </>
   )

@@ -28,6 +28,7 @@ import type { EditorSettings } from '../../../shared/types'
 import { buildEditorOptions } from './build-editor-options'
 import { useDiffGutter } from './useDiffGutter'
 import { registerEditorNavCommands } from './editor-nav-commands'
+import { setBounded } from './bounded-cache'
 
 interface CodeViewerProps {
   paneId?: string
@@ -48,8 +49,13 @@ interface CodeViewerProps {
   onSaveFile?: (filePath: string, content: string) => void
 }
 
-// Module-level state that survives component remounts (e.g. agent switches rebuild dockview layout)
+// Module-level state that survives component remounts (e.g. agent switches
+// rebuild dockview layout). Keyed by pane+path so two split panes showing the
+// same file keep independent scroll positions, and LRU-capped so it doesn't
+// grow without bound as files/panes/sessions open and close.
 const scrollPositionsByFile = new Map<string, number>()
+const MAX_SCROLL_POSITIONS = 200
+const scrollKeyFor = (paneId: string, filePath: string): string => `${paneId}\u0000${filePath}`
 
 export function CodeViewer({
   paneId = 'editor',
@@ -161,7 +167,7 @@ export function CodeViewer({
 
     const filePath = activeFilePathRef.current
     if (filePath) {
-      const scrollTop = scrollPositionsByFile.get(filePath)
+      const scrollTop = scrollPositionsByFile.get(scrollKeyFor(paneId, filePath))
       if (scrollTop !== undefined) {
         requestAnimationFrame(() => editor.setScrollTop(scrollTop))
       }
@@ -170,13 +176,13 @@ export function CodeViewer({
     editor.onDidScrollChange((e) => {
       const fp = activeFilePathRef.current
       if (fp && e.scrollTopChanged) {
-        scrollPositionsByFile.set(fp, e.scrollTop)
+        setBounded(scrollPositionsByFile, scrollKeyFor(paneId, fp), e.scrollTop, MAX_SCROLL_POSITIONS)
       }
     })
 
     revealRequestedLocation(editor, activeFilePathRef.current, lastFileOpenRequestRef.current)
     editor.focus()
-  }, [bindEditor])
+  }, [bindEditor, paneId])
 
   const handleDiffEditorMount: DiffOnMount = useCallback((editor) => {
     editor.getModifiedEditor().focus()

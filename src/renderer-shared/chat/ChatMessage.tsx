@@ -1,4 +1,5 @@
 import React, { useEffect, useLayoutEffect, useRef, useState } from 'react'
+import { createPortal } from 'react-dom'
 import Markdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
 import type { ChatMessage as ChatMessageType } from '../../shared/simple-types'
@@ -240,7 +241,9 @@ function ChatImageLightbox({ image, onClose }: { image: LoadedChatImage; onClose
     void navigator.clipboard?.writeText(image.filePath)
   }
 
-  return (
+  // Portal to document.body so the fixed full-screen backdrop resolves against
+  // the viewport rather than dockview's transformed `.dv-render-overlay`.
+  return createPortal(
     <div role="dialog" aria-modal="true" aria-label="Image preview" style={styles.lightboxBackdrop} onClick={onClose}>
       <div style={styles.lightboxPanel} onClick={(event) => event.stopPropagation()}>
         <div style={styles.lightboxHeader}>
@@ -257,6 +260,7 @@ function ChatImageLightbox({ image, onClose }: { image: LoadedChatImage; onClose
           <button type="button" style={styles.lightboxCopyButton} onClick={copyPath}>Copy path</button>
         </div>
       </div>
-    </div>
+    </div>,
+    document.body,
   )
 }

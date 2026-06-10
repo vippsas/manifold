@@ -67,6 +67,11 @@ export function useRestoreTabsFromDisk(
     restoredRef.current.add(persistKey)
 
     const cache = cacheRef.current
+    // The shell panel unmounts on every session switch (dockview fromJSON
+    // remounts), so if we unmount mid-restore the freshly spawned PTYs would
+    // never reach the cache that useCleanupOnUnmount kills. Track cancellation
+    // and kill any shell created after the effect has been torn down.
+    let cancelled = false
 
     void (async () => {
       const saved = (await window.electronAPI.invoke('shell-tabs:get', persistKey)) as {
@@ -80,10 +85,22 @@ export function useRestoreTabsFromDisk(
         try {
           const mode: ShellMode = tab.mode === 'system' ? 'system' : 'manifold'
           const result = (await window.electronAPI.invoke('shell:create', tab.cwd, { mode })) as { sessionId: string }
+          if (cancelled) {
+            // Cleanup already ran — this PTY has no renderer reference, so kill it.
+            void window.electronAPI.invoke('shell:kill', result.sessionId).catch(() => {})
+            continue
+          }
           shells.push({ sessionId: result.sessionId, label: tab.label, mode })
         } catch {
           // skip failed shell creation
         }
+      }
+
+      if (cancelled) {
+        for (const shell of shells) {
+          void window.electronAPI.invoke('shell:kill', shell.sessionId).catch(() => {})
+        }
+        return
       }
 
       if (shells.length > 0) {
@@ -94,6 +111,8 @@ export function useRestoreTabsFromDisk(
         setExtraShells(shells)
       }
     })()
+
+    return () => { cancelled = true }
   }, [agentKey, persistKey, worktreeCwd, cacheRef, restoredRef, setExtraShells])
 }
 

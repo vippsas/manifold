@@ -126,83 +126,81 @@ export function useCodeView(
   }, [])
 
   const removePane = useCallback((paneId: string, fallbackPaneId?: string | null): void => {
-    setEditorPanes((prev) => {
-      const sourcePane = prev.find((pane) => pane.id === paneId)
-      if (!sourcePane) return prev
+    const prev = editorPanesRef.current
+    const sourcePane = prev.find((pane) => pane.id === paneId)
+    if (!sourcePane) return
 
-      if (paneId === DEFAULT_EDITOR_PANE_ID && !fallbackPaneId) {
-        return prev
-      }
+    if (paneId === DEFAULT_EDITOR_PANE_ID && !fallbackPaneId) {
+      return
+    }
 
-      const resolvedFallbackPaneId =
-        fallbackPaneId && fallbackPaneId !== paneId
-          ? fallbackPaneId
-          : (paneId === DEFAULT_EDITOR_PANE_ID ? null : DEFAULT_EDITOR_PANE_ID)
+    const resolvedFallbackPaneId =
+      fallbackPaneId && fallbackPaneId !== paneId
+        ? fallbackPaneId
+        : (paneId === DEFAULT_EDITOR_PANE_ID ? null : DEFAULT_EDITOR_PANE_ID)
 
-      let next = prev
+    let next = prev
 
-      if (resolvedFallbackPaneId) {
-        next = ensureEditorPane(next, resolvedFallbackPaneId)
-        next = next.map((pane) => {
-          if (pane.id !== resolvedFallbackPaneId) return pane
+    if (resolvedFallbackPaneId) {
+      next = ensureEditorPane(next, resolvedFallbackPaneId)
+      next = next.map((pane) => {
+        if (pane.id !== resolvedFallbackPaneId) return pane
 
-          const openFilePaths = dedupePaths([
-            ...pane.openFilePaths,
-            ...sourcePane.openFilePaths,
-          ])
+        const openFilePaths = dedupePaths([
+          ...pane.openFilePaths,
+          ...sourcePane.openFilePaths,
+        ])
 
-          return {
-            ...pane,
-            openFilePaths,
-            activeFilePath: pane.activeFilePath ?? sourcePane.activeFilePath ?? openFilePaths[0] ?? null,
-          }
-        })
-      }
-
-      next = next.filter((pane) => pane.id !== paneId)
-      setOpenFiles((currentFiles) => {
-        const allPaths = new Set(collectOpenFilePaths(next))
-        return currentFiles.filter((file) => allPaths.has(file.path))
+        return {
+          ...pane,
+          openFilePaths,
+          activeFilePath: pane.activeFilePath ?? sourcePane.activeFilePath ?? openFilePaths[0] ?? null,
+        }
       })
+    }
 
-      const nextActivePaneId = resolvedFallbackPaneId ?? resolveActiveEditorPaneId(next, activeEditorPaneIdRef.current)
-      setActiveEditorPaneId(nextActivePaneId)
-      return next.length > 0 ? next : [createEditorPaneState()]
-    })
+    next = next.filter((pane) => pane.id !== paneId)
+    const resolvedPanes = next.length > 0 ? next : [createEditorPaneState()]
+    const allPaths = new Set(collectOpenFilePaths(resolvedPanes))
+    const nextActivePaneId = resolvedFallbackPaneId ?? resolveActiveEditorPaneId(resolvedPanes, activeEditorPaneIdRef.current)
+
+    setEditorPanes(resolvedPanes)
+    setOpenFiles((currentFiles) => currentFiles.filter((file) => allPaths.has(file.path)))
+    setActiveEditorPaneId(nextActivePaneId)
   }, [])
 
   const moveFileToPane = useCallback((filePath: string, targetPaneId: string, sourcePaneId?: string | null): void => {
-    setEditorPanes((prev) => {
-      const sourcePane = sourcePaneId
-        ? prev.find((pane) => pane.id === sourcePaneId) ?? null
-        : findPaneContainingFile(prev, filePath)
+    const prev = editorPanesRef.current
+    const sourcePane = sourcePaneId
+      ? prev.find((pane) => pane.id === sourcePaneId) ?? null
+      : findPaneContainingFile(prev, filePath)
 
-      if (!sourcePane || sourcePane.id === targetPaneId) {
-        return ensureEditorPane(prev, targetPaneId)
+    if (!sourcePane || sourcePane.id === targetPaneId) {
+      setEditorPanes(ensureEditorPane(prev, targetPaneId))
+      return
+    }
+
+    const next = ensureEditorPane(prev, targetPaneId, sourcePane.id).map((pane) => {
+      if (pane.id === sourcePane.id) {
+        const openFilePaths = pane.openFilePaths.filter((path) => path !== filePath)
+        const activeFilePath = pane.activeFilePath === filePath
+          ? (openFilePaths[0] ?? null)
+          : pane.activeFilePath
+        return { ...pane, openFilePaths, activeFilePath }
       }
 
-      const next = ensureEditorPane(prev, targetPaneId, sourcePane.id).map((pane) => {
-        if (pane.id === sourcePane.id) {
-          const openFilePaths = pane.openFilePaths.filter((path) => path !== filePath)
-          const activeFilePath = pane.activeFilePath === filePath
-            ? (openFilePaths[0] ?? null)
-            : pane.activeFilePath
-          return { ...pane, openFilePaths, activeFilePath }
-        }
+      if (pane.id === targetPaneId) {
+        const openFilePaths = pane.openFilePaths.includes(filePath)
+          ? pane.openFilePaths
+          : [...pane.openFilePaths, filePath]
+        return { ...pane, openFilePaths, activeFilePath: filePath }
+      }
 
-        if (pane.id === targetPaneId) {
-          const openFilePaths = pane.openFilePaths.includes(filePath)
-            ? pane.openFilePaths
-            : [...pane.openFilePaths, filePath]
-          return { ...pane, openFilePaths, activeFilePath: filePath }
-        }
-
-        return pane
-      })
-
-      setActiveEditorPaneId(targetPaneId)
-      return next
+      return pane
     })
+
+    setEditorPanes(next)
+    setActiveEditorPaneId(targetPaneId)
   }, [])
 
   return {

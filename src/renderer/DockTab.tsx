@@ -6,7 +6,15 @@ import { parseSiblingSessionId } from './hooks/agent-siblings'
 
 export function DockTab({ api }: IDockviewPanelHeaderProps): React.JSX.Element {
   const state = React.useContext(DockStateContext)
-  const title = api.title ?? ''
+  // Subscribe to title changes so the tab re-renders on update even when the
+  // DockStateContext is memoized (which otherwise stops the constant re-renders
+  // that currently mask this).
+  const [title, setTitle] = React.useState(api.title ?? '')
+  React.useEffect(() => {
+    setTitle(api.title ?? '')
+    const disposable = api.onDidTitleChange(() => setTitle(api.title ?? ''))
+    return () => disposable.dispose()
+  }, [api])
   const siblingSessionId = parseSiblingSessionId(api.id)
   const siblingSession = siblingSessionId && state
     ? Object.values(state.allProjectSessions)
