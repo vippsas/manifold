@@ -13,16 +13,32 @@ export interface CancellationToken {
 
 export type TurnOutcome = 'ended' | 'timeout' | 'aborted'
 
+/** Live status of a (possibly spawned) agent session; 'missing' = no such session. */
+export type SpawnedSessionStatus = 'running' | 'waiting' | 'done' | 'error' | 'missing'
+
 /** A live agent session a built-in plugin can drive. VS Code has no agent-turn
- *  concept, so this is Manifold-specific (gated by the `agent:control` capability). */
+ *  concept, so this is Manifold-specific. `runTurn` is gated by `agent:control`;
+ *  the raw-PTY methods (sendText/whenReady/getStatus/kill/reveal) by `agent:spawn`. */
 export interface AgentSession {
   readonly sessionId: string
-  /** Send a prompt to the live agent and resolve when its turn ends. */
+  /** [agent:control] Send a prompt to the live agent and resolve when its turn ends. */
   runTurn(
     prompt: string,
     opts?: { budgetSeconds?: number; clearContext?: boolean },
     token?: CancellationToken,
   ): Promise<TurnOutcome>
+  /** [agent:spawn] Raw PTY input passthrough; the caller owns typing rhythm
+   *  (text, delay, then '\r'). */
+  sendText(text: string): Promise<void>
+  /** [agent:spawn] True once the TUI prompt is rendered (status 'waiting');
+   *  false on timeout/missing — callers may proceed (non-fatal). */
+  whenReady(timeoutMs?: number): Promise<boolean>
+  /** [agent:spawn] */
+  getStatus(): Promise<SpawnedSessionStatus>
+  /** [agent:spawn] Best-effort session kill. */
+  kill(): Promise<void>
+  /** [agent:spawn] Ask the app to open this session's panel in the dock. */
+  reveal(title?: string): Promise<void>
 }
 
 /** A language model handle, modeled on VS Code's `LanguageModelChat`. Phase A is
@@ -128,12 +144,19 @@ export interface ManifoldApi {
   agents: {
     readonly activeAgent: AgentSession | undefined
     getAgent(sessionId: string): AgentSession | undefined
+    /** [agent:spawn] Spawn a sibling session sharing the base session's
+     *  project/runtime/worktree (derived main-side). */
+    spawnSibling(baseSessionId: string, opts?: { title?: string; groupId?: string }): Promise<AgentSession>
   }
   lm: {
     /** Resolve language models. Pass `sessionId` to target a specific agent
      *  session's runtime (e.g. a loop pinned to its starting session); omit it
      *  to use the currently-active session. */
     selectChatModels(sessionId?: string): Promise<LanguageModelChat[]>
+  }
+  transcription: {
+    /** [transcription:read] App-level AI-service settings (undefined when unconfigured). */
+    get(): Promise<AiServiceSettings | undefined>
   }
 }
 

@@ -20,8 +20,9 @@ export interface GatedFactories {
   storage: () => ManifoldApi['storage']
   workspace: () => ManifoldApi['workspace']
   configuration: () => ManifoldApi['configuration']
-  agents: () => ManifoldApi['agents']
+  agents: (caps: ReadonlySet<Capability>) => ManifoldApi['agents']
   lm: () => ManifoldApi['lm']
+  transcription: () => ManifoldApi['transcription']
 }
 
 export function buildGatedApi(
@@ -41,7 +42,16 @@ export function buildGatedApi(
     get storage(): ManifoldApi['storage'] { requireCap('storage'); return factories.storage() },
     get workspace(): ManifoldApi['workspace'] { requireCap('workspace:read'); return factories.workspace() },
     get configuration(): ManifoldApi['configuration'] { requireCap('configuration'); return factories.configuration() },
-    get agents(): ManifoldApi['agents'] { requireCap('agent:control'); return factories.agents() },
+    // The agents namespace is shared by two capabilities: `agent:control` (runTurn)
+    // and `agent:spawn` (sibling spawn + raw PTY). Either admits the namespace; the
+    // factory receives the declared caps so each method re-checks its own.
+    get agents(): ManifoldApi['agents'] {
+      if (!caps.has('agent:control') && !caps.has('agent:spawn')) throw new CapabilityError('agent:control')
+      if (caps.has('agent:control')) requireCap('agent:control')
+      if (caps.has('agent:spawn')) requireCap('agent:spawn')
+      return factories.agents(caps)
+    },
     get lm(): ManifoldApi['lm'] { requireCap('lm'); return factories.lm() },
+    get transcription(): ManifoldApi['transcription'] { requireCap('transcription:read'); return factories.transcription() },
   }
 }
