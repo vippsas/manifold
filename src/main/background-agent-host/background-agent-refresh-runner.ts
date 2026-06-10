@@ -84,7 +84,7 @@ export class BackgroundAgentRefreshRunner {
         ],
       }
       this.store.setProjectState(projectId, preparedState)
-      return await this.continueRefresh(projectId, activeSessionId, execution, existingState.feedback)
+      return await this.continueRefresh(projectId, activeSessionId, execution)
     } catch (error) {
       debugLog(`[background-agent] refresh failed project=${projectId} error=${sanitizeForLog(formatError(error))}`)
       const failedState = createFailedState(this.store.getProjectState(projectId), 'Ideas refresh failed.', error, false)
@@ -127,7 +127,7 @@ export class BackgroundAgentRefreshRunner {
       }
       this.store.setProjectState(projectId, resumedState)
       debugLog(`[background-agent] resume start project=${projectId} remainingTopics=${remainingTopics}`)
-      return await this.continueRefresh(projectId, activeSessionId, execution, existingState.feedback)
+      return await this.continueRefresh(projectId, activeSessionId, execution)
     } catch (error) {
       debugLog(`[background-agent] resume failed project=${projectId} error=${sanitizeForLog(formatError(error))}`)
       const failedState = createFailedState(existingState, 'Ideas resume failed.', error, true)
@@ -140,7 +140,6 @@ export class BackgroundAgentRefreshRunner {
     projectId: string,
     activeSessionId: string | null,
     execution: BackgroundAgentRefreshExecutionControl,
-    feedbackEvents: BackgroundAgentProjectState['feedback'],
   ): Promise<BackgroundAgentSnapshot> {
     const current = this.store.getProjectState(projectId)
     const pendingRefresh = current.pendingRefresh
@@ -176,14 +175,13 @@ export class BackgroundAgentRefreshRunner {
     const interrupted = this.applyControlState(projectId, execution, results.length, totalTopics)
     if (interrupted) return interrupted
 
-    return this.finishReadyState(projectId, pendingRefresh, results, feedbackEvents)
+    return this.finishReadyState(projectId, pendingRefresh, results)
   }
 
   private finishReadyState(
     projectId: string,
     pendingRefresh: BackgroundAgentPendingRefreshState,
     results: WebResearchResult[],
-    feedbackEvents: BackgroundAgentProjectState['feedback'],
   ): BackgroundAgentSnapshot {
     const synthState = this.store.getProjectState(projectId)
     synthState.status = {
@@ -204,7 +202,7 @@ export class BackgroundAgentRefreshRunner {
     const suggestions = rankSuggestions(synthesizeSuggestions(pendingRefresh.profile, results), {
       limit: 5,
       profile: pendingRefresh.profile,
-      feedbackEvents,
+      feedbackEvents: synthState.feedback,
     })
     debugLog(`[background-agent] synthesis complete project=${projectId} suggestions=${suggestions.length}`)
 
