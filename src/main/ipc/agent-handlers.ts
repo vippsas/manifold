@@ -198,7 +198,9 @@ export function registerAgentHandlers(deps: IpcDependencies): void {
     if (session) {
       await fileWatcher.unwatch(session.worktreePath)
     }
-    await sessionManager.killSession(sessionId)
+    if (sessionManager.hasSession(sessionId)) {
+      await sessionManager.killSession(sessionId)
+    }
     viewStateStore.delete(sessionId)
     debugLog(`[agent:kill] done sessionId=${sessionId}`)
   })

@@ -463,6 +463,58 @@ describe('registerAgentHandlers', () => {
     }
   })
 
+  it('agent:kill tolerates an already-removed session and still cleans up view-state', async () => {
+    const { registerAgentHandlers } = await import('./agent-handlers')
+    const deps = {
+      sessionManager: {
+        listSessions: vi.fn(() => []),
+        getSession: vi.fn(() => undefined),
+        hasSession: vi.fn(() => false),
+        killSession: vi.fn(async () => { throw new Error('Session not found') }),
+      },
+      fileWatcher: {
+        unwatch: vi.fn(async () => undefined),
+        watch: vi.fn(),
+      },
+      viewStateStore: { delete: vi.fn() },
+    }
+
+    registerAgentHandlers(deps as never)
+    const handler = mocks.handlers.get('agent:kill')
+    if (!handler) throw new Error('agent:kill handler was not registered')
+
+    // Should not throw even though the session is gone
+    await expect(handler({}, 'already-gone')).resolves.toBeUndefined()
+    expect(deps.sessionManager.killSession).not.toHaveBeenCalled()
+    expect(deps.viewStateStore.delete).toHaveBeenCalledWith('already-gone')
+  })
+
+  it('agent:kill kills a present session and removes its view-state', async () => {
+    const { registerAgentHandlers } = await import('./agent-handlers')
+    const deps = {
+      sessionManager: {
+        listSessions: vi.fn(() => []),
+        getSession: vi.fn(() => ({ id: 'sess-1', worktreePath: '/wt', noWorktree: false })),
+        hasSession: vi.fn(() => true),
+        killSession: vi.fn(async () => undefined),
+      },
+      fileWatcher: {
+        unwatch: vi.fn(async () => undefined),
+        watch: vi.fn(),
+      },
+      viewStateStore: { delete: vi.fn() },
+    }
+
+    registerAgentHandlers(deps as never)
+    const handler = mocks.handlers.get('agent:kill')
+    if (!handler) throw new Error('agent:kill handler was not registered')
+
+    await handler({}, 'sess-1')
+    expect(deps.fileWatcher.unwatch).toHaveBeenCalledWith('/wt')
+    expect(deps.sessionManager.killSession).toHaveBeenCalledWith('sess-1')
+    expect(deps.viewStateStore.delete).toHaveBeenCalledWith('sess-1')
+  })
+
   it('rejects relative image paths outside the active session worktree', async () => {
     const { registerAgentHandlers } = await import('./agent-handlers')
     const worktreePath = await mkdtemp(join(tmpdir(), 'manifold-project-image-path-test-'))
