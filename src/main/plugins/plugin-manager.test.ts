@@ -1,6 +1,6 @@
 // src/main/plugins/plugin-manager.test.ts
 import { describe, expect, it, vi } from 'vitest'
-import { viewContributionsOf, mergeConfigValue, PluginManager } from './plugin-manager'
+import { viewContributionsOf, frameSourcesOf, mergeConfigValue, PluginManager } from './plugin-manager'
 import { DEFAULT_SETTINGS } from '../../shared/defaults'
 import type { PluginDescriptor } from '../../shared/plugins/manifest'
 import type { ManifoldSettings } from '../../shared/types'
@@ -57,6 +57,19 @@ describe('viewContributionsOf', () => {
   })
   it('returns [] when a plugin has no views', () => {
     expect(viewContributionsOf([desc('p.c', [])])).toEqual([])
+  })
+})
+
+describe('frameSourcesOf', () => {
+  it('collects frameSources per view id, empty array for views without them', () => {
+    const out = frameSourcesOf([
+      desc('p.a', [{ id: 'a.view', title: 'A', frameSources: ['https://www.youtube.com'] }]),
+      desc('p.b', [{ id: 'b.view', title: 'B' }]),
+    ])
+    expect(out).toEqual([
+      ['a.view', ['https://www.youtube.com']],
+      ['b.view', []],
+    ])
   })
 })
 

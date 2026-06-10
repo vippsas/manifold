@@ -96,9 +96,11 @@ function hasUnbalancedQuote(s: string): boolean {
   return quote !== null
 }
 
-/** Restrictive, nonce-gated CSP for plugin webview content. */
-export function buildCsp(nonce: string): string {
-  return [
+/** Restrictive, nonce-gated CSP for plugin webview content. `frameSources` (from the
+ *  view's manifest contribution, validated as exact https origins) widens frame-src
+ *  for that view only; without it no frames are allowed (default-src 'none'). */
+export function buildCsp(nonce: string, frameSources?: readonly string[]): string {
+  const directives = [
     "default-src 'none'",
     `script-src 'nonce-${nonce}'`,
     // 'unsafe-inline' styles are allowed for first-party plugins; revisit (CSS-selector exfil) before untrusted plugins.
@@ -106,7 +108,9 @@ export function buildCsp(nonce: string): string {
     "img-src data: blob: https:",
     "font-src data:",
     "connect-src 'none'",
-  ].join('; ')
+  ]
+  if (frameSources !== undefined && frameSources.length > 0) directives.push(`frame-src ${frameSources.join(' ')}`)
+  return directives.join('; ')
 }
 
 function makeNonce(): string {
@@ -136,7 +140,7 @@ export function renderWebviewResponse(store: WebviewContentStore, requestUrl: st
   const html = store.get(viewId)
   if (html === undefined) return { status: 404, body: 'not found', contentType: 'text/plain' }
   const nonce = makeNonce()
-  return { status: 200, body: injectNonce(html, nonce, viewId), contentType: 'text/html; charset=utf-8', csp: buildCsp(nonce) }
+  return { status: 200, body: injectNonce(html, nonce, viewId), contentType: 'text/html; charset=utf-8', csp: buildCsp(nonce, store.getFrameSources(viewId)) }
 }
 
 /**
