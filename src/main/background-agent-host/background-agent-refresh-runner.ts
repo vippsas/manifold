@@ -163,9 +163,21 @@ export class BackgroundAgentRefreshRunner {
         [pendingRefresh.topics[index]],
         context,
         (event) => this.applyResearchProgress(projectId, execution, event, index + 1, totalTopics),
+        execution.abortController.signal,
       )
+      const topicResult = topicResults[0]
 
-      results.push(topicResults[0] ?? createEmptyResearchResult(pendingRefresh.topics[index]))
+      // A stop/pause abort kills the model mid-topic, so research yields no
+      // usable result for it. Don't record that as a completed topic: pause
+      // stays resumable (this topic re-runs from the saved checkpoint) and stop
+      // clears `pendingRefresh` cleanly. A topic that finished before the abort
+      // landed still carries its result and is kept.
+      if (execution.abortController.signal.aborted && !topicResult) {
+        const interruptedTopic = this.applyControlState(projectId, execution, index, totalTopics)
+        if (interruptedTopic) return interruptedTopic
+      }
+
+      results.push(topicResult ?? createEmptyResearchResult(pendingRefresh.topics[index]))
       this.storeCompletedResults(projectId, pendingRefresh, results)
 
       const after = this.applyControlState(projectId, execution, results.length, totalTopics)

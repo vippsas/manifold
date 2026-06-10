@@ -6,6 +6,7 @@ import { flushDebugLogSync } from './debug-log'
 import { installWatchSkills } from '../watch/skill-installer'
 import { getBundledWatchSkillPath } from '../watch/resource-path'
 import { installWebviewProtocol } from '../plugins/webview-protocol'
+import { killInFlightAiGenerateChildren } from '../git/git-operations'
 import type { SettingsStore } from '../store/settings-store'
 import type { PowerManager } from './power-manager'
 import type { MemoryStore } from '../memory/memory-store'
@@ -92,6 +93,8 @@ export function registerAppLifecycle(deps: AppLifecycleDeps): void {
     // Kill all active sessions and clean up
     sessionManager.killAllSessions()
     ptyPool.killAll()
+    // Kill any in-flight aiGenerate model subprocesses so they don't orphan.
+    killInFlightAiGenerateChildren()
     // Kill the forked plugin-host utility process so it doesn't orphan on quit.
     pluginManager.dispose()
     await fileWatcher.unwatchAll()

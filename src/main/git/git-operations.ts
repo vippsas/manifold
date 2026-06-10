@@ -1,4 +1,4 @@
-import { execFile, spawn } from 'node:child_process'
+import { execFile, spawn, type ChildProcess } from 'node:child_process'
 import { writeFile } from 'node:fs/promises'
 import { join, resolve, normalize, sep } from 'node:path'
 import { promisify } from 'node:util'
@@ -22,6 +22,31 @@ interface AiGenerateOptions {
   timeoutMs?: number
   /** When true, suppress console.error logging on failure (for fire-and-forget callers like shell suggestions). */
   silent?: boolean
+  /** Abort the in-flight model subprocess (kills it SIGTERM→SIGKILL) and reject. */
+  signal?: AbortSignal
+}
+
+/**
+ * Live aiGenerate model children, so quit teardown can kill any that would
+ * otherwise orphan. Entries are added on spawn and removed on settle.
+ */
+const inFlightAiGenerateChildren = new Set<ChildProcess>()
+
+/**
+ * Kill every in-flight aiGenerate model subprocess (SIGTERM, then SIGKILL after
+ * a grace period). Called from the app `before-quit` handler so orphaned model
+ * CLIs are reaped on quit rather than left running to completion.
+ */
+export function killInFlightAiGenerateChildren(): void {
+  for (const child of inFlightAiGenerateChildren) {
+    try {
+      child.kill('SIGTERM')
+      const killTimer = setTimeout(() => child.kill('SIGKILL'), AI_GENERATE_KILL_GRACE_MS)
+      killTimer.unref?.()
+    } catch {
+      // Child may already be gone; ignore.
+    }
+  }
 }
 
 export class GitOperationsManager {
@@ -127,12 +152,20 @@ export class GitOperationsManager {
   ): Promise<string> {
     return new Promise((resolve, reject) => {
       const timeoutMs = Math.max(1_000, options.timeoutMs ?? DEFAULT_AI_GENERATE_TIMEOUT_MS)
+
+      // Reject without spawning if already aborted (e.g. stop/quit fired first).
+      if (options.signal?.aborted) {
+        reject(new Error(`AI runtime "${runtime.id}" aborted before start`))
+        return
+      }
+
       const command = buildAiRuntimeCommand(runtime, prompt, extraArgs)
       const child = spawn(command.binary, command.args, {
         cwd,
         env: command.env ? { ...process.env, ...command.env } : undefined,
         stdio: ['pipe', 'pipe', 'pipe'],
       })
+      inFlightAiGenerateChildren.add(child)
 
       const stdoutChunks: Buffer[] = []
       const stderrChunks: Buffer[] = []
@@ -140,6 +173,18 @@ export class GitOperationsManager {
       let killTimer: NodeJS.Timeout | undefined
       child.stdout?.on('data', (data: Buffer) => stdoutChunks.push(data))
       child.stderr?.on('data', (data: Buffer) => stderrChunks.push(data))
+
+      const onAbort = () => {
+        // Kill the child (SIGTERM, then SIGKILL after the grace period) and
+        // reject immediately rather than waiting for 'close', which may never
+        // fire if the child ignores SIGTERM.
+        child.kill('SIGTERM')
+        killTimer = setTimeout(() => child.kill('SIGKILL'), AI_GENERATE_KILL_GRACE_MS)
+        killTimer.unref?.()
+        settle(() => {
+          reject(new Error(`AI runtime "${runtime.id}" aborted`))
+        })
+      }
 
       const timer = setTimeout(() => {
         // Reject immediately rather than waiting for 'close', which may never
@@ -165,8 +210,12 @@ export class GitOperationsManager {
         if (settled) return
         settled = true
         clearTimeout(timer)
+        inFlightAiGenerateChildren.delete(child)
+        options.signal?.removeEventListener('abort', onAbort)
         callback()
       }
+
+      options.signal?.addEventListener('abort', onAbort)
 
       child.on('error', (err) => {
         settle(() => {

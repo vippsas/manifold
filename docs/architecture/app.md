@@ -60,8 +60,9 @@ webview protocol, creates the first window, starts the auto-updater, installs th
 Watch skills, and prunes old raw memory. `activate` recreates a window if none exist (macOS
 dock behavior); `window-all-closed` quits on non-darwin. `before-quit` is the teardown path:
 flush debounced chat writes synchronously, flush buffered debug-log lines, kill all sessions
-and PTYs, unwatch files, close the renderer server, close the memory store, and release the
-power blocker (`app-lifecycle.ts:85`).
+and PTYs, kill any in-flight `aiGenerate` model subprocesses
+(`killInFlightAiGenerateChildren()`, so they don't orphan), unwatch files, close the renderer
+server, close the memory store, and release the power blocker (`app-lifecycle.ts:88`).
 
 **Window creation.** `createWindow()` (`window-factory.ts:53`) resolves the theme type/background
 from the saved theme, builds a 1400×900 `BrowserWindow` with a `hiddenInset` title bar and
