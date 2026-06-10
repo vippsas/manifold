@@ -1,0 +1,10 @@
+{
+  "name": "watch",
+  "version": "0.2.0",
+  "description": "Manifold-bundled video viewer skill. The Manifold app (its main process) downloads the video, extracts frames, and produces a timestamped transcript; this skill receives the pre-staged report and tells Claude to read each frame.",
+  "author": {
+    "name": "Manifold"
+  },
+  "license": "MIT",
+  "keywords": ["video", "watch", "manifold", "frames", "transcription"]
+}
