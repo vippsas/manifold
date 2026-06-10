@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest'
-import { RpcEndpoint, HOST_UI, type RpcMessage } from '../shared/plugins/rpc'
+import { RpcEndpoint, HOST_WINDOW, HOST_UI, type RpcMessage } from '../shared/plugins/rpc'
 import { createWindowApi } from './window-api'
 import type { QuickPickItem, QuickPickOptions } from '../shared/plugins/ui'
 
@@ -21,6 +21,70 @@ describe('createWindowApi resolveView logging', () => {
     await resolveView('unregistered.id')
     expect(spy).toHaveBeenCalledWith('[plugin-host] resolveView: no WebviewViewProvider registered for "unregistered.id"')
     spy.mockRestore()
+  })
+})
+
+function wireWithHostServices(): { host: RpcEndpoint; main: RpcEndpoint } {
+  const { host, main } = (() => {
+    let h!: RpcEndpoint
+    let m!: RpcEndpoint
+    m = new RpcEndpoint({ post: (msg: RpcMessage) => queueMicrotask(() => void h.handleMessage(msg)) })
+    h = new RpcEndpoint({ post: (msg: RpcMessage) => queueMicrotask(() => void m.handleMessage(msg)) })
+    return { host: h, main: m }
+  })()
+  main.registerService(HOST_WINDOW, {
+    $setHtml: () => Promise.resolve(),
+    $postToWebview: () => Promise.resolve(),
+  })
+  main.registerService(HOST_UI, {
+    $showMessage: () => Promise.resolve(undefined),
+    $showQuickPick: () => Promise.resolve(undefined),
+    $showInputBox: () => Promise.resolve(undefined),
+  })
+  return { host, main }
+}
+
+describe('deliverMessage per-listener error isolation', () => {
+  it('a throwing listener does not prevent subsequent listeners from receiving the message', () => {
+    const { host } = wireWithHostServices()
+    const { windowApi, resolveView, deliverMessage } = createWindowApi(host)
+
+    const received: unknown[] = []
+    windowApi.registerWebviewViewProvider('test.view', {
+      resolveWebviewView(view) {
+        view.webview.onDidReceiveMessage(() => { throw new Error('listener boom') })
+        view.webview.onDidReceiveMessage((m) => received.push(m))
+      },
+    })
+
+    const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {})
+    void resolveView('test.view')
+    deliverMessage('test.view', { type: 'ping' })
+
+    expect(received).toEqual([{ type: 'ping' }])
+    expect(errorSpy).toHaveBeenCalledWith('[plugin-host] deliverMessage: listener threw', expect.any(Error))
+    errorSpy.mockRestore()
+  })
+})
+
+describe('resolveView listener-set lifecycle', () => {
+  it('re-resolving a view does not orphan listeners registered in the first resolution', async () => {
+    const { host } = wireWithHostServices()
+    const { windowApi, resolveView, deliverMessage } = createWindowApi(host)
+
+    const received: unknown[] = []
+    windowApi.registerWebviewViewProvider('test.view', {
+      resolveWebviewView(view) {
+        view.webview.onDidReceiveMessage((m) => received.push(m))
+      },
+    })
+
+    await resolveView('test.view')
+    // Re-resolve without re-registering a listener (simulates provider not re-registering)
+    await resolveView('test.view')
+    deliverMessage('test.view', { type: 'after-reresolve' })
+
+    expect(received).toContainEqual({ type: 'after-reresolve' })
   })
 })
 
