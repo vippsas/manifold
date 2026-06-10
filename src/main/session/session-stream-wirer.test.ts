@@ -166,7 +166,9 @@ describe('SessionStreamWirer', () => {
       )
 
       const savedPath = join(worktreePath, 'public', 'generated-images', 'ig_test_image.png')
-      expect(await readFile(savedPath)).toEqual(Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]))
+      await vi.waitFor(async () => {
+        expect(await readFile(savedPath)).toEqual(Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]))
+      })
       expect(chatAdapter.getMessages(session.id)).toEqual([
         expect.objectContaining({
           role: 'agent',
@@ -216,7 +218,9 @@ describe('SessionStreamWirer', () => {
       )
 
       const savedPath = join(worktreePath, 'public', 'generated-images', 'codex-image.png')
-      expect(await readFile(savedPath)).toEqual(Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]))
+      await vi.waitFor(async () => {
+        expect(await readFile(savedPath)).toEqual(Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]))
+      })
       expect(chatAdapter.getMessages(session.id)).toEqual([
         expect.objectContaining({
           role: 'agent',
@@ -272,7 +276,9 @@ describe('SessionStreamWirer', () => {
       ptyPool.emitData(session.ptyId, `${JSON.stringify({ type: 'turn.completed' })}\n`)
 
       const savedPath = join(worktreePath, 'public', 'generated-images', 'ig_car.png')
-      expect(await readFile(savedPath)).toEqual(Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]))
+      await vi.waitFor(async () => {
+        expect(await readFile(savedPath)).toEqual(Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]))
+      })
       expect(chatAdapter.getMessages(session.id)).toEqual([
         expect.objectContaining({
           role: 'agent',

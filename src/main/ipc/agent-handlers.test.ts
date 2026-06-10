@@ -477,6 +477,7 @@ describe('registerAgentHandlers', () => {
         watch: vi.fn(),
       },
       viewStateStore: { delete: vi.fn() },
+      dockLayoutStore: { delete: vi.fn() },
     }
 
     registerAgentHandlers(deps as never)
@@ -503,6 +504,7 @@ describe('registerAgentHandlers', () => {
         watch: vi.fn(),
       },
       viewStateStore: { delete: vi.fn() },
+      dockLayoutStore: { delete: vi.fn() },
     }
 
     registerAgentHandlers(deps as never)
