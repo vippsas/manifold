@@ -64,4 +64,47 @@ describe('runProvisionerRequest', () => {
       ),
     ).rejects.toThrow('Provisioner timed out')
   })
+
+  it('kills the child after it settles and does not call onProgress for late events', async () => {
+    // The 'linger' fixture emits result then keeps emitting progress; child must be reaped.
+    const progress = vi.fn()
+    const result = await runProvisionerRequest<{ displayName: string; repoUrl: string }>(
+      process.execPath,
+      [fixturePath, 'linger'],
+      {
+        protocolVersion: PROVISIONER_PROTOCOL_VERSION,
+        operation: 'create',
+        requestId: 'req-linger',
+        templateId: 'company-service',
+        inputs: { name: 'linger-app', description: 'Linger test.' },
+      },
+      progress,
+    )
+    expect(result.displayName).toBe('linger-app')
+    // Allow a brief moment for any late progress events to arrive if they were not suppressed.
+    await new Promise((r) => setTimeout(r, 30))
+    // Only the single pre-result progress call should have been recorded.
+    const lateCalls = progress.mock.calls.filter(([p]) => p.message === 'late-progress-should-be-ignored')
+    expect(lateCalls).toHaveLength(0)
+  })
+
+  it('ignores post-settle events (settled guard)', async () => {
+    // 'late-progress' fixture emits result then a stray progress event; onProgress must not fire for it.
+    const progress = vi.fn()
+    await runProvisionerRequest<{ displayName: string; repoUrl: string }>(
+      process.execPath,
+      [fixturePath, 'late-progress'],
+      {
+        protocolVersion: PROVISIONER_PROTOCOL_VERSION,
+        operation: 'create',
+        requestId: 'req-late',
+        templateId: 'company-service',
+        inputs: { name: 'late-app', description: 'Late progress test.' },
+      },
+      progress,
+    )
+    await new Promise((r) => setTimeout(r, 20))
+    const lateCalls = progress.mock.calls.filter(([p]) => p.message === 'this-should-never-be-seen')
+    expect(lateCalls).toHaveLength(0)
+  })
 })

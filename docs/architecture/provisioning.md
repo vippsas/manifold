@@ -58,12 +58,16 @@ Stdout is accumulated and split on `\n`; each complete line is trimmed, lines no
 with `{` are skipped (so `gh`'s "Checking for update" chatter is ignored,
 `provisioner-process.ts:103`), and the rest are `JSON.parse`d into a `ProvisionerEvent`.
 Every event must carry the matching `protocolVersion` or the request rejects with
-`protocol_error` (`provisioner-process.ts:62`). A `progress` event invokes the `onProgress`
+`protocol_error` (`provisioner-process.ts:70`). A `progress` event invokes the `onProgress`
 callback; an `error` event rejects via `fromProvisionerErrorPayload`; a `result` event
-resolves with `event.result` (`provisioner-process.ts:90`). A 60 s default timeout
+resolves with `event.result` (`provisioner-process.ts:98`). `maybeResolveOrReject` guards
+on `settled` at entry (`provisioner-process.ts:68`) so events that arrive after the promise
+settles are silently discarded. On every settle path, `finish()` (`provisioner-process.ts:57`)
+clears the timeout, `SIGTERM`s the child, and removes the stdout/stderr `data` listeners so
+the buffers cannot grow unboundedly if the provisioner lingers. A 60 s default timeout
 (15 s for health, 10 min for `create` since scaffolding + pushing a repo can be slow —
-`provisioning-dispatcher.ts:CREATE_TIMEOUT_MS`) `SIGTERM`s the child; spawn errors, non-zero
-exits, and malformed JSON all reject with a typed `ProvisioningError`.
+`provisioning-dispatcher.ts:CREATE_TIMEOUT_MS`) also `SIGTERM`s the child directly; spawn
+errors, non-zero exits, and malformed JSON all reject with a typed `ProvisioningError`.
 
 **List & cache.** `listTemplates()` (`provisioning-dispatcher.ts:73`) runs every enabled
 provisioner in parallel via `loadProvisionerCatalog()`. If a non-stale cache entry exists
@@ -113,7 +117,7 @@ provisioner's `metadata`.
 ## Invariants & gotchas
 
 - **No provisioner is bundled or enabled by default today.** `BUILTIN_PROVISIONERS` is `{}` and the default provisioner list is empty; the builtin spawn path and the settings merge are present but dormant until a bundled provisioner lands (`provisioner-command.ts:7`, `src/shared/defaults.ts:47`).
-- **One request, one response per spawn.** Each operation spawns a fresh process, writes a single request, and closes stdin. Stdout is parsed line-by-line as discrete JSON events; the first `result` or `error` settles the promise — later output is ignored.
+- **One request, one response per spawn.** Each operation spawns a fresh process, writes a single request, and closes stdin. Stdout is parsed line-by-line as discrete JSON events; the first `result` or `error` settles the promise — `finish()` immediately `SIGTERM`s the child and detaches the data listeners, so a provisioner that lingers cannot produce orphan progress events or unbounded buffer growth.
 - **Non-`{` lines are silently dropped.** This tolerates CLI banner noise (e.g. `gh` update checks) but means a provisioner that prints unprefixed diagnostics to stdout will have them swallowed; stderr is captured separately and only surfaced on a non-zero exit (`provisioner-process.ts:155`).
 - **Protocol-version mismatch is fatal.** Any event whose `protocolVersion !== 1` rejects the whole request with `protocol_error`, even mid-stream after valid progress events.
 - **`create()` never throws.** It always resolves to `ProvisioningOperationResult` — `{ ok: true, value }` or `{ ok: false, error }` — so the IPC layer can forward a typed descriptor instead of an exception (`provisioning-dispatcher.ts:141`).

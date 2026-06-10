@@ -55,6 +55,28 @@ async function main() {
     return
   }
 
+  if (resolvedMode === 'late-progress') {
+    // Emit a result, then after a short delay emit a progress event that should be ignored.
+    write({
+      protocolVersion: PROTOCOL_VERSION,
+      requestId: request.requestId,
+      event: 'result',
+      result: { displayName: 'late-progress-app', repoUrl: '/tmp/late', defaultBranch: 'main' },
+    })
+    await new Promise((resolve) => setTimeout(resolve, 5))
+    try {
+      write({
+        protocolVersion: PROTOCOL_VERSION,
+        requestId: request.requestId,
+        event: 'progress',
+        message: 'this-should-never-be-seen',
+      })
+    } catch {
+      // pipe closed — expected
+    }
+    return
+  }
+
   if (resolvedMode === 'error') {
     process.stderr.write('fixture failed\n')
     process.exitCode = 1
@@ -105,6 +127,30 @@ async function main() {
 
     if (resolvedMode === 'slow') {
       await new Promise((resolve) => setTimeout(resolve, 200))
+    }
+
+    if (resolvedMode === 'linger') {
+      // Emit result then keep running to verify the parent kills the child.
+      write({
+        protocolVersion: PROTOCOL_VERSION,
+        requestId: request.requestId,
+        event: 'result',
+        result: { displayName: 'linger-app', repoUrl: '/tmp/linger', defaultBranch: 'main' },
+      })
+      // Stay alive until killed; emit progress lines that should be ignored after settle.
+      const interval = setInterval(() => {
+        try {
+          write({
+            protocolVersion: PROTOCOL_VERSION,
+            requestId: request.requestId,
+            event: 'progress',
+            message: 'late-progress-should-be-ignored',
+          })
+        } catch {
+          clearInterval(interval)
+        }
+      }, 5)
+      return
     }
 
     if (resolvedMode === 'bad-repo') {
