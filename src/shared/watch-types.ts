@@ -1,14 +1,6 @@
-export type AiServiceProvider = 'openai' | 'azure' | 'none'
+import type { AiServiceProvider, AiServiceSettings } from './plugins/api-types'
 
-export interface AiServiceSettings {
-  provider: AiServiceProvider
-  openaiApiKey?: string
-  azureApiKey?: string
-  azureEndpoint?: string
-  azureDeployment?: string          // transcription deployment (existing)
-  chatModel?: string                // text/chat model (default 'gpt-5.1')
-  azureChatDeployment?: string      // Azure chat deployment (no default)
-}
+export type { AiServiceProvider, AiServiceSettings } from './plugins/api-types'
 
 /** @deprecated Use AiServiceSettings. Kept as alias during migration. */
 export type TranscriptionSettings = AiServiceSettings
