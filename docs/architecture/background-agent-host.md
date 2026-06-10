@@ -1,7 +1,7 @@
 ---
 description: The main-process host that runs background agent jobs (the Ideas research agent) off the interactive session, persists progress, and reports it back to the renderer.
 covers: [src/main/background-agent-host]
-updated: 2026-06-08
+updated: 2026-06-10
 owner: see .github/CODEOWNERS
 ---
 
@@ -94,8 +94,9 @@ the already-completed results and continues from the checkpoint.
 
 **Feedback / ranking.** `recordFeedback()` validates the suggestion id and feedback type,
 appends a `BackgroundAgentFeedbackEvent`, then re-ranks the current suggestions with the new
-feedback (`background-agent-host.ts:94`). Feedback is fed back into `rankSuggestions` on the
-next refresh as well.
+feedback (`background-agent-host.ts:94`). `finishReadyState()` re-reads the persisted
+`feedback[]` at ranking time (`background-agent-refresh-runner.ts:182`), so feedback recorded
+mid-run counts toward that run's ranking as well as every later refresh.
 
 ## Key types and entry points
 
