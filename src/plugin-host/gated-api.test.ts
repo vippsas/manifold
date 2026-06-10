@@ -18,8 +18,9 @@ const makeConfiguration = (): never => ({
 } as never)
 const makeAgents = (): never => ({ activeAgent: undefined } as never)
 const makeLm = (): never => ({ selectChatModels: async () => [] } as never)
+const makeTranscription = (): never => ({ get: async () => undefined } as never)
 
-const factories = { storage: makeStorage, workspace: makeWorkspace, configuration: makeConfiguration, agents: makeAgents, lm: makeLm }
+const factories = { storage: makeStorage, workspace: makeWorkspace, configuration: makeConfiguration, agents: makeAgents, lm: makeLm, transcription: makeTranscription }
 
 describe('buildGatedApi', () => {
   it('always exposes commands and window', () => {
@@ -77,5 +78,31 @@ describe('buildGatedApi — privileged capabilities', () => {
     const api = buildGatedApi(['agent:control', 'lm'], 'builtin', shared, factories)
     expect(api.agents).toBeDefined()
     expect(api.lm).toBeDefined()
+  })
+  it('admits the agents namespace with only agent:spawn (no agent:control)', () => {
+    const api = buildGatedApi(['agent:spawn'], 'builtin', shared, factories)
+    expect(api.agents).toBeDefined()
+  })
+  it('passes the declared capability set to the agents factory', () => {
+    const agentsFactory = vi.fn(() => makeAgents())
+    const api = buildGatedApi(['agent:spawn'], 'builtin', shared, { ...factories, agents: agentsFactory })
+    expect(api.agents).toBeDefined()
+    expect(agentsFactory).toHaveBeenCalledWith(new Set(['agent:spawn']))
+  })
+  it('restricts agent:spawn to builtin origin even when declared', () => {
+    const api = buildGatedApi(['agent:spawn'], 'user', shared, factories)
+    expect(() => api.agents).toThrow(RestrictedCapabilityError)
+  })
+  it('throws CapabilityError when transcription is used without transcription:read', () => {
+    const api = buildGatedApi([], 'builtin', shared, factories)
+    expect(() => api.transcription).toThrow(CapabilityError)
+  })
+  it('restricts transcription:read to builtin origin even when declared', () => {
+    const api = buildGatedApi(['transcription:read'], 'user', shared, factories)
+    expect(() => api.transcription).toThrow(RestrictedCapabilityError)
+  })
+  it('grants transcription to a builtin plugin that declares transcription:read', () => {
+    const api = buildGatedApi(['transcription:read'], 'builtin', shared, factories)
+    expect(api.transcription).toBeDefined()
   })
 })

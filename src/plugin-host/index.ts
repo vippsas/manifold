@@ -10,6 +10,7 @@ import { createStorageApi } from './storage-api'
 import { WorkspaceContext } from './workspace-api'
 import { createAgentsApi } from './agents-api'
 import { createLmApi } from './lm-api'
+import { createTranscriptionApi } from './transcription-api'
 import { ConfigContext } from './config-api'
 import { createVscodeShim } from './vscode-shim'
 import type { PluginModule } from '../shared/plugins/api-types'
@@ -72,11 +73,12 @@ const activator = new Activator((t: ActivationTarget): PluginModule => {
     storage: () => createStorageApi(endpoint, t.id),
     workspace: () => workspaceContext.makeApi(),
     configuration: () => configContext.makeApi(endpoint, t.id),
-    // Bind the privileged agent/lm RPCs to this plugin's id so the main side can
-    // re-validate the caller's origin at the trust boundary (a host-local gate is
-    // not authoritative — the plugin shares this process). See ExtensionHost.
-    agents: () => createAgentsApi(endpoint, workspaceContext, t.id),
+    // Bind the privileged agent/lm/transcription RPCs to this plugin's id so the
+    // main side can re-validate the caller's origin at the trust boundary (a
+    // host-local gate is not authoritative — the plugin shares this process).
+    agents: (caps) => createAgentsApi(endpoint, workspaceContext, t.id, caps),
     lm: () => createLmApi(endpoint, workspaceContext, t.id),
+    transcription: () => createTranscriptionApi(endpoint, t.id),
   })
   registerPluginApis(t.root, { manifold })
   // eslint-disable-next-line @typescript-eslint/no-var-requires

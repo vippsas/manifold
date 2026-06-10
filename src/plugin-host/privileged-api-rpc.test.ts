@@ -16,7 +16,7 @@ describe('agents-api over RPC', () => {
   it('activeAgent is undefined with no active session', () => {
     const { host } = wirePair()
     const ws = new WorkspaceContext()
-    const agents = createAgentsApi(host, ws, 'p.x')
+    const agents = createAgentsApi(host, ws, 'p.x', new Set(['agent:control', 'agent:spawn']))
     expect(agents.activeAgent).toBeUndefined()
   })
 
@@ -29,7 +29,7 @@ describe('agents-api over RPC', () => {
     })
     const ws = new WorkspaceContext()
     ws.setActiveContext({ session: { id: 's1', status: 'running', worktreePath: '/wt' } })
-    const agents = createAgentsApi(host, ws, 'p.builtin')
+    const agents = createAgentsApi(host, ws, 'p.builtin', new Set(['agent:control', 'agent:spawn']))
     const outcome = await agents.activeAgent!.runTurn('PROMPT', { budgetSeconds: 30 })
     expect(outcome).toBe('ended')
     expect(calls).toEqual([['p.builtin', 's1', 'PROMPT', { budgetSeconds: 30 }]])
@@ -44,7 +44,7 @@ describe('agents-api over RPC', () => {
     })
     const ws = new WorkspaceContext()
     ws.setActiveContext({ session: { id: 'active-session', status: 'running', worktreePath: '/wt-active' } })
-    const agents = createAgentsApi(host, ws, 'p.builtin')
+    const agents = createAgentsApi(host, ws, 'p.builtin', new Set(['agent:control', 'agent:spawn']))
     const outcome = await agents.getAgent('pinned-session')!.runTurn('PROMPT', { budgetSeconds: 30 })
     expect(outcome).toBe('ended')
     expect(calls).toEqual([['p.builtin', 'pinned-session', 'PROMPT', { budgetSeconds: 30 }]])
@@ -59,7 +59,7 @@ describe('agents-api over RPC', () => {
     })
     const ws = new WorkspaceContext()
     ws.setActiveContext({ session: { id: 's1', status: 'running', worktreePath: '/wt' } })
-    const agents = createAgentsApi(host, ws, 'p.builtin')
+    const agents = createAgentsApi(host, ws, 'p.builtin', new Set(['agent:control', 'agent:spawn']))
     const listeners: (() => void)[] = []
     const token = { isCancellationRequested: false, onCancellationRequested: (l: () => void) => { listeners.push(l); return { dispose() {} } } }
     void agents.activeAgent!.runTurn('PROMPT', undefined, token)
