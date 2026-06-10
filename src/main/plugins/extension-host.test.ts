@@ -20,6 +20,7 @@ interface HostForTest {
   setEnabledResolver(fn: (pluginId: string) => boolean): void
   setOriginResolver(fn: (pluginId: string) => 'builtin' | 'user' | undefined): void
   setSend(fn: (channel: string, ...args: unknown[]) => void): void
+  setTranscriptionResolver(fn: () => unknown): void
 }
 
 const mocks = vi.hoisted(() => {
@@ -80,9 +81,26 @@ function settle(): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, 0))
 }
 
+function fakeAgentSpawn(): {
+  spawnSibling: ReturnType<typeof vi.fn>
+  sendText: ReturnType<typeof vi.fn>
+  whenReady: ReturnType<typeof vi.fn>
+  getStatus: ReturnType<typeof vi.fn>
+  kill: ReturnType<typeof vi.fn>
+} {
+  return {
+    spawnSibling: vi.fn(async () => ({ sessionId: 'sib-1' })),
+    sendText: vi.fn(),
+    whenReady: vi.fn(async () => true),
+    getStatus: vi.fn(() => 'waiting'),
+    kill: vi.fn(async () => undefined),
+  }
+}
+
 async function createHost(
   agentControl: { runTurn: (...a: unknown[]) => unknown; cancelTurn: (...a: unknown[]) => unknown } = { runTurn: vi.fn(), cancelTurn: vi.fn() },
   lm: { selectChatModels: (...a: unknown[]) => unknown; sendRequest: (...a: unknown[]) => unknown } = { selectChatModels: vi.fn(), sendRequest: vi.fn() },
+  agentSpawn: ReturnType<typeof fakeAgentSpawn> = fakeAgentSpawn(),
   now?: () => number,
 ): Promise<HostForTest> {
   const { ExtensionHost } = await import('./extension-host')
@@ -90,6 +108,7 @@ async function createHost(
     { get: vi.fn(), update: vi.fn() },
     agentControl as never,
     lm as never,
+    agentSpawn as never,
     now,
   ) as unknown as HostForTest
 }
@@ -256,6 +275,83 @@ describe('ExtensionHost privileged-capability trust boundary', () => {
     expect((rep as { value: unknown }).value).toBe('ended')
     expect(runTurn).toHaveBeenCalledWith('s1', 'PROMPT', undefined)
   })
+
+  it('allows $spawnSibling from a builtin plugin and delegates to the spawn service', async () => {
+    const { HOST_AGENTS } = await import('../../shared/plugins/rpc')
+    const agentSpawn = fakeAgentSpawn()
+    const host = await createHost(undefined, undefined, agentSpawn)
+    host.setOriginResolver((id) => (id === 'p.builtin' ? 'builtin' : 'user'))
+    void host.executeContributedCommand('noop', []).catch(() => {})
+    const child = latestChild()
+    child.posted.length = 0
+    child.emit('message', { t: 'req', id: 4, ctx: HOST_AGENTS, method: '$spawnSibling', args: ['p.builtin', 'base-1', { title: 'T', groupId: 'g' }] } satisfies RpcMessage)
+    await settle()
+    const rep = lastReply(child)
+    expect(rep?.ok).toBe(true)
+    expect((rep as { value: unknown }).value).toEqual({ sessionId: 'sib-1' })
+    expect(agentSpawn.spawnSibling).toHaveBeenCalledWith('base-1', { title: 'T', groupId: 'g' })
+  })
+
+  it('rejects $spawnSibling from a non-builtin plugin at the main boundary', async () => {
+    const { HOST_AGENTS } = await import('../../shared/plugins/rpc')
+    const agentSpawn = fakeAgentSpawn()
+    const host = await createHost(undefined, undefined, agentSpawn)
+    host.setOriginResolver(() => 'user')
+    void host.executeContributedCommand('noop', []).catch(() => {})
+    const child = latestChild()
+    child.posted.length = 0
+    child.emit('message', { t: 'req', id: 5, ctx: HOST_AGENTS, method: '$spawnSibling', args: ['p.user', 'base-1', undefined] } satisfies RpcMessage)
+    await settle()
+    const rep = lastReply(child)
+    expect(rep?.ok).toBe(false)
+    expect((rep as { error: string }).error).toMatch(/restricted to built-in plugins/)
+    expect(agentSpawn.spawnSibling).not.toHaveBeenCalled()
+  })
+
+  it('$reveal pushes plugins:reveal-session to the renderer', async () => {
+    const { HOST_AGENTS } = await import('../../shared/plugins/rpc')
+    const host = await createHost()
+    const send = vi.fn()
+    host.setSend(send)
+    host.setOriginResolver(() => 'builtin')
+    void host.executeContributedCommand('noop', []).catch(() => {})
+    const child = latestChild()
+    child.emit('message', { t: 'req', id: 6, ctx: HOST_AGENTS, method: '$reveal', args: ['p.builtin', 'sess-9', 'My title'] } satisfies RpcMessage)
+    await settle()
+    expect(send).toHaveBeenCalledWith('plugins:reveal-session', 'sess-9', 'My title')
+  })
+
+  it('HostTranscription.$get returns the resolver value for a builtin plugin', async () => {
+    const { HOST_TRANSCRIPTION } = await import('../../shared/plugins/rpc')
+    const host = await createHost()
+    host.setOriginResolver(() => 'builtin')
+    host.setTranscriptionResolver(() => ({ provider: 'openai', openaiApiKey: 'k' }))
+    void host.executeContributedCommand('noop', []).catch(() => {})
+    const child = latestChild()
+    child.posted.length = 0
+    child.emit('message', { t: 'req', id: 7, ctx: HOST_TRANSCRIPTION, method: '$get', args: ['p.builtin'] } satisfies RpcMessage)
+    await settle()
+    const rep = lastReply(child)
+    expect(rep?.ok).toBe(true)
+    expect((rep as { value: unknown }).value).toEqual({ provider: 'openai', openaiApiKey: 'k' })
+  })
+
+  it('rejects HostTranscription.$get from a non-builtin plugin at the main boundary', async () => {
+    const { HOST_TRANSCRIPTION } = await import('../../shared/plugins/rpc')
+    const resolver = vi.fn(() => ({ provider: 'openai' }))
+    const host = await createHost()
+    host.setOriginResolver(() => 'user')
+    host.setTranscriptionResolver(resolver)
+    void host.executeContributedCommand('noop', []).catch(() => {})
+    const child = latestChild()
+    child.posted.length = 0
+    child.emit('message', { t: 'req', id: 8, ctx: HOST_TRANSCRIPTION, method: '$get', args: ['p.user'] } satisfies RpcMessage)
+    await settle()
+    const rep = lastReply(child)
+    expect(rep?.ok).toBe(false)
+    expect((rep as { error: string }).error).toMatch(/restricted to built-in plugins/)
+    expect(resolver).not.toHaveBeenCalled()
+  })
 })
 
 describe('ExtensionHost host-down cleanup + crash backoff', () => {
@@ -289,7 +385,7 @@ describe('ExtensionHost host-down cleanup + crash backoff', () => {
 
   it('backs off re-forking after repeated crashes within the window', async () => {
     let clock = 0
-    const host = await createHost(undefined, undefined, () => clock)
+    const host = await createHost(undefined, undefined, undefined, () => clock)
     // Crash the host CRASH_THRESHOLD (3) times in quick succession.
     for (let i = 0; i < 3; i++) {
       void host.executeContributedCommand('noop', []).catch(() => {})
@@ -309,7 +405,7 @@ describe('ExtensionHost host-down cleanup + crash backoff', () => {
 
   it('does not back off on clean (code 0) exits', async () => {
     let clock = 0
-    const host = await createHost(undefined, undefined, () => clock)
+    const host = await createHost(undefined, undefined, undefined, () => clock)
     for (let i = 0; i < 5; i++) {
       void host.executeContributedCommand('noop', []).catch(() => {})
       latestChild().emit('exit', 0)

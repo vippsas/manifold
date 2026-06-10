@@ -1,7 +1,7 @@
 // src/main/plugins/extension-host.ts
 import { utilityProcess, type UtilityProcess } from 'electron'
 import { join } from 'node:path'
-import { RpcEndpoint, HOST_COMMANDS, HOST_WINDOW, HOST_STORAGE, HOST_CONFIG, HOST_TREE, HOST_UI, HOST_AGENTS, HOST_LM, PLUGIN_ACTIVATION, PLUGIN_COMMANDS, PLUGIN_WEBVIEW, PLUGIN_WORKSPACE, PLUGIN_CONFIG, PLUGIN_TREE, type RpcMessage } from '../../shared/plugins/rpc'
+import { RpcEndpoint, HOST_COMMANDS, HOST_WINDOW, HOST_STORAGE, HOST_CONFIG, HOST_TREE, HOST_UI, HOST_AGENTS, HOST_LM, HOST_TRANSCRIPTION, PLUGIN_ACTIVATION, PLUGIN_COMMANDS, PLUGIN_WEBVIEW, PLUGIN_WORKSPACE, PLUGIN_CONFIG, PLUGIN_TREE, type RpcMessage } from '../../shared/plugins/rpc'
 import { CommandRegistry } from './command-registry'
 import { createHostCommandsService } from './host-commands-service'
 import { debugLog } from '../app/debug-log'
@@ -12,6 +12,8 @@ import { UiRequestBroker } from './ui-broker'
 import type { MessageLevel, UiRequest } from '../../shared/plugins/ui'
 import type { AgentControlService } from './agent-control-service'
 import type { LmService } from './lm-service'
+import type { AgentSpawnService } from './agent-spawn-service'
+import type { AiServiceSettings } from '../../shared/plugins/api-types'
 
 interface PluginActivationProxy { $activate(t: ActivationTarget): Promise<void>; $deactivate(id: string): Promise<void> }
 interface PluginCommandsProxy { $invokeCommand(id: string, args: unknown[]): Promise<unknown> }
@@ -41,6 +43,7 @@ export class ExtensionHost {
   private getConfig: ((pluginId: string, key: string) => unknown) | null = null
   private isPluginEnabled: ((pluginId: string) => boolean) | null = null
   private getPluginOrigin: ((pluginId: string) => 'builtin' | 'user' | undefined) | null = null
+  private getTranscription: (() => AiServiceSettings | undefined) | null = null
   private readonly ui = new UiRequestBroker(() => this.send)
   // Crash circuit-breaker state (see CRASH_* constants).
   private crashCount = 0
@@ -52,6 +55,7 @@ export class ExtensionHost {
     private readonly storage: PluginStorageStore,
     private readonly agentControl: AgentControlService,
     private readonly lm: LmService,
+    private readonly agentSpawn: AgentSpawnService,
     now: () => number = () => Date.now(),
   ) {
     this.now = now
@@ -62,6 +66,8 @@ export class ExtensionHost {
   setEnabledResolver(fn: (pluginId: string) => boolean): void { this.isPluginEnabled = fn }
 
   setOriginResolver(fn: (pluginId: string) => 'builtin' | 'user' | undefined): void { this.getPluginOrigin = fn }
+
+  setTranscriptionResolver(fn: () => AiServiceSettings | undefined): void { this.getTranscription = fn }
 
   setSend(fn: (channel: string, ...args: unknown[]) => void): void { this.send = fn }
 
@@ -160,10 +166,19 @@ export class ExtensionHost {
     endpoint.registerService(HOST_AGENTS, {
       $runTurn: (pluginId: string, sessionId: string, prompt: string, opts: { budgetSeconds?: number; clearContext?: boolean } | undefined) => { this.assertBuiltin(pluginId, 'agent:control'); return this.agentControl.runTurn(sessionId, prompt, opts) },
       $cancelTurn: (pluginId: string, sessionId: string) => { this.assertBuiltin(pluginId, 'agent:control'); this.agentControl.cancelTurn(sessionId) },
+      $spawnSibling: (pluginId: string, baseSessionId: string, opts: { title?: string; groupId?: string } | undefined) => { this.assertBuiltin(pluginId, 'agent:spawn'); return this.agentSpawn.spawnSibling(baseSessionId, opts) },
+      $sendText: (pluginId: string, sessionId: string, text: string) => { this.assertBuiltin(pluginId, 'agent:spawn'); this.agentSpawn.sendText(sessionId, text) },
+      $whenReady: (pluginId: string, sessionId: string, timeoutMs: number | undefined) => { this.assertBuiltin(pluginId, 'agent:spawn'); return this.agentSpawn.whenReady(sessionId, timeoutMs) },
+      $getStatus: (pluginId: string, sessionId: string) => { this.assertBuiltin(pluginId, 'agent:spawn'); return this.agentSpawn.getStatus(sessionId) },
+      $kill: (pluginId: string, sessionId: string) => { this.assertBuiltin(pluginId, 'agent:spawn'); return this.agentSpawn.kill(sessionId) },
+      $reveal: (pluginId: string, sessionId: string, title: string | undefined) => { this.assertBuiltin(pluginId, 'agent:spawn'); this.send?.('plugins:reveal-session', sessionId, title) },
     })
     endpoint.registerService(HOST_LM, {
       $selectChatModels: (pluginId: string, sessionId: string | undefined) => { this.assertBuiltin(pluginId, 'lm'); return this.lm.selectChatModels(sessionId) },
       $sendRequest: (pluginId: string, sessionId: string | undefined, prompt: string, opts: { timeoutMs?: number } | undefined) => { this.assertBuiltin(pluginId, 'lm'); return this.lm.sendRequest(sessionId, prompt, opts) },
+    })
+    endpoint.registerService(HOST_TRANSCRIPTION, {
+      $get: (pluginId: string) => { this.assertBuiltin(pluginId, 'transcription:read'); return this.getTranscription?.() },
     })
     this.child = child
     this.endpoint = endpoint
