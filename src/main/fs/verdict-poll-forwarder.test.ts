@@ -133,6 +133,21 @@ describe('VerdictPollForwarder', () => {
     expect(store.getBySessionId('s1')!.metrics.prUrl).toBeUndefined()
   })
 
+  it('evict drops the cached sha so a recreated path does not fire a spurious commit', async () => {
+    const { store, recorder } = makeRecorder(tmp)
+    register(recorder, 's1')
+    let head = 'sha-a'
+    const fwd = new VerdictPollForwarder(async () => head, async () => 'manifold/oslo', async () => null)
+    fwd.setRecorder(recorder)
+
+    await fwd.notifyGitChange('/tmp/wt', 's1') // baseline records sha-a
+    fwd.evict('/tmp/wt')                        // path unwatched
+
+    head = 'sha-b'
+    await fwd.notifyGitChange('/tmp/wt', 's1') // first observation again, no diff to compare against
+    expect(store.getBySessionId('s1')!.metrics.agentCommits).toBe(0)
+  })
+
   it('ignores a detached-HEAD branch result', async () => {
     const { recorder } = makeRecorder(tmp)
     register(recorder, 's1')

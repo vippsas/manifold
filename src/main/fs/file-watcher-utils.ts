@@ -1,23 +1,51 @@
 import * as fs from 'node:fs'
+import * as fsp from 'node:fs/promises'
 import * as path from 'node:path'
 import { spawn } from 'node:child_process'
 import { FileChange, FileChangeType } from '../../shared/types'
 
+const GIT_STATUS_TIMEOUT_MS = 10000
+
 export function gitStatus(cwd: string): Promise<string> {
   return new Promise((resolve, reject) => {
+    // stderr is 'ignore' (not 'pipe') so a git that floods >64KB of warnings to
+    // stderr can't block on a full pipe and wedge the poll forever (#536).
     const child = spawn('git', ['status', '--porcelain'], {
       cwd,
-      stdio: ['ignore', 'pipe', 'pipe'],
+      stdio: ['ignore', 'pipe', 'ignore'],
     })
 
     const chunks: Buffer[] = []
+    let settled = false
+    const timer = setTimeout(() => {
+      if (settled) return
+      settled = true
+      child.kill('SIGKILL')
+      reject(new Error('git status timed out'))
+    }, GIT_STATUS_TIMEOUT_MS)
+
     child.stdout!.on('data', (data: Buffer) => chunks.push(data))
-    child.on('error', reject)
+    child.on('error', (err) => {
+      if (settled) return
+      settled = true
+      clearTimeout(timer)
+      reject(err)
+    })
     child.on('close', (code) => {
+      if (settled) return
+      settled = true
+      clearTimeout(timer)
       if (code !== 0) reject(new Error(`git status failed (code ${code})`))
       else resolve(Buffer.concat(chunks).toString('utf8'))
     })
   })
+}
+
+// Git's unmerged porcelain codes: any entry containing 'U' (UU/AU/UA/DU/UD) plus
+// the both-added/both-deleted pairs (AA/DD). Covers "deleted by us/them" so those
+// conflicts reach the conflict UI (#540).
+function isConflictCode(code: string): boolean {
+  return code.includes('U') || code === 'AA' || code === 'DD'
 }
 
 export function parseStatusWithConflicts(raw: string): { changes: FileChange[]; conflicts: string[] } {
@@ -26,9 +54,15 @@ export function parseStatusWithConflicts(raw: string): { changes: FileChange[]; 
   for (const line of raw.split('\n')) {
     if (line.length < 4) continue
     const code = line.substring(0, 2)
-    const filePath = line.substring(3)
+    const rawPath = line.substring(3)
+    // Rename/copy entries render as "old -> new"; keep the destination path so
+    // the fingerprint stats a real file and the renderer gets a valid path (#540).
+    const filePath =
+      (code[0] === 'R' || code[0] === 'C') && rawPath.includes(' -> ')
+        ? rawPath.slice(rawPath.indexOf(' -> ') + 4)
+        : rawPath
 
-    if (code === 'UU' || code === 'AA' || code === 'DD') {
+    if (isConflictCode(code)) {
       conflicts.push(filePath)
     }
 
@@ -41,13 +75,17 @@ export function parseStatusWithConflicts(raw: string): { changes: FileChange[]; 
   return { changes, conflicts }
 }
 
-export function buildChangeFingerprint(rootPath: string, changes: FileChange[]): string {
-  return [...changes]
-    .sort((a, b) => a.path.localeCompare(b.path) || a.type.localeCompare(b.type))
-    .map((change) => {
+export async function buildChangeFingerprint(rootPath: string, changes: FileChange[]): Promise<string> {
+  const sorted = [...changes].sort(
+    (a, b) => a.path.localeCompare(b.path) || a.type.localeCompare(b.type),
+  )
+  // Async stat off the main thread, in parallel — a dirty tree of thousands of
+  // entries no longer blocks the 2s poll tick on synchronous statSync (#538).
+  const parts = await Promise.all(
+    sorted.map(async (change) => {
       const absolutePath = path.join(rootPath, change.path)
       try {
-        const stat = fs.statSync(absolutePath)
+        const stat = await fsp.stat(absolutePath)
         const kind = stat.isDirectory() ? 'dir' : 'file'
         const size = typeof stat.size === 'number' ? stat.size : 0
         const modifiedAt = typeof stat.mtimeMs === 'number' ? stat.mtimeMs : 0
@@ -55,8 +93,9 @@ export function buildChangeFingerprint(rootPath: string, changes: FileChange[]):
       } catch {
         return `${change.type}:${change.path}:missing`
       }
-    })
-    .join('|')
+    }),
+  )
+  return parts.join('|')
 }
 
 export const EXCLUDED_DIRS = new Set([

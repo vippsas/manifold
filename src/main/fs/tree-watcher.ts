@@ -26,7 +26,13 @@ export class ChokidarTreeWatcher implements TreeWatcher {
   }
 
   watch(rootPath: string, sessionId: string): void {
-    if (this.watchers.has(rootPath)) return
+    const existing = this.watchers.get(rootPath)
+    if (existing) {
+      // Reused worktree: re-point the entry so debounced events emit the live
+      // sessionId rather than the first session that watched this path (#535).
+      existing.sessionId = sessionId
+      return
+    }
 
     const watcher = chokidar.watch(rootPath, {
       ignored: (p: string) => isExcluded(rootPath, p),
@@ -42,7 +48,7 @@ export class ChokidarTreeWatcher implements TreeWatcher {
       if (entry.debounceTimer) clearTimeout(entry.debounceTimer)
       entry.debounceTimer = setTimeout(() => {
         entry.debounceTimer = null
-        this.onTreeChanged?.(sessionId)
+        this.onTreeChanged?.(entry.sessionId)
       }, DEBOUNCE_MS)
     }
 

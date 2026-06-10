@@ -61,8 +61,10 @@ NL/suggestion helpers only while at the prompt line.
 
 **Stop.** `killSession()` → `SessionKiller.killSession()` (`session-killer.ts:33`) deletes the
 session from the map, kills its PTYs (agent, dev-server, slash-command probe), clears chat +
-memory + image temp dirs (`cleanupSession`, `session-killer.ts:87`), then removes the worktree
-**only if no other live session shares its path** (`removeWorktreeIfUnused`, `:113`). The
+memory + image temp dirs and stops the file watcher — each `--add-dir` plus the worktree poll,
+the latter **only if no other live session shares the path** (`cleanupSession`,
+`session-killer.ts:87`; `worktreeSharedWithOther`) — then removes the worktree under the same
+shared-path guard (`removeWorktreeIfUnused`, `:113`). The
 higher-level `SessionTeardown` paths (`session-teardown.ts`) auto-commit dirty managed
 worktrees before killing and, for worktree-based sessions, checkout the base branch
 afterward — but deliberately skip the base checkout for `noWorktree` sessions to avoid

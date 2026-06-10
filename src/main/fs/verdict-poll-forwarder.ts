@@ -4,17 +4,21 @@ import type { VerdictRecorder } from '../session/verdict-recorder'
 
 const execFileAsync = promisify(execFile)
 
+// Cap each git/gh subprocess so a hung command (e.g. a stalled `gh pr list`
+// network call) can't freeze the poll tick for that worktree forever (#537).
+const EXEC_TIMEOUT_MS = 10000
+
 export type HeadShaFn = (cwd: string) => Promise<string>
 export type BranchFn = (cwd: string) => Promise<string>
 export type PrLookupFn = (cwd: string, branch: string) => Promise<string | null>
 
 async function defaultHeadSha(cwd: string): Promise<string> {
-  const { stdout } = await execFileAsync('git', ['rev-parse', 'HEAD'], { cwd })
+  const { stdout } = await execFileAsync('git', ['rev-parse', 'HEAD'], { cwd, timeout: EXEC_TIMEOUT_MS })
   return stdout.trim()
 }
 
 async function defaultBranch(cwd: string): Promise<string> {
-  const { stdout } = await execFileAsync('git', ['rev-parse', '--abbrev-ref', 'HEAD'], { cwd })
+  const { stdout } = await execFileAsync('git', ['rev-parse', '--abbrev-ref', 'HEAD'], { cwd, timeout: EXEC_TIMEOUT_MS })
   return stdout.trim()
 }
 
@@ -25,7 +29,7 @@ async function defaultPrLookup(cwd: string, branch: string): Promise<string | nu
   const { stdout } = await execFileAsync(
     'gh',
     ['pr', 'list', '--head', branch, '--state', 'all', '--limit', '1', '--json', 'url', '--jq', '.[0].url'],
-    { cwd },
+    { cwd, timeout: EXEC_TIMEOUT_MS },
   )
   const trimmed = stdout.trim()
   return trimmed.startsWith('http') ? trimmed : null
@@ -54,6 +58,15 @@ export class VerdictPollForwarder {
 
   setRecorder(recorder: VerdictRecorder): void {
     this.recorder = recorder
+  }
+
+  /**
+   * Drop the cached HEAD sha for a worktree when it stops being watched. Prevents
+   * a small leak and stops a recreated path from reusing a stale sha (which would
+   * fire a spurious onAgentCommit) (#537).
+   */
+  evict(worktreePath: string): void {
+    this.lastHeadSha.delete(worktreePath)
   }
 
   async notifyGitChange(worktreePath: string, sessionId: string): Promise<void> {
