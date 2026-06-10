@@ -17,7 +17,7 @@ export function NewAgentForm({
   baseBranch,
   isGitProject,
   defaultRuntime,
-  defaultAgentMode = 'chat',
+  defaultAgentMode = 'interactive',
   onLaunch,
   existingSessions = [],
   onResumeSession,
