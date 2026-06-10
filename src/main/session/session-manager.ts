@@ -66,6 +66,7 @@ export class SessionManager {
       this.projectRegistry,
       this.sendToRenderer.bind(this),
       this.streamWirer,
+      (id) => this.killSession(id),
     )
     this.discovery = new SessionDiscovery(
       this.sessions,
