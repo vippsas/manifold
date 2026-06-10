@@ -195,9 +195,9 @@ export function registerAgentHandlers(deps: IpcDependencies): void {
   ipcMain.handle('agent:kill', async (_event, sessionId: string) => {
     const session = sessionManager.getSession(sessionId)
     debugLog(`[agent:kill] sessionId=${sessionId} found=${!!session} worktreePath=${session?.worktreePath ?? 'n/a'} noWorktree=${session?.noWorktree ?? 'n/a'}`)
-    if (session) {
-      await fileWatcher.unwatch(session.worktreePath)
-    }
+    // killSession → SessionKiller.cleanupSession unwatches the worktree, but only
+    // when no surviving session still shares it. Unwatching here unconditionally
+    // would kill file/git events for sibling sessions on the same worktree (#534).
     if (sessionManager.hasSession(sessionId)) {
       await sessionManager.killSession(sessionId)
     }

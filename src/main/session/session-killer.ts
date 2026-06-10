@@ -90,6 +90,15 @@ export class SessionKiller {
       for (const dir of session.additionalDirs) {
         fileWatcher.unwatchAdditionalDir(dir, session.id)
       }
+      // Stop the worktree git-status poll on every teardown path (mode-switch
+      // included, not just the IPC layer), but only once no other live session
+      // shares the path — multiple sessions can watch one worktree, and several
+      // noWorktree sessions share the project path (#493, #534). Idempotent with
+      // any IPC-layer unwatch. Caller already removed `session` from the map, so
+      // the check sees only survivors.
+      if (!this.worktreeSharedWithOther(session.worktreePath)) {
+        void fileWatcher.unwatch(session.worktreePath)
+      }
     }
 
     this.deps.getMemoryCapture()?.stopCapturing(session.id)
@@ -110,11 +119,14 @@ export class SessionKiller {
     void fs.rm(pastedImagesDir, { recursive: true, force: true }).catch(() => { /* best-effort */ })
   }
 
-  private async removeWorktreeIfUnused(session: InternalSession): Promise<void> {
-    const sharedWithOther = Array.from(this.deps.sessions.values()).some(
-      (other) => other.worktreePath === session.worktreePath,
+  private worktreeSharedWithOther(worktreePath: string): boolean {
+    return Array.from(this.deps.sessions.values()).some(
+      (other) => other.worktreePath === worktreePath,
     )
-    if (sharedWithOther) return
+  }
+
+  private async removeWorktreeIfUnused(session: InternalSession): Promise<void> {
+    if (this.worktreeSharedWithOther(session.worktreePath)) return
 
     await this.removeWorktree(session.projectId, session.worktreePath)
   }

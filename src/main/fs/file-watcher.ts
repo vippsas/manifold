@@ -11,7 +11,7 @@ import {
 import { buildFileTree } from './file-tree-builder'
 import { NoopTreeWatcher, type TreeWatcher } from './tree-watcher'
 import { VerdictPollForwarder, type HeadShaFn } from './verdict-poll-forwarder'
-import { isMissingGitError } from '../git/git-errors'
+import { isMissingGitError, isGitRepositoryError } from '../git/git-errors'
 
 const POLL_INTERVAL_MS = 2000
 
@@ -69,7 +69,6 @@ export class FileWatcher {
       sessionId,
       lastStatus: '',
       lastChangeFingerprint: '',
-      lastDirFingerprint: '',
       polling: false,
     }
     this.polls.set(key, entry)
@@ -86,7 +85,15 @@ export class FileWatcher {
   }
 
   watch(worktreePath: string, sessionId: string): void {
-    if (this.polls.has(worktreePath)) return
+    const existing = this.polls.get(worktreePath)
+    if (existing) {
+      // A reused worktree (createWorktreeFromBranch) re-watches the same path for
+      // a new session id. Re-point the entry so events carry the live sessionId —
+      // the renderer drops events whose sessionId doesn't match (#535).
+      existing.sessionId = sessionId
+      this.treeWatcher.watch(worktreePath, sessionId)
+      return
+    }
 
     const entry: PollEntry = {
       timer: setInterval(() => this.poll(worktreePath), POLL_INTERVAL_MS),
@@ -110,7 +117,7 @@ export class FileWatcher {
     try {
       const status = await this.gitStatusFn(worktreePath)
       const { changes, conflicts } = parseStatusWithConflicts(status)
-      const changeFingerprint = buildChangeFingerprint(worktreePath, changes)
+      const changeFingerprint = await buildChangeFingerprint(worktreePath, changes)
 
       const gitChanged = status !== entry.lastStatus || changeFingerprint !== entry.lastChangeFingerprint
 
@@ -143,7 +150,7 @@ export class FileWatcher {
     try {
       const status = await this.gitStatusFn(dirPath)
       const { changes, conflicts } = parseStatusWithConflicts(status)
-      const changeFingerprint = buildChangeFingerprint(dirPath, changes)
+      const changeFingerprint = await buildChangeFingerprint(dirPath, changes)
       if (status !== entry.lastStatus || changeFingerprint !== entry.lastChangeFingerprint) {
         entry.lastStatus = status
         entry.lastChangeFingerprint = changeFingerprint
@@ -154,8 +161,11 @@ export class FileWatcher {
         })
       }
     } catch (err) {
-      if (isMissingGitError(err)) this.disableGitPolling(key)
-      // Directory may not be a git repo or may not exist — skip
+      // A plain --add-dir folder is "not a git repository" and would otherwise
+      // respawn a failing git every 2s forever, so disable polling on that too,
+      // not just a missing git binary (#539).
+      if (isMissingGitError(err) || isGitRepositoryError(err)) this.disableGitPolling(key)
+      // Directory may not exist yet — other errors just skip this tick
     } finally {
       entry.polling = false
     }
@@ -174,6 +184,7 @@ export class FileWatcher {
     if (!entry) return
     if (entry.timer) clearInterval(entry.timer)
     this.polls.delete(worktreePath)
+    this.verdictForwarder.evict(worktreePath)
     await this.treeWatcher.unwatch(worktreePath)
   }
 

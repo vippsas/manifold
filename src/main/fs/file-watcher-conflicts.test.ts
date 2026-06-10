@@ -7,6 +7,12 @@ vi.mock('node:fs', () => ({
   writeFileSync: vi.fn(),
 }))
 
+// buildChangeFingerprint now stats async via node:fs/promises; route it through
+// the same statSync mock so existing per-test stat setups drive both.
+vi.mock('node:fs/promises', () => ({
+  stat: vi.fn(),
+}))
+
 vi.mock('node:path', () => ({
   join: (...args: string[]) => args.join('/'),
   relative: (from: string, to: string) => to.replace(from + '/', ''),
@@ -16,8 +22,10 @@ vi.mock('node:path', () => ({
 import { FileWatcher } from './file-watcher'
 import type { BrowserWindow } from 'electron'
 import * as fs from 'node:fs'
+import * as fsp from 'node:fs/promises'
 
 const mockStatSync = vi.mocked(fs.statSync)
+const mockStat = vi.mocked(fsp.stat)
 
 function createMockWindow() {
   return {
@@ -41,6 +49,9 @@ describe('FileWatcher — conflict detection', () => {
       mtimeMs: 1,
       size: 1,
     } as unknown as fs.Stats)
+    mockStat.mockImplementation(async (...args) =>
+      (mockStatSync as unknown as (...a: unknown[]) => fs.Stats)(...(args as unknown[])),
+    )
     watcher = new FileWatcher(mockGitStatus)
   })
 
@@ -160,6 +171,49 @@ describe('FileWatcher — conflict detection', () => {
     // The second call should have empty conflicts
     const lastConflictCall = conflictCalls[conflictCalls.length - 1]
     expect(lastConflictCall[1].conflicts).toEqual([])
+  })
+
+  it('detects U-family (deleted by us/them) lines as conflicts', async () => {
+    const mockWindow = createMockWindow()
+    watcher.setMainWindow(mockWindow)
+
+    const status = [
+      'UD src/del-by-them.ts',
+      'DU src/del-by-us.ts',
+      'AU src/added-by-us.ts',
+      'UA src/added-by-them.ts',
+    ].join('\n')
+
+    mockGitStatus.mockResolvedValue(status)
+    watcher.watch('/repo/worktree', 'session-1')
+    await vi.advanceTimersByTimeAsync(10)
+
+    const conflictCall = vi.mocked(mockWindow.webContents.send).mock.calls.find(
+      (call: unknown[]) => call[0] === 'agent:conflicts',
+    )
+    expect(conflictCall![1].conflicts).toEqual([
+      'src/del-by-them.ts',
+      'src/del-by-us.ts',
+      'src/added-by-us.ts',
+      'src/added-by-them.ts',
+    ])
+  })
+
+  it('parses a rename line to its destination path', async () => {
+    const mockWindow = createMockWindow()
+    watcher.setMainWindow(mockWindow)
+
+    mockGitStatus.mockResolvedValue('R  src/old.ts -> src/new.ts\n')
+    watcher.watch('/repo/worktree', 'session-1')
+    await vi.advanceTimersByTimeAsync(10)
+
+    const changesCall = vi.mocked(mockWindow.webContents.send).mock.calls.find(
+      (call: unknown[]) => call[0] === 'files:changed',
+    )
+    expect(changesCall![1].changes).toContainEqual({
+      path: 'src/new.ts',
+      type: 'modified',
+    })
   })
 
   it('detects mixed conflict types in single status output', async () => {

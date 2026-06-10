@@ -510,7 +510,10 @@ describe('registerAgentHandlers', () => {
     if (!handler) throw new Error('agent:kill handler was not registered')
 
     await handler({}, 'sess-1')
-    expect(deps.fileWatcher.unwatch).toHaveBeenCalledWith('/wt')
+    // #534: agent:kill no longer unwatches directly — killSession →
+    // SessionKiller.cleanupSession does the guarded unwatch (killSession is mocked here,
+    // and the guarded-unwatch behavior is covered by session-manager-kill tests).
+    expect(deps.fileWatcher.unwatch).not.toHaveBeenCalled()
     expect(deps.sessionManager.killSession).toHaveBeenCalledWith('sess-1')
     expect(deps.viewStateStore.delete).toHaveBeenCalledWith('sess-1')
   })

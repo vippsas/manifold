@@ -40,6 +40,7 @@ import { SessionManager } from './session-manager'
 import { WorktreeManager } from '../git/worktree-manager'
 import { PtyPool } from '../agent/pty-pool'
 import { ProjectRegistry } from '../store/project-registry'
+import type { FileWatcher } from '../fs/file-watcher'
 import type { MemoryCapture } from '../memory/memory-capture'
 import {
   createMockWorktreeManager,
@@ -145,6 +146,48 @@ describe('SessionManager — kill / interrupt / resize', () => {
       )
     })
 
+  })
+
+  describe('killSession — file-watcher unwatch', () => {
+    let fileWatcher: { unwatch: ReturnType<typeof vi.fn>; unwatchAdditionalDir: ReturnType<typeof vi.fn> }
+    let sm: SessionManager
+
+    beforeEach(() => {
+      fileWatcher = { unwatch: vi.fn().mockResolvedValue(undefined), unwatchAdditionalDir: vi.fn() }
+      sm = new SessionManager(
+        worktreeManager as unknown as WorktreeManager,
+        ptyPool as unknown as PtyPool,
+        projectRegistry as unknown as ProjectRegistry,
+        undefined,
+        fileWatcher as unknown as FileWatcher,
+      )
+    })
+
+    it('unwatches the worktree poll when the last session on the path is killed', async () => {
+      await sm.createSession({ projectId: 'proj-1', runtimeId: 'claude', prompt: 'only' })
+
+      await sm.killSession('session-uuid-1')
+
+      expect(fileWatcher.unwatch).toHaveBeenCalledWith('/repo/.manifold/worktrees/manifold-oslo')
+    })
+
+    it('does not unwatch while another session still shares the worktree', async () => {
+      await sm.createSession({ projectId: 'proj-1', runtimeId: 'claude', prompt: 'base' })
+      await sm.createSession({
+        projectId: 'proj-1',
+        runtimeId: 'claude',
+        prompt: 'sibling',
+        existingWorktreePath: '/repo/.manifold/worktrees/manifold-oslo',
+      })
+
+      // Killing the sibling must keep the survivor's poll alive (#534).
+      await sm.killSession('session-uuid-2')
+      expect(fileWatcher.unwatch).not.toHaveBeenCalled()
+
+      // Killing the last user finally unwatches (#493).
+      await sm.killSession('session-uuid-1')
+      expect(fileWatcher.unwatch).toHaveBeenCalledWith('/repo/.manifold/worktrees/manifold-oslo')
+    })
   })
 
   describe('interruptSession', () => {

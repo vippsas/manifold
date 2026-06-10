@@ -12,6 +12,12 @@ vi.mock('node:fs', () => ({
   cpSync: vi.fn(),
 }))
 
+// buildChangeFingerprint now stats async via node:fs/promises; route it through
+// the same statSync mock so existing per-test stat setups drive both.
+vi.mock('node:fs/promises', () => ({
+  stat: vi.fn(),
+}))
+
 vi.mock('node:path', () => ({
   join: (...args: string[]) => args.join('/'),
   relative: (from: string, to: string) => to.replace(from + '/', ''),
@@ -19,10 +25,12 @@ vi.mock('node:path', () => ({
 }))
 
 import * as fs from 'node:fs'
+import * as fsp from 'node:fs/promises'
 import { FileWatcher } from './file-watcher'
 import type { BrowserWindow } from 'electron'
 
 const mockStatSync = vi.mocked(fs.statSync)
+const mockStat = vi.mocked(fsp.stat)
 
 function createMockWindow() {
   return {
@@ -46,6 +54,10 @@ describe('FileWatcher', () => {
       mtimeMs: 1,
       size: 1,
     } as unknown as fs.Stats)
+    // Async stat delegates to the statSync mock so each test's stat setup applies.
+    mockStat.mockImplementation(async (...args) =>
+      (mockStatSync as unknown as (...a: unknown[]) => fs.Stats)(...(args as unknown[])),
+    )
     watcher = new FileWatcher(mockGitStatus)
   })
 
@@ -71,6 +83,31 @@ describe('FileWatcher', () => {
       await vi.advanceTimersByTimeAsync(10)
 
       expect(mockGitStatus).toHaveBeenCalledTimes(1)
+    })
+
+    it('re-points events to the new sessionId when an already-watched path is re-watched', async () => {
+      const mockWindow = createMockWindow()
+      watcher.setMainWindow(mockWindow)
+
+      watcher.watch('/repo/worktree', 'session-1')
+      await vi.advanceTimersByTimeAsync(10) // initial empty poll for session-1
+
+      // Reused worktree: a new session re-watches the same path.
+      watcher.watch('/repo/worktree', 'session-2')
+      vi.mocked(mockWindow.webContents.send).mockClear()
+
+      mockGitStatus.mockResolvedValue(' M src/file.ts\n')
+      await vi.advanceTimersByTimeAsync(2000)
+
+      expect(mockWindow.webContents.send).toHaveBeenCalledWith(
+        'files:changed',
+        expect.objectContaining({ sessionId: 'session-2' }),
+      )
+      // The old session id is no longer emitted for this path.
+      const sessionIds = vi.mocked(mockWindow.webContents.send).mock.calls
+        .filter((c: unknown[]) => c[0] === 'files:changed')
+        .map((c: unknown[]) => (c[1] as { sessionId: string }).sessionId)
+      expect(sessionIds).not.toContain('session-1')
     })
 
     it('polls again after the interval', async () => {
@@ -247,6 +284,19 @@ describe('FileWatcher', () => {
           source: '/extra/dir',
         }),
       )
+    })
+
+    it('stops polling a non-git add-dir after the first not-a-git-repository failure', async () => {
+      const mockGitStatus = vi.fn<(cwd: string) => Promise<string>>()
+        .mockRejectedValue(new Error('fatal: not a git repository'))
+      const watcher = new FileWatcher(mockGitStatus)
+      watcher.watchAdditionalDir('/plain/folder', 'session-1')
+
+      await vi.advanceTimersByTimeAsync(0) // first poll fails -> disable
+      mockGitStatus.mockClear()
+
+      await vi.advanceTimersByTimeAsync(2000)
+      expect(mockGitStatus).not.toHaveBeenCalled()
     })
 
     it('unwatchAll stops additional dir watchers too', async () => {
