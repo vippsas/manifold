@@ -8,6 +8,7 @@ import { ExtensionHost } from './extension-host'
 import { PluginStorageStore } from './plugin-storage-store'
 import { createAgentControlService } from './agent-control-service'
 import { createLmService } from './lm-service'
+import { createAgentSpawnService } from './agent-spawn-service'
 import type { SessionManager } from '../session/session-manager'
 import type { GitOperationsManager } from '../git/git-operations'
 import type { SessionInfo } from '../../shared/plugins/api-types'
@@ -52,10 +53,12 @@ export class PluginManager {
   ) {
     const agentControl = createAgentControlService(this.sessionManager)
     const lm = createLmService(this.sessionManager, gitOps)
-    this.host = new ExtensionHost(new PluginStorageStore(storagePath), agentControl, lm)
+    const agentSpawn = createAgentSpawnService(this.sessionManager)
+    this.host = new ExtensionHost(new PluginStorageStore(storagePath), agentControl, lm, agentSpawn)
     this.host.setConfigResolver((id, key) => this.getConfigValue(id, key))
     this.host.setEnabledResolver((id) => this.isEnabled(id))
     this.host.setOriginResolver((id) => this.plugins.find((p) => p.id === id)?.origin)
+    this.host.setTranscriptionResolver(() => this.settings.getSettings().transcription)
   }
 
   isEnabled(pluginId: string): boolean {
