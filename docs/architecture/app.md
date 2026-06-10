@@ -1,7 +1,7 @@
 ---
 description: How the Electron main process boots — shell PATH, dev profile, module wiring, app lifecycle, window creation, menus, auto-updater, mode switching, and the live-preview dev server.
 covers: [src/main/app]
-updated: 2026-06-08
+updated: 2026-06-10
 owner: see .github/CODEOWNERS
 ---
 
@@ -79,8 +79,10 @@ The only stateful item is the `Keep Mac Awake` checkbox, whose `checked` state i
 re-rendered via `rebuildAppMenu()` when toggled (`index.ts:143`).
 
 **Live preview / simple mode.** `DevServerManager` (`dev-server-manager.ts:16`) backs
-simple-mode "apps". `startDevServerSession()` clears any existing sessions for the project,
-checks out the preview branch, creates a `noWorktree` + `nonInteractive` `InternalSession`,
+simple-mode "apps". `startDevServerSession()` evicts any existing sessions for the project
+by routing each through `SessionManager.killSession` (`:42`) so the full cleanup contract runs
+(memory capture, verdict recorder, file watches, PTYs) rather than leaking that state via
+ad-hoc map deletion, checks out the preview branch, creates a `noWorktree` + `nonInteractive` `InternalSession`,
 and runs `npm run dev` in the project dir (`startDevServer`, `:118`). Dev-server stdout is
 scanned by `detectUrl`; the first URL flips status to `waiting` and emits `preview:url-detected`.
 Each follow-up chat turn is a *fresh* print-mode process: `spawnPrintModeFollowUp()` (`:164`)

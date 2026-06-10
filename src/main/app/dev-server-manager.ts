@@ -21,6 +21,7 @@ export class DevServerManager {
     private projectRegistry: ProjectRegistry,
     private sendToRenderer: (channel: string, ...args: unknown[]) => void,
     private streamWirer: SessionStreamWirer,
+    private killSession: (sessionId: string) => Promise<void>,
   ) {}
 
   async startDevServerSession(
@@ -35,20 +36,12 @@ export class DevServerManager {
     if (!project) throw new Error('Project not found: ' + projectId)
 
     // Clean up any existing sessions for this project so we don't accumulate
-    // duplicate app cards every time the user opens the same app.
+    // duplicate app cards every time the user opens the same app. Route through
+    // killSession so the full cleanup contract runs (memory capture, verdict
+    // recorder, file watches, PTYs); ad-hoc map deletion leaked that state.
     for (const existing of Array.from(this.sessions.values())) {
       if (existing.projectId === projectId) {
-        if (existing.ptyId) {
-          try { this.ptyPool.kill(existing.ptyId) } catch { /* already exited */ }
-        }
-        if (existing.devServerPtyId) {
-          try { this.ptyPool.kill(existing.devServerPtyId) } catch { /* already exited */ }
-        }
-        if (existing.slashCommandProbePtyId) {
-          try { this.ptyPool.kill(existing.slashCommandProbePtyId) } catch { /* already exited */ }
-        }
-        this.getChatAdapter()?.clearSession(existing.id)
-        this.sessions.delete(existing.id)
+        await this.killSession(existing.id)
       }
     }
 
