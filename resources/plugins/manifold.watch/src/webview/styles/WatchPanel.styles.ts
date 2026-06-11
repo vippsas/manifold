@@ -67,9 +67,22 @@ export const watchStyles: Record<string, CSSProperties> = {
     overflow: 'hidden',
     transition: 'border-color 150ms ease, box-shadow 150ms ease',
   },
-  inputBarFocused: {
-    borderColor: 'var(--accent)',
-    boxShadow: '0 0 0 2px var(--accent-subtle), var(--shadow-subtle)',
+  // Focus grows the targeting-reticle corner brackets (mirrors the renderer's
+  // global `input:focus` rule, absent in this sandboxed webview). The wrapper
+  // carries them since the input itself is borderless; its border turns
+  // transparent so the brackets read as the field's edge.
+  inputBarReticle: {
+    borderColor: 'transparent',
+    backgroundImage:
+      'linear-gradient(var(--accent), var(--accent)), linear-gradient(var(--accent), var(--accent)),' +
+      'linear-gradient(var(--accent), var(--accent)), linear-gradient(var(--accent), var(--accent)),' +
+      'linear-gradient(var(--accent), var(--accent)), linear-gradient(var(--accent), var(--accent)),' +
+      'linear-gradient(var(--accent), var(--accent)), linear-gradient(var(--accent), var(--accent))',
+    backgroundRepeat: 'no-repeat',
+    backgroundOrigin: 'border-box',
+    backgroundClip: 'border-box',
+    backgroundSize: '12px 1.5px, 1.5px 12px, 12px 1.5px, 1.5px 12px, 12px 1.5px, 1.5px 12px, 12px 1.5px, 1.5px 12px',
+    backgroundPosition: 'left top, left top, right top, right top, left bottom, left bottom, right bottom, right bottom',
   },
   inputInline: {
     flex: 1, padding: '11px 14px', minHeight: 40,

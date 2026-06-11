@@ -205,9 +205,12 @@ export const treeStyles: Record<string, React.CSSProperties> = {
     fontFamily: 'var(--font-sans)',
     fontSize: 'inherit',
     padding: '3px 6px',
-    border: '1px solid var(--border)',
+    // No box: the `.reticle-input` resting brackets (theme.css) are the field's
+    // edge, like the titlebar search. Border stays 1px-transparent so the
+    // focus reticle has a border-box to paint into without shifting layout.
+    border: '1px solid transparent',
     borderRadius: '4px',
-    background: 'var(--bg-primary)',
+    background: 'transparent',
     color: 'var(--text-primary)',
     outline: 'none',
   },

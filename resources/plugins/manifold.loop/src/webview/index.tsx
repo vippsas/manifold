@@ -4,10 +4,10 @@
 import React from 'react'
 import { createRoot } from 'react-dom/client'
 import { LoopPanel } from './components/LoopPanel'
-import { LOOP_KEYFRAMES } from './keyframes'
+import { LOOP_KEYFRAMES, LOOP_INPUT_RETICLE } from './keyframes'
 
 const style = document.createElement('style')
-style.textContent = LOOP_KEYFRAMES
+style.textContent = LOOP_KEYFRAMES + LOOP_INPUT_RETICLE
 document.head.appendChild(style)
 
 const rootEl = document.getElementById('root')
