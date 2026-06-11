@@ -16,6 +16,7 @@ import type { AgentSession } from '../../../shared/types'
 import { applyDefaultLayout, applyMinimalPanels, syncEditorPanelIds } from './dock-layout-builders'
 import type { DockLayoutCtx } from './dock-layout-context'
 import { reconcileLayoutAfterLoad } from './dock-layout-tabs'
+import { ensureEditorPanelInWorkspace } from './dock-layout-editor'
 import { useEditorPanels } from './dock-layout-panels'
 import { useDockActions } from './dock-layout-actions'
 import { registerLayoutListeners } from './dock-layout-lifecycle'
@@ -187,7 +188,13 @@ export function useDockLayout(
     if (!api) return
     const existing = api.getPanel(viewId)
     if (existing) { existing.api.setActive(); return }
-    const referencePanelId = findTopLeftWorkspaceReferencePanel(api) ?? 'agent'
+    // Plugin webview panes open in the editor area — the same spot the editor
+    // pane occupies — rather than tabbed beside the agent. Create the editor
+    // panel first when the layout doesn't have one yet.
+    ensureEditorPanelInWorkspace(api)
+    const referencePanelId = api.getPanel('editor')?.id
+      ?? findTopLeftWorkspaceReferencePanel(api)
+      ?? 'agent'
     api.addPanel({ id: viewId, component: 'pluginView', title, position: { referencePanel: referencePanelId, direction: 'within' } })
     saveLayout()
     bumpVersion()

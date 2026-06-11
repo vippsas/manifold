@@ -90,12 +90,15 @@ describe('useDockLayout plugin panels', () => {
       result.current.openPluginTreeView('publisher.tree', 'Plugin Tree')
     })
 
+    // Plugin webview panes open in the editor area (created here from the
+    // agent panel, since the mock layout starts with only an agent).
     expect(api.addPanel).toHaveBeenCalledWith({
       id: 'manifold.loop.panel',
       component: 'pluginView',
       title: 'Autoresearch Loop',
-      position: { referencePanel: 'agent', direction: 'within' },
+      position: { referencePanel: 'editor', direction: 'within' },
     })
+    // Tree views stay beside the agent.
     expect(api.addPanel).toHaveBeenCalledWith({
       id: 'publisher.tree',
       component: 'pluginTreeView',
