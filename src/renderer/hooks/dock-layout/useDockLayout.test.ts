@@ -90,13 +90,13 @@ describe('useDockLayout plugin panels', () => {
       result.current.openPluginTreeView('publisher.tree', 'Plugin Tree')
     })
 
-    // Plugin webview panes open in the editor area (created here from the
-    // agent panel, since the mock layout starts with only an agent).
+    // With no file open, a plugin webview pane takes the editor's spot to the
+    // right of the agent (split 50/50; sidebars stay pinned).
     expect(api.addPanel).toHaveBeenCalledWith({
       id: 'manifold.loop.panel',
       component: 'pluginView',
       title: 'Autoresearch Loop',
-      position: { referencePanel: 'editor', direction: 'within' },
+      position: { referencePanel: 'agent', direction: 'right' },
     })
     // Tree views stay beside the agent.
     expect(api.addPanel).toHaveBeenCalledWith({
@@ -120,6 +120,25 @@ describe('useDockLayout plugin panels', () => {
         }),
       }),
     )
+  })
+
+  it('tabs a plugin webview into the editor group when a file is open', () => {
+    const api = createApi()
+    const { result } = renderHook(() => useDockLayout('session-1'))
+
+    act(() => {
+      result.current.apiRef.current = api
+      // A file is open → an editor panel exists.
+      api.addPanel({ id: 'editor', component: 'editor', title: 'Editor' })
+      result.current.openPluginView('manifold.watch.panel', 'Watch')
+    })
+
+    expect(api.addPanel).toHaveBeenCalledWith({
+      id: 'manifold.watch.panel',
+      component: 'pluginView',
+      title: 'Watch',
+      position: { referencePanel: 'editor', direction: 'within' },
+    })
   })
 
   it('flushes pending plugin layout saves before switching sessions', () => {
