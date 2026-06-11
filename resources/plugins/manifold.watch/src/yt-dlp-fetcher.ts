@@ -2,6 +2,7 @@ import * as fs from 'node:fs'
 import * as path from 'node:path'
 import * as os from 'node:os'
 import * as https from 'node:https'
+import { execFileSync } from 'node:child_process'
 
 const BIN_DIR = path.join(os.homedir(), '.manifold', 'bin')
 const BINARY_NAME = process.platform === 'win32' ? 'yt-dlp.exe' : 'yt-dlp'
@@ -26,7 +27,28 @@ export function hasBundledYtDlp(): boolean {
 
 let pending: Promise<string> | null = null
 
+/**
+ * Absolute path to a `yt-dlp` on PATH, or null. Prefer this: a brew/pip/pipx
+ * yt-dlp is a Python script that starts in ~0.5s, whereas our bundled
+ * `yt-dlp_macos` is a PyInstaller onefile that unpacks a full CPython on every
+ * launch — a 13–21s cold start on macOS that alone can blow past peek's timeout.
+ */
+function findYtDlpOnPath(): string | null {
+  const locate = process.platform === 'win32' ? 'where' : 'which'
+  try {
+    const found = execFileSync(locate, [BINARY_NAME], { stdio: ['ignore', 'pipe', 'ignore'] })
+      .toString()
+      .split('\n')[0]
+      .trim()
+    return found || null
+  } catch {
+    return null
+  }
+}
+
 export async function ensureYtDlp(progress: FetchProgress = {}): Promise<string> {
+  const onPath = findYtDlpOnPath()
+  if (onPath) return onPath
   const target = getYtDlpPath()
   if (hasBundledYtDlp()) return target
   if (pending) return pending

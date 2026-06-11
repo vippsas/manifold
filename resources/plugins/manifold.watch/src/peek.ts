@@ -2,8 +2,9 @@ import { spawn } from 'node:child_process'
 import type { WatchPeekResult, WatchPlaylistPeekResult, WatchPlaylistEntry } from './shared-types'
 import { ensureYtDlp } from './yt-dlp-fetcher'
 
-// YouTube's `-J` metadata dump now routinely takes 12–18s (it deciphers
-// signatures for every format), so an 8s cap timed out legitimate videos.
+// A wide cap because a peek can fall back to the bundled `yt-dlp_macos`, a
+// PyInstaller onefile whose cold start alone is 13–21s on macOS (see
+// yt-dlp-fetcher.ensureYtDlp, which prefers a fast PATH yt-dlp when present).
 const PEEK_TIMEOUT_MS = 25_000
 const PLAYLIST_PEEK_TIMEOUT_MS = 20_000
 const MAX_THUMBNAIL_BYTES = 2 * 1024 * 1024

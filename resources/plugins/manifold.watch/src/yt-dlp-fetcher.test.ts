@@ -13,6 +13,7 @@ const fixture = vi.hoisted(() => {
   return {
     tempHome: fsMod.mkdtempSync(pathMod.join(osMod.tmpdir(), 'manifold-yt-dlp-')),
     httpsMock: { get: vi.fn() },
+    cpMock: { execFileSync: vi.fn() },
   }
 })
 
@@ -22,13 +23,19 @@ vi.mock('node:os', async (importOriginal) => {
 })
 
 vi.mock('node:https', () => fixture.httpsMock)
+vi.mock('node:child_process', () => ({ ...fixture.cpMock, default: fixture.cpMock }))
 const tempHome = fixture.tempHome
 const httpsMock = fixture.httpsMock
+const cpMock = fixture.cpMock
 
 let mod: typeof import('./yt-dlp-fetcher')
 beforeEach(async () => {
   vi.resetModules()
   httpsMock.get.mockReset()
+  // Default: nothing on PATH (`which`/`where` exits non-zero ⇒ throws), so the
+  // bundled-download tests below exercise the fallback path.
+  cpMock.execFileSync.mockReset()
+  cpMock.execFileSync.mockImplementation(() => { throw new Error('not found') })
   fs.rmSync(path.join(tempHome, '.manifold'), { recursive: true, force: true })
   mod = await import('./yt-dlp-fetcher')
 })
@@ -102,6 +109,34 @@ describe('yt-dlp-fetcher', () => {
     await mod.ensureYtDlp()
     expect(httpsMock.get).not.toHaveBeenCalled()
     expect(fs.readFileSync(target, 'utf-8')).toBe('preexisting')
+  })
+
+  it('prefers a yt-dlp found on PATH over downloading the bundled binary', async () => {
+    cpMock.execFileSync.mockReturnValue(Buffer.from('/opt/homebrew/bin/yt-dlp\n'))
+
+    const resolved = await mod.ensureYtDlp()
+    expect(resolved).toBe('/opt/homebrew/bin/yt-dlp')
+    expect(httpsMock.get).not.toHaveBeenCalled()
+  })
+
+  it('prefers PATH even when a bundled binary already exists', async () => {
+    const target = mod.getYtDlpPath()
+    fs.mkdirSync(path.dirname(target), { recursive: true })
+    fs.writeFileSync(target, 'bundled', { mode: 0o755 })
+    cpMock.execFileSync.mockReturnValue(Buffer.from('/opt/homebrew/bin/yt-dlp\n'))
+
+    const resolved = await mod.ensureYtDlp()
+    expect(resolved).toBe('/opt/homebrew/bin/yt-dlp')
+  })
+
+  it('falls back to the bundled binary when none is on PATH', async () => {
+    const target = mod.getYtDlpPath()
+    fs.mkdirSync(path.dirname(target), { recursive: true })
+    fs.writeFileSync(target, 'bundled', { mode: 0o755 })
+
+    const resolved = await mod.ensureYtDlp()
+    expect(resolved).toBe(target)
+    expect(httpsMock.get).not.toHaveBeenCalled()
   })
 })
 
