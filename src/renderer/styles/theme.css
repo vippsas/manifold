@@ -384,6 +384,39 @@ textarea:focus {
     right bottom, right bottom !important;
 }
 
+/* Resting reticle (titlebar search only): the corner brackets stay drawn while
+   idle, dimmed to a whisper, so the field reads as a target even unfocused.
+   They brighten to full accent via the `input:focus` rule above, which wins by
+   specificity (0,1,1 > this rule's 0,1,0) — so keep this a bare class, never
+   `:not(:focus)`, which would outrank focus and freeze the brackets dim. The
+   `!important`s mirror the focus rule: they override the input's inline
+   `background: transparent`, which would otherwise wipe the layers. */
+.titlebar-search-input {
+  --reticle-rest: color-mix(in srgb, var(--accent), transparent 60%);
+  background-image:
+    linear-gradient(var(--reticle-rest), var(--reticle-rest)),
+    linear-gradient(var(--reticle-rest), var(--reticle-rest)),
+    linear-gradient(var(--reticle-rest), var(--reticle-rest)),
+    linear-gradient(var(--reticle-rest), var(--reticle-rest)),
+    linear-gradient(var(--reticle-rest), var(--reticle-rest)),
+    linear-gradient(var(--reticle-rest), var(--reticle-rest)),
+    linear-gradient(var(--reticle-rest), var(--reticle-rest)),
+    linear-gradient(var(--reticle-rest), var(--reticle-rest)) !important;
+  background-repeat: no-repeat !important;
+  background-origin: border-box !important;
+  background-clip: border-box !important;
+  background-size:
+    12px 1.5px, 1.5px 12px,
+    12px 1.5px, 1.5px 12px,
+    12px 1.5px, 1.5px 12px,
+    12px 1.5px, 1.5px 12px !important;
+  background-position:
+    left top, left top,
+    right top, right top,
+    left bottom, left bottom,
+    right bottom, right bottom !important;
+}
+
 select:focus {
   border-color: var(--accent) !important;
 }
