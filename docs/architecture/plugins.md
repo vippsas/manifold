@@ -137,7 +137,16 @@ store, injecting a **fresh per-request nonce CSP** and adding that nonce to ever
 clause appended to its CSP only: `scan()` registers each view's sources into the
 content store (`plugin-manager.ts:120`, `webview-content-store.ts:18`) and `buildCsp`
 widens the policy per request (`webview-protocol.ts:102`); every other view keeps the
-no-frames default. Tree views skip HTML entirely and pull
+no-frames default. Two more pieces make those embeds actually play: the renderer hosts
+webviews in an iframe sandboxed `allow-scripts allow-same-origin`
+(`PluginViewPanel.tsx:81`) — sandbox flags propagate to nested browsing contexts, so
+without `allow-same-origin` a frameSources embed runs from an opaque origin and
+black-screens (script isolation rests on the nonce CSP, not the sandbox) — and
+`installFrameSourceReferrer()` patches a loopback `Referer` onto sub-frame requests to
+declared frameSources origins (`webview-protocol.ts:194`, decision logic
+`frameReferrerPatch` `webview-protocol.ts:171`), because Chromium drops referrers from
+`manifold-webview://` documents and YouTube rejects refererless embeds ("Error 153").
+Tree views skip HTML entirely and pull
 nodes through `treeGetChildren()` (`plugin-manager.ts:136`). Interactive prompts
 (`window.showMessage` etc.) go through `UiRequestBroker`, which emits `plugins:ui-request`
 and resolves when the renderer replies via `plugins:ui-response` (`ui-broker.ts:10`).

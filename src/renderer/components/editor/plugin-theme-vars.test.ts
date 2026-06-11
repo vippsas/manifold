@@ -13,4 +13,13 @@ describe('readThemeVars', () => {
     expect(PLUGIN_WEBVIEW_THEME_VARS).toContain('--status-running')
     expect(PLUGIN_WEBVIEW_THEME_VARS.length).toBeGreaterThan(20)
   })
+
+  it('includes every host-defined var the watch webview styles consume', () => {
+    // Missing entries here render as invalid-at-computed-value in the plugin
+    // webview: the watch Run button's accent gradient referenced
+    // --accent-hover and silently lost its background entirely.
+    for (const name of ['--accent-hover', '--radius-pill', '--shadow-subtle', '--type-title', '--type-ui-micro']) {
+      expect(PLUGIN_WEBVIEW_THEME_VARS).toContain(name)
+    }
+  })
 })

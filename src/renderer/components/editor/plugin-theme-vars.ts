@@ -4,14 +4,14 @@
 // to each iframe so plugin UIs match the active Manifold theme.
 export const PLUGIN_WEBVIEW_THEME_VARS: readonly string[] = [
   '--font-sans', '--font-mono',
-  '--radius-xs', '--radius-sm', '--radius-md',
+  '--radius-xs', '--radius-sm', '--radius-md', '--radius-pill',
   '--space-xs', '--space-sm', '--space-md', '--space-lg',
-  '--type-ui', '--type-ui-small', '--type-ui-caption',
+  '--type-title', '--type-ui', '--type-ui-small', '--type-ui-caption', '--type-ui-micro',
   '--control-height',
   '--bg-primary', '--bg-secondary', '--bg-input', '--bg-elevated', '--bg-chrome',
   '--text-primary', '--text-secondary', '--text-muted',
-  '--accent', '--accent-text', '--accent-subtle',
-  '--border', '--divider',
+  '--accent', '--accent-text', '--accent-subtle', '--accent-hover',
+  '--border', '--divider', '--shadow-subtle',
   '--btn-bg', '--btn-hover', '--btn-text',
   '--control-bg', '--control-border',
   '--status-done', '--status-error', '--status-running', '--status-waiting',

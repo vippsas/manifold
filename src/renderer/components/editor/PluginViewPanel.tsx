@@ -72,7 +72,13 @@ export function PluginViewPanel({ api }: { api: { id: string } }): React.JSX.Ele
   return (
     <iframe
       ref={iframeRef}
-      sandbox="allow-scripts"
+      // allow-same-origin: sandbox flags propagate to nested browsing
+      // contexts, so without it a frameSources-admitted embed (e.g. the watch
+      // YouTube player) runs from an opaque origin and black-screens. Script
+      // isolation rests on the served nonce CSP (connect-src 'none'), not on
+      // this flag; the webview origin is manifold-webview://view, which never
+      // matches the parent renderer's origin.
+      sandbox="allow-scripts allow-same-origin"
       src={version > 0 ? `manifold-webview://view/${encodeURIComponent(viewId)}?v=${version}` : 'about:blank'}
       onLoad={onLoad}
       title={viewId}

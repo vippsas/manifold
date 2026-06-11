@@ -155,3 +155,48 @@ export function installWebviewProtocol(store: WebviewContentStore = webviewConte
     return new Response(r.body, { status: r.status, headers })
   })
 }
+
+/**
+ * Pure: decide whether a request needs the loopback Referer injected, and
+ * return the patched headers (or null to leave the request untouched).
+ *
+ * Chromium drops referrers for documents on non-HTTP(S) origins, so an iframe
+ * admitted by a view's `frameSources` navigates with NO Referer when its
+ * parent is a manifold-webview:// document. Embed providers reject that —
+ * YouTube surfaces it as "Error 153" — which is why the local renderer server
+ * exists for the main window in the first place (see app-lifecycle). Only
+ * sub-frame document loads to a declared frameSources origin are patched, and
+ * only when no Referer is already present.
+ */
+export function frameReferrerPatch(
+  details: { resourceType: string; url: string; requestHeaders: Record<string, string> },
+  allowedOrigins: readonly string[],
+  referrer: string,
+): Record<string, string> | null {
+  if (!referrer || details.resourceType !== 'subFrame' || allowedOrigins.length === 0) return null
+  let origin: string
+  try {
+    origin = new URL(details.url).origin
+  } catch {
+    return null
+  }
+  if (!allowedOrigins.includes(origin)) return null
+  if (Object.keys(details.requestHeaders).some((h) => h.toLowerCase() === 'referer')) return null
+  return { ...details.requestHeaders, Referer: referrer }
+}
+
+/**
+ * MUST be called AFTER app.whenReady(). `getReferrer` is read per request so
+ * the renderer-server URL (assigned at startup) doesn't need to exist yet.
+ * Note: onBeforeSendHeaders REPLACES any previous defaultSession listener —
+ * keep this the only registration site.
+ */
+export function installFrameSourceReferrer(
+  getReferrer: () => string,
+  store: WebviewContentStore = webviewContentStore,
+): void {
+  session.defaultSession.webRequest.onBeforeSendHeaders({ urls: ['https://*/*'] }, (details, callback) => {
+    const patched = frameReferrerPatch(details, store.allFrameSources(), getReferrer())
+    callback(patched ? { requestHeaders: patched } : {})
+  })
+}
