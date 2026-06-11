@@ -161,12 +161,14 @@ export function App(): React.JSX.Element {
       : themeId.replace(/-dark$/, '-light')
     void updateSettings({ theme: nextId })
   }, [themeId, updateSettings])
-  const themeFamily: 'manifold' | 'garfield' | 'neon' | 'royal' =
+  const themeFamily: 'manifold' | 'garfield' | 'neon' | 'royal' | 'jade' | 'platinum' =
     themeId.startsWith('garfield') ? 'garfield'
       : themeId.startsWith('neon') ? 'neon'
         : themeId.startsWith('royal') ? 'royal'
-          : 'manifold'
-  const selectThemeFamily = useCallback((family: 'manifold' | 'garfield' | 'neon' | 'royal') => {
+          : themeId.startsWith('jade') ? 'jade'
+            : themeId.startsWith('platinum') ? 'platinum'
+              : 'manifold'
+  const selectThemeFamily = useCallback((family: 'manifold' | 'garfield' | 'neon' | 'royal' | 'jade' | 'platinum') => {
     const suffix = themeId.endsWith('-light') ? '-light' : '-dark'
     void updateSettings({ theme: `${family}${suffix}` })
   }, [themeId, updateSettings])
