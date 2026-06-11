@@ -2,6 +2,7 @@ import type { ITheme } from '@xterm/xterm'
 import type { ConvertedTheme } from './types'
 import {
   darken,
+  hexToHsl,
   hexToRgb,
   lighten,
   luminance,
@@ -200,6 +201,15 @@ export function convertTheme(themeJson: MonacoThemeJson, _themeId: string): Conv
     cssVars['--surface-tint'] = `rgba(${accentRgb[0]}, ${accentRgb[1]}, ${accentRgb[2]}, 0.03)`
     cssVars['--shadow-glow'] = `0 4px 16px rgba(0, 0, 0, 0.3), 0 0 20px rgba(${accentRgb[0]}, ${accentRgb[1]}, ${accentRgb[2]}, 0.06), inset 0 1px 0 rgba(255, 255, 255, 0.06)`
   }
+
+  // Active-file tree icon: tint the monochrome icon toward the theme accent
+  // while preserving internal luminance detail. sepia(1) lands grays at ~40°,
+  // so rotating by (accentHue − 40) lands them on the accent hue.
+  const [accentHue, accentSat] = hexToHsl(accent)
+  const hueRotate = Math.round(accentHue - 40)
+  const saturate = Math.min(3, Math.max(0.4, accentSat / 0.45)).toFixed(2)
+  cssVars['--tree-icon-active-filter'] =
+    `grayscale(1) sepia(1) hue-rotate(${hueRotate}deg) saturate(${saturate}) brightness(1.08) opacity(1)`
 
   // ── xterm.js ITheme mapping ────────────────────────────────────
 
