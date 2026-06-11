@@ -405,19 +405,25 @@ select:focus-visible {
   background: var(--accent);
 }
 
-/* Warp-core pulse: the running dot breathes a slow accent glow instead of
-   blinking — the heartbeat of the ship. */
+/* Warp-core pulse: the running dot breathes — its body dims and swells while an
+   accent glow blooms — so it reads clearly as alive, not just an ambient flicker. */
 @keyframes core-pulse {
-  0%, 100% { box-shadow: 0 0 3px 1px var(--effect-glow, var(--accent-subtle)); }
+  0%, 100% {
+    opacity: 0.5;
+    transform: scale(1);
+    box-shadow: 0 0 3px 0 var(--effect-glow, var(--accent-subtle));
+  }
   50% {
+    opacity: 1;
+    transform: scale(1.18);
     box-shadow:
-      0 0 6px 2px var(--effect-glow, var(--accent-subtle)),
-      0 0 14px 4px var(--effect-glow, var(--accent-subtle));
+      0 0 6px 2px var(--effect-glow, var(--accent)),
+      0 0 13px 4px var(--effect-glow, var(--accent-subtle));
   }
 }
 
 .status-dot--active {
-  animation: core-pulse 2.4s ease-in-out infinite;
+  animation: core-pulse 2s ease-in-out infinite;
 }
 
 .status-dot--hidden {
