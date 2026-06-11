@@ -1,7 +1,7 @@
 ---
 description: How Manifold's main-process services are exposed to the renderer over Electron IPC — the channel namespaces, the handler registration pattern, and how handlers delegate to subsystem managers.
 covers: [src/main/ipc]
-updated: 2026-06-10
+updated: 2026-06-11
 owner: see .github/CODEOWNERS
 ---
 
@@ -30,7 +30,6 @@ managers documented on the other architecture pages (`session.md`, `git.md`, etc
 - `src/main/ipc/background-agent-handlers.ts` — `background-agent:*` suggestion lifecycle.
 - `src/main/ipc/provisioning-handlers.ts` — `provisioning:*` template/health/create.
 - `src/main/ipc/workspace-handlers.ts` — `workspace:*` multi-root workspace ops.
-- `src/main/ipc/watch-handlers.ts` — `watch:*` video setup/peek/run-playlist/install-binaries.
 - `src/main/ipc/verdict-handlers.ts` — `verdicts:list`, `verdicts:get`.
 - `src/main/ipc/plugin-handlers.ts` — `plugins:*` view/contribution/config/tree-view bridge.
 
@@ -40,13 +39,13 @@ Most handler modules ship a sibling `*.test.ts` exercising its channels in isola
 
 **One registration pass.** `window-factory.ts` calls `registerIpcHandlers(deps.ipcDeps)`
 behind an `ipcHandlersRegistered` guard, so it runs exactly once for the process even when
-a second window is built (`window-factory.ts:100`). `registerIpcHandlers()` (`ipc-handlers.ts:24`) then invokes
+a second window is built (`window-factory.ts:100`). `registerIpcHandlers()` (`ipc-handlers.ts:23`) then invokes
 every `register*Handlers(deps)` in sequence — there is no dynamic discovery or channel
 registry; the list is hand-maintained. A handful of trivial channels are registered inline
-in the same function rather than in their own module (`ipc-handlers.ts:49`–`:83`).
+in the same function rather than in their own module (`ipc-handlers.ts:47`–`:81`).
 
 **The dependency bag.** All managers a handler might need are assembled once into
-`IpcDependencies` (`types.ts:22`) — `sessionManager`, `projectRegistry`, `settingsStore`,
+`IpcDependencies` (`types.ts:21`) — `sessionManager`, `projectRegistry`, `settingsStore`,
 `fileWatcher`, `diffProvider`, `prCreator`, `gitOps`, `branchCheckout`, the various view/
 layout/shell-tab stores, `chatAdapter`, `memoryStore`, `workspaceManager`,
 `backgroundAgentHost`, `pluginManager`, `verdictStore`/`verdictRecorder`, etc. Each
@@ -58,9 +57,8 @@ request/response), never `ipcMain.on`. Push notifications flow the *other* way, 
 handlers (or the managers they call) emit via `webContents.send` / `event.sender.send`.
 Examples: `settings:changed` is broadcast to all live windows after `settings:update`
 (`settings-handlers.ts:23`), `simple:chat-message` is pushed per chat subscription
-(`simple-handlers.ts:69`), `provisioning:progress` streams during a create
-(`provisioning-handlers.ts:56`, guarded by `sender.isDestroyed()`), and `watch:playlist-progress` / `watch:install-progress`
-stream log/stage/frame events (`watch-handlers.ts:56`). `SessionManager` separately pushes
+(`simple-handlers.ts:69`), and `provisioning:progress` streams during a create
+(`provisioning-handlers.ts:56`, guarded by `sender.isDestroyed()`). `SessionManager` separately pushes
 `agent:output`/`agent:status`/`agent:sessions-changed` through its own `sendToRenderer`
 (see `session.md`).
 
@@ -84,9 +82,9 @@ clone URLs beginning with `-` to avoid argument injection into `git clone`
 
 ## Key types and entry points
 
-- `registerIpcHandlers(deps)` — `ipc-handlers.ts:24`. The only thing the app boot calls; registers everything.
-- `IpcDependencies` — `types.ts:22`. The manager bag; the contract between the IPC layer and every subsystem. `send?` is the optional renderer-push hook used by `plugin-handlers.ts`.
-- `resolveSession(sessionManager, id)` — `types.ts:47`. Shared helper that returns an `AgentSession` or throws `Session not found`; used by the mutating git handlers.
+- `registerIpcHandlers(deps)` — `ipc-handlers.ts:23`. The only thing the app boot calls; registers everything.
+- `IpcDependencies` — `types.ts:21`. The manager bag; the contract between the IPC layer and every subsystem. `send?` is the optional renderer-push hook used by `plugin-handlers.ts`.
+- `resolveSession(sessionManager, id)` — `types.ts:45`. Shared helper that returns an `AgentSession` or throws `Session not found`; used by the mutating git handlers.
 - `register*Handlers(deps)` — one per module (e.g. `registerAgentHandlers`, `agent-handlers.ts:124`). Each owns one namespace and is independently unit-tested.
 
 ## Interactions
@@ -101,7 +99,7 @@ clone URLs beginning with `-` to avoid argument injection into `git clone`
 
 ## Invariants & gotchas
 
-- **The registration list is manual.** Adding a namespace means writing a `register*Handlers` function *and* wiring it into `registerIpcHandlers` (`ipc-handlers.ts:25`). A forgotten line silently leaves the channels unregistered, and the renderer call rejects with "No handler registered".
+- **The registration list is manual.** Adding a namespace means writing a `register*Handlers` function *and* wiring it into `registerIpcHandlers` (`ipc-handlers.ts:24`). A forgotten line silently leaves the channels unregistered, and the renderer call rejects with "No handler registered".
 - **This layer is `handle`-only; events go the other way.** Don't add `ipcMain.on` here. Renderer→main is request/response; main→renderer is `webContents.send`. Mixing the two in one channel breaks the preload allow-list model.
 - **Path guards live in the handler, not the manager.** `fileWatcher` will read/write whatever absolute path it's given; the traversal guard is `isPathAllowed` in `file-handlers.ts`. A new `files:*` channel that skips it is an arbitrary-file-access hole.
 - **Handlers must tolerate a missing session.** Sessions can be torn down mid-flight while a renderer refresh is in flight; `diff:get` returns an empty diff rather than throwing for exactly this race (`git-handlers.ts:15`), whereas `resolveSession`-based channels deliberately throw.

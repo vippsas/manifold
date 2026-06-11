@@ -5,7 +5,7 @@ import { PANEL_TITLES } from '../hooks/dock-layout/dock-layout-helpers'
 describe('launcher-modules registry', () => {
   it('lists the optional modules in order', () => {
     expect(LAUNCHER_MODULES.map((m) => m.id)).toEqual([
-      'backgroundAgent', 'verdicts', 'watch',
+      'backgroundAgent', 'verdicts',
     ])
   })
 

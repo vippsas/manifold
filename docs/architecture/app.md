@@ -1,7 +1,7 @@
 ---
 description: How the Electron main process boots — shell PATH, dev profile, module wiring, app lifecycle, window creation, menus, auto-updater, mode switching, and the live-preview dev server.
 covers: [src/main/app]
-updated: 2026-06-10
+updated: 2026-06-11
 owner: see .github/CODEOWNERS
 ---
 
@@ -53,11 +53,11 @@ each new window, re-wires the main-window reference into `sessionManager`, `file
 flag (`window-factory.ts:100`) — windows come and go (mode switching destroys and recreates
 the window), but `ipcMain.handle` registrations must not be duplicated.
 
-**Lifecycle.** `registerAppLifecycle()` (`app-lifecycle.ts:32`) owns the Electron app events.
+**Lifecycle.** `registerAppLifecycle()` (`app-lifecycle.ts:33`) owns the Electron app events.
 On `whenReady` it (production only) starts the loopback renderer server and pins
-`ELECTRON_RENDERER_URL` to it (`app-lifecycle.ts:41`), enables keep-awake if set, installs the
-webview protocol, creates the first window, starts the auto-updater, installs the bundled
-Watch skills, and prunes old raw memory. `activate` recreates a window if none exist (macOS
+`ELECTRON_RENDERER_URL` to it (`app-lifecycle.ts:42`), enables keep-awake if set, installs the
+webview protocol, creates the first window, starts the auto-updater, and prunes old raw
+memory. `activate` recreates a window if none exist (macOS
 dock behavior); `window-all-closed` quits on non-darwin. `before-quit` is the teardown path:
 flush debounced chat writes synchronously, flush buffered debug-log lines, kill all sessions
 and PTYs, kill any in-flight `aiGenerate` model subprocesses

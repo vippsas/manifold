@@ -19,10 +19,10 @@ function renderWithState(overrides: Partial<DockAppState>) {
 }
 
 describe('ModuleLauncher', () => {
-  it('lists all three modules in the menu', () => {
+  it('lists both modules in the menu', () => {
     renderWithState({})
     fireEvent.click(screen.getByRole('button', { name: /open module/i }))
-    for (const label of ['Ideas', 'Verdicts', 'Watch']) {
+    for (const label of ['Ideas', 'Verdicts']) {
       expect(screen.getByRole('menuitem', { name: new RegExp(label) })).toBeInTheDocument()
     }
   })
@@ -30,8 +30,8 @@ describe('ModuleLauncher', () => {
   it('opens a module on click', () => {
     const state = renderWithState({})
     fireEvent.click(screen.getByRole('button', { name: /open module/i }))
-    fireEvent.click(screen.getByRole('menuitem', { name: /Watch/ }))
-    expect(state.onOpenModule).toHaveBeenCalledWith('watch')
+    fireEvent.click(screen.getByRole('menuitem', { name: /Ideas/ }))
+    expect(state.onOpenModule).toHaveBeenCalledWith('backgroundAgent')
   })
 
   it('marks open modules with a check', () => {

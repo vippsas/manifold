@@ -3,7 +3,6 @@ import * as path from 'node:path'
 import * as os from 'node:os'
 import type { ManifoldSettings } from '../../shared/types'
 import { DEFAULT_SETTINGS } from '../../shared/defaults'
-import { clearWatchSetupCache } from '../watch/setup-detector'
 import { writeFileAtomicSync } from './atomic-write'
 
 const CONFIG_DIR = path.join(os.homedir(), '.manifold')
@@ -99,9 +98,6 @@ export class SettingsStore {
   updateSettings(partial: Partial<ManifoldSettings>): ManifoldSettings {
     this.settings = { ...this.settings, ...partial }
     this.writeToDisk()
-    if (partial.transcription) {
-      clearWatchSetupCache()
-    }
     return { ...this.settings }
   }
 }

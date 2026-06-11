@@ -1,145 +1,136 @@
 ---
-description: How Manifold's Watch feature downloads a video, extracts auto-scaled frames, builds a timestamped transcript, and assembles the markdown report the Watch panel/skill reads.
-covers: [src/main/watch]
+description: The manifold.watch plugin — a webview Watch panel whose host-side facade downloads a video, extracts auto-scaled frames, builds a timestamped transcript, and fans the resulting reports out to sibling agents.
+covers: [resources/plugins/manifold.watch]
 updated: 2026-06-11
 owner: see .github/CODEOWNERS
 ---
 
-# Watch — video → frames + transcript → report
+# Watch — the video-analysis plugin
 
 *Watch* turns a video URL (or local file) into a markdown **report** an agent can read:
 a list of auto-scaled JPEG frames with absolute timestamps plus a timestamped transcript.
-The heavy lifting runs in the main process via external binaries — `yt-dlp` for download
-and subtitles, `ffmpeg`/`ffprobe` for frames, audio, and metadata — orchestrated by a
-linear pipeline. A separate playlist runner fans the pipeline out across sibling agents.
-The report is consumed by the bundled `watch` Claude Code skill and the Watch panel; this
-subsystem produces it, it does not read it.
-
-> **Transitional:** watch is being converted to a plugin
-> (`docs/superpowers/specs/2026-06-11-watch-plugin-design.md`). A complete port currently
-> coexists at `resources/plugins/manifold.watch/` — same pipeline modules driven through
-> `manifold.agents`/`manifold.transcription`, with the panel served as a plugin webview
-> ("Watch (plugin)" in the launcher). This builtin remains canonical until the Phase 3
-> removal PR, after which this page's `covers:` rebinds to the plugin.
+Since the Phase 3 removal of the builtin (`src/main/watch` + the `watch:*` IPC surface),
+Watch lives entirely in the built-in plugin `manifold.watch`: the pipeline runs in the
+plugin host process behind a `WatchFacade`, the panel is a sandboxed webview registered
+as `manifold.watch.panel`, and agent fan-out goes through the `manifold.agents` API
+(capability `agent:spawn`) instead of `SessionManager`. The heavy lifting still uses
+external binaries — `yt-dlp` for download and subtitles, `ffmpeg`/`ffprobe` for frames,
+audio, and metadata.
 
 ## Covered code
 
-- `src/main/watch/pipeline.ts` — `runWatchPipeline()`, the four-stage orchestrator (download → frames → transcribe → report) and the `renderReport()` markdown writer.
-- `src/main/watch/downloader.ts` — `download()`/`downloadUrl()`/`resolveLocal()`: yt-dlp fetch (video + info.json + VTT subs) or local-file passthrough.
-- `src/main/watch/frame-extractor.ts` — `getMetadata()` (ffprobe), `autoFps`/`autoFpsFocus` budgets, `extract()`/`extractWithAutoFps()` (ffmpeg), and `formatTime()`.
-- `src/main/watch/transcriber.ts` — `transcribeVideo()`: extract mono MP3 with ffmpeg, POST to OpenAI/Azure `gpt-4o-transcribe`.
-- `src/main/watch/vtt-parser.ts` — `parseVtt()`, `filterRange()`, `formatTranscript()`: native-caption path.
-- `src/main/watch/yt-dlp-fetcher.ts` — `ensureYtDlp()`: lazily downloads the platform yt-dlp binary into `~/.manifold/bin`.
-- `src/main/watch/playlist-runner.ts` — `runWatchPlaylist()`: per-entry pipelines across sibling agents with a concurrency cap, plus the meta-agent primer.
-- `src/main/watch/run-store.ts` — `WatchRunStore`: persists per-session run/entry state to `~/.manifold/watch-runs.json`, evicts old runs and their frame dirs.
-- `src/main/watch/peek.ts` — `peekVideo()`/`peekPlaylist()`: pre-run metadata + thumbnail probe (no download).
-- `src/main/watch/frame-reader.ts` — `readFrameAsDataUrl()`: sandboxed frame → data-URL read for the renderer.
-- `src/main/watch/setup-detector.ts` — `detectWatchSetup()`: cached check for ffmpeg/yt-dlp/brew + transcription provider.
-- `src/main/watch/binary-installer.ts` / `skill-installer.ts` / `resource-path.ts` / `runner.ts` — `ffmpeg` brew install, bundled-skill install, skill-path resolution, and `DEFAULT_WATCH_QUESTION`.
+Plugin root: `resources/plugins/manifold.watch/` (manifest in `package.json`; compiled by
+`scripts/build-plugins.mjs` to `out/plugin.js` + `out/webview.js`).
 
-`types.ts` holds the internal pipeline types; the IPC-facing shapes live in `src/shared/watch-types.ts`.
+- `src/plugin.ts` — `activate()`: installs the bundled skill, builds the facade, registers the `manifold.watch.panel` webview provider, refreshes on active-session change.
+- `src/facade.ts` — `createWatchFacade()`: implements `WatchFacade` over the `manifold` API; `createAgentPort()` narrows `manifold.agents` to the runner's `AgentPort`; single-key persistence via `storage.global`.
+- `src/webview-host.ts` — `createWebviewHost()`: inlines the webview bundle into HTML, dispatches `WebviewMsg` → facade calls → `HostMsg` replies, owns the per-run `AbortController`.
+- `src/webview/` — the panel UI (React, bundled as a browser IIFE): `protocol.ts` (the typed message set), `use-watch-bridge.ts` (postMessage bridge), `components/WatchPanel.tsx` and friends, ported stores/caches.
+- `src/pipeline.ts` — `runWatchPipeline()`, the four-stage orchestrator (download → frames → transcribe → report) and the `renderReport()` markdown writer.
+- `src/playlist-runner.ts` — `runWatchPlaylist()`: per-entry pipelines fanned out across sibling agents through an `AgentPort`, plus the meta-agent primer.
+- `src/downloader.ts` / `frame-extractor.ts` / `transcriber.ts` / `vtt-parser.ts` / `yt-dlp-fetcher.ts` — the pipeline stages: yt-dlp fetch, ffprobe/ffmpeg frame extraction with auto-fps budgets, `gpt-4o-transcribe` audio transcription, native-caption VTT parsing, lazy yt-dlp install into `~/.manifold/bin`.
+- `src/run-store.ts` — `WatchRunStore`: persists per-session run/entry state to `~/.manifold/watch-runs.json`, evicts old runs and their frame dirs.
+- `src/peek.ts` — `peekVideo()`/`peekPlaylist()`: pre-run metadata + thumbnail probe (no download).
+- `src/frame-reader.ts` — `readFrameAsDataUrl()`: sandboxed frame → data-URL read for the webview.
+- `src/setup-detector.ts` / `binary-installer.ts` — cached ffmpeg/yt-dlp/brew + provider check; `ffmpeg` brew install.
+- `src/skill-installer.ts` / `resource-path.ts` / `runner.ts` — fingerprint-checked install of the bundled skill into `~/.claude` (and `~/.codex` when present); skill-path resolution; `DEFAULT_WATCH_QUESTION`.
+- `skills/watch/` — the bundled `watch` Claude Code skill, the consumer of `report.md`.
+- `src/types.ts` holds the internal pipeline types; `src/shared-types.ts` the panel-facing shapes (`WatchSessionSnapshot`, `WatchPlaylistRunResult`, …) plus an inlined copy of `AiServiceSettings` (the plugin cannot import app `src/` modules, `shared-types.ts:1`).
 
 ## How it works
 
-`runWatchPipeline()` (`pipeline.ts:17`) is the single-video entry point. It takes
-`PipelineOptions`, a `TranscriptionSettings`, and optional `PipelineHooks` (`onLog`,
-`onStage`, `signal`), picks a working dir (the caller's `workDir` or a fresh
-`manifold-watch-*` tmp dir), clamps `maxFrames` to 1–100, and runs four stages. When
-the pipeline created its own tmp dir (no `workDir` supplied), it removes it in a `finally`
-regardless of success or failure.
+**Activation.** `activate()` (`plugin.ts:13`) fires on `onView:manifold.watch.panel`. It
+first installs the bundled skill — `installWatchSkills({ sourceDir: getBundledWatchSkillPath(context.pluginUri) })`
+(`plugin.ts:16`, `resource-path.ts:4`), fingerprint-checked so it is idempotent
+(`skill-installer.ts:35`, `:73`) — because a sibling agent must be able to run
+`/watch:watch` before any run starts. It then wires `createWatchFacade(manifold)` into
+`createWebviewHost` and registers the provider for `manifold.watch.panel`
+(`plugin.ts:24`); `workspace.onDidChangeActiveSession` re-sends the init snapshot
+(`plugin.ts:25`).
 
-**Download.** `download()` (`downloader.ts:99`) branches on `isUrl()`: a URL goes to
-`downloadUrl()` (`downloader.ts:41`), which invokes yt-dlp via `runProcess()` with a
-`height<=720` format, `--merge-output-format mp4`, `--write-info-json`, and
-`--write-subs`/`--write-auto-subs` for English VTT captions, then picks the produced video
-and subtitle files (`pickVideo`/`pickSubtitle`). `runProcess()` guards the child with a 10-
-minute watchdog timer (SIGTERM + SIGKILL fallback) and an optional `AbortSignal`; a non-zero
-exit code rejects with the last stderr lines. A non-URL source is resolved in place by
-`resolveLocal()` (`downloader.ts:18`) with `subtitlePath: null`. The yt-dlp binary itself is
-resolved by `ensureYtDlp()` (`yt-dlp-fetcher.ts:29`), which returns the cached binary at
-`~/.manifold/bin/yt-dlp` or streams the platform asset from the yt-dlp latest release,
-de-duping concurrent installs via a shared `pending` promise.
+**Webview protocol.** The host inlines `out/webview.js` into a minimal HTML document
+(`buildWebviewHtml`, `webview-host.ts:49`, neutralizing `</script>`) and dispatches
+incoming messages through the `isWebviewMsg` runtime guard (`webview-host.ts:136`,
+`webview/protocol.ts:51` — webview input is a trust boundary). `WebviewMsg`
+(`protocol.ts:17`) covers `ready`/`peek`/`peekPlaylist`/`runPlaylist`/`stop`/
+`installBinaries`/`readFrame`/`setupStatus`/`setUrl`/`revealAgent`/`improvePrompt`/
+`persist`; replies are reqId-correlated `HostMsg`s (`protocol.ts:32`). On `ready` the host
+posts an `init` message with the active session id, run-store snapshot, setup status, and
+persisted UI state (`webview-host.ts:70`). The host — not the facade — owns run
+cancellation: `runPlaylist` creates an `AbortController` per run (`webview-host.ts:82`)
+and `stop` aborts it (`:109`); the facade only ever sees the signal.
 
-**Frames.** `getMetadata()` (`frame-extractor.ts:32`) runs `ffprobe` for duration,
-dimensions, codec, and audio presence. `runWatchPipeline` then validates the optional
-`startSeconds`/`endSeconds` focus range and calls `extractWithAutoFps()`
-(`frame-extractor.ts:151`). The fps is chosen by `autoFps()` (full video) or
-`autoFpsFocus()` (a focus range) from a duration→frame-budget table, divided by duration
-and clamped to `MAX_FPS = 2.0` (`frame-extractor.ts:9`, `:68`); an explicit `fpsOverride`
-bypasses the table. `extract()` (`frame-extractor.ts:106`) shells out to ffmpeg with
-`-vf fps=<fps>,scale=<resolutionPx>:-2` (width-locked, even-height auto-scale), `-frames:v`
-capped at `maxFrames`, writing `frame_%04d.jpg`; each frame's `timestampSeconds` is computed
-as `offset + index/fps`. When `hdResolutionPx > resolutionPx`, a second `extract()` pass at
-the same fps produces higher-res `frames-hd` images keyed back onto each frame as `hdPath`
-(best-effort — failure only logs) (`pipeline.ts:72`).
+**The facade.** `createWatchFacade()` (`facade.ts:68`) binds the ported pipeline modules
+onto the gated `manifold` API. The run store is a lazy singleton over the same
+`~/.manifold/watch-runs.json` the builtin used (`facade.ts:73`); snapshots are filtered by
+live sessions via `manifold.agents.getAgent` (`facade.ts:95`). Transcription settings come
+from `manifold.transcription.get()` (capability `transcription:read`), with `undefined` →
+`{ provider: 'none' }` (`resolveTranscription`, `facade.ts:64`). UI state persists under
+ONE `storage.global` key (`PERSIST_KEY = 'watch.webview-state'`, `facade.ts:19`) holding a
+record keyed by the former localStorage keys — `persist()` is read-modify-write over that
+blob (`facade.ts:104`). `installBinaries` brews ffmpeg and installs yt-dlp, clearing the
+setup cache around the attempt (`facade.ts:137`); `improvePrompt` sends
+`IMPROVE_PROMPT_META` + draft through the first `manifold.lm` chat model (`facade.ts:163`).
 
-After frame extraction, the downloaded video file is removed if it was fetched (`dl.downloaded`),
-freeing disk space before the transcription stage.
+**Pipeline.** `runWatchPipeline()` (`pipeline.ts:17`) takes `PipelineOptions`, a
+`TranscriptionSettings`, and `PipelineHooks` (`onLog`/`onStage`/`signal`, `pipeline.ts:11`),
+picks a working dir (the caller's `workDir` or a fresh `manifold-watch-*` tmp dir it
+removes in a `finally`, `pipeline.ts:24`, `:33`), clamps `maxFrames` to 1–100 (default 80,
+`pipeline.ts:46`), and runs four stages:
 
-**Transcript.** If yt-dlp produced subtitles, `parseVtt()` (`vtt-parser.ts:11`) parses the
-VTT cues (stripping tags, de-duplicating rolling-caption repeats) and, for a focus range,
-`filterRange()` (`vtt-parser.ts:53`) keeps overlapping segments; source is `'captions'`. If
-there are no caption segments and the provider isn't `'none'`, `transcribeVideo()`
-(`transcriber.ts:59`) extracts a 16 kHz mono MP3 via ffmpeg (`defaultExtractAudio`,
-`transcriber.ts:21`) and POSTs it to OpenAI or Azure `gpt-4o-transcribe`. Because that model
-returns only a text blob, `textToSegments()` (`transcriber.ts:147`) wraps the whole text as
-a single `t=0` segment. Any transcript failure is caught and logged; the pipeline proceeds
-frames-only with `source: 'none'`. The extracted `audio.mp3` is removed after transcription
-(whether it succeeded or failed) to keep only frames and the report in the work dir.
+- *Download* — `download()` (`downloader.ts:99`) branches on `isUrl()`: URLs go to `downloadUrl()` (`downloader.ts:41`), which runs yt-dlp with a `height<=720` format (`:51`), `--write-info-json`, and `--write-subs`/`--write-auto-subs` for English VTT; local paths resolve in place (`resolveLocal`, `downloader.ts:18`). `runProcess()` (`downloader.ts:132`) guards the child with a 10-minute watchdog (`DOWNLOAD_TIMEOUT_MS`, `:34`) and the abort signal. The binary comes from `ensureYtDlp()` (`yt-dlp-fetcher.ts:29`): cached at `~/.manifold/bin/yt-dlp` or streamed from the latest release, de-duping concurrent installs via a shared `pending` promise (`:27`).
+- *Frames* — `getMetadata()` (`frame-extractor.ts:32`) runs ffprobe; `extractWithAutoFps()` (`frame-extractor.ts:151`) picks fps from a duration→frame-budget table (`autoFps`/`autoFpsFocus`, `:74`/`:85`) clamped to `MAX_FPS = 2.0` (`:9`); `extract()` (`:106`) shells out to ffmpeg (`fps=<fps>,scale=<px>:-2`, `frame_%04d.jpg`), deriving each `timestampSeconds` as `offset + index/fps`. A second pass at `hdResolutionPx` (default 1280) writes `frames-hd/` images keyed back as `hdPath`, best-effort (`pipeline.ts:91-99`, `:111`). The downloaded video is deleted after extraction (`pipeline.ts:116`).
+- *Transcript* — captions win: `parseVtt()` (`vtt-parser.ts:11`) + `filterRange()` (`:53`) produce `source: 'captions'` (`pipeline.ts:126`). Only when there are no caption segments *and* the provider isn't `'none'` does `transcribeVideo()` (`transcriber.ts:59`) extract a 16 kHz mono MP3 (`defaultExtractAudio`, `transcriber.ts:21`) and POST it to OpenAI/Azure `gpt-4o-transcribe`; the model returns a text blob, wrapped as a single `t=0` segment (`textToSegments`, `transcriber.ts:147`). Failures are non-fatal — the pipeline proceeds frames-only with `source: 'none'` (`pipeline.ts:120`). `audio.mp3` is removed afterwards (`pipeline.ts:149`).
+- *Report* — `renderReport()` (`pipeline.ts:205`) writes `report.md`: metadata header, an explicit "Read each frame path below with the Read tool" instruction with `t=MM:SS` timestamps (`:247`), a fenced transcript from `formatTranscript()` (`vtt-parser.ts:64`), and a sparse-coverage warning for unfocused videos over 10 minutes (`pipeline.ts:234`).
 
-**Report.** `renderReport()` (`pipeline.ts:178`) writes `report.md` into the work dir: a
-metadata header (source, title, duration, focus range, frame count/fps/size, transcript
-source), an explicit instruction to **Read each listed frame path** with `t=MM:SS` absolute
-timestamps, and a fenced transcript block from `formatTranscript()` (`vtt-parser.ts:64`).
-For unfocused videos over 10 minutes it injects a sparse-coverage accuracy warning. The
-function returns a `PipelineResult` carrying `reportPath`, `framesDir`, enriched `frames`,
-`metadata`, `transcript`, and the focus window.
-
-**Playlist fan-out.** `runWatchPlaylist()` (`playlist-runner.ts:53`) spawns one sibling
-agent per entry up front (sharing the base session's worktree), optionally primes the base
-"meta" agent with where sibling answers will land (`primeMetaAgent`, `playlist-runner.ts:207`),
-then runs the entry pipelines through a worker pool capped at `PIPELINE_CONCURRENCY = 3`
-(`playlist-runner.ts:16`, `:133`). An optional `signal` field on `RunPlaylistOptions` is
-forwarded into each pipeline's `PipelineHooks.signal` so that panel-close aborts reach the
-yt-dlp child. If a sibling spawn throws mid-loop, all previously spawned siblings are killed
-before returning an error. If a pipeline fails, its sibling (which never received its
-`/watch:watch` context) is also killed to avoid orphaned PTY sessions. The IPC handler
-(`watch-handlers.ts:51`) wires this via an `AbortController` whose `abort()` fires on
-`BrowserWindow 'closed'`. As each pipeline finishes it waits for the sibling's TUI prompt
-(`waitUntilSiblingReady`, `:196`), types a `/watch:watch "<workDir>" <question>` slash
-command (the question defaults to `DEFAULT_WATCH_QUESTION`, `runner.ts:1`) augmented with a
-"save your answer to `sibling-N.md`" instruction, and records progress in the run store.
+**Playlist fan-out.** `runWatchPlaylist()` (`playlist-runner.ts:76`) drives everything
+through `AgentPort` (`playlist-runner.ts:23`) — the narrow spawn/status/sendText/whenReady
+port that `createAgentPort()` (`facade.ts:35`) implements over `manifold.agents` (main-side
+this lands on the builtin-only `agent:spawn` capability service,
+`src/main/plugins/agent-spawn-service.ts`). The runner checks the base session is live
+(`:84`), creates the run's aggregate + work dirs (`~/.manifold/watch-aggregates/<runId>`,
+`~/.manifold/watch-runs/<runId>`, `:92-97`), records the run (`:106`), then spawns one
+sibling per entry up front (`:120`), killing already-spawned siblings if a spawn fails
+mid-loop (`:131`). Multi-entry runs prime the base "meta" agent with where sibling answers
+will land (`primeMetaAgent`, `:225`; skipped for single entries, `:144`). Entry pipelines
+run through a worker pool capped at `PIPELINE_CONCURRENCY = 3` (`:15`, `:157`), with the
+host's abort signal forwarded into each pipeline (`:167`). As each pipeline finishes, the
+runner waits for the sibling's TUI prompt (`whenReady`, 30 s timeout, `:191`), types
+`/watch:watch "<workDir>" <question>` augmented with a "save your answer to
+`sibling-N.md`" instruction (`:184-187`), waits 400 ms, sends `\r` (`:193-194`), and only
+then exposes the sibling to the UI (`markEntrySpawned`/`onEntrySpawned`, `:197-199`). A
+failed pipeline kills its never-primed sibling (`:212`).
 
 ## Key types and entry points
 
+- `activate(context)` — `plugin.ts:13`. The plugin entry; everything hangs off it.
+- `WatchFacade` — `webview-host.ts:27`. The host↔pipeline contract; implemented by `createWatchFacade()` (`facade.ts:68`), faked in tests.
+- `WebviewMsg` / `HostMsg` — `webview/protocol.ts:17` / `:32`. The complete panel protocol; `isWebviewMsg` (`:51`) is the trust-boundary guard.
 - `runWatchPipeline()` — `pipeline.ts:17`. Single-video orchestrator; returns `PipelineResult` (`types.ts:54`).
-- `PipelineOptions` / `PipelineHooks` — `types.ts:43` / `pipeline.ts:11`. Source, focus range, frame budget, resolution; `onLog`/`onStage`/`signal` callbacks.
-- `download()` — `downloader.ts:96`. URL → yt-dlp, local path → passthrough; yields `DownloadResult` (`types.ts:9`).
-- `extractWithAutoFps()` — `frame-extractor.ts:151`. Auto-fps decision + ffmpeg extraction → `FrameExtractionResult` (`types.ts:36`).
-- `transcribeVideo()` — `transcriber.ts:59`. Audio extraction + provider POST; `TranscriberError`/`MissingKeyError` for failure modes.
-- `runWatchPlaylist()` — `playlist-runner.ts:51`. Multi-entry fan-out; `RunPlaylistDeps`/`RunPlaylistOptions` (`playlist-runner.ts:22`, `:28`).
-- `WatchRunStore` — `run-store.ts:54`. `getSnapshot`/`setUrl`/`startRun`/`markEntry*`; `WATCH_RUNS_ROOT` (`run-store.ts:15`).
-- `readFrameAsDataUrl()` — `frame-reader.ts:11`. Sandboxed frame read for `watch:read-frame`.
+- `runWatchPlaylist()` — `playlist-runner.ts:76`. Multi-entry fan-out; `AgentPort`/`SiblingHandle`/`RunPlaylistDeps`/`RunPlaylistOptions` (`playlist-runner.ts:23`, `:34`, `:41`, `:47`).
+- `WatchRunStore` — `run-store.ts:68`. `getSnapshot`/`setUrl`/`startRun`/`markEntry*`; `WATCH_RUNS_ROOT` (`run-store.ts:29`).
+- `readFrameAsDataUrl()` — `frame-reader.ts:11`. Sandboxed frame read behind the `readFrame` message.
+- `installWatchSkills()` — `skill-installer.ts:24`. Fingerprint-matched skill install into `~/.claude` (+ `~/.codex/skills/watch` when codex is detected, `:39`).
 
 ## Interactions
 
-- **IPC** (`src/main/ipc/watch-handlers.ts`): `watch:setup-status` → `detectWatchSetup`, `watch:install-binaries` → `ensureBinaries` + `ensureYtDlp` (`:87`), `watch:install-skills` → `installWatchSkills`, `watch:read-frame` → `readFrameAsDataUrl`, `watch:peek`/`watch:peek-playlist` → `peek.ts`, `watch:state-get`/`watch:state-set-url` → `WatchRunStore`, and `watch:run-playlist` → `runWatchPlaylist` (`:51`), which streams `watch:playlist-progress` events (`log`/`stage`/`frames`/`sibling`) to the renderer.
-- **Sessions** (`src/main/session`): the playlist runner is a heavy consumer of `SessionManager` — `createSession()` for siblings, `getSession`/`hasSession` for liveness, and `sendInput()` to type the slash command into a sibling PTY.
-- **External binaries**: `yt-dlp` (download + captions + `peek` metadata), `ffmpeg` (frames in `frame-extractor.ts`, audio in `transcriber.ts`), `ffprobe` (`getMetadata`), and `brew` (`binary-installer.ts`, `setup-detector.ts`).
-- **Settings** (`src/main/store`): `settingsStore.getSettings().transcription` supplies the `AiServiceSettings`/`TranscriptionSettings` (`src/shared/watch-types.ts:3`) that select captions-vs-transcription and the provider keys.
-- **App lifecycle** (`src/main/app`): `app-lifecycle.ts:57` installs the bundled `watch` skill on startup via `installWatchSkills` + `getBundledWatchSkillPath`; `app/index.ts:82` constructs the singleton `WatchRunStore`.
-- **The `watch` skill** (`resources/skills/watch`): the consumer of `report.md`. The pipeline produces the report; the skill (and Watch panel) reads it and the frame images.
+- **Plugin host** (`src/main/plugins`, `docs/architecture/plugins.md`): the plugin runs in the forked plugin host; its manifest capabilities are `agent:spawn`, `transcription:read`, `lm`, `workspace:read`, `storage` (`package.json`). The webview is served over the plugin webview protocol; `frameSources: ["https://www.youtube.com"]` whitelists the embedded player.
+- **Agents** (`manifold.agents` → `src/main/plugins/agent-spawn-service.ts`): `spawnSibling`/`sendText`/`whenReady`/`getStatus`/`kill` back the playlist fan-out; `reveal` (used by `revealAgent`, `facade.ts:159`) asks the app to open the sibling's dock tab.
+- **Transcription settings** (`manifold.transcription` ← app settings `transcription`): selects captions-vs-transcription and supplies provider keys; the settings UI lives in the app (`src/renderer/components/modals/settings/TranscriptionSettingsSection.tsx`).
+- **Language models** (`manifold.lm`): `improvePrompt` rewrites the user's question through the default runtime's chat model (`facade.ts:163`).
+- **Storage** (`manifold.storage.global`): the panel's persisted UI state, one blob under `watch.webview-state` (`facade.ts:19`).
+- **External binaries**: `yt-dlp` (download + captions + peek), `ffmpeg`/`ffprobe` (frames, audio, metadata), `brew` (`binary-installer.ts`, `setup-detector.ts`).
+- **The bundled `watch` skill** (`skills/watch/`): the consumer of `report.md`. The pipeline produces the report; the skill (run by each sibling via `/watch:watch`) reads it and the frame images.
 
 ## Invariants & gotchas
 
-- **Frame timestamps are derived, not probed.** `extract()` computes `timestampSeconds` as `offset + index/fps` (`frame-extractor.ts:146`), so they assume ffmpeg emits exactly one frame per `1/fps` interval from the seek point. They are not read back from the JPEGs.
-- **fps is hard-capped at 2.0.** Even an `fpsOverride` is clamped to `MAX_FPS` (`frame-extractor.ts:170`); high-fps requests silently saturate. The duration→budget tables also cap total frames well under the 100 ceiling for long videos.
-- **Captions win over transcription.** Transcription only runs when caption segments are empty *and* the provider isn't `'none'` (`pipeline.ts:109`); a video with native subs never hits the paid API.
-- **gpt-4o-transcribe loses timing.** The provider returns one text blob, surfaced as a single `t=0` segment (`transcriber.ts:147`) — so `[00:00]` is the only timestamp in a transcribed (vs captioned) report.
-- **Transcript failure is non-fatal; download/frame failure is not.** Subtitle-parse and transcription errors are caught and downgraded to `source: 'none'` (`pipeline.ts:104`, `:119`), but a failed download or frame extraction rejects the whole pipeline.
-- **Frame reads are sandboxed.** `readFrameAsDataUrl()` only serves `.jpg/.jpeg/.png` under the `manifold-watch-` tmp prefix or `WATCH_RUNS_ROOT`, throwing `FramePathError` otherwise (`frame-reader.ts:28`) — the renderer can't read arbitrary paths.
-- **Run retention is bounded and destructive.** `WatchRunStore` keeps at most `MAX_RETAINED_RUNS = 20` runs, and evicting a run `rmSync`s its frame and aggregate directories (`run-store.ts:163`); it never evicts a session's active run.
-- **Source video and audio are deleted mid-pipeline.** After frame extraction the downloaded video is removed (`pipeline.ts:114`); after transcription `audio.mp3` is removed (`pipeline.ts:148`). Only `frames/`, `frames-hd/`, and `report.md` survive in the work dir.
-- **yt-dlp download is bounded.** `runProcess()` (`downloader.ts:132`) sets a 10-minute watchdog; a stalled download is SIGTERMed then SIGKILLed and the pipeline rejects.
-- **Store reads fail safe.** An unreadable state file flips the store `readOnly` (writes skipped, no clobber); a corrupt one is renamed to `.corrupt.<ts>` before resetting (`run-store.ts:236`).
-- **Siblings are typed into, with timing slack.** The runner waits up to 30 s for a sibling's prompt then proceeds anyway, and inserts a 400 ms delay before sending `\r` so the command isn't swallowed by the welcome banner (`playlist-runner.ts:156`, `:194`).
+- **The host owns cancellation.** `webview-host.ts` creates one `AbortController` per run and `stop` aborts it (`webview-host.ts:82`, `:109`); the facade and pipeline only consume the signal. Closing the panel must not orphan a yt-dlp child.
+- **Webview input is guarded, not trusted.** Every message from the sandboxed webview passes `isWebviewMsg` before dispatch (`webview-host.ts:136`); don't cast `unknown` to `WebviewMsg`.
+- **Frame reads are sandboxed.** `readFrameAsDataUrl()` only serves `.jpg/.jpeg/.png` under the `manifold-watch-` tmp prefix or `WATCH_RUNS_ROOT`, throwing `FramePathError` otherwise (`frame-reader.ts:6`, `:9`) — the webview can't read arbitrary paths.
+- **Captions win over transcription.** Transcription only runs when caption segments are empty *and* the provider isn't `'none'` (`pipeline.ts:133`); a video with native subs never hits the paid API. `gpt-4o-transcribe` loses timing — one `t=0` segment (`transcriber.ts:147`).
+- **Transcript failure is non-fatal; download/frame failure is not.** Caption-parse and transcription errors downgrade to `source: 'none'`; a failed download or extraction rejects the whole pipeline.
+- **fps is hard-capped at 2.0.** Even `fpsOverride` is clamped to `MAX_FPS` (`frame-extractor.ts:170`); frame timestamps are derived (`offset + index/fps`), never probed from the JPEGs.
+- **Siblings stay hidden until primed.** `onEntrySpawned` fires only after the `/watch:watch` command has been queued (`playlist-runner.ts:197-199`) — revealing the "Open agent" button earlier would let the user talk to an agent with no watch context. Ready-waits time out non-fatally (30 s) and a 400 ms delay precedes `\r` so input isn't swallowed by the welcome banner (`:16-17`, `:191-194`).
+- **Run retention is bounded and destructive.** `WatchRunStore` keeps at most `MAX_RETAINED_RUNS = 20` runs; eviction `rmSync`s the run's frame and aggregate dirs (`run-store.ts:33`, `:185-195`) and never evicts a session's active run. An unreadable state file flips the store read-only; a corrupt one is renamed `.corrupt.<ts>` before resetting (`run-store.ts:259`, `:270`).
+- **Persisted state shares the builtin's disk.** The plugin reuses `~/.manifold/watch-runs.json`, `~/.manifold/bin`, and the fingerprint-matched skill installs, so upgrading from the builtin needs no migration. Saved dock layouts containing the old `watch` panel id are sanitized away by the app (`src/renderer/hooks/dock-layout/dock-layout-sanitize.ts`).
+- **The plugin is self-contained.** It cannot import app `src/` modules — shared shapes are inlined in `shared-types.ts`; the skill ships inside the plugin (`skills/watch/`), not in app resources.

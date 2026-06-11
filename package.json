@@ -61,10 +61,6 @@
     ],
     "extraResources": [
       {
-        "from": "resources/skills/watch",
-        "to": "skills/watch"
-      },
-      {
         "from": "resources/plugins",
         "to": "plugins"
       }

@@ -1,7 +1,7 @@
 ---
 description: How Manifold is built, type-checked, tested, packaged into a macOS .dmg, and released — the npm scripts, electron-vite bundling, native-module rebuilds, plugin compilation, and the two-step release flow.
 covers: [package.json]
-updated: 2026-06-08
+updated: 2026-06-11
 owner: see .github/CODEOWNERS
 ---
 
@@ -73,12 +73,12 @@ in `resources/plugins/`, which is what `extraResources` then ships.
 
 **Packaging (electron-builder).** The `build` block (`package.json:52`) sets `appId`
 `de.malvik.manifold.app`, outputs to `dist/`, and includes only `out/**` in the asar
-(`:59-61`). `extraResources` (`:62-71`) copies two trees *outside* the asar into the app's
-`Resources/`: `resources/skills/watch` → `skills/watch`, and **`resources/plugins` →
-`plugins`** — this is how the compiled built-in plugins reach the packaged app. The `mac`
-target (`:72`) enables `hardenedRuntime` + `notarize`, points at
+(`:59-61`). `extraResources` (`:62-67`) copies one tree *outside* the asar into the app's
+`Resources/`: **`resources/plugins` → `plugins`** — this is how the compiled built-in
+plugins reach the packaged app. The `mac`
+target (`:68`) enables `hardenedRuntime` + `notarize`, points at
 `build/entitlements.mac.plist`, and builds `dmg` and `zip` for both `arm64` and `x64`. The
-`publish` provider is the GitHub repo configured in `package.json` (`:100-104`), read by
+`publish` provider is the GitHub repo configured in `package.json` (`:96-100`), read by
 `electron-updater`.
 
 **Release flow (`release.sh`).** The script takes one of `patch`/`minor`/`major`/`publish`

@@ -15,7 +15,6 @@ import { registerSearchHandlers } from '../ipc/search-handlers'
 import { registerProvisioningHandlers } from '../ipc/provisioning-handlers'
 import { registerBackgroundAgentHandlers } from '../ipc/background-agent-handlers'
 import { registerWorkspaceHandlers } from '../ipc/workspace-handlers'
-import { registerWatchHandlers } from '../ipc/watch-handlers'
 import { registerVerdictHandlers } from '../ipc/verdict-handlers'
 import { registerPluginHandlers } from '../ipc/plugin-handlers'
 export type { IpcDependencies } from '../ipc/types'
@@ -40,7 +39,6 @@ export function registerIpcHandlers(deps: IpcDependencies): void {
   registerProvisioningHandlers(deps)
   registerBackgroundAgentHandlers(deps)
   registerWorkspaceHandlers(deps)
-  registerWatchHandlers(deps)
   registerVerdictHandlers(deps)
   registerPluginHandlers(deps)
 

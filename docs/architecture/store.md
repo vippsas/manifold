@@ -1,7 +1,7 @@
 ---
 description: How Manifold persists app and user state on disk — settings/config, the project registry, per-session view/chat/verdict state — and which JSON file owns which slice.
 covers: [src/main/store]
-updated: 2026-06-10
+updated: 2026-06-11
 owner: see .github/CODEOWNERS
 ---
 
@@ -57,9 +57,8 @@ are merged field-by-field over their defaults; the `provisioning.provisioners` l
 reconciled so stale builtins are dropped and missing builtins re-added; and
 `disabledPlugins` is seeded once with the default-disabled set, guarded by a
 `pluginDefaultsSeeded` flag so a user-enabled plugin is not re-disabled on next launch
-(`settings-store.ts:42`, `:65`). `updateSettings(partial)` shallow-merges, writes, and
-clears the Watch setup cache when `transcription` changed (`settings-store.ts:98`).
-`getSettings()` returns a shallow copy.
+(`settings-store.ts:42`, `:65`). `updateSettings(partial)` shallow-merges and writes
+(`settings-store.ts:98`). `getSettings()` returns a shallow copy.
 
 **Project registry.** `addProject()` resolves the absolute path, returns any existing
 entry with the same path, otherwise detects `kind` (`git` when

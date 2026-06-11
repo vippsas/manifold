@@ -42,7 +42,6 @@ handful of cross-cutting pages. `covers:` is the code each page is bound to.
 | [Workspace](architecture/workspace.md) | `src/main/workspace` | Multi-repo Workspaces: one agent across several repos via per-runtime `--add-dir` worktrees |
 | [Agent (runtimes & PTY)](architecture/agent.md) | `src/main/agent` | AI runtime registry, interactive vs print-mode command building, theme/ANSI sync, and the PtyPool process boundary |
 | [Background agent host](architecture/background-agent-host.md) | `src/main/background-agent-host` | Runs off-session "Ideas" research jobs (profile→research→synthesize→rank) with pause/resume and snapshot polling |
-| [Watch](architecture/watch.md) | `src/main/watch` | Video → auto-scaled ffmpeg frames + timestamped transcript → markdown report for the Watch skill/panel |
 | [Memory](architecture/memory.md) | `src/main/memory` | Per-project SQLite session memory: capture interactions, compress to observations/summaries, search |
 | [Search](architecture/search.md) | `src/main/search` | Cross-session code/file/memory search with literal-vs-regex matching and an optional AI rerank/answer layer |
 | [Provisioning](architecture/provisioning.md) | `src/main/provisioning` | Main-process host that spawns provisioner CLIs over stdin/stdout and turns results into projects |
@@ -58,6 +57,7 @@ handful of cross-cutting pages. `covers:` is the code each page is bound to.
 | --- | --- | --- |
 | [Preload bridge](architecture/preload.md) | `src/preload` | The contextBridge whitelist exposing `window.electronAPI`; keeps Node/fs out of the renderer |
 | [Plugin API](architecture/plugin-api.md) | `src/shared/plugins` | The `manifold` runtime module contract — namespaces, manifest, capabilities, and contributes for plugins |
+| [Watch](architecture/watch.md) | `resources/plugins/manifold.watch` | The Watch plugin: video → ffmpeg frames + transcript → report, fanned out to sibling agents from a webview panel |
 | [On-disk data model](architecture/data-model.md) | `src/main/store`, `src/shared/defaults.ts` | Every file/dir Manifold persists under `~/.manifold`, and the config-home vs configurable storage-root split |
 
 ### Renderer

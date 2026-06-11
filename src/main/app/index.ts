@@ -39,7 +39,6 @@ import { MemoryInjector } from '../memory/memory-injector'
 import * as path from 'node:path'
 import { WorkspaceStore } from '../workspace/workspace-store'
 import { WorkspaceManager } from '../workspace/workspace-manager'
-import { WatchRunStore } from '../watch/run-store'
 import { VerdictStore } from '../store/verdict-store'
 import { VerdictRecorder } from '../session/verdict-recorder'
 import { summarizeMiddle } from '../store/prompt-summarizer'
@@ -79,7 +78,6 @@ const shellTabStore = new ShellTabStore()
 const gitOps = new GitOperationsManager()
 const dockLayoutStore = new DockLayoutStore()
 const searchViewStore = new SearchViewStore()
-const watchRunStore = new WatchRunStore()
 const backgroundAgentHost = new BackgroundAgentHost({
   settingsStore,
   projectRegistry,
@@ -133,7 +131,6 @@ const ipcDeps = {
   chatStore,
   memoryStore,
   workspaceManager,
-  watchRunStore,
   verdictStore,
   verdictRecorder,
   pluginManager,

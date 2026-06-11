@@ -1,4 +1,4 @@
-import type { AiServiceSettings } from '../../shared/watch-types'
+import type { AiServiceSettings } from '../../shared/plugins/api-types'
 
 export const DEFAULT_CHAT_MODEL = 'gpt-5.1'
 const AZURE_API_VERSION = '2024-06-01'

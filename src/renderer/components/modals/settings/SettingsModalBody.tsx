@@ -1,7 +1,7 @@
 import React from 'react'
 import type { ProvisionerConfig, ProvisionerStatus } from '../../../../shared/provisioning-types'
 import type { SearchAiSettings, EditorSettings } from '../../../../shared/types'
-import type { AiServiceSettings } from '../../../../shared/watch-types'
+import type { AiServiceSettings } from '../../../../shared/plugins/api-types'
 import { modalStyles } from '../SettingsModal.styles'
 import { SearchAiSettingsSection } from './SearchAiSettingsSection'
 import { GeneralSettingsSection } from './GeneralSettingsSection'

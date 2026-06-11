@@ -1,8 +1,8 @@
 // src/main/plugins/agent-spawn-service.ts
 // Main-side service backing the builtin-only `agent:spawn` capability: spawn a
 // sibling agent session next to a base session and drive its PTY with raw input.
-// Mirrors what src/main/watch/playlist-runner.ts does today; the watch plugin
-// calls this surface via manifold.agents instead of SessionManager directly.
+// The watch plugin calls this surface via manifold.agents instead of
+// SessionManager directly.
 import type { SessionManager } from '../session/session-manager'
 
 type SessionAccess = Pick<SessionManager, 'createSession' | 'killSession' | 'sendInput' | 'getSession'>

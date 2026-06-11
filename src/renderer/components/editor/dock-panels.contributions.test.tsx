@@ -3,7 +3,6 @@ import { describe, expect, it } from 'vitest'
 import { PANEL_COMPONENTS } from './dock-panels'
 import { BackgroundAgentPanel } from '../background-agent/BackgroundAgentPanel'
 import { VerdictsPanel } from '../verdicts/VerdictsPanel'
-import { WatchPanel } from '../watch/WatchPanel'
 
 describe('PANEL_COMPONENTS module entries', () => {
   it('still includes the six core panels', () => {
@@ -12,9 +11,8 @@ describe('PANEL_COMPONENTS module entries', () => {
     }
   })
 
-  it('sources the three module panels from the contribution registry', () => {
+  it('sources the two module panels from the contribution registry', () => {
     expect(PANEL_COMPONENTS.backgroundAgent).toBe(BackgroundAgentPanel)
     expect(PANEL_COMPONENTS.verdicts).toBe(VerdictsPanel)
-    expect(PANEL_COMPONENTS.watch).toBe(WatchPanel)
   })
 })

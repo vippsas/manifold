@@ -2,7 +2,7 @@ import React, { useState, useEffect, useCallback, useRef } from 'react'
 import { DEFAULT_SETTINGS } from '../../../shared/defaults'
 import type { ProvisionerConfig, ProvisionerStatus } from '../../../shared/provisioning-types'
 import type { ManifoldSettings, EditorSettings } from '../../../shared/types'
-import type { TranscriptionSettings } from '../../../shared/watch-types'
+import type { AiServiceSettings } from '../../../shared/plugins/api-types'
 import { modalStyles } from './SettingsModal.styles'
 import { SettingsModalBody, type SettingsTabId } from './settings/SettingsModalBody'
 import { validateProvisioners } from './settings/provisioning-settings-helpers'
@@ -31,7 +31,7 @@ export function SettingsModal({ visible, settings, onSave, onClose, onPreviewThe
   const [editorSettings, setEditorSettings] = useState<EditorSettings>(settings.editor ?? DEFAULT_SETTINGS.editor!)
   const [provisioners, setProvisioners] = useState<ProvisionerConfig[]>(settings.provisioning?.provisioners ?? DEFAULT_SETTINGS.provisioning.provisioners)
   const [provisionerStatuses, setProvisionerStatuses] = useState<ProvisionerStatus[]>([])
-  const [transcription, setTranscription] = useState<TranscriptionSettings>(
+  const [transcription, setTranscription] = useState<AiServiceSettings>(
     settings.transcription ?? DEFAULT_SETTINGS.transcription ?? { provider: 'none' }
   )
   const [pickerOpen, setPickerOpen] = useState(false)
