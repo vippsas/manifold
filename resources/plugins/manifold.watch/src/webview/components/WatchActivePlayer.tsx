@@ -3,10 +3,10 @@
 // The YouTube iframe is admitted by the manifest's `frameSources`.
 import React from 'react'
 import type { CSSProperties } from 'react'
-import type { WatchPlaylistEntry } from '../../shared-types'
+import type { WatchVideoInfo } from '../../shared-types'
 
 interface Props {
-  entry: WatchPlaylistEntry | null
+  entry: WatchVideoInfo | null
   onHide: () => void
 }
 

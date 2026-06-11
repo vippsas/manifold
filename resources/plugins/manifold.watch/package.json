@@ -3,7 +3,7 @@
   "publisher": "manifold",
   "version": "0.0.1",
   "displayName": "Watch",
-  "description": "Watch videos with sibling analysis agents.",
+  "description": "Watch videos with your agent: frames, transcript, report.",
   "engines": { "manifold": "^0.3.0" },
   "main": "./out/plugin.js",
   "activationEvents": ["onView:manifold.watch.panel"],
@@ -13,7 +13,7 @@
       {
         "id": "manifold.watch.panel",
         "title": "Watch",
-        "description": "Watch videos with sibling analysis agents.",
+        "description": "Watch videos with your agent: frames, transcript, report.",
         "launcher": true,
         "frameSources": ["https://www.youtube.com"]
       }

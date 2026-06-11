@@ -5,16 +5,16 @@
 // Record<string, unknown> keyed by the former localStorage keys — persist()
 // is read-modify-write over that single blob.
 import type { ManifoldApi } from 'manifold'
-import type { TranscriptionSettings, WatchPlaylistRunResult } from './shared-types'
-import type { WatchFacade, RunPlaylistRequest } from './webview-host'
-import type { AgentPort } from './playlist-runner'
-import { runWatchPlaylist } from './playlist-runner'
+import type { TranscriptionSettings, WatchVideoRunResult } from './shared-types'
+import type { WatchFacade, RunVideoRequest } from './webview-host'
+import type { AgentPort } from './video-runner'
+import { runWatchVideo } from './video-runner'
 import { WatchRunStore, type WatchSessionInfo } from './run-store'
 import { detectWatchSetup, clearWatchSetupCache } from './setup-detector'
 import { ensureBinaries } from './binary-installer'
 import { ensureYtDlp } from './yt-dlp-fetcher'
 import { readFrameAsDataUrl } from './frame-reader'
-import { peekVideo, peekPlaylist } from './peek'
+import { peekVideo } from './peek'
 
 export const PERSIST_KEY = 'watch.webview-state'
 
@@ -31,18 +31,9 @@ export const IMPROVE_PROMPT_META = [
   'Original prompt:',
 ].join('\n')
 
-/** Narrow `manifold.agents` down to the AgentPort the playlist runner drives. */
+/** Narrow `manifold.agents` down to the AgentPort the video runner drives. */
 export function createAgentPort(agents: ManifoldApi['agents']): AgentPort {
   return {
-    async spawnSibling(baseSessionId, opts) {
-      const session = await agents.spawnSibling(baseSessionId, opts)
-      return {
-        sessionId: session.sessionId,
-        sendText: (text) => session.sendText(text),
-        whenReady: (timeoutMs) => session.whenReady(timeoutMs),
-        kill: () => session.kill(),
-      }
-    },
     async getStatus(sessionId) {
       const agent = agents.getAgent(sessionId)
       return agent ? agent.getStatus() : 'missing'
@@ -92,7 +83,7 @@ export function createWatchFacade(manifold: ManifoldApi): WatchFacade {
     async getSnapshot() {
       const info = sessionInfo()
       if (!info) return null
-      return getStore().getSnapshot(info, (id) => manifold.agents.getAgent(id) !== undefined)
+      return getStore().getSnapshot(info)
     },
 
     async setupStatus() {
@@ -107,29 +98,26 @@ export function createWatchFacade(manifold: ManifoldApi): WatchFacade {
     },
 
     peek: (url) => peekVideo(url),
-    peekPlaylist: (url) => peekPlaylist(url),
 
-    async runPlaylist({ entries, sourceUrl, signal, onProgress }: RunPlaylistRequest): Promise<WatchPlaylistRunResult> {
-      const baseSessionId = manifold.agents.activeAgent?.sessionId
-      if (!baseSessionId) return { ok: false, error: 'No active session' }
-      return runWatchPlaylist(
+    async runVideo({ sessionId, url, question, sourceUrl, signal, onProgress }: RunVideoRequest): Promise<WatchVideoRunResult> {
+      return runWatchVideo(
         {
           agents: agentPort,
           watchRunStore: getStore(),
           getTranscription: () => resolveTranscription(manifold),
         },
         {
-          sessionId: baseSessionId,
+          sessionId,
           sessionInfo: sessionInfo(),
-          entries,
+          url,
+          question,
           sourceUrl,
           signal,
-          hooks: (i) => ({
-            onLog: (line) => onProgress(i, 'log', line),
-            onStage: (stage) => onProgress(i, 'stage', stage),
-          }),
-          onEntryFramesReady: (i, frames) => onProgress(i, 'frames', frames),
-          onEntrySpawned: (i, siblingSessionId) => onProgress(i, 'sibling', siblingSessionId),
+          hooks: {
+            onLog: (line) => onProgress('log', line),
+            onStage: (stage) => onProgress('stage', stage),
+          },
+          onFramesReady: (frames) => onProgress('frames', frames),
         },
       )
     },
@@ -154,10 +142,6 @@ export function createWatchFacade(manifold: ManifoldApi): WatchFacade {
       const info = sessionInfo()
       if (!info) return
       getStore().setUrl(info, url)
-    },
-
-    async revealAgent(sessionId, title) {
-      await manifold.agents.getAgent(sessionId)?.reveal(title)
     },
 
     async improvePrompt(draft) {

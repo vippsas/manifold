@@ -202,6 +202,13 @@ export const watchStyles: Record<string, CSSProperties> = {
   dot: { width: 8, height: 8, borderRadius: '50%', display: 'inline-block', marginRight: 4 },
   dotOk: { background: '#3a7' },
   dotMissing: { background: '#c44' },
+  stopButton: {
+    padding: '8px 16px', borderRadius: 'var(--radius-md)',
+    border: '1px solid var(--border)',
+    background: 'transparent', color: 'var(--text-default)',
+    fontSize: 'var(--type-ui)', fontWeight: 600,
+    cursor: 'pointer',
+  },
   showVideoButton: {
     alignSelf: 'flex-start',
     padding: '4px 10px', borderRadius: 4,

@@ -1,31 +1,15 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
-import type { WatchPeekResult, WatchPlaylistPeekResult } from '../shared-types'
 import {
   peekCache,
-  userStateCache,
-  revalidate,
+  questionCache,
+  setCachedPeek,
   schedulePersistCaches,
   hydratePreviewCaches,
   clearWatchPreviewCaches,
   __watchUrlPreviewTestHooks,
   PEEK_STORAGE_KEY,
-  USER_STATE_STORAGE_KEY,
-  type RevalidateApply,
+  QUESTION_STORAGE_KEY,
 } from './watch-preview-cache'
-
-const noopApply: RevalidateApply = {
-  applyEntries: () => {},
-  applyTitle: () => {},
-  applyUploader: () => {},
-  applyQuestions: () => {},
-  applySelected: () => {},
-}
-
-function videoPeek(url: string, thumb: string): (u: string) => Promise<WatchPeekResult> {
-  return async () => ({ ok: true, webpageUrl: url, title: 't', thumbnailDataUrl: thumb } as WatchPeekResult)
-}
-
-const noPlaylist = async (): Promise<WatchPlaylistPeekResult> => ({ ok: false, entries: [] })
 
 describe('watch-preview-cache', () => {
   const persist = vi.fn()
@@ -41,9 +25,9 @@ describe('watch-preview-cache', () => {
     __watchUrlPreviewTestHooks.reset()
   })
 
-  it('LRU-caps the peek cache to 50 URLs', async () => {
+  it('LRU-caps the peek cache to 50 URLs', () => {
     for (let i = 0; i < 55; i++) {
-      await revalidate(`v${i}`, 'video', videoPeek(`v${i}`, 'data:thumb'), noPlaylist, () => false, noopApply)
+      setCachedPeek(`v${i}`, { url: `v${i}`, title: 't' })
     }
     expect(peekCache.size).toBe(50)
     // The oldest URLs were evicted; the newest remain.
@@ -51,44 +35,49 @@ describe('watch-preview-cache', () => {
     expect(peekCache.has('v54')).toBe(true)
   })
 
-  it('strips base64 thumbnails from the persisted form', async () => {
-    await revalidate('vid', 'video', videoPeek('vid', 'data:image/png;base64,AAAA'), noPlaylist, () => false, noopApply)
+  it('strips base64 thumbnails from the persisted form', () => {
+    setCachedPeek('vid', { url: 'vid', title: 't', thumbnailDataUrl: 'data:image/png;base64,AAAA' })
     // In-memory entry keeps the thumbnail for rendering.
-    expect(peekCache.get('vid')?.entries[0].thumbnailDataUrl).toBe('data:image/png;base64,AAAA')
+    expect(peekCache.get('vid')?.thumbnailDataUrl).toBe('data:image/png;base64,AAAA')
 
     schedulePersistCaches()
     vi.advanceTimersByTime(600)
 
     const call = persist.mock.calls.find(([key]) => key === PEEK_STORAGE_KEY)
     expect(call).toBeDefined()
-    const persisted = (call as unknown[])[1] as Record<string, { entries: Array<{ url: string; thumbnailDataUrl?: string }> }>
-    expect(persisted.vid.entries[0].thumbnailDataUrl).toBeUndefined()
-    expect(persisted.vid.entries[0].url).toBe('vid')
+    const persisted = (call as unknown[])[1] as Record<string, { url: string; thumbnailDataUrl?: string }>
+    expect(persisted.vid.thumbnailDataUrl).toBeUndefined()
+    expect(persisted.vid.url).toBe('vid')
   })
 
-  it('hydrates from init.persisted with in-memory entries winning', () => {
-    peekCache.set('vid', { entries: [{ url: 'vid', title: 'live' }], playlistTitle: null, uploader: null })
+  it('hydrates from init.persisted with in-memory entries winning; old playlist blobs are ignored', () => {
+    peekCache.set('vid', { url: 'vid', title: 'live' })
     hydratePreviewCaches({
       [PEEK_STORAGE_KEY]: {
-        vid: { entries: [{ url: 'vid', title: 'stale' }], playlistTitle: null, uploader: null },
-        other: { entries: [{ url: 'other' }], playlistTitle: 'pl', uploader: 'up' },
+        vid: { url: 'vid', title: 'stale' },
+        other: { url: 'other', title: 'other title' },
+        // Shape written by the retired playlist format — must be skipped.
+        legacy: { entries: [{ url: 'legacy' }], playlistTitle: 'pl', uploader: 'up' },
       },
-      [USER_STATE_STORAGE_KEY]: {
-        other: { entryQuestions: ['q'], selectedIndices: [0] },
+      [QUESTION_STORAGE_KEY]: {
+        other: 'custom prompt',
+        legacy: { entryQuestions: ['q'], selectedIndices: [0] },
       },
     })
-    expect(peekCache.get('vid')?.entries[0].title).toBe('live')
-    expect(peekCache.get('other')?.playlistTitle).toBe('pl')
-    expect(userStateCache.get('other')).toEqual({ entryQuestions: ['q'], selectedIndices: [0] })
+    expect(peekCache.get('vid')?.title).toBe('live')
+    expect(peekCache.get('other')?.title).toBe('other title')
+    expect(peekCache.has('legacy')).toBe(false)
+    expect(questionCache.get('other')).toBe('custom prompt')
+    expect(questionCache.has('legacy')).toBe(false)
   })
 
   it('clearWatchPreviewCaches wipes memory and persists empty blobs immediately', () => {
-    peekCache.set('vid', { entries: [{ url: 'vid' }], playlistTitle: null, uploader: null })
-    userStateCache.set('vid', { entryQuestions: [''], selectedIndices: [0] })
+    peekCache.set('vid', { url: 'vid' })
+    questionCache.set('vid', 'prompt')
     clearWatchPreviewCaches()
     expect(peekCache.size).toBe(0)
-    expect(userStateCache.size).toBe(0)
+    expect(questionCache.size).toBe(0)
     expect(persist).toHaveBeenCalledWith(PEEK_STORAGE_KEY, {})
-    expect(persist).toHaveBeenCalledWith(USER_STATE_STORAGE_KEY, {})
+    expect(persist).toHaveBeenCalledWith(QUESTION_STORAGE_KEY, {})
   })
 })

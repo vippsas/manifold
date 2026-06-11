@@ -2,17 +2,13 @@
 // resources/plugins/manifold.watch/src/webview/use-watch-bridge.ts
 // Webview-side replacement for the builtin's electronAPI plumbing: state from
 // host messages, actions via parent.postMessage. Request/response pairs are
-// correlated by reqId (request-tracker); `runPlaylist` is single-flight (the
-// UI disables Run while busy) so one pending resolver suffices.
+// correlated by reqId (request-tracker). Run events need no correlation here:
+// they arrive tagged with their owning sessionId (the run outlives this
+// document — panel remounts reload it) and are folded into the per-session
+// store, which `init` re-hydrates after every reload.
 import { useCallback, useEffect, useState } from 'react'
 import type { HostMsg } from './protocol'
-import type {
-  WatchPeekResult,
-  WatchPlaylistEntryInput,
-  WatchPlaylistPeekResult,
-  WatchPlaylistRunResult,
-  WatchSetupStatus,
-} from '../shared-types'
+import type { WatchPeekResult, WatchSetupStatus } from '../shared-types'
 import { postToHost } from './host-post'
 import { createRequestTracker } from './request-tracker'
 import { watchPanelStore } from './watch-panel-store'
@@ -28,11 +24,12 @@ export interface WatchBridge {
   refreshSetupStatus: () => Promise<void>
   installBinaries: () => Promise<{ ok: boolean; error?: string }>
   peekUrl: (url: string) => Promise<WatchPeekResult>
-  peekPlaylist: (url: string) => Promise<WatchPlaylistPeekResult>
-  runPlaylist: (entries: WatchPlaylistEntryInput[], sourceUrl?: string) => Promise<WatchPlaylistRunResult>
+  /** Fire-and-forget: progress and the result come back as sessionId-tagged
+   *  store updates, not as a promise (the run outlives this document). */
+  run: (url: string, question: string, sourceUrl: string) => void
+  stop: () => void
   readFrame: (path: string) => Promise<string>
   improvePrompt: (draft: string) => Promise<string>
-  revealAgent: (sessionId: string, title?: string) => void
   /** Debounce-free host write of the panel URL (callers debounce). */
   postUrlToHost: (url: string) => void
 }
@@ -40,19 +37,10 @@ export interface WatchBridge {
 // Module-level so correlation state survives a panel remount within the same
 // webview document (replies for in-flight requests still find their promise).
 const peekTracker = createRequestTracker<WatchPeekResult>()
-const peekPlaylistTracker = createRequestTracker<WatchPlaylistPeekResult>()
 const installTracker = createRequestTracker<{ ok: boolean; error?: string }>()
 const frameTracker = createRequestTracker<string>()
 const setupTracker = createRequestTracker<WatchSetupStatus>()
 const improveTracker = createRequestTracker<string>()
-
-let pendingRun: { resolve: (r: WatchPlaylistRunResult) => void } | null = null
-// The session that owns the in-flight run. The builtin's progress events
-// carried a sessionId; the plugin protocol implies it from the single
-// in-flight run, so progress is routed to the session that dispatched it even
-// if the user switches sessions mid-run.
-let runSessionId: string | null = null
-let currentSessionId: string | null = null
 
 // Frame thumbnails are immutable on disk for a run — cache the data-URL
 // promises so re-renders and the lightbox don't re-request the same frame.
@@ -76,8 +64,9 @@ export function useWatchBridge(): WatchBridge {
           // session's in-memory state, so switching back restores it.
           watchPanelStore.hydrateFromPersisted(m.persisted)
           hydratePreviewCaches(m.persisted)
-          if (m.sessionId && m.snapshot) watchPanelStore.hydrateSession(m.sessionId, m.snapshot)
-          currentSessionId = m.sessionId
+          if (m.sessionId && m.snapshot) {
+            watchPanelStore.hydrateSession(m.sessionId, m.snapshot, m.running, m.lastStage)
+          }
           setSessionId(m.sessionId)
           setSetupStatus(m.setup)
           setInitialized(true)
@@ -85,21 +74,12 @@ export function useWatchBridge(): WatchBridge {
         case 'peekResult':
           peekTracker.resolve(m.reqId, m.result)
           return
-        case 'peekPlaylistResult':
-          peekPlaylistTracker.resolve(m.reqId, m.result)
+        case 'runProgress':
+          watchPanelStore.applyRunProgress(m.sessionId, m.kind, m.payload)
           return
-        case 'runResult': {
-          const run = pendingRun
-          pendingRun = null
-          runSessionId = null
-          run?.resolve(m.result)
+        case 'runResult':
+          watchPanelStore.applyRunResult(m.sessionId, m.result)
           return
-        }
-        case 'playlistProgress': {
-          const target = runSessionId ?? currentSessionId
-          if (target) watchPanelStore.applyPlaylistProgress(target, m.entryIndex, m.kind, m.payload)
-          return
-        }
         case 'installProgress':
           // The builtin surfaced no install log; parity keeps this silent.
           return
@@ -126,7 +106,7 @@ export function useWatchBridge(): WatchBridge {
 
   // All actions close over module state / stable setters only ⇒ stable
   // identities, so downstream effect deps (e.g. useWatchUrlPreview's peek
-  // functions) don't re-fire on every render.
+  // function) don't re-fire on every render.
   const refreshSetupStatus = useCallback(async (): Promise<void> => {
     const { reqId, promise } = setupTracker.begin()
     postToHost({ type: 'setupStatus', reqId })
@@ -147,19 +127,12 @@ export function useWatchBridge(): WatchBridge {
     return promise
   }, [])
 
-  const peekPlaylist = useCallback((url: string): Promise<WatchPlaylistPeekResult> => {
-    const { reqId, promise } = peekPlaylistTracker.begin()
-    postToHost({ type: 'peekPlaylist', reqId, url })
-    return promise
+  const run = useCallback((url: string, question: string, sourceUrl: string): void => {
+    postToHost({ type: 'run', url, question, sourceUrl })
   }, [])
 
-  const runPlaylist = useCallback((entries: WatchPlaylistEntryInput[], sourceUrl?: string): Promise<WatchPlaylistRunResult> => {
-    if (pendingRun) return Promise.resolve({ ok: false, error: 'A run is already in progress' })
-    return new Promise<WatchPlaylistRunResult>((resolve) => {
-      runSessionId = currentSessionId
-      pendingRun = { resolve }
-      postToHost({ type: 'runPlaylist', entries, sourceUrl })
-    })
+  const stop = useCallback((): void => {
+    postToHost({ type: 'stop' })
   }, [])
 
   const readFrame = useCallback((path: string): Promise<string> => {
@@ -179,10 +152,6 @@ export function useWatchBridge(): WatchBridge {
     return promise
   }, [])
 
-  const revealAgent = useCallback((sid: string, title?: string): void => {
-    postToHost({ type: 'revealAgent', sessionId: sid, title })
-  }, [])
-
   const postUrlToHost = useCallback((url: string): void => {
     postToHost({ type: 'setUrl', url })
   }, [])
@@ -194,20 +163,16 @@ export function useWatchBridge(): WatchBridge {
     refreshSetupStatus,
     installBinaries,
     peekUrl,
-    peekPlaylist,
-    runPlaylist,
+    run,
+    stop,
     readFrame,
     improvePrompt,
-    revealAgent,
     postUrlToHost,
   }
 }
 
 export const __watchBridgeTestHooks = {
   reset(): void {
-    pendingRun = null
-    runSessionId = null
-    currentSessionId = null
     frameCache.clear()
   },
 }

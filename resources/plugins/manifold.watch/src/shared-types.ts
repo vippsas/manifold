@@ -22,6 +22,12 @@ export type TranscriptionSettings = AiServiceSettings
 /** @deprecated Use AiServiceProvider. */
 export type TranscriptionProvider = AiServiceProvider
 
+/** The prompt sent to the agent when the user hasn't edited it. Shared by the
+ *  host (fallback when the run request carries no prompt) and the webview
+ *  (pre-fills the visible, editable prompt box). */
+export const DEFAULT_WATCH_QUESTION =
+  'Summarize the video in three short bullets: **Thesis** (the core claim), **Support** (the main evidence used), **Title** (if the title poses a question, was it answered? — say so if it doesn\'t). Cite frame numbers or transcript moments when useful. ≤300 words total.'
+
 export interface WatchSetupStatus {
   ffmpeg: boolean
   ytdlp: boolean
@@ -46,7 +52,8 @@ export interface WatchPeekResult {
   error?: string
 }
 
-export interface WatchPlaylistEntry {
+/** Metadata for the single previewed video (peek result, preview cache, player). */
+export interface WatchVideoInfo {
   url: string
   title?: string
   uploader?: string
@@ -54,66 +61,25 @@ export interface WatchPlaylistEntry {
   thumbnailDataUrl?: string
 }
 
-export interface WatchPlaylistPeekResult {
-  ok: boolean
-  playlistTitle?: string
-  uploader?: string
-  entries: WatchPlaylistEntry[]
-  error?: string
-}
+export type WatchRunStatus = 'processing' | 'ready' | 'error'
 
-export interface WatchPlaylistEntryInput {
-  url: string
-  question?: string
-  title?: string
-  /** Caller-supplied original index. Used so per-entry events
-   *  (frames, sessionId) round-trip with the index the renderer renders by. */
-  originalIndex?: number
-}
-
-export interface WatchPlaylistRunResult {
-  ok: boolean
-  error?: string
-  spawnedSessionIds?: string[]
-  aggregateDir?: string
-  entryResults?: Array<{
-    url: string
-    ok: boolean
-    error?: string
-    workDir?: string
-    sessionId?: string
-  }>
-}
-
-export interface WatchRunResult {
-  ok: boolean
-  error?: string
-  workDir?: string
-  reportPath?: string
-  frameCount?: number
-  frames?: WatchFrameRef[]
-  transcriptSource?: 'captions' | 'openai' | 'azure' | 'none'
-}
-
-export type WatchRunEntryStatus = 'queued' | 'processing' | 'ready' | 'error'
-
-export interface WatchRunEntryState {
-  originalIndex: number
-  url: string
-  title?: string
-  question?: string
-  siblingSessionId?: string
-  workDir?: string
+/** Persisted state of a session's (single-video) watch run. */
+export interface WatchRunState {
+  runId: string
+  status: WatchRunStatus
   frames: WatchFrameRef[]
-  status: WatchRunEntryStatus
+  workDir?: string
   error?: string
+  question?: string
+}
+
+export interface WatchVideoRunResult {
+  ok: boolean
+  error?: string
+  workDir?: string
 }
 
 export interface WatchSessionSnapshot {
   url: string
-  playlistFrames: Record<number, WatchFrameRef[]>
-  siblingByIndex: Record<number, string>
-  playlistDispatched: boolean
-  runId?: string
-  entries?: WatchRunEntryState[]
+  run: WatchRunState | null
 }

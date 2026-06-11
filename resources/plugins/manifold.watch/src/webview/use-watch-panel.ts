@@ -1,19 +1,12 @@
 // resources/plugins/manifold.watch/src/webview/use-watch-panel.ts
-// Ported from src/renderer/hooks/useWatchPanel.ts. The electronAPI invokes are
-// replaced by the bridge; snapshot hydration and the IMPROVE_PROMPT_META
-// wrapping moved host-side (init carries the snapshot; the facade prepends the
-// meta prompt), so this hook only keeps the per-session UI-state plumbing.
+// Per-session UI-state plumbing for the Watch panel: exposes the active
+// session's store slice and the actions that mutate it. Run state itself is
+// host-owned; `run` only posts the request and flips the optimistic flag —
+// progress and the result come back through the bridge as store updates.
 import { useCallback, useEffect, useRef, useSyncExternalStore } from 'react'
-import type {
-  WatchSetupStatus,
-  WatchFrameRef,
-  WatchPeekResult,
-  WatchPlaylistPeekResult,
-  WatchPlaylistEntryInput,
-  WatchPlaylistRunResult,
-} from '../shared-types'
+import type { WatchFrameRef, WatchPeekResult, WatchSetupStatus } from '../shared-types'
 import type { WatchBridge } from './use-watch-bridge'
-import { watchPanelStore } from './watch-panel-store'
+import { watchPanelStore, type WatchRunUiStatus } from './watch-panel-store'
 
 interface UseWatchPanel {
   setupStatus: WatchSetupStatus | null
@@ -21,22 +14,17 @@ interface UseWatchPanel {
   installBinaries: () => Promise<{ ok: boolean; error?: string }>
   improveQuestion: (question: string) => Promise<string>
   peekUrl: (url: string) => Promise<WatchPeekResult>
-  peekPlaylist: (url: string) => Promise<WatchPlaylistPeekResult>
-  runPlaylist: (entries: WatchPlaylistEntryInput[]) => Promise<WatchPlaylistRunResult>
-  playlistFrames: Record<number, WatchFrameRef[]>
   readFrame: (path: string) => Promise<string>
-  // Persisted Watch panel UI state
+  run: (videoUrl: string, question: string) => void
+  stop: () => void
+  // Per-session Watch panel state
   url: string
-  siblingByIndex: Record<number, string>
-  playlistDispatched: boolean
-  openSiblingId: string | null
-  focusedEntryIndex: number | null
+  status: WatchRunUiStatus
+  stage: string | null
+  frames: WatchFrameRef[]
+  runError: string | null
   playerHidden: boolean
   setUrl: (url: string) => void
-  setSiblingByIndex: (map: Record<number, string>) => void
-  setPlaylistDispatched: (v: boolean) => void
-  setOpenSiblingId: (id: string | null) => void
-  setFocusedEntryIndex: (value: number | null) => void
   setPlayerHidden: (value: boolean) => void
 }
 
@@ -50,10 +38,12 @@ export function useWatchPanel(bridge: WatchBridge): UseWatchPanel {
   const getSnapshot = useCallback(() => watchPanelStore.get(activeSessionId), [activeSessionId])
   const sessionState = useSyncExternalStore(subscribe, getSnapshot)
 
-  const runPlaylist = useCallback(async (entries: WatchPlaylistEntryInput[]): Promise<WatchPlaylistRunResult> => {
-    if (!activeSessionId) throw new Error('No active session')
-    if (entries.length === 0) throw new Error('No entries')
-    return bridge.runPlaylist(entries, sessionState.url)
+  const run = useCallback((videoUrl: string, question: string): void => {
+    if (!activeSessionId) return
+    watchPanelStore.setRunning(activeSessionId)
+    // The run is recorded under the typed panel URL (not the normalized video
+    // URL) so the host snapshot re-attaches to this session after remounts.
+    bridge.run(videoUrl, question, sessionState.url)
   }, [bridge, activeSessionId, sessionState.url])
 
   const improveQuestion = useCallback(async (question: string): Promise<string> => {
@@ -80,18 +70,6 @@ export function useWatchPanel(bridge: WatchBridge): UseWatchPanel {
       bridge.postUrlToHost(url)
     }, 300)
   }, [bridge, activeSessionId])
-  const setSiblingByIndex = useCallback((map: Record<number, string>) => {
-    if (activeSessionId) watchPanelStore.setSiblingByIndex(activeSessionId, map)
-  }, [activeSessionId])
-  const setPlaylistDispatched = useCallback((v: boolean) => {
-    if (activeSessionId) watchPanelStore.setPlaylistDispatched(activeSessionId, v)
-  }, [activeSessionId])
-  const setOpenSiblingId = useCallback((id: string | null) => {
-    if (activeSessionId) watchPanelStore.setOpenSiblingId(activeSessionId, id)
-  }, [activeSessionId])
-  const setFocusedEntryIndex = useCallback((value: number | null) => {
-    if (activeSessionId) watchPanelStore.setFocusedEntryIndex(activeSessionId, value)
-  }, [activeSessionId])
   const setPlayerHidden = useCallback((value: boolean) => {
     if (activeSessionId) watchPanelStore.setPlayerHidden(activeSessionId, value)
   }, [activeSessionId])
@@ -102,21 +80,16 @@ export function useWatchPanel(bridge: WatchBridge): UseWatchPanel {
     installBinaries: bridge.installBinaries,
     improveQuestion,
     peekUrl: bridge.peekUrl,
-    peekPlaylist: bridge.peekPlaylist,
-    runPlaylist,
-    playlistFrames: sessionState.playlistFrames,
     readFrame: bridge.readFrame,
+    run,
+    stop: bridge.stop,
     url: sessionState.url,
-    siblingByIndex: sessionState.siblingByIndex,
-    playlistDispatched: sessionState.playlistDispatched,
-    openSiblingId: sessionState.openSiblingId,
-    focusedEntryIndex: sessionState.focusedEntryIndex,
+    status: sessionState.status,
+    stage: sessionState.stage,
+    frames: sessionState.frames,
+    runError: sessionState.error,
     playerHidden: sessionState.playerHidden,
     setUrl,
-    setSiblingByIndex,
-    setPlaylistDispatched,
-    setOpenSiblingId,
-    setFocusedEntryIndex,
     setPlayerHidden,
   }
 }

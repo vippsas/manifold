@@ -29,7 +29,7 @@ async function flushMessages(): Promise<void> {
 }
 
 function initMsg(sessionId: string | null, overrides: Partial<Extract<HostMsg, { type: 'init' }>> = {}): HostMsg {
-  return { type: 'init', sessionId, snapshot: null, setup: SETUP, persisted: {}, ...overrides }
+  return { type: 'init', sessionId, snapshot: null, setup: SETUP, persisted: {}, running: false, lastStage: null, ...overrides }
 }
 
 beforeEach(() => {
@@ -54,10 +54,8 @@ describe('useWatchBridge', () => {
 
     postHost(initMsg('s1', {
       snapshot: {
-        url: 'https://playlist',
-        playlistFrames: { 1: [{ path: '/tmp/f.jpg', timestampSeconds: 3 }] },
-        siblingByIndex: { 1: 'sib-1' },
-        playlistDispatched: true,
+        url: 'https://youtu.be/abc',
+        run: { runId: 'r1', status: 'ready', frames: [{ path: '/tmp/f.jpg', timestampSeconds: 3 }], workDir: '/tmp/wd' },
       },
       persisted: { 'manifold.watch.session-state': { s2: { url: 'https://other' } } },
     }))
@@ -65,10 +63,23 @@ describe('useWatchBridge', () => {
     expect(result.current.initialized).toBe(true)
     expect(result.current.setupStatus).toEqual(SETUP)
     // Snapshot hydrated into the per-session store.
-    expect(watchPanelStore.get('s1').url).toBe('https://playlist')
-    expect(watchPanelStore.get('s1').siblingByIndex).toEqual({ 1: 'sib-1' })
+    expect(watchPanelStore.get('s1').url).toBe('https://youtu.be/abc')
+    expect(watchPanelStore.get('s1').status).toBe('sent')
+    expect(watchPanelStore.get('s1').frames[0].path).toBe('/tmp/f.jpg')
     // Persisted blob seeded the other session's URL.
     expect(watchPanelStore.get('s2').url).toBe('https://other')
+  })
+
+  it('restores the running state from init after a webview reload (mid-run remount)', async () => {
+    const { result } = renderHook(() => useWatchBridge())
+    postHost(initMsg('s1', {
+      snapshot: { url: 'https://youtu.be/abc', run: { runId: 'r1', status: 'processing', frames: [] } },
+      running: true,
+      lastStage: 'transcribe',
+    }))
+    await waitFor(() => expect(result.current.sessionId).toBe('s1'))
+    expect(watchPanelStore.get('s1').status).toBe('running')
+    expect(watchPanelStore.get('s1').stage).toBe('transcribe')
   })
 
   it('re-init replaces the active session and the store restores prior sessions', async () => {
@@ -104,39 +115,27 @@ describe('useWatchBridge', () => {
     await expect(pb).resolves.toEqual({ ok: true, title: 'B' })
   })
 
-  it('routes playlistProgress to the session that dispatched the run, across a session switch', async () => {
+  it('routes run progress and the result to the owning session, across a session switch', async () => {
     const { result } = renderHook(() => useWatchBridge())
     postHost(initMsg('s1'))
     await waitFor(() => expect(result.current.sessionId).toBe('s1'))
 
-    const run = result.current.runPlaylist([{ url: 'https://a' }], 'https://a')
+    result.current.run('https://a', 'why?', 'https://typed')
+    await waitFor(() => expect(sent.some((m) => m.type === 'run')).toBe(true))
+    expect(sent.find((m) => m.type === 'run')).toEqual({ type: 'run', url: 'https://a', question: 'why?', sourceUrl: 'https://typed' })
+
     // The user switches sessions while the run is in flight.
     postHost(initMsg('s2'))
     await waitFor(() => expect(result.current.sessionId).toBe('s2'))
 
-    postHost({ type: 'playlistProgress', entryIndex: 0, kind: 'sibling', payload: 'sib-1' })
-    postHost({ type: 'playlistProgress', entryIndex: 0, kind: 'frames', payload: [{ path: '/tmp/f.jpg', timestampSeconds: 1 }] })
+    postHost({ type: 'runProgress', sessionId: 's1', kind: 'stage', payload: 'frames' })
+    postHost({ type: 'runProgress', sessionId: 's1', kind: 'frames', payload: [{ path: '/tmp/f.jpg', timestampSeconds: 1 }] })
+    postHost({ type: 'runResult', sessionId: 's1', result: { ok: true, workDir: '/tmp/wd' } })
     await flushMessages()
-    expect(watchPanelStore.get('s1').siblingByIndex).toEqual({ 0: 'sib-1' })
-    expect(watchPanelStore.get('s1').playlistFrames[0][0].path).toBe('/tmp/f.jpg')
-    expect(watchPanelStore.get('s2').siblingByIndex).toEqual({})
-
-    postHost({ type: 'runResult', result: { ok: true } })
-    await expect(run).resolves.toEqual({ ok: true })
-  })
-
-  it('rejects a second runPlaylist while one is in flight', async () => {
-    const { result } = renderHook(() => useWatchBridge())
-    postHost(initMsg('s1'))
-    await waitFor(() => expect(result.current.sessionId).toBe('s1'))
-
-    const first = result.current.runPlaylist([{ url: 'https://a' }])
-    const second = await result.current.runPlaylist([{ url: 'https://b' }])
-    expect(second.ok).toBe(false)
-    expect(second.error).toMatch(/already in progress/)
-
-    postHost({ type: 'runResult', result: { ok: true } })
-    await expect(first).resolves.toEqual({ ok: true })
+    expect(watchPanelStore.get('s1').frames[0].path).toBe('/tmp/f.jpg')
+    expect(watchPanelStore.get('s1').status).toBe('sent')
+    expect(watchPanelStore.get('s2').frames).toEqual([])
+    expect(watchPanelStore.get('s2').status).toBe('idle')
   })
 
   it('caches readFrame results and drops failed reads for retry', async () => {

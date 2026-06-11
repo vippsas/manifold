@@ -1,46 +1,44 @@
 // resources/plugins/manifold.watch/src/webview/watch-panel-store.ts
-// Ported from src/renderer/hooks/watchPanelStore.ts. Differences from the builtin:
-// - localStorage → `persist` bridge messages (same STORAGE_KEY, same payload
-//   shape); hydration comes from init.persisted instead of localStorage.
-// - the `watch:playlist-progress` IPC listener → applyPlaylistProgress, called
-//   by the bridge when a `playlistProgress` HostMsg arrives.
-import type { WatchFrameRef, WatchSessionSnapshot } from '../shared-types'
-import { sameFrameMap, sameStringMap } from './watch-state-equality'
+// Per-session UI state for the Watch panel. The webview document is torn down
+// on every panel remount (agent switches), so nothing here is authoritative:
+// run state lives host-side (run-store + the in-flight AbortController) and is
+// restored through `init` (hydrateSession) and the sessionId-tagged
+// runProgress/runResult events the bridge feeds into this store.
+import type { WatchFrameRef, WatchSessionSnapshot, WatchVideoRunResult } from '../shared-types'
 import { postPersist } from './host-post'
 
+/** UI status of the active session's run. 'sent' = the /watch:watch command
+ *  has been typed into the user's agent. */
+export type WatchRunUiStatus = 'idle' | 'running' | 'sent' | 'error'
+
 export interface WatchSessionState {
-  /** Per-entry frame thumbnails for playlist runs, keyed by entry index. */
-  playlistFrames: Record<number, WatchFrameRef[]>
-  /** Persisted Watch-panel UI state so it survives webview re-inits. */
+  /** Persisted Watch-panel URL so it survives webview re-inits. */
   url: string
-  siblingByIndex: Record<number, string>
-  playlistDispatched: boolean
-  openSiblingId: string | null
-  /** Index of the entry whose card is highlighted and whose video shows in
-   *  the player above the list. Persisted so it survives re-mounts
-   *  triggered by opening a sibling agent. */
-  focusedEntryIndex: number | null
+  status: WatchRunUiStatus
+  /** Last pipeline stage while running ('download' | 'frames' | …). */
+  stage: string | null
+  /** Frame thumbnails of the current run. */
+  frames: WatchFrameRef[]
+  error: string | null
   /** Whether the user has collapsed the embedded video player. Persisted so
    *  navigating away and back doesn't re-expand it. */
   playerHidden: boolean
 }
 
 const EMPTY_STATE: WatchSessionState = Object.freeze({
-  playlistFrames: {},
   url: '',
-  siblingByIndex: {},
-  playlistDispatched: false,
-  openSiblingId: null,
-  focusedEntryIndex: null,
+  status: 'idle',
+  stage: null,
+  frames: [],
+  error: null,
   playerHidden: false,
 }) as WatchSessionState
 
 const stateMap = new Map<string, WatchSessionState>()
 const listeners = new Map<string, Set<() => void>>()
 
-// The persisted blob holds only the URL per session (run-state — siblings and
-// frames — comes from the host snapshot on init, filtered to live sessions, so
-// dead siblings from a prior app run never reappear).
+// The persisted blob holds only the URL per session (run state comes from the
+// host snapshot on init, so stale runs from a prior app run never reappear).
 interface PersistedSessionState {
   url: string
 }
@@ -75,6 +73,11 @@ function update(sessionId: string, updater: (cur: WatchSessionState) => WatchSes
   if (next.url !== cur.url) schedulePersist()
 }
 
+function sameFrames(a: WatchFrameRef[], b: WatchFrameRef[]): boolean {
+  if (a.length !== b.length) return false
+  return a.every((f, i) => f.path === b[i].path)
+}
+
 export const watchPanelStore = {
   /** Seed URLs from the host-persisted blob (init.persisted). In-memory state
    *  wins: only sessions we have no state for are hydrated, so re-inits
@@ -88,21 +91,60 @@ export const watchPanelStore = {
       }
     }
   },
-  /** Ported from the builtin's `watch:playlist-progress` IPC handler. */
-  applyPlaylistProgress(sessionId: string, entryIndex: number, kind: 'log' | 'stage' | 'frames' | 'sibling', payload: unknown): void {
+  /** Restore a session's run state from the host `init`: `running` reflects
+   *  the host's in-flight AbortController (survives webview reloads — the
+   *  bug-fix this store exists for), `snapshot.run` the persisted run-store
+   *  entry. A persisted 'processing' run without `running` means the plugin
+   *  host died mid-run — surfaced as idle, not as a forever-spinner. */
+  hydrateSession(sessionId: string, snapshot: WatchSessionSnapshot, running: boolean, lastStage: string | null): void {
+    update(sessionId, (cur) => {
+      // The user may have typed a different URL while the snapshot was
+      // in flight — drop the stale snapshot rather than clobber the new URL
+      // (and the run state that belongs to it).
+      if (cur.url && snapshot.url && cur.url !== snapshot.url) return cur
+
+      const url = cur.url || snapshot.url
+      const run = snapshot.run
+      const status: WatchRunUiStatus = running
+        ? 'running'
+        : run?.status === 'ready' ? 'sent'
+          : run?.status === 'error' ? 'error'
+            : 'idle'
+      const stage = running ? (lastStage ?? cur.stage) : null
+      const frames = run && run.frames.length > 0 ? run.frames : cur.frames
+      const error = status === 'error' ? (run?.error ?? null) : null
+      if (
+        url === cur.url &&
+        status === cur.status &&
+        stage === cur.stage &&
+        error === cur.error &&
+        sameFrames(frames, cur.frames)
+      ) {
+        return cur
+      }
+      return { ...cur, url, status, stage, frames, error }
+    })
+  },
+  applyRunProgress(sessionId: string, kind: 'log' | 'stage' | 'frames', payload: unknown): void {
     if (kind === 'frames' && Array.isArray(payload)) {
       const frames = payload as WatchFrameRef[]
-      update(sessionId, (cur) => ({
-        ...cur,
-        playlistFrames: { ...cur.playlistFrames, [entryIndex]: frames },
-      }))
-    } else if (kind === 'sibling' && typeof payload === 'string') {
-      const siblingSessionId = payload
-      update(sessionId, (cur) => ({
-        ...cur,
-        siblingByIndex: { ...cur.siblingByIndex, [entryIndex]: siblingSessionId },
-      }))
+      update(sessionId, (cur) => ({ ...cur, frames }))
+    } else if (kind === 'stage' && typeof payload === 'string') {
+      update(sessionId, (cur) => ({ ...cur, stage: payload }))
     }
+  },
+  applyRunResult(sessionId: string, result: WatchVideoRunResult): void {
+    update(sessionId, (cur) => ({
+      ...cur,
+      status: result.ok ? 'sent' : 'error',
+      stage: null,
+      error: result.ok ? null : (result.error ?? 'Run failed'),
+    }))
+  },
+  /** Optimistic transition when the user clicks Run (the host's runProgress /
+   *  runResult events settle the final state). */
+  setRunning(sessionId: string): void {
+    update(sessionId, (cur) => ({ ...cur, status: 'running', stage: null, frames: [], error: null }))
   },
   get(sessionId: string | null): WatchSessionState {
     if (!sessionId) return EMPTY_STATE
@@ -127,113 +169,13 @@ export const watchPanelStore = {
     update(sessionId, (cur) => {
       if (cur.url === url) return cur
       // Setting a new URL resets everything tied to the previous run.
-      return {
-        ...cur,
-        url,
-        playlistFrames: {},
-        siblingByIndex: {},
-        playlistDispatched: false,
-        openSiblingId: null,
-        focusedEntryIndex: null,
-      }
-    })
-  },
-  setFocusedEntryIndex(sessionId: string, value: number | null): void {
-    update(sessionId, (cur) => {
-      if (cur.focusedEntryIndex === value) return cur
-      return { ...cur, focusedEntryIndex: value }
+      return { ...cur, url, status: 'idle', stage: null, frames: [], error: null }
     })
   },
   setPlayerHidden(sessionId: string, value: boolean): void {
     update(sessionId, (cur) => {
       if (cur.playerHidden === value) return cur
       return { ...cur, playerHidden: value }
-    })
-  },
-  hydrateSession(sessionId: string, snapshot: WatchSessionSnapshot): void {
-    update(sessionId, (cur) => {
-      // The user may have typed a different URL while the snapshot was
-      // in flight — drop the stale snapshot rather than clobber the new URL
-      // (and the run-state that belongs to it).
-      if (cur.url && snapshot.url && cur.url !== snapshot.url) return cur
-
-      // Merge: live entries (sibling/frame events that arrived between mount
-      // and snapshot resolution) win over the on-disk snapshot.
-      const mergedSiblings = { ...snapshot.siblingByIndex, ...cur.siblingByIndex }
-      const mergedFrames = { ...snapshot.playlistFrames, ...cur.playlistFrames }
-      const nextUrl = cur.url || snapshot.url
-      // Derive `dispatched` from the merged siblings — OR-ing the booleans
-      // can leave dispatched=true with an empty siblingByIndex (the producer
-      // derives the same field from siblingByIndex size, so the consumer must
-      // match).
-      const nextDispatched = Object.keys(mergedSiblings).length > 0
-      const nextOpenSiblingId = cur.openSiblingId && Object.values(mergedSiblings).includes(cur.openSiblingId)
-        ? cur.openSiblingId
-        : null
-      if (
-        nextUrl === cur.url &&
-        nextDispatched === cur.playlistDispatched &&
-        nextOpenSiblingId === cur.openSiblingId &&
-        sameFrameMap(mergedFrames, cur.playlistFrames) &&
-        sameStringMap(mergedSiblings, cur.siblingByIndex)
-      ) {
-        return cur
-      }
-      return {
-        ...cur,
-        url: nextUrl,
-        playlistFrames: mergedFrames,
-        siblingByIndex: mergedSiblings,
-        playlistDispatched: nextDispatched,
-        openSiblingId: nextOpenSiblingId,
-      }
-    })
-  },
-  setSiblingByIndex(sessionId: string, map: Record<number, string>): void {
-    update(sessionId, (cur) => ({ ...cur, siblingByIndex: map }))
-  },
-  setPlaylistDispatched(sessionId: string, value: boolean): void {
-    update(sessionId, (cur) => ({ ...cur, playlistDispatched: value }))
-  },
-  setOpenSiblingId(sessionId: string, value: string | null): void {
-    update(sessionId, (cur) => ({ ...cur, openSiblingId: value }))
-  },
-  /**
-   * Re-key `playlistFrames` and `siblingByIndex` by entry URL when the
-   * playlist contents change (e.g. a video was removed and the user clicked
-   * Clear cache). Without this, frames captured at index N would render under
-   * whatever video is now at index N — a different video.
-   */
-  remapPlaylistEntries(
-    sessionId: string,
-    oldEntries: { url: string }[],
-    newEntries: { url: string }[],
-  ): void {
-    const sameLength = oldEntries.length === newEntries.length
-    const identical = sameLength && oldEntries.every((e, i) => e.url === newEntries[i].url)
-    if (identical) return
-    const newUrlToIdx = new Map(newEntries.map((e, i) => [e.url, i]))
-    update(sessionId, (cur) => {
-      const nextFrames: WatchSessionState['playlistFrames'] = {}
-      for (const [oldIdxStr, fr] of Object.entries(cur.playlistFrames)) {
-        const url = oldEntries[Number(oldIdxStr)]?.url
-        if (url === undefined) continue
-        const newIdx = newUrlToIdx.get(url)
-        if (newIdx !== undefined) nextFrames[newIdx] = fr
-      }
-      const nextSiblings: WatchSessionState['siblingByIndex'] = {}
-      for (const [oldIdxStr, sid] of Object.entries(cur.siblingByIndex)) {
-        const url = oldEntries[Number(oldIdxStr)]?.url
-        if (url === undefined) continue
-        const newIdx = newUrlToIdx.get(url)
-        if (newIdx !== undefined) nextSiblings[newIdx] = sid
-      }
-      let nextFocused = cur.focusedEntryIndex
-      if (nextFocused !== null) {
-        const url = oldEntries[nextFocused]?.url
-        nextFocused = url !== undefined ? (newUrlToIdx.get(url) ?? null) : null
-      }
-      return { ...cur, playlistFrames: nextFrames, siblingByIndex: nextSiblings, focusedEntryIndex: nextFocused }
     })
   },
   delete(sessionId: string): void {
@@ -252,10 +194,5 @@ export const __watchPanelStoreTestHooks = {
   },
   setPersist(fn: (key: string, value: unknown) => void): void {
     persistFn = fn
-  },
-  seedFrames(sessionId: string, frames: Record<number, WatchFrameRef[]>): void {
-    const cur = stateMap.get(sessionId) ?? EMPTY_STATE
-    stateMap.set(sessionId, { ...cur, playlistFrames: frames })
-    notify(sessionId)
   },
 }

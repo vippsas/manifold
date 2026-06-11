@@ -1,13 +1,10 @@
 // resources/plugins/manifold.watch/src/webview/use-watch-panel-actions.ts
-// Ported from src/renderer/hooks/useWatchPanelActions.ts. Only handleInstall
-// changed shape: the host returns { ok, error } (errors pre-joined) instead of
-// the builtin's { installed, alreadyPresent, errors[] }.
+// Async click handlers (improve / install / clear-cache) for the Watch panel.
+// Run state is host-owned and lives in the store; only the improve/install
+// in-flight flags are component-local.
 import { useCallback, useState } from 'react'
-import type { WatchPlaylistEntry } from '../shared-types'
 import type { useWatchPanel } from './use-watch-panel'
 import { useWatchUrlPreview, clearWatchPreviewCaches } from './use-watch-url-preview'
-
-const PLAYLIST_SOFT_CAP = 10
 
 type WatchPanelApi = ReturnType<typeof useWatchPanel>
 type WatchPreview = ReturnType<typeof useWatchUrlPreview>
@@ -15,88 +12,42 @@ type WatchPreview = ReturnType<typeof useWatchUrlPreview>
 interface WatchPanelActionDeps {
   preview: WatchPreview
   improveQuestion: WatchPanelApi['improveQuestion']
-  runPlaylist: WatchPanelApi['runPlaylist']
   installBinaries: WatchPanelApi['installBinaries']
-  siblingByIndex: Record<number, string>
-  setSiblingByIndex: WatchPanelApi['setSiblingByIndex']
-  setPlaylistDispatched: WatchPanelApi['setPlaylistDispatched']
-  pendingEntries: { entry: WatchPlaylistEntry; index: number }[]
 }
 
 export interface WatchPanelActions {
   error: string | null
   setError: (value: string | null) => void
-  busy: boolean
   installing: boolean
-  improvingIndex: number | null
-  handleImprove: (index: number) => Promise<void>
-  handleRun: () => Promise<void>
+  improving: boolean
+  handleImprove: () => Promise<void>
   handleClearCache: () => void
   handleInstall: () => Promise<void>
 }
 
-/** Async actions (improve / run / install / clear-cache) for the Watch panel. */
 export function useWatchPanelActions(deps: WatchPanelActionDeps): WatchPanelActions {
-  const { preview, improveQuestion, runPlaylist, installBinaries, siblingByIndex, setSiblingByIndex, setPlaylistDispatched, pendingEntries } = deps
+  const { preview, improveQuestion, installBinaries } = deps
   const [error, setError] = useState<string | null>(null)
-  const [busy, setBusy] = useState(false)
   const [installing, setInstalling] = useState(false)
-  const [improvingIndex, setImprovingIndex] = useState<number | null>(null)
+  const [improving, setImproving] = useState(false)
 
-  const handleImprove = async (index: number): Promise<void> => {
-    const current = preview.entryQuestions[index] ?? ''
-    if (!current.trim()) return
+  const handleImprove = async (): Promise<void> => {
+    if (!preview.question.trim()) return
     setError(null)
-    setImprovingIndex(index)
+    setImproving(true)
     try {
-      const improved = await improveQuestion(current)
-      if (improved) preview.setEntryQuestion(index, improved)
+      const improved = await improveQuestion(preview.question)
+      if (improved) preview.setQuestion(improved)
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Improve failed')
     } finally {
-      setImprovingIndex(null)
-    }
-  }
-
-  const handleRun = async (): Promise<void> => {
-    setError(null)
-    if (pendingEntries.length === 0) return
-    if (pendingEntries.length > PLAYLIST_SOFT_CAP) {
-      const ok = window.confirm(
-        `This will spawn ${pendingEntries.length} sibling agents. Continue?`,
-      )
-      if (!ok) return
-    }
-    setBusy(true)
-    try {
-      const result = await runPlaylist(pendingEntries.map(({ entry, index }) => ({
-        url: entry.url,
-        question: preview.entryQuestions[index]?.trim() || undefined,
-        title: entry.title,
-        originalIndex: index,
-      })))
-      if (!result.ok) throw new Error(result.error ?? 'Run failed')
-      // Merge new siblings into the existing map — previously-dispatched
-      // entries keep their session IDs so navigation to them still works.
-      const merged: Record<number, string> = { ...siblingByIndex }
-      pendingEntries.forEach(({ index }, i) => {
-        const sid = result.entryResults?.[i]?.sessionId
-        if (sid) merged[index] = sid
-      })
-      setSiblingByIndex(merged)
-      setPlaylistDispatched(true)
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed')
-    } finally {
-      setBusy(false)
+      setImproving(false)
     }
   }
 
   const handleClearCache = useCallback((): void => {
-    // Wipe the peek + user-state caches (in-memory + host-persisted), then
-    // ask the preview hook to re-peek for the current URL. The sibling
-    // mapping / dispatched flag in the store stay intact — only the peek
-    // cache is invalidated.
+    // Wipe the peek + prompt caches (in-memory + host-persisted), then ask
+    // the preview hook to re-peek for the current URL.
     clearWatchPreviewCaches()
     preview.forceRefresh()
   }, [preview])
@@ -114,5 +65,5 @@ export function useWatchPanelActions(deps: WatchPanelActionDeps): WatchPanelActi
     }
   }
 
-  return { error, setError, busy, installing, improvingIndex, handleImprove, handleRun, handleClearCache, handleInstall }
+  return { error, setError, installing, improving, handleImprove, handleClearCache, handleInstall }
 }

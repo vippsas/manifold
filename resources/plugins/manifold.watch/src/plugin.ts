@@ -11,7 +11,7 @@ import { installWatchSkills } from './skill-installer'
 import { getBundledWatchSkillPath } from './resource-path'
 
 export function activate(context: ManifoldContext): void {
-  // Idempotent (fingerprint-checked); the skill must exist before any sibling
+  // Idempotent (fingerprint-checked); the skill must exist before the user's
   // agent is asked to run /watch:watch, and runs only start from this panel.
   try { installWatchSkills({ sourceDir: getBundledWatchSkillPath(context.pluginUri) }) }
   catch (err) { console.error('[watch-plugin] skill install failed:', err) }
