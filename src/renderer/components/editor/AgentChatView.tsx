@@ -116,7 +116,8 @@ const emptyStyles = {
     filter: 'drop-shadow(0 4px 18px color-mix(in srgb, var(--accent) 25%, transparent))',
   },
   heading: {
-    fontSize: 14,
+    fontFamily: 'var(--font-display)',
+    fontSize: 'var(--type-title)',
     fontWeight: 500,
     color: 'var(--text-secondary)',
   },

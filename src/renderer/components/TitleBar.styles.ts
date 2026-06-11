@@ -56,23 +56,16 @@ export const titleBarStyles: Record<string, React.CSSProperties> = {
     marginRight: 6,
     cursor: 'pointer',
   },
-  themesLabel: {
-    fontSize: 11,
-    fontWeight: 600,
-    letterSpacing: '0.02em',
-    color: 'var(--text-muted)',
-    textTransform: 'uppercase',
-  },
   themesSelect: {
     height: 26,
     padding: '0 26px 0 10px',
-    border: '1px solid var(--border)',
+    border: '1px solid transparent',
     borderRadius: 'var(--radius-sm)',
     background: 'transparent',
     fontSize: 11,
     fontWeight: 600,
     letterSpacing: '0.02em',
-    color: 'var(--text-secondary)',
+    color: 'var(--text-muted)',
     cursor: 'pointer',
     whiteSpace: 'nowrap',
     appearance: 'none',
@@ -87,7 +80,6 @@ export const titleBarStyles: Record<string, React.CSSProperties> = {
   themesSelectHover: {
     backgroundColor: 'var(--list-hover-bg)',
     color: 'var(--text-primary)',
-    borderColor: 'var(--control-border)',
   },
   themeToggle: {
     // @ts-expect-error -- Electron-specific CSS property; opt out of window drag
@@ -98,7 +90,7 @@ export const titleBarStyles: Record<string, React.CSSProperties> = {
     justifyContent: 'center',
     width: 28,
     height: 26,
-    border: '1px solid var(--border)',
+    border: '1px solid transparent',
     borderRadius: 'var(--radius-sm)',
     background: 'transparent',
     fontSize: 13,
