@@ -66,7 +66,11 @@ export function createWindowApi(endpoint: RpcEndpoint): {
   async function resolveView(viewId: string): Promise<void> {
     const provider = providers.get(viewId)
     if (!provider) { console.error(`[plugin-host] resolveView: no WebviewViewProvider registered for "${viewId}"`); return }
-    const viewListeners = listeners.get(viewId) ?? new Set<(m: unknown) => void>()
+    // Each resolve corresponds to a fresh webview document (panel remount).
+    // Start from an empty listener set: handlers registered during earlier
+    // resolutions would otherwise accumulate and handle every message once
+    // per remount (e.g. one Run click starting N pipeline runs).
+    const viewListeners = new Set<(m: unknown) => void>()
     listeners.set(viewId, viewListeners)
     let html = ''
     const view: WebviewView = {

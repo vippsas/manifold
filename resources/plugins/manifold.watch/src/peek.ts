@@ -1,15 +1,12 @@
 import { spawn } from 'node:child_process'
-import type { WatchPeekResult, WatchPlaylistPeekResult, WatchPlaylistEntry } from './shared-types'
+import type { WatchPeekResult } from './shared-types'
 import { ensureYtDlp } from './yt-dlp-fetcher'
 
 // A wide cap because a peek can fall back to the bundled `yt-dlp_macos`, a
 // PyInstaller onefile whose cold start alone is 13–21s on macOS (see
 // yt-dlp-fetcher.ensureYtDlp, which prefers a fast PATH yt-dlp when present).
 const PEEK_TIMEOUT_MS = 25_000
-const PLAYLIST_PEEK_TIMEOUT_MS = 20_000
 const MAX_THUMBNAIL_BYTES = 2 * 1024 * 1024
-const PLAYLIST_MAX_ENTRIES = 50
-const THUMBNAIL_FETCH_CONCURRENCY = 3
 
 interface RawInfo {
   title?: unknown
@@ -33,6 +30,12 @@ export async function peekVideo(url: string): Promise<WatchPeekResult> {
     info = await dumpJson(url)
   } catch (err) {
     return { ok: false, error: formatYtDlpError(err instanceof Error ? err.message : 'yt-dlp failed') }
+  }
+
+  // `--no-playlist` resolves watch?v=…&list=… URLs to the single video, but a
+  // pure playlist URL still dumps the whole playlist — reject it.
+  if (info._type === 'playlist' || Array.isArray(info.entries)) {
+    return { ok: false, error: 'Playlists are not supported — paste a single video URL.' }
   }
 
   const title = typeof info.title === 'string' ? info.title : undefined
@@ -78,17 +81,17 @@ function pickThumbnailUrl(info: RawInfo): string | undefined {
 
 function formatYtDlpError(message: string): string {
   if (/playlist does not exist|Private video|Sign in/i.test(message)) {
-    return 'YouTube refused access — the URL must point to a public video or playlist.'
+    return 'YouTube refused access — the URL must point to a public video.'
   }
   return message
 }
 
-async function dumpJson(url: string, extraArgs: string[] = ['--no-playlist'], timeoutMs = PEEK_TIMEOUT_MS): Promise<RawInfo> {
+async function dumpJson(url: string, timeoutMs = PEEK_TIMEOUT_MS): Promise<RawInfo> {
   const ytDlpPath = await ensureYtDlp()
   return new Promise((resolve, reject) => {
     const proc = spawn(
       ytDlpPath,
-      ['-J', ...extraArgs, '--no-warnings', '--skip-download', url],
+      ['-J', '--no-playlist', '--no-warnings', '--skip-download', url],
       { stdio: ['ignore', 'pipe', 'pipe'] },
     )
     const stdout: Buffer[] = []
@@ -126,84 +129,6 @@ async function dumpJson(url: string, extraArgs: string[] = ['--no-playlist'], ti
       }
     })
   })
-}
-
-export async function peekPlaylist(url: string): Promise<WatchPlaylistPeekResult> {
-  if (!isHttpUrl(url)) return { ok: false, entries: [], error: 'Not a URL' }
-
-  let info: RawInfo
-  try {
-    info = await dumpJson(url, ['--flat-playlist'], PLAYLIST_PEEK_TIMEOUT_MS)
-  } catch (err) {
-    return { ok: false, entries: [], error: formatYtDlpError(err instanceof Error ? err.message : 'yt-dlp failed') }
-  }
-
-  if (!Array.isArray(info.entries) || info.entries.length === 0) {
-    return { ok: false, entries: [], error: 'Playlist has no entries' }
-  }
-
-  const playlistTitle = typeof info.title === 'string' ? info.title : undefined
-  const uploader = typeof info.uploader === 'string'
-    ? info.uploader
-    : typeof info.channel === 'string' ? info.channel : undefined
-
-  const rawEntries = info.entries
-    .filter((e): e is RawInfo => e !== null && typeof e === 'object')
-    .slice(0, PLAYLIST_MAX_ENTRIES)
-    .map(parseFlatEntry)
-    .filter((e): e is WatchPlaylistEntry => e !== null)
-
-  const entries = await fetchThumbnailsWithCap(rawEntries, THUMBNAIL_FETCH_CONCURRENCY)
-  return { ok: true, playlistTitle, uploader, entries }
-}
-
-function parseFlatEntry(raw: RawInfo): WatchPlaylistEntry | null {
-  // --flat-playlist gives "url" as the canonical entry URL (a watch URL for YouTube).
-  const entryUrl = typeof raw.url === 'string'
-    ? raw.url
-    : typeof raw.webpage_url === 'string' ? raw.webpage_url : undefined
-  if (!entryUrl) return null
-  const normalizedUrl = entryUrl.startsWith('http') ? entryUrl : `https://www.youtube.com/watch?v=${entryUrl}`
-  return {
-    url: normalizedUrl,
-    title: typeof raw.title === 'string' ? raw.title : undefined,
-    uploader: typeof raw.uploader === 'string'
-      ? raw.uploader
-      : typeof raw.channel === 'string' ? raw.channel : undefined,
-    durationSeconds: typeof raw.duration === 'number' ? raw.duration : undefined,
-  }
-}
-
-async function fetchThumbnailsWithCap(
-  entries: WatchPlaylistEntry[],
-  concurrency: number,
-): Promise<WatchPlaylistEntry[]> {
-  const results = [...entries]
-  let next = 0
-  const workers = Array.from({ length: Math.min(concurrency, entries.length) }, async () => {
-    while (true) {
-      const i = next++
-      if (i >= results.length) return
-      const entry = results[i]
-      const thumbUrl = youtubeThumbnailUrl(entry.url)
-      if (!thumbUrl) continue
-      const dataUrl = await fetchAsDataUrl(thumbUrl).catch(() => undefined)
-      if (dataUrl) results[i] = { ...entry, thumbnailDataUrl: dataUrl }
-    }
-  })
-  await Promise.all(workers)
-  return results
-}
-
-function youtubeThumbnailUrl(entryUrl: string): string | null {
-  try {
-    const u = new URL(entryUrl)
-    const id = u.searchParams.get('v') ?? (u.hostname.endsWith('youtu.be') ? u.pathname.slice(1) : null)
-    if (!id) return null
-    return `https://i.ytimg.com/vi/${id}/mqdefault.jpg`
-  } catch {
-    return null
-  }
 }
 
 async function fetchAsDataUrl(url: string): Promise<string> {

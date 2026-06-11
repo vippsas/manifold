@@ -86,6 +86,28 @@ describe('resolveView listener-set lifecycle', () => {
 
     expect(received).toContainEqual({ type: 'after-reresolve' })
   })
+
+  it('re-resolving a view does not accumulate listeners (one delivery per message)', async () => {
+    const { host } = wireWithHostServices()
+    const { windowApi, resolveView, deliverMessage } = createWindowApi(host)
+
+    // A provider registers a fresh handler on every resolve (the normal shape —
+    // e.g. the watch plugin's webview-host). Each panel remount triggers a new
+    // resolveView; stale handlers from prior resolutions must not double-handle.
+    const received: unknown[] = []
+    windowApi.registerWebviewViewProvider('test.view', {
+      resolveWebviewView(view) {
+        view.webview.onDidReceiveMessage((m) => received.push(m))
+      },
+    })
+
+    await resolveView('test.view')
+    await resolveView('test.view')
+    await resolveView('test.view')
+    deliverMessage('test.view', { type: 'run' })
+
+    expect(received).toEqual([{ type: 'run' }])
+  })
 })
 
 describe('createWindowApi showQuickPick return contract', () => {

@@ -4,13 +4,13 @@ import React from 'react'
 import { watchStyles as s } from '../styles/WatchPanel.styles'
 import { WatchActivePlayer } from './WatchActivePlayer'
 
-interface PlaylistEntry {
+interface VideoInfo {
   url: string
   title?: string
 }
 
 interface Props {
-  entry: PlaylistEntry | null
+  entry: VideoInfo | null
   hidden: boolean
   onHide: () => void
   onShow: () => void

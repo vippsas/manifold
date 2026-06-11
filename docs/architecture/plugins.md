@@ -127,7 +127,11 @@ owning plugin's process via the `PLUGIN_COMMANDS` proxy.
 **Views & webviews.** `listViewContributions()` flattens every *enabled* plugin's
 `contributes.views` into renderer `PanelContribution`s (`plugin-manager.ts:106`,
 `:20`). Opening a webview view calls `openView()` → `ExtensionHost.resolveView()`, which
-activates the plugin then asks it to `$resolveView` (`extension-host.ts:106`). The plugin
+activates the plugin then asks it to `$resolveView` (`extension-host.ts:106`). Each
+resolve corresponds to a fresh webview document (panels remount on agent switches), so
+the plugin-host side replaces the view's `onDidReceiveMessage` listener set per resolve
+(`plugin-host/window-api.ts:66`) — stale handlers from prior resolutions would otherwise
+handle every message once per remount. The plugin
 sets HTML via the host's `$setHtml`, which writes the `webviewContentStore` and pushes a
 `plugins:webview-html` event with a new version (`extension-host.ts:67`). The renderer
 loads `manifold-webview://view/<id>?v=<n>`; `installWebviewProtocol()` serves it from the

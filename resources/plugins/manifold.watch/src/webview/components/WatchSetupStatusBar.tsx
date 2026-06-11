@@ -39,7 +39,7 @@ export function WatchSetupStatusBar({ status, installing, onInstall, onClearCach
       <button
         type="button"
         onClick={onClearCache}
-        title="Clear cached playlist metadata and force a fresh peek"
+        title="Clear cached video metadata and force a fresh peek"
         style={s.installButton}
       >
         Clear cache

@@ -1,8 +1,14 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
 import { watchPanelStore, __watchPanelStoreTestHooks, STORAGE_KEY } from './watch-panel-store'
-import type { WatchFrameRef } from '../shared-types'
+import type { WatchFrameRef, WatchSessionSnapshot } from '../shared-types'
 
 const frames = (label: string): WatchFrameRef[] => [{ path: `/tmp/${label}.png`, timestampSeconds: 0 }]
+
+const snapshot = (overrides: Partial<WatchSessionSnapshot> = {}): WatchSessionSnapshot => ({
+  url: 'https://youtu.be/abc',
+  run: null,
+  ...overrides,
+})
 
 beforeEach(() => {
   __watchPanelStoreTestHooks.reset()
@@ -11,46 +17,66 @@ afterEach(() => {
   __watchPanelStoreTestHooks.reset()
 })
 
-describe('watchPanelStore.applyPlaylistProgress', () => {
-  it('accumulates frames per entry index', () => {
-    watchPanelStore.applyPlaylistProgress('s1', 0, 'frames', frames('a'))
-    watchPanelStore.applyPlaylistProgress('s1', 2, 'frames', frames('c'))
+describe('watchPanelStore.applyRunProgress', () => {
+  it('records frames and the pipeline stage', () => {
+    watchPanelStore.applyRunProgress('s1', 'stage', 'transcribe')
+    watchPanelStore.applyRunProgress('s1', 'frames', frames('a'))
     const state = watchPanelStore.get('s1')
-    expect(state.playlistFrames[0][0].path).toBe('/tmp/a.png')
-    expect(state.playlistFrames[2][0].path).toBe('/tmp/c.png')
+    expect(state.stage).toBe('transcribe')
+    expect(state.frames[0].path).toBe('/tmp/a.png')
   })
 
-  it('records sibling session ids per entry index', () => {
-    watchPanelStore.applyPlaylistProgress('s1', 0, 'sibling', 'sib-a')
-    watchPanelStore.applyPlaylistProgress('s1', 1, 'sibling', 'sib-b')
-    expect(watchPanelStore.get('s1').siblingByIndex).toEqual({ 0: 'sib-a', 1: 'sib-b' })
-  })
-
-  it('ignores log/stage kinds and malformed payloads', () => {
-    watchPanelStore.applyPlaylistProgress('s1', 0, 'log', 'a line')
-    watchPanelStore.applyPlaylistProgress('s1', 0, 'stage', 'transcribing')
-    watchPanelStore.applyPlaylistProgress('s1', 0, 'frames', 'not-an-array')
-    watchPanelStore.applyPlaylistProgress('s1', 0, 'sibling', 42)
+  it('ignores log kinds and malformed payloads', () => {
+    watchPanelStore.applyRunProgress('s1', 'log', 'a line')
+    watchPanelStore.applyRunProgress('s1', 'frames', 'not-an-array')
+    watchPanelStore.applyRunProgress('s1', 'stage', 42)
     const state = watchPanelStore.get('s1')
-    expect(state.playlistFrames).toEqual({})
-    expect(state.siblingByIndex).toEqual({})
+    expect(state.frames).toEqual([])
+    expect(state.stage).toBeNull()
   })
 
   it('keeps progress isolated per session', () => {
-    watchPanelStore.applyPlaylistProgress('s1', 0, 'sibling', 'sib-a')
-    expect(watchPanelStore.get('s2').siblingByIndex).toEqual({})
+    watchPanelStore.applyRunProgress('s1', 'frames', frames('a'))
+    expect(watchPanelStore.get('s2').frames).toEqual([])
+  })
+})
+
+describe('watchPanelStore run lifecycle', () => {
+  it('setRunning → applyRunResult(ok) transitions running → sent', () => {
+    watchPanelStore.setUrl('s1', 'https://youtu.be/abc')
+    watchPanelStore.setRunning('s1')
+    expect(watchPanelStore.get('s1').status).toBe('running')
+    watchPanelStore.applyRunResult('s1', { ok: true, workDir: '/tmp/wd' })
+    const state = watchPanelStore.get('s1')
+    expect(state.status).toBe('sent')
+    expect(state.error).toBeNull()
+    expect(state.stage).toBeNull()
+  })
+
+  it('applyRunResult(error) surfaces the error', () => {
+    watchPanelStore.setRunning('s1')
+    watchPanelStore.applyRunResult('s1', { ok: false, error: 'yt-dlp boom' })
+    const state = watchPanelStore.get('s1')
+    expect(state.status).toBe('error')
+    expect(state.error).toBe('yt-dlp boom')
+  })
+
+  it('routes a result to its owning session even when another is active', () => {
+    watchPanelStore.setRunning('s1')
+    watchPanelStore.setUrl('s2', 'https://other')
+    watchPanelStore.applyRunResult('s1', { ok: true })
+    expect(watchPanelStore.get('s1').status).toBe('sent')
+    expect(watchPanelStore.get('s2').status).toBe('idle')
   })
 })
 
 describe('watchPanelStore per-session restore', () => {
   it('keeps each session state in memory so switching back restores it', () => {
     watchPanelStore.setUrl('s1', 'https://one')
-    watchPanelStore.setSiblingByIndex('s1', { 0: 'sib-1' })
     watchPanelStore.setUrl('s2', 'https://two')
     // "Switch" to s2 and back: state is keyed by session, nothing is lost.
     expect(watchPanelStore.get('s2').url).toBe('https://two')
     expect(watchPanelStore.get('s1').url).toBe('https://one')
-    expect(watchPanelStore.get('s1').siblingByIndex).toEqual({ 0: 'sib-1' })
   })
 
   it('hydrateFromPersisted seeds URLs only for sessions without in-memory state', () => {
@@ -71,66 +97,62 @@ describe('watchPanelStore per-session restore', () => {
 })
 
 describe('watchPanelStore.hydrateSession', () => {
-  it('replaces empty state from a snapshot and derives dispatched from siblings', () => {
-    watchPanelStore.hydrateSession('s1', {
-      url: 'https://playlist',
-      playlistFrames: { 1: frames('b') },
-      siblingByIndex: { 1: 'sib-1' },
-      playlistDispatched: true,
-    })
+  it('restores a running state (the host run survived a webview reload)', () => {
+    watchPanelStore.hydrateSession('s1', snapshot({
+      run: { runId: 'r1', status: 'processing', frames: frames('a') },
+    }), true, 'transcribe')
     const state = watchPanelStore.get('s1')
-    expect(state.url).toBe('https://playlist')
-    expect(state.siblingByIndex).toEqual({ 1: 'sib-1' })
-    expect(state.playlistDispatched).toBe(true)
+    expect(state.url).toBe('https://youtu.be/abc')
+    expect(state.status).toBe('running')
+    expect(state.stage).toBe('transcribe')
+    expect(state.frames[0].path).toBe('/tmp/a.png')
+  })
+
+  it('maps a finished run to sent and a failed run to error', () => {
+    watchPanelStore.hydrateSession('s1', snapshot({
+      run: { runId: 'r1', status: 'ready', frames: [], workDir: '/tmp/wd' },
+    }), false, null)
+    expect(watchPanelStore.get('s1').status).toBe('sent')
+
+    watchPanelStore.hydrateSession('s2', snapshot({
+      run: { runId: 'r2', status: 'error', frames: [], error: 'boom' },
+    }), false, null)
+    const s2 = watchPanelStore.get('s2')
+    expect(s2.status).toBe('error')
+    expect(s2.error).toBe('boom')
+  })
+
+  it('treats a persisted processing run without a live host run as idle (host died mid-run)', () => {
+    watchPanelStore.hydrateSession('s1', snapshot({
+      run: { runId: 'r1', status: 'processing', frames: [] },
+    }), false, null)
+    expect(watchPanelStore.get('s1').status).toBe('idle')
   })
 
   it('drops a stale snapshot when the user already typed a different URL', () => {
     watchPanelStore.setUrl('s1', 'https://new-url')
-    watchPanelStore.hydrateSession('s1', {
+    watchPanelStore.hydrateSession('s1', snapshot({
       url: 'https://stale-url',
-      playlistFrames: { 0: frames('old') },
-      siblingByIndex: { 0: 'old-sib' },
-      playlistDispatched: true,
-    })
+      run: { runId: 'r1', status: 'ready', frames: frames('old') },
+    }), false, null)
     const state = watchPanelStore.get('s1')
     expect(state.url).toBe('https://new-url')
-    expect(state.siblingByIndex).toEqual({})
-    expect(state.playlistDispatched).toBe(false)
-  })
-
-  it('merges live sibling events over the snapshot and derives dispatched from the merge', () => {
-    watchPanelStore.setSiblingByIndex('s1', { 2: 'live-sib' })
-    watchPanelStore.hydrateSession('s1', {
-      url: '',
-      playlistFrames: {},
-      siblingByIndex: { 0: 'old-sib' },
-      playlistDispatched: true,
-    })
-    const state = watchPanelStore.get('s1')
-    expect(state.siblingByIndex).toEqual({ 0: 'old-sib', 2: 'live-sib' })
-    expect(state.playlistDispatched).toBe(true)
-  })
-
-  it('derives playlistDispatched=false when the snapshot has no surviving siblings', () => {
-    watchPanelStore.hydrateSession('s1', {
-      url: 'https://playlist',
-      playlistFrames: {},
-      siblingByIndex: {},
-      playlistDispatched: true,
-    })
-    expect(watchPanelStore.get('s1').playlistDispatched).toBe(false)
+    expect(state.status).toBe('idle')
+    expect(state.frames).toEqual([])
   })
 })
 
 describe('watchPanelStore.setUrl', () => {
   it('resets post-run state when changing URLs', () => {
     watchPanelStore.setUrl('s1', 'https://youtu.be/old')
-    watchPanelStore.setSiblingByIndex('s1', { 0: 'sib-x' })
-    watchPanelStore.setPlaylistDispatched('s1', true)
+    watchPanelStore.setRunning('s1')
+    watchPanelStore.applyRunProgress('s1', 'frames', frames('a'))
+    watchPanelStore.applyRunResult('s1', { ok: true })
     watchPanelStore.setUrl('s1', 'https://youtu.be/new')
     const state = watchPanelStore.get('s1')
-    expect(state.siblingByIndex).toEqual({})
-    expect(state.playlistDispatched).toBe(false)
+    expect(state.status).toBe('idle')
+    expect(state.frames).toEqual([])
+    expect(state.error).toBeNull()
   })
 
   it('schedules a debounced persist with the localStorage-compatible key and shape', () => {
@@ -145,28 +167,5 @@ describe('watchPanelStore.setUrl', () => {
     } finally {
       vi.useRealTimers()
     }
-  })
-})
-
-describe('watchPanelStore.remapPlaylistEntries', () => {
-  it('moves playlistFrames and siblingByIndex to the new index when entries shift', () => {
-    watchPanelStore.setUrl('s1', 'https://playlist')
-    watchPanelStore.setSiblingByIndex('s1', { 0: 'sib-a', 2: 'sib-c' })
-    __watchPanelStoreTestHooks.seedFrames('s1', { 0: frames('a'), 2: frames('c') })
-
-    watchPanelStore.remapPlaylistEntries('s1', [{ url: 'A' }, { url: 'B' }, { url: 'C' }], [{ url: 'A' }, { url: 'C' }])
-
-    const state = watchPanelStore.get('s1')
-    expect(state.siblingByIndex).toEqual({ 0: 'sib-a', 1: 'sib-c' })
-    expect(state.playlistFrames[0][0].path).toBe('/tmp/a.png')
-    expect(state.playlistFrames[1][0].path).toBe('/tmp/c.png')
-  })
-
-  it('is a no-op when entry URL lists are identical', () => {
-    watchPanelStore.setUrl('s1', 'https://playlist')
-    watchPanelStore.setSiblingByIndex('s1', { 0: 'sib-a' })
-    const before = watchPanelStore.get('s1')
-    watchPanelStore.remapPlaylistEntries('s1', [{ url: 'A' }], [{ url: 'A' }])
-    expect(watchPanelStore.get('s1')).toBe(before)
   })
 })

@@ -7,22 +7,19 @@ import { createWatchFacade, createAgentPort, resolveTranscription, IMPROVE_PROMP
 // tsconfig.plugins.json; the intersection keeps them.
 type FakeAgent = AgentSession & {
   sent: string[]
-  revealed: Array<string | undefined>
 }
 
 function fakeAgent(sessionId: string): FakeAgent {
   const sent: string[] = []
-  const revealed: Array<string | undefined> = []
   return {
     sessionId,
     sent,
-    revealed,
     runTurn: async () => 'ended',
     sendText: async (text: string) => { sent.push(text) },
     whenReady: async () => true,
     getStatus: async () => 'waiting',
     kill: async () => {},
-    reveal: async (title?: string) => { revealed.push(title) },
+    reveal: async () => {},
   }
 }
 
@@ -30,23 +27,15 @@ function fakeManifold(): {
   api: ManifoldApi
   agents: Map<string, FakeAgent>
   stored: Map<string, unknown>
-  spawnCalls: Array<{ baseSessionId: string; opts?: { title?: string; groupId?: string } }>
   prompts: string[]
 } {
   const agents = new Map<string, FakeAgent>()
   const stored = new Map<string, unknown>()
-  const spawnCalls: Array<{ baseSessionId: string; opts?: { title?: string; groupId?: string } }> = []
   const prompts: string[] = []
   const api = {
     agents: {
       activeAgent: undefined as FakeAgent | undefined,
       getAgent: (sessionId: string) => agents.get(sessionId),
-      spawnSibling: async (baseSessionId: string, opts?: { title?: string; groupId?: string }) => {
-        spawnCalls.push({ baseSessionId, opts })
-        const sibling = fakeAgent(`sib-of-${baseSessionId}`)
-        agents.set(sibling.sessionId, sibling)
-        return sibling
-      },
     },
     transcription: { get: async () => undefined },
     lm: {
@@ -66,30 +55,19 @@ function fakeManifold(): {
       activeSession: { id: 's1', status: 'running', worktreePath: '/wt/s1' },
     },
   } as unknown as ManifoldApi
-  return { api, agents, stored, spawnCalls, prompts }
+  return { api, agents, stored, prompts }
 }
 
 describe('createAgentPort — mapping onto manifold.agents', () => {
-  it('spawnSibling threads opts through and wraps the returned AgentSession', async () => {
+  it('sendText and whenReady route to sessions via getAgent', async () => {
     const f = fakeManifold()
+    const base = fakeAgent('base-1')
+    f.agents.set('base-1', base)
     const port = createAgentPort(f.api.agents)
-    const handle = await port.spawnSibling('base-1', { title: 'Watching: T', groupId: 'run-1' })
-    expect(f.spawnCalls).toEqual([{ baseSessionId: 'base-1', opts: { title: 'Watching: T', groupId: 'run-1' } }])
-    expect(handle.sessionId).toBe('sib-of-base-1')
-    await handle.sendText('/watch:watch …')
-    expect(f.agents.get('sib-of-base-1')!.sent).toEqual(['/watch:watch …'])
-    expect(await handle.whenReady(5)).toBe(true)
-  })
-
-  it('sendText and whenReady route to arbitrary sessions via getAgent', async () => {
-    const f = fakeManifold()
-    const meta = fakeAgent('meta-1')
-    f.agents.set('meta-1', meta)
-    const port = createAgentPort(f.api.agents)
-    await port.sendText('meta-1', 'primer')
-    expect(meta.sent).toEqual(['primer'])
-    expect(await port.whenReady('meta-1', 5)).toBe(true)
-    expect(await port.getStatus('meta-1')).toBe('waiting')
+    await port.sendText('base-1', '/watch:watch …')
+    expect(base.sent).toEqual(['/watch:watch …'])
+    expect(await port.whenReady('base-1', 5)).toBe(true)
+    expect(await port.getStatus('base-1')).toBe('waiting')
   })
 
   it('missing sessions: getStatus → missing, whenReady → false, sendText throws', async () => {
@@ -114,16 +92,6 @@ describe('resolveTranscription', () => {
 })
 
 describe('createWatchFacade', () => {
-  it('revealAgent routes to getAgent(sessionId).reveal(title); missing agent is a no-op', async () => {
-    const f = fakeManifold()
-    const agent = fakeAgent('sib-1')
-    f.agents.set('sib-1', agent)
-    const facade = createWatchFacade(f.api)
-    await facade.revealAgent('sib-1', 'Watching: T')
-    expect(agent.revealed).toEqual(['Watching: T'])
-    await expect(facade.revealAgent('gone', 'x')).resolves.toBeUndefined()
-  })
-
   it('persist/getPersisted round-trip through the single storage.global key', async () => {
     const f = fakeManifold()
     const facade = createWatchFacade(f.api)

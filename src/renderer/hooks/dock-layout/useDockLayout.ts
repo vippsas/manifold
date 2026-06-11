@@ -2,9 +2,11 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import type { DockviewApi, SerializedDockview } from 'dockview'
 import {
   PANEL_IDS,
+  applyLayoutChangePreservingSidebarWidths,
   applyMinimalLayout,
   findTopLeftWorkspaceReferencePanel,
   getSidebarWidths,
+  isEditorPanelId,
   loadOrBuildLayout,
   parseEditorPanelOrder,
   type EditorSplitDirection,
@@ -23,6 +25,16 @@ import { LAUNCHER_MODULE_IDS } from '../../modules/launcher-modules'
 
 export type { DockPanelId, EditorSplitDirection } from './dock-layout-helpers'
 export { isEditorPanelId } from './dock-layout-helpers'
+
+/** The id of an open editor panel (base 'editor' preferred), or null when no
+ *  file is open. Used to place plugin panes in the editor's group. */
+function findOpenEditorPanelId(api: DockviewApi): string | null {
+  if (api.getPanel('editor')) return 'editor'
+  for (const panel of api.panels) {
+    if (isEditorPanelId(panel.id)) return panel.id
+  }
+  return null
+}
 
 export interface UseDockLayoutResult {
   apiRef: React.MutableRefObject<DockviewApi | null>
@@ -187,8 +199,26 @@ export function useDockLayout(
     if (!api) return
     const existing = api.getPanel(viewId)
     if (existing) { existing.api.setActive(); return }
-    const referencePanelId = findTopLeftWorkspaceReferencePanel(api) ?? 'agent'
-    api.addPanel({ id: viewId, component: 'pluginView', title, position: { referencePanel: referencePanelId, direction: 'within' } })
+    // Plugin webview panes open in the editor area — the same spot the editor
+    // pane occupies. When a file is open, tab into the editor's group. When no
+    // editor is open, take the editor's place to the right of the agent and
+    // split that region 50/50, leaving the sidebars at their pinned widths
+    // (so they stay 1/6 each and agent/pane get 2/6 each).
+    const editorPanelId = findOpenEditorPanelId(api)
+    if (editorPanelId) {
+      api.addPanel({ id: viewId, component: 'pluginView', title, position: { referencePanel: editorPanelId, direction: 'within' } })
+    } else {
+      const referencePanelId = api.getPanel('agent') ? 'agent' : (findTopLeftWorkspaceReferencePanel(api) ?? 'agent')
+      applyLayoutChangePreservingSidebarWidths(api, () => {
+        api.addPanel({ id: viewId, component: 'pluginView', title, position: { referencePanel: referencePanelId, direction: 'right' } })
+        const refGroup = api.getPanel(referencePanelId)?.group
+        const paneGroup = api.getPanel(viewId)?.group
+        if (refGroup && paneGroup && refGroup !== paneGroup) {
+          const total = refGroup.element.offsetWidth + paneGroup.element.offsetWidth
+          if (total > 0) paneGroup.api.setSize({ width: Math.round(total / 2) })
+        }
+      }, refs)
+    }
     saveLayout()
     bumpVersion()
   }, [bumpVersion, saveLayout]) // eslint-disable-line react-hooks/exhaustive-deps

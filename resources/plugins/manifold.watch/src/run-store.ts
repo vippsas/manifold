@@ -3,8 +3,7 @@ import * as os from 'node:os'
 import * as path from 'node:path'
 import type {
   WatchFrameRef,
-  WatchPlaylistEntryInput,
-  WatchRunEntryState,
+  WatchRunStatus,
   WatchSessionSnapshot,
 } from './shared-types'
 
@@ -47,10 +46,13 @@ interface StoredWatchRun {
   ownerSessionId: string
   ownerWorktreePath: string
   sourceUrl: string
-  aggregateDir: string
   createdAt: string
   updatedAt: string
-  entries: WatchRunEntryState[]
+  status: WatchRunStatus
+  frames: WatchFrameRef[]
+  workDir?: string
+  error?: string
+  question?: string
 }
 
 interface StoredWatchRunState {
@@ -61,8 +63,7 @@ interface StoredWatchRunState {
 export interface StartWatchRunOptions {
   runId: string
   sourceUrl: string
-  aggregateDir: string
-  entries: WatchPlaylistEntryInput[]
+  question?: string
 }
 
 export class WatchRunStore {
@@ -71,41 +72,32 @@ export class WatchRunStore {
   // skip writes to avoid clobbering data we can't see.
   private readOnly = false
 
-  constructor(private stateFile: string = STATE_FILE) {
+  constructor(
+    private stateFile: string = STATE_FILE,
+    private runsRoot: string = WATCH_RUNS_ROOT,
+  ) {
     this.state = this.loadFromDisk()
   }
 
-  getSnapshot(session: WatchSessionInfo, isLiveSession: (sessionId: string) => boolean = () => true): WatchSessionSnapshot {
+  getSnapshot(session: WatchSessionInfo): WatchSessionSnapshot {
     const key = this.keyForSession(session)
     const sessionState = this.state.sessions[key]
     const run = sessionState?.activeRunId
       ? this.state.runs[sessionState.activeRunId]
       : undefined
     if (!sessionState || !run || run.sourceUrl !== sessionState.url) {
-      return {
-        url: sessionState?.url ?? '',
-        playlistFrames: {},
-        siblingByIndex: {},
-        playlistDispatched: false,
-      }
+      return { url: sessionState?.url ?? '', run: null }
     }
-
-    const playlistFrames: Record<number, WatchFrameRef[]> = {}
-    const siblingByIndex: Record<number, string> = {}
-    for (const entry of run.entries) {
-      if (entry.frames.length > 0) playlistFrames[entry.originalIndex] = entry.frames
-      if (entry.siblingSessionId && isLiveSession(entry.siblingSessionId)) {
-        siblingByIndex[entry.originalIndex] = entry.siblingSessionId
-      }
-    }
-
     return {
       url: sessionState.url,
-      playlistFrames,
-      siblingByIndex,
-      playlistDispatched: Object.keys(siblingByIndex).length > 0,
-      runId: run.runId,
-      entries: run.entries.map((entry) => ({ ...entry, frames: [...entry.frames] })),
+      run: {
+        runId: run.runId,
+        status: run.status,
+        frames: run.frames.map((frame) => ({ ...frame })),
+        workDir: run.workDir,
+        error: run.error,
+        question: run.question,
+      },
     }
   }
 
@@ -137,15 +129,6 @@ export class WatchRunStore {
   startRun(session: WatchSessionInfo, options: StartWatchRunOptions): void {
     const key = this.keyForSession(session)
     const now = new Date().toISOString()
-    const entries = options.entries.map((entry, index): WatchRunEntryState => ({
-      originalIndex: entry.originalIndex ?? index,
-      url: entry.url,
-      title: entry.title,
-      question: entry.question,
-      frames: [],
-      status: 'queued',
-    }))
-
     this.state.sessions[key] = {
       key,
       ownerSessionId: session.id,
@@ -160,10 +143,11 @@ export class WatchRunStore {
       ownerSessionId: session.id,
       ownerWorktreePath: session.worktreePath,
       sourceUrl: options.sourceUrl,
-      aggregateDir: options.aggregateDir,
       createdAt: now,
       updatedAt: now,
-      entries,
+      status: 'processing',
+      frames: [],
+      question: options.question,
     }
     this.evictOldRuns()
     this.writeToDisk()
@@ -171,8 +155,8 @@ export class WatchRunStore {
 
   /**
    * Drop the oldest runs once we exceed MAX_RETAINED_RUNS, deleting their
-   * on-disk frame and aggregate directories. Never evicts a run that is the
-   * active run of any session.
+   * on-disk frame directories. Never evicts a run that is the active run of
+   * any session.
    */
   private evictOldRuns(): void {
     const activeRunIds = new Set<string>()
@@ -187,59 +171,42 @@ export class WatchRunStore {
     for (let i = 0; i < overflow && i < evictable.length; i++) {
       const run = evictable[i]
       delete this.state.runs[run.runId]
-      this.removeRunDirs(run)
+      this.removeRunDir(run.runId)
     }
   }
 
-  private removeRunDirs(run: StoredWatchRun): void {
-    try { fs.rmSync(path.join(WATCH_RUNS_ROOT, run.runId), { recursive: true, force: true }) } catch { /* best-effort */ }
-    try { fs.rmSync(run.aggregateDir, { recursive: true, force: true }) } catch { /* best-effort */ }
+  private removeRunDir(runId: string): void {
+    try { fs.rmSync(path.join(this.runsRoot, runId), { recursive: true, force: true }) } catch { /* best-effort */ }
   }
 
-  markEntrySpawned(runId: string, originalIndex: number, sessionId: string): void {
-    this.updateEntry(runId, originalIndex, (entry) => ({
-      ...entry,
-      siblingSessionId: sessionId,
-      status: entry.status === 'queued' ? 'processing' : entry.status,
-    }))
-  }
-
-  markEntryFrames(runId: string, originalIndex: number, frames: WatchFrameRef[]): void {
-    this.updateEntry(runId, originalIndex, (entry) => ({
-      ...entry,
+  markFrames(runId: string, frames: WatchFrameRef[]): void {
+    this.updateRun(runId, (run) => ({
+      ...run,
       frames: frames.map((frame) => ({ ...frame })),
-      status: entry.status === 'queued' ? 'processing' : entry.status,
     }))
   }
 
-  markEntryReady(runId: string, originalIndex: number, workDir: string): void {
-    this.updateEntry(runId, originalIndex, (entry) => ({
-      ...entry,
+  markReady(runId: string, workDir: string): void {
+    this.updateRun(runId, (run) => ({
+      ...run,
       workDir,
       status: 'ready',
       error: undefined,
     }))
   }
 
-  markEntryError(runId: string, originalIndex: number, error: string): void {
-    this.updateEntry(runId, originalIndex, (entry) => ({
-      ...entry,
+  markError(runId: string, error: string): void {
+    this.updateRun(runId, (run) => ({
+      ...run,
       status: 'error',
       error,
     }))
   }
 
-  private updateEntry(
-    runId: string,
-    originalIndex: number,
-    updater: (entry: WatchRunEntryState) => WatchRunEntryState,
-  ): void {
+  private updateRun(runId: string, updater: (run: StoredWatchRun) => StoredWatchRun): void {
     const run = this.state.runs[runId]
     if (!run) return
-    const index = run.entries.findIndex((entry) => entry.originalIndex === originalIndex)
-    if (index === -1) return
-    run.entries[index] = updater(run.entries[index])
-    run.updatedAt = new Date().toISOString()
+    this.state.runs[runId] = { ...updater(run), updatedAt: new Date().toISOString() }
     this.writeToDisk()
   }
 
@@ -261,10 +228,19 @@ export class WatchRunStore {
     }
     try {
       const parsed = JSON.parse(raw) as Partial<StoredWatchRunState>
-      return {
-        sessions: parsed.sessions && typeof parsed.sessions === 'object' ? parsed.sessions : {},
-        runs: parsed.runs && typeof parsed.runs === 'object' ? parsed.runs : {},
+      const sessions = parsed.sessions && typeof parsed.sessions === 'object' ? parsed.sessions : {}
+      const runs: Record<string, StoredWatchRun> = {}
+      for (const [runId, run] of Object.entries(parsed.runs ?? {})) {
+        // Runs written by the retired playlist format carry an `entries`
+        // array instead of `status`/`frames`; drop them (and their frame
+        // dirs) rather than guessing a migration.
+        if (run && typeof run.status === 'string' && Array.isArray(run.frames)) {
+          runs[runId] = run
+        } else {
+          this.removeRunDir(runId)
+        }
       }
+      return { sessions, runs }
     } catch (err) {
       // Corruption: preserve the broken file for forensics before resetting.
       const backup = `${this.stateFile}.corrupt.${Date.now()}`
@@ -280,8 +256,8 @@ export class WatchRunStore {
       fs.mkdirSync(path.dirname(this.stateFile), { recursive: true })
       fs.writeFileSync(this.stateFile, JSON.stringify(this.state, null, 2), 'utf-8')
     } catch (err) {
-      // Don't crash the playlist worker on disk-full — it'd mask the cause as
-      // a pipeline failure. Log and leave state in memory; next write retries.
+      // Don't crash the run worker on disk-full — it'd mask the cause as a
+      // pipeline failure. Log and leave state in memory; next write retries.
       debugLog(`WatchRunStore: failed to persist ${this.stateFile}: ${err}`)
     }
   }
