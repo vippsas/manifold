@@ -353,16 +353,43 @@ select {
   transition: border-color var(--duration-normal) var(--ease-premium);
 }
 
+/* Targeting-reticle focus: text fields swap the plain accent border for four
+   corner brackets — the UI locks on to where you type. !important mirrors the
+   old border rule: inline `background` shorthands on inputs would otherwise
+   reset the bracket layers. Each corner is two thin gradient bars. */
 input:focus,
-textarea:focus,
+textarea:focus {
+  border-color: transparent !important;
+  background-image:
+    linear-gradient(var(--accent), var(--accent)),
+    linear-gradient(var(--accent), var(--accent)),
+    linear-gradient(var(--accent), var(--accent)),
+    linear-gradient(var(--accent), var(--accent)),
+    linear-gradient(var(--accent), var(--accent)),
+    linear-gradient(var(--accent), var(--accent)),
+    linear-gradient(var(--accent), var(--accent)),
+    linear-gradient(var(--accent), var(--accent)) !important;
+  background-repeat: no-repeat !important;
+  background-origin: border-box !important;
+  background-clip: border-box !important;
+  background-size:
+    12px 1.5px, 1.5px 12px,
+    12px 1.5px, 1.5px 12px,
+    12px 1.5px, 1.5px 12px,
+    12px 1.5px, 1.5px 12px !important;
+  background-position:
+    left top, left top,
+    right top, right top,
+    left bottom, left bottom,
+    right bottom, right bottom !important;
+}
+
 select:focus {
   border-color: var(--accent) !important;
 }
 
 button:focus-visible,
 [role='button']:focus-visible,
-input:focus-visible,
-textarea:focus-visible,
 select:focus-visible {
   outline: none;
   box-shadow: 0 0 0 2px var(--accent-subtle), 0 0 10px var(--accent-subtle);
