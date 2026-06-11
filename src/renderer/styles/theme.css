@@ -405,13 +405,19 @@ select:focus-visible {
   background: var(--accent);
 }
 
-@keyframes dot-blink {
-  0%, 100% { opacity: 1; }
-  50% { opacity: 0.25; }
+/* Warp-core pulse: the running dot breathes a slow accent glow instead of
+   blinking — the heartbeat of the ship. */
+@keyframes core-pulse {
+  0%, 100% { box-shadow: 0 0 3px 1px var(--effect-glow, var(--accent-subtle)); }
+  50% {
+    box-shadow:
+      0 0 6px 2px var(--effect-glow, var(--accent-subtle)),
+      0 0 14px 4px var(--effect-glow, var(--accent-subtle));
+  }
 }
 
 .status-dot--active {
-  animation: dot-blink 1.4s ease-in-out infinite;
+  animation: core-pulse 2.4s ease-in-out infinite;
 }
 
 .status-dot--hidden {
@@ -1550,4 +1556,12 @@ select:focus-visible {
 /* ─── Title Bar Search (omnibox) ─── */
 .titlebar-search-input::placeholder {
   color: var(--text-muted);
+}
+
+/* ─── Reduced motion: instrumentation effects go static ─── */
+@media (prefers-reduced-motion: reduce) {
+  .status-dot--active,
+  .sidebar-agent-row--outputting::after {
+    animation: none;
+  }
 }
