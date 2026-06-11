@@ -8,22 +8,18 @@ export const titleBarSearchStyles: Record<string, React.CSSProperties> = {
     width: 'min(440px, 46%)',
   },
   field: {
+    // No outer pill — the input's focus state grows its own targeting-reticle
+    // brackets (global `input:focus` rule in theme.css), which serve as the
+    // field's border. A filled/rounded wrapper would only box them in.
     display: 'flex',
     alignItems: 'center',
     gap: 'var(--space-sm)',
     height: 28,
     padding: '0 var(--space-sm) 0 var(--space-md)',
-    background: 'var(--bg-input)',
-    borderWidth: '1px',
-    borderStyle: 'solid',
-    borderColor: 'var(--control-border)',
-    borderRadius: 'var(--radius-pill)',
     color: 'var(--text-muted)',
-    transition: 'border-color 150ms ease, box-shadow 150ms ease, color 150ms ease',
+    transition: 'color 150ms ease',
   },
   fieldFocused: {
-    borderColor: 'var(--accent)',
-    boxShadow: '0 0 0 2px var(--accent-subtle), 0 0 10px var(--accent-subtle)',
     color: 'var(--accent)',
   },
   input: {
