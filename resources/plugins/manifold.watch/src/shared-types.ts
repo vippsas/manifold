@@ -26,7 +26,7 @@ export type TranscriptionProvider = AiServiceProvider
  *  host (fallback when the run request carries no prompt) and the webview
  *  (pre-fills the visible, editable prompt box). */
 export const DEFAULT_WATCH_QUESTION =
-  'Summarize the video in three short bullets: **Thesis** (the core claim), **Support** (the main evidence used), **Title** (if the title poses a question, was it answered? — say so if it doesn\'t). Cite frame numbers or transcript moments when useful. ≤300 words total.'
+  'Give a detailed summary of the video. Open with a one-paragraph overview (what it is, who made it, and its core thesis or purpose), then walk through the content in the order it unfolds — each major section or argument as its own short paragraph or bullet, capturing the key points, evidence, examples, and any data, demos, or visuals shown. Note important shifts, counterpoints, or conclusions, and end with the main takeaways. Ground specific claims in the source by citing frame numbers and transcript timestamps (t=MM:SS) where useful. Use clear headings or bullets so it is easy to scan; be thorough rather than terse, but do not invent anything that is not in the frames or transcript.'
 
 export interface WatchSetupStatus {
   ffmpeg: boolean
