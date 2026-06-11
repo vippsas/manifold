@@ -36,7 +36,6 @@ export function TitleBar({ projectName, themeType, onToggleTheme, themeFamily, o
       <div style={styles.rightGroup}>
         {themeFamily && onSelectThemeFamily && (
           <label style={styles.themesGroup}>
-            <span style={styles.themesLabel}>Themes</span>
             <select
               value={themeFamily}
               onChange={(e) => onSelectThemeFamily(e.target.value as ThemeFamily)}

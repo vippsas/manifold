@@ -160,12 +160,26 @@
   min-height: var(--dv-tabs-and-actions-container-height);
 }
 
-/* Active tab highlight — bottom border to clearly indicate selection */
-.dockview-theme-manifold .dv-groupview.dv-active-group > .dv-tabs-and-actions-container .dv-tab.dv-active-tab {
-  border-bottom: 2px solid var(--accent);
+/* Active tab highlight — an underline that fades at the edges, like a watch
+   index: one precise line of the accent metal instead of a hard border. */
+.dockview-theme-manifold .dv-tab.dv-active-tab {
+  position: relative;
 }
-.dockview-theme-manifold .dv-groupview.dv-inactive-group > .dv-tabs-and-actions-container .dv-tab.dv-active-tab {
-  border-bottom: 2px solid var(--text-muted);
+.dockview-theme-manifold .dv-tab.dv-active-tab::after {
+  content: '';
+  position: absolute;
+  left: var(--space-xs);
+  right: var(--space-xs);
+  bottom: 0;
+  height: 2px;
+  border-radius: 1px;
+  pointer-events: none;
+}
+.dockview-theme-manifold .dv-groupview.dv-active-group > .dv-tabs-and-actions-container .dv-tab.dv-active-tab::after {
+  background: linear-gradient(90deg, transparent, var(--accent) 28%, var(--accent) 72%, transparent);
+}
+.dockview-theme-manifold .dv-groupview.dv-inactive-group > .dv-tabs-and-actions-container .dv-tab.dv-active-tab::after {
+  background: linear-gradient(90deg, transparent, var(--text-muted) 28%, var(--text-muted) 72%, transparent);
 }
 
 /* Panel content fills container */

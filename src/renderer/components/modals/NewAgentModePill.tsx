@@ -41,7 +41,7 @@ export function NewAgentModePill({ mode, setMode, canSubmit, loading }: Props): 
           )
         })}
       </div>
-      <button type="submit" disabled={!canSubmit || loading} style={startButtonStyle(canSubmit, loading)}>
+      <button type="submit" disabled={!canSubmit || loading} className="btn-metal" style={startButtonStyle(canSubmit, loading)}>
         {loading ? 'Starting…' : mode === 'chat' ? 'Start Chat' : 'Start Agent'}
       </button>
     </div>

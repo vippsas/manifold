@@ -4,6 +4,9 @@
 :root {
   --font-sans: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
   --font-mono: 'SF Mono', ui-monospace, 'Cascadia Mono', 'Cascadia Code', 'JetBrains Mono', Menlo, Consolas, monospace;
+  /* Display serif reserved for empty-state hero headings only — one serif
+     headline on the dark canvas reads editorial; everywhere else stays sans. */
+  --font-display: ui-serif, 'New York', Georgia, 'Times New Roman', serif;
 
   --radius-xs: 2px;
   --radius-sm: 5px;
@@ -241,12 +244,13 @@ body {
 .layout-status-bar {
   height: var(--status-bar-height);
   background: linear-gradient(180deg, var(--bg-chrome, var(--statusbar-bg)) 0%, var(--bg-chrome-lo, var(--statusbar-bg)) 100%);
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.04);
+  box-shadow: inset 0 1px 0 color-mix(in srgb, var(--accent) 12%, rgba(255, 255, 255, 0.04));
   display: flex;
   align-items: center;
   padding: 0 var(--space-sm);
   gap: var(--space-sm);
   font-size: var(--type-ui-small);
+  font-variant-numeric: tabular-nums;
   color: var(--text-secondary);
   user-select: none;
 }
@@ -771,17 +775,22 @@ select:focus-visible {
   min-height: var(--control-height);
 }
 
+/* Metallic primary CTA — gradient catches light at the top-left, a hairline
+   of the darker alloy edges it, and the inset top highlight reads as
+   polished metal. Shared by every primary action (Start Agent, + New Agent). */
+.btn-metal,
 .sidebar-action-button--primary {
   color: var(--btn-text);
-  background: linear-gradient(135deg, var(--btn-bg), var(--btn-hover));
-  border-color: transparent;
+  background: linear-gradient(135deg, var(--btn-hover), var(--btn-bg));
+  border: 1px solid color-mix(in srgb, var(--accent-dim, var(--accent)), transparent 40%);
   font-weight: 600;
-  transition: filter var(--duration-normal) var(--ease-premium);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.22), var(--shadow-glow);
+  transition: filter var(--duration-normal) var(--ease-premium), box-shadow var(--duration-normal) var(--ease-premium);
 }
 
+.btn-metal:hover:not(:disabled),
 .sidebar-action-button--primary:hover {
-  filter: brightness(1.12);
-  box-shadow: var(--shadow-glow);
+  filter: brightness(1.1);
 }
 
 /* ─── Markdown Preview ─── */

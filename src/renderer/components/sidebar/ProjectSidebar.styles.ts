@@ -117,6 +117,8 @@ export const sidebarStyles: Record<string, React.CSSProperties> = {
     display: 'flex',
     gap: 'var(--space-xs)',
   },
+  // Layout only — the metallic surface comes from .sidebar-action-button--primary,
+  // which an inline background/color here would silently override.
   actionButtonPrimary: {
     flex: 1,
     minWidth: 0,
@@ -126,12 +128,8 @@ export const sidebarStyles: Record<string, React.CSSProperties> = {
     height: 'var(--control-height)',
     overflow: 'hidden',
     padding: '0 var(--space-sm)',
-    background: 'var(--accent-subtle)',
-    border: '1px solid transparent',
     borderRadius: 'var(--radius-sm)',
     fontSize: 'inherit',
-    fontWeight: 600,
-    color: 'var(--accent)',
     cursor: 'pointer',
     textAlign: 'center' as const,
   } as React.CSSProperties,

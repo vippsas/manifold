@@ -117,6 +117,12 @@ export function OnboardingView(props: OnboardingViewProps): React.JSX.Element {
         minHeight: 0,
         color: 'var(--text-secondary)',
         userSelect: 'none',
+        // Depth, not emptiness: a faint accent aura behind the form and a
+        // vignette toward the edges so the canvas reads as a lit stage.
+        background: [
+          'radial-gradient(ellipse 70% 55% at 50% 42%, color-mix(in srgb, var(--accent) 4%, transparent), transparent 70%)',
+          'radial-gradient(ellipse at center, transparent 55%, rgba(0, 0, 0, 0.25) 100%)',
+        ].join(', '),
       }}
     >
       <ManifoldWordmark size="normal" />
@@ -146,12 +152,13 @@ export function OnboardingView(props: OnboardingViewProps): React.JSX.Element {
                 </div>
               )}
               <div style={{
-                fontSize: 'var(--type-title)',
-                fontWeight: 300,
+                fontFamily: 'var(--font-display)',
+                fontSize: 'var(--type-display)',
+                fontWeight: 400,
                 color: 'var(--text-primary)',
                 letterSpacing: 'var(--tracking-tight)',
               }}>
-                New agent for <span style={{ color: 'var(--text-primary)', fontWeight: 500 }}>{props.projectName}</span>
+                New agent for <span style={{ fontStyle: 'italic', fontWeight: 500 }}>{props.projectName}</span>
               </div>
             </div>
             <NewAgentForm

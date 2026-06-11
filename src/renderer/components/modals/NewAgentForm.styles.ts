@@ -54,6 +54,7 @@ export const onboardingLinkStyle = (hover: boolean): React.CSSProperties => ({
   transition: 'color var(--duration-normal) var(--ease-premium), background var(--duration-normal) var(--ease-premium)',
 })
 
+// Layout only — the metallic surface comes from the shared .btn-metal class.
 export const startButtonStyle = (canSubmit: boolean, loading: boolean): React.CSSProperties => ({
   width: '100%',
   display: 'flex',
@@ -61,12 +62,8 @@ export const startButtonStyle = (canSubmit: boolean, loading: boolean): React.CS
   justifyContent: 'center',
   height: 'var(--control-height)',
   padding: '0 32px',
-  background: 'var(--accent)',
-  color: 'var(--accent-text)',
-  border: 'none',
   borderRadius: 'var(--radius-sm)',
   fontSize: 'var(--type-ui)',
-  fontWeight: 600,
   cursor: canSubmit && !loading ? 'pointer' : 'default',
   opacity: canSubmit && !loading ? 1 : 0.5,
 })
