@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { WebviewContentStore } from './webview-content-store'
-import { injectNonce, buildCsp, renderWebviewResponse } from './webview-protocol'
+import { injectNonce, buildCsp, renderWebviewResponse, frameReferrerPatch } from './webview-protocol'
 
 const debugLogMock = vi.hoisted(() => vi.fn())
 vi.mock('../app/debug-log', () => ({ debugLog: debugLogMock }))
@@ -118,6 +118,49 @@ describe('WebviewContentStore frame sources', () => {
     s.setFrameSources('view.a', [])
     expect(s.getFrameSources('view.a')).toBeUndefined()
     expect(s.getFrameSources('never-set')).toBeUndefined()
+  })
+
+  it('unions frame sources across views, deduplicated', () => {
+    const s = new WebviewContentStore()
+    s.setFrameSources('view.a', ['https://www.youtube.com'])
+    s.setFrameSources('view.b', ['https://www.youtube.com', 'https://player.vimeo.com'])
+    expect(s.allFrameSources().sort()).toEqual(['https://player.vimeo.com', 'https://www.youtube.com'])
+    expect(new WebviewContentStore().allFrameSources()).toEqual([])
+  })
+})
+
+describe('frameReferrerPatch', () => {
+  const headers = { Accept: 'text/html' }
+  const details = (over: Partial<{ resourceType: string; url: string; requestHeaders: Record<string, string> }> = {}) => ({
+    resourceType: 'subFrame',
+    url: 'https://www.youtube.com/embed/abc?feature=oembed',
+    requestHeaders: { ...headers },
+    ...over,
+  })
+  const ORIGINS = ['https://www.youtube.com']
+  const REFERRER = 'http://127.0.0.1:41776'
+
+  it('adds the loopback Referer to a sub-frame request for a declared origin', () => {
+    const patched = frameReferrerPatch(details(), ORIGINS, REFERRER)
+    expect(patched).toEqual({ Accept: 'text/html', Referer: REFERRER })
+  })
+
+  it('leaves an existing Referer alone (any casing)', () => {
+    expect(frameReferrerPatch(details({ requestHeaders: { Referer: 'https://a' } }), ORIGINS, REFERRER)).toBeNull()
+    expect(frameReferrerPatch(details({ requestHeaders: { referer: 'https://a' } }), ORIGINS, REFERRER)).toBeNull()
+  })
+
+  it('ignores non-sub-frame requests and undeclared origins', () => {
+    expect(frameReferrerPatch(details({ resourceType: 'mainFrame' }), ORIGINS, REFERRER)).toBeNull()
+    expect(frameReferrerPatch(details({ resourceType: 'xhr' }), ORIGINS, REFERRER)).toBeNull()
+    expect(frameReferrerPatch(details({ url: 'https://evil.example/embed/abc' }), ORIGINS, REFERRER)).toBeNull()
+    // Origin match is exact — a registered origin must not match a lookalike host.
+    expect(frameReferrerPatch(details({ url: 'https://www.youtube.com.evil.example/embed' }), ORIGINS, REFERRER)).toBeNull()
+  })
+
+  it('does nothing without a referrer to inject or with no declared origins', () => {
+    expect(frameReferrerPatch(details(), ORIGINS, '')).toBeNull()
+    expect(frameReferrerPatch(details(), [], REFERRER)).toBeNull()
   })
 })
 

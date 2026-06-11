@@ -131,7 +131,7 @@ return a fallback without caching so the next call retries the live API (`getRel
 - **IPC** (`src/main/ipc`): `ipc-handlers.ts` is the registration hub; `IpcDependencies` (`../ipc/types`) is the shared dependency contract that `index.ts` populates as `ipcDeps`.
 - **Renderer / preload**: the menu (`app-menu.ts`), updater (`broadcastStatus`), and dev server (`preview:url-detected`, `agent:slash-commands`) all communicate by `webContents.send`. The window factory loads the preload from `../preload/index.js`.
 - **Stores / managers**: `index.ts` is the single construction site for `SettingsStore`, `ProjectRegistry`, `WorktreeManager`, `PtyPool`, file/tree watchers, workspace, memory, verdict, and plugin managers.
-- **Plugins** (`src/main/plugins`): `registerWebviewSchemePrivileged()` must run before `app.whenReady()` (`index.ts:179`); `installWebviewProtocol()` runs inside `whenReady` (`app-lifecycle.ts:52`).
+- **Plugins** (`src/main/plugins`): `registerWebviewSchemePrivileged()` must run before `app.whenReady()` (`index.ts:179`); `installWebviewProtocol()` and `installFrameSourceReferrer()` — which re-attaches the loopback renderer origin as the `Referer` on plugin-webview embeds of `frameSources` origins, because `manifold-webview://` documents send none and YouTube rejects refererless embeds — run inside `whenReady` (`app-lifecycle.ts:53`, `:57`).
 - **Agent / PTY** (`src/main/agent`): `DevServerManager` uses `PtyPool`, `getRuntimeById`, `buildSimpleRuntimeCommand`, and `extractSlashCommands` to run dev servers and print-mode turns.
 
 ## Invariants & gotchas

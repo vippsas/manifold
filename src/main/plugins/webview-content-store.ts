@@ -20,6 +20,10 @@ export class WebviewContentStore {
     else this.frameSources.delete(viewId)
   }
   getFrameSources(viewId: string): string[] | undefined { return this.frameSources.get(viewId) }
+  /** Union of every view's frame sources (deduplicated). */
+  allFrameSources(): string[] {
+    return [...new Set([...this.frameSources.values()].flat())]
+  }
 }
 
 export const webviewContentStore = new WebviewContentStore()

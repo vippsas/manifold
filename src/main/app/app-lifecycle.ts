@@ -3,7 +3,7 @@ import * as path from 'node:path'
 import { startLocalRendererServer, type LocalRendererServer } from './local-renderer-server'
 import { setupAutoUpdater } from './auto-updater'
 import { flushDebugLogSync } from './debug-log'
-import { installWebviewProtocol } from '../plugins/webview-protocol'
+import { installFrameSourceReferrer, installWebviewProtocol } from '../plugins/webview-protocol'
 import { killInFlightAiGenerateChildren } from '../git/git-operations'
 import type { SettingsStore } from '../store/settings-store'
 import type { PowerManager } from './power-manager'
@@ -51,6 +51,10 @@ export function registerAppLifecycle(deps: AppLifecycleDeps): void {
       powerManager.enable()
     }
     installWebviewProtocol()
+    // Plugin webviews live on a custom scheme, so Chromium sends no Referer
+    // when they embed a frameSources origin — YouTube rejects that (Error
+    // 153). Re-attach the loopback renderer origin as the Referer.
+    installFrameSourceReferrer(() => process.env.ELECTRON_RENDERER_URL ?? '')
     createWindow()
     setupAutoUpdater()
 
