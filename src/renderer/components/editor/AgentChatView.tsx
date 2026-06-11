@@ -1,5 +1,6 @@
 import React, { useCallback } from 'react'
 import { ManifoldGhost } from '../ManifoldGhost'
+import { StarfieldBackdrop } from '../StarfieldBackdrop'
 import { ChatPane, useChat, useAgentStatus, useSlashCommands } from '../../../renderer-shared/chat'
 import type { PastedImage, FileDropConfig } from '../../../renderer-shared/chat/ChatPane'
 
@@ -64,6 +65,7 @@ export function AgentChatView({ sessionId, mentionPaths, fileDrop }: AgentChatVi
 function AgentChatEmptyState(): React.JSX.Element {
   return (
     <div style={emptyStyles.container}>
+      <StarfieldBackdrop />
       <div style={emptyStyles.logo} aria-hidden="true">
         <ManifoldGhost />
       </div>
@@ -83,6 +85,7 @@ function AgentChatEmptyState(): React.JSX.Element {
 
 const emptyStyles = {
   container: {
+    position: 'relative' as const,
     display: 'flex',
     flexDirection: 'column' as const,
     alignItems: 'center',
