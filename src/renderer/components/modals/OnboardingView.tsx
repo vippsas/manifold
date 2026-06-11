@@ -4,6 +4,7 @@ import { NewAgentForm } from './NewAgentForm'
 import { onboardingLinkStyle } from './NewAgentForm.styles'
 import { NoProjectActions } from '../sidebar/NoProjectActions'
 import { WorkspaceGlyph } from '../sidebar/WorkspaceGlyph'
+import { ManifoldGhost } from '../ManifoldGhost'
 
 function GhostLinkButton({ onClick, children }: { onClick: () => void; children: React.ReactNode }): React.JSX.Element {
   const [hover, setHover] = React.useState(false)
@@ -23,34 +24,14 @@ function ManifoldWordmark({ size = 'normal' }: { size?: 'normal' | 'large' }) {
   const glyphSize = size === 'large' ? 88 : 64
   const ruleWidth = size === 'large' ? 72 : 48
   return (
-    <div style={{ textAlign: 'center' }}>
-      <svg
-        width={glyphSize}
-        height={glyphSize}
-        viewBox="0 0 1024 1024"
-        role="img"
-        aria-label="Manifold"
-        style={{ display: 'block', margin: '0 auto' }}
-      >
-        <defs>
-          <mask id="onboarding-ghost-cutouts">
-            <rect width="1024" height="1024" fill="white" />
-            <circle cx="410" cy="440" r="52" fill="black" />
-            <circle cx="614" cy="440" r="52" fill="black" />
-            <path d="M 430 540 Q 512 610 594 540 Q 570 580 512 590 Q 454 580 430 540 Z" fill="black" />
-          </mask>
-        </defs>
-        <path
-          mask="url(#onboarding-ghost-cutouts)"
-          fill="var(--accent)"
-          d="M 512 180 C 340 180 260 310 260 440 L 260 700 Q 260 740 290 740 Q 320 710 350 740 Q 380 770 410 740 Q 440 710 470 740 Q 500 770 530 740 Q 560 710 590 740 Q 620 770 650 740 Q 680 710 710 740 Q 740 770 764 740 L 764 440 C 764 310 684 180 512 180 Z"
-        />
-      </svg>
+    <div style={{ textAlign: 'center', color: 'var(--accent)' }} role="img" aria-label="Manifold">
+      <ManifoldGhost size={glyphSize} />
       <div style={{
         width: ruleWidth,
         height: 2,
         borderRadius: 1,
-        background: 'var(--accent)',
+        // Polished bar: yellow gold at the ends, white gold at the center.
+        background: 'linear-gradient(90deg, var(--accent), var(--accent-hi, var(--accent-hover)), var(--accent))',
         margin: '12px auto 0',
       }} />
     </div>
@@ -158,7 +139,7 @@ export function OnboardingView(props: OnboardingViewProps): React.JSX.Element {
                 color: 'var(--text-primary)',
                 letterSpacing: 'var(--tracking-tight)',
               }}>
-                New agent for <span style={{ fontStyle: 'italic', fontWeight: 500 }}>{props.projectName}</span>
+                New agent for <span style={{ fontStyle: 'italic', fontWeight: 500, color: 'var(--accent-hi, var(--text-primary))' }}>{props.projectName}</span>
               </div>
             </div>
             <NewAgentForm

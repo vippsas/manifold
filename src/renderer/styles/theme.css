@@ -75,6 +75,7 @@
   --accent: #007acc;
   --accent-text: #ffffff;
   --accent-hover: #2694d6;
+  --accent-hi: #3da3e2;
   --success: #66bb6a;
   --warning: #ffa726;
   --error: #ef5350;
@@ -1272,6 +1273,20 @@ select:focus-visible {
 .file-tree-row:focus-visible {
   outline: none;
   box-shadow: 0 0 0 2px var(--accent-subtle), 0 0 10px var(--accent-subtle);
+}
+
+/* ─── File Tree Icons ─── */
+/* Devicon brand colors are desaturated so the tree stays one material;
+   the icon brightens (still monochrome) as the row is hovered/activated. */
+.file-tree-row .file-tree-icon {
+  filter: grayscale(1) brightness(1.08) opacity(0.65);
+  transition: filter var(--duration-normal) var(--ease-premium);
+}
+.file-tree-row:hover .file-tree-icon {
+  filter: grayscale(1) brightness(1.08) opacity(0.85);
+}
+.file-tree-row.file-tree-row--active .file-tree-icon {
+  filter: grayscale(1) brightness(1.08) opacity(1);
 }
 
 /* ─── File Tree Delete Button (hover reveal) ─── */
