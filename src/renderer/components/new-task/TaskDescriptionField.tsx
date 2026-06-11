@@ -1,7 +1,8 @@
 import React from 'react'
 
-// Mirrors the non-interactive chat composer's input (ChatPane.styles.ts `input`):
-// tall, pill-rounded, sans-serif, 15px — so the agent name field matches it.
+// Mirrors the "Start a new project" textarea (NoProjectActions `textareaStyle`):
+// the modest --radius-md keeps corners square enough for the global focus rule's
+// targeting-reticle brackets to render — a pill radius would clip them away.
 const nameInputStyle: React.CSSProperties = {
   width: '100%',
   boxSizing: 'border-box',
@@ -10,9 +11,9 @@ const nameInputStyle: React.CSSProperties = {
   fontSize: 15,
   lineHeight: '22px',
   fontFamily: 'inherit',
-  background: 'var(--surface)',
+  background: 'var(--bg-input)',
   border: '1px solid var(--border)',
-  borderRadius: 20,
+  borderRadius: 'var(--radius-md)',
   color: 'var(--text-primary)',
   outline: 'none',
 }
