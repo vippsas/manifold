@@ -211,6 +211,13 @@ export function convertTheme(themeJson: MonacoThemeJson, _themeId: string): Conv
   cssVars['--tree-icon-active-filter'] =
     `grayscale(1) sepia(1) hue-rotate(${hueRotate}deg) saturate(${saturate}) brightness(1.08) opacity(1)`
 
+  // Sci-fi instrumentation (whisper level): pre-mixed effect tints. Light
+  // themes get fainter glows (a glow reads as a smudge on paper) and ink-dot
+  // starfields; dark themes get accent-metal light.
+  cssVars['--effect-glow'] = withOpacity(accent, isDark ? 0.16 : 0.1)
+  cssVars['--star-tint'] = withOpacity(editorFg, isDark ? 0.5 : 0.38)
+  cssVars['--grid-tint'] = withOpacity(accent, isDark ? 0.1 : 0.07)
+
   // ── xterm.js ITheme mapping ────────────────────────────────────
 
   const ansiDefaults = isDark ? DARK_ANSI : LIGHT_ANSI
