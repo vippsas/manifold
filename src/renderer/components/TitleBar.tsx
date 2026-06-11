@@ -2,7 +2,7 @@ import React, { useState } from 'react'
 import { titleBarStyles as styles } from './TitleBar.styles'
 import { TitleBarSearch, type TitleBarSearchWiring } from './TitleBarSearch'
 
-type ThemeFamily = 'manifold' | 'garfield' | 'neon' | 'royal'
+type ThemeFamily = 'manifold' | 'garfield' | 'neon' | 'royal' | 'jade' | 'platinum'
 
 interface TitleBarProps {
   projectName?: string
@@ -18,6 +18,8 @@ const THEME_FAMILIES: { id: ThemeFamily; label: string }[] = [
   { id: 'garfield', label: 'Garfield' },
   { id: 'neon', label: 'Neon' },
   { id: 'royal', label: 'Royal' },
+  { id: 'jade', label: 'Jade' },
+  { id: 'platinum', label: 'Platinum' },
 ]
 
 export function TitleBar({ projectName, themeType, onToggleTheme, themeFamily, onSelectThemeFamily, search }: TitleBarProps): React.JSX.Element {

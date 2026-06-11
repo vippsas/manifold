@@ -109,7 +109,7 @@ agent (`AgentChatView`), which the agent panel switches between
 - **Main subsystems**: hooks invoke channels owned by main — `agent:*` (`useAgentSession`), `git:*` (`useDiff`, `useGitOperations`, `useFetchProject`), `files:*` (`useFileWatcher`, `useCodeView`), `projects:*` (`useProjects`), `simple:*`/`chat:*` (chat), and `plugins:*` (`App.tsx:214` pushes active project/session context to the plugin host).
 - **Session subsystem** (`src/main/session`): `App` listens for `agent:output`/`agent:status`/`agent:sessions-changed` via the session hooks; `TerminalPane` streams agent PTY output and `AgentChatView` consumes chat-mode NDJSON.
 - **Plugin UI** (`components/plugin-ui/PluginUiHost`, rendered at `AppShell.tsx:250`): hosts plugin-contributed surfaces; `pluginView`/`pluginTreeView` dock panels render plugin webviews.
-- **Theme**: `useTheme` resolves the theme id to a body class + xterm theme; `index.tsx` loads `styles/theme.css` and `styles/dockview-theme.css`; the dockview host toggles `dockview-minimal` when no session is active (`AppShell.tsx:145`).
+- **Theme**: `useTheme` resolves the theme id to a body class + xterm theme; `index.tsx` loads `styles/theme.css` and `styles/dockview-theme.css`; the dockview host toggles `dockview-minimal` when no session is active (`AppShell.tsx:145`). The title bar's family dropdown is a hardcoded six-family list (`TitleBar.tsx:16`) fed by `App.tsx`'s `themeFamily` prefix match (`App.tsx:164`); the Settings theme picker is registry-driven instead.
 
 ## Invariants & gotchas
 
