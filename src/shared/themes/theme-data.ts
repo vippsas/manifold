@@ -9,6 +9,10 @@ import theme_neon_dark from './data/Neon Dark.json'
 import theme_neon_light from './data/Neon Light.json'
 import theme_royal_dark from './data/Royal Dark.json'
 import theme_royal_light from './data/Royal Light.json'
+import theme_jade_dark from './data/Jade Dark.json'
+import theme_jade_light from './data/Jade Light.json'
+import theme_platinum_dark from './data/Platinum Dark.json'
+import theme_platinum_light from './data/Platinum Light.json'
 
 export const themeDataByLabel: Record<string, unknown> = {
   "Manifold Dark": theme_manifold_dark,
@@ -19,6 +23,10 @@ export const themeDataByLabel: Record<string, unknown> = {
   "Neon Light": theme_neon_light,
   "Royal Dark": theme_royal_dark,
   "Royal Light": theme_royal_light,
+  "Jade Dark": theme_jade_dark,
+  "Jade Light": theme_jade_light,
+  "Platinum Dark": theme_platinum_dark,
+  "Platinum Light": theme_platinum_light,
 }
 
 export const themeList: Record<string, string> = {
@@ -30,4 +38,8 @@ export const themeList: Record<string, string> = {
   "neon-light": "Neon Light",
   "royal-dark": "Royal Dark",
   "royal-light": "Royal Light",
+  "jade-dark": "Jade Dark",
+  "jade-light": "Jade Light",
+  "platinum-dark": "Platinum Dark",
+  "platinum-light": "Platinum Light",
 }
