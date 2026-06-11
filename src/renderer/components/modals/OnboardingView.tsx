@@ -5,6 +5,7 @@ import { onboardingLinkStyle } from './NewAgentForm.styles'
 import { NoProjectActions } from '../sidebar/NoProjectActions'
 import { WorkspaceGlyph } from '../sidebar/WorkspaceGlyph'
 import { ManifoldGhost } from '../ManifoldGhost'
+import { StarfieldBackdrop } from '../StarfieldBackdrop'
 
 function GhostLinkButton({ onClick, children }: { onClick: () => void; children: React.ReactNode }): React.JSX.Element {
   const [hover, setHover] = React.useState(false)
@@ -88,6 +89,7 @@ export function OnboardingView(props: OnboardingViewProps): React.JSX.Element {
   return (
     <div
       style={{
+        position: 'relative',
         flex: 1,
         height: '100%',
         display: 'flex',
@@ -106,6 +108,7 @@ export function OnboardingView(props: OnboardingViewProps): React.JSX.Element {
         ].join(', '),
       }}
     >
+      <StarfieldBackdrop />
       <ManifoldWordmark size="normal" />
 
       {props.variant === 'no-project' ? (

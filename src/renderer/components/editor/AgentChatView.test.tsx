@@ -35,6 +35,14 @@ describe('AgentChatView', () => {
     })
   })
 
+  it('renders the starfield backdrop behind the empty state', async () => {
+    render(<AgentChatView sessionId="sess-1" />)
+
+    await waitFor(() => {
+      expect(screen.getByTestId('starfield-backdrop')).toBeInTheDocument()
+    })
+  })
+
   it('renders image references from existing non-interactive chat messages', async () => {
     const imagePath = '/var/folders/wl/app/T/manifold-chat-images/sess-1/image.png'
     mockInvoke.mockImplementation((channel: string) => {
