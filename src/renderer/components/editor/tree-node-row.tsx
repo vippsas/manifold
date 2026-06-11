@@ -141,8 +141,8 @@ export function NodeRow({
         (() => {
           const svg = getFileIconSvg(node.name)
           return svg
-            ? <span style={treeStyles.fileIconImg} dangerouslySetInnerHTML={{ __html: svg }} />
-            : <span style={treeStyles.fileIcon}>{'\uD83D\uDCC4'}</span>
+            ? <span className="file-tree-icon" style={treeStyles.fileIconImg} dangerouslySetInnerHTML={{ __html: svg }} />
+            : <span className="file-tree-icon" style={treeStyles.fileIcon}>{'\uD83D\uDCC4'}</span>
         })()
       )}
       {isRenaming ? (

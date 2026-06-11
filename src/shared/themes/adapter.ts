@@ -81,6 +81,9 @@ export function convertTheme(themeJson: MonacoThemeJson, _themeId: string): Conv
     '--accent-text': c('button.foreground') ?? (luminance(accent) > 0.4 ? '#000000' : '#ffffff'),
     '--accent-hover': lighten(accent, 15),
     '--accent-dim': darken(accent, 30),
+    // The second metal: a polished highlight of the accent (champagne to the
+    // accent's gold) for emphasis text — lighter on dark, deeper on light.
+    '--accent-hi': adjust(accent, 22),
 
     // Button colors — themes can override via button.background / button.foreground
     '--btn-bg': c('button.background') ?? accent,
