@@ -125,7 +125,7 @@ export function AgentItem({ session, projectPath, isActive, isOutputting, onSele
     <div
       onClick={handleClick}
       onKeyDown={handleKeyDown}
-      className={`sidebar-item-row sidebar-agent-row ${session.status === 'done' || session.status === 'error' ? 'sidebar-agent-row--exited' : 'sidebar-agent-row--alive'}${isActive ? ' sidebar-item-row--active' : ''}`}
+      className={`sidebar-item-row sidebar-agent-row ${session.status === 'done' || session.status === 'error' ? 'sidebar-agent-row--exited' : 'sidebar-agent-row--alive'}${isOutputting ? ' sidebar-agent-row--outputting' : ''}${isActive ? ' sidebar-item-row--active' : ''}`}
       title={displayName ? `${displayName} - ${session.branchName}` : `${runtimeLabel(session.runtimeId)} - ${session.branchName}`}
       role="button"
       tabIndex={0}

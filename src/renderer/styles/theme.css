@@ -650,6 +650,29 @@ select:focus-visible {
   border-left-color: transparent;
 }
 
+/* Sensor sweep: a slow, faint band of accent light crosses the row while its
+   agent streams output — a long-range scan, not a loading bar. */
+.sidebar-agent-row--outputting {
+  position: relative;
+  overflow: hidden;
+}
+
+.sidebar-agent-row--outputting::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(90deg, transparent, var(--effect-glow, var(--accent-subtle)) 50%, transparent) no-repeat;
+  background-size: 90px 100%;
+  background-position: -90px 0;
+  animation: agent-scan 3.2s ease-in-out infinite;
+  pointer-events: none;
+}
+
+@keyframes agent-scan {
+  0% { background-position: -90px 0; }
+  60%, 100% { background-position: calc(100% + 90px) 0; }
+}
+
 .sidebar-agent-row.sidebar-item-row--active {
   border-left-width: 2px;
   background: var(--sidebar-active-bg);
