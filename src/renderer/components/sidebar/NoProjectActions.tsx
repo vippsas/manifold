@@ -1,7 +1,13 @@
 import React, { useRef, useState, useCallback } from 'react'
 import type { CreateProjectOptions } from '../../../shared/types'
+import { modeToggleStyles, startButtonStyle } from '../modals/NewAgentForm.styles'
 
 type PromptMode = 'scratch' | 'copied'
+
+const PROMPT_MODES: Array<{ id: PromptMode; label: string }> = [
+  { id: 'copied', label: 'Copied instructions' },
+  { id: 'scratch', label: 'From scratch' },
+]
 
 const buttonStyle: React.CSSProperties = {
   padding: '8px 20px',
@@ -19,6 +25,35 @@ const secondaryButtonStyle: React.CSSProperties = {
   color: 'var(--text-primary)',
   backgroundColor: 'var(--control-bg)',
   border: '1px solid var(--control-border)',
+}
+
+const headingStyle: React.CSSProperties = {
+  fontFamily: 'var(--font-display)',
+  fontSize: 'var(--type-display)',
+  fontWeight: 400,
+  color: 'var(--text-primary)',
+  letterSpacing: 'var(--tracking-tight)',
+}
+
+const headingEmphasisStyle: React.CSSProperties = {
+  fontStyle: 'italic',
+  fontWeight: 500,
+  color: 'var(--accent-hi, var(--text-primary))',
+}
+
+const textareaStyle: React.CSSProperties = {
+  width: '100%',
+  padding: '10px 14px',
+  fontSize: 'var(--type-ui)',
+  lineHeight: 1.5,
+  backgroundColor: 'var(--bg-input)',
+  color: 'var(--text-primary)',
+  border: '1px solid var(--border)',
+  borderRadius: 'var(--radius-md)',
+  outline: 'none',
+  resize: 'vertical',
+  fontFamily: 'inherit',
+  boxSizing: 'border-box',
 }
 
 const promptPlaceholderByMode: Record<PromptMode, string> = {
@@ -41,7 +76,8 @@ export function NoProjectActions({
   cloningProject?: boolean
   createError?: string | null
 }): React.JSX.Element {
-  const [promptMode, setPromptMode] = useState<PromptMode | null>(null)
+  const [promptMode, setPromptMode] = useState<PromptMode>('copied')
+  const [hoveredMode, setHoveredMode] = useState<PromptMode | null>(null)
   const [description, setDescription] = useState('')
   const [cloneUrl, setCloneUrl] = useState('')
   const [showClone, setShowClone] = useState(false)
@@ -58,7 +94,6 @@ export function NoProjectActions({
       })
       if (created) {
         setDescription('')
-        setPromptMode(null)
       }
     },
     [description, promptMode, creatingProject, onCreateNewProject]
@@ -80,100 +115,72 @@ export function NoProjectActions({
   )
 
   const canSubmit = description.trim().length > 0 && !creatingProject
-  const promptPlaceholder = promptMode ? promptPlaceholderByMode[promptMode] : undefined
 
   return (
     <>
-      <div style={{ fontSize: 15, fontWeight: 500, color: 'var(--text-primary)' }}>
-        Start a new project
-      </div>
-      {promptMode ? (
-        <form ref={formRef} onSubmit={(e) => void handleCreateSubmit(e)} style={{ display: 'flex', flexDirection: 'column', gap: 10, width: 480, maxWidth: '90%' }}>
-          <div style={{ position: 'relative' }}>
-            <textarea
-              value={description}
-              onChange={(e) => setDescription(e.target.value)}
-              placeholder={promptPlaceholder}
-              autoFocus
-              rows={5}
-              style={{
-                width: '100%',
-                padding: '10px 14px',
-                paddingBottom: 44,
-                fontSize: 13,
-                lineHeight: 1.5,
-                backgroundColor: 'var(--bg-input)',
-                color: 'var(--text-primary)',
-                border: '1px solid var(--border)',
-                borderRadius: 8,
-                outline: 'none',
-                resize: 'vertical',
-                fontFamily: 'inherit',
-                boxSizing: 'border-box',
-              }}
-              onKeyDown={(e) => {
-                if (e.key === 'Enter' && e.metaKey && canSubmit) {
-                  e.preventDefault()
-                  formRef.current?.requestSubmit()
-                }
-              }}
-            />
+      <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 'var(--space-lg)' }}>
+        <div style={headingStyle}>
+          Start a <span style={headingEmphasisStyle}>new project</span>
+        </div>
+        <form
+          ref={formRef}
+          onSubmit={(e) => void handleCreateSubmit(e)}
+          style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-md)', width: 480, maxWidth: '90%' }}
+        >
+          <textarea
+            value={description}
+            onChange={(e) => setDescription(e.target.value)}
+            placeholder={promptPlaceholderByMode[promptMode]}
+            autoFocus
+            rows={5}
+            style={textareaStyle}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter' && e.metaKey && canSubmit) {
+                e.preventDefault()
+                formRef.current?.requestSubmit()
+              }
+            }}
+          />
+          <div style={modeToggleStyles.wrapper}>
+            <div style={modeToggleStyles.track} role="tablist" aria-label="Project start mode">
+              {PROMPT_MODES.map((m) => {
+                const active = promptMode === m.id
+                return (
+                  <button
+                    key={m.id}
+                    type="button"
+                    role="tab"
+                    aria-selected={active}
+                    onClick={() => setPromptMode(m.id)}
+                    onMouseEnter={() => setHoveredMode(m.id)}
+                    onMouseLeave={() => setHoveredMode(null)}
+                    style={{
+                      ...modeToggleStyles.segment,
+                      ...(active ? modeToggleStyles.segmentActive : {}),
+                      ...(!active && hoveredMode === m.id ? modeToggleStyles.segmentHover : {}),
+                    }}
+                  >
+                    {m.label}
+                  </button>
+                )
+              })}
+            </div>
             <button
               type="submit"
               disabled={!canSubmit}
-              style={{
-                ...buttonStyle,
-                padding: '6px 16px',
-                fontSize: 13,
-                opacity: canSubmit ? 1 : 0.5,
-                position: 'absolute',
-                right: 8,
-                bottom: 8,
-                display: 'flex',
-                alignItems: 'center',
-                gap: 6,
-              }}
+              className="btn-metal"
+              style={{ ...startButtonStyle(canSubmit, Boolean(creatingProject)), gap: 6 }}
               aria-busy={creatingProject || undefined}
             >
               {creatingProject && <span className="spinner" aria-hidden="true" />}
-              {creatingProject ? 'Creating…' : 'Go'}
+              {creatingProject ? 'Creating…' : 'Start Project'}
             </button>
           </div>
-          <button
-            type="button"
-            onClick={() => {
-              setDescription('')
-              setPromptMode(null)
-            }}
-            style={{
-              ...secondaryButtonStyle,
-              alignSelf: 'flex-start',
-              padding: '6px 14px',
-              fontSize: 12,
-            }}
-          >
-            Back
-          </button>
           {createError && !showClone && (
-            <div style={{ fontSize: 12, color: 'var(--error, #f44)' }}>{createError}</div>
+            <div style={{ fontSize: 12, color: 'var(--error, #f44)', textAlign: 'center' }}>{createError}</div>
           )}
         </form>
-      ) : (
-        <div style={{
-          width: 480,
-          maxWidth: '90%',
-          display: 'flex',
-          justifyContent: 'center',
-          gap: 10,
-          flexWrap: 'wrap',
-        }}>
-          <button onClick={() => setPromptMode('copied')} style={buttonStyle}>Start from copied instructions</button>
-          <button onClick={() => setPromptMode('scratch')} style={secondaryButtonStyle}>Start from scratch</button>
-          {createError && !showClone && (
-            <div style={{ flexBasis: '100%', fontSize: 12, color: 'var(--error, #f44)', textAlign: 'center' }}>{createError}</div>
-          )}
-        </div>
-      )}
+      </div>
 
       <div style={{
         width: 480,

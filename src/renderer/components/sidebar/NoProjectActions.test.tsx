@@ -21,40 +21,34 @@ function renderActions(overrides: Partial<React.ComponentProps<typeof NoProjectA
 }
 
 describe('NoProjectActions', () => {
-  it('shows start choices before the prompt textarea', () => {
+  it('shows the prompt textarea immediately, defaulting to copied instructions', () => {
     renderActions()
-
-    expect(screen.getByRole('button', { name: 'Start from scratch' })).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: 'Start from copied instructions' })).toBeInTheDocument()
-    expect(screen.queryByRole('button', { name: 'Go' })).not.toBeInTheDocument()
-    expect(screen.queryByPlaceholderText('Describe what you want to build...')).not.toBeInTheDocument()
-  })
-
-  it('opens the prompt textarea for a project from scratch', () => {
-    renderActions()
-
-    fireEvent.click(screen.getByRole('button', { name: 'Start from scratch' }))
-
-    expect(screen.getByPlaceholderText('Describe what you want to build...')).toBeInTheDocument()
-  })
-
-  it('opens the prompt textarea for copied instructions', () => {
-    renderActions()
-
-    fireEvent.click(screen.getByRole('button', { name: 'Start from copied instructions' }))
 
     expect(screen.getByPlaceholderText('Paste the copied project instructions...')).toBeInTheDocument()
+    expect(screen.getByRole('tab', { name: 'Copied instructions' })).toHaveAttribute('aria-selected', 'true')
+    expect(screen.getByRole('button', { name: 'Start Project' })).toBeDisabled()
+    expect(screen.queryByRole('button', { name: 'Go' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Back' })).not.toBeInTheDocument()
   })
 
-  it('submits the description directly when Go is clicked', async () => {
+  it('switches the placeholder when selecting From scratch', () => {
+    renderActions()
+
+    fireEvent.click(screen.getByRole('tab', { name: 'From scratch' }))
+
+    expect(screen.getByPlaceholderText('Describe what you want to build...')).toBeInTheDocument()
+    expect(screen.getByRole('tab', { name: 'From scratch' })).toHaveAttribute('aria-selected', 'true')
+  })
+
+  it('submits a scratch project without projectKind', async () => {
     const onCreateNewProject = vi.fn(async () => true)
     renderActions({ onCreateNewProject })
 
-    fireEvent.click(screen.getByRole('button', { name: 'Start from scratch' }))
+    fireEvent.click(screen.getByRole('tab', { name: 'From scratch' }))
     fireEvent.change(screen.getByPlaceholderText('Describe what you want to build...'), {
       target: { value: 'Build a focus timer' },
     })
-    fireEvent.click(screen.getByRole('button', { name: 'Go' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Start Project' }))
 
     await waitFor(() => {
       expect(onCreateNewProject).toHaveBeenCalledWith({
@@ -67,11 +61,10 @@ describe('NoProjectActions', () => {
     const onCreateNewProject = vi.fn(async () => true)
     renderActions({ onCreateNewProject })
 
-    fireEvent.click(screen.getByRole('button', { name: 'Start from copied instructions' }))
     fireEvent.change(screen.getByPlaceholderText('Paste the copied project instructions...'), {
       target: { value: 'Clone the prepared repository and continue.' },
     })
-    fireEvent.click(screen.getByRole('button', { name: 'Go' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Start Project' }))
 
     await waitFor(() => {
       expect(onCreateNewProject).toHaveBeenCalledWith({
@@ -81,26 +74,27 @@ describe('NoProjectActions', () => {
     })
   })
 
-  it('does not submit when description is empty', () => {
+  it('keeps Start Project disabled for whitespace-only input', () => {
     const onCreateNewProject = vi.fn(async () => true)
     renderActions({ onCreateNewProject })
 
-    fireEvent.click(screen.getByRole('button', { name: 'Start from copied instructions' }))
-    fireEvent.click(screen.getByRole('button', { name: 'Go' }))
+    fireEvent.change(screen.getByPlaceholderText('Paste the copied project instructions...'), {
+      target: { value: '   ' },
+    })
 
+    expect(screen.getByRole('button', { name: 'Start Project' })).toBeDisabled()
     expect(onCreateNewProject).not.toHaveBeenCalled()
   })
 
-  it('returns to the start choices when Back is clicked', () => {
+  it('clears the textarea after a successful create', async () => {
     renderActions()
 
-    fireEvent.click(screen.getByRole('button', { name: 'Start from copied instructions' }))
-    fireEvent.change(screen.getByPlaceholderText('Paste the copied project instructions...'), {
-      target: { value: 'Copied setup prompt' },
-    })
-    fireEvent.click(screen.getByRole('button', { name: 'Back' }))
+    const textarea = screen.getByPlaceholderText('Paste the copied project instructions...')
+    fireEvent.change(textarea, { target: { value: 'Copied setup prompt' } })
+    fireEvent.click(screen.getByRole('button', { name: 'Start Project' }))
 
-    expect(screen.getByRole('button', { name: 'Start from scratch' })).toBeInTheDocument()
-    expect(screen.queryByPlaceholderText('Paste the copied project instructions...')).not.toBeInTheDocument()
+    await waitFor(() => {
+      expect((textarea as HTMLTextAreaElement).value).toBe('')
+    })
   })
 })
