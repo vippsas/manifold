@@ -66,3 +66,22 @@ describe('AgentItem rename', () => {
     expect(onRename).toHaveBeenCalledWith('Release agent')
   })
 })
+
+describe('AgentItem sensor sweep', () => {
+  const baseProps = {
+    projectPath: '/tmp/proj',
+    isActive: false,
+    onSelect: vi.fn(),
+    onDelete: vi.fn(),
+  }
+
+  it('adds the outputting modifier while the agent streams output', () => {
+    const { container } = render(<AgentItem {...baseProps} isOutputting session={makeSession()} />)
+    expect(container.querySelector('.sidebar-agent-row')).toHaveClass('sidebar-agent-row--outputting')
+  })
+
+  it('omits the outputting modifier when idle', () => {
+    const { container } = render(<AgentItem {...baseProps} isOutputting={false} session={makeSession()} />)
+    expect(container.querySelector('.sidebar-agent-row')).not.toHaveClass('sidebar-agent-row--outputting')
+  })
+})

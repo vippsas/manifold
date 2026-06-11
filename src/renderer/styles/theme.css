@@ -353,16 +353,43 @@ select {
   transition: border-color var(--duration-normal) var(--ease-premium);
 }
 
+/* Targeting-reticle focus: text fields swap the plain accent border for four
+   corner brackets — the UI locks on to where you type. !important mirrors the
+   old border rule: inline `background` shorthands on inputs would otherwise
+   reset the bracket layers. Each corner is two thin gradient bars. */
 input:focus,
-textarea:focus,
+textarea:focus {
+  border-color: transparent !important;
+  background-image:
+    linear-gradient(var(--accent), var(--accent)),
+    linear-gradient(var(--accent), var(--accent)),
+    linear-gradient(var(--accent), var(--accent)),
+    linear-gradient(var(--accent), var(--accent)),
+    linear-gradient(var(--accent), var(--accent)),
+    linear-gradient(var(--accent), var(--accent)),
+    linear-gradient(var(--accent), var(--accent)),
+    linear-gradient(var(--accent), var(--accent)) !important;
+  background-repeat: no-repeat !important;
+  background-origin: border-box !important;
+  background-clip: border-box !important;
+  background-size:
+    12px 1.5px, 1.5px 12px,
+    12px 1.5px, 1.5px 12px,
+    12px 1.5px, 1.5px 12px,
+    12px 1.5px, 1.5px 12px !important;
+  background-position:
+    left top, left top,
+    right top, right top,
+    left bottom, left bottom,
+    right bottom, right bottom !important;
+}
+
 select:focus {
   border-color: var(--accent) !important;
 }
 
 button:focus-visible,
 [role='button']:focus-visible,
-input:focus-visible,
-textarea:focus-visible,
 select:focus-visible {
   outline: none;
   box-shadow: 0 0 0 2px var(--accent-subtle), 0 0 10px var(--accent-subtle);
@@ -378,13 +405,19 @@ select:focus-visible {
   background: var(--accent);
 }
 
-@keyframes dot-blink {
-  0%, 100% { opacity: 1; }
-  50% { opacity: 0.25; }
+/* Warp-core pulse: the running dot breathes a slow accent glow instead of
+   blinking — the heartbeat of the ship. */
+@keyframes core-pulse {
+  0%, 100% { box-shadow: 0 0 3px 1px var(--effect-glow, var(--accent-subtle)); }
+  50% {
+    box-shadow:
+      0 0 6px 2px var(--effect-glow, var(--accent-subtle)),
+      0 0 14px 4px var(--effect-glow, var(--accent-subtle));
+  }
 }
 
 .status-dot--active {
-  animation: dot-blink 1.4s ease-in-out infinite;
+  animation: core-pulse 2.4s ease-in-out infinite;
 }
 
 .status-dot--hidden {
@@ -623,6 +656,29 @@ select:focus-visible {
   border-left-color: transparent;
 }
 
+/* Sensor sweep: a slow, faint band of accent light crosses the row while its
+   agent streams output — a long-range scan, not a loading bar. */
+.sidebar-agent-row--outputting {
+  position: relative;
+  overflow: hidden;
+}
+
+.sidebar-agent-row--outputting::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(90deg, transparent, var(--effect-glow, var(--accent-subtle)) 50%, transparent) no-repeat;
+  background-size: 90px 100%;
+  background-position: -90px 0;
+  animation: agent-scan 3.2s ease-in-out infinite;
+  pointer-events: none;
+}
+
+@keyframes agent-scan {
+  0% { background-position: -90px 0; }
+  60%, 100% { background-position: calc(100% + 90px) 0; }
+}
+
 .sidebar-agent-row.sidebar-item-row--active {
   border-left-width: 2px;
   background: var(--sidebar-active-bg);
@@ -707,6 +763,8 @@ select:focus-visible {
    elevation) with an accent-tinted border to read as a workspace, not a repo. */
 .sidebar-project-group--has-agents.sidebar-workspace-card {
   border-color: color-mix(in srgb, var(--accent), transparent 58%);
+  /* Console plate: the active workspace cuts opposing corners too. */
+  clip-path: polygon(10px 0, 100% 0, 100% calc(100% - 10px), calc(100% - 10px) 100%, 0 100%, 0 10px);
 }
 
 .sidebar-workspace-eyebrow {
@@ -786,12 +844,16 @@ select:focus-visible {
   border: 1px solid color-mix(in srgb, var(--accent-dim, var(--accent)), transparent 40%);
   font-weight: 600;
   box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.22), var(--shadow-glow);
+  /* Machined plate: opposing 45° chamfers. clip-path clips outer box-shadows,
+     so depth is restored as drop-shadows that follow the chamfered silhouette. */
+  clip-path: polygon(9px 0, 100% 0, 100% calc(100% - 9px), calc(100% - 9px) 100%, 0 100%, 0 9px);
+  filter: drop-shadow(0 4px 8px rgba(0, 0, 0, 0.28)) drop-shadow(0 0 8px var(--effect-glow, transparent));
   transition: filter var(--duration-normal) var(--ease-premium), box-shadow var(--duration-normal) var(--ease-premium);
 }
 
 .btn-metal:hover:not(:disabled),
 .sidebar-action-button--primary:hover {
-  filter: brightness(1.1);
+  filter: brightness(1.1) drop-shadow(0 4px 8px rgba(0, 0, 0, 0.28)) drop-shadow(0 0 8px var(--effect-glow, transparent));
 }
 
 /* ─── Markdown Preview ─── */
@@ -1494,4 +1556,12 @@ select:focus-visible {
 /* ─── Title Bar Search (omnibox) ─── */
 .titlebar-search-input::placeholder {
   color: var(--text-muted);
+}
+
+/* ─── Reduced motion: instrumentation effects go static ─── */
+@media (prefers-reduced-motion: reduce) {
+  .status-dot--active,
+  .sidebar-agent-row--outputting::after {
+    animation: none;
+  }
 }

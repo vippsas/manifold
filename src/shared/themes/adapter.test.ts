@@ -51,4 +51,36 @@ describe('convertTheme', () => {
       'grayscale(1) sepia(1) hue-rotate(2deg) saturate(1.23) brightness(1.08) opacity(1)'
     )
   })
+
+  it('derives instrumentation effect tints per theme type', () => {
+    const dark = convertTheme({
+      base: 'vs-dark',
+      inherit: true,
+      rules: [],
+      colors: {
+        'editor.background': '#06080F',
+        'editor.foreground': '#E6ECF7',
+        focusBorder: '#E2C275',
+      },
+    }, 'test')
+
+    expect(dark.cssVars['--effect-glow']).toBe('rgba(226, 194, 117, 0.16)')
+    expect(dark.cssVars['--star-tint']).toBe('rgba(230, 236, 247, 0.5)')
+    expect(dark.cssVars['--grid-tint']).toBe('rgba(226, 194, 117, 0.1)')
+
+    const light = convertTheme({
+      base: 'vs',
+      inherit: true,
+      rules: [],
+      colors: {
+        'editor.background': '#FFFFFF',
+        'editor.foreground': '#1E1E1E',
+        focusBorder: '#007acc',
+      },
+    }, 'test')
+
+    expect(light.cssVars['--effect-glow']).toBe('rgba(0, 122, 204, 0.1)')
+    expect(light.cssVars['--star-tint']).toBe('rgba(30, 30, 30, 0.38)')
+    expect(light.cssVars['--grid-tint']).toBe('rgba(0, 122, 204, 0.07)')
+  })
 })
