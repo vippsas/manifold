@@ -1286,7 +1286,9 @@ select:focus-visible {
   filter: grayscale(1) brightness(1.08) opacity(0.85);
 }
 .file-tree-row.file-tree-row--active .file-tree-icon {
-  filter: grayscale(1) brightness(1.08) opacity(1);
+  /* Accent-tinted: the open file is the only icon that earns color.
+     Fallback preserves the monochrome treatment if the token is absent. */
+  filter: var(--tree-icon-active-filter, grayscale(1) brightness(1.08) opacity(1));
 }
 
 /* ─── File Tree Delete Button (hover reveal) ─── */
