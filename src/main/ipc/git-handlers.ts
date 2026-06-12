@@ -102,4 +102,12 @@ export function registerGitHandlers(deps: IpcDependencies): void {
     if (!isGitProject(project)) throw new Error('This project is a plain folder, not a git repository')
     return gitOps.fetchAndUpdate(project.path, project.baseBranch)
   })
+
+  ipcMain.handle('git:staleness', async (_event, projectId: string): Promise<{ baseBranch: string; behindCount: number }> => {
+    const project = projectRegistry.getProject(projectId)
+    if (!project) throw new Error(`Project not found: ${projectId}`)
+    if (!isGitProject(project)) return { baseBranch: '', behindCount: 0 }
+    const behindCount = await gitOps.getRemoteBehindCount(project.path, project.baseBranch)
+    return { baseBranch: project.baseBranch, behindCount }
+  })
 }
