@@ -181,8 +181,11 @@ export class PluginManager {
   setActiveContext(context: { project?: unknown; session?: SessionInfo }): void {
     let session = context.session
     if (session?.id) {
-      const worktreePath = this.sessionManager.getSession(session.id)?.worktreePath
-      if (worktreePath) session = { ...session, worktreePath }
+      const internal = this.sessionManager.getSession(session.id)
+      if (internal?.worktreePath) session = { ...session, worktreePath: internal.worktreePath }
+      // Runtime drives the skill-invocation syntax a plugin types into the
+      // agent (Claude Code's `/plugin:command` vs Codex's `$skill`).
+      if (internal?.runtimeId) session = { ...session, runtimeId: internal.runtimeId }
     }
     this.host.setActiveContext({ ...context, session })
   }

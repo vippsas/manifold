@@ -109,6 +109,9 @@ export function createWatchFacade(manifold: ManifoldApi): WatchFacade {
         {
           sessionId,
           sessionInfo: sessionInfo(),
+          // The run targets the active session; its runtime picks the
+          // invocation syntax (`/watch:watch` for Claude, `$watch` for Codex).
+          runtimeId: manifold.workspace.activeSession?.runtimeId,
           url,
           question,
           sourceUrl,

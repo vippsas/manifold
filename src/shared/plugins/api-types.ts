@@ -4,7 +4,7 @@ import type { QuickPickItem, QuickPickOptions, InputBoxOptions } from './ui'
 export interface Disposable { dispose(): void }
 
 export interface ProjectInfo { id: string; name: string; path: string }
-export interface SessionInfo { id: string; status: string; branchName?: string; worktreePath?: string }
+export interface SessionInfo { id: string; status: string; branchName?: string; worktreePath?: string; runtimeId?: string }
 
 export interface CancellationToken {
   readonly isCancellationRequested: boolean

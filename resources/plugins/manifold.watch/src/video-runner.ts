@@ -13,6 +13,18 @@ import type { PipelineHooks } from './pipeline'
 const AGENT_INPUT_DELAY_MS = 400
 const AGENT_READY_TIMEOUT_MS = 30_000
 
+/** Build the skill invocation typed into the base agent. The syntax is
+ *  runtime-specific: Claude Code invokes a plugin command as `/watch:watch`,
+ *  Codex references a skill as `$watch`. Both load the same bundled `watch`
+ *  skill (installed into `~/.claude` and `~/.codex` by skill-installer.ts);
+ *  only the trigger token differs, so Codex agents reject `/watch:watch` as an
+ *  unrecognized command. Unknown/Claude runtimes keep the `/watch:watch` form. */
+export function buildWatchCommand(runtimeId: string | undefined, workDir: string, question: string): string {
+  const args = `"${workDir}" ${question}`
+  const isCodex = runtimeId === 'codex' || runtimeId === 'ollama-codex'
+  return isCodex ? `$watch ${args}` : `/watch:watch ${args}`
+}
+
 /** Narrow agent port over `manifold.agents` (wired by plugin.ts). The run
  *  drives the user's own (base) agent: once the pipeline has produced the
  *  report, the `/watch:watch` command is typed straight into its PTY. */
@@ -32,8 +44,12 @@ export interface RunVideoDeps {
 }
 
 export interface RunVideoOptions {
-  /** The base session the `/watch:watch` command is typed into. */
+  /** The base session the watch command is typed into. */
   sessionId: string
+  /** Runtime of the base session; selects the skill-invocation syntax
+   *  (`/watch:watch` for Claude Code, `$watch` for Codex). Defaults to the
+   *  Claude Code form when absent. */
+  runtimeId?: string
   /** Base-session info for run-store persistence. Falls back to an id-keyed
    *  shape when omitted. */
   sessionInfo?: WatchSessionInfo
@@ -97,7 +113,7 @@ export async function runWatchVideo(
     } catch {
       // Renderer may have unsubscribed; non-fatal.
     }
-    const command = `/watch:watch "${result.workDir}" ${question}`
+    const command = buildWatchCommand(opts.runtimeId, result.workDir, question)
     // Wait until the agent's TUI prompt is rendered (status 'waiting');
     // typing earlier can land in the welcome banner or mid-turn output.
     // Proceeds on timeout so a busy agent doesn't deadlock the run.

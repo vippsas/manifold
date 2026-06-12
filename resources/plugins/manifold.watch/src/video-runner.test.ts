@@ -94,6 +94,21 @@ describe('runWatchVideo', () => {
     expect(agents.inputs.filter(([, v]) => v === '\r').length).toBe(1)
   })
 
+  it('types the Codex `$watch` skill syntax when the base session runs Codex', async () => {
+    const agents = makeAgents()
+    pipelineMock.mockResolvedValue({ workDir: '/tmp/wd-1', reportPath: '', frames: [], transcript: { source: 'none' } })
+
+    await runWatchVideo(makeDeps(agents), runOpts({ runtimeId: 'codex', question: 'why?' }))
+
+    // Codex rejects Claude Code's `/watch:watch` form; it references the skill
+    // installed at ~/.codex/skills/watch as `$watch` instead.
+    const cmd = agents.inputs.find(([sid]) => sid === 'base')!
+    expect(cmd[1].startsWith('$watch ')).toBe(true)
+    expect(cmd[1]).not.toContain('/watch:watch')
+    expect(cmd[1]).toContain('"/tmp/wd-1"')
+    expect(cmd[1]).toContain('why?')
+  })
+
   it('falls back to the default prompt when the question is blank', async () => {
     const agents = makeAgents()
     pipelineMock.mockResolvedValue({ workDir: '/tmp/wd-1', reportPath: '', frames: [], transcript: { source: 'none' } })

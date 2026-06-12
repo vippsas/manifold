@@ -1,7 +1,7 @@
 ---
 description: How Manifold's main process discovers, loads, gates, and tears down plugins — the host side that forks the extension-host utility process and enforces capabilities.
 covers: [src/main/plugins, src/plugin-host]
-updated: 2026-06-11
+updated: 2026-06-12
 owner: see .github/CODEOWNERS
 ---
 
@@ -189,7 +189,7 @@ disabled plugin (`extension-host.ts`, `plugin-manager.ts:63`).
 ## Interactions
 
 - **Extension-host process** (`src/plugin-host`): the peer that actually runs plugin code. `index.ts` wires the require interceptor, the `Activator`, `buildGatedApi`, and the per-namespace API factories (`storage-api`, `workspace-api`, `config-api`, `agents-api`, `lm-api`, plus the `vscode-shim` for `kind: 'vscode'`). The two sides talk over `RpcEndpoint` (`shared/plugins/rpc.ts:32`) across the utility-process message channel.
-- **Session** (`src/main/session`): `AgentControlService` and `LmService` read live sessions via `SessionManager.getSession`/`getInternalSession`/`sendInput`; `setActiveContext` enriches the renderer's context with the session's `worktreePath` (`plugin-manager.ts:148`).
+- **Session** (`src/main/session`): `AgentControlService` and `LmService` read live sessions via `SessionManager.getSession`/`getInternalSession`/`sendInput`; `setActiveContext` enriches the renderer's context with the session's `worktreePath` and `runtimeId` (`plugin-manager.ts:181`) — the latter lets a plugin pick a runtime-specific agent invocation (e.g. watch's `/watch:watch` vs Codex's `$watch`).
 - **Git** (`src/main/git`): `LmService.sendRequest` calls `GitOperationsManager.aiGenerate` to do one-shot generation through the runtime (`lm-service.ts:37`).
 - **Settings store** (`src/main/store`): enable/disable lives in `settings.disabledPlugins`; per-plugin config overrides live in `settings.pluginConfig` and merge over manifest defaults (`plugin-manager.ts:59`, `:69`).
 - **IPC** (`src/main/ipc/plugin-handlers.ts`): `plugins:list`, `plugins:list-contributions`, `plugins:set-enabled`, `plugins:activate`, `plugins:execute-command`, `plugins:open-view`/`open-tree-view`, `plugins:tree-get-children`, `plugins:webview-to-host`, `plugins:set-active-context`, `plugins:get-config`/`set-config`, `plugins:ui-response`. The manager pushes `plugins:webview-html`, `plugins:webview-message`, `plugins:tree-refresh`, `plugins:ui-request`, and `plugins:contributions-changed` to the renderer through `setMainWindow`'s `send` (`plugin-manager.ts:120`).
