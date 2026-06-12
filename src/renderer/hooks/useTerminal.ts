@@ -95,7 +95,19 @@ export function useTerminal({ sessionId, scrollbackLines, terminalFontFamily, xt
     const container = containerRef.current
     if (!container) return
 
-    const terminal = new Terminal(buildTerminalOptions(scrollbackLines, terminalFontFamily, xtermTheme))
+    const terminal = new Terminal({
+      ...buildTerminalOptions(scrollbackLines, terminalFontFamily, xtermTheme),
+      // OSC 8 hyperlinks (e.g. links rendered by Claude Code) bypass the
+      // WebLinksAddon and would otherwise hit xterm's built-in confirm dialog
+      // ("WARNING: This link could potentially be dangerous"). xterm only
+      // passes http/https URIs here, and Electron's window-open handler
+      // routes them to the default browser.
+      linkHandler: {
+        activate: (_event, uri) => {
+          window.open(uri)
+        },
+      },
+    })
     terminalRef.current = terminal
     const fitAddon = new FitAddon()
     fitAddonRef.current = fitAddon
