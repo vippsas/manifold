@@ -22,8 +22,10 @@ function tabTitle(session: AgentSession): string {
   return runtime
 }
 
+// Primary and sibling tabs share one naming rule (display name, then runtime
+// label) so the first tab doesn't read "Agent" next to siblings named "Codex".
 function primaryTabTitle(session: AgentSession | null | undefined): string {
-  return session?.displayName?.trim() || 'Agent'
+  return session ? tabTitle(session) : 'Agent'
 }
 
 function setPanelTitle(panel: unknown, title: string): void {
