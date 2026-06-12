@@ -18,13 +18,13 @@ import type { GitOperationsManager } from '../git/git-operations'
 import type { InternalSession } from './session-types'
 import { SessionStreamWirer } from './session-stream-wirer'
 import { SessionDiscovery } from './session-discovery'
-import { resumeAgentSession } from './session-resume'
 import { ShellSessionController } from './shell-session-controller'
 import { SessionKiller } from './session-killer'
+import { SessionLifecycle } from './session-lifecycle'
 import { toPublicSession } from './session-public'
 import { SessionIoController } from './session-io-controller'
 import type { VerdictRecorder } from './verdict-recorder'
-import { isGitProject } from '../../shared/project-kind'
+import type { DismissedAgentsStore } from '../store/dismissed-agents-store'
 
 export class SessionManager {
   private sessions: Map<string, InternalSession> = new Map()
@@ -41,11 +41,9 @@ export class SessionManager {
   private shellController: ShellSessionController
   private killer: SessionKiller
   private ioController: SessionIoController
+  private lifecycle: SessionLifecycle
   private verdictRecorder: VerdictRecorder | null = null
-  /** Dedup concurrent resume calls for the same session id. */
-  private resumeInFlight = new Map<string, Promise<AgentSession>>()
-  /** Dedup concurrent noWorktree createSession calls for the same project id. */
-  private createNoWorktreeInFlight = new Map<string, Promise<AgentSession>>()
+  private dismissedAgents: Pick<DismissedAgentsStore, 'has' | 'delete'> | null = null
 
   constructor(
     private worktreeManager: WorktreeManager,
@@ -119,6 +117,19 @@ export class SessionManager {
       spawnPrintModeFollowUp: (session, input) => this.devServer.spawnPrintModeFollowUp(session, input),
       trackActivity: (session) => this.streamWirer.trackActivity(session),
     })
+    this.lifecycle = new SessionLifecycle({
+      sessions: this.sessions,
+      projectRegistry: this.projectRegistry,
+      sessionCreator: this.sessionCreator,
+      ptyPool: this.ptyPool,
+      streamWirer: this.streamWirer,
+      probeSlashCommands: (session) => this.devServer.probeSlashCommands(session),
+      getMemoryCapture: () => this.memoryCapture,
+      getMemoryInjector: () => this.memoryInjector,
+      getVerdictRecorder: () => this.verdictRecorder,
+      getDismissedAgents: () => this.dismissedAgents,
+      notifySessionsChanged: (projectId) => this.notifySessionsChanged(projectId),
+    })
   }
 
   setChatAdapter(adapter: ChatAdapter): void { this.chatAdapter = adapter }
@@ -133,6 +144,11 @@ export class SessionManager {
     this.verdictRecorder = recorder
     this.killer.setVerdictRecorder(recorder)
     this.discovery.setVerdictRecorder(recorder)
+  }
+
+  setDismissedAgents(store: Pick<DismissedAgentsStore, 'has' | 'delete'>): void {
+    this.dismissedAgents = store
+    this.discovery.setDismissedAgents(store)
   }
 
   setGitOps(gitOps: GitOperationsManager): void {
@@ -173,78 +189,7 @@ export class SessionManager {
     this.sendToRenderer('agent:sessions-changed', { projectId })
   }
 
-  async createSession(options: SpawnAgentOptions): Promise<AgentSession> {
-    const project = this.projectRegistry.getProject(options.projectId)
-    if (!project) throw new Error(`Project not found: ${options.projectId}`)
-    const noWorktree = Boolean(options.noWorktree || !isGitProject(project))
-
-    if (noWorktree) {
-      // Serialize concurrent noWorktree spawns for the same project to prevent
-      // two callers both passing the duplicate check before either has registered
-      // its session (TOCTOU). The second caller awaits the first and then gets
-      // the "already running" error on re-check.
-      const inflight = this.createNoWorktreeInFlight.get(options.projectId)
-      if (inflight) {
-        return inflight
-      }
-      const promise = this.doCreateNoWorktreeSession(options)
-      this.createNoWorktreeInFlight.set(options.projectId, promise)
-      try {
-        return await promise
-      } finally {
-        this.createNoWorktreeInFlight.delete(options.projectId)
-      }
-    }
-
-    return this.doCreateSession(options)
-  }
-
-  private async doCreateNoWorktreeSession(options: SpawnAgentOptions): Promise<AgentSession> {
-    const existingNoWorktree = Array.from(this.sessions.values()).find(
-      (s) => s.noWorktree && s.projectId === options.projectId
-    )
-    if (existingNoWorktree) {
-      throw new Error(
-        'A no-worktree agent is already running for this project. ' +
-        'Only one no-worktree agent can run at a time per project.'
-      )
-    }
-    return this.doCreateSession(options)
-  }
-
-  private async doCreateSession(options: SpawnAgentOptions): Promise<AgentSession> {
-    const project = this.projectRegistry.getProject(options.projectId)!
-
-    const session = await this.sessionCreator.create(options)
-    this.sessions.set(session.id, session)
-
-    // Chat-mode (nonInteractive) agents show a `/` command autocomplete before
-    // the first message is sent. Seed it from the project cache, and on a cache
-    // miss probe for the list, so commands don't only appear from the 2nd message.
-    if (session.nonInteractive) {
-      if (project.slashCommands?.length) {
-        session.slashCommands = project.slashCommands
-      } else if (!session.ptyId) {
-        // Deferred session (no first message yet) — probe before the user types.
-        this.devServer.probeSlashCommands(session)
-      }
-    }
-
-    this.memoryCapture?.startCapturing(session.id)
-    this.notifySessionsChanged(session.projectId)
-    if (this.verdictRecorder && !session.noWorktree && session.worktreePath) {
-      this.verdictRecorder.onSessionCreated({
-        sessionId: session.id,
-        projectId: session.projectId,
-        branch: session.branchName,
-        runtime: session.runtimeId,
-        taskPrompt: session.taskDescription ?? '',
-        worktreePath: session.worktreePath,
-        baseBranch: project.baseBranch || 'main',
-      })
-    }
-    return toPublicSession(session)
-  }
+  async createSession(options: SpawnAgentOptions): Promise<AgentSession> { return this.lifecycle.createSession(options) }
 
   hasSession(sessionId: string): boolean { return this.sessions.has(sessionId) }
 
@@ -258,38 +203,7 @@ export class SessionManager {
 
   async killAllSessionsOnWorktree(worktreePath: string): Promise<void> { await this.killer.killAllSessionsOnWorktree(worktreePath) }
 
-  async resumeSession(sessionId: string, runtimeId: string): Promise<AgentSession> {
-    const session = this.sessions.get(sessionId)
-    if (!session) throw new Error(`Session not found: ${sessionId}`)
-    if (session.ptyId) return toPublicSession(session)
-
-    // Chat-mode sessions don't keep a long-running PTY — each message spawns
-    // a fresh print-mode process via spawnPrintModeFollowUp. Spawning the
-    // interactive runtime here would pollute the chat with TUI startup output.
-    if (session.nonInteractive) {
-      session.runtimeId = runtimeId
-      return toPublicSession(session)
-    }
-
-    // Deduplicate concurrent resume calls for the same session to prevent two
-    // callers both reading ptyId='' before either spawn completes, each spawning
-    // a PTY and leaving the first one orphaned and unkillable.
-    const inflight = this.resumeInFlight.get(sessionId)
-    if (inflight) return inflight
-
-    const promise = resumeAgentSession(session, runtimeId, this.ptyPool, this.streamWirer, this.memoryInjector ?? undefined)
-      .then(() => {
-        this.memoryCapture?.startCapturing(sessionId)
-        this.notifySessionsChanged(session.projectId)
-        return toPublicSession(session)
-      })
-      .finally(() => {
-        this.resumeInFlight.delete(sessionId)
-      })
-
-    this.resumeInFlight.set(sessionId, promise)
-    return promise
-  }
+  async resumeSession(sessionId: string, runtimeId: string): Promise<AgentSession> { return this.lifecycle.resumeSession(sessionId, runtimeId) }
 
   async renameSession(sessionId: string, displayName: string): Promise<AgentSession> {
     const session = this.sessions.get(sessionId)

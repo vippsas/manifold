@@ -25,6 +25,7 @@ import { GitOperationsManager } from '../git/git-operations'
 import { BranchCheckoutManager } from '../git/branch-checkout-manager'
 import { DockLayoutStore } from '../store/dock-layout-store'
 import { SearchViewStore } from '../store/search-view-store'
+import { DismissedAgentsStore } from '../store/dismissed-agents-store'
 import { BackgroundAgentHost } from '../background-agent-host/background-agent-host'
 import { ChatStore } from '../store/chat-store'
 import { ChatAdapter } from '../agent/chat-adapter'
@@ -80,6 +81,8 @@ const shellTabStore = new ShellTabStore()
 const gitOps = new GitOperationsManager()
 const dockLayoutStore = new DockLayoutStore()
 const searchViewStore = new SearchViewStore()
+const dismissedAgents = new DismissedAgentsStore()
+sessionManager.setDismissedAgents(dismissedAgents)
 const backgroundAgentHost = new BackgroundAgentHost({
   settingsStore,
   projectRegistry,
@@ -128,6 +131,7 @@ const ipcDeps = {
   branchCheckout,
   dockLayoutStore,
   searchViewStore,
+  dismissedAgents,
   backgroundAgentHost,
   chatAdapter,
   chatStore,

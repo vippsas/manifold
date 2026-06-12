@@ -318,6 +318,7 @@ describe('registerProjectHandlers', () => {
       chatStore: { deleteByProject: vi.fn() },
       memoryStore: { deleteProject: vi.fn() },
       workspaceManager: { removeProjectFromAllWorkspaces: vi.fn() },
+      dismissedAgents: { deleteProject: vi.fn() },
     }
 
     registerProjectHandlers(deps as never)
@@ -326,6 +327,7 @@ describe('registerProjectHandlers', () => {
 
     expect(await handler({}, 'proj-1')).toBe(true)
     expect(deps.workspaceManager.removeProjectFromAllWorkspaces).toHaveBeenCalledWith('proj-1')
+    expect(deps.dismissedAgents.deleteProject).toHaveBeenCalledWith('proj-1')
     expect(deps.projectRegistry.removeProject).toHaveBeenCalledWith('proj-1')
   })
 })
