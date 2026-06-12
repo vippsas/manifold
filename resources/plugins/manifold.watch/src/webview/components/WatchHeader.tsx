@@ -31,7 +31,7 @@ export function WatchHeader({ url, onUrlChange, showExamples }: Props): React.JS
         </div>
       </header>
       <div>
-        <div style={{ ...s.inputBar, ...(focused ? s.inputBarFocused : {}) }}>
+        <div style={{ ...s.inputBar, ...(focused ? s.inputBarReticle : {}) }}>
           <input
             style={s.inputInline}
             value={url}
