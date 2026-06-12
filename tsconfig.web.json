@@ -19,6 +19,8 @@
     "background-agent/schemas/**/*.ts",
     "src/renderer/**/*.ts",
     "src/renderer/**/*.tsx",
+    "src/renderer-shared/**/*.ts",
+    "src/renderer-shared/**/*.tsx",
     "src/shared/**/*",
     "src/shared/themes/data/*.json"
   ]

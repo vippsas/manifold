@@ -11,7 +11,7 @@ const COPIED_INSTRUCTIONS_CLONED_NOTE =
 
 interface Args {
   createNewProject: (options: CreateProjectOptions) => Promise<Project | null>
-  addProject: (path?: string) => Promise<void>
+  addProject: (path?: string) => Promise<Project | null>
   cloneProject: (url: string) => Promise<boolean>
   spawnAgent: (options: SpawnAgentOptions) => Promise<AgentSession | null>
   setActiveSession: (sessionId: string | null) => void

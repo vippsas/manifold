@@ -280,5 +280,5 @@ function createDockState(overrides: Partial<DockAppState> = {}): DockAppState {
     onOpenSibling: vi.fn(),
     onCloseSiblingPanel: vi.fn(),
     ...overrides,
-  }
+  } as unknown as DockAppState
 }

@@ -1,6 +1,7 @@
-import type { ManifoldSettings } from './types'
+import type { FavoriteRef, ManifoldSettings } from './types'
+import type { ProvisionerConfig } from './provisioning-types'
 
-export const DEFAULT_SETTINGS: ManifoldSettings = {
+export const DEFAULT_SETTINGS = {
   storagePath: '',
   setupCompleted: false,
   lastSeenReleaseNotesVersion: '',
@@ -17,7 +18,7 @@ export const DEFAULT_SETTINGS: ManifoldSettings = {
   autoGenerateMessages: true,
   showCommitAndPrButtons: false,
   sidebarResizeReversed: false,
-  favorites: [],
+  favorites: [] as FavoriteRef[],
   keepAwake: false,
   memory: {
     enabled: true,
@@ -44,7 +45,7 @@ export const DEFAULT_SETTINGS: ManifoldSettings = {
     tabSize: 2,
   },
   provisioning: {
-    provisioners: [],
+    provisioners: [] as ProvisionerConfig[],
   },
   transcription: {
     provider: 'none',
@@ -55,4 +56,4 @@ export const DEFAULT_SETTINGS: ManifoldSettings = {
   // (disabledPlugins is new in this release; settings-store seeds this set into existing
   // configs once — see resolveDefaults — so the default applies to current installs too.)
   disabledPlugins: ['manifold.hello', 'manifold.hello-tree', 'manifold.hello-vscode', 'mark-wiemer.helloworld-2022'],
-}
+} satisfies ManifoldSettings

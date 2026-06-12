@@ -119,7 +119,7 @@ function makeDockState(overrides: Partial<DockAppState> = {}): DockAppState {
     promoteDraft: vi.fn(async () => {}),
     discardDraft: vi.fn(),
     ...overrides,
-  }
+  } as unknown as DockAppState
 }
 
 describe('AgentPanel', () => {

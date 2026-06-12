@@ -1,7 +1,7 @@
 ---
 description: How Manifold is built, type-checked, tested, packaged into a macOS .dmg, and released — the npm scripts, electron-vite bundling, native-module rebuilds, plugin compilation, and the two-step release flow.
 covers: [package.json]
-updated: 2026-06-11
+updated: 2026-06-12
 owner: see .github/CODEOWNERS
 ---
 
@@ -98,7 +98,7 @@ packaging, but the canonical release artifacts come from CI on tag push.
 ## Key types and entry points
 
 - `dev` / `build` / `start` / `dist` — `package.json:8`, `:9`, `:12`, `:22`. The four entry points; each (except `build`) is preceded by a `pre*` rebuild hook.
-- `typecheck:node` / `typecheck:web` / `typecheck:plugins` — `package.json:14-16`. Three project-scoped `tsc --noEmit` runs over, respectively: main + preload + shared + plugin-host (`tsconfig.node.json`), renderer + shared (`tsconfig.web.json`), and `resources/plugins/*/src` (`tsconfig.plugins.json`). Plain `typecheck` (`package.json:13`) is a no-op solution-style `tsc` referencing only node + web.
+- `typecheck:node` / `typecheck:web` / `typecheck:plugins` — `package.json:14-16`. Three project-scoped `tsc --noEmit` runs over, respectively: main + preload + shared + plugin-host (`tsconfig.node.json`), renderer + renderer-shared + shared (`tsconfig.web.json`), and `resources/plugins/*/src` (`tsconfig.plugins.json`). Plain `typecheck` (`package.json:13`) is a no-op solution-style `tsc` referencing only node + web.
 - `rebuild:electron` / `rebuild:node` — `package.json:25` / `:24`. The two ABI targets for `better-sqlite3`.
 - `buildPlugins()` — `scripts/build-plugins.mjs:14`. The esbuild plugin compiler; CLI-invoked via `build:plugins`.
 - `plugin:new` — `package.json:26` → `scripts/new-plugin.mjs`. Scaffolds `resources/plugins/<publisher>.<name>/` with a manifest + `src/plugin.ts`.

@@ -68,7 +68,7 @@ describe('useAgentSiblingDockTabs', () => {
       getPanel: ((panelId: string) => panels.get(panelId)) as DockviewApi['getPanel'],
       addPanel,
       onDidActivePanelChange: (() => ({ dispose() {} })) as DockviewApi['onDidActivePanelChange'],
-    } as DockviewApi
+    } as unknown as DockviewApi
 
     Object.defineProperty(api, 'panels', {
       get: () => Array.from(panels.values()),
@@ -132,7 +132,7 @@ describe('useAgentSiblingDockTabs', () => {
       addPanel: vi.fn(),
       removePanel: vi.fn((panel: MockPanel) => panels.delete(panel.id)),
       onDidActivePanelChange: (() => ({ dispose() {} })) as DockviewApi['onDidActivePanelChange'],
-    } as DockviewApi
+    } as unknown as DockviewApi
 
     Object.defineProperty(api, 'panels', {
       get: () => Array.from(panels.values()),

@@ -74,6 +74,7 @@ export interface DockAppState {
   baseBranch: string
   activeProjectIsGit: boolean
   defaultRuntime: string
+  defaultAgentMode: 'interactive' | 'chat'
   activeSessionWorktreePath: string | null
   activeSessionNoWorktree: boolean
   onLaunchAgent: (options: SpawnAgentOptions) => Promise<unknown>
