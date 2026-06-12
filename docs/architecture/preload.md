@@ -1,7 +1,7 @@
 ---
 description: The contextBridge preload that exposes a single whitelisted window.electronAPI surface to the renderer and keeps Node/fs out of the web context.
 covers: [src/preload]
-updated: 2026-06-11
+updated: 2026-06-12
 owner: see .github/CODEOWNERS
 ---
 
@@ -27,7 +27,7 @@ The module imports only `contextBridge`, `ipcRenderer`, and `webUtils` from `ele
 (`src/preload/index.ts:1`) — nothing from `fs`, `path`, or `child_process`. Three
 `as const` arrays declare the permitted channels:
 
-- `ALLOWED_INVOKE_CHANNELS` (`src/preload/index.ts:3`) — 134 request/response channels, the `<namespace>:<verb>` names the main-process IPC handlers register (`projects:*`, `agent:*`, `files:*`, `diff:*`, `git:*`, `settings:*`, `memory:*`, `search:*`, `workspace:*`, `simple:*`, `plugins:*`, and more).
+- `ALLOWED_INVOKE_CHANNELS` (`src/preload/index.ts:3`) — 135 request/response channels, the `<namespace>:<verb>` names the main-process IPC handlers register (`projects:*`, `agent:*`, `files:*`, `diff:*`, `git:*`, `settings:*`, `memory:*`, `search:*`, `workspace:*`, `simple:*`, `plugins:*`, and more).
 - `ALLOWED_SEND_CHANNELS` (`src/preload/index.ts:140`) — exactly one fire-and-forget channel, `theme:changed`.
 - `ALLOWED_LISTEN_CHANNELS` (`src/preload/index.ts:144`) — 31 main → renderer push channels (`agent:output`, `agent:status`, `agent:sessions-changed`, `files:changed`, `settings:changed`, `updater:status`, `plugins:webview-*`, `simple:chat-message`, etc.).
 
