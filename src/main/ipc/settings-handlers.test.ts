@@ -8,6 +8,7 @@ const mocks = vi.hoisted(() => {
       handlers.set(channel, fn)
     }),
     getAllWindows: vi.fn(() => [] as unknown[]),
+    writeShellPromptSegmentsFile: vi.fn(),
   }
 })
 
@@ -27,6 +28,10 @@ vi.mock('../agent/runtimes', () => ({
 
 vi.mock('../agent/ollama-models', () => ({
   listOllamaModels: vi.fn(),
+}))
+
+vi.mock('../session/shell-prompt-config', () => ({
+  writeShellPromptSegmentsFile: mocks.writeShellPromptSegmentsFile,
 }))
 
 interface FakeWindow {
@@ -52,7 +57,7 @@ describe('registerSettingsHandlers', () => {
     const { registerSettingsHandlers } = await import('./settings-handlers')
     const updated = { defaultAgentMode: 'chat' as const, theme: 'dark' }
     const settingsStore = {
-      getSettings: vi.fn(),
+      getSettings: vi.fn(() => ({})),
       updateSettings: vi.fn(() => updated),
     }
     const winA = makeWindow()
@@ -72,7 +77,7 @@ describe('registerSettingsHandlers', () => {
     const { registerSettingsHandlers } = await import('./settings-handlers')
     const updated = { theme: 'light' }
     const settingsStore = {
-      getSettings: vi.fn(),
+      getSettings: vi.fn(() => ({})),
       updateSettings: vi.fn(() => updated),
     }
     const live = makeWindow(false)
@@ -91,7 +96,7 @@ describe('registerSettingsHandlers', () => {
     const { registerSettingsHandlers } = await import('./settings-handlers')
     const updated = { defaultAgentMode: 'interactive' as const }
     const settingsStore = {
-      getSettings: vi.fn(),
+      getSettings: vi.fn(() => ({})),
       updateSettings: vi.fn(() => updated),
     }
     mocks.getAllWindows.mockReturnValue([])
@@ -100,5 +105,49 @@ describe('registerSettingsHandlers', () => {
     const result = mocks.handlers.get('settings:update')!(undefined, { defaultAgentMode: 'interactive' })
 
     expect(result).toEqual(updated)
+  })
+
+  it('syncs the shared prompt-segments file with current settings at registration', async () => {
+    const { registerSettingsHandlers } = await import('./settings-handlers')
+    const segments = { repo: true, agent: false, k8sContext: false, k8sNamespace: false }
+    const settingsStore = {
+      getSettings: vi.fn(() => ({ shellPromptSegments: segments })),
+      updateSettings: vi.fn(() => ({})),
+    }
+
+    registerSettingsHandlers({ settingsStore } as Parameters<typeof registerSettingsHandlers>[0])
+
+    expect(mocks.writeShellPromptSegmentsFile).toHaveBeenCalledWith(segments)
+  })
+
+  it('rewrites the prompt-segments file when a settings update changes the segments', async () => {
+    const { registerSettingsHandlers } = await import('./settings-handlers')
+    const segments = { repo: true, agent: true, k8sContext: true, k8sNamespace: false }
+    const settingsStore = {
+      getSettings: vi.fn(() => ({})),
+      updateSettings: vi.fn(() => ({ shellPromptSegments: segments })),
+    }
+    mocks.getAllWindows.mockReturnValue([])
+
+    registerSettingsHandlers({ settingsStore } as Parameters<typeof registerSettingsHandlers>[0])
+    mocks.writeShellPromptSegmentsFile.mockClear()
+    mocks.handlers.get('settings:update')!(undefined, { shellPromptSegments: segments })
+
+    expect(mocks.writeShellPromptSegmentsFile).toHaveBeenCalledWith(segments)
+  })
+
+  it('leaves the prompt-segments file alone for unrelated settings updates', async () => {
+    const { registerSettingsHandlers } = await import('./settings-handlers')
+    const settingsStore = {
+      getSettings: vi.fn(() => ({})),
+      updateSettings: vi.fn(() => ({})),
+    }
+    mocks.getAllWindows.mockReturnValue([])
+
+    registerSettingsHandlers({ settingsStore } as Parameters<typeof registerSettingsHandlers>[0])
+    mocks.writeShellPromptSegmentsFile.mockClear()
+    mocks.handlers.get('settings:update')!(undefined, { notificationSound: true })
+
+    expect(mocks.writeShellPromptSegmentsFile).not.toHaveBeenCalled()
   })
 })

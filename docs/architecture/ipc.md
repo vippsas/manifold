@@ -24,7 +24,7 @@ managers documented on the other architecture pages (`session.md`, `git.md`, etc
 - `src/main/ipc/git-handlers.ts` — `diff:*`, `pr:create`, and the mutating `git:*` channels (`git:commit`, `git:ai-generate`, `git:ahead-behind`, `git:resolve-conflict`, `git:pr-context`, `git:fetch`).
 - `src/main/ipc/file-handlers.ts` — `files:*` tree/read/write/rename/import/paste/reveal/search, all path-guarded against traversal.
 - `src/main/ipc/project-handlers.ts` — `projects:*` (list/add/clone/create-new/remove/update) and the `*-dialog` + `storage:open-dialog` native-dialog channels.
-- `src/main/ipc/settings-handlers.ts` — `settings:*`, `runtimes:list`, `ollama:list-models`, `view-state:*`, `shell-tabs:*`, `dock-layout:*`.
+- `src/main/ipc/settings-handlers.ts` — `settings:*`, `runtimes:list`, `ollama:list-models`, `view-state:*`, `shell-tabs:*`, `dock-layout:*`. Also keeps the zsh prompt-segments file in sync with settings (`settings-handlers.ts:16`) so live shells follow prompt-segment changes.
 - `src/main/ipc/search-handlers.ts` — `search:context`, `search:query`, `search:ask`, `search:view-state:*`.
 - `src/main/ipc/memory-handlers.ts` — `memory:*` (search/get/timeline/stats/delete/clear/settings), running SQLite FTS5 queries.
 - `src/main/ipc/simple-handlers.ts` — `simple:*` chat-adapter channels for the developer draft chat (`chat-messages`, `send-message`, `subscribe-chat`, status/preview/slash-command getters).
@@ -57,7 +57,7 @@ reach for globals (`agent-handlers.ts:64`, `git-handlers.ts:62`).
 request/response), never `ipcMain.on`. Push notifications flow the *other* way, out of band:
 handlers (or the managers they call) emit via `webContents.send` / `event.sender.send`.
 Examples: `settings:changed` is broadcast to all live windows after `settings:update`
-(`settings-handlers.ts:23`), `simple:chat-message` is pushed per chat subscription
+(`settings-handlers.ts:36`), `simple:chat-message` is pushed per chat subscription
 (`simple-handlers.ts:69`), and `provisioning:progress` streams during a create
 (`provisioning-handlers.ts:56`, guarded by `sender.isDestroyed()`). `SessionManager` separately pushes
 `agent:output`/`agent:status`/`agent:sessions-changed` through its own `sendToRenderer`
