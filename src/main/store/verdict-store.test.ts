@@ -61,15 +61,25 @@ describe('VerdictStore', () => {
   })
 
   it('FIFO-evicts beyond 1000 records per project on write', () => {
-    const store = new VerdictStore(path.join(tmp, 'v.json'))
-    for (let i = 0; i < 1005; i++) {
+    const file = path.join(tmp, 'v.json')
+    // Seed the store file directly: 1005 real upserts each rewrite the full
+    // array synchronously, which intermittently exceeds the test timeout
+    // under full-suite load (#599). Five live upserts cover the eviction path.
+    const seed = Array.from({ length: 1000 }, (_, i) =>
+      record({ sessionId: `s${i}`, projectId: 'p1' }),
+    )
+    fs.writeFileSync(file, JSON.stringify(seed), 'utf-8')
+    const store = new VerdictStore(file)
+    for (let i = 1000; i < 1005; i++) {
       store.upsert(record({ sessionId: `s${i}`, projectId: 'p1' }))
     }
     const list = store.listByProject('p1')
     expect(list.length).toBe(1000)
-    expect(list.some((r) => r.sessionId === 's0')).toBe(false)
+    // FIFO: exactly the 5 oldest records were evicted.
+    expect(list.some((r) => r.sessionId === 's4')).toBe(false)
+    expect(list[0]?.sessionId).toBe('s5')
     expect(list.some((r) => r.sessionId === 's1004')).toBe(true)
-  }, 30_000)
+  })
 
   it('returns null for missing sessionId', () => {
     const store = new VerdictStore(path.join(tmp, 'v.json'))
