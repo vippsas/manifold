@@ -10,6 +10,7 @@ import { useViewState } from './hooks/useViewState'
 import { useShellSessions } from './hooks/useShellSession'
 import { useGitOperations } from './hooks/useGitOperations'
 import { useFetchProject } from './hooks/useFetchProject'
+import { useBranchStaleness } from './hooks/useBranchStaleness'
 import { useAllProjectSessions } from './hooks/useAllProjectSessions'
 import { useTheme } from './hooks/useTheme'
 import { useThemeChangeNotification } from './hooks/useThemeChangeNotification'
@@ -138,13 +139,15 @@ export function App(): React.JSX.Element {
 
   const activeProject = projects.find((p) => p.id === activeProjectId) ?? null
   const gitOps = useGitOperations(effectiveSessionId)
+  const branchStaleness = useBranchStaleness(activeProjectId, projects)
 
   const handleFetchSuccess = useCallback((projectId: string) => {
+    branchStaleness.markFresh(projectId)
     for (const session of sessionsByProject[projectId] ?? []) {
       void window.electronAPI.invoke('git:ahead-behind', session.id).catch(() => {})
     }
     void gitOps.refreshAheadBehind()
-  }, [sessionsByProject, gitOps.refreshAheadBehind])
+  }, [sessionsByProject, gitOps.refreshAheadBehind, branchStaleness.markFresh])
 
   const renameAgent = useCallback((sessionId: string, displayName: string): void => {
     void window.electronAPI.invoke('agent:rename', sessionId, displayName).catch((err) => {
@@ -338,6 +341,7 @@ export function App(): React.JSX.Element {
     fetchingProjectId: fetchProject.fetchingProjectId, lastFetchedProjectId: fetchProject.lastFetchedProjectId,
     fetchResult: fetchProject.fetchResult, fetchError: fetchProject.fetchError,
     onFetchProject: fetchProject.fetchProject,
+    activeProjectBehindCount: activeProjectId ? (branchStaleness.behindCounts[activeProjectId] ?? 0) : 0,
     onFocusSearch: appEffects.focusSearch, onClosePanel: editorHandlers.handleClosePanel,
     onOpenModule: (id) => {
       if (dockLayout.isPanelVisible(id)) dockLayout.focusPanel(id)

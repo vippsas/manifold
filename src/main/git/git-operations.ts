@@ -107,6 +107,20 @@ export class GitOperationsManager {
     }
   }
 
+  async getRemoteBehindCount(projectPath: string, baseBranch: string): Promise<number> {
+    try {
+      // Read-only: updates FETCH_HEAD (and origin/<base>), never the local branch.
+      await execFileAsync('git', ['fetch', 'origin', baseBranch], { cwd: projectPath })
+      const { stdout } = await execFileAsync(
+        'git', ['rev-list', '--count', `${baseBranch}..FETCH_HEAD`], { cwd: projectPath }
+      )
+      return parseInt(stdout.trim(), 10) || 0
+    } catch {
+      // Background probe: any failure (offline, no origin, missing branch) means "unknown" → no badge.
+      return 0
+    }
+  }
+
   async isBranchMerged(worktreePath: string, baseBranch: string, branch: string): Promise<boolean> {
     try {
       await execFileAsync(

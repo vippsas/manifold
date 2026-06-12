@@ -75,6 +75,7 @@ const ALLOWED_INVOKE_CHANNELS = [
   'git:list-prs',
   'git:fetch-pr-branch',
   'git:fetch',
+  'git:staleness',
   'dock-layout:get',
   'dock-layout:set',
   'font:load-data',

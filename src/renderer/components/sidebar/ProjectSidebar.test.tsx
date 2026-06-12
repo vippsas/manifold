@@ -35,6 +35,19 @@ describe('ProjectSidebar', () => {
     expect(screen.getByText('No repositories yet')).toBeInTheDocument()
   })
 
+  it('renders the behind-origin badge on the active project fetch button', () => {
+    renderSidebar({
+      projects: [{ id: 'p1', name: 'Alpha', path: '/a', baseBranch: 'main', kind: 'git' }],
+      activeProjectId: 'p1',
+      allProjectSessions: { p1: [] },
+      activeSessionId: null,
+      activeProjectBehindCount: 3,
+    })
+
+    const btn = screen.getByRole('button', { name: /Fetch Alpha \(3 behind origin\)/ })
+    expect(btn.textContent).toContain('3')
+  })
+
   it('shows agents for active project and mini dots for collapsed projects', () => {
     const sessionsForP2: AgentSession[] = [
       { id: 's3', projectId: 'p2', runtimeId: 'gemini', branchName: 'beta/stavanger', worktreePath: '/wt3', status: 'running', pid: 3, additionalDirs: [] },

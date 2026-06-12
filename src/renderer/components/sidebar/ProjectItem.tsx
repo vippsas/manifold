@@ -13,6 +13,7 @@ interface ProjectItemProps {
   fetchResult: { updatedBranch: string; commitCount: number } | null
   fetchError: string | null
   onFetch: () => void
+  behindCount?: number
   onRename?: (name: string) => void
 }
 
@@ -25,6 +26,7 @@ export function ProjectItem({
   fetchResult,
   fetchError,
   onFetch,
+  behindCount,
   onRename,
 }: ProjectItemProps): React.JSX.Element {
   const gitProject = isGitProject(project)
@@ -89,6 +91,14 @@ export function ProjectItem({
     e.stopPropagation()
   }, [])
 
+  const behind = behindCount ?? 0
+  const fetchTitle = behind > 0
+    ? `${project.baseBranch} is ${behind} commit${behind === 1 ? '' : 's'} behind origin — fetch before starting a new agent`
+    : 'Fetch latest from remote'
+  const fetchAriaLabel = behind > 0
+    ? `Fetch ${project.name} (${behind} behind origin)`
+    : `Fetch ${project.name}`
+
   return (
     <>
       <div
@@ -128,12 +138,15 @@ export function ProjectItem({
               onClick={(e) => { e.stopPropagation(); onFetch() }}
               onKeyDown={stopKeyPropagation}
               className="sidebar-icon-button"
-              style={sidebarStyles.removeButton}
-              aria-label={`Fetch ${project.name}`}
-              title="Fetch latest from remote"
+              style={{ ...sidebarStyles.removeButton, position: 'relative' }}
+              aria-label={fetchAriaLabel}
+              title={fetchTitle}
               disabled={isFetching}
             >
               {isFetching ? '...' : '↻'}
+              {!isFetching && behind > 0 && (
+                <span style={sidebarStyles.fetchBadge}>{behind > 9 ? '9+' : behind}</span>
+              )}
             </button>
           )}
           <button

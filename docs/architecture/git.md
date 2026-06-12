@@ -1,7 +1,7 @@
 ---
 description: How Manifold creates, lists, and removes git worktrees, checks out branches/PRs, persists per-session worktree meta, and runs raw git/gh for commits, diffs, and PR creation.
 covers: [src/main/git]
-updated: 2026-06-10
+updated: 2026-06-12
 owner: see .github/CODEOWNERS
 ---
 
@@ -113,7 +113,7 @@ PR URL.
 - `BranchCheckoutManager` — `branch-checkout-manager.ts:50`. `listBranches`, `listOpenPRs`, `fetchPRBranch`, `createWorktreeFromBranch`.
 - `WorktreeMeta` / `readWorktreeMeta` / `writeWorktreeMeta` / `removeWorktreeMeta` — `worktree-meta.ts:3`. The durable per-session sidecar.
 - `commitManagedWorktree` / `prepareManagedWorktree` / `getManagedWorktreeStatus` — `managed-worktree.ts:66` / `:19` / `:49`.
-- `GitOperationsManager` — `git-operations.ts:24`. `commit`, `fetchAndUpdate`, `getAheadBehind`, `isBranchMerged`, `getConflicts`, `resolveConflict`, `getPRContext`, `aiGenerate`.
+- `GitOperationsManager` — `git-operations.ts:24`. `commit`, `fetchAndUpdate`, `getAheadBehind`, `getRemoteBehindCount` (read-only probe: `fetch origin <base>` then `rev-list --count <base>..FETCH_HEAD`, never moves the local branch; `git-operations.ts:110`), `isBranchMerged`, `getConflicts`, `resolveConflict`, `getPRContext`, `aiGenerate`.
 - `PrCreator` — `pr-creator.ts:6`. `isGhAvailable`, `pushBranch`, `createPR`.
 - `DiffProvider` — `diff-provider.ts:10`. `getDiff`, `getDiffStats`, `getChangedFiles`, `getOriginalContent`.
 - `generateBranchName` — `branch-namer.ts:24`. `<repo>/<slug>`, deduplicated with a numeric suffix.
@@ -124,7 +124,7 @@ PR URL.
 
 - **Session** (`src/main/session`): the primary consumer. `SessionCreator` calls `WorktreeManager.createWorktree` / `BranchCheckoutManager.createWorktreeFromBranch` (`session-creator.ts:80`) and `writeWorktreeMeta`; `SessionDiscovery` rebuilds dormant sessions from `WorktreeManager.listWorktrees` + `readWorktreeMeta`; `SessionKiller` calls `removeWorktree`; teardown uses `commitManagedWorktree` and base checkout.
 - **Wiring** (`src/main/app/index.ts:55`): the singletons are constructed at startup — `WorktreeManager`/`BranchCheckoutManager` get `settingsStore.getSettings().storagePath`; `DiffProvider`, `PrCreator`, `GitOperationsManager` are parameterless — and threaded into the IPC dependency bag.
-- **IPC** (`src/main/ipc/git-handlers.ts`): `diff:get`/`diff:file-original` → `DiffProvider`; `pr:create` → `PrCreator.createPR` (then `verdictRecorder.onPrCreated`, `git-handlers.ts:55`); `git:commit`/`git:ai-generate`/`git:ahead-behind`/`git:resolve-conflict`/`git:pr-context`/`git:fetch` → `GitOperationsManager`. Branch/PR listing rides `agent-handlers.ts` (`branch:list`, `pr:list-open`, `pr:fetch-branch` → `branchCheckout.*`, `agent-handlers.ts:324`). All handlers short-circuit to empty results / throw for non-git (folder) projects via `isGitProject`.
+- **IPC** (`src/main/ipc/git-handlers.ts`): `diff:get`/`diff:file-original` → `DiffProvider`; `pr:create` → `PrCreator.createPR` (then `verdictRecorder.onPrCreated`, `git-handlers.ts:55`); `git:commit`/`git:ai-generate`/`git:ahead-behind`/`git:resolve-conflict`/`git:pr-context`/`git:fetch`/`git:staleness` → `GitOperationsManager`. Branch/PR listing rides `agent-handlers.ts` (`branch:list`, `pr:list-open`, `pr:fetch-branch` → `branchCheckout.*`, `agent-handlers.ts:324`). All handlers short-circuit to empty results / throw for non-git (folder) projects via `isGitProject`.
 - **File watcher** (`src/main/fs/file-watcher.ts:131`): uses `isMissingGitError` to disable git polling when the `git` binary is absent.
 - **Agent runtimes** (`src/main/agent`): `GitOperationsManager.aiGenerate` builds its command with `buildAiRuntimeCommand` and parses output via `parseAiRuntimeOutput` / `parseAiRuntimeFailure`.
 

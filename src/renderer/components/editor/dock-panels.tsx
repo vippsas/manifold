@@ -163,6 +163,7 @@ function ProjectsPanel(): React.JSX.Element {
       fetchResult={s.fetchResult}
       fetchError={s.fetchError}
       onFetchProject={s.onFetchProject}
+      activeProjectBehindCount={s.activeProjectBehindCount}
       drafts={s.drafts}
       activeDraftId={s.activeDraft?.id ?? null}
       onSelectDraft={(id) => s.onSelectSession(id, s.activeProjectId ?? '')}
