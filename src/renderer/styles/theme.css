@@ -652,6 +652,19 @@ select:focus-visible {
   padding-left: 9px;
 }
 
+/* When a child row inside the card carries the selection, the header drops its
+   matching fill and accent bar — otherwise the two highlights stack with the
+   same color and aligned bars and read as one merged surface. The elevated
+   card still marks the active project; the filled row marks the selection. */
+.sidebar-project-group--has-agents:has(.sidebar-item-row--active:not(.sidebar-project-row)) .sidebar-project-row.sidebar-item-row--active {
+  background: transparent;
+  border-left-color: transparent;
+}
+
+.sidebar-project-group--has-agents:has(.sidebar-item-row--active:not(.sidebar-project-row)) .sidebar-project-row.sidebar-item-row--active:hover {
+  background: var(--list-hover-bg);
+}
+
 .terminal-host .xterm {
   height: 100%;
   box-sizing: border-box;
