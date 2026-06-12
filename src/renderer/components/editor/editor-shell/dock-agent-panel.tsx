@@ -1,13 +1,13 @@
 import React, { useCallback, useMemo } from 'react'
-import { TerminalPane } from '../terminal/TerminalPane'
-import { OnboardingView } from '../modals/OnboardingView'
+import { TerminalPane } from '../../terminal/TerminalPane'
+import { OnboardingView } from '../../modals/OnboardingView'
 import { AgentChatView } from './AgentChatView'
 import { DraftChatView } from './DraftChatView'
 import { useDockState } from './dock-panel-types'
-import { parseSiblingSessionId } from '../../hooks/agent-siblings'
-import { collectAgentMentionPaths, hasAgentPathDragData, readAgentPathDragData } from './file-tree/file-tree-drag'
-import type { FileDropConfig } from '../../../renderer-shared/chat/ChatPane'
-import type { SpawnAgentOptions } from '../../../shared/types'
+import { parseSiblingSessionId } from '../../../hooks/agent-siblings'
+import { collectAgentMentionPaths, hasAgentPathDragData, readAgentPathDragData } from '../file-tree/file-tree-drag'
+import type { FileDropConfig } from '../../../../renderer-shared/chat/ChatPane'
+import type { SpawnAgentOptions } from '../../../../shared/types'
 
 const AGENT_CHAT_FILE_DROP: FileDropConfig = {
   hasPath: hasAgentPathDragData,

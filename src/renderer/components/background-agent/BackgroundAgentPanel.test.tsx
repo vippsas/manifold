@@ -2,7 +2,7 @@ import { describe, expect, it, vi, beforeEach } from 'vitest'
 import { fireEvent, render, screen } from '@testing-library/react'
 import React from 'react'
 import type { BackgroundAgentSnapshot } from '../../../../background-agent/schemas/background-agent-types'
-import { DockStateContext, type DockAppState } from '../editor/dock-panel-types'
+import { DockStateContext, type DockAppState } from '../editor/editor-shell/dock-panel-types'
 import { BackgroundAgentPanel } from './BackgroundAgentPanel'
 
 const useBackgroundAgentMock = vi.fn()

@@ -15,7 +15,7 @@ vi.mock('dockview', async () => {
   }
 })
 
-vi.mock('./components/editor/dock-panels', async () => {
+vi.mock('./components/editor/editor-shell/dock-panels', async () => {
   const React = await import('react')
   return {
     PANEL_COMPONENTS: {},

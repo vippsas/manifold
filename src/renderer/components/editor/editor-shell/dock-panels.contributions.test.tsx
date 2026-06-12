@@ -1,8 +1,8 @@
 // src/renderer/components/editor/dock-panels.contributions.test.tsx
 import { describe, expect, it } from 'vitest'
 import { PANEL_COMPONENTS } from './dock-panels'
-import { BackgroundAgentPanel } from '../background-agent/BackgroundAgentPanel'
-import { VerdictsPanel } from '../verdicts/VerdictsPanel'
+import { BackgroundAgentPanel } from '../../background-agent/BackgroundAgentPanel'
+import { VerdictsPanel } from '../../verdicts/VerdictsPanel'
 
 describe('PANEL_COMPONENTS module entries', () => {
   it('still includes the six core panels', () => {

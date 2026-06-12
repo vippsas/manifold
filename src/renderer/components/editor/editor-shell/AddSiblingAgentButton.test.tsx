@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { render, screen, fireEvent, waitFor, cleanup } from '@testing-library/react'
-import type { AgentRuntime, SpawnAgentOptions } from '../../../shared/types'
+import type { AgentRuntime, SpawnAgentOptions } from '../../../../shared/types'
 import { AddSiblingAgentButton } from './AddSiblingAgentButton'
 
 const MOCK_RUNTIMES: AgentRuntime[] = [

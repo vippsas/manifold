@@ -1,5 +1,5 @@
 import React from 'react'
-import { ChatPane } from '../../../renderer-shared/chat'
+import { ChatPane } from '../../../../renderer-shared/chat'
 
 interface DraftChatViewProps {
   onFirstSend: (text: string) => void

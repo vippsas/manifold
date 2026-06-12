@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
-import type { AgentRuntime, SpawnAgentOptions } from '../../../shared/types'
+import type { AgentRuntime, SpawnAgentOptions } from '../../../../shared/types'
 
 interface AddSiblingAgentButtonProps {
   projectId: string | null

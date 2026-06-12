@@ -1,7 +1,7 @@
 import React from 'react'
 import type { IDockviewPanelHeaderProps } from 'dockview'
-import { DockStateContext } from './components/editor/dock-panel-types'
-import { AddSiblingAgentButton } from './components/editor/AddSiblingAgentButton'
+import { DockStateContext } from './components/editor/editor-shell/dock-panel-types'
+import { AddSiblingAgentButton } from './components/editor/editor-shell/AddSiblingAgentButton'
 import { parseSiblingSessionId } from './hooks/agent-siblings'
 
 export function DockTab({ api }: IDockviewPanelHeaderProps): React.JSX.Element {

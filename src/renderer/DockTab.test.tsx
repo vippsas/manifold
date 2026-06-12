@@ -3,8 +3,8 @@ import { describe, expect, it } from 'vitest'
 import { render, screen } from '@testing-library/react'
 import type { IDockviewPanelHeaderProps } from 'dockview'
 import { DockTab } from './DockTab'
-import { DockStateContext } from './components/editor/dock-panel-types'
-import type { DockAppState } from './components/editor/dock-panel-types'
+import { DockStateContext } from './components/editor/editor-shell/dock-panel-types'
+import type { DockAppState } from './components/editor/editor-shell/dock-panel-types'
 import { siblingPanelId } from './hooks/agent-siblings'
 
 function makeHeaderProps(id: string, title: string): IDockviewPanelHeaderProps {

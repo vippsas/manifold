@@ -1,5 +1,5 @@
 import React from 'react'
-import { viewerStyles } from './code-viewer/CodeViewer.styles'
+import { viewerStyles } from '../code-viewer/CodeViewer.styles'
 
 export interface EditorStatusInfo {
   line: number

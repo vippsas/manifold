@@ -5,7 +5,7 @@ import { DockStateContext } from './dock-panel-types'
 import {
   getEditorPaneModeControls,
   subscribeEditorPaneModeControls,
-} from './editor-pane-mode-controls'
+} from '../editor-pane-mode-controls'
 
 function PaneButtonIcon(): React.JSX.Element {
   return (

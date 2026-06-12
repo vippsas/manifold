@@ -5,8 +5,8 @@ import type { IDockviewHeaderActionsProps } from 'dockview'
 import type { DockAppState } from './dock-panel-types'
 import { DockStateContext } from './dock-panel-types'
 import { EditorHeaderActions } from './EditorHeaderActions'
-import type { EditorPaneModeControls } from './editor-pane-mode-controls'
-import { registerEditorPaneModeControls, unregisterEditorPaneModeControls } from './editor-pane-mode-controls'
+import type { EditorPaneModeControls } from '../editor-pane-mode-controls'
+import { registerEditorPaneModeControls, unregisterEditorPaneModeControls } from '../editor-pane-mode-controls'
 
 function makeDockState(overrides: Partial<DockAppState> = {}): DockAppState {
   return {

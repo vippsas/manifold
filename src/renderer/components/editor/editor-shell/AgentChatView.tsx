@@ -1,8 +1,8 @@
 import React, { useCallback } from 'react'
-import { ManifoldGhost } from '../ManifoldGhost'
-import { StarfieldBackdrop } from '../StarfieldBackdrop'
-import { ChatPane, useChat, useAgentStatus, useSlashCommands } from '../../../renderer-shared/chat'
-import type { PastedImage, FileDropConfig } from '../../../renderer-shared/chat/ChatPane'
+import { ManifoldGhost } from '../../ManifoldGhost'
+import { StarfieldBackdrop } from '../../StarfieldBackdrop'
+import { ChatPane, useChat, useAgentStatus, useSlashCommands } from '../../../../renderer-shared/chat'
+import type { PastedImage, FileDropConfig } from '../../../../renderer-shared/chat/ChatPane'
 
 interface AgentChatViewProps {
   sessionId: string

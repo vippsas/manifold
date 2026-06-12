@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react'
-import { useDockState } from '../dock-panel-types'
+import { useDockState } from '../editor-shell/dock-panel-types'
 import { PLUGIN_WEBVIEW_THEME_VARS, readThemeVars } from './plugin-theme-vars'
 
 /** Renders a plugin-contributed view as a sandboxed iframe. The panel id IS the

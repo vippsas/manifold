@@ -1,8 +1,8 @@
 import { beforeEach, describe, it, expect, vi } from 'vitest'
 import { cleanup, render, screen, fireEvent } from '@testing-library/react'
 import { FavoritesList } from './FavoritesList'
-import { DockStateContext } from '../editor/dock-panel-types'
-import type { DockAppState } from '../editor/dock-panel-types'
+import { DockStateContext } from '../editor/editor-shell/dock-panel-types'
+import type { DockAppState } from '../editor/editor-shell/dock-panel-types'
 import type { ResolvedFavorite } from '../../../shared/types'
 import { installLocalStorage } from './ProjectSidebar.test-helpers'
 

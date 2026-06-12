@@ -1,5 +1,5 @@
 import React, { useContext, useState } from 'react'
-import { DockStateContext } from '../editor/dock-panel-types'
+import { DockStateContext } from '../editor/editor-shell/dock-panel-types'
 import { sidebarStyles } from './ProjectSidebar.styles'
 import { favoritesStyles } from './FavoritesList.styles'
 import { WorkspaceGlyph } from './WorkspaceGlyph'

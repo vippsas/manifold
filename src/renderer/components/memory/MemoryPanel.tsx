@@ -1,5 +1,5 @@
 import React from 'react'
-import { useDockState } from '../editor/dock-panel-types'
+import { useDockState } from '../editor/editor-shell/dock-panel-types'
 import { useMemory } from '../../hooks/useMemory'
 import { MemoryPanelContent } from './MemoryPanelContent'
 import { memoryStyles as s } from './MemoryPanel.styles'

@@ -1,7 +1,7 @@
 import React from 'react'
 import { useBackgroundAgent } from '../../hooks/useBackgroundAgent'
-import { useDockState } from '../editor/dock-panel-types'
-import { ActionMenuButton } from '../editor/ActionMenuButton'
+import { useDockState } from '../editor/editor-shell/dock-panel-types'
+import { ActionMenuButton } from '../editor/editor-shell/ActionMenuButton'
 import { backgroundAgentPanelStyles as s } from './BackgroundAgentPanel.styles'
 import { BackgroundSuggestionCard } from './BackgroundSuggestionCard'
 

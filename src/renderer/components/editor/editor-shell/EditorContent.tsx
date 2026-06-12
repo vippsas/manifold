@@ -1,7 +1,7 @@
 import React from 'react'
 import Editor, { type OnMount } from '@monaco-editor/react'
 import type { editor as monacoEditor } from 'monaco-editor'
-import { viewerStyles } from './code-viewer/CodeViewer.styles'
+import { viewerStyles } from '../code-viewer/CodeViewer.styles'
 
 interface EditorContentProps {
   filePath: string | null

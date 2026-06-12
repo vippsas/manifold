@@ -1,11 +1,11 @@
 import { createContext, useContext } from 'react'
 import type { ITheme } from '@xterm/xterm'
-import type { AgentStatus, FileTreeNode, FileChange, Project, AgentSession, SpawnAgentOptions, FavoriteKind, ResolvedFavorite, EditorSettings } from '../../../shared/types'
-import type { SearchMode } from '../../../shared/search-types'
-import type { EditorPaneView, OpenFile } from '../../hooks/useCodeView'
-import type { FileOpenRequest } from './file-open-request'
-import type { DraftChat } from '../../../shared/draft-chat'
-import type { DockPanelId } from '../../hooks/dock-layout/dock-layout-helpers'
+import type { AgentStatus, FileTreeNode, FileChange, Project, AgentSession, SpawnAgentOptions, FavoriteKind, ResolvedFavorite, EditorSettings } from '../../../../shared/types'
+import type { SearchMode } from '../../../../shared/search-types'
+import type { EditorPaneView, OpenFile } from '../../../hooks/useCodeView'
+import type { FileOpenRequest } from '../file-open-request'
+import type { DraftChat } from '../../../../shared/draft-chat'
+import type { DockPanelId } from '../../../hooks/dock-layout/dock-layout-helpers'
 
 export interface DockAppState {
   sessionId: string | null
@@ -94,7 +94,7 @@ export interface DockAppState {
   newAgentFocusTrigger: number
   onNewProject: () => void
   onNewWorkspace?: () => void
-  workspaces?: import('../../../shared/workspace-types').Workspace[]
+  workspaces?: import('../../../../shared/workspace-types').Workspace[]
   activeWorkspaceId?: string | null
   sessionsByWorkspace?: Record<string, AgentSession[]>
   onSelectWorkspace?: (id: string) => void

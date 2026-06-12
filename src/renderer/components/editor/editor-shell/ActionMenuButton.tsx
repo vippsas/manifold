@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
-import { viewerStyles } from './code-viewer/CodeViewer.styles'
+import { viewerStyles } from '../code-viewer/CodeViewer.styles'
 
 export interface ActionMenuButtonItem {
   id: string
