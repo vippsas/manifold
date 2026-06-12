@@ -1,4 +1,5 @@
 import { AgentSession, SpawnAgentOptions } from '../../shared/types'
+import type { ShellPromptSegments } from '../../shared/types'
 import { WorktreeManager } from '../git/worktree-manager'
 import { BranchCheckoutManager } from '../git/branch-checkout-manager'
 import { PtyPool } from '../agent/pty-pool'
@@ -364,7 +365,7 @@ export class SessionManager {
 
   killAllSessions(): void { this.ioController.killAllSessions() }
 
-  createShellSession(cwd: string, options?: { shellPrompt?: boolean; historyDir?: string }): { sessionId: string } { return this.shellController.createShellSession(cwd, options) }
+  createShellSession(cwd: string, options?: { shellPrompt?: boolean; historyDir?: string; promptSegments?: ShellPromptSegments }): { sessionId: string } { return this.shellController.createShellSession(cwd, options) }
 
   triggerShellSuggestion(sessionId: string): void { this.shellController.triggerSuggestion(sessionId) }
 }

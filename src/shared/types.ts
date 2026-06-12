@@ -100,6 +100,14 @@ export interface EditorSettings {
   tabSize: number
 }
 
+/** Which context segments the built-in Manifold shell prompt renders. */
+export interface ShellPromptSegments {
+  repo: boolean
+  agent: boolean
+  k8sContext: boolean
+  k8sNamespace: boolean
+}
+
 export interface ManifoldSettings {
   storagePath: string
   setupCompleted: boolean
@@ -112,6 +120,7 @@ export interface ManifoldSettings {
   defaultBaseBranch: string
   notificationSound: boolean
   shellPrompt: boolean
+  shellPromptSegments?: ShellPromptSegments
   shellHistoryScope: 'project' | 'global'
   uiMode: 'developer' | 'simple'
   autoGenerateMessages: boolean

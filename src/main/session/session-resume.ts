@@ -8,6 +8,7 @@ import { buildShellEnv, buildWelcomeMessage, createManifoldZdotdir } from './she
 import * as fs from 'node:fs'
 
 import type { InternalSession } from './session-types'
+import type { ShellPromptSegments } from '../../shared/types'
 import { v4 as uuidv4 } from 'uuid'
 
 export async function resumeAgentSession(
@@ -70,7 +71,7 @@ export function createShellPtySession(
   ptyPool: PtyPool,
   streamWirer: SessionStreamWirer,
   sessions: Map<string, InternalSession>,
-  options?: { shellPrompt?: boolean; historyDir?: string },
+  options?: { shellPrompt?: boolean; historyDir?: string; promptSegments?: ShellPromptSegments },
 ): { sessionId: string } {
   const shell = process.platform === 'win32' ? 'cmd.exe' : (process.env.SHELL || '/bin/zsh')
   const useManifoldPrompt = options?.shellPrompt ?? false
@@ -85,7 +86,11 @@ export function createShellPtySession(
 
     if (isZsh) {
       zdotdirPath = createManifoldZdotdir(
-        { agentName: shellEnv.MANIFOLD_AGENT_NAME, repoName: shellEnv.MANIFOLD_REPO },
+        {
+          agentName: shellEnv.MANIFOLD_AGENT_NAME,
+          repoName: shellEnv.MANIFOLD_REPO,
+          segments: options?.promptSegments,
+        },
         options?.historyDir,
       )
       env.ZDOTDIR = zdotdirPath

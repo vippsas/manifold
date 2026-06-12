@@ -1,6 +1,6 @@
 import React from 'react'
 import type { ProvisionerConfig, ProvisionerStatus } from '../../../../shared/provisioning-types'
-import type { SearchAiSettings, EditorSettings } from '../../../../shared/types'
+import type { SearchAiSettings, EditorSettings, ShellPromptSegments } from '../../../../shared/types'
 import type { AiServiceSettings } from '../../../../shared/plugins/api-types'
 import { modalStyles } from '../SettingsModal.styles'
 import { SearchAiSettingsSection } from './SearchAiSettingsSection'
@@ -44,6 +44,8 @@ interface Props {
   onNotificationSoundChange: (enabled: boolean) => void
   shellHistoryScope: 'project' | 'global'
   onShellHistoryScopeChange: (scope: 'project' | 'global') => void
+  shellPromptSegments: ShellPromptSegments
+  onShellPromptSegmentsChange: (segments: ShellPromptSegments) => void
   autoGenerateMessages: boolean
   onAutoGenerateMessagesChange: (enabled: boolean) => void
   showCommitAndPrButtons: boolean
