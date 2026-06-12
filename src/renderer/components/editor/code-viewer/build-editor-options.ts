@@ -1,5 +1,5 @@
 import type { editor } from 'monaco-editor'
-import type { EditorSettings } from '../../../shared/types'
+import type { EditorSettings } from '../../../../shared/types'
 
 /**
  * Turns user EditorSettings into Monaco editor options. The settings fields

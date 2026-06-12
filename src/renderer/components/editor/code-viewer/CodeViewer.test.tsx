@@ -2,7 +2,7 @@ import React from 'react'
 import { describe, it, expect, vi } from 'vitest'
 import { render, screen, waitFor } from '@testing-library/react'
 import { CodeViewer } from './CodeViewer'
-import { getEditorPaneModeControls } from './editor-pane-mode-controls'
+import { getEditorPaneModeControls } from '../editor-pane-mode-controls'
 import { makeOpenFile, makeOpenRequest, renderViewer } from './CodeViewer.test-helpers'
 
 vi.mock('@monaco-editor/react', async () => {

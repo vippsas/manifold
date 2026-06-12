@@ -1,7 +1,7 @@
 import { describe, it, expect, vi } from 'vitest'
 import { renderHook, act } from '@testing-library/react'
 import { useCodeViewerModes } from './useCodeViewerModes'
-import { getEditorPaneModeControls } from './editor-pane-mode-controls'
+import { getEditorPaneModeControls } from '../editor-pane-mode-controls'
 
 function baseProps(paneId: string, activeFilePath: string, isPreviewable: boolean) {
   return {

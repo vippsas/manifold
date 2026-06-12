@@ -1,6 +1,6 @@
 import React from 'react'
 import { createPortal } from 'react-dom'
-import type { OpenFile } from '../../hooks/useCodeView'
+import type { OpenFile } from '../../../hooks/useCodeView'
 import { viewerStyles } from './CodeViewer.styles'
 import { fileName, getFileTabLabels, type FileTabLabel } from './code-viewer-utils'
 

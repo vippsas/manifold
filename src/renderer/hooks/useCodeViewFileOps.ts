@@ -1,5 +1,5 @@
 import { useCallback, useRef } from 'react'
-import { isImageFile, isPdfFile } from '../components/editor/code-viewer-utils'
+import { isImageFile, isPdfFile } from '../components/editor/code-viewer/code-viewer-utils'
 import type { EditorPaneState } from './editor-pane-utils'
 import {
   closeFileInPane,

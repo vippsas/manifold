@@ -1,11 +1,11 @@
 import { useCallback, useEffect, useState } from 'react'
-import type { FileOpenRequest } from './file-open-request'
+import type { FileOpenRequest } from '../file-open-request'
 import { isMarkdownFile } from './code-viewer-utils'
 import {
   registerEditorPaneModeControls,
   unregisterEditorPaneModeControls,
-} from './editor-pane-mode-controls'
-import { addBounded } from './bounded-cache'
+} from '../editor-pane-mode-controls'
+import { addBounded } from '../bounded-cache'
 
 // Module-level state that survives component remounts (e.g. agent switches
 // rebuild dockview layout). The per-pane Sets accumulate file paths and never

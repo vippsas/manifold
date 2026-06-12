@@ -1,14 +1,14 @@
 import React, { useCallback, useEffect, useLayoutEffect, useMemo, useRef } from 'react'
 import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
-import { MermaidBlock } from '../MermaidBlock'
+import { MermaidBlock } from '../code-viewer/MermaidBlock'
 import {
   extractMarkdownFrontmatter,
   isExternalMarkdownHref,
   type MarkdownFrontmatterEntry,
   resolveMarkdownLinkedFilePath,
   resolveMarkdownPreviewSource,
-} from '../code-viewer-utils'
+} from '../code-viewer/code-viewer-utils'
 import { setBounded } from '../bounded-cache'
 
 // LRU-capped so this remount-surviving cache doesn't grow without bound as

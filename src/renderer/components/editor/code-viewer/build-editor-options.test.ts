@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest'
 import { buildEditorOptions } from './build-editor-options'
-import type { EditorSettings } from '../../../shared/types'
+import type { EditorSettings } from '../../../../shared/types'
 
 const SETTINGS: EditorSettings = {
   fontSize: 15,
