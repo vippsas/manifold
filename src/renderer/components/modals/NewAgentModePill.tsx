@@ -9,7 +9,7 @@ interface Props {
 }
 
 const MODES = [
-  { id: 'interactive', label: 'Interactive' },
+  { id: 'interactive', label: 'Terminal' },
   { id: 'chat', label: 'Chat' },
 ] as const
 

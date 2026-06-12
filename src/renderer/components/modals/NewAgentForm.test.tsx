@@ -134,10 +134,10 @@ describe('NewAgentForm', () => {
     expect(onDeleteSession).toHaveBeenCalledWith(existingSession)
   })
 
-  it('renders the Interactive | Chat toggle, defaulting to Interactive', async () => {
+  it('renders the Terminal | Chat toggle, defaulting to Terminal', async () => {
     renderForm()
     await waitFor(() => expect(mockInvoke).toHaveBeenCalledWith('runtimes:list'))
-    expect(screen.getByText('Interactive')).toBeInTheDocument()
+    expect(screen.getByText('Terminal')).toBeInTheDocument()
     expect(screen.getByText('Chat')).toBeInTheDocument()
   })
 
@@ -189,7 +189,7 @@ describe('NewAgentForm', () => {
     await waitFor(() => expect(mockInvoke).toHaveBeenCalledWith('runtimes:list'))
 
     fireEvent.click(screen.getByText('Chat'))
-    fireEvent.click(screen.getByText('Interactive'))
+    fireEvent.click(screen.getByText('Terminal'))
     fireEvent.click(screen.getByText('Chat'))
 
     expect(mockInvoke).not.toHaveBeenCalledWith('settings:update', expect.anything())
