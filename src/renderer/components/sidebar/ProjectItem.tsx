@@ -104,7 +104,7 @@ export function ProjectItem({
       <div
         onClick={handleClick}
         onKeyDown={handleKeyDown}
-        className={`sidebar-item-row sidebar-project-row${isActive ? ' sidebar-item-row--active' : ''}`}
+        className={`sidebar-item-row sidebar-project-row${isActive ? ' sidebar-item-row--active' : ''}${behind > 0 ? ' sidebar-project-row--behind' : ''}`}
         style={{ ...sidebarStyles.item, ...(isActive ? sidebarStyles.itemActive : undefined), position: 'relative' as const }}
         role="button"
         tabIndex={0}
@@ -138,14 +138,14 @@ export function ProjectItem({
               onClick={(e) => { e.stopPropagation(); onFetch() }}
               onKeyDown={stopKeyPropagation}
               className="sidebar-icon-button"
-              style={{ ...sidebarStyles.removeButton, position: 'relative' }}
+              style={behind > 0 ? { ...sidebarStyles.removeButton, ...sidebarStyles.fetchPill } : sidebarStyles.removeButton}
               aria-label={fetchAriaLabel}
               title={fetchTitle}
               disabled={isFetching}
             >
               {isFetching ? '...' : '↻'}
               {!isFetching && behind > 0 && (
-                <span style={sidebarStyles.fetchBadge}>{behind > 9 ? '9+' : behind}</span>
+                <span>{behind > 9 ? '9+' : behind}</span>
               )}
             </button>
           )}

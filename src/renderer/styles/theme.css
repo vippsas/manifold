@@ -684,6 +684,12 @@ select:focus-visible {
   text-transform: uppercase;
 }
 
+/* The fetch button widens into a "↻ 9+" pill when behind origin, so reserve
+   extra room on the right to keep a long repo name from running under it. */
+.sidebar-project-row--behind {
+  padding-right: 88px;
+}
+
 .sidebar-agent-row {
   flex-direction: column;
   align-items: flex-start;

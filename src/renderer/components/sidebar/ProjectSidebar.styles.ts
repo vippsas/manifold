@@ -51,25 +51,23 @@ export const sidebarStyles: Record<string, React.CSSProperties> = {
     lineHeight: 1,
     background: 'transparent',
   },
-  fetchBadge: {
-    position: 'absolute' as const,
-    top: '-4px',
-    right: '-4px',
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'center',
-    minWidth: '14px',
-    height: '14px',
-    padding: '0 3px',
+  // When the base branch is behind origin, the fetch button becomes an amber
+  // pill so the ↻ glyph stays visible next to the count, instead of a badge
+  // overlapping (and hiding) the icon. Overrides the fixed 16px width/height
+  // and muted color of .sidebar-icon-button.
+  fetchPill: {
+    width: 'auto',
+    height: 'auto',
+    gap: '3px',
+    padding: '1px 6px',
     borderRadius: 'var(--radius-pill)',
     background: 'var(--status-waiting)',
     color: 'var(--bg-primary)',
-    fontSize: 'var(--type-ui-micro)',
+    fontSize: 'var(--type-ui-small)',
     fontWeight: 700,
     lineHeight: 1,
-    boxSizing: 'border-box' as const,
+    opacity: 1,
     boxShadow: 'inset 0 1px 0 rgba(255, 255, 255, 0.06)',
-    pointerEvents: 'none' as const,
   },
   addButton: {
     fontSize: 'var(--type-ui-small)',
