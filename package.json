@@ -121,6 +121,7 @@
     "temp": {
       "rimraf": "^6.0.1"
     },
-    "glob": "^13.0.0"
+    "glob": "^13.0.0",
+    "lodash.isequal": "npm:fast-deep-equal@^3.1.3"
   }
 }
