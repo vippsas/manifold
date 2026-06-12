@@ -1,7 +1,7 @@
 ---
-description: The manifold.watch plugin — a webview Watch panel whose host-side facade downloads a video, extracts auto-scaled frames, builds a timestamped transcript, and types /watch:watch into the user's own agent.
+description: The manifold.watch plugin — a webview Watch panel whose host-side facade downloads a video, extracts auto-scaled frames, builds a timestamped transcript, and types the watch skill invocation into the user's own agent.
 covers: [resources/plugins/manifold.watch]
-updated: 2026-06-11
+updated: 2026-06-12
 owner: see .github/CODEOWNERS
 ---
 
@@ -13,8 +13,11 @@ transcript. Since the Phase 3 removal of the builtin (`src/main/watch` + the `wa
 IPC surface), Watch lives entirely in the built-in plugin `manifold.watch`: the pipeline
 runs in the plugin host process behind a `WatchFacade`, the panel is a sandboxed webview
 registered as `manifold.watch.panel`, and the finished report is handed to the **user's
-own agent** — the run ends by typing `/watch:watch "<workDir>" <prompt>` into the base
-session's PTY through the `manifold.agents` API (capability `agent:spawn`). Playlist
+own agent** — the run ends by typing the watch skill invocation into the base session's
+PTY through the `manifold.agents` API (capability `agent:spawn`). The trigger token is
+runtime-specific (`buildWatchCommand`, `video-runner.ts:22`): Claude Code uses the plugin
+command `/watch:watch "<workDir>" <prompt>`, Codex references the skill as `$watch …` —
+Codex rejects the `/watch:watch` form as an unrecognized command. Playlist
 fan-out and sibling agents were removed; one video, one run, one agent. The heavy lifting
 still uses external binaries — `yt-dlp` for download and subtitles, `ffmpeg`/`ffprobe`
 for frames, audio, and metadata.
@@ -29,7 +32,7 @@ Plugin root: `resources/plugins/manifold.watch/` (manifest in `package.json`; co
 - `src/webview-host.ts` — `createWebviewHost()`: inlines the webview bundle into HTML, dispatches `WebviewMsg` → facade calls → `HostMsg` replies, owns the per-session in-flight run map (`AbortController` + last stage) so runs survive webview reloads.
 - `src/webview/` — the panel UI (React, bundled as a browser IIFE): `protocol.ts` (the typed message set), `use-watch-bridge.ts` (postMessage bridge), `watch-panel-store.ts` (per-session state), `components/WatchPanel.tsx` and friends.
 - `src/pipeline.ts` — `runWatchPipeline()`, the four-stage orchestrator (download → frames → transcribe → report) and the `renderReport()` markdown writer.
-- `src/video-runner.ts` — `runWatchVideo()`: one pipeline run, then the `/watch:watch` command typed into the base agent through an `AgentPort`.
+- `src/video-runner.ts` — `runWatchVideo()`: one pipeline run, then the watch skill invocation typed into the base agent through an `AgentPort`; `buildWatchCommand()` selects the runtime-specific trigger (`/watch:watch` for Claude Code, `$watch` for Codex).
 - `src/downloader.ts` / `frame-extractor.ts` / `transcriber.ts` / `vtt-parser.ts` / `yt-dlp-fetcher.ts` — the pipeline stages: yt-dlp fetch, ffprobe/ffmpeg frame extraction with auto-fps budgets, `gpt-4o-transcribe` audio transcription, native-caption VTT parsing, lazy yt-dlp install into `~/.manifold/bin`.
 - `src/run-store.ts` — `WatchRunStore`: persists one run per session (status/frames/workDir) to `~/.manifold/watch-runs.json`, evicts old runs and their frame dirs.
 - `src/peek.ts` — `peekVideo()`: pre-run metadata + thumbnail probe (no download); rejects playlist URLs.
@@ -104,10 +107,12 @@ lands on the builtin-only `agent:spawn` capability service,
 creates the run's work dir (`~/.manifold/watch-runs/<runId>`), records the run, and runs
 the pipeline with the host's abort signal forwarded. When the pipeline finishes, it waits
 for the base agent's TUI prompt (`whenReady`, 30 s non-fatal timeout,
-`video-runner.ts:100`), types `/watch:watch "<workDir>" <prompt>` (`:96`) — the prompt is
-the user's edited text from the panel, falling back to `DEFAULT_WATCH_QUESTION`
-(`shared-types.ts:28`) when blank — waits 400 ms, sends `\r` (`:102-103`), and marks the
-run ready (`:104`). A failed pipeline marks the run errored instead (`:108`).
+`video-runner.ts:120`), types the runtime-specific watch command from `buildWatchCommand`
+(`:22`) — `/watch:watch "<workDir>" <prompt>` for Claude Code, `$watch …` for Codex; the
+runtime comes from `manifold.workspace.activeSession?.runtimeId` threaded through the facade
+(`facade.ts:114`) — the prompt is the user's edited text from the panel, falling back to
+`DEFAULT_WATCH_QUESTION` (`shared-types.ts:28`) when blank — waits 400 ms, sends `\r`, and
+marks the run ready. A failed pipeline marks the run errored instead.
 
 ## Key types and entry points
 
@@ -142,6 +147,11 @@ run ready (`:104`). A failed pipeline marks the run errored instead (`:108`).
 - **Captions win over transcription.** Transcription only runs when caption segments are empty *and* the provider isn't `'none'` (`pipeline.ts:133`); a video with native subs never hits the paid API. `gpt-4o-transcribe` loses timing — one `t=0` segment (`transcriber.ts:147`).
 - **Transcript failure is non-fatal; download/frame failure is not.** Caption-parse and transcription errors downgrade to `source: 'none'`; a failed download or extraction rejects the whole pipeline.
 - **fps is hard-capped at 2.0.** Even `fpsOverride` is clamped to `MAX_FPS` (`frame-extractor.ts:170`); frame timestamps are derived (`offset + index/fps`), never probed from the JPEGs.
+- **The invocation token is runtime-specific.** The same bundled skill installs into both
+  `~/.claude` and `~/.codex`, but the trigger differs: Claude Code runs `/watch:watch`,
+  Codex runs `$watch`. `buildWatchCommand` (`video-runner.ts:22`) branches on the base
+  session's `runtimeId` (surfaced to the plugin via `SessionInfo.runtimeId`); a Codex agent
+  rejects the `/watch:watch` form with `Unrecognized command`.
 - **Typing into the agent waits for its prompt.** The runner waits for status `waiting` (30 s, non-fatal) and inserts a 400 ms delay before `\r` so the command isn't swallowed by the welcome banner or mid-turn output (`video-runner.ts:100-103`).
 - **Run retention is bounded and destructive.** `WatchRunStore` keeps at most `MAX_RETAINED_RUNS = 20` runs; eviction `rmSync`s the run's frame dir (`run-store.ts:32`, `:161-179`) and never evicts a session's active run. An unreadable state file flips the store read-only; a corrupt one is renamed `.corrupt.<ts>` before resetting (`run-store.ts:226`, `:246`). Runs written by the retired playlist format are dropped (with their frame dirs) on load (`run-store.ts:233-241`).
 - **Persisted state shares the builtin's disk.** The plugin reuses `~/.manifold/watch-runs.json`, `~/.manifold/bin`, and the fingerprint-matched skill installs. Saved dock layouts containing the old `watch` panel id are sanitized away by the app (`src/renderer/hooks/dock-layout/dock-layout-sanitize.ts`).
