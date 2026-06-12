@@ -2,7 +2,7 @@ import React from 'react'
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { render, screen, fireEvent, waitFor } from '@testing-library/react'
 import { PluginTreeViewPanel } from './PluginTreeViewPanel'
-import type { SerializedTreeItem } from '../../../shared/plugins/tree'
+import type { SerializedTreeItem } from '../../../../shared/plugins/tree'
 
 const LEAF_WITH_COMMAND: SerializedTreeItem = {
   nodeId: 'leaf-1',

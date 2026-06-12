@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react'
-import type { SerializedTreeItem } from '../../../shared/plugins/tree'
+import type { SerializedTreeItem } from '../../../../shared/plugins/tree'
 
 const ICON_MAP: Record<string, string> = {
   folder: '📁',

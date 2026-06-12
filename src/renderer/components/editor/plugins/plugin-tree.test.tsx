@@ -2,7 +2,7 @@ import React from 'react'
 import { describe, it, expect, vi } from 'vitest'
 import { render, screen, fireEvent, waitFor } from '@testing-library/react'
 import { PluginTree } from './plugin-tree'
-import type { SerializedTreeItem } from '../../../shared/plugins/tree'
+import type { SerializedTreeItem } from '../../../../shared/plugins/tree'
 
 const ROOT_COLLAPSIBLE: SerializedTreeItem = {
   nodeId: 'parent-1',

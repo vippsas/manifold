@@ -2,7 +2,7 @@ import React from 'react'
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { render } from '@testing-library/react'
 import { PluginViewPanel } from './PluginViewPanel'
-import { DockStateContext, type DockAppState } from './dock-panel-types'
+import { DockStateContext, type DockAppState } from '../dock-panel-types'
 
 describe('PluginViewPanel', () => {
   beforeEach(() => {

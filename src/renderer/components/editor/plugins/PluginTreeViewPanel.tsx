@@ -1,7 +1,7 @@
 import React from 'react'
-import { usePluginTree } from '../../hooks/usePluginTree'
+import { usePluginTree } from '../../../hooks/usePluginTree'
 import { PluginTree } from './plugin-tree'
-import type { SerializedTreeItem } from '../../../shared/plugins/tree'
+import type { SerializedTreeItem } from '../../../../shared/plugins/tree'
 
 export function PluginTreeViewPanel({ api }: { api: { id: string } }): React.JSX.Element {
   const viewId = api.id
