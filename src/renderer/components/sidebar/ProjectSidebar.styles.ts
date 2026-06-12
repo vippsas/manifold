@@ -51,7 +51,7 @@ export const sidebarStyles: Record<string, React.CSSProperties> = {
     lineHeight: 1,
     background: 'transparent',
   },
-  // When the base branch is behind origin, the fetch button becomes an amber
+  // When the base branch is behind origin, the fetch button becomes an accent
   // pill so the ↻ glyph stays visible next to the count, instead of a badge
   // overlapping (and hiding) the icon. Overrides the fixed 16px width/height
   // and muted color of .sidebar-icon-button.
@@ -61,8 +61,8 @@ export const sidebarStyles: Record<string, React.CSSProperties> = {
     gap: '3px',
     padding: '1px 6px',
     borderRadius: 'var(--radius-pill)',
-    background: 'var(--status-waiting)',
-    color: 'var(--bg-primary)',
+    background: 'var(--accent)',
+    color: 'var(--accent-text)',
     fontSize: 'var(--type-ui-small)',
     fontWeight: 700,
     lineHeight: 1,
