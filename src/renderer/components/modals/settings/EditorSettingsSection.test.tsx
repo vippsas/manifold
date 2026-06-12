@@ -23,8 +23,8 @@ describe('EditorSettingsSection', () => {
   it('calls onChange when word wrap toggles', () => {
     const onChange = vi.fn()
     render(<EditorSettingsSection value={VALUE} onChange={onChange} />)
-    fireEvent.change(screen.getByLabelText(/^Word Wrap$/i), { target: { value: 'on' } })
-    expect(onChange).toHaveBeenCalledWith({ ...VALUE, wordWrap: 'on' })
+    fireEvent.change(screen.getByLabelText(/^Word Wrap$/i), { target: { value: 'off' } })
+    expect(onChange).toHaveBeenCalledWith({ ...VALUE, wordWrap: 'off' })
   })
 
   it('renders markdown word wrap checked by default', () => {

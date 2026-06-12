@@ -41,9 +41,9 @@ export const DEFAULT_SETTINGS = {
   editor: {
     fontSize: 13,
     fontFamily: "'SF Mono', 'Fira Code', Menlo, Consolas, monospace",
-    wordWrap: 'off',
+    wordWrap: 'on',
     markdownWordWrap: true,
-    minimap: false,
+    minimap: true,
     tabSize: 2,
   },
   provisioning: {
