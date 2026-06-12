@@ -26,15 +26,17 @@ export function buildShellEnv(cwd: string): Record<string, string> {
 /**
  * Build an ANSI-styled welcome line printed once when the shell spawns.
  * Uses dim gray so it's informational but doesn't dominate.
+ * Palette slot 16 is mapped to the theme accent by the renderer
+ * (src/shared/themes/adapter.ts), so accent text follows the active theme.
  */
 export function buildWelcomeMessage(branch: string, cwd: string): string {
   const dim = '\x1b[2m'
-  const cyan = '\x1b[36m'
+  const accent = '\x1b[38;5;16m'
   const reset = '\x1b[0m'
   // Shorten home directory to ~
   const home = os.homedir()
   const displayPath = cwd.startsWith(home) ? '~' + cwd.slice(home.length) : cwd
-  return `${dim}●  ${cyan}${branch}${dim}  ·  ${displayPath}${reset}\r\n${dim}💡 Type ${cyan}#${dim} followed by your question for AI help${reset}\r\n`
+  return `${dim}●  ${accent}${branch}${reset}${dim}  ·  ${displayPath}${reset}\r\n${dim}💡 Type ${accent}#${reset}${dim} followed by your question for AI help${reset}\r\n`
 }
 
 /**
@@ -124,8 +126,9 @@ ${historyBlock}
 # Enable # as comment character in interactive mode (required for NL command translator)
 setopt INTERACTIVE_COMMENTS
 
-# Override prompt with clean Manifold style
-PROMPT='%F{cyan}${agentName}%f %F{white}❯%f '
+# Override prompt with clean Manifold style.
+# Color 16 is remapped to the theme accent by Manifold's terminal renderer.
+PROMPT='%F{16}${agentName}%f %F{white}❯%f '
 RPROMPT=''
 `
 

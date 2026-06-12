@@ -52,6 +52,36 @@ describe('convertTheme', () => {
     )
   })
 
+  it('maps the terminal accent into extended ANSI palette slot 16', () => {
+    const withCursor = convertTheme({
+      base: 'vs-dark',
+      inherit: true,
+      rules: [],
+      colors: {
+        'editor.background': '#06080F',
+        'editor.foreground': '#E6ECF7',
+        focusBorder: '#5B8DEF',
+        'terminalCursor.foreground': '#E2C275',
+      },
+    }, 'test')
+
+    expect(withCursor.xtermTheme.extendedAnsi).toEqual(['#E2C275'])
+    expect(withCursor.xtermTheme.cursor).toBe('#E2C275')
+
+    const withoutCursor = convertTheme({
+      base: 'vs-dark',
+      inherit: true,
+      rules: [],
+      colors: {
+        'editor.background': '#06080F',
+        'editor.foreground': '#E6ECF7',
+        focusBorder: '#5B8DEF',
+      },
+    }, 'test')
+
+    expect(withoutCursor.xtermTheme.extendedAnsi).toEqual(['#5B8DEF'])
+  })
+
   it('derives instrumentation effect tints per theme type', () => {
     const dark = convertTheme({
       base: 'vs-dark',

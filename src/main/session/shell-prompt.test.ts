@@ -138,7 +138,7 @@ RPROMPT='external right prompt'
     expect(result.stdout).not.toContain('_omp_preexec')
     expect(result.stdout).not.toContain('prompt_ohmyposh_precmd')
     expect(result.stdout).not.toContain('starship_precmd')
-    expect(result.stdout).toContain('prompt=%F{cyan}oslo%f %F{white}❯%f ')
+    expect(result.stdout).toContain('prompt=%F{16}oslo%f %F{white}❯%f ')
     expect(result.stdout).toContain('rprompt=')
     expect(result.stdout).toContain('posh=')
     expect(result.stdout).toContain('starship=')
