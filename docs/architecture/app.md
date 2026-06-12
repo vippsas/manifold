@@ -1,7 +1,7 @@
 ---
 description: How the Electron main process boots — shell PATH, dev profile, module wiring, app lifecycle, window creation, menus, auto-updater, mode switching, and the live-preview dev server.
 covers: [src/main/app]
-updated: 2026-06-11
+updated: 2026-06-12
 owner: see .github/CODEOWNERS
 ---
 
@@ -39,7 +39,9 @@ and `configureDevProfilePaths(app)` run first (`index.ts:6`), then `process.env.
 is deleted so spawned Claude agents don't mistake themselves for nested sessions and refuse
 to start (`index.ts:11`). Only then are the manager classes imported and instantiated. The
 module body builds the full object graph eagerly: stores, `WorktreeManager`, `PtyPool`,
-`SessionManager`, file watchers, workspace modules, memory modules, the verdict recorder, and
+`SessionManager`, file watchers, workspace modules (followed by a
+`workspaceManager.pruneMissingProjects()` sweep that drops workspace members whose project no
+longer exists, `index.ts:76`), memory modules, the verdict recorder, and
 the `PluginManager` (whose `scan()` runs immediately, `index.ts:116`). Cross-cutting
 collaborators are wired with post-construction setters (`sessionManager.setChatAdapter`,
 `setMemoryCapture`, `setVerdictRecorder`, …, `index.ts:92`). Everything the renderer can reach

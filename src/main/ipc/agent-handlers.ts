@@ -251,6 +251,9 @@ export function registerAgentHandlers(deps: IpcDependencies): void {
     // 3c. Remove persisted run verdicts for this project
     deps.verdictStore.deleteByProject(projectId)
 
+    // 3d. Detach the project from every workspace that references it
+    deps.workspaceManager.removeProjectFromAllWorkspaces(projectId)
+
     // 4. Remove project from registry
     deps.projectRegistry.removeProject(projectId)
   })

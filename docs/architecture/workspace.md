@@ -1,7 +1,7 @@
 ---
 description: How Manifold groups several repositories into one Workspace so a single agent operates across all of them, each repo mounted via the runtime's multi-directory flag.
 covers: [src/main/workspace]
-updated: 2026-06-10
+updated: 2026-06-12
 owner: see .github/CODEOWNERS
 ---
 
@@ -38,16 +38,21 @@ yields an empty list (`workspace-store.ts:12`). `WorkspaceManager` mutates only 
 store and fires `emitListChanged` after each change so the renderer can refresh
 (`workspace-manager.ts:43`). `create()` requires at least one project
 (`workspace-manager.ts:35`); `removeProject()` refuses to empty a workspace — a repo-less
-workspace can't spawn an agent (`workspace-manager.ts:63`).
+workspace can't spawn an agent (`workspace-manager.ts:63`). Project *deletion* is the
+exception: `removeProjectFromAllWorkspaces()` detaches a deleted project from every workspace
+even if that empties one (`workspace-manager.ts:70`) — a dangling id would render as a raw
+uuid in the sidebar and select nothing — and `pruneMissingProjects()` runs once at startup to
+drop ids the registry no longer resolves from records persisted before this cascade existed
+(`workspace-manager.ts:81`).
 
-**Resolve the project set.** `spawnAgent(workspaceId, options)` (`workspace-manager.ts:68`)
+**Resolve the project set.** `spawnAgent(workspaceId, options)` (`workspace-manager.ts:93`)
 loads the workspace, maps each `projectId` through `projectRegistry.getProject()` into a
 `WorkspaceProject` (`id`, `path`, `name`, `baseBranch`, `kind`), and throws on any unknown
 project. If `options.homeProjectId` names a member, that repo is moved to the front so it
-becomes the primary/cwd; otherwise the first repo stays primary (`workspace-manager.ts:81`).
+becomes the primary/cwd; otherwise the first repo stays primary (`workspace-manager.ts:106`).
 
 **Pick a shared branch.** The base branch is `options.branchName ?? manifold/<slug(name)>`
-(`workspace-manager.ts:87`). `findAvailableWorkspaceBranch()` (`workspace-worktrees.ts:27`)
+(`workspace-manager.ts:112`). `findAvailableWorkspaceBranch()` (`workspace-worktrees.ts:27`)
 then probes `branchExists` across *every git repo* in the set and returns the first candidate
 free in all of them, suffixing `-2`, `-3`, … up to 1000 before throwing. Non-git folders are
 skipped via `isGitProject` (`src/shared/project-kind.ts`).
@@ -64,7 +69,7 @@ branches and push the next spawn to `-2`, `-3` (`workspace-worktrees.ts:65`).
 **Spawn.** `spawnAgent` hands the result to `sessionManager.createSession()` with
 `projectId = projects[0].id`, `existingWorktreePath = primary`, `additionalDirs`,
 `workspaceId`, `workspaceWorktreePaths = worktreePaths`, plus `runtimeId`, `prompt`, and
-`nonInteractive` (`workspace-manager.ts:91`). The PTY is spawned with cwd = the primary
+`nonInteractive` (`workspace-manager.ts:116`). The PTY is spawned with cwd = the primary
 worktree; only the *additional* dirs need flags, which `buildWorkingSetArgs()` emits per
 runtime — `--add-dir <dirs…>` (variadic) for Claude, repeated `--add-dir <dir>` for Codex /
 Copilot, and `--include-directories a,b,c` for Gemini (`src/main/agent/working-set-args.ts:6`).
@@ -82,7 +87,7 @@ worktree.
 
 ## Key types and entry points
 
-- `WorkspaceManager` — `workspace-manager.ts:28`. Public surface: `list`, `get`, `create`, `remove`, `addProject`, `removeProject`, `spawnAgent`.
+- `WorkspaceManager` — `workspace-manager.ts:28`. Public surface: `list`, `get`, `create`, `remove`, `addProject`, `removeProject`, `removeProjectFromAllWorkspaces`, `pruneMissingProjects`, `spawnAgent`.
 - `Workspace` / `WorkspaceCreateOptions` / `WorkspaceSpawnAgentOptions` — `src/shared/workspace-types.ts`. `Workspace.projectIds` is ordered; `WorkspaceSpawnAgentOptions.homeProjectId` picks the primary repo.
 - `WorkspaceStore` — `workspace-store.ts:5`. `list/get/add/update/remove/addProject/removeProject`, all persisting to one JSON file.
 - `WorktreeSetManager` — `workspace-worktrees.ts:4`. The port the manager depends on (`createWorktree`, `removeWorktree`, `deleteBranch`, `branchExists`); satisfied by `src/main/git`'s `WorktreeManager`.
@@ -94,12 +99,12 @@ worktree.
 - **Git / worktrees** (`src/main/git`): the injected `WorktreeManager` provides `createWorktree` / `removeWorktree` / `deleteBranch` / `branchExists` behind the `WorktreeSetManager` port.
 - **Agent runtime** (`src/main/agent`): `buildWorkingSetArgs()` translates `additionalDirs` into the per-runtime multi-directory launch flags.
 - **Store / projects** (`src/main/store`): `ProjectRegistry.getProject()` resolves each member's path/baseBranch/kind; `isGitProject` (`src/shared/project-kind.ts`) decides worktree vs. passthrough.
-- **App wiring** (`src/main/app/index.ts:69`): constructs `WorkspaceStore` at `~/.manifold/workspaces.json` and `WorkspaceManager`, wiring `emitListChanged` to send `workspace:list-changed` to the renderer.
-- **IPC** (`src/main/ipc/workspace-handlers.ts`): `workspace:list` / `:create` / `:remove` / `:add-project` / `:remove-project` / `:spawn-agent` map one-to-one onto the manager.
+- **App wiring** (`src/main/app/index.ts:69`): constructs `WorkspaceStore` at `~/.manifold/workspaces.json` and `WorkspaceManager`, wiring `emitListChanged` to send `workspace:list-changed` to the renderer, then runs `pruneMissingProjects()` (`index.ts:76`).
+- **IPC** (`src/main/ipc/workspace-handlers.ts`): `workspace:list` / `:create` / `:remove` / `:add-project` / `:remove-project` / `:spawn-agent` map one-to-one onto the manager. Project removal cascades in from outside this folder: `projects:remove` (`src/main/ipc/project-handlers.ts:194`) and `agent:delete-app` (`src/main/ipc/agent-handlers.ts:255`) both call `removeProjectFromAllWorkspaces()`.
 
 ## Invariants & gotchas
 
-- **A workspace is never empty.** `create()` rejects zero projects (`workspace-manager.ts:35`) and `removeProject()` no-ops on the last repo (`workspace-manager.ts:63`) — a repo-less workspace can't spawn an agent.
+- **A workspace is never empty — except by project deletion.** `create()` rejects zero projects (`workspace-manager.ts:35`) and `removeProject()` no-ops on the last repo (`workspace-manager.ts:63`). But when the *project itself* is deleted, `removeProjectFromAllWorkspaces()` drops it even as the last member (`workspace-manager.ts:70`): a dangling id is worse than an empty workspace (it renders as a raw uuid and selects nothing).
 - **`projectIds` order is the default primary.** `projectIds[0]` is the agent cwd unless `homeProjectId` overrides it; an unknown `homeProjectId` silently falls back to the first repo (`workspace-manager.ts:81`).
 - **The shared branch must be free in *all* git repos.** `findAvailableWorkspaceBranch` only returns a name unused across every member, so the same branch can be created in each worktree (`workspace-worktrees.ts:27`).
 - **Working-set creation is all-or-nothing.** A failure partway through rolls back the worktrees already created before rethrowing (`workspace-worktrees.ts:65`).

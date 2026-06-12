@@ -1,7 +1,7 @@
 ---
 description: How Manifold's main-process services are exposed to the renderer over Electron IPC — the channel namespaces, the handler registration pattern, and how handlers delegate to subsystem managers.
 covers: [src/main/ipc]
-updated: 2026-06-11
+updated: 2026-06-12
 owner: see .github/CODEOWNERS
 ---
 
@@ -104,5 +104,5 @@ clone URLs beginning with `-` to avoid argument injection into `git clone`
 - **Path guards live in the handler, not the manager.** `fileWatcher` will read/write whatever absolute path it's given; the traversal guard is `isPathAllowed` in `file-handlers.ts`. A new `files:*` channel that skips it is an arbitrary-file-access hole.
 - **Handlers must tolerate a missing session.** Sessions can be torn down mid-flight while a renderer refresh is in flight; `diff:get` returns an empty diff rather than throwing for exactly this race (`git-handlers.ts:15`), whereas `resolveSession`-based channels deliberately throw.
 - **Plain-folder projects reject git channels.** Most `git:*`/`diff:*`/`pr:create` handlers guard with `isGitProject` and either throw or return an empty result; do the same for any new git-touching channel.
-- **Removing a project must drop its derived stores.** A project id is a fresh uuid on every add, so anything keyed by it (verdicts, chat, memory) is unreachable once the project is removed and re-added. `projects:remove` therefore deletes the verdict/chat/memory data but leaves the on-disk repo in place; only `agent:delete-app` additionally `fs.rm`s the project directory (`project-handlers.ts:185`).
+- **Removing a project must drop its derived stores and references.** A project id is a fresh uuid on every add, so anything keyed by it (verdicts, chat, memory, workspace membership) is unreachable once the project is removed and re-added. `projects:remove` therefore deletes the verdict/chat/memory data and detaches the id from every workspace (`workspaceManager.removeProjectFromAllWorkspaces`, `project-handlers.ts:194`) but leaves the on-disk repo in place; only `agent:delete-app` additionally `fs.rm`s the project directory (`project-handlers.ts:185`, `agent-handlers.ts:255`).
 - **Registration is once-per-process, and must stay that way.** Channels are global to the main process and `ipcMain.handle` throws if a channel is registered twice, so the `ipcHandlersRegistered` guard in `window-factory.ts:100` ensures a second window does *not* re-register. New handler modules must be idempotent-by-omission: register in `registerIpcHandlers`, nowhere else.
