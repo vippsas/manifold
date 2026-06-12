@@ -37,7 +37,7 @@ import { useFavorites } from './hooks/useFavorites'
 import type { AgentSession, ResolvedFavorite } from '../shared/types'
 import { isGitProject } from '../shared/project-kind'
 import { AppShell } from './AppShell'
-import { QuickOpen } from './components/editor/QuickOpen'
+import { QuickOpen } from './components/editor/quick-open/QuickOpen'
 
 export function App(): React.JSX.Element {
   const { settings, updateSettings } = useSettings()

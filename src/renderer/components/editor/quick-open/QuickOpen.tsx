@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react'
 import { fuzzyFilter } from './fuzzy-match'
-import { useAutoFocus } from '../../hooks/useAutoFocus'
+import { useAutoFocus } from '../../../hooks/useAutoFocus'
 import { quickOpenStyles } from './QuickOpen.styles'
 
 interface QuickOpenProps {
