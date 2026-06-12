@@ -23,7 +23,7 @@ Do not use it for PRs, code reviews, or release notes.
 1. Gather the minimum factual context first.
 2. Prefer concrete repro steps, observed behavior, expected behavior, and scope.
 3. If the repo has an issue template, mirror its structure rather than inventing a new format.
-4. If screenshots or images were provided in chat, upload them and embed the links (see Uploading Images below).
+4. If screenshots or images were provided in chat, do not upload them by default. Only upload and embed them if the user explicitly asks for that (see Uploading Images below).
 5. Write the issue body to a temp markdown file.
 6. Create the issue with `gh issue create --body-file ...`.
 7. Return the created issue URL to the user.
@@ -51,8 +51,13 @@ Keep issue bodies factual. Avoid speculative root causes unless labeled as suspi
 ## Uploading Images
 
 Images pasted into the chat thread appear in the conversation as `[image: /absolute/path/to/file.png]`
-references. Those files live on this machine and are readable. Before writing the issue body, upload
-each relevant one:
+references. Those files live on this machine and are readable.
+
+Only upload them when the user explicitly asks for the images to be uploaded to GitHub or embedded in
+the issue body. If the user does not ask for upload, describe the screenshots in the issue and say
+plainly that they were provided in chat but were not uploaded.
+
+When upload was explicitly requested, upload each relevant image before writing the issue body:
 
 ```bash
 bash .claude/skills/gh-create-issue/scripts/upload-assets.sh <path> [<path>...]
