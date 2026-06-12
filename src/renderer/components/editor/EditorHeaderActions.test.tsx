@@ -83,7 +83,7 @@ function makeDockState(overrides: Partial<DockAppState> = {}): DockAppState {
     onOpenSibling: vi.fn(),
     onCloseSiblingPanel: vi.fn(),
     ...overrides,
-  }
+  } as unknown as DockAppState
 }
 
 function makeHeaderProps(overrides: Partial<IDockviewHeaderActionsProps> = {}): IDockviewHeaderActionsProps {

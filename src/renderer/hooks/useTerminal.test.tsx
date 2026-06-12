@@ -67,7 +67,7 @@ import { useTerminal } from './useTerminal'
 
 function TerminalHarness(): React.JSX.Element {
   const { containerRef } = useTerminal({ sessionId: 'shell-1', scrollbackLines: 5000 })
-  return <div ref={containerRef} />
+  return <div ref={containerRef as React.RefObject<HTMLDivElement>} />
 }
 
 function getCustomKeyHandler(): (event: KeyboardEvent) => boolean {

@@ -6,7 +6,7 @@ interface ConflictsEvent {
   conflicts: string[]
 }
 
-interface UseGitOperationsResult {
+export interface UseGitOperationsResult {
   aheadBehind: AheadBehind
   conflicts: string[]
   commit: (message: string) => Promise<void>

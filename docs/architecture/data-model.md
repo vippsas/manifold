@@ -1,7 +1,7 @@
 ---
 description: The on-disk data model under ~/.manifold — every file and directory Manifold persists, which module owns each path, and the two distinct roots (hardcoded config home vs. configurable storage root).
 covers: [src/main/store, src/shared/defaults.ts]
-updated: 2026-06-10
+updated: 2026-06-12
 owner: see .github/CODEOWNERS
 ---
 
@@ -15,7 +15,7 @@ are **two roots that happen to coincide by default**:
    state. This path is *not* user-configurable.
 2. **The storage root** (`settings.storagePath`) — *configurable* in Settings → Storage Path,
    defaulting to `os.homedir()/.manifold` (`settings-store.ts:24`, default seed
-   `defaults.ts:4`). It holds the large, generated content: managed worktrees, locally
+   `defaults.ts:5`). It holds the large, generated content: managed worktrees, locally
    generated app projects, and user-installed plugins.
 
 Because the default `storagePath` equals the config home, a stock install puts everything
@@ -25,7 +25,7 @@ in one place — but moving the storage root only relocates worktrees/projects/p
 
 ## Covered code
 
-- `src/shared/defaults.ts` — `DEFAULT_SETTINGS.storagePath: ''` (`:4`); the empty default that signals "resolve me".
+- `src/shared/defaults.ts` — `DEFAULT_SETTINGS.storagePath: ''` (`:5`); the empty default that signals "resolve me".
 - `src/main/store/settings-store.ts` — `CONFIG_DIR`/`CONFIG_FILE` for `config.json` (`:8`–`:9`); `resolveDefaults()` fills `storagePath` with `os.homedir()/.manifold` when unset (`:24`).
 - `src/main/store/project-registry.ts` — `projects.json` (`:10`–`:11`).
 - `src/main/store/chat-store.ts` — per-session chat under `<configHome>/chat/`, legacy `chat-history.json` (`:49`–`:51`).
@@ -117,7 +117,7 @@ ship inside the app under `resources/plugins`, not here (`plugin-paths.ts:7`).
 
 - `ManifoldSettings` — `src/shared/types.ts`; the shape of `config.json`. `storagePath` is the
   one field that determines the storage root.
-- `DEFAULT_SETTINGS` — `defaults.ts:3`. Ships `storagePath: ''`; the empty string is the
+- `DEFAULT_SETTINGS` — `defaults.ts:4`. Ships `storagePath: ''`; the empty string is the
   signal for `resolveDefaults` to substitute the config home.
 - `SettingsStore.resolveDefaults()` — `settings-store.ts:22`. The only place `storagePath` is
   resolved to a concrete path. Treat this as the authoritative storage-root owner.
@@ -138,7 +138,7 @@ ship inside the app under `resources/plugins`, not here (`plugin-paths.ts:7`).
   `<storageRoot>/worktrees` carry their own meta files; session discovery rebuilds dormant
   sessions by scanning that tree (see `docs/architecture/session.md`).
 - **Memory** (`src/main/memory`): the only consumer that writes binary SQLite rather than
-  JSON; `rawRetentionDays` (default 30, `defaults.ts:28`) drives pruning.
+  JSON; `rawRetentionDays` (default 30, `defaults.ts:29`) drives pruning.
 - **Loop plugin** (`resources/plugins/manifold.loop`): writes `loop-logs/*.jsonl` directly to
   the config home, bypassing `src/main/store` entirely — a plugin reaching into the same home.
 

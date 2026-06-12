@@ -90,7 +90,7 @@ function makeDockState(overrides: Partial<DockAppState> = {}): DockAppState {
     onOpenSibling: () => {},
     onCloseSiblingPanel: () => {},
     ...overrides,
-  }
+  } as unknown as DockAppState
 }
 
 describe('DockTab', () => {

@@ -1,6 +1,6 @@
 import React from 'react'
 import { vi } from 'vitest'
-import { render } from '@testing-library/react'
+import { render, type RenderResult } from '@testing-library/react'
 import type { OpenFile } from '../../hooks/useCodeView'
 import { CodeViewer } from './CodeViewer'
 import type { FileOpenRequest } from './file-open-request'
@@ -22,7 +22,7 @@ export function makeOpenRequest(overrides: Partial<FileOpenRequest> = {}): FileO
   }
 }
 
-export function renderViewer(overrides: Partial<React.ComponentProps<typeof CodeViewer>> = {}) {
+export function renderViewer(overrides: Partial<React.ComponentProps<typeof CodeViewer>> = {}): RenderResult {
   const openFile = makeOpenFile()
   const props: React.ComponentProps<typeof CodeViewer> = {
     sessionId: 'session-1',

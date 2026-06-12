@@ -1,6 +1,7 @@
 import { act, renderHook } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { DEFAULT_SETTINGS } from '../../shared/defaults'
+import type { AgentSession } from '../../shared/types'
 import { useSearch } from './useSearch'
 import { installElectronApi, mockInvoke, getSearchQueryCalls } from './useSearch.test-helpers'
 
@@ -53,7 +54,7 @@ describe('useSearch — scope reruns', () => {
               runtimeId: 'codex',
               branchName: 'feature/search',
               worktreePath: '/repo/.manifold/worktrees/feature-search',
-              status: 'running',
+              status: 'running' as const,
               pid: 1,
               additionalDirs: [],
             }],
@@ -88,7 +89,7 @@ describe('useSearch — scope reruns', () => {
           runtimeId: 'codex',
           branchName: 'feature/search',
           worktreePath: '/repo/.manifold/worktrees/feature-search',
-          status: 'running',
+          status: 'running' as const,
           pid: 1,
           additionalDirs: [],
         }],
@@ -107,7 +108,7 @@ describe('useSearch — scope reruns', () => {
   })
 
   it('does not rerun an all-project-sessions search when the active session changes', async () => {
-    const sessions = {
+    const sessions: Record<string, AgentSession[]> = {
       'project-1': [{
         id: 'session-1',
         projectId: 'project-1',

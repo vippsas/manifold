@@ -1,6 +1,7 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { screen, fireEvent } from '@testing-library/react'
 import type { AgentSession } from '../../../shared/types'
+import type { DraftId } from '../../../shared/draft-chat'
 import {
   installElectronApi,
   installLocalStorage,

@@ -4,6 +4,8 @@ import type { Project, AgentSession, ManifoldSettings, FileChange, CreateProject
 import type { Workspace, WorkspaceCreateOptions } from '../shared/workspace-types'
 import type { DockAppState } from './components/editor/dock-panel-types'
 import type { UseAppOverlaysResult } from './hooks/useAppOverlays'
+import type { UseGitOperationsResult } from './hooks/useGitOperations'
+import type { UseUpdateLogResult } from '../shared/useUpdateLog'
 import { PANEL_COMPONENTS, DockStateContext } from './components/editor/dock-panels'
 import { WorkspaceHeaderActions } from './components/editor/WorkspaceHeaderActions'
 import { ShellHeaderActions } from './components/terminal/ShellHeaderActions'
@@ -44,29 +46,8 @@ export interface AppShellProps {
   onDockReady: (api: DockviewApi) => void
   dockLayoutSlot: React.ReactNode // optional override; null in normal render
   overlays: UseAppOverlaysResult
-  gitOps: {
-    conflicts: unknown
-    aheadBehind: unknown
-    aiGenerate: (prompt: string) => Promise<string>
-    getPRContext: () => Promise<unknown>
-    resolveConflict: (...args: unknown[]) => Promise<void>
-  }
-  updateLog: {
-    visible: boolean
-    activeTab: string
-    currentVersion: string
-    releaseNotes: unknown
-    log: unknown
-    loading: boolean
-    error: string | null
-    close: () => void
-    refresh: () => Promise<void>
-    clear: () => Promise<void>
-    checkForUpdates: () => Promise<void>
-    openReleaseNotesExternal: () => Promise<void>
-    setActiveTab: (tab: string) => void
-    openReleaseNotes: (version?: string) => void
-  }
+  gitOps: UseGitOperationsResult
+  updateLog: UseUpdateLogResult
   updateNotification: { updateReady: boolean; version: string | null; install: () => void; dismiss: () => void }
   themeChangeNotice: { show: boolean; mode: 'light' | 'dark'; dismiss: () => void }
   appEffects: { showOnboarding: boolean; setShowOnboarding: (v: boolean) => void; creatingProject: boolean; cloningProject: boolean }
@@ -113,7 +94,7 @@ export function AppShell(p: AppShellProps): React.JSX.Element {
       <div className={`layout-root ${p.themeClass}`}>
         <TitleBar themeType={themeType} onToggleTheme={p.onToggleTheme} themeFamily={p.themeFamily} onSelectThemeFamily={p.onSelectThemeFamily} />
         <OnboardingView variant="no-project" onAddProject={() => void p.handleAddProjectFromOnboarding()} onCloneProject={p.handleCloneFromOnboarding}
-          onCreateNewProject={(desc) => void p.handleCreateNewProject(desc)} creatingProject={p.appEffects.creatingProject}
+          onCreateNewProject={p.handleCreateNewProject} creatingProject={p.appEffects.creatingProject}
           cloningProject={p.appEffects.cloningProject} createError={p.projectError} />
       </div>
     )
@@ -241,7 +222,7 @@ export function AppShell(p: AppShellProps): React.JSX.Element {
         <div style={{ position: 'absolute', inset: 0, zIndex: 100, background: 'var(--bg-primary)' }}>
           <OnboardingView variant="no-project" onAddProject={() => void p.handleAddProjectFromOnboarding()}
             onCloneProject={p.handleCloneFromOnboarding}
-            onCreateNewProject={(desc) => void p.handleCreateNewProject(desc)}
+            onCreateNewProject={p.handleCreateNewProject}
             creatingProject={p.appEffects.creatingProject}
             cloningProject={p.appEffects.cloningProject} createError={p.projectError}
             onBack={() => p.appEffects.setShowOnboarding(false)} />
