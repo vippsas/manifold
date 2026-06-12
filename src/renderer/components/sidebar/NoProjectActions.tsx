@@ -41,14 +41,18 @@ const headingEmphasisStyle: React.CSSProperties = {
   color: 'var(--accent-hi, var(--text-primary))',
 }
 
+// No box: the `.reticle-input` resting brackets (theme.css) are the field's edge,
+// dimmed while idle and brightening to full accent on focus. Border stays
+// 1px-transparent so the focus reticle has a border-box to paint into without
+// shifting layout; --radius-md keeps corners square enough for the brackets.
 const textareaStyle: React.CSSProperties = {
   width: '100%',
   padding: '10px 14px',
   fontSize: 'var(--type-ui)',
   lineHeight: 1.5,
-  backgroundColor: 'var(--bg-input)',
+  backgroundColor: 'transparent',
   color: 'var(--text-primary)',
-  border: '1px solid var(--border)',
+  border: '1px solid transparent',
   borderRadius: 'var(--radius-md)',
   outline: 'none',
   resize: 'vertical',
@@ -128,6 +132,7 @@ export function NoProjectActions({
           style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-md)', width: 480, maxWidth: '90%' }}
         >
           <textarea
+            className="reticle-input"
             value={description}
             onChange={(e) => setDescription(e.target.value)}
             placeholder={promptPlaceholderByMode[promptMode]}
