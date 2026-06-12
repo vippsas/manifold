@@ -76,6 +76,18 @@ In-loop rules:
   current; only `docs/architecture/` tracks the code.
 - Check drift with `bash scripts/wiki-lint.sh` (a daily routine runs it and PRs stale pages).
 
+## 6. Checked-in skills
+
+`.claude/skills/` is the source of truth for repository-maintained skills. After changing any
+checked-in skill or its helper scripts, refresh Codex's installed copies from the repo root:
+
+```bash
+npm run sync:codex-skills
+```
+
+The sync copies every first-level skill under `.claude/skills/` into `~/.codex/skills/` and applies
+Codex-specific rewrites for skills that need them.
+
 ---
 
 **These guidelines are working if:** fewer unnecessary changes in diffs, fewer rewrites due to overcomplication, and clarifying questions come before implementation rather than after mistakes.
