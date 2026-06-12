@@ -222,13 +222,19 @@ export function convertTheme(themeJson: MonacoThemeJson, _themeId: string): Conv
 
   const ansiDefaults = isDark ? DARK_ANSI : LIGHT_ANSI
   const brightDefaults = isDark ? DARK_BRIGHT_ANSI : LIGHT_BRIGHT_ANSI
+  const terminalAccent = c('terminalCursor.foreground') ?? accent
 
   const xtermTheme: ITheme = {
     background: c('terminal.background') ?? editorBg,
     foreground: c('terminal.foreground') ?? editorFg,
-    cursor: c('terminalCursor.foreground') ?? accent,
+    cursor: terminalAccent,
     cursorAccent: c('terminalCursor.background') ?? editorBg,
     selectionBackground: css('terminal.selectionBackground') ?? css('editor.selectionBackground') ?? withOpacity(accent, 0.3),
+
+    // Palette slot 16 carries the theme accent so shell-rendered chrome
+    // (Manifold prompt, welcome line — see src/main/session/shell-prompt.ts)
+    // follows the theme and recolors live on theme switch.
+    extendedAnsi: [terminalAccent],
 
     black: c('terminal.ansiBlack') ?? ansiDefaults.black,
     red: c('terminal.ansiRed') ?? ansiDefaults.red,
