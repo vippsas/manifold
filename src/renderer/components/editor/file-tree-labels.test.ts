@@ -51,6 +51,53 @@ describe('buildRootLabels', () => {
     expect(labels.has('/some/manually-added-dir')).toBe(false)
   })
 
+  it('derives the repo name from a managed worktree path when the project record is gone', () => {
+    const labels = buildRootLabels({
+      primaryTreePath: '/Users/me/.manifold/worktrees/manifold/manifold-workspace',
+      additionalRootPaths: ['/Users/me/.manifold/worktrees/landingpage/manifold-workspace'],
+      activeSession: {
+        projectId: 'p-removed',
+        workspaceWorktreePaths: {
+          'p-removed': '/Users/me/.manifold/worktrees/manifold/manifold-workspace',
+          'p-also-removed': '/Users/me/.manifold/worktrees/landingpage/manifold-workspace',
+        },
+      },
+      projects: [],
+    })
+
+    expect(labels.get('/Users/me/.manifold/worktrees/manifold/manifold-workspace')).toBe('manifold')
+    expect(labels.get('/Users/me/.manifold/worktrees/landingpage/manifold-workspace')).toBe('landingpage')
+  })
+
+  it('derives the primary repo name from the worktree path when there is no active session', () => {
+    const labels = buildRootLabels({
+      primaryTreePath: '/Users/me/.manifold/worktrees/manifold/manifold-workspace',
+      additionalRootPaths: ['/some/manually-added-dir'],
+      activeSession: null,
+      projects,
+    })
+
+    expect(labels.get('/Users/me/.manifold/worktrees/manifold/manifold-workspace')).toBe('manifold')
+    expect(labels.has('/some/manually-added-dir')).toBe(false)
+  })
+
+  it('prefers the registered project name over the path-derived repo name', () => {
+    const labels = buildRootLabels({
+      primaryTreePath: '/Users/me/.manifold/worktrees/manifold/manifold-ws',
+      additionalRootPaths: ['/Users/me/.manifold/worktrees/landing-dir/manifold-ws'],
+      activeSession: {
+        projectId: 'p-manifold',
+        workspaceWorktreePaths: {
+          'p-manifold': '/Users/me/.manifold/worktrees/manifold/manifold-ws',
+          'p-landing': '/Users/me/.manifold/worktrees/landing-dir/manifold-ws',
+        },
+      },
+      projects,
+    })
+
+    expect(labels.get('/Users/me/.manifold/worktrees/landing-dir/manifold-ws')).toBe('manifold-landingpage')
+  })
+
   it('omits the primary root when there is no active session', () => {
     const labels = buildRootLabels({
       primaryTreePath: '/wt/manifold-manifold-ws-6',
