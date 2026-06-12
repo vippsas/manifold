@@ -176,4 +176,79 @@ describe('useAgentSiblingDockTabs', () => {
     expect(agentPanel.api.setTitle).toHaveBeenCalledWith('Main agent')
     expect(siblingPanel.api.setTitle).toHaveBeenCalledWith('Review agent')
   })
+
+  it('titles the primary tab with the runtime label when the session has no display name', () => {
+    const group: MockGroup = {
+      element: { getBoundingClientRect: () => ({ top: 0, left: 0 }) },
+      panels: [],
+    }
+    const agentPanel = buildPanel('agent', group)
+    const panels = new Map<string, MockPanel>([[agentPanel.id, agentPanel]])
+    const api = {
+      getPanel: ((panelId: string) => panels.get(panelId)) as DockviewApi['getPanel'],
+      addPanel: vi.fn(),
+      removePanel: vi.fn((panel: MockPanel) => panels.delete(panel.id)),
+      onDidActivePanelChange: (() => ({ dispose() {} })) as DockviewApi['onDidActivePanelChange'],
+    } as unknown as DockviewApi
+
+    Object.defineProperty(api, 'panels', {
+      get: () => Array.from(panels.values()),
+    })
+
+    const sessions: AgentSession[] = [
+      {
+        id: 'primary',
+        projectId: 'p1',
+        runtimeId: 'codex',
+        branchName: 'manifold/main',
+        worktreePath: '/worktrees/main',
+        status: 'running',
+        pid: 1,
+        additionalDirs: [],
+      },
+    ]
+
+    renderHook(() => useAgentSiblingDockTabs({
+      apiRef: { current: api },
+      layoutVersion: 1,
+      sessions,
+      activeWorktreePath: '/worktrees/main',
+      primarySessionId: 'primary',
+      activeSessionId: 'primary',
+      onSelectSession: vi.fn(),
+    }))
+
+    expect(agentPanel.api.setTitle).toHaveBeenCalledWith('Codex')
+  })
+
+  it('keeps the generic Agent title only when no primary session is bound', () => {
+    const group: MockGroup = {
+      element: { getBoundingClientRect: () => ({ top: 0, left: 0 }) },
+      panels: [],
+    }
+    const agentPanel = buildPanel('agent', group)
+    const panels = new Map<string, MockPanel>([[agentPanel.id, agentPanel]])
+    const api = {
+      getPanel: ((panelId: string) => panels.get(panelId)) as DockviewApi['getPanel'],
+      addPanel: vi.fn(),
+      removePanel: vi.fn((panel: MockPanel) => panels.delete(panel.id)),
+      onDidActivePanelChange: (() => ({ dispose() {} })) as DockviewApi['onDidActivePanelChange'],
+    } as unknown as DockviewApi
+
+    Object.defineProperty(api, 'panels', {
+      get: () => Array.from(panels.values()),
+    })
+
+    renderHook(() => useAgentSiblingDockTabs({
+      apiRef: { current: api },
+      layoutVersion: 1,
+      sessions: [],
+      activeWorktreePath: null,
+      primarySessionId: null,
+      activeSessionId: null,
+      onSelectSession: vi.fn(),
+    }))
+
+    expect(agentPanel.api.setTitle).toHaveBeenCalledWith('Agent')
+  })
 })
