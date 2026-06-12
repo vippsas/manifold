@@ -67,6 +67,20 @@ Evidence / Screenshots section of the issue body. Notes:
 - Raw links only render for public repos. For a private repo, link the committed file path instead
   and say the image requires repo access.
 
+## Codex Install Sync
+
+After changing this checked-in skill or its helper scripts, refresh Codex's installed skills from the
+repo root:
+
+```bash
+npm run sync:codex-skills
+```
+
+The sync command copies every checked-in skill from `.claude/skills/` into `~/.codex/skills/`. For
+this issue skill, it also rewrites the image upload command in the Codex
+copy so it points at the installed `~/.codex/skills/gh-create-issue/scripts/upload-assets.sh`
+helper instead of the checked-in `.claude` source path.
+
 ## Evidence Rules
 
 - Include short logs or error text inline when useful.

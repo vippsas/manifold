@@ -23,6 +23,7 @@
     "postinstall": "chmod +x node_modules/node-pty/prebuilds/darwin-*/spawn-helper 2>/dev/null || true",
     "rebuild:node": "node scripts/rebuild-better-sqlite3-node.mjs",
     "rebuild:electron": "npx electron-rebuild -f -o better-sqlite3",
+    "sync:codex-skills": "node scripts/sync-codex-skills.mjs",
     "plugin:new": "node scripts/new-plugin.mjs"
   },
   "dependencies": {
