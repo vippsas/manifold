@@ -37,10 +37,31 @@ export function installWatchSkills(opts: InstallOptions): InstallResult {
 
   if (hasCodex) {
     const codexTarget = path.join(homeDir, '.codex', 'skills', PLUGIN_NAME)
-    installFolder(opts.sourceDir, codexTarget, sourceFingerprint, result)
+    installCodexSkill(opts.sourceDir, codexTarget, sourceFingerprint, result)
   }
 
   return result
+}
+
+// Codex loads the same bundled skill, but it has no `Read` tool — it views
+// images with `view_image` — and the prose is written for Claude Code. Copy the
+// skill verbatim, then rewrite the copy in place so a Codex agent gets
+// runtime-correct tools and instructions. The `+codex` fingerprint keeps this
+// install distinct from the verbatim Claude copy; we only adapt on a fresh
+// install so an already-adapted (skipped) copy isn't rewritten a second time.
+function installCodexSkill(
+  sourceDir: string,
+  target: string,
+  fingerprint: string,
+  result: InstallResult,
+): void {
+  installFolder(sourceDir, target, `${fingerprint}+codex`, result)
+  if (!result.installed.includes(target)) return // skipped (already adapted) or errored
+  try {
+    adaptSkillForCodex(target)
+  } catch (err) {
+    result.errors.push(`${target}: codex adaptation failed: ${err instanceof Error ? err.message : String(err)}`)
+  }
 }
 
 function installClaudeCodePlugin(
@@ -199,6 +220,61 @@ function copyRecursive(src: string, dst: string): void {
     } else if (entry.isFile()) {
       fs.copyFileSync(sp, dp)
     }
+  }
+}
+
+// Substitutions applied to the Codex copy of the skill, per file. Each `from`
+// MUST be present in the bundled skill: a bare `String.replace` silently no-ops
+// when the source wording drifts, which would leave Claude-only instructions in
+// the Codex copy. Instead we record every missing token and throw, so drift is
+// surfaced (via result.errors at runtime, and the test asserts a clean adapt of
+// the real bundled skill). Update this table whenever the skill text changes.
+const CODEX_SKILL_SUBS: Record<string, Array<{ from: string; to: string }>> = {
+  'SKILL.md': [
+    { from: 'allowed-tools: Bash, Read', to: 'allowed-tools: Bash' },
+    { from: 'and tells Claude to read each frame.', to: 'and tells Codex to inspect each frame.' },
+    {
+      from: '# /watch — Claude watches a Manifold-prepared video',
+      to: '# /watch — Codex watches a Manifold-prepared video',
+    },
+    {
+      from: '5. Pastes `/watch:watch <workdir>` into the active Claude Code agent',
+      to: '5. Pastes `$watch <workdir>` into the active Codex agent',
+    },
+    {
+      from: '2. Read each frame path the report lists',
+      to: '2. Inspect each frame path the report lists with the `view_image` tool',
+    },
+    {
+      from: 'the `Read` tool on every frame path in a single message (parallel tool calls)',
+      to: 'the `view_image` tool on every frame path',
+    },
+  ],
+  'commands/watch.md': [
+    { from: 'allowed-tools: [Bash, Read]', to: 'allowed-tools: [Bash]' },
+    {
+      from: 'Read `report.md`, then Read every frame path it lists, and answer',
+      to: 'Read `report.md`, then inspect every frame path it lists with the `view_image` tool, and answer',
+    },
+  ],
+}
+
+function adaptSkillForCodex(target: string): void {
+  const missing: string[] = []
+  for (const [rel, subs] of Object.entries(CODEX_SKILL_SUBS)) {
+    const filePath = path.join(target, rel)
+    let contents = fs.readFileSync(filePath, 'utf-8')
+    for (const { from, to } of subs) {
+      if (!contents.includes(from)) {
+        missing.push(`${rel}: "${from}"`)
+        continue
+      }
+      contents = contents.replace(from, to)
+    }
+    fs.writeFileSync(filePath, contents, 'utf-8')
+  }
+  if (missing.length > 0) {
+    throw new Error(`bundled skill text drifted; update CODEX_SKILL_SUBS for ${missing.join('; ')}`)
   }
 }
 

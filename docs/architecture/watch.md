@@ -97,7 +97,7 @@ removes in a `finally`, `pipeline.ts:24`, `:33`), clamps `maxFrames` to 1–100 
 - *Download* — `download()` (`downloader.ts:99`) branches on `isUrl()`: URLs go to `downloadUrl()` (`downloader.ts:41`), which runs yt-dlp with a `height<=720` format (`:51`), `--write-info-json`, and `--write-subs`/`--write-auto-subs` for English VTT; local paths resolve in place (`resolveLocal`, `downloader.ts:18`). `runProcess()` (`downloader.ts:132`) guards the child with a 10-minute watchdog (`DOWNLOAD_TIMEOUT_MS`, `:34`) and the abort signal. The binary comes from `ensureYtDlp()` (`yt-dlp-fetcher.ts:49`): it prefers a `yt-dlp` already on `PATH` via `findYtDlpOnPath()` (`:36`) — a brew/pip yt-dlp is a Python script that starts in ~0.5s, versus the bundled `yt-dlp_macos` PyInstaller onefile's 13–21s macOS cold start that alone can exceed `peek`'s 25s cap — and only falls back to the bundled `~/.manifold/bin/yt-dlp` (cached, or streamed from the latest release, de-duping concurrent installs via a shared `pending` promise, `:28`) when none is on `PATH`.
 - *Frames* — `getMetadata()` (`frame-extractor.ts:32`) runs ffprobe; `extractWithAutoFps()` (`frame-extractor.ts:151`) picks fps from a duration→frame-budget table (`autoFps`/`autoFpsFocus`, `:74`/`:85`) clamped to `MAX_FPS = 2.0` (`:9`); `extract()` (`:106`) shells out to ffmpeg (`fps=<fps>,scale=<px>:-2`, `frame_%04d.jpg`), deriving each `timestampSeconds` as `offset + index/fps`. A second pass at `hdResolutionPx` (default 1280) writes `frames-hd/` images keyed back as `hdPath`, best-effort (`pipeline.ts:91-99`, `:111`). The downloaded video is deleted after extraction (`pipeline.ts:116`).
 - *Transcript* — captions win: `parseVtt()` (`vtt-parser.ts:11`) + `filterRange()` (`:53`) produce `source: 'captions'` (`pipeline.ts:126`). Only when there are no caption segments *and* the provider isn't `'none'` does `transcribeVideo()` (`transcriber.ts:59`) extract a 16 kHz mono MP3 (`defaultExtractAudio`, `transcriber.ts:21`) and POST it to OpenAI/Azure `gpt-4o-transcribe`; the model returns a text blob, wrapped as a single `t=0` segment (`textToSegments`, `transcriber.ts:147`). Failures are non-fatal — the pipeline proceeds frames-only with `source: 'none'` (`pipeline.ts:120`). `audio.mp3` is removed afterwards (`pipeline.ts:149`).
-- *Report* — `renderReport()` (`pipeline.ts:205`) writes `report.md`: metadata header, an explicit "Read each frame path below with the Read tool" instruction with `t=MM:SS` timestamps (`:247`), a fenced transcript from `formatTranscript()` (`vtt-parser.ts:64`), and a sparse-coverage warning for unfocused videos over 10 minutes (`pipeline.ts:234`).
+- *Report* — `renderReport()` (`pipeline.ts:205`) writes `report.md`: metadata header, an explicit "Inspect each frame path below with your agent's image-viewing tool" instruction with `t=MM:SS` timestamps (`:247`) — runtime-neutral so it reads correctly under both Claude's `Read` and Codex's `view_image` — a fenced transcript from `formatTranscript()` (`vtt-parser.ts:64`), and a sparse-coverage warning for unfocused videos over 10 minutes (`pipeline.ts:234`).
 
 **The video run.** `runWatchVideo()` (`video-runner.ts:55`) drives everything through
 `AgentPort` (`video-runner.ts:19`) — the narrow status/sendText/whenReady port that
@@ -123,7 +123,7 @@ marks the run ready. A failed pipeline marks the run errored instead.
 - `runWatchVideo()` — `video-runner.ts:55`. Pipeline + agent hand-off; `AgentPort`/`RunVideoDeps`/`RunVideoOptions` (`video-runner.ts:19`, `:28`, `:34`).
 - `WatchRunStore` — `run-store.ts:69`. `getSnapshot`/`setUrl`/`startRun`/`markFrames`/`markReady`/`markError`; `WATCH_RUNS_ROOT` (`run-store.ts:28`).
 - `readFrameAsDataUrl()` — `frame-reader.ts:11`. Sandboxed frame read behind the `readFrame` message.
-- `installWatchSkills()` — `skill-installer.ts:24`. Fingerprint-matched skill install into `~/.claude` (+ `~/.codex/skills/watch` when codex is detected, `:39`).
+- `installWatchSkills()` — `skill-installer.ts:24`. Fingerprint-matched skill install into `~/.claude` (verbatim) and, when codex is detected, `~/.codex/skills/watch` via `installCodexSkill` (`:52`), which rewrites the copy for Codex (`adaptSkillForCodex` + `CODEX_SKILL_SUBS`, `:262`/`:232`): `view_image` instead of `Read`, `allowed-tools: Bash`, Codex wording.
 
 ## Interactions
 
@@ -152,6 +152,14 @@ marks the run ready. A failed pipeline marks the run errored instead.
   Codex runs `$watch`. `buildWatchCommand` (`video-runner.ts:22`) branches on the base
   session's `runtimeId` (surfaced to the plugin via `SessionInfo.runtimeId`); a Codex agent
   rejects the `/watch:watch` form with `Unrecognized command`.
+- **The Codex skill copy is rewritten, not copied verbatim.** The bundled skill is
+  written for Claude Code (`allowed-tools: Bash, Read`, "Use the `Read` tool"); Codex has
+  no `Read` tool — it views images with `view_image`. `installCodexSkill`
+  (`skill-installer.ts:52`) installs the copy, then `adaptSkillForCodex` (`:262`) applies
+  `CODEX_SKILL_SUBS` (`:232`) to swap the tools/wording. Each substitution token *must*
+  be present, else it throws (recorded in `result.errors`) rather than silently no-op'ing,
+  so a reworded `SKILL.md` is caught by the drift-guard test against the real bundled skill.
+  Adaptation runs only on a fresh install (skipped when the `+codex` fingerprint matches).
 - **Typing into the agent waits for its prompt.** The runner waits for status `waiting` (30 s, non-fatal) and inserts a 400 ms delay before `\r` so the command isn't swallowed by the welcome banner or mid-turn output (`video-runner.ts:100-103`).
 - **Run retention is bounded and destructive.** `WatchRunStore` keeps at most `MAX_RETAINED_RUNS = 20` runs; eviction `rmSync`s the run's frame dir (`run-store.ts:32`, `:161-179`) and never evicts a session's active run. An unreadable state file flips the store read-only; a corrupt one is renamed `.corrupt.<ts>` before resetting (`run-store.ts:226`, `:246`). Runs written by the retired playlist format are dropped (with their frame dirs) on load (`run-store.ts:233-241`).
 - **Persisted state shares the builtin's disk.** The plugin reuses `~/.manifold/watch-runs.json`, `~/.manifold/bin`, and the fingerprint-matched skill installs. Saved dock layouts containing the old `watch` panel id are sanitized away by the app (`src/renderer/hooks/dock-layout/dock-layout-sanitize.ts`).
