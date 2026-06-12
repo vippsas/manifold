@@ -1,7 +1,7 @@
 import React from 'react'
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { render, screen, fireEvent, waitFor } from '@testing-library/react'
-import { DockStateContext, type DockAppState } from '../editor/dock-panel-types'
+import { DockStateContext, type DockAppState } from '../editor/editor-shell/dock-panel-types'
 import { VerdictsPanel } from './VerdictsPanel'
 import type { VerdictRecord } from '../../../shared/verdict-types'
 

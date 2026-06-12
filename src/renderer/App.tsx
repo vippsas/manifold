@@ -30,14 +30,14 @@ import { useSidebarHandleCycle } from './hooks/useSidebarHandleCycle'
 import { useAgentSiblingDockTabs } from './hooks/useAgentSiblingDockTabs'
 import { getPrimarySession } from './hooks/agent-siblings'
 import { useAppEffects } from './hooks/useAppEffects'
-import type { DockAppState } from './components/editor/dock-panel-types'
-import { buildRootLabels } from './components/editor/file-tree-labels'
+import type { DockAppState } from './components/editor/editor-shell/dock-panel-types'
+import { buildRootLabels } from './components/editor/file-tree/file-tree-labels'
 import { useWorkspaces } from './hooks/useWorkspaces'
 import { useFavorites } from './hooks/useFavorites'
 import type { AgentSession, ResolvedFavorite } from '../shared/types'
 import { isGitProject } from '../shared/project-kind'
 import { AppShell } from './AppShell'
-import { QuickOpen } from './components/editor/QuickOpen'
+import { QuickOpen } from './components/editor/quick-open/QuickOpen'
 
 export function App(): React.JSX.Element {
   const { settings, updateSettings } = useSettings()

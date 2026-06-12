@@ -1,7 +1,7 @@
 import React, { useCallback, useMemo } from 'react'
 import type { FileChange, FileChangeType } from '../../../shared/types'
 import { getRelativePath } from '../../../shared/relative-path'
-import { writeAgentPathDragData } from '../editor/file-tree-drag'
+import { writeAgentPathDragData } from '../editor/file-tree/file-tree-drag'
 
 interface ModifiedFilesProps {
   changes: FileChange[]

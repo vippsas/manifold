@@ -1,5 +1,5 @@
 import React from 'react'
-import { useDockState } from '../editor/dock-panel-types'
+import { useDockState } from '../editor/editor-shell/dock-panel-types'
 import { useVerdicts } from '../../hooks/useVerdicts'
 import { computeOutcomeCounts, computeRuntimeStats, sortRecentFirst, type RuntimeStats, type OutcomeCounts } from './verdict-aggregates'
 import {

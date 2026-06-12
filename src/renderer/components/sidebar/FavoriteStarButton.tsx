@@ -1,6 +1,6 @@
 import React, { useContext } from 'react'
 import type { FavoriteKind } from '../../../shared/types'
-import { DockStateContext } from '../editor/dock-panel-types'
+import { DockStateContext } from '../editor/editor-shell/dock-panel-types'
 
 interface FavoriteStarButtonProps {
   kind: FavoriteKind

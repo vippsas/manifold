@@ -193,7 +193,7 @@ disabled plugin (`extension-host.ts`, `plugin-manager.ts:63`).
 - **Git** (`src/main/git`): `LmService.sendRequest` calls `GitOperationsManager.aiGenerate` to do one-shot generation through the runtime (`lm-service.ts:37`).
 - **Settings store** (`src/main/store`): enable/disable lives in `settings.disabledPlugins`; per-plugin config overrides live in `settings.pluginConfig` and merge over manifest defaults (`plugin-manager.ts:59`, `:69`).
 - **IPC** (`src/main/ipc/plugin-handlers.ts`): `plugins:list`, `plugins:list-contributions`, `plugins:set-enabled`, `plugins:activate`, `plugins:execute-command`, `plugins:open-view`/`open-tree-view`, `plugins:tree-get-children`, `plugins:webview-to-host`, `plugins:set-active-context`, `plugins:get-config`/`set-config`, `plugins:ui-response`. The manager pushes `plugins:webview-html`, `plugins:webview-message`, `plugins:tree-refresh`, `plugins:ui-request`, and `plugins:contributions-changed` to the renderer through `setMainWindow`'s `send` (`plugin-manager.ts:120`).
-- **Renderer** (`src/renderer/plugins`, `components/editor`): `PluginViewPanel` triggers `plugins:open-view` and listens for `plugins:webview-html`; `usePluginTree` drives tree views; `use-contributions` reloads the launcher on `plugins:contributions-changed`.
+- **Renderer** (`src/renderer/plugins`, `components/editor/plugins`): `PluginViewPanel` triggers `plugins:open-view` and listens for `plugins:webview-html`; `usePluginTree` drives tree views; `use-contributions` reloads the launcher on `plugins:contributions-changed`.
 
 ## Invariants & gotchas
 

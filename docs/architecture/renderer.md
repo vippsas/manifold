@@ -43,7 +43,7 @@ incomplete) or `OnboardingView` (no projects) before rendering the full workspac
 
 **Panel layout (dockview).** The workspace is a single `DockviewReact` instance
 (`AppShell.tsx:125`). Panels are registered by string id in `PANEL_COMPONENTS`
-(`components/editor/dock-panels.tsx:17`); the id→component table is the authoritative
+(`components/editor/editor-shell/dock-panels.tsx:17`); the id→component table is the authoritative
 panel set. `DockAppState` is published to every panel through `DockStateContext`
 (`AppShell.tsx:123`), so panels read props via `useDockState()` rather than prop-drilling.
 Tab headers use `DockTab`; empty groups show `EmptyWatermark`; the left/right header-action
@@ -57,7 +57,7 @@ the dock control surface consumed by `App` (`useDockLayout.ts:259`).
 `PANEL_TITLES` (`hooks/dock-layout/dock-layout-helpers.ts:13`, `:18`):
 
 - `projects` → **Repositories** — `ProjectSidebar` (repos, sessions, workspaces, drafts).
-- `agent` → **Agent** — `AgentPanel` (`components/editor/dock-agent-panel.tsx:86`): renders a draft chat, an `OnboardingView` (no agent yet), an `AgentChatView` (non-interactive chat-mode), or an xterm `TerminalPane` (interactive runtime) depending on session state.
+- `agent` → **Agent** — `AgentPanel` (`components/editor/editor-shell/dock-agent-panel.tsx:86`): renders a draft chat, an `OnboardingView` (no agent yet), an `AgentChatView` (non-interactive chat-mode), or an xterm `TerminalPane` (interactive runtime) depending on session state.
 - `editor` → **Editor** — `EditorPanel` wrapping `CodeViewer` (Monaco); split editors get ids prefixed `editor:` and each registers its own pane.
 - `fileTree` → **Files** — `FileTree` over the worktree + any additional dirs.
 - `modifiedFiles` → **Modified Files** — `ModifiedFiles` diff list.
@@ -68,7 +68,7 @@ the dock control surface consumed by `App` (`useDockLayout.ts:259`).
 Note: **Search** is not a dock panel — it lives in the title bar (`TitleBarSearch`,
 wired through `AppShell.tsx:113`). **Web preview** is likewise not a standalone panel:
 HTML files render in an `<iframe>` inside the editor's `CodeViewer`
-(`components/editor/CodeViewer.tsx:218`, resolved by `viewer/useResolvedHtmlPreview.ts`),
+(`components/editor/code-viewer/CodeViewer.tsx:218`, resolved by `viewer/useResolvedHtmlPreview.ts`),
 alongside the markdown/image/PDF previews in `components/editor/viewer/`.
 
 **Modules & the contribution registry.** Built-in modules (Ideas, Verdicts) are
@@ -95,8 +95,8 @@ agent (`AgentChatView`), which the agent panel switches between
 ## Key types and entry points
 
 - `App` — `App.tsx:41`. The single source of UI state; builds `DockAppState` and renders the shell.
-- `DockAppState` — `components/editor/dock-panel-types.ts`. The context object every dock panel reads via `useDockState()`; assembled in `App.tsx:256`.
-- `PANEL_COMPONENTS` — `components/editor/dock-panels.tsx:17`. id→component registry = the panel set.
+- `DockAppState` — `components/editor/editor-shell/dock-panel-types.ts`. The context object every dock panel reads via `useDockState()`; assembled in `App.tsx:256`.
+- `PANEL_COMPONENTS` — `components/editor/editor-shell/dock-panels.tsx:17`. id→component registry = the panel set.
 - `PANEL_IDS` / `PANEL_TITLES` — `hooks/dock-layout/dock-layout-helpers.ts:13`, `:18`. Canonical panel id and title lists.
 - `useDockLayout` — `hooks/dock-layout/useDockLayout.ts`. Public dock control surface (`togglePanel`, `focusPanel`, `ensureEditorPanel`, `openPluginView`, `resetLayout`, …) returned at `:298`.
 - `DockTab` / `EmptyWatermark` — `DockTab.tsx:7` / `:58`. Tab header and empty-group watermark.

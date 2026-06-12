@@ -1,8 +1,8 @@
 import React, { useCallback, useState } from 'react'
 import type { ITheme } from '@xterm/xterm'
 import { useTerminal } from '../../hooks/useTerminal'
-import { hasAgentPathDragData, readAgentPathDragData } from '../editor/file-tree-drag'
-import { collectDroppedPaths, hasDraggedFiles } from '../editor/file-tree-drop'
+import { hasAgentPathDragData, readAgentPathDragData } from '../editor/file-tree/file-tree-drag'
+import { collectDroppedPaths, hasDraggedFiles } from '../editor/file-tree/file-tree-drop'
 
 interface TerminalPaneProps {
   sessionId: string | null

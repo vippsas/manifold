@@ -1,8 +1,8 @@
 import { describe, it, expect, vi } from 'vitest'
 import { render, screen, fireEvent } from '@testing-library/react'
 import { FavoriteStarButton } from './FavoriteStarButton'
-import { DockStateContext } from '../editor/dock-panel-types'
-import type { DockAppState } from '../editor/dock-panel-types'
+import { DockStateContext } from '../editor/editor-shell/dock-panel-types'
+import type { DockAppState } from '../editor/editor-shell/dock-panel-types'
 
 function renderWithContext(overrides: Partial<DockAppState>) {
   const value = {
