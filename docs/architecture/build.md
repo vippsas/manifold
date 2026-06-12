@@ -56,6 +56,16 @@ keeps two rebuild scripts:
 - `rebuild:electron` (`package.json:25`) = `npx electron-rebuild -f -o better-sqlite3` — rebuilds against the bundled Electron's ABI. Used by `predev`/`prestart`/`predist` because those load SQLite inside Electron.
 - `rebuild:node` (`package.json:24`) = `node scripts/rebuild-better-sqlite3-node.mjs` — rebuilds against the current **Node** ABI, used by `pretest`/`pretest:watch` because vitest runs under Node. The script is *conditional*: it first tries to open an in-memory DB (`rebuild-better-sqlite3-node.mjs:7`, `canLoadBetterSqlite3()` at `:28`) and exits early if SQLite already loads; only on the known ABI/bindings errors does it shell out to `npm rebuild better-sqlite3` with `build_from_source` and an isolated cache (`:14-22`). It re-checks afterward and throws if still unloadable (`:24-26`).
 
+**Why install always builds from source.** `better-sqlite3`'s own install script is
+`prebuild-install || node-gyp rebuild --release`: it normally downloads a prebuilt binary and
+only falls back to a `node-gyp` source build if that fails. `prebuild-install` is deprecated
+("no longer maintained"), so an npm override (`package.json:126`) aliases it to a tiny no-bin
+package (`fast-deep-equal`, already in the tree). With no `prebuild-install` binary on `PATH`,
+the install command always errors and falls through to the `node-gyp` source build. That build
+is redundant with — and immediately re-done by — the ABI-specific `rebuild:*` hooks above, so
+it costs only the first install's compile, and it removes the `npm warn deprecated
+prebuild-install` warning (issue #361).
+
 `postinstall` (`package.json:23`) separately `chmod +x`'s node-pty's `spawn-helper`, and
 `npmRebuild: false` in the build block (`package.json:55`) tells electron-builder **not** to
 rebuild natives during packaging — the `pre*`/CI rebuild steps own that.
