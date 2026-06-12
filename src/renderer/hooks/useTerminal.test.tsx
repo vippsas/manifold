@@ -8,6 +8,7 @@ interface MockTerminalInstance {
   write: ReturnType<typeof vi.fn>
   attachCustomKeyEventHandler: ReturnType<typeof vi.fn>
   onDataHandler: ((data: string) => void) | null
+  options: Record<string, unknown>
 }
 
 const terminalMockState = vi.hoisted(() => ({
@@ -156,6 +157,20 @@ describe('useTerminal', () => {
 
     expect(handleKey(new KeyboardEvent('keyup', { key: 'Backspace', metaKey: true }))).toBe(true)
     expect(window.electronAPI.invoke).not.toHaveBeenCalledWith('agent:input', 'shell-1', '\x15')
+  })
+
+  it('opens OSC 8 hyperlinks via window.open instead of xterm’s confirm dialog', () => {
+    const openSpy = vi.spyOn(window, 'open').mockImplementation(() => null)
+    render(<TerminalHarness />)
+
+    const terminal = terminalMockState.instances[0]
+    const linkHandler = terminal.options.linkHandler as
+      | { activate: (event: MouseEvent, uri: string) => void }
+      | undefined
+    expect(linkHandler).toBeDefined()
+
+    linkHandler?.activate(new MouseEvent('click'), 'https://github.com/example/repo/issues/687')
+    expect(openSpy).toHaveBeenCalledWith('https://github.com/example/repo/issues/687')
   })
 })
 
