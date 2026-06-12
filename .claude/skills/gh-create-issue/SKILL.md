@@ -23,7 +23,7 @@ Do not use it for PRs, code reviews, or release notes.
 1. Gather the minimum factual context first.
 2. Prefer concrete repro steps, observed behavior, expected behavior, and scope.
 3. If the repo has an issue template, mirror its structure rather than inventing a new format.
-4. If screenshots or images were provided in chat, note whether they are actually uploadable.
+4. If screenshots or images were provided in chat, upload them and embed the links (see Uploading Images below).
 5. Write the issue body to a temp markdown file.
 6. Create the issue with `gh issue create --body-file ...`.
 7. Return the created issue URL to the user.
@@ -48,10 +48,29 @@ Unless the repository clearly uses a different format, prefer sections like:
 
 Keep issue bodies factual. Avoid speculative root causes unless labeled as suspicion.
 
+## Uploading Images
+
+Images pasted into the chat thread appear in the conversation as `[image: /absolute/path/to/file.png]`
+references. Those files live on this machine and are readable. Before writing the issue body, upload
+each relevant one:
+
+```bash
+bash .claude/skills/gh-create-issue/scripts/upload-assets.sh <path> [<path>...]
+```
+
+The script commits the files to the repo's `issue-assets` branch and prints one
+`![name](https://raw.githubusercontent.com/...)` line per file. Paste those lines into the
+Evidence / Screenshots section of the issue body. Notes:
+
+- The script targets the current repo by default; pass `--repo owner/name` to override.
+- It requires push access. If the upload fails, fall back to the Evidence Rules below.
+- Raw links only render for public repos. For a private repo, link the committed file path instead
+  and say the image requires repo access.
+
 ## Evidence Rules
 
 - Include short logs or error text inline when useful.
-- If a screenshot exists but is not actually uploaded to GitHub, say so plainly.
+- If a screenshot exists but could not be uploaded to GitHub, say so plainly.
 - Do not claim an image is attached unless the issue body contains a real image link or upload.
 
 ## Command Pattern
