@@ -53,7 +53,7 @@ function runAIPrompt(binary: string, prompt: string, cwd?: string): Promise<stri
 }
 
 export function registerProjectHandlers(deps: IpcDependencies): void {
-  const { projectRegistry, verdictStore, chatStore, memoryStore, workspaceManager } = deps
+  const { projectRegistry, verdictStore, chatStore, memoryStore, workspaceManager, dismissedAgents } = deps
 
   ipcMain.handle('projects:list', () => {
     return projectRegistry.listProjects()
@@ -192,6 +192,7 @@ export function registerProjectHandlers(deps: IpcDependencies): void {
     chatStore.deleteByProject(projectId)
     memoryStore.deleteProject(projectId)
     workspaceManager.removeProjectFromAllWorkspaces(projectId)
+    dismissedAgents.deleteProject(projectId)
     return projectRegistry.removeProject(projectId)
   })
 

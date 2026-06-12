@@ -31,6 +31,7 @@ in one place — but moving the storage root only relocates worktrees/projects/p
 - `src/main/store/chat-store.ts` — per-session chat under `<configHome>/chat/`, legacy `chat-history.json` (`:49`–`:51`).
 - `src/main/store/verdict-store.ts` — `verdicts.json` (`:6`).
 - `src/main/store/view-state-store.ts`, `dock-layout-store.ts`, `search-view-store.ts`, `shell-tab-store.ts` — UI-state JSON files (`view-state.json`, `dock-layout.json`, `search-view-state.json`, `shell-tabs.json`), each pinned to `os.homedir()/.manifold` (`:6`–`:7`, `:5`–`:6`, `:9`–`:10`, `:15`–`:16`).
+- `src/main/store/dismissed-agents-store.ts` — `dismissed-agents.json` (`:6`–`:7`).
 
 Owned elsewhere, mapped here because they share the home:
 
@@ -79,6 +80,11 @@ migrates the old single `chat-history.json` on first run.
 **`<configHome>/{view-state,dock-layout,search-view-state,shell-tabs}.json`** — renderer/UI
 state persisted by the four small stores in `src/main/store`. All hardcode
 `os.homedir()/.manifold` and rewrite their single JSON file on change.
+
+**`<configHome>/dismissed-agents.json`** — `{ projectId: branch[] }` of agents the user
+explicitly deleted from the sidebar, so session discovery does not resurrect a dormant
+agent from leftover branch checkout state (`dismissed-agents-store.ts:7`; #679). Entries
+are lifted when a session is recreated on that branch and purged on project removal.
 
 **`<configHome>/background-agent/state.json`** — background-agent profiles, suggestions, and
 feedback, keyed by project (`background-agent-store.ts:17`).

@@ -9,11 +9,13 @@ import { prepareManagedWorktree } from '../git/managed-worktree'
 import { debugLog } from '../app/debug-log'
 import type { InternalSession } from './session-types'
 import type { VerdictRecorder } from './verdict-recorder'
+import type { DismissedAgentsStore } from '../store/dismissed-agents-store'
 import { isGitProject } from '../../shared/project-kind'
 
 export class SessionDiscovery {
   private discoveryInFlight = new Map<string, Promise<void>>()
   private verdictRecorder: VerdictRecorder | null = null
+  private dismissedAgents: Pick<DismissedAgentsStore, 'has'> | null = null
 
   constructor(
     private sessions: Map<string, InternalSession>,
@@ -24,6 +26,10 @@ export class SessionDiscovery {
 
   setVerdictRecorder(recorder: VerdictRecorder): void {
     this.verdictRecorder = recorder
+  }
+
+  setDismissedAgents(store: Pick<DismissedAgentsStore, 'has'>): void {
+    this.dismissedAgents = store
   }
 
   private adoptForVerdict(session: InternalSession, baseBranch: string): void {
@@ -124,12 +130,14 @@ export class SessionDiscovery {
 
     // If no sessions found (no worktrees and nothing in memory), check whether
     // the main repo is on a non-base branch — this indicates prior noWorktree work
-    // that should be surfaced as a dormant session.
+    // that should be surfaced as a dormant session. Branch state alone is not
+    // proof, though: if the user explicitly deleted that agent (#679), the
+    // dismissal record suppresses resurrection until a session is recreated.
     const hasAnySession = Array.from(this.sessions.values()).some((s) => s.projectId === projectId)
     if (!hasAnySession) {
       try {
         const branch = (await gitExec(['branch', '--show-current'], project.path)).trim()
-        if (branch && branch !== project.baseBranch) {
+        if (branch && branch !== project.baseBranch && !this.dismissedAgents?.has(projectId, branch)) {
           const meta = await readWorktreeMeta(project.path)
           const session: InternalSession = {
             id: uuidv4(),
@@ -211,7 +219,7 @@ export class SessionDiscovery {
             if (featureBranch) branch = featureBranch
           }
 
-          if (branch) {
+          if (branch && !this.dismissedAgents?.has(project.id, branch)) {
             const meta = await readWorktreeMeta(project.path)
             const session: InternalSession = {
               id: uuidv4(),

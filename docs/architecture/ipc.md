@@ -19,7 +19,8 @@ managers documented on the other architecture pages (`session.md`, `git.md`, etc
 
 - `src/main/app/ipc-handlers.ts` — `registerIpcHandlers(deps)`, the single entry point that calls every `register*Handlers` function in order and inlines a few one-off channels (`font:load-data`, `app:version`, `updater:*`, `release-notes:*`).
 - `src/main/ipc/types.ts` — `IpcDependencies` (the manager bag passed to every handler module) and `resolveSession()` (throw-on-missing session lookup).
-- `src/main/ipc/agent-handlers.ts` — `agent:*` lifecycle, plus `branch:suggest`, `chat:*` image I/O, `shell:*`, and the read-only `git:list-*`/`git:fetch-pr-branch` channels.
+- `src/main/ipc/agent-handlers.ts` — `agent:*` lifecycle, plus `branch:suggest`, `shell:*`, and the read-only `git:list-*`/`git:fetch-pr-branch` channels.
+- `src/main/ipc/chat-image-handlers.ts` — `chat:save-pasted-image`/`chat:read-pasted-image` and the allow-listed image-path resolution they share.
 - `src/main/ipc/git-handlers.ts` — `diff:*`, `pr:create`, and the mutating `git:*` channels (`git:commit`, `git:ai-generate`, `git:ahead-behind`, `git:resolve-conflict`, `git:pr-context`, `git:fetch`).
 - `src/main/ipc/file-handlers.ts` — `files:*` tree/read/write/rename/import/paste/reveal/search, all path-guarded against traversal.
 - `src/main/ipc/project-handlers.ts` — `projects:*` (list/add/clone/create-new/remove/update) and the `*-dialog` + `storage:open-dialog` native-dialog channels.
@@ -50,7 +51,7 @@ in the same function rather than in their own module (`ipc-handlers.ts:47`–`:8
 layout/shell-tab stores, `chatAdapter`, `memoryStore`, `workspaceManager`,
 `backgroundAgentHost`, `pluginManager`, `verdictStore`/`verdictRecorder`, etc. Each
 `register*Handlers` destructures the few it needs and closes over them, so handlers never
-reach for globals (`agent-handlers.ts:125`, `git-handlers.ts:62`).
+reach for globals (`agent-handlers.ts:64`, `git-handlers.ts:62`).
 
 **Request/response only.** Every channel in this layer uses `ipcMain.handle` (promise-returning
 request/response), never `ipcMain.on`. Push notifications flow the *other* way, out of band:
@@ -65,7 +66,7 @@ Examples: `settings:changed` is broadcast to all live windows after `settings:up
 **Delegation, not logic.** The body of a handler is typically: resolve a project/session,
 guard it, call one manager method, return its result. `agent:spawn` resolves the project,
 clears any dormant no-worktree session, calls `sessionManager.createSession()`, starts the
-file watch, and returns the session (`agent-handlers.ts:135`). `git:commit` resolves the
+file watch, and returns the session (`agent-handlers.ts:74`). `git:commit` resolves the
 session, rejects plain-folder projects, and calls `gitOps.commit()` (`git-handlers.ts:64`).
 `search:query` runs `executeSearchQuery` then `maybeRerankSearchResults`
 (`search-handlers.ts:94`). The substantive work lives in the managers.
@@ -73,9 +74,9 @@ session, rejects plain-folder projects, and calls `gitOps.commit()` (`git-handle
 **Validation at the boundary.** Handlers are where untrusted renderer input is checked.
 `file-handlers.ts` resolves every path against the session worktree and rejects anything
 outside the allowed dirs via `isPathAllowed()` (`file-handlers.ts:17`, enforced on
-`files:read`, `files:write`, `files:delete`, `files:rename`, etc.). `agent-handlers.ts`
+`files:read`, `files:write`, `files:delete`, `files:rename`, etc.). `chat-image-handlers.ts`
 restricts pasted/read-back chat images to a small allow-list of directories
-(`resolveReadableChatImagePath`, `agent-handlers.ts:36`). `project-handlers.ts` rejects
+(`resolveReadableChatImagePath`, `chat-image-handlers.ts:26`). `project-handlers.ts` rejects
 clone URLs beginning with `-` to avoid argument injection into `git clone`
 (`project-handlers.ts:69`). Several handlers reject non-git projects with an explicit error
 (`isGitProject` checks throughout `git-handlers.ts` and `agent-handlers.ts`).
@@ -85,12 +86,12 @@ clone URLs beginning with `-` to avoid argument injection into `git clone`
 - `registerIpcHandlers(deps)` — `ipc-handlers.ts:23`. The only thing the app boot calls; registers everything.
 - `IpcDependencies` — `types.ts:21`. The manager bag; the contract between the IPC layer and every subsystem. `send?` is the optional renderer-push hook used by `plugin-handlers.ts`.
 - `resolveSession(sessionManager, id)` — `types.ts:45`. Shared helper that returns an `AgentSession` or throws `Session not found`; used by the mutating git handlers.
-- `register*Handlers(deps)` — one per module (e.g. `registerAgentHandlers`, `agent-handlers.ts:124`). Each owns one namespace and is independently unit-tested.
+- `register*Handlers(deps)` — one per module (e.g. `registerAgentHandlers`, `agent-handlers.ts:63`). Each owns one namespace and is independently unit-tested.
 
 ## Interactions
 
-- **Session** (`src/main/session`): the busiest consumer. `agent:spawn`→`createSession`, `agent:resume`→`resumeSession` (`agent-handlers.ts:270`), `agent:kill`/`agent:kill-worktree`→killers, `agent:sessions`→discovery (`:280`), `agent:replay`→`getOutputBuffer`, `agent:input`/`agent:interrupt`/`agent:resize`, plus all `shell:*` and `simple:*` channels.
-- **Git** (`src/main/git`): `gitOps`, `diffProvider`, `prCreator`, `branchCheckout` back the `git:*`, `diff:*`, and `pr:create` channels. `branch:suggest` uses `generateBranchName` (`agent-handlers.ts:127`).
+- **Session** (`src/main/session`): the busiest consumer. `agent:spawn`→`createSession`, `agent:resume`→`resumeSession` (`agent-handlers.ts:197`), `agent:kill`/`agent:kill-worktree`→killers (`agent:kill` additionally records a `DismissedAgentsStore` tombstone for `noWorktree` sessions so discovery won't resurrect a deleted agent from branch state, `agent-handlers.ts:107`, #679), `agent:sessions`→discovery (`:207`), `agent:replay`→`getOutputBuffer`, `agent:input`/`agent:interrupt`/`agent:resize`, plus all `shell:*` and `simple:*` channels.
+- **Git** (`src/main/git`): `gitOps`, `diffProvider`, `prCreator`, `branchCheckout` back the `git:*`, `diff:*`, and `pr:create` channels. `branch:suggest` uses `generateBranchName` (`agent-handlers.ts:66`).
 - **FS** (`src/main/fs`): `fileWatcher` backs every `files:*` channel and the file-tree responses; `agent:spawn` starts the watch, and teardown unwatch is owned by `SessionKiller.cleanupSession` (guarded by shared-path liveness) rather than the `agent:kill` handler, so killing one session can't stop polling for a sibling on the same worktree. `agent:kill-worktree`/`agent:delete-app` still unwatch the path explicitly.
 - **Store** (`src/main/store`): `projectRegistry`, `settingsStore`, `viewStateStore`, `shellTabStore`, `dockLayoutStore`, `searchViewStore`, `verdictStore` are all reached only through their handler namespaces.
 - **Memory / search** (`src/main/memory`, `src/main/search`): `memory:*` queries the per-project SQLite DB directly (`memoryStore.getDb`, `memory-handlers.ts:97`); `search:*` calls the search services with `memoryStore` + `gitOps`.
@@ -104,5 +105,5 @@ clone URLs beginning with `-` to avoid argument injection into `git clone`
 - **Path guards live in the handler, not the manager.** `fileWatcher` will read/write whatever absolute path it's given; the traversal guard is `isPathAllowed` in `file-handlers.ts`. A new `files:*` channel that skips it is an arbitrary-file-access hole.
 - **Handlers must tolerate a missing session.** Sessions can be torn down mid-flight while a renderer refresh is in flight; `diff:get` returns an empty diff rather than throwing for exactly this race (`git-handlers.ts:15`), whereas `resolveSession`-based channels deliberately throw.
 - **Plain-folder projects reject git channels.** Most `git:*`/`diff:*`/`pr:create` handlers guard with `isGitProject` and either throw or return an empty result; do the same for any new git-touching channel.
-- **Removing a project must drop its derived stores and references.** A project id is a fresh uuid on every add, so anything keyed by it (verdicts, chat, memory, workspace membership) is unreachable once the project is removed and re-added. `projects:remove` therefore deletes the verdict/chat/memory data and detaches the id from every workspace (`workspaceManager.removeProjectFromAllWorkspaces`, `project-handlers.ts:194`) but leaves the on-disk repo in place; only `agent:delete-app` additionally `fs.rm`s the project directory (`project-handlers.ts:185`, `agent-handlers.ts:255`).
+- **Removing a project must drop its derived stores and references.** A project id is a fresh uuid on every add, so anything keyed by it (verdicts, chat, memory, agent dismissals, workspace membership) is unreachable once the project is removed and re-added. `projects:remove` therefore deletes the verdict/chat/memory/dismissal data and detaches the id from every workspace (`project-handlers.ts:191`–`:195`) but leaves the on-disk repo in place; only `agent:delete-app` additionally `fs.rm`s the project directory (`project-handlers.ts:185`, `agent-handlers.ts:150`).
 - **Registration is once-per-process, and must stay that way.** Channels are global to the main process and `ipcMain.handle` throws if a channel is registered twice, so the `ipcHandlersRegistered` guard in `window-factory.ts:100` ensures a second window does *not* re-register. New handler modules must be idempotent-by-omission: register in `registerIpcHandlers`, nowhere else.
