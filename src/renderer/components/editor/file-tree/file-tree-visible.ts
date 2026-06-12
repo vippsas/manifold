@@ -1,4 +1,4 @@
-import type { FileTreeNode } from '../../../shared/types'
+import type { FileTreeNode } from '../../../../shared/types'
 import { sortChildren } from './tree-node-row'
 
 /** A node as it appears in the rendered, flattened tree (visual order). */

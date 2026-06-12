@@ -1,5 +1,5 @@
 import React, { useCallback } from 'react'
-import type { FileTreeNode, FileChangeType } from '../../../shared/types'
+import type { FileTreeNode, FileChangeType } from '../../../../shared/types'
 import { NodeRow, CreateInput, sortChildren } from './tree-node-row'
 
 export interface TreeNodeProps {

@@ -1,6 +1,6 @@
 import { useCallback, useEffect } from 'react'
 import type React from 'react'
-import type { FileTreeNode } from '../../../shared/types'
+import type { FileTreeNode } from '../../../../shared/types'
 
 interface UseFileTreeViewActionsParams {
   tree: FileTreeNode | null

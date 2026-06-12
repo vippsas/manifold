@@ -1,5 +1,5 @@
 import type React from 'react'
-import type { FileChangeType } from '../../../shared/types'
+import type { FileChangeType } from '../../../../shared/types'
 
 export const CHANGE_INDICATORS: Record<FileChangeType, { color: string; label: string }> = {
   modified: { color: 'var(--warning)', label: 'M' },

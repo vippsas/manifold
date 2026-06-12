@@ -1,7 +1,7 @@
 import type React from 'react'
 import { describe, it, expect, vi } from 'vitest'
 import { fireEvent, render, screen } from '@testing-library/react'
-import type { FileTreeNode } from '../../../shared/types'
+import type { FileTreeNode } from '../../../../shared/types'
 import { TreeNode } from './tree-node'
 
 function makeFileNode(overrides: Partial<FileTreeNode> = {}): FileTreeNode {

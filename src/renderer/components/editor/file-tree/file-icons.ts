@@ -1,5 +1,5 @@
 // Devicon SVG imports — import raw SVG content for inline rendering
-const iconModules = import.meta.glob<string>('../../assets/devicons/*.svg', { eager: true, query: '?raw', import: 'default' })
+const iconModules = import.meta.glob<string>('../../../assets/devicons/*.svg', { eager: true, query: '?raw', import: 'default' })
 
 const deviconSvgs: Record<string, string> = {}
 for (const [path, svg] of Object.entries(iconModules)) {

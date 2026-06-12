@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import type { FileTreeNode } from '../../../shared/types'
+import type { FileTreeNode } from '../../../../shared/types'
 import { flattenVisible, buildVisibleNodes, fuzzyMatch } from './file-tree-visible'
 
 function dir(name: string, path: string, children: FileTreeNode[]): FileTreeNode {

@@ -1,6 +1,6 @@
 import { useCallback, useMemo, useRef } from 'react'
 import type React from 'react'
-import type { FileTreeNode } from '../../../shared/types'
+import type { FileTreeNode } from '../../../../shared/types'
 import type { VisibleNode } from './file-tree-visible'
 import type { FileTreeSelectionState } from './useFileTreeSelection'
 

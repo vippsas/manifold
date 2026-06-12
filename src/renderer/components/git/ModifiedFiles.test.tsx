@@ -3,7 +3,7 @@ import { render, screen, fireEvent } from '@testing-library/react'
 import React from 'react'
 import { ModifiedFiles } from './ModifiedFiles'
 import type { FileChange } from '../../../shared/types'
-import { AGENT_PATH_DRAG_MIME } from '../editor/file-tree-drag'
+import { AGENT_PATH_DRAG_MIME } from '../editor/file-tree/file-tree-drag'
 
 function createMockDataTransfer(): DataTransfer {
   return {

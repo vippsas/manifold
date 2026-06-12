@@ -1,6 +1,6 @@
 import { describe, it, expect, vi } from 'vitest'
 import { act, renderHook } from '@testing-library/react'
-import type { FileTreeNode } from '../../../shared/types'
+import type { FileTreeNode } from '../../../../shared/types'
 import { useFileTreeClipboard } from './useFileTreeClipboard'
 
 const nodes: FileTreeNode[] = [{ name: 'a.ts', path: '/r/a.ts', isDirectory: false }]

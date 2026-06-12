@@ -1,5 +1,5 @@
 import { useCallback, useState } from 'react'
-import type { FileTreeNode } from '../../../shared/types'
+import type { FileTreeNode } from '../../../../shared/types'
 
 export interface FileTreeEditingState {
   pendingDelete: { path: string; name: string; isDirectory: boolean } | null

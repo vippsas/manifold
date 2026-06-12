@@ -5,7 +5,7 @@ import { AgentChatView } from './AgentChatView'
 import { DraftChatView } from './DraftChatView'
 import { useDockState } from './dock-panel-types'
 import { parseSiblingSessionId } from '../../hooks/agent-siblings'
-import { collectAgentMentionPaths, hasAgentPathDragData, readAgentPathDragData } from './file-tree-drag'
+import { collectAgentMentionPaths, hasAgentPathDragData, readAgentPathDragData } from './file-tree/file-tree-drag'
 import type { FileDropConfig } from '../../../renderer-shared/chat/ChatPane'
 import type { SpawnAgentOptions } from '../../../shared/types'
 

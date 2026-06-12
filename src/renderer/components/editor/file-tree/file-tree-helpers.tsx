@@ -1,5 +1,5 @@
 import React from 'react'
-import type { FileTreeNode } from '../../../shared/types'
+import type { FileTreeNode } from '../../../../shared/types'
 
 export function WorkspaceRootHeader({
   name,

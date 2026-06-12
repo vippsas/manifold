@@ -1,5 +1,5 @@
-import { getRelativePath } from '../../../shared/relative-path'
-import type { FileTreeNode } from '../../../shared/types'
+import { getRelativePath } from '../../../../shared/relative-path'
+import type { FileTreeNode } from '../../../../shared/types'
 
 export const AGENT_PATH_DRAG_MIME = 'application/x-manifold-file-tree-path'
 export const FILE_TREE_DRAG_MIME = AGENT_PATH_DRAG_MIME

@@ -1,9 +1,9 @@
 import React, { useCallback } from 'react'
-import type { FileTreeNode, FileChangeType } from '../../../shared/types'
+import type { FileTreeNode, FileChangeType } from '../../../../shared/types'
 import { getFileIconSvg } from './file-icons'
 import { getDraggedTreePath, writeFileTreeDragData } from './file-tree-drag'
 import { fuzzyMatch } from './file-tree-visible'
-import { highlightByIndices } from '../search/search-highlight'
+import { highlightByIndices } from '../../search/search-highlight'
 import { CHANGE_INDICATORS, treeStyles } from './FileTree.styles'
 
 // Inline SVG chevron for directory expand/collapse

@@ -1,7 +1,7 @@
 import React, { useRef } from 'react'
 import { describe, it, expect, vi } from 'vitest'
 import { fireEvent, render } from '@testing-library/react'
-import type { FileTreeNode } from '../../../shared/types'
+import type { FileTreeNode } from '../../../../shared/types'
 import type { VisibleNode } from './file-tree-visible'
 import { useFileTreeKeyboard } from './useFileTreeKeyboard'
 import { useFileTreeSelection } from './useFileTreeSelection'

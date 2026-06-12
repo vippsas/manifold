@@ -1,7 +1,7 @@
 import { describe, expect, it, beforeEach, vi } from 'vitest'
 import { fireEvent, render, screen } from '@testing-library/react'
 import { TerminalPane } from './TerminalPane'
-import { FILE_TREE_DRAG_MIME } from '../editor/file-tree-drag'
+import { FILE_TREE_DRAG_MIME } from '../editor/file-tree/file-tree-drag'
 
 const focusTerminal = vi.fn()
 const getPathForFile = vi.fn()

@@ -1,4 +1,4 @@
-import type { FileTreeNode } from '../../../shared/types'
+import type { FileTreeNode } from '../../../../shared/types'
 import type { ContextMenuAction } from './ContextMenu'
 import type { FileTreeClipboard } from './useFileTreeClipboard'
 

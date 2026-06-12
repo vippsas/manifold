@@ -1,5 +1,5 @@
 import { describe, it, expect, vi } from 'vitest'
-import type { FileTreeNode } from '../../../shared/types'
+import type { FileTreeNode } from '../../../../shared/types'
 import type { ContextMenuAction } from './ContextMenu'
 import { buildFileTreeContextMenu } from './file-tree-context-menu'
 

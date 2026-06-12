@@ -1,4 +1,4 @@
-import type { AgentSession, Project } from '../../../shared/types'
+import type { AgentSession, Project } from '../../../../shared/types'
 
 /**
  * Repo name encoded in a managed worktree path: `…/worktrees/<repo>/<worktree-dir>`.

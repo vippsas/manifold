@@ -1,7 +1,7 @@
 import { act, renderHook, waitFor } from '@testing-library/react'
 import { describe, expect, it, vi } from 'vitest'
 import type React from 'react'
-import type { FileTreeNode } from '../../../shared/types'
+import type { FileTreeNode } from '../../../../shared/types'
 import type { VisibleNode } from './file-tree-visible'
 import type { FileTreeClipboard } from './useFileTreeClipboard'
 import {

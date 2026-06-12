@@ -1,7 +1,7 @@
 import React, { useMemo } from 'react'
 import { useFileDiff } from '../../hooks/useFileDiff'
 import { CodeViewer } from './CodeViewer'
-import { FileTree } from './FileTree'
+import { FileTree } from './file-tree/FileTree'
 import { ModifiedFiles } from '../git/ModifiedFiles'
 import { ShellTabs } from '../terminal/ShellTabs'
 import { ProjectSidebar } from '../sidebar/ProjectSidebar'

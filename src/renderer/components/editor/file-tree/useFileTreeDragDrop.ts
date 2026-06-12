@@ -1,6 +1,6 @@
 import { useCallback, useState } from 'react'
 import type React from 'react'
-import type { FileTreeNode } from '../../../shared/types'
+import type { FileTreeNode } from '../../../../shared/types'
 import {
   collectDroppedPaths,
   hasDraggedFiles,
