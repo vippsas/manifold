@@ -144,7 +144,7 @@ ship inside the app under `resources/plugins`, not here (`plugin-paths.ts:7`).
   `<storageRoot>/worktrees` carry their own meta files; session discovery rebuilds dormant
   sessions by scanning that tree (see `docs/architecture/session.md`).
 - **Memory** (`src/main/memory`): the only consumer that writes binary SQLite rather than
-  JSON; `rawRetentionDays` (default 30, `defaults.ts:29`) drives pruning.
+  JSON; `rawRetentionDays` (default 30, `defaults.ts:30`) drives pruning.
 - **Loop plugin** (`resources/plugins/manifold.loop`): writes `loop-logs/*.jsonl` directly to
   the config home, bypassing `src/main/store` entirely — a plugin reaching into the same home.
 

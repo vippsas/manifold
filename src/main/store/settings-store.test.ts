@@ -174,6 +174,14 @@ describe('SettingsStore', () => {
       expect(store.getSettings().editor).toEqual(DEFAULT_SETTINGS.editor)
     })
 
+    it('enables word wrap and the minimap by default for a fresh install', () => {
+      mockExistsSync.mockReturnValue(false)
+      const editor = new SettingsStore().getSettings().editor
+      expect(editor?.wordWrap).toBe('on')
+      expect(editor?.minimap).toBe(true)
+      expect(editor?.markdownWordWrap).toBe(true)
+    })
+
     it('deep-merges partial editor settings with defaults', () => {
       mockExistsSync.mockReturnValue(true)
       mockReadFileSync.mockReturnValue(JSON.stringify({ editor: { fontSize: 16 } }))
@@ -183,6 +191,7 @@ describe('SettingsStore', () => {
       expect(editor?.fontSize).toBe(16)
       expect(editor?.fontFamily).toBe(DEFAULT_SETTINGS.editor?.fontFamily)
       expect(editor?.wordWrap).toBe(DEFAULT_SETTINGS.editor?.wordWrap)
+      expect(editor?.markdownWordWrap).toBe(true)
       expect(editor?.minimap).toBe(DEFAULT_SETTINGS.editor?.minimap)
       expect(editor?.tabSize).toBe(DEFAULT_SETTINGS.editor?.tabSize)
     })

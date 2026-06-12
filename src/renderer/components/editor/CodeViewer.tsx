@@ -76,18 +76,19 @@ export function CodeViewer({
   onSaveFile,
 }: CodeViewerProps): React.JSX.Element {
   const monacoTheme = theme
+  const isMarkdown = isMarkdownFile(activeFilePath)
   const editableOptions = useMemo(
-    () => buildEditorOptions(editorSettings, { readOnly: false }),
-    [editorSettings],
+    () => buildEditorOptions(editorSettings, { readOnly: false, isMarkdown }),
+    [editorSettings, isMarkdown],
   )
   const diffOptions = useMemo(
     () => ({
-      ...buildEditorOptions(editorSettings, { readOnly: true }),
+      ...buildEditorOptions(editorSettings, { readOnly: true, isMarkdown }),
       renderSideBySide: false,
       renderIndicators: true,
       renderMarginRevertIcon: false,
     }),
-    [editorSettings],
+    [editorSettings, isMarkdown],
   )
   const language = useMemo(() => extensionToLanguage(activeFilePath), [activeFilePath])
   const activeOpenFile = useMemo(
@@ -109,7 +110,7 @@ export function CodeViewer({
   const isHtml = isHtmlFile(activeFilePath)
   const isImage = isImageFile(activeFilePath)
   const isPdf = isPdfFile(activeFilePath)
-  const isPreviewable = isMarkdownFile(activeFilePath) || isHtml
+  const isPreviewable = isMarkdown || isHtml
   const hasDiff = fileDiffText !== null
   const hasTabs = openFiles.length > 0
   const resolvedHtml = useResolvedHtmlPreview({

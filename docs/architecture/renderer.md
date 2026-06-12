@@ -1,7 +1,7 @@
 ---
 description: How the Manifold renderer (developer workspace UI) is structured — the React entry, the dockview panel layout, and the preload-only boundary to main.
 covers: [src/renderer]
-updated: 2026-06-11
+updated: 2026-06-12
 owner: see .github/CODEOWNERS
 ---
 
@@ -18,8 +18,8 @@ boundaries. Individual panels and hooks are catalogued only enough to locate the
 ## Covered code
 
 - `src/renderer/index.tsx` — process entry: imports `monaco-setup`, mounts `<App/>` in `React.StrictMode` via `createRoot`, and pulls in dockview + theme CSS (`index.tsx:14`).
-- `src/renderer/App.tsx` — the single stateful container. Composes ~30 hooks into one `DockAppState` object and renders `<AppShell/>` + `<QuickOpen/>` (`App.tsx:41`, `:251`).
-- `src/renderer/AppShell.tsx` — presentational shell: title bar, the `DockviewReact` host, status bar, and all modals/overlays/toasts (`AppShell.tsx:99`).
+- `src/renderer/App.tsx` — the single stateful container. Composes ~30 hooks into one `DockAppState` object and renders `<AppShell/>` + `<QuickOpen/>` (`App.tsx:42`, `:256`).
+- `src/renderer/AppShell.tsx` — presentational shell: title bar, the `DockviewReact` host, status bar, and all modals/overlays/toasts (`AppShell.tsx:80`).
 - `src/renderer/DockTab.tsx` — `DockTab` (the per-panel tab header) and `EmptyWatermark` (the empty-group drop hint).
 - `src/renderer/monaco-setup.ts` — wires `MonacoEnvironment.getWorker` to the per-language Vite `?worker` bundles and calls `loader.config({ monaco })`.
 - `src/renderer/components/` — all UI by surface: `editor/`, `terminal/`, `sidebar/`, `git/`, `search/`, `modals/`, `verdicts/`, `memory/`, `new-task/`, `background-agent/`, `plugin-ui/`.
@@ -36,16 +36,16 @@ Not detailed here: the per-component internals (each `components/*` subtree), `s
 Monaco workers are registered before any editor mounts), then renders `<App/>` under
 `React.StrictMode` — which means every component mounts, unmounts, and remounts once in
 dev. `App` is the lone stateful node: it calls all the data hooks, assembles them into a
-single `DockAppState` (`App.tsx:251`), and hands that plus top-level handlers to the
+single `DockAppState` (`App.tsx:256`), and hands that plus top-level handlers to the
 otherwise-presentational `AppShell`. `AppShell` short-circuits to `WelcomeDialog` (setup
 incomplete) or `OnboardingView` (no projects) before rendering the full workspace
-(`AppShell.tsx:102`, `:111`).
+(`AppShell.tsx:87`, `:96`).
 
 **Panel layout (dockview).** The workspace is a single `DockviewReact` instance
-(`AppShell.tsx:144`). Panels are registered by string id in `PANEL_COMPONENTS`
+(`AppShell.tsx:125`). Panels are registered by string id in `PANEL_COMPONENTS`
 (`components/editor/dock-panels.tsx:17`); the id→component table is the authoritative
 panel set. `DockAppState` is published to every panel through `DockStateContext`
-(`AppShell.tsx:142`), so panels read props via `useDockState()` rather than prop-drilling.
+(`AppShell.tsx:123`), so panels read props via `useDockState()` rather than prop-drilling.
 Tab headers use `DockTab`; empty groups show `EmptyWatermark`; the left/right header-action
 slots host `ShellHeaderActions` and `WorkspaceHeaderActions`. The default arrangement is
 `projects | agent | (fileTree+modifiedFiles)` at a 1:4:1 width ratio
@@ -66,9 +66,9 @@ the dock control surface consumed by `App` (`useDockLayout.ts:259`).
 - `pluginView` / `pluginTreeView` — webview hosts for plugin contributions.
 
 Note: **Search** is not a dock panel — it lives in the title bar (`TitleBarSearch`,
-wired through `AppShell.tsx:132`). **Web preview** is likewise not a standalone panel:
+wired through `AppShell.tsx:113`). **Web preview** is likewise not a standalone panel:
 HTML files render in an `<iframe>` inside the editor's `CodeViewer`
-(`components/editor/CodeViewer.tsx:211`, resolved by `viewer/useResolvedHtmlPreview.ts`),
+(`components/editor/CodeViewer.tsx:218`, resolved by `viewer/useResolvedHtmlPreview.ts`),
 alongside the markdown/image/PDF previews in `components/editor/viewer/`.
 
 **Modules & the contribution registry.** Built-in modules (Ideas, Verdicts) are
@@ -95,21 +95,21 @@ agent (`AgentChatView`), which the agent panel switches between
 ## Key types and entry points
 
 - `App` — `App.tsx:41`. The single source of UI state; builds `DockAppState` and renders the shell.
-- `DockAppState` — `components/editor/dock-panel-types.ts`. The context object every dock panel reads via `useDockState()`; assembled in `App.tsx:251`.
+- `DockAppState` — `components/editor/dock-panel-types.ts`. The context object every dock panel reads via `useDockState()`; assembled in `App.tsx:256`.
 - `PANEL_COMPONENTS` — `components/editor/dock-panels.tsx:17`. id→component registry = the panel set.
 - `PANEL_IDS` / `PANEL_TITLES` — `hooks/dock-layout/dock-layout-helpers.ts:13`, `:18`. Canonical panel id and title lists.
-- `useDockLayout` — `hooks/dock-layout/useDockLayout.ts`. Public dock control surface (`togglePanel`, `focusPanel`, `ensureEditorPanel`, `openPluginView`, `resetLayout`, …) returned at `:259`.
-- `DockTab` / `EmptyWatermark` — `DockTab.tsx:7` / `:50`. Tab header and empty-group watermark.
+- `useDockLayout` — `hooks/dock-layout/useDockLayout.ts`. Public dock control surface (`togglePanel`, `focusPanel`, `ensureEditorPanel`, `openPluginView`, `resetLayout`, …) returned at `:298`.
+- `DockTab` / `EmptyWatermark` — `DockTab.tsx:7` / `:58`. Tab header and empty-group watermark.
 - `registerPanelContribution` / `getLauncherContributions` — `plugins/contribution-registry.ts:37`, `:48`. Module registry API.
-- `electronAPI` — `src/preload/index.ts:203`, typed by `src/shared/electron-api.d.ts:1`. The only renderer→main door.
+- `electronAPI` — `src/preload/index.ts:197`, typed by `src/shared/electron-api.d.ts:1`. The only renderer→main door.
 
 ## Interactions
 
-- **Preload / IPC** (`src/preload/index.ts`): the renderer calls `window.electronAPI.invoke/send/on` exclusively. The preload allowlists every channel (`ALLOWED_INVOKE_CHANNELS` etc.) and rejects anything else, then exposes the API via `contextBridge.exposeInMainWorld('electronAPI', …)` (`:235`). There is no direct `ipcRenderer` access from renderer code; `getPathForFile` (drag-drop) is the one non-IPC helper.
-- **Main subsystems**: hooks invoke channels owned by main — `agent:*` (`useAgentSession`), `git:*` (`useDiff`, `useGitOperations`, `useFetchProject`), `files:*` (`useFileWatcher`, `useCodeView`), `projects:*` (`useProjects`), `simple:*`/`chat:*` (chat), and `plugins:*` (`App.tsx:214` pushes active project/session context to the plugin host).
+- **Preload / IPC** (`src/preload/index.ts`): the renderer calls `window.electronAPI.invoke/send/on` exclusively. The preload allowlists every channel (`ALLOWED_INVOKE_CHANNELS` etc.) and rejects anything else, then exposes the API via `contextBridge.exposeInMainWorld('electronAPI', …)` (`:229`). There is no direct `ipcRenderer` access from renderer code; `getPathForFile` (drag-drop) is the one non-IPC helper.
+- **Main subsystems**: hooks invoke channels owned by main — `agent:*` (`useAgentSession`), `git:*` (`useDiff`, `useGitOperations`, `useFetchProject`), `files:*` (`useFileWatcher`, `useCodeView`), `projects:*` (`useProjects`), `simple:*`/`chat:*` (chat), and `plugins:*` (`App.tsx:219` pushes active project/session context to the plugin host).
 - **Session subsystem** (`src/main/session`): `App` listens for `agent:output`/`agent:status`/`agent:sessions-changed` via the session hooks; `TerminalPane` streams agent PTY output and `AgentChatView` consumes chat-mode NDJSON.
-- **Plugin UI** (`components/plugin-ui/PluginUiHost`, rendered at `AppShell.tsx:250`): hosts plugin-contributed surfaces; `pluginView`/`pluginTreeView` dock panels render plugin webviews.
-- **Theme**: `useTheme` resolves the theme id to a body class + xterm theme; `index.tsx` loads `styles/theme.css` and `styles/dockview-theme.css`; the dockview host toggles `dockview-minimal` when no session is active (`AppShell.tsx:145`). The title bar's family dropdown is a hardcoded six-family list (`TitleBar.tsx:16`) fed by `App.tsx`'s `themeFamily` prefix match (`App.tsx:164`); the Settings theme picker is registry-driven instead.
+- **Plugin UI** (`components/plugin-ui/PluginUiHost`, rendered at `AppShell.tsx:231`): hosts plugin-contributed surfaces; `pluginView`/`pluginTreeView` dock panels render plugin webviews.
+- **Theme**: `useTheme` resolves the theme id to a body class + xterm theme; `index.tsx` loads `styles/theme.css` and `styles/dockview-theme.css`; the dockview host toggles `dockview-minimal` when no session is active (`AppShell.tsx:126`). The title bar's family dropdown is a hardcoded six-family list (`TitleBar.tsx:16`) fed by `App.tsx`'s `themeFamily` prefix match (`App.tsx:167`); the Settings theme picker is registry-driven instead.
 
 ## Invariants & gotchas
 
