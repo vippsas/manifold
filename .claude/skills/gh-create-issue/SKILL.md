@@ -67,6 +67,21 @@ Evidence / Screenshots section of the issue body. Notes:
 - Raw links only render for public repos. For a private repo, link the committed file path instead
   and say the image requires repo access.
 
+## Codex Live Sync
+
+When you update this checked-in skill and the task is specifically about Codex behavior, also sync the
+live installed Codex copy before concluding the work:
+
+```bash
+bash .claude/skills/gh-create-issue/scripts/sync-codex-skill.sh
+```
+
+That copies the repo's `gh-create-issue` skill into `~/.codex/skills/gh-create-issue`, brings over the
+asset-upload helper script, and rewrites the installed Codex copy so its command examples point at the
+Codex path instead of `.claude/...`.
+
+Do not assume the repo's `.codex/skills` symlink updates the live home-directory Codex skill.
+
 ## Evidence Rules
 
 - Include short logs or error text inline when useful.

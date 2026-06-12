@@ -80,6 +80,20 @@ Avoid titles like:
 9. Create the PR against the requested base branch.
 10. Link related issues in the PR body when appropriate.
 
+## Codex Live Sync
+
+When you update this checked-in skill and the task is specifically about Codex behavior, also sync the
+live installed Codex copy before concluding the work:
+
+```bash
+bash .claude/skills/gh-create-pr/scripts/sync-codex-skill.sh
+```
+
+That copies the repo's `gh-create-pr` skill into `~/.codex/skills/gh-create-pr` so the next Codex
+session uses the updated instructions.
+
+Do not assume the repo's `.codex/skills` symlink updates the live home-directory Codex skill.
+
 ## Sync Requirement For `main`
 
 When the PR should target `main`, do not open the PR until you have checked whether the work needs to be brought up to date with `origin/main`.
