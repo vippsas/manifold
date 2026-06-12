@@ -10,6 +10,7 @@ import { FavoriteStarButton } from './FavoriteStarButton'
 import { dedupeSessionsByWorktree } from '../../hooks/agent-siblings'
 import { SidebarSectionHeader } from './SidebarSectionHeader'
 import { useSidebarSectionState } from './sidebar-section-state'
+import { sortByRecency, useProjectRecency } from './sidebar-recency'
 
 export interface ProjectListProps {
   projects: Project[]
@@ -62,6 +63,7 @@ export function ProjectList({
 }: ProjectListProps): React.JSX.Element {
   const [withAgentsExpanded, toggleWithAgentsExpanded] = useSidebarSectionState('withAgents', true)
   const [reposExpanded, toggleReposExpanded] = useSidebarSectionState('repositories', false)
+  const { recency, touchProject } = useProjectRecency()
   const visibleProjects = projects.filter((project) => !suppressedProjectIds?.has(project.id))
 
   // While a workspace is focused, its repos and sessions are shown under the
@@ -71,6 +73,7 @@ export function ProjectList({
 
   const handleProjectClick = useCallback(
     (projectId: string): void => {
+      touchProject(projectId)
       const sessions = filterStandaloneProjectSessions(allProjectSessions[projectId] ?? [])
       if (sessions.length > 0) {
         onSelectSession(sessions[0].id, projectId)
@@ -78,14 +81,19 @@ export function ProjectList({
         onSelectProject(projectId)
       }
     },
-    [allProjectSessions, onSelectProject, onSelectSession]
+    [allProjectSessions, onSelectProject, onSelectSession, touchProject]
   )
 
   const activeProject = visibleProjects.find((p) => p.id === activeProjectId) ?? null
 
-  const withAgentsProjects = visibleProjects.filter(
-    (p) => p.id !== activeProjectId
-      && filterStandaloneProjectSessions(allProjectSessions[p.id] ?? []).length > 0
+  // Repos with standalone agents (including the active one), most recently
+  // accessed first. The active repo renders in its recency slot rather than
+  // being pinned, so the section doesn't reshuffle on every selection.
+  const withAgentsProjects = sortByRecency(
+    visibleProjects.filter(
+      (p) => filterStandaloneProjectSessions(allProjectSessions[p.id] ?? []).length > 0
+    ),
+    recency,
   )
 
   const inactiveProjects = visibleProjects.filter(
@@ -94,11 +102,10 @@ export function ProjectList({
   )
 
   // When the active repo has standalone agents it belongs under the "With agents"
-  // header (rendered first, expanded). When it has none, it stays pinned at the
-  // top so it isn't hidden inside the collapsed "Repositories" list.
+  // header. When it has none, it stays pinned at the top so it isn't hidden
+  // inside the collapsed "Repositories" list.
   const activeHasAgents = activeProject !== null
     && filterStandaloneProjectSessions(allProjectSessions[activeProject.id] ?? []).length > 0
-  const withAgentsCount = (activeHasAgents ? 1 : 0) + withAgentsProjects.length
 
   const renderActiveProjectCard = (project: Project): React.JSX.Element => {
     const projectSessions = filterStandaloneProjectSessions(allProjectSessions[project.id] ?? [])
@@ -128,7 +135,7 @@ export function ProjectList({
               projectPath={project.path}
               isActive={session.worktreePath !== '' && session.worktreePath === activeWorktreePath}
               isOutputting={siblingOutputting}
-              onSelect={(sessionId) => onSelectSession(sessionId, project.id)}
+              onSelect={(sessionId) => { touchProject(project.id); onSelectSession(sessionId, project.id) }}
               onDelete={() => onRequestDeleteAgent(session, project.path)}
               onRename={(displayName) => onRenameAgent(session.id, displayName)}
             />
@@ -161,19 +168,25 @@ export function ProjectList({
     <div style={sidebarStyles.list}>
       {activeProject !== null && !activeHasAgents && renderActiveProjectCard(activeProject)}
 
-      {(activeHasAgents || withAgentsProjects.length > 0) && (
+      {withAgentsProjects.length > 0 && (
         <>
           <div style={sidebarStyles.sectionDivider} />
           <SidebarSectionHeader
             label="With agents"
-            count={withAgentsCount}
+            count={withAgentsProjects.length}
             expanded={withAgentsExpanded}
             onToggle={toggleWithAgentsExpanded}
           />
           {withAgentsExpanded && (
             <>
-              {activeProject !== null && activeHasAgents && renderActiveProjectCard(activeProject)}
               {withAgentsProjects.map((project) => {
+                if (project.id === activeProjectId) {
+                  return (
+                    <React.Fragment key={project.id}>
+                      {renderActiveProjectCard(project)}
+                    </React.Fragment>
+                  )
+                }
                 const projectSessions = filterStandaloneProjectSessions(allProjectSessions[project.id] ?? [])
                 return (
                   <div
