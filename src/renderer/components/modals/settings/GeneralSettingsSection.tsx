@@ -1,5 +1,5 @@
 import React, { useCallback } from 'react'
-import type { SearchAiSettings } from '../../../../shared/types'
+import type { SearchAiSettings, ShellPromptSegments } from '../../../../shared/types'
 import { getThemeList } from '../../../../shared/themes/registry'
 import { ThemePicker } from '../ThemePicker'
 import { modalStyles } from '../SettingsModal.styles'
@@ -26,6 +26,8 @@ interface Props {
   onNotificationSoundChange: (enabled: boolean) => void
   shellHistoryScope: 'project' | 'global'
   onShellHistoryScopeChange: (scope: 'project' | 'global') => void
+  shellPromptSegments: ShellPromptSegments
+  onShellPromptSegmentsChange: (segments: ShellPromptSegments) => void
   autoGenerateMessages: boolean
   onAutoGenerateMessagesChange: (enabled: boolean) => void
   showCommitAndPrButtons: boolean
@@ -120,6 +122,26 @@ export function GeneralSettingsSection(props: Props): React.JSX.Element {
               </select>
               <span style={modalStyles.helpText}>Per Project keeps history separate for each repository. Global shares history across all projects.</span>
             </label>
+            <div style={{ ...modalStyles.label, ...modalStyles.fieldSpanFull }}>
+              Manifold Prompt Segments
+              {([
+                ['repo', 'Repository name'],
+                ['agent', 'Agent name'],
+                ['k8sContext', 'Kubernetes context'],
+                ['k8sNamespace', 'Kubernetes namespace'],
+              ] as const).map(([key, label]) => (
+                <label key={key} style={modalStyles.checkboxField}>
+                  <input
+                    type="checkbox"
+                    checked={props.shellPromptSegments[key]}
+                    onChange={(event) => props.onShellPromptSegmentsChange({ ...props.shellPromptSegments, [key]: event.target.checked })}
+                    style={modalStyles.checkboxInput}
+                  />
+                  {label}
+                </label>
+              ))}
+              <span style={modalStyles.helpText}>Applies to new Manifold-prompt shells. Kubernetes segments read kubectl and stay hidden when no context is active.</span>
+            </div>
             <label style={{ ...modalStyles.checkboxField, ...modalStyles.fieldSpanFull }}>
               <input type="checkbox" checked={props.sidebarResizeReversed} onChange={(event) => props.onSidebarResizeReversedChange(event.target.checked)} style={modalStyles.checkboxInput} />
               Reverse sidebar resize direction

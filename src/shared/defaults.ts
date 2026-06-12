@@ -13,6 +13,7 @@ export const DEFAULT_SETTINGS = {
   defaultBaseBranch: 'main',
   notificationSound: true,
   shellPrompt: true,
+  shellPromptSegments: { repo: true, agent: true, k8sContext: false, k8sNamespace: false },
   shellHistoryScope: 'project',
   uiMode: 'developer',
   autoGenerateMessages: true,

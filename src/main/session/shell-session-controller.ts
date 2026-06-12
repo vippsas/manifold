@@ -12,6 +12,7 @@ import {
   predictNextCommand,
 } from './shell-suggestion'
 import type { InternalSession } from './session-types'
+import type { ShellPromptSegments } from '../../shared/types'
 
 export class ShellSessionController {
   private gitOps: GitOperationsManager | null = null
@@ -26,7 +27,7 @@ export class ShellSessionController {
     this.gitOps = gitOps
   }
 
-  createShellSession(cwd: string, options?: { shellPrompt?: boolean; historyDir?: string }): { sessionId: string } {
+  createShellSession(cwd: string, options?: { shellPrompt?: boolean; historyDir?: string; promptSegments?: ShellPromptSegments }): { sessionId: string } {
     const result = createShellPtySession(cwd, this.ptyPool, this.streamWirer, this.sessions, options)
     const session = this.sessions.get(result.sessionId)
     if (session) {
