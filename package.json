@@ -123,6 +123,7 @@
     },
     "glob": "^13.0.0",
     "lodash.isequal": "npm:fast-deep-equal@^3.1.3",
-    "global-agent": "^4.1.3"
+    "global-agent": "^4.1.3",
+    "prebuild-install": "npm:fast-deep-equal@^3.1.3"
   }
 }
