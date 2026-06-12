@@ -3,6 +3,30 @@
 Append-only. **Newest first.** One `##` entry per operation, prefixed
 `ingest | sync | lint | structure`. Quick feed: `grep "^## \[" log.md | head`.
 
+## [structure] 2026-06-12 — Bootstrap the LLM GitHub-issue pipeline
+
+Closed the loop from `docs/llm-github-issues.md` ("Bootstrapping") — the issue-tracker
+sibling of the self-firing doc-sync agent. The human curates the queue by labeling an
+issue; everything after the label is autonomous, and the conversation lives in the issue
+thread, never a chat:
+
+- Created the two labels that drive the state machine: `llm-github-issue` (the queue) and
+  `feedback-needed` (blocked on a human answer in the thread).
+- Added the `gh-process-issues` skill (`.claude/skills/gh-process-issues/SKILL.md`):
+  sweeps the queue, classifies each issue against a `gh`-measurable state machine
+  (Queued / Blocked / Delivered / Done), and for each Queued issue runs
+  understand → reproduce → spec → plan → implement → verify, delivering **one PR per
+  issue** (`Fixes #n`) with the reproduction and tests as evidence. Reuses the `testing`,
+  `verify`, and `gh-create-pr` skills. No synchronous questions: a blocking ambiguity
+  becomes a comment + the `feedback-needed` label, not a prompt. The agent never merges,
+  closes, or edits an issue body — the human merges.
+- Scheduled a **daily** Claude routine to fire `/gh-process-issues`. The label fires the
+  work; the human only answers and approves. Effective once this branch lands on `main`
+  (the skill ships with it); the routine no-ops until then.
+
+GitHub is the per-run log (comment, label event, PR) — unlike the wiki, no `log.md` entry
+per sweep; this entry records the one-time bootstrap only.
+
 ## [structure] 2026-06-08 — Trim the CLAUDE.md schema to in-loop essentials
 
 `CLAUDE.md`/`AGENTS.md` is loaded into every agent's context every session, so §5 now keeps
