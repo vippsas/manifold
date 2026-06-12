@@ -306,6 +306,7 @@ export function registerAgentHandlers(deps: IpcDependencies): void {
     return sessionManager.createShellSession(cwd, {
       shellPrompt: useManifoldShell,
       historyDir: useManifoldShell ? historyDir : undefined,
+      promptSegments: settings.shellPromptSegments,
     })
   })
 

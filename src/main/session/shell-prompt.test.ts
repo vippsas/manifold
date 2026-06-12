@@ -12,6 +12,7 @@ describe('buildShellEnv', () => {
     expect(env.MANIFOLD_WORKTREE).toBe('1')
     expect(env.MANIFOLD_BRANCH).toBe('manifold/oslo')
     expect(env.MANIFOLD_AGENT_NAME).toBe('oslo')
+    expect(env.MANIFOLD_REPO).toBe('myproject')
   })
 
   it('handles paths without manifold- prefix gracefully', () => {
@@ -19,6 +20,7 @@ describe('buildShellEnv', () => {
     expect(env.MANIFOLD_WORKTREE).toBe('1')
     expect(env.MANIFOLD_AGENT_NAME).toBe('path')
     expect(env.MANIFOLD_BRANCH).toBe('manifold/path')
+    expect(env.MANIFOLD_REPO).toBe('path')
   })
 })
 
@@ -56,7 +58,7 @@ describe('createManifoldZdotdir', () => {
   })
 
   it('creates a temp directory with a .zshrc that sets PROMPT', () => {
-    zdotdir = createManifoldZdotdir('oslo')
+    zdotdir = createManifoldZdotdir({ agentName: 'oslo' })
     expect(fs.existsSync(zdotdir)).toBe(true)
     const rc = fs.readFileSync(path.join(zdotdir, '.zshrc'), 'utf-8')
     expect(rc).toContain('ZDOTDIR_ORIG')
@@ -64,8 +66,94 @@ describe('createManifoldZdotdir', () => {
     expect(rc).toContain('PROMPT=')
   })
 
+  it('shows repository and agent in the prompt when both are known', () => {
+    zdotdir = createManifoldZdotdir({ agentName: 'oslo', repoName: 'myproject' })
+    const rc = fs.readFileSync(path.join(zdotdir, '.zshrc'), 'utf-8')
+    expect(rc).toContain("PROMPT='%F{16}myproject%f [oslo] %F{white}❯%f '")
+  })
+
+  it('falls back to the agent-only prompt when the repo matches the agent name', () => {
+    zdotdir = createManifoldZdotdir({ agentName: 'myrepo', repoName: 'myrepo' })
+    const rc = fs.readFileSync(path.join(zdotdir, '.zshrc'), 'utf-8')
+    expect(rc).toContain("PROMPT='%F{16}myrepo%f %F{white}❯%f '")
+  })
+
+  it('renders only the repository when the agent segment is disabled', () => {
+    zdotdir = createManifoldZdotdir({
+      agentName: 'oslo',
+      repoName: 'myproject',
+      segments: { repo: true, agent: false, k8sContext: false, k8sNamespace: false },
+    })
+    const rc = fs.readFileSync(path.join(zdotdir, '.zshrc'), 'utf-8')
+    expect(rc).toContain("PROMPT='%F{16}myproject%f %F{white}❯%f '")
+  })
+
+  it('renders only the agent when the repo segment is disabled', () => {
+    zdotdir = createManifoldZdotdir({
+      agentName: 'oslo',
+      repoName: 'myproject',
+      segments: { repo: false, agent: true, k8sContext: false, k8sNamespace: false },
+    })
+    const rc = fs.readFileSync(path.join(zdotdir, '.zshrc'), 'utf-8')
+    expect(rc).toContain("PROMPT='%F{16}oslo%f %F{white}❯%f '")
+  })
+
+  it('renders a bare glyph prompt when all segments are disabled', () => {
+    zdotdir = createManifoldZdotdir({
+      agentName: 'oslo',
+      repoName: 'myproject',
+      segments: { repo: false, agent: false, k8sContext: false, k8sNamespace: false },
+    })
+    const rc = fs.readFileSync(path.join(zdotdir, '.zshrc'), 'utf-8')
+    expect(rc).toContain("PROMPT='%F{white}❯%f '")
+  })
+
+  it('adds a kubeconfig-cached precmd refresh when the k8s context segment is enabled', () => {
+    zdotdir = createManifoldZdotdir({
+      agentName: 'oslo',
+      repoName: 'myproject',
+      segments: { repo: true, agent: true, k8sContext: true, k8sNamespace: false },
+    })
+    const rc = fs.readFileSync(path.join(zdotdir, '.zshrc'), 'utf-8')
+    expect(rc).toContain('kubectl config current-context')
+    expect(rc).toContain('add-zsh-hook precmd _manifold_prompt_refresh')
+    expect(rc).toContain('%F{16}myproject%f [oslo]')
+    // Namespace lookup is only generated when its segment is enabled
+    expect(rc).not.toContain('jsonpath={..namespace}')
+  })
+
+  it('adds the namespace lookup when the k8s namespace segment is enabled', () => {
+    zdotdir = createManifoldZdotdir({
+      agentName: 'oslo',
+      repoName: 'myproject',
+      segments: { repo: true, agent: true, k8sContext: true, k8sNamespace: true },
+    })
+    const rc = fs.readFileSync(path.join(zdotdir, '.zshrc'), 'utf-8')
+    expect(rc).toContain('jsonpath={..namespace}')
+  })
+
+  itIfZsh('falls back to the static segments when kubectl is unavailable', () => {
+    userZdotdir = fs.mkdtempSync(path.join(os.tmpdir(), 'manifold-user-zdotdir-'))
+    fs.writeFileSync(path.join(userZdotdir, '.zshrc'), '', 'utf-8')
+    process.env.ZDOTDIR = userZdotdir
+
+    zdotdir = createManifoldZdotdir({
+      agentName: 'oslo',
+      repoName: 'myproject',
+      segments: { repo: true, agent: true, k8sContext: true, k8sNamespace: true },
+    })
+
+    const result = spawnSync('zsh', ['-i', '-c', 'print -r -- "prompt=$PROMPT"'], {
+      env: { ...process.env, ZDOTDIR: zdotdir, PATH: '/usr/bin:/bin', KUBECONFIG: '/nonexistent/kubeconfig' },
+      encoding: 'utf-8',
+    })
+
+    expect(result.status).toBe(0)
+    expect(result.stdout).toContain('prompt=%F{16}myproject%f [oslo] %F{white}❯%f ')
+  })
+
   it('configures HISTFILE when historyDir is provided', () => {
-    zdotdir = createManifoldZdotdir('oslo', '/tmp/test-history')
+    zdotdir = createManifoldZdotdir({ agentName: 'oslo' }, '/tmp/test-history')
     const rc = fs.readFileSync(path.join(zdotdir, '.zshrc'), 'utf-8')
     expect(rc).toContain('HISTFILE="/tmp/test-history/.zsh_history"')
     expect(rc).toContain('HISTSIZE=10000')
@@ -75,7 +163,7 @@ describe('createManifoldZdotdir', () => {
   })
 
   it('does not include HISTFILE when historyDir is undefined', () => {
-    zdotdir = createManifoldZdotdir('oslo')
+    zdotdir = createManifoldZdotdir({ agentName: 'oslo' })
     const rc = fs.readFileSync(path.join(zdotdir, '.zshrc'), 'utf-8')
     expect(rc).not.toContain('HISTFILE')
   })
@@ -107,7 +195,7 @@ RPROMPT='external right prompt'
     )
 
     process.env.ZDOTDIR = userZdotdir
-    zdotdir = createManifoldZdotdir('oslo')
+    zdotdir = createManifoldZdotdir({ agentName: 'oslo', repoName: 'myproject' })
 
     const result = spawnSync(
       'zsh',
@@ -138,7 +226,7 @@ RPROMPT='external right prompt'
     expect(result.stdout).not.toContain('_omp_preexec')
     expect(result.stdout).not.toContain('prompt_ohmyposh_precmd')
     expect(result.stdout).not.toContain('starship_precmd')
-    expect(result.stdout).toContain('prompt=%F{16}oslo%f %F{white}❯%f ')
+    expect(result.stdout).toContain('prompt=%F{16}myproject%f [oslo] %F{white}❯%f ')
     expect(result.stdout).toContain('rprompt=')
     expect(result.stdout).toContain('posh=')
     expect(result.stdout).toContain('starship=')
