@@ -12,6 +12,16 @@ function agentNameFromCwd(cwd: string): string {
 }
 
 /**
+ * Extract repository name from a managed worktree path:
+ * `…/worktrees/<repo>/<worktree-dir>`. Falls back to the basename for
+ * dirs outside the managed worktree layout (a repo opened in place).
+ */
+function repoNameFromCwd(cwd: string): string {
+  const match = cwd.match(/\/worktrees\/([^/]+)\/[^/]+\/?$/)
+  return match ? match[1] : path.basename(cwd)
+}
+
+/**
  * Build environment variables to inject into a Manifold worktree shell.
  */
 export function buildShellEnv(cwd: string): Record<string, string> {
@@ -19,6 +29,7 @@ export function buildShellEnv(cwd: string): Record<string, string> {
   return {
     MANIFOLD_WORKTREE: '1',
     MANIFOLD_AGENT_NAME: agentName,
+    MANIFOLD_REPO: repoNameFromCwd(cwd),
     MANIFOLD_BRANCH: `manifold/${agentName}`,
   }
 }
@@ -44,8 +55,16 @@ export function buildWelcomeMessage(branch: string, cwd: string): string {
  * 1. Restores the user's real ZDOTDIR so their aliases/PATH still load
  * 2. Sources the user's .zshrc
  * 3. Overrides PROMPT with a clean Manifold prompt
+ *
+ * The prompt shows `repo [agent] ❯` so multi-repo workflows stay
+ * recognizable; when the repo is unknown (or identical to the agent
+ * name, as for shells outside managed worktrees) it stays `agent ❯`.
  */
-export function createManifoldZdotdir(agentName: string, historyDir?: string): string {
+export function createManifoldZdotdir(
+  promptContext: { agentName: string; repoName?: string },
+  historyDir?: string,
+): string {
+  const { agentName, repoName } = promptContext
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'manifold-shell-'))
   const userZdotdir = process.env.ZDOTDIR || os.homedir()
 
@@ -64,8 +83,11 @@ setopt HIST_IGNORE_DUPS
 `
     : ''
 
-  // Note: ${agentName} is a JS template literal variable baked into the file at
-  // write time — it is NOT a zsh variable reference in the generated .zshrc.
+  // Note: ${agentName}/${repoName} are JS template literal variables baked into
+  // the file at write time — NOT zsh variable references in the generated .zshrc.
+  const promptValue = repoName && repoName !== agentName
+    ? `%F{16}${repoName}%f [${agentName}] %F{white}❯%f `
+    : `%F{16}${agentName}%f %F{white}❯%f `
   const rc = `# Manifold shell prompt — sources user config then overrides PROMPT
 ZDOTDIR_ORIG="${userZdotdir}"
 
@@ -128,7 +150,7 @@ setopt INTERACTIVE_COMMENTS
 
 # Override prompt with clean Manifold style.
 # Color 16 is remapped to the theme accent by Manifold's terminal renderer.
-PROMPT='%F{16}${agentName}%f %F{white}❯%f '
+PROMPT='${promptValue}'
 RPROMPT=''
 `
 

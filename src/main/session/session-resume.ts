@@ -84,7 +84,10 @@ export function createShellPtySession(
     env = { ...shellEnv }
 
     if (isZsh) {
-      zdotdirPath = createManifoldZdotdir(shellEnv.MANIFOLD_AGENT_NAME, options?.historyDir)
+      zdotdirPath = createManifoldZdotdir(
+        { agentName: shellEnv.MANIFOLD_AGENT_NAME, repoName: shellEnv.MANIFOLD_REPO },
+        options?.historyDir,
+      )
       env.ZDOTDIR = zdotdirPath
     }
   }
