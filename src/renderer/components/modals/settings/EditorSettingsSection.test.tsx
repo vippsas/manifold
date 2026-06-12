@@ -23,7 +23,19 @@ describe('EditorSettingsSection', () => {
   it('calls onChange when word wrap toggles', () => {
     const onChange = vi.fn()
     render(<EditorSettingsSection value={VALUE} onChange={onChange} />)
-    fireEvent.change(screen.getByLabelText(/Word Wrap/i), { target: { value: 'on' } })
+    fireEvent.change(screen.getByLabelText(/^Word Wrap$/i), { target: { value: 'on' } })
     expect(onChange).toHaveBeenCalledWith({ ...VALUE, wordWrap: 'on' })
+  })
+
+  it('renders markdown word wrap checked by default', () => {
+    render(<EditorSettingsSection value={VALUE} onChange={vi.fn()} />)
+    expect(screen.getByLabelText(/Word wrap Markdown files/i)).toBeChecked()
+  })
+
+  it('calls onChange when markdown word wrap toggles', () => {
+    const onChange = vi.fn()
+    render(<EditorSettingsSection value={VALUE} onChange={onChange} />)
+    fireEvent.click(screen.getByLabelText(/Word wrap Markdown files/i))
+    expect(onChange).toHaveBeenCalledWith({ ...VALUE, markdownWordWrap: false })
   })
 })

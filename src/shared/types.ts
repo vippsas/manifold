@@ -96,6 +96,8 @@ export interface EditorSettings {
   fontSize: number
   fontFamily: string
   wordWrap: 'on' | 'off'
+  /** Force-wrap Markdown files; when false they follow `wordWrap` like any other file. */
+  markdownWordWrap: boolean
   minimap: boolean
   tabSize: number
 }

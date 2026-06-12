@@ -183,6 +183,7 @@ describe('SettingsStore', () => {
       expect(editor?.fontSize).toBe(16)
       expect(editor?.fontFamily).toBe(DEFAULT_SETTINGS.editor?.fontFamily)
       expect(editor?.wordWrap).toBe(DEFAULT_SETTINGS.editor?.wordWrap)
+      expect(editor?.markdownWordWrap).toBe(true)
       expect(editor?.minimap).toBe(DEFAULT_SETTINGS.editor?.minimap)
       expect(editor?.tabSize).toBe(DEFAULT_SETTINGS.editor?.tabSize)
     })

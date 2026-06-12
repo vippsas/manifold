@@ -71,6 +71,14 @@ export function EditorSettingsSection({ value, onChange }: Props): React.JSX.Ele
             </label>
             <label style={{ ...modalStyles.checkboxField, ...modalStyles.fieldSpanFull }}>
               <input
+                type="checkbox" checked={value.markdownWordWrap}
+                onChange={(event) => set('markdownWordWrap', event.target.checked)}
+                style={modalStyles.checkboxInput}
+              />
+              Word wrap Markdown files
+            </label>
+            <label style={{ ...modalStyles.checkboxField, ...modalStyles.fieldSpanFull }}>
+              <input
                 type="checkbox" checked={value.minimap}
                 onChange={(event) => set('minimap', event.target.checked)}
                 style={modalStyles.checkboxInput}
