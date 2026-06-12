@@ -3,6 +3,24 @@
 Append-only. **Newest first.** One `##` entry per operation, prefixed
 `ingest | sync | lint | structure`. Quick feed: `grep "^## \[" log.md | head`.
 
+## [sync] 2026-06-12 — synced agent.md with code
+
+Re-verified `docs/architecture/agent.md` against current `src/main/agent`. Two commits hit
+the covered path since the page was last touched, both internal hardening below the page's
+documented altitude:
+
+- `#603` bounded the chat-adapter buffers — `MAX_RAW_BUFFER_BYTES`/`MAX_BUFFER_AGE_MS`/
+  `MAX_MESSAGES_PER_SESSION` caps and a force-flush past the quiet-period debounce in
+  `chat-adapter.ts`. The page lists `chat-adapter.ts` only "for completeness" (it is a
+  session helper, not an AI-runtime/PTY concern) and documents no buffering behavior, so no
+  claim drifted.
+- `#611` added a `child.stdin.on('error', …)` EPIPE guard to `runAiPrompt` in `ai-prompt.ts`;
+  the page's one-line description of `runAiPrompt` ("stdin-fed one-shot child process") still
+  holds.
+
+No line citations into `src/main/agent` shifted (the other covered files were untouched).
+Bumped `updated:` to record the re-verification.
+
 ## [structure] 2026-06-12 — Bootstrap the LLM GitHub-issue pipeline
 
 Closed the loop from `docs/llm-github-issues.md` ("Bootstrapping") — the issue-tracker
