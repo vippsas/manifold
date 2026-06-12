@@ -343,6 +343,24 @@ describe('ProjectSidebar', () => {
     expect(screen.getByText('Beta')).toBeInTheDocument()
   })
 
+  it('moves a repo to the top of "With agents" when it is accessed', () => {
+    const sessionsForP2: AgentSession[] = [
+      { id: 's3', projectId: 'p2', runtimeId: 'gemini', branchName: 'beta/stavanger', worktreePath: '/wt3', status: 'running', pid: 3, additionalDirs: [] },
+    ]
+
+    renderSidebar({ allProjectSessions: { p1: sampleSessions, p2: sessionsForP2 } })
+
+    // Untouched: incoming alphabetical order — Alpha before Beta
+    const alpha = screen.getByText('Alpha')
+    let beta = screen.getByText('Beta')
+    expect(alpha.compareDocumentPosition(beta) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+
+    // Accessing Beta moves it above Alpha; Alpha holds its slot
+    fireEvent.click(beta)
+    beta = screen.getByText('Beta')
+    expect(beta.compareDocumentPosition(screen.getByText('Alpha')) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+  })
+
   it('keeps the active repo pinned above the sections when it has no agents', () => {
     const sessionsForP2: AgentSession[] = [
       { id: 's3', projectId: 'p2', runtimeId: 'gemini', branchName: 'beta/stavanger', worktreePath: '/wt3', status: 'running', pid: 3, additionalDirs: [] },
