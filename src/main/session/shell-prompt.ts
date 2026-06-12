@@ -3,6 +3,7 @@ import * as path from 'node:path'
 import * as os from 'node:os'
 import type { ShellPromptSegments } from '../../shared/types'
 import { DEFAULT_SETTINGS } from '../../shared/defaults'
+import { shellPromptSegmentsFilePath } from './shell-prompt-config'
 
 /**
  * Extract agent name from a worktree path.
@@ -53,56 +54,52 @@ export function buildWelcomeMessage(branch: string, cwd: string): string {
 }
 
 /**
- * Static name portion of the prompt per the enabled segments.
- * `repo [agent]` when both are on and distinct; a single accent name when
- * they collapse (shells outside managed worktrees) or only one is enabled.
+ * Prompt block whose segment toggles live in zsh variables seeded from the
+ * spawn-time settings and re-sourced from the shared segments file whenever
+ * it changes (one zstat per prompt, same caching pattern as kubeconfig
+ * below). Settings saves rewrite that file, so live shells pick up new
+ * prompt-segment settings at their next prompt render.
+ *
+ * The name renders as `repo [agent]` when both are on and distinct, and
+ * collapses to a single accent name when only one is enabled or the names
+ * coincide (shells outside managed worktrees). Kubernetes context/namespace
+ * lookups fail silently: no kubectl or no active context hides the segments.
  */
-function buildPromptNamePart(
+function buildPromptBlock(
   agentName: string,
   repoName: string | undefined,
   segments: ShellPromptSegments,
+  segmentsFile: string,
 ): string {
-  if (segments.repo && segments.agent) {
-    return repoName && repoName !== agentName
-      ? `%F{16}${repoName}%f [${agentName}]`
-      : `%F{16}${agentName}%f`
-  }
-  if (segments.repo) return `%F{16}${repoName ?? agentName}%f`
-  if (segments.agent) return `%F{16}${agentName}%f`
-  return ''
-}
-
-/**
- * Prompt block that appends Kubernetes context/namespace segments.
- * kubectl output is cached and only re-read when the kubeconfig mtime
- * changes, so the per-prompt cost is a single stat. Everything fails
- * silently: no kubectl or no active context simply hides the segments.
- */
-function buildK8sPromptBlock(namePart: string, segments: ShellPromptSegments): string {
-  const namespaceLookup = segments.k8sNamespace
-    ? `
-  if [[ -n "\${_manifold_k8s_ctx}" ]]; then
-    _manifold_k8s_ns="\$(command kubectl config view --minify --output 'jsonpath={..namespace}' 2>/dev/null)" || _manifold_k8s_ns=""
-  fi`
-    : ''
-  const contextSegment = segments.k8sContext
-    ? `
-  [[ -n "\${_manifold_k8s_ctx}" ]] && p+="\${p:+ }⎈ \${_manifold_k8s_ctx}"`
-    : ''
-  const namespaceSegment = segments.k8sNamespace
-    ? `
-  [[ -n "\${_manifold_k8s_ns}" ]] && p+="\${p:+ }(\${_manifold_k8s_ns})"`
-    : ''
-
-  return `# Manifold prompt with Kubernetes segments.
+  return `# Manifold prompt — segment toggles re-read from the shared settings file.
 # Color 16 is remapped to the theme accent by Manifold's terminal renderer.
 zmodload -F zsh/stat b:zstat 2>/dev/null
+typeset -g _manifold_seg_stamp="unset"
+typeset -g _manifold_seg_repo=${segments.repo ? 1 : 0}
+typeset -g _manifold_seg_agent=${segments.agent ? 1 : 0}
+typeset -g _manifold_seg_k8s_ctx=${segments.k8sContext ? 1 : 0}
+typeset -g _manifold_seg_k8s_ns=${segments.k8sNamespace ? 1 : 0}
 typeset -g _manifold_k8s_stamp="unset"
 typeset -g _manifold_k8s_ctx=""
 typeset -g _manifold_k8s_ns=""
 
+function _manifold_segments_refresh() {
+  emulate -L zsh
+  local cfg="${segmentsFile}"
+  local stamp=""
+  if [[ -f "\$cfg" ]]; then
+    stamp="\$(zstat +inode "\$cfg" 2>/dev/null)-\$(zstat +mtime "\$cfg" 2>/dev/null)"
+  fi
+  [[ "\$stamp" == "\$_manifold_seg_stamp" ]] && return
+  _manifold_seg_stamp="\$stamp"
+  [[ -n "\$stamp" ]] && source "\$cfg" 2>/dev/null
+  # Segment set changed — force the next k8s lookup to run again.
+  _manifold_k8s_stamp="unset"
+}
+
 function _manifold_k8s_refresh() {
   emulate -L zsh
+  (( _manifold_seg_k8s_ctx || _manifold_seg_k8s_ns )) || return 0
   local cfg="\${KUBECONFIG:-\$HOME/.kube/config}"
   cfg="\${cfg%%:*}"
   local stamp=""
@@ -112,13 +109,33 @@ function _manifold_k8s_refresh() {
   [[ "\$stamp" == "\$_manifold_k8s_stamp" ]] && return
   _manifold_k8s_stamp="\$stamp"
   _manifold_k8s_ctx="\$(command kubectl config current-context 2>/dev/null)" || _manifold_k8s_ctx=""
-  _manifold_k8s_ns=""${namespaceLookup}
+  _manifold_k8s_ns=""
+  if (( _manifold_seg_k8s_ns )) && [[ -n "\$_manifold_k8s_ctx" ]]; then
+    _manifold_k8s_ns="\$(command kubectl config view --minify --output 'jsonpath={..namespace}' 2>/dev/null)" || _manifold_k8s_ns=""
+  fi
 }
 
 function _manifold_prompt_refresh() {
   emulate -L zsh
+  _manifold_segments_refresh
   _manifold_k8s_refresh
-  local p='${namePart}'${contextSegment}${namespaceSegment}
+  local agent='${agentName}'
+  local repo='${repoName ?? ''}'
+  local name=""
+  if (( _manifold_seg_repo && _manifold_seg_agent )); then
+    if [[ -n "\$repo" && "\$repo" != "\$agent" ]]; then
+      name="%F{16}\${repo}%f [\${agent}]"
+    else
+      name="%F{16}\${agent}%f"
+    fi
+  elif (( _manifold_seg_repo )); then
+    name="%F{16}\${repo:-\$agent}%f"
+  elif (( _manifold_seg_agent )); then
+    name="%F{16}\${agent}%f"
+  fi
+  local p="\$name"
+  (( _manifold_seg_k8s_ctx )) && [[ -n "\$_manifold_k8s_ctx" ]] && p+="\${p:+ }⎈ \${_manifold_k8s_ctx}"
+  (( _manifold_seg_k8s_ns )) && [[ -n "\$_manifold_k8s_ns" ]] && p+="\${p:+ }(\${_manifold_k8s_ns})"
   PROMPT="\${p:+\$p }%F{white}❯%f "
 }
 autoload -Uz add-zsh-hook
@@ -138,14 +155,21 @@ RPROMPT=''
  * recognizable; when the repo is unknown (or identical to the agent
  * name, as for shells outside managed worktrees) it stays `agent ❯`.
  * Which segments render (repo, agent, Kubernetes context/namespace) is
- * controlled by the `shellPromptSegments` setting.
+ * controlled by the `shellPromptSegments` setting; live shells follow
+ * later changes by re-sourcing the shared segments file (issue #684).
  */
 export function createManifoldZdotdir(
-  promptContext: { agentName: string; repoName?: string; segments?: ShellPromptSegments },
+  promptContext: {
+    agentName: string
+    repoName?: string
+    segments?: ShellPromptSegments
+    segmentsFile?: string
+  },
   historyDir?: string,
 ): string {
   const { agentName, repoName } = promptContext
   const segments = promptContext.segments ?? DEFAULT_SETTINGS.shellPromptSegments
+  const segmentsFile = promptContext.segmentsFile ?? shellPromptSegmentsFilePath()
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'manifold-shell-'))
   const userZdotdir = process.env.ZDOTDIR || os.homedir()
 
@@ -164,18 +188,11 @@ setopt HIST_IGNORE_DUPS
 `
     : ''
 
-  // Note: ${agentName}/${repoName} are JS template literal variables baked into
-  // the file at write time — NOT zsh variable references in the generated .zshrc.
-  // zsh constructs are escaped as \$ so they survive into the written file.
-  const namePart = buildPromptNamePart(agentName, repoName, segments)
-  const wantsK8s = segments.k8sContext || segments.k8sNamespace
-  const promptBlock = wantsK8s
-    ? buildK8sPromptBlock(namePart, segments)
-    : `# Override prompt with clean Manifold style.
-# Color 16 is remapped to the theme accent by Manifold's terminal renderer.
-PROMPT='${namePart ? `${namePart} ` : ''}%F{white}❯%f '
-RPROMPT=''
-`
+  // Note: ${agentName}/${repoName}/${segmentsFile} are JS template literal
+  // variables baked into the file at write time — NOT zsh variable references
+  // in the generated .zshrc. zsh constructs are escaped as \$ so they survive
+  // into the written file.
+  const promptBlock = buildPromptBlock(agentName, repoName, segments, segmentsFile)
   const rc = `# Manifold shell prompt — sources user config then overrides PROMPT
 ZDOTDIR_ORIG="${userZdotdir}"
 

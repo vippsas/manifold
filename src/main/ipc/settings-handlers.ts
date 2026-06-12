@@ -2,12 +2,20 @@ import { BrowserWindow, ipcMain } from 'electron'
 import { mkdirSync } from 'node:fs'
 import { ManifoldSettings, SessionViewState } from '../../shared/types'
 import { SavedShellState } from '../store/shell-tab-store'
+import { DEFAULT_SETTINGS } from '../../shared/defaults'
 import { listRuntimesWithStatus } from '../agent/runtimes'
 import { listOllamaModels } from '../agent/ollama-models'
+import { writeShellPromptSegmentsFile } from '../session/shell-prompt-config'
 import type { IpcDependencies } from './types'
 
 export function registerSettingsHandlers(deps: IpcDependencies): void {
   const { settingsStore } = deps
+
+  // Live zsh prompts source this file (shell-prompt.ts) — sync it with the
+  // stored settings at boot and rewrite it whenever the segments change.
+  writeShellPromptSegmentsFile(
+    settingsStore.getSettings().shellPromptSegments ?? DEFAULT_SETTINGS.shellPromptSegments,
+  )
 
   ipcMain.handle('settings:get', () => {
     return settingsStore.getSettings()
@@ -18,6 +26,11 @@ export function registerSettingsHandlers(deps: IpcDependencies): void {
       mkdirSync(partial.storagePath, { recursive: true })
     }
     const updated = settingsStore.updateSettings(partial)
+    if (partial.shellPromptSegments) {
+      writeShellPromptSegmentsFile(
+        updated.shellPromptSegments ?? DEFAULT_SETTINGS.shellPromptSegments,
+      )
+    }
     for (const win of BrowserWindow.getAllWindows()) {
       if (!win.isDestroyed()) {
         win.webContents.send('settings:changed', updated)

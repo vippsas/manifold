@@ -41,6 +41,24 @@ describe('createManifoldZdotdir', () => {
   const zshAvailable = spawnSync('zsh', ['-fc', 'exit 0']).status === 0
   const itIfZsh = zshAvailable ? it : it.skip
 
+  // Empty user zdotdir isolates spawned shells from the dev machine's zshrc;
+  // the returned segments file path is never written, so baked seeds apply.
+  function isolateUserZdotdir(): { segmentsFile: string } {
+    userZdotdir = fs.mkdtempSync(path.join(os.tmpdir(), 'manifold-user-zdotdir-'))
+    fs.writeFileSync(path.join(userZdotdir, '.zshrc'), '', 'utf-8')
+    process.env.ZDOTDIR = userZdotdir
+    return { segmentsFile: path.join(userZdotdir, 'segments.zsh') }
+  }
+
+  function renderPrompt(dir: string): string {
+    const result = spawnSync('zsh', ['-i', '-c', 'print -r -- "prompt=$PROMPT"'], {
+      env: { ...process.env, ZDOTDIR: dir, PATH: '/usr/bin:/bin', KUBECONFIG: '/nonexistent/kubeconfig' },
+      encoding: 'utf-8',
+    })
+    expect(result.status).toBe(0)
+    return result.stdout
+  }
+
   afterEach(() => {
     if (zdotdir) {
       fs.rmSync(zdotdir, { recursive: true, force: true })
@@ -66,81 +84,80 @@ describe('createManifoldZdotdir', () => {
     expect(rc).toContain('PROMPT=')
   })
 
-  it('shows repository and agent in the prompt when both are known', () => {
-    zdotdir = createManifoldZdotdir({ agentName: 'oslo', repoName: 'myproject' })
-    const rc = fs.readFileSync(path.join(zdotdir, '.zshrc'), 'utf-8')
-    expect(rc).toContain("PROMPT='%F{16}myproject%f [oslo] %F{white}❯%f '")
+  itIfZsh('shows repository and agent in the prompt when both are known', () => {
+    const { segmentsFile } = isolateUserZdotdir()
+    zdotdir = createManifoldZdotdir({ agentName: 'oslo', repoName: 'myproject', segmentsFile })
+    expect(renderPrompt(zdotdir)).toContain('prompt=%F{16}myproject%f [oslo] %F{white}❯%f ')
   })
 
-  it('falls back to the agent-only prompt when the repo matches the agent name', () => {
-    zdotdir = createManifoldZdotdir({ agentName: 'myrepo', repoName: 'myrepo' })
-    const rc = fs.readFileSync(path.join(zdotdir, '.zshrc'), 'utf-8')
-    expect(rc).toContain("PROMPT='%F{16}myrepo%f %F{white}❯%f '")
+  itIfZsh('falls back to the agent-only prompt when the repo matches the agent name', () => {
+    const { segmentsFile } = isolateUserZdotdir()
+    zdotdir = createManifoldZdotdir({ agentName: 'myrepo', repoName: 'myrepo', segmentsFile })
+    expect(renderPrompt(zdotdir)).toContain('prompt=%F{16}myrepo%f %F{white}❯%f ')
   })
 
-  it('renders only the repository when the agent segment is disabled', () => {
+  itIfZsh('renders only the repository when the agent segment is disabled', () => {
+    const { segmentsFile } = isolateUserZdotdir()
     zdotdir = createManifoldZdotdir({
       agentName: 'oslo',
       repoName: 'myproject',
       segments: { repo: true, agent: false, k8sContext: false, k8sNamespace: false },
+      segmentsFile,
     })
-    const rc = fs.readFileSync(path.join(zdotdir, '.zshrc'), 'utf-8')
-    expect(rc).toContain("PROMPT='%F{16}myproject%f %F{white}❯%f '")
+    expect(renderPrompt(zdotdir)).toContain('prompt=%F{16}myproject%f %F{white}❯%f ')
   })
 
-  it('renders only the agent when the repo segment is disabled', () => {
+  itIfZsh('renders only the agent when the repo segment is disabled', () => {
+    const { segmentsFile } = isolateUserZdotdir()
     zdotdir = createManifoldZdotdir({
       agentName: 'oslo',
       repoName: 'myproject',
       segments: { repo: false, agent: true, k8sContext: false, k8sNamespace: false },
+      segmentsFile,
     })
-    const rc = fs.readFileSync(path.join(zdotdir, '.zshrc'), 'utf-8')
-    expect(rc).toContain("PROMPT='%F{16}oslo%f %F{white}❯%f '")
+    expect(renderPrompt(zdotdir)).toContain('prompt=%F{16}oslo%f %F{white}❯%f ')
   })
 
-  it('renders a bare glyph prompt when all segments are disabled', () => {
+  itIfZsh('renders a bare glyph prompt when all segments are disabled', () => {
+    const { segmentsFile } = isolateUserZdotdir()
     zdotdir = createManifoldZdotdir({
       agentName: 'oslo',
       repoName: 'myproject',
       segments: { repo: false, agent: false, k8sContext: false, k8sNamespace: false },
+      segmentsFile,
     })
-    const rc = fs.readFileSync(path.join(zdotdir, '.zshrc'), 'utf-8')
-    expect(rc).toContain("PROMPT='%F{white}❯%f '")
+    expect(renderPrompt(zdotdir)).toContain('prompt=%F{white}❯%f ')
   })
 
-  it('adds a kubeconfig-cached precmd refresh when the k8s context segment is enabled', () => {
+  it('seeds the segment toggles from spawn-time settings and refreshes via precmd', () => {
     zdotdir = createManifoldZdotdir({
       agentName: 'oslo',
       repoName: 'myproject',
-      segments: { repo: true, agent: true, k8sContext: true, k8sNamespace: false },
+      segments: { repo: true, agent: false, k8sContext: true, k8sNamespace: false },
     })
     const rc = fs.readFileSync(path.join(zdotdir, '.zshrc'), 'utf-8')
+    expect(rc).toContain('typeset -g _manifold_seg_repo=1')
+    expect(rc).toContain('typeset -g _manifold_seg_agent=0')
+    expect(rc).toContain('typeset -g _manifold_seg_k8s_ctx=1')
+    expect(rc).toContain('typeset -g _manifold_seg_k8s_ns=0')
     expect(rc).toContain('kubectl config current-context')
     expect(rc).toContain('add-zsh-hook precmd _manifold_prompt_refresh')
-    expect(rc).toContain('%F{16}myproject%f [oslo]')
-    // Namespace lookup is only generated when its segment is enabled
-    expect(rc).not.toContain('jsonpath={..namespace}')
   })
 
-  it('adds the namespace lookup when the k8s namespace segment is enabled', () => {
-    zdotdir = createManifoldZdotdir({
-      agentName: 'oslo',
-      repoName: 'myproject',
-      segments: { repo: true, agent: true, k8sContext: true, k8sNamespace: true },
-    })
+  it('points the generated rc at the shared segments file by default', () => {
+    zdotdir = createManifoldZdotdir({ agentName: 'oslo', repoName: 'myproject' })
     const rc = fs.readFileSync(path.join(zdotdir, '.zshrc'), 'utf-8')
-    expect(rc).toContain('jsonpath={..namespace}')
+    expect(rc).toContain(path.join(os.homedir(), '.manifold', 'shell-prompt-segments.zsh'))
   })
 
   itIfZsh('falls back to the static segments when kubectl is unavailable', () => {
-    userZdotdir = fs.mkdtempSync(path.join(os.tmpdir(), 'manifold-user-zdotdir-'))
-    fs.writeFileSync(path.join(userZdotdir, '.zshrc'), '', 'utf-8')
-    process.env.ZDOTDIR = userZdotdir
+    const { segmentsFile } = isolateUserZdotdir()
 
     zdotdir = createManifoldZdotdir({
       agentName: 'oslo',
       repoName: 'myproject',
       segments: { repo: true, agent: true, k8sContext: true, k8sNamespace: true },
+      segmentsFile,
     })
 
     const result = spawnSync('zsh', ['-i', '-c', 'print -r -- "prompt=$PROMPT"'], {
@@ -195,7 +212,11 @@ RPROMPT='external right prompt'
     )
 
     process.env.ZDOTDIR = userZdotdir
-    zdotdir = createManifoldZdotdir({ agentName: 'oslo', repoName: 'myproject' })
+    zdotdir = createManifoldZdotdir({
+      agentName: 'oslo',
+      repoName: 'myproject',
+      segmentsFile: path.join(userZdotdir, 'segments.zsh'),
+    })
 
     const result = spawnSync(
       'zsh',
