@@ -59,9 +59,9 @@ assignees: []
 
 ### Screenshots or Screen Recording
 
-<!-- Upload screenshots directly to the issue and embed or list them here -->
-
-![Screenshot](upload-screenshot-here)
+<!-- Humans: drag and drop screenshots here. Agents: upload thread images with
+     `bash .claude/skills/gh-create-issue/scripts/upload-assets.sh <path>...`
+     and paste the printed markdown links here. -->
 
 ### Logs, Output, or Error Text
 
