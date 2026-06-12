@@ -80,6 +80,55 @@ describe('installWatchSkills', () => {
     expect(result.installed).toContain(path.join(tmpHome, '.codex', 'skills', 'watch'))
   })
 
+  it('rewrites the Codex-installed skill to remove Claude-specific Read instructions', () => {
+    fs.mkdirSync(tmpSrc, { recursive: true })
+    fs.writeFileSync(path.join(tmpSrc, 'plugin.json'), JSON.stringify({ version: '0.2.0' }))
+    fs.writeFileSync(
+      path.join(tmpSrc, 'SKILL.md'),
+      [
+        '---',
+        'description: Watch a video that Manifold has pre-staged. Manifold\\'s main process downloads the video, extracts auto-scaled frames with ffmpeg, and produces a timestamped transcript (native captions or gpt-4o-transcribe). This skill receives the report path and tells Claude to read each frame.',
+        'allowed-tools: Bash, Read',
+        '---',
+        '# /watch — Claude watches a Manifold-prepared video',
+        '5. Pastes `/watch:watch <workdir>` into the active Claude Code agent',
+        '2. Read each frame path the report lists',
+        'Use the `Read` tool on every frame path in a single message (parallel tool calls)',
+        'If no question was asked, summarize the video — structure, key moments, notable visuals, spoken content.',
+      ].join('\n'),
+    )
+    fs.mkdirSync(path.join(tmpSrc, 'commands'), { recursive: true })
+    fs.writeFileSync(
+      path.join(tmpSrc, 'commands', 'watch.md'),
+      [
+        '---',
+        'allowed-tools: [Bash, Read]',
+        '---',
+        'Read `report.md`, then Read every frame path it lists, and answer the user\\'s question grounded in the frames and transcript.',
+      ].join('\n'),
+    )
+
+    installWatchSkills({ sourceDir: tmpSrc, homeDir: tmpHome, hasCodex: true })
+
+    const codexSkill = fs.readFileSync(path.join(tmpHome, '.codex', 'skills', 'watch', 'SKILL.md'), 'utf-8')
+    const codexCommand = fs.readFileSync(
+      path.join(tmpHome, '.codex', 'skills', 'watch', 'commands', 'watch.md'),
+      'utf-8',
+    )
+
+    expect(codexSkill).toContain('tells Codex to inspect each frame.')
+    expect(codexSkill).toContain('allowed-tools: Bash')
+    expect(codexSkill).toContain('# /watch — Codex watches a Manifold-prepared video')
+    expect(codexSkill).toContain('active Codex agent')
+    expect(codexSkill).toContain('Inspect each frame path the report lists with `view_image`')
+    expect(codexSkill).toContain('Use `view_image` on every frame path in sequence or small batches')
+    expect(codexSkill).not.toContain('Claude Code')
+    expect(codexSkill).not.toContain('allowed-tools: Bash, Read')
+    expect(codexCommand).toContain('allowed-tools: [Bash]')
+    expect(codexCommand).toContain('inspect every frame path it lists')
+    expect(codexCommand).not.toContain('Read every frame path')
+  })
+
   it('skips when source contents are unchanged', () => {
     writeSourceSkill()
     installWatchSkills({ sourceDir: tmpSrc, homeDir: tmpHome, hasCodex: false })

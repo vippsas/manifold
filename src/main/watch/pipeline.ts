@@ -217,7 +217,7 @@ function renderReport(r: ReportInputs): string {
   lines.push('', '## Frames', '')
   lines.push(`Frames live at: \`${r.framesDir}\``, '')
   lines.push(
-    '**Read each frame path below with the Read tool to view the image.** ' +
+    '**Inspect each frame path below with your agent\'s image-viewing tool.** ' +
     'Frames are in chronological order; `t=MM:SS` is the absolute timestamp in the source video.',
     '',
   )

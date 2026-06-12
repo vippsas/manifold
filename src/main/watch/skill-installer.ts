@@ -37,10 +37,26 @@ export function installWatchSkills(opts: InstallOptions): InstallResult {
 
   if (hasCodex) {
     const codexTarget = path.join(homeDir, '.codex', 'skills', PLUGIN_NAME)
-    installFolder(opts.sourceDir, codexTarget, sourceFingerprint, result)
+    installCodexSkill(opts.sourceDir, codexTarget, sourceFingerprint, result)
   }
 
   return result
+}
+
+function installCodexSkill(
+  sourceDir: string,
+  target: string,
+  fingerprint: string,
+  result: InstallResult,
+): void {
+  installFolder(sourceDir, target, `${fingerprint}+codex`, result)
+  if (result.errors.some((e) => e.startsWith(`${target}:`))) return
+
+  try {
+    rewriteCodexSkill(target)
+  } catch (err) {
+    result.errors.push(`${target}: ${err instanceof Error ? err.message : String(err)}`)
+  }
 }
 
 function installClaudeCodePlugin(
@@ -200,6 +216,30 @@ function copyRecursive(src: string, dst: string): void {
       fs.copyFileSync(sp, dp)
     }
   }
+}
+
+function rewriteCodexSkill(target: string): void {
+  rewriteFile(path.join(target, 'SKILL.md'), (contents) =>
+    contents
+      .replace('description: Watch a video that Manifold has pre-staged. Manifold\'s main process downloads the video, extracts auto-scaled frames with ffmpeg, and produces a timestamped transcript (native captions or gpt-4o-transcribe). This skill receives the report path and tells Claude to read each frame.', 'description: Watch a video that Manifold has pre-staged. Manifold\'s main process downloads the video, extracts auto-scaled frames with ffmpeg, and produces a timestamped transcript (native captions or gpt-4o-transcribe). This skill receives the report path and tells Codex to inspect each frame.')
+      .replace('allowed-tools: Bash, Read', 'allowed-tools: Bash')
+      .replace('# /watch — Claude watches a Manifold-prepared video', '# /watch — Codex watches a Manifold-prepared video')
+      .replace('5. Pastes `/watch:watch <workdir>` into the active Claude Code agent', '5. Pastes `/watch:watch <workdir>` into the active Codex agent')
+      .replace('2. Read each frame path the report lists', '2. Inspect each frame path the report lists with `view_image`')
+      .replace('Use the `Read` tool on every frame path in a single message (parallel tool calls)', 'Use `view_image` on every frame path in sequence or small batches')
+      .replace('If no question was asked, summarize the video — structure, key moments, notable visuals, spoken content.', 'If no question was asked, summarize the video using both the transcript and the extracted frames.')
+  )
+
+  rewriteFile(path.join(target, 'commands', 'watch.md'), (contents) =>
+    contents
+      .replace('allowed-tools: [Bash, Read]', 'allowed-tools: [Bash]')
+      .replace('Read `report.md`, then Read every frame path it lists, and answer', 'Read `report.md`, then inspect every frame path it lists, and answer')
+  )
+}
+
+function rewriteFile(filePath: string, update: (contents: string) => string): void {
+  const next = update(fs.readFileSync(filePath, 'utf-8'))
+  fs.writeFileSync(filePath, next, 'utf-8')
 }
 
 function detectCodex(): boolean {
