@@ -189,4 +189,30 @@ describe('GitOperationsManager history', () => {
         .rejects.toThrow('non-fast-forward')
     })
   })
+
+  describe('getRemoteBehindCount', () => {
+    it('fetches the base branch and counts commits behind FETCH_HEAD', async () => {
+      mockExecFileAsync
+        .mockResolvedValueOnce({ stdout: '', stderr: '' })   // git fetch origin main
+        .mockResolvedValueOnce({ stdout: '3\n', stderr: '' }) // git rev-list --count main..FETCH_HEAD
+
+      const result = await git.getRemoteBehindCount('/project', 'main')
+
+      expect(result).toBe(3)
+      expect(mockExecFileAsync).toHaveBeenNthCalledWith(
+        1, 'git', ['fetch', 'origin', 'main'], { cwd: '/project' },
+      )
+      expect(mockExecFileAsync).toHaveBeenNthCalledWith(
+        2, 'git', ['rev-list', '--count', 'main..FETCH_HEAD'], { cwd: '/project' },
+      )
+    })
+
+    it('returns 0 when the fetch fails (offline / no origin)', async () => {
+      mockExecFileAsync.mockRejectedValueOnce(new Error('could not read from remote'))
+
+      const result = await git.getRemoteBehindCount('/project', 'main')
+
+      expect(result).toBe(0)
+    })
+  })
 })
