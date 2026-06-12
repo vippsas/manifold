@@ -108,6 +108,7 @@ export interface DockAppState {
   fetchResult: { updatedBranch: string; commitCount: number } | null
   fetchError: string | null
   onFetchProject: (projectId: string) => void
+  activeProjectBehindCount?: number
   // Agent restart
   activeSessionStatus: AgentStatus | null
   activeSessionRuntimeId: string | null

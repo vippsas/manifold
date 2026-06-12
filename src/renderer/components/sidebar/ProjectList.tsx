@@ -31,6 +31,7 @@ export interface ProjectListProps {
   fetchResult: { updatedBranch: string; commitCount: number } | null
   fetchError: string | null
   onFetchProject: (projectId: string) => void
+  activeProjectBehindCount?: number
   drafts: DraftChat[]
   activeDraftId: string | null
   onSelectDraft: (id: string) => void
@@ -56,6 +57,7 @@ export function ProjectList({
   fetchResult,
   fetchError,
   onFetchProject,
+  activeProjectBehindCount,
   drafts,
   activeDraftId,
   onSelectDraft,
@@ -122,6 +124,7 @@ export function ProjectList({
           fetchResult={lastFetchedProjectId === project.id ? fetchResult : null}
           fetchError={lastFetchedProjectId === project.id ? fetchError : null}
           onFetch={() => onFetchProject(project.id)}
+          behindCount={activeProjectBehindCount}
           onRename={(name) => onUpdateProject(project.id, { name })}
         />
         {primarySessions.map((session) => {

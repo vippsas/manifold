@@ -36,6 +36,7 @@ interface ProjectSidebarProps {
   fetchResult: { updatedBranch: string; commitCount: number } | null
   fetchError: string | null
   onFetchProject: (projectId: string) => void
+  activeProjectBehindCount?: number
   drafts: DraftChat[]
   activeDraftId: string | null
   onSelectDraft: (id: string) => void
@@ -71,6 +72,7 @@ export function ProjectSidebar({
   fetchResult,
   fetchError,
   onFetchProject,
+  activeProjectBehindCount,
   drafts,
   activeDraftId,
   onSelectDraft,
@@ -135,6 +137,7 @@ export function ProjectSidebar({
         fetchResult={fetchResult}
         fetchError={fetchError}
         onFetchProject={onFetchProject}
+        activeProjectBehindCount={activeProjectBehindCount}
         drafts={drafts}
         activeDraftId={activeDraftId}
         onSelectDraft={onSelectDraft}
