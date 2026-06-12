@@ -72,6 +72,8 @@ const workspaceManager = new WorkspaceManager({
   sessionManager,
   emitListChanged: () => { mainWindow?.webContents.send('workspace:list-changed') },
 })
+// Heal workspaces saved before project removal cascaded into workspace membership.
+workspaceManager.pruneMissingProjects()
 const prCreator = new PrCreator()
 const viewStateStore = new ViewStateStore()
 const shellTabStore = new ShellTabStore()

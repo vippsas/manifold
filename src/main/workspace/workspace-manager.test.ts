@@ -114,6 +114,43 @@ describe('WorkspaceManager', () => {
     expect(manager.list()).toHaveLength(0)
   })
 
+  it('removeProjectFromAllWorkspaces removes the project from every workspace that references it', () => {
+    const a = manager.create({ name: 'a', projectIds: ['api', 'web'] })
+    const b = manager.create({ name: 'b', projectIds: ['api', 'shared'] })
+    manager.removeProjectFromAllWorkspaces('api')
+    expect(manager.get(a.id)?.projectIds).toEqual(['web'])
+    expect(manager.get(b.id)?.projectIds).toEqual(['shared'])
+    expect(deps.emitListChanged).toHaveBeenCalled()
+  })
+
+  it('removeProjectFromAllWorkspaces may empty a workspace — a dangling id must not survive as the last repo', () => {
+    const w = manager.create({ name: 'a', projectIds: ['api'] })
+    manager.removeProjectFromAllWorkspaces('api')
+    expect(manager.get(w.id)?.projectIds).toEqual([])
+  })
+
+  it('removeProjectFromAllWorkspaces does not emit when no workspace references the project', () => {
+    manager.create({ name: 'a', projectIds: ['web'] })
+    deps.emitListChanged.mockClear()
+    manager.removeProjectFromAllWorkspaces('api')
+    expect(deps.emitListChanged).not.toHaveBeenCalled()
+  })
+
+  it('pruneMissingProjects drops project ids that no longer resolve in the registry', () => {
+    const w = manager.create({ name: 'a', projectIds: ['api', 'ghost'] })
+    manager.pruneMissingProjects()
+    expect(manager.get(w.id)?.projectIds).toEqual(['api'])
+    expect(deps.emitListChanged).toHaveBeenCalled()
+  })
+
+  it('pruneMissingProjects leaves clean workspaces untouched and does not emit', () => {
+    const w = manager.create({ name: 'a', projectIds: ['api', 'web'] })
+    deps.emitListChanged.mockClear()
+    manager.pruneMissingProjects()
+    expect(manager.get(w.id)?.projectIds).toEqual(['api', 'web'])
+    expect(deps.emitListChanged).not.toHaveBeenCalled()
+  })
+
   it('forwards nonInteractive to createSession', async () => {
     const w = manager.create({ name: 'auth', projectIds: ['api', 'web'] })
     await manager.spawnAgent(w.id, { runtimeId: 'claude', nonInteractive: true })

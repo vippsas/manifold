@@ -300,4 +300,32 @@ describe('registerProjectHandlers', () => {
     expect(processMocks.execFile).not.toHaveBeenCalled()
     expect(deps.projectRegistry.addProject).not.toHaveBeenCalled()
   })
+
+  it('projects:remove detaches the project from every workspace so no dangling id is left behind', async () => {
+    const { registerProjectHandlers } = await import('./project-handlers')
+    const deps = {
+      settingsStore: {
+        getSettings: vi.fn(() => ({
+          storagePath: '/workspace',
+          defaultRuntime: 'claude',
+        })),
+      },
+      projectRegistry: {
+        listProjects: vi.fn(() => []),
+        removeProject: vi.fn(() => true),
+      },
+      verdictStore: { deleteByProject: vi.fn() },
+      chatStore: { deleteByProject: vi.fn() },
+      memoryStore: { deleteProject: vi.fn() },
+      workspaceManager: { removeProjectFromAllWorkspaces: vi.fn() },
+    }
+
+    registerProjectHandlers(deps as never)
+    const handler = electronMocks.handlers.get('projects:remove')
+    if (!handler) throw new Error('projects:remove handler was not registered')
+
+    expect(await handler({}, 'proj-1')).toBe(true)
+    expect(deps.workspaceManager.removeProjectFromAllWorkspaces).toHaveBeenCalledWith('proj-1')
+    expect(deps.projectRegistry.removeProject).toHaveBeenCalledWith('proj-1')
+  })
 })

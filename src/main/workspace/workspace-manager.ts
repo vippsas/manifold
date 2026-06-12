@@ -65,6 +65,31 @@ export class WorkspaceManager {
     this.deps.emitListChanged()
   }
 
+  // Cascade for project deletion. Unlike removeProject, this may empty a workspace:
+  // a dangling id would render as a raw uuid in the sidebar and select nothing.
+  removeProjectFromAllWorkspaces(projectId: string): void {
+    let changed = false
+    for (const w of this.deps.store.list()) {
+      if (!w.projectIds.includes(projectId)) continue
+      this.deps.store.removeProject(w.id, projectId)
+      changed = true
+    }
+    if (changed) this.deps.emitListChanged()
+  }
+
+  // Heals workspaces persisted before project deletion cascaded here.
+  pruneMissingProjects(): void {
+    let changed = false
+    for (const w of this.deps.store.list()) {
+      for (const pid of w.projectIds) {
+        if (this.deps.projectRegistry.getProject(pid)) continue
+        this.deps.store.removeProject(w.id, pid)
+        changed = true
+      }
+    }
+    if (changed) this.deps.emitListChanged()
+  }
+
   async spawnAgent(workspaceId: string, options: WorkspaceSpawnAgentOptions): Promise<AgentSession> {
     const workspace = this.deps.store.get(workspaceId)
     if (!workspace) throw new Error(`Workspace not found: ${workspaceId}`)

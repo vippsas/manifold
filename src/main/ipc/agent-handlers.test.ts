@@ -553,4 +553,35 @@ describe('registerAgentHandlers', () => {
       await rm(outsidePath, { recursive: true, force: true })
     }
   })
+
+  it('agent:delete-app detaches the project from every workspace so no dangling id is left behind', async () => {
+    const { registerAgentHandlers } = await import('./agent-handlers')
+    const deps = {
+      projectRegistry: {
+        getProject: vi.fn(() => undefined),
+        removeProject: vi.fn(() => true),
+      },
+      sessionManager: {
+        getSession: vi.fn(() => undefined),
+      },
+      fileWatcher: {
+        unwatch: vi.fn(async () => undefined),
+        watch: vi.fn(),
+      },
+      viewStateStore: { delete: vi.fn() },
+      dockLayoutStore: { delete: vi.fn() },
+      chatStore: { deleteByProject: vi.fn() },
+      memoryStore: { deleteProject: vi.fn() },
+      verdictStore: { deleteByProject: vi.fn() },
+      workspaceManager: { removeProjectFromAllWorkspaces: vi.fn() },
+    }
+
+    registerAgentHandlers(deps as never)
+    const handler = mocks.handlers.get('agent:delete-app')
+    if (!handler) throw new Error('agent:delete-app handler was not registered')
+
+    await handler({}, 'sess-1', 'proj-1')
+    expect(deps.workspaceManager.removeProjectFromAllWorkspaces).toHaveBeenCalledWith('proj-1')
+    expect(deps.projectRegistry.removeProject).toHaveBeenCalledWith('proj-1')
+  })
 })
