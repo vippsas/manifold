@@ -1,4 +1,5 @@
 import { BrowserWindow, Menu } from 'electron'
+import { COMMANDS, type MenuSectionId } from '../../shared/commands/catalog'
 
 export interface AppMenuOptions {
   keepAwake: boolean
@@ -12,28 +13,28 @@ export function buildAppMenu(mainWindow: BrowserWindow, options: AppMenuOptions)
   const send = (channel: string, ...args: unknown[]): void => {
     if (mainWindow && !mainWindow.isDestroyed()) mainWindow.webContents.send(channel, ...args)
   }
+
+  // Every command in the catalog renders as a menu item that fires the single
+  // `command:run` IPC channel — the renderer's useCommands hook dispatches it.
+  const commandItems = (section: MenuSectionId): Electron.MenuItemConstructorOptions[] =>
+    COMMANDS.filter((c) => c.menu?.section === section)
+      .slice()
+      .sort((a, b) => (a.menu?.order ?? 0) - (b.menu?.order ?? 0))
+      .map((c) => ({
+        label: c.title,
+        accelerator: c.accelerator,
+        click: () => send('command:run', c.id),
+      }))
+
   const menuTemplate: Electron.MenuItemConstructorOptions[] = [
     {
       label: 'Manifold',
       submenu: [
-        {
-          label: 'About Manifold',
-          click: () => send('show-about'),
-        },
+        ...commandItems('manifold').filter((i) => i.label === 'About Manifold'),
         { type: 'separator' },
-        {
-          label: "What's New",
-          click: () => send('show-update-log'),
-        },
-        {
-          label: 'Check for Updates...',
-          click: () => send('show-update-check'),
-        },
-        {
-          label: 'Settings…',
-          accelerator: 'CmdOrCtrl+,',
-          click: () => send('show-settings'),
-        },
+        { label: "What's New", click: () => send('show-update-log') },
+        { label: 'Check for Updates...', click: () => send('show-update-check') },
+        ...commandItems('manifold').filter((i) => i.label !== 'About Manifold'),
         { type: 'separator' },
         {
           label: 'Keep Mac Awake',
@@ -62,46 +63,13 @@ export function buildAppMenu(mainWindow: BrowserWindow, options: AppMenuOptions)
         { role: 'paste' },
         { role: 'selectAll' },
         { type: 'separator' },
-        {
-          label: 'Find in Files',
-          accelerator: 'CmdOrCtrl+Shift+F',
-          click: () => send('view:show-search'),
-        },
+        ...commandItems('edit'),
       ],
     },
     {
       label: 'View',
       submenu: [
-        {
-          label: 'Toggle Projects',
-          accelerator: 'CmdOrCtrl+Alt+1',
-          click: () => send('view:toggle-panel', 'projects'),
-        },
-        {
-          label: 'Toggle Agent',
-          accelerator: 'CmdOrCtrl+Alt+2',
-          click: () => send('view:toggle-panel', 'agent'),
-        },
-        {
-          label: 'Toggle Editor',
-          accelerator: 'CmdOrCtrl+Alt+3',
-          click: () => send('view:toggle-panel', 'editor'),
-        },
-        {
-          label: 'Toggle Files',
-          accelerator: 'CmdOrCtrl+Alt+4',
-          click: () => send('view:toggle-panel', 'fileTree'),
-        },
-        {
-          label: 'Toggle Modified Files',
-          accelerator: 'CmdOrCtrl+Alt+5',
-          click: () => send('view:toggle-panel', 'modifiedFiles'),
-        },
-        {
-          label: 'Toggle Shell',
-          accelerator: 'CmdOrCtrl+Alt+6',
-          click: () => send('view:toggle-panel', 'shell'),
-        },
+        ...commandItems('view'),
         { type: 'separator' },
         { role: 'reload' },
         { role: 'forceReload' },
@@ -114,14 +82,9 @@ export function buildAppMenu(mainWindow: BrowserWindow, options: AppMenuOptions)
         { role: 'togglefullscreen' },
       ],
     },
-    {
-      label: 'Go',
-      submenu: Array.from({ length: 9 }, (_, i) => ({
-        label: `Jump to Favorite ${i + 1}`,
-        accelerator: `CmdOrCtrl+${i + 1}`,
-        click: () => send('view:jump-favorite', i),
-      })),
-    },
+    { label: 'Go', submenu: commandItems('go') },
+    { label: 'Agent', submenu: commandItems('agent') },
+    { label: 'Source Control', submenu: commandItems('scm') },
     {
       label: 'Window',
       submenu: [
@@ -131,6 +94,7 @@ export function buildAppMenu(mainWindow: BrowserWindow, options: AppMenuOptions)
         { role: 'front' },
       ],
     },
+    { role: 'help', submenu: commandItems('help') },
   ]
   return Menu.buildFromTemplate(menuTemplate)
 }

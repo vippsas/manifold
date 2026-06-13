@@ -30,6 +30,10 @@ import { useSidebarHandleCycle } from './hooks/useSidebarHandleCycle'
 import { useAgentSiblingDockTabs } from './hooks/useAgentSiblingDockTabs'
 import { getPrimarySession } from './hooks/agent-siblings'
 import { useAppEffects } from './hooks/useAppEffects'
+import { useCommands } from './hooks/useCommands'
+import { cycleAgent } from './commands/agent-cycle'
+import type { CommandContext } from './commands/command-handlers'
+import type { DockPanelId } from './hooks/dock-layout/useDockLayout'
 import type { DockAppState } from './components/editor/editor-shell/dock-panel-types'
 import { buildRootLabels } from './components/editor/file-tree/file-tree-labels'
 import { useWorkspaces } from './hooks/useWorkspaces'
@@ -114,7 +118,6 @@ export function App(): React.JSX.Element {
   const appEffects = useAppEffects({
     activeSessionId, dockLayout, settings,
     setActiveProject, spawnAgent, refreshOpenFiles: codeView.refreshOpenFiles, refreshDiff,
-    jumpToFavorite,
   })
   const { additionalDirs, additionalTrees, additionalBranches, refreshTree: refreshAdditionalTree } = useAdditionalDirs(effectiveSessionId, activeSession?.additionalDirs)
   const { tree, changes: watcherChanges, refreshTree: refreshPrimaryTree, deleteFile, renameFile, createFile, createDir, importPaths, pasteImage, pasteClipboardImage, movePath, revealInFinder, openInTerminal } = useFileWatcher(effectiveSessionId, appEffects.handleFilesChanged, activeDraft?.projectId ?? null)
@@ -228,25 +231,18 @@ export function App(): React.JSX.Element {
     })
   }, [activeProject?.id, activeProject?.name, activeProject?.path, activeSession?.id, activeSession?.status, activeSession?.branchName])
 
-  // Mirror the active session id into a ref so the (mount-only) Cmd+P handler
-  // reads the current value without re-registering the listener.
+  // Mirror the active session id into a ref so the openQuickOpen command reads
+  // the current value without being rebuilt on every session change.
   const quickOpenSessionRef = useRef(effectiveSessionId)
   quickOpenSessionRef.current = effectiveSessionId
 
-  // Global Cmd+P opens Quick Open from anywhere (VS Code-style), including while
-  // focus is in an input/editor — intentional: this is the primary file-nav gesture.
-  useEffect(() => {
-    const onKeyDown = (event: KeyboardEvent): void => {
-      if (event.metaKey && !event.shiftKey && !event.altKey && !event.ctrlKey && (event.key === 'p' || event.key === 'P')) {
-        // No worktree to search, or a modal owns the screen — don't open behind it.
-        if (!quickOpenSessionRef.current) return
-        if (document.querySelector('[role="dialog"][aria-modal="true"]')) return
-        event.preventDefault()
-        setQuickOpenVisible(true)
-      }
-    }
-    window.addEventListener('keydown', onKeyDown)
-    return () => window.removeEventListener('keydown', onKeyDown)
+  // The Quick Open File command (Cmd+P) opens from anywhere — including while
+  // focus is in an input/editor — but not when there's no worktree to search or
+  // when a modal already owns the screen.
+  const openQuickOpen = useCallback((): void => {
+    if (!quickOpenSessionRef.current) return
+    if (document.querySelector('[role="dialog"][aria-modal="true"]')) return
+    setQuickOpenVisible(true)
   }, [])
 
   const activeProjectIsGit = isGitProject(activeProject)
@@ -367,9 +363,45 @@ export function App(): React.JSX.Element {
     onReorderFavorites: reorderFavorites, onActivateFavorite: activateFavorite,
   }
 
+  // Wire the command catalog to the functions assembled above. Handlers no-op
+  // when their context is absent (e.g. Next Agent with no project) rather than
+  // disabling the menu item — see the command-registry design spec.
+  const commandContext = useMemo<CommandContext>(() => ({
+    openSettings: () => overlays.setShowSettings(true),
+    openCommandPalette: () => overlays.setShowCommandPalette(true),
+    openShortcuts: () => overlays.setShowShortcuts(true),
+    openAbout: () => overlays.setShowAbout(true),
+    openQuickOpen,
+    findInFiles: () => appEffects.focusSearch('code'),
+    jumpToFavorite,
+    newAgent: overlays.handleNewAgentFromHeader,
+    nextAgent: () => {
+      const next = cycleAgent(activeProjectSessions, activeSessionId, 1)
+      if (next) overlays.handleSelectSession(next.id, next.projectId)
+    },
+    previousAgent: () => {
+      const prev = cycleAgent(activeProjectSessions, activeSessionId, -1)
+      if (prev) overlays.handleSelectSession(prev.id, prev.projectId)
+    },
+    deleteActiveAgent: () => {
+      if (activeSession && activeProject) overlays.requestDeleteAgent(activeSession, activeProject.path)
+    },
+    commit: () => overlays.setActivePanel('commit'),
+    createPR: () => overlays.setActivePanel('pr'),
+    togglePanel: (panelId) => dockLayout.togglePanel(panelId as DockPanelId),
+    openModule: (panelId) => {
+      const id = panelId as DockPanelId
+      if (dockLayout.isPanelVisible(id)) dockLayout.focusPanel(id)
+      else dockLayout.togglePanel(id)
+    },
+    toggleTheme,
+  }), [overlays, openQuickOpen, appEffects, jumpToFavorite, activeProjectSessions, activeSessionId, activeSession, activeProject, dockLayout, toggleTheme])
+  const { runCommand } = useCommands(commandContext)
+
   return (
     <>
       <AppShell
+        runCommand={runCommand}
         themeClass={themeClass}
         settings={settings}
         projects={projects}

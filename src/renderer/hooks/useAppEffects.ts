@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import type { SearchMode } from '../../shared/search-types'
-import type { DockPanelId, UseDockLayoutResult } from './dock-layout/useDockLayout'
+import type { UseDockLayoutResult } from './dock-layout/useDockLayout'
 import type { SpawnAgentOptions } from '../../shared/types'
 import type { PendingLaunchAction } from '../../shared/mode-switch-types'
 
@@ -12,7 +12,6 @@ interface AppEffectsInput {
   spawnAgent: (options: SpawnAgentOptions) => Promise<unknown>
   refreshOpenFiles: () => Promise<void>
   refreshDiff: () => Promise<void>
-  jumpToFavorite: (index: number) => void
 }
 
 export interface AppEffectsResult {
@@ -68,18 +67,6 @@ export function useAppEffects(input: AppEffectsInput): AppEffectsResult {
       void input.refreshOpenFiles()
     }, 150)
   }, [input.refreshOpenFiles])
-
-  useEffect(() => window.electronAPI.on('view:toggle-panel', (panelId: unknown) => {
-    input.dockLayout.togglePanel(panelId as DockPanelId)
-  }), [input.dockLayout.togglePanel])
-
-  useEffect(() => window.electronAPI.on('view:show-search', () => {
-    focusSearch('code')
-  }), [focusSearch])
-
-  useEffect(() => window.electronAPI.on('view:jump-favorite', (index: unknown) => {
-    input.jumpToFavorite(index as number)
-  }), [input.jumpToFavorite])
 
   // A plugin asked the app to surface an agent session's panel (manifold.agents
   // AgentSession.reveal — e.g. the watch plugin's "Open agent" button).

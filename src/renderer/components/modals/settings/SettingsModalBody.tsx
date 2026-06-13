@@ -10,12 +10,14 @@ import { ProvisioningSettingsSection } from './ProvisioningSettingsSection'
 import { TranscriptionSettingsSection } from './TranscriptionSettingsSection'
 import { SectionCard, SectionHeader } from './SettingsSectionLayout'
 import { PluginSettingsSection } from './PluginSettingsSection'
+import { ShortcutsSettingsSection } from './ShortcutsSettingsSection'
 
-export type SettingsTabId = 'general' | 'editor' | 'search-ai' | 'provisioning' | 'transcription' | 'plugins'
+export type SettingsTabId = 'general' | 'editor' | 'shortcuts' | 'search-ai' | 'provisioning' | 'transcription' | 'plugins'
 
 const SETTINGS_TABS: Array<{ id: SettingsTabId; label: string }> = [
   { id: 'general', label: 'General' },
   { id: 'editor', label: 'Editor' },
+  { id: 'shortcuts', label: 'Shortcuts' },
   { id: 'search-ai', label: 'Search AI' },
   { id: 'provisioning', label: 'Provisioning' },
   { id: 'transcription', label: 'Transcription' },
@@ -97,6 +99,7 @@ export function SettingsModalBody(props: Props): React.JSX.Element {
           {props.activeTab === 'editor' && (
             <EditorSettingsSection value={props.editorSettings} onChange={props.onEditorSettingsChange} />
           )}
+          {props.activeTab === 'shortcuts' && <ShortcutsSettingsSection />}
           {props.activeTab === 'search-ai' && (
             <>
               <SectionHeader title="Search AI" description="Configure when Ask AI answers directly, when it reranks exact results, and how much context is retrieved for each request." />
