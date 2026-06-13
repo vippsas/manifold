@@ -1,7 +1,7 @@
 ---
 description: The on-disk data model under ~/.manifold — every file and directory Manifold persists, which module owns each path, and the two distinct roots (hardcoded config home vs. configurable storage root).
 covers: [src/main/store, src/shared/defaults.ts]
-updated: 2026-06-12
+updated: 2026-06-13
 owner: see .github/CODEOWNERS
 ---
 
@@ -39,7 +39,6 @@ Owned elsewhere, mapped here because they share the home:
 - `src/main/app/debug-log.ts` — `debug.log` (`:5`).
 - `src/main/git/worktree-manager.ts` — `<storageRoot>/worktrees/<project>/<branch>` (`:19`, `:30`–`:34`).
 - `src/main/plugins/plugin-paths.ts` / `plugin-storage-store.ts` — `<storageRoot>/plugins/` (`plugin-paths.ts:20`) and `<storageRoot>/plugin-storage/<id>.json` (`plugin-storage-store.ts:13`).
-- `src/main/background-agent-host/background-agent-store.ts` — `<configHome>/background-agent/state.json` (`:17`–`:18`).
 - `src/main/app/index.ts` — `<configHome>/workspaces.json` (`:67`–`:68`).
 - `resources/plugins/manifold.loop/src/iteration-log.ts` — `<configHome>/loop-logs/*.jsonl` (`:8`, `:16`). Now a plugin, not main process.
 
@@ -85,9 +84,6 @@ state persisted by the four small stores in `src/main/store`. All hardcode
 explicitly deleted from the sidebar, so session discovery does not resurrect a dormant
 agent from leftover branch checkout state (`dismissed-agents-store.ts:7`; #679). Entries
 are lifted when a session is recreated on that branch and purged on project removal.
-
-**`<configHome>/background-agent/state.json`** — background-agent profiles, suggestions, and
-feedback, keyed by project (`background-agent-store.ts:17`).
 
 **`<configHome>/workspaces.json`** — multi-root workspace definitions
 (`app/index.ts:68`).
@@ -159,7 +155,7 @@ ship inside the app under `resources/plugins`, not here (`plugin-paths.ts:7`).
   (`settings-store.ts:24`). Read `storagePath` only after `SettingsStore` construction.
 - **Stores fail soft to empty/default state.** Missing or wholly unparseable JSON yields
   `DEFAULT_SETTINGS` / `[]` / `{}` rather than throwing (`settings-store.ts:86`,
-  `project-registry.ts:35`, `background-agent-store.ts:92`). Writes are atomic (tmp + `rename`
+  `project-registry.ts:35`). Writes are atomic (tmp + `rename`
   via `store/atomic-write.ts`), so a crash mid-write no longer truncates a file and silently
   resets that store on next launch.
 - **`projects.json` ≠ `<storageRoot>/projects/`.** The former is the registry of pointers to

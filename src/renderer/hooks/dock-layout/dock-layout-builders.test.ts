@@ -56,7 +56,6 @@ describe('applyDefaultLayout', () => {
     applyDefaultLayout(api as never)
 
     const addedIds = addPanel.mock.calls.map((call) => call[0].id)
-    expect(addedIds).not.toContain('backgroundAgent')
     expect(addedIds).not.toContain('loop')
     expect(addedIds).not.toContain('verdicts')
     expect(addedIds).not.toContain('watch')

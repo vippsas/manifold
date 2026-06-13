@@ -20,7 +20,6 @@ Supported runtimes: **Claude Code**, **Codex**, **Copilot**, **Gemini CLI**, and
 - Launch work on a new branch, the current branch, an existing branch, or an open pull request
 - Spin up a brand-new local web app from a one-line description, scaffolded on a constrained React/Vite stack with a live preview
 - Run automated **Loop** cycles that prompt an agent, evaluate the result, and commit on improvement or revert on regression
-- Surface source-backed ideas for a project with the **Project Ideas** background research agent
 - Review changes with diffs, a file tree, split editors, shell tabs, and embedded localhost previews
 - Search code, file names, captured session memory, or everything at once, with an optional AI mode that answers questions or surfaces the most relevant results
 - Keep project state, chat history, dock layout, open files, and shell tabs across restarts
@@ -144,15 +143,6 @@ The **Loop** dock panel runs an automated improve-and-evaluate cycle on an agent
 5. Repeat until you stop it or the maximum number of iterations is reached
 
 Each iteration has a configurable time limit; if the agent exceeds it, Manifold stops it automatically. Results are logged per worktree under `~/.manifold/loop-logs/`. The panel tracks the best score so far and offers **Restore Best** to jump back to the commit that produced it.
-
-## Project Ideas
-
-The **Project Ideas** dock panel runs a background research agent for the active project:
-
-- Builds a profile of the project — its summary, stack, workflows, and recent changes
-- Researches focused topics on the web and proposes source-backed suggestions across feature opportunities, architecture improvements, pattern transfers, and ecosystem shifts
-- Attaches supporting sources and confidence, novelty, effort, and impact ratings to each suggestion
-- Runs in the background with refresh, pause, resume, stop, and clear controls, and lets you rate suggestions to tune what surfaces
 
 ## Search And Memory
 

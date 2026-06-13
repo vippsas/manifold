@@ -1,7 +1,7 @@
 ---
 description: The AI runtimes layer and PTY pool — the runtime registry, command building (interactive vs print-mode), theme/ANSI sync, and the process boundary the session subsystem spawns into.
 covers: [src/main/agent]
-updated: 2026-06-12
+updated: 2026-06-13
 owner: see .github/CODEOWNERS
 ---
 
@@ -98,7 +98,7 @@ rebuilt on every chunk (#511). Anything with no match is `'running'`.
 ## Key types and entry points
 
 - `AgentRuntime` — `src/shared/types.ts:1`. `{ id, name, binary, args?, aiModelArgs?, waitingPattern?, env?, installed?, needsModel? }`.
-- `getRuntimeById(id)` — `runtimes.ts:54`. The universal resolver; consumers across `session`, `git`, `search`, `memory`, `plugins`, `background-agent-host` start here.
+- `getRuntimeById(id)` — `runtimes.ts:54`. The universal resolver; consumers across `session`, `git`, `search`, `memory`, `plugins` start here.
 - `PtyPool` — `pty-pool.ts:17`. Instantiated once in `src/main/app/index.ts:57`; handed to the session manager and dev-server manager.
 - `buildSimpleRuntimeCommand(runtimeId, prompt)` — `simple-runtime.ts:12`. Print-mode args + `SimpleRuntimeOutputMode`.
 - `buildAiRuntimeCommand(runtime, prompt, extraArgs)` — `ai-runtime-command.ts:20`. One-shot helper command; pair with `parseAiRuntimeOutput`/`parseAiRuntimeFailure`.

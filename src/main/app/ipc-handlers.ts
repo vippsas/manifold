@@ -14,7 +14,6 @@ import { registerSimpleHandlers } from '../ipc/simple-handlers'
 import { registerMemoryHandlers } from '../ipc/memory-handlers'
 import { registerSearchHandlers } from '../ipc/search-handlers'
 import { registerProvisioningHandlers } from '../ipc/provisioning-handlers'
-import { registerBackgroundAgentHandlers } from '../ipc/background-agent-handlers'
 import { registerWorkspaceHandlers } from '../ipc/workspace-handlers'
 import { registerVerdictHandlers } from '../ipc/verdict-handlers'
 import { registerPluginHandlers } from '../ipc/plugin-handlers'
@@ -39,7 +38,6 @@ export function registerIpcHandlers(deps: IpcDependencies): void {
   registerMemoryHandlers(deps)
   registerSearchHandlers(deps)
   registerProvisioningHandlers(deps)
-  registerBackgroundAgentHandlers(deps)
   registerWorkspaceHandlers(deps)
   registerVerdictHandlers(deps)
   registerPluginHandlers(deps)

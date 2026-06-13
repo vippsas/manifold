@@ -23,8 +23,8 @@ export const PANEL_COMPONENTS: Record<string, React.FC<any>> = {
   projects: ProjectsPanel,
   pluginView: PluginViewPanel,
   pluginTreeView: PluginTreeViewPanel,
-  // backgroundAgent, verdicts — sourced from the contribution
-  // registry (registered as internal contributions in src/renderer/plugins).
+  // verdicts — sourced from the contribution registry (registered as an
+  // internal contribution in src/renderer/plugins).
   ...getPanelComponents(),
 }
 
