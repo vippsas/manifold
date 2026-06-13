@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { filterStandaloneProjectSessions } from './session-selection'
+import { filterStandaloneProjectSessions, filterActiveStandaloneProjectSessions } from './session-selection'
 
 describe('filterStandaloneProjectSessions', () => {
   it('returns all project sessions', () => {
@@ -22,6 +22,34 @@ describe('filterStandaloneProjectSessions', () => {
       { id: 'workspace-agent', worktreePath: '/wt-2', workspaceId: 'w1' },
     ])).toEqual([
       { id: 'standalone', worktreePath: '/wt-1' },
+    ])
+  })
+})
+
+describe('filterActiveStandaloneProjectSessions', () => {
+  it('keeps running and waiting agents', () => {
+    expect(filterActiveStandaloneProjectSessions([
+      { id: 'running', worktreePath: '/wt-1', status: 'running' },
+      { id: 'waiting', worktreePath: '/wt-2', status: 'waiting' },
+    ])).toEqual([
+      { id: 'running', worktreePath: '/wt-1', status: 'running' },
+      { id: 'waiting', worktreePath: '/wt-2', status: 'waiting' },
+    ])
+  })
+
+  it('drops terminal (done/error) agents so a finished repo is no longer "with agents"', () => {
+    expect(filterActiveStandaloneProjectSessions([
+      { id: 'done', worktreePath: '/wt-1', status: 'done' },
+      { id: 'error', worktreePath: '/wt-2', status: 'error' },
+    ])).toEqual([])
+  })
+
+  it('also excludes workspace agents regardless of status', () => {
+    expect(filterActiveStandaloneProjectSessions([
+      { id: 'standalone-running', worktreePath: '/wt-1', status: 'running' },
+      { id: 'workspace-running', worktreePath: '/wt-2', status: 'running', workspaceId: 'w1' },
+    ])).toEqual([
+      { id: 'standalone-running', worktreePath: '/wt-1', status: 'running' },
     ])
   })
 })

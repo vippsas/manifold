@@ -2,7 +2,7 @@ import React, { useCallback } from 'react'
 import type { Project, AgentSession } from '../../../shared/types'
 import type { DraftChat } from '../../../shared/draft-chat'
 import { DraftAgentItem } from './DraftAgentItem'
-import { filterStandaloneProjectSessions } from '../../session-selection'
+import { filterStandaloneProjectSessions, filterActiveStandaloneProjectSessions } from '../../session-selection'
 import { sidebarStyles } from './ProjectSidebar.styles'
 import { AgentItem } from './AgentItem'
 import { ProjectItem } from './ProjectItem'
@@ -88,26 +88,27 @@ export function ProjectList({
 
   const activeProject = visibleProjects.find((p) => p.id === activeProjectId) ?? null
 
-  // Repos with standalone agents (including the active one), most recently
+  // Repos with active standalone agents (including the active one), most recently
   // accessed first. The active repo renders in its recency slot rather than
-  // being pinned, so the section doesn't reshuffle on every selection.
+  // being pinned, so the section doesn't reshuffle on every selection. Repos
+  // whose agents have all finished drop out so the section reflects live work.
   const withAgentsProjects = sortByRecency(
     visibleProjects.filter(
-      (p) => filterStandaloneProjectSessions(allProjectSessions[p.id] ?? []).length > 0
+      (p) => filterActiveStandaloneProjectSessions(allProjectSessions[p.id] ?? []).length > 0
     ),
     recency,
   )
 
   const inactiveProjects = visibleProjects.filter(
     (p) => p.id !== activeProjectId
-      && filterStandaloneProjectSessions(allProjectSessions[p.id] ?? []).length === 0
+      && filterActiveStandaloneProjectSessions(allProjectSessions[p.id] ?? []).length === 0
   )
 
-  // When the active repo has standalone agents it belongs under the "With agents"
-  // header. When it has none, it stays pinned at the top so it isn't hidden
-  // inside the collapsed "Repositories" list.
+  // When the active repo has active standalone agents it belongs under the "With
+  // agents" header. When it has none, it stays pinned at the top so it isn't
+  // hidden inside the collapsed "Repositories" list.
   const activeHasAgents = activeProject !== null
-    && filterStandaloneProjectSessions(allProjectSessions[activeProject.id] ?? []).length > 0
+    && filterActiveStandaloneProjectSessions(allProjectSessions[activeProject.id] ?? []).length > 0
 
   const renderActiveProjectCard = (project: Project): React.JSX.Element => {
     const projectSessions = filterStandaloneProjectSessions(allProjectSessions[project.id] ?? [])
