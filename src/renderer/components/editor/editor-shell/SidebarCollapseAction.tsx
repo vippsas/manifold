@@ -1,7 +1,6 @@
 import React from 'react'
 import type { IDockviewHeaderActionsProps } from 'dockview'
 import { DockStateContext } from './dock-panel-types'
-import { ShellHeaderActions } from '../../terminal/ShellHeaderActions'
 import { WorkspaceHeaderActions } from './WorkspaceHeaderActions'
 
 /** The standard "toggle side panel" glyph — a panel outline with the edge column
@@ -46,19 +45,21 @@ export function SidebarCollapseAction({
   )
 }
 
-/** Left header-action slot: the right file-tree sidebar's collapse button (sitting
- *  at that sidebar's inner edge) plus the existing shell actions. */
-export function LeftHeaderActions(props: IDockviewHeaderActionsProps): React.JSX.Element {
+/** Prefix header-action slot (rendered *before* the tabs): the right file-tree
+ *  sidebar's collapse button, which sits at that sidebar's inner edge next to the
+ *  center pane. The left slot can't be used — dockview renders it after the tabs,
+ *  which would push the button to the sidebar's outer edge. */
+export function PrefixHeaderActions(props: IDockviewHeaderActionsProps): React.JSX.Element {
   return (
     <div style={{ display: 'flex', alignItems: 'center' }}>
       <SidebarCollapseAction side="right" panels={props.panels} />
-      <ShellHeaderActions {...props} />
     </div>
   )
 }
 
-/** Right header-action slot: the existing workspace actions plus the left
- *  repositories sidebar's collapse button (sitting at that sidebar's inner edge). */
+/** Right header-action slot (rendered at the far right, past the flexible void):
+ *  the existing workspace actions plus the left repositories sidebar's collapse
+ *  button, which lands at that sidebar's inner edge next to the center pane. */
 export function RightHeaderActions(props: IDockviewHeaderActionsProps): React.JSX.Element {
   return (
     <div style={{ display: 'flex', alignItems: 'center' }}>

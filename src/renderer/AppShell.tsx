@@ -7,7 +7,8 @@ import type { UseAppOverlaysResult } from './hooks/useAppOverlays'
 import type { UseGitOperationsResult } from './hooks/useGitOperations'
 import type { UseUpdateLogResult } from '../shared/useUpdateLog'
 import { PANEL_COMPONENTS, DockStateContext } from './components/editor/editor-shell/dock-panels'
-import { LeftHeaderActions, RightHeaderActions } from './components/editor/editor-shell/SidebarCollapseAction'
+import { PrefixHeaderActions, RightHeaderActions } from './components/editor/editor-shell/SidebarCollapseAction'
+import { ShellHeaderActions } from './components/terminal/ShellHeaderActions'
 import { OnboardingView } from './components/modals/OnboardingView'
 import { SettingsModal } from './components/modals/SettingsModal'
 import { AboutOverlay } from './components/modals/AboutOverlay'
@@ -126,7 +127,8 @@ export function AppShell(p: AppShellProps): React.JSX.Element {
               components={PANEL_COMPONENTS}
               onReady={(e) => p.onDockReady(e.api)}
               defaultTabComponent={DockTab}
-              leftHeaderActionsComponent={LeftHeaderActions}
+              prefixHeaderActionsComponent={PrefixHeaderActions}
+              leftHeaderActionsComponent={ShellHeaderActions}
               rightHeaderActionsComponent={RightHeaderActions}
               watermarkComponent={EmptyWatermark}
             />

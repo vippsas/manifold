@@ -179,6 +179,15 @@
   overflow: hidden;
 }
 
+/* The right file-tree sidebar's collapse button lives here (before the tabs), so
+   center it vertically in the header like the other action slots. */
+.dockview-theme-manifold .dv-tabs-and-actions-container > .dv-pre-actions-container {
+  align-items: center;
+  display: flex;
+  flex: 0 0 auto;
+  min-height: var(--dv-tabs-and-actions-container-height);
+}
+
 .dockview-theme-manifold .dv-tabs-and-actions-container > .dv-group-actions,
 .dockview-theme-manifold .dv-tabs-and-actions-container > .dv-tabs-actions,
 .dockview-theme-manifold .dv-tabs-and-actions-container > .dv-actions-container {
