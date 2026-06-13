@@ -32,9 +32,9 @@ assignees: []
 - Agent: <!-- Codex / Claude / Gemini / other -->
 - Runtime / model: <!-- e.g. codex CLI, Claude Code, model if known -->
 - Task or prompt being executed:
+- Matching `.claude` / `.codex` path reviewed:
+<!-- If the issue involves skills, prompts, or agent-specific files, say whether the sibling runtime path was checked and whether equivalent changes are needed. -->
 - Session ID / run link:
-- Worktree path:
-- Branch:
 - Commit SHA:
 
 ## Area
@@ -61,7 +61,9 @@ assignees: []
 
 <!-- Humans: drag and drop screenshots here. Agents: upload thread images with
      `bash .claude/skills/gh-create-issue/scripts/upload-assets.sh <path>...`
-     and paste the printed markdown links here. -->
+     and paste the printed markdown links here.
+     When the issue involves agent-specific files or skills, explicitly check the
+     matching `.claude` and `.codex` paths and note whether both need updates. -->
 
 ### Logs, Output, or Error Text
 

@@ -23,10 +23,11 @@ Do not use it for PRs, code reviews, or release notes.
 1. Gather the minimum factual context first.
 2. Prefer concrete repro steps, observed behavior, expected behavior, and scope.
 3. If the repo has an issue template, mirror its structure rather than inventing a new format.
-4. If screenshots or images were provided in chat, do not upload them by default. Only upload and embed them if the user explicitly asks for that (see Uploading Images below).
-5. Write the issue body to a temp markdown file.
-6. Create the issue with `gh issue create --body-file ...`.
-7. Return the created issue URL to the user.
+4. If the issue touches agent-specific files, prompts, or skills, inspect the matching `.claude` and `.codex` paths and either make the equivalent update or call out the gap explicitly in the issue.
+5. If screenshots or images were provided in chat, do not upload them by default. Only upload and embed them if the user explicitly asks for that (see Uploading Images below).
+6. Write the issue body to a temp markdown file.
+7. Create the issue with `gh issue create --body-file ...`.
+8. Return the created issue URL to the user.
 
 ## Structure
 
@@ -107,4 +108,4 @@ If a `--template` flag conflicts with `--body-file`, prefer the explicit rendere
 - Title should identify the user-facing problem, not the investigation process.
 - Repro steps should be short and ordered.
 - Validation should explain how to know the fix worked.
-- Mention worktree path, branch, runtime, or model only when they help reproduce or scope the issue.
+- Runtime and model should still be included only when they help reproduce or scope the issue.
