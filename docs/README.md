@@ -41,7 +41,6 @@ handful of cross-cutting pages. `covers:` is the code each page is bound to.
 | [Git & worktrees](architecture/git.md) | `src/main/git` | Worktree create/list/remove, branch/PR checkout, durable worktree meta, and raw git/gh exec |
 | [Workspace](architecture/workspace.md) | `src/main/workspace` | Multi-repo Workspaces: one agent across several repos via per-runtime `--add-dir` worktrees |
 | [Agent (runtimes & PTY)](architecture/agent.md) | `src/main/agent` | AI runtime registry, interactive vs print-mode command building, theme/ANSI sync, and the PtyPool process boundary |
-| [Background agent host](architecture/background-agent-host.md) | `src/main/background-agent-host` | Runs off-session "Ideas" research jobs (profile→research→synthesize→rank) with pause/resume and snapshot polling |
 | [Memory](architecture/memory.md) | `src/main/memory` | Per-project SQLite session memory: capture interactions, compress to observations/summaries, search |
 | [Search](architecture/search.md) | `src/main/search` | Cross-session code/file/memory search with literal-vs-regex matching and an optional AI rerank/answer layer |
 | [Provisioning](architecture/provisioning.md) | `src/main/provisioning` | Main-process host that spawns provisioner CLIs over stdin/stdout and turns results into projects |

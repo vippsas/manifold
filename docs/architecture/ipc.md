@@ -1,7 +1,7 @@
 ---
 description: How Manifold's main-process services are exposed to the renderer over Electron IPC — the channel namespaces, the handler registration pattern, and how handlers delegate to subsystem managers.
 covers: [src/main/ipc]
-updated: 2026-06-12
+updated: 2026-06-13
 owner: see .github/CODEOWNERS
 ---
 
@@ -28,7 +28,6 @@ managers documented on the other architecture pages (`session.md`, `git.md`, etc
 - `src/main/ipc/search-handlers.ts` — `search:context`, `search:query`, `search:ask`, `search:view-state:*`.
 - `src/main/ipc/memory-handlers.ts` — `memory:*` (search/get/timeline/stats/delete/clear/settings), running SQLite FTS5 queries.
 - `src/main/ipc/simple-handlers.ts` — `simple:*` chat-adapter channels for the developer draft chat (`chat-messages`, `send-message`, `subscribe-chat`, status/preview/slash-command getters).
-- `src/main/ipc/background-agent-handlers.ts` — `background-agent:*` suggestion lifecycle.
 - `src/main/ipc/provisioning-handlers.ts` — `provisioning:*` template/health/create.
 - `src/main/ipc/workspace-handlers.ts` — `workspace:*` multi-root workspace ops.
 - `src/main/ipc/verdict-handlers.ts` — `verdicts:list`, `verdicts:get`.
@@ -49,7 +48,7 @@ in the same function rather than in their own module (`ipc-handlers.ts:47`–`:8
 `IpcDependencies` (`types.ts:21`) — `sessionManager`, `projectRegistry`, `settingsStore`,
 `fileWatcher`, `diffProvider`, `prCreator`, `gitOps`, `branchCheckout`, the various view/
 layout/shell-tab stores, `chatAdapter`, `memoryStore`, `workspaceManager`,
-`backgroundAgentHost`, `pluginManager`, `verdictStore`/`verdictRecorder`, etc. Each
+`pluginManager`, `verdictStore`/`verdictRecorder`, etc. Each
 `register*Handlers` destructures the few it needs and closes over them, so handlers never
 reach for globals (`agent-handlers.ts:64`, `git-handlers.ts:62`).
 

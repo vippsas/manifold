@@ -2,7 +2,7 @@ import type { SerializedDockview } from 'dockview'
 import { isSiblingPanelId, parseSiblingSessionId } from '../agent-siblings'
 import { PANEL_IDS, isEditorPanelId, type DockPanelId, type GridNode } from './dock-layout-helpers'
 
-const RETIRED_PANEL_IDS = new Set(['memory', 'webPreview', 'search', 'loop'])
+const RETIRED_PANEL_IDS = new Set(['memory', 'webPreview', 'search', 'loop', 'backgroundAgent'])
 const SUPPORTED_OPTIONAL_PANEL_IDS = new Set<string>()
 const PLUGIN_PANEL_COMPONENTS = new Set(['pluginView', 'pluginTreeView'])
 

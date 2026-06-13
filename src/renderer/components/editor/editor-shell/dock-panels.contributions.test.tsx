@@ -1,7 +1,6 @@
 // src/renderer/components/editor/dock-panels.contributions.test.tsx
 import { describe, expect, it } from 'vitest'
 import { PANEL_COMPONENTS } from './dock-panels'
-import { BackgroundAgentPanel } from '../../background-agent/BackgroundAgentPanel'
 import { VerdictsPanel } from '../../verdicts/VerdictsPanel'
 
 describe('PANEL_COMPONENTS module entries', () => {
@@ -11,8 +10,7 @@ describe('PANEL_COMPONENTS module entries', () => {
     }
   })
 
-  it('sources the two module panels from the contribution registry', () => {
-    expect(PANEL_COMPONENTS.backgroundAgent).toBe(BackgroundAgentPanel)
+  it('sources the module panel from the contribution registry', () => {
     expect(PANEL_COMPONENTS.verdicts).toBe(VerdictsPanel)
   })
 })
