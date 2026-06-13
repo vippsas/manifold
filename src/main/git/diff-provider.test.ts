@@ -132,6 +132,16 @@ describe('DiffProvider', () => {
   // ---- getChangedFiles ----
 
   describe('getChangedFiles', () => {
+    /**
+     * getChangedFiles first determines this worktree's own changed paths
+     * (committed since the merge-base, then uncommitted), so queue those two
+     * provenance commands before the name-status diff and untracked listing.
+     */
+    function queueOwnPaths(committed: string, working = ''): void {
+      queueSpawn(committed) // git diff --name-only --find-renames <base>...HEAD
+      queueSpawn(working) // git diff --name-only --find-renames HEAD
+    }
+
     it('returns file changes parsed from numstat output', async () => {
       const nameStatus = [
         'A\tsrc/new.ts',
@@ -139,6 +149,7 @@ describe('DiffProvider', () => {
         'M\tsrc/mod.ts',
       ].join('\n')
 
+      queueOwnPaths('src/new.ts\nsrc/old.ts\nsrc/mod.ts')
       queueSpawn(nameStatus) // git diff --name-status --find-renames
       queueSpawn('') // git ls-files --others --exclude-standard -z
 
@@ -159,6 +170,7 @@ describe('DiffProvider', () => {
     })
 
     it('returns empty array when numstat output is empty', async () => {
+      queueOwnPaths('')
       queueSpawn('') // git diff --name-status --find-renames
       queueSpawn('') // git ls-files --others --exclude-standard -z
 
@@ -168,6 +180,7 @@ describe('DiffProvider', () => {
     })
 
     it('handles diff failure gracefully by returning empty array', async () => {
+      queueOwnPaths('')
       queueSpawn('', 'no commits', 128) // diff fails
       queueSpawn('') // git ls-files --others --exclude-standard -z
 
@@ -179,6 +192,7 @@ describe('DiffProvider', () => {
     it('treats renames as modified', async () => {
       const nameStatus = 'R100\told-name.ts\tnew-name.ts'
 
+      queueOwnPaths('new-name.ts')
       queueSpawn(nameStatus) // git diff --name-status --find-renames
       queueSpawn('') // git ls-files --others --exclude-standard -z
 
@@ -188,12 +202,60 @@ describe('DiffProvider', () => {
     })
 
     it('includes untracked files as added without staging them', async () => {
+      queueOwnPaths('')
       queueSpawn('') // git diff --name-status --find-renames
       queueSpawn('new/untracked.ts\u0000') // git ls-files --others --exclude-standard -z
 
       const changes = await provider.getChangedFiles('/worktree', 'main')
 
       expect(changes).toContainEqual({ path: 'new/untracked.ts', type: 'added' })
+    })
+
+    // ---- provenance: foreignWorktree ----
+
+    it('marks files changed only on the base branch as foreignWorktree', async () => {
+      const nameStatus = [
+        'M\tsrc/mine.ts',
+        'A\tdocs/from-other.md',
+        'M\tREADME.md',
+      ].join('\n')
+
+      // This worktree only committed src/mine.ts; README.md and docs/from-other.md
+      // appear solely because the base branch advanced (another worktree).
+      queueOwnPaths('src/mine.ts')
+      queueSpawn(nameStatus)
+      queueSpawn('') // ls-files
+
+      const changes = await provider.getChangedFiles('/worktree', 'main')
+
+      expect(changes).toContainEqual({ path: 'src/mine.ts', type: 'modified' })
+      expect(changes).toContainEqual({ path: 'docs/from-other.md', type: 'added', foreignWorktree: true })
+      expect(changes).toContainEqual({ path: 'README.md', type: 'modified', foreignWorktree: true })
+    })
+
+    it('treats uncommitted working-tree edits as this worktree\'s own', async () => {
+      // Nothing committed since the merge-base, but the file is edited locally.
+      queueOwnPaths('', 'src/edited.ts')
+      queueSpawn('M\tsrc/edited.ts')
+      queueSpawn('') // ls-files
+
+      const changes = await provider.getChangedFiles('/worktree', 'main')
+
+      expect(changes).toContainEqual({ path: 'src/edited.ts', type: 'modified' })
+    })
+
+    it('marks nothing foreign when provenance cannot be determined', async () => {
+      // The merge-base diff fails (e.g. no commits yet) — without provenance we
+      // must not guess, so no file is flagged foreign.
+      queueSpawn('', 'unknown revision', 128) // <base>...HEAD fails
+      queueSpawn('M\tsrc/a.ts\nA\tdocs/b.md') // name-status
+      queueSpawn('') // ls-files
+
+      const changes = await provider.getChangedFiles('/worktree', 'main')
+
+      expect(changes).toContainEqual({ path: 'src/a.ts', type: 'modified' })
+      expect(changes).toContainEqual({ path: 'docs/b.md', type: 'added' })
+      expect(changes.every((c) => c.foreignWorktree === undefined)).toBe(true)
     })
   })
 

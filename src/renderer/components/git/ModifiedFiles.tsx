@@ -26,31 +26,49 @@ export function ModifiedFiles({
 }: ModifiedFilesProps): React.JSX.Element {
   const root = worktreeRoot.replace(/\/$/, '')
 
-  const sorted = useMemo(() => {
-    return [...changes].sort((a, b) => {
+  // Split the worktree's own changes from files inherited because the base
+  // branch advanced (another worktree), each sorted independently by type.
+  const { own, foreign } = useMemo(() => {
+    const byType = (a: FileChange, b: FileChange): number => {
       const ai = TYPE_ORDER.indexOf(a.type)
       const bi = TYPE_ORDER.indexOf(b.type)
       if (ai !== bi) return ai - bi
       return a.path.localeCompare(b.path)
-    })
+    }
+    return {
+      own: changes.filter((c) => !c.foreignWorktree).sort(byType),
+      foreign: changes.filter((c) => c.foreignWorktree).sort(byType),
+    }
   }, [changes])
+
+  const renderRow = (change: FileChange): React.JSX.Element => (
+    <ModifiedFileRow
+      key={change.path}
+      change={change}
+      absolutePath={`${root}/${change.path}`}
+      relativePath={getRelativePath(`${root}/${change.path}`, root)}
+      isActive={activeFilePath === `${root}/${change.path}`}
+      onSelect={() => onSelectFile(`${root}/${change.path}`)}
+    />
+  )
 
   return (
     <div style={styles.wrapper}>
       <div style={styles.list}>
-        {sorted.length === 0 ? (
+        {own.length === 0 && foreign.length === 0 ? (
           <div style={styles.empty}>No changes</div>
         ) : (
-          sorted.map((change) => (
-            <ModifiedFileRow
-              key={change.path}
-              change={change}
-              absolutePath={`${root}/${change.path}`}
-              relativePath={getRelativePath(`${root}/${change.path}`, root)}
-              isActive={activeFilePath === `${root}/${change.path}`}
-              onSelect={() => onSelectFile(`${root}/${change.path}`)}
-            />
-          ))
+          <>
+            {own.map(renderRow)}
+            {foreign.length > 0 && (
+              <div style={styles.separator} role="separator">
+                <span style={styles.separatorLine} />
+                <span style={styles.separatorLabel}>from another worktree</span>
+                <span style={styles.separatorLine} />
+              </div>
+            )}
+            {foreign.map(renderRow)}
+          </>
         )}
       </div>
     </div>
@@ -74,6 +92,7 @@ function ModifiedFileRow({
   const filename = parts[parts.length - 1]
   const dir = parts.length > 1 ? parts.slice(0, -1).join('/') : ''
   const indicator = CHANGE_INDICATORS[change.type]
+  const foreign = Boolean(change.foreignWorktree)
   const handleDragStart = useCallback((e: React.DragEvent<HTMLDivElement>): void => {
     writeAgentPathDragData(e.dataTransfer, relativePath)
   }, [relativePath])
@@ -89,11 +108,14 @@ function ModifiedFileRow({
       draggable
       style={{
         ...styles.row,
+        ...(foreign ? styles.rowForeign : undefined),
         ...(isActive ? styles.rowActive : undefined),
       }}
-      title={change.path}
+      title={foreign ? `${change.path} \u2014 changed in another worktree (base advanced)` : change.path}
     >
-      <span style={{ ...styles.indicator, color: indicator.color }}>{'\u25CF'}</span>
+      <span style={{ ...styles.indicator, color: indicator.color, ...(foreign ? styles.indicatorForeign : undefined) }}>
+        {foreign ? '\u25CB' : '\u25CF'}
+      </span>
       <div style={styles.fileInfo}>
         <span className="truncate" style={styles.filename}>
           {filename}
@@ -165,9 +187,34 @@ const styles: Record<string, React.CSSProperties> = {
     background: 'rgba(79, 195, 247, 0.12)',
     color: 'var(--accent)',
   },
+  rowForeign: {
+    color: 'var(--text-muted)',
+  },
+  separator: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: 'var(--space-sm)',
+    padding: '6px 8px 2px',
+    userSelect: 'none',
+  },
+  separatorLine: {
+    flex: 1,
+    height: '1px',
+    background: 'var(--divider)',
+  },
+  separatorLabel: {
+    fontSize: 'var(--type-ui-micro)',
+    textTransform: 'uppercase' as const,
+    letterSpacing: '0.5px',
+    color: 'var(--text-muted)',
+    whiteSpace: 'nowrap' as const,
+  },
   indicator: {
     flexShrink: 0,
     fontSize: '8px',
+  },
+  indicatorForeign: {
+    opacity: 0.55,
   },
   fileInfo: {
     display: 'flex',

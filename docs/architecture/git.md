@@ -99,6 +99,10 @@ mirrors `WorktreeManager`'s existing-branch path and is what `SessionCreator` ca
 **Diffs and PRs.** `DiffProvider` (`diff-provider.ts:10`) computes the diff, changed-file
 list, and numstat against `baseBranch` by comparing the working tree directly to the base ref
 (no index mutation), and appends untracked files via `ls-files --others` + `diff --no-index`.
+`getChangedFiles` also tags provenance: it cross-checks the two-dot file list against this
+worktree's *own* changes (`getOwnChangedPaths` — committed since the merge-base `<base>...HEAD`
+plus uncommitted `git diff HEAD`) and sets `FileChange.foreignWorktree` on files that differ
+only because the base branch advanced — i.e. were changed in another worktree (`diff-provider.ts:69`).
 `GitOperationsManager` (`git-operations.ts:24`) commits (delegating to
 `commitManagedWorktree`), fast-forwards the base branch (`fetchAndUpdate`,
 `git-operations.ts:29` — `merge --ff-only` if base is checked out, else
@@ -141,5 +145,6 @@ PR URL.
 - **Index poisoning self-heals.** Staging/commit/status retry once after renaming a corrupt index aside and re-running `reset --mixed HEAD` (`managed-worktree.ts:106`); the bad index is kept as `index.manifold-bad-<ts>` rather than deleted.
 - **Empty repos are bootstrapped.** `ensureBaseRef` creates an `--allow-empty` "Initial commit" so a brand-new repo with no refs can still host a worktree (`worktree-manager.ts:107`).
 - **Diffs never mutate the index.** `DiffProvider` compares the working tree to the base ref directly and tolerates a branch with no commits yet (each git call is wrapped in try/catch returning empty) (`diff-provider.ts:29`).
+- **Foreign-worktree provenance fails closed.** When the base branch has advanced, a two-dot `git diff <base>` surfaces files changed in *other* worktrees. `getChangedFiles` flags those via `foreignWorktree`, but only when `getOwnChangedPaths` succeeds; if the merge-base diff (`<base>...HEAD`) throws (e.g. no commits yet) it returns `null` and *nothing* is flagged, so inherited files are never mis-marked as the worktree's own and vice-versa (`diff-provider.ts:103`).
 - **`gh` is required for PR/branch features.** `PrCreator.createPR` throws a friendly "GitHub CLI not installed/authenticated" error if `gh --version` fails (`pr-creator.ts:36`); `listOpenPRs`/`fetchPRBranch` will reject if `gh` is missing.
 - **`resolveConflict` guards path traversal.** It rejects a resolved path that escapes the worktree before writing, requiring a `path.sep` boundary so a sibling worktree sharing a name prefix is also rejected (`git-operations.ts:114`).
