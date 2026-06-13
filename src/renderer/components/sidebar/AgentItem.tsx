@@ -181,19 +181,6 @@ export function AgentItem({ session, projectPath, isActive, isOutputting, onSele
         )}
         <div className="sidebar-item-actions">
           <LockToggleButton sessionId={session.id} locked={!!session.locked} name={primaryLabel} />
-          {onRename && (
-            <button
-              type="button"
-              onClick={startEditing}
-              onKeyDown={stopKeyPropagation}
-              className="sidebar-icon-button"
-              style={sidebarStyles.agentRenameButton}
-              aria-label={`Rename ${primaryLabel}`}
-              title="Rename agent"
-            >
-              &#9998;
-            </button>
-          )}
           <button
             type="button"
             onClick={handleDelete}

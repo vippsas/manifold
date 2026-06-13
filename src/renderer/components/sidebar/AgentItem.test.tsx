@@ -58,7 +58,7 @@ describe('AgentItem rename', () => {
     const onRename = vi.fn()
     render(<AgentItem {...baseProps} session={makeSession()} onRename={onRename} />)
 
-    fireEvent.click(screen.getByRole('button', { name: 'Rename oslo' }))
+    fireEvent.doubleClick(screen.getByText('oslo'))
     const input = screen.getByLabelText('Agent name')
     fireEvent.change(input, { target: { value: 'Release agent' } })
     fireEvent.keyDown(input, { key: 'Enter' })
