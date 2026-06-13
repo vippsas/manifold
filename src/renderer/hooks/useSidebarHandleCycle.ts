@@ -125,38 +125,51 @@ export function collapseSidebar(api: DockviewApi, side: SidebarSide): number {
 
 /**
  * Advance the given sidebar to the next width in the cycle, keeping the
- * opposite sidebar pinned so only the center pane absorbs the difference. When
- * `restoreWidth` is given (re-expanding a button-collapsed sidebar from the edge
- * handle), jump straight to that remembered width instead of cycling.
+ * opposite sidebar pinned so only the center pane absorbs the difference.
  */
-function cycleSidebar(api: DockviewApi, side: SidebarSide, reversed: boolean, restoreWidth?: number): void {
+function cycleSidebar(api: DockviewApi, side: SidebarSide, reversed: boolean): void {
   const total = api.width
   if (total <= 0) return
 
   const targetGroup = api.getPanel(SIDE_PANEL_ID[side])?.group
   if (!targetGroup) return
 
-  const nextWidth = restoreWidth != null
-    ? restoreWidth
-    : Math.round(nextSidebarFraction(targetGroup.element.offsetWidth / total, reversed) * total)
-
+  const nextWidth = Math.round(nextSidebarFraction(targetGroup.element.offsetWidth / total, reversed) * total)
   applySidebarWidth(api, side, nextWidth)
+}
+
+/** Which collapsed sidebar (if any) an event landed on, via the edge-rail class
+ *  that `refreshEdgeGrab` tags onto a flush-to-edge sash. Returns null for any
+ *  other sash, or when the sidebar isn't actually collapsed (stale class). */
+function collapsedRailSide(api: DockviewApi, event: MouseEvent): SidebarSide | null {
+  const sash = (event.target as HTMLElement | null)?.closest?.('.dv-sash') as HTMLElement | null
+  if (!sash || !sash.closest('.dockview-theme-manifold')) return null
+  const side: SidebarSide | null = sash.classList.contains('dv-sash--edge-left')
+    ? 'left'
+    : sash.classList.contains('dv-sash--edge-right')
+      ? 'right'
+      : null
+  if (!side) return null
+  const width = api.getPanel(SIDE_PANEL_ID[side])?.group?.element.offsetWidth ?? 0
+  return width <= 1 ? side : null
 }
 
 export interface UseSidebarHandleCycleResult {
   /** Collapse a sidebar to width 0 from its header button, remembering the
-   *  pre-collapse width so the edge handle can later restore it exactly. */
+   *  pre-collapse width so a single click on the edge rail restores it exactly. */
   collapseSidebar: (side: SidebarSide) => void
 }
 
 /**
- * Double-clicking a sidebar grab handle cycles that sidebar's width through
- * 1/6 → 2/6 → 3/6 → 0 → 1/6 of the window (or the reverse,
- * 1/6 → 0 → 3/6 → 2/6 → 1/6, when `reversed`). Each handle drives its own
- * adjacent sidebar (left = repositories, right = files). Also returns a
- * `collapseSidebar` callback the header buttons use to collapse a sidebar to 0;
- * a sidebar collapsed that way re-expands to its remembered width on the next
- * edge double-click.
+ * Wires the two sidebar gestures:
+ * - A single click on a collapsed sidebar's edge rail reopens it, restoring its
+ *   remembered pre-collapse width (or the 1/6 default when it was collapsed by
+ *   the width cycle rather than the header button).
+ * - Double-clicking a sidebar grab handle cycles its width through
+ *   1/6 → 2/6 → 3/6 → 0 → 1/6 of the window (or the reverse when `reversed`).
+ *
+ * Also returns a `collapseSidebar` callback the header buttons use to collapse a
+ * sidebar to 0.
  */
 export function useSidebarHandleCycle(
   apiRef: React.MutableRefObject<DockviewApi | null>,
@@ -172,22 +185,32 @@ export function useSidebarHandleCycle(
   }, [apiRef])
 
   useEffect(() => {
+    const onClick = (event: MouseEvent): void => {
+      const api = apiRef.current
+      if (!api) return
+      const side = collapsedRailSide(api, event)
+      if (!side) return
+      const remembered = collapsedWidthRef.current[side]
+      const width = remembered != null && remembered > 1 ? remembered : Math.round(api.width / 6)
+      applySidebarWidth(api, side, width)
+      collapsedWidthRef.current[side] = null
+    }
+
     const onDoubleClick = (event: MouseEvent): void => {
       const api = apiRef.current
       if (!api) return
       const sash = (event.target as HTMLElement | null)?.closest?.('.dv-sash') as HTMLElement | null
       if (!sash || !sash.closest('.dockview-theme-manifold')) return
       const side = sidebarSideForSash(api, sash)
-      if (!side) return
-      // A button-collapsed sidebar (width 0) re-expands to its remembered
-      // pre-collapse width; otherwise advance the normal cycle.
-      const collapsedWidth = api.getPanel(SIDE_PANEL_ID[side])?.group?.element.offsetWidth ?? 0
-      const remembered = collapsedWidth <= 1 ? collapsedWidthRef.current[side] : null
-      cycleSidebar(api, side, reversed, remembered ?? undefined)
-      if (remembered != null) collapsedWidthRef.current[side] = null
+      if (side) cycleSidebar(api, side, reversed)
     }
+
+    document.addEventListener('click', onClick)
     document.addEventListener('dblclick', onDoubleClick)
-    return () => document.removeEventListener('dblclick', onDoubleClick)
+    return () => {
+      document.removeEventListener('click', onClick)
+      document.removeEventListener('dblclick', onDoubleClick)
+    }
   }, [apiRef, reversed])
 
   return { collapseSidebar: handleCollapseSidebar }

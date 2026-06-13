@@ -4,10 +4,10 @@
 // harness in dock-layout-drag-restore.test.tsx (jsdom has no layout engine, so
 // element.offsetWidth is wired to dockview's tracked group width).
 import React from 'react'
-import { render, act, waitFor } from '@testing-library/react'
+import { render, renderHook, act, waitFor } from '@testing-library/react'
 import { DockviewReact, type DockviewApi, type IDockviewPanelProps } from 'dockview'
 import { describe, it, expect, beforeAll } from 'vitest'
-import { applySidebarWidth, collapseSidebar } from './useSidebarHandleCycle'
+import { applySidebarWidth, collapseSidebar, useSidebarHandleCycle } from './useSidebarHandleCycle'
 
 beforeAll(() => {
   ;(globalThis as unknown as { ResizeObserver: unknown }).ResizeObserver = class {
@@ -35,6 +35,7 @@ async function setupDock(): Promise<DockviewApi> {
   render(
     <div style={{ width: 1200, height: 700 }}>
       <DockviewReact
+        className="dockview-theme-manifold"
         components={{ projects: Probe, agent: Probe, editor: Probe, fileTree: Probe }}
         onReady={(e) => { api = e.api }}
       />
@@ -89,6 +90,26 @@ describe('collapseSidebar / applySidebarWidth', () => {
 
     act(() => { applySidebarWidth(dv, 'right', previous) })
     expect(widthOf('fileTree')).toBe(200)
+    expect(widthOf('projects')).toBe(200)
+  })
+
+  it('reopens a collapsed sidebar on a single click of its edge rail', async () => {
+    const dv = await setupDock()
+    const widthOf = (panelId: string): number => dv.getPanel(panelId)?.group.api.width ?? -1
+    const apiRef: React.MutableRefObject<DockviewApi | null> = { current: dv }
+    const { result } = renderHook(() => useSidebarHandleCycle(apiRef))
+
+    // Collapse from the header button — remembers the 200px pre-collapse width.
+    act(() => { result.current.collapseSidebar('left') })
+    expect(widthOf('projects')).toBe(0)
+
+    // refreshEdgeGrab tags the collapsed sash dv-sash--edge-left; a single click
+    // (not a double-click) on it reopens to the remembered width.
+    const sash = document.querySelector('.dockview-theme-manifold .dv-sash')
+    if (!sash) throw new Error('no sash element')
+    sash.classList.add('dv-sash--edge-left')
+    act(() => { sash.dispatchEvent(new MouseEvent('click', { bubbles: true })) })
+
     expect(widthOf('projects')).toBe(200)
   })
 })
