@@ -26,7 +26,10 @@ export function DockTab({ api }: IDockviewPanelHeaderProps): React.JSX.Element {
   const roleTitle = isWorkspaceTab ? 'Workspace' : null
   const roleClassName = isWorkspaceTab ? 'dock-tab__role dock-tab__role--workspace' : null
   return (
-    <div className="dock-tab">
+    <div
+      className="dock-tab"
+      onDoubleClick={() => state?.onToggleMaximize(api.id)}
+    >
       {roleLabel && roleClassName && (
         <span className={roleClassName} title={roleTitle ?? undefined}>{roleLabel}</span>
       )}
@@ -34,6 +37,7 @@ export function DockTab({ api }: IDockviewPanelHeaderProps): React.JSX.Element {
       <button
         type="button"
         onClick={(e) => { e.stopPropagation(); state?.onClosePanel(api.id) }}
+        onDoubleClick={(e) => e.stopPropagation()}
         className="dock-tab__close"
         title={`Close ${displayTitle}`}
       >

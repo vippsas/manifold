@@ -27,6 +27,7 @@ function createInput(activeSessionId: string | null = 'session-1') {
         onReady: vi.fn(),
         togglePanel: vi.fn(),
         closePanel: vi.fn(),
+        toggleMaximizePanel: vi.fn(),
         focusPanel: vi.fn(),
         openSiblingPanel: vi.fn(),
         closeSiblingPanel: vi.fn(),

@@ -231,6 +231,25 @@ export function withPinnedSidebars(api: DockviewApi, applyChange: () => void, ex
   }
 }
 
+/**
+ * Toggle "focus mode" for a panel's group: maximize it to fill the dock area —
+ * hiding every other group, including both sidebars — or exit if a group is
+ * already maximized. Uses dockview's native maximize, which toggles group
+ * *visibility* in place rather than tearing panels down: the agent terminal and
+ * any other stateful pane survive the round-trip and restore to their prior
+ * widths, unlike an api.fromJSON() round-trip (which remounts everything and
+ * flashes the terminal).
+ */
+export function toggleMaximizedGroup(api: DockviewApi, panelId: string): void {
+  if (api.hasMaximizedGroup()) {
+    api.exitMaximizedGroup()
+    return
+  }
+  const panel = api.getPanel(panelId)
+  if (!panel) return
+  api.maximizeGroup(panel)
+}
+
 export function applyLayoutChangePreservingSidebarWidths(
   api: DockviewApi,
   applyChange: () => void,

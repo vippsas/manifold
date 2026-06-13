@@ -7,6 +7,7 @@ import {
   getSidebarWidths,
   withPinnedSidebars,
   isEditorPanelId,
+  toggleMaximizedGroup,
   type DockPanelId,
 } from './dock-layout-helpers'
 import type { DockLayoutCtx } from './dock-layout-context'
@@ -14,6 +15,7 @@ import type { DockLayoutCtx } from './dock-layout-context'
 export interface DockActionHandlers {
   togglePanel: (id: DockPanelId) => void
   closePanel: (id: string) => void
+  toggleMaximizePanel: (id: string) => void
   isPanelVisible: (id: DockPanelId) => boolean
   resetLayout: () => void
 }
@@ -102,6 +104,18 @@ export function useDockActions(
     bumpVersion()
   }, [ctx, bumpVersion, ensureEditorPanel, saveLayout, syncPanels, refs, closedPanelSnapshots])
 
+  // Double-click a tab to toggle focus mode: maximize that pane's group to fill
+  // the dock (hiding all other panes and both sidebars), or restore everything
+  // if a group is already maximized. The onDidLayoutChange listener skips its
+  // sidebar bookkeeping while maximized (hidden sidebars report width 0), so no
+  // save/bump is needed here — exiting fires the listener, which persists the
+  // restored layout.
+  const toggleMaximizePanel = useCallback((id: string): void => {
+    const api = ctx.apiRef.current
+    if (!api) return
+    toggleMaximizedGroup(api, id)
+  }, [ctx])
+
   const isPanelVisible = useCallback((id: DockPanelId): boolean => {
     const api = ctx.apiRef.current
     if (!api) return true
@@ -126,5 +140,5 @@ export function useDockActions(
     bumpVersion()
   }, [ctx, buildDefaultLayout, bumpVersion, syncPanels, refs, closedPanelSnapshots])
 
-  return { togglePanel, closePanel, isPanelVisible, resetLayout }
+  return { togglePanel, closePanel, toggleMaximizePanel, isPanelVisible, resetLayout }
 }

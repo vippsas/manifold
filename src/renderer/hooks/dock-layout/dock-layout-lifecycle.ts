@@ -33,6 +33,13 @@ export function registerLayoutListeners(api: DockviewApi, ctx: DockLayoutCtx): v
   api.onDidLayoutChange(() => {
     if (ctx.refs.isRestoringRef.current) return
 
+    // While a group is maximized (double-click focus mode), every other group —
+    // including both sidebars — is hidden, so their offsetWidth reads 0. Skip
+    // the sidebar-width bookkeeping and layout save until maximize is exited, so
+    // the captured widths and persisted layout stay at their pre-maximize values
+    // and restore exactly on exit.
+    if (api.hasMaximizedGroup()) return
+
     const previousJson = ctx.lastLayoutRef.current
     const currentJson = api.toJSON()
 
