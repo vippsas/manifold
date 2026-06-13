@@ -389,6 +389,44 @@ describe('ProjectSidebar', () => {
     ).toBeTruthy()
   })
 
+  it('moves a repo whose agents have all finished out of "With agents" into "Repositories"', () => {
+    // p2's only agent is terminal (done). A finished agent is not an active one,
+    // so the repo should fall back to "Repositories" rather than linger in the
+    // "With agents" section looking agentless (#708).
+    const finishedSessions: AgentSession[] = [
+      { id: 's3', projectId: 'p2', runtimeId: 'gemini', branchName: 'beta/stavanger', worktreePath: '/wt3', status: 'done', pid: 3, additionalDirs: [] },
+    ]
+
+    renderSidebar({ allProjectSessions: { p1: sampleSessions, p2: finishedSessions } })
+
+    // Repositories is collapsed by default — Beta is hidden there, not visible
+    // under the expanded "With agents" section.
+    expect(screen.queryByText('Beta')).not.toBeInTheDocument()
+    fireEvent.click(screen.getByText('Repositories'))
+    expect(screen.getByText('Beta')).toBeInTheDocument()
+  })
+
+  it('treats the active repo as agentless once all its agents have finished', () => {
+    // The active repo's only agent is terminal (error). It should pin above the
+    // sections like any agentless active repo instead of staying under the
+    // "With agents" header where its only action is destructive removal (#708).
+    const finishedActive: AgentSession[] = [
+      { id: 's1', projectId: 'p1', runtimeId: 'claude', branchName: 'alpha/oslo', worktreePath: '/wt1', status: 'error', pid: 1, additionalDirs: [] },
+    ]
+    const sessionsForP2: AgentSession[] = [
+      { id: 's3', projectId: 'p2', runtimeId: 'gemini', branchName: 'beta/stavanger', worktreePath: '/wt3', status: 'running', pid: 3, additionalDirs: [] },
+    ]
+
+    renderSidebar({ activeProjectId: 'p1', allProjectSessions: { p1: finishedActive, p2: sessionsForP2 } })
+
+    const activeName = screen.getByText('Alpha')
+    const header = screen.getByText('With agents')
+    // The active (now agent-less) repo card sits BEFORE the "With agents" header
+    expect(
+      activeName.compareDocumentPosition(header) & Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeTruthy()
+  })
+
   it('does not highlight the home repo as an active standalone project while a workspace session is active', () => {
     // A workspace session is shown under its workspace; its home repo must not
     // ALSO appear as an active (highlighted) standalone project in the list —
