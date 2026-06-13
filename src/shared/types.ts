@@ -85,6 +85,12 @@ export type FileChangeType = 'added' | 'modified' | 'deleted'
 export interface FileChange {
   path: string
   type: FileChangeType
+  /**
+   * True when the file differs only because the base branch advanced (e.g.
+   * another worktree's work landed on it), not because this worktree changed
+   * it. Absent for the worktree's own changes. See DiffProvider.getChangedFiles.
+   */
+  foreignWorktree?: boolean
 }
 
 export interface FileTreeNode {

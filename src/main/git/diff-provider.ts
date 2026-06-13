@@ -69,6 +69,11 @@ export class DiffProvider {
   async getChangedFiles(worktreePath: string, baseBranch: string): Promise<FileChange[]> {
     if (!existsSync(worktreePath)) return []
 
+    // Paths this worktree actually touched. A two-dot `git diff <base>` (below)
+    // also surfaces files that differ only because the base branch advanced —
+    // i.e. changed in another worktree — so we flag those as foreign.
+    const ownPaths = await this.getOwnChangedPaths(worktreePath, baseBranch)
+
     const changes: FileChange[] = []
     const seen = new Set<string>()
 
@@ -85,19 +90,49 @@ export class DiffProvider {
         if (status === 'A') type = 'added'
         else if (status === 'D') type = 'deleted'
 
-        changes.push({ path: filePath, type })
+        const change: FileChange = { path: filePath, type }
+        if (ownPaths && !ownPaths.has(filePath)) change.foreignWorktree = true
+        changes.push(change)
         seen.add(filePath)
       }
     } catch {
       // May fail if no commits yet on branch
     }
 
+    // Untracked files only exist in this worktree, so they're always our own.
     for (const filePath of await this.listUntrackedFiles(worktreePath)) {
       if (seen.has(filePath)) continue
       changes.push({ path: filePath, type: 'added' })
     }
 
     return changes
+  }
+
+  /**
+   * Paths changed by this worktree relative to the base branch: committed since
+   * the merge-base (`<base>...HEAD`) plus uncommitted tracked edits (`HEAD`).
+   * Returns null when provenance can't be determined (e.g. no commits yet) so
+   * callers don't mis-flag inherited files as foreign.
+   */
+  private async getOwnChangedPaths(worktreePath: string, baseBranch: string): Promise<Set<string> | null> {
+    let committed: string
+    try {
+      committed = await gitExec(['diff', '--name-only', '--find-renames', `${baseBranch}...HEAD`], worktreePath)
+    } catch {
+      return null
+    }
+
+    const paths = new Set<string>()
+    for (const filePath of committed.split('\n').filter(Boolean)) paths.add(filePath)
+
+    try {
+      const working = await gitExec(['diff', '--name-only', '--find-renames', 'HEAD'], worktreePath)
+      for (const filePath of working.split('\n').filter(Boolean)) paths.add(filePath)
+    } catch {
+      // No HEAD edits or HEAD unreadable; committed paths alone are enough.
+    }
+
+    return paths
   }
 
   private async listUntrackedFiles(worktreePath: string): Promise<string[]> {

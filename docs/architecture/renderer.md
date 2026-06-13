@@ -60,7 +60,7 @@ the dock control surface consumed by `App` (`useDockLayout.ts:259`).
 - `agent` → **Agent** — `AgentPanel` (`components/editor/editor-shell/dock-agent-panel.tsx:86`): renders a draft chat, an `OnboardingView` (no agent yet), an `AgentChatView` (non-interactive chat-mode), or an xterm `TerminalPane` (interactive runtime) depending on session state.
 - `editor` → **Editor** — `EditorPanel` wrapping `CodeViewer` (Monaco); split editors get ids prefixed `editor:` and each registers its own pane.
 - `fileTree` → **Files** — `FileTree` over the worktree + any additional dirs.
-- `modifiedFiles` → **Modified Files** — `ModifiedFiles` diff list.
+- `modifiedFiles` → **Modified Files** — `ModifiedFiles` diff list; files with `FileChange.foreignWorktree` (inherited because the base branch advanced) are grouped below a "from another worktree" separator, dimmed, with an origin tooltip.
 - `shell` → **Shell** — `ShellTabs` (worktree + project shell PTYs).
 - `verdicts` → **Verdicts** — built-in module sourced from the contribution registry, not hardcoded in `PANEL_COMPONENTS`.
 - `pluginView` / `pluginTreeView` — webview hosts for plugin contributions.
