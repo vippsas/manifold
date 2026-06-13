@@ -116,6 +116,8 @@ export interface DockAppState {
   // Layout
   onFocusSearch: (mode: SearchMode) => void
   onClosePanel: (id: string) => void
+  /** Collapse a sidebar (left = projects, right = file tree) to width 0. */
+  onCollapseSidebar: (side: 'left' | 'right') => void
   /** Open a launcher module as a tab, or focus it if already open. */
   onOpenModule: (id: DockPanelId) => void
   /** Whether a launcher module currently has an open tab. */

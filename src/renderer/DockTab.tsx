@@ -29,12 +29,36 @@ export function DockTab({ api }: IDockviewPanelHeaderProps): React.JSX.Element {
   const showAddSibling = api.id === 'agent'
     && state != null
     && (state.activeSessionStatus === 'running' || state.activeSessionStatus === 'waiting')
+  // The two dock sidebars get a one-click collapse button in their tab header
+  // (left = projects, right = file tree). Re-expanding is via the sash edge
+  // handle, which restores the remembered pre-collapse width.
+  const sidebarSide = api.id === 'projects' ? 'left' : api.id === 'fileTree' ? 'right' : null
   return (
     <div className="dock-tab">
       {roleLabel && roleClassName && (
         <span className={roleClassName} title={roleTitle ?? undefined}>{roleLabel}</span>
       )}
       <span className="dock-tab__label truncate">{displayTitle}</span>
+      {sidebarSide && state && (
+        <button
+          type="button"
+          onClick={(e) => { e.stopPropagation(); state.onCollapseSidebar(sidebarSide) }}
+          className="dock-tab__collapse"
+          title={`Collapse ${displayTitle}`}
+          aria-label={`Collapse ${displayTitle}`}
+        >
+          <svg width="10" height="10" viewBox="0 0 10 10" aria-hidden="true">
+            <path
+              d={sidebarSide === 'left' ? 'M7 1L3 5L7 9' : 'M3 1L7 5L3 9'}
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="1.5"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            />
+          </svg>
+        </button>
+      )}
       {showAddSibling && state && (
         <AddSiblingAgentButton
           projectId={state.activeProjectId}

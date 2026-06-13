@@ -502,7 +502,8 @@ select:focus-visible {
   border: 1px solid color-mix(in srgb, var(--accent), var(--border) 72%);
 }
 
-.dock-tab__close {
+.dock-tab__close,
+.dock-tab__collapse {
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -513,7 +514,8 @@ select:focus-visible {
   opacity: 0.7;
 }
 
-.dock-tab__close:hover {
+.dock-tab__close:hover,
+.dock-tab__collapse:hover {
   background: var(--statusbar-hover-bg);
   color: var(--text-primary);
   opacity: 1;

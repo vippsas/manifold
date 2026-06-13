@@ -1,7 +1,10 @@
-import { useEffect } from 'react'
+import { useCallback, useEffect, useRef } from 'react'
 import type { DockviewApi } from 'dockview'
 
 type SidebarSide = 'left' | 'right'
+
+/** Anchor panel id for each sidebar side. */
+const SIDE_PANEL_ID: Record<SidebarSide, string> = { left: 'projects', right: 'fileTree' }
 
 // Fractions of the window width the double-click cycle steps through, in order.
 // The default layout starts a sidebar at 1/6, so the first double-click moves
@@ -80,24 +83,18 @@ function sidebarSideForSash(api: DockviewApi, sash: HTMLElement): SidebarSide | 
 }
 
 /**
- * Advance the given sidebar to the next width in the cycle, keeping the
- * opposite sidebar pinned so only the center pane absorbs the difference.
+ * Resize a sidebar to an exact pixel width, holding the opposite sidebar at its
+ * current width so dockview routes the whole delta onto the center pane instead
+ * of splitting it across siblings. Shared by the sash double-click cycle and the
+ * header collapse button.
  */
-function cycleSidebar(api: DockviewApi, side: SidebarSide, reversed: boolean): void {
-  const total = api.width
-  if (total <= 0) return
-
-  const targetId = side === 'left' ? 'projects' : 'fileTree'
-  const otherId = side === 'left' ? 'fileTree' : 'projects'
-
-  const targetGroup = api.getPanel(targetId)?.group
+export function applySidebarWidth(api: DockviewApi, side: SidebarSide, nextWidth: number): void {
+  const targetGroup = api.getPanel(SIDE_PANEL_ID[side])?.group
   if (!targetGroup) return
-
-  const nextWidth = Math.round(nextSidebarFraction(targetGroup.element.offsetWidth / total, reversed) * total)
 
   // Lock the opposite sidebar at its current width so dockview routes the
   // whole delta to the center pane instead of splitting it across siblings.
-  const otherGroup = api.getPanel(otherId)?.group
+  const otherGroup = api.getPanel(SIDE_PANEL_ID[side === 'left' ? 'right' : 'left'])?.group
   const otherWidth = otherGroup?.element.offsetWidth
   if (otherGroup && otherWidth) {
     otherGroup.api.setConstraints({ minimumWidth: otherWidth, maximumWidth: otherWidth })
@@ -116,15 +113,64 @@ function cycleSidebar(api: DockviewApi, side: SidebarSide, reversed: boolean): v
 }
 
 /**
+ * Collapse a sidebar to width 0, returning its pre-collapse pixel width (0 when
+ * already collapsed or unavailable). Callers remember the returned width so the
+ * sidebar can later be re-expanded to exactly where it was.
+ */
+export function collapseSidebar(api: DockviewApi, side: SidebarSide): number {
+  const width = api.getPanel(SIDE_PANEL_ID[side])?.group?.element.offsetWidth ?? 0
+  applySidebarWidth(api, side, 0)
+  return width
+}
+
+/**
+ * Advance the given sidebar to the next width in the cycle, keeping the
+ * opposite sidebar pinned so only the center pane absorbs the difference. When
+ * `restoreWidth` is given (re-expanding a button-collapsed sidebar from the edge
+ * handle), jump straight to that remembered width instead of cycling.
+ */
+function cycleSidebar(api: DockviewApi, side: SidebarSide, reversed: boolean, restoreWidth?: number): void {
+  const total = api.width
+  if (total <= 0) return
+
+  const targetGroup = api.getPanel(SIDE_PANEL_ID[side])?.group
+  if (!targetGroup) return
+
+  const nextWidth = restoreWidth != null
+    ? restoreWidth
+    : Math.round(nextSidebarFraction(targetGroup.element.offsetWidth / total, reversed) * total)
+
+  applySidebarWidth(api, side, nextWidth)
+}
+
+export interface UseSidebarHandleCycleResult {
+  /** Collapse a sidebar to width 0 from its header button, remembering the
+   *  pre-collapse width so the edge handle can later restore it exactly. */
+  collapseSidebar: (side: SidebarSide) => void
+}
+
+/**
  * Double-clicking a sidebar grab handle cycles that sidebar's width through
  * 1/6 → 2/6 → 3/6 → 0 → 1/6 of the window (or the reverse,
  * 1/6 → 0 → 3/6 → 2/6 → 1/6, when `reversed`). Each handle drives its own
- * adjacent sidebar (left = repositories, right = files).
+ * adjacent sidebar (left = repositories, right = files). Also returns a
+ * `collapseSidebar` callback the header buttons use to collapse a sidebar to 0;
+ * a sidebar collapsed that way re-expands to its remembered width on the next
+ * edge double-click.
  */
 export function useSidebarHandleCycle(
   apiRef: React.MutableRefObject<DockviewApi | null>,
   reversed = false,
-): void {
+): UseSidebarHandleCycleResult {
+  const collapsedWidthRef = useRef<Record<SidebarSide, number | null>>({ left: null, right: null })
+
+  const handleCollapseSidebar = useCallback((side: SidebarSide): void => {
+    const api = apiRef.current
+    if (!api) return
+    const width = collapseSidebar(api, side)
+    if (width > 1) collapsedWidthRef.current[side] = width
+  }, [apiRef])
+
   useEffect(() => {
     const onDoubleClick = (event: MouseEvent): void => {
       const api = apiRef.current
@@ -132,9 +178,17 @@ export function useSidebarHandleCycle(
       const sash = (event.target as HTMLElement | null)?.closest?.('.dv-sash') as HTMLElement | null
       if (!sash || !sash.closest('.dockview-theme-manifold')) return
       const side = sidebarSideForSash(api, sash)
-      if (side) cycleSidebar(api, side, reversed)
+      if (!side) return
+      // A button-collapsed sidebar (width 0) re-expands to its remembered
+      // pre-collapse width; otherwise advance the normal cycle.
+      const collapsedWidth = api.getPanel(SIDE_PANEL_ID[side])?.group?.element.offsetWidth ?? 0
+      const remembered = collapsedWidth <= 1 ? collapsedWidthRef.current[side] : null
+      cycleSidebar(api, side, reversed, remembered ?? undefined)
+      if (remembered != null) collapsedWidthRef.current[side] = null
     }
     document.addEventListener('dblclick', onDoubleClick)
     return () => document.removeEventListener('dblclick', onDoubleClick)
   }, [apiRef, reversed])
+
+  return { collapseSidebar: handleCollapseSidebar }
 }

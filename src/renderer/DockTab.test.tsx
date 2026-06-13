@@ -1,6 +1,6 @@
 import React from 'react'
-import { describe, expect, it } from 'vitest'
-import { render, screen } from '@testing-library/react'
+import { describe, expect, it, vi } from 'vitest'
+import { render, screen, fireEvent } from '@testing-library/react'
 import type { IDockviewPanelHeaderProps } from 'dockview'
 import { DockTab } from './DockTab'
 import { DockStateContext } from './components/editor/editor-shell/dock-panel-types'
@@ -99,6 +99,33 @@ describe('DockTab', () => {
 
     expect(screen.getByText('Shell')).toBeInTheDocument()
     expect(screen.queryByRole('button', { name: 'New shell tab' })).toBeNull()
+  })
+
+  it('collapses the matching sidebar from each sidebar tab, but shows no collapse button elsewhere', () => {
+    const onCollapseSidebar = vi.fn()
+
+    const { rerender } = render(
+      <DockStateContext.Provider value={makeDockState({ onCollapseSidebar })}>
+        <DockTab {...makeHeaderProps('projects', 'Repositories')} />
+      </DockStateContext.Provider>,
+    )
+    fireEvent.click(screen.getByRole('button', { name: 'Collapse Repositories' }))
+    expect(onCollapseSidebar).toHaveBeenLastCalledWith('left')
+
+    rerender(
+      <DockStateContext.Provider value={makeDockState({ onCollapseSidebar })}>
+        <DockTab {...makeHeaderProps('fileTree', 'Files')} />
+      </DockStateContext.Provider>,
+    )
+    fireEvent.click(screen.getByRole('button', { name: 'Collapse Files' }))
+    expect(onCollapseSidebar).toHaveBeenLastCalledWith('right')
+
+    rerender(
+      <DockStateContext.Provider value={makeDockState({ onCollapseSidebar })}>
+        <DockTab {...makeHeaderProps('agent', 'Agent')} />
+      </DockStateContext.Provider>,
+    )
+    expect(screen.queryByRole('button', { name: /^Collapse / })).toBeNull()
   })
 
   it('shows a compact workspace role pill on workspace child tabs', () => {

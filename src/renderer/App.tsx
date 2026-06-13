@@ -104,7 +104,7 @@ export function App(): React.JSX.Element {
   const primarySessionId = primarySession?.id ?? null
   const dockLayoutKey = primarySessionId ?? activeSessionId
   const dockLayout = useDockLayout(dockLayoutKey, activeProjectSessions)
-  useSidebarHandleCycle(dockLayout.apiRef, settings.sidebarResizeReversed)
+  const { collapseSidebar } = useSidebarHandleCycle(dockLayout.apiRef, settings.sidebarResizeReversed)
   useAgentSiblingDockTabs({
     apiRef: dockLayout.apiRef, layoutVersion: dockLayout.layoutVersion,
     sessions: activeProjectSessions, activeWorktreePath, primarySessionId, activeSessionId,
@@ -343,6 +343,7 @@ export function App(): React.JSX.Element {
     onFetchProject: fetchProject.fetchProject,
     activeProjectBehindCount: activeProjectId ? (branchStaleness.behindCounts[activeProjectId] ?? 0) : 0,
     onFocusSearch: appEffects.focusSearch, onClosePanel: editorHandlers.handleClosePanel,
+    onCollapseSidebar: collapseSidebar,
     onOpenModule: (id) => {
       if (dockLayout.isPanelVisible(id)) dockLayout.focusPanel(id)
       else dockLayout.togglePanel(id)
