@@ -1,4 +1,4 @@
-import React, { useCallback, useMemo, useRef, useState } from 'react'
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import type { FileTreeNode, FileChange, FileChangeType } from '../../../../shared/types'
 import { TreeNode } from './tree-node'
 import { ContextMenu } from './ContextMenu'
@@ -17,6 +17,9 @@ import { useFileTreeClipboard } from './useFileTreeClipboard'
 import { useFileTreePaste } from './useFileTreePaste'
 import { useFileTreeViewActions } from './useFileTreeViewActions'
 import { useFileTreeDragDrop } from './useFileTreeDragDrop'
+
+/** How long an operation error stays on screen before it auto-dismisses. */
+export const ERROR_BANNER_TIMEOUT_MS = 6000
 
 interface FileTreeProps {
   tree: FileTreeNode | null
@@ -193,6 +196,21 @@ export function FileTree({
 
   const isDraggingAny = dnd.isDraggingFiles || dnd.isDraggingInternal
   const operationError = dnd.importError ?? fileTreePaste.pasteError
+  const { clearImportError } = dnd
+  const { clearPasteError } = fileTreePaste
+  const clearOperationError = useCallback((): void => {
+    clearImportError()
+    clearPasteError()
+  }, [clearImportError, clearPasteError])
+
+  // Operation errors are one-off; auto-dismiss so the banner never stays pinned
+  // over the file tree after the user has seen it.
+  useEffect(() => {
+    if (!operationError) return
+    const timer = setTimeout(clearOperationError, ERROR_BANNER_TIMEOUT_MS)
+    return () => clearTimeout(timer)
+  }, [operationError, clearOperationError])
+
   const dropTargetLabel = describeDropTarget(dnd.dropTargetPath ?? defaultDropDir)
   const overlayLabel = dnd.isDraggingInternal ? `Move to ${dropTargetLabel}` : `Import to ${dropTargetLabel}`
   const bannerLabel = dnd.isDraggingInternal ? `Drop to move into ${dropTargetLabel}` : `Drop to import into ${dropTargetLabel}`
@@ -222,7 +240,18 @@ export function FileTree({
       />
       {(isDraggingAny || operationError) && (
         <div style={{ ...treeStyles.statusBanner, ...(operationError ? treeStyles.statusBannerError : treeStyles.statusBannerInfo) }}>
-          {operationError ?? bannerLabel}
+          <span style={treeStyles.statusBannerText}>{operationError ?? bannerLabel}</span>
+          {operationError && (
+            <button
+              type="button"
+              aria-label="Dismiss error"
+              title="Dismiss"
+              style={treeStyles.statusBannerClose}
+              onClick={clearOperationError}
+            >
+              ×
+            </button>
+          )}
         </div>
       )}
       <div

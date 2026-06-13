@@ -85,10 +85,14 @@ export function useFileTreePaste({
   onPasteClipboardImage,
 }: UseFileTreePasteArgs): {
   pasteError: string | null
+  clearPasteError: () => void
   handleKeyboardPaste: () => void
   handlePaste: (e: React.ClipboardEvent<HTMLDivElement>) => void
 } {
   const [pasteError, setPasteError] = useState<string | null>(null)
+  const clearPasteError = useCallback((): void => {
+    setPasteError(null)
+  }, [])
 
   const targetDir = useCallback((): string => {
     return resolveFileTreePasteTargetDir({ cursorPath, visibleNodes, worktreeRootPath, treePath })
@@ -141,7 +145,7 @@ export function useFileTreePaste({
     }
   }, [clipboard.hasClipboard, pasteImages, pasteInternalClipboard])
 
-  return { pasteError, handleKeyboardPaste, handlePaste }
+  return { pasteError, clearPasteError, handleKeyboardPaste, handlePaste }
 }
 
 function parentDir(filePath: string): string {

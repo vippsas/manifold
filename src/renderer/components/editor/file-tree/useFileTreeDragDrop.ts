@@ -24,6 +24,7 @@ export interface FileTreeDragDropState {
   isDraggingInternal: boolean
   dropTargetPath: string | null
   importError: string | null
+  clearImportError: () => void
   pendingOverwrite: PendingOverwrite | null
   handlers: {
     onDragEnter: (e: React.DragEvent<HTMLDivElement>) => void
@@ -62,6 +63,10 @@ export function useFileTreeDragDrop({
     setIsDraggingFiles(false)
     setIsDraggingInternal(false)
     setDropTargetPath(null)
+  }, [])
+
+  const clearImportError = useCallback((): void => {
+    setImportError(null)
   }, [])
 
   const onDragEnter = useCallback((e: React.DragEvent<HTMLDivElement>): void => {
@@ -150,7 +155,7 @@ export function useFileTreeDragDrop({
   }, [])
 
   return {
-    isDraggingFiles, isDraggingInternal, dropTargetPath, importError, pendingOverwrite,
+    isDraggingFiles, isDraggingInternal, dropTargetPath, importError, clearImportError, pendingOverwrite,
     handlers: { onDragEnter, onDragOver, onDragLeave, onDrop },
     confirmOverwrite, cancelOverwrite,
   }
