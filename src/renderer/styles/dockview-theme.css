@@ -78,32 +78,62 @@
   transform: translateY(-50%);
 }
 
-/* When a sidebar is collapsed flush to the window edge, the centered grab zone
-   half-clips off-screen. Anchor it inward and widen it so the collapsed handle
-   stays an easy double-click target for restoring the sidebar. */
+/* When a sidebar is collapsed flush to the window edge, turn the otherwise 1px
+   sash into an obvious full-height handle rail: a visible vertical bar anchored
+   at the edge. A single click on it reopens the sidebar (it stays drag-able
+   too), so it reads as a button. */
+.dockview-theme-manifold .dv-sash.dv-sash--edge-left,
+.dockview-theme-manifold .dv-sash.dv-sash--edge-right {
+  cursor: pointer;
+}
+.dockview-theme-manifold .dv-split-view-container.dv-horizontal > .dv-sash-container > .dv-sash.dv-sash--edge-left::before,
+.dockview-theme-manifold .dv-split-view-container.dv-horizontal > .dv-sash-container > .dv-sash.dv-sash--edge-right::before {
+  width: 14px;
+  transform: none;
+  background: var(--bg-secondary);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.04);
+  transition: background var(--duration-normal) var(--ease-premium);
+}
 .dockview-theme-manifold .dv-split-view-container.dv-horizontal > .dv-sash-container > .dv-sash.dv-sash--edge-left::before {
   left: 0;
-  width: 18px;
-  transform: none;
+  border-right: 1px solid var(--border);
 }
 .dockview-theme-manifold .dv-split-view-container.dv-horizontal > .dv-sash-container > .dv-sash.dv-sash--edge-right::before {
   left: auto;
   right: 0;
-  width: 18px;
-  transform: none;
+  border-left: 1px solid var(--border);
 }
 
-/* The visible grip dots are centered on the 1px line, which sits at the window
-   edge when a sidebar is collapsed — so they clip off-screen and the handle
-   looks like it vanished. Anchor the dots inward and brighten them so the
-   collapsed handle stays visible and reads as a grab target. */
+/* Swap the faint grip dots for a single inward-pointing chevron on the collapsed
+   rail, so it clearly reads as "reopen this sidebar" rather than a vanished line. */
+.dockview-theme-manifold .dv-split-view-container.dv-horizontal > .dv-sash-container > .dv-sash.dv-sash--edge-left::after,
+.dockview-theme-manifold .dv-split-view-container.dv-horizontal > .dv-sash-container > .dv-sash.dv-sash--edge-right::after {
+  width: 6px;
+  height: 6px;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+  border-top: 1.5px solid var(--text-secondary);
+  border-right: 1.5px solid var(--text-secondary);
+  transition: border-color var(--duration-normal) var(--ease-premium);
+}
 .dockview-theme-manifold .dv-split-view-container.dv-horizontal > .dv-sash-container > .dv-sash.dv-sash--edge-left::after {
-  left: 7px;
-  --grip-color: var(--text-secondary);
+  left: 8px;
+  transform: translate(-50%, -50%) rotate(45deg); /* › points inward (right) */
 }
 .dockview-theme-manifold .dv-split-view-container.dv-horizontal > .dv-sash-container > .dv-sash.dv-sash--edge-right::after {
-  left: -7px;
-  --grip-color: var(--text-secondary);
+  left: -8px;
+  transform: translate(-50%, -50%) rotate(225deg); /* ‹ points inward (left) */
+}
+
+/* The whole collapsed rail lights up on hover so it plainly invites a click. */
+.dockview-theme-manifold .dv-sash.dv-sash--edge-left:hover::before,
+.dockview-theme-manifold .dv-sash.dv-sash--edge-right:hover::before {
+  background: var(--accent-subtle);
+}
+.dockview-theme-manifold .dv-sash.dv-sash--edge-left:hover::after,
+.dockview-theme-manifold .dv-sash.dv-sash--edge-right:hover::after {
+  border-color: var(--accent);
 }
 
 /* Tab text styling */
@@ -147,6 +177,15 @@
   min-height: var(--dv-tabs-and-actions-container-height);
   min-width: 0;
   overflow: hidden;
+}
+
+/* The right file-tree sidebar's collapse button lives here (before the tabs), so
+   center it vertically in the header like the other action slots. */
+.dockview-theme-manifold .dv-tabs-and-actions-container > .dv-pre-actions-container {
+  align-items: center;
+  display: flex;
+  flex: 0 0 auto;
+  min-height: var(--dv-tabs-and-actions-container-height);
 }
 
 .dockview-theme-manifold .dv-tabs-and-actions-container > .dv-group-actions,

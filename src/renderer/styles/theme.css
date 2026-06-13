@@ -519,6 +519,29 @@ select:focus-visible {
   opacity: 1;
 }
 
+/* Sidebar collapse button — lives in the group header-action slot (outside the
+   tabs), pinned to the sidebar's inner edge next to the center pane. */
+.dock-header-collapse {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  margin: 0 2px;
+  padding: 0;
+  border: none;
+  background: transparent;
+  border-radius: var(--radius-sm);
+  color: var(--text-secondary);
+  cursor: pointer;
+  transition: background var(--duration-normal) var(--ease-premium), color var(--duration-normal) var(--ease-premium);
+}
+
+.dock-header-collapse:hover {
+  background: var(--statusbar-hover-bg);
+  color: var(--text-primary);
+}
+
 .shell-header-add-button {
   transition: background 150ms ease, color 150ms ease;
 }
