@@ -66,6 +66,17 @@ describe('ChatPane', () => {
     expect(composer.style.overflowY).toBe('auto')
   })
 
+  it('wires the shared design-system classes onto the composer controls', () => {
+    const { rerender } = render(<ChatPane messages={[]} onSend={vi.fn()} />)
+
+    const composer = screen.getByPlaceholderText('Tell the agent what to change...')
+    expect(composer).toHaveClass('reticle-input')
+    expect(screen.getByRole('button', { name: 'Send' })).toHaveClass('btn-metal')
+
+    rerender(<ChatPane messages={[]} onSend={vi.fn()} onInterrupt={vi.fn()} isThinking />)
+    expect(screen.getByRole('button', { name: 'Stop' })).not.toHaveClass('btn-metal')
+  })
+
   describe('@FILENAME autocomplete', () => {
     const mentionPaths = ['src/App.tsx', 'src/components/Chat.tsx', 'README.md']
 

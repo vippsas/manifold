@@ -28,7 +28,7 @@ export const inputColumn: CSSProperties = {
   gap: 8,
   minWidth: 0,
   position: 'relative',
-  borderRadius: 20,
+  borderRadius: 'var(--radius-md)',
   transition: 'box-shadow 120ms ease, background 120ms ease',
 }
 
@@ -48,7 +48,7 @@ export const dropHint: CSSProperties = {
   fontWeight: 600,
   color: 'var(--accent)',
   background: 'color-mix(in srgb, var(--accent) 10%, transparent)',
-  borderRadius: 20,
+  borderRadius: 'var(--radius-md)',
   zIndex: 1,
 }
 
@@ -106,6 +106,11 @@ export const thumbnailCounter: CSSProperties = {
   paddingRight: 4,
 }
 
+// Mirrors `TaskDescriptionField` (Start Agent name field): the `.reticle-input`
+// resting corner brackets are the field's edge, so the box is transparent and
+// the border stays 1px-transparent to give the reticle a border-box to paint
+// into without shifting layout on focus. `--radius-md` keeps corners square
+// enough for the brackets to render — a pill radius would clip them away.
 export const input: CSSProperties = {
   width: '100%',
   padding: '12px 16px',
@@ -114,15 +119,18 @@ export const input: CSSProperties = {
   fontSize: 15,
   lineHeight: '22px',
   fontFamily: 'inherit',
-  background: 'var(--surface)',
-  border: '1px solid var(--border)',
-  borderRadius: 20,
+  background: 'transparent',
+  border: '1px solid transparent',
+  borderRadius: 'var(--radius-md)',
   color: 'var(--text)',
   outline: 'none',
   resize: 'none',
   overflowY: 'hidden',
 }
 
+// Layout only — the metallic machined-plate surface (gradient, chamfered
+// silhouette, border, text color) comes from the shared `.btn-metal` class,
+// matching the Start Agent button.
 export const sendButton: CSSProperties = {
   alignSelf: 'flex-end',
   flexShrink: 0,
@@ -131,10 +139,7 @@ export const sendButton: CSSProperties = {
   display: 'inline-flex',
   alignItems: 'center',
   justifyContent: 'center',
-  background: 'var(--accent)',
-  color: 'var(--accent-text)',
-  border: 'none',
-  borderRadius: 20,
+  borderRadius: 'var(--radius-sm)',
   padding: '0 20px',
   fontSize: 15,
   fontWeight: 600,
@@ -148,7 +153,7 @@ export const interruptButton: CSSProperties = {
   background: 'transparent',
   color: 'var(--accent)',
   border: '1px solid var(--accent)',
-  borderRadius: '50%',
+  borderRadius: 'var(--radius-sm)',
   width: 48,
   height: 48,
   padding: 0,
