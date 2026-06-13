@@ -1,6 +1,6 @@
 import React from 'react'
-import { describe, expect, it } from 'vitest'
-import { render, screen } from '@testing-library/react'
+import { describe, expect, it, vi } from 'vitest'
+import { render, screen, fireEvent } from '@testing-library/react'
 import type { IDockviewPanelHeaderProps } from 'dockview'
 import { DockTab } from './DockTab'
 import { DockStateContext } from './components/editor/editor-shell/dock-panel-types'
@@ -100,6 +100,34 @@ describe('DockTab', () => {
 
     expect(screen.getByText('Shell')).toBeInTheDocument()
     expect(screen.queryByRole('button', { name: 'New shell tab' })).toBeNull()
+  })
+
+  it('double-clicking the tab toggles focus mode for that pane', () => {
+    const onToggleMaximize = vi.fn()
+    render(
+      <DockStateContext.Provider value={makeDockState({ onToggleMaximize })}>
+        <DockTab {...makeHeaderProps('agent', 'Claude')} />
+      </DockStateContext.Provider>,
+    )
+
+    fireEvent.doubleClick(screen.getByText('Claude'))
+
+    expect(onToggleMaximize).toHaveBeenCalledTimes(1)
+    expect(onToggleMaximize).toHaveBeenCalledWith('agent')
+  })
+
+  it('does not toggle focus mode when the close button is double-clicked', () => {
+    const onToggleMaximize = vi.fn()
+    const onClosePanel = vi.fn()
+    render(
+      <DockStateContext.Provider value={makeDockState({ onToggleMaximize, onClosePanel })}>
+        <DockTab {...makeHeaderProps('agent', 'Claude')} />
+      </DockStateContext.Provider>,
+    )
+
+    fireEvent.doubleClick(screen.getByTitle('Close Claude'))
+
+    expect(onToggleMaximize).not.toHaveBeenCalled()
   })
 
   it('shows a compact workspace role pill on workspace child tabs', () => {

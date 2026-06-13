@@ -41,6 +41,9 @@ export interface UseDockLayoutResult {
   onReady: (api: DockviewApi) => void
   togglePanel: (id: DockPanelId) => void
   closePanel: (id: string) => void
+  /** Toggle focus mode for a pane's group: maximize to fill the dock (hiding all
+   *  other panes and both sidebars), or restore everything if already maximized. */
+  toggleMaximizePanel: (id: string) => void
   focusPanel: (id: string) => void
   openSiblingPanel: (sessionId: string, title?: string, referencePanelId?: string) => void
   /** Close a sibling tab without killing the underlying agent session. */
@@ -235,7 +238,7 @@ export function useDockLayout(
   }, [bumpVersion, saveLayout]) // eslint-disable-line react-hooks/exhaustive-deps
 
   const { ensureEditorPanel, splitEditorPane, findEditorPanelForSplit } = useEditorPanels(ctx, focusPanel)
-  const { togglePanel, closePanel, isPanelVisible, resetLayout } = useDockActions(ctx, ensureEditorPanel, buildDefaultLayout)
+  const { togglePanel, closePanel, toggleMaximizePanel, isPanelVisible, resetLayout } = useDockActions(ctx, ensureEditorPanel, buildDefaultLayout)
 
   const onReady = useCallback((api: DockviewApi) => {
     apiRef.current = api
@@ -296,7 +299,7 @@ export function useDockLayout(
   ))
 
   return {
-    apiRef, onReady, togglePanel, closePanel, focusPanel,
+    apiRef, onReady, togglePanel, closePanel, toggleMaximizePanel, focusPanel,
     openSiblingPanel, closeSiblingPanel,
     ensureEditorPanel, splitEditorPane, findEditorPanelForSplit, isPanelVisible,
     resetLayout, hiddenPanels, editorPanelIds, layoutVersion, layoutReloadVersion,

@@ -49,11 +49,15 @@ panel set. `DockAppState` is published to every panel through `DockStateContext`
 Tab headers use `DockTab`; empty groups show `EmptyWatermark`; the left header-action slot
 hosts `LeftHeaderActions` (shell controls plus the agent group's "add agent on this
 worktree" button) and the right slot `RightHeaderActions` (workspace actions + sidebar
-collapse) (`components/editor/editor-shell/SidebarCollapseAction.tsx:66`, `:89`). The default arrangement is
+collapse) (`components/editor/editor-shell/SidebarCollapseAction.tsx:66`, `:89`). Double-clicking a tab
+toggles **focus mode**: `DockTab`'s `onDoubleClick` calls `onToggleMaximize` (`DockTab.tsx:31`), which
+maximizes that pane's group via dockview's native `maximizeGroup`/`exitMaximizedGroup`
+(`hooks/dock-layout/dock-layout-helpers.ts:243`) — hiding every other pane and both sidebars
+in place (no remount) and restoring them exactly on the second double-click. The default arrangement is
 `projects | agent | (fileTree+modifiedFiles)` at a 1:4:1 width ratio
 (`hooks/dock-layout/dock-layout-builders.ts:8`). All add/remove/focus/split/resize logic
 lives in the `hooks/dock-layout/` subsystem behind `useDockLayout`, whose return value is
-the dock control surface consumed by `App` (`useDockLayout.ts:259`).
+the dock control surface consumed by `App` (`useDockLayout.ts:301`).
 
 **The panel set.** Panel ids are fixed in `PANEL_IDS` with display titles in
 `PANEL_TITLES` (`hooks/dock-layout/dock-layout-helpers.ts:13`, `:18`):

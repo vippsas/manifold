@@ -349,6 +349,7 @@ export function App(): React.JSX.Element {
     onFetchProject: fetchProject.fetchProject,
     activeProjectBehindCount: activeProjectId ? (branchStaleness.behindCounts[activeProjectId] ?? 0) : 0,
     onFocusSearch: appEffects.focusSearch, onClosePanel: editorHandlers.handleClosePanel,
+    onToggleMaximize: dockLayout.toggleMaximizePanel,
     onCollapseSidebar: collapseSidebar,
     onOpenModule: (id) => {
       if (dockLayout.isPanelVisible(id)) dockLayout.focusPanel(id)

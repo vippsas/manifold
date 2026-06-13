@@ -117,6 +117,9 @@ export interface DockAppState {
   // Layout
   onFocusSearch: (mode: SearchMode) => void
   onClosePanel: (id: string) => void
+  /** Toggle focus mode for a pane (double-click its tab): maximize it to fill the
+   *  dock — hiding all other panes and both sidebars — or restore everything. */
+  onToggleMaximize: (id: string) => void
   /** Collapse a sidebar (left = projects, right = file tree) to width 0. */
   onCollapseSidebar: (side: 'left' | 'right') => void
   /** Open a launcher module as a tab, or focus it if already open. */
