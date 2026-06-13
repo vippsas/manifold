@@ -39,6 +39,8 @@ export interface AgentSession {
   groupId?: string
   /** True when this session runs Claude in non-interactive (chat) mode. */
   nonInteractive?: boolean
+  /** When true, the agent is protected from deletion until explicitly unlocked. */
+  locked?: boolean
 }
 
 export type ProjectKind = 'git' | 'folder'

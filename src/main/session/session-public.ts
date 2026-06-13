@@ -20,5 +20,6 @@ export function toPublicSession(session: InternalSession): AgentSession {
     workspaceWorktreePaths: session.workspaceWorktreePaths,
     groupId: session.groupId,
     nonInteractive: session.nonInteractive,
+    locked: session.locked,
   }
 }

@@ -1,7 +1,7 @@
 ---
 description: How Manifold agent sessions are created, run, stopped, resumed, and rediscovered from on-disk worktrees.
 covers: [src/main/session]
-updated: 2026-06-12
+updated: 2026-06-13
 owner: see .github/CODEOWNERS
 ---
 
@@ -103,7 +103,7 @@ resurrected from leftover branch checkout state (`session-discovery.ts:140`, `:2
 
 ## Key types and entry points
 
-- `SessionManager` — `session-manager.ts:29`. Public surface: `createSession`, `resumeSession`, `killSession`, `killAllSessionsOnWorktree`, `discoverSessionsForProject`, `discoverAllSessions`, `sendInput`, `interruptSession`, `resize`, `renameSession`, `createShellSession`.
+- `SessionManager` — `session-manager.ts:29`. Public surface: `createSession`, `resumeSession`, `killSession`, `killAllSessionsOnWorktree`, `discoverSessionsForProject`, `discoverAllSessions`, `sendInput`, `interruptSession`, `resize`, `renameSession`, `setSessionLocked`, `createShellSession`. `setSessionLocked` mirrors `renameSession`: it flips the persisted `locked` flag, re-persists meta, and notifies renderers.
 - `SessionLifecycle` — `session-lifecycle.ts:30`. `createSession()` / `resumeSession()` orchestration behind the manager's delegating methods (`session-manager.ts:192`, `:206`).
 - `InternalSession` — `session-types.ts:14`. Extends `AgentSession` (`src/shared/types.ts:15`) with `ptyId`, `outputBuffer`, `streamJsonLineBuffer`, `nonInteractiveOutputMode`, shell/NL state, etc. `toPublicSession()` (`session-public.ts:4`) projects it down for IPC.
 - `SessionCreator.create()` — `session-creator.ts:35`. The worktree-resolution + spawn decision tree.
@@ -115,7 +115,7 @@ resurrected from leftover branch checkout state (`session-discovery.ts:140`, `:2
 
 - **Agent runtimes / PTY** (`src/main/agent`): `PtyPool.spawn/write/kill/onData/onExit` is the process boundary; `getRuntimeById()` resolves the binary/args/env; `buildSimpleRuntimeCommand()` builds print-mode args; `claudeAnsiThemeArgs()` syncs the embedded Claude Code palette to Manifold's theme.
 - **Git / worktrees** (`src/main/git`): `WorktreeManager`, `BranchCheckoutManager`, `worktree-meta` (`readWorktreeMeta`/`writeWorktreeMeta`), `managed-worktree` (`prepareManagedWorktree`, `commitManagedWorktree`), and raw `gitExec`. Session meta lives in the worktree, not a central store — that is what makes discovery possible.
-- **IPC** (`src/main/ipc/agent-handlers.ts`): `agent:spawn` → `createSession`, `agent:resume` → `resumeSession`, `agent:kill`/`agent:kill-worktree` → killers, `agent:sessions` → discovery, `agent:replay` → `getOutputBuffer`, plus the `shell:*` handlers.
+- **IPC** (`src/main/ipc/agent-handlers.ts`): `agent:spawn` → `createSession`, `agent:resume` → `resumeSession`, `agent:kill`/`agent:kill-worktree` → killers, `agent:set-locked` → `setSessionLocked`, `agent:sessions` → discovery, `agent:replay` → `getOutputBuffer`, plus the `shell:*` handlers. The `agent:kill`/`agent:kill-worktree` handlers refuse a session whose `locked` flag is set, before any teardown.
 - **Renderer / preload** (`src/preload/index.ts:151`): the renderer never touches the map; it listens to `agent:output`, `agent:activity`, `agent:activity-state`, `agent:status`, `agent:exit`, and `agent:sessions-changed`, all emitted through `SessionManager.sendToRenderer`.
 - **Store** (`src/main/store`): `ProjectRegistry` resolves project path/baseBranch and caches `slashCommands`; `VerdictStore` backs the verdict recorder; `DismissedAgentsStore` records explicitly deleted agents so discovery skips them (`setDismissedAgents`, `session-manager.ts:149`).
 - **Memory** (`src/main/memory`): `MemoryCapture` (start/stop per session), `MemoryInjector.injectContext()` (on create and resume), `MemoryCompressor.compressSession()` (on developer-mode teardown).
@@ -126,6 +126,8 @@ resurrected from leftover branch checkout state (`session-discovery.ts:140`, `:2
 - **Concurrent-spawn guards.** Three operations carry in-flight promise maps to prevent races: `discoveryInFlight` (`session-discovery.ts:16`) serializes `discoverSessionsForProject` per project id; `createNoWorktreeInFlight` (`session-lifecycle.ts:34`) coalesces concurrent `noWorktree` `createSession` calls; `resumeInFlight` (`session-lifecycle.ts:32`) deduplicates concurrent `resumeSession` calls so only one PTY is ever spawned per session.
 - **At most one `noWorktree` agent per project.** Enforced in `SessionLifecycle` (`session-lifecycle.ts:64`); concurrent calls are serialized via `createNoWorktreeInFlight` — the second caller coalesces onto the same in-flight promise so only one session is created.
 - **Discovery never resurrects a dismissed branch.** Deleting an agent from the sidebar records a project+branch dismissal (`agent-handlers.ts`, `agent:kill`); both dormant-session fallbacks check it (`session-discovery.ts:140`, `:222`) and creating a new session on that branch lifts it (`session-lifecycle.ts:84`). Internal kills (mode switch, respawn) don't record dismissals — only the explicit `agent:kill` IPC path does (#679).
+- **Locked agents are protected from deletion.** A session's persisted `locked` flag (worktree meta, like `displayName`) blocks the user-facing delete paths: the renderer skips the delete dialog and the `agent:kill`/`agent:kill-worktree` IPC handlers throw before teardown. The gate lives only on those IPC handlers, so internal lifecycle kills (mode switch, respawn — which call `killSession` directly) are unaffected. Toggle via `setSessionLocked` / `agent:set-locked`.
+
 - **Deferred chat sessions have `ptyId: ''` and status `waiting`.** Treat empty `ptyId` as "no live process"; `resumeSession` and many helpers short-circuit on it. Each chat turn is a fresh print-mode process, not a persistent PTY.
 - **Worktree removal is path-shared-aware.** A worktree is only removed when no other session references its path (`removeWorktreeIfUnused` / `hasOtherLiveSessionsOnPath`); workspace sessions remove the whole `workspaceWorktreePaths` set instead.
 - **Teardown skips base checkout for `noWorktree`.** Checking out base in the live repo dir would drop `.gitignore` and surface `node_modules` as untracked, breaking the next spawn (`session-teardown.ts:53`).

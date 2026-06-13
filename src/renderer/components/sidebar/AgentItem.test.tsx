@@ -85,3 +85,39 @@ describe('AgentItem sensor sweep', () => {
     expect(container.querySelector('.sidebar-agent-row')).not.toHaveClass('sidebar-agent-row--outputting')
   })
 })
+
+describe('AgentItem lock', () => {
+  const baseProps = {
+    projectPath: '/tmp/proj',
+    isActive: false,
+    isOutputting: false,
+    onSelect: vi.fn(),
+    onDelete: vi.fn(),
+  }
+
+  it('renders a lock indicator for a locked session', () => {
+    render(<AgentItem {...baseProps} session={makeSession({ locked: true })} />)
+    expect(screen.getByLabelText('Locked')).toBeInTheDocument()
+  })
+
+  it('omits the lock indicator when unlocked', () => {
+    render(<AgentItem {...baseProps} session={makeSession()} />)
+    expect(screen.queryByLabelText('Locked')).not.toBeInTheDocument()
+  })
+
+  it('disables the delete button and ignores clicks while locked', () => {
+    const onDelete = vi.fn()
+    render(<AgentItem {...baseProps} onDelete={onDelete} session={makeSession({ locked: true })} />)
+    const del = screen.getByRole('button', { name: 'oslo is locked — unlock to delete' })
+    expect(del).toBeDisabled()
+    fireEvent.click(del)
+    expect(onDelete).not.toHaveBeenCalled()
+  })
+
+  it('keeps the delete button active when unlocked', () => {
+    const onDelete = vi.fn()
+    render(<AgentItem {...baseProps} onDelete={onDelete} session={makeSession()} />)
+    fireEvent.click(screen.getByRole('button', { name: 'Delete oslo' }))
+    expect(onDelete).toHaveBeenCalled()
+  })
+})

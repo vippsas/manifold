@@ -912,6 +912,24 @@ select:focus-visible {
   color: var(--accent);
 }
 
+/* Lock toggle lives in the row actions (hover-revealed); a locked agent also
+   shows a persistent .sidebar-agent-lock-indicator on the left, so the toggle
+   itself only needs the accent treatment to read as locked. */
+.sidebar-lock-toggle.is-locked {
+  color: var(--accent);
+}
+
+/* A locked agent's delete button is disabled until the agent is unlocked. */
+.sidebar-icon-button:disabled {
+  opacity: 0.3;
+  cursor: default;
+}
+
+.sidebar-icon-button:disabled:hover {
+  background: transparent;
+  color: var(--text-muted);
+}
+
 .sidebar-action-button {
   min-height: var(--control-height);
 }

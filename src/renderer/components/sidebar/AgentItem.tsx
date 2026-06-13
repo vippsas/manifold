@@ -1,6 +1,8 @@
 import React, { useCallback, useState } from 'react'
 import type { AgentSession } from '../../../shared/types'
 import { sidebarStyles } from './ProjectSidebar.styles'
+import { LockToggleButton } from './LockToggleButton'
+import { LockGlyph } from './LockGlyph'
 
 const RUNTIME_LABELS: Record<string, string> = {
   claude: 'Claude',
@@ -141,6 +143,16 @@ export function AgentItem({ session, projectPath, isActive, isOutputting, onSele
             ◐
           </span>
         )}
+        {session.locked && (
+          <span
+            aria-label="Locked"
+            title="Locked — unlock to delete"
+            className="sidebar-agent-lock-indicator"
+            style={{ marginRight: 4, display: 'inline-flex', alignItems: 'center', color: 'var(--accent)' }}
+          >
+            <LockGlyph locked />
+          </span>
+        )}
         {editing ? (
           <input
             ref={focusAndSelect}
@@ -168,6 +180,7 @@ export function AgentItem({ session, projectPath, isActive, isOutputting, onSele
           </span>
         )}
         <div className="sidebar-item-actions">
+          <LockToggleButton sessionId={session.id} locked={!!session.locked} name={primaryLabel} />
           {onRename && (
             <button
               type="button"
@@ -185,10 +198,11 @@ export function AgentItem({ session, projectPath, isActive, isOutputting, onSele
             type="button"
             onClick={handleDelete}
             onKeyDown={stopKeyPropagation}
+            disabled={!!session.locked}
             className="sidebar-icon-button"
             style={sidebarStyles.agentDeleteButton}
-            aria-label={`Delete ${primaryLabel}`}
-            title="Delete task"
+            aria-label={session.locked ? `${primaryLabel} is locked — unlock to delete` : `Delete ${primaryLabel}`}
+            title={session.locked ? 'Locked — unlock to delete' : 'Delete task'}
           >
             &times;
           </button>

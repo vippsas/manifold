@@ -116,6 +116,7 @@ export class SessionDiscovery {
           workspaceId: meta?.workspaceId,
           workspaceWorktreePaths: meta?.workspaceWorktreePaths,
           nonInteractive: meta?.nonInteractive,
+          locked: meta?.locked,
         }
         this.sessions.set(session.id, session)
         this.adoptForVerdict(session, project.baseBranch)
@@ -156,6 +157,7 @@ export class SessionDiscovery {
             additionalDirs: meta?.additionalDirs ?? [],
             noWorktree: true,
             nonInteractive: meta?.nonInteractive ?? true,
+            locked: meta?.locked,
           }
           this.sessions.set(session.id, session)
         }
@@ -238,6 +240,7 @@ export class SessionDiscovery {
               additionalDirs: meta?.additionalDirs ?? [],
               noWorktree: true,
               nonInteractive: meta?.nonInteractive ?? true,
+              locked: meta?.locked,
             }
             this.sessions.set(session.id, session)
           }
