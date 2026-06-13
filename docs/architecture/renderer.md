@@ -46,8 +46,10 @@ incomplete) or `OnboardingView` (no projects) before rendering the full workspac
 (`components/editor/editor-shell/dock-panels.tsx:17`); the id→component table is the authoritative
 panel set. `DockAppState` is published to every panel through `DockStateContext`
 (`AppShell.tsx:123`), so panels read props via `useDockState()` rather than prop-drilling.
-Tab headers use `DockTab`; empty groups show `EmptyWatermark`; the left/right header-action
-slots host `ShellHeaderActions` and `WorkspaceHeaderActions`. The default arrangement is
+Tab headers use `DockTab`; empty groups show `EmptyWatermark`; the left header-action slot
+hosts `LeftHeaderActions` (shell controls plus the agent group's "add agent on this
+worktree" button) and the right slot `RightHeaderActions` (workspace actions + sidebar
+collapse) (`components/editor/editor-shell/SidebarCollapseAction.tsx:66`, `:89`). The default arrangement is
 `projects | agent | (fileTree+modifiedFiles)` at a 1:4:1 width ratio
 (`hooks/dock-layout/dock-layout-builders.ts:8`). All add/remove/focus/split/resize logic
 lives in the `hooks/dock-layout/` subsystem behind `useDockLayout`, whose return value is
