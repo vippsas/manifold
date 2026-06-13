@@ -1,7 +1,6 @@
 import React from 'react'
 import type { IDockviewPanelHeaderProps } from 'dockview'
 import { DockStateContext } from './components/editor/editor-shell/dock-panel-types'
-import { AddSiblingAgentButton } from './components/editor/editor-shell/AddSiblingAgentButton'
 import { parseSiblingSessionId } from './hooks/agent-siblings'
 
 export function DockTab({ api }: IDockviewPanelHeaderProps): React.JSX.Element {
@@ -26,23 +25,12 @@ export function DockTab({ api }: IDockviewPanelHeaderProps): React.JSX.Element {
   const roleLabel = isWorkspaceTab ? 'W' : null
   const roleTitle = isWorkspaceTab ? 'Workspace' : null
   const roleClassName = isWorkspaceTab ? 'dock-tab__role dock-tab__role--workspace' : null
-  const showAddSibling = api.id === 'agent'
-    && state != null
-    && (state.activeSessionStatus === 'running' || state.activeSessionStatus === 'waiting')
   return (
     <div className="dock-tab">
       {roleLabel && roleClassName && (
         <span className={roleClassName} title={roleTitle ?? undefined}>{roleLabel}</span>
       )}
       <span className="dock-tab__label truncate">{displayTitle}</span>
-      {showAddSibling && state && (
-        <AddSiblingAgentButton
-          projectId={state.activeProjectId}
-          worktreePath={state.activeSessionWorktreePath}
-          noWorktree={state.activeSessionNoWorktree}
-          onLaunch={state.onLaunchAgent}
-        />
-      )}
       <button
         type="button"
         onClick={(e) => { e.stopPropagation(); state?.onClosePanel(api.id) }}

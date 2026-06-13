@@ -2,6 +2,8 @@ import React from 'react'
 import type { IDockviewHeaderActionsProps } from 'dockview'
 import { DockStateContext } from './dock-panel-types'
 import { WorkspaceHeaderActions } from './WorkspaceHeaderActions'
+import { AddSiblingAgentButton } from './AddSiblingAgentButton'
+import { ShellHeaderActions } from '../../terminal/ShellHeaderActions'
 
 /** The standard "toggle side panel" glyph — a panel outline with the edge column
  *  (the sidebar) filled, mirrored to the side being collapsed. */
@@ -53,6 +55,30 @@ export function PrefixHeaderActions(props: IDockviewHeaderActionsProps): React.J
   return (
     <div style={{ display: 'flex', alignItems: 'center' }}>
       <SidebarCollapseAction side="right" panels={props.panels} />
+    </div>
+  )
+}
+
+/** Left header-action slot (rendered right after the tabs): the shell controls
+ *  (self-gated to the shell panel) plus the "add agent on this worktree" button,
+ *  shown in the group that owns the agent panel while its session is live — the
+ *  agent tab's counterpart to the shell tab's "+", just outside the tab. */
+export function LeftHeaderActions(props: IDockviewHeaderActionsProps): React.JSX.Element {
+  const state = React.useContext(DockStateContext)
+  const showAddSibling = props.panels.some((panel) => panel.id === 'agent')
+    && state != null
+    && (state.activeSessionStatus === 'running' || state.activeSessionStatus === 'waiting')
+  return (
+    <div style={{ display: 'flex', alignItems: 'center' }}>
+      <ShellHeaderActions {...props} />
+      {showAddSibling && state && (
+        <AddSiblingAgentButton
+          projectId={state.activeProjectId}
+          worktreePath={state.activeSessionWorktreePath}
+          noWorktree={state.activeSessionNoWorktree}
+          onLaunch={state.onLaunchAgent}
+        />
+      )}
     </div>
   )
 }

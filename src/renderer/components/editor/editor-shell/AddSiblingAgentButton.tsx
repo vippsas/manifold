@@ -71,8 +71,11 @@ export function AddSiblingAgentButton({
         ref={buttonRef}
         type="button"
         onClick={(e) => { e.stopPropagation(); setOpen((prev) => !prev) }}
-        className="dock-tab__close"
+        className="dock-header-collapse"
+        style={{ fontSize: '15px', lineHeight: 1 }}
         aria-label="Add agent on this worktree"
+        aria-haspopup="menu"
+        aria-expanded={open}
         title="Add agent on this worktree"
       >
         +
