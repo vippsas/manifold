@@ -229,6 +229,7 @@ export function ChatPane({ messages, onSend, onInterrupt, isThinking, durationMs
           )}
           <textarea
             ref={inputRef}
+            className="reticle-input"
             style={styles.input}
             rows={1}
             value={input}
@@ -240,6 +241,7 @@ export function ChatPane({ messages, onSend, onInterrupt, isThinking, durationMs
           />
         </div>
         <button
+          className={isThinking ? undefined : 'btn-metal'}
           style={isThinking ? styles.interruptButton : styles.sendButton}
           onClick={isThinking ? onInterrupt : handleSend}
           aria-label={isThinking ? 'Stop' : 'Send'}
