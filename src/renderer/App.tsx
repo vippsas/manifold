@@ -155,6 +155,12 @@ export function App(): React.JSX.Element {
     })
   }, [])
 
+  const setAgentLocked = useCallback((sessionId: string, locked: boolean): void => {
+    void window.electronAPI.invoke('agent:set-locked', sessionId, locked).catch((err) => {
+      console.error('[App] failed to set agent locked:', err)
+    })
+  }, [])
+
   const fetchProject = useFetchProject(handleFetchSuccess)
   const overlays = useAppOverlays(gitOps.commit, refreshDiff, spawnAgent, deleteAgent, removeSession, updateSettings, setActiveSession, setActiveProject, activeProjectId)
   const { themeId, themeClass, xtermTheme, setPreviewThemeId } = useTheme(settings.theme)
@@ -292,7 +298,7 @@ export function App(): React.JSX.Element {
       setActiveWorkspaceId(workspaceIdBySession[sessionId] ?? null)
       overlays.handleSelectSession(sessionId, projectId)
     },
-    onRemoveProject: removeProject, onUpdateProject: updateProject, onRenameAgent: renameAgent, onRequestDeleteAgent: overlays.requestDeleteAgent,
+    onRemoveProject: removeProject, onUpdateProject: updateProject, onRenameAgent: renameAgent, onToggleLocked: setAgentLocked, onRequestDeleteAgent: overlays.requestDeleteAgent,
     onNewAgentFromHeader: () => {
       if (activeWorkspaceId) {
         const ws = workspaces.find((w) => w.id === activeWorkspaceId)

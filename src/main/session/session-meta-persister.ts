@@ -13,6 +13,7 @@ export function persistSessionMeta(session: InternalSession): void {
     workspaceId: session.workspaceId,
     workspaceWorktreePaths: session.workspaceWorktreePaths,
     nonInteractive: session.nonInteractive,
+    locked: session.locked,
   }).catch((err) => {
     console.error(
       `[session-meta-persister] writeWorktreeMeta failed for ${session.id} (${session.worktreePath}) — nonInteractive=${session.nonInteractive} may be lost on next launch:`,

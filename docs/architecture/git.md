@@ -1,7 +1,7 @@
 ---
 description: How Manifold creates, lists, and removes git worktrees, checks out branches/PRs, persists per-session worktree meta, and runs raw git/gh for commits, diffs, and PR creation.
 covers: [src/main/git]
-updated: 2026-06-12
+updated: 2026-06-13
 owner: see .github/CODEOWNERS
 ---
 
@@ -70,7 +70,8 @@ succeeds makes that failure recoverable, and the worktree being gone is what sto
 
 **Worktree meta.** The `WorktreeMeta` record (`worktree-meta.ts:3`) holds `runtimeId`,
 `displayName`, `taskDescription`, simple-mode template fields, `additionalDirs`,
-`ollamaModel`, workspace fields, and `nonInteractive`. It is stored *next to* the worktree
+`ollamaModel`, workspace fields, `nonInteractive`, and `locked` (the deletion-protection
+flag). It is stored *next to* the worktree
 directory as `<worktreePath>.manifold.json` (`metaPath`, `worktree-meta.ts:18`), not inside
 it, so it survives `git worktree remove` and isn't picked up by git. Reads swallow errors and
 return `null` (`worktree-meta.ts:29`). This sidecar is the source of truth that lets the

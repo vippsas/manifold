@@ -12,6 +12,8 @@ export interface WorktreeMeta {
   /** projectId -> worktree path for the workspace agent's full working set (for teardown). */
   workspaceWorktreePaths?: Record<string, string>
   nonInteractive?: boolean
+  /** When true, the agent is protected from deletion until explicitly unlocked. */
+  locked?: boolean
 }
 
 /** Meta file stored as a sibling to the worktree directory, not inside it. */

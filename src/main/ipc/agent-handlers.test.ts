@@ -214,4 +214,78 @@ describe('registerAgentHandlers — kill, rename, delete-app', () => {
     expect(deps.dismissedAgents.deleteProject).toHaveBeenCalledWith('proj-1')
     expect(deps.projectRegistry.removeProject).toHaveBeenCalledWith('proj-1')
   })
+
+  it('agent:set-locked sets the locked flag through the session manager', async () => {
+    const { registerAgentHandlers } = await import('./agent-handlers')
+    const deps = {
+      sessionManager: {
+        listSessions: vi.fn(() => []),
+        setSessionLocked: vi.fn(async () => ({
+          id: 'sess-1',
+          projectId: 'proj-1',
+          runtimeId: 'codex',
+          branchName: 'manifold/oslo',
+          worktreePath: '/wt',
+          status: 'running',
+          pid: 1,
+          additionalDirs: [],
+          locked: true,
+        })),
+      },
+      fileWatcher: { unwatch: vi.fn(), watch: vi.fn() },
+      viewStateStore: { delete: vi.fn() },
+    }
+
+    registerAgentHandlers(deps as never)
+    const handler = mocks.handlers.get('agent:set-locked')
+    if (!handler) throw new Error('agent:set-locked handler was not registered')
+
+    const result = await handler({}, 'sess-1', true)
+    expect(deps.sessionManager.setSessionLocked).toHaveBeenCalledWith('sess-1', true)
+    expect(result).toMatchObject({ locked: true })
+  })
+
+  it('agent:kill refuses to delete a locked agent', async () => {
+    const { registerAgentHandlers } = await import('./agent-handlers')
+    const deps = {
+      sessionManager: {
+        listSessions: vi.fn(() => []),
+        getSession: vi.fn(() => ({ id: 'sess-1', worktreePath: '/wt', noWorktree: false, locked: true })),
+        hasSession: vi.fn(() => true),
+        killSession: vi.fn(async () => undefined),
+      },
+      fileWatcher: { unwatch: vi.fn(async () => undefined), watch: vi.fn() },
+      viewStateStore: { delete: vi.fn() },
+      dockLayoutStore: { delete: vi.fn() },
+    }
+
+    registerAgentHandlers(deps as never)
+    const handler = mocks.handlers.get('agent:kill')
+    if (!handler) throw new Error('agent:kill handler was not registered')
+
+    await expect(handler({}, 'sess-1')).rejects.toThrow('locked')
+    expect(deps.sessionManager.killSession).not.toHaveBeenCalled()
+    expect(deps.viewStateStore.delete).not.toHaveBeenCalled()
+  })
+
+  it('agent:kill-worktree refuses when a session on the worktree is locked', async () => {
+    const { registerAgentHandlers } = await import('./agent-handlers')
+    const deps = {
+      sessionManager: {
+        listSessions: vi.fn(() => [{ id: 'sess-1', worktreePath: '/wt', locked: true }]),
+        killAllSessionsOnWorktree: vi.fn(async () => undefined),
+      },
+      fileWatcher: { unwatch: vi.fn(async () => undefined), watch: vi.fn() },
+      viewStateStore: { delete: vi.fn() },
+      dockLayoutStore: { delete: vi.fn() },
+    }
+
+    registerAgentHandlers(deps as never)
+    const handler = mocks.handlers.get('agent:kill-worktree')
+    if (!handler) throw new Error('agent:kill-worktree handler was not registered')
+
+    await expect(handler({}, '/wt')).rejects.toThrow('locked')
+    expect(deps.fileWatcher.unwatch).not.toHaveBeenCalled()
+    expect(deps.sessionManager.killAllSessionsOnWorktree).not.toHaveBeenCalled()
+  })
 })

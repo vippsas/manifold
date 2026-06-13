@@ -371,4 +371,32 @@ describe('SessionManager — create / input / queries', () => {
       )
     })
   })
+
+  describe('setSessionLocked', () => {
+    it('toggles the locked flag and notifies renderers', async () => {
+      const window = {
+        isDestroyed: vi.fn(() => false),
+        webContents: { send: vi.fn() },
+      }
+      sessionManager.setMainWindow(window as never)
+      await sessionManager.createSession({
+        projectId: 'proj-1',
+        runtimeId: 'claude',
+        prompt: 'test',
+      })
+
+      const locked = await sessionManager.setSessionLocked('session-uuid-1', true)
+      expect(locked.locked).toBe(true)
+      expect(sessionManager.getSession('session-uuid-1')?.locked).toBe(true)
+      expect(window.webContents.send).toHaveBeenCalledWith('agent:sessions-changed', { projectId: 'proj-1' })
+
+      const unlocked = await sessionManager.setSessionLocked('session-uuid-1', false)
+      expect(unlocked.locked).toBe(false)
+      expect(sessionManager.getSession('session-uuid-1')?.locked).toBe(false)
+    })
+
+    it('rejects an unknown session', async () => {
+      await expect(sessionManager.setSessionLocked('nope', true)).rejects.toThrow('Session not found')
+    })
+  })
 })
