@@ -8,8 +8,9 @@ const SIDE_PANEL_ID: Record<SidebarSide, string> = { left: 'projects', right: 'f
 
 // Fractions of the window width the double-click cycle steps through, in order.
 // The default layout starts a sidebar at 1/6, so the first double-click moves
-// it to 2/6, then 3/6, then collapses it, then back to the 1/6 default.
-const CYCLE = [1 / 6, 2 / 6, 3 / 6, 0]
+// it to 2/6, then 3/6, then back to the 1/6 default. Full collapse lives on the
+// dedicated per-sidebar collapse button, so 0 is deliberately never a step here.
+const CYCLE = [1 / 6, 2 / 6, 3 / 6]
 
 // How close (px) a sash's center must sit to a sidebar edge to count as that
 // sidebar's grab handle. Keeps center/editor/shell sashes from triggering it.
@@ -18,8 +19,8 @@ const EDGE_THRESHOLD_PX = 12
 /**
  * Given a sidebar's current width fraction, return the next fraction in the
  * cycle. Snaps to the nearest cycle step first, so a manually dragged sidebar
- * still advances sensibly. When `reversed`, walks the cycle the other way, so
- * the first double-click collapses (1/6 → 0 → 3/6 → 2/6 → 1/6).
+ * still advances sensibly. When `reversed`, walks the cycle the other way
+ * (1/6 → 3/6 → 2/6 → 1/6).
  */
 export function nextSidebarFraction(currentFraction: number, reversed = false): number {
   const nearest = CYCLE.reduce(
@@ -163,10 +164,11 @@ export interface UseSidebarHandleCycleResult {
 /**
  * Wires the two sidebar gestures:
  * - A single click on a collapsed sidebar's edge rail reopens it, restoring its
- *   remembered pre-collapse width (or the 1/6 default when it was collapsed by
- *   the width cycle rather than the header button).
+ *   remembered pre-collapse width (or the 1/6 default when none was remembered,
+ *   e.g. after a manual drag to the edge).
  * - Double-clicking a sidebar grab handle cycles its width through
- *   1/6 → 2/6 → 3/6 → 0 → 1/6 of the window (or the reverse when `reversed`).
+ *   1/6 → 2/6 → 3/6 → 1/6 of the window (or the reverse when `reversed`); it
+ *   never collapses to 0 — full collapse is the header collapse button.
  *
  * Also returns a `collapseSidebar` callback the header buttons use to collapse a
  * sidebar to 0.
