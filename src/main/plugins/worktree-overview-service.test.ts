@@ -20,6 +20,9 @@ function deps(over: Partial<WorktreeOverviewDeps> = {}): WorktreeOverviewDeps {
     readMeta: async () => ({ runtimeId: 'claude' }),
     removeWorktree: async () => {},
     pathExists: () => true,
+    listMergedBranches: async () => [],
+    listWorktreeBranches: async () => [],
+    getBranchDates: async () => ({}),
     ...over,
   }
 }
@@ -123,5 +126,28 @@ describe('worktree-overview-service.pruneStale', () => {
     const result = await svc.pruneStale()
     expect(removed).toEqual(['/wt/gone'])
     expect(result).toEqual(['/wt/gone'])
+  })
+})
+
+describe('worktree-overview-service.listMergedOrphanBranches', () => {
+  it('returns merged branches with no worktree, excluding the base branch', async () => {
+    const svc = createWorktreeOverviewService(deps({
+      listMergedBranches: async () => ['main', 'feat/done', 'feat/active'],
+      listWorktreeBranches: async () => ['main', 'feat/active'],
+      getBranchDates: async () => ({ 'feat/done': '2026-03-15T00:00:00Z' }),
+    }))
+    const branches = await svc.listMergedOrphanBranches()
+    expect(branches.map((b) => b.branch)).toEqual(['feat/done'])
+    expect(branches[0].projectName).toBe('manifold')
+    expect(branches[0].lastCommitISO).toBe('2026-03-15T00:00:00Z')
+  })
+
+  it('ignores non-git projects', async () => {
+    const svc = createWorktreeOverviewService(deps({
+      listProjects: () => [project({ id: 'p2', name: 'plain', path: '/repos/plain', kind: 'folder' })],
+      listMergedBranches: async () => ['feat/x'],
+      listWorktreeBranches: async () => [],
+    }))
+    expect(await svc.listMergedOrphanBranches()).toEqual([])
   })
 })

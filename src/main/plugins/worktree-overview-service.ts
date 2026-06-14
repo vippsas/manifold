@@ -1,5 +1,5 @@
 import type { Project, AgentSession, AheadBehind } from '../../shared/types'
-import type { WorktreeOverviewEntry, WorktreeStatus } from '../../shared/plugins/api-types'
+import type { WorktreeOverviewEntry, WorktreeStatus, BranchOverviewEntry } from '../../shared/plugins/api-types'
 import type { WorktreeInfo } from '../git/worktree-manager'
 import type { WorktreeMeta } from '../git/worktree-meta'
 import { isGitProject } from '../../shared/project-kind'
@@ -14,12 +14,16 @@ export interface WorktreeOverviewDeps {
   readMeta(worktreePath: string): Promise<WorktreeMeta | null>
   removeWorktree(projectPath: string, worktreePath: string): Promise<void>
   pathExists(p: string): boolean
+  listMergedBranches(projectPath: string, baseBranch: string): Promise<string[]>
+  listWorktreeBranches(projectPath: string): Promise<string[]>
+  getBranchDates(projectPath: string): Promise<Record<string, string>>
 }
 
 export interface WorktreeOverviewService {
   list(): Promise<WorktreeOverviewEntry[]>
   remove(worktreePath: string, opts?: { force?: boolean }): Promise<void>
   pruneStale(): Promise<string[]>
+  listMergedOrphanBranches(): Promise<BranchOverviewEntry[]>
 }
 
 export function createWorktreeOverviewService(deps: WorktreeOverviewDeps): WorktreeOverviewService {
@@ -96,6 +100,32 @@ export function createWorktreeOverviewService(deps: WorktreeOverviewDeps): Workt
         }
       }
       return removed
+    },
+
+    async listMergedOrphanBranches(): Promise<BranchOverviewEntry[]> {
+      const out: BranchOverviewEntry[] = []
+      for (const project of gitProjects()) {
+        let merged: string[]
+        let inUse: string[]
+        let dates: Record<string, string>
+        try {
+          merged = await deps.listMergedBranches(project.path, project.baseBranch)
+          inUse = await deps.listWorktreeBranches(project.path)
+          dates = await deps.getBranchDates(project.path)
+        } catch { continue }
+        const inUseSet = new Set(inUse)
+        for (const branch of merged) {
+          if (branch === project.baseBranch) continue
+          if (inUseSet.has(branch)) continue
+          out.push({
+            projectId: project.id,
+            projectName: project.name,
+            branch,
+            lastCommitISO: dates[branch] ?? null,
+          })
+        }
+      }
+      return out
     },
   }
 }

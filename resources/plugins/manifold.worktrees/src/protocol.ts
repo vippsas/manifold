@@ -1,7 +1,7 @@
-import type { WorktreeOverviewEntry } from 'manifold'
+import type { WorktreeOverviewEntry, BranchOverviewEntry } from 'manifold'
 
 /** host → webview */
-export type HostMsg = { type: 'init'; entries: WorktreeOverviewEntry[]; error?: string | null }
+export type HostMsg = { type: 'init'; entries: WorktreeOverviewEntry[]; branches: BranchOverviewEntry[]; error?: string | null }
 
 /** webview → host */
 export type WebviewMsg = { type: 'ready' } | { type: 'refresh' }

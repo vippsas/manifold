@@ -126,6 +126,14 @@ export interface WorktreeOverviewEntry {
   locked: boolean
 }
 
+/** A local branch with no worktree that is already merged into its repo's base branch. */
+export interface BranchOverviewEntry {
+  projectId: string
+  projectName: string
+  branch: string
+  lastCommitISO: string | null
+}
+
 /** The `manifold` module surface (Phase 1b: commands only). */
 export interface ManifoldApi {
   commands: {
@@ -184,6 +192,8 @@ export interface ManifoldApi {
     remove(worktreePath: string, opts?: { force?: boolean }): Promise<void>
     /** [workspace:manage] Remove all stale (directory-gone) managed worktrees; returns removed paths. */
     pruneStale(): Promise<string[]>
+    /** [workspace:manage] Local branches with no worktree, already merged into base — safe-to-delete leftovers. */
+    listBranches(): Promise<BranchOverviewEntry[]>
   }
 }
 

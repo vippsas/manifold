@@ -1,9 +1,10 @@
-import type { WebviewView, WebviewViewProvider, WorktreeOverviewEntry } from 'manifold'
+import type { WebviewView, WebviewViewProvider, WorktreeOverviewEntry, BranchOverviewEntry } from 'manifold'
 import { isWebviewMsg } from './protocol'
 
 export interface WorktreesHostOptions {
   readBundle: () => string
   list: () => Promise<WorktreeOverviewEntry[]>
+  listBranches: () => Promise<BranchOverviewEntry[]>
 }
 
 /** Inline the IIFE bundle as a script tag (escaping `</script>` so the parser can't break out). */
@@ -23,8 +24,12 @@ export function createWebviewHost(opts: WorktreesHostOptions): { provider: Webvi
   const post = (msg: unknown): void => { view?.webview.postMessage(msg) }
 
   const sendInit = async (): Promise<void> => {
-    try { post({ type: 'init', entries: await opts.list(), error: null }) }
-    catch (e) { post({ type: 'init', entries: [], error: (e as Error).message }) }
+    try {
+      const [entries, branches] = await Promise.all([opts.list(), opts.listBranches()])
+      post({ type: 'init', entries, branches, error: null })
+    } catch (e) {
+      post({ type: 'init', entries: [], branches: [], error: (e as Error).message })
+    }
   }
 
   const provider: WebviewViewProvider = {

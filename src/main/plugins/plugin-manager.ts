@@ -12,6 +12,7 @@ import { createLmService } from './lm-service'
 import { createAgentSpawnService } from './agent-spawn-service'
 import { createWorktreeOverviewService } from './worktree-overview-service'
 import { getWorktreeDirty, getWorktreeLastCommitISO } from '../git/worktree-status'
+import { listMergedBranches, listWorktreeBranches, getBranchDates } from '../git/branch-status'
 import { readWorktreeMeta } from '../git/worktree-meta'
 import type { SessionManager } from '../session/session-manager'
 import type { GitOperationsManager } from '../git/git-operations'
@@ -85,6 +86,9 @@ export class PluginManager {
       readMeta: (wt) => readWorktreeMeta(wt),
       removeWorktree: (proj, wt) => worktreeManager.removeWorktree(proj, wt),
       pathExists: (p) => fs.existsSync(p),
+      listMergedBranches: (proj, base) => listMergedBranches(proj, base),
+      listWorktreeBranches: (proj) => listWorktreeBranches(proj),
+      getBranchDates: (proj) => getBranchDates(proj),
     })
     this.host = new ExtensionHost(new PluginStorageStore(storagePath), agentControl, lm, agentSpawn, worktreeOverview)
     this.host.setConfigResolver((id, key) => this.getConfigValue(id, key))
