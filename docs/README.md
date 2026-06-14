@@ -42,6 +42,7 @@ handful of cross-cutting pages. `covers:` is the code each page is bound to.
 | [Workspace](architecture/workspace.md) | `src/main/workspace` | Multi-repo Workspaces: one agent across several repos via per-runtime `--add-dir` worktrees |
 | [Agent (runtimes & PTY)](architecture/agent.md) | `src/main/agent` | AI runtime registry, interactive vs print-mode command building, theme/ANSI sync, and the PtyPool process boundary |
 | [Memory](architecture/memory.md) | `src/main/memory` | Per-project SQLite session memory: capture interactions, compress to observations/summaries, search |
+| [Notifications](architecture/notifications.md) | `src/main/notifications` | Native macOS desktop notifications on agent lifecycle transitions — policy, notifier, IPC wiring, and settings |
 | [Search](architecture/search.md) | `src/main/search` | Cross-session code/file/memory search with literal-vs-regex matching and an optional AI rerank/answer layer |
 | [Provisioning](architecture/provisioning.md) | `src/main/provisioning` | Main-process host that spawns provisioner CLIs over stdin/stdout and turns results into projects |
 | [Plugins (host)](architecture/plugins.md) | `src/main/plugins`, `src/plugin-host` | How the main process discovers, loads, capability-gates, and tears down plugins via a forked host |

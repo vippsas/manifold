@@ -195,6 +195,25 @@ describe('SettingsStore', () => {
       expect(editor?.minimap).toBe(DEFAULT_SETTINGS.editor?.minimap)
       expect(editor?.tabSize).toBe(DEFAULT_SETTINGS.editor?.tabSize)
     })
+
+    it('fills in default notification settings when absent', () => {
+      mockExistsSync.mockReturnValue(false)
+      const store = new SettingsStore()
+      expect(store.getSettings().notifications).toEqual(DEFAULT_SETTINGS.notifications)
+    })
+
+    it('deep-merges partial notification settings with defaults', () => {
+      mockExistsSync.mockReturnValue(true)
+      mockReadFileSync.mockReturnValue(JSON.stringify({ notifications: { onWaiting: false } }))
+
+      const store = new SettingsStore()
+      const n = store.getSettings().notifications
+      expect(n?.onWaiting).toBe(false)
+      expect(n?.enabled).toBe(DEFAULT_SETTINGS.notifications?.enabled)
+      expect(n?.onDone).toBe(DEFAULT_SETTINGS.notifications?.onDone)
+      expect(n?.onError).toBe(DEFAULT_SETTINGS.notifications?.onError)
+      expect(n?.scope).toBe(DEFAULT_SETTINGS.notifications?.scope)
+    })
   })
 
   describe('updateSettings', () => {

@@ -1,6 +1,6 @@
 import React from 'react'
 import type { ProvisionerConfig, ProvisionerStatus } from '../../../../shared/provisioning-types'
-import type { SearchAiSettings, EditorSettings, ShellPromptSegments } from '../../../../shared/types'
+import type { NotificationSettings, SearchAiSettings, EditorSettings, ShellPromptSegments } from '../../../../shared/types'
 import type { AiServiceSettings } from '../../../../shared/plugins/api-types'
 import { modalStyles } from '../SettingsModal.styles'
 import { SearchAiSettingsSection } from './SearchAiSettingsSection'
@@ -44,6 +44,8 @@ interface Props {
   onPickerToggle: (open: boolean) => void
   notificationSound: boolean
   onNotificationSoundChange: (enabled: boolean) => void
+  notifications: NotificationSettings
+  onNotificationsChange: (value: NotificationSettings) => void
   shellHistoryScope: 'project' | 'global'
   onShellHistoryScopeChange: (scope: 'project' | 'global') => void
   shellPromptSegments: ShellPromptSegments

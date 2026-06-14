@@ -52,6 +52,13 @@ export const DEFAULT_SETTINGS = {
   transcription: {
     provider: 'none',
   },
+  notifications: {
+    enabled: true,
+    onDone: true,
+    onWaiting: true,
+    onError: true,
+    scope: 'non-active',
+  },
   pluginConfig: {},
   // The hello-world sample plugins (the 3 bundled demos + the mark-wiemer.helloworld-2022
   // VS Code sample) ship disabled by default; users can enable them in Settings → Plugins.

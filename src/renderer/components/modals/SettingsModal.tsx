@@ -23,6 +23,7 @@ export function SettingsModal({ visible, settings, onSave, onClose, onPreviewThe
   const [defaultBaseBranch, setDefaultBaseBranch] = useState(settings.defaultBaseBranch)
   const [storagePath, setStoragePath] = useState(settings.storagePath)
   const [notificationSound, setNotificationSound] = useState(settings.notificationSound)
+  const [notifications, setNotifications] = useState(settings.notifications ?? DEFAULT_SETTINGS.notifications)
   const [shellHistoryScope, setShellHistoryScope] = useState(settings.shellHistoryScope)
   const [shellPromptSegments, setShellPromptSegments] = useState(settings.shellPromptSegments ?? DEFAULT_SETTINGS.shellPromptSegments)
   const [autoGenerateMessages, setAutoGenerateMessages] = useState(settings.autoGenerateMessages)
@@ -54,6 +55,7 @@ export function SettingsModal({ visible, settings, onSave, onClose, onPreviewThe
     setDefaultBaseBranch(settings.defaultBaseBranch)
     setStoragePath(settings.storagePath)
     setNotificationSound(settings.notificationSound)
+    setNotifications(settings.notifications ?? DEFAULT_SETTINGS.notifications)
     setShellHistoryScope(settings.shellHistoryScope)
     setShellPromptSegments(settings.shellPromptSegments ?? DEFAULT_SETTINGS.shellPromptSegments)
     setAutoGenerateMessages(settings.autoGenerateMessages)
@@ -84,6 +86,7 @@ export function SettingsModal({ visible, settings, onSave, onClose, onPreviewThe
       defaultBaseBranch,
       storagePath,
       notificationSound,
+      notifications,
       shellHistoryScope,
       shellPromptSegments,
       autoGenerateMessages,
@@ -95,7 +98,7 @@ export function SettingsModal({ visible, settings, onSave, onClose, onPreviewThe
       transcription,
     })
     onClose()
-  }, [defaultRuntime, theme, scrollbackLines, terminalFontFamily, defaultBaseBranch, storagePath, notificationSound, shellHistoryScope, shellPromptSegments, autoGenerateMessages, showCommitAndPrButtons, sidebarResizeReversed, searchAiSettings, editorSettings, provisioners, transcription, onSave, onClose])
+  }, [defaultRuntime, theme, scrollbackLines, terminalFontFamily, defaultBaseBranch, storagePath, notificationSound, notifications, shellHistoryScope, shellPromptSegments, autoGenerateMessages, showCommitAndPrButtons, sidebarResizeReversed, searchAiSettings, editorSettings, provisioners, transcription, onSave, onClose])
 
   if (!visible) return null
 
@@ -135,6 +138,8 @@ export function SettingsModal({ visible, settings, onSave, onClose, onPreviewThe
           onPickerToggle={setPickerOpen}
           notificationSound={notificationSound}
           onNotificationSoundChange={setNotificationSound}
+          notifications={notifications}
+          onNotificationsChange={setNotifications}
           shellHistoryScope={shellHistoryScope}
           onShellHistoryScopeChange={setShellHistoryScope}
           shellPromptSegments={shellPromptSegments}

@@ -133,6 +133,7 @@ const ALLOWED_INVOKE_CHANNELS = [
 
 const ALLOWED_SEND_CHANNELS = [
   'theme:changed',
+  'notifications:active-session',
 ] as const
 
 const ALLOWED_LISTEN_CHANNELS = [
@@ -163,6 +164,7 @@ const ALLOWED_LISTEN_CHANNELS = [
   'plugins:ui-request',
   'plugins:contributions-changed',
   'plugins:reveal-session',
+  'notification:open-session',
 ] as const
 
 type InvokeChannel = (typeof ALLOWED_INVOKE_CHANNELS)[number]
