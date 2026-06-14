@@ -54,6 +54,7 @@ export function useAgentSiblingDockTabs({
   onSelectRef.current = onSelectSession
   const primaryRef = useRef(primarySessionId)
   primaryRef.current = primarySessionId
+  const prevActiveSessionIdRef = useRef<string | null | undefined>(undefined)
 
   useEffect(() => {
     const api = apiRef.current
@@ -108,7 +109,15 @@ export function useAgentSiblingDockTabs({
       })
     }
 
-    if (activeSessionId && activeSessionId !== primarySessionId) {
+    // Only follow the active session into its dock tab when it actually
+    // changed (e.g. the user picked it in the sidebar). This effect also re-runs
+    // on unrelated changes — opening a file bumps layoutVersion, streaming
+    // output bumps `sessions` — and force-activating here would yank focus back
+    // to the agent terminal from the editor the user just opened (#296).
+    const activeSessionChanged = prevActiveSessionIdRef.current !== activeSessionId
+    prevActiveSessionIdRef.current = activeSessionId
+
+    if (activeSessionChanged && activeSessionId && activeSessionId !== primarySessionId) {
       // Don't force-activate grouped siblings (e.g. Watch playlist agents).
       // Their owner UI manages navigation; this auto-activate would snap the
       // user back every time sessions update (status changes, etc.).
