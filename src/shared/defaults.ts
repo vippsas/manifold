@@ -53,7 +53,7 @@ export const DEFAULT_SETTINGS = {
     provider: 'none',
   },
   notifications: {
-    enabled: true,
+    enabled: false,
     onDone: true,
     onWaiting: true,
     onError: true,

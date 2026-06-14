@@ -213,6 +213,40 @@ describe('SettingsModal', () => {
     expect(screen.queryByText('Storage Directory')).not.toBeInTheDocument()
   })
 
+  it('shows desktop notifications and the sound toggle on the dedicated Notifications tab', () => {
+    renderModal()
+
+    // Not on the General tab anymore.
+    expect(screen.queryByText('Desktop Notifications')).not.toBeInTheDocument()
+    expect(screen.queryByLabelText('Play sound when agent stops running')).not.toBeInTheDocument()
+
+    fireEvent.click(screen.getByRole('tab', { name: /Notifications/i }))
+
+    expect(screen.getByText('Desktop Notifications')).toBeInTheDocument()
+    expect(screen.getByLabelText('Play sound when agent stops running')).toBeInTheDocument()
+    expect(screen.queryByText('Storage Directory')).not.toBeInTheDocument()
+  })
+
+  it('saves notification settings and the sound toggle from the Notifications tab', () => {
+    const { props } = renderModal()
+
+    fireEvent.click(screen.getByRole('tab', { name: /Notifications/i }))
+    // Notifications are off by default, so the per-event checkboxes are disabled
+    // until the master toggle is enabled.
+    fireEvent.click(screen.getByLabelText('Enable desktop notifications'))
+    fireEvent.click(screen.getByLabelText('When an agent hits an error'))
+    fireEvent.click(screen.getByLabelText('Play sound when agent stops running'))
+
+    fireEvent.click(screen.getByText('Save'))
+
+    expect(props.onSave).toHaveBeenCalledWith(
+      expect.objectContaining({
+        notificationSound: false,
+        notifications: expect.objectContaining({ enabled: true, onError: false }),
+      }),
+    )
+  })
+
   it('saves updated search ai settings from the dedicated tab', () => {
     const { props } = renderModal()
 

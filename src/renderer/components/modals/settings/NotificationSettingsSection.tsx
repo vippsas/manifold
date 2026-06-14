@@ -1,11 +1,13 @@
 import React from 'react'
 import type { NotificationScope, NotificationSettings } from '../../../../shared/types'
 import { modalStyles } from '../SettingsModal.styles'
-import { SectionCard } from './SettingsSectionLayout'
+import { SectionCard, SectionHeader } from './SettingsSectionLayout'
 
 interface Props {
   value: NotificationSettings
   onChange: (value: NotificationSettings) => void
+  soundEnabled: boolean
+  onSoundChange: (enabled: boolean) => void
 }
 
 const SCOPE_OPTIONS: Array<{ id: NotificationScope; label: string }> = [
@@ -14,12 +16,17 @@ const SCOPE_OPTIONS: Array<{ id: NotificationScope; label: string }> = [
   { id: 'always', label: 'Always' },
 ]
 
-export function NotificationSettingsSection({ value, onChange }: Props): React.JSX.Element {
+export function NotificationSettingsSection({ value, onChange, soundEnabled, onSoundChange }: Props): React.JSX.Element {
   const set = (patch: Partial<NotificationSettings>): void => onChange({ ...value, ...patch })
   const dim = value.enabled ? {} : { opacity: 0.5 }
   const disabled = !value.enabled
 
   return (
+    <>
+    <SectionHeader
+      title="Notifications"
+      description="Native desktop notifications and sound cues for agent activity."
+    />
     <SectionCard
       title="Desktop Notifications"
       description="Native notifications when an agent finishes, needs input, or errors. macOS Focus / Do Not Disturb is respected automatically."
@@ -77,7 +84,17 @@ export function NotificationSettingsSection({ value, onChange }: Props): React.J
             ))}
           </select>
         </label>
+        <label style={{ ...modalStyles.checkboxField, ...modalStyles.fieldSpanFull }}>
+          <input
+            type="checkbox"
+            checked={soundEnabled}
+            onChange={(event) => onSoundChange(event.target.checked)}
+            style={modalStyles.checkboxInput}
+          />
+          Play sound when agent stops running
+        </label>
       </div>
     </SectionCard>
+    </>
   )
 }

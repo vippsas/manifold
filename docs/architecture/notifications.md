@@ -21,11 +21,12 @@ schedule. The subsystem has two files: a pure policy class that decides *whether
 
 Settings type, defaults, and merge:
 - `src/shared/types.ts` — `NotificationScope` (line 121), `NotificationSettings` (line 125), `ManifoldSettings.notifications` (line 149).
-- `src/shared/defaults.ts` — default values: `enabled: true`, all events on, `scope: 'non-active'` (line 55).
+- `src/shared/defaults.ts` — default values: `enabled: false` (off by default), all events on, `scope: 'non-active'` (line 55).
 - `src/main/store/settings-store.ts` — field-level merge in `resolveDefaults()` (line 45).
 
-Renderer settings card:
-- `src/renderer/components/modals/settings/NotificationSettingsSection.tsx`
+Renderer settings (its own **Notifications** tab in the Settings modal):
+- `src/renderer/components/modals/settings/NotificationSettingsSection.tsx` — rendered as a
+  dedicated tab, registered in `SettingsModalBody.tsx` (`SETTINGS_TABS`).
 
 ## How it works
 
@@ -127,12 +128,13 @@ In `src/renderer/hooks/useAppEffects.ts`:
 ### Settings
 
 `ManifoldSettings.notifications` (`NotificationSettings`) carries five fields: `enabled`,
-`onDone`, `onWaiting`, `onError`, `scope`. All default to on with `scope: 'non-active'`
-(`defaults.ts:55`). `resolveDefaults()` in `settings-store.ts` spreads the stored value
+`onDone`, `onWaiting`, `onError`, `scope`. The master `enabled` flag defaults to `false`
+(notifications are off until the user opts in); the per-event flags default to on with
+`scope: 'non-active'` (`defaults.ts:55`). `resolveDefaults()` in `settings-store.ts` spreads the stored value
 over the defaults field-by-field (`settings-store.ts:45`) so a config written before this
 field existed gets the defaults on next load. The UI card
-`NotificationSettingsSection.tsx` exposes a master toggle, per-event checkboxes, and a
-scope selector.
+`NotificationSettingsSection.tsx` exposes a master toggle, per-event checkboxes, a
+scope selector, and the "Play sound when agent stops running" toggle (`notificationSound`).
 
 ## Interactions
 

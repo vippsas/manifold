@@ -1,11 +1,10 @@
 import React, { useCallback } from 'react'
-import type { NotificationSettings, SearchAiSettings, ShellPromptSegments } from '../../../../shared/types'
+import type { SearchAiSettings, ShellPromptSegments } from '../../../../shared/types'
 import { getThemeList } from '../../../../shared/themes/registry'
 import { ThemePicker } from '../ThemePicker'
 import { modalStyles } from '../SettingsModal.styles'
 import { RUNTIME_OPTIONS } from './runtime-options'
 import { SectionCard, SectionHeader } from './SettingsSectionLayout'
-import { NotificationSettingsSection } from './NotificationSettingsSection'
 
 interface Props {
   storagePath: string
@@ -23,8 +22,6 @@ interface Props {
   onPreviewTheme?: (themeId: string | null) => void
   pickerOpen: boolean
   onPickerToggle: (open: boolean) => void
-  notificationSound: boolean
-  onNotificationSoundChange: (enabled: boolean) => void
   shellHistoryScope: 'project' | 'global'
   onShellHistoryScopeChange: (scope: 'project' | 'global') => void
   shellPromptSegments: ShellPromptSegments
@@ -36,8 +33,6 @@ interface Props {
   sidebarResizeReversed: boolean
   onSidebarResizeReversedChange: (enabled: boolean) => void
   searchAiSettings: SearchAiSettings
-  notifications: NotificationSettings
-  onNotificationsChange: (value: NotificationSettings) => void
 }
 
 export function GeneralSettingsSection(props: Props): React.JSX.Element {
@@ -113,10 +108,6 @@ export function GeneralSettingsSection(props: Props): React.JSX.Element {
               <input type="text" value={props.terminalFontFamily} onChange={(event) => props.onTerminalFontFamilyChange(event.target.value)} style={modalStyles.input} placeholder="SF Mono, Fira Code, Cascadia Code, Menlo" />
               <span style={modalStyles.helpText}>Set a Nerd Font (e.g. MesloLGS Nerd Font Mono) for oh-my-posh/Starship icons</span>
             </label>
-            <label style={{ ...modalStyles.checkboxField, ...modalStyles.fieldSpanFull }}>
-              <input type="checkbox" checked={props.notificationSound} onChange={(event) => props.onNotificationSoundChange(event.target.checked)} style={modalStyles.checkboxInput} />
-              Play sound when agent stops running
-            </label>
             <label style={modalStyles.label}>
               Shell History
               <select value={props.shellHistoryScope} onChange={(event) => props.onShellHistoryScopeChange(event.target.value as 'project' | 'global')} style={modalStyles.select}>
@@ -152,8 +143,6 @@ export function GeneralSettingsSection(props: Props): React.JSX.Element {
             </label>
           </div>
         </SectionCard>
-
-        <NotificationSettingsSection value={props.notifications} onChange={props.onNotificationsChange} />
       </div>
     </>
   )
