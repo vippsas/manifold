@@ -10,7 +10,7 @@ export function activate(context: ManifoldContext): void {
   const host = createWebviewHost({
     readBundle: () => readFileSync(join(context.pluginUri, 'out', 'webview.js'), 'utf8'),
     list: () => manifold.worktrees.list(),
-    listBranches: () => manifold.worktrees.listBranches(),
+    listBranches: () => manifold.worktrees.listMergedBranches(),
   })
   context.subscriptions.push(manifold.window.registerWebviewViewProvider('manifold.worktrees.panel', host.provider))
 }

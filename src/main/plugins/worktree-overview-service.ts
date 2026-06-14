@@ -3,6 +3,7 @@ import type { WorktreeOverviewEntry, WorktreeStatus, BranchOverviewEntry } from 
 import type { WorktreeInfo } from '../git/worktree-manager'
 import type { WorktreeMeta } from '../git/worktree-meta'
 import { isGitProject } from '../../shared/project-kind'
+import { debugLog } from '../app/debug-log'
 
 export interface WorktreeOverviewDeps {
   listProjects(): Project[]
@@ -32,7 +33,8 @@ export function createWorktreeOverviewService(deps: WorktreeOverviewDeps): Workt
   async function locate(worktreePath: string): Promise<Project | null> {
     for (const project of gitProjects()) {
       let worktrees: WorktreeInfo[]
-      try { worktrees = await deps.listWorktrees(project.path) } catch { continue }
+      try { worktrees = await deps.listWorktrees(project.path) }
+      catch (err) { debugLog(`[worktree-overview] locate: skipping ${project.path}: ${err}`); continue }
       if (worktrees.some((w) => w.path === worktreePath)) return project
     }
     return null
@@ -44,7 +46,8 @@ export function createWorktreeOverviewService(deps: WorktreeOverviewDeps): Workt
       const out: WorktreeOverviewEntry[] = []
       for (const project of gitProjects()) {
         let worktrees: WorktreeInfo[]
-        try { worktrees = await deps.listWorktrees(project.path) } catch { continue }
+        try { worktrees = await deps.listWorktrees(project.path) }
+        catch (err) { debugLog(`[worktree-overview] list: skipping ${project.path}: ${err}`); continue }
         for (const wt of worktrees) {
           const session = sessionsByPath.get(wt.path)
           const exists = deps.pathExists(wt.path)
@@ -91,12 +94,14 @@ export function createWorktreeOverviewService(deps: WorktreeOverviewDeps): Workt
       const removed: string[] = []
       for (const project of gitProjects()) {
         let worktrees: WorktreeInfo[]
-        try { worktrees = await deps.listWorktrees(project.path) } catch { continue }
+        try { worktrees = await deps.listWorktrees(project.path) }
+        catch (err) { debugLog(`[worktree-overview] pruneStale: skipping ${project.path}: ${err}`); continue }
         for (const wt of worktrees) {
           if (deps.pathExists(wt.path)) continue
           const meta = await deps.readMeta(wt.path)
           if (meta?.locked) continue
-          try { await deps.removeWorktree(project.path, wt.path); removed.push(wt.path) } catch { /* per-row: skip failures */ }
+          try { await deps.removeWorktree(project.path, wt.path); removed.push(wt.path) }
+          catch (err) { debugLog(`[worktree-overview] pruneStale: ${wt.path} failed: ${err}`) }
         }
       }
       return removed
@@ -112,7 +117,7 @@ export function createWorktreeOverviewService(deps: WorktreeOverviewDeps): Workt
           merged = await deps.listMergedBranches(project.path, project.baseBranch)
           inUse = await deps.listWorktreeBranches(project.path)
           dates = await deps.getBranchDates(project.path)
-        } catch { continue }
+        } catch (err) { debugLog(`[worktree-overview] branches: skipping ${project.path}: ${err}`); continue }
         const inUseSet = new Set(inUse)
         for (const branch of merged) {
           if (branch === project.baseBranch) continue

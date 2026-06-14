@@ -1,6 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 
 vi.mock('./git-exec', () => ({ gitExec: vi.fn() }))
+vi.mock('../app/debug-log', () => ({ debugLog: vi.fn() }))
 
 import { gitExec } from './git-exec'
 import { listMergedBranches, listWorktreeBranches, getBranchDates } from './branch-status'

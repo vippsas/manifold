@@ -14,6 +14,6 @@ export function createWorktreesApi(endpoint: RpcEndpoint, pluginId: string): Man
     list: () => host.$list(pluginId),
     remove: (worktreePath, opts) => host.$remove(pluginId, worktreePath, opts),
     pruneStale: () => host.$pruneStale(pluginId),
-    listBranches: () => host.$listBranches(pluginId),
+    listMergedBranches: () => host.$listBranches(pluginId),
   }
 }

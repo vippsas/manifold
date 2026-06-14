@@ -109,7 +109,9 @@ export interface WebviewViewProvider {
 
 export type WorktreeStatus = 'active' | 'idle' | 'stale'
 
-/** One Manifold-managed worktree in the overview. */
+/** One Manifold-managed worktree in the overview.
+ *  Producer-upheld invariants: when `status === 'stale'`, `ahead`/`behind` are 0, `dirty` is
+ *  false and `lastCommitISO` is null; when `status === 'active'`, `sessionId` is non-null. */
 export interface WorktreeOverviewEntry {
   worktreePath: string
   projectId: string
@@ -188,12 +190,13 @@ export interface ManifoldApi {
   worktrees: {
     /** [workspace:manage] All Manifold-managed worktrees across all registered repos. */
     list(): Promise<WorktreeOverviewEntry[]>
-    /** [workspace:manage] Remove one managed worktree. Rejects on uncommitted/unpushed/locked unless `force`. */
+    /** [workspace:manage] Remove one managed worktree. Rejects uncommitted/unpushed changes unless
+     *  `force`; a locked worktree is always rejected (force does not override the lock). */
     remove(worktreePath: string, opts?: { force?: boolean }): Promise<void>
-    /** [workspace:manage] Remove all stale (directory-gone) managed worktrees; returns removed paths. */
+    /** [workspace:manage] Remove all stale (directory-gone) managed worktrees, skipping locked ones; returns removed paths. */
     pruneStale(): Promise<string[]>
     /** [workspace:manage] Local branches with no worktree, already merged into base — safe-to-delete leftovers. */
-    listBranches(): Promise<BranchOverviewEntry[]>
+    listMergedBranches(): Promise<BranchOverviewEntry[]>
   }
 }
 

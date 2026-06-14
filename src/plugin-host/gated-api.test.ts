@@ -19,8 +19,9 @@ const makeConfiguration = (): never => ({
 const makeAgents = (): never => ({ activeAgent: undefined } as never)
 const makeLm = (): never => ({ selectChatModels: async () => [] } as never)
 const makeTranscription = (): never => ({ get: async () => undefined } as never)
+const makeWorktrees = (): never => ({ list: async () => [], remove: async () => {}, pruneStale: async () => [], listMergedBranches: async () => [] } as never)
 
-const factories = { storage: makeStorage, workspace: makeWorkspace, configuration: makeConfiguration, agents: makeAgents, lm: makeLm, transcription: makeTranscription }
+const factories = { storage: makeStorage, workspace: makeWorkspace, configuration: makeConfiguration, agents: makeAgents, lm: makeLm, transcription: makeTranscription, worktrees: makeWorktrees }
 
 describe('buildGatedApi', () => {
   it('always exposes commands and window', () => {
@@ -104,5 +105,17 @@ describe('buildGatedApi — privileged capabilities', () => {
   it('grants transcription to a builtin plugin that declares transcription:read', () => {
     const api = buildGatedApi(['transcription:read'], 'builtin', shared, factories)
     expect(api.transcription).toBeDefined()
+  })
+  it('throws CapabilityError when worktrees is used without workspace:manage', () => {
+    const api = buildGatedApi([], 'builtin', shared, factories)
+    expect(() => api.worktrees).toThrow(CapabilityError)
+  })
+  it('restricts workspace:manage to builtin origin even when declared', () => {
+    const api = buildGatedApi(['workspace:manage'], 'user', shared, factories)
+    expect(() => api.worktrees).toThrow(RestrictedCapabilityError)
+  })
+  it('grants worktrees to a builtin plugin that declares workspace:manage', () => {
+    const api = buildGatedApi(['workspace:manage'], 'builtin', shared, factories)
+    expect(api.worktrees).toBeDefined()
   })
 })

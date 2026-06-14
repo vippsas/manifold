@@ -1,11 +1,13 @@
 import { gitExec } from './git-exec'
+import { debugLog } from '../app/debug-log'
 
 /** Local branch names merged into `baseBranch` (includes the base itself). */
 export async function listMergedBranches(repoPath: string, baseBranch: string): Promise<string[]> {
   try {
     const out = await gitExec(['branch', '--merged', baseBranch, '--format=%(refname:short)'], repoPath)
     return out.split('\n').map((l) => l.trim()).filter((l) => l.length > 0)
-  } catch {
+  } catch (err) {
+    debugLog(`[branch-status] listMergedBranches failed in ${repoPath}: ${err}`)
     return []
   }
 }
@@ -21,7 +23,10 @@ export async function listWorktreeBranches(repoPath: string): Promise<string[]> 
       }
     }
     return branches
-  } catch {
+  } catch (err) {
+    // Empty here is an UNSAFE default — it's the in-use exclusion set, so a failure would
+    // let a checked-out branch be mislabeled prunable. Always leave a trace.
+    debugLog(`[branch-status] listWorktreeBranches failed in ${repoPath}: ${err}`)
     return []
   }
 }
@@ -40,7 +45,8 @@ export async function getBranchDates(repoPath: string): Promise<Record<string, s
       if (name) map[name] = date
     }
     return map
-  } catch {
+  } catch (err) {
+    debugLog(`[branch-status] getBranchDates failed in ${repoPath}: ${err}`)
     return {}
   }
 }
