@@ -6,6 +6,7 @@ import type { DockAppState } from './dock-panel-types'
 import type { IDockviewHeaderActionsProps } from 'dockview'
 
 const state = {
+  sessionId: 's1',
   onOpenModule: () => {},
   isModuleOpen: () => false,
   editorPaneIds: [],
