@@ -1,4 +1,5 @@
-import { describe, it, expect } from 'vitest'
+import { describe, it, expect, vi } from 'vitest'
+vi.mock('../app/debug-log', () => ({ debugLog: vi.fn() }))
 import { createWorktreeOverviewService, type WorktreeOverviewDeps } from './worktree-overview-service'
 import type { Project, AgentSession } from '../../shared/types'
 
@@ -169,5 +170,33 @@ describe('worktree-overview-service.deleteMergedBranch', () => {
   it('propagates the git failure (e.g. branch not fully merged)', async () => {
     const svc = createWorktreeOverviewService(deps({ deleteMergedBranch: async () => { throw new Error('not fully merged') } }))
     await expect(svc.deleteMergedBranch('p1', 'feat/x')).rejects.toThrow(/not fully merged/)
+  })
+})
+
+describe('worktree-overview-service.deleteAllMergedBranches', () => {
+  it('deletes every merged orphan in the repo (skipping base + in-use) and returns them', async () => {
+    const removed: string[] = []
+    const svc = createWorktreeOverviewService(deps({
+      listMergedBranches: async () => ['main', 'feat/a', 'feat/b', 'feat/active'],
+      listWorktreeBranches: async () => ['main', 'feat/active'],
+      deleteMergedBranch: async (_p, b) => { removed.push(b) },
+    }))
+    const result = await svc.deleteAllMergedBranches('p1')
+    expect(removed).toEqual(['feat/a', 'feat/b'])
+    expect(result).toEqual(['feat/a', 'feat/b'])
+  })
+
+  it('skips a branch that fails to delete and continues with the rest', async () => {
+    const svc = createWorktreeOverviewService(deps({
+      listMergedBranches: async () => ['feat/a', 'feat/b'],
+      listWorktreeBranches: async () => [],
+      deleteMergedBranch: async (_p, b) => { if (b === 'feat/a') throw new Error('locked') },
+    }))
+    expect(await svc.deleteAllMergedBranches('p1')).toEqual(['feat/b'])
+  })
+
+  it('throws when the project id is unknown', async () => {
+    const svc = createWorktreeOverviewService(deps())
+    await expect(svc.deleteAllMergedBranches('nope')).rejects.toThrow(/project not found/)
   })
 })

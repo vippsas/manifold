@@ -6,6 +6,9 @@ export interface WorktreesHostOptions {
   list: () => Promise<WorktreeOverviewEntry[]>
   listBranches: () => Promise<BranchOverviewEntry[]>
   deleteMergedBranch: (projectId: string, branch: string) => Promise<void>
+  deleteAllMergedBranches: (projectId: string) => Promise<string[]>
+  /** Native confirm before a bulk delete; resolves true if the user confirmed. */
+  confirmDeleteAll: (repo: string, count: number) => Promise<boolean>
   /** Name of the repo the user came from, to default-expand + scroll to it. */
   activeProjectName: () => string | null
 }
@@ -43,6 +46,13 @@ export function createWebviewHost(opts: WorktreesHostOptions): { provider: Webvi
     finally { await sendInit() }
   }
 
+  const handleDeleteAll = async (projectId: string, repo: string, count: number): Promise<void> => {
+    if (!(await opts.confirmDeleteAll(repo, count))) return
+    try { await opts.deleteAllMergedBranches(projectId) }
+    catch (e) { console.error('[worktrees] deleteAllMergedBranches failed:', (e as Error).message) }
+    finally { await sendInit() }
+  }
+
   const provider: WebviewViewProvider = {
     resolveWebviewView(v: WebviewView): void {
       view = v
@@ -50,6 +60,7 @@ export function createWebviewHost(opts: WorktreesHostOptions): { provider: Webvi
       v.webview.onDidReceiveMessage((raw: unknown) => {
         if (!isWebviewMsg(raw)) return
         if (raw.type === 'deleteBranch') { void handleDelete(raw.projectId, raw.branch); return }
+        if (raw.type === 'deleteAllBranches') { void handleDeleteAll(raw.projectId, raw.repo, raw.count); return }
         void sendInit()
       })
     },

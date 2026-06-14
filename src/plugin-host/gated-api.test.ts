@@ -19,7 +19,7 @@ const makeConfiguration = (): never => ({
 const makeAgents = (): never => ({ activeAgent: undefined } as never)
 const makeLm = (): never => ({ selectChatModels: async () => [] } as never)
 const makeTranscription = (): never => ({ get: async () => undefined } as never)
-const makeWorktrees = (): never => ({ list: async () => [], remove: async () => {}, pruneStale: async () => [], listMergedBranches: async () => [], deleteMergedBranch: async () => {} } as never)
+const makeWorktrees = (): never => ({ list: async () => [], remove: async () => {}, pruneStale: async () => [], listMergedBranches: async () => [], deleteMergedBranch: async () => {}, deleteAllMergedBranches: async () => [] } as never)
 
 const factories = { storage: makeStorage, workspace: makeWorkspace, configuration: makeConfiguration, agents: makeAgents, lm: makeLm, transcription: makeTranscription, worktrees: makeWorktrees }
 

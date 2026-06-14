@@ -32,9 +32,15 @@ const PANEL_CSS = `
   .wt-dot { display:inline-block; width:7px; height:7px; border-radius:50%; margin-right:7px; vertical-align:middle; flex-shrink:0; }
   .wt-branch { overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
   .wt-branches.div { border-top:1px solid var(--divider); margin-top:4px; }
-  .wt-branchhead { padding:6px var(--space-md) 2px; font-size:var(--type-ui-micro); text-transform:uppercase;
-    letter-spacing:.05em; color:var(--text-muted); cursor:pointer; user-select:none; transition:color 150ms ease; }
+  .wt-branchhead-row { display:flex; justify-content:space-between; align-items:center; padding:6px var(--space-md) 2px; }
+  .wt-branchhead { font-size:var(--type-ui-micro); text-transform:uppercase; letter-spacing:.05em;
+    color:var(--text-muted); cursor:pointer; user-select:none; transition:color 150ms ease; }
   .wt-branchhead:hover { color:var(--text-secondary); }
+  .wt-deleteall { opacity:0; background:transparent; border:none; color:var(--text-muted); cursor:pointer;
+    font-size:var(--type-ui-micro); text-transform:uppercase; letter-spacing:.04em; padding:0;
+    transition:opacity 150ms ease, color 150ms ease; }
+  .wt-branchhead-row:hover .wt-deleteall { opacity:1; }
+  .wt-deleteall:hover { color:var(--status-error); }
   .wt-branchrow { display:grid; grid-template-columns:${COLS}; gap:var(--space-sm); align-items:center;
     padding:3px var(--space-md); font-family:var(--font-mono); color:var(--text-muted); transition:background 150ms ease; }
   .wt-tag { color:var(--text-muted); }
@@ -58,7 +64,12 @@ function buildRepos(entries: WorktreeOverviewEntry[], branches: BranchOverviewEn
       const bw = (wt.get(b)?.length ?? 0) > 0 ? 0 : 1
       return aw - bw || a.localeCompare(b)
     })
-    .map((repo) => ({ repo, worktrees: wt.get(repo) ?? [], branches: br.get(repo) ?? [] }))
+    .map((repo) => ({
+      repo,
+      worktrees: wt.get(repo) ?? [],
+      // newest merged at the top, oldest at the bottom (ISO dates sort lexically = chronologically)
+      branches: (br.get(repo) ?? []).slice().sort((a, b) => (b.lastCommitISO ?? '').localeCompare(a.lastCommitISO ?? '')),
+    }))
 }
 
 export function WorktreesPanel(): React.JSX.Element {
@@ -104,6 +115,12 @@ export function WorktreesPanel(): React.JSX.Element {
     setBranches((prev) => prev.filter((x) => !(x.projectId === b.projectId && x.branch === b.branch)))
     parent.postMessage({ type: 'deleteBranch', projectId: b.projectId, branch: b.branch }, '*')
   }
+  const onDeleteAll = (g: RepoGroup): void => {
+    const projectId = g.branches[0]?.projectId
+    if (!projectId) return
+    // Confirmation + the actual delete happen host-side; re-init updates the list.
+    parent.postMessage({ type: 'deleteAllBranches', projectId, repo: g.repo, count: g.branches.length }, '*')
+  }
 
   if (entries === null) return <div className="wt-empty">Loading worktrees…</div>
   if (error) return <div className="wt-empty" style={{ color: 'var(--status-error)' }}>Failed to load worktrees: {error}</div>
@@ -135,8 +152,17 @@ export function WorktreesPanel(): React.JSX.Element {
           ))}
           {g.branches.length > 0 && (
             <div className={`wt-branches${g.worktrees.length > 0 ? ' div' : ''}`} data-testid="orphan-branches">
-              <div className="wt-branchhead" data-testid="orphan-branches-header" onClick={() => toggle(g.repo)}>
-                {expanded.has(g.repo) ? '▾' : '▸'} merged branches · no worktree · {g.branches.length}
+              <div className="wt-branchhead-row">
+                <span className="wt-branchhead" data-testid="orphan-branches-header" onClick={() => toggle(g.repo)}>
+                  {expanded.has(g.repo) ? '▾' : '▸'} merged branches · no worktree · {g.branches.length}
+                </span>
+                <button
+                  type="button"
+                  className="wt-deleteall"
+                  data-testid="delete-all-branches"
+                  title={`Delete all ${g.branches.length} merged branches in ${g.repo}`}
+                  onClick={() => onDeleteAll(g)}
+                >Delete all</button>
               </div>
               {expanded.has(g.repo) && g.branches.map((b) => (
                 <div className="wt-branchrow" key={b.branch}>

@@ -27,6 +27,7 @@ export interface WorktreeOverviewService {
   pruneStale(): Promise<string[]>
   listMergedOrphanBranches(): Promise<BranchOverviewEntry[]>
   deleteMergedBranch(projectId: string, branch: string): Promise<void>
+  deleteAllMergedBranches(projectId: string): Promise<string[]>
 }
 
 export function createWorktreeOverviewService(deps: WorktreeOverviewDeps): WorktreeOverviewService {
@@ -40,6 +41,13 @@ export function createWorktreeOverviewService(deps: WorktreeOverviewDeps): Workt
       if (worktrees.some((w) => w.path === worktreePath)) return project
     }
     return null
+  }
+
+  /** Merged branches of `project` that have no worktree and aren't the base — the prunable set. */
+  async function orphanBranchesFor(project: Project): Promise<string[]> {
+    const merged = await deps.listMergedBranches(project.path, project.baseBranch)
+    const inUse = new Set(await deps.listWorktreeBranches(project.path))
+    return merged.filter((b) => b !== project.baseBranch && !inUse.has(b))
   }
 
   return {
@@ -112,24 +120,14 @@ export function createWorktreeOverviewService(deps: WorktreeOverviewDeps): Workt
     async listMergedOrphanBranches(): Promise<BranchOverviewEntry[]> {
       const out: BranchOverviewEntry[] = []
       for (const project of gitProjects()) {
-        let merged: string[]
-        let inUse: string[]
+        let orphans: string[]
         let dates: Record<string, string>
         try {
-          merged = await deps.listMergedBranches(project.path, project.baseBranch)
-          inUse = await deps.listWorktreeBranches(project.path)
+          orphans = await orphanBranchesFor(project)
           dates = await deps.getBranchDates(project.path)
         } catch (err) { debugLog(`[worktree-overview] branches: skipping ${project.path}: ${err}`); continue }
-        const inUseSet = new Set(inUse)
-        for (const branch of merged) {
-          if (branch === project.baseBranch) continue
-          if (inUseSet.has(branch)) continue
-          out.push({
-            projectId: project.id,
-            projectName: project.name,
-            branch,
-            lastCommitISO: dates[branch] ?? null,
-          })
+        for (const branch of orphans) {
+          out.push({ projectId: project.id, projectName: project.name, branch, lastCommitISO: dates[branch] ?? null })
         }
       }
       return out
@@ -140,6 +138,19 @@ export function createWorktreeOverviewService(deps: WorktreeOverviewDeps): Workt
       if (!project) throw new Error(`project not found: ${projectId}`)
       // git `-d` is the safety net: it refuses unless the branch is fully merged and not checked out.
       await deps.deleteMergedBranch(project.path, branch)
+    },
+
+    async deleteAllMergedBranches(projectId): Promise<string[]> {
+      const project = deps.listProjects().find((p) => p.id === projectId && isGitProject(p))
+      if (!project) throw new Error(`project not found: ${projectId}`)
+      // Recompute the prunable set at execution time (don't trust a stale webview list), then
+      // delete each with safe `-d`; a per-branch failure is logged and skipped, not fatal.
+      const deleted: string[] = []
+      for (const branch of await orphanBranchesFor(project)) {
+        try { await deps.deleteMergedBranch(project.path, branch); deleted.push(branch) }
+        catch (err) { debugLog(`[worktree-overview] deleteAll: ${branch} failed: ${err}`) }
+      }
+      return deleted
     },
   }
 }

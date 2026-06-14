@@ -14,8 +14,9 @@ export type WebviewMsg =
   | { type: 'ready' }
   | { type: 'refresh' }
   | { type: 'deleteBranch'; projectId: string; branch: string }
+  | { type: 'deleteAllBranches'; projectId: string; repo: string; count: number }
 
-const WEBVIEW_MSG_TYPES = new Set<string>(['ready', 'refresh', 'deleteBranch'])
+const WEBVIEW_MSG_TYPES = new Set<string>(['ready', 'refresh', 'deleteBranch', 'deleteAllBranches'])
 
 /** Trust-boundary guard: the host must not cast `unknown` straight to WebviewMsg. */
 export function isWebviewMsg(raw: unknown): raw is WebviewMsg {

@@ -199,6 +199,8 @@ export interface ManifoldApi {
     listMergedBranches(): Promise<BranchOverviewEntry[]>
     /** [workspace:manage] Safely delete a merged, worktree-less branch (git `-d`; rejects if not fully merged). */
     deleteMergedBranch(projectId: string, branch: string): Promise<void>
+    /** [workspace:manage] Safely delete every merged, worktree-less branch in a repo; returns the deleted names. */
+    deleteAllMergedBranches(projectId: string): Promise<string[]>
   }
 }
 

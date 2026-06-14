@@ -188,6 +188,7 @@ export class ExtensionHost {
       $pruneStale: (pluginId: string) => { this.assertBuiltin(pluginId, 'workspace:manage'); return this.worktrees.pruneStale() },
       $listBranches: (pluginId: string) => { this.assertBuiltin(pluginId, 'workspace:manage'); return this.worktrees.listMergedOrphanBranches() },
       $deleteMergedBranch: (pluginId: string, projectId: string, branch: string) => { this.assertBuiltin(pluginId, 'workspace:manage'); return this.worktrees.deleteMergedBranch(projectId, branch) },
+      $deleteAllMergedBranches: (pluginId: string, projectId: string) => { this.assertBuiltin(pluginId, 'workspace:manage'); return this.worktrees.deleteAllMergedBranches(projectId) },
     })
     this.child = child
     this.endpoint = endpoint
