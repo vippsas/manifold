@@ -162,12 +162,19 @@ export class SessionManager {
 
   setStatusListener(listener: (sessionId: string, status: string) => void): void { this.statusListener = listener }
 
+  private notificationService: { onStatus: (sessionId: string, status: string) => void } | null = null
+
+  setNotificationService(service: { onStatus: (sessionId: string, status: string) => void }): void {
+    this.notificationService = service
+  }
+
   private sendToRenderer(channel: string, ...args: unknown[]): void {
     if (channel === 'agent:status') {
       const payload = args[0] as { sessionId?: string; status?: string } | undefined
       if (payload?.sessionId && payload.status) {
         this.statusListener?.(payload.sessionId, payload.status)
         this.verdictRecorder?.onStatus(payload.sessionId, payload.status)
+        this.notificationService?.onStatus(payload.sessionId, payload.status)
       }
     }
     if (channel === 'agent:exit') {
