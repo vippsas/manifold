@@ -140,6 +140,7 @@ export function ProjectSidebar({
         fetchError={fetchError}
         onFetchProject={onFetchProject}
         activeProjectBehindCount={activeProjectBehindCount}
+        onNewAgent={onNewAgent}
         drafts={drafts}
         activeDraftId={activeDraftId}
         onSelectDraft={onSelectDraft}

@@ -32,6 +32,7 @@ export interface ProjectListProps {
   fetchError: string | null
   onFetchProject: (projectId: string) => void
   activeProjectBehindCount?: number
+  onNewAgent: () => void
   drafts: DraftChat[]
   activeDraftId: string | null
   onSelectDraft: (id: string) => void
@@ -58,6 +59,7 @@ export function ProjectList({
   fetchError,
   onFetchProject,
   activeProjectBehindCount,
+  onNewAgent,
   drafts,
   activeDraftId,
   onSelectDraft,
@@ -84,6 +86,16 @@ export function ProjectList({
       }
     },
     [allProjectSessions, onSelectProject, onSelectSession, touchProject]
+  )
+
+  // The repo header only renders for the active project, so clicking it starts a
+  // new agent in that repo — the same action as the "+ New Agent" button.
+  const handleHeaderNewAgent = useCallback(
+    (projectId: string): void => {
+      touchProject(projectId)
+      onNewAgent()
+    },
+    [onNewAgent, touchProject]
   )
 
   const activeProject = visibleProjects.find((p) => p.id === activeProjectId) ?? null
@@ -119,7 +131,7 @@ export function ProjectList({
         <ProjectItem
           project={project}
           isActive={true}
-          onSelect={handleProjectClick}
+          onSelect={handleHeaderNewAgent}
           onRemove={onRemove}
           isFetching={fetchingProjectId === project.id}
           fetchResult={lastFetchedProjectId === project.id ? fetchResult : null}

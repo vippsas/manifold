@@ -75,6 +75,15 @@ describe('ProjectSidebar', () => {
     expect(props.onSelectProject).toHaveBeenCalledWith('p2')
   })
 
+  it('starts a new agent (not a selection) when the active repo header is clicked', () => {
+    const { props } = renderSidebar()
+
+    fireEvent.click(screen.getByText('Alpha'))
+
+    expect(props.onNewAgent).toHaveBeenCalled()
+    expect(props.onSelectProject).not.toHaveBeenCalled()
+  })
+
   it('calls onNewProject when New Repository button is clicked', () => {
     const { props } = renderSidebar()
 
