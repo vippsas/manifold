@@ -107,6 +107,25 @@ export interface WebviewViewProvider {
   resolveWebviewView(view: WebviewView): void | Promise<void>
 }
 
+export type WorktreeStatus = 'active' | 'idle' | 'stale'
+
+/** One Manifold-managed worktree in the overview. */
+export interface WorktreeOverviewEntry {
+  worktreePath: string
+  projectId: string
+  projectName: string
+  branch: string
+  /** active = a live agent owns it; idle = managed, no live agent; stale = directory gone. */
+  status: WorktreeStatus
+  /** The owning agent session, when one exists. */
+  sessionId: string | null
+  ahead: number
+  behind: number
+  dirty: boolean
+  lastCommitISO: string | null
+  locked: boolean
+}
+
 /** The `manifold` module surface (Phase 1b: commands only). */
 export interface ManifoldApi {
   commands: {
