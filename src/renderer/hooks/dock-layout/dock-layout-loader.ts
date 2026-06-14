@@ -4,6 +4,7 @@ import {
   PANEL_RESTORE_HINTS,
   PANEL_TITLES,
   applyLayoutChangePreservingSidebarWidths,
+  restoreCollapsedSidebarWidths,
   withPinnedSidebars,
   type Direction,
   type DockPanelId,
@@ -53,6 +54,11 @@ export async function loadOrBuildLayout(
       refs.isRestoringRef.current = true
       try {
         api.fromJSON(saved)
+        // fromJSON recreates each group at dockview's default 100px minimum,
+        // clamping any collapsed (width-0) sidebar back open. Re-apply the
+        // saved sub-minimum widths so a collapsed sidebar stays collapsed
+        // across agent switches and app restarts.
+        restoreCollapsedSidebarWidths(api, saved)
       } finally {
         refs.isRestoringRef.current = false
       }
