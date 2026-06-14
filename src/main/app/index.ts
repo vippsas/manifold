@@ -1,4 +1,4 @@
-import { app, BrowserWindow, nativeTheme } from 'electron'
+import { app, BrowserWindow, ipcMain, nativeTheme } from 'electron'
 import type { AgentStatus } from '../../shared/types'
 import { loadShellPath } from './shell-path'
 import { configureDevProfilePaths } from './dev-profile'
@@ -44,6 +44,7 @@ import { VerdictRecorder } from '../session/verdict-recorder'
 import { summarizeMiddle } from '../store/prompt-summarizer'
 import { PluginManager } from '../plugins/plugin-manager'
 import { registerWebviewSchemePrivileged } from '../plugins/webview-protocol'
+import { AgentNotifier } from '../notifications/agent-notifier'
 
 let mainWindow: BrowserWindow | null = null
 
@@ -107,6 +108,32 @@ const verdictRecorder = new VerdictRecorder({
 })
 sessionManager.setVerdictRecorder(verdictRecorder)
 fileWatcher.setVerdictRecorder(verdictRecorder)
+
+const agentNotifier = new AgentNotifier({
+  getSettings: () => settingsStore.getSettings(),
+  isWindowFocused: () => mainWindow?.isFocused() ?? false,
+  resolveSession: (sessionId) => {
+    const session = sessionManager.getInternalSession(sessionId)
+    if (!session) return undefined
+    return {
+      displayName: session.displayName,
+      taskDescription: session.taskDescription,
+      branchName: session.branchName,
+      projectId: session.projectId,
+    }
+  },
+  revealSession: (projectId, sessionId) => {
+    if (!mainWindow || mainWindow.isDestroyed()) return
+    if (mainWindow.isMinimized()) mainWindow.restore()
+    mainWindow.show()
+    mainWindow.focus()
+    mainWindow.webContents.send('notification:open-session', { projectId, sessionId })
+  },
+})
+sessionManager.setNotificationService(agentNotifier)
+ipcMain.on('notifications:active-session', (_event, sessionId: unknown) => {
+  agentNotifier.setActiveSessionId(typeof sessionId === 'string' ? sessionId : null)
+})
 
 const pluginManager = new PluginManager(settingsStore.getSettings().storagePath, settingsStore, sessionManager, gitOps, worktreeManager, projectRegistry)
 pluginManager.scan()
