@@ -11,11 +11,13 @@ import { TranscriptionSettingsSection } from './TranscriptionSettingsSection'
 import { SectionCard, SectionHeader } from './SettingsSectionLayout'
 import { PluginSettingsSection } from './PluginSettingsSection'
 import { ShortcutsSettingsSection } from './ShortcutsSettingsSection'
+import { NotificationSettingsSection } from './NotificationSettingsSection'
 
-export type SettingsTabId = 'general' | 'editor' | 'shortcuts' | 'search-ai' | 'provisioning' | 'transcription' | 'plugins'
+export type SettingsTabId = 'general' | 'notifications' | 'editor' | 'shortcuts' | 'search-ai' | 'provisioning' | 'transcription' | 'plugins'
 
 const SETTINGS_TABS: Array<{ id: SettingsTabId; label: string }> = [
   { id: 'general', label: 'General' },
+  { id: 'notifications', label: 'Notifications' },
   { id: 'editor', label: 'Editor' },
   { id: 'shortcuts', label: 'Shortcuts' },
   { id: 'search-ai', label: 'Search AI' },
@@ -98,6 +100,14 @@ export function SettingsModalBody(props: Props): React.JSX.Element {
 
         <div id={`settings-panel-${props.activeTab}`} role="tabpanel" aria-labelledby={`settings-tab-${props.activeTab}`} style={modalStyles.tabPanel}>
           {props.activeTab === 'general' && <GeneralSettingsSection {...props} />}
+          {props.activeTab === 'notifications' && (
+            <NotificationSettingsSection
+              value={props.notifications}
+              onChange={props.onNotificationsChange}
+              soundEnabled={props.notificationSound}
+              onSoundChange={props.onNotificationSoundChange}
+            />
+          )}
           {props.activeTab === 'editor' && (
             <EditorSettingsSection value={props.editorSettings} onChange={props.onEditorSettingsChange} />
           )}
