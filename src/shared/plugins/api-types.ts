@@ -177,6 +177,14 @@ export interface ManifoldApi {
     /** [transcription:read] App-level AI-service settings (undefined when unconfigured). */
     get(): Promise<AiServiceSettings | undefined>
   }
+  worktrees: {
+    /** [workspace:manage] All Manifold-managed worktrees across all registered repos. */
+    list(): Promise<WorktreeOverviewEntry[]>
+    /** [workspace:manage] Remove one managed worktree. Rejects on uncommitted/unpushed/locked unless `force`. */
+    remove(worktreePath: string, opts?: { force?: boolean }): Promise<void>
+    /** [workspace:manage] Remove all stale (directory-gone) managed worktrees; returns removed paths. */
+    pruneStale(): Promise<string[]>
+  }
 }
 
 /** Shape a plugin's entry module must export. */

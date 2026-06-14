@@ -4,14 +4,14 @@
 /** Capabilities gate access to the privileged `manifold` API namespaces. This is the
  *  single source of truth: the manifest field, the parser, and the gated-api checks all
  *  key off it (see gated-api.ts), so a typo can't silently grant nothing or escape gating. */
-export const CAPABILITIES = ['storage', 'workspace:read', 'configuration', 'agent:control', 'agent:spawn', 'lm', 'transcription:read'] as const
+export const CAPABILITIES = ['storage', 'workspace:read', 'workspace:manage', 'configuration', 'agent:control', 'agent:spawn', 'lm', 'transcription:read'] as const
 export type Capability = typeof CAPABILITIES[number]
 export function isCapability(value: unknown): value is Capability {
   return typeof value === 'string' && (CAPABILITIES as readonly string[]).includes(value)
 }
 
 /** Capabilities granted only to built-in (origin === 'builtin') plugins, even when declared. */
-export const BUILTIN_ONLY_CAPABILITIES = ['agent:control', 'agent:spawn', 'lm', 'transcription:read'] as const satisfies readonly Capability[]
+export const BUILTIN_ONLY_CAPABILITIES = ['workspace:manage', 'agent:control', 'agent:spawn', 'lm', 'transcription:read'] as const satisfies readonly Capability[]
 export function isBuiltinOnlyCapability(cap: Capability): boolean {
   return (BUILTIN_ONLY_CAPABILITIES as readonly string[]).includes(cap)
 }

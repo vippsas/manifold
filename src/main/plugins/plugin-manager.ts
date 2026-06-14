@@ -10,9 +10,15 @@ import { webviewContentStore } from './webview-content-store'
 import { createAgentControlService } from './agent-control-service'
 import { createLmService } from './lm-service'
 import { createAgentSpawnService } from './agent-spawn-service'
+import { createWorktreeOverviewService } from './worktree-overview-service'
+import { getWorktreeDirty, getWorktreeLastCommitISO } from '../git/worktree-status'
+import { readWorktreeMeta } from '../git/worktree-meta'
 import type { SessionManager } from '../session/session-manager'
 import type { GitOperationsManager } from '../git/git-operations'
+import type { WorktreeManager } from '../git/worktree-manager'
+import type { ProjectRegistry } from '../store/project-registry'
 import type { SessionInfo } from '../../shared/plugins/api-types'
+import * as fs from 'node:fs'
 
 export interface PluginPanelContribution extends PanelContribution {
   pluginId: string
@@ -63,11 +69,24 @@ export class PluginManager {
     private readonly settings: import('../store/settings-store').SettingsStore,
     private readonly sessionManager: SessionManager,
     gitOps: GitOperationsManager,
+    worktreeManager: WorktreeManager,
+    projectRegistry: ProjectRegistry,
   ) {
     const agentControl = createAgentControlService(this.sessionManager)
     const lm = createLmService(this.sessionManager, gitOps)
     const agentSpawn = createAgentSpawnService(this.sessionManager)
-    this.host = new ExtensionHost(new PluginStorageStore(storagePath), agentControl, lm, agentSpawn)
+    const worktreeOverview = createWorktreeOverviewService({
+      listProjects: () => projectRegistry.listProjects(),
+      listSessions: () => this.sessionManager.listSessions(),
+      listWorktrees: (p) => worktreeManager.listWorktrees(p),
+      getAheadBehind: (wt, base) => gitOps.getAheadBehind(wt, base),
+      getDirty: (wt) => getWorktreeDirty(wt),
+      getLastCommitISO: (wt) => getWorktreeLastCommitISO(wt),
+      readMeta: (wt) => readWorktreeMeta(wt),
+      removeWorktree: (proj, wt) => worktreeManager.removeWorktree(proj, wt),
+      pathExists: (p) => fs.existsSync(p),
+    })
+    this.host = new ExtensionHost(new PluginStorageStore(storagePath), agentControl, lm, agentSpawn, worktreeOverview)
     this.host.setConfigResolver((id, key) => this.getConfigValue(id, key))
     this.host.setEnabledResolver((id) => this.isEnabled(id))
     this.host.setOriginResolver((id) => this.plugins.find((p) => p.id === id)?.origin)

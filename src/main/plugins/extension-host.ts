@@ -1,7 +1,7 @@
 // src/main/plugins/extension-host.ts
 import { utilityProcess, type UtilityProcess } from 'electron'
 import { join } from 'node:path'
-import { RpcEndpoint, HOST_COMMANDS, HOST_WINDOW, HOST_STORAGE, HOST_CONFIG, HOST_TREE, HOST_UI, HOST_AGENTS, HOST_LM, HOST_TRANSCRIPTION, PLUGIN_ACTIVATION, PLUGIN_COMMANDS, PLUGIN_WEBVIEW, PLUGIN_WORKSPACE, PLUGIN_CONFIG, PLUGIN_TREE, type RpcMessage } from '../../shared/plugins/rpc'
+import { RpcEndpoint, HOST_COMMANDS, HOST_WINDOW, HOST_STORAGE, HOST_CONFIG, HOST_TREE, HOST_UI, HOST_AGENTS, HOST_LM, HOST_TRANSCRIPTION, HOST_WORKTREES, PLUGIN_ACTIVATION, PLUGIN_COMMANDS, PLUGIN_WEBVIEW, PLUGIN_WORKSPACE, PLUGIN_CONFIG, PLUGIN_TREE, type RpcMessage } from '../../shared/plugins/rpc'
 import { CommandRegistry } from './command-registry'
 import { createHostCommandsService } from './host-commands-service'
 import { debugLog } from '../app/debug-log'
@@ -13,6 +13,7 @@ import type { MessageLevel, UiRequest } from '../../shared/plugins/ui'
 import type { AgentControlService } from './agent-control-service'
 import type { LmService } from './lm-service'
 import type { AgentSpawnService } from './agent-spawn-service'
+import type { WorktreeOverviewService } from './worktree-overview-service'
 import type { AiServiceSettings } from '../../shared/plugins/api-types'
 
 interface PluginActivationProxy { $activate(t: ActivationTarget): Promise<void>; $deactivate(id: string): Promise<void> }
@@ -56,6 +57,7 @@ export class ExtensionHost {
     private readonly agentControl: AgentControlService,
     private readonly lm: LmService,
     private readonly agentSpawn: AgentSpawnService,
+    private readonly worktrees: WorktreeOverviewService,
     now: () => number = () => Date.now(),
   ) {
     this.now = now
@@ -179,6 +181,11 @@ export class ExtensionHost {
     })
     endpoint.registerService(HOST_TRANSCRIPTION, {
       $get: (pluginId: string) => { this.assertBuiltin(pluginId, 'transcription:read'); return this.getTranscription?.() },
+    })
+    endpoint.registerService(HOST_WORKTREES, {
+      $list: (pluginId: string) => { this.assertBuiltin(pluginId, 'workspace:manage'); return this.worktrees.list() },
+      $remove: (pluginId: string, worktreePath: string, opts: { force?: boolean } | undefined) => { this.assertBuiltin(pluginId, 'workspace:manage'); return this.worktrees.remove(worktreePath, opts) },
+      $pruneStale: (pluginId: string) => { this.assertBuiltin(pluginId, 'workspace:manage'); return this.worktrees.pruneStale() },
     })
     this.child = child
     this.endpoint = endpoint

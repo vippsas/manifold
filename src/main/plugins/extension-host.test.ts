@@ -109,6 +109,7 @@ async function createHost(
     agentControl as never,
     lm as never,
     agentSpawn as never,
+    { list: vi.fn(), remove: vi.fn(), pruneStale: vi.fn() } as never,
     now,
   ) as unknown as HostForTest
 }

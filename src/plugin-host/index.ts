@@ -11,6 +11,7 @@ import { WorkspaceContext } from './workspace-api'
 import { createAgentsApi } from './agents-api'
 import { createLmApi } from './lm-api'
 import { createTranscriptionApi } from './transcription-api'
+import { createWorktreesApi } from './worktrees-api'
 import { ConfigContext } from './config-api'
 import { createVscodeShim } from './vscode-shim'
 import type { PluginModule } from '../shared/plugins/api-types'
@@ -79,6 +80,7 @@ const activator = new Activator((t: ActivationTarget): PluginModule => {
     agents: (caps) => createAgentsApi(endpoint, workspaceContext, t.id, caps),
     lm: () => createLmApi(endpoint, workspaceContext, t.id),
     transcription: () => createTranscriptionApi(endpoint, t.id),
+    worktrees: () => createWorktreesApi(endpoint, t.id),
   })
   registerPluginApis(t.root, { manifold })
   // eslint-disable-next-line @typescript-eslint/no-var-requires
