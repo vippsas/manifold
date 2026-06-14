@@ -23,6 +23,7 @@ function deps(over: Partial<WorktreeOverviewDeps> = {}): WorktreeOverviewDeps {
     listMergedBranches: async () => [],
     listWorktreeBranches: async () => [],
     getBranchDates: async () => ({}),
+    deleteMergedBranch: async () => {},
     ...over,
   }
 }
@@ -149,5 +150,24 @@ describe('worktree-overview-service.listMergedOrphanBranches', () => {
       listWorktreeBranches: async () => [],
     }))
     expect(await svc.listMergedOrphanBranches()).toEqual([])
+  })
+})
+
+describe('worktree-overview-service.deleteMergedBranch', () => {
+  it('resolves the project by id and delegates to the safe git delete', async () => {
+    let called: [string, string] | null = null
+    const svc = createWorktreeOverviewService(deps({ deleteMergedBranch: async (p, b) => { called = [p, b] } }))
+    await svc.deleteMergedBranch('p1', 'feat/done')
+    expect(called).toEqual(['/repos/manifold', 'feat/done'])
+  })
+
+  it('throws when the project id is unknown', async () => {
+    const svc = createWorktreeOverviewService(deps())
+    await expect(svc.deleteMergedBranch('nope', 'feat/done')).rejects.toThrow(/project not found/)
+  })
+
+  it('propagates the git failure (e.g. branch not fully merged)', async () => {
+    const svc = createWorktreeOverviewService(deps({ deleteMergedBranch: async () => { throw new Error('not fully merged') } }))
+    await expect(svc.deleteMergedBranch('p1', 'feat/x')).rejects.toThrow(/not fully merged/)
   })
 })

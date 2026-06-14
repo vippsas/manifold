@@ -6,6 +6,7 @@ interface HostWorktreesProxy {
   $remove(pluginId: string, worktreePath: string, opts: { force?: boolean } | undefined): Promise<void>
   $pruneStale(pluginId: string): Promise<string[]>
   $listBranches(pluginId: string): Promise<BranchOverviewEntry[]>
+  $deleteMergedBranch(pluginId: string, projectId: string, branch: string): Promise<void>
 }
 
 export function createWorktreesApi(endpoint: RpcEndpoint, pluginId: string): ManifoldApi['worktrees'] {
@@ -15,5 +16,6 @@ export function createWorktreesApi(endpoint: RpcEndpoint, pluginId: string): Man
     remove: (worktreePath, opts) => host.$remove(pluginId, worktreePath, opts),
     pruneStale: () => host.$pruneStale(pluginId),
     listMergedBranches: () => host.$listBranches(pluginId),
+    deleteMergedBranch: (projectId, branch) => host.$deleteMergedBranch(pluginId, projectId, branch),
   }
 }

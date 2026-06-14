@@ -31,6 +31,13 @@ export async function listWorktreeBranches(repoPath: string): Promise<string[]> 
   }
 }
 
+/** Delete a local branch with git's SAFE delete (`-d`), which refuses to delete a branch
+ *  that isn't fully merged or is checked out in a worktree. Rejects (propagates) on failure
+ *  so the caller can surface it — never force-deletes. */
+export async function deleteMergedBranch(repoPath: string, branch: string): Promise<void> {
+  await gitExec(['branch', '-d', branch], repoPath)
+}
+
 /** Map of every local branch → its last-commit ISO date, in ONE git call (avoids a
  *  per-branch `git log` spawn; repos can have hundreds of branches). */
 export async function getBranchDates(repoPath: string): Promise<Record<string, string>> {

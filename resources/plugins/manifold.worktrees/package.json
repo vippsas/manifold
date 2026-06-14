@@ -7,7 +7,7 @@
   "engines": { "manifold": "^0.3.0" },
   "main": "./out/plugin.js",
   "activationEvents": ["onView:manifold.worktrees.panel"],
-  "capabilities": ["workspace:manage"],
+  "capabilities": ["workspace:manage", "workspace:read"],
   "contributes": {
     "views": [
       { "id": "manifold.worktrees.panel", "title": "Worktrees", "description": "Overview of every repo's managed worktrees.", "launcher": false }

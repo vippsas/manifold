@@ -5,6 +5,9 @@ export interface WorktreesHostOptions {
   readBundle: () => string
   list: () => Promise<WorktreeOverviewEntry[]>
   listBranches: () => Promise<BranchOverviewEntry[]>
+  deleteMergedBranch: (projectId: string, branch: string) => Promise<void>
+  /** Name of the repo the user came from, to default-expand + scroll to it. */
+  activeProjectName: () => string | null
 }
 
 /** Inline the IIFE bundle as a script tag (escaping `</script>` so the parser can't break out). */
@@ -26,17 +29,29 @@ export function createWebviewHost(opts: WorktreesHostOptions): { provider: Webvi
   const sendInit = async (): Promise<void> => {
     try {
       const [entries, branches] = await Promise.all([opts.list(), opts.listBranches()])
-      post({ type: 'init', entries, branches, error: null })
+      post({ type: 'init', entries, branches, focusRepo: opts.activeProjectName(), error: null })
     } catch (e) {
-      post({ type: 'init', entries: [], branches: [], error: (e as Error).message })
+      post({ type: 'init', entries: [], branches: [], focusRepo: null, error: (e as Error).message })
     }
+  }
+
+  const handleDelete = async (projectId: string, branch: string): Promise<void> => {
+    // git `-d` is the safety net (refuses unmerged/checked-out). On failure, re-init brings the
+    // row back so the user can see it wasn't deleted; log so there's a trace either way.
+    try { await opts.deleteMergedBranch(projectId, branch) }
+    catch (e) { console.error('[worktrees] deleteMergedBranch failed:', (e as Error).message) }
+    finally { await sendInit() }
   }
 
   const provider: WebviewViewProvider = {
     resolveWebviewView(v: WebviewView): void {
       view = v
       v.webview.html = buildWebviewHtml(opts.readBundle())
-      v.webview.onDidReceiveMessage((raw: unknown) => { if (isWebviewMsg(raw)) void sendInit() })
+      v.webview.onDidReceiveMessage((raw: unknown) => {
+        if (!isWebviewMsg(raw)) return
+        if (raw.type === 'deleteBranch') { void handleDelete(raw.projectId, raw.branch); return }
+        void sendInit()
+      })
     },
   }
 

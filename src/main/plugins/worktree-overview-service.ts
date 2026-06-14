@@ -18,6 +18,7 @@ export interface WorktreeOverviewDeps {
   listMergedBranches(projectPath: string, baseBranch: string): Promise<string[]>
   listWorktreeBranches(projectPath: string): Promise<string[]>
   getBranchDates(projectPath: string): Promise<Record<string, string>>
+  deleteMergedBranch(projectPath: string, branch: string): Promise<void>
 }
 
 export interface WorktreeOverviewService {
@@ -25,6 +26,7 @@ export interface WorktreeOverviewService {
   remove(worktreePath: string, opts?: { force?: boolean }): Promise<void>
   pruneStale(): Promise<string[]>
   listMergedOrphanBranches(): Promise<BranchOverviewEntry[]>
+  deleteMergedBranch(projectId: string, branch: string): Promise<void>
 }
 
 export function createWorktreeOverviewService(deps: WorktreeOverviewDeps): WorktreeOverviewService {
@@ -131,6 +133,13 @@ export function createWorktreeOverviewService(deps: WorktreeOverviewDeps): Workt
         }
       }
       return out
+    },
+
+    async deleteMergedBranch(projectId, branch): Promise<void> {
+      const project = deps.listProjects().find((p) => p.id === projectId && isGitProject(p))
+      if (!project) throw new Error(`project not found: ${projectId}`)
+      // git `-d` is the safety net: it refuses unless the branch is fully merged and not checked out.
+      await deps.deleteMergedBranch(project.path, branch)
     },
   }
 }

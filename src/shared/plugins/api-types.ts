@@ -197,6 +197,8 @@ export interface ManifoldApi {
     pruneStale(): Promise<string[]>
     /** [workspace:manage] Local branches with no worktree, already merged into base — safe-to-delete leftovers. */
     listMergedBranches(): Promise<BranchOverviewEntry[]>
+    /** [workspace:manage] Safely delete a merged, worktree-less branch (git `-d`; rejects if not fully merged). */
+    deleteMergedBranch(projectId: string, branch: string): Promise<void>
   }
 }
 

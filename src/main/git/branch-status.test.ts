@@ -4,7 +4,7 @@ vi.mock('./git-exec', () => ({ gitExec: vi.fn() }))
 vi.mock('../app/debug-log', () => ({ debugLog: vi.fn() }))
 
 import { gitExec } from './git-exec'
-import { listMergedBranches, listWorktreeBranches, getBranchDates } from './branch-status'
+import { listMergedBranches, listWorktreeBranches, getBranchDates, deleteMergedBranch } from './branch-status'
 
 const mockGitExec = vi.mocked(gitExec)
 
@@ -36,5 +36,16 @@ describe('branch-status', () => {
   it('returns {} when the date lookup fails', async () => {
     mockGitExec.mockRejectedValue(new Error('no'))
     expect(await getBranchDates('/repo')).toEqual({})
+  })
+
+  it('deletes a branch with git safe-delete (-d)', async () => {
+    mockGitExec.mockResolvedValue('')
+    await deleteMergedBranch('/repo', 'feat/done')
+    expect(mockGitExec).toHaveBeenCalledWith(['branch', '-d', 'feat/done'], '/repo')
+  })
+
+  it('propagates the error when the branch is not fully merged (git refuses -d)', async () => {
+    mockGitExec.mockRejectedValue(new Error("error: the branch 'feat/x' is not fully merged"))
+    await expect(deleteMergedBranch('/repo', 'feat/x')).rejects.toThrow(/not fully merged/)
   })
 })

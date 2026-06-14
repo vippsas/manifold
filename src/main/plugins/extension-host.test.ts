@@ -102,7 +102,7 @@ async function createHost(
   lm: { selectChatModels: (...a: unknown[]) => unknown; sendRequest: (...a: unknown[]) => unknown } = { selectChatModels: vi.fn(), sendRequest: vi.fn() },
   agentSpawn: ReturnType<typeof fakeAgentSpawn> = fakeAgentSpawn(),
   now?: () => number,
-  worktrees: { list: ReturnType<typeof vi.fn>; remove: ReturnType<typeof vi.fn>; pruneStale: ReturnType<typeof vi.fn>; listMergedOrphanBranches: ReturnType<typeof vi.fn> } = { list: vi.fn(), remove: vi.fn(), pruneStale: vi.fn(), listMergedOrphanBranches: vi.fn() },
+  worktrees: { list: ReturnType<typeof vi.fn>; remove: ReturnType<typeof vi.fn>; pruneStale: ReturnType<typeof vi.fn>; listMergedOrphanBranches: ReturnType<typeof vi.fn>; deleteMergedBranch: ReturnType<typeof vi.fn> } = { list: vi.fn(), remove: vi.fn(), pruneStale: vi.fn(), listMergedOrphanBranches: vi.fn(), deleteMergedBranch: vi.fn() },
 ): Promise<HostForTest> {
   const { ExtensionHost } = await import('./extension-host')
   return new ExtensionHost(
@@ -313,7 +313,7 @@ describe('ExtensionHost privileged-capability trust boundary', () => {
   it('rejects $remove (workspace:manage) from a non-builtin plugin at the main boundary', async () => {
     const { HOST_WORKTREES } = await import('../../shared/plugins/rpc')
     const remove = vi.fn()
-    const host = await createHost(undefined, undefined, undefined, undefined, { list: vi.fn(), remove, pruneStale: vi.fn(), listMergedOrphanBranches: vi.fn() })
+    const host = await createHost(undefined, undefined, undefined, undefined, { list: vi.fn(), remove, pruneStale: vi.fn(), listMergedOrphanBranches: vi.fn(), deleteMergedBranch: vi.fn() })
     host.setOriginResolver(() => 'user')
     void host.executeContributedCommand('noop', []).catch(() => {})
     const child = latestChild()
@@ -330,7 +330,7 @@ describe('ExtensionHost privileged-capability trust boundary', () => {
   it('allows $remove from a builtin plugin and delegates to the worktree service', async () => {
     const { HOST_WORKTREES } = await import('../../shared/plugins/rpc')
     const remove = vi.fn(() => undefined)
-    const host = await createHost(undefined, undefined, undefined, undefined, { list: vi.fn(), remove, pruneStale: vi.fn(), listMergedOrphanBranches: vi.fn() })
+    const host = await createHost(undefined, undefined, undefined, undefined, { list: vi.fn(), remove, pruneStale: vi.fn(), listMergedOrphanBranches: vi.fn(), deleteMergedBranch: vi.fn() })
     host.setOriginResolver((id) => (id === 'p.builtin' ? 'builtin' : 'user'))
     void host.executeContributedCommand('noop', []).catch(() => {})
     const child = latestChild()
@@ -340,6 +340,22 @@ describe('ExtensionHost privileged-capability trust boundary', () => {
     const rep = lastReply(child)
     expect(rep?.ok).toBe(true)
     expect(remove).toHaveBeenCalledWith('/wt/x', undefined)
+  })
+
+  it('rejects $deleteMergedBranch from a non-builtin plugin at the main boundary', async () => {
+    const { HOST_WORKTREES } = await import('../../shared/plugins/rpc')
+    const deleteMergedBranch = vi.fn()
+    const host = await createHost(undefined, undefined, undefined, undefined, { list: vi.fn(), remove: vi.fn(), pruneStale: vi.fn(), listMergedOrphanBranches: vi.fn(), deleteMergedBranch })
+    host.setOriginResolver(() => 'user')
+    void host.executeContributedCommand('noop', []).catch(() => {})
+    const child = latestChild()
+    child.posted.length = 0
+    child.emit('message', { t: 'req', id: 10, ctx: HOST_WORKTREES, method: '$deleteMergedBranch', args: ['p.user', 'proj-1', 'feat/x'] } satisfies RpcMessage)
+    await settle()
+    const rep = lastReply(child)
+    expect(rep?.ok).toBe(false)
+    expect((rep as { error: string }).error).toMatch(/restricted to built-in plugins/)
+    expect(deleteMergedBranch).not.toHaveBeenCalled()
   })
 
   it('$reveal pushes plugins:reveal-session to the renderer', async () => {
