@@ -251,4 +251,137 @@ describe('useAgentSiblingDockTabs', () => {
 
     expect(agentPanel.api.setTitle).toHaveBeenCalledWith('Agent')
   })
+
+  it('does not re-activate the active sibling tab on an unrelated re-render (opening a file)', () => {
+    const group: MockGroup = {
+      element: { getBoundingClientRect: () => ({ top: 0, left: 0 }) },
+      panels: [],
+    }
+    const agentPanel = buildPanel('agent', group)
+    const siblingPanel = buildPanel(siblingPanelId('sibling-1'), group)
+    siblingPanel.api.isActive = true // the sibling agent is the active tab
+    const panels = new Map<string, MockPanel>([
+      [agentPanel.id, agentPanel],
+      [siblingPanel.id, siblingPanel],
+    ])
+    const api = {
+      getPanel: ((panelId: string) => panels.get(panelId)) as DockviewApi['getPanel'],
+      addPanel: vi.fn(),
+      removePanel: vi.fn((panel: MockPanel) => panels.delete(panel.id)),
+      onDidActivePanelChange: (() => ({ dispose() {} })) as DockviewApi['onDidActivePanelChange'],
+    } as unknown as DockviewApi
+
+    Object.defineProperty(api, 'panels', {
+      get: () => Array.from(panels.values()),
+    })
+
+    const sessions: AgentSession[] = [
+      {
+        id: 'primary',
+        projectId: 'p1',
+        runtimeId: 'codex',
+        branchName: 'manifold/main',
+        worktreePath: '/worktrees/main',
+        status: 'running',
+        pid: 1,
+        additionalDirs: [],
+      },
+      {
+        id: 'sibling-1',
+        projectId: 'p1',
+        runtimeId: 'claude',
+        branchName: 'manifold/main',
+        worktreePath: '/worktrees/main',
+        status: 'waiting',
+        pid: 2,
+        additionalDirs: [],
+      },
+    ]
+
+    const props = {
+      apiRef: { current: api },
+      layoutVersion: 1,
+      sessions,
+      activeWorktreePath: '/worktrees/main',
+      primarySessionId: 'primary',
+      activeSessionId: 'sibling-1',
+      onSelectSession: vi.fn(),
+    }
+    const { rerender } = renderHook((p) => useAgentSiblingDockTabs(p), { initialProps: props })
+
+    // The user opens a file: the editor takes focus, so the sibling agent tab
+    // is no longer the active panel.
+    siblingPanel.api.isActive = false
+    siblingPanel.api.setActive.mockClear()
+
+    // Opening a file bumps the dock layoutVersion (streaming output likewise
+    // bumps `sessions`); either re-runs the effect. It must not yank focus back
+    // to the agent terminal from the editor the user just opened (#296).
+    rerender({ ...props, layoutVersion: 2 })
+
+    expect(siblingPanel.api.setActive).not.toHaveBeenCalled()
+  })
+
+  it('activates the sibling tab when the active session actually changes', () => {
+    const group: MockGroup = {
+      element: { getBoundingClientRect: () => ({ top: 0, left: 0 }) },
+      panels: [],
+    }
+    const agentPanel = buildPanel('agent', group)
+    const siblingPanel = buildPanel(siblingPanelId('sibling-1'), group)
+    const panels = new Map<string, MockPanel>([
+      [agentPanel.id, agentPanel],
+      [siblingPanel.id, siblingPanel],
+    ])
+    const api = {
+      getPanel: ((panelId: string) => panels.get(panelId)) as DockviewApi['getPanel'],
+      addPanel: vi.fn(),
+      removePanel: vi.fn((panel: MockPanel) => panels.delete(panel.id)),
+      onDidActivePanelChange: (() => ({ dispose() {} })) as DockviewApi['onDidActivePanelChange'],
+    } as unknown as DockviewApi
+
+    Object.defineProperty(api, 'panels', {
+      get: () => Array.from(panels.values()),
+    })
+
+    const sessions: AgentSession[] = [
+      {
+        id: 'primary',
+        projectId: 'p1',
+        runtimeId: 'codex',
+        branchName: 'manifold/main',
+        worktreePath: '/worktrees/main',
+        status: 'running',
+        pid: 1,
+        additionalDirs: [],
+      },
+      {
+        id: 'sibling-1',
+        projectId: 'p1',
+        runtimeId: 'claude',
+        branchName: 'manifold/main',
+        worktreePath: '/worktrees/main',
+        status: 'waiting',
+        pid: 2,
+        additionalDirs: [],
+      },
+    ]
+
+    const props = {
+      apiRef: { current: api },
+      layoutVersion: 1,
+      sessions,
+      activeWorktreePath: '/worktrees/main',
+      primarySessionId: 'primary',
+      activeSessionId: 'primary' as string | null,
+      onSelectSession: vi.fn(),
+    }
+    const { rerender } = renderHook((p) => useAgentSiblingDockTabs(p), { initialProps: props })
+
+    siblingPanel.api.setActive.mockClear()
+    // The user clicks the sibling agent in the sidebar.
+    rerender({ ...props, activeSessionId: 'sibling-1' })
+
+    expect(siblingPanel.api.setActive).toHaveBeenCalled()
+  })
 })
