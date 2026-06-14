@@ -1,5 +1,6 @@
 import type { DockviewApi, SerializedDockview } from 'dockview'
 import { getRelativeLocation, type Orientation } from 'dockview-core'
+import { applySidebarWidth } from '../useSidebarHandleCycle'
 
 export { sanitizeDockLayout } from './dock-layout-sanitize'
 export {
@@ -294,4 +295,46 @@ function nodeSignature(node: GridNode): string {
 
 export function getGridSignature(layout: SerializedDockview): string {
   return nodeSignature(layout.grid.root as GridNode)
+}
+
+// ── Collapsed-sidebar restore ───────────────────────────────────────────
+
+// dockview's MINIMUM_DOCKVIEW_GROUP_PANEL_WIDTH. A collapsed sidebar is held at
+// width 0 only by a runtime minimumWidth:0 group constraint; api.toJSON() drops
+// minimumWidth when it's <= 0, so api.fromJSON() recreates the group at this
+// default minimum and clamps the saved sub-minimum width back open.
+const DOCKVIEW_DEFAULT_GROUP_MIN_WIDTH = 100
+
+/** Serialized pixel width of the sidebar leaf containing `panelId` (undefined if
+ *  absent). Sidebar groups live in a horizontal branch, so the leaf `size` is
+ *  its width. */
+function serializedSidebarWidth(layout: SerializedDockview, panelId: string): number | undefined {
+  let size: number | undefined
+  const visit = (node: GridNode): void => {
+    if (size !== undefined) return
+    if (node.type === 'leaf') {
+      if (node.data.views.includes(panelId)) size = node.size
+      return
+    }
+    for (const child of node.data) visit(child)
+  }
+  visit(layout.grid.root as GridNode)
+  return size
+}
+
+/**
+ * Re-apply any sidebar width that dockview clamps open on restore. A sidebar
+ * collapsed to 0 (or dragged below dockview's default group minimum) is held
+ * only by a runtime minimumWidth:0 constraint, which api.toJSON() drops — so
+ * api.fromJSON() recreates the group at the 100px default minimum and the
+ * collapse is lost. Reading the faithful width from the saved layout and
+ * re-applying it (which re-sets minimumWidth:0) restores the collapse. Must run
+ * right after fromJSON, before the layout is captured as the current state.
+ */
+export function restoreCollapsedSidebarWidths(api: DockviewApi, saved: SerializedDockview): void {
+  for (const [side, panelId] of [['left', 'projects'], ['right', 'fileTree']] as const) {
+    const width = serializedSidebarWidth(saved, panelId)
+    if (width === undefined || width >= DOCKVIEW_DEFAULT_GROUP_MIN_WIDTH) continue
+    applySidebarWidth(api, side, Math.max(0, Math.round(width)))
+  }
 }
