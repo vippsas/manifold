@@ -118,6 +118,23 @@ export interface ShellPromptSegments {
   k8sNamespace: boolean
 }
 
+export type NotificationScope = 'non-active' | 'unfocused' | 'always'
+
+/** Desktop (OS) notifications for agent lifecycle transitions. macOS Focus / DND
+ *  is respected natively, so there is no in-app quiet-hours schedule. */
+export interface NotificationSettings {
+  /** Master switch for all desktop notifications. */
+  enabled: boolean
+  /** Notify when a session transitions to `done`. */
+  onDone: boolean
+  /** Notify when a session transitions to `waiting` (needs input). */
+  onWaiting: boolean
+  /** Notify when a session transitions to `error`. */
+  onError: boolean
+  /** Which sessions raise a notification. */
+  scope: NotificationScope
+}
+
 export interface ManifoldSettings {
   storagePath: string
   setupCompleted: boolean
@@ -129,6 +146,7 @@ export interface ManifoldSettings {
   terminalFontFamily: string
   defaultBaseBranch: string
   notificationSound: boolean
+  notifications?: NotificationSettings
   shellPrompt: boolean
   shellPromptSegments?: ShellPromptSegments
   shellHistoryScope: 'project' | 'global'

@@ -39,6 +39,13 @@ export class SettingsStore {
       ...DEFAULT_SETTINGS.editor,
       ...settings.editor,
     } as ManifoldSettings['editor']
+    // Same widening as `editor` above: the optional `notifications?` field types
+    // both operands as possibly-undefined, so the spread is asserted back to the
+    // complete type.
+    settings.notifications = {
+      ...DEFAULT_SETTINGS.notifications,
+      ...settings.notifications,
+    } as ManifoldSettings['notifications']
     const userProvisioners = settings.provisioning?.provisioners?.length
       ? settings.provisioning.provisioners.map((provisioner) => ({ ...provisioner }))
       : []
