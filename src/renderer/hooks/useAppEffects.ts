@@ -9,6 +9,7 @@ interface AppEffectsInput {
   dockLayout: UseDockLayoutResult
   settings: { defaultRuntime: string }
   setActiveProject: (id: string) => void
+  setActiveSession: (id: string | null) => void
   spawnAgent: (options: SpawnAgentOptions) => Promise<unknown>
   refreshOpenFiles: () => Promise<void>
   refreshDiff: () => Promise<void>
@@ -75,6 +76,23 @@ export function useAppEffects(input: AppEffectsInput): AppEffectsResult {
     if (typeof sessionId !== 'string' || sessionId.length === 0) return
     input.dockLayout.openSiblingPanel(sessionId, typeof title === 'string' ? title : undefined)
   }), [input.dockLayout.openSiblingPanel])
+
+  // Tell the main process which session is active so 'non-active' scope desktop
+  // notifications can suppress the session the user is currently viewing.
+  useEffect(() => {
+    window.electronAPI.send('notifications:active-session', input.activeSessionId)
+  }, [input.activeSessionId])
+
+  // A clicked desktop notification asks the app to focus a specific session.
+  useEffect(() => window.electronAPI.on('notification:open-session', (...args: unknown[]) => {
+    const payload = args[0] as { projectId?: string; sessionId?: string }
+    if (typeof payload?.sessionId !== 'string' || payload.sessionId.length === 0) return
+    input.setActiveSession(payload.sessionId)
+    if (typeof payload.projectId === 'string' && payload.projectId.length > 0) {
+      input.setActiveProject(payload.projectId)
+    }
+    input.dockLayout.openSiblingPanel(payload.sessionId)
+  }), [input.setActiveProject, input.setActiveSession, input.dockLayout.openSiblingPanel])
 
   useEffect(() => {
     let cancelled = false

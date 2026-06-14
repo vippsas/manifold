@@ -45,6 +45,7 @@ function createInput(activeSessionId: string | null = 'session-1') {
       } satisfies UseDockLayoutResult,
       settings: { defaultRuntime: 'codex' },
       setActiveProject: vi.fn(),
+      setActiveSession: vi.fn(),
       spawnAgent: vi.fn(),
       refreshOpenFiles: vi.fn().mockResolvedValue(undefined),
       refreshDiff: vi.fn().mockResolvedValue(undefined),
@@ -189,5 +190,48 @@ describe('useAppEffects', () => {
       reveal(undefined, 'x')
     })
     expect(input.dockLayout.openSiblingPanel).not.toHaveBeenCalled()
+  })
+
+  it('focuses the session then the project on notification:open-session', () => {
+    const { input } = createInput()
+    renderHook(() => useAppEffects({ ...input }))
+
+    act(() => {
+      emit('notification:open-session', { projectId: 'proj-1', sessionId: 'sess-9' })
+    })
+    expect(input.setActiveSession).toHaveBeenCalledWith('sess-9')
+    expect(input.setActiveProject).toHaveBeenCalledWith('proj-1')
+    expect(input.dockLayout.openSiblingPanel).toHaveBeenCalledWith('sess-9')
+    // Session must be set before the project so the project-change refetch
+    // doesn't clobber the target session.
+    const sessionOrder = vi.mocked(input.setActiveSession).mock.invocationCallOrder[0]
+    const projectOrder = vi.mocked(input.setActiveProject).mock.invocationCallOrder[0]
+    expect(sessionOrder).toBeLessThan(projectOrder)
+  })
+
+  it('ignores notification:open-session without a session id', () => {
+    const { input } = createInput()
+    renderHook(() => useAppEffects({ ...input }))
+
+    act(() => {
+      emit('notification:open-session', { projectId: 'proj-1', sessionId: '' })
+    })
+    expect(input.setActiveSession).not.toHaveBeenCalled()
+    expect(input.setActiveProject).not.toHaveBeenCalled()
+    expect(input.dockLayout.openSiblingPanel).not.toHaveBeenCalled()
+  })
+
+  it('reports the active session id to the main process on mount', () => {
+    const { input } = createInput('session-7')
+    renderHook(() => useAppEffects({ ...input }))
+
+    expect(window.electronAPI.send).toHaveBeenCalledWith('notifications:active-session', 'session-7')
+  })
+
+  it('reports a null active session when none is selected', () => {
+    const { input } = createInput(null)
+    renderHook(() => useAppEffects({ ...input }))
+
+    expect(window.electronAPI.send).toHaveBeenCalledWith('notifications:active-session', null)
   })
 })
