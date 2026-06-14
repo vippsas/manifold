@@ -257,6 +257,7 @@ export function App(): React.JSX.Element {
 
   const dockState: DockAppState = {
     sessionId: effectiveSessionId, primarySessionId,
+    onOpenWorktrees: () => overlays.setShowWorktrees(true),
     searchFocusRequestKey: appEffects.searchFocusRequestKey, requestedSearchMode: appEffects.requestedSearchMode,
     scrollbackLines: settings.scrollbackLines, terminalFontFamily: settings.terminalFontFamily, xtermTheme, diffText: diff,
     editorSettings: settings.editor,

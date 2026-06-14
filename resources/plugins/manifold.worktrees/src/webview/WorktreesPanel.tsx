@@ -6,10 +6,36 @@ interface ThemeMsg { type: '__manifold_theme'; vars: Record<string, string> }
 type Incoming = { type: 'init'; entries: WorktreeOverviewEntry[]; branches: BranchOverviewEntry[]; error?: string | null } | ThemeMsg
 
 const STATUS_COLOR: Record<string, string> = {
-  active: 'var(--success, #3fb950)',
-  idle: 'var(--text-muted, #8b949e)',
-  stale: 'var(--error, #f85149)',
+  active: 'var(--status-running)',
+  idle: 'var(--text-muted)',
+  stale: 'var(--status-error)',
 }
+
+const COLS = '84px minmax(0,1fr) 96px 64px 104px 22px'
+
+const CSS = `
+  .wt-root { height:100%; overflow:auto; box-sizing:border-box; font-size:var(--type-ui-small); color:var(--text-secondary); }
+  .wt-summary { padding:var(--space-sm) var(--space-md); color:var(--text-muted); font-size:var(--type-ui-caption); }
+  .wt-summary b { color:var(--text-secondary); font-weight:600; }
+  .wt-colhead { display:grid; grid-template-columns:${COLS}; gap:var(--space-sm); position:sticky; top:0; z-index:1;
+    padding:6px var(--space-md); background:var(--bg-primary); border-bottom:1px solid var(--divider);
+    font-size:var(--type-ui-micro); text-transform:uppercase; letter-spacing:.06em; color:var(--text-muted); }
+  .wt-repohead { display:flex; justify-content:space-between; align-items:center; padding:10px var(--space-md) 4px;
+    font-size:var(--type-ui-small); font-weight:700; color:var(--text-primary); }
+  .wt-repohead .count { color:var(--text-muted); font-weight:400; }
+  .wt-row { display:grid; grid-template-columns:${COLS}; gap:var(--space-sm); align-items:center;
+    padding:4px var(--space-md); font-family:var(--font-mono); transition:background 150ms ease; }
+  .wt-row:hover, .wt-branchrow:hover { background:var(--list-hover-bg); }
+  .wt-dot { display:inline-block; width:7px; height:7px; border-radius:50%; margin-right:7px; vertical-align:middle; flex-shrink:0; }
+  .wt-branch { overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  .wt-branchhead { padding:6px var(--space-md) 2px; font-size:var(--type-ui-micro); text-transform:uppercase;
+    letter-spacing:.05em; color:var(--text-muted); cursor:pointer; user-select:none; transition:color 150ms ease; }
+  .wt-branchhead:hover { color:var(--text-secondary); }
+  .wt-branchrow { display:grid; grid-template-columns:${COLS}; gap:var(--space-sm); align-items:center;
+    padding:3px var(--space-md); font-family:var(--font-mono); color:var(--text-muted); transition:background 150ms ease; }
+  .wt-tag { color:var(--text-muted); }
+  .wt-empty { padding:var(--space-md); color:var(--text-muted); }
+`
 
 interface RepoGroup { repo: string; worktrees: WorktreeOverviewEntry[]; branches: BranchOverviewEntry[] }
 
@@ -18,8 +44,6 @@ function buildRepos(entries: WorktreeOverviewEntry[], branches: BranchOverviewEn
   for (const e of entries) { const a = wt.get(e.projectName) ?? []; a.push(e); wt.set(e.projectName, a) }
   const br = new Map<string, BranchOverviewEntry[]>()
   for (const b of branches) { const a = br.get(b.projectName) ?? []; a.push(b); br.set(b.projectName, a) }
-  // Repos that hold worktrees come first (the overview is primarily about worktrees),
-  // then branch-only repos; alphabetical within each band.
   return [...new Set([...wt.keys(), ...br.keys()])]
     .sort((a, b) => {
       const aw = (wt.get(a)?.length ?? 0) > 0 ? 0 : 1
@@ -58,45 +82,44 @@ export function WorktreesPanel(): React.JSX.Element {
     return next
   })
 
-  if (entries === null) return <div style={{ padding: 16, opacity: 0.6 }}>Loading worktrees…</div>
-  if (error) return <div style={{ padding: 16, color: 'var(--error,#f85149)' }}>Failed to load worktrees: {error}</div>
+  if (entries === null) return <div className="wt-empty">Loading worktrees…</div>
+  if (error) return <div className="wt-empty" style={{ color: 'var(--status-error)' }}>Failed to load worktrees: {error}</div>
 
-  const cols = '70px 1fr 90px 60px 90px 36px'
   return (
-    <div data-testid="worktrees-overview" style={{ padding: '12px 14px', fontSize: 13, lineHeight: 1.5, overflow: 'auto', height: '100%', boxSizing: 'border-box' }}>
-      <div style={{ fontWeight: 700, marginBottom: 10 }}>
-        Worktrees <span style={{ opacity: 0.6, fontWeight: 400 }}>· {wtTotal} across {repos.length} repos{branches.length > 0 ? ` · ${branches.length} prunable branches` : ''}</span>
+    <div className="wt-root" data-testid="worktrees-overview">
+      <style>{CSS}</style>
+      <div className="wt-summary">
+        <b>{wtTotal}</b> worktrees · <b>{repos.length}</b> repos · <b>{branches.length}</b> prunable branches
       </div>
-      {wtTotal === 0 && branches.length === 0 && <div style={{ opacity: 0.6 }}>No managed worktrees.</div>}
+      <div className="wt-colhead">
+        <span>Status</span><span>Branch</span><span>↑↓ base</span><span>Changes</span><span>Last commit</span><span />
+      </div>
+      {wtTotal === 0 && branches.length === 0 && <div className="wt-empty">No managed worktrees.</div>}
       {repos.map((g) => (
-        <div key={g.repo} style={{ marginBottom: 12 }}>
-          <div style={{ fontWeight: 700, borderBottom: '1px solid var(--border, rgba(128,128,128,.3))', padding: '4px 2px', display: 'flex', justifyContent: 'space-between' }}>
-            <span>{g.repo}</span><span style={{ opacity: 0.55, fontWeight: 400 }}>{g.worktrees.length}</span>
-          </div>
+        <div key={g.repo}>
+          <div className="wt-repohead"><span>{g.repo}</span><span className="count">{g.worktrees.length}</span></div>
           {g.worktrees.map((r) => (
-            <div key={r.worktreePath} style={{ display: 'grid', gridTemplateColumns: cols, gap: 8, alignItems: 'center', padding: '4px 2px', fontFamily: 'var(--font-mono, ui-monospace, monospace)' }}>
-              <span style={{ color: STATUS_COLOR[r.status] }}>● {r.status}</span>
-              <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={r.branch}>{r.branch}</span>
+            <div className="wt-row" key={r.worktreePath}>
+              <span style={{ color: STATUS_COLOR[r.status] }}><span className="wt-dot" style={{ background: STATUS_COLOR[r.status] }} />{r.status}</span>
+              <span className="wt-branch" title={r.branch}>{r.branch}</span>
               <span>{r.status === 'stale' ? '—' : `+${r.ahead} / −${r.behind}`}</span>
-              <span style={{ color: r.dirty ? 'var(--warning,#d29922)' : undefined, opacity: r.dirty ? 1 : 0.4 }}>{r.status === 'stale' ? '' : r.dirty ? 'dirty' : 'clean'}</span>
-              <span style={{ opacity: 0.6 }}>{r.lastCommitISO ? r.lastCommitISO.slice(0, 10) : '—'}</span>
-              <span style={{ opacity: 0.7 }} title={r.locked ? 'locked' : undefined}>{r.locked ? '🔒' : ''}</span>
+              <span style={{ color: r.dirty ? 'var(--status-waiting)' : 'var(--text-muted)' }}>{r.status === 'stale' ? '' : r.dirty ? 'dirty' : 'clean'}</span>
+              <span style={{ color: 'var(--text-muted)' }}>{r.lastCommitISO ? r.lastCommitISO.slice(0, 10) : '—'}</span>
+              <span title={r.locked ? 'locked' : undefined}>{r.locked ? '🔒' : ''}</span>
             </div>
           ))}
           {g.branches.length > 0 && (
-            <div data-testid="orphan-branches" style={{ marginTop: 4 }}>
-              <div
-                data-testid="orphan-branches-header"
-                onClick={() => toggle(g.repo)}
-                style={{ opacity: 0.6, fontSize: 11, textTransform: 'uppercase', letterSpacing: '0.04em', padding: '4px 2px 2px', cursor: 'pointer', userSelect: 'none' }}
-              >
+            <div data-testid="orphan-branches">
+              <div className="wt-branchhead" data-testid="orphan-branches-header" onClick={() => toggle(g.repo)}>
                 {expanded.has(g.repo) ? '▾' : '▸'} merged branches · no worktree · {g.branches.length}
               </div>
               {expanded.has(g.repo) && g.branches.map((b) => (
-                <div key={b.branch} style={{ display: 'grid', gridTemplateColumns: '70px 1fr 90px', gap: 8, alignItems: 'center', padding: '3px 2px', fontFamily: 'var(--font-mono, ui-monospace, monospace)', opacity: 0.8 }}>
-                  <span style={{ opacity: 0.6 }}>⌥ merged</span>
-                  <span data-testid="orphan-branch" style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={b.branch}>{b.branch}</span>
-                  <span style={{ opacity: 0.6 }}>{b.lastCommitISO ? b.lastCommitISO.slice(0, 10) : '—'}</span>
+                <div className="wt-branchrow" key={b.branch}>
+                  <span className="wt-tag">merged</span>
+                  <span className="wt-branch" data-testid="orphan-branch" title={b.branch}>{b.branch}</span>
+                  <span /><span />
+                  <span>{b.lastCommitISO ? b.lastCommitISO.slice(0, 10) : '—'}</span>
+                  <span />
                 </div>
               ))}
             </div>

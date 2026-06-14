@@ -2,6 +2,7 @@ import React from 'react'
 import type { AgentSession } from '../../../shared/types'
 import { modalStyles } from './NewTaskModal.styles'
 import { runtimeLabel } from '../sidebar/AgentItem'
+import { DockStateContext } from '../editor/editor-shell/dock-panel-types'
 
 function basename(input: string): string {
   const parts = input.split(/[\\/]/).filter(Boolean)
@@ -27,10 +28,22 @@ interface Props {
 }
 
 export function ReusableSessionsCard({ projectPath, sessions, onResumeSession, onDeleteSession }: Props): React.JSX.Element | null {
+  const dockState = React.useContext(DockStateContext)
   if (sessions.length === 0) return null
   return (
     <section style={modalStyles.infoCard}>
-      <div style={modalStyles.infoCardTitle}>Existing worktrees</div>
+      <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', gap: 'var(--space-sm)' }}>
+        <div style={modalStyles.infoCardTitle}>Existing worktrees</div>
+        {dockState?.onOpenWorktrees && (
+          <button
+            type="button"
+            onClick={() => dockState.onOpenWorktrees()}
+            style={{ background: 'transparent', border: 'none', color: 'var(--accent)', cursor: 'pointer', fontSize: 'var(--type-ui-small)', padding: 0, whiteSpace: 'nowrap' }}
+          >
+            View all worktrees →
+          </button>
+        )}
+      </div>
       <div style={modalStyles.infoCardText}>
         Managed worktrees already exist for this repository. You can reconnect to one or remove it before starting a new agent.
       </div>
