@@ -23,6 +23,7 @@ export interface CommandContext {
   togglePanel: (panelId: string) => void
   openModule: (panelId: string) => void
   toggleTheme: () => void
+  openWorktrees: () => void
 }
 
 const FOCUS_PANEL_IDS: Record<string, string> = {
@@ -47,6 +48,7 @@ export function createCommandHandlers(ctx: CommandContext): Record<string, () =>
     'scm.commit': ctx.commit,
     'scm.createPR': ctx.createPR,
     'view.toggleTheme': ctx.toggleTheme,
+    'view.worktrees': ctx.openWorktrees,
   }
 
   for (const command of COMMANDS) {

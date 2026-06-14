@@ -68,6 +68,7 @@ const RAW_COMMANDS = [
   { id: 'view.toggle.fileTree', title: 'Toggle Files', category: 'View', accelerator: 'CmdOrCtrl+Alt+4', menu: { section: 'view', order: 13 } },
   { id: 'view.toggle.modifiedFiles', title: 'Toggle Modified Files', category: 'View', accelerator: 'CmdOrCtrl+Alt+5', menu: { section: 'view', order: 14 } },
   { id: 'view.toggle.shell', title: 'Toggle Shell', category: 'View', accelerator: 'CmdOrCtrl+Alt+6', menu: { section: 'view', order: 15 } },
+  { id: 'view.worktrees', title: 'Worktrees', category: 'View', menu: { section: 'view', order: 16 } },
   { id: 'view.focusChat', title: 'Focus Chat', category: 'View', menu: { section: 'view', order: 20 } },
   { id: 'view.focusTerminal', title: 'Focus Terminal', category: 'View', accelerator: 'Ctrl+`', menu: { section: 'view', order: 21 } },
   { id: 'view.focusFiles', title: 'Focus File Tree', category: 'View', accelerator: 'CmdOrCtrl+Shift+E', menu: { section: 'view', order: 22 } },

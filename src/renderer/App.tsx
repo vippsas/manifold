@@ -395,6 +395,7 @@ export function App(): React.JSX.Element {
       else dockLayout.togglePanel(id)
     },
     toggleTheme,
+    openWorktrees: () => overlays.setShowWorktrees(true),
   }), [overlays, openQuickOpen, appEffects, jumpToFavorite, activeProjectSessions, activeSessionId, activeSession, activeProject, dockLayout, toggleTheme])
   const { runCommand } = useCommands(commandContext)
 
