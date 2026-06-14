@@ -107,6 +107,35 @@ export interface WebviewViewProvider {
   resolveWebviewView(view: WebviewView): void | Promise<void>
 }
 
+export type WorktreeStatus = 'active' | 'idle' | 'stale'
+
+/** One Manifold-managed worktree in the overview.
+ *  Producer-upheld invariants: when `status === 'stale'`, `ahead`/`behind` are 0, `dirty` is
+ *  false and `lastCommitISO` is null; when `status === 'active'`, `sessionId` is non-null. */
+export interface WorktreeOverviewEntry {
+  worktreePath: string
+  projectId: string
+  projectName: string
+  branch: string
+  /** active = a live agent owns it; idle = managed, no live agent; stale = directory gone. */
+  status: WorktreeStatus
+  /** The owning agent session, when one exists. */
+  sessionId: string | null
+  ahead: number
+  behind: number
+  dirty: boolean
+  lastCommitISO: string | null
+  locked: boolean
+}
+
+/** A local branch with no worktree that is already merged into its repo's base branch. */
+export interface BranchOverviewEntry {
+  projectId: string
+  projectName: string
+  branch: string
+  lastCommitISO: string | null
+}
+
 /** The `manifold` module surface (Phase 1b: commands only). */
 export interface ManifoldApi {
   commands: {
@@ -157,6 +186,21 @@ export interface ManifoldApi {
   transcription: {
     /** [transcription:read] App-level AI-service settings (undefined when unconfigured). */
     get(): Promise<AiServiceSettings | undefined>
+  }
+  worktrees: {
+    /** [workspace:manage] All Manifold-managed worktrees across all registered repos. */
+    list(): Promise<WorktreeOverviewEntry[]>
+    /** [workspace:manage] Remove one managed worktree. Rejects uncommitted/unpushed changes unless
+     *  `force`; a locked worktree is always rejected (force does not override the lock). */
+    remove(worktreePath: string, opts?: { force?: boolean }): Promise<void>
+    /** [workspace:manage] Remove all stale (directory-gone) managed worktrees, skipping locked ones; returns removed paths. */
+    pruneStale(): Promise<string[]>
+    /** [workspace:manage] Local branches with no worktree, already merged into base — safe-to-delete leftovers. */
+    listMergedBranches(): Promise<BranchOverviewEntry[]>
+    /** [workspace:manage] Safely delete a merged, worktree-less branch (git `-d`; rejects if not fully merged). */
+    deleteMergedBranch(projectId: string, branch: string): Promise<void>
+    /** [workspace:manage] Safely delete every merged, worktree-less branch in a repo; returns the deleted names. */
+    deleteAllMergedBranches(projectId: string): Promise<string[]>
   }
 }
 

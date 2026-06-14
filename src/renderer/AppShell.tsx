@@ -9,6 +9,7 @@ import type { UseUpdateLogResult } from '../shared/useUpdateLog'
 import { PANEL_COMPONENTS, DockStateContext } from './components/editor/editor-shell/dock-panels'
 import { PrefixHeaderActions, LeftHeaderActions, RightHeaderActions } from './components/editor/editor-shell/SidebarCollapseAction'
 import { OnboardingView } from './components/modals/OnboardingView'
+import { WorktreeHomeView } from './components/home/WorktreeHomeView'
 import { SettingsModal } from './components/modals/SettingsModal'
 import { AboutOverlay } from './components/modals/AboutOverlay'
 import { UpdateLogOverlay } from './components/modals/UpdateLogOverlay'
@@ -123,7 +124,7 @@ export function AppShell(p: AppShellProps): React.JSX.Element {
       />
       <div className="layout-main">
         <DockStateContext.Provider value={p.dockState}>
-          <div style={{ flex: 1, overflow: 'hidden' }}>
+          <div style={{ flex: 1, overflow: 'hidden', position: 'relative' }}>
             <DockviewReact
               className={`dockview-theme-dark dockview-theme-manifold${!p.activeSessionId ? ' dockview-minimal' : ''}`}
               components={PANEL_COMPONENTS}
@@ -134,6 +135,9 @@ export function AppShell(p: AppShellProps): React.JSX.Element {
               rightHeaderActionsComponent={RightHeaderActions}
               watermarkComponent={EmptyWatermark}
             />
+            {p.overlays.showWorktrees && (
+              <WorktreeHomeView onClose={() => p.overlays.setShowWorktrees(false)} />
+            )}
           </div>
         </DockStateContext.Provider>
         <StatusBar

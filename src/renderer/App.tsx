@@ -257,6 +257,7 @@ export function App(): React.JSX.Element {
 
   const dockState: DockAppState = {
     sessionId: effectiveSessionId, primarySessionId,
+    onOpenWorktrees: () => overlays.setShowWorktrees(true),
     searchFocusRequestKey: appEffects.searchFocusRequestKey, requestedSearchMode: appEffects.requestedSearchMode,
     scrollbackLines: settings.scrollbackLines, terminalFontFamily: settings.terminalFontFamily, xtermTheme, diffText: diff,
     editorSettings: settings.editor,
@@ -395,6 +396,7 @@ export function App(): React.JSX.Element {
       else dockLayout.togglePanel(id)
     },
     toggleTheme,
+    openWorktrees: () => overlays.setShowWorktrees(true),
   }), [overlays, openQuickOpen, appEffects, jumpToFavorite, activeProjectSessions, activeSessionId, activeSession, activeProject, dockLayout, toggleTheme])
   const { runCommand } = useCommands(commandContext)
 

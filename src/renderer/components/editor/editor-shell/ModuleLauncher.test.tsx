@@ -6,6 +6,7 @@ import type { DockAppState } from './dock-panel-types'
 
 function renderWithState(overrides: Partial<DockAppState>) {
   const state = {
+    sessionId: 's1',
     onOpenModule: vi.fn(),
     isModuleOpen: () => false,
     ...overrides,
@@ -43,5 +44,15 @@ describe('ModuleLauncher', () => {
   it('renders nothing without dock state', () => {
     const { container } = render(<ModuleLauncher />)
     expect(container.firstChild).toBeNull()
+  })
+
+  it('shows the launcher when an agent is active', () => {
+    renderWithState({ sessionId: 's1' })
+    expect(screen.getByRole('button', { name: /open module/i })).toBeInTheDocument()
+  })
+
+  it('hides the launcher in the agentless state (no active session)', () => {
+    renderWithState({ sessionId: null })
+    expect(screen.queryByRole('button', { name: /open module/i })).toBeNull()
   })
 })

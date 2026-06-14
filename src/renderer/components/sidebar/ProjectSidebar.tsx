@@ -6,6 +6,7 @@ import { sidebarStyles } from './ProjectSidebar.styles'
 import { WorkspaceList } from './WorkspaceList'
 import { ProjectList } from './ProjectList'
 import { FavoritesList } from './FavoritesList'
+import { WorktreesSidebarButton } from './WorktreesSidebarButton'
 
 interface ProjectSidebarProps {
   projects: Project[]
@@ -92,6 +93,7 @@ export function ProjectSidebar({
 
   return (
     <div style={sidebarStyles.root}>
+      <WorktreesSidebarButton />
       <FavoritesList />
       {workspaces && onSelectWorkspace && onRemoveWorkspace && (
         <WorkspaceList

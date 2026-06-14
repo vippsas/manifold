@@ -16,6 +16,9 @@ export function ModuleLauncher(): React.JSX.Element | null {
   const state = React.useContext(DockStateContext)
   const contributions = useLauncherContributions()
   if (!state) return null
+  // Two-spaces model (#744): the + Apps launcher hosts per-agent apps, so it is hidden in the
+  // agentless "New agent" state (no active session). Global apps live in the home space.
+  if (!state.sessionId) return null
 
   const items: ActionMenuButtonItem[] = contributions.map((c) => {
     if (c.source === 'plugin') {

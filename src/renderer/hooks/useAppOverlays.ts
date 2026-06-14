@@ -17,6 +17,8 @@ export interface UseAppOverlaysResult {
   setShowCommandPalette: (show: boolean) => void
   showShortcuts: boolean
   setShowShortcuts: (show: boolean) => void
+  showWorktrees: boolean
+  setShowWorktrees: (show: boolean) => void
   appVersion: string
   handleCommit: (message: string) => Promise<void>
   handleClosePanel: () => void
@@ -48,6 +50,7 @@ export function useAppOverlays(
   const [showAbout, setShowAbout] = useState(false)
   const [showCommandPalette, setShowCommandPalette] = useState(false)
   const [showShortcuts, setShowShortcuts] = useState(false)
+  const [showWorktrees, setShowWorktrees] = useState(false)
   const [appVersion, setAppVersion] = useState('')
   const [newAgentFocusTrigger, setNewAgentFocusTrigger] = useState(0)
   const [pendingDelete, setPendingDelete] = useState<PendingDelete | null>(null)
@@ -138,6 +141,8 @@ export function useAppOverlays(
     setShowCommandPalette,
     showShortcuts,
     setShowShortcuts,
+    showWorktrees,
+    setShowWorktrees,
     appVersion,
     handleCommit,
     handleClosePanel,
@@ -152,7 +157,7 @@ export function useAppOverlays(
     confirmDeleteAgent,
   }), [
     activePanel, handleNewAgentFromHeader, newAgentFocusTrigger,
-    showSettings, showAbout, showCommandPalette, showShortcuts, appVersion, handleCommit, handleClosePanel,
+    showSettings, showAbout, showCommandPalette, showShortcuts, showWorktrees, appVersion, handleCommit, handleClosePanel,
     handleLaunchAgent, handleSelectSession, handleSaveSettings, handleSetupComplete,
     pendingDelete, deletingSessionId, requestDeleteAgent, cancelDeleteAgent, confirmDeleteAgent,
   ])

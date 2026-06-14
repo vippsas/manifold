@@ -19,7 +19,7 @@ function makeManager(initial: Partial<ManifoldSettings> = {}) {
     getSettings: () => settings,
     updateSettings: (patch: Partial<ManifoldSettings>) => { settings = { ...settings, ...patch } },
   }
-  const mgr = new PluginManager('/tmp', store as never, {} as never, {} as never)
+  const mgr = new PluginManager('/tmp', store as never, {} as never, {} as never, {} as never, {} as never)
   return mgr
 }
 

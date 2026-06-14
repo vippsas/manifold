@@ -23,6 +23,7 @@ export interface GatedFactories {
   agents: (caps: ReadonlySet<Capability>) => ManifoldApi['agents']
   lm: () => ManifoldApi['lm']
   transcription: () => ManifoldApi['transcription']
+  worktrees: () => ManifoldApi['worktrees']
 }
 
 export function buildGatedApi(
@@ -53,5 +54,6 @@ export function buildGatedApi(
     },
     get lm(): ManifoldApi['lm'] { requireCap('lm'); return factories.lm() },
     get transcription(): ManifoldApi['transcription'] { requireCap('transcription:read'); return factories.transcription() },
+    get worktrees(): ManifoldApi['worktrees'] { requireCap('workspace:manage'); return factories.worktrees() },
   }
 }
