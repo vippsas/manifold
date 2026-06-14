@@ -13,6 +13,7 @@ vi.mock('electron', () => ({
 }))
 
 import { buildAppMenu } from './app-menu'
+import { COMMANDS } from '../../shared/commands/catalog'
 
 type Item = Electron.MenuItemConstructorOptions
 function flatten(items: Item[]): Item[] {
@@ -22,6 +23,10 @@ function flatten(items: Item[]): Item[] {
     if (Array.isArray(item.submenu)) out.push(...flatten(item.submenu as Item[]))
   }
   return out
+}
+
+function findByAccelerator(accelerator: string): Item | undefined {
+  return flatten(lastTemplate).find((item) => item.accelerator === accelerator)
 }
 
 function clickAll(): void {
@@ -49,8 +54,11 @@ describe('buildAppMenu', () => {
     const { win, send } = makeWindow(false)
     buildAppMenu(win, options)
     clickAll()
-    expect(send).toHaveBeenCalledWith('show-about')
-    expect(send).toHaveBeenCalledWith('show-settings')
+    // Catalog commands fire the unified command:run channel…
+    expect(send).toHaveBeenCalledWith('command:run', 'general.settings')
+    expect(send).toHaveBeenCalledWith('command:run', 'help.about')
+    // …while bespoke items keep their own channels.
+    expect(send).toHaveBeenCalledWith('show-update-log')
     expect(send.mock.calls.length).toBeGreaterThan(0)
   })
 
@@ -59,5 +67,28 @@ describe('buildAppMenu', () => {
     buildAppMenu(win, options)
     expect(() => clickAll()).not.toThrow()
     expect(send).not.toHaveBeenCalled()
+  })
+
+  it('binds every catalog accelerator in the menu template', () => {
+    const { win } = makeWindow(false)
+    buildAppMenu(win, options)
+    const present = new Set(flatten(lastTemplate).map((i) => i.accelerator).filter(Boolean))
+    for (const command of COMMANDS) {
+      if (command.accelerator) expect(present.has(command.accelerator)).toBe(true)
+    }
+  })
+
+  it('routes each catalog menu item to command:run with its id', () => {
+    const { win, send } = makeWindow(false)
+    buildAppMenu(win, options)
+    for (const command of COMMANDS) {
+      if (!command.accelerator || !command.menu) continue
+      const item = findByAccelerator(command.accelerator)
+      expect(item, `menu item for ${command.id}`).toBeDefined()
+      send.mockClear()
+      // @ts-expect-error click signature is broad; we only exercise the closure.
+      item?.click?.()
+      expect(send).toHaveBeenCalledWith('command:run', command.id)
+    }
   })
 })

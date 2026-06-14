@@ -1,7 +1,7 @@
 ---
 description: The contextBridge preload that exposes a single whitelisted window.electronAPI surface to the renderer and keeps Node/fs out of the web context.
 covers: [src/preload]
-updated: 2026-06-12
+updated: 2026-06-14
 owner: see .github/CODEOWNERS
 ---
 
@@ -29,7 +29,7 @@ The module imports only `contextBridge`, `ipcRenderer`, and `webUtils` from `ele
 
 - `ALLOWED_INVOKE_CHANNELS` (`src/preload/index.ts:3`) — 135 request/response channels, the `<namespace>:<verb>` names the main-process IPC handlers register (`projects:*`, `agent:*`, `files:*`, `diff:*`, `git:*`, `settings:*`, `memory:*`, `search:*`, `workspace:*`, `simple:*`, `plugins:*`, and more).
 - `ALLOWED_SEND_CHANNELS` (`src/preload/index.ts:140`) — exactly one fire-and-forget channel, `theme:changed`.
-- `ALLOWED_LISTEN_CHANNELS` (`src/preload/index.ts:144`) — 31 main → renderer push channels (`agent:output`, `agent:status`, `agent:sessions-changed`, `files:changed`, `settings:changed`, `updater:status`, `plugins:webview-*`, `simple:chat-message`, etc.).
+- `ALLOWED_LISTEN_CHANNELS` (`src/preload/index.ts:144`) — 27 main → renderer push channels (`agent:output`, `agent:status`, `agent:sessions-changed`, `files:changed`, `settings:changed`, `updater:status`, `command:run`, `plugins:webview-*`, `simple:chat-message`, etc.). `command:run` is the single channel the native menu uses to invoke any command in the shared catalog (`src/shared/commands/catalog.ts`); the renderer's `useCommands` hook dispatches it.
 
 Each array is paired with a TypeScript literal-union type derived from it
 (`InvokeChannel`/`SendChannel`/`ListenChannel`, `src/preload/index.ts:178`) and a
@@ -72,7 +72,7 @@ non-localhost `src` (`src/main/app/window-factory.ts:77`).
 
 - **Renderer** (`src/renderer`): every call into main goes through `window.electronAPI.invoke(...)`, every subscription through `window.electronAPI.on(...)` (e.g. `App.tsx:144` invokes `git:ahead-behind`; `PluginViewPanel.tsx:31` listens on `plugins:webview-html`). Renderer tests stub `window.electronAPI` directly.
 - **Main IPC handlers** (`src/main/ipc/*`): the other end of every `invoke` channel. `ipcMain.handle('files:read', …)`, `agent:spawn` → `SessionManager.createSession`, etc. The whitelist names must match the handler registrations one-for-one.
-- **Main → renderer pushes**: handlers and managers call `webContents.send('agent:output', …)`, `webContents.send('settings:changed', …)`, `app-menu.ts` sends `show-about`/`show-settings`, etc. Those channels must appear in `ALLOWED_LISTEN_CHANNELS` or the renderer's `on` silently ignores them.
+- **Main → renderer pushes**: handlers and managers call `webContents.send('agent:output', …)`, `webContents.send('settings:changed', …)`, `app-menu.ts` sends `command:run` for catalog commands (plus bespoke `show-update-log`/`show-update-check`), etc. Those channels must appear in `ALLOWED_LISTEN_CHANNELS` or the renderer's `on` silently ignores them.
 - **Window factory** (`src/main/app/window-factory.ts:67`): sets `preload`, `contextIsolation`, `nodeIntegration` — the configuration that makes this bridge the *only* path between the two worlds.
 - **Session subsystem** (`docs/architecture/session.md`): the `agent:*` invoke channels and the `agent:output`/`agent:status`/`agent:sessions-changed` listen channels are how the renderer drives and observes agent sessions.
 

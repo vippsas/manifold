@@ -13,6 +13,10 @@ export interface UseAppOverlaysResult {
   setShowSettings: (show: boolean) => void
   showAbout: boolean
   setShowAbout: (show: boolean) => void
+  showCommandPalette: boolean
+  setShowCommandPalette: (show: boolean) => void
+  showShortcuts: boolean
+  setShowShortcuts: (show: boolean) => void
   appVersion: string
   handleCommit: (message: string) => Promise<void>
   handleClosePanel: () => void
@@ -42,6 +46,8 @@ export function useAppOverlays(
   const [activePanel, setActivePanel] = useState<'commit' | 'pr' | 'conflicts' | null>(null)
   const [showSettings, setShowSettings] = useState(false)
   const [showAbout, setShowAbout] = useState(false)
+  const [showCommandPalette, setShowCommandPalette] = useState(false)
+  const [showShortcuts, setShowShortcuts] = useState(false)
   const [appVersion, setAppVersion] = useState('')
   const [newAgentFocusTrigger, setNewAgentFocusTrigger] = useState(0)
   const [pendingDelete, setPendingDelete] = useState<PendingDelete | null>(null)
@@ -119,16 +125,6 @@ export function useAppOverlays(
     void window.electronAPI.invoke('app:version').then((v) => setAppVersion(v as string))
   }, [])
 
-  useEffect(() => {
-    const unsub = window.electronAPI.on('show-about', () => setShowAbout(true))
-    return unsub
-  }, [])
-
-  useEffect(() => {
-    const unsub = window.electronAPI.on('show-settings', () => setShowSettings(true))
-    return unsub
-  }, [])
-
   return useMemo(() => ({
     activePanel,
     setActivePanel,
@@ -138,6 +134,10 @@ export function useAppOverlays(
     setShowSettings,
     showAbout,
     setShowAbout,
+    showCommandPalette,
+    setShowCommandPalette,
+    showShortcuts,
+    setShowShortcuts,
     appVersion,
     handleCommit,
     handleClosePanel,
@@ -152,7 +152,7 @@ export function useAppOverlays(
     confirmDeleteAgent,
   }), [
     activePanel, handleNewAgentFromHeader, newAgentFocusTrigger,
-    showSettings, showAbout, appVersion, handleCommit, handleClosePanel,
+    showSettings, showAbout, showCommandPalette, showShortcuts, appVersion, handleCommit, handleClosePanel,
     handleLaunchAgent, handleSelectSession, handleSaveSettings, handleSetupComplete,
     pendingDelete, deletingSessionId, requestDeleteAgent, cancelDeleteAgent, confirmDeleteAgent,
   ])

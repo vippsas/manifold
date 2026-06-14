@@ -26,6 +26,8 @@ import { TitleBar } from './components/TitleBar'
 import { DeleteAgentDialog } from './components/sidebar/DeleteAgentDialog'
 import { useLoadPluginContributions } from './plugins/use-contributions'
 import { PluginUiHost } from './components/plugin-ui/PluginUiHost'
+import { CommandPalette } from './components/command-palette/CommandPalette'
+import { ShortcutsCheatSheet } from './components/command-palette/ShortcutsCheatSheet'
 
 export interface AppShellProps {
   themeClass: string
@@ -74,6 +76,7 @@ export interface AppShellProps {
   onToggleTheme: () => void
   themeFamily: 'manifold' | 'garfield' | 'neon' | 'royal' | 'jade' | 'platinum'
   onSelectThemeFamily: (family: 'manifold' | 'garfield' | 'neon' | 'royal' | 'jade' | 'platinum') => void
+  runCommand: (id: string) => void
 }
 
 export function AppShell(p: AppShellProps): React.JSX.Element {
@@ -174,6 +177,9 @@ export function AppShell(p: AppShellProps): React.JSX.Element {
       />
       <SettingsModal visible={p.overlays.showSettings} settings={p.settings} onSave={p.overlays.handleSaveSettings}
         onClose={() => p.overlays.setShowSettings(false)} onPreviewTheme={p.setPreviewThemeId} />
+      <CommandPalette visible={p.overlays.showCommandPalette} onRun={p.runCommand}
+        onClose={() => p.overlays.setShowCommandPalette(false)} />
+      <ShortcutsCheatSheet visible={p.overlays.showShortcuts} onClose={() => p.overlays.setShowShortcuts(false)} />
       <AboutOverlay visible={p.overlays.showAbout} version={p.overlays.appVersion}
         onClose={() => p.overlays.setShowAbout(false)} onViewReleaseNotes={p.updateLog.openReleaseNotes} />
       <UpdateLogOverlay

@@ -1,7 +1,7 @@
 ---
 description: How the Electron main process boots — shell PATH, dev profile, module wiring, app lifecycle, window creation, menus, auto-updater, mode switching, and the live-preview dev server.
 covers: [src/main/app]
-updated: 2026-06-12
+updated: 2026-06-14
 owner: see .github/CODEOWNERS
 ---
 
@@ -21,7 +21,7 @@ dev-server manager that powers live preview of generated (simple-mode) apps.
 - `src/main/app/index.ts` — process entry. Runs side-effect fixups at import time, instantiates all managers, builds `ipcDeps`, and calls `registerAppLifecycle`.
 - `src/main/app/app-lifecycle.ts` — `registerAppLifecycle()`: `whenReady` → renderer server + window + updater; `activate`/`window-all-closed`/`before-quit` handlers.
 - `src/main/app/window-factory.ts` — `createWindow()` / `rebuildAppMenu()`: the `BrowserWindow`, webview hardening, renderer loading, one-time IPC registration.
-- `src/main/app/app-menu.ts` — `buildAppMenu()`: the macOS application menu; every custom item is an IPC `send` to the renderer.
+- `src/main/app/app-menu.ts` — `buildAppMenu()`: the macOS application menu, generated from the shared command catalog (`src/shared/commands/catalog.ts`); catalog items fire one `command:run` IPC, bespoke items keep their own channels.
 - `src/main/app/ipc-handlers.ts` — `registerIpcHandlers()`: fans out to every `register*Handlers(deps)` module plus a handful of inline `app:*`/`updater:*`/`release-notes:*`/`font:*` handlers.
 - `src/main/app/auto-updater.ts` — `setupAutoUpdater()`, `checkForUpdates()`, release-notes fetch/caching; wraps `electron-updater`.
 - `src/main/app/dev-server-manager.ts` — `DevServerManager`: simple-mode dev server lifecycle, print-mode follow-up turns, and slash-command probing.
@@ -78,13 +78,17 @@ from `ELECTRON_RENDERER_URL` (dev: electron-vite; prod: the loopback server), fa
 diverted to the system browser via `setWindowOpenHandler` + `will-navigate`. The application
 menu is set last.
 
-**App menu.** `buildAppMenu()` (`app-menu.ts:8`) is almost entirely a router: every custom
-item (`About`, `What's New`, `Settings…`, panel toggles, `Find in Files`, `Jump to Favorite N`)
-sends to a renderer channel via a local `send` helper that guards with `isDestroyed()` — the
-captured window survives a macOS Cmd+W as a destroyed (non-null) object, so optional chaining
-alone would still throw on `.webContents`; the rest are built-in roles.
-The only stateful item is the `Keep Mac Awake` checkbox, whose `checked` state is passed in and
-re-rendered via `rebuildAppMenu()` when toggled (`index.ts:143`).
+**App menu.** `buildAppMenu()` (`app-menu.ts:9`) is almost entirely a router built from the
+shared **command catalog** (`src/shared/commands/catalog.ts`) — the single source of truth for
+`command → keybinding` shared with the renderer. `commandItems(section)` (`app-menu.ts:19`)
+turns every catalog command tagged for that menu section into an item whose `accelerator` is the
+catalog `accelerator` and whose click fires the one unified `command:run` IPC channel with the
+command id; the renderer's `useCommands` hook dispatches it (see `src/renderer/commands/`). A few
+bespoke items (`What's New`, `Check for Updates`, the stateful `Keep Mac Awake` checkbox) keep
+their own channels, and the rest are built-in roles. The local `send` helper guards with
+`isDestroyed()` — the captured window survives a macOS Cmd+W as a destroyed (non-null) object, so
+optional chaining alone would still throw on `.webContents`. `Keep Mac Awake`'s `checked` state is
+passed in and re-rendered via `rebuildAppMenu()` when toggled (`index.ts:143`).
 
 **Live preview / simple mode.** `DevServerManager` (`dev-server-manager.ts:16`) backs
 simple-mode "apps". `startDevServerSession()` evicts any existing sessions for the project

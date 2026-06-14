@@ -48,7 +48,6 @@ function createInput(activeSessionId: string | null = 'session-1') {
       spawnAgent: vi.fn(),
       refreshOpenFiles: vi.fn().mockResolvedValue(undefined),
       refreshDiff: vi.fn().mockResolvedValue(undefined),
-      jumpToFavorite: vi.fn(),
     },
   }
 }
@@ -164,16 +163,6 @@ describe('useAppEffects', () => {
       vi.advanceTimersByTime(200)
     })
     expect(input.refreshOpenFiles).not.toHaveBeenCalled()
-  })
-
-  it('jumps to the favorite at the index from view:jump-favorite', () => {
-    const { input } = createInput()
-    renderHook(() => useAppEffects({ ...input }))
-
-    act(() => {
-      emit('view:jump-favorite', 2)
-    })
-    expect(input.jumpToFavorite).toHaveBeenCalledWith(2)
   })
 
   it('opens the sibling panel on plugins:reveal-session', () => {

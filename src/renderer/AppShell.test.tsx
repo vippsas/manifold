@@ -139,6 +139,7 @@ function makeProps(overrides: Partial<AppShellProps> = {}): AppShellProps {
     onToggleTheme: vi.fn(),
     themeFamily: 'manifold',
     onSelectThemeFamily: vi.fn(),
+    runCommand: vi.fn(),
     ...overrides,
   }
 }
