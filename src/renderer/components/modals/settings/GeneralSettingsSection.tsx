@@ -1,10 +1,11 @@
 import React, { useCallback } from 'react'
-import type { SearchAiSettings, ShellPromptSegments } from '../../../../shared/types'
+import type { NotificationSettings, SearchAiSettings, ShellPromptSegments } from '../../../../shared/types'
 import { getThemeList } from '../../../../shared/themes/registry'
 import { ThemePicker } from '../ThemePicker'
 import { modalStyles } from '../SettingsModal.styles'
 import { RUNTIME_OPTIONS } from './runtime-options'
 import { SectionCard, SectionHeader } from './SettingsSectionLayout'
+import { NotificationSettingsSection } from './NotificationSettingsSection'
 
 interface Props {
   storagePath: string
@@ -35,6 +36,8 @@ interface Props {
   sidebarResizeReversed: boolean
   onSidebarResizeReversedChange: (enabled: boolean) => void
   searchAiSettings: SearchAiSettings
+  notifications: NotificationSettings
+  onNotificationsChange: (value: NotificationSettings) => void
 }
 
 export function GeneralSettingsSection(props: Props): React.JSX.Element {
@@ -149,6 +152,8 @@ export function GeneralSettingsSection(props: Props): React.JSX.Element {
             </label>
           </div>
         </SectionCard>
+
+        <NotificationSettingsSection value={props.notifications} onChange={props.onNotificationsChange} />
       </div>
     </>
   )
