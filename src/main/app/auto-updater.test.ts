@@ -4,6 +4,7 @@ import type { BrowserWindow } from 'electron'
 const mocks = vi.hoisted(() => {
   const updaterHandlers = new Map<string, (...args: unknown[]) => void>()
   const mockGetAllWindows = vi.fn()
+  const mockCheckForUpdates = vi.fn()
   const mockCheckForUpdatesAndNotify = vi.fn()
   const mockReadFileSync = vi.fn()
   const mockWriteFileSync = vi.fn()
@@ -20,6 +21,7 @@ const mocks = vi.hoisted(() => {
       updaterHandlers.set(event, handler)
       return autoUpdater
     }),
+    checkForUpdates: mockCheckForUpdates,
     checkForUpdatesAndNotify: mockCheckForUpdatesAndNotify,
   }
 
@@ -39,6 +41,7 @@ const mocks = vi.hoisted(() => {
   return {
     updaterHandlers,
     mockGetAllWindows,
+    mockCheckForUpdates,
     mockCheckForUpdatesAndNotify,
     mockReadFileSync,
     mockWriteFileSync,
@@ -124,7 +127,7 @@ describe('setupAutoUpdater', () => {
     vi.unstubAllGlobals()
     mocks.updaterHandlers.clear()
     mocks.mockGetAllWindows.mockReturnValue([])
-    mocks.mockCheckForUpdatesAndNotify.mockResolvedValue(undefined)
+    mocks.mockCheckForUpdates.mockResolvedValue(undefined)
     mocks.mockReadFileSync.mockReset()
     mocks.mockWriteFileSync.mockReset()
     mocks.setTailContent('')
@@ -144,12 +147,32 @@ describe('setupAutoUpdater', () => {
 
     expect(mocks.autoUpdater.autoDownload).toBe(true)
     expect(mocks.autoUpdater.autoInstallOnAppQuit).toBe(true)
-    expect(mocks.mockCheckForUpdatesAndNotify).toHaveBeenCalledTimes(1)
+    expect(mocks.mockCheckForUpdates).toHaveBeenCalledTimes(1)
 
     emitUpdaterEvent('update-not-available')
     await vi.advanceTimersByTimeAsync(60 * 60 * 1000)
 
-    expect(mocks.mockCheckForUpdatesAndNotify).toHaveBeenCalledTimes(2)
+    expect(mocks.mockCheckForUpdates).toHaveBeenCalledTimes(2)
+  })
+
+  // Regression: each check must NOT fire electron-updater's built-in OS notification.
+  // checkForUpdatesAndNotify() shows "A new update is ready to install" on every check
+  // where an update is available, so the hourly checks spammed a fresh macOS notification
+  // for the same already-downloaded version. We drive our own dismissible in-app banner
+  // via the updater:status broadcast instead.
+  it('uses checkForUpdates without electron-updater notifications, even on repeated checks', async () => {
+    const { setupAutoUpdater } = await import('./auto-updater')
+
+    setupAutoUpdater()
+
+    // Simulate the same update being re-downloaded on every hourly check.
+    for (let hour = 0; hour < 3; hour++) {
+      emitUpdaterEvent('update-downloaded', { version: '0.2.86' })
+      await vi.advanceTimersByTimeAsync(60 * 60 * 1000)
+    }
+
+    expect(mocks.mockCheckForUpdates).toHaveBeenCalled()
+    expect(mocks.mockCheckForUpdatesAndNotify).not.toHaveBeenCalled()
   })
 
   it('skips updater setup in dev when the app is not packaged', async () => {
@@ -159,7 +182,7 @@ describe('setupAutoUpdater', () => {
 
     setupAutoUpdater()
 
-    expect(mocks.mockCheckForUpdatesAndNotify).not.toHaveBeenCalled()
+    expect(mocks.mockCheckForUpdates).not.toHaveBeenCalled()
     expect(mocks.autoUpdater.on).not.toHaveBeenCalled()
     expect(mocks.debugLog).toHaveBeenCalledWith('[updater] skipping update checks in dev because the app is not packaged')
   })
@@ -170,16 +193,16 @@ describe('setupAutoUpdater', () => {
     setupAutoUpdater()
     await vi.advanceTimersByTimeAsync(60 * 60 * 1000)
 
-    expect(mocks.mockCheckForUpdatesAndNotify).toHaveBeenCalledTimes(1)
+    expect(mocks.mockCheckForUpdates).toHaveBeenCalledTimes(1)
 
     emitUpdaterEvent('update-downloaded', { version: '1.2.3' })
     await vi.advanceTimersByTimeAsync(60 * 60 * 1000)
 
-    expect(mocks.mockCheckForUpdatesAndNotify).toHaveBeenCalledTimes(2)
+    expect(mocks.mockCheckForUpdates).toHaveBeenCalledTimes(2)
   })
 
   it('retries transient startup failures within seconds', async () => {
-    mocks.mockCheckForUpdatesAndNotify
+    mocks.mockCheckForUpdates
       .mockRejectedValueOnce(new Error('504'))
       .mockResolvedValue(undefined)
 
@@ -187,25 +210,25 @@ describe('setupAutoUpdater', () => {
 
     setupAutoUpdater()
 
-    expect(mocks.mockCheckForUpdatesAndNotify).toHaveBeenCalledTimes(1)
+    expect(mocks.mockCheckForUpdates).toHaveBeenCalledTimes(1)
 
     await vi.advanceTimersByTimeAsync(4_999)
-    expect(mocks.mockCheckForUpdatesAndNotify).toHaveBeenCalledTimes(1)
+    expect(mocks.mockCheckForUpdates).toHaveBeenCalledTimes(1)
 
     await vi.advanceTimersByTimeAsync(1)
-    expect(mocks.mockCheckForUpdatesAndNotify).toHaveBeenCalledTimes(2)
+    expect(mocks.mockCheckForUpdates).toHaveBeenCalledTimes(2)
     expect(mocks.debugLog).toHaveBeenCalledWith('[updater] scheduling retry 1/3 in 5000ms')
   })
 
   it('does not retry immediately when the machine is offline', async () => {
-    mocks.mockCheckForUpdatesAndNotify.mockRejectedValueOnce(new Error('net::ERR_INTERNET_DISCONNECTED'))
+    mocks.mockCheckForUpdates.mockRejectedValueOnce(new Error('net::ERR_INTERNET_DISCONNECTED'))
 
     const { setupAutoUpdater } = await import('./auto-updater')
 
     setupAutoUpdater()
     await vi.advanceTimersByTimeAsync(60_000)
 
-    expect(mocks.mockCheckForUpdatesAndNotify).toHaveBeenCalledTimes(1)
+    expect(mocks.mockCheckForUpdates).toHaveBeenCalledTimes(1)
   })
 
   it('broadcasts downloaded updates to the currently open windows', async () => {
@@ -358,7 +381,7 @@ describe('setupAutoUpdater', () => {
 
   // #508 — updateCheckInFlight must not get stuck when checkForUpdatesAndNotify resolves null (dev)
   it('does not block a second check when the first resolves null (dev mode)', async () => {
-    mocks.mockCheckForUpdatesAndNotify.mockResolvedValue(null)
+    mocks.mockCheckForUpdates.mockResolvedValue(null)
     mocks.mockApp.isPackaged = true // packaged so setupAutoUpdater runs, but updater returns null
 
     const { checkForUpdates } = await import('./auto-updater')
@@ -367,7 +390,7 @@ describe('setupAutoUpdater', () => {
     // If the flag was stuck we'd get "updater is busy" and skip the call
     await checkForUpdates('manual')
 
-    expect(mocks.mockCheckForUpdatesAndNotify).toHaveBeenCalledTimes(2)
+    expect(mocks.mockCheckForUpdates).toHaveBeenCalledTimes(2)
   })
 
   // #501 — getUpdateLogExcerpt reads only the tail, not the whole file
