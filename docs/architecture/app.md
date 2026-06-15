@@ -1,7 +1,7 @@
 ---
 description: How the Electron main process boots — shell PATH, dev profile, module wiring, app lifecycle, window creation, menus, auto-updater, mode switching, and the live-preview dev server.
 covers: [src/main/app]
-updated: 2026-06-14
+updated: 2026-06-15
 owner: see .github/CODEOWNERS
 ---
 
@@ -111,10 +111,15 @@ and non-interactive sessions, restore base branch for `noWorktree` cases), prepa
 the new mode. The renderer drains the pending action via `app:consume-pending-launch` (`:48`).
 It also owns `theme:changed`, which sets `nativeTheme.themeSource` and the window background.
 
-**Auto-updater.** `setupAutoUpdater()` (`auto-updater.ts:203`) no-ops unless packaged (or
+**Auto-updater.** `setupAutoUpdater()` (`auto-updater.ts:231`) no-ops unless packaged (or
 `MANIFOLD_FORCE_DEV_UPDATES=1`), enables auto-download/install-on-quit, wires `electron-updater`
 events to `debugLog` + a `updater:status` broadcast, fires a startup check, and schedules an
-hourly one. `checkForUpdates()` (`:176`) de-dupes concurrent checks and retries transient
+hourly one. `checkForUpdates()` (`:193`) calls `electron-updater`'s plain `checkForUpdates()` —
+**not** `checkForUpdatesAndNotify()`, which fires a native OS "update ready" notification on every
+check where an update is available and so spammed a fresh notification each hour for the same
+already-downloaded version. Updates surface only through the renderer's own dismissible banner
+(`useUpdateNotification`, fed by the `updater:status` broadcast). `checkForUpdates()` de-dupes
+concurrent checks and retries transient
 failures (5xx, timeout, missing `latest-mac.yml`) on a `[5s, 15s, 60s]` backoff. Release notes
 are fetched from the GitHub API and cached on success; transient failures (non-2xx, network error)
 return a fallback without caching so the next call retries the live API (`getReleaseNotes`, `:127`).
@@ -126,7 +131,7 @@ return a fallback without caching so the next call retries the live API (`getRel
 - `registerIpcHandlers(deps)` — `ipc-handlers.ts:24`. Single fan-out for all `register*Handlers`; `IpcDependencies` is re-exported from `../ipc/types`.
 - `DevServerManager` — `dev-server-manager.ts:16`. Methods: `startDevServerSession`, `startDevServer`, `spawnPrintModeFollowUp`, `probeSlashCommands`.
 - `ModeSwitcher` — `mode-switcher.ts:26`. `register(createWindow, getMainWindow, setMainWindow)` binds `app:switch-mode`, `theme:changed`, `app:consume-pending-launch`.
-- `setupAutoUpdater()` / `checkForUpdates(reason)` / `getReleaseNotes(version)` — `auto-updater.ts:203` / `:176` / `:127`.
+- `setupAutoUpdater()` / `checkForUpdates(reason)` / `getReleaseNotes(version)` — `auto-updater.ts:231` / `:193` / `:146`.
 - `startLocalRendererServer(rootDir)` → `LocalRendererServer` — `local-renderer-server.ts:38`.
 - `loadShellPath()` — `shell-path.ts:12`. `configureDevProfilePaths(app)` — `dev-profile.ts:32`.
 - `PowerManager` — `power-manager.ts:3`. `debugLog()` / `flushDebugLogSync()` — `debug-log.ts:88` / `:97`.

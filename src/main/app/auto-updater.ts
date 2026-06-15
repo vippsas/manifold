@@ -204,7 +204,12 @@ export async function checkForUpdates(reason: 'startup' | 'scheduled' | 'manual'
   debugLog(`[updater] triggering ${reason} update check`)
 
   try {
-    const result = await autoUpdater.checkForUpdatesAndNotify()
+    // checkForUpdates (not checkForUpdatesAndNotify): electron-updater's notifying
+    // variant fires a native OS "update ready" notification on every check where an
+    // update is available, so the hourly checks spammed a fresh macOS notification for
+    // the same already-downloaded version until the app was restarted. We surface the
+    // update through our own dismissible in-app banner via the updater:status broadcast.
+    const result = await autoUpdater.checkForUpdates()
     // null means the updater is not active (e.g. dev / unpackaged build).
     // In that case none of the autoUpdater events fire, so we must reset the
     // flag here to prevent every subsequent check from being silently skipped (#508).
