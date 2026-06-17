@@ -270,17 +270,20 @@ describe('ProjectSidebar', () => {
     expect(screen.getByLabelText('Delete bergen')).toBeInTheDocument()
   })
 
-  it('selects first session when clicking a collapsed project with agents', () => {
+  it('selects the project (not a forced first session) when clicking a collapsed project with agents', () => {
     const sessionsForP2: AgentSession[] = [
       { id: 's3', projectId: 'p2', runtimeId: 'gemini', branchName: 'beta/stavanger', worktreePath: '/wt3', status: 'running', pid: 3, additionalDirs: [] },
     ]
 
     const { props } = renderSidebar({ allProjectSessions: { p1: sampleSessions, p2: sessionsForP2 } })
 
-    // Collapsed project row is clickable — selects the first session
+    // Clicking a collapsed repo only activates the project; the session-restore
+    // path (useAgentSession) then picks the last-viewed agent for that repo
+    // instead of being reset to the first one (#768).
     fireEvent.click(screen.getByText('Beta'))
 
-    expect(props.onSelectSession).toHaveBeenCalledWith('s3', 'p2')
+    expect(props.onSelectProject).toHaveBeenCalledWith('p2')
+    expect(props.onSelectSession).not.toHaveBeenCalled()
   })
 
   it('keeps stripping legacy manifold-prefixed branch names', () => {

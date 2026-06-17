@@ -78,14 +78,13 @@ export function ProjectList({
   const handleProjectClick = useCallback(
     (projectId: string): void => {
       touchProject(projectId)
-      const sessions = filterStandaloneProjectSessions(allProjectSessions[projectId] ?? [])
-      if (sessions.length > 0) {
-        onSelectSession(sessions[0].id, projectId)
-      } else {
-        onSelectProject(projectId)
-      }
+      // Only activate the project; let useAgentSession restore the agent that
+      // was last viewed in this repo instead of resetting to the first one
+      // (#768). Hard-coding sessions[0] here both overrode that restore and
+      // corrupted the per-project memory.
+      onSelectProject(projectId)
     },
-    [allProjectSessions, onSelectProject, onSelectSession, touchProject]
+    [onSelectProject, touchProject]
   )
 
   // The repo header only renders for the active project, so clicking it starts a
