@@ -3,6 +3,7 @@ import { PtyPool } from '../agent/pty-pool'
 import { ProjectRegistry } from '../store/project-registry'
 import { getRuntimeById } from '../agent/runtimes'
 import { buildSimpleRuntimeCommand } from '../agent/simple-runtime'
+import { agentSpawnEnv } from '../agent/agent-env'
 import { extractSlashCommands } from '../agent/ai-runtime-output-parsers'
 import { detectUrl } from '../fs/url-detector'
 import { gitExec } from '../git/git-exec'
@@ -187,7 +188,7 @@ export class DevServerManager {
 
     const ptyHandle = this.ptyPool.spawn(simpleCommand.binary, runtimeArgs, {
       cwd: session.worktreePath,
-      env: runtime.env,
+      env: agentSpawnEnv(runtime.env),
     })
 
     session.ptyId = ptyHandle.id
@@ -224,7 +225,7 @@ export class DevServerManager {
     const command = buildSimpleRuntimeCommand(session.runtimeId, 'hi')
     const ptyHandle = this.ptyPool.spawn(command.binary, command.args, {
       cwd: session.worktreePath,
-      env: runtime.env,
+      env: agentSpawnEnv(runtime.env),
     })
     session.slashCommandProbePtyId = ptyHandle.id
 
