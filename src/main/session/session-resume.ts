@@ -1,4 +1,5 @@
 import { getRuntimeById } from '../agent/runtimes'
+import { agentSpawnEnv } from '../agent/agent-env'
 import { PtyPool } from '../agent/pty-pool'
 import { SessionStreamWirer } from './session-stream-wirer'
 import { prepareManagedWorktree } from '../git/managed-worktree'
@@ -52,7 +53,7 @@ export async function resumeAgentSession(
 
   const ptyHandle = ptyPool.spawn(runtime.binary, runtimeArgs, {
     cwd: session.worktreePath,
-    env: runtime.env,
+    env: agentSpawnEnv(runtime.env),
   })
 
   session.ptyId = ptyHandle.id

@@ -16,6 +16,7 @@ import type { MemoryInjector } from '../memory/memory-injector'
 import { debugLog } from '../app/debug-log'
 import type { InternalSession } from './session-types'
 import { buildSimpleRuntimeCommand } from '../agent/simple-runtime'
+import { agentSpawnEnv } from '../agent/agent-env'
 import { claudeAnsiThemeArgs } from '../agent/claude-theme-args'
 import { isGitProject } from '../../shared/project-kind'
 import { buildWorkingSetArgs } from '../agent/working-set-args'
@@ -144,7 +145,7 @@ export class SessionCreator {
       ? { id: '', pid: 0 }
       : this.ptyPool.spawn(commandBinary, runtimeArgs, {
           cwd: worktree.path,
-          env: runtime.env,
+          env: agentSpawnEnv(runtime.env),
           cols: options.cols,
           rows: options.rows
         })

@@ -10,6 +10,10 @@ vi.mock('../agent/runtimes', () => ({
   })),
 }))
 
+vi.mock('../agent/agent-env', () => ({
+  agentSpawnEnv: vi.fn(() => ({ AGENT_ENV_INJECTED: '1' })),
+}))
+
 vi.mock('../git/git-exec', () => ({
   gitExec: vi.fn().mockResolvedValue('manifold/oslo\n'),
 }))
@@ -163,6 +167,26 @@ describe('SessionCreator', () => {
       'claude',
       expect.arrayContaining(['--settings', '{"theme":"light-ansi"}']),
       expect.anything(),
+    )
+  })
+
+  it('injects agent env (from ~/.manifold/agent.env) into the interactive spawn', async () => {
+    vi.mocked(gitExec).mockResolvedValueOnce('main\n')
+    const { creator, ptyPool } = createInteractiveClaude()
+
+    await creator.create({
+      projectId: 'proj-1',
+      runtimeId: 'claude',
+      prompt: 'hi',
+      branchName: 'main',
+      noWorktree: true,
+      stayOnBranch: true,
+    })
+
+    expect(ptyPool.spawn).toHaveBeenCalledWith(
+      'claude',
+      expect.anything(),
+      expect.objectContaining({ env: { AGENT_ENV_INJECTED: '1' } }),
     )
   })
 
