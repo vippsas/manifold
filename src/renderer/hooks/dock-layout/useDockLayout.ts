@@ -38,6 +38,9 @@ function findOpenEditorPanelId(api: DockviewApi): string | null {
 
 export interface UseDockLayoutResult {
   apiRef: React.MutableRefObject<DockviewApi | null>
+  /** True while a saved layout is being restored (api.fromJSON). Lets consumers
+   *  ignore restore-driven panel activations (e.g. useAgentSiblingDockTabs). */
+  isRestoringRef: React.MutableRefObject<boolean>
   onReady: (api: DockviewApi) => void
   togglePanel: (id: DockPanelId) => void
   closePanel: (id: string) => void
@@ -299,7 +302,7 @@ export function useDockLayout(
   ))
 
   return {
-    apiRef, onReady, togglePanel, closePanel, toggleMaximizePanel, focusPanel,
+    apiRef, isRestoringRef, onReady, togglePanel, closePanel, toggleMaximizePanel, focusPanel,
     openSiblingPanel, closeSiblingPanel,
     ensureEditorPanel, splitEditorPane, findEditorPanelForSplit, isPanelVisible,
     resetLayout, hiddenPanels, editorPanelIds, layoutVersion, layoutReloadVersion,

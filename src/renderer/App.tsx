@@ -46,7 +46,7 @@ import { QuickOpen } from './components/editor/quick-open/QuickOpen'
 export function App(): React.JSX.Element {
   const { settings, updateSettings } = useSettings()
   const { projects, activeProjectId, addProject, cloneProject, createNewProject, removeProject, updateProject, setActiveProject, error: projectError } = useProjects()
-  const { sessions, activeSessionId, activeSession, spawnAgent, deleteAgent, setActiveSession, resumeAgent, outputtingSessionIds } = useAgentSession(activeProjectId)
+  const { sessions, activeSessionId, activeSession, spawnAgent, deleteAgent, setActiveSession, resumeAgent, outputtingSessionIds, rememberedActiveSessionRef } = useAgentSession(activeProjectId)
   const { drafts, activeDraft, effectiveSessionId, createDraft, discardDraft, promoteDraft } = useDraftChatCoordinator(activeSessionId, setActiveSession, spawnAgent)
   const { sessionsByProject, removeSession } = useAllProjectSessions(projects, activeProjectId, sessions)
   const { workspaces, createWorkspace, removeWorkspace, addProject: addProjectToWorkspace, removeProject: removeProjectFromWorkspace, spawnAgent: spawnWorkspaceAgent } = useWorkspaces()
@@ -111,6 +111,8 @@ export function App(): React.JSX.Element {
   const { collapseSidebar } = useSidebarHandleCycle(dockLayout.apiRef, settings.sidebarResizeReversed)
   useAgentSiblingDockTabs({
     apiRef: dockLayout.apiRef, layoutVersion: dockLayout.layoutVersion,
+    layoutReloadVersion: dockLayout.layoutReloadVersion, isRestoringRef: dockLayout.isRestoringRef,
+    rememberedActiveSessionRef,
     sessions: activeProjectSessions, activeWorktreePath, primarySessionId, activeSessionId,
     disabled: false, onSelectSession: setActiveSession,
   })

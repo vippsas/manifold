@@ -25,6 +25,7 @@ const sampleChangedFiles: FileChange[] = [
 function mockDockLayout(overrides: Partial<UseDockLayoutResult> = {}): UseDockLayoutResult {
   const layout: UseDockLayoutResult = {
     apiRef: { current: null },
+    isRestoringRef: { current: false },
     onReady: vi.fn(),
     togglePanel: vi.fn(),
     closePanel: vi.fn(),
