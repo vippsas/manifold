@@ -1,5 +1,4 @@
 import type { FavoriteRef, ManifoldSettings } from './types'
-import type { ProvisionerConfig } from './provisioning-types'
 
 export const DEFAULT_SETTINGS = {
   storagePath: '',
@@ -45,9 +44,6 @@ export const DEFAULT_SETTINGS = {
     markdownWordWrap: true,
     minimap: true,
     tabSize: 2,
-  },
-  provisioning: {
-    provisioners: [] as ProvisionerConfig[],
   },
   transcription: {
     provider: 'none',

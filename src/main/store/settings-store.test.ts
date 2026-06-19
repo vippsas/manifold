@@ -130,6 +130,27 @@ describe('SettingsStore', () => {
     })
   })
 
+  describe('provisioning removal', () => {
+    it('drops the orphaned provisioning field left by older builds', () => {
+      mockExistsSync.mockReturnValue(true)
+      mockReadFileSync.mockReturnValue(JSON.stringify({ provisioning: { provisioners: [{ id: 'legacy-cli', type: 'cli' }] } }))
+
+      const store = new SettingsStore()
+      expect((store.getSettings() as Record<string, unknown>).provisioning).toBeUndefined()
+    })
+
+    it('does not re-persist provisioning on the next write', () => {
+      mockExistsSync.mockReturnValue(true)
+      mockReadFileSync.mockReturnValue(JSON.stringify({ provisioning: { provisioners: [] } }))
+
+      const store = new SettingsStore()
+      store.updateSettings({ theme: 'light' })
+
+      const written = JSON.parse(mockWriteFileSync.mock.calls[0][1] as string)
+      expect(written.provisioning).toBeUndefined()
+    })
+  })
+
   describe('getSettings', () => {
     it('returns a copy (not the same reference)', () => {
       mockExistsSync.mockReturnValue(false)

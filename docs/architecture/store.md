@@ -1,7 +1,7 @@
 ---
 description: How Manifold persists app and user state on disk — settings/config, the project registry, per-session view/chat/verdict state — and which JSON file owns which slice.
 covers: [src/main/store]
-updated: 2026-06-12
+updated: 2026-06-19
 owner: see .github/CODEOWNERS
 ---
 
@@ -43,7 +43,7 @@ unparseable, or the wrong shape — a missing file is never an error, just an em
 (`project-registry.ts:24`, `settings-store.ts:73`). Mutations update the in-memory copy and
 then call `writeToDisk()`, which `mkdirSync`s the config dir and writes the whole structure
 back with `JSON.stringify(..., null, 2)` through `writeFileAtomicSync` — a tmp-file + `rename`
-so a crash mid-write cannot truncate the file (`settings-store.ts:92`, `project-registry.ts:43`,
+so a crash mid-write cannot truncate the file (`settings-store.ts:83`, `project-registry.ts:43`,
 `atomic-write.ts:9`). The Map-backed stores (view-state, dock-layout, search-view, shell-tab)
 serialize via `Object.fromEntries(this.state)` and rehydrate via
 `new Map(Object.entries(parsed))`; view-state and shell-tab additionally validate each entry's
@@ -53,13 +53,12 @@ shape on load and drop malformed ones so a hand-edited file can never make `get(
 **Settings — merge then default.** `SettingsStore.loadFromDisk()` spreads the parsed file
 over `{ ...DEFAULT_SETTINGS }` so unknown/missing top-level keys fall back, then runs
 `resolveDefaults()` for the fields that need deeper merging (`settings-store.ts:22`):
-`storagePath` defaults to `~/.manifold` when blank; `memory`, `search.ai`, and `editor`
-are merged field-by-field over their defaults; the `provisioning.provisioners` list is
-reconciled so stale builtins are dropped and missing builtins re-added; and
+`storagePath` defaults to `~/.manifold` when blank; `memory`, `search.ai`, `editor`, and
+`notifications` are merged field-by-field over their defaults; and
 `disabledPlugins` is seeded once with the default-disabled set, guarded by a
 `pluginDefaultsSeeded` flag so a user-enabled plugin is not re-disabled on next launch
-(`settings-store.ts:42`, `:65`). `updateSettings(partial)` shallow-merges and writes
-(`settings-store.ts:98`). `getSettings()` returns a shallow copy.
+(`settings-store.ts:38`, `:57`). `updateSettings(partial)` shallow-merges and writes
+(`settings-store.ts:90`). `getSettings()` returns a shallow copy.
 
 **Project registry.** `addProject()` resolves the absolute path, returns any existing
 entry with the same path, otherwise detects `kind` (`git` when
@@ -127,7 +126,7 @@ verbatim, never inspected (`dock-layout-store.ts:9`).
 - **App bootstrap** (`src/main/app/index.ts`): constructs every store as a singleton (`:52`–`:104`) and threads them into the IPC dependency bundle and the managers that need them.
 - **IPC** (`src/main/ipc`): `settings:get`/`settings:update` front `SettingsStore` (`settings-handlers.ts:12`, and additionally `mkdirSync` a newly chosen `storagePath`); project, agent, and search handlers front the registry and the view/chat/search stores.
 - **Session** (`src/main/session`): `SessionManager`/dev-server cache `slashCommands` into `ProjectRegistry`; `VerdictRecorder` writes through `VerdictStore` and uses `summarizeMiddle` to compress long task prompts; `ChatAdapter` reads/writes `ChatStore`.
-- **Storage root consumers** (`src/main/git`, `src/main/plugins`, `src/main/provisioning`): `settings.storagePath` is the root for worktrees (`worktree-manager.ts:19`), plugins (`plugin-paths.ts:20`), and simple-mode `projects/` — these stores define where state lives; those subsystems live inside it.
+- **Storage root consumers** (`src/main/git`, `src/main/plugins`): `settings.storagePath` is the root for worktrees (`worktree-manager.ts:19`), plugins (`plugin-paths.ts:20`), and simple-mode `projects/` — these stores define where state lives; those subsystems live inside it.
 - **Quit** (`src/main/app/app-lifecycle.ts:87`): `chatStore.flushSync()` is the only store flushed on `before-quit`; all others write synchronously on every mutation and need no flush.
 
 ## Invariants & gotchas

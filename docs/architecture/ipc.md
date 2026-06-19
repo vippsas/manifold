@@ -28,7 +28,6 @@ managers documented on the other architecture pages (`session.md`, `git.md`, etc
 - `src/main/ipc/search-handlers.ts` — `search:context`, `search:query`, `search:ask`, `search:view-state:*`.
 - `src/main/ipc/memory-handlers.ts` — `memory:*` (search/get/timeline/stats/delete/clear/settings), running SQLite FTS5 queries.
 - `src/main/ipc/simple-handlers.ts` — `simple:*` chat-adapter channels for the developer draft chat (`chat-messages`, `send-message`, `subscribe-chat`, status/preview/slash-command getters).
-- `src/main/ipc/provisioning-handlers.ts` — `provisioning:*` template/health/create.
 - `src/main/ipc/workspace-handlers.ts` — `workspace:*` multi-root workspace ops.
 - `src/main/ipc/plugin-handlers.ts` — `plugins:*` view/contribution/config/tree-view bridge. Verdicts are no longer read over renderer IPC: the `manifold.statistics` plugin reads them through the built-in `verdicts:read` capability (`HOST_VERDICTS`, see `plugins.md`).
 
@@ -55,9 +54,8 @@ reach for globals (`agent-handlers.ts:64`, `git-handlers.ts:62`).
 request/response), never `ipcMain.on`. Push notifications flow the *other* way, out of band:
 handlers (or the managers they call) emit via `webContents.send` / `event.sender.send`.
 Examples: `settings:changed` is broadcast to all live windows after `settings:update`
-(`settings-handlers.ts:36`), `simple:chat-message` is pushed per chat subscription
-(`simple-handlers.ts:69`), and `provisioning:progress` streams during a create
-(`provisioning-handlers.ts:56`, guarded by `sender.isDestroyed()`). `SessionManager` separately pushes
+(`settings-handlers.ts:36`) and `simple:chat-message` is pushed per chat subscription
+(`simple-handlers.ts:69`). `SessionManager` separately pushes
 `agent:output`/`agent:status`/`agent:sessions-changed` through its own `sendToRenderer`
 (see `session.md`).
 

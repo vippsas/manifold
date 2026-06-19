@@ -225,12 +225,6 @@ For a subsystem-by-subsystem map of the main process — sessions, worktrees, ru
 
 For security, embedded web previews are limited to `localhost` URLs only — they cannot load external sites.
 
-## External Provisioners
-
-Manifold supports external plugins that can create and configure repositories on demand, communicating with Manifold through a versioned command-line protocol.
-
-To build one, see [docs/external-provisioners.md](docs/external-provisioners.md).
-
 ## Contributing
 
 Contributions are welcome. A quick outline:

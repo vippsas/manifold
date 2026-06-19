@@ -1,19 +1,17 @@
 import React from 'react'
-import type { ProvisionerConfig, ProvisionerStatus } from '../../../../shared/provisioning-types'
 import type { NotificationSettings, SearchAiSettings, EditorSettings, ShellPromptSegments } from '../../../../shared/types'
 import type { AiServiceSettings } from '../../../../shared/plugins/api-types'
 import { modalStyles } from '../SettingsModal.styles'
 import { SearchAiSettingsSection } from './SearchAiSettingsSection'
 import { GeneralSettingsSection } from './GeneralSettingsSection'
 import { EditorSettingsSection } from './EditorSettingsSection'
-import { ProvisioningSettingsSection } from './ProvisioningSettingsSection'
 import { TranscriptionSettingsSection } from './TranscriptionSettingsSection'
 import { SectionCard, SectionHeader } from './SettingsSectionLayout'
 import { PluginSettingsSection } from './PluginSettingsSection'
 import { ShortcutsSettingsSection } from './ShortcutsSettingsSection'
 import { NotificationSettingsSection } from './NotificationSettingsSection'
 
-export type SettingsTabId = 'general' | 'notifications' | 'editor' | 'shortcuts' | 'search-ai' | 'provisioning' | 'transcription' | 'plugins'
+export type SettingsTabId = 'general' | 'notifications' | 'editor' | 'shortcuts' | 'search-ai' | 'transcription' | 'plugins'
 
 const SETTINGS_TABS: Array<{ id: SettingsTabId; label: string }> = [
   { id: 'general', label: 'General' },
@@ -21,7 +19,6 @@ const SETTINGS_TABS: Array<{ id: SettingsTabId; label: string }> = [
   { id: 'editor', label: 'Editor' },
   { id: 'shortcuts', label: 'Shortcuts' },
   { id: 'search-ai', label: 'Search AI' },
-  { id: 'provisioning', label: 'Provisioning' },
   { id: 'transcription', label: 'Transcription' },
   { id: 'plugins', label: 'Plugins' },
 ]
@@ -62,11 +59,6 @@ interface Props {
   onSearchAiSettingsChange: (value: SearchAiSettings) => void
   editorSettings: EditorSettings
   onEditorSettingsChange: (value: EditorSettings) => void
-  provisioners: ProvisionerConfig[]
-  provisionerStatuses: ProvisionerStatus[]
-  onProvisionersChange: (value: ProvisionerConfig[]) => void
-  onCheckProvisionerHealth: (provisionerId?: string) => Promise<void>
-  onRefreshProvisionerCatalog: (provisionerId?: string) => Promise<void>
   transcription: AiServiceSettings
   onTranscriptionChange: (value: AiServiceSettings) => void
 }
@@ -119,15 +111,6 @@ export function SettingsModalBody(props: Props): React.JSX.Element {
                 <SearchAiSettingsSection value={props.searchAiSettings} onChange={props.onSearchAiSettingsChange} />
               </SectionCard>
             </>
-          )}
-          {props.activeTab === 'provisioning' && (
-            <ProvisioningSettingsSection
-              provisioners={props.provisioners}
-              statuses={props.provisionerStatuses}
-              onChange={props.onProvisionersChange}
-              onCheckHealth={props.onCheckProvisionerHealth}
-              onRefreshCatalog={props.onRefreshProvisionerCatalog}
-            />
           )}
           {props.activeTab === 'transcription' && (
             <TranscriptionSettingsSection value={props.transcription} onChange={props.onTranscriptionChange} />
