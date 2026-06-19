@@ -280,7 +280,22 @@ function fitAndResize(
   sessionId: string | null
 ): void {
   try {
+    // Distance of the viewport top from the bottom of the scrollback, captured
+    // before the fit reflows the buffer. 0 means the user is pinned to the
+    // bottom; xterm keeps that anchored itself, so only restore when scrolled up.
+    const before = terminal.buffer.active
+    const offsetFromBottom = before.baseY - before.viewportY
+
     fitAddon?.fit()
+
+    if (offsetFromBottom > 0) {
+      // xterm's reflow only keeps the bottom anchored — a user who had scrolled
+      // up into the scrollback gets snapped (typically to the top, issue #774).
+      // Re-derive the same offset from the new bottom so the view stays put.
+      const target = terminal.buffer.active.baseY - offsetFromBottom
+      terminal.scrollToLine(Math.max(0, target))
+    }
+
     if (sessionId) {
       void window.electronAPI.invoke('agent:resize', sessionId, terminal.cols, terminal.rows)
     }
