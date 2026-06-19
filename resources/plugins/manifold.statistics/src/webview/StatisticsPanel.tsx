@@ -68,24 +68,25 @@ function renderBody(
   if (records.length === 0) return null
 
   const projectStats = computeProjectStats(groups)
-  // The lists below the per-repo grid scope to the selected repo; the KPI hero stays global.
+  // The KPI hero and every list below the per-repo grid reflect the current scope:
+  // the selected repo, or all repos when nothing is selected.
   const selected = selectedProjectId ? groups.find((g) => g.projectId === selectedProjectId) ?? null : null
   const scoped = selected ? selected.records : records
   const scopeName = selected?.projectName ?? null
 
-  const globalStats = computeRuntimeStats(records)
-  const totals = records.length
-  const totalMerged = globalStats.reduce((sum, r) => sum + r.merged, 0)
-  const totalDiscarded = globalStats.reduce((sum, r) => sum + r.discarded, 0)
+  const stats = computeRuntimeStats(scoped)
+  const totals = scoped.length
+  const totalMerged = stats.reduce((sum, r) => sum + r.merged, 0)
+  const totalDiscarded = stats.reduce((sum, r) => sum + r.discarded, 0)
   const mergedPct = totals === 0 ? 0 : Math.round((totalMerged / totals) * 100)
   const discardedPct = totals === 0 ? 0 : Math.round((totalDiscarded / totals) * 100)
-  const avgEdits = totalMerged === 0 ? 0 : globalStats.reduce((sum, r) => sum + r.avgHumanEditsForMerged * r.merged, 0) / totalMerged
+  const avgEdits = totalMerged === 0 ? 0 : stats.reduce((sum, r) => sum + r.avgHumanEditsForMerged * r.merged, 0) / totalMerged
 
   return (
     <>
-      {renderKpiRow(totals, projectStats.length, mergedPct, discardedPct, avgEdits)}
       {renderProjectBreakdown(projectStats, selectedProjectId, onSelectProject)}
-      {renderRuntimeGrid(computeRuntimeStats(scoped), scopeName)}
+      {renderKpiRow(totals, projectStats.length, scopeName, mergedPct, discardedPct, avgEdits)}
+      {renderRuntimeGrid(stats, scopeName)}
       <RecentSessions recent={sortRecentFirst(scoped)} openExternal={openExternal} scopeName={scopeName} />
       {renderOutcomeFooter(computeOutcomeCounts(scoped))}
     </>
@@ -101,12 +102,15 @@ function renderEmpty(message: string): React.JSX.Element {
   )
 }
 
-function renderKpiRow(totals: number, repos: number, mergedPct: number, discardedPct: number, avgEdits: number): React.JSX.Element {
+function renderKpiRow(totals: number, repos: number, scopeName: string | null, mergedPct: number, discardedPct: number, avgEdits: number): React.JSX.Element {
+  // Subtitles name the active scope: the selected repo, or all repos when none is selected.
+  const repoSub = scopeName ?? 'all repos'
+  const sessionsSub = scopeName ?? `${repos} repo${repos === 1 ? '' : 's'}`
   return (
     <div style={s.kpiRow}>
-      <Kpi label="Sessions" value={String(totals)} sub={`${repos} repo${repos === 1 ? '' : 's'}`} />
-      <Kpi label="Merge rate" value={`${mergedPct}%`} sub="all repos" tone="good" />
-      <Kpi label="Discard rate" value={`${discardedPct}%`} sub="all repos" tone="warn" />
+      <Kpi label="Sessions" value={String(totals)} sub={sessionsSub} />
+      <Kpi label="Merge rate" value={`${mergedPct}%`} sub={repoSub} tone="good" />
+      <Kpi label="Discard rate" value={`${discardedPct}%`} sub={repoSub} tone="warn" />
       <Kpi label="Avg edits" value={avgEdits.toFixed(1)} sub="before merge" />
     </div>
   )

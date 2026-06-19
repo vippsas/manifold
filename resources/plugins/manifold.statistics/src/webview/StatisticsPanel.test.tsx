@@ -100,6 +100,21 @@ describe('StatisticsPanel', () => {
     post.mockRestore()
   })
 
+  it('scopes the KPI hero to the selected repo (subtitles name the repo)', () => {
+    render(<StatisticsPanel />)
+    init([
+      record({ sessionId: 'a', projectId: 'alpha', outcome: 'merged' }),
+      record({ sessionId: 'b', projectId: 'alpha', outcome: 'discarded' }),
+      record({ sessionId: 'c', projectId: 'beta', outcome: 'merged' }),
+    ])
+    // Unscoped: merge + discard KPI subs read "all repos".
+    expect(screen.getAllByText('all repos').length).toBe(2)
+
+    fireEvent.click(screen.getByRole('button', { name: /^Repo alpha/i }))
+    // Scoped: "all repos" is gone — the KPI hero reflects the selected repo.
+    expect(screen.queryByText('all repos')).toBeNull()
+  })
+
   it('shows no Reset button until a repo is selected, then resets just that repo', () => {
     const post = vi.spyOn(window, 'postMessage')
     render(<StatisticsPanel />)
