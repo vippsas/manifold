@@ -1,7 +1,7 @@
 ---
 description: How Manifold persists app and user state on disk — settings/config, the project registry, per-session view/chat/verdict state — and which JSON file owns which slice.
 covers: [src/main/store]
-updated: 2026-06-12
+updated: 2026-06-19
 owner: see .github/CODEOWNERS
 ---
 
@@ -43,7 +43,7 @@ unparseable, or the wrong shape — a missing file is never an error, just an em
 (`project-registry.ts:24`, `settings-store.ts:73`). Mutations update the in-memory copy and
 then call `writeToDisk()`, which `mkdirSync`s the config dir and writes the whole structure
 back with `JSON.stringify(..., null, 2)` through `writeFileAtomicSync` — a tmp-file + `rename`
-so a crash mid-write cannot truncate the file (`settings-store.ts:92`, `project-registry.ts:43`,
+so a crash mid-write cannot truncate the file (`settings-store.ts:83`, `project-registry.ts:43`,
 `atomic-write.ts:9`). The Map-backed stores (view-state, dock-layout, search-view, shell-tab)
 serialize via `Object.fromEntries(this.state)` and rehydrate via
 `new Map(Object.entries(parsed))`; view-state and shell-tab additionally validate each entry's
@@ -57,8 +57,8 @@ over `{ ...DEFAULT_SETTINGS }` so unknown/missing top-level keys fall back, then
 `notifications` are merged field-by-field over their defaults; and
 `disabledPlugins` is seeded once with the default-disabled set, guarded by a
 `pluginDefaultsSeeded` flag so a user-enabled plugin is not re-disabled on next launch
-(`settings-store.ts:38`, `:54`). `updateSettings(partial)` shallow-merges and writes
-(`settings-store.ts:98`). `getSettings()` returns a shallow copy.
+(`settings-store.ts:38`, `:57`). `updateSettings(partial)` shallow-merges and writes
+(`settings-store.ts:90`). `getSettings()` returns a shallow copy.
 
 **Project registry.** `addProject()` resolves the absolute path, returns any existing
 entry with the same path, otherwise detects `kind` (`git` when

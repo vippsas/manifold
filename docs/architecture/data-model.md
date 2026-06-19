@@ -1,7 +1,7 @@
 ---
 description: The on-disk data model under ~/.manifold — every file and directory Manifold persists, which module owns each path, and the two distinct roots (hardcoded config home vs. configurable storage root).
 covers: [src/main/store, src/shared/defaults.ts]
-updated: 2026-06-13
+updated: 2026-06-19
 owner: see .github/CODEOWNERS
 ---
 
@@ -48,11 +48,11 @@ The layout, file by file. Paths are written as `<configHome>` (= `os.homedir()/.
 fixed) or `<storageRoot>` (= `settings.storagePath`, configurable, default `<configHome>`).
 
 **`<configHome>/config.json`** — the `ManifoldSettings` object. `SettingsStore` reads it on
-construction; a missing/corrupt file falls back to `DEFAULT_SETTINGS` (`settings-store.ts:74`).
+construction; a missing/corrupt file falls back to `DEFAULT_SETTINGS` (`settings-store.ts:77`).
 `resolveDefaults()` is the migration seam: it backfills `storagePath`, deep-merges
 `memory`/`search`/`editor`/`notifications`, and one-time-seeds
 `disabledPlugins` (`settings-store.ts:22`). Every `updateSettings()` rewrites the whole file
-(`:89`). `storagePath` itself is set here and consumed across the app — its `mkdirSync` on
+(`:92`). `storagePath` itself is set here and consumed across the app — its `mkdirSync` on
 change lives in the IPC layer, not the store (`ipc/settings-handlers.ts:18`).
 
 **`<configHome>/projects.json`** — a flat `Project[]` array (id, name, path, baseBranch,

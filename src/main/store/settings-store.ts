@@ -46,6 +46,9 @@ export class SettingsStore {
       ...DEFAULT_SETTINGS.notifications,
       ...settings.notifications,
     } as ManifoldSettings['notifications']
+    // The external provisioner flow was removed; scrub the now-orphaned `provisioning`
+    // field from configs written by older builds so it is not re-persisted on every write.
+    delete (settings as { provisioning?: unknown }).provisioning
     // One-time seed of the default-disabled plugin set (the bundled demo plugins).
     // `disabledPlugins` shipped after some configs were already written, so a plain
     // merge would let an old `disabledPlugins: []` shadow the default. Union the
