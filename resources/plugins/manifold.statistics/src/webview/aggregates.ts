@@ -8,7 +8,7 @@ export interface ProjectStat {
   mergedPct: number
 }
 
-/** Per-repo session counts + merge rate, most-active repo first. */
+/** Per-repo session counts + merge rate, sorted alphabetically by repo name. */
 export function computeProjectStats(groups: ProjectVerdicts[]): ProjectStat[] {
   return groups
     .map((g) => {
@@ -22,7 +22,7 @@ export function computeProjectStats(groups: ProjectVerdicts[]): ProjectStat[] {
         mergedPct: total === 0 ? 0 : Math.round((merged / total) * 100),
       }
     })
-    .sort((a, b) => b.total - a.total || a.projectName.localeCompare(b.projectName))
+    .sort((a, b) => a.projectName.localeCompare(b.projectName))
 }
 
 export interface RuntimeStats {

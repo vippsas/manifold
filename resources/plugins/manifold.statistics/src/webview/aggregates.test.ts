@@ -98,15 +98,15 @@ describe('computeOutcomeCounts', () => {
 })
 
 describe('computeProjectStats', () => {
-  it('computes per-repo totals + merge rate, most-active repo first', () => {
+  it('computes per-repo totals + merge rate, sorted alphabetically by repo name', () => {
     const stats = computeProjectStats([
-      { projectId: 'p1', projectName: 'Alpha', records: [r({ outcome: 'merged' }), r({ outcome: 'discarded' })] },
       { projectId: 'p2', projectName: 'Beta', records: [r({ outcome: 'merged' }), r({ outcome: 'merged' }), r({ outcome: 'pr_created' })] },
+      { projectId: 'p1', projectName: 'Alpha', records: [r({ outcome: 'merged' }), r({ outcome: 'discarded' })] },
     ])
-    // Beta has more sessions → first
-    expect(stats.map((s) => s.projectName)).toEqual(['Beta', 'Alpha'])
-    expect(stats[0]).toEqual({ projectId: 'p2', projectName: 'Beta', total: 3, merged: 2, mergedPct: 67 })
-    expect(stats[1]).toEqual({ projectId: 'p1', projectName: 'Alpha', total: 2, merged: 1, mergedPct: 50 })
+    // Alphabetical regardless of session count → Alpha before Beta
+    expect(stats.map((s) => s.projectName)).toEqual(['Alpha', 'Beta'])
+    expect(stats[0]).toEqual({ projectId: 'p1', projectName: 'Alpha', total: 2, merged: 1, mergedPct: 50 })
+    expect(stats[1]).toEqual({ projectId: 'p2', projectName: 'Beta', total: 3, merged: 2, mergedPct: 67 })
   })
 
   it('returns empty array for no groups', () => {
