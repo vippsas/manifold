@@ -69,8 +69,8 @@ vi.mock('@xterm/addon-unicode11', () => ({ Unicode11Addon: class {} }))
 
 import { useTerminal } from './useTerminal'
 
-function Harness(): React.JSX.Element {
-  const { containerRef } = useTerminal({ sessionId: 'agent-1', scrollbackLines: 5000 })
+function Harness({ font }: { font?: string }): React.JSX.Element {
+  const { containerRef } = useTerminal({ sessionId: 'agent-1', scrollbackLines: 5000, terminalFontFamily: font })
   return <div ref={containerRef as React.RefObject<HTMLDivElement>} />
 }
 
@@ -139,5 +139,22 @@ describe('useTerminal scroll preservation on resize', () => {
     fireResize()
 
     expect(term.scrollToLine).not.toHaveBeenCalled()
+  })
+
+  it('restores the scrollback offset when a font change re-fits the terminal', () => {
+    const { rerender } = render(<Harness font="Menlo" />)
+    const term = shared.terminal
+    if (!term) throw new Error('terminal was not created')
+
+    term._baseY = 100
+    term._viewportY = 10
+    shared.fitImpl = (t) => { t._baseY = 120; t._viewportY = 0 }
+    term.scrollToLine.mockClear()
+
+    // Clearing the font (cleanFontName -> undefined) takes the synchronous
+    // re-fit branch of the font-change effect.
+    rerender(<Harness font="" />)
+
+    expect(term.scrollToLine).toHaveBeenCalledWith(30)
   })
 })
