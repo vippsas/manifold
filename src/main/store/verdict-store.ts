@@ -70,4 +70,9 @@ export class VerdictStore {
     const all = this.records.filter((r) => r.projectId === projectId)
     return limit !== undefined ? all.slice(-limit) : all
   }
+
+  /** Every captured record across all projects, oldest→newest. */
+  listAll(): VerdictRecord[] {
+    return [...this.records]
+  }
 }

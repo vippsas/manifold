@@ -123,6 +123,7 @@ const ALLOWED_INVOKE_CHANNELS = [
   'plugins:ui-response',
   'plugins:set-enabled',
   'dashboard:worktrees-summary',
+  'dashboard:verdicts-summary',
 ] as const
 
 const ALLOWED_SEND_CHANNELS = [

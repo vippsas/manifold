@@ -11,8 +11,8 @@ import { createAgentControlService } from './agent-control-service'
 import { createLmService } from './lm-service'
 import { createAgentSpawnService } from './agent-spawn-service'
 import { createWorktreeOverviewService, type WorktreeOverviewService } from './worktree-overview-service'
-import { summarizeWorktrees } from './dashboard-summary'
-import type { WorktreesSummary } from '../../shared/dashboard-types'
+import { summarizeWorktrees, summarizeVerdicts } from './dashboard-summary'
+import type { WorktreesSummary, VerdictsSummary } from '../../shared/dashboard-types'
 import { getWorktreeDirty, getWorktreeLastCommitISO } from '../git/worktree-status'
 import { listMergedBranches, listWorktreeBranches, getBranchDates, deleteMergedBranch } from '../git/branch-status'
 import { readWorktreeMeta } from '../git/worktree-meta'
@@ -76,7 +76,7 @@ export class PluginManager {
     gitOps: GitOperationsManager,
     worktreeManager: WorktreeManager,
     projectRegistry: ProjectRegistry,
-    verdictStore: VerdictStore,
+    private readonly verdictStore: VerdictStore,
   ) {
     const agentControl = createAgentControlService(this.sessionManager)
     const lm = createLmService(this.sessionManager, gitOps)
@@ -110,6 +110,11 @@ export class PluginManager {
       this.worktreeOverview.listMergedOrphanBranches(),
     ])
     return summarizeWorktrees(entries, cleanable)
+  }
+
+  /** Headline numbers for the global Statistics dashboard card (all repos). */
+  getVerdictsSummary(): VerdictsSummary {
+    return summarizeVerdicts(this.verdictStore.listAll())
   }
 
   isEnabled(pluginId: string): boolean {

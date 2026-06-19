@@ -1,10 +1,15 @@
 import React from 'react'
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { render, screen, waitFor } from '@testing-library/react'
-import { useWorktreesSummary } from './dashboard-cards'
+import { useWorktreesSummary, useVerdictsSummary } from './dashboard-cards'
 
 function Probe(): React.JSX.Element {
   const s = useWorktreesSummary()
+  return <div>{s.loading ? 'loading' : s.error ? 'error' : s.stats.map((x) => `${x.label}:${x.value}`).join(' ')}</div>
+}
+
+function VerdictsProbe(): React.JSX.Element {
+  const s = useVerdictsSummary()
   return <div>{s.loading ? 'loading' : s.error ? 'error' : s.stats.map((x) => `${x.label}:${x.value}`).join(' ')}</div>
 }
 
@@ -26,5 +31,19 @@ describe('useWorktreesSummary', () => {
     global.window.electronAPI = { invoke: vi.fn(async () => { throw new Error('boom') }), on: vi.fn(() => () => {}) }
     render(<Probe />)
     await waitFor(() => expect(screen.getByText('error')).toBeInTheDocument())
+  })
+})
+
+describe('useVerdictsSummary', () => {
+  beforeEach(() => {
+    // @ts-expect-error test stub
+    global.window.electronAPI = { invoke: vi.fn(async () => ({ sessions: 58, mergedPct: 74, repos: 4 })), on: vi.fn(() => () => {}) }
+  })
+
+  it('maps the summary to labelled stats with a percent merge rate', async () => {
+    render(<VerdictsProbe />)
+    await waitFor(() => expect(screen.getByText(/sessions:58/)).toBeInTheDocument())
+    expect(screen.getByText(/merged:74%/)).toBeInTheDocument()
+    expect(screen.getByText(/repos:4/)).toBeInTheDocument()
   })
 })

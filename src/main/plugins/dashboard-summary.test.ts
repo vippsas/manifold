@@ -1,6 +1,13 @@
 import { describe, it, expect } from 'vitest'
-import { summarizeWorktrees } from './dashboard-summary'
+import { summarizeWorktrees, summarizeVerdicts } from './dashboard-summary'
 import type { WorktreeOverviewEntry, BranchOverviewEntry } from '../../shared/plugins/api-types'
+import type { VerdictRecord, VerdictOutcome } from '../../shared/verdict-types'
+
+const rec = (projectId: string, outcome: VerdictOutcome): VerdictRecord => ({
+  sessionId: `${projectId}-${outcome}-${Math.random()}`, projectId, branch: 'b', runtime: 'claude',
+  taskPrompt: { kind: 'full', text: 't' }, outcome, createdAt: '2026-06-19T00:00:00Z',
+  metrics: { agentCommits: 0, humanEdits: 0, diffLines: { added: 0, removed: 0 }, filesChanged: 0 },
+})
 
 const wt = (projectId: string, n: number): WorktreeOverviewEntry => ({
   worktreePath: `/wt/${projectId}/${n}`, projectId, projectName: projectId,
@@ -16,5 +23,19 @@ describe('summarizeWorktrees', () => {
   })
   it('is zero-safe', () => {
     expect(summarizeWorktrees([], [])).toEqual({ worktrees: 0, cleanableBranches: 0, repos: 0 })
+  })
+})
+
+describe('summarizeVerdicts', () => {
+  it('counts sessions, distinct repos, and rounds merge rate across all repos', () => {
+    const s = summarizeVerdicts([
+      rec('a', 'merged'), rec('a', 'discarded'), rec('a', 'merged'),
+      rec('b', 'merged'), rec('b', 'pr_created'),
+    ])
+    // 3 merged of 5 → 60%; repos a,b
+    expect(s).toEqual({ sessions: 5, mergedPct: 60, repos: 2 })
+  })
+  it('is zero-safe', () => {
+    expect(summarizeVerdicts([])).toEqual({ sessions: 0, mergedPct: 0, repos: 0 })
   })
 })
