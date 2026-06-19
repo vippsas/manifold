@@ -20,7 +20,7 @@ function mockContext(): CommandContext {
     togglePanel: vi.fn(),
     openModule: vi.fn(),
     toggleTheme: vi.fn(),
-    openWorktrees: vi.fn(),
+    openDashboard: vi.fn(),
   }
 }
 

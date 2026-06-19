@@ -2,7 +2,7 @@ import React, { useContext } from 'react'
 import { DockStateContext } from '../editor/editor-shell/dock-panel-types'
 
 /**
- * Persistent entry point to the global Worktrees overview (#744), shown at the top of
+ * Persistent entry point to the global Dashboard home surface, shown at the top of
  * the Repositories sidebar so it's reachable from any agent / filetree context. Reads
  * the open handler from DockStateContext (no prop drilling, like FavoritesList).
  */
@@ -16,18 +16,18 @@ const styles: Record<string, React.CSSProperties> = {
   },
 }
 
-export function WorktreesSidebarButton(): React.JSX.Element | null {
+export function DashboardSidebarButton(): React.JSX.Element | null {
   const state = useContext(DockStateContext)
-  if (!state?.onOpenWorktrees) return null
+  if (!state?.onOpenDashboard) return null
   return (
     <button
       type="button"
       style={styles.button}
-      onClick={() => state.onOpenWorktrees()}
+      onClick={() => state.onOpenDashboard()}
       onMouseEnter={(e) => { e.currentTarget.style.background = 'var(--list-hover-bg)'; e.currentTarget.style.color = 'var(--text-primary)' }}
       onMouseLeave={(e) => { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = 'var(--text-secondary)' }}
     >
-      <span aria-hidden style={{ opacity: 0.7 }}>⎇</span> Worktrees
+      <span aria-hidden style={{ opacity: 0.7 }}>⊞</span> Dashboard
     </button>
   )
 }

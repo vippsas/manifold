@@ -9,7 +9,7 @@ import type { UseUpdateLogResult } from '../shared/useUpdateLog'
 import { PANEL_COMPONENTS, DockStateContext } from './components/editor/editor-shell/dock-panels'
 import { PrefixHeaderActions, LeftHeaderActions, RightHeaderActions } from './components/editor/editor-shell/SidebarCollapseAction'
 import { OnboardingView } from './components/modals/OnboardingView'
-import { WorktreeHomeView } from './components/home/WorktreeHomeView'
+import { DashboardHomeView } from './components/home/DashboardHomeView'
 import { SettingsModal } from './components/modals/SettingsModal'
 import { AboutOverlay } from './components/modals/AboutOverlay'
 import { UpdateLogOverlay } from './components/modals/UpdateLogOverlay'
@@ -135,8 +135,11 @@ export function AppShell(p: AppShellProps): React.JSX.Element {
               rightHeaderActionsComponent={RightHeaderActions}
               watermarkComponent={EmptyWatermark}
             />
-            {p.overlays.showWorktrees && (
-              <WorktreeHomeView onClose={() => p.overlays.setShowWorktrees(false)} />
+            {p.overlays.showDashboard && (
+              <DashboardHomeView
+                onClose={() => p.overlays.setShowDashboard(false)}
+                initialCard={p.overlays.dashboardInitialCard}
+              />
             )}
           </div>
         </DockStateContext.Provider>

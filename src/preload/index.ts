@@ -122,6 +122,7 @@ const ALLOWED_INVOKE_CHANNELS = [
   'plugins:tree-get-children',
   'plugins:ui-response',
   'plugins:set-enabled',
+  'dashboard:worktrees-summary',
 ] as const
 
 const ALLOWED_SEND_CHANNELS = [

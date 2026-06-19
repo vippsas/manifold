@@ -133,8 +133,8 @@ export interface DockAppState {
   onFocusPanel: (id: string) => void
   onOpenSibling: (sessionId: string, title?: string, referencePanelId?: string) => void
   onCloseSiblingPanel: (sessionId: string) => void
-  /** Open the global Worktrees overview (home surface). */
-  onOpenWorktrees: () => void
+  /** Open the global Dashboard home surface, optionally drilled into a card. */
+  onOpenDashboard: (cardId?: string) => void
   drafts: DraftChat[]
   activeDraft: DraftChat | null
   promoteDraft: (draftId: string, firstMessage: string) => Promise<void>

@@ -13,6 +13,7 @@ export function registerPluginHandlers(deps: IpcDependencies): void {
   ipcMain.handle('plugins:execute-command', (_e, id: string, args: unknown[] = []) =>
     deps.pluginManager.executeContributedCommand(id, args))
   ipcMain.handle('plugins:open-view', (_e, viewId: string) => deps.pluginManager.openView(viewId))
+  ipcMain.handle('dashboard:worktrees-summary', () => deps.pluginManager.getWorktreesSummary())
   ipcMain.handle('plugins:webview-to-host', (_e, viewId: string, message: unknown) => {
     deps.pluginManager.deliverWebviewMessage(viewId, message); return true
   })
