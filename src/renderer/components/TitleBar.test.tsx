@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
-import { render, screen, act } from '@testing-library/react'
+import { render, screen, act, fireEvent } from '@testing-library/react'
 import React from 'react'
 import { TitleBar } from './TitleBar'
 import { installElectronApi, mockInvoke } from '../hooks/useSearch.test-helpers'
@@ -61,5 +61,17 @@ describe('TitleBar', () => {
   it('does not render the omnibox without search wiring', () => {
     render(<TitleBar projectName="Alpha" />)
     expect(screen.queryByLabelText('Search code and memory')).not.toBeInTheDocument()
+  })
+
+  it('renders the Dashboard button and opens the Dashboard on click', () => {
+    const onOpenDashboard = vi.fn()
+    render(<TitleBar projectName="Alpha" onOpenDashboard={onOpenDashboard} />)
+    fireEvent.click(screen.getByRole('button', { name: /Open Dashboard/i }))
+    expect(onOpenDashboard).toHaveBeenCalled()
+  })
+
+  it('omits the Dashboard button when no handler is provided', () => {
+    render(<TitleBar projectName="Alpha" />)
+    expect(screen.queryByRole('button', { name: /Open Dashboard/i })).toBeNull()
   })
 })

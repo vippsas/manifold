@@ -11,6 +11,8 @@ interface TitleBarProps {
   themeFamily?: ThemeFamily
   onSelectThemeFamily?: (family: ThemeFamily) => void
   search?: TitleBarSearchWiring
+  /** Opens the global Dashboard home surface. Omitted before a project exists. */
+  onOpenDashboard?: () => void
 }
 
 const THEME_FAMILIES: { id: ThemeFamily; label: string }[] = [
@@ -22,14 +24,28 @@ const THEME_FAMILIES: { id: ThemeFamily; label: string }[] = [
   { id: 'platinum', label: 'Platinum' },
 ]
 
-export function TitleBar({ projectName, themeType, onToggleTheme, themeFamily, onSelectThemeFamily, search }: TitleBarProps): React.JSX.Element {
+export function TitleBar({ projectName, themeType, onToggleTheme, themeFamily, onSelectThemeFamily, search, onOpenDashboard }: TitleBarProps): React.JSX.Element {
   const [themeHovered, setThemeHovered] = useState(false)
   const [themesHovered, setThemesHovered] = useState(false)
+  const [dashHovered, setDashHovered] = useState(false)
 
   return (
     <div style={styles.container}>
       <div style={styles.leftGroup}>
         <div style={styles.trafficLightSpacer} />
+        {onOpenDashboard && (
+          <button
+            type="button"
+            onClick={onOpenDashboard}
+            onMouseEnter={() => setDashHovered(true)}
+            onMouseLeave={() => setDashHovered(false)}
+            style={{ ...styles.dashboardButton, ...(dashHovered ? styles.dashboardButtonHover : undefined) }}
+            title="Dashboard"
+            aria-label="Open Dashboard"
+          >
+            <span aria-hidden style={styles.dashboardIcon}>⊞</span> Dashboard
+          </button>
+        )}
         <div style={styles.titleArea}>
           {!projectName && <span style={styles.title}>Manifold</span>}
         </div>
