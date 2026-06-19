@@ -81,6 +81,17 @@ describe('StatisticsPanel', () => {
     expect(screen.getAllByRole('button').map((b) => b.textContent)).toEqual(['Refresh'])
   })
 
+  it('lists every session (no 50 cap) and shows the count in the header', () => {
+    render(<StatisticsPanel />)
+    const many = Array.from({ length: 60 }, (_, i) =>
+      record({ sessionId: `s${i}`, createdAt: `2026-05-16T00:${String(i).padStart(2, '0')}:00Z` }),
+    )
+    init(many)
+    expect(screen.getByText('Recent sessions · 60')).toBeTruthy()
+    // All 60 rows render — the prompt preview appears once per row.
+    expect(screen.getAllByText('do the thing').length).toBe(60)
+  })
+
   it('renders per-session metric chips when activity is present', () => {
     render(<StatisticsPanel />)
     init([record({

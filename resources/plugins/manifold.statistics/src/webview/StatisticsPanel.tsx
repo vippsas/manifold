@@ -9,7 +9,6 @@ import {
   outcomeChipStyle,
 } from './styles'
 
-const RECENT_LIMIT = 50
 const PROMPT_PREVIEW_CHARS = 96
 const OUTCOME_ORDER: VerdictOutcome[] = ['merged', 'pr_created', 'committed_only', 'discarded', 'unknown']
 
@@ -54,7 +53,7 @@ function renderBody(
 
   const runtimeStats = computeRuntimeStats(records)
   const outcomeCounts = computeOutcomeCounts(records)
-  const recent = sortRecentFirst(records).slice(0, RECENT_LIMIT)
+  const recent = sortRecentFirst(records)
   const totals = records.length
   const totalMerged = runtimeStats.reduce((sum, r) => sum + r.merged, 0)
   const totalDiscarded = runtimeStats.reduce((sum, r) => sum + r.discarded, 0)
@@ -154,7 +153,7 @@ function OutcomeBar({ stat }: { stat: RuntimeStats }): React.JSX.Element {
 function renderRecentSessions(recent: VerdictRecord[], openExternal: (url: string) => void): React.JSX.Element {
   return (
     <section>
-      <div style={s.sectionLabel}>Recent sessions</div>
+      <div style={s.sectionLabel}>{`Recent sessions · ${recent.length}`}</div>
       <div style={{ ...s.recentList, marginTop: 'var(--space-xs)' }}>
         {recent.map((rec) => {
           const accentColor = outcomeColors[rec.outcome] ?? outcomeColors.unknown
