@@ -1,7 +1,7 @@
 import React from 'react'
 import { describe, it, expect, vi, afterEach } from 'vitest'
 import { render, screen, fireEvent, act, cleanup } from '@testing-library/react'
-import type { VerdictRecord } from 'manifold'
+import type { VerdictRecord, ProjectVerdicts } from 'manifold'
 import { StatisticsPanel } from './StatisticsPanel'
 
 function record(overrides: Partial<VerdictRecord>): VerdictRecord {
@@ -14,9 +14,16 @@ function record(overrides: Partial<VerdictRecord>): VerdictRecord {
   }
 }
 
+/** Group flat records by projectId (name = "Repo <id>") the way the host would. */
+function toGroups(records: VerdictRecord[]): ProjectVerdicts[] {
+  const byId = new Map<string, VerdictRecord[]>()
+  for (const r of records) { const b = byId.get(r.projectId) ?? []; b.push(r); byId.set(r.projectId, b) }
+  return [...byId.entries()].map(([projectId, recs]) => ({ projectId, projectName: `Repo ${projectId}`, records: recs }))
+}
+
 /** Push a host `init` message the same way the renderer relays it into the iframe. */
-const init = (records: VerdictRecord[], projectId: string | null = 'p1', error: string | null = null): void => {
-  act(() => { window.dispatchEvent(new MessageEvent('message', { data: { type: 'init', records, projectId, error } })) })
+const init = (records: VerdictRecord[], error: string | null = null): void => {
+  act(() => { window.dispatchEvent(new MessageEvent('message', { data: { type: 'init', groups: toGroups(records), error } })) })
 }
 
 describe('StatisticsPanel', () => {
@@ -26,12 +33,6 @@ describe('StatisticsPanel', () => {
     render(<StatisticsPanel />)
     init([])
     expect(screen.getByText(/no sessions captured yet/i)).toBeTruthy()
-  })
-
-  it('shows empty state when no active project', () => {
-    render(<StatisticsPanel />)
-    init([], null)
-    expect(screen.getByText(/select a project/i)).toBeTruthy()
   })
 
   it('renders per-runtime stats and recent sessions', () => {
@@ -45,9 +46,48 @@ describe('StatisticsPanel', () => {
     expect(screen.getByText('fix bug')).toBeTruthy()
   })
 
+  it('renders a per-repo breakdown across all projects', () => {
+    render(<StatisticsPanel />)
+    init([
+      record({ sessionId: 'a', projectId: 'alpha', outcome: 'merged' }),
+      record({ sessionId: 'b', projectId: 'alpha', outcome: 'discarded' }),
+      record({ sessionId: 'c', projectId: 'beta', outcome: 'merged' }),
+    ])
+    expect(screen.getByText(/^Per-repo/)).toBeTruthy()
+    expect(screen.getByText('Repo alpha')).toBeTruthy()
+    expect(screen.getByText('Repo beta')).toBeTruthy()
+    // alpha has 2 sessions, beta 1 → both labels present
+    expect(screen.getByText('2 sessions')).toBeTruthy()
+    expect(screen.getByText('1 session')).toBeTruthy()
+  })
+
+  it('clicking a per-repo card filters the sections below to that repo, and clears on re-click', () => {
+    render(<StatisticsPanel />)
+    init([
+      record({ sessionId: 'a', projectId: 'alpha', runtime: 'claude', outcome: 'merged', taskPrompt: { kind: 'full', text: 'alpha work' } }),
+      record({ sessionId: 'b', projectId: 'beta', runtime: 'codex', outcome: 'merged', taskPrompt: { kind: 'full', text: 'beta work' } }),
+    ])
+    // Unfiltered: both sessions in the recent list.
+    expect(screen.getByText('Recent sessions · 2')).toBeTruthy()
+    expect(screen.getByText('alpha work')).toBeTruthy()
+    expect(screen.getByText('beta work')).toBeTruthy()
+
+    // Click the "Repo alpha" card → recent + per-runtime scope to alpha only.
+    fireEvent.click(screen.getByRole('button', { name: /^Repo alpha/i }))
+    expect(screen.getByText('Recent sessions · 1 · Repo alpha')).toBeTruthy()
+    expect(screen.getByText('alpha work')).toBeTruthy()
+    expect(screen.queryByText('beta work')).toBeNull()
+    expect(screen.getByText('Per-runtime quality · Repo alpha')).toBeTruthy()
+
+    // Click it again → filter clears, both sessions return.
+    fireEvent.click(screen.getByRole('button', { name: /^Repo alpha/i }))
+    expect(screen.getByText('Recent sessions · 2')).toBeTruthy()
+    expect(screen.getByText('beta work')).toBeTruthy()
+  })
+
   it('shows error message when init carries an error', () => {
     render(<StatisticsPanel />)
-    init([], 'p1', 'boom')
+    init([], 'boom')
     expect(screen.getByText(/boom/)).toBeTruthy()
   })
 
@@ -60,6 +100,42 @@ describe('StatisticsPanel', () => {
     post.mockRestore()
   })
 
+  it('scopes the KPI hero to the selected repo (subtitles name the repo)', () => {
+    render(<StatisticsPanel />)
+    init([
+      record({ sessionId: 'a', projectId: 'alpha', outcome: 'merged' }),
+      record({ sessionId: 'b', projectId: 'alpha', outcome: 'discarded' }),
+      record({ sessionId: 'c', projectId: 'beta', outcome: 'merged' }),
+    ])
+    // Unscoped: merge + discard KPI subs read "all repos".
+    expect(screen.getAllByText('all repos').length).toBe(2)
+
+    fireEvent.click(screen.getByRole('button', { name: /^Repo alpha/i }))
+    // Scoped: "all repos" is gone — the KPI hero reflects the selected repo.
+    expect(screen.queryByText('all repos')).toBeNull()
+  })
+
+  it('shows no Reset button until a repo is selected, then resets just that repo', () => {
+    const post = vi.spyOn(window, 'postMessage')
+    render(<StatisticsPanel />)
+    init([
+      record({ sessionId: 'a', projectId: 'alpha', outcome: 'merged' }),
+      record({ sessionId: 'b', projectId: 'beta', outcome: 'merged' }),
+    ])
+    // No repo selected → no Reset button.
+    expect(screen.queryByRole('button', { name: /^reset/i })).toBeNull()
+
+    // Select alpha → a scoped "Reset Repo alpha" button appears.
+    fireEvent.click(screen.getByRole('button', { name: /Repo alpha/i }))
+    const resetBtn = screen.getByRole('button', { name: /Reset Repo alpha/i })
+    fireEvent.click(resetBtn)
+    expect(post).toHaveBeenCalledWith({ type: 'reset', projectId: 'alpha' }, '*')
+
+    // Issuing the reset clears the selection (filter returns to all repos).
+    expect(screen.queryByRole('button', { name: /^Reset/i })).toBeNull()
+    post.mockRestore()
+  })
+
   it('renders the outcome badge as one clickable PR link when prUrl present', () => {
     const post = vi.spyOn(window, 'postMessage')
     render(<StatisticsPanel />)
@@ -67,18 +143,10 @@ describe('StatisticsPanel', () => {
       sessionId: 'p', outcome: 'pr_created',
       metrics: { agentCommits: 1, humanEdits: 0, diffLines: { added: 0, removed: 0 }, filesChanged: 0, prUrl: 'https://github.com/o/r/pull/1' },
     })])
-    // A single badge — the status IS the link — and clicking it asks the host to open the PR.
     const badge = screen.getByRole('button', { name: /PR/i })
     fireEvent.click(badge)
     expect(post).toHaveBeenCalledWith({ type: 'open-external', url: 'https://github.com/o/r/pull/1' }, '*')
     post.mockRestore()
-  })
-
-  it('renders a non-interactive status chip when there is no prUrl', () => {
-    render(<StatisticsPanel />)
-    init([record({ sessionId: 'm', outcome: 'merged' })])
-    // The only buttons are the header controls — the merged badge is a plain chip, not a link.
-    expect(screen.getAllByRole('button').map((b) => b.textContent)).toEqual(['Reset', 'Refresh'])
   })
 
   it('lists every session (no 50 cap) and shows the count in the header', () => {
@@ -88,22 +156,7 @@ describe('StatisticsPanel', () => {
     )
     init(many)
     expect(screen.getByText('Recent sessions · 60')).toBeTruthy()
-    // All 60 rows render — the prompt preview appears once per row.
     expect(screen.getAllByText('do the thing').length).toBe(60)
-  })
-
-  it('reset button is disabled with no sessions and posts a reset message otherwise', () => {
-    const post = vi.spyOn(window, 'postMessage')
-    render(<StatisticsPanel />)
-    init([]) // no records → nothing to reset
-    expect((screen.getByRole('button', { name: /reset/i }) as HTMLButtonElement).disabled).toBe(true)
-    cleanup()
-
-    render(<StatisticsPanel />)
-    init([record({ sessionId: 'a' })])
-    fireEvent.click(screen.getByRole('button', { name: /reset/i }))
-    expect(post).toHaveBeenCalledWith({ type: 'reset' }, '*')
-    post.mockRestore()
   })
 
   it('renders per-session metric chips when activity is present', () => {

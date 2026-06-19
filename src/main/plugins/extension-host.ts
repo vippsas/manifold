@@ -202,6 +202,7 @@ export class ExtensionHost {
     })
     endpoint.registerService(HOST_VERDICTS, {
       $listByProject: (pluginId: string, projectId: string, limit: number | undefined) => { this.assertBuiltin(pluginId, 'verdicts:read'); return this.verdicts.listByProject(projectId, limit) },
+      $listAll: (pluginId: string) => { this.assertBuiltin(pluginId, 'verdicts:read'); return this.verdicts.listAllByProject() },
       $clearProject: (pluginId: string, projectId: string) => { this.assertBuiltin(pluginId, 'verdicts:write'); this.verdicts.deleteByProject(projectId) },
     })
     this.child = child

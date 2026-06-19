@@ -173,6 +173,18 @@ export const statisticsPanelStyles: Record<string, React.CSSProperties> = {
     flexDirection: 'column',
     gap: 'var(--space-sm)',
   },
+  // A per-repo card rendered as a button (click to filter the sections below).
+  repoCardButton: {
+    textAlign: 'left',
+    width: '100%',
+    cursor: 'pointer',
+    fontFamily: 'var(--font-sans)',
+    transition: 'border-color 150ms ease, background 150ms ease',
+  },
+  repoCardSelected: {
+    borderColor: 'var(--accent)',
+    background: 'color-mix(in srgb, var(--accent) 12%, var(--bg-elevated))',
+  },
   runtimeHeader: {
     display: 'flex',
     alignItems: 'baseline',

@@ -6,6 +6,13 @@ import type { VerdictRecord } from '../verdict-types'
 // from 'manifold'` (the verdict store in main is the single source of truth — no duplication).
 export type { TaskPrompt, VerdictMetrics, VerdictOutcome, VerdictRecord } from '../verdict-types'
 
+/** A repo's captured verdicts, with its display name resolved (for all-projects views). */
+export interface ProjectVerdicts {
+  projectId: string
+  projectName: string
+  records: VerdictRecord[]
+}
+
 export interface Disposable { dispose(): void }
 
 export interface ProjectInfo { id: string; name: string; path: string }
@@ -213,6 +220,9 @@ export interface ManifoldApi {
     /** [verdicts:read] Recorded session verdicts for one project, oldest→newest
      *  (optionally capped to the most recent `limit`). Read-only. */
     listByProject(projectId: string, limit?: number): Promise<VerdictRecord[]>
+    /** [verdicts:read] Recorded verdicts across every project, grouped by repo with
+     *  the repo's display name resolved. Read-only. */
+    listAll(): Promise<ProjectVerdicts[]>
     /** [verdicts:write] Delete all captured verdicts for a project (destructive). */
     clearProject(projectId: string): Promise<void>
   }

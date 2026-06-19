@@ -113,6 +113,7 @@ export function AppShell(p: AppShellProps): React.JSX.Element {
         onToggleTheme={p.onToggleTheme}
         themeFamily={p.themeFamily}
         onSelectThemeFamily={p.onSelectThemeFamily}
+        onOpenDashboard={() => p.dockState.onOpenDashboard()}
         search={{
           activeProjectId: p.dockState.activeProjectId,
           activeSessionId: p.dockState.sessionId,

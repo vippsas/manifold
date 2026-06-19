@@ -1,15 +1,14 @@
 /// <reference lib="dom" />
 // Webview-side data source: state arrives from host `init` messages; the Refresh
-// button posts back to the host. Replaces the renderer useVerdicts hook + dock state.
+// button posts back to the host. All-projects view — records grouped by repo.
 import { useEffect, useRef, useState } from 'react'
-import type { VerdictRecord } from 'manifold'
+import type { ProjectVerdicts } from 'manifold'
 import type { HostMsg } from '../protocol'
 
 interface ThemeMsg { type: '__manifold_theme'; vars: Record<string, string> }
 
 export interface StatisticsState {
-  records: VerdictRecord[]
-  projectId: string | null
+  groups: ProjectVerdicts[]
   error: string | null
   /** False until the first host `init` arrives (used to gate the loading state). */
   loaded: boolean
@@ -21,13 +20,13 @@ export interface StatisticsBridge extends StatisticsState {
   refresh: () => void
   /** Ask the host to open a PR URL in the browser (the webview is sandboxed). */
   openExternal: (url: string) => void
-  /** Ask the host to confirm and delete the active project's captured sessions. */
-  reset: () => void
+  /** Ask the host to confirm and delete one repo's captured sessions. */
+  reset: (projectId: string) => void
 }
 
-const EMPTY_STATE: StatisticsState = { records: [], projectId: null, error: null, loaded: false, refreshing: true }
+const EMPTY_STATE: StatisticsState = { groups: [], error: null, loaded: false, refreshing: true }
 
-function postToHost(msg: { type: 'ready' | 'refresh' | 'reset' } | { type: 'open-external'; url: string }): void { parent.postMessage(msg, '*') }
+function postToHost(msg: { type: 'ready' | 'refresh' } | { type: 'open-external'; url: string } | { type: 'reset'; projectId: string }): void { parent.postMessage(msg, '*') }
 
 export function useStatisticsBridge(): StatisticsBridge {
   const [state, setState] = useState<StatisticsState>(EMPTY_STATE)
@@ -44,7 +43,7 @@ export function useStatisticsBridge(): StatisticsBridge {
       }
       if (m.type === 'init') {
         refreshingRef.current = false
-        setState({ records: m.records, projectId: m.projectId, error: m.error ?? null, loaded: true, refreshing: false })
+        setState({ groups: m.groups, error: m.error ?? null, loaded: true, refreshing: false })
       }
     }
     window.addEventListener('message', onMessage)
@@ -61,6 +60,6 @@ export function useStatisticsBridge(): StatisticsBridge {
       postToHost({ type: 'refresh' })
     },
     openExternal: (url: string) => postToHost({ type: 'open-external', url }),
-    reset: () => postToHost({ type: 'reset' }),
+    reset: (projectId: string) => postToHost({ type: 'reset', projectId }),
   }
 }

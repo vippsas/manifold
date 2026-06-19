@@ -46,6 +46,34 @@ export const titleBarStyles: Record<string, React.CSSProperties> = {
     fontWeight: 500,
     color: 'var(--text-muted)',
   },
+  dashboardButton: {
+    // @ts-expect-error -- Electron-specific CSS property; opt out of window drag
+    WebkitAppRegion: 'no-drag',
+    flexShrink: 0,
+    display: 'flex',
+    alignItems: 'center',
+    gap: 6,
+    height: 26,
+    padding: '0 10px',
+    border: '1px solid transparent',
+    borderRadius: 'var(--radius-sm)',
+    background: 'transparent',
+    fontSize: 12,
+    fontWeight: 600,
+    letterSpacing: '0.02em',
+    color: 'var(--text-muted)',
+    cursor: 'pointer',
+    whiteSpace: 'nowrap',
+    transition: 'background 150ms ease, color 150ms ease',
+  },
+  dashboardButtonHover: {
+    background: 'var(--list-hover-bg)',
+    color: 'var(--text-primary)',
+  },
+  dashboardIcon: {
+    fontSize: 13,
+    opacity: 0.85,
+  },
   themesGroup: {
     // @ts-expect-error -- Electron-specific CSS property; opt out of window drag
     WebkitAppRegion: 'no-drag',

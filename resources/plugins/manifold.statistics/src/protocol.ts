@@ -1,30 +1,30 @@
-import type { VerdictRecord } from 'manifold'
+import type { ProjectVerdicts } from 'manifold'
 
-/** host → webview. `projectId` is the active project the records belong to (null = none selected). */
+/** host → webview. All captured verdicts grouped by repo (all-projects view). */
 export type HostMsg = {
   type: 'init'
-  records: VerdictRecord[]
-  projectId: string | null
+  groups: ProjectVerdicts[]
   error?: string | null
 }
 
 /**
- * webview → host. `ready`/`refresh` trigger a fresh read for the active project;
+ * webview → host. `ready`/`refresh` trigger a fresh all-projects read;
  * `open-external` asks the host to open a PR URL in the browser (the sandboxed
  * webview can't navigate out on its own); `reset` asks the host to confirm and
- * delete the active project's captured verdicts.
+ * delete one repo's captured verdicts (the repo the user has selected).
  */
 export type WebviewMsg =
   | { type: 'ready' }
   | { type: 'refresh' }
   | { type: 'open-external'; url: string }
-  | { type: 'reset' }
+  | { type: 'reset'; projectId: string }
 
 /** Trust-boundary guard: the host must not cast `unknown` straight to WebviewMsg. */
 export function isWebviewMsg(raw: unknown): raw is WebviewMsg {
   if (typeof raw !== 'object' || raw === null) return false
   const type = (raw as { type?: unknown }).type
-  if (type === 'ready' || type === 'refresh' || type === 'reset') return true
+  if (type === 'ready' || type === 'refresh') return true
   if (type === 'open-external') return typeof (raw as { url?: unknown }).url === 'string'
+  if (type === 'reset') return typeof (raw as { projectId?: unknown }).projectId === 'string'
   return false
 }

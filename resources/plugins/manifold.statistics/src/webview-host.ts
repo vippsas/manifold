@@ -1,17 +1,15 @@
-import type { WebviewView, WebviewViewProvider, VerdictRecord } from 'manifold'
+import type { WebviewView, WebviewViewProvider, ProjectVerdicts } from 'manifold'
 import { isWebviewMsg } from './protocol'
 
 export interface StatisticsHostOptions {
   readBundle: () => string
-  /** Active project id whose verdicts to show (null = no project selected). */
-  activeProjectId: () => string | null
-  /** Read recorded verdicts for a project (most-recent-capped read path). */
-  list: (projectId: string) => Promise<VerdictRecord[]>
+  /** Read all captured verdicts grouped by repo (all-projects view). */
+  listAll: () => Promise<ProjectVerdicts[]>
   /** Open a PR URL in the browser on behalf of the sandboxed webview. */
   openExternal: (url: string) => void
-  /** Confirm the destructive reset via a native dialog. Resolves true to proceed. */
+  /** Confirm (native dialog) the destructive reset of one repo. Resolves true to proceed. */
   confirmReset: (projectId: string) => Promise<boolean>
-  /** Delete all captured verdicts for a project. */
+  /** Delete all captured verdicts for one repo. */
   clearProject: (projectId: string) => Promise<void>
 }
 
@@ -32,20 +30,16 @@ export function createWebviewHost(opts: StatisticsHostOptions): { provider: Webv
   const post = (msg: unknown): void => { view?.webview.postMessage(msg) }
 
   const sendInit = async (): Promise<void> => {
-    const projectId = opts.activeProjectId()
-    if (!projectId) { post({ type: 'init', records: [], projectId: null, error: null }); return }
     try {
-      const records = await opts.list(projectId)
-      post({ type: 'init', records, projectId, error: null })
+      const groups = await opts.listAll()
+      post({ type: 'init', groups, error: null })
     } catch (e) {
-      post({ type: 'init', records: [], projectId, error: (e as Error).message })
+      post({ type: 'init', groups: [], error: (e as Error).message })
     }
   }
 
-  // Confirm (native dialog) then delete the active project's verdicts and refresh.
-  const handleReset = async (): Promise<void> => {
-    const projectId = opts.activeProjectId()
-    if (!projectId) return
+  // Confirm (native dialog) then delete one repo's verdicts and refresh.
+  const handleReset = async (projectId: string): Promise<void> => {
     if (!(await opts.confirmReset(projectId))) return
     await opts.clearProject(projectId)
     await sendInit()
@@ -58,8 +52,8 @@ export function createWebviewHost(opts: StatisticsHostOptions): { provider: Webv
       v.webview.onDidReceiveMessage((raw: unknown) => {
         if (!isWebviewMsg(raw)) return
         if (raw.type === 'open-external') { opts.openExternal(raw.url); return }
-        if (raw.type === 'reset') { void handleReset(); return }
-        // 'ready' (initial mount) and 'refresh' (button) re-read the active project.
+        if (raw.type === 'reset') { void handleReset(raw.projectId); return }
+        // 'ready' (initial mount) and 'refresh' (button) re-read all projects.
         void sendInit()
       })
     },

@@ -63,6 +63,7 @@ export function buildGatedApi(
       const api = factories.verdicts()
       return {
         listByProject: (projectId, limit) => api.listByProject(projectId, limit),
+        listAll: () => api.listAll(),
         clearProject: (projectId) => { requireCap('verdicts:write'); return api.clearProject(projectId) },
       }
     },
