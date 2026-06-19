@@ -47,13 +47,13 @@ plugin folder path.
 - `agents` — `activeAgent` getter, `getAgent(sessionId)`, and `spawnSibling(baseSessionId, opts?)` (`api-types.ts:144`). The namespace admits **either** `agent:control` or `agent:spawn` (both built-in only); each `AgentSession` method then re-checks its own capability — `runTurn` needs `agent:control`, `sendText`/`whenReady`/`getStatus`/`kill`/`reveal` and `spawnSibling` need `agent:spawn` (`agents-api.ts:30`).
 - `lm` — `selectChatModels(sessionId?)` (`api-types.ts:151`). Gated by `lm`, **built-in only**. An explicit `sessionId` pins the model to that session's runtime; omit it for the active session.
 - `transcription` — `get()` returning the app-level `AiServiceSettings` (transcription/chat keys from core settings) or `undefined` when unconfigured (`api-types.ts:157`). Gated by `transcription:read`, **built-in only**.
-- `verdicts` — `listByProject(projectId, limit?)` returning recorded session `VerdictRecord[]` for one project, oldest→newest (`api-types.ts:210`). Gated by `verdicts:read`, **built-in only** — the read path the `manifold.statistics` dashboard plugin uses instead of renderer IPC.
+- `verdicts` — `listByProject(projectId, limit?)` returning recorded session `VerdictRecord[]` for one project, oldest→newest, and `clearProject(projectId)` deleting them (`api-types.ts:210`). The namespace is admitted by `verdicts:read`; the destructive `clearProject` re-checks `verdicts:write` (like the agents methods, `gated-api.ts`). Both **built-in only** — the read/reset path the `manifold.statistics` dashboard plugin uses instead of renderer IPC.
 
 **Capability gating.** `CAPABILITIES` (`manifest.ts:7`) is the single source of truth:
-`['storage', 'workspace:read', 'workspace:manage', 'configuration', 'agent:control', 'agent:spawn', 'lm', 'transcription:read', 'verdicts:read']`.
+`['storage', 'workspace:read', 'workspace:manage', 'configuration', 'agent:control', 'agent:spawn', 'lm', 'transcription:read', 'verdicts:read', 'verdicts:write']`.
 The manifest field, the parser, and the host's gating all key off it.
 `BUILTIN_ONLY_CAPABILITIES` (`manifest.ts:14`) marks `workspace:manage`, `agent:control`, `agent:spawn`, `lm`,
-`transcription:read`, and `verdicts:read` as **privileged** — granted only to plugins discovered with
+`transcription:read`, `verdicts:read`, and `verdicts:write` as **privileged** — granted only to plugins discovered with
 `origin: 'builtin'`. The host realizes this contract in `buildGatedApi()`
 (`src/plugin-host/gated-api.ts:28`): `commands` and `window` pass through ungated; the
 gated namespaces are lazy getters that throw `CapabilityError` if the capability isn't

@@ -213,6 +213,8 @@ export interface ManifoldApi {
     /** [verdicts:read] Recorded session verdicts for one project, oldest→newest
      *  (optionally capped to the most recent `limit`). Read-only. */
     listByProject(projectId: string, limit?: number): Promise<VerdictRecord[]>
+    /** [verdicts:write] Delete all captured verdicts for a project (destructive). */
+    clearProject(projectId: string): Promise<void>
   }
 }
 

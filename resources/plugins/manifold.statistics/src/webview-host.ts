@@ -9,6 +9,10 @@ export interface StatisticsHostOptions {
   list: (projectId: string) => Promise<VerdictRecord[]>
   /** Open a PR URL in the browser on behalf of the sandboxed webview. */
   openExternal: (url: string) => void
+  /** Confirm the destructive reset via a native dialog. Resolves true to proceed. */
+  confirmReset: (projectId: string) => Promise<boolean>
+  /** Delete all captured verdicts for a project. */
+  clearProject: (projectId: string) => Promise<void>
 }
 
 /** Inline the IIFE bundle as a script tag (escaping `</script>` so the parser can't break out). */
@@ -38,6 +42,15 @@ export function createWebviewHost(opts: StatisticsHostOptions): { provider: Webv
     }
   }
 
+  // Confirm (native dialog) then delete the active project's verdicts and refresh.
+  const handleReset = async (): Promise<void> => {
+    const projectId = opts.activeProjectId()
+    if (!projectId) return
+    if (!(await opts.confirmReset(projectId))) return
+    await opts.clearProject(projectId)
+    await sendInit()
+  }
+
   const provider: WebviewViewProvider = {
     resolveWebviewView(v: WebviewView): void {
       view = v
@@ -45,6 +58,7 @@ export function createWebviewHost(opts: StatisticsHostOptions): { provider: Webv
       v.webview.onDidReceiveMessage((raw: unknown) => {
         if (!isWebviewMsg(raw)) return
         if (raw.type === 'open-external') { opts.openExternal(raw.url); return }
+        if (raw.type === 'reset') { void handleReset(); return }
         // 'ready' (initial mount) and 'refresh' (button) re-read the active project.
         void sendInit()
       })

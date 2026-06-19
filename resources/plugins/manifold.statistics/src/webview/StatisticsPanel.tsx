@@ -13,20 +13,32 @@ const PROMPT_PREVIEW_CHARS = 96
 const OUTCOME_ORDER: VerdictOutcome[] = ['merged', 'pr_created', 'committed_only', 'discarded', 'unknown']
 
 export function StatisticsPanel(): React.JSX.Element {
-  const { records, projectId, error, loaded, refreshing, refresh, openExternal } = useStatisticsBridge()
+  const { records, projectId, error, loaded, refreshing, refresh, openExternal, reset } = useStatisticsBridge()
+  const canReset = !!projectId && records.length > 0
 
   return (
     <div style={s.wrapper}>
       <div style={s.header}>
         <span style={s.title}>Statistics</span>
-        <button
-          type="button"
-          style={refreshing ? { ...s.refreshButton, ...s.refreshButtonBusy } : s.refreshButton}
-          onClick={() => refresh()}
-          disabled={refreshing}
-        >
-          {refreshing ? 'Refreshing…' : 'Refresh'}
-        </button>
+        <div style={s.headerActions}>
+          <button
+            type="button"
+            style={canReset ? s.resetButton : { ...s.resetButton, ...s.resetButtonDisabled }}
+            onClick={() => reset()}
+            disabled={!canReset}
+            title="Delete all captured sessions for this project"
+          >
+            Reset
+          </button>
+          <button
+            type="button"
+            style={refreshing ? { ...s.refreshButton, ...s.refreshButtonBusy } : s.refreshButton}
+            onClick={() => refresh()}
+            disabled={refreshing}
+          >
+            {refreshing ? 'Refreshing…' : 'Refresh'}
+          </button>
+        </div>
       </div>
 
       <div style={s.content}>

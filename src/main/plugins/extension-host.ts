@@ -15,7 +15,7 @@ import type { AgentControlService } from './agent-control-service'
 import type { LmService } from './lm-service'
 import type { AgentSpawnService } from './agent-spawn-service'
 import type { WorktreeOverviewService } from './worktree-overview-service'
-import type { VerdictReadService } from './verdict-read-service'
+import type { VerdictService } from './verdict-read-service'
 import type { AiServiceSettings } from '../../shared/plugins/api-types'
 
 interface PluginActivationProxy { $activate(t: ActivationTarget): Promise<void>; $deactivate(id: string): Promise<void> }
@@ -66,7 +66,7 @@ export class ExtensionHost {
     private readonly lm: LmService,
     private readonly agentSpawn: AgentSpawnService,
     private readonly worktrees: WorktreeOverviewService,
-    private readonly verdicts: VerdictReadService,
+    private readonly verdicts: VerdictService,
     now: () => number = () => Date.now(),
   ) {
     this.now = now
@@ -202,6 +202,7 @@ export class ExtensionHost {
     })
     endpoint.registerService(HOST_VERDICTS, {
       $listByProject: (pluginId: string, projectId: string, limit: number | undefined) => { this.assertBuiltin(pluginId, 'verdicts:read'); return this.verdicts.listByProject(projectId, limit) },
+      $clearProject: (pluginId: string, projectId: string) => { this.assertBuiltin(pluginId, 'verdicts:write'); this.verdicts.deleteByProject(projectId) },
     })
     this.child = child
     this.endpoint = endpoint

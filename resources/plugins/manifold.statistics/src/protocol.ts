@@ -11,18 +11,20 @@ export type HostMsg = {
 /**
  * webview → host. `ready`/`refresh` trigger a fresh read for the active project;
  * `open-external` asks the host to open a PR URL in the browser (the sandboxed
- * webview can't navigate out on its own).
+ * webview can't navigate out on its own); `reset` asks the host to confirm and
+ * delete the active project's captured verdicts.
  */
 export type WebviewMsg =
   | { type: 'ready' }
   | { type: 'refresh' }
   | { type: 'open-external'; url: string }
+  | { type: 'reset' }
 
 /** Trust-boundary guard: the host must not cast `unknown` straight to WebviewMsg. */
 export function isWebviewMsg(raw: unknown): raw is WebviewMsg {
   if (typeof raw !== 'object' || raw === null) return false
   const type = (raw as { type?: unknown }).type
-  if (type === 'ready' || type === 'refresh') return true
+  if (type === 'ready' || type === 'refresh' || type === 'reset') return true
   if (type === 'open-external') return typeof (raw as { url?: unknown }).url === 'string'
   return false
 }
