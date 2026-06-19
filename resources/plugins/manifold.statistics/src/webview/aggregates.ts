@@ -77,3 +77,12 @@ export function computeOutcomeCounts(records: VerdictRecord[]): OutcomeCounts {
 export function sortRecentFirst(records: VerdictRecord[]): VerdictRecord[] {
   return [...records].sort((left, right) => right.createdAt.localeCompare(left.createdAt))
 }
+
+/**
+ * Count sessions that produced a pull request — i.e. carry a PR url — regardless
+ * of outcome. The outcome footer buckets are a terminal funnel (a merged PR lands
+ * in `merged`, not `pr_created`), so a PRs-created tally needs this separate pass.
+ */
+export function countSessionsWithPr(records: VerdictRecord[]): number {
+  return records.filter((r) => Boolean(r.metrics.prUrl)).length
+}

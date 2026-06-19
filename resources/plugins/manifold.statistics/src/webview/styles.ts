@@ -352,6 +352,11 @@ export const statisticsPanelStyles: Record<string, React.CSSProperties> = {
   },
 
   // Footer outcome distribution
+  outcomeFooterWrap: {
+    display: 'flex',
+    flexDirection: 'column',
+    gap: 'var(--space-xs)',
+  },
   outcomeFooter: {
     display: 'flex',
     gap: 'var(--space-md)',
@@ -361,6 +366,16 @@ export const statisticsPanelStyles: Record<string, React.CSSProperties> = {
     color: 'var(--text-muted)',
     fontFamily: 'var(--font-mono)',
     flexWrap: 'wrap',
+  },
+  // "PRs created" tally — counts merged + open PRs, which the mutually-exclusive
+  // outcome buckets above split apart, so a merged PR never shows under "open PR".
+  outcomeFooterNote: {
+    fontSize: 'var(--type-ui-caption)',
+    color: 'var(--text-muted)',
+    fontFamily: 'var(--font-mono)',
+  },
+  outcomeFooterNoteHint: {
+    opacity: 0.7,
   },
   outcomeFooterItem: {
     display: 'flex',
@@ -384,7 +399,7 @@ export const outcomeColors: Record<string, string> = {
 
 export const outcomeLabels: Record<string, string> = {
   merged: 'merged',
-  pr_created: 'PR',
+  pr_created: 'open PR',
   committed_only: 'committed',
   discarded: 'discarded',
   unknown: 'unknown',

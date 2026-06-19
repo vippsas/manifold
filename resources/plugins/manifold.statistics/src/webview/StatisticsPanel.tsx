@@ -2,7 +2,7 @@ import React from 'react'
 import type { ProjectVerdicts, VerdictOutcome } from 'manifold'
 import { useStatisticsBridge } from './use-statistics-bridge'
 import {
-  computeOutcomeCounts, computeRuntimeStats, computeProjectStats, sortRecentFirst,
+  computeOutcomeCounts, computeRuntimeStats, computeProjectStats, sortRecentFirst, countSessionsWithPr,
   type RuntimeStats, type OutcomeCounts, type ProjectStat,
 } from './aggregates'
 import { RecentSessions } from './recent-sessions'
@@ -87,7 +87,7 @@ function renderBody(
       {renderKpiRow(totals, projectStats.length, scopeName, mergedPct, discardedPct, avgEdits)}
       {renderRuntimeGrid(stats, scopeName)}
       <RecentSessions recent={sortRecentFirst(scoped)} openExternal={openExternal} scopeName={scopeName} />
-      {renderOutcomeFooter(computeOutcomeCounts(scoped))}
+      {renderOutcomeFooter(computeOutcomeCounts(scoped), countSessionsWithPr(scoped))}
     </>
   )
 }
@@ -207,15 +207,20 @@ function OutcomeBar({ stat }: { stat: RuntimeStats }): React.JSX.Element {
   )
 }
 
-function renderOutcomeFooter(counts: OutcomeCounts): React.JSX.Element {
+function renderOutcomeFooter(counts: OutcomeCounts, prsCreated: number): React.JSX.Element {
   return (
-    <div style={s.outcomeFooter}>
-      {OUTCOME_ORDER.map((outcome) => (
-        <div key={outcome} style={s.outcomeFooterItem}>
-          <span style={{ ...s.outcomeFooterDot, background: outcomeColors[outcome] ?? 'var(--text-muted)' }} />
-          <span>{counts[outcome]} {outcomeLabels[outcome]}</span>
-        </div>
-      ))}
+    <div style={s.outcomeFooterWrap}>
+      <div style={s.outcomeFooter}>
+        {OUTCOME_ORDER.map((outcome) => (
+          <div key={outcome} style={s.outcomeFooterItem}>
+            <span style={{ ...s.outcomeFooterDot, background: outcomeColors[outcome] ?? 'var(--text-muted)' }} />
+            <span>{counts[outcome]} {outcomeLabels[outcome]}</span>
+          </div>
+        ))}
+      </div>
+      <div style={s.outcomeFooterNote}>
+        PRs created: {prsCreated} <span style={s.outcomeFooterNoteHint}>· sessions with a PR url (merged or open)</span>
+      </div>
     </div>
   )
 }
