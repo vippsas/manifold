@@ -17,6 +17,13 @@ vi.mock('../agent/runtimes', () => ({
   }),
 }))
 
+// Isolate the spawn env from the developer's real ~/.manifold/agent.env (#771):
+// without this, a populated agent.env leaks real vars into the spawn and breaks
+// the `env: undefined` assertions on any machine that has the file.
+vi.mock('../agent/agent-env', () => ({
+  agentSpawnEnv: vi.fn(() => undefined),
+}))
+
 vi.mock('../agent/status-detector', () => ({
   detectStatus: vi.fn(() => 'running'),
 }))
