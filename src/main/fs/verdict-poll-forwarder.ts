@@ -22,7 +22,12 @@ async function defaultBranch(cwd: string): Promise<string> {
   return stdout.trim()
 }
 
-async function defaultPrLookup(cwd: string, branch: string): Promise<string | null> {
+/**
+ * Find the PR (open, merged, or closed) whose head is `branch`. Shared with the
+ * verdict recorder so a PR opened after the agent's last commit is still captured
+ * when the session terminates, not only during commit-triggered polls.
+ */
+export async function lookupBranchPrUrl(cwd: string, branch: string): Promise<string | null> {
   // gh prints the PR URL on stdout when one exists, or exits non-zero / empty otherwise.
   // Use --state=all so we also catch already-merged/closed PRs that the user opened
   // from the shell — the recorder will still surface the URL on the verdict.
@@ -53,7 +58,7 @@ export class VerdictPollForwarder {
   constructor(headShaFn?: HeadShaFn, branchFn?: BranchFn, prLookupFn?: PrLookupFn) {
     this.headShaFn = headShaFn ?? defaultHeadSha
     this.branchFn = branchFn ?? defaultBranch
-    this.prLookupFn = prLookupFn ?? defaultPrLookup
+    this.prLookupFn = prLookupFn ?? lookupBranchPrUrl
   }
 
   setRecorder(recorder: VerdictRecorder): void {

@@ -23,6 +23,7 @@ export interface VerdictRecorderDeps {
     filesChanged: number
   }>
   isBranchMerged: (worktreePath: string, baseBranch: string, branch: string) => Promise<boolean>
+  lookupPrUrl?: (worktreePath: string, branch: string) => Promise<string | null>
   summarize: (middle: string, settings: AiServiceSettings) => Promise<string>
   now?: () => Date
 }
@@ -136,7 +137,14 @@ export class VerdictRecorder {
       false,
     )
 
-    const outcome = this.resolveTerminalOutcome(existing, merged)
+    // PR detection during the session only fires on commit-triggered polls, so a
+    // PR opened after the agent's last commit goes uncaptured. Reconcile once at
+    // termination — `gh pr list --state all` also catches already-merged PRs.
+    const prUrl = existing.metrics.prUrl ?? (this.deps.lookupPrUrl
+      ? (await safe(() => this.deps.lookupPrUrl!(tracked.worktreePath, existing.branch), null)) ?? undefined
+      : undefined)
+
+    const outcome = this.resolveTerminalOutcome(existing, merged, { diffLines, filesChanged }, Boolean(prUrl))
     const terminatedDate = this.now()
     const taskPrompt = await this.maybeTruncatePrompt(existing.taskPrompt)
 
@@ -146,14 +154,29 @@ export class VerdictRecorder {
       outcome,
       terminatedAt: terminatedDate.toISOString(),
       durationMs: terminatedDate.getTime() - tracked.createdAtMs,
-      metrics: { ...existing.metrics, diffLines, filesChanged },
+      metrics: { ...existing.metrics, diffLines, filesChanged, prUrl },
     })
     this.active.delete(sessionId)
   }
 
-  private resolveTerminalOutcome(record: VerdictRecord, merged: boolean): VerdictRecord['outcome'] {
-    if (merged) return 'merged'
-    if (record.outcome === 'pr_created') return 'pr_created'
+  private resolveTerminalOutcome(
+    record: VerdictRecord,
+    merged: boolean,
+    fresh: { diffLines: { added: number; removed: number }; filesChanged: number },
+    hasPr: boolean,
+  ): VerdictRecord['outcome'] {
+    // A branch with no commits of its own is trivially an ancestor of its base,
+    // so `isBranchMerged` reports a phantom "merged" for sessions that produced
+    // nothing — yielding "no activity" rows that still claim MERGED. Only trust
+    // the merged signal when the session actually produced work.
+    const hadActivity =
+      record.metrics.agentCommits > 0 ||
+      record.metrics.humanEdits > 0 ||
+      fresh.filesChanged > 0 ||
+      fresh.diffLines.added > 0 ||
+      fresh.diffLines.removed > 0
+    if (merged && hadActivity) return 'merged'
+    if (record.outcome === 'pr_created' || hasPr) return 'pr_created'
     if (record.metrics.agentCommits > 0) return 'committed_only'
     return 'discarded'
   }
