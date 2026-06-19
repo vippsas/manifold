@@ -12,6 +12,16 @@ export function activate(context: ManifoldContext): void {
     activeProjectId: () => manifold.workspace.activeProject?.id ?? null,
     list: (projectId) => manifold.verdicts.listByProject(projectId),
     openExternal: (url) => { void manifold.window.openExternal(url) },
+    confirmReset: async (projectId) => {
+      const records = await manifold.verdicts.listByProject(projectId)
+      const name = manifold.workspace.activeProject?.name ?? 'this project'
+      const choice = await manifold.window.showWarningMessage(
+        `Delete all ${records.length} captured session${records.length === 1 ? '' : 's'} for ${name}? This can't be undone.`,
+        'Delete', 'Cancel',
+      )
+      return choice === 'Delete'
+    },
+    clearProject: (projectId) => manifold.verdicts.clearProject(projectId),
   })
   context.subscriptions.push(manifold.window.registerWebviewViewProvider('manifold.statistics.panel', host.provider))
   // Re-read when the user switches project so the dashboard tracks the active repo.

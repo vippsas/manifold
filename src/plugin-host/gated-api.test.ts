@@ -20,7 +20,7 @@ const makeAgents = (): never => ({ activeAgent: undefined } as never)
 const makeLm = (): never => ({ selectChatModels: async () => [] } as never)
 const makeTranscription = (): never => ({ get: async () => undefined } as never)
 const makeWorktrees = (): never => ({ list: async () => [], remove: async () => {}, pruneStale: async () => [], listMergedBranches: async () => [], deleteMergedBranch: async () => {}, deleteAllMergedBranches: async () => [] } as never)
-const makeVerdicts = (): never => ({ listByProject: async () => [] } as never)
+const makeVerdicts = (): never => ({ listByProject: async () => [], clearProject: async () => {} } as never)
 
 const factories = { storage: makeStorage, workspace: makeWorkspace, configuration: makeConfiguration, agents: makeAgents, lm: makeLm, transcription: makeTranscription, worktrees: makeWorktrees, verdicts: makeVerdicts }
 
@@ -130,5 +130,13 @@ describe('buildGatedApi — privileged capabilities', () => {
   it('grants verdicts to a builtin plugin that declares verdicts:read', () => {
     const api = buildGatedApi(['verdicts:read'], 'builtin', shared, factories)
     expect(api.verdicts).toBeDefined()
+  })
+  it('throws CapabilityError when clearProject is called without verdicts:write', () => {
+    const api = buildGatedApi(['verdicts:read'], 'builtin', shared, factories)
+    expect(() => api.verdicts.clearProject('p1')).toThrow(CapabilityError)
+  })
+  it('allows clearProject when verdicts:write is declared (builtin)', async () => {
+    const api = buildGatedApi(['verdicts:read', 'verdicts:write'], 'builtin', shared, factories)
+    await expect(api.verdicts.clearProject('p1')).resolves.toBeUndefined()
   })
 })

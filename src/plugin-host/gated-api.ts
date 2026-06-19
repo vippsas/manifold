@@ -56,6 +56,15 @@ export function buildGatedApi(
     get lm(): ManifoldApi['lm'] { requireCap('lm'); return factories.lm() },
     get transcription(): ManifoldApi['transcription'] { requireCap('transcription:read'); return factories.transcription() },
     get worktrees(): ManifoldApi['worktrees'] { requireCap('workspace:manage'); return factories.worktrees() },
-    get verdicts(): ManifoldApi['verdicts'] { requireCap('verdicts:read'); return factories.verdicts() },
+    // `verdicts:read` admits the namespace (listByProject); the destructive
+    // `clearProject` re-checks `verdicts:write`, like the agents methods.
+    get verdicts(): ManifoldApi['verdicts'] {
+      requireCap('verdicts:read')
+      const api = factories.verdicts()
+      return {
+        listByProject: (projectId, limit) => api.listByProject(projectId, limit),
+        clearProject: (projectId) => { requireCap('verdicts:write'); return api.clearProject(projectId) },
+      }
+    },
   }
 }
