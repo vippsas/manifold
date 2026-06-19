@@ -35,8 +35,3 @@ export interface VerdictRecord {
   durationMs?: number
   metrics: VerdictMetrics
 }
-
-export interface VerdictListRequest {
-  projectId: string
-  limit?: number
-}

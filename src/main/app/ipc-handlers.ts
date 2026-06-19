@@ -15,7 +15,6 @@ import { registerMemoryHandlers } from '../ipc/memory-handlers'
 import { registerSearchHandlers } from '../ipc/search-handlers'
 import { registerProvisioningHandlers } from '../ipc/provisioning-handlers'
 import { registerWorkspaceHandlers } from '../ipc/workspace-handlers'
-import { registerVerdictHandlers } from '../ipc/verdict-handlers'
 import { registerPluginHandlers } from '../ipc/plugin-handlers'
 export type { IpcDependencies } from '../ipc/types'
 import type { IpcDependencies } from '../ipc/types'
@@ -39,7 +38,6 @@ export function registerIpcHandlers(deps: IpcDependencies): void {
   registerSearchHandlers(deps)
   registerProvisioningHandlers(deps)
   registerWorkspaceHandlers(deps)
-  registerVerdictHandlers(deps)
   registerPluginHandlers(deps)
 
   // Load a local font file as base64 so the renderer can create a web font

@@ -27,6 +27,7 @@ export const HOST_AGENTS = 'HostAgents'             // main, called by host (dri
 export const HOST_LM = 'HostLm'                     // main, called by host (one-shot language-model requests)
 export const HOST_TRANSCRIPTION = 'HostTranscription' // main, called by host (read app AI-service settings)
 export const HOST_WORKTREES = 'HostWorktrees'       // main, called by host (list/remove/prune managed worktrees)
+export const HOST_VERDICTS = 'HostVerdicts'         // main, called by host (read recorded session verdicts by project)
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type ServiceImpl = Record<string, (...args: any[]) => unknown>

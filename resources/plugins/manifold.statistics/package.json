@@ -1,0 +1,16 @@
+{
+  "name": "statistics",
+  "publisher": "manifold",
+  "version": "0.0.1",
+  "displayName": "Statistics",
+  "description": "Per-runtime quality metrics and recent sessions for the active project.",
+  "engines": { "manifold": "^0.3.0" },
+  "main": "./out/plugin.js",
+  "activationEvents": ["onView:manifold.statistics.panel"],
+  "capabilities": ["verdicts:read", "workspace:read"],
+  "contributes": {
+    "views": [
+      { "id": "manifold.statistics.panel", "title": "Statistics", "description": "Per-runtime quality metrics and recent sessions.", "launcher": true }
+    ]
+  }
+}

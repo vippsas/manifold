@@ -3,10 +3,8 @@ import { LAUNCHER_MODULES, LAUNCHER_MODULE_IDS } from './launcher-modules'
 import { PANEL_TITLES } from '../hooks/dock-layout/dock-layout-helpers'
 
 describe('launcher-modules registry', () => {
-  it('lists the optional modules in order', () => {
-    expect(LAUNCHER_MODULES.map((m) => m.id)).toEqual([
-      'verdicts',
-    ])
+  it('is empty at module load — built-in launcher modules ship as plugins now', () => {
+    expect(LAUNCHER_MODULES).toEqual([])
   })
 
   it('every module id has a known panel title and a non-empty description', () => {

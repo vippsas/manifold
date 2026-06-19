@@ -9,7 +9,6 @@ const PANEL_LABELS: Record<DockPanelId, string> = {
   fileTree: 'Files',
   modifiedFiles: 'Modified',
   shell: 'Shell',
-  verdicts: 'Verdicts',
 }
 
 const PANEL_BUTTON_LABELS: Partial<Record<DockPanelId, string>> = {

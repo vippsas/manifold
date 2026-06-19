@@ -1,54 +1,52 @@
 import React from 'react'
-import { useDockState } from '../editor/editor-shell/dock-panel-types'
-import { useVerdicts } from '../../hooks/useVerdicts'
-import { computeOutcomeCounts, computeRuntimeStats, sortRecentFirst, type RuntimeStats, type OutcomeCounts } from './verdict-aggregates'
+import type { TaskPrompt, VerdictMetrics, VerdictRecord, VerdictOutcome } from 'manifold'
+import { useStatisticsBridge } from './use-statistics-bridge'
+import { computeOutcomeCounts, computeRuntimeStats, sortRecentFirst, type RuntimeStats, type OutcomeCounts } from './aggregates'
 import {
-  verdictsPanelStyles as s,
+  statisticsPanelStyles as s,
   outcomeColors,
   outcomeLabels,
   outcomeChipStyle,
-} from './VerdictsPanel.styles'
-import type { TaskPrompt, VerdictMetrics, VerdictRecord, VerdictOutcome } from '../../../shared/verdict-types'
+} from './styles'
 
 const RECENT_LIMIT = 50
 const PROMPT_PREVIEW_CHARS = 96
 const OUTCOME_ORDER: VerdictOutcome[] = ['merged', 'pr_created', 'committed_only', 'discarded', 'unknown']
 
-export function VerdictsPanel(): React.JSX.Element {
-  const dockState = useDockState()
-  const projectId = dockState.activeProjectId
-  const { records, loading, error, refresh } = useVerdicts(projectId)
+export function StatisticsPanel(): React.JSX.Element {
+  const { records, projectId, error, loaded, refreshing, refresh } = useStatisticsBridge()
 
   return (
     <div style={s.wrapper}>
       <div style={s.header}>
-        <span style={s.title}>Verdicts</span>
+        <span style={s.title}>Statistics</span>
         <button
           type="button"
-          style={loading ? { ...s.refreshButton, ...s.refreshButtonBusy } : s.refreshButton}
-          onClick={() => { void refresh() }}
-          disabled={loading}
+          style={refreshing ? { ...s.refreshButton, ...s.refreshButtonBusy } : s.refreshButton}
+          onClick={() => refresh()}
+          disabled={refreshing}
         >
-          {loading ? 'Refreshing…' : 'Refresh'}
+          {refreshing ? 'Refreshing…' : 'Refresh'}
         </button>
       </div>
 
       <div style={s.content}>
-        {error && <div style={s.errorBox}>Failed to load verdicts: {error}</div>}
-        {renderBody(projectId, records, loading, error)}
+        {error && <div style={s.errorBox}>Failed to load statistics: {error}</div>}
+        {renderBody(loaded, projectId, records, error)}
       </div>
     </div>
   )
 }
 
 function renderBody(
+  loaded: boolean,
   projectId: string | null,
   records: VerdictRecord[],
-  loading: boolean,
   error: string | null,
 ): React.JSX.Element | null {
-  if (!projectId) return renderEmpty('Select a project to see its verdicts.')
-  if (!loading && records.length === 0 && !error) {
+  if (!loaded) return null
+  if (!projectId) return renderEmpty('Select a project to see its statistics.')
+  if (records.length === 0 && !error) {
     return renderEmpty("No sessions captured yet — they'll show up here when you spawn agents.")
   }
   if (records.length === 0) return null

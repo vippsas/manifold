@@ -1,4 +1,4 @@
-import type { VerdictRecord, VerdictOutcome } from '../../../shared/verdict-types'
+import type { VerdictRecord, VerdictOutcome } from 'manifold'
 
 export interface RuntimeStats {
   runtime: string
@@ -10,13 +10,7 @@ export interface RuntimeStats {
   avgHumanEditsForMerged: number
 }
 
-export interface OutcomeCounts {
-  merged: number
-  pr_created: number
-  committed_only: number
-  discarded: number
-  unknown: number
-}
+export type OutcomeCounts = Record<VerdictOutcome, number>
 
 export function computeRuntimeStats(records: VerdictRecord[]): RuntimeStats[] {
   const byRuntime = new Map<string, VerdictRecord[]>()

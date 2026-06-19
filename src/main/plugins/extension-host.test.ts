@@ -103,6 +103,7 @@ async function createHost(
   agentSpawn: ReturnType<typeof fakeAgentSpawn> = fakeAgentSpawn(),
   now?: () => number,
   worktrees: { list: ReturnType<typeof vi.fn>; remove: ReturnType<typeof vi.fn>; pruneStale: ReturnType<typeof vi.fn>; listMergedOrphanBranches: ReturnType<typeof vi.fn>; deleteMergedBranch: ReturnType<typeof vi.fn>; deleteAllMergedBranches: ReturnType<typeof vi.fn> } = { list: vi.fn(), remove: vi.fn(), pruneStale: vi.fn(), listMergedOrphanBranches: vi.fn(), deleteMergedBranch: vi.fn(), deleteAllMergedBranches: vi.fn() },
+  verdicts: { listByProject: ReturnType<typeof vi.fn> } = { listByProject: vi.fn(() => []) },
 ): Promise<HostForTest> {
   const { ExtensionHost } = await import('./extension-host')
   return new ExtensionHost(
@@ -111,6 +112,7 @@ async function createHost(
     lm as never,
     agentSpawn as never,
     worktrees as never,
+    verdicts as never,
     now,
   ) as unknown as HostForTest
 }
@@ -401,6 +403,39 @@ describe('ExtensionHost privileged-capability trust boundary', () => {
     expect(rep?.ok).toBe(false)
     expect((rep as { error: string }).error).toMatch(/restricted to built-in plugins/)
     expect(resolver).not.toHaveBeenCalled()
+  })
+
+  it('HostVerdicts.$listByProject returns the service value for a builtin plugin', async () => {
+    const { HOST_VERDICTS } = await import('../../shared/plugins/rpc')
+    const rec = { sessionId: 's', projectId: 'p1' }
+    const listByProject = vi.fn(() => [rec])
+    const host = await createHost(undefined, undefined, undefined, undefined, undefined, { listByProject })
+    host.setOriginResolver(() => 'builtin')
+    void host.executeContributedCommand('noop', []).catch(() => {})
+    const child = latestChild()
+    child.posted.length = 0
+    child.emit('message', { t: 'req', id: 11, ctx: HOST_VERDICTS, method: '$listByProject', args: ['p.builtin', 'p1', 25] } satisfies RpcMessage)
+    await settle()
+    const rep = lastReply(child)
+    expect(rep?.ok).toBe(true)
+    expect((rep as { value: unknown }).value).toEqual([rec])
+    expect(listByProject).toHaveBeenCalledWith('p1', 25)
+  })
+
+  it('rejects HostVerdicts.$listByProject from a non-builtin plugin at the main boundary', async () => {
+    const { HOST_VERDICTS } = await import('../../shared/plugins/rpc')
+    const listByProject = vi.fn(() => [])
+    const host = await createHost(undefined, undefined, undefined, undefined, undefined, { listByProject })
+    host.setOriginResolver(() => 'user')
+    void host.executeContributedCommand('noop', []).catch(() => {})
+    const child = latestChild()
+    child.posted.length = 0
+    child.emit('message', { t: 'req', id: 12, ctx: HOST_VERDICTS, method: '$listByProject', args: ['p.user', 'p1', undefined] } satisfies RpcMessage)
+    await settle()
+    const rep = lastReply(child)
+    expect(rep?.ok).toBe(false)
+    expect((rep as { error: string }).error).toMatch(/restricted to built-in plugins/)
+    expect(listByProject).not.toHaveBeenCalled()
   })
 })
 

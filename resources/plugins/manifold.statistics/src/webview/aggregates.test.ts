@@ -1,10 +1,10 @@
 import { describe, it, expect } from 'vitest'
+import type { VerdictRecord } from 'manifold'
 import {
   computeRuntimeStats,
   computeOutcomeCounts,
   sortRecentFirst,
-} from './verdict-aggregates'
-import type { VerdictRecord } from '../../../shared/verdict-types'
+} from './aggregates'
 
 function r(overrides: Partial<VerdictRecord>): VerdictRecord {
   return {
@@ -103,7 +103,7 @@ describe('sortRecentFirst', () => {
       r({ sessionId: 'new', createdAt: '2026-05-16T00:00:00Z' }),
       r({ sessionId: 'mid', createdAt: '2026-05-15T12:00:00Z' }),
     ]
-    expect(sortRecentFirst(records).map((r) => r.sessionId)).toEqual(['new', 'mid', 'old'])
+    expect(sortRecentFirst(records).map((rec) => rec.sessionId)).toEqual(['new', 'mid', 'old'])
   })
 
   it('does not mutate input', () => {
@@ -111,8 +111,8 @@ describe('sortRecentFirst', () => {
       r({ sessionId: 'a', createdAt: '2026-05-15T00:00:00Z' }),
       r({ sessionId: 'b', createdAt: '2026-05-16T00:00:00Z' }),
     ]
-    const before = records.map((r) => r.sessionId)
+    const before = records.map((rec) => rec.sessionId)
     sortRecentFirst(records)
-    expect(records.map((r) => r.sessionId)).toEqual(before)
+    expect(records.map((rec) => rec.sessionId)).toEqual(before)
   })
 })

@@ -11,17 +11,16 @@ import {
 afterEach(() => resetToInternal())
 
 describe('contribution-registry', () => {
-  it('is seeded with the internal launcher modules in order', () => {
-    expect(getLauncherContributions().map((p) => p.id)).toEqual([
-      'verdicts',
-    ])
+  it('is seeded empty — built-in launcher modules now ship as plugins', () => {
+    expect(getLauncherContributions()).toEqual([])
   })
 
-  it('returns a component for each internal panel', () => {
-    const components = getPanelComponents()
-    for (const id of ['verdicts']) {
-      expect(typeof components[id]).toBe('function')
-    }
+  it('returns a component for a registered contribution that carries one', () => {
+    const Internal = (): null => null
+    registerPanelContribution({
+      id: 'internal.example', title: 'Example', description: 'x', launcher: true, source: 'internal', component: Internal,
+    })
+    expect(getPanelComponents()['internal.example']).toBe(Internal)
   })
 
   it('lets a plugin register a launcher contribution without a component', () => {
@@ -42,8 +41,6 @@ describe('contribution-registry', () => {
       id: 'example.hello', title: 'Hello', description: 'x', launcher: true, source: 'plugin',
     })
     resetToInternal()
-    expect(getLauncherContributions().map((p) => p.id)).toEqual([
-      'verdicts',
-    ])
+    expect(getLauncherContributions()).toEqual([])
   })
 })
