@@ -11,16 +11,28 @@ import { statisticsPanelStyles as s, outcomeColors, outcomeLabels } from './styl
 const OUTCOME_ORDER: VerdictOutcome[] = ['merged', 'pr_created', 'committed_only', 'discarded', 'unknown']
 
 export function StatisticsPanel(): React.JSX.Element {
-  const { groups, error, loaded, refreshing, refresh, openExternal } = useStatisticsBridge()
+  const { groups, error, loaded, refreshing, refresh, openExternal, reset } = useStatisticsBridge()
   // Clicking a per-repo card scopes the sections below it to that repo (null = all repos).
   const [selectedProjectId, setSelectedProjectId] = React.useState<string | null>(null)
   const toggleSelected = (projectId: string): void => setSelectedProjectId((cur) => (cur === projectId ? null : projectId))
+  const selectedName = selectedProjectId ? groups.find((g) => g.projectId === selectedProjectId)?.projectName ?? null : null
+  const handleReset = (): void => { if (selectedProjectId) { reset(selectedProjectId); setSelectedProjectId(null) } }
 
   return (
     <div style={s.wrapper}>
       <div style={s.header}>
         <span style={s.title}>Statistics</span>
         <div style={s.headerActions}>
+          {selectedName && (
+            <button
+              type="button"
+              style={s.resetButton}
+              onClick={handleReset}
+              title={`Delete all captured sessions for ${selectedName}`}
+            >
+              Reset {selectedName}
+            </button>
+          )}
           <button
             type="button"
             style={refreshing ? { ...s.refreshButton, ...s.refreshButtonBusy } : s.refreshButton}

@@ -23,6 +23,8 @@ function baseOpts(over: Partial<StatisticsHostOptions> = {}): StatisticsHostOpti
     readBundle: () => '',
     listAll: async () => GROUPS,
     openExternal: () => {},
+    confirmReset: vi.fn(async () => true),
+    clearProject: vi.fn(async () => {}),
     ...over,
   }
 }
@@ -52,5 +54,25 @@ describe('statistics webview host', () => {
     const { send } = resolveWith(host)
     send({ type: 'open-external', url: 'https://example.com/pr/1' })
     expect(openExternal).toHaveBeenCalledWith('https://example.com/pr/1')
+  })
+
+  it('confirms then clears one repo on reset, and refreshes', async () => {
+    const confirmReset = vi.fn(async () => true)
+    const clearProject = vi.fn(async () => {})
+    const host = createWebviewHost(baseOpts({ confirmReset, clearProject }))
+    const { send } = resolveWith(host)
+    send({ type: 'reset', projectId: 'p1' })
+    await new Promise((r) => setTimeout(r, 0))
+    expect(confirmReset).toHaveBeenCalledWith('p1')
+    expect(clearProject).toHaveBeenCalledWith('p1')
+  })
+
+  it('does not clear when reset is cancelled', async () => {
+    const clearProject = vi.fn(async () => {})
+    const host = createWebviewHost(baseOpts({ confirmReset: async () => false, clearProject }))
+    const { send } = resolveWith(host)
+    send({ type: 'reset', projectId: 'p1' })
+    await new Promise((r) => setTimeout(r, 0))
+    expect(clearProject).not.toHaveBeenCalled()
   })
 })

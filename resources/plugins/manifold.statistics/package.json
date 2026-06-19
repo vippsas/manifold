@@ -7,7 +7,7 @@
   "engines": { "manifold": "^0.3.0" },
   "main": "./out/plugin.js",
   "activationEvents": ["onView:manifold.statistics.panel"],
-  "capabilities": ["verdicts:read", "workspace:read"],
+  "capabilities": ["verdicts:read", "verdicts:write", "workspace:read"],
   "contributes": {
     "views": [
       { "id": "manifold.statistics.panel", "title": "Statistics", "description": "Per-runtime quality metrics and recent sessions across all repositories.", "launcher": false }

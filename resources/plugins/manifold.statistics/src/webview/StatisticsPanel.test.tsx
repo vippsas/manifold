@@ -73,14 +73,14 @@ describe('StatisticsPanel', () => {
     expect(screen.getByText('beta work')).toBeTruthy()
 
     // Click the "Repo alpha" card → recent + per-runtime scope to alpha only.
-    fireEvent.click(screen.getByRole('button', { name: /Repo alpha/i }))
+    fireEvent.click(screen.getByRole('button', { name: /^Repo alpha/i }))
     expect(screen.getByText('Recent sessions · 1 · Repo alpha')).toBeTruthy()
     expect(screen.getByText('alpha work')).toBeTruthy()
     expect(screen.queryByText('beta work')).toBeNull()
     expect(screen.getByText('Per-runtime quality · Repo alpha')).toBeTruthy()
 
     // Click it again → filter clears, both sessions return.
-    fireEvent.click(screen.getByRole('button', { name: /Repo alpha/i }))
+    fireEvent.click(screen.getByRole('button', { name: /^Repo alpha/i }))
     expect(screen.getByText('Recent sessions · 2')).toBeTruthy()
     expect(screen.getByText('beta work')).toBeTruthy()
   })
@@ -100,11 +100,25 @@ describe('StatisticsPanel', () => {
     post.mockRestore()
   })
 
-  it('has a Refresh control but no Reset button in the all-projects view', () => {
+  it('shows no Reset button until a repo is selected, then resets just that repo', () => {
+    const post = vi.spyOn(window, 'postMessage')
     render(<StatisticsPanel />)
-    init([record({ sessionId: 'm', outcome: 'merged' })])
-    expect(screen.getByRole('button', { name: /refresh/i })).toBeTruthy()
-    expect(screen.queryByRole('button', { name: /^reset$/i })).toBeNull()
+    init([
+      record({ sessionId: 'a', projectId: 'alpha', outcome: 'merged' }),
+      record({ sessionId: 'b', projectId: 'beta', outcome: 'merged' }),
+    ])
+    // No repo selected → no Reset button.
+    expect(screen.queryByRole('button', { name: /^reset/i })).toBeNull()
+
+    // Select alpha → a scoped "Reset Repo alpha" button appears.
+    fireEvent.click(screen.getByRole('button', { name: /Repo alpha/i }))
+    const resetBtn = screen.getByRole('button', { name: /Reset Repo alpha/i })
+    fireEvent.click(resetBtn)
+    expect(post).toHaveBeenCalledWith({ type: 'reset', projectId: 'alpha' }, '*')
+
+    // Issuing the reset clears the selection (filter returns to all repos).
+    expect(screen.queryByRole('button', { name: /^Reset/i })).toBeNull()
+    post.mockRestore()
   })
 
   it('renders the outcome badge as one clickable PR link when prUrl present', () => {
