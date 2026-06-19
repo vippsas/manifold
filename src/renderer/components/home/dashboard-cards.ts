@@ -12,6 +12,8 @@ export interface DashboardSummary {
 export interface DashboardCardDef {
   id: string
   title: string
+  /** One-line purpose, shown under the title. */
+  description: string
   icon: string
   fullViewId: string
   useSummary: () => DashboardSummary
@@ -63,6 +65,14 @@ export function useVerdictsSummary(): DashboardSummary {
 
 /** Host-owned card list. A future card = one entry appended here. */
 export const CARDS: DashboardCardDef[] = [
-  { id: 'worktrees', title: 'Worktrees', icon: '⎇', fullViewId: 'manifold.worktrees.panel', useSummary: useWorktreesSummary },
-  { id: 'statistics', title: 'Statistics', icon: '◔', fullViewId: 'manifold.statistics.panel', useSummary: useVerdictsSummary },
+  {
+    id: 'worktrees', title: 'Worktrees', icon: '⎇',
+    description: 'Review and clean up worktrees and merged branches across every repo.',
+    fullViewId: 'manifold.worktrees.panel', useSummary: useWorktreesSummary,
+  },
+  {
+    id: 'statistics', title: 'Statistics', icon: '◔',
+    description: 'Per-runtime quality metrics and recent sessions across every repo.',
+    fullViewId: 'manifold.statistics.panel', useSummary: useVerdictsSummary,
+  },
 ]

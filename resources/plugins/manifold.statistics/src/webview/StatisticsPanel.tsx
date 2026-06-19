@@ -20,8 +20,7 @@ export function StatisticsPanel(): React.JSX.Element {
 
   return (
     <div style={s.wrapper}>
-      <div style={s.header}>
-        <span style={s.title}>Statistics</span>
+      <div style={{ ...s.header, justifyContent: 'flex-end', background: 'transparent', borderBottom: 'none' }}>
         <div style={s.headerActions}>
           {selectedName && (
             <button

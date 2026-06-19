@@ -5,7 +5,7 @@ import { DashboardCard } from './DashboardCard'
 import type { DashboardCardDef } from './dashboard-cards'
 
 const card: DashboardCardDef = {
-  id: 'x', title: 'Worktrees', icon: '⎇', fullViewId: 'v',
+  id: 'x', title: 'Worktrees', description: 'Review worktrees across repos.', icon: '⎇', fullViewId: 'v',
   useSummary: () => ({ loading: false, error: false, stats: [{ label: 'worktrees', value: 5 }] }),
 }
 
