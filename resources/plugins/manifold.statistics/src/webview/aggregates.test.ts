@@ -4,6 +4,7 @@ import {
   computeRuntimeStats,
   computeOutcomeCounts,
   sortRecentFirst,
+  computeProjectStats,
 } from './aggregates'
 
 function r(overrides: Partial<VerdictRecord>): VerdictRecord {
@@ -93,6 +94,23 @@ describe('computeOutcomeCounts', () => {
     expect(computeOutcomeCounts([])).toEqual({
       merged: 0, pr_created: 0, committed_only: 0, discarded: 0, unknown: 0,
     })
+  })
+})
+
+describe('computeProjectStats', () => {
+  it('computes per-repo totals + merge rate, most-active repo first', () => {
+    const stats = computeProjectStats([
+      { projectId: 'p1', projectName: 'Alpha', records: [r({ outcome: 'merged' }), r({ outcome: 'discarded' })] },
+      { projectId: 'p2', projectName: 'Beta', records: [r({ outcome: 'merged' }), r({ outcome: 'merged' }), r({ outcome: 'pr_created' })] },
+    ])
+    // Beta has more sessions → first
+    expect(stats.map((s) => s.projectName)).toEqual(['Beta', 'Alpha'])
+    expect(stats[0]).toEqual({ projectId: 'p2', projectName: 'Beta', total: 3, merged: 2, mergedPct: 67 })
+    expect(stats[1]).toEqual({ projectId: 'p1', projectName: 'Alpha', total: 2, merged: 1, mergedPct: 50 })
+  })
+
+  it('returns empty array for no groups', () => {
+    expect(computeProjectStats([])).toEqual([])
   })
 })
 

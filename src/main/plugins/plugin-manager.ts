@@ -12,6 +12,8 @@ import { createLmService } from './lm-service'
 import { createAgentSpawnService } from './agent-spawn-service'
 import { createWorktreeOverviewService, type WorktreeOverviewService } from './worktree-overview-service'
 import { summarizeWorktrees, summarizeVerdicts } from './dashboard-summary'
+import { groupVerdictsByProject } from './verdict-grouping'
+import type { VerdictService } from './verdict-read-service'
 import type { WorktreesSummary, VerdictsSummary } from '../../shared/dashboard-types'
 import { getWorktreeDirty, getWorktreeLastCommitISO } from '../git/worktree-status'
 import { listMergedBranches, listWorktreeBranches, getBranchDates, deleteMergedBranch } from '../git/branch-status'
@@ -96,7 +98,15 @@ export class PluginManager {
       getBranchDates: (proj) => getBranchDates(proj),
       deleteMergedBranch: (proj, branch) => deleteMergedBranch(proj, branch),
     })
-    this.host = new ExtensionHost(new PluginStorageStore(storagePath), agentControl, lm, agentSpawn, worktreeOverview, verdictStore)
+    // Compose the verdict service: per-project reads come straight from the store;
+    // `listAllByProject` joins repo display names from the registry so all-projects
+    // plugin views (the Statistics dashboard card) can label each repo.
+    const verdicts: VerdictService = {
+      listByProject: (projectId, limit) => verdictStore.listByProject(projectId, limit),
+      deleteByProject: (projectId) => verdictStore.deleteByProject(projectId),
+      listAllByProject: () => groupVerdictsByProject(verdictStore.listAll(), projectRegistry.listProjects()),
+    }
+    this.host = new ExtensionHost(new PluginStorageStore(storagePath), agentControl, lm, agentSpawn, worktreeOverview, verdicts)
     this.host.setConfigResolver((id, key) => this.getConfigValue(id, key))
     this.host.setEnabledResolver((id) => this.isEnabled(id))
     this.host.setOriginResolver((id) => this.plugins.find((p) => p.id === id)?.origin)

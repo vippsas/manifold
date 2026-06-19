@@ -1,4 +1,29 @@
-import type { VerdictRecord, VerdictOutcome } from 'manifold'
+import type { VerdictRecord, VerdictOutcome, ProjectVerdicts } from 'manifold'
+
+export interface ProjectStat {
+  projectId: string
+  projectName: string
+  total: number
+  merged: number
+  mergedPct: number
+}
+
+/** Per-repo session counts + merge rate, most-active repo first. */
+export function computeProjectStats(groups: ProjectVerdicts[]): ProjectStat[] {
+  return groups
+    .map((g) => {
+      const total = g.records.length
+      const merged = g.records.filter((r) => r.outcome === 'merged').length
+      return {
+        projectId: g.projectId,
+        projectName: g.projectName,
+        total,
+        merged,
+        mergedPct: total === 0 ? 0 : Math.round((merged / total) * 100),
+      }
+    })
+    .sort((a, b) => b.total - a.total || a.projectName.localeCompare(b.projectName))
+}
 
 export interface RuntimeStats {
   runtime: string
