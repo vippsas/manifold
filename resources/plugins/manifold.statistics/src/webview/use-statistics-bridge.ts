@@ -21,11 +21,13 @@ export interface StatisticsBridge extends StatisticsState {
   refresh: () => void
   /** Ask the host to open a PR URL in the browser (the webview is sandboxed). */
   openExternal: (url: string) => void
+  /** Ask the host to confirm and delete the active project's captured sessions. */
+  reset: () => void
 }
 
 const EMPTY_STATE: StatisticsState = { records: [], projectId: null, error: null, loaded: false, refreshing: true }
 
-function postToHost(msg: { type: 'ready' | 'refresh' } | { type: 'open-external'; url: string }): void { parent.postMessage(msg, '*') }
+function postToHost(msg: { type: 'ready' | 'refresh' | 'reset' } | { type: 'open-external'; url: string }): void { parent.postMessage(msg, '*') }
 
 export function useStatisticsBridge(): StatisticsBridge {
   const [state, setState] = useState<StatisticsState>(EMPTY_STATE)
@@ -59,5 +61,6 @@ export function useStatisticsBridge(): StatisticsBridge {
       postToHost({ type: 'refresh' })
     },
     openExternal: (url: string) => postToHost({ type: 'open-external', url }),
+    reset: () => postToHost({ type: 'reset' }),
   }
 }

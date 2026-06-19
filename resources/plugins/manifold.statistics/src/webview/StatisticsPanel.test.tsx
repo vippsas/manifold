@@ -77,8 +77,8 @@ describe('StatisticsPanel', () => {
   it('renders a non-interactive status chip when there is no prUrl', () => {
     render(<StatisticsPanel />)
     init([record({ sessionId: 'm', outcome: 'merged' })])
-    // The only button on screen is Refresh — the merged badge is a plain chip, not a link.
-    expect(screen.getAllByRole('button').map((b) => b.textContent)).toEqual(['Refresh'])
+    // The only buttons are the header controls — the merged badge is a plain chip, not a link.
+    expect(screen.getAllByRole('button').map((b) => b.textContent)).toEqual(['Reset', 'Refresh'])
   })
 
   it('lists every session (no 50 cap) and shows the count in the header', () => {
@@ -90,6 +90,20 @@ describe('StatisticsPanel', () => {
     expect(screen.getByText('Recent sessions · 60')).toBeTruthy()
     // All 60 rows render — the prompt preview appears once per row.
     expect(screen.getAllByText('do the thing').length).toBe(60)
+  })
+
+  it('reset button is disabled with no sessions and posts a reset message otherwise', () => {
+    const post = vi.spyOn(window, 'postMessage')
+    render(<StatisticsPanel />)
+    init([]) // no records → nothing to reset
+    expect((screen.getByRole('button', { name: /reset/i }) as HTMLButtonElement).disabled).toBe(true)
+    cleanup()
+
+    render(<StatisticsPanel />)
+    init([record({ sessionId: 'a' })])
+    fireEvent.click(screen.getByRole('button', { name: /reset/i }))
+    expect(post).toHaveBeenCalledWith({ type: 'reset' }, '*')
+    post.mockRestore()
   })
 
   it('renders per-session metric chips when activity is present', () => {
