@@ -1,5 +1,5 @@
 // src/main/plugins/extension-host.ts
-import { utilityProcess, type UtilityProcess } from 'electron'
+import { utilityProcess, shell, type UtilityProcess } from 'electron'
 import { join } from 'node:path'
 import { RpcEndpoint, HOST_COMMANDS, HOST_WINDOW, HOST_STORAGE, HOST_CONFIG, HOST_TREE, HOST_UI, HOST_AGENTS, HOST_LM, HOST_TRANSCRIPTION, HOST_WORKTREES, HOST_VERDICTS, PLUGIN_ACTIVATION, PLUGIN_COMMANDS, PLUGIN_WEBVIEW, PLUGIN_WORKSPACE, PLUGIN_CONFIG, PLUGIN_TREE, type RpcMessage } from '../../shared/plugins/rpc'
 import { CommandRegistry } from './command-registry'
@@ -9,6 +9,7 @@ import type { ActivationTarget } from '../../plugin-host/activator'
 import type { PluginStorageStore } from './plugin-storage-store'
 import { webviewContentStore } from './webview-content-store'
 import { UiRequestBroker } from './ui-broker'
+import { isExternallyOpenable } from './open-external'
 import type { MessageLevel, UiRequest } from '../../shared/plugins/ui'
 import type { AgentControlService } from './agent-control-service'
 import type { LmService } from './lm-service'
@@ -19,6 +20,12 @@ import type { AiServiceSettings } from '../../shared/plugins/api-types'
 
 interface PluginActivationProxy { $activate(t: ActivationTarget): Promise<void>; $deactivate(id: string): Promise<void> }
 interface PluginCommandsProxy { $invokeCommand(id: string, args: unknown[]): Promise<unknown> }
+
+/** Open an http(s) URL externally. Other schemes are rejected (see isExternallyOpenable). */
+async function openExternalUrl(url: string): Promise<void> {
+  if (!isExternallyOpenable(url)) return
+  await shell.openExternal(url)
+}
 
 const MAIN_TO_HOST_RPC_TIMEOUT_MS = 5 * 60_000
 
@@ -163,6 +170,7 @@ export class ExtensionHost {
       $showMessage: (level: MessageLevel, message: string, actions: string[]) => this.ui.request({ kind: 'message', level, message, actions } as Omit<UiRequest, 'requestId'>),
       $showQuickPick: (items: unknown, options: unknown) => this.ui.request({ kind: 'quickPick', items, options } as Omit<UiRequest, 'requestId'>),
       $showInputBox: (options: unknown) => this.ui.request({ kind: 'inputBox', options } as Omit<UiRequest, 'requestId'>),
+      $openExternal: (url: string) => openExternalUrl(url),
     })
     endpoint.registerService(HOST_TREE, {
       $refresh: (viewId: string) => { this.send?.('plugins:tree-refresh', viewId) },

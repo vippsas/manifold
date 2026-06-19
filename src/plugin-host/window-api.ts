@@ -15,6 +15,7 @@ interface HostUiProxy {
   $showMessage(level: string, message: string, actions: string[]): Promise<string | undefined>
   $showQuickPick(items: QuickPickItem[], options: QuickPickOptions): Promise<QuickPickItem | undefined>
   $showInputBox(options: InputBoxOptions): Promise<string | undefined>
+  $openExternal(url: string): Promise<void>
 }
 
 /** Builds the `manifold.window` API and the host-side view-resolution logic. */
@@ -28,6 +29,7 @@ export function createWindowApi(endpoint: RpcEndpoint): {
     showErrorMessage(message: string, ...actions: string[]): Promise<string | undefined>
     showQuickPick(items: ReadonlyArray<string | QuickPickItem>, options?: QuickPickOptions): Promise<QuickPickItem | string | undefined>
     showInputBox(options?: InputBoxOptions): Promise<string | undefined>
+    openExternal(url: string): Promise<void>
   }
   resolveView(viewId: string): Promise<void>
   deliverMessage(viewId: string, message: unknown): void
@@ -61,6 +63,7 @@ export function createWindowApi(endpoint: RpcEndpoint): {
       return wasStrings && picked ? picked.label : picked
     },
     showInputBox: (options: InputBoxOptions = {}) => hostUi.$showInputBox(options),
+    openExternal: (url: string) => hostUi.$openExternal(url),
   }
 
   async function resolveView(viewId: string): Promise<void> {
