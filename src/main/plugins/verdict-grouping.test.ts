@@ -18,8 +18,15 @@ describe('groupVerdictsByProject', () => {
     expect(out[0]).toEqual({ projectId: 'p2', projectName: 'Apple', records: [rec('p2', 1), rec('p2', 2)] })
   })
 
-  it('falls back to projectId when the repo is no longer registered', () => {
-    const out = groupVerdictsByProject([rec('gone', 1)], [])
-    expect(out).toEqual([{ projectId: 'gone', projectName: 'gone', records: [rec('gone', 1)] }])
+  it('drops (ignores) records whose repo is no longer registered, keeping registered ones', () => {
+    const out = groupVerdictsByProject(
+      [rec('gone', 1), rec('p1', 1)],
+      [{ id: 'p1', name: 'Alpha' }],
+    )
+    expect(out).toEqual([{ projectId: 'p1', projectName: 'Alpha', records: [rec('p1', 1)] }])
+  })
+
+  it('returns nothing when no records belong to a registered repo', () => {
+    expect(groupVerdictsByProject([rec('gone', 1)], [])).toEqual([])
   })
 })

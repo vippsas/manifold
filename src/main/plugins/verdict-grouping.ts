@@ -3,8 +3,9 @@ import type { ProjectVerdicts } from '../../shared/plugins/api-types'
 
 /**
  * Pure: group flat verdict records by project and resolve each repo's display name.
- * A record whose project is no longer registered falls back to its `projectId` as the
- * name (rather than being dropped), so historic sessions still surface. Sorted by name.
+ * Records whose project is **no longer registered** are dropped — the dashboard ignores
+ * removed repos (their stored verdicts keep only a project UUID, no recoverable name).
+ * Sorted by name.
  */
 export function groupVerdictsByProject(
   records: VerdictRecord[],
@@ -13,6 +14,7 @@ export function groupVerdictsByProject(
   const nameById = new Map(projects.map((p) => [p.id, p.name]))
   const byProject = new Map<string, VerdictRecord[]>()
   for (const record of records) {
+    if (!nameById.has(record.projectId)) continue // repo no longer registered → ignore
     const bucket = byProject.get(record.projectId) ?? []
     bucket.push(record)
     byProject.set(record.projectId, bucket)

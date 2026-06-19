@@ -77,7 +77,7 @@ export class PluginManager {
     private readonly sessionManager: SessionManager,
     gitOps: GitOperationsManager,
     worktreeManager: WorktreeManager,
-    projectRegistry: ProjectRegistry,
+    private readonly projectRegistry: ProjectRegistry,
     private readonly verdictStore: VerdictStore,
   ) {
     const agentControl = createAgentControlService(this.sessionManager)
@@ -122,9 +122,12 @@ export class PluginManager {
     return summarizeWorktrees(entries, cleanable)
   }
 
-  /** Headline numbers for the global Statistics dashboard card (all repos). */
+  /** Headline numbers for the global Statistics dashboard card (all registered repos).
+   *  Routes through the same grouping as the drill-in so the card and the panel agree —
+   *  verdicts for repos no longer registered are ignored (not deleted). */
   getVerdictsSummary(): VerdictsSummary {
-    return summarizeVerdicts(this.verdictStore.listAll())
+    const groups = groupVerdictsByProject(this.verdictStore.listAll(), this.projectRegistry.listProjects())
+    return summarizeVerdicts(groups.flatMap((g) => g.records))
   }
 
   isEnabled(pluginId: string): boolean {
