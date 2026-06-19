@@ -17,8 +17,11 @@ export interface UseAppOverlaysResult {
   setShowCommandPalette: (show: boolean) => void
   showShortcuts: boolean
   setShowShortcuts: (show: boolean) => void
-  showWorktrees: boolean
-  setShowWorktrees: (show: boolean) => void
+  showDashboard: boolean
+  setShowDashboard: (show: boolean) => void
+  /** Card id to open the Dashboard straight into (null = land on the grid). */
+  dashboardInitialCard: string | null
+  setDashboardInitialCard: (cardId: string | null) => void
   appVersion: string
   handleCommit: (message: string) => Promise<void>
   handleClosePanel: () => void
@@ -50,7 +53,8 @@ export function useAppOverlays(
   const [showAbout, setShowAbout] = useState(false)
   const [showCommandPalette, setShowCommandPalette] = useState(false)
   const [showShortcuts, setShowShortcuts] = useState(false)
-  const [showWorktrees, setShowWorktrees] = useState(false)
+  const [showDashboard, setShowDashboard] = useState(false)
+  const [dashboardInitialCard, setDashboardInitialCard] = useState<string | null>(null)
   const [appVersion, setAppVersion] = useState('')
   const [newAgentFocusTrigger, setNewAgentFocusTrigger] = useState(0)
   const [pendingDelete, setPendingDelete] = useState<PendingDelete | null>(null)
@@ -141,8 +145,10 @@ export function useAppOverlays(
     setShowCommandPalette,
     showShortcuts,
     setShowShortcuts,
-    showWorktrees,
-    setShowWorktrees,
+    showDashboard,
+    setShowDashboard,
+    dashboardInitialCard,
+    setDashboardInitialCard,
     appVersion,
     handleCommit,
     handleClosePanel,
@@ -157,7 +163,7 @@ export function useAppOverlays(
     confirmDeleteAgent,
   }), [
     activePanel, handleNewAgentFromHeader, newAgentFocusTrigger,
-    showSettings, showAbout, showCommandPalette, showShortcuts, showWorktrees, appVersion, handleCommit, handleClosePanel,
+    showSettings, showAbout, showCommandPalette, showShortcuts, showDashboard, dashboardInitialCard, appVersion, handleCommit, handleClosePanel,
     handleLaunchAgent, handleSelectSession, handleSaveSettings, handleSetupComplete,
     pendingDelete, deletingSessionId, requestDeleteAgent, cancelDeleteAgent, confirmDeleteAgent,
   ])

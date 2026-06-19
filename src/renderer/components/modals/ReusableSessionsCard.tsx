@@ -34,10 +34,10 @@ export function ReusableSessionsCard({ projectPath, sessions, onResumeSession, o
     <section style={modalStyles.infoCard}>
       <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', gap: 'var(--space-sm)' }}>
         <div style={modalStyles.infoCardTitle}>Existing worktrees</div>
-        {dockState?.onOpenWorktrees && (
+        {dockState?.onOpenDashboard && (
           <button
             type="button"
-            onClick={() => dockState.onOpenWorktrees()}
+            onClick={() => dockState.onOpenDashboard('worktrees')}
             style={{ background: 'transparent', border: 'none', color: 'var(--accent)', cursor: 'pointer', fontSize: 'var(--type-ui-small)', padding: 0, whiteSpace: 'nowrap' }}
           >
             View all worktrees →
