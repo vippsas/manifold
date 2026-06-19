@@ -60,14 +60,36 @@ describe('StatisticsPanel', () => {
     post.mockRestore()
   })
 
-  it('renders prUrl as a link when present', () => {
+  it('renders the outcome badge as one clickable PR link when prUrl present', () => {
+    const post = vi.spyOn(window, 'postMessage')
     render(<StatisticsPanel />)
     init([record({
       sessionId: 'p', outcome: 'pr_created',
       metrics: { agentCommits: 1, humanEdits: 0, diffLines: { added: 0, removed: 0 }, filesChanged: 0, prUrl: 'https://github.com/o/r/pull/1' },
     })])
-    const link = screen.getByRole('link', { name: /PR/i }) as HTMLAnchorElement
-    expect(link.href).toBe('https://github.com/o/r/pull/1')
+    // A single badge — the status IS the link — and clicking it asks the host to open the PR.
+    const badge = screen.getByRole('button', { name: /PR/i })
+    fireEvent.click(badge)
+    expect(post).toHaveBeenCalledWith({ type: 'open-external', url: 'https://github.com/o/r/pull/1' }, '*')
+    post.mockRestore()
+  })
+
+  it('renders a non-interactive status chip when there is no prUrl', () => {
+    render(<StatisticsPanel />)
+    init([record({ sessionId: 'm', outcome: 'merged' })])
+    // The only button on screen is Refresh — the merged badge is a plain chip, not a link.
+    expect(screen.getAllByRole('button').map((b) => b.textContent)).toEqual(['Refresh'])
+  })
+
+  it('lists every session (no 50 cap) and shows the count in the header', () => {
+    render(<StatisticsPanel />)
+    const many = Array.from({ length: 60 }, (_, i) =>
+      record({ sessionId: `s${i}`, createdAt: `2026-05-16T00:${String(i).padStart(2, '0')}:00Z` }),
+    )
+    init(many)
+    expect(screen.getByText('Recent sessions · 60')).toBeTruthy()
+    // All 60 rows render — the prompt preview appears once per row.
+    expect(screen.getAllByText('do the thing').length).toBe(60)
   })
 
   it('renders per-session metric chips when activity is present', () => {

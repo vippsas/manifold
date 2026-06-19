@@ -40,6 +40,7 @@ function wireWithHostServices(): { host: RpcEndpoint; main: RpcEndpoint } {
     $showMessage: () => Promise.resolve(undefined),
     $showQuickPick: () => Promise.resolve(undefined),
     $showInputBox: () => Promise.resolve(undefined),
+    $openExternal: () => Promise.resolve(),
   })
   return { host, main }
 }
@@ -107,6 +108,22 @@ describe('resolveView listener-set lifecycle', () => {
     deliverMessage('test.view', { type: 'run' })
 
     expect(received).toEqual([{ type: 'run' }])
+  })
+})
+
+describe('createWindowApi openExternal', () => {
+  it('forwards the url to the host UI $openExternal', async () => {
+    const { host, main } = wireHostAndMain()
+    const opened: string[] = []
+    main.registerService(HOST_UI, {
+      $showMessage: () => Promise.resolve(undefined),
+      $showQuickPick: () => Promise.resolve(undefined),
+      $showInputBox: () => Promise.resolve(undefined),
+      $openExternal: (url: string) => { opened.push(url); return Promise.resolve() },
+    })
+    const { windowApi } = createWindowApi(host)
+    await windowApi.openExternal('https://github.com/o/r/pull/9')
+    expect(opened).toEqual(['https://github.com/o/r/pull/9'])
   })
 })
 

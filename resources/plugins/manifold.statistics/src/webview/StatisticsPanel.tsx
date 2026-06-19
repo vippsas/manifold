@@ -9,12 +9,11 @@ import {
   outcomeChipStyle,
 } from './styles'
 
-const RECENT_LIMIT = 50
 const PROMPT_PREVIEW_CHARS = 96
 const OUTCOME_ORDER: VerdictOutcome[] = ['merged', 'pr_created', 'committed_only', 'discarded', 'unknown']
 
 export function StatisticsPanel(): React.JSX.Element {
-  const { records, projectId, error, loaded, refreshing, refresh } = useStatisticsBridge()
+  const { records, projectId, error, loaded, refreshing, refresh, openExternal } = useStatisticsBridge()
 
   return (
     <div style={s.wrapper}>
@@ -32,7 +31,7 @@ export function StatisticsPanel(): React.JSX.Element {
 
       <div style={s.content}>
         {error && <div style={s.errorBox}>Failed to load statistics: {error}</div>}
-        {renderBody(loaded, projectId, records, error)}
+        {renderBody(loaded, projectId, records, error, openExternal)}
       </div>
     </div>
   )
@@ -43,6 +42,7 @@ function renderBody(
   projectId: string | null,
   records: VerdictRecord[],
   error: string | null,
+  openExternal: (url: string) => void,
 ): React.JSX.Element | null {
   if (!loaded) return null
   if (!projectId) return renderEmpty('Select a project to see its statistics.')
@@ -53,7 +53,7 @@ function renderBody(
 
   const runtimeStats = computeRuntimeStats(records)
   const outcomeCounts = computeOutcomeCounts(records)
-  const recent = sortRecentFirst(records).slice(0, RECENT_LIMIT)
+  const recent = sortRecentFirst(records)
   const totals = records.length
   const totalMerged = runtimeStats.reduce((sum, r) => sum + r.merged, 0)
   const totalDiscarded = runtimeStats.reduce((sum, r) => sum + r.discarded, 0)
@@ -65,7 +65,7 @@ function renderBody(
     <>
       {renderKpiRow(totals, mergedPct, discardedPct, avgEdits)}
       {renderRuntimeGrid(runtimeStats, outcomeCounts)}
-      {renderRecentSessions(recent)}
+      {renderRecentSessions(recent, openExternal)}
       {renderOutcomeFooter(outcomeCounts)}
     </>
   )
@@ -150,10 +150,10 @@ function OutcomeBar({ stat }: { stat: RuntimeStats }): React.JSX.Element {
   )
 }
 
-function renderRecentSessions(recent: VerdictRecord[]): React.JSX.Element {
+function renderRecentSessions(recent: VerdictRecord[], openExternal: (url: string) => void): React.JSX.Element {
   return (
     <section>
-      <div style={s.sectionLabel}>Recent sessions</div>
+      <div style={s.sectionLabel}>{`Recent sessions · ${recent.length}`}</div>
       <div style={{ ...s.recentList, marginTop: 'var(--space-xs)' }}>
         {recent.map((rec) => {
           const accentColor = outcomeColors[rec.outcome] ?? outcomeColors.unknown
@@ -169,18 +169,34 @@ function renderRecentSessions(recent: VerdictRecord[]): React.JSX.Element {
                 <MetricStrip metrics={rec.metrics} />
               </div>
               <div style={s.recentRight}>
-                <span style={{ ...s.outcomeChip, ...outcomeChipStyle(rec.outcome) }}>
-                  {outcomeLabels[rec.outcome] ?? rec.outcome}
-                </span>
-                {rec.metrics.prUrl ? (
-                  <a href={rec.metrics.prUrl} target="_blank" rel="noreferrer" style={s.prLink}>PR</a>
-                ) : null}
+                <OutcomeBadge outcome={rec.outcome} prUrl={rec.metrics.prUrl} onOpen={openExternal} />
               </div>
             </div>
           )
         })}
       </div>
     </section>
+  )
+}
+
+// One badge per row. When the session has a PR, the status badge IS the link —
+// clicking it opens the PR (the sandboxed webview asks the host to navigate).
+// No PR → a plain, non-interactive status chip.
+function OutcomeBadge({ outcome, prUrl, onOpen }: { outcome: VerdictOutcome; prUrl?: string; onOpen: (url: string) => void }): React.JSX.Element {
+  const label = outcomeLabels[outcome] ?? outcome
+  if (!prUrl) {
+    return <span style={{ ...s.outcomeChip, ...outcomeChipStyle(outcome) }}>{label}</span>
+  }
+  return (
+    <button
+      type="button"
+      style={{ ...s.outcomeChip, ...outcomeChipStyle(outcome), ...s.outcomeChipLink }}
+      onClick={() => onOpen(prUrl)}
+      title={`Open ${prUrl}`}
+    >
+      {label}
+      <span aria-hidden="true" style={s.outcomeChipArrow}>↗</span>
+    </button>
   )
 }
 

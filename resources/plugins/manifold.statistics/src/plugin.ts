@@ -11,6 +11,7 @@ export function activate(context: ManifoldContext): void {
     readBundle: () => readFileSync(join(context.pluginUri, 'out', 'webview.js'), 'utf8'),
     activeProjectId: () => manifold.workspace.activeProject?.id ?? null,
     list: (projectId) => manifold.verdicts.listByProject(projectId),
+    openExternal: (url) => { void manifold.window.openExternal(url) },
   })
   context.subscriptions.push(manifold.window.registerWebviewViewProvider('manifold.statistics.panel', host.provider))
   // Re-read when the user switches project so the dashboard tracks the active repo.

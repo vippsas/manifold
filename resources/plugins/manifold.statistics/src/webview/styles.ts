@@ -300,16 +300,20 @@ export const statisticsPanelStyles: Record<string, React.CSSProperties> = {
     padding: '1px 8px',
     borderRadius: 'var(--radius-xs)',
   },
-  prLink: {
-    fontSize: 'var(--type-ui-caption)',
-    color: 'var(--accent)',
-    fontFamily: 'var(--font-mono)',
-    textTransform: 'uppercase',
-    letterSpacing: 0.5,
-    textDecoration: 'none',
-    padding: '1px 8px',
-    border: '1px solid color-mix(in srgb, var(--accent) 35%, transparent)',
-    borderRadius: 'var(--radius-xs)',
+  // Applied on top of outcomeChip when the badge links to a PR: turn the chip
+  // into a button without disturbing its color/padding, and signal interactivity.
+  outcomeChipLink: {
+    display: 'inline-flex',
+    alignItems: 'center',
+    gap: 4,
+    border: 'none',
+    cursor: 'pointer',
+    lineHeight: 1.4,
+    transition: 'filter 150ms ease',
+  },
+  outcomeChipArrow: {
+    fontSize: 'var(--type-ui-micro)',
+    opacity: 0.85,
   },
 
   // Footer outcome distribution

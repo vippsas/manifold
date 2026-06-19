@@ -40,7 +40,7 @@ plugin folder path.
 **Namespaces.** `manifold` is a `ManifoldApi` (`api-types.ts:111`) with these namespaces:
 
 - `commands` — `registerCommand(id, handler)` and `executeCommand<T>(id, …args)` (`api-types.ts:112`). **Ungated.**
-- `window` — `registerWebviewViewProvider(viewId, provider)`, `registerTreeDataProvider`, `createTreeView`, the three `show*Message(message, …actions)` dialogs, `showQuickPick`, `showInputBox` (`api-types.ts:117`). **Ungated.**
+- `window` — `registerWebviewViewProvider(viewId, provider)`, `registerTreeDataProvider`, `createTreeView`, the three `show*Message(message, …actions)` dialogs, `showQuickPick`, `showInputBox`, and `openExternal(url)` — the last opens an http(s) URL in the browser via `HOST_UI.$openExternal` → `shell.openExternal`, with non-http(s) schemes rejected by `isExternallyOpenable` (`extension-host.ts`); used by the statistics webview to reach a PR since the sandboxed iframe can't navigate out (`api-types.ts:117`). **Ungated.**
 - `storage.global` — `get<T>(key, default?)` / `update(key, value)`, both `Promise`-returning (`api-types.ts:127`). Gated by `storage`.
 - `workspace` — read-only `activeProject` / `activeSession` / `workspaceFolders` getters plus `onDidChangeActiveProject` / `onDidChangeActiveSession` (`api-types.ts:133`). Gated by `workspace:read`.
 - `configuration` — `get<T>(key, default?)` and `onDidChange(listener)` (`api-types.ts:140`). Gated by `configuration`.

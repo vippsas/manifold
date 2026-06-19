@@ -7,6 +7,8 @@ export interface StatisticsHostOptions {
   activeProjectId: () => string | null
   /** Read recorded verdicts for a project (most-recent-capped read path). */
   list: (projectId: string) => Promise<VerdictRecord[]>
+  /** Open a PR URL in the browser on behalf of the sandboxed webview. */
+  openExternal: (url: string) => void
 }
 
 /** Inline the IIFE bundle as a script tag (escaping `</script>` so the parser can't break out). */
@@ -40,9 +42,10 @@ export function createWebviewHost(opts: StatisticsHostOptions): { provider: Webv
     resolveWebviewView(v: WebviewView): void {
       view = v
       v.webview.html = buildWebviewHtml(opts.readBundle())
-      // Both 'ready' (initial mount) and 'refresh' (button) re-read the active project.
       v.webview.onDidReceiveMessage((raw: unknown) => {
         if (!isWebviewMsg(raw)) return
+        if (raw.type === 'open-external') { opts.openExternal(raw.url); return }
+        // 'ready' (initial mount) and 'refresh' (button) re-read the active project.
         void sendInit()
       })
     },

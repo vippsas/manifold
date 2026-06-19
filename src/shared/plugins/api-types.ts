@@ -157,6 +157,8 @@ export interface ManifoldApi {
     showErrorMessage(message: string, ...actions: string[]): Promise<string | undefined>
     showQuickPick(items: ReadonlyArray<string | QuickPickItem>, options?: QuickPickOptions): Promise<QuickPickItem | string | undefined>
     showInputBox(options?: InputBoxOptions): Promise<string | undefined>
+    /** Open an http(s) URL in the user's default browser. Non-http(s) URLs are ignored. */
+    openExternal(url: string): Promise<void>
   }
   storage: {
     global: {
