@@ -1,7 +1,7 @@
 ---
 description: How the Manifold renderer (developer workspace UI) is structured — the React entry, the dockview panel layout, and the preload-only boundary to main.
 covers: [src/renderer]
-updated: 2026-06-14
+updated: 2026-06-19
 owner: see .github/CODEOWNERS
 ---
 
@@ -22,7 +22,7 @@ boundaries. Individual panels and hooks are catalogued only enough to locate the
 - `src/renderer/AppShell.tsx` — presentational shell: title bar, the `DockviewReact` host, status bar, and all modals/overlays/toasts (`AppShell.tsx:80`).
 - `src/renderer/DockTab.tsx` — `DockTab` (the per-panel tab header) and `EmptyWatermark` (the empty-group drop hint).
 - `src/renderer/monaco-setup.ts` — wires `MonacoEnvironment.getWorker` to the per-language Vite `?worker` bundles and calls `loader.config({ monaco })`.
-- `src/renderer/components/` — all UI by surface: `editor/`, `terminal/`, `sidebar/`, `git/`, `search/`, `modals/`, `verdicts/`, `memory/`, `new-task/`, `plugin-ui/`.
+- `src/renderer/components/` — all UI by surface: `editor/`, `terminal/`, `sidebar/`, `git/`, `search/`, `modals/`, `memory/`, `new-task/`, `plugin-ui/`.
 - `src/renderer/hooks/` — ~57 hooks; data/state lives here (`useProjects`, `useAgentSession`, `useFileWatcher`, `useDiff`, …) plus the `dock-layout/` subsystem that drives dockview.
 - `src/renderer/modules/launcher-modules.ts` — derives the "+ Apps" launcher list from the contribution registry.
 - `src/renderer/plugins/` — the renderer-side panel contribution registry (`contribution-registry.ts`, `internal-contributions.ts`, `use-contributions.ts`).
@@ -68,8 +68,7 @@ the dock control surface consumed by `App` (`useDockLayout.ts:301`).
 - `fileTree` → **Files** — `FileTree` over the worktree + any additional dirs.
 - `modifiedFiles` → **Modified Files** — `ModifiedFiles` diff list; files with `FileChange.foreignWorktree` (inherited because the base branch advanced) are grouped below a "from another worktree" separator, dimmed, with an origin tooltip.
 - `shell` → **Shell** — `ShellTabs` (worktree + project shell PTYs).
-- `verdicts` → **Verdicts** — built-in module sourced from the contribution registry, not hardcoded in `PANEL_COMPONENTS`.
-- `pluginView` / `pluginTreeView` — webview hosts for plugin contributions.
+- `pluginView` / `pluginTreeView` — webview hosts for plugin contributions (e.g. **Statistics**, the former Verdicts dashboard, now the `manifold.statistics` plugin).
 
 Note: **Search** is not a dock panel — it lives in the title bar (`TitleBarSearch`,
 wired through `AppShell.tsx:113`). **Web preview** is likewise not a standalone panel:
@@ -77,14 +76,17 @@ HTML files render in an `<iframe>` inside the editor's `CodeViewer`
 (`components/editor/code-viewer/CodeViewer.tsx:218`, resolved by `viewer/useResolvedHtmlPreview.ts`),
 alongside the markdown/image/PDF previews in `components/editor/viewer/`.
 
-**Modules & the contribution registry.** Built-in modules (Verdicts) are
-registered as internal contributions (`plugins/internal-contributions.ts:21`) into the
-in-memory registry (`plugins/contribution-registry.ts:15`). `dock-panels.tsx` spreads
-`getPanelComponents()` into `PANEL_COMPONENTS` so registered modules become real
-dockview panels, and `launcher-modules.ts` filters `launcher: true` entries to populate
+**Modules & the contribution registry.** Internal (built-in-component) modules are
+registered as internal contributions (`plugins/internal-contributions.ts`) into the
+in-memory registry (`plugins/contribution-registry.ts:15`); `INTERNAL_PANELS` is now
+**empty** — every built-in launcher module has moved to a plugin (Loop → `manifold.loop`,
+Watch → `manifold.watch`, Verdicts → `manifold.statistics`), so the registry holds only
+plugin-contributed views. The mechanism remains: `dock-panels.tsx` spreads
+`getPanelComponents()` into `PANEL_COMPONENTS` so any future internal module becomes a real
+dockview panel, and `launcher-modules.ts` filters `launcher: true` entries to populate
 the "+ Apps" menu. `use-contributions.ts` (`useLoadPluginContributions`, called at the top
 of `AppShell`) subscribes the React tree to registry changes so plugin-contributed panels
-appear without a reload. (The Loop module has moved out to the `manifold.loop` plugin.)
+appear without a reload.
 
 **Monaco.** `monaco-setup.ts` is imported for its side effects only: it assigns
 `self.MonacoEnvironment.getWorker` to route each language label to its dedicated worker

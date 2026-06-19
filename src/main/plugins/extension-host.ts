@@ -1,7 +1,7 @@
 // src/main/plugins/extension-host.ts
 import { utilityProcess, type UtilityProcess } from 'electron'
 import { join } from 'node:path'
-import { RpcEndpoint, HOST_COMMANDS, HOST_WINDOW, HOST_STORAGE, HOST_CONFIG, HOST_TREE, HOST_UI, HOST_AGENTS, HOST_LM, HOST_TRANSCRIPTION, HOST_WORKTREES, PLUGIN_ACTIVATION, PLUGIN_COMMANDS, PLUGIN_WEBVIEW, PLUGIN_WORKSPACE, PLUGIN_CONFIG, PLUGIN_TREE, type RpcMessage } from '../../shared/plugins/rpc'
+import { RpcEndpoint, HOST_COMMANDS, HOST_WINDOW, HOST_STORAGE, HOST_CONFIG, HOST_TREE, HOST_UI, HOST_AGENTS, HOST_LM, HOST_TRANSCRIPTION, HOST_WORKTREES, HOST_VERDICTS, PLUGIN_ACTIVATION, PLUGIN_COMMANDS, PLUGIN_WEBVIEW, PLUGIN_WORKSPACE, PLUGIN_CONFIG, PLUGIN_TREE, type RpcMessage } from '../../shared/plugins/rpc'
 import { CommandRegistry } from './command-registry'
 import { createHostCommandsService } from './host-commands-service'
 import { debugLog } from '../app/debug-log'
@@ -14,6 +14,7 @@ import type { AgentControlService } from './agent-control-service'
 import type { LmService } from './lm-service'
 import type { AgentSpawnService } from './agent-spawn-service'
 import type { WorktreeOverviewService } from './worktree-overview-service'
+import type { VerdictReadService } from './verdict-read-service'
 import type { AiServiceSettings } from '../../shared/plugins/api-types'
 
 interface PluginActivationProxy { $activate(t: ActivationTarget): Promise<void>; $deactivate(id: string): Promise<void> }
@@ -58,6 +59,7 @@ export class ExtensionHost {
     private readonly lm: LmService,
     private readonly agentSpawn: AgentSpawnService,
     private readonly worktrees: WorktreeOverviewService,
+    private readonly verdicts: VerdictReadService,
     now: () => number = () => Date.now(),
   ) {
     this.now = now
@@ -189,6 +191,9 @@ export class ExtensionHost {
       $listBranches: (pluginId: string) => { this.assertBuiltin(pluginId, 'workspace:manage'); return this.worktrees.listMergedOrphanBranches() },
       $deleteMergedBranch: (pluginId: string, projectId: string, branch: string) => { this.assertBuiltin(pluginId, 'workspace:manage'); return this.worktrees.deleteMergedBranch(projectId, branch) },
       $deleteAllMergedBranches: (pluginId: string, projectId: string) => { this.assertBuiltin(pluginId, 'workspace:manage'); return this.worktrees.deleteAllMergedBranches(projectId) },
+    })
+    endpoint.registerService(HOST_VERDICTS, {
+      $listByProject: (pluginId: string, projectId: string, limit: number | undefined) => { this.assertBuiltin(pluginId, 'verdicts:read'); return this.verdicts.listByProject(projectId, limit) },
     })
     this.child = child
     this.endpoint = endpoint

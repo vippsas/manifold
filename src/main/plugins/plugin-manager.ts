@@ -18,6 +18,7 @@ import type { SessionManager } from '../session/session-manager'
 import type { GitOperationsManager } from '../git/git-operations'
 import type { WorktreeManager } from '../git/worktree-manager'
 import type { ProjectRegistry } from '../store/project-registry'
+import type { VerdictStore } from '../store/verdict-store'
 import type { SessionInfo } from '../../shared/plugins/api-types'
 import * as fs from 'node:fs'
 
@@ -72,6 +73,7 @@ export class PluginManager {
     gitOps: GitOperationsManager,
     worktreeManager: WorktreeManager,
     projectRegistry: ProjectRegistry,
+    verdictStore: VerdictStore,
   ) {
     const agentControl = createAgentControlService(this.sessionManager)
     const lm = createLmService(this.sessionManager, gitOps)
@@ -91,7 +93,7 @@ export class PluginManager {
       getBranchDates: (proj) => getBranchDates(proj),
       deleteMergedBranch: (proj, branch) => deleteMergedBranch(proj, branch),
     })
-    this.host = new ExtensionHost(new PluginStorageStore(storagePath), agentControl, lm, agentSpawn, worktreeOverview)
+    this.host = new ExtensionHost(new PluginStorageStore(storagePath), agentControl, lm, agentSpawn, worktreeOverview, verdictStore)
     this.host.setConfigResolver((id, key) => this.getConfigValue(id, key))
     this.host.setEnabledResolver((id) => this.isEnabled(id))
     this.host.setOriginResolver((id) => this.plugins.find((p) => p.id === id)?.origin)

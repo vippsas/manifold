@@ -135,7 +135,7 @@ ipcMain.on('notifications:active-session', (_event, sessionId: unknown) => {
   agentNotifier.setActiveSessionId(typeof sessionId === 'string' ? sessionId : null)
 })
 
-const pluginManager = new PluginManager(settingsStore.getSettings().storagePath, settingsStore, sessionManager, gitOps, worktreeManager, projectRegistry)
+const pluginManager = new PluginManager(settingsStore.getSettings().storagePath, settingsStore, sessionManager, gitOps, worktreeManager, projectRegistry, verdictStore)
 pluginManager.scan()
 
 const ipcDeps = {

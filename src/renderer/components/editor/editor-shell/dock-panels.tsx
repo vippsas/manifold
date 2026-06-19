@@ -23,8 +23,9 @@ export const PANEL_COMPONENTS: Record<string, React.FC<any>> = {
   projects: ProjectsPanel,
   pluginView: PluginViewPanel,
   pluginTreeView: PluginTreeViewPanel,
-  // verdicts — sourced from the contribution registry (registered as an
-  // internal contribution in src/renderer/plugins).
+  // Components for any built-in internal-contribution panels, sourced from the
+  // contribution registry (src/renderer/plugins). Currently none — kept so a
+  // future internal panel needs no per-id wiring here.
   ...getPanelComponents(),
 }
 

@@ -1,5 +1,10 @@
 // src/shared/plugins/api-types.ts
 import type { QuickPickItem, QuickPickOptions, InputBoxOptions } from './ui'
+import type { VerdictRecord } from '../verdict-types'
+
+// Re-export the canonical verdict record types so plugins can `import type { VerdictRecord }
+// from 'manifold'` (the verdict store in main is the single source of truth — no duplication).
+export type { TaskPrompt, VerdictMetrics, VerdictOutcome, VerdictRecord } from '../verdict-types'
 
 export interface Disposable { dispose(): void }
 
@@ -201,6 +206,11 @@ export interface ManifoldApi {
     deleteMergedBranch(projectId: string, branch: string): Promise<void>
     /** [workspace:manage] Safely delete every merged, worktree-less branch in a repo; returns the deleted names. */
     deleteAllMergedBranches(projectId: string): Promise<string[]>
+  }
+  verdicts: {
+    /** [verdicts:read] Recorded session verdicts for one project, oldest→newest
+     *  (optionally capped to the most recent `limit`). Read-only. */
+    listByProject(projectId: string, limit?: number): Promise<VerdictRecord[]>
   }
 }
 

@@ -1,6 +1,6 @@
 import type React from 'react'
 
-export const verdictsPanelStyles: Record<string, React.CSSProperties> = {
+export const statisticsPanelStyles: Record<string, React.CSSProperties> = {
   wrapper: {
     display: 'flex',
     flexDirection: 'column',

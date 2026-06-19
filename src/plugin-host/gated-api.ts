@@ -24,6 +24,7 @@ export interface GatedFactories {
   lm: () => ManifoldApi['lm']
   transcription: () => ManifoldApi['transcription']
   worktrees: () => ManifoldApi['worktrees']
+  verdicts: () => ManifoldApi['verdicts']
 }
 
 export function buildGatedApi(
@@ -55,5 +56,6 @@ export function buildGatedApi(
     get lm(): ManifoldApi['lm'] { requireCap('lm'); return factories.lm() },
     get transcription(): ManifoldApi['transcription'] { requireCap('transcription:read'); return factories.transcription() },
     get worktrees(): ManifoldApi['worktrees'] { requireCap('workspace:manage'); return factories.worktrees() },
+    get verdicts(): ManifoldApi['verdicts'] { requireCap('verdicts:read'); return factories.verdicts() },
   }
 }

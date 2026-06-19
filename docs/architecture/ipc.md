@@ -1,7 +1,7 @@
 ---
 description: How Manifold's main-process services are exposed to the renderer over Electron IPC — the channel namespaces, the handler registration pattern, and how handlers delegate to subsystem managers.
 covers: [src/main/ipc]
-updated: 2026-06-13
+updated: 2026-06-19
 owner: see .github/CODEOWNERS
 ---
 
@@ -30,8 +30,7 @@ managers documented on the other architecture pages (`session.md`, `git.md`, etc
 - `src/main/ipc/simple-handlers.ts` — `simple:*` chat-adapter channels for the developer draft chat (`chat-messages`, `send-message`, `subscribe-chat`, status/preview/slash-command getters).
 - `src/main/ipc/provisioning-handlers.ts` — `provisioning:*` template/health/create.
 - `src/main/ipc/workspace-handlers.ts` — `workspace:*` multi-root workspace ops.
-- `src/main/ipc/verdict-handlers.ts` — `verdicts:list`, `verdicts:get`.
-- `src/main/ipc/plugin-handlers.ts` — `plugins:*` view/contribution/config/tree-view bridge.
+- `src/main/ipc/plugin-handlers.ts` — `plugins:*` view/contribution/config/tree-view bridge. Verdicts are no longer read over renderer IPC: the `manifold.statistics` plugin reads them through the built-in `verdicts:read` capability (`HOST_VERDICTS`, see `plugins.md`).
 
 Most handler modules ship a sibling `*.test.ts` exercising its channels in isolation (the `register*Handlers` functions are unit-testable against a mock `IpcDependencies`).
 

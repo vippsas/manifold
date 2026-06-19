@@ -1,7 +1,7 @@
 ---
 description: The plugin authoring API contract — the `manifold` runtime module, manifest fields, capabilities, and `contributes` that built-in plugins are written against.
 covers: [src/shared/plugins]
-updated: 2026-06-11
+updated: 2026-06-19
 owner: see .github/CODEOWNERS
 ---
 
@@ -47,12 +47,13 @@ plugin folder path.
 - `agents` — `activeAgent` getter, `getAgent(sessionId)`, and `spawnSibling(baseSessionId, opts?)` (`api-types.ts:144`). The namespace admits **either** `agent:control` or `agent:spawn` (both built-in only); each `AgentSession` method then re-checks its own capability — `runTurn` needs `agent:control`, `sendText`/`whenReady`/`getStatus`/`kill`/`reveal` and `spawnSibling` need `agent:spawn` (`agents-api.ts:30`).
 - `lm` — `selectChatModels(sessionId?)` (`api-types.ts:151`). Gated by `lm`, **built-in only**. An explicit `sessionId` pins the model to that session's runtime; omit it for the active session.
 - `transcription` — `get()` returning the app-level `AiServiceSettings` (transcription/chat keys from core settings) or `undefined` when unconfigured (`api-types.ts:157`). Gated by `transcription:read`, **built-in only**.
+- `verdicts` — `listByProject(projectId, limit?)` returning recorded session `VerdictRecord[]` for one project, oldest→newest (`api-types.ts:210`). Gated by `verdicts:read`, **built-in only** — the read path the `manifold.statistics` dashboard plugin uses instead of renderer IPC.
 
 **Capability gating.** `CAPABILITIES` (`manifest.ts:7`) is the single source of truth:
-`['storage', 'workspace:read', 'configuration', 'agent:control', 'agent:spawn', 'lm', 'transcription:read']`.
+`['storage', 'workspace:read', 'workspace:manage', 'configuration', 'agent:control', 'agent:spawn', 'lm', 'transcription:read', 'verdicts:read']`.
 The manifest field, the parser, and the host's gating all key off it.
-`BUILTIN_ONLY_CAPABILITIES` (`manifest.ts:14`) marks `agent:control`, `agent:spawn`, `lm`,
-and `transcription:read` as **privileged** — granted only to plugins discovered with
+`BUILTIN_ONLY_CAPABILITIES` (`manifest.ts:14`) marks `workspace:manage`, `agent:control`, `agent:spawn`, `lm`,
+`transcription:read`, and `verdicts:read` as **privileged** — granted only to plugins discovered with
 `origin: 'builtin'`. The host realizes this contract in `buildGatedApi()`
 (`src/plugin-host/gated-api.ts:28`): `commands` and `window` pass through ungated; the
 gated namespaces are lazy getters that throw `CapabilityError` if the capability isn't
@@ -101,7 +102,7 @@ The reference plugin is `resources/plugins/hello/` — `package.json` declares
 ## Invariants & gotchas
 
 - **`commands` and `window` are never gated.** Only `storage`, `workspace`, `configuration`, `agents`, `lm`, `transcription` require a capability. Every plugin can register commands and show UI without declaring anything.
-- **Privileged namespaces fail on first access, not at load.** `agent:control`, `agent:spawn`, `lm`, and `transcription:read` are lazy getters; a user-installed plugin that *declares* them still loads, then throws `RestrictedCapabilityError` the moment it touches `manifold.agents` / `manifold.lm` / `manifold.transcription` (`gated-api.ts:37`). `CAPABILITIES`/`BUILTIN_ONLY_CAPABILITIES` are the one enum; never hard-code capability strings elsewhere.
+- **Privileged namespaces fail on first access, not at load.** `workspace:manage`, `agent:control`, `agent:spawn`, `lm`, `transcription:read`, and `verdicts:read` are lazy getters; a user-installed plugin that *declares* them still loads, then throws `RestrictedCapabilityError` the moment it touches `manifold.worktrees` / `manifold.agents` / `manifold.lm` / `manifold.transcription` / `manifold.verdicts` (`gated-api.ts:37`). `CAPABILITIES`/`BUILTIN_ONLY_CAPABILITIES` are the one enum; never hard-code capability strings elsewhere.
 - **The `agents` namespace is capability-split.** Holding only `agent:spawn` admits `manifold.agents` but `runTurn` still throws `CapabilityError`; holding only `agent:control` admits it but `spawnSibling`/`sendText`/… throw. The per-method checks live in `agents-api.ts:30`, not in the gate.
 - **`export = api` is deliberate.** The ambient module (`manifold-module.d.ts:17`) uses CommonJS export so `const m = require('manifold')` is typed; named `import type` still resolves via the re-export block. Don't switch it to a default ESM export.
 - **The live `ManifoldApi` is wider than `docs/plugins/authoring.md` documents.** Code today also exposes `window.registerTreeDataProvider`/`createTreeView`/`showInformationMessage`/`showWarningMessage`/`showErrorMessage`/`showQuickPick`/`showInputBox`, `agents.getAgent(sessionId)`, and a `'tree'` view `type` — none of which appear in the long-form guide. The guide also still types `runTurn`'s outcome inline rather than as the exported `TurnOutcome` alias (`api-types.ts:14`). When they disagree, `api-types.ts` wins.

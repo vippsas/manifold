@@ -1,7 +1,6 @@
 // src/renderer/components/editor/dock-panels.contributions.test.tsx
 import { describe, expect, it } from 'vitest'
 import { PANEL_COMPONENTS } from './dock-panels'
-import { VerdictsPanel } from '../../verdicts/VerdictsPanel'
 
 describe('PANEL_COMPONENTS module entries', () => {
   it('still includes the six core panels', () => {
@@ -10,7 +9,11 @@ describe('PANEL_COMPONENTS module entries', () => {
     }
   })
 
-  it('sources the module panel from the contribution registry', () => {
-    expect(PANEL_COMPONENTS.verdicts).toBe(VerdictsPanel)
+  it('includes the plugin webview host components', () => {
+    // Internal-contribution components are spread in from the registry (currently
+    // none — Verdicts moved to the manifold.statistics plugin in #750); the plugin
+    // view hosts render every plugin-contributed panel.
+    expect(typeof PANEL_COMPONENTS.pluginView).toBe('function')
+    expect(typeof PANEL_COMPONENTS.pluginTreeView).toBe('function')
   })
 })

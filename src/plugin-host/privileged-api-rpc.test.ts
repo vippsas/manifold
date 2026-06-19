@@ -1,8 +1,9 @@
 import { describe, it, expect } from 'vitest'
-import { RpcEndpoint, HOST_AGENTS, HOST_LM, type RpcMessage } from '../shared/plugins/rpc'
+import { RpcEndpoint, HOST_AGENTS, HOST_LM, HOST_VERDICTS, type RpcMessage } from '../shared/plugins/rpc'
 import { WorkspaceContext } from './workspace-api'
 import { createAgentsApi } from './agents-api'
 import { createLmApi } from './lm-api'
+import { createVerdictsApi } from './verdicts-api'
 
 function wirePair(): { host: RpcEndpoint; main: RpcEndpoint } {
   let host!: RpcEndpoint
@@ -100,5 +101,20 @@ describe('lm-api over RPC', () => {
     const models = await lm.selectChatModels('pinned-session')
     await models[0].sendRequest('PROMPT', { timeoutMs: 1000 })
     expect(calls).toEqual([['select', 'p.builtin', 'pinned-session'], ['send', 'p.builtin', 'pinned-session', 'PROMPT', { timeoutMs: 1000 }]])
+  })
+})
+
+describe('verdicts-api over RPC', () => {
+  it('listByProject forwards to HOST_VERDICTS.$listByProject (with the plugin id) and returns the records', async () => {
+    const { host, main } = wirePair()
+    const calls: unknown[][] = []
+    const rec = { sessionId: 's', projectId: 'p1', branch: 'b', runtime: 'claude', taskPrompt: { kind: 'full', text: 't' }, outcome: 'merged', createdAt: '2026-05-16T00:00:00Z', metrics: { agentCommits: 0, humanEdits: 0, diffLines: { added: 0, removed: 0 }, filesChanged: 0 } }
+    main.registerService(HOST_VERDICTS, {
+      $listByProject: (pid: string, projectId: string, limit: number | undefined) => { calls.push([pid, projectId, limit]); return [rec] },
+    })
+    const verdicts = createVerdictsApi(host, 'p.builtin')
+    const records = await verdicts.listByProject('p1', 25)
+    expect(records).toEqual([rec])
+    expect(calls).toEqual([['p.builtin', 'p1', 25]])
   })
 })
