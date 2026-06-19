@@ -14,11 +14,10 @@ repository.
 The great majority of `docs/` is `superpowers/` specs, plans, and designs — point-in-time
 artifacts that record what was built *once* and stop being true the moment the feature
 ships. Against a few hundred source files, the *living, code-tracking reference layer* is
-essentially the architecture section of `README.md`, `docs/plugins/authoring.md`, and
-`docs/external-provisioners.md` — the last already a code-tracking page in spirit (it says
-"This document should match that code" and is bound to `src/shared/provisioning-types.ts`,
-the `covers:` idea before it had a name). So what's missing is maintained documentation
-**of the code itself**. That is what this wiki is for.
+essentially the architecture section of `README.md` and `docs/plugins/authoring.md` — the
+latter already a code-tracking page in spirit (it says "This document should match that
+code", the `covers:` idea before it had a name). So what's missing is maintained
+documentation **of the code itself**. That is what this wiki is for.
 
 ## The one change that matters: the source of truth is code, not documents
 

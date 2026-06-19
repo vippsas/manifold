@@ -44,7 +44,6 @@ handful of cross-cutting pages. `covers:` is the code each page is bound to.
 | [Memory](architecture/memory.md) | `src/main/memory` | Per-project SQLite session memory: capture interactions, compress to observations/summaries, search |
 | [Notifications](architecture/notifications.md) | `src/main/notifications` | Native macOS desktop notifications on agent lifecycle transitions — policy, notifier, IPC wiring, and settings |
 | [Search](architecture/search.md) | `src/main/search` | Cross-session code/file/memory search with literal-vs-regex matching and an optional AI rerank/answer layer |
-| [Provisioning](architecture/provisioning.md) | `src/main/provisioning` | Main-process host that spawns provisioner CLIs over stdin/stdout and turns results into projects |
 | [Plugins (host)](architecture/plugins.md) | `src/main/plugins`, `src/plugin-host` | How the main process discovers, loads, capability-gates, and tears down plugins via a forked host |
 | [Store](architecture/store.md) | `src/main/store` | Per-file JSON persistence for settings, project registry, verdicts, chat, and view state under `~/.manifold` |
 | [Filesystem](architecture/fs.md) | `src/main/fs` | Polls worktrees for git/tree changes and serves file read/write/list/import to the editor |
@@ -77,7 +76,6 @@ handful of cross-cutting pages. `covers:` is the code each page is bound to.
 These predate the architecture wiki but are already code-tracking in spirit — keep them
 in sync the same way.
 
-- [External provisioners](external-provisioners.md) — the provisioner CLI protocol, bound to `src/shared/provisioning-types.ts`. Author-facing companion to the [Provisioning](architecture/provisioning.md) host page.
 - [Plugin authoring guide](plugins/authoring.md) — the long-form guide for built-in plugins. Concise code-bound companion: [Plugin API](architecture/plugin-api.md).
 
 ## Frozen specs (raw historical evidence — do not "freshen")

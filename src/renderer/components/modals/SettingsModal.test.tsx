@@ -8,38 +8,7 @@ const mockInvoke = vi.fn()
 
 beforeEach(() => {
   vi.clearAllMocks()
-  mockInvoke.mockImplementation((channel: string, provisionerId?: string) => {
-    if (channel === 'provisioning:get-statuses') {
-      return Promise.resolve([
-        {
-          provisionerId: 'vercel-bundled',
-          provisionerLabel: 'Vercel Templates',
-          enabled: true,
-          source: 'cache',
-          state: 'healthy',
-          templateCount: 1,
-          summary: 'Using cached templates',
-        },
-      ])
-    }
-    if (channel === 'provisioning:check-health') {
-      return Promise.resolve([
-        {
-          provisionerId: provisionerId ?? 'vercel-bundled',
-          provisionerLabel: 'Vercel Templates',
-          enabled: true,
-          source: 'none',
-          state: 'healthy',
-          templateCount: 1,
-          summary: 'Healthy',
-        },
-      ])
-    }
-    if (channel === 'provisioning:refresh-templates') {
-      return Promise.resolve({ provisioners: [] })
-    }
-    return Promise.resolve(undefined)
-  })
+  mockInvoke.mockResolvedValue(undefined)
 
   ;(window as unknown as Record<string, unknown>).electronAPI = {
     invoke: mockInvoke,
@@ -81,7 +50,6 @@ describe('SettingsModal', () => {
     expect(screen.getByText('Settings')).toBeInTheDocument()
     expect(screen.getByRole('tab', { name: /General/i })).toBeInTheDocument()
     expect(screen.getByRole('tab', { name: /Search AI/i })).toBeInTheDocument()
-    expect(screen.getByRole('tab', { name: /Provisioning/i })).toBeInTheDocument()
   })
 
   it('renders form fields with current settings values', () => {

@@ -1,11 +1,9 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react'
 import { DEFAULT_SETTINGS } from '../../../shared/defaults'
-import type { ProvisionerConfig, ProvisionerStatus } from '../../../shared/provisioning-types'
 import type { ManifoldSettings, EditorSettings } from '../../../shared/types'
 import type { AiServiceSettings } from '../../../shared/plugins/api-types'
 import { modalStyles } from './SettingsModal.styles'
 import { SettingsModalBody, type SettingsTabId } from './settings/SettingsModalBody'
-import { validateProvisioners } from './settings/provisioning-settings-helpers'
 
 interface SettingsModalProps {
   visible: boolean
@@ -31,8 +29,6 @@ export function SettingsModal({ visible, settings, onSave, onClose, onPreviewThe
   const [sidebarResizeReversed, setSidebarResizeReversed] = useState(settings.sidebarResizeReversed)
   const [searchAiSettings, setSearchAiSettings] = useState(settings.search?.ai ?? DEFAULT_SETTINGS.search.ai)
   const [editorSettings, setEditorSettings] = useState<EditorSettings>(settings.editor ?? DEFAULT_SETTINGS.editor!)
-  const [provisioners, setProvisioners] = useState<ProvisionerConfig[]>(settings.provisioning?.provisioners ?? DEFAULT_SETTINGS.provisioning.provisioners)
-  const [provisionerStatuses, setProvisionerStatuses] = useState<ProvisionerStatus[]>([])
   const [transcription, setTranscription] = useState<AiServiceSettings>(
     settings.transcription ?? DEFAULT_SETTINGS.transcription ?? { provider: 'none' }
   )
@@ -40,14 +36,8 @@ export function SettingsModal({ visible, settings, onSave, onClose, onPreviewThe
   const [activeTab, setActiveTab] = useState<SettingsTabId>('general')
   const overlayRef = useRef<HTMLDivElement>(null)
 
-  const loadProvisionerStatuses = useCallback(async (nextProvisioners: ProvisionerConfig[]): Promise<void> => {
-    const statuses = (await window.electronAPI.invoke('provisioning:get-statuses', nextProvisioners)) as ProvisionerStatus[]
-    setProvisionerStatuses(statuses)
-  }, [])
-
   useEffect(() => {
     if (!visible) return
-    const nextProvisioners = settings.provisioning?.provisioners ?? DEFAULT_SETTINGS.provisioning.provisioners
     setDefaultRuntime(settings.defaultRuntime)
     setTheme(settings.theme)
     setScrollbackLines(settings.scrollbackLines)
@@ -63,21 +53,12 @@ export function SettingsModal({ visible, settings, onSave, onClose, onPreviewThe
     setSidebarResizeReversed(settings.sidebarResizeReversed)
     setSearchAiSettings(settings.search?.ai ?? DEFAULT_SETTINGS.search.ai)
     setEditorSettings(settings.editor ?? DEFAULT_SETTINGS.editor!)
-    setProvisioners(nextProvisioners)
     setTranscription(settings.transcription ?? DEFAULT_SETTINGS.transcription ?? { provider: 'none' })
     setPickerOpen(false)
     setActiveTab('general')
-    void loadProvisionerStatuses(nextProvisioners)
-  }, [visible, settings, loadProvisionerStatuses])
+  }, [visible, settings])
 
   const handleSave = useCallback((): void => {
-    const validation = validateProvisioners(provisioners)
-    const hasErrors = Object.values(validation).some((errors) => errors.length > 0)
-    if (hasErrors) {
-      setActiveTab('provisioning')
-      return
-    }
-
     onSave({
       defaultRuntime,
       theme,
@@ -94,11 +75,10 @@ export function SettingsModal({ visible, settings, onSave, onClose, onPreviewThe
       sidebarResizeReversed,
       search: { ai: searchAiSettings },
       editor: editorSettings,
-      provisioning: { provisioners },
       transcription,
     })
     onClose()
-  }, [defaultRuntime, theme, scrollbackLines, terminalFontFamily, defaultBaseBranch, storagePath, notificationSound, notifications, shellHistoryScope, shellPromptSegments, autoGenerateMessages, showCommitAndPrButtons, sidebarResizeReversed, searchAiSettings, editorSettings, provisioners, transcription, onSave, onClose])
+  }, [defaultRuntime, theme, scrollbackLines, terminalFontFamily, defaultBaseBranch, storagePath, notificationSound, notifications, shellHistoryScope, shellPromptSegments, autoGenerateMessages, showCommitAndPrButtons, sidebarResizeReversed, searchAiSettings, editorSettings, transcription, onSave, onClose])
 
   if (!visible) return null
 
@@ -154,17 +134,6 @@ export function SettingsModal({ visible, settings, onSave, onClose, onPreviewThe
           onSearchAiSettingsChange={setSearchAiSettings}
           editorSettings={editorSettings}
           onEditorSettingsChange={setEditorSettings}
-          provisioners={provisioners}
-          provisionerStatuses={provisionerStatuses}
-          onProvisionersChange={setProvisioners}
-          onCheckProvisionerHealth={async (provisionerId?: string) => {
-            const statuses = (await window.electronAPI.invoke('provisioning:check-health', provisionerId, provisioners)) as ProvisionerStatus[]
-            setProvisionerStatuses((current) => mergeStatuses(current, statuses))
-          }}
-          onRefreshProvisionerCatalog={async (provisionerId?: string) => {
-            const catalog = (await window.electronAPI.invoke('provisioning:refresh-templates', provisionerId, provisioners)) as { provisioners: ProvisionerStatus[] }
-            setProvisionerStatuses((current) => mergeStatuses(current, catalog.provisioners))
-          }}
           transcription={transcription}
           onTranscriptionChange={setTranscription}
         />
@@ -176,10 +145,4 @@ export function SettingsModal({ visible, settings, onSave, onClose, onPreviewThe
       </div>
     </div>
   )
-}
-
-function mergeStatuses(current: ProvisionerStatus[], next: ProvisionerStatus[]): ProvisionerStatus[] {
-  const map = new Map(current.map((status) => [status.provisionerId, status]))
-  for (const status of next) map.set(status.provisionerId, status)
-  return Array.from(map.values()).sort((left, right) => left.provisionerLabel.localeCompare(right.provisionerLabel))
 }

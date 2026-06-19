@@ -50,7 +50,7 @@ fixed) or `<storageRoot>` (= `settings.storagePath`, configurable, default `<con
 **`<configHome>/config.json`** — the `ManifoldSettings` object. `SettingsStore` reads it on
 construction; a missing/corrupt file falls back to `DEFAULT_SETTINGS` (`settings-store.ts:74`).
 `resolveDefaults()` is the migration seam: it backfills `storagePath`, deep-merges
-`memory`/`search`/`editor`, reconciles built-in provisioners, and one-time-seeds
+`memory`/`search`/`editor`/`notifications`, and one-time-seeds
 `disabledPlugins` (`settings-store.ts:22`). Every `updateSettings()` rewrites the whole file
 (`:89`). `storagePath` itself is set here and consumed across the app — its `mkdirSync` on
 change lives in the IPC layer, not the store (`ipc/settings-handlers.ts:18`).
@@ -105,10 +105,10 @@ streaming sessions (`debug-log.ts:10`–`:25`). `flushSync()` drains on quit.
 the worktree (see `src/main/git/worktree-meta`), which is what makes session discovery
 possible.
 
-**`<storageRoot>/projects/<repoName>`** — locally generated/provisioned app projects.
+**`<storageRoot>/projects/<repoName>`** — locally generated app projects.
 The base is computed as `storagePath + 'projects'` in several callers
-(`ipc/project-handlers.ts:105`, `ipc/agent-handlers.ts:285`, `app/mode-switcher.ts:88`,
-`provisioning/provisioning-dispatcher.ts:128`); the leaf is a slugified repo name.
+(`ipc/project-handlers.ts:105`, `ipc/agent-handlers.ts:285`, `app/mode-switcher.ts:88`);
+the leaf is a slugified repo name.
 
 **`<storageRoot>/plugins/`** and **`<storageRoot>/plugin-storage/<id>.json`** — user-installed
 plugins (`plugin-paths.ts:20`) and per-plugin key/value JSON. `PluginStorageStore` path-checks
