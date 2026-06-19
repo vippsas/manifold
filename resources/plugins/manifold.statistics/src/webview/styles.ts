@@ -367,8 +367,9 @@ export const statisticsPanelStyles: Record<string, React.CSSProperties> = {
     fontFamily: 'var(--font-mono)',
     flexWrap: 'wrap',
   },
-  // "PRs created" tally — counts merged + open PRs, which the mutually-exclusive
-  // outcome buckets above split apart, so a merged PR never shows under "open PR".
+  // "Sessions with a PR" tally — counts sessions carrying a captured PR (merged or
+  // open), which the mutually-exclusive outcome buckets above split apart so a merged
+  // PR never shows under "open PR". Best-effort: at most one PR is captured per session.
   outcomeFooterNote: {
     fontSize: 'var(--type-ui-caption)',
     color: 'var(--text-muted)',

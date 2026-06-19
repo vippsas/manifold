@@ -219,7 +219,7 @@ function renderOutcomeFooter(counts: OutcomeCounts, prsCreated: number): React.J
         ))}
       </div>
       <div style={s.outcomeFooterNote}>
-        PRs created: {prsCreated} <span style={s.outcomeFooterNoteHint}>· sessions with a PR url (merged or open)</span>
+        Sessions with a PR: {prsCreated} <span style={s.outcomeFooterNoteHint}>· best-effort capture, max one PR per session</span>
       </div>
     </div>
   )
