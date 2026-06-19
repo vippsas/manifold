@@ -22,7 +22,12 @@ async function defaultBranch(cwd: string): Promise<string> {
   return stdout.trim()
 }
 
-async function defaultPrLookup(cwd: string, branch: string): Promise<string | null> {
+/**
+ * Find the PR (open, merged, or closed) whose head is `branch`. Shared with the
+ * verdict recorder so a PR opened after the agent's last commit is still captured
+ * when the session terminates, not only during commit-triggered polls.
+ */
+export async function lookupBranchPrUrl(cwd: string, branch: string): Promise<string | null> {
   // gh prints the PR URL on stdout when one exists, or exits non-zero / empty otherwise.
   // Use --state=all so we also catch already-merged/closed PRs that the user opened
   // from the shell — the recorder will still surface the URL on the verdict.
@@ -33,6 +38,23 @@ async function defaultPrLookup(cwd: string, branch: string): Promise<string | nu
   )
   const trimmed = stdout.trim()
   return trimmed.startsWith('http') ? trimmed : null
+}
+
+/**
+ * Find the PR for a worktree by its CURRENT branch (HEAD), not a remembered name.
+ * The gh-create-pr flow renames the branch to describe the fix (e.g.
+ * `manifold/i754` → `redesign-welcome-dialog`), so the verdict's original branch
+ * never matches the PR head — only the worktree's live branch does. Used by the
+ * verdict recorder to reconcile the PR once the session ends.
+ */
+export async function lookupWorktreePrUrl(cwd: string): Promise<string | null> {
+  try {
+    const branch = await defaultBranch(cwd)
+    if (!branch || branch === 'HEAD') return null
+    return await lookupBranchPrUrl(cwd, branch)
+  } catch {
+    return null
+  }
 }
 
 /**
@@ -53,7 +75,7 @@ export class VerdictPollForwarder {
   constructor(headShaFn?: HeadShaFn, branchFn?: BranchFn, prLookupFn?: PrLookupFn) {
     this.headShaFn = headShaFn ?? defaultHeadSha
     this.branchFn = branchFn ?? defaultBranch
-    this.prLookupFn = prLookupFn ?? defaultPrLookup
+    this.prLookupFn = prLookupFn ?? lookupBranchPrUrl
   }
 
   setRecorder(recorder: VerdictRecorder): void {
