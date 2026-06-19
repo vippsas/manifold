@@ -23,7 +23,9 @@ export interface VerdictRecorderDeps {
     filesChanged: number
   }>
   isBranchMerged: (worktreePath: string, baseBranch: string, branch: string) => Promise<boolean>
-  lookupPrUrl?: (worktreePath: string, branch: string) => Promise<string | null>
+  // Resolves the PR from the worktree's CURRENT branch — the gh-create-pr flow
+  // renames the branch, so the verdict's original branch name won't match.
+  lookupPrUrl?: (worktreePath: string) => Promise<string | null>
   summarize: (middle: string, settings: AiServiceSettings) => Promise<string>
   now?: () => Date
 }
@@ -139,9 +141,10 @@ export class VerdictRecorder {
 
     // PR detection during the session only fires on commit-triggered polls, so a
     // PR opened after the agent's last commit goes uncaptured. Reconcile once at
-    // termination — `gh pr list --state all` also catches already-merged PRs.
+    // termination via the worktree's current branch — `gh pr list --state all`
+    // also catches already-merged PRs.
     const prUrl = existing.metrics.prUrl ?? (this.deps.lookupPrUrl
-      ? (await safe(() => this.deps.lookupPrUrl!(tracked.worktreePath, existing.branch), null)) ?? undefined
+      ? (await safe(() => this.deps.lookupPrUrl!(tracked.worktreePath), null)) ?? undefined
       : undefined)
 
     const outcome = this.resolveTerminalOutcome(existing, merged, { diffLines, filesChanged }, Boolean(prUrl))

@@ -16,7 +16,7 @@ import { WorktreeManager } from '../git/worktree-manager'
 import { PtyPool } from '../agent/pty-pool'
 import { SessionManager } from '../session/session-manager'
 import { FileWatcher } from '../fs/file-watcher'
-import { lookupBranchPrUrl } from '../fs/verdict-poll-forwarder'
+import { lookupWorktreePrUrl } from '../fs/verdict-poll-forwarder'
 import { ChokidarTreeWatcher } from '../fs/tree-watcher'
 import { DiffProvider } from '../git/diff-provider'
 import { PrCreator } from '../git/pr-creator'
@@ -105,7 +105,7 @@ const verdictRecorder = new VerdictRecorder({
   getAiSettings: () => settingsStore.getSettings().transcription ?? { provider: 'none' },
   getDiffStats: (wt, base) => diffProvider.getDiffStats(wt, base),
   isBranchMerged: (wt, base, branch) => gitOps.isBranchMerged(wt, base, branch),
-  lookupPrUrl: (wt, branch) => lookupBranchPrUrl(wt, branch),
+  lookupPrUrl: (wt) => lookupWorktreePrUrl(wt),
   summarize: (middle, settings) => summarizeMiddle(middle, settings),
 })
 sessionManager.setVerdictRecorder(verdictRecorder)

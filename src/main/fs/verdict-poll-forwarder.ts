@@ -41,6 +41,23 @@ export async function lookupBranchPrUrl(cwd: string, branch: string): Promise<st
 }
 
 /**
+ * Find the PR for a worktree by its CURRENT branch (HEAD), not a remembered name.
+ * The gh-create-pr flow renames the branch to describe the fix (e.g.
+ * `manifold/i754` → `redesign-welcome-dialog`), so the verdict's original branch
+ * never matches the PR head — only the worktree's live branch does. Used by the
+ * verdict recorder to reconcile the PR once the session ends.
+ */
+export async function lookupWorktreePrUrl(cwd: string): Promise<string | null> {
+  try {
+    const branch = await defaultBranch(cwd)
+    if (!branch || branch === 'HEAD') return null
+    return await lookupBranchPrUrl(cwd, branch)
+  } catch {
+    return null
+  }
+}
+
+/**
  * Watches git poll output for the FileWatcher and forwards three derived signals
  * to the verdict recorder: a new commit on the branch (HEAD sha changed), a
  * generic "files changed" tick, and a PR URL detection (e.g. when the user runs

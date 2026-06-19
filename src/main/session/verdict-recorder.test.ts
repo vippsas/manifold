@@ -15,6 +15,7 @@ function makeRecorder(tmp: string, opts: Partial<{
   summarizer: (m: string) => Promise<string>
 }> = {}) {
   const store = new VerdictStore(path.join(tmp, 'v.json'))
+  const lookupPrUrl = vi.fn(async (_worktreePath: string) => opts.lookupPrUrl ?? null)
   const recorder = new VerdictRecorder({
     store,
     getAiSettings: () => opts.aiSettings ?? { provider: 'none' },
@@ -23,11 +24,11 @@ function makeRecorder(tmp: string, opts: Partial<{
       filesChanged: opts.filesChanged ?? 0,
     })),
     isBranchMerged: vi.fn(async () => opts.isBranchMerged ?? false),
-    lookupPrUrl: vi.fn(async () => opts.lookupPrUrl ?? null),
+    lookupPrUrl,
     summarize: opts.summarizer ?? (async (m) => `[middle omitted — ${m.length} chars]`),
     now: () => new Date('2026-05-16T00:00:00.000Z'),
   })
-  return { store, recorder }
+  return { store, recorder, lookupPrUrl }
 }
 
 describe('VerdictRecorder', () => {
@@ -115,7 +116,7 @@ describe('VerdictRecorder', () => {
   it('reconciles a PR opened after the last commit at termination', async () => {
     // The agent committed (so there is real work) but the PR was opened later,
     // outside any commit-triggered poll — only the terminal lookup catches it.
-    const { store, recorder } = makeRecorder(tmp, {
+    const { store, recorder, lookupPrUrl } = makeRecorder(tmp, {
       lookupPrUrl: 'https://github.com/o/r/pull/55',
       filesChanged: 1,
       diffLines: { added: 4, removed: 0 },
@@ -128,6 +129,9 @@ describe('VerdictRecorder', () => {
     const rec = store.getBySessionId('s1')!
     expect(rec.metrics.prUrl).toBe('https://github.com/o/r/pull/55')
     expect(rec.outcome).toBe('pr_created')
+    // The lookup must key on the worktree (resolves its CURRENT branch), not the
+    // stored original branch — the gh-create-pr flow renames the branch.
+    expect(lookupPrUrl).toHaveBeenCalledWith('/tmp/wt')
   })
 
   it('keeps merged outcome but still records a PR found at termination', async () => {
