@@ -24,6 +24,7 @@ function createInput(activeSessionId: string | null = 'session-1') {
       activeSessionId,
       dockLayout: {
         apiRef,
+        isRestoringRef: { current: false },
         onReady: vi.fn(),
         togglePanel: vi.fn(),
         closePanel: vi.fn(),

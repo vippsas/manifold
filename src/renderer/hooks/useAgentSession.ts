@@ -50,13 +50,20 @@ interface UseAgentSessionResult {
   setActiveSession: (sessionId: string | null) => void
   resumeAgent: (sessionId: string, runtimeId: string) => Promise<void>
   outputtingSessionIds: Set<string>
+  /** The session restored from this project's per-project memory on the latest
+   *  project switch (null on a cold entry with no remembered session). Lets the
+   *  dock protect a remembered agent from being overwritten by layout restore
+   *  on repo re-entry, without affecting cold-start restore (#773). */
+  rememberedActiveSessionRef: React.MutableRefObject<string | null>
 }
 
 export function useAgentSession(projectId: string | null): UseAgentSessionResult {
   const [sessions, setSessions] = useState<AgentSession[]>([])
   const [activeSessionId, setActiveSessionId] = useState<string | null>(null)
 
-  const refreshSessions = useFetchSessionsOnProjectChange(projectId, activeSessionId, setSessions, setActiveSessionId)
+  const { refreshSessions, rememberedActiveSessionRef } = useFetchSessionsOnProjectChange(
+    projectId, activeSessionId, setSessions, setActiveSessionId,
+  )
   useStatusListener(setSessions)
   useExitListener(setSessions)
   useAutoResume(activeSessionId, sessions, setSessions)
@@ -73,7 +80,12 @@ export function useAgentSession(projectId: string | null): UseAgentSessionResult
 
   const activeSession = sessions.find((s) => s.id === activeSessionId) ?? null
 
-  return { sessions, activeSessionId, activeSession, spawnAgent, killAgent, deleteAgent, setActiveSession, resumeAgent, outputtingSessionIds }
+  return { sessions, activeSessionId, activeSession, spawnAgent, killAgent, deleteAgent, setActiveSession, resumeAgent, outputtingSessionIds, rememberedActiveSessionRef }
+}
+
+interface FetchSessionsResult {
+  refreshSessions: (preferredSessionId?: string | null) => Promise<AgentSession[] | null>
+  rememberedActiveSessionRef: React.MutableRefObject<string | null>
 }
 
 function useFetchSessionsOnProjectChange(
@@ -81,11 +93,14 @@ function useFetchSessionsOnProjectChange(
   activeSessionId: string | null,
   setSessions: React.Dispatch<React.SetStateAction<AgentSession[]>>,
   setActiveSessionId: React.Dispatch<React.SetStateAction<string | null>>
-): (preferredSessionId?: string | null) => Promise<AgentSession[] | null> {
+): FetchSessionsResult {
   const requestIdRef = useRef(0)
   // Remembers the last active session per project so re-entering a repo
   // restores the agent that was selected, instead of resetting to the first.
   const lastSessionByProjectRef = useRef<Map<string, string>>(new Map())
+  // The session restored from per-project memory on the latest project switch,
+  // exposed so the dock can protect it from layout-restore overwrites (#773).
+  const rememberedActiveSessionRef = useRef<string | null>(null)
   const activeSessionIdRef = useRef(activeSessionId)
   activeSessionIdRef.current = activeSessionId
 
@@ -109,18 +124,21 @@ function useFetchSessionsOnProjectChange(
   useEffect(() => {
     if (!projectId) {
       requestIdRef.current += 1
+      rememberedActiveSessionRef.current = null
       setSessions([])
       setActiveSessionId(null)
       return
     }
 
-    void syncSessions(lastSessionByProjectRef.current.get(projectId) ?? null)
+    const remembered = lastSessionByProjectRef.current.get(projectId) ?? null
+    rememberedActiveSessionRef.current = remembered
+    void syncSessions(remembered)
 
     return () => {
       // On leaving this project, record whichever agent is active so we can
       // restore it on return. Runs before the next project's effect reads it.
-      const remembered = activeSessionIdRef.current
-      if (remembered) lastSessionByProjectRef.current.set(projectId, remembered)
+      const active = activeSessionIdRef.current
+      if (active) lastSessionByProjectRef.current.set(projectId, active)
     }
   }, [projectId, setSessions, setActiveSessionId, syncSessions])
 
@@ -135,7 +153,7 @@ function useFetchSessionsOnProjectChange(
     )
   )
 
-  return syncSessions
+  return { refreshSessions: syncSessions, rememberedActiveSessionRef }
 }
 
 function useStatusListener(

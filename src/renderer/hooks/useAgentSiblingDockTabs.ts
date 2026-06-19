@@ -7,6 +7,16 @@ import { findTopLeftWorkspaceReferencePanel } from './dock-layout/dock-layout-he
 interface Options {
   apiRef: React.MutableRefObject<DockviewApi | null>
   layoutVersion: number
+  /** Bumps only when the dock layout is fully reloaded (repo/agent switch). Used
+   *  to realign the dock to the restored active session after a reload (#773). */
+  layoutReloadVersion?: number
+  /** True while the dock layout is being restored (api.fromJSON). Restore-driven
+   *  panel activations must not re-select their session (#773). */
+  isRestoringRef?: React.MutableRefObject<boolean>
+  /** The agent restored from per-project memory on the latest repo switch (null
+   *  on a cold entry). Only this remembered agent is protected from / realigned
+   *  after layout restore, so cold-start restore is left to the dock (#773). */
+  rememberedActiveSessionRef?: React.MutableRefObject<string | null>
   sessions: AgentSession[]
   activeWorktreePath: string | null
   primarySessionId: string | null
@@ -43,6 +53,9 @@ const RUNTIME_LABELS: Record<string, string> = {
 export function useAgentSiblingDockTabs({
   apiRef,
   layoutVersion,
+  layoutReloadVersion,
+  isRestoringRef,
+  rememberedActiveSessionRef,
   sessions,
   activeWorktreePath,
   primarySessionId,
@@ -54,7 +67,17 @@ export function useAgentSiblingDockTabs({
   onSelectRef.current = onSelectSession
   const primaryRef = useRef(primarySessionId)
   primaryRef.current = primarySessionId
+  const activeSessionIdRef = useRef(activeSessionId)
+  activeSessionIdRef.current = activeSessionId
   const prevActiveSessionIdRef = useRef<string | null | undefined>(undefined)
+
+  // A repo re-entry restores a remembered agent (rememberedActiveSessionRef);
+  // the dock must keep showing exactly that agent across the layout reload.
+  // True only while the active session still is that remembered agent — once
+  // the user picks a different agent, dock activation drives selection again.
+  const isProtectedRestore = (): boolean =>
+    !!rememberedActiveSessionRef?.current &&
+    rememberedActiveSessionRef.current === activeSessionIdRef.current
 
   useEffect(() => {
     const api = apiRef.current
@@ -130,12 +153,39 @@ export function useAgentSiblingDockTabs({
     }
   }, [apiRef, disabled, layoutVersion, sessions, activeWorktreePath, primarySessionId, activeSessionId])
 
+  // After a repo re-entry reloads the dock, dockview's fromJSON re-activates
+  // whichever agent tab the saved layout marked active — which can differ from
+  // the agent useAgentSession remembered for this repo. Realign the dock to the
+  // remembered agent so the last-viewed agent is the one shown, and so the
+  // post-reload activation (and its replayed re-subscribe, below) can't leave a
+  // stale agent tab visible or re-select it (#773). Scoped to a protected
+  // restore so a cold entry keeps the dock's own restored active panel; only
+  // corrects agent-tab mismatches, leaving a restored editor/other pane alone.
+  useEffect(() => {
+    const api = apiRef.current
+    if (!api || disabled || !isProtectedRestore()) return
+    const activeId = activeSessionIdRef.current
+    if (!activeId) return
+    const active = api.activePanel
+    if (!active || (active.id !== 'agent' && !isSiblingPanelId(active.id))) return
+    const targetId = activeId === primaryRef.current ? 'agent' : siblingPanelId(activeId)
+    if (active.id === targetId) return
+    const target = api.getPanel(targetId)
+    if (target && !target.api.isActive) target.api.setActive()
+  }, [apiRef, disabled, layoutReloadVersion])
+
   useEffect(() => {
     const api = apiRef.current
     if (!api) return
     if (disabled) return
     const sub = api.onDidActivePanelChange((panel) => {
       if (!panel) return
+      // A dock layout reload (api.fromJSON) re-activates the saved active panel;
+      // selecting its session here would overwrite the agent useAgentSession
+      // remembered for this repo (#773). Skip only while restoring a protected
+      // (remembered) repo re-entry — a cold entry still lets the dock's restored
+      // active panel drive selection.
+      if (isRestoringRef?.current && isProtectedRestore()) return
       if (panel.id === 'agent') {
         const primary = primaryRef.current
         if (primary) onSelectRef.current(primary)
