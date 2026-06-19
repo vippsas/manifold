@@ -10,7 +10,9 @@ import { webviewContentStore } from './webview-content-store'
 import { createAgentControlService } from './agent-control-service'
 import { createLmService } from './lm-service'
 import { createAgentSpawnService } from './agent-spawn-service'
-import { createWorktreeOverviewService } from './worktree-overview-service'
+import { createWorktreeOverviewService, type WorktreeOverviewService } from './worktree-overview-service'
+import { summarizeWorktrees } from './dashboard-summary'
+import type { WorktreesSummary } from '../../shared/dashboard-types'
 import { getWorktreeDirty, getWorktreeLastCommitISO } from '../git/worktree-status'
 import { listMergedBranches, listWorktreeBranches, getBranchDates, deleteMergedBranch } from '../git/branch-status'
 import { readWorktreeMeta } from '../git/worktree-meta'
@@ -65,6 +67,7 @@ export function mergeConfigValue(override: unknown, manifestDefault: unknown): u
 export class PluginManager {
   private plugins: PluginDescriptor[] = []
   private readonly host: ExtensionHost
+  private readonly worktreeOverview: WorktreeOverviewService
 
   constructor(
     private readonly storagePath: string,
@@ -78,7 +81,7 @@ export class PluginManager {
     const agentControl = createAgentControlService(this.sessionManager)
     const lm = createLmService(this.sessionManager, gitOps)
     const agentSpawn = createAgentSpawnService(this.sessionManager)
-    const worktreeOverview = createWorktreeOverviewService({
+    const worktreeOverview = this.worktreeOverview = createWorktreeOverviewService({
       listProjects: () => projectRegistry.listProjects(),
       listSessions: () => this.sessionManager.listSessions(),
       listWorktrees: (p) => worktreeManager.listWorktrees(p),
@@ -98,6 +101,15 @@ export class PluginManager {
     this.host.setEnabledResolver((id) => this.isEnabled(id))
     this.host.setOriginResolver((id) => this.plugins.find((p) => p.id === id)?.origin)
     this.host.setTranscriptionResolver(() => this.settings.getSettings().transcription)
+  }
+
+  /** Headline numbers for the global Worktrees dashboard card. */
+  async getWorktreesSummary(): Promise<WorktreesSummary> {
+    const [entries, cleanable] = await Promise.all([
+      this.worktreeOverview.list(),
+      this.worktreeOverview.listMergedOrphanBranches(),
+    ])
+    return summarizeWorktrees(entries, cleanable)
   }
 
   isEnabled(pluginId: string): boolean {
