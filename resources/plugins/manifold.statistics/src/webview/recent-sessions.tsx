@@ -4,11 +4,11 @@ import { statisticsPanelStyles as s, outcomeColors, outcomeLabels, outcomeChipSt
 
 const PROMPT_PREVIEW_CHARS = 96
 
-/** The "Recent sessions" list — one row per captured session across all repos. */
-export function RecentSessions({ recent, openExternal }: { recent: VerdictRecord[]; openExternal: (url: string) => void }): React.JSX.Element {
+/** The "Recent sessions" list — one row per captured session (all repos, or the selected one). */
+export function RecentSessions({ recent, openExternal, scopeName }: { recent: VerdictRecord[]; openExternal: (url: string) => void; scopeName?: string | null }): React.JSX.Element {
   return (
     <section>
-      <div style={s.sectionLabel}>{`Recent sessions · ${recent.length}`}</div>
+      <div style={s.sectionLabel}>{`Recent sessions · ${recent.length}${scopeName ? ` · ${scopeName}` : ''}`}</div>
       <div style={{ ...s.recentList, marginTop: 'var(--space-xs)' }}>
         {recent.map((rec) => {
           const accentColor = outcomeColors[rec.outcome] ?? outcomeColors.unknown

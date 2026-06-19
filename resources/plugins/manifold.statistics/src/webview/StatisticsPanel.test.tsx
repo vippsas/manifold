@@ -53,12 +53,36 @@ describe('StatisticsPanel', () => {
       record({ sessionId: 'b', projectId: 'alpha', outcome: 'discarded' }),
       record({ sessionId: 'c', projectId: 'beta', outcome: 'merged' }),
     ])
-    expect(screen.getByText('Per-repo')).toBeTruthy()
+    expect(screen.getByText(/^Per-repo/)).toBeTruthy()
     expect(screen.getByText('Repo alpha')).toBeTruthy()
     expect(screen.getByText('Repo beta')).toBeTruthy()
     // alpha has 2 sessions, beta 1 → both labels present
     expect(screen.getByText('2 sessions')).toBeTruthy()
     expect(screen.getByText('1 session')).toBeTruthy()
+  })
+
+  it('clicking a per-repo card filters the sections below to that repo, and clears on re-click', () => {
+    render(<StatisticsPanel />)
+    init([
+      record({ sessionId: 'a', projectId: 'alpha', runtime: 'claude', outcome: 'merged', taskPrompt: { kind: 'full', text: 'alpha work' } }),
+      record({ sessionId: 'b', projectId: 'beta', runtime: 'codex', outcome: 'merged', taskPrompt: { kind: 'full', text: 'beta work' } }),
+    ])
+    // Unfiltered: both sessions in the recent list.
+    expect(screen.getByText('Recent sessions · 2')).toBeTruthy()
+    expect(screen.getByText('alpha work')).toBeTruthy()
+    expect(screen.getByText('beta work')).toBeTruthy()
+
+    // Click the "Repo alpha" card → recent + per-runtime scope to alpha only.
+    fireEvent.click(screen.getByRole('button', { name: /Repo alpha/i }))
+    expect(screen.getByText('Recent sessions · 1 · Repo alpha')).toBeTruthy()
+    expect(screen.getByText('alpha work')).toBeTruthy()
+    expect(screen.queryByText('beta work')).toBeNull()
+    expect(screen.getByText('Per-runtime quality · Repo alpha')).toBeTruthy()
+
+    // Click it again → filter clears, both sessions return.
+    fireEvent.click(screen.getByRole('button', { name: /Repo alpha/i }))
+    expect(screen.getByText('Recent sessions · 2')).toBeTruthy()
+    expect(screen.getByText('beta work')).toBeTruthy()
   })
 
   it('shows error message when init carries an error', () => {
@@ -76,10 +100,11 @@ describe('StatisticsPanel', () => {
     post.mockRestore()
   })
 
-  it('has no Reset button in the all-projects view (refresh only)', () => {
+  it('has a Refresh control but no Reset button in the all-projects view', () => {
     render(<StatisticsPanel />)
     init([record({ sessionId: 'm', outcome: 'merged' })])
-    expect(screen.getAllByRole('button').map((b) => b.textContent)).toEqual(['Refresh'])
+    expect(screen.getByRole('button', { name: /refresh/i })).toBeTruthy()
+    expect(screen.queryByRole('button', { name: /^reset$/i })).toBeNull()
   })
 
   it('renders the outcome badge as one clickable PR link when prUrl present', () => {

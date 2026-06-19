@@ -12,6 +12,9 @@ const OUTCOME_ORDER: VerdictOutcome[] = ['merged', 'pr_created', 'committed_only
 
 export function StatisticsPanel(): React.JSX.Element {
   const { groups, error, loaded, refreshing, refresh, openExternal } = useStatisticsBridge()
+  // Clicking a per-repo card scopes the sections below it to that repo (null = all repos).
+  const [selectedProjectId, setSelectedProjectId] = React.useState<string | null>(null)
+  const toggleSelected = (projectId: string): void => setSelectedProjectId((cur) => (cur === projectId ? null : projectId))
 
   return (
     <div style={s.wrapper}>
@@ -31,7 +34,7 @@ export function StatisticsPanel(): React.JSX.Element {
 
       <div style={s.content}>
         {error && <div style={s.errorBox}>Failed to load statistics: {error}</div>}
-        {renderBody(loaded, groups, error, openExternal)}
+        {renderBody(loaded, groups, error, openExternal, selectedProjectId, toggleSelected)}
       </div>
     </div>
   )
@@ -42,6 +45,8 @@ function renderBody(
   groups: ProjectVerdicts[],
   error: string | null,
   openExternal: (url: string) => void,
+  selectedProjectId: string | null,
+  onSelectProject: (projectId: string) => void,
 ): React.JSX.Element | null {
   if (!loaded) return null
   const records = groups.flatMap((g) => g.records)
@@ -50,24 +55,27 @@ function renderBody(
   }
   if (records.length === 0) return null
 
-  const runtimeStats = computeRuntimeStats(records)
   const projectStats = computeProjectStats(groups)
-  const outcomeCounts = computeOutcomeCounts(records)
-  const recent = sortRecentFirst(records)
+  // The lists below the per-repo grid scope to the selected repo; the KPI hero stays global.
+  const selected = selectedProjectId ? groups.find((g) => g.projectId === selectedProjectId) ?? null : null
+  const scoped = selected ? selected.records : records
+  const scopeName = selected?.projectName ?? null
+
+  const globalStats = computeRuntimeStats(records)
   const totals = records.length
-  const totalMerged = runtimeStats.reduce((sum, r) => sum + r.merged, 0)
-  const totalDiscarded = runtimeStats.reduce((sum, r) => sum + r.discarded, 0)
+  const totalMerged = globalStats.reduce((sum, r) => sum + r.merged, 0)
+  const totalDiscarded = globalStats.reduce((sum, r) => sum + r.discarded, 0)
   const mergedPct = totals === 0 ? 0 : Math.round((totalMerged / totals) * 100)
   const discardedPct = totals === 0 ? 0 : Math.round((totalDiscarded / totals) * 100)
-  const avgEdits = totalMerged === 0 ? 0 : runtimeStats.reduce((sum, r) => sum + r.avgHumanEditsForMerged * r.merged, 0) / totalMerged
+  const avgEdits = totalMerged === 0 ? 0 : globalStats.reduce((sum, r) => sum + r.avgHumanEditsForMerged * r.merged, 0) / totalMerged
 
   return (
     <>
       {renderKpiRow(totals, projectStats.length, mergedPct, discardedPct, avgEdits)}
-      {renderProjectBreakdown(projectStats)}
-      {renderRuntimeGrid(runtimeStats)}
-      <RecentSessions recent={recent} openExternal={openExternal} />
-      {renderOutcomeFooter(outcomeCounts)}
+      {renderProjectBreakdown(projectStats, selectedProjectId, onSelectProject)}
+      {renderRuntimeGrid(computeRuntimeStats(scoped), scopeName)}
+      <RecentSessions recent={sortRecentFirst(scoped)} openExternal={openExternal} scopeName={scopeName} />
+      {renderOutcomeFooter(computeOutcomeCounts(scoped))}
     </>
   )
 }
@@ -106,32 +114,45 @@ function Kpi({ label, value, sub, tone }: { label: string; value: string; sub: s
   )
 }
 
-function renderProjectBreakdown(stats: ProjectStat[]): React.JSX.Element {
+function renderProjectBreakdown(
+  stats: ProjectStat[],
+  selectedProjectId: string | null,
+  onSelectProject: (projectId: string) => void,
+): React.JSX.Element {
   return (
     <section>
-      <div style={s.sectionLabel}>Per-repo</div>
+      <div style={s.sectionLabel}>Per-repo{selectedProjectId ? ' · click again to clear filter' : ' · click to filter'}</div>
       <div style={{ ...s.runtimeGrid, marginTop: 'var(--space-xs)' }}>
-        {stats.map((stat) => (
-          <article key={stat.projectId} style={s.runtimeCard}>
-            <div style={s.runtimeHeader}>
-              <span style={s.runtimeName}>{stat.projectName}</span>
-              <span style={s.runtimeTotal}>{stat.total} session{stat.total === 1 ? '' : 's'}</span>
-            </div>
-            <div style={s.runtimePrimaryMetric}>
-              <span style={s.runtimePrimaryValue}>{stat.mergedPct}%</span>
-              <span style={s.runtimePrimaryLabel}>merged</span>
-            </div>
-          </article>
-        ))}
+        {stats.map((stat) => {
+          const isSelected = stat.projectId === selectedProjectId
+          return (
+            <button
+              key={stat.projectId}
+              type="button"
+              onClick={() => onSelectProject(stat.projectId)}
+              aria-pressed={isSelected}
+              style={{ ...s.runtimeCard, ...s.repoCardButton, ...(isSelected ? s.repoCardSelected : null) }}
+            >
+              <div style={s.runtimeHeader}>
+                <span style={s.runtimeName}>{stat.projectName}</span>
+                <span style={s.runtimeTotal}>{stat.total} session{stat.total === 1 ? '' : 's'}</span>
+              </div>
+              <div style={s.runtimePrimaryMetric}>
+                <span style={s.runtimePrimaryValue}>{stat.mergedPct}%</span>
+                <span style={s.runtimePrimaryLabel}>merged</span>
+              </div>
+            </button>
+          )
+        })}
       </div>
     </section>
   )
 }
 
-function renderRuntimeGrid(stats: RuntimeStats[]): React.JSX.Element {
+function renderRuntimeGrid(stats: RuntimeStats[], scopeName: string | null): React.JSX.Element {
   return (
     <section>
-      <div style={s.sectionLabel}>Per-runtime quality</div>
+      <div style={s.sectionLabel}>Per-runtime quality{scopeName ? ` · ${scopeName}` : ''}</div>
       <div style={{ ...s.runtimeGrid, marginTop: 'var(--space-xs)' }}>
         {stats.map((stat) => (
           <article key={stat.runtime} style={s.runtimeCard}>
