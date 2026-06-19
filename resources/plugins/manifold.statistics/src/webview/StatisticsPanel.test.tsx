@@ -149,6 +149,28 @@ describe('StatisticsPanel', () => {
     post.mockRestore()
   })
 
+  it('counts merged + open PRs in "Sessions with a PR", separate from the open-PR bucket', () => {
+    render(<StatisticsPanel />)
+    init([
+      // A merged PR — lands in the "merged" bucket, NOT "open PR", but still a PR created.
+      record({
+        sessionId: 'a', outcome: 'merged',
+        metrics: { agentCommits: 1, humanEdits: 0, diffLines: { added: 0, removed: 0 }, filesChanged: 0, prUrl: 'https://x/pull/1' },
+      }),
+      // A still-open PR.
+      record({
+        sessionId: 'b', outcome: 'pr_created',
+        metrics: { agentCommits: 1, humanEdits: 0, diffLines: { added: 0, removed: 0 }, filesChanged: 0, prUrl: 'https://x/pull/2' },
+      }),
+      // No PR at all.
+      record({ sessionId: 'c', outcome: 'discarded' }),
+    ])
+    // The funnel bucket only counts the un-merged PR…
+    expect(screen.getByText('1 open PR')).toBeTruthy()
+    // …while "Sessions with a PR" tallies both (each session captures at most one).
+    expect(screen.getByText(/Sessions with a PR: 2/)).toBeTruthy()
+  })
+
   it('lists every session (no 50 cap) and shows the count in the header', () => {
     render(<StatisticsPanel />)
     const many = Array.from({ length: 60 }, (_, i) =>

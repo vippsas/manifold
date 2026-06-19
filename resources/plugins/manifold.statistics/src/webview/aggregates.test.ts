@@ -5,6 +5,7 @@ import {
   computeOutcomeCounts,
   sortRecentFirst,
   computeProjectStats,
+  countSessionsWithPr,
 } from './aggregates'
 
 function r(overrides: Partial<VerdictRecord>): VerdictRecord {
@@ -111,6 +112,25 @@ describe('computeProjectStats', () => {
 
   it('returns empty array for no groups', () => {
     expect(computeProjectStats([])).toEqual([])
+  })
+})
+
+describe('countSessionsWithPr', () => {
+  const withPr = (url: string): VerdictRecord['metrics'] =>
+    ({ agentCommits: 1, humanEdits: 0, diffLines: { added: 0, removed: 0 }, filesChanged: 0, prUrl: url })
+
+  it('counts sessions carrying a prUrl regardless of outcome (merged PRs included)', () => {
+    const records = [
+      r({ outcome: 'merged', metrics: withPr('https://x/pull/1') }),
+      r({ outcome: 'pr_created', metrics: withPr('https://x/pull/2') }),
+      r({ outcome: 'merged' }), // merged via fast-forward, no PR url
+      r({ outcome: 'discarded' }),
+    ]
+    expect(countSessionsWithPr(records)).toBe(2)
+  })
+
+  it('returns 0 for empty input', () => {
+    expect(countSessionsWithPr([])).toBe(0)
   })
 })
 
