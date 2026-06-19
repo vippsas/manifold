@@ -28,6 +28,8 @@ vi.mock('@xterm/xterm', () => ({
     focus = vi.fn()
     dispose = vi.fn()
     clearTextureAtlas = vi.fn()
+    scrollToLine = vi.fn()
+    buffer = { active: { viewportY: 0, baseY: 0 } }
     attachCustomKeyEventHandler = vi.fn()
     onDataHandler: ((data: string) => void) | null = null
 

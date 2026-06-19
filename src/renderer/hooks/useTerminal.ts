@@ -77,7 +77,7 @@ export function useTerminal({ sessionId, scrollbackLines, terminalFontFamily, xt
     if (!cleaned) {
       terminal.options.fontFamily = DEFAULT_FONT_STACK
       terminal.clearTextureAtlas()
-      fitAddonRef.current?.fit()
+      fitPreservingScroll(fitAddonRef.current, terminal)
       return
     }
     // First apply the system font immediately, then upgrade to web font
@@ -86,7 +86,7 @@ export function useTerminal({ sessionId, scrollbackLines, terminalFontFamily, xt
       if (terminalRef.current === terminal) {
         terminal.options.fontFamily = resolveFontFamily(terminalFontFamily, loaded)
         terminal.clearTextureAtlas()
-        fitAddonRef.current?.fit()
+        fitPreservingScroll(fitAddonRef.current, terminal)
       }
     })
   }, [terminalFontFamily])
@@ -146,7 +146,7 @@ export function useTerminal({ sessionId, scrollbackLines, terminalFontFamily, xt
         if (!disposed && loaded) {
           terminal.options.fontFamily = resolveFontFamily(terminalFontFamily, true)
           terminal.clearTextureAtlas()
-          fitAddonRef.current?.fit()
+          fitPreservingScroll(fitAddonRef.current, terminal)
         }
       })
     }
@@ -274,13 +274,34 @@ export function useTerminal({ sessionId, scrollbackLines, terminalFontFamily, xt
   }
 }
 
+/**
+ * Re-fit the terminal to its container while keeping the user's place in the
+ * scrollback. xterm's reflow only anchors the bottom, so a user scrolled up
+ * gets snapped (typically to the top, issue #774) whenever the terminal is
+ * re-fitted — on a pane resize or a font change. Capture the viewport's offset
+ * from the bottom before the fit and, when scrolled up, restore it afterward.
+ * A bottom-pinned viewport (offset 0) and the alternate buffer (baseY 0) are
+ * left untouched.
+ */
+function fitPreservingScroll(fitAddon: FitAddon | null, terminal: Terminal): void {
+  const before = terminal.buffer.active
+  const offsetFromBottom = before.baseY - before.viewportY
+
+  fitAddon?.fit()
+
+  if (offsetFromBottom > 0) {
+    const target = terminal.buffer.active.baseY - offsetFromBottom
+    terminal.scrollToLine(Math.max(0, target))
+  }
+}
+
 function fitAndResize(
   fitAddon: FitAddon | null,
   terminal: Terminal,
   sessionId: string | null
 ): void {
   try {
-    fitAddon?.fit()
+    fitPreservingScroll(fitAddon, terminal)
     if (sessionId) {
       void window.electronAPI.invoke('agent:resize', sessionId, terminal.cols, terminal.rows)
     }
