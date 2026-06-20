@@ -1,7 +1,14 @@
 import * as fs from 'node:fs/promises'
+import * as fsSync from 'node:fs'
 import * as path from 'node:path'
 import * as os from 'node:os'
 import type { TokenUsage } from '../../shared/verdict-types'
+
+interface TranscriptLocator {
+  claudeProjectsDir: string
+  worktreePath: string
+  sessionId: string
+}
 
 export interface SessionUsage {
   tokenUsage: TokenUsage
@@ -19,12 +26,8 @@ export function encodeClaudeProjectDir(absPath: string): string {
 }
 
 /** Read per-session token usage + turn count from Claude's on-disk JSONL transcript. */
-export async function readClaudeTranscriptUsage(opts: {
-  claudeProjectsDir: string
-  worktreePath: string
-  sessionId: string
-}): Promise<SessionUsage | null> {
-  const file = await locateTranscript(opts)
+export async function readClaudeTranscriptUsage(opts: TranscriptLocator): Promise<SessionUsage | null> {
+  const file = await locateClaudeTranscript(opts)
   if (!file) return null
   let raw: string
   try {
@@ -35,11 +38,22 @@ export async function readClaudeTranscriptUsage(opts: {
   return parseTranscriptUsage(raw)
 }
 
-async function locateTranscript(opts: {
-  claudeProjectsDir: string
-  worktreePath: string
-  sessionId: string
-}): Promise<string | null> {
+/**
+ * Synchronous variant for the app-quit teardown path, where async work after the
+ * first await is not guaranteed to run before the process exits.
+ */
+export function readClaudeTranscriptUsageSync(opts: TranscriptLocator): SessionUsage | null {
+  const file = locateClaudeTranscriptSync(opts)
+  if (!file) return null
+  try {
+    return parseTranscriptUsage(fsSync.readFileSync(file, 'utf8'))
+  } catch {
+    return null
+  }
+}
+
+/** Resolve the on-disk transcript path for a session id, or null if none exists. */
+export async function locateClaudeTranscript(opts: TranscriptLocator): Promise<string | null> {
   const fileName = `${opts.sessionId}.jsonl`
   const direct = path.join(opts.claudeProjectsDir, encodeClaudeProjectDir(opts.worktreePath), fileName)
   if (await exists(direct)) return direct
@@ -53,6 +67,23 @@ async function locateTranscript(opts: {
   for (const entry of entries) {
     const candidate = path.join(opts.claudeProjectsDir, entry, fileName)
     if (await exists(candidate)) return candidate
+  }
+  return null
+}
+
+function locateClaudeTranscriptSync(opts: TranscriptLocator): string | null {
+  const fileName = `${opts.sessionId}.jsonl`
+  const direct = path.join(opts.claudeProjectsDir, encodeClaudeProjectDir(opts.worktreePath), fileName)
+  if (fsSync.existsSync(direct)) return direct
+  let entries: string[]
+  try {
+    entries = fsSync.readdirSync(opts.claudeProjectsDir)
+  } catch {
+    return null
+  }
+  for (const entry of entries) {
+    const candidate = path.join(opts.claudeProjectsDir, entry, fileName)
+    if (fsSync.existsSync(candidate)) return candidate
   }
   return null
 }

@@ -2,7 +2,7 @@ import { describe, it, expect, beforeEach, afterEach } from 'vitest'
 import * as fs from 'node:fs/promises'
 import * as os from 'node:os'
 import * as path from 'node:path'
-import { encodeClaudeProjectDir, readClaudeTranscriptUsage } from './transcript-usage-reader'
+import { encodeClaudeProjectDir, readClaudeTranscriptUsage, readClaudeTranscriptUsageSync, locateClaudeTranscript } from './transcript-usage-reader'
 
 function line(obj: unknown): string { return JSON.stringify(obj) }
 
@@ -70,5 +70,27 @@ describe('readClaudeTranscriptUsage', () => {
     await fs.writeFile(path.join(projDir, 'sid-3.jsonl'), assistant('a1', { input: 5, output: 1 }) + '\n')
     const r = await readClaudeTranscriptUsage({ claudeProjectsDir: dir, worktreePath: wt, sessionId: 'sid-3' })
     expect(r?.tokenUsage.inputTokens).toBe(5)
+  })
+
+  it('readClaudeTranscriptUsageSync returns the same usage synchronously', async () => {
+    const wt = '/Users/sv/wt/sync'
+    await writeTranscript(wt, 'sid-sync', [humanTurn('hi'), assistant('a1', { input: 42, output: 8 })])
+    const r = readClaudeTranscriptUsageSync({ claudeProjectsDir: dir, worktreePath: wt, sessionId: 'sid-sync' })
+    expect(r).toEqual({
+      tokenUsage: { inputTokens: 42, outputTokens: 8, cacheReadTokens: 0, cacheCreationTokens: 0 },
+      turns: 1,
+    })
+  })
+
+  it('readClaudeTranscriptUsageSync returns null when no transcript exists', () => {
+    const r = readClaudeTranscriptUsageSync({ claudeProjectsDir: dir, worktreePath: '/none', sessionId: 'missing' })
+    expect(r).toBeNull()
+  })
+
+  it('locateClaudeTranscript returns the transcript path when present', async () => {
+    const wt = '/Users/sv/wt/loc'
+    await writeTranscript(wt, 'sid-loc', [humanTurn('hi')])
+    const found = await locateClaudeTranscript({ claudeProjectsDir: dir, worktreePath: wt, sessionId: 'sid-loc' })
+    expect(found).toBe(path.join(dir, encodeClaudeProjectDir(wt), 'sid-loc.jsonl'))
   })
 })
