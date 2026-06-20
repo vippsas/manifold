@@ -210,6 +210,25 @@ describe('SessionCreator', () => {
     )
   })
 
+  it('passes --session-id matching the session id for interactive Claude', async () => {
+    vi.mocked(gitExec).mockResolvedValueOnce('main\n')
+    const { creator, ptyPool } = createInteractiveClaude()
+
+    const session = await creator.create({
+      projectId: 'proj-1',
+      runtimeId: 'claude',
+      prompt: 'hi',
+      branchName: 'main',
+      noWorktree: true,
+      stayOnBranch: true,
+    })
+
+    const spawnArgs = vi.mocked(ptyPool.spawn).mock.calls[0][1] as string[]
+    const idx = spawnArgs.indexOf('--session-id')
+    expect(idx).toBeGreaterThan(-1)
+    expect(spawnArgs[idx + 1]).toBe(session.id)
+  })
+
   it('wires PTY listeners with no await gap so a fast-exiting runtime is not stranded (#496)', async () => {
     // Model the real pool/wirer contract: spawn registers a live pty id, and
     // wiring a pty that is no longer live throws 'PTY not found'.

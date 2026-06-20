@@ -33,6 +33,11 @@ export interface RuntimeStats {
   mergedPct: number
   discardedPct: number
   avgHumanEditsForMerged: number
+  inputTokens: number
+  outputTokens: number
+  cacheReadTokens: number
+  cacheCreationTokens: number
+  turns: number
 }
 
 export type OutcomeCounts = Record<VerdictOutcome, number>
@@ -51,6 +56,15 @@ export function computeRuntimeStats(records: VerdictRecord[]): RuntimeStats[] {
     const merged = bucket.filter((r) => r.outcome === 'merged')
     const discarded = bucket.filter((r) => r.outcome === 'discarded').length
     const editsSum = merged.reduce((sum, r) => sum + r.metrics.humanEdits, 0)
+    const tokenSum = bucket.reduce((acc, r) => {
+      const u = r.metrics.tokenUsage
+      acc.inputTokens += u?.inputTokens ?? 0
+      acc.outputTokens += u?.outputTokens ?? 0
+      acc.cacheReadTokens += u?.cacheReadTokens ?? 0
+      acc.cacheCreationTokens += u?.cacheCreationTokens ?? 0
+      acc.turns += r.metrics.turns ?? 0
+      return acc
+    }, { inputTokens: 0, outputTokens: 0, cacheReadTokens: 0, cacheCreationTokens: 0, turns: 0 })
     stats.push({
       runtime,
       total,
@@ -59,6 +73,7 @@ export function computeRuntimeStats(records: VerdictRecord[]): RuntimeStats[] {
       mergedPct: total === 0 ? 0 : Math.round((merged.length / total) * 100),
       discardedPct: total === 0 ? 0 : Math.round((discarded / total) * 100),
       avgHumanEditsForMerged: merged.length === 0 ? 0 : editsSum / merged.length,
+      ...tokenSum,
     })
   }
 

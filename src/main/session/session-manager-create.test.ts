@@ -104,7 +104,7 @@ describe('SessionManager — create / input / queries', () => {
       expect(worktreeManager.createWorktree).toHaveBeenCalledWith('/repo', 'main', 'test', undefined, 'do something')
       expect(ptyPool.spawn).toHaveBeenCalledWith(
         'claude',
-        ['--allow-dangerously-skip-permissions', '--settings', '{"theme":"dark-ansi"}'],
+        ['--allow-dangerously-skip-permissions', '--session-id', session.id, '--settings', '{"theme":"dark-ansi"}'],
         { cwd: '/repo/.manifold/worktrees/manifold-oslo', env: undefined },
       )
       expect(ptyPool.onData).toHaveBeenCalledWith('pty-1', expect.any(Function))
@@ -199,7 +199,7 @@ describe('SessionManager — create / input / queries', () => {
         expect(ptyPool.spawn).toHaveBeenCalledTimes(1)
         expect(ptyPool.spawn).toHaveBeenCalledWith(
           'claude',
-          ['--allow-dangerously-skip-permissions', '--settings', '{"theme":"dark-ansi"}'],
+          ['--allow-dangerously-skip-permissions', '--session-id', 'session-uuid-1', '--settings', '{"theme":"dark-ansi"}'],
           expect.anything(),
         )
       })

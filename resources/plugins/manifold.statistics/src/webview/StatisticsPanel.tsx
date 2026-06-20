@@ -6,9 +6,15 @@ import {
   type RuntimeStats, type OutcomeCounts, type ProjectStat,
 } from './aggregates'
 import { RecentSessions } from './recent-sessions'
+import { compactCount } from './format'
 import { statisticsPanelStyles as s, outcomeColors, outcomeLabels } from './styles'
 
 const OUTCOME_ORDER: VerdictOutcome[] = ['merged', 'pr_created', 'committed_only', 'discarded', 'unknown']
+
+function formatTokens(stat: RuntimeStats): string {
+  if (stat.inputTokens === 0 && stat.outputTokens === 0 && stat.turns === 0) return 'tokens —'
+  return `${compactCount(stat.inputTokens)} in · ${compactCount(stat.outputTokens)} out · ${stat.turns} turn${stat.turns === 1 ? '' : 's'}`
+}
 
 export function StatisticsPanel(): React.JSX.Element {
   const { groups, error, loaded, refreshing, refresh, openExternal, reset } = useStatisticsBridge()
@@ -183,6 +189,7 @@ function renderRuntimeGrid(stats: RuntimeStats[], scopeName: string | null): Rea
             <div style={s.runtimeFootnote}>
               {stat.discarded} discarded · {stat.avgHumanEditsForMerged.toFixed(1)} avg edits
             </div>
+            <div style={s.runtimeFootnote}>{formatTokens(stat)}</div>
           </article>
         ))}
       </div>

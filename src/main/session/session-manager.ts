@@ -17,6 +17,8 @@ import type { BrowserWindow } from 'electron'
 import type { GitOperationsManager } from '../git/git-operations'
 import type { InternalSession } from './session-types'
 import { SessionStreamWirer } from './session-stream-wirer'
+import { SessionUsageAccumulator } from './session-usage-accumulator'
+import type { SessionUsage } from './transcript-usage-reader'
 import { SessionDiscovery } from './session-discovery'
 import { ShellSessionController } from './shell-session-controller'
 import { SessionKiller } from './session-killer'
@@ -44,6 +46,7 @@ export class SessionManager {
   private lifecycle: SessionLifecycle
   private verdictRecorder: VerdictRecorder | null = null
   private dismissedAgents: Pick<DismissedAgentsStore, 'has' | 'delete'> | null = null
+  private readonly usageAccumulator = new SessionUsageAccumulator()
 
   constructor(
     private worktreeManager: WorktreeManager,
@@ -61,6 +64,7 @@ export class SessionManager {
       persistSessionMeta,
       (session) => this.devServer.startDevServer(session),
       (session, commands) => this.cacheSlashCommands(session.projectId, commands),
+      (session, usage) => this.usageAccumulator.recordTurn(session.id, usage),
     )
     this.devServer = new DevServerManager(
       this.ptyPool,
@@ -244,6 +248,9 @@ export class SessionManager {
   }
 
   getInternalSession(sessionId: string): InternalSession | undefined { return this.sessions.get(sessionId) }
+
+  /** Drain a session's accumulated chat-mode token usage (null when none was recorded). */
+  takeLiveUsage(sessionId: string): SessionUsage | null { return this.usageAccumulator.take(sessionId) }
 
   getPtyPool(): PtyPool { return this.ptyPool }
 

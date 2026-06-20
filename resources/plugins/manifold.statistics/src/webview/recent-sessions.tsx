@@ -1,5 +1,6 @@
 import React from 'react'
 import type { TaskPrompt, VerdictMetrics, VerdictRecord, VerdictOutcome } from 'manifold'
+import { compactCount } from './format'
 import { statisticsPanelStyles as s, outcomeColors, outcomeLabels, outcomeChipStyle } from './styles'
 
 const PROMPT_PREVIEW_CHARS = 96
@@ -56,9 +57,10 @@ function OutcomeBadge({ outcome, prUrl, onOpen }: { outcome: VerdictOutcome; prU
 }
 
 function MetricStrip({ metrics }: { metrics: VerdictMetrics }): React.JSX.Element {
-  const { agentCommits, humanEdits, filesChanged, diffLines } = metrics
+  const { agentCommits, humanEdits, filesChanged, diffLines, tokenUsage, turns } = metrics
   const hasDiff = diffLines.added > 0 || diffLines.removed > 0
-  const hasAnything = agentCommits > 0 || humanEdits > 0 || filesChanged > 0 || hasDiff
+  const hasTokens = (tokenUsage && (tokenUsage.inputTokens > 0 || tokenUsage.outputTokens > 0)) || (turns ?? 0) > 0
+  const hasAnything = agentCommits > 0 || humanEdits > 0 || filesChanged > 0 || hasDiff || hasTokens
 
   if (!hasAnything) {
     return <div style={s.metricStripEmpty} aria-label="no activity captured">no activity</div>
@@ -75,6 +77,9 @@ function MetricStrip({ metrics }: { metrics: VerdictMetrics }): React.JSX.Elemen
           <span style={s.metricChipRemoved}>−{diffLines.removed}</span>
         </span>
       )}
+      {tokenUsage && tokenUsage.inputTokens > 0 && <Chip label="in" value={compactCount(tokenUsage.inputTokens)} ariaLabel={`${tokenUsage.inputTokens} input tokens`} />}
+      {tokenUsage && tokenUsage.outputTokens > 0 && <Chip label="out" value={compactCount(tokenUsage.outputTokens)} ariaLabel={`${tokenUsage.outputTokens} output tokens`} />}
+      {(turns ?? 0) > 0 && <Chip label={turns === 1 ? 'turn' : 'turns'} value={String(turns)} ariaLabel={`${turns} turns`} />}
     </div>
   )
 }

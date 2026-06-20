@@ -3,7 +3,7 @@ import * as fs from 'node:fs'
 import * as path from 'node:path'
 import * as os from 'node:os'
 import { VerdictStore } from '../store/verdict-store'
-import { VerdictRecorder } from './verdict-recorder'
+import { VerdictRecorder, type VerdictRecorderDeps } from './verdict-recorder'
 import type { AiServiceSettings } from '../../shared/plugins/api-types'
 
 function makeRecorder(tmp: string, opts: Partial<{
@@ -13,6 +13,7 @@ function makeRecorder(tmp: string, opts: Partial<{
   lookupPrUrl: string | null
   aiSettings: AiServiceSettings
   summarizer: (m: string) => Promise<string>
+  resolveSessionUsage: VerdictRecorderDeps['resolveSessionUsage']
 }> = {}) {
   const store = new VerdictStore(path.join(tmp, 'v.json'))
   const lookupPrUrl = vi.fn(async (_worktreePath: string) => opts.lookupPrUrl ?? null)
@@ -26,6 +27,7 @@ function makeRecorder(tmp: string, opts: Partial<{
     isBranchMerged: vi.fn(async () => opts.isBranchMerged ?? false),
     lookupPrUrl,
     summarize: opts.summarizer ?? (async (m) => `[middle omitted — ${m.length} chars]`),
+    resolveSessionUsage: opts.resolveSessionUsage,
     now: () => new Date('2026-05-16T00:00:00.000Z'),
   })
   return { store, recorder, lookupPrUrl }
@@ -294,5 +296,34 @@ describe('VerdictRecorder per-event hooks', () => {
     expect(rec.metrics.humanEdits).toBe(1)
     expect(rec.metrics.prUrl).toBe('https://example/2')
     expect(rec.outcome).toBe('pr_created')
+  })
+
+  it('writes tokenUsage + turns from resolveSessionUsage at termination', async () => {
+    const resolveSessionUsage = vi.fn(async () => ({
+      tokenUsage: { inputTokens: 1000, outputTokens: 200, cacheReadTokens: 50, cacheCreationTokens: 10 },
+      turns: 4,
+    }))
+    const { store, recorder } = makeRecorder(tmp, { resolveSessionUsage })
+    recorder.onSessionCreated({
+      sessionId: 's1', projectId: 'p1', branch: 'manifold/foo',
+      runtime: 'claude', taskPrompt: 't', worktreePath: '/tmp/wt', baseBranch: 'main',
+    })
+    await recorder.onSessionTerminated('s1')
+    expect(resolveSessionUsage).toHaveBeenCalledWith('s1', '/tmp/wt', 'claude')
+    const rec = store.getBySessionId('s1')!
+    expect(rec.metrics.tokenUsage).toEqual({ inputTokens: 1000, outputTokens: 200, cacheReadTokens: 50, cacheCreationTokens: 10 })
+    expect(rec.metrics.turns).toBe(4)
+  })
+
+  it('leaves tokenUsage/turns undefined when the resolver returns null', async () => {
+    const { store, recorder } = makeRecorder(tmp, { resolveSessionUsage: async () => null })
+    recorder.onSessionCreated({
+      sessionId: 's2', projectId: 'p1', branch: 'manifold/foo',
+      runtime: 'codex', taskPrompt: 't', worktreePath: '/tmp/wt', baseBranch: 'main',
+    })
+    await recorder.onSessionTerminated('s2')
+    const rec = store.getBySessionId('s2')!
+    expect(rec.metrics.tokenUsage).toBeUndefined()
+    expect(rec.metrics.turns).toBeUndefined()
   })
 })

@@ -107,6 +107,10 @@ export class SessionCreator {
     // spawnPrintModeFollowUp, which spawns a fresh print-mode process per turn.
     const deferRuntime = Boolean(options.nonInteractive) && !options.userMessage
 
+    // Mint the session id before the spawn so it can double as Claude's
+    // `--session-id`, making the on-disk transcript locatable for usage capture.
+    const sessionId = uuidv4()
+
     let commandBinary = runtime.binary
     let runtimeArgs = [...(runtime.args ?? [])]
     let nonInteractiveOutputMode: InternalSession['nonInteractiveOutputMode']
@@ -129,6 +133,7 @@ export class SessionCreator {
     // themed palette controls it. Only for interactive Claude Code — print-mode
     // output isn't a themed TUI, and non-claude runtimes don't take --settings.
     if (!options.nonInteractive && commandBinary === 'claude') {
+      runtimeArgs.push('--session-id', sessionId)
       runtimeArgs.push(...claudeAnsiThemeArgs(this.getThemeType?.() ?? 'dark'))
     }
 
@@ -150,7 +155,7 @@ export class SessionCreator {
           rows: options.rows
         })
 
-    const session = this.buildSession(options, worktree, ptyHandle, nonInteractiveOutputMode, noWorktree)
+    const session = this.buildSession(sessionId, options, worktree, ptyHandle, nonInteractiveOutputMode, noWorktree)
     if (deferRuntime) {
       session.status = 'waiting'
       session.pid = null
@@ -227,6 +232,7 @@ export class SessionCreator {
   }
 
   private buildSession(
+    sessionId: string,
     options: SpawnAgentOptions,
     worktree: { branch: string; path: string },
     ptyHandle: { id: string; pid: number },
@@ -234,7 +240,7 @@ export class SessionCreator {
     noWorktree = false,
   ): InternalSession {
     return {
-      id: uuidv4(),
+      id: sessionId,
       projectId: options.projectId,
       runtimeId: options.runtimeId,
       branchName: worktree.branch,

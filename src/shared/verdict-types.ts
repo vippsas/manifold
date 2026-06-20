@@ -15,12 +15,23 @@ export type TaskPrompt =
       originalLength: number
     }
 
+export interface TokenUsage {
+  inputTokens: number
+  outputTokens: number
+  cacheReadTokens: number
+  cacheCreationTokens: number
+}
+
 export interface VerdictMetrics {
   agentCommits: number
   humanEdits: number
   diffLines: { added: number; removed: number }
   filesChanged: number
   prUrl?: string
+  /** Token usage for the session; absent when the runtime exposes none (n/a). */
+  tokenUsage?: TokenUsage
+  /** Human prompt→response cycles in the session; absent when unknown (n/a). */
+  turns?: number
 }
 
 export interface VerdictRecord {
