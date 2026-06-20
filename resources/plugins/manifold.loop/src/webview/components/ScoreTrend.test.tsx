@@ -25,7 +25,7 @@ describe('ScoreTrend', () => {
 
     const { container } = render(<ScoreTrend iterations={iterations} metric={metric} bestCommitSha="c" />)
 
-    expect(screen.getByText('Score over time')).toBeInTheDocument()
+    expect(screen.getByText('Score over time')).toBeTruthy()
     expect(container.querySelectorAll('[title^="#"]')).toHaveLength(3)
   })
 })
