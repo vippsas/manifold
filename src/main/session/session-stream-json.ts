@@ -7,6 +7,7 @@ import { extractSlashCommands } from '../agent/ai-runtime-output-parsers'
 import type { ChatAdapter } from '../agent/chat-adapter'
 import type { InternalSession } from './session-types'
 import type { SimpleRuntimeOutputMode } from '../agent/simple-runtime'
+import type { TokenUsage } from '../../shared/verdict-types'
 
 /**
  * Callbacks the stream-JSON event handlers need from SessionStreamWirer.
@@ -18,6 +19,8 @@ export interface StreamJsonCtx {
   onDevServerNeeded: (session: InternalSession) => void
   /** Persist the captured slash-command list so the chat `/` autocomplete is ready before the next session's first message. */
   onSlashCommands?: (session: InternalSession, commands: string[]) => void
+  /** Record a completed Claude chat-mode turn's token usage (one call per `result` event). */
+  onTurnUsage?: (session: InternalSession, usage: TokenUsage) => void
 }
 
 export function handleStreamJsonEvent(
@@ -79,6 +82,14 @@ function handleClaudeStreamJsonEvent(ctx: StreamJsonCtx, session: InternalSessio
     // Final result — only emit if no agent messages were sent (fallback)
     const result = event.result as string | undefined
     const subtype = event.subtype as string | undefined
+    // A `result` event ends one chat-mode turn; record its token usage (zeros if absent).
+    const u = event.usage as Record<string, number> | undefined
+    ctx.onTurnUsage?.(session, {
+      inputTokens: u?.input_tokens ?? 0,
+      outputTokens: u?.output_tokens ?? 0,
+      cacheReadTokens: u?.cache_read_input_tokens ?? 0,
+      cacheCreationTokens: u?.cache_creation_input_tokens ?? 0,
+    })
     if (result && subtype === 'success') {
       const existing = ctx.getChatAdapter()?.getMessages(session.id) ?? []
       const hasAgentMsg = existing.some(m => m.role === 'agent')

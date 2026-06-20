@@ -7,6 +7,7 @@ import type { FileWatcher } from '../fs/file-watcher'
 import { debugLog } from '../app/debug-log'
 import type { InternalSession } from './session-types'
 import type { SimpleRuntimeOutputMode } from '../agent/simple-runtime'
+import type { TokenUsage } from '../../shared/verdict-types'
 import type { GitOperationsManager } from '../git/git-operations'
 import { predictNextCommand } from './shell-suggestion'
 import { handleStreamJsonEvent, type StreamJsonCtx } from './session-stream-json'
@@ -52,6 +53,7 @@ export class SessionStreamWirer {
     private onPersistAdditionalDirs: (session: InternalSession) => void,
     private onDevServerNeeded: (session: InternalSession) => void,
     private onSlashCommands?: (session: InternalSession, commands: string[]) => void,
+    private onTurnUsage?: (session: InternalSession, usage: TokenUsage) => void,
   ) {}
 
   setGitOps(gitOps: GitOperationsManager): void {
@@ -64,6 +66,7 @@ export class SessionStreamWirer {
       sendToRenderer: this.sendToRenderer,
       onDevServerNeeded: this.onDevServerNeeded,
       onSlashCommands: this.onSlashCommands,
+      onTurnUsage: this.onTurnUsage,
     }
   }
 
