@@ -25,7 +25,7 @@ export function RecentSessions({ recent, openExternal, scopeName }: { recent: Ve
                 <MetricStrip metrics={rec.metrics} />
               </div>
               <div style={s.recentRight}>
-                <OutcomeBadge outcome={rec.outcome} prUrl={rec.metrics.prUrl} onOpen={openExternal} />
+                <OutcomeBadge outcome={rec.outcome} metrics={rec.metrics} onOpen={openExternal} />
               </div>
             </div>
           )
@@ -38,22 +38,38 @@ export function RecentSessions({ recent, openExternal, scopeName }: { recent: Ve
 // One badge per row. When the session has a PR, the status badge IS the link —
 // clicking it opens the PR (the sandboxed webview asks the host to navigate).
 // No PR → a plain, non-interactive status chip.
-function OutcomeBadge({ outcome, prUrl, onOpen }: { outcome: VerdictOutcome; prUrl?: string; onOpen: (url: string) => void }): React.JSX.Element {
-  const label = outcomeLabels[outcome] ?? outcome
+function OutcomeBadge({ outcome, metrics, onOpen }: { outcome: VerdictOutcome; metrics: VerdictMetrics; onOpen: (url: string) => void }): React.JSX.Element {
+  const prUrl = metrics.prUrl
+  const label = outcome === 'pr_created' && metrics.prState === 'closed' ? 'closed PR' : outcomeLabels[outcome] ?? outcome
   if (!prUrl) {
     return <span style={{ ...s.outcomeChip, ...outcomeChipStyle(outcome) }}>{label}</span>
   }
+  const marker = prMarker(outcome, metrics)
   return (
     <button
       type="button"
       style={{ ...s.outcomeChip, ...outcomeChipStyle(outcome), ...s.outcomeChipLink }}
       onClick={() => onOpen(prUrl)}
-      title={`Open ${prUrl}`}
+      title={prTitle(prUrl, outcome, metrics)}
     >
       {label}
+      {marker && <span aria-hidden="true" style={s.outcomeChipArrow}>{marker}</span>}
       <span aria-hidden="true" style={s.outcomeChipArrow}>↗</span>
     </button>
   )
+}
+
+function prMarker(outcome: VerdictOutcome, metrics: VerdictMetrics): string | null {
+  if (!metrics.prUrl || outcome !== 'pr_created') return null
+  if (metrics.prCheckError) return '!'
+  return metrics.prCheckedAt ? null : '?'
+}
+
+function prTitle(prUrl: string, outcome: VerdictOutcome, metrics: VerdictMetrics): string {
+  if (outcome !== 'pr_created') return `Open ${prUrl}`
+  if (metrics.prCheckError) return `Open ${prUrl} (PR verification failed ${formatTime(metrics.prCheckedAt ?? '')}: ${metrics.prCheckError})`
+  if (!metrics.prCheckedAt) return `Open ${prUrl} (PR state is cached and not verified)`
+  return `Open ${prUrl} (verified ${formatTime(metrics.prCheckedAt)} as ${metrics.prState ?? 'unknown'})`
 }
 
 function MetricStrip({ metrics }: { metrics: VerdictMetrics }): React.JSX.Element {

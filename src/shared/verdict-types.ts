@@ -5,6 +5,8 @@ export type VerdictOutcome =
   | 'discarded'
   | 'unknown'
 
+export type PullRequestState = 'open' | 'closed' | 'merged' | 'unknown'
+
 export type TaskPrompt =
   | { kind: 'full'; text: string }
   | {
@@ -28,6 +30,10 @@ export interface VerdictMetrics {
   diffLines: { added: number; removed: number }
   filesChanged: number
   prUrl?: string
+  prState?: PullRequestState
+  prCheckedAt?: string
+  prMergedAt?: string
+  prCheckError?: string
   /** Token usage for the session; absent when the runtime exposes none (n/a). */
   tokenUsage?: TokenUsage
   /** Human prompt→response cycles in the session; absent when unknown (n/a). */
@@ -45,4 +51,11 @@ export interface VerdictRecord {
   terminatedAt?: string
   durationMs?: number
   metrics: VerdictMetrics
+}
+
+export interface VerifyPullRequestsResult {
+  eligible: number
+  checked: number
+  updated: number
+  failed: number
 }

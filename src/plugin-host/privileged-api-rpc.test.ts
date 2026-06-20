@@ -117,4 +117,18 @@ describe('verdicts-api over RPC', () => {
     expect(records).toEqual([rec])
     expect(calls).toEqual([['p.builtin', 'p1', 25]])
   })
+
+  it('verifyPullRequests forwards to HOST_VERDICTS.$verifyPullRequests with the plugin id', async () => {
+    const { host, main } = wirePair()
+    const calls: string[] = []
+    main.registerService(HOST_VERDICTS, {
+      $verifyPullRequests: (pid: string) => {
+        calls.push(pid)
+        return { eligible: 2, checked: 2, updated: 1, failed: 0 }
+      },
+    })
+    const verdicts = createVerdictsApi(host, 'p.builtin')
+    await expect(verdicts.verifyPullRequests()).resolves.toEqual({ eligible: 2, checked: 2, updated: 1, failed: 0 })
+    expect(calls).toEqual(['p.builtin'])
+  })
 })

@@ -25,6 +25,7 @@ function baseOpts(over: Partial<StatisticsHostOptions> = {}): StatisticsHostOpti
     openExternal: () => {},
     confirmReset: vi.fn(async () => true),
     clearProject: vi.fn(async () => {}),
+    verifyPullRequests: vi.fn(async () => ({ eligible: 0, checked: 0, updated: 0, failed: 0 })),
     ...over,
   }
 }
@@ -37,7 +38,7 @@ describe('statistics webview host', () => {
     send({ type: 'refresh' })
     await new Promise((r) => setTimeout(r, 0))
     expect(listAll).toHaveBeenCalled()
-    expect(postMessage).toHaveBeenCalledWith({ type: 'init', groups: GROUPS, error: null })
+    expect(postMessage).toHaveBeenCalledWith({ type: 'init', groups: GROUPS, error: null, verifyResult: null })
   })
 
   it('posts an init with the error message when the read fails', async () => {
@@ -45,7 +46,7 @@ describe('statistics webview host', () => {
     const { send, postMessage } = resolveWith(host)
     send({ type: 'ready' })
     await new Promise((r) => setTimeout(r, 0))
-    expect(postMessage).toHaveBeenCalledWith({ type: 'init', groups: [], error: 'boom' })
+    expect(postMessage).toHaveBeenCalledWith({ type: 'init', groups: [], error: 'boom', verifyResult: null })
   })
 
   it('forwards open-external to the host opener', () => {
@@ -74,5 +75,20 @@ describe('statistics webview host', () => {
     send({ type: 'reset', projectId: 'p1' })
     await new Promise((r) => setTimeout(r, 0))
     expect(clearProject).not.toHaveBeenCalled()
+  })
+
+  it('verifies captured PRs and refreshes with the result', async () => {
+    const verifyPullRequests = vi.fn(async () => ({ eligible: 2, checked: 2, updated: 1, failed: 0 }))
+    const host = createWebviewHost(baseOpts({ verifyPullRequests }))
+    const { send, postMessage } = resolveWith(host)
+    send({ type: 'verify-prs' })
+    await new Promise((r) => setTimeout(r, 0))
+    expect(verifyPullRequests).toHaveBeenCalledOnce()
+    expect(postMessage).toHaveBeenCalledWith({
+      type: 'init',
+      groups: GROUPS,
+      error: null,
+      verifyResult: { eligible: 2, checked: 2, updated: 1, failed: 0 },
+    })
   })
 })

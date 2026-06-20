@@ -50,8 +50,10 @@ Declare only what you need:
 | `configuration` | `manifold.configuration.get`, `manifold.configuration.onDidChange` |
 | `agent:control` | `manifold.agents.activeAgent` — drive the active session's agent. **Built-in plugins only.** |
 | `lm` | `manifold.lm` — one-shot language-model requests via the active session runtime. **Built-in plugins only.** |
+| `verdicts:read` | `manifold.verdicts.listByProject`, `listAll`. **Built-in plugins only.** |
+| `verdicts:write` | `manifold.verdicts.clearProject`, `verifyPullRequests`. **Built-in plugins only.** |
 
-The `agent:control` and `lm` capabilities are **privileged**: even when declared, they
+The `agent:control`, `lm`, and `verdicts:*` capabilities are **privileged**: even when declared, they
 are granted only to built-in plugins (those discovered with `origin: 'builtin'`). A
 user-installed plugin that declares them fails at first use with a restriction error.
 
@@ -154,6 +156,19 @@ manifold.configuration.onDidChange(listener: () => void): Disposable
 ```
 
 Requires the `configuration` capability.
+
+### `manifold.verdicts` *(built-in plugins only)*
+
+```typescript
+manifold.verdicts.listByProject(projectId: string, limit?: number): Promise<VerdictRecord[]>
+manifold.verdicts.listAll(): Promise<ProjectVerdicts[]>
+manifold.verdicts.clearProject(projectId: string): Promise<void>
+manifold.verdicts.verifyPullRequests(): Promise<VerifyPullRequestsResult>
+```
+
+`listByProject` and `listAll` require `verdicts:read`. Mutating methods require
+`verdicts:write`: `clearProject` deletes cached verdicts for one repo, and
+`verifyPullRequests` re-checks captured open PR URLs and updates merged verdicts.
 
 ### `ManifoldContext`
 

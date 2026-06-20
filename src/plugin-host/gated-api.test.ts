@@ -20,7 +20,7 @@ const makeAgents = (): never => ({ activeAgent: undefined } as never)
 const makeLm = (): never => ({ selectChatModels: async () => [] } as never)
 const makeTranscription = (): never => ({ get: async () => undefined } as never)
 const makeWorktrees = (): never => ({ list: async () => [], remove: async () => {}, pruneStale: async () => [], listMergedBranches: async () => [], deleteMergedBranch: async () => {}, deleteAllMergedBranches: async () => [] } as never)
-const makeVerdicts = (): never => ({ listByProject: async () => [], clearProject: async () => {} } as never)
+const makeVerdicts = (): never => ({ listByProject: async () => [], listAll: async () => [], clearProject: async () => {}, verifyPullRequests: async () => ({ eligible: 0, checked: 0, updated: 0, failed: 0 }) } as never)
 
 const factories = { storage: makeStorage, workspace: makeWorkspace, configuration: makeConfiguration, agents: makeAgents, lm: makeLm, transcription: makeTranscription, worktrees: makeWorktrees, verdicts: makeVerdicts }
 
@@ -138,5 +138,13 @@ describe('buildGatedApi — privileged capabilities', () => {
   it('allows clearProject when verdicts:write is declared (builtin)', async () => {
     const api = buildGatedApi(['verdicts:read', 'verdicts:write'], 'builtin', shared, factories)
     await expect(api.verdicts.clearProject('p1')).resolves.toBeUndefined()
+  })
+  it('throws CapabilityError when verifyPullRequests is called without verdicts:write', () => {
+    const api = buildGatedApi(['verdicts:read'], 'builtin', shared, factories)
+    expect(() => api.verdicts.verifyPullRequests()).toThrow(CapabilityError)
+  })
+  it('allows verifyPullRequests when verdicts:write is declared (builtin)', async () => {
+    const api = buildGatedApi(['verdicts:read', 'verdicts:write'], 'builtin', shared, factories)
+    await expect(api.verdicts.verifyPullRequests()).resolves.toEqual({ eligible: 0, checked: 0, updated: 0, failed: 0 })
   })
 })

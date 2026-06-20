@@ -1,5 +1,5 @@
 import type { VerdictRecord } from '../../shared/verdict-types'
-import type { ProjectVerdicts } from '../../shared/plugins/api-types'
+import type { ProjectVerdicts, VerifyPullRequestsResult } from '../../shared/plugins/api-types'
 
 /** Narrow view over recorded session verdicts, exposed to built-in plugins:
  *  `listByProject`/`listAllByProject` via `verdicts:read`, `deleteByProject` via
@@ -11,4 +11,6 @@ export interface VerdictService {
   deleteByProject(projectId: string): void
   /** All captured verdicts grouped by repo, with display names resolved. */
   listAllByProject(): ProjectVerdicts[]
+  /** Re-check captured open PRs and update stale verdicts in place. */
+  verifyPullRequests(): Promise<VerifyPullRequestsResult>
 }

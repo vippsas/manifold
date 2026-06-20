@@ -1,10 +1,10 @@
 // src/shared/plugins/api-types.ts
 import type { QuickPickItem, QuickPickOptions, InputBoxOptions } from './ui'
-import type { VerdictRecord } from '../verdict-types'
+import type { VerdictRecord, VerifyPullRequestsResult } from '../verdict-types'
 
 // Re-export the canonical verdict record types so plugins can `import type { VerdictRecord }
 // from 'manifold'` (the verdict store in main is the single source of truth — no duplication).
-export type { TaskPrompt, TokenUsage, VerdictMetrics, VerdictOutcome, VerdictRecord } from '../verdict-types'
+export type { PullRequestState, TaskPrompt, TokenUsage, VerdictMetrics, VerdictOutcome, VerdictRecord, VerifyPullRequestsResult } from '../verdict-types'
 
 /** A repo's captured verdicts, with its display name resolved (for all-projects views). */
 export interface ProjectVerdicts {
@@ -225,6 +225,8 @@ export interface ManifoldApi {
     listAll(): Promise<ProjectVerdicts[]>
     /** [verdicts:write] Delete all captured verdicts for a project (destructive). */
     clearProject(projectId: string): Promise<void>
+    /** [verdicts:write] Re-check captured open PRs and update merged verdicts. */
+    verifyPullRequests(): Promise<VerifyPullRequestsResult>
   }
 }
 

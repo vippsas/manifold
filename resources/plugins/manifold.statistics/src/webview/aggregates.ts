@@ -13,7 +13,7 @@ export function computeProjectStats(groups: ProjectVerdicts[]): ProjectStat[] {
   return groups
     .map((g) => {
       const total = g.records.length
-      const merged = g.records.filter((r) => r.outcome === 'merged').length
+      const merged = g.records.filter((r: VerdictRecord) => r.outcome === 'merged').length
       return {
         projectId: g.projectId,
         projectName: g.projectName,
