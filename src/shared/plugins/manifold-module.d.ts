@@ -7,10 +7,10 @@
 //   import type { ManifoldContext } from 'manifold'
 // TypeScript resolves those against the exported names below even with `export =`.
 declare module 'manifold' {
-  import type { ManifoldApi, ManifoldContext, Disposable, ProjectInfo, SessionInfo, WebviewView, WebviewViewProvider, TreeItem, TreeDataProvider, TreeView, AgentSession, LanguageModelChat, WorkspaceFolder, CancellationToken, TurnOutcome, WorktreeOverviewEntry, WorktreeStatus, BranchOverviewEntry, TaskPrompt, VerdictMetrics, VerdictOutcome, VerdictRecord } from './api-types'
+  import type { ManifoldApi, ManifoldContext, Disposable, ProjectInfo, SessionInfo, WebviewView, WebviewViewProvider, TreeItem, TreeDataProvider, TreeView, AgentSession, LanguageModelChat, WorkspaceFolder, CancellationToken, TurnOutcome, WorktreeOverviewEntry, WorktreeStatus, BranchOverviewEntry, TaskPrompt, TokenUsage, VerdictMetrics, VerdictOutcome, VerdictRecord } from './api-types'
 
   // Re-export named types so `import type { ManifoldContext } from 'manifold'` resolves.
-  export type { ManifoldApi, ManifoldContext, Disposable, ProjectInfo, SessionInfo, WebviewView, WebviewViewProvider, TreeItem, TreeDataProvider, TreeView, AgentSession, LanguageModelChat, WorkspaceFolder, CancellationToken, TurnOutcome, WorktreeOverviewEntry, WorktreeStatus, BranchOverviewEntry, TaskPrompt, VerdictMetrics, VerdictOutcome, VerdictRecord }
+  export type { ManifoldApi, ManifoldContext, Disposable, ProjectInfo, SessionInfo, WebviewView, WebviewViewProvider, TreeItem, TreeDataProvider, TreeView, AgentSession, LanguageModelChat, WorkspaceFolder, CancellationToken, TurnOutcome, WorktreeOverviewEntry, WorktreeStatus, BranchOverviewEntry, TaskPrompt, TokenUsage, VerdictMetrics, VerdictOutcome, VerdictRecord }
 
   // CommonJS default: `const manifold = require('manifold')` → ManifoldApi
   const api: ManifoldApi

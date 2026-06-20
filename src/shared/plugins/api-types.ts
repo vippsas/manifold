@@ -4,7 +4,7 @@ import type { VerdictRecord } from '../verdict-types'
 
 // Re-export the canonical verdict record types so plugins can `import type { VerdictRecord }
 // from 'manifold'` (the verdict store in main is the single source of truth — no duplication).
-export type { TaskPrompt, VerdictMetrics, VerdictOutcome, VerdictRecord } from '../verdict-types'
+export type { TaskPrompt, TokenUsage, VerdictMetrics, VerdictOutcome, VerdictRecord } from '../verdict-types'
 
 /** A repo's captured verdicts, with its display name resolved (for all-projects views). */
 export interface ProjectVerdicts {
