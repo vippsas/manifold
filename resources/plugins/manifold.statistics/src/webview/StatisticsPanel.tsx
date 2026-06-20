@@ -6,15 +6,10 @@ import {
   type RuntimeStats, type OutcomeCounts, type ProjectStat,
 } from './aggregates'
 import { RecentSessions } from './recent-sessions'
+import { compactCount } from './format'
 import { statisticsPanelStyles as s, outcomeColors, outcomeLabels } from './styles'
 
 const OUTCOME_ORDER: VerdictOutcome[] = ['merged', 'pr_created', 'committed_only', 'discarded', 'unknown']
-
-function compactCount(n: number): string {
-  if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(1)}M`
-  if (n >= 1_000) return `${(n / 1_000).toFixed(1)}K`
-  return String(n)
-}
 
 function formatTokens(stat: RuntimeStats): string {
   if (stat.inputTokens === 0 && stat.outputTokens === 0 && stat.turns === 0) return 'tokens —'

@@ -201,4 +201,21 @@ describe('StatisticsPanel', () => {
     })])
     expect(screen.getByLabelText(/no activity captured/i)).toBeTruthy()
   })
+
+  it('shows per-session token + turn chips on the recent-session row', () => {
+    render(<StatisticsPanel />)
+    init([record({
+      sessionId: 'tok', outcome: 'discarded',
+      metrics: {
+        agentCommits: 0, humanEdits: 0, diffLines: { added: 0, removed: 0 }, filesChanged: 0,
+        tokenUsage: { inputTokens: 11000, outputTokens: 355, cacheReadTokens: 0, cacheCreationTokens: 0 }, turns: 3,
+      },
+    })])
+    // Token-only session is NOT "no activity"; it shows in/out tokens + turns.
+    expect(screen.queryByLabelText(/no activity captured/i)).toBeNull()
+    expect(screen.getByLabelText('11000 input tokens')).toBeTruthy()
+    expect(screen.getByLabelText('355 output tokens')).toBeTruthy()
+    expect(screen.getByLabelText('3 turns')).toBeTruthy()
+    expect(screen.getByText('11.0K')).toBeTruthy()
+  })
 })
