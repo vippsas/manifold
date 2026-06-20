@@ -39,11 +39,16 @@ describe('StatisticsPanel', () => {
     render(<StatisticsPanel />)
     init([
       record({ sessionId: 'a', runtime: 'claude', outcome: 'merged', createdAt: '2026-05-16T01:00:00Z' }),
-      record({ sessionId: 'b', runtime: 'codex', outcome: 'discarded', createdAt: '2026-05-16T02:00:00Z', taskPrompt: { kind: 'full', text: 'fix bug' } }),
+      record({
+        sessionId: 'b', title: 'PR verify stats', branch: 'manifold/hammerfest',
+        runtime: 'codex', outcome: 'discarded', createdAt: '2026-05-16T02:00:00Z',
+        taskPrompt: { kind: 'full', text: 'fix bug' },
+      }),
     ])
     expect(screen.getAllByText('claude').length).toBeGreaterThan(0)
     expect(screen.getAllByText('codex').length).toBeGreaterThan(0)
-    expect(screen.getByText('fix bug')).toBeTruthy()
+    expect(screen.getByText('PR verify stats')).toBeTruthy()
+    expect(screen.getByText('Hammerfest · Codex')).toBeTruthy()
   })
 
   it('renders a per-repo breakdown across all projects', () => {

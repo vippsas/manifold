@@ -4,6 +4,7 @@ import { compactCount } from './format'
 import { statisticsPanelStyles as s, outcomeColors, outcomeLabels, outcomeChipStyle } from './styles'
 
 const PROMPT_PREVIEW_CHARS = 96
+const RUNTIME_LABELS: Record<string, string> = { claude: 'Claude', codex: 'Codex', gemini: 'Gemini', __shell__: 'Shell' }
 
 /** The "Recent sessions" list — one row per captured session (all repos, or the selected one). */
 export function RecentSessions({ recent, openExternal, scopeName }: { recent: VerdictRecord[]; openExternal: (url: string) => void; scopeName?: string | null }): React.JSX.Element {
@@ -13,15 +14,16 @@ export function RecentSessions({ recent, openExternal, scopeName }: { recent: Ve
       <div style={{ ...s.recentList, marginTop: 'var(--space-xs)' }}>
         {recent.map((rec) => {
           const accentColor = outcomeColors[rec.outcome] ?? outcomeColors.unknown
+          const title = sessionTitle(rec)
           return (
             <div key={rec.sessionId} style={s.recentRow}>
               <div style={{ ...s.recentAccent, background: accentColor }} />
               <div style={s.recentMain}>
                 <div style={s.recentTopLine}>
-                  <span style={s.recentRuntime}>{rec.runtime}</span>
+                  <span style={s.recentRuntime}>{title}</span>
                   <span style={s.recentTime}>{formatTime(rec.createdAt)}</span>
                 </div>
-                <div style={s.recentPrompt}>{renderPromptPreview(rec.taskPrompt)}</div>
+                <div style={s.recentPrompt}>{formatBranch(rec.branch)} · {runtimeLabel(rec.runtime)}</div>
                 <MetricStrip metrics={rec.metrics} />
               </div>
               <div style={s.recentRight}>
@@ -33,6 +35,25 @@ export function RecentSessions({ recent, openExternal, scopeName }: { recent: Ve
       </div>
     </section>
   )
+}
+
+function sessionTitle(record: VerdictRecord): string {
+  return record.title?.trim() || renderPromptPreview(record.taskPrompt)
+}
+
+function runtimeLabel(runtime: string): string {
+  return RUNTIME_LABELS[runtime] ?? humanize(runtime)
+}
+
+function formatBranch(branch: string): string {
+  return humanize(branch.replace(/^manifold\//, '').split('/').pop() || branch)
+}
+
+function humanize(value: string): string {
+  return value
+    .replace(/[-_]+/g, ' ')
+    .trim()
+    .replace(/\b\w/g, (char) => char.toUpperCase())
 }
 
 // One badge per row. When the session has a PR, the status badge IS the link —

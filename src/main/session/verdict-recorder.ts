@@ -9,6 +9,7 @@ const HEAD_TAIL_BYTES = 1024
 export interface SessionCreatedEvent {
   sessionId: string
   projectId: string
+  title?: string
   branch: string
   runtime: string
   taskPrompt: string
@@ -67,6 +68,7 @@ export class VerdictRecorder {
     const record: VerdictRecord = existing ?? {
       sessionId: event.sessionId,
       projectId: event.projectId,
+      title: normalizedTitle(event.title),
       branch: event.branch,
       runtime: event.runtime,
       taskPrompt: { kind: 'full', text: event.taskPrompt },
@@ -89,6 +91,13 @@ export class VerdictRecorder {
       createdAtMs: Number.isFinite(createdAtMs) ? createdAtMs : created.getTime(),
       lastStatus: 'unknown',
     })
+  }
+
+  onSessionTitleChanged(sessionId: string, title: string): void {
+    const existing = this.deps.store.getBySessionId(sessionId)
+    if (!existing) return
+    const nextTitle = normalizedTitle(title)
+    this.deps.store.upsert(nextTitle ? { ...existing, title: nextTitle } : withoutTitle(existing))
   }
 
   onStatus(sessionId: string, status: string): void {
@@ -269,6 +278,17 @@ export class VerdictRecorder {
     )
     return { kind: 'truncated', head, middleSummary, tail, originalLength: text.length }
   }
+}
+
+function normalizedTitle(title: string | undefined): string | undefined {
+  const trimmed = title?.trim()
+  return trimmed ? trimmed : undefined
+}
+
+function withoutTitle(record: VerdictRecord): VerdictRecord {
+  const next = { ...record }
+  delete next.title
+  return next
 }
 
 async function safe<T>(fn: () => Promise<T>, fallback: T): Promise<T> {

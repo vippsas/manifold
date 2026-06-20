@@ -58,7 +58,9 @@ starts the process, the stream wirer attaches handlers, and `writeWorktreeMeta()
 the runtime/task/displayName so the session is rediscoverable. Back in the lifecycle, the new
 session is added to the map, any dismissal recorded for that project + branch is lifted
 (`session-lifecycle.ts:84`), memory capture starts, and the renderer is told via
-`agent:sessions-changed`.
+`agent:sessions-changed`. Verdict creation also snapshots the optional agent display
+name as `VerdictRecord.title`, and `renameSession()` keeps that title in sync for
+Statistics rows.
 
 **Run.** `SessionStreamWirer.wireOutputStreaming()` (`session-stream-wirer.ts:112`) is the hot
 path. Each PTY chunk appends to `session.outputBuffer` (capped at 100 KB, trimmed to 50 KB),

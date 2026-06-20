@@ -43,6 +43,7 @@ export interface VerdictMetrics {
 export interface VerdictRecord {
   sessionId: string
   projectId: string
+  title?: string
   branch: string
   runtime: string
   taskPrompt: TaskPrompt
