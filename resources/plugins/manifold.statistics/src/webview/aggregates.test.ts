@@ -70,6 +70,25 @@ describe('computeRuntimeStats', () => {
     ]
     expect(computeRuntimeStats(records).map((s) => s.runtime)).toEqual(['claude', 'codex', 'gemini'])
   })
+
+  it('sums token usage and turns per runtime, treating missing usage as zero', () => {
+    const records = [
+      r({ sessionId: '1', runtime: 'claude', metrics: {
+        agentCommits: 0, humanEdits: 0, diffLines: { added: 0, removed: 0 }, filesChanged: 0,
+        tokenUsage: { inputTokens: 100, outputTokens: 10, cacheReadTokens: 5, cacheCreationTokens: 2 }, turns: 3 } }),
+      r({ sessionId: '2', runtime: 'claude' }), // no tokenUsage/turns → n/a, contributes 0
+      r({ sessionId: '3', runtime: 'codex' }),
+    ]
+    const claude = computeRuntimeStats(records).find((s) => s.runtime === 'claude')!
+    const codex = computeRuntimeStats(records).find((s) => s.runtime === 'codex')!
+    expect(claude.inputTokens).toBe(100)
+    expect(claude.outputTokens).toBe(10)
+    expect(claude.cacheReadTokens).toBe(5)
+    expect(claude.cacheCreationTokens).toBe(2)
+    expect(claude.turns).toBe(3)
+    expect(codex.inputTokens).toBe(0)
+    expect(codex.turns).toBe(0)
+  })
 })
 
 describe('computeOutcomeCounts', () => {
