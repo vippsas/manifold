@@ -4,6 +4,7 @@ import { PtyPool } from '../agent/pty-pool'
 import { SessionStreamWirer } from './session-stream-wirer'
 import { prepareManagedWorktree } from '../git/managed-worktree'
 import { readWorktreeMeta } from '../git/worktree-meta'
+import { claudeProjectsDir, locateClaudeTranscript } from './transcript-usage-reader'
 import type { MemoryInjector } from '../memory/memory-injector'
 import { buildShellEnv, buildWelcomeMessage, createManifoldZdotdir } from './shell-prompt'
 import * as fs from 'node:fs'
@@ -49,6 +50,19 @@ export async function resumeAgentSession(
   const runtimeArgs = [...(runtime.args ?? [])]
   if (session.ollamaModel) {
     runtimeArgs.push('--model', session.ollamaModel)
+  }
+
+  // Interactive Claude: resume the existing conversation by its session id so
+  // post-resume turns append to the same on-disk transcript, keeping token usage
+  // capturable across the restart. Only pass --resume when that transcript
+  // actually exists — claude errors on --resume for an unknown id.
+  if (runtime.binary === 'claude') {
+    const transcript = await locateClaudeTranscript({
+      claudeProjectsDir: claudeProjectsDir(),
+      worktreePath: session.worktreePath,
+      sessionId: session.id,
+    })
+    if (transcript) runtimeArgs.push('--resume', session.id)
   }
 
   const ptyHandle = ptyPool.spawn(runtime.binary, runtimeArgs, {

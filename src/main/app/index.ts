@@ -42,7 +42,7 @@ import { WorkspaceStore } from '../workspace/workspace-store'
 import { WorkspaceManager } from '../workspace/workspace-manager'
 import { VerdictStore } from '../store/verdict-store'
 import { VerdictRecorder } from '../session/verdict-recorder'
-import { readClaudeTranscriptUsage, claudeProjectsDir } from '../session/transcript-usage-reader'
+import { readClaudeTranscriptUsage, readClaudeTranscriptUsageSync, claudeProjectsDir } from '../session/transcript-usage-reader'
 import { summarizeMiddle } from '../store/prompt-summarizer'
 import { PluginManager } from '../plugins/plugin-manager'
 import { registerWebviewSchemePrivileged } from '../plugins/webview-protocol'
@@ -115,6 +115,13 @@ const verdictRecorder = new VerdictRecorder({
     if (live && live.turns > 0) return live
     if (runtime !== 'claude') return null
     return readClaudeTranscriptUsage({ claudeProjectsDir: claudeProjectsDir(), worktreePath, sessionId })
+  },
+  resolveSessionUsageSync: (sessionId, worktreePath, runtime) => {
+    // Synchronous mirror of resolveSessionUsage for the app-quit teardown path.
+    const live = sessionManager.takeLiveUsage(sessionId)
+    if (live && live.turns > 0) return live
+    if (runtime !== 'claude') return null
+    return readClaudeTranscriptUsageSync({ claudeProjectsDir: claudeProjectsDir(), worktreePath, sessionId })
   },
 })
 sessionManager.setVerdictRecorder(verdictRecorder)

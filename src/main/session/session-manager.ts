@@ -304,6 +304,9 @@ export class SessionManager {
 
   killAllSessions(): void { this.ioController.killAllSessions() }
 
+  /** Synchronously finalize active sessions' verdicts on app quit, before PTYs are killed. */
+  finalizeActiveVerdictsForQuit(): void { this.verdictRecorder?.finalizeAllForQuitSync() }
+
   createShellSession(cwd: string, options?: { shellPrompt?: boolean; historyDir?: string; promptSegments?: ShellPromptSegments }): { sessionId: string } { return this.shellController.createShellSession(cwd, options) }
 
   triggerShellSuggestion(sessionId: string): void { this.shellController.triggerSuggestion(sessionId) }

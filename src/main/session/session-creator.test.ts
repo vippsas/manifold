@@ -229,6 +229,33 @@ describe('SessionCreator', () => {
     expect(spawnArgs[idx + 1]).toBe(session.id)
   })
 
+  it('persists the session id in worktree meta so it survives a restart', async () => {
+    const worktreeManager = {
+      createWorktree: vi.fn(async () => ({
+        branch: 'manifold/oslo',
+        path: '/repo/.manifold/worktrees/manifold-oslo',
+      })),
+    } as unknown as WorktreeManager
+    const creator = new SessionCreator(
+      worktreeManager,
+      createPtyPool(),
+      createProjectRegistry(),
+      createStreamWirer(),
+      () => null,
+    )
+
+    const session = await creator.create({
+      projectId: 'proj-1',
+      runtimeId: 'codex',
+      prompt: 'do work',
+    })
+
+    expect(writeWorktreeMeta).toHaveBeenCalledWith(
+      '/repo/.manifold/worktrees/manifold-oslo',
+      expect.objectContaining({ sessionId: session.id }),
+    )
+  })
+
   it('wires PTY listeners with no await gap so a fast-exiting runtime is not stranded (#496)', async () => {
     // Model the real pool/wirer contract: spawn registers a live pty id, and
     // wiring a pty that is no longer live throws 'PTY not found'.

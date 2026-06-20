@@ -98,7 +98,9 @@ export class SessionDiscovery {
 
         const meta = await readWorktreeMeta(wt.path)
         const session: InternalSession = {
-          id: uuidv4(),
+          // Restore the persisted session id so the re-adopted session matches its
+          // verdict record and (for interactive Claude) its on-disk transcript.
+          id: meta?.sessionId ?? uuidv4(),
           projectId,
           runtimeId: meta?.runtimeId ?? '',
           branchName: wt.branch,
@@ -141,7 +143,7 @@ export class SessionDiscovery {
         if (branch && branch !== project.baseBranch && !this.dismissedAgents?.has(projectId, branch)) {
           const meta = await readWorktreeMeta(project.path)
           const session: InternalSession = {
-            id: uuidv4(),
+            id: meta?.sessionId ?? uuidv4(),
             projectId,
             runtimeId: meta?.runtimeId ?? '',
             branchName: branch,
@@ -224,7 +226,7 @@ export class SessionDiscovery {
           if (branch && !this.dismissedAgents?.has(project.id, branch)) {
             const meta = await readWorktreeMeta(project.path)
             const session: InternalSession = {
-              id: uuidv4(),
+              id: meta?.sessionId ?? uuidv4(),
               projectId: project.id,
               runtimeId: meta?.runtimeId ?? '',
               branchName: branch,

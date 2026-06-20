@@ -2,6 +2,13 @@ import { writeFile, readFile, unlink } from 'node:fs/promises'
 
 export interface WorktreeMeta {
   runtimeId: string
+  /**
+   * The Manifold session id minted at creation. Persisted so it survives an app
+   * restart: SessionDiscovery restores it instead of minting a fresh uuid,
+   * keeping verdict records idempotent and (for interactive Claude, where the id
+   * doubles as `--session-id`) keeping the on-disk transcript locatable.
+   */
+  sessionId?: string
   displayName?: string
   taskDescription?: string
   simpleTemplateTitle?: string

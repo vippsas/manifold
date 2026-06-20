@@ -327,3 +327,73 @@ describe('VerdictRecorder per-event hooks', () => {
     expect(rec.metrics.turns).toBeUndefined()
   })
 })
+
+describe('VerdictRecorder.finalizeAllForQuitSync', () => {
+  let tmp: string
+  beforeEach(() => { tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'verdict-rec-q-')) })
+  afterEach(() => { fs.rmSync(tmp, { recursive: true, force: true }) })
+
+  function makeQuitRecorder(resolveSessionUsageSync: VerdictRecorderDeps['resolveSessionUsageSync']) {
+    const store = new VerdictStore(path.join(tmp, 'v.json'))
+    const getDiffStats = vi.fn(async () => ({ diffLines: { added: 0, removed: 0 }, filesChanged: 0 }))
+    const isBranchMerged = vi.fn(async () => false)
+    const lookupPrUrl = vi.fn(async () => null)
+    const recorder = new VerdictRecorder({
+      store,
+      getAiSettings: () => ({ provider: 'none' }),
+      getDiffStats,
+      isBranchMerged,
+      lookupPrUrl,
+      summarize: async (m) => m,
+      resolveSessionUsageSync,
+      now: () => new Date('2026-05-16T00:00:00.000Z'),
+    })
+    return { store, recorder, getDiffStats, isBranchMerged, lookupPrUrl }
+  }
+
+  it('writes token usage + terminatedAt synchronously for active sessions on quit', () => {
+    const { store, recorder } = makeQuitRecorder(() => ({
+      tokenUsage: { inputTokens: 800, outputTokens: 120, cacheReadTokens: 30, cacheCreationTokens: 5 },
+      turns: 3,
+    }))
+    recorder.onSessionCreated({
+      sessionId: 's1', projectId: 'p1', branch: 'manifold/foo',
+      runtime: 'claude', taskPrompt: 't', worktreePath: '/tmp/wt', baseBranch: 'main',
+    })
+
+    recorder.finalizeAllForQuitSync()
+
+    const rec = store.getBySessionId('s1')!
+    expect(rec.metrics.tokenUsage).toEqual({ inputTokens: 800, outputTokens: 120, cacheReadTokens: 30, cacheCreationTokens: 5 })
+    expect(rec.metrics.turns).toBe(3)
+    expect(rec.terminatedAt).toBeDefined()
+    expect(rec.durationMs).toBeDefined()
+  })
+
+  it('does not invoke async git/gh deps on the quit path', () => {
+    const { recorder, getDiffStats, isBranchMerged, lookupPrUrl } = makeQuitRecorder(() => null)
+    recorder.onSessionCreated({
+      sessionId: 's1', projectId: 'p1', branch: 'manifold/foo',
+      runtime: 'claude', taskPrompt: 't', worktreePath: '/tmp/wt', baseBranch: 'main',
+    })
+
+    recorder.finalizeAllForQuitSync()
+
+    expect(getDiffStats).not.toHaveBeenCalled()
+    expect(isBranchMerged).not.toHaveBeenCalled()
+    expect(lookupPrUrl).not.toHaveBeenCalled()
+  })
+
+  it('clears the active entry so a later onSessionTerminated no-ops', async () => {
+    const { recorder } = makeQuitRecorder(() => null)
+    recorder.onSessionCreated({
+      sessionId: 's1', projectId: 'p1', branch: 'manifold/foo',
+      runtime: 'claude', taskPrompt: 't', worktreePath: '/tmp/wt', baseBranch: 'main',
+    })
+
+    recorder.finalizeAllForQuitSync()
+    const active = (recorder as unknown as { active: Map<string, unknown> }).active
+    expect(active.has('s1')).toBe(false)
+    await expect(recorder.onSessionTerminated('s1')).resolves.not.toThrow()
+  })
+})

@@ -30,6 +30,8 @@ export interface VerdictRecorderDeps {
   summarize: (middle: string, settings: AiServiceSettings) => Promise<string>
   // Resolve per-session token usage + turns at termination; null ⇒ runtime exposed none.
   resolveSessionUsage?: (sessionId: string, worktreePath: string, runtime: string) => Promise<SessionUsage | null>
+  // Synchronous usage resolver for the app-quit teardown path (no awaits survive quit).
+  resolveSessionUsageSync?: (sessionId: string, worktreePath: string, runtime: string) => SessionUsage | null
   now?: () => Date
 }
 
@@ -173,6 +175,44 @@ export class VerdictRecorder {
       },
     })
     this.active.delete(sessionId)
+  }
+
+  /**
+   * Finalize every still-active session synchronously for app quit. `before-quit`
+   * kills PTYs without firing the natural `agent:exit` that drives
+   * `onSessionTerminated`, so without this an active session's token/turn metrics
+   * are lost on a normal quit — and chat-mode usage lives only in memory, so it is
+   * unrecoverable. The async git/gh/diff reconciliation is skipped (no await
+   * survives quit); the outcome is derived from already-recorded metrics. On the
+   * next launch the session is re-adopted and a real termination reconciles the
+   * rest. What must survive the quit is the usage + terminatedAt/durationMs.
+   */
+  finalizeAllForQuitSync(): void {
+    for (const [sessionId, tracked] of this.active) {
+      const existing = this.deps.store.getBySessionId(sessionId)
+      if (!existing) continue
+      const usage = this.deps.resolveSessionUsageSync
+        ? this.deps.resolveSessionUsageSync(sessionId, tracked.worktreePath, existing.runtime)
+        : null
+      const terminated = this.now()
+      const outcome = this.resolveTerminalOutcome(
+        existing,
+        false,
+        { diffLines: existing.metrics.diffLines, filesChanged: existing.metrics.filesChanged },
+        Boolean(existing.metrics.prUrl),
+      )
+      this.deps.store.upsert({
+        ...existing,
+        outcome,
+        terminatedAt: terminated.toISOString(),
+        durationMs: terminated.getTime() - tracked.createdAtMs,
+        metrics: {
+          ...existing.metrics,
+          ...(usage ? { tokenUsage: usage.tokenUsage, turns: usage.turns } : {}),
+        },
+      })
+    }
+    this.active.clear()
   }
 
   private resolveTerminalOutcome(

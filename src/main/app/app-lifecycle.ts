@@ -83,6 +83,11 @@ export function registerAppLifecycle(deps: AppLifecycleDeps): void {
     chatStore.flushSync()
     // Persist any buffered debug-log lines before exit.
     flushDebugLogSync()
+    // Finalize active sessions' verdicts synchronously BEFORE killing PTYs:
+    // killAllSessions does not fire the agent:exit that drives onSessionTerminated,
+    // so without this a normal quit drops active-session token/turn metrics (and
+    // chat-mode usage, which lives only in memory, is then unrecoverable).
+    sessionManager.finalizeActiveVerdictsForQuit()
     // Kill all active sessions and clean up
     sessionManager.killAllSessions()
     ptyPool.killAll()

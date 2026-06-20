@@ -187,6 +187,7 @@ export class SessionCreator {
     if (!noWorktree) {
       writeWorktreeMeta(worktree.path, {
         runtimeId: options.runtimeId,
+        sessionId: session.id,
         displayName: session.displayName,
         taskDescription: options.userMessage || options.prompt || existingMeta?.taskDescription,
         simpleTemplateTitle: options.simpleTemplateTitle ?? existingMeta?.simpleTemplateTitle,
