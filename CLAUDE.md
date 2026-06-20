@@ -88,6 +88,12 @@ npm run sync:codex-skills
 The sync copies every first-level skill under `.claude/skills/` into `~/.codex/skills/` and applies
 Codex-specific rewrites for skills that need them.
 
+## 7. Worktree setup
+
+A fresh worktree has no `node_modules`. **Run `npm install`** in the worktree to populate it —
+do **not** symlink `node_modules` from another clone. The symlink leaves an incomplete install
+(e.g. Electron) and breaks some vitest `?url` imports; a real `npm install` is the supported setup.
+
 ---
 
 **These guidelines are working if:** fewer unnecessary changes in diffs, fewer rewrites due to overcomplication, and clarifying questions come before implementation rather than after mistakes.
