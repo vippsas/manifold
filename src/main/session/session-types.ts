@@ -31,6 +31,8 @@ export interface InternalSession extends AgentSession {
   nonInteractiveOutputMode?: SimpleRuntimeOutputMode
   /** Current Codex JSONL thread id, used to discover generated image files that the CLI does not emit as events. */
   codexThreadId?: string
+  /** Per-Codex-run user turn counts, keyed by thread id when available or PTY id while starting. */
+  codexUsageTurnsByRun?: Record<string, number>
   /** Real paths of Codex generated image files already copied/published for this session. */
   codexPublishedGeneratedImageSources?: string[]
   /** Slash command/skill names from the Claude system/init event, for the chat `/` autocomplete */

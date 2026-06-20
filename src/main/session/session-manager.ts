@@ -1,5 +1,4 @@
-import { AgentSession, SpawnAgentOptions } from '../../shared/types'
-import type { ShellPromptSegments } from '../../shared/types'
+import type { AgentSession, ShellPromptSegments, SpawnAgentOptions } from '../../shared/types'
 import { WorktreeManager } from '../git/worktree-manager'
 import { BranchCheckoutManager } from '../git/branch-checkout-manager'
 import { PtyPool } from '../agent/pty-pool'
@@ -27,6 +26,7 @@ import { toPublicSession } from './session-public'
 import { SessionIoController } from './session-io-controller'
 import type { VerdictRecorder } from './verdict-recorder'
 import type { DismissedAgentsStore } from '../store/dismissed-agents-store'
+import { sendSessionManagerRendererEvent } from './session-manager-renderer'
 
 export class SessionManager {
   private sessions: Map<string, InternalSession> = new Map()
@@ -65,6 +65,8 @@ export class SessionManager {
       (session) => this.devServer.startDevServer(session),
       (session, commands) => this.cacheSlashCommands(session.projectId, commands),
       (session, usage) => this.usageAccumulator.recordTurn(session.id, usage),
+      (session, runId, usage, turns) => this.usageAccumulator.replaceRun(session.id, runId, usage, turns),
+      persistSessionMeta,
     )
     this.devServer = new DevServerManager(
       this.ptyPool,
@@ -173,27 +175,12 @@ export class SessionManager {
   }
 
   private sendToRenderer(channel: string, ...args: unknown[]): void {
-    if (channel === 'agent:status') {
-      const payload = args[0] as { sessionId?: string; status?: string } | undefined
-      if (payload?.sessionId && payload.status) {
-        this.statusListener?.(payload.sessionId, payload.status)
-        this.verdictRecorder?.onStatus(payload.sessionId, payload.status)
-        this.notificationService?.onStatus(payload.sessionId, payload.status)
-      }
-    }
-    if (channel === 'agent:exit') {
-      const payload = args[0] as { sessionId?: string } | undefined
-      // Natural PTY exit needs to finalize the verdict (terminatedAt, durationMs,
-      // final diff stats, merged check). killSession also triggers PTY exit, but
-      // onSessionTerminated is idempotent — second call no-ops because this.active
-      // is cleared after the first.
-      if (payload?.sessionId) {
-        void this.verdictRecorder?.onSessionTerminated(payload.sessionId)
-      }
-    }
-    if (this.mainWindow && !this.mainWindow.isDestroyed()) {
-      this.mainWindow.webContents.send(channel, ...args)
-    }
+    sendSessionManagerRendererEvent({
+      mainWindow: this.mainWindow,
+      statusListener: this.statusListener,
+      verdictRecorder: this.verdictRecorder,
+      notificationService: this.notificationService,
+    }, channel, args)
   }
 
   private notifySessionsChanged(projectId: string): void {

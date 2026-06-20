@@ -42,7 +42,8 @@ import { WorkspaceStore } from '../workspace/workspace-store'
 import { WorkspaceManager } from '../workspace/workspace-manager'
 import { VerdictStore } from '../store/verdict-store'
 import { VerdictRecorder } from '../session/verdict-recorder'
-import { readClaudeTranscriptUsage, readClaudeTranscriptUsageSync, claudeProjectsDir } from '../session/transcript-usage-reader'
+import { readClaudeTranscriptUsage, readClaudeTranscriptUsageSync, claudeProjectsDir, type SessionUsage } from '../session/transcript-usage-reader'
+import { codexHomeDir, readCodexUsage, readCodexUsageSync } from '../session/codex-usage-reader'
 import { summarizeMiddle } from '../store/prompt-summarizer'
 import { PluginManager } from '../plugins/plugin-manager'
 import { registerWebviewSchemePrivileged } from '../plugins/webview-protocol'
@@ -108,24 +109,58 @@ const verdictRecorder = new VerdictRecorder({
   isBranchMerged: (wt, base, branch) => gitOps.isBranchMerged(wt, base, branch),
   lookupPrUrl: (wt) => lookupWorktreePrUrl(wt),
   summarize: (middle, settings) => summarizeMiddle(middle, settings),
-  resolveSessionUsage: async (sessionId, worktreePath, runtime) => {
+  resolveSessionUsage: async (ctx) => {
     // Chat-mode: drain the live accumulator. Interactive Claude: read the on-disk
-    // transcript by the --session-id we spawned with. Other runtimes expose nothing.
-    const live = sessionManager.takeLiveUsage(sessionId)
-    if (live && live.turns > 0) return live
-    if (runtime !== 'claude') return null
-    return readClaudeTranscriptUsage({ claudeProjectsDir: claudeProjectsDir(), worktreePath, sessionId })
+    // transcript by the --session-id we spawned with. Codex: read local rollout JSONL.
+    const live = sessionManager.takeLiveUsage(ctx.sessionId)
+    if (hasSessionUsage(live)) return live
+    if (ctx.runtime === 'claude') {
+      return readClaudeTranscriptUsage({ claudeProjectsDir: claudeProjectsDir(), worktreePath: ctx.worktreePath, sessionId: ctx.sessionId })
+    }
+    if (ctx.runtime === 'codex') {
+      return readCodexUsage({
+        codexHomeDir: codexHomeDir(),
+        worktreePath: ctx.worktreePath,
+        sessionId: ctx.sessionId,
+        codexThreadId: sessionManager.getInternalSession(ctx.sessionId)?.codexThreadId,
+        createdAtMs: ctx.createdAtMs,
+        terminatedAtMs: ctx.terminatedAtMs,
+      })
+    }
+    return null
   },
-  resolveSessionUsageSync: (sessionId, worktreePath, runtime) => {
+  resolveSessionUsageSync: (ctx) => {
     // Synchronous mirror of resolveSessionUsage for the app-quit teardown path.
-    const live = sessionManager.takeLiveUsage(sessionId)
-    if (live && live.turns > 0) return live
-    if (runtime !== 'claude') return null
-    return readClaudeTranscriptUsageSync({ claudeProjectsDir: claudeProjectsDir(), worktreePath, sessionId })
+    const live = sessionManager.takeLiveUsage(ctx.sessionId)
+    if (hasSessionUsage(live)) return live
+    if (ctx.runtime === 'claude') {
+      return readClaudeTranscriptUsageSync({ claudeProjectsDir: claudeProjectsDir(), worktreePath: ctx.worktreePath, sessionId: ctx.sessionId })
+    }
+    if (ctx.runtime === 'codex') {
+      return readCodexUsageSync({
+        codexHomeDir: codexHomeDir(),
+        worktreePath: ctx.worktreePath,
+        sessionId: ctx.sessionId,
+        codexThreadId: sessionManager.getInternalSession(ctx.sessionId)?.codexThreadId,
+        createdAtMs: ctx.createdAtMs,
+        terminatedAtMs: ctx.terminatedAtMs,
+      })
+    }
+    return null
   },
 })
 sessionManager.setVerdictRecorder(verdictRecorder)
 fileWatcher.setVerdictRecorder(verdictRecorder)
+
+function hasSessionUsage(usage: SessionUsage | null): usage is SessionUsage {
+  if (!usage) return false
+  const tokens = usage.tokenUsage
+  return usage.turns > 0 ||
+    tokens.inputTokens > 0 ||
+    tokens.outputTokens > 0 ||
+    tokens.cacheReadTokens > 0 ||
+    tokens.cacheCreationTokens > 0
+}
 
 const agentNotifier = new AgentNotifier({
   getSettings: () => settingsStore.getSettings(),

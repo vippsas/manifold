@@ -37,12 +37,13 @@ describe('SessionDiscovery session-id stability', () => {
   beforeEach(() => vi.clearAllMocks())
 
   it('restores the persisted session id on re-adoption instead of minting a fresh one', async () => {
-    const { discovery, sessions } = deps({ runtimeId: 'claude', sessionId: 'persisted-sid' })
+    const { discovery, sessions } = deps({ runtimeId: 'codex', sessionId: 'persisted-sid', codexThreadId: 'thread-1' })
 
     await discovery.discoverSessionsForProject('p1')
 
     const session = Array.from(sessions.values())[0]
     expect(session.id).toBe('persisted-sid')
+    expect(session.codexThreadId).toBe('thread-1')
   })
 
   it('mints a fresh id when meta has no persisted session id', async () => {

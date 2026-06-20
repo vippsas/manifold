@@ -11,35 +11,9 @@ import type { TokenUsage } from '../../shared/verdict-types'
 import type { GitOperationsManager } from '../git/git-operations'
 import { predictNextCommand } from './shell-suggestion'
 import { handleStreamJsonEvent, type StreamJsonCtx } from './session-stream-json'
+import { hasShellPromptAtEnd as hasPromptAtEnd } from './session-shell-prompt-detection'
 
-function stripTerminalControls(text: string): string {
-  return text
-    .replace(/\x1b\][^\x07\x1b]*(?:\x07|\x1b\\)/g, '')
-    .replace(/\x1b\[[0-?]*[ -/]*[@-~]/g, '')
-    .replace(/\x1b[ -/]*[@-~]/g, '')
-    .replace(/[\x00-\x08\x0b\x0c\x0e-\x1f\x7f]/g, '')
-}
-
-export function hasShellPromptAtEnd(output: string): boolean {
-  const clean = stripTerminalControls(output.slice(-2000)).replace(/\r/g, '\n')
-  const lastLine = clean.split('\n').pop() ?? ''
-  return /❯\s*$/.test(lastLine)
-}
-
-/**
- * True when the cursor sits on the Manifold shell prompt line — including while
- * the user is mid-typing a command, where echoed keystrokes follow the `❯`
- * marker (e.g. `oslo ❯ # ls`). `hasShellPromptAtEnd` only matches an *empty*
- * prompt, so it can't gate input routing: as soon as a character is echoed the
- * line no longer ends in `❯`. This relaxes that to "the prompt marker is on the
- * current line", which stays true throughout typing but goes false once an
- * interactive program (TUI/auth prompt) repaints the line without the marker.
- */
-export function isAtShellPromptLine(output: string): boolean {
-  const clean = stripTerminalControls(output.slice(-2000)).replace(/\r/g, '\n')
-  const lastLine = clean.split('\n').pop() ?? ''
-  return lastLine.includes('❯')
-}
+export { hasShellPromptAtEnd, isAtShellPromptLine } from './session-shell-prompt-detection'
 
 export class SessionStreamWirer {
   private gitOps: GitOperationsManager | undefined
@@ -54,6 +28,8 @@ export class SessionStreamWirer {
     private onDevServerNeeded: (session: InternalSession) => void,
     private onSlashCommands?: (session: InternalSession, commands: string[]) => void,
     private onTurnUsage?: (session: InternalSession, usage: TokenUsage) => void,
+    private onRunUsage?: (session: InternalSession, runId: string, usage: TokenUsage, turns: number) => void,
+    private onRuntimeMeta?: (session: InternalSession) => void,
   ) {}
 
   setGitOps(gitOps: GitOperationsManager): void {
@@ -67,6 +43,8 @@ export class SessionStreamWirer {
       onDevServerNeeded: this.onDevServerNeeded,
       onSlashCommands: this.onSlashCommands,
       onTurnUsage: this.onTurnUsage,
+      onRunUsage: this.onRunUsage,
+      onRuntimeMeta: this.onRuntimeMeta,
     }
   }
 
@@ -155,7 +133,7 @@ export class SessionStreamWirer {
       // Detect Manifold shell prompt and trigger AI command prediction immediately.
       // Use the accumulated buffer so prompt detection still works if PTY chunks
       // split the prompt glyph away from the current output chunk.
-      if (session.runtimeId === '__shell__' && this.gitOps && hasShellPromptAtEnd(session.outputBuffer)
+      if (session.runtimeId === '__shell__' && this.gitOps && hasPromptAtEnd(session.outputBuffer)
           && !session.shellSuggestion?.pending && !session.shellSuggestion?.activeSuggestion
           && !session.nlPending) {
         if (!session.nlInputBuffer?.hasBufferedInput()) {

@@ -29,10 +29,18 @@ export interface VerdictRecorderDeps {
   lookupPrUrl?: (worktreePath: string) => Promise<string | null>
   summarize: (middle: string, settings: AiServiceSettings) => Promise<string>
   // Resolve per-session token usage + turns at termination; null ⇒ runtime exposed none.
-  resolveSessionUsage?: (sessionId: string, worktreePath: string, runtime: string) => Promise<SessionUsage | null>
+  resolveSessionUsage?: (ctx: SessionUsageResolveContext) => Promise<SessionUsage | null>
   // Synchronous usage resolver for the app-quit teardown path (no awaits survive quit).
-  resolveSessionUsageSync?: (sessionId: string, worktreePath: string, runtime: string) => SessionUsage | null
+  resolveSessionUsageSync?: (ctx: SessionUsageResolveContext) => SessionUsage | null
   now?: () => Date
+}
+
+export interface SessionUsageResolveContext {
+  sessionId: string
+  worktreePath: string
+  runtime: string
+  createdAtMs: number
+  terminatedAtMs: number
 }
 
 interface ActiveSession {
@@ -152,12 +160,17 @@ export class VerdictRecorder {
       ? (await safe(() => this.deps.lookupPrUrl!(tracked.worktreePath), null)) ?? undefined
       : undefined)
 
-    const usage = this.deps.resolveSessionUsage
-      ? await safe(() => this.deps.resolveSessionUsage!(sessionId, tracked.worktreePath, existing.runtime), null)
-      : null
-
     const outcome = this.resolveTerminalOutcome(existing, merged, { diffLines, filesChanged }, Boolean(prUrl))
     const terminatedDate = this.now()
+    const usage = this.deps.resolveSessionUsage
+      ? await safe(() => this.deps.resolveSessionUsage!({
+          sessionId,
+          worktreePath: tracked.worktreePath,
+          runtime: existing.runtime,
+          createdAtMs: tracked.createdAtMs,
+          terminatedAtMs: terminatedDate.getTime(),
+        }), null)
+      : null
     const taskPrompt = await this.maybeTruncatePrompt(existing.taskPrompt)
 
     this.deps.store.upsert({
@@ -191,10 +204,16 @@ export class VerdictRecorder {
     for (const [sessionId, tracked] of this.active) {
       const existing = this.deps.store.getBySessionId(sessionId)
       if (!existing) continue
-      const usage = this.deps.resolveSessionUsageSync
-        ? this.deps.resolveSessionUsageSync(sessionId, tracked.worktreePath, existing.runtime)
-        : null
       const terminated = this.now()
+      const usage = this.deps.resolveSessionUsageSync
+        ? this.deps.resolveSessionUsageSync({
+            sessionId,
+            worktreePath: tracked.worktreePath,
+            runtime: existing.runtime,
+            createdAtMs: tracked.createdAtMs,
+            terminatedAtMs: terminated.getTime(),
+          })
+        : null
       const outcome = this.resolveTerminalOutcome(
         existing,
         false,

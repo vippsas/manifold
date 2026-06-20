@@ -19,6 +19,8 @@ export interface WorktreeMeta {
   /** projectId -> worktree path for the workspace agent's full working set (for teardown). */
   workspaceWorktreePaths?: Record<string, string>
   nonInteractive?: boolean
+  /** Codex's local thread id when a JSONL stream exposes it; used to locate Codex rollouts. */
+  codexThreadId?: string
   /** When true, the agent is protected from deletion until explicitly unlocked. */
   locked?: boolean
 }
