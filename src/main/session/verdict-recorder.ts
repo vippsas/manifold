@@ -1,6 +1,7 @@
 import type { VerdictStore } from '../store/verdict-store'
 import type { VerdictRecord, TaskPrompt } from '../../shared/verdict-types'
 import type { AiServiceSettings } from '../../shared/plugins/api-types'
+import type { SessionUsage } from './transcript-usage-reader'
 
 const FULL_THRESHOLD = 2048
 const HEAD_TAIL_BYTES = 1024
@@ -27,6 +28,8 @@ export interface VerdictRecorderDeps {
   // renames the branch, so the verdict's original branch name won't match.
   lookupPrUrl?: (worktreePath: string) => Promise<string | null>
   summarize: (middle: string, settings: AiServiceSettings) => Promise<string>
+  // Resolve per-session token usage + turns at termination; null ⇒ runtime exposed none.
+  resolveSessionUsage?: (sessionId: string, worktreePath: string, runtime: string) => Promise<SessionUsage | null>
   now?: () => Date
 }
 
@@ -147,6 +150,10 @@ export class VerdictRecorder {
       ? (await safe(() => this.deps.lookupPrUrl!(tracked.worktreePath), null)) ?? undefined
       : undefined)
 
+    const usage = this.deps.resolveSessionUsage
+      ? await safe(() => this.deps.resolveSessionUsage!(sessionId, tracked.worktreePath, existing.runtime), null)
+      : null
+
     const outcome = this.resolveTerminalOutcome(existing, merged, { diffLines, filesChanged }, Boolean(prUrl))
     const terminatedDate = this.now()
     const taskPrompt = await this.maybeTruncatePrompt(existing.taskPrompt)
@@ -157,7 +164,13 @@ export class VerdictRecorder {
       outcome,
       terminatedAt: terminatedDate.toISOString(),
       durationMs: terminatedDate.getTime() - tracked.createdAtMs,
-      metrics: { ...existing.metrics, diffLines, filesChanged, prUrl },
+      metrics: {
+        ...existing.metrics,
+        diffLines,
+        filesChanged,
+        prUrl,
+        ...(usage ? { tokenUsage: usage.tokenUsage, turns: usage.turns } : {}),
+      },
     })
     this.active.delete(sessionId)
   }
