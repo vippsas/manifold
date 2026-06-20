@@ -118,6 +118,7 @@ export class SessionDiscovery {
           workspaceId: meta?.workspaceId,
           workspaceWorktreePaths: meta?.workspaceWorktreePaths,
           nonInteractive: meta?.nonInteractive,
+          codexThreadId: meta?.codexThreadId,
           locked: meta?.locked,
         }
         this.sessions.set(session.id, session)
@@ -159,6 +160,7 @@ export class SessionDiscovery {
             additionalDirs: meta?.additionalDirs ?? [],
             noWorktree: true,
             nonInteractive: meta?.nonInteractive ?? true,
+            codexThreadId: meta?.codexThreadId,
             locked: meta?.locked,
           }
           this.sessions.set(session.id, session)

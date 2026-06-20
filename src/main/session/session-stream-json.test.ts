@@ -39,4 +39,45 @@ describe('chat-mode usage capture', () => {
     expect(onTurnUsage).toHaveBeenCalledWith(expect.anything(),
       { inputTokens: 0, outputTokens: 0, cacheReadTokens: 0, cacheCreationTokens: 0 })
   })
+
+  it('maps Codex token_count totals to per-run usage with user-message turns', () => {
+    const onRunUsage = vi.fn()
+    const s = session()
+    handleStreamJsonEvent(ctx({ onRunUsage }), s,
+      { type: 'event_msg', payload: { type: 'user_message', message: 'hi' } }, 'p1', 'codex-jsonl')
+    handleStreamJsonEvent(ctx({ onRunUsage }), s,
+      { type: 'event_msg', payload: { type: 'token_count', info: {
+        total_token_usage: { input_tokens: 100, cached_input_tokens: 25, output_tokens: 9 },
+      } } },
+      'p1',
+      'codex-jsonl',
+    )
+
+    expect(onRunUsage).toHaveBeenCalledWith(expect.anything(), 'p1', {
+      inputTokens: 100, outputTokens: 9, cacheReadTokens: 25, cacheCreationTokens: 0,
+    }, 1)
+  })
+
+  it('migrates Codex live turn counts from PTY id to thread id when the thread starts', () => {
+    const onRunUsage = vi.fn()
+    const onRuntimeMeta = vi.fn()
+    const s = session()
+    handleStreamJsonEvent(ctx({ onRunUsage, onRuntimeMeta }), s,
+      { type: 'event_msg', payload: { type: 'user_message', message: 'hi' } }, 'p1', 'codex-jsonl')
+    handleStreamJsonEvent(ctx({ onRunUsage, onRuntimeMeta }), s,
+      { type: 'thread.started', thread_id: 'thread-1' }, 'p1', 'codex-jsonl')
+    handleStreamJsonEvent(ctx({ onRunUsage, onRuntimeMeta }), s,
+      { type: 'event_msg', payload: { type: 'token_count', info: {
+        total_token_usage: { input_tokens: 200, cached_input_tokens: 50, output_tokens: 20 },
+      } } },
+      'p1',
+      'codex-jsonl',
+    )
+
+    expect(s.codexThreadId).toBe('thread-1')
+    expect(onRuntimeMeta).toHaveBeenCalledWith(s)
+    expect(onRunUsage).toHaveBeenCalledWith(expect.anything(), 'thread-1', {
+      inputTokens: 200, outputTokens: 20, cacheReadTokens: 50, cacheCreationTokens: 0,
+    }, 1)
+  })
 })

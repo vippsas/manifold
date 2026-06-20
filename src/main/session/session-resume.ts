@@ -20,7 +20,8 @@ export async function resumeAgentSession(
   streamWirer: SessionStreamWirer,
   memoryInjector?: MemoryInjector,
 ): Promise<void> {
-  if (!session.ollamaModel || !session.simpleTemplateTitle || !session.simplePromptInstructions) {
+  const needsCodexThreadId = runtimeId === 'codex' && !session.codexThreadId
+  if (!session.ollamaModel || !session.simpleTemplateTitle || !session.simplePromptInstructions || needsCodexThreadId) {
     const meta = await readWorktreeMeta(session.worktreePath)
     if (meta?.ollamaModel) {
       session.ollamaModel = meta.ollamaModel
@@ -30,6 +31,9 @@ export async function resumeAgentSession(
     }
     if (meta?.simplePromptInstructions) {
       session.simplePromptInstructions = meta.simplePromptInstructions
+    }
+    if (meta?.codexThreadId) {
+      session.codexThreadId = meta.codexThreadId
     }
   }
 

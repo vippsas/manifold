@@ -14,6 +14,7 @@ export function persistSessionMeta(session: InternalSession): void {
     workspaceId: session.workspaceId,
     workspaceWorktreePaths: session.workspaceWorktreePaths,
     nonInteractive: session.nonInteractive,
+    codexThreadId: session.codexThreadId,
     locked: session.locked,
   }).catch((err) => {
     console.error(

@@ -197,6 +197,7 @@ export class SessionCreator {
         workspaceId: options.workspaceId,
         workspaceWorktreePaths: options.workspaceWorktreePaths,
         nonInteractive: options.nonInteractive,
+        codexThreadId: session.codexThreadId,
       }).catch((err) => {
         console.error(
           `[session-creator] writeWorktreeMeta failed for ${worktree.path} — nonInteractive=${options.nonInteractive} may be lost on next launch:`,
