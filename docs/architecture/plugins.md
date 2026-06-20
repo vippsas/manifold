@@ -1,7 +1,7 @@
 ---
 description: How Manifold's main process discovers, loads, gates, and tears down plugins — the host side that forks the extension-host utility process and enforces capabilities.
 covers: [src/main/plugins, src/plugin-host]
-updated: 2026-06-19
+updated: 2026-06-20
 owner: see .github/CODEOWNERS
 ---
 
@@ -12,7 +12,7 @@ sandboxed extension-host utility process to run their code, and brokers every ca
 between that process and the rest of the app. It is also the trust boundary: plugins
 declare *capabilities* in their manifest, and the host decides which API namespaces a
 plugin may touch — including the privileged capabilities (`workspace:manage`, `agent:control`,
-`agent:spawn`, `lm`, `transcription:read`, `verdicts:read`) that are restricted to built-in
+`agent:spawn`, `lm`, `transcription:read`, `verdicts:read`, `verdicts:write`) that are restricted to built-in
 plugins no matter what their manifest claims.
 
 The API surface plugin authors consume from inside their code (`manifold.*` / `vscode.*`)
@@ -91,7 +91,7 @@ always available; `storage`, `workspace`, `configuration`, `agents`, `lm`, and
 throws `CapabilityError` when the capability isn't declared, and
 `RestrictedCapabilityError` when a built-in-only capability is requested by a
 non-built-in plugin (`gated-api.ts:35`). The built-in-only set is
-`BUILTIN_ONLY_CAPABILITIES = ['workspace:manage', 'agent:control', 'agent:spawn', 'lm', 'transcription:read', 'verdicts:read']`
+`BUILTIN_ONLY_CAPABILITIES = ['workspace:manage', 'agent:control', 'agent:spawn', 'lm', 'transcription:read', 'verdicts:read', 'verdicts:write']`
 (`shared/plugins/manifest.ts:14`), so even a user plugin that declares one in its manifest
 is denied at the getter because its `origin !== 'builtin'`. The `agents` namespace is the
 one shared gate: either `agent:control` or `agent:spawn` admits it, and the factory
@@ -102,7 +102,11 @@ main process by `AgentControlService` (drives a session's agent for one turn,
 input, `agent-spawn-service.ts:32`), `LmService` (one-shot generation via the active
 session's runtime, `lm-service.ts:19`), and the transcription-settings resolver
 (`extension-host.ts:70`, set by `PluginManager` from the core settings store) — exactly
-the powers that warrant the restriction.
+the powers that warrant the restriction. The verdicts namespace is read/write split:
+`verdicts:read` admits `listByProject`/`listAll`, while `clearProject` and
+`verifyPullRequests` re-check `verdicts:write` in the host-side gated API
+(`gated-api.ts:61`, `:68`) and again at the trusted main RPC handler
+(`extension-host.ts:203`, `:207`).
 
 The `gated-api.ts` getter check runs *inside* the host process, alongside untrusted
 plugin code, so it is a convenience gate, not the trust boundary. The authoritative check
@@ -190,14 +194,14 @@ disabled plugin (`extension-host.ts`, `plugin-manager.ts:63`).
 
 - **Extension-host process** (`src/plugin-host`): the peer that actually runs plugin code. `index.ts` wires the require interceptor, the `Activator`, `buildGatedApi`, and the per-namespace API factories (`storage-api`, `workspace-api`, `config-api`, `agents-api`, `lm-api`, plus the `vscode-shim` for `kind: 'vscode'`). The two sides talk over `RpcEndpoint` (`shared/plugins/rpc.ts:32`) across the utility-process message channel.
 - **Session** (`src/main/session`): `AgentControlService` and `LmService` read live sessions via `SessionManager.getSession`/`getInternalSession`/`sendInput`; `setActiveContext` enriches the renderer's context with the session's `worktreePath` and `runtimeId` (`plugin-manager.ts:181`) — the latter lets a plugin pick a runtime-specific agent invocation (e.g. watch's `/watch:watch` vs Codex's `$watch`).
-- **Git** (`src/main/git`): `LmService.sendRequest` calls `GitOperationsManager.aiGenerate` to do one-shot generation through the runtime (`lm-service.ts:37`).
+- **Git** (`src/main/git`): `LmService.sendRequest` calls `GitOperationsManager.aiGenerate` to do one-shot generation through the runtime (`lm-service.ts:37`); the verdict service injected by `PluginManager` uses `viewPullRequestStatus` when built-in plugins request PR verification (`plugin-manager.ts:110`).
 - **Settings store** (`src/main/store`): enable/disable lives in `settings.disabledPlugins`; per-plugin config overrides live in `settings.pluginConfig` and merge over manifest defaults (`plugin-manager.ts:59`, `:69`).
 - **IPC** (`src/main/ipc/plugin-handlers.ts`): `plugins:list`, `plugins:list-contributions`, `plugins:set-enabled`, `plugins:activate`, `plugins:execute-command`, `plugins:open-view`/`open-tree-view`, `plugins:tree-get-children`, `plugins:webview-to-host`, `plugins:set-active-context`, `plugins:get-config`/`set-config`, `plugins:ui-response`. The manager pushes `plugins:webview-html`, `plugins:webview-message`, `plugins:tree-refresh`, `plugins:ui-request`, and `plugins:contributions-changed` to the renderer through `setMainWindow`'s `send` (`plugin-manager.ts:120`).
 - **Renderer** (`src/renderer/plugins`, `components/editor/plugins`): `PluginViewPanel` triggers `plugins:open-view` and listens for `plugins:webview-html`; `usePluginTree` drives tree views; `use-contributions` reloads the launcher on `plugins:contributions-changed`.
 
 ## Invariants & gotchas
 
-- **`workspace:manage`, `agent:control`, `agent:spawn`, `lm`, `transcription:read`, and `verdicts:read` are built-in-only — re-enforced on the trusted main side, not just at the host getter.** Declaring them in a user plugin's manifest passes parse-time validation (they are valid capabilities) but throws `RestrictedCapabilityError` the moment the plugin touches `manifold.worktrees` / `manifold.agents` / `manifold.lm` / `manifold.transcription` / `manifold.verdicts` (`gated-api.ts:37`). That getter check runs inside the host process, so it is not authoritative: every `HOST_WORKTREES`/`HOST_AGENTS`/`HOST_LM`/`HOST_TRANSCRIPTION`/`HOST_VERDICTS` RPC also carries the calling `pluginId`, and the main handlers call `assertBuiltin()` to reject any non-builtin/unknown caller before driving an agent, spawning a session, reading API keys, the LLM, managed worktrees, or recorded verdicts (`extension-host.ts:170-197`) — so a plugin can't escape the gate by hitting the RPC endpoint directly. The restriction keys on `origin === 'builtin'`, which the scanner sets from *which directory* the plugin was found in (`scanner.ts:13`) — not from anything the plugin can self-declare.
+- **`workspace:manage`, `agent:control`, `agent:spawn`, `lm`, `transcription:read`, `verdicts:read`, and `verdicts:write` are built-in-only — re-enforced on the trusted main side, not just at the host getter.** Declaring them in a user plugin's manifest passes parse-time validation (they are valid capabilities) but throws `RestrictedCapabilityError` the moment the plugin touches `manifold.worktrees` / `manifold.agents` / `manifold.lm` / `manifold.transcription` / `manifold.verdicts` (`gated-api.ts:37`). That getter check runs inside the host process, so it is not authoritative: every `HOST_WORKTREES`/`HOST_AGENTS`/`HOST_LM`/`HOST_TRANSCRIPTION`/`HOST_VERDICTS` RPC also carries the calling `pluginId`, and the main handlers call `assertBuiltin()` to reject any non-builtin/unknown caller before driving an agent, spawning a session, reading API keys, the LLM, managed worktrees, or recorded/mutated verdicts (`extension-host.ts:170-207`) — so a plugin can't escape the gate by hitting the RPC endpoint directly. The restriction keys on `origin === 'builtin'`, which the scanner sets from *which directory* the plugin was found in (`scanner.ts:13`) — not from anything the plugin can self-declare.
 - **`activationEvents` is parsed but not yet event-driven.** Both parsers carry `activationEvents` into the manifest (`manifest.ts:107`, `vscode-manifest.ts:72`), but no host code matches them. Activation happens explicitly via the `plugins:activate` IPC, or lazily the first time a view is opened / a tree is queried / a webview message is delivered (each of `openView`, `treeGetChildren`, `deliverWebviewMessage`, `setActiveContext` calls `ensure()` + `$activate`). Don't assume `onCommand:` etc. lazy-activates a plugin.
 - **The host process re-forks on crash (with backoff); in-flight RPCs reject, they don't hang.** A plugin that crashes the utility process triggers `onHostDown`, which rejects every pending call, flushes pending UI prompts, and clears the `CommandRegistry` so the re-forked host starts clean (`extension-host.ts`, `command-registry.ts:36`). Awaiting callers fail loudly with `plugin host exited (code …)`. A crash circuit-breaker counts crashes within a window and, once tripped, makes `ensure()` refuse to re-fork until an exponential backoff elapses — so a host that crashes on `activate()` backs off instead of re-forking on every `setActiveContext`/`openView`/… call.
 - **Plugin ids are charset-validated *and* path-checked at write time.** Even though `parseManifest` restricts the id charset, `PluginStorageStore.fileFor()` re-verifies the resolved path stays inside `<storage>/plugin-storage/` before any read/write (`plugin-storage-store.ts:10`). Corrupt storage JSON is backed up to `.bak` (once) rather than silently overwritten (`plugin-storage-store.ts:43`).

@@ -1,4 +1,4 @@
-import type { ManifoldContext } from 'manifold'
+import type { ManifoldContext, ProjectVerdicts } from 'manifold'
 // eslint-disable-next-line @typescript-eslint/no-var-requires
 const manifold = require('manifold') as typeof import('manifold')
 
@@ -12,7 +12,8 @@ export function activate(context: ManifoldContext): void {
     listAll: () => manifold.verdicts.listAll(),
     openExternal: (url) => { void manifold.window.openExternal(url) },
     confirmReset: async (projectId) => {
-      const group = (await manifold.verdicts.listAll()).find((g) => g.projectId === projectId)
+      const groups = await manifold.verdicts.listAll() as ProjectVerdicts[]
+      const group = groups.find((g) => g.projectId === projectId)
       const name = group?.projectName ?? 'this repo'
       const count = group?.records.length ?? 0
       const choice = await manifold.window.showWarningMessage(
@@ -22,6 +23,7 @@ export function activate(context: ManifoldContext): void {
       return choice === 'Delete'
     },
     clearProject: (projectId) => manifold.verdicts.clearProject(projectId),
+    verifyPullRequests: () => manifold.verdicts.verifyPullRequests(),
   })
   context.subscriptions.push(manifold.window.registerWebviewViewProvider('manifold.statistics.panel', host.provider))
   // Re-read when the user switches project so newly captured sessions show up.

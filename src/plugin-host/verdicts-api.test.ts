@@ -22,4 +22,22 @@ describe('createVerdictsApi.clearProject', () => {
     await api.clearProject('p1')
     expect(calls).toEqual([['manifold.statistics', 'p1']])
   })
+
+  it('forwards pluginId to HOST_VERDICTS.$verifyPullRequests', async () => {
+    const { host, main } = wire()
+    const calls: string[] = []
+    main.registerService(HOST_VERDICTS, {
+      $listByProject: () => Promise.resolve([]),
+      $listAll: () => Promise.resolve([]),
+      $clearProject: () => Promise.resolve(),
+      $verifyPullRequests: (pluginId: string) => {
+        calls.push(pluginId)
+        return Promise.resolve({ eligible: 1, checked: 1, updated: 1, failed: 0 })
+      },
+    })
+    const api = createVerdictsApi(host, 'manifold.statistics')
+    const result = await api.verifyPullRequests()
+    expect(result.updated).toBe(1)
+    expect(calls).toEqual(['manifold.statistics'])
+  })
 })

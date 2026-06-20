@@ -1,7 +1,7 @@
 ---
 description: How Manifold creates, lists, and removes git worktrees, checks out branches/PRs, persists per-session worktree meta, and runs raw git/gh for commits, diffs, and PR creation.
 covers: [src/main/git]
-updated: 2026-06-13
+updated: 2026-06-20
 owner: see .github/CODEOWNERS
 ---
 
@@ -25,6 +25,7 @@ session map.
 - `src/main/git/managed-worktree.ts` — `prepareManagedWorktree`, `commitManagedWorktree`, `getManagedWorktreeStatus`, `stageManagedWorktreePath`, plus poisoned-index detection/repair.
 - `src/main/git/git-operations.ts` — `GitOperationsManager`: commit, fetch-and-fast-forward base, ahead/behind, merged check, conflict listing/resolution, PR context, and `aiGenerate` (runs an AI runtime for commit/PR text).
 - `src/main/git/pr-creator.ts` — `PrCreator`: push the branch and open a PR through `gh pr create`.
+- `src/main/git/pr-status.ts` — `viewPullRequestStatus()`: URL-based `gh pr view --json state,mergedAt` lookup used when cached verdict PR state is verified later.
 - `src/main/git/diff-provider.ts` — `DiffProvider`: diff/changed-files/numstat against the base branch (including untracked files) without mutating the index.
 - `src/main/git/branch-namer.ts` — `generateBranchName` / `slugify`: derive a unique `<repo>/<slug>` branch name from a task description.
 - `src/main/git/git-errors.ts` — `isGitRepositoryError` / `isMissingGitError`: error classifiers used by discovery and the file watcher.
@@ -110,7 +111,9 @@ only because the base branch advanced — i.e. were changed in another worktree 
 conflicts, and gathers `getPRContext` (log/diffstat/truncated patch) used to seed AI-generated
 PR text. `PrCreator.createPR()` (`pr-creator.ts:22`) verifies `gh` is installed, pushes with
 `-u origin <branch>`, runs `gh pr create --title/--body/--base/--head`, and returns the parsed
-PR URL.
+PR URL. Later PR-state refreshes do not depend on branch names: `viewPullRequestStatus()`
+accepts the stored PR URL and parses `gh pr view <url> --json state,mergedAt`, treating any
+`mergedAt` timestamp as `merged` (`pr-status.ts:12`, `:28`).
 
 ## Key types and entry points
 
@@ -120,6 +123,7 @@ PR URL.
 - `commitManagedWorktree` / `prepareManagedWorktree` / `getManagedWorktreeStatus` — `managed-worktree.ts:66` / `:19` / `:49`.
 - `GitOperationsManager` — `git-operations.ts:24`. `commit`, `fetchAndUpdate`, `getAheadBehind`, `getRemoteBehindCount` (read-only probe: `fetch origin <base>` then `rev-list --count <base>..FETCH_HEAD`, never moves the local branch; `git-operations.ts:110`), `isBranchMerged`, `getConflicts`, `resolveConflict`, `getPRContext`, `aiGenerate`.
 - `PrCreator` — `pr-creator.ts:6`. `isGhAvailable`, `pushBranch`, `createPR`.
+- `viewPullRequestStatus` — `pr-status.ts:12`. Checks one stored PR URL and returns normalized `open`/`closed`/`merged`/`unknown` state plus `mergedAt`.
 - `DiffProvider` — `diff-provider.ts:10`. `getDiff`, `getDiffStats`, `getChangedFiles`, `getOriginalContent`.
 - `generateBranchName` — `branch-namer.ts:24`. `<repo>/<slug>`, deduplicated with a numeric suffix.
 - `gitExec` — `git-exec.ts:8`. The shared low-level git runner; takes an optional `timeoutMs` that `SIGKILL`s the child.

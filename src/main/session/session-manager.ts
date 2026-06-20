@@ -211,8 +211,8 @@ export class SessionManager {
 
     session.displayName = nextName
     persistSessionMeta(session)
+    this.verdictRecorder?.onSessionTitleChanged(sessionId, nextName)
     this.notifySessionsChanged(session.projectId)
-
     return toPublicSession(session)
   }
 

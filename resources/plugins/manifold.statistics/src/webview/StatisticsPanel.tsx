@@ -1,5 +1,5 @@
 import React from 'react'
-import type { ProjectVerdicts, VerdictOutcome } from 'manifold'
+import type { ProjectVerdicts, VerdictOutcome, VerifyPullRequestsResult } from 'manifold'
 import { useStatisticsBridge } from './use-statistics-bridge'
 import {
   computeOutcomeCounts, computeRuntimeStats, computeProjectStats, sortRecentFirst, countSessionsWithPr,
@@ -17,12 +17,13 @@ function formatTokens(stat: RuntimeStats): string {
 }
 
 export function StatisticsPanel(): React.JSX.Element {
-  const { groups, error, loaded, refreshing, refresh, openExternal, reset } = useStatisticsBridge()
+  const { groups, error, loaded, refreshing, verifying, verifyResult, refresh, openExternal, reset, verifyPullRequests } = useStatisticsBridge()
   // Clicking a per-repo card scopes the sections below it to that repo (null = all repos).
   const [selectedProjectId, setSelectedProjectId] = React.useState<string | null>(null)
   const toggleSelected = (projectId: string): void => setSelectedProjectId((cur) => (cur === projectId ? null : projectId))
   const selectedName = selectedProjectId ? groups.find((g) => g.projectId === selectedProjectId)?.projectName ?? null : null
   const handleReset = (): void => { if (selectedProjectId) { reset(selectedProjectId); setSelectedProjectId(null) } }
+  const openPrCount = countVerifiablePrs(groups)
 
   return (
     <div style={s.wrapper}>
@@ -40,6 +41,15 @@ export function StatisticsPanel(): React.JSX.Element {
           )}
           <button
             type="button"
+            style={verifying ? { ...s.refreshButton, ...s.refreshButtonBusy } : s.refreshButton}
+            onClick={() => verifyPullRequests()}
+            disabled={!loaded || verifying || openPrCount === 0}
+            title={openPrCount === 0 ? 'No captured open PRs to verify' : `Verify ${openPrCount} captured open PR${openPrCount === 1 ? '' : 's'}`}
+          >
+            {verifying ? 'Verifying…' : 'Verify PRs'}
+          </button>
+          <button
+            type="button"
             style={refreshing ? { ...s.refreshButton, ...s.refreshButtonBusy } : s.refreshButton}
             onClick={() => refresh()}
             disabled={refreshing}
@@ -51,10 +61,14 @@ export function StatisticsPanel(): React.JSX.Element {
 
       <div style={s.content}>
         {error && <div style={s.errorBox}>Failed to load statistics: {error}</div>}
-        {renderBody(loaded, groups, error, openExternal, selectedProjectId, toggleSelected)}
+        {renderBody(loaded, groups, error, openExternal, selectedProjectId, toggleSelected, verifying, verifyResult)}
       </div>
     </div>
   )
+}
+
+function countVerifiablePrs(groups: ProjectVerdicts[]): number {
+  return groups.flatMap((g) => g.records).filter((r) => r.outcome === 'pr_created' && Boolean(r.metrics.prUrl)).length
 }
 
 function renderBody(
@@ -64,6 +78,8 @@ function renderBody(
   openExternal: (url: string) => void,
   selectedProjectId: string | null,
   onSelectProject: (projectId: string) => void,
+  verifying: boolean,
+  verifyResult: VerifyPullRequestsResult | null,
 ): React.JSX.Element | null {
   if (!loaded) return null
   const records = groups.flatMap((g) => g.records)
@@ -93,7 +109,7 @@ function renderBody(
       {renderKpiRow(totals, projectStats.length, scopeName, mergedPct, discardedPct, avgEdits)}
       {renderRuntimeGrid(stats, scopeName)}
       <RecentSessions recent={sortRecentFirst(scoped)} openExternal={openExternal} scopeName={scopeName} />
-      {renderOutcomeFooter(computeOutcomeCounts(scoped), countSessionsWithPr(scoped))}
+      {renderOutcomeFooter(computeOutcomeCounts(scoped), countSessionsWithPr(scoped), verifying, verifyResult)}
     </>
   )
 }
@@ -214,7 +230,7 @@ function OutcomeBar({ stat }: { stat: RuntimeStats }): React.JSX.Element {
   )
 }
 
-function renderOutcomeFooter(counts: OutcomeCounts, prsCreated: number): React.JSX.Element {
+function renderOutcomeFooter(counts: OutcomeCounts, prsCreated: number, verifying: boolean, verifyResult: VerifyPullRequestsResult | null): React.JSX.Element {
   return (
     <div style={s.outcomeFooterWrap}>
       <div style={s.outcomeFooter}>
@@ -226,8 +242,23 @@ function renderOutcomeFooter(counts: OutcomeCounts, prsCreated: number): React.J
         ))}
       </div>
       <div style={s.outcomeFooterNote}>
-        Sessions with a PR: {prsCreated} <span style={s.outcomeFooterNoteHint}>· best-effort capture, max one PR per session</span>
+        Sessions with a PR: {prsCreated} <span style={s.outcomeFooterNoteHint}>· cached PR state, max one PR per session</span>
       </div>
+      {verifyResult && (
+        <div style={s.outcomeFooterNote}>
+          PR verification: {verifyResult.checked}/{verifyResult.eligible} checked · {verifyResult.updated} updated · {verifyResult.failed} failed
+        </div>
+      )}
+      {verifying && counts.pr_created > 0 && (
+        <div style={s.outcomeFooterNote}>
+          <span style={s.outcomeFooterNoteHint}>Refreshing cached open PR state…</span>
+        </div>
+      )}
+      {!verifying && !verifyResult && counts.pr_created > 0 && (
+        <div style={s.outcomeFooterNote}>
+          <span style={s.outcomeFooterNoteHint}>Use Verify PRs to refresh cached open PR state.</span>
+        </div>
+      )}
     </div>
   )
 }

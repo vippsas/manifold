@@ -1,7 +1,7 @@
 ---
 description: The on-disk data model under ~/.manifold — every file and directory Manifold persists, which module owns each path, and the two distinct roots (hardcoded config home vs. configurable storage root).
 covers: [src/main/store, src/shared/defaults.ts]
-updated: 2026-06-19
+updated: 2026-06-20
 owner: see .github/CODEOWNERS
 ---
 
@@ -74,7 +74,11 @@ debounced, so a write serializes only the changed session (`chat-store.ts:28`–
 migrates the old single `chat-history.json` on first run.
 
 **`<configHome>/verdicts.json`** — per-session run records (`VerdictRecord[]`), capped at
-1000 per project with FIFO eviction (`verdict-store.ts:6`, `:46`).
+1000 per project with FIFO eviction (`verdict-store.ts:6`, `:46`). Records may carry an
+optional `title` copied from the agent display name so Statistics can show the same
+human label as the sidebar. Records with captured PR URLs may also persist PR freshness
+metadata (`prState`, `prCheckedAt`, `prMergedAt`, `prCheckError`) when the Statistics
+plugin verifies cached PR state (`verdict-types.ts:33`, `verdict-pr-verifier.ts:35`).
 
 **`<configHome>/{view-state,dock-layout,search-view-state,shell-tabs}.json`** — renderer/UI
 state persisted by the four small stores in `src/main/store`. All hardcode

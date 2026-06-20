@@ -1,4 +1,4 @@
-import type { WebviewView, WebviewViewProvider, ProjectVerdicts } from 'manifold'
+import type { WebviewView, WebviewViewProvider, ProjectVerdicts, VerifyPullRequestsResult } from 'manifold'
 import { isWebviewMsg } from './protocol'
 
 export interface StatisticsHostOptions {
@@ -11,6 +11,8 @@ export interface StatisticsHostOptions {
   confirmReset: (projectId: string) => Promise<boolean>
   /** Delete all captured verdicts for one repo. */
   clearProject: (projectId: string) => Promise<void>
+  /** Re-check captured open PRs and update stale verdicts. */
+  verifyPullRequests: () => Promise<VerifyPullRequestsResult>
 }
 
 /** Inline the IIFE bundle as a script tag (escaping `</script>` so the parser can't break out). */
@@ -29,12 +31,12 @@ export function createWebviewHost(opts: StatisticsHostOptions): { provider: Webv
   let view: WebviewView | undefined
   const post = (msg: unknown): void => { view?.webview.postMessage(msg) }
 
-  const sendInit = async (): Promise<void> => {
+  const sendInit = async (verifyResult: VerifyPullRequestsResult | null = null): Promise<void> => {
     try {
       const groups = await opts.listAll()
-      post({ type: 'init', groups, error: null })
+      post({ type: 'init', groups, error: null, verifyResult })
     } catch (e) {
-      post({ type: 'init', groups: [], error: (e as Error).message })
+      post({ type: 'init', groups: [], error: (e as Error).message, verifyResult })
     }
   }
 
@@ -45,6 +47,15 @@ export function createWebviewHost(opts: StatisticsHostOptions): { provider: Webv
     await sendInit()
   }
 
+  const handleVerifyPullRequests = async (): Promise<void> => {
+    try {
+      const result = await opts.verifyPullRequests()
+      await sendInit(result)
+    } catch (e) {
+      post({ type: 'init', groups: [], error: (e as Error).message, verifyResult: null })
+    }
+  }
+
   const provider: WebviewViewProvider = {
     resolveWebviewView(v: WebviewView): void {
       view = v
@@ -53,6 +64,7 @@ export function createWebviewHost(opts: StatisticsHostOptions): { provider: Webv
         if (!isWebviewMsg(raw)) return
         if (raw.type === 'open-external') { opts.openExternal(raw.url); return }
         if (raw.type === 'reset') { void handleReset(raw.projectId); return }
+        if (raw.type === 'verify-prs') { void handleVerifyPullRequests(); return }
         // 'ready' (initial mount) and 'refresh' (button) re-read all projects.
         void sendInit()
       })

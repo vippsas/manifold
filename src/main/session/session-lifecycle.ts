@@ -102,6 +102,7 @@ export class SessionLifecycle {
       verdictRecorder.onSessionCreated({
         sessionId: session.id,
         projectId: session.projectId,
+        title: session.displayName,
         branch: session.branchName,
         runtime: session.runtimeId,
         taskPrompt: session.taskDescription ?? '',

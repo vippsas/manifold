@@ -22,8 +22,8 @@ function toGroups(records: VerdictRecord[]): ProjectVerdicts[] {
 }
 
 /** Push a host `init` message the same way the renderer relays it into the iframe. */
-const init = (records: VerdictRecord[], error: string | null = null): void => {
-  act(() => { window.dispatchEvent(new MessageEvent('message', { data: { type: 'init', groups: toGroups(records), error } })) })
+const init = (records: VerdictRecord[], error: string | null = null, verifyResult: unknown = null): void => {
+  act(() => { window.dispatchEvent(new MessageEvent('message', { data: { type: 'init', groups: toGroups(records), error, verifyResult } })) })
 }
 
 describe('StatisticsPanel', () => {
@@ -39,11 +39,16 @@ describe('StatisticsPanel', () => {
     render(<StatisticsPanel />)
     init([
       record({ sessionId: 'a', runtime: 'claude', outcome: 'merged', createdAt: '2026-05-16T01:00:00Z' }),
-      record({ sessionId: 'b', runtime: 'codex', outcome: 'discarded', createdAt: '2026-05-16T02:00:00Z', taskPrompt: { kind: 'full', text: 'fix bug' } }),
+      record({
+        sessionId: 'b', title: 'PR verify stats', branch: 'manifold/hammerfest',
+        runtime: 'codex', outcome: 'discarded', createdAt: '2026-05-16T02:00:00Z',
+        taskPrompt: { kind: 'full', text: 'fix bug' },
+      }),
     ])
     expect(screen.getAllByText('claude').length).toBeGreaterThan(0)
     expect(screen.getAllByText('codex').length).toBeGreaterThan(0)
-    expect(screen.getByText('fix bug')).toBeTruthy()
+    expect(screen.getByText('PR verify stats')).toBeTruthy()
+    expect(screen.getByText('Hammerfest · Codex')).toBeTruthy()
   })
 
   it('renders a per-repo breakdown across all projects', () => {
@@ -100,6 +105,31 @@ describe('StatisticsPanel', () => {
     post.mockRestore()
   })
 
+  it('automatically verifies captured open PRs on initial load', () => {
+    const post = vi.spyOn(window, 'postMessage')
+    render(<StatisticsPanel />)
+    init([record({
+      sessionId: 'p', outcome: 'pr_created',
+      metrics: { agentCommits: 1, humanEdits: 0, diffLines: { added: 0, removed: 0 }, filesChanged: 0, prUrl: 'https://github.com/o/r/pull/1' },
+    })])
+    const button = screen.getByRole('button', { name: /verifying/i }) as HTMLButtonElement
+    expect(button.disabled).toBe(true)
+    expect(post).toHaveBeenCalledWith({ type: 'verify-prs' }, '*')
+    post.mockRestore()
+  })
+
+  it('verify PRs button posts a verification request when captured open PRs exist', () => {
+    const post = vi.spyOn(window, 'postMessage')
+    render(<StatisticsPanel />)
+    init([record({
+      sessionId: 'p', outcome: 'pr_created',
+      metrics: { agentCommits: 1, humanEdits: 0, diffLines: { added: 0, removed: 0 }, filesChanged: 0, prUrl: 'https://github.com/o/r/pull/1' },
+    })], null, { eligible: 1, checked: 1, updated: 0, failed: 0 })
+    fireEvent.click(screen.getByRole('button', { name: /verify prs/i }))
+    expect(post).toHaveBeenCalledWith({ type: 'verify-prs' }, '*')
+    post.mockRestore()
+  })
+
   it('scopes the KPI hero to the selected repo (subtitles name the repo)', () => {
     render(<StatisticsPanel />)
     init([
@@ -143,10 +173,21 @@ describe('StatisticsPanel', () => {
       sessionId: 'p', outcome: 'pr_created',
       metrics: { agentCommits: 1, humanEdits: 0, diffLines: { added: 0, removed: 0 }, filesChanged: 0, prUrl: 'https://github.com/o/r/pull/1' },
     })])
-    const badge = screen.getByRole('button', { name: /PR/i })
+    const badge = screen.getByRole('button', { name: /^open PR/i })
     fireEvent.click(badge)
     expect(post).toHaveBeenCalledWith({ type: 'open-external', url: 'https://github.com/o/r/pull/1' }, '*')
     post.mockRestore()
+  })
+
+  it('shows PR verification result summary from the host', () => {
+    render(<StatisticsPanel />)
+    init([
+      record({
+        sessionId: 'b', outcome: 'pr_created',
+        metrics: { agentCommits: 1, humanEdits: 0, diffLines: { added: 0, removed: 0 }, filesChanged: 0, prUrl: 'https://x/pull/2' },
+      }),
+    ], null, { eligible: 1, checked: 1, updated: 1, failed: 0 })
+    expect(screen.getByText(/PR verification: 1\/1 checked · 1 updated · 0 failed/)).toBeTruthy()
   })
 
   it('counts merged + open PRs in "Sessions with a PR", separate from the open-PR bucket', () => {

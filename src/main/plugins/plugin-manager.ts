@@ -14,8 +14,10 @@ import { createWorktreeOverviewService, type WorktreeOverviewService } from './w
 import { summarizeWorktrees, summarizeVerdicts } from './dashboard-summary'
 import { groupVerdictsByProject } from './verdict-grouping'
 import type { VerdictService } from './verdict-read-service'
+import { verifyVerdictPullRequests } from '../session/verdict-pr-verifier'
 import type { WorktreesSummary, VerdictsSummary } from '../../shared/dashboard-types'
 import { getWorktreeDirty, getWorktreeLastCommitISO } from '../git/worktree-status'
+import { viewPullRequestStatus } from '../git/pr-status'
 import { listMergedBranches, listWorktreeBranches, getBranchDates, deleteMergedBranch } from '../git/branch-status'
 import { readWorktreeMeta } from '../git/worktree-meta'
 import type { SessionManager } from '../session/session-manager'
@@ -105,6 +107,7 @@ export class PluginManager {
       listByProject: (projectId, limit) => verdictStore.listByProject(projectId, limit),
       deleteByProject: (projectId) => verdictStore.deleteByProject(projectId),
       listAllByProject: () => groupVerdictsByProject(verdictStore.listAll(), projectRegistry.listProjects()),
+      verifyPullRequests: () => verifyVerdictPullRequests({ store: verdictStore, lookupStatus: viewPullRequestStatus }),
     }
     this.host = new ExtensionHost(new PluginStorageStore(storagePath), agentControl, lm, agentSpawn, worktreeOverview, verdicts)
     this.host.setConfigResolver((id, key) => this.getConfigValue(id, key))

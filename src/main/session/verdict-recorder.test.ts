@@ -47,15 +47,27 @@ describe('VerdictRecorder', () => {
     const { store, recorder } = makeRecorder(tmp)
     recorder.onSessionCreated({
       sessionId: 's1', projectId: 'p1', branch: 'manifold/foo',
-      runtime: 'claude', taskPrompt: 'short prompt', worktreePath: '/tmp/wt', baseBranch: 'main',
+      title: 'PR verify stats', runtime: 'claude',
+      taskPrompt: 'short prompt', worktreePath: '/tmp/wt', baseBranch: 'main',
     })
     const rec = store.getBySessionId('s1')
     expect(rec).not.toBeNull()
+    expect(rec!.title).toBe('PR verify stats')
     expect(rec!.outcome).toBe('unknown')
     expect(rec!.taskPrompt).toEqual({ kind: 'full', text: 'short prompt' })
     expect(rec!.metrics).toEqual({
       agentCommits: 0, humanEdits: 0, diffLines: { added: 0, removed: 0 }, filesChanged: 0,
     })
+  })
+
+  it('updates the stored title when an agent is renamed', () => {
+    const { store, recorder } = makeRecorder(tmp)
+    recorder.onSessionCreated({
+      sessionId: 's1', projectId: 'p1', branch: 'manifold/foo',
+      runtime: 'claude', taskPrompt: 'short prompt', worktreePath: '/tmp/wt', baseBranch: 'main',
+    })
+    recorder.onSessionTitleChanged('s1', 'Renamed agent')
+    expect(store.getBySessionId('s1')!.title).toBe('Renamed agent')
   })
 
   it('truncates prompts over 2KB into head/tail with summary middle', async () => {
