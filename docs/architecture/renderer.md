@@ -1,7 +1,7 @@
 ---
 description: How the Manifold renderer (developer workspace UI) is structured — the React entry, the dockview panel layout, and the preload-only boundary to main.
 covers: [src/renderer]
-updated: 2026-06-20
+updated: 2026-06-21
 owner: see .github/CODEOWNERS
 ---
 
@@ -58,7 +58,13 @@ in place (no remount) and restoring them exactly on the second double-click. The
 `projects | agent | (fileTree+modifiedFiles)` at a 1:4:1 width ratio
 (`hooks/dock-layout/dock-layout-builders.ts:8`). All add/remove/focus/split/resize logic
 lives in the `hooks/dock-layout/` subsystem behind `useDockLayout`, whose return value is
-the dock control surface consumed by `App` (`useDockLayout.ts:301`).
+the dock control surface consumed by `App` (`useDockLayout.ts:301`). Restored layouts pass
+through `sanitizeDockLayout` before `api.fromJSON`; if a saved default
+`projects | agent | (fileTree+modifiedFiles)` layout has either sidebar wider than one
+quarter of the saved width, the sanitizer rewrites that stale default shape back to the
+1:4:1 ratio and `loadOrBuildLayout` persists the corrected JSON (`hooks/dock-layout/dock-layout-sanitize.ts:78`,
+`hooks/dock-layout/dock-layout-sanitize.ts:100`, `hooks/dock-layout/dock-layout-sanitize.ts:113`,
+`hooks/dock-layout/dock-layout-loader.ts:66`).
 
 **The panel set.** Panel ids are fixed in `PANEL_IDS` with display titles in
 `PANEL_TITLES` (`hooks/dock-layout/dock-layout-helpers.ts:13`, `:18`):
