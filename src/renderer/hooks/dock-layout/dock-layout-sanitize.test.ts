@@ -346,4 +346,82 @@ describe('sanitizeDockLayout', () => {
     const sanitized = sanitizeDockLayout(saved, new Set<string>()) as SerializedDockview
     expect(Object.keys(sanitized.panels)).toEqual(['agent'])
   })
+
+  it('caps overwide restored sidebars back to the default ratio', () => {
+    const saved = {
+      grid: {
+        orientation: 'HORIZONTAL',
+        root: {
+          type: 'branch',
+          size: 1800,
+          data: [
+            {
+              type: 'leaf',
+              size: 600,
+              data: { id: 'projects', views: ['projects'], activeView: 'projects' },
+            },
+            {
+              type: 'leaf',
+              size: 600,
+              data: { id: 'agent', views: ['agent'], activeView: 'agent' },
+            },
+            {
+              type: 'leaf',
+              size: 600,
+              data: { id: 'files', views: ['fileTree', 'modifiedFiles'], activeView: 'fileTree' },
+            },
+          ],
+        },
+      },
+      panels: {
+        projects: {},
+        agent: {},
+        fileTree: {},
+        modifiedFiles: {},
+      },
+    } as unknown as SerializedDockview
+
+    const sanitized = sanitizeDockLayout(saved) as SerializedDockview
+    const root = sanitized.grid.root as { type: 'branch'; data: Array<{ size: number }> }
+
+    expect(sanitized).not.toBe(saved)
+    expect(root.data.map((child) => child.size)).toEqual([300, 1200, 300])
+  })
+
+  it('leaves moderately widened restored sidebars alone', () => {
+    const saved = {
+      grid: {
+        orientation: 'HORIZONTAL',
+        root: {
+          type: 'branch',
+          size: 1800,
+          data: [
+            {
+              type: 'leaf',
+              size: 360,
+              data: { id: 'projects', views: ['projects'], activeView: 'projects' },
+            },
+            {
+              type: 'leaf',
+              size: 1080,
+              data: { id: 'agent', views: ['agent'], activeView: 'agent' },
+            },
+            {
+              type: 'leaf',
+              size: 360,
+              data: { id: 'files', views: ['fileTree', 'modifiedFiles'], activeView: 'fileTree' },
+            },
+          ],
+        },
+      },
+      panels: {
+        projects: {},
+        agent: {},
+        fileTree: {},
+        modifiedFiles: {},
+      },
+    } as unknown as SerializedDockview
+
+    expect(sanitizeDockLayout(saved)).toBe(saved)
+  })
 })
