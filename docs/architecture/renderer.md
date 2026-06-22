@@ -1,7 +1,7 @@
 ---
 description: How the Manifold renderer (developer workspace UI) is structured — the React entry, the dockview panel layout, and the preload-only boundary to main.
 covers: [src/renderer]
-updated: 2026-06-20
+updated: 2026-06-22
 owner: see .github/CODEOWNERS
 ---
 
@@ -56,9 +56,13 @@ maximizes that pane's group via dockview's native `maximizeGroup`/`exitMaximized
 (`hooks/dock-layout/dock-layout-helpers.ts:243`) — hiding every other pane and both sidebars
 in place (no remount) and restoring them exactly on the second double-click. The default arrangement is
 `projects | agent | (fileTree+modifiedFiles)` at a 1:4:1 width ratio
-(`hooks/dock-layout/dock-layout-builders.ts:8`). All add/remove/focus/split/resize logic
-lives in the `hooks/dock-layout/` subsystem behind `useDockLayout`, whose return value is
-the dock control surface consumed by `App` (`useDockLayout.ts:301`).
+(`hooks/dock-layout/dock-layout-builders.ts:8`). Saved layouts are sanitized before
+`api.fromJSON`; the sanitizer strips unsupported panels and caps restored `projects` /
+`fileTree` sidebar columns to the same one-sixth share before the loader persists repaired
+snapshots (`hooks/dock-layout/dock-layout-sanitize.ts:108`, `:158`; `hooks/dock-layout/dock-layout-loader.ts:51`).
+All add/remove/focus/split/resize logic lives in the `hooks/dock-layout/` subsystem behind
+`useDockLayout`, whose return value is the dock control surface consumed by `App`
+(`useDockLayout.ts:301`).
 
 **The panel set.** Panel ids are fixed in `PANEL_IDS` with display titles in
 `PANEL_TITLES` (`hooks/dock-layout/dock-layout-helpers.ts:13`, `:18`):
