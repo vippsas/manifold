@@ -91,6 +91,14 @@ export interface FileChange {
    * it. Absent for the worktree's own changes. See DiffProvider.getChangedFiles.
    */
   foreignWorktree?: boolean
+  /**
+   * True when this is a direct working-tree change — an uncommitted edit or
+   * untracked file, i.e. present in `git status`. Absent/false when the path
+   * only differs relative to the base branch (committed on this branch, clean
+   * in the worktree). Set by mergeFileChanges; the file tree renders a faint
+   * dot instead of an A/M/D letter for changes that aren't worktree-dirty.
+   */
+  worktreeDirty?: boolean
 }
 
 export interface FileTreeNode {

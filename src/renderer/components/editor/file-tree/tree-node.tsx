@@ -2,10 +2,20 @@ import React, { useCallback } from 'react'
 import type { FileTreeNode, FileChangeType } from '../../../../shared/types'
 import { NodeRow, CreateInput, sortChildren } from './tree-node-row'
 
+/**
+ * A file tree change keyed by absolute path. `worktreeDirty` separates direct
+ * working-tree changes (rendered as an A/M/D letter) from changes that only
+ * differ relative to the base branch (rendered as a faint dot).
+ */
+export interface TreeChangeEntry {
+  type: FileChangeType
+  worktreeDirty: boolean
+}
+
 export interface TreeNodeProps {
   node: FileTreeNode
   depth: number
-  changeMap: Map<string, FileChangeType>
+  changeMap: Map<string, TreeChangeEntry>
   activeFilePath: string | null
   selectedPaths: Set<string>
   openFilePaths: Set<string>
@@ -85,7 +95,7 @@ export function TreeNode({
     onContextMenu?.(e, node)
   }, [node, onContextMenu])
 
-  const changeType = changeMap.get(node.path)
+  const change = changeMap.get(node.path)
 
   return (
     <>
@@ -95,7 +105,8 @@ export function TreeNode({
         expanded={expanded}
         isActive={!node.isDirectory && node.path === activeFilePath}
         isSelected={selectedPaths.has(node.path)}
-        changeType={changeType ?? null}
+        changeType={change?.type ?? null}
+        worktreeDirty={change?.worktreeDirty ?? false}
         onClick={handleClick}
         onDoubleClick={handleDoubleClick}
         onDelete={onRequestDelete && depth > 0 ? handleDelete : undefined}

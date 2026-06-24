@@ -119,6 +119,15 @@ export const treeStyles: Record<string, React.CSSProperties> = {
     fontWeight: 600,
     marginLeft: 'auto',
   },
+  // Faint dot for changes that only differ vs the base branch (committed on
+  // this branch, clean in the worktree) — visually recedes behind the vivid
+  // A/M/D letters used for direct working-tree changes.
+  indicatorBranchOnly: {
+    color: 'var(--text-muted)',
+    fontWeight: 400,
+    fontSize: '9px',
+    opacity: 0.7,
+  },
   deleteButton: {
     flexShrink: 0,
     fontSize: '12px',

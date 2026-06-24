@@ -32,6 +32,7 @@ export function NodeRow({
   isActive,
   isSelected,
   changeType,
+  worktreeDirty,
   onClick,
   onDoubleClick,
   onDelete,
@@ -50,6 +51,7 @@ export function NodeRow({
   isActive: boolean
   isSelected: boolean
   changeType: FileChangeType | null
+  worktreeDirty: boolean
   onClick: (e: React.MouseEvent) => void
   onDoubleClick: () => void
   onDelete?: (e: React.MouseEvent) => void
@@ -63,6 +65,10 @@ export function NodeRow({
   filterQuery?: string
 }): React.JSX.Element {
   const indicator = changeType ? CHANGE_INDICATORS[changeType] : null
+  // Direct working-tree changes get the vivid A/M/D letter and a tinted name;
+  // changes that only differ vs the base branch get a faint dot and a plain
+  // name, so the eye reads "letter = I changed this now".
+  const showLetter = Boolean(changeType) && worktreeDirty
   const indent = depth * 8
 
   const handleRenameKeyDown = useCallback((e: React.KeyboardEvent<HTMLInputElement>): void => {
@@ -161,17 +167,26 @@ export function NodeRow({
           style={{
             ...treeStyles.nodeName,
             fontWeight: node.isDirectory ? 600 : 400,
-            ...(changeType ? { color: CHANGE_INDICATORS[changeType].color } : {}),
-            ...(changeType === 'deleted' ? { textDecoration: 'line-through' } : {}),
+            ...(showLetter && changeType ? { color: CHANGE_INDICATORS[changeType].color } : {}),
+            ...(showLetter && changeType === 'deleted' ? { textDecoration: 'line-through' } : {}),
           }}
         >
           {renderName(node.name, filterQuery)}
         </span>
       )}
       {!isRenaming && indicator && (
-        <span style={{ ...treeStyles.indicator, color: indicator.color }} title={changeType ?? undefined}>
-          {indicator.label}
-        </span>
+        showLetter ? (
+          <span style={{ ...treeStyles.indicator, color: indicator.color }} title={changeType ?? undefined}>
+            {indicator.label}
+          </span>
+        ) : (
+          <span
+            style={{ ...treeStyles.indicator, ...treeStyles.indicatorBranchOnly }}
+            title={changeType ? `${changeType} on this branch (clean in worktree)` : undefined}
+          >
+            {'○'}
+          </span>
+        )
       )}
       {!isRenaming && onDelete && (
         <span
