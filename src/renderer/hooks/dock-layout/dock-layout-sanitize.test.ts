@@ -444,6 +444,73 @@ describe('sanitizeDockLayout', () => {
     expect(children.map((child) => child.size)).toEqual([300, 600, 600, 300])
   })
 
+  it('caps stale restored stacked sidebar columns at the default one-sixth share', () => {
+    const saved = {
+      grid: {
+        width: 1800,
+        height: 1074,
+        orientation: 'VERTICAL',
+        root: {
+          type: 'branch',
+          size: 1800,
+          data: [
+            {
+              type: 'branch',
+              size: 1074,
+              data: [
+                {
+                  type: 'branch',
+                  size: 600,
+                  data: [
+                    {
+                      type: 'leaf',
+                      size: 537,
+                      data: { id: 'projects', views: ['projects'], activeView: 'projects' },
+                    },
+                    {
+                      type: 'leaf',
+                      size: 537,
+                      data: { id: 'files', views: ['fileTree', 'modifiedFiles'], activeView: 'fileTree' },
+                    },
+                  ],
+                },
+                {
+                  type: 'leaf',
+                  size: 600,
+                  data: { id: 'agent', views: ['agent'], activeView: 'agent' },
+                },
+                {
+                  type: 'leaf',
+                  size: 600,
+                  data: { id: 'editor', views: ['editor'], activeView: 'editor' },
+                },
+              ],
+            },
+          ],
+        },
+      },
+      panels: {
+        projects: {},
+        agent: {},
+        editor: {},
+        fileTree: {},
+        modifiedFiles: {},
+      },
+    } as unknown as SerializedDockview
+
+    const sanitized = sanitizeDockLayout(saved) as SerializedDockview
+    const workspaceRow = ((sanitized.grid.root as {
+      type: 'branch'
+      data: Array<{
+        type: 'branch'
+        data: Array<{ size: number }>
+      }>
+    }).data[0])
+
+    expect(sanitized).not.toBe(saved)
+    expect(workspaceRow.data.map((child) => child.size)).toEqual([300, 750, 750])
+  })
+
   it('preserves restored sidebar widths that are not over the default cap', () => {
     const saved = {
       grid: {

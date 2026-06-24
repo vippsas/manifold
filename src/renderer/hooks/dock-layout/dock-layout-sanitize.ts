@@ -8,6 +8,7 @@ const PLUGIN_PANEL_COMPONENTS = new Set(['pluginView', 'pluginTreeView'])
 const RESTORED_SIDEBAR_MAX_FRACTION = 1 / 6
 const LEFT_SIDEBAR_PANEL_IDS = new Set<string>(['projects'])
 const RIGHT_SIDEBAR_PANEL_IDS = new Set<string>(['fileTree', 'modifiedFiles'])
+const STACKED_SIDEBAR_PANEL_IDS = new Set<string>(['projects', 'fileTree', 'modifiedFiles'])
 
 type GridOrientation = 'HORIZONTAL' | 'VERTICAL'
 
@@ -87,6 +88,13 @@ function isSidebarSubtree(node: GridNode, requiredPanelId: string, allowedPanelI
   return panelIds.includes(requiredPanelId) && panelIds.every((panelId) => allowedPanelIds.has(panelId))
 }
 
+function isStackedSidebarSubtree(node: GridNode): boolean {
+  const panelIds = nodePanelIds(node)
+  return panelIds.includes('projects')
+    && panelIds.includes('fileTree')
+    && panelIds.every((panelId) => STACKED_SIDEBAR_PANEL_IDS.has(panelId))
+}
+
 function distributeFreedSize(branch: Extract<GridNode, { type: 'branch' }>, workspaceIndexes: number[], freedSize: number): void {
   const workspaceTotal = workspaceIndexes.reduce((total, index) => total + Math.max(0, branch.data[index].size), 0)
   if (workspaceTotal <= 0) {
@@ -106,6 +114,26 @@ function distributeFreedSize(branch: Extract<GridNode, { type: 'branch' }>, work
 }
 
 function capSidebarWidthsInBranch(branch: Extract<GridNode, { type: 'branch' }>): boolean {
+  const stackedIndex = branch.data.findIndex(isStackedSidebarSubtree)
+  if (stackedIndex >= 0) {
+    const workspaceIndexes = branch.data
+      .map((_, index) => index)
+      .filter((index) => index !== stackedIndex)
+    if (workspaceIndexes.length === 0) return false
+
+    const total = branch.data.reduce((sum, child) => sum + Math.max(0, child.size), 0)
+    if (total <= 0) return false
+
+    const maxSidebarSize = Math.round(total * RESTORED_SIDEBAR_MAX_FRACTION)
+    const sidebar = branch.data[stackedIndex]
+    if (sidebar.size <= maxSidebarSize) return false
+
+    const freedSize = sidebar.size - maxSidebarSize
+    sidebar.size = maxSidebarSize
+    distributeFreedSize(branch, workspaceIndexes, freedSize)
+    return true
+  }
+
   const leftIndex = branch.data.findIndex((child) => isSidebarSubtree(child, 'projects', LEFT_SIDEBAR_PANEL_IDS))
   const rightIndex = branch.data.findIndex((child) => isSidebarSubtree(child, 'fileTree', RIGHT_SIDEBAR_PANEL_IDS))
   if (leftIndex < 0 || rightIndex < 0 || leftIndex === rightIndex) return false
