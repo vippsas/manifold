@@ -1,5 +1,5 @@
 import * as path from 'node:path'
-import chokidar, { FSWatcher } from 'chokidar'
+import chokidar, { type FSWatcher } from 'chokidar'
 import { EXCLUDED_DIRS } from './file-watcher-utils'
 
 const DEBOUNCE_MS = 200
@@ -53,6 +53,7 @@ export class ChokidarTreeWatcher implements TreeWatcher {
     }
 
     watcher.on('add', triggerChange)
+    watcher.on('change', triggerChange)
     watcher.on('unlink', triggerChange)
     watcher.on('addDir', triggerChange)
     watcher.on('unlinkDir', triggerChange)

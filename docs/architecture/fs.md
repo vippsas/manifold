@@ -1,7 +1,7 @@
 ---
 description: How Manifold watches worktrees for git/tree changes and reads, writes, lists, and imports files for the renderer's editor and file tree.
 covers: [src/main/fs]
-updated: 2026-06-10
+updated: 2026-06-24
 owner: see .github/CODEOWNERS
 ---
 
@@ -18,7 +18,7 @@ renderer's editor and file tree. Path validation and the IPC surface live one la
 
 - `src/main/fs/file-watcher.ts` — `FileWatcher`, the façade: owns the per-path poll map, the git-status polling loop, the tree-watcher, the verdict forwarder, and every fs operation method.
 - `src/main/fs/file-watcher-utils.ts` — `gitStatus()` (spawns `git status --porcelain` with `stderr: 'ignore'` and a 10 s kill-on-timeout), `parseStatusWithConflicts()`, the async `buildChangeFingerprint()`, the `EXCLUDED_DIRS` set, and the `isVisibleEntry`/`directoriesFirstComparator` tree filters.
-- `src/main/fs/tree-watcher.ts` — `ChokidarTreeWatcher` (debounced add/unlink/addDir/unlinkDir → `files:tree-changed`), the `TreeWatcher` interface, and `NoopTreeWatcher` (the test default).
+- `src/main/fs/tree-watcher.ts` — `ChokidarTreeWatcher` (debounced add/change/unlink/addDir/unlinkDir → `files:tree-changed`), the `TreeWatcher` interface, and `NoopTreeWatcher` (the test default).
 - `src/main/fs/file-tree-builder.ts` — `buildFileTree()`: a recursive, synchronous `FileTreeNode` walk with hidden/excluded entries filtered.
 - `src/main/fs/list-files.ts` — `listWorktreeFiles()`: `git ls-files --cached --others --exclude-standard` for the Quick-Open set, capped at 10000.
 - `src/main/fs/verdict-poll-forwarder.ts` — `VerdictPollForwarder`: derives commit/files-changed/PR-URL signals from each git poll and forwards them to the verdict recorder.
@@ -66,10 +66,11 @@ fingerprint stats a real file (`file-watcher-utils.ts:26`). The conflict array a
 resolution via `git:resolve-conflict` (`useGitOperations.ts:68`, `:61`).
 
 **Tree watching.** Polling only sees git-tracked deltas, so a separate `ChokidarTreeWatcher`
-(`tree-watcher.ts:20`) watches the same root for `add`/`unlink`/`addDir`/`unlinkDir`,
-debounced 200 ms (`tree-watcher.ts:5`), emitting `files:tree-changed`. It ignores anything
-under `EXCLUDED_DIRS` and does not follow symlinks (`tree-watcher.ts:31`). Watcher errors are
-swallowed because the poll loop still provides updates (`tree-watcher.ts:53`). In tests the
+(`tree-watcher.ts:20`) watches the same root for `add`/`change`/`unlink`/`addDir`/`unlinkDir`,
+debounced 200 ms (`tree-watcher.ts:5`, `:55`). That emits `files:tree-changed`, which covers
+both tree-shape refreshes and near-immediate editor rereads after file-content edits. It
+ignores anything under `EXCLUDED_DIRS` and does not follow symlinks (`tree-watcher.ts:37`).
+Watcher errors are swallowed because the poll loop still provides updates (`tree-watcher.ts:60`). In tests the
 watcher defaults to `NoopTreeWatcher`; production wires the real one in `app/index.ts:58`.
 
 **Reading the tree.** `getFileTree()` delegates to `buildFileTree()` (`file-tree-builder.ts:7`),
@@ -118,7 +119,7 @@ path is recreated. It is wired via `fileWatcher.setVerdictRecorder` (`app/index.
 
 ## Invariants & gotchas
 
-- **Polling is the source of truth for git deltas; chokidar only covers tree shape.** `files:changed` (+ conflicts) comes from the 2 s git poll; `files:tree-changed` comes from debounced chokidar add/unlink. A renderer needs both: status without create/delete, and create/delete without status.
+- **Polling is the source of truth for git status; chokidar is the low-latency filesystem signal.** `files:changed` (+ conflicts) comes from the 2 s git poll; `files:tree-changed` comes from debounced chokidar add/change/unlink events. A renderer needs both: status without create/delete, create/delete without status, and prompt open-file rereads for content edits that should not wait on git polling.
 - **Change detection is status + fingerprint.** A file edited twice with the same porcelain code still re-emits because `buildChangeFingerprint` hashes size+mtime (`file-watcher.test.ts:122`). Conversely, an identical status *and* fingerprint emits nothing.
 - **Every unmerged porcelain code is a conflict.** Any code containing `U` (plus `AA`/`DD`) populates the conflict list; other codes never do, regardless of how they map to `added`/`deleted`/`modified` (`file-watcher-utils.ts:31`).
 - **Symlinked dirs must be filtered explicitly.** A symlink's `Dirent.isDirectory()` is `false`, so `isVisibleEntry`/`tree-watcher` both also check `isSymbolicLink()`; missing this followed a symlinked `node_modules` into the full tree and froze the UI (`file-tree-builder.test.ts:18`).

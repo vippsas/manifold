@@ -162,4 +162,32 @@ describe('useCodeView', () => {
     expect(mockInvoke).toHaveBeenCalledWith('files:read', 'session-1', '/repo/file.ts')
     expect(mockInvoke).not.toHaveBeenCalledWith('files:read-data-url', 'session-1', '/repo/file.ts')
   })
+
+  it('rereads an already-open file when it is selected again', async () => {
+    mockInvoke
+      .mockResolvedValueOnce('const value = 1')
+      .mockResolvedValueOnce('const value = 2')
+
+    const { result } = renderHook(() => useCodeView('session-1'))
+
+    act(() => {
+      result.current.handleSelectFile('/repo/file.ts')
+    })
+
+    await waitFor(() => {
+      expect(result.current.activeFileContent).toBe('const value = 1')
+    })
+
+    act(() => {
+      result.current.handleSelectFile('/repo/file.ts')
+    })
+
+    await waitFor(() => {
+      expect(result.current.activeFileContent).toBe('const value = 2')
+    })
+
+    expect(result.current.openFiles[0]?.refreshVersion).toBe(1)
+    expect(mockInvoke).toHaveBeenCalledTimes(2)
+    expect(mockInvoke).toHaveBeenLastCalledWith('files:read', 'session-1', '/repo/file.ts')
+  })
 })

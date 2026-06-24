@@ -47,6 +47,36 @@ export function useCodeViewFileOps(
   const writeFileOverrideRef = useRef(writeFileOverride)
   writeFileOverrideRef.current = writeFileOverride
 
+  const readFileContent = useCallback(async (filePath: string): Promise<string> => {
+    const ipcChannel = isImageFile(filePath) || isPdfFile(filePath) ? 'files:read-data-url' : 'files:read'
+    if (readFileOverrideRef.current) return readFileOverrideRef.current(filePath)
+    return (await window.electronAPI.invoke(
+      ipcChannel,
+      activeSessionIdRef.current,
+      filePath,
+    )) as string
+  }, [])
+
+  const refreshOpenFile = useCallback(async (filePath: string): Promise<void> => {
+    if (!activeSessionIdRef.current && !readFileOverrideRef.current) return
+
+    try {
+      const content = await readFileContent(filePath)
+      setters.setOpenFiles((prev) =>
+        prev.map((file) => {
+          if (file.path !== filePath || file.content === content) return file
+          return {
+            ...file,
+            content,
+            refreshVersion: file.refreshVersion + 1,
+          }
+        }),
+      )
+    } catch {
+      // Revalidation failed; keep the cached tab content.
+    }
+  }, [readFileContent])
+
   const handleSelectFile = useCallback(
     (filePath: string, preferredPaneId?: string | null): string => {
       const targetPaneId = preferredPaneId ?? refs.activeEditorPaneIdRef.current ?? DEFAULT_EDITOR_PANE_ID
@@ -67,6 +97,7 @@ export function useCodeViewFileOps(
               : pane,
           ),
         )
+        void refreshOpenFile(filePath)
         return targetPaneId
       }
 
@@ -81,6 +112,7 @@ export function useCodeViewFileOps(
             ),
           )
           setters.setActiveEditorPaneId(existingPane.id)
+          void refreshOpenFile(filePath)
           return existingPane.id
         }
       }
@@ -100,19 +132,13 @@ export function useCodeViewFileOps(
             }
           })
         )
+        void refreshOpenFile(filePath)
         return targetPaneId
       }
 
       void (async (): Promise<void> => {
         try {
-          const ipcChannel = isImageFile(filePath) || isPdfFile(filePath) ? 'files:read-data-url' : 'files:read'
-          const content = readFileOverrideRef.current
-            ? await readFileOverrideRef.current(filePath)
-            : ((await window.electronAPI.invoke(
-                ipcChannel,
-                activeSessionIdRef.current,
-                filePath,
-              )) as string)
+          const content = await readFileContent(filePath)
 
           setters.setOpenFiles((prev) => upsertOpenFile(prev, createOpenFile(filePath, content)))
           setters.setEditorPanes((prev) => {
@@ -136,7 +162,7 @@ export function useCodeViewFileOps(
 
       return targetPaneId
     },
-    [],
+    [readFileContent, refreshOpenFile],
   )
 
   const handleCloseFile = useCallback((filePath: string, paneId?: string | null): void => {
@@ -215,14 +241,7 @@ export function useCodeViewFileOps(
         .filter((file) => openFilePaths.has(file.path))
         .map(async (file) => {
           try {
-            const ipcChannel = isImageFile(file.path) || isPdfFile(file.path) ? 'files:read-data-url' : 'files:read'
-            const content = readFileOverrideRef.current
-              ? await readFileOverrideRef.current(file.path)
-              : ((await window.electronAPI.invoke(
-                  ipcChannel,
-                  activeSessionIdRef.current,
-                  file.path,
-                )) as string)
+            const content = await readFileContent(file.path)
             if (content === file.content) return file
             return {
               ...file,
@@ -237,7 +256,7 @@ export function useCodeViewFileOps(
 
     const updateMap = new Map(updates.map((file) => [file.path, file]))
     setters.setOpenFiles((prev) => prev.map((file) => updateMap.get(file.path) ?? file))
-  }, [])
+  }, [readFileContent])
 
   return {
     handleSelectFile,

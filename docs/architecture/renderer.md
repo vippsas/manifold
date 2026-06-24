@@ -99,6 +99,15 @@ appear without a reload.
 bundle (`json`/`css`/`html`/`typescript`/`editor`) and registers the `monaco` instance
 with `@monaco-editor/react`'s `loader`. The actual editor component is `CodeViewer`.
 
+**Editor file freshness.** Open editor files live in `useCodeView` state as `OpenFile`
+records with a `refreshVersion` remount key (`useCodeView.ts:18`). The file watcher hook
+listens to both `files:changed` and `files:tree-changed`; for the active session it refreshes
+the tree and calls the app-level file-refresh callback (`useFileWatcher.ts:79`, `:93`). That
+callback reaches `useCodeViewFileOps.refreshOpenFiles()`, which rereads every file still open
+in an editor pane and increments `refreshVersion` when disk content changes
+(`useCodeViewFileOps.ts:233`). Selecting an already-open file also revalidates that one file
+before continuing to reuse the existing tab (`useCodeViewFileOps.ts:60`, `:91`, `:100`).
+
 **Shared chat.** `src/renderer-shared/chat/` holds the chat surface — `ChatPane` plus the
 `useChat` / `useAgentStatus` / `useSlashCommands` hooks (`chat/index.ts`). Inside the
 renderer it backs both the developer draft chat (`DraftChatView`) and the live chat-mode
