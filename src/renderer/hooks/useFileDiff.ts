@@ -5,9 +5,14 @@ export function mergeFileChanges(
   changedFiles: FileChange[],
   watcherChanges: FileChange[],
 ): FileChange[] {
+  // Base-branch diffs describe what this branch changed vs its base; watcher
+  // entries describe live `git status` changes. Tag each by source so the file
+  // tree can show a faint dot for branch-only changes and a letter for direct
+  // working-tree changes. Watcher entries are added last, so a committed-then-
+  // edited path correctly reads as worktree-dirty.
   const map = new Map<string, FileChange>()
-  for (const change of changedFiles) map.set(change.path, change)
-  for (const change of watcherChanges) map.set(change.path, change)
+  for (const change of changedFiles) map.set(change.path, { ...change, worktreeDirty: false })
+  for (const change of watcherChanges) map.set(change.path, { ...change, worktreeDirty: true })
   return Array.from(map.values())
 }
 

@@ -1,7 +1,7 @@
 ---
 description: How the Manifold renderer (developer workspace UI) is structured — the React entry, the dockview panel layout, and the preload-only boundary to main.
 covers: [src/renderer]
-updated: 2026-06-22
+updated: 2026-06-24
 owner: see .github/CODEOWNERS
 ---
 
@@ -70,7 +70,7 @@ All add/remove/focus/split/resize logic lives in the `hooks/dock-layout/` subsys
 - `projects` → **Repositories** — `ProjectSidebar` (repos, sessions, workspaces, drafts).
 - `agent` → **Agent** — `AgentPanel` (`components/editor/editor-shell/dock-agent-panel.tsx:86`): renders a draft chat, an `OnboardingView` (no agent yet), an `AgentChatView` (non-interactive chat-mode), or an xterm `TerminalPane` (interactive runtime) depending on session state.
 - `editor` → **Editor** — `EditorPanel` wrapping `CodeViewer` (Monaco); split editors get ids prefixed `editor:` and each registers its own pane.
-- `fileTree` → **Files** — `FileTree` over the worktree + any additional dirs.
+- `fileTree` → **Files** — `FileTree` over the worktree + any additional dirs. Change badges separate direct working-tree changes from branch-only ones: `mergeFileChanges` unions the base-branch diff (`useDiff`) with the live `git status` watcher feed and tags each path `worktreeDirty` by source (`useFileDiff.ts:4`). A dirty path renders the vivid A/M/D letter with a tinted name; a path that only differs vs the base branch (committed on the branch, clean in the worktree) renders a faint `○` with a plain name (`tree-node-row.tsx:71`, `:178`).
 - `modifiedFiles` → **Modified Files** — `ModifiedFiles` diff list; files with `FileChange.foreignWorktree` (inherited because the base branch advanced) are grouped below a "from another worktree" separator, dimmed, with an origin tooltip.
 - `shell` → **Shell** — `ShellTabs` (worktree + project shell PTYs).
 - `pluginView` / `pluginTreeView` — webview hosts for plugin contributions (e.g. **Statistics**, the former Verdicts dashboard, now the `manifold.statistics` plugin).

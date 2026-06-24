@@ -2,7 +2,7 @@ import type React from 'react'
 import { describe, it, expect, vi } from 'vitest'
 import { fireEvent, render, screen } from '@testing-library/react'
 import type { FileTreeNode } from '../../../../shared/types'
-import { TreeNode } from './tree-node'
+import { TreeNode, type TreeChangeEntry } from './tree-node'
 
 function makeFileNode(overrides: Partial<FileTreeNode> = {}): FileTreeNode {
   return {
@@ -15,11 +15,13 @@ function makeFileNode(overrides: Partial<FileTreeNode> = {}): FileTreeNode {
 
 function renderTreeNode({
   node = makeFileNode(),
+  changeMap = new Map<string, TreeChangeEntry>(),
   openFilePaths = new Set<string>(),
   onRowClick = vi.fn(),
   onStartRename = vi.fn(),
 }: {
   node?: FileTreeNode
+  changeMap?: Map<string, TreeChangeEntry>
   openFilePaths?: Set<string>
   onRowClick?: (e: React.MouseEvent, node: FileTreeNode) => void
   onStartRename?: (path: string, name: string) => void
@@ -28,7 +30,7 @@ function renderTreeNode({
     <TreeNode
       node={node}
       depth={0}
-      changeMap={new Map()}
+      changeMap={changeMap}
       activeFilePath={null}
       selectedPaths={new Set()}
       openFilePaths={openFilePaths}
@@ -80,5 +82,27 @@ describe('TreeNode', () => {
     fireEvent.doubleClick(row)
 
     expect(onStartRename).toHaveBeenCalledWith(node.path, node.name)
+  })
+
+  it('renders the change letter for a direct working-tree change', () => {
+    const node = makeFileNode()
+    renderTreeNode({
+      node,
+      changeMap: new Map([[node.path, { type: 'added', worktreeDirty: true }]]),
+    })
+
+    expect(screen.getByText('A')).toBeTruthy()
+    expect(screen.queryByText('○')).toBeNull()
+  })
+
+  it('renders a faint dot instead of a letter for a branch-only change', () => {
+    const node = makeFileNode()
+    renderTreeNode({
+      node,
+      changeMap: new Map([[node.path, { type: 'added', worktreeDirty: false }]]),
+    })
+
+    expect(screen.queryByText('A')).toBeNull()
+    expect(screen.getByText('○')).toBeTruthy()
   })
 })
