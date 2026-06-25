@@ -37,6 +37,49 @@ export function buildShellEnv(cwd: string): Record<string, string> {
   }
 }
 
+/** Classify shell binary path into 'zsh' | 'bash' | 'other'. */
+export function detectShell(shellPath: string): 'zsh' | 'bash' | 'other' {
+  const base = shellPath.split('/').pop() ?? shellPath
+  if (base === 'zsh') return 'zsh'
+  if (base === 'bash') return 'bash'
+  return 'other'
+}
+
+/**
+ * Create a temporary directory containing a .bashrc for a Manifold shell session.
+ * Sources the user's ~/.bashrc for PATH/aliases, then overrides PS1.
+ * The caller is responsible for cleaning up the directory on shell exit.
+ */
+export function createManifoldBashRcFile(promptContext: {
+  agentName: string
+  repoName?: string
+}): string {
+  const { agentName, repoName } = promptContext
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'manifold-bash-'))
+  const displayName = repoName && repoName !== agentName
+    ? `${repoName} [${agentName}]`
+    : agentName
+  const rc = `# Manifold bash prompt
+# Source user config for PATH, aliases, completions
+[[ -f ~/.bashrc ]] && source ~/.bashrc
+
+# Manifold env
+export MANIFOLD_WORKTREE=1
+export MANIFOLD_AGENT_NAME="${agentName}"
+export MANIFOLD_REPO="${repoName ?? agentName}"
+export MANIFOLD_BRANCH="manifold/${agentName}"
+
+# Disable prompt managers (starship, oh-my-posh, p10k)
+unset STARSHIP_SESSION_KEY STARSHIP_SHELL POSH_SESSION_ID POSH_SHELL 2>/dev/null
+
+# Manifold PS1: "displayName ❯ "
+PS1='\\[\\e[2m\\]${displayName}\\[\\e[0m\\] \\[\\e[1m\\]❯\\[\\e[0m\\] '
+PROMPT_COMMAND=''
+`
+  fs.writeFileSync(path.join(dir, '.bashrc'), rc, 'utf-8')
+  return dir
+}
+
 /**
  * Build an ANSI-styled welcome line printed once when the shell spawns.
  * Uses dim gray so it's informational but doesn't dominate.
