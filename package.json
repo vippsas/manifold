@@ -99,7 +99,7 @@
       "category": "Development",
       "target": [
         {
-          "target": "AppImage",
+          "target": "dir",
           "arch": ["x64"]
         }
       ]

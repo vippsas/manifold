@@ -3,22 +3,26 @@ set -e
 
 BINARY_NAME="manifold"
 INSTALL_DIR="$HOME/.local/bin"
-APP_IMAGE_GLOB="dist/Manifold-*.AppImage"
+APP_DIR="$HOME/.local/share/manifold"
+UNPACKED_GLOB="dist/linux-unpacked"
 
-echo "Building Manifold (Linux AppImage)..."
+echo "Building Manifold (Linux)..."
 npm run dist:linux
 
-APP_IMAGE=$(ls $APP_IMAGE_GLOB 2>/dev/null | head -1)
-if [ -z "$APP_IMAGE" ]; then
-  echo "Error: Build failed — no AppImage found in dist/"
+if [ ! -d "$UNPACKED_GLOB" ]; then
+  echo "Error: Build failed — $UNPACKED_GLOB not found."
   exit 1
 fi
 
 mkdir -p "$INSTALL_DIR"
+mkdir -p "$(dirname "$APP_DIR")"
 
-echo "Installing to $INSTALL_DIR/$BINARY_NAME..."
-cp "$APP_IMAGE" "$INSTALL_DIR/$BINARY_NAME"
-chmod +x "$INSTALL_DIR/$BINARY_NAME"
+echo "Installing to $APP_DIR..."
+rm -rf "$APP_DIR"
+cp -r "$UNPACKED_GLOB" "$APP_DIR"
+
+echo "Linking $INSTALL_DIR/$BINARY_NAME..."
+ln -sf "$APP_DIR/$BINARY_NAME" "$INSTALL_DIR/$BINARY_NAME"
 
 echo "Done. Run: $BINARY_NAME"
 echo "Ensure $INSTALL_DIR is in your PATH."
