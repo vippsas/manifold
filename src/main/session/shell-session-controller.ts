@@ -4,6 +4,7 @@ import type { GitOperationsManager } from '../git/git-operations'
 import { hasShellPromptAtEnd, type SessionStreamWirer } from './session-stream-wirer'
 import { createShellPtySession } from './session-resume'
 import { NlInputBuffer, RollingOutputBuffer, buildNlTranslationPrompt } from './nl-command-translator'
+import { detectShell } from './shell-prompt'
 import {
   clearGhostText,
   dismissSuggestion,
@@ -87,7 +88,7 @@ export class ShellSessionController {
         cwd: session.worktreePath,
         gitStatus,
         os: process.platform,
-        shell: 'zsh',
+        shell: detectShell(process.env.SHELL ?? '/bin/zsh'),
       })
 
       const runtime = getRuntimeById('codex')
