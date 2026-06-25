@@ -63,6 +63,43 @@ claude --version         # or: codex --version / gemini --version / copilot --ve
 
 If a runtime command is not found, install it (see the links above) and make sure its binary is on your `PATH`.
 
+## WSL / Linux (Windows 11)
+
+Manifold runs on WSL2 with Ubuntu (or any distro). Windows-native is not supported.
+
+### Prerequisites
+
+```bash
+# Required
+sudo apt update && sudo apt install -y ripgrep git
+
+# Recommended (for full prompt features — bash works too)
+sudo apt install -y zsh
+
+# Node.js 20+ via nvm: https://github.com/nvm-sh/nvm
+```
+
+### Install
+
+```bash
+git clone https://github.com/linuxdevel/manifold && cd manifold
+npm install
+./install-linux.sh   # builds AppImage and installs to ~/.local/bin/manifold
+```
+
+Ensure `~/.local/bin` is in your PATH:
+```bash
+echo 'export PATH="$HOME/.local/bin:$PATH"' >> ~/.bashrc && source ~/.bashrc
+```
+
+### Run in development
+
+```bash
+npm run dev
+```
+
+Requires WSLg (ships with Windows 11 22H2+). On older Windows, install an X server (e.g. [VcXsrv](https://sourceforge.net/projects/vcxsrv/)) and set `DISPLAY=:0`.
+
 ## The Workspace
 
 Manifold opens straight into its full developer workspace — a panelled layout you can rearrange to suit your workflow. The current panel set includes:
