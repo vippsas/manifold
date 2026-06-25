@@ -8,7 +8,7 @@ APP_IMAGE_GLOB="dist/Manifold-*.AppImage"
 echo "Building Manifold (Linux AppImage)..."
 npm run dist:linux
 
-APP_IMAGE=$(ls $APP_IMAGE_GLOB 2>/dev/null | head -1)
+APP_IMAGE=$(ls "$APP_IMAGE_GLOB" 2>/dev/null | head -1)
 if [ -z "$APP_IMAGE" ]; then
   echo "Error: Build failed — no AppImage found in dist/"
   exit 1
