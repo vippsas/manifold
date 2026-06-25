@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import React, { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { useProjects } from './hooks/project/useProjects'
 import { useAgentSession } from './hooks/agent-session/useAgentSession'
 import { useFileWatcher } from './hooks/editor/useFileWatcher'
@@ -45,6 +45,13 @@ import { QuickOpen } from './components/editor/quick-open/QuickOpen'
 
 export function App(): React.JSX.Element {
   const { settings, updateSettings } = useSettings()
+
+  useLayoutEffect(() => {
+    const scale = settings.uiScale ?? 1
+    document.documentElement.style.setProperty('--ui-scale', String(scale))
+    document.dispatchEvent(new CustomEvent('manifold:ui-scale-changed', { detail: scale }))
+  }, [settings.uiScale])
+
   const { projects, activeProjectId, addProject, cloneProject, createNewProject, removeProject, updateProject, setActiveProject, error: projectError } = useProjects()
   const { sessions, activeSessionId, activeSession, spawnAgent, deleteAgent, setActiveSession, resumeAgent, outputtingSessionIds, rememberedActiveSessionRef } = useAgentSession(activeProjectId)
   const { drafts, activeDraft, effectiveSessionId, createDraft, discardDraft, promoteDraft } = useDraftChatCoordinator(activeSessionId, setActiveSession, spawnAgent)

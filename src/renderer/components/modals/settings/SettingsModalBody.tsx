@@ -57,6 +57,8 @@ interface Props {
   onSidebarResizeReversedChange: (enabled: boolean) => void
   useWorktrees: boolean
   onUseWorktreesChange: (enabled: boolean) => void
+  uiScale: number
+  onUiScaleChange: (scale: number) => void
   searchAiSettings: SearchAiSettings
   onSearchAiSettingsChange: (value: SearchAiSettings) => void
   editorSettings: EditorSettings

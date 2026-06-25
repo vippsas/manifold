@@ -3,6 +3,13 @@ import type { AgentStatus } from '../../shared/types'
 import { loadShellPath } from './shell-path'
 import { configureDevProfilePaths } from './dev-profile'
 
+// WSL2 and headless Linux environments lack a working GPU. Disable the GPU
+// process to prevent the viz service from crashing with a segfault on startup.
+if (process.platform === 'linux') {
+  app.commandLine.appendSwitch('disable-gpu')
+  app.commandLine.appendSwitch('disable-software-rasterizer')
+}
+
 loadShellPath()
 configureDevProfilePaths(app)
 

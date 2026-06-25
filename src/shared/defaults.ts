@@ -38,6 +38,7 @@ export const DEFAULT_SETTINGS = {
       maxContextResults: 8,
     },
   },
+  uiScale: 1,
   editor: {
     fontSize: 13,
     fontFamily: "'SF Mono', 'Fira Code', Menlo, Consolas, monospace",

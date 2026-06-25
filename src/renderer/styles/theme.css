@@ -23,16 +23,17 @@
   --space-3xl: 56px;
   --space-4xl: 80px;
 
-  --type-ui: 13px;
-  --type-ui-small: 12px;
-  --type-ui-caption: 11px;
-  --type-ui-micro: 10px;
+  --ui-scale: 1;
+  --type-ui: calc(13px * var(--ui-scale));
+  --type-ui-small: calc(12px * var(--ui-scale));
+  --type-ui-caption: calc(11px * var(--ui-scale));
+  --type-ui-micro: calc(10px * var(--ui-scale));
 
   /* Extended type scale */
-  --type-display: 24px;
-  --type-title: 18px;
-  --type-heading: 15px;
-  --type-label: 11px;
+  --type-display: calc(24px * var(--ui-scale));
+  --type-title: calc(18px * var(--ui-scale));
+  --type-heading: calc(15px * var(--ui-scale));
+  --type-label: calc(11px * var(--ui-scale));
 
   /* Letter-spacing tokens */
   --tracking-tight: -0.01em;

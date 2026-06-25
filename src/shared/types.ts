@@ -175,6 +175,7 @@ export interface ManifoldSettings {
   memory?: import('./memory-types').MemorySettings
   search?: SearchSettings
   editor?: EditorSettings
+  uiScale?: number
   transcription?: import('./plugins/api-types').AiServiceSettings
   pluginConfig?: Record<string, Record<string, unknown>>
   /** Plugin IDs that have been explicitly disabled by the user. */

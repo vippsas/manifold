@@ -34,8 +34,20 @@ interface Props {
   onSidebarResizeReversedChange: (enabled: boolean) => void
   useWorktrees: boolean
   onUseWorktreesChange: (enabled: boolean) => void
+  uiScale: number
+  onUiScaleChange: (scale: number) => void
   searchAiSettings: SearchAiSettings
 }
+
+const UI_SCALE_OPTIONS = [
+  { value: 0.85, label: '85%' },
+  { value: 1.0, label: '100% (default)' },
+  { value: 1.15, label: '115%' },
+  { value: 1.25, label: '125%' },
+  { value: 1.5, label: '150%' },
+  { value: 1.75, label: '175%' },
+  { value: 2.0, label: '200%' },
+]
 
 export function GeneralSettingsSection(props: Props): React.JSX.Element {
   const handleScrollbackInput = useCallback((event: React.ChangeEvent<HTMLInputElement>): void => {
@@ -106,6 +118,19 @@ export function GeneralSettingsSection(props: Props): React.JSX.Element {
                 )}
               </div>
             </div>
+            <label style={modalStyles.label}>
+              UI Scale
+              <select
+                value={props.uiScale}
+                onChange={(event) => props.onUiScaleChange(parseFloat(event.target.value))}
+                style={modalStyles.select}
+              >
+                {UI_SCALE_OPTIONS.map((opt) => (
+                  <option key={opt.value} value={opt.value}>{opt.label}</option>
+                ))}
+              </select>
+              <span style={modalStyles.helpText}>Scales all UI text. Useful on HiDPI displays or when running under WSL.</span>
+            </label>
             <label style={modalStyles.label}>
               Scrollback Lines
               <input type="number" value={props.scrollbackLines} onChange={handleScrollbackInput} min={100} max={100000} step={100} style={modalStyles.input} />
