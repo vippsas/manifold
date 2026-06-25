@@ -45,6 +45,11 @@ export function detectShell(shellPath: string): 'zsh' | 'bash' | 'other' {
   return 'other'
 }
 
+/** Escape a string for safe embedding inside a bash double-quoted string. */
+function escapeBashDQ(s: string): string {
+  return s.replace(/\\/g, '\\\\').replace(/"/g, '\\"').replace(/`/g, '\\`').replace(/\$/g, '\\$')
+}
+
 /**
  * Create a temporary directory containing a .bashrc for a Manifold shell session.
  * Sources the user's ~/.bashrc for PATH/aliases, then overrides PS1.
@@ -59,21 +64,22 @@ export function createManifoldBashRcFile(promptContext: {
   const displayName = repoName && repoName !== agentName
     ? `${repoName} [${agentName}]`
     : agentName
+  const displayNameBash = displayName.replace(/'/g, "'\\''")
   const rc = `# Manifold bash prompt
 # Source user config for PATH, aliases, completions
 [[ -f ~/.bashrc ]] && source ~/.bashrc
 
 # Manifold env
 export MANIFOLD_WORKTREE=1
-export MANIFOLD_AGENT_NAME="${agentName}"
-export MANIFOLD_REPO="${repoName ?? agentName}"
-export MANIFOLD_BRANCH="manifold/${agentName}"
+export MANIFOLD_AGENT_NAME="${escapeBashDQ(agentName)}"
+export MANIFOLD_REPO="${escapeBashDQ(repoName ?? agentName)}"
+export MANIFOLD_BRANCH="manifold/${escapeBashDQ(agentName)}"
 
 # Disable prompt managers (starship, oh-my-posh, p10k)
 unset STARSHIP_SESSION_KEY STARSHIP_SHELL POSH_SESSION_ID POSH_SHELL 2>/dev/null
 
 # Manifold PS1: "displayName ❯ "
-PS1='\\[\\e[2m\\]${displayName}\\[\\e[0m\\] \\[\\e[1m\\]❯\\[\\e[0m\\] '
+PS1='\\[\\e[2m\\]${displayNameBash}\\[\\e[0m\\] \\[\\e[1m\\]❯\\[\\e[0m\\] '
 PROMPT_COMMAND=''
 `
   fs.writeFileSync(path.join(dir, '.bashrc'), rc, 'utf-8')
