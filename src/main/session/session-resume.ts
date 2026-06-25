@@ -8,6 +8,7 @@ import { claudeProjectsDir, locateClaudeTranscript } from './transcript-usage-re
 import type { MemoryInjector } from '../memory/memory-injector'
 import { buildShellEnv, buildWelcomeMessage, createManifoldZdotdir, createManifoldBashRcFile, detectShell } from './shell-prompt'
 import * as fs from 'node:fs'
+import * as path from 'node:path'
 
 import type { InternalSession } from './session-types'
 import type { ShellPromptSegments } from '../../shared/types'
@@ -125,7 +126,7 @@ export function createShellPtySession(
   }
 
   const spawnArgs = isBash && bashRcPath
-    ? ['--rcfile', bashRcPath, '-i']
+    ? ['--rcfile', path.join(bashRcPath, '.bashrc'), '-i']
     : ['-il']
 
   const ptyHandle = ptyPool.spawn(shell, spawnArgs, { cwd, env })

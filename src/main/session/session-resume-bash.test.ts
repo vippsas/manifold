@@ -44,7 +44,7 @@ describe('createShellPtySession bash spawn args', () => {
     createShellPtySession('/tmp/repo', pool as any, wirer as any, new Map(), { shellPrompt: true })
     expect(pool.spawn).toHaveBeenCalledWith(
       '/bin/bash',
-      ['--rcfile', '/tmp/manifold-bash-xyz', '-i'],
+      ['--rcfile', '/tmp/manifold-bash-xyz/.bashrc', '-i'],
       expect.objectContaining({ cwd: '/tmp/repo' }),
     )
     const spawnCall = pool.spawn.mock.calls[0]
