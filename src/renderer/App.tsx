@@ -208,14 +208,16 @@ export function App(): React.JSX.Element {
     onRequestDeleteAgent: overlays.requestDeleteAgent,
   })
 
-  const addProjectFromOnboarding = useCallback(async (path?: string) => {
-    const project = await addProject(path)
-    if (project) setActiveWorkspaceId(null)
-    return project
-  }, [addProject, setActiveWorkspaceId])
+  // Adding a repo from onboarding while a workspace is focused must clear that
+  // workspace. ProjectList nulls out the active project whenever a workspace is
+  // active (a workspace and a standalone repo must not look selected at once), so a
+  // left-focused workspace pushes the new repo into the collapsed "Repositories"
+  // list with no create-agent affordance. Clearing it surfaces the new repo as the
+  // pinned active card across every add path — local add, clone, create-new (#811).
+  const clearActiveWorkspace = useCallback(() => setActiveWorkspaceId(null), [setActiveWorkspaceId])
 
   const { handleCreateNewProject, handleAddProjectFromOnboarding, handleCloneFromOnboarding } = useProjectCreateHandlers({
-    createNewProject, addProject: addProjectFromOnboarding, cloneProject, spawnAgent, setActiveSession,
+    createNewProject, addProject, cloneProject, spawnAgent, setActiveSession, clearActiveWorkspace,
     defaultRuntime: settings.defaultRuntime, appEffects,
   })
 
