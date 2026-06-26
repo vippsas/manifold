@@ -1,7 +1,7 @@
 ---
 description: How the Manifold renderer (developer workspace UI) is structured — the React entry, the dockview panel layout, and the preload-only boundary to main.
 covers: [src/renderer]
-updated: 2026-06-24
+updated: 2026-06-26
 owner: see .github/CODEOWNERS
 ---
 
@@ -105,8 +105,8 @@ listens to both `files:changed` and `files:tree-changed`; for the active session
 the tree and calls the app-level file-refresh callback (`useFileWatcher.ts:79`, `:93`). That
 callback reaches `useCodeViewFileOps.refreshOpenFiles()`, which rereads every file still open
 in an editor pane and increments `refreshVersion` when disk content changes
-(`useCodeViewFileOps.ts:233`). Selecting an already-open file also revalidates that one file
-before continuing to reuse the existing tab (`useCodeViewFileOps.ts:60`, `:91`, `:100`).
+(`useCodeViewFileOps.ts:259`). Selecting an already-open file also revalidates that one file
+before continuing to reuse the existing tab (`useCodeViewFileOps.ts:62`, `:93`, `:102`).
 
 **Shared chat.** `src/renderer-shared/chat/` holds the chat surface — `ChatPane` plus the
 `useChat` / `useAgentStatus` / `useSlashCommands` hooks (`chat/index.ts`). Inside the

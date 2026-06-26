@@ -94,6 +94,92 @@ describe('useCodeView', () => {
     expect(result.current.openFiles.map((file) => file.path)).toEqual(['/repo/file.ts'])
   })
 
+  it('clears the editor tabs when the default pane is closed with no fallback', async () => {
+    mockInvoke
+      .mockResolvedValueOnce('const a = 1')
+      .mockResolvedValueOnce('const b = 2')
+
+    const { result } = renderHook(() => useCodeView('session-1'))
+
+    act(() => {
+      result.current.handleSelectFile('/repo/a.ts', 'editor')
+      result.current.handleSelectFile('/repo/b.ts', 'editor')
+    })
+
+    await waitFor(() => {
+      expect(result.current.getEditorPane('editor').openFiles).toHaveLength(2)
+    })
+
+    act(() => {
+      result.current.removePane('editor', null)
+    })
+
+    expect(result.current.getEditorPane('editor').openFiles).toHaveLength(0)
+    expect(result.current.openFiles).toHaveLength(0)
+    expect(result.current.activeFilePath).toBeNull()
+
+    // Reopening a single file should show only that file.
+    mockInvoke.mockResolvedValueOnce('const c = 3')
+    act(() => {
+      result.current.handleSelectFile('/repo/c.ts', 'editor')
+    })
+
+    await waitFor(() => {
+      expect(result.current.openFiles.map((file) => file.path)).toEqual(['/repo/c.ts'])
+    })
+  })
+
+  it('closes all tabs in the target pane', async () => {
+    mockInvoke
+      .mockResolvedValueOnce('const a = 1')
+      .mockResolvedValueOnce('const b = 2')
+
+    const { result } = renderHook(() => useCodeView('session-1'))
+
+    act(() => {
+      result.current.handleSelectFile('/repo/a.ts', 'editor')
+      result.current.handleSelectFile('/repo/b.ts', 'editor')
+    })
+
+    await waitFor(() => {
+      expect(result.current.getEditorPane('editor').openFiles).toHaveLength(2)
+    })
+
+    act(() => {
+      result.current.handleCloseAllFiles('editor')
+    })
+
+    expect(result.current.getEditorPane('editor').openFiles).toHaveLength(0)
+    expect(result.current.openFiles).toHaveLength(0)
+  })
+
+  it('closes other tabs and keeps only the requested file', async () => {
+    mockInvoke
+      .mockResolvedValueOnce('const a = 1')
+      .mockResolvedValueOnce('const b = 2')
+      .mockResolvedValueOnce('const c = 3')
+
+    const { result } = renderHook(() => useCodeView('session-1'))
+
+    act(() => {
+      result.current.handleSelectFile('/repo/a.ts', 'editor')
+      result.current.handleSelectFile('/repo/b.ts', 'editor')
+      result.current.handleSelectFile('/repo/c.ts', 'editor')
+    })
+
+    await waitFor(() => {
+      expect(result.current.getEditorPane('editor').openFiles).toHaveLength(3)
+    })
+
+    act(() => {
+      result.current.handleCloseOtherFiles('/repo/b.ts', 'editor')
+    })
+
+    expect(result.current.getEditorPane('editor').openFiles.map((file) => file.path)).toEqual(['/repo/b.ts'])
+    expect(result.current.activeFilePath).toBe('/repo/b.ts')
+    expect(result.current.openFiles.map((file) => file.path)).toEqual(['/repo/b.ts'])
+  })
+
   it('merges a closed split back into its fallback pane', async () => {
     mockInvoke
       .mockResolvedValueOnce('const left = 1')

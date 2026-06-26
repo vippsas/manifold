@@ -34,6 +34,8 @@ export interface DockAppState {
   onSelectOpenFile: (path: string, paneId: string) => void
   onSelectFileFromMarkdownPreview: (path: string, paneId: string) => void
   onCloseFile: (path: string, paneId?: string | null) => void
+  onCloseOtherFiles: (path: string, paneId?: string | null) => void
+  onCloseAllFiles: (paneId?: string | null) => void
   onSaveFile: (path: string, content: string) => void
   onRegisterEditorPane: (paneId: string) => void
   onActivateEditorPane: (paneId: string) => void
