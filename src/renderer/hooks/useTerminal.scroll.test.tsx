@@ -19,6 +19,9 @@ const shared = vi.hoisted(() => ({
   // Simulates xterm's reflow during fit(): mutates the buffer's scroll state.
   fitImpl: null as ((t: FakeTerminal) => void) | null,
   resizeCallback: null as ResizeObserverCallback | null,
+  // The 'agent:output' IPC listener, captured so a test can simulate the
+  // agent's asynchronous resize repaint arriving as terminal output.
+  outputHandler: null as ((event: { sessionId: string; data: string }) => void) | null,
 }))
 
 vi.mock('@xterm/xterm', () => {
@@ -83,10 +86,14 @@ describe('useTerminal scroll preservation on resize', () => {
     shared.terminal = null
     shared.fitImpl = null
     shared.resizeCallback = null
+    shared.outputHandler = null
     ;(window as unknown as Record<string, unknown>).electronAPI = {
       invoke: vi.fn().mockResolvedValue(undefined),
       send: vi.fn(),
-      on: vi.fn(() => () => {}),
+      on: vi.fn((channel: string, cb: (event: { sessionId: string; data: string }) => void) => {
+        if (channel === 'agent:output') shared.outputHandler = cb
+        return () => {}
+      }),
       getPathForFile: vi.fn(),
     }
     ;(globalThis as unknown as Record<string, unknown>).ResizeObserver = class {
@@ -156,5 +163,70 @@ describe('useTerminal scroll preservation on resize', () => {
     rerender(<Harness font="" />)
 
     expect(term.scrollToLine).toHaveBeenCalledWith(30)
+  })
+
+  // Regression guard for issue #792: a Codex agent beside a resized shell pane
+  // still snapped to the top, while Claude did not. The synchronous reflow
+  // restore (above) is undone by the agent's repaint, which only arrives as
+  // asynchronous output once its PTY receives the SIGWINCH. A quiet-on-resize
+  // runtime (Claude) emits nothing, so it was unaffected; a repaint-heavy
+  // runtime (Codex) snapped back to the top. fitAndResize must keep re-pinning
+  // the distance-from-bottom as that repaint lands.
+  it('re-pins the scroll position when the agent repaints to the top after a resize', () => {
+    vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout', 'Date'] })
+    try {
+      render(<Harness />)
+      const term = shared.terminal
+      if (!term) throw new Error('terminal was not created')
+
+      // Flush the post-fit delay so the agent:output listener accepts writes.
+      vi.advanceTimersByTime(300)
+
+      // User has scrolled up: 90 lines above the bottom.
+      term._baseY = 100
+      term._viewportY = 10
+      // The reflow snaps to the top; the synchronous restore puts it back.
+      shared.fitImpl = (t) => { t._baseY = 120; t._viewportY = 0 }
+
+      fireResize()
+      expect(term._viewportY).toBe(30)
+
+      // Codex repaints asynchronously after the SIGWINCH and snaps the viewport
+      // to the top again. The post-resize guard must re-pin the position.
+      term._viewportY = 0
+      term.scrollToLine.mockClear()
+      shared.outputHandler?.({ sessionId: 'agent-1', data: 'repaint' })
+
+      expect(term.scrollToLine).toHaveBeenCalledWith(30)
+      expect(term._viewportY).toBe(30)
+    } finally {
+      vi.useRealTimers()
+    }
+  })
+
+  it('stops re-pinning once the guard window has elapsed', () => {
+    vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout', 'Date'] })
+    try {
+      render(<Harness />)
+      const term = shared.terminal
+      if (!term) throw new Error('terminal was not created')
+      vi.advanceTimersByTime(300)
+
+      term._baseY = 100
+      term._viewportY = 10
+      shared.fitImpl = (t) => { t._baseY = 120; t._viewportY = 0 }
+      fireResize()
+
+      // A late repaint, after the guard window, must not yank the viewport — by
+      // then the user owns their scroll position.
+      vi.advanceTimersByTime(500)
+      term._viewportY = 0
+      term.scrollToLine.mockClear()
+      shared.outputHandler?.({ sessionId: 'agent-1', data: 'late output' })
+
+      expect(term.scrollToLine).not.toHaveBeenCalled()
+    } finally {
+      vi.useRealTimers()
+    }
   })
 })

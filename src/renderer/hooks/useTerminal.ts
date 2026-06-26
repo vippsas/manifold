@@ -36,6 +36,11 @@ interface UseTerminalResult {
   focusTerminal: () => void
 }
 
+// How long after a resize to keep re-pinning the scroll position. Covers the
+// round trip (fit -> agent:resize -> PTY SIGWINCH -> agent repaint -> output)
+// while staying short enough that it never lingers into normal scrolling.
+const RESIZE_SCROLL_GUARD_MS = 400
+
 function getShellEditShortcut(event: KeyboardEvent): string | null {
   if (event.type !== 'keydown') return null
 
@@ -137,6 +142,26 @@ export function useTerminal({ sessionId, scrollbackLines, terminalFontFamily, xt
     let ready = false
     let interruptResetTimer: ReturnType<typeof setTimeout> | null = null
 
+    // After a resize we re-fit synchronously (fitPreservingScroll), but the
+    // agent only repaints asynchronously once its PTY receives the SIGWINCH —
+    // and a runtime that redraws aggressively on resize (Codex) emits output
+    // that snaps the viewport back to the top, undoing the synchronous restore.
+    // A runtime that stays quiet on resize (Claude) never trips this. Pin the
+    // user's distance-from-bottom for a short window after each resize and
+    // re-assert it as that repaint lands, so the reading position survives the
+    // async redraw too (issue #792).
+    let scrollAnchor: { offsetFromBottom: number; expiresAt: number } | null = null
+    const reapplyScrollAnchor = (): void => {
+      if (!scrollAnchor) return
+      if (Date.now() >= scrollAnchor.expiresAt) {
+        scrollAnchor = null
+        return
+      }
+      const buffer = terminal.buffer.active
+      const target = Math.max(0, buffer.baseY - scrollAnchor.offsetFromBottom)
+      if (buffer.viewportY !== target) terminal.scrollToLine(target)
+    }
+
     // Load the user's font as a web font on initial terminal creation so PUA
     // glyphs render correctly from the start (the font-change effect only fires
     // when terminalFontFamily changes, not on first mount).
@@ -157,6 +182,7 @@ export function useTerminal({ sessionId, scrollbackLines, terminalFontFamily, xt
       const event = args[0] as AgentOutputEvent
       if (event.sessionId === sessionId && !disposed && ready) {
         terminal.write(event.data)
+        reapplyScrollAnchor()
       }
     }
 
@@ -218,6 +244,9 @@ export function useTerminal({ sessionId, scrollbackLines, terminalFontFamily, xt
       if (sessionId) {
         const filtered = filterTerminalResponses(data)
         if (filtered) {
+          // Real keystrokes mean the user has taken over — stop re-pinning the
+          // post-resize scroll position so we don't fight their own scrolling.
+          scrollAnchor = null
           if (includesInterruptSignal(filtered)) {
             if (interruptResetTimer) clearTimeout(interruptResetTimer)
             interruptResetTimer = setTimeout(() => {
@@ -246,7 +275,10 @@ export function useTerminal({ sessionId, scrollbackLines, terminalFontFamily, xt
       if (disposed) return
       requestAnimationFrame(() => {
         if (disposed) return
-        fitAndResize(fitAddon, terminal, sessionId)
+        const offsetFromBottom = fitAndResize(fitAddon, terminal, sessionId)
+        scrollAnchor = offsetFromBottom > 0
+          ? { offsetFromBottom, expiresAt: Date.now() + RESIZE_SCROLL_GUARD_MS }
+          : null
       })
     })
     resizeObserver.observe(container)
@@ -283,7 +315,7 @@ export function useTerminal({ sessionId, scrollbackLines, terminalFontFamily, xt
  * A bottom-pinned viewport (offset 0) and the alternate buffer (baseY 0) are
  * left untouched.
  */
-function fitPreservingScroll(fitAddon: FitAddon | null, terminal: Terminal): void {
+function fitPreservingScroll(fitAddon: FitAddon | null, terminal: Terminal): number {
   const before = terminal.buffer.active
   const offsetFromBottom = before.baseY - before.viewportY
 
@@ -293,19 +325,29 @@ function fitPreservingScroll(fitAddon: FitAddon | null, terminal: Terminal): voi
     const target = terminal.buffer.active.baseY - offsetFromBottom
     terminal.scrollToLine(Math.max(0, target))
   }
+
+  return offsetFromBottom
 }
 
+/**
+ * Re-fit on a container resize and return the viewport's pre-fit distance from
+ * the bottom so the caller can re-assert it against the agent's asynchronous
+ * resize repaint (issue #792). Returns 0 (no scroll guard needed) for a
+ * bottom-pinned viewport or when the fit throws mid-transition.
+ */
 function fitAndResize(
   fitAddon: FitAddon | null,
   terminal: Terminal,
   sessionId: string | null
-): void {
+): number {
   try {
-    fitPreservingScroll(fitAddon, terminal)
+    const offsetFromBottom = fitPreservingScroll(fitAddon, terminal)
     if (sessionId) {
       void window.electronAPI.invoke('agent:resize', sessionId, terminal.cols, terminal.rows)
     }
+    return offsetFromBottom
   } catch {
     // Ignore fit errors during layout transitions
+    return 0
   }
 }
