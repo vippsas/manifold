@@ -11,6 +11,8 @@ interface TabBarProps {
   onSelectTab: (filePath: string) => void
   onMoveToSplitPane?: (filePath: string, direction: 'right' | 'below') => void
   onCloseTab: (filePath: string) => void
+  onCloseOtherTabs?: (filePath: string) => void
+  onCloseAllTabs?: () => void
 }
 
 export function TabBar({
@@ -20,6 +22,8 @@ export function TabBar({
   onSelectTab,
   onMoveToSplitPane,
   onCloseTab,
+  onCloseOtherTabs,
+  onCloseAllTabs,
 }: TabBarProps): React.JSX.Element {
   const labels = React.useMemo(
     () => getFileTabLabels(openFiles.map((file) => file.path)),
@@ -62,16 +66,18 @@ export function TabBar({
     setMenu(null)
   }, [onActivatePane, onSelectTab])
 
+  const hasMenuActions = Boolean(onMoveToSplitPane || onCloseOtherTabs || onCloseAllTabs)
+
   const handleTabContextMenu = React.useCallback((event: React.MouseEvent<HTMLDivElement>, filePath: string): void => {
     event.preventDefault()
     event.stopPropagation()
     onActivatePane()
     onSelectTab(filePath)
 
-    if (!onMoveToSplitPane) return
+    if (!hasMenuActions) return
 
     setMenu({ filePath, x: event.clientX, y: event.clientY })
-  }, [onActivatePane, onMoveToSplitPane, onSelectTab])
+  }, [hasMenuActions, onActivatePane, onSelectTab])
 
   return (
     <>
@@ -92,7 +98,7 @@ export function TabBar({
           ))}
         </div>
       </div>
-      {menu && onMoveToSplitPane ? createPortal(
+      {menu && hasMenuActions ? createPortal(
         <>
           <div style={viewerStyles.actionMenuOverlay} onClick={() => setMenu(null)} />
           <div
@@ -102,32 +108,79 @@ export function TabBar({
             aria-label="Tab actions"
             onMouseDown={(event) => event.stopPropagation()}
           >
+            {onMoveToSplitPane ? (
+              <>
+                <button
+                  type="button"
+                  style={viewerStyles.actionMenuItem}
+                  onMouseDown={(event) => event.stopPropagation()}
+                  onClick={(event) => {
+                    event.stopPropagation()
+                    onMoveToSplitPane(menu.filePath, 'right')
+                    setMenu(null)
+                  }}
+                  role="menuitem"
+                >
+                  <span style={viewerStyles.actionMenuItemLabel}>Split pane to the right</span>
+                </button>
+                <button
+                  type="button"
+                  style={viewerStyles.actionMenuItem}
+                  onMouseDown={(event) => event.stopPropagation()}
+                  onClick={(event) => {
+                    event.stopPropagation()
+                    onMoveToSplitPane(menu.filePath, 'below')
+                    setMenu(null)
+                  }}
+                  role="menuitem"
+                >
+                  <span style={viewerStyles.actionMenuItemLabel}>Split pane to the bottom</span>
+                </button>
+              </>
+            ) : null}
             <button
               type="button"
               style={viewerStyles.actionMenuItem}
               onMouseDown={(event) => event.stopPropagation()}
               onClick={(event) => {
                 event.stopPropagation()
-                onMoveToSplitPane(menu.filePath, 'right')
+                onCloseTab(menu.filePath)
                 setMenu(null)
               }}
               role="menuitem"
             >
-              <span style={viewerStyles.actionMenuItemLabel}>Split pane to the right</span>
+              <span style={viewerStyles.actionMenuItemLabel}>Close</span>
             </button>
-            <button
-              type="button"
-              style={viewerStyles.actionMenuItem}
-              onMouseDown={(event) => event.stopPropagation()}
-              onClick={(event) => {
-                event.stopPropagation()
-                onMoveToSplitPane(menu.filePath, 'below')
-                setMenu(null)
-              }}
-              role="menuitem"
-            >
-              <span style={viewerStyles.actionMenuItemLabel}>Split pane to the bottom</span>
-            </button>
+            {onCloseOtherTabs && openFiles.length > 1 ? (
+              <button
+                type="button"
+                style={viewerStyles.actionMenuItem}
+                onMouseDown={(event) => event.stopPropagation()}
+                onClick={(event) => {
+                  event.stopPropagation()
+                  onCloseOtherTabs(menu.filePath)
+                  setMenu(null)
+                }}
+                role="menuitem"
+              >
+                <span style={viewerStyles.actionMenuItemLabel}>Close other tabs</span>
+              </button>
+            ) : null}
+            {onCloseAllTabs ? (
+              <button
+                type="button"
+                style={viewerStyles.actionMenuItem}
+                onMouseDown={(event) => event.stopPropagation()}
+                onClick={(event) => {
+                  event.stopPropagation()
+                  onCloseAllTabs()
+                  setMenu(null)
+                }}
+                role="menuitem"
+              >
+                <span style={viewerStyles.actionMenuItemLabel}>Close all tabs</span>
+              </button>
+            ) : null}
           </div>
         </>,
         document.body,

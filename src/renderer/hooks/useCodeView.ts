@@ -40,6 +40,8 @@ export interface UseCodeViewResult {
   getEditorPane: (paneId: string) => EditorPaneView
   handleSelectFile: (filePath: string, preferredPaneId?: string | null) => string
   handleCloseFile: (filePath: string, paneId?: string | null) => void
+  handleCloseOtherFiles: (filePath: string, paneId?: string | null) => void
+  handleCloseAllFiles: (paneId?: string | null) => void
   handleSaveFile: (filePath: string, content: string) => void
   handleRenameOpenFile: (oldPath: string, newPath: string) => void
   refreshOpenFiles: () => Promise<void>
@@ -131,6 +133,19 @@ export function useCodeView(
     if (!sourcePane) return
 
     if (paneId === DEFAULT_EDITOR_PANE_ID && !fallbackPaneId) {
+      // Closing the editor entirely: the default pane has no sibling split to
+      // merge into, so clear its tabs. This keeps "close" from behaving like
+      // "temporarily hide" — reopening a file from the file list then starts
+      // from a clean state instead of restoring the previous tab set.
+      const cleared = prev.map((pane) =>
+        pane.id === DEFAULT_EDITOR_PANE_ID
+          ? { ...pane, openFilePaths: [], activeFilePath: null }
+          : pane,
+      )
+      const remaining = new Set(collectOpenFilePaths(cleared))
+      setEditorPanes(cleared)
+      setOpenFiles((currentFiles) => currentFiles.filter((file) => remaining.has(file.path)))
+      setActiveEditorPaneId(resolveActiveEditorPaneId(cleared, activeEditorPaneIdRef.current))
       return
     }
 
@@ -212,6 +227,8 @@ export function useCodeView(
     getEditorPane,
     handleSelectFile: fileOps.handleSelectFile,
     handleCloseFile: fileOps.handleCloseFile,
+    handleCloseOtherFiles: fileOps.handleCloseOtherFiles,
+    handleCloseAllFiles: fileOps.handleCloseAllFiles,
     handleSaveFile: fileOps.handleSaveFile,
     handleRenameOpenFile: fileOps.handleRenameOpenFile,
     refreshOpenFiles: fileOps.refreshOpenFiles,

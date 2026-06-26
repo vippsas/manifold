@@ -14,6 +14,8 @@ import type { OpenFile } from './useCodeView'
 export interface CodeViewFileOps {
   handleSelectFile: (filePath: string, preferredPaneId?: string | null) => string
   handleCloseFile: (filePath: string, paneId?: string | null) => void
+  handleCloseOtherFiles: (filePath: string, paneId?: string | null) => void
+  handleCloseAllFiles: (paneId?: string | null) => void
   handleSaveFile: (filePath: string, content: string) => void
   handleRenameOpenFile: (oldPath: string, newPath: string) => void
   refreshOpenFiles: () => Promise<void>
@@ -176,6 +178,30 @@ export function useCodeViewFileOps(
     setters.setOpenFiles((currentFiles) => pruneUnusedOpenFiles(currentFiles, next))
   }, [])
 
+  const handleCloseOtherFiles = useCallback((filePath: string, paneId?: string | null): void => {
+    const targetPaneId = paneId ?? refs.activeEditorPaneIdRef.current ?? DEFAULT_EDITOR_PANE_ID
+    const next = refs.editorPanesRef.current.map((pane) => {
+      if (pane.id !== targetPaneId) return pane
+      if (!pane.openFilePaths.includes(filePath)) return pane
+      return { ...pane, openFilePaths: [filePath], activeFilePath: filePath }
+    })
+
+    setters.setEditorPanes(next)
+    setters.setOpenFiles((currentFiles) => pruneUnusedOpenFiles(currentFiles, next))
+  }, [])
+
+  const handleCloseAllFiles = useCallback((paneId?: string | null): void => {
+    const targetPaneId = paneId ?? refs.activeEditorPaneIdRef.current ?? DEFAULT_EDITOR_PANE_ID
+    const next = refs.editorPanesRef.current.map((pane) =>
+      pane.id === targetPaneId
+        ? { ...pane, openFilePaths: [], activeFilePath: null }
+        : pane,
+    )
+
+    setters.setEditorPanes(next)
+    setters.setOpenFiles((currentFiles) => pruneUnusedOpenFiles(currentFiles, next))
+  }, [])
+
   const handleSaveFile = useCallback(
     (filePath: string, content: string): void => {
       if (!filePath) return
@@ -261,6 +287,8 @@ export function useCodeViewFileOps(
   return {
     handleSelectFile,
     handleCloseFile,
+    handleCloseOtherFiles,
+    handleCloseAllFiles,
     handleSaveFile,
     handleRenameOpenFile,
     refreshOpenFiles,

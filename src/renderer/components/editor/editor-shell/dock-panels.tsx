@@ -62,6 +62,8 @@ function EditorPanel({ api }: { api: { id: string } }): React.JSX.Element {
       onMoveTabToSplitPane={(filePath, direction) => s.onMoveFileToSplitPane(filePath, paneId, direction)}
       onOpenLinkedFile={(filePath) => s.onSelectFileFromMarkdownPreview(filePath, paneId)}
       onCloseTab={(filePath) => s.onCloseFile(filePath, paneId)}
+      onCloseOtherTabs={(filePath) => s.onCloseOtherFiles(filePath, paneId)}
+      onCloseAllTabs={() => s.onCloseAllFiles(paneId)}
       onSaveFile={s.onSaveFile}
     />
   )

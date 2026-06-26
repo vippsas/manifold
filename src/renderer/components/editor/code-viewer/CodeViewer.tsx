@@ -46,6 +46,8 @@ interface CodeViewerProps {
   onMoveTabToSplitPane?: (filePath: string, direction: 'right' | 'below') => void
   onOpenLinkedFile?: (filePath: string) => void
   onCloseTab: (filePath: string) => void
+  onCloseOtherTabs?: (filePath: string) => void
+  onCloseAllTabs?: () => void
   onSaveFile?: (filePath: string, content: string) => void
 }
 
@@ -73,6 +75,8 @@ export function CodeViewer({
   onMoveTabToSplitPane,
   onOpenLinkedFile = () => {},
   onCloseTab,
+  onCloseOtherTabs,
+  onCloseAllTabs,
   onSaveFile,
 }: CodeViewerProps): React.JSX.Element {
   const monacoTheme = theme
@@ -203,6 +207,8 @@ export function CodeViewer({
           onSelectTab={onSelectTab}
           onMoveToSplitPane={onMoveTabToSplitPane}
           onCloseTab={onCloseTab}
+          onCloseOtherTabs={onCloseOtherTabs}
+          onCloseAllTabs={onCloseAllTabs}
         />
       ) : (
         <NoTabsHeader />
