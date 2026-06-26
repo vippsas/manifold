@@ -45,6 +45,7 @@ function makeArgs(overrides: Partial<Parameters<typeof useProjectCreateHandlers>
     cloneProject: vi.fn().mockResolvedValue(true),
     spawnAgent: vi.fn().mockResolvedValue(makeSession()),
     setActiveSession: vi.fn(),
+    clearActiveWorkspace: vi.fn(),
     defaultRuntime: 'claude',
     appEffects: {
       setCreatingProject: vi.fn(),
@@ -189,5 +190,84 @@ describe('useProjectCreateHandlers.handleCreateNewProject', () => {
 
     expect(created).toBe(false)
     expect(spawnAgent).not.toHaveBeenCalled()
+  })
+
+  it('clears the focused workspace so the new repo surfaces as the active card', async () => {
+    const clearActiveWorkspace = vi.fn()
+    const args = makeArgs({ clearActiveWorkspace })
+    const { result } = renderHook(() => useProjectCreateHandlers(args))
+
+    await act(async () => {
+      await result.current.handleCreateNewProject({ description: 'Create a webapp.' })
+    })
+
+    expect(clearActiveWorkspace).toHaveBeenCalledTimes(1)
+  })
+
+  it('does not clear the focused workspace when creation is cancelled', async () => {
+    const clearActiveWorkspace = vi.fn()
+    const args = makeArgs({ clearActiveWorkspace, createNewProject: vi.fn().mockResolvedValue(null) })
+    const { result } = renderHook(() => useProjectCreateHandlers(args))
+
+    await act(async () => {
+      await result.current.handleCreateNewProject({ description: 'Create a webapp.' })
+    })
+
+    expect(clearActiveWorkspace).not.toHaveBeenCalled()
+  })
+})
+
+describe('useProjectCreateHandlers.handleAddProjectFromOnboarding', () => {
+  it('clears the focused workspace after a repo is added', async () => {
+    const clearActiveWorkspace = vi.fn()
+    const args = makeArgs({ clearActiveWorkspace, addProject: vi.fn().mockResolvedValue(makeProject()) })
+    const { result } = renderHook(() => useProjectCreateHandlers(args))
+
+    await act(async () => {
+      await result.current.handleAddProjectFromOnboarding('/projects/pixel-forge')
+    })
+
+    expect(clearActiveWorkspace).toHaveBeenCalledTimes(1)
+    expect(args.appEffects.setShowOnboarding).toHaveBeenCalledWith(false)
+  })
+
+  it('does not clear the focused workspace when the add is cancelled', async () => {
+    const clearActiveWorkspace = vi.fn()
+    const args = makeArgs({ clearActiveWorkspace, addProject: vi.fn().mockResolvedValue(null) })
+    const { result } = renderHook(() => useProjectCreateHandlers(args))
+
+    await act(async () => {
+      await result.current.handleAddProjectFromOnboarding()
+    })
+
+    expect(clearActiveWorkspace).not.toHaveBeenCalled()
+  })
+})
+
+describe('useProjectCreateHandlers.handleCloneFromOnboarding', () => {
+  it('clears the focused workspace after a successful clone', async () => {
+    const clearActiveWorkspace = vi.fn()
+    const args = makeArgs({ clearActiveWorkspace, cloneProject: vi.fn().mockResolvedValue(true) })
+    const { result } = renderHook(() => useProjectCreateHandlers(args))
+
+    await act(async () => {
+      await result.current.handleCloneFromOnboarding('https://github.com/sven/pixel-forge.git')
+    })
+
+    expect(clearActiveWorkspace).toHaveBeenCalledTimes(1)
+    expect(args.appEffects.setShowOnboarding).toHaveBeenCalledWith(false)
+  })
+
+  it('does not clear the focused workspace when the clone is cancelled', async () => {
+    const clearActiveWorkspace = vi.fn()
+    const args = makeArgs({ clearActiveWorkspace, cloneProject: vi.fn().mockResolvedValue(false) })
+    const { result } = renderHook(() => useProjectCreateHandlers(args))
+
+    await act(async () => {
+      await result.current.handleCloneFromOnboarding('https://github.com/sven/pixel-forge.git')
+    })
+
+    expect(clearActiveWorkspace).not.toHaveBeenCalled()
+    expect(args.appEffects.setShowOnboarding).not.toHaveBeenCalled()
   })
 })
