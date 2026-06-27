@@ -1,7 +1,7 @@
 import React from 'react'
 import type { IDockviewPanelHeaderProps } from 'dockview'
 import { DockStateContext } from './components/editor/editor-shell/dock-panel-types'
-import { parseSiblingSessionId } from './hooks/agent-siblings'
+import { parseSiblingSessionId } from './hooks/agent-session/agent-siblings'
 
 export function DockTab({ api }: IDockviewPanelHeaderProps): React.JSX.Element {
   const state = React.useContext(DockStateContext)

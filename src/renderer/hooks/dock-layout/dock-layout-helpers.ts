@@ -1,6 +1,6 @@
 import type { DockviewApi, SerializedDockview } from 'dockview'
 import { getRelativeLocation, type Orientation } from 'dockview-core'
-import { applySidebarWidth } from '../useSidebarHandleCycle'
+import { applySidebarWidth } from './useSidebarHandleCycle'
 
 export { sanitizeDockLayout } from './dock-layout-sanitize'
 export {

@@ -2,7 +2,7 @@ import { describe, it, expect, vi } from 'vitest'
 import { render, screen, fireEvent } from '@testing-library/react'
 import React from 'react'
 import { MemoryPanelContent } from './MemoryPanelContent'
-import type { UseMemoryResult } from '../../hooks/useMemory'
+import type { UseMemoryResult } from '../../hooks/settings/useMemory'
 import type { MemoryTimelineItem } from '../../../shared/memory-types'
 
 function makeMemory(timeline: MemoryTimelineItem[]): UseMemoryResult {

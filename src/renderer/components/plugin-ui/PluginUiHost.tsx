@@ -1,5 +1,5 @@
 import React from 'react'
-import { usePluginUiHost } from '../../hooks/usePluginUiHost'
+import { usePluginUiHost } from '../../hooks/plugin-ui/usePluginUiHost'
 import { ToastContainer } from './Toast'
 import { QuickPickModal } from './QuickPickModal'
 import { InputBoxModal } from './InputBoxModal'

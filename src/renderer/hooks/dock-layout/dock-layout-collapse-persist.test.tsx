@@ -8,7 +8,7 @@ import React from 'react'
 import { render, act, waitFor } from '@testing-library/react'
 import { DockviewReact, type DockviewApi, type IDockviewPanelProps } from 'dockview'
 import { describe, it, expect, beforeAll } from 'vitest'
-import { collapseSidebar } from '../useSidebarHandleCycle'
+import { collapseSidebar } from './useSidebarHandleCycle'
 import { restoreCollapsedSidebarWidths } from './dock-layout-helpers'
 
 beforeAll(() => {

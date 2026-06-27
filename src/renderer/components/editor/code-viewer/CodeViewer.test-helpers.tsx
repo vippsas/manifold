@@ -1,7 +1,7 @@
 import React from 'react'
 import { vi } from 'vitest'
 import { render, type RenderResult } from '@testing-library/react'
-import type { OpenFile } from '../../../hooks/useCodeView'
+import type { OpenFile } from '../../../hooks/editor/useCodeView'
 import { CodeViewer } from './CodeViewer'
 import type { FileOpenRequest } from '../file-open-request'
 

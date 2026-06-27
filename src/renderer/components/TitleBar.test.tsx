@@ -2,7 +2,7 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { render, screen, act, fireEvent } from '@testing-library/react'
 import React from 'react'
 import { TitleBar } from './TitleBar'
-import { installElectronApi, mockInvoke } from '../hooks/useSearch.test-helpers'
+import { installElectronApi, mockInvoke } from '../hooks/search/useSearch.test-helpers'
 import { DEFAULT_SETTINGS } from '../../shared/defaults'
 
 async function flush(): Promise<void> {

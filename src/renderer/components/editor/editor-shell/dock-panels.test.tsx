@@ -4,7 +4,7 @@ import { render, screen, waitFor } from '@testing-library/react'
 import type { DockAppState } from './dock-panel-types'
 import { DockStateContext } from './dock-panel-types'
 import { PANEL_COMPONENTS } from './dock-panels'
-import { siblingPanelId } from '../../../hooks/agent-siblings'
+import { siblingPanelId } from '../../../hooks/agent-session/agent-siblings'
 import type { DraftId } from '../../../../shared/draft-chat'
 
 vi.mock('../../terminal/TerminalPane', () => ({
