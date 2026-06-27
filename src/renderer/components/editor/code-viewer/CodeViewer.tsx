@@ -1,7 +1,7 @@
 import React, { useMemo, useRef, useCallback, useEffect, useState } from 'react'
 import { DiffEditor, type OnMount, type DiffOnMount } from '@monaco-editor/react'
 import type { editor as monacoEditor } from 'monaco-editor'
-import type { OpenFile } from '../../../hooks/useCodeView'
+import type { OpenFile } from '../../../hooks/editor/useCodeView'
 import { viewerStyles } from './CodeViewer.styles'
 import {
   extensionToLanguage,

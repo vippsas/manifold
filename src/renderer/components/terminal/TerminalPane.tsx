@@ -1,6 +1,6 @@
 import React, { useCallback, useState } from 'react'
 import type { ITheme } from '@xterm/xterm'
-import { useTerminal } from '../../hooks/useTerminal'
+import { useTerminal } from '../../hooks/terminal/useTerminal'
 import { hasAgentPathDragData, readAgentPathDragData } from '../editor/file-tree/file-tree-drag'
 import { collectDroppedPaths, hasDraggedFiles } from '../editor/file-tree/file-tree-drop'
 

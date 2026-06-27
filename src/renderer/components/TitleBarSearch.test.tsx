@@ -2,7 +2,7 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { render, screen, fireEvent, act } from '@testing-library/react'
 import React from 'react'
 import { TitleBarSearch, type TitleBarSearchWiring } from './TitleBarSearch'
-import { installElectronApi, mockInvoke } from '../hooks/useSearch.test-helpers'
+import { installElectronApi, mockInvoke } from '../hooks/search/useSearch.test-helpers'
 import { DEFAULT_SETTINGS } from '../../shared/defaults'
 
 function makeWiring(overrides: Partial<TitleBarSearchWiring> = {}): TitleBarSearchWiring {

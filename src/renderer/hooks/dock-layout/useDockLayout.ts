@@ -13,7 +13,7 @@ import {
   type DockPanelId,
   type LayoutRefs,
 } from './dock-layout-helpers'
-import { siblingPanelId } from '../agent-siblings'
+import { siblingPanelId } from '../agent-session/agent-siblings'
 import type { AgentSession } from '../../../shared/types'
 import { applyDefaultLayout, applyMinimalPanels, syncEditorPanelIds } from './dock-layout-builders'
 import type { DockLayoutCtx } from './dock-layout-context'

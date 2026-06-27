@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react'
 import type { ObservationType } from '../../../shared/memory-types'
-import type { UseMemoryResult } from '../../hooks/useMemory'
+import type { UseMemoryResult } from '../../hooks/settings/useMemory'
 import { memoryStyles as s } from './MemoryPanel.styles'
 import { MemoryPanelBanner } from './panel/MemoryPanelBanner'
 import { MemoryPanelFilters } from './panel/MemoryPanelFilters'

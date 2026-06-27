@@ -1,6 +1,6 @@
 import React, { useState, useRef, useCallback, useEffect } from 'react'
 import type { ITheme } from '@xterm/xterm'
-import { useTerminal } from '../../hooks/useTerminal'
+import { useTerminal } from '../../hooks/terminal/useTerminal'
 import { shellTabStyles as styles } from './ShellTabs.styles'
 import { registerShellHeaderControls, unregisterShellHeaderControls } from './shell-header-controls'
 import {
