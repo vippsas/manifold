@@ -6,7 +6,6 @@ const PANEL_LABELS: Record<DockPanelId, string> = {
   projects: 'Projects',
   agent: 'Agent',
   editor: 'Editor',
-  fileTree: 'Files',
   modifiedFiles: 'Modified',
   shell: 'Shell',
 }

@@ -41,7 +41,7 @@ describe('WorkspaceHeaderActions', () => {
   it('hides the launcher for groups without the agent panel', () => {
     render(
       <DockStateContext.Provider value={state}>
-        <WorkspaceHeaderActions {...props(['fileTree', 'modifiedFiles'])} />
+        <WorkspaceHeaderActions {...props(['editor', 'modifiedFiles'])} />
       </DockStateContext.Provider>,
     )
     expect(screen.queryByRole('button', { name: /open module/i })).not.toBeInTheDocument()

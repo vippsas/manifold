@@ -29,7 +29,7 @@ function Probe(props: IDockviewPanelProps): React.JSX.Element {
 
 const COMPONENTS = {
   agent: Probe, editor: Probe, shell: Probe,
-  projects: Probe, fileTree: Probe, modifiedFiles: Probe,
+  projects: Probe, modifiedFiles: Probe,
   pluginView: Probe, pluginTreeView: Probe,
 }
 

@@ -4,7 +4,7 @@ import type { DockviewApi } from 'dockview'
 type SidebarSide = 'left' | 'right'
 
 /** Anchor panel id for each sidebar side. */
-const SIDE_PANEL_ID: Record<SidebarSide, string> = { left: 'projects', right: 'fileTree' }
+const SIDE_PANEL_ID: Record<SidebarSide, string> = { left: 'projects', right: 'modifiedFiles' }
 
 // Fractions of the window width the double-click cycle steps through, in order.
 // The default layout starts a sidebar at 1/6, so the first double-click moves
@@ -54,7 +54,7 @@ function refreshEdgeGrab(api: DockviewApi): void {
   for (const sash of sashes) sash.classList.remove(EDGE_CLASS.left, EDGE_CLASS.right)
 
   for (const side of ['left', 'right'] as SidebarSide[]) {
-    const id = side === 'left' ? 'projects' : 'fileTree'
+    const id = side === 'left' ? 'projects' : 'modifiedFiles'
     const group = api.getPanel(id)?.group
     if (!group || group.element.offsetWidth > 1) continue
     const sash = sashes.find((s) => sidebarSideForSash(api, s) === side)
@@ -68,7 +68,7 @@ function sidebarSideForSash(api: DockviewApi, sash: HTMLElement): SidebarSide | 
   const sashCenter = sashRect.left + sashRect.width / 2
 
   const projects = panelGroupElement(api, 'projects')
-  const files = panelGroupElement(api, 'fileTree')
+  const rightSidebar = panelGroupElement(api, 'modifiedFiles')
 
   let side: SidebarSide | null = null
   let bestDist = EDGE_THRESHOLD_PX
@@ -76,8 +76,8 @@ function sidebarSideForSash(api: DockviewApi, sash: HTMLElement): SidebarSide | 
     const dist = Math.abs(sashCenter - projects.getBoundingClientRect().right)
     if (dist <= bestDist) { bestDist = dist; side = 'left' }
   }
-  if (files) {
-    const dist = Math.abs(sashCenter - files.getBoundingClientRect().left)
+  if (rightSidebar) {
+    const dist = Math.abs(sashCenter - rightSidebar.getBoundingClientRect().left)
     if (dist < bestDist) { bestDist = dist; side = 'right' }
   }
   return side

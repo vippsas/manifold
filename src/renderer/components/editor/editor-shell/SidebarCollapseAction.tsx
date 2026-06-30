@@ -18,12 +18,12 @@ function SidebarCollapseGlyph({ side }: { side: 'left' | 'right' }): React.JSX.E
   )
 }
 
-const SIDEBAR_OWNER: Record<'left' | 'right', string> = { left: 'projects', right: 'fileTree' }
-const SIDEBAR_LABEL: Record<'left' | 'right', string> = { left: 'Repositories', right: 'Files' }
+const SIDEBAR_OWNER: Record<'left' | 'right', string> = { left: 'projects', right: 'modifiedFiles' }
+const SIDEBAR_LABEL: Record<'left' | 'right', string> = { left: 'Repositories', right: 'Modified Files' }
 
 /** Collapse button for a dock sidebar, rendered in the group's header-action slot
  *  at the seam with the center pane — only for the group that owns the matching
- *  sidebar panel (left = projects, right = file tree). */
+ *  sidebar panel (left = projects, right = modified files). */
 export function SidebarCollapseAction({
   side,
   panels,
@@ -47,8 +47,8 @@ export function SidebarCollapseAction({
   )
 }
 
-/** Prefix header-action slot (rendered *before* the tabs): the right file-tree
- *  sidebar's collapse button, which sits at that sidebar's inner edge next to the
+/** Prefix header-action slot (rendered *before* the tabs): the right sidebar's
+ *  collapse button, which sits at that sidebar's inner edge next to the
  *  center pane. The left slot can't be used — dockview renders it after the tabs,
  *  which would push the button to the sidebar's outer edge. */
 export function PrefixHeaderActions(props: IDockviewHeaderActionsProps): React.JSX.Element {

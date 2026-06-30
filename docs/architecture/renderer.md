@@ -1,7 +1,7 @@
 ---
 description: How the Manifold renderer (developer workspace UI) is structured — the React entry, the dockview panel layout, and the preload-only boundary to main.
 covers: [src/renderer]
-updated: 2026-06-27
+updated: 2026-06-30
 owner: see .github/CODEOWNERS
 ---
 
@@ -55,11 +55,12 @@ toggles **focus mode**: `DockTab`'s `onDoubleClick` calls `onToggleMaximize` (`D
 maximizes that pane's group via dockview's native `maximizeGroup`/`exitMaximizedGroup`
 (`hooks/dock-layout/dock-layout-helpers.ts:243`) — hiding every other pane and both sidebars
 in place (no remount) and restoring them exactly on the second double-click. The default arrangement is
-`projects | agent | (fileTree+modifiedFiles)` at a 1:4:1 width ratio
+`projects | agent | modifiedFiles` at a 1:4:1 width ratio
 (`hooks/dock-layout/dock-layout-builders.ts:8`). Saved layouts are sanitized before
-`api.fromJSON`; the sanitizer strips unsupported panels and caps restored `projects` /
-`fileTree` sidebar columns, including stale stacked sidebar columns, to the same
-one-sixth share before the loader persists repaired snapshots
+`api.fromJSON`; the sanitizer strips unsupported panels (including the retired
+`fileTree` panel, migrating older layouts to the `modifiedFiles`-anchored right sidebar)
+and caps restored `projects` / `modifiedFiles` sidebar columns, including stale stacked
+sidebar columns, to the same one-sixth share before the loader persists repaired snapshots
 (`hooks/dock-layout/dock-layout-sanitize.ts:91`, `:116`, `:174`; `hooks/dock-layout/dock-layout-loader.ts:51`).
 All add/remove/focus/split/resize logic lives in the `hooks/dock-layout/` subsystem behind
 `useDockLayout`, whose return value is the dock control surface consumed by `App`
@@ -68,11 +69,10 @@ All add/remove/focus/split/resize logic lives in the `hooks/dock-layout/` subsys
 **The panel set.** Panel ids are fixed in `PANEL_IDS` with display titles in
 `PANEL_TITLES` (`hooks/dock-layout/dock-layout-helpers.ts:13`, `:18`):
 
-- `projects` → **Repositories** — `ProjectSidebar` (repos, sessions, workspaces, drafts).
+- `projects` → **Repositories** — `ProjectSidebar` (`components/sidebar/ProjectSidebar.tsx:92`) with a VS Code-style activity bar switching between an **Explorer** (default) and the **Repositories** view (repos, sessions, workspaces, drafts). The Explorer renders the workspace `FileTree` via `DockFileTree` (`components/editor/file-tree/DockFileTree.tsx`) over the active session's worktree + any additional dirs — this is the only file tree now that the standalone Files panel is retired. Change badges separate direct working-tree changes from branch-only ones: `mergeFileChanges` unions the base-branch diff (`useDiff`) with the live `git status` watcher feed and tags each path `worktreeDirty` by source (`useFileDiff.ts:4`). A dirty path renders the vivid A/M/D letter with a tinted name; a path that only differs vs the base branch (committed on the branch, clean in the worktree) renders a faint `○` with a plain name (`tree-node-row.tsx:71`, `:178`).
 - `agent` → **Agent** — `AgentPanel` (`components/editor/editor-shell/dock-agent-panel.tsx:86`): renders a draft chat, an `OnboardingView` (no agent yet), an `AgentChatView` (non-interactive chat-mode), or an xterm `TerminalPane` (interactive runtime) depending on session state.
 - `editor` → **Editor** — `EditorPanel` wrapping `CodeViewer` (Monaco); split editors get ids prefixed `editor:` and each registers its own pane.
-- `fileTree` → **Files** — `FileTree` over the worktree + any additional dirs. Change badges separate direct working-tree changes from branch-only ones: `mergeFileChanges` unions the base-branch diff (`useDiff`) with the live `git status` watcher feed and tags each path `worktreeDirty` by source (`useFileDiff.ts:4`). A dirty path renders the vivid A/M/D letter with a tinted name; a path that only differs vs the base branch (committed on the branch, clean in the worktree) renders a faint `○` with a plain name (`tree-node-row.tsx:71`, `:178`).
-- `modifiedFiles` → **Modified Files** — `ModifiedFiles` diff list; files with `FileChange.foreignWorktree` (inherited because the base branch advanced) are grouped below a "from another worktree" separator, dimmed, with an origin tooltip.
+- `modifiedFiles` → **Modified Files** — `ModifiedFiles` diff list, and the anchor of the right sidebar; files with `FileChange.foreignWorktree` (inherited because the base branch advanced) are grouped below a "from another worktree" separator, dimmed, with an origin tooltip.
 - `shell` → **Shell** — `ShellTabs` (worktree + project shell PTYs).
 - `pluginView` / `pluginTreeView` — webview hosts for plugin contributions (e.g. **Statistics**, the former Verdicts dashboard, now the `manifold.statistics` plugin).
 

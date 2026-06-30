@@ -30,9 +30,9 @@ describe('SidebarCollapseAction', () => {
     expect(onCollapseSidebar).toHaveBeenCalledWith('left')
   })
 
-  it('renders the files collapse button for the file-tree group and collapses right', () => {
-    const onCollapseSidebar = renderAction('right', panelsOf('fileTree', 'modifiedFiles'))
-    fireEvent.click(screen.getByRole('button', { name: 'Collapse Files' }))
+  it('renders the modified-files collapse button for the right sidebar group and collapses right', () => {
+    const onCollapseSidebar = renderAction('right', panelsOf('modifiedFiles'))
+    fireEvent.click(screen.getByRole('button', { name: 'Collapse Modified Files' }))
     expect(onCollapseSidebar).toHaveBeenCalledWith('right')
   })
 

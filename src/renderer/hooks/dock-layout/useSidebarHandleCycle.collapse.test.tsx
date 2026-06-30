@@ -36,7 +36,7 @@ async function setupDock(): Promise<DockviewApi> {
     <div style={{ width: 1200, height: 700 }}>
       <DockviewReact
         className="dockview-theme-manifold"
-        components={{ projects: Probe, agent: Probe, editor: Probe, fileTree: Probe }}
+        components={{ projects: Probe, agent: Probe, editor: Probe, modifiedFiles: Probe }}
         onReady={(e) => { api = e.api }}
       />
     </div>,
@@ -48,12 +48,12 @@ async function setupDock(): Promise<DockviewApi> {
     dv.addPanel({ id: 'projects', component: 'projects' })
     dv.addPanel({ id: 'agent', component: 'agent', position: { referencePanel: 'projects', direction: 'right' } })
     dv.addPanel({ id: 'editor', component: 'editor', position: { referencePanel: 'agent', direction: 'right' } })
-    dv.addPanel({ id: 'fileTree', component: 'fileTree', position: { referencePanel: 'editor', direction: 'right' } })
+    dv.addPanel({ id: 'modifiedFiles', component: 'modifiedFiles', position: { referencePanel: 'editor', direction: 'right' } })
     dv.getPanel('projects')?.group.api.setSize({ width: 200 })
-    dv.getPanel('fileTree')?.group.api.setSize({ width: 200 })
+    dv.getPanel('modifiedFiles')?.group.api.setSize({ width: 200 })
   })
   wireOffsetWidth(dv, 'projects')
-  wireOffsetWidth(dv, 'fileTree')
+  wireOffsetWidth(dv, 'modifiedFiles')
   return dv
 }
 
@@ -69,27 +69,27 @@ describe('collapseSidebar / applySidebarWidth', () => {
     expect(previous).toBe(200)
     expect(widthOf('projects')).toBe(0)
     // The opposite sidebar is preserved — only the center pane absorbs the space.
-    expect(widthOf('fileTree')).toBe(200)
+    expect(widthOf('modifiedFiles')).toBe(200)
 
     act(() => { applySidebarWidth(dv, 'left', previous) })
     expect(widthOf('projects')).toBe(200)
-    expect(widthOf('fileTree')).toBe(200)
+    expect(widthOf('modifiedFiles')).toBe(200)
   })
 
-  it('collapses the file-tree sidebar to 0 and restores its previous width', async () => {
+  it('collapses the modified-files sidebar to 0 and restores its previous width', async () => {
     const dv = await setupDock()
     const widthOf = (panelId: string): number => dv.getPanel(panelId)?.group.api.width ?? -1
 
-    expect(widthOf('fileTree')).toBe(200)
+    expect(widthOf('modifiedFiles')).toBe(200)
 
     let previous = 0
     act(() => { previous = collapseSidebar(dv, 'right') })
     expect(previous).toBe(200)
-    expect(widthOf('fileTree')).toBe(0)
+    expect(widthOf('modifiedFiles')).toBe(0)
     expect(widthOf('projects')).toBe(200)
 
     act(() => { applySidebarWidth(dv, 'right', previous) })
-    expect(widthOf('fileTree')).toBe(200)
+    expect(widthOf('modifiedFiles')).toBe(200)
     expect(widthOf('projects')).toBe(200)
   })
 

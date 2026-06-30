@@ -63,8 +63,6 @@ describe('createCommandHandlers', () => {
     const ctx = mockContext()
     const handlers = createCommandHandlers(ctx)
     handlers['view.focusTerminal']()
-    handlers['view.focusFiles']()
     expect(ctx.openModule).toHaveBeenCalledWith('shell')
-    expect(ctx.openModule).toHaveBeenCalledWith('fileTree')
   })
 })

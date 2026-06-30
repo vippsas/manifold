@@ -15,7 +15,7 @@ describe('sanitizeDockLayout', () => {
               size: 320,
               data: {
                 id: 'sidebar',
-                views: ['fileTree', 'modifiedFiles', 'memory'],
+                views: ['modifiedFiles', 'memory'],
                 activeView: 'memory',
               },
             },
@@ -32,7 +32,6 @@ describe('sanitizeDockLayout', () => {
         },
       },
       panels: {
-        fileTree: {},
         modifiedFiles: {},
         memory: {},
         agent: {},
@@ -48,8 +47,8 @@ describe('sanitizeDockLayout', () => {
 
     expect(sanitized).not.toBeNull()
     expect(Object.keys(sanitized.panels)).not.toContain('memory')
-    expect(sidebar.data.views).toEqual(['fileTree', 'modifiedFiles'])
-    expect(sidebar.data.activeView).toBe('fileTree')
+    expect(sidebar.data.views).toEqual(['modifiedFiles'])
+    expect(sidebar.data.activeView).toBe('modifiedFiles')
   })
 
   it('returns null when the saved layout only contains retired panels', () => {
@@ -370,7 +369,7 @@ describe('sanitizeDockLayout', () => {
             {
               type: 'leaf',
               size: 600,
-              data: { id: 'files', views: ['fileTree', 'modifiedFiles'], activeView: 'fileTree' },
+              data: { id: 'files', views: ['modifiedFiles'], activeView: 'modifiedFiles' },
             },
           ],
         },
@@ -378,7 +377,6 @@ describe('sanitizeDockLayout', () => {
       panels: {
         projects: {},
         agent: {},
-        fileTree: {},
         modifiedFiles: {},
       },
     } as unknown as SerializedDockview
@@ -421,7 +419,7 @@ describe('sanitizeDockLayout', () => {
             {
               type: 'leaf',
               size: 600,
-              data: { id: 'files', views: ['fileTree', 'modifiedFiles'], activeView: 'fileTree' },
+              data: { id: 'files', views: ['modifiedFiles'], activeView: 'modifiedFiles' },
             },
           ],
         },
@@ -430,7 +428,6 @@ describe('sanitizeDockLayout', () => {
         projects: {},
         agent: {},
         editor: {},
-        fileTree: {},
         modifiedFiles: {},
       },
     } as unknown as SerializedDockview
@@ -470,7 +467,7 @@ describe('sanitizeDockLayout', () => {
                     {
                       type: 'leaf',
                       size: 537,
-                      data: { id: 'files', views: ['fileTree', 'modifiedFiles'], activeView: 'fileTree' },
+                      data: { id: 'files', views: ['modifiedFiles'], activeView: 'modifiedFiles' },
                     },
                   ],
                 },
@@ -493,7 +490,6 @@ describe('sanitizeDockLayout', () => {
         projects: {},
         agent: {},
         editor: {},
-        fileTree: {},
         modifiedFiles: {},
       },
     } as unknown as SerializedDockview
@@ -534,7 +530,7 @@ describe('sanitizeDockLayout', () => {
             {
               type: 'leaf',
               size: 240,
-              data: { id: 'files', views: ['fileTree', 'modifiedFiles'], activeView: 'fileTree' },
+              data: { id: 'files', views: ['modifiedFiles'], activeView: 'modifiedFiles' },
             },
           ],
         },
@@ -542,7 +538,6 @@ describe('sanitizeDockLayout', () => {
       panels: {
         projects: {},
         agent: {},
-        fileTree: {},
         modifiedFiles: {},
       },
     } as unknown as SerializedDockview

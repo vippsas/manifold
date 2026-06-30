@@ -40,7 +40,7 @@ async function setupDock(): Promise<DockviewApi> {
   render(
     <div style={{ width: 1000, height: 700 }}>
       <DockviewReact
-        components={{ agent: Probe, editor: Probe, shell: Probe, projects: Probe, fileTree: Probe, modifiedFiles: Probe }}
+        components={{ agent: Probe, editor: Probe, shell: Probe, projects: Probe, modifiedFiles: Probe }}
         onReady={(e) => { api = e.api }}
       />
     </div>,

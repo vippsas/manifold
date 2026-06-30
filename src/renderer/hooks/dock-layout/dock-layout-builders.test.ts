@@ -37,15 +37,15 @@ describe('applyDefaultLayout', () => {
     expect(addPanel).not.toHaveBeenCalledWith(expect.objectContaining({ id: 'editor' }))
   })
 
-  it('positions the file tree beside the agent panel', () => {
+  it('positions the modified files panel beside the agent panel', () => {
     const { api, addPanel } = createApi()
 
     applyDefaultLayout(api as never)
 
     expect(addPanel).toHaveBeenCalledWith({
-      id: 'fileTree',
-      component: 'fileTree',
-      title: 'Files',
+      id: 'modifiedFiles',
+      component: 'modifiedFiles',
+      title: 'Modified Files',
       position: { referencePanel: 'agent', direction: 'right' },
     })
   })
@@ -59,6 +59,6 @@ describe('applyDefaultLayout', () => {
     expect(addedIds).not.toContain('loop')
     expect(addedIds).not.toContain('verdicts')
     expect(addedIds).not.toContain('watch')
-    expect(addedIds).toEqual(expect.arrayContaining(['projects', 'agent', 'fileTree', 'modifiedFiles']))
+    expect(addedIds).toEqual(expect.arrayContaining(['projects', 'agent', 'modifiedFiles']))
   })
 })
