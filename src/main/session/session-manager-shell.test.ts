@@ -239,4 +239,36 @@ describe('SessionManager — window / shell / add-dir', () => {
       )
     })
   })
+
+  describe('addAdditionalDir', () => {
+    it('records the dir, notifies the renderer, and gives the live agent access', async () => {
+      const mockWindow = createMockWindow()
+      sessionManager.setMainWindow(mockWindow)
+      await sessionManager.createSession({ projectId: 'proj-1', runtimeId: 'claude', prompt: 'test' })
+
+      await sessionManager.addAdditionalDir('session-uuid-1', '/tmp/added/')
+
+      const session = sessionManager.getSession('session-uuid-1')
+      expect(session?.additionalDirs).toContain('/tmp/added')
+      expect(mockWindow.webContents.send).toHaveBeenCalledWith(
+        'agent:dirs-changed',
+        { sessionId: 'session-uuid-1', additionalDirs: ['/tmp/added'] },
+      )
+      // Interactive agents get the runtime's /add-dir so the conversation can reach it.
+      expect(ptyPool.write).toHaveBeenCalledWith('pty-1', '/add-dir /tmp/added\n')
+    })
+
+    it('is idempotent for an already-added dir', async () => {
+      await sessionManager.createSession({ projectId: 'proj-1', runtimeId: 'claude', prompt: 'test' })
+
+      await sessionManager.addAdditionalDir('session-uuid-1', '/tmp/added')
+      await sessionManager.addAdditionalDir('session-uuid-1', '/tmp/added')
+
+      expect(sessionManager.getSession('session-uuid-1')?.additionalDirs).toEqual(['/tmp/added'])
+    })
+
+    it('throws for an unknown session', async () => {
+      await expect(sessionManager.addAdditionalDir('nope', '/tmp/x')).rejects.toThrow('Session not found')
+    })
+  })
 })

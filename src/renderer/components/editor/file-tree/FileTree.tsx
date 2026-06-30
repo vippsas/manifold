@@ -270,12 +270,10 @@ export function FileTree({
             {hasAdditionalRoots ? (
               <>
                 <div data-tree-root-path={filteredTree.path}>
-                  <WorkspaceRootHeader name={rootLabels?.get(filteredTree.path) ?? filteredTree.name} isAdditional={false} />
                   {renderWorkspaceTree(filteredTree)}
                 </div>
                 {filteredAdditionalTrees && Array.from(filteredAdditionalTrees.entries()).map(([dirPath, dirTree]) => (
                   <div key={dirPath} data-tree-root-path={dirPath}>
-                    <WorkspaceRootHeader name={rootLabels?.get(dirPath) ?? dirTree.name} isAdditional={true} />
                     {renderWorkspaceTree(dirTree)}
                   </div>
                 ))}
@@ -284,7 +282,6 @@ export function FileTree({
               <div data-tree-root-path={filteredTree.path}>
                 <WorkspaceRootHeader
                   name={rootLabels?.get(filteredTree.path) ?? filteredTree.name}
-                  isAdditional={false}
                 />
                 {renderWorkspaceTree(filteredTree)}
               </div>

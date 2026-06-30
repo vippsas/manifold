@@ -17,6 +17,7 @@ const ALLOWED_INVOKE_CHANNELS = [
   'agent:start-dev-server',
   'agent:interrupt',
   'agent:input',
+  'agent:add-dir',
   'chat:save-pasted-image',
   'chat:read-pasted-image',
   'agent:resize',

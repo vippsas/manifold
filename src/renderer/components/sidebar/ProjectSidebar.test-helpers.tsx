@@ -43,6 +43,10 @@ export const sampleSessions: AgentSession[] = [
 export function renderSidebar(overrides = {}) {
   const defaultProps = {
     width: 200,
+    // These tests exercise the repository/agent list; the Explorer (file tree)
+    // view is the app default but needs DockStateContext, so default the harness
+    // to the repositories view.
+    initialView: 'repositories' as const,
     projects: sampleProjects,
     activeProjectId: 'p1',
     allProjectSessions: { p1: sampleSessions, p2: [] },
@@ -56,6 +60,7 @@ export function renderSidebar(overrides = {}) {
     onRequestDeleteAgent: vi.fn(),
     onNewAgent: vi.fn(),
     onNewProject: vi.fn(),
+    onOpenFolder: vi.fn(),
     onNewWorkspace: vi.fn(),
     fetchingProjectId: null,
     lastFetchedProjectId: null,

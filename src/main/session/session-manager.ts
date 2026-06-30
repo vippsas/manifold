@@ -227,6 +227,35 @@ export class SessionManager {
     return toPublicSession(session)
   }
 
+  /**
+   * Add a folder as an extra working root on a live session — VS Code's "Add
+   * Folder to Workspace". Updates `additionalDirs` (so the file tree shows the
+   * folder and `files:read` allows it via `isPathAllowed`), starts watching it,
+   * persists, and notifies the renderer. For interactive agents it also sends the
+   * runtime's `/add-dir` so the running conversation gains access. The PTY echo is
+   * caught by `detectAddDir`, which stays idempotent since the dir is already
+   * recorded here.
+   */
+  async addAdditionalDir(sessionId: string, dirPath: string): Promise<AgentSession> {
+    const session = this.sessions.get(sessionId)
+    if (!session) throw new Error(`Session not found: ${sessionId}`)
+
+    const normalized = dirPath.replace(/\/+$/, '')
+    const worktree = (session.worktreePath ?? '').replace(/\/+$/, '')
+    if (normalized && normalized !== worktree && !session.additionalDirs.includes(normalized)) {
+      session.additionalDirs.push(normalized)
+      this.fileWatcher?.watchAdditionalDir(normalized, sessionId)
+      persistSessionMeta(session)
+      this.sendToRenderer('agent:dirs-changed', { sessionId, additionalDirs: [...session.additionalDirs] })
+      this.notifySessionsChanged(session.projectId)
+      if (session.ptyId && !session.nonInteractive) {
+        this.ioController.sendInput(sessionId, `/add-dir ${normalized}\n`)
+      }
+    }
+
+    return toPublicSession(session)
+  }
+
   getOutputBuffer(sessionId: string): string { return this.sessions.get(sessionId)?.outputBuffer ?? '' }
 
   getSession(sessionId: string): AgentSession | undefined {

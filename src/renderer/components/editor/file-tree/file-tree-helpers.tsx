@@ -1,24 +1,12 @@
 import React from 'react'
 import type { FileTreeNode } from '../../../../shared/types'
 
-export function WorkspaceRootHeader({
-  name,
-  isAdditional,
-}: {
-  name: string
-  isAdditional: boolean
-}): React.JSX.Element {
+export function WorkspaceRootHeader({ name }: { name: string }): React.JSX.Element {
   return (
-    <div
-      style={{
-        padding: '6px 8px 4px',
-        borderBottom: '1px solid var(--border)',
-      }}
-    >
+    <div style={{ padding: '6px 8px 4px' }}>
       <div
         style={{
           display: 'flex',
-          justifyContent: 'space-between',
           alignItems: 'center',
           fontSize: 'inherit',
           fontWeight: 500,
@@ -26,17 +14,6 @@ export function WorkspaceRootHeader({
         }}
       >
         <span>{name}</span>
-        {isAdditional && (
-          <span
-            style={{
-              fontSize: '0.92em',
-              fontWeight: 400,
-              color: 'var(--text-tertiary, rgba(255,255,255,0.35))',
-            }}
-          >
-            external
-          </span>
-        )}
       </div>
     </div>
   )

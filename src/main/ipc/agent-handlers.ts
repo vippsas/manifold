@@ -84,6 +84,10 @@ export function registerAgentHandlers(deps: IpcDependencies): void {
     sessionManager.sendInput(sessionId, input)
   })
 
+  ipcMain.handle('agent:add-dir', async (_event, sessionId: string, dirPath: string) => {
+    return sessionManager.addAdditionalDir(sessionId, dirPath)
+  })
+
   ipcMain.handle('agent:resize', (_event, sessionId: string, cols: number, rows: number) => {
     sessionManager.resize(sessionId, cols, rows)
   })

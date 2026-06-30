@@ -6,6 +6,48 @@ export const sidebarStyles: Record<string, React.CSSProperties> = {
     flexDirection: 'column',
     height: '100%',
   },
+  // VS Code-style activity strip pinned to the top of the sidebar: view icons on
+  // the left (Explorer is the only one today, with room for more), the
+  // "add folder to workspace" action on the right.
+  activityBar: {
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 'var(--space-xs)',
+    height: 36,
+    padding: '0 var(--space-xs)',
+    borderBottom: '1px solid var(--border)',
+    background: 'var(--bg-chrome)',
+    flexShrink: 0,
+  } as React.CSSProperties,
+  activityIcons: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: '2px',
+    height: '100%',
+  } as React.CSSProperties,
+  // Explorer view fills the remaining height so the embedded file tree scrolls
+  // on its own (it manages its own toolbar + overflow).
+  explorer: {
+    flex: 1,
+    minHeight: 0,
+    display: 'flex',
+    flexDirection: 'column',
+  } as React.CSSProperties,
+  activityIcon: {
+    display: 'inline-flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    position: 'relative',
+    width: 28,
+    height: 28,
+    padding: 0,
+    border: 0,
+    borderRadius: 'var(--radius-sm)',
+    background: 'transparent',
+    color: 'var(--text-muted)',
+    cursor: 'pointer',
+  } as React.CSSProperties,
   list: {
     flex: 1,
     overflowY: 'auto' as const,

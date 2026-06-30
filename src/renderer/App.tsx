@@ -316,6 +316,23 @@ export function App(): React.JSX.Element {
     },
     newAgentFocusTrigger: overlays.newAgentFocusTrigger,
     onNewProject: () => appEffects.setShowOnboarding(true),
+    onOpenFolder: () => {
+      void (async () => {
+        const dir = (await window.electronAPI.invoke('projects:open-dialog')) as string | undefined
+        if (!dir) return
+        // With a live conversation, attach the folder to that session so it shows
+        // as an extra root in the Explorer and the agent gains access to it.
+        if (activeSessionId) {
+          await window.electronAPI.invoke('agent:add-dir', activeSessionId, dir)
+        } else if (activeWorkspaceId) {
+          const project = await addProject(dir, { activate: false })
+          if (project) await addProjectToWorkspace(activeWorkspaceId, project.id)
+        } else {
+          const project = await addProject(dir)
+          if (project) clearActiveWorkspace()
+        }
+      })()
+    },
     workspaces, activeWorkspaceId, sessionsByWorkspace,
     onNewWorkspace: () => setNewWorkspaceVisible(true),
     onSelectWorkspace: (id: string) => { setActiveWorkspaceId(id) },

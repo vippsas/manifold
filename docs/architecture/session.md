@@ -1,7 +1,7 @@
 ---
 description: How Manifold agent sessions are created, run, stopped, resumed, and rediscovered from on-disk worktrees.
 covers: [src/main/session]
-updated: 2026-06-20
+updated: 2026-06-30
 owner: see .github/CODEOWNERS
 ---
 
@@ -111,7 +111,7 @@ resurrected from leftover branch checkout state (`session-discovery.ts:140`, `:2
 
 ## Key types and entry points
 
-- `SessionManager` — `session-manager.ts:29`. Public surface: `createSession`, `resumeSession`, `killSession`, `killAllSessionsOnWorktree`, `discoverSessionsForProject`, `discoverAllSessions`, `sendInput`, `interruptSession`, `resize`, `renameSession`, `setSessionLocked`, `createShellSession`. `setSessionLocked` mirrors `renameSession`: it flips the persisted `locked` flag, re-persists meta, and notifies renderers.
+- `SessionManager` — `session-manager.ts:29`. Public surface: `createSession`, `resumeSession`, `killSession`, `killAllSessionsOnWorktree`, `discoverSessionsForProject`, `discoverAllSessions`, `sendInput`, `interruptSession`, `resize`, `renameSession`, `setSessionLocked`, `addAdditionalDir`, `createShellSession`. `setSessionLocked` mirrors `renameSession`: it flips the persisted `locked` flag, re-persists meta, and notifies renderers. `addAdditionalDir` (`session-manager.ts:239`, behind the `agent:add-dir` IPC) is the renderer-driven counterpart to the `detectAddDir` PTY path: it pushes a folder onto `session.additionalDirs`, starts watching it, persists, emits `agent:dirs-changed`, and — for interactive agents — sends the runtime's `/add-dir` so the live conversation gains access. The PTY echo is then idempotent against the already-recorded dir.
 - `SessionLifecycle` — `session-lifecycle.ts:30`. `createSession()` / `resumeSession()` orchestration behind the manager's delegating methods (`session-manager.ts:192`, `:206`).
 - `InternalSession` — `session-types.ts:14`. Extends `AgentSession` (`src/shared/types.ts:15`) with `ptyId`, `outputBuffer`, `streamJsonLineBuffer`, `nonInteractiveOutputMode`, shell/NL state, etc. `toPublicSession()` (`session-public.ts:4`) projects it down for IPC.
 - `SessionCreator.create()` — `session-creator.ts:35`. The worktree-resolution + spawn decision tree.

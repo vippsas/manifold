@@ -521,6 +521,47 @@ describe('ProjectSidebar', () => {
     expect(props.onNewWorkspace).toHaveBeenCalled()
   })
 
+  it('opens a folder picker via onOpenFolder when the activity-bar + is clicked', () => {
+    const { props } = renderSidebar()
+
+    fireEvent.click(screen.getByLabelText('Open folder'))
+
+    expect(props.onOpenFolder).toHaveBeenCalledTimes(1)
+    expect(props.onNewProject).not.toHaveBeenCalled()
+  })
+
+  it('switches to the Explorer file view from the activity bar', () => {
+    renderSidebar()
+
+    // Repositories view is active in the harness — the repo card is visible.
+    expect(screen.getByText('Alpha')).toBeInTheDocument()
+
+    fireEvent.click(screen.getByLabelText('Explorer'))
+
+    // Explorer view replaces the repo list. Without a DockStateContext the
+    // embedded file tree shows its empty state.
+    expect(screen.getByText('No folder open')).toBeInTheDocument()
+    expect(screen.queryByText('Alpha')).not.toBeInTheDocument()
+  })
+
+  it('switches back to the Repositories view from the activity bar', () => {
+    renderSidebar({ initialView: 'explorer' })
+
+    expect(screen.getByText('No folder open')).toBeInTheDocument()
+
+    fireEvent.click(screen.getByLabelText('Repositories'))
+
+    expect(screen.getByText('Alpha')).toBeInTheDocument()
+    expect(screen.queryByText('No folder open')).not.toBeInTheDocument()
+  })
+
+  it('marks the active activity icon', () => {
+    renderSidebar({ initialView: 'explorer' })
+
+    expect(screen.getByLabelText('Explorer')).toHaveClass('sidebar-activity-icon--active')
+    expect(screen.getByLabelText('Repositories')).not.toHaveClass('sidebar-activity-icon--active')
+  })
+
   it('collapses the Workspaces section while keeping its header action available', () => {
     const { props } = renderSidebar({
       workspaces: [{ id: 'ws1', name: 'auth-refactor', projectIds: ['p1'], createdAt: '2024-01-01' }],

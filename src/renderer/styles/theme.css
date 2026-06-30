@@ -891,6 +891,36 @@ select:focus-visible {
   opacity: 1;
 }
 
+/* Sidebar activity strip: resting / hover / active mirror the standard sidebar
+   interaction language. The active view carries the accent plus a short bottom
+   underline that sits on the strip's bottom border (VS Code's edge indicator,
+   rotated for a top-mounted bar). */
+.sidebar-activity-icon {
+  transition: color var(--duration-normal) var(--ease-premium), background var(--duration-normal) var(--ease-premium);
+}
+
+.sidebar-activity-icon:hover {
+  background: var(--list-hover-bg);
+  color: var(--text-primary);
+}
+
+.sidebar-activity-icon--active,
+.sidebar-activity-icon--active:hover {
+  color: var(--accent);
+}
+
+.sidebar-activity-icon--active::after {
+  content: '';
+  position: absolute;
+  left: 50%;
+  bottom: -1px;
+  transform: translateX(-50%);
+  width: 18px;
+  height: 2px;
+  border-radius: var(--radius-pill);
+  background: var(--accent);
+}
+
 .sidebar-favorite-star {
   opacity: 0;
   pointer-events: none;

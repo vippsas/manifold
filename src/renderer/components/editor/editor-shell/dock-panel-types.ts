@@ -96,6 +96,10 @@ export interface DockAppState {
   onNewAgentFromHeader: () => void
   newAgentFocusTrigger: number
   onNewProject: () => void
+  /** Open a native folder picker and add the chosen folder as a repo (VS Code's
+   *  "Open Folder" / "Add Folder to Workspace"). Adds to the active workspace
+   *  when one is focused. */
+  onOpenFolder: () => void
   onNewWorkspace?: () => void
   workspaces?: import('../../../../shared/workspace-types').Workspace[]
   activeWorkspaceId?: string | null
