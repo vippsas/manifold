@@ -43,7 +43,15 @@ export function NewAgentForm({
   compact?: boolean
 }): React.JSX.Element {
   const [mode, setMode] = useState<AgentMode>(defaultAgentMode)
-  const [runWithoutWorktree, setRunWithoutWorktree] = useState(!defaultUseWorktrees)
+  // Only one in-place agent runs per repo. If one already exists, a new agent must
+  // use a worktree — default the toggle off so clicking Start makes a real 2nd
+  // agent instead of just focusing the existing in-place one.
+  const hasLiveInPlaceAgent = existingSessions.some(
+    (session) => session.noWorktree && (session.status === 'running' || session.status === 'waiting'),
+  )
+  const [runWithoutWorktree, setRunWithoutWorktree] = useState(
+    hasLiveInPlaceAgent ? false : !defaultUseWorktrees,
+  )
   const [taskDescription, setTaskDescription] = useState('')
   const [runtimeId, setRuntimeId] = useState(defaultRuntime)
   const [loading, setLoading] = useState(false)
@@ -115,9 +123,7 @@ export function NewAgentForm({
     && !session.noWorktree
     && !session.groupId
   ))
-  const inPlaceAgentRunning = existingSessions.some(
-    (session) => session.noWorktree && (session.status === 'running' || session.status === 'waiting')
-  )
+  const inPlaceAgentRunning = hasLiveInPlaceAgent
   const willRunInPlace = runWithoutWorktree || useExisting
 
   const canSubmit = (() => {

@@ -263,6 +263,25 @@ describe('NewAgentForm', () => {
     })
   })
 
+  it('defaults to a worktree agent when an in-place agent already exists (2nd agent)', async () => {
+    // Global setting is off (defaultUseWorktrees:false) but an in-place agent is live,
+    // so a new agent must use a worktree — clicking Start creates a real 2nd agent.
+    const { props } = renderForm({
+      defaultUseWorktrees: false,
+      existingSessions: [
+        { id: 's1', projectId: 'proj-1', runtimeId: 'claude', branchName: 'x', worktreePath: '/repos/proj-1', status: 'running', pid: 1, additionalDirs: [], noWorktree: true },
+      ],
+    })
+    await waitFor(() => expect(mockInvoke).toHaveBeenCalledWith('runtimes:list'))
+
+    fireEvent.click(screen.getByText('Start Agent'))
+
+    await waitFor(() => expect(props.onLaunch).toHaveBeenCalled())
+    const options = props.onLaunch.mock.calls[0][0]
+    expect(options.noWorktree).toBeUndefined()
+    expect(screen.queryByText(/only one in-place agent runs per repo/i)).toBeNull()
+  })
+
   it('creates an agent in place when defaultUseWorktrees is false (empty picker)', async () => {
     const { props } = renderForm({ defaultUseWorktrees: false })
     await waitFor(() => expect(mockInvoke).toHaveBeenCalledWith('runtimes:list'))
@@ -321,7 +340,7 @@ describe('NewAgentForm', () => {
     expect(props.onLaunch).not.toHaveBeenCalled()
   })
 
-  it('warns when an in-place agent is already running and this one will run in place', async () => {
+  it('warns only when the user opts into in-place while an in-place agent is running', async () => {
     renderForm({
       defaultUseWorktrees: false,
       existingSessions: [
@@ -330,6 +349,12 @@ describe('NewAgentForm', () => {
     })
     await waitFor(() => expect(mockInvoke).toHaveBeenCalledWith('runtimes:list'))
 
+    // Default is a worktree agent (in-place is taken) → no warning yet.
+    expect(screen.queryByText(/only one in-place agent runs per repo/i)).toBeNull()
+
+    // Opting into in-place surfaces the warning (Start would switch to the existing).
+    fireEvent.click(screen.getByText(/Advanced/))
+    fireEvent.click(screen.getByLabelText('Run without a worktree'))
     expect(screen.getByText(/only one in-place agent runs per repo/i)).toBeTruthy()
   })
 
