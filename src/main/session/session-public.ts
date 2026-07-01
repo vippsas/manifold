@@ -7,6 +7,7 @@ export function toPublicSession(session: InternalSession): AgentSession {
     projectId: session.projectId,
     runtimeId: session.runtimeId,
     branchName: session.branchName,
+    baseBranch: session.baseBranch,
     worktreePath: session.worktreePath,
     status: session.status,
     pid: session.pid,
