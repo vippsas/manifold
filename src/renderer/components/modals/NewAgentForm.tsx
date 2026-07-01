@@ -41,7 +41,7 @@ export function NewAgentForm({
   compact?: boolean
 }): React.JSX.Element {
   const [mode, setMode] = useState<AgentMode>(defaultAgentMode)
-  const [worktreeEnabled, setWorktreeEnabled] = useState(defaultUseWorktrees)
+  const [runWithoutWorktree, setRunWithoutWorktree] = useState(!defaultUseWorktrees)
   const [taskDescription, setTaskDescription] = useState('')
   const [runtimeId, setRuntimeId] = useState(defaultRuntime)
   const [loading, setLoading] = useState(false)
@@ -111,7 +111,7 @@ export function NewAgentForm({
   const inPlaceAgentRunning = existingSessions.some(
     (session) => session.noWorktree && (session.status === 'running' || session.status === 'waiting')
   )
-  const willRunInPlace = !worktreeEnabled || useExisting
+  const willRunInPlace = runWithoutWorktree || useExisting
 
   const canSubmit = (() => {
     if (!runtimeInstalled) return false
@@ -153,7 +153,7 @@ export function NewAgentForm({
         if (useExisting && existingSubTab === 'pr') {
           return { ...base, prIdentifier: String(selectedPr), noWorktree: true }
         }
-        return worktreeEnabled ? base : { ...base, noWorktree: true }
+        return runWithoutWorktree ? { ...base, noWorktree: true } : base
       })()
 
       const finalOptions: SpawnAgentOptions = { ...launchOptions, nonInteractive: mode === 'chat' }
@@ -183,7 +183,7 @@ export function NewAgentForm({
         }
       }
     },
-    [useExisting, existingSubTab, projectId, runtimeId, taskDescription, selectedBranch, selectedPr, canSubmit, isGitProject, onLaunch, mode, defaultAgentMode, worktreeEnabled]
+    [useExisting, existingSubTab, projectId, runtimeId, taskDescription, selectedBranch, selectedPr, canSubmit, isGitProject, onLaunch, mode, defaultAgentMode, runWithoutWorktree]
   )
 
   const formStyle = { display: 'flex', flexDirection: 'column', gap: 'var(--space-lg)', width: 420, maxWidth: '90%' } as const
@@ -250,8 +250,8 @@ export function NewAgentForm({
       {showAdvanced && (
         <NewAgentAdvanced
           isGitProject={isGitProject}
-          worktreeEnabled={worktreeEnabled}
-          setWorktreeEnabled={setWorktreeEnabled}
+          runWithoutWorktree={runWithoutWorktree}
+          setRunWithoutWorktree={setRunWithoutWorktree}
           runtimeId={runtimeId}
           runtimes={runtimes}
           setRuntimeId={setRuntimeId}

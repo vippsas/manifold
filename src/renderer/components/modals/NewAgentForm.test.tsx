@@ -284,12 +284,12 @@ describe('NewAgentForm', () => {
     expect(screen.queryByText(/share one working tree/i)).toBeNull()
   })
 
-  it('sends noWorktree when the worktree checkbox is unchecked', async () => {
+  it('sends noWorktree when "Run without a worktree" is checked', async () => {
     const { props } = renderForm()
     await waitFor(() => expect(mockInvoke).toHaveBeenCalledWith('runtimes:list'))
 
     fireEvent.click(screen.getByText(/Advanced/))
-    fireEvent.click(screen.getByLabelText('Use an isolated worktree'))
+    fireEvent.click(screen.getByLabelText('Run without a worktree'))
     fireEvent.click(screen.getByText('Start Agent'))
 
     await waitFor(() => {
