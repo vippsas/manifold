@@ -65,6 +65,10 @@ export function NewAgentForm({
   const mountedRef = useRef(true)
 
   useEffect(() => {
+    // Set true on mount (not just via useRef's initial value): under React
+    // StrictMode the effect runs setup → cleanup → setup, and without this the
+    // cleanup's `false` would stick after remount, aborting later async work.
+    mountedRef.current = true
     return () => {
       mountedRef.current = false
     }

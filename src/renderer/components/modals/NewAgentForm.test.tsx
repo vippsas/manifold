@@ -238,6 +238,31 @@ describe('NewAgentForm', () => {
     expect(options.existingBranch).toBeUndefined()
   })
 
+  it('creates a no-worktree agent under StrictMode (mountedRef valid after remount)', async () => {
+    const onLaunch = vi.fn().mockResolvedValue({ id: 'session-1' })
+    render(
+      <React.StrictMode>
+        <NewAgentForm
+          projectId="proj-1"
+          projectPath="/repos/proj-1"
+          baseBranch="main"
+          isGitProject={true}
+          defaultRuntime="claude"
+          defaultAgentMode="interactive"
+          defaultUseWorktrees={false}
+          onLaunch={onLaunch}
+        />
+      </React.StrictMode>,
+    )
+    await waitFor(() => expect(mockInvoke).toHaveBeenCalledWith('runtimes:list'))
+
+    fireEvent.click(screen.getByText('Start Agent'))
+
+    await waitFor(() => {
+      expect(onLaunch).toHaveBeenCalledWith(expect.objectContaining({ noWorktree: true }))
+    })
+  })
+
   it('creates an agent in place when defaultUseWorktrees is false (empty picker)', async () => {
     const { props } = renderForm({ defaultUseWorktrees: false })
     await waitFor(() => expect(mockInvoke).toHaveBeenCalledWith('runtimes:list'))
