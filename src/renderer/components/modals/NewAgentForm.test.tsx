@@ -248,6 +248,42 @@ describe('NewAgentForm', () => {
     expect(options.stayOnBranch).toBeUndefined()
   })
 
+  it('warns when an in-place agent is already running and this one will run in place', async () => {
+    renderForm({
+      defaultUseWorktrees: false,
+      existingSessions: [
+        { id: 's1', projectId: 'proj-1', runtimeId: 'claude', branchName: 'x', worktreePath: '/repos/proj-1', status: 'running', pid: 1, additionalDirs: [], noWorktree: true },
+      ],
+    })
+    await waitFor(() => expect(mockInvoke).toHaveBeenCalledWith('runtimes:list'))
+
+    expect(screen.getByText(/share one working tree/i)).toBeTruthy()
+  })
+
+  it('does not warn when the existing in-place agent is finished', async () => {
+    renderForm({
+      defaultUseWorktrees: false,
+      existingSessions: [
+        { id: 's1', projectId: 'proj-1', runtimeId: 'claude', branchName: 'x', worktreePath: '/repos/proj-1', status: 'done', pid: null, additionalDirs: [], noWorktree: true },
+      ],
+    })
+    await waitFor(() => expect(mockInvoke).toHaveBeenCalledWith('runtimes:list'))
+
+    expect(screen.queryByText(/share one working tree/i)).toBeNull()
+  })
+
+  it('does not warn when this agent will use a worktree', async () => {
+    renderForm({
+      defaultUseWorktrees: true,
+      existingSessions: [
+        { id: 's1', projectId: 'proj-1', runtimeId: 'claude', branchName: 'x', worktreePath: '/repos/proj-1', status: 'running', pid: 1, additionalDirs: [], noWorktree: true },
+      ],
+    })
+    await waitFor(() => expect(mockInvoke).toHaveBeenCalledWith('runtimes:list'))
+
+    expect(screen.queryByText(/share one working tree/i)).toBeNull()
+  })
+
   it('sends noWorktree when the worktree checkbox is unchecked', async () => {
     const { props } = renderForm()
     await waitFor(() => expect(mockInvoke).toHaveBeenCalledWith('runtimes:list'))

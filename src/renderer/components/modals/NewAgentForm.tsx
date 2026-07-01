@@ -108,6 +108,10 @@ export function NewAgentForm({
     && !session.noWorktree
     && !session.groupId
   ))
+  const inPlaceAgentRunning = existingSessions.some(
+    (session) => session.noWorktree && (session.status === 'running' || session.status === 'waiting')
+  )
+  const willRunInPlace = !worktreeEnabled || useExisting
 
   const canSubmit = (() => {
     if (!runtimeInstalled) return false
@@ -225,6 +229,12 @@ export function NewAgentForm({
       />
 
       {error && <p style={modalStyles.errorText}>{error}</p>}
+
+      {willRunInPlace && inPlaceAgentRunning && (
+        <p style={modalStyles.infoText}>
+          ⚠ Another agent is already running directly in this repository. They share one working tree — running both at once can cause conflicts.
+        </p>
+      )}
 
       <NewAgentModePill mode={mode} setMode={setMode} canSubmit={canSubmit} loading={loading} />
 
