@@ -16,6 +16,10 @@ export class SessionDiscovery {
   private discoveryInFlight = new Map<string, Promise<void>>()
   private verdictRecorder: VerdictRecorder | null = null
   private dismissedAgents: Pick<DismissedAgentsStore, 'has'> | null = null
+  // Worktree meta written before runtimeId was persisted (or by older builds)
+  // lacks it; restoring such a session with an empty runtimeId makes the next
+  // message throw "Runtime not found:". Fall back to the configured default.
+  private getDefaultRuntimeId: () => string = () => 'claude'
 
   constructor(
     private sessions: Map<string, InternalSession>,
@@ -23,6 +27,10 @@ export class SessionDiscovery {
     private projectRegistry: ProjectRegistry,
     private fileWatcher: FileWatcher | undefined,
   ) {}
+
+  setDefaultRuntimeIdProvider(fn: () => string): void {
+    this.getDefaultRuntimeId = fn
+  }
 
   setVerdictRecorder(recorder: VerdictRecorder): void {
     this.verdictRecorder = recorder
@@ -102,7 +110,7 @@ export class SessionDiscovery {
           // verdict record and (for interactive Claude) its on-disk transcript.
           id: meta?.sessionId ?? uuidv4(),
           projectId,
-          runtimeId: meta?.runtimeId ?? '',
+          runtimeId: meta?.runtimeId || this.getDefaultRuntimeId(),
           branchName: wt.branch,
           worktreePath: wt.path,
           status: 'done',
@@ -146,7 +154,7 @@ export class SessionDiscovery {
           const session: InternalSession = {
             id: meta?.sessionId ?? uuidv4(),
             projectId,
-            runtimeId: meta?.runtimeId ?? '',
+            runtimeId: meta?.runtimeId || this.getDefaultRuntimeId(),
             branchName: branch,
             worktreePath: project.path,
             status: 'done',
@@ -230,7 +238,7 @@ export class SessionDiscovery {
             const session: InternalSession = {
               id: meta?.sessionId ?? uuidv4(),
               projectId: project.id,
-              runtimeId: meta?.runtimeId ?? '',
+              runtimeId: meta?.runtimeId || this.getDefaultRuntimeId(),
               branchName: branch,
               worktreePath: project.path,
               status: 'done',

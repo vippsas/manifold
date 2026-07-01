@@ -6,17 +6,14 @@ const EXPAND_ALL_SVG = '<svg width="14" height="14" viewBox="0 0 16 16" fill="no
 const REFRESH_SVG = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 0 0-15.3-6.4L3 8"/><path d="M3 3v5h5"/><path d="M3 12a9 9 0 0 0 15.3 6.4L21 16"/><path d="M16 16h5v5"/></svg>'
 
 interface FileTreeToolbarProps {
-  filterQuery: string
-  onFilterChange: (value: string) => void
-  onClearFilter: () => void
   onRefresh?: () => Promise<void> | void
   onExpandAll: () => void
   onCollapseAll: () => void
 }
 
-/** Filter input plus refresh / expand-all / collapse-all actions for the file tree. */
+/** Refresh / expand-all / collapse-all actions for the file tree. */
 export function FileTreeToolbar({
-  filterQuery, onFilterChange, onClearFilter, onRefresh, onExpandAll, onCollapseAll,
+  onRefresh, onExpandAll, onCollapseAll,
 }: FileTreeToolbarProps): React.JSX.Element {
   const [isRefreshing, setIsRefreshing] = React.useState(false)
 
@@ -34,15 +31,6 @@ export function FileTreeToolbar({
 
   return (
     <div style={treeStyles.filterContainer}>
-      <input
-        type="text" className="reticle-input" style={treeStyles.filterInput} placeholder="Filter files..."
-        value={filterQuery}
-        onChange={(e) => onFilterChange(e.target.value)}
-        onKeyDown={(e) => { if (e.key === 'Escape') onClearFilter() }}
-      />
-      {filterQuery && (
-        <button type="button" style={treeStyles.filterClear} onClick={onClearFilter} title="Clear filter">{'×'}</button>
-      )}
       {onRefresh && (
         <button
           type="button"

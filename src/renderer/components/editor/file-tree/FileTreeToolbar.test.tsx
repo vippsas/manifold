@@ -6,9 +6,6 @@ import { FileTreeToolbar } from './FileTreeToolbar'
 function renderToolbar(overrides: Partial<React.ComponentProps<typeof FileTreeToolbar>> = {}): void {
   render(
     <FileTreeToolbar
-      filterQuery=""
-      onFilterChange={vi.fn()}
-      onClearFilter={vi.fn()}
       onExpandAll={vi.fn()}
       onCollapseAll={vi.fn()}
       {...overrides}

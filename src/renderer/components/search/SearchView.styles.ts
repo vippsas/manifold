@@ -1,41 +1,50 @@
 import type React from 'react'
 
-export const titleBarSearchStyles: Record<string, React.CSSProperties> = {
-  wrap: {
-    // @ts-expect-error -- Electron-specific CSS property; opt out of window drag
-    WebkitAppRegion: 'no-drag',
-    position: 'relative',
-    width: 'min(440px, 46%)',
+export const searchViewStyles: Record<string, React.CSSProperties> = {
+  wrapper: {
+    display: 'flex',
+    flexDirection: 'column',
+    height: '100%',
+    minHeight: 0,
+    background: 'var(--bg-primary)',
+  },
+  header: {
+    flexShrink: 0,
+    padding: 'var(--space-sm)',
+    borderBottom: '1px solid var(--border)',
+    display: 'flex',
+    flexDirection: 'column',
+    gap: 'var(--space-sm)',
   },
   field: {
-    // No outer pill — the input's focus state grows its own targeting-reticle
-    // brackets (global `input:focus` rule in theme.css), which serve as the
-    // field's border. A filled/rounded wrapper would only box them in.
+    // No filled box: the input's focus/resting reticle brackets (theme.css) are
+    // the field's edge, like the title-bar search. A bordered wrapper would only
+    // double-frame them.
     display: 'flex',
     alignItems: 'center',
     gap: 'var(--space-sm)',
+    padding: '0 var(--space-sm) 0 var(--space-xs)',
     height: 28,
-    padding: '0 var(--space-sm) 0 var(--space-md)',
     color: 'var(--text-muted)',
     transition: 'color 150ms ease',
   },
   fieldFocused: {
     color: 'var(--accent)',
   },
+  iconWrap: { display: 'grid', placeItems: 'center', flexShrink: 0 },
   input: {
     flex: 1,
     minWidth: 0,
+    padding: '3px 6px',
+    // 1px transparent border gives the reticle brackets a border-box to paint
+    // into (theme.css) without shifting layout when focus lights them up.
+    border: '1px solid transparent',
+    borderRadius: '4px',
     background: 'transparent',
-    border: 'none',
     outline: 'none',
     color: 'var(--text-primary)',
     fontFamily: 'var(--font-sans)',
     fontSize: 'var(--type-ui-small)',
-  },
-  iconWrap: {
-    display: 'grid',
-    placeItems: 'center',
-    flexShrink: 0,
   },
   clearBtn: {
     border: 'none',
@@ -47,24 +56,10 @@ export const titleBarSearchStyles: Record<string, React.CSSProperties> = {
     padding: '0 2px',
     flexShrink: 0,
   },
-  dropdown: {
-    position: 'absolute',
-    top: 'calc(100% + 6px)',
-    left: 0,
-    right: 0,
-    background: 'var(--bg-overlay)',
-    border: '1px solid var(--control-border)',
-    borderRadius: 'var(--radius-md)',
-    boxShadow: 'var(--shadow-overlay)',
-    overflow: 'hidden',
-    zIndex: 50,
-    animation: 'toast-slide-up 160ms ease',
-  },
   scopes: {
     display: 'flex',
+    flexWrap: 'wrap',
     gap: 6,
-    padding: 'var(--space-sm) var(--space-md)',
-    borderBottom: '1px solid var(--divider)',
   },
   scope: {
     fontSize: 'var(--type-ui-caption)',
@@ -82,7 +77,8 @@ export const titleBarSearchStyles: Record<string, React.CSSProperties> = {
     borderColor: 'var(--accent)',
   },
   results: {
-    maxHeight: 320,
+    flex: 1,
+    minHeight: 0,
     overflowY: 'auto',
     padding: 'var(--space-xs)',
   },
@@ -117,6 +113,9 @@ export const titleBarSearchStyles: Record<string, React.CSSProperties> = {
     background: 'var(--list-hover-bg)',
     color: 'var(--text-primary)',
   },
+  resultCode: {
+    alignItems: 'flex-start',
+  },
   resultIcon: {
     color: 'var(--text-muted)',
     display: 'grid',
@@ -140,9 +139,6 @@ export const titleBarSearchStyles: Record<string, React.CSSProperties> = {
     whiteSpace: 'nowrap',
     overflow: 'hidden',
     textOverflow: 'ellipsis',
-  },
-  resultCode: {
-    alignItems: 'flex-start',
   },
   code: {
     display: 'flex',
@@ -179,22 +175,5 @@ export const titleBarSearchStyles: Record<string, React.CSSProperties> = {
     background: 'var(--accent-subtle)',
     borderRadius: 'var(--radius-xs)',
     padding: '0 1px',
-  },
-  footer: {
-    display: 'flex',
-    alignItems: 'center',
-    gap: 'var(--space-md)',
-    padding: 'var(--space-sm) var(--space-md)',
-    borderTop: '1px solid var(--divider)',
-    background: 'var(--bg-chrome)',
-    fontSize: 'var(--type-ui-micro)',
-    color: 'var(--text-muted)',
-  },
-  fkbd: {
-    fontFamily: 'var(--font-mono)',
-    border: '1px solid var(--control-border)',
-    borderRadius: 'var(--radius-xs)',
-    padding: '1px 5px',
-    marginRight: 4,
   },
 }

@@ -55,4 +55,23 @@ describe('SessionDiscovery session-id stability', () => {
     expect(session.id).toBeTruthy()
     expect(session.id).not.toBe('persisted-sid')
   })
+
+  it('falls back to the default runtime when meta lacks a runtimeId', async () => {
+    const { discovery, sessions } = deps({ sessionId: 'sid' })
+
+    await discovery.discoverSessionsForProject('p1')
+
+    // Without a provider, the built-in default keeps restored sessions valid so
+    // the next message does not throw "Runtime not found:".
+    expect(Array.from(sessions.values())[0].runtimeId).toBe('claude')
+  })
+
+  it('uses the configured default runtime provider for meta without a runtimeId', async () => {
+    const { discovery, sessions } = deps({ sessionId: 'sid' })
+    discovery.setDefaultRuntimeIdProvider(() => 'codex')
+
+    await discovery.discoverSessionsForProject('p1')
+
+    expect(Array.from(sessions.values())[0].runtimeId).toBe('codex')
+  })
 })

@@ -24,9 +24,9 @@ function renderAction(
 }
 
 describe('SidebarCollapseAction', () => {
-  it('renders the repositories collapse button for the projects group and collapses left', () => {
+  it('renders the explorer collapse button for the projects group and collapses left', () => {
     const onCollapseSidebar = renderAction('left', panelsOf('projects'))
-    fireEvent.click(screen.getByRole('button', { name: 'Collapse Repositories' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Collapse Explorer' }))
     expect(onCollapseSidebar).toHaveBeenCalledWith('left')
   })
 

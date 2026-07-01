@@ -1,7 +1,7 @@
 ---
 description: How Manifold agent sessions are created, run, stopped, resumed, and rediscovered from on-disk worktrees.
 covers: [src/main/session]
-updated: 2026-06-30
+updated: 2026-07-01
 owner: see .github/CODEOWNERS
 ---
 
@@ -140,6 +140,7 @@ resurrected from leftover branch checkout state (`session-discovery.ts:140`, `:2
 - **Worktree removal is path-shared-aware.** A worktree is only removed when no other session references its path (`removeWorktreeIfUnused` / `hasOtherLiveSessionsOnPath`); workspace sessions remove the whole `workspaceWorktreePaths` set instead.
 - **Teardown skips base checkout for `noWorktree`.** Checking out base in the live repo dir would drop `.gitignore` and surface `node_modules` as untracked, breaking the next spawn (`session-teardown.ts:53`).
 - **Meta is the source of truth on disk.** If `writeWorktreeMeta` fails, `nonInteractive` and friends are lost on next launch (both `session-creator.ts:187` and `session-meta-persister.ts:16` log this loudly). Discovery reconstructs sessions purely from worktree meta + branch state.
+- **Restored sessions fall back to the default runtime.** Worktree meta written by older builds (or before the runtime was persisted) can lack `runtimeId`. Discovery would then restore `runtimeId: ''`, and the next message would throw `Runtime not found:` from `spawnPrintModeFollowUp` (`dev-server-manager.ts:183`). All three restore sites use `meta?.runtimeId || this.getDefaultRuntimeId()` (`session-discovery.ts`), wired to `settingsStore.getSettings().defaultRuntime` via `SessionManager.setDefaultRuntimeIdProvider` (`app/index.ts`), defaulting to `'claude'` when unset.
 - **`outputBuffer` is bounded.** It is trimmed to the trailing 50 KB once over 100 KB, so detectors and `agent:replay` only ever see recent output.
 - **Stale print-mode exits are guarded.** Both `wirePrintModeExitHandling` and `wirePrintModeInitialExitHandling` ignore an exit whose `ptyId` no longer matches the session's current one, so a slow-closing previous turn can't overwrite a newer turn's `running` status or wipe its `ptyId`/`pid` (`session-stream-wirer.ts:230`, `:272`).
 - **No `await` between spawn and listener wiring.** `create()` reads worktree meta *before* `PtyPool.spawn()` (`session-creator.ts:141`, `:145`) so wiring (`session-creator.ts:169`, `:177`) runs synchronously after spawn. A process that exits during an await gap would have its pool entry deleted, so `onData`/`onExit` wiring would throw `'PTY not found'`, reject `create()`, and strand the freshly created worktree (#496).

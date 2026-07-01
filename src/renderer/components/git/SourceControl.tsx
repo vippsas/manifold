@@ -1,4 +1,4 @@
-import React, { useCallback, useRef, useState } from 'react'
+import React, { useCallback, useLayoutEffect, useRef, useState } from 'react'
 import { useDockState } from '../editor/editor-shell/dock-panel-types'
 import { ModifiedFiles } from './ModifiedFiles'
 import { sourceControlStyles as styles } from './SourceControl.styles'
@@ -27,6 +27,15 @@ export function SourceControl(): React.JSX.Element {
   const generationRef = useRef(0)
 
   const canCommit = Boolean(sessionId) && changes.length > 0 && message.trim().length > 0 && !committing
+
+  // Auto-grow the textarea to fit its content, up to the CSS maxHeight (then it
+  // scrolls). Runs on every message change so it also shrinks back when cleared.
+  useLayoutEffect(() => {
+    const el = textareaRef.current
+    if (!el) return
+    el.style.height = 'auto'
+    el.style.height = `${el.scrollHeight}px`
+  }, [message])
 
   const handleCommit = useCallback(async (): Promise<void> => {
     if (!canCommit) return
@@ -95,7 +104,7 @@ export function SourceControl(): React.JSX.Element {
             onChange={(e) => setMessage(e.target.value)}
             onKeyDown={handleKeyDown}
             placeholder="Message (⌘Enter to commit)"
-            rows={1}
+            rows={2}
           />
           <button
             type="button"

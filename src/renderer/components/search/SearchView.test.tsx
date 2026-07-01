@@ -1,20 +1,29 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { render, screen, fireEvent, act } from '@testing-library/react'
 import React from 'react'
-import { TitleBarSearch, type TitleBarSearchWiring } from './TitleBarSearch'
-import { installElectronApi, mockInvoke } from '../hooks/search/useSearch.test-helpers'
-import { DEFAULT_SETTINGS } from '../../shared/defaults'
+import { SearchView } from './SearchView'
+import { DockStateContext, type DockAppState } from '../editor/editor-shell/dock-panel-types'
+import { installElectronApi, mockInvoke } from '../../hooks/search/useSearch.test-helpers'
+import { DEFAULT_SETTINGS } from '../../../shared/defaults'
 
-function makeWiring(overrides: Partial<TitleBarSearchWiring> = {}): TitleBarSearchWiring {
-  return {
-    activeProjectId: 'project-1',
-    activeSessionId: 'session-1',
-    allProjectSessions: {},
-    onOpenSearchResult: vi.fn(),
-    focusRequestKey: 0,
-    requestedMode: null,
-    ...overrides,
-  }
+function renderView(overrides: Partial<DockAppState> = {}): { onOpenSearchResult: ReturnType<typeof vi.fn> } {
+  const onOpenSearchResult = vi.fn()
+  render(
+    <DockStateContext.Provider
+      value={{
+        activeProjectId: 'project-1',
+        sessionId: 'session-1',
+        allProjectSessions: {},
+        onOpenSearchResult,
+        searchFocusRequestKey: 0,
+        requestedSearchMode: null,
+        ...overrides,
+      } as unknown as DockAppState}
+    >
+      <SearchView />
+    </DockStateContext.Provider>,
+  )
+  return { onOpenSearchResult }
 }
 
 const CODE_RESULT = {
@@ -54,46 +63,33 @@ afterEach(() => {
   vi.useRealTimers()
 })
 
-describe('TitleBarSearch', () => {
+describe('SearchView', () => {
   it('renders an always-visible search field', () => {
-    render(<TitleBarSearch search={makeWiring()} />)
+    renderView()
     expect(screen.getByLabelText('Search files, code and memory')).toBeInTheDocument()
   })
 
-  it('opens the dropdown with scope chips on focus', () => {
-    render(<TitleBarSearch search={makeWiring()} />)
-    fireEvent.focus(screen.getByLabelText('Search files, code and memory'))
+  it('shows the scope chips without needing focus', () => {
+    renderView()
     expect(screen.getByRole('button', { name: 'Everything' })).toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'Code' })).toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'Files' })).toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'Memory' })).toBeInTheDocument()
   })
 
-  it('closes the dropdown on Escape', () => {
-    render(<TitleBarSearch search={makeWiring()} />)
-    const input = screen.getByLabelText('Search files, code and memory')
-    fireEvent.focus(input)
-    expect(screen.getByRole('button', { name: 'Everything' })).toBeInTheDocument()
-    fireEvent.keyDown(input, { key: 'Escape' })
-    expect(screen.queryByRole('button', { name: 'Everything' })).not.toBeInTheDocument()
-  })
-
   it('shows live results and opens the selected code result on Enter', async () => {
-    const wiring = makeWiring()
-    render(<TitleBarSearch search={wiring} />)
+    const { onOpenSearchResult } = renderView()
     const input = screen.getByLabelText('Search files, code and memory')
-    fireEvent.focus(input)
     fireEvent.change(input, { target: { value: 'execute' } })
 
-    await flush()                      // flush search:context effect
-    act(() => { vi.advanceTimersByTime(250) }) // fire the debounced search:query
-    await flush()                      // flush the query response into state
+    await flush()
+    act(() => { vi.advanceTimersByTime(250) })
+    await flush()
 
-    // Code results render a snippet preview; the matched line's gutter number is a stable single text node.
     expect(screen.getByText('14')).toBeInTheDocument()
 
     fireEvent.keyDown(input, { key: 'Enter' })
-    expect(wiring.onOpenSearchResult).toHaveBeenCalledWith({
+    expect(onOpenSearchResult).toHaveBeenCalledWith({
       path: '/abs/src/main/search/search-query-service.ts',
       line: 14,
       column: undefined,
@@ -120,10 +116,8 @@ describe('TitleBarSearch', () => {
       return Promise.reject(new Error(`Unexpected channel: ${channel}`))
     })
 
-    const wiring = makeWiring()
-    render(<TitleBarSearch search={wiring} />)
+    const { onOpenSearchResult } = renderView()
     const input = screen.getByLabelText('Search files, code and memory')
-    fireEvent.focus(input)
     fireEvent.change(input, { target: { value: 'search' } })
 
     await flush()
@@ -134,7 +128,7 @@ describe('TitleBarSearch', () => {
 
     fireEvent.keyDown(input, { key: 'ArrowDown' })
     fireEvent.keyDown(input, { key: 'Enter' })
-    expect(wiring.onOpenSearchResult).toHaveBeenCalledWith({
+    expect(onOpenSearchResult).toHaveBeenCalledWith({
       path: '/abs/src/main/search/search-index.ts',
       line: 88,
       column: undefined,
@@ -166,25 +160,20 @@ describe('TitleBarSearch', () => {
       return Promise.reject(new Error(`Unexpected channel: ${channel}`))
     })
 
-    render(<TitleBarSearch search={makeWiring()} />)
+    renderView()
     const input = screen.getByLabelText('Search files, code and memory')
-    fireEvent.focus(input)
     fireEvent.change(input, { target: { value: 'manifold' } })
 
     await flush()
     act(() => { vi.advanceTimersByTime(250) })
     await flush()
 
-    // File-path header
     expect(screen.getByText('scripts/rebuild-better-sqlite3-node.mjs')).toBeInTheDocument()
-    // Line-number gutter spans 18–20 around the match on line 19
     expect(screen.getByText('18')).toBeInTheDocument()
     expect(screen.getByText('19')).toBeInTheDocument()
     expect(screen.getByText('20')).toBeInTheDocument()
-    // Context lines render verbatim
     expect(screen.getByText("npm_config_build_from_source: 'true',")).toBeInTheDocument()
     expect(screen.getByText('npm_config_nodedir: nodeRoot,')).toBeInTheDocument()
-    // The matched term is highlighted inside the current line
     expect(screen.getAllByText('manifold').some((node) => node.tagName === 'MARK')).toBe(true)
   })
 
@@ -197,7 +186,7 @@ describe('TitleBarSearch', () => {
       filePath: '/abs/scripts/release.sh',
       rootPath: '/abs',
       relativePath: 'scripts/release.sh',
-      matchedIndices: [8, 9, 10, 11, 12, 13, 14], // "release"
+      matchedIndices: [8, 9, 10, 11, 12, 13, 14],
     }
     mockInvoke.mockImplementation((channel: string) => {
       if (channel === 'settings:get') return Promise.resolve(DEFAULT_SETTINGS)
@@ -210,35 +199,24 @@ describe('TitleBarSearch', () => {
       return Promise.reject(new Error(`Unexpected channel: ${channel}`))
     })
 
-    const wiring = makeWiring()
-    render(<TitleBarSearch search={wiring} />)
+    const { onOpenSearchResult } = renderView()
     const input = screen.getByLabelText('Search files, code and memory')
-    fireEvent.focus(input)
     fireEvent.change(input, { target: { value: 'release' } })
 
     await flush()
     act(() => { vi.advanceTimersByTime(250) })
     await flush()
 
-    // The Files group header renders (distinct from the "Files" scope chip button).
+    // The Files group header (a div) is distinct from the "Files" scope chip button.
     expect(screen.getByText('Files', { selector: 'div' })).toBeInTheDocument()
-    // The matched basename characters are highlighted via matchedIndices.
     expect(screen.getAllByText('release').some((node) => node.tagName === 'MARK')).toBe(true)
 
     fireEvent.keyDown(input, { key: 'Enter' })
-    expect(wiring.onOpenSearchResult).toHaveBeenCalledWith({
+    expect(onOpenSearchResult).toHaveBeenCalledWith({
       path: '/abs/scripts/release.sh',
       line: undefined,
       column: undefined,
       sessionId: undefined,
     })
-  })
-
-  it('closes the dropdown on outside mousedown', () => {
-    render(<TitleBarSearch search={makeWiring()} />)
-    fireEvent.focus(screen.getByLabelText('Search files, code and memory'))
-    expect(screen.getByRole('button', { name: 'Everything' })).toBeInTheDocument()
-    fireEvent.mouseDown(document.body)
-    expect(screen.queryByRole('button', { name: 'Everything' })).not.toBeInTheDocument()
   })
 })

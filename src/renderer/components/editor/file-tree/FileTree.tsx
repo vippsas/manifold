@@ -6,7 +6,7 @@ import { treeStyles } from './FileTree.styles'
 import { describeDropTarget } from './file-tree-drop'
 import { FileTreeDialogs } from './FileTreeDialogs'
 import { FileTreeToolbar } from './FileTreeToolbar'
-import { WorkspaceRootHeader, filterTree } from './file-tree-helpers'
+import { WorkspaceRootHeader } from './file-tree-helpers'
 import { buildVisibleNodes } from './file-tree-visible'
 import { buildFileTreeContextMenu } from './file-tree-context-menu'
 import type { FileTreeMenuConfig } from './file-tree-context-menu'
@@ -88,30 +88,16 @@ export function FileTree({
     return map
   }, [changes, additionalChanges, tree?.path])
 
-  const filteredTree = useMemo(
-    () => (tree && editing.filterQuery ? filterTree(tree, editing.filterQuery) : tree),
-    [tree, editing.filterQuery]
-  )
-  const filteredAdditionalTrees = useMemo(() => {
-    if (!additionalTrees || !editing.filterQuery) return additionalTrees
-    const result = new Map<string, FileTreeNode>()
-    for (const [dirPath, dirTree] of additionalTrees) {
-      const filtered = filterTree(dirTree, editing.filterQuery)
-      if (filtered) result.set(dirPath, filtered)
-    }
-    return result
-  }, [additionalTrees, editing.filterQuery])
-
-  const hasAdditionalRoots = Boolean(filteredAdditionalTrees && filteredAdditionalTrees.size > 0)
-  const shouldShowPrimaryHeader = Boolean(filteredTree && (hasAdditionalRoots || rootLabels?.has(filteredTree.path)))
+  const hasAdditionalRoots = Boolean(additionalTrees && additionalTrees.size > 0)
+  const shouldShowPrimaryHeader = Boolean(tree && (hasAdditionalRoots || rootLabels?.has(tree.path)))
 
   const visibleNodes = useMemo(() => buildVisibleNodes({
-    primary: filteredTree,
-    additional: filteredAdditionalTrees,
+    primary: tree,
+    additional: additionalTrees,
     flattenRoots,
     hasHeaderedRoots: hasAdditionalRoots || shouldShowPrimaryHeader,
     expandedPaths,
-  }), [filteredTree, filteredAdditionalTrees, flattenRoots, hasAdditionalRoots, shouldShowPrimaryHeader, expandedPaths])
+  }), [tree, additionalTrees, flattenRoots, hasAdditionalRoots, shouldShowPrimaryHeader, expandedPaths])
   const visibleOrder = useMemo(() => visibleNodes.map((v) => v.node.path), [visibleNodes])
 
   const handleRowClick = useCallback((e: React.MouseEvent, node: FileTreeNode): void => {
@@ -180,7 +166,6 @@ export function FileTree({
     changeMap, activeFilePath, selectedPaths: selection.selectedPaths,
     openFilePaths, expandedPaths,
     onRowClick: handleRowClick,
-    filterQuery: editing.filterQuery,
     onRequestDelete: onDeleteFile ? editing.handleRequestDelete : undefined,
     renamingPath: editing.renamingPath, renameValue: editing.renameValue,
     onRenameValueChange: editing.setRenameValue,
@@ -233,9 +218,6 @@ export function FileTree({
   return (
     <div style={treeStyles.wrapper}>
       <FileTreeToolbar
-        filterQuery={editing.filterQuery}
-        onFilterChange={editing.setFilterQuery}
-        onClearFilter={() => editing.setFilterQuery('')}
         onRefresh={onRefresh}
         onExpandAll={handleExpandAll}
         onCollapseAll={handleCollapseAll}
@@ -265,29 +247,29 @@ export function FileTree({
         onContextMenu={(e) => { e.preventDefault(); editing.setContextMenu({ x: e.clientX, y: e.clientY, node: null }) }}
         {...dnd.handlers}
       >
-        {filteredTree ? (
+        {tree ? (
           <>
             {hasAdditionalRoots ? (
               <>
-                <div data-tree-root-path={filteredTree.path}>
-                  {renderWorkspaceTree(filteredTree)}
+                <div data-tree-root-path={tree.path}>
+                  {renderWorkspaceTree(tree)}
                 </div>
-                {filteredAdditionalTrees && Array.from(filteredAdditionalTrees.entries()).map(([dirPath, dirTree]) => (
+                {additionalTrees && Array.from(additionalTrees.entries()).map(([dirPath, dirTree]) => (
                   <div key={dirPath} data-tree-root-path={dirPath}>
                     {renderWorkspaceTree(dirTree)}
                   </div>
                 ))}
               </>
             ) : shouldShowPrimaryHeader ? (
-              <div data-tree-root-path={filteredTree.path}>
+              <div data-tree-root-path={tree.path}>
                 <WorkspaceRootHeader
-                  name={rootLabels?.get(filteredTree.path) ?? filteredTree.name}
+                  name={rootLabels?.get(tree.path) ?? tree.name}
                 />
-                {renderWorkspaceTree(filteredTree)}
+                {renderWorkspaceTree(tree)}
               </div>
             ) : (
-              <div data-tree-root-path={filteredTree.path}>
-                <TreeNode node={filteredTree} depth={0} {...treeNodeProps} />
+              <div data-tree-root-path={tree.path}>
+                <TreeNode node={tree} depth={0} {...treeNodeProps} />
               </div>
             )}
           </>

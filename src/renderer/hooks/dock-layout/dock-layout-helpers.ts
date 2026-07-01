@@ -17,7 +17,7 @@ export const EDITOR_PANEL_ID_PREFIX = 'editor:'
 export type EditorSplitDirection = 'right' | 'below'
 
 export const PANEL_TITLES: Record<DockPanelId, string> = {
-  projects: 'Repositories',
+  projects: 'Explorer',
   agent: 'Agent',
   editor: 'Editor',
   shell: 'Shell',

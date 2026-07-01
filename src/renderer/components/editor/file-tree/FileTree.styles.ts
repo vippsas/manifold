@@ -109,10 +109,6 @@ export const treeStyles: Record<string, React.CSSProperties> = {
     textOverflow: 'ellipsis',
     whiteSpace: 'nowrap' as const,
   },
-  matchHighlight: {
-    color: 'var(--accent)',
-    fontWeight: 700,
-  },
   indicator: {
     flexShrink: 0,
     fontSize: '11px',
@@ -204,38 +200,9 @@ export const treeStyles: Record<string, React.CSSProperties> = {
   filterContainer: {
     display: 'flex',
     alignItems: 'center',
+    justifyContent: 'flex-end',
     padding: '4px 8px',
     borderBottom: '1px solid var(--border)',
-    flexShrink: 0,
-  },
-  filterInput: {
-    flex: 1,
-    minWidth: 0,
-    fontFamily: 'var(--font-sans)',
-    fontSize: 'inherit',
-    padding: '3px 6px',
-    // No box: the `.reticle-input` resting brackets (theme.css) are the field's
-    // edge, like the titlebar search. Border stays 1px-transparent so the
-    // focus reticle has a border-box to paint into without shifting layout.
-    border: '1px solid transparent',
-    borderRadius: '4px',
-    background: 'transparent',
-    color: 'var(--text-primary)',
-    outline: 'none',
-  },
-  filterClear: {
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'center',
-    width: '18px',
-    height: '18px',
-    marginLeft: '4px',
-    borderRadius: '3px',
-    color: 'var(--text-muted)',
-    fontSize: '14px',
-    cursor: 'pointer',
-    background: 'transparent',
-    border: 'none',
     flexShrink: 0,
   },
   toolbarBtn: {

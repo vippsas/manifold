@@ -162,6 +162,11 @@ export class SessionManager {
     this.shellController.setGitOps(gitOps)
   }
 
+  /** Runtime to assign restored sessions whose worktree meta lacks a runtimeId. */
+  setDefaultRuntimeIdProvider(fn: () => string): void {
+    this.discovery.setDefaultRuntimeIdProvider(fn)
+  }
+
   setMainWindow(window: BrowserWindow): void { this.mainWindow = window }
 
   private statusListener: ((sessionId: string, status: string) => void) | null = null

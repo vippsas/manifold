@@ -19,7 +19,7 @@ function SidebarCollapseGlyph({ side }: { side: 'left' | 'right' }): React.JSX.E
 }
 
 const SIDEBAR_OWNER: Record<'left' | 'right', string> = { left: 'projects', right: 'modifiedFiles' }
-const SIDEBAR_LABEL: Record<'left' | 'right', string> = { left: 'Repositories', right: 'Modified Files' }
+const SIDEBAR_LABEL: Record<'left' | 'right', string> = { left: 'Explorer', right: 'Modified Files' }
 
 /** Collapse button for a dock sidebar, rendered in the group's header-action slot
  *  at the seam with the center pane — only for the group that owns the matching

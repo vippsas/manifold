@@ -36,9 +36,9 @@ export function useAppEffects(input: AppEffectsInput): AppEffectsResult {
   const [cloningProject, setCloningProject] = useState(false)
   const agentRefreshTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
-  // Focus the title-bar search omnibox. The bumped request key + requested
-  // mode are forwarded to TitleBarSearch, which focuses its input and switches
-  // scope. (There is no longer a separate Search dock panel.)
+  // Focus the sidebar Search view. The bumped request key + requested mode are
+  // forwarded via dock state to the ProjectSidebar (which switches to the Search
+  // tab) and SearchView (which focuses its input and switches scope).
   const focusSearch = useCallback((mode: SearchMode) => {
     setRequestedSearchMode(mode)
     setSearchFocusRequestKey((prev) => prev + 1)

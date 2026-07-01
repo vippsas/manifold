@@ -2,8 +2,6 @@ import React, { useCallback } from 'react'
 import type { FileTreeNode, FileChangeType } from '../../../../shared/types'
 import { getFileIconSvg } from './file-icons'
 import { getDraggedTreePath, writeFileTreeDragData } from './file-tree-drag'
-import { fuzzyMatch } from './file-tree-visible'
-import { highlightByIndices } from '../../search/search-highlight'
 import { CHANGE_INDICATORS, treeStyles } from './FileTree.styles'
 
 // Inline SVG chevron for directory expand/collapse
@@ -12,18 +10,6 @@ export const CHEVRON_SVG = '<svg width="16" height="16" viewBox="0 0 16 16" fill
 // Folder glyphs (closed / open), aligning directory names with the file-icon column.
 const FOLDER_CLOSED_SVG = '<svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor"><path d="M1.75 2.5h3.79a.75.75 0 0 1 .53.22l.96.96h6.22c.41 0 .75.34.75.75v8.07c0 .41-.34.75-.75.75H1.75a.75.75 0 0 1-.75-.75V3.25c0-.41.34-.75.75-.75z"/></svg>'
 const FOLDER_OPEN_SVG = '<svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor"><path d="M1.75 2.5h3.79a.75.75 0 0 1 .53.22l.96.96h6.22c.41 0 .75.34.75.75v1.07H3.4a.75.75 0 0 0-.72.54L1 12.6V3.25c0-.41.34-.75.75-.75z"/><path d="M3.4 6.75h11.6a.5.5 0 0 1 .48.64l-1.36 4.8a.75.75 0 0 1-.72.54H1.9a.5.5 0 0 1-.48-.64l1.26-4.8a.75.75 0 0 1 .72-.54z"/></svg>'
-
-/** Render a filename with fuzzy-match highlight segments (when filtering). */
-function renderName(name: string, filterQuery: string | undefined): React.ReactNode {
-  if (!filterQuery) return name
-  const indices = fuzzyMatch(name, filterQuery)
-  if (!indices || indices.length === 0) return name
-  return highlightByIndices(name, indices).map((seg, i) =>
-    seg.match
-      ? <span key={i} style={treeStyles.matchHighlight}>{seg.text}</span>
-      : <React.Fragment key={i}>{seg.text}</React.Fragment>
-  )
-}
 
 export function NodeRow({
   node,
@@ -43,7 +29,6 @@ export function NodeRow({
   onCancelRename,
   onContextMenu,
   dragRootPath,
-  filterQuery,
 }: {
   node: FileTreeNode
   depth: number
@@ -62,7 +47,6 @@ export function NodeRow({
   onCancelRename: () => void
   onContextMenu?: (e: React.MouseEvent) => void
   dragRootPath?: string | null
-  filterQuery?: string
 }): React.JSX.Element {
   const indicator = changeType ? CHANGE_INDICATORS[changeType] : null
   // Direct working-tree changes get the vivid A/M/D letter and a tinted name;
@@ -171,7 +155,7 @@ export function NodeRow({
             ...(showLetter && changeType === 'deleted' ? { textDecoration: 'line-through' } : {}),
           }}
         >
-          {renderName(node.name, filterQuery)}
+          {node.name}
         </span>
       )}
       {!isRenaming && indicator && (

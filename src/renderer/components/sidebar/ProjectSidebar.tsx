@@ -1,13 +1,15 @@
-import React, { useCallback, useContext, useState } from 'react'
+import React, { useCallback, useContext, useEffect, useRef, useState } from 'react'
 import type { Workspace } from '../../../shared/workspace-types'
 import { sidebarStyles } from './ProjectSidebar.styles'
 import { FilesGlyph } from './FilesGlyph'
 import { SourceControlGlyph } from './SourceControlGlyph'
+import { SearchGlyph } from '../search/search-glyphs'
 import { DockFileTree } from '../editor/file-tree/DockFileTree'
 import { SourceControl } from '../git/SourceControl'
+import { SearchView } from '../search/SearchView'
 import { DockStateContext } from '../editor/editor-shell/dock-panel-types'
 
-type SidebarView = 'explorer' | 'sourceControl'
+type SidebarView = 'explorer' | 'search' | 'sourceControl'
 
 interface ProjectSidebarProps {
   /** Open a native folder picker and add the chosen folder (VS Code "Open Folder"). */
@@ -31,6 +33,16 @@ export function ProjectSidebar({
 }: ProjectSidebarProps): React.JSX.Element {
   const [view, setView] = useState<SidebarView>(initialView)
   const dockState = useContext(DockStateContext)
+
+  // Cmd+Shift+F (and the Memory panel's "Open Search") bumps the focus key —
+  // switch to the Search tab so the request lands on the now-visible input.
+  const focusKey = dockState?.searchFocusRequestKey ?? 0
+  const handledFocusKeyRef = useRef(focusKey)
+  useEffect(() => {
+    if (focusKey <= handledFocusKeyRef.current) return
+    handledFocusKeyRef.current = focusKey
+    setView('search')
+  }, [focusKey])
 
   const activeWorkspace = activeWorkspaceId
     ? workspaces?.find((w) => w.id === activeWorkspaceId)
@@ -57,6 +69,18 @@ export function ProjectSidebar({
             style={sidebarStyles.activityIcon}
           >
             <FilesGlyph />
+          </button>
+          <button
+            type="button"
+            aria-label="Search"
+            aria-current={view === 'search' ? 'page' : undefined}
+            aria-pressed={view === 'search'}
+            title="Search"
+            onClick={() => setView('search')}
+            className={`sidebar-activity-icon${view === 'search' ? ' sidebar-activity-icon--active' : ''}`}
+            style={sidebarStyles.activityIcon}
+          >
+            <SearchGlyph size={16} />
           </button>
           <button
             type="button"
@@ -102,6 +126,14 @@ export function ProjectSidebar({
         <div style={sidebarStyles.explorer}>
           {dockState ? (
             <DockFileTree />
+          ) : (
+            <div style={sidebarStyles.empty}>No folder open</div>
+          )}
+        </div>
+      ) : view === 'search' ? (
+        <div style={sidebarStyles.explorer}>
+          {dockState ? (
+            <SearchView />
           ) : (
             <div style={sidebarStyles.empty}>No folder open</div>
           )}

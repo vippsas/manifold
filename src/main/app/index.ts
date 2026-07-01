@@ -91,6 +91,7 @@ const chatAdapter = new ChatAdapter()
 chatAdapter.setChatStore(chatStore)
 sessionManager.setChatAdapter(chatAdapter)
 sessionManager.setGitOps(gitOps)
+sessionManager.setDefaultRuntimeIdProvider(() => settingsStore.getSettings().defaultRuntime)
 
 const memoryStore = new MemoryStore()
 const memoryCapture = new MemoryCapture(chatAdapter, memoryStore, (sid) => sessionManager.getSession(sid))

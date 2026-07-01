@@ -11,8 +11,6 @@ export interface FileTreeEditingState {
   creating: { parentPath: string; type: 'file' | 'directory'; afterPath?: string } | null
   createName: string
   createError: string | null
-  filterQuery: string
-  setFilterQuery: (query: string) => void
   handleStartRename: (path: string, name: string) => void
   handleConfirmRename: (nodePath: string, oldName: string) => void
   handleCancelRename: () => void
@@ -41,7 +39,6 @@ export function useFileTreeEditing(
   const [creating, setCreating] = useState<{ parentPath: string; type: 'file' | 'directory'; afterPath?: string } | null>(null)
   const [createName, setCreateName] = useState('')
   const [createError, setCreateError] = useState<string | null>(null)
-  const [filterQuery, setFilterQuery] = useState('')
 
   const handleStartRename = useCallback((path: string, name: string): void => {
     setRenamingPath(path)
@@ -130,7 +127,6 @@ export function useFileTreeEditing(
     renamingPath, renameValue, setRenameValue,
     contextMenu, setContextMenu,
     creating, createName, createError,
-    filterQuery, setFilterQuery,
     handleStartRename, handleConfirmRename, handleCancelRename,
     handleRequestDelete, handleConfirmDelete, handleCancelDelete,
     handleContextMenu,

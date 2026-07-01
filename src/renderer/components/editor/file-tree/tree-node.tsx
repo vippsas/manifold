@@ -21,7 +21,6 @@ export interface TreeNodeProps {
   openFilePaths: Set<string>
   expandedPaths: Set<string>
   onRowClick: (e: React.MouseEvent, node: FileTreeNode) => void
-  filterQuery?: string
   onRequestDelete?: (path: string, name: string, isDirectory: boolean) => void
   renamingPath: string | null
   renameValue: string
@@ -48,7 +47,6 @@ export function TreeNode({
   openFilePaths,
   expandedPaths,
   onRowClick,
-  filterQuery,
   onRequestDelete,
   renamingPath,
   renameValue,
@@ -117,7 +115,6 @@ export function TreeNode({
         onCancelRename={onCancelRename}
         onContextMenu={handleContextMenu}
         dragRootPath={dragRootPath}
-        filterQuery={filterQuery}
       />
       {node.isDirectory && expanded && (
         <>
@@ -144,7 +141,6 @@ export function TreeNode({
                 openFilePaths={openFilePaths}
                 expandedPaths={expandedPaths}
                 onRowClick={onRowClick}
-                filterQuery={filterQuery}
                 onRequestDelete={onRequestDelete}
                 renamingPath={renamingPath}
                 renameValue={renameValue}

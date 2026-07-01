@@ -61,4 +61,16 @@ describe('ProjectSidebar', () => {
     expect(screen.getByLabelText('Source Control')).toHaveClass('sidebar-activity-icon--active')
     expect(screen.getByLabelText('Explorer')).not.toHaveClass('sidebar-activity-icon--active')
   })
+
+  it('exposes a Search tab and marks it active when selected', () => {
+    renderProjectSidebar()
+
+    const searchTab = screen.getByLabelText('Search')
+    expect(searchTab).not.toHaveClass('sidebar-activity-icon--active')
+
+    fireEvent.click(searchTab)
+
+    expect(searchTab).toHaveClass('sidebar-activity-icon--active')
+    expect(screen.getByLabelText('Explorer')).not.toHaveClass('sidebar-activity-icon--active')
+  })
 })

@@ -1,6 +1,5 @@
 import React, { useState } from 'react'
 import { titleBarStyles as styles } from './TitleBar.styles'
-import { TitleBarSearch, type TitleBarSearchWiring } from './TitleBarSearch'
 import { RepositorySwitcher } from './RepositorySwitcher'
 
 type ThemeFamily = 'manifold' | 'garfield' | 'neon' | 'royal' | 'jade' | 'platinum'
@@ -11,7 +10,6 @@ interface TitleBarProps {
   onToggleTheme?: () => void
   themeFamily?: ThemeFamily
   onSelectThemeFamily?: (family: ThemeFamily) => void
-  search?: TitleBarSearchWiring
   /** Show the repository/session switcher. Requires DockStateContext (only in the
    *  full workspace render, once a project exists). */
   showRepositorySwitcher?: boolean
@@ -26,7 +24,7 @@ const THEME_FAMILIES: { id: ThemeFamily; label: string }[] = [
   { id: 'platinum', label: 'Platinum' },
 ]
 
-export function TitleBar({ projectName, themeType, onToggleTheme, themeFamily, onSelectThemeFamily, search, showRepositorySwitcher }: TitleBarProps): React.JSX.Element {
+export function TitleBar({ projectName, themeType, onToggleTheme, themeFamily, onSelectThemeFamily, showRepositorySwitcher }: TitleBarProps): React.JSX.Element {
   const [themeHovered, setThemeHovered] = useState(false)
   const [themesHovered, setThemesHovered] = useState(false)
 
@@ -39,7 +37,6 @@ export function TitleBar({ projectName, themeType, onToggleTheme, themeFamily, o
           {!projectName && <span style={styles.title}>Manifold</span>}
         </div>
       </div>
-      {search?.activeProjectId && <TitleBarSearch search={search} />}
       <div style={styles.rightGroup}>
         {themeFamily && onSelectThemeFamily && (
           <label style={styles.themesGroup}>
