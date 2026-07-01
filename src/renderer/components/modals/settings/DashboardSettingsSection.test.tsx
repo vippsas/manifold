@@ -1,25 +1,25 @@
 import React from 'react'
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { render, screen, fireEvent } from '@testing-library/react'
-import { DashboardHomeView } from './DashboardHomeView'
-import { DockStateContext, type DockAppState } from '../editor/editor-shell/dock-panel-types'
+import { DashboardSettingsSection } from './DashboardSettingsSection'
+import { DockStateContext, type DockAppState } from '../../editor/editor-shell/dock-panel-types'
 
-function renderView(props: { onClose?: () => void; initialCard?: string | null } = {}): void {
+function renderSection(props: { initialCard?: string | null } = {}): void {
   render(
     <DockStateContext.Provider value={{ theme: 'dark' } as unknown as DockAppState}>
-      <DashboardHomeView onClose={props.onClose ?? vi.fn()} initialCard={props.initialCard} />
+      <DashboardSettingsSection initialCard={props.initialCard} />
     </DockStateContext.Provider>,
   )
 }
 
-describe('DashboardHomeView', () => {
+describe('DashboardSettingsSection', () => {
   beforeEach(() => {
     // @ts-expect-error test stub
     global.window.electronAPI = { invoke: vi.fn(async () => ({ worktrees: 0, cleanableBranches: 0, repos: 0 })), on: vi.fn(() => () => {}) }
   })
 
   it('shows the card grid, drills in on click, and returns via back', () => {
-    renderView()
+    renderSection()
     expect(screen.getByText('Dashboard')).toBeInTheDocument()
     fireEvent.click(screen.getByRole('button', { name: /Worktrees/i }))
     expect(screen.getByTitle('manifold.worktrees.panel')).toBeInTheDocument()
@@ -28,14 +28,7 @@ describe('DashboardHomeView', () => {
   })
 
   it('opens straight into a card when initialCard is set', () => {
-    renderView({ initialCard: 'worktrees' })
+    renderSection({ initialCard: 'worktrees' })
     expect(screen.getByTitle('manifold.worktrees.panel')).toBeInTheDocument()
-  })
-
-  it('Esc closes from the grid', () => {
-    const onClose = vi.fn()
-    renderView({ onClose })
-    fireEvent.keyDown(window, { key: 'Escape' })
-    expect(onClose).toHaveBeenCalled()
   })
 })

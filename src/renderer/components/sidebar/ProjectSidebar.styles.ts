@@ -34,6 +34,15 @@ export const sidebarStyles: Record<string, React.CSSProperties> = {
     display: 'flex',
     flexDirection: 'column',
   } as React.CSSProperties,
+  // Repositories/sessions surface — lives in the title-bar switcher dropdown now.
+  // Scrolls on its own; the actions bar pins to the bottom of the flex column.
+  repositories: {
+    flex: 1,
+    minHeight: 0,
+    display: 'flex',
+    flexDirection: 'column',
+    overflowY: 'auto',
+  } as React.CSSProperties,
   activityIcon: {
     display: 'inline-flex',
     alignItems: 'center',

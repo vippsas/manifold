@@ -17,9 +17,11 @@ export interface UseAppOverlaysResult {
   setShowCommandPalette: (show: boolean) => void
   showShortcuts: boolean
   setShowShortcuts: (show: boolean) => void
-  showDashboard: boolean
-  setShowDashboard: (show: boolean) => void
-  /** Card id to open the Dashboard straight into (null = land on the grid). */
+  /** Settings section to open on (null = General). Used to route the Dashboard
+   *  entry points into the Settings modal's Dashboard tab. */
+  settingsInitialTab: string | null
+  setSettingsInitialTab: (tab: string | null) => void
+  /** Card id to drill the Settings Dashboard tab straight into (null = the grid). */
   dashboardInitialCard: string | null
   setDashboardInitialCard: (cardId: string | null) => void
   appVersion: string
@@ -53,7 +55,7 @@ export function useAppOverlays(
   const [showAbout, setShowAbout] = useState(false)
   const [showCommandPalette, setShowCommandPalette] = useState(false)
   const [showShortcuts, setShowShortcuts] = useState(false)
-  const [showDashboard, setShowDashboard] = useState(false)
+  const [settingsInitialTab, setSettingsInitialTab] = useState<string | null>(null)
   const [dashboardInitialCard, setDashboardInitialCard] = useState<string | null>(null)
   const [appVersion, setAppVersion] = useState('')
   const [newAgentFocusTrigger, setNewAgentFocusTrigger] = useState(0)
@@ -145,8 +147,8 @@ export function useAppOverlays(
     setShowCommandPalette,
     showShortcuts,
     setShowShortcuts,
-    showDashboard,
-    setShowDashboard,
+    settingsInitialTab,
+    setSettingsInitialTab,
     dashboardInitialCard,
     setDashboardInitialCard,
     appVersion,
@@ -163,7 +165,7 @@ export function useAppOverlays(
     confirmDeleteAgent,
   }), [
     activePanel, handleNewAgentFromHeader, newAgentFocusTrigger,
-    showSettings, showAbout, showCommandPalette, showShortcuts, showDashboard, dashboardInitialCard, appVersion, handleCommit, handleClosePanel,
+    showSettings, showAbout, showCommandPalette, showShortcuts, settingsInitialTab, dashboardInitialCard, appVersion, handleCommit, handleClosePanel,
     handleLaunchAgent, handleSelectSession, handleSaveSettings, handleSetupComplete,
     pendingDelete, deletingSessionId, requestDeleteAgent, cancelDeleteAgent, confirmDeleteAgent,
   ])

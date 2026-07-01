@@ -11,9 +11,15 @@ interface SettingsModalProps {
   onSave: (partial: Partial<ManifoldSettings>) => void
   onClose: () => void
   onPreviewTheme?: (themeId: string | null) => void
+  /** Section to open on when made visible (null/undefined = General). */
+  initialTab?: string | null
+  /** Card to drill the Dashboard tab straight into. */
+  initialDashboardCard?: string | null
 }
 
-export function SettingsModal({ visible, settings, onSave, onClose, onPreviewTheme }: SettingsModalProps): React.JSX.Element | null {
+const SETTINGS_TAB_IDS: readonly SettingsTabId[] = ['general', 'dashboard', 'notifications', 'editor', 'shortcuts', 'search-ai', 'transcription', 'plugins']
+
+export function SettingsModal({ visible, settings, onSave, onClose, onPreviewTheme, initialTab, initialDashboardCard }: SettingsModalProps): React.JSX.Element | null {
   const [defaultRuntime, setDefaultRuntime] = useState(settings.defaultRuntime)
   const [theme, setTheme] = useState(settings.theme)
   const [scrollbackLines, setScrollbackLines] = useState(settings.scrollbackLines)
@@ -55,8 +61,8 @@ export function SettingsModal({ visible, settings, onSave, onClose, onPreviewThe
     setEditorSettings(settings.editor ?? DEFAULT_SETTINGS.editor!)
     setTranscription(settings.transcription ?? DEFAULT_SETTINGS.transcription ?? { provider: 'none' })
     setPickerOpen(false)
-    setActiveTab('general')
-  }, [visible, settings])
+    setActiveTab(SETTINGS_TAB_IDS.includes(initialTab as SettingsTabId) ? (initialTab as SettingsTabId) : 'general')
+  }, [visible, settings, initialTab])
 
   const handleSave = useCallback((): void => {
     onSave({
@@ -136,6 +142,7 @@ export function SettingsModal({ visible, settings, onSave, onClose, onPreviewThe
           onEditorSettingsChange={setEditorSettings}
           transcription={transcription}
           onTranscriptionChange={setTranscription}
+          dashboardInitialCard={initialDashboardCard}
         />
 
         <div style={modalStyles.footer}>

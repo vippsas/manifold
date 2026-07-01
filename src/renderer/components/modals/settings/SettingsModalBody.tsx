@@ -10,11 +10,13 @@ import { SectionCard, SectionHeader } from './SettingsSectionLayout'
 import { PluginSettingsSection } from './PluginSettingsSection'
 import { ShortcutsSettingsSection } from './ShortcutsSettingsSection'
 import { NotificationSettingsSection } from './NotificationSettingsSection'
+import { DashboardSettingsSection } from './DashboardSettingsSection'
 
-export type SettingsTabId = 'general' | 'notifications' | 'editor' | 'shortcuts' | 'search-ai' | 'transcription' | 'plugins'
+export type SettingsTabId = 'general' | 'dashboard' | 'notifications' | 'editor' | 'shortcuts' | 'search-ai' | 'transcription' | 'plugins'
 
 const SETTINGS_TABS: Array<{ id: SettingsTabId; label: string }> = [
   { id: 'general', label: 'General' },
+  { id: 'dashboard', label: 'Dashboard' },
   { id: 'notifications', label: 'Notifications' },
   { id: 'editor', label: 'Editor' },
   { id: 'shortcuts', label: 'Shortcuts' },
@@ -61,6 +63,7 @@ interface Props {
   onEditorSettingsChange: (value: EditorSettings) => void
   transcription: AiServiceSettings
   onTranscriptionChange: (value: AiServiceSettings) => void
+  dashboardInitialCard?: string | null
 }
 
 export function SettingsModalBody(props: Props): React.JSX.Element {
@@ -92,6 +95,7 @@ export function SettingsModalBody(props: Props): React.JSX.Element {
 
         <div id={`settings-panel-${props.activeTab}`} role="tabpanel" aria-labelledby={`settings-tab-${props.activeTab}`} style={modalStyles.tabPanel}>
           {props.activeTab === 'general' && <GeneralSettingsSection {...props} />}
+          {props.activeTab === 'dashboard' && <DashboardSettingsSection initialCard={props.dashboardInitialCard} />}
           {props.activeTab === 'notifications' && (
             <NotificationSettingsSection
               value={props.notifications}

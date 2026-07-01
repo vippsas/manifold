@@ -2,6 +2,7 @@ import { vi } from 'vitest'
 import { render } from '@testing-library/react'
 import React from 'react'
 import { ProjectSidebar } from './ProjectSidebar'
+import { RepositoriesPanel } from './RepositoriesPanel'
 import type { Project, AgentSession } from '../../../shared/types'
 
 export const mockInvoke = vi.fn()
@@ -40,13 +41,13 @@ export const sampleSessions: AgentSession[] = [
   { id: 's2', projectId: 'p1', runtimeId: 'codex', branchName: 'alpha/bergen', worktreePath: '/wt2', status: 'waiting', pid: 2, additionalDirs: [] },
 ]
 
+/**
+ * Renders the repositories/sessions surface (repos, workspaces, agents, drafts,
+ * actions). This content moved out of the sidebar into the title-bar switcher, so
+ * the repository-behavior tests exercise `RepositoriesPanel` directly.
+ */
 export function renderSidebar(overrides = {}) {
   const defaultProps = {
-    width: 200,
-    // These tests exercise the repository/agent list; the Explorer (file tree)
-    // view is the app default but needs DockStateContext, so default the harness
-    // to the repositories view.
-    initialView: 'repositories' as const,
     projects: sampleProjects,
     activeProjectId: 'p1',
     allProjectSessions: { p1: sampleSessions, p2: [] },
@@ -60,7 +61,6 @@ export function renderSidebar(overrides = {}) {
     onRequestDeleteAgent: vi.fn(),
     onNewAgent: vi.fn(),
     onNewProject: vi.fn(),
-    onOpenFolder: vi.fn(),
     onNewWorkspace: vi.fn(),
     fetchingProjectId: null,
     lastFetchedProjectId: null,
@@ -74,5 +74,14 @@ export function renderSidebar(overrides = {}) {
     ...overrides,
   }
 
+  return { ...render(<RepositoriesPanel {...defaultProps} />), props: defaultProps }
+}
+
+/** Renders the slim sidebar activity bar (Explorer + Source Control + Open Folder). */
+export function renderProjectSidebar(overrides: Record<string, unknown> = {}) {
+  const defaultProps = {
+    onOpenFolder: vi.fn(),
+    ...overrides,
+  }
   return { ...render(<ProjectSidebar {...defaultProps} />), props: defaultProps }
 }

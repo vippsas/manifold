@@ -83,40 +83,9 @@ function ProjectsPanel(): React.JSX.Element {
   const s = useDockState()
   return (
     <ProjectSidebar
-      projects={s.projects}
-      activeProjectId={s.activeProjectId}
-      suppressedProjectIds={s.suppressedProjectIds}
-      allProjectSessions={s.allProjectSessions}
-      activeSessionId={s.sessionId}
-      outputtingSessionIds={s.outputtingSessionIds}
-      onSelectProject={s.onSelectProject}
-      onSelectSession={s.onSelectSession}
-      onRemoveProject={s.onRemoveProject}
-      onUpdateProject={s.onUpdateProject}
-      onRenameAgent={s.onRenameAgent}
-      onRequestDeleteAgent={s.onRequestDeleteAgent}
-      onNewAgent={s.onNewAgentFromHeader}
-      onNewProject={s.onNewProject}
       onOpenFolder={s.onOpenFolder}
-      onNewWorkspace={s.onNewWorkspace}
       workspaces={s.workspaces}
       activeWorkspaceId={s.activeWorkspaceId}
-      sessionsByWorkspace={s.sessionsByWorkspace}
-      onSelectWorkspace={s.onSelectWorkspace}
-      onRemoveWorkspace={s.onRemoveWorkspace}
-      onSelectWorkspaceRepo={s.onSelectWorkspaceRepo}
-      onAddProjectToWorkspace={s.onAddProjectToWorkspace}
-      onRemoveProjectFromWorkspace={s.onRemoveProjectFromWorkspace}
-      fetchingProjectId={s.fetchingProjectId}
-      lastFetchedProjectId={s.lastFetchedProjectId}
-      fetchResult={s.fetchResult}
-      fetchError={s.fetchError}
-      onFetchProject={s.onFetchProject}
-      activeProjectBehindCount={s.activeProjectBehindCount}
-      drafts={s.drafts}
-      activeDraftId={s.activeDraft?.id ?? null}
-      onSelectDraft={(id) => s.onSelectSession(id, s.activeProjectId ?? '')}
-      onDiscardDraft={s.discardDraft}
     />
   )
 }

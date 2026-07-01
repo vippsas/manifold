@@ -9,7 +9,6 @@ import type { UseUpdateLogResult } from '../shared/useUpdateLog'
 import { PANEL_COMPONENTS, DockStateContext } from './components/editor/editor-shell/dock-panels'
 import { PrefixHeaderActions, LeftHeaderActions, RightHeaderActions } from './components/editor/editor-shell/SidebarCollapseAction'
 import { OnboardingView } from './components/modals/OnboardingView'
-import { DashboardHomeView } from './components/home/DashboardHomeView'
 import { SettingsModal } from './components/modals/SettingsModal'
 import { AboutOverlay } from './components/modals/AboutOverlay'
 import { UpdateLogOverlay } from './components/modals/UpdateLogOverlay'
@@ -106,6 +105,7 @@ export function AppShell(p: AppShellProps): React.JSX.Element {
   const activeProjectName = p.projects.find((proj) => proj.id === p.activeProjectId)?.name
 
   return (
+    <DockStateContext.Provider value={p.dockState}>
     <div className={`layout-root ${p.themeClass}`}>
       <TitleBar
         projectName={activeProjectName}
@@ -113,7 +113,7 @@ export function AppShell(p: AppShellProps): React.JSX.Element {
         onToggleTheme={p.onToggleTheme}
         themeFamily={p.themeFamily}
         onSelectThemeFamily={p.onSelectThemeFamily}
-        onOpenDashboard={() => p.dockState.onOpenDashboard()}
+        showRepositorySwitcher
         search={{
           activeProjectId: p.dockState.activeProjectId,
           activeSessionId: p.dockState.sessionId,
@@ -124,26 +124,18 @@ export function AppShell(p: AppShellProps): React.JSX.Element {
         }}
       />
       <div className="layout-main">
-        <DockStateContext.Provider value={p.dockState}>
-          <div style={{ flex: 1, overflow: 'hidden', position: 'relative' }}>
-            <DockviewReact
-              className={`dockview-theme-dark dockview-theme-manifold${!p.activeSessionId ? ' dockview-minimal' : ''}`}
-              components={PANEL_COMPONENTS}
-              onReady={(e) => p.onDockReady(e.api)}
-              defaultTabComponent={DockTab}
-              prefixHeaderActionsComponent={PrefixHeaderActions}
-              leftHeaderActionsComponent={LeftHeaderActions}
-              rightHeaderActionsComponent={RightHeaderActions}
-              watermarkComponent={EmptyWatermark}
-            />
-            {p.overlays.showDashboard && (
-              <DashboardHomeView
-                onClose={() => p.overlays.setShowDashboard(false)}
-                initialCard={p.overlays.dashboardInitialCard}
-              />
-            )}
-          </div>
-        </DockStateContext.Provider>
+        <div style={{ flex: 1, overflow: 'hidden', position: 'relative' }}>
+          <DockviewReact
+            className={`dockview-theme-dark dockview-theme-manifold${!p.activeSessionId ? ' dockview-minimal' : ''}`}
+            components={PANEL_COMPONENTS}
+            onReady={(e) => p.onDockReady(e.api)}
+            defaultTabComponent={DockTab}
+            prefixHeaderActionsComponent={PrefixHeaderActions}
+            leftHeaderActionsComponent={LeftHeaderActions}
+            rightHeaderActionsComponent={RightHeaderActions}
+            watermarkComponent={EmptyWatermark}
+          />
+        </div>
         <StatusBar
           activeSession={p.activeSession}
           changedFiles={p.mergedChanges}
@@ -155,7 +147,7 @@ export function AppShell(p: AppShellProps): React.JSX.Element {
           onCommit={() => p.overlays.setActivePanel('commit')}
           onCreatePR={() => p.overlays.setActivePanel('pr')}
           onShowConflicts={() => p.overlays.setActivePanel('conflicts')}
-          onOpenSettings={() => p.overlays.setShowSettings(true)}
+          onOpenSettings={() => { p.overlays.setSettingsInitialTab(null); p.overlays.setShowSettings(true) }}
           showCommitAndPrButtons={p.showCommitAndPrButtons}
         />
       </div>
@@ -184,7 +176,8 @@ export function AppShell(p: AppShellProps): React.JSX.Element {
         onConfirm={p.overlays.confirmDeleteAgent}
       />
       <SettingsModal visible={p.overlays.showSettings} settings={p.settings} onSave={p.overlays.handleSaveSettings}
-        onClose={() => p.overlays.setShowSettings(false)} onPreviewTheme={p.setPreviewThemeId} />
+        onClose={() => p.overlays.setShowSettings(false)} onPreviewTheme={p.setPreviewThemeId}
+        initialTab={p.overlays.settingsInitialTab} initialDashboardCard={p.overlays.dashboardInitialCard} />
       <CommandPalette visible={p.overlays.showCommandPalette} onRun={p.runCommand}
         onClose={() => p.overlays.setShowCommandPalette(false)} />
       <ShortcutsCheatSheet visible={p.overlays.showShortcuts} onClose={() => p.overlays.setShowShortcuts(false)} />
@@ -244,5 +237,6 @@ export function AppShell(p: AppShellProps): React.JSX.Element {
       )}
       <PluginUiHost />
     </div>
+    </DockStateContext.Provider>
   )
 }

@@ -261,7 +261,7 @@ export function App(): React.JSX.Element {
 
   const dockState: DockAppState = {
     sessionId: effectiveSessionId, primarySessionId,
-    onOpenDashboard: (cardId?: string) => { overlays.setDashboardInitialCard(cardId ?? null); overlays.setShowDashboard(true) },
+    onOpenDashboard: (cardId?: string) => { overlays.setDashboardInitialCard(cardId ?? null); overlays.setSettingsInitialTab('dashboard'); overlays.setShowSettings(true) },
     searchFocusRequestKey: appEffects.searchFocusRequestKey, requestedSearchMode: appEffects.requestedSearchMode,
     scrollbackLines: settings.scrollbackLines, terminalFontFamily: settings.terminalFontFamily, xtermTheme, diffText: diff,
     editorSettings: settings.editor,
@@ -392,7 +392,7 @@ export function App(): React.JSX.Element {
   // when their context is absent (e.g. Next Agent with no project) rather than
   // disabling the menu item — see the command-registry design spec.
   const commandContext = useMemo<CommandContext>(() => ({
-    openSettings: () => overlays.setShowSettings(true),
+    openSettings: () => { overlays.setSettingsInitialTab(null); overlays.setShowSettings(true) },
     openCommandPalette: () => overlays.setShowCommandPalette(true),
     openShortcuts: () => overlays.setShowShortcuts(true),
     openAbout: () => overlays.setShowAbout(true),
@@ -420,7 +420,7 @@ export function App(): React.JSX.Element {
       else dockLayout.togglePanel(id)
     },
     toggleTheme,
-    openDashboard: () => { overlays.setDashboardInitialCard(null); overlays.setShowDashboard(true) },
+    openDashboard: () => { overlays.setDashboardInitialCard(null); overlays.setSettingsInitialTab('dashboard'); overlays.setShowSettings(true) },
   }), [overlays, openQuickOpen, appEffects, jumpToFavorite, activeProjectSessions, activeSessionId, activeSession, activeProject, dockLayout, toggleTheme])
   const { runCommand } = useCommands(commandContext)
 
