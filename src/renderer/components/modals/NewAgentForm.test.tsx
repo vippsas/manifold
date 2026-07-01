@@ -330,7 +330,7 @@ describe('NewAgentForm', () => {
     })
     await waitFor(() => expect(mockInvoke).toHaveBeenCalledWith('runtimes:list'))
 
-    expect(screen.getByText(/share one working tree/i)).toBeTruthy()
+    expect(screen.getByText(/only one in-place agent runs per repo/i)).toBeTruthy()
   })
 
   it('does not warn when the existing in-place agent is finished', async () => {
@@ -342,7 +342,7 @@ describe('NewAgentForm', () => {
     })
     await waitFor(() => expect(mockInvoke).toHaveBeenCalledWith('runtimes:list'))
 
-    expect(screen.queryByText(/share one working tree/i)).toBeNull()
+    expect(screen.queryByText(/only one in-place agent runs per repo/i)).toBeNull()
   })
 
   it('does not warn when this agent will use a worktree', async () => {
@@ -354,7 +354,7 @@ describe('NewAgentForm', () => {
     })
     await waitFor(() => expect(mockInvoke).toHaveBeenCalledWith('runtimes:list'))
 
-    expect(screen.queryByText(/share one working tree/i)).toBeNull()
+    expect(screen.queryByText(/only one in-place agent runs per repo/i)).toBeNull()
   })
 
   it('sends noWorktree when "Run without a worktree" is checked', async () => {

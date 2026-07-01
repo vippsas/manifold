@@ -288,7 +288,7 @@ export function NewAgentForm({
 
       {willRunInPlace && inPlaceAgentRunning && (
         <p style={modalStyles.infoText}>
-          ⚠ Another agent is already running directly in this repository. They share one working tree — running both at once can cause conflicts.
+          ⚠ An agent is already running directly in this repository. Only one in-place agent runs per repo — starting will switch to the existing one.
         </p>
       )}
 

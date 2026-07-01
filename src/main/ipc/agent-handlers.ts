@@ -2,7 +2,7 @@ import * as fs from 'node:fs/promises'
 import * as os from 'node:os'
 import * as path from 'node:path'
 import { ipcMain } from 'electron'
-import { SpawnAgentOptions } from '../../shared/types'
+import { SpawnAgentOptions, AgentSession } from '../../shared/types'
 import { pickRandomNorwegianCityName } from '../../shared/norwegian-cities'
 import { generateBranchName } from '../git/branch-namer'
 import { acceptSuggestion, dismissSuggestion } from '../session/shell-suggestion'
@@ -30,23 +30,35 @@ export function resolveShellHistoryDir(cwd: string, scope: 'project' | 'global')
   return path.join(historyBase, projectName)
 }
 
-// Clear finished (dormant) no-worktree sessions for a project before a new spawn.
-// A dormant in-place session leaves its branch checked out and would otherwise be
-// resurrected by discovery. Active in-place agents are left running — multiple may
-// run per project (warn-only); the New Agent form surfaces the heads-up.
-async function clearDormantNoWorktreeSessions(
+// One in-place (no-worktree) agent per project. In-place agents all share the
+// repo's single working tree, which can only be on one branch at a time, so a
+// second can't meaningfully coexist. When a no-worktree spawn is requested and a
+// *live* in-place agent already exists, return it so the caller focuses it
+// instead of creating a hidden duplicate. Finished (dormant) in-place sessions
+// are cleared first so discovery can't resurrect their branch state.
+function isLiveSession(internal: { ptyId?: string; devServerPtyId?: string; status?: string } | null | undefined): boolean {
+  return Boolean(internal?.ptyId || internal?.devServerPtyId || internal?.status === 'running' || internal?.status === 'waiting')
+}
+
+async function focusOrClearInPlaceSessions(
   deps: Pick<IpcDependencies, 'sessionManager' | 'fileWatcher'>,
+  requiresNoWorktree: boolean,
   options: SpawnAgentOptions,
-): Promise<void> {
+): Promise<AgentSession | null> {
   const sessions = deps.sessionManager.listSessions()
     .filter((session) => session.projectId === options.projectId && session.noWorktree)
 
+  if (requiresNoWorktree) {
+    const live = sessions.find((session) => isLiveSession(deps.sessionManager.getInternalSession(session.id)))
+    if (live) return live
+  }
+
   for (const session of sessions) {
-    const internal = deps.sessionManager.getInternalSession(session.id)
-    if (internal?.ptyId || internal?.devServerPtyId || internal?.status === 'running') continue
+    if (isLiveSession(deps.sessionManager.getInternalSession(session.id))) continue
     await deps.fileWatcher.unwatch(session.worktreePath)
     await deps.sessionManager.killSession(session.id)
   }
+  return null
 }
 
 export function registerAgentHandlers(deps: IpcDependencies): void {
@@ -63,7 +75,9 @@ export function registerAgentHandlers(deps: IpcDependencies): void {
   ipcMain.handle('agent:spawn', async (_event, options: SpawnAgentOptions) => {
     const project = deps.projectRegistry.getProject(options.projectId)
     if (!project) throw new Error(`Project not found: ${options.projectId}`)
-    await clearDormantNoWorktreeSessions(deps, options)
+    const requiresNoWorktree = Boolean(options.noWorktree || !isGitProject(project))
+    const existing = await focusOrClearInPlaceSessions(deps, requiresNoWorktree, options)
+    if (existing) return existing
     const session = await sessionManager.createSession(options)
     fileWatcher.watch(session.worktreePath, session.id)
     return session

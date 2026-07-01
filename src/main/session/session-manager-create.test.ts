@@ -206,7 +206,11 @@ describe('SessionManager — create / input / queries', () => {
     })
   })
 
-  describe('noWorktree concurrency (warn-only)', () => {
+  // SessionManager.createSession is a permissive primitive — it does not enforce
+  // one-in-place-agent-per-repo; that policy lives at the agent:spawn IPC layer
+  // (focusOrClearInPlaceSessions), which focuses an existing live in-place agent
+  // instead of creating a second. These tests pin the primitive's behavior.
+  describe('noWorktree at the session-manager layer (policy enforced at agent:spawn)', () => {
     // Use a folder (non-git) project to avoid git clean-tree checks in session-creator
     beforeEach(() => {
       ;(projectRegistry.getProject as ReturnType<typeof vi.fn>).mockImplementation((id: string) => {

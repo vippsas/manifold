@@ -104,19 +104,9 @@ describe('registerAgentHandlers — spawn and branch suggestion', () => {
     expect(result).toMatchObject({ id: 'new-session' })
   })
 
-  it('allows a second no-worktree agent while one is active, without killing it (warn-only)', async () => {
+  it('focuses the existing in-place agent instead of creating a second (one per repo)', async () => {
     const { registerAgentHandlers } = await import('./agent-handlers')
-    const createSession = vi.fn(async () => ({
-      id: 'second-session',
-      projectId: 'proj-1',
-      runtimeId: 'claude',
-      branchName: 'feature/clock-2',
-      worktreePath: '/repo',
-      status: 'running',
-      pid: 43,
-      additionalDirs: [],
-      noWorktree: true,
-    }))
+    const createSession = vi.fn()
     const deps = {
       projectRegistry: {
         getProject: vi.fn(() => ({ id: 'proj-1', name: 'repo', path: '/repo', baseBranch: 'main' })),
@@ -164,15 +154,11 @@ describe('registerAgentHandlers — spawn and branch suggestion', () => {
       noWorktree: true,
     })
 
-    // The active in-place agent is preserved; the second one is created alongside it.
+    // One in-place agent per repo: the existing active agent is returned (focused);
+    // no new session is created and the existing one is left untouched.
     expect(deps.sessionManager.killSession).not.toHaveBeenCalled()
-    expect(createSession).toHaveBeenCalledWith({
-      projectId: 'proj-1',
-      runtimeId: 'claude',
-      prompt: 'build a clock',
-      noWorktree: true,
-    })
-    expect(result).toMatchObject({ id: 'second-session' })
+    expect(createSession).not.toHaveBeenCalled()
+    expect(result).toMatchObject({ id: 'active-session' })
   })
 
   it('clears dormant no-worktree sessions before spawning a worktree-backed agent', async () => {
