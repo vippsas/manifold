@@ -57,7 +57,10 @@ new-branch-in-place path (`git checkout -b` in the project dir), or a fresh
 `WorktreeManager.createWorktree()` — then resolves the runtime via `getRuntimeById()`.
 The new-branch-in-place path asserts a clean working tree first (`session-creator.ts:214`)
 unless `options.allowDirtyWorktree` is set — which the New Agent form does after the user
-confirms carrying uncommitted changes onto the new branch.
+confirms carrying uncommitted changes onto the new branch. When a no-worktree agent is created
+with a blank name (`options.autoName`), the auto-generated placeholder prompt is used only as a
+branch hint and is **not** stored as the task, so the agent is identified by its branch (the
+sidebar falls back to the branch label when there's no task/displayName).
 Chat-mode sessions created without a first message *defer* the runtime spawn (`deferRuntime`,
 `session-creator.ts:107`): the session exists in `waiting` status with `ptyId: ''` and no PTY;
 the first message later routes through `spawnPrintModeFollowUp`. Otherwise `PtyPool.spawn()`
