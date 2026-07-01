@@ -38,6 +38,26 @@ describe('AgentItem chat glyph', () => {
   })
 })
 
+describe('AgentItem in-place badge', () => {
+  const baseProps = {
+    projectPath: '/tmp/proj',
+    isActive: false,
+    isOutputting: false,
+    onSelect: vi.fn(),
+    onDelete: vi.fn(),
+  }
+
+  it('renders the in-place badge for a no-worktree session', () => {
+    render(<AgentItem {...baseProps} session={makeSession({ noWorktree: true })} />)
+    expect(screen.getByText('in-place')).toBeInTheDocument()
+  })
+
+  it('does not render the in-place badge for a worktree session', () => {
+    render(<AgentItem {...baseProps} session={makeSession()} />)
+    expect(screen.queryByText('in-place')).not.toBeInTheDocument()
+  })
+})
+
 describe('AgentItem rename', () => {
   const baseProps = {
     projectPath: '/tmp/proj',
