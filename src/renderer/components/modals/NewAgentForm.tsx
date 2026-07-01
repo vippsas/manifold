@@ -1,5 +1,7 @@
 import React, { useRef, useState, useCallback, useEffect } from 'react'
+import { createPortal } from 'react-dom'
 import type { SpawnAgentOptions, AgentRuntime, BranchInfo, PRInfo, AgentSession } from '../../../shared/types'
+import { ConfirmDialog } from '../ConfirmDialog'
 import { modalStyles } from './NewTaskModal.styles'
 import { TaskDescriptionField } from '../new-task'
 import type { ExistingSubTab } from '../new-task'
@@ -58,6 +60,7 @@ export function NewAgentForm({
   const [branchesLoading, setBranchesLoading] = useState(false)
   const [error, setError] = useState('')
   const [showAdvanced, setShowAdvanced] = useState(false)
+  const [pendingDirtyLaunch, setPendingDirtyLaunch] = useState<SpawnAgentOptions | null>(null)
   const inputRef = useRef<HTMLInputElement>(null)
   const mountedRef = useRef(true)
 
@@ -120,11 +123,33 @@ export function NewAgentForm({
     return true
   })()
 
+  const runLaunch = useCallback(
+    async (finalOptions: SpawnAgentOptions): Promise<void> => {
+      setError('')
+      setLoading(true)
+      try {
+        const session = await onLaunch(finalOptions)
+        if (!session && mountedRef.current) {
+          setError('Failed to start agent.')
+        }
+      } catch (err) {
+        if (mountedRef.current) {
+          const message = err instanceof Error ? err.message : String(err)
+          setError(`Failed to start agent: ${message}`)
+        }
+      } finally {
+        if (mountedRef.current) {
+          setLoading(false)
+        }
+      }
+    },
+    [onLaunch]
+  )
+
   const handleSubmit = useCallback(
     async (e: React.FormEvent): Promise<void> => {
       e.preventDefault()
       if (!canSubmit) return
-      setLoading(true)
       setError('')
       const resolvedTaskDescription = taskDescription.trim() || pickRandomNorwegianCityName()
       setTaskDescription(resolvedTaskDescription)
@@ -167,24 +192,50 @@ export function NewAgentForm({
         })
       }
 
-      try {
-        const session = await onLaunch(finalOptions)
-        if (!session && mountedRef.current) {
-          setError('Failed to start agent.')
+      // A no-worktree new-branch spawn switches the project's real working copy
+      // to a new branch. If it has uncommitted changes, confirm before carrying
+      // them along (existing-branch/PR checkouts already tolerate a dirty tree).
+      const isNewBranchInPlace = isGitProject && runWithoutWorktree && !useExisting
+      if (isNewBranchInPlace) {
+        setLoading(true)
+        let dirty = false
+        try {
+          dirty = Boolean(await window.electronAPI.invoke('git:has-uncommitted-changes', projectId))
+        } catch {
+          dirty = false
         }
-      } catch (err) {
-        if (mountedRef.current) {
-          const message = err instanceof Error ? err.message : String(err)
-          setError(`Failed to start agent: ${message}`)
-        }
-      } finally {
-        if (mountedRef.current) {
+        if (!mountedRef.current) return
+        if (dirty) {
           setLoading(false)
+          setPendingDirtyLaunch(finalOptions)
+          return
         }
       }
+
+      await runLaunch(finalOptions)
     },
-    [useExisting, existingSubTab, projectId, runtimeId, taskDescription, selectedBranch, selectedPr, canSubmit, isGitProject, onLaunch, mode, defaultAgentMode, runWithoutWorktree]
+    [useExisting, existingSubTab, projectId, runtimeId, taskDescription, selectedBranch, selectedPr, canSubmit, isGitProject, mode, defaultAgentMode, runWithoutWorktree, runLaunch]
   )
+
+  const confirmDirtyLaunch = useCallback((): void => {
+    const opts = pendingDirtyLaunch
+    if (!opts) return
+    setPendingDirtyLaunch(null)
+    void runLaunch({ ...opts, allowDirtyWorktree: true })
+  }, [pendingDirtyLaunch, runLaunch])
+
+  const dirtyConfirmDialog = pendingDirtyLaunch
+    ? createPortal(
+        <ConfirmDialog
+          title="Uncommitted changes"
+          message="This repository has uncommitted changes. Starting an agent without a worktree switches your working copy to a new branch and carries those changes along. Continue?"
+          confirmLabel="Continue"
+          onConfirm={confirmDirtyLaunch}
+          onCancel={() => setPendingDirtyLaunch(null)}
+        />,
+        document.body,
+      )
+    : null
 
   const formStyle = { display: 'flex', flexDirection: 'column', gap: 'var(--space-lg)', width: 420, maxWidth: '90%' } as const
 
@@ -201,6 +252,7 @@ export function NewAgentForm({
         <AgentDropdown value={runtimeId} onChange={setRuntimeId} runtimes={runtimes} />
         {error && <p style={modalStyles.errorText}>{error}</p>}
         <NewAgentModePill mode={mode} setMode={setMode} canSubmit={canSubmit} loading={loading} />
+        {dirtyConfirmDialog}
       </form>
     )
   }
@@ -276,6 +328,7 @@ export function NewAgentForm({
           prsLoading={prsLoading}
         />
       )}
+      {dirtyConfirmDialog}
     </form>
   )
 }

@@ -65,9 +65,12 @@ export class SessionCreator {
         await gitExec(['checkout', branch], project.path)
         worktree = { branch, path: project.path }
       } else {
-        // Creating a new branch — ensure working tree is clean to avoid
-        // accidentally including unintended changes.
-        await this.assertCleanWorkingTree(project.path)
+        // Creating a new branch — ensure the working tree is clean to avoid
+        // accidentally including unintended changes. The renderer confirms with
+        // the user first and sets allowDirtyWorktree to carry changes along.
+        if (!options.allowDirtyWorktree) {
+          await this.assertCleanWorkingTree(project.path)
+        }
         const branchHint = options.nonInteractive ? pickRandomNorwegianCityName() : (options.prompt ?? '')
         const branch = options.branchName ?? (await generateBranchName(project.path, branchHint))
         await gitExec(['checkout', '-b', branch], project.path)

@@ -18,6 +18,9 @@ beforeEach(() => {
         { id: 'claude', name: 'Claude Code', binary: 'claude', installed: true },
       ])
     }
+    if (channel === 'git:has-uncommitted-changes') {
+      return Promise.resolve(false)
+    }
     return Promise.resolve([])
   })
 
@@ -246,6 +249,51 @@ describe('NewAgentForm', () => {
     expect(options.noWorktree).toBe(true)
     expect(options.existingBranch).toBeUndefined()
     expect(options.stayOnBranch).toBeUndefined()
+    // Clean tree → no confirmation, no allowDirtyWorktree flag.
+    expect(options.allowDirtyWorktree).toBeUndefined()
+    expect(screen.queryByText(/uncommitted changes/i)).toBeNull()
+  })
+
+  function dirtyRepoInvoke(channel: string) {
+    if (channel === 'runtimes:list') {
+      return Promise.resolve([{ id: 'claude', name: 'Claude Code', binary: 'claude', installed: true }])
+    }
+    if (channel === 'git:has-uncommitted-changes') return Promise.resolve(true)
+    return Promise.resolve([])
+  }
+
+  it('confirms before starting a no-worktree new-branch agent in a dirty repo', async () => {
+    mockInvoke.mockImplementation(dirtyRepoInvoke)
+    const { props } = renderForm({ defaultUseWorktrees: false })
+    await waitFor(() => expect(mockInvoke).toHaveBeenCalledWith('runtimes:list'))
+
+    fireEvent.click(screen.getByText('Start Agent'))
+
+    // Dialog appears; nothing launched yet.
+    await waitFor(() => expect(screen.getByText('Continue')).toBeTruthy())
+    expect(props.onLaunch).not.toHaveBeenCalled()
+
+    fireEvent.click(screen.getByText('Continue'))
+
+    await waitFor(() => {
+      expect(props.onLaunch).toHaveBeenCalledWith(
+        expect.objectContaining({ noWorktree: true, allowDirtyWorktree: true }),
+      )
+    })
+  })
+
+  it('cancels the dirty-repo confirmation without launching', async () => {
+    mockInvoke.mockImplementation(dirtyRepoInvoke)
+    const { props } = renderForm({ defaultUseWorktrees: false })
+    await waitFor(() => expect(mockInvoke).toHaveBeenCalledWith('runtimes:list'))
+
+    fireEvent.click(screen.getByText('Start Agent'))
+    await waitFor(() => expect(screen.getByText('Continue')).toBeTruthy())
+
+    fireEvent.click(screen.getByText('Cancel'))
+
+    await waitFor(() => expect(screen.queryByText('Continue')).toBeNull())
+    expect(props.onLaunch).not.toHaveBeenCalled()
   })
 
   it('warns when an in-place agent is already running and this one will run in place', async () => {

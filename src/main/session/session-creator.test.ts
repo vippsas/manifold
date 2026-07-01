@@ -155,6 +155,32 @@ describe('SessionCreator', () => {
     expect(writeWorktreeMeta).not.toHaveBeenCalled()
   })
 
+  it('skips the clean-tree check on the new-branch path when allowDirtyWorktree is set', async () => {
+    // No status --porcelain result is queued: if assertCleanWorkingTree ran, the
+    // default gitExec mock ('manifold/oslo\n') would be non-empty and it would throw.
+    const creator = new SessionCreator(
+      {} as WorktreeManager,
+      createPtyPool(),
+      createProjectRegistry(),
+      createStreamWirer(),
+      () => null,
+    )
+
+    const session = await creator.create({
+      projectId: 'proj-1',
+      runtimeId: 'codex',
+      prompt: 'build the app',
+      branchName: 'feature-dirty',
+      noWorktree: true,
+      allowDirtyWorktree: true,
+    })
+
+    expect(gitExec).not.toHaveBeenCalledWith(['status', '--porcelain'], '/repo')
+    expect(gitExec).toHaveBeenCalledWith(['checkout', '-b', 'feature-dirty'], '/repo')
+    expect(session.branchName).toBe('feature-dirty')
+    expect(session.noWorktree).toBe(true)
+  })
+
   function createInteractiveClaude(getThemeType?: () => 'light' | 'dark') {
     vi.mocked(getRuntimeById).mockReturnValueOnce({
       id: 'claude',

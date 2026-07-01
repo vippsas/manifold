@@ -1,6 +1,7 @@
 import { ipcMain } from 'electron'
 import { CreatePROptions, AheadBehind, FetchResult } from '../../shared/types'
 import { isGitProject } from '../../shared/project-kind'
+import { gitExec } from '../git/git-exec'
 import { getRuntimeById } from '../agent/runtimes'
 import type { IpcDependencies } from './types'
 import { resolveSession } from './types'
@@ -109,5 +110,16 @@ export function registerGitHandlers(deps: IpcDependencies): void {
     if (!isGitProject(project)) return { baseBranch: '', behindCount: 0 }
     const behindCount = await gitOps.getRemoteBehindCount(project.path, project.baseBranch)
     return { baseBranch: project.baseBranch, behindCount }
+  })
+
+  // Whether the project's main working tree has uncommitted changes. Used by the
+  // New Agent form to confirm before a no-worktree agent switches the working
+  // copy to a new branch (which carries those changes along).
+  ipcMain.handle('git:has-uncommitted-changes', async (_event, projectId: string): Promise<boolean> => {
+    const project = projectRegistry.getProject(projectId)
+    if (!project) throw new Error(`Project not found: ${projectId}`)
+    if (!isGitProject(project)) return false
+    const status = await gitExec(['status', '--porcelain'], project.path)
+    return status.trim().length > 0
   })
 }

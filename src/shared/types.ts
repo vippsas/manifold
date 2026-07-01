@@ -227,6 +227,9 @@ export interface SpawnAgentOptions {
   prIdentifier?: string
   noWorktree?: boolean
   stayOnBranch?: boolean
+  /** Skip the clean-working-tree check on the no-worktree new-branch path. Set
+   *  after the user confirms carrying uncommitted changes onto the new branch. */
+  allowDirtyWorktree?: boolean
   nonInteractive?: boolean
   cols?: number
   rows?: number
