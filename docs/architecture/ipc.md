@@ -64,6 +64,8 @@ guard it, call one manager method, return its result. `agent:spawn` resolves the
 clears any dormant no-worktree session, calls `sessionManager.createSession()`, starts the
 file watch, and returns the session (`agent-handlers.ts:74`). `git:commit` resolves the
 session, rejects plain-folder projects, and calls `gitOps.commit()` (`git-handlers.ts:64`).
+`git:has-uncommitted-changes` resolves the project and returns whether `git status --porcelain`
+is non-empty (used by the New Agent form's dirty-repo confirmation).
 `search:query` runs `executeSearchQuery` then `maybeRerankSearchResults`
 (`search-handlers.ts:94`). The substantive work lives in the managers.
 
