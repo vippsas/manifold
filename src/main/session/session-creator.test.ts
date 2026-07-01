@@ -155,6 +155,54 @@ describe('SessionCreator', () => {
     expect(writeWorktreeMeta).not.toHaveBeenCalled()
   })
 
+  it('names a no-worktree agent after its branch (no task) when autoName is set', async () => {
+    vi.mocked(gitExec).mockResolvedValueOnce('') // assertCleanWorkingTree: clean tree
+    const creator = new SessionCreator(
+      {} as WorktreeManager,
+      createPtyPool(),
+      createProjectRegistry(),
+      createStreamWirer(),
+      () => null,
+    )
+
+    const session = await creator.create({
+      projectId: 'proj-1',
+      runtimeId: 'codex',
+      prompt: 'Oslo', // the auto-generated city (branch hint only)
+      branchName: 'feature-branch',
+      noWorktree: true,
+      autoName: true,
+    })
+
+    // The random-city prompt must not become the agent's task/label; the branch
+    // is the name (sidebar shows the branch when there's no displayName/task).
+    expect(session.taskDescription).toBeUndefined()
+    expect(session.branchName).toBe('feature-branch')
+  })
+
+  it('keeps the prompt as the task for a worktree agent even with autoName', async () => {
+    vi.mocked(gitExec).mockResolvedValueOnce('main\n')
+    const creator = new SessionCreator(
+      {} as WorktreeManager,
+      createPtyPool(),
+      createProjectRegistry(),
+      createStreamWirer(),
+      () => null,
+    )
+
+    const session = await creator.create({
+      projectId: 'proj-1',
+      runtimeId: 'codex',
+      prompt: 'Oslo',
+      branchName: 'main',
+      noWorktree: true,
+      stayOnBranch: true,
+      autoName: false,
+    })
+
+    expect(session.taskDescription).toBe('Oslo')
+  })
+
   it('skips the clean-tree check on the new-branch path when allowDirtyWorktree is set', async () => {
     // No status --porcelain result is queued: if assertCleanWorkingTree ran, the
     // default gitExec mock ('manifold/oslo\n') would be non-empty and it would throw.

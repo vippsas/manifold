@@ -295,7 +295,22 @@ describe('NewAgentForm', () => {
     expect(options.stayOnBranch).toBeUndefined()
     // Clean tree → no confirmation, no allowDirtyWorktree flag.
     expect(options.allowDirtyWorktree).toBeUndefined()
+    // Blank name → autoName so the agent is named after its branch.
+    expect(options.autoName).toBe(true)
     expect(screen.queryByText(/uncommitted changes/i)).toBeNull()
+  })
+
+  it('does not set autoName when a name is typed', async () => {
+    const { props } = renderForm({ defaultUseWorktrees: false })
+    await waitFor(() => expect(mockInvoke).toHaveBeenCalledWith('runtimes:list'))
+
+    fireEvent.change(screen.getByPlaceholderText('Agent name (optional), e.g. Dark mode toggle'), {
+      target: { value: 'Fix the parser' },
+    })
+    fireEvent.click(screen.getByText('Start Agent'))
+
+    await waitFor(() => expect(props.onLaunch).toHaveBeenCalled())
+    expect(props.onLaunch.mock.calls[0][0].autoName).toBe(false)
   })
 
   function dirtyRepoInvoke(channel: string) {

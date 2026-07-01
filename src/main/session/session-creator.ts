@@ -254,7 +254,12 @@ export class SessionCreator {
       pid: ptyHandle.pid,
       ptyId: ptyHandle.id,
       outputBuffer: '',
-      taskDescription: options.userMessage || options.prompt || undefined,
+      // A no-worktree agent created without a typed name is identified by its
+      // branch (the sidebar shows the branch when there's no task/displayName),
+      // so drop the auto-generated placeholder prompt instead of showing it.
+      taskDescription: (noWorktree && options.autoName)
+        ? undefined
+        : (options.userMessage || options.prompt || undefined),
       simpleTemplateTitle: options.simpleTemplateTitle,
       simplePromptInstructions: options.simplePromptInstructions,
       ollamaModel: options.ollamaModel,

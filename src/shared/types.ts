@@ -230,6 +230,10 @@ export interface SpawnAgentOptions {
   /** Skip the clean-working-tree check on the no-worktree new-branch path. Set
    *  after the user confirms carrying uncommitted changes onto the new branch. */
   allowDirtyWorktree?: boolean
+  /** The user left the name blank, so `prompt` is an auto-generated placeholder
+   *  (a random city, used only as a branch hint). For a no-worktree agent this
+   *  suppresses the placeholder as the task so the agent is named by its branch. */
+  autoName?: boolean
   nonInteractive?: boolean
   cols?: number
   rows?: number

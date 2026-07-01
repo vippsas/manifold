@@ -161,8 +161,13 @@ export function NewAgentForm({
       e.preventDefault()
       if (!canSubmit) return
       setError('')
-      const resolvedTaskDescription = taskDescription.trim() || pickRandomNorwegianCityName()
+      const typedName = taskDescription.trim()
+      const resolvedTaskDescription = typedName || pickRandomNorwegianCityName()
       setTaskDescription(resolvedTaskDescription)
+      // No typed name → the resolved prompt is a placeholder (a random city used
+      // only as a branch hint). For no-worktree agents, mark it so the backend
+      // names the agent after its branch instead of showing the placeholder.
+      const autoName = typedName.length === 0
 
       const launchOptions = (() => {
         if (!isGitProject) {
@@ -171,6 +176,7 @@ export function NewAgentForm({
             runtimeId,
             prompt: resolvedTaskDescription,
             noWorktree: true,
+            autoName,
           } satisfies SpawnAgentOptions
         }
 
@@ -178,6 +184,7 @@ export function NewAgentForm({
           projectId,
           runtimeId,
           prompt: resolvedTaskDescription,
+          autoName,
         }
 
         // Selecting a branch or PR works in place on it (no worktree);
