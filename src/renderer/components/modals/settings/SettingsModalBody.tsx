@@ -55,6 +55,8 @@ interface Props {
   onShowCommitAndPrButtonsChange: (enabled: boolean) => void
   sidebarResizeReversed: boolean
   onSidebarResizeReversedChange: (enabled: boolean) => void
+  useWorktrees: boolean
+  onUseWorktreesChange: (enabled: boolean) => void
   searchAiSettings: SearchAiSettings
   onSearchAiSettingsChange: (value: SearchAiSettings) => void
   editorSettings: EditorSettings
