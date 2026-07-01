@@ -74,16 +74,18 @@ export class SessionCreator {
         // diff/PR base.
         const baseRef = options.baseBranch ?? project.baseBranch
         sessionBaseBranch = baseRef
+        // Switching the shared working copy to the base branch (or cutting a new
+        // branch off it) can carry or clobber uncommitted changes. Require a clean
+        // tree first; the renderer confirms and sets allowDirtyWorktree to carry
+        // changes along. This covers both the work-directly-on-base (autoName) and
+        // new-branch paths.
+        if (!options.allowDirtyWorktree) {
+          await this.assertCleanWorkingTree(project.path)
+        }
         if (options.autoName) {
           await gitExec(['checkout', baseRef], project.path)
           worktree = { branch: baseRef, path: project.path }
         } else {
-          // Creating a new branch off the base — ensure the working tree is clean
-          // (the renderer confirms first and sets allowDirtyWorktree to carry
-          // changes along).
-          if (!options.allowDirtyWorktree) {
-            await this.assertCleanWorkingTree(project.path)
-          }
           const branch = options.branchName ?? (await generateBranchName(project.path, options.prompt ?? ''))
           await gitExec(['checkout', '-b', branch, baseRef], project.path)
           worktree = { branch, path: project.path }

@@ -158,6 +158,7 @@ describe('SessionCreator', () => {
   })
 
   it('works directly on the base branch (no new branch, no task) when autoName is set', async () => {
+    vi.mocked(gitExec).mockResolvedValueOnce('') // assertCleanWorkingTree: clean tree
     const creator = new SessionCreator(
       {} as WorktreeManager,
       createPtyPool(),
@@ -174,13 +175,34 @@ describe('SessionCreator', () => {
       autoName: true,
     })
 
-    // No typed name → check out the base branch directly (no `-b`), name = base,
-    // no random-city task, and the base branch is the session's diff/PR base.
+    // No typed name → assert a clean tree, then check out the base branch directly
+    // (no `-b`), name = base, no random-city task, base is the session's diff/PR base.
+    expect(gitExec).toHaveBeenCalledWith(['status', '--porcelain'], '/repo')
     expect(gitExec).toHaveBeenCalledWith(['checkout', 'main'], '/repo')
-    expect(gitExec).not.toHaveBeenCalledWith(['status', '--porcelain'], '/repo')
     expect(session.branchName).toBe('main')
     expect(session.baseBranch).toBe('main')
     expect(session.taskDescription).toBeUndefined()
+  })
+
+  it('asserts a clean tree on the work-directly-on-base (autoName) path unless allowDirtyWorktree', async () => {
+    vi.mocked(gitExec).mockResolvedValueOnce(' M src/x.ts\n') // status --porcelain: dirty
+    const creator = new SessionCreator(
+      {} as WorktreeManager,
+      createPtyPool(),
+      createProjectRegistry(),
+      createStreamWirer(),
+      () => null,
+    )
+
+    // Dirty tree + no confirmation → don't silently carry changes onto the base.
+    await expect(creator.create({
+      projectId: 'proj-1',
+      runtimeId: 'codex',
+      prompt: 'Oslo',
+      noWorktree: true,
+      autoName: true,
+    })).rejects.toThrow(/uncommitted changes/)
+    expect(gitExec).not.toHaveBeenCalledWith(['checkout', 'main'], '/repo')
   })
 
   it('cuts a new branch off a selected base branch and uses it as the session base', async () => {

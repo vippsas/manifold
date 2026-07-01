@@ -363,6 +363,41 @@ describe('NewAgentForm', () => {
     expect(props.onLaunch).not.toHaveBeenCalled()
   })
 
+  it('confirms a dirty tree even for a no-name (work-on-base) no-worktree agent', async () => {
+    mockInvoke.mockImplementation(dirtyRepoInvoke)
+    const { props } = renderForm({ defaultUseWorktrees: false })
+    await waitFor(() => expect(mockInvoke).toHaveBeenCalledWith('runtimes:list'))
+
+    // Blank name → autoName (work directly on base); switching the working copy
+    // with a dirty tree must still prompt, not silently carry changes.
+    fireEvent.click(screen.getByText('Start Agent'))
+    await waitFor(() => expect(screen.getByText('Continue')).toBeTruthy())
+    expect(props.onLaunch).not.toHaveBeenCalled()
+  })
+
+  it('blocks selecting a branch/PR when an in-place agent is already running', async () => {
+    mockInvoke.mockImplementation((channel: string) => {
+      if (channel === 'runtimes:list') return Promise.resolve([{ id: 'claude', name: 'Claude Code', binary: 'claude', installed: true }])
+      if (channel === 'git:has-uncommitted-changes') return Promise.resolve(false)
+      if (channel === 'git:list-branches') return Promise.resolve([{ name: 'feature-x', source: 'local' }])
+      return Promise.resolve([])
+    })
+    const { props } = renderForm({
+      existingSessions: [
+        { id: 's1', projectId: 'proj-1', runtimeId: 'claude', branchName: 'feature/A', worktreePath: '/repos/proj-1', status: 'running', pid: 1, additionalDirs: [], noWorktree: true },
+      ],
+    })
+    await waitFor(() => expect(mockInvoke).toHaveBeenCalledWith('runtimes:list'))
+
+    fireEvent.click(screen.getByText(/Advanced/))
+    fireEvent.click(screen.getByLabelText('Continue on an existing branch or PR'))
+    fireEvent.click(await screen.findByText('feature-x'))
+    fireEvent.click(screen.getByText('Start Agent'))
+
+    await waitFor(() => expect(screen.getByText(/only one can run at a time/i)).toBeTruthy())
+    expect(props.onLaunch).not.toHaveBeenCalled()
+  })
+
   it('warns only when the user opts into in-place while an in-place agent is running', async () => {
     renderForm({
       defaultUseWorktrees: false,
@@ -425,6 +460,9 @@ describe('NewAgentForm', () => {
       if (channel === 'runtimes:list') {
         return Promise.resolve([{ id: 'claude', name: 'Claude Code', binary: 'claude', installed: true }])
       }
+      if (channel === 'git:has-uncommitted-changes') {
+        return Promise.resolve(false)
+      }
       if (channel === 'git:list-branches') {
         return Promise.resolve([
           { name: 'main', source: 'both' },
@@ -451,6 +489,9 @@ describe('NewAgentForm', () => {
     mockInvoke.mockImplementation((channel: string) => {
       if (channel === 'runtimes:list') {
         return Promise.resolve([{ id: 'claude', name: 'Claude Code', binary: 'claude', installed: true }])
+      }
+      if (channel === 'git:has-uncommitted-changes') {
+        return Promise.resolve(false)
       }
       if (channel === 'git:list-branches') {
         return Promise.resolve([{ name: 'main', source: 'both' }])

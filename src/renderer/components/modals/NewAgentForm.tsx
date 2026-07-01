@@ -161,6 +161,13 @@ export function NewAgentForm({
       e.preventDefault()
       if (!canSubmit) return
       setError('')
+      // One in-place agent per repo: choosing a specific branch/PR here can't run
+      // alongside the one already in place, and the backend would otherwise focus
+      // the existing agent and silently ignore the selection. Surface it instead.
+      if (isGitProject && hasLiveInPlaceAgent && useExisting) {
+        setError('An in-place agent is already running in this repository. Only one can run at a time — open it from the sidebar, or close it before starting an agent on another branch or PR here.')
+        return
+      }
       const typedName = taskDescription.trim()
       const resolvedTaskDescription = typedName || pickRandomNorwegianCityName()
       setTaskDescription(resolvedTaskDescription)
@@ -211,13 +218,13 @@ export function NewAgentForm({
         })
       }
 
-      // Cutting a new in-place branch (a typed name, no-worktree, off the base or a
-      // selected branch) switches the working copy to it. If the tree is dirty,
-      // confirm before carrying the changes along. Working directly on a branch
-      // (no typed name) or a PR checkout tolerates a dirty tree, so no prompt.
-      const willCutNewBranch = isGitProject && !autoName
+      // A no-worktree spawn switches the project's real working copy to the base
+      // branch (no typed name) or a new branch off it (typed name). Either way, if
+      // the tree is dirty, confirm before carrying/clobbering the changes. (A PR
+      // checkout goes through its own path and is not covered here.)
+      const willSwitchInPlace = isGitProject
         && (runWithoutWorktree || (useExisting && existingSubTab === 'branch'))
-      if (willCutNewBranch) {
+      if (willSwitchInPlace) {
         setLoading(true)
         let dirty = false
         try {
@@ -235,7 +242,7 @@ export function NewAgentForm({
 
       await runLaunch(finalOptions)
     },
-    [useExisting, existingSubTab, projectId, runtimeId, taskDescription, selectedBranch, selectedPr, canSubmit, isGitProject, mode, defaultAgentMode, runWithoutWorktree, runLaunch]
+    [useExisting, existingSubTab, projectId, runtimeId, taskDescription, selectedBranch, selectedPr, canSubmit, isGitProject, mode, defaultAgentMode, runWithoutWorktree, runLaunch, hasLiveInPlaceAgent]
   )
 
   const confirmDirtyLaunch = useCallback((): void => {
