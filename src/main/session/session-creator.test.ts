@@ -128,6 +128,33 @@ describe('SessionCreator', () => {
     expect(writeWorktreeMeta).not.toHaveBeenCalled()
   })
 
+  it('creates a new branch in place when noWorktree is set without stayOnBranch', async () => {
+    vi.mocked(gitExec).mockResolvedValueOnce('') // assertCleanWorkingTree: clean tree
+    const creator = new SessionCreator(
+      {} as WorktreeManager,
+      createPtyPool(),
+      createProjectRegistry(),
+      createStreamWirer(),
+      () => null,
+    )
+
+    const session = await creator.create({
+      projectId: 'proj-1',
+      runtimeId: 'codex',
+      prompt: 'build the app',
+      branchName: 'feature-inplace',
+      noWorktree: true,
+    })
+
+    expect(gitExec).toHaveBeenCalledWith(['status', '--porcelain'], '/repo')
+    expect(gitExec).toHaveBeenCalledWith(['checkout', '-b', 'feature-inplace'], '/repo')
+    expect(session.branchName).toBe('feature-inplace')
+    expect(session.worktreePath).toBe('/repo')
+    expect(session.noWorktree).toBe(true)
+    expect(readWorktreeMeta).not.toHaveBeenCalled()
+    expect(writeWorktreeMeta).not.toHaveBeenCalled()
+  })
+
   function createInteractiveClaude(getThemeType?: () => 'light' | 'dark') {
     vi.mocked(getRuntimeById).mockReturnValueOnce({
       id: 'claude',
