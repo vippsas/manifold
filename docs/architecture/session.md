@@ -52,15 +52,21 @@ it instead of creating a duplicate) and otherwise clears *finished* in-place ses
 spawn so discovery cannot resurrect them; the New Agent form warns that starting will switch to
 the existing agent. The
 creator resolves a worktree from the many `SpawnAgentOptions`
-shapes — existing path, `stayOnBranch`, `existingBranch`, PR checkout, the `noWorktree`
-new-branch-in-place path (`git checkout -b` in the project dir), or a fresh
-`WorktreeManager.createWorktree()` — then resolves the runtime via `getRuntimeById()`.
-The new-branch-in-place path asserts a clean working tree first (`session-creator.ts:214`)
-unless `options.allowDirtyWorktree` is set — which the New Agent form does after the user
-confirms carrying uncommitted changes onto the new branch. When a no-worktree agent is created
-with a blank name (`options.autoName`), the auto-generated placeholder prompt is used only as a
-branch hint and is **not** stored as the task, so the agent is identified by its branch (the
-sidebar falls back to the branch label when there's no task/displayName).
+shapes — existing path, `stayOnBranch`, `existingBranch` (legacy "launch on this branch"),
+PR checkout, the **no-worktree base-branch model**, or a fresh `WorktreeManager.createWorktree()`
+— then resolves the runtime via `getRuntimeById()`.
+
+**No-worktree base-branch model.** The agent's base branch is `options.baseBranch` (a branch
+picked in the New Agent form's Advanced section) or the project's base branch. With a blank name
+(`options.autoName`) the agent **works directly on that base branch** (`git checkout <base>`, no
+new branch) and is named after it. With a typed name it **cuts a new branch off the base**
+(`git checkout -b <slug> <base>`), asserting a clean tree first unless `options.allowDirtyWorktree`
+(the form confirms and sets it). Either way the base becomes the session's `baseBranch`
+(`session-creator.ts`), which `toPublicSession` carries so the session-scoped git handlers
+(diff/PR/ahead-behind) compare against it instead of the project base. The blank-name placeholder
+prompt is only a fallback and is never stored as the task, so the agent is identified by its branch
+(the sidebar falls back to the branch label when there's no task/displayName). No random-city
+branches are created for no-worktree agents.
 Chat-mode sessions created without a first message *defer* the runtime spawn (`deferRuntime`,
 `session-creator.ts:107`): the session exists in `waiting` status with `ptyId: ''` and no PTY;
 the first message later routes through `spawnPrintModeFollowUp`. Otherwise `PtyPool.spawn()`
