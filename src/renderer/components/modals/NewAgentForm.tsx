@@ -18,6 +18,7 @@ export function NewAgentForm({
   isGitProject,
   defaultRuntime,
   defaultAgentMode = 'interactive',
+  defaultUseWorktrees = true,
   onLaunch,
   existingSessions = [],
   onResumeSession,
@@ -31,6 +32,7 @@ export function NewAgentForm({
   isGitProject: boolean
   defaultRuntime: string
   defaultAgentMode?: AgentMode
+  defaultUseWorktrees?: boolean
   onLaunch: (options: SpawnAgentOptions) => Promise<unknown>
   existingSessions?: AgentSession[]
   onResumeSession?: (sessionId: string, runtimeId: string) => Promise<void>
@@ -39,6 +41,7 @@ export function NewAgentForm({
   compact?: boolean
 }): React.JSX.Element {
   const [mode, setMode] = useState<AgentMode>(defaultAgentMode)
+  const [worktreeEnabled, setWorktreeEnabled] = useState(defaultUseWorktrees)
   const [taskDescription, setTaskDescription] = useState('')
   const [runtimeId, setRuntimeId] = useState(defaultRuntime)
   const [loading, setLoading] = useState(false)
@@ -146,7 +149,7 @@ export function NewAgentForm({
         if (useExisting && existingSubTab === 'pr') {
           return { ...base, prIdentifier: String(selectedPr), noWorktree: true }
         }
-        return base
+        return worktreeEnabled ? base : { ...base, noWorktree: true }
       })()
 
       const finalOptions: SpawnAgentOptions = { ...launchOptions, nonInteractive: mode === 'chat' }
@@ -176,7 +179,7 @@ export function NewAgentForm({
         }
       }
     },
-    [useExisting, existingSubTab, projectId, runtimeId, taskDescription, selectedBranch, selectedPr, canSubmit, isGitProject, onLaunch, mode, defaultAgentMode]
+    [useExisting, existingSubTab, projectId, runtimeId, taskDescription, selectedBranch, selectedPr, canSubmit, isGitProject, onLaunch, mode, defaultAgentMode, worktreeEnabled]
   )
 
   const formStyle = { display: 'flex', flexDirection: 'column', gap: 'var(--space-lg)', width: 420, maxWidth: '90%' } as const

@@ -235,6 +235,19 @@ describe('NewAgentForm', () => {
     expect(options.existingBranch).toBeUndefined()
   })
 
+  it('creates an agent in place when defaultUseWorktrees is false (empty picker)', async () => {
+    const { props } = renderForm({ defaultUseWorktrees: false })
+    await waitFor(() => expect(mockInvoke).toHaveBeenCalledWith('runtimes:list'))
+
+    fireEvent.click(screen.getByText('Start Agent'))
+
+    await waitFor(() => expect(props.onLaunch).toHaveBeenCalled())
+    const options = props.onLaunch.mock.calls[0][0]
+    expect(options.noWorktree).toBe(true)
+    expect(options.existingBranch).toBeUndefined()
+    expect(options.stayOnBranch).toBeUndefined()
+  })
+
   it('selecting a branch works in place on it (existingBranch + noWorktree)', async () => {
     mockInvoke.mockImplementation((channel: string) => {
       if (channel === 'runtimes:list') {
