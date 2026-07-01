@@ -7,10 +7,12 @@ import { WorkspaceList } from './WorkspaceList'
 import { ProjectList } from './ProjectList'
 import { FavoritesList } from './FavoritesList'
 import { FilesGlyph } from './FilesGlyph'
+import { SourceControlGlyph } from './SourceControlGlyph'
 import { DockFileTree } from '../editor/file-tree/DockFileTree'
+import { SourceControl } from '../git/SourceControl'
 import { DockStateContext } from '../editor/editor-shell/dock-panel-types'
 
-type SidebarView = 'explorer' | 'repositories'
+type SidebarView = 'explorer' | 'sourceControl' | 'repositories'
 
 interface ProjectSidebarProps {
   projects: Project[]
@@ -128,6 +130,18 @@ export function ProjectSidebar({
           </button>
           <button
             type="button"
+            aria-label="Source Control"
+            aria-current={view === 'sourceControl' ? 'page' : undefined}
+            aria-pressed={view === 'sourceControl'}
+            title="Source Control"
+            onClick={() => setView('sourceControl')}
+            className={`sidebar-activity-icon${view === 'sourceControl' ? ' sidebar-activity-icon--active' : ''}`}
+            style={sidebarStyles.activityIcon}
+          >
+            <SourceControlGlyph />
+          </button>
+          <button
+            type="button"
             aria-label="Repositories"
             aria-current={view === 'repositories' ? 'page' : undefined}
             aria-pressed={view === 'repositories'}
@@ -188,6 +202,14 @@ export function ProjectSidebar({
             <DockFileTree />
           ) : (
             <div style={sidebarStyles.empty}>No folder open</div>
+          )}
+        </div>
+      ) : view === 'sourceControl' ? (
+        <div style={sidebarStyles.explorer}>
+          {dockState ? (
+            <SourceControl />
+          ) : (
+            <div style={sidebarStyles.empty}>No active repository</div>
           )}
         </div>
       ) : (

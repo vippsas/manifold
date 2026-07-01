@@ -140,18 +140,16 @@ describe('applyLayoutChangePreservingSidebarWidths', () => {
     api: { setConstraints: vi.fn() },
   })
 
-  it('pins sidebar widths in place (no fromJSON remount) across a structural change', () => {
+  it('pins the sidebar width in place (no fromJSON remount) across a structural change', () => {
     let layout = createWorkspaceLayout()
     const fromJSON = vi.fn((json: SerializedDockview) => { layout = json })
     const projectsGroup = makeGroup(200)
-    const filesGroup = makeGroup(200)
     const api = {
       width: 1000,
       toJSON: vi.fn(() => layout),
       fromJSON,
       getPanel: vi.fn((panelId: string) => {
         if (panelId === 'projects') return { group: projectsGroup }
-        if (panelId === 'modifiedFiles') return { group: filesGroup }
         return undefined
       }),
     } as unknown as DockviewApi
@@ -168,27 +166,23 @@ describe('applyLayoutChangePreservingSidebarWidths', () => {
     // serialized layout (which would remount every panel and flash xterm).
     expect(fromJSON).not.toHaveBeenCalled()
     expect(projectsGroup.api.setConstraints).toHaveBeenCalledWith({ minimumWidth: 200, maximumWidth: 200 })
-    expect(filesGroup.api.setConstraints).toHaveBeenCalledWith({ minimumWidth: 200, maximumWidth: 200 })
-    // Each pinned sidebar is then released back to free resize.
+    // The pinned sidebar is then released back to free resize.
     expect(projectsGroup.api.setConstraints).toHaveBeenLastCalledWith({ minimumWidth: 0, maximumWidth: Number.MAX_SAFE_INTEGER })
-    expect(filesGroup.api.setConstraints).toHaveBeenLastCalledWith({ minimumWidth: 0, maximumWidth: Number.MAX_SAFE_INTEGER })
   })
 
-  it('pins both sidebars before the structural mutation runs, not after', () => {
+  it('pins the sidebar before the structural mutation runs, not after', () => {
     // The fix: dockview only honours group constraints during the layout pass
-    // that addPanel/removePanel triggers, so the sidebars must already be
+    // that addPanel/removePanel triggers, so the sidebar must already be
     // pinned by the time applyChange runs. Pinning afterwards is a no-op and
-    // lets both sidebars drift (the reported bug).
+    // lets the sidebar drift (the reported bug).
     let layout = createWorkspaceLayout()
     const projectsGroup = makeGroup(200)
-    const filesGroup = makeGroup(200)
     const api = {
       width: 1000,
       toJSON: vi.fn(() => layout),
       fromJSON: vi.fn(),
       getPanel: vi.fn((panelId: string) => {
         if (panelId === 'projects') return { group: projectsGroup }
-        if (panelId === 'modifiedFiles') return { group: filesGroup }
         return undefined
       }),
     } as unknown as DockviewApi
@@ -196,19 +190,18 @@ describe('applyLayoutChangePreservingSidebarWidths', () => {
     const wasPinned = (group: typeof projectsGroup): boolean =>
       group.api.setConstraints.mock.calls.some(([c]) => c.maximumWidth === 200)
 
-    let pinnedDuringChange: [boolean, boolean] | undefined
+    let pinnedDuringChange: boolean | undefined
     applyLayoutChangePreservingSidebarWidths(api, () => {
-      pinnedDuringChange = [wasPinned(projectsGroup), wasPinned(filesGroup)]
+      pinnedDuringChange = wasPinned(projectsGroup)
       const next = createWorkspaceLayout(260, 490, 250)
       const root = next.grid.root as { type: 'branch'; data: Array<{ data: { views: string[] } }> }
       root.data[1].data.views = [...root.data[1].data.views, 'shell']
       layout = next
     })
 
-    expect(pinnedDuringChange).toEqual([true, true])
-    // Both sidebars are released again afterwards (free to resize).
+    expect(pinnedDuringChange).toBe(true)
+    // The sidebar is released again afterwards (free to resize).
     expect(projectsGroup.api.setConstraints).toHaveBeenLastCalledWith({ minimumWidth: 0, maximumWidth: Number.MAX_SAFE_INTEGER })
-    expect(filesGroup.api.setConstraints).toHaveBeenLastCalledWith({ minimumWidth: 0, maximumWidth: Number.MAX_SAFE_INTEGER })
   })
 })
 

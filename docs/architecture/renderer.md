@@ -50,18 +50,20 @@ panel set. `DockAppState` is published to every panel through `DockStateContext`
 Tab headers use `DockTab`; empty groups show `EmptyWatermark`; the left header-action slot
 hosts `LeftHeaderActions` (shell controls plus the agent group's "add agent on this
 worktree" button) and the right slot `RightHeaderActions` (workspace actions + sidebar
-collapse) (`components/editor/editor-shell/SidebarCollapseAction.tsx:66`, `:89`). Double-clicking a tab
+collapse) (`components/editor/editor-shell/SidebarCollapseAction.tsx:61`, `:84`). Double-clicking a tab
 toggles **focus mode**: `DockTab`'s `onDoubleClick` calls `onToggleMaximize` (`DockTab.tsx:31`), which
 maximizes that pane's group via dockview's native `maximizeGroup`/`exitMaximizedGroup`
-(`hooks/dock-layout/dock-layout-helpers.ts:243`) — hiding every other pane and both sidebars
+(`hooks/dock-layout/dock-layout-helpers.ts:240`) — hiding every other pane and the sidebar
 in place (no remount) and restoring them exactly on the second double-click. The default arrangement is
-`projects | agent | modifiedFiles` at a 1:4:1 width ratio
+`projects | agent` at a 1:5 width ratio
 (`hooks/dock-layout/dock-layout-builders.ts:8`). Saved layouts are sanitized before
-`api.fromJSON`; the sanitizer strips unsupported panels (including the retired
-`fileTree` panel, migrating older layouts to the `modifiedFiles`-anchored right sidebar)
-and caps restored `projects` / `modifiedFiles` sidebar columns, including stale stacked
-sidebar columns, to the same one-sixth share before the loader persists repaired snapshots
-(`hooks/dock-layout/dock-layout-sanitize.ts:91`, `:116`, `:174`; `hooks/dock-layout/dock-layout-loader.ts:51`).
+`api.fromJSON`; the sanitizer strips unsupported panels (including the retired `fileTree`
+and `modifiedFiles` panels, migrating older layouts away from a right sidebar) and caps
+the restored `projects` (left) sidebar column to a one-sixth share before the loader
+persists repaired snapshots
+(`hooks/dock-layout/dock-layout-sanitize.ts:84`, `:110`, `:143`; `hooks/dock-layout/dock-layout-loader.ts:51`).
+The sidebar gesture engine (`useSidebarHandleCycle`) stays side-agnostic, so a future
+right sidebar can slot back in.
 All add/remove/focus/split/resize logic lives in the `hooks/dock-layout/` subsystem behind
 `useDockLayout`, whose return value is the dock control surface consumed by `App`
 (`useDockLayout.ts:301`).
@@ -69,10 +71,9 @@ All add/remove/focus/split/resize logic lives in the `hooks/dock-layout/` subsys
 **The panel set.** Panel ids are fixed in `PANEL_IDS` with display titles in
 `PANEL_TITLES` (`hooks/dock-layout/dock-layout-helpers.ts:13`, `:18`):
 
-- `projects` → **Repositories** — `ProjectSidebar` (`components/sidebar/ProjectSidebar.tsx:92`) with a VS Code-style activity bar switching between an **Explorer** (default) and the **Repositories** view (repos, sessions, workspaces, drafts). The Explorer renders the workspace `FileTree` via `DockFileTree` (`components/editor/file-tree/DockFileTree.tsx`) over the active session's worktree + any additional dirs — this is the only file tree now that the standalone Files panel is retired. Change badges separate direct working-tree changes from branch-only ones: `mergeFileChanges` unions the base-branch diff (`useDiff`) with the live `git status` watcher feed and tags each path `worktreeDirty` by source (`useFileDiff.ts:4`). A dirty path renders the vivid A/M/D letter with a tinted name; a path that only differs vs the base branch (committed on the branch, clean in the worktree) renders a faint `○` with a plain name (`tree-node-row.tsx:71`, `:178`).
+- `projects` → **Repositories** — `ProjectSidebar` (`components/sidebar/ProjectSidebar.tsx:57`) with a VS Code-style activity bar switching between an **Explorer** (default), a **Source Control** view, and the **Repositories** view (repos, sessions, workspaces, drafts). The Explorer renders the workspace `FileTree` via `DockFileTree` (`components/editor/file-tree/DockFileTree.tsx`) over the active session's worktree + any additional dirs — this is the only file tree now that the standalone Files panel is retired. Change badges separate direct working-tree changes from branch-only ones: `mergeFileChanges` unions the base-branch diff (`useDiff`) with the live `git status` watcher feed and tags each path `worktreeDirty` by source (`useFileDiff.ts:4`). A dirty path renders the vivid A/M/D letter with a tinted name; a path that only differs vs the base branch (committed on the branch, clean in the worktree) renders a faint `○` with a plain name (`tree-node-row.tsx:71`, `:178`). The **Source Control** view (`components/git/SourceControl.tsx`) is the sole home for changes now that the right-side Modified Files panel is retired: an inline commit message box + Commit button (`DockAppState.onCommit` → `git:commit`, which stages everything, then refreshes the diff; `onAiGenerate` drafts a message from the current diff) over the `ModifiedFiles` change list.
 - `agent` → **Agent** — `AgentPanel` (`components/editor/editor-shell/dock-agent-panel.tsx:86`): renders a draft chat, an `OnboardingView` (no agent yet), an `AgentChatView` (non-interactive chat-mode), or an xterm `TerminalPane` (interactive runtime) depending on session state.
 - `editor` → **Editor** — `EditorPanel` wrapping `CodeViewer` (Monaco); split editors get ids prefixed `editor:` and each registers its own pane.
-- `modifiedFiles` → **Modified Files** — `ModifiedFiles` diff list, and the anchor of the right sidebar; files with `FileChange.foreignWorktree` (inherited because the base branch advanced) are grouped below a "from another worktree" separator, dimmed, with an origin tooltip.
 - `shell` → **Shell** — `ShellTabs` (worktree + project shell PTYs).
 - `pluginView` / `pluginTreeView` — webview hosts for plugin contributions (e.g. **Statistics**, the former Verdicts dashboard, now the `manifold.statistics` plugin).
 

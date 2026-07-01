@@ -76,25 +76,6 @@ describe('collapsed sidebar survives a toJSON/fromJSON reload', () => {
     expect(widthOf('modifiedFiles')).toBe(100)
   })
 
-  it('restoreCollapsedSidebarWidths keeps the right sidebar collapsed after reload', async () => {
-    const dv = await setupDock()
-    const widthOf = (panelId: string): number => dv.getPanel(panelId)?.group.api.width ?? -1
-
-    act(() => { collapseSidebar(dv, 'right') })
-    const saved = dv.toJSON()
-
-    act(() => {
-      dv.fromJSON(saved)
-      restoreCollapsedSidebarWidths(dv, saved)
-    })
-    wireOffsetWidth(dv, 'projects')
-    wireOffsetWidth(dv, 'modifiedFiles')
-
-    expect(widthOf('modifiedFiles')).toBe(0)
-    // The other sidebar is left untouched.
-    expect(widthOf('projects')).toBe(200)
-  })
-
   it('restoreCollapsedSidebarWidths keeps the left sidebar collapsed after reload', async () => {
     const dv = await setupDock()
     const widthOf = (panelId: string): number => dv.getPanel(panelId)?.group.api.width ?? -1

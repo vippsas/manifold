@@ -1,7 +1,6 @@
 import React from 'react'
 import { useFileDiff } from '../../../hooks/editor/useFileDiff'
 import { CodeViewer } from '../code-viewer/CodeViewer'
-import { ModifiedFiles } from '../../git/ModifiedFiles'
 import { ShellTabs } from '../../terminal/ShellTabs'
 import { ProjectSidebar } from '../../sidebar/ProjectSidebar'
 import { AgentPanel } from './dock-agent-panel'
@@ -16,7 +15,6 @@ export { DockStateContext } from './dock-panel-types'
 export const PANEL_COMPONENTS: Record<string, React.FC<any>> = {
   agent: AgentPanel,
   editor: EditorPanel,
-  modifiedFiles: ModifiedFilesPanel,
   shell: ShellPanel,
   projects: ProjectsPanel,
   pluginView: PluginViewPanel,
@@ -63,18 +61,6 @@ function EditorPanel({ api }: { api: { id: string } }): React.JSX.Element {
       onCloseOtherTabs={(filePath) => s.onCloseOtherFiles(filePath, paneId)}
       onCloseAllTabs={() => s.onCloseAllFiles(paneId)}
       onSaveFile={s.onSaveFile}
-    />
-  )
-}
-
-function ModifiedFilesPanel(): React.JSX.Element {
-  const s = useDockState()
-  return (
-    <ModifiedFiles
-      changes={s.changes}
-      activeFilePath={s.activeFilePath}
-      worktreeRoot={s.worktreeRoot ?? ''}
-      onSelectFile={s.onSelectFile}
     />
   )
 }

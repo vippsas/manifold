@@ -11,7 +11,7 @@ export {
   showPanelFromHints,
 } from './dock-layout-loader'
 
-export const PANEL_IDS = ['projects', 'agent', 'editor', 'modifiedFiles', 'shell'] as const
+export const PANEL_IDS = ['projects', 'agent', 'editor', 'shell'] as const
 export type DockPanelId = (typeof PANEL_IDS)[number]
 export const EDITOR_PANEL_ID_PREFIX = 'editor:'
 export type EditorSplitDirection = 'right' | 'below'
@@ -20,7 +20,6 @@ export const PANEL_TITLES: Record<DockPanelId, string> = {
   projects: 'Repositories',
   agent: 'Agent',
   editor: 'Editor',
-  modifiedFiles: 'Modified Files',
   shell: 'Shell',
 }
 
@@ -28,10 +27,9 @@ export type Direction = 'right' | 'left' | 'above' | 'below' | 'within'
 
 // Fallback positions when no snapshot exists (matches default layout).
 export const PANEL_RESTORE_HINTS: Record<DockPanelId, Array<{ ref: DockPanelId; dir: Direction }>> = {
-  projects: [{ ref: 'agent', dir: 'left' }, { ref: 'editor', dir: 'left' }, { ref: 'modifiedFiles', dir: 'left' }],
-  agent: [{ ref: 'editor', dir: 'left' }, { ref: 'projects', dir: 'right' }, { ref: 'modifiedFiles', dir: 'left' }, { ref: 'shell', dir: 'above' }],
+  projects: [{ ref: 'agent', dir: 'left' }, { ref: 'editor', dir: 'left' }],
+  agent: [{ ref: 'editor', dir: 'left' }, { ref: 'projects', dir: 'right' }, { ref: 'shell', dir: 'above' }],
   editor: [{ ref: 'agent', dir: 'right' }, { ref: 'shell', dir: 'above' }],
-  modifiedFiles: [{ ref: 'editor', dir: 'right' }, { ref: 'agent', dir: 'right' }],
   shell: [{ ref: 'agent', dir: 'below' }, { ref: 'editor', dir: 'below' }],
 }
 
@@ -68,8 +66,10 @@ export interface LayoutRefs {
 
 // ── Sidebar width helpers ─────────────────────────────────────────────
 
-/** Anchor panels that define the sidebars (protected from resize redistribution). */
-export const SIDEBAR_PANEL_IDS = new Set<string>(['projects', 'modifiedFiles'])
+/** Anchor panels that define the sidebars (protected from resize redistribution).
+ *  Only the left (projects) sidebar exists today; the gesture engine stays
+ *  side-agnostic so a future right sidebar can slot back in. */
+export const SIDEBAR_PANEL_IDS = new Set<string>(['projects'])
 
 /** Read a panel group's current pixel width (0 if unavailable). */
 function getPanelWidth(api: DockviewApi, panelId: string): number {
@@ -94,7 +94,7 @@ export function getSidebarWidth(api: DockviewApi): number {
   return getPanelWidth(api, 'projects')
 }
 
-const NON_WORKSPACE_PANEL_IDS = new Set<string>(['projects', 'modifiedFiles'])
+const NON_WORKSPACE_PANEL_IDS = new Set<string>(['projects'])
 
 export function findTopLeftWorkspaceReferencePanel(api: DockviewApi): string | null {
   const seenGroups = new Set<unknown>()
@@ -134,11 +134,12 @@ export function findTopLeftWorkspaceReferencePanel(api: DockviewApi): string | n
   return candidates[0]?.panelId ?? null
 }
 
-/** Capture both sidebar widths. */
+/** Capture sidebar widths. Only the left (projects) sidebar exists today; the
+ *  {left, right} shape is kept so the width-restore plumbing stays side-agnostic. */
 export function getSidebarWidths(api: DockviewApi): { left: number; right: number } {
   return {
     left: getPanelWidth(api, 'projects'),
-    right: getPanelWidth(api, 'modifiedFiles'),
+    right: 0,
   }
 }
 
@@ -172,7 +173,7 @@ export function restoreSidebarWidths(api: DockviewApi, widths: { left: number; r
   if (api.width <= 0) return
 
   const targets: Array<{ group: SidebarGroup; width: number }> = []
-  for (const [panelId, width] of [['projects', widths.left], ['modifiedFiles', widths.right]] as const) {
+  for (const [panelId, width] of [['projects', widths.left]] as const) {
     if (width <= 0) continue
     const group = sidebarGroup(api, panelId)
     if (!group) continue
@@ -327,7 +328,7 @@ function serializedSidebarWidth(layout: SerializedDockview, panelId: string): nu
  * right after fromJSON, before the layout is captured as the current state.
  */
 export function restoreCollapsedSidebarWidths(api: DockviewApi, saved: SerializedDockview): void {
-  for (const [side, panelId] of [['left', 'projects'], ['right', 'modifiedFiles']] as const) {
+  for (const [side, panelId] of [['left', 'projects']] as const) {
     const width = serializedSidebarWidth(saved, panelId)
     if (width === undefined || width >= DOCKVIEW_DEFAULT_GROUP_MIN_WIDTH) continue
     applySidebarWidth(api, side, Math.max(0, Math.round(width)))

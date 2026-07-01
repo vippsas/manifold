@@ -68,6 +68,12 @@ export interface DockAppState {
   onToggleExpand: (path: string) => void
   // ModifiedFiles
   worktreeRoot: string | null
+  // Source Control (git changes sidebar view): commit the working tree with a
+  // message (stages everything, like git:commit) then refresh the diff. Distinct
+  // from the modal commit flow — it does not chain into the PR step. onAiGenerate
+  // drafts a message from a prompt the view builds out of the current diff.
+  onCommit: (message: string) => Promise<void>
+  onAiGenerate: (prompt: string) => Promise<string>
   // Shell
   worktreeShellSessionId: string | null
   projectShellSessionId: string | null

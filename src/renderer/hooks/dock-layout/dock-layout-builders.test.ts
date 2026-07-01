@@ -12,7 +12,7 @@ function createApi() {
   const toJSON = vi.fn(() => ({
     grid: {
       root: {
-        data: [{ size: 1 }, { size: 4 }, { size: 1 }],
+        data: [{ size: 1 }, { size: 5 }],
       },
     },
   }))
@@ -37,17 +37,26 @@ describe('applyDefaultLayout', () => {
     expect(addPanel).not.toHaveBeenCalledWith(expect.objectContaining({ id: 'editor' }))
   })
 
-  it('positions the modified files panel beside the agent panel', () => {
+  it('positions the agent panel beside the projects sidebar', () => {
     const { api, addPanel } = createApi()
 
     applyDefaultLayout(api as never)
 
     expect(addPanel).toHaveBeenCalledWith({
-      id: 'modifiedFiles',
-      component: 'modifiedFiles',
-      title: 'Modified Files',
-      position: { referencePanel: 'agent', direction: 'right' },
+      id: 'agent',
+      component: 'agent',
+      title: 'Agent',
+      position: { referencePanel: expect.objectContaining({ id: 'projects' }), direction: 'right' },
     })
+  })
+
+  it('does not add a modified files panel — changes live in the Source Control view', () => {
+    const { api, addPanel } = createApi()
+
+    applyDefaultLayout(api as never)
+
+    const addedIds = addPanel.mock.calls.map((call) => call[0].id)
+    expect(addedIds).not.toContain('modifiedFiles')
   })
 
   it('adds only the core panels — launcher modules are opened on demand', () => {
@@ -59,6 +68,6 @@ describe('applyDefaultLayout', () => {
     expect(addedIds).not.toContain('loop')
     expect(addedIds).not.toContain('verdicts')
     expect(addedIds).not.toContain('watch')
-    expect(addedIds).toEqual(expect.arrayContaining(['projects', 'agent', 'modifiedFiles']))
+    expect(addedIds).toEqual(expect.arrayContaining(['projects', 'agent']))
   })
 })

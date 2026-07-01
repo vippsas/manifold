@@ -113,19 +113,15 @@ function ModifiedFileRow({
       }}
       title={foreign ? `${change.path} \u2014 changed in another worktree (base advanced)` : change.path}
     >
-      <span style={{ ...styles.indicator, color: indicator.color, ...(foreign ? styles.indicatorForeign : undefined) }}>
-        {foreign ? '\u25CB' : '\u25CF'}
-      </span>
-      <div style={styles.fileInfo}>
-        <span className="truncate" style={styles.filename}>
-          {filename}
+      <span style={styles.filename}>{filename}</span>
+      {dir && (
+        <span className="truncate" style={styles.dir}>
+          {dir}
         </span>
-        {dir && (
-          <span className="truncate" style={styles.dir}>
-            {dir}
-          </span>
-        )}
-      </div>
+      )}
+      <span style={{ ...styles.status, color: indicator.color, ...(foreign ? styles.indicatorForeign : undefined) }}>
+        {indicator.label}
+      </span>
     </div>
   )
 }
@@ -163,7 +159,7 @@ const styles: Record<string, React.CSSProperties> = {
   list: {
     flex: 1,
     overflowY: 'auto' as const,
-    padding: '4px 0',
+    padding: '2px 0',
   },
   empty: {
     display: 'flex',
@@ -177,10 +173,10 @@ const styles: Record<string, React.CSSProperties> = {
     display: 'flex',
     alignItems: 'center',
     gap: '6px',
-    padding: '2px 8px',
+    padding: '1px 10px',
     cursor: 'pointer',
-    fontSize: '12px',
-    lineHeight: '16px',
+    fontSize: '13px',
+    lineHeight: '22px',
     color: 'var(--text-primary)',
   },
   rowActive: {
@@ -209,26 +205,23 @@ const styles: Record<string, React.CSSProperties> = {
     color: 'var(--text-muted)',
     whiteSpace: 'nowrap' as const,
   },
-  indicator: {
-    flexShrink: 0,
-    fontSize: '8px',
-  },
   indicatorForeign: {
     opacity: 0.55,
   },
-  fileInfo: {
-    display: 'flex',
-    flexDirection: 'column' as const,
-    minWidth: 0,
-    flex: 1,
-  },
   filename: {
-    fontFamily: 'var(--font-mono)',
-    fontSize: '12px',
+    flexShrink: 0,
+    whiteSpace: 'nowrap' as const,
   },
   dir: {
-    fontFamily: 'var(--font-mono)',
-    fontSize: '10px',
+    flex: 1,
+    minWidth: 0,
+    fontSize: '12px',
     color: 'var(--text-muted)',
+  },
+  status: {
+    flexShrink: 0,
+    marginLeft: 'auto',
+    fontWeight: 600,
+    fontSize: '12px',
   },
 }

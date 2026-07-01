@@ -15,7 +15,7 @@ describe('sanitizeDockLayout', () => {
               size: 320,
               data: {
                 id: 'sidebar',
-                views: ['modifiedFiles', 'memory'],
+                views: ['projects', 'memory'],
                 activeView: 'memory',
               },
             },
@@ -32,7 +32,7 @@ describe('sanitizeDockLayout', () => {
         },
       },
       panels: {
-        modifiedFiles: {},
+        projects: {},
         memory: {},
         agent: {},
         shell: {},
@@ -47,8 +47,41 @@ describe('sanitizeDockLayout', () => {
 
     expect(sanitized).not.toBeNull()
     expect(Object.keys(sanitized.panels)).not.toContain('memory')
-    expect(sidebar.data.views).toEqual(['modifiedFiles'])
-    expect(sidebar.data.activeView).toBe('modifiedFiles')
+    expect(sidebar.data.views).toEqual(['projects'])
+    expect(sidebar.data.activeView).toBe('projects')
+  })
+
+  it('removes the retired modified files panel from saved layouts', () => {
+    const saved = {
+      grid: {
+        root: {
+          type: 'branch',
+          size: 1000,
+          data: [
+            {
+              type: 'leaf',
+              size: 320,
+              data: { id: 'sidebar', views: ['projects'], activeView: 'projects' },
+            },
+            {
+              type: 'leaf',
+              size: 680,
+              data: { id: 'workspace', views: ['agent', 'modifiedFiles'], activeView: 'modifiedFiles' },
+            },
+          ],
+        },
+      },
+      panels: {
+        projects: {},
+        agent: {},
+        modifiedFiles: {},
+      },
+    } as unknown as SerializedDockview
+
+    const sanitized = sanitizeDockLayout(saved) as SerializedDockview
+
+    expect(sanitized).not.toBeNull()
+    expect(Object.keys(sanitized.panels)).not.toContain('modifiedFiles')
   })
 
   it('returns null when the saved layout only contains retired panels', () => {
@@ -346,7 +379,7 @@ describe('sanitizeDockLayout', () => {
     expect(Object.keys(sanitized.panels)).toEqual(['agent'])
   })
 
-  it('caps stale restored sidebar widths at the default one-sixth share', () => {
+  it('caps the stale restored left sidebar width at the default one-sixth share', () => {
     const saved = {
       grid: {
         width: 1800,
@@ -363,13 +396,8 @@ describe('sanitizeDockLayout', () => {
             },
             {
               type: 'leaf',
-              size: 600,
+              size: 1200,
               data: { id: 'agent', views: ['agent'], activeView: 'agent' },
-            },
-            {
-              type: 'leaf',
-              size: 600,
-              data: { id: 'files', views: ['modifiedFiles'], activeView: 'modifiedFiles' },
             },
           ],
         },
@@ -377,7 +405,6 @@ describe('sanitizeDockLayout', () => {
       panels: {
         projects: {},
         agent: {},
-        modifiedFiles: {},
       },
     } as unknown as SerializedDockview
 
@@ -388,10 +415,10 @@ describe('sanitizeDockLayout', () => {
     }).data
 
     expect(sanitized).not.toBe(saved)
-    expect(children.map((child) => child.size)).toEqual([300, 1200, 300])
+    expect(children.map((child) => child.size)).toEqual([300, 1500])
   })
 
-  it('returns freed sidebar width to existing workspace panes proportionally', () => {
+  it('returns freed left sidebar width to existing workspace panes proportionally', () => {
     const saved = {
       grid: {
         width: 1800,
@@ -408,19 +435,14 @@ describe('sanitizeDockLayout', () => {
             },
             {
               type: 'leaf',
-              size: 300,
+              size: 600,
               data: { id: 'agent', views: ['agent'], activeView: 'agent' },
             },
             {
               type: 'leaf',
-              size: 300,
+              size: 600,
               data: { id: 'editor', views: ['editor'], activeView: 'editor' },
             },
-            {
-              type: 'leaf',
-              size: 600,
-              data: { id: 'files', views: ['modifiedFiles'], activeView: 'modifiedFiles' },
-            },
           ],
         },
       },
@@ -428,7 +450,6 @@ describe('sanitizeDockLayout', () => {
         projects: {},
         agent: {},
         editor: {},
-        modifiedFiles: {},
       },
     } as unknown as SerializedDockview
 
@@ -438,73 +459,7 @@ describe('sanitizeDockLayout', () => {
       data: Array<{ size: number }>
     }).data
 
-    expect(children.map((child) => child.size)).toEqual([300, 600, 600, 300])
-  })
-
-  it('caps stale restored stacked sidebar columns at the default one-sixth share', () => {
-    const saved = {
-      grid: {
-        width: 1800,
-        height: 1074,
-        orientation: 'VERTICAL',
-        root: {
-          type: 'branch',
-          size: 1800,
-          data: [
-            {
-              type: 'branch',
-              size: 1074,
-              data: [
-                {
-                  type: 'branch',
-                  size: 600,
-                  data: [
-                    {
-                      type: 'leaf',
-                      size: 537,
-                      data: { id: 'projects', views: ['projects'], activeView: 'projects' },
-                    },
-                    {
-                      type: 'leaf',
-                      size: 537,
-                      data: { id: 'files', views: ['modifiedFiles'], activeView: 'modifiedFiles' },
-                    },
-                  ],
-                },
-                {
-                  type: 'leaf',
-                  size: 600,
-                  data: { id: 'agent', views: ['agent'], activeView: 'agent' },
-                },
-                {
-                  type: 'leaf',
-                  size: 600,
-                  data: { id: 'editor', views: ['editor'], activeView: 'editor' },
-                },
-              ],
-            },
-          ],
-        },
-      },
-      panels: {
-        projects: {},
-        agent: {},
-        editor: {},
-        modifiedFiles: {},
-      },
-    } as unknown as SerializedDockview
-
-    const sanitized = sanitizeDockLayout(saved) as SerializedDockview
-    const workspaceRow = ((sanitized.grid.root as {
-      type: 'branch'
-      data: Array<{
-        type: 'branch'
-        data: Array<{ size: number }>
-      }>
-    }).data[0])
-
-    expect(sanitized).not.toBe(saved)
-    expect(workspaceRow.data.map((child) => child.size)).toEqual([300, 750, 750])
+    expect(children.map((child) => child.size)).toEqual([300, 750, 750])
   })
 
   it('preserves restored sidebar widths that are not over the default cap', () => {
@@ -524,13 +479,8 @@ describe('sanitizeDockLayout', () => {
             },
             {
               type: 'leaf',
-              size: 1320,
+              size: 1560,
               data: { id: 'agent', views: ['agent'], activeView: 'agent' },
-            },
-            {
-              type: 'leaf',
-              size: 240,
-              data: { id: 'files', views: ['modifiedFiles'], activeView: 'modifiedFiles' },
             },
           ],
         },
@@ -538,7 +488,6 @@ describe('sanitizeDockLayout', () => {
       panels: {
         projects: {},
         agent: {},
-        modifiedFiles: {},
       },
     } as unknown as SerializedDockview
 

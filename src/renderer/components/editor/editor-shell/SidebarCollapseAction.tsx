@@ -47,16 +47,11 @@ export function SidebarCollapseAction({
   )
 }
 
-/** Prefix header-action slot (rendered *before* the tabs): the right sidebar's
- *  collapse button, which sits at that sidebar's inner edge next to the
- *  center pane. The left slot can't be used — dockview renders it after the tabs,
- *  which would push the button to the sidebar's outer edge. */
-export function PrefixHeaderActions(props: IDockviewHeaderActionsProps): React.JSX.Element {
-  return (
-    <div style={{ display: 'flex', alignItems: 'center' }}>
-      <SidebarCollapseAction side="right" panels={props.panels} />
-    </div>
-  )
+/** Prefix header-action slot (rendered *before* the tabs). Reserved for a right
+ *  sidebar's inner-edge collapse button; empty today since Source Control moved
+ *  to the left activity bar and no panel occupies the right sidebar. */
+export function PrefixHeaderActions(_props: IDockviewHeaderActionsProps): React.JSX.Element {
+  return <div style={{ display: 'flex', alignItems: 'center' }} />
 }
 
 /** Left header-action slot (rendered right after the tabs): the shell controls

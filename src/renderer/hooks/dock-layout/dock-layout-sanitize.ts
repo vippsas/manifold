@@ -2,13 +2,11 @@ import type { SerializedDockview } from 'dockview'
 import { isSiblingPanelId, parseSiblingSessionId } from '../agent-session/agent-siblings'
 import { PANEL_IDS, isEditorPanelId, type DockPanelId, type GridNode } from './dock-layout-helpers'
 
-const RETIRED_PANEL_IDS = new Set(['memory', 'webPreview', 'search', 'loop', 'backgroundAgent', 'fileTree'])
+const RETIRED_PANEL_IDS = new Set(['memory', 'webPreview', 'search', 'loop', 'backgroundAgent', 'fileTree', 'modifiedFiles'])
 const SUPPORTED_OPTIONAL_PANEL_IDS = new Set<string>()
 const PLUGIN_PANEL_COMPONENTS = new Set(['pluginView', 'pluginTreeView'])
 const RESTORED_SIDEBAR_MAX_FRACTION = 1 / 6
 const LEFT_SIDEBAR_PANEL_IDS = new Set<string>(['projects'])
-const RIGHT_SIDEBAR_PANEL_IDS = new Set<string>(['modifiedFiles'])
-const STACKED_SIDEBAR_PANEL_IDS = new Set<string>(['projects', 'modifiedFiles'])
 
 type GridOrientation = 'HORIZONTAL' | 'VERTICAL'
 
@@ -88,13 +86,6 @@ function isSidebarSubtree(node: GridNode, requiredPanelId: string, allowedPanelI
   return panelIds.includes(requiredPanelId) && panelIds.every((panelId) => allowedPanelIds.has(panelId))
 }
 
-function isStackedSidebarSubtree(node: GridNode): boolean {
-  const panelIds = nodePanelIds(node)
-  return panelIds.includes('projects')
-    && panelIds.includes('modifiedFiles')
-    && panelIds.every((panelId) => STACKED_SIDEBAR_PANEL_IDS.has(panelId))
-}
-
 function distributeFreedSize(branch: Extract<GridNode, { type: 'branch' }>, workspaceIndexes: number[], freedSize: number): void {
   const workspaceTotal = workspaceIndexes.reduce((total, index) => total + Math.max(0, branch.data[index].size), 0)
   if (workspaceTotal <= 0) {
@@ -113,49 +104,27 @@ function distributeFreedSize(branch: Extract<GridNode, { type: 'branch' }>, work
   })
 }
 
+// Cap the left (projects) sidebar to at most 1/6 of its branch on restore, so a
+// layout saved with an oversized sidebar reopens sensibly. The freed width goes
+// to the sibling workspace panes. Only the left sidebar exists today.
 function capSidebarWidthsInBranch(branch: Extract<GridNode, { type: 'branch' }>): boolean {
-  const stackedIndex = branch.data.findIndex(isStackedSidebarSubtree)
-  if (stackedIndex >= 0) {
-    const workspaceIndexes = branch.data
-      .map((_, index) => index)
-      .filter((index) => index !== stackedIndex)
-    if (workspaceIndexes.length === 0) return false
-
-    const total = branch.data.reduce((sum, child) => sum + Math.max(0, child.size), 0)
-    if (total <= 0) return false
-
-    const maxSidebarSize = Math.round(total * RESTORED_SIDEBAR_MAX_FRACTION)
-    const sidebar = branch.data[stackedIndex]
-    if (sidebar.size <= maxSidebarSize) return false
-
-    const freedSize = sidebar.size - maxSidebarSize
-    sidebar.size = maxSidebarSize
-    distributeFreedSize(branch, workspaceIndexes, freedSize)
-    return true
-  }
-
   const leftIndex = branch.data.findIndex((child) => isSidebarSubtree(child, 'projects', LEFT_SIDEBAR_PANEL_IDS))
-  const rightIndex = branch.data.findIndex((child) => isSidebarSubtree(child, 'modifiedFiles', RIGHT_SIDEBAR_PANEL_IDS))
-  if (leftIndex < 0 || rightIndex < 0 || leftIndex === rightIndex) return false
+  if (leftIndex < 0) return false
 
   const workspaceIndexes = branch.data
     .map((_, index) => index)
-    .filter((index) => index !== leftIndex && index !== rightIndex)
+    .filter((index) => index !== leftIndex)
   if (workspaceIndexes.length === 0) return false
 
   const total = branch.data.reduce((sum, child) => sum + Math.max(0, child.size), 0)
   if (total <= 0) return false
 
   const maxSidebarSize = Math.round(total * RESTORED_SIDEBAR_MAX_FRACTION)
-  let freedSize = 0
-  for (const index of [leftIndex, rightIndex]) {
-    const child = branch.data[index]
-    if (child.size <= maxSidebarSize) continue
-    freedSize += child.size - maxSidebarSize
-    child.size = maxSidebarSize
-  }
+  const sidebar = branch.data[leftIndex]
+  if (sidebar.size <= maxSidebarSize) return false
 
-  if (freedSize <= 0) return false
+  const freedSize = sidebar.size - maxSidebarSize
+  sidebar.size = maxSidebarSize
   distributeFreedSize(branch, workspaceIndexes, freedSize)
   return true
 }

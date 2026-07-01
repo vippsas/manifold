@@ -287,6 +287,8 @@ export function App(): React.JSX.Element {
     worktreeRootPath: tree?.path ?? undefined, tree, additionalTrees, additionalBranches, rootLabels,
     primaryBranch: activeSession?.branchName ?? null, changes: mergedChanges,
     expandedPaths: viewState.expandedPaths, onToggleExpand: viewState.onToggleExpand, worktreeRoot: tree?.path ?? null,
+    onCommit: async (message: string) => { await gitOps.commit(message); void refreshDiff() },
+    onAiGenerate: gitOps.aiGenerate,
     worktreeShellSessionId: worktreeSessionId, projectShellSessionId: projectSessionId,
     worktreeCwd: worktreeShellCwd,
     baseBranch, activeProjectIsGit,

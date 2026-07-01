@@ -3,10 +3,14 @@ import { describe, expect, it } from 'vitest'
 import { PANEL_COMPONENTS } from './dock-panels'
 
 describe('PANEL_COMPONENTS module entries', () => {
-  it('still includes the five core panels', () => {
-    for (const id of ['agent', 'editor', 'modifiedFiles', 'shell', 'projects']) {
+  it('still includes the four core panels', () => {
+    for (const id of ['agent', 'editor', 'shell', 'projects']) {
       expect(typeof PANEL_COMPONENTS[id]).toBe('function')
     }
+  })
+
+  it('no longer registers the retired modified files panel', () => {
+    expect(PANEL_COMPONENTS.modifiedFiles).toBeUndefined()
   })
 
   it('includes the plugin webview host components', () => {
