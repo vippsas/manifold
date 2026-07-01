@@ -187,10 +187,12 @@ export function NewAgentForm({
           autoName,
         }
 
-        // Selecting a branch or PR works in place on it (no worktree);
-        // leaving the picker empty creates a new worktree from the base branch.
+        // A selected branch becomes the agent's base branch (no worktree): with no
+        // typed name the agent works directly on it, a typed name cuts a new branch
+        // off it, and its diffs/PR compare against it. A PR still checks out the PR
+        // branch. Empty picker + worktree off = base off the project's base branch.
         if (useExisting && existingSubTab === 'branch') {
-          return { ...base, existingBranch: selectedBranch, noWorktree: true }
+          return { ...base, baseBranch: selectedBranch, noWorktree: true }
         }
         if (useExisting && existingSubTab === 'pr') {
           return { ...base, prIdentifier: String(selectedPr), noWorktree: true }
@@ -209,11 +211,13 @@ export function NewAgentForm({
         })
       }
 
-      // A no-worktree new-branch spawn switches the project's real working copy
-      // to a new branch. If it has uncommitted changes, confirm before carrying
-      // them along (existing-branch/PR checkouts already tolerate a dirty tree).
-      const isNewBranchInPlace = isGitProject && runWithoutWorktree && !useExisting
-      if (isNewBranchInPlace) {
+      // Cutting a new in-place branch (a typed name, no-worktree, off the base or a
+      // selected branch) switches the working copy to it. If the tree is dirty,
+      // confirm before carrying the changes along. Working directly on a branch
+      // (no typed name) or a PR checkout tolerates a dirty tree, so no prompt.
+      const willCutNewBranch = isGitProject && !autoName
+        && (runWithoutWorktree || (useExisting && existingSubTab === 'branch'))
+      if (willCutNewBranch) {
         setLoading(true)
         let dirty = false
         try {

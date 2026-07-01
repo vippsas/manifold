@@ -6,6 +6,12 @@ import { getRuntimeById } from '../agent/runtimes'
 import type { IpcDependencies } from './types'
 import { resolveSession } from './types'
 
+/** The base branch to diff/PR/compare against: the session's own base branch
+ *  (e.g. a no-worktree agent based off a selected branch) or the project's. */
+function baseBranchFor(session: { baseBranch?: string }, project: { baseBranch: string }): string {
+  return session.baseBranch || project.baseBranch
+}
+
 export function registerDiffHandler(deps: IpcDependencies): void {
   const { sessionManager, projectRegistry, diffProvider } = deps
 
@@ -18,9 +24,10 @@ export function registerDiffHandler(deps: IpcDependencies): void {
     if (!project) throw new Error(`Project not found: ${session.projectId}`)
     if (!isGitProject(project)) return { diff: '', changedFiles: [] }
 
+    const base = baseBranchFor(session, project)
     const [diff, changedFiles] = await Promise.all([
-      diffProvider.getDiff(session.worktreePath, project.baseBranch),
-      diffProvider.getChangedFiles(session.worktreePath, project.baseBranch)
+      diffProvider.getDiff(session.worktreePath, base),
+      diffProvider.getChangedFiles(session.worktreePath, base)
     ])
 
     return { diff, changedFiles }
@@ -33,7 +40,7 @@ export function registerDiffHandler(deps: IpcDependencies): void {
     if (!project) throw new Error(`Project not found: ${session.projectId}`)
     if (!isGitProject(project)) return ''
 
-    return diffProvider.getOriginalContent(session.worktreePath, project.baseBranch, relativePath)
+    return diffProvider.getOriginalContent(session.worktreePath, baseBranchFor(session, project), relativePath)
   })
 }
 
@@ -50,7 +57,7 @@ export function registerPrHandler(deps: IpcDependencies): void {
     const url = await prCreator.createPR(session.worktreePath, session.branchName, {
       title: options.title,
       body: options.body,
-      baseBranch: project.baseBranch
+      baseBranch: baseBranchFor(session, project)
     })
 
     verdictRecorder?.onPrCreated(options.sessionId, url)
@@ -82,7 +89,7 @@ export function registerGitHandlers(deps: IpcDependencies): void {
     const project = projectRegistry.getProject(session.projectId)
     if (!project) throw new Error(`Project not found: ${session.projectId}`)
     if (!isGitProject(project)) return { ahead: 0, behind: 0 }
-    return gitOps.getAheadBehind(session.worktreePath, project.baseBranch)
+    return gitOps.getAheadBehind(session.worktreePath, baseBranchFor(session, project))
   })
 
   ipcMain.handle('git:resolve-conflict', async (_event, sessionId: string, filePath: string, resolvedContent: string) => {
@@ -94,7 +101,7 @@ export function registerGitHandlers(deps: IpcDependencies): void {
     const project = projectRegistry.getProject(session.projectId)
     if (!project) throw new Error(`Project not found: ${session.projectId}`)
     if (!isGitProject(project)) return { commits: '', diffStat: '', diffPatch: '' }
-    return gitOps.getPRContext(session.worktreePath, project.baseBranch)
+    return gitOps.getPRContext(session.worktreePath, baseBranchFor(session, project))
   })
 
   ipcMain.handle('git:fetch', async (_event, projectId: string): Promise<FetchResult> => {

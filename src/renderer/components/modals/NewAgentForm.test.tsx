@@ -326,6 +326,11 @@ describe('NewAgentForm', () => {
     const { props } = renderForm({ defaultUseWorktrees: false })
     await waitFor(() => expect(mockInvoke).toHaveBeenCalledWith('runtimes:list'))
 
+    // A typed name cuts a new branch off the base, which is the case that needs
+    // the clean-tree confirmation (working directly on the base tolerates dirt).
+    fireEvent.change(screen.getByPlaceholderText('Agent name (optional), e.g. Dark mode toggle'), {
+      target: { value: 'New parser' },
+    })
     fireEvent.click(screen.getByText('Start Agent'))
 
     // Dialog appears; nothing launched yet.
@@ -346,6 +351,9 @@ describe('NewAgentForm', () => {
     const { props } = renderForm({ defaultUseWorktrees: false })
     await waitFor(() => expect(mockInvoke).toHaveBeenCalledWith('runtimes:list'))
 
+    fireEvent.change(screen.getByPlaceholderText('Agent name (optional), e.g. Dark mode toggle'), {
+      target: { value: 'New parser' },
+    })
     fireEvent.click(screen.getByText('Start Agent'))
     await waitFor(() => expect(screen.getByText('Continue')).toBeTruthy())
 
@@ -412,7 +420,7 @@ describe('NewAgentForm', () => {
     })
   })
 
-  it('selecting a branch works in place on it (existingBranch + noWorktree)', async () => {
+  it('selecting a branch sets it as the base branch (baseBranch + noWorktree)', async () => {
     mockInvoke.mockImplementation((channel: string) => {
       if (channel === 'runtimes:list') {
         return Promise.resolve([{ id: 'claude', name: 'Claude Code', binary: 'claude', installed: true }])
@@ -434,7 +442,7 @@ describe('NewAgentForm', () => {
 
     await waitFor(() => {
       expect(props.onLaunch).toHaveBeenCalledWith(
-        expect.objectContaining({ existingBranch: 'feature-x', noWorktree: true }),
+        expect.objectContaining({ baseBranch: 'feature-x', noWorktree: true }),
       )
     })
   })
@@ -458,7 +466,7 @@ describe('NewAgentForm', () => {
 
     await waitFor(() => {
       expect(props.onLaunch).toHaveBeenCalledWith(
-        expect.objectContaining({ existingBranch: 'main', noWorktree: true }),
+        expect.objectContaining({ baseBranch: 'main', noWorktree: true }),
       )
     })
   })

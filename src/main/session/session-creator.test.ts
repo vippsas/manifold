@@ -147,15 +147,43 @@ describe('SessionCreator', () => {
     })
 
     expect(gitExec).toHaveBeenCalledWith(['status', '--porcelain'], '/repo')
-    expect(gitExec).toHaveBeenCalledWith(['checkout', '-b', 'feature-inplace'], '/repo')
+    // A typed name cuts a new branch off the base branch (project base 'main').
+    expect(gitExec).toHaveBeenCalledWith(['checkout', '-b', 'feature-inplace', 'main'], '/repo')
     expect(session.branchName).toBe('feature-inplace')
+    expect(session.baseBranch).toBe('main')
     expect(session.worktreePath).toBe('/repo')
     expect(session.noWorktree).toBe(true)
     expect(readWorktreeMeta).not.toHaveBeenCalled()
     expect(writeWorktreeMeta).not.toHaveBeenCalled()
   })
 
-  it('names a no-worktree agent after its branch (no task) when autoName is set', async () => {
+  it('works directly on the base branch (no new branch, no task) when autoName is set', async () => {
+    const creator = new SessionCreator(
+      {} as WorktreeManager,
+      createPtyPool(),
+      createProjectRegistry(),
+      createStreamWirer(),
+      () => null,
+    )
+
+    const session = await creator.create({
+      projectId: 'proj-1',
+      runtimeId: 'codex',
+      prompt: 'Oslo', // auto-generated placeholder, ignored
+      noWorktree: true,
+      autoName: true,
+    })
+
+    // No typed name → check out the base branch directly (no `-b`), name = base,
+    // no random-city task, and the base branch is the session's diff/PR base.
+    expect(gitExec).toHaveBeenCalledWith(['checkout', 'main'], '/repo')
+    expect(gitExec).not.toHaveBeenCalledWith(['status', '--porcelain'], '/repo')
+    expect(session.branchName).toBe('main')
+    expect(session.baseBranch).toBe('main')
+    expect(session.taskDescription).toBeUndefined()
+  })
+
+  it('cuts a new branch off a selected base branch and uses it as the session base', async () => {
     vi.mocked(gitExec).mockResolvedValueOnce('') // assertCleanWorkingTree: clean tree
     const creator = new SessionCreator(
       {} as WorktreeManager,
@@ -168,16 +196,15 @@ describe('SessionCreator', () => {
     const session = await creator.create({
       projectId: 'proj-1',
       runtimeId: 'codex',
-      prompt: 'Oslo', // the auto-generated city (branch hint only)
-      branchName: 'feature-branch',
+      prompt: 'my feature',
+      branchName: 'feature-x',
+      baseBranch: 'develop', // selected in the New Agent form
       noWorktree: true,
-      autoName: true,
     })
 
-    // The random-city prompt must not become the agent's task/label; the branch
-    // is the name (sidebar shows the branch when there's no displayName/task).
-    expect(session.taskDescription).toBeUndefined()
-    expect(session.branchName).toBe('feature-branch')
+    expect(gitExec).toHaveBeenCalledWith(['checkout', '-b', 'feature-x', 'develop'], '/repo')
+    expect(session.branchName).toBe('feature-x')
+    expect(session.baseBranch).toBe('develop')
   })
 
   it('keeps the prompt as the task for a worktree agent even with autoName', async () => {
@@ -224,7 +251,7 @@ describe('SessionCreator', () => {
     })
 
     expect(gitExec).not.toHaveBeenCalledWith(['status', '--porcelain'], '/repo')
-    expect(gitExec).toHaveBeenCalledWith(['checkout', '-b', 'feature-dirty'], '/repo')
+    expect(gitExec).toHaveBeenCalledWith(['checkout', '-b', 'feature-dirty', 'main'], '/repo')
     expect(session.branchName).toBe('feature-dirty')
     expect(session.noWorktree).toBe(true)
   })
