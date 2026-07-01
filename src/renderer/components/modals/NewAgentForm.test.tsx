@@ -248,6 +248,21 @@ describe('NewAgentForm', () => {
     expect(options.stayOnBranch).toBeUndefined()
   })
 
+  it('sends noWorktree when the worktree checkbox is unchecked', async () => {
+    const { props } = renderForm()
+    await waitFor(() => expect(mockInvoke).toHaveBeenCalledWith('runtimes:list'))
+
+    fireEvent.click(screen.getByText(/Advanced/))
+    fireEvent.click(screen.getByLabelText('Use an isolated worktree'))
+    fireEvent.click(screen.getByText('Start Agent'))
+
+    await waitFor(() => {
+      expect(props.onLaunch).toHaveBeenCalledWith(
+        expect.objectContaining({ noWorktree: true }),
+      )
+    })
+  })
+
   it('selecting a branch works in place on it (existingBranch + noWorktree)', async () => {
     mockInvoke.mockImplementation((channel: string) => {
       if (channel === 'runtimes:list') {

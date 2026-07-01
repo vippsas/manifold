@@ -240,6 +240,8 @@ export function NewAgentForm({
       {showAdvanced && (
         <NewAgentAdvanced
           isGitProject={isGitProject}
+          worktreeEnabled={worktreeEnabled}
+          setWorktreeEnabled={setWorktreeEnabled}
           runtimeId={runtimeId}
           runtimes={runtimes}
           setRuntimeId={setRuntimeId}
