@@ -61,9 +61,10 @@ Examples: `settings:changed` is broadcast to all live windows after `settings:up
 
 **Delegation, not logic.** The body of a handler is typically: resolve a project/session,
 guard it, call one manager method, return its result. `agent:spawn` resolves the project,
-enforces one in-place agent per repo via `focusOrClearInPlaceSessions` (returns an existing live
-in-place session for the renderer to focus, else clears finished in-place sessions), then calls
-`sessionManager.createSession()`, starts the file watch, and returns the session
+enforces one in-place agent per repo via `focusOrClearInPlaceSessions` (focuses an existing live
+in-place session for the same/no target, throws if a different branch/PR is requested, else clears
+finished in-place sessions), then calls `sessionManager.createSession()`, starts the file watch,
+and returns the session; concurrent no-worktree spawns per project are serialized
 (`agent-handlers.ts`). `git:commit` resolves the
 session, rejects plain-folder projects, and calls `gitOps.commit()` (`git-handlers.ts:64`).
 `git:has-uncommitted-changes` resolves the project and returns whether `git status --porcelain`

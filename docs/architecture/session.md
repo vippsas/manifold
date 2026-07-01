@@ -47,10 +47,12 @@ via setters (`setMemoryCapture`, `setVerdictRecorder`, `setDismissedAgents`, `se
 `SessionCreator.create()` (`session-creator.ts:36`). `noWorktree` agents run directly in the
 repo and share one working tree, which can only be on one branch at a time — so there is **one
 in-place agent per repo**. The `agent:spawn` IPC's `focusOrClearInPlaceSessions`
-(`agent-handlers.ts`) returns any *live* in-place session for the project (the renderer focuses
-it instead of creating a duplicate) and otherwise clears *finished* in-place sessions before the
-spawn so discovery cannot resurrect them; the New Agent form warns that starting will switch to
-the existing agent. The
+(`agent-handlers.ts`) enforces this: when a *live* in-place session exists it **focuses** it
+(returns it) if the new spawn targets the same branch or no specific branch, but **throws** if a
+*different* branch/PR was requested (can't run two in-place agents) — the form also blocks that
+selection up front. Otherwise it clears *finished* in-place sessions before the spawn so discovery
+cannot resurrect them. Concurrent no-worktree spawns for one project are serialized
+(`noWorktreeSpawnsInFlight`) so two racing spawns can't both create in-place agents. The
 creator resolves a worktree from the many `SpawnAgentOptions`
 shapes — existing path, `stayOnBranch`, `existingBranch` (legacy "launch on this branch"),
 PR checkout, the **no-worktree base-branch model**, or a fresh `WorktreeManager.createWorktree()`
@@ -60,8 +62,9 @@ PR checkout, the **no-worktree base-branch model**, or a fresh `WorktreeManager.
 picked in the New Agent form's Advanced section) or the project's base branch. With a blank name
 (`options.autoName`) the agent **works directly on that base branch** (`git checkout <base>`, no
 new branch) and is named after it. With a typed name it **cuts a new branch off the base**
-(`git checkout -b <slug> <base>`), asserting a clean tree first unless `options.allowDirtyWorktree`
-(the form confirms and sets it). Either way the base becomes the session's `baseBranch`
+(`git checkout -b <slug> <base>`). Both paths assert a clean tree first unless
+`options.allowDirtyWorktree` (the form confirms and sets it) — so switching the shared working
+copy never silently carries uncommitted changes onto the base. Either way the base becomes the session's `baseBranch`
 (`session-creator.ts`), which `toPublicSession` carries so the session-scoped git handlers
 (diff/PR/ahead-behind) compare against it instead of the project base. The blank-name placeholder
 prompt is only a fallback and is never stored as the task, so the agent is identified by its branch
@@ -148,7 +151,7 @@ resurrected from leftover branch checkout state (`session-discovery.ts:140`, `:2
 ## Invariants & gotchas
 
 - **Concurrent-spawn guards.** Two operations carry in-flight promise maps to prevent races: `discoveryInFlight` (`session-discovery.ts:16`) serializes `discoverSessionsForProject` per project id; `resumeInFlight` (`session-lifecycle.ts:32`) deduplicates concurrent `resumeSession` calls so only one PTY is ever spawned per session.
-- **One `noWorktree` (in-place) agent per project.** In-place agents share the repo's single working tree/HEAD (only one branch at a time), so a second can't coexist. `focusOrClearInPlaceSessions` (`agent-handlers.ts`) is invoked from `agent:spawn`: for a `noWorktree` spawn it returns any *live* in-place session so the renderer focuses it instead of duplicating; otherwise it clears *finished* in-place sessions so discovery cannot resurrect a dead branch state. The New Agent form warns that starting will switch to the existing agent. `SessionManager.createSession` itself stays permissive — the policy is at the IPC layer.
+- **One `noWorktree` (in-place) agent per project.** In-place agents share the repo's single working tree/HEAD (only one branch at a time), so a second can't coexist. `focusOrClearInPlaceSessions` (`agent-handlers.ts`), invoked from `agent:spawn`: focuses a *live* in-place session when the new spawn targets the same/no branch, throws when a *different* branch/PR is requested, and otherwise clears *finished* in-place sessions so discovery cannot resurrect a dead branch state. `agent:spawn` serializes concurrent no-worktree spawns per project (`noWorktreeSpawnsInFlight`) to close the check-then-create race. `SessionManager.createSession` itself stays permissive — the policy is at the IPC layer.
 - **Discovery never resurrects a dismissed branch.** Deleting an agent from the sidebar records a project+branch dismissal (`agent-handlers.ts`, `agent:kill`); both dormant-session fallbacks check it (`session-discovery.ts:140`, `:222`) and creating a new session on that branch lifts it (`session-lifecycle.ts:84`). Internal kills (mode switch, respawn) don't record dismissals — only the explicit `agent:kill` IPC path does (#679).
 - **Locked agents are protected from deletion.** A session's persisted `locked` flag (worktree meta, like `displayName`) blocks the user-facing delete paths: the renderer skips the delete dialog and the `agent:kill`/`agent:kill-worktree` IPC handlers throw before teardown. The gate lives only on those IPC handlers, so internal lifecycle kills (mode switch, respawn — which call `killSession` directly) are unaffected. Toggle via `setSessionLocked` / `agent:set-locked`.
 
