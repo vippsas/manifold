@@ -151,6 +151,7 @@ export function AgentPanel({ api }: { api?: { id: string } } = {}): React.JSX.El
         isGitProject={s.activeProjectIsGit}
         defaultRuntime={s.defaultRuntime}
         defaultAgentMode={s.defaultAgentMode}
+        defaultUseWorktrees={s.defaultUseWorktrees}
         onLaunch={onLaunch}
         existingSessions={projectSessions}
         onResumeSession={s.onResumeAgent}

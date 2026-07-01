@@ -17,6 +17,10 @@ export interface AgentSession {
   projectId: string
   runtimeId: string
   branchName: string
+  /** Per-session base branch for diffs / PR target / ahead-behind. When set it
+   *  overrides the project's base branch (e.g. a no-worktree agent based off a
+   *  branch selected in the New Agent form). Falls back to the project base. */
+  baseBranch?: string
   worktreePath: string
   status: AgentStatus
   pid: number | null
@@ -162,6 +166,9 @@ export interface ManifoldSettings {
   autoGenerateMessages: boolean
   showCommitAndPrButtons: boolean
   sidebarResizeReversed: boolean
+  /** Create an isolated git worktree for each new agent. When false, new agents
+   *  run directly in the repository on a new branch. Default true. */
+  useWorktrees: boolean
   /** Ordered, typed favorites. Index 0 maps to ⌘1. */
   favorites?: FavoriteRef[]
   keepAwake: boolean
@@ -221,9 +228,20 @@ export interface SpawnAgentOptions {
   simplePromptInstructions?: string
   branchName?: string
   existingBranch?: string
+  /** No-worktree agents: the branch to work on / cut a new branch from, and the
+   *  agent's per-session base branch (diffs/PR/ahead-behind). Defaults to the
+   *  project's base branch when omitted. Set by the New Agent form's branch picker. */
+  baseBranch?: string
   prIdentifier?: string
   noWorktree?: boolean
   stayOnBranch?: boolean
+  /** Skip the clean-working-tree check on the no-worktree new-branch path. Set
+   *  after the user confirms carrying uncommitted changes onto the new branch. */
+  allowDirtyWorktree?: boolean
+  /** The user left the name blank, so `prompt` is an auto-generated placeholder
+   *  (a random city, used only as a branch hint). For a no-worktree agent this
+   *  suppresses the placeholder as the task so the agent is named by its branch. */
+  autoName?: boolean
   nonInteractive?: boolean
   cols?: number
   rows?: number

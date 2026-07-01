@@ -1,5 +1,7 @@
 import React, { useRef, useState, useCallback, useEffect } from 'react'
+import { createPortal } from 'react-dom'
 import type { SpawnAgentOptions, AgentRuntime, BranchInfo, PRInfo, AgentSession } from '../../../shared/types'
+import { ConfirmDialog } from '../ConfirmDialog'
 import { modalStyles } from './NewTaskModal.styles'
 import { TaskDescriptionField } from '../new-task'
 import type { ExistingSubTab } from '../new-task'
@@ -18,6 +20,7 @@ export function NewAgentForm({
   isGitProject,
   defaultRuntime,
   defaultAgentMode = 'interactive',
+  defaultUseWorktrees = true,
   onLaunch,
   existingSessions = [],
   onResumeSession,
@@ -31,6 +34,7 @@ export function NewAgentForm({
   isGitProject: boolean
   defaultRuntime: string
   defaultAgentMode?: AgentMode
+  defaultUseWorktrees?: boolean
   onLaunch: (options: SpawnAgentOptions) => Promise<unknown>
   existingSessions?: AgentSession[]
   onResumeSession?: (sessionId: string, runtimeId: string) => Promise<void>
@@ -39,6 +43,15 @@ export function NewAgentForm({
   compact?: boolean
 }): React.JSX.Element {
   const [mode, setMode] = useState<AgentMode>(defaultAgentMode)
+  // Only one in-place agent runs per repo. If one already exists, a new agent must
+  // use a worktree — default the toggle off so clicking Start makes a real 2nd
+  // agent instead of just focusing the existing in-place one.
+  const hasLiveInPlaceAgent = existingSessions.some(
+    (session) => session.noWorktree && (session.status === 'running' || session.status === 'waiting'),
+  )
+  const [runWithoutWorktree, setRunWithoutWorktree] = useState(
+    hasLiveInPlaceAgent ? false : !defaultUseWorktrees,
+  )
   const [taskDescription, setTaskDescription] = useState('')
   const [runtimeId, setRuntimeId] = useState(defaultRuntime)
   const [loading, setLoading] = useState(false)
@@ -55,10 +68,15 @@ export function NewAgentForm({
   const [branchesLoading, setBranchesLoading] = useState(false)
   const [error, setError] = useState('')
   const [showAdvanced, setShowAdvanced] = useState(false)
+  const [pendingDirtyLaunch, setPendingDirtyLaunch] = useState<SpawnAgentOptions | null>(null)
   const inputRef = useRef<HTMLInputElement>(null)
   const mountedRef = useRef(true)
 
   useEffect(() => {
+    // Set true on mount (not just via useRef's initial value): under React
+    // StrictMode the effect runs setup → cleanup → setup, and without this the
+    // cleanup's `false` would stick after remount, aborting later async work.
+    mountedRef.current = true
     return () => {
       mountedRef.current = false
     }
@@ -105,6 +123,8 @@ export function NewAgentForm({
     && !session.noWorktree
     && !session.groupId
   ))
+  const inPlaceAgentRunning = hasLiveInPlaceAgent
+  const willRunInPlace = runWithoutWorktree || useExisting
 
   const canSubmit = (() => {
     if (!runtimeInstalled) return false
@@ -113,53 +133,10 @@ export function NewAgentForm({
     return true
   })()
 
-  const handleSubmit = useCallback(
-    async (e: React.FormEvent): Promise<void> => {
-      e.preventDefault()
-      if (!canSubmit) return
-      setLoading(true)
+  const runLaunch = useCallback(
+    async (finalOptions: SpawnAgentOptions): Promise<void> => {
       setError('')
-      const resolvedTaskDescription = taskDescription.trim() || pickRandomNorwegianCityName()
-      setTaskDescription(resolvedTaskDescription)
-
-      const launchOptions = (() => {
-        if (!isGitProject) {
-          return {
-            projectId,
-            runtimeId,
-            prompt: resolvedTaskDescription,
-            noWorktree: true,
-          } satisfies SpawnAgentOptions
-        }
-
-        const base: SpawnAgentOptions = {
-          projectId,
-          runtimeId,
-          prompt: resolvedTaskDescription,
-        }
-
-        // Selecting a branch or PR works in place on it (no worktree);
-        // leaving the picker empty creates a new worktree from the base branch.
-        if (useExisting && existingSubTab === 'branch') {
-          return { ...base, existingBranch: selectedBranch, noWorktree: true }
-        }
-        if (useExisting && existingSubTab === 'pr') {
-          return { ...base, prIdentifier: String(selectedPr), noWorktree: true }
-        }
-        return base
-      })()
-
-      const finalOptions: SpawnAgentOptions = { ...launchOptions, nonInteractive: mode === 'chat' }
-
-      // Persist the chosen mode so the next New Agent form (any repo) defaults to it.
-      // Done at submit (not on every pill click) to avoid flooding all renderers
-      // with settings:changed broadcasts when the user toggles back and forth.
-      if (mode !== defaultAgentMode) {
-        window.electronAPI.invoke('settings:update', { defaultAgentMode: mode }).catch((err) => {
-          console.error('[NewAgentForm] failed to persist defaultAgentMode:', err)
-        })
-      }
-
+      setLoading(true)
       try {
         const session = await onLaunch(finalOptions)
         if (!session && mountedRef.current) {
@@ -176,8 +153,117 @@ export function NewAgentForm({
         }
       }
     },
-    [useExisting, existingSubTab, projectId, runtimeId, taskDescription, selectedBranch, selectedPr, canSubmit, isGitProject, onLaunch, mode, defaultAgentMode]
+    [onLaunch]
   )
+
+  const handleSubmit = useCallback(
+    async (e: React.FormEvent): Promise<void> => {
+      e.preventDefault()
+      if (!canSubmit) return
+      setError('')
+      // One in-place agent per repo: choosing a specific branch/PR here can't run
+      // alongside the one already in place, and the backend would otherwise focus
+      // the existing agent and silently ignore the selection. Surface it instead.
+      if (isGitProject && hasLiveInPlaceAgent && useExisting) {
+        setError('An in-place agent is already running in this repository. Only one can run at a time — open it from the sidebar, or close it before starting an agent on another branch or PR here.')
+        return
+      }
+      const typedName = taskDescription.trim()
+      const resolvedTaskDescription = typedName || pickRandomNorwegianCityName()
+      setTaskDescription(resolvedTaskDescription)
+      // No typed name → the resolved prompt is a placeholder (a random city used
+      // only as a branch hint). For no-worktree agents, mark it so the backend
+      // names the agent after its branch instead of showing the placeholder.
+      const autoName = typedName.length === 0
+
+      const launchOptions = (() => {
+        if (!isGitProject) {
+          return {
+            projectId,
+            runtimeId,
+            prompt: resolvedTaskDescription,
+            noWorktree: true,
+            autoName,
+          } satisfies SpawnAgentOptions
+        }
+
+        const base: SpawnAgentOptions = {
+          projectId,
+          runtimeId,
+          prompt: resolvedTaskDescription,
+          autoName,
+        }
+
+        // A selected branch becomes the agent's base branch (no worktree): with no
+        // typed name the agent works directly on it, a typed name cuts a new branch
+        // off it, and its diffs/PR compare against it. A PR still checks out the PR
+        // branch. Empty picker + worktree off = base off the project's base branch.
+        if (useExisting && existingSubTab === 'branch') {
+          return { ...base, baseBranch: selectedBranch, noWorktree: true }
+        }
+        if (useExisting && existingSubTab === 'pr') {
+          return { ...base, prIdentifier: String(selectedPr), noWorktree: true }
+        }
+        return runWithoutWorktree ? { ...base, noWorktree: true } : base
+      })()
+
+      const finalOptions: SpawnAgentOptions = { ...launchOptions, nonInteractive: mode === 'chat' }
+
+      // Persist the chosen mode so the next New Agent form (any repo) defaults to it.
+      // Done at submit (not on every pill click) to avoid flooding all renderers
+      // with settings:changed broadcasts when the user toggles back and forth.
+      if (mode !== defaultAgentMode) {
+        window.electronAPI.invoke('settings:update', { defaultAgentMode: mode }).catch((err) => {
+          console.error('[NewAgentForm] failed to persist defaultAgentMode:', err)
+        })
+      }
+
+      // A no-worktree spawn switches the project's real working copy to the base
+      // branch (no typed name) or a new branch off it (typed name). Either way, if
+      // the tree is dirty, confirm before carrying/clobbering the changes. (A PR
+      // checkout goes through its own path and is not covered here.)
+      const willSwitchInPlace = isGitProject
+        && (runWithoutWorktree || (useExisting && existingSubTab === 'branch'))
+      if (willSwitchInPlace) {
+        setLoading(true)
+        let dirty = false
+        try {
+          dirty = Boolean(await window.electronAPI.invoke('git:has-uncommitted-changes', projectId))
+        } catch {
+          dirty = false
+        }
+        if (!mountedRef.current) return
+        if (dirty) {
+          setLoading(false)
+          setPendingDirtyLaunch(finalOptions)
+          return
+        }
+      }
+
+      await runLaunch(finalOptions)
+    },
+    [useExisting, existingSubTab, projectId, runtimeId, taskDescription, selectedBranch, selectedPr, canSubmit, isGitProject, mode, defaultAgentMode, runWithoutWorktree, runLaunch, hasLiveInPlaceAgent]
+  )
+
+  const confirmDirtyLaunch = useCallback((): void => {
+    const opts = pendingDirtyLaunch
+    if (!opts) return
+    setPendingDirtyLaunch(null)
+    void runLaunch({ ...opts, allowDirtyWorktree: true })
+  }, [pendingDirtyLaunch, runLaunch])
+
+  const dirtyConfirmDialog = pendingDirtyLaunch
+    ? createPortal(
+        <ConfirmDialog
+          title="Uncommitted changes"
+          message="This repository has uncommitted changes. Starting an agent without a worktree switches your working copy to a new branch and carries those changes along. Continue?"
+          confirmLabel="Continue"
+          onConfirm={confirmDirtyLaunch}
+          onCancel={() => setPendingDirtyLaunch(null)}
+        />,
+        document.body,
+      )
+    : null
 
   const formStyle = { display: 'flex', flexDirection: 'column', gap: 'var(--space-lg)', width: 420, maxWidth: '90%' } as const
 
@@ -194,6 +280,7 @@ export function NewAgentForm({
         <AgentDropdown value={runtimeId} onChange={setRuntimeId} runtimes={runtimes} />
         {error && <p style={modalStyles.errorText}>{error}</p>}
         <NewAgentModePill mode={mode} setMode={setMode} canSubmit={canSubmit} loading={loading} />
+        {dirtyConfirmDialog}
       </form>
     )
   }
@@ -223,6 +310,12 @@ export function NewAgentForm({
 
       {error && <p style={modalStyles.errorText}>{error}</p>}
 
+      {willRunInPlace && inPlaceAgentRunning && (
+        <p style={modalStyles.infoText}>
+          ⚠ An agent is already running directly in this repository. Only one in-place agent runs per repo — starting will switch to the existing one.
+        </p>
+      )}
+
       <NewAgentModePill mode={mode} setMode={setMode} canSubmit={canSubmit} loading={loading} />
 
       <button
@@ -237,6 +330,8 @@ export function NewAgentForm({
       {showAdvanced && (
         <NewAgentAdvanced
           isGitProject={isGitProject}
+          runWithoutWorktree={runWithoutWorktree}
+          setRunWithoutWorktree={setRunWithoutWorktree}
           runtimeId={runtimeId}
           runtimes={runtimes}
           setRuntimeId={setRuntimeId}
@@ -261,6 +356,7 @@ export function NewAgentForm({
           prsLoading={prsLoading}
         />
       )}
+      {dirtyConfirmDialog}
     </form>
   )
 }

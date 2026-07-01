@@ -42,6 +42,27 @@ describe('useCodeView', () => {
     expect(result.current.activeEditorPaneId).toBe('editor:1')
   })
 
+  it('does not read files outside the active session roots', async () => {
+    mockInvoke.mockResolvedValue('content')
+    const { result } = renderHook(() => useCodeView('session-1', undefined, undefined, ['/repo/kong']))
+
+    // A path from a different worktree (previous session) must not be read —
+    // the main guard would deny it (path traversal) and log noise.
+    act(() => {
+      result.current.handleSelectFile('/other/worktrees/kong-oslo/src/a.ts', 'editor')
+    })
+    await act(async () => { await Promise.resolve() })
+    expect(mockInvoke).not.toHaveBeenCalledWith('files:read', 'session-1', '/other/worktrees/kong-oslo/src/a.ts')
+
+    // A path under an allowed root reads normally.
+    act(() => {
+      result.current.handleSelectFile('/repo/kong/src/a.ts', 'editor')
+    })
+    await waitFor(() => {
+      expect(mockInvoke).toHaveBeenCalledWith('files:read', 'session-1', '/repo/kong/src/a.ts')
+    })
+  })
+
   it('moves an open file between editor panes', async () => {
     mockInvoke.mockResolvedValue('const value = 1')
 

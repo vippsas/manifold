@@ -104,8 +104,9 @@ describe('registerAgentHandlers — spawn and branch suggestion', () => {
     expect(result).toMatchObject({ id: 'new-session' })
   })
 
-  it('keeps blocking when an active no-worktree session still has a process', async () => {
+  it('focuses the existing in-place agent instead of creating a second (one per repo)', async () => {
     const { registerAgentHandlers } = await import('./agent-handlers')
+    const createSession = vi.fn()
     const deps = {
       projectRegistry: {
         getProject: vi.fn(() => ({ id: 'proj-1', name: 'repo', path: '/repo', baseBranch: 'main' })),
@@ -133,7 +134,7 @@ describe('registerAgentHandlers — spawn and branch suggestion', () => {
           noWorktree: true,
         })),
         killSession: vi.fn(),
-        createSession: vi.fn(),
+        createSession,
       },
       fileWatcher: {
         unwatch: vi.fn(),
@@ -146,17 +147,78 @@ describe('registerAgentHandlers — spawn and branch suggestion', () => {
     const handler = mocks.handlers.get('agent:spawn')
     if (!handler) throw new Error('agent:spawn handler was not registered')
 
-    await expect(handler({}, {
+    const result = await handler({}, {
       projectId: 'proj-1',
       runtimeId: 'claude',
       prompt: 'build a clock',
       noWorktree: true,
-    })).rejects.toThrow(
-      'A no-worktree agent is already running for this project. Only one no-worktree agent can run at a time per project.',
-    )
+    })
 
+    // One in-place agent per repo: the existing active agent is returned (focused);
+    // no new session is created and the existing one is left untouched.
     expect(deps.sessionManager.killSession).not.toHaveBeenCalled()
-    expect(deps.sessionManager.createSession).not.toHaveBeenCalled()
+    expect(createSession).not.toHaveBeenCalled()
+    expect(result).toMatchObject({ id: 'active-session' })
+  })
+
+  it('throws instead of focusing when a different branch/PR is requested while an in-place agent is live', async () => {
+    const { registerAgentHandlers } = await import('./agent-handlers')
+    const createSession = vi.fn()
+    const deps = {
+      projectRegistry: { getProject: vi.fn(() => ({ id: 'proj-1', name: 'repo', path: '/repo', baseBranch: 'main' })) },
+      sessionManager: {
+        listSessions: vi.fn(() => [{ id: 'active', projectId: 'proj-1', runtimeId: 'claude', branchName: 'feature/A', worktreePath: '/repo', status: 'running', pid: 42, additionalDirs: [], noWorktree: true }]),
+        getInternalSession: vi.fn(() => ({ id: 'active', status: 'running', ptyId: 'pty-1', noWorktree: true })),
+        killSession: vi.fn(),
+        createSession,
+      },
+      fileWatcher: { unwatch: vi.fn(), watch: vi.fn() },
+      viewStateStore: { delete: vi.fn() },
+    }
+    registerAgentHandlers(deps as never)
+    const handler = mocks.handlers.get('agent:spawn')!
+
+    // A different base branch than the live agent → surface, don't silently focus.
+    await expect(handler({}, { projectId: 'proj-1', runtimeId: 'claude', prompt: 'x', noWorktree: true, baseBranch: 'feature/B' }))
+      .rejects.toThrow(/already running on "feature\/A"/)
+    // A PR request → also surfaced.
+    await expect(handler({}, { projectId: 'proj-1', runtimeId: 'claude', prompt: 'x', noWorktree: true, prIdentifier: '5' }))
+      .rejects.toThrow(/Only one in-place agent/)
+    expect(createSession).not.toHaveBeenCalled()
+
+    // Same branch (or no specific target) → focus the existing agent, no throw.
+    const same = await handler({}, { projectId: 'proj-1', runtimeId: 'claude', prompt: 'x', noWorktree: true, baseBranch: 'feature/A' })
+    expect(same).toMatchObject({ id: 'active' })
+  })
+
+  it('serializes concurrent no-worktree spawns for a project (creates one session, not two)', async () => {
+    const { registerAgentHandlers } = await import('./agent-handlers')
+    let created = 0
+    const createSession = vi.fn(async () => {
+      created += 1
+      await new Promise((r) => setTimeout(r, 10)) // overlap window
+      return { id: `session-${created}`, projectId: 'proj-1', runtimeId: 'claude', branchName: 'main', worktreePath: '/repo', status: 'running', pid: 1, additionalDirs: [], noWorktree: true }
+    })
+    const deps = {
+      projectRegistry: { getProject: vi.fn(() => ({ id: 'proj-1', name: 'repo', path: '/repo', baseBranch: 'main' })) },
+      sessionManager: {
+        listSessions: vi.fn(() => []), // no live in-place session yet
+        getInternalSession: vi.fn(() => null),
+        killSession: vi.fn(),
+        createSession,
+      },
+      fileWatcher: { unwatch: vi.fn(), watch: vi.fn() },
+      viewStateStore: { delete: vi.fn() },
+    }
+    registerAgentHandlers(deps as never)
+    const handler = mocks.handlers.get('agent:spawn')!
+
+    const opts = { projectId: 'proj-1', runtimeId: 'claude', prompt: 'x', noWorktree: true }
+    const [a, b] = await Promise.all([handler({}, opts), handler({}, opts)])
+
+    // Both concurrent spawns coalesce onto one createSession → one in-place agent.
+    expect(createSession).toHaveBeenCalledTimes(1)
+    expect(a).toEqual(b)
   })
 
   it('clears dormant no-worktree sessions before spawning a worktree-backed agent', async () => {

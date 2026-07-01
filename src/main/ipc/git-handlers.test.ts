@@ -49,6 +49,29 @@ describe('registerDiffHandler', () => {
       changedFiles: [],
     })
   })
+
+  it('diffs against the session base branch when set, else the project base', async () => {
+    const { registerDiffHandler } = await import('./git-handlers')
+    const getDiff = vi.fn(async () => '')
+    const getChangedFiles = vi.fn(async () => [])
+    const deps = {
+      sessionManager: { getSession: vi.fn() },
+      projectRegistry: { getProject: vi.fn(() => ({ id: 'p1', path: '/p1', baseBranch: 'main' })) },
+      diffProvider: { getDiff, getChangedFiles },
+    }
+    registerDiffHandler(deps as never)
+    const diffHandler = mocks.handlers.get('diff:get')!
+
+    // Session with its own base branch → compare against it.
+    deps.sessionManager.getSession = vi.fn(() => ({ id: 's1', projectId: 'p1', worktreePath: '/wt', baseBranch: 'develop' }))
+    await diffHandler({}, 's1')
+    expect(getDiff).toHaveBeenLastCalledWith('/wt', 'develop')
+
+    // Session without a base branch → fall back to the project base.
+    deps.sessionManager.getSession = vi.fn(() => ({ id: 's2', projectId: 'p1', worktreePath: '/wt2' }))
+    await diffHandler({}, 's2')
+    expect(getDiff).toHaveBeenLastCalledWith('/wt2', 'main')
+  })
 })
 
 describe('registerGitHandlers git:staleness', () => {

@@ -2,17 +2,13 @@ import * as fs from 'node:fs/promises'
 import * as os from 'node:os'
 import * as path from 'node:path'
 import { ipcMain } from 'electron'
-import { SpawnAgentOptions } from '../../shared/types'
+import { SpawnAgentOptions, AgentSession } from '../../shared/types'
 import { pickRandomNorwegianCityName } from '../../shared/norwegian-cities'
 import { generateBranchName } from '../git/branch-namer'
 import { acceptSuggestion, dismissSuggestion } from '../session/shell-suggestion'
 import { debugLog } from '../app/debug-log'
 import type { IpcDependencies } from './types'
 import { isGitProject } from '../../shared/project-kind'
-
-const NO_WORKTREE_ERROR =
-  'A no-worktree agent is already running for this project. ' +
-  'Only one no-worktree agent can run at a time per project.'
 
 /**
  * Resolve the shell history directory based on the scope setting.
@@ -34,34 +30,59 @@ export function resolveShellHistoryDir(cwd: string, scope: 'project' | 'global')
   return path.join(historyBase, projectName)
 }
 
-async function clearDormantNoWorktreeSessions(
-  deps: Pick<IpcDependencies, 'sessionManager' | 'fileWatcher'>,
-  projectIsGit: boolean,
-  options: SpawnAgentOptions,
-): Promise<void> {
-  const requiresNoWorktree = Boolean(options.noWorktree || !projectIsGit)
+// One in-place (no-worktree) agent per project. In-place agents all share the
+// repo's single working tree, which can only be on one branch at a time, so a
+// second can't meaningfully coexist. When a no-worktree spawn is requested and a
+// *live* in-place agent already exists, return it so the caller focuses it
+// instead of creating a hidden duplicate. Finished (dormant) in-place sessions
+// are cleared first so discovery can't resurrect their branch state.
+function isLiveSession(internal: { ptyId?: string; devServerPtyId?: string; status?: string } | null | undefined): boolean {
+  return Boolean(internal?.ptyId || internal?.devServerPtyId || internal?.status === 'running' || internal?.status === 'waiting')
+}
 
+async function focusOrClearInPlaceSessions(
+  deps: Pick<IpcDependencies, 'sessionManager' | 'fileWatcher'>,
+  requiresNoWorktree: boolean,
+  options: SpawnAgentOptions,
+): Promise<AgentSession | null> {
   const sessions = deps.sessionManager.listSessions()
     .filter((session) => session.projectId === options.projectId && session.noWorktree)
 
-  for (const session of sessions) {
-    const internal = deps.sessionManager.getInternalSession(session.id)
-    if (!requiresNoWorktree) continue
-    if (internal?.ptyId || internal?.devServerPtyId || internal?.status === 'running') {
-      throw new Error(NO_WORKTREE_ERROR)
+  if (requiresNoWorktree) {
+    const live = sessions.find((session) => isLiveSession(deps.sessionManager.getInternalSession(session.id)))
+    if (live) {
+      // Only one in-place agent per repo (they share one working tree). If the
+      // user explicitly asked for a specific branch or PR that isn't the one
+      // already running in place, we can't honor it without displacing the live
+      // agent — surface that instead of silently focusing the wrong branch.
+      const requestedBranch = options.existingBranch ?? options.baseBranch
+      const wantsDifferentTarget = Boolean(options.prIdentifier)
+        || (requestedBranch != null && requestedBranch !== live.branchName)
+      if (wantsDifferentTarget) {
+        throw new Error(
+          `An in-place agent is already running on "${live.branchName}" in this repository. ` +
+          'Only one in-place agent can run per repo — close it before starting one on a different branch or PR.',
+        )
+      }
+      return live
     }
   }
 
   for (const session of sessions) {
-    const internal = deps.sessionManager.getInternalSession(session.id)
-    if (internal?.ptyId || internal?.devServerPtyId || internal?.status === 'running') continue
+    if (isLiveSession(deps.sessionManager.getInternalSession(session.id))) continue
     await deps.fileWatcher.unwatch(session.worktreePath)
     await deps.sessionManager.killSession(session.id)
   }
+  return null
 }
 
 export function registerAgentHandlers(deps: IpcDependencies): void {
   const { sessionManager, fileWatcher, viewStateStore, dockLayoutStore } = deps
+  // Serialize no-worktree spawns per project: two racing spawns would otherwise
+  // both pass the live-in-place-session check (which only registers the new
+  // session after `git checkout -b` completes) and create duplicate in-place
+  // agents fighting over the one working tree.
+  const noWorktreeSpawnsInFlight = new Map<string, Promise<AgentSession>>()
 
   ipcMain.handle('branch:suggest', async (_event, projectId: string, taskDescription: string) => {
     const project = deps.projectRegistry.getProject(projectId)
@@ -71,13 +92,29 @@ export function registerAgentHandlers(deps: IpcDependencies): void {
     return generateBranchName(project.path, branchHint)
   })
 
-  ipcMain.handle('agent:spawn', async (_event, options: SpawnAgentOptions) => {
-    const project = deps.projectRegistry.getProject(options.projectId)
-    if (!project) throw new Error(`Project not found: ${options.projectId}`)
-    await clearDormantNoWorktreeSessions(deps, isGitProject(project), options)
+  const spawnOnce = async (options: SpawnAgentOptions, requiresNoWorktree: boolean): Promise<AgentSession> => {
+    const existing = await focusOrClearInPlaceSessions(deps, requiresNoWorktree, options)
+    if (existing) return existing
     const session = await sessionManager.createSession(options)
     fileWatcher.watch(session.worktreePath, session.id)
     return session
+  }
+
+  ipcMain.handle('agent:spawn', async (_event, options: SpawnAgentOptions) => {
+    const project = deps.projectRegistry.getProject(options.projectId)
+    if (!project) throw new Error(`Project not found: ${options.projectId}`)
+    const requiresNoWorktree = Boolean(options.noWorktree || !isGitProject(project))
+    if (!requiresNoWorktree) return spawnOnce(options, requiresNoWorktree)
+
+    const inflight = noWorktreeSpawnsInFlight.get(options.projectId)
+    if (inflight) return inflight
+    const promise = spawnOnce(options, requiresNoWorktree)
+    noWorktreeSpawnsInFlight.set(options.projectId, promise)
+    try {
+      return await promise
+    } finally {
+      noWorktreeSpawnsInFlight.delete(options.projectId)
+    }
   })
 
   ipcMain.handle('agent:input', (_event, sessionId: string, input: string) => {

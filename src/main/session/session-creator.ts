@@ -10,7 +10,6 @@ import { SessionStreamWirer } from './session-stream-wirer'
 import { readWorktreeMeta, writeWorktreeMeta } from '../git/worktree-meta'
 import { gitExec } from '../git/git-exec'
 import { generateBranchName } from '../git/branch-namer'
-import { pickRandomNorwegianCityName } from '../../shared/norwegian-cities'
 import type { ChatAdapter } from '../agent/chat-adapter'
 import type { MemoryInjector } from '../memory/memory-injector'
 import { debugLog } from '../app/debug-log'
@@ -40,6 +39,9 @@ export class SessionCreator {
     const noWorktree = Boolean(options.noWorktree || !projectIsGit)
 
     let worktree: { branch: string; path: string }
+    // Per-session base branch (diff/PR/ahead-behind) — set for the no-worktree
+    // base-branch model below; undefined elsewhere (falls back to project base).
+    let sessionBaseBranch: string | undefined
 
     if (options.existingWorktreePath) {
       const branch = projectIsGit
@@ -53,8 +55,8 @@ export class SessionCreator {
         const branch = (await gitExec(['rev-parse', '--abbrev-ref', 'HEAD'], project.path)).trim()
         worktree = { branch, path: project.path }
       } else if (options.existingBranch) {
-        // Switching to an existing branch — skip clean-tree check.
-        // Build artifacts (node_modules) may be present but are not a problem.
+        // Legacy "launch on this branch" (openDeveloperLaunch): work on it
+        // directly. Skip the clean-tree check — build artifacts may be present.
         await gitExec(['checkout', options.existingBranch], project.path)
         worktree = { branch: options.existingBranch, path: project.path }
       } else if (options.prIdentifier && this.branchCheckoutManager) {
@@ -65,13 +67,29 @@ export class SessionCreator {
         await gitExec(['checkout', branch], project.path)
         worktree = { branch, path: project.path }
       } else {
-        // Creating a new branch — ensure working tree is clean to avoid
-        // accidentally including unintended changes.
-        await this.assertCleanWorkingTree(project.path)
-        const branchHint = options.nonInteractive ? pickRandomNorwegianCityName() : (options.prompt ?? '')
-        const branch = options.branchName ?? (await generateBranchName(project.path, branchHint))
-        await gitExec(['checkout', '-b', branch], project.path)
-        worktree = { branch, path: project.path }
+        // Base-branch model: the base is a branch chosen in the New Agent form
+        // (`baseBranch`) or the project's base branch. With no typed name
+        // (`autoName`) the agent works directly on that base branch; a typed name
+        // cuts a new branch off it. Either way the base becomes the session's
+        // diff/PR base.
+        const baseRef = options.baseBranch ?? project.baseBranch
+        sessionBaseBranch = baseRef
+        // Switching the shared working copy to the base branch (or cutting a new
+        // branch off it) can carry or clobber uncommitted changes. Require a clean
+        // tree first; the renderer confirms and sets allowDirtyWorktree to carry
+        // changes along. This covers both the work-directly-on-base (autoName) and
+        // new-branch paths.
+        if (!options.allowDirtyWorktree) {
+          await this.assertCleanWorkingTree(project.path)
+        }
+        if (options.autoName) {
+          await gitExec(['checkout', baseRef], project.path)
+          worktree = { branch: baseRef, path: project.path }
+        } else {
+          const branch = options.branchName ?? (await generateBranchName(project.path, options.prompt ?? ''))
+          await gitExec(['checkout', '-b', branch, baseRef], project.path)
+          worktree = { branch, path: project.path }
+        }
       }
     } else if (options.prIdentifier && this.branchCheckoutManager) {
       const branch = await this.branchCheckoutManager.fetchPRBranch(
@@ -156,6 +174,9 @@ export class SessionCreator {
         })
 
     const session = this.buildSession(sessionId, options, worktree, ptyHandle, nonInteractiveOutputMode, noWorktree)
+    if (sessionBaseBranch) {
+      session.baseBranch = sessionBaseBranch
+    }
     if (deferRuntime) {
       session.status = 'waiting'
       session.pid = null
@@ -251,7 +272,12 @@ export class SessionCreator {
       pid: ptyHandle.pid,
       ptyId: ptyHandle.id,
       outputBuffer: '',
-      taskDescription: options.userMessage || options.prompt || undefined,
+      // A no-worktree agent created without a typed name is identified by its
+      // branch (the sidebar shows the branch when there's no task/displayName),
+      // so drop the auto-generated placeholder prompt instead of showing it.
+      taskDescription: (noWorktree && options.autoName)
+        ? undefined
+        : (options.userMessage || options.prompt || undefined),
       simpleTemplateTitle: options.simpleTemplateTitle,
       simplePromptInstructions: options.simplePromptInstructions,
       ollamaModel: options.ollamaModel,

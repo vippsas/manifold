@@ -1,7 +1,7 @@
 ---
 description: How Manifold's main-process services are exposed to the renderer over Electron IPC — the channel namespaces, the handler registration pattern, and how handlers delegate to subsystem managers.
 covers: [src/main/ipc]
-updated: 2026-06-19
+updated: 2026-07-01
 owner: see .github/CODEOWNERS
 ---
 
@@ -21,7 +21,7 @@ managers documented on the other architecture pages (`session.md`, `git.md`, etc
 - `src/main/ipc/types.ts` — `IpcDependencies` (the manager bag passed to every handler module) and `resolveSession()` (throw-on-missing session lookup).
 - `src/main/ipc/agent-handlers.ts` — `agent:*` lifecycle, plus `branch:suggest`, `shell:*`, and the read-only `git:list-*`/`git:fetch-pr-branch` channels.
 - `src/main/ipc/chat-image-handlers.ts` — `chat:save-pasted-image`/`chat:read-pasted-image` and the allow-listed image-path resolution they share.
-- `src/main/ipc/git-handlers.ts` — `diff:*`, `pr:create`, and the mutating `git:*` channels (`git:commit`, `git:ai-generate`, `git:ahead-behind`, `git:resolve-conflict`, `git:pr-context`, `git:fetch`).
+- `src/main/ipc/git-handlers.ts` — `diff:*`, `pr:create`, and the mutating `git:*` channels (`git:commit`, `git:ai-generate`, `git:ahead-behind`, `git:resolve-conflict`, `git:pr-context`, `git:fetch`, `git:has-uncommitted-changes`). The session-scoped comparisons (diff, PR target, ahead/behind, pr-context) use `baseBranchFor(session, project)` = `session.baseBranch || project.baseBranch`, so a no-worktree agent based off a selected branch compares against that branch.
 - `src/main/ipc/file-handlers.ts` — `files:*` tree/read/write/rename/import/paste/reveal/search, all path-guarded against traversal.
 - `src/main/ipc/project-handlers.ts` — `projects:*` (list/add/clone/create-new/remove/update) and the `*-dialog` + `storage:open-dialog` native-dialog channels.
 - `src/main/ipc/settings-handlers.ts` — `settings:*`, `runtimes:list`, `ollama:list-models`, `view-state:*`, `shell-tabs:*`, `dock-layout:*`. Also keeps the zsh prompt-segments file in sync with settings (`settings-handlers.ts:16`) so live shells follow prompt-segment changes.
@@ -61,9 +61,14 @@ Examples: `settings:changed` is broadcast to all live windows after `settings:up
 
 **Delegation, not logic.** The body of a handler is typically: resolve a project/session,
 guard it, call one manager method, return its result. `agent:spawn` resolves the project,
-clears any dormant no-worktree session, calls `sessionManager.createSession()`, starts the
-file watch, and returns the session (`agent-handlers.ts:74`). `git:commit` resolves the
+enforces one in-place agent per repo via `focusOrClearInPlaceSessions` (focuses an existing live
+in-place session for the same/no target, throws if a different branch/PR is requested, else clears
+finished in-place sessions), then calls `sessionManager.createSession()`, starts the file watch,
+and returns the session; concurrent no-worktree spawns per project are serialized
+(`agent-handlers.ts`). `git:commit` resolves the
 session, rejects plain-folder projects, and calls `gitOps.commit()` (`git-handlers.ts:64`).
+`git:has-uncommitted-changes` resolves the project and returns whether `git status --porcelain`
+is non-empty (used by the New Agent form's dirty-repo confirmation).
 `search:query` runs `executeSearchQuery` then `maybeRerankSearchResults`
 (`search-handlers.ts:94`). The substantive work lives in the managers.
 

@@ -6,6 +6,8 @@ import type { ExistingSubTab } from '../new-task'
 
 interface Props {
   isGitProject: boolean
+  runWithoutWorktree: boolean
+  setRunWithoutWorktree: (v: boolean) => void
   runtimeId: string
   runtimes: AgentRuntime[]
   setRuntimeId: (id: string) => void
@@ -42,6 +44,13 @@ export function NewAgentAdvanced(p: Props): React.JSX.Element {
 
       {p.isGitProject && (
         <>
+          {!p.useExisting && (
+            <label style={modalStyles.checkboxLabel}>
+              <input type="checkbox" checked={p.runWithoutWorktree} onChange={(e) => p.setRunWithoutWorktree(e.target.checked)} />
+              Run without a worktree
+            </label>
+          )}
+
           <label style={modalStyles.checkboxLabel}>
             <input type="checkbox" checked={p.useExisting} onChange={(e) => p.setUseExisting(e.target.checked)} />
             Continue on an existing branch or PR
