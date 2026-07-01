@@ -1,7 +1,7 @@
 ---
 description: How Manifold agent sessions are created, run, stopped, resumed, and rediscovered from on-disk worktrees.
 covers: [src/main/session]
-updated: 2026-06-20
+updated: 2026-07-01
 owner: see .github/CODEOWNERS
 ---
 
@@ -16,7 +16,7 @@ Worktree creation/removal itself lives in `src/main/git` — this code only call
 ## Covered code
 
 - `src/main/session/session-manager.ts` — `SessionManager`, the façade that holds the `Map<string, InternalSession>` and delegates to the helpers below.
-- `src/main/session/session-lifecycle.ts` — `SessionLifecycle`: create/resume orchestration (in-flight dedup, one-`noWorktree`-per-project rule, dismissal clearing, verdict adoption).
+- `src/main/session/session-lifecycle.ts` — `SessionLifecycle`: create/resume orchestration (resume in-flight dedup, dismissal clearing, verdict adoption). Multiple `noWorktree` agents per project are allowed (warn-only).
 - `src/main/session/session-creator.ts` — `SessionCreator.create()`: resolves worktree + runtime, spawns the PTY, writes worktree meta.
 - `src/main/session/session-discovery.ts` — `SessionDiscovery`: rebuilds dormant sessions by scanning worktrees on disk.
 - `src/main/session/session-resume.ts` — `resumeAgentSession()` (re-spawn an interactive runtime) and `createShellPtySession()`.
@@ -43,11 +43,12 @@ helper, passing each the shared `this.sessions` map and lambdas (`sendToRenderer
 via setters (`setMemoryCapture`, `setVerdictRecorder`, `setDismissedAgents`, `setGitOps`, …).
 
 **Create.** `createSession()` delegates to `SessionLifecycle.createSession()`
-(`session-manager.ts:192`, `session-lifecycle.ts:38`), which enforces the
-one-`noWorktree`-agent-per-project rule, then calls `SessionCreator.create()`
-(`session-creator.ts:35`). For `noWorktree` sessions the call is serialized via
-`createNoWorktreeInFlight` (`session-lifecycle.ts:34`) — a per-project in-flight promise map
-that coalesces concurrent spawns so only one session is ever created (TOCTOU guard). The
+(`session-manager.ts:192`, `session-lifecycle.ts:38`), which resolves the project then calls
+`SessionCreator.create()` (`session-creator.ts:36`). `noWorktree` agents run directly in the
+repo and share one working tree; multiple are allowed per project (warn-only) — the New Agent
+form surfaces a non-blocking heads-up when another in-place agent is already active, and
+`clearDormantNoWorktreeSessions` (`agent-handlers.ts:37`) still clears *finished* in-place
+sessions before a spawn so discovery cannot resurrect them. The
 creator resolves a worktree from the many `SpawnAgentOptions`
 shapes — existing path, `stayOnBranch`, `existingBranch`, PR checkout, or a fresh
 `WorktreeManager.createWorktree()` — then resolves the runtime via `getRuntimeById()`.
@@ -131,8 +132,8 @@ resurrected from leftover branch checkout state (`session-discovery.ts:140`, `:2
 
 ## Invariants & gotchas
 
-- **Concurrent-spawn guards.** Three operations carry in-flight promise maps to prevent races: `discoveryInFlight` (`session-discovery.ts:16`) serializes `discoverSessionsForProject` per project id; `createNoWorktreeInFlight` (`session-lifecycle.ts:34`) coalesces concurrent `noWorktree` `createSession` calls; `resumeInFlight` (`session-lifecycle.ts:32`) deduplicates concurrent `resumeSession` calls so only one PTY is ever spawned per session.
-- **At most one `noWorktree` agent per project.** Enforced in `SessionLifecycle` (`session-lifecycle.ts:64`); concurrent calls are serialized via `createNoWorktreeInFlight` — the second caller coalesces onto the same in-flight promise so only one session is created.
+- **Concurrent-spawn guards.** Two operations carry in-flight promise maps to prevent races: `discoveryInFlight` (`session-discovery.ts:16`) serializes `discoverSessionsForProject` per project id; `resumeInFlight` (`session-lifecycle.ts:32`) deduplicates concurrent `resumeSession` calls so only one PTY is ever spawned per session.
+- **Multiple `noWorktree` agents per project are allowed (warn-only).** They share the repo's single working tree/HEAD, so running two at once can conflict; the New Agent form warns when another in-place agent is active (`NewAgentForm.tsx`), but nothing blocks it. Finished in-place sessions are cleared before a new spawn by `clearDormantNoWorktreeSessions` (`agent-handlers.ts:37`) so discovery cannot resurrect a dead branch state.
 - **Discovery never resurrects a dismissed branch.** Deleting an agent from the sidebar records a project+branch dismissal (`agent-handlers.ts`, `agent:kill`); both dormant-session fallbacks check it (`session-discovery.ts:140`, `:222`) and creating a new session on that branch lifts it (`session-lifecycle.ts:84`). Internal kills (mode switch, respawn) don't record dismissals — only the explicit `agent:kill` IPC path does (#679).
 - **Locked agents are protected from deletion.** A session's persisted `locked` flag (worktree meta, like `displayName`) blocks the user-facing delete paths: the renderer skips the delete dialog and the `agent:kill`/`agent:kill-worktree` IPC handlers throw before teardown. The gate lives only on those IPC handlers, so internal lifecycle kills (mode switch, respawn — which call `killSession` directly) are unaffected. Toggle via `setSessionLocked` / `agent:set-locked`.
 

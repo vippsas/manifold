@@ -1,7 +1,7 @@
 ---
 description: How Manifold persists app and user state on disk — settings/config, the project registry, per-session view/chat/verdict state — and which JSON file owns which slice.
 covers: [src/main/store]
-updated: 2026-06-19
+updated: 2026-07-01
 owner: see .github/CODEOWNERS
 ---
 
@@ -58,7 +58,11 @@ over `{ ...DEFAULT_SETTINGS }` so unknown/missing top-level keys fall back, then
 `disabledPlugins` is seeded once with the default-disabled set, guarded by a
 `pluginDefaultsSeeded` flag so a user-enabled plugin is not re-disabled on next launch
 (`settings-store.ts:38`, `:57`). `updateSettings(partial)` shallow-merges and writes
-(`settings-store.ts:90`). `getSettings()` returns a shallow copy.
+(`settings-store.ts:90`). `getSettings()` returns a shallow copy. `useWorktrees` (default
+`true`, `defaults.ts`, `types.ts`) is the default for new agents: when `false`, the New Agent
+form spawns agents in place on a new branch (`SpawnAgentOptions.noWorktree`) instead of an
+isolated worktree; existing configs that lack the key fall back to `true` via the merge, so
+behavior is unchanged on upgrade.
 
 **Project registry.** `addProject()` resolves the absolute path, returns any existing
 entry with the same path, otherwise detects `kind` (`git` when
