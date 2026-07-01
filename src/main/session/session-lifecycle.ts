@@ -10,7 +10,6 @@ import type { VerdictRecorder } from './verdict-recorder'
 import type { DismissedAgentsStore } from '../store/dismissed-agents-store'
 import { resumeAgentSession } from './session-resume'
 import { toPublicSession } from './session-public'
-import { isGitProject } from '../../shared/project-kind'
 
 interface SessionLifecycleDeps {
   sessions: Map<string, InternalSession>
@@ -30,47 +29,15 @@ interface SessionLifecycleDeps {
 export class SessionLifecycle {
   /** Dedup concurrent resume calls for the same session id. */
   private resumeInFlight = new Map<string, Promise<AgentSession>>()
-  /** Dedup concurrent noWorktree createSession calls for the same project id. */
-  private createNoWorktreeInFlight = new Map<string, Promise<AgentSession>>()
 
   constructor(private deps: SessionLifecycleDeps) {}
 
   async createSession(options: SpawnAgentOptions): Promise<AgentSession> {
     const project = this.deps.projectRegistry.getProject(options.projectId)
     if (!project) throw new Error(`Project not found: ${options.projectId}`)
-    const noWorktree = Boolean(options.noWorktree || !isGitProject(project))
-
-    if (noWorktree) {
-      // Serialize concurrent noWorktree spawns for the same project to prevent
-      // two callers both passing the duplicate check before either has registered
-      // its session (TOCTOU). The second caller awaits the first and then gets
-      // the "already running" error on re-check.
-      const inflight = this.createNoWorktreeInFlight.get(options.projectId)
-      if (inflight) {
-        return inflight
-      }
-      const promise = this.doCreateNoWorktreeSession(options)
-      this.createNoWorktreeInFlight.set(options.projectId, promise)
-      try {
-        return await promise
-      } finally {
-        this.createNoWorktreeInFlight.delete(options.projectId)
-      }
-    }
-
-    return this.doCreateSession(options)
-  }
-
-  private async doCreateNoWorktreeSession(options: SpawnAgentOptions): Promise<AgentSession> {
-    const existingNoWorktree = Array.from(this.deps.sessions.values()).find(
-      (s) => s.noWorktree && s.projectId === options.projectId
-    )
-    if (existingNoWorktree) {
-      throw new Error(
-        'A no-worktree agent is already running for this project. ' +
-        'Only one no-worktree agent can run at a time per project.'
-      )
-    }
+    // No-worktree agents run directly in the repo and share one working tree.
+    // Multiple are allowed per project (warn-only); the New Agent form surfaces
+    // a heads-up when another in-place agent is already active.
     return this.doCreateSession(options)
   }
 

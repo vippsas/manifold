@@ -206,7 +206,7 @@ describe('SessionManager — create / input / queries', () => {
     })
   })
 
-  describe('noWorktree uniqueness', () => {
+  describe('noWorktree concurrency (warn-only)', () => {
     // Use a folder (non-git) project to avoid git clean-tree checks in session-creator
     beforeEach(() => {
       ;(projectRegistry.getProject as ReturnType<typeof vi.fn>).mockImplementation((id: string) => {
@@ -220,35 +220,32 @@ describe('SessionManager — create / input / queries', () => {
       })
     })
 
-    it('throws when a no-worktree agent already exists for the project', async () => {
-      await sessionManager.createSession({
+    it('allows a second no-worktree agent for the same project', async () => {
+      const first = await sessionManager.createSession({
         projectId: 'proj-folder',
         runtimeId: 'claude',
         prompt: 'first',
       })
 
-      await expect(
-        sessionManager.createSession({
-          projectId: 'proj-folder',
-          runtimeId: 'claude',
-          prompt: 'second',
-        }),
-      ).rejects.toThrow('A no-worktree agent is already running for this project')
+      const second = await sessionManager.createSession({
+        projectId: 'proj-folder',
+        runtimeId: 'claude',
+        prompt: 'second',
+      })
+
+      expect(first.id).not.toBe(second.id)
+      expect(sessionManager.listSessions()).toHaveLength(2)
     })
 
-    it('concurrent noWorktree spawns for the same project only create one session', async () => {
-      // Fire two concurrent creates — neither has completed when the other starts.
-      // The in-flight guard coalesces both callers onto the same promise so only
-      // one session is ever registered in the session map.
+    it('concurrent noWorktree spawns for the same project each create a session', async () => {
       const [a, b] = await Promise.all([
         sessionManager.createSession({ projectId: 'proj-folder', runtimeId: 'claude', prompt: 'a' }),
         sessionManager.createSession({ projectId: 'proj-folder', runtimeId: 'claude', prompt: 'b' }),
       ])
 
-      // Both callers receive the same session — only one PTY was spawned
-      expect(a.id).toBe(b.id)
-      expect(sessionManager.listSessions()).toHaveLength(1)
-      expect(ptyPool.spawn).toHaveBeenCalledTimes(1)
+      expect(a.id).not.toBe(b.id)
+      expect(sessionManager.listSessions()).toHaveLength(2)
+      expect(ptyPool.spawn).toHaveBeenCalledTimes(2)
     })
   })
 

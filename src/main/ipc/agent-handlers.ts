@@ -10,10 +10,6 @@ import { debugLog } from '../app/debug-log'
 import type { IpcDependencies } from './types'
 import { isGitProject } from '../../shared/project-kind'
 
-const NO_WORKTREE_ERROR =
-  'A no-worktree agent is already running for this project. ' +
-  'Only one no-worktree agent can run at a time per project.'
-
 /**
  * Resolve the shell history directory based on the scope setting.
  *
@@ -34,23 +30,16 @@ export function resolveShellHistoryDir(cwd: string, scope: 'project' | 'global')
   return path.join(historyBase, projectName)
 }
 
+// Clear finished (dormant) no-worktree sessions for a project before a new spawn.
+// A dormant in-place session leaves its branch checked out and would otherwise be
+// resurrected by discovery. Active in-place agents are left running — multiple may
+// run per project (warn-only); the New Agent form surfaces the heads-up.
 async function clearDormantNoWorktreeSessions(
   deps: Pick<IpcDependencies, 'sessionManager' | 'fileWatcher'>,
-  projectIsGit: boolean,
   options: SpawnAgentOptions,
 ): Promise<void> {
-  const requiresNoWorktree = Boolean(options.noWorktree || !projectIsGit)
-
   const sessions = deps.sessionManager.listSessions()
     .filter((session) => session.projectId === options.projectId && session.noWorktree)
-
-  for (const session of sessions) {
-    const internal = deps.sessionManager.getInternalSession(session.id)
-    if (!requiresNoWorktree) continue
-    if (internal?.ptyId || internal?.devServerPtyId || internal?.status === 'running') {
-      throw new Error(NO_WORKTREE_ERROR)
-    }
-  }
 
   for (const session of sessions) {
     const internal = deps.sessionManager.getInternalSession(session.id)
@@ -74,7 +63,7 @@ export function registerAgentHandlers(deps: IpcDependencies): void {
   ipcMain.handle('agent:spawn', async (_event, options: SpawnAgentOptions) => {
     const project = deps.projectRegistry.getProject(options.projectId)
     if (!project) throw new Error(`Project not found: ${options.projectId}`)
-    await clearDormantNoWorktreeSessions(deps, isGitProject(project), options)
+    await clearDormantNoWorktreeSessions(deps, options)
     const session = await sessionManager.createSession(options)
     fileWatcher.watch(session.worktreePath, session.id)
     return session
