@@ -6,7 +6,7 @@ import { FILE_TREE_DRAG_MIME } from '../editor/file-tree/file-tree-drag'
 const focusTerminal = vi.fn()
 const getPathForFile = vi.fn()
 
-vi.mock('../../hooks/useTerminal', () => ({
+vi.mock('../../hooks/terminal/useTerminal', () => ({
   useTerminal: () => ({
     containerRef: { current: null },
     focusTerminal,

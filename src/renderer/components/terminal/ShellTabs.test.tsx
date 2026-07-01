@@ -5,7 +5,7 @@ import type { IDockviewHeaderActionsProps } from 'dockview'
 import { ShellHeaderActions } from './ShellHeaderActions'
 import { ShellTabs } from './ShellTabs'
 
-vi.mock('../../hooks/useTerminal', () => ({
+vi.mock('../../hooks/terminal/useTerminal', () => ({
   useTerminal: () => ({ containerRef: { current: null } }),
 }))
 

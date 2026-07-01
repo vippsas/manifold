@@ -1,5 +1,5 @@
 import React, { useMemo } from 'react'
-import { useFileDiff } from '../../../hooks/useFileDiff'
+import { useFileDiff } from '../../../hooks/editor/useFileDiff'
 import { CodeViewer } from '../code-viewer/CodeViewer'
 import { FileTree } from '../file-tree/FileTree'
 import { ModifiedFiles } from '../../git/ModifiedFiles'

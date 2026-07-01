@@ -1,7 +1,7 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react'
 import type { AgentSession } from '../../shared/types'
 import type { CodeSearchResult, MemorySearchResultItem, SearchMode, UnifiedSearchResult } from '../../shared/search-types'
-import { useSearch } from '../hooks/useSearch'
+import { useSearch } from '../hooks/search/useSearch'
 import { highlightByIndices, splitHighlightedText, type HighlightSegment } from './search/search-highlight'
 import { FileGlyph, MemoryGlyph, SearchGlyph } from './search/search-glyphs'
 import { titleBarSearchStyles as styles } from './TitleBarSearch.styles'

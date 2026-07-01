@@ -1,7 +1,7 @@
 ---
 description: How Manifold's main process discovers, loads, gates, and tears down plugins — the host side that forks the extension-host utility process and enforces capabilities.
 covers: [src/main/plugins, src/plugin-host]
-updated: 2026-06-20
+updated: 2026-06-27
 owner: see .github/CODEOWNERS
 ---
 
@@ -119,7 +119,7 @@ rejecting any non-builtin (or unknown) caller before the privileged service runs
 `buildGatedApi`, is still refused. `AgentSession.reveal()` is the one main-side push in
 the set: it forwards `plugins:reveal-session` to the renderer, which opens the session's
 dock panel via `openSiblingPanel` (`extension-host.ts:178`,
-`src/renderer/hooks/useAppEffects.ts:86`).
+`src/renderer/hooks/app/useAppEffects.ts:86`).
 
 **Commands.** Command ids are owned end-to-end. A plugin's `commands.registerCommand`
 threads its `pluginId` to the host's `$registerCommand`, which calls

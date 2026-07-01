@@ -5,7 +5,7 @@ import type { IDockviewPanelHeaderProps } from 'dockview'
 import { DockTab } from './DockTab'
 import { DockStateContext } from './components/editor/editor-shell/dock-panel-types'
 import type { DockAppState } from './components/editor/editor-shell/dock-panel-types'
-import { siblingPanelId } from './hooks/agent-siblings'
+import { siblingPanelId } from './hooks/agent-session/agent-siblings'
 
 function makeHeaderProps(id: string, title: string): IDockviewPanelHeaderProps {
   return {

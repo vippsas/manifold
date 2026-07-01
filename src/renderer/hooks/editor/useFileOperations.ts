@@ -1,0 +1,139 @@
+import { useCallback } from 'react'
+import { getRelativePath } from '../../../shared/relative-path'
+
+export interface UseFileOperationsResult {
+  handleSelectFile: (filePath: string) => void
+  handleDeleteFile: (filePath: string) => Promise<void>
+  handleRenameFile: (oldPath: string, newPath: string) => Promise<void>
+  handleCreateFile: (dirPath: string, fileName: string) => Promise<boolean>
+  handleCreateDir: (dirPath: string, dirName: string) => Promise<boolean>
+  handleImportPaths: (dirPath: string, sourcePaths: string[]) => Promise<string | null>
+  handleMovePath: (sourcePath: string, targetDir: string, options?: { overwrite?: boolean }) => Promise<string | null>
+  handleRevealInFinder: (filePath: string) => Promise<void>
+  handleOpenInTerminal: (dirPath: string) => Promise<void>
+  handleCopyAbsolutePath: (filePath: string) => void
+  handleCopyRelativePath: (filePath: string, rootPath: string) => void
+}
+
+export function useFileOperations(
+  expandAncestors: (filePath: string) => void,
+  codeViewSelectFile: (filePath: string, preferredPaneId?: string | null) => string,
+  codeViewCloseFile: (filePath: string) => void,
+  codeViewRenameOpenFile: (oldPath: string, newPath: string) => void,
+  ensureEditorVisible: (preferredPaneId?: string | null) => string,
+  deleteFile: (filePath: string) => Promise<boolean>,
+  renameFile: (oldPath: string, newPath: string) => Promise<boolean>,
+  createFile: (dirPath: string, fileName: string) => Promise<boolean>,
+  createDir: (dirPath: string, dirName: string) => Promise<boolean>,
+  importPaths: (dirPath: string, sourcePaths: string[]) => Promise<string | null>,
+  movePath: (sourcePath: string, targetDir: string, overwrite?: boolean) => Promise<string | null>,
+  revealInFinder: (filePath: string) => Promise<void>,
+  openInTerminal: (dirPath: string) => Promise<void>
+): UseFileOperationsResult {
+  const handleSelectFile = useCallback(
+    (filePath: string): void => {
+      expandAncestors(filePath)
+      const visiblePaneId = ensureEditorVisible()
+      const targetPaneId = codeViewSelectFile(filePath, visiblePaneId)
+      ensureEditorVisible(targetPaneId)
+    },
+    [expandAncestors, codeViewSelectFile, ensureEditorVisible]
+  )
+
+  const handleDeleteFile = useCallback(
+    async (filePath: string): Promise<void> => {
+      const success = await deleteFile(filePath)
+      if (success) {
+        codeViewCloseFile(filePath)
+      }
+    },
+    [deleteFile, codeViewCloseFile]
+  )
+
+  const handleRenameFile = useCallback(
+    async (oldPath: string, newPath: string): Promise<void> => {
+      const success = await renameFile(oldPath, newPath)
+      if (success) {
+        codeViewRenameOpenFile(oldPath, newPath)
+      }
+    },
+    [renameFile, codeViewRenameOpenFile]
+  )
+
+  const handleCreateFile = useCallback(
+    async (dirPath: string, fileName: string): Promise<boolean> => {
+      const success = await createFile(dirPath, fileName)
+      if (success) {
+        // Open the new file straight away so it's addressable without reaching
+        // for Quick Open / search to find what was just created.
+        const newPath = dirPath === '/' ? `/${fileName}` : `${dirPath}/${fileName}`
+        handleSelectFile(newPath)
+      }
+      return success
+    },
+    [createFile, handleSelectFile]
+  )
+
+  const handleCreateDir = useCallback(
+    async (dirPath: string, dirName: string): Promise<boolean> => {
+      return createDir(dirPath, dirName)
+    },
+    [createDir]
+  )
+
+  const handleImportPaths = useCallback(
+    async (dirPath: string, sourcePaths: string[]): Promise<string | null> => {
+      return importPaths(dirPath, sourcePaths)
+    },
+    [importPaths]
+  )
+
+  const handleMovePath = useCallback(
+    async (sourcePath: string, targetDir: string, options?: { overwrite?: boolean }): Promise<string | null> => {
+      const error = await movePath(sourcePath, targetDir, options?.overwrite)
+      if (!error) {
+        const baseName = sourcePath.slice(sourcePath.lastIndexOf('/') + 1)
+        const newPath = targetDir === '/' ? `/${baseName}` : `${targetDir}/${baseName}`
+        codeViewRenameOpenFile(sourcePath, newPath)
+      }
+      return error
+    },
+    [movePath, codeViewRenameOpenFile]
+  )
+
+  const handleRevealInFinder = useCallback(
+    async (filePath: string): Promise<void> => {
+      await revealInFinder(filePath)
+    },
+    [revealInFinder]
+  )
+
+  const handleOpenInTerminal = useCallback(
+    async (dirPath: string): Promise<void> => {
+      await openInTerminal(dirPath)
+    },
+    [openInTerminal]
+  )
+
+  const handleCopyAbsolutePath = useCallback((filePath: string): void => {
+    void navigator.clipboard.writeText(filePath)
+  }, [])
+
+  const handleCopyRelativePath = useCallback((filePath: string, rootPath: string): void => {
+    void navigator.clipboard.writeText(getRelativePath(filePath, rootPath))
+  }, [])
+
+  return {
+    handleSelectFile,
+    handleDeleteFile,
+    handleRenameFile,
+    handleCreateFile,
+    handleCreateDir,
+    handleImportPaths,
+    handleMovePath,
+    handleRevealInFinder,
+    handleOpenInTerminal,
+    handleCopyAbsolutePath,
+    handleCopyRelativePath,
+  }
+}

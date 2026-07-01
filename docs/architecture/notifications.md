@@ -1,7 +1,7 @@
 ---
 description: Native macOS desktop notifications for agent lifecycle transitions — policy, notifier, IPC wiring, and settings.
 covers: [src/main/notifications]
-updated: 2026-06-14
+updated: 2026-06-27
 owner: see .github/CODEOWNERS
 ---
 
@@ -117,7 +117,7 @@ Two channels are allowlisted in `src/preload/index.ts`:
 - **Listen** (main → renderer): `'notification:open-session'` (`preload/index.ts:167`) —
   main pushes `{ projectId, sessionId }` when the user clicks a notification.
 
-In `src/renderer/hooks/useAppEffects.ts`:
+In `src/renderer/hooks/app/useAppEffects.ts`:
 
 - A `useEffect` on `activeSessionId` sends the session id to main via
   `window.electronAPI.send('notifications:active-session', ...)` (`useAppEffects.ts:83`).
@@ -146,7 +146,7 @@ scope selector, and the "Play sound when agent stops running" toggle (`notificat
   without a restart.
 - **App bootstrap** (`src/main/app/index.ts`) — constructs and wires `AgentNotifier` after
   `SessionManager` is initialized.
-- **Renderer** (`src/renderer/hooks/useAppEffects.ts`) — two-way IPC: pushes active
+- **Renderer** (`src/renderer/hooks/app/useAppEffects.ts`) — two-way IPC: pushes active
   session id to main, receives open-session commands from main.
 
 ## Invariants & gotchas
