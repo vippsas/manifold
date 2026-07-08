@@ -71,6 +71,12 @@ handful of cross-cutting pages. `covers:` is the code each page is bound to.
 | --- | --- | --- |
 | [Build & release](architecture/build.md) | `package.json` | npm scripts, electron-vite bundling, better-sqlite3 ABI rebuilds, plugin esbuild, and the tag-driven `.dmg` release |
 
+### Cross-cutting guardrails
+
+| Page | `covers:` | What it documents |
+| --- | --- | --- |
+| [Gotchas](architecture/gotchas.md) | `NewAgentForm.tsx`, `rebuild-better-sqlite3-node.mjs`, `setup-worktree.sh`, `dock-layout-lifecycle.ts` | The top recurring traps — StrictMode double-mount, the better-sqlite3 ABI flip, worktree bootstrap, dockview restore/width-0 — each with the checked-in test/script/doc that pins it |
+
 ## Other living docs
 
 These predate the architecture wiki but are already code-tracking in spirit — keep them
