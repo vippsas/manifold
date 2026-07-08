@@ -1,6 +1,7 @@
 node_modules/
 out/
 dist/
+screenshots/
 .manifold/
 .DS_Store
 # Superpowers brainstorm artifacts
