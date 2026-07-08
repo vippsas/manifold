@@ -73,6 +73,12 @@ before claiming done — then the user only confirms taste. See
 [`docs/llm-wiki.md`](docs/llm-wiki.md). **Doc map, lint, and the self-firing routine:**
 [`docs/README.md`](docs/README.md).
 
+**Known traps come first.** Before debugging a symptom that smells like StrictMode
+double-mount, a `better-sqlite3` ABI mismatch, an unrunnable worktree, or dockview layout
+restore/width-0, read [`docs/architecture/gotchas.md`](docs/architecture/gotchas.md) — the
+cross-cutting index of the recurring traps, each paired with the checked-in
+test/script/doc that pins it. It saves you from rediscovering a known root cause.
+
 In-loop rules:
 - **Change code ⇒ update its covering page(s) in the same PR**, bumping `updated:`. A new
   `src/main/*` subsystem ⇒ a new page, added to the [doc map](docs/README.md).
