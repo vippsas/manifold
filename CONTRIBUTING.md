@@ -36,6 +36,22 @@ npm test             # Run all tests
 npm run test:watch   # Watch mode
 ```
 
+### The `better-sqlite3` Node ↔ Electron ABI flip
+
+`better-sqlite3` is a native module, and its compiled binary is valid for exactly one
+runtime's ABI at a time. Tests run under system **Node**; the app runs under **Electron**,
+which has a different ABI. The two entry points therefore rebuild it for opposite runtimes:
+
+- `npm test` → `pretest` rebuilds for **Node** (`npm run rebuild:node`).
+- `npm run dev` / `start` / `dist` → their `pre*` hooks rebuild for **Electron** (`npm run rebuild:electron`).
+
+Running the tests leaves the binary built for Node, so the dev app won't load it until it's
+rebuilt for Electron — and vice-versa. This is expected: the `pre*` hooks flip the ABI back
+automatically, so **just run the command you want** (`npm run dev` after `npm test` rebuilds
+for Electron on its own). If the app is already running when you run tests, or you hit a
+`NODE_MODULE_VERSION` load error, the manual fix is **`npm run rebuild:electron`**.
+`npm run doctor` reports which ABI the binary is currently built for.
+
 ## Project Structure
 
 Manifold follows the standard Electron three-process model:
