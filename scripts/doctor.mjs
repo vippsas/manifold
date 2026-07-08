@@ -6,6 +6,7 @@
 import { existsSync, lstatSync, readFileSync, readdirSync, statSync } from 'node:fs'
 import { dirname, join, resolve } from 'node:path'
 import { createRequire } from 'node:module'
+import { execFileSync } from 'node:child_process'
 import { fileURLToPath, pathToFileURL } from 'node:url'
 
 const HERE = dirname(fileURLToPath(import.meta.url))
@@ -182,12 +183,47 @@ export function checkBuildOutput(repoRoot) {
   return { status: 'ok', title: 'Build output', message: 'out/ is up to date' }
 }
 
+// Read `git config --get rerere.enabled` for the repo at `repoRoot`, returning the trimmed
+// value or null when git is unavailable or the key is unset (a fresh worktree that never ran
+// bootstrap). Isolated so tests can inject a fake reader instead of shelling out to git.
+function readGitRerereEnabled(repoRoot) {
+  try {
+    return execFileSync('git', ['config', '--get', 'rerere.enabled'], {
+      cwd: repoRoot,
+      encoding: 'utf8',
+      stdio: ['ignore', 'pipe', 'ignore'],
+    }).trim()
+  } catch {
+    return null
+  }
+}
+
+// git rerere records how a merge/rebase conflict was resolved and replays that resolution the
+// next time the same conflict recurs. `setup-worktree.sh` enables it on `npm run bootstrap`, so
+// a worktree where it is off predates that setup or skipped bootstrap (issue #835).
+export function checkGitRerere(repoRoot, readEnabled = readGitRerereEnabled) {
+  if (readEnabled(repoRoot) === 'true') {
+    return {
+      status: 'ok',
+      title: 'git rerere',
+      message: 'enabled — recurring merge/rebase conflict resolutions replay automatically',
+    }
+  }
+  return {
+    status: 'warn',
+    title: 'git rerere',
+    message: 'not enabled — repeated conflict resolutions must be redone by hand',
+    fix: 'npm run bootstrap',
+  }
+}
+
 export function runDoctor(repoRoot = DEFAULT_REPO_ROOT) {
   return [
     checkDependencies(repoRoot),
     checkElectron(repoRoot),
     checkBetterSqlite3Abi(repoRoot),
     checkBuildOutput(repoRoot),
+    checkGitRerere(repoRoot),
   ]
 }
 
