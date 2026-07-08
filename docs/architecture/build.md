@@ -1,7 +1,7 @@
 ---
 description: How Manifold is built, type-checked, tested, packaged into a macOS .dmg, and released — the npm scripts, electron-vite bundling, native-module rebuilds, plugin compilation, and the two-step release flow.
 covers: [package.json]
-updated: 2026-06-12
+updated: 2026-07-08
 owner: see .github/CODEOWNERS
 ---
 
@@ -18,9 +18,11 @@ that the GitHub Actions workflow turns into the actual build.
 
 ## Covered code
 
-- `package.json` — the `scripts` block (lines 6–27) and the `build` block (electron-builder config, lines 53–102). The primary owner of this page.
+- `package.json` — the `scripts` block (lines 6–29) and the `build` block (electron-builder config, lines 55–104). The primary owner of this page.
 - `electron.vite.config.ts` — the three-target electron-vite config (main / preload / renderer).
 - `scripts/build-plugins.mjs` — `buildPlugins()`, the esbuild compiler for built-in plugins.
+- `scripts/setup-worktree.sh` — `npm run bootstrap`, the one-step worktree setup (install → assert Electron → `rebuild:electron`).
+- `scripts/doctor.mjs` — `npm run doctor`, the environment health report (deps / Electron / `better-sqlite3` ABI / `out/` staleness).
 - `scripts/rebuild-better-sqlite3-node.mjs` — conditional rebuild of `better-sqlite3` for the **Node** runtime (tests).
 - `scripts/sync-codex-skills.mjs` — `npm run sync:codex-skills`, which refreshes Codex installs of checked-in repo skills.
 - `scripts/new-plugin.mjs` — `npm run plugin:new` scaffolder for a new built-in plugin.
@@ -32,12 +34,12 @@ that the GitHub Actions workflow turns into the actual build.
 **The script graph.** Three user-facing entry points each have a `pre*` hook that rebuilds
 the native module for the right ABI and recompiles plugins:
 
-- `dev` → `predev` runs `rebuild:electron` + `build:plugins`, then `electron-vite dev` (`package.json:7-8`).
-- `start` → `prestart` runs the same, then `electron-vite preview` against the built output (`package.json:11-12`).
-- `dist` → `predist` runs the same, then `electron-vite build && electron-builder --mac --publish always` (`package.json:21-22`).
-- `test` → `pretest` runs `rebuild:node` (Node ABI, not Electron) + `build:plugins`, then `vitest run` (`package.json:17-18`).
+- `dev` → `predev` runs `rebuild:electron` + `build:plugins`, then `electron-vite dev` (`package.json:9-10`).
+- `start` → `prestart` runs the same, then `electron-vite preview` against the built output (`package.json:13-14`).
+- `dist` → `predist` runs the same, then `electron-vite build && electron-builder --mac --publish always` (`package.json:23-24`).
+- `test` → `pretest` runs `rebuild:node` (Node ABI, not Electron) + `build:plugins`, then `vitest run` (`package.json:19-20`).
 
-`build` itself (`package.json:9`) is `electron-vite build && npm run build:plugins` with no
+`build` itself (`package.json:11`) is `electron-vite build && npm run build:plugins` with no
 native rebuild — it produces JS only.
 
 **electron-vite (main / preload / renderer).** `electron.vite.config.ts` defines all three
@@ -54,24 +56,38 @@ React. The `main` field in `package.json:5` points Electron at `out/main/index.j
 for one `NODE_MODULE_VERSION`; load it under the wrong ABI and it throws. Manifold therefore
 keeps two rebuild scripts:
 
-- `rebuild:electron` (`package.json:25`) = `npx electron-rebuild -f -o better-sqlite3` — rebuilds against the bundled Electron's ABI. Used by `predev`/`prestart`/`predist` because those load SQLite inside Electron.
-- `rebuild:node` (`package.json:24`) = `node scripts/rebuild-better-sqlite3-node.mjs` — rebuilds against the current **Node** ABI, used by `pretest`/`pretest:watch` because vitest runs under Node. The script is *conditional*: it first tries to open an in-memory DB (`rebuild-better-sqlite3-node.mjs:7`, `canLoadBetterSqlite3()` at `:28`) and exits early if SQLite already loads; only on the known ABI/bindings errors does it shell out to `npm rebuild better-sqlite3` with `build_from_source` and an isolated cache (`:14-22`). It re-checks afterward and throws if still unloadable (`:24-26`).
+- `rebuild:electron` (`package.json:27`) = `npx electron-rebuild -f -o better-sqlite3` — rebuilds against the bundled Electron's ABI. Used by `predev`/`prestart`/`predist` because those load SQLite inside Electron.
+- `rebuild:node` (`package.json:26`) = `node scripts/rebuild-better-sqlite3-node.mjs` — rebuilds against the current **Node** ABI, used by `pretest`/`pretest:watch` because vitest runs under Node. The script is *conditional*: it first tries to open an in-memory DB (`rebuild-better-sqlite3-node.mjs:7`, `canLoadBetterSqlite3()` at `:28`) and exits early if SQLite already loads; only on the known ABI/bindings errors does it shell out to `npm rebuild better-sqlite3` with `build_from_source` and an isolated cache (`:14-22`). It re-checks afterward and throws if still unloadable (`:24-26`).
 
 **Why install always builds from source.** `better-sqlite3`'s own install script is
 `prebuild-install || node-gyp rebuild --release`: it normally downloads a prebuilt binary and
 only falls back to a `node-gyp` source build if that fails. `prebuild-install` is deprecated
-("no longer maintained"), so an npm override (`package.json:128`) aliases it to a tiny no-bin
+("no longer maintained"), so an npm override (`package.json:130`) aliases it to a tiny no-bin
 package (`fast-deep-equal`, already in the tree). With no `prebuild-install` binary on `PATH`,
 the install command always errors and falls through to the `node-gyp` source build. That build
 is redundant with — and immediately re-done by — the ABI-specific `rebuild:*` hooks above, so
 it costs only the first install's compile, and it removes the `npm warn deprecated
 prebuild-install` warning (issue #361).
 
-`postinstall` (`package.json:23`) separately `chmod +x`'s node-pty's `spawn-helper`, and
-`npmRebuild: false` in the build block (`package.json:56`) tells electron-builder **not** to
+`postinstall` (`package.json:25`) separately `chmod +x`'s node-pty's `spawn-helper`, and
+`npmRebuild: false` in the build block (`package.json:58`) tells electron-builder **not** to
 rebuild natives during packaging — the `pre*`/CI rebuild steps own that.
 
-**Plugin compilation.** `build:plugins` (`package.json:10`) runs
+**Worktree bootstrap & doctor.** A fresh (or symlinked) worktree isn't runnable until the right
+steps run in the right order, so two scripts front that. `bootstrap` (`package.json:7` →
+`scripts/setup-worktree.sh`) refuses a symlinked `node_modules`, runs `npm install`, asserts the
+Electron binary actually downloaded — `node_modules/electron/path.txt` and the `dist/` binary it
+names, whose absence is the `Error: Electron uninstall` symptom (`setup-worktree.sh:24-35`) — then
+runs `rebuild:electron`, enables local `git rerere`, and finishes by calling `doctor`. `doctor`
+(`package.json:8` → `scripts/doctor.mjs`) runs four checks (`runDoctor`, `doctor.mjs:181`): deps
+installed (`checkDependencies`), Electron binary present (`checkElectron`), which ABI
+`better-sqlite3` loads under the current Node — it `require`s it and, on a mismatch, parses the
+built-for `NODE_MODULE_VERSION` from the error (`classifyAbiError`, `doctor.mjs:91`) — and whether `out/` is
+stale (newest `src/` mtime vs newest `out/` mtime, `checkBuildOutput`). It exits non-zero only on a
+hard failure (missing deps or Electron binary); stale `out/` and the Electron-vs-Node ABI state are
+informational because the `pre*` hooks flip them automatically.
+
+**Plugin compilation.** `build:plugins` (`package.json:12`) runs
 `scripts/build-plugins.mjs`. `buildPlugins()` (`build-plugins.mjs:14`) walks
 `resources/plugins/`, and for every folder with a `src/` and a `package.json` it reads the
 manifest's `main` field, derives the TS entry (`out/plugin.js` → `src/plugin.ts`), and
@@ -82,20 +98,20 @@ bundled. If a plugin has a `src/webview/index.tsx`, it is additionally bundled a
 IIFE to `out/webview.js` (`:45-57`). The bundled `out/` lives next to each plugin's source
 in `resources/plugins/`, which is what `extraResources` then ships.
 
-**Codex skill sync.** `sync:codex-skills` (`package.json:26`) runs
+**Codex skill sync.** `sync:codex-skills` (`package.json:28`) runs
 `scripts/sync-codex-skills.mjs`, which treats `.claude/skills/` as the checked-in source of
 truth, copies every first-level skill directory into `~/.codex/skills/` (`sync-codex-skills.mjs:24-47`),
 and applies targeted Codex rewrites for skills that need installed-path adjustments
 (`sync-codex-skills.mjs:56-74`).
 
-**Packaging (electron-builder).** The `build` block (`package.json:53`) sets `appId`
+**Packaging (electron-builder).** The `build` block (`package.json:55`) sets `appId`
 `de.malvik.manifold.app`, outputs to `dist/`, and includes only `out/**` in the asar
-(`:60-62`). `extraResources` (`:63-68`) copies one tree *outside* the asar into the app's
+(`:62-64`). `extraResources` (`:65-70`) copies one tree *outside* the asar into the app's
 `Resources/`: **`resources/plugins` → `plugins`** — this is how the compiled built-in
 plugins reach the packaged app. The `mac`
-target (`:68`) enables `hardenedRuntime` + `notarize`, points at
+target (`:71`) enables `hardenedRuntime` + `notarize`, points at
 `build/entitlements.mac.plist`, and builds `dmg` and `zip` for both `arm64` and `x64`. The
-`publish` provider is the GitHub repo configured in `package.json` (`:96-100`), read by
+`publish` provider is the GitHub repo configured in `package.json` (`:99-103`), read by
 `electron-updater`.
 
 **Release flow (`release.sh`).** The script takes one of `patch`/`minor`/`major`/`publish`
@@ -114,12 +130,13 @@ packaging, but the canonical release artifacts come from CI on tag push.
 
 ## Key types and entry points
 
-- `dev` / `build` / `start` / `dist` — `package.json:8`, `:9`, `:12`, `:22`. The four entry points; each (except `build`) is preceded by a `pre*` rebuild hook.
-- `typecheck:node` / `typecheck:web` / `typecheck:plugins` — `package.json:14-16`. Three project-scoped `tsc --noEmit` runs over, respectively: main + preload + shared + plugin-host (`tsconfig.node.json`), renderer + renderer-shared + shared (`tsconfig.web.json`), and `resources/plugins/*/src` (`tsconfig.plugins.json`). Plain `typecheck` (`package.json:13`) is a no-op solution-style `tsc` referencing only node + web.
-- `rebuild:electron` / `rebuild:node` — `package.json:25` / `:24`. The two ABI targets for `better-sqlite3`.
-- `sync:codex-skills` — `package.json:26` → `scripts/sync-codex-skills.mjs`. Refreshes Codex's installed copies of every checked-in skill.
+- `dev` / `build` / `start` / `dist` — `package.json:10`, `:11`, `:14`, `:24`. The four entry points; each (except `build`) is preceded by a `pre*` rebuild hook.
+- `typecheck:node` / `typecheck:web` / `typecheck:plugins` — `package.json:16-18`. Three project-scoped `tsc --noEmit` runs over, respectively: main + preload + shared + plugin-host (`tsconfig.node.json`), renderer + renderer-shared + shared (`tsconfig.web.json`), and `resources/plugins/*/src` (`tsconfig.plugins.json`). Plain `typecheck` (`package.json:15`) is a no-op solution-style `tsc` referencing only node + web.
+- `bootstrap` / `doctor` — `package.json:7` / `:8` → `scripts/setup-worktree.sh` / `scripts/doctor.mjs`. One-step worktree setup and the environment health report.
+- `rebuild:electron` / `rebuild:node` — `package.json:27` / `:26`. The two ABI targets for `better-sqlite3`.
+- `sync:codex-skills` — `package.json:28` → `scripts/sync-codex-skills.mjs`. Refreshes Codex's installed copies of every checked-in skill.
 - `buildPlugins()` — `scripts/build-plugins.mjs:14`. The esbuild plugin compiler; CLI-invoked via `build:plugins`.
-- `plugin:new` — `package.json:27` → `scripts/new-plugin.mjs`. Scaffolds `resources/plugins/<publisher>.<name>/` with a manifest + `src/plugin.ts`.
+- `plugin:new` — `package.json:29` → `scripts/new-plugin.mjs`. Scaffolds `resources/plugins/<publisher>.<name>/` with a manifest + `src/plugin.ts`.
 - `prepare_release` / `publish_release` — `release.sh:129` / `:219`. The two release sub-commands.
 
 ## Interactions
@@ -134,8 +151,8 @@ packaging, but the canonical release artifacts come from CI on tag push.
 
 - **Two ABIs, two scripts.** Tests use `rebuild:node`; the app (`dev`/`start`/`dist`) uses `rebuild:electron`. Running tests after `npm run dev` (or vice-versa) leaves SQLite built for the wrong ABI — the `pre*` hooks exist precisely to flip it back, and the node rebuild self-checks so it's a near-no-op when already correct (`rebuild-better-sqlite3-node.mjs:7`).
 - **`emptyOutDir: false` on the renderer is load-bearing.** The renderer writes into `out/` alongside `out/main` and `out/preload`; emptying it would delete the other two targets (`electron.vite.config.ts:44`).
-- **`npmRebuild: false` means packaging never rebuilds natives.** electron-builder trusts that `predist`/CI already rebuilt `better-sqlite3` for Electron; if that step is skipped the packaged app ships a Node-ABI binary that won't load (`package.json:56`).
-- **`extraResources` ships plugins *outside* the asar.** Only `out/**` goes in the asar (`package.json:60-62`); the compiled `resources/plugins/` is copied to `Resources/plugins` so the host can load it from a real directory, not the archive.
+- **`npmRebuild: false` means packaging never rebuilds natives.** electron-builder trusts that `predist`/CI already rebuilt `better-sqlite3` for Electron; if that step is skipped the packaged app ships a Node-ABI binary that won't load (`package.json:58`).
+- **`extraResources` ships plugins *outside* the asar.** Only `out/**` goes in the asar (`package.json:62-64`); the compiled `resources/plugins/` is copied to `Resources/plugins` so the host can load it from a real directory, not the archive.
 - **`build:plugins` derives the TS entry from each manifest's `main`.** A manifest whose `main` points at a path with no matching `src/<name>.ts` throws (`build-plugins.mjs:28`); the convention is `main: ./out/plugin.js` ↔ `src/plugin.ts` (see `new-plugin.mjs:38`).
 - **`.claude/skills/` is the source for checked-in skills.** After changing a repo skill, run `npm run sync:codex-skills` so Codex's installed copy is refreshed; the sync keeps unrelated user-installed Codex skills intact and only replaces matching checked-in skill names.
 - **`release.sh` prepare never tags; publish never bumps.** The bump lands via merged PR; the tag is created only by `publish` from `origin/main`'s SHA. Running `publish` before the bump PR merges tags the *old* version. Both halves require a clean worktree and abort otherwise (`release.sh:23-33`, `:271`).

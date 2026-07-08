@@ -15,13 +15,20 @@ Thanks for your interest in contributing to Manifold! This guide will help you g
 ```bash
 git clone https://github.com/svenmalvik/manifold.git
 cd manifold
-npm install
+npm run bootstrap   # install deps, verify Electron, rebuild better-sqlite3 for Electron
 npm run dev
 ```
+
+`npm run bootstrap` is also the one-step setup for a fresh **git worktree**, where a bare
+`npm install` (or a symlinked `node_modules`) can leave Electron half-installed. Run
+`npm run doctor` any time to check the environment's health (deps, Electron binary,
+`better-sqlite3` ABI, and whether `out/` is stale).
 
 ## Development Commands
 
 ```bash
+npm run bootstrap    # One-step worktree setup (install + verify Electron + rebuild)
+npm run doctor       # Report environment health (deps, Electron, ABI, out/ staleness)
 npm run dev          # Start Electron in dev mode (hot reload)
 npm run build        # Production build
 npm run typecheck    # Full typecheck (main + renderer)
