@@ -4,6 +4,8 @@
   "description": "Multi-agent orchestrator for CLI coding agents",
   "main": "out/main/index.js",
   "scripts": {
+    "bootstrap": "bash scripts/setup-worktree.sh",
+    "doctor": "node scripts/doctor.mjs",
     "predev": "npm run rebuild:electron && npm run build:plugins",
     "dev": "electron-vite dev",
     "build": "electron-vite build && npm run build:plugins",

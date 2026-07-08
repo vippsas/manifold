@@ -90,9 +90,16 @@ Codex-specific rewrites for skills that need them.
 
 ## 7. Worktree setup
 
-A fresh worktree has no `node_modules`. **Run `npm install`** in the worktree to populate it —
-do **not** symlink `node_modules` from another clone. The symlink leaves an incomplete install
-(e.g. Electron) and breaks some vitest `?url` imports; a real `npm install` is the supported setup.
+A fresh worktree has no `node_modules`. **Run `npm run bootstrap`** — it does a real
+`npm install`, asserts the Electron binary actually downloaded, and rebuilds `better-sqlite3`
+for Electron's ABI, leaving the tree ready for both `npm run dev` and `npm test`. Do **not**
+symlink `node_modules` from another clone: the symlink leaves an incomplete install (missing
+`node_modules/electron/path.txt` → `Error: Electron uninstall`) and breaks some vitest `?url`
+imports; a real install is the supported setup.
+
+Run **`npm run doctor`** to check a worktree's health — it reports whether dependencies are
+installed, the Electron binary is present, which ABI `better-sqlite3` is currently built for,
+and whether `out/` is stale. It exits non-zero when the tree is not runnable.
 
 ---
 
