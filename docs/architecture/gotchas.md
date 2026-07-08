@@ -18,6 +18,14 @@ Each guardrail is *code*, not prose: a test that fails on regression, a script t
 refuses the bad setup, or a `pre*` hook that self-heals. The prose here only points at
 it.
 
+**How this page is triggered.** Two ways, both automatic. *Discovery* — a fresh agent is
+pointed here by CLAUDE.md §5 (auto-loaded into every session) and by the doc map's
+"Cross-cutting guardrails" row ([`docs/README.md`](../README.md)), so it reads the trap
+before rediscovering the root cause. *Freshness* — the `covers:` paths below bind this
+page to their canonical files, so `bash scripts/wiki-lint.sh` and the daily
+[`wiki-doc-sync`](../../.claude/skills/wiki-doc-sync/SKILL.md) routine flag it for review
+when any of that code changes.
+
 ## Covered code
 
 This page is bound to the canonical file for each trap, so the wiki lint flags it for
@@ -65,8 +73,9 @@ runtime's ABI. Tests run under **Node**; the app runs under **Electron**. Runnin
 after the other leaves SQLite built for the wrong ABI.
 
 **Guardrail.** The `pre*` hooks flip it back automatically — `pretest` runs `rebuild:node`
-while `predev`/`prestart`/`predist` run `rebuild:electron` (`package.json:19`, `:9`,
-`:26-27`). The Node rebuild self-heals and is a near-no-op when already correct: it probes
+while `predev`/`prestart`/`predist` run `rebuild:electron` (`package.json:19`, `:9`, `:13`,
+`:23`; the `rebuild:*` scripts themselves are defined at `:26-27`). The Node rebuild
+self-heals and is a near-no-op when already correct: it probes
 in a **fresh subprocess** (a process that already failed to load the wrong-ABI binary
 can't re-`dlopen` the rebuilt one) and rebuilds only on a real ABI error
 (`scripts/rebuild-better-sqlite3-node.mjs:7`, `:35-37`). `npm run doctor` reports
