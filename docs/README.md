@@ -64,6 +64,7 @@ handful of cross-cutting pages. `covers:` is the code each page is bound to.
 | Page | `covers:` | What it documents |
 | --- | --- | --- |
 | [Renderer](architecture/renderer.md) | `src/renderer` | React workspace UI: dockview panel layout, modules, and the `window.electronAPI`-only main boundary |
+| [Renderer verification](architecture/renderer-verification.md) | `scripts/screenshot-component.mjs`, `scripts/drive-app.mjs` | Self-verify UI: screenshot a component under a real theme with no Electron, and drive the built app for flow checks |
 
 ### Build & release
 

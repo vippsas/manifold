@@ -60,4 +60,7 @@ The mirror image — the **app** failing to load `better-sqlite3` with `NODE_MOD
 
 1. `npm test` — full suite passes
 2. `npm run typecheck` — no TypeScript errors
-3. For UI changes, exercise the change in the running app — tests verify code correctness, not feature correctness
+3. For UI changes, **see it** — tests verify code correctness, not feature correctness. Don't ask the user for a screenshot to find bugs you can find yourself:
+   - `npm run screenshot:component <Component> --theme <id>` renders one component under a real theme (no Electron) → a PNG under `screenshots/`. Add `--emit-html` to open it in any browser instead.
+   - `npm run drive:app` launches the *built* app (`npm run build` first) under Playwright for flow-level checks. On headless Linux run it under `xvfb-run`.
+   - See [renderer verification](../../../docs/architecture/renderer-verification.md) for the fixture convention and details.

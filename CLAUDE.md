@@ -60,6 +60,12 @@ For multi-step tasks, state a brief plan:
 
 Strong success criteria let you loop independently. Weak criteria ("make it work") require constant clarification.
 
+**For renderer/theme changes, "done" includes seeing it.** Don't ask the user to find bugs
+you can find yourself: capture the component (`npm run screenshot:component <Component> --theme
+<id>`) or drive the real flow in the built app (`npm run drive:app`) and confirm it renders,
+before claiming done — then the user only confirms taste. See
+[renderer verification](docs/architecture/renderer-verification.md).
+
 ## 5. Documentation wiki (keep docs in sync with code)
 
 `docs/architecture/` is a living reference layer that tracks the code — each page binds to a
