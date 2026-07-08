@@ -38,10 +38,12 @@ echo "→ Rebuilding better-sqlite3 for Electron's ABI…"
 npm run rebuild:electron
 
 # Enable git rerere so recurring merge/rebase conflict resolutions are reused (harmless if git
-# is unavailable). Scoped to this repo's local config only.
+# is unavailable). autoupdate stages the replayed resolution so a recurring conflict clears
+# hands-free. Scoped to this repo's local config only.
 if command -v git >/dev/null 2>&1 && git rev-parse --is-inside-work-tree >/dev/null 2>&1; then
   git config rerere.enabled true
-  echo "  ✓ Enabled git rerere for this repo."
+  git config rerere.autoupdate true
+  echo "  ✓ Enabled git rerere (with autoupdate) for this repo."
 fi
 
 echo "→ Checking environment health…"

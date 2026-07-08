@@ -8,6 +8,7 @@ import {
   checkBuildOutput,
   checkDependencies,
   checkElectron,
+  checkGitRerere,
   classifyAbiError,
 } from './doctor.mjs'
 
@@ -121,6 +122,23 @@ describe('classifyAbiError', () => {
 describe('checkBetterSqlite3Abi', () => {
   it('fails when better-sqlite3 is not installed', () => {
     expect(checkBetterSqlite3Abi(repoRoot).status).toBe('fail')
+  })
+})
+
+describe('checkGitRerere', () => {
+  it('passes when git rerere is enabled', () => {
+    const result = checkGitRerere(repoRoot, () => 'true')
+    expect(result.status).toBe('ok')
+  })
+
+  it('warns with a bootstrap fix when git rerere is not enabled', () => {
+    const result = checkGitRerere(repoRoot, () => null)
+    expect(result.status).toBe('warn')
+    expect(result.fix).toContain('npm run bootstrap')
+  })
+
+  it('warns when git rerere is explicitly disabled', () => {
+    expect(checkGitRerere(repoRoot, () => 'false').status).toBe('warn')
   })
 })
 

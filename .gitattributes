@@ -1,0 +1,9 @@
+# Architecture wiki pages are machine-maintained: the wiki-doc-sync routine bumps their
+# `updated:` frontmatter and makes surgical citation fixes (see docs/llm-wiki.md), so two
+# branches routinely rewrite the same lines and a 3-way merge conflicts on churn that carries
+# no real disagreement — blocking ff-merges and PRs (issue #835). `merge=union` keeps both
+# sides' lines instead of raising a conflict, so a branch can merge/rebase main without
+# hand-resolving doc metadata. A human still reviews every doc-sync PR, and the staleness lint
+# keys off git history rather than the `updated:` value (scripts/wiki-lint.sh), so a duplicated
+# metadata line is cosmetic, never load-bearing. Only prose docs — never code — get union.
+docs/architecture/*.md merge=union

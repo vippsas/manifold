@@ -78,14 +78,19 @@ steps run in the right order, so two scripts front that. `bootstrap` (`package.j
 `scripts/setup-worktree.sh`) refuses a symlinked `node_modules`, runs `npm install`, asserts the
 Electron binary actually downloaded — `node_modules/electron/path.txt` and the `dist/` binary it
 names, whose absence is the `Error: Electron uninstall` symptom (`setup-worktree.sh:24-35`) — then
-runs `rebuild:electron`, enables local `git rerere`, and finishes by calling `doctor`. `doctor`
-(`package.json:8` → `scripts/doctor.mjs`) runs four checks (`runDoctor`, `doctor.mjs:181`): deps
+runs `rebuild:electron`, enables local `git rerere` (with `autoupdate`, so recurring conflict
+resolutions replay hands-free — issue #835), and finishes by calling `doctor`. `doctor`
+(`package.json:8` → `scripts/doctor.mjs`) runs five checks (`runDoctor`, `doctor.mjs:220`): deps
 installed (`checkDependencies`), Electron binary present (`checkElectron`), which ABI
 `better-sqlite3` loads under the current Node — it `require`s it and, on a mismatch, parses the
-built-for `NODE_MODULE_VERSION` from the error (`classifyAbiError`, `doctor.mjs:91`) — and whether `out/` is
-stale (newest `src/` mtime vs newest `out/` mtime, `checkBuildOutput`). It exits non-zero only on a
-hard failure (missing deps or Electron binary); stale `out/` and the Electron-vs-Node ABI state are
-informational because the `pre*` hooks flip them automatically.
+built-for `NODE_MODULE_VERSION` from the error (`classifyAbiError`, `doctor.mjs:92`) — whether `out/` is
+stale (newest `src/` mtime vs newest `out/` mtime, `checkBuildOutput`), and whether `git rerere` is
+enabled (`checkGitRerere`, `doctor.mjs:204` — `warn` when a worktree predates bootstrap). It exits
+non-zero only on a hard failure (missing deps or Electron binary); stale `out/` and the
+Electron-vs-Node ABI state are informational because the `pre*` hooks flip them automatically, while
+rerere only `warn`s (with an `npm run bootstrap` hint) since re-running bootstrap re-enables it. A
+repo-root `.gitattributes` also gives `docs/architecture/*.md` a `merge=union` so the wiki's
+churn-prone `updated:` frontmatter stops raising merge conflicts (#835).
 
 **Plugin compilation.** `build:plugins` (`package.json:12`) runs
 `scripts/build-plugins.mjs`. `buildPlugins()` (`build-plugins.mjs:14`) walks

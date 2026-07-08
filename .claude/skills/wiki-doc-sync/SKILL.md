@@ -41,7 +41,10 @@ each stale page into one reviewable PR. **The signal fires the work; a human onl
       (newest first) summarizing what drifted.
    6. **Verify (writer ≠ verifier):** re-run `bash scripts/wiki-lint.sh` and confirm that
       page no longer reports `STALE` and `structural checks: PASS`. The lint certifies the
-      fix — not your own say-so.
+      fix — not your own say-so. Then run `git status --porcelain` and confirm **only** the
+      doc page and `log.md` are modified: reading the `covers:` code is required, editing it
+      is not. Revert any stray change to a tracked file under `covers:` before committing — a
+      dirtied `src/**` file left in a worktree is what blocks a later `ff-only` sync (#835).
    7. Commit (with a `Co-Authored-By` trailer) and open a PR titled
       `docs: sync <page> with code`, body summarizing the drift and the corrections.
       Request review from the covered code's owner (`.github/CODEOWNERS`).
