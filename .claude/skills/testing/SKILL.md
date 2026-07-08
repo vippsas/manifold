@@ -32,9 +32,29 @@ Always run tests via `npm test`. Don't invoke `vitest` directly with `npx vitest
 
 CI (`.github/workflows/release-dmg.yml`) uses `npm test` for the same reason.
 
+## The Node ↔ Electron ABI flip
+
+`better-sqlite3`'s compiled binary is valid for exactly one runtime's ABI at a time, and the two entry points need opposite ABIs:
+
+| You ran | `better-sqlite3` gets rebuilt for | via |
+|---------|-----------------------------------|-----|
+| `npm test` / `test:watch` | **Node** (vitest runs under system Node) | `pretest` → `rebuild:node` |
+| `npm run dev` / `start` / `dist` | **Electron** (the app loads SQLite in Electron) | `predev`/`prestart`/`predist` → `rebuild:electron` |
+
+So running the tests leaves the binary built for Node, and the **dev app won't load it** until it's rebuilt for Electron — and vice-versa. This is expected: the `pre*` hooks flip it back automatically, so **just run the command you want** and the ABI re-fixes itself.
+
+- Tests broke the app? `npm run dev` (or `start`/`dist`) rebuilds for Electron first. To rebuild without launching, run **`npm run rebuild:electron`**.
+- The app broke the tests? `npm test` rebuilds for Node first (`rebuild:node` self-checks, so it's a near-no-op when already correct).
+
+**Exception — an already-running dev app.** If `npm run dev` is *already running* (hot reload) and you run `npm test` in another terminal, the next main-process reload loads the now-Node-ABI binary and fails. The `predev` hook won't re-fire because dev never restarted. Fix: run `npm run rebuild:electron`, then restart `npm run dev`.
+
+`npm run doctor` reports which ABI the binary is currently built for.
+
 ## When tests fail with `NODE_MODULE_VERSION`
 
 You ran `npx vitest` instead of `npm test`. Run `npm test` and the `pretest` hook fixes it. No need to manually `npm rebuild better-sqlite3` — the script does the right thing.
+
+The mirror image — the **app** failing to load `better-sqlite3` with `NODE_MODULE_VERSION` right after a test run — is the same flip in reverse: run `npm run rebuild:electron` (or just `npm run dev`, whose `predev` hook does it).
 
 ## Before claiming a change is done
 

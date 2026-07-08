@@ -115,6 +115,7 @@ export function checkBetterSqlite3Abi(repoRoot, currentModules = process.version
       status: 'ok',
       title: 'better-sqlite3 ABI',
       message: `built for this Node ABI (NODE_MODULE_VERSION ${currentModules}) — ready for \`npm test\``,
+      fix: 'to run the app, `npm run dev`/`start` rebuilds it for Electron (or `npm run rebuild:electron`)',
     }
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error)
