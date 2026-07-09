@@ -1,7 +1,7 @@
 ---
 description: How the Manifold renderer (developer workspace UI) is structured — the React entry, the dockview panel layout, and the preload-only boundary to main.
 covers: [src/renderer]
-updated: 2026-07-01
+updated: 2026-07-09
 owner: see .github/CODEOWNERS
 ---
 
@@ -56,7 +56,12 @@ maximizes that pane's group via dockview's native `maximizeGroup`/`exitMaximized
 (`hooks/dock-layout/dock-layout-helpers.ts:243`) — hiding every other pane and both sidebars
 in place (no remount) and restoring them exactly on the second double-click. The default arrangement is
 `projects | agent | (fileTree+modifiedFiles)` at a 1:4:1 width ratio
-(`hooks/dock-layout/dock-layout-builders.ts:8`). Saved layouts are sanitized before
+(`hooks/dock-layout/dock-layout-builders.ts:8`); the builder enforces the ratio by patching
+the serialized grid, first promoting any single-branch wrapper root left behind by a sticky
+VERTICAL grid orientation — `api.clear()` keeps the orientation the last `fromJSON` set, so
+after showing a layout with a bottom pane the three columns would otherwise nest one level
+deeper and the patch would miss them, yielding equal thirds (#803)
+(`hooks/dock-layout/dock-layout-builders.ts:41`). Saved layouts are sanitized before
 `api.fromJSON`; the sanitizer strips unsupported panels and caps restored `projects` /
 `fileTree` sidebar columns, including stale stacked sidebar columns, to the same
 one-sixth share before the loader persists repaired snapshots
