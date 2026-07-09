@@ -27,7 +27,7 @@ const LANGUAGE_MAP: Record<string, string> = {
   rs: 'rust', go: 'go', java: 'java', c: 'c', cpp: 'cpp',
   h: 'c', hpp: 'cpp', sh: 'shell', bash: 'shell', zsh: 'shell',
   yml: 'yaml', yaml: 'yaml', toml: 'ini', sql: 'sql',
-  graphql: 'graphql', dockerfile: 'dockerfile',
+  graphql: 'graphql', dockerfile: 'dockerfile', lua: 'lua',
   makefile: 'plaintext', gitignore: 'plaintext',
 }
 

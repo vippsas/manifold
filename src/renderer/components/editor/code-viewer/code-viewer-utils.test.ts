@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest'
 import {
+  extensionToLanguage,
   extractMarkdownFrontmatter,
   getFileTabLabels,
   isExternalMarkdownHref,
@@ -10,6 +11,29 @@ import {
   resolveMarkdownLinkedFilePath,
   resolveMarkdownPreviewSource,
 } from './code-viewer-utils'
+
+describe('extensionToLanguage', () => {
+  it('maps .lua files to the lua language', () => {
+    expect(extensionToLanguage('script.lua')).toBe('lua')
+  })
+
+  it('is case-insensitive', () => {
+    expect(extensionToLanguage('Script.LUA')).toBe('lua')
+  })
+
+  it('maps other known extensions to their Monaco language id', () => {
+    expect(extensionToLanguage('main.ts')).toBe('typescript')
+    expect(extensionToLanguage('app.py')).toBe('python')
+  })
+
+  it('falls back to plaintext for unknown extensions', () => {
+    expect(extensionToLanguage('notes.unknownext')).toBe('plaintext')
+  })
+
+  it('returns plaintext for null', () => {
+    expect(extensionToLanguage(null)).toBe('plaintext')
+  })
+})
 
 describe('isImageFile', () => {
   it('returns true for common raster extensions', () => {
