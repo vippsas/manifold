@@ -1,7 +1,7 @@
 ---
 description: The top recurring development traps in Manifold — StrictMode double-mount, the better-sqlite3 Node↔Electron ABI flip, worktree bootstrap, and dockview layout restore/width-0 — each paired with the checked-in guardrail (test/script/doc) that pins it, cited to file:line.
 covers: [src/renderer/components/modals/NewAgentForm.tsx, scripts/rebuild-better-sqlite3-node.mjs, scripts/setup-worktree.sh, src/renderer/hooks/dock-layout/dock-layout-lifecycle.ts]
-updated: 2026-07-08
+updated: 2026-07-09
 owner: see .github/CODEOWNERS
 ---
 
@@ -100,24 +100,31 @@ a worktree is runnable. See CLAUDE.md §7 and [Build & release](build.md).
 ## 4. Dockview layout: width-0 while maximized, and collapse doesn't survive `fromJSON`
 
 **Symptom.** Sidebar widths get corrupted after entering/leaving focus mode; a collapsed
-sidebar reopens after a session switch or app restart; or a layout save throws on an
-already-disposed dockview during a StrictMode remount / onboarding transition.
+sidebar reopens after a session switch or app restart; a layout save throws on an
+already-disposed dockview during a StrictMode remount / onboarding transition; or a new
+agent opens with both sidebars at **1/3** width instead of 1/6 — but only in repos whose
+previous layout had a bottom pane.
 
 **Root cause.** (a) While a group is maximized, every other group — including both
 sidebars — is hidden, so their `offsetWidth` reads **0**; capturing widths then would
 persist zeros. (b) dockview's `toJSON` drops `minimumWidth <= 0`, so a collapsed (width-0)
 sidebar is not preserved across an `api.fromJSON` reload. (c) A debounced layout save can
-fire `api.toJSON()` after the dockview is disposed.
+fire `api.toJSON()` after the dockview is disposed. (d) The grid **orientation is sticky**:
+`api.clear()` keeps whatever the last `fromJSON` set, so rebuilding the default layout on a
+VERTICAL-rooted grid nests the three columns inside a wrapper branch where the 1:4:1 ratio
+patch used to miss them — equal thirds (#803).
 
 **Guardrail.** (a) Skip the width bookkeeping and the save while a group is maximized
 (`dock-layout-lifecycle.ts:41`). (b) Re-apply the saved sub-minimum sidebar widths right
 after `fromJSON` so the collapse survives (`dock-layout-loader.ts:56-61`). (c) Clear the
-pending debounced save on unmount (`useDockLayout.ts:288-295`). The regression tests drive
-the **real** dockview library and the **real** layout helpers rather than an
-approximation: `dock-layout-no-remount.test.tsx`, `useSidebarHandleCycle.collapse.test.tsx`,
-and `dock-layout-drag-restore.test.tsx` — the last wires `element.offsetWidth` to
-dockview's tracked group width because jsdom has no layout engine (`:30-36`). More in
-[Renderer](renderer.md).
+pending debounced save on unmount (`useDockLayout.ts:288-295`). (d) Promote wrapper roots
+(flipping the serialized orientation) before patching the ratio
+(`dock-layout-builders.ts:41`). The regression tests drive the **real** dockview library
+and the **real** layout helpers rather than an approximation:
+`dock-layout-no-remount.test.tsx`, `useSidebarHandleCycle.collapse.test.tsx`,
+`dock-layout-default-ratio.test.tsx`, and `dock-layout-drag-restore.test.tsx` — the last
+wires `element.offsetWidth` to dockview's tracked group width because jsdom has no layout
+engine (`:30-36`). More in [Renderer](renderer.md).
 
 ## 5. Verify against the real code path, not an approximation
 

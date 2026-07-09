@@ -1,4 +1,4 @@
-import type { DockviewApi, SerializedDockview } from 'dockview'
+import type { DockviewApi } from 'dockview'
 import {
   PANEL_TITLES,
   isEditorPanelId,
@@ -39,14 +39,28 @@ export function applyDefaultLayout(api: DockviewApi): void {
   // space proportionally to all siblings). Instead, patch the serialized
   // grid to enforce an exact 1:4:1 ratio, then reload.
   try {
-    const json = api.toJSON() as SerializedDockview & { grid: { root: { data?: { size: number }[] } } }
-    const children = json.grid.root.data
+    type SerializedNode = { type: string; size: number; data?: SerializedNode[] }
+    const json = api.toJSON()
+    const grid = json.grid as unknown as { orientation: 'HORIZONTAL' | 'VERTICAL'; root: SerializedNode }
+    // The grid orientation is sticky: api.clear() keeps whatever fromJSON last
+    // set, so after showing a layout with a bottom pane (VERTICAL root) the
+    // three columns nest inside a single wrapper branch and the ratio patch
+    // below would miss them, leaving equal thirds (#803). Promote the wrapper
+    // to the root — flipping the serialized orientation to match — so the
+    // patch sees the columns and fromJSON rebuilds on a HORIZONTAL root.
+    let root = grid.root
+    while (root.data?.length === 1 && root.data[0].type === 'branch') {
+      root = root.data[0]
+      grid.orientation = grid.orientation === 'HORIZONTAL' ? 'VERTICAL' : 'HORIZONTAL'
+    }
+    grid.root = root
+    const children = root.data
     if (children && children.length === 3) {
       const total = children.reduce((s, c) => s + c.size, 0)
       children[0].size = Math.round(total / 6)     // projects
       children[2].size = Math.round(total / 6)     // files
       children[1].size = total - children[0].size - children[2].size // agent
-      api.fromJSON(json as SerializedDockview)
+      api.fromJSON(json)
     }
   } catch (err) {
     console.warn('[applyDefaultLayout] grid ratio patching failed:', err)
