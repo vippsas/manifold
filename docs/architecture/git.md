@@ -1,7 +1,7 @@
 ---
 description: How Manifold creates, lists, and removes git worktrees, checks out branches/PRs, persists per-session worktree meta, and runs raw git/gh for commits, diffs, and PR creation.
 covers: [src/main/git]
-updated: 2026-06-20
+updated: 2026-07-09
 owner: see .github/CODEOWNERS
 ---
 
@@ -95,7 +95,15 @@ via `git branch -a`, drops branches already checked out in a worktree, and tags 
 (`ghExec`, `branch-checkout-manager.ts:12`) — `parsePRNumber` accepts a bare number or a
 `/pull/<n>` URL. Its own `createWorktreeFromBranch` (`branch-checkout-manager.ts:160`)
 mirrors `WorktreeManager`'s existing-branch path and is what `SessionCreator` calls for
-`existingBranch` / PR-checkout spawns.
+`existingBranch` / PR-checkout spawns. Both of its paths best-effort fast-forward the branch
+from origin before handing the worktree to a session — a reused worktree runs
+`pull --ff-only origin <branch>` (`branch-checkout-manager.ts:180`), a fresh checkout of an
+existing local branch runs a forceless `fetch origin <branch>:<branch>`
+(`branch-checkout-manager.ts:210`) — because the picker's `fetch --all --prune` only moves
+`origin/<branch>`, never `refs/heads/<branch>`, which used to spawn agents on stale tips.
+Diverged or local-only work is never rewritten (no `+` refspec / `--ff-only`), and a
+remote-only branch skips the fetch so `worktree add`'s DWIM keeps upstream tracking. Pinned by
+real-git tests in `branch-checkout-manager.freshness.test.ts`.
 
 **Diffs and PRs.** `DiffProvider` (`diff-provider.ts:10`) computes the diff, changed-file
 list, and numstat against `baseBranch` by comparing the working tree directly to the base ref
@@ -145,7 +153,8 @@ accepts the stored PR URL and parses `gh pr view <url> --json state,mergedAt`, t
 - **Removal degrades gracefully.** `--force` → `--force --force` → `fs.rm` + `prune`; every failure is logged via `debugLog` but never thrown, so teardown can't get wedged on a locked worktree (`worktree-manager.ts:150`).
 - **Network commands have a kill timeout.** `gitExec`/`ghExec` take a timeout that `SIGKILL`s the child and rejects, applied to `fetch`/`gh pr` so a hung child (e.g. git prompting on `/dev/tty`) can't wedge an IPC handler (`git-exec.ts`, `branch-checkout-manager.ts`).
 - **`aiGenerate` model children are killable.** Each run can take an `AbortSignal`; aborting (or hitting the timeout) kills the child SIGTERM→SIGKILL after `AI_GENERATE_KILL_GRACE_MS`. Live children are tracked in a module-level set so `killInFlightAiGenerateChildren()` — called from `before-quit` (`app-lifecycle.ts:88`) — reaps any in-flight model CLIs on quit instead of orphaning them (`git-operations.ts`).
-- **Fresh worktrees are reset.** Both create paths run `git reset --mixed HEAD` right after `worktree add` to drop stale index/admin state that could otherwise leak between sessions (`worktree-manager.ts:45`, `branch-checkout-manager.ts:194`).
+- **Fresh worktrees are reset.** Both create paths run `git reset --mixed HEAD` right after `worktree add` to drop stale index/admin state that could otherwise leak between sessions (`worktree-manager.ts:45`, `branch-checkout-manager.ts:217`).
+- **Existing-branch checkouts are freshened, never rewritten.** `BranchCheckoutManager.createWorktreeFromBranch` fast-forwards the branch from origin before a session starts (`pull --ff-only` in a reused worktree, forceless `fetch <branch>:<branch>` otherwise); divergence, local-only commits, or being offline all fall through to the local state (`branch-checkout-manager.ts:174`, `:198`).
 - **Index poisoning self-heals.** Staging/commit/status retry once after renaming a corrupt index aside and re-running `reset --mixed HEAD` (`managed-worktree.ts:106`); the bad index is kept as `index.manifold-bad-<ts>` rather than deleted.
 - **Empty repos are bootstrapped.** `ensureBaseRef` creates an `--allow-empty` "Initial commit" so a brand-new repo with no refs can still host a worktree (`worktree-manager.ts:107`).
 - **Diffs never mutate the index.** `DiffProvider` compares the working tree to the base ref directly and tolerates a branch with no commits yet (each git call is wrapped in try/catch returning empty) (`diff-provider.ts:29`).
