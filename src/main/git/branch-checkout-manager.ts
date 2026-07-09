@@ -172,6 +172,13 @@ export class BranchCheckoutManager {
 
     if (existingWorktreePath) {
       await gitExec(['reset', '--mixed', 'HEAD'], existingWorktreePath).catch(() => {})
+      // Best-effort fast-forward so a reused worktree doesn't start on a stale
+      // branch tip. --ff-only never rewrites local-only or diverged work, and
+      // failures (offline, dirty files in the way) leave the worktree as-is.
+      // The pull fetches into the shared repo, so serialize it like other fetches.
+      await withRepoLock(projectPath, () =>
+        gitExec(['pull', '--ff-only', 'origin', branch], existingWorktreePath, { timeoutMs: NETWORK_TIMEOUT_MS })
+      ).catch(() => {})
       await prepareManagedWorktree(existingWorktreePath)
       return { branch, path: existingWorktreePath }
     }
@@ -186,6 +193,22 @@ export class BranchCheckoutManager {
       const currentBranch = (await gitExec(['rev-parse', '--abbrev-ref', 'HEAD'], projectPath)).trim()
       if (currentBranch === branch) {
         await gitExec(['checkout', baseBranch], projectPath)
+      }
+
+      // Fast-forward a stale local branch before checking it out: the branch
+      // picker's fetch only updates origin/<branch>, never refs/heads/<branch>.
+      // The refspec has no `+` (force) marker, so a diverged or ahead local
+      // branch is rejected and kept as-is; offline/no-remote failures fall
+      // through to the local state. Skip when there is no local ref — `worktree
+      // add` then DWIM-creates the branch from origin with upstream tracking,
+      // which a bare fetch-created ref would lose.
+      const hasLocalRef = await gitExec(
+        ['rev-parse', '--verify', '--quiet', `refs/heads/${branch}`], projectPath
+      ).then(() => true, () => false)
+      if (hasLocalRef) {
+        await gitExec(
+          ['fetch', 'origin', `${branch}:${branch}`], projectPath, { timeoutMs: NETWORK_TIMEOUT_MS }
+        ).catch(() => {})
       }
 
       // No -b flag: check out existing branch, don't create new

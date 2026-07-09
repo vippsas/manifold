@@ -65,6 +65,8 @@ describe('BranchCheckoutManager worktree creation', () => {
     mockSpawnSequence([
       { stdout: 'worktree /repo\nbranch refs/heads/main\n\n' },
       { stdout: 'main\n' },
+      { stdout: 'abc1234\n' },
+      { stdout: '' },
       { stdout: '' },
       { stdout: '' },
     ])
@@ -91,6 +93,8 @@ describe('BranchCheckoutManager worktree creation', () => {
       { stdout: 'worktree /repo\nbranch refs/heads/main\n\n' },
       { stdout: 'main\n' },
       { stdout: '' },
+      { stdout: 'abc1234\n' },
+      { stdout: '' },
       { stdout: '' },
       { stdout: '' },
     ])
@@ -104,6 +108,8 @@ describe('BranchCheckoutManager worktree creation', () => {
     mockSpawnSequence([
       { stdout: 'worktree /repo\nbranch refs/heads/main\n\n' },
       { stdout: 'main\n' },
+      { stdout: 'abc1234\n' },
+      { stdout: '' },
       { stdout: '' },
       { stdout: '' },
     ])
@@ -116,6 +122,8 @@ describe('BranchCheckoutManager worktree creation', () => {
     mockSpawnSequence([
       { stdout: 'worktree /repo\nbranch refs/heads/main\n\n' },
       { stdout: 'cloud-platform-decisions/vibe-coding-solution\n' },
+      { stdout: '' },
+      { stdout: 'abc1234\n' },
       { stdout: '' },
       { stdout: '' },
       { stdout: '' },
@@ -140,11 +148,80 @@ describe('BranchCheckoutManager worktree creation', () => {
     mockSpawnSequence([
       { stdout: 'worktree /repo\nbranch refs/heads/main\n\n' },
       { stdout: 'main\n' },
+      { stdout: 'abc1234\n' },
+      { stdout: '' },
       { stdout: '' },
       { stdout: '' },
     ])
 
     await manager.createWorktreeFromBranch('/repo', 'feature/login', 'proj', 'main')
     expect(mockSpawn).not.toHaveBeenCalledWith('git', ['checkout', 'main'], expect.anything())
+  })
+
+  it('fast-forwards an existing local branch from origin before adding the worktree', async () => {
+    mockSpawnSequence([
+      { stdout: 'worktree /repo\nbranch refs/heads/main\n\n' },
+      { stdout: 'main\n' },
+      { stdout: 'abc1234\n' }, // rev-parse --verify: local branch exists
+      { stdout: '' }, // fetch origin branch:branch
+      { stdout: '' }, // worktree add
+      { stdout: '' }, // reset --mixed
+    ])
+
+    await manager.createWorktreeFromBranch('/repo', 'feature/login', 'proj', 'main')
+
+    expect(mockSpawn).toHaveBeenCalledWith(
+      'git',
+      ['fetch', 'origin', 'feature/login:feature/login'],
+      expect.objectContaining({ cwd: '/repo' }),
+    )
+    const calls = mockSpawn.mock.calls
+    const fetchIndex = calls.findIndex((c) => c[1][0] === 'fetch')
+    const addIndex = calls.findIndex((c) => c[1][0] === 'worktree' && c[1][1] === 'add')
+    expect(fetchIndex).toBeGreaterThanOrEqual(0)
+    expect(fetchIndex).toBeLessThan(addIndex)
+  })
+
+  it('skips the fast-forward when the branch has no local ref (worktree add DWIM sets tracking)', async () => {
+    mockSpawnSequence([
+      { stdout: 'worktree /repo\nbranch refs/heads/main\n\n' },
+      { stdout: 'main\n' },
+      { stdout: '', exitCode: 1 }, // rev-parse --verify: no local branch
+      { stdout: '' }, // worktree add
+      { stdout: '' }, // reset --mixed
+    ])
+
+    const result = await manager.createWorktreeFromBranch('/repo', 'feature/signup', 'proj', 'main')
+
+    expect(result.branch).toBe('feature/signup')
+    expect(mockSpawn).not.toHaveBeenCalledWith(
+      'git',
+      ['fetch', 'origin', 'feature/signup:feature/signup'],
+      expect.anything(),
+    )
+    expect(mockSpawn).toHaveBeenCalledWith(
+      'git',
+      ['worktree', 'add', expect.stringContaining('feature-signup'), 'feature/signup'],
+      expect.objectContaining({ cwd: '/repo' }),
+    )
+  })
+
+  it('proceeds with the local branch when the fast-forward fetch fails', async () => {
+    mockSpawnSequence([
+      { stdout: 'worktree /repo\nbranch refs/heads/main\n\n' },
+      { stdout: 'main\n' },
+      { stdout: 'abc1234\n' }, // rev-parse --verify: local branch exists
+      { stdout: '', exitCode: 128, stderr: 'fatal: unable to access remote' }, // fetch fails
+      { stdout: '' }, // worktree add
+      { stdout: '' }, // reset --mixed
+    ])
+
+    const result = await manager.createWorktreeFromBranch('/repo', 'feature/login', 'proj', 'main')
+    expect(result.branch).toBe('feature/login')
+    expect(mockSpawn).toHaveBeenCalledWith(
+      'git',
+      ['worktree', 'add', expect.stringContaining('feature-login'), 'feature/login'],
+      expect.objectContaining({ cwd: '/repo' }),
+    )
   })
 })
