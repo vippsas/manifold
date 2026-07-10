@@ -1,6 +1,6 @@
 import { createContext, useContext } from 'react'
 import type { ITheme } from '@xterm/xterm'
-import type { AgentStatus, FileTreeNode, FileChange, Project, AgentSession, SpawnAgentOptions, FavoriteKind, ResolvedFavorite, EditorSettings } from '../../../../shared/types'
+import type { AgentStatus, FileTreeNode, FileChange, Project, AgentSession, SpawnAgentOptions, EditorSettings } from '../../../../shared/types'
 import type { SearchMode } from '../../../../shared/search-types'
 import type { EditorPaneView, OpenFile } from '../../../hooks/editor/useCodeView'
 import type { FileOpenRequest } from '../file-open-request'
@@ -86,42 +86,23 @@ export interface DockAppState {
   activeSessionWorktreePath: string | null
   activeSessionNoWorktree: boolean
   onLaunchAgent: (options: SpawnAgentOptions) => Promise<unknown>
-  // Projects panel
+  // Chat switcher / agent panel
   projects: Project[]
   activeProjectId: string | null
-  suppressedProjectIds?: ReadonlySet<string>
   allProjectSessions: Record<string, AgentSession[]>
   outputtingSessionIds: Set<string>
-  onSelectProject: (id: string) => void
   onSelectSession: (sessionId: string, projectId: string) => void
-  onRemoveProject: (id: string) => void
-  onUpdateProject: (id: string, partial: Partial<Omit<Project, 'id'>>) => void
   onRenameAgent: (sessionId: string, displayName: string) => void
   onToggleLocked: (sessionId: string, locked: boolean) => void
   onRequestDeleteAgent: (session: AgentSession, projectPath: string) => void
   onNewAgentFromHeader: () => void
   newAgentFocusTrigger: number
-  onNewProject: () => void
-  /** Open a native folder picker and add the chosen folder as a repo (VS Code's
-   *  "Open Folder" / "Add Folder to Workspace"). Adds to the active workspace
-   *  when one is focused. */
+  /** Open a native folder picker and add the chosen folder as context: attaches
+   *  it to the active chat (agent:add-dir) or, with no live chat, adds it as a repo. */
   onOpenFolder: () => void
-  onNewWorkspace?: () => void
   workspaces?: import('../../../../shared/workspace-types').Workspace[]
   activeWorkspaceId?: string | null
-  sessionsByWorkspace?: Record<string, AgentSession[]>
-  onSelectWorkspace?: (id: string) => void
-  onRemoveWorkspace?: (id: string) => Promise<void>
-  onSelectWorkspaceRepo?: (workspaceId: string, projectId: string) => void
   onLaunchWorkspaceAgent?: (workspaceId: string, homeProjectId: string, options: { runtimeId: string; prompt: string; nonInteractive?: boolean }) => Promise<unknown>
-  onAddProjectToWorkspace?: (workspaceId: string) => void
-  onRemoveProjectFromWorkspace?: (workspaceId: string, projectId: string) => void
-  fetchingProjectId: string | null
-  lastFetchedProjectId: string | null
-  fetchResult: { updatedBranch: string; commitCount: number } | null
-  fetchError: string | null
-  onFetchProject: (projectId: string) => void
-  activeProjectBehindCount?: number
   // Agent restart
   activeSessionStatus: AgentStatus | null
   activeSessionRuntimeId: string | null
@@ -151,12 +132,6 @@ export interface DockAppState {
   activeDraft: DraftChat | null
   promoteDraft: (draftId: string, firstMessage: string) => Promise<void>
   discardDraft: (draftId: string) => void
-  // Favorites
-  favorites: ResolvedFavorite[]
-  isFavorite: (kind: FavoriteKind, id: string) => boolean
-  onToggleFavorite: (kind: FavoriteKind, id: string) => void
-  onReorderFavorites: (fromIndex: number, toIndex: number) => void
-  onActivateFavorite: (favorite: ResolvedFavorite) => void
 }
 
 export const DockStateContext = createContext<DockAppState | null>(null)

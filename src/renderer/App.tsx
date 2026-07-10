@@ -9,8 +9,6 @@ import { useCodeView } from './hooks/editor/useCodeView'
 import { useViewState } from './hooks/editor/useViewState'
 import { useShellSessions } from './hooks/terminal/useShellSession'
 import { useGitOperations } from './hooks/editor/useGitOperations'
-import { useFetchProject } from './hooks/project/useFetchProject'
-import { useBranchStaleness } from './hooks/project/useBranchStaleness'
 import { useAllProjectSessions } from './hooks/agent-session/useAllProjectSessions'
 import { useTheme } from './hooks/theme/useTheme'
 import { useThemeChangeNotification } from './hooks/theme/useThemeChangeNotification'
@@ -38,20 +36,20 @@ import type { DockAppState } from './components/editor/editor-shell/dock-panel-t
 import { buildRootLabels } from './components/editor/file-tree/file-tree-labels'
 import { useWorkspaces } from './hooks/project/useWorkspaces'
 import { useFavorites } from './hooks/project/useFavorites'
-import type { AgentSession, ResolvedFavorite } from '../shared/types'
+import type { ResolvedFavorite } from '../shared/types'
 import { isGitProject } from '../shared/project-kind'
 import { AppShell } from './AppShell'
 import { QuickOpen } from './components/editor/quick-open/QuickOpen'
 
 export function App(): React.JSX.Element {
   const { settings, updateSettings } = useSettings()
-  const { projects, activeProjectId, addProject, cloneProject, createNewProject, removeProject, updateProject, setActiveProject, error: projectError } = useProjects()
+  const { projects, activeProjectId, addProject, cloneProject, createNewProject, updateProject, setActiveProject, error: projectError } = useProjects()
   const { sessions, activeSessionId, activeSession, spawnAgent, deleteAgent, setActiveSession, resumeAgent, outputtingSessionIds, rememberedActiveSessionRef } = useAgentSession(activeProjectId)
   const { drafts, activeDraft, effectiveSessionId, createDraft, discardDraft, promoteDraft } = useDraftChatCoordinator(activeSessionId, setActiveSession, spawnAgent)
   const { sessionsByProject, removeSession } = useAllProjectSessions(projects, activeProjectId, sessions)
-  const { workspaces, createWorkspace, removeWorkspace, addProject: addProjectToWorkspace, removeProject: removeProjectFromWorkspace, spawnAgent: spawnWorkspaceAgent } = useWorkspaces()
+  const { workspaces, addProject: addProjectToWorkspace, spawnAgent: spawnWorkspaceAgent } = useWorkspaces()
   const [activeWorkspaceId, setActiveWorkspaceId] = useState<string | null>(null)
-  const { favorites, isFavorite, toggleFavorite, reorderFavorites } = useFavorites(
+  const { favorites } = useFavorites(
     settings, updateSettings, projects, workspaces,
   )
   const activateFavorite = useCallback((fav: ResolvedFavorite): void => {
@@ -74,18 +72,7 @@ export function App(): React.JSX.Element {
     if (fav) activateFavorite(fav)
   }, [favorites, activateFavorite])
   const [quickOpenVisible, setQuickOpenVisible] = useState(false)
-  const [newWorkspaceVisible, setNewWorkspaceVisible] = useState(false)
-  const [addProjectWorkspaceId, setAddProjectWorkspaceId] = useState<string | null>(null)
   const suppressedProjectIds = useMemo(() => new Set<string>(), [])
-  const sessionsByWorkspace = useMemo(() => {
-    const map: Record<string, AgentSession[]> = {}
-    for (const sessions of Object.values(sessionsByProject ?? {})) {
-      for (const sx of sessions) {
-        if (sx.workspaceId) (map[sx.workspaceId] ??= []).push(sx)
-      }
-    }
-    return map
-  }, [sessionsByProject])
   const workspaceIdBySession = useMemo(() => {
     const map: Record<string, string> = {}
     for (const sessions of Object.values(sessionsByProject ?? {})) {
@@ -144,15 +131,6 @@ export function App(): React.JSX.Element {
 
   const activeProject = projects.find((p) => p.id === activeProjectId) ?? null
   const gitOps = useGitOperations(effectiveSessionId)
-  const branchStaleness = useBranchStaleness(activeProjectId, projects)
-
-  const handleFetchSuccess = useCallback((projectId: string) => {
-    branchStaleness.markFresh(projectId)
-    for (const session of sessionsByProject[projectId] ?? []) {
-      void window.electronAPI.invoke('git:ahead-behind', session.id).catch(() => {})
-    }
-    void gitOps.refreshAheadBehind()
-  }, [sessionsByProject, gitOps.refreshAheadBehind, branchStaleness.markFresh])
 
   const renameAgent = useCallback((sessionId: string, displayName: string): void => {
     void window.electronAPI.invoke('agent:rename', sessionId, displayName).catch((err) => {
@@ -166,7 +144,6 @@ export function App(): React.JSX.Element {
     })
   }, [])
 
-  const fetchProject = useFetchProject(handleFetchSuccess)
   const overlays = useAppOverlays(gitOps.commit, refreshDiff, spawnAgent, deleteAgent, removeSession, updateSettings, setActiveSession, setActiveProject, activeProjectId)
   const { themeId, themeClass, xtermTheme, setPreviewThemeId } = useTheme(settings.theme)
   const toggleTheme = useCallback(() => {
@@ -209,11 +186,8 @@ export function App(): React.JSX.Element {
   })
 
   // Adding a repo from onboarding while a workspace is focused must clear that
-  // workspace. ProjectList nulls out the active project whenever a workspace is
-  // active (a workspace and a standalone repo must not look selected at once), so a
-  // left-focused workspace pushes the new repo into the collapsed "Repositories"
-  // list with no create-agent affordance. Clearing it surfaces the new repo as the
-  // pinned active card across every add path — local add, clone, create-new (#811).
+  // workspace so the new repo becomes the pinned active context across every add
+  // path — local add, clone, create-new (#811).
   const clearActiveWorkspace = useCallback(() => setActiveWorkspaceId(null), [setActiveWorkspaceId])
 
   const { handleCreateNewProject, handleAddProjectFromOnboarding, handleCloneFromOnboarding } = useProjectCreateHandlers({
@@ -295,14 +269,13 @@ export function App(): React.JSX.Element {
     defaultRuntime: settings.defaultRuntime, defaultAgentMode: settings.defaultAgentMode ?? 'interactive',
     activeSessionWorktreePath: activeSession?.worktreePath ?? null,
     activeSessionNoWorktree: activeSession?.noWorktree ?? false,
-    onLaunchAgent: overlays.handleLaunchAgent, projects, activeProjectId, suppressedProjectIds,
+    onLaunchAgent: overlays.handleLaunchAgent, projects, activeProjectId,
     allProjectSessions: sessionsByProject, outputtingSessionIds,
-    onSelectProject: (id: string) => { setActiveWorkspaceId(null); setActiveProject(id) },
     onSelectSession: (sessionId: string, projectId: string) => {
       setActiveWorkspaceId(workspaceIdBySession[sessionId] ?? null)
       overlays.handleSelectSession(sessionId, projectId)
     },
-    onRemoveProject: removeProject, onUpdateProject: updateProject, onRenameAgent: renameAgent, onToggleLocked: setAgentLocked, onRequestDeleteAgent: overlays.requestDeleteAgent,
+    onRenameAgent: renameAgent, onToggleLocked: setAgentLocked, onRequestDeleteAgent: overlays.requestDeleteAgent,
     onNewAgentFromHeader: () => {
       if (activeWorkspaceId) {
         const ws = workspaces.find((w) => w.id === activeWorkspaceId)
@@ -313,11 +286,7 @@ export function App(): React.JSX.Element {
         setActiveWorkspaceId(null); overlays.handleNewAgentFromHeader()
       }
     },
-    onSelectWorkspaceRepo: (workspaceId: string, projectId: string) => {
-      setActiveWorkspaceId(workspaceId); setActiveProject(projectId); setActiveSession(null)
-    },
     newAgentFocusTrigger: overlays.newAgentFocusTrigger,
-    onNewProject: () => appEffects.setShowOnboarding(true),
     onOpenFolder: () => {
       void (async () => {
         const dir = (await window.electronAPI.invoke('projects:open-dialog')) as string | undefined
@@ -335,13 +304,7 @@ export function App(): React.JSX.Element {
         }
       })()
     },
-    workspaces, activeWorkspaceId, sessionsByWorkspace,
-    onNewWorkspace: () => setNewWorkspaceVisible(true),
-    onSelectWorkspace: (id: string) => { setActiveWorkspaceId(id) },
-    onRemoveWorkspace: async (id: string) => {
-      await removeWorkspace(id)
-      setActiveWorkspaceId((current) => (current === id ? null : current))
-    },
+    workspaces, activeWorkspaceId,
     onLaunchWorkspaceAgent: async (
       workspaceId: string,
       homeProjectId: string,
@@ -363,12 +326,6 @@ export function App(): React.JSX.Element {
       }
       return session
     },
-    onAddProjectToWorkspace: (id: string) => setAddProjectWorkspaceId(id),
-    onRemoveProjectFromWorkspace: (id: string, pid: string) => { void removeProjectFromWorkspace(id, pid) },
-    fetchingProjectId: fetchProject.fetchingProjectId, lastFetchedProjectId: fetchProject.lastFetchedProjectId,
-    fetchResult: fetchProject.fetchResult, fetchError: fetchProject.fetchError,
-    onFetchProject: fetchProject.fetchProject,
-    activeProjectBehindCount: activeProjectId ? (branchStaleness.behindCounts[activeProjectId] ?? 0) : 0,
     onFocusSearch: appEffects.focusSearch, onClosePanel: editorHandlers.handleClosePanel,
     onToggleMaximize: dockLayout.toggleMaximizePanel,
     onCollapseSidebar: collapseSidebar,
@@ -384,8 +341,6 @@ export function App(): React.JSX.Element {
     activeSessionStatus: activeSession?.status ?? null,
     activeSessionRuntimeId: activeSession?.runtimeId ?? null, onResumeAgent: resumeAgent,
     drafts, activeDraft, promoteDraft, discardDraft,
-    favorites, isFavorite, onToggleFavorite: toggleFavorite,
-    onReorderFavorites: reorderFavorites, onActivateFavorite: activateFavorite,
   }
 
   // Wire the command catalog to the functions assembled above. Handlers no-op
@@ -458,14 +413,6 @@ export function App(): React.JSX.Element {
         handleAddProjectFromOnboarding={handleAddProjectFromOnboarding}
         handleCloneFromOnboarding={handleCloneFromOnboarding}
         handleCreateNewProject={handleCreateNewProject}
-        newWorkspaceVisible={newWorkspaceVisible}
-        setNewWorkspaceVisible={setNewWorkspaceVisible}
-        defaultRuntime={settings.defaultRuntime}
-        createWorkspace={createWorkspace}
-        workspaces={workspaces}
-        addProjectWorkspaceId={addProjectWorkspaceId}
-        setAddProjectWorkspaceId={setAddProjectWorkspaceId}
-        addProjectToWorkspace={addProjectToWorkspace}
         dockLayout={dockLayout}
         onRenameActiveProject={(name) => { if (activeProjectId) void updateProject(activeProjectId, { name }) }}
         onToggleTheme={toggleTheme}

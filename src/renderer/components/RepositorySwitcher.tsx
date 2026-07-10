@@ -1,14 +1,23 @@
-import React, { useCallback, useEffect, useRef, useState } from 'react'
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import type { AgentSession } from '../../shared/types'
 import { useDockState } from './editor/editor-shell/dock-panel-types'
-import { RepositoriesPanel } from './sidebar/RepositoriesPanel'
+import { AgentItem } from './sidebar/AgentItem'
+import { sidebarStyles } from './sidebar/ProjectSidebar.styles'
 import { repositorySwitcherStyles as styles } from './RepositorySwitcher.styles'
 
+interface ChatEntry {
+  session: AgentSession
+  projectId: string
+  projectPath: string
+}
+
 /**
- * Title-bar entry point for repositories, workspaces, sessions and drafts. A
- * compact switcher button opens a dropdown hosting the full `RepositoriesPanel`
- * (formerly the sidebar "Repositories" view). Reads DockStateContext and maps it
- * onto the panel's props, wrapping the navigation callbacks so a selection also
- * closes the dropdown — matching VS Code's workspace switcher feel.
+ * Title-bar chat switcher. A compact button shows the current chat; the dropdown
+ * is a flat list of every chat (agent session) to switch between, plus a "New
+ * chat" action. Reads DockStateContext and reuses the sidebar `AgentItem` row so
+ * rename/delete/outputting behavior stays consistent. Repositories, workspaces
+ * and drafts management were intentionally removed — a chat's context is simply
+ * the folders shown in the Explorer (worktree + folders added with the "+").
  */
 export function RepositorySwitcher(): React.JSX.Element {
   const s = useDockState()
@@ -30,15 +39,26 @@ export function RepositorySwitcher(): React.JSX.Element {
   }, [open])
 
   const close = useCallback(() => setOpen(false), [])
-  const afterSelect = useCallback(<A extends unknown[]>(fn: (...args: A) => void) => (...args: A): void => {
-    fn(...args)
-    close()
-  }, [close])
 
-  const activeWorkspace = s.activeWorkspaceId ? s.workspaces?.find((w) => w.id === s.activeWorkspaceId) : undefined
-  const activeProject = s.activeProjectId ? s.projects.find((p) => p.id === s.activeProjectId) : undefined
-  const label = activeWorkspace?.name ?? activeProject?.name ?? 'Repositories'
-  const sublabel = s.sessionId ? s.primaryBranch ?? null : null
+  const projectPathById = useMemo(() => {
+    const map = new Map<string, string>()
+    for (const p of s.projects) map.set(p.id, p.path)
+    return map
+  }, [s.projects])
+
+  const chats = useMemo<ChatEntry[]>(() => {
+    const entries: ChatEntry[] = []
+    for (const [projectId, sessions] of Object.entries(s.allProjectSessions)) {
+      const projectPath = projectPathById.get(projectId) ?? ''
+      for (const session of sessions) entries.push({ session, projectId, projectPath })
+    }
+    return entries
+  }, [s.allProjectSessions, projectPathById])
+
+  const activeChat = chats.find((c) => c.session.id === s.sessionId)
+  const label = activeChat?.session.displayName?.trim()
+    || (s.primaryBranch ? s.primaryBranch.replace(/^manifold\//, '') : null)
+    || 'No chat'
 
   return (
     <div ref={rootRef} style={styles.root}>
@@ -47,52 +67,44 @@ export function RepositorySwitcher(): React.JSX.Element {
         onClick={() => setOpen((v) => !v)}
         aria-haspopup="menu"
         aria-expanded={open}
-        title="Switch repository, workspace or session"
+        title="Switch chat"
         style={styles.button}
         className="titlebar-repo-switcher"
       >
-        <span aria-hidden style={styles.icon}>⧉</span>
+        <span aria-hidden style={styles.icon}>◐</span>
         <span className="truncate" style={styles.label}>{label}</span>
-        {sublabel && <span className="truncate" style={styles.sublabel}>{sublabel}</span>}
         <span aria-hidden style={styles.chevron}>▾</span>
       </button>
       {open && (
-        <div style={styles.dropdown} role="menu" aria-label="Repositories">
-          <RepositoriesPanel
-            projects={s.projects}
-            activeProjectId={s.activeProjectId}
-            suppressedProjectIds={s.suppressedProjectIds}
-            allProjectSessions={s.allProjectSessions}
-            activeSessionId={s.sessionId}
-            outputtingSessionIds={s.outputtingSessionIds}
-            onSelectProject={afterSelect(s.onSelectProject)}
-            onSelectSession={afterSelect(s.onSelectSession)}
-            onRemoveProject={s.onRemoveProject}
-            onUpdateProject={s.onUpdateProject}
-            onRenameAgent={s.onRenameAgent}
-            onRequestDeleteAgent={s.onRequestDeleteAgent}
-            onNewAgent={afterSelect(s.onNewAgentFromHeader)}
-            onNewProject={afterSelect(s.onNewProject)}
-            onNewWorkspace={s.onNewWorkspace ? afterSelect(s.onNewWorkspace) : undefined}
-            workspaces={s.workspaces}
-            activeWorkspaceId={s.activeWorkspaceId}
-            sessionsByWorkspace={s.sessionsByWorkspace}
-            onSelectWorkspace={s.onSelectWorkspace ? afterSelect(s.onSelectWorkspace) : undefined}
-            onRemoveWorkspace={s.onRemoveWorkspace}
-            onSelectWorkspaceRepo={s.onSelectWorkspaceRepo ? afterSelect(s.onSelectWorkspaceRepo) : undefined}
-            onAddProjectToWorkspace={s.onAddProjectToWorkspace}
-            onRemoveProjectFromWorkspace={s.onRemoveProjectFromWorkspace}
-            fetchingProjectId={s.fetchingProjectId}
-            lastFetchedProjectId={s.lastFetchedProjectId}
-            fetchResult={s.fetchResult}
-            fetchError={s.fetchError}
-            onFetchProject={s.onFetchProject}
-            activeProjectBehindCount={s.activeProjectBehindCount}
-            drafts={s.drafts}
-            activeDraftId={s.activeDraft?.id ?? null}
-            onSelectDraft={afterSelect((id: string) => s.onSelectSession(id, s.activeProjectId ?? ''))}
-            onDiscardDraft={s.discardDraft}
-          />
+        <div style={styles.dropdown} role="menu" aria-label="Chats">
+          <div style={styles.list}>
+            {chats.length === 0 ? (
+              <div style={styles.empty}>No chats yet.</div>
+            ) : (
+              chats.map(({ session, projectId, projectPath }) => (
+                <AgentItem
+                  key={session.id}
+                  session={session}
+                  projectPath={projectPath}
+                  isActive={session.id === s.sessionId}
+                  isOutputting={s.outputtingSessionIds.has(session.id)}
+                  onSelect={(id) => { s.onSelectSession(id, projectId); close() }}
+                  onDelete={() => s.onRequestDeleteAgent(session, projectPath)}
+                  onRename={(name) => s.onRenameAgent(session.id, name)}
+                />
+              ))
+            )}
+          </div>
+          <div style={styles.footer}>
+            <button
+              type="button"
+              onClick={() => { s.onNewAgentFromHeader(); close() }}
+              className="sidebar-action-button sidebar-action-button--primary"
+              style={{ ...sidebarStyles.actionButtonPrimary, ...styles.newChat }}
+            >
+              + New chat
+            </button>
+          </div>
         </div>
       )}
     </div>

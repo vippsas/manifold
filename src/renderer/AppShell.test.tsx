@@ -1,4 +1,4 @@
-import { fireEvent, render, screen, waitFor } from '@testing-library/react'
+import { render, screen } from '@testing-library/react'
 import { describe, expect, it, vi, beforeEach } from 'vitest'
 import type { AppShellProps } from './AppShell'
 import { AppShell } from './AppShell'
@@ -126,14 +126,6 @@ function makeProps(overrides: Partial<AppShellProps> = {}): AppShellProps {
     handleAddProjectFromOnboarding: vi.fn().mockResolvedValue(undefined),
     handleCloneFromOnboarding: vi.fn().mockResolvedValue(false),
     handleCreateNewProject: vi.fn().mockResolvedValue(false),
-    newWorkspaceVisible: true,
-    setNewWorkspaceVisible: vi.fn(),
-    defaultRuntime: 'claude',
-    createWorkspace: vi.fn().mockResolvedValue({ id: 'w1', name: 'Workspace', projectIds: ['p1'], createdAt: '2024-01-01' }),
-    workspaces: [],
-    addProjectWorkspaceId: null,
-    setAddProjectWorkspaceId: vi.fn(),
-    addProjectToWorkspace: vi.fn().mockResolvedValue(undefined),
     dockLayout: {},
     onRenameActiveProject: vi.fn(),
     onToggleTheme: vi.fn(),
@@ -153,16 +145,9 @@ beforeEach(() => {
 })
 
 describe('AppShell', () => {
-  it('lets the workspace modal add repositories with the default activation behavior', async () => {
-    const addProject = vi.fn().mockResolvedValue({ ...project, id: 'p2', name: 'Beta', path: '/repos/beta' })
+  it('renders the dock shell for a completed setup', () => {
+    render(<AppShell {...makeProps()} />)
 
-    render(<AppShell {...makeProps({ addProject })} />)
-
-    fireEvent.click(screen.getByRole('button', { name: '+ Add repository' }))
-
-    await waitFor(() => {
-      expect(addProject).toHaveBeenCalledTimes(1)
-    })
-    expect(addProject).toHaveBeenCalledWith()
+    expect(screen.getByTestId('dockview')).toBeInTheDocument()
   })
 })

@@ -22,8 +22,8 @@ interface ProjectSidebarProps {
 
 /**
  * The left sidebar: a VS Code-style activity bar switching between the file
- * **Explorer** and the git **Source Control** view. Repositories, sessions and
- * workspaces moved to the title-bar repository switcher (`RepositoriesPanel`).
+ * **Explorer**, the **Search** view and the git **Source Control** view. Chat
+ * switching moved to the title-bar chat switcher (`RepositorySwitcher`).
  */
 export function ProjectSidebar({
   onOpenFolder,

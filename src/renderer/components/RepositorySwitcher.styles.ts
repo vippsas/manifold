@@ -57,4 +57,23 @@ export const repositorySwitcherStyles: Record<string, React.CSSProperties> = {
     boxShadow: 'var(--shadow-overlay)',
     overflow: 'hidden',
   },
+  list: {
+    minHeight: 0,
+    overflowY: 'auto',
+    padding: 'var(--space-xs)',
+  },
+  empty: {
+    padding: '14px 12px',
+    fontSize: 'var(--type-ui-small)',
+    color: 'var(--text-muted)',
+  },
+  footer: {
+    flexShrink: 0,
+    padding: 'var(--space-xs)',
+    borderTop: '1px solid var(--divider, var(--border))',
+  },
+  newChat: {
+    width: '100%',
+    textAlign: 'left',
+  },
 }

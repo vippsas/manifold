@@ -1,7 +1,6 @@
 import React from 'react'
 import { DockviewReact, type DockviewApi } from 'dockview'
 import type { Project, AgentSession, ManifoldSettings, FileChange, CreateProjectOptions } from '../shared/types'
-import type { Workspace, WorkspaceCreateOptions } from '../shared/workspace-types'
 import type { DockAppState } from './components/editor/editor-shell/dock-panel-types'
 import type { UseAppOverlaysResult } from './hooks/app/useAppOverlays'
 import type { UseGitOperationsResult } from './hooks/editor/useGitOperations'
@@ -19,8 +18,6 @@ import { CommitPanel } from './components/git/CommitPanel'
 import { PRPanel } from './components/git/PRPanel'
 import { ConflictPanel } from './components/git/ConflictPanel'
 import { WelcomeDialog } from './components/modals/WelcomeDialog'
-import { NewWorkspaceModal } from './components/modals/NewWorkspaceModal'
-import { AddWorkspaceProjectModal } from './components/modals/AddWorkspaceProjectModal'
 import { DockTab, EmptyWatermark } from './DockTab'
 import { TitleBar } from './components/TitleBar'
 import { DeleteAgentDialog } from './components/sidebar/DeleteAgentDialog'
@@ -61,15 +58,6 @@ export interface AppShellProps {
   handleAddProjectFromOnboarding: (path?: string) => Promise<void>
   handleCloneFromOnboarding: (url: string) => Promise<boolean>
   handleCreateNewProject: (options: CreateProjectOptions) => Promise<boolean>
-  // Workspace modal wiring
-  newWorkspaceVisible: boolean
-  setNewWorkspaceVisible: (v: boolean) => void
-  defaultRuntime: string
-  createWorkspace: (opts: WorkspaceCreateOptions) => Promise<Workspace>
-  workspaces: Workspace[]
-  addProjectWorkspaceId: string | null
-  setAddProjectWorkspaceId: (id: string | null) => void
-  addProjectToWorkspace: (id: string, projectId: string) => Promise<void>
   // StatusBar dock layout adapter
   dockLayout: unknown
   onRenameActiveProject: (name: string) => void
@@ -189,25 +177,6 @@ export function AppShell(p: AppShellProps): React.JSX.Element {
         onCheckForUpdates={() => { void p.updateLog.checkForUpdates() }}
         onOpenExternal={() => { void p.updateLog.openReleaseNotesExternal() }}
         onSelectTab={p.updateLog.setActiveTab as never}
-      />
-      <NewWorkspaceModal
-        visible={p.newWorkspaceVisible}
-        projects={p.projects}
-        projectError={p.projectError}
-        defaultRuntime={p.defaultRuntime}
-        onAddProject={() => p.addProject()}
-        onCreate={(opts) => { void p.createWorkspace(opts); p.setNewWorkspaceVisible(false) }}
-        onClose={() => p.setNewWorkspaceVisible(false)}
-      />
-      <AddWorkspaceProjectModal
-        visible={p.addProjectWorkspaceId != null}
-        workspace={p.workspaces.find((w) => w.id === p.addProjectWorkspaceId) ?? null}
-        projects={p.projects}
-        onAdd={async (workspaceId, projectIds) => {
-          for (const pid of projectIds) await p.addProjectToWorkspace(workspaceId, pid)
-          p.setAddProjectWorkspaceId(null)
-        }}
-        onClose={() => p.setAddProjectWorkspaceId(null)}
       />
       {p.updateNotification.updateReady && (
         <UpdateToast version={p.updateNotification.version} onRestart={p.updateNotification.install}
