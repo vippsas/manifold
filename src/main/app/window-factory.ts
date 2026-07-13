@@ -4,6 +4,7 @@ import { debugLog } from './debug-log'
 import { buildAppMenu } from './app-menu'
 import { registerIpcHandlers, type IpcDependencies } from './ipc-handlers'
 import { loadTheme, migrateLegacyTheme } from '../../shared/themes/registry'
+import type { CrashDiagnostics } from './crash-diagnostics'
 
 // Suppress Electron's internal GUEST_VIEW_MANAGER_CALL error logging for
 // ERR_ABORTED (-3).  These fire when a <webview> navigation is cancelled
@@ -46,6 +47,7 @@ interface WindowFactoryDeps {
   wireMainWindow: (win: BrowserWindow) => void
   ipcDeps: IpcDependencies
   onToggleKeepAwake: () => void
+  crashDiagnostics?: CrashDiagnostics
 }
 
 let ipcHandlersRegistered = false
@@ -93,6 +95,11 @@ export function createWindow(deps: WindowFactoryDeps): BrowserWindow {
     ipcHandlersRegistered = true
   }
 
+  win.webContents.on('render-process-gone', (_event, details) => {
+    debugLog(`[renderer] process gone: reason=${details.reason} exitCode=${details.exitCode}`)
+  })
+  deps.crashDiagnostics?.observeWebContents(win.webContents)
+
   loadRenderer(win)
 
   // Open external links in the user's default browser instead of inside the app.
@@ -107,10 +114,6 @@ export function createWindow(deps: WindowFactoryDeps): BrowserWindow {
       event.preventDefault()
       shell.openExternal(url)
     }
-  })
-
-  win.webContents.on('render-process-gone', (_event, details) => {
-    debugLog(`[renderer] process gone: reason=${details.reason} exitCode=${details.exitCode}`)
   })
 
   Menu.setApplicationMenu(

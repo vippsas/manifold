@@ -17,6 +17,7 @@ import { registerWorkspaceHandlers } from '../ipc/workspace-handlers'
 import { registerPluginHandlers } from '../ipc/plugin-handlers'
 export type { IpcDependencies } from '../ipc/types'
 import type { IpcDependencies } from '../ipc/types'
+import { playNotificationSound } from './notification-sound'
 
 export function registerIpcHandlers(deps: IpcDependencies): void {
   registerProjectHandlers(deps)
@@ -49,7 +50,7 @@ export function registerIpcHandlers(deps: IpcDependencies): void {
   })
 
   ipcMain.handle('app:beep', () => {
-    shell.beep()
+    playNotificationSound(() => shell.beep())
   })
 
   ipcMain.handle('updater:install', () => {

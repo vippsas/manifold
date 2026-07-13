@@ -1,17 +1,22 @@
-import { app, BrowserWindow, ipcMain, nativeTheme } from 'electron'
+import { app, BrowserWindow, crashReporter, ipcMain, nativeTheme } from 'electron'
 import type { AgentStatus } from '../../shared/types'
 import { loadShellPath } from './shell-path'
 import { configureDevProfilePaths } from './dev-profile'
+import { startCrashDiagnostics } from './crash-diagnostics'
+import { configureLinuxRendering } from './linux-rendering'
 
-// WSL2: /dev/shm is capped at 64 MB by default; Chromium's shared memory
-// buffers exceed this and cause segfaults when compositing heavy UI (modals,
-// dropdowns). Writing renderer shared memory to /tmp instead avoids the cap.
-if (process.platform === 'linux') {
-  app.commandLine.appendSwitch('disable-dev-shm-usage')
-}
+configureLinuxRendering(app)
 
 loadShellPath()
 configureDevProfilePaths(app)
+const crashDiagnostics = startCrashDiagnostics({
+  app,
+  crashReporter,
+  root: path.join(app.getPath('userData'), 'diagnostics'),
+})
+void app.whenReady().then(() => {
+  crashDiagnostics.recordGpuStatus(app.getGPUFeatureStatus())
+})
 
 // Remove env vars set by parent CLI agents so spawned agents don't detect
 // themselves as nested sessions and refuse to start.
@@ -245,6 +250,7 @@ function doCreateWindow(): void {
     },
     ipcDeps,
     onToggleKeepAwake: toggleKeepAwake,
+    crashDiagnostics,
   })
   mainWindow = win
   // Only null out if this is still the live window — a stale 'closed' from a
