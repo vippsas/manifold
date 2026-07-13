@@ -1,11 +1,12 @@
 import { clipboard, ipcMain, shell } from 'electron'
 import * as fs from 'node:fs'
-import { execFile, spawn } from 'node:child_process'
+import { execFile } from 'node:child_process'
 import { extname, resolve } from 'node:path'
 import { promisify } from 'node:util'
 import type { IpcDependencies } from './types'
 import type { AgentSession } from '../../shared/types'
 import { listWorktreeFiles } from '../fs/list-files'
+import { openTerminal } from './open-terminal'
 
 const execFileAsync = promisify(execFile)
 
@@ -203,14 +204,14 @@ export function registerFileHandlers(deps: IpcDependencies): void {
     shell.showItemInFolder(resolved)
   })
 
-  ipcMain.handle('files:open-terminal', (_event, sessionId: string, dirPath: string) => {
+  ipcMain.handle('files:open-terminal', async (_event, sessionId: string, dirPath: string) => {
     const session = sessionManager.getSession(sessionId)
     if (!session) throw new Error(`Session not found: ${sessionId}`)
     const resolved = resolve(session.worktreePath, dirPath)
     if (!isPathAllowed(resolved, session)) {
       throw new Error('Path traversal denied: directory outside allowed directories')
     }
-    spawn('open', ['-a', 'Terminal', resolved], { detached: true, stdio: 'ignore' })
+    await openTerminal(resolved)
   })
 
   ipcMain.handle('files:search-content', async (_event, sessionId: string, query: string) => {

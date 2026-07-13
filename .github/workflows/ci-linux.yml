@@ -1,0 +1,38 @@
+name: CI - Linux
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+
+jobs:
+  build-linux:
+    name: Build and Test (Linux)
+    runs-on: ubuntu-latest
+    # Minimal permissions; avoid giving write or deploy rights
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Setup Node.js 24
+        uses: actions/setup-node@v6
+        with:
+          node-version: '24'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Typecheck
+        run: npm run typecheck
+
+      - name: Run tests
+        run: npm test
+
+      - name: Build Linux distribution
+        run: npm run dist:linux
+
+      - name: Verify Linux package
+        run: npm run verify:linux-package

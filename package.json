@@ -24,6 +24,7 @@
     "dist": "electron-vite build && electron-builder --mac --publish always",
     "predist:linux": "npm run rebuild:electron && npm run build:plugins",
     "dist:linux": "electron-vite build && electron-builder --linux --publish never",
+    "verify:linux-package": "node scripts/verify-linux-package.mjs dist/linux-unpacked",
     "postinstall": "chmod +x node_modules/node-pty/prebuilds/darwin-*/spawn-helper 2>/dev/null || true",
     "rebuild:node": "node scripts/rebuild-better-sqlite3-node.mjs",
     "rebuild:electron": "npx electron-rebuild -f -o better-sqlite3",

@@ -1,0 +1,12 @@
+{
+  "schema_version": 1,
+  "approvals": [
+    {
+      "package": "dompurify",
+      "license": "(MPL-2.0 OR Apache-2.0)",
+      "approved": true,
+      "reviewed_at": "2026-07-13T11:00:27Z",
+      "global_key": "dompurify::(mpl-2.0 or apache-2.0)"
+    }
+  ]
+}

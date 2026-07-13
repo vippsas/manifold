@@ -23,6 +23,18 @@ describe('createEvalRunner', () => {
     expect(r.timedOut).toBe(true)
   })
 
+  it('escalates an aborted command that ignores SIGTERM', async () => {
+    if (process.platform === 'win32') return
+    const controller = new AbortController()
+    const startedAt = Date.now()
+    const running = runner.run(os.tmpdir(), "trap '' TERM; sleep 10", 20, controller.signal)
+
+    setTimeout(() => controller.abort(), 50)
+    await running
+
+    expect(Date.now() - startedAt).toBeLessThan(4_000)
+  }, 5_000)
+
   it('appends stderr under a marker', async () => {
     const r = await runner.run(os.tmpdir(), 'echo oops 1>&2', 10, new AbortController().signal)
     expect(r.stdout).toContain('---stderr---')

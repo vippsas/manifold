@@ -1,7 +1,7 @@
 ---
 description: How the Electron main process boots — shell PATH, dev profile, module wiring, app lifecycle, window creation, menus, auto-updater, mode switching, and the live-preview dev server.
 covers: [src/main/app]
-updated: 2026-06-15
+updated: 2026-07-13
 owner: see .github/CODEOWNERS
 ---
 
@@ -111,8 +111,9 @@ and non-interactive sessions, restore base branch for `noWorktree` cases), prepa
 the new mode. The renderer drains the pending action via `app:consume-pending-launch` (`:48`).
 It also owns `theme:changed`, which sets `nativeTheme.themeSource` and the window background.
 
-**Auto-updater.** `setupAutoUpdater()` (`auto-updater.ts:231`) no-ops unless packaged (or
-`MANIFOLD_FORCE_DEV_UPDATES=1`), enables auto-download/install-on-quit, wires `electron-updater`
+**Auto-updater.** `setupAutoUpdater()` (`auto-updater.ts:235`) always no-ops on Linux because
+the supported directory install has no published updater artifact; elsewhere it no-ops unless
+packaged (or `MANIFOLD_FORCE_DEV_UPDATES=1`). It enables auto-download/install-on-quit and wires `electron-updater`
 events to `debugLog` + a `updater:status` broadcast, fires a startup check, and schedules an
 hourly one. `checkForUpdates()` (`:193`) calls `electron-updater`'s plain `checkForUpdates()` —
 **not** `checkForUpdatesAndNotify()`, which fires a native OS "update ready" notification on every
@@ -151,7 +152,7 @@ return a fallback without caching so the next call retries the live API (`getRel
 - **IPC handlers register once; windows don't.** The `ipcHandlersRegistered` guard (`window-factory.ts:100`) prevents duplicate `ipcMain.handle` registrations when mode switching recreates the window.
 - **Mode switch destroys the window.** `app:switch-mode` calls `win.destroy()` then `createWindow()` (`mode-switcher.ts:75`); state that must survive the switch is passed through the `PendingLaunchAction` returned by `app:consume-pending-launch`, not held in the renderer.
 - **`debugLog` is on a hot path — never make it synchronous.** It is called once per PTY chunk; an earlier `appendFileSync` implementation hung the main thread at ~3ms/call once `debug.log` grew large. Lines are coalesced and appended async, with only `flushSync()` (on quit) writing synchronously (`debug-log.ts:26`).
-- **Auto-updater is no-op in dev.** Without `app.isPackaged` (or `MANIFOLD_FORCE_DEV_UPDATES=1`) `setupAutoUpdater` returns early (`auto-updater.ts:207`); don't expect update events when running unpacked.
+- **Auto-updater is disabled on Linux.** Linux directory installs update by rebuilding and rerunning `install-linux.sh`; other unpackaged builds require `MANIFOLD_FORCE_DEV_UPDATES=1` to exercise updater behavior (`auto-updater.ts:23-28`, `:235-247`).
 - **`loadShellPath` must not source `.zshrc`.** Interactive rc files hang when launched from Spotlight with no TTY; it asks the login shell for `$PATH` only, then appends known binary dirs as a fallback (`shell-path.ts:9`).
 - **Local renderer server is production-only and best-effort.** It exists so embed providers (YouTube, Vimeo, …) accept a real `http://127.0.0.1` origin instead of `file://`; if it fails to bind, the window falls back to `file://` and those embeds will fail (`window-factory.ts:142`).
 - **Webviews are restricted to localhost.** `will-attach-webview` rejects any non-localhost `src` (host-anchored regex) and strips the preload (`window-factory.ts:77`); GUEST_VIEW `ERR_ABORTED (-3)` noise is deliberately suppressed via the `console.error` monkey-patch at `window-factory.ts:14`.

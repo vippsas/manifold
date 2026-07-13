@@ -1,7 +1,8 @@
 ---
-description: How Manifold is built, type-checked, tested, packaged into a macOS .dmg, and released — the npm scripts, electron-vite bundling, native-module rebuilds, plugin compilation, and the two-step release flow.
+description: How Manifold is built, type-checked, tested, packaged for macOS and x64 WSL2/Linux, and released.
 covers: [package.json]
 updated: 2026-07-08
+updated: 2026-07-13
 owner: see .github/CODEOWNERS
 ---
 
@@ -9,7 +10,8 @@ owner: see .github/CODEOWNERS
 
 Manifold is an Electron app bundled with **electron-vite** (three independent builds:
 main, preload, renderer) plus a separate **esbuild** pass that compiles the built-in
-plugins under `resources/plugins/`. Its only native dependency, `better-sqlite3`, must be
+plugins under `resources/plugins/`. Native dependencies including `better-sqlite3` and
+`node-pty` must be
 rebuilt against whichever runtime will load it (Node for tests, Electron for the app), so
 nearly every entry-point script is fronted by a `pre*` rebuild hook. Packaging is
 electron-builder producing signed/notarized macOS `.dmg` + `.zip`, and a release is a
@@ -38,6 +40,12 @@ the native module for the right ABI and recompiles plugins:
 - `start` → `prestart` runs the same, then `electron-vite preview` against the built output (`package.json:13-14`).
 - `dist` → `predist` runs the same, then `electron-vite build && electron-builder --mac --publish always` (`package.json:23-24`).
 - `test` → `pretest` runs `rebuild:node` (Node ABI, not Electron) + `build:plugins`, then `vitest run` (`package.json:19-20`).
+- `dev` → `predev` runs `rebuild:electron` + `build:plugins`, then `electron-vite dev` (`package.json:7-8`).
+- `start` → `prestart` runs the same, then `electron-vite preview` against the built output (`package.json:11-12`).
+- `dist` → `predist` runs the same, then `electron-vite build && electron-builder --mac --publish always` (`package.json:21-22`).
+- `test` → `pretest` runs `rebuild:node` (Node ABI, not Electron) + `build:plugins`, then `vitest run` (`package.json:17-18`).
+- `dist:linux` → `predist:linux` rebuilds for Electron and compiles plugins, then electron-builder produces `dist/linux-unpacked` with `--publish never` (`package.json:23-25`).
+- `verify:linux-package` checks the Linux executable and packaged x64 GNU native modules (`package.json:25`, `scripts/verify-linux-package.mjs:13-34`).
 
 `build` itself (`package.json:11`) is `electron-vite build && npm run build:plugins` with no
 native rebuild — it produces JS only.
@@ -119,6 +127,12 @@ target (`:71`) enables `hardenedRuntime` + `notarize`, points at
 `publish` provider is the GitHub repo configured in `package.json` (`:99-103`), read by
 `electron-updater`.
 
+The Linux target is an unpacked x64 directory rather than AppImage (`package.json:96-103`).
+`install-linux.sh` verifies and stages that directory before transactionally replacing the app
+and launcher (`install-linux.sh:31-85`). Pull requests and `main` pushes run the
+non-publishing Linux build and verifier on Ubuntu (`.github/workflows/ci-linux.yml:1-38`);
+downloadable release artifacts remain macOS-only.
+
 **Release flow (`release.sh`).** The script takes one of `patch`/`minor`/`major`/`publish`
 (`release.sh:250-256`) and, after asserting a clean worktree, configured `origin`, and an
 authenticated `gh` (`:258-276`), branches into two paths:
@@ -162,3 +176,4 @@ packaging, but the canonical release artifacts come from CI on tag push.
 - **`.claude/skills/` is the source for checked-in skills.** After changing a repo skill, run `npm run sync:codex-skills` so Codex's installed copy is refreshed; the sync keeps unrelated user-installed Codex skills intact and only replaces matching checked-in skill names.
 - **`release.sh` prepare never tags; publish never bumps.** The bump lands via merged PR; the tag is created only by `publish` from `origin/main`'s SHA. Running `publish` before the bump PR merges tags the *old* version. Both halves require a clean worktree and abort otherwise (`release.sh:23-33`, `:271`).
 - **The real artifacts come from CI, not local `dist`.** Signing/notarization secrets only exist in the `release` GitHub environment; the local `dist` script (`--publish always`) is for developer-side packaging, while tag-triggered `release-dmg.yml` (`--publish never` + explicit upload) produces the published `.dmg`.
+- **Linux package verification is glibc-specific.** The supported WSL2 target requires the GNU x64 canvas binary plus Electron-compatible `node-pty` and `better-sqlite3` modules (`scripts/verify-linux-package.mjs:13-34`).

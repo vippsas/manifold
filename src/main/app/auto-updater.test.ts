@@ -120,6 +120,8 @@ function createMockWindow(destroyed = false): BrowserWindow {
 }
 
 describe('setupAutoUpdater', () => {
+  const originalPlatform = process.platform
+
   beforeEach(() => {
     vi.resetModules()
     vi.clearAllMocks()
@@ -132,12 +134,14 @@ describe('setupAutoUpdater', () => {
     mocks.mockWriteFileSync.mockReset()
     mocks.setTailContent('')
     mocks.mockApp.isPackaged = true
+    Object.defineProperty(process, 'platform', { value: 'darwin', configurable: true })
     mocks.autoUpdater.autoDownload = false
     mocks.autoUpdater.autoInstallOnAppQuit = false
   })
 
   afterEach(() => {
     vi.useRealTimers()
+    Object.defineProperty(process, 'platform', { value: originalPlatform, configurable: true })
   })
 
   it('checks on startup and again every hour after the previous check completes', async () => {
@@ -185,6 +189,30 @@ describe('setupAutoUpdater', () => {
     expect(mocks.mockCheckForUpdates).not.toHaveBeenCalled()
     expect(mocks.autoUpdater.on).not.toHaveBeenCalled()
     expect(mocks.debugLog).toHaveBeenCalledWith('[updater] skipping update checks in dev because the app is not packaged')
+  })
+
+  it('skips updater setup for packaged Linux directory installs', async () => {
+    Object.defineProperty(process, 'platform', { value: 'linux', configurable: true })
+
+    const { setupAutoUpdater } = await import('./auto-updater')
+
+    setupAutoUpdater()
+
+    expect(mocks.mockCheckForUpdates).not.toHaveBeenCalled()
+    expect(mocks.autoUpdater.on).not.toHaveBeenCalled()
+    expect(mocks.debugLog).toHaveBeenCalledWith('[updater] skipping update checks on Linux (no updater artifact)')
+  })
+
+  it('skips updater setup for unpackaged Linux runs', async () => {
+    Object.defineProperty(process, 'platform', { value: 'linux', configurable: true })
+    mocks.mockApp.isPackaged = false
+
+    const { setupAutoUpdater } = await import('./auto-updater')
+
+    setupAutoUpdater()
+
+    expect(mocks.autoUpdater.on).not.toHaveBeenCalled()
+    expect(mocks.debugLog).toHaveBeenCalledWith('[updater] skipping update checks on Linux (no updater artifact)')
   })
 
   it('does not start a second check while a download is still in progress', async () => {
