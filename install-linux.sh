@@ -21,8 +21,23 @@ echo "Installing to $APP_DIR..."
 rm -rf "$APP_DIR"
 cp -r "$UNPACKED_GLOB" "$APP_DIR"
 
-echo "Linking $INSTALL_DIR/$BINARY_NAME..."
-ln -sf "$APP_DIR/$BINARY_NAME" "$INSTALL_DIR/$BINARY_NAME"
+# Wrapper script so flags are applied before Chromium initialises.
+#
+# --ozone-platform=x11      Force XWayland instead of native Wayland.
+#                            Wayland rendering is unstable on some WSL2 setups;
+#                            XWayland is more battle-tested for Electron on WSL2.
+# --disable-dev-shm-usage   WSL2 /dev/shm defaults to 64 MB. Chromium exhausts
+#                            it compositing modals and segfaults. This routes
+#                            shared memory writes to /tmp instead.
+echo "Writing launcher wrapper $INSTALL_DIR/$BINARY_NAME..."
+cat > "$INSTALL_DIR/$BINARY_NAME" <<'WRAPPER'
+#!/bin/bash
+exec "$HOME/.local/share/manifold/manifold" \
+  --ozone-platform=x11 \
+  --disable-dev-shm-usage \
+  "$@"
+WRAPPER
+chmod +x "$INSTALL_DIR/$BINARY_NAME"
 
 echo "Done. Run: $BINARY_NAME"
 echo "Ensure $INSTALL_DIR is in your PATH."

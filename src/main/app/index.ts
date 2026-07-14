@@ -3,11 +3,11 @@ import type { AgentStatus } from '../../shared/types'
 import { loadShellPath } from './shell-path'
 import { configureDevProfilePaths } from './dev-profile'
 
-// WSL2 and headless Linux environments lack a working GPU. Disable the GPU
-// process to prevent the viz service from crashing with a segfault on startup.
+// WSL2: /dev/shm is capped at 64 MB by default; Chromium's shared memory
+// buffers exceed this and cause segfaults when compositing heavy UI (modals,
+// dropdowns). Writing renderer shared memory to /tmp instead avoids the cap.
 if (process.platform === 'linux') {
-  app.commandLine.appendSwitch('disable-gpu')
-  app.commandLine.appendSwitch('disable-software-rasterizer')
+  app.commandLine.appendSwitch('disable-dev-shm-usage')
 }
 
 loadShellPath()
