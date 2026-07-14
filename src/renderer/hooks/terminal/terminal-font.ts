@@ -40,11 +40,11 @@ export function resolveFontFamily(terminalFontFamily?: string, useWebFont = fals
   return `${primary}'${cleaned}', ${DEFAULT_FONT_STACK}`
 }
 
-export function buildTerminalOptions(scrollbackLines: number, terminalFontFamily?: string, xtermTheme?: ITheme): ITerminalOptions {
+export function buildTerminalOptions(scrollbackLines: number, terminalFontFamily?: string, xtermTheme?: ITheme, uiScale = 1): ITerminalOptions {
   return {
     scrollback: scrollbackLines,
     fontFamily: resolveFontFamily(terminalFontFamily),
-    fontSize: 13,
+    fontSize: Math.round(13 * uiScale),
     lineHeight: 1.4,
     cursorBlink: true,
     cursorStyle: 'block',

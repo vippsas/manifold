@@ -1,7 +1,7 @@
 ---
 description: How the Manifold renderer (developer workspace UI) is structured — the React entry, the dockview panel layout, and the preload-only boundary to main.
 covers: [src/renderer]
-updated: 2026-07-09
+updated: 2026-07-14
 owner: see .github/CODEOWNERS
 ---
 
@@ -41,6 +41,13 @@ single `DockAppState` (`App.tsx:256`), and hands that plus top-level handlers to
 otherwise-presentational `AppShell`. `AppShell` short-circuits to `WelcomeDialog` (setup
 incomplete) or `OnboardingView` (no projects) before rendering the full workspace
 (`AppShell.tsx:87`, `:96`).
+
+**UI scale.** `App` applies the `uiScale` setting in a layout effect that clamps the value with
+`clampUiScale`, sets the `--ui-scale` CSS variable on the document root, and dispatches a
+`manifold:ui-scale-changed` event (`App.tsx:50`–`:53`). The agent terminal follows it:
+`buildTerminalOptions` seeds `fontSize` as `Math.round(13 * uiScale)` (`terminal-font.ts:47`) and
+`useTerminal` live-updates the running xterm's `fontSize` on each `manifold:ui-scale-changed`
+(`useTerminal.ts:105`, `:108`).
 
 **Panel layout (dockview).** The workspace is a single `DockviewReact` instance
 (`AppShell.tsx:125`). Panels are registered by string id in `PANEL_COMPONENTS`

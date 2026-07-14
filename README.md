@@ -2,7 +2,7 @@
 
 # Manifold
 
-Manifold is a macOS desktop app for running AI coding assistants (Claude Code, Codex, Gemini CLI, and others) side by side on the same codebase.
+Manifold is a desktop app for running AI coding assistants (Claude Code, Codex, Gemini CLI, and others) side by side on the same codebase. Downloadable releases target macOS; x64 WSL2 is supported through a local source build.
 
 Each agent gets its own git worktree (a separate checkout of the repository on a dedicated branch) when you want isolation, so multiple agents can work on the same repo without branch conflicts. Agents run in real terminals, not wrapper UIs, so you can read and steer their output directly.
 
@@ -32,7 +32,7 @@ Download the latest `.dmg` from the [GitHub Releases page](https://github.com/vi
 
 | Requirement | Notes |
 | --- | --- |
-| macOS | The packaged app and build scripts currently target macOS only. |
+| Platform | Downloadable releases target macOS. x64 WSL2 with WSLg supports source builds and local installation. |
 | Git | Required for repository management, worktrees, diffs, commits, and pull request flows. |
 | One supported CLI agent on your `PATH` | Manifold checks for the runtime binaries directly. |
 | GitHub CLI (`gh`) | Optional, but required for creating pull requests from inside the app. |
@@ -62,6 +62,43 @@ claude --version         # or: codex --version / gemini --version / copilot --ve
 ```
 
 If a runtime command is not found, install it (see the links above) and make sure its binary is on your `PATH`.
+
+## WSL / Linux (Windows 11)
+
+Manifold supports x64 WSL2 with WSLg. Windows-native, ARM64 Linux, downloadable Linux releases, and Linux auto-updates are not supported.
+
+### Prerequisites
+
+```bash
+# Required native build tools
+sudo apt update && sudo apt install -y build-essential python3 ripgrep git
+
+# Recommended (for full prompt features — bash works too)
+sudo apt install -y zsh
+
+# Node.js 20+ via nvm: https://github.com/nvm-sh/nvm
+```
+
+### Install
+
+```bash
+git clone https://github.com/vippsas/manifold.git && cd manifold
+npm install
+./install-linux.sh   # builds linux-unpacked and installs a launcher in ~/.local/bin
+```
+
+Ensure `~/.local/bin` is in your PATH:
+```bash
+echo 'export PATH="$HOME/.local/bin:$PATH"' >> ~/.bashrc && source ~/.bashrc
+```
+
+### Run in development
+
+```bash
+npm run dev
+```
+
+Requires WSLg (ships with Windows 11 22H2+). The installer keeps the unpacked application under `~/.local/share/manifold`; rerun it to update. "Open in Terminal" uses the distro's `x-terminal-emulator` command, which must be a GNOME-family terminal that accepts `--working-directory` (for example `gnome-terminal`); a terminal that rejects that flag (such as `xterm`) reports an error instead of opening.
 
 ## The Workspace
 
@@ -182,9 +219,9 @@ The storage root (`~/.manifold` by default) is configurable in Settings → Stor
 
 ### Prerequisites
 
-- Node.js 18+
+- Node.js 20+
 - npm
-- macOS
+- macOS, or x64 WSL2 with WSLg and the native build tools listed above
 - Git
 - At least one supported CLI runtime installed locally
 
@@ -204,6 +241,8 @@ cd manifold
 | `npm start` | Run the built app locally. Also auto-rebuilds native Electron modules. |
 | `npm run build` | Produce a production build of main, preload, and renderer bundles. |
 | `npm run dist` | Build and package a macOS `.dmg` for distribution. |
+| `npm run dist:linux` | Build the x64 Linux unpacked directory without publishing it. |
+| `npm run verify:linux-package` | Verify the Linux executable and packaged native modules. |
 | `npm run typecheck:node` | Typecheck main process, preload, and shared code (`tsconfig.node.json`). |
 | `npm run typecheck:web` | Typecheck renderer and shared code (`tsconfig.web.json`). |
 | `npm test` | Run the full vitest suite once. |

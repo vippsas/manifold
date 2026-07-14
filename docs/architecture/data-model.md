@@ -1,7 +1,7 @@
 ---
 description: The on-disk data model under ~/.manifold — every file and directory Manifold persists, which module owns each path, and the two distinct roots (hardcoded config home vs. configurable storage root).
 covers: [src/main/store, src/shared/defaults.ts]
-updated: 2026-07-01
+updated: 2026-07-14
 owner: see .github/CODEOWNERS
 ---
 
@@ -53,7 +53,10 @@ construction; a missing/corrupt file falls back to `DEFAULT_SETTINGS` (`settings
 `memory`/`search`/`editor`/`notifications`, and one-time-seeds
 `disabledPlugins` (`settings-store.ts:22`). Every `updateSettings()` rewrites the whole file
 (`:92`). `storagePath` itself is set here and consumed across the app — its `mkdirSync` on
-change lives in the IPC layer, not the store (`ipc/settings-handlers.ts:18`).
+change lives in the IPC layer, not the store (`ipc/settings-handlers.ts:18`). `ManifoldSettings`
+also carries a bare-number `uiScale` (`src/shared/types.ts:178`), defaulting to `1`
+(`defaults.ts:55`); `clampUiScale()` bounds a persisted/user value to `[0.85, 2]` and falls back to
+`1` for non-finite input before it reaches font-size math (`defaults.ts:13`, min/max at `:4`–`:5`).
 
 **`<configHome>/projects.json`** — a flat `Project[]` array (id, name, path, baseBranch,
 addedAt, kind). `ProjectRegistry` loads, sorts by name, and rewrites the file on every

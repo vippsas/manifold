@@ -6,8 +6,9 @@ import { prepareManagedWorktree } from '../git/managed-worktree'
 import { readWorktreeMeta } from '../git/worktree-meta'
 import { claudeProjectsDir, locateClaudeTranscript } from './transcript-usage-reader'
 import type { MemoryInjector } from '../memory/memory-injector'
-import { buildShellEnv, buildWelcomeMessage, createManifoldZdotdir } from './shell-prompt'
+import { buildShellEnv, buildWelcomeMessage, createManifoldZdotdir, createManifoldBashRcFile, detectShell } from './shell-prompt'
 import * as fs from 'node:fs'
+import * as path from 'node:path'
 
 import type { InternalSession } from './session-types'
 import type { ShellPromptSegments } from '../../shared/types'
@@ -94,10 +95,13 @@ export function createShellPtySession(
 ): { sessionId: string } {
   const shell = process.platform === 'win32' ? 'cmd.exe' : (process.env.SHELL || '/bin/zsh')
   const useManifoldPrompt = options?.shellPrompt ?? false
-  const isZsh = shell.endsWith('/zsh') || shell === 'zsh'
+  const shellType = detectShell(shell)
+  const isZsh = shellType === 'zsh'
+  const isBash = shellType === 'bash'
 
   let env: Record<string, string> | undefined
   let zdotdirPath: string | undefined
+  let bashRcPath: string | undefined
 
   if (useManifoldPrompt) {
     const shellEnv = buildShellEnv(cwd)
@@ -113,10 +117,19 @@ export function createShellPtySession(
         options?.historyDir,
       )
       env.ZDOTDIR = zdotdirPath
+    } else if (isBash) {
+      bashRcPath = createManifoldBashRcFile({
+        agentName: shellEnv.MANIFOLD_AGENT_NAME,
+        repoName: shellEnv.MANIFOLD_REPO,
+      })
     }
   }
 
-  const ptyHandle = ptyPool.spawn(shell, ['-il'], { cwd, env })
+  const spawnArgs = isBash && bashRcPath
+    ? ['--rcfile', path.join(bashRcPath, '.bashrc'), '-i']
+    : ['-il']
+
+  const ptyHandle = ptyPool.spawn(shell, spawnArgs, { cwd, env })
   const id = uuidv4()
 
   const session: InternalSession = {
@@ -146,6 +159,14 @@ export function createShellPtySession(
   // Clean up temp ZDOTDIR when the shell exits
   if (zdotdirPath) {
     const dir = zdotdirPath
+    ptyPool.onExit(ptyHandle.id, () => {
+      fs.rm(dir, { recursive: true, force: true }, () => {})
+    })
+  }
+
+  // Clean up temp bash rcfile dir when the shell exits
+  if (bashRcPath) {
+    const dir = bashRcPath
     ptyPool.onExit(ptyHandle.id, () => {
       fs.rm(dir, { recursive: true, force: true }, () => {})
     })

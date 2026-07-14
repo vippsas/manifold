@@ -10,6 +10,10 @@ import { debugLog } from './debug-log'
  * hangs/timeouts when launched from Spotlight with no TTY.
  */
 export function loadShellPath(): void {
+  if (process.platform === 'linux') {
+    _appendCommonLinuxDirs()
+    return
+  }
   if (process.platform !== 'darwin') return
   try {
     const shell = process.env.SHELL ?? '/bin/zsh'
@@ -45,5 +49,21 @@ export function loadShellPath(): void {
   if (missing.length > 0) {
     process.env.PATH = currentPath + ':' + missing.join(':')
     debugLog(`[startup] appended ${missing.length} common dirs to PATH: ${missing.join(', ')}`)
+  }
+}
+
+function _appendCommonLinuxDirs(): void {
+  const home = homedir()
+  const commonDirs = [
+    join(home, '.local', 'bin'),   // npm global installs (claude, codex)
+    '/usr/local/bin',
+    '/usr/bin',
+  ]
+  const currentPath = process.env.PATH ?? ''
+  const pathSet = new Set(currentPath.split(':'))
+  const missing = commonDirs.filter(d => !pathSet.has(d))
+  if (missing.length > 0) {
+    process.env.PATH = currentPath + ':' + missing.join(':')
+    debugLog(`[startup] linux: appended ${missing.length} dirs to PATH: ${missing.join(', ')}`)
   }
 }

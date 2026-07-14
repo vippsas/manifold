@@ -3,7 +3,7 @@ import * as fs from 'node:fs'
 import * as os from 'node:os'
 import * as path from 'node:path'
 import { spawnSync } from 'node:child_process'
-import { buildShellEnv, buildWelcomeMessage, createManifoldZdotdir } from './shell-prompt'
+import { buildShellEnv, buildWelcomeMessage, createManifoldZdotdir, detectShell, createManifoldBashRcFile } from './shell-prompt'
 import { resolveShellHistoryDir } from '../ipc/agent-handlers'
 
 describe('buildShellEnv', () => {
@@ -254,6 +254,66 @@ RPROMPT='external right prompt'
     expect(result.stdout).not.toContain('posh=external')
     expect(result.stdout).not.toContain('starship=external')
     expect(result.stdout).not.toContain('_omp_zle-line-init')
+  })
+})
+
+describe('detectShell', () => {
+  it('returns zsh when SHELL is /bin/zsh', () => {
+    expect(detectShell('/bin/zsh')).toBe('zsh')
+  })
+
+  it('returns bash when SHELL is /bin/bash', () => {
+    expect(detectShell('/bin/bash')).toBe('bash')
+  })
+
+  it('returns bash when SHELL is /usr/bin/bash', () => {
+    expect(detectShell('/usr/bin/bash')).toBe('bash')
+  })
+
+  it('returns other for unknown shells', () => {
+    expect(detectShell('/bin/fish')).toBe('other')
+  })
+})
+
+describe('createManifoldBashRcFile', () => {
+  it('creates a temp dir containing a .bashrc', () => {
+    const dir = createManifoldBashRcFile({ agentName: 'oslo', repoName: 'myrepo' })
+    expect(fs.existsSync(path.join(dir, '.bashrc'))).toBe(true)
+    fs.rmSync(dir, { recursive: true })
+  })
+
+  it('.bashrc sources user .bashrc and sets PS1', () => {
+    const dir = createManifoldBashRcFile({ agentName: 'oslo', repoName: 'myrepo' })
+    const rc = fs.readFileSync(path.join(dir, '.bashrc'), 'utf-8')
+    expect(rc).toContain('~/.bashrc')
+    expect(rc).toContain('PS1=')
+    expect(rc).toContain('oslo')
+    fs.rmSync(dir, { recursive: true })
+  })
+
+  const bashAvailable = spawnSync('bash', ['-c', 'exit 0']).status === 0
+  const itIfBash = bashAvailable ? it : it.skip
+
+  // Repo names come from directory names, which can be attacker-influenced.
+  // Bash's default `promptvars` re-expands PS1 at every render, so a name
+  // containing $(...) or backticks would execute as a command. Guard against it.
+  itIfBash('does not execute a command substitution embedded in the repo name', () => {
+    const marker = path.join(os.tmpdir(), `manifold-ps1-injection-${process.pid}-marker`)
+    fs.rmSync(marker, { force: true })
+    const dir = createManifoldBashRcFile({ agentName: 'oslo', repoName: `$(touch ${marker})` })
+    try {
+      // Interactive bash renders PS1 once before reading `exit`.
+      spawnSync('bash', ['--rcfile', path.join(dir, '.bashrc'), '-i'], {
+        input: 'exit\n',
+        env: { ...process.env, PATH: '/usr/bin:/bin' },
+        encoding: 'utf-8',
+        timeout: 5000,
+      })
+      expect(fs.existsSync(marker)).toBe(false)
+    } finally {
+      fs.rmSync(dir, { recursive: true, force: true })
+      fs.rmSync(marker, { force: true })
+    }
   })
 })
 

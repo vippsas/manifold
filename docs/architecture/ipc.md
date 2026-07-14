@@ -1,7 +1,7 @@
 ---
 description: How Manifold's main-process services are exposed to the renderer over Electron IPC — the channel namespaces, the handler registration pattern, and how handlers delegate to subsystem managers.
 covers: [src/main/ipc]
-updated: 2026-07-01
+updated: 2026-07-14
 owner: see .github/CODEOWNERS
 ---
 
@@ -23,6 +23,7 @@ managers documented on the other architecture pages (`session.md`, `git.md`, etc
 - `src/main/ipc/chat-image-handlers.ts` — `chat:save-pasted-image`/`chat:read-pasted-image` and the allow-listed image-path resolution they share.
 - `src/main/ipc/git-handlers.ts` — `diff:*`, `pr:create`, and the mutating `git:*` channels (`git:commit`, `git:ai-generate`, `git:ahead-behind`, `git:resolve-conflict`, `git:pr-context`, `git:fetch`, `git:has-uncommitted-changes`). The session-scoped comparisons (diff, PR target, ahead/behind, pr-context) use `baseBranchFor(session, project)` = `session.baseBranch || project.baseBranch`, so a no-worktree agent based off a selected branch compares against that branch.
 - `src/main/ipc/file-handlers.ts` — `files:*` tree/read/write/rename/import/paste/reveal/search, all path-guarded against traversal.
+- `src/main/ipc/open-terminal.ts` — platform command selection for the path-guarded `files:open-terminal` channel: macOS `open`, Linux `x-terminal-emulator`.
 - `src/main/ipc/project-handlers.ts` — `projects:*` (list/add/clone/create-new/remove/update) and the `*-dialog` + `storage:open-dialog` native-dialog channels.
 - `src/main/ipc/settings-handlers.ts` — `settings:*`, `runtimes:list`, `ollama:list-models`, `view-state:*`, `shell-tabs:*`, `dock-layout:*`. Also keeps the zsh prompt-segments file in sync with settings (`settings-handlers.ts:16`) so live shells follow prompt-segment changes.
 - `src/main/ipc/search-handlers.ts` — `search:context`, `search:query`, `search:ask`, `search:view-state:*`.
@@ -37,10 +38,10 @@ Most handler modules ship a sibling `*.test.ts` exercising its channels in isola
 
 **One registration pass.** `window-factory.ts` calls `registerIpcHandlers(deps.ipcDeps)`
 behind an `ipcHandlersRegistered` guard, so it runs exactly once for the process even when
-a second window is built (`window-factory.ts:100`). `registerIpcHandlers()` (`ipc-handlers.ts:23`) then invokes
+a second window is built (`window-factory.ts:100`). `registerIpcHandlers()` (`ipc-handlers.ts:22`) then invokes
 every `register*Handlers(deps)` in sequence — there is no dynamic discovery or channel
 registry; the list is hand-maintained. A handful of trivial channels are registered inline
-in the same function rather than in their own module (`ipc-handlers.ts:47`–`:81`).
+in the same function rather than in their own module (`ipc-handlers.ts:44`–`:78`).
 
 **The dependency bag.** All managers a handler might need are assembled once into
 `IpcDependencies` (`types.ts:21`) — `sessionManager`, `projectRegistry`, `settingsStore`,
@@ -74,17 +75,19 @@ is non-empty (used by the New Agent form's dirty-repo confirmation).
 
 **Validation at the boundary.** Handlers are where untrusted renderer input is checked.
 `file-handlers.ts` resolves every path against the session worktree and rejects anything
-outside the allowed dirs via `isPathAllowed()` (`file-handlers.ts:17`, enforced on
+outside the allowed dirs via `isPathAllowed()` (`file-handlers.ts:19`, enforced on
 `files:read`, `files:write`, `files:delete`, `files:rename`, etc.). `chat-image-handlers.ts`
 restricts pasted/read-back chat images to a small allow-list of directories
 (`resolveReadableChatImagePath`, `chat-image-handlers.ts:26`). `project-handlers.ts` rejects
 clone URLs beginning with `-` to avoid argument injection into `git clone`
 (`project-handlers.ts:69`). Several handlers reject non-git projects with an explicit error
 (`isGitProject` checks throughout `git-handlers.ts` and `agent-handlers.ts`).
+`files:open-terminal` applies the same path guard before `openTerminal()` launches a detached
+platform process without a shell (`file-handlers.ts:208-225`, `open-terminal.ts:12-60`).
 
 ## Key types and entry points
 
-- `registerIpcHandlers(deps)` — `ipc-handlers.ts:23`. The only thing the app boot calls; registers everything.
+- `registerIpcHandlers(deps)` — `ipc-handlers.ts:22`. The only thing the app boot calls; registers everything.
 - `IpcDependencies` — `types.ts:21`. The manager bag; the contract between the IPC layer and every subsystem. `send?` is the optional renderer-push hook used by `plugin-handlers.ts`.
 - `resolveSession(sessionManager, id)` — `types.ts:45`. Shared helper that returns an `AgentSession` or throws `Session not found`; used by the mutating git handlers.
 - `register*Handlers(deps)` — one per module (e.g. `registerAgentHandlers`, `agent-handlers.ts:63`). Each owns one namespace and is independently unit-tested.
@@ -101,7 +104,7 @@ clone URLs beginning with `-` to avoid argument injection into `git clone`
 
 ## Invariants & gotchas
 
-- **The registration list is manual.** Adding a namespace means writing a `register*Handlers` function *and* wiring it into `registerIpcHandlers` (`ipc-handlers.ts:24`). A forgotten line silently leaves the channels unregistered, and the renderer call rejects with "No handler registered".
+- **The registration list is manual.** Adding a namespace means writing a `register*Handlers` function *and* wiring it into `registerIpcHandlers` (`ipc-handlers.ts:22`). A forgotten line silently leaves the channels unregistered, and the renderer call rejects with "No handler registered".
 - **This layer is `handle`-only; events go the other way.** Don't add `ipcMain.on` here. Renderer→main is request/response; main→renderer is `webContents.send`. Mixing the two in one channel breaks the preload allow-list model.
 - **Path guards live in the handler, not the manager.** `fileWatcher` will read/write whatever absolute path it's given; the traversal guard is `isPathAllowed` in `file-handlers.ts`. A new `files:*` channel that skips it is an arbitrary-file-access hole.
 - **Handlers must tolerate a missing session.** Sessions can be torn down mid-flight while a renderer refresh is in flight; `diff:get` returns an empty diff rather than throwing for exactly this race (`git-handlers.ts:15`), whereas `resolveSession`-based channels deliberately throw.

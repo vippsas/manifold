@@ -1,7 +1,7 @@
 ---
 description: How the Electron main process boots — shell PATH, dev profile, module wiring, app lifecycle, window creation, menus, auto-updater, mode switching, and the live-preview dev server.
 covers: [src/main/app]
-updated: 2026-06-15
+updated: 2026-07-14
 owner: see .github/CODEOWNERS
 ---
 
@@ -24,6 +24,9 @@ dev-server manager that powers live preview of generated (simple-mode) apps.
 - `src/main/app/app-menu.ts` — `buildAppMenu()`: the macOS application menu, generated from the shared command catalog (`src/shared/commands/catalog.ts`); catalog items fire one `command:run` IPC, bespoke items keep their own channels.
 - `src/main/app/ipc-handlers.ts` — `registerIpcHandlers()`: fans out to every `register*Handlers(deps)` module plus a handful of inline `app:*`/`updater:*`/`release-notes:*`/`font:*` handlers.
 - `src/main/app/auto-updater.ts` — `setupAutoUpdater()`, `checkForUpdates()`, release-notes fetch/caching; wraps `electron-updater`.
+- `src/main/app/crash-diagnostics.ts` — local-only Crashpad dumps and redacted renderer/GPU process-exit events under the active Electron profile's `diagnostics/` directory.
+- `src/main/app/linux-rendering.ts` — applies Linux shared-memory handling and disables hardware acceleration only when WSL is detected.
+- `src/main/app/notification-sound.ts` — avoids Electron's native `shell.beep()` on WSL, where the browser process can jump through a null audio callback.
 - `src/main/app/dev-server-manager.ts` — `DevServerManager`: simple-mode dev server lifecycle, print-mode follow-up turns, and slash-command probing.
 - `src/main/app/mode-switcher.ts` — `ModeSwitcher`: `app:switch-mode` between `developer`/`simple`, plus `theme:changed` and `app:consume-pending-launch`.
 - `src/main/app/local-renderer-server.ts` — `startLocalRendererServer()`: a static loopback HTTP server so the renderer has a real `http://127.0.0.1` origin in production.
@@ -111,10 +114,11 @@ and non-interactive sessions, restore base branch for `noWorktree` cases), prepa
 the new mode. The renderer drains the pending action via `app:consume-pending-launch` (`:48`).
 It also owns `theme:changed`, which sets `nativeTheme.themeSource` and the window background.
 
-**Auto-updater.** `setupAutoUpdater()` (`auto-updater.ts:231`) no-ops unless packaged (or
-`MANIFOLD_FORCE_DEV_UPDATES=1`), enables auto-download/install-on-quit, wires `electron-updater`
+**Auto-updater.** `setupAutoUpdater()` (`auto-updater.ts:233`) always no-ops on Linux because
+the supported directory install has no published updater artifact; elsewhere it no-ops unless
+packaged (or `MANIFOLD_FORCE_DEV_UPDATES=1`). It enables auto-download/install-on-quit and wires `electron-updater`
 events to `debugLog` + a `updater:status` broadcast, fires a startup check, and schedules an
-hourly one. `checkForUpdates()` (`:193`) calls `electron-updater`'s plain `checkForUpdates()` —
+hourly one. `checkForUpdates()` (`:195`) calls `electron-updater`'s plain `checkForUpdates()` —
 **not** `checkForUpdatesAndNotify()`, which fires a native OS "update ready" notification on every
 check where an update is available and so spammed a fresh notification each hour for the same
 already-downloaded version. Updates surface only through the renderer's own dismissible banner
@@ -122,16 +126,16 @@ already-downloaded version. Updates surface only through the renderer's own dism
 concurrent checks and retries transient
 failures (5xx, timeout, missing `latest-mac.yml`) on a `[5s, 15s, 60s]` backoff. Release notes
 are fetched from the GitHub API and cached on success; transient failures (non-2xx, network error)
-return a fallback without caching so the next call retries the live API (`getReleaseNotes`, `:127`).
+return a fallback without caching so the next call retries the live API (`getReleaseNotes`, `:148`).
 
 ## Key types and entry points
 
 - `registerAppLifecycle(deps)` — `app-lifecycle.ts:32`. The only place Electron app events are bound.
 - `createWindow(deps)` / `rebuildAppMenu(win, opts)` — `window-factory.ts:53` / `:135`.
-- `registerIpcHandlers(deps)` — `ipc-handlers.ts:24`. Single fan-out for all `register*Handlers`; `IpcDependencies` is re-exported from `../ipc/types`.
+- `registerIpcHandlers(deps)` — `ipc-handlers.ts:22`. Single fan-out for all `register*Handlers`; `IpcDependencies` is re-exported from `../ipc/types`.
 - `DevServerManager` — `dev-server-manager.ts:16`. Methods: `startDevServerSession`, `startDevServer`, `spawnPrintModeFollowUp`, `probeSlashCommands`.
 - `ModeSwitcher` — `mode-switcher.ts:26`. `register(createWindow, getMainWindow, setMainWindow)` binds `app:switch-mode`, `theme:changed`, `app:consume-pending-launch`.
-- `setupAutoUpdater()` / `checkForUpdates(reason)` / `getReleaseNotes(version)` — `auto-updater.ts:231` / `:193` / `:146`.
+- `setupAutoUpdater()` / `checkForUpdates(reason)` / `getReleaseNotes(version)` — `auto-updater.ts:233` / `:195` / `:148`.
 - `startLocalRendererServer(rootDir)` → `LocalRendererServer` — `local-renderer-server.ts:38`.
 - `loadShellPath()` — `shell-path.ts:12`. `configureDevProfilePaths(app)` — `dev-profile.ts:32`.
 - `PowerManager` — `power-manager.ts:3`. `debugLog()` / `flushDebugLogSync()` — `debug-log.ts:88` / `:97`.
@@ -151,7 +155,10 @@ return a fallback without caching so the next call retries the live API (`getRel
 - **IPC handlers register once; windows don't.** The `ipcHandlersRegistered` guard (`window-factory.ts:100`) prevents duplicate `ipcMain.handle` registrations when mode switching recreates the window.
 - **Mode switch destroys the window.** `app:switch-mode` calls `win.destroy()` then `createWindow()` (`mode-switcher.ts:75`); state that must survive the switch is passed through the `PendingLaunchAction` returned by `app:consume-pending-launch`, not held in the renderer.
 - **`debugLog` is on a hot path — never make it synchronous.** It is called once per PTY chunk; an earlier `appendFileSync` implementation hung the main thread at ~3ms/call once `debug.log` grew large. Lines are coalesced and appended async, with only `flushSync()` (on quit) writing synchronously (`debug-log.ts:26`).
-- **Auto-updater is no-op in dev.** Without `app.isPackaged` (or `MANIFOLD_FORCE_DEV_UPDATES=1`) `setupAutoUpdater` returns early (`auto-updater.ts:207`); don't expect update events when running unpacked.
+- **Auto-updater is disabled on Linux.** Linux directory installs update by rebuilding and rerunning `install-linux.sh`; other unpackaged builds require `MANIFOLD_FORCE_DEV_UPDATES=1` to exercise updater behavior (`auto-updater.ts:23-27`, `:237-245`).
+- **Crash diagnostics stay local.** Startup points Electron's `crashDumps` path at `<userData>/diagnostics/dumps`, preserving dev/profile isolation, disables upload and external system crash handlers, and serializes redacted process events into a `0600` JSONL file capped at 1 MiB. The diagnostics directory is `0700`; Crashpad controls dump-file modes. Dumps can contain process memory/environment metadata and are pruned asynchronously after seven days, so treat them as sensitive (`crash-diagnostics.ts:48-161`). Initialization is best-effort and cannot abort app startup.
+- **WSL uses software rendering.** Before Electron readiness, Linux enables `disable-dev-shm-usage`; WSL detection via `WSL_DISTRO_NAME` or `WSL_INTEROP` additionally calls `app.disableHardwareAcceleration()` to avoid WSLg Viz/GPU-process crashes without penalizing native Linux (`linux-rendering.ts:6-17`).
+- **WSL skips native beep.** `app:beep` remains enabled on macOS and native Linux, but WSL returns without calling Electron's native sound path; repeated kernel crashes showed a null browser-process instruction pointer about ten seconds after an agent stopped outputting (`notification-sound.ts:1-8`, `ipc-handlers.ts:52-54`).
 - **`loadShellPath` must not source `.zshrc`.** Interactive rc files hang when launched from Spotlight with no TTY; it asks the login shell for `$PATH` only, then appends known binary dirs as a fallback (`shell-path.ts:9`).
 - **Local renderer server is production-only and best-effort.** It exists so embed providers (YouTube, Vimeo, …) accept a real `http://127.0.0.1` origin instead of `file://`; if it fails to bind, the window falls back to `file://` and those embeds will fail (`window-factory.ts:142`).
 - **Webviews are restricted to localhost.** `will-attach-webview` rejects any non-localhost `src` (host-anchored regex) and strips the preload (`window-factory.ts:77`); GUEST_VIEW `ERR_ABORTED (-3)` noise is deliberately suppressed via the `console.error` monkey-patch at `window-factory.ts:14`.

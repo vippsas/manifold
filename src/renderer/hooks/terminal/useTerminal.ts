@@ -96,12 +96,29 @@ export function useTerminal({ sessionId, scrollbackLines, terminalFontFamily, xt
     })
   }, [terminalFontFamily])
 
+  // Update font size when the user changes the UI scale factor in settings.
+  useEffect(() => {
+    const handleScaleChange = (event: Event): void => {
+      const terminal = terminalRef.current
+      if (!terminal) return
+      const scale = (event as CustomEvent<number>).detail
+      terminal.options.fontSize = Math.round(13 * scale)
+      fitPreservingScroll(fitAddonRef.current, terminal)
+    }
+    document.addEventListener('manifold:ui-scale-changed', handleScaleChange)
+    return () => document.removeEventListener('manifold:ui-scale-changed', handleScaleChange)
+  }, [])
+
   useEffect(() => {
     const container = containerRef.current
     if (!container) return
 
+    const currentScale = parseFloat(
+      getComputedStyle(document.documentElement).getPropertyValue('--ui-scale') || '1'
+    ) || 1
+
     const terminal = new Terminal({
-      ...buildTerminalOptions(scrollbackLines, terminalFontFamily, xtermTheme),
+      ...buildTerminalOptions(scrollbackLines, terminalFontFamily, xtermTheme, currentScale),
       // OSC 8 hyperlinks (e.g. links rendered by Claude Code) bypass the
       // WebLinksAddon and would otherwise hit xterm's built-in confirm dialog
       // ("WARNING: This link could potentially be dangerous"). xterm only

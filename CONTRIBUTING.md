@@ -4,16 +4,16 @@ Thanks for your interest in contributing to Manifold! This guide will help you g
 
 ## Prerequisites
 
-- **Node.js** (v18+)
+- **Node.js** (v20+)
 - **npm**
-- **macOS** (Manifold currently targets macOS only)
+- **Platform** — macOS, or x64 WSL2 with WSLg and native build tools (`build-essential`, Python 3)
 - **Git**
 - At least one supported CLI agent installed (Claude Code, Codex, or Gemini CLI)
 
 ## Getting Started
 
 ```bash
-git clone https://github.com/svenmalvik/manifold.git
+git clone https://github.com/vippsas/manifold.git
 cd manifold
 npm run bootstrap   # install deps, verify Electron, rebuild better-sqlite3 for Electron
 npm run dev

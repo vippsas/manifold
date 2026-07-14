@@ -14,6 +14,7 @@ const mocks = vi.hoisted(() => {
     }),
     showItemInFolder: vi.fn(),
     readImage: vi.fn(),
+    openTerminal: vi.fn(),
   }
 })
 
@@ -21,6 +22,10 @@ vi.mock('electron', () => ({
   ipcMain: { handle: mocks.handle },
   shell: { showItemInFolder: mocks.showItemInFolder },
   clipboard: { readImage: mocks.readImage },
+}))
+
+vi.mock('./open-terminal', () => ({
+  openTerminal: mocks.openTerminal,
 }))
 
 function makeSession(worktreePath: string, additionalDirs: string[] = []): AgentSession {
@@ -56,6 +61,7 @@ describe('registerFileHandlers', () => {
       isEmpty: () => true,
       toPNG: () => Buffer.alloc(0),
     })
+    mocks.openTerminal.mockResolvedValue(undefined)
   })
 
   it('writes a pasted clipboard image into the requested directory', async () => {
@@ -176,6 +182,60 @@ describe('registerFileHandlers', () => {
 
       expect(await handler({}, 'sess-1', root)).toEqual({ pasted: false })
       expect(deps.fileWatcher.notifyTreeChanged).not.toHaveBeenCalled()
+    } finally {
+      await rm(root, { recursive: true, force: true })
+    }
+  })
+
+  it('opens an allowed directory in the platform terminal', async () => {
+    const { registerFileHandlers } = await import('./file-handlers')
+    const root = await mkdtemp(join(tmpdir(), 'manifold-open-terminal-test-'))
+    const tree: FileTreeNode = { name: 'repo', path: root, isDirectory: true, children: [] }
+
+    try {
+      registerFileHandlers(makeDeps(makeSession(root), tree))
+      const handler = mocks.handlers.get('files:open-terminal')
+      if (!handler) throw new Error('files:open-terminal handler was not registered')
+
+      await handler({}, 'sess-1', root)
+
+      expect(mocks.openTerminal).toHaveBeenCalledWith(root)
+    } finally {
+      await rm(root, { recursive: true, force: true })
+    }
+  })
+
+  it('rejects opening a terminal outside the active session roots', async () => {
+    const { registerFileHandlers } = await import('./file-handlers')
+    const root = await mkdtemp(join(tmpdir(), 'manifold-open-terminal-test-'))
+    const outside = await mkdtemp(join(tmpdir(), 'manifold-open-terminal-outside-'))
+    const tree: FileTreeNode = { name: 'repo', path: root, isDirectory: true, children: [] }
+
+    try {
+      registerFileHandlers(makeDeps(makeSession(root), tree))
+      const handler = mocks.handlers.get('files:open-terminal')
+      if (!handler) throw new Error('files:open-terminal handler was not registered')
+
+      await expect(handler({}, 'sess-1', outside)).rejects.toThrow('Path traversal denied')
+      expect(mocks.openTerminal).not.toHaveBeenCalled()
+    } finally {
+      await rm(root, { recursive: true, force: true })
+      await rm(outside, { recursive: true, force: true })
+    }
+  })
+
+  it('propagates a platform terminal launch failure', async () => {
+    const { registerFileHandlers } = await import('./file-handlers')
+    const root = await mkdtemp(join(tmpdir(), 'manifold-open-terminal-test-'))
+    const tree: FileTreeNode = { name: 'repo', path: root, isDirectory: true, children: [] }
+
+    try {
+      mocks.openTerminal.mockRejectedValue(new Error('Failed to open terminal'))
+      registerFileHandlers(makeDeps(makeSession(root), tree))
+      const handler = mocks.handlers.get('files:open-terminal')
+      if (!handler) throw new Error('files:open-terminal handler was not registered')
+
+      await expect(handler({}, 'sess-1', root)).rejects.toThrow('Failed to open terminal')
     } finally {
       await rm(root, { recursive: true, force: true })
     }

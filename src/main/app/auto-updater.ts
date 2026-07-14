@@ -21,6 +21,8 @@ let pendingUpdateRetryTimer: ReturnType<typeof setTimeout> | null = null
 const releaseNotesCache = new Map<string, ReleaseNotes>()
 
 function shouldRunAutoUpdater(): boolean {
+  // Linux directory installs have no published updater artifact.
+  if (process.platform === 'linux') return false
   return app.isPackaged || FORCE_DEV_UPDATES
 }
 
@@ -233,7 +235,12 @@ export function setupAutoUpdater(): void {
   updaterInitialized = true
 
   if (!shouldRunAutoUpdater()) {
-    debugLog('[updater] skipping update checks in dev because the app is not packaged')
+    // Log concise reason for Linux; keep previous dev message for other cases.
+    if (process.platform === 'linux') {
+      debugLog('[updater] skipping update checks on Linux (no updater artifact)')
+    } else {
+      debugLog('[updater] skipping update checks in dev because the app is not packaged')
+    }
     return
   }
 
