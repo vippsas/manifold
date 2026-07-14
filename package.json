@@ -1,6 +1,6 @@
 {
   "name": "manifold",
-  "version": "0.2.96",
+  "version": "0.2.97",
   "description": "Multi-agent orchestrator for CLI coding agents",
   "main": "out/main/index.js",
   "scripts": {
@@ -102,7 +102,9 @@
       "target": [
         {
           "target": "dir",
-          "arch": ["x64"]
+          "arch": [
+            "x64"
+          ]
         }
       ]
     },
