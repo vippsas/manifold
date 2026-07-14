@@ -1,7 +1,7 @@
 ---
 description: How Manifold agent sessions are created, run, stopped, resumed, and rediscovered from on-disk worktrees.
 covers: [src/main/session]
-updated: 2026-07-01
+updated: 2026-07-14
 owner: see .github/CODEOWNERS
 ---
 
@@ -90,6 +90,12 @@ in `streamJsonLineBuffer` and dispatches each complete event to `handleStreamJso
 Input flows the other way through `SessionIoController.sendInput()` (`session-io-controller.ts:48`):
 non-interactive sessions spawn a fresh print-mode follow-up; shell sessions route through the
 NL/suggestion helpers only while at the prompt line.
+
+**Shell prompt (zsh & bash).** `createShellPtySession()` (`session-resume.ts:89`) picks the
+user's `$SHELL` and branches on `detectShell()` (`shell-prompt.ts:41`): a zsh shell gets a temp
+`ZDOTDIR`, while a bash shell gets a temp `--rcfile` built by `createManifoldBashRcFile()`
+(`shell-prompt.ts:58`) and is spawned as `bash --rcfile <dir>/.bashrc -i` (`session-resume.ts:121`,
+`:128`).
 
 **Stop.** `killSession()` → `SessionKiller.killSession()` (`session-killer.ts:33`) deletes the
 session from the map, kills its PTYs (agent, dev-server, slash-command probe), clears chat +

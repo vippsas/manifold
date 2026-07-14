@@ -15,7 +15,7 @@ const crashDiagnostics = startCrashDiagnostics({
   root: path.join(app.getPath('userData'), 'diagnostics'),
 })
 void app.whenReady().then(() => {
-  crashDiagnostics.recordGpuStatus(app.getGPUFeatureStatus())
+  crashDiagnostics.recordGpuStatus({ ...app.getGPUFeatureStatus() })
 })
 
 // Remove env vars set by parent CLI agents so spawned agents don't detect

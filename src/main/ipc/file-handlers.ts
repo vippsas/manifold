@@ -7,6 +7,7 @@ import type { IpcDependencies } from './types'
 import type { AgentSession } from '../../shared/types'
 import { listWorktreeFiles } from '../fs/list-files'
 import { openTerminal } from './open-terminal'
+import { debugLog } from '../app/debug-log'
 
 const execFileAsync = promisify(execFile)
 
@@ -211,7 +212,16 @@ export function registerFileHandlers(deps: IpcDependencies): void {
     if (!isPathAllowed(resolved, session)) {
       throw new Error('Path traversal denied: directory outside allowed directories')
     }
-    await openTerminal(resolved)
+    try {
+      await openTerminal(resolved)
+    } catch (error) {
+      // The renderer discards this rejection, so log why the terminal failed
+      // (e.g. no x-terminal-emulator installed) or it vanishes silently.
+      const cause = (error as { cause?: unknown }).cause
+      const detail = cause instanceof Error ? cause.message : error instanceof Error ? error.message : String(error)
+      debugLog(`[open-terminal] failed for ${resolved}: ${detail}`)
+      throw error
+    }
   })
 
   ipcMain.handle('files:search-content', async (_event, sessionId: string, query: string) => {

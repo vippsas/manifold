@@ -1,6 +1,7 @@
 import { chmodSync, mkdirSync, readdirSync, rmSync, statSync } from 'node:fs'
 import { appendFile, stat, writeFile } from 'node:fs/promises'
 import { join } from 'node:path'
+import { debugLog } from './debug-log'
 
 interface AppLike {
   on(event: 'child-process-gone', handler: (_event: unknown, details: ChildProcessGoneDetails) => void): unknown
@@ -41,7 +42,7 @@ interface CrashDiagnosticsOptions {
 
 export interface CrashDiagnostics {
   observeWebContents(webContents: WebContentsLike): void
-  recordGpuStatus(status: Record<string, string>): void
+  recordGpuStatus(status: Record<string, unknown>): void
 }
 
 export function startCrashDiagnostics(options: CrashDiagnosticsOptions): CrashDiagnostics {
@@ -61,7 +62,10 @@ export function startCrashDiagnostics(options: CrashDiagnosticsOptions): CrashDi
       compress: false,
       ignoreSystemCrashHandler: true,
     })
-  } catch {
+  } catch (error) {
+    // Surface why diagnostics are off so the "no diagnostics" state is itself
+    // diagnosable; init must never abort startup, so we still return the no-op.
+    debugLog(`[crash-diagnostics] disabled; init failed: ${error instanceof Error ? error.message : String(error)}`)
     return NOOP_DIAGNOSTICS
   }
 
@@ -93,10 +97,12 @@ export function startCrashDiagnostics(options: CrashDiagnosticsOptions): CrashDi
       const safeStatus = Object.fromEntries(
         Object.entries(status).filter(([, value]) => typeof value === 'string'),
       )
+      // Nest under `status` so a feature key can never clobber the envelope's
+      // `timestamp`/`event` fields.
       const entry = JSON.stringify({
         timestamp: new Date().toISOString(),
         event: 'gpu-feature-status',
-        ...safeStatus,
+        status: safeStatus,
       })
       void appendPrivateEvent(eventsFile, entry)
     },

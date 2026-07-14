@@ -98,7 +98,7 @@ echo 'export PATH="$HOME/.local/bin:$PATH"' >> ~/.bashrc && source ~/.bashrc
 npm run dev
 ```
 
-Requires WSLg (ships with Windows 11 22H2+). The installer keeps the unpacked application under `~/.local/share/manifold`; rerun it to update. "Open in Terminal" uses the distro's `x-terminal-emulator` command.
+Requires WSLg (ships with Windows 11 22H2+). The installer keeps the unpacked application under `~/.local/share/manifold`; rerun it to update. "Open in Terminal" uses the distro's `x-terminal-emulator` command, which must be a GNOME-family terminal that accepts `--working-directory` (for example `gnome-terminal`); a terminal that rejects that flag (such as `xterm`) reports an error instead of opening.
 
 ## The Workspace
 

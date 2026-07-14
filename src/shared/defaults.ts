@@ -1,5 +1,19 @@
 import type { FavoriteRef, ManifoldSettings } from './types'
 
+/** Supported UI scale range, matching the Settings dropdown options. */
+export const UI_SCALE_MIN = 0.85
+export const UI_SCALE_MAX = 2
+
+/**
+ * Clamp a persisted/user-supplied UI scale into the supported range, falling
+ * back to 1 for absent or non-finite values. The setting is a bare `number`
+ * that flows into font-size math, so a hand-edited NaN/negative/huge value
+ * must never reach the renderer.
+ */
+export function clampUiScale(scale: number | undefined): number {
+  return Number.isFinite(scale) ? Math.min(UI_SCALE_MAX, Math.max(UI_SCALE_MIN, scale as number)) : 1
+}
+
 export const DEFAULT_SETTINGS = {
   storagePath: '',
   setupCompleted: false,

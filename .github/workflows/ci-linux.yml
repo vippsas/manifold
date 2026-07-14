@@ -25,8 +25,16 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
+      # `npm run typecheck` (bare `tsc --noEmit` against a references-only root
+      # tsconfig) compiles nothing, so it can't catch type errors. Run the two
+      # project typechecks that actually cover main/preload/shared and renderer.
       - name: Typecheck
-        run: npm run typecheck
+        run: |
+          npm run typecheck:node
+          npm run typecheck:web
+
+      - name: Shellcheck install script
+        run: shellcheck install-linux.sh
 
       - name: Run tests
         run: npm test

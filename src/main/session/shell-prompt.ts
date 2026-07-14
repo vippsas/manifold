@@ -78,6 +78,10 @@ export MANIFOLD_BRANCH="manifold/${escapeBashDQ(agentName)}"
 # Disable prompt managers (starship, oh-my-posh, p10k)
 unset STARSHIP_SESSION_KEY STARSHIP_SHELL POSH_SESSION_ID POSH_SHELL 2>/dev/null
 
+# Disable prompt re-expansion so a repo/agent name containing \$(...) or
+# backticks can never be run as a command when PS1 renders.
+shopt -u promptvars
+
 # Manifold PS1: "displayName ❯ "
 PS1='\\[\\e[2m\\]${displayNameBash}\\[\\e[0m\\] \\[\\e[1m\\]❯\\[\\e[0m\\] '
 PROMPT_COMMAND=''

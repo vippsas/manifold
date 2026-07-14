@@ -13,21 +13,23 @@ WRAPPER_BACKUP="$WRAPPER_PATH.backup.$$"
 APP_REPLACED=0
 WRAPPER_REPLACED=0
 
+# Best-effort rollback: every step is guarded so a failed restore can't abort
+# the trap early and mask the original exit status.
 cleanup() {
   status=$?
-  rm -rf "$STAGING_DIR"
-  rm -f "$WRAPPER_STAGING"
+  rm -rf "$STAGING_DIR" 2>/dev/null || true
+  rm -f "$WRAPPER_STAGING" 2>/dev/null || true
   if [ -f "$WRAPPER_BACKUP" ]; then
-    rm -f "$WRAPPER_PATH"
-    mv "$WRAPPER_BACKUP" "$WRAPPER_PATH"
+    rm -f "$WRAPPER_PATH" 2>/dev/null || true
+    mv "$WRAPPER_BACKUP" "$WRAPPER_PATH" || echo "Warning: could not restore previous launcher $WRAPPER_PATH" >&2
   elif [ "$WRAPPER_REPLACED" -eq 1 ]; then
-    rm -f "$WRAPPER_PATH"
+    rm -f "$WRAPPER_PATH" 2>/dev/null || true
   fi
   if [ -d "$BACKUP_DIR" ]; then
-    rm -rf "$APP_DIR"
-    mv "$BACKUP_DIR" "$APP_DIR"
+    rm -rf "$APP_DIR" 2>/dev/null || true
+    mv "$BACKUP_DIR" "$APP_DIR" || echo "Warning: could not restore previous install $APP_DIR" >&2
   elif [ "$APP_REPLACED" -eq 1 ]; then
-    rm -rf "$APP_DIR"
+    rm -rf "$APP_DIR" 2>/dev/null || true
   fi
   exit "$status"
 }
@@ -82,11 +84,14 @@ if [ -f "$WRAPPER_PATH" ]; then mv "$WRAPPER_PATH" "$WRAPPER_BACKUP"; fi
 mv "$WRAPPER_STAGING" "$WRAPPER_PATH"
 WRAPPER_REPLACED=1
 
-rm -rf "$BACKUP_DIR"
-APP_REPLACED=0
-rm -f "$WRAPPER_BACKUP"
-WRAPPER_REPLACED=0
+# Success: disarm the rollback trap first, so a hiccup removing the backups can
+# never fire cleanup() and undo a completed install. Backup removal is then
+# best-effort — a leftover backup dir is harmless.
 trap - EXIT
+APP_REPLACED=0
+WRAPPER_REPLACED=0
+rm -rf "$BACKUP_DIR" 2>/dev/null || true
+rm -f "$WRAPPER_BACKUP" 2>/dev/null || true
 
 echo "Done. Run: $BINARY_NAME"
 echo "Ensure $INSTALL_DIR is in your PATH."

@@ -16,11 +16,32 @@ describe('openTerminal', () => {
     const spawn = vi.fn(() => child)
     const opened = openTerminal('/tmp/repo', platform, spawn as never)
 
-    child.emit('spawn')
+    // A client/server terminal (e.g. gnome-terminal) hands off and exits 0.
+    child.emit('exit', 0)
 
     await expect(opened).resolves.toBeUndefined()
     expect(spawn).toHaveBeenCalledWith(command, args, { detached: true, stdio: 'ignore' })
     expect(child.unref).toHaveBeenCalledOnce()
+  })
+
+  it('resolves for a foreground terminal still running past the grace window', async () => {
+    const child = new DummyChild()
+    const spawn = vi.fn(() => child)
+
+    // No exit/error: the grace timer decides success.
+    await expect(openTerminal('/tmp/repo', 'linux', spawn as never, 1)).resolves.toBeUndefined()
+    expect(child.unref).toHaveBeenCalledOnce()
+  })
+
+  it('rejects when the terminal exits non-zero (e.g. an unsupported flag)', async () => {
+    const child = new DummyChild()
+    const spawn = vi.fn(() => child)
+    const opened = openTerminal('/tmp/repo', 'linux', spawn as never)
+
+    child.emit('exit', 1)
+
+    await expect(opened).rejects.toThrow(/exited with code 1/)
+    expect(child.unref).not.toHaveBeenCalled()
   })
 
   it('rejects unsupported platforms without spawning', async () => {

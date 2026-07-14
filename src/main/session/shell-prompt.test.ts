@@ -290,6 +290,31 @@ describe('createManifoldBashRcFile', () => {
     expect(rc).toContain('oslo')
     fs.rmSync(dir, { recursive: true })
   })
+
+  const bashAvailable = spawnSync('bash', ['-c', 'exit 0']).status === 0
+  const itIfBash = bashAvailable ? it : it.skip
+
+  // Repo names come from directory names, which can be attacker-influenced.
+  // Bash's default `promptvars` re-expands PS1 at every render, so a name
+  // containing $(...) or backticks would execute as a command. Guard against it.
+  itIfBash('does not execute a command substitution embedded in the repo name', () => {
+    const marker = path.join(os.tmpdir(), `manifold-ps1-injection-${process.pid}-marker`)
+    fs.rmSync(marker, { force: true })
+    const dir = createManifoldBashRcFile({ agentName: 'oslo', repoName: `$(touch ${marker})` })
+    try {
+      // Interactive bash renders PS1 once before reading `exit`.
+      spawnSync('bash', ['--rcfile', path.join(dir, '.bashrc'), '-i'], {
+        input: 'exit\n',
+        env: { ...process.env, PATH: '/usr/bin:/bin' },
+        encoding: 'utf-8',
+        timeout: 5000,
+      })
+      expect(fs.existsSync(marker)).toBe(false)
+    } finally {
+      fs.rmSync(dir, { recursive: true, force: true })
+      fs.rmSync(marker, { force: true })
+    }
+  })
 })
 
 describe('resolveShellHistoryDir', () => {

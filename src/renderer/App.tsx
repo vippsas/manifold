@@ -40,6 +40,7 @@ import { useWorkspaces } from './hooks/project/useWorkspaces'
 import { useFavorites } from './hooks/project/useFavorites'
 import type { AgentSession, ResolvedFavorite } from '../shared/types'
 import { isGitProject } from '../shared/project-kind'
+import { clampUiScale } from '../shared/defaults'
 import { AppShell } from './AppShell'
 import { QuickOpen } from './components/editor/quick-open/QuickOpen'
 
@@ -47,7 +48,7 @@ export function App(): React.JSX.Element {
   const { settings, updateSettings } = useSettings()
 
   useLayoutEffect(() => {
-    const scale = settings.uiScale ?? 1
+    const scale = clampUiScale(settings.uiScale)
     document.documentElement.style.setProperty('--ui-scale', String(scale))
     document.dispatchEvent(new CustomEvent('manifold:ui-scale-changed', { detail: scale }))
   }, [settings.uiScale])
