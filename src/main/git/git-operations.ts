@@ -62,16 +62,14 @@ export class GitOperationsManager {
 
     await execFileAsync('git', ['fetch', 'origin'], { cwd: projectPath })
 
-    // Determine if baseBranch is currently checked out in the project.
-    // If so, use merge --ff-only (works on checked-out branch).
-    // Otherwise, use fetch origin branch:branch (updates ref directly).
-    const { stdout: headBranch } = await execFileAsync(
-      'git', ['symbolic-ref', '--short', 'HEAD'], { cwd: projectPath }
-    ).catch(() => ({ stdout: '' }))
-
-    if (headBranch.trim() === baseBranch) {
+    // Advance the local base branch ref to origin's tip. git refuses
+    // `fetch origin base:base` when base is checked out in ANY worktree of the
+    // repo (not just projectPath), so if some worktree holds it, fast-forward
+    // there with merge --ff-only; otherwise update the ref directly.
+    const checkoutPath = await worktreePathForBranch(projectPath, baseBranch)
+    if (checkoutPath) {
       await execFileAsync(
-        'git', ['merge', '--ff-only', `origin/${baseBranch}`], { cwd: projectPath }
+        'git', ['merge', '--ff-only', `origin/${baseBranch}`], { cwd: checkoutPath }
       )
     } else {
       await execFileAsync(
@@ -303,6 +301,27 @@ export class GitOperationsManager {
       return { commits: '', diffStat: '', diffPatch: '' }
     }
   }
+}
+
+/**
+ * Path of the worktree that currently has `branch` checked out, or null if no
+ * worktree holds it. `git fetch origin branch:branch` is refused for a ref
+ * checked out in any worktree, so callers fast-forward it in place instead.
+ */
+async function worktreePathForBranch(projectPath: string, branch: string): Promise<string | null> {
+  const { stdout } = await execFileAsync(
+    'git', ['worktree', 'list', '--porcelain'], { cwd: projectPath }
+  ).catch(() => ({ stdout: '' }))
+
+  let currentPath: string | null = null
+  for (const line of stdout.split('\n')) {
+    if (line.startsWith('worktree ')) {
+      currentPath = line.slice('worktree '.length).trim()
+    } else if (line.trim() === `branch refs/heads/${branch}` && currentPath) {
+      return currentPath
+    }
+  }
+  return null
 }
 
 function parseConflicts(porcelain: string): string[] {

@@ -89,11 +89,15 @@ describe('GitOperationsManager history', () => {
   })
 
   describe('fetchAndUpdate', () => {
-    it('uses merge --ff-only when base branch is checked out', async () => {
+    // `git worktree list --porcelain` output with `main` checked out at `path`.
+    const worktreeListWithMainAt = (path: string) =>
+      `worktree ${path}\nHEAD abc1234\nbranch refs/heads/main\n`
+
+    it('fast-forwards in place when the base branch is checked out in the project', async () => {
       mockExecFileAsync
         .mockResolvedValueOnce({ stdout: 'abc1234\n', stderr: '' })
         .mockResolvedValueOnce({ stdout: '', stderr: '' })
-        .mockResolvedValueOnce({ stdout: 'main\n', stderr: '' })
+        .mockResolvedValueOnce({ stdout: worktreeListWithMainAt('/project'), stderr: '' })
         .mockResolvedValueOnce({ stdout: '', stderr: '' })
         .mockResolvedValueOnce({ stdout: 'def5678\n', stderr: '' })
         .mockResolvedValueOnce({ stdout: '3\n', stderr: '' })
@@ -107,18 +111,40 @@ describe('GitOperationsManager history', () => {
         commitCount: 3,
       })
       expect(mockExecFileAsync).toHaveBeenNthCalledWith(
-        3, 'git', ['symbolic-ref', '--short', 'HEAD'], { cwd: '/project' },
+        3, 'git', ['worktree', 'list', '--porcelain'], { cwd: '/project' },
       )
       expect(mockExecFileAsync).toHaveBeenNthCalledWith(
         4, 'git', ['merge', '--ff-only', 'origin/main'], { cwd: '/project' },
       )
     })
 
-    it('uses fetch origin branch:branch when base branch is not checked out', async () => {
+    it('fast-forwards in the sibling worktree that holds the base branch', async () => {
+      // Regression: git refuses `fetch origin main:main` when main is checked
+      // out in a sibling worktree, so fast-forward THERE, not via a doomed fetch.
+      const worktreeList =
+        'worktree /project\nHEAD abc1234\nbranch refs/heads/feature\n\n' +
+        'worktree /worktrees/agent-1\nHEAD abc1234\nbranch refs/heads/main\n'
       mockExecFileAsync
         .mockResolvedValueOnce({ stdout: 'abc1234\n', stderr: '' })
         .mockResolvedValueOnce({ stdout: '', stderr: '' })
-        .mockResolvedValueOnce({ stdout: 'develop\n', stderr: '' })
+        .mockResolvedValueOnce({ stdout: worktreeList, stderr: '' })
+        .mockResolvedValueOnce({ stdout: '', stderr: '' })
+        .mockResolvedValueOnce({ stdout: 'def5678\n', stderr: '' })
+        .mockResolvedValueOnce({ stdout: '3\n', stderr: '' })
+
+      const result = await git.fetchAndUpdate('/project', 'main')
+
+      expect(result.commitCount).toBe(3)
+      expect(mockExecFileAsync).toHaveBeenNthCalledWith(
+        4, 'git', ['merge', '--ff-only', 'origin/main'], { cwd: '/worktrees/agent-1' },
+      )
+    })
+
+    it('uses fetch origin branch:branch when base branch is not checked out anywhere', async () => {
+      mockExecFileAsync
+        .mockResolvedValueOnce({ stdout: 'abc1234\n', stderr: '' })
+        .mockResolvedValueOnce({ stdout: '', stderr: '' })
+        .mockResolvedValueOnce({ stdout: 'worktree /project\nHEAD abc1234\nbranch refs/heads/develop\n', stderr: '' })
         .mockResolvedValueOnce({ stdout: '', stderr: '' })
         .mockResolvedValueOnce({ stdout: 'def5678\n', stderr: '' })
         .mockResolvedValueOnce({ stdout: '3\n', stderr: '' })
@@ -136,11 +162,11 @@ describe('GitOperationsManager history', () => {
       )
     })
 
-    it('falls back to fetch origin branch:branch on detached HEAD', async () => {
+    it('uses fetch origin branch:branch when the project HEAD is detached', async () => {
       mockExecFileAsync
         .mockResolvedValueOnce({ stdout: 'abc1234\n', stderr: '' })
         .mockResolvedValueOnce({ stdout: '', stderr: '' })
-        .mockRejectedValueOnce(new Error('not a symbolic ref'))
+        .mockResolvedValueOnce({ stdout: 'worktree /project\nHEAD abc1234\ndetached\n', stderr: '' })
         .mockResolvedValueOnce({ stdout: '', stderr: '' })
         .mockResolvedValueOnce({ stdout: 'abc1234\n', stderr: '' })
         .mockResolvedValueOnce({ stdout: '0\n', stderr: '' })
@@ -157,7 +183,7 @@ describe('GitOperationsManager history', () => {
       mockExecFileAsync
         .mockResolvedValueOnce({ stdout: 'abc1234\n', stderr: '' })
         .mockResolvedValueOnce({ stdout: '', stderr: '' })
-        .mockResolvedValueOnce({ stdout: 'main\n', stderr: '' })
+        .mockResolvedValueOnce({ stdout: worktreeListWithMainAt('/project'), stderr: '' })
         .mockResolvedValueOnce({ stdout: '', stderr: '' })
         .mockResolvedValueOnce({ stdout: 'abc1234\n', stderr: '' })
         .mockResolvedValueOnce({ stdout: '0\n', stderr: '' })
@@ -182,7 +208,7 @@ describe('GitOperationsManager history', () => {
       mockExecFileAsync
         .mockResolvedValueOnce({ stdout: 'abc1234\n', stderr: '' })
         .mockResolvedValueOnce({ stdout: '', stderr: '' })
-        .mockResolvedValueOnce({ stdout: 'main\n', stderr: '' })
+        .mockResolvedValueOnce({ stdout: worktreeListWithMainAt('/project'), stderr: '' })
         .mockRejectedValueOnce(new Error('non-fast-forward'))
 
       await expect(git.fetchAndUpdate('/project', 'main'))
