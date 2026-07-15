@@ -1,7 +1,7 @@
 ---
 description: How Manifold creates, lists, and removes git worktrees, checks out branches/PRs, persists per-session worktree meta, and runs raw git/gh for commits, diffs, and PR creation.
 covers: [src/main/git]
-updated: 2026-07-09
+updated: 2026-07-15
 owner: see .github/CODEOWNERS
 ---
 
@@ -114,8 +114,10 @@ plus uncommitted `git diff HEAD`) and sets `FileChange.foreignWorktree` on files
 only because the base branch advanced — i.e. were changed in another worktree (`diff-provider.ts:69`).
 `GitOperationsManager` (`git-operations.ts:24`) commits (delegating to
 `commitManagedWorktree`), fast-forwards the base branch (`fetchAndUpdate`,
-`git-operations.ts:29` — `merge --ff-only` if base is checked out, else
-`fetch origin base:base`), computes `getAheadBehind`, checks merge state, lists/resolves
+`git-operations.ts:57` — `merge --ff-only` in whichever worktree has the base
+checked out, if any, else `fetch origin base:base`; git refuses `fetch base:base`
+for a ref checked out in *any* worktree, not just the project's own working tree),
+computes `getAheadBehind`, checks merge state, lists/resolves
 conflicts, and gathers `getPRContext` (log/diffstat/truncated patch) used to seed AI-generated
 PR text. `PrCreator.createPR()` (`pr-creator.ts:22`) verifies `gh` is installed, pushes with
 `-u origin <branch>`, runs `gh pr create --title/--body/--base/--head`, and returns the parsed
