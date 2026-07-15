@@ -27,7 +27,7 @@
     "verify:linux-package": "node scripts/verify-linux-package.mjs dist/linux-unpacked",
     "postinstall": "chmod +x node_modules/node-pty/prebuilds/darwin-*/spawn-helper 2>/dev/null || true",
     "rebuild:node": "node scripts/rebuild-better-sqlite3-node.mjs",
-    "rebuild:electron": "npx electron-rebuild -f -o better-sqlite3",
+    "rebuild:electron": "electron-rebuild -f -o better-sqlite3",
     "sync:codex-skills": "node scripts/sync-codex-skills.mjs",
     "plugin:new": "node scripts/new-plugin.mjs",
     "screenshot:component": "node scripts/screenshot-component.mjs",
@@ -119,6 +119,7 @@
     }
   },
   "devDependencies": {
+    "@electron/rebuild": "^4.2.0",
     "@testing-library/jest-dom": "^6.6.0",
     "@testing-library/react": "^16.1.0",
     "@types/better-sqlite3": "^7.6.13",
