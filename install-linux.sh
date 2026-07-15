@@ -34,6 +34,14 @@ cleanup() {
   exit "$status"
 }
 
+# A fresh clone has no node_modules, so the build's electron-rebuild step fails
+# with "Unable to find electron's version number". Bootstrap first when the tree
+# isn't installed — a real npm install plus the Electron-binary check. See CLAUDE.md §7.
+if [ ! -d node_modules ] || [ ! -f node_modules/electron/path.txt ]; then
+  echo "Dependencies not installed — running bootstrap..."
+  npm run bootstrap
+fi
+
 echo "Building Manifold (Linux)..."
 npm run dist:linux
 npm run verify:linux-package
