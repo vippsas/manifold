@@ -1,8 +1,7 @@
 ---
 description: The on-disk data model under ~/.manifold — every file and directory Manifold persists, which module owns each path, and the two distinct roots (hardcoded config home vs. configurable storage root).
 covers: [src/main/store, src/shared/defaults.ts]
-updated: 2026-07-14
-updated: 2026-07-13
+updated: 2026-07-27
 owner: see .github/CODEOWNERS
 ---
 

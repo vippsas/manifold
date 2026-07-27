@@ -6,7 +6,6 @@ import { filterStandaloneProjectSessions } from '../../session-selection'
 import { sidebarStyles } from './ProjectSidebar.styles'
 import { AgentItem } from './AgentItem'
 import { ProjectItem } from './ProjectItem'
-import { SidebarCardActions } from './SidebarCardActions'
 import { dedupeSessionsByWorktree } from '../../hooks/agent-session/agent-siblings'
 import { sortByRecency, useProjectRecency } from './sidebar-recency'
 
@@ -93,6 +92,7 @@ export function ProjectList({
           onAddFolder={onCreateWorkspaceFromProject
             ? () => onCreateWorkspaceFromProject(project.id)
             : undefined}
+          onAddAgent={() => onNewAgent(project.id)}
         />
         {primarySessions.map((session) => {
           const siblingOutputting = projectSessions.some(
@@ -122,10 +122,6 @@ export function ProjectList({
               onDiscard={onDiscardDraft}
             />
           ))}
-        <SidebarCardActions
-          label={project.name}
-          onAddAgent={() => onNewAgent(project.id)}
-        />
       </div>
     )
   }

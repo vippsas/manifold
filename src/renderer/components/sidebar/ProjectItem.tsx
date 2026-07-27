@@ -1,7 +1,7 @@
 import React, { useCallback, useState } from 'react'
 import type { Project } from '../../../shared/types'
 import { sidebarStyles } from './ProjectSidebar.styles'
-import { AddFolderGlyph } from './SidebarCardActionGlyphs'
+import { AddFolderGlyph, NewAgentGlyph, RepoGlyph } from './SidebarCardActionGlyphs'
 
 interface ProjectItemProps {
   project: Project
@@ -10,6 +10,7 @@ interface ProjectItemProps {
   onRemove: (e: React.MouseEvent, id: string) => void
   onRename?: (name: string) => void
   onAddFolder?: () => void | Promise<void>
+  onAddAgent?: () => void
 }
 
 export function ProjectItem({
@@ -19,6 +20,7 @@ export function ProjectItem({
   onRemove,
   onRename,
   onAddFolder,
+  onAddAgent,
 }: ProjectItemProps): React.JSX.Element {
   const [editing, setEditing] = useState(false)
   const [draft, setDraft] = useState('')
@@ -108,10 +110,24 @@ export function ProjectItem({
           onDoubleClick={(e) => { e.stopPropagation(); startEditing() }}
           title={onRename ? 'Double-click to rename' : undefined}
         >
+          <span style={sidebarStyles.rowGlyph}><RepoGlyph /></span>
           {project.name}
         </span>
       )}
       <div className="sidebar-item-actions" style={sidebarStyles.itemRight}>
+        {onAddAgent && (
+          <button
+            type="button"
+            onClick={(e) => { e.stopPropagation(); onAddAgent() }}
+            onKeyDown={stopKeyPropagation}
+            className="sidebar-icon-button"
+            style={sidebarStyles.addButton}
+            aria-label={`Add agent to ${project.name}`}
+            title="New agent"
+          >
+            <NewAgentGlyph />
+          </button>
+        )}
         {onAddFolder && (
           <button
             type="button"

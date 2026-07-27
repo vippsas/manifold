@@ -79,19 +79,15 @@ export interface AppShellProps {
   // StatusBar dock layout adapter
   dockLayout: unknown
   onRenameActiveProject: (name: string) => void
-  onToggleTheme: () => void
-  themeFamily: 'manifold' | 'garfield' | 'neon' | 'royal' | 'jade' | 'platinum'
-  onSelectThemeFamily: (family: 'manifold' | 'garfield' | 'neon' | 'royal' | 'jade' | 'platinum') => void
   runCommand: (id: string) => void
 }
 
 export function AppShell(p: AppShellProps): React.JSX.Element {
   useLoadPluginContributions()
-  const themeType: 'dark' | 'light' = p.themeClass === 'theme-light' ? 'light' : 'dark'
   if (!p.settings.setupCompleted) {
     return (
       <div className={`layout-root ${p.themeClass}`}>
-        <TitleBar themeType={themeType} onToggleTheme={p.onToggleTheme} themeFamily={p.themeFamily} onSelectThemeFamily={p.onSelectThemeFamily} />
+        <TitleBar />
         <WelcomeDialog onAddProject={() => void p.addProject()} onCloneProject={p.cloneProject} onComplete={p.overlays.handleSetupComplete} />
       </div>
     )
@@ -100,7 +96,7 @@ export function AppShell(p: AppShellProps): React.JSX.Element {
   if (p.projects.length === 0) {
     return (
       <div className={`layout-root ${p.themeClass}`}>
-        <TitleBar themeType={themeType} onToggleTheme={p.onToggleTheme} themeFamily={p.themeFamily} onSelectThemeFamily={p.onSelectThemeFamily} />
+        <TitleBar />
         <OnboardingView variant="no-project" onAddProject={() => void p.handleAddProjectFromOnboarding()} onCloneProject={p.handleCloneFromOnboarding}
           onCreateNewProject={p.handleCreateNewProject} creatingProject={p.appEffects.creatingProject}
           cloningProject={p.appEffects.cloningProject} createError={p.projectError} />
@@ -116,11 +112,6 @@ export function AppShell(p: AppShellProps): React.JSX.Element {
     <div className={`layout-root ${p.themeClass}`}>
       <TitleBar
         projectName={activeProjectName}
-        themeType={themeType}
-        onToggleTheme={p.onToggleTheme}
-        themeFamily={p.themeFamily}
-        onSelectThemeFamily={p.onSelectThemeFamily}
-        onOpenDashboard={() => p.dockState.onOpenDashboard()}
         search={{
           activeProjectId: p.dockState.activeProjectId,
           activeSessionId: p.dockState.sessionId,

@@ -201,6 +201,23 @@ export function renderHtml({ js, css }) {
 </head>
 <body>
 <script>
+  // setContent serves the page from an opaque origin, where touching localStorage throws a
+  // SecurityError. Components that persist UI state (sidebar section collapse, project
+  // recency) read it during render, so without a shim they crash before mounting.
+  try {
+    window.localStorage.getItem('probe')
+  } catch (e) {
+    var memory = {}
+    Object.defineProperty(window, 'localStorage', {
+      value: {
+        getItem: function (key) { return Object.prototype.hasOwnProperty.call(memory, key) ? memory[key] : null },
+        setItem: function (key, value) { memory[key] = String(value) },
+        removeItem: function (key) { delete memory[key] },
+        clear: function () { memory = {} },
+      },
+    })
+  }
+
   // Default main-process bridge stub — every invoke resolves to [] so components that call
   // window.electronAPI on mount render their initial state without a live backend. Fixtures
   // override this before rendering when they need specific data.

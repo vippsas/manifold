@@ -1,8 +1,7 @@
 ---
 description: How Manifold is built, type-checked, tested, packaged for macOS and x64 WSL2/Linux, and released.
 covers: [package.json]
-updated: 2026-07-14
-updated: 2026-07-13
+updated: 2026-07-27
 owner: see .github/CODEOWNERS
 ---
 

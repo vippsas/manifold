@@ -123,16 +123,13 @@ describe('ProjectSidebar', () => {
     expect(props.onSelectSession).toHaveBeenCalledWith('s2', 'p1')
   })
 
-  it('renders Add folder in the header and Add agent at the bottom of a one-repository card', () => {
+  it('keeps Add agent and Add folder on the repository row itself', () => {
     renderSidebar()
 
-    const projectCard = screen.getByText('Alpha').closest<HTMLElement>('.sidebar-project-group')
-    expect(projectCard).not.toBeNull()
-    expect(within(projectCard!).getByRole('button', { name: 'Add agent to Alpha' })).toBeInTheDocument()
-    const projectHeader = within(projectCard!).getByText('Alpha').closest<HTMLElement>('.sidebar-project-row')
+    const projectHeader = screen.getByText('Alpha').closest<HTMLElement>('.sidebar-project-row')
     expect(projectHeader).not.toBeNull()
+    expect(within(projectHeader!).getByRole('button', { name: 'Add agent to Alpha' })).toBeInTheDocument()
     expect(within(projectHeader!).getByRole('button', { name: 'Add folder to Alpha' })).toBeInTheDocument()
-    expect(projectCard!.lastElementChild).toHaveClass('sidebar-card-actions')
   })
 
   it('opens the new-agent modal when New Agent is clicked', () => {
@@ -175,7 +172,7 @@ describe('ProjectSidebar', () => {
     expect(screen.queryByLabelText(/to Favorites/)).not.toBeInTheDocument()
   })
 
-  it('renders an active workspace as a labeled card with a Workspace eyebrow', () => {
+  it('renders an active workspace by name alongside its repositories', () => {
     renderSidebar({
       workspaces: [{ id: 'ws1', name: 'auth-refactor', projectIds: ['p1', 'p2'], createdAt: '2024-01-01' }],
       activeWorkspaceId: 'ws1',
@@ -184,8 +181,8 @@ describe('ProjectSidebar', () => {
       onSpawnWorkspaceAgent: vi.fn(),
     })
 
-    expect(screen.getByText('Workspace')).toBeInTheDocument()
     expect(screen.getByText('auth-refactor')).toBeInTheDocument()
+    expect(screen.getByText('Alpha')).toBeInTheDocument()
   })
 
   it('keeps Add folder in the workspace header and Add agent at the bottom', () => {

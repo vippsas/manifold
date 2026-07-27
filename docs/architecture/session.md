@@ -1,8 +1,7 @@
 ---
 description: How Manifold agent sessions are created, run, stopped, resumed, and rediscovered from on-disk worktrees.
 covers: [src/main/session]
-updated: 2026-07-14
-updated: 2026-07-13
+updated: 2026-07-27
 owner: see .github/CODEOWNERS
 ---
 

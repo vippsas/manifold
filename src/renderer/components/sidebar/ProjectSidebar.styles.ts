@@ -17,8 +17,7 @@ export const sidebarStyles: Record<string, React.CSSProperties> = {
     gap: 'var(--space-xs)',
     minHeight: '38px',
     padding: 'var(--space-xs) var(--space-sm)',
-    borderBottom: '1px solid var(--border)',
-    background: 'var(--bg-chrome)',
+    background: 'transparent',
     flexShrink: 0,
   },
   toolbarButton: {
@@ -36,9 +35,7 @@ export const sidebarStyles: Record<string, React.CSSProperties> = {
     flexShrink: 0,
   },
   toolbarButtonPrimary: {
-    borderColor: 'color-mix(in srgb, var(--accent), transparent 70%)',
-    background: 'var(--accent-subtle)',
-    color: 'var(--accent)',
+    color: 'var(--text-secondary)',
   },
   list: {
     padding: '4px 0',
@@ -46,9 +43,16 @@ export const sidebarStyles: Record<string, React.CSSProperties> = {
   item: {
     cursor: 'pointer',
     fontSize: 'inherit',
-    fontWeight: 600,
+    fontWeight: 400,
     color: 'var(--text-secondary)',
     marginTop: 0,
+  },
+  rowGlyph: {
+    display: 'inline-flex',
+    alignItems: 'center',
+    marginRight: 'var(--space-xs)',
+    color: 'var(--text-muted)',
+    verticalAlign: '-2px',
   },
   itemActive: {
     color: 'var(--text-primary)',
@@ -56,6 +60,8 @@ export const sidebarStyles: Record<string, React.CSSProperties> = {
   itemName: {
     flex: 1,
     minWidth: 0,
+    display: 'flex',
+    alignItems: 'center',
   },
   nameInput: {
     flex: 1,
@@ -93,12 +99,13 @@ export const sidebarStyles: Record<string, React.CSSProperties> = {
   newWorkspaceButton: {
     display: 'flex',
     alignItems: 'center',
-    justifyContent: 'center',
+    justifyContent: 'flex-start',
     gap: 'var(--space-xs)',
     width: 'calc(100% - 12px)',
-    minHeight: 'var(--chrome-row-height)',
-    margin: '4px 6px',
-    border: '1px dashed var(--divider)',
+    minHeight: '28px',
+    margin: '1px 6px',
+    padding: '0 8px',
+    border: 0,
     borderRadius: 'var(--radius-md)',
     background: 'transparent',
     color: 'var(--text-muted)',

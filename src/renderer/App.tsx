@@ -186,17 +186,6 @@ export function App(): React.JSX.Element {
       : themeId.replace(/-dark$/, '-light')
     void updateSettings({ theme: nextId })
   }, [themeId, updateSettings])
-  const themeFamily: 'manifold' | 'garfield' | 'neon' | 'royal' | 'jade' | 'platinum' =
-    themeId.startsWith('garfield') ? 'garfield'
-      : themeId.startsWith('neon') ? 'neon'
-        : themeId.startsWith('royal') ? 'royal'
-          : themeId.startsWith('jade') ? 'jade'
-            : themeId.startsWith('platinum') ? 'platinum'
-              : 'manifold'
-  const selectThemeFamily = useCallback((family: 'manifold' | 'garfield' | 'neon' | 'royal' | 'jade' | 'platinum') => {
-    const suffix = themeId.endsWith('-light') ? '-light' : '-dark'
-    void updateSettings({ theme: `${family}${suffix}` })
-  }, [themeId, updateSettings])
   const updateNotification = useUpdateNotification()
   const updateLog = useUpdateLog()
   // Embedded agents are themed at launch, so a light↔dark switch only applies
@@ -496,9 +485,6 @@ export function App(): React.JSX.Element {
         workspaces={workspaces}
         dockLayout={dockLayout}
         onRenameActiveProject={(name) => { if (activeProjectId) void updateProject(activeProjectId, { name }) }}
-        onToggleTheme={toggleTheme}
-        themeFamily={themeFamily}
-        onSelectThemeFamily={selectThemeFamily}
       />
       <QuickOpen
         visible={quickOpenVisible && effectiveSessionId !== null}

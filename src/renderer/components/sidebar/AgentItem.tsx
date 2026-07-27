@@ -103,8 +103,7 @@ export function AgentItem({ session, projectPath, isActive, isOutputting, onSele
           <span
             className="truncate sidebar-row-label"
             style={{
-              color: isActive ? 'var(--accent)' : 'var(--text-secondary)',
-              fontWeight: isActive ? 600 : 400,
+              color: isActive ? 'var(--text-primary)' : 'var(--text-secondary)',
               flex: 1,
             }}
           >
@@ -156,12 +155,7 @@ export function AgentItem({ session, projectPath, isActive, isOutputting, onSele
             </button>
           </div>
         </div>
-        <span
-          className="truncate sidebar-secondary-text"
-          style={{ paddingLeft: '16px' }}
-        >
-          {secondaryLabel}
-        </span>
+        <span className="truncate sidebar-secondary-text">{secondaryLabel}</span>
         {!hideAdditionalDirs && session.additionalDirs.length > 0 && (
           <div className="sidebar-aux-list">
             {session.additionalDirs.map((dir) => {

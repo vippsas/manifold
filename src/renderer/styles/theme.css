@@ -651,10 +651,10 @@ select:focus-visible {
   align-items: center;
   justify-content: space-between;
   gap: var(--space-sm);
-  min-height: var(--chrome-row-height);
-  margin: 1px 8px;
-  padding: 0 12px 0 11px;
-  border-radius: var(--radius-sm);
+  min-height: 28px;
+  margin: 1px 6px;
+  padding: 0 8px;
+  border-radius: var(--radius-md);
   color: var(--text-secondary);
   position: relative;
   cursor: pointer;
@@ -672,8 +672,7 @@ select:focus-visible {
 }
 
 .sidebar-project-row.sidebar-item-row--active {
-  border-left: 2px solid var(--accent);
-  padding-left: 9px;
+  color: var(--text-primary);
 }
 
 /* When a child row inside the card carries the selection, the header drops its
@@ -701,36 +700,24 @@ select:focus-visible {
 }
 
 .sidebar-project-row {
-  font-weight: 600;
+  font-weight: 400;
   padding-right: 68px;
   font-size: var(--type-ui-small);
-  letter-spacing: 0.03em;
-  text-transform: uppercase;
 }
 
 .sidebar-agent-row {
   flex-direction: column;
   align-items: flex-start;
-  min-height: auto;
-  padding: 4px 12px 4px 28px;
+  min-height: 26px;
+  justify-content: center;
+  padding: 3px 8px 3px 24px;
   gap: 0;
-  margin-top: 1px;
-  margin-bottom: 1px;
-  background: var(--bg-input);
-  border-left: 2px solid transparent;
-}
-
-.sidebar-agent-row:hover {
-  transform: translateY(-0.5px);
-  box-shadow: var(--shadow-subtle);
-}
-
-.sidebar-agent-row--alive {
-  border-left-color: var(--accent);
+  background: transparent;
+  position: relative;
 }
 
 .sidebar-agent-row--exited {
-  border-left-color: transparent;
+  color: var(--text-muted);
 }
 
 /* Sensor sweep: a slow, faint band of accent light crosses the row while its
@@ -757,7 +744,6 @@ select:focus-visible {
 }
 
 .sidebar-agent-row.sidebar-item-row--active {
-  border-left-width: 2px;
   background: var(--sidebar-active-bg);
 }
 
@@ -814,21 +800,32 @@ select:focus-visible {
   line-height: 1.15;
 }
 
+/* The runtime rides at the right of the row, the way a timestamp would, and
+   yields to the row actions on hover so the two never collide. */
+.sidebar-agent-row .sidebar-secondary-text {
+  position: absolute;
+  right: 10px;
+  top: 50%;
+  transform: translateY(-50%);
+  max-width: 40%;
+  transition: opacity var(--duration-normal) var(--ease-premium);
+}
+
+.sidebar-agent-row:hover .sidebar-secondary-text,
+.sidebar-agent-row:focus-within .sidebar-secondary-text,
+.sidebar-agent-row.sidebar-item-row--active .sidebar-secondary-text {
+  opacity: 0;
+}
+
 .sidebar-project-group {
   margin-bottom: 2px;
 }
 
 .sidebar-project-group--has-agents {
-  margin: 4px 6px;
-  padding: 2px 0;
-  background: var(--bg-elevated);
-  border-radius: var(--radius-md);
-  border: 1px solid var(--divider);
-}
-
-.sidebar-project-group--has-agents .sidebar-item-row {
-  margin-left: 4px;
-  margin-right: 4px;
+  margin: 0 0 var(--space-xs);
+  padding: 0;
+  background: transparent;
+  border: 0;
 }
 
 .sidebar-project-group--empty .sidebar-project-row {
@@ -839,9 +836,7 @@ select:focus-visible {
 /* Active workspace renders as a labeled container card (reuses the repo-card
    elevation) with an accent-tinted border to read as a workspace, not a repo. */
 .sidebar-project-group--has-agents.sidebar-workspace-card {
-  border-color: color-mix(in srgb, var(--accent), transparent 58%);
-  /* Console plate: the active workspace cuts opposing corners too. */
-  clip-path: polygon(10px 0, 100% 0, 100% calc(100% - 10px), calc(100% - 10px) 100%, 0 100%, 0 10px);
+  background: transparent;
 }
 
 .sidebar-new-workspace-button:hover {

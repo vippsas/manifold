@@ -4,8 +4,7 @@ import type { Workspace } from '../../../shared/workspace-types'
 import { sidebarStyles } from './ProjectSidebar.styles'
 import { AgentItem } from './AgentItem'
 import { WorkspaceGlyph } from './WorkspaceGlyph'
-import { SidebarCardActions } from './SidebarCardActions'
-import { AddFolderGlyph } from './SidebarCardActionGlyphs'
+import { AddFolderGlyph, NewAgentGlyph } from './SidebarCardActionGlyphs'
 
 export interface WorkspaceListProps {
   workspaces: Workspace[]
@@ -117,10 +116,22 @@ export function WorkspaceList({
             >
               <WorkspaceGlyph active={isActive} />
               <span className="sidebar-row-label" style={{ display: 'flex', flexDirection: 'column', minWidth: 0, gap: 1 }}>
-                <span className="sidebar-workspace-eyebrow">Workspace</span>
                 <span className="truncate" style={{ minWidth: 0 }}>{w.name}</span>
               </span>
               <div className="sidebar-item-actions" style={sidebarStyles.itemRight}>
+                {homeProjectId && (
+                  <button
+                    type="button"
+                    onClick={(e) => { e.stopPropagation(); onNewAgent(homeProjectId, w.id) }}
+                    onKeyDown={(e) => e.stopPropagation()}
+                    className="sidebar-icon-button"
+                    style={sidebarStyles.addButton}
+                    aria-label={`Add agent to ${w.name}`}
+                    title="New agent"
+                  >
+                    <NewAgentGlyph />
+                  </button>
+                )}
                 {onAddProject && (
                   <button
                     type="button"
@@ -200,12 +211,6 @@ export function WorkspaceList({
                 {renderAgent(session)}
               </div>
             ))}
-            {homeProjectId && (
-              <SidebarCardActions
-                label={w.name}
-                onAddAgent={() => onNewAgent(homeProjectId, w.id)}
-              />
-            )}
           </div>
         )
       })}

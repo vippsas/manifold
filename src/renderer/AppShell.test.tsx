@@ -135,9 +135,6 @@ function makeProps(overrides: Partial<AppShellProps> = {}): AppShellProps {
     workspaces: [],
     dockLayout: {},
     onRenameActiveProject: vi.fn(),
-    onToggleTheme: vi.fn(),
-    themeFamily: 'manifold',
-    onSelectThemeFamily: vi.fn(),
     runCommand: vi.fn(),
     ...overrides,
   }

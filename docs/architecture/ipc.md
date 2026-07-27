@@ -1,8 +1,7 @@
 ---
 description: How Manifold's main-process services are exposed to the renderer over Electron IPC — the channel namespaces, the handler registration pattern, and how handlers delegate to subsystem managers.
 covers: [src/main/ipc]
-updated: 2026-07-14
-updated: 2026-07-13
+updated: 2026-07-27
 owner: see .github/CODEOWNERS
 ---
 
