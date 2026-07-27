@@ -101,13 +101,19 @@ export function applySidebarWidth(api: DockviewApi, side: SidebarSide, nextWidth
     otherGroup.api.setConstraints({ minimumWidth: otherWidth, maximumWidth: otherWidth })
   }
 
-  // Allow the target to collapse fully — the default group minimum blocks 0.
-  targetGroup.api.setConstraints({ minimumWidth: 0 })
-  targetGroup.api.setSize({ width: nextWidth })
-
-  // Release the opposite sidebar so it stays freely draggable afterward.
-  if (otherGroup && otherWidth) {
-    otherGroup.api.setConstraints({ minimumWidth: 0, maximumWidth: Number.MAX_SAFE_INTEGER })
+  try {
+    // Allow the target to collapse fully — the default group minimum blocks 0.
+    targetGroup.api.setConstraints({ minimumWidth: 0 })
+    targetGroup.api.setSize({ width: nextWidth })
+  } finally {
+    // Release the opposite sidebar so it stays freely draggable afterward. The
+    // same-size setSize pokes a relayout so the sashes that the pinned setSize
+    // pass marked dv-disabled re-enable (dockview re-evaluates sash enablement
+    // only during a layout pass, never on setConstraints alone).
+    if (otherGroup && otherWidth) {
+      otherGroup.api.setConstraints({ minimumWidth: 0, maximumWidth: Number.MAX_SAFE_INTEGER })
+      otherGroup.api.setSize({ width: otherGroup.api.width })
+    }
   }
 
   refreshEdgeGrab(api)

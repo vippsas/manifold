@@ -30,6 +30,9 @@ export const searchModalStyles: Record<string, React.CSSProperties> = {
   input: {
     flex: 1,
     minWidth: 0,
+    // Keeps the text clear of the reticle's corner brackets, which paint on the
+    // input's own box.
+    padding: '0 6px',
     background: 'transparent',
     border: 'none',
     outline: 'none',

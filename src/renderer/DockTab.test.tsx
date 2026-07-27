@@ -21,8 +21,6 @@ function makeDockState(overrides: Partial<DockAppState> = {}): DockAppState {
   return {
     sessionId: null,
     primarySessionId: null,
-    searchFocusRequestKey: 0,
-    requestedSearchMode: null,
     scrollbackLines: 1000,
     diffText: '',
     openFiles: [],

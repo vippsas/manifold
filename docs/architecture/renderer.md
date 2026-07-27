@@ -54,11 +54,13 @@ incomplete) or `OnboardingView` (no projects) before rendering the full workspac
 `PANEL_TITLES` via a CSS hover tooltip (`.activity-bar-tooltip`). A click calls
 `dockLayout.togglePanel(id)`; a visible panel (`isPanelVisible`) renders accent-colored
 with an edge indicator bar. Session-dependent items (`editor`, `fileTree`,
-`modifiedFiles`, `shell`) are disabled while no agent session is active. A settings
-button (gear) is pinned to the bottom of the rail and opens the settings modal via
-`onOpenSettings`. The rail is the only home for panel toggles and the settings entry —
-the status bar (`components/git/StatusBar.tsx`) no longer renders either and keeps only
-session/git status and the commit/PR/conflict actions.
+`modifiedFiles`, `shell`) are disabled while no agent session is active. Two buttons are
+pinned to the bottom of the rail below a flex spacer: **Search** (magnifier), which opens
+the search modal via `onOpenSearch` (`ActivityBar.tsx:100`), and **Settings** (gear),
+which opens the settings modal via `onOpenSettings`. The rail is the only home for panel
+toggles, search, and the settings entry — the status bar
+(`components/git/StatusBar.tsx`) renders none of them and keeps only session/git status
+and the commit/PR/conflict actions.
 
 **Panel layout (dockview).** The workspace is a single `DockviewReact` instance
 (`AppShell.tsx:143`), themed via the `DOCK_THEME` option (`AppShell.tsx:38`): a 6px
@@ -127,8 +129,14 @@ All add/remove/focus/split/resize logic lives in the `hooks/dock-layout/` subsys
 - `shell` → **Shell** — `ShellTabs` (worktree + project shell PTYs).
 - `pluginView` / `pluginTreeView` — webview hosts for plugin contributions (e.g. **Statistics**, the former Verdicts dashboard, now the `manifold.statistics` plugin).
 
-Note: **Search** is not a dock panel — it lives in the title bar (`TitleBarSearch`,
-wired through `AppShell.tsx:113`). **Web preview** is likewise not a standalone panel:
+Note: **Search** is not a dock panel — it is a modal (`components/search/SearchModal.tsx`)
+mounted by the shell (`AppShell.tsx:216`) and opened from the activity rail's Search
+button, the `navigation.findInFiles` command (`Cmd+Shift+F`), or the Memory panel's "Open
+Search" — all three route through `overlays.openSearch(mode?)`
+(`hooks/app/useAppOverlays.ts:76`), which also carries the scope the modal opens on. The
+modal mounts its `useSearch` instance only while open, so a closed modal costs no
+`search:context` IPC and every open starts from an empty query. **Web preview** is
+likewise not a standalone panel:
 HTML files render in an `<iframe>` inside the editor's `CodeViewer`
 (`components/editor/code-viewer/CodeViewer.tsx:218`, resolved by `viewer/useResolvedHtmlPreview.ts`),
 alongside the markdown/image/PDF previews in `components/editor/viewer/`.
@@ -183,7 +191,7 @@ agent (`AgentChatView`), which the agent panel switches between
 - **Main subsystems**: hooks invoke channels owned by main — `agent:*` (`useAgentSession`), `git:*` (`useDiff`, `useGitOperations`, `useBranchStaleness`), `files:*` (`useFileWatcher`, `useCodeView`), `projects:*` (`useProjects`), `simple:*`/`chat:*` (chat), and `plugins:*` (`App.tsx:219` pushes active project/session context to the plugin host).
 - **Session subsystem** (`src/main/session`): `App` listens for `agent:output`/`agent:status`/`agent:sessions-changed` via the session hooks; `TerminalPane` streams agent PTY output and `AgentChatView` consumes chat-mode NDJSON.
 - **Plugin UI** (`components/plugin-ui/PluginUiHost`, rendered at `AppShell.tsx:231`): hosts plugin-contributed surfaces; `pluginView`/`pluginTreeView` dock panels render plugin webviews.
-- **Theme**: `useTheme` resolves the theme id to a body class + xterm theme; `index.tsx` loads `styles/theme.css` and `styles/dockview-theme.css`; the dockview host toggles `dockview-minimal` when no session is active (`AppShell.tsx:126`). The registry-driven Settings theme picker is the only theme UI; `App.tsx`'s `toggleTheme` survives solely as the `view.toggleTheme` command (`App.tsx:183`, `commands/command-handlers.ts:50`).
+- **Theme**: `useTheme` resolves the theme id to a body class + xterm theme; `index.tsx` loads `styles/theme.css` and `styles/dockview-theme.css`; the dockview host toggles `dockview-minimal` when no session is active (`AppShell.tsx:126`). The registry-driven theme picker is the only theme UI and lives on its own **Theme** tab in Settings (`components/modals/settings/SettingsModalBody.tsx:19`, `:102` → `ThemeSettingsSection.tsx`), always expanded rather than behind a Browse toggle; hovering a row previews the theme app-wide and the picker reverts it on unmount unless the pick was committed (`ThemePicker.tsx:89`). `App.tsx`'s `toggleTheme` survives solely as the `view.toggleTheme` command (`App.tsx:183`, `commands/command-handlers.ts:50`).
 
 ## Invariants & gotchas
 
@@ -193,5 +201,5 @@ agent (`AgentChatView`), which the agent panel switches between
 - **StrictMode double-mounts in dev.** Every panel (notably the agent terminal) mounts twice on first render; effects and layout code under `dock-layout/` must be idempotent and resize in place rather than rebuild on remount.
 - **A collapsed sidebar doesn't survive `api.fromJSON` on its own.** Collapse holds a sidebar at width 0 via a runtime `minimumWidth: 0` constraint, but dockview's `toJSON` drops `minimumWidth <= 0`, so a reload (agent switch, app restart) recreates the group at dockview's 100px default and reopens it. `loadOrBuildLayout` re-applies any saved sub-minimum sidebar width right after `fromJSON` to preserve the collapse (`hooks/dock-layout/dock-layout-helpers.ts:378`, `hooks/dock-layout/dock-layout-loader.ts:61`).
 - **Sidebar widths carry across session switches.** Dock layouts persist per session, so restoring the incoming session's layout would also restore *its* sidebar widths — making the sidebars visibly jump whenever the user clicks another repo/agent in the sidebar. `useDockLayout`'s session-change effect captures the current widths (`captureSidebarWidthsForReload`) before the reload and re-applies them after (`applyCarriedSidebarWidths`), including a carried collapse; a side whose panel didn't exist before the switch keeps the incoming layout's width (`hooks/dock-layout/useDockLayout.ts:274-291`, `hooks/dock-layout/dock-layout-helpers.ts:148-182`; pinned by `dock-layout-session-switch-widths.test.tsx`).
-- **"Search" and "Web preview" aren't dock panels.** Search is the title-bar `TitleBarSearch`; HTML preview is an `<iframe>` inside `CodeViewer`. Looking for them in `PANEL_COMPONENTS` will fail.
+- **"Search" and "Web preview" aren't dock panels.** Search is the `SearchModal` overlay opened from the activity rail; HTML preview is an `<iframe>` inside `CodeViewer`. Looking for them in `PANEL_COMPONENTS` will fail.
 - **Monaco workers must be configured before an editor mounts.** `monaco-setup` is imported as the first line of `index.tsx` for exactly this reason; reordering it breaks worker resolution.

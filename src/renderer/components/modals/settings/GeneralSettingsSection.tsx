@@ -1,7 +1,5 @@
 import React, { useCallback } from 'react'
 import type { SearchAiSettings, ShellPromptSegments } from '../../../../shared/types'
-import { getThemeList } from '../../../../shared/themes/registry'
-import { ThemePicker } from '../ThemePicker'
 import { modalStyles } from '../SettingsModal.styles'
 import { RUNTIME_OPTIONS } from './runtime-options'
 import { SectionCard, SectionHeader } from './SettingsSectionLayout'
@@ -10,18 +8,13 @@ interface Props {
   storagePath: string
   onStoragePathChange: (path: string) => void
   defaultRuntime: string
-  theme: string
   scrollbackLines: number
   terminalFontFamily: string
   defaultBaseBranch: string
   onRuntimeChange: (id: string) => void
-  onThemeChange: (theme: string) => void
   onScrollbackChange: (lines: number) => void
   onTerminalFontFamilyChange: (font: string) => void
   onBaseBranchChange: (branch: string) => void
-  onPreviewTheme?: (themeId: string | null) => void
-  pickerOpen: boolean
-  onPickerToggle: (open: boolean) => void
   shellHistoryScope: 'project' | 'global'
   onShellHistoryScopeChange: (scope: 'project' | 'global') => void
   shellPromptSegments: ShellPromptSegments
@@ -56,8 +49,6 @@ export function GeneralSettingsSection(props: Props): React.JSX.Element {
     const value = parseInt(event.target.value, 10)
     if (!Number.isNaN(value) && value > 0) props.onScrollbackChange(value)
   }, [props])
-
-  const themeLabel = getThemeList().find((entry) => entry.id === props.theme)?.label ?? props.theme
 
   return (
     <>
@@ -104,27 +95,8 @@ export function GeneralSettingsSection(props: Props): React.JSX.Element {
           </div>
         </SectionCard>
 
-        <SectionCard title="Appearance And Terminal" description="Theme, terminal defaults, and UI presentation.">
+        <SectionCard title="Appearance And Terminal" description="Terminal defaults and UI presentation. The theme lives on its own tab.">
           <div style={modalStyles.fieldGrid}>
-            <div style={{ ...modalStyles.label, ...modalStyles.fieldSpanFull }}>
-              Theme
-              <div>
-                <button type="button" onClick={() => props.onPickerToggle(!props.pickerOpen)} style={modalStyles.themeButton}>
-                  {themeLabel}
-                  <span aria-hidden="true">{props.pickerOpen ? 'Hide' : 'Browse'}</span>
-                </button>
-                {props.pickerOpen && (
-                  <div style={modalStyles.pickerContainer}>
-                    <ThemePicker
-                      currentThemeId={props.theme}
-                      onSelect={(id) => { props.onThemeChange(id); props.onPickerToggle(false) }}
-                      onCancel={() => props.onPickerToggle(false)}
-                      onPreview={props.onPreviewTheme}
-                    />
-                  </div>
-                )}
-              </div>
-            </div>
             <label style={modalStyles.label}>
               UI Scale
               <select

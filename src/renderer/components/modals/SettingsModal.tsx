@@ -35,7 +35,6 @@ export function SettingsModal({ visible, settings, onSave, onClose, onPreviewThe
   const [transcription, setTranscription] = useState<AiServiceSettings>(
     settings.transcription ?? DEFAULT_SETTINGS.transcription ?? { provider: 'none' }
   )
-  const [pickerOpen, setPickerOpen] = useState(false)
   const [activeTab, setActiveTab] = useState<SettingsTabId>('general')
   const overlayRef = useRef<HTMLDivElement>(null)
 
@@ -60,7 +59,6 @@ export function SettingsModal({ visible, settings, onSave, onClose, onPreviewThe
     setSearchAiSettings(settings.search?.ai ?? DEFAULT_SETTINGS.search.ai)
     setEditorSettings(settings.editor ?? DEFAULT_SETTINGS.editor!)
     setTranscription(settings.transcription ?? DEFAULT_SETTINGS.transcription ?? { provider: 'none' })
-    setPickerOpen(false)
     setActiveTab('general')
   }, [visible, settings])
 
@@ -109,7 +107,7 @@ export function SettingsModal({ visible, settings, onSave, onClose, onPreviewThe
 
         <SettingsModalBody
           activeTab={activeTab}
-          onTabChange={(tab) => { setActiveTab(tab); setPickerOpen(false) }}
+          onTabChange={setActiveTab}
           storagePath={storagePath}
           onStoragePathChange={setStoragePath}
           defaultRuntime={defaultRuntime}
@@ -123,8 +121,6 @@ export function SettingsModal({ visible, settings, onSave, onClose, onPreviewThe
           onTerminalFontFamilyChange={setTerminalFontFamily}
           onBaseBranchChange={setDefaultBaseBranch}
           onPreviewTheme={onPreviewTheme}
-          pickerOpen={pickerOpen}
-          onPickerToggle={setPickerOpen}
           notificationSound={notificationSound}
           onNotificationSoundChange={setNotificationSound}
           notifications={notifications}

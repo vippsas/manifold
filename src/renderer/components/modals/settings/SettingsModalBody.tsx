@@ -4,6 +4,7 @@ import type { AiServiceSettings } from '../../../../shared/plugins/api-types'
 import { modalStyles } from '../SettingsModal.styles'
 import { SearchAiSettingsSection } from './SearchAiSettingsSection'
 import { GeneralSettingsSection } from './GeneralSettingsSection'
+import { ThemeSettingsSection } from './ThemeSettingsSection'
 import { EditorSettingsSection } from './EditorSettingsSection'
 import { TranscriptionSettingsSection } from './TranscriptionSettingsSection'
 import { SectionCard, SectionHeader } from './SettingsSectionLayout'
@@ -11,10 +12,11 @@ import { PluginSettingsSection } from './PluginSettingsSection'
 import { ShortcutsSettingsSection } from './ShortcutsSettingsSection'
 import { NotificationSettingsSection } from './NotificationSettingsSection'
 
-export type SettingsTabId = 'general' | 'notifications' | 'editor' | 'shortcuts' | 'search-ai' | 'transcription' | 'plugins'
+export type SettingsTabId = 'general' | 'theme' | 'notifications' | 'editor' | 'shortcuts' | 'search-ai' | 'transcription' | 'plugins'
 
 const SETTINGS_TABS: Array<{ id: SettingsTabId; label: string }> = [
   { id: 'general', label: 'General' },
+  { id: 'theme', label: 'Theme' },
   { id: 'notifications', label: 'Notifications' },
   { id: 'editor', label: 'Editor' },
   { id: 'shortcuts', label: 'Shortcuts' },
@@ -39,8 +41,6 @@ interface Props {
   onTerminalFontFamilyChange: (font: string) => void
   onBaseBranchChange: (branch: string) => void
   onPreviewTheme?: (themeId: string | null) => void
-  pickerOpen: boolean
-  onPickerToggle: (open: boolean) => void
   notificationSound: boolean
   onNotificationSoundChange: (enabled: boolean) => void
   notifications: NotificationSettings
@@ -98,6 +98,13 @@ export function SettingsModalBody(props: Props): React.JSX.Element {
 
         <div id={`settings-panel-${props.activeTab}`} role="tabpanel" aria-labelledby={`settings-tab-${props.activeTab}`} style={modalStyles.tabPanel}>
           {props.activeTab === 'general' && <GeneralSettingsSection {...props} />}
+          {props.activeTab === 'theme' && (
+            <ThemeSettingsSection
+              theme={props.theme}
+              onThemeChange={props.onThemeChange}
+              onPreviewTheme={props.onPreviewTheme}
+            />
+          )}
           {props.activeTab === 'notifications' && (
             <NotificationSettingsSection
               value={props.notifications}

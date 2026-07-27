@@ -73,4 +73,23 @@ describe('ActivityBar', () => {
 
     expect(screen.queryByRole('button', { name: 'Settings' })).not.toBeInTheDocument()
   })
+
+  it('renders a search button directly above settings that opens the search modal', () => {
+    const onOpenSearch = vi.fn()
+    render(
+      <ActivityBar dockLayout={makeDockLayout()} hasActiveSession={false} onOpenSearch={onOpenSearch} onOpenSettings={vi.fn()} />,
+    )
+
+    const search = screen.getByRole('button', { name: 'Search' })
+    const settings = screen.getByRole('button', { name: 'Settings' })
+    expect(search.nextElementSibling).toBe(settings)
+    fireEvent.click(search)
+    expect(onOpenSearch).toHaveBeenCalled()
+  })
+
+  it('omits the search button when no handler is provided', () => {
+    render(<ActivityBar dockLayout={makeDockLayout()} hasActiveSession onOpenSettings={vi.fn()} />)
+
+    expect(screen.queryByRole('button', { name: 'Search' })).not.toBeInTheDocument()
+  })
 })

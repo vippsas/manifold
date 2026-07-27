@@ -101,9 +101,10 @@ a worktree is runnable. See CLAUDE.md §7 and [Build & release](build.md).
 
 **Symptom.** Sidebar widths get corrupted after entering/leaving focus mode; a collapsed
 sidebar reopens after a session switch or app restart; a layout save throws on an
-already-disposed dockview during a StrictMode remount / onboarding transition; or a new
+already-disposed dockview during a StrictMode remount / onboarding transition; a new
 agent opens with both sidebars at **1/3** width instead of 1/6 — but only in repos whose
-previous layout had a bottom pane.
+previous layout had a bottom pane; or dividers intermittently stop being resizable
+(no resize cursor) after opening/closing a panel, until the window is resized.
 
 **Root cause.** (a) While a group is maximized, every other group — including both
 sidebars — is hidden, so their `offsetWidth` reads **0**; capturing widths then would
@@ -116,7 +117,11 @@ patch used to miss them — equal thirds (#803). (e) Reopening panels into an **
 dock: the first reopened panel (typically `projects`) owns the full dock width, and
 `withPinnedSidebars` used to pin it there during every subsequent add — clamping each new
 group to width 0, so the panels existed but rendered invisible until `projects` was
-toggled closed and open again.
+toggled closed and open again. (f) dockview re-evaluates each sash's enabled state only
+during a layout pass (`updateSashEnablement`), never on `setConstraints` alone: the pass a
+pinned mutation triggers marks the sashes next to min==max groups `dv-disabled`, and
+releasing the pin afterwards left them stuck that way — dividers dead until an unrelated
+relayout.
 
 **Guardrail.** (a) Skip the width bookkeeping and the save while a group is maximized
 (`dock-layout-lifecycle.ts:41`). (b) Re-apply the saved sub-minimum sidebar widths right
@@ -129,12 +134,17 @@ restore the default proportions — a reopened sidebar is sized to its 1/6 share
 reopened center pane shrinks any sidebar that had grown past a third of the dock back to
 1/6 (`dock-layout-loader.ts:322-350`) — since `addPanel` naively splits the reference
 group 50/50. Groups hosting an editor pane (files and the editor share one tabbed group)
-are exempt from both shrinks — they are center panes, not sidebars. The regression tests drive the
+are exempt from both shrinks — they are center panes, not sidebars. (f) Releasing a pin
+pokes a same-size `setSize` on the group (`dock-layout-helpers.ts:200`), which triggers a
+relayout that re-runs the enablement check against the released constraints — chosen over
+a forced `api.layout()` because a forced pass re-applies the splitview's stale cached
+proportions and undoes the pinned resize. The regression tests drive the
 **real** dockview library
 and the **real** layout helpers rather than an approximation:
 `dock-layout-no-remount.test.tsx`, `useSidebarHandleCycle.collapse.test.tsx`,
-`dock-layout-default-ratio.test.tsx`, `dock-layout-reopen-empty.test.tsx`, and
-`dock-layout-drag-restore.test.tsx` — the last
+`dock-layout-default-ratio.test.tsx`, `dock-layout-reopen-empty.test.tsx`,
+`dock-layout-sash-enablement.test.tsx` (inspects the real sash DOM for stuck
+`dv-disabled` classes), and `dock-layout-drag-restore.test.tsx` — the last
 wires `element.offsetWidth` to dockview's tracked group width because jsdom has no layout
 engine (`:30-36`). More in [Renderer](renderer.md).
 

@@ -134,11 +134,13 @@ describe('findTopLeftWorkspaceReferencePanel', () => {
 describe('applyLayoutChangePreservingSidebarWidths', () => {
   interface MockGroup {
     element: { offsetWidth: number }
-    api: { setConstraints: ReturnType<typeof vi.fn> }
+    api: { setConstraints: ReturnType<typeof vi.fn>; setSize: ReturnType<typeof vi.fn>; width: number }
   }
+  // Releasing a pin pokes a same-size setSize to refresh sash enablement, so
+  // the mock group api also carries width/setSize.
   const makeGroup = (offsetWidth: number): MockGroup => ({
     element: { offsetWidth },
-    api: { setConstraints: vi.fn() },
+    api: { setConstraints: vi.fn(), setSize: vi.fn(), width: offsetWidth },
   })
 
   it('pins sidebar widths in place (no fromJSON remount) across a structural change', () => {
