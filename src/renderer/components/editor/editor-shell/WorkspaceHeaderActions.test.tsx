@@ -1,5 +1,5 @@
-import { describe, it, expect, beforeEach, afterEach } from 'vitest'
-import { render, screen } from '@testing-library/react'
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
+import { render, screen, fireEvent } from '@testing-library/react'
 import { WorkspaceHeaderActions } from './WorkspaceHeaderActions'
 import { DockStateContext } from './dock-panel-types'
 import type { DockAppState } from './dock-panel-types'
@@ -39,5 +39,32 @@ describe('WorkspaceHeaderActions', () => {
       expect(screen.queryByRole('button', { name: /open module/i })).not.toBeInTheDocument()
       unmount()
     }
+  })
+
+  // The Files / Modified Files tabs are icon-only without per-tab close
+  // buttons, so their group header carries a single × that closes both.
+  it('renders one close button for the files group that closes every file panel', () => {
+    const onClosePanel = vi.fn()
+    render(
+      <DockStateContext.Provider value={{ ...state, onClosePanel } as unknown as DockAppState}>
+        <WorkspaceHeaderActions {...props(['fileTree', 'modifiedFiles'])} />
+      </DockStateContext.Provider>,
+    )
+
+    fireEvent.click(screen.getByRole('button', { name: 'Close Files' }))
+
+    expect(onClosePanel).toHaveBeenCalledTimes(2)
+    expect(onClosePanel).toHaveBeenCalledWith('fileTree')
+    expect(onClosePanel).toHaveBeenCalledWith('modifiedFiles')
+  })
+
+  it('renders no files close button in groups without a file panel', () => {
+    render(
+      <DockStateContext.Provider value={state}>
+        <WorkspaceHeaderActions {...props(['agent', 'editor'])} />
+      </DockStateContext.Provider>,
+    )
+
+    expect(screen.queryByRole('button', { name: 'Close Files' })).not.toBeInTheDocument()
   })
 })

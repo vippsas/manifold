@@ -1,10 +1,15 @@
 // Screenshot fixture for the dock chrome (rounded panel cards, group gap,
-// sash hover handles) — mirrors the DOCK_THEME AppShell passes to DockviewReact.
-// Not used by the app at runtime; `npm run screenshot:component DockPreview`.
+// sash hover handles, icon-only Files tabs with the group-level close) —
+// mirrors the DOCK_THEME and tab/header components AppShell passes to
+// DockviewReact. Not used by the app at runtime;
+// `npm run screenshot:component DockPreview`.
 import React from 'react'
 import { DockviewReact, type DockviewReadyEvent, type IDockviewPanelProps } from 'dockview'
 import 'dockview/dist/styles/dockview.css'
 import '../styles/dockview-theme.css'
+import { DockTab } from '../DockTab'
+import { WorkspaceHeaderActions } from './editor/editor-shell/WorkspaceHeaderActions'
+import { DockStateContext, type DockAppState } from './editor/editor-shell/dock-panel-types'
 
 function Pane(props: IDockviewPanelProps): React.JSX.Element {
   return <div style={{ padding: 12, color: 'var(--text-secondary)', fontSize: 12 }}>{props.api.title}</div>
@@ -21,20 +26,39 @@ function onReady(e: DockviewReadyEvent): void {
     position: { referencePanel: 'agent', direction: 'right' },
   })
   e.api.addPanel({
+    id: 'modifiedFiles', component: 'pane', title: 'Modified Files',
+    position: { referencePanel: 'fileTree', direction: 'within' },
+  })
+  e.api.addPanel({
     id: 'shell', component: 'pane', title: 'Shell',
     position: { referencePanel: 'agent', direction: 'below' },
   })
   e.api.getPanel('projects')?.group.api.setSize({ width: 170 })
   e.api.getPanel('fileTree')?.group.api.setSize({ width: 170 })
   e.api.getPanel('shell')?.group.api.setSize({ height: 150 })
+  e.api.getPanel('fileTree')?.api.setActive()
 }
+
+// Minimal state so DockTab / WorkspaceHeaderActions render their buttons.
+const fixtureState = {
+  allProjectSessions: {},
+  editorPaneIds: [],
+  onToggleMaximize: () => {},
+  onClosePanel: () => {},
+  onOpenModule: () => {},
+  isModuleOpen: () => false,
+} as unknown as DockAppState
 
 export default (
   <div style={{ width: 980, height: 620, padding: 'var(--space-xs)', background: 'var(--dock-canvas)' }}>
-    <DockviewReact
-      components={{ pane: Pane }}
-      onReady={onReady}
-      theme={{ name: 'manifold', className: 'dockview-theme-dark dockview-theme-manifold', gap: 6 }}
-    />
+    <DockStateContext.Provider value={fixtureState}>
+      <DockviewReact
+        components={{ pane: Pane }}
+        onReady={onReady}
+        defaultTabComponent={DockTab}
+        rightHeaderActionsComponent={WorkspaceHeaderActions}
+        theme={{ name: 'manifold', className: 'dockview-theme-dark dockview-theme-manifold', gap: 6 }}
+      />
+    </DockStateContext.Provider>
   </div>
 )

@@ -21,25 +21,45 @@ function glyph(paths: React.ReactNode): React.JSX.Element {
   )
 }
 
-const PANEL_GLYPHS: Record<DockPanelId, React.JSX.Element> = {
-  projects: glyph(<path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2Z" />),
-  agent: glyph(
+const PANEL_GLYPH_PATHS: Record<DockPanelId, React.JSX.Element> = {
+  projects: <path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2Z" />,
+  agent: (
     <>
       <rect x="5" y="9" width="14" height="10" rx="2" />
       <path d="M12 9V6" />
       <circle cx="12" cy="4.5" r="1.2" />
       <path d="M9.5 13.5v1.5M14.5 13.5v1.5" />
-    </>,
+    </>
   ),
-  editor: glyph(<path d="m9 8-4 4 4 4M15 8l4 4-4 4" />),
-  fileTree: glyph(
+  editor: <path d="m9 8-4 4 4 4M15 8l4 4-4 4" />,
+  fileTree: (
     <>
       <path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8Z" />
       <path d="M14 3v5h5" />
-    </>,
+    </>
   ),
-  modifiedFiles: glyph(<path d="M12 4v6M9 7h6M9 17h6" />),
-  shell: glyph(<path d="m5 7 5 5-5 5M12 17h7" />),
+  modifiedFiles: <path d="M12 4v6M9 7h6M9 17h6" />,
+  shell: <path d="m5 7 5 5-5 5M12 17h7" />,
+}
+
+/** Shared panel icon — the activity rail renders it at 18px; the icon-only
+ *  Files / Modified Files dock tabs at a smaller size. */
+export function PanelGlyph({ id, size = 18 }: { id: DockPanelId; size?: number }): React.JSX.Element {
+  return (
+    <svg
+      width={size}
+      height={size}
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.6"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden="true"
+    >
+      {PANEL_GLYPH_PATHS[id]}
+    </svg>
+  )
 }
 
 /** Panels that only make sense while an agent session is active — mirrors the
@@ -89,7 +109,7 @@ export function ActivityBar({ dockLayout, hasActiveSession, onOpenSearch, onOpen
             aria-label={label}
             aria-pressed={active}
           >
-            {PANEL_GLYPHS[id]}
+            <PanelGlyph id={id} />
             <span className="activity-bar-tooltip" role="presentation">
               {label}
             </span>

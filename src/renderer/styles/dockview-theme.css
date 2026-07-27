@@ -213,6 +213,11 @@
   min-width: 0;
 }
 
+/* Icon-only tabs (Files / Modified Files) sit tighter than text tabs. */
+.dockview-theme-manifold .dv-tab:has(.dock-tab--icon) {
+  padding: 0 2px;
+}
+
 /* Hide tab close button by default, show on tab hover */
 .dockview-theme-manifold .dv-default-tab .dv-default-tab-action {
   opacity: 0;

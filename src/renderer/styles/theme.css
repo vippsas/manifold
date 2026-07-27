@@ -530,6 +530,13 @@ select:focus-visible {
   opacity: 1;
 }
 
+/* Icon-only tabs (Files / Modified Files): just the glyph, name as tooltip.
+   These tabs have no per-tab close — the group header carries a single ×. */
+.dock-tab--icon {
+  padding: 0 4px;
+  justify-content: center;
+}
+
 /* Icon button in a dock group's header-action slot (outside the tabs), e.g.
    the "add agent on this worktree" button in the Repositories header. */
 .dock-header-collapse {

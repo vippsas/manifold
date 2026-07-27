@@ -121,6 +121,33 @@ describe('DockTab', () => {
     expect(onToggleMaximize).not.toHaveBeenCalled()
   })
 
+  it('renders Files and Modified Files as icon-only tabs without a close button', () => {
+    for (const [id, title] of [['fileTree', 'Files'], ['modifiedFiles', 'Modified Files']] as const) {
+      const { container, unmount } = render(<DockTab {...makeHeaderProps(id, title)} />)
+
+      // Name is a tooltip, not a text label; no per-tab close — the group
+      // header carries a single × for the whole item.
+      expect(screen.getByTitle(title)).toBeInTheDocument()
+      expect(screen.queryByText(title)).toBeNull()
+      expect(screen.queryByTitle(`Close ${title}`)).toBeNull()
+      expect(container.querySelector('svg')).not.toBeNull()
+      unmount()
+    }
+  })
+
+  it('double-clicking an icon-only tab still toggles focus mode', () => {
+    const onToggleMaximize = vi.fn()
+    render(
+      <DockStateContext.Provider value={makeDockState({ onToggleMaximize })}>
+        <DockTab {...makeHeaderProps('fileTree', 'Files')} />
+      </DockStateContext.Provider>,
+    )
+
+    fireEvent.doubleClick(screen.getByTitle('Files'))
+
+    expect(onToggleMaximize).toHaveBeenCalledWith('fileTree')
+  })
+
   it('shows a compact workspace role pill on workspace child tabs', () => {
     render(
       <DockStateContext.Provider value={makeDockState({
