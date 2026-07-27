@@ -120,15 +120,16 @@ toggled closed and open again.
 
 **Guardrail.** (a) Skip the width bookkeeping and the save while a group is maximized
 (`dock-layout-lifecycle.ts:41`). (b) Re-apply the saved sub-minimum sidebar widths right
-after `fromJSON` so the collapse survives (`dock-layout-loader.ts:56-61`). (c) Clear the
+after `fromJSON` so the collapse survives (`dock-layout-loader.ts:130`). (c) Clear the
 pending debounced save on unmount (`useDockLayout.ts:288-295`). (d) Promote wrapper roots
 (flipping the serialized orientation) before patching the ratio
 (`dock-layout-builders.ts:41`). (e) Skip the sidebar pin when it would leave no unpinned
 group to absorb the change (`dock-layout-helpers.ts:215`), and after a hint-based reopen
 restore the default proportions — a reopened sidebar is sized to its 1/6 share, and a
 reopened center pane shrinks any sidebar that had grown past a third of the dock back to
-1/6 (`dock-layout-loader.ts:277-298`) — since `addPanel` naively splits the reference
-group 50/50. The regression tests drive the
+1/6 (`dock-layout-loader.ts:322-350`) — since `addPanel` naively splits the reference
+group 50/50. Groups hosting an editor pane (files and the editor share one tabbed group)
+are exempt from both shrinks — they are center panes, not sidebars. The regression tests drive the
 **real** dockview library
 and the **real** layout helpers rather than an approximation:
 `dock-layout-no-remount.test.tsx`, `useSidebarHandleCycle.collapse.test.tsx`,

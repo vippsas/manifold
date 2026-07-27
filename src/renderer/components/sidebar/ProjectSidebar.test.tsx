@@ -34,6 +34,19 @@ describe('ProjectSidebar', () => {
     expect(screen.getByText('No repositories yet')).toBeInTheDocument()
   })
 
+  it('does not claim "No repositories yet" when every repo lives in a workspace', () => {
+    // Repos inside workspaces are suppressed from the standalone list; the
+    // empty state must not render under a sidebar full of workspace repos.
+    renderSidebar({
+      workspaces: [{ id: 'ws1', name: 'auth-refactor', projectIds: ['p1', 'p2'], createdAt: '2024-01-01' }],
+      activeWorkspaceId: null,
+      onSelectWorkspace: vi.fn(),
+      onRemoveWorkspace: vi.fn(),
+    })
+
+    expect(screen.queryByText('No repositories yet')).not.toBeInTheDocument()
+  })
+
   it('does not render a manual refresh action for repositories', () => {
     renderSidebar({
       projects: [{ id: 'p1', name: 'Alpha', path: '/a', baseBranch: 'main', kind: 'git' }],

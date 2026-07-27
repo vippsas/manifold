@@ -98,6 +98,17 @@ deeper and the patch would miss them, yielding equal thirds (#803)
 `fileTree` sidebar columns, including stale stacked sidebar columns, to the same
 one-sixth share before the loader persists repaired snapshots
 (`hooks/dock-layout/dock-layout-sanitize.ts:91`, `:116`, `:174`; `hooks/dock-layout/dock-layout-loader.ts:51`).
+**Files and the editor share one tabbed group**: whichever opens second tabs `within` the
+group of the one already open — `ensureEditorPanelInWorkspace` targets the files group when
+present (`hooks/dock-layout/dock-layout-editor.ts:24`), and the restore hints couple both
+directions (`hooks/dock-layout/dock-layout-helpers.ts:38`). When the editor joins a
+sidebar-width files group, the shared group widens to a one-third share
+(`widenSharedEditorGroup`, `hooks/dock-layout/dock-layout-loader.ts:40`); when the last
+editor pane leaves, it shrinks back to one-sixth (`shrinkEditorHostSidebarGroups`,
+`hooks/dock-layout/dock-layout-loader.ts:52`, called from the editor-close paths in
+`dock-layout-actions.ts`). While mixed, the group is a center pane, not a sidebar: the
+sanitizer's sidebar cap and the hint-reopen shrink loop both skip groups hosting non-sidebar
+panels (`dock-layout-files-editor-group.test.tsx` pins all three behaviours).
 All add/remove/focus/split/resize logic lives in the `hooks/dock-layout/` subsystem behind
 `useDockLayout`, whose return value is the dock control surface consumed by `App`
 (`useDockLayout.ts:301`).

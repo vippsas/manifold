@@ -127,6 +127,10 @@ export function ProjectList({
   }
 
   if (visibleProjects.length === 0) {
+    // Repos living inside workspaces are suppressed from this standalone
+    // list, so an empty list doesn't mean there are no repositories — only
+    // claim that when none exist anywhere.
+    if (projects.length > 0) return <></>
     return (
       <div style={sidebarStyles.list}>
         <div style={sidebarStyles.empty}>No repositories yet</div>
