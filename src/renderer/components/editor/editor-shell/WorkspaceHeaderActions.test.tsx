@@ -6,9 +6,9 @@ import type { DockAppState } from './dock-panel-types'
 import type { IDockviewHeaderActionsProps } from 'dockview'
 import { registerPanelContribution, resetToInternal } from '../../../plugins/contribution-registry'
 
-// The "+ Apps" launcher only renders when at least one launcher contribution exists.
-// Built-in modules ship as plugins now (Verdicts → manifold.statistics, #750) and none
-// are seeded in tests, so register a plugin launcher view to mirror the real app.
+// Even with launcher contributions registered, no group header renders the
+// "+ Apps" module launcher any more — apps are per-worktree and live in the
+// agent's options (AgentSettingsModal) instead.
 beforeEach(() => {
   registerPanelContribution({ id: 'manifold.statistics.panel', title: 'Statistics', description: 'Stats.', launcher: true, source: 'plugin', kind: 'webview' })
 })
@@ -29,21 +29,15 @@ function props(panelIds: string[], activePanelId = panelIds[0]): IDockviewHeader
 }
 
 describe('WorkspaceHeaderActions', () => {
-  it('shows the launcher for the group that owns the projects panel', () => {
-    render(
-      <DockStateContext.Provider value={state}>
-        <WorkspaceHeaderActions {...props(['projects'])} />
-      </DockStateContext.Provider>,
-    )
-    expect(screen.getByRole('button', { name: /open module/i })).toBeInTheDocument()
-  })
-
-  it('hides the launcher for groups without the projects panel', () => {
-    render(
-      <DockStateContext.Provider value={state}>
-        <WorkspaceHeaderActions {...props(['agent', 'editor'])} />
-      </DockStateContext.Provider>,
-    )
-    expect(screen.queryByRole('button', { name: /open module/i })).not.toBeInTheDocument()
+  it('renders no module launcher in any group header (apps live in agent settings)', () => {
+    for (const group of [['projects'], ['agent', 'editor'], ['fileTree', 'modifiedFiles']]) {
+      const { unmount } = render(
+        <DockStateContext.Provider value={state}>
+          <WorkspaceHeaderActions {...props(group)} />
+        </DockStateContext.Provider>,
+      )
+      expect(screen.queryByRole('button', { name: /open module/i })).not.toBeInTheDocument()
+      unmount()
+    }
   })
 })

@@ -17,6 +17,51 @@ import {
  *  1:4:1 default layout and the sanitizer's restored-sidebar cap). */
 const SIDEBAR_WIDTH_FRACTION = 1 / 6
 
+/** Width share the files group takes once the editor tabs into it — a
+ *  sidebar-width group is too narrow to edit in. */
+const EDITOR_GROUP_WIDTH_FRACTION = 1 / 3
+
+/** Panels that make up sidebar columns. A group whose tenants are all in this
+ *  set is a plain sidebar; one that also hosts an editor pane is a center pane
+ *  and must keep its width. */
+const SIDEBAR_FAMILY_PANEL_IDS = new Set<string>(['projects', 'fileTree', 'modifiedFiles'])
+
+type DockGroup = NonNullable<NonNullable<ReturnType<DockviewApi['getPanel']>>['group']>
+
+function isPureSidebarGroup(api: DockviewApi, group: DockGroup): boolean {
+  return api.panels
+    .filter((panel) => panel.group === group)
+    .every((panel) => SIDEBAR_FAMILY_PANEL_IDS.has(panel.id))
+}
+
+/** Widen the group hosting the editor when it tabbed into a sidebar-width
+ *  files group (files and the editor share one group). Must run outside any
+ *  sidebar-pinning scope, which holds the group at its pre-change width. */
+export function widenSharedEditorGroup(api: DockviewApi, refs?: LayoutRefs): void {
+  const group = api.getPanel('editor')?.group
+  if (!group || api.width <= 0) return
+  if (group.api.width >= api.width / 4) return
+  applyPanelWidthFraction(api, 'editor', EDITOR_GROUP_WIDTH_FRACTION, refs)
+}
+
+/**
+ * After editor panes are removed, shrink any of the given former host groups
+ * that is now a plain sidebar group back to its default share — the group had
+ * been widened to an editable width while the editor tabbed inside it.
+ */
+export function shrinkEditorHostSidebarGroups(
+  api: DockviewApi,
+  hostGroups: ReadonlySet<unknown>,
+  refs?: LayoutRefs,
+): void {
+  for (const sidebarId of SIDEBAR_PANEL_IDS) {
+    const group = api.getPanel(sidebarId)?.group
+    if (!group || !hostGroups.has(group)) continue
+    if (!isPureSidebarGroup(api, group)) continue
+    applyPanelWidthFraction(api, sidebarId, SIDEBAR_WIDTH_FRACTION, refs)
+  }
+}
+
 /**
  * Size the group containing `panelId` to roughly `fraction` of the dock height,
  * in place. Replaces an api.fromJSON() patch that tore down and remounted every
@@ -276,13 +321,19 @@ export function showPanelFromHints(api: DockviewApi, id: DockPanelId, refs?: Lay
     })
     if (usedDirection === 'below') {
       applyPanelHeightFraction(api, id, 1 / 3, refs)
-    } else if (SIDEBAR_PANEL_IDS.has(id)) {
+    } else if (usedDirection !== 'within' && SIDEBAR_PANEL_IDS.has(id)) {
       // addPanel splits the reference group 50/50; a sidebar reopened via
-      // hints should take its default share, not half the dock.
+      // hints should take its default share, not half the dock. A 'within'
+      // reopen joined an existing group as a tab and adopts its size.
       applyPanelWidthFraction(api, id, SIDEBAR_WIDTH_FRACTION, refs)
     }
   }, refs)
-  if (usedDirection !== 'below' && !SIDEBAR_PANEL_IDS.has(id)) {
+  if (id === 'editor' && usedDirection === 'within') {
+    // The editor tabbed into the files sidebar group — widen the shared group
+    // to an editable width.
+    widenSharedEditorGroup(api, refs)
+  }
+  if (usedDirection !== 'below' && usedDirection !== 'within' && !SIDEBAR_PANEL_IDS.has(id)) {
     // A center pane reopened via hints splits its reference group 50/50. When
     // that reference is a sidebar that had grown to dominate the dock (the
     // last survivor of an emptied dock), both end up around half the width —
@@ -291,7 +342,10 @@ export function showPanelFromHints(api: DockviewApi, id: DockPanelId, refs?: Lay
     // at their pre-change width.
     for (const sidebarId of SIDEBAR_PANEL_IDS) {
       const group = api.getPanel(sidebarId)?.group
-      if (group && api.width > 0 && group.api.width > api.width / 3) {
+      if (
+        group && api.width > 0 && group.api.width > api.width / 3
+        && isPureSidebarGroup(api, group)
+      ) {
         applyPanelWidthFraction(api, sidebarId, SIDEBAR_WIDTH_FRACTION, refs)
       }
     }

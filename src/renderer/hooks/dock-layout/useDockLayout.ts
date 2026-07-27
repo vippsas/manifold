@@ -1,8 +1,10 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import type { DockviewApi, SerializedDockview } from 'dockview'
 import {
+  applyCarriedSidebarWidths,
   applyLayoutChangePreservingSidebarWidths,
   applyMinimalLayout,
+  captureSidebarWidthsForReload,
   findTopLeftWorkspaceReferencePanel,
   getSidebarWidths,
   isEditorPanelId,
@@ -269,8 +271,14 @@ export function useDockLayout(
 
     flushPendingLayoutSave(previousSessionId)
 
+    // Layouts are per session, so the incoming layout arrives with its own
+    // sidebar widths. Carry the current widths across the switch so the
+    // sidebars don't visibly resize when the user clicks another item.
+    const carriedWidths = captureSidebarWidthsForReload(api)
+
     if (!sessionId) {
       applyMinimalLayout(api, buildMinimalLayout, refs)
+      applyCarriedSidebarWidths(api, carriedWidths)
       syncPanels(api)
       sidebarWidthsRef.current = getSidebarWidths(api)
       bumpVersion()
@@ -278,6 +286,7 @@ export function useDockLayout(
     }
 
     void loadOrBuildLayout(api, sessionId, buildDefaultLayout, refs, liveSiblingIds()).then(() => {
+      applyCarriedSidebarWidths(api, carriedWidths)
       reconcileLayoutAfterLoad(api, ctx)
     })
   }, [sessionId, buildDefaultLayout, buildMinimalLayout, bumpVersion, syncPanels, liveSiblingIds, ctx, flushPendingLayoutSave]) // eslint-disable-line react-hooks/exhaustive-deps

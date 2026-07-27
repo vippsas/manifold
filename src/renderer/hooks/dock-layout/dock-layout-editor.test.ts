@@ -2,7 +2,7 @@ import { describe, expect, it, vi } from 'vitest'
 import { ensureEditorPanelInWorkspace } from './dock-layout-editor'
 
 describe('ensureEditorPanelInWorkspace', () => {
-  it('adds the editor beside the agent panel when absent', () => {
+  it('adds the editor beside the agent panel when files is closed', () => {
     const agentGroup = { id: 'group-agent' }
     const agentPanel = { id: 'agent', group: agentGroup }
     const addPanel = vi.fn()
@@ -20,6 +20,33 @@ describe('ensureEditorPanelInWorkspace', () => {
       title: 'Editor',
       inactive: true,
       position: { referencePanel: agentPanel, direction: 'right' },
+    })
+  })
+
+  it('tabs the editor into the files group when the files panel is open', () => {
+    // Files and the editor are intertwined: they share one tabbed group
+    // rather than each claiming its own column.
+    const agentPanel = { id: 'agent', group: { id: 'group-agent' } }
+    const fileTreePanel = { id: 'fileTree', group: { id: 'group-files' } }
+    const addPanel = vi.fn()
+    const api = {
+      getPanel: vi.fn((id: string) => {
+        if (id === 'agent') return agentPanel
+        if (id === 'fileTree') return fileTreePanel
+        return undefined
+      }),
+      addPanel,
+    }
+
+    const changed = ensureEditorPanelInWorkspace(api as never)
+
+    expect(changed).toBe(true)
+    expect(addPanel).toHaveBeenCalledWith({
+      id: 'editor',
+      component: 'editor',
+      title: 'Editor',
+      inactive: true,
+      position: { referencePanel: fileTreePanel, direction: 'within' },
     })
   })
 

@@ -7,6 +7,7 @@ import {
   getSidebarWidths,
   parseEditorPanelOrder,
   showPanelFromHints,
+  widenSharedEditorGroup,
   type EditorSplitDirection,
 } from './dock-layout-helpers'
 import { ensureEditorPanelInWorkspace } from './dock-layout-editor'
@@ -31,6 +32,10 @@ export function useEditorPanels(ctx: DockLayoutCtx, focusPanel: (id: string) => 
       layoutChanged = ensureEditorPanelInWorkspace(api)
     }, refs)
     if (layoutChanged) {
+      // When the editor tabbed into the files sidebar group, widen the shared
+      // group to an editable width — outside the pinning scope above, which
+      // holds the sidebar at its pre-change width.
+      widenSharedEditorGroup(api, refs)
       syncPanels(api)
       ctx.sidebarWidthsRef.current = getSidebarWidths(api)
     }

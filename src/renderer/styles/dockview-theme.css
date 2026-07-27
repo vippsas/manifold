@@ -18,7 +18,10 @@
   --dv-activegroup-hiddenpanel-tab-color: var(--text-muted);
   --dv-inactivegroup-visiblepanel-tab-color: var(--text-secondary);
   --dv-inactivegroup-hiddenpanel-tab-color: var(--text-muted);
-  --dv-separator-border: var(--divider);
+  /* Dockview draws this as a straight full-height line down the left edge of
+     every view but the first (.dv-view:not(:first-child)::before), which cuts
+     across the rounded card corners below. The card border is the divider. */
+  --dv-separator-border: transparent;
   --dv-group-view-background-color: var(--bg-primary);
   --dv-drag-over-background-color: var(--accent-subtle, rgba(0, 122, 204, 0.15));
   --dv-drag-over-border-color: var(--accent);

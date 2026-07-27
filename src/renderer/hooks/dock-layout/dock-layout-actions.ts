@@ -5,6 +5,7 @@ import {
   showPanelFromHints,
   showPanelFromSnapshot,
   getSidebarWidths,
+  shrinkEditorHostSidebarGroups,
   withPinnedSidebars,
   isEditorPanelId,
   toggleMaximizedGroup,
@@ -35,10 +36,14 @@ export function useDockActions(
     if (isEditorPanelId(id)) {
       const panel = api.getPanel(id)
       if (!panel) return
+      const hostGroup = panel.group
       // Pin the sidebars while the editor pane is removed so its freed space
       // lands on the center pane, not on the sidebars (which dockview would
       // otherwise widen proportionally).
       withPinnedSidebars(api, () => api.removePanel(panel))
+      // If the pane was tabbed into the files sidebar group, that group is a
+      // plain sidebar again — shrink it back to its default share.
+      shrinkEditorHostSidebarGroups(api, new Set([hostGroup]), refs)
       ctx.editorPanelIdsRef.current.delete(id)
       ctx.lastLayoutRef.current = api.toJSON()
       saveLayout()
@@ -64,6 +69,9 @@ export function useDockActions(
         return
       }
 
+      const hostGroups = new Set(
+        visibleEditorPanels.map((panelId) => api.getPanel(panelId)?.group).filter((g) => g != null),
+      )
       // Pin the sidebars while the editor panes are removed so their freed
       // space lands on the center pane, not on the sidebars (which dockview
       // would otherwise widen proportionally).
@@ -73,6 +81,9 @@ export function useDockActions(
           if (panel) api.removePanel(panel)
         }
       })
+      // Any host group that was the files sidebar with editors tabbed inside
+      // is a plain sidebar again — shrink it back to its default share.
+      shrinkEditorHostSidebarGroups(api, hostGroups, refs)
 
       ctx.editorPanelIdsRef.current.clear()
       ctx.lastLayoutRef.current = api.toJSON()

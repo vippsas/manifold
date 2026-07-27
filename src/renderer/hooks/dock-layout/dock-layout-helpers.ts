@@ -9,6 +9,8 @@ export {
   hidePanel,
   showPanelFromSnapshot,
   showPanelFromHints,
+  widenSharedEditorGroup,
+  shrinkEditorHostSidebarGroups,
 } from './dock-layout-loader'
 
 export const PANEL_IDS = ['projects', 'agent', 'editor', 'fileTree', 'modifiedFiles', 'shell'] as const
@@ -31,8 +33,10 @@ export type Direction = 'right' | 'left' | 'above' | 'below' | 'within'
 export const PANEL_RESTORE_HINTS: Record<DockPanelId, Array<{ ref: DockPanelId; dir: Direction }>> = {
   projects: [{ ref: 'agent', dir: 'left' }, { ref: 'editor', dir: 'left' }, { ref: 'fileTree', dir: 'left' }],
   agent: [{ ref: 'editor', dir: 'left' }, { ref: 'projects', dir: 'right' }, { ref: 'fileTree', dir: 'left' }, { ref: 'shell', dir: 'above' }],
-  editor: [{ ref: 'agent', dir: 'right' }, { ref: 'shell', dir: 'above' }],
-  fileTree: [{ ref: 'modifiedFiles', dir: 'within' }, { ref: 'editor', dir: 'right' }, { ref: 'agent', dir: 'right' }],
+  // Files and the editor are intertwined, so they share one tabbed group:
+  // whichever opens second tabs into the group of the one already open.
+  editor: [{ ref: 'fileTree', dir: 'within' }, { ref: 'agent', dir: 'right' }, { ref: 'shell', dir: 'above' }],
+  fileTree: [{ ref: 'modifiedFiles', dir: 'within' }, { ref: 'editor', dir: 'within' }, { ref: 'agent', dir: 'right' }],
   modifiedFiles: [{ ref: 'fileTree', dir: 'within' }, { ref: 'agent', dir: 'right' }],
   shell: [{ ref: 'agent', dir: 'below' }, { ref: 'editor', dir: 'below' }],
 }
@@ -142,6 +146,42 @@ export function getSidebarWidths(api: DockviewApi): { left: number; right: numbe
   return {
     left: getPanelWidth(api, 'projects'),
     right: getPanelWidth(api, 'fileTree'),
+  }
+}
+
+/** Sidebar widths captured before a layout reload; null = panel not present. */
+export interface CarriedSidebarWidths { left: number | null; right: number | null }
+
+/**
+ * Capture both sidebar widths ahead of a session-switch layout reload,
+ * distinguishing "panel absent" (null) from a genuinely collapsed width-0
+ * sidebar, so the reload carries a collapse over without inventing one.
+ */
+export function captureSidebarWidthsForReload(api: DockviewApi): CarriedSidebarWidths {
+  return {
+    left: api.getPanel('projects') ? getPanelWidth(api, 'projects') : null,
+    right: api.getPanel('fileTree') ? getPanelWidth(api, 'fileTree') : null,
+  }
+}
+
+/**
+ * Re-apply sidebar widths captured before a session-switch reload. Layouts are
+ * saved per session, so loading the incoming session's layout restores *its*
+ * sidebar widths — making the sidebars jump on every switch. Carrying the
+ * outgoing widths over keeps them visually stable; the follow-up layout save
+ * then persists them for the incoming session too. A side whose panel was
+ * absent before the switch (null) keeps the incoming layout's width.
+ */
+export function applyCarriedSidebarWidths(api: DockviewApi, widths: CarriedSidebarWidths): void {
+  if (api.width <= 0) return
+  for (const [side, panelId, width] of [
+    ['left', 'projects', widths.left],
+    ['right', 'fileTree', widths.right],
+  ] as const) {
+    if (width === null) continue
+    const group = sidebarGroup(api, panelId)
+    if (!group || group.api.width === width) continue
+    applySidebarWidth(api, side, width)
   }
 }
 

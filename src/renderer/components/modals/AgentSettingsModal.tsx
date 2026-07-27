@@ -1,8 +1,12 @@
-import React, { useEffect, useRef, useState } from 'react'
+import React, { useContext, useEffect, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import type { AgentSession, AgentSettingsUpdate, AgentViewMode } from '../../../shared/types'
 import { agentSettingsModalStyles as styles } from './AgentSettingsModal.styles'
 import { ConfirmDialog } from '../ConfirmDialog'
+import { DockStateContext } from '../editor/editor-shell/dock-panel-types'
+import { useLauncherContributions } from '../../plugins/use-contributions'
+import type { RegisteredPanel } from '../../plugins/contribution-registry'
+import type { DockPanelId } from '../../hooks/dock-layout/dock-layout-helpers'
 
 const RUNTIME_LABELS: Record<string, string> = {
   claude: 'Claude',
@@ -27,6 +31,8 @@ export function AgentSettingsModal({ visible, session, fallbackName, onSave, onC
   const [pendingSettings, setPendingSettings] = useState<AgentSettingsUpdate | null>(null)
   const overlayRef = useRef<HTMLDivElement>(null)
   const inputRef = useRef<HTMLInputElement>(null)
+  const dockState = useContext(DockStateContext)
+  const apps = useLauncherContributions()
 
   useEffect(() => {
     if (!visible) return
@@ -67,6 +73,20 @@ export function AgentSettingsModal({ visible, session, fallbackName, onSave, onC
   }
 
   const runtimeOptions = Array.from(new Set([session.runtimeId, 'claude', 'codex']))
+
+  // Apps are per-worktree: they open panels in the active session's dock, so
+  // the section only renders in the options of the agent that is active.
+  const showApps = dockState != null && dockState.sessionId === session.id && apps.length > 0
+  const openApp = (app: RegisteredPanel): void => {
+    if (!dockState) return
+    if (app.source === 'plugin') {
+      if (app.kind === 'tree') dockState.onOpenPluginTreeView(app.id, app.title)
+      else dockState.onOpenPluginView(app.id, app.title)
+    } else {
+      dockState.onOpenModule(app.id as DockPanelId)
+    }
+    onClose()
+  }
 
   return createPortal(
     <div
@@ -140,6 +160,28 @@ export function AgentSettingsModal({ visible, session, fallbackName, onSave, onC
               </label>
             </div>
           </fieldset>
+          {showApps && (
+            <fieldset style={styles.fieldset}>
+              <legend style={styles.legend}>Apps</legend>
+              <div style={styles.appsList}>
+                {apps.map((app) => {
+                  const isOpen = app.source !== 'plugin' && dockState?.isModuleOpen(app.id as DockPanelId)
+                  return (
+                    <button
+                      key={app.id}
+                      type="button"
+                      style={styles.appButton}
+                      onClick={() => openApp(app)}
+                      aria-label={`Open ${app.title}`}
+                    >
+                      <span style={styles.modeTitle}>{isOpen ? `✓ ${app.title}` : app.title}</span>
+                      {app.description && <span style={styles.modeDescription}>{app.description}</span>}
+                    </button>
+                  )
+                })}
+              </div>
+            </fieldset>
+          )}
           <div style={styles.metaGrid}>
             <span style={styles.metaLabel}>Branch</span>
             <span style={styles.metaValue} title={session.branchName}>{session.branchName}</span>

@@ -769,7 +769,8 @@ select:focus-visible {
 }
 
 /* The runtime rides at the right of the row, the way a timestamp would, and
-   yields to the row actions on hover so the two never collide. */
+   yields to the row actions on hover so the two never collide. It must never
+   catch clicks: at opacity 0 it still overlays the action buttons. */
 .sidebar-agent-row .sidebar-secondary-text {
   position: absolute;
   right: 8px;
@@ -777,6 +778,7 @@ select:focus-visible {
   transform: translateY(-50%);
   max-width: 40%;
   transition: opacity var(--duration-normal) var(--ease-premium);
+  pointer-events: none;
 }
 
 .sidebar-agent-row:hover .sidebar-secondary-text,
