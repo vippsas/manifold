@@ -24,6 +24,7 @@ import { AddRepositoryModal } from './components/modals/AddRepositoryModal'
 import { NewWorkspaceModal } from './components/modals/NewWorkspaceModal'
 import { NewAgentModal } from './components/modals/NewAgentModal'
 import { DockTab, EmptyWatermark } from './DockTab'
+import { ActivityBar, type ActivityBarProps } from './components/ActivityBar'
 import { TitleBar } from './components/TitleBar'
 import { DeleteAgentDialog } from './components/sidebar/DeleteAgentDialog'
 import { useLoadPluginContributions } from './plugins/use-contributions'
@@ -122,26 +123,32 @@ export function AppShell(p: AppShellProps): React.JSX.Element {
         }}
       />
       <div className="layout-main">
-        <DockStateContext.Provider value={p.dockState}>
-          <div style={{ flex: 1, overflow: 'hidden', position: 'relative' }}>
-            <DockviewReact
-              className={`dockview-theme-dark dockview-theme-manifold${!p.activeSessionId ? ' dockview-minimal' : ''}`}
-              components={PANEL_COMPONENTS}
-              onReady={(e) => p.onDockReady(e.api)}
-              defaultTabComponent={DockTab}
-              prefixHeaderActionsComponent={PrefixHeaderActions}
-              leftHeaderActionsComponent={LeftHeaderActions}
-              rightHeaderActionsComponent={RightHeaderActions}
-              watermarkComponent={EmptyWatermark}
-            />
-            {p.overlays.showDashboard && (
-              <DashboardHomeView
-                onClose={() => p.overlays.setShowDashboard(false)}
-                initialCard={p.overlays.dashboardInitialCard}
+        <div className="layout-workbench">
+          <ActivityBar
+            dockLayout={p.dockLayout as ActivityBarProps['dockLayout']}
+            hasActiveSession={p.activeSessionId != null}
+          />
+          <DockStateContext.Provider value={p.dockState}>
+            <div style={{ flex: 1, overflow: 'hidden', position: 'relative' }}>
+              <DockviewReact
+                className={`dockview-theme-dark dockview-theme-manifold${!p.activeSessionId ? ' dockview-minimal' : ''}`}
+                components={PANEL_COMPONENTS}
+                onReady={(e) => p.onDockReady(e.api)}
+                defaultTabComponent={DockTab}
+                prefixHeaderActionsComponent={PrefixHeaderActions}
+                leftHeaderActionsComponent={LeftHeaderActions}
+                rightHeaderActionsComponent={RightHeaderActions}
+                watermarkComponent={EmptyWatermark}
               />
-            )}
-          </div>
-        </DockStateContext.Provider>
+              {p.overlays.showDashboard && (
+                <DashboardHomeView
+                  onClose={() => p.overlays.setShowDashboard(false)}
+                  initialCard={p.overlays.dashboardInitialCard}
+                />
+              )}
+            </div>
+          </DockStateContext.Provider>
+        </div>
         <StatusBar
           activeSession={p.activeSession}
           changedFiles={p.mergedChanges}

@@ -169,7 +169,7 @@ export function WorkspaceList({
                 <Fragment key={`repo-${pid}`}>
                 <div
                   className={`sidebar-item-row sidebar-repo-row${isActive && activeProjectId === pid ? ' sidebar-item-row--active' : ''}`}
-                  style={{ ...sidebarStyles.item, paddingLeft: 16 }}
+                  style={{ ...sidebarStyles.item, paddingLeft: 28 }}
                   title={repo?.path ?? pid}
                   role="button"
                   tabIndex={0}
@@ -199,17 +199,13 @@ export function WorkspaceList({
                   </div>
                 </div>
                 {repoSessions.map((session) => (
-                  <div key={session.id} style={{ paddingLeft: 12 }}>
-                    {renderAgent(session)}
-                  </div>
+                  <Fragment key={session.id}>{renderAgent(session)}</Fragment>
                 ))}
                 </Fragment>
               )
             })}
             {orphanSessions.map((session) => (
-              <div key={session.id} style={{ paddingLeft: 12 }}>
-                {renderAgent(session)}
-              </div>
+              <Fragment key={session.id}>{renderAgent(session)}</Fragment>
             ))}
           </div>
         )

@@ -77,9 +77,12 @@ export function ProjectSidebar({
     [onRemoveProject]
   )
 
+  const workspacesEnabled = Boolean(workspaces && onSelectWorkspace && onRemoveWorkspace)
+
   return (
     <div style={sidebarStyles.root}>
       <div role="toolbar" aria-label="Repository actions" style={sidebarStyles.actionToolbar}>
+        {workspacesEnabled && <span style={sidebarStyles.toolbarLabel}>Workspaces</span>}
         <button
           type="button"
           onClick={onNewProject}

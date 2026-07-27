@@ -227,6 +227,14 @@ body {
   min-width: 0;
 }
 
+/* Activity rail + dock, side by side above the status bar. */
+.layout-workbench {
+  flex: 1;
+  display: flex;
+  min-height: 0;
+  overflow: hidden;
+}
+
 .layout-panes {
   flex: 1;
   display: flex;
@@ -650,11 +658,12 @@ select:focus-visible {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: var(--space-sm);
+  gap: var(--space-xs);
   min-height: 28px;
-  margin: 1px 6px;
+  margin: 1px 8px;
   padding: 0 8px;
-  border-radius: var(--radius-md);
+  border-radius: var(--radius-sm);
+  font-size: var(--type-ui-small);
   color: var(--text-secondary);
   position: relative;
   cursor: pointer;
@@ -688,6 +697,17 @@ select:focus-visible {
   background: var(--list-hover-bg);
 }
 
+/* Same de-duplication for workspace cards: when the selection sits on an agent
+   row, the repo row above it keeps only its promoted text color — two stacked
+   fills read as one merged blob. */
+.sidebar-workspace-card:has(.sidebar-agent-row.sidebar-item-row--active) .sidebar-repo-row.sidebar-item-row--active {
+  background: transparent;
+}
+
+.sidebar-workspace-card:has(.sidebar-agent-row.sidebar-item-row--active) .sidebar-repo-row.sidebar-item-row--active:hover {
+  background: var(--list-hover-bg);
+}
+
 .terminal-host .xterm {
   height: 100%;
   box-sizing: border-box;
@@ -701,19 +721,23 @@ select:focus-visible {
 
 .sidebar-project-row {
   font-weight: 400;
-  padding-right: 68px;
-  font-size: var(--type-ui-small);
+  padding-right: 56px;
 }
 
 .sidebar-agent-row {
   flex-direction: column;
   align-items: flex-start;
-  min-height: 26px;
+  min-height: 28px;
   justify-content: center;
-  padding: 3px 8px 3px 24px;
+  padding: 2px 8px 2px 24px;
   gap: 0;
   background: transparent;
   position: relative;
+}
+
+/* Workspace agents sit one level deeper than their repo row. */
+.sidebar-workspace-card .sidebar-agent-row {
+  padding-left: 36px;
 }
 
 .sidebar-agent-row--exited {
@@ -773,15 +797,14 @@ select:focus-visible {
 }
 
 .sidebar-item-row:hover .sidebar-item-actions,
-.sidebar-item-row:focus-within .sidebar-item-actions,
-.sidebar-item-row--active .sidebar-item-actions {
+.sidebar-item-row:focus-within .sidebar-item-actions {
   opacity: 0.95;
   pointer-events: auto;
 }
 
 .sidebar-project-row > .sidebar-item-actions {
   position: absolute;
-  right: 10px;
+  right: 8px;
   top: 50%;
   transform: translateY(-50%);
 }
@@ -804,7 +827,7 @@ select:focus-visible {
    yields to the row actions on hover so the two never collide. */
 .sidebar-agent-row .sidebar-secondary-text {
   position: absolute;
-  right: 10px;
+  right: 8px;
   top: 50%;
   transform: translateY(-50%);
   max-width: 40%;
@@ -812,8 +835,7 @@ select:focus-visible {
 }
 
 .sidebar-agent-row:hover .sidebar-secondary-text,
-.sidebar-agent-row:focus-within .sidebar-secondary-text,
-.sidebar-agent-row.sidebar-item-row--active .sidebar-secondary-text {
+.sidebar-agent-row:focus-within .sidebar-secondary-text {
   opacity: 0;
 }
 
@@ -822,7 +844,7 @@ select:focus-visible {
 }
 
 .sidebar-project-group--has-agents {
-  margin: 0 0 var(--space-xs);
+  margin: 0 0 var(--space-sm);
   padding: 0;
   background: transparent;
   border: 0;
@@ -927,6 +949,87 @@ select:focus-visible {
 .sidebar-toolbar-button:focus-visible {
   outline: none;
   box-shadow: 0 0 0 2px var(--accent-subtle), 0 0 10px var(--accent-subtle);
+}
+
+/* ─── Activity bar (fixed icon rail) ─── */
+.activity-bar-item {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 30px;
+  height: 30px;
+  padding: 0;
+  border: 0;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--text-muted);
+  cursor: pointer;
+  transition: background var(--duration-normal) var(--ease-premium), color var(--duration-normal) var(--ease-premium);
+}
+
+.activity-bar-item:hover {
+  background: var(--list-hover-bg);
+  color: var(--text-primary);
+}
+
+.activity-bar-item:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 2px var(--accent-subtle), 0 0 10px var(--accent-subtle);
+}
+
+.activity-bar-item--active {
+  color: var(--accent);
+}
+
+/* Active indicator: a thin accent bar pinned to the rail's outer edge. */
+.activity-bar-item--active::before {
+  content: '';
+  position: absolute;
+  left: -7px;
+  top: 6px;
+  bottom: 6px;
+  width: 2px;
+  border-radius: 1px;
+  background: var(--accent);
+}
+
+.activity-bar-item:disabled {
+  opacity: 0.35;
+  cursor: default;
+}
+
+.activity-bar-item:disabled:hover {
+  background: transparent;
+  color: var(--text-muted);
+}
+
+.activity-bar-tooltip {
+  position: absolute;
+  left: calc(100% + 12px);
+  top: 50%;
+  transform: translateY(-50%);
+  padding: 3px 8px;
+  border-radius: var(--radius-sm);
+  background: var(--bg-elevated);
+  border: 1px solid var(--border);
+  box-shadow: var(--shadow-popover);
+  color: var(--text-primary);
+  font-size: var(--type-ui-caption);
+  white-space: nowrap;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 120ms ease;
+  z-index: 100;
+}
+
+.activity-bar-item:hover .activity-bar-tooltip {
+  opacity: 1;
+  transition-delay: 350ms;
+}
+
+.activity-bar-item:focus-visible .activity-bar-tooltip {
+  opacity: 1;
 }
 
 /* Metallic primary CTA — gradient catches light at the top-left, a hairline

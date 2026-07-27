@@ -133,7 +133,7 @@ function makeProps(overrides: Partial<AppShellProps> = {}): AppShellProps {
     defaultRuntime: 'claude',
     createWorkspace: vi.fn().mockResolvedValue({ id: 'w1', name: 'Workspace', projectIds: ['p1'], createdAt: '2024-01-01' }),
     workspaces: [],
-    dockLayout: {},
+    dockLayout: { isPanelVisible: () => false, togglePanel: vi.fn() },
     onRenameActiveProject: vi.fn(),
     runCommand: vi.fn(),
     ...overrides,

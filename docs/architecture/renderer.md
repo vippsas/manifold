@@ -19,7 +19,7 @@ boundaries. Individual panels and hooks are catalogued only enough to locate the
 
 - `src/renderer/index.tsx` — process entry: imports `monaco-setup`, mounts `<App/>` in `React.StrictMode` via `createRoot`, and pulls in dockview + theme CSS (`index.tsx:14`).
 - `src/renderer/App.tsx` — the single stateful container. Composes ~30 hooks into one `DockAppState` object and renders `<AppShell/>` + `<QuickOpen/>` (`App.tsx:42`, `:256`).
-- `src/renderer/AppShell.tsx` — presentational shell: title bar, the `DockviewReact` host, status bar, and all modals/overlays/toasts (`AppShell.tsx:80`).
+- `src/renderer/AppShell.tsx` — presentational shell: title bar, the activity-bar icon rail + `DockviewReact` host (side by side in `.layout-workbench`), status bar, and all modals/overlays/toasts (`AppShell.tsx:80`).
 - `src/renderer/DockTab.tsx` — `DockTab` (the per-panel tab header) and `EmptyWatermark` (the empty-group drop hint).
 - `src/renderer/monaco-setup.ts` — wires `MonacoEnvironment.getWorker` to the per-language Vite `?worker` bundles and calls `loader.config({ monaco })`.
 - `src/renderer/components/` — all UI by surface: `editor/`, `terminal/`, `sidebar/`, `git/`, `search/`, `modals/`, `memory/`, `new-task/`, `plugin-ui/`.
@@ -48,6 +48,14 @@ incomplete) or `OnboardingView` (no projects) before rendering the full workspac
 `buildTerminalOptions` seeds `fontSize` as `Math.round(13 * uiScale)` (`terminal-font.ts:47`) and
 `useTerminal` live-updates the running xterm's `fontSize` on each `manifold:ui-scale-changed`
 (`useTerminal.ts:105`, `:108`).
+
+**Activity bar.** A fixed (non-collapsible) icon rail sits left of the dock
+(`components/ActivityBar.tsx`): one button per `PANEL_IDS` entry, labeled from
+`PANEL_TITLES` via a CSS hover tooltip (`.activity-bar-tooltip`). A click calls
+`dockLayout.togglePanel(id)`; a visible panel (`isPanelVisible`) renders accent-colored
+with an edge indicator bar. Session-dependent items (`editor`, `fileTree`,
+`modifiedFiles`, `shell`) are disabled while no agent session is active, mirroring the
+status bar's panel toggles.
 
 **Panel layout (dockview).** The workspace is a single `DockviewReact` instance
 (`AppShell.tsx:125`). Panels are registered by string id in `PANEL_COMPONENTS`

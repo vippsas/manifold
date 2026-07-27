@@ -511,6 +511,8 @@ describe('ProjectSidebar', () => {
 
     fireEvent.click(screen.getByText('auth-refactor'))
     expect(onSelectWorkspace).toHaveBeenCalledWith('ws1')
-    expect(screen.queryByText('Workspaces')).not.toBeInTheDocument()
+    // A static "Workspaces" section label exists, but it is not a collapse control.
+    expect(screen.getByText('Workspaces')).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Workspaces' })).not.toBeInTheDocument()
   })
 })
