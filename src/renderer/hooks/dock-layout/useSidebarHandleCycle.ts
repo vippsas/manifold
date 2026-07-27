@@ -8,8 +8,8 @@ const SIDE_PANEL_ID: Record<SidebarSide, string> = { left: 'projects', right: 'f
 
 // Fractions of the window width the double-click cycle steps through, in order.
 // The default layout starts a sidebar at 1/6, so the first double-click moves
-// it to 2/6, then 3/6, then back to the 1/6 default. Full collapse lives on the
-// dedicated per-sidebar collapse button, so 0 is deliberately never a step here.
+// it to 2/6, then 3/6, then back to the 1/6 default. Hiding a sidebar is done
+// by closing the panel, so 0 is deliberately never a step here.
 const CYCLE = [1 / 6, 2 / 6, 3 / 6]
 
 // How close (px) a sash's center must sit to a sidebar edge to count as that
@@ -86,8 +86,8 @@ function sidebarSideForSash(api: DockviewApi, sash: HTMLElement): SidebarSide | 
 /**
  * Resize a sidebar to an exact pixel width, holding the opposite sidebar at its
  * current width so dockview routes the whole delta onto the center pane instead
- * of splitting it across siblings. Shared by the sash double-click cycle and the
- * header collapse button.
+ * of splitting it across siblings. Shared by the sash double-click cycle and
+ * programmatic collapse (`collapseSidebar`).
  */
 export function applySidebarWidth(api: DockviewApi, side: SidebarSide, nextWidth: number): void {
   const targetGroup = api.getPanel(SIDE_PANEL_ID[side])?.group
@@ -156,8 +156,11 @@ function collapsedRailSide(api: DockviewApi, event: MouseEvent): SidebarSide | n
 }
 
 export interface UseSidebarHandleCycleResult {
-  /** Collapse a sidebar to width 0 from its header button, remembering the
-   *  pre-collapse width so a single click on the edge rail restores it exactly. */
+  /** Collapse a sidebar to width 0, remembering the pre-collapse width so a
+   *  single click on the edge rail restores it exactly. No UI triggers this
+   *  since the header collapse buttons were removed (panels are closed
+   *  instead), but the edge-rail restore must keep working for sidebars that
+   *  were collapsed before the buttons went away and persist as width 0. */
   collapseSidebar: (side: SidebarSide) => void
 }
 
@@ -168,10 +171,7 @@ export interface UseSidebarHandleCycleResult {
  *   e.g. after a manual drag to the edge).
  * - Double-clicking a sidebar grab handle cycles its width through
  *   1/6 → 2/6 → 3/6 → 1/6 of the window (or the reverse when `reversed`); it
- *   never collapses to 0 — full collapse is the header collapse button.
- *
- * Also returns a `collapseSidebar` callback the header buttons use to collapse a
- * sidebar to 0.
+ *   never collapses to 0 — hiding a panel is done by closing it.
  */
 export function useSidebarHandleCycle(
   apiRef: React.MutableRefObject<DockviewApi | null>,

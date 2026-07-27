@@ -1,25 +1,30 @@
 import type React from 'react'
+import { dialogPrimitives } from '../workbench-style-primitives'
 
-export const titleBarSearchStyles: Record<string, React.CSSProperties> = {
-  wrap: {
-    // @ts-expect-error -- Electron-specific CSS property; opt out of window drag
-    WebkitAppRegion: 'no-drag',
-    position: 'relative',
-    width: 'min(440px, 46%)',
+export const searchModalStyles: Record<string, React.CSSProperties> = {
+  overlay: {
+    ...dialogPrimitives.overlay,
+    // Top-aligned rather than centered: the field lands where the eye already
+    // is and the results grow downward without shifting it.
+    alignItems: 'flex-start',
+    paddingTop: '12vh',
+  },
+  panel: {
+    ...dialogPrimitives.panelBase,
+    display: 'flex',
+    flexDirection: 'column',
+    width: 'min(720px, 92vw)',
   },
   field: {
     // No outer pill — the input's focus state grows its own targeting-reticle
-    // brackets (global `input:focus` rule in theme.css), which serve as the
-    // field's border. A filled/rounded wrapper would only box them in.
+    // brackets (`.reticle-input` / `input:focus` in theme.css), which serve as
+    // the field's border.
     display: 'flex',
     alignItems: 'center',
     gap: 'var(--space-sm)',
-    height: 28,
-    padding: '0 var(--space-sm) 0 var(--space-md)',
-    color: 'var(--text-muted)',
-    transition: 'color 150ms ease',
-  },
-  fieldFocused: {
+    height: 44,
+    padding: '0 var(--space-md)',
+    borderBottom: '1px solid var(--divider)',
     color: 'var(--accent)',
   },
   input: {
@@ -30,7 +35,7 @@ export const titleBarSearchStyles: Record<string, React.CSSProperties> = {
     outline: 'none',
     color: 'var(--text-primary)',
     fontFamily: 'var(--font-sans)',
-    fontSize: 'var(--type-ui-small)',
+    fontSize: 'var(--type-ui)',
   },
   iconWrap: {
     display: 'grid',
@@ -46,19 +51,6 @@ export const titleBarSearchStyles: Record<string, React.CSSProperties> = {
     lineHeight: 1,
     padding: '0 2px',
     flexShrink: 0,
-  },
-  dropdown: {
-    position: 'absolute',
-    top: 'calc(100% + 6px)',
-    left: 0,
-    right: 0,
-    background: 'var(--bg-overlay)',
-    border: '1px solid var(--control-border)',
-    borderRadius: 'var(--radius-md)',
-    boxShadow: 'var(--shadow-overlay)',
-    overflow: 'hidden',
-    zIndex: 50,
-    animation: 'toast-slide-up 160ms ease',
   },
   scopes: {
     display: 'flex',
@@ -82,7 +74,7 @@ export const titleBarSearchStyles: Record<string, React.CSSProperties> = {
     borderColor: 'var(--accent)',
   },
   results: {
-    maxHeight: 320,
+    maxHeight: '52vh',
     overflowY: 'auto',
     padding: 'var(--space-xs)',
   },

@@ -178,7 +178,7 @@ export function GeneralSettingsSection(props: Props): React.JSX.Element {
             <label style={{ ...modalStyles.checkboxField, ...modalStyles.fieldSpanFull }}>
               <input type="checkbox" checked={props.sidebarResizeReversed} onChange={(event) => props.onSidebarResizeReversedChange(event.target.checked)} style={modalStyles.checkboxInput} />
               Reverse sidebar resize direction
-              <span style={modalStyles.helpText}>Double-clicking a sidebar handle jumps to the widest size first, then steps narrower (1/6 → 3/6 → 2/6). Default grows wider one step at a time. Neither direction collapses the sidebar — use the collapse button for that.</span>
+              <span style={modalStyles.helpText}>Double-clicking a sidebar handle jumps to the widest size first, then steps narrower (1/6 → 3/6 → 2/6). Default grows wider one step at a time. Neither direction collapses the sidebar — close the panel to hide it.</span>
             </label>
           </div>
         </SectionCard>

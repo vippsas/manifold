@@ -48,6 +48,13 @@ const SESSION_PANELS: ReadonlySet<DockPanelId> = new Set(['editor', 'fileTree', 
 
 const RAIL_ORDER: DockPanelId[] = ['projects', 'agent', 'editor', 'fileTree', 'modifiedFiles', 'shell']
 
+const SEARCH_GLYPH = glyph(
+  <>
+    <circle cx="11" cy="11" r="7" />
+    <path d="m16.7 16.7 4.3 4.3" />
+  </>,
+)
+
 const SETTINGS_GLYPH = glyph(
   <>
     <path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z" />
@@ -61,10 +68,11 @@ export interface ActivityBarProps {
     togglePanel: (id: DockPanelId) => void
   }
   hasActiveSession: boolean
+  onOpenSearch?: () => void
   onOpenSettings?: () => void
 }
 
-export function ActivityBar({ dockLayout, hasActiveSession, onOpenSettings }: ActivityBarProps): React.JSX.Element {
+export function ActivityBar({ dockLayout, hasActiveSession, onOpenSearch, onOpenSettings }: ActivityBarProps): React.JSX.Element {
   return (
     <nav className="activity-bar" aria-label="Panels" style={activityBarStyles.root}>
       {RAIL_ORDER.map((id) => {
@@ -88,21 +96,32 @@ export function ActivityBar({ dockLayout, hasActiveSession, onOpenSettings }: Ac
           </button>
         )
       })}
+      {(onOpenSearch || onOpenSettings) && <span style={activityBarStyles.spacer} aria-hidden />}
+      {onOpenSearch && (
+        <button
+          type="button"
+          className="activity-bar-item"
+          onClick={onOpenSearch}
+          aria-label="Search"
+        >
+          {SEARCH_GLYPH}
+          <span className="activity-bar-tooltip" role="presentation">
+            Search
+          </span>
+        </button>
+      )}
       {onOpenSettings && (
-        <>
-          <span style={activityBarStyles.spacer} aria-hidden />
-          <button
-            type="button"
-            className="activity-bar-item"
-            onClick={onOpenSettings}
-            aria-label="Settings"
-          >
-            {SETTINGS_GLYPH}
-            <span className="activity-bar-tooltip" role="presentation">
-              Settings
-            </span>
-          </button>
-        </>
+        <button
+          type="button"
+          className="activity-bar-item"
+          onClick={onOpenSettings}
+          aria-label="Settings"
+        >
+          {SETTINGS_GLYPH}
+          <span className="activity-bar-tooltip" role="presentation">
+            Settings
+          </span>
+        </button>
       )}
     </nav>
   )

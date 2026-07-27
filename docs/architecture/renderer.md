@@ -78,9 +78,12 @@ panel set. `DockAppState` is published to every panel through `DockStateContext`
 (`AppShell.tsx:141`), so panels read props via `useDockState()` rather than prop-drilling.
 Tab headers use `DockTab`; empty groups show `EmptyWatermark`; the left header-action slot
 hosts `LeftHeaderActions` (shell controls plus the "add agent on this worktree" button,
-shown in the **Repositories** group) and the right slot `RightHeaderActions` (editor
-actions plus sidebar collapse) (`components/editor/editor-shell/SidebarCollapseAction.tsx:66`,
-`:89`). Apps are per-worktree, so the launcher list lives in the agent's options
+shown in the **Repositories** group; `components/editor/editor-shell/LeftHeaderActions.tsx:11`)
+and the right slot `WorkspaceHeaderActions` (editor actions;
+`components/editor/editor-shell/WorkspaceHeaderActions.tsx:8`). There are no header
+sidebar-collapse buttons — hiding a panel is done by closing it (tab `×` or the activity
+bar); only the double-click sash width-cycle gesture remains from the collapse machinery
+(`hooks/dock-layout/useSidebarHandleCycle.ts`). Apps are per-worktree, so the launcher list lives in the agent's options
 (`components/modals/AgentSettingsModal.tsx`) — opened from the gear on the agent's
 sidebar row — and only for the active session; there is no "+ Apps" header button. Double-clicking a tab
 toggles **focus mode**: `DockTab`'s `onDoubleClick` calls `onToggleMaximize` (`DockTab.tsx:31`), which

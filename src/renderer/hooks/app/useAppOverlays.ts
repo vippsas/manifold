@@ -1,5 +1,6 @@
 import { useState, useCallback, useEffect, useMemo } from 'react'
 import type { SpawnAgentOptions, ManifoldSettings, AgentSession } from '../../../shared/types'
+import type { SearchMode } from '../../../shared/search-types'
 import type { PendingDelete } from '../../components/sidebar/DeleteAgentDialog'
 
 interface SpawnedSession { id: string }
@@ -15,6 +16,11 @@ export interface UseAppOverlaysResult {
   setShowCommandPalette: (show: boolean) => void
   showShortcuts: boolean
   setShowShortcuts: (show: boolean) => void
+  showSearch: boolean
+  /** Scope the search modal opens on (null = keep its default). */
+  searchMode: SearchMode | null
+  openSearch: (mode?: SearchMode) => void
+  closeSearch: () => void
   showDashboard: boolean
   setShowDashboard: (show: boolean) => void
   /** Card id to open the Dashboard straight into (null = land on the grid). */
@@ -51,6 +57,8 @@ export function useAppOverlays(
   const [showAbout, setShowAbout] = useState(false)
   const [showCommandPalette, setShowCommandPalette] = useState(false)
   const [showShortcuts, setShowShortcuts] = useState(false)
+  const [showSearch, setShowSearch] = useState(false)
+  const [searchMode, setSearchMode] = useState<SearchMode | null>(null)
   const [showDashboard, setShowDashboard] = useState(false)
   const [dashboardInitialCard, setDashboardInitialCard] = useState<string | null>(null)
   const [appVersion, setAppVersion] = useState('')
@@ -64,6 +72,13 @@ export function useAppOverlays(
   }, [commit, refreshDiff])
 
   const handleClosePanel = useCallback((): void => { setActivePanel(null) }, [])
+
+  const openSearch = useCallback((mode?: SearchMode): void => {
+    setSearchMode(mode ?? null)
+    setShowSearch(true)
+  }, [])
+
+  const closeSearch = useCallback((): void => { setShowSearch(false) }, [])
 
   const handleLaunchAgent = useCallback(async (options: SpawnAgentOptions): Promise<unknown> => {
     const session = (await spawnAgent(options)) as SpawnedSession | null
@@ -131,6 +146,10 @@ export function useAppOverlays(
     setShowCommandPalette,
     showShortcuts,
     setShowShortcuts,
+    showSearch,
+    searchMode,
+    openSearch,
+    closeSearch,
     showDashboard,
     setShowDashboard,
     dashboardInitialCard,
@@ -149,7 +168,8 @@ export function useAppOverlays(
     confirmDeleteAgent,
   }), [
     activePanel,
-    showSettings, showAbout, showCommandPalette, showShortcuts, showDashboard, dashboardInitialCard, appVersion, handleCommit, handleClosePanel,
+    showSettings, showAbout, showCommandPalette, showShortcuts, showSearch, searchMode, openSearch, closeSearch,
+    showDashboard, dashboardInitialCard, appVersion, handleCommit, handleClosePanel,
     handleLaunchAgent, handleSelectSession, handleSaveSettings, handleSetupComplete,
     pendingDelete, deletingSessionId, requestDeleteAgent, cancelDeleteAgent, confirmDeleteAgent,
   ])

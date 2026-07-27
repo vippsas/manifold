@@ -1,6 +1,7 @@
-// Covers the header collapse button's width mechanics: collapsing a sidebar to
-// width 0 (remembering its pre-collapse width) and restoring it to exactly that
-// width, while the opposite sidebar is preserved. Mirrors the real-dockview
+// Covers the sidebar collapse width mechanics: collapsing a sidebar to width 0
+// (remembering its pre-collapse width) and restoring it to exactly that width,
+// while the opposite sidebar is preserved. No UI button collapses anymore, but
+// previously collapsed sidebars persist at width 0 and reopen via the edge rail. Mirrors the real-dockview
 // harness in dock-layout-drag-restore.test.tsx (jsdom has no layout engine, so
 // element.offsetWidth is wired to dockview's tracked group width).
 import React from 'react'
@@ -99,7 +100,7 @@ describe('collapseSidebar / applySidebarWidth', () => {
     const apiRef: React.MutableRefObject<DockviewApi | null> = { current: dv }
     const { result } = renderHook(() => useSidebarHandleCycle(apiRef))
 
-    // Collapse from the header button — remembers the 200px pre-collapse width.
+    // Programmatic collapse — remembers the 200px pre-collapse width.
     act(() => { result.current.collapseSidebar('left') })
     expect(widthOf('projects')).toBe(0)
 

@@ -30,6 +30,7 @@ import { TitleBar } from './components/TitleBar'
 import { DeleteAgentDialog } from './components/sidebar/DeleteAgentDialog'
 import { useLoadPluginContributions } from './plugins/use-contributions'
 import { PluginUiHost } from './components/plugin-ui/PluginUiHost'
+import { SearchModal } from './components/search/SearchModal'
 import { CommandPalette } from './components/command-palette/CommandPalette'
 import { ShortcutsCheatSheet } from './components/command-palette/ShortcutsCheatSheet'
 
@@ -121,22 +122,13 @@ export function AppShell(p: AppShellProps): React.JSX.Element {
 
   return (
     <div className={`layout-root ${p.themeClass}`}>
-      <TitleBar
-        projectName={activeProjectName}
-        search={{
-          activeProjectId: p.dockState.activeProjectId,
-          activeSessionId: p.dockState.sessionId,
-          allProjectSessions: p.dockState.allProjectSessions,
-          onOpenSearchResult: p.dockState.onOpenSearchResult,
-          focusRequestKey: p.dockState.searchFocusRequestKey,
-          requestedMode: p.dockState.requestedSearchMode,
-        }}
-      />
+      <TitleBar projectName={activeProjectName} />
       <div className="layout-main">
         <div className="layout-workbench">
           <ActivityBar
             dockLayout={p.dockLayout as ActivityBarProps['dockLayout']}
             hasActiveSession={p.activeSessionId != null}
+            onOpenSearch={() => p.overlays.openSearch()}
             onOpenSettings={() => p.overlays.setShowSettings(true)}
           />
           <DockStateContext.Provider value={p.dockState}>
@@ -221,6 +213,15 @@ export function AppShell(p: AppShellProps): React.JSX.Element {
       />
       <SettingsModal visible={p.overlays.showSettings} settings={p.settings} onSave={p.overlays.handleSaveSettings}
         onClose={() => p.overlays.setShowSettings(false)} onPreviewTheme={p.setPreviewThemeId} />
+      <SearchModal
+        visible={p.overlays.showSearch}
+        onClose={p.overlays.closeSearch}
+        activeProjectId={p.dockState.activeProjectId}
+        activeSessionId={p.dockState.sessionId}
+        allProjectSessions={p.dockState.allProjectSessions}
+        onOpenSearchResult={p.dockState.onOpenSearchResult}
+        requestedMode={p.overlays.searchMode}
+      />
       <CommandPalette visible={p.overlays.showCommandPalette} onRun={p.runCommand}
         onClose={() => p.overlays.setShowCommandPalette(false)} />
       <ShortcutsCheatSheet visible={p.overlays.showShortcuts} onClose={() => p.overlays.setShowShortcuts(false)} />

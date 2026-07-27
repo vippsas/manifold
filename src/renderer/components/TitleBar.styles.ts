@@ -25,22 +25,6 @@ export const titleBarStyles: Record<string, React.CSSProperties> = {
     minWidth: 0,
     maxWidth: '30%',
   },
-  // Equal-width flanks so the search column lands at the true window center,
-  // regardless of how wide the title on the left is.
-  leftGroup: {
-    flex: '1 1 0',
-    minWidth: 'var(--space-md)',
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'flex-start',
-  },
-  rightGroup: {
-    flex: '1 1 0',
-    minWidth: 'var(--space-md)',
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'flex-end',
-  },
   title: {
     fontSize: 13,
     fontWeight: 500,

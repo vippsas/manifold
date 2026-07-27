@@ -126,7 +126,9 @@ export function App(): React.JSX.Element {
   const primarySessionId = primarySession?.id ?? null
   const dockLayoutKey = primarySessionId ?? activeSessionId
   const dockLayout = useDockLayout(dockLayoutKey, activeProjectSessions)
-  const { collapseSidebar } = useSidebarHandleCycle(dockLayout.apiRef, settings.sidebarResizeReversed)
+  // Only the double-click width-cycle gesture remains in use; the header
+  // collapse buttons were removed (closing a panel replaces collapsing).
+  useSidebarHandleCycle(dockLayout.apiRef, settings.sidebarResizeReversed)
   useAgentSiblingDockTabs({
     apiRef: dockLayout.apiRef, layoutVersion: dockLayout.layoutVersion,
     layoutReloadVersion: dockLayout.layoutReloadVersion, isRestoringRef: dockLayout.isRestoringRef,
@@ -309,7 +311,6 @@ export function App(): React.JSX.Element {
   const dockState: DockAppState = {
     sessionId: effectiveSessionId, primarySessionId,
     onOpenDashboard: (cardId?: string) => { overlays.setDashboardInitialCard(cardId ?? null); overlays.setShowDashboard(true) },
-    searchFocusRequestKey: appEffects.searchFocusRequestKey, requestedSearchMode: appEffects.requestedSearchMode,
     scrollbackLines: settings.scrollbackLines, terminalFontFamily: settings.terminalFontFamily, xtermTheme, diffText: diff,
     editorSettings: settings.editor,
     openFiles: codeView.openFiles, activeFilePath: codeView.activeFilePath,
@@ -387,9 +388,8 @@ export function App(): React.JSX.Element {
     },
     onAddProjectToWorkspace: addLocalFolderToWorkspace,
     onRemoveProjectFromWorkspace: (id: string, pid: string) => { void removeProjectFromWorkspace(id, pid) },
-    onFocusSearch: appEffects.focusSearch, onClosePanel: editorHandlers.handleClosePanel,
+    onFocusSearch: overlays.openSearch, onClosePanel: editorHandlers.handleClosePanel,
     onToggleMaximize: dockLayout.toggleMaximizePanel,
-    onCollapseSidebar: collapseSidebar,
     onOpenModule: (id) => {
       if (dockLayout.isPanelVisible(id)) dockLayout.focusPanel(id)
       else dockLayout.togglePanel(id)
@@ -415,7 +415,7 @@ export function App(): React.JSX.Element {
     openShortcuts: () => overlays.setShowShortcuts(true),
     openAbout: () => overlays.setShowAbout(true),
     openQuickOpen,
-    findInFiles: () => appEffects.focusSearch('code'),
+    findInFiles: () => overlays.openSearch('code'),
     jumpToFavorite,
     newAgent: () => openNewAgentModal(),
     nextAgent: () => {

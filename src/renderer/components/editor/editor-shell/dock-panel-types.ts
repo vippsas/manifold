@@ -12,8 +12,6 @@ export interface DockAppState {
   /** The "primary" session for the active worktree (the one represented in the
    *  sidebar). May equal sessionId, or differ when a sibling dock tab is active. */
   primarySessionId: string | null
-  searchFocusRequestKey: number
-  requestedSearchMode: SearchMode | null
   scrollbackLines: number
   terminalFontFamily?: string
   xtermTheme?: ITheme
@@ -116,8 +114,6 @@ export interface DockAppState {
   /** Toggle focus mode for a pane (double-click its tab): maximize it to fill the
    *  dock — hiding all other panes and both sidebars — or restore everything. */
   onToggleMaximize: (id: string) => void
-  /** Collapse a sidebar (left = projects, right = file tree) to width 0. */
-  onCollapseSidebar: (side: 'left' | 'right') => void
   /** Open a launcher module as a tab, or focus it if already open. */
   onOpenModule: (id: DockPanelId) => void
   /** Whether a launcher module currently has an open tab. */

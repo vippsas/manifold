@@ -396,14 +396,13 @@ textarea:focus {
     right bottom, right bottom !important;
 }
 
-/* Resting reticle (opt-in via `.reticle-input` — titlebar search, files filter):
+/* Resting reticle (opt-in via `.reticle-input` — search modal, files filter):
    the corner brackets stay drawn while idle, dimmed to a whisper, so the field
    reads as a target even unfocused. They brighten to full accent via the
    `input:focus` rule above, which wins by specificity (0,1,1 > this rule's 0,1,0)
    — so keep this a bare class, never `:not(:focus)`, which would outrank focus
    and freeze the brackets dim. The `!important`s mirror the focus rule: they
    override the input's inline `background`, which would otherwise wipe the layers. */
-.titlebar-search-input,
 .reticle-input {
   --reticle-rest: color-mix(in srgb, var(--accent), transparent 60%);
   background-image:
@@ -531,8 +530,8 @@ select:focus-visible {
   opacity: 1;
 }
 
-/* Sidebar collapse button — lives in the group header-action slot (outside the
-   tabs), pinned to the sidebar's inner edge next to the center pane. */
+/* Icon button in a dock group's header-action slot (outside the tabs), e.g.
+   the "add agent on this worktree" button in the Repositories header. */
 .dock-header-collapse {
   display: inline-flex;
   align-items: center;
@@ -1696,8 +1695,8 @@ select:focus-visible {
   margin: 1em 0;
 }
 
-/* ─── Title Bar Search (omnibox) ─── */
-.titlebar-search-input::placeholder {
+/* ─── Search modal ─── */
+.search-modal-input::placeholder {
   color: var(--text-muted);
 }
 
