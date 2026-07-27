@@ -63,18 +63,21 @@ session/git status and the commit/PR/conflict actions.
 **Panel layout (dockview).** The workspace is a single `DockviewReact` instance
 (`AppShell.tsx:143`), themed via the `DOCK_THEME` option (`AppShell.tsx:38`): a 6px
 group gap plus the rounded-card group styling in `styles/dockview-theme.css` renders
-each panel group as a bordered, rounded card floating on the recessed `--dock-canvas`
-(a darkened `--bg-primary`, `styles/theme.css`). Resize sashes are invisible inside
-the gap; hovering one fades in a rounded accent handle bar. The chrome is screenshot-able
+each panel group as a rounded card with a soft white-alpha hairline border (brighter on
+the active group), floating on the recessed `--dock-canvas` (a darkened `--bg-primary`,
+`styles/theme.css`). The tab strip shares the card surface — no tonal header band,
+divider, or active-tab underline; the active tab is carried by text color. Resize
+sashes are invisible inside the gap; hovering one fades in a rounded accent handle bar. The chrome is screenshot-able
 via the `DockPreview` fixture (`components/DockPreview.fixture.tsx`). Panels are
 registered by string id in `PANEL_COMPONENTS`
 (`components/editor/editor-shell/dock-panels.tsx:17`); the id→component table is the authoritative
 panel set. `DockAppState` is published to every panel through `DockStateContext`
 (`AppShell.tsx:141`), so panels read props via `useDockState()` rather than prop-drilling.
 Tab headers use `DockTab`; empty groups show `EmptyWatermark`; the left header-action slot
-hosts `LeftHeaderActions` (shell controls plus the agent group's "add agent on this
-worktree" button) and the right slot `RightHeaderActions` (workspace actions + sidebar
-collapse) (`components/editor/editor-shell/SidebarCollapseAction.tsx:66`, `:89`). Double-clicking a tab
+hosts `LeftHeaderActions` (shell controls plus the "add agent on this worktree" button,
+shown in the **Repositories** group) and the right slot `RightHeaderActions` (editor
+actions, the "+ Apps" module launcher — also gated to the Repositories group — plus
+sidebar collapse) (`components/editor/editor-shell/SidebarCollapseAction.tsx:66`, `:89`). Double-clicking a tab
 toggles **focus mode**: `DockTab`'s `onDoubleClick` calls `onToggleMaximize` (`DockTab.tsx:31`), which
 maximizes that pane's group via dockview's native `maximizeGroup`/`exitMaximizedGroup`
 (`hooks/dock-layout/dock-layout-helpers.ts:243`) — hiding every other pane and both sidebars

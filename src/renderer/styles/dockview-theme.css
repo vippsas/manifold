@@ -4,14 +4,16 @@
 .dockview-theme-dark.dockview-theme-manifold {
   --dv-background-color: var(--dock-canvas);
   --dv-paneview-header-border-color: rgba(255, 255, 255, 0.06);
-  --dv-tabs-and-actions-container-background-color: var(--bg-chrome);
+  /* The header strip shares the card surface — no tonal band or divider
+     under the tabs; the active tab is carried by text color alone. */
+  --dv-tabs-and-actions-container-background-color: var(--bg-primary);
   --dv-tabs-and-actions-container-height: var(--chrome-tab-height);
   --dv-tabs-and-actions-container-font-size: 1em;
-  --dv-activegroup-visiblepanel-tab-background-color: var(--bg-chrome-active);
-  --dv-activegroup-hiddenpanel-tab-background-color: var(--bg-chrome);
-  --dv-inactivegroup-visiblepanel-tab-background-color: var(--bg-chrome);
-  --dv-inactivegroup-hiddenpanel-tab-background-color: var(--bg-chrome);
-  --dv-tab-divider-color: rgba(255, 255, 255, 0.04);
+  --dv-activegroup-visiblepanel-tab-background-color: var(--bg-primary);
+  --dv-activegroup-hiddenpanel-tab-background-color: var(--bg-primary);
+  --dv-inactivegroup-visiblepanel-tab-background-color: var(--bg-primary);
+  --dv-inactivegroup-hiddenpanel-tab-background-color: var(--bg-primary);
+  --dv-tab-divider-color: transparent;
   --dv-activegroup-visiblepanel-tab-color: var(--text-primary);
   --dv-activegroup-hiddenpanel-tab-color: var(--text-muted);
   --dv-inactivegroup-visiblepanel-tab-color: var(--text-secondary);
@@ -23,15 +25,17 @@
 }
 
 /* Rounded panel cards — each group floats on the recessed canvas
-   (--dock-canvas); the theme's group gap provides the breathing room. */
+   (--dock-canvas); the theme's group gap provides the breathing room. The
+   border is a soft white-alpha hairline (not the structural --border grey),
+   so the card reads as a modern elevated surface. */
 .dockview-theme-manifold .dv-groupview {
   overflow: hidden;
-  border-radius: var(--radius-md);
-  border: 1px solid var(--divider);
+  border-radius: var(--radius-lg);
+  border: 1px solid rgba(255, 255, 255, 0.07);
   background: var(--bg-primary);
 }
 .dockview-theme-manifold .dv-groupview.dv-active-group {
-  border-color: var(--border);
+  border-color: rgba(255, 255, 255, 0.14);
 }
 
 /* Resize handles — invisible inside the group gap; the card edges already
@@ -161,7 +165,6 @@
 
 .dockview-theme-manifold .dv-tabs-and-actions-container {
   align-items: stretch;
-  background: linear-gradient(180deg, var(--bg-chrome-hi, var(--bg-chrome)) 0%, var(--bg-chrome) 100%);
   display: flex;
   flex-wrap: nowrap;
   height: var(--dv-tabs-and-actions-container-height);
@@ -205,28 +208,6 @@
   flex-wrap: nowrap;
   margin-left: auto;
   min-height: var(--dv-tabs-and-actions-container-height);
-}
-
-/* Active tab highlight — an underline that fades at the edges, like a watch
-   index: one precise line of the accent metal instead of a hard border. */
-.dockview-theme-manifold .dv-tab.dv-active-tab {
-  position: relative;
-}
-.dockview-theme-manifold .dv-tab.dv-active-tab::after {
-  content: '';
-  position: absolute;
-  left: var(--space-xs);
-  right: var(--space-xs);
-  bottom: 0;
-  height: 2px;
-  border-radius: 1px;
-  pointer-events: none;
-}
-.dockview-theme-manifold .dv-groupview.dv-active-group > .dv-tabs-and-actions-container .dv-tab.dv-active-tab::after {
-  background: linear-gradient(90deg, transparent, var(--accent) 28%, var(--accent) 72%, transparent);
-}
-.dockview-theme-manifold .dv-groupview.dv-inactive-group > .dv-tabs-and-actions-container .dv-tab.dv-active-tab::after {
-  background: linear-gradient(90deg, transparent, var(--text-muted) 28%, var(--text-muted) 72%, transparent);
 }
 
 /* Panel content fills container */

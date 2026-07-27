@@ -38,7 +38,6 @@ export function DraftAgentItem({ draft, isActive, onSelect, onDiscard }: DraftAg
       tabIndex={0}
     >
       <div className="sidebar-agent-main">
-        <span className="status-dot status-dot--hidden" />
         <span
           aria-label="Chat agent"
           title="Chat agent"

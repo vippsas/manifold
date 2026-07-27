@@ -646,37 +646,15 @@ select:focus-visible {
   color: var(--text-primary);
 }
 
+/* The active row carries no fill — selection is shown by label color alone
+   (the agent label goes accent, set inline in AgentItem), which keeps the
+   narrow sidebar clean and gives the text the full row width. */
 .sidebar-item-row--active {
-  background: var(--sidebar-active-bg);
   color: var(--sidebar-active-text);
 }
 
 .sidebar-project-row.sidebar-item-row--active {
   color: var(--text-primary);
-}
-
-/* When a child row inside the card carries the selection, the header drops its
-   matching fill and accent bar — otherwise the two highlights stack with the
-   same color and aligned bars and read as one merged surface. The elevated
-   card still marks the active project; the filled row marks the selection. */
-.sidebar-project-group--has-agents:has(.sidebar-item-row--active:not(.sidebar-project-row)) .sidebar-project-row.sidebar-item-row--active {
-  background: transparent;
-  border-left-color: transparent;
-}
-
-.sidebar-project-group--has-agents:has(.sidebar-item-row--active:not(.sidebar-project-row)) .sidebar-project-row.sidebar-item-row--active:hover {
-  background: var(--list-hover-bg);
-}
-
-/* Same de-duplication for workspace cards: when the selection sits on an agent
-   row, the repo row above it keeps only its promoted text color — two stacked
-   fills read as one merged blob. */
-.sidebar-workspace-card:has(.sidebar-agent-row.sidebar-item-row--active) .sidebar-repo-row.sidebar-item-row--active {
-  background: transparent;
-}
-
-.sidebar-workspace-card:has(.sidebar-agent-row.sidebar-item-row--active) .sidebar-repo-row.sidebar-item-row--active:hover {
-  background: var(--list-hover-bg);
 }
 
 .terminal-host .xterm {
@@ -736,10 +714,6 @@ select:focus-visible {
 @keyframes agent-scan {
   0% { background-position: -90px 0; }
   60%, 100% { background-position: calc(100% + 90px) 0; }
-}
-
-.sidebar-agent-row.sidebar-item-row--active {
-  background: var(--sidebar-active-bg);
 }
 
 .sidebar-agent-main {

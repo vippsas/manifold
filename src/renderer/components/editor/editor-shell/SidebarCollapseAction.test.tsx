@@ -61,18 +61,18 @@ function renderLeftActions(
 }
 
 describe('LeftHeaderActions', () => {
-  it('shows the add-agent button in the agent group while the session is live', () => {
-    renderLeftActions(panelsOf('agent'), 'running')
+  it('shows the add-agent button in the repositories group while the session is live', () => {
+    renderLeftActions(panelsOf('projects'), 'running')
     expect(screen.getByRole('button', { name: /add agent/i })).toBeInTheDocument()
   })
 
   it('hides the add-agent button when the session is not running or waiting', () => {
-    renderLeftActions(panelsOf('agent'), 'done')
+    renderLeftActions(panelsOf('projects'), 'done')
     expect(screen.queryByRole('button', { name: /add agent/i })).toBeNull()
   })
 
-  it('hides the add-agent button for a group that does not own the agent panel', () => {
-    renderLeftActions(panelsOf('shell'), 'running')
+  it('hides the add-agent button for a group that does not own the projects panel', () => {
+    renderLeftActions(panelsOf('agent'), 'running')
     expect(screen.queryByRole('button', { name: /add agent/i })).toBeNull()
   })
 })

@@ -29,19 +29,19 @@ function props(panelIds: string[], activePanelId = panelIds[0]): IDockviewHeader
 }
 
 describe('WorkspaceHeaderActions', () => {
-  it('shows the launcher for the group that owns the agent panel', () => {
+  it('shows the launcher for the group that owns the projects panel', () => {
     render(
       <DockStateContext.Provider value={state}>
-        <WorkspaceHeaderActions {...props(['agent', 'editor'])} />
+        <WorkspaceHeaderActions {...props(['projects'])} />
       </DockStateContext.Provider>,
     )
     expect(screen.getByRole('button', { name: /open module/i })).toBeInTheDocument()
   })
 
-  it('hides the launcher for groups without the agent panel', () => {
+  it('hides the launcher for groups without the projects panel', () => {
     render(
       <DockStateContext.Provider value={state}>
-        <WorkspaceHeaderActions {...props(['fileTree', 'modifiedFiles'])} />
+        <WorkspaceHeaderActions {...props(['agent', 'editor'])} />
       </DockStateContext.Provider>,
     )
     expect(screen.queryByRole('button', { name: /open module/i })).not.toBeInTheDocument()
