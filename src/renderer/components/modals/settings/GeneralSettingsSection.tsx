@@ -36,6 +36,8 @@ interface Props {
   onUseWorktreesChange: (enabled: boolean) => void
   uiScale: number
   onUiScaleChange: (scale: number) => void
+  workspacesEnabled: boolean
+  onWorkspacesEnabledChange: (enabled: boolean) => void
   searchAiSettings: SearchAiSettings
 }
 
@@ -93,6 +95,11 @@ export function GeneralSettingsSection(props: Props): React.JSX.Element {
               <input type="checkbox" checked={props.useWorktrees} onChange={(event) => props.onUseWorktreesChange(event.target.checked)} style={modalStyles.checkboxInput} />
               Create an isolated git worktree for each new agent
               <span style={modalStyles.helpText}>When off, new agents run directly in the repository on a new branch. Only one in-place agent can safely run per repo at a time.</span>
+            </label>
+            <label style={{ ...modalStyles.checkboxField, ...modalStyles.fieldSpanFull }}>
+              <input type="checkbox" checked={props.workspacesEnabled} onChange={(event) => props.onWorkspacesEnabledChange(event.target.checked)} style={modalStyles.checkboxInput} />
+              Enable Workspaces
+              <span style={modalStyles.helpText}>Turns repository cards into working sets that can contain multiple repositories. Agents started from a box receive every repository through the native Claude Code or Codex directory flags.</span>
             </label>
           </div>
         </SectionCard>

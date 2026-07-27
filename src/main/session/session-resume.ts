@@ -13,6 +13,7 @@ import * as path from 'node:path'
 import type { InternalSession } from './session-types'
 import type { ShellPromptSegments } from '../../shared/types'
 import { v4 as uuidv4 } from 'uuid'
+import { buildWorkingSetArgs } from '../agent/working-set-args'
 
 export async function resumeAgentSession(
   session: InternalSession,
@@ -53,6 +54,9 @@ export async function resumeAgentSession(
   await memoryInjector?.injectContext(session)
 
   const runtimeArgs = [...(runtime.args ?? [])]
+  if (session.additionalDirs.length > 0) {
+    runtimeArgs.push(...buildWorkingSetArgs(runtimeId, session.additionalDirs))
+  }
   if (session.ollamaModel) {
     runtimeArgs.push('--model', session.ollamaModel)
   }

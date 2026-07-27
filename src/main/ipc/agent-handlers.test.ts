@@ -57,6 +57,35 @@ describe('registerAgentHandlers — kill, rename, delete-app', () => {
     expect(result).toMatchObject({ displayName: 'Release agent' })
   })
 
+  it('configures an agent runtime and view through IPC', async () => {
+    const { registerAgentHandlers } = await import('./agent-handlers')
+    const settings = { displayName: 'Review agent', runtimeId: 'codex', viewMode: 'chat' as const }
+    const deps = {
+      sessionManager: {
+        listSessions: vi.fn(() => []),
+        configureSession: vi.fn(async () => ({
+          id: 'sess-2', projectId: 'proj-1', runtimeId: 'codex',
+          branchName: 'manifold/oslo', worktreePath: '/wt', status: 'waiting',
+          pid: null, displayName: 'Review agent', nonInteractive: true, additionalDirs: [],
+        })),
+      },
+      fileWatcher: { unwatch: vi.fn(), watch: vi.fn() },
+      viewStateStore: { delete: vi.fn() },
+      dockLayoutStore: { delete: vi.fn() },
+    }
+
+    registerAgentHandlers(deps as never)
+    const handler = mocks.handlers.get('agent:configure')
+    if (!handler) throw new Error('agent:configure handler was not registered')
+
+    const result = await handler({}, 'sess-1', settings)
+
+    expect(deps.sessionManager.configureSession).toHaveBeenCalledWith('sess-1', settings)
+    expect(result).toMatchObject({ runtimeId: 'codex', nonInteractive: true })
+    expect(deps.viewStateStore.delete).toHaveBeenCalledWith('sess-1')
+    expect(deps.dockLayoutStore.delete).toHaveBeenCalledWith('sess-1')
+  })
+
   it('agent:kill tolerates an already-removed session and still cleans up view-state', async () => {
     const { registerAgentHandlers } = await import('./agent-handlers')
     const deps = {
@@ -245,7 +274,7 @@ describe('registerAgentHandlers — kill, rename, delete-app', () => {
     expect(result).toMatchObject({ locked: true })
   })
 
-  it('agent:kill refuses to delete a locked agent', async () => {
+  it('agent:kill deletes sessions persisted with the retired locked flag', async () => {
     const { registerAgentHandlers } = await import('./agent-handlers')
     const deps = {
       sessionManager: {
@@ -263,12 +292,12 @@ describe('registerAgentHandlers — kill, rename, delete-app', () => {
     const handler = mocks.handlers.get('agent:kill')
     if (!handler) throw new Error('agent:kill handler was not registered')
 
-    await expect(handler({}, 'sess-1')).rejects.toThrow('locked')
-    expect(deps.sessionManager.killSession).not.toHaveBeenCalled()
-    expect(deps.viewStateStore.delete).not.toHaveBeenCalled()
+    await handler({}, 'sess-1')
+    expect(deps.sessionManager.killSession).toHaveBeenCalledWith('sess-1')
+    expect(deps.viewStateStore.delete).toHaveBeenCalledWith('sess-1')
   })
 
-  it('agent:kill-worktree refuses when a session on the worktree is locked', async () => {
+  it('agent:kill-worktree ignores the retired locked flag', async () => {
     const { registerAgentHandlers } = await import('./agent-handlers')
     const deps = {
       sessionManager: {
@@ -284,8 +313,8 @@ describe('registerAgentHandlers — kill, rename, delete-app', () => {
     const handler = mocks.handlers.get('agent:kill-worktree')
     if (!handler) throw new Error('agent:kill-worktree handler was not registered')
 
-    await expect(handler({}, '/wt')).rejects.toThrow('locked')
-    expect(deps.fileWatcher.unwatch).not.toHaveBeenCalled()
-    expect(deps.sessionManager.killAllSessionsOnWorktree).not.toHaveBeenCalled()
+    await handler({}, '/wt')
+    expect(deps.fileWatcher.unwatch).toHaveBeenCalledWith('/wt')
+    expect(deps.sessionManager.killAllSessionsOnWorktree).toHaveBeenCalledWith('/wt')
   })
 })

@@ -33,6 +33,7 @@ export const DEFAULT_SETTINGS = {
   showCommitAndPrButtons: false,
   sidebarResizeReversed: false,
   useWorktrees: true,
+  workspacesEnabled: false,
   favorites: [] as FavoriteRef[],
   keepAwake: false,
   memory: {

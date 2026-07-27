@@ -380,6 +380,97 @@ describe('SessionManager — create / input / queries', () => {
     })
   })
 
+  describe('configureSession', () => {
+    it('keeps the existing session when only its name changes', async () => {
+      const session = await sessionManager.createSession({
+        projectId: 'proj-1',
+        runtimeId: 'claude',
+        prompt: 'test',
+      })
+
+      const configured = await sessionManager.configureSession(session.id, {
+        displayName: 'Renamed agent',
+        runtimeId: 'claude',
+        viewMode: 'terminal',
+      })
+
+      expect(configured).toMatchObject({ id: session.id, displayName: 'Renamed agent' })
+      expect(ptyPool.kill).not.toHaveBeenCalled()
+      expect(ptyPool.spawn).toHaveBeenCalledTimes(1)
+    })
+
+    it('replaces an interactive agent with a fresh chat session in the same worktree', async () => {
+      const chatAdapter = { setSessionStorage: vi.fn(), clearSession: vi.fn() }
+      sessionManager.setChatAdapter(chatAdapter as never)
+      const session = await sessionManager.createSession({
+        projectId: 'proj-1',
+        runtimeId: 'claude',
+        prompt: 'test',
+        additionalDirs: ['/repo/two'],
+      })
+
+      const configured = await sessionManager.configureSession(session.id, {
+        displayName: 'Review agent',
+        runtimeId: 'codex',
+        viewMode: 'chat',
+      })
+
+      expect(ptyPool.kill).toHaveBeenCalledWith('pty-1')
+      expect(configured).toMatchObject({
+        id: 'session-uuid-2',
+        worktreePath: session.worktreePath,
+        displayName: 'Review agent',
+        runtimeId: 'codex',
+        nonInteractive: true,
+        status: 'waiting',
+        pid: null,
+        additionalDirs: ['/repo/two'],
+      })
+      expect(sessionManager.getSession(session.id)).toBeUndefined()
+      expect(worktreeManager.removeWorktree).not.toHaveBeenCalled()
+      expect(chatAdapter.clearSession).toHaveBeenCalledWith(session.id, true, session.worktreePath)
+    })
+
+    it('starts an interactive runtime when switching from chat to terminal', async () => {
+      const session = await sessionManager.createSession({
+        projectId: 'proj-1',
+        runtimeId: 'claude',
+        prompt: '',
+        nonInteractive: true,
+        additionalDirs: ['/repo/two'],
+      })
+      vi.mocked(ptyPool.spawn).mockClear()
+
+      const configured = await sessionManager.configureSession(session.id, {
+        displayName: 'Terminal agent',
+        runtimeId: 'codex',
+        viewMode: 'terminal',
+      })
+
+      expect(configured).toMatchObject({ id: 'session-uuid-2', runtimeId: 'codex', nonInteractive: false, status: 'running' })
+      expect(ptyPool.spawn).toHaveBeenCalledWith(
+        'codex',
+        ['--add-dir', '/repo/two'],
+        { cwd: session.worktreePath, env: undefined },
+      )
+    })
+
+    it('validates the runtime before stopping the current process', async () => {
+      const session = await sessionManager.createSession({
+        projectId: 'proj-1',
+        runtimeId: 'claude',
+        prompt: 'test',
+      })
+
+      await expect(sessionManager.configureSession(session.id, {
+        displayName: 'Agent',
+        runtimeId: 'missing',
+        viewMode: 'chat',
+      })).rejects.toThrow('Runtime not found: missing')
+      expect(ptyPool.kill).not.toHaveBeenCalled()
+    })
+  })
+
   describe('setSessionLocked', () => {
     it('toggles the locked flag and notifies renderers', async () => {
       const window = {

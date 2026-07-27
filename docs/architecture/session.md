@@ -2,6 +2,7 @@
 description: How Manifold agent sessions are created, run, stopped, resumed, and rediscovered from on-disk worktrees.
 covers: [src/main/session]
 updated: 2026-07-14
+updated: 2026-07-13
 owner: see .github/CODEOWNERS
 ---
 
@@ -78,7 +79,7 @@ the runtime/task/displayName so the session is rediscoverable. Back in the lifec
 session is added to the map, any dismissal recorded for that project + branch is lifted
 (`session-lifecycle.ts:84`), memory capture starts, and the renderer is told via
 `agent:sessions-changed`. Verdict creation also snapshots the optional agent display
-name as `VerdictRecord.title`, and `renameSession()` keeps that title in sync for
+name as `VerdictRecord.title`, and agent configuration keeps that title in sync for
 Statistics rows.
 
 **Run.** `SessionStreamWirer.wireOutputStreaming()` (`session-stream-wirer.ts:112`) is the hot
@@ -118,6 +119,18 @@ fields, refreshes managed-worktree guards, injects memory context, spawns a new 
 re-wires output/exit. For interactive Claude it adds `--resume <session.id>` when an on-disk
 transcript for that id exists (`session-resume.ts:65`), so the resumed conversation continues
 in the same transcript. This is the path that brings a dormant discovered session back to life.
+Resumed interactive workspace agents rebuild their runtime-specific working-set arguments from
+`additionalDirs`, so changing runtime or returning from chat to terminal does not lose access to
+the workspace's other repositories (`session-resume.ts`).
+
+**Configure.** `configureSession()` validates the requested runtime before touching the running
+process (`session-manager.ts`). A name-only edit updates and persists the existing session. A
+runtime/view change clears persisted chat, retires the old process/session without removing its
+worktrees, and creates a fresh session id on the same branch, primary path, workspace roots, and
+additional directories. The new id prevents Claude/Codex from resuming the previous conversation;
+chat mode starts waiting for a first message while terminal mode launches a new interactive CLI.
+PTY exit handlers also require the exiting id to still be the session's current `ptyId`, so a slow
+exit from a replaced process cannot mark a newer process done (`session-stream-wirer.ts`).
 
 **Discover-on-disk.** On launch the renderer's `agent:sessions` IPC calls
 `discoverSessionsForProject()` or `discoverAllSessions()`. `SessionDiscovery`
@@ -136,7 +149,7 @@ resurrected from leftover branch checkout state (`session-discovery.ts:140`, `:2
 
 ## Key types and entry points
 
-- `SessionManager` — `session-manager.ts:29`. Public surface: `createSession`, `resumeSession`, `killSession`, `killAllSessionsOnWorktree`, `discoverSessionsForProject`, `discoverAllSessions`, `sendInput`, `interruptSession`, `resize`, `renameSession`, `setSessionLocked`, `createShellSession`. `setSessionLocked` mirrors `renameSession`: it flips the persisted `locked` flag, re-persists meta, and notifies renderers.
+- `SessionManager` — `session-manager.ts`. Public surface includes `createSession`, `resumeSession`, `configureSession`, `killSession`, `killAllSessionsOnWorktree`, discovery, input/interrupt/resize, `renameSession`, legacy `setSessionLocked`, and shell-session creation.
 - `SessionLifecycle` — `session-lifecycle.ts:30`. `createSession()` / `resumeSession()` orchestration behind the manager's delegating methods (`session-manager.ts:192`, `:206`).
 - `InternalSession` — `session-types.ts:14`. Extends `AgentSession` (`src/shared/types.ts:15`) with `ptyId`, `outputBuffer`, `streamJsonLineBuffer`, `nonInteractiveOutputMode`, shell/NL state, etc. `toPublicSession()` (`session-public.ts:4`) projects it down for IPC.
 - `SessionCreator.create()` — `session-creator.ts:35`. The worktree-resolution + spawn decision tree.
@@ -148,7 +161,7 @@ resurrected from leftover branch checkout state (`session-discovery.ts:140`, `:2
 
 - **Agent runtimes / PTY** (`src/main/agent`): `PtyPool.spawn/write/kill/onData/onExit` is the process boundary; `getRuntimeById()` resolves the binary/args/env; `buildSimpleRuntimeCommand()` builds print-mode args; `claudeAnsiThemeArgs()` syncs the embedded Claude Code palette to Manifold's theme.
 - **Git / worktrees** (`src/main/git`): `WorktreeManager`, `BranchCheckoutManager`, `worktree-meta` (`readWorktreeMeta`/`writeWorktreeMeta`), `managed-worktree` (`prepareManagedWorktree`, `commitManagedWorktree`), and raw `gitExec`. Session meta lives in the worktree, not a central store — that is what makes discovery possible.
-- **IPC** (`src/main/ipc/agent-handlers.ts`): `agent:spawn` → `createSession`, `agent:resume` → `resumeSession`, `agent:kill`/`agent:kill-worktree` → killers, `agent:set-locked` → `setSessionLocked`, `agent:sessions` → discovery, `agent:replay` → `getOutputBuffer`, plus the `shell:*` handlers. The `agent:kill`/`agent:kill-worktree` handlers refuse a session whose `locked` flag is set, before any teardown.
+- **IPC** (`src/main/ipc/agent-handlers.ts`): `agent:spawn` → `createSession`, `agent:resume` → `resumeSession`, `agent:configure` → `configureSession`, `agent:kill`/`agent:kill-worktree` → killers, `agent:sessions` → discovery, `agent:replay` → `getOutputBuffer`, plus the `shell:*` handlers. `agent:set-locked` remains readable for backward compatibility, but deletion no longer treats the legacy `locked` flag specially.
 - **Renderer / preload** (`src/preload/index.ts:151`): the renderer never touches the map; it listens to `agent:output`, `agent:activity`, `agent:activity-state`, `agent:status`, `agent:exit`, and `agent:sessions-changed`, all emitted through `SessionManager.sendToRenderer`.
 - **Store** (`src/main/store`): `ProjectRegistry` resolves project path/baseBranch and caches `slashCommands`; `VerdictStore` backs the verdict recorder; `DismissedAgentsStore` records explicitly deleted agents so discovery skips them (`setDismissedAgents`, `session-manager.ts:149`).
 - **Memory** (`src/main/memory`): `MemoryCapture` (start/stop per session), `MemoryInjector.injectContext()` (on create and resume), `MemoryCompressor.compressSession()` (on developer-mode teardown).
@@ -159,12 +172,12 @@ resurrected from leftover branch checkout state (`session-discovery.ts:140`, `:2
 - **Concurrent-spawn guards.** Two operations carry in-flight promise maps to prevent races: `discoveryInFlight` (`session-discovery.ts:16`) serializes `discoverSessionsForProject` per project id; `resumeInFlight` (`session-lifecycle.ts:32`) deduplicates concurrent `resumeSession` calls so only one PTY is ever spawned per session.
 - **One `noWorktree` (in-place) agent per project.** In-place agents share the repo's single working tree/HEAD (only one branch at a time), so a second can't coexist. `focusOrClearInPlaceSessions` (`agent-handlers.ts`), invoked from `agent:spawn`: focuses a *live* in-place session when the new spawn targets the same/no branch, throws when a *different* branch/PR is requested, and otherwise clears *finished* in-place sessions so discovery cannot resurrect a dead branch state. `agent:spawn` serializes concurrent no-worktree spawns per project (`noWorktreeSpawnsInFlight`) to close the check-then-create race. `SessionManager.createSession` itself stays permissive — the policy is at the IPC layer.
 - **Discovery never resurrects a dismissed branch.** Deleting an agent from the sidebar records a project+branch dismissal (`agent-handlers.ts`, `agent:kill`); both dormant-session fallbacks check it (`session-discovery.ts:140`, `:222`) and creating a new session on that branch lifts it (`session-lifecycle.ts:84`). Internal kills (mode switch, respawn) don't record dismissals — only the explicit `agent:kill` IPC path does (#679).
-- **Locked agents are protected from deletion.** A session's persisted `locked` flag (worktree meta, like `displayName`) blocks the user-facing delete paths: the renderer skips the delete dialog and the `agent:kill`/`agent:kill-worktree` IPC handlers throw before teardown. The gate lives only on those IPC handlers, so internal lifecycle kills (mode switch, respawn — which call `killSession` directly) are unaffected. Toggle via `setSessionLocked` / `agent:set-locked`.
+- **Old lock metadata is inert.** Worktrees created by older versions may still contain a persisted `locked` flag (`worktree-meta.ts:24`). Discovery retains it for compatibility, but the renderer has no lock affordance and both session and whole-worktree deletion ignore it (`agent-handlers.ts:140`, `:161`).
 
 - **Deferred chat sessions have `ptyId: ''` and status `waiting`.** Treat empty `ptyId` as "no live process"; `resumeSession` and many helpers short-circuit on it. Each chat turn is a fresh print-mode process, not a persistent PTY.
 - **Worktree removal is path-shared-aware.** A worktree is only removed when no other session references its path (`removeWorktreeIfUnused` / `hasOtherLiveSessionsOnPath`); workspace sessions remove the whole `workspaceWorktreePaths` set instead.
 - **Teardown skips base checkout for `noWorktree`.** Checking out base in the live repo dir would drop `.gitignore` and surface `node_modules` as untracked, breaking the next spawn (`session-teardown.ts:53`).
 - **Meta is the source of truth on disk.** If `writeWorktreeMeta` fails, `nonInteractive` and friends are lost on next launch (both `session-creator.ts:187` and `session-meta-persister.ts:16` log this loudly). Discovery reconstructs sessions purely from worktree meta + branch state.
 - **`outputBuffer` is bounded.** It is trimmed to the trailing 50 KB once over 100 KB, so detectors and `agent:replay` only ever see recent output.
-- **Stale print-mode exits are guarded.** Both `wirePrintModeExitHandling` and `wirePrintModeInitialExitHandling` ignore an exit whose `ptyId` no longer matches the session's current one, so a slow-closing previous turn can't overwrite a newer turn's `running` status or wipe its `ptyId`/`pid` (`session-stream-wirer.ts:230`, `:272`).
+- **Stale PTY exits are guarded.** Interactive and print-mode exit handlers ignore an exit whose `ptyId` no longer matches the session's current one, so a slow-closing replaced process can't overwrite a newer mode/runtime's status or wipe its `ptyId`/`pid` (`session-stream-wirer.ts`).
 - **No `await` between spawn and listener wiring.** `create()` reads worktree meta *before* `PtyPool.spawn()` (`session-creator.ts:141`, `:145`) so wiring (`session-creator.ts:169`, `:177`) runs synchronously after spawn. A process that exits during an await gap would have its pool entry deleted, so `onData`/`onExit` wiring would throw `'PTY not found'`, reject `create()`, and strand the freshly created worktree (#496).

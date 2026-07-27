@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
-import { screen, fireEvent } from '@testing-library/react'
+import { screen, fireEvent, within } from '@testing-library/react'
 import type { AgentSession } from '../../../shared/types'
 import type { DraftId } from '../../../shared/draft-chat'
 import {
@@ -24,9 +24,8 @@ describe('ProjectSidebar', () => {
     renderSidebar()
 
     expect(screen.getByText('Alpha')).toBeInTheDocument()
-    // Inactive repos are collapsed by default — expand to see them
-    fireEvent.click(screen.getByText('Repositories'))
     expect(screen.getByText('Beta')).toBeInTheDocument()
+    expect(screen.queryByText('Repositories')).not.toBeInTheDocument()
   })
 
   it('shows "No repositories yet" when list is empty', () => {
@@ -35,59 +34,51 @@ describe('ProjectSidebar', () => {
     expect(screen.getByText('No repositories yet')).toBeInTheDocument()
   })
 
-  it('renders the behind-origin badge on the active project fetch button', () => {
+  it('does not render a manual refresh action for repositories', () => {
     renderSidebar({
       projects: [{ id: 'p1', name: 'Alpha', path: '/a', baseBranch: 'main', kind: 'git' }],
       activeProjectId: 'p1',
       allProjectSessions: { p1: [] },
       activeSessionId: null,
-      activeProjectBehindCount: 3,
     })
 
-    const btn = screen.getByRole('button', { name: /Fetch Alpha \(3 behind origin\)/ })
-    expect(btn.textContent).toContain('3')
+    expect(screen.queryByRole('button', { name: /Fetch Alpha/ })).not.toBeInTheDocument()
   })
 
-  it('shows agents for active project and mini dots for collapsed projects', () => {
+  it('keeps agents visible in every repository card', () => {
     const sessionsForP2: AgentSession[] = [
       { id: 's3', projectId: 'p2', runtimeId: 'gemini', branchName: 'beta/stavanger', worktreePath: '/wt3', status: 'running', pid: 3, additionalDirs: [] },
     ]
 
     renderSidebar({ allProjectSessions: { p1: sampleSessions, p2: sessionsForP2 } })
 
-    // Active project (p1) shows expanded agent names
     expect(screen.getByText('oslo')).toBeInTheDocument()
     expect(screen.getByText('bergen')).toBeInTheDocument()
-
-    // Collapsed project (p2) shows project name but not agent names
     expect(screen.getByText('Beta')).toBeInTheDocument()
-    // Agent name is available as a title on the mini dot
-    expect(screen.getByTitle('beta/stavanger')).toBeInTheDocument()
+    expect(screen.getByText('stavanger')).toBeInTheDocument()
   })
 
   it('calls onSelectProject when a project is clicked', () => {
     const { props } = renderSidebar()
 
-    // Expand collapsed repos section first
-    fireEvent.click(screen.getByText('Repositories'))
     fireEvent.click(screen.getByText('Beta'))
 
     expect(props.onSelectProject).toHaveBeenCalledWith('p2')
   })
 
-  it('starts a new agent (not a selection) when the active repo header is clicked', () => {
+  it('selects the repository when the active repo header is clicked', () => {
     const { props } = renderSidebar()
 
     fireEvent.click(screen.getByText('Alpha'))
 
-    expect(props.onNewAgent).toHaveBeenCalled()
-    expect(props.onSelectProject).not.toHaveBeenCalled()
+    expect(props.onSelectProject).toHaveBeenCalledWith('p1')
+    expect(props.onNewAgent).not.toHaveBeenCalled()
   })
 
-  it('calls onNewProject when New Repository button is clicked', () => {
+  it('calls onNewProject when Add Repository is clicked', () => {
     const { props } = renderSidebar()
 
-    fireEvent.click(screen.getByText('+ New Repository'))
+    fireEvent.click(screen.getByRole('button', { name: 'Add Repository' }))
 
     expect(props.onNewProject).toHaveBeenCalled()
   })
@@ -100,10 +91,14 @@ describe('ProjectSidebar', () => {
     expect(props.onRemoveProject).toHaveBeenCalledWith('p1')
   })
 
-  it('renders the New Agent button in actions bar', () => {
+  it('renders only Add Repository in the compact top toolbar', () => {
     renderSidebar()
 
-    expect(screen.getByText('+ New Agent')).toBeInTheDocument()
+    const toolbar = screen.getByRole('toolbar', { name: 'Repository actions' })
+    const buttons = within(toolbar).getAllByRole('button')
+    expect(buttons.map((button) => button.getAttribute('aria-label'))).toEqual(['Add Repository'])
+    expect(screen.queryByText('+ New Agent')).not.toBeInTheDocument()
+    expect(screen.queryByText('+ New Repository')).not.toBeInTheDocument()
   })
 
   it('renders agent branch names under the active project', () => {
@@ -128,35 +123,56 @@ describe('ProjectSidebar', () => {
     expect(props.onSelectSession).toHaveBeenCalledWith('s2', 'p1')
   })
 
-  it('renders a single + New Agent button in the actions bar', () => {
+  it('renders Add folder in the header and Add agent at the bottom of a one-repository card', () => {
     renderSidebar()
 
-    const newAgentButtons = screen.getAllByText('+ New Agent')
-    expect(newAgentButtons).toHaveLength(1)
+    const projectCard = screen.getByText('Alpha').closest<HTMLElement>('.sidebar-project-group')
+    expect(projectCard).not.toBeNull()
+    expect(within(projectCard!).getByRole('button', { name: 'Add agent to Alpha' })).toBeInTheDocument()
+    const projectHeader = within(projectCard!).getByText('Alpha').closest<HTMLElement>('.sidebar-project-row')
+    expect(projectHeader).not.toBeNull()
+    expect(within(projectHeader!).getByRole('button', { name: 'Add folder to Alpha' })).toBeInTheDocument()
+    expect(projectCard!.lastElementChild).toHaveClass('sidebar-card-actions')
   })
 
-  it('calls onNewAgent with no arguments when + New Agent is clicked', () => {
+  it('opens the new-agent modal when New Agent is clicked', () => {
     const { props } = renderSidebar()
 
-    fireEvent.click(screen.getByText('+ New Agent'))
+    fireEvent.click(screen.getByRole('button', { name: 'Add agent to Alpha' }))
 
-    expect(props.onNewAgent).toHaveBeenCalled()
+    expect(props.onNewAgent).toHaveBeenCalledWith('p1')
+    expect(screen.queryByRole('button', { name: 'Configure new agent in Alpha' })).not.toBeInTheDocument()
   })
 
-  it('fetches a workspace repo from its refresh button', () => {
-    const onFetchProject = vi.fn()
+  it('promotes a one-repository box when Add folder is clicked', () => {
+    const { props } = renderSidebar()
+
+    fireEvent.click(screen.getByRole('button', { name: 'Add folder to Alpha' }))
+
+    expect(props.onCreateWorkspaceFromProject).toHaveBeenCalledWith('p1')
+  })
+
+  it('does not render a manual refresh action for workspace repositories', () => {
     renderSidebar({
       workspaces: [{ id: 'ws1', name: 'auth-refactor', projectIds: ['p1'], createdAt: '2024-01-01' }],
       activeWorkspaceId: 'ws1',
       onSelectWorkspace: vi.fn(),
       onRemoveWorkspace: vi.fn(),
       onSpawnWorkspaceAgent: vi.fn(),
-      onFetchProject,
     })
 
-    fireEvent.click(screen.getByLabelText('Fetch Alpha'))
+    expect(screen.queryByRole('button', { name: /Fetch Alpha/ })).not.toBeInTheDocument()
+  })
 
-    expect(onFetchProject).toHaveBeenCalledWith('p1')
+  it('does not render favorite buttons on repository or workspace cards', () => {
+    renderSidebar({
+      workspaces: [{ id: 'ws1', name: 'auth-refactor', projectIds: ['p1'], createdAt: '2024-01-01' }],
+      activeWorkspaceId: 'ws1',
+      onSelectWorkspace: vi.fn(),
+      onRemoveWorkspace: vi.fn(),
+    })
+
+    expect(screen.queryByLabelText(/to Favorites/)).not.toBeInTheDocument()
   })
 
   it('renders an active workspace as a labeled card with a Workspace eyebrow', () => {
@@ -169,9 +185,46 @@ describe('ProjectSidebar', () => {
     })
 
     expect(screen.getByText('Workspace')).toBeInTheDocument()
+    expect(screen.getByText('auth-refactor')).toBeInTheDocument()
   })
 
-  it('shows a repo count on a collapsed workspace', () => {
+  it('keeps Add folder in the workspace header and Add agent at the bottom', () => {
+    const onAddProjectToWorkspace = vi.fn()
+    const { props } = renderSidebar({
+      workspaces: [{ id: 'ws1', name: 'auth-refactor', projectIds: ['p1'], createdAt: '2024-01-01' }],
+      activeWorkspaceId: 'ws1',
+      onSelectWorkspace: vi.fn(),
+      onRemoveWorkspace: vi.fn(),
+      onAddProjectToWorkspace,
+    })
+
+    const workspaceCard = screen.getByText('auth-refactor').closest<HTMLElement>('.sidebar-workspace-card')
+    expect(workspaceCard).not.toBeNull()
+    const addAgent = within(workspaceCard!).getByRole('button', { name: 'Add agent to auth-refactor' })
+    const workspaceHeader = within(workspaceCard!).getByText('auth-refactor').closest<HTMLElement>('.sidebar-project-row')
+    expect(workspaceHeader).not.toBeNull()
+    const addFolder = within(workspaceHeader!).getByRole('button', { name: 'Add folder to auth-refactor' })
+
+    fireEvent.click(addAgent)
+    fireEvent.click(addFolder)
+
+    expect(props.onNewAgent).toHaveBeenCalledWith('p1', 'ws1')
+    expect(onAddProjectToWorkspace).toHaveBeenCalledWith('ws1')
+  })
+
+  it('always offers Add folder even when every registered project is already in the workspace', () => {
+    renderSidebar({
+      workspaces: [{ id: 'ws1', name: 'auth-refactor', projectIds: ['p1', 'p2'], createdAt: '2024-01-01' }],
+      activeWorkspaceId: 'ws1',
+      onSelectWorkspace: vi.fn(),
+      onRemoveWorkspace: vi.fn(),
+      onAddProjectToWorkspace: vi.fn(),
+    })
+
+    expect(screen.getByRole('button', { name: 'Add folder to auth-refactor' })).toBeInTheDocument()
+  })
+
+  it('keeps every repository visible in an inactive workspace', () => {
     renderSidebar({
       workspaces: [{ id: 'ws1', name: 'auth-refactor', projectIds: ['p1', 'p2'], createdAt: '2024-01-01' }],
       activeWorkspaceId: null,
@@ -180,10 +233,11 @@ describe('ProjectSidebar', () => {
       onSpawnWorkspaceAgent: vi.fn(),
     })
 
-    expect(screen.getByText('2 repos')).toBeInTheDocument()
+    expect(screen.getByText('Alpha')).toBeInTheDocument()
+    expect(screen.getByText('Beta')).toBeInTheDocument()
   })
 
-  it('shows the + button beside the Workspaces label even when there are no workspaces', () => {
+  it('shows New Workspace below the cards even when there are no workspaces', () => {
     const { props } = renderSidebar({
       workspaces: [],
       onSelectWorkspace: vi.fn(),
@@ -191,25 +245,8 @@ describe('ProjectSidebar', () => {
       onSpawnWorkspaceAgent: vi.fn(),
     })
 
-    expect(screen.queryByText('+ New Workspace')).not.toBeInTheDocument()
-    fireEvent.click(screen.getByLabelText('New Workspace'))
+    fireEvent.click(screen.getByRole('button', { name: 'New Workspace' }))
     expect(props.onNewWorkspace).toHaveBeenCalled()
-  })
-
-  it('labels the primary button with the active workspace and opens the New-Agent form', () => {
-    const onSpawnWorkspaceAgent = vi.fn()
-    const { props } = renderSidebar({
-      workspaces: [{ id: 'ws1', name: 'auth-refactor', projectIds: ['p1'], createdAt: '2024-01-01' }],
-      activeWorkspaceId: 'ws1',
-      onSelectWorkspace: vi.fn(),
-      onRemoveWorkspace: vi.fn(),
-      onSpawnWorkspaceAgent,
-    })
-
-    fireEvent.click(screen.getByText('+ New Agent in auth-refactor'))
-
-    expect(props.onNewAgent).toHaveBeenCalled()
-    expect(onSpawnWorkspaceAgent).not.toHaveBeenCalled()
   })
 
   it('selecting a workspace repo calls onSelectWorkspaceRepo and no longer shows a play button', () => {
@@ -229,12 +266,13 @@ describe('ProjectSidebar', () => {
     expect(onSelectWorkspaceRepo).toHaveBeenCalledWith('ws1', 'p1')
   })
 
-  it('keeps the plain + New Agent label and handler when no workspace is active', () => {
+  it('opens creation from the repository card when no workspace is active', () => {
     const { props } = renderSidebar()
 
-    fireEvent.click(screen.getByText('+ New Agent'))
+    const newAgentButton = screen.getByRole('button', { name: 'Add agent to Alpha' })
+    fireEvent.click(newAgentButton)
 
-    expect(props.onNewAgent).toHaveBeenCalled()
+    expect(props.onNewAgent).toHaveBeenCalledWith('p1')
   })
 
   it('highlights the active agent item', () => {
@@ -270,14 +308,14 @@ describe('ProjectSidebar', () => {
     expect(screen.getByLabelText('Delete bergen')).toBeInTheDocument()
   })
 
-  it('selects the project (not a forced first session) when clicking a collapsed project with agents', () => {
+  it('selects the project (not a forced first session) when clicking another open project card', () => {
     const sessionsForP2: AgentSession[] = [
       { id: 's3', projectId: 'p2', runtimeId: 'gemini', branchName: 'beta/stavanger', worktreePath: '/wt3', status: 'running', pid: 3, additionalDirs: [] },
     ]
 
     const { props } = renderSidebar({ allProjectSessions: { p1: sampleSessions, p2: sessionsForP2 } })
 
-    // Clicking a collapsed repo only activates the project; the session-restore
+    // Clicking the repo only activates the project; the session-restore
     // path (useAgentSession) then picks the last-viewed agent for that repo
     // instead of being reset to the first one (#768).
     fireEvent.click(screen.getByText('Beta'))
@@ -308,67 +346,28 @@ describe('ProjectSidebar', () => {
 
     // p2 is suppressed — its name is gone from the list
     expect(screen.queryByText('Beta')).not.toBeInTheDocument()
-    // the active project's own agents still render (now under "With agents")
+    // the active project's own agents still render inside its card
     expect(screen.getByText('oslo')).toBeInTheDocument()
   })
 
-  it('places the active repo with agents under the "With agents" header', () => {
+  it('places the active repo and its agents in one bordered card', () => {
     renderSidebar({ allProjectSessions: { p1: sampleSessions, p2: [] } })
 
-    const header = screen.getByText('With agents')
-    const activeAgent = screen.getByText('oslo')
-    // The active repo's card + agents render AFTER the section header
-    expect(
-      header.compareDocumentPosition(activeAgent) & Node.DOCUMENT_POSITION_FOLLOWING,
-    ).toBeTruthy()
+    const card = screen.getByText('Alpha').closest('.sidebar-project-group')
+    expect(card).toHaveClass('sidebar-project-group--has-agents')
+    expect(within(card as HTMLElement).getByText('oslo')).toBeInTheDocument()
   })
 
-  it('collapses the With agents section to a header-only row', () => {
+  it('shows repositories directly without collapsible category headers', () => {
     renderSidebar({ allProjectSessions: { p1: sampleSessions, p2: [] } })
 
     expect(screen.getByText('oslo')).toBeInTheDocument()
-    expect(screen.getByTitle('Collapse With agents')).toHaveAttribute('aria-expanded', 'true')
-
-    fireEvent.click(screen.getByTitle('Collapse With agents'))
-
-    expect(screen.getByText('With agents')).toBeInTheDocument()
-    expect(screen.queryByText('oslo')).not.toBeInTheDocument()
-    expect(screen.getByTitle('Expand With agents')).toHaveAttribute('aria-expanded', 'false')
-
-    fireEvent.click(screen.getByTitle('Expand With agents'))
-
-    expect(screen.getByText('oslo')).toBeInTheDocument()
-  })
-
-  it('restores persisted section collapsed states after remount', () => {
-    const { unmount } = renderSidebar({
-      workspaces: [{ id: 'ws1', name: 'auth-refactor', projectIds: ['p1'], createdAt: '2024-01-01' }],
-      activeWorkspaceId: null,
-      onSelectWorkspace: vi.fn(),
-      onRemoveWorkspace: vi.fn(),
-    })
-
-    fireEvent.click(screen.getByTitle('Collapse Workspaces'))
-    fireEvent.click(screen.getByTitle('Collapse With agents'))
-    fireEvent.click(screen.getByTitle('Expand Repositories'))
-    unmount()
-
-    renderSidebar({
-      workspaces: [{ id: 'ws1', name: 'auth-refactor', projectIds: ['p1'], createdAt: '2024-01-01' }],
-      activeWorkspaceId: null,
-      onSelectWorkspace: vi.fn(),
-      onRemoveWorkspace: vi.fn(),
-    })
-
-    expect(screen.getByTitle('Expand Workspaces')).toHaveAttribute('aria-expanded', 'false')
-    expect(screen.queryByText('auth-refactor')).not.toBeInTheDocument()
-    expect(screen.getByTitle('Expand With agents')).toHaveAttribute('aria-expanded', 'false')
-    expect(screen.queryByText('oslo')).not.toBeInTheDocument()
-    expect(screen.getByTitle('Collapse Repositories')).toHaveAttribute('aria-expanded', 'true')
     expect(screen.getByText('Beta')).toBeInTheDocument()
+    expect(screen.queryByText('With agents')).not.toBeInTheDocument()
+    expect(screen.queryByText('Repositories')).not.toBeInTheDocument()
   })
 
-  it('moves a repo to the top of "With agents" when it is accessed', () => {
+  it('moves a repo to the top of the flat card list when it is accessed', () => {
     const sessionsForP2: AgentSession[] = [
       { id: 's3', projectId: 'p2', runtimeId: 'gemini', branchName: 'beta/stavanger', worktreePath: '/wt3', status: 'running', pid: 3, additionalDirs: [] },
     ]
@@ -386,42 +385,29 @@ describe('ProjectSidebar', () => {
     expect(beta.compareDocumentPosition(screen.getByText('Alpha')) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
   })
 
-  it('keeps the active repo pinned above the sections when it has no agents', () => {
+  it('keeps an active repo with no agents in a bordered card', () => {
     const sessionsForP2: AgentSession[] = [
       { id: 's3', projectId: 'p2', runtimeId: 'gemini', branchName: 'beta/stavanger', worktreePath: '/wt3', status: 'running', pid: 3, additionalDirs: [] },
     ]
 
     renderSidebar({ activeProjectId: 'p1', allProjectSessions: { p1: [], p2: sessionsForP2 } })
 
-    const activeName = screen.getByText('Alpha')
-    const header = screen.getByText('With agents')
-    // The active (agent-less) repo card sits BEFORE the "With agents" header
-    expect(
-      activeName.compareDocumentPosition(header) & Node.DOCUMENT_POSITION_FOLLOWING,
-    ).toBeTruthy()
+    expect(screen.getByText('Alpha').closest('.sidebar-project-group')).toHaveClass('sidebar-project-group--has-agents')
+    expect(screen.getByText('Beta').closest('.sidebar-project-group')).toHaveClass('sidebar-project-group--has-agents')
   })
 
-  it('moves a repo whose agents have all finished out of "With agents" into "Repositories"', () => {
-    // p2's only agent is terminal (done). A finished agent is not an active one,
-    // so the repo should fall back to "Repositories" rather than linger in the
-    // "With agents" section looking agentless (#708).
+  it('keeps finished agents visible in their repository card', () => {
     const finishedSessions: AgentSession[] = [
       { id: 's3', projectId: 'p2', runtimeId: 'gemini', branchName: 'beta/stavanger', worktreePath: '/wt3', status: 'done', pid: 3, additionalDirs: [] },
     ]
 
     renderSidebar({ allProjectSessions: { p1: sampleSessions, p2: finishedSessions } })
 
-    // Repositories is collapsed by default — Beta is hidden there, not visible
-    // under the expanded "With agents" section.
-    expect(screen.queryByText('Beta')).not.toBeInTheDocument()
-    fireEvent.click(screen.getByText('Repositories'))
     expect(screen.getByText('Beta')).toBeInTheDocument()
+    expect(screen.getByText('stavanger')).toBeInTheDocument()
   })
 
-  it('treats the active repo as agentless once all its agents have finished', () => {
-    // The active repo's only agent is terminal (error). It should pin above the
-    // sections like any agentless active repo instead of staying under the
-    // "With agents" header where its only action is destructive removal (#708).
+  it('keeps an active repo card visible when its agents have finished', () => {
     const finishedActive: AgentSession[] = [
       { id: 's1', projectId: 'p1', runtimeId: 'claude', branchName: 'alpha/oslo', worktreePath: '/wt1', status: 'error', pid: 1, additionalDirs: [] },
     ]
@@ -431,12 +417,8 @@ describe('ProjectSidebar', () => {
 
     renderSidebar({ activeProjectId: 'p1', allProjectSessions: { p1: finishedActive, p2: sessionsForP2 } })
 
-    const activeName = screen.getByText('Alpha')
-    const header = screen.getByText('With agents')
-    // The active (now agent-less) repo card sits BEFORE the "With agents" header
-    expect(
-      activeName.compareDocumentPosition(header) & Node.DOCUMENT_POSITION_FOLLOWING,
-    ).toBeTruthy()
+    expect(screen.getByText('Alpha').closest('.sidebar-project-group')).toHaveClass('sidebar-project-group--has-agents')
+    expect(screen.getByText('Beta')).toBeInTheDocument()
   })
 
   it('does not highlight the home repo as an active standalone project while a workspace session is active', () => {
@@ -507,7 +489,7 @@ describe('ProjectSidebar', () => {
     expect(screen.getByText('New chat')).toBeInTheDocument()
   })
 
-  it('renders a + button beside the Workspaces label that calls onNewWorkspace', () => {
+  it('renders a New Workspace list action that calls onNewWorkspace', () => {
     const { props } = renderSidebar({
       workspaces: [{ id: 'ws1', name: 'auth-refactor', projectIds: ['p1'], createdAt: '2024-01-01' }],
       activeWorkspaceId: 'ws1',
@@ -521,25 +503,17 @@ describe('ProjectSidebar', () => {
     expect(props.onNewWorkspace).toHaveBeenCalled()
   })
 
-  it('collapses the Workspaces section while keeping its header action available', () => {
-    const { props } = renderSidebar({
+  it('keeps workspace cards visible without a collapsible section header', () => {
+    const onSelectWorkspace = vi.fn()
+    renderSidebar({
       workspaces: [{ id: 'ws1', name: 'auth-refactor', projectIds: ['p1'], createdAt: '2024-01-01' }],
       activeWorkspaceId: null,
-      onSelectWorkspace: vi.fn(),
+      onSelectWorkspace,
       onRemoveWorkspace: vi.fn(),
     })
 
-    expect(screen.getByText('auth-refactor')).toBeInTheDocument()
-
-    fireEvent.click(screen.getByTitle('Collapse Workspaces'))
-
-    expect(screen.getByText('Workspaces')).toBeInTheDocument()
-    expect(screen.queryByText('auth-refactor')).not.toBeInTheDocument()
-    fireEvent.click(screen.getByLabelText('New Workspace'))
-    expect(props.onNewWorkspace).toHaveBeenCalled()
-
-    fireEvent.click(screen.getByTitle('Expand Workspaces'))
-
-    expect(screen.getByText('auth-refactor')).toBeInTheDocument()
+    fireEvent.click(screen.getByText('auth-refactor'))
+    expect(onSelectWorkspace).toHaveBeenCalledWith('ws1')
+    expect(screen.queryByText('Workspaces')).not.toBeInTheDocument()
   })
 })

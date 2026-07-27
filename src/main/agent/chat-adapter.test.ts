@@ -197,5 +197,13 @@ describe('ChatAdapter', () => {
     it('is safe to call on unknown session', () => {
       expect(() => adapter.clearSession('unknown')).not.toThrow()
     })
+
+    it('deletes persisted chat when replacing an agent', () => {
+      const chatStore = { delete: vi.fn() }
+      adapter.setChatStore(chatStore as never)
+      adapter.clearSession('session-1', true, '/worktrees/oslo')
+
+      expect(chatStore.delete).toHaveBeenCalledWith('/worktrees/oslo')
+    })
   })
 })

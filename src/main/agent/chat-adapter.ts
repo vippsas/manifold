@@ -197,7 +197,10 @@ export class ChatAdapter {
 
   /** Remove in-memory state for a session (messages, listeners, pending output buffer).
    *  Persisted chat history is NOT deleted — it survives restarts. */
-  clearSession(sessionId: string): void {
+  clearSession(sessionId: string, deletePersisted = false, persistedStorageKey?: string): void {
+    const storage = this.sessionStorage.get(sessionId)
+    const storageKey = persistedStorageKey ?? storage?.storageKey
+    if (deletePersisted && storageKey) this.chatStore?.delete(storageKey)
     const buf = this.outputBuffers.get(sessionId)
     if (buf) {
       clearTimeout(buf.timer)

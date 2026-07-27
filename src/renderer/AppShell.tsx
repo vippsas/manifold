@@ -20,8 +20,9 @@ import { CommitPanel } from './components/git/CommitPanel'
 import { PRPanel } from './components/git/PRPanel'
 import { ConflictPanel } from './components/git/ConflictPanel'
 import { WelcomeDialog } from './components/modals/WelcomeDialog'
+import { AddRepositoryModal } from './components/modals/AddRepositoryModal'
 import { NewWorkspaceModal } from './components/modals/NewWorkspaceModal'
-import { AddWorkspaceProjectModal } from './components/modals/AddWorkspaceProjectModal'
+import { NewAgentModal } from './components/modals/NewAgentModal'
 import { DockTab, EmptyWatermark } from './DockTab'
 import { TitleBar } from './components/TitleBar'
 import { DeleteAgentDialog } from './components/sidebar/DeleteAgentDialog'
@@ -29,6 +30,11 @@ import { useLoadPluginContributions } from './plugins/use-contributions'
 import { PluginUiHost } from './components/plugin-ui/PluginUiHost'
 import { CommandPalette } from './components/command-palette/CommandPalette'
 import { ShortcutsCheatSheet } from './components/command-palette/ShortcutsCheatSheet'
+
+export interface NewAgentTarget {
+  projectId: string
+  workspaceId?: string
+}
 
 export interface AppShellProps {
   themeClass: string
@@ -62,15 +68,14 @@ export interface AppShellProps {
   handleAddProjectFromOnboarding: (path?: string) => Promise<void>
   handleCloneFromOnboarding: (url: string) => Promise<boolean>
   handleCreateNewProject: (options: CreateProjectOptions) => Promise<boolean>
+  newAgentTarget: NewAgentTarget | null
+  closeNewAgentModal: () => void
   // Workspace modal wiring
   newWorkspaceVisible: boolean
   setNewWorkspaceVisible: (v: boolean) => void
   defaultRuntime: string
   createWorkspace: (opts: WorkspaceCreateOptions) => Promise<Workspace>
   workspaces: Workspace[]
-  addProjectWorkspaceId: string | null
-  setAddProjectWorkspaceId: (id: string | null) => void
-  addProjectToWorkspace: (id: string, projectId: string) => Promise<void>
   // StatusBar dock layout adapter
   dockLayout: unknown
   onRenameActiveProject: (name: string) => void
@@ -104,6 +109,8 @@ export function AppShell(p: AppShellProps): React.JSX.Element {
   }
 
   const activeProjectName = p.projects.find((proj) => proj.id === p.activeProjectId)?.name
+  const newAgentProject = p.projects.find((project) => project.id === p.newAgentTarget?.projectId) ?? null
+  const newAgentWorkspace = p.workspaces.find((workspace) => workspace.id === p.newAgentTarget?.workspaceId) ?? null
 
   return (
     <div className={`layout-root ${p.themeClass}`}>
@@ -183,6 +190,28 @@ export function AppShell(p: AppShellProps): React.JSX.Element {
         onCancel={p.overlays.cancelDeleteAgent}
         onConfirm={p.overlays.confirmDeleteAgent}
       />
+      <NewAgentModal
+        visible={p.newAgentTarget != null}
+        project={newAgentProject}
+        workspace={newAgentWorkspace}
+        existingSessions={newAgentProject ? (p.sessionsByProject[newAgentProject.id] ?? []) : []}
+        defaultRuntime={p.defaultRuntime}
+        defaultAgentMode={p.settings.defaultAgentMode ?? 'interactive'}
+        defaultUseWorktrees={p.settings.useWorktrees ?? true}
+        onLaunch={async (options) => {
+          if (newAgentWorkspace && p.dockState.onLaunchWorkspaceAgent && newAgentProject) {
+            return p.dockState.onLaunchWorkspaceAgent(newAgentWorkspace.id, newAgentProject.id, {
+              runtimeId: options.runtimeId,
+              prompt: options.prompt,
+              nonInteractive: options.nonInteractive,
+            })
+          }
+          return p.overlays.handleLaunchAgent(options)
+        }}
+        onResumeSession={p.dockState.onResumeAgent}
+        onDeleteSession={(session) => p.overlays.requestDeleteAgent(session, newAgentProject?.path ?? '')}
+        onClose={p.closeNewAgentModal}
+      />
       <SettingsModal visible={p.overlays.showSettings} settings={p.settings} onSave={p.overlays.handleSaveSettings}
         onClose={() => p.overlays.setShowSettings(false)} onPreviewTheme={p.setPreviewThemeId} />
       <CommandPalette visible={p.overlays.showCommandPalette} onRun={p.runCommand}
@@ -205,25 +234,19 @@ export function AppShell(p: AppShellProps): React.JSX.Element {
         onOpenExternal={() => { void p.updateLog.openReleaseNotesExternal() }}
         onSelectTab={p.updateLog.setActiveTab as never}
       />
-      <NewWorkspaceModal
-        visible={p.newWorkspaceVisible}
-        projects={p.projects}
-        projectError={p.projectError}
-        defaultRuntime={p.defaultRuntime}
-        onAddProject={() => p.addProject()}
-        onCreate={(opts) => { void p.createWorkspace(opts); p.setNewWorkspaceVisible(false) }}
-        onClose={() => p.setNewWorkspaceVisible(false)}
-      />
-      <AddWorkspaceProjectModal
-        visible={p.addProjectWorkspaceId != null}
-        workspace={p.workspaces.find((w) => w.id === p.addProjectWorkspaceId) ?? null}
-        projects={p.projects}
-        onAdd={async (workspaceId, projectIds) => {
-          for (const pid of projectIds) await p.addProjectToWorkspace(workspaceId, pid)
-          p.setAddProjectWorkspaceId(null)
-        }}
-        onClose={() => p.setAddProjectWorkspaceId(null)}
-      />
+      {p.settings.workspacesEnabled && (
+        <>
+          <NewWorkspaceModal
+            visible={p.newWorkspaceVisible}
+            projects={p.projects}
+            projectError={p.projectError}
+            defaultRuntime={p.defaultRuntime}
+            onAddProject={() => p.addProject()}
+            onCreate={(opts) => { void p.createWorkspace(opts); p.setNewWorkspaceVisible(false) }}
+            onClose={() => p.setNewWorkspaceVisible(false)}
+          />
+        </>
+      )}
       {p.updateNotification.updateReady && (
         <UpdateToast version={p.updateNotification.version} onRestart={p.updateNotification.install}
           onDismiss={p.updateNotification.dismiss}
@@ -232,16 +255,16 @@ export function AppShell(p: AppShellProps): React.JSX.Element {
       {p.themeChangeNotice.show && (
         <ThemeChangeToast mode={p.themeChangeNotice.mode} onDismiss={p.themeChangeNotice.dismiss} />
       )}
-      {(p.appEffects.showOnboarding || p.appEffects.creatingProject) && (
-        <div style={{ position: 'absolute', inset: 0, zIndex: 100, background: 'var(--bg-primary)' }}>
-          <OnboardingView variant="no-project" onAddProject={() => void p.handleAddProjectFromOnboarding()}
-            onCloneProject={p.handleCloneFromOnboarding}
-            onCreateNewProject={p.handleCreateNewProject}
-            creatingProject={p.appEffects.creatingProject}
-            cloningProject={p.appEffects.cloningProject} createError={p.projectError}
-            onBack={() => p.appEffects.setShowOnboarding(false)} />
-        </div>
-      )}
+      <AddRepositoryModal
+        visible={p.appEffects.showOnboarding || p.appEffects.creatingProject}
+        onAddProject={() => void p.handleAddProjectFromOnboarding()}
+        onCloneProject={p.handleCloneFromOnboarding}
+        onCreateNewProject={p.handleCreateNewProject}
+        creatingProject={p.appEffects.creatingProject}
+        cloningProject={p.appEffects.cloningProject}
+        createError={p.projectError}
+        onClose={() => p.appEffects.setShowOnboarding(false)}
+      />
       <PluginUiHost />
     </div>
   )

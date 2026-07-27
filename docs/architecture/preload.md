@@ -1,7 +1,7 @@
 ---
 description: The contextBridge preload that exposes a single whitelisted window.electronAPI surface to the renderer and keeps Node/fs out of the web context.
 covers: [src/preload]
-updated: 2026-07-01
+updated: 2026-07-13
 owner: see .github/CODEOWNERS
 ---
 
@@ -71,7 +71,7 @@ non-localhost `src` (`src/main/app/window-factory.ts:77`).
 ## Interactions
 
 - **Renderer** (`src/renderer`): every call into main goes through `window.electronAPI.invoke(...)`, every subscription through `window.electronAPI.on(...)` (e.g. `App.tsx:144` invokes `git:ahead-behind`; `PluginViewPanel.tsx:31` listens on `plugins:webview-html`). Renderer tests stub `window.electronAPI` directly.
-- **Main IPC handlers** (`src/main/ipc/*`): the other end of every `invoke` channel. `ipcMain.handle('files:read', …)`, `agent:spawn` → `SessionManager.createSession`, etc. The whitelist names must match the handler registrations one-for-one.
+- **Main IPC handlers** (`src/main/ipc/*`): the other end of every `invoke` channel. `ipcMain.handle('files:read', …)`, `agent:spawn` → `SessionManager.createSession`, `agent:configure` → `SessionManager.configureSession`, etc. The whitelist names must match the handler registrations one-for-one.
 - **Main → renderer pushes**: handlers and managers call `webContents.send('agent:output', …)`, `webContents.send('settings:changed', …)`, `app-menu.ts` sends `command:run` for catalog commands (plus bespoke `show-update-log`/`show-update-check`), etc. Those channels must appear in `ALLOWED_LISTEN_CHANNELS` or the renderer's `on` silently ignores them.
 - **Window factory** (`src/main/app/window-factory.ts:67`): sets `preload`, `contextIsolation`, `nodeIntegration` — the configuration that makes this bridge the *only* path between the two worlds.
 - **Session subsystem** (`docs/architecture/session.md`): the `agent:*` invoke channels and the `agent:output`/`agent:status`/`agent:sessions-changed` listen channels are how the renderer drives and observes agent sessions.

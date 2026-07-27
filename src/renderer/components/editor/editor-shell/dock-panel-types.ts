@@ -1,6 +1,6 @@
 import { createContext, useContext } from 'react'
 import type { ITheme } from '@xterm/xterm'
-import type { AgentStatus, FileTreeNode, FileChange, Project, AgentSession, SpawnAgentOptions, FavoriteKind, ResolvedFavorite, EditorSettings } from '../../../../shared/types'
+import type { AgentStatus, FileTreeNode, FileChange, Project, AgentSession, AgentSettingsUpdate, SpawnAgentOptions, FavoriteKind, ResolvedFavorite, EditorSettings } from '../../../../shared/types'
 import type { SearchMode } from '../../../../shared/search-types'
 import type { EditorPaneView, OpenFile } from '../../../hooks/editor/useCodeView'
 import type { FileOpenRequest } from '../file-open-request'
@@ -91,12 +91,11 @@ export interface DockAppState {
   onSelectSession: (sessionId: string, projectId: string) => void
   onRemoveProject: (id: string) => void
   onUpdateProject: (id: string, partial: Partial<Omit<Project, 'id'>>) => void
-  onRenameAgent: (sessionId: string, displayName: string) => void
-  onToggleLocked: (sessionId: string, locked: boolean) => void
+  onRenameAgent: (sessionId: string, settings: AgentSettingsUpdate) => Promise<void> | void
   onRequestDeleteAgent: (session: AgentSession, projectPath: string) => void
-  onNewAgentFromHeader: () => void
-  newAgentFocusTrigger: number
+  onNewAgentFromHeader: (projectId?: string, workspaceId?: string) => void
   onNewProject: () => void
+  onCreateWorkspaceFromProject?: (projectId: string) => Promise<void>
   onNewWorkspace?: () => void
   workspaces?: import('../../../../shared/workspace-types').Workspace[]
   activeWorkspaceId?: string | null
@@ -105,14 +104,8 @@ export interface DockAppState {
   onRemoveWorkspace?: (id: string) => Promise<void>
   onSelectWorkspaceRepo?: (workspaceId: string, projectId: string) => void
   onLaunchWorkspaceAgent?: (workspaceId: string, homeProjectId: string, options: { runtimeId: string; prompt: string; nonInteractive?: boolean }) => Promise<unknown>
-  onAddProjectToWorkspace?: (workspaceId: string) => void
+  onAddProjectToWorkspace?: (workspaceId: string) => void | Promise<void>
   onRemoveProjectFromWorkspace?: (workspaceId: string, projectId: string) => void
-  fetchingProjectId: string | null
-  lastFetchedProjectId: string | null
-  fetchResult: { updatedBranch: string; commitCount: number } | null
-  fetchError: string | null
-  onFetchProject: (projectId: string) => void
-  activeProjectBehindCount?: number
   // Agent restart
   activeSessionStatus: AgentStatus | null
   activeSessionRuntimeId: string | null

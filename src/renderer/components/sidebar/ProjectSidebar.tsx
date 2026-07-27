@@ -1,13 +1,14 @@
 import React, { useCallback } from 'react'
-import type { Project, AgentSession } from '../../../shared/types'
+import type { Project, AgentSession, AgentSettingsUpdate } from '../../../shared/types'
 import type { DraftChat } from '../../../shared/draft-chat'
 import type { Workspace } from '../../../shared/workspace-types'
 import { sidebarStyles } from './ProjectSidebar.styles'
 import { WorkspaceList } from './WorkspaceList'
 import { ProjectList } from './ProjectList'
 import { FavoritesList } from './FavoritesList'
+import { AddFolderGlyph } from './SidebarCardActionGlyphs'
 
-interface ProjectSidebarProps {
+export interface ProjectSidebarProps {
   projects: Project[]
   activeProjectId: string | null
   suppressedProjectIds?: ReadonlySet<string>
@@ -18,10 +19,11 @@ interface ProjectSidebarProps {
   onSelectSession: (sessionId: string, projectId: string) => void
   onRemoveProject: (id: string) => void
   onUpdateProject: (id: string, partial: Partial<Omit<Project, 'id'>>) => void
-  onRenameAgent: (sessionId: string, displayName: string) => void
+  onRenameAgent: (sessionId: string, settings: AgentSettingsUpdate) => Promise<void> | void
   onRequestDeleteAgent: (session: AgentSession, projectPath: string) => void
-  onNewAgent: () => void
+  onNewAgent: (projectId?: string, workspaceId?: string) => void
   onNewProject: () => void
+  onCreateWorkspaceFromProject?: (projectId: string) => Promise<void>
   onNewWorkspace?: () => void
   workspaces?: Workspace[]
   activeWorkspaceId?: string | null
@@ -29,14 +31,8 @@ interface ProjectSidebarProps {
   onSelectWorkspace?: (id: string) => void
   onRemoveWorkspace?: (id: string) => Promise<void>
   onSelectWorkspaceRepo?: (workspaceId: string, projectId: string) => void
-  onAddProjectToWorkspace?: (workspaceId: string) => void
+  onAddProjectToWorkspace?: (workspaceId: string) => void | Promise<void>
   onRemoveProjectFromWorkspace?: (workspaceId: string, projectId: string) => void
-  fetchingProjectId: string | null
-  lastFetchedProjectId: string | null
-  fetchResult: { updatedBranch: string; commitCount: number } | null
-  fetchError: string | null
-  onFetchProject: (projectId: string) => void
-  activeProjectBehindCount?: number
   drafts: DraftChat[]
   activeDraftId: string | null
   onSelectDraft: (id: string) => void
@@ -58,6 +54,7 @@ export function ProjectSidebar({
   onRequestDeleteAgent,
   onNewAgent,
   onNewProject,
+  onCreateWorkspaceFromProject,
   onNewWorkspace,
   workspaces,
   activeWorkspaceId,
@@ -67,12 +64,6 @@ export function ProjectSidebar({
   onSelectWorkspaceRepo,
   onAddProjectToWorkspace,
   onRemoveProjectFromWorkspace,
-  fetchingProjectId,
-  lastFetchedProjectId,
-  fetchResult,
-  fetchError,
-  onFetchProject,
-  activeProjectBehindCount,
   drafts,
   activeDraftId,
   onSelectDraft,
@@ -86,79 +77,64 @@ export function ProjectSidebar({
     [onRemoveProject]
   )
 
-  const activeWorkspace = activeWorkspaceId
-    ? workspaces?.find((w) => w.id === activeWorkspaceId)
-    : undefined
-
   return (
     <div style={sidebarStyles.root}>
-      <FavoritesList />
-      {workspaces && onSelectWorkspace && onRemoveWorkspace && (
-        <WorkspaceList
-          workspaces={workspaces}
+      <div role="toolbar" aria-label="Repository actions" style={sidebarStyles.actionToolbar}>
+        <button
+          type="button"
+          onClick={onNewProject}
+          className="sidebar-toolbar-button sidebar-toolbar-button--primary"
+          style={{ ...sidebarStyles.toolbarButton, ...sidebarStyles.toolbarButtonPrimary }}
+          aria-label="Add Repository"
+          title="Add Repository"
+        >
+          <AddFolderGlyph />
+        </button>
+      </div>
+      <div style={sidebarStyles.content}>
+        <FavoritesList />
+        {workspaces && onSelectWorkspace && onRemoveWorkspace && (
+          <WorkspaceList
+            workspaces={workspaces}
+            projects={projects}
+            activeWorkspaceId={activeWorkspaceId ?? null}
+            sessionsByWorkspace={sessionsByWorkspace ?? {}}
+            activeSessionId={activeSessionId}
+            outputtingSessionIds={outputtingSessionIds}
+            onSelectWorkspace={onSelectWorkspace}
+            onRemoveWorkspace={onRemoveWorkspace}
+            onNewWorkspace={onNewWorkspace}
+            onNewAgent={onNewAgent}
+            onSelectSession={onSelectSession}
+            onSelectRepo={onSelectWorkspaceRepo}
+            activeProjectId={activeProjectId}
+            onAddProject={onAddProjectToWorkspace}
+            onRemoveProject={onRemoveProjectFromWorkspace}
+            onDeleteAgent={onRequestDeleteAgent}
+            onRenameAgent={onRenameAgent}
+          />
+        )}
+        <ProjectList
           projects={projects}
-          activeWorkspaceId={activeWorkspaceId ?? null}
-          sessionsByWorkspace={sessionsByWorkspace ?? {}}
+          activeProjectId={activeProjectId}
+          activeWorkspaceId={activeWorkspaceId}
+          suppressedProjectIds={suppressedProjectIds}
+          allProjectSessions={allProjectSessions}
           activeSessionId={activeSessionId}
           outputtingSessionIds={outputtingSessionIds}
-          onSelectWorkspace={onSelectWorkspace}
-          onRemoveWorkspace={onRemoveWorkspace}
-          onNewWorkspace={onNewWorkspace}
+          onSelectProject={onSelectProject}
           onSelectSession={onSelectSession}
-          onSelectRepo={onSelectWorkspaceRepo}
-          activeProjectId={activeProjectId}
-          onAddProject={onAddProjectToWorkspace}
-          onRemoveProject={onRemoveProjectFromWorkspace}
-          onDeleteAgent={onRequestDeleteAgent}
+          onRequestDeleteAgent={onRequestDeleteAgent}
+          onRemove={handleRemove}
+          onUpdateProject={onUpdateProject}
           onRenameAgent={onRenameAgent}
-          onFetchProject={onFetchProject}
-          fetchingProjectId={fetchingProjectId}
-          lastFetchedProjectId={lastFetchedProjectId}
-          fetchResult={fetchResult}
-          fetchError={fetchError}
+          onNewAgent={onNewAgent}
+          onCreateWorkspaceFromProject={onCreateWorkspaceFromProject}
+          drafts={drafts}
+          activeDraftId={activeDraftId}
+          onSelectDraft={onSelectDraft}
+          onDiscardDraft={onDiscardDraft}
         />
-      )}
-      <ProjectList
-        projects={projects}
-        activeProjectId={activeProjectId}
-        activeWorkspaceId={activeWorkspaceId}
-        suppressedProjectIds={suppressedProjectIds}
-        allProjectSessions={allProjectSessions}
-        activeSessionId={activeSessionId}
-        outputtingSessionIds={outputtingSessionIds}
-        onSelectProject={onSelectProject}
-        onSelectSession={onSelectSession}
-        onRequestDeleteAgent={onRequestDeleteAgent}
-        onRemove={handleRemove}
-        onUpdateProject={onUpdateProject}
-        onRenameAgent={onRenameAgent}
-        fetchingProjectId={fetchingProjectId}
-        lastFetchedProjectId={lastFetchedProjectId}
-        fetchResult={fetchResult}
-        fetchError={fetchError}
-        onFetchProject={onFetchProject}
-        activeProjectBehindCount={activeProjectBehindCount}
-        onNewAgent={onNewAgent}
-        drafts={drafts}
-        activeDraftId={activeDraftId}
-        onSelectDraft={onSelectDraft}
-        onDiscardDraft={onDiscardDraft}
-      />
-      <div style={sidebarStyles.actions}>
-        <div style={sidebarStyles.actionsRow}>
-          <button
-            type="button"
-            onClick={onNewAgent}
-            className="sidebar-action-button sidebar-action-button--primary"
-            style={sidebarStyles.actionButtonPrimary}
-            title={activeWorkspace ? `New Agent in ${activeWorkspace.name}` : 'New Agent'}
-          >
-            <span className="truncate">{activeWorkspace ? `+ New Agent in ${activeWorkspace.name}` : '+ New Agent'}</span>
-          </button>
-          <button type="button" onClick={onNewProject} className="sidebar-action-button" style={sidebarStyles.actionButton}>
-            + New Repository
-          </button>
-        </div>
       </div>
     </div>
   )

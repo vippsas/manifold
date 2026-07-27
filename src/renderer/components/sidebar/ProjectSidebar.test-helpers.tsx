@@ -1,7 +1,8 @@
 import { vi } from 'vitest'
 import { render } from '@testing-library/react'
 import React from 'react'
-import { ProjectSidebar } from './ProjectSidebar'
+import { ProjectSidebar, type ProjectSidebarProps } from './ProjectSidebar'
+import type { Workspace } from '../../../shared/workspace-types'
 import type { Project, AgentSession } from '../../../shared/types'
 
 export const mockInvoke = vi.fn()
@@ -40,7 +41,7 @@ export const sampleSessions: AgentSession[] = [
   { id: 's2', projectId: 'p1', runtimeId: 'codex', branchName: 'alpha/bergen', worktreePath: '/wt2', status: 'waiting', pid: 2, additionalDirs: [] },
 ]
 
-export function renderSidebar(overrides = {}) {
+export function renderSidebar(overrides: Record<string, unknown> = {}) {
   const defaultProps = {
     width: 200,
     projects: sampleProjects,
@@ -56,18 +57,23 @@ export function renderSidebar(overrides = {}) {
     onRequestDeleteAgent: vi.fn(),
     onNewAgent: vi.fn(),
     onNewProject: vi.fn(),
+    onCreateWorkspaceFromProject: vi.fn(async () => undefined),
     onNewWorkspace: vi.fn(),
-    fetchingProjectId: null,
-    lastFetchedProjectId: null,
-    fetchResult: null,
-    fetchError: null,
-    onFetchProject: vi.fn(),
     drafts: [],
     activeDraftId: null,
     onSelectDraft: vi.fn(),
     onDiscardDraft: vi.fn(),
     ...overrides,
   }
+  const overrideWorkspaces = overrides.workspaces
+  const props = Array.isArray(overrideWorkspaces) && !('suppressedProjectIds' in overrides)
+    ? {
+        ...defaultProps,
+        suppressedProjectIds: new Set(
+          (overrideWorkspaces as Workspace[]).flatMap((workspace) => workspace.projectIds),
+        ),
+      }
+    : defaultProps
 
-  return { ...render(<ProjectSidebar {...defaultProps} />), props: defaultProps }
+  return { ...render(<ProjectSidebar {...props as ProjectSidebarProps} />), props }
 }

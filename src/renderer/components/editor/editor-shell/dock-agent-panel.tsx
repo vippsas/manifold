@@ -156,7 +156,6 @@ export function AgentPanel({ api }: { api?: { id: string } } = {}): React.JSX.El
         existingSessions={projectSessions}
         onResumeSession={s.onResumeAgent}
         onDeleteSession={(session) => s.onRequestDeleteAgent(session, activeProject.path)}
-        focusTrigger={s.newAgentFocusTrigger}
         compact={!!workspaceForRepo}
         workspaceName={workspaceForRepo?.name}
       />

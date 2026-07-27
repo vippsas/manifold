@@ -7,8 +7,6 @@ interface SpawnedSession { id: string }
 export interface UseAppOverlaysResult {
   activePanel: 'commit' | 'pr' | 'conflicts' | null
   setActivePanel: (panel: 'commit' | 'pr' | 'conflicts' | null) => void
-  handleNewAgentFromHeader: () => void
-  newAgentFocusTrigger: number
   showSettings: boolean
   setShowSettings: (show: boolean) => void
   showAbout: boolean
@@ -56,7 +54,6 @@ export function useAppOverlays(
   const [showDashboard, setShowDashboard] = useState(false)
   const [dashboardInitialCard, setDashboardInitialCard] = useState<string | null>(null)
   const [appVersion, setAppVersion] = useState('')
-  const [newAgentFocusTrigger, setNewAgentFocusTrigger] = useState(0)
   const [pendingDelete, setPendingDelete] = useState<PendingDelete | null>(null)
   const [deletingSessionId, setDeletingSessionId] = useState<string | null>(null)
 
@@ -83,10 +80,6 @@ export function useAppOverlays(
   }, [spawnAgent])
 
   const requestDeleteAgent = useCallback((session: AgentSession, projectPath: string): void => {
-    // A locked agent can't be deleted — don't open the destructive dialog. This
-    // is the single chokepoint every delete entry point funnels through (sidebar,
-    // workspace list, dock panel, onboarding card). The main process refuses too.
-    if (session.locked) return
     setPendingDelete({ session, projectPath })
   }, [])
 
@@ -115,11 +108,6 @@ export function useAppOverlays(
     if (projectId !== activeProjectId) setActiveProject(projectId)
   }, [activeProjectId, setActiveSession, setActiveProject])
 
-  const handleNewAgentFromHeader = useCallback((): void => {
-    setActiveSession(null)
-    setNewAgentFocusTrigger((n) => n + 1)
-  }, [setActiveSession])
-
   const handleSaveSettings = useCallback((partial: Partial<ManifoldSettings>): void => {
     void updateSettings(partial)
   }, [updateSettings])
@@ -135,8 +123,6 @@ export function useAppOverlays(
   return useMemo(() => ({
     activePanel,
     setActivePanel,
-    handleNewAgentFromHeader,
-    newAgentFocusTrigger,
     showSettings,
     setShowSettings,
     showAbout,
@@ -162,7 +148,7 @@ export function useAppOverlays(
     cancelDeleteAgent,
     confirmDeleteAgent,
   }), [
-    activePanel, handleNewAgentFromHeader, newAgentFocusTrigger,
+    activePanel,
     showSettings, showAbout, showCommandPalette, showShortcuts, showDashboard, dashboardInitialCard, appVersion, handleCommit, handleClosePanel,
     handleLaunchAgent, handleSelectSession, handleSaveSettings, handleSetupComplete,
     pendingDelete, deletingSessionId, requestDeleteAgent, cancelDeleteAgent, confirmDeleteAgent,

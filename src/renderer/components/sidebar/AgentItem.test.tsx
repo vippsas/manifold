@@ -1,5 +1,5 @@
 import { describe, it, expect, vi } from 'vitest'
-import { fireEvent, render, screen } from '@testing-library/react'
+import { fireEvent, render, screen, waitFor } from '@testing-library/react'
 import React from 'react'
 import { AgentItem } from './AgentItem'
 import type { AgentSession } from '../../../shared/types'
@@ -58,7 +58,7 @@ describe('AgentItem in-place badge', () => {
   })
 })
 
-describe('AgentItem rename', () => {
+describe('AgentItem settings', () => {
   const baseProps = {
     projectPath: '/tmp/proj',
     isActive: false,
@@ -74,16 +74,55 @@ describe('AgentItem rename', () => {
     expect(screen.getByTitle('Release agent - manifold/oslo')).toBeInTheDocument()
   })
 
-  it('commits a renamed agent label from the inline editor', () => {
-    const onRename = vi.fn()
+  it('opens a modal from the settings gear and saves a new name', async () => {
+    const onRename = vi.fn(async () => undefined)
     render(<AgentItem {...baseProps} session={makeSession()} onRename={onRename} />)
 
-    fireEvent.doubleClick(screen.getByText('oslo'))
+    fireEvent.click(screen.getByRole('button', { name: 'Settings for oslo' }))
+    expect(screen.getByRole('dialog', { name: 'Agent settings for oslo' })).toBeInTheDocument()
     const input = screen.getByLabelText('Agent name')
     fireEvent.change(input, { target: { value: 'Release agent' } })
-    fireEvent.keyDown(input, { key: 'Enter' })
+    fireEvent.click(screen.getByRole('button', { name: 'Save' }))
 
-    expect(onRename).toHaveBeenCalledWith('Release agent')
+    expect(onRename).toHaveBeenCalledWith({
+      displayName: 'Release agent',
+      runtimeId: 'claude',
+      viewMode: 'terminal',
+    })
+    await waitFor(() => {
+      expect(screen.queryByRole('dialog', { name: 'Agent settings for oslo' })).not.toBeInTheDocument()
+    })
+  })
+
+  it('saves runtime and view choices from agent settings', async () => {
+    const onRename = vi.fn(async () => undefined)
+    render(<AgentItem {...baseProps} session={makeSession()} onRename={onRename} />)
+
+    fireEvent.click(screen.getByRole('button', { name: 'Settings for oslo' }))
+    fireEvent.change(screen.getByLabelText('Agent runtime'), { target: { value: 'codex' } })
+    fireEvent.click(screen.getByRole('radio', { name: /Chat UI/ }))
+    fireEvent.click(screen.getByRole('button', { name: 'Save' }))
+
+    expect(screen.getByText('Start a new agent?')).toBeInTheDocument()
+    expect(onRename).not.toHaveBeenCalled()
+    fireEvent.click(screen.getByRole('button', { name: 'Start New Agent' }))
+
+    expect(onRename).toHaveBeenCalledWith({
+      displayName: 'oslo',
+      runtimeId: 'codex',
+      viewMode: 'chat',
+    })
+    await waitFor(() => {
+      expect(screen.queryByRole('dialog', { name: 'Agent settings for oslo' })).not.toBeInTheDocument()
+    })
+  })
+
+  it('does not render a lock action or indicator', () => {
+    render(<AgentItem {...baseProps} session={makeSession({ locked: true })} onRename={vi.fn()} />)
+
+    expect(screen.queryByLabelText('Locked')).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: /lock/i })).not.toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Delete oslo' })).toBeEnabled()
   })
 })
 
@@ -103,41 +142,5 @@ describe('AgentItem sensor sweep', () => {
   it('omits the outputting modifier when idle', () => {
     const { container } = render(<AgentItem {...baseProps} isOutputting={false} session={makeSession()} />)
     expect(container.querySelector('.sidebar-agent-row')).not.toHaveClass('sidebar-agent-row--outputting')
-  })
-})
-
-describe('AgentItem lock', () => {
-  const baseProps = {
-    projectPath: '/tmp/proj',
-    isActive: false,
-    isOutputting: false,
-    onSelect: vi.fn(),
-    onDelete: vi.fn(),
-  }
-
-  it('renders a lock indicator for a locked session', () => {
-    render(<AgentItem {...baseProps} session={makeSession({ locked: true })} />)
-    expect(screen.getByLabelText('Locked')).toBeInTheDocument()
-  })
-
-  it('omits the lock indicator when unlocked', () => {
-    render(<AgentItem {...baseProps} session={makeSession()} />)
-    expect(screen.queryByLabelText('Locked')).not.toBeInTheDocument()
-  })
-
-  it('disables the delete button and ignores clicks while locked', () => {
-    const onDelete = vi.fn()
-    render(<AgentItem {...baseProps} onDelete={onDelete} session={makeSession({ locked: true })} />)
-    const del = screen.getByRole('button', { name: 'oslo is locked — unlock to delete' })
-    expect(del).toBeDisabled()
-    fireEvent.click(del)
-    expect(onDelete).not.toHaveBeenCalled()
-  })
-
-  it('keeps the delete button active when unlocked', () => {
-    const onDelete = vi.fn()
-    render(<AgentItem {...baseProps} onDelete={onDelete} session={makeSession()} />)
-    fireEvent.click(screen.getByRole('button', { name: 'Delete oslo' }))
-    expect(onDelete).toHaveBeenCalled()
   })
 })

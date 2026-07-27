@@ -2,6 +2,7 @@
 description: How Manifold is built, type-checked, tested, packaged for macOS and x64 WSL2/Linux, and released.
 covers: [package.json]
 updated: 2026-07-14
+updated: 2026-07-13
 owner: see .github/CODEOWNERS
 ---
 
@@ -41,6 +42,11 @@ the native module for the right ABI and recompiles plugins:
 - `test` → `pretest` runs `rebuild:node` (Node ABI, not Electron) + `build:plugins`, then `vitest run` (`package.json:19-20`).
 - `dist:linux` → `predist:linux` rebuilds for Electron and compiles plugins, then electron-builder produces `dist/linux-unpacked` with `--publish never` (`package.json:25-26`).
 - `verify:linux-package` checks the Linux executable and packaged x64 GNU native modules (`package.json:27`, `scripts/verify-linux-package.mjs:15-33`).
+
+`typecheck` runs the renderer, Node, and plugin TypeScript project configs explicitly
+(`package.json:15-18`). The root `tsconfig.json` only contains project references, so invoking
+`tsc --noEmit` against it directly would check no source files and could miss renderer errors
+that otherwise become blank-window crashes at runtime.
 
 `build` itself (`package.json:11`) is `electron-vite build && npm run build:plugins` with no
 native rebuild — it produces JS only.

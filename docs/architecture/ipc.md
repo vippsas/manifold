@@ -2,6 +2,7 @@
 description: How Manifold's main-process services are exposed to the renderer over Electron IPC — the channel namespaces, the handler registration pattern, and how handlers delegate to subsystem managers.
 covers: [src/main/ipc]
 updated: 2026-07-14
+updated: 2026-07-13
 owner: see .github/CODEOWNERS
 ---
 
@@ -94,7 +95,8 @@ platform process without a shell (`file-handlers.ts:208-225`, `open-terminal.ts:
 
 ## Interactions
 
-- **Session** (`src/main/session`): the busiest consumer. `agent:spawn`→`createSession`, `agent:resume`→`resumeSession` (`agent-handlers.ts:197`), `agent:kill`/`agent:kill-worktree`→killers (`agent:kill` additionally records a `DismissedAgentsStore` tombstone for `noWorktree` sessions so discovery won't resurrect a deleted agent from branch state, `agent-handlers.ts:107`, #679), `agent:sessions`→discovery (`:207`), `agent:replay`→`getOutputBuffer`, `agent:input`/`agent:interrupt`/`agent:resize`, plus all `shell:*` and `simple:*` channels.
+- **Session** (`src/main/session`): the busiest consumer. `agent:spawn`→`createSession`, `agent:resume`→`resumeSession`, and `agent:configure`→`configureSession` (rename-only in place, or a confirmed runtime/view replacement with a new session id). `agent:kill`/`agent:kill-worktree`→killers (`agent:kill` additionally records a `DismissedAgentsStore` tombstone for `noWorktree` sessions so discovery won't resurrect a deleted agent from branch state, #679), `agent:sessions`→discovery, `agent:replay`→`getOutputBuffer`, `agent:input`/`agent:interrupt`/`agent:resize`, plus all `shell:*` and `simple:*` channels (`agent-handlers.ts`).
+- **Legacy locks** (`src/main/ipc/agent-handlers.ts`): `agent:set-locked` remains registered for compatibility with older persisted sessions and clients (`:132`), but `agent:kill` and `agent:kill-worktree` no longer gate deletion on that retired flag (`:140`, `:161`).
 - **Git** (`src/main/git`): `gitOps`, `diffProvider`, `prCreator`, `branchCheckout` back the `git:*`, `diff:*`, and `pr:create` channels. `branch:suggest` uses `generateBranchName` (`agent-handlers.ts:66`).
 - **FS** (`src/main/fs`): `fileWatcher` backs every `files:*` channel and the file-tree responses; `agent:spawn` starts the watch, and teardown unwatch is owned by `SessionKiller.cleanupSession` (guarded by shared-path liveness) rather than the `agent:kill` handler, so killing one session can't stop polling for a sibling on the same worktree. `agent:kill-worktree`/`agent:delete-app` still unwatch the path explicitly.
 - **Store** (`src/main/store`): `projectRegistry`, `settingsStore`, `viewStateStore`, `shellTabStore`, `dockLayoutStore`, `searchViewStore`, `verdictStore` are all reached only through their handler namespaces.

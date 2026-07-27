@@ -52,6 +52,17 @@ export class SessionKiller {
     this.deps.notifySessionsChanged(projectId)
   }
 
+  /** Stop and forget a session while deliberately retaining its worktree(s).
+   * Used when agent settings replace it with a fresh session in the same place. */
+  retireSession(sessionId: string): void {
+    const session = this.deps.sessions.get(sessionId)
+    if (!session) throw new Error(`Session not found: ${sessionId}`)
+    this.deps.sessions.delete(sessionId)
+    this.cleanupSession(session)
+    void this.verdictRecorder?.onSessionTerminated(sessionId)
+    this.deps.notifySessionsChanged(session.projectId)
+  }
+
   async killAllSessionsOnWorktree(worktreePath: string): Promise<void> {
     const matching = Array.from(this.deps.sessions.values()).filter(
       (session) => session.worktreePath === worktreePath,

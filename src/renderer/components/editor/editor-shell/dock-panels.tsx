@@ -152,6 +152,7 @@ function ProjectsPanel(): React.JSX.Element {
       onRequestDeleteAgent={s.onRequestDeleteAgent}
       onNewAgent={s.onNewAgentFromHeader}
       onNewProject={s.onNewProject}
+      onCreateWorkspaceFromProject={s.onCreateWorkspaceFromProject}
       onNewWorkspace={s.onNewWorkspace}
       workspaces={s.workspaces}
       activeWorkspaceId={s.activeWorkspaceId}
@@ -161,12 +162,6 @@ function ProjectsPanel(): React.JSX.Element {
       onSelectWorkspaceRepo={s.onSelectWorkspaceRepo}
       onAddProjectToWorkspace={s.onAddProjectToWorkspace}
       onRemoveProjectFromWorkspace={s.onRemoveProjectFromWorkspace}
-      fetchingProjectId={s.fetchingProjectId}
-      lastFetchedProjectId={s.lastFetchedProjectId}
-      fetchResult={s.fetchResult}
-      fetchError={s.fetchError}
-      onFetchProject={s.onFetchProject}
-      activeProjectBehindCount={s.activeProjectBehindCount}
       drafts={s.drafts}
       activeDraftId={s.activeDraft?.id ?? null}
       onSelectDraft={(id) => s.onSelectSession(id, s.activeProjectId ?? '')}

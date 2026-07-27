@@ -10,10 +10,10 @@ interface UseBranchStalenessResult {
 }
 
 /**
- * Tracks how many commits the active project's base branch is behind origin,
- * via a read-only background probe (git:staleness) on launch and window focus,
- * throttled per project. Only the active project has a refresh button, so only
- * the active project is probed. Probe failures never surface in the UI.
+ * Refreshes the active project's remote-tracking state in the background on
+ * launch and window focus, throttled per project. The probe fetches the base
+ * branch without changing the user's checked-out branch. Failures never
+ * surface in the UI.
  */
 export function useBranchStaleness(
   activeProjectId: string | null,

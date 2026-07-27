@@ -9,7 +9,6 @@ import { useCodeView } from './hooks/editor/useCodeView'
 import { useViewState } from './hooks/editor/useViewState'
 import { useShellSessions } from './hooks/terminal/useShellSession'
 import { useGitOperations } from './hooks/editor/useGitOperations'
-import { useFetchProject } from './hooks/project/useFetchProject'
 import { useBranchStaleness } from './hooks/project/useBranchStaleness'
 import { useAllProjectSessions } from './hooks/agent-session/useAllProjectSessions'
 import { useTheme } from './hooks/theme/useTheme'
@@ -38,10 +37,10 @@ import type { DockAppState } from './components/editor/editor-shell/dock-panel-t
 import { buildRootLabels } from './components/editor/file-tree/file-tree-labels'
 import { useWorkspaces } from './hooks/project/useWorkspaces'
 import { useFavorites } from './hooks/project/useFavorites'
-import type { AgentSession, ResolvedFavorite } from '../shared/types'
+import type { AgentSession, AgentSettingsUpdate, ResolvedFavorite } from '../shared/types'
 import { isGitProject } from '../shared/project-kind'
 import { clampUiScale } from '../shared/defaults'
-import { AppShell } from './AppShell'
+import { AppShell, type NewAgentTarget } from './AppShell'
 import { QuickOpen } from './components/editor/quick-open/QuickOpen'
 
 export function App(): React.JSX.Element {
@@ -59,8 +58,13 @@ export function App(): React.JSX.Element {
   const { sessionsByProject, removeSession } = useAllProjectSessions(projects, activeProjectId, sessions)
   const { workspaces, createWorkspace, removeWorkspace, addProject: addProjectToWorkspace, removeProject: removeProjectFromWorkspace, spawnAgent: spawnWorkspaceAgent } = useWorkspaces()
   const [activeWorkspaceId, setActiveWorkspaceId] = useState<string | null>(null)
+  const [newAgentTarget, setNewAgentTarget] = useState<NewAgentTarget | null>(null)
+  const visibleWorkspaces = useMemo(
+    () => (settings.workspacesEnabled ? workspaces : []),
+    [settings.workspacesEnabled, workspaces],
+  )
   const { favorites, isFavorite, toggleFavorite, reorderFavorites } = useFavorites(
-    settings, updateSettings, projects, workspaces,
+    settings, updateSettings, projects, visibleWorkspaces,
   )
   const activateFavorite = useCallback((fav: ResolvedFavorite): void => {
     // Branches are intentionally asymmetric: the repo branch mirrors onSelectProject
@@ -71,20 +75,22 @@ export function App(): React.JSX.Element {
       setActiveWorkspaceId(null)
       setActiveProject(fav.id)
     } else {
-      const ws = workspaces.find((w) => w.id === fav.id)
+      const ws = visibleWorkspaces.find((w) => w.id === fav.id)
       setActiveWorkspaceId(fav.id)
       if (ws && ws.projectIds[0]) setActiveProject(ws.projectIds[0])
       setActiveSession(null)
     }
-  }, [workspaces, setActiveProject, setActiveSession])
+  }, [visibleWorkspaces, setActiveProject, setActiveSession])
   const jumpToFavorite = useCallback((index: number): void => {
     const fav = favorites[index]
     if (fav) activateFavorite(fav)
   }, [favorites, activateFavorite])
   const [quickOpenVisible, setQuickOpenVisible] = useState(false)
   const [newWorkspaceVisible, setNewWorkspaceVisible] = useState(false)
-  const [addProjectWorkspaceId, setAddProjectWorkspaceId] = useState<string | null>(null)
-  const suppressedProjectIds = useMemo(() => new Set<string>(), [])
+  const suppressedProjectIds = useMemo(
+    () => new Set(visibleWorkspaces.flatMap((workspace) => workspace.projectIds)),
+    [visibleWorkspaces],
+  )
   const sessionsByWorkspace = useMemo(() => {
     const map: Record<string, AgentSession[]> = {}
     for (const sessions of Object.values(sessionsByProject ?? {})) {
@@ -103,6 +109,10 @@ export function App(): React.JSX.Element {
     }
     return map
   }, [sessionsByProject])
+
+  useEffect(() => {
+    if (!settings.workspacesEnabled) setActiveWorkspaceId(null)
+  }, [settings.workspacesEnabled])
 
   useAutoSelectActiveProject({
     sessionsByProject, activeProjectId, projects, setActiveProject,
@@ -159,29 +169,15 @@ export function App(): React.JSX.Element {
 
   const activeProject = projects.find((p) => p.id === activeProjectId) ?? null
   const gitOps = useGitOperations(effectiveSessionId)
-  const branchStaleness = useBranchStaleness(activeProjectId, projects)
+  useBranchStaleness(activeProjectId, projects)
 
-  const handleFetchSuccess = useCallback((projectId: string) => {
-    branchStaleness.markFresh(projectId)
-    for (const session of sessionsByProject[projectId] ?? []) {
-      void window.electronAPI.invoke('git:ahead-behind', session.id).catch(() => {})
-    }
-    void gitOps.refreshAheadBehind()
-  }, [sessionsByProject, gitOps.refreshAheadBehind, branchStaleness.markFresh])
+  const renameAgent = useCallback(async (sessionId: string, update: AgentSettingsUpdate): Promise<void> => {
+    const configured = await window.electronAPI.invoke('agent:configure', sessionId, update) as AgentSession
+    setActiveWorkspaceId(settings.workspacesEnabled ? (configured.workspaceId ?? null) : null)
+    setActiveProject(configured.projectId)
+    setActiveSession(configured.id)
+  }, [setActiveProject, setActiveSession, settings.workspacesEnabled])
 
-  const renameAgent = useCallback((sessionId: string, displayName: string): void => {
-    void window.electronAPI.invoke('agent:rename', sessionId, displayName).catch((err) => {
-      console.error('[App] failed to rename agent:', err)
-    })
-  }, [])
-
-  const setAgentLocked = useCallback((sessionId: string, locked: boolean): void => {
-    void window.electronAPI.invoke('agent:set-locked', sessionId, locked).catch((err) => {
-      console.error('[App] failed to set agent locked:', err)
-    })
-  }, [])
-
-  const fetchProject = useFetchProject(handleFetchSuccess)
   const overlays = useAppOverlays(gitOps.commit, refreshDiff, spawnAgent, deleteAgent, removeSession, updateSettings, setActiveSession, setActiveProject, activeProjectId)
   const { themeId, themeClass, xtermTheme, setPreviewThemeId } = useTheme(settings.theme)
   const toggleTheme = useCallback(() => {
@@ -274,6 +270,53 @@ export function App(): React.JSX.Element {
     projects,
   }), [tree?.path, additionalTrees, activeSession, projects])
 
+  const openNewAgentModal = useCallback((projectId?: string, workspaceId?: string): void => {
+    const targetWorkspaceId = settings.workspacesEnabled ? (workspaceId ?? activeWorkspaceId) : null
+    if (targetWorkspaceId) {
+      const workspace = workspaces.find((candidate) => candidate.id === targetWorkspaceId)
+      const homeProjectId = projectId && workspace?.projectIds.includes(projectId)
+        ? projectId
+        : activeProjectId && workspace?.projectIds.includes(activeProjectId)
+          ? activeProjectId
+          : workspace?.projectIds[0]
+      setActiveWorkspaceId(targetWorkspaceId)
+      if (homeProjectId) {
+        setActiveProject(homeProjectId)
+        setNewAgentTarget({ projectId: homeProjectId, workspaceId: targetWorkspaceId })
+      }
+      return
+    }
+
+    setActiveWorkspaceId(null)
+    const targetProjectId = projectId ?? activeProjectId
+    if (targetProjectId) {
+      setActiveProject(targetProjectId)
+      setNewAgentTarget({ projectId: targetProjectId })
+    }
+  }, [activeProjectId, activeWorkspaceId, settings.workspacesEnabled, setActiveProject, workspaces])
+
+  const addLocalFolderToWorkspace = useCallback(async (workspaceId: string): Promise<void> => {
+    const project = await addProject(undefined, { activate: false })
+    if (project) await addProjectToWorkspace(workspaceId, project.id)
+  }, [addProject, addProjectToWorkspace])
+
+  const createWorkspaceFromProject = useCallback(async (projectId: string): Promise<void> => {
+    const homeProject = projects.find((candidate) => candidate.id === projectId)
+    if (!homeProject) return
+    const addedProject = await addProject(undefined, { activate: false })
+    if (!addedProject || addedProject.id === homeProject.id) return
+    const workspace = await createWorkspace({
+      name: homeProject.name,
+      projectIds: [homeProject.id, addedProject.id],
+      runtimeId: settings.defaultRuntime,
+    })
+    if (!settings.workspacesEnabled) {
+      await updateSettings({ workspacesEnabled: true })
+    }
+    setActiveWorkspaceId(workspace.id)
+    setActiveProject(homeProject.id)
+  }, [addProject, createWorkspace, projects, setActiveProject, settings.defaultRuntime, settings.workspacesEnabled, updateSettings])
+
   const dockState: DockAppState = {
     sessionId: effectiveSessionId, primarySessionId,
     onOpenDashboard: (cardId?: string) => { overlays.setDashboardInitialCard(cardId ?? null); overlays.setShowDashboard(true) },
@@ -313,27 +356,20 @@ export function App(): React.JSX.Element {
     allProjectSessions: sessionsByProject, outputtingSessionIds,
     onSelectProject: (id: string) => { setActiveWorkspaceId(null); setActiveProject(id) },
     onSelectSession: (sessionId: string, projectId: string) => {
-      setActiveWorkspaceId(workspaceIdBySession[sessionId] ?? null)
+      setActiveWorkspaceId(settings.workspacesEnabled ? (workspaceIdBySession[sessionId] ?? null) : null)
       overlays.handleSelectSession(sessionId, projectId)
     },
-    onRemoveProject: removeProject, onUpdateProject: updateProject, onRenameAgent: renameAgent, onToggleLocked: setAgentLocked, onRequestDeleteAgent: overlays.requestDeleteAgent,
-    onNewAgentFromHeader: () => {
-      if (activeWorkspaceId) {
-        const ws = workspaces.find((w) => w.id === activeWorkspaceId)
-        const home = activeProjectId && ws?.projectIds.includes(activeProjectId) ? activeProjectId : ws?.projectIds[0]
-        if (home) setActiveProject(home)
-        overlays.handleNewAgentFromHeader()
-      } else {
-        setActiveWorkspaceId(null); overlays.handleNewAgentFromHeader()
-      }
-    },
+    onRemoveProject: removeProject, onUpdateProject: updateProject, onRenameAgent: renameAgent, onRequestDeleteAgent: overlays.requestDeleteAgent,
+    onNewAgentFromHeader: openNewAgentModal,
     onSelectWorkspaceRepo: (workspaceId: string, projectId: string) => {
       setActiveWorkspaceId(workspaceId); setActiveProject(projectId); setActiveSession(null)
     },
-    newAgentFocusTrigger: overlays.newAgentFocusTrigger,
     onNewProject: () => appEffects.setShowOnboarding(true),
-    workspaces, activeWorkspaceId, sessionsByWorkspace,
-    onNewWorkspace: () => setNewWorkspaceVisible(true),
+    onCreateWorkspaceFromProject: createWorkspaceFromProject,
+    workspaces: settings.workspacesEnabled ? workspaces : undefined,
+    activeWorkspaceId: settings.workspacesEnabled ? activeWorkspaceId : null,
+    sessionsByWorkspace,
+    onNewWorkspace: settings.workspacesEnabled ? () => setNewWorkspaceVisible(true) : undefined,
     onSelectWorkspace: (id: string) => { setActiveWorkspaceId(id) },
     onRemoveWorkspace: async (id: string) => {
       await removeWorkspace(id)
@@ -360,12 +396,8 @@ export function App(): React.JSX.Element {
       }
       return session
     },
-    onAddProjectToWorkspace: (id: string) => setAddProjectWorkspaceId(id),
+    onAddProjectToWorkspace: addLocalFolderToWorkspace,
     onRemoveProjectFromWorkspace: (id: string, pid: string) => { void removeProjectFromWorkspace(id, pid) },
-    fetchingProjectId: fetchProject.fetchingProjectId, lastFetchedProjectId: fetchProject.lastFetchedProjectId,
-    fetchResult: fetchProject.fetchResult, fetchError: fetchProject.fetchError,
-    onFetchProject: fetchProject.fetchProject,
-    activeProjectBehindCount: activeProjectId ? (branchStaleness.behindCounts[activeProjectId] ?? 0) : 0,
     onFocusSearch: appEffects.focusSearch, onClosePanel: editorHandlers.handleClosePanel,
     onToggleMaximize: dockLayout.toggleMaximizePanel,
     onCollapseSidebar: collapseSidebar,
@@ -396,7 +428,7 @@ export function App(): React.JSX.Element {
     openQuickOpen,
     findInFiles: () => appEffects.focusSearch('code'),
     jumpToFavorite,
-    newAgent: overlays.handleNewAgentFromHeader,
+    newAgent: () => openNewAgentModal(),
     nextAgent: () => {
       const next = cycleAgent(activeProjectSessions, activeSessionId, 1)
       if (next) overlays.handleSelectSession(next.id, next.projectId)
@@ -418,7 +450,7 @@ export function App(): React.JSX.Element {
     },
     toggleTheme,
     openDashboard: () => { overlays.setDashboardInitialCard(null); overlays.setShowDashboard(true) },
-  }), [overlays, openQuickOpen, appEffects, jumpToFavorite, activeProjectSessions, activeSessionId, activeSession, activeProject, dockLayout, toggleTheme])
+  }), [overlays, openQuickOpen, openNewAgentModal, appEffects, jumpToFavorite, activeProjectSessions, activeSessionId, activeSession, activeProject, dockLayout, toggleTheme])
   const { runCommand } = useCommands(commandContext)
 
   return (
@@ -455,14 +487,13 @@ export function App(): React.JSX.Element {
         handleAddProjectFromOnboarding={handleAddProjectFromOnboarding}
         handleCloneFromOnboarding={handleCloneFromOnboarding}
         handleCreateNewProject={handleCreateNewProject}
+        newAgentTarget={newAgentTarget}
+        closeNewAgentModal={() => setNewAgentTarget(null)}
         newWorkspaceVisible={newWorkspaceVisible}
         setNewWorkspaceVisible={setNewWorkspaceVisible}
         defaultRuntime={settings.defaultRuntime}
         createWorkspace={createWorkspace}
         workspaces={workspaces}
-        addProjectWorkspaceId={addProjectWorkspaceId}
-        setAddProjectWorkspaceId={setAddProjectWorkspaceId}
-        addProjectToWorkspace={addProjectToWorkspace}
         dockLayout={dockLayout}
         onRenameActiveProject={(name) => { if (activeProjectId) void updateProject(activeProjectId, { name }) }}
         onToggleTheme={toggleTheme}

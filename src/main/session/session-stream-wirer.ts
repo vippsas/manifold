@@ -149,6 +149,7 @@ export class SessionStreamWirer {
 
   wireExitHandling(ptyId: string, session: InternalSession): void {
     this.ptyPool.onExit(ptyId, (exitCode: number) => {
+      if (session.ptyId !== ptyId) return
       session.status = 'done'
       session.pid = null
       session.ptyId = ''

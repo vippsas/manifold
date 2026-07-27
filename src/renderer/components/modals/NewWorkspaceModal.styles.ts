@@ -1,56 +1,70 @@
 import type { CSSProperties } from 'react'
+import { createDialogStyles } from '../workbench-style-primitives'
+
+const dialog = createDialogStyles('520px')
 
 export const styles: Record<string, CSSProperties> = {
-  overlay: {
-    position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.45)',
-    display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000,
-  },
+  ...dialog,
   modal: {
-    background: 'var(--bg-primary)', borderRadius: 8, padding: 24,
-    width: 560, maxHeight: '80vh', overflow: 'auto',
-    border: '1px solid var(--border)',
-    color: 'var(--text-primary)',
+    ...dialog.panel,
+    maxHeight: '88vh',
+    display: 'flex',
+    flexDirection: 'column',
   },
-  title: { margin: 0, marginBottom: 16, fontSize: 18, fontWeight: 600 },
-  field: { display: 'flex', flexDirection: 'column', gap: 4, marginBottom: 12 },
-  label: { fontSize: 12, color: 'var(--text-muted)' },
+  body: {
+    ...dialog.body,
+    overflowY: 'auto',
+  },
+  field: {
+    display: 'flex',
+    flexDirection: 'column',
+    gap: 'var(--space-xs)',
+  },
+  label: {
+    fontSize: 'var(--type-ui-small)',
+    color: 'var(--text-secondary)',
+    fontWeight: 500,
+  },
   fieldHeader: {
     display: 'flex',
     alignItems: 'center',
     justifyContent: 'space-between',
-    gap: 8,
+    gap: 'var(--space-sm)',
   },
-  input: {
-    background: 'var(--bg-secondary)', border: '1px solid var(--border)',
-    borderRadius: 4, padding: '6px 8px', color: 'var(--text-primary)',
-  },
+  input: dialog.input,
   inlineButton: {
+    minHeight: 'var(--control-height)',
     background: 'transparent',
     color: 'var(--accent)',
     border: '1px solid color-mix(in srgb, var(--accent), transparent 70%)',
-    borderRadius: 4,
-    padding: '4px 10px',
+    borderRadius: 'var(--radius-sm)',
+    padding: '0 var(--space-sm)',
     cursor: 'pointer',
-    fontSize: 12,
+    fontSize: 'var(--type-ui-small)',
     flexShrink: 0,
   },
   fleetList: {
-    display: 'flex', flexDirection: 'column', gap: 4,
-    maxHeight: 180, overflowY: 'auto',
-    border: '1px solid var(--border)', borderRadius: 4, padding: 8,
-    background: 'var(--bg-secondary)',
+    display: 'flex',
+    flexDirection: 'column',
+    gap: 'var(--space-xs)',
+    maxHeight: 180,
+    overflowY: 'auto',
+    border: '1px solid var(--control-border)',
+    borderRadius: 'var(--radius-sm)',
+    padding: 'var(--space-sm)',
+    background: 'var(--control-bg)',
   },
   emptyState: {
-    padding: '8px 4px',
+    padding: 'var(--space-sm) var(--space-xs)',
     color: 'var(--text-muted)',
-    fontSize: 12,
+    fontSize: 'var(--type-ui-small)',
   },
   fleetRow: {
     display: 'flex',
     alignItems: 'flex-start',
-    gap: 8,
-    padding: '6px 4px',
-    borderRadius: 4,
+    gap: 'var(--space-sm)',
+    padding: '6px var(--space-xs)',
+    borderRadius: 'var(--radius-sm)',
   },
   fleetRowText: {
     display: 'flex',
@@ -60,27 +74,17 @@ export const styles: Record<string, CSSProperties> = {
   },
   fleetName: {
     color: 'var(--text-primary)',
-    fontSize: 13,
+    fontSize: 'var(--type-ui)',
   },
   fleetPath: {
     color: 'var(--text-muted)',
-    fontSize: 11,
+    fontSize: 'var(--type-ui-caption)',
     overflow: 'hidden',
     textOverflow: 'ellipsis',
     whiteSpace: 'nowrap',
   },
-  errorText: {
-    color: 'var(--status-error)',
-    fontSize: 12,
-    lineHeight: 1.4,
-  },
-  actions: { display: 'flex', justifyContent: 'flex-end', gap: 8, marginTop: 16 },
-  primaryButton: {
-    background: 'var(--accent)', color: 'var(--accent-text)',
-    border: 'none', borderRadius: 4, padding: '8px 16px', cursor: 'pointer',
-  },
-  secondaryButton: {
-    background: 'transparent', color: 'var(--text-primary)',
-    border: '1px solid var(--border)', borderRadius: 4, padding: '8px 16px', cursor: 'pointer',
-  },
+  errorText: dialog.errorText,
+  actions: dialog.footer,
+  primaryButton: dialog.primaryButton,
+  secondaryButton: dialog.secondaryButton,
 }

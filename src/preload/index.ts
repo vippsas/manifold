@@ -21,6 +21,7 @@ const ALLOWED_INVOKE_CHANNELS = [
   'chat:read-pasted-image',
   'agent:resize',
   'agent:rename',
+  'agent:configure',
   'agent:set-locked',
   'agent:sessions',
   'agent:resume',

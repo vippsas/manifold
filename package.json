@@ -12,7 +12,7 @@
     "build:plugins": "node scripts/build-plugins.mjs",
     "prestart": "npm run rebuild:electron && npm run build:plugins",
     "start": "electron-vite preview",
-    "typecheck": "tsc --noEmit",
+    "typecheck": "npm run typecheck:web && npm run typecheck:node && npm run typecheck:plugins",
     "typecheck:node": "tsc --noEmit -p tsconfig.node.json",
     "typecheck:web": "tsc --noEmit -p tsconfig.web.json",
     "typecheck:plugins": "tsc --noEmit -p tsconfig.plugins.json",

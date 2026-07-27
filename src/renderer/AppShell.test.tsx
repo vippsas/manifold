@@ -73,7 +73,7 @@ const project = {
 function makeProps(overrides: Partial<AppShellProps> = {}): AppShellProps {
   return {
     themeClass: 'theme-dark',
-    settings: { setupCompleted: true } as AppShellProps['settings'],
+    settings: { setupCompleted: true, workspacesEnabled: true } as AppShellProps['settings'],
     projects: [project],
     projectError: null,
     activeProjectId: 'p1',
@@ -126,14 +126,13 @@ function makeProps(overrides: Partial<AppShellProps> = {}): AppShellProps {
     handleAddProjectFromOnboarding: vi.fn().mockResolvedValue(undefined),
     handleCloneFromOnboarding: vi.fn().mockResolvedValue(false),
     handleCreateNewProject: vi.fn().mockResolvedValue(false),
+    newAgentTarget: null,
+    closeNewAgentModal: vi.fn(),
     newWorkspaceVisible: true,
     setNewWorkspaceVisible: vi.fn(),
     defaultRuntime: 'claude',
     createWorkspace: vi.fn().mockResolvedValue({ id: 'w1', name: 'Workspace', projectIds: ['p1'], createdAt: '2024-01-01' }),
     workspaces: [],
-    addProjectWorkspaceId: null,
-    setAddProjectWorkspaceId: vi.fn(),
-    addProjectToWorkspace: vi.fn().mockResolvedValue(undefined),
     dockLayout: {},
     onRenameActiveProject: vi.fn(),
     onToggleTheme: vi.fn(),
@@ -164,5 +163,58 @@ describe('AppShell', () => {
       expect(addProject).toHaveBeenCalledTimes(1)
     })
     expect(addProject).toHaveBeenCalledWith()
+  })
+
+  it('does not expose workspace modals while workspace mode is disabled', () => {
+    render(<AppShell {...makeProps({
+      settings: { setupCompleted: true, workspacesEnabled: false } as AppShellProps['settings'],
+    })} />)
+
+    expect(screen.queryByRole('button', { name: '+ Add repository' })).not.toBeInTheDocument()
+  })
+
+  it('keeps the dock visible while workspace creation opens in a modal', () => {
+    render(<AppShell {...makeProps()} />)
+
+    const dialog = screen.getByRole('dialog', { name: 'New Workspace' })
+    expect(screen.getByTestId('dockview')).toBeInTheDocument()
+    expect(dialog.parentElement).toBe(document.body)
+  })
+
+  it('keeps the dock visible while an existing workspace adds a repository', () => {
+    render(<AppShell {...makeProps({
+      newWorkspaceVisible: false,
+      appEffects: {
+        showOnboarding: true,
+        setShowOnboarding: vi.fn(),
+        creatingProject: false,
+        cloningProject: false,
+      },
+    })} />)
+
+    const dialog = screen.getByRole('dialog', { name: 'Add Repository' })
+    expect(screen.getByTestId('dockview')).toBeInTheDocument()
+    expect(dialog.parentElement).toBe(document.body)
+  })
+
+  it('keeps the dock visible while New Agent opens in a modal', () => {
+    render(<AppShell {...makeProps({
+      newWorkspaceVisible: false,
+      newAgentTarget: { projectId: 'p1' },
+      dockState: {
+        activeProjectId: 'p1',
+        sessionId: 's1',
+        allProjectSessions: { p1: [] },
+        onResumeAgent: vi.fn(),
+      } as unknown as AppShellProps['dockState'],
+      overlays: {
+        activePanel: null,
+        handleLaunchAgent: vi.fn(),
+        requestDeleteAgent: vi.fn(),
+      } as unknown as AppShellProps['overlays'],
+    })} />)
+
+    expect(screen.getByTestId('dockview')).toBeInTheDocument()
+    expect(screen.getByRole('dialog', { name: 'New agent in Alpha' })).toBeInTheDocument()
   })
 })

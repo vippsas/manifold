@@ -1,8 +1,7 @@
 import React, { useCallback, useState } from 'react'
-import type { AgentSession } from '../../../shared/types'
-import { sidebarStyles } from './ProjectSidebar.styles'
-import { LockToggleButton } from './LockToggleButton'
-import { LockGlyph } from './LockGlyph'
+import type { AgentSession, AgentSettingsUpdate } from '../../../shared/types'
+import { ConfigureAgentGlyph } from './SidebarCardActionGlyphs'
+import { AgentSettingsModal } from '../modals/AgentSettingsModal'
 
 const RUNTIME_LABELS: Record<string, string> = {
   claude: 'Claude',
@@ -40,29 +39,26 @@ interface AgentItemProps {
   isOutputting: boolean
   onSelect: (id: string) => void
   onDelete: () => void
-  onRename?: (displayName: string) => void
+  onRename?: (settings: AgentSettingsUpdate) => Promise<void> | void
   labelOverride?: string
   hideAdditionalDirs?: boolean
 }
 
 export function AgentItem({ session, projectPath, isActive, isOutputting, onSelect, onDelete, onRename, labelOverride, hideAdditionalDirs }: AgentItemProps): React.JSX.Element {
-  const [editing, setEditing] = useState(false)
-  const [draft, setDraft] = useState('')
+  const [settingsVisible, setSettingsVisible] = useState(false)
 
   const handleClick = useCallback((): void => {
-    if (editing) return
     onSelect(session.id)
-  }, [editing, onSelect, session.id])
+  }, [onSelect, session.id])
 
   const handleKeyDown = useCallback(
     (e: React.KeyboardEvent<HTMLDivElement>): void => {
       if (e.key === 'Enter' || e.key === ' ') {
-        if (editing) return
         e.preventDefault()
         onSelect(session.id)
       }
     },
-    [editing, onSelect, session.id]
+    [onSelect, session.id]
   )
 
   const handleDelete = useCallback(
@@ -79,166 +75,120 @@ export function AgentItem({ session, projectPath, isActive, isOutputting, onSele
 
   const displayName = session.displayName?.trim()
   const primaryLabel = displayName || labelOverride || formatBranchLabel(session.branchName, projectPath)
-  const currentEditableLabel = displayName || primaryLabel
   const secondaryLabel = session.taskDescription
     ? `${session.taskDescription} \u00B7 ${runtimeLabel(session.runtimeId)}`
     : runtimeLabel(session.runtimeId)
 
-  const startEditing = useCallback(
-    (e: React.MouseEvent): void => {
-      e.stopPropagation()
-      if (!onRename) return
-      setDraft(currentEditableLabel)
-      setEditing(true)
-    },
-    [currentEditableLabel, onRename],
-  )
-
-  const commitRename = useCallback((): void => {
-    const nextName = draft.trim()
-    if (nextName && nextName !== currentEditableLabel) {
-      onRename?.(nextName)
-    }
-    setEditing(false)
-  }, [currentEditableLabel, draft, onRename])
-
-  const handleNameKeyDown = useCallback(
-    (e: React.KeyboardEvent<HTMLInputElement>): void => {
-      e.stopPropagation()
-      if (e.key === 'Enter') {
-        e.preventDefault()
-        commitRename()
-      } else if (e.key === 'Escape') {
-        e.preventDefault()
-        setEditing(false)
-      }
-    },
-    [commitRename],
-  )
-
-  const focusAndSelect = useCallback((el: HTMLInputElement | null): void => {
-    if (el) {
-      el.focus()
-      el.select()
-    }
-  }, [])
-
   return (
-    <div
-      onClick={handleClick}
-      onKeyDown={handleKeyDown}
-      className={`sidebar-item-row sidebar-agent-row ${session.status === 'done' || session.status === 'error' ? 'sidebar-agent-row--exited' : 'sidebar-agent-row--alive'}${isOutputting ? ' sidebar-agent-row--outputting' : ''}${isActive ? ' sidebar-item-row--active' : ''}`}
-      title={displayName ? `${displayName} - ${session.branchName}` : `${runtimeLabel(session.runtimeId)} - ${session.branchName}`}
-      role="button"
-      tabIndex={0}
-    >
-      <div className="sidebar-agent-main">
-        <span className={`status-dot${session.status === 'done' || session.status === 'error' ? ' status-dot--hidden' : isOutputting ? ' status-dot--active' : ''}`} />
-        {session.nonInteractive && (
-          <span
-            aria-label="Chat agent"
-            title="Chat agent"
-            style={{ marginRight: 4, opacity: 0.8, fontSize: 11 }}
-          >
-            ◐
-          </span>
-        )}
-        {session.locked && (
-          <span
-            aria-label="Locked"
-            title="Locked — unlock to delete"
-            className="sidebar-agent-lock-indicator"
-            style={{ marginRight: 4, display: 'inline-flex', alignItems: 'center', color: 'var(--accent)' }}
-          >
-            <LockGlyph locked />
-          </span>
-        )}
-        {editing ? (
-          <input
-            ref={focusAndSelect}
-            value={draft}
-            onChange={(e) => setDraft(e.target.value)}
-            onBlur={commitRename}
-            onKeyDown={handleNameKeyDown}
-            onClick={(e) => e.stopPropagation()}
-            style={{ ...sidebarStyles.nameInput, ...sidebarStyles.agentNameInput }}
-            aria-label="Agent name"
-          />
-        ) : (
+    <>
+      <div
+        onClick={handleClick}
+        onKeyDown={handleKeyDown}
+        className={`sidebar-item-row sidebar-agent-row ${session.status === 'done' || session.status === 'error' ? 'sidebar-agent-row--exited' : 'sidebar-agent-row--alive'}${isOutputting ? ' sidebar-agent-row--outputting' : ''}${isActive ? ' sidebar-item-row--active' : ''}`}
+        title={displayName ? `${displayName} - ${session.branchName}` : `${runtimeLabel(session.runtimeId)} - ${session.branchName}`}
+        role="button"
+        tabIndex={0}
+      >
+        <div className="sidebar-agent-main">
+          <span className={`status-dot${session.status === 'done' || session.status === 'error' ? ' status-dot--hidden' : isOutputting ? ' status-dot--active' : ''}`} />
+          {session.nonInteractive && (
+            <span
+              aria-label="Chat agent"
+              title="Chat agent"
+              style={{ marginRight: 4, opacity: 0.8, fontSize: 11 }}
+            >
+              ◐
+            </span>
+          )}
           <span
             className="truncate sidebar-row-label"
             style={{
-              ...sidebarStyles.agentBranch,
               color: isActive ? 'var(--accent)' : 'var(--text-secondary)',
               fontWeight: isActive ? 600 : 400,
               flex: 1,
             }}
-            onDoubleClick={(e) => { e.stopPropagation(); startEditing(e) }}
-            title={onRename ? 'Double-click to rename' : undefined}
           >
             {primaryLabel}
           </span>
-        )}
-        {session.noWorktree && (
-          <span
-            className="sidebar-agent-inplace-badge"
-            aria-label="In-place agent — runs in the repository without a worktree"
-            title="In-place — runs in the repository directly (no worktree)"
-            style={{
-              flexShrink: 0,
-              marginLeft: 6,
-              padding: '1px 6px',
-              fontSize: 'var(--type-ui-micro)',
-              lineHeight: 1.5,
-              color: 'var(--accent)',
-              background: 'var(--accent-subtle)',
-              border: '1px solid var(--accent-dim, var(--accent))',
-              borderRadius: 'var(--radius-pill)',
-              letterSpacing: '0.2px',
-            }}
-          >
-            in-place
-          </span>
-        )}
-        <div className="sidebar-item-actions">
-          <LockToggleButton sessionId={session.id} locked={!!session.locked} name={primaryLabel} />
-          <button
-            type="button"
-            onClick={handleDelete}
-            onKeyDown={stopKeyPropagation}
-            disabled={!!session.locked}
-            className="sidebar-icon-button"
-            style={sidebarStyles.agentDeleteButton}
-            aria-label={session.locked ? `${primaryLabel} is locked — unlock to delete` : `Delete ${primaryLabel}`}
-            title={session.locked ? 'Locked — unlock to delete' : 'Delete task'}
-          >
-            &times;
-          </button>
-        </div>
-      </div>
-      <span
-        className="truncate sidebar-secondary-text"
-        style={{ paddingLeft: '16px' }}
-      >
-        {secondaryLabel}
-      </span>
-      {!hideAdditionalDirs && session.additionalDirs.length > 0 && (
-        <div className="sidebar-aux-list">
-          {session.additionalDirs.map((dir) => {
-            const dirName = dir.split('/').filter(Boolean).pop() ?? dir
-            return (
-              <div
-                key={dir}
-                title={dir}
-                className="truncate sidebar-aux-item"
+          {session.noWorktree && (
+            <span
+              className="sidebar-agent-inplace-badge"
+              aria-label="In-place agent — runs in the repository without a worktree"
+              title="In-place — runs in the repository directly (no worktree)"
+              style={{
+                flexShrink: 0,
+                marginLeft: 6,
+                padding: '1px 6px',
+                fontSize: 'var(--type-ui-micro)',
+                lineHeight: 1.5,
+                color: 'var(--accent)',
+                background: 'var(--accent-subtle)',
+                border: '1px solid var(--accent-dim, var(--accent))',
+                borderRadius: 'var(--radius-pill)',
+                letterSpacing: '0.2px',
+              }}
+            >
+              in-place
+            </span>
+          )}
+          <div className="sidebar-item-actions">
+            {onRename && (
+              <button
+                type="button"
+                onClick={(event) => { event.stopPropagation(); setSettingsVisible(true) }}
+                onKeyDown={stopKeyPropagation}
+                className="sidebar-icon-button"
+                aria-label={`Settings for ${primaryLabel}`}
+                title="Agent settings"
               >
-                <span style={{ fontSize: '0.85em', opacity: 0.8 }}>+</span>
-                {dirName}
-              </div>
-            )
-          })}
+                <ConfigureAgentGlyph />
+              </button>
+            )}
+            <button
+              type="button"
+              onClick={handleDelete}
+              onKeyDown={stopKeyPropagation}
+              className="sidebar-icon-button"
+              aria-label={`Delete ${primaryLabel}`}
+              title="Delete task"
+            >
+              &times;
+            </button>
+          </div>
         </div>
+        <span
+          className="truncate sidebar-secondary-text"
+          style={{ paddingLeft: '16px' }}
+        >
+          {secondaryLabel}
+        </span>
+        {!hideAdditionalDirs && session.additionalDirs.length > 0 && (
+          <div className="sidebar-aux-list">
+            {session.additionalDirs.map((dir) => {
+              const dirName = dir.split('/').filter(Boolean).pop() ?? dir
+              return (
+                <div
+                  key={dir}
+                  title={dir}
+                  className="truncate sidebar-aux-item"
+                >
+                  <span style={{ fontSize: '0.85em', opacity: 0.8 }}>+</span>
+                  {dirName}
+                </div>
+              )
+            })}
+          </div>
+        )}
+      </div>
+      {onRename && (
+        <AgentSettingsModal
+          visible={settingsVisible}
+          session={session}
+          fallbackName={primaryLabel}
+          onSave={onRename}
+          onClose={() => setSettingsVisible(false)}
+        />
       )}
-    </div>
+    </>
   )
 }

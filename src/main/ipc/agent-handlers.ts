@@ -2,7 +2,7 @@ import * as fs from 'node:fs/promises'
 import * as os from 'node:os'
 import * as path from 'node:path'
 import { ipcMain } from 'electron'
-import { SpawnAgentOptions, AgentSession } from '../../shared/types'
+import { SpawnAgentOptions, AgentSession, AgentSettingsUpdate } from '../../shared/types'
 import { pickRandomNorwegianCityName } from '../../shared/norwegian-cities'
 import { generateBranchName } from '../git/branch-namer'
 import { acceptSuggestion, dismissSuggestion } from '../session/shell-suggestion'
@@ -129,6 +129,15 @@ export function registerAgentHandlers(deps: IpcDependencies): void {
     return sessionManager.renameSession(sessionId, displayName)
   })
 
+  ipcMain.handle('agent:configure', async (_event, sessionId: string, settings: AgentSettingsUpdate) => {
+    const configured = await sessionManager.configureSession(sessionId, settings)
+    if (configured.id !== sessionId) {
+      viewStateStore.delete(sessionId)
+      dockLayoutStore.delete(sessionId)
+    }
+    return configured
+  })
+
   ipcMain.handle('agent:set-locked', async (_event, sessionId: string, locked: boolean) => {
     return sessionManager.setSessionLocked(sessionId, locked)
   })
@@ -140,11 +149,6 @@ export function registerAgentHandlers(deps: IpcDependencies): void {
   ipcMain.handle('agent:kill', async (_event, sessionId: string) => {
     const session = sessionManager.getSession(sessionId)
     debugLog(`[agent:kill] sessionId=${sessionId} found=${!!session} worktreePath=${session?.worktreePath ?? 'n/a'} noWorktree=${session?.noWorktree ?? 'n/a'}`)
-    // A locked agent is protected from deletion until explicitly unlocked. The
-    // renderer gates this too, but keep the hard guard here so no path (stale
-    // UI state, direct IPC) can delete a locked agent. Internal lifecycle kills
-    // (mode switch, respawn) call killSession directly and bypass this handler.
-    if (session?.locked) throw new Error(`Refusing to delete locked agent: ${sessionId}`)
     // Deleting a noWorktree agent keeps the branch checked out, and discovery
     // would otherwise resurrect a dormant session from that branch state (#679).
     // Record the dismissal so the agent stays gone until explicitly recreated.
@@ -167,10 +171,6 @@ export function registerAgentHandlers(deps: IpcDependencies): void {
     debugLog(`[agent:kill-worktree] path=${worktreePath}`)
     const sessionsOnWorktree = Array.from(sessionManager.listSessions())
       .filter((s) => s.worktreePath === worktreePath)
-    // Refuse the whole teardown if any agent sharing the worktree is locked.
-    if (sessionsOnWorktree.some((s) => s.locked)) {
-      throw new Error(`Refusing to delete worktree with a locked agent: ${worktreePath}`)
-    }
     const idsBefore = sessionsOnWorktree.map((s) => s.id)
     if (worktreePath) {
       await fileWatcher.unwatch(worktreePath)

@@ -708,12 +708,6 @@ select:focus-visible {
   text-transform: uppercase;
 }
 
-/* The fetch button widens into a "↻ 9+" pill when behind origin, so reserve
-   extra room on the right to keep a long repo name from running under it. */
-.sidebar-project-row--behind {
-  padding-right: 88px;
-}
-
 .sidebar-agent-row {
   flex-direction: column;
   align-items: flex-start;
@@ -850,6 +844,23 @@ select:focus-visible {
   clip-path: polygon(10px 0, 100% 0, 100% calc(100% - 10px), calc(100% - 10px) 100%, 0 100%, 0 10px);
 }
 
+.sidebar-new-workspace-button:hover {
+  color: var(--text-primary);
+  background: var(--list-hover-bg);
+  border-color: var(--control-border);
+}
+
+.sidebar-card-actions button:hover {
+  color: var(--text-primary);
+  background: var(--control-bg-hover);
+  border-color: color-mix(in srgb, var(--accent), transparent 60%);
+}
+
+.sidebar-card-actions button:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 2px var(--accent-subtle), 0 0 10px var(--accent-subtle);
+}
+
 .sidebar-workspace-eyebrow {
   font-size: var(--type-ui-micro);
   font-weight: 700;
@@ -892,35 +903,6 @@ select:focus-visible {
   opacity: 1;
 }
 
-.sidebar-favorite-star {
-  opacity: 0;
-  pointer-events: none;
-}
-
-.sidebar-item-row:hover .sidebar-favorite-star,
-.sidebar-item-row:focus-within .sidebar-favorite-star,
-.sidebar-item-row--active .sidebar-favorite-star,
-.sidebar-project-group--collapsed:hover .sidebar-favorite-star,
-.sidebar-inactive-project:hover .sidebar-favorite-star {
-  opacity: 0.95;
-  pointer-events: auto;
-}
-
-/* A favorited star stays visible even when the row is not hovered. */
-.sidebar-favorite-star.is-favorite {
-  opacity: 1;
-  pointer-events: auto;
-  color: var(--accent);
-}
-
-/* Lock toggle lives in the row actions (hover-revealed); a locked agent also
-   shows a persistent .sidebar-agent-lock-indicator on the left, so the toggle
-   itself only needs the accent treatment to read as locked. */
-.sidebar-lock-toggle.is-locked {
-  color: var(--accent);
-}
-
-/* A locked agent's delete button is disabled until the agent is unlocked. */
 .sidebar-icon-button:disabled {
   opacity: 0.3;
   cursor: default;
@@ -931,15 +913,31 @@ select:focus-visible {
   color: var(--text-muted);
 }
 
-.sidebar-action-button {
-  min-height: var(--control-height);
+.sidebar-toolbar-button {
+  transition: background var(--duration-normal) var(--ease-premium), color var(--duration-normal) var(--ease-premium), border-color var(--duration-normal) var(--ease-premium);
+}
+
+.sidebar-toolbar-button:hover {
+  color: var(--text-primary);
+  background: var(--list-hover-bg);
+  border-color: var(--control-border);
+}
+
+.sidebar-toolbar-button--primary:hover {
+  color: var(--accent);
+  background: var(--sidebar-active-bg);
+  border-color: color-mix(in srgb, var(--accent), transparent 50%);
+}
+
+.sidebar-toolbar-button:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 2px var(--accent-subtle), 0 0 10px var(--accent-subtle);
 }
 
 /* Metallic primary CTA — gradient catches light at the top-left, a hairline
    of the darker alloy edges it, and the inset top highlight reads as
-   polished metal. Shared by every primary action (Start Agent, + New Agent). */
-.btn-metal,
-.sidebar-action-button--primary {
+   polished metal. */
+.btn-metal {
   color: var(--btn-text);
   background: linear-gradient(135deg, var(--btn-hover), var(--btn-bg));
   border: 1px solid color-mix(in srgb, var(--accent-dim, var(--accent)), transparent 40%);
@@ -952,8 +950,7 @@ select:focus-visible {
   transition: filter var(--duration-normal) var(--ease-premium), box-shadow var(--duration-normal) var(--ease-premium);
 }
 
-.btn-metal:hover:not(:disabled),
-.sidebar-action-button--primary:hover {
+.btn-metal:hover:not(:disabled) {
   filter: brightness(1.1) drop-shadow(0 4px 8px rgba(0, 0, 0, 0.28)) drop-shadow(0 0 8px var(--effect-glow, transparent));
 }
 

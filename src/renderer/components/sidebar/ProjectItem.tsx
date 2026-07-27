@@ -1,20 +1,15 @@
 import React, { useCallback, useState } from 'react'
 import type { Project } from '../../../shared/types'
-import { isGitProject } from '../../../shared/project-kind'
 import { sidebarStyles } from './ProjectSidebar.styles'
-import { FavoriteStarButton } from './FavoriteStarButton'
+import { AddFolderGlyph } from './SidebarCardActionGlyphs'
 
 interface ProjectItemProps {
   project: Project
   isActive: boolean
   onSelect: (id: string) => void
   onRemove: (e: React.MouseEvent, id: string) => void
-  isFetching: boolean
-  fetchResult: { updatedBranch: string; commitCount: number } | null
-  fetchError: string | null
-  onFetch: () => void
-  behindCount?: number
   onRename?: (name: string) => void
+  onAddFolder?: () => void | Promise<void>
 }
 
 export function ProjectItem({
@@ -22,14 +17,9 @@ export function ProjectItem({
   isActive,
   onSelect,
   onRemove,
-  isFetching,
-  fetchResult,
-  fetchError,
-  onFetch,
-  behindCount,
   onRename,
+  onAddFolder,
 }: ProjectItemProps): React.JSX.Element {
-  const gitProject = isGitProject(project)
   const [editing, setEditing] = useState(false)
   const [draft, setDraft] = useState('')
 
@@ -91,89 +81,62 @@ export function ProjectItem({
     e.stopPropagation()
   }, [])
 
-  const behind = behindCount ?? 0
-  const fetchTitle = behind > 0
-    ? `${project.baseBranch} is ${behind} commit${behind === 1 ? '' : 's'} behind origin — fetch before starting a new agent`
-    : 'Fetch latest from remote'
-  const fetchAriaLabel = behind > 0
-    ? `Fetch ${project.name} (${behind} behind origin)`
-    : `Fetch ${project.name}`
-
   return (
-    <>
-      <div
-        onClick={handleClick}
-        onKeyDown={handleKeyDown}
-        className={`sidebar-item-row sidebar-project-row${isActive ? ' sidebar-item-row--active' : ''}${behind > 0 ? ' sidebar-project-row--behind' : ''}`}
-        style={{ ...sidebarStyles.item, ...(isActive ? sidebarStyles.itemActive : undefined), position: 'relative' as const }}
-        role="button"
-        tabIndex={0}
-      >
-        {editing ? (
-          <input
-            ref={focusAndSelect}
-            value={draft}
-            onChange={(e) => setDraft(e.target.value)}
-            onBlur={commitRename}
-            onKeyDown={handleNameKeyDown}
-            onClick={(e) => e.stopPropagation()}
-            style={sidebarStyles.nameInput}
-            aria-label="Repository name"
-          />
-        ) : (
-          <span
-            className="truncate sidebar-row-label"
-            style={sidebarStyles.itemName}
-            onDoubleClick={(e) => { e.stopPropagation(); startEditing() }}
-            title={onRename ? 'Double-click to rename' : undefined}
-          >
-            {project.name}
-          </span>
-        )}
-        <div className="sidebar-item-actions" style={sidebarStyles.itemRight}>
-          <FavoriteStarButton kind="repo" id={project.id} name={project.name} />
-          {gitProject && (
-            <button
-              type="button"
-              onClick={(e) => { e.stopPropagation(); onFetch() }}
-              onKeyDown={stopKeyPropagation}
-              className="sidebar-icon-button"
-              style={behind > 0 ? { ...sidebarStyles.removeButton, ...sidebarStyles.fetchPill } : sidebarStyles.removeButton}
-              aria-label={fetchAriaLabel}
-              title={fetchTitle}
-              disabled={isFetching}
-            >
-              {isFetching ? '...' : '↻'}
-              {!isFetching && behind > 0 && (
-                <span>{behind > 9 ? '9+' : behind}</span>
-              )}
-            </button>
-          )}
+    <div
+      onClick={handleClick}
+      onKeyDown={handleKeyDown}
+      className={`sidebar-item-row sidebar-project-row${isActive ? ' sidebar-item-row--active' : ''}`}
+      style={{ ...sidebarStyles.item, ...(isActive ? sidebarStyles.itemActive : undefined), position: 'relative' as const }}
+      role="button"
+      tabIndex={0}
+    >
+      {editing ? (
+        <input
+          ref={focusAndSelect}
+          value={draft}
+          onChange={(e) => setDraft(e.target.value)}
+          onBlur={commitRename}
+          onKeyDown={handleNameKeyDown}
+          onClick={(e) => e.stopPropagation()}
+          style={sidebarStyles.nameInput}
+          aria-label="Repository name"
+        />
+      ) : (
+        <span
+          className="truncate sidebar-row-label"
+          style={sidebarStyles.itemName}
+          onDoubleClick={(e) => { e.stopPropagation(); startEditing() }}
+          title={onRename ? 'Double-click to rename' : undefined}
+        >
+          {project.name}
+        </span>
+      )}
+      <div className="sidebar-item-actions" style={sidebarStyles.itemRight}>
+        {onAddFolder && (
           <button
             type="button"
-            onClick={handleRemoveClick}
+            onClick={(e) => { e.stopPropagation(); void onAddFolder() }}
             onKeyDown={stopKeyPropagation}
             className="sidebar-icon-button"
-            style={sidebarStyles.removeButton}
-            aria-label={`Remove ${project.name}`}
-            title="Remove repository"
+            style={sidebarStyles.addButton}
+            aria-label={`Add folder to ${project.name}`}
+            title="Add folder"
           >
-            &times;
+            <AddFolderGlyph />
           </button>
-        </div>
+        )}
+        <button
+          type="button"
+          onClick={handleRemoveClick}
+          onKeyDown={stopKeyPropagation}
+          className="sidebar-icon-button"
+          style={sidebarStyles.removeButton}
+          aria-label={`Remove ${project.name}`}
+          title="Remove repository"
+        >
+          &times;
+        </button>
       </div>
-      {fetchResult && (
-        <div style={sidebarStyles.fetchMessage}>
-          {fetchResult.commitCount > 0
-            ? `Updated ${fetchResult.updatedBranch}: ${fetchResult.commitCount} new commit${fetchResult.commitCount !== 1 ? 's' : ''}`
-            : `${fetchResult.updatedBranch} is up to date`}
-        </div>
-      )}
-      {fetchError && (
-        <div style={{ ...sidebarStyles.fetchMessage, color: 'var(--error, #f44)' }}>
-          {fetchError}
-        </div>
-      )}
-    </>
+    </div>
   )
 }
