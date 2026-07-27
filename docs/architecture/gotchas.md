@@ -1,7 +1,7 @@
 ---
 description: The top recurring development traps in Manifold — StrictMode double-mount, the better-sqlite3 Node↔Electron ABI flip, worktree bootstrap, and dockview layout restore/width-0 — each paired with the checked-in guardrail (test/script/doc) that pins it, cited to file:line.
 covers: [src/renderer/components/modals/NewAgentForm.tsx, scripts/rebuild-better-sqlite3-node.mjs, scripts/setup-worktree.sh, src/renderer/hooks/dock-layout/dock-layout-lifecycle.ts]
-updated: 2026-07-09
+updated: 2026-07-27
 owner: see .github/CODEOWNERS
 ---
 
@@ -112,17 +112,28 @@ sidebar is not preserved across an `api.fromJSON` reload. (c) A debounced layout
 fire `api.toJSON()` after the dockview is disposed. (d) The grid **orientation is sticky**:
 `api.clear()` keeps whatever the last `fromJSON` set, so rebuilding the default layout on a
 VERTICAL-rooted grid nests the three columns inside a wrapper branch where the 1:4:1 ratio
-patch used to miss them — equal thirds (#803).
+patch used to miss them — equal thirds (#803). (e) Reopening panels into an **emptied**
+dock: the first reopened panel (typically `projects`) owns the full dock width, and
+`withPinnedSidebars` used to pin it there during every subsequent add — clamping each new
+group to width 0, so the panels existed but rendered invisible until `projects` was
+toggled closed and open again.
 
 **Guardrail.** (a) Skip the width bookkeeping and the save while a group is maximized
 (`dock-layout-lifecycle.ts:41`). (b) Re-apply the saved sub-minimum sidebar widths right
 after `fromJSON` so the collapse survives (`dock-layout-loader.ts:56-61`). (c) Clear the
 pending debounced save on unmount (`useDockLayout.ts:288-295`). (d) Promote wrapper roots
 (flipping the serialized orientation) before patching the ratio
-(`dock-layout-builders.ts:41`). The regression tests drive the **real** dockview library
+(`dock-layout-builders.ts:41`). (e) Skip the sidebar pin when it would leave no unpinned
+group to absorb the change (`dock-layout-helpers.ts:215`), and after a hint-based reopen
+restore the default proportions — a reopened sidebar is sized to its 1/6 share, and a
+reopened center pane shrinks any sidebar that had grown past a third of the dock back to
+1/6 (`dock-layout-loader.ts:277-298`) — since `addPanel` naively splits the reference
+group 50/50. The regression tests drive the
+**real** dockview library
 and the **real** layout helpers rather than an approximation:
 `dock-layout-no-remount.test.tsx`, `useSidebarHandleCycle.collapse.test.tsx`,
-`dock-layout-default-ratio.test.tsx`, and `dock-layout-drag-restore.test.tsx` — the last
+`dock-layout-default-ratio.test.tsx`, `dock-layout-reopen-empty.test.tsx`, and
+`dock-layout-drag-restore.test.tsx` — the last
 wires `element.offsetWidth` to dockview's tracked group width because jsdom has no layout
 engine (`:30-36`). More in [Renderer](renderer.md).
 

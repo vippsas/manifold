@@ -1,5 +1,5 @@
 import React from 'react'
-import { DockviewReact, type DockviewApi } from 'dockview'
+import { DockviewReact, type DockviewApi, type DockviewTheme } from 'dockview'
 import type { Project, AgentSession, ManifoldSettings, FileChange, CreateProjectOptions } from '../shared/types'
 import type { Workspace, WorkspaceCreateOptions } from '../shared/workspace-types'
 import type { DockAppState } from './components/editor/editor-shell/dock-panel-types'
@@ -31,6 +31,15 @@ import { useLoadPluginContributions } from './plugins/use-contributions'
 import { PluginUiHost } from './components/plugin-ui/PluginUiHost'
 import { CommandPalette } from './components/command-palette/CommandPalette'
 import { ShortcutsCheatSheet } from './components/command-palette/ShortcutsCheatSheet'
+
+/** The dockview theme: our CSS classes plus a small gap between panel groups,
+ *  which — with the rounded-card group styling in dockview-theme.css — makes
+ *  each panel read as a floating card on a recessed canvas. */
+const DOCK_THEME: DockviewTheme = {
+  name: 'manifold',
+  className: 'dockview-theme-dark dockview-theme-manifold',
+  gap: 6,
+}
 
 export interface NewAgentTarget {
   projectId: string
@@ -127,11 +136,13 @@ export function AppShell(p: AppShellProps): React.JSX.Element {
           <ActivityBar
             dockLayout={p.dockLayout as ActivityBarProps['dockLayout']}
             hasActiveSession={p.activeSessionId != null}
+            onOpenSettings={() => p.overlays.setShowSettings(true)}
           />
           <DockStateContext.Provider value={p.dockState}>
-            <div style={{ flex: 1, overflow: 'hidden', position: 'relative' }}>
+            <div style={{ flex: 1, overflow: 'hidden', position: 'relative', padding: 'var(--space-xs)', background: 'var(--dock-canvas)' }}>
               <DockviewReact
-                className={`dockview-theme-dark dockview-theme-manifold${!p.activeSessionId ? ' dockview-minimal' : ''}`}
+                theme={DOCK_THEME}
+                className={!p.activeSessionId ? 'dockview-minimal' : ''}
                 components={PANEL_COMPONENTS}
                 onReady={(e) => p.onDockReady(e.api)}
                 defaultTabComponent={DockTab}
@@ -154,13 +165,11 @@ export function AppShell(p: AppShellProps): React.JSX.Element {
           changedFiles={p.mergedChanges}
           baseBranch={p.baseBranch}
           projectIsGit={p.activeProjectIsGit}
-          dockLayout={p.dockLayout as never}
           conflicts={p.gitOps.conflicts as never}
           aheadBehind={p.gitOps.aheadBehind as never}
           onCommit={() => p.overlays.setActivePanel('commit')}
           onCreatePR={() => p.overlays.setActivePanel('pr')}
           onShowConflicts={() => p.overlays.setActivePanel('conflicts')}
-          onOpenSettings={() => p.overlays.setShowSettings(true)}
           showCommitAndPrButtons={p.showCommitAndPrButtons}
         />
       </div>

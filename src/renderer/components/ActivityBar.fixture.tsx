@@ -10,6 +10,6 @@ const dockLayout: ActivityBarProps['dockLayout'] = {
 
 export default (
   <div style={{ display: 'flex', height: 480, width: 260, background: 'var(--bg-primary)', border: '1px solid var(--border)' }}>
-    <ActivityBar dockLayout={dockLayout} hasActiveSession />
+    <ActivityBar dockLayout={dockLayout} hasActiveSession onOpenSettings={() => undefined} />
   </div>
 )

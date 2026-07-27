@@ -1,9 +1,8 @@
-import { describe, it, expect, vi } from 'vitest'
-import { fireEvent, render, screen } from '@testing-library/react'
+import { describe, it, expect } from 'vitest'
+import { render, screen } from '@testing-library/react'
 import React from 'react'
 import { StatusBar } from './StatusBar'
 import type { AgentSession, FileChange } from '../../../shared/types'
-import type { UseDockLayoutResult } from '../../hooks/dock-layout/useDockLayout'
 
 const sampleSession: AgentSession = {
   id: 's1',
@@ -22,32 +21,6 @@ const sampleChangedFiles: FileChange[] = [
   { path: 'src/old.ts', type: 'deleted' },
 ]
 
-function mockDockLayout(overrides: Partial<UseDockLayoutResult> = {}): UseDockLayoutResult {
-  const layout: UseDockLayoutResult = {
-    apiRef: { current: null },
-    isRestoringRef: { current: false },
-    onReady: vi.fn(),
-    togglePanel: vi.fn(),
-    closePanel: vi.fn(),
-    toggleMaximizePanel: vi.fn(),
-    focusPanel: vi.fn(),
-    openSiblingPanel: vi.fn(),
-    closeSiblingPanel: vi.fn(),
-    ensureEditorPanel: vi.fn().mockReturnValue('editor'),
-    splitEditorPane: vi.fn().mockReturnValue(null),
-    findEditorPanelForSplit: vi.fn().mockReturnValue(null),
-    isPanelVisible: () => true,
-    resetLayout: vi.fn(),
-    hiddenPanels: [],
-    editorPanelIds: [],
-    layoutVersion: 0,
-    layoutReloadVersion: 0,
-    openPluginView: vi.fn(),
-    openPluginTreeView: vi.fn(),
-  }
-  return { ...layout, ...overrides }
-}
-
 describe('StatusBar', () => {
   it('displays "No active agent" when no session', () => {
     render(
@@ -55,7 +28,6 @@ describe('StatusBar', () => {
         activeSession={null}
         changedFiles={[]}
         baseBranch="main"
-        dockLayout={mockDockLayout()}
       />,
     )
 
@@ -68,7 +40,6 @@ describe('StatusBar', () => {
         activeSession={sampleSession}
         changedFiles={sampleChangedFiles}
         baseBranch="main"
-        dockLayout={mockDockLayout()}
       />,
     )
 
@@ -81,7 +52,6 @@ describe('StatusBar', () => {
         activeSession={sampleSession}
         changedFiles={sampleChangedFiles}
         baseBranch="main"
-        dockLayout={mockDockLayout()}
       />,
     )
 
@@ -94,7 +64,6 @@ describe('StatusBar', () => {
         activeSession={sampleSession}
         changedFiles={[{ path: 'a.ts', type: 'modified' }]}
         baseBranch="main"
-        dockLayout={mockDockLayout()}
       />,
     )
 
@@ -107,7 +76,6 @@ describe('StatusBar', () => {
         activeSession={sampleSession}
         changedFiles={[]}
         baseBranch="main"
-        dockLayout={mockDockLayout()}
       />,
     )
 
@@ -120,7 +88,6 @@ describe('StatusBar', () => {
         activeSession={null}
         changedFiles={[]}
         baseBranch="develop"
-        dockLayout={mockDockLayout()}
       />,
     )
 
@@ -133,42 +100,22 @@ describe('StatusBar', () => {
         activeSession={null}
         changedFiles={[]}
         baseBranch="main"
-        dockLayout={mockDockLayout()}
       />,
     )
 
     expect(screen.getByText('main')).toBeInTheDocument()
   })
 
-  it('does not render panel toggle buttons when there is no active session', () => {
-    render(
-      <StatusBar
-        activeSession={null}
-        changedFiles={[]}
-        baseBranch="main"
-        dockLayout={mockDockLayout({ hiddenPanels: ['shell'] })}
-      />,
-    )
-
-    expect(screen.queryByRole('button', { name: /open shell/i })).not.toBeInTheDocument()
-  })
-
-  it('renders an open shell button when the shell panel is hidden', () => {
-    const togglePanel = vi.fn()
+  it('does not render panel toggle or settings buttons — those live in the activity bar', () => {
     render(
       <StatusBar
         activeSession={sampleSession}
         changedFiles={[]}
         baseBranch="main"
-        dockLayout={mockDockLayout({ hiddenPanels: ['shell'], togglePanel })}
       />,
     )
 
-    const shellButton = screen.getByRole('button', { name: /open shell/i })
-    expect(shellButton).toHaveClass('statusbar-button--shell')
-    expect(shellButton).toHaveTextContent('>_')
-
-    fireEvent.click(shellButton)
-    expect(togglePanel).toHaveBeenCalledWith('shell')
+    expect(screen.queryByRole('button', { name: /open shell/i })).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: /settings/i })).not.toBeInTheDocument()
   })
 })

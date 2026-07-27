@@ -146,8 +146,10 @@ describe('applyLayoutChangePreservingSidebarWidths', () => {
     const fromJSON = vi.fn((json: SerializedDockview) => { layout = json })
     const projectsGroup = makeGroup(200)
     const filesGroup = makeGroup(200)
+    const centerGroup = makeGroup(600)
     const api = {
       width: 1000,
+      groups: [projectsGroup, centerGroup, filesGroup],
       toJSON: vi.fn(() => layout),
       fromJSON,
       getPanel: vi.fn((panelId: string) => {
@@ -183,8 +185,10 @@ describe('applyLayoutChangePreservingSidebarWidths', () => {
     let layout = createWorkspaceLayout()
     const projectsGroup = makeGroup(200)
     const filesGroup = makeGroup(200)
+    const centerGroup = makeGroup(600)
     const api = {
       width: 1000,
+      groups: [projectsGroup, centerGroup, filesGroup],
       toJSON: vi.fn(() => layout),
       fromJSON: vi.fn(),
       getPanel: vi.fn((panelId: string) => {

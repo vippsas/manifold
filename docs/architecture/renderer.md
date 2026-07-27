@@ -54,8 +54,11 @@ incomplete) or `OnboardingView` (no projects) before rendering the full workspac
 `PANEL_TITLES` via a CSS hover tooltip (`.activity-bar-tooltip`). A click calls
 `dockLayout.togglePanel(id)`; a visible panel (`isPanelVisible`) renders accent-colored
 with an edge indicator bar. Session-dependent items (`editor`, `fileTree`,
-`modifiedFiles`, `shell`) are disabled while no agent session is active, mirroring the
-status bar's panel toggles.
+`modifiedFiles`, `shell`) are disabled while no agent session is active. A settings
+button (gear) is pinned to the bottom of the rail and opens the settings modal via
+`onOpenSettings`. The rail is the only home for panel toggles and the settings entry —
+the status bar (`components/git/StatusBar.tsx`) no longer renders either and keeps only
+session/git status and the commit/PR/conflict actions.
 
 **Panel layout (dockview).** The workspace is a single `DockviewReact` instance
 (`AppShell.tsx:125`). Panels are registered by string id in `PANEL_COMPONENTS`

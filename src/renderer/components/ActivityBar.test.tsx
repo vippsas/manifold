@@ -55,4 +55,22 @@ describe('ActivityBar', () => {
     expect(tooltip).not.toBeNull()
     expect(tooltip).toHaveTextContent('Shell')
   })
+
+  it('renders a settings button at the bottom that opens settings', () => {
+    const onOpenSettings = vi.fn()
+    render(
+      <ActivityBar dockLayout={makeDockLayout()} hasActiveSession={false} onOpenSettings={onOpenSettings} />,
+    )
+
+    const settings = screen.getByRole('button', { name: 'Settings' })
+    expect(settings).toBeEnabled()
+    fireEvent.click(settings)
+    expect(onOpenSettings).toHaveBeenCalled()
+  })
+
+  it('omits the settings button when no handler is provided', () => {
+    render(<ActivityBar dockLayout={makeDockLayout()} hasActiveSession />)
+
+    expect(screen.queryByRole('button', { name: 'Settings' })).not.toBeInTheDocument()
+  })
 })

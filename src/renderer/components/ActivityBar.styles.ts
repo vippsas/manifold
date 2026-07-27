@@ -15,4 +15,8 @@ export const activityBarStyles: Record<string, React.CSSProperties> = {
     // The rail must paint above the dock so its hover tooltips overlay the panels.
     zIndex: 100,
   },
+  // Pushes the settings item to the bottom of the rail.
+  spacer: {
+    flex: 1,
+  },
 }

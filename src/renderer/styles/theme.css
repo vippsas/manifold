@@ -601,27 +601,6 @@ select:focus-visible {
   color: var(--text-primary);
 }
 
-.statusbar-button--shell {
-  min-width: 96px;
-  padding: 0 var(--space-sm);
-  border-color: color-mix(in srgb, var(--accent), transparent 70%);
-  border-radius: var(--radius-sm);
-  color: var(--accent);
-}
-
-.statusbar-button--shell:hover {
-  border-color: var(--accent);
-  background: var(--statusbar-hover-bg);
-  color: var(--accent);
-}
-
-.statusbar-shell-icon {
-  font-family: var(--font-mono);
-  font-size: var(--type-ui-caption);
-  font-weight: 700;
-  line-height: 1;
-}
-
 .statusbar-button--accent,
 .statusbar-button--success,
 .statusbar-button--warning {
@@ -641,17 +620,6 @@ select:focus-visible {
 .statusbar-button--warning {
   color: var(--warning);
   background: var(--warning-subtle);
-}
-
-.statusbar-icon-button {
-  width: 20px;
-  justify-content: center;
-  padding: 0;
-}
-
-.statusbar-icon {
-  font-size: 14px;
-  line-height: 1;
 }
 
 .sidebar-item-row {

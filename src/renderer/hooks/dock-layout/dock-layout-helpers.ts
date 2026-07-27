@@ -215,12 +215,22 @@ export function restoreSidebarWidths(api: DockviewApi, widths: { left: number; r
 export function withPinnedSidebars(api: DockviewApi, applyChange: () => void, excludePanelId?: string): void {
   const releases: Array<() => void> = []
   if (api.width > 0) {
+    const targets: Array<{ group: SidebarGroup; width: number }> = []
     for (const panelId of SIDEBAR_PANEL_IDS) {
       if (panelId === excludePanelId) continue
       const group = sidebarGroup(api, panelId)
       const width = group?.element.offsetWidth ?? 0
       if (!group || width <= 0) continue
-      releases.push(pinGroupWidth(group, width))
+      targets.push({ group, width })
+    }
+    // Pinning every existing group would leave no free pane to absorb the
+    // mutation: reopening panels one by one into an emptied dock where only a
+    // sidebar survives would pin it at the full dock width, clamping each
+    // newly added group to width 0 — panels that exist but render invisible.
+    // Pin only while at least one unpinned group remains.
+    const pinned = new Set<unknown>(targets.map(({ group }) => group))
+    if (api.groups.some((group) => !pinned.has(group))) {
+      for (const { group, width } of targets) releases.push(pinGroupWidth(group, width))
     }
   }
   try {

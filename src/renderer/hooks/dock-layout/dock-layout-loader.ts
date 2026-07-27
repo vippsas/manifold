@@ -3,6 +3,7 @@ import { sanitizeDockLayout } from './dock-layout-sanitize'
 import {
   PANEL_RESTORE_HINTS,
   PANEL_TITLES,
+  SIDEBAR_PANEL_IDS,
   applyLayoutChangePreservingSidebarWidths,
   restoreCollapsedSidebarWidths,
   withPinnedSidebars,
@@ -11,6 +12,10 @@ import {
   type GridNode,
   type LayoutRefs,
 } from './dock-layout-helpers'
+
+/** The default share of the dock width a sidebar column gets (matches the
+ *  1:4:1 default layout and the sanitizer's restored-sidebar cap). */
+const SIDEBAR_WIDTH_FRACTION = 1 / 6
 
 /**
  * Size the group containing `panelId` to roughly `fraction` of the dock height,
@@ -32,6 +37,25 @@ function applyPanelHeightFraction(api: DockviewApi, panelId: string, fraction: n
     if (refs) refs.lastLayoutRef.current = api.toJSON()
   } catch (err) {
     console.warn(`[applyPanelHeightFraction] failed for '${panelId}':`, err)
+  }
+}
+
+/** Width twin of applyPanelHeightFraction: size the group containing
+ *  `panelId` to roughly `fraction` of the dock width, in place. */
+function applyPanelWidthFraction(api: DockviewApi, panelId: string, fraction: number, refs?: LayoutRefs): void {
+  if (api.width <= 0) return
+  const group = api.getPanel(panelId)?.group
+  if (!group) return
+  try {
+    if (refs) refs.isRestoringRef.current = true
+    try {
+      group.api.setSize({ width: Math.round(api.width * fraction) })
+    } finally {
+      if (refs) refs.isRestoringRef.current = false
+    }
+    if (refs) refs.lastLayoutRef.current = api.toJSON()
+  } catch (err) {
+    console.warn(`[applyPanelWidthFraction] failed for '${panelId}':`, err)
   }
 }
 
@@ -252,6 +276,24 @@ export function showPanelFromHints(api: DockviewApi, id: DockPanelId, refs?: Lay
     })
     if (usedDirection === 'below') {
       applyPanelHeightFraction(api, id, 1 / 3, refs)
+    } else if (SIDEBAR_PANEL_IDS.has(id)) {
+      // addPanel splits the reference group 50/50; a sidebar reopened via
+      // hints should take its default share, not half the dock.
+      applyPanelWidthFraction(api, id, SIDEBAR_WIDTH_FRACTION, refs)
     }
   }, refs)
+  if (usedDirection !== 'below' && !SIDEBAR_PANEL_IDS.has(id)) {
+    // A center pane reopened via hints splits its reference group 50/50. When
+    // that reference is a sidebar that had grown to dominate the dock (the
+    // last survivor of an emptied dock), both end up around half the width —
+    // shrink such sidebars back to their default share so the reopened pane
+    // gets the space. Done outside the pinning scope, which holds sidebars
+    // at their pre-change width.
+    for (const sidebarId of SIDEBAR_PANEL_IDS) {
+      const group = api.getPanel(sidebarId)?.group
+      if (group && api.width > 0 && group.api.width > api.width / 3) {
+        applyPanelWidthFraction(api, sidebarId, SIDEBAR_WIDTH_FRACTION, refs)
+      }
+    }
+  }
 }

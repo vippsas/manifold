@@ -1,7 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import type { DockviewApi, SerializedDockview } from 'dockview'
 import {
-  PANEL_IDS,
   applyLayoutChangePreservingSidebarWidths,
   applyMinimalLayout,
   findTopLeftWorkspaceReferencePanel,
@@ -21,7 +20,6 @@ import { reconcileLayoutAfterLoad } from './dock-layout-tabs'
 import { useEditorPanels } from './dock-layout-panels'
 import { useDockActions } from './dock-layout-actions'
 import { registerLayoutListeners } from './dock-layout-lifecycle'
-import { LAUNCHER_MODULE_IDS } from '../../modules/launcher-modules'
 
 export type { DockPanelId, EditorSplitDirection } from './dock-layout-helpers'
 export { isEditorPanelId } from './dock-layout-helpers'
@@ -56,7 +54,6 @@ export interface UseDockLayoutResult {
   findEditorPanelForSplit: (referencePanelId: string, direction: EditorSplitDirection) => string | null
   isPanelVisible: (id: DockPanelId) => boolean
   resetLayout: () => void
-  hiddenPanels: DockPanelId[]
   editorPanelIds: string[]
   layoutVersion: number
   /** Bumps only when the dock layout is fully reloaded (e.g. a session
@@ -294,9 +291,6 @@ export function useDockLayout(
     }
   }, [])
 
-  const hiddenPanels = PANEL_IDS
-    .filter((id) => !LAUNCHER_MODULE_IDS.has(id))
-    .filter((id) => !isPanelVisible(id)) as DockPanelId[]
   const editorPanelIds = Array.from(editorPanelIdsRef.current).sort((left, right) => (
     parseEditorPanelOrder(left) - parseEditorPanelOrder(right)
   ))
@@ -305,7 +299,7 @@ export function useDockLayout(
     apiRef, isRestoringRef, onReady, togglePanel, closePanel, toggleMaximizePanel, focusPanel,
     openSiblingPanel, closeSiblingPanel,
     ensureEditorPanel, splitEditorPane, findEditorPanelForSplit, isPanelVisible,
-    resetLayout, hiddenPanels, editorPanelIds, layoutVersion, layoutReloadVersion,
+    resetLayout, editorPanelIds, layoutVersion, layoutReloadVersion,
     openPluginView, openPluginTreeView,
   }
 }
