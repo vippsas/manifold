@@ -1497,19 +1497,21 @@ select:focus-visible {
 }
 
 /* ─── File Tree Icons ─── */
-/* Devicon brand colors are desaturated so the tree stays one material;
-   the icon brightens (still monochrome) as the row is hovered/activated. */
+/* VS Code's default file icon theme (Seti): one glyph font, one colour per file type. The two
+   candidate colours arrive as custom properties on the glyph (see tree-node-row.tsx); Seti's
+   own light-theme palette is the dark one darkened, so light themes swap to it. */
+@font-face {
+  font-family: 'seti';
+  src: url('../assets/seti/seti.woff') format('woff');
+  font-weight: normal;
+  font-style: normal;
+  font-display: block;
+}
 .file-tree-row .file-tree-icon {
-  filter: grayscale(1) brightness(1.08) opacity(0.65);
-  transition: filter var(--duration-normal) var(--ease-premium);
+  color: var(--seti-icon-color);
 }
-.file-tree-row:hover .file-tree-icon {
-  filter: grayscale(1) brightness(1.08) opacity(0.85);
-}
-.file-tree-row.file-tree-row--active .file-tree-icon {
-  /* Accent-tinted: the open file is the only icon that earns color.
-     Fallback preserves the monochrome treatment if the token is absent. */
-  filter: var(--tree-icon-active-filter, grayscale(1) brightness(1.08) opacity(1));
+.theme-light .file-tree-row .file-tree-icon {
+  color: var(--seti-icon-color-light);
 }
 
 /* ─── File Tree Delete Button (hover reveal) ─── */

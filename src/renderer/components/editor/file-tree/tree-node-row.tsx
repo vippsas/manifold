@@ -1,13 +1,37 @@
 import React, { useCallback } from 'react'
 import type { FileTreeNode, FileChangeType } from '../../../../shared/types'
-import { getFileIconSvg } from './file-icons'
+import { getSetiFileIcon } from './seti-icons'
 import { getDraggedTreePath, writeFileTreeDragData } from './file-tree-drag'
 import { fuzzyMatch } from './file-tree-visible'
 import { highlightByIndices } from '../../search/search-highlight'
 import { CHANGE_INDICATORS, treeStyles } from './FileTree.styles'
 
-// Inline SVG chevron for directory expand/collapse
-export const CHEVRON_SVG = '<svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor"><path d="M6 4l4 4-4 4"/></svg>'
+/** Directory expand/collapse chevron; the wrapper rotates it when expanded. */
+function ChevronIcon(): React.JSX.Element {
+  return (
+    <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
+      <path d="M6 4l4 4-4 4" />
+    </svg>
+  )
+}
+
+/** File type icon from VS Code's Seti theme — a glyph in the `seti` font, coloured by file type.
+ *  Both palettes ride along as custom properties so theme.css can pick the light-theme one. */
+function FileTypeIcon({ name }: { name: string }): React.JSX.Element {
+  const icon = getSetiFileIcon(name)
+  return (
+    <span
+      className="file-tree-icon"
+      style={{
+        ...treeStyles.fileIcon,
+        '--seti-icon-color': icon.color,
+        '--seti-icon-color-light': icon.lightColor,
+      } as React.CSSProperties}
+    >
+      {icon.character}
+    </span>
+  )
+}
 
 /** Render a filename with fuzzy-match highlight segments (when filtering). */
 function renderName(name: string, filterQuery: string | undefined): React.ReactNode {
@@ -128,15 +152,11 @@ export function NodeRow({
             ...treeStyles.chevron,
             transform: expanded ? 'rotate(90deg)' : 'rotate(0deg)',
           }}
-          dangerouslySetInnerHTML={{ __html: CHEVRON_SVG }}
-        />
+        >
+          <ChevronIcon />
+        </span>
       ) : (
-        (() => {
-          const svg = getFileIconSvg(node.name)
-          return svg
-            ? <span className="file-tree-icon" style={treeStyles.fileIconImg} dangerouslySetInnerHTML={{ __html: svg }} />
-            : <span className="file-tree-icon" style={treeStyles.fileIcon}>{'\uD83D\uDCC4'}</span>
-        })()
+        <FileTypeIcon name={node.name} />
       )}
       {isRenaming ? (
         <input
@@ -153,7 +173,6 @@ export function NodeRow({
           className="truncate"
           style={{
             ...treeStyles.nodeName,
-            fontWeight: node.isDirectory ? 600 : 400,
             ...(showLetter && changeType ? { color: CHANGE_INDICATORS[changeType].color } : {}),
             ...(showLetter && changeType === 'deleted' ? { textDecoration: 'line-through' } : {}),
           }}

@@ -1,7 +1,7 @@
 ---
 description: How an agent self-verifies renderer/theme changes — screenshot a single component under a real theme with no Electron, and drive the built app for flow-level checks. Covers the two scripts, their engine choices, the fixture convention, and how they reuse the app's theme conversion.
 covers: [scripts/screenshot-component.mjs, scripts/drive-app.mjs]
-updated: 2026-07-08
+updated: 2026-07-27
 owner: see .github/CODEOWNERS
 ---
 
@@ -52,7 +52,8 @@ Pipeline (all steps but the capture are pure and unit-tested in
    with the available list.
 3. **Bundle.** esbuild compiles a tiny entry (React + the target + `theme.css`) into a browser
    IIFE; the theme's CSS variables are injected via `define` and applied with the app's own
-   `applyThemeCssVars`.
+   `applyThemeCssVars`. Fonts that `theme.css` `@font-face`s (the Seti icon font) are inlined as
+   data URLs, so a webfont can't break the bundle or go missing in the capture.
 4. **Assemble** a self-contained HTML page: a default `window.electronAPI` stub (every `invoke`
    resolves `[]`), the bundled CSS, a themed mount point, and the bundle.
 5. **Capture** with headless Chromium (`page.screenshot`), or with `--emit-html` write the page

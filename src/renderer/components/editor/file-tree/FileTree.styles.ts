@@ -83,18 +83,13 @@ export const treeStyles: Record<string, React.CSSProperties> = {
   },
   fileIcon: {
     width: '16px',
-    fontSize: '14px',
+    // Seti glyphs carry their own optical padding, so they need to be set larger than the
+    // 16px box to read at the same weight as the rest of the row.
+    fontFamily: 'seti',
+    fontSize: '18px',
     flexShrink: 0,
     textAlign: 'center' as const,
     lineHeight: '16px',
-  },
-  fileIconImg: {
-    width: '16px',
-    height: '16px',
-    flexShrink: 0,
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'center',
   },
   nodeName: {
     flex: 1,

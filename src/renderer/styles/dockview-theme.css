@@ -217,7 +217,12 @@
    view is carried by the accent colour — the same active language the activity
    bar uses, since these tabs have no label to bolden. */
 .dockview-theme-manifold .dv-tab:has(.dock-tab--icon) {
-  padding: 0 1px;
+  padding: 0 2px;
+}
+
+/* Inset the strip so the active tab's pill clears the card's rounded corner. */
+.dockview-theme-manifold .dv-tabs-container:has(.dock-tab--icon) {
+  padding-inline: 4px;
 }
 
 .dockview-theme-manifold .dv-active-tab .dock-tab--icon {

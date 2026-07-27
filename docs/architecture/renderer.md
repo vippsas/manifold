@@ -82,12 +82,12 @@ Tab headers use `DockTab`; empty groups show `EmptyWatermark`; the left header-a
 hosts `ShellHeaderActions` (self-gated to the shell panel;
 `components/terminal/ShellHeaderActions.tsx:12`) and the right slot
 `WorkspaceHeaderActions` (editor actions plus the icon-tab group `×`;
-`components/editor/editor-shell/WorkspaceHeaderActions.tsx:14`). The sidebar panels —
-**Repositories**, **Files**, and **Modified Files** — render icon-only tabs (glyph shared
-with the activity bar via `PanelGlyph`, name as tooltip) without per-tab close buttons; a
-single `×` in the group's right header actions closes every icon-tab panel in that group at
-once (`ICON_TAB_PANELS`, `DockTab.tsx:11`;
-`components/editor/editor-shell/WorkspaceHeaderActions.tsx:16`). There are no header
+`components/editor/editor-shell/WorkspaceHeaderActions.tsx:14`). The tool panels —
+**Repositories**, **Files**, **Modified Files**, and the **Editor** — render icon-only tabs
+(glyph shared with the activity bar via `PanelGlyph`, name as tooltip, active view carried by
+the accent colour) without per-tab close buttons; a single `×` in the group's right header
+actions closes every icon-tab panel in that group at once (`ICON_TAB_PANELS`,
+`DockTab.tsx:12`; `components/editor/editor-shell/WorkspaceHeaderActions.tsx:16`). There are no header
 sidebar-collapse buttons — hiding a panel is done by closing it (tab `×` or the activity
 bar); only the double-click sash width-cycle gesture remains from the collapse machinery
 (`hooks/dock-layout/useSidebarHandleCycle.ts`). Apps are per-worktree, so the launcher list lives in the agent's options
@@ -96,23 +96,26 @@ sidebar row — and only for the active session; there is no "+ Apps" header but
 toggles **focus mode**: `DockTab`'s `onDoubleClick` calls `onToggleMaximize` (`DockTab.tsx:31`), which
 maximizes that pane's group via dockview's native `maximizeGroup`/`exitMaximizedGroup`
 (`hooks/dock-layout/dock-layout-helpers.ts:243`) — hiding every other pane and both sidebars
-in place (no remount) and restoring them exactly on the second double-click. The default arrangement is
-`projects | agent | (fileTree+modifiedFiles)` at a 1:4:1 width ratio
-(`hooks/dock-layout/dock-layout-builders.ts:8`); the builder enforces the ratio by patching
-the serialized grid, first promoting any single-branch wrapper root left behind by a sticky
-VERTICAL grid orientation — `api.clear()` keeps the orientation the last `fromJSON` set, so
-after showing a layout with a bottom pane the three columns would otherwise nest one level
-deeper and the patch would miss them, yielding equal thirds (#803)
-(`hooks/dock-layout/dock-layout-builders.ts:41`). Saved layouts are sanitized before
+in place (no remount) and restoring them exactly on the second double-click. **Every tool
+panel shares ONE sidebar item**, switched by its icon tabs: the default arrangement is
+`(projects+fileTree+modifiedFiles) | agent` at a 1:5 width ratio — one sidebar column plus
+the agent, not a column per tool (`hooks/dock-layout/dock-layout-builders.ts:8`). The builder
+enforces the ratio by patching the serialized grid, first promoting any single-branch wrapper
+root left behind by a sticky VERTICAL grid orientation — `api.clear()` keeps the orientation
+the last `fromJSON` set, so after showing a layout with a bottom pane the columns would
+otherwise nest one level deeper and the patch would miss them, yielding equal halves (#803)
+(`hooks/dock-layout/dock-layout-builders.ts:44`). Every tool panel's restore hints point
+`within` its siblings before any direction, so a reopened tool rejoins the one item instead of
+landing in a foreign group or spawning a second sidebar
+(`PANEL_RESTORE_HINTS`, `hooks/dock-layout/dock-layout-helpers.ts:38`). Saved layouts are sanitized before
 `api.fromJSON`; the sanitizer strips unsupported panels and caps restored `projects` /
 `fileTree` sidebar columns, including stale stacked sidebar columns, to the same
 one-sixth share before the loader persists repaired snapshots
 (`hooks/dock-layout/dock-layout-sanitize.ts:91`, `:116`, `:174`; `hooks/dock-layout/dock-layout-loader.ts:51`).
-**Files and the editor share one tabbed group**: whichever opens second tabs `within` the
-group of the one already open — `ensureEditorPanelInWorkspace` targets the files group when
-present (`hooks/dock-layout/dock-layout-editor.ts:24`), and the restore hints couple both
-directions (`hooks/dock-layout/dock-layout-helpers.ts:38`). When the editor joins a
-sidebar-width files group, the shared group widens to a one-third share
+**The editor is a guest tab of that item**: `ensureEditorPanelInWorkspace` tabs it into
+whichever sidebar panel is open, falling back to a column beside the agent only when the whole
+item is closed (`hooks/dock-layout/dock-layout-editor.ts:22`). When the editor joins the
+sidebar-width item, the shared group widens to a one-third share
 (`widenSharedEditorGroup`, `hooks/dock-layout/dock-layout-loader.ts:40`); when the last
 editor pane leaves, it shrinks back to one-sixth (`shrinkEditorHostSidebarGroups`,
 `hooks/dock-layout/dock-layout-loader.ts:52`, called from the editor-close paths in
@@ -129,7 +132,7 @@ All add/remove/focus/split/resize logic lives in the `hooks/dock-layout/` subsys
 - `projects` → **Repositories** — `ProjectSidebar` (repos, sessions, optional workspaces, drafts). The panel is a flat list of bordered working-set cards with no `With agents` / `Repositories` category headers: a one-repository card is the simple case, while a named workspace card contains every repository and agent in that working set. Every card remains expanded when another card is selected. Its header contains **Add folder** where the former agent `+` lived, while the persistent bottom action is **Add agent**, which opens `NewAgentModal`. Add folder opens the native folder picker: on a named workspace the selected local project is attached immediately; on a one-repository card it promotes the card into a workspace containing both folders. This action stays visible when workspace display is disabled and enables it after the user actually selects a second folder; cancelling the picker leaves the setting unchanged. The **New workspace** row uses the layered workspace glyph shown on each workspace card. Once at least one repository exists, adding a standalone repository and creating a workspace use body-portaled dialog overlays (`AddRepositoryModal`, `NewWorkspaceModal`), leaving the dock and current agent view mounted underneath; only the true first visit with zero repositories uses the full-pane `OnboardingView`. Repository rows have neither a manual fetch control nor a favorite-star action: `useBranchStaleness` refreshes the active repository's remote-tracking state on activation and window focus, throttled to once every three minutes, while previously saved favorites remain available in `FavoritesList`. Repository ids already represented by workspace cards are suppressed from the standalone card list. Workspace display remains controllable through **Settings → General → Enable Workspaces**; while disabled, `App` omits existing workspace cards, filters workspace favorites, and clears workspace selection so the repository-only launch path remains active. Each agent row (`AgentItem`) marks no-worktree agents with a gold **"in-place"** badge and chat agents with `◐`; its gear opens `AgentSettingsModal` to rename the agent, choose its runtime, and switch between the chat UI and interactive terminal. Saving a runtime/view change first asks for confirmation, then retires the old session, clears its chat, and starts a new session on the same branch, worktree, files, and workspace roots. Name-only changes do not replace the session. The former lock/delete-protection affordance is retired, including for sessions that still carry an old persisted `locked` flag.
 - `agent` → **Agent** — `AgentPanel` (`components/editor/editor-shell/dock-agent-panel.tsx:86`): renders a draft chat, an `OnboardingView` (no agent yet), an `AgentChatView` (non-interactive chat-mode), or an xterm `TerminalPane` (interactive runtime) depending on session state. The `OnboardingView` → `NewAgentForm` create flow reads the `useWorktrees` setting (threaded as `defaultUseWorktrees` via the panel state, like `defaultAgentMode`); its Advanced section shows a per-agent **"Run without a worktree"** toggle (hidden when "Continue on an existing branch or PR" is selected, which is inherently in-place), defaulting to the inverse of `useWorktrees`. Checking it sets `SpawnAgentOptions.noWorktree`; the agent then works directly on its **base branch** with no typed name (named after the branch), or cuts a **new branch off the base** with a typed name. The Advanced branch picker sets that base branch (`baseBranch`, default = project base), which also becomes the session's diff/PR base. When the pending agent will run in place and another in-place agent is already running in the repo, the form shows a non-blocking warning. Because cutting a new in-place branch switches the project's real working copy, the form pre-checks `git:has-uncommitted-changes` for the typed-name case and — if dirty — shows a `ConfirmDialog` (portaled to `document.body` to escape dockview's transform); confirming re-launches with `allowDirtyWorktree`. A blank name sets `autoName` (no random-city placeholder) (`NewAgentForm.tsx`).
 - `editor` → **Editor** — `EditorPanel` wrapping `CodeViewer` (Monaco); split editors get ids prefixed `editor:` and each registers its own pane. `useCodeView`/`useCodeViewFileOps` gate `files:read` on the active session's allowed roots (worktree + additional dirs, passed from `App.tsx`): during a session switch the previous session's open file (rooted in a different worktree) is skipped instead of read against the new session id — avoiding a main-process path-traversal denial and its log noise, most visible when switching to a no-worktree agent whose root is the main repo.
-- `fileTree` → **Files** — `FileTree` over the worktree + any additional dirs. Change badges separate direct working-tree changes from branch-only ones: `mergeFileChanges` unions the base-branch diff (`useDiff`) with the live `git status` watcher feed and tags each path `worktreeDirty` by source (`useFileDiff.ts:4`). A dirty path renders the vivid A/M/D letter with a tinted name; a path that only differs vs the base branch (committed on the branch, clean in the worktree) renders a faint `○` with a plain name (`tree-node-row.tsx:71`, `:178`).
+- `fileTree` → **Files** — `FileTree` over the worktree + any additional dirs. Rows use a single 16px glyph column like VS Code — a rotating chevron for directories, the file-type icon for files, no folder glyph — so every name lands in the same column at a given depth (`tree-node-row.tsx:124`). Change badges separate direct working-tree changes from branch-only ones: `mergeFileChanges` unions the base-branch diff (`useDiff`) with the live `git status` watcher feed and tags each path `worktreeDirty` by source (`useFileDiff.ts:4`). A dirty path renders the vivid A/M/D letter with a tinted name; a path that only differs vs the base branch (committed on the branch, clean in the worktree) renders a faint `○` with a plain name (`tree-node-row.tsx:71`, `:178`).
 - `modifiedFiles` → **Modified Files** — `ModifiedFiles` diff list; files with `FileChange.foreignWorktree` (inherited because the base branch advanced) are grouped below a "from another worktree" separator, dimmed, with an origin tooltip.
 - `shell` → **Shell** — `ShellTabs` (worktree + project shell PTYs).
 - `pluginView` / `pluginTreeView` — webview hosts for plugin contributions (e.g. **Statistics**, the former Verdicts dashboard, now the `manifold.statistics` plugin).

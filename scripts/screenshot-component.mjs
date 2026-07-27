@@ -140,6 +140,8 @@ ${importAndResolve}
 
 applyThemeCssVars(__CSS_VARS__)
 document.documentElement.style.colorScheme = __THEME_TYPE__
+// Mirror the app's theme class (useTheme.ts) so light/dark-specific CSS rules apply.
+document.documentElement.classList.add(__THEME_TYPE__ === 'light' ? 'theme-light' : 'theme-dark')
 createRoot(document.getElementById('root')).render(node)
 `
 }
@@ -163,6 +165,11 @@ export async function bundleEntry({ repoRoot, entrySource, cssVars, type }) {
     // statically undefined — expected, since we fall back to the named export. Silence just
     // that warning so real bundle problems still surface.
     logOverride: { 'import-is-undefined': 'silent' },
+    // theme.css @font-face-loads the Seti icon font by relative URL. The captured page is served
+    // from an opaque origin with no file server, so inline the font into the bundled CSS.
+    loader: { '.woff': 'dataurl' },
+    // Fonts theme.css @font-face's (Seti) become data URLs so the page stays self-contained.
+    loader: { '.woff': 'dataurl', '.woff2': 'dataurl' },
     define: {
       'process.env.NODE_ENV': '"production"',
       __CSS_VARS__: JSON.stringify(cssVars),

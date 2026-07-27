@@ -41,6 +41,7 @@ function readLanguageAssociations(vscodeRoot, setiLanguageIds) {
   const byFileName = {}
   const byExtension = {}
   const patterns = []
+  const skippedExtensions = []
 
   const extensionsDir = join(vscodeRoot, 'extensions')
   for (const entry of readdirSync(extensionsDir, { withFileTypes: true })) {
@@ -54,9 +55,27 @@ function readLanguageAssociations(vscodeRoot, setiLanguageIds) {
     for (const language of pkg.contributes?.languages ?? []) {
       if (!setiLanguageIds.has(language.id)) continue
       for (const name of language.filenames ?? []) byFileName[name.toLowerCase()] = language.id
-      for (const ext of language.extensions ?? []) byExtension[ext.toLowerCase()] = language.id
-      for (const pattern of language.filenamePatterns ?? []) patterns.push([pattern.toLowerCase(), language.id])
+      for (const ext of language.extensions ?? []) {
+        // The resolver matches extensions at dot boundaries, so a suffix registered without a
+        // leading dot (e.g. `language-configuration.json`) can't be looked up. Those all end in
+        // a normal extension that resolves to the same icon, so dropping them is a no-op.
+        if (!ext.startsWith('.')) {
+          skippedExtensions.push(`${language.id}: ${ext}`)
+          continue
+        }
+        byExtension[ext.toLowerCase()] = language.id
+      }
+      for (const pattern of language.filenamePatterns ?? []) {
+        // VS Code matches patterns containing a separator against the whole path. The tree
+        // resolves icons from the base name alone, so those patterns can never match here.
+        if (pattern.includes('/')) continue
+        patterns.push([pattern.toLowerCase(), language.id])
+      }
     }
+  }
+
+  if (skippedExtensions.length) {
+    console.warn(`[seti] skipped dotless language extensions: ${skippedExtensions.join(', ')}`)
   }
 
   // VS Code prefers the longest pattern match; pre-sort so the resolver can take the first hit.
@@ -80,7 +99,13 @@ function buildDefinitions(theme) {
   for (const [id, def] of Object.entries(theme.iconDefinitions)) {
     if (id.endsWith('_light')) continue
     const light = theme.iconDefinitions[`${id}_light`] ?? def
-    defs[id] = [decodeFontCharacter(def.fontCharacter), def.fontColor, light.fontColor]
+    // A definition without a colour (only `_todo`) emits no `color` rule in VS Code, so the
+    // glyph inherits the row's text colour — `currentColor` says exactly that.
+    defs[id] = [
+      decodeFontCharacter(def.fontCharacter),
+      def.fontColor ?? 'currentColor',
+      light.fontColor ?? 'currentColor',
+    ]
   }
   return defs
 }

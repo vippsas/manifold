@@ -38,7 +38,7 @@ const PANEL_GLYPH_PATHS: Record<DockPanelId, React.JSX.Element> = {
       <path d="M14 3v5h5" />
     </>
   ),
-  modifiedFiles: <path d="M12 4v6M9 7h6M9 17h6" />,
+  modifiedFiles: <path d="M8 4.5v6M5 7.5h6M13 16.5h6" />,
   shell: <path d="m5 7 5 5-5 5M12 17h7" />,
 }
 

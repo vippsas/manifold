@@ -75,7 +75,7 @@ describe('WorkspaceHeaderActions', () => {
   it('renders no group close button in groups without an icon-tab panel', () => {
     render(
       <DockStateContext.Provider value={state}>
-        <WorkspaceHeaderActions {...props(['agent', 'editor'])} />
+        <WorkspaceHeaderActions {...props(['agent', 'shell'])} />
       </DockStateContext.Provider>,
     )
 

@@ -12,7 +12,7 @@ function createApi() {
   const toJSON = vi.fn(() => ({
     grid: {
       root: {
-        data: [{ size: 1 }, { size: 4 }, { size: 1 }],
+        data: [{ size: 1 }, { size: 5 }],
       },
     },
   }))
@@ -37,7 +37,9 @@ describe('applyDefaultLayout', () => {
     expect(addPanel).not.toHaveBeenCalledWith(expect.objectContaining({ id: 'editor' }))
   })
 
-  it('positions the file tree beside the agent panel', () => {
+  // Every tool panel shares one sidebar item, so files tabs into the
+  // repositories group instead of claiming a column of its own.
+  it('tabs the file tree into the repositories group', () => {
     const { api, addPanel } = createApi()
 
     applyDefaultLayout(api as never)
@@ -46,7 +48,20 @@ describe('applyDefaultLayout', () => {
       id: 'fileTree',
       component: 'fileTree',
       title: 'Files',
-      position: { referencePanel: 'agent', direction: 'right' },
+      position: { referencePanel: expect.objectContaining({ id: 'projects' }), direction: 'within' },
+    })
+  })
+
+  it('splits the agent off the sidebar item, not the other way round', () => {
+    const { api, addPanel } = createApi()
+
+    applyDefaultLayout(api as never)
+
+    expect(addPanel).toHaveBeenCalledWith({
+      id: 'agent',
+      component: 'agent',
+      title: 'Agent',
+      position: { referencePanel: expect.objectContaining({ id: 'projects' }), direction: 'right' },
     })
   })
 

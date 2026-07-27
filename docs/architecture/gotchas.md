@@ -112,8 +112,8 @@ persist zeros. (b) dockview's `toJSON` drops `minimumWidth <= 0`, so a collapsed
 sidebar is not preserved across an `api.fromJSON` reload. (c) A debounced layout save can
 fire `api.toJSON()` after the dockview is disposed. (d) The grid **orientation is sticky**:
 `api.clear()` keeps whatever the last `fromJSON` set, so rebuilding the default layout on a
-VERTICAL-rooted grid nests the three columns inside a wrapper branch where the 1:4:1 ratio
-patch used to miss them — equal thirds (#803). (e) Reopening panels into an **emptied**
+VERTICAL-rooted grid nests the columns inside a wrapper branch where the 1:5 ratio
+patch used to miss them — equal halves (#803). (e) Reopening panels into an **emptied**
 dock: the first reopened panel (typically `projects`) owns the full dock width, and
 `withPinnedSidebars` used to pin it there during every subsequent add — clamping each new
 group to width 0, so the panels existed but rendered invisible until `projects` was
@@ -132,9 +132,9 @@ pending debounced save on unmount (`useDockLayout.ts:288-295`). (d) Promote wrap
 group to absorb the change (`dock-layout-helpers.ts:215`), and after a hint-based reopen
 restore the default proportions — a reopened sidebar is sized to its 1/6 share, and a
 reopened center pane shrinks any sidebar that had grown past a third of the dock back to
-1/6 (`dock-layout-loader.ts:322-350`) — since `addPanel` naively splits the reference
-group 50/50. Groups hosting an editor pane (files and the editor share one tabbed group)
-are exempt from both shrinks — they are center panes, not sidebars. (f) Releasing a pin
+1/6 (`dock-layout-loader.ts:324-352`) — since `addPanel` naively splits the reference
+group 50/50. Groups hosting an editor pane (the editor is a guest tab of the one sidebar
+item) are exempt from both shrinks — they are center panes, not sidebars. (f) Releasing a pin
 pokes a same-size `setSize` on the group (`dock-layout-helpers.ts:200`), which triggers a
 relayout that re-runs the enablement check against the released constraints — chosen over
 a forced `api.layout()` because a forced pass re-applies the splitview's stale cached
