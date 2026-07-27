@@ -2,7 +2,7 @@
    Applied alongside dockview-theme-dark so all structural variables are inherited. */
 
 .dockview-theme-dark.dockview-theme-manifold {
-  --dv-background-color: var(--bg-primary);
+  --dv-background-color: var(--dock-canvas);
   --dv-paneview-header-border-color: rgba(255, 255, 255, 0.06);
   --dv-tabs-and-actions-container-background-color: var(--bg-chrome);
   --dv-tabs-and-actions-container-height: var(--chrome-tab-height);
@@ -22,11 +22,23 @@
   --dv-drag-over-border-color: var(--accent);
 }
 
-/* Thin sash (resize handle) between panel groups — 1px visible line, 8px grab zone */
+/* Rounded panel cards — each group floats on the recessed canvas
+   (--dock-canvas); the theme's group gap provides the breathing room. */
+.dockview-theme-manifold .dv-groupview {
+  overflow: hidden;
+  border-radius: var(--radius-md);
+  border: 1px solid var(--divider);
+  background: var(--bg-primary);
+}
+.dockview-theme-manifold .dv-groupview.dv-active-group {
+  border-color: var(--border);
+}
+
+/* Resize handles — invisible inside the group gap; the card edges already
+   read as the divider. 1px element, widened grab zone below. */
 .dockview-theme-manifold .dv-split-view-container.dv-horizontal > .dv-sash-container > .dv-sash,
 .dockview-theme-manifold .dv-split-view-container.dv-vertical > .dv-sash-container > .dv-sash {
-  --grip-color: var(--text-muted);
-  background: var(--divider);
+  background: transparent;
 }
 .dockview-theme-manifold .dv-split-view-container.dv-horizontal > .dv-sash-container > .dv-sash {
   width: 1px;
@@ -35,27 +47,26 @@
   height: 1px;
 }
 
-/* Grip dots — three subtle dots centered on the divider as a discoverable resize affordance */
+/* Hover affordance — instead of grip dots, a soft rounded bar fades in,
+   centered on the divider, like a macOS pane handle. */
 .dockview-theme-manifold .dv-split-view-container.dv-horizontal > .dv-sash-container > .dv-sash::after,
 .dockview-theme-manifold .dv-split-view-container.dv-vertical > .dv-sash-container > .dv-sash::after {
   content: '';
   position: absolute;
   top: 50%;
   left: 50%;
-  width: 3px;
-  height: 3px;
-  border-radius: 50%;
-  background: var(--grip-color);
   transform: translate(-50%, -50%);
+  border-radius: 999px;
+  background: transparent;
   transition: background var(--duration-normal) var(--ease-premium);
 }
-/* Vertical divider → dots stacked vertically */
 .dockview-theme-manifold .dv-split-view-container.dv-horizontal > .dv-sash-container > .dv-sash::after {
-  box-shadow: 0 -12px 0 var(--grip-color), 0 -6px 0 var(--grip-color), 0 6px 0 var(--grip-color), 0 12px 0 var(--grip-color);
+  width: 3px;
+  height: 44px;
 }
-/* Horizontal divider → dots laid out in a row */
 .dockview-theme-manifold .dv-split-view-container.dv-vertical > .dv-sash-container > .dv-sash::after {
-  box-shadow: -12px 0 0 var(--grip-color), -6px 0 0 var(--grip-color), 6px 0 0 var(--grip-color), 12px 0 0 var(--grip-color);
+  width: 44px;
+  height: 3px;
 }
 
 /* Widen the invisible grab area to 12px centered on the line for an easy drag target */
@@ -142,13 +153,10 @@
   font-size: inherit;
 }
 
-/* Sash hover — use muted accent for resize handle highlight, brighten grip dots */
-.dockview-theme-manifold .dv-sash:hover {
-  background: var(--accent-dim, var(--accent));
-  transition: background var(--duration-normal) var(--ease-premium);
-}
-.dockview-theme-manifold .dv-sash:hover::after {
-  --grip-color: var(--accent);
+/* Sash hover — fade the rounded handle bar in with the accent metal. The
+   collapsed-edge rails keep their chevron affordance instead. */
+.dockview-theme-manifold .dv-sash:hover:not(.dv-sash--edge-left):not(.dv-sash--edge-right)::after {
+  background: var(--accent);
 }
 
 .dockview-theme-manifold .dv-tabs-and-actions-container {

@@ -61,10 +61,16 @@ the status bar (`components/git/StatusBar.tsx`) no longer renders either and kee
 session/git status and the commit/PR/conflict actions.
 
 **Panel layout (dockview).** The workspace is a single `DockviewReact` instance
-(`AppShell.tsx:125`). Panels are registered by string id in `PANEL_COMPONENTS`
+(`AppShell.tsx:143`), themed via the `DOCK_THEME` option (`AppShell.tsx:38`): a 6px
+group gap plus the rounded-card group styling in `styles/dockview-theme.css` renders
+each panel group as a bordered, rounded card floating on the recessed `--dock-canvas`
+(a darkened `--bg-primary`, `styles/theme.css`). Resize sashes are invisible inside
+the gap; hovering one fades in a rounded accent handle bar. The chrome is screenshot-able
+via the `DockPreview` fixture (`components/DockPreview.fixture.tsx`). Panels are
+registered by string id in `PANEL_COMPONENTS`
 (`components/editor/editor-shell/dock-panels.tsx:17`); the id→component table is the authoritative
 panel set. `DockAppState` is published to every panel through `DockStateContext`
-(`AppShell.tsx:123`), so panels read props via `useDockState()` rather than prop-drilling.
+(`AppShell.tsx:141`), so panels read props via `useDockState()` rather than prop-drilling.
 Tab headers use `DockTab`; empty groups show `EmptyWatermark`; the left header-action slot
 hosts `LeftHeaderActions` (shell controls plus the agent group's "add agent on this
 worktree" button) and the right slot `RightHeaderActions` (workspace actions + sidebar

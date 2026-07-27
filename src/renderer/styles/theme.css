@@ -106,6 +106,9 @@
   --bg-overlay: var(--bg-secondary);
   --bg-elevated: var(--bg-secondary);
 
+  /* The recessed canvas the rounded dock panel cards float on. */
+  --dock-canvas: color-mix(in srgb, var(--bg-primary), black 15%);
+
   /* Compatibility aliases for shared chat components (renderer-shared) */
   --surface: var(--bg-elevated);
   --text: var(--text-primary);
