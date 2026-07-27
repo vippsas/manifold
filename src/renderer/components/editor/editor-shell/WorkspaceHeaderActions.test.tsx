@@ -58,13 +58,27 @@ describe('WorkspaceHeaderActions', () => {
     expect(onClosePanel).toHaveBeenCalledWith('modifiedFiles')
   })
 
-  it('renders no files close button in groups without a file panel', () => {
+  it('renders a close button for the repositories group without any + action', () => {
+    const onClosePanel = vi.fn()
+    render(
+      <DockStateContext.Provider value={{ ...state, onClosePanel } as unknown as DockAppState}>
+        <WorkspaceHeaderActions {...props(['projects'])} />
+      </DockStateContext.Provider>,
+    )
+
+    expect(screen.queryByRole('button', { name: /add agent/i })).not.toBeInTheDocument()
+    fireEvent.click(screen.getByRole('button', { name: 'Close Repositories' }))
+
+    expect(onClosePanel).toHaveBeenCalledExactlyOnceWith('projects')
+  })
+
+  it('renders no group close button in groups without an icon-tab panel', () => {
     render(
       <DockStateContext.Provider value={state}>
         <WorkspaceHeaderActions {...props(['agent', 'editor'])} />
       </DockStateContext.Provider>,
     )
 
-    expect(screen.queryByRole('button', { name: 'Close Files' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: /^Close / })).not.toBeInTheDocument()
   })
 })

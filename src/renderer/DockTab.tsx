@@ -5,11 +5,11 @@ import { parseSiblingSessionId } from './hooks/agent-session/agent-siblings'
 import { PanelGlyph } from './components/ActivityBar'
 import type { DockPanelId } from './hooks/dock-layout/useDockLayout'
 
-/** Files and Modified Files render icon-only tabs: the pair shares one narrow
- *  tab strip, so each tab is just a glyph (name as tooltip) without its own
- *  close button — a single × in the group header closes the whole item
- *  (see WorkspaceHeaderActions). */
-const ICON_TAB_PANELS = new Set<string>(['fileTree', 'modifiedFiles'])
+/** The tool panels that share the one sidebar item render icon-only tabs: each
+ *  tab is just a glyph (name as tooltip) without its own close button — a
+ *  single × in the group header closes the whole item (see
+ *  WorkspaceHeaderActions). */
+export const ICON_TAB_PANELS = new Set<string>(['projects', 'fileTree', 'modifiedFiles', 'editor'])
 
 export function DockTab({ api }: IDockviewPanelHeaderProps): React.JSX.Element {
   const state = React.useContext(DockStateContext)
@@ -30,7 +30,7 @@ export function DockTab({ api }: IDockviewPanelHeaderProps): React.JSX.Element {
         aria-label={title}
         onDoubleClick={() => state?.onToggleMaximize(api.id)}
       >
-        <PanelGlyph id={api.id as DockPanelId} size={15} />
+        <PanelGlyph id={api.id as DockPanelId} size={18} />
       </div>
     )
   }

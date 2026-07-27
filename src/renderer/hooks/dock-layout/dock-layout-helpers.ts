@@ -30,14 +30,16 @@ export const PANEL_TITLES: Record<DockPanelId, string> = {
 export type Direction = 'right' | 'left' | 'above' | 'below' | 'within'
 
 // Fallback positions when no snapshot exists (matches default layout).
+// Every tool panel belongs to the ONE sidebar item, so each of them tabs
+// `within` whichever of its siblings is already open before it will claim a
+// column of its own — a reopened tool can never land inside a foreign group
+// (the agent's, say) or spawn a second sidebar.
 export const PANEL_RESTORE_HINTS: Record<DockPanelId, Array<{ ref: DockPanelId; dir: Direction }>> = {
-  projects: [{ ref: 'agent', dir: 'left' }, { ref: 'editor', dir: 'left' }, { ref: 'fileTree', dir: 'left' }],
-  agent: [{ ref: 'editor', dir: 'left' }, { ref: 'projects', dir: 'right' }, { ref: 'fileTree', dir: 'left' }, { ref: 'shell', dir: 'above' }],
-  // Files and the editor are intertwined, so they share one tabbed group:
-  // whichever opens second tabs into the group of the one already open.
-  editor: [{ ref: 'fileTree', dir: 'within' }, { ref: 'agent', dir: 'right' }, { ref: 'shell', dir: 'above' }],
-  fileTree: [{ ref: 'modifiedFiles', dir: 'within' }, { ref: 'editor', dir: 'within' }, { ref: 'agent', dir: 'right' }],
-  modifiedFiles: [{ ref: 'fileTree', dir: 'within' }, { ref: 'agent', dir: 'right' }],
+  projects: [{ ref: 'fileTree', dir: 'within' }, { ref: 'modifiedFiles', dir: 'within' }, { ref: 'editor', dir: 'within' }, { ref: 'agent', dir: 'left' }],
+  agent: [{ ref: 'projects', dir: 'right' }, { ref: 'fileTree', dir: 'right' }, { ref: 'modifiedFiles', dir: 'right' }, { ref: 'editor', dir: 'right' }, { ref: 'shell', dir: 'above' }],
+  editor: [{ ref: 'fileTree', dir: 'within' }, { ref: 'modifiedFiles', dir: 'within' }, { ref: 'projects', dir: 'within' }, { ref: 'agent', dir: 'right' }, { ref: 'shell', dir: 'above' }],
+  fileTree: [{ ref: 'projects', dir: 'within' }, { ref: 'modifiedFiles', dir: 'within' }, { ref: 'editor', dir: 'within' }, { ref: 'agent', dir: 'left' }],
+  modifiedFiles: [{ ref: 'projects', dir: 'within' }, { ref: 'fileTree', dir: 'within' }, { ref: 'editor', dir: 'within' }, { ref: 'agent', dir: 'left' }],
   shell: [{ ref: 'agent', dir: 'below' }, { ref: 'editor', dir: 'below' }],
 }
 

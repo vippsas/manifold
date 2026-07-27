@@ -21,9 +21,11 @@ const SIDEBAR_WIDTH_FRACTION = 1 / 6
  *  sidebar-width group is too narrow to edit in. */
 const EDITOR_GROUP_WIDTH_FRACTION = 1 / 3
 
-/** Panels that make up sidebar columns. A group whose tenants are all in this
+/** Panels that make up the sidebar item. A group whose tenants are all in this
  *  set is a plain sidebar; one that also hosts an editor pane is a center pane
- *  and must keep its width. */
+ *  and must keep its width. Unlike `SIDEBAR_PANEL_IDS` (the anchors pinned
+ *  during layout mutations) this includes `modifiedFiles`, so reopening it
+ *  claims a sidebar's width share rather than half the dock. */
 const SIDEBAR_FAMILY_PANEL_IDS = new Set<string>(['projects', 'fileTree', 'modifiedFiles'])
 
 type DockGroup = NonNullable<NonNullable<ReturnType<DockviewApi['getPanel']>>['group']>
@@ -321,7 +323,7 @@ export function showPanelFromHints(api: DockviewApi, id: DockPanelId, refs?: Lay
     })
     if (usedDirection === 'below') {
       applyPanelHeightFraction(api, id, 1 / 3, refs)
-    } else if (usedDirection !== 'within' && SIDEBAR_PANEL_IDS.has(id)) {
+    } else if (usedDirection !== 'within' && SIDEBAR_FAMILY_PANEL_IDS.has(id)) {
       // addPanel splits the reference group 50/50; a sidebar reopened via
       // hints should take its default share, not half the dock. A 'within'
       // reopen joined an existing group as a tab and adopts its size.
@@ -329,11 +331,11 @@ export function showPanelFromHints(api: DockviewApi, id: DockPanelId, refs?: Lay
     }
   }, refs)
   if (id === 'editor' && usedDirection === 'within') {
-    // The editor tabbed into the files sidebar group — widen the shared group
-    // to an editable width.
+    // The editor tabbed into the sidebar item — widen the shared group to an
+    // editable width.
     widenSharedEditorGroup(api, refs)
   }
-  if (usedDirection !== 'below' && usedDirection !== 'within' && !SIDEBAR_PANEL_IDS.has(id)) {
+  if (usedDirection !== 'below' && usedDirection !== 'within' && !SIDEBAR_FAMILY_PANEL_IDS.has(id)) {
     // A center pane reopened via hints splits its reference group 50/50. When
     // that reference is a sidebar that had grown to dominate the dock (the
     // last survivor of an emptied dock), both end up around half the width —

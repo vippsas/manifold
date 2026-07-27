@@ -530,15 +530,25 @@ select:focus-visible {
   opacity: 1;
 }
 
-/* Icon-only tabs (Files / Modified Files): just the glyph, name as tooltip.
-   These tabs have no per-tab close — the group header carries a single ×. */
+/* Icon-only tabs (the sidebar item's view switcher): just the glyph, name as
+   tooltip. These tabs have no per-tab close — the group header carries a
+   single ×. The glyph sits centered in a square box so the row reads as an
+   evenly spaced icon strip. */
 .dock-tab--icon {
-  padding: 0 4px;
+  width: 28px;
+  padding: 0;
   justify-content: center;
+  gap: 0;
+  border-radius: var(--radius-sm);
+  color: var(--text-secondary);
+}
+
+.dock-tab--icon:hover {
+  color: var(--text-primary);
 }
 
 /* Icon button in a dock group's header-action slot (outside the tabs), e.g.
-   the "add agent on this worktree" button in the Repositories header. */
+   the group-level × that closes an icon-tab group (Repositories, Files). */
 .dock-header-collapse {
   display: inline-flex;
   align-items: center;

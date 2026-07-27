@@ -2,26 +2,31 @@ import React from 'react'
 import type { IDockviewHeaderActionsProps } from 'dockview'
 import { EditorHeaderActions } from './EditorHeaderActions'
 import { DockStateContext } from './dock-panel-types'
-
-const FILES_PANEL_IDS = new Set(['fileTree', 'modifiedFiles'])
+import { ICON_TAB_PANELS } from '../../../DockTab'
+import { PANEL_TITLES } from '../../../hooks/dock-layout/dock-layout-helpers'
+import type { DockPanelId } from '../../../hooks/dock-layout/useDockLayout'
 
 /** Right-side header actions for every dock group: the editor pane/mode
- *  actions (self-gated to editor panes) plus a single × for the Files /
- *  Modified Files pair — those tabs are icon-only without per-tab close
- *  buttons (see DockTab), so the group header closes the whole item. */
+ *  actions (self-gated to editor panes) plus a single × for groups made of
+ *  icon-only tabs (Repositories, Files / Modified Files) — those tabs carry no
+ *  per-tab close buttons (see DockTab), so the group header closes the whole
+ *  item. */
 export function WorkspaceHeaderActions(props: IDockviewHeaderActionsProps): React.JSX.Element {
   const state = React.useContext(DockStateContext)
-  const filePanels = props.panels.filter((panel) => FILES_PANEL_IDS.has(panel.id))
+  const iconPanels = props.panels.filter((panel) => ICON_TAB_PANELS.has(panel.id))
+  const closeLabel = iconPanels.length === 1
+    ? `Close ${PANEL_TITLES[iconPanels[0].id as DockPanelId]}`
+    : 'Close Files'
   return (
     <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
       <EditorHeaderActions {...props} />
-      {state && filePanels.length > 0 && (
+      {state && iconPanels.length > 0 && (
         <button
           type="button"
           className="dock-header-collapse"
-          onClick={() => { for (const panel of filePanels) state.onClosePanel(panel.id) }}
-          title="Close Files"
-          aria-label="Close Files"
+          onClick={() => { for (const panel of iconPanels) state.onClosePanel(panel.id) }}
+          title={closeLabel}
+          aria-label={closeLabel}
         >
           &times;
         </button>

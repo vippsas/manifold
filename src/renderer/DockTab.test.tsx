@@ -121,8 +121,12 @@ describe('DockTab', () => {
     expect(onToggleMaximize).not.toHaveBeenCalled()
   })
 
-  it('renders Files and Modified Files as icon-only tabs without a close button', () => {
-    for (const [id, title] of [['fileTree', 'Files'], ['modifiedFiles', 'Modified Files']] as const) {
+  it('renders sidebar panels as icon-only tabs without a close button', () => {
+    for (const [id, title] of [
+      ['projects', 'Repositories'],
+      ['fileTree', 'Files'],
+      ['modifiedFiles', 'Modified Files'],
+    ] as const) {
       const { container, unmount } = render(<DockTab {...makeHeaderProps(id, title)} />)
 
       // Name is a tooltip, not a text label; no per-tab close — the group

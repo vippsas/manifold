@@ -213,9 +213,16 @@
   min-width: 0;
 }
 
-/* Icon-only tabs (Files / Modified Files) sit tighter than text tabs. */
+/* The sidebar item's icon-only tabs: tighter than text tabs, and the active
+   view is carried by the accent colour — the same active language the activity
+   bar uses, since these tabs have no label to bolden. */
 .dockview-theme-manifold .dv-tab:has(.dock-tab--icon) {
-  padding: 0 2px;
+  padding: 0 1px;
+}
+
+.dockview-theme-manifold .dv-active-tab .dock-tab--icon {
+  color: var(--accent);
+  background: var(--accent-subtle);
 }
 
 /* Hide tab close button by default, show on tab hover */

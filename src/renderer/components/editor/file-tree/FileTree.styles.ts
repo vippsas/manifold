@@ -81,10 +81,6 @@ export const treeStyles: Record<string, React.CSSProperties> = {
     transition: 'transform 0.1s ease',
     color: 'var(--text-secondary)',
   },
-  chevronSpacer: {
-    width: '16px',
-    flexShrink: 0,
-  },
   fileIcon: {
     width: '16px',
     fontSize: '14px',

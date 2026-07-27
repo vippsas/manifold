@@ -9,10 +9,6 @@ import { CHANGE_INDICATORS, treeStyles } from './FileTree.styles'
 // Inline SVG chevron for directory expand/collapse
 export const CHEVRON_SVG = '<svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor"><path d="M6 4l4 4-4 4"/></svg>'
 
-// Folder glyphs (closed / open), aligning directory names with the file-icon column.
-const FOLDER_CLOSED_SVG = '<svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor"><path d="M1.75 2.5h3.79a.75.75 0 0 1 .53.22l.96.96h6.22c.41 0 .75.34.75.75v8.07c0 .41-.34.75-.75.75H1.75a.75.75 0 0 1-.75-.75V3.25c0-.41.34-.75.75-.75z"/></svg>'
-const FOLDER_OPEN_SVG = '<svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor"><path d="M1.75 2.5h3.79a.75.75 0 0 1 .53.22l.96.96h6.22c.41 0 .75.34.75.75v1.07H3.4a.75.75 0 0 0-.72.54L1 12.6V3.25c0-.41.34-.75.75-.75z"/><path d="M3.4 6.75h11.6a.5.5 0 0 1 .48.64l-1.36 4.8a.75.75 0 0 1-.72.54H1.9a.5.5 0 0 1-.48-.64l1.26-4.8a.75.75 0 0 1 .72-.54z"/></svg>'
-
 /** Render a filename with fuzzy-match highlight segments (when filtering). */
 function renderName(name: string, filterQuery: string | undefined): React.ReactNode {
   if (!filterQuery) return name
@@ -125,7 +121,7 @@ export function NodeRow({
           }}
         />
       ))}
-      {/* Chevron (directories) or spacer (files) */}
+      {/* Single glyph column, VS Code style: chevron for directories, type icon for files */}
       {node.isDirectory ? (
         <span
           style={{
@@ -133,15 +129,6 @@ export function NodeRow({
             transform: expanded ? 'rotate(90deg)' : 'rotate(0deg)',
           }}
           dangerouslySetInnerHTML={{ __html: CHEVRON_SVG }}
-        />
-      ) : (
-        <span style={treeStyles.chevronSpacer} />
-      )}
-      {/* Icon column: open/closed folder glyph for directories, type icon for files */}
-      {node.isDirectory ? (
-        <span
-          style={treeStyles.fileIconImg}
-          dangerouslySetInnerHTML={{ __html: expanded ? FOLDER_OPEN_SVG : FOLDER_CLOSED_SVG }}
         />
       ) : (
         (() => {
@@ -234,7 +221,6 @@ export function CreateInput({
   return (
     <div style={{ paddingLeft: `${depth * 8 + 4}px` }}>
       <div style={{ ...treeStyles.node }}>
-        <span style={treeStyles.chevronSpacer} />
         <span style={{ fontSize: '11px', color: 'var(--text-secondary)', flexShrink: 0 }}>
           {creating.type === 'file' ? '\uD83D\uDCC4' : '\uD83D\uDCC1'}
         </span>
@@ -253,7 +239,7 @@ export function CreateInput({
         />
       </div>
       {createError && (
-        <div style={{ fontSize: '11px', color: 'var(--error)', paddingLeft: '38px', lineHeight: '18px' }}>
+        <div style={{ fontSize: '11px', color: 'var(--error)', paddingLeft: '22px', lineHeight: '18px' }}>
           {createError}
         </div>
       )}

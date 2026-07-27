@@ -6,24 +6,19 @@ import {
 } from './dock-layout-helpers'
 
 export function applyDefaultLayout(api: DockviewApi): void {
+  // Every tool panel shares ONE sidebar item, switched by its icon tabs — the
+  // dock is a single sidebar column plus the agent, not a column per tool.
   const projectsPanel = api.addPanel({
     id: 'projects',
     component: 'projects',
     title: PANEL_TITLES.projects,
   })
 
-  api.addPanel({
-    id: 'agent',
-    component: 'agent',
-    title: PANEL_TITLES.agent,
-    position: { referencePanel: projectsPanel, direction: 'right' },
-  })
-
   const filesPanel = api.addPanel({
     id: 'fileTree',
     component: 'fileTree',
     title: PANEL_TITLES.fileTree,
-    position: { referencePanel: 'agent', direction: 'right' },
+    position: { referencePanel: projectsPanel, direction: 'within' },
   })
 
   api.addPanel({
@@ -33,21 +28,28 @@ export function applyDefaultLayout(api: DockviewApi): void {
     position: { referencePanel: filesPanel, direction: 'within' },
   })
 
-  filesPanel.api.setActive()
+  api.addPanel({
+    id: 'agent',
+    component: 'agent',
+    title: PANEL_TITLES.agent,
+    position: { referencePanel: projectsPanel, direction: 'right' },
+  })
+
+  projectsPanel.api.setActive()
 
   // setSize calls interfere with each other (dockview redistributes freed
   // space proportionally to all siblings). Instead, patch the serialized
-  // grid to enforce an exact 1:4:1 ratio, then reload.
+  // grid to enforce an exact 1:5 ratio, then reload.
   try {
     type SerializedNode = { type: string; size: number; data?: SerializedNode[] }
     const json = api.toJSON()
     const grid = json.grid as unknown as { orientation: 'HORIZONTAL' | 'VERTICAL'; root: SerializedNode }
     // The grid orientation is sticky: api.clear() keeps whatever fromJSON last
     // set, so after showing a layout with a bottom pane (VERTICAL root) the
-    // three columns nest inside a single wrapper branch and the ratio patch
-    // below would miss them, leaving equal thirds (#803). Promote the wrapper
-    // to the root — flipping the serialized orientation to match — so the
-    // patch sees the columns and fromJSON rebuilds on a HORIZONTAL root.
+    // columns nest inside a single wrapper branch and the ratio patch below
+    // would miss them, leaving equal halves (#803). Promote the wrapper to the
+    // root — flipping the serialized orientation to match — so the patch sees
+    // the columns and fromJSON rebuilds on a HORIZONTAL root.
     let root = grid.root
     while (root.data?.length === 1 && root.data[0].type === 'branch') {
       root = root.data[0]
@@ -55,11 +57,10 @@ export function applyDefaultLayout(api: DockviewApi): void {
     }
     grid.root = root
     const children = root.data
-    if (children && children.length === 3) {
+    if (children && children.length === 2) {
       const total = children.reduce((s, c) => s + c.size, 0)
-      children[0].size = Math.round(total / 6)     // projects
-      children[2].size = Math.round(total / 6)     // files
-      children[1].size = total - children[0].size - children[2].size // agent
+      children[0].size = Math.round(total / 6)          // the sidebar item
+      children[1].size = total - children[0].size       // agent
       api.fromJSON(json)
     }
   } catch (err) {

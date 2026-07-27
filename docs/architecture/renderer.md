@@ -79,14 +79,15 @@ registered by string id in `PANEL_COMPONENTS`
 panel set. `DockAppState` is published to every panel through `DockStateContext`
 (`AppShell.tsx:141`), so panels read props via `useDockState()` rather than prop-drilling.
 Tab headers use `DockTab`; empty groups show `EmptyWatermark`; the left header-action slot
-hosts `LeftHeaderActions` (shell controls plus the "add agent on this worktree" button,
-shown in the **Repositories** group; `components/editor/editor-shell/LeftHeaderActions.tsx:11`)
-and the right slot `WorkspaceHeaderActions` (editor actions plus the Files-group `×`;
-`components/editor/editor-shell/WorkspaceHeaderActions.tsx:12`). The **Files** and
-**Modified Files** panels render icon-only tabs (glyph shared with the activity bar via
-`PanelGlyph`, name as tooltip) without per-tab close buttons — a single `×` in their group's
-right header actions closes both panels at once (`DockTab.tsx:12`,
-`components/editor/editor-shell/WorkspaceHeaderActions.tsx:6`). There are no header
+hosts `ShellHeaderActions` (self-gated to the shell panel;
+`components/terminal/ShellHeaderActions.tsx:12`) and the right slot
+`WorkspaceHeaderActions` (editor actions plus the icon-tab group `×`;
+`components/editor/editor-shell/WorkspaceHeaderActions.tsx:14`). The sidebar panels —
+**Repositories**, **Files**, and **Modified Files** — render icon-only tabs (glyph shared
+with the activity bar via `PanelGlyph`, name as tooltip) without per-tab close buttons; a
+single `×` in the group's right header actions closes every icon-tab panel in that group at
+once (`ICON_TAB_PANELS`, `DockTab.tsx:11`;
+`components/editor/editor-shell/WorkspaceHeaderActions.tsx:16`). There are no header
 sidebar-collapse buttons — hiding a panel is done by closing it (tab `×` or the activity
 bar); only the double-click sash width-cycle gesture remains from the collapse machinery
 (`hooks/dock-layout/useSidebarHandleCycle.ts`). Apps are per-worktree, so the launcher list lives in the agent's options
@@ -185,7 +186,7 @@ agent (`AgentChatView`), which the agent panel switches between
 - `PANEL_COMPONENTS` — `components/editor/editor-shell/dock-panels.tsx:17`. id→component registry = the panel set.
 - `PANEL_IDS` / `PANEL_TITLES` — `hooks/dock-layout/dock-layout-helpers.ts:13`, `:18`. Canonical panel id and title lists.
 - `useDockLayout` — `hooks/dock-layout/useDockLayout.ts`. Public dock control surface (`togglePanel`, `focusPanel`, `ensureEditorPanel`, `openPluginView`, `resetLayout`, …) returned at `:298`.
-- `DockTab` / `EmptyWatermark` — `DockTab.tsx:14` / `:70`. Tab header and empty-group watermark.
+- `DockTab` / `EmptyWatermark` — `DockTab.tsx:13` / `:69`. Tab header and empty-group watermark.
 - `registerPanelContribution` / `getLauncherContributions` — `plugins/contribution-registry.ts:37`, `:48`. Module registry API.
 - `electronAPI` — `src/preload/index.ts:197`, typed by `src/shared/electron-api.d.ts:1`. The only renderer→main door.
 
