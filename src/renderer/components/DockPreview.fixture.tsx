@@ -9,6 +9,8 @@ import 'dockview/dist/styles/dockview.css'
 import '../styles/dockview-theme.css'
 import { DockTab } from '../DockTab'
 import { WorkspaceHeaderActions } from './editor/editor-shell/WorkspaceHeaderActions'
+import { ShellHeaderActions } from './terminal/ShellHeaderActions'
+import { registerShellHeaderControls } from './terminal/shell-header-controls'
 import { DockStateContext, type DockAppState } from './editor/editor-shell/dock-panel-types'
 
 function Pane(props: IDockviewPanelProps): React.JSX.Element {
@@ -45,7 +47,20 @@ function onReady(e: DockviewReadyEvent): void {
   e.api.getPanel('fileTree')?.group.api.setSize({ width: 250 })
   e.api.getPanel('shell')?.group.api.setSize({ height: 150 })
   e.api.getPanel('fileTree')?.api.setActive()
+  // Active so its header actions (the + pill) render.
+  e.api.getPanel('shell')?.api.setActive()
 }
+
+// The shell's header + is published through a module store at runtime; register
+// a stub so the fixture shows that button alongside the other header pills.
+registerShellHeaderControls({
+  activeTab: 'shell',
+  canAddShell: true,
+  extraShells: [],
+  onSetActiveTab: () => {},
+  onRemoveShell: () => {},
+  onAddShell: () => {},
+})
 
 // Minimal state so DockTab / WorkspaceHeaderActions render their buttons.
 const fixtureState = {
@@ -64,6 +79,7 @@ export default (
         components={{ pane: Pane }}
         onReady={onReady}
         defaultTabComponent={DockTab}
+        leftHeaderActionsComponent={ShellHeaderActions}
         rightHeaderActionsComponent={WorkspaceHeaderActions}
         theme={{ name: 'manifold', className: 'dockview-theme-dark dockview-theme-manifold', gap: 6 }}
       />

@@ -7,6 +7,10 @@ import { fileName, getFileTabLabels, type FileTabLabel } from './code-viewer-uti
 interface TabBarProps {
   openFiles: OpenFile[]
   activeFilePath: string | null
+  /** The pane's own actions (split, move, view mode), pinned to the right of
+   *  the strip — the dock group's header carries the item's view tabs, not a
+   *  single pane's controls. */
+  actions?: React.ReactNode
   onActivatePane: () => void
   onSelectTab: (filePath: string) => void
   onMoveToSplitPane?: (filePath: string, direction: 'right' | 'below') => void
@@ -18,6 +22,7 @@ interface TabBarProps {
 export function TabBar({
   openFiles,
   activeFilePath,
+  actions,
   onActivatePane,
   onSelectTab,
   onMoveToSplitPane,
@@ -97,6 +102,7 @@ export function TabBar({
             />
           ))}
         </div>
+        {actions ? <div style={viewerStyles.tabActions}>{actions}</div> : null}
       </div>
       {menu && hasMenuActions ? createPortal(
         <>
@@ -246,12 +252,13 @@ function FileTab({
   )
 }
 
-export function NoTabsHeader(): React.JSX.Element {
+export function NoTabsHeader({ actions }: { actions?: React.ReactNode }): React.JSX.Element {
   return (
     <div style={viewerStyles.header}>
       <span className="mono" style={viewerStyles.headerText}>
         No file selected
       </span>
+      {actions ? <div style={viewerStyles.tabActions}>{actions}</div> : null}
     </div>
   )
 }

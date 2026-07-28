@@ -513,21 +513,31 @@ select:focus-visible {
   border: 1px solid color-mix(in srgb, var(--accent), var(--border) 72%);
 }
 
+/* Every control in a card's header strip — a text tab's ×, the icon-tab group's
+   × — takes the icon tabs' pill: a 24px rounded square centered in the 30px
+   strip. The shell's + (styled inline in ShellTabs.styles.ts) matches these
+   numbers, so a header reads as one row of pills. */
+.dock-tab__close,
+.dock-header-collapse {
+  width: 24px;
+  height: 24px;
+  margin-block: 3px;
+  border-radius: var(--radius-sm);
+  font-size: 14px;
+  line-height: 1;
+  color: var(--text-muted);
+}
+
+.dock-tab__close:hover,
+.dock-header-collapse:hover {
+  background: var(--statusbar-hover-bg);
+  color: var(--text-primary);
+}
+
 .dock-tab__close {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 14px;
-  height: 14px;
-  border-radius: var(--radius-xs);
-  color: var(--text-muted);
-  opacity: 0.7;
-}
-
-.dock-tab__close:hover {
-  background: var(--statusbar-hover-bg);
-  color: var(--text-primary);
-  opacity: 1;
 }
 
 /* Icon-only tabs (the sidebar item's view switcher): just the glyph, name as
@@ -559,21 +569,12 @@ select:focus-visible {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 22px;
-  height: 22px;
-  margin: 0 2px;
+  margin-inline: 2px;
   padding: 0;
   border: none;
   background: transparent;
-  border-radius: var(--radius-sm);
-  color: var(--text-secondary);
   cursor: pointer;
   transition: background var(--duration-normal) var(--ease-premium), color var(--duration-normal) var(--ease-premium);
-}
-
-.dock-header-collapse:hover {
-  background: var(--statusbar-hover-bg);
-  color: var(--text-primary);
 }
 
 .shell-header-add-button {

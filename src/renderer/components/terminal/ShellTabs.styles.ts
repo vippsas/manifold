@@ -24,23 +24,28 @@ export const shellTabStyles: Record<string, React.CSSProperties> = {
   headerAddMenu: {
     position: 'relative' as const,
     display: 'flex',
-    alignItems: 'stretch',
+    alignItems: 'center',
     alignSelf: 'stretch',
     flexShrink: 0,
   },
+  // The same pill the dock's header controls use (see `.dock-tab__close` /
+  // `.dock-header-collapse` in theme.css): a 24px rounded square centered in the
+  // 30px strip, rather than a full-height button with a divider rule.
   headerAddButton: {
     display: 'flex',
     alignItems: 'center',
     justifyContent: 'center',
-    width: '30px',
+    width: '24px',
+    height: '24px',
     padding: 0,
-    fontSize: '1.1em',
+    fontSize: '14px',
+    lineHeight: 1,
     fontFamily: 'inherit',
     color: 'var(--text-muted)',
     cursor: 'pointer',
     background: 'none',
     border: 'none',
-    borderRight: '1px solid var(--border)',
+    borderRadius: 'var(--radius-sm)',
     flexShrink: 0,
   },
   shellTypeMenu: {

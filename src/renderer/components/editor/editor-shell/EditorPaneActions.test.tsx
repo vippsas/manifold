@@ -1,10 +1,9 @@
 import React from 'react'
 import { describe, it, expect, vi } from 'vitest'
 import { fireEvent, render, screen } from '@testing-library/react'
-import type { IDockviewHeaderActionsProps } from 'dockview'
 import type { DockAppState } from './dock-panel-types'
 import { DockStateContext } from './dock-panel-types'
-import { EditorHeaderActions } from './EditorHeaderActions'
+import { EditorPaneActions } from './EditorPaneActions'
 import type { EditorPaneModeControls } from '../editor-pane-mode-controls'
 import { registerEditorPaneModeControls, unregisterEditorPaneModeControls } from '../editor-pane-mode-controls'
 
@@ -78,31 +77,15 @@ function makeDockState(overrides: Partial<DockAppState> = {}): DockAppState {
   } as unknown as DockAppState
 }
 
-function makeHeaderProps(overrides: Partial<IDockviewHeaderActionsProps> = {}): IDockviewHeaderActionsProps {
-  return {
-    api: {} as IDockviewHeaderActionsProps['api'],
-    containerApi: {} as IDockviewHeaderActionsProps['containerApi'],
-    panels: [],
-    activePanel: { id: 'editor' } as IDockviewHeaderActionsProps['activePanel'],
-    isGroupActive: true,
-    group: {} as IDockviewHeaderActionsProps['group'],
-    headerPosition: 'top',
-    ...overrides,
-  }
-}
-
-function renderHeaderActions(
-  stateOverrides: Partial<DockAppState> = {},
-  propsOverrides: Partial<IDockviewHeaderActionsProps> = {},
-) {
+function renderHeaderActions(stateOverrides: Partial<DockAppState> = {}, paneId = 'editor') {
   return render(
     <DockStateContext.Provider value={makeDockState(stateOverrides)}>
-      <EditorHeaderActions {...makeHeaderProps(propsOverrides)} />
+      <EditorPaneActions paneId={paneId} />
     </DockStateContext.Provider>,
   )
 }
 
-describe('EditorHeaderActions', () => {
+describe('EditorPaneActions', () => {
   it('shows the current mode and toggles to the next view on one click', () => {
     const showPreview = vi.fn()
     const controls: EditorPaneModeControls = {
@@ -128,7 +111,7 @@ describe('EditorHeaderActions', () => {
     unregisterEditorPaneModeControls('editor', controls)
   })
 
-  it('invokes split-right from the dock header action menu', () => {
+  it('invokes split-right from the pane action menu', () => {
     const onSplitEditorPane = vi.fn()
 
     renderHeaderActions({ onSplitEditorPane })
@@ -139,7 +122,7 @@ describe('EditorHeaderActions', () => {
     expect(onSplitEditorPane).toHaveBeenCalledWith('editor', 'right')
   })
 
-  it('moves the active file to another editor from the dock header action menu', () => {
+  it('moves the active file to another editor from the pane action menu', () => {
     const onMoveFileToPane = vi.fn()
 
     renderHeaderActions({ onMoveFileToPane })
@@ -184,10 +167,8 @@ describe('EditorHeaderActions', () => {
     unregisterEditorPaneModeControls('editor', controls)
   })
 
-  it('does not render for non-editor panels', () => {
-    renderHeaderActions({}, {
-      activePanel: { id: 'shell' } as IDockviewHeaderActionsProps['activePanel'],
-    })
+  it('does not render for a pane that is not an editor', () => {
+    renderHeaderActions({}, 'shell')
 
     expect(screen.queryByRole('button', { name: 'Pane actions' })).toBeNull()
     expect(screen.queryByRole('button', { name: 'Editor' })).toBeNull()

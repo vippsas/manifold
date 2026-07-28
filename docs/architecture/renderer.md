@@ -87,13 +87,24 @@ panel set. `DockAppState` is published to every panel through `DockStateContext`
 Tab headers use `DockTab`; empty groups show `EmptyWatermark`; the left header-action slot
 hosts `ShellHeaderActions` (self-gated to the shell panel;
 `components/terminal/ShellHeaderActions.tsx:12`) and the right slot
-`WorkspaceHeaderActions` (editor actions plus the icon-tab group `×`;
-`components/editor/editor-shell/WorkspaceHeaderActions.tsx:14`). The tool panels —
+`WorkspaceHeaderActions` (only the icon-tab group `×`;
+`components/editor/editor-shell/WorkspaceHeaderActions.tsx:13`). An editor pane's own controls
+— split, move a file to another pane, and the view-mode toggle — are **not** in that header:
+they sit at the right of the code viewer's own tab bar (`EditorPaneActions`, rendered through
+`CodeViewer`'s `headerActions` slot; `EditorPaneActions.tsx:40`,
+`code-viewer/CodeViewerTabs.tsx:105`). The group header belongs to the item's view tabs, and
+with a split it sits above only one of the panes it was acting on. The tool panels —
 **Repositories**, **Files**, **Modified Files**, and the **Editor** — render icon-only tabs
 (glyph shared with the activity bar via `PanelGlyph`, name as tooltip, active view carried by
 the accent colour) without per-tab close buttons. Each sits in a 24px pill centered in the 30px
 strip rather than stretching to fill it, so the active tab's tint clears the card's top edge
-(`styles/theme.css:537`). A multi-tab strip is centered across the
+(`styles/theme.css:547`). **Every control in a header strip takes that same pill** — a text
+tab's `×`, the icon-tab group's `×` (`styles/theme.css:520`) and the shell's `+`, which is
+styled inline and so repeats the numbers (`components/terminal/ShellTabs.styles.ts:34`) — at one
+glyph size and colour, so a header reads as a row of matching controls rather than a tiny
+glyph beside a full-height button with a divider rule. Centering uses `margin-block`, not an
+alignment property: dockview's `.dv-tab` is a block, where `align-self` is inert and would drop
+the whole gap below the pill. A multi-tab strip is centered across the
 header the way VS Code centers a sidebar's view tabs: dockview grows only the void container
 trailing the tabs, so the theme grows the always-empty `.dv-pre-actions-container` ahead of
 them for the matching leading space; a `.dv-single-tab` card is excluded, since a lone tab is

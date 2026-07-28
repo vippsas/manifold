@@ -1,5 +1,4 @@
 import React from 'react'
-import type { IDockviewHeaderActionsProps } from 'dockview'
 import { ActionMenuButton, type ActionMenuButtonItem } from './ActionMenuButton'
 import { DockStateContext } from './dock-panel-types'
 import {
@@ -33,16 +32,20 @@ const MODE_LABEL: Record<'editor' | 'preview' | 'diff', string> = {
   diff: 'Diff',
 }
 
-export function EditorHeaderActions({ activePanel }: IDockviewHeaderActionsProps): React.JSX.Element | null {
+/** The pane's own actions — split, move a file to another pane, and the
+ *  view-mode toggle. They live in the code viewer's tab bar rather than the dock
+ *  group's header: the group header belongs to the item's view tabs, and these
+ *  act on one editor pane, which in a split is not the pane that header sits
+ *  above. */
+export function EditorPaneActions({ paneId }: { paneId: string }): React.JSX.Element | null {
   const state = React.useContext(DockStateContext)
-  const paneId = activePanel?.id ?? null
   const modeControls = React.useSyncExternalStore(
     subscribeEditorPaneModeControls,
-    () => (paneId ? getEditorPaneModeControls(paneId) : null),
-    () => (paneId ? getEditorPaneModeControls(paneId) : null),
+    () => getEditorPaneModeControls(paneId),
+    () => getEditorPaneModeControls(paneId),
   )
 
-  if (!state || !paneId || !state.editorPaneIds.includes(paneId)) return null
+  if (!state || !state.editorPaneIds.includes(paneId)) return null
 
   const pane = state.getEditorPane(paneId)
   const moveTargets = state.editorPaneIds

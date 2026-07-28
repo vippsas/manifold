@@ -6,6 +6,7 @@ import { ModifiedFiles } from '../../git/ModifiedFiles'
 import { ShellTabs } from '../../terminal/ShellTabs'
 import { ProjectSidebar } from '../../sidebar/ProjectSidebar'
 import { AgentPanel } from './dock-agent-panel'
+import { EditorPaneActions } from './EditorPaneActions'
 import { PluginViewPanel } from '../plugins/PluginViewPanel'
 import { PluginTreeViewPanel } from '../plugins/PluginTreeViewPanel'
 import { getPanelComponents } from '../../../plugins/contribution-registry'
@@ -57,6 +58,7 @@ function EditorPanel({ api }: { api: { id: string } }): React.JSX.Element {
       lastFileOpenRequest={s.lastFileOpenRequest}
       theme={s.theme}
       editorSettings={s.editorSettings}
+      headerActions={<EditorPaneActions paneId={paneId} />}
       onActivatePane={() => s.onActivateEditorPane(paneId)}
       onSelectTab={(filePath) => s.onSelectOpenFile(filePath, paneId)}
       onMoveTabToSplitPane={(filePath, direction) => s.onMoveFileToSplitPane(filePath, paneId, direction)}
