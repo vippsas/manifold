@@ -536,6 +536,12 @@ select:focus-visible {
    evenly spaced icon strip. */
 .dock-tab--icon {
   width: 28px;
+  /* Shorter than the strip (`.dock-tab` stretches to fill it) so the active
+     tab's pill clears the card's top edge instead of running into it. Centered
+     with margins, not `align-self`: dockview's `.dv-tab` is a block, so an
+     alignment property would be inert and drop the whole gap below the pill. */
+  height: 24px;
+  margin-block: 3px;
   padding: 0;
   justify-content: center;
   gap: 0;

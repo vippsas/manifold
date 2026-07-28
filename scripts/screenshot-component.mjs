@@ -146,10 +146,23 @@ createRoot(document.getElementById('root')).render(node)
 `
 }
 
+/** electron-vite turns `import url from 'asset?url'` into an emitted asset URL; esbuild has no
+ *  such concept, so any component that transitively imports one (e.g. the PDF worker behind the
+ *  code viewer) fails to bundle. Stub the specifier to an empty URL — a capture never fetches
+ *  the asset, and the alternative is not being able to screenshot the component at all. */
+export const urlImportStub = {
+  name: 'url-import-stub',
+  setup(build) {
+    build.onResolve({ filter: /\?url$/ }, (args) => ({ path: args.path, namespace: 'url-import-stub' }))
+    build.onLoad({ filter: /.*/, namespace: 'url-import-stub' }, () => ({ contents: 'export default ""', loader: 'js' }))
+  },
+}
+
 /** esbuild-bundle the entry into a browser IIFE + its CSS, the same way the renderer build
  *  handles TSX + CSS. Theme vars are injected via `define` so the bundle stays self-contained. */
 export async function bundleEntry({ repoRoot, entrySource, cssVars, type }) {
   const result = await esbuild.build({
+    plugins: [urlImportStub],
     stdin: { contents: entrySource, resolveDir: repoRoot, loader: 'tsx' },
     bundle: true,
     platform: 'browser',

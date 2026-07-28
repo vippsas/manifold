@@ -40,12 +40,13 @@ export function applyDefaultLayout(api: DockviewApi): void {
   // The code viewer is a standing tab of the item, not one that materializes on
   // the first file open: an item whose tabs change under you is harder to aim
   // at than one that always offers the same three. With nothing open it shows
-  // its own empty state.
+  // its own empty state. Added inactive so the item still opens on Files.
   api.addPanel({
     id: 'editor',
     component: 'editor',
     title: PANEL_TITLES.editor,
     position: { referencePanel: filesPanel, direction: 'within' },
+    inactive: true,
   })
 
   filesPanel.api.setActive()

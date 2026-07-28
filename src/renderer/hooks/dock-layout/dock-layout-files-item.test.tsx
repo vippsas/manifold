@@ -6,7 +6,7 @@ import React from 'react'
 import { render, act, waitFor } from '@testing-library/react'
 import { DockviewReact, type DockviewApi, type IDockviewPanelProps, type SerializedDockview } from 'dockview'
 import { describe, it, expect, beforeAll, vi } from 'vitest'
-import { coalesceFilesItem } from './dock-layout-files-item'
+import { coalesceFilesItem, ensureEditorTab } from './dock-layout-files-item'
 import { loadOrBuildLayout } from './dock-layout-loader'
 
 beforeAll(() => {
@@ -147,5 +147,66 @@ describe('coalesceFilesItem', () => {
 
     expect(api.getPanel('editor:1')?.group).toBe(splitGroup)
     expect(api.getPanel('editor:1')?.group).not.toBe(api.getPanel('fileTree')?.group)
+  })
+})
+
+describe('ensureEditorTab', () => {
+  it('gives an open files item its code-viewer tab without stealing focus', async () => {
+    const api = await setupDock()
+    act(() => { api.layout(1800, 1000, true) })
+    act(() => {
+      api.addPanel({ id: 'agent', component: 'agent' })
+      api.addPanel({ id: 'fileTree', component: 'fileTree', position: { referencePanel: 'agent', direction: 'right' } })
+    })
+
+    let added = false
+    act(() => { added = ensureEditorTab(api) })
+
+    expect(added).toBe(true)
+    expect(api.getPanel('editor')?.group).toBe(api.getPanel('fileTree')?.group)
+    // The item still shows the view that was asked for, not the empty viewer.
+    expect(api.getPanel('fileTree')?.group.activePanel?.id).toBe('fileTree')
+  })
+
+  it('does nothing when the code viewer is already a tab', async () => {
+    const api = await setupDock()
+    act(() => { api.layout(1800, 1000, true) })
+    act(() => {
+      api.addPanel({ id: 'agent', component: 'agent' })
+      api.addPanel({ id: 'fileTree', component: 'fileTree', position: { referencePanel: 'agent', direction: 'right' } })
+      api.addPanel({ id: 'editor', component: 'editor', position: { referencePanel: 'fileTree', direction: 'within' } })
+    })
+
+    let added = true
+    act(() => { added = ensureEditorTab(api) })
+
+    expect(added).toBe(false)
+    expect(api.panels.filter((panel) => panel.id === 'editor')).toHaveLength(1)
+  })
+
+  it('does not reopen a closed files item', async () => {
+    const api = await setupDock()
+    act(() => { api.layout(1800, 1000, true) })
+    act(() => { api.addPanel({ id: 'agent', component: 'agent' }) })
+
+    let added = true
+    act(() => { added = ensureEditorTab(api) })
+
+    expect(added).toBe(false)
+    expect(api.getPanel('editor')).toBeUndefined()
+  })
+
+  it('leaves the item at its sidebar width — widening waits for a real file', async () => {
+    const api = await setupDock()
+    act(() => { api.layout(1800, 1000, true) })
+    act(() => {
+      api.addPanel({ id: 'agent', component: 'agent' })
+      api.addPanel({ id: 'fileTree', component: 'fileTree', position: { referencePanel: 'agent', direction: 'right' } })
+    })
+    const before = api.getPanel('fileTree')?.group.api.width
+
+    act(() => { ensureEditorTab(api) })
+
+    expect(api.getPanel('fileTree')?.group.api.width).toBe(before)
   })
 })

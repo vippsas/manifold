@@ -12,6 +12,7 @@ import {
   toggleMaximizedGroup,
   type DockPanelId,
 } from './dock-layout-helpers'
+import { ensureEditorTab } from './dock-layout-files-item'
 import type { DockLayoutCtx } from './dock-layout-context'
 
 export interface DockActionHandlers {
@@ -117,6 +118,10 @@ export function useDockActions(
     }
 
     showPanelFromHints(api, id, refs)
+    // Opening either file view opens the whole item, code viewer included — an
+    // inactive tab, so the item still lands on the view that was asked for and
+    // keeps its sidebar width until a file is actually opened.
+    if (isFilesItemPanelId(id)) ensureEditorTab(api)
     syncPanels(api)
     saveLayout()
     bumpVersion()

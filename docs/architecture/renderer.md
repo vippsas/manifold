@@ -91,7 +91,9 @@ hosts `ShellHeaderActions` (self-gated to the shell panel;
 `components/editor/editor-shell/WorkspaceHeaderActions.tsx:14`). The tool panels —
 **Repositories**, **Files**, **Modified Files**, and the **Editor** — render icon-only tabs
 (glyph shared with the activity bar via `PanelGlyph`, name as tooltip, active view carried by
-the accent colour) without per-tab close buttons. A multi-tab strip is centered across the
+the accent colour) without per-tab close buttons. Each sits in a 24px pill centered in the 30px
+strip rather than stretching to fill it, so the active tab's tint clears the card's top edge
+(`styles/theme.css:537`). A multi-tab strip is centered across the
 header the way VS Code centers a sidebar's view tabs: dockview grows only the void container
 trailing the tabs, so the theme grows the always-empty `.dv-pre-actions-container` ahead of
 them for the matching leading space; a `.dv-single-tab` card is excluded, since a lone tab is
@@ -140,11 +142,23 @@ bar reopens it as its own column), and caps restored `projects` / `fileTree` sid
 including stale stacked sidebar columns, to the same one-sixth share before the loader
 persists repaired snapshots (`hooks/dock-layout/dock-layout-sanitize.ts:77`, `:120`, `:145`,
 `:203`; `hooks/dock-layout/dock-layout-loader.ts:138`).
-**The editor is a guest tab of that item**: `ensureEditorPanelInWorkspace` tabs it into
-whichever files panel is open, falling back to a column beside the agent only when the whole
-item is closed (`hooks/dock-layout/dock-layout-editor.ts:22`). When the editor joins the
-sidebar-width item, the shared group widens to a one-third share
-(`widenSharedEditorGroup`, `hooks/dock-layout/dock-layout-loader.ts:43`); when the last
+**The editor is a standing tab of that item**, not one that materializes on the first file
+open: the item always offers the same three tabs, and the viewer shows its own empty state
+(`No file selected` / `Select a file to view its contents`) until a file is chosen
+(`CodeViewer.tsx:214`, `EditorContent.tsx:41`; `CodeViewer.fixture.tsx` captures it). The
+default layout tabs it in inactive so the item still opens on Files
+(`hooks/dock-layout/dock-layout-builders.ts:44`), `ensureEditorTab` backfills it whenever a
+file view opens the item or a layout saved before this restores without it
+(`hooks/dock-layout/dock-layout-files-item.ts:17`, called from
+`hooks/dock-layout/dock-layout-actions.ts:124` and `dock-layout-loader.ts:145`), and
+`ensureEditorPanelInWorkspace` still covers the case where the whole item is closed, splitting
+a column beside the agent (`hooks/dock-layout/dock-layout-editor.ts:22`). Because the tab is
+always there, the widening that makes it editable can no longer key off the pane being created:
+opening a file widens the shared group to a one-third share whenever it is narrower than a
+quarter of the dock, and no-ops otherwise (`widenSharedEditorGroup`,
+`hooks/dock-layout/dock-layout-loader.ts:46`, called unconditionally from `ensureEditorPanel`,
+`hooks/dock-layout/dock-layout-panels.ts:39`). Merely adding the empty tab never widens — the
+item stays a sidebar until a file is actually opened. When the last
 editor pane leaves, it shrinks back to one-sixth (`shrinkEditorHostSidebarGroups`,
 `hooks/dock-layout/dock-layout-loader.ts:55`, called from the editor-close paths in
 `dock-layout-actions.ts`). While mixed, the group is a center pane, not a sidebar: the

@@ -1,6 +1,6 @@
 import type { DockviewApi, SerializedDockview } from 'dockview'
 import { sanitizeDockLayout } from './dock-layout-sanitize'
-import { coalesceFilesItem } from './dock-layout-files-item'
+import { coalesceFilesItem, ensureEditorTab } from './dock-layout-files-item'
 import {
   PANEL_RESTORE_HINTS,
   PANEL_TITLES,
@@ -38,14 +38,17 @@ function isPureSidebarGroup(api: DockviewApi, group: DockGroup): boolean {
     .every((panel) => SIDEBAR_FAMILY_PANEL_IDS.has(panel.id))
 }
 
-/** Widen the group hosting the editor when it tabbed into a sidebar-width
- *  files group (files and the editor share one group). Must run outside any
- *  sidebar-pinning scope, which holds the group at its pre-change width. */
-export function widenSharedEditorGroup(api: DockviewApi, refs?: LayoutRefs): void {
+/** Widen the group hosting the editor when it sits in a sidebar-width files
+ *  group (files and the editor share one group). Must run outside any
+ *  sidebar-pinning scope, which holds the group at its pre-change width.
+ *  Returns whether it actually widened — a group already at an editable width
+ *  is left alone, so this is safe to call on every file open. */
+export function widenSharedEditorGroup(api: DockviewApi, refs?: LayoutRefs): boolean {
   const group = api.getPanel('editor')?.group
-  if (!group || api.width <= 0) return
-  if (group.api.width >= api.width / 4) return
+  if (!group || api.width <= 0) return false
+  if (group.api.width >= api.width / 4) return false
   applyPanelWidthFraction(api, 'editor', EDITOR_GROUP_WIDTH_FRACTION, refs)
+  return true
 }
 
 /**
@@ -126,6 +129,7 @@ export async function loadOrBuildLayout(
     if (saved && saved.grid && saved.panels && !isCorruptedMinimalLayout(saved)) {
       refs.isRestoringRef.current = true
       let coalesced = false
+      let addedEditorTab = false
       try {
         api.fromJSON(saved)
         // fromJSON recreates each group at dockview's default 100px minimum,
@@ -134,17 +138,22 @@ export async function loadOrBuildLayout(
         // across agent switches and app restarts.
         restoreCollapsedSidebarWidths(api, saved)
         // Heal a layout saved while the files item's views sat in separate
-        // groups, so the item comes back as one card rather than several.
+        // groups, so the item comes back as one card rather than several, and
+        // give a layout saved before the code viewer became a standing tab its
+        // editor tab back.
         coalesced = coalesceFilesItem(api)
+        addedEditorTab = ensureEditorTab(api)
       } finally {
         refs.isRestoringRef.current = false
       }
       if (coalesced) {
-        // An editor that just joined the sidebar-width item needs an editable
-        // width — same treatment as tabbing into it from an open file.
+        // An editor carrying open files just joined the sidebar-width item and
+        // needs an editable width — same treatment as tabbing into it from an
+        // open file. A freshly added, empty editor tab gets no such widening:
+        // the item stays a sidebar until a file is actually opened.
         widenSharedEditorGroup(api, refs)
       }
-      const restored = coalesced ? api.toJSON() : saved
+      const restored = coalesced || addedEditorTab ? api.toJSON() : saved
       refs.lastLayoutRef.current = restored
       if (restored !== rawSaved) {
         void window.electronAPI.invoke('dock-layout:set', sessionId, restored).catch(() => {})

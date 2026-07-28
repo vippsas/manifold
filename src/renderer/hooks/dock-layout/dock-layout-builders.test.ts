@@ -29,12 +29,20 @@ function createApi() {
 }
 
 describe('applyDefaultLayout', () => {
-  it('omits the editor panel — it is added lazily when needed', () => {
+  // The code viewer is a standing tab of the item rather than one that appears
+  // on the first file open, so the item always offers the same three tabs.
+  it('tabs the code viewer into the files item, inactive', () => {
     const { api, addPanel } = createApi()
 
     applyDefaultLayout(api as never)
 
-    expect(addPanel).not.toHaveBeenCalledWith(expect.objectContaining({ id: 'editor' }))
+    expect(addPanel).toHaveBeenCalledWith({
+      id: 'editor',
+      component: 'editor',
+      title: 'Editor',
+      position: { referencePanel: expect.objectContaining({ id: 'fileTree' }), direction: 'within' },
+      inactive: true,
+    })
   })
 
   // The files item is its own card on the far side of the agent — Repositories

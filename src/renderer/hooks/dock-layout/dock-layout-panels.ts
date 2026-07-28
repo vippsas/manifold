@@ -31,11 +31,13 @@ export function useEditorPanels(ctx: DockLayoutCtx, focusPanel: (id: string) => 
     applyLayoutChangePreservingSidebarWidths(api, () => {
       layoutChanged = ensureEditorPanelInWorkspace(api)
     }, refs)
-    if (layoutChanged) {
-      // When the editor tabbed into the files sidebar group, widen the shared
-      // group to an editable width — outside the pinning scope above, which
-      // holds the sidebar at its pre-change width.
-      widenSharedEditorGroup(api, refs)
+    // The editor is a standing tab of the sidebar-width files item, so a file
+    // opening into it has to widen the shared group whenever it is too narrow
+    // to edit in — not just on the one visit that created the pane. Runs
+    // outside the pinning scope above, which holds the sidebar at its
+    // pre-change width, and no-ops once the group is wide enough.
+    const widened = widenSharedEditorGroup(api, refs)
+    if (layoutChanged || widened) {
       syncPanels(api)
       ctx.sidebarWidthsRef.current = getSidebarWidths(api)
     }
@@ -49,7 +51,7 @@ export function useEditorPanels(ctx: DockLayoutCtx, focusPanel: (id: string) => 
       : visibleEditorPanels[0]
 
     if (existingPanelId) {
-      if (layoutChanged) {
+      if (layoutChanged || widened) {
         ctx.lastLayoutRef.current = api.toJSON()
         saveLayout()
         bumpVersion()
