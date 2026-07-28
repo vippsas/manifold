@@ -8,6 +8,7 @@ import {
   shrinkEditorHostSidebarGroups,
   withPinnedSidebars,
   isEditorPanelId,
+  isFilesItemPanelId,
   toggleMaximizedGroup,
   type DockPanelId,
 } from './dock-layout-helpers'
@@ -99,6 +100,12 @@ export function useDockActions(
       bumpVersion()
       return
     }
+
+    // A files-item panel always reopens through its hints, which tab it back
+    // into the item. Its snapshot records wherever it happened to sit when it
+    // was closed — possibly a card of its own — and replaying that is exactly
+    // how the one item ends up as several.
+    if (isFilesItemPanelId(id)) closedPanelSnapshots.current.delete(id)
 
     const snapshot = closedPanelSnapshots.current.get(id)
     if (snapshot) {

@@ -52,6 +52,58 @@ describe('sanitizeDockLayout', () => {
     expect(sidebar.data.activeView).toBe('fileTree')
   })
 
+  // Layouts saved back when Repositories was a tab of the files item must not
+  // restore mixed: the two are separate cards, and the activity bar reopens
+  // Repositories as its own column.
+  it('drops Repositories from a group it shares with the files item', () => {
+    const saved = {
+      grid: {
+        root: {
+          type: 'branch',
+          size: 1000,
+          data: [
+            {
+              type: 'leaf',
+              size: 320,
+              data: { id: 'sidebar', views: ['projects', 'fileTree', 'modifiedFiles'], activeView: 'projects' },
+            },
+            { type: 'leaf', size: 680, data: { id: 'workspace', views: ['agent'], activeView: 'agent' } },
+          ],
+        },
+      },
+      panels: { projects: {}, fileTree: {}, modifiedFiles: {}, agent: {} },
+    } as unknown as SerializedDockview
+
+    const sanitized = sanitizeDockLayout(saved) as SerializedDockview
+    const sidebar = (sanitized.grid.root as {
+      type: 'branch'
+      data: Array<{ type: 'leaf'; data: { views: string[]; activeView?: string } }>
+    }).data[0]
+
+    expect(sidebar.data.views).toEqual(['fileTree', 'modifiedFiles'])
+    expect(sidebar.data.activeView).toBe('fileTree')
+    expect(Object.keys(sanitized.panels)).not.toContain('projects')
+  })
+
+  it('leaves Repositories alone when it already has its own group', () => {
+    const saved = {
+      grid: {
+        root: {
+          type: 'branch',
+          size: 1000,
+          data: [
+            { type: 'leaf', size: 160, data: { id: 'repos', views: ['projects'], activeView: 'projects' } },
+            { type: 'leaf', size: 680, data: { id: 'workspace', views: ['agent'], activeView: 'agent' } },
+            { type: 'leaf', size: 160, data: { id: 'files', views: ['fileTree'], activeView: 'fileTree' } },
+          ],
+        },
+      },
+      panels: { projects: {}, agent: {}, fileTree: {} },
+    } as unknown as SerializedDockview
+
+    expect(sanitizeDockLayout(saved)).toBe(saved)
+  })
+
   it('returns null when the saved layout only contains retired panels', () => {
     const saved = {
       grid: {

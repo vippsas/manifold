@@ -12,7 +12,7 @@ function createApi() {
   const toJSON = vi.fn(() => ({
     grid: {
       root: {
-        data: [{ size: 1 }, { size: 5 }],
+        data: [{ size: 1 }, { size: 4 }, { size: 1 }],
       },
     },
   }))
@@ -37,9 +37,9 @@ describe('applyDefaultLayout', () => {
     expect(addPanel).not.toHaveBeenCalledWith(expect.objectContaining({ id: 'editor' }))
   })
 
-  // Every tool panel shares one sidebar item, so files tabs into the
-  // repositories group instead of claiming a column of its own.
-  it('tabs the file tree into the repositories group', () => {
+  // The files item is its own card on the far side of the agent — Repositories
+  // is never one of its tabs.
+  it('gives the files item its own column right of the agent', () => {
     const { api, addPanel } = createApi()
 
     applyDefaultLayout(api as never)
@@ -48,11 +48,24 @@ describe('applyDefaultLayout', () => {
       id: 'fileTree',
       component: 'fileTree',
       title: 'Files',
-      position: { referencePanel: expect.objectContaining({ id: 'projects' }), direction: 'within' },
+      position: { referencePanel: expect.objectContaining({ id: 'agent' }), direction: 'right' },
     })
   })
 
-  it('splits the agent off the sidebar item, not the other way round', () => {
+  it('tabs modified files into the files item', () => {
+    const { api, addPanel } = createApi()
+
+    applyDefaultLayout(api as never)
+
+    expect(addPanel).toHaveBeenCalledWith({
+      id: 'modifiedFiles',
+      component: 'modifiedFiles',
+      title: 'Modified Files',
+      position: { referencePanel: expect.objectContaining({ id: 'fileTree' }), direction: 'within' },
+    })
+  })
+
+  it('splits the agent off the repositories column, not the other way round', () => {
     const { api, addPanel } = createApi()
 
     applyDefaultLayout(api as never)

@@ -1,6 +1,6 @@
 import type { SerializedDockview } from 'dockview'
 import { isSiblingPanelId, parseSiblingSessionId } from '../agent-session/agent-siblings'
-import { PANEL_IDS, isEditorPanelId, type DockPanelId, type GridNode } from './dock-layout-helpers'
+import { PANEL_IDS, isEditorPanelId, isFilesItemPanelId, type DockPanelId, type GridNode } from './dock-layout-helpers'
 
 const RETIRED_PANEL_IDS = new Set(['memory', 'webPreview', 'search', 'loop', 'backgroundAgent'])
 const SUPPORTED_OPTIONAL_PANEL_IDS = new Set<string>()
@@ -70,6 +70,35 @@ function stripInvalidPanelsFromTree(node: GridNode, validPanelIds: Set<string>):
 
   node.data = nextChildren
   return node
+}
+
+/** A group holding Repositories alongside the files item — how layouts saved
+ *  back when the two shared one card still look. */
+function isMixedRepositoriesLeaf(node: GridNode): boolean {
+  return node.type === 'leaf'
+    && node.data.views.includes('projects')
+    && node.data.views.some(isFilesItemPanelId)
+}
+
+function treeHasMixedRepositoriesLeaf(node: GridNode): boolean {
+  if (node.type === 'leaf') return isMixedRepositoriesLeaf(node)
+  return node.data.some(treeHasMixedRepositoriesLeaf)
+}
+
+/**
+ * Split Repositories out of any group it shares with the files item by dropping
+ * it: the two are separate cards now, and the activity bar reopens Repositories
+ * as its own column from its restore hints. Dropping rather than relocating
+ * keeps the repair local — the saved grid's sizes stay untouched.
+ */
+function unmixRepositoriesFromTree(node: GridNode): void {
+  if (node.type === 'leaf') {
+    if (!isMixedRepositoriesLeaf(node)) return
+    node.data.views = node.data.views.filter((view) => view !== 'projects')
+    if (node.data.activeView === 'projects') node.data.activeView = node.data.views[0]
+    return
+  }
+  for (const child of node.data) unmixRepositoriesFromTree(child)
 }
 
 function branchOrientationAtDepth(rootOrientation: GridOrientation, depth: number): GridOrientation {
@@ -184,6 +213,7 @@ export function sanitizeDockLayout(
   if (validPanelIds.size === 0) return null
 
   const needsPanelSanitization = layoutNeedsSanitization(saved, validPanelIds)
+    || treeHasMixedRepositoriesLeaf(saved.grid.root as GridNode)
   if (!needsPanelSanitization) {
     const normalized = cloneLayout(saved)
     const rootOrientation = ((normalized.grid.orientation as GridOrientation | undefined) ?? 'HORIZONTAL')
@@ -194,6 +224,7 @@ export function sanitizeDockLayout(
   const root = stripInvalidPanelsFromTree(sanitized.grid.root as GridNode, validPanelIds)
   if (!root) return null
 
+  unmixRepositoriesFromTree(root)
   sanitized.grid.root = root
   const rootOrientation = ((sanitized.grid.orientation as GridOrientation | undefined) ?? 'HORIZONTAL')
   capRestoredSidebarWidths(sanitized.grid.root as GridNode, rootOrientation)

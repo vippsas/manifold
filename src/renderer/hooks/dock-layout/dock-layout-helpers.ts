@@ -30,21 +30,40 @@ export const PANEL_TITLES: Record<DockPanelId, string> = {
 export type Direction = 'right' | 'left' | 'above' | 'below' | 'within'
 
 // Fallback positions when no snapshot exists (matches default layout).
-// Every tool panel belongs to the ONE sidebar item, so each of them tabs
-// `within` whichever of its siblings is already open before it will claim a
-// column of its own — a reopened tool can never land inside a foreign group
-// (the agent's, say) or spawn a second sidebar.
+// Files, Modified Files and the editor belong to the ONE files item, so each of
+// them tabs `within` whichever of its siblings is already open before it will
+// claim a column of its own — a reopened tool can never land inside a foreign
+// group (the agent's, say) or spawn a second files sidebar. Repositories is not
+// part of that item: it always reopens as its own column on the far left, and
+// no files panel ever tabs into it.
 export const PANEL_RESTORE_HINTS: Record<DockPanelId, Array<{ ref: DockPanelId; dir: Direction }>> = {
-  projects: [{ ref: 'fileTree', dir: 'within' }, { ref: 'modifiedFiles', dir: 'within' }, { ref: 'editor', dir: 'within' }, { ref: 'agent', dir: 'left' }],
-  agent: [{ ref: 'projects', dir: 'right' }, { ref: 'fileTree', dir: 'right' }, { ref: 'modifiedFiles', dir: 'right' }, { ref: 'editor', dir: 'right' }, { ref: 'shell', dir: 'above' }],
-  editor: [{ ref: 'fileTree', dir: 'within' }, { ref: 'modifiedFiles', dir: 'within' }, { ref: 'projects', dir: 'within' }, { ref: 'agent', dir: 'right' }, { ref: 'shell', dir: 'above' }],
-  fileTree: [{ ref: 'projects', dir: 'within' }, { ref: 'modifiedFiles', dir: 'within' }, { ref: 'editor', dir: 'within' }, { ref: 'agent', dir: 'left' }],
-  modifiedFiles: [{ ref: 'projects', dir: 'within' }, { ref: 'fileTree', dir: 'within' }, { ref: 'editor', dir: 'within' }, { ref: 'agent', dir: 'left' }],
+  projects: [{ ref: 'agent', dir: 'left' }, { ref: 'fileTree', dir: 'left' }, { ref: 'modifiedFiles', dir: 'left' }, { ref: 'editor', dir: 'left' }],
+  agent: [{ ref: 'projects', dir: 'right' }, { ref: 'fileTree', dir: 'left' }, { ref: 'modifiedFiles', dir: 'left' }, { ref: 'editor', dir: 'left' }, { ref: 'shell', dir: 'above' }],
+  editor: [{ ref: 'fileTree', dir: 'within' }, { ref: 'modifiedFiles', dir: 'within' }, { ref: 'agent', dir: 'right' }, { ref: 'shell', dir: 'above' }],
+  fileTree: [{ ref: 'modifiedFiles', dir: 'within' }, { ref: 'editor', dir: 'within' }, { ref: 'agent', dir: 'right' }, { ref: 'projects', dir: 'right' }],
+  modifiedFiles: [{ ref: 'fileTree', dir: 'within' }, { ref: 'editor', dir: 'within' }, { ref: 'agent', dir: 'right' }, { ref: 'projects', dir: 'right' }],
   shell: [{ ref: 'agent', dir: 'below' }, { ref: 'editor', dir: 'below' }],
 }
 
 export function isEditorPanelId(panelId: string): boolean {
   return panelId === 'editor' || panelId.startsWith(EDITOR_PANEL_ID_PREFIX)
+}
+
+/** The panels that share the one files item, switched by its icon tabs. */
+export function isFilesItemPanelId(panelId: string): boolean {
+  return panelId === 'fileTree' || panelId === 'modifiedFiles' || isEditorPanelId(panelId)
+}
+
+/**
+ * Whether a reopening panel may land as a tab beside `otherId`. Repositories
+ * and the files item are separate cards, so neither may absorb the other —
+ * without this a panel closed back when they shared a group would rejoin it
+ * from its snapshot and mix the two items again.
+ */
+export function mayShareTabGroup(panelId: string, otherId: string): boolean {
+  if (panelId === 'projects') return !isFilesItemPanelId(otherId)
+  if (isFilesItemPanelId(panelId)) return otherId !== 'projects'
+  return true
 }
 
 export function parseEditorPanelOrder(panelId: string): number {

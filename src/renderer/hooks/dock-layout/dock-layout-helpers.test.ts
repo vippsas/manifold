@@ -246,8 +246,8 @@ describe('showPanelFromHints', () => {
     })
   })
 
-  // The editor tabs into the one sidebar item, which sits on the left, so the
-  // agent reopens to its right rather than its left.
+  // The editor tabs into the files item, which sits to the right of the agent,
+  // so the agent reopens to its left.
   it('restores the agent beside the existing editor panel', () => {
     const editorPanel = { id: 'editor' }
     const addPanel = vi.fn()
@@ -265,7 +265,7 @@ describe('showPanelFromHints', () => {
       id: 'agent',
       component: 'agent',
       title: 'Agent',
-      position: { referencePanel: editorPanel, direction: 'right' },
+      position: { referencePanel: editorPanel, direction: 'left' },
     })
   })
 })

@@ -1,5 +1,5 @@
 // Regression guard for #803: a new agent's default dock layout must always
-// give the sidebar item ~1/6 of the width. applyDefaultLayout's ratio patch
+// give each sidebar ~1/6 of the width. applyDefaultLayout's ratio patch
 // used to assume the columns sit directly under the grid root — untrue when
 // the previous layout left the grid root VERTICAL (a pane was docked at the
 // bottom edge) or when the dock is still unmeasured — and silently no-oped,
@@ -62,7 +62,7 @@ function columnWidths(api: DockviewApi): { projects: number; agent: number; file
 }
 
 describe('applyDefaultLayout sidebar ratio (#803)', () => {
-  it('keeps the 1:5 ratio when the grid root was left VERTICAL by a bottom pane', async () => {
+  it('keeps the 1:4:1 ratio when the grid root was left VERTICAL by a bottom pane', async () => {
     const api = await setupDock()
     act(() => { api.layout(1800, 1000, true) })
 
@@ -81,14 +81,14 @@ describe('applyDefaultLayout sidebar ratio (#803)', () => {
 
     const widths = columnWidths(api)
     expect(widths.projects).toBeCloseTo(300, -1)
-    expect(widths.files).toBe(widths.projects) // one sidebar item, one column
-    expect(widths.agent).toBeCloseTo(1500, -1)
+    expect(widths.files).toBe(widths.projects) // its own column, same share
+    expect(widths.agent).toBeCloseTo(1200, -1)
   })
 
   // Pins currently-good behavior: the loader builds the default layout after
   // an async IPC await, so an unmeasured dock at build time is plausible. This
   // guard catches a dockview upgrade or builder edit making it ratio-lossy.
-  it('keeps the 1:5 ratio when built before the dock is measured (width 0)', async () => {
+  it('keeps the 1:4:1 ratio when built before the dock is measured (width 0)', async () => {
     const api = await setupDock() // jsdom never lays out: api.width === 0
     act(() => { applyDefaultLayout(api) })
 
@@ -97,7 +97,17 @@ describe('applyDefaultLayout sidebar ratio (#803)', () => {
 
     const widths = columnWidths(api)
     expect(widths.projects).toBeCloseTo(300, -1)
-    expect(widths.files).toBe(widths.projects) // one sidebar item, one column
-    expect(widths.agent).toBeCloseTo(1500, -1)
+    expect(widths.files).toBe(widths.projects) // its own column, same share
+    expect(widths.agent).toBeCloseTo(1200, -1)
+  })
+
+  it('never puts Repositories in the same group as the files item', async () => {
+    const api = await setupDock()
+    act(() => { api.layout(1800, 1000, true) })
+    act(() => { applyDefaultLayout(api) })
+
+    const filesGroup = api.getPanel('fileTree')?.group
+    expect(api.getPanel('modifiedFiles')?.group).toBe(filesGroup)
+    expect(api.getPanel('projects')?.group).not.toBe(filesGroup)
   })
 })

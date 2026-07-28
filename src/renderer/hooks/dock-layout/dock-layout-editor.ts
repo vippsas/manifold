@@ -1,8 +1,9 @@
 import type { DockviewApi } from 'dockview'
 
-/** Tool panels that make up the one sidebar item, in the order the editor
- *  prefers to tab into them. */
-const SIDEBAR_ITEM_PANEL_IDS = ['fileTree', 'modifiedFiles', 'projects'] as const
+/** The panels that make up the one files item, in the order the editor prefers
+ *  to tab into them. Repositories is deliberately absent — it is its own card,
+ *  never a host for the editor. */
+const SIDEBAR_ITEM_PANEL_IDS = ['fileTree', 'modifiedFiles'] as const
 
 /**
  * Ensure the editor panel exists in the workspace. The editor joins the one

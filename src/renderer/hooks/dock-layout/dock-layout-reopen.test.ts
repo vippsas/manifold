@@ -45,4 +45,24 @@ describe('computeReopenPlacement', () => {
     const root = branch([leaf(['shell'])])
     expect(computeReopenPlacement(snap(root), 'shell', alive())).toBeUndefined()
   })
+
+  // Repositories and the files item are separate cards: a snapshot taken back
+  // when they shared a group must not tab them together again.
+  it('reopens Repositories beside the files item, never as one of its tabs', () => {
+    const root = branch([leaf(['agent']), leaf(['projects', 'fileTree', 'modifiedFiles'], 250)])
+    expect(computeReopenPlacement(snap(root, 'HORIZONTAL'), 'projects', alive('agent', 'fileTree', 'modifiedFiles')))
+      .toEqual({ referencePanelId: 'agent', direction: 'right', size: { axis: 'width', px: 250 } })
+  })
+
+  it('reopens a files panel beside Repositories, never as one of its tabs', () => {
+    const root = branch([leaf(['projects', 'fileTree'], 250), leaf(['agent'])])
+    expect(computeReopenPlacement(snap(root, 'HORIZONTAL'), 'fileTree', alive('projects', 'agent')))
+      .toEqual({ referencePanelId: 'agent', direction: 'left', size: { axis: 'width', px: 250 } })
+  })
+
+  it('still rejoins the files item when a files sibling survives', () => {
+    const root = branch([leaf(['agent']), leaf(['projects', 'fileTree', 'editor'], 250)])
+    expect(computeReopenPlacement(snap(root), 'editor', alive('agent', 'projects', 'fileTree')))
+      .toEqual({ referencePanelId: 'fileTree', direction: 'within' })
+  })
 })

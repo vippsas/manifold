@@ -1,7 +1,7 @@
 ---
 description: How the Manifold renderer (developer workspace UI) is structured — the React entry, the dockview panel layout, and the preload-only boundary to main.
 covers: [src/renderer]
-updated: 2026-07-27
+updated: 2026-07-28
 owner: see .github/CODEOWNERS
 ---
 
@@ -50,11 +50,17 @@ incomplete) or `OnboardingView` (no projects) before rendering the full workspac
 (`useTerminal.ts:105`, `:108`).
 
 **Activity bar.** A fixed (non-collapsible) icon rail sits left of the dock
-(`components/ActivityBar.tsx`): one button per `PANEL_IDS` entry, labeled from
-`PANEL_TITLES` via a CSS hover tooltip (`.activity-bar-tooltip`). A click calls
-`dockLayout.togglePanel(id)`; a visible panel (`isPanelVisible`) renders accent-colored
-with an edge indicator bar. Session-dependent items (`editor`, `fileTree`,
-`modifiedFiles`, `shell`) are disabled while no agent session is active. Two buttons are
+(`components/ActivityBar.tsx`): one button per `RAIL_ITEMS` entry, labeled via a CSS
+hover tooltip (`.activity-bar-tooltip`). An item stands for one or more panels — a
+click toggles them through `dockLayout.togglePanel(id)`, and the item renders
+accent-colored with an edge indicator bar while any of them is visible
+(`isPanelVisible`). **Files, Modified Files and the editor share one rail item**, since
+the dock shows them as icon tabs of a single card: opening it opens `fileTree` +
+`modifiedFiles` (the editor tab joins on demand when a file is opened) and clicking it
+again closes whichever of the three are open (`ActivityBar.tsx:82`). The command
+catalog still exposes a per-panel `view.toggle.*` command and accelerator for each of
+them (`src/shared/commands/catalog.ts:65`). Session-dependent items (the Files item and
+`shell`) are disabled while no agent session is active. Two buttons are
 pinned to the bottom of the rail below a flex spacer: **Search** (magnifier), which opens
 the search modal via `onOpenSearch` (`ActivityBar.tsx:100`), and **Settings** (gear),
 which opens the settings modal via `onOpenSettings`. The rail is the only home for panel
@@ -85,7 +91,11 @@ hosts `ShellHeaderActions` (self-gated to the shell panel;
 `components/editor/editor-shell/WorkspaceHeaderActions.tsx:14`). The tool panels —
 **Repositories**, **Files**, **Modified Files**, and the **Editor** — render icon-only tabs
 (glyph shared with the activity bar via `PanelGlyph`, name as tooltip, active view carried by
-the accent colour) without per-tab close buttons; a single `×` in the group's right header
+the accent colour) without per-tab close buttons. A multi-tab strip is centered across the
+header the way VS Code centers a sidebar's view tabs: dockview grows only the void container
+trailing the tabs, so the theme grows the always-empty `.dv-pre-actions-container` ahead of
+them for the matching leading space; a `.dv-single-tab` card is excluded, since a lone tab is
+not a switcher (`styles/dockview-theme.css:228`). A single `×` in the group's right header
 actions closes every icon-tab panel in that group at once (`ICON_TAB_PANELS`,
 `DockTab.tsx:12`; `components/editor/editor-shell/WorkspaceHeaderActions.tsx:16`). There are no header
 sidebar-collapse buttons — hiding a panel is done by closing it (tab `×` or the activity
@@ -96,29 +106,47 @@ sidebar row — and only for the active session; there is no "+ Apps" header but
 toggles **focus mode**: `DockTab`'s `onDoubleClick` calls `onToggleMaximize` (`DockTab.tsx:31`), which
 maximizes that pane's group via dockview's native `maximizeGroup`/`exitMaximizedGroup`
 (`hooks/dock-layout/dock-layout-helpers.ts:243`) — hiding every other pane and both sidebars
-in place (no remount) and restoring them exactly on the second double-click. **Every tool
-panel shares ONE sidebar item**, switched by its icon tabs: the default arrangement is
-`(projects+fileTree+modifiedFiles) | agent` at a 1:5 width ratio — one sidebar column plus
-the agent, not a column per tool (`hooks/dock-layout/dock-layout-builders.ts:8`). The builder
+in place (no remount) and restoring them exactly on the second double-click. **Files,
+Modified Files and the editor share ONE files item**, switched by its icon tabs, and
+**Repositories is a separate card** — never one of its tabs. The default arrangement is
+`projects | agent | (fileTree+modifiedFiles)` at a 1:4:1 width ratio: a sidebar on each side
+of the agent, with one column for the whole files item rather than a column per tool
+(`hooks/dock-layout/dock-layout-builders.ts:8`). The builder
 enforces the ratio by patching the serialized grid, first promoting any single-branch wrapper
 root left behind by a sticky VERTICAL grid orientation — `api.clear()` keeps the orientation
 the last `fromJSON` set, so after showing a layout with a bottom pane the columns would
 otherwise nest one level deeper and the patch would miss them, yielding equal halves (#803)
-(`hooks/dock-layout/dock-layout-builders.ts:44`). Every tool panel's restore hints point
+(`hooks/dock-layout/dock-layout-builders.ts:56`). Each files panel's restore hints point
 `within` its siblings before any direction, so a reopened tool rejoins the one item instead of
-landing in a foreign group or spawning a second sidebar
-(`PANEL_RESTORE_HINTS`, `hooks/dock-layout/dock-layout-helpers.ts:38`). Saved layouts are sanitized before
-`api.fromJSON`; the sanitizer strips unsupported panels and caps restored `projects` /
-`fileTree` sidebar columns, including stale stacked sidebar columns, to the same
-one-sixth share before the loader persists repaired snapshots
-(`hooks/dock-layout/dock-layout-sanitize.ts:91`, `:116`, `:174`; `hooks/dock-layout/dock-layout-loader.ts:51`).
+landing in a foreign group or spawning a second sidebar, while `projects` only ever reopens as
+its own column (`PANEL_RESTORE_HINTS`, `hooks/dock-layout/dock-layout-helpers.ts:39`). The two
+items can never absorb each other: `mayShareTabGroup` bars a reopening panel from tabbing into
+the other item even when a snapshot taken while they shared a group says otherwise
+(`hooks/dock-layout/dock-layout-helpers.ts:63`, applied in `computeReopenPlacement`,
+`hooks/dock-layout/dock-layout-loader.ts:253`). Reopening a files panel deliberately ignores
+its closed-panel snapshot and always takes the hint path: a snapshot records wherever the panel
+sat when it was closed — possibly a card of its own — and replaying that is exactly how the one
+item ends up as several (`hooks/dock-layout/dock-layout-actions.ts:108`).
+A saved layout is the one placement no reopen rule can police, so `coalesceFilesItem` runs right
+after `fromJSON` and pulls every open files panel into the first one's group, healing a snapshot
+written while the views sat apart instead of letting the split persist; the repaired layout is
+saved back, and an editor that just rejoined the sidebar-width item gets the same widening as
+one tabbing in from an open file (`hooks/dock-layout/dock-layout-files-item.ts:18`,
+`hooks/dock-layout/dock-layout-loader.ts:138`). Split editor panes (`editor:N`) are exempt — a
+split is a second pane the user asked for, not a stray tab. Saved layouts are sanitized before
+`api.fromJSON`; the sanitizer strips unsupported panels, drops `projects` from any group it
+still shares with the files item (layouts written when the two were one card — the activity
+bar reopens it as its own column), and caps restored `projects` / `fileTree` sidebar columns,
+including stale stacked sidebar columns, to the same one-sixth share before the loader
+persists repaired snapshots (`hooks/dock-layout/dock-layout-sanitize.ts:77`, `:120`, `:145`,
+`:203`; `hooks/dock-layout/dock-layout-loader.ts:138`).
 **The editor is a guest tab of that item**: `ensureEditorPanelInWorkspace` tabs it into
-whichever sidebar panel is open, falling back to a column beside the agent only when the whole
+whichever files panel is open, falling back to a column beside the agent only when the whole
 item is closed (`hooks/dock-layout/dock-layout-editor.ts:22`). When the editor joins the
 sidebar-width item, the shared group widens to a one-third share
-(`widenSharedEditorGroup`, `hooks/dock-layout/dock-layout-loader.ts:40`); when the last
+(`widenSharedEditorGroup`, `hooks/dock-layout/dock-layout-loader.ts:43`); when the last
 editor pane leaves, it shrinks back to one-sixth (`shrinkEditorHostSidebarGroups`,
-`hooks/dock-layout/dock-layout-loader.ts:52`, called from the editor-close paths in
+`hooks/dock-layout/dock-layout-loader.ts:55`, called from the editor-close paths in
 `dock-layout-actions.ts`). While mixed, the group is a center pane, not a sidebar: the
 sanitizer's sidebar cap and the hint-reopen shrink loop both skip groups hosting non-sidebar
 panels (`dock-layout-files-editor-group.test.tsx` pins all three behaviours).
@@ -207,7 +235,7 @@ agent (`AgentChatView`), which the agent panel switches between
 - **`App` is the only stateful node.** State and IPC live in `App` + hooks; `AppShell` and the panels are presentational and read everything from props or `DockStateContext`. Adding state to a panel breaks the single-source assumption (and the dock-state memo discipline).
 - **Panels are dictionary-driven.** A panel exists iff its id is in `PANEL_COMPONENTS`; built-in *modules* additionally come from the contribution registry spread. Adding a panel means a `PANEL_IDS`/`PANEL_TITLES` entry plus a registry or `PANEL_COMPONENTS` entry — not new JSX in the shell.
 - **StrictMode double-mounts in dev.** Every panel (notably the agent terminal) mounts twice on first render; effects and layout code under `dock-layout/` must be idempotent and resize in place rather than rebuild on remount.
-- **A collapsed sidebar doesn't survive `api.fromJSON` on its own.** Collapse holds a sidebar at width 0 via a runtime `minimumWidth: 0` constraint, but dockview's `toJSON` drops `minimumWidth <= 0`, so a reload (agent switch, app restart) recreates the group at dockview's 100px default and reopens it. `loadOrBuildLayout` re-applies any saved sub-minimum sidebar width right after `fromJSON` to preserve the collapse (`hooks/dock-layout/dock-layout-helpers.ts:378`, `hooks/dock-layout/dock-layout-loader.ts:61`).
+- **A collapsed sidebar doesn't survive `api.fromJSON` on its own.** Collapse holds a sidebar at width 0 via a runtime `minimumWidth: 0` constraint, but dockview's `toJSON` drops `minimumWidth <= 0`, so a reload (agent switch, app restart) recreates the group at dockview's 100px default and reopens it. `loadOrBuildLayout` re-applies any saved sub-minimum sidebar width right after `fromJSON` to preserve the collapse (`hooks/dock-layout/dock-layout-helpers.ts:417`, `hooks/dock-layout/dock-layout-loader.ts:133`).
 - **Sidebar widths carry across session switches.** Dock layouts persist per session, so restoring the incoming session's layout would also restore *its* sidebar widths — making the sidebars visibly jump whenever the user clicks another repo/agent in the sidebar. `useDockLayout`'s session-change effect captures the current widths (`captureSidebarWidthsForReload`) before the reload and re-applies them after (`applyCarriedSidebarWidths`), including a carried collapse; a side whose panel didn't exist before the switch keeps the incoming layout's width (`hooks/dock-layout/useDockLayout.ts:274-291`, `hooks/dock-layout/dock-layout-helpers.ts:148-182`; pinned by `dock-layout-session-switch-widths.test.tsx`).
 - **"Search" and "Web preview" aren't dock panels.** Search is the `SearchModal` overlay opened from the activity rail; HTML preview is an `<iframe>` inside `CodeViewer`. Looking for them in `PANEL_COMPONENTS` will fail.
 - **Monaco workers must be configured before an editor mounts.** `monaco-setup` is imported as the first line of `index.tsx` for exactly this reason; reordering it breaks worker resolution.

@@ -6,19 +6,28 @@ import {
 } from './dock-layout-helpers'
 
 export function applyDefaultLayout(api: DockviewApi): void {
-  // Every tool panel shares ONE sidebar item, switched by its icon tabs — the
-  // dock is a single sidebar column plus the agent, not a column per tool.
+  // Two sidebars around the agent: Repositories on the left, and on the right
+  // the ONE files item whose icon tabs switch between Files, Modified Files and
+  // the editor. Repositories stays a separate card — it is not a tab of that
+  // item.
   const projectsPanel = api.addPanel({
     id: 'projects',
     component: 'projects',
     title: PANEL_TITLES.projects,
   })
 
+  const agentPanel = api.addPanel({
+    id: 'agent',
+    component: 'agent',
+    title: PANEL_TITLES.agent,
+    position: { referencePanel: projectsPanel, direction: 'right' },
+  })
+
   const filesPanel = api.addPanel({
     id: 'fileTree',
     component: 'fileTree',
     title: PANEL_TITLES.fileTree,
-    position: { referencePanel: projectsPanel, direction: 'within' },
+    position: { referencePanel: agentPanel, direction: 'right' },
   })
 
   api.addPanel({
@@ -28,18 +37,23 @@ export function applyDefaultLayout(api: DockviewApi): void {
     position: { referencePanel: filesPanel, direction: 'within' },
   })
 
+  // The code viewer is a standing tab of the item, not one that materializes on
+  // the first file open: an item whose tabs change under you is harder to aim
+  // at than one that always offers the same three. With nothing open it shows
+  // its own empty state.
   api.addPanel({
-    id: 'agent',
-    component: 'agent',
-    title: PANEL_TITLES.agent,
-    position: { referencePanel: projectsPanel, direction: 'right' },
+    id: 'editor',
+    component: 'editor',
+    title: PANEL_TITLES.editor,
+    position: { referencePanel: filesPanel, direction: 'within' },
   })
 
+  filesPanel.api.setActive()
   projectsPanel.api.setActive()
 
   // setSize calls interfere with each other (dockview redistributes freed
   // space proportionally to all siblings). Instead, patch the serialized
-  // grid to enforce an exact 1:5 ratio, then reload.
+  // grid to enforce an exact 1:4:1 ratio, then reload.
   try {
     type SerializedNode = { type: string; size: number; data?: SerializedNode[] }
     const json = api.toJSON()
@@ -57,10 +71,12 @@ export function applyDefaultLayout(api: DockviewApi): void {
     }
     grid.root = root
     const children = root.data
-    if (children && children.length === 2) {
+    if (children && children.length === 3) {
       const total = children.reduce((s, c) => s + c.size, 0)
-      children[0].size = Math.round(total / 6)          // the sidebar item
-      children[1].size = total - children[0].size       // agent
+      const sidebar = Math.round(total / 6)
+      children[0].size = sidebar                        // repositories
+      children[2].size = sidebar                        // the files item
+      children[1].size = total - sidebar * 2            // agent
       api.fromJSON(json)
     }
   } catch (err) {

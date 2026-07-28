@@ -11,12 +11,19 @@ function makeDockLayout(visible: DockPanelId[] = []): ActivityBarProps['dockLayo
 }
 
 describe('ActivityBar', () => {
-  it('renders one button per dock panel, labeled with the panel title', () => {
+  it('renders one button per rail item, labeled with the item title', () => {
     render(<ActivityBar dockLayout={makeDockLayout()} hasActiveSession />)
 
-    for (const label of ['Repositories', 'Agent', 'Editor', 'Files', 'Modified Files', 'Shell']) {
+    for (const label of ['Repositories', 'Agent', 'Files', 'Shell']) {
       expect(screen.getByRole('button', { name: label })).toBeInTheDocument()
     }
+  })
+
+  it('offers no separate rail item for the panels that share the Files item', () => {
+    render(<ActivityBar dockLayout={makeDockLayout()} hasActiveSession />)
+
+    expect(screen.queryByRole('button', { name: 'Editor' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Modified Files' })).not.toBeInTheDocument()
   })
 
   it('marks visible panels as active', () => {
@@ -24,17 +31,36 @@ describe('ActivityBar', () => {
 
     expect(screen.getByRole('button', { name: 'Repositories' })).toHaveAttribute('aria-pressed', 'true')
     expect(screen.getByRole('button', { name: 'Shell' })).toHaveClass('activity-bar-item--active')
-    expect(screen.getByRole('button', { name: 'Editor' })).toHaveAttribute('aria-pressed', 'false')
-    expect(screen.getByRole('button', { name: 'Editor' })).not.toHaveClass('activity-bar-item--active')
+    expect(screen.getByRole('button', { name: 'Files' })).toHaveAttribute('aria-pressed', 'false')
+    expect(screen.getByRole('button', { name: 'Files' })).not.toHaveClass('activity-bar-item--active')
   })
 
-  it('toggles the panel when an item is clicked', () => {
+  it('marks the Files item active while any of its panels is open', () => {
+    render(<ActivityBar dockLayout={makeDockLayout(['editor'])} hasActiveSession />)
+
+    expect(screen.getByRole('button', { name: 'Files' })).toHaveAttribute('aria-pressed', 'true')
+  })
+
+  it('opens the whole Files item — minus the on-demand editor — when it is closed', () => {
     const dockLayout = makeDockLayout(['projects'])
     render(<ActivityBar dockLayout={dockLayout} hasActiveSession />)
 
     fireEvent.click(screen.getByRole('button', { name: 'Files' }))
 
     expect(dockLayout.togglePanel).toHaveBeenCalledWith('fileTree')
+    expect(dockLayout.togglePanel).toHaveBeenCalledWith('modifiedFiles')
+    expect(dockLayout.togglePanel).not.toHaveBeenCalledWith('editor')
+  })
+
+  it('closes every open panel of the Files item in one click', () => {
+    const dockLayout = makeDockLayout(['fileTree', 'editor'])
+    render(<ActivityBar dockLayout={dockLayout} hasActiveSession />)
+
+    fireEvent.click(screen.getByRole('button', { name: 'Files' }))
+
+    expect(dockLayout.togglePanel).toHaveBeenCalledWith('fileTree')
+    expect(dockLayout.togglePanel).toHaveBeenCalledWith('editor')
+    expect(dockLayout.togglePanel).not.toHaveBeenCalledWith('modifiedFiles')
   })
 
   it('disables session-dependent panels when no session is active', () => {
@@ -42,7 +68,7 @@ describe('ActivityBar', () => {
 
     expect(screen.getByRole('button', { name: 'Repositories' })).toBeEnabled()
     expect(screen.getByRole('button', { name: 'Agent' })).toBeEnabled()
-    for (const label of ['Editor', 'Files', 'Modified Files', 'Shell']) {
+    for (const label of ['Files', 'Shell']) {
       expect(screen.getByRole('button', { name: label })).toBeDisabled()
     }
   })

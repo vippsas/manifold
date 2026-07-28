@@ -225,6 +225,19 @@
   padding-inline: 4px;
 }
 
+/* The item's icon tabs sit centered across the header strip — the way VS Code
+   centers a sidebar's view tabs — instead of hugging the left edge, so the
+   card reads as one item switched by its tabs rather than a stack of panels.
+   dockview grows only the void container that trails the tabs, which packs them
+   left; growing the (always empty) pre-actions container ahead of them adds the
+   matching leading space, so the strip balances the tabs between the two. A
+   lone tab is not a switcher, so a single-tab card keeps its icon at the edge
+   rather than floating it mid-header. */
+.dockview-theme-manifold .dv-tabs-and-actions-container:has(.dock-tab--icon):not(.dv-single-tab) > .dv-pre-actions-container {
+  display: flex;
+  flex-grow: 1;
+}
+
 .dockview-theme-manifold .dv-active-tab .dock-tab--icon {
   color: var(--accent);
   background: var(--accent-subtle);

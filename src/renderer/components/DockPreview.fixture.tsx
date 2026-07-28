@@ -16,30 +16,35 @@ function Pane(props: IDockviewPanelProps): React.JSX.Element {
 }
 
 function onReady(e: DockviewReadyEvent): void {
-  // Mirrors the default arrangement: one sidebar item holding every tool panel
-  // as an icon tab, the agent beside it, a shell below.
+  // Mirrors the default arrangement: Repositories on the left, the agent in the
+  // middle with a shell below, and on the right the one files item whose
+  // centered icon tabs switch between Files, Modified Files and the editor.
   e.api.addPanel({ id: 'projects', component: 'pane', title: 'Repositories' })
-  for (const [id, title] of [
-    ['fileTree', 'Files'],
-    ['modifiedFiles', 'Modified Files'],
-    ['editor', 'Editor'],
-  ] as const) {
-    e.api.addPanel({
-      id, component: 'pane', title,
-      position: { referencePanel: 'projects', direction: 'within' },
-    })
-  }
   e.api.addPanel({
     id: 'agent', component: 'pane', title: 'Agent',
     position: { referencePanel: 'projects', direction: 'right' },
   })
   e.api.addPanel({
+    id: 'fileTree', component: 'pane', title: 'Files',
+    position: { referencePanel: 'agent', direction: 'right' },
+  })
+  for (const [id, title] of [
+    ['modifiedFiles', 'Modified Files'],
+    ['editor', 'Editor'],
+  ] as const) {
+    e.api.addPanel({
+      id, component: 'pane', title,
+      position: { referencePanel: 'fileTree', direction: 'within' },
+    })
+  }
+  e.api.addPanel({
     id: 'shell', component: 'pane', title: 'Shell',
     position: { referencePanel: 'agent', direction: 'below' },
   })
   e.api.getPanel('projects')?.group.api.setSize({ width: 210 })
+  e.api.getPanel('fileTree')?.group.api.setSize({ width: 250 })
   e.api.getPanel('shell')?.group.api.setSize({ height: 150 })
-  e.api.getPanel('projects')?.api.setActive()
+  e.api.getPanel('fileTree')?.api.setActive()
 }
 
 // Minimal state so DockTab / WorkspaceHeaderActions render their buttons.

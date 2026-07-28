@@ -1,10 +1,12 @@
 import type { DockviewApi, SerializedDockview } from 'dockview'
 import { sanitizeDockLayout } from './dock-layout-sanitize'
+import { coalesceFilesItem } from './dock-layout-files-item'
 import {
   PANEL_RESTORE_HINTS,
   PANEL_TITLES,
   SIDEBAR_PANEL_IDS,
   applyLayoutChangePreservingSidebarWidths,
+  mayShareTabGroup,
   restoreCollapsedSidebarWidths,
   withPinnedSidebars,
   type Direction,
@@ -123,6 +125,7 @@ export async function loadOrBuildLayout(
     const saved = rawSaved ? sanitizeDockLayout(rawSaved, liveSiblingSessionIds) : null
     if (saved && saved.grid && saved.panels && !isCorruptedMinimalLayout(saved)) {
       refs.isRestoringRef.current = true
+      let coalesced = false
       try {
         api.fromJSON(saved)
         // fromJSON recreates each group at dockview's default 100px minimum,
@@ -130,12 +133,21 @@ export async function loadOrBuildLayout(
         // saved sub-minimum widths so a collapsed sidebar stays collapsed
         // across agent switches and app restarts.
         restoreCollapsedSidebarWidths(api, saved)
+        // Heal a layout saved while the files item's views sat in separate
+        // groups, so the item comes back as one card rather than several.
+        coalesced = coalesceFilesItem(api)
       } finally {
         refs.isRestoringRef.current = false
       }
-      refs.lastLayoutRef.current = saved
-      if (saved !== rawSaved) {
-        void window.electronAPI.invoke('dock-layout:set', sessionId, saved).catch(() => {})
+      if (coalesced) {
+        // An editor that just joined the sidebar-width item needs an editable
+        // width — same treatment as tabbing into it from an open file.
+        widenSharedEditorGroup(api, refs)
+      }
+      const restored = coalesced ? api.toJSON() : saved
+      refs.lastLayoutRef.current = restored
+      if (restored !== rawSaved) {
+        void window.electronAPI.invoke('dock-layout:set', sessionId, restored).catch(() => {})
       }
       return
     }
@@ -248,7 +260,9 @@ export function computeReopenPlacement(
 
   const leafNode = parent.data[pIndex]
   if (leafNode?.type === 'leaf') {
-    const mate = leafNode.data.views.filter((v) => v !== panelId).find(isAlive)
+    const mate = leafNode.data.views
+      .filter((v) => v !== panelId && mayShareTabGroup(panelId, v))
+      .find(isAlive)
     if (mate) return { referencePanelId: mate, direction: 'within' }
   }
 

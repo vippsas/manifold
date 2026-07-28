@@ -62,11 +62,40 @@ export function PanelGlyph({ id, size = 18 }: { id: DockPanelId; size?: number }
   )
 }
 
-/** Panels that only make sense while an agent session is active — mirrors the
- *  status bar, which offers its panel toggles only for a live session. */
-const SESSION_PANELS: ReadonlySet<DockPanelId> = new Set(['editor', 'fileTree', 'modifiedFiles', 'shell'])
+interface RailItem {
+  key: string
+  label: string
+  glyph: DockPanelId
+  /** Panels this item stands for: it reads as open while any of them is, and
+   *  clicking an open item closes all of them. */
+  panels: DockPanelId[]
+  /** Panels a click opens when the item is closed. */
+  opens: DockPanelId[]
+  /** Only meaningful while an agent session is active — mirrors the status bar,
+   *  which offers its panel toggles only for a live session. */
+  sessionOnly?: boolean
+}
 
-const RAIL_ORDER: DockPanelId[] = ['projects', 'agent', 'editor', 'fileTree', 'modifiedFiles', 'shell']
+/** Files, Modified Files and the editor are one dock item — a single card whose
+ *  icon tabs switch between them — so the rail offers one toggle for all three
+ *  rather than three that could each be opened on their own. */
+const FILES_ITEM_PANELS: DockPanelId[] = ['fileTree', 'modifiedFiles', 'editor']
+
+const RAIL_ITEMS: RailItem[] = [
+  { key: 'projects', label: PANEL_TITLES.projects, glyph: 'projects', panels: ['projects'], opens: ['projects'] },
+  { key: 'agent', label: PANEL_TITLES.agent, glyph: 'agent', panels: ['agent'], opens: ['agent'] },
+  {
+    key: 'files',
+    label: PANEL_TITLES.fileTree,
+    glyph: 'fileTree',
+    panels: FILES_ITEM_PANELS,
+    // The editor tab is left out: it joins the item on demand when a file is
+    // opened, so opening the item never adds an empty editor.
+    opens: ['fileTree', 'modifiedFiles'],
+    sessionOnly: true,
+  },
+  { key: 'shell', label: PANEL_TITLES.shell, glyph: 'shell', panels: ['shell'], opens: ['shell'], sessionOnly: true },
+]
 
 const SEARCH_GLYPH = glyph(
   <>
@@ -95,23 +124,25 @@ export interface ActivityBarProps {
 export function ActivityBar({ dockLayout, hasActiveSession, onOpenSearch, onOpenSettings }: ActivityBarProps): React.JSX.Element {
   return (
     <nav className="activity-bar" aria-label="Panels" style={activityBarStyles.root}>
-      {RAIL_ORDER.map((id) => {
-        const label = PANEL_TITLES[id]
-        const active = dockLayout.isPanelVisible(id)
-        const disabled = SESSION_PANELS.has(id) && !hasActiveSession
+      {RAIL_ITEMS.map((item) => {
+        const openPanels = item.panels.filter((id) => dockLayout.isPanelVisible(id))
+        const active = openPanels.length > 0
+        const disabled = item.sessionOnly === true && !hasActiveSession
         return (
           <button
-            key={id}
+            key={item.key}
             type="button"
             className={`activity-bar-item${active ? ' activity-bar-item--active' : ''}`}
-            onClick={() => dockLayout.togglePanel(id)}
+            onClick={() => {
+              for (const id of active ? openPanels : item.opens) dockLayout.togglePanel(id)
+            }}
             disabled={disabled}
-            aria-label={label}
+            aria-label={item.label}
             aria-pressed={active}
           >
-            <PanelGlyph id={id} />
+            <PanelGlyph id={item.glyph} />
             <span className="activity-bar-tooltip" role="presentation">
-              {label}
+              {item.label}
             </span>
           </button>
         )
