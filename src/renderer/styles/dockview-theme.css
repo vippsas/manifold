@@ -220,6 +220,13 @@
   padding: 0 2px;
 }
 
+/* Repositories shows no tab at all (see DockTab): the header strip is left to
+   its actions, so the item is titled by the activity-bar icon that opens it
+   rather than by a second copy of that icon inside the view. */
+.dockview-theme-manifold .dv-tab:has(.dock-tab--headless) {
+  display: none;
+}
+
 /* Inset the strip so the active tab's pill clears the card's rounded corner. */
 .dockview-theme-manifold .dv-tabs-container:has(.dock-tab--icon) {
   padding-inline: 4px;

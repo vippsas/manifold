@@ -54,6 +54,23 @@ export const sidebarStyles: Record<string, React.CSSProperties> = {
     color: 'var(--text-secondary)',
     marginTop: 0,
   },
+  rowChevron: {
+    display: 'inline-flex',
+    alignItems: 'center',
+    marginLeft: '-4px',
+    marginRight: '2px',
+    color: 'var(--text-muted)',
+    flexShrink: 0,
+  },
+  // The sidebar is a ladder of 8px steps — the file tree's own per-depth indent
+  // — so every chevron sits one step right of its parent's: the repo row, then
+  // its checkout and its agents, then an agent's worktree files.
+  projectFiles: {
+    marginLeft: '16px',
+  },
+  worktreeFiles: {
+    marginLeft: '24px',
+  },
   rowGlyph: {
     display: 'inline-flex',
     alignItems: 'center',

@@ -2,6 +2,24 @@ export function NewAgentGlyph(): React.JSX.Element {
   return <span aria-hidden="true">+</span>
 }
 
+/** Disclosure chevron on a repo row — points right when its files are hidden,
+ *  down when they are showing. Matches the file tree's own directory chevron so
+ *  a repo reads as the folder its files hang under. */
+export function FilesChevronGlyph({ expanded }: { expanded: boolean }): React.JSX.Element {
+  return (
+    <svg
+      width="16"
+      height="16"
+      viewBox="0 0 16 16"
+      fill="currentColor"
+      aria-hidden="true"
+      style={{ transform: expanded ? 'rotate(90deg)' : undefined, transition: 'transform 0.1s ease' }}
+    >
+      <path d="M6 4l4 4-4 4" />
+    </svg>
+  )
+}
+
 export function RepoGlyph(): React.JSX.Element {
   return (
     <svg

@@ -1,7 +1,7 @@
 ---
 description: How Manifold watches worktrees for git/tree changes and reads, writes, lists, and imports files for the renderer's editor and file tree.
 covers: [src/main/fs]
-updated: 2026-06-24
+updated: 2026-07-29
 owner: see .github/CODEOWNERS
 ---
 
@@ -110,7 +110,7 @@ path is recreated. It is wired via `fileWatcher.setVerdictRecorder` (`app/index.
 
 ## Interactions
 
-- **IPC** (`src/main/ipc/file-handlers.ts`): the renderer-facing surface. `files:tree`/`files:tree-by-project`/`files:tree-dir` → `getFileTree`; `files:read`/`files:write`/`files:delete`/`files:rename`/`files:create-file`/`files:create-dir`/`files:import` → the matching `FileWatcher` method; `files:list` → `listWorktreeFiles`. Every path is `resolve()`d against `worktreePath` and checked by `isPathAllowed` against the worktree + `additionalDirs` before any fs call (`file-handlers.ts:17`, `:63`). `files:search-content` and image paste also live here, not in `src/main/fs`.
+- **IPC** (`src/main/ipc/file-handlers.ts`): the renderer-facing surface. `files:tree`/`files:tree-by-project`/`files:tree-dir` → `getFileTree`; `files:read`/`files:write`/`files:delete`/`files:rename`/`files:create-file`/`files:create-dir`/`files:import` → the matching `FileWatcher` method; `files:list` → `listWorktreeFiles`. Every path is `resolve()`d and checked against the workspace roots — every registered project plus every session's worktree and `additionalDirs` — before any fs call (`workspaceRoots`, `file-handlers.ts:26`; `isAllowed`, `:46`; `authorize`, `:53`). `files:search-content` and image paste also live here, not in `src/main/fs`.
 - **Agent handlers** (`src/main/ipc/agent-handlers.ts`): start the watch lifecycle — `watch` on spawn/resume. `agent:kill` no longer unwatches directly (that would kill events for sibling sessions on a shared worktree); `agent:kill-worktree`/`agent:delete-app` still unwatch the path explicitly.
 - **Session** (`src/main/session`): `SessionKiller.cleanupSession` owns teardown unwatch — it calls `unwatchAdditionalDir` for each `--add-dir` and `unwatch(worktreePath)` once no surviving session shares the path (`worktreeSharedWithOther`, mirroring `removeWorktreeIfUnused`). This covers the mode-switch teardown paths (`killNonInteractiveSessions`/`killInteractiveSession`), not just the IPC kill. The watcher reads `session.worktreePath`/`additionalDirs` only indirectly through the session/IPC layers.
 - **Git** (`src/main/git`): the watcher shells out to `git status`/`ls-files`/`rev-parse`/`gh` directly rather than going through `gitExec`; `isMissingGitError` lets `poll()` permanently disable polling where git can't spawn, and `pollAdditionalDir` additionally disables on `isGitRepositoryError` so a plain non-git `--add-dir` stops respawning a failing `git` every 2 s (`git/git-errors`, `file-watcher.ts:131`, `:157`).
@@ -126,4 +126,5 @@ path is recreated. It is wired via `fileWatcher.setVerdictRecorder` (`app/index.
 - **`getFileTree` and the fs operations are synchronous; the poll's change fingerprint is not.** The file ops and tree walk run synchronously on the main thread (the symlink guard and `EXCLUDED_DIRS` keep that walk cheap), but `buildChangeFingerprint` stats async (`fsp.stat`) so a dirty tree of thousands of entries doesn't block the poll tick. `EXCLUDED_DIRS` is hard-coded (`file-watcher-utils.ts:62`) — there is no per-project ignore config; only `.gitignore` (via `ls-files --exclude-standard`) and that fixed set apply.
 - **Mutating ops never trust the watcher to refresh.** Handlers return the freshly built tree and/or call `notifyTreeChanged` so the editor updates immediately instead of waiting up to 2 s / 200 ms (`file-handlers.ts:101`, `:160`).
 - **Git polling self-disables.** If git can't spawn (`ENOENT`), `disableGitPolling` clears the timer for that entry permanently rather than retrying every 2 s (`file-watcher.ts:164`, `file-watcher.test.ts:203`). For `--add-dir` paths it also disables on "not a git repository" so a plain folder isn't polled forever.
-- **Path safety is enforced in IPC, not here.** `FileWatcher` methods operate on whatever absolute path they're given; the `isPathAllowed` traversal check lives entirely in `file-handlers.ts`. Calling these methods from elsewhere bypasses that guard.
+- **Path safety is enforced in IPC, not here.** `FileWatcher` methods operate on whatever absolute path they're given; the traversal check lives entirely in `file-handlers.ts`. Calling these methods from elsewhere bypasses that guard.
+- **The guard is scoped to the open folders, not to the selected session.** Any registered repo or session worktree is readable and writable whichever agent is selected, and reads work with no session at all — the sidebar shows several folders' files at once and opens any of them. What the guard still refuses is a path under none of those roots.

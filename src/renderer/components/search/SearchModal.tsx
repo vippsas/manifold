@@ -179,7 +179,7 @@ function SearchModalBody({
           <span style={styles.iconWrap}><SearchGlyph size={16} /></span>
           <input
             ref={inputRef}
-            className="reticle-input search-modal-input"
+            className="search-modal-input"
             style={styles.input}
             placeholder="Search files, code &amp; memory…"
             value={search.query}

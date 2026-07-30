@@ -30,7 +30,7 @@ function props(panelIds: string[], activePanelId = panelIds[0]): IDockviewHeader
 
 describe('WorkspaceHeaderActions', () => {
   it('renders no module launcher in any group header (apps live in agent settings)', () => {
-    for (const group of [['projects'], ['agent', 'editor'], ['fileTree', 'modifiedFiles']]) {
+    for (const group of [['projects'], ['agent', 'editor'], ['modifiedFiles', 'editor']]) {
       const { unmount } = render(
         <DockStateContext.Provider value={state}>
           <WorkspaceHeaderActions {...props(group)} />
@@ -47,14 +47,14 @@ describe('WorkspaceHeaderActions', () => {
     const onClosePanel = vi.fn()
     render(
       <DockStateContext.Provider value={{ ...state, onClosePanel } as unknown as DockAppState}>
-        <WorkspaceHeaderActions {...props(['fileTree', 'modifiedFiles'])} />
+        <WorkspaceHeaderActions {...props(['modifiedFiles', 'editor'])} />
       </DockStateContext.Provider>,
     )
 
     fireEvent.click(screen.getByRole('button', { name: 'Close Files' }))
 
     expect(onClosePanel).toHaveBeenCalledTimes(2)
-    expect(onClosePanel).toHaveBeenCalledWith('fileTree')
+    expect(onClosePanel).toHaveBeenCalledWith('modifiedFiles')
     expect(onClosePanel).toHaveBeenCalledWith('modifiedFiles')
   })
 

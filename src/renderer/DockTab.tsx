@@ -5,11 +5,14 @@ import { parseSiblingSessionId } from './hooks/agent-session/agent-siblings'
 import { PanelGlyph } from './components/ActivityBar'
 import type { DockPanelId } from './hooks/dock-layout/useDockLayout'
 
-/** The tool panels that share the one sidebar item render icon-only tabs: each
- *  tab is just a glyph (name as tooltip) without its own close button — a
- *  single × in the group header closes the whole item (see
- *  WorkspaceHeaderActions). */
-export const ICON_TAB_PANELS = new Set<string>(['projects', 'fileTree', 'modifiedFiles', 'editor'])
+/** The sidebar items whose tabs carry no close button of their own — a single ×
+ *  in the group header closes the whole item (see WorkspaceHeaderActions). */
+export const ICON_TAB_PANELS = new Set<string>(['projects', 'modifiedFiles', 'editor'])
+
+/** Repositories is alone in its group, so it renders no tab at all: a lone tab
+ *  switches nothing, and its glyph only repeated the activity-bar icon that
+ *  opens the item. The group header keeps its ×. */
+const HEADLESS_TAB_PANELS = new Set<string>(['projects'])
 
 export function DockTab({ api }: IDockviewPanelHeaderProps): React.JSX.Element {
   const state = React.useContext(DockStateContext)
@@ -22,6 +25,9 @@ export function DockTab({ api }: IDockviewPanelHeaderProps): React.JSX.Element {
     const disposable = api.onDidTitleChange(() => setTitle(api.title ?? ''))
     return () => disposable.dispose()
   }, [api])
+  if (HEADLESS_TAB_PANELS.has(api.id)) {
+    return <div className="dock-tab dock-tab--headless" aria-label={title} />
+  }
   if (ICON_TAB_PANELS.has(api.id)) {
     return (
       <div

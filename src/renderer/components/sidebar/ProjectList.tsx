@@ -8,6 +8,8 @@ import { AgentItem } from './AgentItem'
 import { ProjectItem } from './ProjectItem'
 import { dedupeSessionsByWorktree } from '../../hooks/agent-session/agent-siblings'
 import { sortByRecency, useProjectRecency } from './sidebar-recency'
+import { projectFolderKey, useFolderDisclosure, worktreeFolderKey } from './folder-disclosure'
+import type { FolderSource } from '../../hooks/editor/useWorkspaceTree'
 
 export interface ProjectListProps {
   projects: Project[]
@@ -29,6 +31,9 @@ export interface ProjectListProps {
   activeDraftId: string | null
   onSelectDraft: (id: string) => void
   onDiscardDraft: (id: string) => void
+  /** Renders a folder's file tree under its row while it is open. Injected by
+   *  the dock panel so the sidebar stays free of editor/file plumbing. */
+  renderFolderFiles?: (source: FolderSource) => React.ReactNode
 }
 
 export function ProjectList({
@@ -51,8 +56,10 @@ export function ProjectList({
   activeDraftId,
   onSelectDraft,
   onDiscardDraft,
+  renderFolderFiles,
 }: ProjectListProps): React.JSX.Element {
   const { recency, touchProject } = useProjectRecency()
+  const folders = useFolderDisclosure()
   const visibleProjects = projects.filter((project) => !suppressedProjectIds?.has(project.id))
 
   // While a workspace is focused, its repos and sessions are shown under the
@@ -60,16 +67,13 @@ export function ProjectList({
   // active standalone project here — that double-highlights one repo.
   const activeProjectId = activeWorkspaceId ? null : activeProjectIdProp
 
+  // Clicking a repo only opens its folder. It deliberately does not activate the
+  // project: that would switch sessions and reload the agent, the editor and the
+  // tree, and it would reorder this list under the cursor — a lot of motion for
+  // "show me these files". Agent rows still switch sessions.
   const handleProjectClick = useCallback(
-    (projectId: string): void => {
-      touchProject(projectId)
-      // Only activate the project; let useAgentSession restore the agent that
-      // was last viewed in this repo instead of resetting to the first one
-      // (#768). Hard-coding sessions[0] here both overrode that restore and
-      // corrupted the per-project memory.
-      onSelectProject(projectId)
-    },
-    [onSelectProject, touchProject]
+    (projectId: string): void => { folders.toggle(projectFolderKey(projectId)) },
+    [folders]
   )
 
   const orderedProjects = sortByRecency(visibleProjects, recency)
@@ -81,11 +85,12 @@ export function ProjectList({
       ? projectSessions.find((s) => s.id === activeSessionId)?.worktreePath ?? null
       : null
     const primarySessions = dedupeSessionsByWorktree(projectSessions)
+    const checkoutOpen = folders.isOpen(projectFolderKey(project.id))
     return (
       <div className={`sidebar-project-group sidebar-project-group--has-agents${isActive ? ' sidebar-project-group--active' : ''}`}>
         <ProjectItem
           project={project}
-          isActive={isActive}
+          isFilesExpanded={checkoutOpen}
           onSelect={handleProjectClick}
           onRemove={onRemove}
           onRename={(name) => onUpdateProject(project.id, { name })}
@@ -94,24 +99,43 @@ export function ProjectList({
             : undefined}
           onAddAgent={() => onNewAgent(project.id)}
         />
+        {checkoutOpen && renderFolderFiles && (
+          <div className="sidebar-project-files" style={sidebarStyles.projectFiles}>
+            {renderFolderFiles({ kind: 'project', id: project.id })}
+          </div>
+        )}
         {primarySessions.map((session) => {
           const siblingOutputting = projectSessions.some(
             (s) => s.worktreePath === session.worktreePath && outputtingSessionIds.has(s.id),
           )
+          // An in-place agent works in the repo's own checkout, which the repo
+          // row already opens — it has no second folder of its own.
+          const hasOwnWorktree = session.worktreePath !== '' && session.worktreePath !== project.path
+          const worktreeOpen = hasOwnWorktree && folders.isOpen(worktreeFolderKey(session.id))
           return (
-            <AgentItem
-              key={session.id}
-              session={session}
-              projectPath={project.path}
-              isActive={session.worktreePath !== '' && session.worktreePath === activeWorktreePath}
-              isOutputting={siblingOutputting}
-              onSelect={(sessionId) => { touchProject(project.id); onSelectSession(sessionId, project.id) }}
-              onDelete={() => onRequestDeleteAgent(session, project.path)}
-              onRename={(settings) => onRenameAgent(session.id, settings)}
-            />
+            <React.Fragment key={session.id}>
+              <AgentItem
+                session={session}
+                projectPath={project.path}
+                isActive={session.worktreePath !== '' && session.worktreePath === activeWorktreePath}
+                isOutputting={siblingOutputting}
+                isFilesExpanded={worktreeOpen}
+                onToggleFiles={hasOwnWorktree
+                  ? () => folders.toggle(worktreeFolderKey(session.id))
+                  : undefined}
+                onSelect={(sessionId) => { touchProject(project.id); onSelectSession(sessionId, project.id) }}
+                onDelete={() => onRequestDeleteAgent(session, project.path)}
+                onRename={(settings) => onRenameAgent(session.id, settings)}
+              />
+              {worktreeOpen && renderFolderFiles && (
+                <div className="sidebar-project-files sidebar-project-files--worktree" style={sidebarStyles.worktreeFiles}>
+                  {renderFolderFiles({ kind: 'session', id: session.id })}
+                </div>
+              )}
+            </React.Fragment>
           )
         })}
-        {isActive && drafts
+        {drafts
           .filter((d) => d.projectId === project.id)
           .map((d) => (
             <DraftAgentItem

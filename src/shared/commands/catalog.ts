@@ -65,13 +65,14 @@ const RAW_COMMANDS = [
   { id: 'view.toggle.projects', title: 'Toggle Projects', category: 'View', accelerator: 'CmdOrCtrl+Alt+1', menu: { section: 'view', order: 10 } },
   { id: 'view.toggle.agent', title: 'Toggle Agent', category: 'View', accelerator: 'CmdOrCtrl+Alt+2', menu: { section: 'view', order: 11 } },
   { id: 'view.toggle.editor', title: 'Toggle Editor', category: 'View', accelerator: 'CmdOrCtrl+Alt+3', menu: { section: 'view', order: 12 } },
-  { id: 'view.toggle.fileTree', title: 'Toggle Files', category: 'View', accelerator: 'CmdOrCtrl+Alt+4', menu: { section: 'view', order: 13 } },
   { id: 'view.toggle.modifiedFiles', title: 'Toggle Modified Files', category: 'View', accelerator: 'CmdOrCtrl+Alt+5', menu: { section: 'view', order: 14 } },
   { id: 'view.toggle.shell', title: 'Toggle Shell', category: 'View', accelerator: 'CmdOrCtrl+Alt+6', menu: { section: 'view', order: 15 } },
   { id: 'view.dashboard', title: 'Dashboard', category: 'View', menu: { section: 'view', order: 16 } },
   { id: 'view.focusChat', title: 'Focus Chat', category: 'View', menu: { section: 'view', order: 20 } },
   { id: 'view.focusTerminal', title: 'Focus Terminal', category: 'View', accelerator: 'Ctrl+`', menu: { section: 'view', order: 21 } },
-  { id: 'view.focusFiles', title: 'Focus File Tree', category: 'View', accelerator: 'CmdOrCtrl+Shift+E', menu: { section: 'view', order: 22 } },
+  // The file tree lives under a repo's row, so focusing it means focusing
+  // Repositories — the accelerator VS Code users reach for is kept.
+  { id: 'view.focusFiles', title: 'Focus Files', category: 'View', accelerator: 'CmdOrCtrl+Shift+E', menu: { section: 'view', order: 22 } },
   { id: 'view.toggleTheme', title: 'Toggle Theme', category: 'View', menu: { section: 'view', order: 30 } },
 
   // Help
@@ -89,7 +90,6 @@ export const PANEL_TOGGLE_IDS: Record<string, string> = {
   'view.toggle.projects': 'projects',
   'view.toggle.agent': 'agent',
   'view.toggle.editor': 'editor',
-  'view.toggle.fileTree': 'fileTree',
   'view.toggle.modifiedFiles': 'modifiedFiles',
   'view.toggle.shell': 'shell',
 }

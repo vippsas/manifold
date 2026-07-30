@@ -25,7 +25,7 @@ function Probe(props: IDockviewPanelProps): React.JSX.Element {
 
 const COMPONENTS = {
   agent: Probe, editor: Probe, shell: Probe,
-  projects: Probe, fileTree: Probe, modifiedFiles: Probe,
+  projects: Probe, modifiedFiles: Probe,
 }
 
 async function setupDock(): Promise<DockviewApi> {
@@ -57,7 +57,7 @@ function columnWidths(api: DockviewApi): { projects: number; agent: number; file
   return {
     projects: leafSize(root, 'projects') ?? -1,
     agent: leafSize(root, 'agent') ?? -1,
-    files: leafSize(root, 'fileTree') ?? -1,
+    files: leafSize(root, 'modifiedFiles') ?? -1,
   }
 }
 
@@ -106,8 +106,8 @@ describe('applyDefaultLayout sidebar ratio (#803)', () => {
     act(() => { api.layout(1800, 1000, true) })
     act(() => { applyDefaultLayout(api) })
 
-    const filesGroup = api.getPanel('fileTree')?.group
-    expect(api.getPanel('modifiedFiles')?.group).toBe(filesGroup)
+    const filesGroup = api.getPanel('modifiedFiles')?.group
+    expect(api.getPanel('editor')?.group).toBe(filesGroup)
     expect(api.getPanel('projects')?.group).not.toBe(filesGroup)
   })
 })

@@ -16,9 +16,8 @@ export const searchModalStyles: Record<string, React.CSSProperties> = {
     width: 'min(720px, 92vw)',
   },
   field: {
-    // No outer pill — the input's focus state grows its own targeting-reticle
-    // brackets (`.reticle-input` / `input:focus` in theme.css), which serve as
-    // the field's border.
+    // No box around the input — this row is the field, closed by the divider
+    // below it and the panel's own edge.
     display: 'flex',
     alignItems: 'center',
     gap: 'var(--space-sm)',
@@ -30,8 +29,6 @@ export const searchModalStyles: Record<string, React.CSSProperties> = {
   input: {
     flex: 1,
     minWidth: 0,
-    // Keeps the text clear of the reticle's corner brackets, which paint on the
-    // input's own box.
     padding: '0 6px',
     background: 'transparent',
     border: 'none',

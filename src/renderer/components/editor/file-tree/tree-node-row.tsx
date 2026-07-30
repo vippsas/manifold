@@ -1,6 +1,6 @@
 import React, { useCallback } from 'react'
 import type { FileTreeNode, FileChangeType } from '../../../../shared/types'
-import { getSetiFileIcon } from './seti-icons'
+import { FileTypeIcon } from './FileTypeIcon'
 import { getDraggedTreePath, writeFileTreeDragData } from './file-tree-drag'
 import { fuzzyMatch } from './file-tree-visible'
 import { highlightByIndices } from '../../search/search-highlight'
@@ -12,24 +12,6 @@ function ChevronIcon(): React.JSX.Element {
     <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
       <path d="M6 4l4 4-4 4" />
     </svg>
-  )
-}
-
-/** File type icon from VS Code's Seti theme — a glyph in the `seti` font, coloured by file type.
- *  Both palettes ride along as custom properties so theme.css can pick the light-theme one. */
-function FileTypeIcon({ name }: { name: string }): React.JSX.Element {
-  const icon = getSetiFileIcon(name)
-  return (
-    <span
-      className="file-tree-icon"
-      style={{
-        ...treeStyles.fileIcon,
-        '--seti-icon-color': icon.color,
-        '--seti-icon-color-light': icon.lightColor,
-      } as React.CSSProperties}
-    >
-      {icon.character}
-    </span>
   )
 }
 

@@ -32,12 +32,6 @@ const PANEL_GLYPH_PATHS: Record<DockPanelId, React.JSX.Element> = {
     </>
   ),
   editor: <path d="m9 8-4 4 4 4M15 8l4 4-4 4" />,
-  fileTree: (
-    <>
-      <path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8Z" />
-      <path d="M14 3v5h5" />
-    </>
-  ),
   modifiedFiles: <path d="M8 4.5v6M5 7.5h6M13 16.5h6" />,
   shell: <path d="m5 7 5 5-5 5M12 17h7" />,
 }
@@ -76,22 +70,21 @@ interface RailItem {
   sessionOnly?: boolean
 }
 
-/** Files, Modified Files and the editor are one dock item — a single card whose
- *  icon tabs switch between them — so the rail offers one toggle for all three
- *  rather than three that could each be opened on their own. */
-const FILES_ITEM_PANELS: DockPanelId[] = ['fileTree', 'modifiedFiles', 'editor']
+/** Modified Files and the editor are one dock item — a single card whose icon
+ *  tabs switch between them — so the rail offers one toggle for both rather
+ *  than two that could each be opened on their own. The file tree has no rail
+ *  entry: it lives under its repo's row in Repositories. */
+const FILES_ITEM_PANELS: DockPanelId[] = ['modifiedFiles', 'editor']
 
 const RAIL_ITEMS: RailItem[] = [
   { key: 'projects', label: PANEL_TITLES.projects, glyph: 'projects', panels: ['projects'], opens: ['projects'] },
   { key: 'agent', label: PANEL_TITLES.agent, glyph: 'agent', panels: ['agent'], opens: ['agent'] },
   {
     key: 'files',
-    label: PANEL_TITLES.fileTree,
-    glyph: 'fileTree',
+    label: PANEL_TITLES.editor,
+    glyph: 'editor',
     panels: FILES_ITEM_PANELS,
-    // The editor tab is left out: it joins the item on demand when a file is
-    // opened, so opening the item never adds an empty editor.
-    opens: ['fileTree', 'modifiedFiles'],
+    opens: FILES_ITEM_PANELS,
     sessionOnly: true,
   },
   { key: 'shell', label: PANEL_TITLES.shell, glyph: 'shell', panels: ['shell'], opens: ['shell'], sessionOnly: true },

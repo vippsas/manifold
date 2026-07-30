@@ -38,8 +38,8 @@ function createWorkspaceLayout(left = 200, center = 600, right = 200): Serialize
             size: right,
             data: {
               id: 'files-group',
-              views: ['fileTree', 'modifiedFiles'],
-              activeView: 'fileTree',
+              views: ['modifiedFiles'],
+              activeView: 'modifiedFiles',
             },
           },
         ],
@@ -49,7 +49,6 @@ function createWorkspaceLayout(left = 200, center = 600, right = 200): Serialize
       projects: {},
       agent: {},
       editor: {},
-      fileTree: {},
       modifiedFiles: {},
     },
   } as unknown as SerializedDockview
@@ -119,7 +118,7 @@ describe('findTopLeftWorkspaceReferencePanel', () => {
       makePanel('editor:1', topLeftGroup),
       makePanel('agent', lowerGroup),
       makePanel('shell', lowerGroup),
-      makePanel('fileTree', filesGroup),
+      makePanel('modifiedFiles', filesGroup),
     ]
 
     const api = {
@@ -156,7 +155,7 @@ describe('applyLayoutChangePreservingSidebarWidths', () => {
       fromJSON,
       getPanel: vi.fn((panelId: string) => {
         if (panelId === 'projects') return { group: projectsGroup }
-        if (panelId === 'fileTree') return { group: filesGroup }
+        if (panelId === 'modifiedFiles') return { group: filesGroup }
         return undefined
       }),
     } as unknown as DockviewApi
@@ -195,7 +194,7 @@ describe('applyLayoutChangePreservingSidebarWidths', () => {
       fromJSON: vi.fn(),
       getPanel: vi.fn((panelId: string) => {
         if (panelId === 'projects') return { group: projectsGroup }
-        if (panelId === 'fileTree') return { group: filesGroup }
+        if (panelId === 'modifiedFiles') return { group: filesGroup }
         return undefined
       }),
     } as unknown as DockviewApi

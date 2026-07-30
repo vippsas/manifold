@@ -57,7 +57,6 @@ export function useCodeView(
   activeSessionId: string | null,
   readFileOverride?: ((filePath: string) => Promise<string>) | null,
   writeFileOverride?: ((filePath: string, content: string) => Promise<void>) | null,
-  allowedRoots: string[] = [],
 ): UseCodeViewResult {
   const [openFiles, setOpenFiles] = useState<OpenFile[]>([])
   const [editorPanes, setEditorPanes] = useState<EditorPaneState[]>([createEditorPaneState()])
@@ -79,7 +78,6 @@ export function useCodeView(
     setters,
     readFileOverride ?? null,
     writeFileOverride ?? null,
-    allowedRoots,
   )
 
   const activePane = useMemo(() => {

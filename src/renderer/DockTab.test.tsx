@@ -121,11 +121,20 @@ describe('DockTab', () => {
     expect(onToggleMaximize).not.toHaveBeenCalled()
   })
 
+  it('gives the Repositories group no tab of its own', () => {
+    const { container } = render(<DockTab {...makeHeaderProps('projects', 'Repositories')} />)
+
+    // The activity-bar icon opens the item and names it; repeating that glyph
+    // inside the view titled nothing, and a lone tab switches nothing either.
+    expect(container.querySelector('svg')).toBeNull()
+    expect(screen.queryByText('Repositories')).toBeNull()
+    expect(container.querySelector('.dock-tab--headless')).not.toBeNull()
+  })
+
   it('renders sidebar panels as icon-only tabs without a close button', () => {
     for (const [id, title] of [
-      ['projects', 'Repositories'],
-      ['fileTree', 'Files'],
       ['modifiedFiles', 'Modified Files'],
+      ['editor', 'Editor'],
     ] as const) {
       const { container, unmount } = render(<DockTab {...makeHeaderProps(id, title)} />)
 
@@ -143,13 +152,13 @@ describe('DockTab', () => {
     const onToggleMaximize = vi.fn()
     render(
       <DockStateContext.Provider value={makeDockState({ onToggleMaximize })}>
-        <DockTab {...makeHeaderProps('fileTree', 'Files')} />
+        <DockTab {...makeHeaderProps('modifiedFiles', 'Modified Files')} />
       </DockStateContext.Provider>,
     )
 
-    fireEvent.doubleClick(screen.getByTitle('Files'))
+    fireEvent.doubleClick(screen.getByTitle('Modified Files'))
 
-    expect(onToggleMaximize).toHaveBeenCalledWith('fileTree')
+    expect(onToggleMaximize).toHaveBeenCalledWith('modifiedFiles')
   })
 
   it('shows a compact workspace role pill on workspace child tabs', () => {

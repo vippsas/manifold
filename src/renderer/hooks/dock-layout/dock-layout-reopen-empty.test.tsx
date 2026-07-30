@@ -43,7 +43,7 @@ async function setupEmptiedDockWithProjectsOnly(): Promise<DockviewApi> {
   render(
     <div style={{ width: 1200, height: 700 }}>
       <DockviewReact
-        components={{ projects: Probe, agent: Probe, fileTree: Probe, modifiedFiles: Probe, shell: Probe }}
+        components={{ projects: Probe, agent: Probe, modifiedFiles: Probe, shell: Probe }}
         onReady={(e) => { api = e.api }}
       />
     </div>,
@@ -86,25 +86,25 @@ describe('reopening panels into a dock where only the projects sidebar survives'
       showPanelFromHints(dv, 'agent')
     })
     act(() => {
-      showPanelFromHints(dv, 'fileTree')
+      showPanelFromHints(dv, 'modifiedFiles')
     })
     act(() => {
       showPanelFromHints(dv, 'shell')
     })
 
-    for (const id of ['projects', 'agent', 'fileTree', 'shell']) {
+    for (const id of ['projects', 'agent', 'modifiedFiles', 'shell']) {
       expect(widthOf(id), `panel '${id}' should be visible`).toBeGreaterThan(0)
     }
     // The groups must share the dock, not overflow it: a full-width pinned
     // sidebar plus minimum-width new groups would sum past the dock width and
     // render the new panels invisible once the browser clamps the layout.
-    const columns = new Set(['projects', 'agent', 'fileTree'].map((id) => dv.getPanel(id)?.group))
+    const columns = new Set(['projects', 'agent', 'modifiedFiles'].map((id) => dv.getPanel(id)?.group))
     const columnSum = Array.from(columns).reduce((sum, group) => sum + (group?.api.width ?? 0), 0)
     expect(columnSum).toBeLessThanOrEqual(1200)
     // And the proportions land at the default 1:4:1 layout, not arbitrary
     // 50/50 splits: each sidebar at its one-sixth share, center the rest.
     expect(widthOf('projects')).toBeLessThanOrEqual(210)
-    expect(widthOf('fileTree')).toBeLessThanOrEqual(210)
+    expect(widthOf('modifiedFiles')).toBeLessThanOrEqual(210)
     expect(widthOf('agent')).toBeGreaterThanOrEqual(760)
   })
 })

@@ -33,7 +33,7 @@ async function setupDock(build: (api: DockviewApi) => void): Promise<DockviewApi
   render(
     <div style={{ width: 1200, height: 700 }}>
       <DockviewReact
-        components={{ projects: Probe, agent: Probe, editor: Probe, fileTree: Probe, modifiedFiles: Probe }}
+        components={{ projects: Probe, agent: Probe, editor: Probe, modifiedFiles: Probe }}
         onReady={(e) => { api = e.api }}
       />
     </div>,
@@ -47,13 +47,13 @@ async function setupDock(build: (api: DockviewApi) => void): Promise<DockviewApi
   return dv
 }
 
-/** The default 1:4:1 layout: projects | agent | fileTree. */
+/** The default 1:4:1 layout: projects | agent | the files item. */
 function buildDefaultColumns(dv: DockviewApi): void {
   dv.addPanel({ id: 'projects', component: 'projects' })
   dv.addPanel({ id: 'agent', component: 'agent', position: { referencePanel: 'projects', direction: 'right' } })
-  dv.addPanel({ id: 'fileTree', component: 'fileTree', position: { referencePanel: 'agent', direction: 'right' } })
+  dv.addPanel({ id: 'modifiedFiles', component: 'modifiedFiles', position: { referencePanel: 'agent', direction: 'right' } })
   dv.getPanel('projects')?.group.api.setSize({ width: 200 })
-  dv.getPanel('fileTree')?.group.api.setSize({ width: 200 })
+  dv.getPanel('modifiedFiles')?.group.api.setSize({ width: 200 })
 }
 
 describe('files and editor sharing one tabbed group', () => {
@@ -65,7 +65,7 @@ describe('files and editor sharing one tabbed group', () => {
     })
 
     const editorGroup = dv.getPanel('editor')?.group
-    expect(editorGroup).toBe(dv.getPanel('fileTree')?.group)
+    expect(editorGroup).toBe(dv.getPanel('modifiedFiles')?.group)
     // The shared group is no longer a sidebar sliver — it widened to an
     // editable share of the dock.
     expect(editorGroup?.api.width ?? 0).toBeGreaterThanOrEqual(1200 / 4)
@@ -87,12 +87,12 @@ describe('files and editor sharing one tabbed group', () => {
     expect(editorWidthBefore).toBeGreaterThan(210)
 
     act(() => {
-      showPanelFromHints(dv, 'fileTree')
+      showPanelFromHints(dv, 'modifiedFiles')
     })
 
-    // Files tabbed into the editor's group and adopted its width — it did not
+    // The changes view tabbed into the editor's group and adopted its width — it did not
     // carve out a new column or clamp the shared group to sidebar width.
-    expect(dv.getPanel('fileTree')?.group).toBe(editorGroup)
+    expect(dv.getPanel('modifiedFiles')?.group).toBe(editorGroup)
     expect(editorGroup?.api.width ?? 0).toBe(editorWidthBefore)
   })
 
@@ -111,7 +111,7 @@ describe('files and editor sharing one tabbed group', () => {
       shrinkEditorHostSidebarGroups(dv, new Set([sharedGroup]))
     })
 
-    // Only the files panel remains in the group — a plain sidebar again.
-    expect(dv.getPanel('fileTree')?.group.api.width ?? 0).toBeLessThanOrEqual(210)
+    // Only the changes view remains in the group — a plain sidebar again.
+    expect(dv.getPanel('modifiedFiles')?.group.api.width ?? 0).toBeLessThanOrEqual(210)
   })
 })

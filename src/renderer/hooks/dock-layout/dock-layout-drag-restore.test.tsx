@@ -44,7 +44,7 @@ async function setupDock(): Promise<DockviewApi> {
   render(
     <div style={{ width: 1200, height: 700 }}>
       <DockviewReact
-        components={{ projects: Probe, agent: Probe, editor: Probe, fileTree: Probe }}
+        components={{ projects: Probe, agent: Probe, editor: Probe, modifiedFiles: Probe }}
         onReady={(e) => { api = e.api }}
       />
     </div>,
@@ -56,12 +56,12 @@ async function setupDock(): Promise<DockviewApi> {
     dv.addPanel({ id: 'projects', component: 'projects' })
     dv.addPanel({ id: 'agent', component: 'agent', position: { referencePanel: 'projects', direction: 'right' } })
     dv.addPanel({ id: 'editor', component: 'editor', position: { referencePanel: 'agent', direction: 'right' } })
-    dv.addPanel({ id: 'fileTree', component: 'fileTree', position: { referencePanel: 'editor', direction: 'right' } })
+    dv.addPanel({ id: 'modifiedFiles', component: 'modifiedFiles', position: { referencePanel: 'editor', direction: 'right' } })
     dv.getPanel('projects')?.group.api.setSize({ width: 200 })
-    dv.getPanel('fileTree')?.group.api.setSize({ width: 200 })
+    dv.getPanel('modifiedFiles')?.group.api.setSize({ width: 200 })
   })
   wireOffsetWidth(dv, 'projects')
-  wireOffsetWidth(dv, 'fileTree')
+  wireOffsetWidth(dv, 'modifiedFiles')
   return dv
 }
 
@@ -71,7 +71,7 @@ describe('restoreSidebarWidths after a drag-style panel move', () => {
     const widthOf = (panelId: string): number => dv.getPanel(panelId)?.group.api.width ?? -1
 
     expect(widthOf('projects')).toBe(200)
-    expect(widthOf('fileTree')).toBe(200)
+    expect(widthOf('modifiedFiles')).toBe(200)
 
     // Drag-equivalent move: drop the editor tab on the agent group's bottom
     // edge. The editor's root-level column is removed and its width is
@@ -84,13 +84,13 @@ describe('restoreSidebarWidths after a drag-style panel move', () => {
 
     // Precondition for the regression: the move actually inflated the sidebars.
     expect(widthOf('projects')).toBeGreaterThan(201)
-    expect(widthOf('fileTree')).toBeGreaterThan(201)
+    expect(widthOf('modifiedFiles')).toBeGreaterThan(201)
 
     act(() => {
       restoreSidebarWidths(dv, { left: 200, right: 200 })
     })
 
     expect(widthOf('projects')).toBe(200)
-    expect(widthOf('fileTree')).toBe(200)
+    expect(widthOf('modifiedFiles')).toBe(200)
   })
 })

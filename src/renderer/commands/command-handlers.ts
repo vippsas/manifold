@@ -29,7 +29,7 @@ export interface CommandContext {
 const FOCUS_PANEL_IDS: Record<string, string> = {
   'view.focusChat': 'agent',
   'view.focusTerminal': 'shell',
-  'view.focusFiles': 'fileTree',
+  'view.focusFiles': 'projects',
 }
 
 /** Build the id → handler map consumed by useCommands and the command palette. */

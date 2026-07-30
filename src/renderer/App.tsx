@@ -136,14 +136,7 @@ export function App(): React.JSX.Element {
     sessions: activeProjectSessions, activeWorktreePath, primarySessionId, activeSessionId,
     disabled: false, onSelectSession: setActiveSession,
   })
-  // Roots the editor may read from for the active session (its worktree + any
-  // workspace dirs). Gating reads on these skips a doomed files:read for a
-  // previous session's file during a session switch (path-traversal log noise).
-  const editorAllowedRoots = useMemo(
-    () => (activeSession ? [activeSession.worktreePath, ...(activeSession.additionalDirs ?? [])] : []),
-    [activeSession],
-  )
-  const codeView = useCodeView(effectiveSessionId, undefined, undefined, editorAllowedRoots)
+  const codeView = useCodeView(effectiveSessionId)
   const appEffects = useAppEffects({
     activeSessionId, dockLayout, settings,
     setActiveProject, setActiveSession, spawnAgent, refreshOpenFiles: codeView.refreshOpenFiles, refreshDiff,

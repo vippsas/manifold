@@ -1,7 +1,7 @@
 import { ActivityBar, type ActivityBarProps } from './ActivityBar'
 import type { DockPanelId } from '../hooks/dock-layout/useDockLayout'
 
-const visible: DockPanelId[] = ['projects', 'agent', 'fileTree']
+const visible: DockPanelId[] = ['projects', 'agent', 'modifiedFiles']
 
 const dockLayout: ActivityBarProps['dockLayout'] = {
   isPanelVisible: (id) => visible.includes(id),

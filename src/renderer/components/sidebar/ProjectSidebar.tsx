@@ -7,6 +7,7 @@ import { WorkspaceList } from './WorkspaceList'
 import { ProjectList } from './ProjectList'
 import { FavoritesList } from './FavoritesList'
 import { AddFolderGlyph } from './SidebarCardActionGlyphs'
+import type { FolderSource } from '../../hooks/editor/useWorkspaceTree'
 
 export interface ProjectSidebarProps {
   projects: Project[]
@@ -37,6 +38,7 @@ export interface ProjectSidebarProps {
   activeDraftId: string | null
   onSelectDraft: (id: string) => void
   onDiscardDraft: (id: string) => void
+  renderFolderFiles?: (source: FolderSource) => React.ReactNode
 }
 
 export function ProjectSidebar({
@@ -68,6 +70,7 @@ export function ProjectSidebar({
   activeDraftId,
   onSelectDraft,
   onDiscardDraft,
+  renderFolderFiles,
 }: ProjectSidebarProps): React.JSX.Element {
   const handleRemove = useCallback(
     (e: React.MouseEvent, id: string): void => {
@@ -137,6 +140,7 @@ export function ProjectSidebar({
           activeDraftId={activeDraftId}
           onSelectDraft={onSelectDraft}
           onDiscardDraft={onDiscardDraft}
+          renderFolderFiles={renderFolderFiles}
         />
       </div>
     </div>

@@ -2,13 +2,15 @@ import type { SerializedDockview } from 'dockview'
 import { isSiblingPanelId, parseSiblingSessionId } from '../agent-session/agent-siblings'
 import { PANEL_IDS, isEditorPanelId, isFilesItemPanelId, type DockPanelId, type GridNode } from './dock-layout-helpers'
 
-const RETIRED_PANEL_IDS = new Set(['memory', 'webPreview', 'search', 'loop', 'backgroundAgent'])
+// `fileTree` retired with the standalone Files panel: the tree now hangs under
+// each repo row inside Repositories, so a saved layout's Files tab is dropped.
+const RETIRED_PANEL_IDS = new Set(['memory', 'webPreview', 'search', 'loop', 'backgroundAgent', 'fileTree'])
 const SUPPORTED_OPTIONAL_PANEL_IDS = new Set<string>()
 const PLUGIN_PANEL_COMPONENTS = new Set(['pluginView', 'pluginTreeView'])
 const RESTORED_SIDEBAR_MAX_FRACTION = 1 / 6
 const LEFT_SIDEBAR_PANEL_IDS = new Set<string>(['projects'])
-const RIGHT_SIDEBAR_PANEL_IDS = new Set<string>(['fileTree', 'modifiedFiles'])
-const STACKED_SIDEBAR_PANEL_IDS = new Set<string>(['projects', 'fileTree', 'modifiedFiles'])
+const RIGHT_SIDEBAR_PANEL_IDS = new Set<string>(['modifiedFiles', 'editor'])
+const STACKED_SIDEBAR_PANEL_IDS = new Set<string>(['projects', 'modifiedFiles', 'editor'])
 
 type GridOrientation = 'HORIZONTAL' | 'VERTICAL'
 
@@ -120,7 +122,7 @@ function isSidebarSubtree(node: GridNode, requiredPanelId: string, allowedPanelI
 function isStackedSidebarSubtree(node: GridNode): boolean {
   const panelIds = nodePanelIds(node)
   return panelIds.includes('projects')
-    && panelIds.includes('fileTree')
+    && panelIds.includes('modifiedFiles')
     && panelIds.every((panelId) => STACKED_SIDEBAR_PANEL_IDS.has(panelId))
 }
 
@@ -164,7 +166,7 @@ function capSidebarWidthsInBranch(branch: Extract<GridNode, { type: 'branch' }>)
   }
 
   const leftIndex = branch.data.findIndex((child) => isSidebarSubtree(child, 'projects', LEFT_SIDEBAR_PANEL_IDS))
-  const rightIndex = branch.data.findIndex((child) => isSidebarSubtree(child, 'fileTree', RIGHT_SIDEBAR_PANEL_IDS))
+  const rightIndex = branch.data.findIndex((child) => isSidebarSubtree(child, 'modifiedFiles', RIGHT_SIDEBAR_PANEL_IDS))
   if (leftIndex < 0 || rightIndex < 0 || leftIndex === rightIndex) return false
 
   const workspaceIndexes = branch.data

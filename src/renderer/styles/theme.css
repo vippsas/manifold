@@ -365,12 +365,25 @@ select {
   transition: border-color var(--duration-normal) var(--ease-premium);
 }
 
-/* Targeting-reticle focus: text fields swap the plain accent border for four
-   corner brackets — the UI locks on to where you type. !important mirrors the
-   old border rule: inline `background` shorthands on inputs would otherwise
-   reset the bracket layers. Each corner is two thin gradient bars. */
+/* Every text field that isn't wearing the reticle takes the plain control
+   focus: the accent border it already has a box for, plus the soft ring
+   buttons use. */
 input:focus,
 textarea:focus {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 2px var(--accent-subtle);
+}
+
+/* Targeting-reticle focus: opt-in via `.reticle-input`, which swaps the plain
+   accent border for four corner brackets — the UI locks on to where you type.
+   Opt-in, not global, because a corner needs a field tall enough for its two
+   12px arms to read as one: on a ~24px search or filter row the top and bottom
+   arms meet and draw a solid rule down each side, so the field looks like it
+   has left and right borders and nothing else. Reserve it for the tall prompt
+   fields (chat composer, agent name, new project). !important mirrors the old
+   border rule: inline `background` shorthands on inputs would otherwise reset
+   the bracket layers. Each corner is two thin gradient bars. */
+.reticle-input:focus {
   border-color: transparent !important;
   background-image:
     linear-gradient(var(--accent), var(--accent)),
@@ -396,12 +409,12 @@ textarea:focus {
     right bottom, right bottom !important;
 }
 
-/* Resting reticle (opt-in via `.reticle-input` — search modal, files filter):
-   the corner brackets stay drawn while idle, dimmed to a whisper, so the field
-   reads as a target even unfocused. They brighten to full accent via the
-   `input:focus` rule above, which wins by specificity (0,1,1 > this rule's 0,1,0)
-   — so keep this a bare class, never `:not(:focus)`, which would outrank focus
-   and freeze the brackets dim. The `!important`s mirror the focus rule: they
+/* Resting reticle: the corner brackets stay drawn while idle, dimmed to a
+   whisper, so the field reads as a target even unfocused. They brighten to full
+   accent via the `.reticle-input:focus` rule above, which wins by specificity
+   (0,2,0 > this rule's 0,1,0) — so keep this a bare class, never `:not(:focus)`,
+   which would outrank focus and freeze the brackets dim. The `!important`s
+   mirror the focus rule: they
    override the input's inline `background`, which would otherwise wipe the layers. */
 .reticle-input {
   --reticle-rest: color-mix(in srgb, var(--accent), transparent 60%);
@@ -563,6 +576,52 @@ select:focus-visible {
   color: var(--text-primary);
 }
 
+/* ─── Editor file tabs ─── */
+/* Modelled on VS Code's editor tabs (`multieditortabscontrol.css`): the strip is
+   chrome and the active tab is a piece of the editor surface pulled up into it —
+   same background, an accent rule along its top edge, and the only label at full
+   contrast. Everything else recedes, so the strip reads as "which file am I in"
+   rather than as a row of buttons. */
+.code-tab {
+  color: var(--text-muted);
+  border-top: 1px solid transparent;
+  transition: background var(--duration-normal) var(--ease-premium), color var(--duration-normal) var(--ease-premium);
+}
+
+.code-tab:hover {
+  background: var(--list-hover-bg);
+  color: var(--text-primary);
+}
+
+.code-tab--active {
+  background: var(--bg-primary);
+  border-top-color: var(--accent);
+  color: var(--text-primary);
+}
+
+.code-tab--menu {
+  box-shadow: inset 0 -1px 0 var(--accent);
+}
+
+/* The × keeps its space but shows only on the tab under the pointer and on the
+   active one: a permanent × per tab is a row of noise competing with the names,
+   and it is the file you are in that you close. */
+.code-tab__close {
+  opacity: 0;
+  transition: opacity var(--duration-normal) var(--ease-premium);
+}
+
+.code-tab:hover .code-tab__close,
+.code-tab--active .code-tab__close,
+.code-tab__close:focus-visible {
+  opacity: 1;
+}
+
+.code-tab__close:hover {
+  background: var(--statusbar-hover-bg);
+  color: var(--text-primary);
+}
+
 /* Icon button in a dock group's header-action slot (outside the tabs), e.g.
    the group-level × that closes an icon-tab group (Repositories, Files). */
 .dock-header-collapse {
@@ -656,12 +715,11 @@ select:focus-visible {
   min-height: 28px;
   margin: 1px 8px;
   padding: 0 8px;
-  border-radius: var(--radius-sm);
   font-size: var(--type-ui-small);
   color: var(--text-secondary);
   position: relative;
   cursor: pointer;
-  transition: background var(--duration-normal) var(--ease-premium), color var(--duration-normal) var(--ease-premium), box-shadow var(--duration-normal) var(--ease-premium);
+  transition: background var(--duration-normal) var(--ease-premium), color var(--duration-normal) var(--ease-premium);
 }
 
 .sidebar-item-row:hover {
@@ -686,9 +744,12 @@ select:focus-visible {
   padding-bottom: var(--space-xs);
 }
 
+/* Keyboard focus reads as the hover fill rather than an accent glow: the rows
+   are a dense list, and a ring around one of them was more noise than signal. */
 .sidebar-item-row:focus-visible {
   outline: none;
-  box-shadow: 0 0 0 2px var(--accent-subtle), 0 0 10px var(--accent-subtle);
+  background: var(--list-hover-bg);
+  color: var(--text-primary);
 }
 
 .sidebar-project-row {
@@ -696,12 +757,14 @@ select:focus-visible {
   padding-right: 56px;
 }
 
+/* One 8px step in from its repo row, so the agent's chevron lands between the
+   repo's above it and its own worktree's files below it. */
 .sidebar-agent-row {
   flex-direction: column;
   align-items: flex-start;
   min-height: 28px;
   justify-content: center;
-  padding: 2px 8px 2px 24px;
+  padding: 2px 8px 2px 16px;
   gap: 0;
   background: transparent;
   position: relative;
@@ -709,7 +772,7 @@ select:focus-visible {
 
 /* Workspace agents sit one level deeper than their repo row. */
 .sidebar-workspace-card .sidebar-agent-row {
-  padding-left: 36px;
+  padding-left: 28px;
 }
 
 .sidebar-agent-row--exited {
@@ -752,6 +815,28 @@ select:focus-visible {
 .sidebar-row-label {
   flex: 1;
   min-width: 0;
+}
+
+/* The agent row's own disclosure: the row selects the agent, this opens the
+   files of its worktree. Sized to the repo row's chevron column so both
+   disclosures line up down the sidebar. */
+.sidebar-worktree-toggle {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  width: 16px;
+  height: 16px;
+  margin-left: -4px;
+  padding: 0;
+  border: none;
+  background: none;
+  color: var(--text-muted);
+  cursor: pointer;
+}
+
+.sidebar-worktree-toggle:hover {
+  color: var(--text-primary);
 }
 
 .sidebar-item-actions {
@@ -1514,10 +1599,12 @@ select:focus-visible {
   font-style: normal;
   font-display: block;
 }
-.file-tree-row .file-tree-icon {
+/* Each icon carries its own pair of palettes inline, so the colour rule holds
+   wherever one is used — a tree row or an editor file tab. */
+.file-tree-icon {
   color: var(--seti-icon-color);
 }
-.theme-light .file-tree-row .file-tree-icon {
+.theme-light .file-tree-icon {
   color: var(--seti-icon-color-light);
 }
 
@@ -1724,6 +1811,13 @@ select:focus-visible {
 /* ─── Search modal ─── */
 .search-modal-input::placeholder {
   color: var(--text-muted);
+}
+
+/* The palette row is the field: the panel's edge frames it and the divider
+   under the row closes it, so the input draws no box and no focus ring of its
+   own — it is the only field in the dialog and is focused the whole time. */
+.search-modal-input:focus {
+  box-shadow: none;
 }
 
 /* ─── Reduced motion: instrumentation effects go static ─── */

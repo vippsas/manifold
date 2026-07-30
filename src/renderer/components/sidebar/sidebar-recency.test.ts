@@ -41,10 +41,31 @@ describe('useProjectRecency', () => {
   it('persists touches and restores them on remount', () => {
     const first = renderHook(() => useProjectRecency())
     act(() => first.result.current.touchProject('p2'))
-    expect(first.result.current.recency.p2).toBeTypeOf('number')
     first.unmount()
 
     const second = renderHook(() => useProjectRecency())
+    expect(second.result.current.recency.p2).toBeTypeOf('number')
+  })
+
+  // Touching records the visit for next time; it must not re-sort the list the
+  // user is clicking in.
+  it('holds the order it started with when a project is touched', () => {
+    const { result } = renderHook(() => useProjectRecency())
+    const before = result.current.recency
+
+    act(() => result.current.touchProject('p2'))
+
+    expect(result.current.recency).toBe(before)
+  })
+
+  it('keeps several touches in one session, newest last-write-wins', () => {
+    const first = renderHook(() => useProjectRecency())
+    act(() => first.result.current.touchProject('p1'))
+    act(() => first.result.current.touchProject('p2'))
+    first.unmount()
+
+    const second = renderHook(() => useProjectRecency())
+    expect(second.result.current.recency.p1).toBeTypeOf('number')
     expect(second.result.current.recency.p2).toBeTypeOf('number')
   })
 

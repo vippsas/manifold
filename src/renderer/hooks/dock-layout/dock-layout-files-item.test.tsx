@@ -1,6 +1,6 @@
-// The files item is one card holding Files, Modified Files and the editor as
-// tabs — but each is its own dockview panel, so a layout saved while they sat
-// apart used to restore as several cards. These tests drive the REAL dockview
+// The files item is one card holding Modified Files and the editor as tabs —
+// but each is its own dockview panel, so a layout saved while they sat apart
+// used to restore as several cards. These tests drive the REAL dockview
 // library to pin that a fragmented arrangement heals into one group.
 import React from 'react'
 import { render, act, waitFor } from '@testing-library/react'
@@ -23,7 +23,7 @@ function Probe(props: IDockviewPanelProps): React.JSX.Element {
 
 const COMPONENTS = {
   agent: Probe, editor: Probe, shell: Probe,
-  projects: Probe, fileTree: Probe, modifiedFiles: Probe,
+  projects: Probe, modifiedFiles: Probe,
 }
 
 async function setupDock(): Promise<DockviewApi> {
@@ -37,12 +37,11 @@ async function setupDock(): Promise<DockviewApi> {
   return api as unknown as DockviewApi
 }
 
-/** The fragmented shape 17 of 97 real saved layouts were found in: the files
- *  views tabbed together, the editor stranded in a column of its own. */
+/** The fragmented shape 17 of 97 real saved layouts were found in: the changes
+ *  view in the sidebar, the editor stranded in a column of its own. */
 function addFragmentedLayout(api: DockviewApi): void {
   api.addPanel({ id: 'agent', component: 'agent' })
-  api.addPanel({ id: 'fileTree', component: 'fileTree', position: { referencePanel: 'agent', direction: 'right' } })
-  api.addPanel({ id: 'modifiedFiles', component: 'modifiedFiles', position: { referencePanel: 'fileTree', direction: 'within' } })
+  api.addPanel({ id: 'modifiedFiles', component: 'modifiedFiles', position: { referencePanel: 'agent', direction: 'right' } })
   api.addPanel({ id: 'editor', component: 'editor', position: { referencePanel: 'agent', direction: 'below' } })
 }
 
@@ -52,7 +51,7 @@ describe('coalesceFilesItem', () => {
     act(() => { api.layout(1800, 1000, true) })
     act(() => { addFragmentedLayout(api) })
 
-    const filesGroup = api.getPanel('fileTree')?.group
+    const filesGroup = api.getPanel('modifiedFiles')?.group
     expect(api.getPanel('editor')?.group).not.toBe(filesGroup)
 
     let moved = false
@@ -60,7 +59,6 @@ describe('coalesceFilesItem', () => {
 
     expect(moved).toBe(true)
     expect(api.getPanel('editor')?.group).toBe(filesGroup)
-    expect(api.getPanel('modifiedFiles')?.group).toBe(filesGroup)
     // The stranded pane's group is gone, not left behind empty.
     expect(api.groups.length).toBe(2)
   })
@@ -81,8 +79,8 @@ describe('coalesceFilesItem', () => {
     act(() => { api.layout(1800, 1000, true) })
     act(() => {
       api.addPanel({ id: 'agent', component: 'agent' })
-      api.addPanel({ id: 'fileTree', component: 'fileTree', position: { referencePanel: 'agent', direction: 'right' } })
-      api.addPanel({ id: 'modifiedFiles', component: 'modifiedFiles', position: { referencePanel: 'fileTree', direction: 'within' } })
+      api.addPanel({ id: 'modifiedFiles', component: 'modifiedFiles', position: { referencePanel: 'agent', direction: 'right' } })
+      api.addPanel({ id: 'editor', component: 'editor', position: { referencePanel: 'modifiedFiles', direction: 'within' } })
     })
 
     let moved = true
@@ -96,7 +94,7 @@ describe('coalesceFilesItem', () => {
     act(() => { api.layout(1800, 1000, true) })
     act(() => {
       api.addPanel({ id: 'agent', component: 'agent' })
-      api.addPanel({ id: 'fileTree', component: 'fileTree', position: { referencePanel: 'agent', direction: 'right' } })
+      api.addPanel({ id: 'modifiedFiles', component: 'modifiedFiles', position: { referencePanel: 'agent', direction: 'right' } })
     })
 
     let moved = true
@@ -129,7 +127,7 @@ describe('coalesceFilesItem', () => {
       })
     })
 
-    expect(api.getPanel('editor')?.group).toBe(api.getPanel('fileTree')?.group)
+    expect(api.getPanel('editor')?.group).toBe(api.getPanel('modifiedFiles')?.group)
     // The repair is persisted, so the split does not come back next load.
     expect(saved).toHaveLength(1)
   })
@@ -146,7 +144,7 @@ describe('coalesceFilesItem', () => {
     act(() => { coalesceFilesItem(api) })
 
     expect(api.getPanel('editor:1')?.group).toBe(splitGroup)
-    expect(api.getPanel('editor:1')?.group).not.toBe(api.getPanel('fileTree')?.group)
+    expect(api.getPanel('editor:1')?.group).not.toBe(api.getPanel('modifiedFiles')?.group)
   })
 })
 
@@ -156,16 +154,16 @@ describe('ensureEditorTab', () => {
     act(() => { api.layout(1800, 1000, true) })
     act(() => {
       api.addPanel({ id: 'agent', component: 'agent' })
-      api.addPanel({ id: 'fileTree', component: 'fileTree', position: { referencePanel: 'agent', direction: 'right' } })
+      api.addPanel({ id: 'modifiedFiles', component: 'modifiedFiles', position: { referencePanel: 'agent', direction: 'right' } })
     })
 
     let added = false
     act(() => { added = ensureEditorTab(api) })
 
     expect(added).toBe(true)
-    expect(api.getPanel('editor')?.group).toBe(api.getPanel('fileTree')?.group)
+    expect(api.getPanel('editor')?.group).toBe(api.getPanel('modifiedFiles')?.group)
     // The item still shows the view that was asked for, not the empty viewer.
-    expect(api.getPanel('fileTree')?.group.activePanel?.id).toBe('fileTree')
+    expect(api.getPanel('modifiedFiles')?.group.activePanel?.id).toBe('modifiedFiles')
   })
 
   it('does nothing when the code viewer is already a tab', async () => {
@@ -173,8 +171,8 @@ describe('ensureEditorTab', () => {
     act(() => { api.layout(1800, 1000, true) })
     act(() => {
       api.addPanel({ id: 'agent', component: 'agent' })
-      api.addPanel({ id: 'fileTree', component: 'fileTree', position: { referencePanel: 'agent', direction: 'right' } })
-      api.addPanel({ id: 'editor', component: 'editor', position: { referencePanel: 'fileTree', direction: 'within' } })
+      api.addPanel({ id: 'modifiedFiles', component: 'modifiedFiles', position: { referencePanel: 'agent', direction: 'right' } })
+      api.addPanel({ id: 'editor', component: 'editor', position: { referencePanel: 'modifiedFiles', direction: 'within' } })
     })
 
     let added = true
@@ -201,12 +199,12 @@ describe('ensureEditorTab', () => {
     act(() => { api.layout(1800, 1000, true) })
     act(() => {
       api.addPanel({ id: 'agent', component: 'agent' })
-      api.addPanel({ id: 'fileTree', component: 'fileTree', position: { referencePanel: 'agent', direction: 'right' } })
+      api.addPanel({ id: 'modifiedFiles', component: 'modifiedFiles', position: { referencePanel: 'agent', direction: 'right' } })
     })
-    const before = api.getPanel('fileTree')?.group.api.width
+    const before = api.getPanel('modifiedFiles')?.group.api.width
 
     act(() => { ensureEditorTab(api) })
 
-    expect(api.getPanel('fileTree')?.group.api.width).toBe(before)
+    expect(api.getPanel('modifiedFiles')?.group.api.width).toBe(before)
   })
 })

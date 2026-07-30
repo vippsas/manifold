@@ -1,6 +1,7 @@
 import React from 'react'
 import { createPortal } from 'react-dom'
 import type { OpenFile } from '../../../hooks/editor/useCodeView'
+import { FileTypeIcon } from '../file-tree/FileTypeIcon'
 import { viewerStyles } from './CodeViewer.styles'
 import { fileName, getFileTabLabels, type FileTabLabel } from './code-viewer-utils'
 
@@ -214,13 +215,11 @@ function FileTab({
   onContextMenu: (event: React.MouseEvent<HTMLDivElement>, filePath: string) => void
   onClose: (filePath: string) => void
 }): React.JSX.Element {
+  const className = `code-tab${isActive ? ' code-tab--active' : ''}${isMenuOpen ? ' code-tab--menu' : ''}`
   return (
     <div
-      style={{
-        ...viewerStyles.tab,
-        ...(isActive ? viewerStyles.tabActive : {}),
-        ...(isMenuOpen ? viewerStyles.tabMenuOpen : {}),
-      }}
+      className={className}
+      style={viewerStyles.tab}
       title={file.path}
       onContextMenu={(event) => onContextMenu(event, file.path)}
     >
@@ -229,15 +228,14 @@ function FileTab({
         onClick={() => onSelect(file.path)}
         title={file.path}
       >
+        <FileTypeIcon name={fileName(file.path)} />
         <span style={viewerStyles.tabLabelName}>{label.name}</span>
         {label.description ? (
-          <>
-            <span style={viewerStyles.tabLabelSeparator}>{' \u2022 '}</span>
-            <span style={viewerStyles.tabLabelDescription}>{label.description}</span>
-          </>
+          <span style={viewerStyles.tabLabelDescription}>{label.description}</span>
         ) : null}
       </button>
       <button
+        className="code-tab__close"
         style={viewerStyles.tabClose}
         onClick={(event) => {
           event.stopPropagation()

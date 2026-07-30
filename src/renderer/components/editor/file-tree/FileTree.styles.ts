@@ -13,7 +13,8 @@ export const treeStyles: Record<string, React.CSSProperties> = {
     flexDirection: 'column',
     height: '100%',
     overflow: 'hidden',
-    background: 'var(--bg-primary)',
+    // No background of its own: the tree hangs inside the Repositories sidebar
+    // and has to sit on that surface rather than paint a card over it.
     position: 'relative' as const,
   },
   header: {
@@ -205,12 +206,11 @@ export const treeStyles: Record<string, React.CSSProperties> = {
     fontFamily: 'var(--font-sans)',
     fontSize: 'inherit',
     padding: '3px 6px',
-    // No box: the `.reticle-input` resting brackets (theme.css) are the field's
-    // edge, like the titlebar search. Border stays 1px-transparent so the
-    // focus reticle has a border-box to paint into without shifting layout.
-    border: '1px solid transparent',
-    borderRadius: '4px',
-    background: 'transparent',
+    // A plain box on all four sides: too short for the reticle's corner
+    // brackets, whose arms would meet and read as a left and right border.
+    border: '1px solid var(--control-border)',
+    borderRadius: 'var(--radius-sm)',
+    background: 'var(--control-bg)',
     color: 'var(--text-primary)',
     outline: 'none',
   },

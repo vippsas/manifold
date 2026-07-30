@@ -14,16 +14,23 @@ describe('ActivityBar', () => {
   it('renders one button per rail item, labeled with the item title', () => {
     render(<ActivityBar dockLayout={makeDockLayout()} hasActiveSession />)
 
-    for (const label of ['Repositories', 'Agent', 'Files', 'Shell']) {
+    for (const label of ['Repositories', 'Agent', 'Editor', 'Shell']) {
       expect(screen.getByRole('button', { name: label })).toBeInTheDocument()
     }
   })
 
-  it('offers no separate rail item for the panels that share the Files item', () => {
+  it('offers no separate rail item for the panels that share the files item', () => {
     render(<ActivityBar dockLayout={makeDockLayout()} hasActiveSession />)
 
-    expect(screen.queryByRole('button', { name: 'Editor' })).not.toBeInTheDocument()
     expect(screen.queryByRole('button', { name: 'Modified Files' })).not.toBeInTheDocument()
+  })
+
+  // The tree lives under a repo's row in Repositories, so the rail has nothing
+  // left to toggle for it.
+  it('offers no Files rail item', () => {
+    render(<ActivityBar dockLayout={makeDockLayout()} hasActiveSession />)
+
+    expect(screen.queryByRole('button', { name: 'Files' })).not.toBeInTheDocument()
   })
 
   it('marks visible panels as active', () => {
@@ -31,34 +38,32 @@ describe('ActivityBar', () => {
 
     expect(screen.getByRole('button', { name: 'Repositories' })).toHaveAttribute('aria-pressed', 'true')
     expect(screen.getByRole('button', { name: 'Shell' })).toHaveClass('activity-bar-item--active')
-    expect(screen.getByRole('button', { name: 'Files' })).toHaveAttribute('aria-pressed', 'false')
-    expect(screen.getByRole('button', { name: 'Files' })).not.toHaveClass('activity-bar-item--active')
+    expect(screen.getByRole('button', { name: 'Editor' })).toHaveAttribute('aria-pressed', 'false')
+    expect(screen.getByRole('button', { name: 'Editor' })).not.toHaveClass('activity-bar-item--active')
   })
 
-  it('marks the Files item active while any of its panels is open', () => {
+  it('marks the files item active while any of its panels is open', () => {
     render(<ActivityBar dockLayout={makeDockLayout(['editor'])} hasActiveSession />)
 
-    expect(screen.getByRole('button', { name: 'Files' })).toHaveAttribute('aria-pressed', 'true')
+    expect(screen.getByRole('button', { name: 'Editor' })).toHaveAttribute('aria-pressed', 'true')
   })
 
-  it('opens the whole Files item — minus the on-demand editor — when it is closed', () => {
+  it('opens both tabs of the files item when it is closed', () => {
     const dockLayout = makeDockLayout(['projects'])
     render(<ActivityBar dockLayout={dockLayout} hasActiveSession />)
 
-    fireEvent.click(screen.getByRole('button', { name: 'Files' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Editor' }))
 
-    expect(dockLayout.togglePanel).toHaveBeenCalledWith('fileTree')
     expect(dockLayout.togglePanel).toHaveBeenCalledWith('modifiedFiles')
-    expect(dockLayout.togglePanel).not.toHaveBeenCalledWith('editor')
+    expect(dockLayout.togglePanel).toHaveBeenCalledWith('editor')
   })
 
-  it('closes every open panel of the Files item in one click', () => {
-    const dockLayout = makeDockLayout(['fileTree', 'editor'])
+  it('closes every open panel of the files item in one click', () => {
+    const dockLayout = makeDockLayout(['editor'])
     render(<ActivityBar dockLayout={dockLayout} hasActiveSession />)
 
-    fireEvent.click(screen.getByRole('button', { name: 'Files' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Editor' }))
 
-    expect(dockLayout.togglePanel).toHaveBeenCalledWith('fileTree')
     expect(dockLayout.togglePanel).toHaveBeenCalledWith('editor')
     expect(dockLayout.togglePanel).not.toHaveBeenCalledWith('modifiedFiles')
   })
@@ -68,7 +73,7 @@ describe('ActivityBar', () => {
 
     expect(screen.getByRole('button', { name: 'Repositories' })).toBeEnabled()
     expect(screen.getByRole('button', { name: 'Agent' })).toBeEnabled()
-    for (const label of ['Files', 'Shell']) {
+    for (const label of ['Editor', 'Shell']) {
       expect(screen.getByRole('button', { name: label })).toBeDisabled()
     }
   })

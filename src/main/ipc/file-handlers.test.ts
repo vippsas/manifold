@@ -41,13 +41,22 @@ function makeSession(worktreePath: string, additionalDirs: string[] = []): Agent
   }
 }
 
-function makeDeps(session: AgentSession, tree: FileTreeNode): IpcDependencies {
+function makeDeps(
+  session: AgentSession,
+  tree: FileTreeNode,
+  openFolders: { projectPaths?: string[]; otherSessions?: AgentSession[] } = {},
+): IpcDependencies {
+  const projects = (openFolders.projectPaths ?? []).map((path, index) => ({ id: `proj-${index}`, path }))
   return {
-    sessionManager: { getSession: vi.fn(() => session) },
-    projectRegistry: { getProject: vi.fn() },
+    sessionManager: {
+      getSession: vi.fn(() => session),
+      listSessions: vi.fn(() => [session, ...(openFolders.otherSessions ?? [])]),
+    },
+    projectRegistry: { getProject: vi.fn(), listProjects: vi.fn(() => projects) },
     fileWatcher: {
       getFileTree: vi.fn(() => tree),
       notifyTreeChanged: vi.fn(),
+      readFile: vi.fn((path: string) => `contents of ${path}`),
     },
   } as unknown as IpcDependencies
 }
@@ -62,6 +71,89 @@ describe('registerFileHandlers', () => {
       toPNG: () => Buffer.alloc(0),
     })
     mocks.openTerminal.mockResolvedValue(undefined)
+  })
+
+  // The sidebar hangs a file tree under every repo and worktree, all open at
+  // once, and a click opens a file without first selecting its repo — so a path
+  // is authorized against the folders the user has open, not against whichever
+  // session is selected.
+  it('reads a file from another open repository, not just the selected session', async () => {
+    const { registerFileHandlers } = await import('./file-handlers')
+    const worktree = await mkdtemp(join(tmpdir(), 'manifold-roots-worktree-'))
+    const otherRepo = await mkdtemp(join(tmpdir(), 'manifold-roots-other-repo-'))
+    const tree: FileTreeNode = { name: 'repo', path: worktree, isDirectory: true, children: [] }
+
+    try {
+      const deps = makeDeps(makeSession(worktree), tree, { projectPaths: [otherRepo] })
+      registerFileHandlers(deps)
+      const handler = mocks.handlers.get('files:read')
+      if (!handler) throw new Error('files:read handler was not registered')
+
+      const target = join(otherRepo, 'README.md')
+      expect(handler({}, 'sess-1', target)).toBe(`contents of ${target}`)
+    } finally {
+      await rm(worktree, { recursive: true, force: true })
+      await rm(otherRepo, { recursive: true, force: true })
+    }
+  })
+
+  it('reads a file from an idle agent’s worktree', async () => {
+    const { registerFileHandlers } = await import('./file-handlers')
+    const worktree = await mkdtemp(join(tmpdir(), 'manifold-roots-worktree-'))
+    const idleWorktree = await mkdtemp(join(tmpdir(), 'manifold-roots-idle-worktree-'))
+    const tree: FileTreeNode = { name: 'repo', path: worktree, isDirectory: true, children: [] }
+
+    try {
+      const idle = { ...makeSession(idleWorktree), id: 'sess-2' }
+      registerFileHandlers(makeDeps(makeSession(worktree), tree, { otherSessions: [idle] }))
+      const handler = mocks.handlers.get('files:read')
+      if (!handler) throw new Error('files:read handler was not registered')
+
+      const target = join(idleWorktree, 'src', 'main.ts')
+      expect(handler({}, 'sess-1', target)).toBe(`contents of ${target}`)
+    } finally {
+      await rm(worktree, { recursive: true, force: true })
+      await rm(idleWorktree, { recursive: true, force: true })
+    }
+  })
+
+  it('reads a file from a repository with no agent at all', async () => {
+    const { registerFileHandlers } = await import('./file-handlers')
+    const repo = await mkdtemp(join(tmpdir(), 'manifold-roots-agentless-'))
+    const tree: FileTreeNode = { name: 'repo', path: repo, isDirectory: true, children: [] }
+
+    try {
+      const deps = makeDeps(makeSession(repo), tree, { projectPaths: [repo] })
+      // No agent anywhere means no session id to send along.
+      ;(deps.sessionManager.getSession as ReturnType<typeof vi.fn>).mockReturnValue(undefined)
+      ;(deps.sessionManager.listSessions as ReturnType<typeof vi.fn>).mockReturnValue([])
+      registerFileHandlers(deps)
+      const handler = mocks.handlers.get('files:read')
+      if (!handler) throw new Error('files:read handler was not registered')
+
+      const target = join(repo, 'README.md')
+      expect(handler({}, null, target)).toBe(`contents of ${target}`)
+    } finally {
+      await rm(repo, { recursive: true, force: true })
+    }
+  })
+
+  it('still denies a path in no open folder', async () => {
+    const { registerFileHandlers } = await import('./file-handlers')
+    const worktree = await mkdtemp(join(tmpdir(), 'manifold-roots-worktree-'))
+    const outside = await mkdtemp(join(tmpdir(), 'manifold-roots-outside-'))
+    const tree: FileTreeNode = { name: 'repo', path: worktree, isDirectory: true, children: [] }
+
+    try {
+      registerFileHandlers(makeDeps(makeSession(worktree), tree))
+      const handler = mocks.handlers.get('files:read')
+      if (!handler) throw new Error('files:read handler was not registered')
+
+      expect(() => handler({}, 'sess-1', join(outside, 'secrets.env'))).toThrow('Path traversal denied')
+    } finally {
+      await rm(worktree, { recursive: true, force: true })
+      await rm(outside, { recursive: true, force: true })
+    }
   })
 
   it('writes a pasted clipboard image into the requested directory', async () => {

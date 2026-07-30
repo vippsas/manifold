@@ -275,7 +275,9 @@ describe('CodeViewer — markdown, links & tabs', () => {
       fileContent: '# Docs',
     })
 
-    expect(screen.getByRole('button', { name: /readme\.md\s*•\s*docs/ })).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: /readme\.md\s*•\s*reference/ })).toBeInTheDocument()
+    // Name then folder, VS Code's label + muted description; the gap between
+    // them is layout, so the two read as one string here.
+    expect(screen.getByRole('button', { name: /readme\.md\s*docs/ })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /readme\.md\s*reference/ })).toBeInTheDocument()
   })
 })

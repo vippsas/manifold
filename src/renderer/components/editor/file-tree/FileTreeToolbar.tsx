@@ -35,7 +35,7 @@ export function FileTreeToolbar({
   return (
     <div style={treeStyles.filterContainer}>
       <input
-        type="text" className="reticle-input" style={treeStyles.filterInput} placeholder="Filter files..."
+        type="text" style={treeStyles.filterInput} placeholder="Filter files..."
         value={filterQuery}
         onChange={(e) => onFilterChange(e.target.value)}
         onKeyDown={(e) => { if (e.key === 'Escape') onClearFilter() }}

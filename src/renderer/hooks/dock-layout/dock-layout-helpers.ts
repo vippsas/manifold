@@ -1,6 +1,6 @@
 import type { DockviewApi, SerializedDockview } from 'dockview'
 import { getRelativeLocation, type Orientation } from 'dockview-core'
-import { applySidebarWidth } from './useSidebarHandleCycle'
+import { applySidebarWidth, setRenderedWidth } from './useSidebarHandleCycle'
 
 export { sanitizeDockLayout } from './dock-layout-sanitize'
 export {
@@ -13,7 +13,7 @@ export {
   shrinkEditorHostSidebarGroups,
 } from './dock-layout-loader'
 
-export const PANEL_IDS = ['projects', 'agent', 'editor', 'fileTree', 'modifiedFiles', 'shell'] as const
+export const PANEL_IDS = ['projects', 'agent', 'editor', 'modifiedFiles', 'shell'] as const
 export type DockPanelId = (typeof PANEL_IDS)[number]
 export const EDITOR_PANEL_ID_PREFIX = 'editor:'
 export type EditorSplitDirection = 'right' | 'below'
@@ -22,7 +22,6 @@ export const PANEL_TITLES: Record<DockPanelId, string> = {
   projects: 'Repositories',
   agent: 'Agent',
   editor: 'Editor',
-  fileTree: 'Files',
   modifiedFiles: 'Modified Files',
   shell: 'Shell',
 }
@@ -30,18 +29,17 @@ export const PANEL_TITLES: Record<DockPanelId, string> = {
 export type Direction = 'right' | 'left' | 'above' | 'below' | 'within'
 
 // Fallback positions when no snapshot exists (matches default layout).
-// Files, Modified Files and the editor belong to the ONE files item, so each of
-// them tabs `within` whichever of its siblings is already open before it will
-// claim a column of its own — a reopened tool can never land inside a foreign
-// group (the agent's, say) or spawn a second files sidebar. Repositories is not
-// part of that item: it always reopens as its own column on the far left, and
-// no files panel ever tabs into it.
+// Modified Files and the editor belong to the ONE files item, so each of them
+// tabs `within` its sibling before it will claim a column of its own — a
+// reopened tool can never land inside a foreign group (the agent's, say) or
+// spawn a second files sidebar. Repositories is not part of that item: it
+// always reopens as its own column on the far left (the file tree lives inside
+// it, under each repo row), and no files panel ever tabs into it.
 export const PANEL_RESTORE_HINTS: Record<DockPanelId, Array<{ ref: DockPanelId; dir: Direction }>> = {
-  projects: [{ ref: 'agent', dir: 'left' }, { ref: 'fileTree', dir: 'left' }, { ref: 'modifiedFiles', dir: 'left' }, { ref: 'editor', dir: 'left' }],
-  agent: [{ ref: 'projects', dir: 'right' }, { ref: 'fileTree', dir: 'left' }, { ref: 'modifiedFiles', dir: 'left' }, { ref: 'editor', dir: 'left' }, { ref: 'shell', dir: 'above' }],
-  editor: [{ ref: 'fileTree', dir: 'within' }, { ref: 'modifiedFiles', dir: 'within' }, { ref: 'agent', dir: 'right' }, { ref: 'shell', dir: 'above' }],
-  fileTree: [{ ref: 'modifiedFiles', dir: 'within' }, { ref: 'editor', dir: 'within' }, { ref: 'agent', dir: 'right' }, { ref: 'projects', dir: 'right' }],
-  modifiedFiles: [{ ref: 'fileTree', dir: 'within' }, { ref: 'editor', dir: 'within' }, { ref: 'agent', dir: 'right' }, { ref: 'projects', dir: 'right' }],
+  projects: [{ ref: 'agent', dir: 'left' }, { ref: 'modifiedFiles', dir: 'left' }, { ref: 'editor', dir: 'left' }],
+  agent: [{ ref: 'projects', dir: 'right' }, { ref: 'modifiedFiles', dir: 'left' }, { ref: 'editor', dir: 'left' }, { ref: 'shell', dir: 'above' }],
+  editor: [{ ref: 'modifiedFiles', dir: 'within' }, { ref: 'agent', dir: 'right' }, { ref: 'shell', dir: 'above' }],
+  modifiedFiles: [{ ref: 'editor', dir: 'within' }, { ref: 'agent', dir: 'right' }, { ref: 'projects', dir: 'right' }],
   shell: [{ ref: 'agent', dir: 'below' }, { ref: 'editor', dir: 'below' }],
 }
 
@@ -51,7 +49,7 @@ export function isEditorPanelId(panelId: string): boolean {
 
 /** The panels that share the one files item, switched by its icon tabs. */
 export function isFilesItemPanelId(panelId: string): boolean {
-  return panelId === 'fileTree' || panelId === 'modifiedFiles' || isEditorPanelId(panelId)
+  return panelId === 'modifiedFiles' || isEditorPanelId(panelId)
 }
 
 /**
@@ -96,8 +94,10 @@ export interface LayoutRefs {
 // ── Sidebar width helpers ─────────────────────────────────────────────
 
 /** Anchor panels that define the sidebars (protected from resize redistribution).
- *  modifiedFiles is intentionally excluded — it can be dragged to the center. */
-export const SIDEBAR_PANEL_IDS = new Set<string>(['projects', 'fileTree'])
+ *  Repositories on the left, the files item on the right — anchored by its
+ *  Modified Files tab, since the editor tab beside it can be split off to the
+ *  center and would then be the wrong thing to hold a sidebar width against. */
+export const SIDEBAR_PANEL_IDS = new Set<string>(['projects', 'modifiedFiles'])
 
 /** Read a panel group's current pixel width (0 if unavailable). */
 function getPanelWidth(api: DockviewApi, panelId: string): number {
@@ -122,7 +122,7 @@ export function getSidebarWidth(api: DockviewApi): number {
   return getPanelWidth(api, 'projects')
 }
 
-const NON_WORKSPACE_PANEL_IDS = new Set<string>(['projects', 'fileTree', 'modifiedFiles'])
+const NON_WORKSPACE_PANEL_IDS = new Set<string>(['projects', 'modifiedFiles'])
 
 export function findTopLeftWorkspaceReferencePanel(api: DockviewApi): string | null {
   const seenGroups = new Set<unknown>()
@@ -166,7 +166,7 @@ export function findTopLeftWorkspaceReferencePanel(api: DockviewApi): string | n
 export function getSidebarWidths(api: DockviewApi): { left: number; right: number } {
   return {
     left: getPanelWidth(api, 'projects'),
-    right: getPanelWidth(api, 'fileTree'),
+    right: getPanelWidth(api, 'modifiedFiles'),
   }
 }
 
@@ -181,7 +181,7 @@ export interface CarriedSidebarWidths { left: number | null; right: number | nul
 export function captureSidebarWidthsForReload(api: DockviewApi): CarriedSidebarWidths {
   return {
     left: api.getPanel('projects') ? getPanelWidth(api, 'projects') : null,
-    right: api.getPanel('fileTree') ? getPanelWidth(api, 'fileTree') : null,
+    right: api.getPanel('modifiedFiles') ? getPanelWidth(api, 'modifiedFiles') : null,
   }
 }
 
@@ -197,7 +197,7 @@ export function applyCarriedSidebarWidths(api: DockviewApi, widths: CarriedSideb
   if (api.width <= 0) return
   for (const [side, panelId, width] of [
     ['left', 'projects', widths.left],
-    ['right', 'fileTree', widths.right],
+    ['right', 'modifiedFiles', widths.right],
   ] as const) {
     if (width === null) continue
     const group = sidebarGroup(api, panelId)
@@ -229,8 +229,10 @@ function pinGroupWidth(group: SidebarGroup, width: number): () => void {
     // non-resize cursor until an unrelated relayout. A same-size setSize pokes
     // a relayout against the released constraints; unlike a forced
     // api.layout() it resizes by content delta (zero here), so it cannot
-    // re-apply stale proportions and undo the pinned resize.
-    group.api.setSize({ width: group.api.width })
+    // re-apply stale proportions and undo the pinned resize. It has to ask for
+    // the same size in *rendered* terms (setRenderedWidth), or the poke itself
+    // shaves this group's share of the theme gap off on every release.
+    setRenderedWidth(group, group.api.width)
   }
 }
 
@@ -247,7 +249,7 @@ export function restoreSidebarWidths(api: DockviewApi, widths: { left: number; r
   if (api.width <= 0) return
 
   const targets: Array<{ group: SidebarGroup; width: number }> = []
-  for (const [panelId, width] of [['projects', widths.left], ['fileTree', widths.right]] as const) {
+  for (const [panelId, width] of [['projects', widths.left], ['modifiedFiles', widths.right]] as const) {
     if (width <= 0) continue
     const group = sidebarGroup(api, panelId)
     if (!group) continue
@@ -289,6 +291,7 @@ export function restoreSidebarWidths(api: DockviewApi, widths: { left: number; r
  */
 export function withPinnedSidebars(api: DockviewApi, applyChange: () => void, excludePanelId?: string): void {
   const releases: Array<() => void> = []
+  const held: Array<{ group: SidebarGroup; width: number }> = []
   if (api.width > 0) {
     const targets: Array<{ group: SidebarGroup; width: number }> = []
     for (const panelId of SIDEBAR_PANEL_IDS) {
@@ -305,13 +308,25 @@ export function withPinnedSidebars(api: DockviewApi, applyChange: () => void, ex
     // Pin only while at least one unpinned group remains.
     const pinned = new Set<unknown>(targets.map(({ group }) => group))
     if (api.groups.some((group) => !pinned.has(group))) {
-      for (const { group, width } of targets) releases.push(pinGroupWidth(group, width))
+      for (const target of targets) {
+        releases.push(pinGroupWidth(target.group, target.width))
+        held.push(target)
+      }
     }
   }
   try {
     applyChange()
   } finally {
     for (const release of releases) release()
+    // The pin is a constraint on the view's *slot*, which carries that group's
+    // share of the theme gap, so the layout pass the mutation triggers renders a
+    // pinned sidebar a few pixels narrower than the width it was pinned to —
+    // pixels it never got back, so every panel toggle left the sidebars a little
+    // thinner than it found them. Hold them to the width that was promised.
+    for (const { group, width } of held) {
+      if (!api.groups.includes(group)) continue
+      if (group.api.width !== width) setRenderedWidth(group, width)
+    }
   }
 }
 
@@ -415,7 +430,7 @@ function serializedSidebarWidth(layout: SerializedDockview, panelId: string): nu
  * right after fromJSON, before the layout is captured as the current state.
  */
 export function restoreCollapsedSidebarWidths(api: DockviewApi, saved: SerializedDockview): void {
-  for (const [side, panelId] of [['left', 'projects'], ['right', 'fileTree']] as const) {
+  for (const [side, panelId] of [['left', 'projects'], ['right', 'modifiedFiles']] as const) {
     const width = serializedSidebarWidth(saved, panelId)
     if (width === undefined || width >= DOCKVIEW_DEFAULT_GROUP_MIN_WIDTH) continue
     applySidebarWidth(api, side, Math.max(0, Math.round(width)))

@@ -27,12 +27,12 @@ describe('ensureEditorPanelInWorkspace', () => {
     // Files and the editor are intertwined: they share one tabbed group
     // rather than each claiming its own column.
     const agentPanel = { id: 'agent', group: { id: 'group-agent' } }
-    const fileTreePanel = { id: 'fileTree', group: { id: 'group-files' } }
+    const modifiedFilesPanel = { id: 'modifiedFiles', group: { id: 'group-files' } }
     const addPanel = vi.fn()
     const api = {
       getPanel: vi.fn((id: string) => {
         if (id === 'agent') return agentPanel
-        if (id === 'fileTree') return fileTreePanel
+        if (id === 'modifiedFiles') return modifiedFilesPanel
         return undefined
       }),
       addPanel,
@@ -46,7 +46,7 @@ describe('ensureEditorPanelInWorkspace', () => {
       component: 'editor',
       title: 'Editor',
       inactive: true,
-      position: { referencePanel: fileTreePanel, direction: 'within' },
+      position: { referencePanel: modifiedFilesPanel, direction: 'within' },
     })
   })
 

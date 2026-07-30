@@ -1,12 +1,12 @@
 import React, { useMemo } from 'react'
 import { useFileDiff } from '../../../hooks/editor/useFileDiff'
 import { CodeViewer } from '../code-viewer/CodeViewer'
-import { FileTree } from '../file-tree/FileTree'
 import { ModifiedFiles } from '../../git/ModifiedFiles'
 import { ShellTabs } from '../../terminal/ShellTabs'
 import { ProjectSidebar } from '../../sidebar/ProjectSidebar'
 import { AgentPanel } from './dock-agent-panel'
 import { EditorPaneActions } from './EditorPaneActions'
+import { FolderFilesTree } from './FolderFilesTree'
 import { PluginViewPanel } from '../plugins/PluginViewPanel'
 import { PluginTreeViewPanel } from '../plugins/PluginTreeViewPanel'
 import { getPanelComponents } from '../../../plugins/contribution-registry'
@@ -18,7 +18,6 @@ export { DockStateContext } from './dock-panel-types'
 export const PANEL_COMPONENTS: Record<string, React.FC<any>> = {
   agent: AgentPanel,
   editor: EditorPanel,
-  fileTree: FileTreePanel,
   modifiedFiles: ModifiedFilesPanel,
   shell: ShellPanel,
   projects: ProjectsPanel,
@@ -68,45 +67,6 @@ function EditorPanel({ api }: { api: { id: string } }): React.JSX.Element {
       onCloseAllTabs={() => s.onCloseAllFiles(paneId)}
       onSaveFile={s.onSaveFile}
     />
-  )
-}
-
-function FileTreePanel(): React.JSX.Element {
-  const s = useDockState()
-  const openFilePaths = useMemo(
-    () => new Set(s.openFiles.map((f) => f.path)),
-    [s.openFiles]
-  )
-
-  return (
-    <div style={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
-      <FileTree
-        tree={s.tree}
-        additionalTrees={s.additionalTrees}
-        rootLabels={s.rootLabels}
-        changes={s.changes}
-        activeFilePath={s.activeFilePath}
-        openFilePaths={openFilePaths}
-        expandedPaths={s.expandedPaths}
-        onToggleExpand={s.onToggleExpand}
-        onSelectFile={s.onSelectFileFromFileTree}
-        onDeleteFile={s.onDeleteFile}
-        onRenameFile={s.onRenameFile}
-        onCreateFile={s.onCreateFile}
-        onCreateDir={s.onCreateDir}
-        onRefresh={s.onRefreshFileTree}
-        onImportPaths={s.onImportPaths}
-        onPasteImage={s.onPasteImage}
-        onPasteClipboardImage={s.onPasteClipboardImage}
-        onMovePath={s.onMovePath}
-        onRevealInFinder={s.onRevealInFinder}
-        onOpenInTerminal={s.onOpenInTerminal}
-        onCopyAbsolutePath={s.onCopyAbsolutePath}
-        onCopyRelativePath={s.onCopyRelativePath}
-        onOpenFileToSide={(path) => s.onOpenSearchResultInSplit({ path, sessionId: s.sessionId })}
-        worktreeRootPath={s.worktreeRootPath}
-      />
-    </div>
   )
 }
 
@@ -168,6 +128,7 @@ function ProjectsPanel(): React.JSX.Element {
       activeDraftId={s.activeDraft?.id ?? null}
       onSelectDraft={(id) => s.onSelectSession(id, s.activeProjectId ?? '')}
       onDiscardDraft={s.discardDraft}
+      renderFolderFiles={(source) => <FolderFilesTree source={source} />}
     />
   )
 }

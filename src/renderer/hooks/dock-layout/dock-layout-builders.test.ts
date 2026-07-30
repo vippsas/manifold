@@ -30,7 +30,7 @@ function createApi() {
 
 describe('applyDefaultLayout', () => {
   // The code viewer is a standing tab of the item rather than one that appears
-  // on the first file open, so the item always offers the same three tabs.
+  // on the first file open, so the item always offers the same tabs.
   it('tabs the code viewer into the files item, inactive', () => {
     const { api, addPanel } = createApi()
 
@@ -40,7 +40,7 @@ describe('applyDefaultLayout', () => {
       id: 'editor',
       component: 'editor',
       title: 'Editor',
-      position: { referencePanel: expect.objectContaining({ id: 'fileTree' }), direction: 'within' },
+      position: { referencePanel: expect.objectContaining({ id: 'modifiedFiles' }), direction: 'within' },
       inactive: true,
     })
   })
@@ -53,24 +53,21 @@ describe('applyDefaultLayout', () => {
     applyDefaultLayout(api as never)
 
     expect(addPanel).toHaveBeenCalledWith({
-      id: 'fileTree',
-      component: 'fileTree',
-      title: 'Files',
+      id: 'modifiedFiles',
+      component: 'modifiedFiles',
+      title: 'Modified Files',
       position: { referencePanel: expect.objectContaining({ id: 'agent' }), direction: 'right' },
     })
   })
 
-  it('tabs modified files into the files item', () => {
+  // The file tree is not one of the item's tabs — it hangs under its repo's row
+  // inside Repositories.
+  it('adds no standalone Files panel', () => {
     const { api, addPanel } = createApi()
 
     applyDefaultLayout(api as never)
 
-    expect(addPanel).toHaveBeenCalledWith({
-      id: 'modifiedFiles',
-      component: 'modifiedFiles',
-      title: 'Modified Files',
-      position: { referencePanel: expect.objectContaining({ id: 'fileTree' }), direction: 'within' },
-    })
+    expect(addPanel.mock.calls.map((call) => call[0].id)).not.toContain('fileTree')
   })
 
   it('splits the agent off the repositories column, not the other way round', () => {
@@ -95,6 +92,6 @@ describe('applyDefaultLayout', () => {
     expect(addedIds).not.toContain('loop')
     expect(addedIds).not.toContain('verdicts')
     expect(addedIds).not.toContain('watch')
-    expect(addedIds).toEqual(expect.arrayContaining(['projects', 'agent', 'fileTree', 'modifiedFiles']))
+    expect(addedIds).toEqual(expect.arrayContaining(['projects', 'agent', 'modifiedFiles', 'editor']))
   })
 })

@@ -4,7 +4,7 @@ import { PANEL_TITLES } from './dock-layout-helpers'
 /** The panels that make up the one files item, in tab order. Split editor panes
  *  (`editor:N`) are deliberately absent: a split is a second pane the user
  *  asked for, not a stray tab of the item. */
-export const FILES_ITEM_PANEL_IDS = ['fileTree', 'modifiedFiles', 'editor'] as const
+export const FILES_ITEM_PANEL_IDS = ['modifiedFiles', 'editor'] as const
 
 /**
  * Give an open files item its code-viewer tab back. The editor used to appear
@@ -16,7 +16,7 @@ export const FILES_ITEM_PANEL_IDS = ['fileTree', 'modifiedFiles', 'editor'] as c
  */
 export function ensureEditorTab(api: DockviewApi): boolean {
   if (api.getPanel('editor')) return false
-  const host = api.getPanel('fileTree') ?? api.getPanel('modifiedFiles')
+  const host = api.getPanel('modifiedFiles')
   if (!host) return false
 
   api.addPanel({

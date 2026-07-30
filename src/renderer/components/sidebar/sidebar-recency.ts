@@ -33,28 +33,29 @@ function pruneRecency(recency: ProjectRecency): ProjectRecency {
 }
 
 /**
- * Last-accessed timestamps per project, persisted to localStorage. Drives the
- * ordering of the "With agents" sidebar section: items move to the top when
- * accessed and otherwise hold their position, instead of the whole list
- * reshuffling around the active project.
+ * Last-accessed timestamps per project, persisted to localStorage, ordering the
+ * sidebar's repositories most-recent-first.
+ *
+ * The order is read once and then held for the life of the list: a touch is
+ * recorded for the next launch but must not re-sort the rows you are working
+ * in. Re-sorting live meant that picking an agent slid its repo to the top,
+ * moving every other row under the cursor mid-click — which made going back and
+ * forth between two repos a chase.
  */
 export function useProjectRecency(): {
   recency: ProjectRecency
   touchProject: (projectId: string) => void
 } {
-  const [recency, setRecency] = useState<ProjectRecency>(readRecency)
+  const [recency] = useState<ProjectRecency>(readRecency)
 
   const touchProject = useCallback((projectId: string) => {
-    setRecency((current) => {
-      const next = pruneRecency({ ...current, [projectId]: Date.now() })
-      try {
-        localStorage.setItem(STORAGE_KEY, JSON.stringify(next))
-      } catch {
-        // Storage can be unavailable in restricted renderer contexts. In that
-        // case keep the in-memory ordering working and skip persistence.
-      }
-      return next
-    })
+    const next = pruneRecency({ ...readRecency(), [projectId]: Date.now() })
+    try {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(next))
+    } catch {
+      // Storage can be unavailable in restricted renderer contexts; the current
+      // ordering still stands, there is just nothing to restore next launch.
+    }
   }, [])
 
   return { recency, touchProject }

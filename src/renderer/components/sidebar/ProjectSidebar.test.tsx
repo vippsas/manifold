@@ -71,20 +71,16 @@ describe('ProjectSidebar', () => {
     expect(screen.getByText('stavanger')).toBeInTheDocument()
   })
 
-  it('calls onSelectProject when a project is clicked', () => {
+  // A repo row is a folder header: it opens that repo's files and nothing else.
+  // Selecting an agent is what makes a repo the one being worked in — see
+  // ProjectSidebar.files.test.tsx for the disclosure itself.
+  it('does not act on the app when a repo row is clicked', () => {
     const { props } = renderSidebar()
 
     fireEvent.click(screen.getByText('Beta'))
 
-    expect(props.onSelectProject).toHaveBeenCalledWith('p2')
-  })
-
-  it('selects the repository when the active repo header is clicked', () => {
-    const { props } = renderSidebar()
-
-    fireEvent.click(screen.getByText('Alpha'))
-
-    expect(props.onSelectProject).toHaveBeenCalledWith('p1')
+    expect(props.onSelectProject).not.toHaveBeenCalled()
+    expect(props.onSelectSession).not.toHaveBeenCalled()
     expect(props.onNewAgent).not.toHaveBeenCalled()
   })
 
@@ -318,22 +314,6 @@ describe('ProjectSidebar', () => {
     expect(screen.getByLabelText('Delete bergen')).toBeInTheDocument()
   })
 
-  it('selects the project (not a forced first session) when clicking another open project card', () => {
-    const sessionsForP2: AgentSession[] = [
-      { id: 's3', projectId: 'p2', runtimeId: 'gemini', branchName: 'beta/stavanger', worktreePath: '/wt3', status: 'running', pid: 3, additionalDirs: [] },
-    ]
-
-    const { props } = renderSidebar({ allProjectSessions: { p1: sampleSessions, p2: sessionsForP2 } })
-
-    // Clicking the repo only activates the project; the session-restore
-    // path (useAgentSession) then picks the last-viewed agent for that repo
-    // instead of being reset to the first one (#768).
-    fireEvent.click(screen.getByText('Beta'))
-
-    expect(props.onSelectProject).toHaveBeenCalledWith('p2')
-    expect(props.onSelectSession).not.toHaveBeenCalled()
-  })
-
   it('keeps stripping legacy manifold-prefixed branch names', () => {
     const legacySessions: AgentSession[] = [
       { id: 's1', projectId: 'p1', runtimeId: 'claude', branchName: 'manifold/oslo', worktreePath: '/wt1', status: 'running', pid: 1, additionalDirs: [] },
@@ -377,22 +357,35 @@ describe('ProjectSidebar', () => {
     expect(screen.queryByText('Repositories')).not.toBeInTheDocument()
   })
 
-  it('moves a repo to the top of the flat card list when it is accessed', () => {
+  it('orders the flat card list by the recency it started with', () => {
+    localStorage.setItem('manifold.sidebar.recency.v1', JSON.stringify({ p2: Date.now() }))
     const sessionsForP2: AgentSession[] = [
       { id: 's3', projectId: 'p2', runtimeId: 'gemini', branchName: 'beta/stavanger', worktreePath: '/wt3', status: 'running', pid: 3, additionalDirs: [] },
     ]
 
     renderSidebar({ allProjectSessions: { p1: sampleSessions, p2: sessionsForP2 } })
 
-    // Untouched: incoming alphabetical order — Alpha before Beta
-    const alpha = screen.getByText('Alpha')
-    let beta = screen.getByText('Beta')
-    expect(alpha.compareDocumentPosition(beta) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+    // Beta was the last repo worked in before this launch, so it leads.
+    expect(screen.getByText('Beta').compareDocumentPosition(screen.getByText('Alpha')) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+  })
 
-    // Accessing Beta moves it above Alpha; Alpha holds its slot
-    fireEvent.click(beta)
-    beta = screen.getByText('Beta')
-    expect(beta.compareDocumentPosition(screen.getByText('Alpha')) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+  // Rows must not move under the cursor while you are clicking them: picking an
+  // agent is recorded for the next launch, not applied to the list in place.
+  it('does not re-sort the list when an agent is selected', () => {
+    const sessionsForP2: AgentSession[] = [
+      { id: 's3', projectId: 'p2', runtimeId: 'gemini', branchName: 'beta/stavanger', worktreePath: '/wt3', status: 'running', pid: 3, additionalDirs: [] },
+    ]
+
+    renderSidebar({ allProjectSessions: { p1: sampleSessions, p2: sessionsForP2 } })
+
+    const leads = (first: string, second: string): boolean =>
+      Boolean(screen.getByText(first).compareDocumentPosition(screen.getByText(second)) & Node.DOCUMENT_POSITION_FOLLOWING)
+    expect(leads('Alpha', 'Beta')).toBe(true)
+
+    fireEvent.click(screen.getByText('stavanger'))
+
+    expect(leads('Alpha', 'Beta')).toBe(true)
+    expect(JSON.parse(localStorage.getItem('manifold.sidebar.recency.v1') ?? '{}')).toHaveProperty('p2')
   })
 
   it('keeps an active repo with no agents in a bordered card', () => {

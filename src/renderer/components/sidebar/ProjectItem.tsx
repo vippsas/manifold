@@ -1,11 +1,15 @@
 import React, { useCallback, useState } from 'react'
 import type { Project } from '../../../shared/types'
 import { sidebarStyles } from './ProjectSidebar.styles'
-import { AddFolderGlyph, NewAgentGlyph, RepoGlyph } from './SidebarCardActionGlyphs'
+import { AddFolderGlyph, FilesChevronGlyph, NewAgentGlyph, RepoGlyph } from './SidebarCardActionGlyphs'
 
 interface ProjectItemProps {
   project: Project
-  isActive: boolean
+  /** Whether this repo's files are showing beneath it. */
+  isFilesExpanded?: boolean
+  /** The row is a folder header, like one of a VS Code workspace: it opens and
+   *  closes the repo's files and nothing else. Selecting an agent is what makes
+   *  a repo the one being worked in. */
   onSelect: (id: string) => void
   onRemove: (e: React.MouseEvent, id: string) => void
   onRename?: (name: string) => void
@@ -15,7 +19,7 @@ interface ProjectItemProps {
 
 export function ProjectItem({
   project,
-  isActive,
+  isFilesExpanded = false,
   onSelect,
   onRemove,
   onRename,
@@ -87,10 +91,11 @@ export function ProjectItem({
     <div
       onClick={handleClick}
       onKeyDown={handleKeyDown}
-      className={`sidebar-item-row sidebar-project-row${isActive ? ' sidebar-item-row--active' : ''}`}
-      style={{ ...sidebarStyles.item, ...(isActive ? sidebarStyles.itemActive : undefined), position: 'relative' as const }}
+      className="sidebar-item-row sidebar-project-row"
+      style={{ ...sidebarStyles.item, position: 'relative' as const }}
       role="button"
       tabIndex={0}
+      aria-expanded={isFilesExpanded}
     >
       {editing ? (
         <input
@@ -110,6 +115,7 @@ export function ProjectItem({
           onDoubleClick={(e) => { e.stopPropagation(); startEditing() }}
           title={onRename ? 'Double-click to rename' : undefined}
         >
+          <span style={sidebarStyles.rowChevron}><FilesChevronGlyph expanded={isFilesExpanded} /></span>
           <span style={sidebarStyles.rowGlyph}><RepoGlyph /></span>
           {project.name}
         </span>

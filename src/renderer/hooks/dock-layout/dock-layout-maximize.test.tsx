@@ -35,7 +35,7 @@ function isGroupVisible(api: DockviewApi, panelId: string): boolean {
   return view?.classList.contains('visible') ?? false
 }
 
-/** Build projects | (agent / shell) | fileTree — a center pane with a nested
+/** Build projects | (agent / shell) | modifiedFiles — a center pane with a nested
  *  pane plus a left and a right sidebar, matching the real dock shape. */
 async function setupDock(): Promise<DockviewApi> {
   mounts = {}
@@ -43,7 +43,7 @@ async function setupDock(): Promise<DockviewApi> {
   render(
     <div style={{ width: 1000, height: 700 }}>
       <DockviewReact
-        components={{ agent: Probe, editor: Probe, shell: Probe, projects: Probe, fileTree: Probe }}
+        components={{ agent: Probe, editor: Probe, shell: Probe, projects: Probe, modifiedFiles: Probe }}
         onReady={(e) => { api = e.api }}
       />
     </div>,
@@ -53,7 +53,7 @@ async function setupDock(): Promise<DockviewApi> {
   act(() => {
     dv.addPanel({ id: 'projects', component: 'projects' })
     dv.addPanel({ id: 'agent', component: 'agent', position: { referencePanel: 'projects', direction: 'right' } })
-    dv.addPanel({ id: 'fileTree', component: 'fileTree', position: { referencePanel: 'agent', direction: 'right' } })
+    dv.addPanel({ id: 'modifiedFiles', component: 'modifiedFiles', position: { referencePanel: 'agent', direction: 'right' } })
     dv.addPanel({ id: 'shell', component: 'shell', position: { referencePanel: 'agent', direction: 'below' } })
   })
   await waitFor(() => expect(mounts.agent).toBe(1))
@@ -72,7 +72,7 @@ describe('toggleMaximizedGroup (double-click focus mode)', () => {
     expect(events).toEqual([true])
     // Both sidebars and the other pane are hidden; only the focused pane shows.
     expect(isGroupVisible(dv, 'projects')).toBe(false)
-    expect(isGroupVisible(dv, 'fileTree')).toBe(false)
+    expect(isGroupVisible(dv, 'modifiedFiles')).toBe(false)
     expect(isGroupVisible(dv, 'shell')).toBe(false)
     expect(isGroupVisible(dv, 'agent')).toBe(true)
   })
@@ -87,20 +87,20 @@ describe('toggleMaximizedGroup (double-click focus mode)', () => {
 
     expect(dv.hasMaximizedGroup()).toBe(false)
     expect(isGroupVisible(dv, 'projects')).toBe(true)
-    expect(isGroupVisible(dv, 'fileTree')).toBe(true)
+    expect(isGroupVisible(dv, 'modifiedFiles')).toBe(true)
     expect(isGroupVisible(dv, 'shell')).toBe(true)
     expect(isGroupVisible(dv, 'agent')).toBe(true)
   })
 
   it('never remounts panels across a maximize/restore round-trip', async () => {
     const dv = await setupDock()
-    expect(mounts).toMatchObject({ agent: 1, projects: 1, fileTree: 1, shell: 1 })
+    expect(mounts).toMatchObject({ agent: 1, projects: 1, modifiedFiles: 1, shell: 1 })
 
     act(() => { toggleMaximizedGroup(dv, 'agent') })
     act(() => { toggleMaximizedGroup(dv, 'agent') })
 
     // No panel was torn down and remounted — the agent's xterm survives.
-    expect(mounts).toMatchObject({ agent: 1, projects: 1, fileTree: 1, shell: 1 })
+    expect(mounts).toMatchObject({ agent: 1, projects: 1, modifiedFiles: 1, shell: 1 })
   })
 
   it('is a no-op for an unknown panel id', async () => {

@@ -41,7 +41,7 @@ async function setupDock(): Promise<DockviewApi> {
   render(
     <div style={{ width: 1200, height: 700 }}>
       <DockviewReact
-        components={{ projects: Probe, agent: Probe, fileTree: Probe }}
+        components={{ projects: Probe, agent: Probe, modifiedFiles: Probe }}
         onReady={(e) => { api = e.api }}
       />
     </div>,
@@ -52,7 +52,7 @@ async function setupDock(): Promise<DockviewApi> {
     dv.layout(1200, 700)
     dv.addPanel({ id: 'projects', component: 'projects' })
     dv.addPanel({ id: 'agent', component: 'agent', position: { referencePanel: 'projects', direction: 'right' } })
-    dv.addPanel({ id: 'fileTree', component: 'fileTree', position: { referencePanel: 'agent', direction: 'right' } })
+    dv.addPanel({ id: 'modifiedFiles', component: 'modifiedFiles', position: { referencePanel: 'agent', direction: 'right' } })
   })
   return dv
 }
@@ -61,9 +61,9 @@ function setSidebarWidths(dv: DockviewApi, left: number, right: number): void {
   act(() => {
     // Allow sub-minimum (collapsed) widths, like the app's collapse gesture.
     dv.getPanel('projects')?.group.api.setConstraints({ minimumWidth: 0 })
-    dv.getPanel('fileTree')?.group.api.setConstraints({ minimumWidth: 0 })
+    dv.getPanel('modifiedFiles')?.group.api.setConstraints({ minimumWidth: 0 })
     dv.getPanel('projects')?.group.api.setSize({ width: left })
-    dv.getPanel('fileTree')?.group.api.setSize({ width: right })
+    dv.getPanel('modifiedFiles')?.group.api.setSize({ width: right })
   })
 }
 
@@ -80,7 +80,7 @@ function switchToLayout(dv: DockviewApi, saved: SerializedDockview): void {
     dv.layout(1200, 700, true)
   })
   // fromJSON recreates every group, so the offsetWidth wiring must be redone.
-  for (const id of ['projects', 'agent', 'fileTree']) wireOffsetWidth(dv, id)
+  for (const id of ['projects', 'agent', 'modifiedFiles']) wireOffsetWidth(dv, id)
 }
 
 describe('sidebar widths carried across a session switch', () => {
@@ -93,21 +93,21 @@ describe('sidebar widths carried across a session switch', () => {
 
     // The user is currently looking at narrow sidebars.
     setSidebarWidths(dv, 200, 180)
-    for (const id of ['projects', 'agent', 'fileTree']) wireOffsetWidth(dv, id)
+    for (const id of ['projects', 'agent', 'modifiedFiles']) wireOffsetWidth(dv, id)
     const carried = captureSidebarWidthsForReload(dv)
     expect(carried).toEqual({ left: 200, right: 180 })
 
     switchToLayout(dv, incoming)
     // Precondition for the regression: fromJSON restored the incoming widths.
     expect(widthOf(dv, 'projects')).toBe(400)
-    expect(widthOf(dv, 'fileTree')).toBe(350)
+    expect(widthOf(dv, 'modifiedFiles')).toBe(350)
 
     act(() => {
       applyCarriedSidebarWidths(dv, carried)
     })
 
     expect(widthOf(dv, 'projects')).toBe(200)
-    expect(widthOf(dv, 'fileTree')).toBe(180)
+    expect(widthOf(dv, 'modifiedFiles')).toBe(180)
   })
 
   it('keeps a collapsed sidebar collapsed across the switch', async () => {
@@ -117,7 +117,7 @@ describe('sidebar widths carried across a session switch', () => {
     const incoming = snapshotLayout(dv)
 
     setSidebarWidths(dv, 0, 180)
-    for (const id of ['projects', 'agent', 'fileTree']) wireOffsetWidth(dv, id)
+    for (const id of ['projects', 'agent', 'modifiedFiles']) wireOffsetWidth(dv, id)
     const carried = captureSidebarWidthsForReload(dv)
     expect(carried).toEqual({ left: 0, right: 180 })
 
@@ -129,7 +129,7 @@ describe('sidebar widths carried across a session switch', () => {
     })
 
     expect(widthOf(dv, 'projects')).toBe(0)
-    expect(widthOf(dv, 'fileTree')).toBe(180)
+    expect(widthOf(dv, 'modifiedFiles')).toBe(180)
   })
 
   it('leaves a sidebar at the incoming width when its panel was absent before', async () => {
@@ -138,10 +138,10 @@ describe('sidebar widths carried across a session switch', () => {
     setSidebarWidths(dv, 400, 350)
     const incoming = snapshotLayout(dv)
 
-    // Minimal-style outgoing layout: no fileTree panel at all.
+    // Minimal-style outgoing layout: no modifiedFiles panel at all.
     act(() => {
-      const fileTree = dv.getPanel('fileTree')
-      if (fileTree) dv.removePanel(fileTree)
+      const modifiedFiles = dv.getPanel('modifiedFiles')
+      if (modifiedFiles) dv.removePanel(modifiedFiles)
       dv.getPanel('projects')?.group.api.setSize({ width: 200 })
     })
     for (const id of ['projects', 'agent']) wireOffsetWidth(dv, id)
@@ -156,6 +156,6 @@ describe('sidebar widths carried across a session switch', () => {
 
     expect(widthOf(dv, 'projects')).toBe(200)
     // Absent before the switch — keeps the incoming layout's width.
-    expect(widthOf(dv, 'fileTree')).toBe(350)
+    expect(widthOf(dv, 'modifiedFiles')).toBe(350)
   })
 })

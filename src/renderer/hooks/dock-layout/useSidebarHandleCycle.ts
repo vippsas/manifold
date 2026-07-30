@@ -4,7 +4,7 @@ import type { DockviewApi } from 'dockview'
 type SidebarSide = 'left' | 'right'
 
 /** Anchor panel id for each sidebar side. */
-const SIDE_PANEL_ID: Record<SidebarSide, string> = { left: 'projects', right: 'fileTree' }
+const SIDE_PANEL_ID: Record<SidebarSide, string> = { left: 'projects', right: 'modifiedFiles' }
 
 // Fractions of the window width the double-click cycle steps through, in order.
 // The default layout starts a sidebar at 1/6, so the first double-click moves
@@ -54,7 +54,7 @@ function refreshEdgeGrab(api: DockviewApi): void {
   for (const sash of sashes) sash.classList.remove(EDGE_CLASS.left, EDGE_CLASS.right)
 
   for (const side of ['left', 'right'] as SidebarSide[]) {
-    const id = side === 'left' ? 'projects' : 'fileTree'
+    const id = side === 'left' ? 'projects' : 'modifiedFiles'
     const group = api.getPanel(id)?.group
     if (!group || group.element.offsetWidth > 1) continue
     const sash = sashes.find((s) => sidebarSideForSash(api, s) === side)
@@ -68,7 +68,7 @@ function sidebarSideForSash(api: DockviewApi, sash: HTMLElement): SidebarSide | 
   const sashCenter = sashRect.left + sashRect.width / 2
 
   const projects = panelGroupElement(api, 'projects')
-  const files = panelGroupElement(api, 'fileTree')
+  const files = panelGroupElement(api, 'modifiedFiles')
 
   let side: SidebarSide | null = null
   let bestDist = EDGE_THRESHOLD_PX
@@ -81,6 +81,25 @@ function sidebarSideForSash(api: DockviewApi, sash: HTMLElement): SidebarSide | 
     if (dist < bestDist) { bestDist = dist; side = 'right' }
   }
   return side
+}
+
+type ResizableGroup = NonNullable<NonNullable<ReturnType<DockviewApi['getPanel']>>['group']>
+
+/**
+ * Size a group so that it *renders* `width` pixels wide.
+ *
+ * `setSize` takes the view's slot in the splitview, which includes that view's
+ * share of the theme's group gap, while `api.width` reports the rendered width
+ * the slot leaves behind (`view.layout(size - margin * sashes / views)`). The
+ * two differ by a few pixels, so feeding a measured width straight back into
+ * `setSize` shrinks the group a little every time — which is how repeatedly
+ * toggling a panel walked the sidebars steadily narrower. Ask for the slot that
+ * lands on the width we actually want.
+ */
+export function setRenderedWidth(group: ResizableGroup, width: number): void {
+  group.api.setSize({ width })
+  const shortfall = width - group.api.width
+  if (shortfall > 0) group.api.setSize({ width: width + shortfall })
 }
 
 /**
@@ -104,7 +123,7 @@ export function applySidebarWidth(api: DockviewApi, side: SidebarSide, nextWidth
   try {
     // Allow the target to collapse fully — the default group minimum blocks 0.
     targetGroup.api.setConstraints({ minimumWidth: 0 })
-    targetGroup.api.setSize({ width: nextWidth })
+    setRenderedWidth(targetGroup, nextWidth)
   } finally {
     // Release the opposite sidebar so it stays freely draggable afterward. The
     // same-size setSize pokes a relayout so the sashes that the pinned setSize
@@ -112,7 +131,7 @@ export function applySidebarWidth(api: DockviewApi, side: SidebarSide, nextWidth
     // only during a layout pass, never on setConstraints alone).
     if (otherGroup && otherWidth) {
       otherGroup.api.setConstraints({ minimumWidth: 0, maximumWidth: Number.MAX_SAFE_INTEGER })
-      otherGroup.api.setSize({ width: otherGroup.api.width })
+      setRenderedWidth(otherGroup, otherGroup.api.width)
     }
   }
 

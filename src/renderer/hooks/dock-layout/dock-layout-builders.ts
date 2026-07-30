@@ -6,10 +6,9 @@ import {
 } from './dock-layout-helpers'
 
 export function applyDefaultLayout(api: DockviewApi): void {
-  // Two sidebars around the agent: Repositories on the left, and on the right
-  // the ONE files item whose icon tabs switch between Files, Modified Files and
-  // the editor. Repositories stays a separate card — it is not a tab of that
-  // item.
+  // Two sidebars around the agent: Repositories on the left — which carries the
+  // file tree under each repo row — and on the right the ONE files item whose
+  // icon tabs switch between Modified Files and the editor.
   const projectsPanel = api.addPanel({
     id: 'projects',
     component: 'projects',
@@ -24,23 +23,16 @@ export function applyDefaultLayout(api: DockviewApi): void {
   })
 
   const filesPanel = api.addPanel({
-    id: 'fileTree',
-    component: 'fileTree',
-    title: PANEL_TITLES.fileTree,
-    position: { referencePanel: agentPanel, direction: 'right' },
-  })
-
-  api.addPanel({
     id: 'modifiedFiles',
     component: 'modifiedFiles',
     title: PANEL_TITLES.modifiedFiles,
-    position: { referencePanel: filesPanel, direction: 'within' },
+    position: { referencePanel: agentPanel, direction: 'right' },
   })
 
   // The code viewer is a standing tab of the item, not one that materializes on
   // the first file open: an item whose tabs change under you is harder to aim
-  // at than one that always offers the same three. With nothing open it shows
-  // its own empty state. Added inactive so the item still opens on Files.
+  // at than one that always offers the same tabs. With nothing open it shows
+  // its own empty state. Added inactive so the item still opens on the changes.
   api.addPanel({
     id: 'editor',
     component: 'editor',

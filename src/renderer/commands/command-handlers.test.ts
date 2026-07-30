@@ -65,6 +65,6 @@ describe('createCommandHandlers', () => {
     handlers['view.focusTerminal']()
     handlers['view.focusFiles']()
     expect(ctx.openModule).toHaveBeenCalledWith('shell')
-    expect(ctx.openModule).toHaveBeenCalledWith('fileTree')
+    expect(ctx.openModule).toHaveBeenCalledWith('projects')
   })
 })

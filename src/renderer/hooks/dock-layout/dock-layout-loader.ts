@@ -28,7 +28,7 @@ const EDITOR_GROUP_WIDTH_FRACTION = 1 / 3
  *  and must keep its width. Unlike `SIDEBAR_PANEL_IDS` (the anchors pinned
  *  during layout mutations) this includes `modifiedFiles`, so reopening it
  *  claims a sidebar's width share rather than half the dock. */
-const SIDEBAR_FAMILY_PANEL_IDS = new Set<string>(['projects', 'fileTree', 'modifiedFiles'])
+const SIDEBAR_FAMILY_PANEL_IDS = new Set<string>(['projects', 'modifiedFiles'])
 
 type DockGroup = NonNullable<NonNullable<ReturnType<DockviewApi['getPanel']>>['group']>
 

@@ -1,7 +1,7 @@
 ---
 description: How Manifold's main-process services are exposed to the renderer over Electron IPC — the channel namespaces, the handler registration pattern, and how handlers delegate to subsystem managers.
 covers: [src/main/ipc]
-updated: 2026-07-27
+updated: 2026-07-29
 owner: see .github/CODEOWNERS
 ---
 
@@ -74,16 +74,22 @@ is non-empty (used by the New Agent form's dirty-repo confirmation).
 (`search-handlers.ts:94`). The substantive work lives in the managers.
 
 **Validation at the boundary.** Handlers are where untrusted renderer input is checked.
-`file-handlers.ts` resolves every path against the session worktree and rejects anything
-outside the allowed dirs via `isPathAllowed()` (`file-handlers.ts:19`, enforced on
-`files:read`, `files:write`, `files:delete`, `files:rename`, etc.). `chat-image-handlers.ts`
+`file-handlers.ts` resolves every path and rejects anything outside the folders the user has
+open — **the workspace roots**: every registered project path plus every session's worktree
+and `additionalDirs` (`workspaceRoots`, `file-handlers.ts:26`; `isAllowed`, `:46`; enforced on
+`files:read`, `files:write`, `files:delete`, `files:rename`, etc.). It is deliberately *not*
+scoped to the selected session: the sidebar hangs a tree under every repo and worktree, all
+open at once, and a click there opens a file without first selecting its repo. Reading,
+saving and revealing take the session id as an optional hint for resolving a relative path
+and work with none at all, since a repo with no agent still shows its files (`authorize`,
+`:53`). `chat-image-handlers.ts`
 restricts pasted/read-back chat images to a small allow-list of directories
 (`resolveReadableChatImagePath`, `chat-image-handlers.ts:26`). `project-handlers.ts` rejects
 clone URLs beginning with `-` to avoid argument injection into `git clone`
 (`project-handlers.ts:69`). Several handlers reject non-git projects with an explicit error
 (`isGitProject` checks throughout `git-handlers.ts` and `agent-handlers.ts`).
 `files:open-terminal` applies the same path guard before `openTerminal()` launches a detached
-platform process without a shell (`file-handlers.ts:208-225`, `open-terminal.ts:12-60`).
+platform process without a shell (`file-handlers.ts:229`, `open-terminal.ts:12-60`).
 
 ## Key types and entry points
 
@@ -107,7 +113,7 @@ platform process without a shell (`file-handlers.ts:208-225`, `open-terminal.ts:
 
 - **The registration list is manual.** Adding a namespace means writing a `register*Handlers` function *and* wiring it into `registerIpcHandlers` (`ipc-handlers.ts:22`). A forgotten line silently leaves the channels unregistered, and the renderer call rejects with "No handler registered".
 - **This layer is `handle`-only; events go the other way.** Don't add `ipcMain.on` here. Renderer→main is request/response; main→renderer is `webContents.send`. Mixing the two in one channel breaks the preload allow-list model.
-- **Path guards live in the handler, not the manager.** `fileWatcher` will read/write whatever absolute path it's given; the traversal guard is `isPathAllowed` in `file-handlers.ts`. A new `files:*` channel that skips it is an arbitrary-file-access hole.
+- **Path guards live in the handler, not the manager.** `fileWatcher` will read/write whatever absolute path it's given; the traversal guard is `isAllowed`/`authorize` in `file-handlers.ts`, resolved against the workspace roots. A new `files:*` channel that skips it is an arbitrary-file-access hole.
 - **Handlers must tolerate a missing session.** Sessions can be torn down mid-flight while a renderer refresh is in flight; `diff:get` returns an empty diff rather than throwing for exactly this race (`git-handlers.ts:15`), whereas `resolveSession`-based channels deliberately throw.
 - **Plain-folder projects reject git channels.** Most `git:*`/`diff:*`/`pr:create` handlers guard with `isGitProject` and either throw or return an empty result; do the same for any new git-touching channel.
 - **Removing a project must drop its derived stores and references.** A project id is a fresh uuid on every add, so anything keyed by it (verdicts, chat, memory, agent dismissals, workspace membership) is unreachable once the project is removed and re-added. `projects:remove` therefore deletes the verdict/chat/memory/dismissal data and detaches the id from every workspace (`project-handlers.ts:191`–`:195`) but leaves the on-disk repo in place; only `agent:delete-app` additionally `fs.rm`s the project directory (`project-handlers.ts:185`, `agent-handlers.ts:150`).

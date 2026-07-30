@@ -43,7 +43,7 @@ async function setupDock(): Promise<DockviewApi> {
   render(
     <div style={{ width: 1200, height: 700 }}>
       <DockviewReact
-        components={{ projects: Probe, agent: Probe, fileTree: Probe, shell: Probe }}
+        components={{ projects: Probe, agent: Probe, modifiedFiles: Probe, shell: Probe }}
         onReady={(e) => { api = e.api }}
       />
     </div>,
@@ -54,12 +54,12 @@ async function setupDock(): Promise<DockviewApi> {
     dv.layout(1200, 700)
     dv.addPanel({ id: 'projects', component: 'projects' })
     dv.addPanel({ id: 'agent', component: 'agent', position: { referencePanel: 'projects', direction: 'right' } })
-    dv.addPanel({ id: 'fileTree', component: 'fileTree', position: { referencePanel: 'agent', direction: 'right' } })
+    dv.addPanel({ id: 'modifiedFiles', component: 'modifiedFiles', position: { referencePanel: 'agent', direction: 'right' } })
     dv.getPanel('projects')?.group.api.setSize({ width: 200 })
-    dv.getPanel('fileTree')?.group.api.setSize({ width: 200 })
+    dv.getPanel('modifiedFiles')?.group.api.setSize({ width: 200 })
   })
   wireOffsetWidth(dv, 'projects')
-  wireOffsetWidth(dv, 'fileTree')
+  wireOffsetWidth(dv, 'modifiedFiles')
   return dv
 }
 
