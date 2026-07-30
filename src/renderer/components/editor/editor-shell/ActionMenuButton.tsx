@@ -68,10 +68,7 @@ export function ActionMenuButton({
       <button
         type="button"
         ref={buttonRef}
-        style={{
-          ...viewerStyles.compactActionButton,
-          ...(menu ? viewerStyles.compactActionButtonActive : {}),
-        }}
+        className={`pane-action pane-action--menu${menu ? ' pane-action--on' : ''}`}
         title={title}
         aria-label={title}
         aria-haspopup="menu"
@@ -79,10 +76,8 @@ export function ActionMenuButton({
         onMouseDown={(event) => event.stopPropagation()}
         onClick={handleToggleMenu}
       >
-        <span style={viewerStyles.compactActionButtonContent}>
-          <span style={viewerStyles.compactActionButtonLabel}>{buttonLabel}</span>
-          <span style={viewerStyles.iconCaret} />
-        </span>
+        {buttonLabel}
+        <span style={viewerStyles.iconCaret} />
       </button>
       {menu && createPortal(
         <>

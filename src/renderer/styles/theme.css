@@ -527,11 +527,13 @@ select:focus-visible {
 }
 
 /* Every control in a card's header strip — a text tab's ×, the icon-tab group's
-   × — takes the icon tabs' pill: a 24px rounded square centered in the 30px
-   strip. The shell's + (styled inline in ShellTabs.styles.ts) matches these
-   numbers, so a header reads as one row of pills. */
+   ×, an editor pane's split/mode actions — takes the icon tabs' pill: a 24px
+   rounded square centered in the 30px strip. The shell's + (styled inline in
+   ShellTabs.styles.ts) matches these numbers, so a header reads as one row of
+   pills. */
 .dock-tab__close,
-.dock-header-collapse {
+.dock-header-collapse,
+.pane-action {
   width: 24px;
   height: 24px;
   margin-block: 3px;
@@ -542,15 +544,50 @@ select:focus-visible {
 }
 
 .dock-tab__close:hover,
-.dock-header-collapse:hover {
+.dock-header-collapse:hover,
+.pane-action:hover {
   background: var(--statusbar-hover-bg);
   color: var(--text-primary);
 }
 
-.dock-tab__close {
+.dock-tab__close,
+.pane-action {
   display: inline-flex;
   align-items: center;
   justify-content: center;
+}
+
+/* An editor pane's own actions sit at the right of its file tabs. They were a
+   bordered input box, which read as a form control dropped into a strip of flat
+   tabs; as the header pill they belong to the same row of controls. */
+.pane-action {
+  gap: 3px;
+  padding: 0;
+  border: none;
+  background: transparent;
+  cursor: pointer;
+}
+
+/* A pill that opens a menu carries a caret after its glyph, so it needs the
+   width of an icon tab rather than of a square. */
+.pane-action--menu {
+  width: 28px;
+}
+
+/* The view-mode toggle names the mode it is in ("Preview"), so its pill widens
+   to hold the word instead of being a square. */
+.pane-action--labeled {
+  width: auto;
+  padding: 0 var(--space-xs);
+  font-size: var(--type-ui-caption);
+}
+
+/* An open menu, or a pane showing something other than the plain editor, reads
+   the way an active icon tab does — accent, not a ring around the control. */
+.pane-action--on,
+.pane-action--on:hover {
+  color: var(--accent);
+  background: var(--accent-subtle);
 }
 
 /* Icon-only tabs (the sidebar item's view switcher): just the glyph, name as

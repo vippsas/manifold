@@ -95,15 +95,27 @@ hosts `ShellHeaderActions` (self-gated to the shell panel;
 they sit at the right of the code viewer's own tab bar (`EditorPaneActions`, rendered through
 `CodeViewer`'s `headerActions` slot; `EditorPaneActions.tsx:40`,
 `code-viewer/CodeViewerTabs.tsx:105`). The group header belongs to the item's view tabs, and
-with a split it sits above only one of the panes it was acting on. **A pane's file tabs follow
+with a split it sits above only one of the panes it was acting on. Those controls wear the same
+header pill as every other control in a strip — a tab's `×`, the icon-tab group's `×` — rather
+than the bordered input box they used to be, which read as a form control dropped into a row of
+flat tabs; an open menu or a pane showing something other than the plain editor tints accent the
+way an active icon tab does, instead of drawing a ring around the control (`.pane-action`,
+`styles/theme.css:536`, `:563`, `:587`). **A pane's file tabs follow
 VS Code's editor tabs** (`multieditortabscontrol.css`): each carries the Seti file-type icon the
 tree uses for the same file, the name in the UI font — not the editor's monospace, which sized
 the strip like code — and, only when two open files share a basename, the disambiguating folder
-as a muted description beside it (`CodeViewerTabs.tsx:218`, `CodeViewer.styles.ts:54`;
+as a muted description beside it (`CodeViewerTabs.tsx:218`, `CodeViewer.styles.ts:62`;
 `file-tree/FileTypeIcon.tsx:10`). The active tab is a piece of the editor surface pulled into the
 strip: editor background, an accent rule along its top edge, and the only label at full contrast
 (`styles/theme.css:596`). A tab's `×` is reserved space but shows only on hover and on the active
-tab — one per tab, always on, was a row of noise beside the names (`styles/theme.css:609`). **Modified Files** and the
+tab — one per tab, always on, was a row of noise beside the names (`styles/theme.css:609`).
+Geometry follows VS Code too — 10px before the icon, the close action in a slot of its own, and
+"shrink" sizing (content width, 80px floor) so short names do not make a ragged strip
+(`CodeViewer.styles.ts:62`, `:112`). Two numbers deliberately differ, because this pane is a
+~330px sidebar and its strip **wraps** where VS Code scrolls one row: tabs are 30px like the
+header above rather than VS Code's 35px, which would stack to 70px as soon as a third file
+opened, and a tab is capped at 220px so one long name cannot push every other tab onto a row of
+its own. **Modified Files** and the
 **Editor** — the two views of the one files item — render icon-only tabs
 (glyph shared with the activity bar via `PanelGlyph`, name as tooltip, active view carried by
 the accent colour) without per-tab close buttons. **Repositories renders no tab at all**: it is

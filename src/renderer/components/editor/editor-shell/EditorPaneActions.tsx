@@ -120,10 +120,7 @@ export function EditorPaneActions({ paneId }: { paneId: string }): React.JSX.Ele
           type="button"
           onClick={modeToggle.cycle}
           title={`Switch to ${modeToggle.nextLabel}`}
-          style={{
-            ...modeToggleStyles.button,
-            ...(modeToggle.isEditor ? {} : modeToggleStyles.buttonAlt),
-          }}
+          className={`pane-action pane-action--labeled${modeToggle.isEditor ? '' : ' pane-action--on'}`}
         >
           <SwapIcon />
           {modeToggle.label}
@@ -137,25 +134,4 @@ export function EditorPaneActions({ paneId }: { paneId: string }): React.JSX.Ele
       />
     </div>
   )
-}
-
-const modeToggleStyles: Record<string, React.CSSProperties> = {
-  button: {
-    display: 'inline-flex',
-    alignItems: 'center',
-    gap: '4px',
-    padding: '1px 8px',
-    fontSize: '11px',
-    lineHeight: 1.7,
-    background: 'transparent',
-    color: 'var(--text-secondary)',
-    border: '1px solid var(--border)',
-    borderRadius: '4px',
-    cursor: 'pointer',
-    whiteSpace: 'nowrap',
-  },
-  buttonAlt: {
-    color: 'var(--accent)',
-    borderColor: 'var(--accent)',
-  },
 }
