@@ -103,7 +103,7 @@ export function AgentItem({ session, projectPath, isActive, isOutputting, isFile
               type="button"
               onClick={(event) => { event.stopPropagation(); onToggleFiles() }}
               onKeyDown={stopKeyPropagation}
-              className="sidebar-worktree-toggle"
+              className="sidebar-files-toggle"
               aria-expanded={isFilesExpanded}
               aria-label={`${isFilesExpanded ? 'Hide' : 'Show'} files in ${session.branchName}`}
               title="Worktree files"

@@ -58,9 +58,13 @@ const worktreeTree = node('/worktrees/docs-navigation', 'docs-navigation', [
   node('/worktrees/docs-navigation/README.md', 'README.md'),
 ])
 
-// Disclosure state is read from localStorage on mount, so the fixture seeds both
-// kinds of folder open at once: the repo's checkout and one agent's worktree.
-localStorage.setItem('manifold.sidebar.openFolders.v1', JSON.stringify(['project:docs', 'session:session-2']))
+// Disclosure state is read from localStorage on mount, so the fixture seeds every
+// kind of folder open at once: a workspace repo's checkout, a standalone repo's,
+// and one agent's worktree.
+localStorage.setItem(
+  'manifold.sidebar.openFolders.v1',
+  JSON.stringify(['project:frontend', 'project:docs', 'session:session-2']),
+)
 
 export default (
   <div style={{ width: 320, height: 720, background: 'var(--bg-sidebar)', border: '1px solid var(--border)' }}>

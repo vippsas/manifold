@@ -1,4 +1,4 @@
-import { useCallback, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 
 const STORAGE_KEY = 'manifold.sidebar.openFolders.v1'
 
@@ -11,8 +11,18 @@ export function worktreeFolderKey(sessionId: string): string {
   return `session:${sessionId}`
 }
 
+/** Every mounted copy of the hook works on one set: the standalone repo list and
+ *  the workspace cards are separate components, and two copies would each save
+ *  their own snapshot — the later toggle dropping folders the other had opened. */
+const listeners = new Set<() => void>()
+
+/** Holds the set once storage has proved unusable, and is authoritative from
+ *  then on so the toggles keep working without persistence. */
+let unstoredFolders: Set<string> | null = null
+
 function readOpenFolders(): Set<string> {
-  if (typeof localStorage === 'undefined') return new Set()
+  if (unstoredFolders) return unstoredFolders
+  if (typeof localStorage === 'undefined') return (unstoredFolders = new Set())
 
   try {
     const raw = localStorage.getItem(STORAGE_KEY)
@@ -25,13 +35,17 @@ function readOpenFolders(): Set<string> {
 }
 
 function writeOpenFolders(keys: Set<string>): void {
-  if (typeof localStorage === 'undefined') return
+  // Storage can be unavailable in restricted renderer contexts. In that case
+  // keep the toggles working in memory and skip persistence.
+  if (typeof localStorage === 'undefined') {
+    unstoredFolders = keys
+    return
+  }
 
   try {
     localStorage.setItem(STORAGE_KEY, JSON.stringify([...keys]))
   } catch {
-    // Storage can be unavailable in restricted renderer contexts. In that case
-    // keep the in-memory toggles working and skip persistence.
+    unstoredFolders = keys
   }
 }
 
@@ -46,15 +60,19 @@ export function useFolderDisclosure(): {
 } {
   const [openKeys, setOpenKeys] = useState<Set<string>>(readOpenFolders)
 
+  useEffect(() => {
+    const sync = (): void => { setOpenKeys(readOpenFolders()) }
+    listeners.add(sync)
+    return () => { listeners.delete(sync) }
+  }, [])
+
   const isOpen = useCallback((key: string): boolean => openKeys.has(key), [openKeys])
 
   const toggle = useCallback((key: string): void => {
-    setOpenKeys((current) => {
-      const next = new Set(current)
-      if (!next.delete(key)) next.add(key)
-      writeOpenFolders(next)
-      return next
-    })
+    const next = new Set(readOpenFolders())
+    if (!next.delete(key)) next.add(key)
+    writeOpenFolders(next)
+    for (const listener of listeners) listener()
   }, [])
 
   return { isOpen, toggle }

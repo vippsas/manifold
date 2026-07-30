@@ -8,6 +8,7 @@ import {
   installElectronApi,
   installLocalStorage,
   renderSidebar,
+  sampleSessions,
 } from './ProjectSidebar.test-helpers'
 
 const STORAGE_KEY = 'manifold.sidebar.openFolders.v1'
@@ -101,6 +102,78 @@ describe('sidebar folders', () => {
 
     expect(screen.getByTestId('files-project-p1')).toBeInTheDocument()
     expect(screen.getByTestId('files-session-s2')).toBeInTheDocument()
+  })
+
+  // A workspace is a set of folders and nothing more, so a repo inside one
+  // discloses its files exactly like a standalone repo. Repos in a workspace are
+  // suppressed from the standalone list, so without this they had no folder.
+  describe('inside a workspace', () => {
+    const workspaceProps = {
+      workspaces: [{ id: 'ws1', name: 'auth-refactor', projectIds: ['p1'], createdAt: '2024-01-01' }],
+      activeWorkspaceId: 'ws1',
+      sessionsByWorkspace: { ws1: sampleSessions },
+      onSelectWorkspace: vi.fn(),
+      onRemoveWorkspace: vi.fn(),
+      onSelectWorkspaceRepo: vi.fn(),
+    }
+
+    it('opens a workspace repo’s files from its row', () => {
+      renderWithFiles(workspaceProps)
+
+      fireEvent.click(screen.getByText('Alpha'))
+
+      expect(screen.getByTestId('files-project-p1')).toBeInTheDocument()
+    })
+
+    it('opens them from the chevron without moving the workspace’s home repo', () => {
+      const onSelectWorkspaceRepo = vi.fn()
+      renderWithFiles({ ...workspaceProps, onSelectWorkspaceRepo })
+
+      fireEvent.click(screen.getByLabelText('Show files in Alpha'))
+
+      expect(screen.getByTestId('files-project-p1')).toBeInTheDocument()
+      expect(onSelectWorkspaceRepo).not.toHaveBeenCalled()
+    })
+
+    it('still selects the repo when the row itself is clicked', () => {
+      const onSelectWorkspaceRepo = vi.fn()
+      renderWithFiles({ ...workspaceProps, onSelectWorkspaceRepo })
+
+      fireEvent.click(screen.getByText('Alpha'))
+
+      expect(onSelectWorkspaceRepo).toHaveBeenCalledWith('ws1', 'p1')
+    })
+
+    it('opens a workspace agent’s worktree', () => {
+      renderWithFiles(workspaceProps)
+
+      fireEvent.click(screen.getByLabelText('Show files in alpha/oslo'))
+
+      expect(screen.getByTestId('files-session-s1')).toBeInTheDocument()
+    })
+
+    // The two lists are separate components. Each holding its own copy of the
+    // open set would mean the later toggle saved a snapshot without the other's.
+    it('saves folders opened in either list into one remembered set', () => {
+      renderWithFiles({ ...workspaceProps, workspaces: [{ id: 'ws1', name: 'auth-refactor', projectIds: ['p1'], createdAt: '2024-01-01' }] })
+
+      fireEvent.click(screen.getByText('Beta'))
+      fireEvent.click(screen.getByText('Alpha'))
+
+      expect(JSON.parse(localStorage.getItem(STORAGE_KEY) ?? '[]')).toEqual(['project:p2', 'project:p1'])
+      expect(screen.getByTestId('files-project-p2')).toBeInTheDocument()
+      expect(screen.getByTestId('files-project-p1')).toBeInTheDocument()
+    })
+
+    it('remembers a repo’s folder when it moves into a workspace', () => {
+      const standalone = renderWithFiles()
+      fireEvent.click(screen.getByText('Alpha'))
+      standalone.unmount()
+
+      renderWithFiles(workspaceProps)
+
+      expect(screen.getByTestId('files-project-p1')).toBeInTheDocument()
+    })
   })
 
   it('marks both kinds of row expanded for assistive tech', () => {

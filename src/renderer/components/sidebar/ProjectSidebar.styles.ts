@@ -71,6 +71,14 @@ export const sidebarStyles: Record<string, React.CSSProperties> = {
   worktreeFiles: {
     marginLeft: '24px',
   },
+  // A workspace card starts one step deeper: the card is the parent of its
+  // repos, so each of its folders sits a step right of the standalone ones.
+  workspaceProjectFiles: {
+    marginLeft: '24px',
+  },
+  workspaceWorktreeFiles: {
+    marginLeft: '32px',
+  },
   rowGlyph: {
     display: 'inline-flex',
     alignItems: 'center',

@@ -126,7 +126,7 @@ describe('AgentItem settings', () => {
   })
 })
 
-describe('AgentItem sensor sweep', () => {
+describe('AgentItem outputting state', () => {
   const baseProps = {
     projectPath: '/tmp/proj',
     isActive: false,

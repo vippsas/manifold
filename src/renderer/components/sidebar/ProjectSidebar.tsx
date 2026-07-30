@@ -118,6 +118,7 @@ export function ProjectSidebar({
             onRemoveProject={onRemoveProjectFromWorkspace}
             onDeleteAgent={onRequestDeleteAgent}
             onRenameAgent={onRenameAgent}
+            renderFolderFiles={renderFolderFiles}
           />
         )}
         <ProjectList

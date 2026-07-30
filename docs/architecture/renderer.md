@@ -222,8 +222,10 @@ All add/remove/focus/split/resize logic lives in the `hooks/dock-layout/` subsys
 no Files tab. The sidebar behaves like the folders of a VS Code workspace: a repository row
 discloses its own checkout and an agent row discloses its worktree, **any number open at
 once**, each remembered across launches as a `project:<id>` / `session:<id>` key in
-`localStorage` under `manifold.sidebar.openFolders.v1` (`sidebar/folder-disclosure.ts:44`;
-`ProjectList.tsx:88`, `:114`). Opening a folder does *nothing else*: it does not activate the
+`localStorage` under `manifold.sidebar.openFolders.v1` (`sidebar/folder-disclosure.ts:57`;
+`ProjectList.tsx:88`, `:114`). Every mounted copy of the hook shares that one set through a
+listener list, because a copy per list would save its own snapshot and drop the other's folders
+(`folder-disclosure.ts:17`, `:63`, `:71`). Opening a folder does *nothing else*: it does not activate the
 project, so it does not switch sessions — which would reload the agent, the editor and the
 tree (`ProjectList.tsx:75`). Nor does anything else reorder the list while you work: the
 repositories are sorted by the recency read at startup and then **held**, so picking an agent
@@ -235,6 +237,19 @@ agent row both selects the agent and opens its worktree (`AgentItem.tsx:59`). Th
 chevron does the disclosure alone, without selecting (`AgentItem.tsx:107`,
 `ProjectItem.tsx:98`). An in-place (`noWorktree`) agent works in the repo's own checkout, so
 it gets no second folder (`ProjectList.tsx:113`).
+
+**A workspace is a set of folders and nothing more**, so the same disclosure runs inside a
+workspace card: its repo rows and its agents open their files exactly like the standalone ones,
+off the same `project:<id>` / `session:<id>` keys — a repo keeps its open folder when it moves
+into a workspace (`WorkspaceList.tsx:191`, `:97`). This matters because repos in a workspace are
+suppressed from the standalone list; without it, putting every repo in a workspace left the
+sidebar with no folders at all. A workspace repo row carries a selection the standalone one
+doesn't — it sets the workspace's home repo — so it follows the agent-row rule instead: the row
+selects *and* opens, the chevron opens alone (`WorkspaceList.tsx:195`, `:214`). Both rows use
+`.sidebar-files-toggle`, named for the job rather than the worktree (`styles/theme.css:842`).
+The card's contents hang one step deeper than the standalone ladder, since the card header is
+their parent: repo row at 16px, its files and its agents at 24px, an agent's worktree files at
+32px (`WorkspaceList.tsx:200`, `ProjectSidebar.styles.ts:76`, `:79`; `styles/theme.css:812`).
 
 Several folders showing at once is possible because **the main process authorizes file paths
 against the workspace roots** — every registered repo plus every session's worktree — not

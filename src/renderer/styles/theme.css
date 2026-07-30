@@ -807,37 +807,19 @@ select:focus-visible {
   position: relative;
 }
 
-/* Workspace agents sit one level deeper than their repo row. */
+/* Workspace agents sit one level deeper than their repo row, which itself sits
+   a step in from the workspace card's header. */
 .sidebar-workspace-card .sidebar-agent-row {
-  padding-left: 28px;
+  padding-left: 24px;
 }
 
 .sidebar-agent-row--exited {
   color: var(--text-muted);
 }
 
-/* Sensor sweep: a slow, faint band of accent light crosses the row while its
-   agent streams output — a long-range scan, not a loading bar. */
-.sidebar-agent-row--outputting {
-  position: relative;
-  overflow: hidden;
-}
-
-.sidebar-agent-row--outputting::after {
-  content: '';
-  position: absolute;
-  inset: 0;
-  background: linear-gradient(90deg, transparent, var(--effect-glow, var(--accent-subtle)) 50%, transparent) no-repeat;
-  background-size: 90px 100%;
-  background-position: -90px 0;
-  animation: agent-scan 3.2s ease-in-out infinite;
-  pointer-events: none;
-}
-
-@keyframes agent-scan {
-  0% { background-position: -90px 0; }
-  60%, 100% { background-position: calc(100% + 90px) 0; }
-}
+/* A streaming agent is signalled by its pulsing status dot alone: the row keeps
+   the `--outputting` marker class but paints nothing, so nothing sweeps across
+   the sidebar while agents work. */
 
 .sidebar-agent-main {
   display: flex;
@@ -854,10 +836,10 @@ select:focus-visible {
   min-width: 0;
 }
 
-/* The agent row's own disclosure: the row selects the agent, this opens the
-   files of its worktree. Sized to the repo row's chevron column so both
-   disclosures line up down the sidebar. */
-.sidebar-worktree-toggle {
+/* The disclosure on rows that also carry a selection — an agent, or a repo
+   inside a workspace: the row selects and opens, this opens without selecting.
+   Sized to the repo row's chevron column so both line up down the sidebar. */
+.sidebar-files-toggle {
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -872,7 +854,7 @@ select:focus-visible {
   cursor: pointer;
 }
 
-.sidebar-worktree-toggle:hover {
+.sidebar-files-toggle:hover {
   color: var(--text-primary);
 }
 
@@ -1859,8 +1841,7 @@ select:focus-visible {
 
 /* ─── Reduced motion: instrumentation effects go static ─── */
 @media (prefers-reduced-motion: reduce) {
-  .status-dot--active,
-  .sidebar-agent-row--outputting::after {
+  .status-dot--active {
     animation: none;
   }
 }
