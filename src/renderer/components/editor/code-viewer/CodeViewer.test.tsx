@@ -1,16 +1,34 @@
 import React from 'react'
 import { describe, it, expect, vi } from 'vitest'
-import { render, screen, waitFor } from '@testing-library/react'
+import { fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { CodeViewer } from './CodeViewer'
 import { getEditorPaneModeControls } from '../editor-pane-mode-controls'
 import { makeOpenFile, makeOpenRequest, renderViewer } from './CodeViewer.test-helpers'
 
 vi.mock('@monaco-editor/react', async () => {
   const React = await import('react')
+  let editorMountId = 0
 
-  function MockEditor({ value, defaultValue }: { value?: string; defaultValue?: string }): React.JSX.Element {
-    const [initialValue] = React.useState(value ?? defaultValue)
-    return <div data-testid="monaco-editor">{initialValue}</div>
+  function MockEditor({
+    value,
+    defaultValue,
+    onChange,
+  }: {
+    value?: string
+    defaultValue?: string
+    onChange?: (value: string | undefined) => void
+  }): React.JSX.Element {
+    const [mountId] = React.useState(() => ++editorMountId)
+    const currentValue = value ?? defaultValue
+    return (
+      <div
+        data-testid="monaco-editor"
+        data-mount-id={mountId}
+        onClick={() => onChange?.(`${currentValue}x`)}
+      >
+        {currentValue}
+      </div>
+    )
   }
 
   function MockDiffEditor({ modified }: { modified: string }): React.JSX.Element {
@@ -60,7 +78,7 @@ vi.mock('mermaid', () => ({
 }))
 
 describe('CodeViewer — editor & diff', () => {
-  it('remounts the editor when an open file is refreshed from disk', () => {
+  it('updates a refreshed file without remounting the editor', () => {
     const openFile = makeOpenFile()
     const { rerender } = renderViewer({
       openFiles: [openFile],
@@ -68,7 +86,9 @@ describe('CodeViewer — editor & diff', () => {
       fileContent: openFile.content,
     })
 
-    expect(screen.getByTestId('monaco-editor')).toHaveTextContent('const value = 1')
+    const editor = screen.getByTestId('monaco-editor')
+    const mountId = editor.dataset.mountId
+    expect(editor).toHaveTextContent('const value = 1')
 
     const refreshedFile = makeOpenFile({
       content: 'const value = 2',
@@ -92,6 +112,7 @@ describe('CodeViewer — editor & diff', () => {
     )
 
     expect(screen.getByTestId('monaco-editor')).toHaveTextContent('const value = 2')
+    expect(screen.getByTestId('monaco-editor')).toHaveAttribute('data-mount-id', mountId)
   })
 
   it('remounts the diff editor when an open file is refreshed from disk', async () => {
@@ -193,6 +214,44 @@ describe('CodeViewer — editor & diff', () => {
     await waitFor(() => {
       expect(screen.getByTestId('monaco-editor')).toHaveTextContent('new')
     })
+    expect(screen.queryByTestId('monaco-diff-editor')).not.toBeInTheDocument()
+  })
+
+  it('stays in editor when an edit makes diff data available', () => {
+    const openFile = makeOpenFile({
+      path: '/repo/src/index.ts',
+      content: 'const value = 1',
+    })
+    const lastFileOpenRequest = makeOpenRequest({
+      path: openFile.path,
+      source: 'default',
+    })
+    const { rerender } = renderViewer({
+      openFiles: [openFile],
+      activeFilePath: openFile.path,
+      fileContent: openFile.content,
+      lastFileOpenRequest,
+    })
+
+    fireEvent.click(screen.getByTestId('monaco-editor'))
+
+    rerender(
+      <CodeViewer
+        sessionId="session-1"
+        fileDiffText="diff --git a/src/index.ts b/src/index.ts"
+        originalContent="const value = 1"
+        openFiles={[openFile]}
+        activeFilePath={openFile.path}
+        fileContent={`${openFile.content}x`}
+        lastFileOpenRequest={lastFileOpenRequest}
+        theme="manifold-dark"
+        onSelectTab={vi.fn()}
+        onCloseTab={vi.fn()}
+        onSaveFile={vi.fn()}
+      />,
+    )
+
+    expect(screen.getByTestId('monaco-editor')).toBeInTheDocument()
     expect(screen.queryByTestId('monaco-diff-editor')).not.toBeInTheDocument()
   })
 

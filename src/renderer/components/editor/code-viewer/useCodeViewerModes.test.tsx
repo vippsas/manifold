@@ -42,4 +42,22 @@ describe('useCodeViewerModes persistence', () => {
     // it must STILL be Editor — the auto-preview does not re-fire
     expect(result.current.previewActive).toBe(false)
   })
+
+  it('keeps editor mode when an edit makes diff data available', () => {
+    const props = {
+      ...baseProps('pane-c', '/code.ts', false),
+      lastFileOpenRequest: {
+        path: '/code.ts',
+        source: 'default' as const,
+      },
+    }
+    const { result, rerender } = renderHook((p) => useCodeViewerModes(p), {
+      initialProps: props,
+    })
+
+    act(() => { result.current.keepEditorMode() })
+    rerender({ ...props, hasDiff: true })
+
+    expect(result.current.diffMode).toBe(false)
+  })
 })

@@ -6,7 +6,6 @@ import { viewerStyles } from '../code-viewer/CodeViewer.styles'
 interface EditorContentProps {
   filePath: string | null
   fileContent: string | null
-  refreshVersion: number
   language: string
   monacoTheme: string
   options: monacoEditor.IStandaloneEditorConstructionOptions
@@ -17,7 +16,6 @@ interface EditorContentProps {
 export function EditorContent({
   filePath,
   fileContent,
-  refreshVersion,
   language,
   monacoTheme,
   options,
@@ -27,8 +25,10 @@ export function EditorContent({
   if (fileContent !== null) {
     return (
       <Editor
-        key={`${filePath ?? '__no-file__'}:${refreshVersion}`}
-        defaultValue={fileContent}
+        // Keep Monaco mounted across disk refreshes so its undo stack survives.
+        // A file switch still remounts the editor and starts a separate history.
+        key={filePath ?? '__no-file__'}
+        value={fileContent}
         language={language}
         theme={monacoTheme}
         options={options}
