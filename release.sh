@@ -119,11 +119,23 @@ ensure_remote_tag_absent() {
 
 ensure_release_absent() {
   local tag="$1"
+  local response response_summary
 
-  if gh release view "$tag" >/dev/null 2>&1; then
+  if response="$(gh api --include --silent "repos/{owner}/{repo}/releases/tags/$tag" 2>&1)"; then
     echo "Error: GitHub release '$tag' already exists." >&2
     exit 1
   fi
+
+  if [[ "$response" =~ ^HTTP/[^[:space:]]+[[:space:]]404[[:space:]] ]]; then
+    return
+  fi
+
+  response_summary="${response%%$'\n'*}"
+  echo "Error: unable to verify whether GitHub release '$tag' exists." >&2
+  if [[ -n "$response_summary" ]]; then
+    echo "GitHub API response: $response_summary" >&2
+  fi
+  exit 1
 }
 
 prepare_release() {
@@ -270,8 +282,8 @@ fi
 
 ensure_clean_worktree
 
-if ! gh auth status >/dev/null 2>&1; then
-  echo "Error: GitHub CLI is not authenticated. Run 'gh auth login' and try again." >&2
+if ! gh auth token >/dev/null 2>&1; then
+  echo "Error: GitHub CLI has no authentication token. Run 'gh auth login' and try again." >&2
   exit 1
 fi
 
