@@ -1,6 +1,6 @@
 {
   "name": "manifold",
-  "version": "0.2.99",
+  "version": "0.2.100",
   "description": "Multi-agent orchestrator for CLI coding agents",
   "main": "out/main/index.js",
   "scripts": {
