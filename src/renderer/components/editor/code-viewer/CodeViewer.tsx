@@ -124,7 +124,7 @@ export function CodeViewer({
     activeFilePath,
   })
 
-  const { previewActive, diffMode, handleOpenLinkedFile } = useCodeViewerModes({
+  const { previewActive, diffMode, keepEditorMode, handleOpenLinkedFile } = useCodeViewerModes({
     paneId,
     activeFilePath,
     lastFileOpenRequest,
@@ -134,6 +134,10 @@ export function CodeViewer({
     hasTabs,
     onOpenLinkedFile,
   })
+  const handleEditableContentChange = useCallback((value: string | undefined): void => {
+    if (value !== undefined) keepEditorMode()
+    handleEditorChange(value)
+  }, [handleEditorChange, keepEditorMode])
 
   const { statusInfo, bindEditor } = useEditorStatusBar(language)
 
@@ -250,12 +254,11 @@ export function CodeViewer({
           <EditorContent
             filePath={activeFilePath}
             fileContent={fileContent}
-            refreshVersion={activeRefreshVersion}
             language={language}
             monacoTheme={monacoTheme}
             options={editableOptions}
             onMount={handleEditorMount}
-            onChange={handleEditorChange}
+            onChange={handleEditableContentChange}
           />
         )}
       </div>

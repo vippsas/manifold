@@ -43,7 +43,7 @@ export function useEditorStatusBar(language: string): {
     }
     // Call exactly once per editor instance: Monaco's onMount fires once per
     // mounted editor, and disposes these listeners when that editor is disposed
-    // (the <Editor> is keyed by filePath:refreshVersion, so it remounts per file).
+    // (the <Editor> is keyed by filePath, so it remounts on a file switch).
     // Calling bindEditor twice on the same instance would stack listeners.
     read()
     editor.onDidChangeCursorPosition(read)

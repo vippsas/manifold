@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import type { FileOpenRequest } from '../file-open-request'
 import { isMarkdownFile } from './code-viewer-utils'
 import {
@@ -32,6 +32,7 @@ interface UseCodeViewerModesParams {
 interface CodeViewerModes {
   previewActive: boolean
   diffMode: boolean
+  keepEditorMode: () => void
   handleOpenLinkedFile: (filePath: string) => void
 }
 
@@ -54,6 +55,9 @@ export function useCodeViewerModes({
     () => previewPathsByPane.get(paneId) ?? new Set(),
   )
   const [diffMode, setDiffMode] = useState(false)
+  const autoDiffSuppressedRef = useRef(false)
+  const hasDiffRef = useRef(hasDiff)
+  hasDiffRef.current = hasDiff
   const previewActive = isPreviewable && activeFilePath !== null && previewPaths.has(activeFilePath)
 
   const updatePreviewPaths = useCallback((updater: (prev: Set<string>) => Set<string>): void => {
@@ -86,12 +90,20 @@ export function useCodeViewerModes({
   }, [activeFilePath, paneId, updatePreviewPaths])
 
   useEffect(() => {
-    if (lastFileOpenRequest.source !== 'default' && lastFileOpenRequest.path === activeFilePath) {
-      setDiffMode(false)
-      return
-    }
-    setDiffMode(hasDiff)
-  }, [hasDiff, activeFilePath, lastFileOpenRequest])
+    const opensInEditor =
+      lastFileOpenRequest.source !== 'default' && lastFileOpenRequest.path === activeFilePath
+    autoDiffSuppressedRef.current = opensInEditor
+    setDiffMode(opensInEditor ? false : hasDiffRef.current)
+  }, [activeFilePath, lastFileOpenRequest])
+
+  useEffect(() => {
+    if (!autoDiffSuppressedRef.current) setDiffMode(hasDiff)
+  }, [hasDiff])
+
+  const keepEditorMode = useCallback(() => {
+    autoDiffSuppressedRef.current = true
+    setDiffMode(false)
+  }, [])
 
   const handleOpenLinkedFile = useCallback((filePath: string): void => {
     updatePreviewPaths((prev) => {
@@ -100,6 +112,7 @@ export function useCodeViewerModes({
       next.add(filePath)
       return next
     })
+    autoDiffSuppressedRef.current = true
     setDiffMode(false)
     onOpenLinkedFile(filePath)
   }, [onOpenLinkedFile, updatePreviewPaths])
@@ -116,8 +129,8 @@ export function useCodeViewerModes({
         return next
       })
     }
-    setDiffMode(false)
-  }, [activeFilePath, updatePreviewPaths])
+    keepEditorMode()
+  }, [activeFilePath, keepEditorMode, updatePreviewPaths])
 
   const showPreviewMode = useCallback(() => {
     if (!activeFilePath || !isPreviewable) return
@@ -128,6 +141,7 @@ export function useCodeViewerModes({
       next.add(activeFilePath)
       return next
     })
+    autoDiffSuppressedRef.current = true
     setDiffMode(false)
   }, [activeFilePath, isPreviewable, updatePreviewPaths])
 
@@ -142,6 +156,7 @@ export function useCodeViewerModes({
         return next
       })
     }
+    autoDiffSuppressedRef.current = false
     setDiffMode(true)
   }, [activeFilePath, hasDiff, updatePreviewPaths])
 
@@ -161,5 +176,5 @@ export function useCodeViewerModes({
     return () => unregisterEditorPaneModeControls(paneId, controls)
   }, [paneId, showPreviewToggle, showDiffToggle, mode, showEditorMode, showPreviewMode, showDiffMode])
 
-  return { previewActive, diffMode, handleOpenLinkedFile }
+  return { previewActive, diffMode, keepEditorMode, handleOpenLinkedFile }
 }
