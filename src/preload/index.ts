@@ -101,6 +101,7 @@ const ALLOWED_INVOKE_CHANNELS = [
   'search:ask',
   'workspace:list',
   'workspace:create',
+  'workspace:rename',
   'workspace:remove',
   'workspace:add-project',
   'workspace:remove-project',

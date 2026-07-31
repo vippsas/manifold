@@ -9,6 +9,8 @@ export function registerWorkspaceHandlers(deps: IpcDependencies): void {
 
   ipcMain.handle('workspace:create', (_e, options: WorkspaceCreateOptions) => workspaceManager.create(options))
 
+  ipcMain.handle('workspace:rename', (_e, id: string, name: string) => workspaceManager.rename(id, name))
+
   ipcMain.handle('workspace:remove', (_e, id: string) => workspaceManager.remove(id))
 
   ipcMain.handle('workspace:add-project', (_e, id: string, projectId: string) => {

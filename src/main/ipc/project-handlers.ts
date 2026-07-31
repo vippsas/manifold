@@ -6,7 +6,7 @@ import os from 'node:os'
 import { existsSync, mkdirSync, rmSync } from 'node:fs'
 import type { IpcDependencies } from './types'
 import { getRuntimeById } from '../agent/runtimes'
-import type { CreateProjectOptions } from '../../shared/types'
+import type { CreateProjectOptions, ProjectKind } from '../../shared/types'
 import { extractGitHubRepoUrlFromText, slugifyRepoName, suggestRepoName } from '../../shared/repo-name'
 
 const execFileAsync = promisify(execFile)
@@ -55,12 +55,20 @@ function runAIPrompt(binary: string, prompt: string, cwd?: string): Promise<stri
 export function registerProjectHandlers(deps: IpcDependencies): void {
   const { projectRegistry, verdictStore, chatStore, memoryStore, workspaceManager, dismissedAgents } = deps
 
+  // The sidebar only ever shows workspaces, so a repo is registered and adopted
+  // into one in the same step — every add path goes through here.
+  const registerProject = async (projectPath: string, options: { kind?: ProjectKind } = {}) => {
+    const project = await projectRegistry.addProject(projectPath, options)
+    workspaceManager.adoptProject(project)
+    return project
+  }
+
   ipcMain.handle('projects:list', () => {
     return projectRegistry.listProjects()
   })
 
   ipcMain.handle('projects:add', async (_event, projectPath: string) => {
-    return projectRegistry.addProject(projectPath)
+    return registerProject(projectPath)
   })
 
   ipcMain.handle(
@@ -84,7 +92,7 @@ export function registerProjectHandlers(deps: IpcDependencies): void {
       }
 
       await execFileAsync('git', ['clone', '--', repoUrl, cloneDir])
-      return projectRegistry.addProject(cloneDir)
+      return registerProject(cloneDir)
     }
   )
 
@@ -157,13 +165,13 @@ export function registerProjectHandlers(deps: IpcDependencies): void {
         if (sourceRepoUrl) {
           mkdirSync(path.dirname(projectDir), { recursive: true })
           await execFileAsync('git', ['clone', '--', sourceRepoUrl, projectDir], {})
-          return projectRegistry.addProject(projectDir)
+          return registerProject(projectDir)
         }
 
         mkdirSync(projectDir, { recursive: true })
 
         if (projectKind === 'folder') {
-          return projectRegistry.addProject(projectDir, { kind: 'folder' })
+          return registerProject(projectDir, { kind: 'folder' })
         }
 
         await execFileAsync('git', ['init', '--initial-branch=main'], { cwd: projectDir })
@@ -173,7 +181,7 @@ export function registerProjectHandlers(deps: IpcDependencies): void {
           { cwd: projectDir }
         )
 
-        return projectRegistry.addProject(projectDir)
+        return registerProject(projectDir)
       } catch (err) {
         // Clean up partially-created directory on failure
         try { rmSync(projectDir, { recursive: true, force: true }) } catch { /* best effort */ }

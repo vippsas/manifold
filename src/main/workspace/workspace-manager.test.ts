@@ -26,7 +26,10 @@ function makeDeps(tmpDir: string) {
       removeWorktree: vi.fn(async () => undefined),
       branchExists: vi.fn(async () => false),
     },
-    projectRegistry: { getProject: (id: string) => projects[id] },
+    projectRegistry: {
+      getProject: (id: string) => projects[id],
+      listProjects: () => Object.values(projects),
+    },
     sessionManager: { createSession, getSession: vi.fn(), killSession: vi.fn(async () => undefined) },
     emitListChanged: vi.fn(),
     _createSession: createSession,
@@ -123,10 +126,39 @@ describe('WorkspaceManager', () => {
     expect(deps.emitListChanged).toHaveBeenCalled()
   })
 
-  it('removeProjectFromAllWorkspaces may empty a workspace — a dangling id must not survive as the last repo', () => {
+  it('removeProjectFromAllWorkspaces drops a workspace it empties — a folderless card can do nothing', () => {
     const w = manager.create({ name: 'a', projectIds: ['api'] })
     manager.removeProjectFromAllWorkspaces('api')
-    expect(manager.get(w.id)?.projectIds).toEqual([])
+    expect(manager.get(w.id)).toBeUndefined()
+  })
+
+  it('adoptProject wraps a loose repo in a workspace of its own', () => {
+    const w = manager.adoptProject(deps.projectRegistry.getProject('api')!)
+    expect(w.name).toBe('api')
+    expect(w.projectIds).toEqual(['api'])
+    expect(manager.list()).toHaveLength(1)
+  })
+
+  it('adoptProject returns the existing workspace instead of creating a second one', () => {
+    const existing = manager.create({ name: 'auth', projectIds: ['api', 'web'] })
+    const adopted = manager.adoptProject(deps.projectRegistry.getProject('api')!)
+    expect(adopted.id).toBe(existing.id)
+    expect(manager.list()).toHaveLength(1)
+  })
+
+  it('adoptOrphanProjects gives every unheld repo a one-folder workspace', () => {
+    manager.create({ name: 'auth', projectIds: ['api'] })
+    manager.adoptOrphanProjects()
+    const byName = Object.fromEntries(manager.list().map((w) => [w.name, w.projectIds]))
+    expect(byName).toEqual({ auth: ['api'], web: ['web'], shared: ['shared'] })
+  })
+
+  it('adoptOrphanProjects does nothing when every repo already lives in a workspace', () => {
+    manager.create({ name: 'all', projectIds: ['api', 'web', 'shared'] })
+    deps.emitListChanged.mockClear()
+    manager.adoptOrphanProjects()
+    expect(manager.list()).toHaveLength(1)
+    expect(deps.emitListChanged).not.toHaveBeenCalled()
   })
 
   it('removeProjectFromAllWorkspaces does not emit when no workspace references the project', () => {

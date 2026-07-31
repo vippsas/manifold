@@ -45,6 +45,24 @@ describe('buildSimpleRuntimeCommand', () => {
     })
   })
 
+  it('places a workspace working set before the prompt', () => {
+    // Codex reads the prompt positionally and Claude's -p consumes the next
+    // argument, so a dir appended after the prompt would be swallowed by it.
+    expect(buildSimpleRuntimeCommand('codex', 'build it', ['/repo/b', '/repo/c']).args).toEqual([
+      'exec', '--dangerously-bypass-approvals-and-sandbox', '--json',
+      '--add-dir', '/repo/b', '--add-dir', '/repo/c',
+      'build it',
+    ])
+    expect(buildSimpleRuntimeCommand('claude', 'build it', ['/repo/b']).args).toEqual([
+      '--allow-dangerously-skip-permissions',
+      '--permission-mode', 'bypassPermissions',
+      '--add-dir', '/repo/b',
+      '-p', 'build it',
+      '--output-format', 'stream-json',
+      '--verbose',
+    ])
+  })
+
   it('throws for unknown runtimes', () => {
     expect(() => buildSimpleRuntimeCommand('unknown', 'build it')).toThrow('Runtime not found: unknown')
   })

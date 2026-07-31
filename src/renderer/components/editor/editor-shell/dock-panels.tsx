@@ -102,24 +102,19 @@ function ProjectsPanel(): React.JSX.Element {
     <ProjectSidebar
       projects={s.projects}
       activeProjectId={s.activeProjectId}
-      suppressedProjectIds={s.suppressedProjectIds}
-      allProjectSessions={s.allProjectSessions}
       activeSessionId={s.sessionId}
       outputtingSessionIds={s.outputtingSessionIds}
-      onSelectProject={s.onSelectProject}
       onSelectSession={s.onSelectSession}
-      onRemoveProject={s.onRemoveProject}
-      onUpdateProject={s.onUpdateProject}
       onRenameAgent={s.onRenameAgent}
       onRequestDeleteAgent={s.onRequestDeleteAgent}
       onNewAgent={s.onNewAgentFromHeader}
       onNewProject={s.onNewProject}
-      onCreateWorkspaceFromProject={s.onCreateWorkspaceFromProject}
       onNewWorkspace={s.onNewWorkspace}
       workspaces={s.workspaces}
       activeWorkspaceId={s.activeWorkspaceId}
       sessionsByWorkspace={s.sessionsByWorkspace}
       onSelectWorkspace={s.onSelectWorkspace}
+      onRenameWorkspace={s.onRenameWorkspace}
       onRemoveWorkspace={s.onRemoveWorkspace}
       onSelectWorkspaceRepo={s.onSelectWorkspaceRepo}
       onAddProjectToWorkspace={s.onAddProjectToWorkspace}

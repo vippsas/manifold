@@ -9,11 +9,21 @@ const projects: Project[] = [
   { id: 'docs', name: 'product-docs', path: '/projects/product-docs', baseBranch: 'main', addedAt: '2026-07-12' },
 ]
 
+// Two workspaces side by side: one spanning two folders, one spanning a single
+// folder. They render through the same path — a lone repo is just a workspace of
+// one folder.
 const workspace: Workspace = {
   id: 'checkout',
   name: 'Checkout redesign',
   projectIds: ['frontend', 'backend'],
   createdAt: '2026-07-13',
+}
+
+const docsWorkspace: Workspace = {
+  id: 'product-docs',
+  name: 'product-docs',
+  projectIds: ['docs'],
+  createdAt: '2026-07-14',
 }
 
 const workspaceSession: AgentSession = {
@@ -58,9 +68,8 @@ const worktreeTree = node('/worktrees/docs-navigation', 'docs-navigation', [
   node('/worktrees/docs-navigation/README.md', 'README.md'),
 ])
 
-// Disclosure state is read from localStorage on mount, so the fixture seeds every
-// kind of folder open at once: a workspace repo's checkout, a standalone repo's,
-// and one agent's worktree.
+// Disclosure state is read from localStorage on mount, so the fixture seeds both
+// kinds of folder open at once: a workspace folder's checkout and a worktree's.
 localStorage.setItem(
   'manifold.sidebar.openFolders.v1',
   JSON.stringify(['project:frontend', 'project:docs', 'session:session-2']),
@@ -71,24 +80,22 @@ export default (
     <ProjectSidebar
       projects={projects}
       activeProjectId="frontend"
-      suppressedProjectIds={new Set(['frontend', 'backend'])}
-      allProjectSessions={{ frontend: [workspaceSession], backend: [], docs: [docsSession] }}
       activeSessionId={workspaceSession.id}
       outputtingSessionIds={new Set([workspaceSession.id])}
-      onSelectProject={() => undefined}
       onSelectSession={() => undefined}
-      onRemoveProject={() => undefined}
-      onUpdateProject={() => undefined}
       onRenameAgent={() => undefined}
       onRequestDeleteAgent={() => undefined}
       onNewAgent={() => undefined}
       onNewProject={() => undefined}
-      onCreateWorkspaceFromProject={async () => undefined}
       onNewWorkspace={() => undefined}
-      workspaces={[workspace]}
+      workspaces={[workspace, docsWorkspace]}
       activeWorkspaceId={workspace.id}
-      sessionsByWorkspace={{ [workspace.id]: [workspaceSession] }}
+      sessionsByWorkspace={{
+        [workspace.id]: [workspaceSession],
+        [docsWorkspace.id]: [docsSession],
+      }}
       onSelectWorkspace={() => undefined}
+      onRenameWorkspace={() => undefined}
       onRemoveWorkspace={async () => undefined}
       onSelectWorkspaceRepo={() => undefined}
       onAddProjectToWorkspace={() => undefined}

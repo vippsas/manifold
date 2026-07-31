@@ -82,24 +82,20 @@ export interface DockAppState {
   // Projects panel
   projects: Project[]
   activeProjectId: string | null
-  suppressedProjectIds?: ReadonlySet<string>
   allProjectSessions: Record<string, AgentSession[]>
   outputtingSessionIds: Set<string>
-  onSelectProject: (id: string) => void
   onSelectSession: (sessionId: string, projectId: string) => void
-  onRemoveProject: (id: string) => void
-  onUpdateProject: (id: string, partial: Partial<Omit<Project, 'id'>>) => void
   onRenameAgent: (sessionId: string, settings: AgentSettingsUpdate) => Promise<void> | void
   onRequestDeleteAgent: (session: AgentSession, projectPath: string) => void
   onNewAgentFromHeader: (projectId?: string, workspaceId?: string) => void
   onNewProject: () => void
-  onCreateWorkspaceFromProject?: (projectId: string) => Promise<void>
   onNewWorkspace?: () => void
-  workspaces?: import('../../../../shared/workspace-types').Workspace[]
+  workspaces: import('../../../../shared/workspace-types').Workspace[]
   activeWorkspaceId?: string | null
   sessionsByWorkspace?: Record<string, AgentSession[]>
-  onSelectWorkspace?: (id: string) => void
-  onRemoveWorkspace?: (id: string) => Promise<void>
+  onSelectWorkspace: (id: string) => void
+  onRenameWorkspace?: (id: string, name: string) => void
+  onRemoveWorkspace: (id: string) => Promise<void>
   onSelectWorkspaceRepo?: (workspaceId: string, projectId: string) => void
   onLaunchWorkspaceAgent?: (workspaceId: string, homeProjectId: string, options: { runtimeId: string; prompt: string; nonInteractive?: boolean }) => Promise<unknown>
   onAddProjectToWorkspace?: (workspaceId: string) => void | Promise<void>

@@ -1,7 +1,7 @@
 ---
 description: The on-disk data model under ~/.manifold — every file and directory Manifold persists, which module owns each path, and the two distinct roots (hardcoded config home vs. configurable storage root).
 covers: [src/main/store, src/shared/defaults.ts]
-updated: 2026-07-27
+updated: 2026-07-31
 owner: see .github/CODEOWNERS
 ---
 
@@ -57,11 +57,6 @@ change lives in the IPC layer, not the store (`ipc/settings-handlers.ts:18`). `M
 also carries a bare-number `uiScale` (`src/shared/types.ts:178`), defaulting to `1`
 (`defaults.ts:55`); `clampUiScale()` bounds a persisted/user value to `[0.85, 2]` and falls back to
 `1` for non-finite input before it reaches font-size math (`defaults.ts:13`, min/max at `:4`–`:5`).
-change lives in the IPC layer, not the store (`ipc/settings-handlers.ts:18`). The
-`workspacesEnabled` preference defaults to `false` (`defaults.ts:22`), keeping the
-repository-only sidebar and launch flow unchanged until the user opts into multi-repository
-workspaces in Settings.
-
 **`<configHome>/projects.json`** — a flat `Project[]` array (id, name, path, baseBranch,
 addedAt, kind). `ProjectRegistry` loads, sorts by name, and rewrites the file on every
 add/remove/update (`project-registry.ts:40`). Note these are *registered* project paths
@@ -96,10 +91,18 @@ explicitly deleted from the sidebar, so session discovery does not resurrect a d
 agent from leftover branch checkout state (`dismissed-agents-store.ts:7`; #679). Entries
 are lifted when a session is recreated on that branch and purged on project removal.
 
-**`<configHome>/workspaces.json`** — multi-root workspace definitions. Every entry has a
+**`<configHome>/workspaces.json`** — workspace definitions. Every entry has a
 required user-facing `name`, an ordered `projectIds` working set, and an optional runtime;
 the first project is the default agent working directory (`workspace-types.ts:1`,
-`workspace-manager.ts:34`, `app/index.ts:70`).
+`workspace-manager.ts:34`).
+
+A workspace is the *only* container: **every registered project belongs to exactly one**, and
+a workspace of a single folder is the ordinary shape, not a degenerate one. Registering a repo
+adopts it into a workspace in the same IPC call (`ipc/project-handlers.ts:60`,
+`workspace-manager.ts:79`), and startup wraps any repo no workspace holds — the migration for
+trees added before this rule (`app/index.ts:95`, `workspace-manager.ts:91`). The inverse also
+holds: removing the last project drops the workspace, since with no folders it can neither
+spawn an agent nor show anything (`workspace-manager.ts:131`).
 
 **`<configHome>/loop-logs/<sha256(worktreePath)[:16]>.jsonl`** — one append-only JSONL file
 per worktree of automated-loop iterations. Owned by the loop *plugin*

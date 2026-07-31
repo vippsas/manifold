@@ -20,68 +20,66 @@ afterEach(() => {
 })
 
 describe('ProjectSidebar', () => {
-  it('renders project names', () => {
+  it('renders every workspace with the folders it spans', () => {
     renderSidebar()
 
+    expect(screen.getByText('alpha-space')).toBeInTheDocument()
+    expect(screen.getByText('beta-space')).toBeInTheDocument()
     expect(screen.getByText('Alpha')).toBeInTheDocument()
     expect(screen.getByText('Beta')).toBeInTheDocument()
-    expect(screen.queryByText('Repositories')).not.toBeInTheDocument()
   })
 
-  it('shows "No repositories yet" when list is empty', () => {
-    renderSidebar({ projects: [] })
+  it('gives a one-folder workspace the same folder row as a multi-folder one', () => {
+    renderSidebar({
+      workspaces: [
+        { id: 'w1', name: 'solo', projectIds: ['p1'], createdAt: '2024-01-01' },
+        { id: 'w2', name: 'pair', projectIds: ['p1', 'p2'], createdAt: '2024-01-02' },
+      ],
+      sessionsByWorkspace: {},
+    })
+
+    const solo = screen.getByText('solo').closest<HTMLElement>('.sidebar-workspace-card')
+    const pair = screen.getByText('pair').closest<HTMLElement>('.sidebar-workspace-card')
+    expect(within(solo!).getAllByRole('button', { name: /Show files in/ })).toHaveLength(1)
+    expect(within(pair!).getAllByRole('button', { name: /Show files in/ })).toHaveLength(2)
+  })
+
+  it('shows "No repositories yet" only when there are no workspaces at all', () => {
+    renderSidebar({ workspaces: [], sessionsByWorkspace: {} })
 
     expect(screen.getByText('No repositories yet')).toBeInTheDocument()
   })
 
-  it('does not claim "No repositories yet" when every repo lives in a workspace', () => {
-    // Repos inside workspaces are suppressed from the standalone list; the
-    // empty state must not render under a sidebar full of workspace repos.
-    renderSidebar({
-      workspaces: [{ id: 'ws1', name: 'auth-refactor', projectIds: ['p1', 'p2'], createdAt: '2024-01-01' }],
-      activeWorkspaceId: null,
-      onSelectWorkspace: vi.fn(),
-      onRemoveWorkspace: vi.fn(),
-    })
+  it('hangs worktrees off the workspace rather than nesting them under a folder', () => {
+    renderSidebar()
 
-    expect(screen.queryByText('No repositories yet')).not.toBeInTheDocument()
+    const card = screen.getByText('alpha-space').closest<HTMLElement>('.sidebar-workspace-card')
+    expect(within(card!).getByText('oslo')).toBeInTheDocument()
+    expect(within(card!).getByText('bergen')).toBeInTheDocument()
+    // The worktree rows are siblings of the folder row, not children of it.
+    const folderRow = within(card!).getByText('Alpha').closest<HTMLElement>('.sidebar-repo-row')
+    expect(within(folderRow!).queryByText('oslo')).not.toBeInTheDocument()
   })
 
-  it('does not render a manual refresh action for repositories', () => {
-    renderSidebar({
-      projects: [{ id: 'p1', name: 'Alpha', path: '/a', baseBranch: 'main', kind: 'git' }],
-      activeProjectId: 'p1',
-      allProjectSessions: { p1: [] },
-      activeSessionId: null,
-    })
+  it('renders agent runtime labels', () => {
+    renderSidebar()
 
-    expect(screen.queryByRole('button', { name: /Fetch Alpha/ })).not.toBeInTheDocument()
+    expect(screen.getByText('Claude')).toBeInTheDocument()
+    expect(screen.getByText('Codex')).toBeInTheDocument()
   })
 
-  it('keeps agents visible in every repository card', () => {
-    const sessionsForP2: AgentSession[] = [
-      { id: 's3', projectId: 'p2', runtimeId: 'gemini', branchName: 'beta/stavanger', worktreePath: '/wt3', status: 'running', pid: 3, additionalDirs: [] },
-    ]
-
-    renderSidebar({ allProjectSessions: { p1: sampleSessions, p2: sessionsForP2 } })
-
-    expect(screen.getByText('oslo')).toBeInTheDocument()
-    expect(screen.getByText('bergen')).toBeInTheDocument()
-    expect(screen.getByText('Beta')).toBeInTheDocument()
-    expect(screen.getByText('stavanger')).toBeInTheDocument()
-  })
-
-  // A repo row is a folder header: it opens that repo's files and nothing else.
-  // Selecting an agent is what makes a repo the one being worked in — see
-  // ProjectSidebar.files.test.tsx for the disclosure itself.
-  it('does not act on the app when a repo row is clicked', () => {
+  it('calls onSelectSession with sessionId and projectId when a worktree is clicked', () => {
     const { props } = renderSidebar()
 
-    fireEvent.click(screen.getByText('Beta'))
+    fireEvent.click(screen.getByText('bergen'))
 
-    expect(props.onSelectProject).not.toHaveBeenCalled()
-    expect(props.onSelectSession).not.toHaveBeenCalled()
-    expect(props.onNewAgent).not.toHaveBeenCalled()
+    expect(props.onSelectSession).toHaveBeenCalledWith('s2', 'p1')
+  })
+
+  it('highlights the active worktree', () => {
+    renderSidebar({ activeSessionId: 's1' })
+
+    expect(screen.getByTitle('Claude - alpha/oslo')).toHaveClass('sidebar-item-row--active')
   })
 
   it('calls onNewProject when Add Repository is clicked', () => {
@@ -92,203 +90,114 @@ describe('ProjectSidebar', () => {
     expect(props.onNewProject).toHaveBeenCalled()
   })
 
-  it('calls onRemoveProject when remove button is clicked', () => {
-    const { props } = renderSidebar()
-
-    fireEvent.click(screen.getByLabelText('Remove Alpha'))
-
-    expect(props.onRemoveProject).toHaveBeenCalledWith('p1')
-  })
-
   it('renders only Add Repository in the compact top toolbar', () => {
     renderSidebar()
 
     const toolbar = screen.getByRole('toolbar', { name: 'Repository actions' })
     const buttons = within(toolbar).getAllByRole('button')
     expect(buttons.map((button) => button.getAttribute('aria-label'))).toEqual(['Add Repository'])
-    expect(screen.queryByText('+ New Agent')).not.toBeInTheDocument()
-    expect(screen.queryByText('+ New Repository')).not.toBeInTheDocument()
   })
 
-  it('renders agent branch names under the active project', () => {
-    renderSidebar()
-
-    expect(screen.getByText('oslo')).toBeInTheDocument()
-    expect(screen.getByText('bergen')).toBeInTheDocument()
-  })
-
-  it('renders agent runtime labels', () => {
-    renderSidebar()
-
-    expect(screen.getByText('Claude')).toBeInTheDocument()
-    expect(screen.getByText('Codex')).toBeInTheDocument()
-  })
-
-  it('calls onSelectSession with sessionId and projectId when an agent item is clicked', () => {
+  it('puts New agent and Add folder on the workspace header', () => {
     const { props } = renderSidebar()
 
-    fireEvent.click(screen.getByText('bergen'))
+    const header = screen.getByText('alpha-space').closest<HTMLElement>('.sidebar-project-row')
+    fireEvent.click(within(header!).getByRole('button', { name: 'Add agent to alpha-space' }))
+    fireEvent.click(within(header!).getByRole('button', { name: 'Add folder to alpha-space' }))
 
-    expect(props.onSelectSession).toHaveBeenCalledWith('s2', 'p1')
+    expect(props.onNewAgent).toHaveBeenCalledWith('p1', 'w1')
+    expect(props.onAddProjectToWorkspace).toHaveBeenCalledWith('w1')
   })
 
-  it('keeps Add agent and Add folder on the repository row itself', () => {
-    renderSidebar()
-
-    const projectHeader = screen.getByText('Alpha').closest<HTMLElement>('.sidebar-project-row')
-    expect(projectHeader).not.toBeNull()
-    expect(within(projectHeader!).getByRole('button', { name: 'Add agent to Alpha' })).toBeInTheDocument()
-    expect(within(projectHeader!).getByRole('button', { name: 'Add folder to Alpha' })).toBeInTheDocument()
-  })
-
-  it('opens the new-agent modal when New Agent is clicked', () => {
+  it('selecting a folder row calls onSelectWorkspaceRepo', () => {
     const { props } = renderSidebar()
 
-    fireEvent.click(screen.getByRole('button', { name: 'Add agent to Alpha' }))
+    fireEvent.click(screen.getByText('Alpha'))
 
-    expect(props.onNewAgent).toHaveBeenCalledWith('p1')
-    expect(screen.queryByRole('button', { name: 'Configure new agent in Alpha' })).not.toBeInTheDocument()
+    expect(props.onSelectWorkspaceRepo).toHaveBeenCalledWith('w1', 'p1')
   })
 
-  it('promotes a one-repository box when Add folder is clicked', () => {
+  it('offers to remove a folder only while the workspace has more than one', () => {
+    renderSidebar({
+      workspaces: [
+        { id: 'w1', name: 'solo', projectIds: ['p1'], createdAt: '2024-01-01' },
+        { id: 'w2', name: 'pair', projectIds: ['p1', 'p2'], createdAt: '2024-01-02' },
+      ],
+      sessionsByWorkspace: {},
+    })
+
+    const solo = screen.getByText('solo').closest<HTMLElement>('.sidebar-workspace-card')
+    const pair = screen.getByText('pair').closest<HTMLElement>('.sidebar-workspace-card')
+    expect(within(solo!).queryByRole('button', { name: /Remove Alpha from workspace/ })).not.toBeInTheDocument()
+    expect(within(pair!).getByRole('button', { name: 'Remove Alpha from workspace' })).toBeInTheDocument()
+  })
+
+  it('removes a workspace from its header button', () => {
     const { props } = renderSidebar()
 
-    fireEvent.click(screen.getByRole('button', { name: 'Add folder to Alpha' }))
+    fireEvent.click(screen.getByLabelText('Remove alpha-space'))
 
-    expect(props.onCreateWorkspaceFromProject).toHaveBeenCalledWith('p1')
+    expect(props.onRemoveWorkspace).toHaveBeenCalledWith('w1')
   })
 
-  it('does not render a manual refresh action for workspace repositories', () => {
-    renderSidebar({
-      workspaces: [{ id: 'ws1', name: 'auth-refactor', projectIds: ['p1'], createdAt: '2024-01-01' }],
-      activeWorkspaceId: 'ws1',
-      onSelectWorkspace: vi.fn(),
-      onRemoveWorkspace: vi.fn(),
-      onSpawnWorkspaceAgent: vi.fn(),
-    })
+  it('renames a workspace on double-click and Enter', () => {
+    const { props } = renderSidebar()
 
-    expect(screen.queryByRole('button', { name: /Fetch Alpha/ })).not.toBeInTheDocument()
+    fireEvent.doubleClick(screen.getByText('alpha-space'))
+    const input = screen.getByLabelText('Workspace name') as HTMLInputElement
+    fireEvent.change(input, { target: { value: 'Renamed' } })
+    fireEvent.keyDown(input, { key: 'Enter' })
+
+    expect(props.onRenameWorkspace).toHaveBeenCalledWith('w1', 'Renamed')
   })
 
-  it('does not render favorite buttons on repository or workspace cards', () => {
-    renderSidebar({
-      workspaces: [{ id: 'ws1', name: 'auth-refactor', projectIds: ['p1'], createdAt: '2024-01-01' }],
-      activeWorkspaceId: 'ws1',
-      onSelectWorkspace: vi.fn(),
-      onRemoveWorkspace: vi.fn(),
-    })
+  it('discards a workspace rename on Escape', () => {
+    const { props } = renderSidebar()
 
-    expect(screen.queryByLabelText(/to Favorites/)).not.toBeInTheDocument()
+    fireEvent.doubleClick(screen.getByText('alpha-space'))
+    const input = screen.getByLabelText('Workspace name') as HTMLInputElement
+    fireEvent.change(input, { target: { value: 'Nope' } })
+    fireEvent.keyDown(input, { key: 'Escape' })
+
+    expect(props.onRenameWorkspace).not.toHaveBeenCalled()
+    expect(screen.getByText('alpha-space')).toBeInTheDocument()
   })
 
-  it('renders an active workspace by name alongside its repositories', () => {
-    renderSidebar({
-      workspaces: [{ id: 'ws1', name: 'auth-refactor', projectIds: ['p1', 'p2'], createdAt: '2024-01-01' }],
-      activeWorkspaceId: 'ws1',
-      onSelectWorkspace: vi.fn(),
-      onRemoveWorkspace: vi.fn(),
-      onSpawnWorkspaceAgent: vi.fn(),
-    })
+  it('ignores a blank workspace rename', () => {
+    const { props } = renderSidebar()
 
-    expect(screen.getByText('auth-refactor')).toBeInTheDocument()
-    expect(screen.getByText('Alpha')).toBeInTheDocument()
+    fireEvent.doubleClick(screen.getByText('alpha-space'))
+    const input = screen.getByLabelText('Workspace name') as HTMLInputElement
+    fireEvent.change(input, { target: { value: '   ' } })
+    fireEvent.keyDown(input, { key: 'Enter' })
+
+    expect(props.onRenameWorkspace).not.toHaveBeenCalled()
   })
 
-  it('keeps Add folder in the workspace header and Add agent at the bottom', () => {
-    const onAddProjectToWorkspace = vi.fn()
-    const { props } = renderSidebar({
-      workspaces: [{ id: 'ws1', name: 'auth-refactor', projectIds: ['p1'], createdAt: '2024-01-01' }],
-      activeWorkspaceId: 'ws1',
-      onSelectWorkspace: vi.fn(),
-      onRemoveWorkspace: vi.fn(),
-      onAddProjectToWorkspace,
-    })
+  it('selects a workspace when its header row is clicked', () => {
+    const { props } = renderSidebar()
 
-    const workspaceCard = screen.getByText('auth-refactor').closest<HTMLElement>('.sidebar-workspace-card')
-    expect(workspaceCard).not.toBeNull()
-    const addAgent = within(workspaceCard!).getByRole('button', { name: 'Add agent to auth-refactor' })
-    const workspaceHeader = within(workspaceCard!).getByText('auth-refactor').closest<HTMLElement>('.sidebar-project-row')
-    expect(workspaceHeader).not.toBeNull()
-    const addFolder = within(workspaceHeader!).getByRole('button', { name: 'Add folder to auth-refactor' })
+    fireEvent.click(screen.getByText('alpha-space'))
 
-    fireEvent.click(addAgent)
-    fireEvent.click(addFolder)
-
-    expect(props.onNewAgent).toHaveBeenCalledWith('p1', 'ws1')
-    expect(onAddProjectToWorkspace).toHaveBeenCalledWith('ws1')
+    expect(props.onSelectWorkspace).toHaveBeenCalledWith('w1')
   })
 
-  it('always offers Add folder even when every registered project is already in the workspace', () => {
-    renderSidebar({
-      workspaces: [{ id: 'ws1', name: 'auth-refactor', projectIds: ['p1', 'p2'], createdAt: '2024-01-01' }],
-      activeWorkspaceId: 'ws1',
-      onSelectWorkspace: vi.fn(),
-      onRemoveWorkspace: vi.fn(),
-      onAddProjectToWorkspace: vi.fn(),
-    })
+  it('renders a New Workspace list action that calls onNewWorkspace', () => {
+    const { props } = renderSidebar()
 
-    expect(screen.getByRole('button', { name: 'Add folder to auth-refactor' })).toBeInTheDocument()
-  })
+    fireEvent.click(screen.getByLabelText('New Workspace'))
 
-  it('keeps every repository visible in an inactive workspace', () => {
-    renderSidebar({
-      workspaces: [{ id: 'ws1', name: 'auth-refactor', projectIds: ['p1', 'p2'], createdAt: '2024-01-01' }],
-      activeWorkspaceId: null,
-      onSelectWorkspace: vi.fn(),
-      onRemoveWorkspace: vi.fn(),
-      onSpawnWorkspaceAgent: vi.fn(),
-    })
-
-    expect(screen.getByText('Alpha')).toBeInTheDocument()
-    expect(screen.getByText('Beta')).toBeInTheDocument()
-  })
-
-  it('shows New Workspace below the cards even when there are no workspaces', () => {
-    const { props } = renderSidebar({
-      workspaces: [],
-      onSelectWorkspace: vi.fn(),
-      onRemoveWorkspace: vi.fn(),
-      onSpawnWorkspaceAgent: vi.fn(),
-    })
-
-    fireEvent.click(screen.getByRole('button', { name: 'New Workspace' }))
     expect(props.onNewWorkspace).toHaveBeenCalled()
   })
 
-  it('selecting a workspace repo calls onSelectWorkspaceRepo and no longer shows a play button', () => {
-    const onSelectWorkspaceRepo = vi.fn()
-    renderSidebar({
-      workspaces: [{ id: 'ws1', name: 'auth-refactor', projectIds: ['p1', 'p2'], createdAt: '2024-01-01' }],
-      activeWorkspaceId: 'ws1',
-      onSelectWorkspace: vi.fn(),
-      onRemoveWorkspace: vi.fn(),
-      onSpawnWorkspaceAgent: vi.fn(),
-      onSelectWorkspaceRepo,
-      suppressedProjectIds: new Set(['p1', 'p2']),
-    })
+  it('keeps a static Workspaces label that is not a collapse control', () => {
+    renderSidebar()
 
-    expect(screen.queryByLabelText('Start agent in Alpha')).not.toBeInTheDocument()
-    fireEvent.click(screen.getByText('Alpha'))
-    expect(onSelectWorkspaceRepo).toHaveBeenCalledWith('ws1', 'p1')
+    expect(screen.getByText('Workspaces')).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Workspaces' })).not.toBeInTheDocument()
   })
 
-  it('opens creation from the repository card when no workspace is active', () => {
-    const { props } = renderSidebar()
-
-    const newAgentButton = screen.getByRole('button', { name: 'Add agent to Alpha' })
-    fireEvent.click(newAgentButton)
-
-    expect(props.onNewAgent).toHaveBeenCalledWith('p1')
-  })
-
-  it('highlights the active agent item', () => {
-    renderSidebar({ activeSessionId: 's1' })
-
-    const agentButton = screen.getByTitle('Claude - alpha/oslo')
-    expect(agentButton).toHaveClass('sidebar-item-row--active')
-  })
-
-  it('calls onRequestDeleteAgent when agent delete button is clicked', () => {
+  it('calls onRequestDeleteAgent with the worktree home folder path', () => {
     const { props } = renderSidebar()
 
     fireEvent.click(screen.getByLabelText('Delete oslo'))
@@ -299,7 +208,7 @@ describe('ProjectSidebar', () => {
     expect(projectPath).toBe('/repos/alpha')
   })
 
-  it('does not trigger onSelectSession when delete button is clicked', () => {
+  it('does not trigger onSelectSession when delete is clicked', () => {
     const { props } = renderSidebar()
 
     fireEvent.click(screen.getByLabelText('Delete oslo'))
@@ -307,218 +216,55 @@ describe('ProjectSidebar', () => {
     expect(props.onSelectSession).not.toHaveBeenCalled()
   })
 
-  it('renders delete button for each agent', () => {
-    renderSidebar()
-
-    expect(screen.getByLabelText('Delete oslo')).toBeInTheDocument()
-    expect(screen.getByLabelText('Delete bergen')).toBeInTheDocument()
-  })
-
-  it('keeps stripping legacy manifold-prefixed branch names', () => {
-    const legacySessions: AgentSession[] = [
-      { id: 's1', projectId: 'p1', runtimeId: 'claude', branchName: 'manifold/oslo', worktreePath: '/wt1', status: 'running', pid: 1, additionalDirs: [] },
+  it('collapses agents sharing a worktree into a single row', () => {
+    const siblings: AgentSession[] = [
+      { id: 's1', projectId: 'p1', runtimeId: 'claude', branchName: 'alpha/oslo', worktreePath: '/wt1', status: 'running', pid: 1, additionalDirs: [] },
+      { id: 's9', projectId: 'p1', runtimeId: 'codex', branchName: 'alpha/oslo', worktreePath: '/wt1', status: 'running', pid: 9, additionalDirs: [] },
     ]
 
-    renderSidebar({ allProjectSessions: { p1: legacySessions, p2: [] } })
+    renderSidebar({ sessionsByWorkspace: { w1: siblings, w2: [] } })
 
-    expect(screen.getByText('oslo')).toBeInTheDocument()
+    expect(screen.getAllByText('oslo')).toHaveLength(1)
   })
 
-  it('suppresses projects in suppressedProjectIds from the standard sections', () => {
-    const sessionsForP2: AgentSession[] = [
-      { id: 's3', projectId: 'p2', runtimeId: 'gemini', branchName: 'beta/stavanger', worktreePath: '/wt3', status: 'running', pid: 3, additionalDirs: [] },
-    ]
-
-    renderSidebar({
-      allProjectSessions: { p1: sampleSessions, p2: sessionsForP2 },
-      suppressedProjectIds: new Set(['p2']),
-    })
-
-    // p2 is suppressed — its name is gone from the list
-    expect(screen.queryByText('Beta')).not.toBeInTheDocument()
-    // the active project's own agents still render inside its card
-    expect(screen.getByText('oslo')).toBeInTheDocument()
-  })
-
-  it('places the active repo and its agents in one bordered card', () => {
-    renderSidebar({ allProjectSessions: { p1: sampleSessions, p2: [] } })
-
-    const card = screen.getByText('Alpha').closest('.sidebar-project-group')
-    expect(card).toHaveClass('sidebar-project-group--has-agents')
-    expect(within(card as HTMLElement).getByText('oslo')).toBeInTheDocument()
-  })
-
-  it('shows repositories directly without collapsible category headers', () => {
-    renderSidebar({ allProjectSessions: { p1: sampleSessions, p2: [] } })
-
-    expect(screen.getByText('oslo')).toBeInTheDocument()
-    expect(screen.getByText('Beta')).toBeInTheDocument()
-    expect(screen.queryByText('With agents')).not.toBeInTheDocument()
-    expect(screen.queryByText('Repositories')).not.toBeInTheDocument()
-  })
-
-  it('orders the flat card list by the recency it started with', () => {
-    localStorage.setItem('manifold.sidebar.recency.v1', JSON.stringify({ p2: Date.now() }))
-    const sessionsForP2: AgentSession[] = [
-      { id: 's3', projectId: 'p2', runtimeId: 'gemini', branchName: 'beta/stavanger', worktreePath: '/wt3', status: 'running', pid: 3, additionalDirs: [] },
-    ]
-
-    renderSidebar({ allProjectSessions: { p1: sampleSessions, p2: sessionsForP2 } })
-
-    // Beta was the last repo worked in before this launch, so it leads.
-    expect(screen.getByText('Beta').compareDocumentPosition(screen.getByText('Alpha')) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
-  })
-
-  // Rows must not move under the cursor while you are clicking them: picking an
-  // agent is recorded for the next launch, not applied to the list in place.
-  it('does not re-sort the list when an agent is selected', () => {
-    const sessionsForP2: AgentSession[] = [
-      { id: 's3', projectId: 'p2', runtimeId: 'gemini', branchName: 'beta/stavanger', worktreePath: '/wt3', status: 'running', pid: 3, additionalDirs: [] },
-    ]
-
-    renderSidebar({ allProjectSessions: { p1: sampleSessions, p2: sessionsForP2 } })
-
-    const leads = (first: string, second: string): boolean =>
-      Boolean(screen.getByText(first).compareDocumentPosition(screen.getByText(second)) & Node.DOCUMENT_POSITION_FOLLOWING)
-    expect(leads('Alpha', 'Beta')).toBe(true)
-
-    fireEvent.click(screen.getByText('stavanger'))
-
-    expect(leads('Alpha', 'Beta')).toBe(true)
-    expect(JSON.parse(localStorage.getItem('manifold.sidebar.recency.v1') ?? '{}')).toHaveProperty('p2')
-  })
-
-  it('keeps an active repo with no agents in a bordered card', () => {
-    const sessionsForP2: AgentSession[] = [
-      { id: 's3', projectId: 'p2', runtimeId: 'gemini', branchName: 'beta/stavanger', worktreePath: '/wt3', status: 'running', pid: 3, additionalDirs: [] },
-    ]
-
-    renderSidebar({ activeProjectId: 'p1', allProjectSessions: { p1: [], p2: sessionsForP2 } })
-
-    expect(screen.getByText('Alpha').closest('.sidebar-project-group')).toHaveClass('sidebar-project-group--has-agents')
-    expect(screen.getByText('Beta').closest('.sidebar-project-group')).toHaveClass('sidebar-project-group--has-agents')
-  })
-
-  it('keeps finished agents visible in their repository card', () => {
-    const finishedSessions: AgentSession[] = [
+  it('keeps finished worktrees visible', () => {
+    const finished: AgentSession[] = [
       { id: 's3', projectId: 'p2', runtimeId: 'gemini', branchName: 'beta/stavanger', worktreePath: '/wt3', status: 'done', pid: 3, additionalDirs: [] },
     ]
 
-    renderSidebar({ allProjectSessions: { p1: sampleSessions, p2: finishedSessions } })
+    renderSidebar({ sessionsByWorkspace: { w1: sampleSessions, w2: finished } })
 
-    expect(screen.getByText('Beta')).toBeInTheDocument()
     expect(screen.getByText('stavanger')).toBeInTheDocument()
   })
 
-  it('keeps an active repo card visible when its agents have finished', () => {
-    const finishedActive: AgentSession[] = [
-      { id: 's1', projectId: 'p1', runtimeId: 'claude', branchName: 'alpha/oslo', worktreePath: '/wt1', status: 'error', pid: 1, additionalDirs: [] },
-    ]
-    const sessionsForP2: AgentSession[] = [
-      { id: 's3', projectId: 'p2', runtimeId: 'gemini', branchName: 'beta/stavanger', worktreePath: '/wt3', status: 'running', pid: 3, additionalDirs: [] },
+  it('keeps stripping legacy manifold-prefixed branch names', () => {
+    const legacy: AgentSession[] = [
+      { id: 's1', projectId: 'p1', runtimeId: 'claude', branchName: 'manifold/oslo', worktreePath: '/wt1', status: 'running', pid: 1, additionalDirs: [] },
     ]
 
-    renderSidebar({ activeProjectId: 'p1', allProjectSessions: { p1: finishedActive, p2: sessionsForP2 } })
+    renderSidebar({ sessionsByWorkspace: { w1: legacy, w2: [] } })
 
-    expect(screen.getByText('Alpha').closest('.sidebar-project-group')).toHaveClass('sidebar-project-group--has-agents')
-    expect(screen.getByText('Beta')).toBeInTheDocument()
+    expect(screen.getByText('oslo')).toBeInTheDocument()
   })
 
-  it('does not highlight the home repo as an active standalone project while a workspace session is active', () => {
-    // A workspace session is shown under its workspace; its home repo must not
-    // ALSO appear as an active (highlighted) standalone project in the list —
-    // otherwise a workspace and a repo look selected at the same time.
-    const workspaceSession: AgentSession = {
-      id: 's1', projectId: 'p1', runtimeId: 'claude', branchName: 'alpha/oslo',
-      worktreePath: '/wt1', status: 'running', pid: 1, additionalDirs: [], workspaceId: 'ws1',
-    }
-
-    renderSidebar({
-      activeProjectId: 'p1',
-      activeSessionId: 's1',
-      allProjectSessions: { p1: [workspaceSession], p2: [] },
-      workspaces: [{ id: 'ws1', name: 'MANIFOLD-WS', projectIds: ['p1'], createdAt: '2024-01-01' }],
-      activeWorkspaceId: 'ws1',
-      sessionsByWorkspace: { ws1: [workspaceSession] },
-      onSelectWorkspace: vi.fn(),
-      onRemoveWorkspace: vi.fn(),
-      onSpawnWorkspaceAgent: vi.fn(),
-    })
-
-    // The active ProjectItem (and only it) renders a "Remove <name>" button;
-    // its absence means the home repo is no longer doubly highlighted.
-    expect(screen.queryByLabelText('Remove Alpha')).not.toBeInTheDocument()
-  })
-
-  it('renames the active project on double-click and Enter', () => {
-    const { props } = renderSidebar()
-
-    fireEvent.doubleClick(screen.getByText('Alpha'))
-    const input = screen.getByLabelText('Repository name') as HTMLInputElement
-    fireEvent.change(input, { target: { value: 'Renamed' } })
-    fireEvent.keyDown(input, { key: 'Enter' })
-
-    expect(props.onUpdateProject).toHaveBeenCalledWith('p1', { name: 'Renamed' })
-  })
-
-  it('discards the rename on Escape', () => {
-    const { props } = renderSidebar()
-
-    fireEvent.doubleClick(screen.getByText('Alpha'))
-    const input = screen.getByLabelText('Repository name') as HTMLInputElement
-    fireEvent.change(input, { target: { value: 'Nope' } })
-    fireEvent.keyDown(input, { key: 'Escape' })
-
-    expect(props.onUpdateProject).not.toHaveBeenCalled()
-    expect(screen.getByText('Alpha')).toBeInTheDocument()
-  })
-
-  it('ignores a blank or unchanged rename', () => {
-    const { props } = renderSidebar()
-
-    fireEvent.doubleClick(screen.getByText('Alpha'))
-    const input = screen.getByLabelText('Repository name') as HTMLInputElement
-    fireEvent.change(input, { target: { value: '   ' } })
-    fireEvent.keyDown(input, { key: 'Enter' })
-
-    expect(props.onUpdateProject).not.toHaveBeenCalled()
-  })
-
-  it('renders a draft chat row when drafts are present for the active project', () => {
+  it('renders a draft chat row in the workspace holding its repo', () => {
     renderSidebar({
       drafts: [{ id: 'draft-1' as DraftId, projectId: 'p1', runtimeId: 'claude' }],
     })
 
-    expect(screen.getByText('New chat')).toBeInTheDocument()
+    const card = screen.getByText('alpha-space').closest<HTMLElement>('.sidebar-workspace-card')
+    expect(within(card!).getByText('New chat')).toBeInTheDocument()
   })
 
-  it('renders a New Workspace list action that calls onNewWorkspace', () => {
-    const { props } = renderSidebar({
-      workspaces: [{ id: 'ws1', name: 'auth-refactor', projectIds: ['p1'], createdAt: '2024-01-01' }],
-      activeWorkspaceId: 'ws1',
-      onSelectWorkspace: vi.fn(),
-      onRemoveWorkspace: vi.fn(),
-      onSpawnWorkspaceAgent: vi.fn(),
-    })
+  it('does not render favorite buttons on workspace cards', () => {
+    renderSidebar()
 
-    fireEvent.click(screen.getByLabelText('New Workspace'))
-
-    expect(props.onNewWorkspace).toHaveBeenCalled()
+    expect(screen.queryByLabelText(/to Favorites/)).not.toBeInTheDocument()
   })
 
-  it('keeps workspace cards visible without a collapsible section header', () => {
-    const onSelectWorkspace = vi.fn()
-    renderSidebar({
-      workspaces: [{ id: 'ws1', name: 'auth-refactor', projectIds: ['p1'], createdAt: '2024-01-01' }],
-      activeWorkspaceId: null,
-      onSelectWorkspace,
-      onRemoveWorkspace: vi.fn(),
-    })
+  it('does not render a manual refresh action for folders', () => {
+    renderSidebar()
 
-    fireEvent.click(screen.getByText('auth-refactor'))
-    expect(onSelectWorkspace).toHaveBeenCalledWith('ws1')
-    // A static "Workspaces" section label exists, but it is not a collapse control.
-    expect(screen.getByText('Workspaces')).toBeInTheDocument()
-    expect(screen.queryByRole('button', { name: 'Workspaces' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: /Fetch Alpha/ })).not.toBeInTheDocument()
   })
 })

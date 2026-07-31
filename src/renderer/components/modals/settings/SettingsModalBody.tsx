@@ -59,8 +59,6 @@ interface Props {
   onUseWorktreesChange: (enabled: boolean) => void
   uiScale: number
   onUiScaleChange: (scale: number) => void
-  workspacesEnabled: boolean
-  onWorkspacesEnabledChange: (enabled: boolean) => void
   searchAiSettings: SearchAiSettings
   onSearchAiSettingsChange: (value: SearchAiSettings) => void
   editorSettings: EditorSettings

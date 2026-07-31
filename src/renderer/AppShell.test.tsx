@@ -73,7 +73,7 @@ const project = {
 function makeProps(overrides: Partial<AppShellProps> = {}): AppShellProps {
   return {
     themeClass: 'theme-dark',
-    settings: { setupCompleted: true, workspacesEnabled: true } as AppShellProps['settings'],
+    settings: { setupCompleted: true } as AppShellProps['settings'],
     projects: [project],
     projectError: null,
     activeProjectId: 'p1',
@@ -162,10 +162,8 @@ describe('AppShell', () => {
     expect(addProject).toHaveBeenCalledWith()
   })
 
-  it('does not expose workspace modals while workspace mode is disabled', () => {
-    render(<AppShell {...makeProps({
-      settings: { setupCompleted: true, workspacesEnabled: false } as AppShellProps['settings'],
-    })} />)
+  it('keeps the workspace modal closed until it is asked for', () => {
+    render(<AppShell {...makeProps({ newWorkspaceVisible: false })} />)
 
     expect(screen.queryByRole('button', { name: '+ Add repository' })).not.toBeInTheDocument()
   })

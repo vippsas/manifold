@@ -90,6 +90,9 @@ const workspaceManager = new WorkspaceManager({
 })
 // Heal workspaces saved before project removal cascaded into workspace membership.
 workspaceManager.pruneMissingProjects()
+// The sidebar shows workspaces and nothing else, so every registered repo must be
+// in one. Wraps repos added before that rule existed.
+workspaceManager.adoptOrphanProjects()
 const prCreator = new PrCreator()
 const viewStateStore = new ViewStateStore()
 const shellTabStore = new ShellTabStore()

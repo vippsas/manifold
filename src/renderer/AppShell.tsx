@@ -242,19 +242,15 @@ export function AppShell(p: AppShellProps): React.JSX.Element {
         onOpenExternal={() => { void p.updateLog.openReleaseNotesExternal() }}
         onSelectTab={p.updateLog.setActiveTab as never}
       />
-      {p.settings.workspacesEnabled && (
-        <>
-          <NewWorkspaceModal
-            visible={p.newWorkspaceVisible}
-            projects={p.projects}
-            projectError={p.projectError}
-            defaultRuntime={p.defaultRuntime}
-            onAddProject={() => p.addProject()}
-            onCreate={(opts) => { void p.createWorkspace(opts); p.setNewWorkspaceVisible(false) }}
-            onClose={() => p.setNewWorkspaceVisible(false)}
-          />
-        </>
-      )}
+      <NewWorkspaceModal
+        visible={p.newWorkspaceVisible}
+        projects={p.projects}
+        projectError={p.projectError}
+        defaultRuntime={p.defaultRuntime}
+        onAddProject={() => p.addProject()}
+        onCreate={(opts) => { void p.createWorkspace(opts); p.setNewWorkspaceVisible(false) }}
+        onClose={() => p.setNewWorkspaceVisible(false)}
+      />
       {p.updateNotification.updateReady && (
         <UpdateToast version={p.updateNotification.version} onRestart={p.updateNotification.install}
           onDismiss={p.updateNotification.dismiss}

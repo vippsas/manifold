@@ -177,9 +177,6 @@ export interface ManifoldSettings {
   /** Create an isolated git worktree for each new agent. When false, new agents
    *  run directly in the repository on a new branch. Default true. */
   useWorktrees: boolean
-  /** Show multi-repository Workspaces in the sidebar. Kept opt-in so the
-   *  existing single-repository workflow remains unchanged by default. */
-  workspacesEnabled: boolean
   /** Ordered, typed favorites. Index 0 maps to ⌘1. */
   favorites?: FavoriteRef[]
   keepAwake: boolean

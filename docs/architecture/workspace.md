@@ -1,14 +1,16 @@
 ---
-description: How Manifold groups several repositories into one Workspace so a single agent operates across all of them, each repo mounted via the runtime's multi-directory flag.
+description: How Manifold groups repositories into a Workspace — the only container a repo can live in — so a single agent operates across all of them, each repo mounted via the runtime's multi-directory flag.
 covers: [src/main/workspace]
-updated: 2026-06-12
+updated: 2026-07-31
 owner: see .github/CODEOWNERS
 ---
 
 # Workspace — multi-repo agent grouping
 
-A *workspace* bundles several projects (repos and/or plain folders) under one name so a
-single agent session works across all of them at once. Spawning a workspace agent creates
+A *workspace* bundles projects (repos and/or plain folders) under one name so a
+single agent session works across all of them at once. It is the **only** container a repo
+lives in — one spanning a single folder is the ordinary case, not a degenerate one — so the
+sidebar has exactly one kind of root. Spawning a workspace agent creates
 one worktree per git repo on a shared branch, homes the agent in a chosen "primary" repo,
 and passes the remaining roots to the runtime via its multi-directory flag
 (`--add-dir` / `--include-directories`). This subsystem owns the persisted workspace list
@@ -73,8 +75,8 @@ branches and push the next spawn to `-2`, `-3` (`workspace-worktrees.ts:65`).
 worktree; only the *additional* dirs need flags, which `buildWorkingSetArgs()` emits per
 runtime — `--add-dir <dirs…>` (variadic) for Claude, repeated `--add-dir <dir>` for Codex /
 Copilot, and `--include-directories a,b,c` for Gemini (`src/main/agent/working-set-args.ts:6`).
-Interactive sessions only; in `nonInteractive` mode the session creator skips the flags
-(`src/main/session/session-creator.ts:122`).
+Print-mode spawns get the same flags through `buildSimpleRuntimeCommand`, which places them
+before `-p <prompt>` (`src/main/session/session-creator.ts:139`).
 
 **Tear down.** The workspace code does not kill sessions itself. When the session is killed,
 `SessionKiller` sees a non-empty `workspaceWorktreePaths` and calls `removeWorkspaceWorktrees()`
@@ -87,7 +89,7 @@ worktree.
 
 ## Key types and entry points
 
-- `WorkspaceManager` — `workspace-manager.ts:28`. Public surface: `list`, `get`, `create`, `remove`, `addProject`, `removeProject`, `removeProjectFromAllWorkspaces`, `pruneMissingProjects`, `spawnAgent`.
+- `WorkspaceManager` — `workspace-manager.ts:28`. Public surface: `list`, `get`, `create`, `rename`, `remove`, `addProject`, `removeProject`, `removeProjectFromAllWorkspaces`, `adoptProject`, `adoptOrphanProjects`, `pruneMissingProjects`, `spawnAgent`.
 - `Workspace` / `WorkspaceCreateOptions` / `WorkspaceSpawnAgentOptions` — `src/shared/workspace-types.ts`. `Workspace.projectIds` is ordered; `WorkspaceSpawnAgentOptions.homeProjectId` picks the primary repo.
 - `WorkspaceStore` — `workspace-store.ts:5`. `list/get/add/update/remove/addProject/removeProject`, all persisting to one JSON file.
 - `WorktreeSetManager` — `workspace-worktrees.ts:4`. The port the manager depends on (`createWorktree`, `removeWorktree`, `deleteBranch`, `branchExists`); satisfied by `src/main/git`'s `WorktreeManager`.
@@ -104,10 +106,11 @@ worktree.
 
 ## Invariants & gotchas
 
-- **A workspace is never empty — except by project deletion.** `create()` rejects zero projects (`workspace-manager.ts:35`) and `removeProject()` no-ops on the last repo (`workspace-manager.ts:63`). But when the *project itself* is deleted, `removeProjectFromAllWorkspaces()` drops it even as the last member (`workspace-manager.ts:70`): a dangling id is worse than an empty workspace (it renders as a raw uuid and selects nothing).
+- **Every registered repo is in exactly one workspace.** The sidebar has no other container, so `registerProject` adopts each newly added repo (`ipc/project-handlers.ts:60`, `workspace-manager.ts:79`) and startup wraps any the store doesn't hold — the migration for repos added before this rule (`workspace-manager.ts:91`). A workspace of a single folder is the ordinary shape.
+- **A workspace is never empty.** `create()` rejects zero projects (`workspace-manager.ts:35`) and `removeProject()` no-ops on the last repo (`workspace-manager.ts:63`). Deleting the *project* drops the workspace with it (`workspace-manager.ts:111`, `:131`): with no folders it can neither spawn an agent nor disclose anything, so it would sit in the sidebar as an unusable card.
 - **`projectIds` order is the default primary.** `projectIds[0]` is the agent cwd unless `homeProjectId` overrides it; an unknown `homeProjectId` silently falls back to the first repo (`workspace-manager.ts:81`).
 - **The shared branch must be free in *all* git repos.** `findAvailableWorkspaceBranch` only returns a name unused across every member, so the same branch can be created in each worktree (`workspace-worktrees.ts:27`).
 - **Working-set creation is all-or-nothing.** A failure partway through rolls back the worktrees already created before rethrowing (`workspace-worktrees.ts:65`).
 - **Non-git folders are edited in place, never deleted.** They pass through as their own path on build and are explicitly skipped on removal where `projectPath === worktreePath` (`workspace-worktrees.ts:83`).
-- **Extra-dir flags are interactive-only.** `--add-dir`/`--include-directories` are emitted only when `!nonInteractive` (`src/main/session/session-creator.ts:122`); chat/print-mode workspace agents don't get them.
+- **Extra-dir flags reach both modes, by different routes.** Interactive spawns append them to the base args (`session-creator.ts:147`); print-mode/chat spawns get them inside the command `buildSimpleRuntimeCommand` assembles, because the flags must precede `-p <prompt>` (`session-creator.ts:139`, `simple-runtime.ts:27`). A chat follow-up rebuilds the same command from the session's stored `additionalDirs` (`app/dev-server-manager.ts:190`), so the second turn spans the same repos as the first.
 - **`runtimeId` may be absent on old records.** Workspaces persisted before per-workspace runtimes carry no `runtimeId`; callers fall back to the global default (`src/shared/workspace-types.ts`).

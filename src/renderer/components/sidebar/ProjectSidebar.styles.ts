@@ -63,20 +63,12 @@ export const sidebarStyles: Record<string, React.CSSProperties> = {
     flexShrink: 0,
   },
   // The sidebar is a ladder of 8px steps — the file tree's own per-depth indent
-  // — so every chevron sits one step right of its parent's: the repo row, then
-  // its checkout and its agents, then an agent's worktree files.
+  // — so every chevron sits one step right of its parent's: the workspace card,
+  // then its folders and its worktrees, then a worktree's files.
   projectFiles: {
-    marginLeft: '16px',
+    marginLeft: '24px',
   },
   worktreeFiles: {
-    marginLeft: '24px',
-  },
-  // A workspace card starts one step deeper: the card is the parent of its
-  // repos, so each of its folders sits a step right of the standalone ones.
-  workspaceProjectFiles: {
-    marginLeft: '24px',
-  },
-  workspaceWorktreeFiles: {
     marginLeft: '32px',
   },
   rowGlyph: {

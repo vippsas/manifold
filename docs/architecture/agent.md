@@ -1,7 +1,7 @@
 ---
 description: The AI runtimes layer and PTY pool — the runtime registry, command building (interactive vs print-mode), theme/ANSI sync, and the process boundary the session subsystem spawns into.
 covers: [src/main/agent]
-updated: 2026-07-13
+updated: 2026-07-31
 owner: see .github/CODEOWNERS
 ---
 
@@ -19,7 +19,7 @@ calls into here; this layer holds no session state of its own and is pure given 
 
 - `src/main/agent/runtimes.ts` — `BUILT_IN_RUNTIMES` registry, `getRuntimeById()`, `listRuntimes()`, `listRuntimesWithStatus()` (binary-presence probe via `which`).
 - `src/main/agent/pty-pool.ts` — `PtyPool`: `spawn`/`write`/`kill`/`resize`/`onData`/`onExit`/`pushOutput`/`killAll`. The process boundary.
-- `src/main/agent/simple-runtime.ts` — `buildSimpleRuntimeCommand()`: print-mode (`-p`) args + output mode per runtime, for chat/simple sessions.
+- `src/main/agent/simple-runtime.ts` — `buildSimpleRuntimeCommand()`: print-mode (`-p`) args + output mode per runtime, for chat/simple sessions, with any workspace folders spliced in ahead of the prompt.
 - `src/main/agent/ai-runtime-command.ts` — `buildAiRuntimeCommand()` / `parseAiRuntimeOutput()` / `parseAiRuntimeFailure()`: one-shot prompts for git/commit helpers.
 - `src/main/agent/ai-runtime-output-parsers.ts` — per-format extractors (`extractClaudeText`, `extractCodexText`, `extractSlashCommands`, failure extractors, `dedupeTexts`).
 - `src/main/agent/claude-theme-args.ts` — `claudeAnsiThemeArgs()`: maps Manifold's light/dark theme to Claude Code's `--settings` ANSI theme.
@@ -46,10 +46,14 @@ compression.
 1. *Interactive* (the persistent TUI) — there is no builder here; `SessionCreator` starts from
    `runtime.args` and appends the helper flags below, then spawns directly
    (`session-creator.ts:110`).
-2. *Print mode / chat* — `buildSimpleRuntimeCommand(runtimeId, prompt)` (`simple-runtime.ts:12`).
+2. *Print mode / chat* — `buildSimpleRuntimeCommand(runtimeId, prompt, additionalDirs)`
+   (`simple-runtime.ts:18`).
    Claude gets `--permission-mode bypassPermissions -p <prompt> --output-format stream-json --verbose`
    (`outputMode: 'claude-stream-json'`); Codex gets `exec --dangerously-bypass-approvals-and-sandbox
-   --json <prompt>` (`'codex-jsonl'`); everything else gets `-p <prompt>` (`'plain-text'`).
+   --json <prompt>` (`'codex-jsonl'`); everything else gets `-p <prompt>` (`'plain-text'`). A
+   workspace's extra folders can't be appended after the fact here — `-p` takes the prompt and
+   Codex's `exec` takes it positionally — so this builder splices `buildWorkingSetArgs` in ahead
+   of the prompt itself (`simple-runtime.ts:27`).
 3. *One-shot helper* — `buildAiRuntimeCommand(runtime, prompt, extraArgs)` (`ai-runtime-command.ts:20`),
    used by git/commit-message generation. Claude uses `--output-format text` (`'plain-text'`),
    Codex uses `exec --full-auto --json` and splits `--search` into a *global* flag ahead of `exec`
@@ -100,7 +104,7 @@ rebuilt on every chunk (#511). Anything with no match is `'running'`.
 - `AgentRuntime` — `src/shared/types.ts:1`. `{ id, name, binary, args?, aiModelArgs?, waitingPattern?, env?, installed?, needsModel? }`.
 - `getRuntimeById(id)` — `runtimes.ts:54`. The universal resolver; consumers across `session`, `git`, `search`, `memory`, `plugins` start here.
 - `PtyPool` — `pty-pool.ts:17`. Instantiated once in `src/main/app/index.ts:57`; handed to the session manager and dev-server manager.
-- `buildSimpleRuntimeCommand(runtimeId, prompt)` — `simple-runtime.ts:12`. Print-mode args + `SimpleRuntimeOutputMode`.
+- `buildSimpleRuntimeCommand(runtimeId, prompt, additionalDirs?)` — `simple-runtime.ts:18`. Print-mode args (working-set flags included) + `SimpleRuntimeOutputMode`.
 - `buildAiRuntimeCommand(runtime, prompt, extraArgs)` — `ai-runtime-command.ts:20`. One-shot helper command; pair with `parseAiRuntimeOutput`/`parseAiRuntimeFailure`.
 - `claudeAnsiThemeArgs(themeType)` / `buildWorkingSetArgs(runtimeId, dirs)` — `claude-theme-args.ts:9` / `working-set-args.ts:6`. Interactive arg adornments.
 - `detectStatus(output, runtimeId)` — `status-detector.ts:85`. Output → `AgentStatus`.

@@ -12,7 +12,7 @@ import {
 export interface WorkspaceManagerDeps {
   store: WorkspaceStore
   worktreeManager: WorktreeSetManager
-  projectRegistry: { getProject: (id: string) => Project | undefined }
+  projectRegistry: { getProject: (id: string) => Project | undefined; listProjects: () => Project[] }
   sessionManager: {
     createSession: (opts: SpawnAgentOptions) => Promise<AgentSession>
     getSession: (id: string) => AgentSession | undefined
@@ -45,6 +45,14 @@ export class WorkspaceManager {
     return workspace
   }
 
+  rename(id: string, name: string): Workspace | undefined {
+    const trimmed = name.trim()
+    if (!trimmed) return this.deps.store.get(id)
+    const renamed = this.deps.store.update(id, { name: trimmed })
+    if (renamed) this.deps.emitListChanged()
+    return renamed
+  }
+
   remove(id: string): boolean {
     const removed = this.deps.store.remove(id)
     if (removed) this.deps.emitListChanged()
@@ -65,8 +73,34 @@ export class WorkspaceManager {
     this.deps.emitListChanged()
   }
 
-  // Cascade for project deletion. Unlike removeProject, this may empty a workspace:
-  // a dangling id would render as a raw uuid in the sidebar and select nothing.
+  /** A repo is only ever shown inside a workspace, so one that no workspace holds
+   *  gets its own. A workspace of a single folder is the ordinary shape — not a
+   *  degenerate case to be avoided. */
+  adoptProject(project: Project): Workspace {
+    const holder = this.deps.store.list().find((w) => w.projectIds.includes(project.id))
+    if (holder) return holder
+    const workspace = this.buildWorkspace(project.name, [project.id])
+    this.deps.store.add(workspace)
+    this.deps.emitListChanged()
+    return workspace
+  }
+
+  /** Startup migration for the rule above: wrap every registered repo that no
+   *  workspace holds. Trees added before workspaces became the only container
+   *  come back as one-folder workspaces instead of vanishing from the sidebar. */
+  adoptOrphanProjects(): void {
+    const held = new Set(this.deps.store.list().flatMap((w) => w.projectIds))
+    const orphans = this.deps.projectRegistry.listProjects().filter((p) => !held.has(p.id))
+    if (orphans.length === 0) return
+    for (const project of orphans) {
+      this.deps.store.add(this.buildWorkspace(project.name, [project.id]))
+    }
+    this.deps.emitListChanged()
+  }
+
+  // Cascade for project deletion. Unlike removeProject, this may empty a workspace,
+  // and an empty one is dropped: with no folders it can neither spawn an agent nor
+  // show anything, so it would sit in the sidebar as an unusable card.
   removeProjectFromAllWorkspaces(projectId: string): void {
     let changed = false
     for (const w of this.deps.store.list()) {
@@ -74,7 +108,7 @@ export class WorkspaceManager {
       this.deps.store.removeProject(w.id, projectId)
       changed = true
     }
-    if (changed) this.deps.emitListChanged()
+    if (this.dropEmptyWorkspaces() || changed) this.deps.emitListChanged()
   }
 
   // Heals workspaces persisted before project deletion cascaded here.
@@ -87,7 +121,21 @@ export class WorkspaceManager {
         changed = true
       }
     }
-    if (changed) this.deps.emitListChanged()
+    if (this.dropEmptyWorkspaces() || changed) this.deps.emitListChanged()
+  }
+
+  private buildWorkspace(name: string, projectIds: string[]): Workspace {
+    return { id: randomUUID(), name, projectIds: [...projectIds], createdAt: new Date().toISOString() }
+  }
+
+  private dropEmptyWorkspaces(): boolean {
+    let dropped = false
+    for (const w of this.deps.store.list()) {
+      if (w.projectIds.length > 0) continue
+      this.deps.store.remove(w.id)
+      dropped = true
+    }
+    return dropped
   }
 
   async spawnAgent(workspaceId: string, options: WorkspaceSpawnAgentOptions): Promise<AgentSession> {

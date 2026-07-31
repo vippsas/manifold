@@ -33,8 +33,8 @@ function pruneRecency(recency: ProjectRecency): ProjectRecency {
 }
 
 /**
- * Last-accessed timestamps per project, persisted to localStorage, ordering the
- * sidebar's repositories most-recent-first.
+ * Last-accessed timestamps per sidebar root (a workspace), persisted to
+ * localStorage, ordering the sidebar most-recent-first.
  *
  * The order is read once and then held for the life of the list: a touch is
  * recorded for the next launch but must not re-sort the rows you are working

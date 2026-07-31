@@ -29,7 +29,6 @@ export function SettingsModal({ visible, settings, onSave, onClose, onPreviewThe
   const [sidebarResizeReversed, setSidebarResizeReversed] = useState(settings.sidebarResizeReversed)
   const [useWorktrees, setUseWorktrees] = useState(settings.useWorktrees)
   const [uiScale, setUiScale] = useState(settings.uiScale ?? DEFAULT_SETTINGS.uiScale)
-  const [workspacesEnabled, setWorkspacesEnabled] = useState(settings.workspacesEnabled)
   const [searchAiSettings, setSearchAiSettings] = useState(settings.search?.ai ?? DEFAULT_SETTINGS.search.ai)
   const [editorSettings, setEditorSettings] = useState<EditorSettings>(settings.editor ?? DEFAULT_SETTINGS.editor!)
   const [transcription, setTranscription] = useState<AiServiceSettings>(
@@ -55,7 +54,6 @@ export function SettingsModal({ visible, settings, onSave, onClose, onPreviewThe
     setSidebarResizeReversed(settings.sidebarResizeReversed)
     setUseWorktrees(settings.useWorktrees)
     setUiScale(settings.uiScale ?? DEFAULT_SETTINGS.uiScale)
-    setWorkspacesEnabled(settings.workspacesEnabled)
     setSearchAiSettings(settings.search?.ai ?? DEFAULT_SETTINGS.search.ai)
     setEditorSettings(settings.editor ?? DEFAULT_SETTINGS.editor!)
     setTranscription(settings.transcription ?? DEFAULT_SETTINGS.transcription ?? { provider: 'none' })
@@ -79,13 +77,12 @@ export function SettingsModal({ visible, settings, onSave, onClose, onPreviewThe
       sidebarResizeReversed,
       useWorktrees,
       uiScale,
-      workspacesEnabled,
       search: { ai: searchAiSettings },
       editor: editorSettings,
       transcription,
     })
     onClose()
-  }, [defaultRuntime, theme, scrollbackLines, terminalFontFamily, defaultBaseBranch, storagePath, notificationSound, notifications, shellHistoryScope, shellPromptSegments, autoGenerateMessages, showCommitAndPrButtons, sidebarResizeReversed, useWorktrees, uiScale, workspacesEnabled, searchAiSettings, editorSettings, transcription, onSave, onClose])
+  }, [defaultRuntime, theme, scrollbackLines, terminalFontFamily, defaultBaseBranch, storagePath, notificationSound, notifications, shellHistoryScope, shellPromptSegments, autoGenerateMessages, showCommitAndPrButtons, sidebarResizeReversed, useWorktrees, uiScale, searchAiSettings, editorSettings, transcription, onSave, onClose])
 
   if (!visible) return null
 
@@ -139,8 +136,6 @@ export function SettingsModal({ visible, settings, onSave, onClose, onPreviewThe
           onUseWorktreesChange={setUseWorktrees}
           uiScale={uiScale}
           onUiScaleChange={setUiScale}
-          workspacesEnabled={workspacesEnabled}
-          onWorkspacesEnabledChange={setWorkspacesEnabled}
           searchAiSettings={searchAiSettings}
           onSearchAiSettingsChange={setSearchAiSettings}
           editorSettings={editorSettings}

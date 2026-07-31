@@ -102,6 +102,7 @@ describe('registerProjectHandlers', () => {
         listProjects: vi.fn(() => []),
         addProject: vi.fn(async () => project),
       },
+      workspaceManager: { adoptProject: vi.fn() },
     }
 
     registerProjectHandlers(deps as never)
@@ -129,7 +130,7 @@ describe('registerProjectHandlers', () => {
       { cwd: '/workspace/projects/timer-app' },
       expect.any(Function)
     )
-    expect(deps.projectRegistry.addProject).toHaveBeenCalledWith('/workspace/projects/timer-app')
+    expect(deps.projectRegistry.addProject).toHaveBeenCalledWith('/workspace/projects/timer-app', {})
     expect(result).toEqual(project)
   })
 
@@ -154,6 +155,7 @@ describe('registerProjectHandlers', () => {
         listProjects: vi.fn(() => []),
         addProject: vi.fn(async () => project),
       },
+      workspaceManager: { adoptProject: vi.fn() },
     }
 
     registerProjectHandlers(deps as never)
@@ -173,7 +175,7 @@ describe('registerProjectHandlers', () => {
       expect.any(Function)
     )
     expect(processMocks.spawn).not.toHaveBeenCalled()
-    expect(deps.projectRegistry.addProject).toHaveBeenCalledWith('/workspace/projects/copied-app')
+    expect(deps.projectRegistry.addProject).toHaveBeenCalledWith('/workspace/projects/copied-app', {})
     expect(result).toEqual(project)
   })
 
@@ -198,6 +200,7 @@ describe('registerProjectHandlers', () => {
         listProjects: vi.fn(() => []),
         addProject: vi.fn(async () => project),
       },
+      workspaceManager: { adoptProject: vi.fn() },
     }
 
     registerProjectHandlers(deps as never)
@@ -231,6 +234,7 @@ describe('registerProjectHandlers', () => {
         listProjects: vi.fn(() => []),
         addProject: vi.fn(async () => project),
       },
+      workspaceManager: { adoptProject: vi.fn() },
     }
 
     registerProjectHandlers(deps as never)
@@ -240,7 +244,7 @@ describe('registerProjectHandlers', () => {
     const result = await handler({}, '/workspace/plain-folder')
 
     expect(processMocks.execFile).not.toHaveBeenCalled()
-    expect(deps.projectRegistry.addProject).toHaveBeenCalledWith('/workspace/plain-folder')
+    expect(deps.projectRegistry.addProject).toHaveBeenCalledWith('/workspace/plain-folder', {})
     expect(result).toEqual(project)
   })
 
@@ -260,6 +264,7 @@ describe('registerProjectHandlers', () => {
         listProjects: vi.fn(() => []),
         addProject: vi.fn(async () => project),
       },
+      workspaceManager: { adoptProject: vi.fn() },
     }
 
     registerProjectHandlers(deps as never)
@@ -267,7 +272,9 @@ describe('registerProjectHandlers', () => {
     if (!handler) throw new Error('projects:add handler was not registered')
 
     await expect(handler({}, '/workspace/repo')).resolves.toEqual(project)
-    expect(deps.projectRegistry.addProject).toHaveBeenCalledWith('/workspace/repo')
+    expect(deps.projectRegistry.addProject).toHaveBeenCalledWith('/workspace/repo', {})
+    // A repo is only reachable through a workspace, so registering one adopts it.
+    expect(deps.workspaceManager.adoptProject).toHaveBeenCalledWith(project)
   })
 
   it('rejects duplicate explicit repository names instead of silently renaming them', async () => {

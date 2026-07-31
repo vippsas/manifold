@@ -69,7 +69,6 @@ describe('SettingsModal', () => {
     expect(branchInput).toBeInTheDocument()
 
     expect(screen.queryByText('Use Manifold prompt in worktree shells')).toBeNull()
-    expect(screen.getByLabelText(/^Enable Workspaces/)).not.toBeChecked()
   })
 
   it('calls onSave with settings when Save is clicked', () => {
@@ -163,15 +162,10 @@ describe('SettingsModal', () => {
     )
   })
 
-  it('enables the optional workspace sidebar', () => {
-    const { props } = renderModal()
+  it('no longer offers a workspace opt-in — the sidebar is always workspaces', () => {
+    renderModal()
 
-    fireEvent.click(screen.getByLabelText(/^Enable Workspaces/))
-    fireEvent.click(screen.getByText('Save'))
-
-    expect(props.onSave).toHaveBeenCalledWith(
-      expect.objectContaining({ workspacesEnabled: true }),
-    )
+    expect(screen.queryByLabelText(/^Enable Workspaces/)).not.toBeInTheDocument()
   })
 
   it('shows the theme picker on the dedicated Theme tab', () => {

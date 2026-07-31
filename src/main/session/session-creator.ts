@@ -133,8 +133,10 @@ export class SessionCreator {
     let runtimeArgs = [...(runtime.args ?? [])]
     let nonInteractiveOutputMode: InternalSession['nonInteractiveOutputMode']
 
+    const additionalDirs = options.additionalDirs ?? []
+
     if (options.nonInteractive && options.userMessage) {
-      const simpleCommand = buildSimpleRuntimeCommand(options.runtimeId, options.prompt)
+      const simpleCommand = buildSimpleRuntimeCommand(options.runtimeId, options.prompt, additionalDirs)
       commandBinary = simpleCommand.binary
       runtimeArgs = simpleCommand.args
       nonInteractiveOutputMode = simpleCommand.outputMode
@@ -142,8 +144,8 @@ export class SessionCreator {
       runtimeArgs.push('--model', options.ollamaModel)
     }
 
-    if (!options.nonInteractive && options.additionalDirs && options.additionalDirs.length > 0) {
-      runtimeArgs.push(...buildWorkingSetArgs(options.runtimeId, options.additionalDirs))
+    if (!options.nonInteractive && additionalDirs.length > 0) {
+      runtimeArgs.push(...buildWorkingSetArgs(options.runtimeId, additionalDirs))
     }
 
     // Match the embedded Claude Code's colors to Manifold's theme. Its
