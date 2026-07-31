@@ -1,7 +1,7 @@
 ---
 description: The top recurring development traps in Manifold — StrictMode double-mount, the better-sqlite3 Node↔Electron ABI flip, worktree bootstrap, and dockview layout restore/width-0 — each paired with the checked-in guardrail (test/script/doc) that pins it, cited to file:line.
-covers: [src/renderer/components/modals/NewAgentForm.tsx, scripts/rebuild-better-sqlite3-node.mjs, scripts/setup-worktree.sh, src/renderer/hooks/dock-layout/dock-layout-lifecycle.ts]
-updated: 2026-07-30
+covers: [src/renderer/components/modals/useNewAgentForm.tsx, scripts/rebuild-better-sqlite3-node.mjs, scripts/setup-worktree.sh, src/renderer/hooks/dock-layout/dock-layout-lifecycle.ts]
+updated: 2026-07-31
 owner: see .github/CODEOWNERS
 ---
 
@@ -31,7 +31,7 @@ when any of that code changes.
 This page is bound to the canonical file for each trap, so the wiki lint flags it for
 review when one of them changes:
 
-- `src/renderer/components/modals/NewAgentForm.tsx` — the StrictMode mounted-ref pattern.
+- `src/renderer/components/modals/useNewAgentForm.tsx` — the StrictMode mounted-ref pattern.
 - `scripts/rebuild-better-sqlite3-node.mjs` — the self-healing Node-ABI rebuild.
 - `scripts/setup-worktree.sh` — `npm run bootstrap`, the one-step worktree setup.
 - `src/renderer/hooks/dock-layout/dock-layout-lifecycle.ts` — the dockview width-0 guard.
@@ -53,7 +53,7 @@ at `false` after the remount, so later callbacks gated on `mountedRef.current` a
 silently skipped.
 
 **Guardrail.** Set the flag in the effect *body*, not only in cleanup
-(`NewAgentForm.tsx:75-83`, `useIpc.ts:16-21`). Test the component wrapped in
+(`useNewAgentForm.tsx:70-78`, `useIpc.ts:16-21`). Test the component wrapped in
 `<React.StrictMode>` so the remount actually happens: `NewAgentForm.test.tsx:241`, and
 the reusable **StrictMode double-mount test template** at
 `src/renderer/test-utils/strict-mode.test.tsx` (helper: `strict-mode.test-helpers.tsx`,

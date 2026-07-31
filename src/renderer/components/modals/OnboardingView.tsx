@@ -1,6 +1,7 @@
 import React from 'react'
 import type { AgentSession, CreateProjectOptions, SpawnAgentOptions } from '../../../shared/types'
 import { NewAgentForm } from './NewAgentForm'
+import { NewAgentHero } from './NewAgentHero'
 import { onboardingLinkStyle } from './NewAgentForm.styles'
 import { NoProjectActions } from '../sidebar/NoProjectActions'
 import { WorkspaceGlyph } from '../sidebar/WorkspaceGlyph'
@@ -108,43 +109,57 @@ export function OnboardingView(props: OnboardingViewProps): React.JSX.Element {
             <GhostLinkButton onClick={props.onBack}>Back to workspace</GhostLinkButton>
           )}
         </>
-      ) : (
-        <>
-          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 'var(--space-lg)' }}>
-            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 'var(--space-xs)' }}>
-              {props.workspaceName && (
-                <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                  <WorkspaceGlyph active />
-                  <span className="sidebar-workspace-eyebrow">Workspace · {props.workspaceName}</span>
-                </div>
-              )}
-              <div style={{
-                fontFamily: 'var(--font-display)',
-                fontSize: 'var(--type-display)',
-                fontWeight: 400,
-                color: 'var(--text-primary)',
-                letterSpacing: 'var(--tracking-tight)',
-              }}>
-                New agent for <span style={{ fontStyle: 'italic', fontWeight: 500, color: 'var(--accent-hi, var(--text-primary))' }}>{props.projectName}</span>
+      ) : props.compact ? (
+        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 'var(--space-lg)' }}>
+          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 'var(--space-xs)' }}>
+            {props.workspaceName && (
+              <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                <WorkspaceGlyph active />
+                <span className="sidebar-workspace-eyebrow">Workspace · {props.workspaceName}</span>
               </div>
+            )}
+            <div style={{
+              fontFamily: 'var(--font-display)',
+              fontSize: 'var(--type-display)',
+              fontWeight: 400,
+              color: 'var(--text-primary)',
+              letterSpacing: 'var(--tracking-tight)',
+            }}>
+              New agent for <span style={{ fontStyle: 'italic', fontWeight: 500, color: 'var(--accent-hi, var(--text-primary))' }}>{props.projectName}</span>
             </div>
-            <NewAgentForm
-              projectId={props.projectId}
-              projectPath={props.projectPath}
-              baseBranch={props.baseBranch}
-              isGitProject={props.isGitProject}
-              defaultRuntime={props.defaultRuntime}
-              defaultAgentMode={props.defaultAgentMode}
-              defaultUseWorktrees={props.defaultUseWorktrees}
-              onLaunch={props.onLaunch}
-              existingSessions={props.existingSessions}
-              onResumeSession={props.onResumeSession}
-              onDeleteSession={props.onDeleteSession}
-              focusTrigger={props.focusTrigger}
-              compact={props.compact}
-            />
           </div>
-        </>
+          <NewAgentForm
+            projectId={props.projectId}
+            projectPath={props.projectPath}
+            baseBranch={props.baseBranch}
+            isGitProject={props.isGitProject}
+            defaultRuntime={props.defaultRuntime}
+            defaultAgentMode={props.defaultAgentMode}
+            defaultUseWorktrees={props.defaultUseWorktrees}
+            onLaunch={props.onLaunch}
+            existingSessions={props.existingSessions}
+            onResumeSession={props.onResumeSession}
+            onDeleteSession={props.onDeleteSession}
+            focusTrigger={props.focusTrigger}
+            compact
+          />
+        </div>
+      ) : (
+        <NewAgentHero
+          projectId={props.projectId}
+          projectName={props.projectName}
+          projectPath={props.projectPath}
+          baseBranch={props.baseBranch}
+          isGitProject={props.isGitProject}
+          defaultRuntime={props.defaultRuntime}
+          defaultAgentMode={props.defaultAgentMode}
+          defaultUseWorktrees={props.defaultUseWorktrees}
+          onLaunch={props.onLaunch}
+          existingSessions={props.existingSessions}
+          onResumeSession={props.onResumeSession}
+          onDeleteSession={props.onDeleteSession}
+          focusTrigger={props.focusTrigger}
+        />
       )}
     </div>
   )

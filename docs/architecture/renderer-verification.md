@@ -1,7 +1,7 @@
 ---
 description: How an agent self-verifies renderer/theme changes — screenshot a single component under a real theme with no Electron, and drive the built app for flow-level checks. Covers the two scripts, their engine choices, the fixture convention, and how they reuse the app's theme conversion.
 covers: [scripts/screenshot-component.mjs, scripts/drive-app.mjs]
-updated: 2026-07-28
+updated: 2026-07-31
 owner: see .github/CODEOWNERS
 ---
 
@@ -70,6 +70,11 @@ Most components need props and a main-process bridge, so they can't render bare.
 zero-arg component) and may override `window.electronAPI` for specific data. See
 [`NewAgentForm.fixture.tsx`](../../src/renderer/components/modals/NewAgentForm.fixture.tsx).
 Prop-less components (e.g. `ManifoldWordmark`) render with no fixture.
+
+A fixture can also compose a whole screen rather than one control:
+[`OnboardingView.fixture.tsx`](../../src/renderer/components/modals/OnboardingView.fixture.tsx)
+captures the start view as the user meets it — wordmark, starfield and the new-agent cards
+together — which `NewAgentHero.fixture.tsx` alone can't show.
 
 ### Flags
 
