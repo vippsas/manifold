@@ -522,6 +522,116 @@ describe('NewAgentForm', () => {
     expect(screen.queryByText('Continue on an existing branch or PR')).not.toBeInTheDocument()
   })
 
+  // The runtime is picked from tiles rather than a dropdown, and the pick is
+  // remembered the way the Terminal/Chat mode already is.
+  describe('runtime tiles', () => {
+    function withRuntimes(...installed: string[]): void {
+      mockInvoke.mockImplementation((channel: string) => {
+        if (channel === 'runtimes:list') {
+          return Promise.resolve([
+            { id: 'claude', name: 'Claude Code', binary: 'claude', installed: installed.includes('claude') },
+            { id: 'codex', name: 'Codex', binary: 'codex', installed: installed.includes('codex') },
+          ])
+        }
+        if (channel === 'git:has-uncommitted-changes') return Promise.resolve(false)
+        return Promise.resolve([])
+      })
+    }
+
+    it('gives every installed runtime its own tile', async () => {
+      withRuntimes('claude', 'codex')
+      renderForm({ compact: true })
+
+      expect(await screen.findByRole('radio', { name: /Claude Code/ })).toHaveAttribute('aria-checked', 'true')
+      expect(screen.getByRole('radio', { name: /Codex/ })).toHaveAttribute('aria-checked', 'false')
+    })
+
+    // Having Ollama installed marks both of its variants installed, which would
+    // double every tile — two "Claude Code", two "Codex".
+    it('leaves out the Ollama variants of runtimes it already shows', async () => {
+      mockInvoke.mockImplementation((channel: string) => {
+        if (channel === 'runtimes:list') {
+          return Promise.resolve([
+            { id: 'claude', name: 'Claude Code', binary: 'claude', installed: true },
+            { id: 'ollama-claude', name: 'Claude Code (Ollama)', binary: 'ollama', installed: true, needsModel: true },
+          ])
+        }
+        return Promise.resolve([])
+      })
+      renderForm({ compact: true })
+
+      await screen.findByRole('radio', { name: /Claude Code/ })
+      expect(screen.getAllByRole('radio')).toHaveLength(1)
+    })
+
+    it('leaves out a runtime whose binary is missing', async () => {
+      withRuntimes('claude')
+      renderForm({ compact: true })
+
+      await screen.findByRole('radio', { name: /Claude Code/ })
+      expect(screen.queryByRole('radio', { name: /Codex/ })).not.toBeInTheDocument()
+    })
+
+    // Dropping it would leave Start disabled with nothing on screen to explain why.
+    it('keeps the selected runtime visible when its binary is missing', async () => {
+      withRuntimes('claude')
+      renderForm({ compact: true, defaultRuntime: 'codex' })
+
+      expect(await screen.findByRole('radio', { name: /Codex/ })).toBeInTheDocument()
+      expect(screen.getByText('not installed')).toBeInTheDocument()
+      expect(screen.getByText('Start Agent')).toBeDisabled()
+    })
+
+    it('starts the agent on the picked runtime', async () => {
+      withRuntimes('claude', 'codex')
+      const { props } = renderForm({ compact: true })
+
+      fireEvent.click(await screen.findByRole('radio', { name: /Codex/ }))
+      fireEvent.click(screen.getByText('Start Agent'))
+
+      await waitFor(() => {
+        expect(props.onLaunch).toHaveBeenCalledWith(expect.objectContaining({ runtimeId: 'codex' }))
+      })
+    })
+
+    it('remembers the picked runtime for the next agent', async () => {
+      withRuntimes('claude', 'codex')
+      renderForm({ compact: true })
+
+      fireEvent.click(await screen.findByRole('radio', { name: /Codex/ }))
+      fireEvent.click(screen.getByText('Start Agent'))
+
+      await waitFor(() => {
+        expect(mockInvoke).toHaveBeenCalledWith('settings:update', { defaultRuntime: 'codex' })
+      })
+    })
+
+    it('saves a changed runtime and mode in one settings write', async () => {
+      withRuntimes('claude', 'codex')
+      renderForm({ compact: true })
+
+      fireEvent.click(await screen.findByRole('radio', { name: /Codex/ }))
+      fireEvent.click(screen.getByText('Chat'))
+      fireEvent.click(screen.getByText('Start Chat'))
+
+      await waitFor(() => {
+        expect(mockInvoke).toHaveBeenCalledWith('settings:update', { defaultAgentMode: 'chat', defaultRuntime: 'codex' })
+      })
+    })
+
+    it('writes nothing when the picked runtime is already the default', async () => {
+      withRuntimes('claude', 'codex')
+      renderForm({ compact: true })
+
+      fireEvent.click(await screen.findByRole('radio', { name: /Codex/ }))
+      fireEvent.click(screen.getByRole('radio', { name: /Claude Code/ }))
+      fireEvent.click(screen.getByText('Start Agent'))
+
+      await waitFor(() => expect(mockInvoke).toHaveBeenCalledWith('runtimes:list'))
+      expect(mockInvoke).not.toHaveBeenCalledWith('settings:update', expect.anything())
+    })
+  })
+
   it('truncates long task context in existing worktrees rows', async () => {
     renderForm({
       existingSessions: [{

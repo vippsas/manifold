@@ -9,7 +9,7 @@ import { pickRandomNorwegianCityName } from '../../../shared/norwegian-cities'
 import { ReusableSessionsCard } from './ReusableSessionsCard'
 import { NewAgentAdvanced } from './NewAgentAdvanced'
 import { NewAgentModePill } from './NewAgentModePill'
-import { AgentDropdown } from '../new-task/AgentDropdown'
+import { AgentRuntimePicker } from '../new-task/AgentRuntimePicker'
 
 type AgentMode = 'interactive' | 'chat'
 
@@ -209,12 +209,15 @@ export function NewAgentForm({
 
       const finalOptions: SpawnAgentOptions = { ...launchOptions, nonInteractive: mode === 'chat' }
 
-      // Persist the chosen mode so the next New Agent form (any repo) defaults to it.
-      // Done at submit (not on every pill click) to avoid flooding all renderers
-      // with settings:changed broadcasts when the user toggles back and forth.
-      if (mode !== defaultAgentMode) {
-        window.electronAPI.invoke('settings:update', { defaultAgentMode: mode }).catch((err) => {
-          console.error('[NewAgentForm] failed to persist defaultAgentMode:', err)
+      // Persist the chosen mode and runtime so the next New Agent form (any repo)
+      // defaults to them. Done at submit (not on every click) to avoid flooding all
+      // renderers with settings:changed broadcasts while the user tries options out.
+      const remembered: Partial<{ defaultAgentMode: AgentMode; defaultRuntime: string }> = {}
+      if (mode !== defaultAgentMode) remembered.defaultAgentMode = mode
+      if (runtimeId !== defaultRuntime) remembered.defaultRuntime = runtimeId
+      if (Object.keys(remembered).length > 0) {
+        window.electronAPI.invoke('settings:update', remembered).catch((err) => {
+          console.error('[NewAgentForm] failed to persist agent defaults:', err)
         })
       }
 
@@ -242,7 +245,7 @@ export function NewAgentForm({
 
       await runLaunch(finalOptions)
     },
-    [useExisting, existingSubTab, projectId, runtimeId, taskDescription, selectedBranch, selectedPr, canSubmit, isGitProject, mode, defaultAgentMode, runWithoutWorktree, runLaunch, hasLiveInPlaceAgent]
+    [useExisting, existingSubTab, projectId, runtimeId, taskDescription, selectedBranch, selectedPr, canSubmit, isGitProject, mode, defaultAgentMode, defaultRuntime, runWithoutWorktree, runLaunch, hasLiveInPlaceAgent]
   )
 
   const confirmDirtyLaunch = useCallback((): void => {
@@ -277,7 +280,7 @@ export function NewAgentForm({
           canSubmit={canSubmit}
           loading={loading}
         />
-        <AgentDropdown value={runtimeId} onChange={setRuntimeId} runtimes={runtimes} />
+        <AgentRuntimePicker value={runtimeId} onChange={setRuntimeId} runtimes={runtimes} />
         {error && <p style={modalStyles.errorText}>{error}</p>}
         <NewAgentModePill mode={mode} setMode={setMode} canSubmit={canSubmit} loading={loading} />
         {dirtyConfirmDialog}
