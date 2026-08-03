@@ -1,7 +1,7 @@
 ---
 description: How the Manifold renderer (developer workspace UI) is structured — the React entry, the dockview panel layout, and the preload-only boundary to main.
 covers: [src/renderer]
-updated: 2026-07-31
+updated: 2026-08-03
 owner: see .github/CODEOWNERS
 ---
 
@@ -230,12 +230,16 @@ All add/remove/focus/split/resize logic lives in the `hooks/dock-layout/` subsys
   `NewAgentForm` with its Terminal/Chat pill, Start button, and **Advanced** disclosure.
 
   In a workspace the form renders **compact**, and there the runtime is chosen from tiles rather
-  than the Advanced dropdown: one tile per runtime, a display-serif monogram over the name
-  (`new-task/AgentRuntimePicker.tsx:35`). A tile needs a binary that was found and a runtime
-  that isn't a `needsModel` (Ollama) variant of one already shown — having Ollama installed
-  would otherwise double every monogram. Either can still be the current selection, and then
-  it stays visible: a missing binary has to explain a disabled Start
-  (`AgentRuntimePicker.tsx:30`). Tiles stop growing at 150px so a
+  than the Advanced dropdown: one tile per runtime, the agent's brand mark over the name
+  (`new-task/AgentRuntimePicker.tsx:20`). The marks are inline paths in
+  `new-task/RuntimeGlyph.tsx` — simple-icons (CC0-1.0) for Claude, Copilot and Gemini, the
+  OpenAI logomark for Codex, which simple-icons does not carry — drawn in `currentColor` so a
+  tile keeps its muted/hover/selected colour; the Ollama variants reuse the mark of the agent
+  they launch, and a runtime with no mark falls back to a display-serif initial. A tile needs a
+  binary that was found and a runtime that isn't a `needsModel` (Ollama) variant of one already
+  shown — having Ollama installed would otherwise double every mark. Either can still be the
+  current selection, and then it stays visible: a missing binary has to explain a disabled Start
+  (`AgentRuntimePicker.tsx:13`). Tiles stop growing at 150px so a
   machine with one runtime installed gets a tile, not a form-wide button
   (`AgentRuntimePicker.styles.ts:22`). Both the runtime and the Terminal/Chat mode are
   **remembered as the next form's defaults**, written as one `settings:update`

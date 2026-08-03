@@ -1,28 +1,13 @@
 import React, { useState } from 'react'
 import type { AgentRuntime } from '../../../shared/types'
 import { runtimePickerStyles } from './AgentRuntimePicker.styles'
-
-/** Two letters at most, and only enough of them to tell the runtimes apart —
- *  "Claude Code" and "Codex" both start with a C. Unlisted runtimes fall back to
- *  their initial; the name under the tile carries the rest. */
-const MONOGRAMS: Record<string, string> = {
-  claude: 'C',
-  codex: 'Cx',
-  copilot: 'Co',
-  gemini: 'G',
-  'ollama-claude': 'C',
-  'ollama-codex': 'Cx',
-}
-
-function monogram(runtime: AgentRuntime): string {
-  return MONOGRAMS[runtime.id] ?? runtime.name.charAt(0).toUpperCase()
-}
+import { RuntimeGlyph, runtimeGlyphPath } from './RuntimeGlyph'
 
 /** The tiles show what you can actually start, in one row.
  *
  *  Out: a runtime whose binary is missing (a dead tile), and the `needsModel`
  *  variants, which are the same two agents run through Ollama and would double
- *  every monogram — having Ollama installed would otherwise turn four tiles into
+ *  every mark — having Ollama installed would otherwise turn four tiles into
  *  six. Either can still be the current selection, and then it stays visible:
  *  a missing one has to explain why Start is disabled. */
 export function visibleRuntimes(runtimes: AgentRuntime[], selectedId: string): AgentRuntime[] {
@@ -51,6 +36,7 @@ export function AgentRuntimePicker({
         {tiles.map((runtime) => {
           const selected = runtime.id === value
           const missing = runtime.installed === false
+          const glyph = runtimeGlyphPath(runtime.id)
           return (
             <button
               key={runtime.id}
@@ -67,7 +53,11 @@ export function AgentRuntimePicker({
                 ...(missing ? runtimePickerStyles.tileMissing : {}),
               }}
             >
-              <span style={runtimePickerStyles.monogram}>{monogram(runtime)}</span>
+              {glyph ? (
+                <RuntimeGlyph path={glyph} />
+              ) : (
+                <span style={runtimePickerStyles.monogram}>{runtime.name.charAt(0).toUpperCase()}</span>
+              )}
               <span style={runtimePickerStyles.name}>{runtime.name}</span>
               {missing && <span style={runtimePickerStyles.missing}>not installed</span>}
             </button>

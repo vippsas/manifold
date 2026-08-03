@@ -2,7 +2,6 @@ import { PtyPool } from '../agent/pty-pool'
 import { ProjectRegistry } from '../store/project-registry'
 import { gitExec } from '../git/git-exec'
 import { commitManagedWorktree, getManagedWorktreeStatus } from '../git/managed-worktree'
-import { removeWorktreeMeta } from '../git/worktree-meta'
 import { debugLog } from '../app/debug-log'
 import type { MemoryCompressor } from '../memory/memory-compressor'
 import type { InternalSession } from './session-types'
@@ -102,16 +101,8 @@ export class SessionTeardown {
     try { await this.getMemoryCompressor?.()?.compressSession(session) }
     catch (err) { debugLog(`[session] memory compression failed: ${err}`) }
 
-    if (!session.noWorktree && !this.hasOtherLiveSessionsOnPath(sessionId, worktreePath)) {
-      try {
-        await gitExec(['worktree', 'remove', worktreePath, '--force'], this.projectRegistry.getProject(projectId)?.path ?? '')
-        await removeWorktreeMeta(worktreePath)
-      } catch {
-        // Best-effort cleanup
-      }
-      session.noWorktree = true
-    }
-
+    // The checkout stays: it belongs to the workspace, which outlives this
+    // session and the mode switch that is replacing it.
     await this.onKillSession(sessionId)
 
     const project = this.projectRegistry.getProject(projectId)
@@ -120,14 +111,4 @@ export class SessionTeardown {
     return { projectPath: project.path, branchName, taskDescription }
   }
 
-  private hasOtherLiveSessionsOnPath(excludeId: string, worktreePath: string): boolean {
-    for (const other of this.sessions.values()) {
-      if (other.id === excludeId) continue
-      if (other.worktreePath !== worktreePath) continue
-      if (other.pid == null) continue
-      if (!other.ptyId) continue
-      return true
-    }
-    return false
-  }
 }

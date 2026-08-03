@@ -4,19 +4,14 @@ import * as path from 'node:path'
 import type { PtyPool } from '../agent/pty-pool'
 import { debugLog } from '../app/debug-log'
 import type { FileWatcher } from '../fs/file-watcher'
-import type { WorktreeManager } from '../git/worktree-manager'
 import type { ChatAdapter } from '../agent/chat-adapter'
 import type { MemoryCapture } from '../memory/memory-capture'
-import type { ProjectRegistry } from '../store/project-registry'
 import type { InternalSession } from './session-types'
 import type { VerdictRecorder } from './verdict-recorder'
-import { removeWorkspaceWorktrees } from '../workspace/workspace-worktrees'
 
 interface SessionKillerDeps {
   sessions: Map<string, InternalSession>
   ptyPool: PtyPool
-  worktreeManager: WorktreeManager
-  projectRegistry: ProjectRegistry
   getFileWatcher: () => FileWatcher | undefined
   getMemoryCapture: () => MemoryCapture | null
   getChatAdapter: () => ChatAdapter | null
@@ -30,6 +25,9 @@ export class SessionKiller {
 
   setVerdictRecorder(recorder: VerdictRecorder): void { this.verdictRecorder = recorder }
 
+  /** Closing an agent never removes a checkout. The workspace owns it, and its
+   *  other agents are still working there — the worktrees go when the workspace
+   *  does (`WorkspaceManager.remove`). */
   async killSession(sessionId: string): Promise<void> {
     const session = this.deps.sessions.get(sessionId)
     if (!session) throw new Error(`Session not found: ${sessionId}`)
@@ -38,16 +36,6 @@ export class SessionKiller {
     this.deps.sessions.delete(sessionId)
     this.cleanupSession(session)
     void this.verdictRecorder?.onSessionTerminated(sessionId)
-
-    if (session.workspaceWorktreePaths && Object.keys(session.workspaceWorktreePaths).length > 0) {
-      await removeWorkspaceWorktrees(
-        this.deps.worktreeManager,
-        session.workspaceWorktreePaths,
-        (pid) => this.deps.projectRegistry.getProject(pid)?.path,
-      )
-    } else if (session.projectId && !session.noWorktree) {
-      await this.removeWorktreeIfUnused(session)
-    }
 
     this.deps.notifySessionsChanged(projectId)
   }
@@ -63,6 +51,8 @@ export class SessionKiller {
     this.deps.notifySessionsChanged(session.projectId)
   }
 
+  /** Closes every agent sharing one checkout, leaving the checkout itself alone.
+   *  Used when a whole project's agents have to go (app deletion, mode switch). */
   async killAllSessionsOnWorktree(worktreePath: string): Promise<void> {
     const matching = Array.from(this.deps.sessions.values()).filter(
       (session) => session.worktreePath === worktreePath,
@@ -71,25 +61,11 @@ export class SessionKiller {
     if (matching.length === 0) return
 
     const projectId = matching[0].projectId
-    const noWorktree = matching.some((session) => session.noWorktree)
 
     for (const session of matching) {
       this.deps.sessions.delete(session.id)
       this.cleanupSession(session)
       void this.verdictRecorder?.onSessionTerminated(session.id)
-    }
-
-    const workspaceSession = matching.find(
-      (s) => s.workspaceWorktreePaths && Object.keys(s.workspaceWorktreePaths).length > 0,
-    )
-    if (workspaceSession?.workspaceWorktreePaths) {
-      await removeWorkspaceWorktrees(
-        this.deps.worktreeManager,
-        workspaceSession.workspaceWorktreePaths,
-        (pid) => this.deps.projectRegistry.getProject(pid)?.path,
-      )
-    } else if (!noWorktree && projectId) {
-      await this.removeWorktree(projectId, worktreePath)
     }
 
     if (projectId) this.deps.notifySessionsChanged(projectId)
@@ -136,23 +112,4 @@ export class SessionKiller {
     )
   }
 
-  private async removeWorktreeIfUnused(session: InternalSession): Promise<void> {
-    if (this.worktreeSharedWithOther(session.worktreePath)) return
-
-    await this.removeWorktree(session.projectId, session.worktreePath)
-  }
-
-  private async removeWorktree(projectId: string, worktreePath: string): Promise<void> {
-    const projectPath = this.deps.projectRegistry.getProject(projectId)?.path
-    if (!projectPath) {
-      debugLog(`[session] worktree remove skipped — project ${projectId} not found in registry (worktree ${worktreePath} left on disk)`)
-      return
-    }
-
-    try {
-      await this.deps.worktreeManager.removeWorktree(projectPath, worktreePath)
-    } catch (err) {
-      debugLog(`[session] worktree remove failed for ${worktreePath}: ${err}`)
-    }
-  }
 }

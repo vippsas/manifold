@@ -13,12 +13,14 @@ export function registerWorkspaceHandlers(deps: IpcDependencies): void {
 
   ipcMain.handle('workspace:remove', (_e, id: string) => workspaceManager.remove(id))
 
-  ipcMain.handle('workspace:add-project', (_e, id: string, projectId: string) => {
-    workspaceManager.addProject(id, projectId)
+  // Both await: attaching or detaching a folder cuts or removes that repo's
+  // checkout in a worktree workspace, and the renderer must not repaint first.
+  ipcMain.handle('workspace:add-project', async (_e, id: string, projectId: string) => {
+    await workspaceManager.addProject(id, projectId)
   })
 
-  ipcMain.handle('workspace:remove-project', (_e, id: string, projectId: string) => {
-    workspaceManager.removeProject(id, projectId)
+  ipcMain.handle('workspace:remove-project', async (_e, id: string, projectId: string) => {
+    await workspaceManager.removeProject(id, projectId)
   })
 
   ipcMain.handle('workspace:spawn-agent', (_e, id: string, options: WorkspaceSpawnAgentOptions) => {

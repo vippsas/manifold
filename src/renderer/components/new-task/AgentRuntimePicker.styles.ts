@@ -37,8 +37,8 @@ export const runtimePickerStyles: Record<string, React.CSSProperties> = {
     cursor: 'pointer',
     transition: 'background var(--duration-normal) var(--ease-premium), color var(--duration-normal) var(--ease-premium), box-shadow var(--duration-normal) var(--ease-premium)',
   },
-  // The monogram carries the tile, so it takes the display serif of the title
-  // above it rather than the UI sans of the controls below.
+  // Fallback for a runtime with no brand mark: an initial in the display serif
+  // of the title above rather than the UI sans of the controls below.
   monogram: {
     fontFamily: 'var(--font-display)',
     fontSize: '30px',

@@ -209,7 +209,7 @@ export function registerAgentHandlers(deps: IpcDependencies): void {
     deps.verdictStore.deleteByProject(projectId)
 
     // 3d. Detach the project from every workspace that references it
-    deps.workspaceManager.removeProjectFromAllWorkspaces(projectId)
+    await deps.workspaceManager.removeProjectFromAllWorkspaces(projectId)
 
     // 3e. Remove agent dismissals for this project
     deps.dismissedAgents.deleteProject(projectId)

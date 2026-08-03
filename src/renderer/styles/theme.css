@@ -1114,16 +1114,17 @@ select:focus-visible {
   background: linear-gradient(135deg, var(--btn-hover), var(--btn-bg));
   border: 1px solid color-mix(in srgb, var(--accent-dim, var(--accent)), transparent 40%);
   font-weight: 600;
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.22), var(--shadow-glow);
-  /* Machined plate: opposing 45° chamfers. clip-path clips outer box-shadows,
-     so depth is restored as drop-shadows that follow the chamfered silhouette. */
-  clip-path: polygon(9px 0, 100% 0, 100% calc(100% - 9px), calc(100% - 9px) 100%, 0 100%, 0 9px);
-  filter: drop-shadow(0 4px 8px rgba(0, 0, 0, 0.28)) drop-shadow(0 0 8px var(--effect-glow, transparent));
+  /* No radius of its own: each CTA keeps the one its own style declares. */
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.22),
+    0 4px 8px rgba(0, 0, 0, 0.28),
+    0 0 8px var(--effect-glow, transparent),
+    var(--shadow-glow);
   transition: filter var(--duration-normal) var(--ease-premium), box-shadow var(--duration-normal) var(--ease-premium);
 }
 
 .btn-metal:hover:not(:disabled) {
-  filter: brightness(1.1) drop-shadow(0 4px 8px rgba(0, 0, 0, 0.28)) drop-shadow(0 0 8px var(--effect-glow, transparent));
+  filter: brightness(1.1);
 }
 
 /* ─── Markdown Preview ─── */

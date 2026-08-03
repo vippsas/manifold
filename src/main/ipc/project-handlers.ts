@@ -190,7 +190,7 @@ export function registerProjectHandlers(deps: IpcDependencies): void {
     }
   )
 
-  ipcMain.handle('projects:remove', (_event, projectId: string) => {
+  ipcMain.handle('projects:remove', async (_event, projectId: string) => {
     // Drop all Manifold-side data derived from this project. The project id is a
     // fresh uuid on every add, so re-adding the same path can never re-associate
     // this data — keeping it would orphan the memory db (+wal/shm) and chat files
@@ -199,7 +199,7 @@ export function registerProjectHandlers(deps: IpcDependencies): void {
     verdictStore.deleteByProject(projectId)
     chatStore.deleteByProject(projectId)
     memoryStore.deleteProject(projectId)
-    workspaceManager.removeProjectFromAllWorkspaces(projectId)
+    await workspaceManager.removeProjectFromAllWorkspaces(projectId)
     dismissedAgents.deleteProject(projectId)
     return projectRegistry.removeProject(projectId)
   })

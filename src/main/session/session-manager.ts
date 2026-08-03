@@ -109,8 +109,6 @@ export class SessionManager {
     this.killer = new SessionKiller({
       sessions: this.sessions,
       ptyPool: this.ptyPool,
-      worktreeManager: this.worktreeManager,
-      projectRegistry: this.projectRegistry,
       getFileWatcher: () => this.fileWatcher,
       getMemoryCapture: () => this.memoryCapture,
       getChatAdapter: () => this.chatAdapter,
