@@ -181,6 +181,19 @@ describe('ProjectSidebar', () => {
     expect(props.onRenameWorkspace).toHaveBeenCalledWith('w1', 'Renamed')
   })
 
+  it('keeps the caret at the end while typing a rename (no re-select on each keystroke)', () => {
+    renderSidebar()
+
+    fireEvent.doubleClick(screen.getByText('alpha-space'))
+    const input = screen.getByLabelText('Workspace name') as HTMLInputElement
+    fireEvent.change(input, { target: { value: 'Re' } })
+
+    // A re-running focus/select ref would select the whole draft after every
+    // render, so the next keystroke would overwrite it all.
+    expect(input.selectionStart).toBe(2)
+    expect(input.selectionEnd).toBe(2)
+  })
+
   it('discards a workspace rename on Escape', () => {
     const { props } = renderSidebar()
 

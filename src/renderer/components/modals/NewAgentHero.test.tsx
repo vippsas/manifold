@@ -163,7 +163,7 @@ describe('NewAgentHero', () => {
     })
     await ready()
 
-    expect(screen.getByText('Existing worktrees')).toBeInTheDocument()
+    expect(screen.getByText('Agents you can resume')).toBeInTheDocument()
     fireEvent.click(screen.getByRole('button', { name: 'Resume' }))
 
     await waitFor(() => expect(onResumeSession).toHaveBeenCalledWith('session-dormant', 'claude'))

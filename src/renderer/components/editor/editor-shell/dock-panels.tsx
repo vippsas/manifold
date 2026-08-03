@@ -2,6 +2,7 @@ import React, { useMemo } from 'react'
 import { useFileDiff } from '../../../hooks/editor/useFileDiff'
 import { CodeViewer } from '../code-viewer/CodeViewer'
 import { ModifiedFiles } from '../../git/ModifiedFiles'
+import { SourceControl } from '../../git/SourceControl'
 import { ShellTabs } from '../../terminal/ShellTabs'
 import { ProjectSidebar } from '../../sidebar/ProjectSidebar'
 import { AgentPanel } from './dock-agent-panel'
@@ -19,6 +20,7 @@ export const PANEL_COMPONENTS: Record<string, React.FC<any>> = {
   agent: AgentPanel,
   editor: EditorPanel,
   modifiedFiles: ModifiedFilesPanel,
+  sourceControl: SourceControlPanel,
   shell: ShellPanel,
   projects: ProjectsPanel,
   pluginView: PluginViewPanel,
@@ -80,6 +82,12 @@ function ModifiedFilesPanel(): React.JSX.Element {
       onSelectFile={s.onSelectFile}
     />
   )
+}
+
+function SourceControlPanel(): React.JSX.Element {
+  const s = useDockState()
+  const workspace = s.workspaces.find((w) => w.id === s.activeWorkspaceId) ?? null
+  return <SourceControl workspace={workspace} onSelectFile={s.onSelectFile} />
 }
 
 function ShellPanel(): React.JSX.Element {

@@ -65,6 +65,7 @@ const RAW_COMMANDS = [
   { id: 'view.toggle.projects', title: 'Toggle Projects', category: 'View', accelerator: 'CmdOrCtrl+Alt+1', menu: { section: 'view', order: 10 } },
   { id: 'view.toggle.agent', title: 'Toggle Agent', category: 'View', accelerator: 'CmdOrCtrl+Alt+2', menu: { section: 'view', order: 11 } },
   { id: 'view.toggle.editor', title: 'Toggle Editor', category: 'View', accelerator: 'CmdOrCtrl+Alt+3', menu: { section: 'view', order: 12 } },
+  { id: 'view.toggle.sourceControl', title: 'Toggle Source Control', category: 'View', accelerator: 'CmdOrCtrl+Alt+4', menu: { section: 'view', order: 13 } },
   { id: 'view.toggle.modifiedFiles', title: 'Toggle Modified Files', category: 'View', accelerator: 'CmdOrCtrl+Alt+5', menu: { section: 'view', order: 14 } },
   { id: 'view.toggle.shell', title: 'Toggle Shell', category: 'View', accelerator: 'CmdOrCtrl+Alt+6', menu: { section: 'view', order: 15 } },
   { id: 'view.dashboard', title: 'Dashboard', category: 'View', menu: { section: 'view', order: 16 } },
@@ -90,6 +91,7 @@ export const PANEL_TOGGLE_IDS: Record<string, string> = {
   'view.toggle.projects': 'projects',
   'view.toggle.agent': 'agent',
   'view.toggle.editor': 'editor',
+  'view.toggle.sourceControl': 'sourceControl',
   'view.toggle.modifiedFiles': 'modifiedFiles',
   'view.toggle.shell': 'shell',
 }

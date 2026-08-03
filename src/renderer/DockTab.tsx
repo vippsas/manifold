@@ -7,7 +7,7 @@ import type { DockPanelId } from './hooks/dock-layout/useDockLayout'
 
 /** The sidebar items whose tabs carry no close button of their own — a single ×
  *  in the group header closes the whole item (see WorkspaceHeaderActions). */
-export const ICON_TAB_PANELS = new Set<string>(['projects', 'modifiedFiles', 'editor'])
+export const ICON_TAB_PANELS = new Set<string>(['projects', 'sourceControl', 'modifiedFiles', 'editor'])
 
 /** Repositories is alone in its group, so it renders no tab at all: a lone tab
  *  switches nothing, and its glyph only repeated the activity-bar icon that

@@ -64,16 +64,19 @@ shapes — existing path, `stayOnBranch`, `existingBranch` (legacy "launch on th
 PR checkout, the **no-worktree base-branch model**, or a fresh `WorktreeManager.createWorktree()`
 — then resolves the runtime via `getRuntimeById()`. The two shapes that matter now are the two
 a workspace sends: `existingWorktreePath` (join the workspace's checkout) and
-`noWorktree` + `stayOnBranch` (a home workspace, i.e. the clone). The New Agent form always
-sends `noWorktree` too, so the trailing `createWorktree()` fallback (`session-creator.ts:113`) is
-left only for direct IPC/plugin callers — nothing in the UI cuts a per-agent worktree any more.
+`noWorktree` + `stayOnBranch` (a home workspace, i.e. the clone). Those are now the **only two
+shapes the UI produces at all** — every launch goes through `workspace:spawn-agent`, which
+chooses between them from the workspace itself (`workspace-manager.ts:225`). The New Agent form
+sends no worktree, branch or PR option of its own, so both the trailing `createWorktree()`
+fallback (`session-creator.ts:113`) and the base-branch model below are left to direct
+IPC/plugin callers.
 
-**No-worktree base-branch model.** The agent's base branch is `options.baseBranch` (a branch
-picked in the New Agent form's Advanced section) or the project's base branch. With a blank name
+**No-worktree base-branch model** (no longer reachable from the UI; kept for IPC/plugin
+callers). The agent's base branch is `options.baseBranch` or the project's base branch. With a blank name
 (`options.autoName`) the agent **works directly on that base branch** (`git checkout <base>`, no
 new branch) and is named after it. With a typed name it **cuts a new branch off the base**
 (`git checkout -b <slug> <base>`). Both paths assert a clean tree first unless
-`options.allowDirtyWorktree` (the form confirms and sets it) — so switching the shared working
+`options.allowDirtyWorktree` — so switching the shared working
 copy never silently carries uncommitted changes onto the base. Either way the base becomes the session's `baseBranch`
 (`session-creator.ts`), which `toPublicSession` carries so the session-scoped git handlers
 (diff/PR/ahead-behind) compare against it instead of the project base. The blank-name placeholder
@@ -84,7 +87,10 @@ Chat-mode sessions created without a first message *defer* the runtime spawn (`d
 `session-creator.ts:107`): the session exists in `waiting` status with `ptyId: ''` and no PTY;
 the first message later routes through `spawnPrintModeFollowUp`. Otherwise `PtyPool.spawn()`
 starts the process, the stream wirer attaches handlers, and `writeWorktreeMeta()` persists
-the runtime/task/displayName so the session is rediscoverable. Back in the lifecycle, the new
+the runtime/task/displayName so the session is rediscoverable. The name typed in the New Agent
+dialog arrives as `SpawnAgentOptions.displayName` and becomes exactly that — the agent's name and
+its tab title (`session-creator.ts:189`); it is no longer a branch hint, because the workspace
+owns the branch. Back in the lifecycle, the new
 session is added to the map, any dismissal recorded for that project + branch is lifted
 (`session-lifecycle.ts:84`), memory capture starts, and the renderer is told via
 `agent:sessions-changed`. Verdict creation also snapshots the optional agent display

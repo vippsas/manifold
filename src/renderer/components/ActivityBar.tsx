@@ -23,6 +23,15 @@ function glyph(paths: React.ReactNode): React.JSX.Element {
 
 const PANEL_GLYPH_PATHS: Record<DockPanelId, React.JSX.Element> = {
   projects: <path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2Z" />,
+  sourceControl: (
+    <>
+      <path d="M6 9v6" />
+      <circle cx="18" cy="6" r="2.4" />
+      <circle cx="6" cy="6" r="2.4" />
+      <circle cx="6" cy="18" r="2.4" />
+      <path d="M18 8.4a9 9 0 0 1-9 9" />
+    </>
+  ),
   agent: (
     <>
       <rect x="5" y="9" width="14" height="10" rx="2" />
@@ -78,6 +87,7 @@ const FILES_ITEM_PANELS: DockPanelId[] = ['modifiedFiles', 'editor']
 
 const RAIL_ITEMS: RailItem[] = [
   { key: 'projects', label: PANEL_TITLES.projects, glyph: 'projects', panels: ['projects'], opens: ['projects'] },
+  { key: 'sourceControl', label: PANEL_TITLES.sourceControl, glyph: 'sourceControl', panels: ['sourceControl'], opens: ['sourceControl'] },
   { key: 'agent', label: PANEL_TITLES.agent, glyph: 'agent', panels: ['agent'], opens: ['agent'] },
   {
     key: 'files',

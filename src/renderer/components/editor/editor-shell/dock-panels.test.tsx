@@ -163,7 +163,7 @@ describe('AgentPanel', () => {
     )
 
     await waitFor(() => {
-      expect(screen.getByText('Existing worktrees')).toBeInTheDocument()
+      expect(screen.getByText('Agents you can resume')).toBeInTheDocument()
     })
     expect(screen.getByText('Start Terminal')).toBeInTheDocument()
     expect(screen.getByText('Worktree: manifold-dormant')).toBeInTheDocument()

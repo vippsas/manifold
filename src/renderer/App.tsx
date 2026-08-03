@@ -341,12 +341,9 @@ export function App(): React.JSX.Element {
     },
     onRenameAgent: renameAgent, onRequestDeleteAgent: overlays.requestDeleteAgent,
     onNewAgentFromHeader: openNewAgentModal,
-    // Picking a folder makes it the workspace's home and opens its files; it does
-    // not touch the agent. Only an agent row changes what you are working in.
-    // Clearing the session here used to empty the agent pane — but only when the
-    // folder was already the active one, since switching folders switches project
-    // and that restores the project's remembered agent: the same click on the
-    // same row did two different things depending on where you came from.
+    // Picking a folder only opens its files. It cannot move an agent: an agent
+    // lives in the workspace and always runs in the workspace's first folder, so
+    // the folder rows are a view of the place, never a choice of where to work.
     onSelectWorkspaceRepo: (workspaceId: string, projectId: string) => {
       setActiveWorkspaceId(workspaceId); setActiveProject(projectId)
     },

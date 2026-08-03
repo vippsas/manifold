@@ -53,8 +53,8 @@ at `false` after the remount, so later callbacks gated on `mountedRef.current` a
 silently skipped.
 
 **Guardrail.** Set the flag in the effect *body*, not only in cleanup
-(`useNewAgentForm.tsx:70-78`, `useIpc.ts:16-21`). Test the component wrapped in
-`<React.StrictMode>` so the remount actually happens: `NewAgentForm.test.tsx:241`, and
+(`useNewAgentForm.tsx:51-60`, `useIpc.ts:16-21`). Test the component wrapped in
+`<React.StrictMode>` so the remount actually happens: `NewAgentForm.test.tsx:108`, and
 the reusable **StrictMode double-mount test template** at
 `src/renderer/test-utils/strict-mode.test.tsx` (helper: `strict-mode.test-helpers.tsx`,
 `renderWithStrictMode`). The template's three tests are an executable proof that the

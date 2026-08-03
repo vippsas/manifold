@@ -64,6 +64,13 @@ export function WorkspaceCard({
 }: WorkspaceCardProps): React.JSX.Element {
   const folders = useFolderDisclosure()
   const [nameDraft, setNameDraft] = useState<string | null>(null)
+  // Stable identity so React only calls this when the input mounts — an inline
+  // ref callback would re-run on every keystroke and re-select the text,
+  // making the next character overwrite the whole draft.
+  const focusAndSelect = useCallback((el: HTMLInputElement | null): void => {
+    el?.focus()
+    el?.select()
+  }, [])
   const projectById = useCallback(
     (id: string) => projects.find((p) => p.id === id),
     [projects],
@@ -102,7 +109,7 @@ export function WorkspaceCard({
         <WorkspaceGlyph active={isActive} />
         {nameDraft !== null ? (
           <input
-            ref={(el) => { el?.focus(); el?.select() }}
+            ref={focusAndSelect}
             value={nameDraft}
             onChange={(e) => setNameDraft(e.target.value)}
             onBlur={commitRename}

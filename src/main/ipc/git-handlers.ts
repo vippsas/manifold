@@ -1,7 +1,9 @@
 import { ipcMain } from 'electron'
 import { CreatePROptions, AheadBehind, FetchResult } from '../../shared/types'
+import type { WorkspaceRepoStatus } from '../../shared/workspace-types'
 import { isGitProject } from '../../shared/project-kind'
 import { gitExec } from '../git/git-exec'
+import { gitStatus, parseStatusWithConflicts } from '../fs/file-watcher-utils'
 import { getRuntimeById } from '../agent/runtimes'
 import type { IpcDependencies } from './types'
 import { resolveSession } from './types'
@@ -67,7 +69,7 @@ export function registerPrHandler(deps: IpcDependencies): void {
 }
 
 export function registerGitHandlers(deps: IpcDependencies): void {
-  const { gitOps, sessionManager, projectRegistry } = deps
+  const { gitOps, sessionManager, projectRegistry, workspaceManager } = deps
 
   ipcMain.handle('git:commit', async (_event, sessionId: string, message: string) => {
     const session = resolveSession(sessionManager, sessionId)
@@ -132,6 +134,28 @@ export function registerGitHandlers(deps: IpcDependencies): void {
       // A repo with no commits yet has no resolvable HEAD; it simply has no label.
       return ''
     }
+  })
+
+  // Git status of every repo checkout in a workspace, for the Source Control
+  // view: one entry per member repo with its branch and uncommitted changes —
+  // the multi-root shape VS Code's SCM view has. Reads the workspace's own
+  // checkout of each repo (worktree, or the clone on a home workspace); plain
+  // folders are skipped. A repo that fails to answer reports an empty status
+  // rather than failing the whole workspace.
+  ipcMain.handle('git:workspace-status', async (_event, workspaceId: string): Promise<WorkspaceRepoStatus[]> => {
+    const workspace = workspaceManager.get(workspaceId)
+    if (!workspace) return []
+    const statuses = await Promise.all(workspace.projectIds.map(async (projectId) => {
+      const project = projectRegistry.getProject(projectId)
+      if (!project || !isGitProject(project)) return null
+      const checkoutPath = workspace.worktreePaths?.[projectId] ?? project.path
+      const [branch, changes] = await Promise.all([
+        gitExec(['rev-parse', '--abbrev-ref', 'HEAD'], checkoutPath).then((out) => out.trim()).catch(() => ''),
+        gitStatus(checkoutPath).then((raw) => parseStatusWithConflicts(raw).changes).catch(() => []),
+      ])
+      return { projectId, projectName: project.name, checkoutPath, branch, changes }
+    }))
+    return statuses.filter((status): status is WorkspaceRepoStatus => status !== null)
   })
 
   // Whether the project's main working tree has uncommitted changes. Used by the

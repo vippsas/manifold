@@ -1,3 +1,5 @@
+import type { FileChange } from './types'
+
 /** A workspace is a place to work, not a folder group: it owns one checkout of
  *  every repo it spans, and every agent in it works there. Two features over the
  *  same repos are two workspaces, never two worktrees inside one.
@@ -22,6 +24,21 @@ export interface Workspace {
    *  repo, the folder itself for a non-git one (edited in place, never removed).
    *  Absent on a home workspace. */
   worktreePaths?: Record<string, string>
+}
+
+/** Git status of one repo checkout in a workspace — one section of the Source
+ *  Control view, which lists every member repo the way VS Code's SCM view
+ *  lists the repos of a multi-root workspace. */
+export interface WorkspaceRepoStatus {
+  projectId: string
+  projectName: string
+  /** The workspace's checkout of this repo: its worktree, or the clone itself
+   *  on a home workspace. */
+  checkoutPath: string
+  /** The checked-out branch; empty when HEAD is unresolvable (no commits yet). */
+  branch: string
+  /** Uncommitted working-tree changes, staged or not. */
+  changes: FileChange[]
 }
 
 export interface WorkspaceCreateOptions {

@@ -14,13 +14,14 @@ export {
   shrinkEditorHostSidebarGroups,
 } from './dock-layout-loader'
 
-export const PANEL_IDS = ['projects', 'agent', 'editor', 'modifiedFiles', 'shell'] as const
+export const PANEL_IDS = ['projects', 'sourceControl', 'agent', 'editor', 'modifiedFiles', 'shell'] as const
 export type DockPanelId = (typeof PANEL_IDS)[number]
 export const EDITOR_PANEL_ID_PREFIX = 'editor:'
 export type EditorSplitDirection = 'right' | 'below'
 
 export const PANEL_TITLES: Record<DockPanelId, string> = {
   projects: 'Repositories',
+  sourceControl: 'Source Control',
   agent: 'Agent',
   editor: 'Editor',
   modifiedFiles: 'Modified Files',
@@ -38,6 +39,9 @@ export type Direction = 'right' | 'left' | 'above' | 'below' | 'within'
 // it, under each repo row), and no files panel ever tabs into it.
 export const PANEL_RESTORE_HINTS: Record<DockPanelId, Array<{ ref: DockPanelId; dir: Direction }>> = {
   projects: [{ ref: 'agent', dir: 'left' }, { ref: 'modifiedFiles', dir: 'left' }, { ref: 'editor', dir: 'left' }],
+  // Source Control opens as its own column between Repositories and the
+  // workspace, mirroring where VS Code puts its SCM view.
+  sourceControl: [{ ref: 'projects', dir: 'right' }, { ref: 'agent', dir: 'left' }, { ref: 'modifiedFiles', dir: 'left' }, { ref: 'editor', dir: 'left' }],
   agent: [{ ref: 'projects', dir: 'right' }, { ref: 'modifiedFiles', dir: 'left' }, { ref: 'editor', dir: 'left' }, { ref: 'shell', dir: 'above' }],
   editor: [{ ref: 'modifiedFiles', dir: 'within' }, { ref: 'agent', dir: 'right' }, { ref: 'shell', dir: 'above' }],
   modifiedFiles: [{ ref: 'editor', dir: 'within' }, { ref: 'agent', dir: 'right' }, { ref: 'projects', dir: 'right' }],
