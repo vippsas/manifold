@@ -1,7 +1,7 @@
 ---
 description: How Manifold watches worktrees for git/tree changes and reads, writes, lists, and imports files for the renderer's editor and file tree.
 covers: [src/main/fs]
-updated: 2026-07-29
+updated: 2026-08-03
 owner: see .github/CODEOWNERS
 ---
 
@@ -39,8 +39,7 @@ the path is *already* watched it re-points the entry's (and the tree-watcher ent
 that watched it (`file-watcher.ts:88`, `tree-watcher.ts:28`). The IPC layer calls `watch` on
 `agent:spawn` and `agent:resume` (`agent-handlers.ts:140`, `:272`). Teardown unwatch is owned
 by `SessionKiller.cleanupSession` (see below) plus `unwatchAll` on app shutdown
-(`app-lifecycle.ts:93`); `agent:kill-worktree`/`agent:delete-app` also unwatch the path
-explicitly. `watchAdditionalDir` (`file-watcher.ts:63`) does the same for `--add-dir` paths
+(`app-lifecycle.ts:93`); `agent:delete-app` also unwatches the path explicitly. `watchAdditionalDir` (`file-watcher.ts:63`) does the same for `--add-dir` paths
 under an `additional:<sessionId>:<dir>` key.
 
 **Poll → push.** `poll()` (`file-watcher.ts:105`) calls `gitStatusFn` (default
@@ -111,8 +110,8 @@ path is recreated. It is wired via `fileWatcher.setVerdictRecorder` (`app/index.
 ## Interactions
 
 - **IPC** (`src/main/ipc/file-handlers.ts`): the renderer-facing surface. `files:tree`/`files:tree-by-project`/`files:tree-dir` → `getFileTree`; `files:read`/`files:write`/`files:delete`/`files:rename`/`files:create-file`/`files:create-dir`/`files:import` → the matching `FileWatcher` method; `files:list` → `listWorktreeFiles`. Every path is `resolve()`d and checked against the workspace roots — every registered project plus every session's worktree and `additionalDirs` — before any fs call (`workspaceRoots`, `file-handlers.ts:26`; `isAllowed`, `:46`; `authorize`, `:53`). `files:search-content` and image paste also live here, not in `src/main/fs`.
-- **Agent handlers** (`src/main/ipc/agent-handlers.ts`): start the watch lifecycle — `watch` on spawn/resume. `agent:kill` no longer unwatches directly (that would kill events for sibling sessions on a shared worktree); `agent:kill-worktree`/`agent:delete-app` still unwatch the path explicitly.
-- **Session** (`src/main/session`): `SessionKiller.cleanupSession` owns teardown unwatch — it calls `unwatchAdditionalDir` for each `--add-dir` and `unwatch(worktreePath)` once no surviving session shares the path (`worktreeSharedWithOther`, mirroring `removeWorktreeIfUnused`). This covers the mode-switch teardown paths (`killNonInteractiveSessions`/`killInteractiveSession`), not just the IPC kill. The watcher reads `session.worktreePath`/`additionalDirs` only indirectly through the session/IPC layers.
+- **Agent handlers** (`src/main/ipc/agent-handlers.ts`): start the watch lifecycle — `watch` on spawn/resume. `agent:kill` no longer unwatches directly (that would kill events for sibling sessions on a shared checkout); `agent:delete-app` still unwatches the path explicitly.
+- **Session** (`src/main/session`): `SessionKiller.cleanupSession` owns teardown unwatch — it calls `unwatchAdditionalDir` for each `--add-dir` and `unwatch(worktreePath)` once no surviving session shares the path (`worktreeSharedWithOther`, `session-killer.ts:89`). Sharing is now the norm rather than the exception: several agents in one workspace work in the same checkout. This covers the mode-switch teardown paths (`killNonInteractiveSessions`/`killInteractiveSession`), not just the IPC kill. The watcher reads `session.worktreePath`/`additionalDirs` only indirectly through the session/IPC layers.
 - **Git** (`src/main/git`): the watcher shells out to `git status`/`ls-files`/`rev-parse`/`gh` directly rather than going through `gitExec`; `isMissingGitError` lets `poll()` permanently disable polling where git can't spawn, and `pollAdditionalDir` additionally disables on `isGitRepositoryError` so a plain non-git `--add-dir` stops respawning a failing `git` every 2 s (`git/git-errors`, `file-watcher.ts:131`, `:157`).
 - **Verdict** (`src/main/session/verdict-recorder.ts`): the sink for `VerdictPollForwarder`.
 - **Renderer** (`src/renderer/hooks`): `useFileWatcher` listens for `files:changed`/`files:tree-changed` and refreshes the tree (`useFileWatcher.ts:79`, `:93`); `useGitOperations` listens for `agent:conflicts` (`useGitOperations.ts:68`); `useAdditionalDirs` reacts to `files:tree-changed` for `--add-dir` panels.
@@ -127,4 +126,4 @@ path is recreated. It is wired via `fileWatcher.setVerdictRecorder` (`app/index.
 - **Mutating ops never trust the watcher to refresh.** Handlers return the freshly built tree and/or call `notifyTreeChanged` so the editor updates immediately instead of waiting up to 2 s / 200 ms (`file-handlers.ts:101`, `:160`).
 - **Git polling self-disables.** If git can't spawn (`ENOENT`), `disableGitPolling` clears the timer for that entry permanently rather than retrying every 2 s (`file-watcher.ts:164`, `file-watcher.test.ts:203`). For `--add-dir` paths it also disables on "not a git repository" so a plain folder isn't polled forever.
 - **Path safety is enforced in IPC, not here.** `FileWatcher` methods operate on whatever absolute path they're given; the traversal check lives entirely in `file-handlers.ts`. Calling these methods from elsewhere bypasses that guard.
-- **The guard is scoped to the open folders, not to the selected session.** Any registered repo or session worktree is readable and writable whichever agent is selected, and reads work with no session at all — the sidebar shows several folders' files at once and opens any of them. What the guard still refuses is a path under none of those roots.
+- **The guard is scoped to the open folders, not to the selected session.** Any registered repo, any workspace's checkout of one, and any session worktree is readable and writable whichever agent is selected, and reads work with no session at all — the sidebar shows several folders' files at once and opens any of them. What the guard still refuses is a path under none of those roots.

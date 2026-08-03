@@ -1,6 +1,7 @@
 // Folders in the sidebar behave like the folders of a VS Code workspace: a folder
-// row opens its own checkout, a worktree row opens its worktree, any number can be
-// open at once, and opening one changes nothing else about the app.
+// row opens the workspace's checkout of that repo, any number can be open at once,
+// and opening one changes nothing else about the app. Agent rows have no folders
+// of their own — the workspace's folders are the ones its agents work in.
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { screen, fireEvent } from '@testing-library/react'
 import type { FolderSource } from '../../hooks/editor/useWorkspaceTree'
@@ -71,44 +72,28 @@ describe('sidebar folders', () => {
     expect(props.onSelectSession).not.toHaveBeenCalled()
   })
 
-  it('opens a worktree from its own row, leaving the folder alone', () => {
-    renderWithFiles()
-
-    fireEvent.click(screen.getByLabelText('Show files in alpha/oslo'))
-
-    expect(screen.getByTestId('files-session-s1')).toBeInTheDocument()
-    expect(screen.queryByTestId('files-project-p1')).not.toBeInTheDocument()
-  })
-
-  // The row is the folder, not just the chevron on it.
-  it('opens the worktree when the agent row itself is clicked, and selects the agent', () => {
+  // An agent works in the workspace's folders, which are already listed above
+  // it, so its row selects it and nothing else.
+  it('selects the agent when its row is clicked, opening no folder', () => {
     const { props } = renderWithFiles()
 
     fireEvent.click(screen.getByText('oslo'))
 
-    expect(screen.getByTestId('files-session-s1')).toBeInTheDocument()
     expect(props.onSelectSession).toHaveBeenCalledWith('s1', 'p1')
-  })
-
-  it('does not select the agent when only its chevron is clicked', () => {
-    const { props } = renderWithFiles()
-
-    fireEvent.click(screen.getByLabelText('Show files in alpha/oslo'))
-
-    expect(props.onSelectSession).not.toHaveBeenCalled()
+    expect(screen.queryByTestId('files-session-s1')).not.toBeInTheDocument()
   })
 
   it('remembers every open folder across a restart', () => {
     const first = renderWithFiles()
     fireEvent.click(screen.getByText('Alpha'))
-    fireEvent.click(screen.getByLabelText('Show files in alpha/bergen'))
-    expect(JSON.parse(localStorage.getItem(STORAGE_KEY) ?? '[]')).toEqual(['project:p1', 'session:s2'])
+    fireEvent.click(screen.getByText('Beta'))
+    expect(JSON.parse(localStorage.getItem(STORAGE_KEY) ?? '[]')).toEqual(['project:p1', 'project:p2'])
     first.unmount()
 
     renderWithFiles()
 
     expect(screen.getByTestId('files-project-p1')).toBeInTheDocument()
-    expect(screen.getByTestId('files-session-s2')).toBeInTheDocument()
+    expect(screen.getByTestId('files-project-p2')).toBeInTheDocument()
   })
 
   // The cards are separate components. Each holding its own copy of the open set
@@ -138,17 +123,13 @@ describe('sidebar folders', () => {
     expect(screen.getByTestId('files-project-p1')).toBeInTheDocument()
   })
 
-  it('marks both kinds of row expanded for assistive tech', () => {
+  it('marks a folder row expanded for assistive tech', () => {
     renderWithFiles()
     const row = screen.getByText('Alpha').closest('[role="button"]')
     expect(row).toHaveAttribute('aria-expanded', 'false')
 
     fireEvent.click(screen.getByText('Alpha'))
     expect(row).toHaveAttribute('aria-expanded', 'true')
-
-    const worktreeToggle = screen.getByLabelText('Show files in alpha/oslo')
-    expect(worktreeToggle).toHaveAttribute('aria-expanded', 'false')
-    fireEvent.click(worktreeToggle)
-    expect(screen.getByLabelText('Hide files in alpha/oslo')).toHaveAttribute('aria-expanded', 'true')
+    expect(screen.getByLabelText('Hide files in Alpha')).toHaveAttribute('aria-expanded', 'true')
   })
 })

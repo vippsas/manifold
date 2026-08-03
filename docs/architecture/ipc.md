@@ -1,7 +1,7 @@
 ---
 description: How Manifold's main-process services are exposed to the renderer over Electron IPC — the channel namespaces, the handler registration pattern, and how handlers delegate to subsystem managers.
 covers: [src/main/ipc]
-updated: 2026-07-29
+updated: 2026-08-03
 owner: see .github/CODEOWNERS
 ---
 
@@ -75,14 +75,19 @@ is non-empty (used by the New Agent form's dirty-repo confirmation).
 
 **Validation at the boundary.** Handlers are where untrusted renderer input is checked.
 `file-handlers.ts` resolves every path and rejects anything outside the folders the user has
-open — **the workspace roots**: every registered project path plus every session's worktree
-and `additionalDirs` (`workspaceRoots`, `file-handlers.ts:26`; `isAllowed`, `:46`; enforced on
-`files:read`, `files:write`, `files:delete`, `files:rename`, etc.). It is deliberately *not*
-scoped to the selected session: the sidebar hangs a tree under every repo and worktree, all
-open at once, and a click there opens a file without first selecting its repo. Reading,
-saving and revealing take the session id as an optional hint for resolving a relative path
-and work with none at all, since a repo with no agent still shows its files (`authorize`,
-`:53`). `chat-image-handlers.ts`
+open — **the workspace roots**: every registered project path, **every workspace's checkout of
+each repo**, plus every session's worktree and `additionalDirs` (`workspaceRoots`,
+`file-handlers.ts:29`; `isAllowed`, `:52`; enforced on `files:read`, `files:write`,
+`files:delete`, `files:rename`, etc.). The workspace's checkouts are listed in their own right,
+not merely through the sessions working in them, because a workspace is browsable from the
+moment it exists — before any agent has run in it. It is deliberately *not* scoped to the
+selected session: the sidebar hangs a tree under every repo, all open at once, and a click there
+opens a file without first selecting its repo. Reading, saving and revealing take the session id
+as an optional hint for resolving a relative path and work with none at all
+(`authorize`, `:59`). One repo can be open in several workspaces at once, each with its own
+checkout, so `files:tree-by-project` takes an optional `workspaceId` that decides *which*
+checkout's files come back; without it the repo's own clone answers (`file-handlers.ts:75`).
+`chat-image-handlers.ts`
 restricts pasted/read-back chat images to a small allow-list of directories
 (`resolveReadableChatImagePath`, `chat-image-handlers.ts:26`). `project-handlers.ts` rejects
 clone URLs beginning with `-` to avoid argument injection into `git clone`
@@ -100,10 +105,11 @@ platform process without a shell (`file-handlers.ts:229`, `open-terminal.ts:12-6
 
 ## Interactions
 
-- **Session** (`src/main/session`): the busiest consumer. `agent:spawn`→`createSession`, `agent:resume`→`resumeSession`, and `agent:configure`→`configureSession` (rename-only in place, or a confirmed runtime/view replacement with a new session id). `agent:kill`/`agent:kill-worktree`→killers (`agent:kill` additionally records a `DismissedAgentsStore` tombstone for `noWorktree` sessions so discovery won't resurrect a deleted agent from branch state, #679), `agent:sessions`→discovery, `agent:replay`→`getOutputBuffer`, `agent:input`/`agent:interrupt`/`agent:resize`, plus all `shell:*` and `simple:*` channels (`agent-handlers.ts`).
-- **Legacy locks** (`src/main/ipc/agent-handlers.ts`): `agent:set-locked` remains registered for compatibility with older persisted sessions and clients (`:132`), but `agent:kill` and `agent:kill-worktree` no longer gate deletion on that retired flag (`:140`, `:161`).
+- **Session** (`src/main/session`): the busiest consumer. `agent:spawn`→`createSession`, `agent:resume`→`resumeSession`, and `agent:configure`→`configureSession` (rename-only in place, or a confirmed runtime/view replacement with a new session id). `agent:kill`→killer (it additionally records a `DismissedAgentsStore` tombstone for `noWorktree` sessions so discovery won't resurrect a deleted agent from branch state, #679), `agent:sessions`→discovery, `agent:replay`→`getOutputBuffer`, `agent:input`/`agent:interrupt`/`agent:resize`, plus all `shell:*` and `simple:*` channels (`agent-handlers.ts`).
+- **There is no `agent:kill-worktree`.** A checkout belongs to a workspace, not to the agents in it, so the channel that deleted one from an agent row is gone from the handlers and from the preload allowlist. Removing a checkout is `workspace:remove` (`ipc/workspace-handlers.ts`, `workspace/workspace-manager.ts:69`).
+- **Legacy locks** (`src/main/ipc/agent-handlers.ts`): `agent:set-locked` remains registered for compatibility with older persisted sessions and clients, but `agent:kill` no longer gates deletion on that retired flag.
 - **Git** (`src/main/git`): `gitOps`, `diffProvider`, `prCreator`, `branchCheckout` back the `git:*`, `diff:*`, and `pr:create` channels. `branch:suggest` uses `generateBranchName` (`agent-handlers.ts:66`).
-- **FS** (`src/main/fs`): `fileWatcher` backs every `files:*` channel and the file-tree responses; `agent:spawn` starts the watch, and teardown unwatch is owned by `SessionKiller.cleanupSession` (guarded by shared-path liveness) rather than the `agent:kill` handler, so killing one session can't stop polling for a sibling on the same worktree. `agent:kill-worktree`/`agent:delete-app` still unwatch the path explicitly.
+- **FS** (`src/main/fs`): `fileWatcher` backs every `files:*` channel and the file-tree responses; `agent:spawn` starts the watch, and teardown unwatch is owned by `SessionKiller.cleanupSession` (guarded by shared-path liveness) rather than the `agent:kill` handler, so killing one session can't stop polling for a sibling on the same worktree. `agent:delete-app` still unwatches the path explicitly.
 - **Store** (`src/main/store`): `projectRegistry`, `settingsStore`, `viewStateStore`, `shellTabStore`, `dockLayoutStore`, `searchViewStore`, `verdictStore` are all reached only through their handler namespaces.
 - **Memory / search** (`src/main/memory`, `src/main/search`): `memory:*` queries the per-project SQLite DB directly (`memoryStore.getDb`, `memory-handlers.ts:97`); `search:*` calls the search services with `memoryStore` + `gitOps`.
 - **Plugins** (`src/main/plugins`): `plugins:*` is a near-1:1 bridge onto `PluginManager`, including a renderer→host webview channel (`plugins:webview-to-host`) and a host→renderer push (`plugins:contributions-changed`).

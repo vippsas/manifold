@@ -44,14 +44,22 @@ function makeSession(worktreePath: string, additionalDirs: string[] = []): Agent
 function makeDeps(
   session: AgentSession,
   tree: FileTreeNode,
-  openFolders: { projectPaths?: string[]; otherSessions?: AgentSession[] } = {},
+  openFolders: {
+    projectPaths?: string[]
+    otherSessions?: AgentSession[]
+    workspaceWorktreePaths?: Record<string, string>
+  } = {},
 ): IpcDependencies {
   const projects = (openFolders.projectPaths ?? []).map((path, index) => ({ id: `proj-${index}`, path }))
+  const workspaces = openFolders.workspaceWorktreePaths
+    ? [{ id: 'w1', name: 'w1', projectIds: [], createdAt: '', worktreePaths: openFolders.workspaceWorktreePaths }]
+    : []
   return {
     sessionManager: {
       getSession: vi.fn(() => session),
       listSessions: vi.fn(() => [session, ...(openFolders.otherSessions ?? [])]),
     },
+    workspaceManager: { list: vi.fn(() => workspaces), get: vi.fn((id: string) => workspaces.find((w) => w.id === id)) },
     projectRegistry: { getProject: vi.fn(), listProjects: vi.fn(() => projects) },
     fileWatcher: {
       getFileTree: vi.fn(() => tree),
@@ -135,6 +143,33 @@ describe('registerFileHandlers', () => {
       expect(handler({}, null, target)).toBe(`contents of ${target}`)
     } finally {
       await rm(repo, { recursive: true, force: true })
+    }
+  })
+
+  // A workspace is a checkout in its own right, so its files open before any
+  // agent has ever run in it.
+  it('reads a file from a workspace checkout that has no agent', async () => {
+    const { registerFileHandlers } = await import('./file-handlers')
+    const repo = await mkdtemp(join(tmpdir(), 'manifold-roots-repo-'))
+    const checkout = await mkdtemp(join(tmpdir(), 'manifold-roots-workspace-'))
+    const tree: FileTreeNode = { name: 'repo', path: repo, isDirectory: true, children: [] }
+
+    try {
+      const deps = makeDeps(makeSession(repo), tree, {
+        projectPaths: [repo],
+        workspaceWorktreePaths: { 'proj-0': checkout },
+      })
+      ;(deps.sessionManager.getSession as ReturnType<typeof vi.fn>).mockReturnValue(undefined)
+      ;(deps.sessionManager.listSessions as ReturnType<typeof vi.fn>).mockReturnValue([])
+      registerFileHandlers(deps)
+      const handler = mocks.handlers.get('files:read')
+      if (!handler) throw new Error('files:read handler was not registered')
+
+      const target = join(checkout, 'src', 'main.ts')
+      expect(handler({}, null, target)).toBe(`contents of ${target}`)
+    } finally {
+      await rm(repo, { recursive: true, force: true })
+      await rm(checkout, { recursive: true, force: true })
     }
   })
 

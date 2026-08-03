@@ -52,7 +52,6 @@ function renderHero(overrides = {}) {
 const nameField = 'Agent name (optional), e.g. Dark mode toggle'
 const chatCard = (): HTMLElement => screen.getByRole('button', { name: /Start Chat/ })
 const terminalCard = (): HTMLElement => screen.getByRole('button', { name: /Start Terminal/ })
-const worktreeCard = (): HTMLElement => screen.getByRole('button', { name: /Run without a worktree/ })
 const existingCard = (): HTMLElement => screen.getByRole('button', { name: /Continue on an existing branch or PR/ })
 
 async function ready(): Promise<void> {
@@ -146,13 +145,13 @@ describe('NewAgentHero', () => {
     })
   })
 
-  it('sends noWorktree once the worktree card is switched on', async () => {
+  // There is no worktree card any more: a checkout of one's own is a workspace,
+  // so an agent started here always works in the repository itself.
+  it('sends noWorktree and offers no choice about it', async () => {
     const { props } = renderHero()
     await ready()
 
-    expect(worktreeCard()).toHaveAttribute('aria-pressed', 'false')
-    fireEvent.click(worktreeCard())
-    expect(worktreeCard()).toHaveAttribute('aria-pressed', 'true')
+    expect(screen.queryByRole('button', { name: /worktree/i })).not.toBeInTheDocument()
 
     fireEvent.click(terminalCard())
 
@@ -174,18 +173,6 @@ describe('NewAgentHero', () => {
         expect.objectContaining({ baseBranch: 'feature-x', noWorktree: true }),
       )
     })
-  })
-
-  // The branch/PR choice already decides where the agent runs, so the worktree
-  // card can't contradict it.
-  it('locks the worktree card while a branch or PR is being chosen', async () => {
-    renderHero()
-    await ready()
-
-    fireEvent.click(existingCard())
-
-    expect(worktreeCard()).toBeDisabled()
-    expect(worktreeCard()).toHaveAttribute('aria-pressed', 'true')
   })
 
   it('blocks launching until a branch is chosen', async () => {
@@ -250,7 +237,6 @@ describe('NewAgentHero', () => {
     const { props } = renderHero()
     await ready()
 
-    fireEvent.click(worktreeCard())
     fireEvent.click(terminalCard())
 
     await waitFor(() => expect(screen.getByText('Continue')).toBeTruthy())

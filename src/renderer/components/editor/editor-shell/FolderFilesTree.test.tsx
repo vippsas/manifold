@@ -69,7 +69,18 @@ describe('FolderFilesTree', () => {
     renderFolder(makeDockState({ sessionId: 's1', tree: worktreeTree }), { kind: 'project', id: 'p1' })
 
     await waitFor(() => expect(screen.getByText('checkout.ts')).toBeInTheDocument())
-    expect(mockInvoke).toHaveBeenCalledWith('files:tree-by-project', 'p1')
+    expect(mockInvoke).toHaveBeenCalledWith('files:tree-by-project', 'p1', undefined)
+  })
+
+  // The same repo is open in several workspaces at once, each with its own
+  // checkout of it, so the workspace decides which files these are.
+  it('fetches a repository’s checkout inside a workspace', async () => {
+    mockInvoke.mockResolvedValue(checkoutTree)
+
+    renderFolder(makeDockState({ sessionId: 's1', tree: worktreeTree }), { kind: 'project', id: 'p1', workspaceId: 'w1' })
+
+    await waitFor(() => expect(screen.getByText('checkout.ts')).toBeInTheDocument())
+    expect(mockInvoke).toHaveBeenCalledWith('files:tree-by-project', 'p1', 'w1')
   })
 
   it('fetches the worktree of an agent that is not selected', async () => {

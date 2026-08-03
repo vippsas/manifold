@@ -1,6 +1,6 @@
 import React, { useCallback } from 'react'
 import type { AgentSession } from '../../../shared/types'
-import { runtimeLabel } from './AgentItem'
+import { runtimeLabel } from './agent-labels'
 import { createDialogStyles } from '../workbench-style-primitives'
 
 const deleteDialogStyles = createDialogStyles('420px')

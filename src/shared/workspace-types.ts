@@ -23,12 +23,6 @@ export interface Workspace {
   worktreePaths?: Record<string, string>
 }
 
-/** True for the repos' own clones — the workspace that adopting a repository
- *  creates. Work there lands on the folder the user opened. */
-export function isHomeWorkspace(workspace: Pick<Workspace, 'worktreePaths'>): boolean {
-  return !workspace.worktreePaths
-}
-
 export interface WorkspaceCreateOptions {
   name: string
   projectIds: string[]

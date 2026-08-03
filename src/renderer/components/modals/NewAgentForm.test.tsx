@@ -226,19 +226,7 @@ describe('NewAgentForm', () => {
     await waitFor(() => expect(mockInvoke).toHaveBeenCalledWith('git:list-branches', 'proj-1'))
   }
 
-  it('does not create a worktree by default (empty picker)', async () => {
-    const { props } = renderForm()
-    await waitFor(() => expect(mockInvoke).toHaveBeenCalledWith('runtimes:list'))
-
-    fireEvent.click(screen.getByText('Start Agent'))
-
-    await waitFor(() => expect(props.onLaunch).toHaveBeenCalled())
-    const options = props.onLaunch.mock.calls[0][0]
-    expect(options.noWorktree).toBeUndefined()
-    expect(options.existingBranch).toBeUndefined()
-  })
-
-  it('creates a no-worktree agent under StrictMode (mountedRef valid after remount)', async () => {
+  it('creates an agent in the repository under StrictMode (mountedRef valid after remount)', async () => {
     const onLaunch = vi.fn().mockResolvedValue({ id: 'session-1' })
     render(
       <React.StrictMode>
@@ -249,7 +237,6 @@ describe('NewAgentForm', () => {
           isGitProject={true}
           defaultRuntime="claude"
           defaultAgentMode="interactive"
-          defaultUseWorktrees={false}
           onLaunch={onLaunch}
         />
       </React.StrictMode>,
@@ -263,27 +250,10 @@ describe('NewAgentForm', () => {
     })
   })
 
-  it('defaults to a worktree agent when an in-place agent already exists (2nd agent)', async () => {
-    // Global setting is off (defaultUseWorktrees:false) but an in-place agent is live,
-    // so a new agent must use a worktree — clicking Start creates a real 2nd agent.
-    const { props } = renderForm({
-      defaultUseWorktrees: false,
-      existingSessions: [
-        { id: 's1', projectId: 'proj-1', runtimeId: 'claude', branchName: 'x', worktreePath: '/repos/proj-1', status: 'running', pid: 1, additionalDirs: [], noWorktree: true },
-      ],
-    })
-    await waitFor(() => expect(mockInvoke).toHaveBeenCalledWith('runtimes:list'))
-
-    fireEvent.click(screen.getByText('Start Agent'))
-
-    await waitFor(() => expect(props.onLaunch).toHaveBeenCalled())
-    const options = props.onLaunch.mock.calls[0][0]
-    expect(options.noWorktree).toBeUndefined()
-    expect(screen.queryByText(/only one in-place agent runs per repo/i)).toBeNull()
-  })
-
-  it('creates an agent in place when defaultUseWorktrees is false (empty picker)', async () => {
-    const { props } = renderForm({ defaultUseWorktrees: false })
+  // An agent never cuts a checkout of its own any more: a checkout is a
+  // workspace, so this form always starts the agent in the repository itself.
+  it('always starts the agent in the repository itself (empty picker)', async () => {
+    const { props } = renderForm()
     await waitFor(() => expect(mockInvoke).toHaveBeenCalledWith('runtimes:list'))
 
     fireEvent.click(screen.getByText('Start Agent'))
@@ -301,7 +271,7 @@ describe('NewAgentForm', () => {
   })
 
   it('does not set autoName when a name is typed', async () => {
-    const { props } = renderForm({ defaultUseWorktrees: false })
+    const { props } = renderForm()
     await waitFor(() => expect(mockInvoke).toHaveBeenCalledWith('runtimes:list'))
 
     fireEvent.change(screen.getByPlaceholderText('Agent name (optional), e.g. Dark mode toggle'), {
@@ -321,9 +291,9 @@ describe('NewAgentForm', () => {
     return Promise.resolve([])
   }
 
-  it('confirms before starting a no-worktree new-branch agent in a dirty repo', async () => {
+  it('confirms before starting a new-branch agent in a dirty repo', async () => {
     mockInvoke.mockImplementation(dirtyRepoInvoke)
-    const { props } = renderForm({ defaultUseWorktrees: false })
+    const { props } = renderForm()
     await waitFor(() => expect(mockInvoke).toHaveBeenCalledWith('runtimes:list'))
 
     // A typed name cuts a new branch off the base, which is the case that needs
@@ -348,7 +318,7 @@ describe('NewAgentForm', () => {
 
   it('cancels the dirty-repo confirmation without launching', async () => {
     mockInvoke.mockImplementation(dirtyRepoInvoke)
-    const { props } = renderForm({ defaultUseWorktrees: false })
+    const { props } = renderForm()
     await waitFor(() => expect(mockInvoke).toHaveBeenCalledWith('runtimes:list'))
 
     fireEvent.change(screen.getByPlaceholderText('Agent name (optional), e.g. Dark mode toggle'), {
@@ -363,9 +333,9 @@ describe('NewAgentForm', () => {
     expect(props.onLaunch).not.toHaveBeenCalled()
   })
 
-  it('confirms a dirty tree even for a no-name (work-on-base) no-worktree agent', async () => {
+  it('confirms a dirty tree even for a no-name (work-on-base) agent', async () => {
     mockInvoke.mockImplementation(dirtyRepoInvoke)
-    const { props } = renderForm({ defaultUseWorktrees: false })
+    const { props } = renderForm()
     await waitFor(() => expect(mockInvoke).toHaveBeenCalledWith('runtimes:list'))
 
     // Blank name → autoName (work directly on base); switching the working copy
@@ -398,61 +368,26 @@ describe('NewAgentForm', () => {
     expect(props.onLaunch).not.toHaveBeenCalled()
   })
 
-  it('warns only when the user opts into in-place while an in-place agent is running', async () => {
+  it('warns that the repository is taken while an agent is working in it', async () => {
     renderForm({
-      defaultUseWorktrees: false,
       existingSessions: [
         { id: 's1', projectId: 'proj-1', runtimeId: 'claude', branchName: 'x', worktreePath: '/repos/proj-1', status: 'running', pid: 1, additionalDirs: [], noWorktree: true },
       ],
     })
     await waitFor(() => expect(mockInvoke).toHaveBeenCalledWith('runtimes:list'))
 
-    // Default is a worktree agent (in-place is taken) → no warning yet.
-    expect(screen.queryByText(/only one in-place agent runs per repo/i)).toBeNull()
-
-    // Opting into in-place surfaces the warning (Start would switch to the existing).
-    fireEvent.click(screen.getByText(/Advanced/))
-    fireEvent.click(screen.getByLabelText('Run without a worktree'))
-    expect(screen.getByText(/only one in-place agent runs per repo/i)).toBeTruthy()
+    expect(screen.getByText(/already working in this repository itself/i)).toBeTruthy()
   })
 
-  it('does not warn when the existing in-place agent is finished', async () => {
+  it('does not warn when the agent that held the repository has finished', async () => {
     renderForm({
-      defaultUseWorktrees: false,
       existingSessions: [
         { id: 's1', projectId: 'proj-1', runtimeId: 'claude', branchName: 'x', worktreePath: '/repos/proj-1', status: 'done', pid: null, additionalDirs: [], noWorktree: true },
       ],
     })
     await waitFor(() => expect(mockInvoke).toHaveBeenCalledWith('runtimes:list'))
 
-    expect(screen.queryByText(/only one in-place agent runs per repo/i)).toBeNull()
-  })
-
-  it('does not warn when this agent will use a worktree', async () => {
-    renderForm({
-      defaultUseWorktrees: true,
-      existingSessions: [
-        { id: 's1', projectId: 'proj-1', runtimeId: 'claude', branchName: 'x', worktreePath: '/repos/proj-1', status: 'running', pid: 1, additionalDirs: [], noWorktree: true },
-      ],
-    })
-    await waitFor(() => expect(mockInvoke).toHaveBeenCalledWith('runtimes:list'))
-
-    expect(screen.queryByText(/only one in-place agent runs per repo/i)).toBeNull()
-  })
-
-  it('sends noWorktree when "Run without a worktree" is checked', async () => {
-    const { props } = renderForm()
-    await waitFor(() => expect(mockInvoke).toHaveBeenCalledWith('runtimes:list'))
-
-    fireEvent.click(screen.getByText(/Advanced/))
-    fireEvent.click(screen.getByLabelText('Run without a worktree'))
-    fireEvent.click(screen.getByText('Start Agent'))
-
-    await waitFor(() => {
-      expect(props.onLaunch).toHaveBeenCalledWith(
-        expect.objectContaining({ noWorktree: true }),
-      )
-    })
+    expect(screen.queryByText(/already working in this repository itself/i)).toBeNull()
   })
 
   it('selecting a branch sets it as the base branch (baseBranch + noWorktree)', async () => {

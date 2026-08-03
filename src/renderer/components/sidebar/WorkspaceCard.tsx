@@ -3,11 +3,11 @@ import type { Project, AgentSession, AgentSettingsUpdate } from '../../../shared
 import type { DraftChat } from '../../../shared/draft-chat'
 import type { Workspace } from '../../../shared/workspace-types'
 import { sidebarStyles } from './ProjectSidebar.styles'
-import { AgentItem, formatBranch, formatBranchLabel } from './AgentItem'
+import { formatBranch, formatBranchLabel } from './agent-labels'
 import { DraftAgentItem } from './DraftAgentItem'
 import { InPlaceBadge } from './InPlaceBadge'
 import { WorkspaceGlyph } from './WorkspaceGlyph'
-import { AddFolderGlyph, FilesChevronGlyph, NewAgentGlyph, RepoGlyph } from './SidebarCardActionGlyphs'
+import { AddFolderGlyph, CopyWorkspaceGlyph, FilesChevronGlyph, RepoGlyph } from './SidebarCardActionGlyphs'
 import { projectFolderKey, useFolderDisclosure } from './folder-disclosure'
 import type { FolderSource } from '../../hooks/editor/useWorkspaceTree'
 
@@ -16,7 +16,6 @@ export interface WorkspaceCardProps {
   projects: Project[]
   isActive: boolean
   sessions: AgentSession[]
-  activeSessionId?: string | null
   activeProjectId?: string | null
   outputtingSessionIds?: Set<string>
   drafts: DraftChat[]
@@ -25,30 +24,25 @@ export interface WorkspaceCardProps {
   onRenameWorkspace?: (id: string, name: string) => void
   onRemoveWorkspace: (e: React.MouseEvent, id: string) => void
   removing: boolean
-  onNewAgent: (projectId?: string, workspaceId?: string) => void
-  onSelectSession: (sessionId: string, projectId: string) => void
+  onCopyWorkspace?: (id: string) => void
   onSelectRepo?: (workspaceId: string, projectId: string) => void
   onAddProject?: (workspaceId: string) => void | Promise<void>
   onRemoveProject?: (workspaceId: string, projectId: string) => void
-  onDeleteAgent?: (session: AgentSession, projectPath: string) => void
-  onRenameAgent?: (sessionId: string, settings: AgentSettingsUpdate) => Promise<void> | void
   onSelectDraft: (id: string) => void
   onDiscardDraft: (id: string) => void
   renderFolderFiles?: (source: FolderSource) => React.ReactNode
 }
 
-/** One workspace: the folders it spans, then the agents working across them.
- *
- *  The workspace *is* the checkout — one per folder, all on its branch — so the
- *  folder rows are that checkout's folders and an agent row is only an agent.
- *  Several agents in a workspace share its folders, the way several people share
- *  one desk; a second branch over the same repos is a second workspace. */
+/** One workspace: the folders it spans. The agents working here are not rows —
+ *  they are the tabs of the main view's Agent panel, shown when this card is
+ *  clicked. The card only says *where* work happens (its folders and branch)
+ *  and whether anyone is working (the pulsing dot by the name); *who* is
+ *  working lives with the work itself. */
 export function WorkspaceCard({
   workspace,
   projects,
   isActive,
   sessions,
-  activeSessionId,
   activeProjectId,
   outputtingSessionIds,
   drafts,
@@ -57,13 +51,10 @@ export function WorkspaceCard({
   onRenameWorkspace,
   onRemoveWorkspace,
   removing,
-  onNewAgent,
-  onSelectSession,
+  onCopyWorkspace,
   onSelectRepo,
   onAddProject,
   onRemoveProject,
-  onDeleteAgent,
-  onRenameAgent,
   onSelectDraft,
   onDiscardDraft,
   renderFolderFiles,
@@ -88,6 +79,10 @@ export function WorkspaceCard({
   // The branch belongs to the workspace, so it is named once here rather than on
   // every agent that happens to be working on it.
   const branchLabel = workspace.branchName ? formatBranch(workspace.branchName) : null
+
+  // With no agent rows, the card still has to say "someone is working here" —
+  // a pulsing dot by the name, the same signal the rows used to carry.
+  const isWorking = sessions.some((s) => outputtingSessionIds?.has(s.id))
 
   return (
     <div className={`sidebar-project-group sidebar-project-group--has-agents sidebar-workspace-card${isActive ? ' sidebar-project-group--active' : ''}`}>
@@ -128,7 +123,17 @@ export function WorkspaceCard({
             onDoubleClick={(e) => { e.stopPropagation(); if (onRenameWorkspace) setNameDraft(workspace.name) }}
             title={onRenameWorkspace ? 'Double-click to rename' : undefined}
           >
-            <span className="truncate" style={{ minWidth: 0 }}>{workspace.name}</span>
+            <span style={{ display: 'flex', alignItems: 'center', gap: 6, minWidth: 0 }}>
+              <span className="truncate" style={{ minWidth: 0 }}>{workspace.name}</span>
+              {isWorking && (
+                <span
+                  className="status-dot status-dot--active"
+                  role="status"
+                  aria-label="An agent is working in this workspace"
+                  title="An agent is working in this workspace"
+                />
+              )}
+            </span>
             {branchLabel && (
               <span
                 className="truncate"

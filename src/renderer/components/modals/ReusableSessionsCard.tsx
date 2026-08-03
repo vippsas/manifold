@@ -1,7 +1,7 @@
 import React from 'react'
 import type { AgentSession } from '../../../shared/types'
 import { modalStyles } from './NewTaskModal.styles'
-import { runtimeLabel } from '../sidebar/AgentItem'
+import { runtimeLabel } from '../sidebar/agent-labels'
 import { DockStateContext } from '../editor/editor-shell/dock-panel-types'
 
 function basename(input: string): string {

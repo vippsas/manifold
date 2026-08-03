@@ -1,6 +1,6 @@
 import React, { useCallback, useState } from 'react'
 import type { AgentSession, AgentSettingsUpdate } from '../../../shared/types'
-import { ConfigureAgentGlyph, FilesChevronGlyph } from './SidebarCardActionGlyphs'
+import { ConfigureAgentGlyph } from './SidebarCardActionGlyphs'
 import { InPlaceBadge } from './InPlaceBadge'
 import { AgentSettingsModal } from '../modals/AgentSettingsModal'
 
@@ -38,11 +38,6 @@ interface AgentItemProps {
   projectPath: string
   isActive: boolean
   isOutputting: boolean
-  /** Whether this agent's worktree is showing its files beneath the row. */
-  isFilesExpanded?: boolean
-  /** Opens and closes the worktree's files. Absent for an in-place agent, whose
-   *  files are the repo's own checkout. */
-  onToggleFiles?: () => void
   onSelect: (id: string) => void
   onDelete: () => void
   onRename?: (settings: AgentSettingsUpdate) => Promise<void> | void
@@ -50,15 +45,14 @@ interface AgentItemProps {
   hideAdditionalDirs?: boolean
 }
 
-export function AgentItem({ session, projectPath, isActive, isOutputting, isFilesExpanded = false, onToggleFiles, onSelect, onDelete, onRename, labelOverride, hideAdditionalDirs }: AgentItemProps): React.JSX.Element {
+export function AgentItem({ session, projectPath, isActive, isOutputting, onSelect, onDelete, onRename, labelOverride, hideAdditionalDirs }: AgentItemProps): React.JSX.Element {
   const [settingsVisible, setSettingsVisible] = useState(false)
 
-  // The row is both the agent and its folder: clicking it selects the agent and
-  // shows the files of its worktree, the way clicking a repo shows the repo's.
+  // An agent row is only an agent now. The folders it works in are the
+  // workspace's, listed above it, so this row has no files of its own to open.
   const handleClick = useCallback((): void => {
     onSelect(session.id)
-    onToggleFiles?.()
-  }, [onSelect, onToggleFiles, session.id])
+  }, [onSelect, session.id])
 
   const handleKeyDown = useCallback(
     (e: React.KeyboardEvent<HTMLDivElement>): void => {
@@ -99,19 +93,6 @@ export function AgentItem({ session, projectPath, isActive, isOutputting, isFile
         tabIndex={0}
       >
         <div className="sidebar-agent-main">
-          {onToggleFiles && (
-            <button
-              type="button"
-              onClick={(event) => { event.stopPropagation(); onToggleFiles() }}
-              onKeyDown={stopKeyPropagation}
-              className="sidebar-files-toggle"
-              aria-expanded={isFilesExpanded}
-              aria-label={`${isFilesExpanded ? 'Hide' : 'Show'} files in ${session.branchName}`}
-              title="Worktree files"
-            >
-              <FilesChevronGlyph expanded={isFilesExpanded} />
-            </button>
-          )}
           {session.nonInteractive && (
             <span
               aria-label="Chat agent"

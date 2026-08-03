@@ -245,7 +245,9 @@ describe('ProjectSidebar', () => {
     expect(props.onSelectSession).not.toHaveBeenCalled()
   })
 
-  it('collapses agents sharing a worktree into a single row', () => {
+  // Several agents share the workspace's checkout the way several people share
+  // one desk, so each one keeps its own row rather than collapsing into it.
+  it('gives every agent sharing a checkout its own row', () => {
     const siblings: AgentSession[] = [
       { id: 's1', projectId: 'p1', runtimeId: 'claude', branchName: 'alpha/oslo', worktreePath: '/wt1', status: 'running', pid: 1, additionalDirs: [] },
       { id: 's9', projectId: 'p1', runtimeId: 'codex', branchName: 'alpha/oslo', worktreePath: '/wt1', status: 'running', pid: 9, additionalDirs: [] },
@@ -253,7 +255,7 @@ describe('ProjectSidebar', () => {
 
     renderSidebar({ sessionsByWorkspace: { w1: siblings, w2: [] } })
 
-    expect(screen.getAllByText('oslo')).toHaveLength(1)
+    expect(screen.getAllByText('oslo')).toHaveLength(2)
   })
 
   it('keeps finished worktrees visible', () => {

@@ -1,7 +1,7 @@
 ---
 description: The on-disk data model under ~/.manifold — every file and directory Manifold persists, which module owns each path, and the two distinct roots (hardcoded config home vs. configurable storage root).
 covers: [src/main/store, src/shared/defaults.ts]
-updated: 2026-07-31
+updated: 2026-08-03
 owner: see .github/CODEOWNERS
 ---
 
@@ -97,16 +97,25 @@ are lifted when a session is recreated on that branch and purged on project remo
 
 **`<configHome>/workspaces.json`** — workspace definitions. Every entry has a
 required user-facing `name`, an ordered `projectIds` working set, and an optional runtime;
-the first project is the default agent working directory (`workspace-types.ts:1`,
-`workspace-manager.ts:34`).
+the first project is the default agent working directory (`workspace-types.ts:9`).
 
-A workspace is the *only* container: **every registered project belongs to exactly one**, and
+A workspace is also **a place, not just a grouping**: `worktreePaths` records its checkout of
+each member repo and `branchName` the branch they are all on. Both are absent on a *home*
+workspace, which is the repos' own clones — the one adopting a repository creates. Every
+workspace made after that owns a git worktree per repo, cut when the workspace is created and
+removed when it is removed, which is what lets the same repos appear in as many workspaces as
+the user wants without conflicting: one branch, one place, one checkout
+(`workspace-manager.ts:38`, `:69`).
+
+A workspace is the *only* container: **every registered project belongs to at least one**, and
 a workspace of a single folder is the ordinary shape, not a degenerate one. Registering a repo
-adopts it into a workspace in the same IPC call (`ipc/project-handlers.ts:60`,
-`workspace-manager.ts:79`), and startup wraps any repo no workspace holds — the migration for
-trees added before this rule (`app/index.ts:95`, `workspace-manager.ts:91`). The inverse also
-holds: removing the last project drops the workspace, since with no folders it can neither
-spawn an agent nor show anything (`workspace-manager.ts:131`).
+adopts it into a home workspace in the same IPC call (`ipc/project-handlers.ts:60`,
+`workspace-manager.ts:106`), and startup wraps any repo no workspace holds — the migration for
+trees added before this rule (`workspace-manager.ts:118`). Startup also promotes every worktree
+left over from the era when agents owned them into a workspace of its own, named after its
+branch (`workspace/workspace-promotion.ts:32`). The inverse also holds: removing the last
+project drops the workspace, since with no folders it can neither spawn an agent nor show
+anything (`workspace-manager.ts:190`).
 
 **`<configHome>/loop-logs/<sha256(worktreePath)[:16]>.jsonl`** — one append-only JSONL file
 per worktree of automated-loop iterations. Owned by the loop *plugin*
@@ -121,8 +130,9 @@ streaming sessions (`debug-log.ts:10`–`:25`). `flushSync()` drains on quit.
 **`<storageRoot>/worktrees/<projectName>/<branch>`** — managed git worktrees.
 `WorktreeManager.getWorktreeBase()` joins `storagePath` + `worktrees` + project name
 (`worktree-manager.ts:19`); the branch's `/` is flattened to `-` for the leaf dir
-(`worktree-manager.ts:33`). This is where session work happens; per-session meta lives inside
-the worktree (see `src/main/git/worktree-meta`), which is what makes session discovery
+(`worktree-manager.ts:33`). This is where work happens, and each one belongs to a workspace
+rather than to an agent — several agents in that workspace share it. Per-session meta lives
+inside the worktree (see `src/main/git/worktree-meta`), which is what makes session discovery
 possible.
 
 **`<storageRoot>/projects/<repoName>`** — locally generated app projects.
