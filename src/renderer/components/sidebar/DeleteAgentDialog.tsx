@@ -22,15 +22,13 @@ export interface PendingDelete {
 
 interface DeleteAgentDialogProps {
   pendingDelete: PendingDelete | null
-  siblingCount: number
   deleting: boolean
   onCancel: () => void
-  onConfirm: (mode?: 'session' | 'worktree') => Promise<void>
+  onConfirm: () => Promise<void>
 }
 
 export function DeleteAgentDialog({
   pendingDelete,
-  siblingCount,
   deleting,
   onCancel,
   onConfirm,
@@ -48,12 +46,6 @@ export function DeleteAgentDialog({
   const repoName = basename(projectPath)
   const worktreeName = describeWorktree(projectPath, session.worktreePath)
   const agentLabel = session.displayName?.trim() || runtimeLabel(session.runtimeId)
-  const multi = siblingCount > 1
-  const actionText = session.noWorktree
-    ? 'Close this agent.'
-    : multi
-      ? 'Close this agent, or delete the whole worktree.'
-      : 'Delete this agent and its worktree.'
 
   return (
     <div
@@ -99,10 +91,11 @@ export function DeleteAgentDialog({
           </div>
           <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
             <p style={{ margin: 0, color: 'var(--text-secondary)', lineHeight: 1.45 }}>
-              {actionText}
+              Close this agent.
             </p>
             <p style={{ margin: 0, color: 'var(--text-muted)', lineHeight: 1.4, fontSize: 'var(--type-ui-small)' }}>
-              The local branch will be kept.
+              The folders stay as they are — they belong to the workspace, and
+              removing that is what removes them.
             </p>
           </div>
         </div>
@@ -119,45 +112,14 @@ export function DeleteAgentDialog({
           >
             Cancel
           </button>
-          {multi && !session.noWorktree ? (
-            <>
-              <button
-                type="button"
-                onClick={() => void onConfirm('session')}
-                style={{
-                  ...deleteDialogStyles.primaryButton,
-                  background: 'var(--control-bg)',
-                  color: 'var(--text-primary)',
-                  border: '1px solid var(--control-border)',
-                  boxShadow: 'none',
-                }}
-                disabled={deleting}
-              >
-                {deleting ? 'Closing...' : 'Close Agent'}
-              </button>
-              <button
-                type="button"
-                onClick={() => void onConfirm('worktree')}
-                style={{
-                  ...deleteDialogStyles.primaryButton,
-                  background: 'color-mix(in srgb, var(--error) 78%, black)',
-                  color: 'white',
-                }}
-                disabled={deleting}
-              >
-                {deleting ? 'Deleting...' : 'Delete Worktree'}
-              </button>
-            </>
-          ) : (
-            <button
-              type="button"
-              onClick={() => void onConfirm(session.noWorktree ? 'session' : 'worktree')}
-              style={{ ...deleteDialogStyles.primaryButton, background: 'var(--error)' }}
-              disabled={deleting}
-            >
-              {deleting ? 'Deleting...' : 'Delete'}
-            </button>
-          )}
+          <button
+            type="button"
+            onClick={() => void onConfirm()}
+            style={{ ...deleteDialogStyles.primaryButton, background: 'var(--error)' }}
+            disabled={deleting}
+          >
+            {deleting ? 'Deleting...' : 'Delete'}
+          </button>
         </div>
       </div>
     </div>

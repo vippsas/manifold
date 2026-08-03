@@ -1,9 +1,11 @@
 import { useCallback, useEffect, useState } from 'react'
 import type { FileTreeNode } from '../../../shared/types'
 
-/** A folder shown in the sidebar: a repo's own checkout, or an agent's worktree. */
+/** A folder shown in the sidebar: one repo as a workspace holds it (that
+ *  workspace's checkout, or the clone itself for a home workspace), or the
+ *  folder an agent is working in. */
 export type FolderSource =
-  | { kind: 'project'; id: string }
+  | { kind: 'project'; id: string; workspaceId?: string }
   | { kind: 'session'; id: string }
 
 interface CachedFolder {
@@ -17,7 +19,10 @@ interface CachedFolder {
 const cache = new Map<string, CachedFolder>()
 
 function cacheKey(source: FolderSource): string {
-  return `${source.kind}:${source.id}`
+  // Two workspaces can hold the same repo and show different files for it, so
+  // the workspace is part of a folder's identity.
+  const workspaceId = source.kind === 'project' ? source.workspaceId ?? '' : ''
+  return `${source.kind}:${source.id}:${workspaceId}`
 }
 
 export function clearWorkspaceTreeCache(): void {
@@ -51,7 +56,7 @@ export function useWorkspaceTree(source: FolderSource): UseWorkspaceTreeResult {
   useEffect(() => {
     let cancelled = false
     const request = source.kind === 'project'
-      ? window.electronAPI.invoke('files:tree-by-project', source.id)
+      ? window.electronAPI.invoke('files:tree-by-project', source.id, source.workspaceId)
       : window.electronAPI.invoke('files:tree', source.id)
 
     void request

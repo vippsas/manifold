@@ -63,9 +63,9 @@ export function NewAgentForm(props: NewAgentProps & { compact?: boolean }): Reac
 
       {f.error && <p style={modalStyles.errorText}>{f.error}</p>}
 
-      {f.willRunInPlace && f.inPlaceAgentRunning && (
+      {f.inPlaceAgentRunning && (
         <p style={modalStyles.infoText}>
-          ⚠ An agent is already running directly in this repository. Only one in-place agent runs per repo — starting will switch to the existing one.
+          ⚠ An agent is already working in this repository itself. Only one can at a time — starting will switch to it. For a second agent on its own branch, make a workspace.
         </p>
       )}
 
@@ -83,8 +83,6 @@ export function NewAgentForm(props: NewAgentProps & { compact?: boolean }): Reac
       {showAdvanced && (
         <NewAgentAdvanced
           isGitProject={isGitProject}
-          runWithoutWorktree={f.runWithoutWorktree}
-          setRunWithoutWorktree={f.setRunWithoutWorktree}
           runtimeId={f.runtimeId}
           runtimes={f.runtimes}
           setRuntimeId={f.setRuntimeId}

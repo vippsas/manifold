@@ -32,7 +32,6 @@ export const DEFAULT_SETTINGS = {
   autoGenerateMessages: true,
   showCommitAndPrButtons: false,
   sidebarResizeReversed: false,
-  useWorktrees: true,
   favorites: [] as FavoriteRef[],
   keepAwake: false,
   memory: {

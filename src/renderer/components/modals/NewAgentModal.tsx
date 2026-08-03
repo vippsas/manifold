@@ -12,7 +12,6 @@ interface NewAgentModalProps {
   existingSessions: AgentSession[]
   defaultRuntime: string
   defaultAgentMode: 'interactive' | 'chat'
-  defaultUseWorktrees: boolean
   onLaunch: (options: SpawnAgentOptions) => Promise<unknown>
   onResumeSession: (sessionId: string, runtimeId: string) => Promise<void>
   onDeleteSession: (session: AgentSession) => void
@@ -26,7 +25,6 @@ export function NewAgentModal({
   existingSessions,
   defaultRuntime,
   defaultAgentMode,
-  defaultUseWorktrees,
   onLaunch,
   onResumeSession,
   onDeleteSession,
@@ -73,7 +71,6 @@ export function NewAgentModal({
             isGitProject={isGitProject(project)}
             defaultRuntime={workspace?.runtimeId ?? defaultRuntime}
             defaultAgentMode={defaultAgentMode}
-            defaultUseWorktrees={defaultUseWorktrees}
             onLaunch={handleLaunch}
             existingSessions={existingSessions}
             onResumeSession={onResumeSession}

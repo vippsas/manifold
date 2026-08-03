@@ -25,8 +25,6 @@ interface Props {
   onShowCommitAndPrButtonsChange: (enabled: boolean) => void
   sidebarResizeReversed: boolean
   onSidebarResizeReversedChange: (enabled: boolean) => void
-  useWorktrees: boolean
-  onUseWorktreesChange: (enabled: boolean) => void
   uiScale: number
   onUiScaleChange: (scale: number) => void
   searchAiSettings: SearchAiSettings
@@ -79,11 +77,6 @@ export function GeneralSettingsSection(props: Props): React.JSX.Element {
               <input type="checkbox" checked={props.showCommitAndPrButtons} onChange={(event) => props.onShowCommitAndPrButtonsChange(event.target.checked)} style={modalStyles.checkboxInput} />
               Show Commit and Create PR buttons in the status bar
               <span style={modalStyles.helpText}>Reveals the quick-action buttons that open the commit and PR panels from the status bar.</span>
-            </label>
-            <label style={{ ...modalStyles.checkboxField, ...modalStyles.fieldSpanFull }}>
-              <input type="checkbox" checked={props.useWorktrees} onChange={(event) => props.onUseWorktreesChange(event.target.checked)} style={modalStyles.checkboxInput} />
-              Create an isolated git worktree for each new agent
-              <span style={modalStyles.helpText}>When off, new agents run directly in the repository on a new branch. Only one in-place agent can safely run per repo at a time.</span>
             </label>
           </div>
         </SectionCard>

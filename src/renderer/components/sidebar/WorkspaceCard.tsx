@@ -3,13 +3,12 @@ import type { Project, AgentSession, AgentSettingsUpdate } from '../../../shared
 import type { DraftChat } from '../../../shared/draft-chat'
 import type { Workspace } from '../../../shared/workspace-types'
 import { sidebarStyles } from './ProjectSidebar.styles'
-import { AgentItem, formatBranchLabel } from './AgentItem'
+import { AgentItem, formatBranch, formatBranchLabel } from './AgentItem'
 import { DraftAgentItem } from './DraftAgentItem'
 import { InPlaceBadge } from './InPlaceBadge'
 import { WorkspaceGlyph } from './WorkspaceGlyph'
 import { AddFolderGlyph, FilesChevronGlyph, NewAgentGlyph, RepoGlyph } from './SidebarCardActionGlyphs'
-import { projectFolderKey, useFolderDisclosure, worktreeFolderKey } from './folder-disclosure'
-import { dedupeSessionsByWorktree } from '../../hooks/agent-session/agent-siblings'
+import { projectFolderKey, useFolderDisclosure } from './folder-disclosure'
 import type { FolderSource } from '../../hooks/editor/useWorkspaceTree'
 
 export interface WorkspaceCardProps {
@@ -38,11 +37,12 @@ export interface WorkspaceCardProps {
   renderFolderFiles?: (source: FolderSource) => React.ReactNode
 }
 
-/** One workspace: the folders it spans, then the worktrees working across them.
+/** One workspace: the folders it spans, then the agents working across them.
  *
- *  Worktrees are children of the workspace, not of any one folder — a worktree
- *  checks out every folder on the same branch, so nesting it under a single repo
- *  would misrepresent its reach. */
+ *  The workspace *is* the checkout — one per folder, all on its branch — so the
+ *  folder rows are that checkout's folders and an agent row is only an agent.
+ *  Several agents in a workspace share its folders, the way several people share
+ *  one desk; a second branch over the same repos is a second workspace. */
 export function WorkspaceCard({
   workspace,
   projects,
@@ -85,8 +85,9 @@ export function WorkspaceCard({
     ? activeProjectId
     : workspace.projectIds[0]
 
-  const worktrees = dedupeSessionsByWorktree(sessions)
-  const activeWorktreePath = sessions.find((s) => s.id === activeSessionId)?.worktreePath ?? null
+  // The branch belongs to the workspace, so it is named once here rather than on
+  // every agent that happens to be working on it.
+  const branchLabel = workspace.branchName ? formatBranch(workspace.branchName) : null
 
   return (
     <div className={`sidebar-project-group sidebar-project-group--has-agents sidebar-workspace-card${isActive ? ' sidebar-project-group--active' : ''}`}>
@@ -128,6 +129,15 @@ export function WorkspaceCard({
             title={onRenameWorkspace ? 'Double-click to rename' : undefined}
           >
             <span className="truncate" style={{ minWidth: 0 }}>{workspace.name}</span>
+            {branchLabel && (
+              <span
+                className="truncate"
+                style={{ minWidth: 0, color: 'var(--text-tertiary)', fontSize: 'var(--type-ui-micro)' }}
+                title={`Every folder here is checked out on ${workspace.branchName}`}
+              >
+                {branchLabel}
+              </span>
+            )}
           </span>
         )}
         <div className="sidebar-item-actions" style={sidebarStyles.itemRight}>
@@ -177,10 +187,12 @@ export function WorkspaceCard({
         const repoName = repo?.name ?? pid
         const filesOpen = folders.isOpen(projectFolderKey(pid))
         const toggleFiles = (): void => folders.toggle(projectFolderKey(pid))
-        // A live in-place agent has this folder's checkout on its branch, so its
-        // edits land here rather than under a worktree row of its own. Say so on
-        // the folder, where a reader would otherwise have no way to tell.
-        const inPlace = sessions.find((s) => (
+        // In a worktree workspace this row is the workspace's own checkout of the
+        // repo, not the clone — that is where its agents' edits land.
+        const folderPath = workspace.worktreePaths?.[pid] ?? repo?.path ?? pid
+        // A home workspace has no checkout of its own: it is the clone, and a live
+        // agent there edits it directly, on whatever branch it has out.
+        const inPlace = branchLabel ? undefined : sessions.find((s) => (
           s.projectId === pid
           && s.noWorktree
           && (s.status === 'running' || s.status === 'waiting')
@@ -194,7 +206,7 @@ export function WorkspaceCard({
             <div
               className={`sidebar-item-row sidebar-repo-row${isActive && activeProjectId === pid ? ' sidebar-item-row--active' : ''}`}
               style={{ ...sidebarStyles.item, paddingLeft: 16 }}
-              title={repo?.path ?? pid}
+              title={folderPath}
               role="button"
               tabIndex={0}
               aria-expanded={filesOpen}
@@ -243,46 +255,29 @@ export function WorkspaceCard({
             </div>
             {filesOpen && renderFolderFiles && (
               <div className="sidebar-project-files" style={sidebarStyles.projectFiles}>
-                {renderFolderFiles({ kind: 'project', id: pid })}
+                {renderFolderFiles({ kind: 'project', id: pid, workspaceId: workspace.id })}
               </div>
             )}
           </Fragment>
         )
       })}
 
-      {worktrees.map((session) => {
-        const repo = projectById(session.projectId)
-        const siblingOutputting = sessions.some(
-          (s) => s.worktreePath === session.worktreePath && outputtingSessionIds?.has(s.id),
-        )
-        // An in-place agent works in a folder's own checkout, which that folder's
-        // row already opens — it has no second folder of its own.
-        const hasOwnWorktree = session.worktreePath !== '' && session.worktreePath !== repo?.path
-        const worktreeOpen = hasOwnWorktree && folders.isOpen(worktreeFolderKey(session.id))
-        return (
-          <Fragment key={session.id}>
-            <AgentItem
-              session={session}
-              projectPath={repo?.path ?? ''}
-              isActive={session.worktreePath !== '' && session.worktreePath === activeWorktreePath}
-              isOutputting={siblingOutputting}
-              isFilesExpanded={worktreeOpen}
-              onToggleFiles={hasOwnWorktree
-                ? () => folders.toggle(worktreeFolderKey(session.id))
-                : undefined}
-              onSelect={(sessionId) => onSelectSession(sessionId, session.projectId)}
-              onDelete={() => onDeleteAgent?.(session, repo?.path ?? '')}
-              onRename={(settings) => onRenameAgent?.(session.id, settings)}
-              hideAdditionalDirs
-            />
-            {worktreeOpen && renderFolderFiles && (
-              <div className="sidebar-project-files sidebar-project-files--worktree" style={sidebarStyles.worktreeFiles}>
-                {renderFolderFiles({ kind: 'session', id: session.id })}
-              </div>
-            )}
-          </Fragment>
-        )
-      })}
+      {/* Every agent gets a row of its own. They no longer stand for separate
+          worktrees — the folders above are the one checkout they all work in —
+          so agents sharing it must not collapse into a single row. */}
+      {sessions.map((session) => (
+        <AgentItem
+          key={session.id}
+          session={session}
+          projectPath={projectById(session.projectId)?.path ?? ''}
+          isActive={session.id === activeSessionId}
+          isOutputting={outputtingSessionIds?.has(session.id) ?? false}
+          onSelect={(sessionId) => onSelectSession(sessionId, session.projectId)}
+          onDelete={() => onDeleteAgent?.(session, projectById(session.projectId)?.path ?? '')}
+          onRename={(settings) => onRenameAgent?.(session.id, settings)}
+          hideAdditionalDirs
+        />
+      ))}
 
       {drafts.map((draft) => (
         <DraftAgentItem

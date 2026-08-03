@@ -96,7 +96,9 @@ describe('SessionTeardown.killInteractiveSession', () => {
     vi.mocked(gitExec).mockResolvedValue('')
   })
 
-  it('removes the worktree when no other sessions share it', async () => {
+  // Switching modes replaces the agent, not the place it works: the checkout
+  // belongs to the workspace, which is still there afterwards.
+  it('leaves the checkout in place, even as the last agent working in it', async () => {
     const sess = makeSession({ id: 'sess-1' })
     const sessions = new Map([[sess.id, sess]])
     const { teardown } = makeMocks(sessions)
@@ -104,30 +106,6 @@ describe('SessionTeardown.killInteractiveSession', () => {
     await teardown.killInteractiveSession('sess-1')
 
     const calls = vi.mocked(gitExec).mock.calls.map((c) => c[0])
-    expect(calls).toContainEqual(['worktree', 'remove', sess.worktreePath, '--force'])
-  })
-
-  it('keeps the worktree when another live session shares the path', async () => {
-    const a = makeSession({ id: 'sess-a', ptyId: 'pty-a' })
-    const b = makeSession({ id: 'sess-b', ptyId: 'pty-b', runtimeId: 'codex' })
-    const sessions = new Map([[a.id, a], [b.id, b]])
-    const { teardown } = makeMocks(sessions)
-
-    await teardown.killInteractiveSession('sess-a')
-
-    const calls = vi.mocked(gitExec).mock.calls.map((c) => c[0])
-    expect(calls).not.toContainEqual(['worktree', 'remove', a.worktreePath, '--force'])
-  })
-
-  it('removes the worktree when the only other session on the path has already exited', async () => {
-    const a = makeSession({ id: 'sess-a' })
-    const dead = makeSession({ id: 'sess-dead', pid: null, ptyId: '' })
-    const sessions = new Map([[a.id, a], [dead.id, dead]])
-    const { teardown } = makeMocks(sessions)
-
-    await teardown.killInteractiveSession('sess-a')
-
-    const calls = vi.mocked(gitExec).mock.calls.map((c) => c[0])
-    expect(calls).toContainEqual(['worktree', 'remove', a.worktreePath, '--force'])
+    expect(calls).not.toContainEqual(['worktree', 'remove', sess.worktreePath, '--force'])
   })
 })

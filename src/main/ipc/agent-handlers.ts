@@ -165,21 +165,6 @@ export function registerAgentHandlers(deps: IpcDependencies): void {
     debugLog(`[agent:kill] done sessionId=${sessionId}`)
   })
 
-  ipcMain.handle('agent:kill-worktree', async (_event, worktreePath: string) => {
-    debugLog(`[agent:kill-worktree] path=${worktreePath}`)
-    const sessionsOnWorktree = Array.from(sessionManager.listSessions())
-      .filter((s) => s.worktreePath === worktreePath)
-    const idsBefore = sessionsOnWorktree.map((s) => s.id)
-    if (worktreePath) {
-      await fileWatcher.unwatch(worktreePath)
-    }
-    await sessionManager.killAllSessionsOnWorktree(worktreePath)
-    for (const id of idsBefore) {
-      viewStateStore.delete(id)
-    }
-    debugLog(`[agent:kill-worktree] done path=${worktreePath} killed=${idsBefore.length}`)
-  })
-
   ipcMain.handle('agent:delete-app', async (_event, sessionId: string, projectId: string) => {
     // 1. Kill session (also removes worktree if applicable)
     const session = sessionManager.getSession(sessionId)

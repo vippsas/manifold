@@ -380,7 +380,8 @@ textarea:focus {
    12px arms to read as one: on a ~24px search or filter row the top and bottom
    arms meet and draw a solid rule down each side, so the field looks like it
    has left and right borders and nothing else. Reserve it for the tall prompt
-   fields (chat composer, agent name, new project). !important mirrors the old
+   fields (chat composer, new project); the agent name field takes the plain
+   continuous border instead. !important mirrors the old
    border rule: inline `background` shorthands on inputs would otherwise reset
    the bracket layers. Each corner is two thin gradient bars. */
 .reticle-input:focus {

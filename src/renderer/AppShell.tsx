@@ -180,11 +180,6 @@ export function AppShell(p: AppShellProps): React.JSX.Element {
       )}
       <DeleteAgentDialog
         pendingDelete={p.overlays.pendingDelete}
-        siblingCount={p.overlays.pendingDelete
-          ? (p.sessionsByProject[p.overlays.pendingDelete.session.projectId] ?? [])
-              .filter((s) => s.worktreePath !== '' && s.worktreePath === p.overlays.pendingDelete?.session.worktreePath)
-              .length
-          : 0}
         deleting={p.overlays.deletingSessionId === p.overlays.pendingDelete?.session.id}
         onCancel={p.overlays.cancelDeleteAgent}
         onConfirm={p.overlays.confirmDeleteAgent}
@@ -196,7 +191,6 @@ export function AppShell(p: AppShellProps): React.JSX.Element {
         existingSessions={newAgentProject ? (p.sessionsByProject[newAgentProject.id] ?? []) : []}
         defaultRuntime={p.defaultRuntime}
         defaultAgentMode={p.settings.defaultAgentMode ?? 'interactive'}
-        defaultUseWorktrees={p.settings.useWorktrees ?? true}
         onLaunch={async (options) => {
           if (newAgentWorkspace && p.dockState.onLaunchWorkspaceAgent && newAgentProject) {
             return p.dockState.onLaunchWorkspaceAgent(newAgentWorkspace.id, newAgentProject.id, {

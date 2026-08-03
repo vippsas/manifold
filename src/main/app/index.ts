@@ -52,6 +52,8 @@ import { MemoryCompressor } from '../memory/memory-compressor'
 import { MemoryInjector } from '../memory/memory-injector'
 import { WorkspaceStore } from '../workspace/workspace-store'
 import { WorkspaceManager } from '../workspace/workspace-manager'
+import { promoteAgentWorktreesToWorkspaces } from '../workspace/workspace-promotion'
+import { debugLog } from './debug-log'
 import { VerdictStore } from '../store/verdict-store'
 import { VerdictRecorder } from '../session/verdict-recorder'
 import { readClaudeTranscriptUsage, readClaudeTranscriptUsageSync, claudeProjectsDir, type SessionUsage } from '../session/transcript-usage-reader'
@@ -282,4 +284,14 @@ registerAppLifecycle({
   chatStore,
   pluginManager,
   createWindow: doCreateWindow,
+  // A workspace owns its checkout now, so every worktree an agent used to own
+  // becomes the workspace it effectively already was. Runs before the first
+  // paint so the sidebar never shows the old shape, and is idempotent.
+  beforeFirstWindow: async () => {
+    try {
+      await promoteAgentWorktreesToWorkspaces({ store: workspaceStore, projectRegistry, worktreeManager })
+    } catch (err) {
+      debugLog(`[workspace] promoting existing worktrees failed: ${err}`)
+    }
+  },
 })

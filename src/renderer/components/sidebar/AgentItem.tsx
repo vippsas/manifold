@@ -10,7 +10,7 @@ const RUNTIME_LABELS: Record<string, string> = {
   gemini: 'Gemini',
 }
 
-function formatBranch(branchName: string): string {
+export function formatBranch(branchName: string): string {
   return branchName.replace(/^manifold\//, '')
 }
 

@@ -174,9 +174,6 @@ export interface ManifoldSettings {
   autoGenerateMessages: boolean
   showCommitAndPrButtons: boolean
   sidebarResizeReversed: boolean
-  /** Create an isolated git worktree for each new agent. When false, new agents
-   *  run directly in the repository on a new branch. Default true. */
-  useWorktrees: boolean
   /** Ordered, typed favorites. Index 0 maps to ⌘1. */
   favorites?: FavoriteRef[]
   keepAwake: boolean

@@ -12,7 +12,6 @@ const ALLOWED_INVOKE_CHANNELS = [
   'projects:create-new-dialog',
   'agent:spawn',
   'agent:kill',
-  'agent:kill-worktree',
   'agent:delete-app',
   'agent:start-dev-server',
   'agent:interrupt',

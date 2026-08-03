@@ -1,11 +1,9 @@
 import React from 'react'
 
-// Mirrors the "Start a new project" textarea (NoProjectActions `textareaStyle`):
-// the modest --radius-md keeps corners square enough for the targeting-reticle
-// brackets to render — a pill radius would clip them away. No box: the
-// `.reticle-input` resting brackets (theme.css) are the field's edge, dimmed
-// while idle and brightening on focus. Border stays 1px-transparent so the
-// focus reticle has a border-box to paint into without shifting layout.
+// One continuous edge, matching the runtime tiles and Start button below it:
+// the border, background and accent focus ring all come from the global `input`
+// rules in theme.css. Only the radius is restated, at --radius-md rather than
+// the global --radius-sm, so the field rounds like the rest of the form.
 const nameInputStyle: React.CSSProperties = {
   width: '100%',
   boxSizing: 'border-box',
@@ -14,11 +12,7 @@ const nameInputStyle: React.CSSProperties = {
   fontSize: 15,
   lineHeight: '22px',
   fontFamily: 'inherit',
-  background: 'transparent',
-  border: '1px solid transparent',
   borderRadius: 'var(--radius-md)',
-  color: 'var(--text-primary)',
-  outline: 'none',
 }
 
 export function TaskDescriptionField({
@@ -37,7 +31,6 @@ export function TaskDescriptionField({
       <input
         ref={inputRef}
         type="text"
-        className="reticle-input"
         value={value}
         onChange={(e) => onChange(e.target.value)}
         style={nameInputStyle}

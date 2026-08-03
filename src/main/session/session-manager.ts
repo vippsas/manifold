@@ -198,8 +198,6 @@ export class SessionManager {
 
   async killSession(sessionId: string): Promise<void> { await this.killer.killSession(sessionId) }
 
-  async killAllSessionsOnWorktree(worktreePath: string): Promise<void> { await this.killer.killAllSessionsOnWorktree(worktreePath) }
-
   async resumeSession(sessionId: string, runtimeId: string): Promise<AgentSession> { return this.lifecycle.resumeSession(sessionId, runtimeId) }
 
   async renameSession(sessionId: string, displayName: string): Promise<AgentSession> {

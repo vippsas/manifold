@@ -31,7 +31,6 @@ export default (
     existingSessions={[]}
     defaultRuntime="claude"
     defaultAgentMode="interactive"
-    defaultUseWorktrees
     onLaunch={async () => undefined}
     onResumeSession={async () => undefined}
     onDeleteSession={() => undefined}

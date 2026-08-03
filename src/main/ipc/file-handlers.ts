@@ -21,10 +21,16 @@ function isPathAllowed(resolved: string, session: AgentSession): boolean {
   return session.additionalDirs.some((dir) => isUnderDir(resolved, dir))
 }
 
-/** Every folder the user has opened: each registered repository, plus every
- *  session's worktree and extra dirs. */
+/** Every folder the user has opened: each registered repository, each
+ *  workspace's checkout of it, plus every session's worktree and extra dirs.
+ *
+ *  A workspace's checkout is listed in its own right, not only through the
+ *  sessions working in it — its files are browsable before any agent exists. */
 function workspaceRoots(deps: IpcDependencies): string[] {
   const roots = deps.projectRegistry.listProjects().map((project) => project.path)
+  for (const workspace of deps.workspaceManager.list()) {
+    roots.push(...Object.values(workspace.worktreePaths ?? {}))
+  }
   for (const session of deps.sessionManager.listSessions()) {
     if (session.worktreePath) roots.push(session.worktreePath)
     roots.push(...session.additionalDirs)
@@ -36,7 +42,7 @@ function workspaceRoots(deps: IpcDependencies): string[] {
 type PathGuard = (resolved: string, session: AgentSession) => boolean
 
 export function registerFileHandlers(deps: IpcDependencies): void {
-  const { sessionManager, fileWatcher, projectRegistry } = deps
+  const { sessionManager, fileWatcher, projectRegistry, workspaceManager } = deps
 
   // The sidebar shows several repos and worktrees at once and opens a file from
   // any of them without first selecting it, so a path is authorized by "the user
@@ -64,10 +70,13 @@ export function registerFileHandlers(deps: IpcDependencies): void {
     return fileWatcher.getFileTree(session.worktreePath)
   })
 
-  ipcMain.handle('files:tree-by-project', (_event, projectId: string) => {
+  // A repo can be open in several workspaces at once, each with its own checkout
+  // of it, so the workspace (when given) decides which files these are.
+  ipcMain.handle('files:tree-by-project', (_event, projectId: string, workspaceId?: string) => {
     const project = projectRegistry.getProject(projectId)
     if (!project) throw new Error(`Project not found: ${projectId}`)
-    return fileWatcher.getFileTree(project.path)
+    const inWorkspace = workspaceId ? workspaceManager.get(workspaceId)?.worktreePaths?.[projectId] : undefined
+    return fileWatcher.getFileTree(inWorkspace ?? project.path)
   })
 
   ipcMain.handle('files:tree-dir', (_event, sessionId: string, dirPath: string) => {

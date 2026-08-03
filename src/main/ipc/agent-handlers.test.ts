@@ -296,24 +296,16 @@ describe('registerAgentHandlers — kill, rename, delete-app', () => {
     expect(deps.viewStateStore.delete).toHaveBeenCalledWith('sess-1')
   })
 
-  it('agent:kill-worktree ignores the retired locked flag', async () => {
+  // Deleting a checkout is a workspace action now, so no agent channel offers it.
+  it('registers no channel that deletes a worktree', async () => {
     const { registerAgentHandlers } = await import('./agent-handlers')
-    const deps = {
-      sessionManager: {
-        listSessions: vi.fn(() => [{ id: 'sess-1', worktreePath: '/wt', locked: true }]),
-        killAllSessionsOnWorktree: vi.fn(async () => undefined),
-      },
+
+    registerAgentHandlers({
+      sessionManager: { listSessions: vi.fn(() => []) },
       fileWatcher: { unwatch: vi.fn(async () => undefined), watch: vi.fn() },
       viewStateStore: { delete: vi.fn() },
-      dockLayoutStore: { delete: vi.fn() },
-    }
+    } as never)
 
-    registerAgentHandlers(deps as never)
-    const handler = mocks.handlers.get('agent:kill-worktree')
-    if (!handler) throw new Error('agent:kill-worktree handler was not registered')
-
-    await handler({}, '/wt')
-    expect(deps.fileWatcher.unwatch).toHaveBeenCalledWith('/wt')
-    expect(deps.sessionManager.killAllSessionsOnWorktree).toHaveBeenCalledWith('/wt')
+    expect(mocks.handlers.has('agent:kill-worktree')).toBe(false)
   })
 })

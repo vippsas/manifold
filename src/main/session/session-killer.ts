@@ -51,26 +51,6 @@ export class SessionKiller {
     this.deps.notifySessionsChanged(session.projectId)
   }
 
-  /** Closes every agent sharing one checkout, leaving the checkout itself alone.
-   *  Used when a whole project's agents have to go (app deletion, mode switch). */
-  async killAllSessionsOnWorktree(worktreePath: string): Promise<void> {
-    const matching = Array.from(this.deps.sessions.values()).filter(
-      (session) => session.worktreePath === worktreePath,
-    )
-    debugLog(`[session] killAllSessionsOnWorktree path=${worktreePath} count=${matching.length}`)
-    if (matching.length === 0) return
-
-    const projectId = matching[0].projectId
-
-    for (const session of matching) {
-      this.deps.sessions.delete(session.id)
-      this.cleanupSession(session)
-      void this.verdictRecorder?.onSessionTerminated(session.id)
-    }
-
-    if (projectId) this.deps.notifySessionsChanged(projectId)
-  }
-
   private cleanupSession(session: InternalSession): void {
     const fileWatcher = this.deps.getFileWatcher()
     if (fileWatcher) {

@@ -44,30 +44,15 @@ export function useKillAgent(): (sessionId: string) => Promise<void> {
   }, [])
 }
 
+/** Deleting an agent closes that agent and nothing else. The folders it worked
+ *  in belong to its workspace, which its siblings are still using — removing
+ *  the workspace is what removes them. */
 export function useDeleteAgent(
-  sessions: AgentSession[],
   setSessions: React.Dispatch<React.SetStateAction<AgentSession[]>>,
   setActiveSessionId: React.Dispatch<React.SetStateAction<string | null>>
-): (sessionId: string, mode?: 'session' | 'worktree') => Promise<void> {
-  // Keep a ref so the returned callback's identity doesn't churn on every
-  // sessions update but still sees the current list.
-  const sessionsRef = useRef(sessions)
-  sessionsRef.current = sessions
-
+): (sessionId: string) => Promise<void> {
   return useCallback(
-    async (sessionId: string, mode: 'session' | 'worktree' = 'worktree'): Promise<void> => {
-      const target = sessionsRef.current.find((s) => s.id === sessionId)
-      if (mode === 'worktree' && target && target.worktreePath && !target.noWorktree) {
-        await window.electronAPI.invoke('agent:kill-worktree', target.worktreePath)
-        const killedPath = target.worktreePath
-        setSessions((prev) => prev.filter((s) => s.worktreePath !== killedPath))
-        setActiveSessionId((prev) =>
-          prev && sessionsRef.current.find((s) => s.id === prev)?.worktreePath === killedPath
-            ? null
-            : prev,
-        )
-        return
-      }
+    async (sessionId: string): Promise<void> => {
       await window.electronAPI.invoke('agent:kill', sessionId)
       setSessions((prev) => prev.filter((s) => s.id !== sessionId))
       setActiveSessionId((prev) => (prev === sessionId ? null : prev))

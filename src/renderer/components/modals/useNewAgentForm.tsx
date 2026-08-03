@@ -14,7 +14,6 @@ export interface NewAgentProps {
   isGitProject: boolean
   defaultRuntime: string
   defaultAgentMode?: AgentMode
-  defaultUseWorktrees?: boolean
   onLaunch: (options: SpawnAgentOptions) => Promise<unknown>
   existingSessions?: AgentSession[]
   onResumeSession?: (sessionId: string, runtimeId: string) => Promise<void>
@@ -33,20 +32,17 @@ export function useNewAgentForm({
   isGitProject,
   defaultRuntime,
   defaultAgentMode = 'interactive',
-  defaultUseWorktrees = true,
   onLaunch,
   existingSessions = [],
   focusTrigger,
 }: NewAgentProps) {
   const [mode, setMode] = useState<AgentMode>(defaultAgentMode)
-  // Only one in-place agent runs per repo. If one already exists, a new agent must
-  // use a worktree — default the toggle off so clicking Start makes a real 2nd
-  // agent instead of just focusing the existing in-place one.
+  // This form starts an agent in the repo's own clone — its home workspace. An
+  // agent no longer picks a worktree of its own: a worktree is a workspace, so
+  // wanting one means making one, which is why there is no choice here. Only one
+  // agent can hold the clone at a time.
   const hasLiveInPlaceAgent = existingSessions.some(
     (session) => session.noWorktree && (session.status === 'running' || session.status === 'waiting'),
-  )
-  const [runWithoutWorktree, setRunWithoutWorktree] = useState(
-    hasLiveInPlaceAgent ? false : !defaultUseWorktrees,
   )
   const [taskDescription, setTaskDescription] = useState('')
   const [runtimeId, setRuntimeId] = useState(defaultRuntime)
@@ -115,11 +111,9 @@ export function useNewAgentForm({
   const runtimeInstalled = selectedRuntime?.installed !== false
   const reusableSessions = existingSessions.filter((session) => (
     (session.status === 'done' || session.status === 'error')
-    && !session.noWorktree
     && !session.groupId
   ))
   const inPlaceAgentRunning = hasLiveInPlaceAgent
-  const willRunInPlace = runWithoutWorktree || useExisting
 
   const canSubmit = (() => {
     if (!runtimeInstalled) return false
@@ -202,7 +196,7 @@ export function useNewAgentForm({
         if (useExisting && existingSubTab === 'pr') {
           return { ...base, prIdentifier: String(selectedPr), noWorktree: true }
         }
-        return runWithoutWorktree ? { ...base, noWorktree: true } : base
+        return { ...base, noWorktree: true }
       })()
 
       const finalOptions: SpawnAgentOptions = { ...launchOptions, nonInteractive: effectiveMode === 'chat' }
@@ -219,12 +213,11 @@ export function useNewAgentForm({
         })
       }
 
-      // A no-worktree spawn switches the project's real working copy to the base
-      // branch (no typed name) or a new branch off it (typed name). Either way, if
-      // the tree is dirty, confirm before carrying/clobbering the changes. (A PR
-      // checkout goes through its own path and is not covered here.)
-      const willSwitchInPlace = isGitProject
-        && (runWithoutWorktree || (useExisting && existingSubTab === 'branch'))
+      // Starting here switches the repo's real working copy to the base branch (no
+      // typed name) or a new branch off it (typed name). Either way, if the tree is
+      // dirty, confirm before carrying/clobbering the changes. (A PR checkout goes
+      // through its own path and is not covered here.)
+      const willSwitchInPlace = isGitProject && !(useExisting && existingSubTab === 'pr')
       if (willSwitchInPlace) {
         setLoading(true)
         let dirty = false
@@ -243,7 +236,7 @@ export function useNewAgentForm({
 
       await runLaunch(finalOptions)
     },
-    [useExisting, existingSubTab, projectId, runtimeId, taskDescription, selectedBranch, selectedPr, canSubmit, isGitProject, mode, defaultAgentMode, defaultRuntime, runWithoutWorktree, runLaunch, hasLiveInPlaceAgent]
+    [useExisting, existingSubTab, projectId, runtimeId, taskDescription, selectedBranch, selectedPr, canSubmit, isGitProject, mode, defaultAgentMode, defaultRuntime, runLaunch, hasLiveInPlaceAgent]
   )
 
   const confirmDirtyLaunch = useCallback((): void => {
@@ -276,8 +269,6 @@ export function useNewAgentForm({
     runtimes,
     selectedRuntime,
     runtimeInstalled,
-    runWithoutWorktree,
-    setRunWithoutWorktree,
     useExisting,
     setUseExisting,
     existingSubTab,
@@ -299,7 +290,6 @@ export function useNewAgentForm({
     canSubmit,
     reusableSessions,
     inPlaceAgentRunning,
-    willRunInPlace,
     inputRef,
     submit,
     dirtyConfirmDialog,

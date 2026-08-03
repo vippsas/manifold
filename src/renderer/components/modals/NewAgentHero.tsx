@@ -29,14 +29,6 @@ export function NewAgentHero(props: NewAgentProps & { projectName: string }): Re
     f.loading && f.mode === mode ? 'Starting…' : label
   )
 
-  // Says where the agent will end up rather than what the click does, so the
-  // caption never reads as the opposite of the label above it.
-  const worktreeCaption = f.useExisting
-    ? 'Works in your repository, on the chosen branch'
-    : f.runWithoutWorktree
-      ? 'Works in your repository'
-      : 'Gets its own isolated worktree'
-
   const existingCaption = !f.useExisting
     ? 'Starts on a new branch'
     : f.existingSubTab === 'branch'
@@ -79,17 +71,10 @@ export function NewAgentHero(props: NewAgentProps & { projectName: string }): Re
         />
       </div>
 
+      {/* No worktree choice: this agent works in the repository itself. One that
+          needs a checkout of its own is a workspace, made from the sidebar. */}
       {isGitProject && (
         <div style={heroStyles.grid}>
-          <NewAgentHeroCard
-            variant="option"
-            icon={WorktreeGlyph}
-            label="Run without a worktree"
-            caption={worktreeCaption}
-            pressed={f.runWithoutWorktree || f.useExisting}
-            disabled={f.useExisting || f.loading}
-            onClick={() => f.setRunWithoutWorktree(!f.runWithoutWorktree)}
-          />
           <NewAgentHeroCard
             variant="option"
             icon={BranchGlyph}
@@ -137,9 +122,9 @@ export function NewAgentHero(props: NewAgentProps & { projectName: string }): Re
 
       {f.error && <p style={modalStyles.errorText}>{f.error}</p>}
 
-      {f.willRunInPlace && f.inPlaceAgentRunning && (
+      {f.inPlaceAgentRunning && (
         <p style={modalStyles.infoText}>
-          ⚠ An agent is already running directly in this repository. Only one in-place agent runs per repo — starting will switch to the existing one.
+          ⚠ An agent is already working in this repository itself. Only one can at a time — starting will switch to it. For a second agent on its own branch, make a workspace.
         </p>
       )}
 

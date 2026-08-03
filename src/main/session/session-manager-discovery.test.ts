@@ -276,7 +276,7 @@ describe('SessionManager — discovery / resume', () => {
   })
 
   describe('killSession on dormant sessions', () => {
-    it('removes worktree without killing pty for dormant sessions', async () => {
+    it('closes a dormant session without killing a pty or touching its checkout', async () => {
       ;(worktreeManager.listWorktrees as ReturnType<typeof vi.fn>).mockResolvedValue([
         { branch: 'manifold/bergen', path: '/repo/.manifold/worktrees/manifold-bergen' },
       ])
@@ -287,10 +287,7 @@ describe('SessionManager — discovery / resume', () => {
       await sessionManager.killSession(dormantId)
 
       expect(ptyPool.kill).not.toHaveBeenCalled()
-      expect(worktreeManager.removeWorktree).toHaveBeenCalledWith(
-        '/repo',
-        '/repo/.manifold/worktrees/manifold-bergen',
-      )
+      expect(worktreeManager.removeWorktree).not.toHaveBeenCalled()
       expect(sessionManager.getSession(dormantId)).toBeUndefined()
     })
   })
