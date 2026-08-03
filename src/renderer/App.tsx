@@ -186,7 +186,7 @@ export function App(): React.JSX.Element {
   const { worktreeSessionId, projectSessionId } = useShellSessions(worktreeShellCwd, shellProjectCwd, shellSessionKey)
 
   const editorHandlers = useEditorPaneHandlers({
-    activeSessionId, activeProjectId, sessionsByProject, projects,
+    activeSessionId, activeProjectId, primarySessionId, sessionsByProject, projects,
     restoredSessionId: viewState.restoredSessionId,
     codeView, dockLayout, ensureEditorVisible, handleSelectFile, setActiveSession,
     onRequestDeleteAgent: overlays.requestDeleteAgent,
@@ -281,6 +281,28 @@ export function App(): React.JSX.Element {
     setActiveWorkspaceId((current) => (current === id ? null : current))
   }, [removeProject, removeWorkspace, workspaces])
 
+  // "Copy to new worktree": a new workspace over the same folders. Creation cuts
+  // the worktrees eagerly, so by the time it lands in the sidebar it is a real
+  // place on a fresh branch — entering it drops you on its empty agent view.
+  const copyWorkspaceToWorktree = useCallback(async (id: string): Promise<void> => {
+    const source = workspaces.find((candidate) => candidate.id === id)
+    if (!source) return
+    const names = new Set(workspaces.map((w) => w.name))
+    const base = source.name.replace(/ \d+$/, '')
+    let counter = 2
+    while (names.has(`${base} ${counter}`)) counter += 1
+    const created = await createWorkspace({
+      name: `${base} ${counter}`,
+      projectIds: source.projectIds,
+      runtimeId: source.runtimeId,
+    })
+    setActiveWorkspaceId(created.id)
+    if (created.projectIds[0]) setActiveProject(created.projectIds[0])
+    // The copy has no agents yet; landing on the source's agent would look like
+    // nothing happened. An empty agent view is the new place asking to be used.
+    setActiveSession(null)
+  }, [createWorkspace, setActiveProject, setActiveSession, workspaces])
+
   const dockState: DockAppState = {
     sessionId: effectiveSessionId, primarySessionId,
     onOpenDashboard: (cardId?: string) => { overlays.setDashboardInitialCard(cardId ?? null); overlays.setShowDashboard(true) },
@@ -336,9 +358,30 @@ export function App(): React.JSX.Element {
     activeWorkspaceId,
     sessionsByWorkspace,
     onNewWorkspace: () => setNewWorkspaceVisible(true),
-    onSelectWorkspace: (id: string) => { setActiveWorkspaceId(id) },
+    // Clicking the card is entering the workspace: the main view must show *its*
+    // agents. Two workspaces can span the same folders (a copy on a fresh
+    // worktree), so the active project alone can't tell them apart — when the
+    // current agent isn't one of this workspace's, jump to one that is, or to
+    // the empty agent view when it has none yet.
+    onSelectWorkspace: (id: string) => {
+      setActiveWorkspaceId(id)
+      const wsSessions = sessionsByWorkspace[id] ?? []
+      if (activeSessionId && wsSessions.some((s) => s.id === activeSessionId)) return
+      const target = wsSessions[0]
+      if (target) {
+        overlays.handleSelectSession(target.id, target.projectId)
+        return
+      }
+      const workspace = workspaces.find((w) => w.id === id)
+      const homeProjectId = activeProjectId && workspace?.projectIds.includes(activeProjectId)
+        ? activeProjectId
+        : workspace?.projectIds[0]
+      if (homeProjectId) setActiveProject(homeProjectId)
+      setActiveSession(null)
+    },
     onRenameWorkspace: (id: string, name: string) => { void renameWorkspace(id, name) },
     onRemoveWorkspace: removeWorkspaceWithRepos,
+    onCopyWorkspace: (id: string) => { void copyWorkspaceToWorktree(id) },
     onLaunchWorkspaceAgent: async (
       workspaceId: string,
       homeProjectId: string,

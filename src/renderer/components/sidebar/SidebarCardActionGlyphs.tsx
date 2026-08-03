@@ -2,6 +2,29 @@ export function NewAgentGlyph(): React.JSX.Element {
   return <span aria-hidden="true">+</span>
 }
 
+/** A branch forking off — "copy this workspace onto a fresh worktree". */
+export function CopyWorkspaceGlyph(): React.JSX.Element {
+  return (
+    <svg
+      width="14"
+      height="14"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden="true"
+    >
+      <circle cx="6" cy="5" r="2.4" />
+      <circle cx="6" cy="19" r="2.4" />
+      <circle cx="18" cy="12" r="2.4" />
+      <path d="M6 7.4v9.2" />
+      <path d="M6 9c0 3 4.5 3 9.6 3" />
+    </svg>
+  )
+}
+
 /** Disclosure chevron on a repo row — points right when its files are hidden,
  *  down when they are showing. Matches the file tree's own directory chevron so
  *  a repo reads as the folder its files hang under. */

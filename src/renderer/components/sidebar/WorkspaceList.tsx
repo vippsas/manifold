@@ -1,5 +1,5 @@
 import React, { useCallback, useState } from 'react'
-import type { Project, AgentSession, AgentSettingsUpdate } from '../../../shared/types'
+import type { Project, AgentSession } from '../../../shared/types'
 import type { DraftChat } from '../../../shared/draft-chat'
 import type { Workspace } from '../../../shared/workspace-types'
 import { sidebarStyles } from './ProjectSidebar.styles'
@@ -14,7 +14,6 @@ export interface WorkspaceListProps {
   activeWorkspaceId: string | null
   activeProjectId?: string | null
   sessionsByWorkspace: Record<string, AgentSession[]>
-  activeSessionId?: string | null
   outputtingSessionIds?: Set<string>
   drafts: DraftChat[]
   activeDraftId: string | null
@@ -22,13 +21,10 @@ export interface WorkspaceListProps {
   onRenameWorkspace?: (id: string, name: string) => void
   onRemoveWorkspace: (id: string) => Promise<void>
   onNewWorkspace?: () => void
-  onNewAgent: (projectId?: string, workspaceId?: string) => void
-  onSelectSession: (sessionId: string, projectId: string) => void
+  onCopyWorkspace?: (id: string) => void
   onSelectRepo?: (workspaceId: string, projectId: string) => void
   onAddProject?: (workspaceId: string) => void | Promise<void>
   onRemoveProject?: (workspaceId: string, projectId: string) => void
-  onDeleteAgent?: (session: AgentSession, projectPath: string) => void
-  onRenameAgent?: (sessionId: string, settings: AgentSettingsUpdate) => Promise<void> | void
   onSelectDraft: (id: string) => void
   onDiscardDraft: (id: string) => void
   /** Renders a folder's file tree under its row while it is open. Injected by
@@ -45,7 +41,6 @@ export function WorkspaceList({
   activeWorkspaceId,
   activeProjectId,
   sessionsByWorkspace,
-  activeSessionId,
   outputtingSessionIds,
   drafts,
   activeDraftId,
@@ -53,13 +48,10 @@ export function WorkspaceList({
   onRenameWorkspace,
   onRemoveWorkspace,
   onNewWorkspace,
-  onNewAgent,
-  onSelectSession,
+  onCopyWorkspace,
   onSelectRepo,
   onAddProject,
   onRemoveProject,
-  onDeleteAgent,
-  onRenameAgent,
   onSelectDraft,
   onDiscardDraft,
   renderFolderFiles,
@@ -73,15 +65,6 @@ export function WorkspaceList({
       onSelectWorkspace(id)
     },
     [onSelectWorkspace, touchProject],
-  )
-
-  const selectSession = useCallback(
-    (sessionId: string, projectId: string): void => {
-      const holder = workspaces.find((w) => w.projectIds.includes(projectId))
-      if (holder) touchProject(holder.id)
-      onSelectSession(sessionId, projectId)
-    },
-    [onSelectSession, touchProject, workspaces],
   )
 
   const handleRemove = useCallback(
@@ -112,7 +95,6 @@ export function WorkspaceList({
           projects={projects}
           isActive={workspace.id === activeWorkspaceId}
           sessions={sessionsByWorkspace[workspace.id] ?? []}
-          activeSessionId={activeSessionId}
           activeProjectId={activeProjectId}
           outputtingSessionIds={outputtingSessionIds}
           drafts={drafts.filter((d) => workspace.projectIds.includes(d.projectId))}
@@ -121,13 +103,10 @@ export function WorkspaceList({
           onRenameWorkspace={onRenameWorkspace}
           onRemoveWorkspace={handleRemove}
           removing={removing === workspace.id}
-          onNewAgent={onNewAgent}
-          onSelectSession={selectSession}
+          onCopyWorkspace={onCopyWorkspace}
           onSelectRepo={onSelectRepo}
           onAddProject={onAddProject}
           onRemoveProject={onRemoveProject}
-          onDeleteAgent={onDeleteAgent}
-          onRenameAgent={onRenameAgent}
           onSelectDraft={onSelectDraft}
           onDiscardDraft={onDiscardDraft}
           renderFolderFiles={renderFolderFiles}

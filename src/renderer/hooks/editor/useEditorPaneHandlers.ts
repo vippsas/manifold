@@ -15,6 +15,8 @@ interface SearchOpenTarget {
 interface UseEditorPaneHandlersArgs {
   activeSessionId: string | null
   activeProjectId: string | null
+  /** The session shown in the primary `agent` panel; its tab's × closes the agent. */
+  primarySessionId: string | null
   sessionsByProject: Record<string, AgentSession[]>
   projects: Project[]
   restoredSessionId: string | null
@@ -57,7 +59,7 @@ export interface UseEditorPaneHandlersResult {
 
 export function useEditorPaneHandlers(args: UseEditorPaneHandlersArgs): UseEditorPaneHandlersResult {
   const {
-    activeSessionId, activeProjectId, sessionsByProject, projects, restoredSessionId,
+    activeSessionId, activeProjectId, primarySessionId, sessionsByProject, projects, restoredSessionId,
     codeView, dockLayout, ensureEditorVisible, handleSelectFile, setActiveSession, onRequestDeleteAgent,
   } = args
 
@@ -147,10 +149,13 @@ export function useEditorPaneHandlers(args: UseEditorPaneHandlersArgs): UseEdito
   }, [codeView, dockLayout])
 
   const handleClosePanel = useCallback((panelId: string): void => {
-    const siblingSessionId = parseSiblingSessionId(panelId)
-    if (siblingSessionId) {
-      const session = (sessionsByProject[activeProjectId ?? ''] ?? []).find((s) => s.id === siblingSessionId)
-        ?? Object.values(sessionsByProject).flat().find((s) => s.id === siblingSessionId)
+    // An agent tab *is* its agent, so its × closes the agent (behind the usual
+    // confirm) rather than hiding a panel. The primary `agent` panel itself
+    // stays — it is the workspace's agent surface, empty or not.
+    const agentSessionId = panelId === 'agent' ? primarySessionId : parseSiblingSessionId(panelId)
+    if (agentSessionId) {
+      const session = (sessionsByProject[activeProjectId ?? ''] ?? []).find((s) => s.id === agentSessionId)
+        ?? Object.values(sessionsByProject).flat().find((s) => s.id === agentSessionId)
       if (!session) return
       const projectPath = projects.find((p) => p.id === session.projectId)?.path ?? ''
       onRequestDeleteAgent(session, projectPath)
@@ -160,7 +165,7 @@ export function useEditorPaneHandlers(args: UseEditorPaneHandlersArgs): UseEdito
       codeView.removePane(panelId, dockLayout.editorPanelIds.find((id) => id !== panelId) ?? null)
     }
     dockLayout.closePanel(panelId)
-  }, [codeView, dockLayout, sessionsByProject, activeProjectId, projects, onRequestDeleteAgent])
+  }, [codeView, dockLayout, sessionsByProject, activeProjectId, primarySessionId, projects, onRequestDeleteAgent])
 
   return {
     lastFileOpenRequest,

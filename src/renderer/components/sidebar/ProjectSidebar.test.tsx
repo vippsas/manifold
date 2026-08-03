@@ -6,7 +6,6 @@ import {
   installElectronApi,
   installLocalStorage,
   renderSidebar,
-  sampleSessions,
 } from './ProjectSidebar.test-helpers'
 
 beforeEach(() => {
@@ -50,36 +49,28 @@ describe('ProjectSidebar', () => {
     expect(screen.getByText('No repositories yet')).toBeInTheDocument()
   })
 
-  it('hangs worktrees off the workspace rather than nesting them under a folder', () => {
+  // Agents are the tabs of the main view's Agent panel now; the card only shows
+  // where work happens (folders, branch) and that someone is working (the dot).
+  it('shows no agent rows — agents live in the main view', () => {
     renderSidebar()
 
     const card = screen.getByText('alpha-space').closest<HTMLElement>('.sidebar-workspace-card')
-    expect(within(card!).getByText('oslo')).toBeInTheDocument()
-    expect(within(card!).getByText('bergen')).toBeInTheDocument()
-    // The worktree rows are siblings of the folder row, not children of it.
-    const folderRow = within(card!).getByText('Alpha').closest<HTMLElement>('.sidebar-repo-row')
-    expect(within(folderRow!).queryByText('oslo')).not.toBeInTheDocument()
+    expect(within(card!).queryByText('oslo')).not.toBeInTheDocument()
+    expect(within(card!).queryByText('bergen')).not.toBeInTheDocument()
+    expect(within(card!).queryByText('Claude')).not.toBeInTheDocument()
   })
 
-  it('renders agent runtime labels', () => {
+  it('pulses a dot on the workspace name while one of its agents is outputting', () => {
+    renderSidebar({ outputtingSessionIds: new Set(['s1']) })
+
+    const card = screen.getByText('alpha-space').closest<HTMLElement>('.sidebar-workspace-card')
+    expect(within(card!).getByLabelText('An agent is working in this workspace')).toBeInTheDocument()
+  })
+
+  it('shows no dot while its agents are quiet', () => {
     renderSidebar()
 
-    expect(screen.getByText('Claude')).toBeInTheDocument()
-    expect(screen.getByText('Codex')).toBeInTheDocument()
-  })
-
-  it('calls onSelectSession with sessionId and projectId when a worktree is clicked', () => {
-    const { props } = renderSidebar()
-
-    fireEvent.click(screen.getByText('bergen'))
-
-    expect(props.onSelectSession).toHaveBeenCalledWith('s2', 'p1')
-  })
-
-  it('highlights the active worktree', () => {
-    renderSidebar({ activeSessionId: 's1' })
-
-    expect(screen.getByTitle('Claude - alpha/oslo')).toHaveClass('sidebar-item-row--active')
+    expect(screen.queryByLabelText('An agent is working in this workspace')).not.toBeInTheDocument()
   })
 
   it('calls onNewProject when Add Repository is clicked', () => {
@@ -98,15 +89,16 @@ describe('ProjectSidebar', () => {
     expect(buttons.map((button) => button.getAttribute('aria-label'))).toEqual(['Add Repository'])
   })
 
-  it('puts New agent and Add folder on the workspace header', () => {
+  it('puts Copy to new worktree and Add folder on the workspace header, and no New agent', () => {
     const { props } = renderSidebar()
 
     const header = screen.getByText('alpha-space').closest<HTMLElement>('.sidebar-project-row')
-    fireEvent.click(within(header!).getByRole('button', { name: 'Add agent to alpha-space' }))
+    fireEvent.click(within(header!).getByRole('button', { name: 'Copy alpha-space to a new worktree' }))
     fireEvent.click(within(header!).getByRole('button', { name: 'Add folder to alpha-space' }))
 
-    expect(props.onNewAgent).toHaveBeenCalledWith('p1', 'w1')
+    expect(props.onCopyWorkspace).toHaveBeenCalledWith('w1')
     expect(props.onAddProjectToWorkspace).toHaveBeenCalledWith('w1')
+    expect(within(header!).queryByRole('button', { name: /Add agent/ })).not.toBeInTheDocument()
   })
 
   it('selecting a folder row calls onSelectWorkspaceRepo', () => {
@@ -226,56 +218,15 @@ describe('ProjectSidebar', () => {
     expect(screen.queryByRole('button', { name: 'Workspaces' })).not.toBeInTheDocument()
   })
 
-  it('calls onRequestDeleteAgent with the worktree home folder path', () => {
-    const { props } = renderSidebar()
+  it('keeps stripping the manifold/ prefix from the workspace branch label', () => {
+    renderSidebar({
+      workspaces: [
+        { id: 'w1', name: 'alpha-space', projectIds: ['p1'], createdAt: '2024-01-01', branchName: 'manifold/alpha-space', worktreePaths: { p1: '/wt/alpha' } },
+      ],
+      sessionsByWorkspace: { w1: [] },
+    })
 
-    fireEvent.click(screen.getByLabelText('Delete oslo'))
-
-    expect(props.onRequestDeleteAgent).toHaveBeenCalledTimes(1)
-    const [session, projectPath] = props.onRequestDeleteAgent.mock.calls[0]
-    expect(session.id).toBe('s1')
-    expect(projectPath).toBe('/repos/alpha')
-  })
-
-  it('does not trigger onSelectSession when delete is clicked', () => {
-    const { props } = renderSidebar()
-
-    fireEvent.click(screen.getByLabelText('Delete oslo'))
-
-    expect(props.onSelectSession).not.toHaveBeenCalled()
-  })
-
-  // Several agents share the workspace's checkout the way several people share
-  // one desk, so each one keeps its own row rather than collapsing into it.
-  it('gives every agent sharing a checkout its own row', () => {
-    const siblings: AgentSession[] = [
-      { id: 's1', projectId: 'p1', runtimeId: 'claude', branchName: 'alpha/oslo', worktreePath: '/wt1', status: 'running', pid: 1, additionalDirs: [] },
-      { id: 's9', projectId: 'p1', runtimeId: 'codex', branchName: 'alpha/oslo', worktreePath: '/wt1', status: 'running', pid: 9, additionalDirs: [] },
-    ]
-
-    renderSidebar({ sessionsByWorkspace: { w1: siblings, w2: [] } })
-
-    expect(screen.getAllByText('oslo')).toHaveLength(2)
-  })
-
-  it('keeps finished worktrees visible', () => {
-    const finished: AgentSession[] = [
-      { id: 's3', projectId: 'p2', runtimeId: 'gemini', branchName: 'beta/stavanger', worktreePath: '/wt3', status: 'done', pid: 3, additionalDirs: [] },
-    ]
-
-    renderSidebar({ sessionsByWorkspace: { w1: sampleSessions, w2: finished } })
-
-    expect(screen.getByText('stavanger')).toBeInTheDocument()
-  })
-
-  it('keeps stripping legacy manifold-prefixed branch names', () => {
-    const legacy: AgentSession[] = [
-      { id: 's1', projectId: 'p1', runtimeId: 'claude', branchName: 'manifold/oslo', worktreePath: '/wt1', status: 'running', pid: 1, additionalDirs: [] },
-    ]
-
-    renderSidebar({ sessionsByWorkspace: { w1: legacy, w2: [] } })
-
-    expect(screen.getByText('oslo')).toBeInTheDocument()
+    expect(screen.getByTitle('Every folder here is checked out on manifold/alpha-space')).toHaveTextContent(/^alpha-space$/)
   })
 
   it('renders a draft chat row in the workspace holding its repo', () => {

@@ -1,7 +1,7 @@
 // Folders in the sidebar behave like the folders of a VS Code workspace: a folder
 // row opens the workspace's checkout of that repo, any number can be open at once,
-// and opening one changes nothing else about the app. Agent rows have no folders
-// of their own — the workspace's folders are the ones its agents work in.
+// and opening one changes nothing else about the app. Agents render no sidebar
+// rows at all — they are the tabs of the main view's Agent panel.
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { screen, fireEvent } from '@testing-library/react'
 import type { FolderSource } from '../../hooks/editor/useWorkspaceTree'
@@ -69,18 +69,6 @@ describe('sidebar folders', () => {
     fireEvent.click(screen.getByText('Alpha'))
 
     expect(props.onSelectWorkspaceRepo).toHaveBeenCalledWith('w1', 'p1')
-    expect(props.onSelectSession).not.toHaveBeenCalled()
-  })
-
-  // An agent works in the workspace's folders, which are already listed above
-  // it, so its row selects it and nothing else.
-  it('selects the agent when its row is clicked, opening no folder', () => {
-    const { props } = renderWithFiles()
-
-    fireEvent.click(screen.getByText('oslo'))
-
-    expect(props.onSelectSession).toHaveBeenCalledWith('s1', 'p1')
-    expect(screen.queryByTestId('files-session-s1')).not.toBeInTheDocument()
   })
 
   it('remembers every open folder across a restart', () => {

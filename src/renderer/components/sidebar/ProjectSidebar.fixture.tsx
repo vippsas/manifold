@@ -82,11 +82,11 @@ const worktreeTree = node('/worktrees/docs-navigation', 'docs-navigation', [
   node('/worktrees/docs-navigation/README.md', 'README.md'),
 ])
 
-// Disclosure state is read from localStorage on mount, so the fixture seeds both
-// kinds of folder open at once: a workspace folder's checkout and a worktree's.
+// Disclosure state is read from localStorage on mount, so the fixture seeds two
+// workspace folders open at once.
 localStorage.setItem(
   'manifold.sidebar.openFolders.v1',
-  JSON.stringify(['project:frontend', 'project:docs', 'session:session-2']),
+  JSON.stringify(['project:frontend', 'project:docs']),
 )
 
 export default (
@@ -94,12 +94,7 @@ export default (
     <ProjectSidebar
       projects={projects}
       activeProjectId="frontend"
-      activeSessionId={workspaceSession.id}
       outputtingSessionIds={new Set([workspaceSession.id])}
-      onSelectSession={() => undefined}
-      onRenameAgent={() => undefined}
-      onRequestDeleteAgent={() => undefined}
-      onNewAgent={() => undefined}
       onNewProject={() => undefined}
       onNewWorkspace={() => undefined}
       workspaces={[workspace, docsWorkspace]}
@@ -111,6 +106,7 @@ export default (
       onSelectWorkspace={() => undefined}
       onRenameWorkspace={() => undefined}
       onRemoveWorkspace={async () => undefined}
+      onCopyWorkspace={() => undefined}
       onSelectWorkspaceRepo={() => undefined}
       onAddProjectToWorkspace={() => undefined}
       onRemoveProjectFromWorkspace={() => undefined}

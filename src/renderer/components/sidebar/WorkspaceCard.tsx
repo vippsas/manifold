@@ -1,5 +1,5 @@
 import React, { Fragment, useCallback, useState } from 'react'
-import type { Project, AgentSession, AgentSettingsUpdate } from '../../../shared/types'
+import type { Project, AgentSession } from '../../../shared/types'
 import type { DraftChat } from '../../../shared/draft-chat'
 import type { Workspace } from '../../../shared/workspace-types'
 import { sidebarStyles } from './ProjectSidebar.styles'
@@ -72,10 +72,6 @@ export function WorkspaceCard({
     setNameDraft(null)
   }, [nameDraft, onRenameWorkspace, workspace.id, workspace.name])
 
-  const homeProjectId = isActive && activeProjectId && workspace.projectIds.includes(activeProjectId)
-    ? activeProjectId
-    : workspace.projectIds[0]
-
   // The branch belongs to the workspace, so it is named once here rather than on
   // every agent that happens to be working on it.
   const branchLabel = workspace.branchName ? formatBranch(workspace.branchName) : null
@@ -146,17 +142,17 @@ export function WorkspaceCard({
           </span>
         )}
         <div className="sidebar-item-actions" style={sidebarStyles.itemRight}>
-          {homeProjectId && (
+          {onCopyWorkspace && (
             <button
               type="button"
-              onClick={(e) => { e.stopPropagation(); onNewAgent(homeProjectId, workspace.id) }}
+              onClick={(e) => { e.stopPropagation(); onCopyWorkspace(workspace.id) }}
               onKeyDown={(e) => e.stopPropagation()}
               className="sidebar-icon-button"
               style={sidebarStyles.addButton}
-              aria-label={`Add agent to ${workspace.name}`}
-              title="New agent"
+              aria-label={`Copy ${workspace.name} to a new worktree`}
+              title="Copy to new worktree — a new workspace with these folders on a fresh branch"
             >
-              <NewAgentGlyph />
+              <CopyWorkspaceGlyph />
             </button>
           )}
           {onAddProject && (
@@ -266,23 +262,6 @@ export function WorkspaceCard({
           </Fragment>
         )
       })}
-
-      {/* Every agent gets a row of its own. They no longer stand for separate
-          worktrees — the folders above are the one checkout they all work in —
-          so agents sharing it must not collapse into a single row. */}
-      {sessions.map((session) => (
-        <AgentItem
-          key={session.id}
-          session={session}
-          projectPath={projectById(session.projectId)?.path ?? ''}
-          isActive={session.id === activeSessionId}
-          isOutputting={outputtingSessionIds?.has(session.id) ?? false}
-          onSelect={(sessionId) => onSelectSession(sessionId, session.projectId)}
-          onDelete={() => onDeleteAgent?.(session, projectById(session.projectId)?.path ?? '')}
-          onRename={(settings) => onRenameAgent?.(session.id, settings)}
-          hideAdditionalDirs
-        />
-      ))}
 
       {drafts.map((draft) => (
         <DraftAgentItem

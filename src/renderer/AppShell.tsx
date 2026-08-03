@@ -8,6 +8,7 @@ import type { UseGitOperationsResult } from './hooks/editor/useGitOperations'
 import type { UseUpdateLogResult } from '../shared/useUpdateLog'
 import { PANEL_COMPONENTS, DockStateContext } from './components/editor/editor-shell/dock-panels'
 import { ShellHeaderActions } from './components/terminal/ShellHeaderActions'
+import { AgentHeaderActions } from './components/editor/editor-shell/AgentHeaderActions'
 import { WorkspaceHeaderActions } from './components/editor/editor-shell/WorkspaceHeaderActions'
 import { OnboardingView } from './components/modals/OnboardingView'
 import { DashboardHomeView } from './components/home/DashboardHomeView'
@@ -46,6 +47,17 @@ const DOCK_THEME: DockviewTheme = {
 export interface NewAgentTarget {
   projectId: string
   workspaceId?: string
+}
+
+/** Dockview takes one left-header component for every group; each of these
+ *  renders null outside its own group (agent tabs vs. shell tabs). */
+function LeftHeaderActions(props: React.ComponentProps<typeof ShellHeaderActions>): React.JSX.Element {
+  return (
+    <>
+      <AgentHeaderActions {...props} />
+      <ShellHeaderActions {...props} />
+    </>
+  )
 }
 
 export interface AppShellProps {
@@ -139,7 +151,7 @@ export function AppShell(p: AppShellProps): React.JSX.Element {
                 components={PANEL_COMPONENTS}
                 onReady={(e) => p.onDockReady(e.api)}
                 defaultTabComponent={DockTab}
-                leftHeaderActionsComponent={ShellHeaderActions}
+                leftHeaderActionsComponent={LeftHeaderActions}
                 rightHeaderActionsComponent={WorkspaceHeaderActions}
                 watermarkComponent={EmptyWatermark}
               />

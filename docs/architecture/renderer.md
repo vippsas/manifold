@@ -141,8 +141,8 @@ is why it stays in the set that marks a tab as having no close button of its own
 sidebar-collapse buttons — hiding a panel is done by closing it (tab `×` or the activity
 bar); only the double-click sash width-cycle gesture remains from the collapse machinery
 (`hooks/dock-layout/useSidebarHandleCycle.ts`). Apps are per-worktree, so the launcher list lives in the agent's options
-(`components/modals/AgentSettingsModal.tsx`) — opened from the gear on the agent's
-sidebar row — and only for the active session; there is no "+ Apps" header button. Double-clicking a tab
+(`components/modals/AgentSettingsModal.tsx`) — opened from the gear in the agent group's
+tab bar (`AgentHeaderActions.tsx`) — and only for the active session; there is no "+ Apps" header button. Double-clicking a tab
 toggles **focus mode**: `DockTab`'s `onDoubleClick` calls `onToggleMaximize` (`DockTab.tsx:31`), which
 maximizes that pane's group via dockview's native `maximizeGroup`/`exitMaximizedGroup`
 (`hooks/dock-layout/dock-layout-helpers.ts:243`) — hiding every other pane and both sidebars
@@ -211,8 +211,8 @@ All add/remove/focus/split/resize logic lives in the `hooks/dock-layout/` subsys
 **The panel set.** Panel ids are fixed in `PANEL_IDS` with display titles in
 `PANEL_TITLES` (`hooks/dock-layout/dock-layout-helpers.ts:16`, `:21`):
 
-- `projects` → **Repositories** — `ProjectSidebar` (`ProjectSidebar.tsx:38`): a **Workspaces** toolbar with one **Add Repository** action, then `FavoritesList` and `WorkspaceList`. The body is a flat list of bordered workspace cards and nothing else — there is no standalone-repository list, no `With agents` / `Repositories` category headers, and no Enable-Workspaces setting; a card spanning one folder *is* the simple case. Every card stays expanded when another is selected. A card header carries **New agent** (opens `NewAgentModal` homed on the workspace's current folder), **Add folder** (native picker, attaches the chosen local project to that workspace), and remove; double-clicking the name renames the workspace (`WorkspaceCard.tsx:126`, `:136`, `:149`). A folder row offers removal only while the workspace spans more than one, since the last one leaving would take the workspace with it (`WorkspaceCard.tsx:213`). **A folder row and an agent row mean one thing each.** Clicking a folder makes it the workspace's home folder and opens its files, and leaves the agent alone (`App.tsx:332`) — only an agent row changes what you are working in; favorite jumps follow the same rule (`App.tsx:66`). Clearing the session on a folder click, as it once did, was only visible when that folder was *already* the active one: moving to a different folder switches project, and `useAgentSession` then restores that project's remembered agent (`useAgentSession.ts:133`), so the same click on the same row did two different things depending on where you came from. A folder whose checkout a **live** in-place agent holds shows that agent's branch as an `InPlaceBadge` (`WorkspaceCard.tsx:183`, `InPlaceBadge.tsx`), because an in-place agent edits the folder itself instead of a worktree row of its own. The **New workspace** row uses the layered workspace glyph shown on each card. Once at least one repository exists, adding a repository and creating a workspace use body-portaled dialog overlays (`AddRepositoryModal`, `NewWorkspaceModal`), leaving the dock and current agent view mounted underneath; only the true first visit with zero repositories uses the full-pane `OnboardingView`. Rows have neither a manual fetch control nor a favorite-star action: `useBranchStaleness` refreshes the active repository's remote-tracking state on activation and window focus, throttled to once every three minutes, while previously saved favorites remain available in `FavoritesList`. Each agent row (`AgentItem`) marks no-worktree agents with a gold **"in-place"** badge — the same badge the folder row wears, there naming the branch — and chat agents with `◐`; its gear opens `AgentSettingsModal` to rename the agent, choose its runtime, and switch between the chat UI and interactive terminal. Saving a runtime/view change first asks for confirmation, then retires the old session, clears its chat, and starts a new session on the same branch, worktree, files, and workspace roots. Name-only changes do not replace the session. The former lock/delete-protection affordance is retired, including for sessions that still carry an old persisted `locked` flag. Every row is also the disclosure for its **files** — see below.
-- `agent` → **Agent** — `AgentPanel` (`components/editor/editor-shell/dock-agent-panel.tsx:86`): renders a draft chat, an `OnboardingView` (no agent yet), an `AgentChatView` (non-interactive chat-mode), or an xterm `TerminalPane` (interactive runtime) depending on session state. **The form offers no worktree choice at all.** An agent never cuts a checkout of its own — a checkout of one's own *is* a workspace, made from the sidebar — so every launch here sets `SpawnAgentOptions.noWorktree` and the agent works in the repository itself (`useNewAgentForm.tsx`). There is no "Run without a worktree" card or checkbox and no `useWorktrees` setting behind it; both are gone, along with the `defaultUseWorktrees` prop that threaded the setting down. With no typed name the agent works directly on its **base branch** (named after it); with a typed name it cuts a **new branch off the base**. The branch picker sets that base branch (`baseBranch`, default = project base), which also becomes the session's diff/PR base. When another agent is already working in the repository, a non-blocking warning says so and points at making a workspace for a second one. Because the launch switches the project's real working copy, the form pre-checks `git:has-uncommitted-changes` and — if dirty — shows a `ConfirmDialog` (portaled to `document.body` to escape dockview's transform); confirming re-launches with `allowDirtyWorktree`. A blank name sets `autoName` (no random-city placeholder).
+- `projects` → **Repositories** — `ProjectSidebar` (`ProjectSidebar.tsx:34`): a **Workspaces** toolbar with one **Add Repository** action, then `FavoritesList` and `WorkspaceList`. The body is a flat list of bordered workspace cards and nothing else — there is no standalone-repository list, no `With agents` / `Repositories` category headers, and no Enable-Workspaces setting; a card spanning one folder *is* the simple case. Every card stays expanded when another is selected. **A card shows where work happens, never who is working: it renders no agent rows and no New-agent button.** Agents are the tabs of the Agent panel (below); the card only carries a pulsing `status-dot` by the workspace name while any of its agents is streaming (`WorkspaceCard.tsx:126`) and, on a home workspace's folder row, the gold `InPlaceBadge` naming the branch a **live** in-place agent holds there (`WorkspaceCard.tsx:235`, `InPlaceBadge.tsx`). A card header carries **Copy to new worktree** (`CopyWorkspaceGlyph`, `WorkspaceCard.tsx:155` — a new workspace over the same folders: `App.tsx:287` derives a ` 2`/` 3`-suffixed name, calls `workspace:create`, activates the copy and clears the session so the empty agent view greets the fresh checkout), **Add folder** (native picker, attaches the chosen local project to that workspace), and remove; double-clicking the name renames the workspace (`WorkspaceCard.tsx:119`). A folder row offers removal only while the workspace spans more than one, since the last one leaving would take the workspace with it (`WorkspaceCard.tsx:250`). **Clicking the card enters the workspace** (`App.tsx:366`): when the active agent isn't one of this workspace's, the main view jumps to one that is — two workspaces can span the same folders, so the active project alone can't tell them apart — or to the empty agent view when it has none. Clicking a folder makes it the workspace's home folder and opens its files, and leaves the agent alone — favorite jumps follow the same rule (`App.tsx:65`). The **New workspace** row uses the layered workspace glyph shown on each card. Once at least one repository exists, adding a repository and creating a workspace use body-portaled dialog overlays (`AddRepositoryModal`, `NewWorkspaceModal`), leaving the dock and current agent view mounted underneath; only the true first visit with zero repositories uses the full-pane `OnboardingView`. Rows have neither a manual fetch control nor a favorite-star action: `useBranchStaleness` refreshes the active repository's remote-tracking state on activation and window focus, throttled to once every three minutes, while previously saved favorites remain available in `FavoritesList`. Every folder row is also the disclosure for its **files** — see below.
+- `agent` → **Agent** — `AgentPanel` (`components/editor/editor-shell/dock-agent-panel.tsx:86`): renders a draft chat, an `OnboardingView` (no agent yet), an `AgentChatView` (non-interactive chat-mode), or an xterm `TerminalPane` (interactive runtime) depending on session state. **The group's tab bar is where agents live and are managed.** One tab per agent on the active checkout (`useAgentSiblingDockTabs`); a **+** in the tab bar (`AgentHeaderActions.tsx:19`, mounted through `LeftHeaderActions` beside the shell's own +, `AppShell.tsx:54`) opens a runtime × Terminal/Chat menu of the installed runtimes and spawns straight into the active workspace via `onLaunchWorkspaceAgent` — falling back to whichever workspace holds the active repo when none is focused. A gear beside it opens `AgentSettingsModal` for the active agent (rename, runtime, chat↔terminal — saving a runtime/view change first asks for confirmation, then retires the old session and starts a new one on the same branch, worktree, files, and workspace roots; name-only changes do not replace the session). **A tab's × closes the agent, not a panel**: both the primary `agent` tab and sibling tabs route through `handleClosePanel` to the delete-confirm dialog (`useEditorPaneHandlers.ts:151`); only the empty agent panel (no session) closes as a plain panel. **The form offers no worktree choice at all.** An agent never cuts a checkout of its own — a checkout of one's own *is* a workspace, made from the sidebar — so every launch here sets `SpawnAgentOptions.noWorktree` and the agent works in the repository itself (`useNewAgentForm.tsx`). There is no "Run without a worktree" card or checkbox and no `useWorktrees` setting behind it; both are gone, along with the `defaultUseWorktrees` prop that threaded the setting down. With no typed name the agent works directly on its **base branch** (named after it); with a typed name it cuts a **new branch off the base**. The branch picker sets that base branch (`baseBranch`, default = project base), which also becomes the session's diff/PR base. When another agent is already working in the repository, a non-blocking warning says so and points at making a workspace for a second one. Because the launch switches the project's real working copy, the form pre-checks `git:has-uncommitted-changes` and — if dirty — shows a `ConfirmDialog` (portaled to `document.body` to escape dockview's transform); confirming re-launches with `allowDirtyWorktree`. A blank name sets `autoName` (no random-city placeholder).
 
   **Two layouts, one hook.** All of that state and the launch itself live in
   `useNewAgentForm` (`modals/useNewAgentForm.tsx`), which two presentations consume. A plain
@@ -226,8 +226,8 @@ All add/remove/focus/split/resize logic lives in the `hooks/dock-layout/` subsys
   the remembered `defaultAgentMode` — the card marked `↵`. While "Continue on an existing
   branch or PR" is on, the worktree card is disabled and shown pressed (the branch decides
   where the agent runs), and the launch cards stay disabled until a branch or PR is chosen.
-  `NewAgentModal` (⌘N, sidebar **Add agent**) and the workspace panel keep the classic
-  `NewAgentForm` with its Terminal/Chat pill, Start button, and **Advanced** disclosure.
+  `NewAgentModal` (⌘N — no sidebar button opens it anymore) and the workspace panel keep the
+  classic `NewAgentForm` with its Terminal/Chat pill, Start button, and **Advanced** disclosure.
 
   In a workspace the form renders **compact**, and there the runtime is chosen from tiles rather
   than the Advanced dropdown: one tile per runtime, the agent's brand mark over the name
@@ -254,30 +254,28 @@ All add/remove/focus/split/resize logic lives in the `hooks/dock-layout/` subsys
 
 **The sidebar has one kind of root: the workspace.** There is no standalone-repository list —
 a workspace spanning a single folder is the ordinary case, so `WorkspaceList` is the whole
-sidebar (`WorkspaceList.tsx:42`). Each card lays out its workspace as folders first, then the
-worktrees working across them: a worktree checks out *every* folder on one branch, so it hangs
-off the card rather than under any one repo (`WorkspaceCard.tsx:174`, `:237`). The card's rows
-step 8px at a time — repo row at 16px, its files and the worktrees at 24px, a worktree's files
-at 32px (`WorkspaceCard.tsx:186`, `ProjectSidebar.styles.ts:68`, `:71`; `styles/theme.css:812`).
+sidebar (`WorkspaceList.tsx:37`). A card is the workspace's name (with its branch label on a
+worktree workspace, `WorkspaceCard.tsx:81`) over its folder rows — nothing else hangs off it
+but a draft-chat row while one exists (`WorkspaceCard.tsx:270`). The card's rows step 8px at a
+time — repo row at 16px, its files at 24px (`WorkspaceCard.tsx:209`,
+`ProjectSidebar.styles.ts:68`, `:71`).
 
 **Files are not a panel — the rows are folders.** There is no `fileTree` panel and no Files
-tab. The sidebar behaves like the folders of a VS Code workspace: a repo row discloses its own
-checkout and a worktree row discloses its worktree, **any number open at once**, each
-remembered across launches as a `project:<id>` / `session:<id>` key in `localStorage` under
-`manifold.sidebar.openFolders.v1` (`sidebar/folder-disclosure.ts:57`; `WorkspaceCard.tsx:177`,
-`:245`). Every mounted copy of the hook shares that one set through a listener list, because a
-copy per card would save its own snapshot and drop the other's folders
-(`folder-disclosure.ts:17`, `:63`, `:71`). A repo row selects the workspace's home folder *and*
-opens its files, while its chevron opens them without moving home — disclosure alone never
-switches sessions, which would reload the agent, the editor and the tree
-(`WorkspaceCard.tsx:181`, `:200`). Agent rows follow the same split (`AgentItem.tsx:59`,
-`:107`), and both use `.sidebar-files-toggle`, named for the job rather than the worktree
-(`styles/theme.css:842`). An in-place (`noWorktree`) agent works in a folder's own checkout,
-which that folder's row already opens, so it gets no second folder (`WorkspaceCard.tsx:244`).
+tab. The sidebar behaves like the folders of a VS Code workspace: a folder row discloses the
+workspace's checkout of that repo (the worktree in a worktree workspace, the clone in a home
+one, `WorkspaceCard.tsx:197`), **any number open at once**, each remembered across launches as
+a `project:<id>` key in `localStorage` under `manifold.sidebar.openFolders.v1`
+(`sidebar/folder-disclosure.ts:57`; `WorkspaceCard.tsx:189`). Every mounted copy of the hook
+shares that one set through a listener list, because a copy per card would save its own
+snapshot and drop the other's folders (`folder-disclosure.ts:17`, `:63`, `:71`). A repo row
+selects the workspace's home folder *and* opens its files, while its chevron
+(`.sidebar-files-toggle`, named for the job, `styles/theme.css:842`) opens them without moving
+home — disclosure alone never switches sessions, which would reload the agent, the editor and
+the tree (`WorkspaceCard.tsx:204`, `:225`).
 
 Nothing reorders the list while you work: workspaces are sorted by the recency read at startup
 and then **held**, so picking an agent records the visit for the next launch without sliding
-its card to the top under the cursor (`sidebar-recency.ts:45`, `WorkspaceList.tsx:68`, `:108`).
+its card to the top under the cursor (`sidebar-recency.ts:45`, `WorkspaceList.tsx:60`, `:91`).
 
 Several folders showing at once is possible because **the main process authorizes file paths
 against the workspace roots** — every registered repo plus every session's worktree — not
@@ -294,10 +292,8 @@ names the folder, and one strip per open folder would stack up (`FolderFilesTree
 no rule down the left of a tree, no rounded row fills, and no focus glow: at sidebar density
 those read as clutter (`ProjectSidebar.styles.ts:68`, `styles/theme.css:703`). The whole
 sidebar is one ladder in the file tree's own 8px per-depth step, so each disclosure chevron
-sits exactly one step right of its parent's: repo row, then the repo's checkout and its
-agents, then an agent's worktree files (`ProjectSidebar.styles.ts:69`, `:72`;
-`.sidebar-agent-row`, `styles/theme.css:721`). Indenting the agent row further than the files
-hanging under it was the visible bug — the ladder stepped right and then back left. The tree paints no
+sits exactly one step right of its parent's: the workspace header, then its folder rows, then
+a folder's files (`ProjectSidebar.styles.ts:69`, `:72`). The tree paints no
 background of its own so it reads as part of the sidebar rather than a card dropped into it
 (`file-tree/FileTree.styles.ts:16`). Rows use a single 16px glyph column like VS Code — a
 rotating chevron for directories, the file-type icon for files, no folder glyph — so every

@@ -95,6 +95,8 @@ export interface DockAppState {
   onSelectWorkspace: (id: string) => void
   onRenameWorkspace?: (id: string, name: string) => void
   onRemoveWorkspace: (id: string) => Promise<void>
+  /** Copy a workspace onto a fresh worktree: a new workspace with the same folders. */
+  onCopyWorkspace?: (id: string) => void
   onSelectWorkspaceRepo?: (workspaceId: string, projectId: string) => void
   onLaunchWorkspaceAgent?: (workspaceId: string, homeProjectId: string, options: { runtimeId: string; prompt: string; nonInteractive?: boolean }) => Promise<unknown>
   onAddProjectToWorkspace?: (workspaceId: string) => void | Promise<void>

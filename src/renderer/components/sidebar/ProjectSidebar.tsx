@@ -1,5 +1,5 @@
 import React from 'react'
-import type { Project, AgentSession, AgentSettingsUpdate } from '../../../shared/types'
+import type { Project, AgentSession } from '../../../shared/types'
 import type { DraftChat } from '../../../shared/draft-chat'
 import type { Workspace } from '../../../shared/workspace-types'
 import { sidebarStyles } from './ProjectSidebar.styles'
@@ -11,12 +11,7 @@ import type { FolderSource } from '../../hooks/editor/useWorkspaceTree'
 export interface ProjectSidebarProps {
   projects: Project[]
   activeProjectId: string | null
-  activeSessionId: string | null
   outputtingSessionIds: Set<string>
-  onSelectSession: (sessionId: string, projectId: string) => void
-  onRenameAgent: (sessionId: string, settings: AgentSettingsUpdate) => Promise<void> | void
-  onRequestDeleteAgent: (session: AgentSession, projectPath: string) => void
-  onNewAgent: (projectId?: string, workspaceId?: string) => void
   onNewProject: () => void
   onNewWorkspace?: () => void
   workspaces: Workspace[]
@@ -25,6 +20,7 @@ export interface ProjectSidebarProps {
   onSelectWorkspace: (id: string) => void
   onRenameWorkspace?: (id: string, name: string) => void
   onRemoveWorkspace: (id: string) => Promise<void>
+  onCopyWorkspace?: (id: string) => void
   onSelectWorkspaceRepo?: (workspaceId: string, projectId: string) => void
   onAddProjectToWorkspace?: (workspaceId: string) => void | Promise<void>
   onRemoveProjectFromWorkspace?: (workspaceId: string, projectId: string) => void
@@ -38,12 +34,7 @@ export interface ProjectSidebarProps {
 export function ProjectSidebar({
   projects,
   activeProjectId,
-  activeSessionId,
   outputtingSessionIds,
-  onSelectSession,
-  onRenameAgent,
-  onRequestDeleteAgent,
-  onNewAgent,
   onNewProject,
   onNewWorkspace,
   workspaces,
@@ -52,6 +43,7 @@ export function ProjectSidebar({
   onSelectWorkspace,
   onRenameWorkspace,
   onRemoveWorkspace,
+  onCopyWorkspace,
   onSelectWorkspaceRepo,
   onAddProjectToWorkspace,
   onRemoveProjectFromWorkspace,
@@ -84,7 +76,6 @@ export function ProjectSidebar({
           activeWorkspaceId={activeWorkspaceId ?? null}
           activeProjectId={activeProjectId}
           sessionsByWorkspace={sessionsByWorkspace ?? {}}
-          activeSessionId={activeSessionId}
           outputtingSessionIds={outputtingSessionIds}
           drafts={drafts}
           activeDraftId={activeDraftId}
@@ -92,13 +83,10 @@ export function ProjectSidebar({
           onRenameWorkspace={onRenameWorkspace}
           onRemoveWorkspace={onRemoveWorkspace}
           onNewWorkspace={onNewWorkspace}
-          onNewAgent={onNewAgent}
-          onSelectSession={onSelectSession}
+          onCopyWorkspace={onCopyWorkspace}
           onSelectRepo={onSelectWorkspaceRepo}
           onAddProject={onAddProjectToWorkspace}
           onRemoveProject={onRemoveProjectFromWorkspace}
-          onDeleteAgent={onRequestDeleteAgent}
-          onRenameAgent={onRenameAgent}
           onSelectDraft={onSelectDraft}
           onDiscardDraft={onDiscardDraft}
           renderFolderFiles={renderFolderFiles}
