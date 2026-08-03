@@ -4,6 +4,7 @@ import type { WorkspaceRepoStatus } from '../../shared/workspace-types'
 import { isGitProject } from '../../shared/project-kind'
 import { gitExec } from '../git/git-exec'
 import { gitStatus, parseStatusWithConflicts } from '../fs/file-watcher-utils'
+import { withRepoLock } from '../git/repo-lock'
 import { getRuntimeById } from '../agent/runtimes'
 import type { IpcDependencies } from './types'
 import { resolveSession } from './types'
@@ -156,6 +157,42 @@ export function registerGitHandlers(deps: IpcDependencies): void {
       return { projectId, projectName: project.name, checkoutPath, branch, changes }
     }))
     return statuses.filter((status): status is WorkspaceRepoStatus => status !== null)
+  })
+
+  /** The workspace's checkout of a member repo — the target of the Source
+   *  Control panel's commit and branch operations. Throws for plain folders,
+   *  which the panel never lists. */
+  function resolveWorkspaceCheckout(workspaceId: string, projectId: string): { projectPath: string; checkoutPath: string } {
+    const workspace = workspaceManager.get(workspaceId)
+    if (!workspace) throw new Error(`Workspace not found: ${workspaceId}`)
+    const project = projectRegistry.getProject(projectId)
+    if (!project) throw new Error(`Project not found: ${projectId}`)
+    if (!isGitProject(project)) throw new Error('This project is a plain folder, not a git repository')
+    return { projectPath: project.path, checkoutPath: workspace.worktreePaths?.[projectId] ?? project.path }
+  }
+
+  // Commit one repo checkout of a workspace — the Source Control panel's
+  // per-repo commit input. Same managed commit as the session-scoped
+  // `git:commit` (stage-all with agent-scratch excludes), just addressed by
+  // workspace membership instead of a session.
+  ipcMain.handle('git:workspace-commit', async (_event, workspaceId: string, projectId: string, message: string) => {
+    const { checkoutPath } = resolveWorkspaceCheckout(workspaceId, projectId)
+    await gitOps.commit(checkoutPath, message)
+  })
+
+  // Switch (or create) the branch of one workspace checkout — VS Code's
+  // click-the-branch-name flow. A plain `git checkout` in the checkout path:
+  // remote-only branches get git's DWIM local tracking branch, and branches
+  // held by another worktree are already filtered out of `git:list-branches`.
+  // Serialized against other mutating git ops on the repo, like every checkout
+  // in branch-checkout-manager. Emits `workspace:list-changed` so the sidebar
+  // re-reads its folder branch badges.
+  ipcMain.handle('git:workspace-checkout', async (_event, workspaceId: string, projectId: string, branchName: string, createNew: boolean) => {
+    const { projectPath, checkoutPath } = resolveWorkspaceCheckout(workspaceId, projectId)
+    await withRepoLock(projectPath, () =>
+      gitExec(createNew ? ['checkout', '-b', branchName] : ['checkout', branchName], checkoutPath),
+    )
+    deps.send?.('workspace:list-changed')
   })
 
   // Whether the project's main working tree has uncommitted changes. Used by the

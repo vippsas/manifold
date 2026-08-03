@@ -75,6 +75,8 @@ const ALLOWED_INVOKE_CHANNELS = [
   'git:has-uncommitted-changes',
   'git:current-branch',
   'git:workspace-status',
+  'git:workspace-commit',
+  'git:workspace-checkout',
   'dock-layout:get',
   'dock-layout:set',
   'font:load-data',

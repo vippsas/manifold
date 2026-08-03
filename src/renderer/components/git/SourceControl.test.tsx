@@ -101,6 +101,41 @@ describe('SourceControl', () => {
     expect(screen.getByText('No changes')).toBeInTheDocument()
   })
 
+  it('commits a repo through its message input and refreshes', async () => {
+    mockInvoke.mockResolvedValue(statuses)
+    render(<SourceControl workspace={workspace} onSelectFile={vi.fn()} />)
+
+    await waitFor(() => {
+      expect(screen.getByText('app.ts')).toBeInTheDocument()
+    })
+    // Only the repo with changes offers a message box.
+    expect(screen.getAllByPlaceholderText(/to commit on/)).toHaveLength(1)
+
+    fireEvent.change(screen.getByPlaceholderText(/to commit on/), { target: { value: 'fix: polish checkout' } })
+    const callsBefore = mockInvoke.mock.calls.length
+    fireEvent.click(screen.getByRole('button', { name: /Commit/ }))
+
+    await waitFor(() => {
+      expect(mockInvoke).toHaveBeenCalledWith('git:workspace-commit', 'ws-1', 'p1', 'fix: polish checkout')
+    })
+    // A refresh followed the commit.
+    await waitFor(() => {
+      expect(mockInvoke.mock.calls.slice(callsBefore).map((c) => c[0])).toContain('git:workspace-status')
+    })
+  })
+
+  it('shows the branch as a switcher button in each repo header', async () => {
+    mockInvoke.mockResolvedValue(statuses)
+    render(<SourceControl workspace={workspace} onSelectFile={vi.fn()} />)
+
+    await waitFor(() => {
+      expect(screen.getByText('repo-one')).toBeInTheDocument()
+    })
+    const branchButtons = screen.getAllByRole('button', { name: /manifold\/feature-x/ })
+    expect(branchButtons).toHaveLength(2)
+    expect(branchButtons[0]).toHaveAttribute('aria-haspopup', 'listbox')
+  })
+
   it('refreshes when the file watcher reports changes', async () => {
     mockInvoke.mockResolvedValue(statuses)
     render(<SourceControl workspace={workspace} onSelectFile={vi.fn()} />)

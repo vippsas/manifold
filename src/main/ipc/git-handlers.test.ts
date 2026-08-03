@@ -225,3 +225,83 @@ describe('registerGitHandlers git:workspace-status', () => {
     await expect(handler({}, 'gone')).resolves.toEqual([])
   })
 })
+
+describe('registerGitHandlers workspace commit and checkout', () => {
+  beforeEach(() => {
+    vi.resetModules()
+    vi.clearAllMocks()
+    mocks.handlers.clear()
+  })
+
+  const workspace = {
+    id: 'ws-1',
+    projectIds: ['p1'],
+    worktreePaths: { p1: '/worktrees/repo-one' },
+  }
+
+  async function registerHandlers(overrides: Record<string, unknown> = {}): Promise<{ commit: ReturnType<typeof vi.fn>; send: ReturnType<typeof vi.fn> }> {
+    const { registerGitHandlers } = await import('./git-handlers')
+    const commit = vi.fn(async () => {})
+    const send = vi.fn()
+    registerGitHandlers({
+      gitOps: { commit },
+      sessionManager: {},
+      projectRegistry: {
+        getProject: vi.fn(() => ({ id: 'p1', name: 'repo-one', path: '/repos/repo-one', kind: 'git' })),
+      },
+      workspaceManager: { get: vi.fn(() => workspace) },
+      send,
+      ...overrides,
+    } as never)
+    return { commit, send }
+  }
+
+  it('git:workspace-commit commits the workspace checkout via gitOps', async () => {
+    const { commit } = await registerHandlers()
+    const handler = mocks.handlers.get('git:workspace-commit')!
+
+    await handler({}, 'ws-1', 'p1', 'fix: adjust checkout flow')
+
+    expect(commit).toHaveBeenCalledWith('/worktrees/repo-one', 'fix: adjust checkout flow')
+  })
+
+  it('git:workspace-checkout switches an existing branch and pokes the sidebar', async () => {
+    mocks.gitExec.mockResolvedValue('')
+    const { send } = await registerHandlers()
+    const handler = mocks.handlers.get('git:workspace-checkout')!
+
+    await handler({}, 'ws-1', 'p1', 'feature/login', false)
+
+    expect(mocks.gitExec).toHaveBeenCalledWith(['checkout', 'feature/login'], '/worktrees/repo-one')
+    expect(send).toHaveBeenCalledWith('workspace:list-changed')
+  })
+
+  it('git:workspace-checkout creates a new branch with checkout -b', async () => {
+    mocks.gitExec.mockResolvedValue('')
+    await registerHandlers()
+    const handler = mocks.handlers.get('git:workspace-checkout')!
+
+    await handler({}, 'ws-1', 'p1', 'feature/new-thing', true)
+
+    expect(mocks.gitExec).toHaveBeenCalledWith(['checkout', '-b', 'feature/new-thing'], '/worktrees/repo-one')
+  })
+
+  it('git:workspace-checkout surfaces git failures and does not poke the sidebar', async () => {
+    mocks.gitExec.mockRejectedValue(new Error('local changes would be overwritten'))
+    const { send } = await registerHandlers()
+    const handler = mocks.handlers.get('git:workspace-checkout')!
+
+    await expect(handler({}, 'ws-1', 'p1', 'main', false)).rejects.toThrow('local changes would be overwritten')
+    expect(send).not.toHaveBeenCalled()
+  })
+
+  it('rejects plain-folder projects', async () => {
+    await registerHandlers({
+      projectRegistry: {
+        getProject: vi.fn(() => ({ id: 'p1', name: 'plain', path: '/plain', kind: 'folder' })),
+      },
+    })
+    const handler = mocks.handlers.get('git:workspace-commit')!
+    await expect(handler({}, 'ws-1', 'p1', 'msg')).rejects.toThrow('not a git repository')
+  })
+})
