@@ -27,7 +27,7 @@ The module imports only `contextBridge`, `ipcRenderer`, and `webUtils` from `ele
 (`src/preload/index.ts:1`) — nothing from `fs`, `path`, or `child_process`. Three
 `as const` arrays declare the permitted channels:
 
-- `ALLOWED_INVOKE_CHANNELS` (`src/preload/index.ts:3`) — 125 request/response channels, the `<namespace>:<verb>` names the main-process IPC handlers register (`projects:*`, `agent:*`, `files:*`, `diff:*`, `git:*` including `git:has-uncommitted-changes` and `git:workspace-status`, `settings:*`, `memory:*`, `search:*`, `workspace:*`, `simple:*`, `plugins:*`, and more).
+- `ALLOWED_INVOKE_CHANNELS` (`src/preload/index.ts:3`) — 127 request/response channels, the `<namespace>:<verb>` names the main-process IPC handlers register (`projects:*`, `agent:*`, `files:*`, `diff:*`, `git:*` including `git:has-uncommitted-changes` and `git:workspace-status`, `settings:*`, `memory:*`, `search:*`, `workspace:*`, `simple:*`, `plugins:*`, and more).
 - `ALLOWED_SEND_CHANNELS` (`src/preload/index.ts:140`) — exactly one fire-and-forget channel, `theme:changed`.
 - `ALLOWED_LISTEN_CHANNELS` (`src/preload/index.ts:144`) — 27 main → renderer push channels (`agent:output`, `agent:status`, `agent:sessions-changed`, `files:changed`, `settings:changed`, `updater:status`, `command:run`, `plugins:webview-*`, `simple:chat-message`, etc.). `command:run` is the single channel the native menu uses to invoke any command in the shared catalog (`src/shared/commands/catalog.ts`); the renderer's `useCommands` hook dispatches it.
 
