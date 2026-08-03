@@ -73,6 +73,7 @@ const ALLOWED_INVOKE_CHANNELS = [
   'git:fetch',
   'git:staleness',
   'git:has-uncommitted-changes',
+  'git:current-branch',
   'dock-layout:get',
   'dock-layout:set',
   'font:load-data',

@@ -1,12 +1,11 @@
 import React from 'react'
 
-/** Marks an agent that works in a repository's own checkout instead of a
- *  worktree of its own.
+/** Names the branch a folder has checked out, on its sidebar row.
  *
- *  It appears twice on purpose: on the agent's row, saying what the agent is,
- *  and on the folder row it has checked out, naming the branch — that folder is
- *  where the agent's edits land, so the folder row is where a reader looks for
- *  them. A worktree agent's edits land under its own row instead. */
+ *  Only home workspaces use it: they *are* the clones, so each folder sits on
+ *  its own branch. A worktree workspace puts every folder on one branch, named
+ *  once on the workspace card. It says nothing about agents — they belong to
+ *  the workspace, not to a folder. */
 export function InPlaceBadge({ label, description }: { label: string; description: string }): React.JSX.Element {
   return (
     <span

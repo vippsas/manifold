@@ -16,6 +16,8 @@ export interface WorkspaceCardProps {
   projects: Project[]
   isActive: boolean
   sessions: AgentSession[]
+  /** projectId -> the branch that folder has checked out (home workspaces only). */
+  folderBranches?: Record<string, string>
   activeProjectId?: string | null
   outputtingSessionIds?: Set<string>
   drafts: DraftChat[]
@@ -43,6 +45,7 @@ export function WorkspaceCard({
   projects,
   isActive,
   sessions,
+  folderBranches,
   activeProjectId,
   outputtingSessionIds,
   drafts,
@@ -191,14 +194,10 @@ export function WorkspaceCard({
         // In a worktree workspace this row is the workspace's own checkout of the
         // repo, not the clone — that is where its agents' edits land.
         const folderPath = workspace.worktreePaths?.[pid] ?? repo?.path ?? pid
-        // A home workspace has no checkout of its own: it is the clone, and a live
-        // agent there edits it directly, on whatever branch it has out.
-        const inPlace = branchLabel ? undefined : sessions.find((s) => (
-          s.projectId === pid
-          && s.noWorktree
-          && (s.status === 'running' || s.status === 'waiting')
-        ))
-        const inPlaceBranch = inPlace ? formatBranchLabel(inPlace.branchName, repo?.path ?? '') : null
+        // A home workspace is the clones themselves, so each folder sits on its
+        // own branch; a worktree workspace puts them all on one, named on the
+        // card above. The label says what the folder has out — no agent owns it.
+        const folderBranch = branchLabel ? null : folderBranches?.[pid] ?? null
         // Like an agent row: the row picks the workspace's home folder and opens
         // its files, the chevron opens them without moving home.
         const selectAndDisclose = (): void => { onSelectRepo?.(workspace.id, pid); toggleFiles() }
@@ -231,10 +230,10 @@ export function WorkspaceCard({
                 </button>
                 <span style={sidebarStyles.rowGlyph}><RepoGlyph /></span>
                 <span className="truncate">{repoName}</span>
-                {inPlaceBranch && (
+                {folderBranch && (
                   <InPlaceBadge
-                    label={inPlaceBranch}
-                    description={`An agent works in this folder directly, on ${inPlaceBranch}`}
+                    label={formatBranch(folderBranch)}
+                    description={`${repoName} is checked out on ${folderBranch}`}
                   />
                 )}
               </span>

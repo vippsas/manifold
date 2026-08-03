@@ -1,48 +1,36 @@
 import React, { useCallback, useRef } from 'react'
-import type { AgentSession, Project, SpawnAgentOptions } from '../../../shared/types'
 import type { Workspace } from '../../../shared/workspace-types'
-import { isGitProject } from '../../../shared/project-kind'
 import { NewAgentForm } from './NewAgentForm'
+import type { NewAgentLaunchOptions } from './useNewAgentForm'
 import { newAgentModalStyles as styles } from './NewAgentModal.styles'
 
 interface NewAgentModalProps {
   visible: boolean
-  project: Project | null
-  workspace?: Workspace | null
-  existingSessions: AgentSession[]
+  /** The workspace the agent joins. An agent has no other scope. */
+  workspace: Workspace | null
   defaultRuntime: string
   defaultAgentMode: 'interactive' | 'chat'
-  onLaunch: (options: SpawnAgentOptions) => Promise<unknown>
-  onResumeSession: (sessionId: string, runtimeId: string) => Promise<void>
-  onDeleteSession: (session: AgentSession) => void
+  onLaunch: (options: NewAgentLaunchOptions) => Promise<unknown>
   onClose: () => void
 }
 
 export function NewAgentModal({
   visible,
-  project,
   workspace,
-  existingSessions,
   defaultRuntime,
   defaultAgentMode,
   onLaunch,
-  onResumeSession,
-  onDeleteSession,
   onClose,
 }: NewAgentModalProps): React.JSX.Element | null {
   const overlayRef = useRef<HTMLDivElement>(null)
 
-  const handleLaunch = useCallback(async (options: SpawnAgentOptions): Promise<unknown> => {
+  const handleLaunch = useCallback(async (options: NewAgentLaunchOptions): Promise<unknown> => {
     const session = await onLaunch(options)
     if (session) onClose()
     return session
   }, [onClose, onLaunch])
 
-  if (!visible || !project) return null
-
-  const context = workspace
-    ? `${workspace.name} · ${project.name}`
-    : project.name
+  if (!visible || !workspace) return null
 
   return (
     <div
@@ -50,7 +38,7 @@ export function NewAgentModal({
       style={styles.overlay}
       role="dialog"
       aria-modal="true"
-      aria-label={`New agent in ${context}`}
+      aria-label={`New agent in ${workspace.name}`}
       onClick={(event) => { if (event.target === overlayRef.current) onClose() }}
       onKeyDown={(event) => { if (event.key === 'Escape') onClose() }}
     >
@@ -58,24 +46,18 @@ export function NewAgentModal({
         <div style={styles.header}>
           <div style={styles.heading}>
             <span style={styles.title}>New Agent</span>
-            <span style={styles.context}>{context}</span>
+            <span style={styles.context}>{workspace.name}</span>
           </div>
           <button type="button" style={styles.closeButton} onClick={onClose} aria-label="Close new agent dialog">&times;</button>
         </div>
         <div style={styles.body}>
           <NewAgentForm
-            key={`${workspace?.id ?? 'repo'}:${project.id}`}
-            projectId={project.id}
-            projectPath={project.path}
-            baseBranch={project.baseBranch}
-            isGitProject={isGitProject(project)}
-            defaultRuntime={workspace?.runtimeId ?? defaultRuntime}
+            key={workspace.id}
+            workspaceName={workspace.name}
+            primaryPath={workspace.worktreePaths?.[workspace.projectIds[0]] ?? ''}
+            defaultRuntime={workspace.runtimeId ?? defaultRuntime}
             defaultAgentMode={defaultAgentMode}
             onLaunch={handleLaunch}
-            existingSessions={existingSessions}
-            onResumeSession={onResumeSession}
-            onDeleteSession={onDeleteSession}
-            compact={!!workspace}
           />
         </div>
       </div>

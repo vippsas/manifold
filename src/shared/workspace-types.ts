@@ -9,7 +9,8 @@
 export interface Workspace {
   id: string
   name: string
-  /** Ordered; projectIds[0] is the default primary repo (the agent's cwd). */
+  /** Ordered; projectIds[0] is the primary repo — every agent here runs in it,
+   *  with the rest passed along as additional roots. */
   projectIds: string[]
   createdAt: string
   /** Runtime every agent in this workspace uses; optional for workspaces persisted before per-workspace runtimes (fall back to the global default). */
@@ -36,9 +37,8 @@ export interface WorkspaceCreateOptions {
  *  second workspace. */
 export interface WorkspaceSpawnAgentOptions {
   runtimeId: string
-  prompt?: string
-  /** Repo to use as the agent cwd/primary; defaults to the first repo when absent or unknown. */
-  homeProjectId?: string
+  /** Optional name for the agent; blank leaves it named after its runtime. */
+  displayName?: string
   /** When true, launch in non-interactive (Chat) mode; mirrors SpawnAgentOptions.nonInteractive. */
   nonInteractive?: boolean
 }

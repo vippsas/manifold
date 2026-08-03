@@ -195,21 +195,22 @@ describe('AppShell', () => {
   it('keeps the dock visible while New Agent opens in a modal', () => {
     render(<AppShell {...makeProps({
       newWorkspaceVisible: false,
-      newAgentTarget: { projectId: 'p1' },
+      newAgentTarget: { workspaceId: 'w1' },
+      workspaces: [{ id: 'w1', name: 'Checkout', projectIds: ['p1'], createdAt: '2024-01-01' }],
       dockState: {
         activeProjectId: 'p1',
         sessionId: 's1',
         allProjectSessions: { p1: [] },
         onResumeAgent: vi.fn(),
+        onLaunchWorkspaceAgent: vi.fn(),
       } as unknown as AppShellProps['dockState'],
       overlays: {
         activePanel: null,
-        handleLaunchAgent: vi.fn(),
         requestDeleteAgent: vi.fn(),
       } as unknown as AppShellProps['overlays'],
     })} />)
 
     expect(screen.getByTestId('dockview')).toBeInTheDocument()
-    expect(screen.getByRole('dialog', { name: 'New agent in Alpha' })).toBeInTheDocument()
+    expect(screen.getByRole('dialog', { name: 'New agent in Checkout' })).toBeInTheDocument()
   })
 })

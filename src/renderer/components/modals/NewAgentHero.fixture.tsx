@@ -35,11 +35,9 @@ window.electronAPI = {
 
 export default (
   <NewAgentHero
-    projectId="demo-project"
-    projectName="vipps-backstage"
-    projectPath="/Users/you/code/manifold"
-    baseBranch="main"
-    isGitProject
+    workspaceName="Checkout redesign"
+    primaryPath="/Users/you/code/manifold"
+    branchLabel="checkout-redesign"
     defaultRuntime="claude"
     existingSessions={[dormantSession]}
     onLaunch={async () => undefined}

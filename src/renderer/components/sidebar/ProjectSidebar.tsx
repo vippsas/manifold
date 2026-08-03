@@ -6,6 +6,7 @@ import { sidebarStyles } from './ProjectSidebar.styles'
 import { WorkspaceList } from './WorkspaceList'
 import { FavoritesList } from './FavoritesList'
 import { AddFolderGlyph } from './SidebarCardActionGlyphs'
+import { useFolderBranches } from './useFolderBranches'
 import type { FolderSource } from '../../hooks/editor/useWorkspaceTree'
 
 export interface ProjectSidebarProps {
@@ -53,6 +54,11 @@ export function ProjectSidebar({
   onDiscardDraft,
   renderFolderFiles,
 }: ProjectSidebarProps): React.JSX.Element {
+  // Only home workspaces (no checkout of their own) label their folders with a
+  // branch; a worktree workspace's branch is named once on its card.
+  const homeFolderIds = workspaces.flatMap((w) => (w.worktreePaths ? [] : w.projectIds))
+  const folderBranches = useFolderBranches(homeFolderIds, sessionsByWorkspace)
+
   return (
     <div style={sidebarStyles.root}>
       <div role="toolbar" aria-label="Repository actions" style={sidebarStyles.actionToolbar}>
@@ -76,6 +82,7 @@ export function ProjectSidebar({
           activeWorkspaceId={activeWorkspaceId ?? null}
           activeProjectId={activeProjectId}
           sessionsByWorkspace={sessionsByWorkspace ?? {}}
+          folderBranches={folderBranches}
           outputtingSessionIds={outputtingSessionIds}
           drafts={drafts}
           activeDraftId={activeDraftId}

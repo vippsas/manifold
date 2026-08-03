@@ -229,6 +229,8 @@ export interface SpawnAgentOptions {
   projectId: string
   runtimeId: string
   prompt: string
+  /** The agent's name, as typed in the New Agent form. Shown on its tab. */
+  displayName?: string
   userMessage?: string
   simpleTemplateTitle?: string
   simplePromptInstructions?: string

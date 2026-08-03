@@ -77,7 +77,6 @@ export interface DockAppState {
   defaultAgentMode: 'interactive' | 'chat'
   activeSessionWorktreePath: string | null
   activeSessionNoWorktree: boolean
-  onLaunchAgent: (options: SpawnAgentOptions) => Promise<unknown>
   // Projects panel
   projects: Project[]
   activeProjectId: string | null
@@ -86,7 +85,7 @@ export interface DockAppState {
   onSelectSession: (sessionId: string, projectId: string) => void
   onRenameAgent: (sessionId: string, settings: AgentSettingsUpdate) => Promise<void> | void
   onRequestDeleteAgent: (session: AgentSession, projectPath: string) => void
-  onNewAgentFromHeader: (projectId?: string, workspaceId?: string) => void
+  onNewAgentFromHeader: (workspaceId?: string) => void
   onNewProject: () => void
   onNewWorkspace?: () => void
   workspaces: import('../../../../shared/workspace-types').Workspace[]
@@ -98,7 +97,7 @@ export interface DockAppState {
   /** Copy a workspace onto a fresh worktree: a new workspace with the same folders. */
   onCopyWorkspace?: (id: string) => void
   onSelectWorkspaceRepo?: (workspaceId: string, projectId: string) => void
-  onLaunchWorkspaceAgent?: (workspaceId: string, homeProjectId: string, options: { runtimeId: string; prompt: string; nonInteractive?: boolean }) => Promise<unknown>
+  onLaunchWorkspaceAgent?: (workspaceId: string, options: { runtimeId: string; displayName: string; nonInteractive?: boolean }) => Promise<unknown>
   onAddProjectToWorkspace?: (workspaceId: string) => void | Promise<void>
   onRemoveProjectFromWorkspace?: (workspaceId: string, projectId: string) => void
   // Agent restart

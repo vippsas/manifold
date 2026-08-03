@@ -1,7 +1,8 @@
-// The + in the agent group's tab bar is where a new agent is added: it spawns
-// straight into the active workspace and shows up as another agent tab.
+// The + in the agent group's tab bar is where a new agent is added: it opens the
+// New Agent dialog on the active workspace, the same dialog the empty agent view
+// and the command palette use.
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { render, screen, fireEvent, waitFor } from '@testing-library/react'
+import { render, screen, fireEvent } from '@testing-library/react'
 import type { IDockviewHeaderActionsProps } from 'dockview'
 import type { DockAppState } from './dock-panel-types'
 import { DockStateContext } from './dock-panel-types'
@@ -11,10 +12,7 @@ const mockInvoke = vi.fn()
 
 beforeEach(() => {
   vi.clearAllMocks()
-  mockInvoke.mockResolvedValue([
-    { id: 'claude', name: 'Claude Code', installed: true },
-    { id: 'codex', name: 'Codex', installed: false },
-  ])
+  mockInvoke.mockResolvedValue([])
   ;(window as unknown as Record<string, unknown>).electronAPI = {
     invoke: mockInvoke,
     on: vi.fn(() => vi.fn()),
@@ -31,7 +29,7 @@ function makeState(overrides: Partial<DockAppState> = {}): DockAppState {
     activeProjectId: 'p1',
     allProjectSessions: {},
     projects: [{ id: 'p1', name: 'Alpha', path: '/repos/alpha', baseBranch: 'main', addedAt: '2024-01-01' }],
-    onLaunchWorkspaceAgent: vi.fn(async () => null),
+    onNewAgentFromHeader: vi.fn(),
     onRenameAgent: vi.fn(),
     ...overrides,
   } as unknown as DockAppState
@@ -53,44 +51,33 @@ describe('AgentHeaderActions', () => {
     expect(screen.queryByLabelText(/New agent in/)).not.toBeInTheDocument()
   })
 
-  it('spawns a terminal agent into the active workspace from the + menu', async () => {
+  it('opens the new agent dialog on the active workspace', () => {
     const state = makeState()
     renderActions(state, ['agent'])
 
     fireEvent.click(screen.getByLabelText('New agent in checkout'))
-    await waitFor(() => expect(screen.getByText('New Claude Terminal')).toBeInTheDocument())
-    // Only installed runtimes are offered.
-    expect(screen.queryByText(/Codex/)).not.toBeInTheDocument()
 
-    fireEvent.click(screen.getByText('New Claude Terminal'))
-
-    expect(state.onLaunchWorkspaceAgent).toHaveBeenCalledWith('w1', 'p1', {
-      runtimeId: 'claude', prompt: '', nonInteractive: false,
-    })
+    expect(state.onNewAgentFromHeader).toHaveBeenCalledWith('w1')
+    // No runtime dropdown: the dialog owns the runtime/mode choice.
+    expect(screen.queryByRole('menu')).not.toBeInTheDocument()
   })
 
-  it('spawns a chat agent when the Chat item is picked', async () => {
+  it('offers the + from a sibling agent tab too', () => {
     const state = makeState()
     renderActions(state, ['agent:s7'])
 
     fireEvent.click(screen.getByLabelText('New agent in checkout'))
-    await waitFor(() => expect(screen.getByText('New Claude Chat')).toBeInTheDocument())
-    fireEvent.click(screen.getByText('New Claude Chat'))
 
-    expect(state.onLaunchWorkspaceAgent).toHaveBeenCalledWith('w1', 'p1', {
-      runtimeId: 'claude', prompt: '', nonInteractive: true,
-    })
+    expect(state.onNewAgentFromHeader).toHaveBeenCalledWith('w1')
   })
 
-  it('falls back to the workspace holding the active repo when none is focused', async () => {
+  it('falls back to the workspace holding the active repo when none is focused', () => {
     const state = makeState({ activeWorkspaceId: null })
     renderActions(state, ['agent'])
 
     fireEvent.click(screen.getByLabelText('New agent in checkout'))
-    await waitFor(() => expect(screen.getByText('New Claude Terminal')).toBeInTheDocument())
-    fireEvent.click(screen.getByText('New Claude Terminal'))
 
-    expect(state.onLaunchWorkspaceAgent).toHaveBeenCalledWith('w1', 'p1', expect.anything())
+    expect(state.onNewAgentFromHeader).toHaveBeenCalledWith('w1')
   })
 
   it('offers agent settings for the active agent', () => {

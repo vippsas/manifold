@@ -1,27 +1,22 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { NewAgentModal } from './NewAgentModal'
-import type { Project } from '../../../shared/types'
 
-const project: Project = {
-  id: 'p1',
-  name: 'Storefront',
-  path: '/repos/storefront',
-  baseBranch: 'main',
-  addedAt: '2026-07-13',
-  kind: 'git',
+const workspace = {
+  id: 'w1',
+  name: 'Checkout',
+  projectIds: ['p1', 'p2'],
+  createdAt: '2026-07-13',
+  branchName: 'manifold/checkout',
+  worktreePaths: { p1: '/worktrees/checkout/storefront' },
 }
 
 const baseProps = {
   visible: true,
-  project,
-  existingSessions: [],
+  workspace,
   defaultRuntime: 'claude',
   defaultAgentMode: 'interactive' as const,
-  defaultUseWorktrees: true,
   onLaunch: vi.fn(async () => ({ id: 'session-1' })),
-  onResumeSession: vi.fn(async () => undefined),
-  onDeleteSession: vi.fn(),
   onClose: vi.fn(),
 }
 
@@ -36,28 +31,27 @@ beforeEach(() => {
 })
 
 describe('NewAgentModal', () => {
-  it('launches from a dialog and closes after a successful start', async () => {
+  // The dialog is aimed at a workspace, never at one of its folders: the name
+  // names the agent, and the launch says nothing about where it will run.
+  it('launches into the workspace and closes after a successful start', async () => {
     render(<NewAgentModal {...baseProps} />)
 
-    expect(screen.getByRole('dialog', { name: 'New agent in Storefront' })).toBeInTheDocument()
+    expect(screen.getByRole('dialog', { name: 'New agent in Checkout' })).toBeInTheDocument()
+    expect(screen.getByText('Checkout')).toBeInTheDocument()
     fireEvent.change(screen.getByPlaceholderText(/Agent name/), { target: { value: 'Fix checkout' } })
     fireEvent.click(screen.getByRole('button', { name: 'Start Agent' }))
 
-    await waitFor(() => expect(baseProps.onLaunch).toHaveBeenCalledWith(expect.objectContaining({
-      projectId: 'p1',
+    await waitFor(() => expect(baseProps.onLaunch).toHaveBeenCalledWith({
       runtimeId: 'claude',
-      prompt: 'Fix checkout',
-    })))
+      displayName: 'Fix checkout',
+      nonInteractive: false,
+    }))
     expect(baseProps.onClose).toHaveBeenCalled()
   })
 
-  it('names the workspace and repository in the workspace dialog', () => {
-    render(<NewAgentModal
-      {...baseProps}
-      workspace={{ id: 'w1', name: 'Checkout', projectIds: ['p1'], createdAt: '2026-07-13' }}
-    />)
+  it('stays closed without a workspace to start in', () => {
+    render(<NewAgentModal {...baseProps} workspace={null} />)
 
-    expect(screen.getByRole('dialog', { name: 'New agent in Checkout · Storefront' })).toBeInTheDocument()
-    expect(screen.getByText('Checkout · Storefront')).toBeInTheDocument()
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
   })
 })

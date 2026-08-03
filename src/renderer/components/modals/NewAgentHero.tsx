@@ -1,23 +1,21 @@
 import React from 'react'
 import { modalStyles } from './NewTaskModal.styles'
-import { TaskDescriptionField, AgentDropdown, BranchPicker, PRPicker } from '../new-task'
+import { TaskDescriptionField, AgentDropdown } from '../new-task'
 import { ReusableSessionsCard } from './ReusableSessionsCard'
 import { heroStyles } from './NewAgentHero.styles'
-import { NewAgentHeroCard, ChatGlyph, TerminalGlyph, BranchGlyph, WorktreeGlyph } from './NewAgentHeroCard'
+import { NewAgentHeroCard, ChatGlyph, TerminalGlyph } from './NewAgentHeroCard'
 import { useNewAgentForm } from './useNewAgentForm'
 import type { NewAgentProps } from './useNewAgentForm'
 
 /**
- * The full-panel start view: the wordmark above it, then the repository, a name,
- * and the ways to start as cards you click to launch. Same state and same launch
- * as the compact form — only the presentation differs.
+ * The full-panel start view: the workspace it will work in, a name, and the ways
+ * to start as cards you click to launch. Same state and same launch as the
+ * dialog's form — only the presentation differs.
  */
-export function NewAgentHero(props: NewAgentProps & { projectName: string }): React.JSX.Element {
+export function NewAgentHero(props: NewAgentProps & { branchLabel?: string }): React.JSX.Element {
   const {
-    projectName,
-    projectPath,
-    baseBranch,
-    isGitProject,
+    primaryPath,
+    branchLabel,
     defaultAgentMode = 'interactive',
     onResumeSession,
     onDeleteSession,
@@ -29,18 +27,15 @@ export function NewAgentHero(props: NewAgentProps & { projectName: string }): Re
     f.loading && f.mode === mode ? 'Starting…' : label
   )
 
-  const existingCaption = !f.useExisting
-    ? 'Starts on a new branch'
-    : f.existingSubTab === 'branch'
-      ? f.selectedBranch || 'Choose a branch below'
-      : f.selectedPr !== null ? `Pull request #${f.selectedPr}` : 'Choose a pull request below'
-
   return (
     <form onSubmit={(e) => { e.preventDefault(); void f.submit() }} style={heroStyles.column}>
-      <div style={heroStyles.contextLine}>
-        <span style={heroStyles.contextProject}>{projectName}</span>
-        {isGitProject && <span style={heroStyles.contextMeta}>{baseBranch}</span>}
-      </div>
+      {/* The workspace is already named above this form; all that's left to say
+          is which branch its folders are on. */}
+      {branchLabel && (
+        <div style={heroStyles.contextLine}>
+          <span style={heroStyles.contextMeta}>{branchLabel}</span>
+        </div>
+      )}
 
       <TaskDescriptionField
         value={f.taskDescription}
@@ -71,40 +66,9 @@ export function NewAgentHero(props: NewAgentProps & { projectName: string }): Re
         />
       </div>
 
-      {/* No worktree choice: this agent works in the repository itself. One that
-          needs a checkout of its own is a workspace, made from the sidebar. */}
-      {isGitProject && (
-        <div style={heroStyles.grid}>
-          <NewAgentHeroCard
-            variant="option"
-            icon={BranchGlyph}
-            label="Continue on an existing branch or PR"
-            caption={existingCaption}
-            pressed={f.useExisting}
-            disabled={f.loading}
-            onClick={() => f.setUseExisting(!f.useExisting)}
-          />
-        </div>
-      )}
-
-      {f.useExisting && (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-sm)' }}>
-          <div style={modalStyles.subTabBar}>
-            <button type="button" onClick={() => f.setExistingSubTab('branch')} style={{ ...modalStyles.subTab, ...(f.existingSubTab === 'branch' ? modalStyles.subTabActive : {}) }}>
-              Branch
-            </button>
-            <button type="button" onClick={() => f.setExistingSubTab('pr')} style={{ ...modalStyles.subTab, ...(f.existingSubTab === 'pr' ? modalStyles.subTabActive : {}) }}>
-              Pull Request
-            </button>
-          </div>
-          {f.existingSubTab === 'branch' && (
-            <BranchPicker branches={f.branches} baseBranch={baseBranch} allowBaseBranch filter={f.branchFilter} onFilterChange={f.setBranchFilter} selected={f.selectedBranch} onSelect={f.setSelectedBranch} loading={f.branchesLoading} />
-          )}
-          {f.existingSubTab === 'pr' && (
-            <PRPicker prs={f.prs} filter={f.prFilter} onFilterChange={f.setPrFilter} selected={f.selectedPr} onSelect={f.setSelectedPr} loading={f.prsLoading} />
-          )}
-        </div>
-      )}
+      {/* No branch, PR or worktree choice: this agent works where the workspace
+          works. Another branch over these folders is another workspace, copied
+          from this one in the sidebar. */}
 
       <AgentDropdown value={f.runtimeId} onChange={f.setRuntimeId} runtimes={f.runtimes} />
 
@@ -114,28 +78,14 @@ export function NewAgentHero(props: NewAgentProps & { projectName: string }): Re
         </p>
       )}
 
-      {!isGitProject && (
-        <p style={modalStyles.infoText}>
-          This folder is not a Git repository. The agent will work directly in the folder and can still read and edit documents.
-        </p>
-      )}
-
       {f.error && <p style={modalStyles.errorText}>{f.error}</p>}
 
-      {f.inPlaceAgentRunning && (
-        <p style={modalStyles.infoText}>
-          ⚠ An agent is already working in this repository itself. Only one can at a time — starting will switch to it. For a second agent on its own branch, make a workspace.
-        </p>
-      )}
-
       <ReusableSessionsCard
-        projectPath={projectPath}
+        projectPath={primaryPath}
         sessions={f.reusableSessions}
         onResumeSession={onResumeSession}
         onDeleteSession={onDeleteSession}
       />
-
-      {f.dirtyConfirmDialog}
     </form>
   )
 }

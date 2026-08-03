@@ -34,11 +34,9 @@ window.electronAPI = {
 export default (
   <OnboardingView
     variant="no-agent"
-    projectId="demo-project"
-    projectName="vipps-backstage"
-    projectPath="/Users/you/code/manifold"
-    baseBranch="main"
-    isGitProject
+    workspaceName="Checkout redesign"
+    primaryPath="/Users/you/code/manifold"
+    branchLabel="manifold/checkout-redesign"
     defaultRuntime="claude"
     defaultAgentMode="interactive"
     existingSessions={[dormantSession]}

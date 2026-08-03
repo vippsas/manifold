@@ -88,13 +88,14 @@ existed; the repo is already gone from the registry, so its worktree can only be
 `git worktree remove` needs the clone it was cut from (`:145`).
 
 **Spawn — join, don't cut.** `spawnAgent(workspaceId, options)` (`workspace-manager.ts:200`)
-resolves the members, moves `options.homeProjectId` to the front if it names one (otherwise the
-first repo stays primary), and then **reuses `workspace.worktreePaths`** rather than creating
-anything (`:218`). Two agents in one workspace get the same paths — that is what makes a
-workspace a single place to work instead of a stack of worktrees. It calls
-`sessionManager.createSession()` with `projectId = projects[0].id`, `additionalDirs`,
-`workspaceId`, `workspaceWorktreePaths`, `branchName`, plus `runtimeId`, `prompt` and
-`nonInteractive`. The remaining option is the fork between the two kinds: a worktree workspace
+resolves the members in their stored order and **reuses `workspace.worktreePaths`** rather than
+creating anything (`:213`). Two agents in one workspace get the same paths, with the same first
+folder as cwd — that is what makes a workspace a single place to work instead of a stack of
+worktrees, and why nothing the user selects in the sidebar can move an agent to another folder.
+It calls `sessionManager.createSession()` with `projectId = projects[0].id`, `additionalDirs`,
+`workspaceId`, `workspaceWorktreePaths`, `branchName`, plus `runtimeId`, `nonInteractive` and
+`displayName` — the name typed in the New Agent dialog, which only titles the agent's tab
+(`session-creator.ts`); the prompt is empty, because nothing here asks for a task. The remaining option is the fork between the two kinds: a worktree workspace
 passes `existingWorktreePath = primary`, while a home workspace passes
 `noWorktree: true, stayOnBranch: true` so the agent works in the clone on whatever branch the
 user has checked out there (`:229`). The PTY is spawned with cwd = the primary path; only the
@@ -126,7 +127,7 @@ pass promotes nothing.
 ## Key types and entry points
 
 - `WorkspaceManager` — `workspace-manager.ts:29`. Public surface: `list`, `get`, `create`, `rename`, `remove`, `addProject`, `removeProject`, `removeProjectFromAllWorkspaces`, `adoptProject`, `adoptOrphanProjects`, `pruneMissingProjects`, `spawnAgent`. Everything that touches a checkout — `create`, `remove`, `addProject`, `removeProject`, `removeProjectFromAllWorkspaces`, `spawnAgent` — is async.
-- `Workspace` / `WorkspaceCreateOptions` / `WorkspaceSpawnAgentOptions` — `src/shared/workspace-types.ts:9`. `projectIds` is ordered; `branchName` + `worktreePaths` are present on a worktree workspace and absent on a home one; `homeProjectId` picks the primary repo. `WorkspaceSpawnAgentOptions` deliberately has no branch: the workspace owns it (`workspace-types.ts:32`).
+- `Workspace` / `WorkspaceCreateOptions` / `WorkspaceSpawnAgentOptions` — `src/shared/workspace-types.ts:9`. `projectIds` is ordered; `branchName` + `worktreePaths` are present on a worktree workspace and absent on a home one; `projectIds[0]` is the primary repo. `WorkspaceSpawnAgentOptions` deliberately has neither a branch nor a home folder: the workspace owns both (`workspace-types.ts:32`).
 - `WorkspaceStore` — `workspace-store.ts:5`. `list/get/add/update/remove/addProject/removeProject`, all persisting to one JSON file.
 - `WorktreeSetManager` — `workspace-worktrees.ts:4`. The port the manager depends on (`createWorktree`, `removeWorktree`, `deleteBranch`, `branchExists`); satisfied by `src/main/git`'s `WorktreeManager`.
 - `findAvailableWorkspaceBranch` / `buildWorkspaceWorkingSet` / `removeWorkspaceWorktrees` — `workspace-worktrees.ts:27` / `:48` / `:81`.
@@ -146,7 +147,7 @@ pass promotes nothing.
 - **Every registered repo is in exactly one home workspace, plus any worktree workspaces the user made.** `registerProject` adopts each newly added repo (`ipc/project-handlers.ts:60`, `workspace-manager.ts:106`) and startup wraps any the store doesn't hold (`:118`). The same repo appearing in several workspaces is the supported way to work on several branches of it at once, not a conflict.
 - **An agent never owns a checkout.** `spawnAgent` only reuses `worktreePaths` (`workspace-manager.ts:218`) and `SessionKiller` removes nothing (`session-killer.ts:28`), so the only thing that removes a checkout is removing the workspace. This is what rules out a worktree nested inside a worktree.
 - **A workspace is never empty.** `create()` rejects zero projects (`workspace-manager.ts:39`) and `removeProject()` no-ops on the last repo (`:97`). Deleting the *project* drops the workspace with it (`:139`, `:190`): with no folders it can neither spawn an agent nor disclose anything, so it would sit in the sidebar as an unusable card.
-- **`projectIds` order is the default primary.** `projectIds[0]` is the agent cwd unless `homeProjectId` overrides it; an unknown `homeProjectId` silently falls back to the first repo (`workspace-manager.ts:209`).
+- **`projectIds[0]` is the agent cwd, always.** Nothing overrides it — the caller can't name a home folder — so every agent in a workspace runs in the same place with the same repos alongside (`workspace-manager.ts:208`).
 - **The shared branch must be free in *all* git repos.** `findAvailableWorkspaceBranch` only returns a name unused across every member, so the same branch can be created in each worktree (`workspace-worktrees.ts:27`). It is also why a second workspace over the same repos gets `-2`: one branch, one place.
 - **Working-set creation is all-or-nothing.** A failure partway through rolls back the worktrees already created before rethrowing (`workspace-worktrees.ts:65`). Since that runs inside `create()`, a failed create leaves no record either.
 - **Promotion runs before the first window and only forward.** `promoteAgentWorktreesToWorkspaces` is idempotent and never un-promotes; a worktree already claimed by a workspace is skipped (`workspace-promotion.ts:33`).

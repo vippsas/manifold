@@ -44,9 +44,10 @@ const DOCK_THEME: DockviewTheme = {
   gap: 6,
 }
 
+/** An agent belongs to a workspace and to nothing smaller, so that is all the
+ *  New Agent dialog needs to be aimed. */
 export interface NewAgentTarget {
-  projectId: string
-  workspaceId?: string
+  workspaceId: string
 }
 
 /** Dockview takes one left-header component for every group; each of these
@@ -129,7 +130,6 @@ export function AppShell(p: AppShellProps): React.JSX.Element {
   }
 
   const activeProjectName = p.projects.find((proj) => proj.id === p.activeProjectId)?.name
-  const newAgentProject = p.projects.find((project) => project.id === p.newAgentTarget?.projectId) ?? null
   const newAgentWorkspace = p.workspaces.find((workspace) => workspace.id === p.newAgentTarget?.workspaceId) ?? null
 
   return (
@@ -198,23 +198,13 @@ export function AppShell(p: AppShellProps): React.JSX.Element {
       />
       <NewAgentModal
         visible={p.newAgentTarget != null}
-        project={newAgentProject}
         workspace={newAgentWorkspace}
-        existingSessions={newAgentProject ? (p.sessionsByProject[newAgentProject.id] ?? []) : []}
         defaultRuntime={p.defaultRuntime}
         defaultAgentMode={p.settings.defaultAgentMode ?? 'interactive'}
         onLaunch={async (options) => {
-          if (newAgentWorkspace && p.dockState.onLaunchWorkspaceAgent && newAgentProject) {
-            return p.dockState.onLaunchWorkspaceAgent(newAgentWorkspace.id, newAgentProject.id, {
-              runtimeId: options.runtimeId,
-              prompt: options.prompt,
-              nonInteractive: options.nonInteractive,
-            })
-          }
-          return p.overlays.handleLaunchAgent(options)
+          if (!newAgentWorkspace || !p.dockState.onLaunchWorkspaceAgent) return null
+          return p.dockState.onLaunchWorkspaceAgent(newAgentWorkspace.id, options)
         }}
-        onResumeSession={p.dockState.onResumeAgent}
-        onDeleteSession={(session) => p.overlays.requestDeleteAgent(session, newAgentProject?.path ?? '')}
         onClose={p.closeNewAgentModal}
       />
       <SettingsModal visible={p.overlays.showSettings} settings={p.settings} onSave={p.overlays.handleSaveSettings}

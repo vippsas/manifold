@@ -119,6 +119,21 @@ export function registerGitHandlers(deps: IpcDependencies): void {
     return { baseBranch: project.baseBranch, behindCount }
   })
 
+  // The branch a folder currently has checked out. The sidebar labels each folder
+  // of a home workspace with it — that workspace *is* the clones, so each folder
+  // sits on its own branch (a worktree workspace puts them all on its branch,
+  // which the workspace card names once). Empty for a plain folder.
+  ipcMain.handle('git:current-branch', async (_event, projectId: string): Promise<string> => {
+    const project = projectRegistry.getProject(projectId)
+    if (!project || !isGitProject(project)) return ''
+    try {
+      return (await gitExec(['rev-parse', '--abbrev-ref', 'HEAD'], project.path)).trim()
+    } catch {
+      // A repo with no commits yet has no resolvable HEAD; it simply has no label.
+      return ''
+    }
+  })
+
   // Whether the project's main working tree has uncommitted changes. Used by the
   // New Agent form to confirm before a no-worktree agent switches the working
   // copy to a new branch (which carries those changes along).

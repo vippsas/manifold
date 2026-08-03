@@ -1,10 +1,9 @@
+// The full-panel start view of a workspace with no agent yet. It starts an agent
+// in that workspace and offers its finished ones to resume — nothing here picks a
+// repo, a branch or a worktree, because the workspace already is the place.
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { render, screen, fireEvent, waitFor } from '@testing-library/react'
 import React from 'react'
-
-vi.mock('../../../shared/norwegian-cities', () => ({
-  pickRandomNorwegianCityName: vi.fn(() => 'Oslo'),
-}))
 
 import { NewAgentHero } from './NewAgentHero'
 
@@ -18,13 +17,6 @@ beforeEach(() => {
         { id: 'claude', name: 'Claude Code', binary: 'claude', installed: true },
       ])
     }
-    if (channel === 'git:has-uncommitted-changes') return Promise.resolve(false)
-    if (channel === 'git:list-branches') {
-      return Promise.resolve([
-        { name: 'main', source: 'both' },
-        { name: 'feature-x', source: 'local' },
-      ])
-    }
     return Promise.resolve([])
   })
 
@@ -36,11 +28,9 @@ beforeEach(() => {
 
 function renderHero(overrides = {}) {
   const props = {
-    projectId: 'proj-1',
-    projectName: 'kong-gateway',
-    projectPath: '/repos/proj-1',
-    baseBranch: 'main',
-    isGitProject: true,
+    workspaceName: 'Checkout redesign',
+    primaryPath: '/worktrees/checkout/storefront',
+    branchLabel: 'checkout-redesign',
     defaultRuntime: 'claude',
     defaultAgentMode: 'interactive' as const,
     onLaunch: vi.fn().mockResolvedValue({ id: 'session-1' }),
@@ -52,19 +42,17 @@ function renderHero(overrides = {}) {
 const nameField = 'Agent name (optional), e.g. Dark mode toggle'
 const chatCard = (): HTMLElement => screen.getByRole('button', { name: /Start Chat/ })
 const terminalCard = (): HTMLElement => screen.getByRole('button', { name: /Start Terminal/ })
-const existingCard = (): HTMLElement => screen.getByRole('button', { name: /Continue on an existing branch or PR/ })
 
 async function ready(): Promise<void> {
   await waitFor(() => expect(mockInvoke).toHaveBeenCalledWith('runtimes:list'))
 }
 
 describe('NewAgentHero', () => {
-  it('names the repository the cards act on', async () => {
+  it('names the branch the workspace works on', async () => {
     renderHero()
     await ready()
 
-    expect(screen.getByText('kong-gateway')).toBeInTheDocument()
-    expect(screen.getByText('main')).toBeInTheDocument()
+    expect(screen.getByText('checkout-redesign')).toBeInTheDocument()
   })
 
   // The card click is the launch, so the mode has to travel with the click
@@ -77,7 +65,7 @@ describe('NewAgentHero', () => {
 
     await waitFor(() => {
       expect(props.onLaunch).toHaveBeenCalledWith(
-        expect.objectContaining({ nonInteractive: true, prompt: 'Oslo' }),
+        expect.objectContaining({ nonInteractive: true, displayName: '' }),
       )
     })
   })
@@ -116,7 +104,7 @@ describe('NewAgentHero', () => {
     expect(mockInvoke).not.toHaveBeenCalledWith('settings:update', expect.anything())
   })
 
-  it('uses the typed name as the prompt', async () => {
+  it('names the agent from the typed name', async () => {
     const { props } = renderHero()
     await ready()
 
@@ -125,7 +113,7 @@ describe('NewAgentHero', () => {
 
     await waitFor(() => {
       expect(props.onLaunch).toHaveBeenCalledWith(
-        expect.objectContaining({ prompt: 'Dark mode toggle', autoName: false }),
+        expect.objectContaining({ displayName: 'Dark mode toggle' }),
       )
     })
   })
@@ -145,56 +133,19 @@ describe('NewAgentHero', () => {
     })
   })
 
-  // There is no worktree card any more: a checkout of one's own is a workspace,
-  // so an agent started here always works in the repository itself.
-  it('sends noWorktree and offers no choice about it', async () => {
-    const { props } = renderHero()
-    await ready()
-
-    expect(screen.queryByRole('button', { name: /worktree/i })).not.toBeInTheDocument()
-
-    fireEvent.click(terminalCard())
-
-    await waitFor(() => {
-      expect(props.onLaunch).toHaveBeenCalledWith(expect.objectContaining({ noWorktree: true }))
-    })
-  })
-
-  it('starts on the branch picked after switching the branch card on', async () => {
-    const { props } = renderHero()
-    await ready()
-
-    fireEvent.click(existingCard())
-    fireEvent.click(await screen.findByText('feature-x'))
-    fireEvent.click(terminalCard())
-
-    await waitFor(() => {
-      expect(props.onLaunch).toHaveBeenCalledWith(
-        expect.objectContaining({ baseBranch: 'feature-x', noWorktree: true }),
-      )
-    })
-  })
-
-  it('blocks launching until a branch is chosen', async () => {
+  // Where the agent works is the workspace's business: no branch, no PR, no
+  // worktree choice, and no git call to back one.
+  it('offers no branch, PR or worktree choice', async () => {
     renderHero()
     await ready()
 
-    fireEvent.click(existingCard())
-
-    expect(terminalCard()).toBeDisabled()
-    expect(chatCard()).toBeDisabled()
-  })
-
-  it('drops the git-only cards for a plain folder', async () => {
-    renderHero({ isGitProject: false })
-    await ready()
-
-    expect(screen.queryByRole('button', { name: /Run without a worktree/ })).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: /worktree/i })).not.toBeInTheDocument()
     expect(screen.queryByRole('button', { name: /Continue on an existing branch/ })).not.toBeInTheDocument()
-    expect(screen.getByText(/not a Git repository/)).toBeInTheDocument()
+    expect(mockInvoke).not.toHaveBeenCalledWith('git:list-branches', expect.anything())
+    expect(mockInvoke).not.toHaveBeenCalledWith('git:has-uncommitted-changes', expect.anything())
   })
 
-  it('offers existing worktrees to resume below the cards', async () => {
+  it('offers the workspace finished agents to resume below the cards', async () => {
     const onResumeSession = vi.fn().mockResolvedValue(undefined)
     renderHero({
       onResumeSession,
@@ -226,28 +177,5 @@ describe('NewAgentHero', () => {
 
     await waitFor(() => expect(screen.getByText('Failed to start agent.')).toBeInTheDocument())
     expect(terminalCard()).toBeEnabled()
-  })
-
-  it('confirms before switching a dirty working copy', async () => {
-    mockInvoke.mockImplementation((channel: string) => {
-      if (channel === 'runtimes:list') return Promise.resolve([{ id: 'claude', name: 'Claude Code', binary: 'claude', installed: true }])
-      if (channel === 'git:has-uncommitted-changes') return Promise.resolve(true)
-      return Promise.resolve([])
-    })
-    const { props } = renderHero()
-    await ready()
-
-    fireEvent.click(terminalCard())
-
-    await waitFor(() => expect(screen.getByText('Continue')).toBeTruthy())
-    expect(props.onLaunch).not.toHaveBeenCalled()
-
-    fireEvent.click(screen.getByText('Continue'))
-
-    await waitFor(() => {
-      expect(props.onLaunch).toHaveBeenCalledWith(
-        expect.objectContaining({ noWorktree: true, allowDirtyWorktree: true }),
-      )
-    })
   })
 })

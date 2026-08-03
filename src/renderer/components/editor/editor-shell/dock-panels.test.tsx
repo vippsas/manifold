@@ -70,7 +70,9 @@ function makeDockState(overrides: Partial<DockAppState> = {}): DockAppState {
     activeProjectIsGit: true,
     activeSessionWorktreePath: null,
     activeSessionNoWorktree: false,
-    onLaunchAgent: vi.fn(),
+    onLaunchWorkspaceAgent: vi.fn(),
+    workspaces: [{ id: 'ws-1', name: 'kong-gateway', projectIds: ['p1'], createdAt: '2024-01-01' }],
+    activeWorkspaceId: 'ws-1',
     projects: [{ id: 'p1', name: 'kong-gateway', path: '/repos/kong-gateway', baseBranch: 'main', addedAt: '2024-01-01' }],
     activeProjectId: null,
     allProjectSessions: {
@@ -127,7 +129,9 @@ describe('AgentPanel', () => {
     expect(screen.getByText('terminal:Agent:child-1')).toBeInTheDocument()
   })
 
-  it('surfaces dormant worktrees in the no-agent view', async () => {
+  // The empty panel starts an agent in the workspace, and offers the workspace's
+  // own finished agents to resume — an agent is never scoped to a folder.
+  it('surfaces the workspace dormant agents in the no-agent view', async () => {
     mockInvoke.mockResolvedValue([
       { id: 'codex', name: 'Codex', installed: true },
     ])
@@ -148,6 +152,7 @@ describe('AgentPanel', () => {
               status: 'done',
               pid: null,
               additionalDirs: [],
+              workspaceId: 'ws-1',
             },
           ],
         },
@@ -160,7 +165,7 @@ describe('AgentPanel', () => {
     await waitFor(() => {
       expect(screen.getByText('Existing worktrees')).toBeInTheDocument()
     })
-    expect(screen.getAllByText('kong-gateway')).toHaveLength(2)
+    expect(screen.getByText('Start Terminal')).toBeInTheDocument()
     expect(screen.getByText('Worktree: manifold-dormant')).toBeInTheDocument()
     expect(screen.getByText('Agent: Codex')).toBeInTheDocument()
   })

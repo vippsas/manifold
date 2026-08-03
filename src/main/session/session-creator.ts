@@ -183,8 +183,12 @@ export class SessionCreator {
       session.status = 'waiting'
       session.pid = null
     }
-    if (existingMeta?.displayName) {
-      session.displayName = existingMeta.displayName
+    // A name typed in the New Agent form is the agent's name, full stop — it is
+    // what its tab reads. (It used to be a branch hint, back when starting an
+    // agent cut a branch; the workspace owns the branch now.)
+    const chosenName = options.displayName?.trim()
+    if (chosenName || existingMeta?.displayName) {
+      session.displayName = chosenName || existingMeta!.displayName
     }
 
     // Map session→storage so chat messages are persisted scoped to the worktree

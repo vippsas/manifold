@@ -116,25 +116,27 @@ describe('WorkspaceManager', () => {
     expect(first).toBe(second)
   })
 
-  it('spawnAgent homes the agent in the chosen repo while still spanning the others', async () => {
-    const w = await manager.create({ name: 'auth', projectIds: ['api', 'web'] })
-    await manager.spawnAgent(w.id, { runtimeId: 'claude', homeProjectId: 'web' })
+  // The workspace decides where its agents run, so every agent in it lands in the
+  // same place: the workspace's first folder, with the rest along as context.
+  // Nothing the user has selected elsewhere can move an agent to another folder.
+  it('always homes the agent in the workspace first folder', async () => {
+    const w = await manager.create({ name: 'auth', projectIds: ['api', 'web', 'shared'] })
+
+    await manager.spawnAgent(w.id, { runtimeId: 'claude' })
+
     expect(deps._createSession).toHaveBeenCalledWith(expect.objectContaining({
-      projectId: 'web',
-      existingWorktreePath: '/repo/web/.wt/manifold/auth',
-      additionalDirs: ['/repo/api/.wt/manifold/auth'],
+      projectId: 'api',
+      existingWorktreePath: '/repo/api/.wt/manifold/auth',
+      additionalDirs: ['/repo/web/.wt/manifold/auth', '/repo/shared/.wt/manifold/auth'],
     }))
   })
 
-  it('keeps the other repos in their original order when the home repo is in the middle', async () => {
-    const w = await manager.create({ name: 'auth', projectIds: ['api', 'web', 'shared'] })
-    await manager.spawnAgent(w.id, { runtimeId: 'claude', homeProjectId: 'web' })
-    expect(deps._createSession).toHaveBeenCalledWith(expect.objectContaining({
-      projectId: 'web',
-      existingWorktreePath: '/repo/web/.wt/manifold/auth',
-      // api stays before shared; only web is pulled to the front
-      additionalDirs: ['/repo/api/.wt/manifold/auth', '/repo/shared/.wt/manifold/auth'],
-    }))
+  it('names the agent when one is typed in the form', async () => {
+    const w = await manager.create({ name: 'auth', projectIds: ['api'] })
+
+    await manager.spawnAgent(w.id, { runtimeId: 'claude', displayName: 'reviewer' })
+
+    expect(deps._createSession).toHaveBeenCalledWith(expect.objectContaining({ displayName: 'reviewer' }))
   })
 
   // The home workspace is the clone the user opened, so its agents edit that —

@@ -202,15 +202,10 @@ export class WorkspaceManager {
     if (!workspace) throw new Error(`Workspace not found: ${workspaceId}`)
     if (workspace.projectIds.length === 0) throw new Error('Workspace has no projects')
 
+    // The workspace decides where its agents run: the first folder is the cwd and
+    // the rest come along as context. Homing on whichever folder the sidebar had
+    // selected would make two agents in one workspace live in different places.
     const projects = this.resolveProjects(workspace.projectIds)
-
-    // Home the agent in the chosen repo: move it to the front (its cwd/primary), keeping
-    // the others in their relative order. Unknown/absent homeProjectId keeps the default (first repo).
-    if (options.homeProjectId && projects.some((p) => p.id === options.homeProjectId)) {
-      const home = projects.find((p) => p.id === options.homeProjectId)!
-      const rest = projects.filter((p) => p.id !== options.homeProjectId)
-      projects.splice(0, projects.length, home, ...rest)
-    }
 
     // The workspace already owns a checkout of every repo, so an agent joins it
     // rather than cutting one of its own — that is what keeps a workspace a
@@ -222,7 +217,8 @@ export class WorkspaceManager {
     return this.deps.sessionManager.createSession({
       projectId: projects[0].id,
       runtimeId: options.runtimeId,
-      prompt: options.prompt ?? '',
+      prompt: '',
+      displayName: options.displayName,
       branchName: workspace.branchName,
       // A home workspace is the clone itself: the agent works on whatever branch
       // the user has checked out there instead of being moved to another.

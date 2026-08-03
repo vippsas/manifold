@@ -1,10 +1,10 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
-import { screen, fireEvent, within } from '@testing-library/react'
-import type { AgentSession } from '../../../shared/types'
+import { screen, fireEvent, within, waitFor } from '@testing-library/react'
 import type { DraftId } from '../../../shared/draft-chat'
 import {
   installElectronApi,
   installLocalStorage,
+  mockInvoke,
   renderSidebar,
 } from './ProjectSidebar.test-helpers'
 
@@ -111,30 +111,39 @@ describe('ProjectSidebar', () => {
 
   // An in-place agent has no worktree row of its own: the folder it checked out
   // is where its edits land, so the folder row is where the sidebar says so.
-  describe('an in-place agent marks the folder it works in', () => {
-    const inPlace: AgentSession = {
-      id: 's3', projectId: 'p1', runtimeId: 'claude', branchName: 'alpha/oslo',
-      worktreePath: '/repos/alpha', status: 'running', pid: 3, additionalDirs: [], noWorktree: true,
-    }
+  // The badge describes the folder, not an agent: agents belong to the workspace,
+  // and a folder row is only ever a place to look at files.
+  describe('a folder row names the branch it has checked out', () => {
     const folderRow = (): HTMLElement =>
       screen.getByText('Alpha').closest<HTMLElement>('.sidebar-repo-row')!
 
-    it('names the branch that agent has checked out there', () => {
-      renderSidebar({ sessionsByWorkspace: { w1: [inPlace], w2: [] } })
-
-      expect(within(folderRow()).getByLabelText(/works in this folder directly, on oslo/)).toBeInTheDocument()
-    })
-
-    it('leaves the folder unmarked for an agent that has its own worktree', () => {
+    it('labels each folder of a home workspace with its own branch', async () => {
+      mockInvoke.mockImplementation((channel: string, projectId: string) => (
+        channel === 'git:current-branch'
+          ? Promise.resolve(projectId === 'p1' ? 'feature/oslo' : 'main')
+          : Promise.resolve([])
+      ))
       renderSidebar()
 
-      expect(within(folderRow()).queryByLabelText(/works in this folder directly/)).not.toBeInTheDocument()
+      expect(await within(folderRow()).findByLabelText('Alpha is checked out on feature/oslo')).toBeInTheDocument()
     })
 
-    it('drops the mark once that agent has exited', () => {
-      renderSidebar({ sessionsByWorkspace: { w1: [{ ...inPlace, status: 'done' }], w2: [] } })
+    // Every folder of a worktree workspace is on the workspace's branch, named
+    // once on the card above — repeating it on each folder is noise.
+    it('leaves the folders of a worktree workspace unlabelled', async () => {
+      mockInvoke.mockImplementation((channel: string) => (
+        channel === 'git:current-branch' ? Promise.resolve('main') : Promise.resolve([])
+      ))
+      renderSidebar({
+        workspaces: [{
+          id: 'w1', name: 'alpha-space', projectIds: ['p1'], createdAt: '2024-01-01',
+          branchName: 'manifold/alpha-space', worktreePaths: { p1: '/wt/alpha' },
+        }],
+        sessionsByWorkspace: { w1: [] },
+      })
 
-      expect(within(folderRow()).queryByLabelText(/works in this folder directly/)).not.toBeInTheDocument()
+      await waitFor(() => expect(screen.getByTitle(/Every folder here is checked out on/)).toBeInTheDocument())
+      expect(within(folderRow()).queryByLabelText(/checked out on/)).not.toBeInTheDocument()
     })
   })
 

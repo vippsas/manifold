@@ -27,7 +27,6 @@ import { useProjectCreateHandlers } from './hooks/project/useProjectCreateHandle
 import { useDockLayout } from './hooks/dock-layout/useDockLayout'
 import { useSidebarHandleCycle } from './hooks/dock-layout/useSidebarHandleCycle'
 import { useAgentSiblingDockTabs } from './hooks/agent-session/useAgentSiblingDockTabs'
-import { getPrimarySession } from './hooks/agent-session/agent-siblings'
 import { useAppEffects } from './hooks/app/useAppEffects'
 import { useCommands } from './hooks/app/useCommands'
 import { cycleAgent } from './commands/agent-cycle'
@@ -112,9 +111,16 @@ export function App(): React.JSX.Element {
   const { diff, changedFiles, refreshDiff } = useDiff(effectiveSessionId)
   const activeWorktreePath = activeSession?.worktreePath ?? null
   const activeProjectSessions = activeProjectId ? sessionsByProject[activeProjectId] ?? [] : []
-  const primarySession = getPrimarySession(activeProjectSessions, activeWorktreePath)
+  // An agent lives in a workspace, not in one of its folders: every agent here is
+  // a tab of the Agent panel, whichever folder the sidebar has selected. Grouping
+  // by folder instead would hide the workspace's other agents behind a folder
+  // click, since each folder is a different path on disk.
+  const activeWorkspaceSessions = activeWorkspaceId
+    ? sessionsByWorkspace[activeWorkspaceId] ?? []
+    : activeProjectSessions
+  const primarySession = activeWorkspaceSessions[0] ?? null
   const primarySessionId = primarySession?.id ?? null
-  const dockLayout = useDockLayout(activeSessionId, activeProjectSessions)
+  const dockLayout = useDockLayout(activeSessionId, activeWorkspaceSessions)
   // Only the double-click width-cycle gesture remains in use; the header
   // collapse buttons were removed (closing a panel replaces collapsing).
   useSidebarHandleCycle(dockLayout.apiRef, settings.sidebarResizeReversed)
@@ -122,7 +128,7 @@ export function App(): React.JSX.Element {
     apiRef: dockLayout.apiRef, layoutVersion: dockLayout.layoutVersion,
     layoutReloadVersion: dockLayout.layoutReloadVersion, isRestoringRef: dockLayout.isRestoringRef,
     rememberedActiveSessionRef,
-    sessions: activeProjectSessions, activeWorktreePath, primarySessionId, activeSessionId,
+    sessions: activeWorkspaceSessions, activeWorktreePath, primarySessionId, activeSessionId,
     disabled: false, onSelectSession: setActiveSession,
   })
   const codeView = useCodeView(effectiveSessionId)
@@ -162,7 +168,7 @@ export function App(): React.JSX.Element {
     setActiveSession(configured.id)
   }, [setActiveProject, setActiveSession, workspaceIdBySession])
 
-  const overlays = useAppOverlays(gitOps.commit, refreshDiff, spawnAgent, deleteAgent, removeSession, updateSettings, setActiveSession, setActiveProject, activeProjectId)
+  const overlays = useAppOverlays(gitOps.commit, refreshDiff, deleteAgent, removeSession, updateSettings, setActiveSession, setActiveProject, activeProjectId)
   const { themeId, themeClass, xtermTheme, setPreviewThemeId } = useTheme(settings.theme)
   const toggleTheme = useCallback(() => {
     const nextId = themeId.endsWith('-light')
@@ -243,25 +249,16 @@ export function App(): React.JSX.Element {
     projects,
   }), [tree?.path, additionalTrees, activeSession, projects])
 
-  const openNewAgentModal = useCallback((projectId?: string, workspaceId?: string): void => {
-    // A new agent always belongs to a workspace. When the caller doesn't name one,
-    // fall back to the focused workspace, then to whichever holds the target repo.
+  // An agent belongs to a workspace and to no folder in particular, so this needs
+  // nothing but the workspace: the focused one, or whichever holds the open repo.
+  const openNewAgentModal = useCallback((workspaceId?: string): void => {
     const targetWorkspaceId = workspaceId
       ?? activeWorkspaceId
-      ?? workspaces.find((w) => w.projectIds.includes(projectId ?? activeProjectId ?? ''))?.id
+      ?? workspaces.find((w) => w.projectIds.includes(activeProjectId ?? ''))?.id
     if (!targetWorkspaceId) return
-    const workspace = workspaces.find((candidate) => candidate.id === targetWorkspaceId)
-    const homeProjectId = projectId && workspace?.projectIds.includes(projectId)
-      ? projectId
-      : activeProjectId && workspace?.projectIds.includes(activeProjectId)
-        ? activeProjectId
-        : workspace?.projectIds[0]
     setActiveWorkspaceId(targetWorkspaceId)
-    if (homeProjectId) {
-      setActiveProject(homeProjectId)
-      setNewAgentTarget({ projectId: homeProjectId, workspaceId: targetWorkspaceId })
-    }
-  }, [activeProjectId, activeWorkspaceId, setActiveProject, workspaces])
+    setNewAgentTarget({ workspaceId: targetWorkspaceId })
+  }, [activeProjectId, activeWorkspaceId, workspaces])
 
   const addLocalFolderToWorkspace = useCallback(async (workspaceId: string): Promise<void> => {
     const project = await addProject(undefined, { activate: false })
@@ -336,7 +333,7 @@ export function App(): React.JSX.Element {
     defaultRuntime: settings.defaultRuntime, defaultAgentMode: settings.defaultAgentMode ?? 'interactive',
     activeSessionWorktreePath: activeSession?.worktreePath ?? null,
     activeSessionNoWorktree: activeSession?.noWorktree ?? false,
-    onLaunchAgent: overlays.handleLaunchAgent, projects, activeProjectId,
+    projects, activeProjectId,
     allProjectSessions: sessionsByProject, outputtingSessionIds,
     onSelectSession: (sessionId: string, projectId: string) => {
       setActiveWorkspaceId(workspaceIdBySession[sessionId] ?? null)
@@ -384,13 +381,11 @@ export function App(): React.JSX.Element {
     onCopyWorkspace: (id: string) => { void copyWorkspaceToWorktree(id) },
     onLaunchWorkspaceAgent: async (
       workspaceId: string,
-      homeProjectId: string,
-      options: { runtimeId: string; prompt: string; nonInteractive?: boolean },
+      options: { runtimeId: string; displayName: string; nonInteractive?: boolean },
     ) => {
       const session = await spawnWorkspaceAgent(workspaceId, {
         runtimeId: options.runtimeId,
-        homeProjectId,
-        prompt: options.prompt,
+        displayName: options.displayName,
         nonInteractive: options.nonInteractive,
       })
       setActiveWorkspaceId(workspaceId); overlays.handleSelectSession(session.id, session.projectId)
@@ -436,11 +431,11 @@ export function App(): React.JSX.Element {
     jumpToFavorite,
     newAgent: () => openNewAgentModal(),
     nextAgent: () => {
-      const next = cycleAgent(activeProjectSessions, activeSessionId, 1)
+      const next = cycleAgent(activeWorkspaceSessions, activeSessionId, 1)
       if (next) overlays.handleSelectSession(next.id, next.projectId)
     },
     previousAgent: () => {
-      const prev = cycleAgent(activeProjectSessions, activeSessionId, -1)
+      const prev = cycleAgent(activeWorkspaceSessions, activeSessionId, -1)
       if (prev) overlays.handleSelectSession(prev.id, prev.projectId)
     },
     deleteActiveAgent: () => {
@@ -456,7 +451,7 @@ export function App(): React.JSX.Element {
     },
     toggleTheme,
     openDashboard: () => { overlays.setDashboardInitialCard(null); overlays.setShowDashboard(true) },
-  }), [overlays, openQuickOpen, openNewAgentModal, appEffects, jumpToFavorite, activeProjectSessions, activeSessionId, activeSession, activeProject, dockLayout, toggleTheme])
+  }), [overlays, openQuickOpen, openNewAgentModal, appEffects, jumpToFavorite, activeWorkspaceSessions, activeSessionId, activeSession, activeProject, dockLayout, toggleTheme])
   const { runCommand } = useCommands(commandContext)
 
   return (

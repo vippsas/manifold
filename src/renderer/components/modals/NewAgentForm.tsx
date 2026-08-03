@@ -1,58 +1,23 @@
 import React from 'react'
 import { modalStyles } from './NewTaskModal.styles'
 import { TaskDescriptionField } from '../new-task'
-import { ReusableSessionsCard } from './ReusableSessionsCard'
-import { NewAgentAdvanced } from './NewAgentAdvanced'
 import { NewAgentModePill } from './NewAgentModePill'
 import { AgentRuntimePicker } from '../new-task/AgentRuntimePicker'
 import { useNewAgentForm } from './useNewAgentForm'
 import type { NewAgentProps } from './useNewAgentForm'
 
-export function NewAgentForm(props: NewAgentProps & { compact?: boolean }): React.JSX.Element {
-  const { projectPath, isGitProject, onResumeSession, onDeleteSession, compact = false } = props
+/** The dialog's layout: a label, a runtime, Terminal or Chat. Everything else an
+ *  agent used to ask for — repo, branch, worktree — the workspace already
+ *  answers. The full-panel start view (`NewAgentHero`) offers the same fields as
+ *  cards, plus the workspace's finished agents to resume. */
+export function NewAgentForm(props: NewAgentProps): React.JSX.Element {
   const f = useNewAgentForm(props)
-  const [showAdvanced, setShowAdvanced] = React.useState(false)
-
-  const handleSubmit = (e: React.FormEvent): void => {
-    e.preventDefault()
-    void f.submit()
-  }
-
-  const formStyle = { display: 'flex', flexDirection: 'column', gap: 'var(--space-lg)', width: 420, maxWidth: '90%' } as const
-
-  if (compact) {
-    return (
-      <form onSubmit={handleSubmit} style={formStyle}>
-        <TaskDescriptionField
-          value={f.taskDescription}
-          onChange={f.setTaskDescription}
-          inputRef={f.inputRef}
-          canSubmit={f.canSubmit}
-          loading={f.loading}
-        />
-        <AgentRuntimePicker value={f.runtimeId} onChange={f.setRuntimeId} runtimes={f.runtimes} />
-        {f.error && <p style={modalStyles.errorText}>{f.error}</p>}
-        <NewAgentModePill mode={f.mode} setMode={f.setMode} canSubmit={f.canSubmit} loading={f.loading} />
-        {f.dirtyConfirmDialog}
-      </form>
-    )
-  }
 
   return (
-    <form onSubmit={handleSubmit} style={formStyle}>
-      <ReusableSessionsCard
-        projectPath={projectPath}
-        sessions={f.reusableSessions}
-        onResumeSession={onResumeSession}
-        onDeleteSession={onDeleteSession}
-      />
-
-      {!isGitProject && (
-        <p style={modalStyles.infoText}>
-          This folder is not a Git repository. The agent will work directly in the folder and can still read and edit documents.
-        </p>
-      )}
-
+    <form
+      onSubmit={(e) => { e.preventDefault(); void f.submit() }}
+      style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-lg)', width: 420, maxWidth: '90%' }}
+    >
       <TaskDescriptionField
         value={f.taskDescription}
         onChange={f.setTaskDescription}
@@ -60,54 +25,14 @@ export function NewAgentForm(props: NewAgentProps & { compact?: boolean }): Reac
         canSubmit={f.canSubmit}
         loading={f.loading}
       />
-
-      {f.error && <p style={modalStyles.errorText}>{f.error}</p>}
-
-      {f.inPlaceAgentRunning && (
-        <p style={modalStyles.infoText}>
-          ⚠ An agent is already working in this repository itself. Only one can at a time — starting will switch to it. For a second agent on its own branch, make a workspace.
+      <AgentRuntimePicker value={f.runtimeId} onChange={f.setRuntimeId} runtimes={f.runtimes} />
+      {!f.runtimeInstalled && (
+        <p style={modalStyles.errorText}>
+          {f.selectedRuntime?.name ?? f.runtimeId} is not installed. Please install it first.
         </p>
       )}
-
+      {f.error && <p style={modalStyles.errorText}>{f.error}</p>}
       <NewAgentModePill mode={f.mode} setMode={f.setMode} canSubmit={f.canSubmit} loading={f.loading} />
-
-      <button
-        type="button"
-        onClick={() => setShowAdvanced((prev) => !prev)}
-        style={modalStyles.advancedToggle}
-      >
-        <span style={{ transform: showAdvanced ? 'rotate(90deg)' : 'rotate(0deg)', display: 'inline-block', transition: 'transform 0.15s', pointerEvents: 'none' }}>&#9654;</span>
-        {' '}Advanced
-      </button>
-
-      {showAdvanced && (
-        <NewAgentAdvanced
-          isGitProject={isGitProject}
-          runtimeId={f.runtimeId}
-          runtimes={f.runtimes}
-          setRuntimeId={f.setRuntimeId}
-          runtimeInstalled={f.runtimeInstalled}
-          selectedRuntime={f.selectedRuntime}
-          useExisting={f.useExisting}
-          setUseExisting={f.setUseExisting}
-          existingSubTab={f.existingSubTab}
-          setExistingSubTab={f.setExistingSubTab}
-          branches={f.branches}
-          baseBranch={props.baseBranch}
-          branchFilter={f.branchFilter}
-          setBranchFilter={f.setBranchFilter}
-          selectedBranch={f.selectedBranch}
-          setSelectedBranch={f.setSelectedBranch}
-          branchesLoading={f.branchesLoading}
-          prs={f.prs}
-          prFilter={f.prFilter}
-          setPrFilter={f.setPrFilter}
-          selectedPr={f.selectedPr}
-          setSelectedPr={f.setSelectedPr}
-          prsLoading={f.prsLoading}
-        />
-      )}
-      {f.dirtyConfirmDialog}
     </form>
   )
 }

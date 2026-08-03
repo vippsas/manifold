@@ -1,10 +1,9 @@
+// The New Agent dialog is workspace-scoped: a name, a runtime, Terminal or Chat.
+// It asks nothing about repos, branches, PRs or worktrees — the workspace is the
+// place, and every agent started here joins it.
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { render, screen, fireEvent, waitFor } from '@testing-library/react'
 import React from 'react'
-
-vi.mock('../../../shared/norwegian-cities', () => ({
-  pickRandomNorwegianCityName: vi.fn(() => 'Oslo'),
-}))
 
 import { NewAgentForm } from './NewAgentForm'
 
@@ -18,9 +17,6 @@ beforeEach(() => {
         { id: 'claude', name: 'Claude Code', binary: 'claude', installed: true },
       ])
     }
-    if (channel === 'git:has-uncommitted-changes') {
-      return Promise.resolve(false)
-    }
     return Promise.resolve([])
   })
 
@@ -32,10 +28,8 @@ beforeEach(() => {
 
 function renderForm(overrides = {}) {
   const props = {
-    projectId: 'proj-1',
-    projectPath: '/repos/proj-1',
-    baseBranch: 'main',
-    isGitProject: true,
+    workspaceName: 'Checkout redesign',
+    primaryPath: '/worktrees/checkout/storefront',
     defaultRuntime: 'claude',
     defaultAgentMode: 'interactive' as const,
     onLaunch: vi.fn().mockResolvedValue({ id: 'session-1' }),
@@ -45,6 +39,8 @@ function renderForm(overrides = {}) {
   return { ...render(<NewAgentForm {...props} />), props }
 }
 
+const nameField = 'Agent name (optional), e.g. Dark mode toggle'
+
 describe('NewAgentForm', () => {
   it('allows submitting without typing an agent name', async () => {
     renderForm()
@@ -53,39 +49,48 @@ describe('NewAgentForm', () => {
     expect(screen.getByText('Start Agent')).toBeEnabled()
   })
 
-  it('uses a random Norwegian city when submitted with a blank name', async () => {
+  // A blank name used to become a random Norwegian city, because the name seeded
+  // a branch. The workspace owns the branch now, so blank means blank and the
+  // agent is left named after its runtime.
+  it('sends an empty name when none is typed', async () => {
     const { props } = renderForm()
     await waitFor(() => expect(mockInvoke).toHaveBeenCalledWith('runtimes:list'))
 
     fireEvent.click(screen.getByText('Start Agent'))
 
     await waitFor(() => {
-      expect(props.onLaunch).toHaveBeenCalledWith(
-        expect.objectContaining({
-          projectId: 'proj-1',
-          runtimeId: 'claude',
-          prompt: 'Oslo',
-        }),
-      )
+      expect(props.onLaunch).toHaveBeenCalledWith({
+        runtimeId: 'claude',
+        displayName: '',
+        nonInteractive: false,
+      })
     })
   })
 
-  it('uses the typed agent name when one is provided', async () => {
+  it('names the agent when a name is typed', async () => {
     const { props } = renderForm()
     await waitFor(() => expect(mockInvoke).toHaveBeenCalledWith('runtimes:list'))
 
-    fireEvent.change(screen.getByPlaceholderText('Agent name (optional), e.g. Dark mode toggle'), {
+    fireEvent.change(screen.getByPlaceholderText(nameField), {
       target: { value: 'Dark mode toggle' },
     })
     fireEvent.click(screen.getByText('Start Agent'))
 
     await waitFor(() => {
       expect(props.onLaunch).toHaveBeenCalledWith(
-        expect.objectContaining({
-          prompt: 'Dark mode toggle',
-        }),
+        expect.objectContaining({ displayName: 'Dark mode toggle' }),
       )
     })
+  })
+
+  it('offers no branch, PR or worktree choice', async () => {
+    renderForm()
+    await waitFor(() => expect(mockInvoke).toHaveBeenCalledWith('runtimes:list'))
+
+    expect(screen.queryByText(/Advanced/)).not.toBeInTheDocument()
+    expect(screen.queryByLabelText('Continue on an existing branch or PR')).not.toBeInTheDocument()
+    expect(mockInvoke).not.toHaveBeenCalledWith('git:list-branches', expect.anything())
+    expect(mockInvoke).not.toHaveBeenCalledWith('git:has-uncommitted-changes', expect.anything())
   })
 
   it('shows an error and recovers when launch returns null', async () => {
@@ -100,41 +105,25 @@ describe('NewAgentForm', () => {
     })
   })
 
-  it('renders existing worktrees with resume and delete actions', async () => {
-    const onResumeSession = vi.fn().mockResolvedValue(undefined)
-    const onDeleteSession = vi.fn()
-    const existingSession = {
-      id: 'session-dormant',
-      projectId: 'proj-1',
-      runtimeId: 'claude',
-      branchName: 'manifold/existing-branch',
-      worktreePath: '/repos/proj-1/.manifold/worktrees/existing',
-      status: 'done' as const,
-      pid: null,
-      taskDescription: 'Existing task',
-      additionalDirs: [],
-    }
-
-    renderForm({
-      existingSessions: [existingSession],
-      onResumeSession,
-      onDeleteSession,
-    })
+  it('starts an agent under StrictMode (mountedRef valid after remount)', async () => {
+    const onLaunch = vi.fn().mockResolvedValue({ id: 'session-1' })
+    render(
+      <React.StrictMode>
+        <NewAgentForm
+          workspaceName="Checkout redesign"
+          primaryPath="/worktrees/checkout/storefront"
+          defaultRuntime="claude"
+          defaultAgentMode="interactive"
+          onLaunch={onLaunch}
+        />
+      </React.StrictMode>,
+    )
     await waitFor(() => expect(mockInvoke).toHaveBeenCalledWith('runtimes:list'))
 
-    expect(screen.getByText('Existing worktrees')).toBeInTheDocument()
-    expect(screen.getByText('proj-1')).toBeInTheDocument()
-    expect(screen.getByText('Worktree: existing')).toBeInTheDocument()
-    expect(screen.getByText('Agent: Claude')).toBeInTheDocument()
-    expect(screen.getByText('Existing task')).toBeInTheDocument()
+    fireEvent.click(screen.getByText('Start Agent'))
 
-    fireEvent.click(screen.getByRole('button', { name: 'Resume' }))
-    await waitFor(() => {
-      expect(onResumeSession).toHaveBeenCalledWith('session-dormant', 'claude')
-    })
-
-    fireEvent.click(screen.getByRole('button', { name: 'Delete' }))
-    expect(onDeleteSession).toHaveBeenCalledWith(existingSession)
+    await waitFor(() => expect(onLaunch).toHaveBeenCalled())
+    expect(screen.queryByText(/Failed to start agent/)).toBeNull()
   })
 
   it('renders the Terminal | Chat toggle, defaulting to Terminal', async () => {
@@ -220,243 +209,6 @@ describe('NewAgentForm', () => {
     expect(mockInvoke).not.toHaveBeenCalledWith('settings:update', expect.anything())
   })
 
-  async function openBranchPicker() {
-    fireEvent.click(screen.getByText(/Advanced/))
-    fireEvent.click(screen.getByLabelText('Continue on an existing branch or PR'))
-    await waitFor(() => expect(mockInvoke).toHaveBeenCalledWith('git:list-branches', 'proj-1'))
-  }
-
-  it('creates an agent in the repository under StrictMode (mountedRef valid after remount)', async () => {
-    const onLaunch = vi.fn().mockResolvedValue({ id: 'session-1' })
-    render(
-      <React.StrictMode>
-        <NewAgentForm
-          projectId="proj-1"
-          projectPath="/repos/proj-1"
-          baseBranch="main"
-          isGitProject={true}
-          defaultRuntime="claude"
-          defaultAgentMode="interactive"
-          onLaunch={onLaunch}
-        />
-      </React.StrictMode>,
-    )
-    await waitFor(() => expect(mockInvoke).toHaveBeenCalledWith('runtimes:list'))
-
-    fireEvent.click(screen.getByText('Start Agent'))
-
-    await waitFor(() => {
-      expect(onLaunch).toHaveBeenCalledWith(expect.objectContaining({ noWorktree: true }))
-    })
-  })
-
-  // An agent never cuts a checkout of its own any more: a checkout is a
-  // workspace, so this form always starts the agent in the repository itself.
-  it('always starts the agent in the repository itself (empty picker)', async () => {
-    const { props } = renderForm()
-    await waitFor(() => expect(mockInvoke).toHaveBeenCalledWith('runtimes:list'))
-
-    fireEvent.click(screen.getByText('Start Agent'))
-
-    await waitFor(() => expect(props.onLaunch).toHaveBeenCalled())
-    const options = props.onLaunch.mock.calls[0][0]
-    expect(options.noWorktree).toBe(true)
-    expect(options.existingBranch).toBeUndefined()
-    expect(options.stayOnBranch).toBeUndefined()
-    // Clean tree → no confirmation, no allowDirtyWorktree flag.
-    expect(options.allowDirtyWorktree).toBeUndefined()
-    // Blank name → autoName so the agent is named after its branch.
-    expect(options.autoName).toBe(true)
-    expect(screen.queryByText(/uncommitted changes/i)).toBeNull()
-  })
-
-  it('does not set autoName when a name is typed', async () => {
-    const { props } = renderForm()
-    await waitFor(() => expect(mockInvoke).toHaveBeenCalledWith('runtimes:list'))
-
-    fireEvent.change(screen.getByPlaceholderText('Agent name (optional), e.g. Dark mode toggle'), {
-      target: { value: 'Fix the parser' },
-    })
-    fireEvent.click(screen.getByText('Start Agent'))
-
-    await waitFor(() => expect(props.onLaunch).toHaveBeenCalled())
-    expect(props.onLaunch.mock.calls[0][0].autoName).toBe(false)
-  })
-
-  function dirtyRepoInvoke(channel: string) {
-    if (channel === 'runtimes:list') {
-      return Promise.resolve([{ id: 'claude', name: 'Claude Code', binary: 'claude', installed: true }])
-    }
-    if (channel === 'git:has-uncommitted-changes') return Promise.resolve(true)
-    return Promise.resolve([])
-  }
-
-  it('confirms before starting a new-branch agent in a dirty repo', async () => {
-    mockInvoke.mockImplementation(dirtyRepoInvoke)
-    const { props } = renderForm()
-    await waitFor(() => expect(mockInvoke).toHaveBeenCalledWith('runtimes:list'))
-
-    // A typed name cuts a new branch off the base, which is the case that needs
-    // the clean-tree confirmation (working directly on the base tolerates dirt).
-    fireEvent.change(screen.getByPlaceholderText('Agent name (optional), e.g. Dark mode toggle'), {
-      target: { value: 'New parser' },
-    })
-    fireEvent.click(screen.getByText('Start Agent'))
-
-    // Dialog appears; nothing launched yet.
-    await waitFor(() => expect(screen.getByText('Continue')).toBeTruthy())
-    expect(props.onLaunch).not.toHaveBeenCalled()
-
-    fireEvent.click(screen.getByText('Continue'))
-
-    await waitFor(() => {
-      expect(props.onLaunch).toHaveBeenCalledWith(
-        expect.objectContaining({ noWorktree: true, allowDirtyWorktree: true }),
-      )
-    })
-  })
-
-  it('cancels the dirty-repo confirmation without launching', async () => {
-    mockInvoke.mockImplementation(dirtyRepoInvoke)
-    const { props } = renderForm()
-    await waitFor(() => expect(mockInvoke).toHaveBeenCalledWith('runtimes:list'))
-
-    fireEvent.change(screen.getByPlaceholderText('Agent name (optional), e.g. Dark mode toggle'), {
-      target: { value: 'New parser' },
-    })
-    fireEvent.click(screen.getByText('Start Agent'))
-    await waitFor(() => expect(screen.getByText('Continue')).toBeTruthy())
-
-    fireEvent.click(screen.getByText('Cancel'))
-
-    await waitFor(() => expect(screen.queryByText('Continue')).toBeNull())
-    expect(props.onLaunch).not.toHaveBeenCalled()
-  })
-
-  it('confirms a dirty tree even for a no-name (work-on-base) agent', async () => {
-    mockInvoke.mockImplementation(dirtyRepoInvoke)
-    const { props } = renderForm()
-    await waitFor(() => expect(mockInvoke).toHaveBeenCalledWith('runtimes:list'))
-
-    // Blank name → autoName (work directly on base); switching the working copy
-    // with a dirty tree must still prompt, not silently carry changes.
-    fireEvent.click(screen.getByText('Start Agent'))
-    await waitFor(() => expect(screen.getByText('Continue')).toBeTruthy())
-    expect(props.onLaunch).not.toHaveBeenCalled()
-  })
-
-  it('blocks selecting a branch/PR when an in-place agent is already running', async () => {
-    mockInvoke.mockImplementation((channel: string) => {
-      if (channel === 'runtimes:list') return Promise.resolve([{ id: 'claude', name: 'Claude Code', binary: 'claude', installed: true }])
-      if (channel === 'git:has-uncommitted-changes') return Promise.resolve(false)
-      if (channel === 'git:list-branches') return Promise.resolve([{ name: 'feature-x', source: 'local' }])
-      return Promise.resolve([])
-    })
-    const { props } = renderForm({
-      existingSessions: [
-        { id: 's1', projectId: 'proj-1', runtimeId: 'claude', branchName: 'feature/A', worktreePath: '/repos/proj-1', status: 'running', pid: 1, additionalDirs: [], noWorktree: true },
-      ],
-    })
-    await waitFor(() => expect(mockInvoke).toHaveBeenCalledWith('runtimes:list'))
-
-    fireEvent.click(screen.getByText(/Advanced/))
-    fireEvent.click(screen.getByLabelText('Continue on an existing branch or PR'))
-    fireEvent.click(await screen.findByText('feature-x'))
-    fireEvent.click(screen.getByText('Start Agent'))
-
-    await waitFor(() => expect(screen.getByText(/only one can run at a time/i)).toBeTruthy())
-    expect(props.onLaunch).not.toHaveBeenCalled()
-  })
-
-  it('warns that the repository is taken while an agent is working in it', async () => {
-    renderForm({
-      existingSessions: [
-        { id: 's1', projectId: 'proj-1', runtimeId: 'claude', branchName: 'x', worktreePath: '/repos/proj-1', status: 'running', pid: 1, additionalDirs: [], noWorktree: true },
-      ],
-    })
-    await waitFor(() => expect(mockInvoke).toHaveBeenCalledWith('runtimes:list'))
-
-    expect(screen.getByText(/already working in this repository itself/i)).toBeTruthy()
-  })
-
-  it('does not warn when the agent that held the repository has finished', async () => {
-    renderForm({
-      existingSessions: [
-        { id: 's1', projectId: 'proj-1', runtimeId: 'claude', branchName: 'x', worktreePath: '/repos/proj-1', status: 'done', pid: null, additionalDirs: [], noWorktree: true },
-      ],
-    })
-    await waitFor(() => expect(mockInvoke).toHaveBeenCalledWith('runtimes:list'))
-
-    expect(screen.queryByText(/already working in this repository itself/i)).toBeNull()
-  })
-
-  it('selecting a branch sets it as the base branch (baseBranch + noWorktree)', async () => {
-    mockInvoke.mockImplementation((channel: string) => {
-      if (channel === 'runtimes:list') {
-        return Promise.resolve([{ id: 'claude', name: 'Claude Code', binary: 'claude', installed: true }])
-      }
-      if (channel === 'git:has-uncommitted-changes') {
-        return Promise.resolve(false)
-      }
-      if (channel === 'git:list-branches') {
-        return Promise.resolve([
-          { name: 'main', source: 'both' },
-          { name: 'feature-x', source: 'local' },
-        ])
-      }
-      return Promise.resolve([])
-    })
-    const { props } = renderForm()
-    await waitFor(() => expect(mockInvoke).toHaveBeenCalledWith('runtimes:list'))
-
-    await openBranchPicker()
-    fireEvent.click(await screen.findByText('feature-x'))
-    fireEvent.click(screen.getByText('Start Agent'))
-
-    await waitFor(() => {
-      expect(props.onLaunch).toHaveBeenCalledWith(
-        expect.objectContaining({ baseBranch: 'feature-x', noWorktree: true }),
-      )
-    })
-  })
-
-  it('allows selecting the base branch to work in place on it', async () => {
-    mockInvoke.mockImplementation((channel: string) => {
-      if (channel === 'runtimes:list') {
-        return Promise.resolve([{ id: 'claude', name: 'Claude Code', binary: 'claude', installed: true }])
-      }
-      if (channel === 'git:has-uncommitted-changes') {
-        return Promise.resolve(false)
-      }
-      if (channel === 'git:list-branches') {
-        return Promise.resolve([{ name: 'main', source: 'both' }])
-      }
-      return Promise.resolve([])
-    })
-    const { props } = renderForm()
-    await waitFor(() => expect(mockInvoke).toHaveBeenCalledWith('runtimes:list'))
-
-    await openBranchPicker()
-    fireEvent.click(await screen.findByText('main'))
-    fireEvent.click(screen.getByText('Start Agent'))
-
-    await waitFor(() => {
-      expect(props.onLaunch).toHaveBeenCalledWith(
-        expect.objectContaining({ baseBranch: 'main', noWorktree: true }),
-      )
-    })
-  })
-
-  it('in compact mode shows the AI picker and hides Advanced + resume', async () => {
-    renderForm({ compact: true })
-    await waitFor(() => expect(mockInvoke).toHaveBeenCalledWith('runtimes:list'))
-    // AI/runtime picker is shown directly (not behind Advanced)
-    expect(screen.getByLabelText('Agent')).toBeInTheDocument()
-    // No Advanced toggle, no resume controls
-    expect(screen.queryByText('Advanced')).not.toBeInTheDocument()
-    expect(screen.queryByText('Continue on an existing branch or PR')).not.toBeInTheDocument()
-  })
-
   // The runtime is picked from tiles rather than a dropdown, and the pick is
   // remembered the way the Terminal/Chat mode already is.
   describe('runtime tiles', () => {
@@ -468,14 +220,13 @@ describe('NewAgentForm', () => {
             { id: 'codex', name: 'Codex', binary: 'codex', installed: installed.includes('codex') },
           ])
         }
-        if (channel === 'git:has-uncommitted-changes') return Promise.resolve(false)
         return Promise.resolve([])
       })
     }
 
     it('gives every installed runtime its own tile', async () => {
       withRuntimes('claude', 'codex')
-      renderForm({ compact: true })
+      renderForm()
 
       expect(await screen.findByRole('radio', { name: /Claude Code/ })).toHaveAttribute('aria-checked', 'true')
       expect(screen.getByRole('radio', { name: /Codex/ })).toHaveAttribute('aria-checked', 'false')
@@ -493,7 +244,7 @@ describe('NewAgentForm', () => {
         }
         return Promise.resolve([])
       })
-      renderForm({ compact: true })
+      renderForm()
 
       await screen.findByRole('radio', { name: /Claude Code/ })
       expect(screen.getAllByRole('radio')).toHaveLength(1)
@@ -501,7 +252,7 @@ describe('NewAgentForm', () => {
 
     it('leaves out a runtime whose binary is missing', async () => {
       withRuntimes('claude')
-      renderForm({ compact: true })
+      renderForm()
 
       await screen.findByRole('radio', { name: /Claude Code/ })
       expect(screen.queryByRole('radio', { name: /Codex/ })).not.toBeInTheDocument()
@@ -510,7 +261,7 @@ describe('NewAgentForm', () => {
     // Dropping it would leave Start disabled with nothing on screen to explain why.
     it('keeps the selected runtime visible when its binary is missing', async () => {
       withRuntimes('claude')
-      renderForm({ compact: true, defaultRuntime: 'codex' })
+      renderForm({ defaultRuntime: 'codex' })
 
       expect(await screen.findByRole('radio', { name: /Codex/ })).toBeInTheDocument()
       expect(screen.getByText('not installed')).toBeInTheDocument()
@@ -519,7 +270,7 @@ describe('NewAgentForm', () => {
 
     it('starts the agent on the picked runtime', async () => {
       withRuntimes('claude', 'codex')
-      const { props } = renderForm({ compact: true })
+      const { props } = renderForm()
 
       fireEvent.click(await screen.findByRole('radio', { name: /Codex/ }))
       fireEvent.click(screen.getByText('Start Agent'))
@@ -531,7 +282,7 @@ describe('NewAgentForm', () => {
 
     it('remembers the picked runtime for the next agent', async () => {
       withRuntimes('claude', 'codex')
-      renderForm({ compact: true })
+      renderForm()
 
       fireEvent.click(await screen.findByRole('radio', { name: /Codex/ }))
       fireEvent.click(screen.getByText('Start Agent'))
@@ -543,7 +294,7 @@ describe('NewAgentForm', () => {
 
     it('saves a changed runtime and mode in one settings write', async () => {
       withRuntimes('claude', 'codex')
-      renderForm({ compact: true })
+      renderForm()
 
       fireEvent.click(await screen.findByRole('radio', { name: /Codex/ }))
       fireEvent.click(screen.getByText('Chat'))
@@ -556,7 +307,7 @@ describe('NewAgentForm', () => {
 
     it('writes nothing when the picked runtime is already the default', async () => {
       withRuntimes('claude', 'codex')
-      renderForm({ compact: true })
+      renderForm()
 
       fireEvent.click(await screen.findByRole('radio', { name: /Codex/ }))
       fireEvent.click(screen.getByRole('radio', { name: /Claude Code/ }))
@@ -565,25 +316,5 @@ describe('NewAgentForm', () => {
       await waitFor(() => expect(mockInvoke).toHaveBeenCalledWith('runtimes:list'))
       expect(mockInvoke).not.toHaveBeenCalledWith('settings:update', expect.anything())
     })
-  })
-
-  it('truncates long task context in existing worktrees rows', async () => {
-    renderForm({
-      existingSessions: [{
-        id: 'session-long',
-        projectId: 'proj-1',
-        runtimeId: 'claude',
-        branchName: 'manifold/very-long',
-        worktreePath: '/repos/proj-1/.manifold/worktrees/very-long',
-        status: 'done' as const,
-        pid: null,
-        taskDescription: 'Inspect this repository and summarize what it is for while keeping the report concise and focused on practical structure details',
-        additionalDirs: [],
-      }],
-    })
-    await waitFor(() => expect(mockInvoke).toHaveBeenCalledWith('runtimes:list'))
-
-    expect(screen.getByText('Agent: Claude')).toBeInTheDocument()
-    expect(screen.getByText('Inspect this repository and summarize what it is for while keeping the...')).toBeInTheDocument()
   })
 })

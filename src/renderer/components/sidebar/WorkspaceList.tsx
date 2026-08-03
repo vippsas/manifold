@@ -14,6 +14,8 @@ export interface WorkspaceListProps {
   activeWorkspaceId: string | null
   activeProjectId?: string | null
   sessionsByWorkspace: Record<string, AgentSession[]>
+  /** projectId -> the branch that folder has checked out (home workspaces only). */
+  folderBranches?: Record<string, string>
   outputtingSessionIds?: Set<string>
   drafts: DraftChat[]
   activeDraftId: string | null
@@ -41,6 +43,7 @@ export function WorkspaceList({
   activeWorkspaceId,
   activeProjectId,
   sessionsByWorkspace,
+  folderBranches,
   outputtingSessionIds,
   drafts,
   activeDraftId,
@@ -95,6 +98,7 @@ export function WorkspaceList({
           projects={projects}
           isActive={workspace.id === activeWorkspaceId}
           sessions={sessionsByWorkspace[workspace.id] ?? []}
+          folderBranches={folderBranches}
           activeProjectId={activeProjectId}
           outputtingSessionIds={outputtingSessionIds}
           drafts={drafts.filter((d) => workspace.projectIds.includes(d.projectId))}
