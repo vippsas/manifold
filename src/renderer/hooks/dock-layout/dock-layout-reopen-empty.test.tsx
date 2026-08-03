@@ -1,9 +1,9 @@
 // Regression guard for reopening panels into an emptied dock: close every
-// panel, reopen 'projects' first (it takes the full dock width), then toggle
+// panel, reopen 'sidebar' first (it takes the full dock width), then toggle
 // the others back on. Each reopen runs inside withPinnedSidebars, which pinned
-// the projects group at its current width — the full dock — so every newly
+// the sidebar group at its current width — the full dock — so every newly
 // added group was clamped to width 0 and its panel rendered invisible until
-// projects was toggled closed and open again. The pin must be skipped when it
+// sidebar was toggled closed and open again. The pin must be skipped when it
 // would leave no unpinned group to absorb the new panel's space.
 //
 // These tests render the REAL dockview library and reopen panels through the
@@ -43,7 +43,7 @@ async function setupEmptiedDockWithProjectsOnly(): Promise<DockviewApi> {
   render(
     <div style={{ width: 1200, height: 700 }}>
       <DockviewReact
-        components={{ projects: Probe, agent: Probe, modifiedFiles: Probe, shell: Probe }}
+        components={{ sidebar: Probe, agent: Probe, editor: Probe, shell: Probe }}
         onReady={(e) => { api = e.api }}
       />
     </div>,
@@ -52,20 +52,20 @@ async function setupEmptiedDockWithProjectsOnly(): Promise<DockviewApi> {
   const dv = api as unknown as DockviewApi
   act(() => {
     dv.layout(1200, 700)
-    // The state after "close all panels, reopen Repositories first": the
-    // projects sidebar is the only group and owns the full dock width.
-    dv.addPanel({ id: 'projects', component: 'projects' })
+    // The state after "close all panels, reopen the sidebar first": it is the
+    // only group and owns the full dock width.
+    dv.addPanel({ id: 'sidebar', component: 'sidebar' })
   })
-  wireOffsetWidth(dv, 'projects')
+  wireOffsetWidth(dv, 'sidebar')
   return dv
 }
 
-describe('reopening panels into a dock where only the projects sidebar survives', () => {
+describe('reopening panels into a dock where only the sidebar survives', () => {
   it('gives the reopened panel real width instead of clamping it to 0', async () => {
     const dv = await setupEmptiedDockWithProjectsOnly()
     const widthOf = (panelId: string): number => dv.getPanel(panelId)?.group.api.width ?? -1
 
-    expect(widthOf('projects')).toBe(1200)
+    expect(widthOf('sidebar')).toBe(1200)
 
     act(() => {
       showPanelFromHints(dv, 'agent')
@@ -73,8 +73,8 @@ describe('reopening panels into a dock where only the projects sidebar survives'
 
     // Not the naive 50/50 split: the sidebar shrinks back to its default
     // one-sixth share and the reopened center pane takes the rest.
-    expect(widthOf('projects')).toBeGreaterThan(0)
-    expect(widthOf('projects')).toBeLessThanOrEqual(210)
+    expect(widthOf('sidebar')).toBeGreaterThan(0)
+    expect(widthOf('sidebar')).toBeLessThanOrEqual(210)
     expect(widthOf('agent')).toBeGreaterThanOrEqual(980)
   })
 
@@ -86,25 +86,23 @@ describe('reopening panels into a dock where only the projects sidebar survives'
       showPanelFromHints(dv, 'agent')
     })
     act(() => {
-      showPanelFromHints(dv, 'modifiedFiles')
+      showPanelFromHints(dv, 'editor')
     })
     act(() => {
       showPanelFromHints(dv, 'shell')
     })
 
-    for (const id of ['projects', 'agent', 'modifiedFiles', 'shell']) {
+    for (const id of ['sidebar', 'agent', 'editor', 'shell']) {
       expect(widthOf(id), `panel '${id}' should be visible`).toBeGreaterThan(0)
     }
     // The groups must share the dock, not overflow it: a full-width pinned
     // sidebar plus minimum-width new groups would sum past the dock width and
     // render the new panels invisible once the browser clamps the layout.
-    const columns = new Set(['projects', 'agent', 'modifiedFiles'].map((id) => dv.getPanel(id)?.group))
+    const columns = new Set(['sidebar', 'agent', 'editor'].map((id) => dv.getPanel(id)?.group))
     const columnSum = Array.from(columns).reduce((sum, group) => sum + (group?.api.width ?? 0), 0)
     expect(columnSum).toBeLessThanOrEqual(1200)
-    // And the proportions land at the default 1:4:1 layout, not arbitrary
-    // 50/50 splits: each sidebar at its one-sixth share, center the rest.
-    expect(widthOf('projects')).toBeLessThanOrEqual(210)
-    expect(widthOf('modifiedFiles')).toBeLessThanOrEqual(210)
-    expect(widthOf('agent')).toBeGreaterThanOrEqual(760)
+    // And the sidebar keeps its one-sixth share rather than taking an
+    // arbitrary 50/50 split of the dock with the panes reopened beside it.
+    expect(widthOf('sidebar')).toBeLessThanOrEqual(210)
   })
 })

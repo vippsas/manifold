@@ -1,12 +1,9 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import type { DockviewApi, SerializedDockview } from 'dockview'
 import {
-  applyBuiltLayout,
   applyLayoutChangePreservingSidebarWidths,
   findTopLeftWorkspaceReferencePanel,
-  getSidebarWidths,
   isEditorPanelId,
-  isMinimalLayout,
   loadOrBuildLayout,
   parseEditorPanelOrder,
   type EditorSplitDirection,
@@ -15,7 +12,7 @@ import {
 } from './dock-layout-helpers'
 import { siblingPanelId } from '../agent-session/agent-siblings'
 import type { AgentSession } from '../../../shared/types'
-import { applyDefaultLayout, applyMinimalPanels, syncEditorPanelIds } from './dock-layout-builders'
+import { applyDefaultLayout, syncEditorPanelIds } from './dock-layout-builders'
 import type { DockLayoutCtx } from './dock-layout-context'
 import { reconcileLayoutAfterLoad } from './dock-layout-tabs'
 import { useEditorPanels } from './dock-layout-panels'
@@ -44,7 +41,7 @@ export interface UseDockLayoutResult {
   togglePanel: (id: DockPanelId) => void
   closePanel: (id: string) => void
   /** Toggle focus mode for a pane's group: maximize to fill the dock (hiding all
-   *  other panes and both sidebars), or restore everything if already maximized. */
+   *  other panes and the sidebar), or restore everything if already maximized. */
   toggleMaximizePanel: (id: string) => void
   focusPanel: (id: string) => void
   openSiblingPanel: (sessionId: string, title?: string, referencePanelId?: string) => void
@@ -74,20 +71,20 @@ export interface UseDockLayoutResult {
  * and reloaded on every switch, which re-ran `api.fromJSON` and left panels
  * appearing, sizes jumping, and the sidebar remounting mid-click.
  *
- * `activeSessionId` is therefore not a key — it only tells the empty-state
- * layout when the first agent has arrived.
+ * `_activeSessionId` is therefore not a key, and no longer selects a layout
+ * either: the editor and shell open on demand, so a window with no agent yet
+ * starts from the same `sidebar | agent` default as one with many. It is kept
+ * in the signature because callers pass the selected agent positionally.
  */
 export function useDockLayout(
-  activeSessionId: string | null,
+  _activeSessionId: string | null,
   liveSessions: AgentSession[] = [],
 ): UseDockLayoutResult {
   const apiRef = useRef<DockviewApi | null>(null)
   const saveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
-  const hasSessionRef = useRef(activeSessionId !== null)
   const liveSessionsRef = useRef(liveSessions)
   const editorPanelIdsRef = useRef<Set<string>>(new Set())
   const nextEditorPanelIndexRef = useRef(1)
-  hasSessionRef.current = activeSessionId !== null
   liveSessionsRef.current = liveSessions
 
   // Returns `undefined` (defer filtering) when the sessions list hasn't been
@@ -114,7 +111,7 @@ export function useDockLayout(
   const lastLayoutRef = useRef<SerializedDockview | null>(null)
   const closedPanelSnapshots = useRef<Map<DockPanelId, SerializedDockview>>(new Map())
   const isRestoringRef = useRef(false)
-  const sidebarWidthsRef = useRef<{ left: number; right: number }>({ left: 0, right: 0 })
+  const sidebarWidthRef = useRef(0)
   const refs: LayoutRefs = { isRestoringRef, lastLayoutRef }
 
   const syncPanels = useCallback((api: DockviewApi) => {
@@ -135,14 +132,13 @@ export function useDockLayout(
   }, [])
 
   const buildDefaultLayout = useCallback((api: DockviewApi) => applyDefaultLayout(api), [])
-  const buildMinimalLayout = useCallback((api: DockviewApi) => applyMinimalPanels(api), [])
 
   const ctx = useMemo<DockLayoutCtx>(() => ({
     apiRef,
     editorPanelIdsRef,
     nextEditorPanelIndexRef,
     closedPanelSnapshots,
-    sidebarWidthsRef,
+    sidebarWidthRef,
     lastLayoutRef,
     refs,
     saveLayout,
@@ -200,8 +196,7 @@ export function useDockLayout(
     // Plugin webview panes open in the editor area — the same spot the editor
     // pane occupies. When a file is open, tab into the editor's group. When no
     // editor is open, take the editor's place to the right of the agent and
-    // split that region 50/50, leaving the sidebars at their pinned widths
-    // (so they stay 1/6 each and agent/pane get 2/6 each).
+    // split that region 50/50, leaving the sidebar at its pinned width.
     const editorPanelId = findOpenEditorPanelId(api)
     if (editorPanelId) {
       api.addPanel({ id: viewId, component: 'pluginView', title, position: { referencePanel: editorPanelId, direction: 'within' } })
@@ -240,31 +235,12 @@ export function useDockLayout(
   const onReady = useCallback((api: DockviewApi) => {
     apiRef.current = api
 
-    // With no agent yet the fallback is the two-panel empty state, not the full
-    // workspace — an editor and a diff list with nothing to show are noise on
-    // the onboarding screen.
-    const buildFallback = hasSessionRef.current ? buildDefaultLayout : buildMinimalLayout
-    void loadOrBuildLayout(api, buildFallback, refs, liveSiblingIds()).then(() => {
+    void loadOrBuildLayout(api, buildDefaultLayout, refs, liveSiblingIds()).then(() => {
       reconcileLayoutAfterLoad(api, ctx)
     })
 
     registerLayoutListeners(api, ctx)
-  }, [buildDefaultLayout, buildMinimalLayout, liveSiblingIds, ctx]) // eslint-disable-line react-hooks/exhaustive-deps
-
-  // The one-way trip out of the empty state: the first agent turns those two
-  // panels into the full workspace. Guarded on the layout still being the
-  // empty-state one, so a layout the user has since arranged is never rebuilt.
-  useEffect(() => {
-    const api = apiRef.current
-    if (!api || !activeSessionId) return
-    if (api.panels.length === 0 || !isMinimalLayout(api.toJSON())) return
-
-    applyBuiltLayout(api, buildDefaultLayout, refs)
-    syncPanels(api)
-    sidebarWidthsRef.current = getSidebarWidths(api)
-    saveLayout()
-    bumpVersion()
-  }, [activeSessionId, buildDefaultLayout, bumpVersion, syncPanels, saveLayout]) // eslint-disable-line react-hooks/exhaustive-deps
+  }, [buildDefaultLayout, liveSiblingIds, ctx]) // eslint-disable-line react-hooks/exhaustive-deps
 
   // Clear any pending debounced save on unmount so it can't fire api.toJSON()
   // on a disposed dockview (onboarding<->main transitions, StrictMode remount).

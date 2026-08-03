@@ -1,5 +1,5 @@
 // Screenshot fixture for the dock chrome (rounded panel cards, group gap,
-// sash hover handles, icon-only Files tabs with the group-level close) —
+// sash hover handles, the icon-only editor tab with the group-level close) —
 // mirrors the DOCK_THEME and tab/header components AppShell passes to
 // DockviewReact. Not used by the app at runtime;
 // `npm run screenshot:component DockPreview`.
@@ -18,30 +18,24 @@ function Pane(props: IDockviewPanelProps): React.JSX.Element {
 }
 
 function onReady(e: DockviewReadyEvent): void {
-  // Mirrors the default arrangement: Repositories on the left, the agent in the
-  // middle with a shell below, and on the right the one files item whose
-  // centered icon tabs switch between Modified Files and the editor.
-  e.api.addPanel({ id: 'projects', component: 'pane', title: 'Repositories' })
+  // Mirrors the default arrangement plus an open file: the one sidebar on the
+  // left (tabless — the activity rail says which view it shows), the agent in
+  // the middle with a shell below, and the editor opened beside the agent.
+  e.api.addPanel({ id: 'sidebar', component: 'pane', title: 'Sidebar' })
   e.api.addPanel({
     id: 'agent', component: 'pane', title: 'Agent',
-    position: { referencePanel: 'projects', direction: 'right' },
-  })
-  e.api.addPanel({
-    id: 'modifiedFiles', component: 'pane', title: 'Modified Files',
-    position: { referencePanel: 'agent', direction: 'right' },
+    position: { referencePanel: 'sidebar', direction: 'right' },
   })
   e.api.addPanel({
     id: 'editor', component: 'pane', title: 'Editor',
-    position: { referencePanel: 'modifiedFiles', direction: 'within' },
+    position: { referencePanel: 'agent', direction: 'right' },
   })
   e.api.addPanel({
     id: 'shell', component: 'pane', title: 'Shell',
     position: { referencePanel: 'agent', direction: 'below' },
   })
-  e.api.getPanel('projects')?.group.api.setSize({ width: 210 })
-  e.api.getPanel('modifiedFiles')?.group.api.setSize({ width: 250 })
+  e.api.getPanel('sidebar')?.group.api.setSize({ width: 210 })
   e.api.getPanel('shell')?.group.api.setSize({ height: 150 })
-  e.api.getPanel('modifiedFiles')?.api.setActive()
   // Active so its header actions (the + pill) render.
   e.api.getPanel('shell')?.api.setActive()
 }

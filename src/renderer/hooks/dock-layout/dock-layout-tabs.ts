@@ -1,5 +1,5 @@
 import type { DockviewApi } from 'dockview'
-import { getSidebarWidths } from './dock-layout-helpers'
+import { getSidebarWidth } from './dock-layout-helpers'
 import type { DockLayoutCtx } from './dock-layout-context'
 
 /**
@@ -10,7 +10,7 @@ import type { DockLayoutCtx } from './dock-layout-context'
  */
 export function reconcileLayoutAfterLoad(api: DockviewApi, ctx: DockLayoutCtx): void {
   ctx.syncPanels(api)
-  ctx.sidebarWidthsRef.current = getSidebarWidths(api)
+  ctx.sidebarWidthRef.current = getSidebarWidth(api)
   ctx.bumpVersion()
   ctx.bumpReloadVersion()
 }

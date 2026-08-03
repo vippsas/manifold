@@ -38,7 +38,7 @@ async function setupDock(): Promise<DockviewApi> {
     <div style={{ width: 1200, height: 700 }}>
       <DockviewReact
         className="dockview-theme-manifold"
-        components={{ projects: Probe, agent: Probe, editor: Probe, modifiedFiles: Probe }}
+        components={{ sidebar: Probe, agent: Probe, editor: Probe }}
         onReady={(e) => { api = e.api }}
       />
     </div>,
@@ -47,15 +47,12 @@ async function setupDock(): Promise<DockviewApi> {
   const dv = api as unknown as DockviewApi
   act(() => {
     dv.layout(1200, 700)
-    dv.addPanel({ id: 'projects', component: 'projects' })
-    dv.addPanel({ id: 'agent', component: 'agent', position: { referencePanel: 'projects', direction: 'right' } })
+    dv.addPanel({ id: 'sidebar', component: 'sidebar' })
+    dv.addPanel({ id: 'agent', component: 'agent', position: { referencePanel: 'sidebar', direction: 'right' } })
     dv.addPanel({ id: 'editor', component: 'editor', position: { referencePanel: 'agent', direction: 'right' } })
-    dv.addPanel({ id: 'modifiedFiles', component: 'modifiedFiles', position: { referencePanel: 'editor', direction: 'right' } })
-    dv.getPanel('projects')?.group.api.setSize({ width: 200 })
-    dv.getPanel('modifiedFiles')?.group.api.setSize({ width: 200 })
+    dv.getPanel('sidebar')?.group.api.setSize({ width: 200 })
   })
-  wireOffsetWidth(dv, 'projects')
-  wireOffsetWidth(dv, 'modifiedFiles')
+  wireOffsetWidth(dv, 'sidebar')
   return dv
 }
 
@@ -64,56 +61,35 @@ describe('collapsed sidebar survives a toJSON/fromJSON reload', () => {
     const dv = await setupDock()
     const widthOf = (panelId: string): number => dv.getPanel(panelId)?.group.api.width ?? -1
 
-    expect(widthOf('modifiedFiles')).toBe(200)
-    act(() => { collapseSidebar(dv, 'right') })
-    expect(widthOf('modifiedFiles')).toBe(0)
+    expect(widthOf('sidebar')).toBe(200)
+    act(() => { collapseSidebar(dv) })
+    expect(widthOf('sidebar')).toBe(0)
 
     act(() => { dv.fromJSON(dv.toJSON()) })
-    wireOffsetWidth(dv, 'modifiedFiles')
+    wireOffsetWidth(dv, 'sidebar')
 
     // fromJSON recreates the group at dockview's 100px default minimum, so the
     // collapsed 0-width is clamped back open — this is the bug being fixed.
-    expect(widthOf('modifiedFiles')).toBe(100)
+    expect(widthOf('sidebar')).toBe(100)
   })
 
-  it('restoreCollapsedSidebarWidths keeps the right sidebar collapsed after reload', async () => {
+  it('restoreCollapsedSidebarWidths keeps the sidebar collapsed after reload', async () => {
     const dv = await setupDock()
     const widthOf = (panelId: string): number => dv.getPanel(panelId)?.group.api.width ?? -1
 
-    act(() => { collapseSidebar(dv, 'right') })
+    act(() => { collapseSidebar(dv) })
     const saved = dv.toJSON()
 
     act(() => {
       dv.fromJSON(saved)
       restoreCollapsedSidebarWidths(dv, saved)
     })
-    wireOffsetWidth(dv, 'projects')
-    wireOffsetWidth(dv, 'modifiedFiles')
+    wireOffsetWidth(dv, 'sidebar')
 
-    expect(widthOf('modifiedFiles')).toBe(0)
-    // The other sidebar is left untouched.
-    expect(widthOf('projects')).toBe(200)
+    expect(widthOf('sidebar')).toBe(0)
   })
 
-  it('restoreCollapsedSidebarWidths keeps the left sidebar collapsed after reload', async () => {
-    const dv = await setupDock()
-    const widthOf = (panelId: string): number => dv.getPanel(panelId)?.group.api.width ?? -1
-
-    act(() => { collapseSidebar(dv, 'left') })
-    const saved = dv.toJSON()
-
-    act(() => {
-      dv.fromJSON(saved)
-      restoreCollapsedSidebarWidths(dv, saved)
-    })
-    wireOffsetWidth(dv, 'projects')
-    wireOffsetWidth(dv, 'modifiedFiles')
-
-    expect(widthOf('projects')).toBe(0)
-    expect(widthOf('modifiedFiles')).toBe(200)
-  })
-
-  it('leaves non-collapsed sidebars untouched on reload', async () => {
+  it('leaves a non-collapsed sidebar untouched on reload', async () => {
     const dv = await setupDock()
     const widthOf = (panelId: string): number => dv.getPanel(panelId)?.group.api.width ?? -1
 
@@ -122,10 +98,8 @@ describe('collapsed sidebar survives a toJSON/fromJSON reload', () => {
       dv.fromJSON(saved)
       restoreCollapsedSidebarWidths(dv, saved)
     })
-    wireOffsetWidth(dv, 'projects')
-    wireOffsetWidth(dv, 'modifiedFiles')
+    wireOffsetWidth(dv, 'sidebar')
 
-    expect(widthOf('projects')).toBe(200)
-    expect(widthOf('modifiedFiles')).toBe(200)
+    expect(widthOf('sidebar')).toBe(200)
   })
 })

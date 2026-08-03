@@ -38,6 +38,7 @@ import { ShellTabStore } from '../store/shell-tab-store'
 import { GitOperationsManager } from '../git/git-operations'
 import { BranchCheckoutManager } from '../git/branch-checkout-manager'
 import { DockLayoutStore } from '../store/dock-layout-store'
+import { ActiveWorkspaceStore } from '../store/active-workspace-store'
 import { SearchViewStore } from '../store/search-view-store'
 import { DismissedAgentsStore } from '../store/dismissed-agents-store'
 import { ChatStore } from '../store/chat-store'
@@ -100,6 +101,7 @@ const viewStateStore = new ViewStateStore()
 const shellTabStore = new ShellTabStore()
 const gitOps = new GitOperationsManager()
 const dockLayoutStore = new DockLayoutStore()
+const activeWorkspaceStore = new ActiveWorkspaceStore()
 const searchViewStore = new SearchViewStore()
 const dismissedAgents = new DismissedAgentsStore()
 sessionManager.setDismissedAgents(dismissedAgents)
@@ -220,6 +222,7 @@ const ipcDeps = {
   gitOps,
   branchCheckout,
   dockLayoutStore,
+  activeWorkspaceStore,
   searchViewStore,
   dismissedAgents,
   chatAdapter,

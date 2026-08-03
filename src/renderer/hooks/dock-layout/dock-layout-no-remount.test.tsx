@@ -40,7 +40,7 @@ async function setupDock(): Promise<DockviewApi> {
   render(
     <div style={{ width: 1000, height: 700 }}>
       <DockviewReact
-        components={{ agent: Probe, editor: Probe, shell: Probe, projects: Probe, modifiedFiles: Probe }}
+        components={{ agent: Probe, editor: Probe, shell: Probe, sidebar: Probe }}
         onReady={(e) => { api = e.api }}
       />
     </div>,
@@ -48,8 +48,8 @@ async function setupDock(): Promise<DockviewApi> {
   await waitFor(() => expect(api).not.toBeNull())
   const dv = api as unknown as DockviewApi
   act(() => {
-    dv.addPanel({ id: 'projects', component: 'projects' })
-    dv.addPanel({ id: 'agent', component: 'agent', position: { referencePanel: 'projects', direction: 'right' } })
+    dv.addPanel({ id: 'sidebar', component: 'sidebar' })
+    dv.addPanel({ id: 'agent', component: 'agent', position: { referencePanel: 'sidebar', direction: 'right' } })
   })
   await waitFor(() => expect(mounts.agent).toBe(1))
   return dv

@@ -1,6 +1,7 @@
 import React from 'react'
 import type { DockPanelId } from '../hooks/dock-layout/useDockLayout'
 import { PANEL_TITLES } from '../hooks/dock-layout/dock-layout-helpers'
+import { SIDEBAR_VIEW_IDS, SIDEBAR_VIEW_TITLES, type SidebarViewId } from './sidebar/sidebar-views'
 import { activityBarStyles } from './ActivityBar.styles'
 
 function glyph(paths: React.ReactNode): React.JSX.Element {
@@ -21,8 +22,18 @@ function glyph(paths: React.ReactNode): React.JSX.Element {
   )
 }
 
-const PANEL_GLYPH_PATHS: Record<DockPanelId, React.JSX.Element> = {
-  projects: <path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2Z" />,
+/** Icons are keyed by sidebar view as well as by dock panel: the rail's top
+ *  group switches sidebar views, its lower group toggles main-area panels. */
+export type GlyphId = SidebarViewId | 'agent' | 'editor' | 'shell'
+
+const PANEL_GLYPH_PATHS: Record<GlyphId, React.JSX.Element> = {
+  explorer: <path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2Z" />,
+  search: (
+    <>
+      <circle cx="11" cy="11" r="7" />
+      <path d="m16.7 16.7 4.3 4.3" />
+    </>
+  ),
   sourceControl: (
     <>
       <path d="M6 9v6" />
@@ -41,13 +52,12 @@ const PANEL_GLYPH_PATHS: Record<DockPanelId, React.JSX.Element> = {
     </>
   ),
   editor: <path d="m9 8-4 4 4 4M15 8l4 4-4 4" />,
-  modifiedFiles: <path d="M8 4.5v6M5 7.5h6M13 16.5h6" />,
   shell: <path d="m5 7 5 5-5 5M12 17h7" />,
 }
 
-/** Shared panel icon — the activity rail renders it at 18px; the icon-only
- *  Files / Modified Files dock tabs at a smaller size. */
-export function PanelGlyph({ id, size = 18 }: { id: DockPanelId; size?: number }): React.JSX.Element {
+/** Shared icon — the activity rail renders it at 18px; the icon-only editor
+ *  dock tab at a smaller size. */
+export function PanelGlyph({ id, size = 18 }: { id: GlyphId; size?: number }): React.JSX.Element {
   return (
     <svg
       width={size}
@@ -65,47 +75,24 @@ export function PanelGlyph({ id, size = 18 }: { id: DockPanelId; size?: number }
   )
 }
 
-interface RailItem {
-  key: string
+interface PanelRailItem {
+  id: DockPanelId
   label: string
-  glyph: DockPanelId
-  /** Panels this item stands for: it reads as open while any of them is, and
-   *  clicking an open item closes all of them. */
-  panels: DockPanelId[]
-  /** Panels a click opens when the item is closed. */
-  opens: DockPanelId[]
+  glyph: GlyphId
   /** Only meaningful while an agent session is active — mirrors the status bar,
    *  which offers its panel toggles only for a live session. */
   sessionOnly?: boolean
 }
 
-/** Modified Files and the editor are one dock item — a single card whose icon
- *  tabs switch between them — so the rail offers one toggle for both rather
- *  than two that could each be opened on their own. The file tree has no rail
- *  entry: it lives under its repo's row in Repositories. */
-const FILES_ITEM_PANELS: DockPanelId[] = ['modifiedFiles', 'editor']
-
-const RAIL_ITEMS: RailItem[] = [
-  { key: 'projects', label: PANEL_TITLES.projects, glyph: 'projects', panels: ['projects'], opens: ['projects'] },
-  { key: 'sourceControl', label: PANEL_TITLES.sourceControl, glyph: 'sourceControl', panels: ['sourceControl'], opens: ['sourceControl'] },
-  { key: 'agent', label: PANEL_TITLES.agent, glyph: 'agent', panels: ['agent'], opens: ['agent'] },
-  {
-    key: 'files',
-    label: PANEL_TITLES.editor,
-    glyph: 'editor',
-    panels: FILES_ITEM_PANELS,
-    opens: FILES_ITEM_PANELS,
-    sessionOnly: true,
-  },
-  { key: 'shell', label: PANEL_TITLES.shell, glyph: 'shell', panels: ['shell'], opens: ['shell'], sessionOnly: true },
+/** The main area's panels, which the rail toggles open and closed. The sidebar
+ *  views are handled separately above: their icons switch what the one sidebar
+ *  shows rather than opening a column each. The file tree has no entry of its
+ *  own — it lives under its repo's row in the Explorer. */
+const PANEL_RAIL_ITEMS: PanelRailItem[] = [
+  { id: 'agent', label: PANEL_TITLES.agent, glyph: 'agent' },
+  { id: 'editor', label: PANEL_TITLES.editor, glyph: 'editor', sessionOnly: true },
+  { id: 'shell', label: PANEL_TITLES.shell, glyph: 'shell', sessionOnly: true },
 ]
-
-const SEARCH_GLYPH = glyph(
-  <>
-    <circle cx="11" cy="11" r="7" />
-    <path d="m16.7 16.7 4.3 4.3" />
-  </>,
-)
 
 const SETTINGS_GLYPH = glyph(
   <>
@@ -118,27 +105,72 @@ export interface ActivityBarProps {
   dockLayout: {
     isPanelVisible: (id: DockPanelId) => boolean
     togglePanel: (id: DockPanelId) => void
+    focusPanel: (id: string) => void
   }
+  /** Which view the sidebar is showing — the rail marks that icon active. */
+  sidebarView: SidebarViewId
+  onSelectSidebarView: (id: SidebarViewId) => void
   hasActiveSession: boolean
-  onOpenSearch?: () => void
   onOpenSettings?: () => void
 }
 
-export function ActivityBar({ dockLayout, hasActiveSession, onOpenSearch, onOpenSettings }: ActivityBarProps): React.JSX.Element {
+export function ActivityBar({
+  dockLayout,
+  sidebarView,
+  onSelectSidebarView,
+  hasActiveSession,
+  onOpenSettings,
+}: ActivityBarProps): React.JSX.Element {
+  const sidebarOpen = dockLayout.isPanelVisible('sidebar')
+
+  // VS Code's rail behaviour: a different view swaps what the sidebar shows,
+  // and clicking the view already showing collapses the sidebar — so the same
+  // icon both reveals and hides, and the sidebar is never left showing a view
+  // nobody asked for.
+  const selectSidebarView = (id: SidebarViewId): void => {
+    if (!sidebarOpen) {
+      onSelectSidebarView(id)
+      dockLayout.togglePanel('sidebar')
+      return
+    }
+    if (sidebarView !== id) {
+      onSelectSidebarView(id)
+      dockLayout.focusPanel('sidebar')
+      return
+    }
+    dockLayout.togglePanel('sidebar')
+  }
+
   return (
-    <nav className="activity-bar" aria-label="Panels" style={activityBarStyles.root}>
-      {RAIL_ITEMS.map((item) => {
-        const openPanels = item.panels.filter((id) => dockLayout.isPanelVisible(id))
-        const active = openPanels.length > 0
+    <nav className="activity-bar" aria-label="Views" style={activityBarStyles.root}>
+      {SIDEBAR_VIEW_IDS.map((id) => {
+        const active = sidebarOpen && sidebarView === id
+        return (
+          <button
+            key={id}
+            type="button"
+            className={`activity-bar-item${active ? ' activity-bar-item--active' : ''}`}
+            onClick={() => selectSidebarView(id)}
+            aria-label={SIDEBAR_VIEW_TITLES[id]}
+            aria-pressed={active}
+          >
+            <PanelGlyph id={id} />
+            <span className="activity-bar-tooltip" role="presentation">
+              {SIDEBAR_VIEW_TITLES[id]}
+            </span>
+          </button>
+        )
+      })}
+      <span style={activityBarStyles.divider} aria-hidden />
+      {PANEL_RAIL_ITEMS.map((item) => {
+        const active = dockLayout.isPanelVisible(item.id)
         const disabled = item.sessionOnly === true && !hasActiveSession
         return (
           <button
-            key={item.key}
+            key={item.id}
             type="button"
             className={`activity-bar-item${active ? ' activity-bar-item--active' : ''}`}
-            onClick={() => {
-              for (const id of active ? openPanels : item.opens) dockLayout.togglePanel(id)
-            }}
+            onClick={() => dockLayout.togglePanel(item.id)}
             disabled={disabled}
             aria-label={item.label}
             aria-pressed={active}
@@ -150,20 +182,7 @@ export function ActivityBar({ dockLayout, hasActiveSession, onOpenSearch, onOpen
           </button>
         )
       })}
-      {(onOpenSearch || onOpenSettings) && <span style={activityBarStyles.spacer} aria-hidden />}
-      {onOpenSearch && (
-        <button
-          type="button"
-          className="activity-bar-item"
-          onClick={onOpenSearch}
-          aria-label="Search"
-        >
-          {SEARCH_GLYPH}
-          <span className="activity-bar-tooltip" role="presentation">
-            Search
-          </span>
-        </button>
-      )}
+      {onOpenSettings && <span style={activityBarStyles.spacer} aria-hidden />}
       {onOpenSettings && (
         <button
           type="button"

@@ -24,6 +24,7 @@ once at startup in `src/main/app/index.ts` and reached through IPC handlers.
 - `src/main/store/chat-store.ts` — `ChatStore`: per-session chat history as one file per session under `~/.manifold/chat/`, with debounced async writes and a sync flush on quit.
 - `src/main/store/view-state-store.ts` — `ViewStateStore`: editor/explorer view state per session (`view-state.json`).
 - `src/main/store/dock-layout-store.ts` — `DockLayoutStore`: the window's one opaque dockview layout (`dock-layout.json`).
+- `src/main/store/active-workspace-store.ts` — `ActiveWorkspaceStore`: the last selected workspace id (`active-workspace.json`).
 - `src/main/store/search-view-store.ts` — `SearchViewStore`: recent/saved searches per project (`search-view-state.json`).
 - `src/main/store/shell-tab-store.ts` — `ShellTabStore`: saved terminal tabs per agent (`shell-tabs.json`).
 - `src/main/store/dismissed-agents-store.ts` — `DismissedAgentsStore`: branches whose agent entry the user explicitly deleted (`dismissed-agents.json`), keyed by project id, so session discovery won't resurrect them from branch state (#679).
@@ -128,6 +129,7 @@ of it, so it is dropped and the default rebuilt once (`dock-layout-store.ts:12`,
 - `ChatStore` — `chat-store.ts:38`. `get`, `set`, `delete`, `deleteByProject`, `flush`, `flushSync`. Owns `~/.manifold/chat/<hash>.json`.
 - `ViewStateStore` / `SearchViewStore` / `ShellTabStore` — `get`/`set`(/`delete`), keyed per session/project/agent. Own `view-state.json`, `search-view-state.json`, `shell-tabs.json`.
 - `DockLayoutStore` — `dock-layout-store.ts:24`. `get()` / `set(layout)`, no key and no `delete`: one layout for the window. Owns `dock-layout.json`.
+- `ActiveWorkspaceStore` — `active-workspace-store.ts:13`. `get()` / `set(workspaceId)` for a single `string | null`, written as `{ workspaceId }` (`active-workspace-store.ts:39`). Owns `active-workspace.json`; the renderer reaches it through `workspace:get-active`/`workspace:set-active` and validates the id against the live workspace list before restoring it (`src/renderer/hooks/project/usePersistedActiveWorkspace.ts:27`), so a workspace deleted while the app was closed falls back to `null`.
 - `DismissedAgentsStore` — `dismissed-agents-store.ts:17`. `add`, `has`, `delete`, `deleteProject`. Owns `dismissed-agents.json`. Written by `agent:kill` for `noWorktree` deletes (`agent-handlers.ts:107`), read by `SessionDiscovery` (`session-discovery.ts:140`, `:222`), cleared per branch on session create (`session-lifecycle.ts:84`) and per project on removal (`project-handlers.ts:195`, `agent-handlers.ts:169`).
 - `summarizeMiddle(middle, settings, fetchImpl?)` — `prompt-summarizer.ts:17`. OpenAI/Azure chat completion with a 10 s timeout; falls back to `[middle omitted — N chars]` on any error or `provider: 'none'`.
 

@@ -27,6 +27,7 @@ import { NewWorkspaceModal } from './components/modals/NewWorkspaceModal'
 import { NewAgentModal } from './components/modals/NewAgentModal'
 import { DockTab, EmptyWatermark } from './DockTab'
 import { ActivityBar, type ActivityBarProps } from './components/ActivityBar'
+import type { SidebarViewId } from './components/sidebar/sidebar-views'
 import { TitleBar } from './components/TitleBar'
 import { DeleteAgentDialog } from './components/sidebar/DeleteAgentDialog'
 import { useLoadPluginContributions } from './plugins/use-contributions'
@@ -103,6 +104,9 @@ export interface AppShellProps {
   workspaces: Workspace[]
   // StatusBar dock layout adapter
   dockLayout: unknown
+  /** Which view the one sidebar shows — the activity rail switches it. */
+  sidebarView: SidebarViewId
+  onSelectSidebarView: (id: SidebarViewId) => void
   onRenameActiveProject: (name: string) => void
   runCommand: (id: string) => void
 }
@@ -139,8 +143,9 @@ export function AppShell(p: AppShellProps): React.JSX.Element {
         <div className="layout-workbench">
           <ActivityBar
             dockLayout={p.dockLayout as ActivityBarProps['dockLayout']}
+            sidebarView={p.sidebarView}
+            onSelectSidebarView={p.onSelectSidebarView}
             hasActiveSession={p.activeSessionId != null}
-            onOpenSearch={() => p.overlays.openSearch()}
             onOpenSettings={() => p.overlays.setShowSettings(true)}
           />
           <DockStateContext.Provider value={p.dockState}>

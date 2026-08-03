@@ -19,4 +19,14 @@ export const activityBarStyles: Record<string, React.CSSProperties> = {
   spacer: {
     flex: 1,
   },
+  // Separates the sidebar views above from the main-area panel toggles below:
+  // the two groups answer different questions ("what does the sidebar show" vs
+  // "is this panel open"), so they shouldn't read as one list.
+  divider: {
+    width: '20px',
+    height: '1px',
+    margin: 'var(--space-xs) 0',
+    background: 'var(--border)',
+    flexShrink: 0,
+  },
 }

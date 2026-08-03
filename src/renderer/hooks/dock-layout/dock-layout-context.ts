@@ -13,7 +13,7 @@ export interface DockLayoutCtx {
   editorPanelIdsRef: MutableRefObject<Set<string>>
   nextEditorPanelIndexRef: MutableRefObject<number>
   closedPanelSnapshots: MutableRefObject<Map<DockPanelId, SerializedDockview>>
-  sidebarWidthsRef: MutableRefObject<{ left: number; right: number }>
+  sidebarWidthRef: MutableRefObject<number>
   lastLayoutRef: MutableRefObject<SerializedDockview | null>
   refs: LayoutRefs
   saveLayout: () => void

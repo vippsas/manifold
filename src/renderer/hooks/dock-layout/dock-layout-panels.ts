@@ -4,10 +4,9 @@ import {
   applyLayoutChangePreservingSidebarWidths,
   PANEL_TITLES,
   findAdjacentEditorPanelId,
-  getSidebarWidths,
+  getSidebarWidth,
   parseEditorPanelOrder,
   showPanelFromHints,
-  widenSharedEditorGroup,
   type EditorSplitDirection,
 } from './dock-layout-helpers'
 import { ensureEditorPanelInWorkspace } from './dock-layout-editor'
@@ -31,15 +30,9 @@ export function useEditorPanels(ctx: DockLayoutCtx, focusPanel: (id: string) => 
     applyLayoutChangePreservingSidebarWidths(api, () => {
       layoutChanged = ensureEditorPanelInWorkspace(api)
     }, refs)
-    // The editor is a standing tab of the sidebar-width files item, so a file
-    // opening into it has to widen the shared group whenever it is too narrow
-    // to edit in — not just on the one visit that created the pane. Runs
-    // outside the pinning scope above, which holds the sidebar at its
-    // pre-change width, and no-ops once the group is wide enough.
-    const widened = widenSharedEditorGroup(api, refs)
-    if (layoutChanged || widened) {
+    if (layoutChanged) {
       syncPanels(api)
-      ctx.sidebarWidthsRef.current = getSidebarWidths(api)
+      ctx.sidebarWidthRef.current = getSidebarWidth(api)
     }
 
     const visibleEditorPanels = Array.from(ctx.editorPanelIdsRef.current).sort((left, right) => (
@@ -51,7 +44,7 @@ export function useEditorPanels(ctx: DockLayoutCtx, focusPanel: (id: string) => 
       : visibleEditorPanels[0]
 
     if (existingPanelId) {
-      if (layoutChanged || widened) {
+      if (layoutChanged) {
         ctx.lastLayoutRef.current = api.toJSON()
         saveLayout()
         bumpVersion()
@@ -91,7 +84,7 @@ export function useEditorPanels(ctx: DockLayoutCtx, focusPanel: (id: string) => 
     const panel = api.getPanel(newPanelId)
     if (!panel) return null
     ctx.editorPanelIdsRef.current.add(newPanelId)
-    ctx.sidebarWidthsRef.current = getSidebarWidths(api)
+    ctx.sidebarWidthRef.current = getSidebarWidth(api)
     panel.api.setActive()
     ctx.lastLayoutRef.current = api.toJSON()
     saveLayout()

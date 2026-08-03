@@ -2,8 +2,8 @@ import type { DockviewApi } from 'dockview'
 import {
   PANEL_IDS,
   getGridSignature,
-  getSidebarWidths,
-  restoreSidebarWidths,
+  getSidebarWidth,
+  restoreSidebarWidth,
   isEditorPanelId,
   type DockPanelId,
 } from './dock-layout-helpers'
@@ -34,9 +34,9 @@ export function registerLayoutListeners(api: DockviewApi, ctx: DockLayoutCtx): v
     if (ctx.refs.isRestoringRef.current) return
 
     // While a group is maximized (double-click focus mode), every other group —
-    // including both sidebars — is hidden, so their offsetWidth reads 0. Skip
-    // the sidebar-width bookkeeping and layout save until maximize is exited, so
-    // the captured widths and persisted layout stay at their pre-maximize values
+    // the sidebar included — is hidden, so its offsetWidth reads 0. Skip the
+    // sidebar-width bookkeeping and layout save until maximize is exited, so
+    // the captured width and persisted layout stay at their pre-maximize values
     // and restore exactly on exit.
     if (api.hasMaximizedGroup()) return
 
@@ -48,13 +48,13 @@ export function registerLayoutListeners(api: DockviewApi, ctx: DockLayoutCtx): v
     const structureChanged = previousJson &&
       getGridSignature(previousJson) !== getGridSignature(currentJson)
 
-    if (structureChanged && (ctx.sidebarWidthsRef.current.left > 0 || ctx.sidebarWidthsRef.current.right > 0)) {
-      // Structural change — restore pinned sidebar widths so only the
+    if (structureChanged && ctx.sidebarWidthRef.current > 0) {
+      // Structural change — restore the pinned sidebar width so only the
       // center (agent) pane absorbs the size difference.
-      restoreSidebarWidths(api, ctx.sidebarWidthsRef.current, ctx.refs)
+      restoreSidebarWidth(api, ctx.sidebarWidthRef.current, ctx.refs)
     } else {
-      // Pure resize (user dragging a divider) — update pinned widths.
-      ctx.sidebarWidthsRef.current = getSidebarWidths(api)
+      // Pure resize (user dragging a divider) — update the pinned width.
+      ctx.sidebarWidthRef.current = getSidebarWidth(api)
       ctx.lastLayoutRef.current = currentJson
     }
 

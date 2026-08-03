@@ -51,6 +51,8 @@ function makeDockState(overrides: Partial<DockAppState> = {}): DockAppState {
     getEditorPane: vi.fn(),
     lastFileOpenRequest: { path: null, source: 'default' },
     theme: 'dark',
+    sidebarView: 'explorer',
+    onSelectSidebarView: vi.fn(),
     onSelectFile: vi.fn(),
     onSelectScmFile: vi.fn(),
     onOpenSearchResult: vi.fn(),
@@ -331,5 +333,49 @@ describe('EditorPanel — Source Control diff', () => {
     })
     expect(screen.queryByTestId('monaco-diff-editor')).not.toBeInTheDocument()
     expect(screen.getByTestId('monaco-editor')).toHaveTextContent('new content')
+  })
+})
+
+describe('SidebarPanel', () => {
+  beforeEach(() => {
+    mockInvoke.mockResolvedValue([])
+  })
+
+  function renderSidebar(sidebarView: DockAppState['sidebarView']): void {
+    const SidebarPanel = PANEL_COMPONENTS.sidebar
+    render(
+      <DockStateContext.Provider value={makeDockState({
+        sidebarView,
+        workspaces: [],
+        activeWorkspaceId: null,
+        favorites: [],
+      })}
+      >
+        <SidebarPanel />
+      </DockStateContext.Provider>,
+    )
+  }
+
+  it('shows the Explorer by default', () => {
+    renderSidebar('explorer')
+
+    expect(screen.getByText('Workspaces')).toBeInTheDocument()
+  })
+
+  // Switching views must REPLACE what the sidebar shows, not stack another view
+  // into the same column — the whole point of the one-view-at-a-time sidebar.
+  it('replaces the Explorer with Source Control when that view is selected', () => {
+    renderSidebar('sourceControl')
+
+    expect(screen.queryByText('Workspaces')).not.toBeInTheDocument()
+    expect(screen.getByText('No workspace selected')).toBeInTheDocument()
+  })
+
+  it('shows Search inline, with no modal chrome', () => {
+    renderSidebar('search')
+
+    expect(screen.queryByText('Workspaces')).not.toBeInTheDocument()
+    expect(screen.queryByRole('dialog')).toBeNull()
+    expect(screen.getByPlaceholderText(/search/i)).toBeInTheDocument()
   })
 })

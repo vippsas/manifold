@@ -4,15 +4,12 @@ import {
   hidePanel,
   showPanelFromHints,
   showPanelFromSnapshot,
-  getSidebarWidths,
-  shrinkEditorHostSidebarGroups,
+  getSidebarWidth,
   withPinnedSidebars,
   isEditorPanelId,
-  isFilesItemPanelId,
   toggleMaximizedGroup,
   type DockPanelId,
 } from './dock-layout-helpers'
-import { ensureEditorTab } from './dock-layout-files-item'
 import type { DockLayoutCtx } from './dock-layout-context'
 
 export interface DockActionHandlers {
@@ -38,14 +35,10 @@ export function useDockActions(
     if (isEditorPanelId(id)) {
       const panel = api.getPanel(id)
       if (!panel) return
-      const hostGroup = panel.group
-      // Pin the sidebars while the editor pane is removed so its freed space
-      // lands on the center pane, not on the sidebars (which dockview would
+      // Pin the sidebar while the editor pane is removed so its freed space
+      // lands on the center pane, not on the sidebar (which dockview would
       // otherwise widen proportionally).
       withPinnedSidebars(api, () => api.removePanel(panel))
-      // If the pane was tabbed into the files sidebar group, that group is a
-      // plain sidebar again — shrink it back to its default share.
-      shrinkEditorHostSidebarGroups(api, new Set([hostGroup]), refs)
       ctx.editorPanelIdsRef.current.delete(id)
       ctx.lastLayoutRef.current = api.toJSON()
       saveLayout()
@@ -71,11 +64,8 @@ export function useDockActions(
         return
       }
 
-      const hostGroups = new Set(
-        visibleEditorPanels.map((panelId) => api.getPanel(panelId)?.group).filter((g) => g != null),
-      )
-      // Pin the sidebars while the editor panes are removed so their freed
-      // space lands on the center pane, not on the sidebars (which dockview
+      // Pin the sidebar while the editor panes are removed so their freed
+      // space lands on the center pane, not on the sidebar (which dockview
       // would otherwise widen proportionally).
       withPinnedSidebars(api, () => {
         for (const panelId of visibleEditorPanels) {
@@ -83,9 +73,6 @@ export function useDockActions(
           if (panel) api.removePanel(panel)
         }
       })
-      // Any host group that was the files sidebar with editors tabbed inside
-      // is a plain sidebar again — shrink it back to its default share.
-      shrinkEditorHostSidebarGroups(api, hostGroups, refs)
 
       ctx.editorPanelIdsRef.current.clear()
       ctx.lastLayoutRef.current = api.toJSON()
@@ -102,12 +89,6 @@ export function useDockActions(
       return
     }
 
-    // A files-item panel always reopens through its hints, which tab it back
-    // into the item. Its snapshot records wherever it happened to sit when it
-    // was closed — possibly a card of its own — and replaying that is exactly
-    // how the one item ends up as several.
-    if (isFilesItemPanelId(id)) closedPanelSnapshots.current.delete(id)
-
     const snapshot = closedPanelSnapshots.current.get(id)
     if (snapshot) {
       showPanelFromSnapshot(api, id, snapshot, closedPanelSnapshots, refs)
@@ -118,17 +99,13 @@ export function useDockActions(
     }
 
     showPanelFromHints(api, id, refs)
-    // Opening either file view opens the whole item, code viewer included — an
-    // inactive tab, so the item still lands on the view that was asked for and
-    // keeps its sidebar width until a file is actually opened.
-    if (isFilesItemPanelId(id)) ensureEditorTab(api)
     syncPanels(api)
     saveLayout()
     bumpVersion()
   }, [ctx, bumpVersion, ensureEditorPanel, saveLayout, syncPanels, refs, closedPanelSnapshots])
 
   // Double-click a tab to toggle focus mode: maximize that pane's group to fill
-  // the dock (hiding all other panes and both sidebars), or restore everything
+  // the dock (hiding all other panes and the sidebar), or restore everything
   // if a group is already maximized. The onDidLayoutChange listener skips its
   // sidebar bookkeeping while maximized (hidden sidebars report width 0), so no
   // save/bump is needed here — exiting fires the listener, which persists the
@@ -158,7 +135,7 @@ export function useDockActions(
     }
     closedPanelSnapshots.current.clear()
     syncPanels(api)
-    ctx.sidebarWidthsRef.current = getSidebarWidths(api)
+    ctx.sidebarWidthRef.current = getSidebarWidth(api)
     ctx.lastLayoutRef.current = api.toJSON()
     bumpVersion()
   }, [ctx, buildDefaultLayout, bumpVersion, syncPanels, refs, closedPanelSnapshots])

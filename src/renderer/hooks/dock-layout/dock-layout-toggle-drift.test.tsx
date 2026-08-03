@@ -4,8 +4,8 @@
 // dockview's setSize takes the view's *slot* size while api.width reports the
 // rendered width — with a theme gap the two differ by that view's share of the
 // gap (splitview lays each view out at `size - margin * sashes / views`). So
-// every pin release shaved 3-4px off each sidebar, four times per off/on cycle:
-// the sidebar walked ~12px narrower on every toggle and never came back.
+// every pin release shaved 3-4px off the sidebar, several times per off/on
+// cycle: it walked ~12px narrower on every toggle and never came back.
 //
 // These tests render the REAL dockview library with the app's real theme gap.
 import React from 'react'
@@ -46,15 +46,15 @@ function wireOffsetWidth(api: DockviewApi, panelId: string): void {
 const widthOf = (api: DockviewApi, panelId: string): number | undefined =>
   api.getPanel(panelId)?.group.api.width
 
-/** The dock as the app builds it: sidebars either side of the agent, the editor
- *  tabbed into the right sidebar item, and the app's real group gap. */
+/** The dock as the app builds it: the sidebar beside the agent, an editor pane
+ *  open to its right, and the app's real group gap. */
 async function setupDock(): Promise<DockviewApi> {
   let api: DockviewApi | null = null
   render(
     <div style={{ width: 1200, height: 700 }}>
       <DockviewReact
         theme={{ name: 'manifold', className: '', gap: 6 }}
-        components={{ projects: Probe, agent: Probe, modifiedFiles: Probe, editor: Probe, shell: Probe }}
+        components={{ sidebar: Probe, agent: Probe, editor: Probe, shell: Probe }}
         onReady={(e) => { api = e.api }}
       />
     </div>,
@@ -63,31 +63,28 @@ async function setupDock(): Promise<DockviewApi> {
   const dv = api as unknown as DockviewApi
   act(() => {
     dv.layout(1200, 700)
-    dv.addPanel({ id: 'projects', component: 'projects' })
-    dv.addPanel({ id: 'agent', component: 'agent', position: { referencePanel: 'projects', direction: 'right' } })
-    dv.addPanel({ id: 'modifiedFiles', component: 'modifiedFiles', position: { referencePanel: 'agent', direction: 'right' } })
-    dv.addPanel({ id: 'editor', component: 'editor', position: { referencePanel: 'modifiedFiles', direction: 'within' } })
-    dv.getPanel('projects')?.group.api.setSize({ width: 200 })
-    dv.getPanel('modifiedFiles')?.group.api.setSize({ width: 200 })
+    dv.addPanel({ id: 'sidebar', component: 'sidebar' })
+    dv.addPanel({ id: 'agent', component: 'agent', position: { referencePanel: 'sidebar', direction: 'right' } })
+    dv.addPanel({ id: 'editor', component: 'editor', position: { referencePanel: 'agent', direction: 'right' } })
+    dv.getPanel('sidebar')?.group.api.setSize({ width: 200 })
   })
-  wireOffsetWidth(dv, 'projects')
-  wireOffsetWidth(dv, 'modifiedFiles')
+  wireOffsetWidth(dv, 'sidebar')
   return dv
 }
 
 describe('panel toggling leaves the layout where it found it', () => {
   it('releasing a pin does not shrink the pinned sidebar', async () => {
     const dv = await setupDock()
-    const before = widthOf(dv, 'projects')
+    const before = widthOf(dv, 'sidebar')
 
     act(() => { withPinnedSidebars(dv, () => {}) })
 
-    expect(widthOf(dv, 'projects')).toBe(before)
+    expect(widthOf(dv, 'sidebar')).toBe(before)
   })
 
   it('keeps the sidebar width across repeated close/reopen cycles', async () => {
     const dv = await setupDock()
-    const before = widthOf(dv, 'projects')
+    const before = widthOf(dv, 'sidebar')
     const snapshots = { current: new Map<DockPanelId, SerializedDockview>() }
 
     for (let cycle = 0; cycle < 5; cycle += 1) {
@@ -97,6 +94,6 @@ describe('panel toggling leaves the layout where it found it', () => {
       act(() => { showPanelFromSnapshot(dv, 'editor', snapshot, snapshots, makeRefs()) })
     }
 
-    expect(widthOf(dv, 'projects')).toBe(before)
+    expect(widthOf(dv, 'sidebar')).toBe(before)
   })
 })

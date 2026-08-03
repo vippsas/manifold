@@ -110,6 +110,8 @@ const ALLOWED_INVOKE_CHANNELS = [
   'workspace:add-project',
   'workspace:remove-project',
   'workspace:spawn-agent',
+  'workspace:get-active',
+  'workspace:set-active',
   'simple:chat-messages',
   'simple:send-message',
   'simple:subscribe-chat',

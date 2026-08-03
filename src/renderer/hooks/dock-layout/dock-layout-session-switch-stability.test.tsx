@@ -22,7 +22,7 @@ function Probe(props: IDockviewPanelProps): React.JSX.Element {
   return <div>{props.api.id}</div>
 }
 
-const COMPONENTS = { agent: Probe, editor: Probe, shell: Probe, projects: Probe, modifiedFiles: Probe }
+const COMPONENTS = { agent: Probe, editor: Probe, shell: Probe, sidebar: Probe }
 
 const mockInvoke = vi.fn()
 
@@ -45,11 +45,11 @@ async function buildSavedLayout(): Promise<SerializedDockview> {
   const dv = api as unknown as DockviewApi
   act(() => {
     dv.layout(1200, 800, true)
-    dv.addPanel({ id: 'projects', component: 'projects' })
-    dv.addPanel({ id: 'agent', component: 'agent', position: { referencePanel: 'projects', direction: 'right' } })
-    dv.addPanel({ id: 'modifiedFiles', component: 'modifiedFiles', position: { referencePanel: 'agent', direction: 'right' } })
+    dv.addPanel({ id: 'sidebar', component: 'sidebar' })
+    dv.addPanel({ id: 'agent', component: 'agent', position: { referencePanel: 'sidebar', direction: 'right' } })
+    dv.addPanel({ id: 'editor', component: 'editor', position: { referencePanel: 'agent', direction: 'right' } })
     dv.addPanel({ id: 'shell', component: 'shell', position: { referencePanel: 'agent', direction: 'below' } })
-    dv.getPanel('projects')?.group.api.setSize({ width: 260 })
+    dv.getPanel('sidebar')?.group.api.setSize({ width: 260 })
   })
   const saved = dv.toJSON()
   view.unmount()
@@ -111,16 +111,21 @@ describe('dock layout across a session switch', () => {
     expect(loads).toHaveLength(1)
   })
 
-  it('grows the empty state into the full workspace when the first agent arrives', async () => {
+  // A two-column `sidebar | agent` layout used to be the "minimal" empty state
+  // that the first agent's arrival rebuilt into a wider workspace. It is now
+  // simply the default, so it must restore untouched — arriving at an agent
+  // must not rearrange a dock the user has been working in.
+  it('restores a saved sidebar-and-agent layout as-is when an agent arrives', async () => {
     const { container, rerender } = render(<Harness sessionId={null} />)
     await waitFor(() => expect(container.querySelector('.dv-groupview')).not.toBeNull())
     await act(async () => { await Promise.resolve() })
 
-    // No agent yet: repositories + the agent pane holding the onboarding hero.
-    expect(shapeOf(container)).not.toContain('Modified Files')
+    const before = shapeOf(container)
+    expect(before).toContain('Sidebar')
+    expect(before).toContain('Agent')
 
     await act(async () => { rerender(<Harness sessionId="session-1" />) })
 
-    expect(shapeOf(container)).toContain('Modified Files')
+    expect(shapeOf(container)).toBe(before)
   })
 })

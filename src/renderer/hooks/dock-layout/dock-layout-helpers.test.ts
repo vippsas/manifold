@@ -8,7 +8,7 @@ import {
   showPanelFromHints,
 } from './dock-layout-helpers'
 
-function createWorkspaceLayout(left = 200, center = 600, right = 200): SerializedDockview {
+function createWorkspaceLayout(sidebar = 200, center = 800): SerializedDockview {
   return {
     grid: {
       root: {
@@ -17,11 +17,11 @@ function createWorkspaceLayout(left = 200, center = 600, right = 200): Serialize
         data: [
           {
             type: 'leaf',
-            size: left,
+            size: sidebar,
             data: {
-              id: 'projects-group',
-              views: ['projects'],
-              activeView: 'projects',
+              id: 'sidebar-group',
+              views: ['sidebar'],
+              activeView: 'sidebar',
             },
           },
           {
@@ -33,23 +33,13 @@ function createWorkspaceLayout(left = 200, center = 600, right = 200): Serialize
               activeView: 'editor',
             },
           },
-          {
-            type: 'leaf',
-            size: right,
-            data: {
-              id: 'files-group',
-              views: ['modifiedFiles'],
-              activeView: 'modifiedFiles',
-            },
-          },
         ],
       },
     },
     panels: {
-      projects: {},
+      sidebar: {},
       agent: {},
       editor: {},
-      modifiedFiles: {},
     },
   } as unknown as SerializedDockview
 }
@@ -101,10 +91,9 @@ describe('findTopLeftWorkspaceReferencePanel', () => {
       panels: [],
     })
 
-    const projectsGroup = makeGroup(0, 0)
+    const sidebarGroup = makeGroup(0, 0)
     const topLeftGroup = makeGroup(0, 320)
     const lowerGroup = makeGroup(200, 420)
-    const filesGroup = makeGroup(0, 1220)
 
     const makePanel = (id: string, group: MockGroup): MockPanel => {
       const panel = { id, group }
@@ -113,12 +102,11 @@ describe('findTopLeftWorkspaceReferencePanel', () => {
     }
 
     const panels = [
-      makePanel('projects', projectsGroup),
+      makePanel('sidebar', sidebarGroup),
       makePanel('editor', topLeftGroup),
       makePanel('editor:1', topLeftGroup),
       makePanel('agent', lowerGroup),
       makePanel('shell', lowerGroup),
-      makePanel('modifiedFiles', filesGroup),
     ]
 
     const api = {
@@ -142,79 +130,70 @@ describe('applyLayoutChangePreservingSidebarWidths', () => {
     api: { setConstraints: vi.fn(), setSize: vi.fn(), width: offsetWidth },
   })
 
-  it('pins sidebar widths in place (no fromJSON remount) across a structural change', () => {
+  it('pins the sidebar width in place (no fromJSON remount) across a structural change', () => {
     let layout = createWorkspaceLayout()
     const fromJSON = vi.fn((json: SerializedDockview) => { layout = json })
-    const projectsGroup = makeGroup(200)
-    const filesGroup = makeGroup(200)
-    const centerGroup = makeGroup(600)
+    const sidebarGroup = makeGroup(200)
+    const centerGroup = makeGroup(800)
     const api = {
       width: 1000,
-      groups: [projectsGroup, centerGroup, filesGroup],
+      groups: [sidebarGroup, centerGroup],
       toJSON: vi.fn(() => layout),
       fromJSON,
-      getPanel: vi.fn((panelId: string) => {
-        if (panelId === 'projects') return { group: projectsGroup }
-        if (panelId === 'modifiedFiles') return { group: filesGroup }
-        return undefined
-      }),
+      getPanel: vi.fn((panelId: string) => (
+        panelId === 'sidebar' ? { group: sidebarGroup } : undefined
+      )),
     } as unknown as DockviewApi
 
     applyLayoutChangePreservingSidebarWidths(api, () => {
       // Structural change: add a panel so the grid signature differs.
-      const next = createWorkspaceLayout(260, 490, 250)
+      const next = createWorkspaceLayout(260, 740)
       const root = next.grid.root as { type: 'branch'; data: Array<{ type: 'leaf'; data: { views: string[] } }> }
       root.data[1].data.views = [...root.data[1].data.views, 'shell']
       layout = next
     })
 
-    // Widths are held via group constraints — never by reloading the
+    // The width is held via group constraints — never by reloading the
     // serialized layout (which would remount every panel and flash xterm).
     expect(fromJSON).not.toHaveBeenCalled()
-    expect(projectsGroup.api.setConstraints).toHaveBeenCalledWith({ minimumWidth: 200, maximumWidth: 200 })
-    expect(filesGroup.api.setConstraints).toHaveBeenCalledWith({ minimumWidth: 200, maximumWidth: 200 })
-    // Each pinned sidebar is then released back to free resize.
-    expect(projectsGroup.api.setConstraints).toHaveBeenLastCalledWith({ minimumWidth: 0, maximumWidth: Number.MAX_SAFE_INTEGER })
-    expect(filesGroup.api.setConstraints).toHaveBeenLastCalledWith({ minimumWidth: 0, maximumWidth: Number.MAX_SAFE_INTEGER })
+    expect(sidebarGroup.api.setConstraints).toHaveBeenCalledWith({ minimumWidth: 200, maximumWidth: 200 })
+    // The pinned sidebar is then released back to free resize.
+    expect(sidebarGroup.api.setConstraints).toHaveBeenLastCalledWith({ minimumWidth: 0, maximumWidth: Number.MAX_SAFE_INTEGER })
   })
 
-  it('pins both sidebars before the structural mutation runs, not after', () => {
+  it('pins the sidebar before the structural mutation runs, not after', () => {
     // The fix: dockview only honours group constraints during the layout pass
-    // that addPanel/removePanel triggers, so the sidebars must already be
+    // that addPanel/removePanel triggers, so the sidebar must already be
     // pinned by the time applyChange runs. Pinning afterwards is a no-op and
-    // lets both sidebars drift (the reported bug).
+    // lets the sidebar drift (the reported bug).
     let layout = createWorkspaceLayout()
-    const projectsGroup = makeGroup(200)
-    const filesGroup = makeGroup(200)
-    const centerGroup = makeGroup(600)
+    const sidebarGroup = makeGroup(200)
+    const centerGroup = makeGroup(800)
     const api = {
       width: 1000,
-      groups: [projectsGroup, centerGroup, filesGroup],
+      groups: [sidebarGroup, centerGroup],
       toJSON: vi.fn(() => layout),
       fromJSON: vi.fn(),
-      getPanel: vi.fn((panelId: string) => {
-        if (panelId === 'projects') return { group: projectsGroup }
-        if (panelId === 'modifiedFiles') return { group: filesGroup }
-        return undefined
-      }),
+      getPanel: vi.fn((panelId: string) => (
+        panelId === 'sidebar' ? { group: sidebarGroup } : undefined
+      )),
     } as unknown as DockviewApi
 
-    const wasPinned = (group: typeof projectsGroup): boolean =>
-      group.api.setConstraints.mock.calls.some(([c]) => c.maximumWidth === 200)
+    const wasPinned = (): boolean =>
+      sidebarGroup.api.setConstraints.mock.calls.some(([c]) => c.maximumWidth === 200)
 
-    let pinnedDuringChange: [boolean, boolean] | undefined
+    let pinnedDuringChange: boolean | undefined
     applyLayoutChangePreservingSidebarWidths(api, () => {
-      pinnedDuringChange = [wasPinned(projectsGroup), wasPinned(filesGroup)]
-      const next = createWorkspaceLayout(260, 490, 250)
+      pinnedDuringChange = wasPinned()
+      const next = createWorkspaceLayout(260, 740)
       const root = next.grid.root as { type: 'branch'; data: Array<{ data: { views: string[] } }> }
       root.data[1].data.views = [...root.data[1].data.views, 'shell']
       layout = next
     })
 
-    expect(pinnedDuringChange).toEqual([true, true])
-    // Both sidebars are released again afterwards (free to resize).
-    expect(projectsGroup.api.setConstraints).toHaveBeenLastCalledWith({ minimumWidth: 0, maximumWidth: Number.MAX_SAFE_INTEGER })
-    expect(filesGroup.api.setConstraints).toHaveBeenLastCalledWith({ minimumWidth: 0, maximumWidth: Number.MAX_SAFE_INTEGER })
+    expect(pinnedDuringChange).toBe(true)
+    // The sidebar is released again afterwards (free to resize).
+    expect(sidebarGroup.api.setConstraints).toHaveBeenLastCalledWith({ minimumWidth: 0, maximumWidth: Number.MAX_SAFE_INTEGER })
   })
 })
 
@@ -245,8 +224,8 @@ describe('showPanelFromHints', () => {
     })
   })
 
-  // The editor tabs into the files item, which sits to the right of the agent,
-  // so the agent reopens to its left.
+  // The editor opens to the right of the agent, so the agent reopens to its
+  // left.
   it('restores the agent beside the existing editor panel', () => {
     const editorPanel = { id: 'editor' }
     const addPanel = vi.fn()

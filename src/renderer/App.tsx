@@ -35,6 +35,8 @@ import type { DockPanelId } from './hooks/dock-layout/useDockLayout'
 import type { DockAppState } from './components/editor/editor-shell/dock-panel-types'
 import { buildRootLabels } from './components/editor/file-tree/file-tree-labels'
 import { useWorkspaces } from './hooks/project/useWorkspaces'
+import { usePersistedActiveWorkspace } from './hooks/project/usePersistedActiveWorkspace'
+import { DEFAULT_SIDEBAR_VIEW, type SidebarViewId } from './components/sidebar/sidebar-views'
 import { useFavorites } from './hooks/project/useFavorites'
 import type { AgentSession, AgentSettingsUpdate, ResolvedFavorite } from '../shared/types'
 import { isGitProject } from '../shared/project-kind'
@@ -56,7 +58,8 @@ export function App(): React.JSX.Element {
   const { drafts, activeDraft, effectiveSessionId, createDraft, discardDraft, promoteDraft } = useDraftChatCoordinator(activeSessionId, setActiveSession, spawnAgent)
   const { sessionsByProject, removeSession } = useAllProjectSessions(projects, activeProjectId, sessions)
   const { workspaces, createWorkspace, renameWorkspace, removeWorkspace, addProject: addProjectToWorkspace, removeProject: removeProjectFromWorkspace, spawnAgent: spawnWorkspaceAgent } = useWorkspaces()
-  const [activeWorkspaceId, setActiveWorkspaceId] = useState<string | null>(null)
+  const { activeWorkspaceId, setActiveWorkspaceId } = usePersistedActiveWorkspace(workspaces)
+  const [sidebarView, setSidebarView] = useState<SidebarViewId>(DEFAULT_SIDEBAR_VIEW)
   const [newAgentTarget, setNewAgentTarget] = useState<NewAgentTarget | null>(null)
   const { favorites, isFavorite, toggleFavorite, reorderFavorites } = useFavorites(
     settings, updateSettings, projects, workspaces,
@@ -275,8 +278,8 @@ export function App(): React.JSX.Element {
     ))
     await removeWorkspace(id)
     for (const projectId of orphanedProjectIds) await removeProject(projectId)
-    setActiveWorkspaceId((current) => (current === id ? null : current))
-  }, [removeProject, removeWorkspace, workspaces])
+    if (activeWorkspaceId === id) setActiveWorkspaceId(null)
+  }, [activeWorkspaceId, removeProject, removeWorkspace, setActiveWorkspaceId, workspaces])
 
   // "Copy to new worktree": a new workspace over the same folders. Creation cuts
   // the worktrees eagerly, so by the time it lands in the sidebar it is a real
@@ -398,6 +401,7 @@ export function App(): React.JSX.Element {
     },
     onAddProjectToWorkspace: addLocalFolderToWorkspace,
     onRemoveProjectFromWorkspace: (id: string, pid: string) => { void removeProjectFromWorkspace(id, pid) },
+    sidebarView, onSelectSidebarView: setSidebarView,
     onFocusSearch: overlays.openSearch, onClosePanel: editorHandlers.handleClosePanel,
     onToggleMaximize: dockLayout.toggleMaximizePanel,
     onOpenModule: (id) => {
@@ -447,6 +451,14 @@ export function App(): React.JSX.Element {
       if (dockLayout.isPanelVisible(id)) dockLayout.focusPanel(id)
       else dockLayout.togglePanel(id)
     },
+    // Revealing a view opens the sidebar when it is collapsed: a command that
+    // silently did nothing because the sidebar happened to be closed would be
+    // indistinguishable from a broken keybinding.
+    showSidebarView: (viewId) => {
+      setSidebarView(viewId as SidebarViewId)
+      if (dockLayout.isPanelVisible('sidebar')) dockLayout.focusPanel('sidebar')
+      else dockLayout.togglePanel('sidebar')
+    },
     toggleTheme,
     openDashboard: () => { overlays.setDashboardInitialCard(null); overlays.setShowDashboard(true) },
   }), [overlays, openQuickOpen, openNewAgentModal, appEffects, jumpToFavorite, activeWorkspaceSessions, activeSessionId, activeSession, activeProject, dockLayout, toggleTheme])
@@ -494,6 +506,8 @@ export function App(): React.JSX.Element {
         createWorkspace={createWorkspace}
         workspaces={workspaces}
         dockLayout={dockLayout}
+        sidebarView={sidebarView}
+        onSelectSidebarView={setSidebarView}
         onRenameActiveProject={(name) => { if (activeProjectId) void updateProject(activeProjectId, { name }) }}
       />
       <QuickOpen

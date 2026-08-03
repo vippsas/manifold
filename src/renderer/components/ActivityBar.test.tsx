@@ -2,96 +2,140 @@ import { describe, it, expect, vi } from 'vitest'
 import { render, screen, fireEvent } from '@testing-library/react'
 import { ActivityBar, type ActivityBarProps } from './ActivityBar'
 import type { DockPanelId } from '../hooks/dock-layout/useDockLayout'
+import type { SidebarViewId } from './sidebar/sidebar-views'
 
 function makeDockLayout(visible: DockPanelId[] = []): ActivityBarProps['dockLayout'] {
   return {
     isPanelVisible: (id: DockPanelId) => visible.includes(id),
     togglePanel: vi.fn(),
+    focusPanel: vi.fn(),
   }
 }
 
-describe('ActivityBar', () => {
-  it('renders one button per rail item, labeled with the item title', () => {
-    render(<ActivityBar dockLayout={makeDockLayout()} hasActiveSession />)
+function renderRail(
+  dockLayout: ActivityBarProps['dockLayout'],
+  overrides: Partial<ActivityBarProps> = {},
+): { onSelectSidebarView: ActivityBarProps['onSelectSidebarView'] } {
+  const onSelectSidebarView = overrides.onSelectSidebarView ?? vi.fn()
+  render(
+    <ActivityBar
+      dockLayout={dockLayout}
+      sidebarView={overrides.sidebarView ?? 'explorer'}
+      onSelectSidebarView={onSelectSidebarView}
+      hasActiveSession={overrides.hasActiveSession ?? true}
+      onOpenSettings={overrides.onOpenSettings}
+    />,
+  )
+  return { onSelectSidebarView }
+}
 
-    for (const label of ['Repositories', 'Agent', 'Editor', 'Shell']) {
+describe('ActivityBar', () => {
+  it('offers one button per sidebar view and one per main-area panel', () => {
+    renderRail(makeDockLayout())
+
+    for (const label of ['Explorer', 'Source Control', 'Search', 'Agent', 'Editor', 'Shell']) {
       expect(screen.getByRole('button', { name: label })).toBeInTheDocument()
     }
   })
 
-  it('offers no separate rail item for the panels that share the files item', () => {
-    render(<ActivityBar dockLayout={makeDockLayout()} hasActiveSession />)
+  // The views live inside the one sidebar column now, so there is nothing named
+  // after the panels they replaced.
+  it('offers no rail item for the retired panels', () => {
+    renderRail(makeDockLayout())
 
-    expect(screen.queryByRole('button', { name: 'Modified Files' })).not.toBeInTheDocument()
+    for (const label of ['Repositories', 'Modified Files', 'Files']) {
+      expect(screen.queryByRole('button', { name: label })).not.toBeInTheDocument()
+    }
   })
 
-  // The tree lives under a repo's row in Repositories, so the rail has nothing
-  // left to toggle for it.
-  it('offers no Files rail item', () => {
-    render(<ActivityBar dockLayout={makeDockLayout()} hasActiveSession />)
+  it('marks only the sidebar view actually on show as active', () => {
+    renderRail(makeDockLayout(['sidebar']), { sidebarView: 'sourceControl' })
 
-    expect(screen.queryByRole('button', { name: 'Files' })).not.toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Source Control' })).toHaveAttribute('aria-pressed', 'true')
+    expect(screen.getByRole('button', { name: 'Explorer' })).toHaveAttribute('aria-pressed', 'false')
   })
 
-  it('marks visible panels as active', () => {
-    render(<ActivityBar dockLayout={makeDockLayout(['projects', 'shell'])} hasActiveSession />)
+  // A collapsed sidebar shows nothing, so no view icon may claim to be active —
+  // otherwise the rail says Explorer is open when the sidebar is shut.
+  it('marks no sidebar view active while the sidebar is collapsed', () => {
+    renderRail(makeDockLayout(), { sidebarView: 'explorer' })
 
-    expect(screen.getByRole('button', { name: 'Repositories' })).toHaveAttribute('aria-pressed', 'true')
+    expect(screen.getByRole('button', { name: 'Explorer' })).toHaveAttribute('aria-pressed', 'false')
+    expect(screen.getByRole('button', { name: 'Explorer' })).not.toHaveClass('activity-bar-item--active')
+  })
+
+  it('switches the sidebar view without reopening the sidebar', () => {
+    const dockLayout = makeDockLayout(['sidebar'])
+    const { onSelectSidebarView } = renderRail(dockLayout, { sidebarView: 'explorer' })
+
+    fireEvent.click(screen.getByRole('button', { name: 'Search' }))
+
+    expect(onSelectSidebarView).toHaveBeenCalledWith('search')
+    expect(dockLayout.togglePanel).not.toHaveBeenCalled()
+    expect(dockLayout.focusPanel).toHaveBeenCalledWith('sidebar')
+  })
+
+  it('opens the collapsed sidebar on the view that was asked for', () => {
+    const dockLayout = makeDockLayout()
+    const { onSelectSidebarView } = renderRail(dockLayout, { sidebarView: 'explorer' })
+
+    fireEvent.click(screen.getByRole('button', { name: 'Source Control' }))
+
+    expect(onSelectSidebarView).toHaveBeenCalledWith('sourceControl')
+    expect(dockLayout.togglePanel).toHaveBeenCalledWith('sidebar')
+  })
+
+  // VS Code's behaviour: the icon of the view on show is a toggle, so the same
+  // click that revealed the sidebar puts it away again.
+  it('collapses the sidebar when the view already showing is clicked', () => {
+    const dockLayout = makeDockLayout(['sidebar'])
+    const { onSelectSidebarView } = renderRail(dockLayout, { sidebarView: 'explorer' })
+
+    fireEvent.click(screen.getByRole('button', { name: 'Explorer' }))
+
+    expect(dockLayout.togglePanel).toHaveBeenCalledWith('sidebar')
+    expect(onSelectSidebarView).not.toHaveBeenCalled()
+  })
+
+  it('toggles a main-area panel directly', () => {
+    const dockLayout = makeDockLayout()
+    renderRail(dockLayout)
+
+    fireEvent.click(screen.getByRole('button', { name: 'Shell' }))
+
+    expect(dockLayout.togglePanel).toHaveBeenCalledWith('shell')
+  })
+
+  it('marks visible main-area panels as active', () => {
+    renderRail(makeDockLayout(['shell']))
+
     expect(screen.getByRole('button', { name: 'Shell' })).toHaveClass('activity-bar-item--active')
     expect(screen.getByRole('button', { name: 'Editor' })).toHaveAttribute('aria-pressed', 'false')
-    expect(screen.getByRole('button', { name: 'Editor' })).not.toHaveClass('activity-bar-item--active')
   })
 
-  it('marks the files item active while any of its panels is open', () => {
-    render(<ActivityBar dockLayout={makeDockLayout(['editor'])} hasActiveSession />)
-
-    expect(screen.getByRole('button', { name: 'Editor' })).toHaveAttribute('aria-pressed', 'true')
-  })
-
-  it('opens both tabs of the files item when it is closed', () => {
-    const dockLayout = makeDockLayout(['projects'])
-    render(<ActivityBar dockLayout={dockLayout} hasActiveSession />)
-
-    fireEvent.click(screen.getByRole('button', { name: 'Editor' }))
-
-    expect(dockLayout.togglePanel).toHaveBeenCalledWith('modifiedFiles')
-    expect(dockLayout.togglePanel).toHaveBeenCalledWith('editor')
-  })
-
-  it('closes every open panel of the files item in one click', () => {
-    const dockLayout = makeDockLayout(['editor'])
-    render(<ActivityBar dockLayout={dockLayout} hasActiveSession />)
-
-    fireEvent.click(screen.getByRole('button', { name: 'Editor' }))
-
-    expect(dockLayout.togglePanel).toHaveBeenCalledWith('editor')
-    expect(dockLayout.togglePanel).not.toHaveBeenCalledWith('modifiedFiles')
-  })
-
+  // The sidebar views work without an agent — they are about the workspace, not
+  // the session — so only the session-scoped panels go dim.
   it('disables session-dependent panels when no session is active', () => {
-    render(<ActivityBar dockLayout={makeDockLayout()} hasActiveSession={false} />)
+    renderRail(makeDockLayout(), { hasActiveSession: false })
 
-    expect(screen.getByRole('button', { name: 'Repositories' })).toBeEnabled()
-    expect(screen.getByRole('button', { name: 'Agent' })).toBeEnabled()
+    for (const label of ['Explorer', 'Source Control', 'Search', 'Agent']) {
+      expect(screen.getByRole('button', { name: label })).toBeEnabled()
+    }
     for (const label of ['Editor', 'Shell']) {
       expect(screen.getByRole('button', { name: label })).toBeDisabled()
     }
   })
 
-  it('renders the panel name as a hover tooltip inside each item', () => {
-    render(<ActivityBar dockLayout={makeDockLayout()} hasActiveSession />)
+  it('renders the view name as a hover tooltip inside each item', () => {
+    renderRail(makeDockLayout())
 
-    const shell = screen.getByRole('button', { name: 'Shell' })
-    const tooltip = shell.querySelector('.activity-bar-tooltip')
-    expect(tooltip).not.toBeNull()
-    expect(tooltip).toHaveTextContent('Shell')
+    const tooltip = screen.getByRole('button', { name: 'Source Control' }).querySelector('.activity-bar-tooltip')
+    expect(tooltip).toHaveTextContent('Source Control')
   })
 
   it('renders a settings button at the bottom that opens settings', () => {
     const onOpenSettings = vi.fn()
-    render(
-      <ActivityBar dockLayout={makeDockLayout()} hasActiveSession={false} onOpenSettings={onOpenSettings} />,
-    )
+    renderRail(makeDockLayout(), { hasActiveSession: false, onOpenSettings })
 
     const settings = screen.getByRole('button', { name: 'Settings' })
     expect(settings).toBeEnabled()
@@ -100,27 +144,8 @@ describe('ActivityBar', () => {
   })
 
   it('omits the settings button when no handler is provided', () => {
-    render(<ActivityBar dockLayout={makeDockLayout()} hasActiveSession />)
+    renderRail(makeDockLayout())
 
     expect(screen.queryByRole('button', { name: 'Settings' })).not.toBeInTheDocument()
-  })
-
-  it('renders a search button directly above settings that opens the search modal', () => {
-    const onOpenSearch = vi.fn()
-    render(
-      <ActivityBar dockLayout={makeDockLayout()} hasActiveSession={false} onOpenSearch={onOpenSearch} onOpenSettings={vi.fn()} />,
-    )
-
-    const search = screen.getByRole('button', { name: 'Search' })
-    const settings = screen.getByRole('button', { name: 'Settings' })
-    expect(search.nextElementSibling).toBe(settings)
-    fireEvent.click(search)
-    expect(onOpenSearch).toHaveBeenCalled()
-  })
-
-  it('omits the search button when no handler is provided', () => {
-    render(<ActivityBar dockLayout={makeDockLayout()} hasActiveSession onOpenSettings={vi.fn()} />)
-
-    expect(screen.queryByRole('button', { name: 'Search' })).not.toBeInTheDocument()
   })
 })

@@ -6,6 +6,7 @@ import type { EditorPaneView, OpenFile } from '../../../hooks/editor/useCodeView
 import type { FileOpenRequest, ScmFileTarget } from '../file-open-request'
 import type { DraftChat } from '../../../../shared/draft-chat'
 import type { DockPanelId } from '../../../hooks/dock-layout/dock-layout-helpers'
+import type { SidebarViewId } from '../../sidebar/sidebar-views'
 
 export interface DockAppState {
   sessionId: string | null
@@ -66,7 +67,7 @@ export interface DockAppState {
   changes: FileChange[]
   expandedPaths: Set<string>
   onToggleExpand: (path: string) => void
-  // ModifiedFiles
+  // Worktree
   worktreeRoot: string | null
   // Shell
   worktreeShellSessionId: string | null
@@ -107,10 +108,13 @@ export interface DockAppState {
   activeSessionRuntimeId: string | null
   onResumeAgent: (sessionId: string, runtimeId: string) => Promise<void>
   // Layout
+  /** Which view the one sidebar column is showing. */
+  sidebarView: SidebarViewId
+  onSelectSidebarView: (id: SidebarViewId) => void
   onFocusSearch: (mode: SearchMode) => void
   onClosePanel: (id: string) => void
   /** Toggle focus mode for a pane (double-click its tab): maximize it to fill the
-   *  dock — hiding all other panes and both sidebars — or restore everything. */
+   *  dock — hiding all other panes and the sidebar — or restore everything. */
   onToggleMaximize: (id: string) => void
   /** Open a launcher module as a tab, or focus it if already open. */
   onOpenModule: (id: DockPanelId) => void

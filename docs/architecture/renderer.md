@@ -316,7 +316,9 @@ clean in the worktree) renders a faint `○` with a plain name (`tree-node-row.t
 Viewing a file and its diff stays where it was — the editor and Modified Files tabs of the
 files item on the other side of the agent.
 
-Note: **Search** is not a dock panel — it is a modal (`components/search/SearchModal.tsx`)
+Note: **Search** is not a dock panel — it is a modal (`components/search/SearchModal.tsx`,
+overlay/backdrop/footer chrome around the reusable body in
+`components/search/SearchView.tsx`, which also renders inline in a sidebar column)
 mounted by the shell (`AppShell.tsx:216`) and opened from the activity rail's Search
 button, the `navigation.findInFiles` command (`Cmd+Shift+F`), or the Memory panel's "Open
 Search" — all three route through `overlays.openSearch(mode?)`

@@ -3,7 +3,13 @@ import type { WorkspaceCreateOptions, WorkspaceSpawnAgentOptions } from '../../s
 import type { IpcDependencies } from './types'
 
 export function registerWorkspaceHandlers(deps: IpcDependencies): void {
-  const { workspaceManager } = deps
+  const { workspaceManager, activeWorkspaceStore } = deps
+
+  ipcMain.handle('workspace:get-active', () => activeWorkspaceStore.get())
+
+  ipcMain.handle('workspace:set-active', (_e, workspaceId: string | null) => {
+    activeWorkspaceStore.set(workspaceId)
+  })
 
   ipcMain.handle('workspace:list', () => workspaceManager.list())
 

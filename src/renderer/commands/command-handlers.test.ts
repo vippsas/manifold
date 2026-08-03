@@ -19,6 +19,7 @@ function mockContext(): CommandContext {
     createPR: vi.fn(),
     togglePanel: vi.fn(),
     openModule: vi.fn(),
+    showSidebarView: vi.fn(),
     toggleTheme: vi.fn(),
     openDashboard: vi.fn(),
   }
@@ -63,8 +64,17 @@ describe('createCommandHandlers', () => {
     const ctx = mockContext()
     const handlers = createCommandHandlers(ctx)
     handlers['view.focusTerminal']()
-    handlers['view.focusFiles']()
     expect(ctx.openModule).toHaveBeenCalledWith('shell')
-    expect(ctx.openModule).toHaveBeenCalledWith('projects')
+  })
+
+  // A sidebar view is revealed inside the one sidebar, never toggled as a panel
+  // of its own — routing these through togglePanel is what would give a view its
+  // own column back.
+  it('maps sidebar-view commands to showSidebarView, not to a panel toggle', () => {
+    const ctx = mockContext()
+    const handlers = createCommandHandlers(ctx)
+    handlers['view.sidebar.sourceControl']()
+    expect(ctx.showSidebarView).toHaveBeenCalledWith('sourceControl')
+    expect(ctx.togglePanel).not.toHaveBeenCalled()
   })
 })

@@ -2,8 +2,8 @@ import React, { useMemo } from 'react'
 import { useFileDiff } from '../../../hooks/editor/useFileDiff'
 import { useWorkspaceFileDiff } from '../../../hooks/editor/useWorkspaceFileDiff'
 import { CodeViewer } from '../code-viewer/CodeViewer'
-import { ModifiedFiles } from '../../git/ModifiedFiles'
 import { SourceControl } from '../../git/SourceControl'
+import { SearchView } from '../../search/SearchView'
 import { ShellTabs } from '../../terminal/ShellTabs'
 import { ProjectSidebar } from '../../sidebar/ProjectSidebar'
 import { AgentPanel } from './dock-agent-panel'
@@ -20,10 +20,8 @@ export { DockStateContext } from './dock-panel-types'
 export const PANEL_COMPONENTS: Record<string, React.FC<any>> = {
   agent: AgentPanel,
   editor: EditorPanel,
-  modifiedFiles: ModifiedFilesPanel,
-  sourceControl: SourceControlPanel,
   shell: ShellPanel,
-  projects: ProjectsPanel,
+  sidebar: SidebarPanel,
   pluginView: PluginViewPanel,
   pluginTreeView: PluginTreeViewPanel,
   // Components for any built-in internal-contribution panels, sourced from the
@@ -82,22 +80,37 @@ function EditorPanel({ api }: { api: { id: string } }): React.JSX.Element {
   )
 }
 
-function ModifiedFilesPanel(): React.JSX.Element {
+/** The one sidebar column, showing whichever view the rail has selected. The
+ *  views are swapped rather than each holding a column of its own, so only one
+ *  is mounted at a time and none of them competes for the sidebar's width. */
+function SidebarPanel(): React.JSX.Element {
   const s = useDockState()
-  return (
-    <ModifiedFiles
-      changes={s.changes}
-      activeFilePath={s.activeFilePath}
-      worktreeRoot={s.worktreeRoot ?? ''}
-      onSelectFile={s.onSelectFile}
-    />
-  )
+  switch (s.sidebarView) {
+    case 'sourceControl':
+      return <SourceControlView />
+    case 'search':
+      return <SearchSidebarView />
+    default:
+      return <ExplorerView />
+  }
 }
 
-function SourceControlPanel(): React.JSX.Element {
+function SourceControlView(): React.JSX.Element {
   const s = useDockState()
   const workspace = s.workspaces.find((w) => w.id === s.activeWorkspaceId) ?? null
   return <SourceControl workspace={workspace} onSelectFile={s.onSelectScmFile} />
+}
+
+function SearchSidebarView(): React.JSX.Element {
+  const s = useDockState()
+  return (
+    <SearchView
+      activeProjectId={s.activeProjectId}
+      activeSessionId={s.sessionId}
+      allProjectSessions={s.allProjectSessions}
+      onOpenSearchResult={s.onOpenSearchResult}
+    />
+  )
 }
 
 function ShellPanel(): React.JSX.Element {
@@ -114,7 +127,7 @@ function ShellPanel(): React.JSX.Element {
   )
 }
 
-function ProjectsPanel(): React.JSX.Element {
+function ExplorerView(): React.JSX.Element {
   const s = useDockState()
   return (
     <ProjectSidebar

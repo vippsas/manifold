@@ -12,7 +12,7 @@ import React from 'react'
 import { render, act, waitFor } from '@testing-library/react'
 import { DockviewReact, type DockviewApi, type IDockviewPanelProps } from 'dockview'
 import { describe, it, expect, beforeAll } from 'vitest'
-import { restoreSidebarWidths, withPinnedSidebars } from './dock-layout-helpers'
+import { restoreSidebarWidth, withPinnedSidebars } from './dock-layout-helpers'
 
 beforeAll(() => {
   ;(globalThis as unknown as { ResizeObserver: unknown }).ResizeObserver = class {
@@ -43,7 +43,7 @@ async function setupDock(): Promise<DockviewApi> {
   render(
     <div style={{ width: 1200, height: 700 }}>
       <DockviewReact
-        components={{ projects: Probe, agent: Probe, modifiedFiles: Probe, shell: Probe }}
+        components={{ sidebar: Probe, agent: Probe, editor: Probe, shell: Probe }}
         onReady={(e) => { api = e.api }}
       />
     </div>,
@@ -52,14 +52,12 @@ async function setupDock(): Promise<DockviewApi> {
   const dv = api as unknown as DockviewApi
   act(() => {
     dv.layout(1200, 700)
-    dv.addPanel({ id: 'projects', component: 'projects' })
-    dv.addPanel({ id: 'agent', component: 'agent', position: { referencePanel: 'projects', direction: 'right' } })
-    dv.addPanel({ id: 'modifiedFiles', component: 'modifiedFiles', position: { referencePanel: 'agent', direction: 'right' } })
-    dv.getPanel('projects')?.group.api.setSize({ width: 200 })
-    dv.getPanel('modifiedFiles')?.group.api.setSize({ width: 200 })
+    dv.addPanel({ id: 'sidebar', component: 'sidebar' })
+    dv.addPanel({ id: 'agent', component: 'agent', position: { referencePanel: 'sidebar', direction: 'right' } })
+    dv.addPanel({ id: 'editor', component: 'editor', position: { referencePanel: 'agent', direction: 'right' } })
+    dv.getPanel('sidebar')?.group.api.setSize({ width: 200 })
   })
-  wireOffsetWidth(dv, 'projects')
-  wireOffsetWidth(dv, 'modifiedFiles')
+  wireOffsetWidth(dv, 'sidebar')
   return dv
 }
 
@@ -77,19 +75,19 @@ describe('sash enablement after pinned layout mutations', () => {
       })
     })
 
-    // The mutation's layout pass ran while the sidebars were pinned min==max,
-    // which disables their sashes; releasing the pins must re-enable them.
+    // The mutation's layout pass ran while the sidebar was pinned min==max,
+    // which disables its sashes; releasing the pin must re-enable them.
     expect(disabledSashCount()).toBe(0)
   })
 
-  it('leaves every divider resizable after restoreSidebarWidths', async () => {
+  it('leaves every divider resizable after restoreSidebarWidth', async () => {
     const dv = await setupDock()
 
     act(() => {
-      restoreSidebarWidths(dv, { left: 150, right: 150 })
+      restoreSidebarWidth(dv, 150)
     })
 
-    expect(dv.getPanel('projects')?.group.api.width).toBe(150)
+    expect(dv.getPanel('sidebar')?.group.api.width).toBe(150)
     expect(disabledSashCount()).toBe(0)
   })
 })

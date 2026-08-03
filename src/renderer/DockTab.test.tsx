@@ -122,44 +122,38 @@ describe('DockTab', () => {
     expect(onToggleMaximize).not.toHaveBeenCalled()
   })
 
-  it('gives the Repositories group no tab of its own', () => {
-    const { container } = render(<DockTab {...makeHeaderProps('projects', 'Repositories')} />)
+  it('gives the sidebar group no tab of its own', () => {
+    const { container } = render(<DockTab {...makeHeaderProps('sidebar', 'Sidebar')} />)
 
-    // The activity-bar icon opens the item and names it; repeating that glyph
-    // inside the view titled nothing, and a lone tab switches nothing either.
+    // Which view the sidebar shows is already said by the active activity-bar
+    // icon, and a lone tab switches nothing.
     expect(container.querySelector('svg')).toBeNull()
-    expect(screen.queryByText('Repositories')).toBeNull()
+    expect(screen.queryByText('Sidebar')).toBeNull()
     expect(container.querySelector('.dock-tab--headless')).not.toBeNull()
   })
 
-  it('renders sidebar panels as icon-only tabs without a close button', () => {
-    for (const [id, title] of [
-      ['modifiedFiles', 'Modified Files'],
-      ['editor', 'Editor'],
-    ] as const) {
-      const { container, unmount } = render(<DockTab {...makeHeaderProps(id, title)} />)
+  it('renders the editor as an icon-only tab without a close button', () => {
+    const { container } = render(<DockTab {...makeHeaderProps('editor', 'Editor')} />)
 
-      // Name is a tooltip, not a text label; no per-tab close — the group
-      // header carries a single × for the whole item.
-      expect(screen.getByTitle(title)).toBeInTheDocument()
-      expect(screen.queryByText(title)).toBeNull()
-      expect(screen.queryByTitle(`Close ${title}`)).toBeNull()
-      expect(container.querySelector('svg')).not.toBeNull()
-      unmount()
-    }
+    // Name is a tooltip, not a text label; no per-tab close — the group header
+    // carries a single × for the whole item.
+    expect(screen.getByTitle('Editor')).toBeInTheDocument()
+    expect(screen.queryByText('Editor')).toBeNull()
+    expect(screen.queryByTitle('Close Editor')).toBeNull()
+    expect(container.querySelector('svg')).not.toBeNull()
   })
 
   it('double-clicking an icon-only tab still toggles focus mode', () => {
     const onToggleMaximize = vi.fn()
     render(
       <DockStateContext.Provider value={makeDockState({ onToggleMaximize })}>
-        <DockTab {...makeHeaderProps('modifiedFiles', 'Modified Files')} />
+        <DockTab {...makeHeaderProps('editor', 'Editor')} />
       </DockStateContext.Provider>,
     )
 
-    fireEvent.doubleClick(screen.getByTitle('Modified Files'))
+    fireEvent.doubleClick(screen.getByTitle('Editor'))
 
-    expect(onToggleMaximize).toHaveBeenCalledWith('modifiedFiles')
+    expect(onToggleMaximize).toHaveBeenCalledWith('editor')
   })
 
   it('shows a compact workspace role pill on workspace child tabs', () => {

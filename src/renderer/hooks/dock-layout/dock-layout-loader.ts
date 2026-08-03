@@ -1,6 +1,5 @@
 import type { DockviewApi, SerializedDockview } from 'dockview'
 import { sanitizeDockLayout } from './dock-layout-sanitize'
-import { coalesceFilesItem, ensureEditorTab } from './dock-layout-files-item'
 import {
   PANEL_RESTORE_HINTS,
   PANEL_TITLES,
@@ -15,58 +14,18 @@ import {
   type LayoutRefs,
 } from './dock-layout-helpers'
 
-/** The default share of the dock width a sidebar column gets (matches the
- *  1:4:1 default layout and the sanitizer's restored-sidebar cap). */
+/** The default share of the dock width the sidebar column gets (matches the
+ *  1:5 default layout and the sanitizer's restored-sidebar cap). */
 const SIDEBAR_WIDTH_FRACTION = 1 / 6
-
-/** Width share the files group takes once the editor tabs into it — a
- *  sidebar-width group is too narrow to edit in. */
-const EDITOR_GROUP_WIDTH_FRACTION = 1 / 3
-
-/** Panels that make up the sidebar item. A group whose tenants are all in this
- *  set is a plain sidebar; one that also hosts an editor pane is a center pane
- *  and must keep its width. Unlike `SIDEBAR_PANEL_IDS` (the anchors pinned
- *  during layout mutations) this includes `modifiedFiles`, so reopening it
- *  claims a sidebar's width share rather than half the dock. */
-const SIDEBAR_FAMILY_PANEL_IDS = new Set<string>(['projects', 'sourceControl', 'modifiedFiles'])
 
 type DockGroup = NonNullable<NonNullable<ReturnType<DockviewApi['getPanel']>>['group']>
 
+/** Whether the group holds only the sidebar. A group the user has dragged a
+ *  workspace pane into is a center pane and must keep its width. */
 function isPureSidebarGroup(api: DockviewApi, group: DockGroup): boolean {
   return api.panels
     .filter((panel) => panel.group === group)
-    .every((panel) => SIDEBAR_FAMILY_PANEL_IDS.has(panel.id))
-}
-
-/** Widen the group hosting the editor when it sits in a sidebar-width files
- *  group (files and the editor share one group). Must run outside any
- *  sidebar-pinning scope, which holds the group at its pre-change width.
- *  Returns whether it actually widened — a group already at an editable width
- *  is left alone, so this is safe to call on every file open. */
-export function widenSharedEditorGroup(api: DockviewApi, refs?: LayoutRefs): boolean {
-  const group = api.getPanel('editor')?.group
-  if (!group || api.width <= 0) return false
-  if (group.api.width >= api.width / 4) return false
-  applyPanelWidthFraction(api, 'editor', EDITOR_GROUP_WIDTH_FRACTION, refs)
-  return true
-}
-
-/**
- * After editor panes are removed, shrink any of the given former host groups
- * that is now a plain sidebar group back to its default share — the group had
- * been widened to an editable width while the editor tabbed inside it.
- */
-export function shrinkEditorHostSidebarGroups(
-  api: DockviewApi,
-  hostGroups: ReadonlySet<unknown>,
-  refs?: LayoutRefs,
-): void {
-  for (const sidebarId of SIDEBAR_PANEL_IDS) {
-    const group = api.getPanel(sidebarId)?.group
-    if (!group || !hostGroups.has(group)) continue
-    if (!isPureSidebarGroup(api, group)) continue
-    applyPanelWidthFraction(api, sidebarId, SIDEBAR_WIDTH_FRACTION, refs)
-  }
+    .every((panel) => SIDEBAR_PANEL_IDS.has(panel.id))
 }
 
 /**
@@ -111,14 +70,6 @@ function applyPanelWidthFraction(api: DockviewApi, panelId: string, fraction: nu
   }
 }
 
-/** The empty-state layout (`applyMinimalPanels`): repositories + agent, nothing
- *  else. Never restored as-is — the caller rebuilds it or the full default,
- *  whichever suits the current state. */
-export function isMinimalLayout(saved: SerializedDockview): boolean {
-  const panelIds = new Set(Object.keys(saved.panels))
-  return panelIds.size === 2 && panelIds.has('projects') && panelIds.has('agent')
-}
-
 /**
  * Restore the window's one saved layout, or build a fallback when there is
  * none. Called once per window, not per agent: the layout is a property of the
@@ -133,37 +84,21 @@ export async function loadOrBuildLayout(
   try {
     const rawSaved = (await window.electronAPI.invoke('dock-layout:get')) as SerializedDockview | null
     const saved = rawSaved ? sanitizeDockLayout(rawSaved, liveSiblingSessionIds) : null
-    if (saved && saved.grid && saved.panels && !isMinimalLayout(saved)) {
+    if (saved && saved.grid && saved.panels) {
       refs.isRestoringRef.current = true
-      let coalesced = false
-      let addedEditorTab = false
       try {
         api.fromJSON(saved)
         // fromJSON recreates each group at dockview's default 100px minimum,
-        // clamping any collapsed (width-0) sidebar back open. Re-apply the
-        // saved sub-minimum widths so a collapsed sidebar stays collapsed
-        // across agent switches and app restarts.
+        // clamping a collapsed (width-0) sidebar back open. Re-apply the saved
+        // sub-minimum width so a collapsed sidebar stays collapsed across agent
+        // switches and app restarts.
         restoreCollapsedSidebarWidths(api, saved)
-        // Heal a layout saved while the files item's views sat in separate
-        // groups, so the item comes back as one card rather than several, and
-        // give a layout saved before the code viewer became a standing tab its
-        // editor tab back.
-        coalesced = coalesceFilesItem(api)
-        addedEditorTab = ensureEditorTab(api)
       } finally {
         refs.isRestoringRef.current = false
       }
-      if (coalesced) {
-        // An editor carrying open files just joined the sidebar-width item and
-        // needs an editable width — same treatment as tabbing into it from an
-        // open file. A freshly added, empty editor tab gets no such widening:
-        // the item stays a sidebar until a file is actually opened.
-        widenSharedEditorGroup(api, refs)
-      }
-      const restored = coalesced || addedEditorTab ? api.toJSON() : saved
-      refs.lastLayoutRef.current = restored
-      if (restored !== rawSaved) {
-        void window.electronAPI.invoke('dock-layout:set', restored).catch(() => {})
+      refs.lastLayoutRef.current = saved
+      if (saved !== rawSaved) {
+        void window.electronAPI.invoke('dock-layout:set', saved).catch(() => {})
       }
       return
     }
@@ -211,8 +146,8 @@ export function hidePanel(
 
   // Remove the panel in place. api.removePanel only unmounts THIS panel and
   // hands its space to its branch siblings; every other panel — including the
-  // agent terminal — stays mounted. Pinning the sidebars keeps the freed space
-  // on the center pane rather than letting the sidebars widen.
+  // agent terminal — stays mounted. Pinning the sidebar keeps the freed space
+  // on the center pane rather than letting the sidebar widen.
   withPinnedSidebars(api, () => api.removePanel(panel), id)
   refs.lastLayoutRef.current = api.toJSON()
 }
@@ -354,25 +289,20 @@ export function showPanelFromHints(api: DockviewApi, id: DockPanelId, refs?: Lay
     })
     if (usedDirection === 'below') {
       applyPanelHeightFraction(api, id, 1 / 3, refs)
-    } else if (usedDirection !== 'within' && SIDEBAR_FAMILY_PANEL_IDS.has(id)) {
-      // addPanel splits the reference group 50/50; a sidebar reopened via
+    } else if (usedDirection !== 'within' && SIDEBAR_PANEL_IDS.has(id)) {
+      // addPanel splits the reference group 50/50; the sidebar reopened via
       // hints should take its default share, not half the dock. A 'within'
       // reopen joined an existing group as a tab and adopts its size.
       applyPanelWidthFraction(api, id, SIDEBAR_WIDTH_FRACTION, refs)
     }
   }, refs)
-  if (id === 'editor' && usedDirection === 'within') {
-    // The editor tabbed into the sidebar item — widen the shared group to an
-    // editable width.
-    widenSharedEditorGroup(api, refs)
-  }
-  if (usedDirection !== 'below' && usedDirection !== 'within' && !SIDEBAR_FAMILY_PANEL_IDS.has(id)) {
+  if (usedDirection !== 'below' && usedDirection !== 'within' && !SIDEBAR_PANEL_IDS.has(id)) {
     // A center pane reopened via hints splits its reference group 50/50. When
-    // that reference is a sidebar that had grown to dominate the dock (the
+    // that reference is the sidebar and it had grown to dominate the dock (the
     // last survivor of an emptied dock), both end up around half the width —
-    // shrink such sidebars back to their default share so the reopened pane
-    // gets the space. Done outside the pinning scope, which holds sidebars
-    // at their pre-change width.
+    // shrink it back to its default share so the reopened pane gets the space.
+    // Done outside the pinning scope, which holds the sidebar at its
+    // pre-change width.
     for (const sidebarId of SIDEBAR_PANEL_IDS) {
       const group = api.getPanel(sidebarId)?.group
       if (

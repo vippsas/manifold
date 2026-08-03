@@ -5,48 +5,32 @@ import {
   parseEditorPanelOrder,
 } from './dock-layout-helpers'
 
+/**
+ * The default layout: the one sidebar column beside the agent. The editor and
+ * the shell are opened on demand, so this is also the layout a window with no
+ * agent yet starts from — there is no separate empty state to grow out of.
+ */
 export function applyDefaultLayout(api: DockviewApi): void {
-  // Two sidebars around the agent: Repositories on the left — which carries the
-  // file tree under each repo row — and on the right the ONE files item whose
-  // icon tabs switch between Modified Files and the editor.
-  const projectsPanel = api.addPanel({
-    id: 'projects',
-    component: 'projects',
-    title: PANEL_TITLES.projects,
+  const sidebarPanel = api.addPanel({
+    id: 'sidebar',
+    component: 'sidebar',
+    title: PANEL_TITLES.sidebar,
   })
 
-  const agentPanel = api.addPanel({
+  api.addPanel({
     id: 'agent',
     component: 'agent',
     title: PANEL_TITLES.agent,
-    position: { referencePanel: projectsPanel, direction: 'right' },
+    position: { referencePanel: sidebarPanel, direction: 'right' },
   })
 
-  const filesPanel = api.addPanel({
-    id: 'modifiedFiles',
-    component: 'modifiedFiles',
-    title: PANEL_TITLES.modifiedFiles,
-    position: { referencePanel: agentPanel, direction: 'right' },
-  })
+  sidebarPanel.api.setActive()
 
-  // The code viewer is a standing tab of the item, not one that materializes on
-  // the first file open: an item whose tabs change under you is harder to aim
-  // at than one that always offers the same tabs. With nothing open it shows
-  // its own empty state. Added inactive so the item still opens on the changes.
-  api.addPanel({
-    id: 'editor',
-    component: 'editor',
-    title: PANEL_TITLES.editor,
-    position: { referencePanel: filesPanel, direction: 'within' },
-    inactive: true,
-  })
-
-  filesPanel.api.setActive()
-  projectsPanel.api.setActive()
-
-  // setSize calls interfere with each other (dockview redistributes freed
-  // space proportionally to all siblings). Instead, patch the serialized
-  // grid to enforce an exact 1:4:1 ratio, then reload.
+  // A plain setSize on the sidebar group is not enough: dockview redistributes
+  // freed space proportionally across siblings, and on an unmeasured dock
+  // (api.width 0 — the loader builds after an async IPC await) there is nothing
+  // to take a fraction of. Patch the serialized grid to an exact 1:5 ratio and
+  // reload instead.
   try {
     type SerializedNode = { type: string; size: number; data?: SerializedNode[] }
     const json = api.toJSON()
@@ -64,38 +48,15 @@ export function applyDefaultLayout(api: DockviewApi): void {
     }
     grid.root = root
     const children = root.data
-    if (children && children.length === 3) {
+    if (children && children.length === 2) {
       const total = children.reduce((s, c) => s + c.size, 0)
       const sidebar = Math.round(total / 6)
-      children[0].size = sidebar                        // repositories
-      children[2].size = sidebar                        // the files item
-      children[1].size = total - sidebar * 2            // agent
+      children[0].size = sidebar
+      children[1].size = total - sidebar
       api.fromJSON(json)
     }
   } catch (err) {
     console.warn('[applyDefaultLayout] grid ratio patching failed:', err)
-  }
-}
-
-export function applyMinimalPanels(api: DockviewApi): void {
-  const projectsPanel = api.addPanel({
-    id: 'projects',
-    component: 'projects',
-    title: PANEL_TITLES.projects,
-  })
-
-  api.addPanel({
-    id: 'agent',
-    component: 'agent',
-    title: PANEL_TITLES.agent,
-    position: { referencePanel: projectsPanel, direction: 'right' },
-  })
-
-  try {
-    const sidebarWidth = Math.round(api.width / 6)
-    projectsPanel.group?.api.setSize({ width: sidebarWidth })
-  } catch (err) {
-    console.warn('[applyMinimalPanels] sidebar sizing failed:', err)
   }
 }
 

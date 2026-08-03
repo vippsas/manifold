@@ -62,18 +62,19 @@ const RAW_COMMANDS = [
   { id: 'scm.createPR', title: 'Create Pull Request…', category: 'Source Control', menu: { section: 'scm', order: 20 } },
 
   // View
-  { id: 'view.toggle.projects', title: 'Toggle Projects', category: 'View', accelerator: 'CmdOrCtrl+Alt+1', menu: { section: 'view', order: 10 } },
+  { id: 'view.toggle.sidebar', title: 'Toggle Sidebar', category: 'View', accelerator: 'CmdOrCtrl+Alt+1', menu: { section: 'view', order: 10 } },
   { id: 'view.toggle.agent', title: 'Toggle Agent', category: 'View', accelerator: 'CmdOrCtrl+Alt+2', menu: { section: 'view', order: 11 } },
   { id: 'view.toggle.editor', title: 'Toggle Editor', category: 'View', accelerator: 'CmdOrCtrl+Alt+3', menu: { section: 'view', order: 12 } },
-  { id: 'view.toggle.sourceControl', title: 'Toggle Source Control', category: 'View', accelerator: 'CmdOrCtrl+Alt+4', menu: { section: 'view', order: 13 } },
-  { id: 'view.toggle.modifiedFiles', title: 'Toggle Modified Files', category: 'View', accelerator: 'CmdOrCtrl+Alt+5', menu: { section: 'view', order: 14 } },
-  { id: 'view.toggle.shell', title: 'Toggle Shell', category: 'View', accelerator: 'CmdOrCtrl+Alt+6', menu: { section: 'view', order: 15 } },
-  { id: 'view.dashboard', title: 'Dashboard', category: 'View', menu: { section: 'view', order: 16 } },
+  { id: 'view.toggle.shell', title: 'Toggle Shell', category: 'View', accelerator: 'CmdOrCtrl+Alt+4', menu: { section: 'view', order: 13 } },
+  // Sidebar views don't toggle a column each — they choose what the one sidebar
+  // shows, revealing it if it was collapsed. The accelerators are the ones VS
+  // Code users already reach for.
+  { id: 'view.sidebar.explorer', title: 'Show Explorer', category: 'View', accelerator: 'CmdOrCtrl+Shift+E', menu: { section: 'view', order: 14 } },
+  { id: 'view.sidebar.sourceControl', title: 'Show Source Control', category: 'View', accelerator: 'CmdOrCtrl+Shift+G', menu: { section: 'view', order: 15 } },
+  { id: 'view.sidebar.search', title: 'Show Search', category: 'View', menu: { section: 'view', order: 16 } },
+  { id: 'view.dashboard', title: 'Dashboard', category: 'View', menu: { section: 'view', order: 17 } },
   { id: 'view.focusChat', title: 'Focus Chat', category: 'View', menu: { section: 'view', order: 20 } },
   { id: 'view.focusTerminal', title: 'Focus Terminal', category: 'View', accelerator: 'Ctrl+`', menu: { section: 'view', order: 21 } },
-  // The file tree lives under a repo's row, so focusing it means focusing
-  // Repositories — the accelerator VS Code users reach for is kept.
-  { id: 'view.focusFiles', title: 'Focus Files', category: 'View', accelerator: 'CmdOrCtrl+Shift+E', menu: { section: 'view', order: 22 } },
   { id: 'view.toggleTheme', title: 'Toggle Theme', category: 'View', menu: { section: 'view', order: 30 } },
 
   // Help
@@ -88,10 +89,15 @@ export const COMMANDS: readonly CommandDef[] = RAW_COMMANDS
 
 /** Panel-toggle commands map 1:1 to dock panel ids (renderer side). */
 export const PANEL_TOGGLE_IDS: Record<string, string> = {
-  'view.toggle.projects': 'projects',
+  'view.toggle.sidebar': 'sidebar',
   'view.toggle.agent': 'agent',
   'view.toggle.editor': 'editor',
-  'view.toggle.sourceControl': 'sourceControl',
-  'view.toggle.modifiedFiles': 'modifiedFiles',
   'view.toggle.shell': 'shell',
+}
+
+/** Commands that reveal a sidebar view, mapped to its id (renderer side). */
+export const SIDEBAR_VIEW_COMMAND_IDS: Record<string, string> = {
+  'view.sidebar.explorer': 'explorer',
+  'view.sidebar.sourceControl': 'sourceControl',
+  'view.sidebar.search': 'search',
 }

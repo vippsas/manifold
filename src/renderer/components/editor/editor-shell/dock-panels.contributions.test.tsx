@@ -3,9 +3,18 @@ import { describe, expect, it } from 'vitest'
 import { PANEL_COMPONENTS } from './dock-panels'
 
 describe('PANEL_COMPONENTS module entries', () => {
-  it('still includes the six core panels', () => {
-    for (const id of ['agent', 'editor', 'modifiedFiles', 'shell', 'projects']) {
+  it('still includes the four core panels', () => {
+    for (const id of ['agent', 'editor', 'shell', 'sidebar']) {
       expect(typeof PANEL_COMPONENTS[id]).toBe('function')
+    }
+  })
+
+  // The sidebar swaps its views internally, so they must NOT be dock panels of
+  // their own — a stray registration here is how a view would end up able to
+  // claim a column again.
+  it('registers no panel for the views that live inside the sidebar', () => {
+    for (const id of ['projects', 'sourceControl', 'search', 'modifiedFiles']) {
+      expect(PANEL_COMPONENTS[id]).toBeUndefined()
     }
   })
 

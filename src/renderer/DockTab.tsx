@@ -2,17 +2,18 @@ import React from 'react'
 import type { IDockviewPanelHeaderProps } from 'dockview'
 import { DockStateContext } from './components/editor/editor-shell/dock-panel-types'
 import { parseSiblingSessionId } from './hooks/agent-session/agent-siblings'
-import { PanelGlyph } from './components/ActivityBar'
-import type { DockPanelId } from './hooks/dock-layout/useDockLayout'
+import { PanelGlyph, type GlyphId } from './components/ActivityBar'
 
-/** The sidebar items whose tabs carry no close button of their own — a single ×
- *  in the group header closes the whole item (see WorkspaceHeaderActions). */
-export const ICON_TAB_PANELS = new Set<string>(['projects', 'sourceControl', 'modifiedFiles', 'editor'])
+/** Panels whose tabs carry no close button of their own — a single × in the
+ *  group header closes the whole item (see WorkspaceHeaderActions). The sidebar
+ *  is here despite rendering no tab at all: the header × is the only way to
+ *  close it. */
+export const ICON_TAB_PANELS = new Set<string>(['sidebar', 'editor'])
 
-/** Repositories is alone in its group, so it renders no tab at all: a lone tab
- *  switches nothing, and its glyph only repeated the activity-bar icon that
- *  opens the item. The group header keeps its ×. */
-const HEADLESS_TAB_PANELS = new Set<string>(['projects'])
+/** The sidebar renders no tab at all: it is alone in its column, a lone tab
+ *  switches nothing, and which view it shows is already said by the active icon
+ *  in the activity rail. The group header keeps its ×. */
+const HEADLESS_TAB_PANELS = new Set<string>(['sidebar'])
 
 export function DockTab({ api }: IDockviewPanelHeaderProps): React.JSX.Element {
   const state = React.useContext(DockStateContext)
@@ -36,7 +37,7 @@ export function DockTab({ api }: IDockviewPanelHeaderProps): React.JSX.Element {
         aria-label={title}
         onDoubleClick={() => state?.onToggleMaximize(api.id)}
       >
-        <PanelGlyph id={api.id as DockPanelId} size={18} />
+        <PanelGlyph id={api.id as GlyphId} size={18} />
       </div>
     )
   }
