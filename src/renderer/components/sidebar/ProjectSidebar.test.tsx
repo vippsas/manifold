@@ -137,7 +137,7 @@ describe('ProjectSidebar', () => {
       renderSidebar({
         workspaces: [{
           id: 'w1', name: 'alpha-space', projectIds: ['p1'], createdAt: '2024-01-01',
-          branchName: 'manifold/alpha-space', worktreePaths: { p1: '/wt/alpha' },
+          branchName: 'manifold/oslo', worktreePaths: { p1: '/wt/alpha' },
         }],
         sessionsByWorkspace: { w1: [] },
       })
@@ -243,12 +243,26 @@ describe('ProjectSidebar', () => {
   it('keeps stripping the manifold/ prefix from the workspace branch label', () => {
     renderSidebar({
       workspaces: [
+        { id: 'w1', name: 'alpha-space', projectIds: ['p1'], createdAt: '2024-01-01', branchName: 'manifold/oslo', worktreePaths: { p1: '/wt/alpha' } },
+      ],
+      sessionsByWorkspace: { w1: [] },
+    })
+
+    expect(screen.getByTitle('Every folder here is checked out on manifold/oslo')).toHaveTextContent(/^oslo$/)
+  })
+
+  // A new workspace's branch is named after the workspace, so the label would
+  // just repeat the name underneath it.
+  it('hides the branch label when it only repeats the workspace name', () => {
+    renderSidebar({
+      workspaces: [
         { id: 'w1', name: 'alpha-space', projectIds: ['p1'], createdAt: '2024-01-01', branchName: 'manifold/alpha-space', worktreePaths: { p1: '/wt/alpha' } },
       ],
       sessionsByWorkspace: { w1: [] },
     })
 
-    expect(screen.getByTitle('Every folder here is checked out on manifold/alpha-space')).toHaveTextContent(/^alpha-space$/)
+    expect(screen.queryByTitle(/Every folder here is checked out on/)).not.toBeInTheDocument()
+    expect(screen.getAllByText('alpha-space')).toHaveLength(1)
   })
 
   it('renders a draft chat row in the workspace holding its repo', () => {

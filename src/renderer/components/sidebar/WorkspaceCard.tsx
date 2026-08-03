@@ -85,6 +85,9 @@ export function WorkspaceCard({
   // The branch belongs to the workspace, so it is named once here rather than on
   // every agent that happens to be working on it.
   const branchLabel = workspace.branchName ? formatBranch(workspace.branchName) : null
+  // A new workspace's branch is named after the workspace, so showing both would
+  // print the same text twice. The folder rows still defer to the workspace branch.
+  const showBranchLabel = branchLabel !== null && branchLabel !== workspace.name
 
   // With no agent rows, the card still has to say "someone is working here" —
   // a pulsing dot by the name, the same signal the rows used to carry.
@@ -140,7 +143,7 @@ export function WorkspaceCard({
                 />
               )}
             </span>
-            {branchLabel && (
+            {showBranchLabel && (
               <span
                 className="truncate"
                 style={{ minWidth: 0, color: 'var(--text-tertiary)', fontSize: 'var(--type-ui-micro)' }}

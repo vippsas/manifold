@@ -263,7 +263,9 @@ All add/remove/focus/split/resize logic lives in the `hooks/dock-layout/` subsys
 **The sidebar has one kind of root: the workspace.** There is no standalone-repository list —
 a workspace spanning a single folder is the ordinary case, so `WorkspaceList` is the whole
 sidebar (`WorkspaceList.tsx:37`). A card is the workspace's name (with its branch label on a
-worktree workspace, `WorkspaceCard.tsx:81`) over its folder rows — nothing else hangs off it
+worktree workspace — suppressed when the stripped branch equals the name, as it does for a
+freshly created workspace, so the card never prints the same text twice,
+`WorkspaceCard.tsx:87`) over its folder rows — nothing else hangs off it
 but a draft-chat row while one exists (`WorkspaceCard.tsx:270`). The card's rows step 8px at a
 time — repo row at 16px, its files at 24px (`WorkspaceCard.tsx:209`,
 `ProjectSidebar.styles.ts:68`, `:71`).
