@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 96 96" width="96" height="96" role="img" aria-label="Manifold">
+  <title>Manifold</title>
+  <desc>Three overlapping parallel bars representing agents running side by side.</desc>
+  <g fill-opacity="0.85">
+    <rect x="16" y="16" width="24" height="64" rx="12" fill="#6366f1"/>
+    <rect x="36" y="16" width="24" height="64" rx="12" fill="#8b5cf6"/>
+    <rect x="56" y="16" width="24" height="64" rx="12" fill="#22d3ee"/>
+  </g>
+</svg>

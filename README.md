@@ -1,5 +1,9 @@
 <!-- wiki-covers: src/main/agent/runtimes.ts, package.json, src/shared/defaults.ts -->
 
+<p align="center">
+  <img src="docs/assets/manifold-icon.svg" alt="Manifold" width="96" />
+</p>
+
 # Manifold
 
 Manifold is a desktop app for running AI coding assistants (Claude Code, Codex, Gemini CLI, and others) side by side on the same codebase. Downloadable releases target macOS; x64 WSL2 is supported through a local source build.
