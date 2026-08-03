@@ -1,6 +1,7 @@
 import React, { useCallback, useState } from 'react'
 import type { AgentSession, AgentSettingsUpdate } from '../../../shared/types'
 import { ConfigureAgentGlyph, FilesChevronGlyph } from './SidebarCardActionGlyphs'
+import { InPlaceBadge } from './InPlaceBadge'
 import { AgentSettingsModal } from '../modals/AgentSettingsModal'
 
 const RUNTIME_LABELS: Record<string, string> = {
@@ -130,25 +131,10 @@ export function AgentItem({ session, projectPath, isActive, isOutputting, isFile
             {primaryLabel}
           </span>
           {session.noWorktree && (
-            <span
-              className="sidebar-agent-inplace-badge"
-              aria-label="In-place agent — runs in the repository without a worktree"
-              title="In-place — runs in the repository directly (no worktree)"
-              style={{
-                flexShrink: 0,
-                marginLeft: 6,
-                padding: '1px 6px',
-                fontSize: 'var(--type-ui-micro)',
-                lineHeight: 1.5,
-                color: 'var(--accent)',
-                background: 'var(--accent-subtle)',
-                border: '1px solid var(--accent-dim, var(--accent))',
-                borderRadius: 'var(--radius-pill)',
-                letterSpacing: '0.2px',
-              }}
-            >
-              in-place
-            </span>
+            <InPlaceBadge
+              label="in-place"
+              description="In-place — runs in the repository directly (no worktree)"
+            />
           )}
           <div className="sidebar-item-actions">
             {onRename && (

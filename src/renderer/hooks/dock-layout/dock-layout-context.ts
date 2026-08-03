@@ -10,7 +10,6 @@ import type { DockPanelId, LayoutRefs } from './dock-layout-helpers'
  */
 export interface DockLayoutCtx {
   apiRef: MutableRefObject<DockviewApi | null>
-  sessionIdRef: MutableRefObject<string | null>
   editorPanelIdsRef: MutableRefObject<Set<string>>
   nextEditorPanelIndexRef: MutableRefObject<number>
   closedPanelSnapshots: MutableRefObject<Map<DockPanelId, SerializedDockview>>

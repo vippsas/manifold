@@ -63,10 +63,9 @@ export function App(): React.JSX.Element {
     settings, updateSettings, projects, workspaces,
   )
   const activateFavorite = useCallback((fav: ResolvedFavorite): void => {
-    // Branches are intentionally asymmetric: the repo branch mirrors onSelectProject
-    // (clear workspace, set project; session is NOT cleared) so a ⌘-jump matches a
-    // sidebar repo click, while the workspace branch mirrors onSelectWorkspaceRepo
-    // (set home repo and clear the session).
+    // Either branch mirrors its sidebar click — a repo click and a workspace's
+    // home-folder click — and neither clears the session, so a ⌘-jump lands on
+    // the agent that folder was left on rather than on an empty pane.
     if (fav.kind === 'repo') {
       setActiveWorkspaceId(null)
       setActiveProject(fav.id)
@@ -74,9 +73,8 @@ export function App(): React.JSX.Element {
       const ws = workspaces.find((w) => w.id === fav.id)
       setActiveWorkspaceId(fav.id)
       if (ws && ws.projectIds[0]) setActiveProject(ws.projectIds[0])
-      setActiveSession(null)
     }
-  }, [workspaces, setActiveProject, setActiveSession])
+  }, [workspaces, setActiveProject])
   const jumpToFavorite = useCallback((index: number): void => {
     const fav = favorites[index]
     if (fav) activateFavorite(fav)
@@ -116,8 +114,7 @@ export function App(): React.JSX.Element {
   const activeProjectSessions = activeProjectId ? sessionsByProject[activeProjectId] ?? [] : []
   const primarySession = getPrimarySession(activeProjectSessions, activeWorktreePath)
   const primarySessionId = primarySession?.id ?? null
-  const dockLayoutKey = primarySessionId ?? activeSessionId
-  const dockLayout = useDockLayout(dockLayoutKey, activeProjectSessions)
+  const dockLayout = useDockLayout(activeSessionId, activeProjectSessions)
   // Only the double-click width-cycle gesture remains in use; the header
   // collapse buttons were removed (closing a panel replaces collapsing).
   useSidebarHandleCycle(dockLayout.apiRef, settings.sidebarResizeReversed)
@@ -326,8 +323,14 @@ export function App(): React.JSX.Element {
     },
     onRenameAgent: renameAgent, onRequestDeleteAgent: overlays.requestDeleteAgent,
     onNewAgentFromHeader: openNewAgentModal,
+    // Picking a folder makes it the workspace's home and opens its files; it does
+    // not touch the agent. Only an agent row changes what you are working in.
+    // Clearing the session here used to empty the agent pane — but only when the
+    // folder was already the active one, since switching folders switches project
+    // and that restores the project's remembered agent: the same click on the
+    // same row did two different things depending on where you came from.
     onSelectWorkspaceRepo: (workspaceId: string, projectId: string) => {
-      setActiveWorkspaceId(workspaceId); setActiveProject(projectId); setActiveSession(null)
+      setActiveWorkspaceId(workspaceId); setActiveProject(projectId)
     },
     onNewProject: () => appEffects.setShowOnboarding(true),
     workspaces,

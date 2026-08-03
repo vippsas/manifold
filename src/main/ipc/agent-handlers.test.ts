@@ -83,7 +83,6 @@ describe('registerAgentHandlers — kill, rename, delete-app', () => {
     expect(deps.sessionManager.configureSession).toHaveBeenCalledWith('sess-1', settings)
     expect(result).toMatchObject({ runtimeId: 'codex', nonInteractive: true })
     expect(deps.viewStateStore.delete).toHaveBeenCalledWith('sess-1')
-    expect(deps.dockLayoutStore.delete).toHaveBeenCalledWith('sess-1')
   })
 
   it('agent:kill tolerates an already-removed session and still cleans up view-state', async () => {

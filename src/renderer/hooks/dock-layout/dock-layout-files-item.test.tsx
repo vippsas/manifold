@@ -112,7 +112,7 @@ describe('coalesceFilesItem', () => {
     const saved: SerializedDockview[] = []
     const invoke = vi.fn(async (channel: string) => (channel === 'dock-layout:get' ? fragmented : null))
     ;(globalThis as unknown as { window: { electronAPI: unknown } }).window.electronAPI = {
-      invoke: (channel: string, _sid: string, layout?: SerializedDockview) => {
+      invoke: (channel: string, layout?: SerializedDockview) => {
         if (channel === 'dock-layout:set' && layout) saved.push(layout)
         return invoke(channel)
       },
@@ -121,7 +121,7 @@ describe('coalesceFilesItem', () => {
     const api = await setupDock()
     act(() => { api.layout(1800, 1000, true) })
     await act(async () => {
-      await loadOrBuildLayout(api, 'session-1', () => {}, {
+      await loadOrBuildLayout(api, () => {}, {
         isRestoringRef: { current: false },
         lastLayoutRef: { current: null },
       })

@@ -1,13 +1,12 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import type { DockviewApi, SerializedDockview } from 'dockview'
 import {
-  applyCarriedSidebarWidths,
+  applyBuiltLayout,
   applyLayoutChangePreservingSidebarWidths,
-  applyMinimalLayout,
-  captureSidebarWidthsForReload,
   findTopLeftWorkspaceReferencePanel,
   getSidebarWidths,
   isEditorPanelId,
+  isMinimalLayout,
   loadOrBuildLayout,
   parseEditorPanelOrder,
   type EditorSplitDirection,
@@ -68,17 +67,27 @@ export interface UseDockLayoutResult {
   openPluginTreeView: (viewId: string, title: string) => void
 }
 
+/**
+ * The window's dock layout. There is exactly one, shared by every agent: the
+ * arrangement is a property of the window, like Cursor's, so selecting another
+ * agent only changes what the panes show. Layouts used to be saved per session
+ * and reloaded on every switch, which re-ran `api.fromJSON` and left panels
+ * appearing, sizes jumping, and the sidebar remounting mid-click.
+ *
+ * `activeSessionId` is therefore not a key — it only tells the empty-state
+ * layout when the first agent has arrived.
+ */
 export function useDockLayout(
-  sessionId: string | null,
+  activeSessionId: string | null,
   liveSessions: AgentSession[] = [],
 ): UseDockLayoutResult {
   const apiRef = useRef<DockviewApi | null>(null)
   const saveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
-  const sessionIdRef = useRef(sessionId)
+  const hasSessionRef = useRef(activeSessionId !== null)
   const liveSessionsRef = useRef(liveSessions)
   const editorPanelIdsRef = useRef<Set<string>>(new Set())
   const nextEditorPanelIndexRef = useRef(1)
-  sessionIdRef.current = sessionId
+  hasSessionRef.current = activeSessionId !== null
   liveSessionsRef.current = liveSessions
 
   // Returns `undefined` (defer filtering) when the sessions list hasn't been
@@ -112,40 +121,24 @@ export function useDockLayout(
     syncEditorPanelIds(api, editorPanelIdsRef, nextEditorPanelIndexRef)
   }, [])
 
-  const persistLayout = useCallback((sid: string, layout: SerializedDockview) => {
-    void window.electronAPI.invoke('dock-layout:set', sid, layout)
-  }, [])
-
   const saveLayout = useCallback(() => {
     const api = apiRef.current
-    const sid = sessionIdRef.current
-    if (!api || !sid) return
+    if (!api) return
 
     if (saveTimerRef.current) clearTimeout(saveTimerRef.current)
 
     saveTimerRef.current = setTimeout(() => {
       const json = api.toJSON()
       saveTimerRef.current = null
-      persistLayout(sid, json)
+      void window.electronAPI.invoke('dock-layout:set', json)
     }, 500)
-  }, [persistLayout])
-
-  const flushPendingLayoutSave = useCallback((sid: string | null): void => {
-    if (!saveTimerRef.current) return
-    clearTimeout(saveTimerRef.current)
-    saveTimerRef.current = null
-
-    const api = apiRef.current
-    if (!api || !sid) return
-    persistLayout(sid, api.toJSON())
-  }, [persistLayout])
+  }, [])
 
   const buildDefaultLayout = useCallback((api: DockviewApi) => applyDefaultLayout(api), [])
   const buildMinimalLayout = useCallback((api: DockviewApi) => applyMinimalPanels(api), [])
 
   const ctx = useMemo<DockLayoutCtx>(() => ({
     apiRef,
-    sessionIdRef,
     editorPanelIdsRef,
     nextEditorPanelIndexRef,
     closedPanelSnapshots,
@@ -242,54 +235,36 @@ export function useDockLayout(
   const { ensureEditorPanel, splitEditorPane, findEditorPanelForSplit } = useEditorPanels(ctx, focusPanel)
   const { togglePanel, closePanel, toggleMaximizePanel, isPanelVisible, resetLayout } = useDockActions(ctx, ensureEditorPanel, buildDefaultLayout)
 
+  // Runs once per window: the layout is loaded here and never reloaded, so no
+  // agent switch can rearrange it.
   const onReady = useCallback((api: DockviewApi) => {
     apiRef.current = api
 
-    const sid = sessionIdRef.current
-    if (sid) {
-      void loadOrBuildLayout(api, sid, buildDefaultLayout, refs, liveSiblingIds()).then(() => {
-        reconcileLayoutAfterLoad(api, ctx)
-      })
-    } else {
-      applyMinimalLayout(api, buildMinimalLayout, refs)
-      syncPanels(api)
-      sidebarWidthsRef.current = getSidebarWidths(api)
-      bumpVersion()
-    }
-
-    registerLayoutListeners(api, ctx)
-  }, [buildDefaultLayout, buildMinimalLayout, bumpVersion, syncPanels, liveSiblingIds, ctx]) // eslint-disable-line react-hooks/exhaustive-deps
-
-  const prevSessionRef = useRef(sessionId)
-  useEffect(() => {
-    const previousSessionId = prevSessionRef.current
-    if (sessionId === previousSessionId) return
-    prevSessionRef.current = sessionId
-
-    const api = apiRef.current
-    if (!api) return
-
-    flushPendingLayoutSave(previousSessionId)
-
-    // Layouts are per session, so the incoming layout arrives with its own
-    // sidebar widths. Carry the current widths across the switch so the
-    // sidebars don't visibly resize when the user clicks another item.
-    const carriedWidths = captureSidebarWidthsForReload(api)
-
-    if (!sessionId) {
-      applyMinimalLayout(api, buildMinimalLayout, refs)
-      applyCarriedSidebarWidths(api, carriedWidths)
-      syncPanels(api)
-      sidebarWidthsRef.current = getSidebarWidths(api)
-      bumpVersion()
-      return
-    }
-
-    void loadOrBuildLayout(api, sessionId, buildDefaultLayout, refs, liveSiblingIds()).then(() => {
-      applyCarriedSidebarWidths(api, carriedWidths)
+    // With no agent yet the fallback is the two-panel empty state, not the full
+    // workspace — an editor and a diff list with nothing to show are noise on
+    // the onboarding screen.
+    const buildFallback = hasSessionRef.current ? buildDefaultLayout : buildMinimalLayout
+    void loadOrBuildLayout(api, buildFallback, refs, liveSiblingIds()).then(() => {
       reconcileLayoutAfterLoad(api, ctx)
     })
-  }, [sessionId, buildDefaultLayout, buildMinimalLayout, bumpVersion, syncPanels, liveSiblingIds, ctx, flushPendingLayoutSave]) // eslint-disable-line react-hooks/exhaustive-deps
+
+    registerLayoutListeners(api, ctx)
+  }, [buildDefaultLayout, buildMinimalLayout, liveSiblingIds, ctx]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  // The one-way trip out of the empty state: the first agent turns those two
+  // panels into the full workspace. Guarded on the layout still being the
+  // empty-state one, so a layout the user has since arranged is never rebuilt.
+  useEffect(() => {
+    const api = apiRef.current
+    if (!api || !activeSessionId) return
+    if (api.panels.length === 0 || !isMinimalLayout(api.toJSON())) return
+
+    applyBuiltLayout(api, buildDefaultLayout, refs)
+    syncPanels(api)
+    sidebarWidthsRef.current = getSidebarWidths(api)
+    saveLayout()
+    bumpVersion()
+  }, [activeSessionId, buildDefaultLayout, bumpVersion, syncPanels, saveLayout]) // eslint-disable-line react-hooks/exhaustive-deps
 
   // Clear any pending debounced save on unmount so it can't fire api.toJSON()
   // on a disposed dockview (onboarding<->main transitions, StrictMode remount).

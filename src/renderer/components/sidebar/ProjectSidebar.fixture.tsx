@@ -38,6 +38,20 @@ const workspaceSession: AgentSession = {
   additionalDirs: ['/worktrees/commerce-api'],
 }
 
+// Works in commerce-api's own checkout rather than a worktree, so it marks that
+// folder with the branch it has checked out there.
+const inPlaceSession: AgentSession = {
+  id: 'session-3',
+  projectId: 'backend',
+  runtimeId: 'claude',
+  branchName: 'commerce-api/refund-webhook',
+  worktreePath: '/projects/commerce-api',
+  status: 'running',
+  pid: 44,
+  additionalDirs: [],
+  noWorktree: true,
+}
+
 const docsSession: AgentSession = {
   id: 'session-2',
   projectId: 'docs',
@@ -91,7 +105,7 @@ export default (
       workspaces={[workspace, docsWorkspace]}
       activeWorkspaceId={workspace.id}
       sessionsByWorkspace={{
-        [workspace.id]: [workspaceSession],
+        [workspace.id]: [workspaceSession, inPlaceSession],
         [docsWorkspace.id]: [docsSession],
       }}
       onSelectWorkspace={() => undefined}

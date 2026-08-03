@@ -48,6 +48,8 @@ const s3 = makeSession('s3', 'p2', '/wt/p2')
 
 const mockInvoke = vi.fn()
 const mockOn = vi.fn(() => vi.fn())
+// One layout for the window, so the store here holds a single entry.
+const DOCK_LAYOUT_KEY = 'window'
 let layoutStore: Map<string, SerializedDockview>
 
 beforeEach(() => {
@@ -61,10 +63,10 @@ beforeEach(() => {
       return Promise.resolve([])
     }
     if (channel === 'dock-layout:get') {
-      return Promise.resolve(layoutStore.get(args[0] as string) ?? null)
+      return Promise.resolve(layoutStore.get(DOCK_LAYOUT_KEY) ?? null)
     }
     if (channel === 'dock-layout:set') {
-      layoutStore.set(args[0] as string, args[1] as SerializedDockview)
+      layoutStore.set(DOCK_LAYOUT_KEY, args[0] as SerializedDockview)
       return Promise.resolve()
     }
     return Promise.resolve(undefined)
@@ -87,8 +89,7 @@ function Harness({ projectId, handle }: { projectId: string | null; handle: { cu
   const { sessions, activeSessionId, activeSession, setActiveSession, rememberedActiveSessionRef } = useAgentSession(projectId)
   const activeWorktreePath = activeSession?.worktreePath ?? null
   const primarySessionId = getPrimarySession(sessions, activeWorktreePath)?.id ?? null
-  const dockLayoutKey = primarySessionId ?? activeSessionId
-  const dockLayout = useDockLayout(dockLayoutKey, sessions)
+  const dockLayout = useDockLayout(activeSessionId, sessions)
   useAgentSiblingDockTabs({
     apiRef: dockLayout.apiRef,
     layoutVersion: dockLayout.layoutVersion,
@@ -156,18 +157,19 @@ describe('repo re-entry restores the last viewed agent (#773)', () => {
     expect(handle.current?.api?.activePanel?.id).toBe('agent')
   })
 
-  it('a cold entry (no remembered session) still lets the saved dock layout drive selection', async () => {
-    // Seed p1's saved dock layout with the s2 tab active, then leave to p2.
+  it('a cold start (no remembered session) lets the restored dock layout drive selection', async () => {
+    // Leave the window with the s2 tab active, so that is what the one saved
+    // layout holds.
     const seed: { current: Handle | null } = { current: null }
     const first = render(<Harness projectId="p1" handle={seed} />)
     await waitFor(() => expect(seed.current?.api?.getPanel(siblingPanelId('s2'))).toBeDefined())
     act(() => { seed.current!.api!.getPanel(siblingPanelId('s2'))!.api.setActive() })
     await waitFor(() => expect(seed.current?.activeSessionId).toBe('s2'))
-    first.rerender(<Harness projectId="p2" handle={seed} />)
-    await waitFor(() => expect(seed.current?.activeSessionId).toBe('s3'))
-    await flush()
-    // Drop this session's in-memory per-project history (simulates an app restart
-    // where only the dock layout — not the active agent — is persisted).
+    // Layout saves are debounced; wait one out so the window's layout is on
+    // "disk" with the s2 tab active.
+    await act(async () => { await new Promise((resolve) => setTimeout(resolve, 600)) })
+    // Drop the in-memory per-project history (simulates an app restart, where
+    // only the dock layout — not the active agent — is persisted).
     first.unmount()
 
     const handle: { current: Handle | null } = { current: null }
@@ -176,7 +178,7 @@ describe('repo re-entry restores the last viewed agent (#773)', () => {
     await flush()
     await flush()
 
-    // With no remembered agent, the dock's restored active tab (s2) drives the
+    // With no remembered agent, the restored active tab (s2) drives the
     // selection, exactly as before the #773 fix — the fix is scoped to re-entry.
     expect(handle.current?.activeSessionId).toBe('s2')
   })

@@ -111,22 +111,29 @@ function applyPanelWidthFraction(api: DockviewApi, panelId: string, fraction: nu
   }
 }
 
-function isCorruptedMinimalLayout(saved: SerializedDockview): boolean {
+/** The empty-state layout (`applyMinimalPanels`): repositories + agent, nothing
+ *  else. Never restored as-is — the caller rebuilds it or the full default,
+ *  whichever suits the current state. */
+export function isMinimalLayout(saved: SerializedDockview): boolean {
   const panelIds = new Set(Object.keys(saved.panels))
   return panelIds.size === 2 && panelIds.has('projects') && panelIds.has('agent')
 }
 
+/**
+ * Restore the window's one saved layout, or build a fallback when there is
+ * none. Called once per window, not per agent: the layout is a property of the
+ * window, so switching agents must not run this again.
+ */
 export async function loadOrBuildLayout(
   api: DockviewApi,
-  sessionId: string,
-  buildDefault: (api: DockviewApi) => void,
+  buildFallback: (api: DockviewApi) => void,
   refs: LayoutRefs,
   liveSiblingSessionIds?: Set<string>,
 ): Promise<void> {
   try {
-    const rawSaved = (await window.electronAPI.invoke('dock-layout:get', sessionId)) as SerializedDockview | null
+    const rawSaved = (await window.electronAPI.invoke('dock-layout:get')) as SerializedDockview | null
     const saved = rawSaved ? sanitizeDockLayout(rawSaved, liveSiblingSessionIds) : null
-    if (saved && saved.grid && saved.panels && !isCorruptedMinimalLayout(saved)) {
+    if (saved && saved.grid && saved.panels && !isMinimalLayout(saved)) {
       refs.isRestoringRef.current = true
       let coalesced = false
       let addedEditorTab = false
@@ -156,33 +163,34 @@ export async function loadOrBuildLayout(
       const restored = coalesced || addedEditorTab ? api.toJSON() : saved
       refs.lastLayoutRef.current = restored
       if (restored !== rawSaved) {
-        void window.electronAPI.invoke('dock-layout:set', sessionId, restored).catch(() => {})
+        void window.electronAPI.invoke('dock-layout:set', restored).catch(() => {})
       }
       return
     }
   } catch (err) {
-    console.warn('[loadOrBuildLayout] failed to restore saved layout for session', sessionId, '- falling back to default:', err)
+    console.warn('[loadOrBuildLayout] failed to restore the saved layout - falling back to a built one:', err)
   }
   refs.isRestoringRef.current = true
   try {
     api.clear()
-    buildDefault(api)
+    buildFallback(api)
   } finally {
     refs.isRestoringRef.current = false
   }
   refs.lastLayoutRef.current = api.toJSON()
-  void window.electronAPI.invoke('dock-layout:set', sessionId, refs.lastLayoutRef.current).catch(() => {})
+  void window.electronAPI.invoke('dock-layout:set', refs.lastLayoutRef.current).catch(() => {})
 }
 
-export function applyMinimalLayout(
+/** Replace the dock with a freshly built layout. */
+export function applyBuiltLayout(
   api: DockviewApi,
-  buildMinimal: (api: DockviewApi) => void,
+  build: (api: DockviewApi) => void,
   refs: LayoutRefs,
 ): void {
   refs.isRestoringRef.current = true
   try {
     api.clear()
-    buildMinimal(api)
+    build(api)
   } finally {
     refs.isRestoringRef.current = false
   }

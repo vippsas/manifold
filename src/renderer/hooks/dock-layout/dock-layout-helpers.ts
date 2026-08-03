@@ -5,7 +5,8 @@ import { applySidebarWidth, setRenderedWidth } from './useSidebarHandleCycle'
 export { sanitizeDockLayout } from './dock-layout-sanitize'
 export {
   loadOrBuildLayout,
-  applyMinimalLayout,
+  applyBuiltLayout,
+  isMinimalLayout,
   hidePanel,
   showPanelFromSnapshot,
   showPanelFromHints,
@@ -167,42 +168,6 @@ export function getSidebarWidths(api: DockviewApi): { left: number; right: numbe
   return {
     left: getPanelWidth(api, 'projects'),
     right: getPanelWidth(api, 'modifiedFiles'),
-  }
-}
-
-/** Sidebar widths captured before a layout reload; null = panel not present. */
-export interface CarriedSidebarWidths { left: number | null; right: number | null }
-
-/**
- * Capture both sidebar widths ahead of a session-switch layout reload,
- * distinguishing "panel absent" (null) from a genuinely collapsed width-0
- * sidebar, so the reload carries a collapse over without inventing one.
- */
-export function captureSidebarWidthsForReload(api: DockviewApi): CarriedSidebarWidths {
-  return {
-    left: api.getPanel('projects') ? getPanelWidth(api, 'projects') : null,
-    right: api.getPanel('modifiedFiles') ? getPanelWidth(api, 'modifiedFiles') : null,
-  }
-}
-
-/**
- * Re-apply sidebar widths captured before a session-switch reload. Layouts are
- * saved per session, so loading the incoming session's layout restores *its*
- * sidebar widths — making the sidebars jump on every switch. Carrying the
- * outgoing widths over keeps them visually stable; the follow-up layout save
- * then persists them for the incoming session too. A side whose panel was
- * absent before the switch (null) keeps the incoming layout's width.
- */
-export function applyCarriedSidebarWidths(api: DockviewApi, widths: CarriedSidebarWidths): void {
-  if (api.width <= 0) return
-  for (const [side, panelId, width] of [
-    ['left', 'projects', widths.left],
-    ['right', 'modifiedFiles', widths.right],
-  ] as const) {
-    if (width === null) continue
-    const group = sidebarGroup(api, panelId)
-    if (!group || group.api.width === width) continue
-    applySidebarWidth(api, side, width)
   }
 }
 

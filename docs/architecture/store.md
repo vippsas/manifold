@@ -1,7 +1,7 @@
 ---
 description: How Manifold persists app and user state on disk — settings/config, the project registry, per-session view/chat/verdict state — and which JSON file owns which slice.
 covers: [src/main/store]
-updated: 2026-07-01
+updated: 2026-07-31
 owner: see .github/CODEOWNERS
 ---
 
@@ -23,7 +23,7 @@ once at startup in `src/main/app/index.ts` and reached through IPC handlers.
 - `src/main/store/verdict-store.ts` — `VerdictStore`: per-session run verdicts (`verdicts.json`), keyed by `sessionId`, evicted per project past a cap.
 - `src/main/store/chat-store.ts` — `ChatStore`: per-session chat history as one file per session under `~/.manifold/chat/`, with debounced async writes and a sync flush on quit.
 - `src/main/store/view-state-store.ts` — `ViewStateStore`: editor/explorer view state per session (`view-state.json`).
-- `src/main/store/dock-layout-store.ts` — `DockLayoutStore`: opaque dockview layout per session (`dock-layout.json`).
+- `src/main/store/dock-layout-store.ts` — `DockLayoutStore`: the window's one opaque dockview layout (`dock-layout.json`).
 - `src/main/store/search-view-store.ts` — `SearchViewStore`: recent/saved searches per project (`search-view-state.json`).
 - `src/main/store/shell-tab-store.ts` — `ShellTabStore`: saved terminal tabs per agent (`shell-tabs.json`).
 - `src/main/store/dismissed-agents-store.ts` — `DismissedAgentsStore`: branches whose agent entry the user explicitly deleted (`dismissed-agents.json`), keyed by project id, so session discovery won't resurrect them from branch state (#679).
@@ -44,7 +44,7 @@ unparseable, or the wrong shape — a missing file is never an error, just an em
 then call `writeToDisk()`, which `mkdirSync`s the config dir and writes the whole structure
 back with `JSON.stringify(..., null, 2)` through `writeFileAtomicSync` — a tmp-file + `rename`
 so a crash mid-write cannot truncate the file (`settings-store.ts:83`, `project-registry.ts:43`,
-`atomic-write.ts:9`). The Map-backed stores (view-state, dock-layout, search-view, shell-tab)
+`atomic-write.ts:9`). The Map-backed stores (view-state, search-view, shell-tab)
 serialize via `Object.fromEntries(this.state)` and rehydrate via
 `new Map(Object.entries(parsed))`; view-state and shell-tab additionally validate each entry's
 shape on load and drop malformed ones so a hand-edited file can never make `get()` throw
@@ -112,8 +112,13 @@ on every message that caused the multi-session hang.
 by session id (view, dock), project id (search), or agent key (shell). They deep-copy on
 `get`/`set` so callers cannot mutate the cached state through a returned reference
 (`view-state-store.ts:42`, `search-view-store.ts:55`, `shell-tab-store.ts:51`).
-`DockLayoutStore` stores the layout as opaque `unknown` — the dockview JSON is round-tripped
-verbatim, never inspected (`dock-layout-store.ts:9`).
+`DockLayoutStore` is the exception to the Map shape: it holds a single layout, written bare
+to `dock-layout.json`, because the dock arrangement belongs to the window rather than to
+whichever agent is selected (`dock-layout-store.ts:24`, `:47`). The layout is opaque
+`unknown` — the dockview JSON is round-tripped verbatim, never inspected — except for one
+load-time shape check that tells a layout (`grid` + `panels`) from the `{ sessionId: layout }`
+map the file held while layouts were per agent; such a map has no single layout to pick out
+of it, so it is dropped and the default rebuilt once (`dock-layout-store.ts:12`, `:37`).
 
 ## Key types and entry points
 
@@ -121,7 +126,8 @@ verbatim, never inspected (`dock-layout-store.ts:9`).
 - `ProjectRegistry` — `project-registry.ts:13`. `listProjects`, `addProject`, `removeProject`, `getProject`, `updateProject`. Owns `projects.json`. `Project` type at `shared/types.ts:46`.
 - `VerdictStore` — `verdict-store.ts:9`. `upsert`, `getBySessionId`, `listByProject`, `deleteByProject`. Owns `verdicts.json`. `VerdictRecord` at `shared/verdict-types.ts`.
 - `ChatStore` — `chat-store.ts:38`. `get`, `set`, `delete`, `deleteByProject`, `flush`, `flushSync`. Owns `~/.manifold/chat/<hash>.json`.
-- `ViewStateStore` / `DockLayoutStore` / `SearchViewStore` / `ShellTabStore` — `get`/`set`(/`delete`). Own `view-state.json`, `dock-layout.json`, `search-view-state.json`, `shell-tabs.json`.
+- `ViewStateStore` / `SearchViewStore` / `ShellTabStore` — `get`/`set`(/`delete`), keyed per session/project/agent. Own `view-state.json`, `search-view-state.json`, `shell-tabs.json`.
+- `DockLayoutStore` — `dock-layout-store.ts:24`. `get()` / `set(layout)`, no key and no `delete`: one layout for the window. Owns `dock-layout.json`.
 - `DismissedAgentsStore` — `dismissed-agents-store.ts:17`. `add`, `has`, `delete`, `deleteProject`. Owns `dismissed-agents.json`. Written by `agent:kill` for `noWorktree` deletes (`agent-handlers.ts:107`), read by `SessionDiscovery` (`session-discovery.ts:140`, `:222`), cleared per branch on session create (`session-lifecycle.ts:84`) and per project on removal (`project-handlers.ts:195`, `agent-handlers.ts:169`).
 - `summarizeMiddle(middle, settings, fetchImpl?)` — `prompt-summarizer.ts:17`. OpenAI/Azure chat completion with a 10 s timeout; falls back to `[middle omitted — N chars]` on any error or `provider: 'none'`.
 
@@ -143,4 +149,4 @@ verbatim, never inspected (`dock-layout-store.ts:9`).
 - **Chat writes are debounced and timer-`unref`'d.** Pending chat writes are lost on a hard crash; only the `before-quit` `flushSync()` guarantees durability. The unref'd timer means the flush never keeps the app alive on its own (`chat-store.ts:138`).
 - **`getSettings()` returns a copy, not a live reference.** Callers that cache it (e.g. `WorktreeManager` taking `storagePath` once at startup, `app/index.ts:55`) will not see later `storagePath` changes without re-reading.
 - **Verdict eviction is per project, on insert only.** Updates to an existing `sessionId` never evict; only appends do, and only that project's records are pruned (`verdict-store.ts:46`). A whole project's records are dropped only via `deleteByProject`, wired into project removal (`project-handlers.ts:183`, `agent-handlers.ts:250`).
-- **Session-scoped state is evicted on session/project removal.** `view-state` and `dock-layout` entries are deleted together wherever a session is killed (`agent-handlers.ts:115`, `:130`, `:142`; `settings-handlers.ts`'s `view-state:delete`), so neither file grows without bound. Agent dismissals are likewise lifted on recreate (`session-lifecycle.ts:84`) and purged on project removal (`project-handlers.ts:195`).
+- **Session-scoped state is evicted on session/project removal.** `view-state` entries are deleted wherever a session is killed (`agent-handlers.ts:135`, `:164`, `:178`, `:189`; `settings-handlers.ts`'s `view-state:delete`), so the file can't grow without bound. `dock-layout.json` needs no such eviction — it holds one layout, not one per session. Agent dismissals are likewise lifted on recreate (`session-lifecycle.ts:84`) and purged on project removal (`project-handlers.ts:195`).

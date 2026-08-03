@@ -77,7 +77,7 @@ async function focusOrClearInPlaceSessions(
 }
 
 export function registerAgentHandlers(deps: IpcDependencies): void {
-  const { sessionManager, fileWatcher, viewStateStore, dockLayoutStore } = deps
+  const { sessionManager, fileWatcher, viewStateStore } = deps
   // Serialize no-worktree spawns per project: two racing spawns would otherwise
   // both pass the live-in-place-session check (which only registers the new
   // session after `git checkout -b` completes) and create duplicate in-place
@@ -133,7 +133,6 @@ export function registerAgentHandlers(deps: IpcDependencies): void {
     const configured = await sessionManager.configureSession(sessionId, settings)
     if (configured.id !== sessionId) {
       viewStateStore.delete(sessionId)
-      dockLayoutStore.delete(sessionId)
     }
     return configured
   })
@@ -163,7 +162,6 @@ export function registerAgentHandlers(deps: IpcDependencies): void {
       await sessionManager.killSession(sessionId)
     }
     viewStateStore.delete(sessionId)
-    dockLayoutStore.delete(sessionId)
     debugLog(`[agent:kill] done sessionId=${sessionId}`)
   })
 
@@ -178,7 +176,6 @@ export function registerAgentHandlers(deps: IpcDependencies): void {
     await sessionManager.killAllSessionsOnWorktree(worktreePath)
     for (const id of idsBefore) {
       viewStateStore.delete(id)
-      dockLayoutStore.delete(id)
     }
     debugLog(`[agent:kill-worktree] done path=${worktreePath} killed=${idsBefore.length}`)
   })
@@ -190,7 +187,6 @@ export function registerAgentHandlers(deps: IpcDependencies): void {
       await fileWatcher.unwatch(session.worktreePath)
       await sessionManager.killSession(sessionId)
       viewStateStore.delete(sessionId)
-      dockLayoutStore.delete(sessionId)
     }
 
     // 2. Remove the project directory from disk

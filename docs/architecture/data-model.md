@@ -84,7 +84,11 @@ plugin verifies cached PR state (`verdict-types.ts:33`, `verdict-pr-verifier.ts:
 
 **`<configHome>/{view-state,dock-layout,search-view-state,shell-tabs}.json`** — renderer/UI
 state persisted by the four small stores in `src/main/store`. All hardcode
-`os.homedir()/.manifold` and rewrite their single JSON file on change.
+`os.homedir()/.manifold` and rewrite their single JSON file on change. Three are keyed maps
+(by session, project, agent); `dock-layout.json` is a bare dockview layout, because the panel
+arrangement belongs to the window rather than to the selected agent (`dock-layout-store.ts:24`).
+A file still holding the older `{ sessionId: layout }` map is dropped on load and the default
+layout rebuilt once (`dock-layout-store.ts:37`).
 
 **`<configHome>/dismissed-agents.json`** — `{ projectId: branch[] }` of agents the user
 explicitly deleted from the sidebar, so session discovery does not resurrect a dormant

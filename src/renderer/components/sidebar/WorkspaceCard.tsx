@@ -3,8 +3,9 @@ import type { Project, AgentSession, AgentSettingsUpdate } from '../../../shared
 import type { DraftChat } from '../../../shared/draft-chat'
 import type { Workspace } from '../../../shared/workspace-types'
 import { sidebarStyles } from './ProjectSidebar.styles'
-import { AgentItem } from './AgentItem'
+import { AgentItem, formatBranchLabel } from './AgentItem'
 import { DraftAgentItem } from './DraftAgentItem'
+import { InPlaceBadge } from './InPlaceBadge'
 import { WorkspaceGlyph } from './WorkspaceGlyph'
 import { AddFolderGlyph, FilesChevronGlyph, NewAgentGlyph, RepoGlyph } from './SidebarCardActionGlyphs'
 import { projectFolderKey, useFolderDisclosure, worktreeFolderKey } from './folder-disclosure'
@@ -176,6 +177,15 @@ export function WorkspaceCard({
         const repoName = repo?.name ?? pid
         const filesOpen = folders.isOpen(projectFolderKey(pid))
         const toggleFiles = (): void => folders.toggle(projectFolderKey(pid))
+        // A live in-place agent has this folder's checkout on its branch, so its
+        // edits land here rather than under a worktree row of its own. Say so on
+        // the folder, where a reader would otherwise have no way to tell.
+        const inPlace = sessions.find((s) => (
+          s.projectId === pid
+          && s.noWorktree
+          && (s.status === 'running' || s.status === 'waiting')
+        ))
+        const inPlaceBranch = inPlace ? formatBranchLabel(inPlace.branchName, repo?.path ?? '') : null
         // Like an agent row: the row picks the workspace's home folder and opens
         // its files, the chevron opens them without moving home.
         const selectAndDisclose = (): void => { onSelectRepo?.(workspace.id, pid); toggleFiles() }
@@ -208,6 +218,12 @@ export function WorkspaceCard({
                 </button>
                 <span style={sidebarStyles.rowGlyph}><RepoGlyph /></span>
                 <span className="truncate">{repoName}</span>
+                {inPlaceBranch && (
+                  <InPlaceBadge
+                    label={inPlaceBranch}
+                    description={`An agent works in this folder directly, on ${inPlaceBranch}`}
+                  />
+                )}
               </span>
               <div className="sidebar-item-actions" style={sidebarStyles.itemRight}>
                 {onRemoveProject && workspace.projectIds.length > 1 && (

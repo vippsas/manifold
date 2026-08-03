@@ -117,6 +117,35 @@ describe('ProjectSidebar', () => {
     expect(props.onSelectWorkspaceRepo).toHaveBeenCalledWith('w1', 'p1')
   })
 
+  // An in-place agent has no worktree row of its own: the folder it checked out
+  // is where its edits land, so the folder row is where the sidebar says so.
+  describe('an in-place agent marks the folder it works in', () => {
+    const inPlace: AgentSession = {
+      id: 's3', projectId: 'p1', runtimeId: 'claude', branchName: 'alpha/oslo',
+      worktreePath: '/repos/alpha', status: 'running', pid: 3, additionalDirs: [], noWorktree: true,
+    }
+    const folderRow = (): HTMLElement =>
+      screen.getByText('Alpha').closest<HTMLElement>('.sidebar-repo-row')!
+
+    it('names the branch that agent has checked out there', () => {
+      renderSidebar({ sessionsByWorkspace: { w1: [inPlace], w2: [] } })
+
+      expect(within(folderRow()).getByLabelText(/works in this folder directly, on oslo/)).toBeInTheDocument()
+    })
+
+    it('leaves the folder unmarked for an agent that has its own worktree', () => {
+      renderSidebar()
+
+      expect(within(folderRow()).queryByLabelText(/works in this folder directly/)).not.toBeInTheDocument()
+    })
+
+    it('drops the mark once that agent has exited', () => {
+      renderSidebar({ sessionsByWorkspace: { w1: [{ ...inPlace, status: 'done' }], w2: [] } })
+
+      expect(within(folderRow()).queryByLabelText(/works in this folder directly/)).not.toBeInTheDocument()
+    })
+  })
+
   it('offers to remove a folder only while the workspace has more than one', () => {
     renderSidebar({
       workspaces: [

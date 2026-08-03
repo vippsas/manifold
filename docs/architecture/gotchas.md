@@ -100,7 +100,7 @@ a worktree is runnable. See CLAUDE.md §7 and [Build & release](build.md).
 ## 4. Dockview layout: width-0 while maximized, and collapse doesn't survive `fromJSON`
 
 **Symptom.** Sidebar widths get corrupted after entering/leaving focus mode; a collapsed
-sidebar reopens after a session switch or app restart; a layout save throws on an
+sidebar reopens after an app restart; a layout save throws on an
 already-disposed dockview during a StrictMode remount / onboarding transition; a new
 agent opens with both sidebars at **1/3** width instead of 1/6 — but only in repos whose
 previous layout had a bottom pane; or dividers intermittently stop being resizable
@@ -136,8 +136,8 @@ where it started.
 
 **Guardrail.** (a) Skip the width bookkeeping and the save while a group is maximized
 (`dock-layout-lifecycle.ts:41`). (b) Re-apply the saved sub-minimum sidebar widths right
-after `fromJSON` so the collapse survives (`dock-layout-loader.ts:130`). (c) Clear the
-pending debounced save on unmount (`useDockLayout.ts:288-295`). (d) Promote wrapper roots
+after `fromJSON` so the collapse survives (`dock-layout-loader.ts:146`). (c) Clear the
+pending debounced save on unmount (`useDockLayout.ts:269-276`). (d) Promote wrapper roots
 (flipping the serialized orientation) before patching the ratio
 (`dock-layout-builders.ts:41`). (e) Skip the sidebar pin when it would leave no unpinned
 group to absorb the change (`dock-layout-helpers.ts:215`), and after a hint-based reopen
