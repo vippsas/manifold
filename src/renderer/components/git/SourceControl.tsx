@@ -1,12 +1,14 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import type { Workspace, WorkspaceRepoStatus } from '../../../shared/workspace-types'
 import type { FileChange, FileChangeType } from '../../../shared/types'
+import type { ScmFileTarget } from '../editor/file-open-request'
 import { useIpcListener } from '../../hooks/app/useIpc'
 import { BranchSwitcher } from './BranchSwitcher'
 
 interface SourceControlProps {
   workspace: Workspace | null
-  onSelectFile: (absolutePath: string) => void
+  /** Open a changed file in the editor, diffed against its checkout's HEAD. */
+  onSelectFile: (absolutePath: string, scm: ScmFileTarget) => void
 }
 
 const TYPE_ORDER: FileChangeType[] = ['modified', 'added', 'deleted']
@@ -112,7 +114,7 @@ function RepoSection({
   repo: WorkspaceRepoStatus
   isCollapsed: boolean
   onToggle: () => void
-  onSelectFile: (absolutePath: string) => void
+  onSelectFile: (absolutePath: string, scm: ScmFileTarget) => void
   onRefresh: () => void
 }): React.JSX.Element {
   const root = repo.checkoutPath.replace(/\/$/, '')
@@ -138,6 +140,7 @@ function RepoSection({
           <BranchSwitcher
             workspaceId={workspaceId}
             projectId={repo.projectId}
+            repoName={repo.projectName}
             currentBranch={repo.branch}
             onCheckedOut={onRefresh}
           />
@@ -161,7 +164,11 @@ function RepoSection({
               <ChangeRow
                 key={change.path}
                 change={change}
-                onSelect={() => onSelectFile(`${root}/${change.path}`)}
+                onSelect={() => onSelectFile(`${root}/${change.path}`, {
+                  workspaceId,
+                  projectId: repo.projectId,
+                  relPath: change.path,
+                })}
               />
             ))
           )}

@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from 'react'
 import type { AgentSession, Project } from '../../../shared/types'
-import type { FileOpenRequest } from '../../components/editor/file-open-request'
+import type { FileOpenRequest, ScmFileTarget } from '../../components/editor/file-open-request'
 import { parseSiblingSessionId } from '../agent-session/agent-siblings'
 import { isEditorPanelId } from '../dock-layout/useDockLayout'
 
@@ -45,6 +45,7 @@ export interface UseEditorPaneHandlersResult {
   lastFileOpenRequest: FileOpenRequest
   setLastFileOpenRequest: (req: FileOpenRequest) => void
   handleSelectFileWithDefaultView: (filePath: string) => void
+  handleSelectFileFromSourceControl: (filePath: string, scm: ScmFileTarget) => void
   handleOpenSearchResult: (target: SearchOpenTarget) => void
   handleOpenSearchResultInSplit: (target: SearchOpenTarget) => void
   handleSelectFileFromFileTree: (filePath: string) => void
@@ -107,6 +108,13 @@ export function useEditorPaneHandlers(args: UseEditorPaneHandlersArgs): UseEdito
   const handleOpenSearchResultInSplit = useCallback((target: SearchOpenTarget): void => {
     handleOpenSearchResult({ ...target, openInSplit: true })
   }, [handleOpenSearchResult])
+
+  // A Source Control row click: opens the file with its checkout recorded, so
+  // the editor shows the uncommitted diff (VS Code's SCM click) instead of the
+  // session's base-branch diff.
+  const handleSelectFileFromSourceControl = useCallback((filePath: string, scm: ScmFileTarget): void => {
+    setLastFileOpenRequest({ path: filePath, source: 'sourceControl', scm }); handleSelectFile(filePath)
+  }, [handleSelectFile])
 
   const handleSelectFileFromFileTree = useCallback((filePath: string): void => {
     setLastFileOpenRequest({ path: filePath, source: 'fileTree' }); handleSelectFile(filePath)
@@ -171,6 +179,7 @@ export function useEditorPaneHandlers(args: UseEditorPaneHandlersArgs): UseEdito
     lastFileOpenRequest,
     setLastFileOpenRequest,
     handleSelectFileWithDefaultView,
+    handleSelectFileFromSourceControl,
     handleOpenSearchResult,
     handleOpenSearchResultInSplit,
     handleSelectFileFromFileTree,

@@ -77,6 +77,7 @@ const ALLOWED_INVOKE_CHANNELS = [
   'git:workspace-status',
   'git:workspace-commit',
   'git:workspace-checkout',
+  'git:workspace-file-diff',
   'dock-layout:get',
   'dock-layout:set',
   'font:load-data',

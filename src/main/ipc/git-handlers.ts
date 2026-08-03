@@ -195,6 +195,23 @@ export function registerGitHandlers(deps: IpcDependencies): void {
     deps.send?.('workspace:list-changed')
   })
 
+  // The uncommitted diff of one file in a workspace checkout — what the editor
+  // shows when a Source Control row is clicked, VS Code's SCM-click diff
+  // (working tree vs HEAD, unlike the session diff which compares to the base
+  // branch). `original` is the HEAD version for the diff editor's left side;
+  // both are null when the file has no uncommitted change (a click raced a
+  // refresh), and original is '' for a file HEAD doesn't have (new file).
+  ipcMain.handle('git:workspace-file-diff', async (_event, workspaceId: string, projectId: string, relativePath: string) => {
+    const { checkoutPath } = resolveWorkspaceCheckout(workspaceId, projectId)
+    const [original, diff] = await Promise.all([
+      gitExec(['show', `HEAD:${relativePath}`], checkoutPath).catch(() => null),
+      gitExec(['diff', 'HEAD', '--', relativePath], checkoutPath).catch(() => ''),
+    ])
+    if (original === null) return { diff: diff || '', original: '' }
+    if (!diff.trim()) return { diff: null, original: null }
+    return { diff, original }
+  })
+
   // Whether the project's main working tree has uncommitted changes. Used by the
   // New Agent form to confirm before a no-worktree agent switches the working
   // copy to a new branch (which carries those changes along).

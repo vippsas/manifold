@@ -25,6 +25,7 @@ function renderSwitcher(onCheckedOut = vi.fn()): { onCheckedOut: ReturnType<type
     <BranchSwitcher
       workspaceId="ws-1"
       projectId="p1"
+      repoName="storefront"
       currentBranch="main"
       onCheckedOut={onCheckedOut}
       defaultOpen
@@ -34,7 +35,7 @@ function renderSwitcher(onCheckedOut = vi.fn()): { onCheckedOut: ReturnType<type
 }
 
 describe('BranchSwitcher', () => {
-  it('lists the repo branches from git:list-branches, marking the current one', async () => {
+  it('lists the repo branches from git:list-branches in a modal naming the repo', async () => {
     mockInvoke.mockResolvedValue(branches)
     renderSwitcher()
 
@@ -42,10 +43,43 @@ describe('BranchSwitcher', () => {
       expect(screen.getByText('feature/login')).toBeInTheDocument()
     })
     expect(mockInvoke).toHaveBeenCalledWith('git:list-branches', 'p1')
+    // A centered modal, not a popover cramped into the panel column.
+    expect(screen.getByRole('dialog', { name: 'Switch branch' })).toBeInTheDocument()
+    expect(screen.getByText(/storefront/)).toBeInTheDocument()
     // Remote-only branches carry their source badge.
     expect(screen.getByText('remote')).toBeInTheDocument()
-    // The current branch is not offered for checkout.
-    expect(screen.getByRole('option', { name: /main/ })).toHaveAttribute('aria-selected', 'true')
+    // The checked-out branch is marked and inert.
+    expect(screen.getByRole('option', { name: /main/ })).toHaveAttribute('aria-current', 'true')
+  })
+
+  it('moves the active row with the arrow keys and checks out on Enter', async () => {
+    mockInvoke.mockResolvedValue(branches)
+    renderSwitcher()
+
+    await waitFor(() => {
+      expect(screen.getByText('feature/login')).toBeInTheDocument()
+    })
+    mockInvoke.mockResolvedValue(undefined)
+    const input = screen.getByRole('textbox')
+    fireEvent.keyDown(input, { key: 'ArrowDown' })
+    fireEvent.keyDown(input, { key: 'Enter' })
+
+    await waitFor(() => {
+      expect(mockInvoke).toHaveBeenCalledWith('git:workspace-checkout', 'ws-1', 'p1', 'feature/login', false)
+    })
+  })
+
+  it('closes on Escape without checking anything out', async () => {
+    mockInvoke.mockResolvedValue(branches)
+    const { onCheckedOut } = renderSwitcher()
+
+    await waitFor(() => {
+      expect(screen.getByText('feature/login')).toBeInTheDocument()
+    })
+    fireEvent.keyDown(screen.getByRole('textbox'), { key: 'Escape' })
+
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
+    expect(onCheckedOut).not.toHaveBeenCalled()
   })
 
   it('checks out an existing branch and reports back', async () => {
@@ -107,7 +141,7 @@ describe('BranchSwitcher', () => {
       expect(screen.getByText(/local changes would be overwritten/)).toBeInTheDocument()
     })
     expect(onCheckedOut).not.toHaveBeenCalled()
-    // The popover stays open for another attempt.
+    // The modal stays open for another attempt.
     expect(screen.getByRole('textbox')).toBeInTheDocument()
   })
 })

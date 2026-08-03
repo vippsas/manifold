@@ -27,6 +27,7 @@ function makeDockState(overrides: Partial<DockAppState> = {}): DockAppState {
     lastFileOpenRequest: { path: null, source: 'default' },
     theme: 'manifold-dark',
     onSelectFile: vi.fn(),
+    onSelectScmFile: vi.fn(),
     onOpenSearchResult: vi.fn(),
     onOpenSearchResultInSplit: vi.fn(),
     onSelectFileFromFileTree: vi.fn(),

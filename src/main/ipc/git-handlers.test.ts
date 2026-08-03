@@ -304,4 +304,45 @@ describe('registerGitHandlers workspace commit and checkout', () => {
     const handler = mocks.handlers.get('git:workspace-commit')!
     await expect(handler({}, 'ws-1', 'p1', 'msg')).rejects.toThrow('not a git repository')
   })
+
+  it('git:workspace-file-diff returns the uncommitted diff and HEAD original', async () => {
+    mocks.gitExec.mockImplementation(async (args: string[]) => {
+      if (args[0] === 'show') return 'old content'
+      return 'diff --git a/src/app.ts b/src/app.ts\n-old\n+new'
+    })
+    await registerHandlers()
+    const handler = mocks.handlers.get('git:workspace-file-diff')!
+
+    const result = await handler({}, 'ws-1', 'p1', 'src/app.ts')
+
+    expect(mocks.gitExec).toHaveBeenCalledWith(['show', 'HEAD:src/app.ts'], '/worktrees/repo-one')
+    expect(mocks.gitExec).toHaveBeenCalledWith(['diff', 'HEAD', '--', 'src/app.ts'], '/worktrees/repo-one')
+    expect(result).toEqual({ diff: 'diff --git a/src/app.ts b/src/app.ts\n-old\n+new', original: 'old content' })
+  })
+
+  it('git:workspace-file-diff treats a file missing from HEAD as a full add', async () => {
+    mocks.gitExec.mockImplementation(async (args: string[]) => {
+      if (args[0] === 'show') throw new Error('does not exist in HEAD')
+      return ''
+    })
+    await registerHandlers()
+    const handler = mocks.handlers.get('git:workspace-file-diff')!
+
+    const result = await handler({}, 'ws-1', 'p1', 'src/new-file.ts')
+
+    expect(result).toEqual({ diff: '', original: '' })
+  })
+
+  it('git:workspace-file-diff returns nulls when the file has no uncommitted change', async () => {
+    mocks.gitExec.mockImplementation(async (args: string[]) => {
+      if (args[0] === 'show') return 'unchanged content'
+      return '\n'
+    })
+    await registerHandlers()
+    const handler = mocks.handlers.get('git:workspace-file-diff')!
+
+    const result = await handler({}, 'ws-1', 'p1', 'src/app.ts')
+
+    expect(result).toEqual({ diff: null, original: null })
+  })
 })

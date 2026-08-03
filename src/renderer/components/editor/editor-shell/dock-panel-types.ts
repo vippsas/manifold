@@ -3,7 +3,7 @@ import type { ITheme } from '@xterm/xterm'
 import type { AgentStatus, FileTreeNode, FileChange, Project, AgentSession, AgentSettingsUpdate, SpawnAgentOptions, FavoriteKind, ResolvedFavorite, EditorSettings } from '../../../../shared/types'
 import type { SearchMode } from '../../../../shared/search-types'
 import type { EditorPaneView, OpenFile } from '../../../hooks/editor/useCodeView'
-import type { FileOpenRequest } from '../file-open-request'
+import type { FileOpenRequest, ScmFileTarget } from '../file-open-request'
 import type { DraftChat } from '../../../../shared/draft-chat'
 import type { DockPanelId } from '../../../hooks/dock-layout/dock-layout-helpers'
 
@@ -26,6 +26,8 @@ export interface DockAppState {
   lastFileOpenRequest: FileOpenRequest
   theme: string
   onSelectFile: (path: string) => void
+  /** Source Control row click: open the file showing its uncommitted diff. */
+  onSelectScmFile: (path: string, scm: ScmFileTarget) => void
   onOpenSearchResult: (target: { path: string; line?: number; column?: number; sessionId?: string | null }) => void
   onOpenSearchResultInSplit: (target: { path: string; line?: number; column?: number; sessionId?: string | null }) => void
   onSelectFileFromFileTree: (path: string) => void

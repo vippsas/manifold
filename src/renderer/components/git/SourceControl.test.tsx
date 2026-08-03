@@ -74,7 +74,7 @@ describe('SourceControl', () => {
     expect(screen.getByText('No changes')).toBeInTheDocument()
   })
 
-  it('opens a changed file by its absolute path in the workspace checkout', async () => {
+  it('opens a changed file with its checkout context for the SCM diff', async () => {
     mockInvoke.mockResolvedValue(statuses)
     const onSelectFile = vi.fn()
     render(<SourceControl workspace={workspace} onSelectFile={onSelectFile} />)
@@ -84,7 +84,11 @@ describe('SourceControl', () => {
     })
     fireEvent.click(screen.getByText('app.ts'))
 
-    expect(onSelectFile).toHaveBeenCalledWith('/worktrees/repo-one/src/app.ts')
+    expect(onSelectFile).toHaveBeenCalledWith('/worktrees/repo-one/src/app.ts', {
+      workspaceId: 'ws-1',
+      projectId: 'p1',
+      relPath: 'src/app.ts',
+    })
   })
 
   it('collapses a repo section on header click', async () => {

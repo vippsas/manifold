@@ -22,10 +22,11 @@ window.electronAPI = {
 }
 
 export default (
-  <div style={{ width: 280, height: 320, padding: 8 }}>
+  <div style={{ width: 900, height: 560 }}>
     <BranchSwitcher
       workspaceId="ws-fixture"
       projectId="p1"
+      repoName="storefront"
       currentBranch="manifold/checkout-redesign"
       onCheckedOut={() => undefined}
       defaultOpen

@@ -1,9 +1,15 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react'
+import { createPortal } from 'react-dom'
 import type { BranchInfo } from '../../../shared/types'
+import { createDialogStyles } from '../workbench-style-primitives'
+import { useAutoFocus } from '../../hooks/useAutoFocus'
 
 interface BranchSwitcherProps {
   workspaceId: string
   projectId: string
+  /** Named in the modal header — a workspace has several repos, and the centered
+   *  modal is detached from the repo section that opened it. */
+  repoName: string
   currentBranch: string
   /** Called after a successful checkout so the owner can refresh its status. */
   onCheckedOut: () => void
@@ -11,15 +17,26 @@ interface BranchSwitcherProps {
   defaultOpen?: boolean
 }
 
+/** A row of the quick-pick list: the branches, plus the leading "create" entry
+ *  when the typed name matches none of them. */
+type PickerOption =
+  | { kind: 'create'; name: string }
+  | { kind: 'branch'; branch: BranchInfo }
+
 /** VS Code's click-the-branch-name flow for one workspace checkout: a branch
- *  label that opens a quick-pick — filter input, the repo's branches (from the
- *  same `git:list-branches` the branch picker used, which already hides
- *  branches held by other worktrees), and a "create new branch" entry when the
- *  typed name matches nothing. Selecting checks the workspace checkout out via
- *  `git:workspace-checkout`. */
+ *  label that opens a centered quick-pick modal — filter input, the repo's
+ *  branches (from the same `git:list-branches` the branch picker used, which
+ *  already hides branches held by other worktrees), and a "create new branch"
+ *  entry when the typed name matches nothing. Selecting checks the workspace
+ *  checkout out via `git:workspace-checkout`.
+ *
+ *  Modal rather than a popover anchored to the label: the Source Control panel
+ *  is a narrow sidebar column, which cramped the list and clipped long branch
+ *  names. Same dialog primitives and keyboard model as the Command Palette. */
 export function BranchSwitcher({
   workspaceId,
   projectId,
+  repoName,
   currentBranch,
   onCheckedOut,
   defaultOpen,
@@ -30,8 +47,11 @@ export function BranchSwitcher({
   const [loading, setLoading] = useState(false)
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
-  const containerRef = useRef<HTMLDivElement>(null)
+  const [activeIndex, setActiveIndex] = useState(0)
   const inputRef = useRef<HTMLInputElement>(null)
+  const overlayRef = useRef<HTMLDivElement>(null)
+
+  useAutoFocus(open, inputRef)
 
   useEffect(() => {
     if (!open) return
@@ -51,21 +71,12 @@ export function BranchSwitcher({
     return () => { cancelled = true }
   }, [open, projectId])
 
-  useEffect(() => {
-    if (!open) return
-    inputRef.current?.focus()
-    const onMouseDown = (e: MouseEvent): void => {
-      if (!containerRef.current?.contains(e.target as Node)) setOpen(false)
-    }
-    document.addEventListener('mousedown', onMouseDown)
-    return () => document.removeEventListener('mousedown', onMouseDown)
-  }, [open])
-
-  const close = (): void => {
+  const close = useCallback((): void => {
     setOpen(false)
     setFilter('')
     setError(null)
-  }
+    setActiveIndex(0)
+  }, [])
 
   const checkout = useCallback(async (branchName: string, createNew: boolean): Promise<void> => {
     if (busy) return
@@ -75,6 +86,7 @@ export function BranchSwitcher({
       await window.electronAPI.invoke('git:workspace-checkout', workspaceId, projectId, branchName, createNew)
       setOpen(false)
       setFilter('')
+      setActiveIndex(0)
       onCheckedOut()
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : String(err))
@@ -88,17 +100,29 @@ export function BranchSwitcher({
   const exactMatch = branches.find((b) => b.name === trimmed)
   const offerCreate = trimmed.length > 0 && !exactMatch && trimmed !== currentBranch
 
-  const onKeyDown = (e: React.KeyboardEvent): void => {
-    if (e.key === 'Escape') {
-      close()
-    } else if (e.key === 'Enter' && trimmed) {
-      if (exactMatch && exactMatch.name !== currentBranch) void checkout(exactMatch.name, false)
-      else if (offerCreate) void checkout(trimmed, true)
-    }
+  const options: PickerOption[] = [
+    ...(offerCreate ? [{ kind: 'create', name: trimmed } as const] : []),
+    ...filtered.map((branch) => ({ kind: 'branch', branch } as const)),
+  ]
+  const clampedIndex = Math.min(activeIndex, Math.max(0, options.length - 1))
+
+  const activate = useCallback((option: PickerOption | undefined): void => {
+    if (!option) return
+    if (option.kind === 'create') void checkout(option.name, true)
+    // The branch already checked out is inert — selecting it is a no-op, as in
+    // VS Code's picker.
+    else if (option.branch.name !== currentBranch) void checkout(option.branch.name, false)
+  }, [checkout, currentBranch])
+
+  const onKeyDown = (e: React.KeyboardEvent<HTMLInputElement>): void => {
+    if (e.key === 'Escape') { close(); return }
+    if (e.key === 'ArrowDown') { e.preventDefault(); setActiveIndex((i) => Math.min(i + 1, options.length - 1)); return }
+    if (e.key === 'ArrowUp') { e.preventDefault(); setActiveIndex((i) => Math.max(i - 1, 0)); return }
+    if (e.key === 'Enter') { e.preventDefault(); activate(options[clampedIndex]) }
   }
 
   return (
-    <div ref={containerRef} style={styles.container}>
+    <>
       <button
         type="button"
         className="branch-switcher-trigger"
@@ -111,56 +135,89 @@ export function BranchSwitcher({
         <BranchGlyph />
         <span className="truncate">{currentBranch}</span>
       </button>
-      {open && (
-        <div style={styles.popover} onKeyDown={onKeyDown}>
-          <input
-            ref={inputRef}
-            type="text"
-            value={filter}
-            onChange={(e) => setFilter(e.target.value)}
-            placeholder={loading ? 'Loading branches…' : 'Select or create a branch…'}
-            style={styles.filterInput}
-            disabled={busy}
-          />
-          <div style={styles.list} role="listbox" aria-label="Branches">
-            {offerCreate && (
-              <div
-                role="option"
-                aria-selected={false}
-                onClick={() => void checkout(trimmed, true)}
-                style={{ ...styles.row, color: 'var(--accent)' }}
-              >
-                <span style={styles.createPlus} aria-hidden>＋</span>
-                <span className="truncate">Create new branch “{trimmed}”</span>
+      {open && createPortal(
+        <div
+          ref={overlayRef}
+          style={dialog.overlay}
+          onClick={(e) => { if (e.target === overlayRef.current) close() }}
+          role="dialog"
+          aria-modal="true"
+          aria-label="Switch branch"
+        >
+          <div style={dialog.panel} onClick={(e) => e.stopPropagation()}>
+            <div style={dialog.header}>
+              <span style={dialog.title}>Switch branch</span>
+              <span style={styles.headerContext}>
+                <BranchGlyph />
+                <span className="truncate">{repoName} · {currentBranch}</span>
+              </span>
+            </div>
+            <div style={dialog.body}>
+              <input
+                ref={inputRef}
+                type="text"
+                value={filter}
+                onChange={(e) => { setFilter(e.target.value); setActiveIndex(0) }}
+                onKeyDown={onKeyDown}
+                placeholder={loading ? 'Loading branches…' : 'Select or create a branch…'}
+                style={styles.filterInput}
+                aria-label="Filter branches"
+                autoComplete="off"
+                disabled={busy}
+              />
+              <div style={styles.list} role="listbox" aria-label="Branches">
+                {options.map((option, idx) => {
+                  const isActive = idx === clampedIndex
+                  if (option.kind === 'create') {
+                    return (
+                      <div
+                        key="__create__"
+                        role="option"
+                        aria-selected={isActive}
+                        onMouseEnter={() => setActiveIndex(idx)}
+                        onClick={() => activate(option)}
+                        style={{ ...styles.row, ...(isActive ? styles.rowActive : undefined), color: 'var(--accent)' }}
+                      >
+                        <span style={styles.createPlus} aria-hidden>＋</span>
+                        <span className="truncate">Create new branch “{option.name}”</span>
+                      </div>
+                    )
+                  }
+                  const isCurrent = option.branch.name === currentBranch
+                  return (
+                    <div
+                      key={option.branch.name}
+                      role="option"
+                      aria-selected={isActive}
+                      aria-current={isCurrent || undefined}
+                      onMouseEnter={() => setActiveIndex(idx)}
+                      onClick={() => activate(option)}
+                      style={{
+                        ...styles.row,
+                        ...(isActive ? styles.rowActive : undefined),
+                        ...(isCurrent ? styles.rowCurrent : undefined),
+                      }}
+                    >
+                      <span className="truncate" style={styles.rowName}>{option.branch.name}</span>
+                      {isCurrent && <span style={styles.currentMark}>current</span>}
+                      {!isCurrent && option.branch.source !== 'both' && (
+                        <span style={styles.sourceBadge}>{option.branch.source}</span>
+                      )}
+                    </div>
+                  )
+                })}
+                {!loading && options.length === 0 && (
+                  <div style={styles.emptyRow}>{trimmed ? 'No matching branches' : 'No branches found'}</div>
+                )}
               </div>
-            )}
-            {filtered.map((b) => {
-              const isCurrent = b.name === currentBranch
-              return (
-                <div
-                  key={b.name}
-                  role="option"
-                  aria-selected={isCurrent}
-                  onClick={isCurrent ? undefined : () => void checkout(b.name, false)}
-                  style={{ ...styles.row, ...(isCurrent ? styles.rowCurrent : undefined) }}
-                >
-                  <span className="truncate" style={styles.rowName}>{b.name}</span>
-                  {isCurrent && <span style={styles.currentMark} aria-hidden>✓</span>}
-                  {!isCurrent && b.source !== 'both' && (
-                    <span style={styles.sourceBadge}>{b.source}</span>
-                  )}
-                </div>
-              )
-            })}
-            {!loading && !offerCreate && filtered.length === 0 && (
-              <div style={styles.emptyRow}>{trimmed ? 'No matching branches' : 'No branches found'}</div>
-            )}
+              {busy && <div style={styles.status}>Checking out…</div>}
+              {error && <div style={styles.error}>{error}</div>}
+            </div>
           </div>
-          {busy && <div style={styles.status}>Checking out…</div>}
-          {error && <div style={styles.error}>{error}</div>}
-        </div>
+        </div>,
+        document.body,
       )}
-    </div>
+    </>
   )
 }
 
@@ -175,12 +232,9 @@ export function BranchGlyph(): React.JSX.Element {
   )
 }
 
+const dialog = createDialogStyles('460px')
+
 const styles: Record<string, React.CSSProperties> = {
-  container: {
-    position: 'relative',
-    display: 'flex',
-    minWidth: 0,
-  },
   trigger: {
     display: 'flex',
     alignItems: 'center',
@@ -196,47 +250,41 @@ const styles: Record<string, React.CSSProperties> = {
     cursor: 'pointer',
     transition: 'background 150ms ease, color 150ms ease',
   },
-  popover: {
-    position: 'absolute',
-    top: 'calc(100% + 4px)',
-    left: 0,
-    zIndex: 100,
-    width: '240px',
+  headerContext: {
     display: 'flex',
-    flexDirection: 'column',
-    background: 'var(--bg-overlay)',
-    border: '1px solid var(--overlay-border)',
-    borderRadius: 'var(--radius-md)',
-    boxShadow: 'var(--shadow-overlay)',
-    padding: 'var(--space-xs)',
+    alignItems: 'center',
+    gap: 'var(--space-xs)',
+    minWidth: 0,
+    color: 'var(--text-muted)',
+    fontFamily: 'var(--font-mono)',
+    fontSize: 'var(--type-ui-caption)',
   },
   filterInput: {
+    ...dialog.input,
     width: '100%',
     boxSizing: 'border-box' as const,
-    padding: '4px 6px',
-    background: 'var(--bg-input)',
-    border: '1px solid var(--control-border)',
-    borderRadius: 'var(--radius-xs)',
-    color: 'var(--text-primary)',
-    fontSize: '12px',
     fontFamily: 'var(--font-mono)',
-    outline: 'none',
   },
+  // Bleeds to the panel edges like the Command Palette's list, so rows read as
+  // a full-width list rather than a boxed sub-element.
   list: {
-    maxHeight: '192px',
+    maxHeight: '320px',
     overflowY: 'auto' as const,
-    marginTop: '4px',
+    margin: '0 calc(-1 * var(--space-lg))',
+    borderTop: '1px solid var(--border)',
   },
   row: {
     display: 'flex',
     alignItems: 'center',
-    gap: '6px',
-    padding: '3px 6px',
-    borderRadius: 'var(--radius-xs)',
-    fontSize: '12px',
+    gap: 'var(--space-sm)',
+    padding: 'var(--space-sm) var(--space-lg)',
+    fontSize: 'var(--type-ui-small)',
     fontFamily: 'var(--font-mono)',
     color: 'var(--text-primary)',
     cursor: 'pointer',
+  },
+  rowActive: {
+    background: 'var(--selection-bg, color-mix(in srgb, var(--accent), transparent 85%))',
   },
   rowCurrent: {
     color: 'var(--text-muted)',
@@ -248,11 +296,13 @@ const styles: Record<string, React.CSSProperties> = {
   },
   createPlus: {
     flexShrink: 0,
-    fontSize: '11px',
   },
   currentMark: {
     flexShrink: 0,
-    fontSize: '11px',
+    fontFamily: 'var(--font-sans)',
+    fontSize: 'var(--type-ui-micro)',
+    textTransform: 'uppercase' as const,
+    letterSpacing: '0.5px',
   },
   sourceBadge: {
     flexShrink: 0,
@@ -263,18 +313,17 @@ const styles: Record<string, React.CSSProperties> = {
     color: 'var(--accent)',
   },
   emptyRow: {
-    padding: '4px 6px',
-    fontSize: '12px',
+    padding: 'var(--space-lg)',
+    fontSize: 'var(--type-ui-small)',
     color: 'var(--text-muted)',
+    textAlign: 'center' as const,
   },
   status: {
-    padding: '4px 6px 0',
-    fontSize: '11px',
+    fontSize: 'var(--type-ui-caption)',
     color: 'var(--text-muted)',
   },
   error: {
-    padding: '4px 6px 0',
-    fontSize: '11px',
+    fontSize: 'var(--type-ui-caption)',
     color: 'var(--error)',
     whiteSpace: 'pre-wrap' as const,
     maxHeight: '80px',

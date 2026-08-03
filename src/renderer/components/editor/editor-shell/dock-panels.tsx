@@ -1,5 +1,6 @@
 import React, { useMemo } from 'react'
 import { useFileDiff } from '../../../hooks/editor/useFileDiff'
+import { useWorkspaceFileDiff } from '../../../hooks/editor/useWorkspaceFileDiff'
 import { CodeViewer } from '../code-viewer/CodeViewer'
 import { ModifiedFiles } from '../../git/ModifiedFiles'
 import { SourceControl } from '../../git/SourceControl'
@@ -47,12 +48,21 @@ function EditorPanel({ api }: { api: { id: string } }): React.JSX.Element {
     s.worktreeRoot,
   )
 
+  // A file opened from Source Control diffs against its checkout's HEAD
+  // (uncommitted changes — VS Code's SCM click), not the session's base branch.
+  const scmTarget =
+    s.lastFileOpenRequest.source === 'sourceControl' &&
+    s.lastFileOpenRequest.path === pane.activeFilePath
+      ? s.lastFileOpenRequest.scm ?? null
+      : null
+  const workspaceFileDiff = useWorkspaceFileDiff(scmTarget)
+
   return (
     <CodeViewer
       paneId={paneId}
       sessionId={s.sessionId}
-      fileDiffText={activeFileDiffText}
-      originalContent={originalContent}
+      fileDiffText={scmTarget ? workspaceFileDiff.diff : activeFileDiffText}
+      originalContent={scmTarget ? workspaceFileDiff.original : originalContent}
       openFiles={pane.openFiles}
       activeFilePath={pane.activeFilePath}
       fileContent={pane.fileContent}
@@ -87,7 +97,7 @@ function ModifiedFilesPanel(): React.JSX.Element {
 function SourceControlPanel(): React.JSX.Element {
   const s = useDockState()
   const workspace = s.workspaces.find((w) => w.id === s.activeWorkspaceId) ?? null
-  return <SourceControl workspace={workspace} onSelectFile={s.onSelectFile} />
+  return <SourceControl workspace={workspace} onSelectFile={s.onSelectScmFile} />
 }
 
 function ShellPanel(): React.JSX.Element {

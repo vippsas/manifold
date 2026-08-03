@@ -19,6 +19,15 @@ vi.mock('./AgentChatView', () => ({
   ),
 }))
 
+vi.mock('@monaco-editor/react', () => ({
+  default: ({ value, defaultValue }: { value?: string; defaultValue?: string }) => (
+    <div data-testid="monaco-editor">{value ?? defaultValue}</div>
+  ),
+  DiffEditor: ({ original, modified }: { original: string; modified: string }) => (
+    <div data-testid="monaco-diff-editor">{`${original} → ${modified}`}</div>
+  ),
+}))
+
 const mockInvoke = vi.fn()
 
 beforeEach(() => {
@@ -43,6 +52,7 @@ function makeDockState(overrides: Partial<DockAppState> = {}): DockAppState {
     lastFileOpenRequest: { path: null, source: 'default' },
     theme: 'dark',
     onSelectFile: vi.fn(),
+    onSelectScmFile: vi.fn(),
     onOpenSearchResult: vi.fn(),
     onOpenSearchResultInSplit: vi.fn(),
     onSelectFileFromFileTree: vi.fn(),
@@ -246,5 +256,80 @@ describe('AgentPanel', () => {
     )
 
     expect(screen.getByRole('textbox')).toBeInTheDocument()
+  })
+})
+
+describe('EditorPanel — Source Control diff', () => {
+  const filePath = '/worktrees/repo-one/src/app.ts'
+
+  function editorState(overrides: Partial<DockAppState> = {}): DockAppState {
+    return makeDockState({
+      sessionId: null,
+      diffText: '',
+      worktreeRoot: null,
+      getEditorPane: () => ({
+        id: 'editor',
+        openFiles: [{ path: filePath, content: 'new content', refreshVersion: 0 }],
+        activeFilePath: filePath,
+        fileContent: 'new content',
+      }),
+      onRegisterEditorPane: vi.fn(),
+      ...overrides,
+    })
+  }
+
+  it('shows the uncommitted diff for a file opened from Source Control', async () => {
+    mockInvoke.mockImplementation(async (channel: string) => {
+      if (channel === 'git:workspace-file-diff') {
+        return { diff: 'diff --git a/src/app.ts b/src/app.ts', original: 'old content' }
+      }
+      return []
+    })
+    const EditorPanel = PANEL_COMPONENTS.editor
+
+    render(
+      <DockStateContext.Provider value={editorState({
+        lastFileOpenRequest: {
+          path: filePath,
+          source: 'sourceControl',
+          scm: { workspaceId: 'ws-1', projectId: 'p1', relPath: 'src/app.ts' },
+        },
+      })}
+      >
+        <EditorPanel api={{ id: 'editor' }} />
+      </DockStateContext.Provider>,
+    )
+
+    await waitFor(() => {
+      expect(screen.getByTestId('monaco-diff-editor')).toHaveTextContent('old content → new content')
+    })
+    expect(mockInvoke).toHaveBeenCalledWith('git:workspace-file-diff', 'ws-1', 'p1', 'src/app.ts')
+  })
+
+  it('stays in the plain editor when the checkout reports no uncommitted change', async () => {
+    mockInvoke.mockImplementation(async (channel: string) => {
+      if (channel === 'git:workspace-file-diff') return { diff: null, original: null }
+      return []
+    })
+    const EditorPanel = PANEL_COMPONENTS.editor
+
+    render(
+      <DockStateContext.Provider value={editorState({
+        lastFileOpenRequest: {
+          path: filePath,
+          source: 'sourceControl',
+          scm: { workspaceId: 'ws-1', projectId: 'p1', relPath: 'src/app.ts' },
+        },
+      })}
+      >
+        <EditorPanel api={{ id: 'editor' }} />
+      </DockStateContext.Provider>,
+    )
+
+    await waitFor(() => {
+      expect(mockInvoke).toHaveBeenCalledWith('git:workspace-file-diff', 'ws-1', 'p1', 'src/app.ts')
+    })
+    expect(screen.queryByTestId('monaco-diff-editor')).not.toBeInTheDocument()
+    expect(screen.getByTestId('monaco-editor')).toHaveTextContent('new content')
   })
 })

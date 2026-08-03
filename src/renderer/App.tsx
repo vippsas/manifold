@@ -309,6 +309,7 @@ export function App(): React.JSX.Element {
     activeEditorPaneId: codeView.activeEditorPaneId, editorPaneIds: dockLayout.editorPanelIds,
     getEditorPane: codeView.getEditorPane, lastFileOpenRequest: editorHandlers.lastFileOpenRequest, theme: themeId,
     onSelectFile: editorHandlers.handleSelectFileWithDefaultView,
+    onSelectScmFile: editorHandlers.handleSelectFileFromSourceControl,
     onOpenSearchResult: editorHandlers.handleOpenSearchResult,
     onOpenSearchResultInSplit: editorHandlers.handleOpenSearchResultInSplit,
     onSelectFileFromFileTree: editorHandlers.handleSelectFileFromFileTree,

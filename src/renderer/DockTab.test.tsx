@@ -31,6 +31,7 @@ function makeDockState(overrides: Partial<DockAppState> = {}): DockAppState {
     lastFileOpenRequest: { path: null, source: 'default' },
     theme: 'dark',
     onSelectFile: () => {},
+    onSelectScmFile: () => {},
     onOpenSearchResult: () => {},
     onOpenSearchResultInSplit: () => {},
     onSelectFileFromFileTree: () => {},
