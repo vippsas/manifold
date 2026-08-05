@@ -185,8 +185,8 @@ export function registerGitHandlers(deps: IpcDependencies): void {
   // remote-only branches get git's DWIM local tracking branch, and branches
   // held by another worktree are already filtered out of `git:list-branches`.
   // Serialized against other mutating git ops on the repo, like every checkout
-  // in branch-checkout-manager. Emits `workspace:list-changed` so the sidebar
-  // re-reads its folder branch badges.
+  // in branch-checkout-manager. Emits `workspace:list-changed` so Source Control
+  // and the workspace list refresh.
   ipcMain.handle('git:workspace-checkout', async (_event, workspaceId: string, projectId: string, branchName: string, createNew: boolean) => {
     const { projectPath, checkoutPath } = resolveWorkspaceCheckout(workspaceId, projectId)
     await withRepoLock(projectPath, () =>

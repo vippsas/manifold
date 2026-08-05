@@ -1,7 +1,7 @@
 ---
 description: How Manifold's main-process services are exposed to the renderer over Electron IPC — the channel namespaces, the handler registration pattern, and how handlers delegate to subsystem managers.
 covers: [src/main/ipc]
-updated: 2026-08-03
+updated: 2026-08-04
 owner: see .github/CODEOWNERS
 ---
 
@@ -21,7 +21,7 @@ managers documented on the other architecture pages (`session.md`, `git.md`, etc
 - `src/main/ipc/types.ts` — `IpcDependencies` (the manager bag passed to every handler module) and `resolveSession()` (throw-on-missing session lookup).
 - `src/main/ipc/agent-handlers.ts` — `agent:*` lifecycle, plus `branch:suggest`, `shell:*`, and the read-only `git:list-*`/`git:fetch-pr-branch` channels.
 - `src/main/ipc/chat-image-handlers.ts` — `chat:save-pasted-image`/`chat:read-pasted-image` and the allow-listed image-path resolution they share.
-- `src/main/ipc/git-handlers.ts` — `diff:*`, `pr:create`, and the mutating `git:*` channels (`git:commit`, `git:ai-generate`, `git:ahead-behind`, `git:resolve-conflict`, `git:pr-context`, `git:fetch`, `git:has-uncommitted-changes`), plus the workspace-scoped Source Control channels: read-only `git:workspace-status` (branch + uncommitted changes for every repo checkout of a workspace), `git:workspace-commit` (per-repo stage-all commit through `gitOps.commit`), `git:workspace-checkout` (switch or `-b`-create a branch in one checkout, serialized by `withRepoLock`, emitting `workspace:list-changed` so the sidebar re-reads its branch badges), and `git:workspace-file-diff` (one file's uncommitted diff + HEAD original, for the editor's SCM-click diff). The session-scoped comparisons (diff, PR target, ahead/behind, pr-context) use `baseBranchFor(session, project)` = `session.baseBranch || project.baseBranch`, so a no-worktree agent based off a selected branch compares against that branch.
+- `src/main/ipc/git-handlers.ts` — `diff:*`, `pr:create`, and the mutating `git:*` channels (`git:commit`, `git:ai-generate`, `git:ahead-behind`, `git:resolve-conflict`, `git:pr-context`, `git:fetch`, `git:has-uncommitted-changes`), plus the workspace-scoped Source Control channels: read-only `git:workspace-status` (branch + uncommitted changes for every repo checkout of a workspace), `git:workspace-commit` (per-repo stage-all commit through `gitOps.commit`), `git:workspace-checkout` (switch or `-b`-create a branch in one checkout, serialized by `withRepoLock`, emitting `workspace:list-changed` so Source Control and the workspace list refresh), and `git:workspace-file-diff` (one file's uncommitted diff + HEAD original, for the editor's SCM-click diff). The session-scoped comparisons (diff, PR target, ahead/behind, pr-context) use `baseBranchFor(session, project)` = `session.baseBranch || project.baseBranch`, so a no-worktree agent based off a selected branch compares against that branch.
 - `src/main/ipc/file-handlers.ts` — `files:*` tree/read/write/rename/import/paste/reveal/search, all path-guarded against traversal.
 - `src/main/ipc/open-terminal.ts` — platform command selection for the path-guarded `files:open-terminal` channel: macOS `open`, Linux `x-terminal-emulator`.
 - `src/main/ipc/project-handlers.ts` — `projects:*` (list/add/clone/create-new/remove/update) and the `*-dialog` + `storage:open-dialog` native-dialog channels.

@@ -1,10 +1,9 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
-import { screen, fireEvent, within, waitFor } from '@testing-library/react'
+import { screen, fireEvent, within } from '@testing-library/react'
 import type { DraftId } from '../../../shared/draft-chat'
 import {
   installElectronApi,
   installLocalStorage,
-  mockInvoke,
   renderSidebar,
 } from './ProjectSidebar.test-helpers'
 
@@ -50,7 +49,7 @@ describe('ProjectSidebar', () => {
   })
 
   // Agents are the tabs of the main view's Agent panel now; the card only shows
-  // where work happens (folders, branch) and that someone is working (the dot).
+  // where work happens (folders) and that someone is working (the dot).
   it('shows no agent rows — agents live in the main view', () => {
     renderSidebar()
 
@@ -107,44 +106,6 @@ describe('ProjectSidebar', () => {
     fireEvent.click(screen.getByText('Alpha'))
 
     expect(props.onSelectWorkspaceRepo).toHaveBeenCalledWith('w1', 'p1')
-  })
-
-  // An in-place agent has no worktree row of its own: the folder it checked out
-  // is where its edits land, so the folder row is where the sidebar says so.
-  // The badge describes the folder, not an agent: agents belong to the workspace,
-  // and a folder row is only ever a place to look at files.
-  describe('a folder row names the branch it has checked out', () => {
-    const folderRow = (): HTMLElement =>
-      screen.getByText('Alpha').closest<HTMLElement>('.sidebar-repo-row')!
-
-    it('labels each folder of a home workspace with its own branch', async () => {
-      mockInvoke.mockImplementation((channel: string, projectId: string) => (
-        channel === 'git:current-branch'
-          ? Promise.resolve(projectId === 'p1' ? 'feature/oslo' : 'main')
-          : Promise.resolve([])
-      ))
-      renderSidebar()
-
-      expect(await within(folderRow()).findByLabelText('Alpha is checked out on feature/oslo')).toBeInTheDocument()
-    })
-
-    // Every folder of a worktree workspace is on the workspace's branch, named
-    // once on the card above — repeating it on each folder is noise.
-    it('leaves the folders of a worktree workspace unlabelled', async () => {
-      mockInvoke.mockImplementation((channel: string) => (
-        channel === 'git:current-branch' ? Promise.resolve('main') : Promise.resolve([])
-      ))
-      renderSidebar({
-        workspaces: [{
-          id: 'w1', name: 'alpha-space', projectIds: ['p1'], createdAt: '2024-01-01',
-          branchName: 'manifold/oslo', worktreePaths: { p1: '/wt/alpha' },
-        }],
-        sessionsByWorkspace: { w1: [] },
-      })
-
-      await waitFor(() => expect(screen.getByTitle(/Every folder here is checked out on/)).toBeInTheDocument())
-      expect(within(folderRow()).queryByLabelText(/checked out on/)).not.toBeInTheDocument()
-    })
   })
 
   it('offers to remove a folder only while the workspace has more than one', () => {
@@ -238,31 +199,6 @@ describe('ProjectSidebar', () => {
 
     expect(screen.getByText('Workspaces')).toBeInTheDocument()
     expect(screen.queryByRole('button', { name: 'Workspaces' })).not.toBeInTheDocument()
-  })
-
-  it('keeps stripping the manifold/ prefix from the workspace branch label', () => {
-    renderSidebar({
-      workspaces: [
-        { id: 'w1', name: 'alpha-space', projectIds: ['p1'], createdAt: '2024-01-01', branchName: 'manifold/oslo', worktreePaths: { p1: '/wt/alpha' } },
-      ],
-      sessionsByWorkspace: { w1: [] },
-    })
-
-    expect(screen.getByTitle('Every folder here is checked out on manifold/oslo')).toHaveTextContent(/^oslo$/)
-  })
-
-  // A new workspace's branch is named after the workspace, so the label would
-  // just repeat the name underneath it.
-  it('hides the branch label when it only repeats the workspace name', () => {
-    renderSidebar({
-      workspaces: [
-        { id: 'w1', name: 'alpha-space', projectIds: ['p1'], createdAt: '2024-01-01', branchName: 'manifold/alpha-space', worktreePaths: { p1: '/wt/alpha' } },
-      ],
-      sessionsByWorkspace: { w1: [] },
-    })
-
-    expect(screen.queryByTitle(/Every folder here is checked out on/)).not.toBeInTheDocument()
-    expect(screen.getAllByText('alpha-space')).toHaveLength(1)
   })
 
   it('renders a draft chat row in the workspace holding its repo', () => {

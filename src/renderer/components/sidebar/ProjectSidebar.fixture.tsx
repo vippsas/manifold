@@ -38,8 +38,7 @@ const workspaceSession: AgentSession = {
   additionalDirs: ['/worktrees/commerce-api'],
 }
 
-// Works in commerce-api's own checkout rather than a worktree, so it marks that
-// folder with the branch it has checked out there.
+// Works in commerce-api's own checkout rather than a worktree (noWorktree).
 const inPlaceSession: AgentSession = {
   id: 'session-3',
   projectId: 'backend',

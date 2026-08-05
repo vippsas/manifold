@@ -1,7 +1,7 @@
 ---
 description: The top recurring development traps in Manifold — StrictMode double-mount, the better-sqlite3 Node↔Electron ABI flip, worktree bootstrap, and dockview layout restore/width-0 — each paired with the checked-in guardrail (test/script/doc) that pins it, cited to file:line.
 covers: [src/renderer/components/modals/useNewAgentForm.tsx, scripts/rebuild-better-sqlite3-node.mjs, scripts/setup-worktree.sh, src/renderer/hooks/dock-layout/dock-layout-lifecycle.ts]
-updated: 2026-07-31
+updated: 2026-08-03
 owner: see .github/CODEOWNERS
 ---
 
@@ -101,25 +101,25 @@ a worktree is runnable. See CLAUDE.md §7 and [Build & release](build.md).
 
 **Symptom.** Sidebar widths get corrupted after entering/leaving focus mode; a collapsed
 sidebar reopens after an app restart; a layout save throws on an
-already-disposed dockview during a StrictMode remount / onboarding transition; a new
-agent opens with both sidebars at **1/3** width instead of 1/6 — but only in repos whose
+already-disposed dockview during a StrictMode remount / onboarding transition; a rebuilt
+layout opens with the sidebar at **1/2** width instead of 1/6 — but only in repos whose
 previous layout had a bottom pane; or dividers intermittently stop being resizable
 (no resize cursor) after opening/closing a panel, until the window is resized. Or: clicking
 an activity-bar icon off and on repeatedly walks a sidebar steadily narrower — ~12px a
 cycle, never recovered — so "clicking back and forth" jumps and stutters instead of
 returning to the same layout.
 
-**Root cause.** (a) While a group is maximized, every other group — including both
-sidebars — is hidden, so their `offsetWidth` reads **0**; capturing widths then would
+**Root cause.** (a) While a group is maximized, every other group — the sidebar
+included — is hidden, so its `offsetWidth` reads **0**; capturing widths then would
 persist zeros. (b) dockview's `toJSON` drops `minimumWidth <= 0`, so a collapsed (width-0)
 sidebar is not preserved across an `api.fromJSON` reload. (c) A debounced layout save can
 fire `api.toJSON()` after the dockview is disposed. (d) The grid **orientation is sticky**:
 `api.clear()` keeps whatever the last `fromJSON` set, so rebuilding the default layout on a
 VERTICAL-rooted grid nests the columns inside a wrapper branch where the 1:5 ratio
 patch used to miss them — equal halves (#803). (e) Reopening panels into an **emptied**
-dock: the first reopened panel (typically `projects`) owns the full dock width, and
+dock: the first reopened panel (typically `sidebar`) owns the full dock width, and
 `withPinnedSidebars` used to pin it there during every subsequent add — clamping each new
-group to width 0, so the panels existed but rendered invisible until `projects` was
+group to width 0, so the panels existed but rendered invisible until `sidebar` was
 toggled closed and open again. (f) dockview re-evaluates each sash's enabled state only
 during a layout pass (`updateSashEnablement`), never on `setConstraints` alone: the pass a
 pinned mutation triggers marks the sashes next to min==max groups `dv-disabled`, and
@@ -136,24 +136,25 @@ where it started.
 
 **Guardrail.** (a) Skip the width bookkeeping and the save while a group is maximized
 (`dock-layout-lifecycle.ts:41`). (b) Re-apply the saved sub-minimum sidebar widths right
-after `fromJSON` so the collapse survives (`dock-layout-loader.ts:146`). (c) Clear the
-pending debounced save on unmount (`useDockLayout.ts:269-276`). (d) Promote wrapper roots
+after `fromJSON` so the collapse survives (`dock-layout-loader.ts:95`). (c) Clear the
+pending debounced save on unmount (`useDockLayout.ts:247-252`). (d) Promote wrapper roots
 (flipping the serialized orientation) before patching the ratio
-(`dock-layout-builders.ts:41`). (e) Skip the sidebar pin when it would leave no unpinned
-group to absorb the change (`dock-layout-helpers.ts:215`), and after a hint-based reopen
+(`dock-layout-builders.ts:45`). (e) Skip the sidebar pin when it would leave no unpinned
+group to absorb the change (`dock-layout-helpers.ts:240`), and after a hint-based reopen
 restore the default proportions — a reopened sidebar is sized to its 1/6 share, and a
-reopened center pane shrinks any sidebar that had grown past a third of the dock back to
-1/6 (`dock-layout-loader.ts:324-352`) — since `addPanel` naively splits the reference
-group 50/50. Groups hosting an editor pane (the editor is a guest tab of the one sidebar
-item) are exempt from both shrinks — they are center panes, not sidebars. (f) Releasing a pin
-pokes a same-size `setSize` on the group (`dock-layout-helpers.ts:200`), which triggers a
+reopened center pane shrinks a sidebar that had grown past a third of the dock back to
+1/6 (`dock-layout-loader.ts:292-315`) — since `addPanel` naively splits the reference
+group 50/50. A group the user has dragged a workspace pane into is exempt from both
+shrinks — it is a center pane, not a sidebar (`isPureSidebarGroup`,
+`dock-layout-loader.ts:25`). (f) Releasing a pin
+pokes a same-size `setSize` on the group (`dock-layout-helpers.ts:173`), which triggers a
 relayout that re-runs the enablement check against the released constraints — chosen over
 a forced `api.layout()` because a forced pass re-applies the splitview's stale cached
 proportions and undoes the pinned resize. (g) Ask for widths in *rendered* terms:
 `setRenderedWidth` sets the size, measures what the gap took, and asks again for the slot
-that lands on the width wanted (`useSidebarHandleCycle.ts:99`); `withPinnedSidebars` then
-holds each sidebar to the width it promised once the mutation is done, rather than trusting
-the constraint clamp (`dock-layout-helpers.ts:326`). The regression tests drive the
+that lands on the width wanted (`useSidebarHandleCycle.ts:75`); `withPinnedSidebars` then
+holds the sidebar to the width it promised once the mutation is done, rather than trusting
+the constraint clamp (`dock-layout-helpers.ts:256`). The regression tests drive the
 **real** dockview library
 and the **real** layout helpers rather than an approximation:
 `dock-layout-no-remount.test.tsx`, `useSidebarHandleCycle.collapse.test.tsx`,

@@ -3,9 +3,7 @@ import type { Project, AgentSession } from '../../../shared/types'
 import type { DraftChat } from '../../../shared/draft-chat'
 import type { Workspace } from '../../../shared/workspace-types'
 import { sidebarStyles } from './ProjectSidebar.styles'
-import { formatBranch, formatBranchLabel } from './agent-labels'
 import { DraftAgentItem } from './DraftAgentItem'
-import { InPlaceBadge } from './InPlaceBadge'
 import { WorkspaceGlyph } from './WorkspaceGlyph'
 import { AddFolderGlyph, CopyWorkspaceGlyph, FilesChevronGlyph, RepoGlyph } from './SidebarCardActionGlyphs'
 import { projectFolderKey, useFolderDisclosure } from './folder-disclosure'
@@ -16,8 +14,6 @@ export interface WorkspaceCardProps {
   projects: Project[]
   isActive: boolean
   sessions: AgentSession[]
-  /** projectId -> the branch that folder has checked out (home workspaces only). */
-  folderBranches?: Record<string, string>
   activeProjectId?: string | null
   outputtingSessionIds?: Set<string>
   drafts: DraftChat[]
@@ -37,15 +33,14 @@ export interface WorkspaceCardProps {
 
 /** One workspace: the folders it spans. The agents working here are not rows —
  *  they are the tabs of the main view's Agent panel, shown when this card is
- *  clicked. The card only says *where* work happens (its folders and branch)
- *  and whether anyone is working (the pulsing dot by the name); *who* is
- *  working lives with the work itself. */
+ *  clicked. The card only says *where* work happens (its folders) and whether
+ *  anyone is working (the pulsing dot by the name); *who* is working lives
+ *  with the work itself. Branch lives in Source Control, not here. */
 export function WorkspaceCard({
   workspace,
   projects,
   isActive,
   sessions,
-  folderBranches,
   activeProjectId,
   outputtingSessionIds,
   drafts,
@@ -81,13 +76,6 @@ export function WorkspaceCard({
     if (next && next !== workspace.name) onRenameWorkspace?.(workspace.id, next)
     setNameDraft(null)
   }, [nameDraft, onRenameWorkspace, workspace.id, workspace.name])
-
-  // The branch belongs to the workspace, so it is named once here rather than on
-  // every agent that happens to be working on it.
-  const branchLabel = workspace.branchName ? formatBranch(workspace.branchName) : null
-  // A new workspace's branch is named after the workspace, so showing both would
-  // print the same text twice. The folder rows still defer to the workspace branch.
-  const showBranchLabel = branchLabel !== null && branchLabel !== workspace.name
 
   // With no agent rows, the card still has to say "someone is working here" —
   // a pulsing dot by the name, the same signal the rows used to carry.
@@ -128,29 +116,18 @@ export function WorkspaceCard({
         ) : (
           <span
             className="sidebar-row-label"
-            style={{ display: 'flex', flexDirection: 'column', minWidth: 0, gap: 1 }}
+            style={{ display: 'flex', alignItems: 'center', gap: 6, minWidth: 0 }}
             onDoubleClick={(e) => { e.stopPropagation(); if (onRenameWorkspace) setNameDraft(workspace.name) }}
             title={onRenameWorkspace ? 'Double-click to rename' : undefined}
           >
-            <span style={{ display: 'flex', alignItems: 'center', gap: 6, minWidth: 0 }}>
-              <span className="truncate" style={{ minWidth: 0 }}>{workspace.name}</span>
-              {isWorking && (
-                <span
-                  className="status-dot status-dot--active"
-                  role="status"
-                  aria-label="An agent is working in this workspace"
-                  title="An agent is working in this workspace"
-                />
-              )}
-            </span>
-            {showBranchLabel && (
+            <span className="truncate" style={{ minWidth: 0 }}>{workspace.name}</span>
+            {isWorking && (
               <span
-                className="truncate"
-                style={{ minWidth: 0, color: 'var(--text-tertiary)', fontSize: 'var(--type-ui-micro)' }}
-                title={`Every folder here is checked out on ${workspace.branchName}`}
-              >
-                {branchLabel}
-              </span>
+                className="status-dot status-dot--active"
+                role="status"
+                aria-label="An agent is working in this workspace"
+                title="An agent is working in this workspace"
+              />
             )}
           </span>
         )}
@@ -204,10 +181,6 @@ export function WorkspaceCard({
         // In a worktree workspace this row is the workspace's own checkout of the
         // repo, not the clone — that is where its agents' edits land.
         const folderPath = workspace.worktreePaths?.[pid] ?? repo?.path ?? pid
-        // A home workspace is the clones themselves, so each folder sits on its
-        // own branch; a worktree workspace puts them all on one, named on the
-        // card above. The label says what the folder has out — no agent owns it.
-        const folderBranch = branchLabel ? null : folderBranches?.[pid] ?? null
         // Like an agent row: the row picks the workspace's home folder and opens
         // its files, the chevron opens them without moving home.
         const selectAndDisclose = (): void => { onSelectRepo?.(workspace.id, pid); toggleFiles() }
@@ -240,12 +213,6 @@ export function WorkspaceCard({
                 </button>
                 <span style={sidebarStyles.rowGlyph}><RepoGlyph /></span>
                 <span className="truncate">{repoName}</span>
-                {folderBranch && (
-                  <InPlaceBadge
-                    label={formatBranch(folderBranch)}
-                    description={`${repoName} is checked out on ${folderBranch}`}
-                  />
-                )}
               </span>
               <div className="sidebar-item-actions" style={sidebarStyles.itemRight}>
                 {onRemoveProject && workspace.projectIds.length > 1 && (
