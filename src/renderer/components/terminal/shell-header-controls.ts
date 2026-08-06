@@ -1,12 +1,10 @@
 import type { ShellMode } from './shell-terminal-store'
 
-/** What the dock header shows for the Shell panel: the +/chevron/kill pills.
- *  The terminal list is not here — it lives in the panel body, beside the
- *  terminals (`ShellTabs.tsx`). */
+/** What the dock header shows for the Shell panel: the +/chevron split button.
+ *  Neither the terminal list nor killing a terminal is here — both live in the
+ *  panel body, beside the terminals (`ShellTabs.tsx`). */
 export interface ShellHeaderControls {
   canAddShell: boolean
-  activeSessionId: string | null
-  onCloseTerminal: (sessionId: string) => void
   onAddShell: (mode: ShellMode) => void
 }
 

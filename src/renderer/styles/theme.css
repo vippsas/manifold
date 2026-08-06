@@ -694,6 +694,38 @@ select:focus-visible {
   box-shadow: 0 0 0 2px var(--accent-subtle), 0 0 10px var(--accent-subtle);
 }
 
+/* A row in the shell panel's terminal list (see ShellTabControls). The kill
+   trash stays hidden until the row is hovered or holds the keyboard, so a list
+   of terminals reads as names rather than a column of icons. */
+.shell-tab {
+  transition: background 150ms ease, color 150ms ease;
+}
+
+.shell-tab:hover {
+  background: var(--list-hover-bg);
+  color: var(--text-primary);
+}
+
+.shell-tab__kill {
+  opacity: 0;
+  transition: opacity 150ms ease, background 150ms ease, color 150ms ease;
+}
+
+.shell-tab:hover .shell-tab__kill,
+.shell-tab:focus-within .shell-tab__kill {
+  opacity: 1;
+}
+
+.shell-tab__kill:hover {
+  background: var(--statusbar-hover-bg);
+  color: var(--text-primary);
+}
+
+.shell-tab button:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 2px var(--accent-subtle), 0 0 10px var(--accent-subtle);
+}
+
 .statusbar-item,
 .statusbar-group {
   display: flex;

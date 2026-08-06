@@ -1,5 +1,5 @@
 import React from 'react'
-import { DockviewReact, type DockviewApi, type DockviewTheme } from 'dockview'
+import { DockviewReact, type DockviewApi, type DockviewTheme, type DroptargetOverlayModel } from 'dockview'
 import type { Project, AgentSession, ManifoldSettings, FileChange, CreateProjectOptions } from '../shared/types'
 import type { Workspace, WorkspaceCreateOptions } from '../shared/workspace-types'
 import type { DockAppState } from './components/editor/editor-shell/dock-panel-types'
@@ -38,11 +38,31 @@ import { ShortcutsCheatSheet } from './components/command-palette/ShortcutsCheat
 
 /** The dockview theme: our CSS classes plus a small gap between panel groups,
  *  which — with the rounded-card group styling in dockview-theme.css — makes
- *  each panel read as a floating card on a recessed canvas. */
+ *  each panel read as a floating card on a recessed canvas.
+ *
+ *  `absolute` mounts the drag overlay once on the dockview root and slides it
+ *  between targets, instead of building and tearing one down inside each group.
+ *  With the per-group ('relative') default, the theme's gap between cards is a
+ *  dead zone — the cursor is over the root, whose center drop is refused while
+ *  the grid has panels — so the highlight blinked off every time a drag crossed
+ *  a gutter. The shared overlay survives those crossings (dockview only clears
+ *  it on drag end when it owns the anchor), so the target stays put. */
 const DOCK_THEME: DockviewTheme = {
   name: 'manifold',
   className: 'dockview-theme-dark dockview-theme-manifold',
   gap: 6,
+  dndOverlayMounting: 'absolute',
+}
+
+/** The window-edge drop zones — "put this panel down the whole left side",
+ *  dockview's equivalent of dragging a view to the edge of the VS Code
+ *  workbench. Its default activation strip is 10px, narrow enough that the
+ *  gesture mostly missed; 32px is a target you can actually hit, and the
+ *  preview band is widened to match so the edge reads differently from a drop
+ *  onto the group underneath. */
+const DND_EDGES: DroptargetOverlayModel = {
+  activationSize: { type: 'pixels', value: 32 },
+  size: { type: 'pixels', value: 48 },
 }
 
 /** An agent belongs to a workspace and to nothing smaller, so that is all the
@@ -51,13 +71,15 @@ export interface NewAgentTarget {
   workspaceId: string
 }
 
-/** Dockview takes one left-header component for every group; each of these
- *  renders null outside its own group (agent tabs vs. shell tabs). */
-function LeftHeaderActions(props: React.ComponentProps<typeof ShellHeaderActions>): React.JSX.Element {
+/** Dockview takes one right-header component for every group; each of these
+ *  renders null outside its own group (shell tabs vs. icon-tab groups). The
+ *  shell's controls sit here rather than beside its tab so they land at the far
+ *  end of the strip, the way VS Code's terminal toolbar does. */
+function RightHeaderActions(props: React.ComponentProps<typeof ShellHeaderActions>): React.JSX.Element {
   return (
     <>
-      <AgentHeaderActions {...props} />
       <ShellHeaderActions {...props} />
+      <WorkspaceHeaderActions {...props} />
     </>
   )
 }
@@ -152,12 +174,13 @@ export function AppShell(p: AppShellProps): React.JSX.Element {
             <div style={{ flex: 1, overflow: 'hidden', position: 'relative', padding: 'var(--space-xs)', background: 'var(--dock-canvas)' }}>
               <DockviewReact
                 theme={DOCK_THEME}
+                dndEdges={DND_EDGES}
                 className={!p.activeSessionId ? 'dockview-minimal' : ''}
                 components={PANEL_COMPONENTS}
                 onReady={(e) => p.onDockReady(e.api)}
                 defaultTabComponent={DockTab}
-                leftHeaderActionsComponent={LeftHeaderActions}
-                rightHeaderActionsComponent={WorkspaceHeaderActions}
+                leftHeaderActionsComponent={AgentHeaderActions}
+                rightHeaderActionsComponent={RightHeaderActions}
                 watermarkComponent={EmptyWatermark}
               />
               {p.overlays.showDashboard && (

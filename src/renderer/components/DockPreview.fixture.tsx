@@ -17,6 +17,17 @@ function Pane(props: IDockviewPanelProps): React.JSX.Element {
   return <div style={{ padding: 12, color: 'var(--text-secondary)', fontSize: 12 }}>{props.api.title}</div>
 }
 
+// Mirrors AppShell's right-header composition, so the capture shows the shell's
+// pills where they actually land: the far end of the strip.
+function RightHeaderActions(props: React.ComponentProps<typeof ShellHeaderActions>): React.JSX.Element {
+  return (
+    <>
+      <ShellHeaderActions {...props} />
+      <WorkspaceHeaderActions {...props} />
+    </>
+  )
+}
+
 function onReady(e: DockviewReadyEvent): void {
   // Mirrors the default arrangement plus an open file: the one sidebar on the
   // left (tabless — the activity rail says which view it shows), the agent in
@@ -44,8 +55,6 @@ function onReady(e: DockviewReadyEvent): void {
 // a stub so the fixture shows that button alongside the other header pills.
 registerShellHeaderControls({
   canAddShell: true,
-  activeSessionId: 'shell-1',
-  onCloseTerminal: () => {},
   onAddShell: () => {},
 })
 
@@ -66,9 +75,9 @@ export default (
         components={{ pane: Pane }}
         onReady={onReady}
         defaultTabComponent={DockTab}
-        leftHeaderActionsComponent={ShellHeaderActions}
-        rightHeaderActionsComponent={WorkspaceHeaderActions}
-        theme={{ name: 'manifold', className: 'dockview-theme-dark dockview-theme-manifold', gap: 6 }}
+        rightHeaderActionsComponent={RightHeaderActions}
+        theme={{ name: 'manifold', className: 'dockview-theme-dark dockview-theme-manifold', gap: 6, dndOverlayMounting: 'absolute' }}
+        dndEdges={{ activationSize: { type: 'pixels', value: 32 }, size: { type: 'pixels', value: 48 } }}
       />
     </DockStateContext.Provider>
   </div>

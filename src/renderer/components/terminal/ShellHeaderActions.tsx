@@ -16,19 +16,9 @@ function ChevronIcon(): React.JSX.Element {
   )
 }
 
-function KillIcon(): React.JSX.Element {
-  return (
-    <svg aria-hidden="true" width="11" height="11" viewBox="0 0 12 12" fill="none">
-      <path d="M2.25 3.25H9.75" stroke="currentColor" strokeWidth="1.1" strokeLinecap="round" />
-      <path d="M4.75 3.25V2.25H7.25V3.25" stroke="currentColor" strokeWidth="1.1" strokeLinecap="round" strokeLinejoin="round" />
-      <path d="M3.25 3.25L3.75 9.5H8.25L8.75 3.25" stroke="currentColor" strokeWidth="1.1" strokeLinecap="round" strokeLinejoin="round" />
-    </svg>
-  )
-}
-
 export function ShellHeaderActions({ activePanel }: IDockviewHeaderActionsProps): React.JSX.Element | null {
   const [menuOpen, setMenuOpen] = React.useState(false)
-  const [menuPosition, setMenuPosition] = React.useState<{ top: number; left: number } | null>(null)
+  const [menuPosition, setMenuPosition] = React.useState<{ top: number; right: number } | null>(null)
   const buttonRef = React.useRef<HTMLButtonElement>(null)
   const menuRef = React.useRef<HTMLDivElement>(null)
   const controls = React.useSyncExternalStore(
@@ -37,10 +27,12 @@ export function ShellHeaderActions({ activePanel }: IDockviewHeaderActionsProps)
     getShellHeaderControls,
   )
 
+  // Anchored by its right edge: the chevron now sits at the far end of the
+  // header strip, so a left-anchored menu would hang off the window.
   const updateMenuPosition = React.useCallback(() => {
     const rect = buttonRef.current?.getBoundingClientRect()
     if (!rect) return
-    setMenuPosition({ top: rect.bottom, left: rect.left })
+    setMenuPosition({ top: rect.bottom, right: window.innerWidth - rect.right })
   }, [])
 
   React.useLayoutEffect(() => {
@@ -76,8 +68,6 @@ export function ShellHeaderActions({ activePanel }: IDockviewHeaderActionsProps)
     controls.onAddShell(mode)
   }
 
-  const activeSessionId = controls.activeSessionId
-
   return (
     <div style={styles.headerActions}>
       <div style={styles.headerAddMenu} onClick={(event) => event.stopPropagation()}>
@@ -95,7 +85,7 @@ export function ShellHeaderActions({ activePanel }: IDockviewHeaderActionsProps)
         <button
           ref={buttonRef}
           type="button"
-          style={styles.headerAddButton}
+          style={styles.headerAddChevron}
           className="shell-header-add-button"
           onClick={() => setMenuOpen((open) => !open)}
           onKeyDown={(event) => {
@@ -109,22 +99,11 @@ export function ShellHeaderActions({ activePanel }: IDockviewHeaderActionsProps)
         >
           <ChevronIcon />
         </button>
-        <button
-          type="button"
-          style={styles.headerAddButton}
-          className="shell-header-add-button"
-          onClick={() => { if (activeSessionId) controls.onCloseTerminal(activeSessionId) }}
-          disabled={!activeSessionId}
-          title="Kill Terminal"
-          aria-label="Kill Terminal"
-        >
-          <KillIcon />
-        </button>
         {menuOpen && menuPosition && createPortal(
           <div
             ref={menuRef}
             role="menu"
-            style={{ ...styles.shellTypeMenu, top: menuPosition.top, left: menuPosition.left }}
+            style={{ ...styles.shellTypeMenu, top: menuPosition.top, right: menuPosition.right }}
           >
             <button
               type="button"

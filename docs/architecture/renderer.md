@@ -74,26 +74,45 @@ toggles, the sidebar views, and the settings entry — the status bar
 and the commit/PR/conflict actions.
 
 **Panel layout (dockview).** The workspace is a single `DockviewReact` instance
-(`AppShell.tsx:143`), themed via the `DOCK_THEME` option (`AppShell.tsx:38`): a 6px
+(`AppShell.tsx:175`), themed via the `DOCK_THEME` option (`AppShell.tsx:50`): a 6px
 group gap plus the rounded-card group styling in `styles/dockview-theme.css` renders
 each panel group as a rounded card with a soft white-alpha hairline border (brighter on
 the active group), floating on the recessed `--dock-canvas` (a darkened `--bg-primary`,
 `styles/theme.css`). The tab strip shares the card surface — no tonal header band,
 divider, or active-tab underline; the active tab is carried by text color. Resize
-sashes are invisible inside the gap; hovering one fades in a rounded accent handle bar.
+sashes are invisible inside the gap; hovering one fades in a full-length 2px accent line,
+the way VS Code's sash lights up.
 Dockview's own split-view separator (`--dv-separator-border`, `styles/dockview-theme.css:24`)
 is transparent for the same reason: it paints a straight full-height line down the left edge
 of every view but the first, cutting across the cards' rounded corners. The chrome is screenshot-able
-via the `DockPreview` fixture (`components/DockPreview.fixture.tsx`). Panels are
+via the `DockPreview` fixture (`components/DockPreview.fixture.tsx`).
+
+**Dragging a panel.** Two of dockview's dnd defaults are wrong for a card layout and are
+overridden in `AppShell.tsx`. `dndOverlayMounting: 'absolute'` mounts one drag overlay on the
+dockview root and slides it between targets; with the per-group default, the 6px gutter
+between cards is a dead zone — the cursor is over the root, whose center drop is refused
+while the grid has panels (`dockview-core/dockview/dockviewComponent.js:278`) — so the
+highlight blinked off every time a drag crossed a gap. `DND_EDGES` (`AppShell.tsx:63`) widens the window-edge
+drop zones ("put this panel down the whole left side") from dockview's 10px default
+activation strip to 32px, with a 48px preview band. The overlay itself is an accent fill
+with a solid 2px accent border, rounded to match the cards (`styles/dockview-theme.css:30`);
+`--accent-subtle` was faint enough that an armed drop zone read as no response at all.
+The sidebar's tab shows no title but still renders — as a dot grip
+(`styles/dockview-theme.css:246`) — because the tab is what dockview drags the group by;
+hiding it outright left the item draggable only by whatever empty header space its actions
+happened to leave. Panels are
 registered by string id in `PANEL_COMPONENTS`
 (`components/editor/editor-shell/dock-panels.tsx:20`); the id→component table is the authoritative
 panel set. `DockAppState` is published to every panel through `DockStateContext`
-(`AppShell.tsx:141`), so panels read props via `useDockState()` rather than prop-drilling.
+(`AppShell.tsx:173`), so panels read props via `useDockState()` rather than prop-drilling.
 Tab headers use `DockTab`; empty groups show `EmptyWatermark`; the left header-action slot
-hosts `ShellHeaderActions` (self-gated to the shell panel;
-`components/terminal/ShellHeaderActions.tsx:12`) and the right slot
-`WorkspaceHeaderActions` (only the icon-tab group `×`;
-`components/editor/editor-shell/WorkspaceHeaderActions.tsx:13`). An editor pane's own controls
+hosts `AgentHeaderActions` (self-gated to the agent group) and the right slot a
+`RightHeaderActions` pair (`AppShell.tsx:58`) — `ShellHeaderActions` (self-gated to the shell
+panel; `components/terminal/ShellHeaderActions.tsx:19`) followed by `WorkspaceHeaderActions`
+(only the icon-tab group `×`;
+`components/editor/editor-shell/WorkspaceHeaderActions.tsx:14`). The shell's controls sit in
+the *right* slot so they land at the far end of the strip, where VS Code puts its terminal
+toolbar, rather than crowding the panel's own tab. An editor pane's own controls
 — split, move a file to another pane, and the view-mode toggle — are **not** in that header:
 they sit at the right of the code viewer's own tab bar (`EditorPaneActions`, rendered through
 `CodeViewer`'s `headerActions` slot; `EditorPaneActions.tsx:40`,
@@ -120,14 +139,15 @@ header above rather than VS Code's 35px, which would stack to 70px as soon as a 
 opened, and a tab is capped at 220px so one long name cannot push every other tab onto a row of
 its own. **The
 Editor** renders an icon-only tab (glyph shared with the activity bar via `PanelGlyph`,
-name as tooltip) without a close button of its own. **The sidebar renders no tab at
-all**: it is alone in its column, so a tab there switched nothing and its glyph only
-repeated the activity-bar icon that selects its view — the strip is left to its `×`
-(`HEADLESS_TAB_PANELS`, `DockTab.tsx:16`; `styles/dockview-theme.css:226`). Each sits in a 24px pill centered in the 30px
+name as tooltip) without a close button of its own. **The sidebar's tab carries no
+title**: it is alone in its column, so a titled tab there switched nothing and its glyph only
+repeated the activity-bar icon that selects its view — so it renders as a drag grip and the
+rest of the strip is left to its `×`
+(`HEADLESS_TAB_PANELS`, `DockTab.tsx:16`; `styles/dockview-theme.css:240`). Each sits in a 24px pill centered in the 30px
 strip rather than stretching to fill it, so the active tab's tint clears the card's top edge
 (`styles/theme.css:547`). **Every control in a header strip takes that same pill** — a text
 tab's `×`, the icon-tab group's `×` (`styles/theme.css:520`) and the shell's `+`, which is
-styled inline and so repeats the numbers (`components/terminal/ShellTabs.styles.ts:34`) — at one
+styled inline and so repeats the numbers (`components/terminal/ShellTabs.styles.ts:37`) — at one
 glyph size and colour, so a header reads as a row of matching controls rather than a tiny
 glyph beside a full-height button with a divider rule. Centering uses `margin-block`, not an
 alignment property: dockview's `.dv-tab` is a block, where `align-self` is inert and would drop
@@ -245,10 +265,15 @@ All add/remove/focus/split/resize logic lives in the `hooks/dock-layout/` subsys
   (`terminal/shell-cwd.ts:12`) — no agent required. The set lives in a module-level store
   keyed by that path (`terminal/shell-terminal-store.ts`), so closing the panel leaves the
   PTYs running and switching workspace swaps whole terminal sets, VS Code-window style.
-  The dock header carries only three pills — `+` (a Manifold shell immediately), a chevron
-  for the Manifold/System menu, and kill for the active terminal (`ShellHeaderActions.tsx`).
-  The terminal list is not in the header: it is a vertical list down the right edge of the
-  panel body, as in VS Code, and appears past one terminal (`ShellTabControls.tsx`).
+  The dock header carries one split button at the far right — `+` (a Manifold shell
+  immediately) with a narrow chevron flush against it for the Manifold/System menu
+  (`ShellHeaderActions.tsx:19`, `ShellTabs.styles.ts:57`); the menu is anchored by its right
+  edge so it cannot hang off the window. Neither the terminal list nor killing a terminal is
+  in the header: the list is a vertical list down the right edge of the panel body, as in VS
+  Code, shown for any terminal count so it never appears from nowhere, and each row carries a
+  glyph, its label, and a trash that fades in on hover or keyboard focus
+  (`ShellTabControls.tsx:27`, `.shell-tab` in `styles/theme.css`). A header kill aimed at
+  "whichever row is active" is what the per-row trash replaced.
 - `pluginView` / `pluginTreeView` — webview hosts for plugin contributions (e.g. **Statistics**, the former Verdicts dashboard, now the `manifold.statistics` plugin).
 
 **The sidebar has one kind of root: the workspace.** There is no standalone-repository list —

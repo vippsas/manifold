@@ -1,5 +1,5 @@
 import React from 'react'
-import { render, screen, waitFor, within } from '@testing-library/react'
+import { fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { renderWithStrictMode } from '../../test-utils/strict-mode.test-helpers'
 import { resetShellTerminalStore } from './shell-terminal-store'
@@ -45,7 +45,7 @@ describe('ShellTabs', () => {
     expect(mockInvoke).not.toHaveBeenCalledWith('shell:create', expect.anything(), expect.anything())
   })
 
-  it('lists the terminals beside them once there is more than one', async () => {
+  it('lists the terminals beside them', async () => {
     let n = 0
     mockInvoke.mockImplementation((channel: string) => {
       if (channel === 'shell-tabs:get') {
@@ -61,14 +61,21 @@ describe('ShellTabs', () => {
     render(<ShellTabs cwd="/a" scrollbackLines={1000} />)
 
     const list = await screen.findByLabelText('Terminals')
-    expect(within(list).getByRole('button', { name: /Manifold 1/ })).toBeInTheDocument()
-    expect(within(list).getByRole('button', { name: /System 2/ })).toBeInTheDocument()
+    expect(within(list).getByRole('button', { name: 'Manifold 1' })).toBeInTheDocument()
+    expect(within(list).getByRole('button', { name: 'System 2' })).toBeInTheDocument()
   })
 
-  it('hides the list while a single terminal is open', async () => {
+  it('lists a single terminal too, so the list never appears from nowhere', async () => {
     render(<ShellTabs cwd="/solo" scrollbackLines={1000} />)
-    await waitFor(() => expect(mockInvoke).toHaveBeenCalledWith('shell:create', '/solo', { mode: 'manifold' }))
-    expect(screen.queryByLabelText('Terminals')).toBeNull()
+    const list = await screen.findByLabelText('Terminals')
+    expect(within(list).getByRole('button', { name: 'Manifold 1' })).toBeInTheDocument()
+  })
+
+  it('kills a terminal from its row in the list', async () => {
+    render(<ShellTabs cwd="/solo" scrollbackLines={1000} />)
+    const list = await screen.findByLabelText('Terminals')
+    fireEvent.click(within(list).getByRole('button', { name: 'Kill Manifold 1' }))
+    expect(mockInvoke).toHaveBeenCalledWith('shell:kill', 'shell-1')
   })
 
   it('surfaces a failed open in the error strip', async () => {

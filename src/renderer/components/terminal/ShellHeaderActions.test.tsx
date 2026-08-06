@@ -21,8 +21,6 @@ function makeHeaderProps(activePanelId: string): IDockviewHeaderActionsProps {
 function makeControls(over: Partial<ShellHeaderControls> = {}): ShellHeaderControls {
   return {
     canAddShell: true,
-    activeSessionId: 'shell-1',
-    onCloseTerminal: vi.fn(),
     onAddShell: vi.fn(),
     ...over,
   }
@@ -65,27 +63,13 @@ describe('ShellHeaderActions', () => {
     unregisterShellHeaderControls(controls)
   })
 
-  it('kills the active terminal from the header', () => {
+  it('leaves killing a terminal to the list, and carries no kill button', () => {
     const controls = makeControls()
     registerShellHeaderControls(controls)
 
     const { unmount } = render(<ShellHeaderActions {...makeHeaderProps('shell')} />)
 
-    fireEvent.click(screen.getByRole('button', { name: 'Kill Terminal' }))
-    expect(controls.onCloseTerminal).toHaveBeenCalledWith('shell-1')
-
-    unmount()
-    unregisterShellHeaderControls(controls)
-  })
-
-  it('disables the kill button when there is no terminal to kill', () => {
-    const controls = makeControls({ activeSessionId: null })
-    registerShellHeaderControls(controls)
-
-    const { unmount } = render(<ShellHeaderActions {...makeHeaderProps('shell')} />)
-
-    expect(screen.getByRole('button', { name: 'Kill Terminal' })).toBeDisabled()
-    expect(screen.getByRole('button', { name: 'New Terminal' })).toBeEnabled()
+    expect(screen.queryByRole('button', { name: /kill/i })).toBeNull()
 
     unmount()
     unregisterShellHeaderControls(controls)
@@ -104,7 +88,7 @@ describe('ShellHeaderActions', () => {
   })
 
   it('stays visible but disabled when no workspace resolves', () => {
-    const controls = makeControls({ canAddShell: false, activeSessionId: null })
+    const controls = makeControls({ canAddShell: false })
     registerShellHeaderControls(controls)
 
     const { unmount } = render(<ShellHeaderActions {...makeHeaderProps('shell')} />)

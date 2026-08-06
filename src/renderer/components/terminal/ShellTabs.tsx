@@ -59,10 +59,8 @@ export function ShellTabs({
 
   const headerControls = React.useMemo(() => ({
     canAddShell: Boolean(cwd),
-    activeSessionId: scope.activeSessionId,
-    onCloseTerminal: closeShell,
     onAddShell: addShell,
-  }), [cwd, scope.activeSessionId, closeShell, addShell])
+  }), [cwd, addShell])
 
   useEffect(() => {
     registerShellHeaderControls(headerControls)
@@ -97,7 +95,7 @@ export function ShellTabs({
             />
           ))}
         </div>
-        {scope.terminals.length > 1 && (
+        {scope.terminals.length > 0 && (
           <ShellTabControls
             terminals={scope.terminals}
             activeSessionId={scope.activeSessionId}

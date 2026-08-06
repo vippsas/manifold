@@ -6,13 +6,13 @@ import { PanelGlyph, type GlyphId } from './components/ActivityBar'
 
 /** Panels whose tabs carry no close button of their own — a single × in the
  *  group header closes the whole item (see WorkspaceHeaderActions). The sidebar
- *  is here despite rendering no tab at all: the header × is the only way to
- *  close it. */
+ *  is here despite showing no title: the header × is the only way to close it. */
 export const ICON_TAB_PANELS = new Set<string>(['sidebar', 'editor'])
 
-/** The sidebar renders no tab at all: it is alone in its column, a lone tab
+/** The sidebar's tab is titleless: it is alone in its column, a lone tab
  *  switches nothing, and which view it shows is already said by the active icon
- *  in the activity rail. The group header keeps its ×. */
+ *  in the activity rail. It still renders — as a grip — because the tab is what
+ *  dockview drags the group by. The group header keeps its ×. */
 const HEADLESS_TAB_PANELS = new Set<string>(['sidebar'])
 
 export function DockTab({ api }: IDockviewPanelHeaderProps): React.JSX.Element {
@@ -27,7 +27,7 @@ export function DockTab({ api }: IDockviewPanelHeaderProps): React.JSX.Element {
     return () => disposable.dispose()
   }, [api])
   if (HEADLESS_TAB_PANELS.has(api.id)) {
-    return <div className="dock-tab dock-tab--headless" aria-label={title} />
+    return <div className="dock-tab dock-tab--headless" aria-label={title} title={`Drag to move ${title}`} />
   }
   if (ICON_TAB_PANELS.has(api.id)) {
     return (

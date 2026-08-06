@@ -23,8 +23,20 @@
      across the rounded card corners below. The card border is the divider. */
   --dv-separator-border: transparent;
   --dv-group-view-background-color: var(--bg-primary);
-  --dv-drag-over-background-color: var(--accent-subtle, rgba(0, 122, 204, 0.15));
+  /* Where a dragged panel will land. --accent-subtle was faint enough that an
+     active drop zone read as "nothing registered", so the fill is stronger and
+     carries a solid accent border — the drag's only feedback should not be a
+     tint you have to look for. */
+  --dv-drag-over-background-color: color-mix(in srgb, var(--accent), transparent 74%);
+  --dv-drag-over-border: 2px solid var(--accent);
   --dv-drag-over-border-color: var(--accent);
+}
+
+/* The single overlay dockview slides between drop targets (dndOverlayMounting:
+   'absolute'). Rounded to match the panel cards it lands on. */
+.dockview-theme-manifold .dv-drop-target-anchor {
+  border-radius: var(--radius-lg);
+  box-sizing: border-box;
 }
 
 /* Rounded panel cards — each group floats on the recessed canvas
@@ -54,8 +66,9 @@
   height: 1px;
 }
 
-/* Hover affordance — instead of grip dots, a soft rounded bar fades in,
-   centered on the divider, like a macOS pane handle. */
+/* Hover affordance — the divider lights up end to end in the accent, the way
+   VS Code's sash does, so the whole edge reads as grabbable rather than just
+   the middle of it. */
 .dockview-theme-manifold .dv-split-view-container.dv-horizontal > .dv-sash-container > .dv-sash::after,
 .dockview-theme-manifold .dv-split-view-container.dv-vertical > .dv-sash-container > .dv-sash::after {
   content: '';
@@ -63,17 +76,16 @@
   top: 50%;
   left: 50%;
   transform: translate(-50%, -50%);
-  border-radius: 999px;
   background: transparent;
   transition: background var(--duration-normal) var(--ease-premium);
 }
 .dockview-theme-manifold .dv-split-view-container.dv-horizontal > .dv-sash-container > .dv-sash::after {
-  width: 3px;
-  height: 44px;
+  width: 2px;
+  height: 100%;
 }
 .dockview-theme-manifold .dv-split-view-container.dv-vertical > .dv-sash-container > .dv-sash::after {
-  width: 44px;
-  height: 3px;
+  width: 100%;
+  height: 2px;
 }
 
 /* Widen the invisible grab area to 12px centered on the line for an easy drag target */
@@ -160,7 +172,7 @@
   font-size: inherit;
 }
 
-/* Sash hover — fade the rounded handle bar in with the accent metal. The
+/* Sash hover — fade the full-length line in with the accent metal. The
    collapsed-edge rails keep their chevron affordance instead. */
 .dockview-theme-manifold .dv-sash:hover:not(.dv-sash--edge-left):not(.dv-sash--edge-right)::after {
   background: var(--accent);
@@ -220,11 +232,32 @@
   padding: 0 2px;
 }
 
-/* Repositories shows no tab at all (see DockTab): the header strip is left to
-   its actions, so the item is titled by the activity-bar icon that opens it
-   rather than by a second copy of that icon inside the view. */
+/* The sidebar's tab carries no title (see DockTab): the item is named by the
+   activity-bar icon that opens it, not by a second copy of that icon inside the
+   view. It is still the group's drag handle, though — hiding it outright left
+   the item draggable only by whatever empty header space its actions happened
+   to leave — so it renders as a grip instead. */
 .dockview-theme-manifold .dv-tab:has(.dock-tab--headless) {
-  display: none;
+  align-items: center;
+  display: flex;
+  padding: 0 6px;
+}
+
+.dockview-theme-manifold .dock-tab--headless {
+  background-image: radial-gradient(circle at center, var(--text-muted) 1px, transparent 1.5px);
+  background-size: 4px 4px;
+  cursor: grab;
+  height: 16px;
+  opacity: 0.5;
+  /* .dock-tab's side padding would be painted by the dot tile too, widening the
+     grip from two columns to four. */
+  padding: 0;
+  transition: opacity var(--duration-normal) var(--ease-premium);
+  width: 8px;
+}
+
+.dockview-theme-manifold .dv-tab:has(.dock-tab--headless):hover .dock-tab--headless {
+  opacity: 1;
 }
 
 /* Inset the strip so the active tab's pill clears the card's rounded corner. */
