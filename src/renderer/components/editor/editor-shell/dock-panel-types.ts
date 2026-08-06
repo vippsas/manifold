@@ -69,10 +69,6 @@ export interface DockAppState {
   onToggleExpand: (path: string) => void
   // Worktree
   worktreeRoot: string | null
-  // Shell
-  worktreeShellSessionId: string | null
-  projectShellSessionId: string | null
-  worktreeCwd: string | null
   // Agent creation
   baseBranch: string
   activeProjectIsGit: boolean

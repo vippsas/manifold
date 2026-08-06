@@ -118,12 +118,10 @@ describe('ActivityBar', () => {
   it('disables session-dependent panels when no session is active', () => {
     renderRail(makeDockLayout(), { hasActiveSession: false })
 
-    for (const label of ['Explorer', 'Source Control', 'Search', 'Agent']) {
+    for (const label of ['Explorer', 'Source Control', 'Search', 'Agent', 'Shell']) {
       expect(screen.getByRole('button', { name: label })).toBeEnabled()
     }
-    for (const label of ['Editor', 'Shell']) {
-      expect(screen.getByRole('button', { name: label })).toBeDisabled()
-    }
+    expect(screen.getByRole('button', { name: 'Editor' })).toBeDisabled()
   })
 
   it('renders the view name as a hover tooltip inside each item', () => {

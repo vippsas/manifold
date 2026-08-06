@@ -43,11 +43,9 @@ function onReady(e: DockviewReadyEvent): void {
 // The shell's header + is published through a module store at runtime; register
 // a stub so the fixture shows that button alongside the other header pills.
 registerShellHeaderControls({
-  activeTab: 'shell',
   canAddShell: true,
-  extraShells: [],
-  onSetActiveTab: () => {},
-  onRemoveShell: () => {},
+  activeSessionId: 'shell-1',
+  onCloseTerminal: () => {},
   onAddShell: () => {},
 })
 

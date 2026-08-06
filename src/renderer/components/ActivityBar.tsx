@@ -79,8 +79,8 @@ interface PanelRailItem {
   id: DockPanelId
   label: string
   glyph: GlyphId
-  /** Only meaningful while an agent session is active — mirrors the status bar,
-   *  which offers its panel toggles only for a live session. */
+  /** Only meaningful while an agent session is active — the editor opens files
+   *  from the session's worktree, so it has nothing to show without one. */
   sessionOnly?: boolean
 }
 
@@ -91,7 +91,7 @@ interface PanelRailItem {
 const PANEL_RAIL_ITEMS: PanelRailItem[] = [
   { id: 'agent', label: PANEL_TITLES.agent, glyph: 'agent' },
   { id: 'editor', label: PANEL_TITLES.editor, glyph: 'editor', sessionOnly: true },
-  { id: 'shell', label: PANEL_TITLES.shell, glyph: 'shell', sessionOnly: true },
+  { id: 'shell', label: PANEL_TITLES.shell, glyph: 'shell' },
 ]
 
 const SETTINGS_GLYPH = glyph(

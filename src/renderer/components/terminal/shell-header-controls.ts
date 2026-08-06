@@ -1,11 +1,12 @@
-import type { ExtraShell, ShellMode } from './shell-tabs-hooks'
+import type { ShellMode } from './shell-terminal-store'
 
+/** What the dock header shows for the Shell panel: the +/chevron/kill pills.
+ *  The terminal list is not here — it lives in the panel body, beside the
+ *  terminals (`ShellTabs.tsx`). */
 export interface ShellHeaderControls {
-  activeTab: string
   canAddShell: boolean
-  extraShells: ExtraShell[]
-  onSetActiveTab: (tab: string) => void
-  onRemoveShell: (id: string) => void
+  activeSessionId: string | null
+  onCloseTerminal: (sessionId: string) => void
   onAddShell: (mode: ShellMode) => void
 }
 

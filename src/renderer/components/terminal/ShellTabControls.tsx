@@ -1,45 +1,40 @@
 import React from 'react'
-import type { ExtraShell } from './shell-tabs-hooks'
+import type { ShellTerminal } from './shell-terminal-store'
 import { shellTabStyles as styles } from './ShellTabs.styles'
 
 interface ShellTabControlsProps {
-  activeTab: string
-  extraShells: ExtraShell[]
-  onSetActiveTab: (tab: string) => void
-  onRemoveShell: (id: string) => void
+  terminals: ShellTerminal[]
+  activeSessionId: string | null
+  onSetActiveTerminal: (sessionId: string) => void
+  onCloseTerminal: (sessionId: string) => void
 }
 
+/** The terminal list, down the right edge of the panel body as in VS Code —
+ *  not in the dock header, which is already carrying the panel's own tab and
+ *  the +/chevron/kill pills. */
 export function ShellTabControls({
-  activeTab, extraShells,
-  onSetActiveTab, onRemoveShell,
+  terminals, activeSessionId,
+  onSetActiveTerminal, onCloseTerminal,
 }: ShellTabControlsProps): React.JSX.Element {
   return (
-    <div style={styles.headerTabBar} aria-label="Shell tabs">
-      <button
-        style={{ ...styles.tab, ...(activeTab === 'main' ? styles.tabActive : {}) }}
-        onClick={() => onSetActiveTab('main')}
-      >
-        Shell
-      </button>
-      {extraShells.map((shell) => {
-        const tabId = `extra-${shell.sessionId}`
-        return (
-          <button
-            key={shell.sessionId}
-            style={{ ...styles.tab, ...(activeTab === tabId ? styles.tabActive : {}) }}
-            onClick={() => onSetActiveTab(tabId)}
+    <div style={styles.tabList} aria-label="Terminals">
+      {terminals.map((terminal) => (
+        <button
+          key={terminal.sessionId}
+          type="button"
+          style={{ ...styles.tab, ...(activeSessionId === terminal.sessionId ? styles.tabActive : {}) }}
+          onClick={() => onSetActiveTerminal(terminal.sessionId)}
+        >
+          <span style={styles.tabLabel}>{terminal.label}</span>
+          <span
+            role="button" style={styles.tabCloseButton}
+            onClick={(event) => { event.stopPropagation(); onCloseTerminal(terminal.sessionId) }}
+            title={`Close ${terminal.label}`}
           >
-            <span>{shell.label}</span>
-            <span
-              role="button" style={styles.tabCloseButton}
-              onClick={(event) => { event.stopPropagation(); onRemoveShell(shell.sessionId) }}
-              title={`Close ${shell.label}`}
-            >
-              x
-            </span>
-          </button>
-        )
-      })}
+            ×
+          </span>
+        </button>
+      ))}
     </div>
   )
 }

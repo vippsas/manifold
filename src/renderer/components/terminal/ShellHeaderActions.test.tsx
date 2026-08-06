@@ -18,65 +18,111 @@ function makeHeaderProps(activePanelId: string): IDockviewHeaderActionsProps {
   }
 }
 
+function makeControls(over: Partial<ShellHeaderControls> = {}): ShellHeaderControls {
+  return {
+    canAddShell: true,
+    activeSessionId: 'shell-1',
+    onCloseTerminal: vi.fn(),
+    onAddShell: vi.fn(),
+    ...over,
+  }
+}
+
 describe('ShellHeaderActions', () => {
-  it('renders the new shell button as its own left-side header action', () => {
-    const onAddShell = vi.fn()
-    const onSetActiveTab = vi.fn()
-    const controls: ShellHeaderControls = {
-      activeTab: 'main',
-      canAddShell: true,
-      extraShells: [{ sessionId: 'shell-2', label: 'Manifold 2', mode: 'manifold' }],
-      onSetActiveTab,
-      onRemoveShell: vi.fn(),
-      onAddShell,
-    }
+  it('opens a Manifold shell straight from + without showing the menu', () => {
+    const controls = makeControls()
+    registerShellHeaderControls(controls)
+
+    const { unmount } = render(<ShellHeaderActions {...makeHeaderProps('shell')} />)
+
+    fireEvent.click(screen.getByRole('button', { name: 'New Terminal' }))
+    expect(controls.onAddShell).toHaveBeenCalledWith('manifold')
+    expect(screen.queryByRole('menu')).toBeNull()
+
+    unmount()
+    unregisterShellHeaderControls(controls)
+  })
+
+  it('offers both shell types behind the chevron', () => {
+    const controls = makeControls()
     registerShellHeaderControls(controls)
 
     const { container, unmount } = render(<ShellHeaderActions {...makeHeaderProps('shell')} />)
 
-    const addButton = screen.getByRole('button', { name: 'New Shell' })
-    expect(screen.queryByRole('checkbox', { name: 'Manifold shell' })).toBeNull()
-    expect(screen.queryByRole('button', { name: 'Worktree' })).toBeNull()
-    expect(screen.queryByRole('button', { name: 'Repository' })).toBeNull()
-    expect(screen.queryByTitle('Switch to repository')).toBeNull()
-
-    const mainTab = screen.getByRole('button', { name: 'Shell' })
-    const extraTab = screen.getByRole('button', { name: /Manifold 2/ })
-    expect(addButton.compareDocumentPosition(mainTab) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
-    expect(mainTab.compareDocumentPosition(extraTab) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
-
-    fireEvent.click(addButton)
+    const chevron = screen.getByRole('button', { name: 'Shell options' })
+    fireEvent.click(chevron)
     const menu = screen.getByRole('menu')
     expect(container.contains(menu)).toBe(false)
     expect(menu).toHaveStyle({ position: 'fixed' })
     fireEvent.click(screen.getByRole('menuitem', { name: 'New System Shell' }))
-    expect(onAddShell).toHaveBeenCalledWith('system')
+    expect(controls.onAddShell).toHaveBeenCalledWith('system')
 
-    fireEvent.click(addButton)
+    fireEvent.click(chevron)
     fireEvent.click(screen.getByRole('menuitem', { name: 'New Manifold Shell' }))
-    expect(onAddShell).toHaveBeenCalledWith('manifold')
+    expect(controls.onAddShell).toHaveBeenCalledWith('manifold')
 
-    fireEvent.click(extraTab)
-    expect(onSetActiveTab).toHaveBeenCalledWith('extra-shell-2')
+    unmount()
+    unregisterShellHeaderControls(controls)
+  })
+
+  it('kills the active terminal from the header', () => {
+    const controls = makeControls()
+    registerShellHeaderControls(controls)
+
+    const { unmount } = render(<ShellHeaderActions {...makeHeaderProps('shell')} />)
+
+    fireEvent.click(screen.getByRole('button', { name: 'Kill Terminal' }))
+    expect(controls.onCloseTerminal).toHaveBeenCalledWith('shell-1')
+
+    unmount()
+    unregisterShellHeaderControls(controls)
+  })
+
+  it('disables the kill button when there is no terminal to kill', () => {
+    const controls = makeControls({ activeSessionId: null })
+    registerShellHeaderControls(controls)
+
+    const { unmount } = render(<ShellHeaderActions {...makeHeaderProps('shell')} />)
+
+    expect(screen.getByRole('button', { name: 'Kill Terminal' })).toBeDisabled()
+    expect(screen.getByRole('button', { name: 'New Terminal' })).toBeEnabled()
+
+    unmount()
+    unregisterShellHeaderControls(controls)
+  })
+
+  it('leaves the terminal list to the panel body', () => {
+    const controls = makeControls()
+    registerShellHeaderControls(controls)
+
+    const { unmount } = render(<ShellHeaderActions {...makeHeaderProps('shell')} />)
+
+    expect(screen.queryByLabelText('Terminals')).toBeNull()
+
+    unmount()
+    unregisterShellHeaderControls(controls)
+  })
+
+  it('stays visible but disabled when no workspace resolves', () => {
+    const controls = makeControls({ canAddShell: false, activeSessionId: null })
+    registerShellHeaderControls(controls)
+
+    const { unmount } = render(<ShellHeaderActions {...makeHeaderProps('shell')} />)
+
+    expect(screen.getByRole('button', { name: 'New Terminal' })).toBeDisabled()
+    expect(screen.getByRole('button', { name: 'Shell options' })).toBeDisabled()
 
     unmount()
     unregisterShellHeaderControls(controls)
   })
 
   it('does not render for non-shell panels', () => {
-    const controls: ShellHeaderControls = {
-      activeTab: 'main',
-      canAddShell: true,
-      extraShells: [],
-      onSetActiveTab: vi.fn(),
-      onRemoveShell: vi.fn(),
-      onAddShell: vi.fn(),
-    }
+    const controls = makeControls()
     registerShellHeaderControls(controls)
 
     const { unmount } = render(<ShellHeaderActions {...makeHeaderProps('editor')} />)
 
-    expect(screen.queryByRole('button', { name: 'New Shell' })).toBeNull()
+    expect(screen.queryByRole('button', { name: 'New Terminal' })).toBeNull()
 
     unmount()
     unregisterShellHeaderControls(controls)

@@ -5,6 +5,7 @@ import { CodeViewer } from '../code-viewer/CodeViewer'
 import { SourceControl } from '../../git/SourceControl'
 import { SearchView } from '../../search/SearchView'
 import { ShellTabs } from '../../terminal/ShellTabs'
+import { resolveShellCwd } from '../../terminal/shell-cwd'
 import { ProjectSidebar } from '../../sidebar/ProjectSidebar'
 import { AgentPanel } from './dock-agent-panel'
 import { EditorPaneActions } from './EditorPaneActions'
@@ -115,11 +116,10 @@ function SearchSidebarView(): React.JSX.Element {
 
 function ShellPanel(): React.JSX.Element {
   const s = useDockState()
+  const cwd = resolveShellCwd(s.workspaces, s.activeWorkspaceId, s.activeProjectId, s.projects)
   return (
     <ShellTabs
-      worktreeSessionId={s.worktreeShellSessionId}
-      projectSessionId={s.projectShellSessionId}
-      worktreeCwd={s.worktreeCwd}
+      cwd={cwd}
       scrollbackLines={s.scrollbackLines}
       terminalFontFamily={s.terminalFontFamily}
       xtermTheme={s.xtermTheme}

@@ -1,7 +1,7 @@
 ---
 description: The on-disk data model under ~/.manifold — every file and directory Manifold persists, which module owns each path, and the two distinct roots (hardcoded config home vs. configurable storage root).
 covers: [src/main/store, src/shared/defaults.ts]
-updated: 2026-08-03
+updated: 2026-08-06
 owner: see .github/CODEOWNERS
 ---
 
@@ -85,7 +85,7 @@ plugin verifies cached PR state (`verdict-types.ts:33`, `verdict-pr-verifier.ts:
 **`<configHome>/{view-state,dock-layout,search-view-state,shell-tabs}.json`** — renderer/UI
 state persisted by the four small stores in `src/main/store`. All hardcode
 `os.homedir()/.manifold` and rewrite their single JSON file on change. Three are keyed maps
-(by session, project, agent); `dock-layout.json` is a bare dockview layout, because the panel
+(by session, project, workspace checkout path); `dock-layout.json` is a bare dockview layout, because the panel
 arrangement belongs to the window rather than to the selected agent (`dock-layout-store.ts:24`).
 A file still holding the older `{ sessionId: layout }` map is dropped on load and the default
 layout rebuilt once (`dock-layout-store.ts:37`).

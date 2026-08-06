@@ -1,7 +1,7 @@
 ---
 description: How Manifold persists app and user state on disk — settings/config, the project registry, per-session view/chat/verdict state — and which JSON file owns which slice.
 covers: [src/main/store]
-updated: 2026-08-03
+updated: 2026-08-06
 owner: see .github/CODEOWNERS
 ---
 
@@ -26,7 +26,7 @@ once at startup in `src/main/app/index.ts` and reached through IPC handlers.
 - `src/main/store/dock-layout-store.ts` — `DockLayoutStore`: the window's one opaque dockview layout (`dock-layout.json`).
 - `src/main/store/active-workspace-store.ts` — `ActiveWorkspaceStore`: the last selected workspace id (`active-workspace.json`).
 - `src/main/store/search-view-store.ts` — `SearchViewStore`: recent/saved searches per project (`search-view-state.json`).
-- `src/main/store/shell-tab-store.ts` — `ShellTabStore`: saved terminal tabs per agent (`shell-tabs.json`).
+- `src/main/store/shell-tab-store.ts` — `ShellTabStore`: saved terminal tabs per workspace checkout path (`shell-tabs.json`).
 - `src/main/store/dismissed-agents-store.ts` — `DismissedAgentsStore`: branches whose agent entry the user explicitly deleted (`dismissed-agents.json`), keyed by project id, so session discovery won't resurrect them from branch state (#679).
 - `src/main/store/prompt-summarizer.ts` — `summarizeMiddle()`: a stateless helper (no file) that compresses the middle of long task prompts for the verdict recorder.
 - `src/main/store/atomic-write.ts` — `writeFileAtomicSync(file, data)`: shared tmp-file + `rename` helper used by every whole-file store so a crash mid-write leaves the previous file intact.
@@ -110,7 +110,7 @@ legacy file to `.bak` so the migration never re-runs and history is never delete
 on every message that caused the multi-session hang.
 
 **View / dock / search / shell stores.** Four near-identical `Map<string, T>` stores keyed
-by session id (view, dock), project id (search), or agent key (shell). They deep-copy on
+by session id (view, dock), project id (search), or workspace checkout path (shell). They deep-copy on
 `get`/`set` so callers cannot mutate the cached state through a returned reference
 (`view-state-store.ts:42`, `search-view-store.ts:55`, `shell-tab-store.ts:51`).
 `DockLayoutStore` is the exception to the Map shape: it holds a single layout, written bare
@@ -127,7 +127,7 @@ of it, so it is dropped and the default rebuilt once (`dock-layout-store.ts:12`,
 - `ProjectRegistry` — `project-registry.ts:13`. `listProjects`, `addProject`, `removeProject`, `getProject`, `updateProject`. Owns `projects.json`. `Project` type at `shared/types.ts:46`.
 - `VerdictStore` — `verdict-store.ts:9`. `upsert`, `getBySessionId`, `listByProject`, `deleteByProject`. Owns `verdicts.json`. `VerdictRecord` at `shared/verdict-types.ts`.
 - `ChatStore` — `chat-store.ts:38`. `get`, `set`, `delete`, `deleteByProject`, `flush`, `flushSync`. Owns `~/.manifold/chat/<hash>.json`.
-- `ViewStateStore` / `SearchViewStore` / `ShellTabStore` — `get`/`set`(/`delete`), keyed per session/project/agent. Own `view-state.json`, `search-view-state.json`, `shell-tabs.json`.
+- `ViewStateStore` / `SearchViewStore` / `ShellTabStore` — `get`/`set`(/`delete`), keyed per session/project/checkout path. Own `view-state.json`, `search-view-state.json`, `shell-tabs.json`.
 - `DockLayoutStore` — `dock-layout-store.ts:24`. `get()` / `set(layout)`, no key and no `delete`: one layout for the window. Owns `dock-layout.json`.
 - `ActiveWorkspaceStore` — `active-workspace-store.ts:13`. `get()` / `set(workspaceId)` for a single `string | null`, written as `{ workspaceId }` (`active-workspace-store.ts:39`). Owns `active-workspace.json`; the renderer reaches it through `workspace:get-active`/`workspace:set-active` and validates the id against the live workspace list before restoring it (`src/renderer/hooks/project/usePersistedActiveWorkspace.ts:27`), so a workspace deleted while the app was closed falls back to `null`.
 - `DismissedAgentsStore` — `dismissed-agents-store.ts:17`. `add`, `has`, `delete`, `deleteProject`. Owns `dismissed-agents.json`. Written by `agent:kill` for `noWorktree` deletes (`agent-handlers.ts:107`), read by `SessionDiscovery` (`session-discovery.ts:140`, `:222`), cleared per branch on session create (`session-lifecycle.ts:84`) and per project on removal (`project-handlers.ts:195`, `agent-handlers.ts:169`).

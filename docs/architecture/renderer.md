@@ -1,7 +1,7 @@
 ---
 description: How the Manifold renderer (developer workspace UI) is structured — the React entry, the dockview panel layout, and the preload-only boundary to main.
 covers: [src/renderer]
-updated: 2026-08-04
+updated: 2026-08-06
 owner: see .github/CODEOWNERS
 ---
 
@@ -59,8 +59,9 @@ showing collapses the sidebar, so one icon both reveals and hides and the sideba
 left on a view nobody asked for (`ActivityBar.tsx:130`). The **lower group toggles the
 main area's panels** — Agent, Editor, Shell (`PANEL_RAIL_ITEMS`, `ActivityBar.tsx:91`) —
 through `dockLayout.togglePanel(id)`; each renders accent-colored with an edge indicator
-bar while its panel is visible (`isPanelVisible`), and the session-dependent `editor` and
-`shell` are disabled while no agent session is active. **The file tree has no rail item**
+bar while its panel is visible (`isPanelVisible`), and the session-dependent `editor` is
+disabled while no agent session is active. `shell` is not gated: its terminals run in the
+workspace checkout, not in an agent's worktree, so the panel opens with nothing running. **The file tree has no rail item**
 — it hangs under a repo's row inside the Explorer. The command catalog carries a
 `view.toggle.*` command and accelerator per panel plus a `view.sidebar.*` command per
 sidebar view (`src/shared/commands/catalog.ts:65`, `:72`); the latter route through
@@ -239,7 +240,15 @@ All add/remove/focus/split/resize logic lives in the `hooks/dock-layout/` subsys
   is gone with the disclosure it held; `BranchPicker`/`PRPicker` stay exported from `new-task`
   unused, for when branch/PR selection is reconsidered.
 - `editor` → **Editor** — `EditorPanel` wrapping `CodeViewer` (Monaco); split editors get ids prefixed `editor:` and each registers its own pane. `useCodeView`/`useCodeViewFileOps` gate `files:read` on the active session's allowed roots (worktree + additional dirs, passed from `App.tsx`): during a session switch the previous session's open file (rooted in a different worktree) is skipped instead of read against the new session id — avoiding a main-process path-traversal denial and its log noise, most visible when switching to a no-worktree agent whose root is the main repo.
-- `shell` → **Shell** — `ShellTabs` (worktree + project shell PTYs).
+- `shell` → **Shell** — `ShellTabs`, a flat list of equal, closable terminals scoped to the
+  workspace checkout that `resolveShellCwd` derives from workspace/project state
+  (`terminal/shell-cwd.ts:12`) — no agent required. The set lives in a module-level store
+  keyed by that path (`terminal/shell-terminal-store.ts`), so closing the panel leaves the
+  PTYs running and switching workspace swaps whole terminal sets, VS Code-window style.
+  The dock header carries only three pills — `+` (a Manifold shell immediately), a chevron
+  for the Manifold/System menu, and kill for the active terminal (`ShellHeaderActions.tsx`).
+  The terminal list is not in the header: it is a vertical list down the right edge of the
+  panel body, as in VS Code, and appears past one terminal (`ShellTabControls.tsx`).
 - `pluginView` / `pluginTreeView` — webview hosts for plugin contributions (e.g. **Statistics**, the former Verdicts dashboard, now the `manifold.statistics` plugin).
 
 **The sidebar has one kind of root: the workspace.** There is no standalone-repository list —

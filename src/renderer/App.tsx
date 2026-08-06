@@ -7,7 +7,6 @@ import { useDiff } from './hooks/editor/useDiff'
 import { useSettings } from './hooks/settings/useSettings'
 import { useCodeView } from './hooks/editor/useCodeView'
 import { useViewState } from './hooks/editor/useViewState'
-import { useShellSessions } from './hooks/terminal/useShellSession'
 import { useGitOperations } from './hooks/editor/useGitOperations'
 import { useBranchStaleness } from './hooks/project/useBranchStaleness'
 import { useAllProjectSessions } from './hooks/agent-session/useAllProjectSessions'
@@ -189,11 +188,6 @@ export function App(): React.JSX.Element {
     themeClass === 'theme-light' ? 'light' : 'dark',
     interactiveAgentActive,
   )
-  const worktreeShellCwd = activeSession?.worktreePath ?? null
-  const shellProjectCwd = activeSession ? (activeProject?.path ?? null) : null
-  const shellSessionKey = activeSessionId
-  const { worktreeSessionId, projectSessionId } = useShellSessions(worktreeShellCwd, shellProjectCwd, shellSessionKey)
-
   const editorHandlers = useEditorPaneHandlers({
     activeSessionId, activeProjectId, primarySessionId, sessionsByProject, projects,
     restoredSessionId: viewState.restoredSessionId,
@@ -331,8 +325,6 @@ export function App(): React.JSX.Element {
     worktreeRootPath: tree?.path ?? undefined, tree, additionalTrees, additionalBranches, rootLabels,
     primaryBranch: activeSession?.branchName ?? null, changes: mergedChanges,
     expandedPaths: viewState.expandedPaths, onToggleExpand: viewState.onToggleExpand, worktreeRoot: tree?.path ?? null,
-    worktreeShellSessionId: worktreeSessionId, projectShellSessionId: projectSessionId,
-    worktreeCwd: worktreeShellCwd,
     baseBranch, activeProjectIsGit,
     defaultRuntime: settings.defaultRuntime, defaultAgentMode: settings.defaultAgentMode ?? 'interactive',
     activeSessionWorktreePath: activeSession?.worktreePath ?? null,
