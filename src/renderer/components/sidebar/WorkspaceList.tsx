@@ -1,13 +1,12 @@
-import { Fragment, useCallback, useState } from 'react'
+import React, { useCallback, useState } from 'react'
 import type { Project, AgentSession } from '../../../shared/types'
+import type { DraftChat } from '../../../shared/draft-chat'
 import type { Workspace } from '../../../shared/workspace-types'
 import { sidebarStyles } from './ProjectSidebar.styles'
-import { AgentItem } from './AgentItem'
+import { WorkspaceCard } from './WorkspaceCard'
 import { WorkspaceGlyph } from './WorkspaceGlyph'
-import { isGitProject } from '../../../shared/project-kind'
-import { FavoriteStarButton } from './FavoriteStarButton'
-import { SidebarSectionHeader } from './SidebarSectionHeader'
-import { useSidebarSectionState } from './sidebar-section-state'
+import { sortByRecency, useProjectRecency } from './sidebar-recency'
+import type { FolderSource } from '../../hooks/editor/useWorkspaceTree'
 
 export interface WorkspaceListProps {
   workspaces: Workspace[]
@@ -15,286 +14,126 @@ export interface WorkspaceListProps {
   activeWorkspaceId: string | null
   activeProjectId?: string | null
   sessionsByWorkspace: Record<string, AgentSession[]>
-  activeSessionId?: string | null
   outputtingSessionIds?: Set<string>
+  drafts: DraftChat[]
+  activeDraftId: string | null
   onSelectWorkspace: (id: string) => void
+  onRenameWorkspace?: (id: string, name: string) => void
   onRemoveWorkspace: (id: string) => Promise<void>
   onNewWorkspace?: () => void
-  onSelectSession: (sessionId: string, projectId: string) => void
+  onCopyWorkspace?: (id: string) => void
   onSelectRepo?: (workspaceId: string, projectId: string) => void
-  onAddProject?: (workspaceId: string) => void
+  onAddProject?: (workspaceId: string) => void | Promise<void>
   onRemoveProject?: (workspaceId: string, projectId: string) => void
-  onDeleteAgent?: (session: AgentSession, projectPath: string) => void
-  onRenameAgent?: (sessionId: string, displayName: string) => void
-  onFetchProject?: (projectId: string) => void
-  fetchingProjectId?: string | null
-  lastFetchedProjectId?: string | null
-  fetchResult?: { updatedBranch: string; commitCount: number } | null
-  fetchError?: string | null
+  onSelectDraft: (id: string) => void
+  onDiscardDraft: (id: string) => void
+  /** Renders a folder's file tree under its row while it is open. Injected by
+   *  the dock panel so the sidebar stays free of editor/file plumbing. */
+  renderFolderFiles?: (source: FolderSource) => React.ReactNode
 }
 
+/** The whole Repositories sidebar. Every repo lives in a workspace — one that
+ *  spans a single folder is the ordinary case, not a special one — so this is
+ *  the only list of roots there is. */
 export function WorkspaceList({
   workspaces,
   projects,
   activeWorkspaceId,
   activeProjectId,
   sessionsByWorkspace,
-  activeSessionId,
   outputtingSessionIds,
+  drafts,
+  activeDraftId,
   onSelectWorkspace,
+  onRenameWorkspace,
   onRemoveWorkspace,
   onNewWorkspace,
-  onSelectSession,
+  onCopyWorkspace,
   onSelectRepo,
   onAddProject,
   onRemoveProject,
-  onDeleteAgent,
-  onRenameAgent,
-  onFetchProject,
-  fetchingProjectId,
-  lastFetchedProjectId,
-  fetchResult,
-  fetchError,
-}: WorkspaceListProps) {
+  onSelectDraft,
+  onDiscardDraft,
+  renderFolderFiles,
+}: WorkspaceListProps): React.JSX.Element {
   const [removing, setRemoving] = useState<string | null>(null)
-  const [workspacesExpanded, toggleWorkspacesExpanded] = useSidebarSectionState('workspaces', true)
+  // One workspace open at a time: the list reads as a column of names until you
+  // open one, and opening another closes the one before it.
+  const [expandedId, setExpandedId] = useState<string | null>(activeWorkspaceId)
+  const { recency, touchProject } = useProjectRecency()
 
-  const projectById = useCallback(
-    (id: string) => projects.find((p) => p.id === id),
-    [projects],
+  const toggleExpanded = useCallback(
+    (id: string): void => setExpandedId((current) => (current === id ? null : id)),
+    [],
+  )
+
+  const selectWorkspace = useCallback(
+    (id: string): void => {
+      touchProject(id)
+      onSelectWorkspace(id)
+    },
+    [onSelectWorkspace, touchProject],
   )
 
   const handleRemove = useCallback(
-    async (e: React.MouseEvent, id: string): Promise<void> => {
+    (e: React.MouseEvent, id: string): void => {
       e.stopPropagation()
       setRemoving(id)
-      try {
-        await onRemoveWorkspace(id)
-      } finally {
+      void onRemoveWorkspace(id).finally(() => {
         setRemoving((c) => (c === id ? null : c))
-      }
+      })
     },
     [onRemoveWorkspace],
   )
 
-  // The header label always renders — even with zero workspaces — so the section
-  // stays visible. The "+" beside the label creates a new workspace.
+  if (workspaces.length === 0) {
+    return (
+      <div style={sidebarStyles.list}>
+        <div style={sidebarStyles.empty}>No repositories yet</div>
+      </div>
+    )
+  }
+
   return (
-    <div style={{ paddingTop: 8 }}>
-      <SidebarSectionHeader
-        label="Workspaces"
-        count={workspaces.length}
-        expanded={workspacesExpanded}
-        onToggle={toggleWorkspacesExpanded}
-        action={onNewWorkspace && (
-          <button
-            type="button"
-            onClick={onNewWorkspace}
-            className="sidebar-icon-button"
-            style={sidebarStyles.sectionAddButton}
-            aria-label="New Workspace"
-            title="New Workspace"
-          >
-            +
-          </button>
-        )}
-      />
-      {workspacesExpanded && workspaces.map((w) => {
-        const isActive = w.id === activeWorkspaceId
-        if (!isActive) {
-          return (
-            <div
-              key={w.id}
-              style={sidebarStyles.collapsedProject}
-              onClick={() => onSelectWorkspace(w.id)}
-              onKeyDown={(e) => {
-                if (e.key === 'Enter' || e.key === ' ') {
-                  e.preventDefault()
-                  onSelectWorkspace(w.id)
-                }
-              }}
-              role="button"
-              tabIndex={0}
-              className="sidebar-project-group sidebar-project-group--collapsed"
-              title={`${w.name} — ${w.projectIds.length} repos`}
-            >
-              <span style={{ display: 'flex', alignItems: 'center', gap: 8, minWidth: 0, flex: 1 }}>
-                <WorkspaceGlyph />
-                <span
-                  className="truncate"
-                  style={{ color: 'var(--text-secondary)', fontSize: 'var(--type-ui-small)' }}
-                >
-                  {w.name}
-                </span>
-              </span>
-              <span style={{ fontSize: 'var(--type-ui-caption)', color: 'var(--text-muted)', flexShrink: 0 }}>
-                {w.projectIds.length} {w.projectIds.length === 1 ? 'repo' : 'repos'}
-              </span>
-              <span style={{ flexShrink: 0, display: 'flex', alignItems: 'center' }}>
-                <FavoriteStarButton kind="workspace" id={w.id} name={w.name} />
-              </span>
-            </div>
-          )
-        }
-
-        const sessions = sessionsByWorkspace[w.id] ?? []
-
-        const sessionsByProject = new Map<string, AgentSession[]>()
-        for (const session of sessions) {
-          const list = sessionsByProject.get(session.projectId)
-          if (list) list.push(session)
-          else sessionsByProject.set(session.projectId, [session])
-        }
-        const orphanSessions = sessions.filter((s) => !w.projectIds.includes(s.projectId))
-
-        const renderAgent = (session: AgentSession) => {
-          const project = projectById(session.projectId)
-          return (
-            <AgentItem
-              session={session}
-              projectPath={project?.path ?? ''}
-              isActive={session.id === activeSessionId}
-              isOutputting={outputtingSessionIds?.has(session.id) ?? false}
-              onSelect={(sessionId) => onSelectSession(sessionId, session.projectId)}
-              onDelete={() => onDeleteAgent?.(session, project?.path ?? '')}
-              onRename={(displayName) => onRenameAgent?.(session.id, displayName)}
-              hideAdditionalDirs
-            />
-          )
-        }
-
-        return (
-          <div key={w.id} className="sidebar-project-group sidebar-project-group--active sidebar-project-group--has-agents sidebar-workspace-card">
-            <div
-              onClick={() => onSelectWorkspace(w.id)}
-              onKeyDown={(e) => {
-                if (e.key === 'Enter' || e.key === ' ') {
-                  e.preventDefault()
-                  onSelectWorkspace(w.id)
-                }
-              }}
-              role="button"
-              tabIndex={0}
-              className="sidebar-item-row sidebar-project-row sidebar-item-row--active"
-              style={{ ...sidebarStyles.item, ...sidebarStyles.itemActive }}
-              title={w.name}
-            >
-              <WorkspaceGlyph active />
-              <span className="sidebar-row-label" style={{ display: 'flex', flexDirection: 'column', minWidth: 0, gap: 1 }}>
-                <span className="sidebar-workspace-eyebrow">Workspace</span>
-                <span className="truncate" style={{ minWidth: 0 }}>{w.name}</span>
-              </span>
-              <div className="sidebar-item-actions" style={sidebarStyles.itemRight}>
-                <FavoriteStarButton kind="workspace" id={w.id} name={w.name} />
-                {onAddProject && projects.some((p) => !w.projectIds.includes(p.id)) && (
-                  <button
-                    type="button"
-                    onClick={(e) => { e.stopPropagation(); onAddProject(w.id) }}
-                    onKeyDown={(e) => e.stopPropagation()}
-                    className="sidebar-icon-button"
-                    style={sidebarStyles.addButton}
-                    aria-label={`Add repository to ${w.name}`}
-                    title="Add repository to workspace"
-                  >
-                    +
-                  </button>
-                )}
-                <button
-                  type="button"
-                  onClick={(e) => {
-                    void handleRemove(e, w.id)
-                  }}
-                  onKeyDown={(e) => e.stopPropagation()}
-                  disabled={removing === w.id}
-                  className="sidebar-icon-button"
-                  style={sidebarStyles.removeButton}
-                  aria-label={`Remove ${w.name}`}
-                  title="Remove workspace"
-                >
-                  &times;
-                </button>
-              </div>
-            </div>
-            {w.projectIds.map((pid) => {
-              const repo = projectById(pid)
-              const repoName = repo?.name ?? pid
-              const repoIsGit = repo ? isGitProject(repo) : false
-              const repoSessions = sessionsByProject.get(pid) ?? []
-              return (
-                <Fragment key={`repo-${pid}`}>
-                <div
-                  className={`sidebar-item-row sidebar-repo-row${activeProjectId === pid ? ' sidebar-item-row--active' : ''}`}
-                  style={{ ...sidebarStyles.item, paddingLeft: 16 }}
-                  title={repo?.path ?? pid}
-                  role="button"
-                  tabIndex={0}
-                  onClick={() => onSelectRepo?.(w.id, pid)}
-                  onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onSelectRepo?.(w.id, pid) } }}
-                >
-                  <span
-                    className="truncate sidebar-row-label"
-                    style={{ color: 'var(--text-secondary)', fontSize: 'var(--type-ui-small)' }}
-                  >
-                    {repoName}
-                  </span>
-                  <div className="sidebar-item-actions" style={sidebarStyles.itemRight}>
-                    {repoIsGit && onFetchProject && (
-                      <button
-                        type="button"
-                        onClick={(e) => { e.stopPropagation(); onFetchProject(pid) }}
-                        onKeyDown={(e) => e.stopPropagation()}
-                        className="sidebar-icon-button"
-                        style={sidebarStyles.removeButton}
-                        aria-label={`Fetch ${repoName}`}
-                        title="Fetch latest from remote"
-                        disabled={fetchingProjectId === pid}
-                      >
-                        {fetchingProjectId === pid ? '...' : '↻'}
-                      </button>
-                    )}
-                    {onRemoveProject && w.projectIds.length > 1 && (
-                      <button
-                        type="button"
-                        onClick={(e) => { e.stopPropagation(); onRemoveProject(w.id, pid) }}
-                        onKeyDown={(e) => e.stopPropagation()}
-                        className="sidebar-icon-button"
-                        style={sidebarStyles.removeButton}
-                        aria-label={`Remove ${repoName} from workspace`}
-                        title="Remove repository from workspace"
-                      >
-                        &times;
-                      </button>
-                    )}
-                  </div>
-                </div>
-                {lastFetchedProjectId === pid && fetchResult && (
-                  <div style={sidebarStyles.fetchMessage}>
-                    {fetchResult.commitCount > 0
-                      ? `Updated ${fetchResult.updatedBranch}: ${fetchResult.commitCount} new commit${fetchResult.commitCount !== 1 ? 's' : ''}`
-                      : `${fetchResult.updatedBranch} is up to date`}
-                  </div>
-                )}
-                {lastFetchedProjectId === pid && fetchError && (
-                  <div style={{ ...sidebarStyles.fetchMessage, color: 'var(--error, #f44)' }}>
-                    {fetchError}
-                  </div>
-                )}
-                {repoSessions.map((session) => (
-                  <div key={session.id} style={{ paddingLeft: 12 }}>
-                    {renderAgent(session)}
-                  </div>
-                ))}
-                </Fragment>
-              )
-            })}
-            {orphanSessions.map((session) => (
-              <div key={session.id} style={{ paddingLeft: 12 }}>
-                {renderAgent(session)}
-              </div>
-            ))}
-          </div>
-        )
-      })}
+    <div style={{ paddingTop: 4 }}>
+      {sortByRecency(workspaces, recency).map((workspace) => (
+        <WorkspaceCard
+          key={workspace.id}
+          workspace={workspace}
+          projects={projects}
+          isActive={workspace.id === activeWorkspaceId}
+          expanded={workspace.id === expandedId}
+          onToggleExpanded={() => toggleExpanded(workspace.id)}
+          sessions={sessionsByWorkspace[workspace.id] ?? []}
+          activeProjectId={activeProjectId}
+          outputtingSessionIds={outputtingSessionIds}
+          drafts={drafts.filter((d) => workspace.projectIds.includes(d.projectId))}
+          activeDraftId={activeDraftId}
+          onSelectWorkspace={selectWorkspace}
+          onRenameWorkspace={onRenameWorkspace}
+          onRemoveWorkspace={handleRemove}
+          removing={removing === workspace.id}
+          onCopyWorkspace={onCopyWorkspace}
+          onSelectRepo={onSelectRepo}
+          onAddProject={onAddProject}
+          onRemoveProject={onRemoveProject}
+          onSelectDraft={onSelectDraft}
+          onDiscardDraft={onDiscardDraft}
+          renderFolderFiles={renderFolderFiles}
+        />
+      ))}
+      {onNewWorkspace && (
+        <button
+          type="button"
+          onClick={onNewWorkspace}
+          className="sidebar-new-workspace-button"
+          style={sidebarStyles.newWorkspaceButton}
+          aria-label="New Workspace"
+        >
+          <WorkspaceGlyph />
+          <span>New workspace</span>
+        </button>
+      )}
     </div>
   )
 }

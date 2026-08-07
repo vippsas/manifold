@@ -24,9 +24,13 @@ function makeDeps(tmpDir: string) {
     worktreeManager: {
       createWorktree: vi.fn(async (p: string, _b: string, _n: string, branch?: string) => ({ branch: branch ?? 'b', path: `${p}/.wt/${branch}` })),
       removeWorktree: vi.fn(async () => undefined),
+      deleteBranch: vi.fn(async () => undefined),
       branchExists: vi.fn(async () => false),
     },
-    projectRegistry: { getProject: (id: string) => projects[id] },
+    projectRegistry: {
+      getProject: (id: string) => projects[id],
+      listProjects: () => Object.values(projects),
+    },
     sessionManager: { createSession, getSession: vi.fn(), killSession: vi.fn(async () => undefined) },
     emitListChanged: vi.fn(),
     _createSession: createSession,
@@ -45,29 +49,57 @@ describe('WorkspaceManager', () => {
   })
   afterEach(() => { fs.rmSync(tmpDir, { recursive: true, force: true }) })
 
-  it('creates and lists a workspace', () => {
-    const w = manager.create({ name: 'auth', projectIds: ['api', 'web'] })
+  it('creates and lists a workspace', async () => {
+    const w = await manager.create({ name: 'auth', projectIds: ['api', 'web'] })
     expect(w.id).toBe('uuid-1')
     expect(manager.list()).toHaveLength(1)
     expect(deps.emitListChanged).toHaveBeenCalled()
   })
 
-  it('stores the chosen runtime on the workspace', () => {
-    const w = manager.create({ name: 'auth', projectIds: ['api', 'web'], runtimeId: 'codex' })
+  it('stores the chosen runtime on the workspace', async () => {
+    const w = await manager.create({ name: 'auth', projectIds: ['api', 'web'], runtimeId: 'codex' })
     expect(manager.get(w.id)?.runtimeId).toBe('codex')
   })
 
-  it('create rejects an empty project list', () => {
-    expect(() => manager.create({ name: 'x', projectIds: [] })).toThrow(/project/i)
+  it('create rejects an empty project list', async () => {
+    await expect(manager.create({ name: 'x', projectIds: [] })).rejects.toThrow(/project/i)
   })
 
-  it('spawnAgent creates worktrees and a session with the working set', async () => {
-    const w = manager.create({ name: 'auth', projectIds: ['api', 'web'] })
+  // The workspace *is* the worktree: it owns one checkout of every repo from the
+  // moment it exists, so it is never a name with nowhere to work.
+  it('create cuts a checkout of every repo on one branch', async () => {
+    const w = await manager.create({ name: 'auth', projectIds: ['api', 'web'] })
+
+    expect(manager.get(w.id)?.branchName).toBe('manifold/auth')
+    expect(manager.get(w.id)?.worktreePaths).toEqual({
+      api: '/repo/api/.wt/manifold/auth',
+      web: '/repo/web/.wt/manifold/auth',
+    })
+    expect(deps.worktreeManager.createWorktree).toHaveBeenCalledTimes(2)
+  })
+
+  it('create takes the next free branch so two workspaces can span the same repos', async () => {
+    deps.worktreeManager.branchExists.mockImplementation(async (_p: string, b: string) => b === 'manifold/auth')
+
+    const second = await manager.create({ name: 'auth', projectIds: ['api'] })
+
+    expect(manager.get(second.id)?.branchName).toBe('manifold/auth-2')
+  })
+
+  // The point of the whole model: agents join the workspace's checkout instead of
+  // stacking a worktree of their own inside it.
+  it('spawnAgent reuses the workspace checkout instead of cutting another', async () => {
+    const w = await manager.create({ name: 'auth', projectIds: ['api', 'web'] })
+    deps.worktreeManager.createWorktree.mockClear()
+
     const session = await manager.spawnAgent(w.id, { runtimeId: 'claude' })
+
     expect(session.id).toBe('sess-1')
+    expect(deps.worktreeManager.createWorktree).not.toHaveBeenCalled()
     expect(deps._createSession).toHaveBeenCalledWith(expect.objectContaining({
       projectId: 'api',
       runtimeId: 'claude',
+      branchName: 'manifold/auth',
       existingWorktreePath: '/repo/api/.wt/manifold/auth',
       additionalDirs: ['/repo/web/.wt/manifold/auth'],
       workspaceId: w.id,
@@ -75,76 +107,194 @@ describe('WorkspaceManager', () => {
     }))
   })
 
-  it('spawnAgent homes the agent in the chosen repo while still spanning the others', async () => {
-    const w = manager.create({ name: 'auth', projectIds: ['api', 'web'] })
-    await manager.spawnAgent(w.id, { runtimeId: 'claude', homeProjectId: 'web' })
+  it('two agents in one workspace work in the same checkout', async () => {
+    const w = await manager.create({ name: 'auth', projectIds: ['api'] })
+    await manager.spawnAgent(w.id, { runtimeId: 'claude' })
+    await manager.spawnAgent(w.id, { runtimeId: 'codex' })
+
+    const [first, second] = deps._createSession.mock.calls.map(([opts]) => opts.existingWorktreePath)
+    expect(first).toBe(second)
+  })
+
+  // The workspace decides where its agents run, so every agent in it lands in the
+  // same place: the workspace's first folder, with the rest along as context.
+  // Nothing the user has selected elsewhere can move an agent to another folder.
+  it('always homes the agent in the workspace first folder', async () => {
+    const w = await manager.create({ name: 'auth', projectIds: ['api', 'web', 'shared'] })
+
+    await manager.spawnAgent(w.id, { runtimeId: 'claude' })
+
     expect(deps._createSession).toHaveBeenCalledWith(expect.objectContaining({
-      projectId: 'web',
-      existingWorktreePath: '/repo/web/.wt/manifold/auth',
-      additionalDirs: ['/repo/api/.wt/manifold/auth'],
+      projectId: 'api',
+      existingWorktreePath: '/repo/api/.wt/manifold/auth',
+      additionalDirs: ['/repo/web/.wt/manifold/auth', '/repo/shared/.wt/manifold/auth'],
     }))
   })
 
-  it('keeps the other repos in their original order when the home repo is in the middle', async () => {
-    const w = manager.create({ name: 'auth', projectIds: ['api', 'web', 'shared'] })
-    await manager.spawnAgent(w.id, { runtimeId: 'claude', homeProjectId: 'web' })
+  it('names the agent when one is typed in the form', async () => {
+    const w = await manager.create({ name: 'auth', projectIds: ['api'] })
+
+    await manager.spawnAgent(w.id, { runtimeId: 'claude', displayName: 'reviewer' })
+
+    expect(deps._createSession).toHaveBeenCalledWith(expect.objectContaining({ displayName: 'reviewer' }))
+  })
+
+  // The home workspace is the clone the user opened, so its agents edit that —
+  // on whatever branch it is already on, not one we move it to.
+  it('an agent in a home workspace works in the repo itself', async () => {
+    const home = manager.adoptProject(deps.projectRegistry.getProject('api')!)
+
+    await manager.spawnAgent(home.id, { runtimeId: 'claude' })
+
+    expect(deps.worktreeManager.createWorktree).not.toHaveBeenCalled()
     expect(deps._createSession).toHaveBeenCalledWith(expect.objectContaining({
-      projectId: 'web',
-      existingWorktreePath: '/repo/web/.wt/manifold/auth',
-      // api stays before shared; only web is pulled to the front
-      additionalDirs: ['/repo/api/.wt/manifold/auth', '/repo/shared/.wt/manifold/auth'],
+      projectId: 'api',
+      noWorktree: true,
+      stayOnBranch: true,
+      branchName: undefined,
     }))
   })
 
-  it('removeProject removes a repo when more than one remains', () => {
-    const w = manager.create({ name: 'auth', projectIds: ['api', 'web'] })
-    manager.removeProject(w.id, 'api')
+  it('removeProject removes a repo when more than one remains', async () => {
+    const w = await manager.create({ name: 'auth', projectIds: ['api', 'web'] })
+    await manager.removeProject(w.id, 'api')
     expect(manager.get(w.id)?.projectIds).toEqual(['web'])
   })
 
-  it('removeProject refuses to empty a workspace (keeps the last repo)', () => {
-    const w = manager.create({ name: 'auth', projectIds: ['api'] })
-    manager.removeProject(w.id, 'api')
+  it('removeProject takes that repo’s checkout with it', async () => {
+    const w = await manager.create({ name: 'auth', projectIds: ['api', 'web'] })
+
+    await manager.removeProject(w.id, 'api')
+
+    expect(deps.worktreeManager.removeWorktree).toHaveBeenCalledWith('/repo/api', '/repo/api/.wt/manifold/auth')
+    expect(manager.get(w.id)?.worktreePaths).toEqual({ web: '/repo/web/.wt/manifold/auth' })
+  })
+
+  it('addProject cuts the new repo a checkout on the workspace’s branch', async () => {
+    const w = await manager.create({ name: 'auth', projectIds: ['api'] })
+
+    await manager.addProject(w.id, 'web')
+
+    expect(deps.worktreeManager.createWorktree).toHaveBeenCalledWith('/repo/web', 'main', 'web', 'manifold/auth')
+    expect(manager.get(w.id)?.worktreePaths).toEqual({
+      api: '/repo/api/.wt/manifold/auth',
+      web: '/repo/web/.wt/manifold/auth',
+    })
+  })
+
+  it('addProject leaves a home workspace on the clones', async () => {
+    const home = manager.adoptProject(deps.projectRegistry.getProject('api')!)
+
+    await manager.addProject(home.id, 'web')
+
+    expect(deps.worktreeManager.createWorktree).not.toHaveBeenCalled()
+    expect(manager.get(home.id)?.worktreePaths).toBeUndefined()
+  })
+
+  it('removeProject refuses to empty a workspace (keeps the last repo)', async () => {
+    const w = await manager.create({ name: 'auth', projectIds: ['api'] })
+    await manager.removeProject(w.id, 'api')
     expect(manager.get(w.id)?.projectIds).toEqual(['api'])
   })
 
-  it('remove deletes the workspace record', () => {
-    const w = manager.create({ name: 'auth', projectIds: ['api'] })
-    expect(manager.remove(w.id)).toBe(true)
+  it('remove deletes the workspace record', async () => {
+    const w = await manager.create({ name: 'auth', projectIds: ['api'] })
+    expect(await manager.remove(w.id)).toBe(true)
     expect(manager.list()).toHaveLength(0)
   })
 
-  it('removeProjectFromAllWorkspaces removes the project from every workspace that references it', () => {
-    const a = manager.create({ name: 'a', projectIds: ['api', 'web'] })
-    const b = manager.create({ name: 'b', projectIds: ['api', 'shared'] })
-    manager.removeProjectFromAllWorkspaces('api')
+  // Deleting the workspace is the only thing that deletes its worktrees — closing
+  // an agent must not, since its siblings work in the same place.
+  it('remove takes the workspace’s checkouts with it', async () => {
+    const w = await manager.create({ name: 'auth', projectIds: ['api', 'web'] })
+
+    await manager.remove(w.id)
+
+    expect(deps.worktreeManager.removeWorktree).toHaveBeenCalledWith('/repo/api', '/repo/api/.wt/manifold/auth')
+    expect(deps.worktreeManager.removeWorktree).toHaveBeenCalledWith('/repo/web', '/repo/web/.wt/manifold/auth')
+  })
+
+  it('remove never touches a home workspace’s clones', async () => {
+    const home = manager.adoptProject(deps.projectRegistry.getProject('api')!)
+
+    await manager.remove(home.id)
+
+    expect(deps.worktreeManager.removeWorktree).not.toHaveBeenCalled()
+  })
+
+  it('removeProjectFromAllWorkspaces removes the project from every workspace that references it', async () => {
+    const a = await manager.create({ name: 'a', projectIds: ['api', 'web'] })
+    const b = await manager.create({ name: 'b', projectIds: ['api', 'shared'] })
+    await manager.removeProjectFromAllWorkspaces('api')
     expect(manager.get(a.id)?.projectIds).toEqual(['web'])
     expect(manager.get(b.id)?.projectIds).toEqual(['shared'])
     expect(deps.emitListChanged).toHaveBeenCalled()
   })
 
-  it('removeProjectFromAllWorkspaces may empty a workspace — a dangling id must not survive as the last repo', () => {
-    const w = manager.create({ name: 'a', projectIds: ['api'] })
-    manager.removeProjectFromAllWorkspaces('api')
-    expect(manager.get(w.id)?.projectIds).toEqual([])
+  it('removeProjectFromAllWorkspaces drops a workspace it empties — a folderless card can do nothing', async () => {
+    const w = await manager.create({ name: 'a', projectIds: ['api'] })
+    await manager.removeProjectFromAllWorkspaces('api')
+    expect(manager.get(w.id)).toBeUndefined()
   })
 
-  it('removeProjectFromAllWorkspaces does not emit when no workspace references the project', () => {
-    manager.create({ name: 'a', projectIds: ['web'] })
+  // A repo arrives with its own workspace on its clone: that is where work on the
+  // folder you opened lands, and every later workspace is a worktree beside it.
+  it('adoptProject wraps a loose repo in a home workspace of its own', () => {
+    const w = manager.adoptProject(deps.projectRegistry.getProject('api')!)
+    expect(w.name).toBe('api')
+    expect(w.projectIds).toEqual(['api'])
+    expect(w.branchName).toBeUndefined()
+    expect(w.worktreePaths).toBeUndefined()
+    expect(manager.list()).toHaveLength(1)
+  })
+
+  it('adoptProject returns the existing workspace instead of creating a second one', async () => {
+    const existing = await manager.create({ name: 'auth', projectIds: ['api', 'web'] })
+    const adopted = manager.adoptProject(deps.projectRegistry.getProject('api')!)
+    expect(adopted.id).toBe(existing.id)
+    expect(manager.list()).toHaveLength(1)
+  })
+
+  it('adoptOrphanProjects gives every unheld repo a one-folder workspace', async () => {
+    await manager.create({ name: 'auth', projectIds: ['api'] })
+    manager.adoptOrphanProjects()
+    const byName = Object.fromEntries(manager.list().map((w) => [w.name, w.projectIds]))
+    expect(byName).toEqual({ auth: ['api'], web: ['web'], shared: ['shared'] })
+  })
+
+  it('adoptOrphanProjects does nothing when every repo already lives in a workspace', async () => {
+    await manager.create({ name: 'all', projectIds: ['api', 'web', 'shared'] })
     deps.emitListChanged.mockClear()
-    manager.removeProjectFromAllWorkspaces('api')
+    manager.adoptOrphanProjects()
+    expect(manager.list()).toHaveLength(1)
     expect(deps.emitListChanged).not.toHaveBeenCalled()
   })
 
+  it('removeProjectFromAllWorkspaces does not emit when no workspace references the project', async () => {
+    await manager.create({ name: 'a', projectIds: ['web'] })
+    deps.emitListChanged.mockClear()
+    await manager.removeProjectFromAllWorkspaces('api')
+    expect(deps.emitListChanged).not.toHaveBeenCalled()
+  })
+
+  // Seeded through the store: a workspace naming a dead repo can only come from
+  // an older install, since create resolves every project up front.
   it('pruneMissingProjects drops project ids that no longer resolve in the registry', () => {
-    const w = manager.create({ name: 'a', projectIds: ['api', 'ghost'] })
+    deps.store.add({
+      id: 'w-old', name: 'a', projectIds: ['api', 'ghost'], createdAt: '2024-01-01',
+      branchName: 'manifold/a',
+      worktreePaths: { api: '/repo/api/.wt/manifold/a', ghost: '/gone/.wt/manifold/a' },
+    })
+
     manager.pruneMissingProjects()
-    expect(manager.get(w.id)?.projectIds).toEqual(['api'])
+
+    expect(manager.get('w-old')?.projectIds).toEqual(['api'])
+    expect(manager.get('w-old')?.worktreePaths).toEqual({ api: '/repo/api/.wt/manifold/a' })
     expect(deps.emitListChanged).toHaveBeenCalled()
   })
 
-  it('pruneMissingProjects leaves clean workspaces untouched and does not emit', () => {
-    const w = manager.create({ name: 'a', projectIds: ['api', 'web'] })
+  it('pruneMissingProjects leaves clean workspaces untouched and does not emit', async () => {
+    const w = await manager.create({ name: 'a', projectIds: ['api', 'web'] })
     deps.emitListChanged.mockClear()
     manager.pruneMissingProjects()
     expect(manager.get(w.id)?.projectIds).toEqual(['api', 'web'])
@@ -152,7 +302,7 @@ describe('WorkspaceManager', () => {
   })
 
   it('forwards nonInteractive to createSession', async () => {
-    const w = manager.create({ name: 'auth', projectIds: ['api', 'web'] })
+    const w = await manager.create({ name: 'auth', projectIds: ['api', 'web'] })
     await manager.spawnAgent(w.id, { runtimeId: 'claude', nonInteractive: true })
     expect(deps._createSession).toHaveBeenCalledWith(expect.objectContaining({
       nonInteractive: true,

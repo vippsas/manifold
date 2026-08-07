@@ -1,19 +1,18 @@
 import { createContext, useContext } from 'react'
 import type { ITheme } from '@xterm/xterm'
-import type { AgentStatus, FileTreeNode, FileChange, Project, AgentSession, SpawnAgentOptions, FavoriteKind, ResolvedFavorite, EditorSettings } from '../../../../shared/types'
+import type { AgentStatus, FileTreeNode, FileChange, Project, AgentSession, AgentSettingsUpdate, SpawnAgentOptions, FavoriteKind, ResolvedFavorite, EditorSettings } from '../../../../shared/types'
 import type { SearchMode } from '../../../../shared/search-types'
 import type { EditorPaneView, OpenFile } from '../../../hooks/editor/useCodeView'
-import type { FileOpenRequest } from '../file-open-request'
+import type { FileOpenRequest, ScmFileTarget } from '../file-open-request'
 import type { DraftChat } from '../../../../shared/draft-chat'
 import type { DockPanelId } from '../../../hooks/dock-layout/dock-layout-helpers'
+import type { SidebarViewId } from '../../sidebar/sidebar-views'
 
 export interface DockAppState {
   sessionId: string | null
   /** The "primary" session for the active worktree (the one represented in the
    *  sidebar). May equal sessionId, or differ when a sibling dock tab is active. */
   primarySessionId: string | null
-  searchFocusRequestKey: number
-  requestedSearchMode: SearchMode | null
   scrollbackLines: number
   terminalFontFamily?: string
   xtermTheme?: ITheme
@@ -28,6 +27,8 @@ export interface DockAppState {
   lastFileOpenRequest: FileOpenRequest
   theme: string
   onSelectFile: (path: string) => void
+  /** Source Control row click: open the file showing its uncommitted diff. */
+  onSelectScmFile: (path: string, scm: ScmFileTarget) => void
   onOpenSearchResult: (target: { path: string; line?: number; column?: number; sessionId?: string | null }) => void
   onOpenSearchResultInSplit: (target: { path: string; line?: number; column?: number; sessionId?: string | null }) => void
   onSelectFileFromFileTree: (path: string) => void
@@ -66,65 +67,51 @@ export interface DockAppState {
   changes: FileChange[]
   expandedPaths: Set<string>
   onToggleExpand: (path: string) => void
-  // ModifiedFiles
+  // Worktree
   worktreeRoot: string | null
-  // Shell
-  worktreeShellSessionId: string | null
-  projectShellSessionId: string | null
-  worktreeCwd: string | null
   // Agent creation
   baseBranch: string
   activeProjectIsGit: boolean
   defaultRuntime: string
   defaultAgentMode: 'interactive' | 'chat'
-  defaultUseWorktrees: boolean
   activeSessionWorktreePath: string | null
   activeSessionNoWorktree: boolean
-  onLaunchAgent: (options: SpawnAgentOptions) => Promise<unknown>
   // Projects panel
   projects: Project[]
   activeProjectId: string | null
-  suppressedProjectIds?: ReadonlySet<string>
   allProjectSessions: Record<string, AgentSession[]>
   outputtingSessionIds: Set<string>
-  onSelectProject: (id: string) => void
   onSelectSession: (sessionId: string, projectId: string) => void
-  onRemoveProject: (id: string) => void
-  onUpdateProject: (id: string, partial: Partial<Omit<Project, 'id'>>) => void
-  onRenameAgent: (sessionId: string, displayName: string) => void
-  onToggleLocked: (sessionId: string, locked: boolean) => void
+  onRenameAgent: (sessionId: string, settings: AgentSettingsUpdate) => Promise<void> | void
   onRequestDeleteAgent: (session: AgentSession, projectPath: string) => void
-  onNewAgentFromHeader: () => void
-  newAgentFocusTrigger: number
+  onNewAgentFromHeader: (workspaceId?: string) => void
   onNewProject: () => void
   onNewWorkspace?: () => void
-  workspaces?: import('../../../../shared/workspace-types').Workspace[]
+  workspaces: import('../../../../shared/workspace-types').Workspace[]
   activeWorkspaceId?: string | null
   sessionsByWorkspace?: Record<string, AgentSession[]>
-  onSelectWorkspace?: (id: string) => void
-  onRemoveWorkspace?: (id: string) => Promise<void>
+  onSelectWorkspace: (id: string) => void
+  onRenameWorkspace?: (id: string, name: string) => void
+  onRemoveWorkspace: (id: string) => Promise<void>
+  /** Copy a workspace onto a fresh worktree: a new workspace with the same folders. */
+  onCopyWorkspace?: (id: string) => void
   onSelectWorkspaceRepo?: (workspaceId: string, projectId: string) => void
-  onLaunchWorkspaceAgent?: (workspaceId: string, homeProjectId: string, options: { runtimeId: string; prompt: string; nonInteractive?: boolean }) => Promise<unknown>
-  onAddProjectToWorkspace?: (workspaceId: string) => void
+  onLaunchWorkspaceAgent?: (workspaceId: string, options: { runtimeId: string; displayName: string; nonInteractive?: boolean }) => Promise<unknown>
+  onAddProjectToWorkspace?: (workspaceId: string) => void | Promise<void>
   onRemoveProjectFromWorkspace?: (workspaceId: string, projectId: string) => void
-  fetchingProjectId: string | null
-  lastFetchedProjectId: string | null
-  fetchResult: { updatedBranch: string; commitCount: number } | null
-  fetchError: string | null
-  onFetchProject: (projectId: string) => void
-  activeProjectBehindCount?: number
   // Agent restart
   activeSessionStatus: AgentStatus | null
   activeSessionRuntimeId: string | null
   onResumeAgent: (sessionId: string, runtimeId: string) => Promise<void>
   // Layout
+  /** Which view the one sidebar column is showing. */
+  sidebarView: SidebarViewId
+  onSelectSidebarView: (id: SidebarViewId) => void
   onFocusSearch: (mode: SearchMode) => void
   onClosePanel: (id: string) => void
   /** Toggle focus mode for a pane (double-click its tab): maximize it to fill the
-   *  dock — hiding all other panes and both sidebars — or restore everything. */
+   *  dock — hiding all other panes and the sidebar — or restore everything. */
   onToggleMaximize: (id: string) => void
-  /** Collapse a sidebar (left = projects, right = file tree) to width 0. */
-  onCollapseSidebar: (side: 'left' | 'right') => void
   /** Open a launcher module as a tab, or focus it if already open. */
   onOpenModule: (id: DockPanelId) => void
   /** Whether a launcher module currently has an open tab. */

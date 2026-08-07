@@ -1,4 +1,4 @@
-import { COMMANDS, PANEL_TOGGLE_IDS, type CommandId } from '../../shared/commands/catalog'
+import { COMMANDS, PANEL_TOGGLE_IDS, SIDEBAR_VIEW_COMMAND_IDS, type CommandId } from '../../shared/commands/catalog'
 
 /**
  * The renderer functions every command needs. All already exist in App.tsx's
@@ -22,6 +22,9 @@ export interface CommandContext {
   createPR: () => void
   togglePanel: (panelId: string) => void
   openModule: (panelId: string) => void
+  /** Reveal a sidebar view: show it in the sidebar, opening the sidebar if it
+   *  was collapsed. */
+  showSidebarView: (viewId: string) => void
   toggleTheme: () => void
   openDashboard: () => void
 }
@@ -29,7 +32,6 @@ export interface CommandContext {
 const FOCUS_PANEL_IDS: Record<string, string> = {
   'view.focusChat': 'agent',
   'view.focusTerminal': 'shell',
-  'view.focusFiles': 'fileTree',
 }
 
 /** Build the id → handler map consumed by useCommands and the command palette. */
@@ -61,6 +63,11 @@ export function createCommandHandlers(ctx: CommandContext): Record<string, () =>
     const panelId = PANEL_TOGGLE_IDS[command.id]
     if (panelId) {
       handlers[command.id] = () => ctx.togglePanel(panelId)
+      continue
+    }
+    const sidebarViewId = SIDEBAR_VIEW_COMMAND_IDS[command.id]
+    if (sidebarViewId) {
+      handlers[command.id] = () => ctx.showSidebarView(sidebarViewId)
       continue
     }
     const focusPanel = FOCUS_PANEL_IDS[command.id]

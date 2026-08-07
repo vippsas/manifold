@@ -35,21 +35,12 @@ interface StateSetters {
 
 const DEFAULT_EDITOR_PANE_ID = 'editor'
 
-function isUnderAnyRoot(filePath: string, roots: string[]): boolean {
-  return roots.some((root) => {
-    if (!root) return false
-    const prefix = root.endsWith('/') ? root : root + '/'
-    return filePath === root || filePath.startsWith(prefix)
-  })
-}
-
 export function useCodeViewFileOps(
   activeSessionId: string | null,
   refs: StateRefs,
   setters: StateSetters,
   readFileOverride: ((filePath: string) => Promise<string>) | null = null,
   writeFileOverride: ((filePath: string, content: string) => Promise<void>) | null = null,
-  allowedRoots: string[] = [],
 ): CodeViewFileOps {
   const activeSessionIdRef = useRef(activeSessionId)
   activeSessionIdRef.current = activeSessionId
@@ -57,20 +48,12 @@ export function useCodeViewFileOps(
   readFileOverrideRef.current = readFileOverride
   const writeFileOverrideRef = useRef(writeFileOverride)
   writeFileOverrideRef.current = writeFileOverride
-  const allowedRootsRef = useRef(allowedRoots)
-  allowedRootsRef.current = allowedRoots
 
   const readFileContent = useCallback(async (filePath: string): Promise<string> => {
     if (readFileOverrideRef.current) return readFileOverrideRef.current(filePath)
-    // During a session switch, open files from the previous session (rooted in a
-    // different worktree) can be re-read against the new session id. The main
-    // process denies that as path traversal and logs noise. Skip the doomed read
-    // when the path isn't under the active session's allowed roots. Roots empty
-    // (unknown, e.g. a draft) → don't gate, preserving prior behavior.
-    const roots = allowedRootsRef.current
-    if (roots.length > 0 && !isUnderAnyRoot(filePath, roots)) {
-      throw new Error('file outside active session roots')
-    }
+    // No gate on the active session's roots: the sidebar opens files from every
+    // repo and worktree it shows, and main authorizes them against the folders
+    // the user has open rather than the selected session.
     const ipcChannel = isImageFile(filePath) || isPdfFile(filePath) ? 'files:read-data-url' : 'files:read'
     return (await window.electronAPI.invoke(
       ipcChannel,
@@ -80,8 +63,6 @@ export function useCodeViewFileOps(
   }, [])
 
   const refreshOpenFile = useCallback(async (filePath: string): Promise<void> => {
-    if (!activeSessionIdRef.current && !readFileOverrideRef.current) return
-
     try {
       const content = await readFileContent(filePath)
       setters.setOpenFiles((prev) =>
@@ -105,10 +86,6 @@ export function useCodeViewFileOps(
 
       setters.setEditorPanes((prev) => ensureEditorPane(prev, targetPaneId))
       setters.setActiveEditorPaneId(targetPaneId)
-
-      if (!activeSessionIdRef.current && !readFileOverrideRef.current) {
-        return targetPaneId
-      }
 
       const targetPane = refs.editorPanesRef.current.find((pane) => pane.id === targetPaneId) ?? null
       if (targetPane?.openFilePaths.includes(filePath)) {
@@ -225,7 +202,6 @@ export function useCodeViewFileOps(
   const handleSaveFile = useCallback(
     (filePath: string, content: string): void => {
       if (!filePath) return
-      if (!activeSessionIdRef.current && !writeFileOverrideRef.current) return
 
       setters.setOpenFiles((prev) =>
         prev.map((file) => (file.path === filePath ? { ...file, content } : file)),
@@ -277,7 +253,6 @@ export function useCodeViewFileOps(
   }, [])
 
   const refreshOpenFiles = useCallback(async (): Promise<void> => {
-    if (!activeSessionIdRef.current && !readFileOverrideRef.current) return
     const currentFiles = refs.openFilesRef.current
     const openFilePaths = new Set(collectOpenFilePaths(refs.editorPanesRef.current))
     if (currentFiles.length === 0 || openFilePaths.size === 0) return

@@ -55,6 +55,7 @@ export const onboardingLinkStyle = (hover: boolean): React.CSSProperties => ({
 })
 
 // Layout only — the metallic surface comes from the shared .btn-metal class.
+// The radius matches the name field and runtime tiles above it.
 export const startButtonStyle = (canSubmit: boolean, loading: boolean): React.CSSProperties => ({
   width: '100%',
   display: 'flex',
@@ -62,7 +63,7 @@ export const startButtonStyle = (canSubmit: boolean, loading: boolean): React.CS
   justifyContent: 'center',
   height: 'var(--control-height)',
   padding: '0 32px',
-  borderRadius: 'var(--radius-sm)',
+  borderRadius: 'var(--radius-md)',
   fontSize: 'var(--type-ui)',
   cursor: canSubmit && !loading ? 'pointer' : 'default',
   opacity: canSubmit && !loading ? 1 : 0.5,

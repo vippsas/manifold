@@ -106,11 +106,11 @@ export const thumbnailCounter: CSSProperties = {
   paddingRight: 4,
 }
 
-// Mirrors `TaskDescriptionField` (Start Agent name field): the `.reticle-input`
-// resting corner brackets are the field's edge, so the box is transparent and
-// the border stays 1px-transparent to give the reticle a border-box to paint
-// into without shifting layout on focus. `--radius-md` keeps corners square
-// enough for the brackets to render — a pill radius would clip them away.
+// The `.reticle-input` resting corner brackets are this field's edge, so the box
+// is transparent and the border stays 1px-transparent to give the reticle a
+// border-box to paint into without shifting layout on focus. `--radius-md` keeps
+// corners square enough for the brackets to render — a pill radius would clip
+// them away.
 export const input: CSSProperties = {
   width: '100%',
   padding: '12px 16px',

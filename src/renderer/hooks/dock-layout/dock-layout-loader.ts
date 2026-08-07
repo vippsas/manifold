@@ -3,7 +3,9 @@ import { sanitizeDockLayout } from './dock-layout-sanitize'
 import {
   PANEL_RESTORE_HINTS,
   PANEL_TITLES,
+  SIDEBAR_PANEL_IDS,
   applyLayoutChangePreservingSidebarWidths,
+  mayShareTabGroup,
   restoreCollapsedSidebarWidths,
   withPinnedSidebars,
   type Direction,
@@ -11,6 +13,20 @@ import {
   type GridNode,
   type LayoutRefs,
 } from './dock-layout-helpers'
+
+/** The default share of the dock width the sidebar column gets (matches the
+ *  1:5 default layout and the sanitizer's restored-sidebar cap). */
+const SIDEBAR_WIDTH_FRACTION = 1 / 6
+
+type DockGroup = NonNullable<NonNullable<ReturnType<DockviewApi['getPanel']>>['group']>
+
+/** Whether the group holds only the sidebar. A group the user has dragged a
+ *  workspace pane into is a center pane and must keep its width. */
+function isPureSidebarGroup(api: DockviewApi, group: DockGroup): boolean {
+  return api.panels
+    .filter((panel) => panel.group === group)
+    .every((panel) => SIDEBAR_PANEL_IDS.has(panel.id))
+}
 
 /**
  * Size the group containing `panelId` to roughly `fraction` of the dock height,
@@ -35,62 +51,81 @@ function applyPanelHeightFraction(api: DockviewApi, panelId: string, fraction: n
   }
 }
 
-function isCorruptedMinimalLayout(saved: SerializedDockview): boolean {
-  const panelIds = new Set(Object.keys(saved.panels))
-  return panelIds.size === 2 && panelIds.has('projects') && panelIds.has('agent')
+/** Width twin of applyPanelHeightFraction: size the group containing
+ *  `panelId` to roughly `fraction` of the dock width, in place. */
+function applyPanelWidthFraction(api: DockviewApi, panelId: string, fraction: number, refs?: LayoutRefs): void {
+  if (api.width <= 0) return
+  const group = api.getPanel(panelId)?.group
+  if (!group) return
+  try {
+    if (refs) refs.isRestoringRef.current = true
+    try {
+      group.api.setSize({ width: Math.round(api.width * fraction) })
+    } finally {
+      if (refs) refs.isRestoringRef.current = false
+    }
+    if (refs) refs.lastLayoutRef.current = api.toJSON()
+  } catch (err) {
+    console.warn(`[applyPanelWidthFraction] failed for '${panelId}':`, err)
+  }
 }
 
+/**
+ * Restore the window's one saved layout, or build a fallback when there is
+ * none. Called once per window, not per agent: the layout is a property of the
+ * window, so switching agents must not run this again.
+ */
 export async function loadOrBuildLayout(
   api: DockviewApi,
-  sessionId: string,
-  buildDefault: (api: DockviewApi) => void,
+  buildFallback: (api: DockviewApi) => void,
   refs: LayoutRefs,
   liveSiblingSessionIds?: Set<string>,
 ): Promise<void> {
   try {
-    const rawSaved = (await window.electronAPI.invoke('dock-layout:get', sessionId)) as SerializedDockview | null
+    const rawSaved = (await window.electronAPI.invoke('dock-layout:get')) as SerializedDockview | null
     const saved = rawSaved ? sanitizeDockLayout(rawSaved, liveSiblingSessionIds) : null
-    if (saved && saved.grid && saved.panels && !isCorruptedMinimalLayout(saved)) {
+    if (saved && saved.grid && saved.panels) {
       refs.isRestoringRef.current = true
       try {
         api.fromJSON(saved)
         // fromJSON recreates each group at dockview's default 100px minimum,
-        // clamping any collapsed (width-0) sidebar back open. Re-apply the
-        // saved sub-minimum widths so a collapsed sidebar stays collapsed
-        // across agent switches and app restarts.
+        // clamping a collapsed (width-0) sidebar back open. Re-apply the saved
+        // sub-minimum width so a collapsed sidebar stays collapsed across agent
+        // switches and app restarts.
         restoreCollapsedSidebarWidths(api, saved)
       } finally {
         refs.isRestoringRef.current = false
       }
       refs.lastLayoutRef.current = saved
       if (saved !== rawSaved) {
-        void window.electronAPI.invoke('dock-layout:set', sessionId, saved).catch(() => {})
+        void window.electronAPI.invoke('dock-layout:set', saved).catch(() => {})
       }
       return
     }
   } catch (err) {
-    console.warn('[loadOrBuildLayout] failed to restore saved layout for session', sessionId, '- falling back to default:', err)
+    console.warn('[loadOrBuildLayout] failed to restore the saved layout - falling back to a built one:', err)
   }
   refs.isRestoringRef.current = true
   try {
     api.clear()
-    buildDefault(api)
+    buildFallback(api)
   } finally {
     refs.isRestoringRef.current = false
   }
   refs.lastLayoutRef.current = api.toJSON()
-  void window.electronAPI.invoke('dock-layout:set', sessionId, refs.lastLayoutRef.current).catch(() => {})
+  void window.electronAPI.invoke('dock-layout:set', refs.lastLayoutRef.current).catch(() => {})
 }
 
-export function applyMinimalLayout(
+/** Replace the dock with a freshly built layout. */
+export function applyBuiltLayout(
   api: DockviewApi,
-  buildMinimal: (api: DockviewApi) => void,
+  build: (api: DockviewApi) => void,
   refs: LayoutRefs,
 ): void {
   refs.isRestoringRef.current = true
   try {
     api.clear()
-    buildMinimal(api)
+    build(api)
   } finally {
     refs.isRestoringRef.current = false
   }
@@ -111,8 +146,8 @@ export function hidePanel(
 
   // Remove the panel in place. api.removePanel only unmounts THIS panel and
   // hands its space to its branch siblings; every other panel — including the
-  // agent terminal — stays mounted. Pinning the sidebars keeps the freed space
-  // on the center pane rather than letting the sidebars widen.
+  // agent terminal — stays mounted. Pinning the sidebar keeps the freed space
+  // on the center pane rather than letting the sidebar widen.
   withPinnedSidebars(api, () => api.removePanel(panel), id)
   refs.lastLayoutRef.current = api.toJSON()
 }
@@ -177,7 +212,9 @@ export function computeReopenPlacement(
 
   const leafNode = parent.data[pIndex]
   if (leafNode?.type === 'leaf') {
-    const mate = leafNode.data.views.filter((v) => v !== panelId).find(isAlive)
+    const mate = leafNode.data.views
+      .filter((v) => v !== panelId && mayShareTabGroup(panelId, v))
+      .find(isAlive)
     if (mate) return { referencePanelId: mate, direction: 'within' }
   }
 
@@ -252,6 +289,28 @@ export function showPanelFromHints(api: DockviewApi, id: DockPanelId, refs?: Lay
     })
     if (usedDirection === 'below') {
       applyPanelHeightFraction(api, id, 1 / 3, refs)
+    } else if (usedDirection !== 'within' && SIDEBAR_PANEL_IDS.has(id)) {
+      // addPanel splits the reference group 50/50; the sidebar reopened via
+      // hints should take its default share, not half the dock. A 'within'
+      // reopen joined an existing group as a tab and adopts its size.
+      applyPanelWidthFraction(api, id, SIDEBAR_WIDTH_FRACTION, refs)
     }
   }, refs)
+  if (usedDirection !== 'below' && usedDirection !== 'within' && !SIDEBAR_PANEL_IDS.has(id)) {
+    // A center pane reopened via hints splits its reference group 50/50. When
+    // that reference is the sidebar and it had grown to dominate the dock (the
+    // last survivor of an emptied dock), both end up around half the width —
+    // shrink it back to its default share so the reopened pane gets the space.
+    // Done outside the pinning scope, which holds the sidebar at its
+    // pre-change width.
+    for (const sidebarId of SIDEBAR_PANEL_IDS) {
+      const group = api.getPanel(sidebarId)?.group
+      if (
+        group && api.width > 0 && group.api.width > api.width / 3
+        && isPureSidebarGroup(api, group)
+      ) {
+        applyPanelWidthFraction(api, sidebarId, SIDEBAR_WIDTH_FRACTION, refs)
+      }
+    }
+  }
 }

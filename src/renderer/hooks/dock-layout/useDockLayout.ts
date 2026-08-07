@@ -1,11 +1,8 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import type { DockviewApi, SerializedDockview } from 'dockview'
 import {
-  PANEL_IDS,
   applyLayoutChangePreservingSidebarWidths,
-  applyMinimalLayout,
   findTopLeftWorkspaceReferencePanel,
-  getSidebarWidths,
   isEditorPanelId,
   loadOrBuildLayout,
   parseEditorPanelOrder,
@@ -14,14 +11,14 @@ import {
   type LayoutRefs,
 } from './dock-layout-helpers'
 import { siblingPanelId } from '../agent-session/agent-siblings'
+import { clearAgentTabDismissed, markAgentTabDismissed } from '../agent-session/dismissed-agent-tabs'
 import type { AgentSession } from '../../../shared/types'
-import { applyDefaultLayout, applyMinimalPanels, syncEditorPanelIds } from './dock-layout-builders'
+import { applyDefaultLayout, syncEditorPanelIds } from './dock-layout-builders'
 import type { DockLayoutCtx } from './dock-layout-context'
 import { reconcileLayoutAfterLoad } from './dock-layout-tabs'
 import { useEditorPanels } from './dock-layout-panels'
 import { useDockActions } from './dock-layout-actions'
 import { registerLayoutListeners } from './dock-layout-lifecycle'
-import { LAUNCHER_MODULE_IDS } from '../../modules/launcher-modules'
 
 export type { DockPanelId, EditorSplitDirection } from './dock-layout-helpers'
 export { isEditorPanelId } from './dock-layout-helpers'
@@ -45,7 +42,7 @@ export interface UseDockLayoutResult {
   togglePanel: (id: DockPanelId) => void
   closePanel: (id: string) => void
   /** Toggle focus mode for a pane's group: maximize to fill the dock (hiding all
-   *  other panes and both sidebars), or restore everything if already maximized. */
+   *  other panes and the sidebar), or restore everything if already maximized. */
   toggleMaximizePanel: (id: string) => void
   focusPanel: (id: string) => void
   openSiblingPanel: (sessionId: string, title?: string, referencePanelId?: string) => void
@@ -56,7 +53,6 @@ export interface UseDockLayoutResult {
   findEditorPanelForSplit: (referencePanelId: string, direction: EditorSplitDirection) => string | null
   isPanelVisible: (id: DockPanelId) => boolean
   resetLayout: () => void
-  hiddenPanels: DockPanelId[]
   editorPanelIds: string[]
   layoutVersion: number
   /** Bumps only when the dock layout is fully reloaded (e.g. a session
@@ -69,17 +65,27 @@ export interface UseDockLayoutResult {
   openPluginTreeView: (viewId: string, title: string) => void
 }
 
+/**
+ * The window's dock layout. There is exactly one, shared by every agent: the
+ * arrangement is a property of the window, like Cursor's, so selecting another
+ * agent only changes what the panes show. Layouts used to be saved per session
+ * and reloaded on every switch, which re-ran `api.fromJSON` and left panels
+ * appearing, sizes jumping, and the sidebar remounting mid-click.
+ *
+ * `_activeSessionId` is therefore not a key, and no longer selects a layout
+ * either: the editor and shell open on demand, so a window with no agent yet
+ * starts from the same `sidebar | agent` default as one with many. It is kept
+ * in the signature because callers pass the selected agent positionally.
+ */
 export function useDockLayout(
-  sessionId: string | null,
+  _activeSessionId: string | null,
   liveSessions: AgentSession[] = [],
 ): UseDockLayoutResult {
   const apiRef = useRef<DockviewApi | null>(null)
   const saveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
-  const sessionIdRef = useRef(sessionId)
   const liveSessionsRef = useRef(liveSessions)
   const editorPanelIdsRef = useRef<Set<string>>(new Set())
   const nextEditorPanelIndexRef = useRef(1)
-  sessionIdRef.current = sessionId
   liveSessionsRef.current = liveSessions
 
   // Returns `undefined` (defer filtering) when the sessions list hasn't been
@@ -106,51 +112,38 @@ export function useDockLayout(
   const lastLayoutRef = useRef<SerializedDockview | null>(null)
   const closedPanelSnapshots = useRef<Map<DockPanelId, SerializedDockview>>(new Map())
   const isRestoringRef = useRef(false)
-  const sidebarWidthsRef = useRef<{ left: number; right: number }>({ left: 0, right: 0 })
+  const sidebarWidthRef = useRef(0)
+  const dockWidthRef = useRef(0)
+  const dockResizeObserverRef = useRef<ResizeObserver | null>(null)
   const refs: LayoutRefs = { isRestoringRef, lastLayoutRef }
 
   const syncPanels = useCallback((api: DockviewApi) => {
     syncEditorPanelIds(api, editorPanelIdsRef, nextEditorPanelIndexRef)
   }, [])
 
-  const persistLayout = useCallback((sid: string, layout: SerializedDockview) => {
-    void window.electronAPI.invoke('dock-layout:set', sid, layout)
-  }, [])
-
   const saveLayout = useCallback(() => {
     const api = apiRef.current
-    const sid = sessionIdRef.current
-    if (!api || !sid) return
+    if (!api) return
 
     if (saveTimerRef.current) clearTimeout(saveTimerRef.current)
 
     saveTimerRef.current = setTimeout(() => {
       const json = api.toJSON()
       saveTimerRef.current = null
-      persistLayout(sid, json)
+      void window.electronAPI.invoke('dock-layout:set', json)
     }, 500)
-  }, [persistLayout])
-
-  const flushPendingLayoutSave = useCallback((sid: string | null): void => {
-    if (!saveTimerRef.current) return
-    clearTimeout(saveTimerRef.current)
-    saveTimerRef.current = null
-
-    const api = apiRef.current
-    if (!api || !sid) return
-    persistLayout(sid, api.toJSON())
-  }, [persistLayout])
+  }, [])
 
   const buildDefaultLayout = useCallback((api: DockviewApi) => applyDefaultLayout(api), [])
-  const buildMinimalLayout = useCallback((api: DockviewApi) => applyMinimalPanels(api), [])
 
   const ctx = useMemo<DockLayoutCtx>(() => ({
     apiRef,
-    sessionIdRef,
     editorPanelIdsRef,
     nextEditorPanelIndexRef,
     closedPanelSnapshots,
-    sidebarWidthsRef,
+    sidebarWidthRef,
+    dockWidthRef,
+    dockResizeObserverRef,
     lastLayoutRef,
     refs,
     saveLayout,
@@ -169,6 +162,9 @@ export function useDockLayout(
   const closeSiblingPanel = useCallback((sessionId: string): void => {
     const api = apiRef.current
     if (!api) return
+    // Mark before removing so the auto-tab effect (useAgentSiblingDockTabs),
+    // which re-runs on any dock change, doesn't immediately recreate the tab.
+    markAgentTabDismissed(sessionId)
     const panel = api.getPanel(siblingPanelId(sessionId))
     if (panel) api.removePanel(panel)
   }, [])
@@ -176,6 +172,8 @@ export function useDockLayout(
   const openSiblingPanel = useCallback((sessionId: string, title?: string, _referencePanelId?: string): void => {
     const api = apiRef.current
     if (!api) return
+    // Reopening clears any earlier hide, so the auto-tab effect keeps it around.
+    clearAgentTabDismissed(sessionId)
     const panelId = siblingPanelId(sessionId)
     let panel = api.getPanel(panelId)
     if (!panel) {
@@ -208,8 +206,7 @@ export function useDockLayout(
     // Plugin webview panes open in the editor area — the same spot the editor
     // pane occupies. When a file is open, tab into the editor's group. When no
     // editor is open, take the editor's place to the right of the agent and
-    // split that region 50/50, leaving the sidebars at their pinned widths
-    // (so they stay 1/6 each and agent/pane get 2/6 each).
+    // split that region 50/50, leaving the sidebar at its pinned width.
     const editorPanelId = findOpenEditorPanelId(api)
     if (editorPanelId) {
       api.addPanel({ id: viewId, component: 'pluginView', title, position: { referencePanel: editorPanelId, direction: 'within' } })
@@ -243,47 +240,17 @@ export function useDockLayout(
   const { ensureEditorPanel, splitEditorPane, findEditorPanelForSplit } = useEditorPanels(ctx, focusPanel)
   const { togglePanel, closePanel, toggleMaximizePanel, isPanelVisible, resetLayout } = useDockActions(ctx, ensureEditorPanel, buildDefaultLayout)
 
+  // Runs once per window: the layout is loaded here and never reloaded, so no
+  // agent switch can rearrange it.
   const onReady = useCallback((api: DockviewApi) => {
     apiRef.current = api
 
-    const sid = sessionIdRef.current
-    if (sid) {
-      void loadOrBuildLayout(api, sid, buildDefaultLayout, refs, liveSiblingIds()).then(() => {
-        reconcileLayoutAfterLoad(api, ctx)
-      })
-    } else {
-      applyMinimalLayout(api, buildMinimalLayout, refs)
-      syncPanels(api)
-      sidebarWidthsRef.current = getSidebarWidths(api)
-      bumpVersion()
-    }
-
-    registerLayoutListeners(api, ctx)
-  }, [buildDefaultLayout, buildMinimalLayout, bumpVersion, syncPanels, liveSiblingIds, ctx]) // eslint-disable-line react-hooks/exhaustive-deps
-
-  const prevSessionRef = useRef(sessionId)
-  useEffect(() => {
-    const previousSessionId = prevSessionRef.current
-    if (sessionId === previousSessionId) return
-    prevSessionRef.current = sessionId
-
-    const api = apiRef.current
-    if (!api) return
-
-    flushPendingLayoutSave(previousSessionId)
-
-    if (!sessionId) {
-      applyMinimalLayout(api, buildMinimalLayout, refs)
-      syncPanels(api)
-      sidebarWidthsRef.current = getSidebarWidths(api)
-      bumpVersion()
-      return
-    }
-
-    void loadOrBuildLayout(api, sessionId, buildDefaultLayout, refs, liveSiblingIds()).then(() => {
+    void loadOrBuildLayout(api, buildDefaultLayout, refs, liveSiblingIds()).then(() => {
       reconcileLayoutAfterLoad(api, ctx)
     })
-  }, [sessionId, buildDefaultLayout, buildMinimalLayout, bumpVersion, syncPanels, liveSiblingIds, ctx, flushPendingLayoutSave]) // eslint-disable-line react-hooks/exhaustive-deps
+
+    registerLayoutListeners(api, ctx)
+  }, [buildDefaultLayout, liveSiblingIds, ctx]) // eslint-disable-line react-hooks/exhaustive-deps
 
   // Clear any pending debounced save on unmount so it can't fire api.toJSON()
   // on a disposed dockview (onboarding<->main transitions, StrictMode remount).
@@ -294,9 +261,6 @@ export function useDockLayout(
     }
   }, [])
 
-  const hiddenPanels = PANEL_IDS
-    .filter((id) => !LAUNCHER_MODULE_IDS.has(id))
-    .filter((id) => !isPanelVisible(id)) as DockPanelId[]
   const editorPanelIds = Array.from(editorPanelIdsRef.current).sort((left, right) => (
     parseEditorPanelOrder(left) - parseEditorPanelOrder(right)
   ))
@@ -305,7 +269,7 @@ export function useDockLayout(
     apiRef, isRestoringRef, onReady, togglePanel, closePanel, toggleMaximizePanel, focusPanel,
     openSiblingPanel, closeSiblingPanel,
     ensureEditorPanel, splitEditorPane, findEditorPanelForSplit, isPanelVisible,
-    resetLayout, hiddenPanels, editorPanelIds, layoutVersion, layoutReloadVersion,
+    resetLayout, editorPanelIds, layoutVersion, layoutReloadVersion,
     openPluginView, openPluginTreeView,
   }
 }

@@ -1,20 +1,22 @@
 ---
 description: How Manifold creates, lists, and removes git worktrees, checks out branches/PRs, persists per-session worktree meta, and runs raw git/gh for commits, diffs, and PR creation.
 covers: [src/main/git]
-updated: 2026-07-15
+updated: 2026-08-03
 owner: see .github/CODEOWNERS
 ---
 
 # Git — worktrees, branches, and raw git/gh exec
 
-Every agent session that runs against a git project lives in its own *worktree*: a
-checked-out working tree on a fresh branch, parked under the user's storage path rather
-than inside the repo. This subsystem owns the lifecycle of those worktrees (create,
-list, remove), branch/PR checkout, the durable per-worktree *meta* sidecar that makes
-sessions rediscoverable, the "managed worktree" guards that keep agent scratch files out
-of the index, and thin wrappers over `git`/`gh` for diffing, committing, and opening PRs.
-The session layer (`src/main/session`) calls into all of it; this code never touches the
-session map.
+Work that isn't in a repo's own clone happens in a *worktree*: a checked-out working tree on a
+fresh branch, parked under the user's storage path rather than inside the repo. A worktree
+belongs to a **workspace**, not to an agent — the workspace cuts one per repo when it is created
+and removes them when it is removed, and every agent in it works there
+(`src/main/workspace/workspace-manager.ts:38`, `:69`). This subsystem owns the lifecycle of
+those worktrees (create, list, remove), branch/PR checkout, the durable per-worktree *meta*
+sidecar that makes sessions rediscoverable, the "managed worktree" guards that keep agent
+scratch files out of the index, and thin wrappers over `git`/`gh` for diffing, committing, and
+opening PRs. It is called from `src/main/workspace` (create/remove) and `src/main/session`
+(checkout, meta, commit); this code never touches the session map.
 
 ## Covered code
 
@@ -141,9 +143,10 @@ accepts the stored PR URL and parses `gh pr view <url> --json state,mergedAt`, t
 
 ## Interactions
 
-- **Session** (`src/main/session`): the primary consumer. `SessionCreator` calls `WorktreeManager.createWorktree` / `BranchCheckoutManager.createWorktreeFromBranch` (`session-creator.ts:80`) and `writeWorktreeMeta`; `SessionDiscovery` rebuilds dormant sessions from `WorktreeManager.listWorktrees` + `readWorktreeMeta`; `SessionKiller` calls `removeWorktree`; teardown uses `commitManagedWorktree` and base checkout.
+- **Workspace** (`src/main/workspace`): owns worktree *lifetime*. `WorkspaceManager.create` / `addProject` call `createWorktree` through `buildWorkspaceWorkingSet`, and `remove` / `removeProject` call `removeWorktree` through `removeWorkspaceWorktrees` (`workspace-worktrees.ts:48`, `:81`).
+- **Session** (`src/main/session`): the other consumer, but no longer a creator or remover on the ordinary path. `SessionCreator` reads meta and checks out branches, and still calls `createWorktree` / `createWorktreeFromBranch` for direct IPC/plugin callers; `SessionDiscovery` rebuilds dormant sessions from `WorktreeManager.listWorktrees` + `readWorktreeMeta`; teardown uses `commitManagedWorktree` and base checkout. `SessionKiller` calls neither `removeWorktree` nor `deleteBranch` (`session-killer.ts:28`).
 - **Wiring** (`src/main/app/index.ts:55`): the singletons are constructed at startup — `WorktreeManager`/`BranchCheckoutManager` get `settingsStore.getSettings().storagePath`; `DiffProvider`, `PrCreator`, `GitOperationsManager` are parameterless — and threaded into the IPC dependency bag.
-- **IPC** (`src/main/ipc/git-handlers.ts`): `diff:get`/`diff:file-original` → `DiffProvider`; `pr:create` → `PrCreator.createPR` (then `verdictRecorder.onPrCreated`, `git-handlers.ts:55`); `git:commit`/`git:ai-generate`/`git:ahead-behind`/`git:resolve-conflict`/`git:pr-context`/`git:fetch`/`git:staleness` → `GitOperationsManager`. Branch/PR listing rides `agent-handlers.ts` (`branch:list`, `pr:list-open`, `pr:fetch-branch` → `branchCheckout.*`, `agent-handlers.ts:324`). All handlers short-circuit to empty results / throw for non-git (folder) projects via `isGitProject`.
+- **IPC** (`src/main/ipc/git-handlers.ts`): `diff:get`/`diff:file-original` → `DiffProvider`; `pr:create` → `PrCreator.createPR` (then `verdictRecorder.onPrCreated`, `git-handlers.ts:55`); `git:commit`/`git:ai-generate`/`git:ahead-behind`/`git:resolve-conflict`/`git:pr-context`/`git:fetch`/`git:staleness` → `GitOperationsManager`; `git:workspace-status` reads each workspace checkout's branch (`gitExec` rev-parse) and porcelain status (the file watcher's `gitStatus`/`parseStatusWithConflicts`) for the renderer's Source Control panel, whose commit input and branch switcher land on `git:workspace-commit` (→ `gitOps.commit`) and `git:workspace-checkout` (a `withRepoLock`-serialized `git checkout [-b]` in the checkout path); clicking a changed file fetches `git:workspace-file-diff` (`git diff HEAD -- <file>` + `git show HEAD:<file>`) so the editor diffs the working tree against HEAD, VS Code's SCM-click behavior. Branch/PR listing rides `agent-handlers.ts` (`branch:list`, `pr:list-open`, `pr:fetch-branch` → `branchCheckout.*`, `agent-handlers.ts:324`). All handlers short-circuit to empty results / throw for non-git (folder) projects via `isGitProject`.
 - **File watcher** (`src/main/fs/file-watcher.ts:131`): uses `isMissingGitError` to disable git polling when the `git` binary is absent.
 - **Agent runtimes** (`src/main/agent`): `GitOperationsManager.aiGenerate` builds its command with `buildAiRuntimeCommand` and parses output via `parseAiRuntimeOutput` / `parseAiRuntimeFailure`.
 

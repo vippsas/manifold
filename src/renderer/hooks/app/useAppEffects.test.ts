@@ -37,7 +37,6 @@ function createInput(activeSessionId: string | null = 'session-1') {
         findEditorPanelForSplit: vi.fn(() => null),
         isPanelVisible: vi.fn(() => true),
         resetLayout: vi.fn(),
-        hiddenPanels: [],
         editorPanelIds: ['editor'],
         layoutVersion: 0,
         layoutReloadVersion: 0,

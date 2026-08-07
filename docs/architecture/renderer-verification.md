@@ -1,7 +1,7 @@
 ---
 description: How an agent self-verifies renderer/theme changes — screenshot a single component under a real theme with no Electron, and drive the built app for flow-level checks. Covers the two scripts, their engine choices, the fixture convention, and how they reuse the app's theme conversion.
 covers: [scripts/screenshot-component.mjs, scripts/drive-app.mjs]
-updated: 2026-07-08
+updated: 2026-07-31
 owner: see .github/CODEOWNERS
 ---
 
@@ -52,7 +52,12 @@ Pipeline (all steps but the capture are pure and unit-tested in
    with the available list.
 3. **Bundle.** esbuild compiles a tiny entry (React + the target + `theme.css`) into a browser
    IIFE; the theme's CSS variables are injected via `define` and applied with the app's own
-   `applyThemeCssVars`.
+   `applyThemeCssVars`. Fonts that `theme.css` `@font-face`s (the Seti icon font) are inlined as
+   data URLs, so a webfont can't break the bundle or go missing in the capture. `asset?url`
+   imports — an electron-vite feature esbuild has no equivalent for — resolve to an empty string
+   via the `urlImportStub` plugin; without it a component that transitively imports one (the PDF
+   worker behind the code viewer) fails to bundle at all, and a capture never fetches the asset
+   anyway (`screenshot-component.mjs:153`).
 4. **Assemble** a self-contained HTML page: a default `window.electronAPI` stub (every `invoke`
    resolves `[]`), the bundled CSS, a themed mount point, and the bundle.
 5. **Capture** with headless Chromium (`page.screenshot`), or with `--emit-html` write the page
@@ -65,6 +70,11 @@ Most components need props and a main-process bridge, so they can't render bare.
 zero-arg component) and may override `window.electronAPI` for specific data. See
 [`NewAgentForm.fixture.tsx`](../../src/renderer/components/modals/NewAgentForm.fixture.tsx).
 Prop-less components (e.g. `ManifoldWordmark`) render with no fixture.
+
+A fixture can also compose a whole screen rather than one control:
+[`OnboardingView.fixture.tsx`](../../src/renderer/components/modals/OnboardingView.fixture.tsx)
+captures the start view as the user meets it — wordmark, starfield and the new-agent cards
+together — which `NewAgentHero.fixture.tsx` alone can't show.
 
 ### Flags
 

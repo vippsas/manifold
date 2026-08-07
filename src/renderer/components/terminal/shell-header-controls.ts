@@ -1,12 +1,13 @@
-import type { ExtraShell, ShellMode } from './shell-tabs-hooks'
+import type { ShellMode } from './shell-terminal-store'
 
+/** What the dock header shows for the Shell panel: the +/chevron split button
+ *  and a close (×) that hides the whole terminal view (the shell panel). The
+ *  terminals stay alive in the store, so reopening the panel shows them again.
+ *  Killing an individual terminal is a per-row trash in the list (`ShellTabs`). */
 export interface ShellHeaderControls {
-  activeTab: string
   canAddShell: boolean
-  extraShells: ExtraShell[]
-  onSetActiveTab: (tab: string) => void
-  onRemoveShell: (id: string) => void
   onAddShell: (mode: ShellMode) => void
+  onHideTerminals: () => void
 }
 
 let currentControls: ShellHeaderControls | null = null

@@ -1,5 +1,4 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
-import type { SearchMode } from '../../../shared/search-types'
 import type { UseDockLayoutResult } from '../dock-layout/useDockLayout'
 import type { SpawnAgentOptions } from '../../../shared/types'
 import type { PendingLaunchAction } from '../../../shared/mode-switch-types'
@@ -16,33 +15,20 @@ interface AppEffectsInput {
 }
 
 export interface AppEffectsResult {
-  searchFocusRequestKey: number
-  requestedSearchMode: SearchMode | null
   showOnboarding: boolean
   setShowOnboarding: (show: boolean) => void
   creatingProject: boolean
   setCreatingProject: (v: boolean) => void
   cloningProject: boolean
   setCloningProject: (v: boolean) => void
-  focusSearch: (mode: SearchMode) => void
   handleFilesChanged: () => void
 }
 
 export function useAppEffects(input: AppEffectsInput): AppEffectsResult {
-  const [searchFocusRequestKey, setSearchFocusRequestKey] = useState(0)
-  const [requestedSearchMode, setRequestedSearchMode] = useState<SearchMode | null>(null)
   const [showOnboarding, setShowOnboarding] = useState(false)
   const [creatingProject, setCreatingProject] = useState(false)
   const [cloningProject, setCloningProject] = useState(false)
   const agentRefreshTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
-
-  // Focus the title-bar search omnibox. The bumped request key + requested
-  // mode are forwarded to TitleBarSearch, which focuses its input and switches
-  // scope. (There is no longer a separate Search dock panel.)
-  const focusSearch = useCallback((mode: SearchMode) => {
-    setRequestedSearchMode(mode)
-    setSearchFocusRequestKey((prev) => prev + 1)
-  }, [])
 
   const openDeveloperLaunch = useCallback((projectId: string, branchName?: string, runtimeId?: string, noWorktree?: boolean) => {
     input.setActiveProject(projectId)
@@ -139,15 +125,12 @@ export function useAppEffects(input: AppEffectsInput): AppEffectsResult {
   }, [input.refreshDiff, input.refreshOpenFiles])
 
   return {
-    searchFocusRequestKey,
-    requestedSearchMode,
     showOnboarding,
     setShowOnboarding,
     creatingProject,
     setCreatingProject,
     cloningProject,
     setCloningProject,
-    focusSearch,
     handleFilesChanged,
   }
 }

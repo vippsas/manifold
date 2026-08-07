@@ -1,7 +1,7 @@
 import React from 'react'
 import type { AgentSession } from '../../../shared/types'
 import { modalStyles } from './NewTaskModal.styles'
-import { runtimeLabel } from '../sidebar/AgentItem'
+import { runtimeLabel } from '../sidebar/agent-labels'
 import { DockStateContext } from '../editor/editor-shell/dock-panel-types'
 
 function basename(input: string): string {
@@ -33,7 +33,7 @@ export function ReusableSessionsCard({ projectPath, sessions, onResumeSession, o
   return (
     <section style={modalStyles.infoCard}>
       <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', gap: 'var(--space-sm)' }}>
-        <div style={modalStyles.infoCardTitle}>Existing worktrees</div>
+        <div style={modalStyles.infoCardTitle}>Agents you can resume</div>
         {dockState?.onOpenDashboard && (
           <button
             type="button"
@@ -45,7 +45,7 @@ export function ReusableSessionsCard({ projectPath, sessions, onResumeSession, o
         )}
       </div>
       <div style={modalStyles.infoCardText}>
-        Managed worktrees already exist for this repository. You can reconnect to one or remove it before starting a new agent.
+        These agents have finished but their work is still here. Pick one up where it left off, or delete it.
       </div>
       <div style={modalStyles.infoCardList}>
         {sessions.map((session) => {

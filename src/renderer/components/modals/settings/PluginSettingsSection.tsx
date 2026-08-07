@@ -162,7 +162,7 @@ export function PluginSettingsSection(): React.JSX.Element {
               </label>
             </div>
             {!plugin.enabled && (
-              <div style={disabledNoteStyle}>Disabled — hidden from + Apps</div>
+              <div style={disabledNoteStyle}>Disabled — hidden from the agent's Apps</div>
             )}
 
             {/* Config fields — only shown when enabled and config exists */}

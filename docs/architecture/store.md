@@ -1,7 +1,7 @@
 ---
 description: How Manifold persists app and user state on disk — settings/config, the project registry, per-session view/chat/verdict state — and which JSON file owns which slice.
 covers: [src/main/store]
-updated: 2026-07-01
+updated: 2026-08-06
 owner: see .github/CODEOWNERS
 ---
 
@@ -23,9 +23,10 @@ once at startup in `src/main/app/index.ts` and reached through IPC handlers.
 - `src/main/store/verdict-store.ts` — `VerdictStore`: per-session run verdicts (`verdicts.json`), keyed by `sessionId`, evicted per project past a cap.
 - `src/main/store/chat-store.ts` — `ChatStore`: per-session chat history as one file per session under `~/.manifold/chat/`, with debounced async writes and a sync flush on quit.
 - `src/main/store/view-state-store.ts` — `ViewStateStore`: editor/explorer view state per session (`view-state.json`).
-- `src/main/store/dock-layout-store.ts` — `DockLayoutStore`: opaque dockview layout per session (`dock-layout.json`).
+- `src/main/store/dock-layout-store.ts` — `DockLayoutStore`: the window's one opaque dockview layout (`dock-layout.json`).
+- `src/main/store/active-workspace-store.ts` — `ActiveWorkspaceStore`: the last selected workspace id (`active-workspace.json`).
 - `src/main/store/search-view-store.ts` — `SearchViewStore`: recent/saved searches per project (`search-view-state.json`).
-- `src/main/store/shell-tab-store.ts` — `ShellTabStore`: saved terminal tabs per agent (`shell-tabs.json`).
+- `src/main/store/shell-tab-store.ts` — `ShellTabStore`: saved terminal tabs per workspace checkout path (`shell-tabs.json`).
 - `src/main/store/dismissed-agents-store.ts` — `DismissedAgentsStore`: branches whose agent entry the user explicitly deleted (`dismissed-agents.json`), keyed by project id, so session discovery won't resurrect them from branch state (#679).
 - `src/main/store/prompt-summarizer.ts` — `summarizeMiddle()`: a stateless helper (no file) that compresses the middle of long task prompts for the verdict recorder.
 - `src/main/store/atomic-write.ts` — `writeFileAtomicSync(file, data)`: shared tmp-file + `rename` helper used by every whole-file store so a crash mid-write leaves the previous file intact.
@@ -44,7 +45,7 @@ unparseable, or the wrong shape — a missing file is never an error, just an em
 then call `writeToDisk()`, which `mkdirSync`s the config dir and writes the whole structure
 back with `JSON.stringify(..., null, 2)` through `writeFileAtomicSync` — a tmp-file + `rename`
 so a crash mid-write cannot truncate the file (`settings-store.ts:83`, `project-registry.ts:43`,
-`atomic-write.ts:9`). The Map-backed stores (view-state, dock-layout, search-view, shell-tab)
+`atomic-write.ts:9`). The Map-backed stores (view-state, search-view, shell-tab)
 serialize via `Object.fromEntries(this.state)` and rehydrate via
 `new Map(Object.entries(parsed))`; view-state and shell-tab additionally validate each entry's
 shape on load and drop malformed ones so a hand-edited file can never make `get()` throw
@@ -58,11 +59,11 @@ over `{ ...DEFAULT_SETTINGS }` so unknown/missing top-level keys fall back, then
 `disabledPlugins` is seeded once with the default-disabled set, guarded by a
 `pluginDefaultsSeeded` flag so a user-enabled plugin is not re-disabled on next launch
 (`settings-store.ts:38`, `:57`). `updateSettings(partial)` shallow-merges and writes
-(`settings-store.ts:90`). `getSettings()` returns a shallow copy. `useWorktrees` (default
-`true`, `defaults.ts`, `types.ts`) is the default for new agents: when `false`, the New Agent
-form spawns agents in place on a new branch (`SpawnAgentOptions.noWorktree`) instead of an
-isolated worktree; existing configs that lack the key fall back to `true` via the merge, so
-behavior is unchanged on upgrade.
+(`settings-store.ts:90`). `getSettings()` returns a shallow copy. There is no `useWorktrees`
+setting any more: an agent never chooses a worktree, since a checkout of one's own *is* a
+workspace, so the New Agent form always spawns in the repository itself
+(`SpawnAgentOptions.noWorktree`). Configs written before this still carry the key on disk; the
+merge simply ignores it.
 
 **Project registry.** `addProject()` resolves the absolute path, returns any existing
 entry with the same path, otherwise detects `kind` (`git` when
@@ -109,11 +110,16 @@ legacy file to `.bak` so the migration never re-runs and history is never delete
 on every message that caused the multi-session hang.
 
 **View / dock / search / shell stores.** Four near-identical `Map<string, T>` stores keyed
-by session id (view, dock), project id (search), or agent key (shell). They deep-copy on
+by session id (view, dock), project id (search), or workspace checkout path (shell). They deep-copy on
 `get`/`set` so callers cannot mutate the cached state through a returned reference
 (`view-state-store.ts:42`, `search-view-store.ts:55`, `shell-tab-store.ts:51`).
-`DockLayoutStore` stores the layout as opaque `unknown` — the dockview JSON is round-tripped
-verbatim, never inspected (`dock-layout-store.ts:9`).
+`DockLayoutStore` is the exception to the Map shape: it holds a single layout, written bare
+to `dock-layout.json`, because the dock arrangement belongs to the window rather than to
+whichever agent is selected (`dock-layout-store.ts:24`, `:47`). The layout is opaque
+`unknown` — the dockview JSON is round-tripped verbatim, never inspected — except for one
+load-time shape check that tells a layout (`grid` + `panels`) from the `{ sessionId: layout }`
+map the file held while layouts were per agent; such a map has no single layout to pick out
+of it, so it is dropped and the default rebuilt once (`dock-layout-store.ts:12`, `:37`).
 
 ## Key types and entry points
 
@@ -121,7 +127,9 @@ verbatim, never inspected (`dock-layout-store.ts:9`).
 - `ProjectRegistry` — `project-registry.ts:13`. `listProjects`, `addProject`, `removeProject`, `getProject`, `updateProject`. Owns `projects.json`. `Project` type at `shared/types.ts:46`.
 - `VerdictStore` — `verdict-store.ts:9`. `upsert`, `getBySessionId`, `listByProject`, `deleteByProject`. Owns `verdicts.json`. `VerdictRecord` at `shared/verdict-types.ts`.
 - `ChatStore` — `chat-store.ts:38`. `get`, `set`, `delete`, `deleteByProject`, `flush`, `flushSync`. Owns `~/.manifold/chat/<hash>.json`.
-- `ViewStateStore` / `DockLayoutStore` / `SearchViewStore` / `ShellTabStore` — `get`/`set`(/`delete`). Own `view-state.json`, `dock-layout.json`, `search-view-state.json`, `shell-tabs.json`.
+- `ViewStateStore` / `SearchViewStore` / `ShellTabStore` — `get`/`set`(/`delete`), keyed per session/project/checkout path. Own `view-state.json`, `search-view-state.json`, `shell-tabs.json`.
+- `DockLayoutStore` — `dock-layout-store.ts:24`. `get()` / `set(layout)`, no key and no `delete`: one layout for the window. Owns `dock-layout.json`.
+- `ActiveWorkspaceStore` — `active-workspace-store.ts:13`. `get()` / `set(workspaceId)` for a single `string | null`, written as `{ workspaceId }` (`active-workspace-store.ts:39`). Owns `active-workspace.json`; the renderer reaches it through `workspace:get-active`/`workspace:set-active` and validates the id against the live workspace list before restoring it (`src/renderer/hooks/project/usePersistedActiveWorkspace.ts:27`), so a workspace deleted while the app was closed falls back to `null`.
 - `DismissedAgentsStore` — `dismissed-agents-store.ts:17`. `add`, `has`, `delete`, `deleteProject`. Owns `dismissed-agents.json`. Written by `agent:kill` for `noWorktree` deletes (`agent-handlers.ts:107`), read by `SessionDiscovery` (`session-discovery.ts:140`, `:222`), cleared per branch on session create (`session-lifecycle.ts:84`) and per project on removal (`project-handlers.ts:195`, `agent-handlers.ts:169`).
 - `summarizeMiddle(middle, settings, fetchImpl?)` — `prompt-summarizer.ts:17`. OpenAI/Azure chat completion with a 10 s timeout; falls back to `[middle omitted — N chars]` on any error or `provider: 'none'`.
 
@@ -143,4 +151,4 @@ verbatim, never inspected (`dock-layout-store.ts:9`).
 - **Chat writes are debounced and timer-`unref`'d.** Pending chat writes are lost on a hard crash; only the `before-quit` `flushSync()` guarantees durability. The unref'd timer means the flush never keeps the app alive on its own (`chat-store.ts:138`).
 - **`getSettings()` returns a copy, not a live reference.** Callers that cache it (e.g. `WorktreeManager` taking `storagePath` once at startup, `app/index.ts:55`) will not see later `storagePath` changes without re-reading.
 - **Verdict eviction is per project, on insert only.** Updates to an existing `sessionId` never evict; only appends do, and only that project's records are pruned (`verdict-store.ts:46`). A whole project's records are dropped only via `deleteByProject`, wired into project removal (`project-handlers.ts:183`, `agent-handlers.ts:250`).
-- **Session-scoped state is evicted on session/project removal.** `view-state` and `dock-layout` entries are deleted together wherever a session is killed (`agent-handlers.ts:115`, `:130`, `:142`; `settings-handlers.ts`'s `view-state:delete`), so neither file grows without bound. Agent dismissals are likewise lifted on recreate (`session-lifecycle.ts:84`) and purged on project removal (`project-handlers.ts:195`).
+- **Session-scoped state is evicted on session/project removal.** `view-state` entries are deleted wherever a session is killed (`agent-handlers.ts:135`, `:164`, `:178`, `:189`; `settings-handlers.ts`'s `view-state:delete`), so the file can't grow without bound. `dock-layout.json` needs no such eviction — it holds one layout, not one per session. Agent dismissals are likewise lifted on recreate (`session-lifecycle.ts:84`) and purged on project removal (`project-handlers.ts:195`).

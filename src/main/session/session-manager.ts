@@ -1,4 +1,4 @@
-import type { AgentSession, ShellPromptSegments, SpawnAgentOptions } from '../../shared/types'
+import type { AgentSession, AgentSettingsUpdate, ShellPromptSegments, SpawnAgentOptions } from '../../shared/types'
 import { WorktreeManager } from '../git/worktree-manager'
 import { BranchCheckoutManager } from '../git/branch-checkout-manager'
 import { PtyPool } from '../agent/pty-pool'
@@ -27,6 +27,7 @@ import { SessionIoController } from './session-io-controller'
 import type { VerdictRecorder } from './verdict-recorder'
 import type { DismissedAgentsStore } from '../store/dismissed-agents-store'
 import { sendSessionManagerRendererEvent } from './session-manager-renderer'
+import { getRuntimeById } from '../agent/runtimes'
 
 export class SessionManager {
   private sessions: Map<string, InternalSession> = new Map()
@@ -108,8 +109,6 @@ export class SessionManager {
     this.killer = new SessionKiller({
       sessions: this.sessions,
       ptyPool: this.ptyPool,
-      worktreeManager: this.worktreeManager,
-      projectRegistry: this.projectRegistry,
       getFileWatcher: () => this.fileWatcher,
       getMemoryCapture: () => this.memoryCapture,
       getChatAdapter: () => this.chatAdapter,
@@ -199,8 +198,6 @@ export class SessionManager {
 
   async killSession(sessionId: string): Promise<void> { await this.killer.killSession(sessionId) }
 
-  async killAllSessionsOnWorktree(worktreePath: string): Promise<void> { await this.killer.killAllSessionsOnWorktree(worktreePath) }
-
   async resumeSession(sessionId: string, runtimeId: string): Promise<AgentSession> { return this.lifecycle.resumeSession(sessionId, runtimeId) }
 
   async renameSession(sessionId: string, displayName: string): Promise<AgentSession> {
@@ -214,6 +211,56 @@ export class SessionManager {
     this.verdictRecorder?.onSessionTitleChanged(sessionId, nextName)
     this.notifySessionsChanged(session.projectId)
     return toPublicSession(session)
+  }
+
+  async configureSession(sessionId: string, settings: AgentSettingsUpdate): Promise<AgentSession> {
+    const session = this.sessions.get(sessionId)
+    if (!session) throw new Error(`Session not found: ${sessionId}`)
+
+    const displayName = settings.displayName.trim()
+    if (!displayName) throw new Error('Agent name cannot be empty')
+    if (!getRuntimeById(settings.runtimeId)) throw new Error(`Runtime not found: ${settings.runtimeId}`)
+
+    const nonInteractive = settings.viewMode === 'chat'
+    const mustRestart = session.runtimeId !== settings.runtimeId
+      || Boolean(session.nonInteractive) !== nonInteractive
+
+    if (!mustRestart) {
+      session.displayName = displayName
+      persistSessionMeta(session)
+      this.verdictRecorder?.onSessionTitleChanged(sessionId, displayName)
+      this.notifySessionsChanged(session.projectId)
+      return toPublicSession(session)
+    }
+
+    const previous = { ...session }
+    this.chatAdapter?.clearSession(sessionId, true, previous.worktreePath)
+    this.killer.retireSession(sessionId)
+
+    const replacement = await this.lifecycle.createSession({
+      projectId: previous.projectId,
+      runtimeId: settings.runtimeId,
+      prompt: '',
+      existingWorktreePath: previous.worktreePath,
+      noWorktree: previous.noWorktree,
+      nonInteractive,
+      simpleTemplateTitle: previous.simpleTemplateTitle,
+      simplePromptInstructions: previous.simplePromptInstructions,
+      additionalDirs: previous.additionalDirs,
+      workspaceId: previous.workspaceId,
+      workspaceWorktreePaths: previous.workspaceWorktreePaths,
+      groupId: previous.groupId,
+    })
+    const next = this.sessions.get(replacement.id)!
+    next.displayName = displayName
+    next.taskDescription = undefined
+    next.baseBranch = previous.baseBranch
+    persistSessionMeta(next)
+    this.verdictRecorder?.onSessionTitleChanged(next.id, displayName)
+    this.fileWatcher?.watch(next.worktreePath, next.id)
+    for (const dir of next.additionalDirs) this.fileWatcher?.watchAdditionalDir(dir, next.id)
+    this.notifySessionsChanged(next.projectId)
+    return toPublicSession(next)
   }
 
   async setSessionLocked(sessionId: string, locked: boolean): Promise<AgentSession> {

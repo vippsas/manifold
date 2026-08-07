@@ -2,31 +2,50 @@
    Applied alongside dockview-theme-dark so all structural variables are inherited. */
 
 .dockview-theme-dark.dockview-theme-manifold {
-  --dv-background-color: var(--bg-primary);
+  --dv-background-color: var(--dock-canvas);
   --dv-paneview-header-border-color: rgba(255, 255, 255, 0.06);
-  --dv-tabs-and-actions-container-background-color: var(--bg-chrome);
+  /* The header strip shares the card surface — no tonal band or divider
+     under the tabs; the active tab is carried by text color alone. */
+  --dv-tabs-and-actions-container-background-color: var(--bg-primary);
   --dv-tabs-and-actions-container-height: var(--chrome-tab-height);
   --dv-tabs-and-actions-container-font-size: 1em;
-  --dv-activegroup-visiblepanel-tab-background-color: var(--bg-chrome-active);
-  --dv-activegroup-hiddenpanel-tab-background-color: var(--bg-chrome);
-  --dv-inactivegroup-visiblepanel-tab-background-color: var(--bg-chrome);
-  --dv-inactivegroup-hiddenpanel-tab-background-color: var(--bg-chrome);
-  --dv-tab-divider-color: rgba(255, 255, 255, 0.04);
+  --dv-activegroup-visiblepanel-tab-background-color: var(--bg-primary);
+  --dv-activegroup-hiddenpanel-tab-background-color: var(--bg-primary);
+  --dv-inactivegroup-visiblepanel-tab-background-color: var(--bg-primary);
+  --dv-inactivegroup-hiddenpanel-tab-background-color: var(--bg-primary);
+  --dv-tab-divider-color: transparent;
   --dv-activegroup-visiblepanel-tab-color: var(--text-primary);
   --dv-activegroup-hiddenpanel-tab-color: var(--text-muted);
   --dv-inactivegroup-visiblepanel-tab-color: var(--text-secondary);
   --dv-inactivegroup-hiddenpanel-tab-color: var(--text-muted);
-  --dv-separator-border: var(--divider);
+  /* Dockview draws this as a straight full-height line down the left edge of
+     every view but the first (.dv-view:not(:first-child)::before), which cuts
+     across the rounded card corners below. The card border is the divider. */
+  --dv-separator-border: transparent;
   --dv-group-view-background-color: var(--bg-primary);
   --dv-drag-over-background-color: var(--accent-subtle, rgba(0, 122, 204, 0.15));
   --dv-drag-over-border-color: var(--accent);
 }
 
-/* Thin sash (resize handle) between panel groups — 1px visible line, 8px grab zone */
+/* Rounded panel cards — each group floats on the recessed canvas
+   (--dock-canvas); the theme's group gap provides the breathing room. The
+   border is a soft white-alpha hairline (not the structural --border grey),
+   so the card reads as a modern elevated surface. */
+.dockview-theme-manifold .dv-groupview {
+  overflow: hidden;
+  border-radius: var(--radius-lg);
+  border: 1px solid rgba(255, 255, 255, 0.07);
+  background: var(--bg-primary);
+}
+.dockview-theme-manifold .dv-groupview.dv-active-group {
+  border-color: rgba(255, 255, 255, 0.14);
+}
+
+/* Resize handles — invisible inside the group gap; the card edges already
+   read as the divider. 1px element, widened grab zone below. */
 .dockview-theme-manifold .dv-split-view-container.dv-horizontal > .dv-sash-container > .dv-sash,
 .dockview-theme-manifold .dv-split-view-container.dv-vertical > .dv-sash-container > .dv-sash {
-  --grip-color: var(--text-muted);
-  background: var(--divider);
+  background: transparent;
 }
 .dockview-theme-manifold .dv-split-view-container.dv-horizontal > .dv-sash-container > .dv-sash {
   width: 1px;
@@ -35,27 +54,26 @@
   height: 1px;
 }
 
-/* Grip dots — three subtle dots centered on the divider as a discoverable resize affordance */
+/* Hover affordance — the divider lights up end to end in the accent, the way
+   VS Code's sash does, so the whole edge reads as grabbable rather than just
+   the middle of it. */
 .dockview-theme-manifold .dv-split-view-container.dv-horizontal > .dv-sash-container > .dv-sash::after,
 .dockview-theme-manifold .dv-split-view-container.dv-vertical > .dv-sash-container > .dv-sash::after {
   content: '';
   position: absolute;
   top: 50%;
   left: 50%;
-  width: 3px;
-  height: 3px;
-  border-radius: 50%;
-  background: var(--grip-color);
   transform: translate(-50%, -50%);
+  background: transparent;
   transition: background var(--duration-normal) var(--ease-premium);
 }
-/* Vertical divider → dots stacked vertically */
 .dockview-theme-manifold .dv-split-view-container.dv-horizontal > .dv-sash-container > .dv-sash::after {
-  box-shadow: 0 -12px 0 var(--grip-color), 0 -6px 0 var(--grip-color), 0 6px 0 var(--grip-color), 0 12px 0 var(--grip-color);
+  width: 2px;
+  height: 100%;
 }
-/* Horizontal divider → dots laid out in a row */
 .dockview-theme-manifold .dv-split-view-container.dv-vertical > .dv-sash-container > .dv-sash::after {
-  box-shadow: -12px 0 0 var(--grip-color), -6px 0 0 var(--grip-color), 6px 0 0 var(--grip-color), 12px 0 0 var(--grip-color);
+  width: 100%;
+  height: 2px;
 }
 
 /* Widen the invisible grab area to 12px centered on the line for an easy drag target */
@@ -142,18 +160,20 @@
   font-size: inherit;
 }
 
-/* Sash hover — use muted accent for resize handle highlight, brighten grip dots */
-.dockview-theme-manifold .dv-sash:hover {
-  background: var(--accent-dim, var(--accent));
-  transition: background var(--duration-normal) var(--ease-premium);
+/* Sash hover — fade the full-length line in with the accent metal. The
+   collapsed-edge rails keep their chevron affordance instead. */
+.dockview-theme-manifold .dv-sash:hover:not(.dv-sash--edge-left):not(.dv-sash--edge-right)::after {
+  background: var(--accent);
 }
-.dockview-theme-manifold .dv-sash:hover::after {
-  --grip-color: var(--accent);
-}
+
+/* dockview only draws a sash between two views, so a resizable divider always
+   separates real panels (e.g. sidebar | agent) — there is nothing to suppress
+   in a truly single-panel layout. The old `.dockview-minimal` rule that killed
+   every sash while no session was active only ever disabled a legitimate
+   divider, so it is gone: resizing works in every layout. */
 
 .dockview-theme-manifold .dv-tabs-and-actions-container {
   align-items: stretch;
-  background: linear-gradient(180deg, var(--bg-chrome-hi, var(--bg-chrome)) 0%, var(--bg-chrome) 100%);
   display: flex;
   flex-wrap: nowrap;
   height: var(--dv-tabs-and-actions-container-height);
@@ -179,15 +199,6 @@
   overflow: hidden;
 }
 
-/* The right file-tree sidebar's collapse button lives here (before the tabs), so
-   center it vertically in the header like the other action slots. */
-.dockview-theme-manifold .dv-tabs-and-actions-container > .dv-pre-actions-container {
-  align-items: center;
-  display: flex;
-  flex: 0 0 auto;
-  min-height: var(--dv-tabs-and-actions-container-height);
-}
-
 .dockview-theme-manifold .dv-tabs-and-actions-container > .dv-group-actions,
 .dockview-theme-manifold .dv-tabs-and-actions-container > .dv-tabs-actions,
 .dockview-theme-manifold .dv-tabs-and-actions-container > .dv-actions-container {
@@ -199,28 +210,6 @@
   min-height: var(--dv-tabs-and-actions-container-height);
 }
 
-/* Active tab highlight — an underline that fades at the edges, like a watch
-   index: one precise line of the accent metal instead of a hard border. */
-.dockview-theme-manifold .dv-tab.dv-active-tab {
-  position: relative;
-}
-.dockview-theme-manifold .dv-tab.dv-active-tab::after {
-  content: '';
-  position: absolute;
-  left: var(--space-xs);
-  right: var(--space-xs);
-  bottom: 0;
-  height: 2px;
-  border-radius: 1px;
-  pointer-events: none;
-}
-.dockview-theme-manifold .dv-groupview.dv-active-group > .dv-tabs-and-actions-container .dv-tab.dv-active-tab::after {
-  background: linear-gradient(90deg, transparent, var(--accent) 28%, var(--accent) 72%, transparent);
-}
-.dockview-theme-manifold .dv-groupview.dv-inactive-group > .dv-tabs-and-actions-container .dv-tab.dv-active-tab::after {
-  background: linear-gradient(90deg, transparent, var(--text-muted) 28%, var(--text-muted) 72%, transparent);
-}
-
 /* Panel content fills container */
 .dockview-theme-manifold .dv-groupview-content {
   background-color: var(--bg-primary);
@@ -228,6 +217,61 @@
 
 .dockview-theme-manifold .dv-tab {
   min-width: 0;
+}
+
+/* The sidebar item's icon-only tabs: tighter than text tabs, and the active
+   view is carried by the accent colour — the same active language the activity
+   bar uses, since these tabs have no label to bolden. */
+.dockview-theme-manifold .dv-tab:has(.dock-tab--icon) {
+  padding: 0 2px;
+}
+
+/* Repositories shows no tab at all (see DockTab): the header strip is left to
+   its actions, so the item is titled by the activity-bar icon that opens it
+   rather than by a second copy of that icon inside the view. */
+.dockview-theme-manifold .dv-tab:has(.dock-tab--headless) {
+  display: none;
+}
+
+/* Inset the strip so the active tab's pill clears the card's rounded corner. */
+.dockview-theme-manifold .dv-tabs-container:has(.dock-tab--icon) {
+  padding-inline: 4px;
+}
+
+/* The item's icon tabs sit centered across the header strip — the way VS Code
+   centers a sidebar's view tabs — instead of hugging the left edge, so the
+   card reads as one item switched by its tabs rather than a stack of panels.
+   dockview grows only the void container that trails the tabs, which packs them
+   left; growing the (always empty) pre-actions container ahead of them adds the
+   matching leading space, so the strip balances the tabs between the two. A
+   lone tab is not a switcher, so a single-tab card keeps its icon at the edge
+   rather than floating it mid-header. */
+.dockview-theme-manifold .dv-tabs-and-actions-container:has(.dock-tab--icon):not(.dv-single-tab) > .dv-pre-actions-container {
+  display: flex;
+  flex-grow: 1;
+}
+
+.dockview-theme-manifold .dv-active-tab .dock-tab--icon {
+  color: var(--accent);
+  background: var(--accent-subtle);
+}
+
+/* Text-tab chips: a little breathing room so adjacent chips don't touch, then
+   brighten on hover and tint with the accent when active — the chip carries the
+   current theme's accent rather than text weight alone. */
+.dockview-theme-manifold .dv-tab:has(.dock-tab):not(:has(.dock-tab--icon)):not(:has(.dock-tab--headless)) {
+  padding-inline: 2px;
+}
+
+.dockview-theme-manifold .dv-tab:hover .dock-tab:not(.dock-tab--icon):not(.dock-tab--headless) {
+  color: var(--text-primary);
+  box-shadow: inset 0 0 0 1px var(--divider);
+}
+
+.dockview-theme-manifold .dv-active-tab .dock-tab:not(.dock-tab--icon):not(.dock-tab--headless) {
+  background: var(--accent-subtle);
+  color: var(--text-primary);
+  box-shadow: inset 0 0 0 1px var(--sidebar-active-border);
 }
 
 /* Hide tab close button by default, show on tab hover */
@@ -243,10 +287,4 @@
 /* Always show close button on active tab */
 .dockview-theme-manifold .dv-default-tab.dv-active-tab .dv-default-tab-action {
   opacity: 1;
-}
-
-/* Minimal layout (no active session): hide sashes between panels */
-.dockview-theme-manifold.dockview-minimal .dv-split-view-container > .dv-sash-container > .dv-sash {
-  pointer-events: none;
-  opacity: 0;
 }

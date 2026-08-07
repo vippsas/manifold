@@ -2,12 +2,39 @@ import { describe, expect, it, vi } from 'vitest'
 import { ensureEditorPanelInWorkspace } from './dock-layout-editor'
 
 describe('ensureEditorPanelInWorkspace', () => {
-  it('adds the editor beside the agent panel when absent', () => {
+  it('adds the editor beside the agent panel', () => {
     const agentGroup = { id: 'group-agent' }
     const agentPanel = { id: 'agent', group: agentGroup }
     const addPanel = vi.fn()
     const api = {
       getPanel: vi.fn((id: string) => (id === 'agent' ? agentPanel : undefined)),
+      addPanel,
+    }
+
+    const changed = ensureEditorPanelInWorkspace(api as never)
+
+    expect(changed).toBe(true)
+    expect(addPanel).toHaveBeenCalledWith({
+      id: 'editor',
+      component: 'editor',
+      title: 'Editor',
+      inactive: true,
+      position: { referencePanel: agentPanel, direction: 'right' },
+    })
+  })
+
+  // The editor is a document pane, not a guest tab of the sidebar: an open
+  // sidebar must not divert it into a sidebar-width column.
+  it('splits beside the agent even when the sidebar is open', () => {
+    const agentPanel = { id: 'agent', group: { id: 'group-agent' } }
+    const sidebarPanel = { id: 'sidebar', group: { id: 'group-sidebar' } }
+    const addPanel = vi.fn()
+    const api = {
+      getPanel: vi.fn((id: string) => {
+        if (id === 'agent') return agentPanel
+        if (id === 'sidebar') return sidebarPanel
+        return undefined
+      }),
       addPanel,
     }
 

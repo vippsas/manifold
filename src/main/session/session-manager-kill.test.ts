@@ -79,8 +79,11 @@ describe('SessionManager — kill / interrupt / resize', () => {
     vi.useRealTimers()
   })
 
+  // A checkout belongs to the workspace that cut it, not to the agent that
+  // happens to be working there — so closing agents never removes one, however
+  // many or few are left. Only WorkspaceManager.remove does.
   describe('killSession', () => {
-    it('kills the pty and removes the worktree', async () => {
+    it('kills the pty and leaves the checkout alone', async () => {
       await sessionManager.createSession({
         projectId: 'proj-1',
         runtimeId: 'claude',
@@ -90,10 +93,7 @@ describe('SessionManager — kill / interrupt / resize', () => {
       await sessionManager.killSession('session-uuid-1')
 
       expect(ptyPool.kill).toHaveBeenCalledWith('pty-1')
-      expect(worktreeManager.removeWorktree).toHaveBeenCalledWith(
-        '/repo',
-        '/repo/.manifold/worktrees/manifold-oslo',
-      )
+      expect(worktreeManager.removeWorktree).not.toHaveBeenCalled()
       expect(sessionManager.getSession('session-uuid-1')).toBeUndefined()
     })
 
@@ -101,29 +101,14 @@ describe('SessionManager — kill / interrupt / resize', () => {
       await expect(sessionManager.killSession('nope')).rejects.toThrow('Session not found')
     })
 
-    it('still removes session even if worktree cleanup fails', async () => {
-      await sessionManager.createSession({
-        projectId: 'proj-1',
-        runtimeId: 'claude',
-        prompt: 'test',
-      })
-
-      ;(worktreeManager.removeWorktree as ReturnType<typeof vi.fn>).mockRejectedValue(
-        new Error('cleanup failed'),
-      )
-
-      await sessionManager.killSession('session-uuid-1')
-      expect(sessionManager.getSession('session-uuid-1')).toBeUndefined()
-    })
-
-    it('does not remove worktree when another session still uses the same path', async () => {
-      // Base session — owns the worktree.
+    it('keeps the checkout when the last agent working in it closes', async () => {
       await sessionManager.createSession({
         projectId: 'proj-1',
         runtimeId: 'claude',
         prompt: 'base',
       })
-      // Sibling session — joined the base's worktree (e.g. watch playlist sibling).
+      // Sibling agent — the same workspace checkout, which is now the norm
+      // rather than a special case.
       await sessionManager.createSession({
         projectId: 'proj-1',
         runtimeId: 'claude',
@@ -131,21 +116,31 @@ describe('SessionManager — kill / interrupt / resize', () => {
         existingWorktreePath: '/repo/.manifold/worktrees/manifold-oslo',
       })
 
-      // Closing the sibling tab must not remove the worktree —
-      // the base agent still depends on it.
       await sessionManager.killSession('session-uuid-2')
-
-      expect(worktreeManager.removeWorktree).not.toHaveBeenCalled()
       expect(sessionManager.getSession('session-uuid-1')).toBeDefined()
 
-      // Closing the base afterwards (last user of the path) removes the worktree.
       await sessionManager.killSession('session-uuid-1')
-      expect(worktreeManager.removeWorktree).toHaveBeenCalledWith(
-        '/repo',
-        '/repo/.manifold/worktrees/manifold-oslo',
-      )
+
+      expect(worktreeManager.removeWorktree).not.toHaveBeenCalled()
     })
 
+    it('keeps every checkout of a workspace agent that spans several repos', async () => {
+      await sessionManager.createSession({
+        projectId: 'proj-1',
+        runtimeId: 'claude',
+        prompt: 'workspace agent',
+        existingWorktreePath: '/repo/.manifold/worktrees/manifold-oslo',
+        workspaceId: 'w1',
+        workspaceWorktreePaths: {
+          'proj-1': '/repo/.manifold/worktrees/manifold-oslo',
+          'proj-2': '/other/.manifold/worktrees/manifold-oslo',
+        },
+      })
+
+      await sessionManager.killSession('session-uuid-1')
+
+      expect(worktreeManager.removeWorktree).not.toHaveBeenCalled()
+    })
   })
 
   describe('killSession — file-watcher unwatch', () => {

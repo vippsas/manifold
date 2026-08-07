@@ -140,14 +140,29 @@ ${importAndResolve}
 
 applyThemeCssVars(__CSS_VARS__)
 document.documentElement.style.colorScheme = __THEME_TYPE__
+// Mirror the app's theme class (useTheme.ts) so light/dark-specific CSS rules apply.
+document.documentElement.classList.add(__THEME_TYPE__ === 'light' ? 'theme-light' : 'theme-dark')
 createRoot(document.getElementById('root')).render(node)
 `
+}
+
+/** electron-vite turns `import url from 'asset?url'` into an emitted asset URL; esbuild has no
+ *  such concept, so any component that transitively imports one (e.g. the PDF worker behind the
+ *  code viewer) fails to bundle. Stub the specifier to an empty URL — a capture never fetches
+ *  the asset, and the alternative is not being able to screenshot the component at all. */
+export const urlImportStub = {
+  name: 'url-import-stub',
+  setup(build) {
+    build.onResolve({ filter: /\?url$/ }, (args) => ({ path: args.path, namespace: 'url-import-stub' }))
+    build.onLoad({ filter: /.*/, namespace: 'url-import-stub' }, () => ({ contents: 'export default ""', loader: 'js' }))
+  },
 }
 
 /** esbuild-bundle the entry into a browser IIFE + its CSS, the same way the renderer build
  *  handles TSX + CSS. Theme vars are injected via `define` so the bundle stays self-contained. */
 export async function bundleEntry({ repoRoot, entrySource, cssVars, type }) {
   const result = await esbuild.build({
+    plugins: [urlImportStub],
     stdin: { contents: entrySource, resolveDir: repoRoot, loader: 'tsx' },
     bundle: true,
     platform: 'browser',
@@ -163,6 +178,9 @@ export async function bundleEntry({ repoRoot, entrySource, cssVars, type }) {
     // statically undefined — expected, since we fall back to the named export. Silence just
     // that warning so real bundle problems still surface.
     logOverride: { 'import-is-undefined': 'silent' },
+    // theme.css @font-face-loads the Seti icon font by relative URL. The captured page is served
+    // from an opaque origin with no file server, so inline the font into the bundled CSS.
+    loader: { '.woff': 'dataurl', '.woff2': 'dataurl' },
     define: {
       'process.env.NODE_ENV': '"production"',
       __CSS_VARS__: JSON.stringify(cssVars),
@@ -201,6 +219,23 @@ export function renderHtml({ js, css }) {
 </head>
 <body>
 <script>
+  // setContent serves the page from an opaque origin, where touching localStorage throws a
+  // SecurityError. Components that persist UI state (sidebar section collapse, project
+  // recency) read it during render, so without a shim they crash before mounting.
+  try {
+    window.localStorage.getItem('probe')
+  } catch (e) {
+    var memory = {}
+    Object.defineProperty(window, 'localStorage', {
+      value: {
+        getItem: function (key) { return Object.prototype.hasOwnProperty.call(memory, key) ? memory[key] : null },
+        setItem: function (key, value) { memory[key] = String(value) },
+        removeItem: function (key) { delete memory[key] },
+        clear: function () { memory = {} },
+      },
+    })
+  }
+
   // Default main-process bridge stub — every invoke resolves to [] so components that call
   // window.electronAPI on mount render their initial state without a live backend. Fixtures
   // override this before rendering when they need specific data.

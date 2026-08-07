@@ -5,13 +5,20 @@ import {
   getShellHeaderControls,
   subscribeShellHeaderControls,
 } from './shell-header-controls'
-import type { ShellMode } from './shell-tabs-hooks'
-import { ShellTabControls } from './ShellTabControls'
+import type { ShellMode } from './shell-terminal-store'
 import { shellTabStyles as styles } from './ShellTabs.styles'
+
+function ChevronIcon(): React.JSX.Element {
+  return (
+    <svg aria-hidden="true" width="11" height="11" viewBox="0 0 12 12" fill="none">
+      <path d="M3 4.75L6 7.75L9 4.75" stroke="currentColor" strokeWidth="1.1" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  )
+}
 
 export function ShellHeaderActions({ activePanel }: IDockviewHeaderActionsProps): React.JSX.Element | null {
   const [menuOpen, setMenuOpen] = React.useState(false)
-  const [menuPosition, setMenuPosition] = React.useState<{ top: number; left: number } | null>(null)
+  const [menuPosition, setMenuPosition] = React.useState<{ top: number; right: number } | null>(null)
   const buttonRef = React.useRef<HTMLButtonElement>(null)
   const menuRef = React.useRef<HTMLDivElement>(null)
   const controls = React.useSyncExternalStore(
@@ -20,10 +27,12 @@ export function ShellHeaderActions({ activePanel }: IDockviewHeaderActionsProps)
     getShellHeaderControls,
   )
 
+  // Anchored by its right edge: the chevron now sits at the far end of the
+  // header strip, so a left-anchored menu would hang off the window.
   const updateMenuPosition = React.useCallback(() => {
     const rect = buttonRef.current?.getBoundingClientRect()
     if (!rect) return
-    setMenuPosition({ top: rect.bottom, left: rect.left })
+    setMenuPosition({ top: rect.bottom, right: window.innerWidth - rect.right })
   }, [])
 
   React.useLayoutEffect(() => {
@@ -53,8 +62,6 @@ export function ShellHeaderActions({ activePanel }: IDockviewHeaderActionsProps)
   }, [menuOpen, updateMenuPosition])
 
   if (!controls || activePanel?.id !== 'shell') return null
-  const showShellTabs = controls.extraShells.length > 0
-  if (!controls.canAddShell && !showShellTabs) return null
 
   const addShell = (mode: ShellMode): void => {
     setMenuOpen(false)
@@ -63,59 +70,71 @@ export function ShellHeaderActions({ activePanel }: IDockviewHeaderActionsProps)
 
   return (
     <div style={styles.headerActions}>
-      {controls.canAddShell && (
-        <div style={styles.headerAddMenu} onClick={(event) => event.stopPropagation()}>
-          <button
-            ref={buttonRef}
-            type="button"
-            style={styles.headerAddButton}
-            className="shell-header-add-button"
-            onClick={() => setMenuOpen((open) => !open)}
-            onKeyDown={(event) => {
-              if (event.key === 'Escape') setMenuOpen(false)
-            }}
-            title="New Shell"
-            aria-label="New Shell"
-            aria-haspopup="menu"
-            aria-expanded={menuOpen}
+      <div style={styles.headerAddMenu} onClick={(event) => event.stopPropagation()}>
+        <button
+          type="button"
+          style={styles.headerAddButton}
+          className="shell-header-add-button"
+          onClick={() => addShell('manifold')}
+          disabled={!controls.canAddShell}
+          title="New Terminal"
+          aria-label="New Terminal"
+        >
+          +
+        </button>
+        <button
+          ref={buttonRef}
+          type="button"
+          style={styles.headerAddChevron}
+          className="shell-header-add-button"
+          onClick={() => setMenuOpen((open) => !open)}
+          onKeyDown={(event) => {
+            if (event.key === 'Escape') setMenuOpen(false)
+          }}
+          disabled={!controls.canAddShell}
+          title="Shell options"
+          aria-label="Shell options"
+          aria-haspopup="menu"
+          aria-expanded={menuOpen}
+        >
+          <ChevronIcon />
+        </button>
+        {menuOpen && menuPosition && createPortal(
+          <div
+            ref={menuRef}
+            role="menu"
+            style={{ ...styles.shellTypeMenu, top: menuPosition.top, right: menuPosition.right }}
           >
-            +
-          </button>
-          {menuOpen && menuPosition && createPortal(
-            <div
-              ref={menuRef}
-              role="menu"
-              style={{ ...styles.shellTypeMenu, top: menuPosition.top, left: menuPosition.left }}
+            <button
+              type="button"
+              role="menuitem"
+              style={styles.shellTypeMenuItem}
+              onClick={() => addShell('manifold')}
             >
-              <button
-                type="button"
-                role="menuitem"
-                style={styles.shellTypeMenuItem}
-                onClick={() => addShell('manifold')}
-              >
-                New Manifold Shell
-              </button>
-              <button
-                type="button"
-                role="menuitem"
-                style={styles.shellTypeMenuItem}
-                onClick={() => addShell('system')}
-              >
-                New System Shell
-              </button>
-            </div>,
-            document.body,
-          )}
-        </div>
-      )}
-      {showShellTabs && (
-        <ShellTabControls
-          activeTab={controls.activeTab}
-          extraShells={controls.extraShells}
-          onSetActiveTab={controls.onSetActiveTab}
-          onRemoveShell={controls.onRemoveShell}
-        />
-      )}
+              New Manifold Shell
+            </button>
+            <button
+              type="button"
+              role="menuitem"
+              style={styles.shellTypeMenuItem}
+              onClick={() => addShell('system')}
+            >
+              New System Shell
+            </button>
+          </div>,
+          document.body,
+        )}
+      </div>
+      <button
+        type="button"
+        style={styles.headerCloseButton}
+        className="shell-header-close-button"
+        onClick={() => controls.onHideTerminals()}
+        title="Hide Terminals"
+        aria-label="Hide Terminals"
+      >
+        ×
+      </button>
     </div>
   )
 }

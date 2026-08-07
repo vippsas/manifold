@@ -1,7 +1,8 @@
 import { vi } from 'vitest'
 import { render } from '@testing-library/react'
 import React from 'react'
-import { ProjectSidebar } from './ProjectSidebar'
+import { ProjectSidebar, type ProjectSidebarProps } from './ProjectSidebar'
+import type { Workspace } from '../../../shared/workspace-types'
 import type { Project, AgentSession } from '../../../shared/types'
 
 export const mockInvoke = vi.fn()
@@ -35,33 +36,36 @@ export const sampleProjects: Project[] = [
   { id: 'p2', name: 'Beta', path: '/repos/beta', baseBranch: 'main', addedAt: '2024-01-02' },
 ]
 
+// Every repo lives in a workspace, so the default fixture is the ordinary shape:
+// two one-folder workspaces. Named apart from their folders so assertions can tell
+// a workspace row from the folder row beneath it.
+export const sampleWorkspaces: Workspace[] = [
+  { id: 'w1', name: 'alpha-space', projectIds: ['p1'], createdAt: '2024-01-01' },
+  { id: 'w2', name: 'beta-space', projectIds: ['p2'], createdAt: '2024-01-02' },
+]
+
 export const sampleSessions: AgentSession[] = [
   { id: 's1', projectId: 'p1', runtimeId: 'claude', branchName: 'alpha/oslo', worktreePath: '/wt1', status: 'running', pid: 1, additionalDirs: [] },
   { id: 's2', projectId: 'p1', runtimeId: 'codex', branchName: 'alpha/bergen', worktreePath: '/wt2', status: 'waiting', pid: 2, additionalDirs: [] },
 ]
 
-export function renderSidebar(overrides = {}) {
-  const defaultProps = {
-    width: 200,
+export function renderSidebar(overrides: Record<string, unknown> = {}) {
+  const props = {
     projects: sampleProjects,
     activeProjectId: 'p1',
-    allProjectSessions: { p1: sampleSessions, p2: [] },
-    activeSessionId: 's1',
     outputtingSessionIds: new Set<string>(),
-    onSelectProject: vi.fn(),
-    onSelectSession: vi.fn(),
-    onRemoveProject: vi.fn(),
-    onUpdateProject: vi.fn(),
-    onRenameAgent: vi.fn(),
-    onRequestDeleteAgent: vi.fn(),
-    onNewAgent: vi.fn(),
+    workspaces: sampleWorkspaces,
+    activeWorkspaceId: 'w1',
+    sessionsByWorkspace: { w1: sampleSessions, w2: [] },
     onNewProject: vi.fn(),
     onNewWorkspace: vi.fn(),
-    fetchingProjectId: null,
-    lastFetchedProjectId: null,
-    fetchResult: null,
-    fetchError: null,
-    onFetchProject: vi.fn(),
+    onSelectWorkspace: vi.fn(),
+    onRenameWorkspace: vi.fn(),
+    onRemoveWorkspace: vi.fn(async () => undefined),
+    onCopyWorkspace: vi.fn(),
+    onSelectWorkspaceRepo: vi.fn(),
+    onAddProjectToWorkspace: vi.fn(),
+    onRemoveProjectFromWorkspace: vi.fn(),
     drafts: [],
     activeDraftId: null,
     onSelectDraft: vi.fn(),
@@ -69,5 +73,5 @@ export function renderSidebar(overrides = {}) {
     ...overrides,
   }
 
-  return { ...render(<ProjectSidebar {...defaultProps} />), props: defaultProps }
+  return { ...render(<ProjectSidebar {...props as unknown as ProjectSidebarProps} />), props }
 }

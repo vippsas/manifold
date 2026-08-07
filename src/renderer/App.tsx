@@ -7,9 +7,7 @@ import { useDiff } from './hooks/editor/useDiff'
 import { useSettings } from './hooks/settings/useSettings'
 import { useCodeView } from './hooks/editor/useCodeView'
 import { useViewState } from './hooks/editor/useViewState'
-import { useShellSessions } from './hooks/terminal/useShellSession'
 import { useGitOperations } from './hooks/editor/useGitOperations'
-import { useFetchProject } from './hooks/project/useFetchProject'
 import { useBranchStaleness } from './hooks/project/useBranchStaleness'
 import { useAllProjectSessions } from './hooks/agent-session/useAllProjectSessions'
 import { useTheme } from './hooks/theme/useTheme'
@@ -28,7 +26,6 @@ import { useProjectCreateHandlers } from './hooks/project/useProjectCreateHandle
 import { useDockLayout } from './hooks/dock-layout/useDockLayout'
 import { useSidebarHandleCycle } from './hooks/dock-layout/useSidebarHandleCycle'
 import { useAgentSiblingDockTabs } from './hooks/agent-session/useAgentSiblingDockTabs'
-import { getPrimarySession } from './hooks/agent-session/agent-siblings'
 import { useAppEffects } from './hooks/app/useAppEffects'
 import { useCommands } from './hooks/app/useCommands'
 import { cycleAgent } from './commands/agent-cycle'
@@ -37,11 +34,13 @@ import type { DockPanelId } from './hooks/dock-layout/useDockLayout'
 import type { DockAppState } from './components/editor/editor-shell/dock-panel-types'
 import { buildRootLabels } from './components/editor/file-tree/file-tree-labels'
 import { useWorkspaces } from './hooks/project/useWorkspaces'
+import { usePersistedActiveWorkspace } from './hooks/project/usePersistedActiveWorkspace'
+import { DEFAULT_SIDEBAR_VIEW, type SidebarViewId } from './components/sidebar/sidebar-views'
 import { useFavorites } from './hooks/project/useFavorites'
-import type { AgentSession, ResolvedFavorite } from '../shared/types'
+import type { AgentSession, AgentSettingsUpdate, ResolvedFavorite } from '../shared/types'
 import { isGitProject } from '../shared/project-kind'
 import { clampUiScale } from '../shared/defaults'
-import { AppShell } from './AppShell'
+import { AppShell, type NewAgentTarget } from './AppShell'
 import { QuickOpen } from './components/editor/quick-open/QuickOpen'
 
 export function App(): React.JSX.Element {
@@ -57,16 +56,17 @@ export function App(): React.JSX.Element {
   const { sessions, activeSessionId, activeSession, spawnAgent, deleteAgent, setActiveSession, resumeAgent, outputtingSessionIds, rememberedActiveSessionRef } = useAgentSession(activeProjectId)
   const { drafts, activeDraft, effectiveSessionId, createDraft, discardDraft, promoteDraft } = useDraftChatCoordinator(activeSessionId, setActiveSession, spawnAgent)
   const { sessionsByProject, removeSession } = useAllProjectSessions(projects, activeProjectId, sessions)
-  const { workspaces, createWorkspace, removeWorkspace, addProject: addProjectToWorkspace, removeProject: removeProjectFromWorkspace, spawnAgent: spawnWorkspaceAgent } = useWorkspaces()
-  const [activeWorkspaceId, setActiveWorkspaceId] = useState<string | null>(null)
+  const { workspaces, createWorkspace, renameWorkspace, removeWorkspace, addProject: addProjectToWorkspace, removeProject: removeProjectFromWorkspace, spawnAgent: spawnWorkspaceAgent } = useWorkspaces()
+  const { activeWorkspaceId, setActiveWorkspaceId } = usePersistedActiveWorkspace(workspaces)
+  const [sidebarView, setSidebarView] = useState<SidebarViewId>(DEFAULT_SIDEBAR_VIEW)
+  const [newAgentTarget, setNewAgentTarget] = useState<NewAgentTarget | null>(null)
   const { favorites, isFavorite, toggleFavorite, reorderFavorites } = useFavorites(
     settings, updateSettings, projects, workspaces,
   )
   const activateFavorite = useCallback((fav: ResolvedFavorite): void => {
-    // Branches are intentionally asymmetric: the repo branch mirrors onSelectProject
-    // (clear workspace, set project; session is NOT cleared) so a ⌘-jump matches a
-    // sidebar repo click, while the workspace branch mirrors onSelectWorkspaceRepo
-    // (set home repo and clear the session).
+    // Either branch mirrors its sidebar click — a repo click and a workspace's
+    // home-folder click — and neither clears the session, so a ⌘-jump lands on
+    // the agent that folder was left on rather than on an empty pane.
     if (fav.kind === 'repo') {
       setActiveWorkspaceId(null)
       setActiveProject(fav.id)
@@ -74,64 +74,66 @@ export function App(): React.JSX.Element {
       const ws = workspaces.find((w) => w.id === fav.id)
       setActiveWorkspaceId(fav.id)
       if (ws && ws.projectIds[0]) setActiveProject(ws.projectIds[0])
-      setActiveSession(null)
     }
-  }, [workspaces, setActiveProject, setActiveSession])
+  }, [workspaces, setActiveProject])
   const jumpToFavorite = useCallback((index: number): void => {
     const fav = favorites[index]
     if (fav) activateFavorite(fav)
   }, [favorites, activateFavorite])
   const [quickOpenVisible, setQuickOpenVisible] = useState(false)
   const [newWorkspaceVisible, setNewWorkspaceVisible] = useState(false)
-  const [addProjectWorkspaceId, setAddProjectWorkspaceId] = useState<string | null>(null)
-  const suppressedProjectIds = useMemo(() => new Set<string>(), [])
+  // Every agent hangs under a workspace, because every repo does. A workspace
+  // agent names its workspace outright; an agent started against a single repo is
+  // placed by whichever workspace holds that repo.
   const sessionsByWorkspace = useMemo(() => {
     const map: Record<string, AgentSession[]> = {}
     for (const sessions of Object.values(sessionsByProject ?? {})) {
       for (const sx of sessions) {
-        if (sx.workspaceId) (map[sx.workspaceId] ??= []).push(sx)
+        if (sx.workspaceId) {
+          (map[sx.workspaceId] ??= []).push(sx)
+          continue
+        }
+        for (const workspace of workspaces) {
+          if (workspace.projectIds.includes(sx.projectId)) (map[workspace.id] ??= []).push(sx)
+        }
       }
     }
     return map
-  }, [sessionsByProject])
+  }, [sessionsByProject, workspaces])
   const workspaceIdBySession = useMemo(() => {
     const map: Record<string, string> = {}
-    for (const sessions of Object.values(sessionsByProject ?? {})) {
-      for (const sx of sessions) {
-        if (sx.workspaceId) map[sx.id] = sx.workspaceId
-      }
+    for (const [workspaceId, sessions] of Object.entries(sessionsByWorkspace)) {
+      for (const sx of sessions) map[sx.id] ??= workspaceId
     }
     return map
-  }, [sessionsByProject])
+  }, [sessionsByWorkspace])
 
-  useAutoSelectActiveProject({
-    sessionsByProject, activeProjectId, projects, setActiveProject,
-    suppressedProjectIds,
-  })
+  useAutoSelectActiveProject({ sessionsByProject, activeProjectId, projects, setActiveProject })
   useStatusNotification(outputtingSessionIds, settings.notificationSound)
   const { diff, changedFiles, refreshDiff } = useDiff(effectiveSessionId)
   const activeWorktreePath = activeSession?.worktreePath ?? null
   const activeProjectSessions = activeProjectId ? sessionsByProject[activeProjectId] ?? [] : []
-  const primarySession = getPrimarySession(activeProjectSessions, activeWorktreePath)
+  // An agent lives in a workspace, not in one of its folders: every agent here is
+  // a tab of the Agent panel, whichever folder the sidebar has selected. Grouping
+  // by folder instead would hide the workspace's other agents behind a folder
+  // click, since each folder is a different path on disk.
+  const activeWorkspaceSessions = activeWorkspaceId
+    ? sessionsByWorkspace[activeWorkspaceId] ?? []
+    : activeProjectSessions
+  const primarySession = activeWorkspaceSessions[0] ?? null
   const primarySessionId = primarySession?.id ?? null
-  const dockLayoutKey = primarySessionId ?? activeSessionId
-  const dockLayout = useDockLayout(dockLayoutKey, activeProjectSessions)
-  const { collapseSidebar } = useSidebarHandleCycle(dockLayout.apiRef, settings.sidebarResizeReversed)
+  const dockLayout = useDockLayout(activeSessionId, activeWorkspaceSessions)
+  // Only the double-click width-cycle gesture remains in use; the header
+  // collapse buttons were removed (closing a panel replaces collapsing).
+  useSidebarHandleCycle(dockLayout.apiRef, settings.sidebarResizeReversed)
   useAgentSiblingDockTabs({
     apiRef: dockLayout.apiRef, layoutVersion: dockLayout.layoutVersion,
     layoutReloadVersion: dockLayout.layoutReloadVersion, isRestoringRef: dockLayout.isRestoringRef,
     rememberedActiveSessionRef,
-    sessions: activeProjectSessions, activeWorktreePath, primarySessionId, activeSessionId,
+    sessions: activeWorkspaceSessions, activeWorktreePath, primarySessionId, activeSessionId,
     disabled: false, onSelectSession: setActiveSession,
   })
-  // Roots the editor may read from for the active session (its worktree + any
-  // workspace dirs). Gating reads on these skips a doomed files:read for a
-  // previous session's file during a session switch (path-traversal log noise).
-  const editorAllowedRoots = useMemo(
-    () => (activeSession ? [activeSession.worktreePath, ...(activeSession.additionalDirs ?? [])] : []),
-    [activeSession],
-  )
-  const codeView = useCodeView(effectiveSessionId, undefined, undefined, editorAllowedRoots)
+  const codeView = useCodeView(effectiveSessionId)
   const appEffects = useAppEffects({
     activeSessionId, dockLayout, settings,
     setActiveProject, setActiveSession, spawnAgent, refreshOpenFiles: codeView.refreshOpenFiles, refreshDiff,
@@ -159,47 +161,22 @@ export function App(): React.JSX.Element {
 
   const activeProject = projects.find((p) => p.id === activeProjectId) ?? null
   const gitOps = useGitOperations(effectiveSessionId)
-  const branchStaleness = useBranchStaleness(activeProjectId, projects)
+  useBranchStaleness(activeProjectId, projects)
 
-  const handleFetchSuccess = useCallback((projectId: string) => {
-    branchStaleness.markFresh(projectId)
-    for (const session of sessionsByProject[projectId] ?? []) {
-      void window.electronAPI.invoke('git:ahead-behind', session.id).catch(() => {})
-    }
-    void gitOps.refreshAheadBehind()
-  }, [sessionsByProject, gitOps.refreshAheadBehind, branchStaleness.markFresh])
+  const renameAgent = useCallback(async (sessionId: string, update: AgentSettingsUpdate): Promise<void> => {
+    const configured = await window.electronAPI.invoke('agent:configure', sessionId, update) as AgentSession
+    setActiveWorkspaceId(configured.workspaceId ?? workspaceIdBySession[configured.id] ?? null)
+    setActiveProject(configured.projectId)
+    setActiveSession(configured.id)
+  }, [setActiveProject, setActiveSession, workspaceIdBySession])
 
-  const renameAgent = useCallback((sessionId: string, displayName: string): void => {
-    void window.electronAPI.invoke('agent:rename', sessionId, displayName).catch((err) => {
-      console.error('[App] failed to rename agent:', err)
-    })
-  }, [])
-
-  const setAgentLocked = useCallback((sessionId: string, locked: boolean): void => {
-    void window.electronAPI.invoke('agent:set-locked', sessionId, locked).catch((err) => {
-      console.error('[App] failed to set agent locked:', err)
-    })
-  }, [])
-
-  const fetchProject = useFetchProject(handleFetchSuccess)
-  const overlays = useAppOverlays(gitOps.commit, refreshDiff, spawnAgent, deleteAgent, removeSession, updateSettings, setActiveSession, setActiveProject, activeProjectId)
+  const overlays = useAppOverlays(gitOps.commit, refreshDiff, deleteAgent, removeSession, updateSettings, setActiveSession, setActiveProject, activeProjectId)
   const { themeId, themeClass, xtermTheme, setPreviewThemeId } = useTheme(settings.theme)
   const toggleTheme = useCallback(() => {
     const nextId = themeId.endsWith('-light')
       ? themeId.replace(/-light$/, '-dark')
       : themeId.replace(/-dark$/, '-light')
     void updateSettings({ theme: nextId })
-  }, [themeId, updateSettings])
-  const themeFamily: 'manifold' | 'garfield' | 'neon' | 'royal' | 'jade' | 'platinum' =
-    themeId.startsWith('garfield') ? 'garfield'
-      : themeId.startsWith('neon') ? 'neon'
-        : themeId.startsWith('royal') ? 'royal'
-          : themeId.startsWith('jade') ? 'jade'
-            : themeId.startsWith('platinum') ? 'platinum'
-              : 'manifold'
-  const selectThemeFamily = useCallback((family: 'manifold' | 'garfield' | 'neon' | 'royal' | 'jade' | 'platinum') => {
-    const suffix = themeId.endsWith('-light') ? '-light' : '-dark'
-    void updateSettings({ theme: `${family}${suffix}` })
   }, [themeId, updateSettings])
   const updateNotification = useUpdateNotification()
   const updateLog = useUpdateLog()
@@ -211,13 +188,8 @@ export function App(): React.JSX.Element {
     themeClass === 'theme-light' ? 'light' : 'dark',
     interactiveAgentActive,
   )
-  const worktreeShellCwd = activeSession?.worktreePath ?? null
-  const shellProjectCwd = activeSession ? (activeProject?.path ?? null) : null
-  const shellSessionKey = activeSessionId
-  const { worktreeSessionId, projectSessionId } = useShellSessions(worktreeShellCwd, shellProjectCwd, shellSessionKey)
-
   const editorHandlers = useEditorPaneHandlers({
-    activeSessionId, activeProjectId, sessionsByProject, projects,
+    activeSessionId, activeProjectId, primarySessionId, sessionsByProject, projects,
     restoredSessionId: viewState.restoredSessionId,
     codeView, dockLayout, ensureEditorVisible, handleSelectFile, setActiveSession,
     onRequestDeleteAgent: overlays.requestDeleteAgent,
@@ -274,16 +246,67 @@ export function App(): React.JSX.Element {
     projects,
   }), [tree?.path, additionalTrees, activeSession, projects])
 
+  // An agent belongs to a workspace and to no folder in particular, so this needs
+  // nothing but the workspace: the focused one, or whichever holds the open repo.
+  const openNewAgentModal = useCallback((workspaceId?: string): void => {
+    const targetWorkspaceId = workspaceId
+      ?? activeWorkspaceId
+      ?? workspaces.find((w) => w.projectIds.includes(activeProjectId ?? ''))?.id
+    if (!targetWorkspaceId) return
+    setActiveWorkspaceId(targetWorkspaceId)
+    setNewAgentTarget({ workspaceId: targetWorkspaceId })
+  }, [activeProjectId, activeWorkspaceId, workspaces])
+
+  const addLocalFolderToWorkspace = useCallback(async (workspaceId: string): Promise<void> => {
+    const project = await addProject(undefined, { activate: false })
+    if (project) await addProjectToWorkspace(workspaceId, project.id)
+  }, [addProject, addProjectToWorkspace])
+
+  // Removing a workspace also unregisters the repos it was the last holder of.
+  // A repo outside every workspace has nowhere to appear and would simply be
+  // re-adopted into a fresh workspace on the next launch.
+  const removeWorkspaceWithRepos = useCallback(async (id: string): Promise<void> => {
+    const workspace = workspaces.find((candidate) => candidate.id === id)
+    const orphanedProjectIds = (workspace?.projectIds ?? []).filter((pid) => !workspaces.some(
+      (other) => other.id !== id && other.projectIds.includes(pid),
+    ))
+    await removeWorkspace(id)
+    for (const projectId of orphanedProjectIds) await removeProject(projectId)
+    if (activeWorkspaceId === id) setActiveWorkspaceId(null)
+  }, [activeWorkspaceId, removeProject, removeWorkspace, setActiveWorkspaceId, workspaces])
+
+  // "Copy to new worktree": a new workspace over the same folders. Creation cuts
+  // the worktrees eagerly, so by the time it lands in the sidebar it is a real
+  // place on a fresh branch — entering it drops you on its empty agent view.
+  const copyWorkspaceToWorktree = useCallback(async (id: string): Promise<void> => {
+    const source = workspaces.find((candidate) => candidate.id === id)
+    if (!source) return
+    const names = new Set(workspaces.map((w) => w.name))
+    const base = source.name.replace(/ \d+$/, '')
+    let counter = 2
+    while (names.has(`${base} ${counter}`)) counter += 1
+    const created = await createWorkspace({
+      name: `${base} ${counter}`,
+      projectIds: source.projectIds,
+      runtimeId: source.runtimeId,
+    })
+    setActiveWorkspaceId(created.id)
+    if (created.projectIds[0]) setActiveProject(created.projectIds[0])
+    // The copy has no agents yet; landing on the source's agent would look like
+    // nothing happened. An empty agent view is the new place asking to be used.
+    setActiveSession(null)
+  }, [createWorkspace, setActiveProject, setActiveSession, workspaces])
+
   const dockState: DockAppState = {
     sessionId: effectiveSessionId, primarySessionId,
     onOpenDashboard: (cardId?: string) => { overlays.setDashboardInitialCard(cardId ?? null); overlays.setShowDashboard(true) },
-    searchFocusRequestKey: appEffects.searchFocusRequestKey, requestedSearchMode: appEffects.requestedSearchMode,
     scrollbackLines: settings.scrollbackLines, terminalFontFamily: settings.terminalFontFamily, xtermTheme, diffText: diff,
     editorSettings: settings.editor,
     openFiles: codeView.openFiles, activeFilePath: codeView.activeFilePath,
     activeEditorPaneId: codeView.activeEditorPaneId, editorPaneIds: dockLayout.editorPanelIds,
     getEditorPane: codeView.getEditorPane, lastFileOpenRequest: editorHandlers.lastFileOpenRequest, theme: themeId,
     onSelectFile: editorHandlers.handleSelectFileWithDefaultView,
+    onSelectScmFile: editorHandlers.handleSelectFileFromSourceControl,
     onOpenSearchResult: editorHandlers.handleOpenSearchResult,
     onOpenSearchResultInSplit: editorHandlers.handleOpenSearchResultInSplit,
     onSelectFileFromFileTree: editorHandlers.handleSelectFileFromFileTree,
@@ -302,52 +325,60 @@ export function App(): React.JSX.Element {
     worktreeRootPath: tree?.path ?? undefined, tree, additionalTrees, additionalBranches, rootLabels,
     primaryBranch: activeSession?.branchName ?? null, changes: mergedChanges,
     expandedPaths: viewState.expandedPaths, onToggleExpand: viewState.onToggleExpand, worktreeRoot: tree?.path ?? null,
-    worktreeShellSessionId: worktreeSessionId, projectShellSessionId: projectSessionId,
-    worktreeCwd: worktreeShellCwd,
     baseBranch, activeProjectIsGit,
     defaultRuntime: settings.defaultRuntime, defaultAgentMode: settings.defaultAgentMode ?? 'interactive',
-    defaultUseWorktrees: settings.useWorktrees ?? true,
     activeSessionWorktreePath: activeSession?.worktreePath ?? null,
     activeSessionNoWorktree: activeSession?.noWorktree ?? false,
-    onLaunchAgent: overlays.handleLaunchAgent, projects, activeProjectId, suppressedProjectIds,
+    projects, activeProjectId,
     allProjectSessions: sessionsByProject, outputtingSessionIds,
-    onSelectProject: (id: string) => { setActiveWorkspaceId(null); setActiveProject(id) },
     onSelectSession: (sessionId: string, projectId: string) => {
       setActiveWorkspaceId(workspaceIdBySession[sessionId] ?? null)
       overlays.handleSelectSession(sessionId, projectId)
     },
-    onRemoveProject: removeProject, onUpdateProject: updateProject, onRenameAgent: renameAgent, onToggleLocked: setAgentLocked, onRequestDeleteAgent: overlays.requestDeleteAgent,
-    onNewAgentFromHeader: () => {
-      if (activeWorkspaceId) {
-        const ws = workspaces.find((w) => w.id === activeWorkspaceId)
-        const home = activeProjectId && ws?.projectIds.includes(activeProjectId) ? activeProjectId : ws?.projectIds[0]
-        if (home) setActiveProject(home)
-        overlays.handleNewAgentFromHeader()
-      } else {
-        setActiveWorkspaceId(null); overlays.handleNewAgentFromHeader()
-      }
-    },
+    onRenameAgent: renameAgent, onRequestDeleteAgent: overlays.requestDeleteAgent,
+    onNewAgentFromHeader: openNewAgentModal,
+    // Picking a folder only opens its files. It cannot move an agent: an agent
+    // lives in the workspace and always runs in the workspace's first folder, so
+    // the folder rows are a view of the place, never a choice of where to work.
     onSelectWorkspaceRepo: (workspaceId: string, projectId: string) => {
-      setActiveWorkspaceId(workspaceId); setActiveProject(projectId); setActiveSession(null)
+      setActiveWorkspaceId(workspaceId); setActiveProject(projectId)
     },
-    newAgentFocusTrigger: overlays.newAgentFocusTrigger,
     onNewProject: () => appEffects.setShowOnboarding(true),
-    workspaces, activeWorkspaceId, sessionsByWorkspace,
+    workspaces,
+    activeWorkspaceId,
+    sessionsByWorkspace,
     onNewWorkspace: () => setNewWorkspaceVisible(true),
-    onSelectWorkspace: (id: string) => { setActiveWorkspaceId(id) },
-    onRemoveWorkspace: async (id: string) => {
-      await removeWorkspace(id)
-      setActiveWorkspaceId((current) => (current === id ? null : current))
+    // Clicking the card is entering the workspace: the main view must show *its*
+    // agents. Two workspaces can span the same folders (a copy on a fresh
+    // worktree), so the active project alone can't tell them apart — when the
+    // current agent isn't one of this workspace's, jump to one that is, or to
+    // the empty agent view when it has none yet.
+    onSelectWorkspace: (id: string) => {
+      setActiveWorkspaceId(id)
+      const wsSessions = sessionsByWorkspace[id] ?? []
+      if (activeSessionId && wsSessions.some((s) => s.id === activeSessionId)) return
+      const target = wsSessions[0]
+      if (target) {
+        overlays.handleSelectSession(target.id, target.projectId)
+        return
+      }
+      const workspace = workspaces.find((w) => w.id === id)
+      const homeProjectId = activeProjectId && workspace?.projectIds.includes(activeProjectId)
+        ? activeProjectId
+        : workspace?.projectIds[0]
+      if (homeProjectId) setActiveProject(homeProjectId)
+      setActiveSession(null)
     },
+    onRenameWorkspace: (id: string, name: string) => { void renameWorkspace(id, name) },
+    onRemoveWorkspace: removeWorkspaceWithRepos,
+    onCopyWorkspace: (id: string) => { void copyWorkspaceToWorktree(id) },
     onLaunchWorkspaceAgent: async (
       workspaceId: string,
-      homeProjectId: string,
-      options: { runtimeId: string; prompt: string; nonInteractive?: boolean },
+      options: { runtimeId: string; displayName: string; nonInteractive?: boolean },
     ) => {
       const session = await spawnWorkspaceAgent(workspaceId, {
         runtimeId: options.runtimeId,
-        homeProjectId,
-        prompt: options.prompt,
+        displayName: options.displayName,
         nonInteractive: options.nonInteractive,
       })
       setActiveWorkspaceId(workspaceId); overlays.handleSelectSession(session.id, session.projectId)
@@ -360,15 +391,11 @@ export function App(): React.JSX.Element {
       }
       return session
     },
-    onAddProjectToWorkspace: (id: string) => setAddProjectWorkspaceId(id),
+    onAddProjectToWorkspace: addLocalFolderToWorkspace,
     onRemoveProjectFromWorkspace: (id: string, pid: string) => { void removeProjectFromWorkspace(id, pid) },
-    fetchingProjectId: fetchProject.fetchingProjectId, lastFetchedProjectId: fetchProject.lastFetchedProjectId,
-    fetchResult: fetchProject.fetchResult, fetchError: fetchProject.fetchError,
-    onFetchProject: fetchProject.fetchProject,
-    activeProjectBehindCount: activeProjectId ? (branchStaleness.behindCounts[activeProjectId] ?? 0) : 0,
-    onFocusSearch: appEffects.focusSearch, onClosePanel: editorHandlers.handleClosePanel,
+    sidebarView, onSelectSidebarView: setSidebarView,
+    onFocusSearch: overlays.openSearch, onClosePanel: editorHandlers.handleClosePanel,
     onToggleMaximize: dockLayout.toggleMaximizePanel,
-    onCollapseSidebar: collapseSidebar,
     onOpenModule: (id) => {
       if (dockLayout.isPanelVisible(id)) dockLayout.focusPanel(id)
       else dockLayout.togglePanel(id)
@@ -394,15 +421,15 @@ export function App(): React.JSX.Element {
     openShortcuts: () => overlays.setShowShortcuts(true),
     openAbout: () => overlays.setShowAbout(true),
     openQuickOpen,
-    findInFiles: () => appEffects.focusSearch('code'),
+    findInFiles: () => overlays.openSearch('code'),
     jumpToFavorite,
-    newAgent: overlays.handleNewAgentFromHeader,
+    newAgent: () => openNewAgentModal(),
     nextAgent: () => {
-      const next = cycleAgent(activeProjectSessions, activeSessionId, 1)
+      const next = cycleAgent(activeWorkspaceSessions, activeSessionId, 1)
       if (next) overlays.handleSelectSession(next.id, next.projectId)
     },
     previousAgent: () => {
-      const prev = cycleAgent(activeProjectSessions, activeSessionId, -1)
+      const prev = cycleAgent(activeWorkspaceSessions, activeSessionId, -1)
       if (prev) overlays.handleSelectSession(prev.id, prev.projectId)
     },
     deleteActiveAgent: () => {
@@ -416,9 +443,17 @@ export function App(): React.JSX.Element {
       if (dockLayout.isPanelVisible(id)) dockLayout.focusPanel(id)
       else dockLayout.togglePanel(id)
     },
+    // Revealing a view opens the sidebar when it is collapsed: a command that
+    // silently did nothing because the sidebar happened to be closed would be
+    // indistinguishable from a broken keybinding.
+    showSidebarView: (viewId) => {
+      setSidebarView(viewId as SidebarViewId)
+      if (dockLayout.isPanelVisible('sidebar')) dockLayout.focusPanel('sidebar')
+      else dockLayout.togglePanel('sidebar')
+    },
     toggleTheme,
     openDashboard: () => { overlays.setDashboardInitialCard(null); overlays.setShowDashboard(true) },
-  }), [overlays, openQuickOpen, appEffects, jumpToFavorite, activeProjectSessions, activeSessionId, activeSession, activeProject, dockLayout, toggleTheme])
+  }), [overlays, openQuickOpen, openNewAgentModal, appEffects, jumpToFavorite, activeWorkspaceSessions, activeSessionId, activeSession, activeProject, dockLayout, toggleTheme])
   const { runCommand } = useCommands(commandContext)
 
   return (
@@ -455,19 +490,17 @@ export function App(): React.JSX.Element {
         handleAddProjectFromOnboarding={handleAddProjectFromOnboarding}
         handleCloneFromOnboarding={handleCloneFromOnboarding}
         handleCreateNewProject={handleCreateNewProject}
+        newAgentTarget={newAgentTarget}
+        closeNewAgentModal={() => setNewAgentTarget(null)}
         newWorkspaceVisible={newWorkspaceVisible}
         setNewWorkspaceVisible={setNewWorkspaceVisible}
         defaultRuntime={settings.defaultRuntime}
         createWorkspace={createWorkspace}
         workspaces={workspaces}
-        addProjectWorkspaceId={addProjectWorkspaceId}
-        setAddProjectWorkspaceId={setAddProjectWorkspaceId}
-        addProjectToWorkspace={addProjectToWorkspace}
         dockLayout={dockLayout}
+        sidebarView={sidebarView}
+        onSelectSidebarView={setSidebarView}
         onRenameActiveProject={(name) => { if (activeProjectId) void updateProject(activeProjectId, { name }) }}
-        onToggleTheme={toggleTheme}
-        themeFamily={themeFamily}
-        onSelectThemeFamily={selectThemeFamily}
       />
       <QuickOpen
         visible={quickOpenVisible && effectiveSessionId !== null}

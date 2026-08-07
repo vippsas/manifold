@@ -1,9 +1,9 @@
 import React from 'react'
-import type { AgentSession, CreateProjectOptions, SpawnAgentOptions } from '../../../shared/types'
-import { NewAgentForm } from './NewAgentForm'
+import type { AgentSession, CreateProjectOptions } from '../../../shared/types'
+import { NewAgentHero } from './NewAgentHero'
+import type { NewAgentLaunchOptions } from './useNewAgentForm'
 import { onboardingLinkStyle } from './NewAgentForm.styles'
 import { NoProjectActions } from '../sidebar/NoProjectActions'
-import { WorkspaceGlyph } from '../sidebar/WorkspaceGlyph'
 import { ManifoldWordmark } from '../ManifoldWordmark'
 import { StarfieldBackdrop } from '../StarfieldBackdrop'
 
@@ -34,22 +34,19 @@ interface NoProjectProps {
 
 interface NoAgentProps {
   variant: 'no-agent'
-  projectId: string
-  projectName: string
-  projectPath: string
-  baseBranch: string
-  isGitProject: boolean
+  /** The workspace this agent will join — the place, and the only scope an agent has. */
+  workspaceName: string
+  /** The workspace's primary folder, for labelling resumable agents. */
+  primaryPath: string
+  /** The branch every folder here is on, when the workspace has one. */
+  branchLabel?: string
   defaultRuntime: string
   defaultAgentMode: 'interactive' | 'chat'
-  defaultUseWorktrees?: boolean
-  onLaunch: (options: SpawnAgentOptions) => Promise<unknown>
+  onLaunch: (options: NewAgentLaunchOptions) => Promise<unknown>
   existingSessions?: AgentSession[]
   onResumeSession?: (sessionId: string, runtimeId: string) => Promise<void>
   onDeleteSession?: (session: AgentSession) => void
   focusTrigger?: number
-  compact?: boolean
-  /** When set, this agent belongs to the named workspace (multi-root). Shows a "WORKSPACE · {name}" eyebrow. */
-  workspaceName?: string
 }
 
 type OnboardingViewProps = NoProjectProps | NoAgentProps
@@ -92,10 +89,10 @@ export function OnboardingView(props: OnboardingViewProps): React.JSX.Element {
       }}
     >
       <StarfieldBackdrop />
-      <ManifoldWordmark size="normal" />
 
       {props.variant === 'no-project' ? (
         <>
+          <ManifoldWordmark size="normal" />
           <NoProjectActions
             onAddProject={props.onAddProject}
             onCloneProject={props.onCloneProject}
@@ -109,42 +106,18 @@ export function OnboardingView(props: OnboardingViewProps): React.JSX.Element {
           )}
         </>
       ) : (
-        <>
-          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 'var(--space-lg)' }}>
-            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 'var(--space-xs)' }}>
-              {props.workspaceName && (
-                <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                  <WorkspaceGlyph active />
-                  <span className="sidebar-workspace-eyebrow">Workspace · {props.workspaceName}</span>
-                </div>
-              )}
-              <div style={{
-                fontFamily: 'var(--font-display)',
-                fontSize: 'var(--type-display)',
-                fontWeight: 400,
-                color: 'var(--text-primary)',
-                letterSpacing: 'var(--tracking-tight)',
-              }}>
-                New agent for <span style={{ fontStyle: 'italic', fontWeight: 500, color: 'var(--accent-hi, var(--text-primary))' }}>{props.projectName}</span>
-              </div>
-            </div>
-            <NewAgentForm
-              projectId={props.projectId}
-              projectPath={props.projectPath}
-              baseBranch={props.baseBranch}
-              isGitProject={props.isGitProject}
-              defaultRuntime={props.defaultRuntime}
-              defaultAgentMode={props.defaultAgentMode}
-              defaultUseWorktrees={props.defaultUseWorktrees}
-              onLaunch={props.onLaunch}
-              existingSessions={props.existingSessions}
-              onResumeSession={props.onResumeSession}
-              onDeleteSession={props.onDeleteSession}
-              focusTrigger={props.focusTrigger}
-              compact={props.compact}
-            />
-          </div>
-        </>
+        <NewAgentHero
+          workspaceName={props.workspaceName}
+          primaryPath={props.primaryPath}
+          branchLabel={props.branchLabel}
+          defaultRuntime={props.defaultRuntime}
+          defaultAgentMode={props.defaultAgentMode}
+          onLaunch={props.onLaunch}
+          existingSessions={props.existingSessions}
+          onResumeSession={props.onResumeSession}
+          onDeleteSession={props.onDeleteSession}
+          focusTrigger={props.focusTrigger}
+        />
       )}
     </div>
   )

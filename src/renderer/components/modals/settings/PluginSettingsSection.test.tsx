@@ -105,10 +105,10 @@ describe('PluginSettingsSection', () => {
     expect(bInputs.length).toBe(1)
   })
 
-  it('shows "Disabled — hidden from + Apps" note for plugin B', async () => {
+  it('shows the disabled note for plugin B', async () => {
     render(<PluginSettingsSection />)
     await screen.findByText('A')
-    expect(screen.getByText('Disabled — hidden from + Apps')).toBeTruthy()
+    expect(screen.getByText("Disabled — hidden from the agent's Apps")).toBeTruthy()
   })
 
   it('calls invoke with plugins:set-config when a config field changes', async () => {

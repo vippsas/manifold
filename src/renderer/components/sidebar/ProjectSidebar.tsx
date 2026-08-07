@@ -1,164 +1,96 @@
-import React, { useCallback } from 'react'
+import React from 'react'
 import type { Project, AgentSession } from '../../../shared/types'
 import type { DraftChat } from '../../../shared/draft-chat'
 import type { Workspace } from '../../../shared/workspace-types'
 import { sidebarStyles } from './ProjectSidebar.styles'
 import { WorkspaceList } from './WorkspaceList'
-import { ProjectList } from './ProjectList'
 import { FavoritesList } from './FavoritesList'
+import { AddFolderGlyph } from './SidebarCardActionGlyphs'
+import type { FolderSource } from '../../hooks/editor/useWorkspaceTree'
 
-interface ProjectSidebarProps {
+export interface ProjectSidebarProps {
   projects: Project[]
   activeProjectId: string | null
-  suppressedProjectIds?: ReadonlySet<string>
-  allProjectSessions: Record<string, AgentSession[]>
-  activeSessionId: string | null
   outputtingSessionIds: Set<string>
-  onSelectProject: (id: string) => void
-  onSelectSession: (sessionId: string, projectId: string) => void
-  onRemoveProject: (id: string) => void
-  onUpdateProject: (id: string, partial: Partial<Omit<Project, 'id'>>) => void
-  onRenameAgent: (sessionId: string, displayName: string) => void
-  onRequestDeleteAgent: (session: AgentSession, projectPath: string) => void
-  onNewAgent: () => void
   onNewProject: () => void
   onNewWorkspace?: () => void
-  workspaces?: Workspace[]
+  workspaces: Workspace[]
   activeWorkspaceId?: string | null
   sessionsByWorkspace?: Record<string, AgentSession[]>
-  onSelectWorkspace?: (id: string) => void
-  onRemoveWorkspace?: (id: string) => Promise<void>
+  onSelectWorkspace: (id: string) => void
+  onRenameWorkspace?: (id: string, name: string) => void
+  onRemoveWorkspace: (id: string) => Promise<void>
+  onCopyWorkspace?: (id: string) => void
   onSelectWorkspaceRepo?: (workspaceId: string, projectId: string) => void
-  onAddProjectToWorkspace?: (workspaceId: string) => void
+  onAddProjectToWorkspace?: (workspaceId: string) => void | Promise<void>
   onRemoveProjectFromWorkspace?: (workspaceId: string, projectId: string) => void
-  fetchingProjectId: string | null
-  lastFetchedProjectId: string | null
-  fetchResult: { updatedBranch: string; commitCount: number } | null
-  fetchError: string | null
-  onFetchProject: (projectId: string) => void
-  activeProjectBehindCount?: number
   drafts: DraftChat[]
   activeDraftId: string | null
   onSelectDraft: (id: string) => void
   onDiscardDraft: (id: string) => void
+  renderFolderFiles?: (source: FolderSource) => React.ReactNode
 }
 
 export function ProjectSidebar({
   projects,
   activeProjectId,
-  suppressedProjectIds,
-  allProjectSessions,
-  activeSessionId,
   outputtingSessionIds,
-  onSelectProject,
-  onSelectSession,
-  onRemoveProject,
-  onUpdateProject,
-  onRenameAgent,
-  onRequestDeleteAgent,
-  onNewAgent,
   onNewProject,
   onNewWorkspace,
   workspaces,
   activeWorkspaceId,
   sessionsByWorkspace,
   onSelectWorkspace,
+  onRenameWorkspace,
   onRemoveWorkspace,
+  onCopyWorkspace,
   onSelectWorkspaceRepo,
   onAddProjectToWorkspace,
   onRemoveProjectFromWorkspace,
-  fetchingProjectId,
-  lastFetchedProjectId,
-  fetchResult,
-  fetchError,
-  onFetchProject,
-  activeProjectBehindCount,
   drafts,
   activeDraftId,
   onSelectDraft,
   onDiscardDraft,
+  renderFolderFiles,
 }: ProjectSidebarProps): React.JSX.Element {
-  const handleRemove = useCallback(
-    (e: React.MouseEvent, id: string): void => {
-      e.stopPropagation()
-      onRemoveProject(id)
-    },
-    [onRemoveProject]
-  )
-
-  const activeWorkspace = activeWorkspaceId
-    ? workspaces?.find((w) => w.id === activeWorkspaceId)
-    : undefined
-
   return (
     <div style={sidebarStyles.root}>
-      <FavoritesList />
-      {workspaces && onSelectWorkspace && onRemoveWorkspace && (
+      <div role="toolbar" aria-label="Repository actions" style={sidebarStyles.actionToolbar}>
+        <span style={sidebarStyles.toolbarLabel}>Workspaces</span>
+        <button
+          type="button"
+          onClick={onNewProject}
+          className="sidebar-toolbar-button sidebar-toolbar-button--primary"
+          style={{ ...sidebarStyles.toolbarButton, ...sidebarStyles.toolbarButtonPrimary }}
+          aria-label="Add Repository"
+          title="Add Repository"
+        >
+          <AddFolderGlyph />
+        </button>
+      </div>
+      <div style={sidebarStyles.content}>
+        <FavoritesList />
         <WorkspaceList
           workspaces={workspaces}
           projects={projects}
           activeWorkspaceId={activeWorkspaceId ?? null}
+          activeProjectId={activeProjectId}
           sessionsByWorkspace={sessionsByWorkspace ?? {}}
-          activeSessionId={activeSessionId}
           outputtingSessionIds={outputtingSessionIds}
+          drafts={drafts}
+          activeDraftId={activeDraftId}
           onSelectWorkspace={onSelectWorkspace}
+          onRenameWorkspace={onRenameWorkspace}
           onRemoveWorkspace={onRemoveWorkspace}
           onNewWorkspace={onNewWorkspace}
-          onSelectSession={onSelectSession}
+          onCopyWorkspace={onCopyWorkspace}
           onSelectRepo={onSelectWorkspaceRepo}
-          activeProjectId={activeProjectId}
           onAddProject={onAddProjectToWorkspace}
           onRemoveProject={onRemoveProjectFromWorkspace}
-          onDeleteAgent={onRequestDeleteAgent}
-          onRenameAgent={onRenameAgent}
-          onFetchProject={onFetchProject}
-          fetchingProjectId={fetchingProjectId}
-          lastFetchedProjectId={lastFetchedProjectId}
-          fetchResult={fetchResult}
-          fetchError={fetchError}
+          onSelectDraft={onSelectDraft}
+          onDiscardDraft={onDiscardDraft}
+          renderFolderFiles={renderFolderFiles}
         />
-      )}
-      <ProjectList
-        projects={projects}
-        activeProjectId={activeProjectId}
-        activeWorkspaceId={activeWorkspaceId}
-        suppressedProjectIds={suppressedProjectIds}
-        allProjectSessions={allProjectSessions}
-        activeSessionId={activeSessionId}
-        outputtingSessionIds={outputtingSessionIds}
-        onSelectProject={onSelectProject}
-        onSelectSession={onSelectSession}
-        onRequestDeleteAgent={onRequestDeleteAgent}
-        onRemove={handleRemove}
-        onUpdateProject={onUpdateProject}
-        onRenameAgent={onRenameAgent}
-        fetchingProjectId={fetchingProjectId}
-        lastFetchedProjectId={lastFetchedProjectId}
-        fetchResult={fetchResult}
-        fetchError={fetchError}
-        onFetchProject={onFetchProject}
-        activeProjectBehindCount={activeProjectBehindCount}
-        onNewAgent={onNewAgent}
-        drafts={drafts}
-        activeDraftId={activeDraftId}
-        onSelectDraft={onSelectDraft}
-        onDiscardDraft={onDiscardDraft}
-      />
-      <div style={sidebarStyles.actions}>
-        <div style={sidebarStyles.actionsRow}>
-          <button
-            type="button"
-            onClick={onNewAgent}
-            className="sidebar-action-button sidebar-action-button--primary"
-            style={sidebarStyles.actionButtonPrimary}
-            title={activeWorkspace ? `New Agent in ${activeWorkspace.name}` : 'New Agent'}
-          >
-            <span className="truncate">{activeWorkspace ? `+ New Agent in ${activeWorkspace.name}` : '+ New Agent'}</span>
-          </button>
-          <button type="button" onClick={onNewProject} className="sidebar-action-button" style={sidebarStyles.actionButton}>
-            + New Repository
-          </button>
-        </div>
       </div>
     </div>
   )

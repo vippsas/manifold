@@ -1,7 +1,7 @@
 ---
 description: How Manifold's main-process services are exposed to the renderer over Electron IPC — the channel namespaces, the handler registration pattern, and how handlers delegate to subsystem managers.
 covers: [src/main/ipc]
-updated: 2026-07-14
+updated: 2026-08-04
 owner: see .github/CODEOWNERS
 ---
 
@@ -21,7 +21,7 @@ managers documented on the other architecture pages (`session.md`, `git.md`, etc
 - `src/main/ipc/types.ts` — `IpcDependencies` (the manager bag passed to every handler module) and `resolveSession()` (throw-on-missing session lookup).
 - `src/main/ipc/agent-handlers.ts` — `agent:*` lifecycle, plus `branch:suggest`, `shell:*`, and the read-only `git:list-*`/`git:fetch-pr-branch` channels.
 - `src/main/ipc/chat-image-handlers.ts` — `chat:save-pasted-image`/`chat:read-pasted-image` and the allow-listed image-path resolution they share.
-- `src/main/ipc/git-handlers.ts` — `diff:*`, `pr:create`, and the mutating `git:*` channels (`git:commit`, `git:ai-generate`, `git:ahead-behind`, `git:resolve-conflict`, `git:pr-context`, `git:fetch`, `git:has-uncommitted-changes`). The session-scoped comparisons (diff, PR target, ahead/behind, pr-context) use `baseBranchFor(session, project)` = `session.baseBranch || project.baseBranch`, so a no-worktree agent based off a selected branch compares against that branch.
+- `src/main/ipc/git-handlers.ts` — `diff:*`, `pr:create`, and the mutating `git:*` channels (`git:commit`, `git:ai-generate`, `git:ahead-behind`, `git:resolve-conflict`, `git:pr-context`, `git:fetch`, `git:has-uncommitted-changes`), plus the workspace-scoped Source Control channels: read-only `git:workspace-status` (branch + uncommitted changes for every repo checkout of a workspace), `git:workspace-commit` (per-repo stage-all commit through `gitOps.commit`), `git:workspace-checkout` (switch or `-b`-create a branch in one checkout, serialized by `withRepoLock`, emitting `workspace:list-changed` so Source Control and the workspace list refresh), and `git:workspace-file-diff` (one file's uncommitted diff + HEAD original, for the editor's SCM-click diff). The session-scoped comparisons (diff, PR target, ahead/behind, pr-context) use `baseBranchFor(session, project)` = `session.baseBranch || project.baseBranch`, so a no-worktree agent based off a selected branch compares against that branch.
 - `src/main/ipc/file-handlers.ts` — `files:*` tree/read/write/rename/import/paste/reveal/search, all path-guarded against traversal.
 - `src/main/ipc/open-terminal.ts` — platform command selection for the path-guarded `files:open-terminal` channel: macOS `open`, Linux `x-terminal-emulator`.
 - `src/main/ipc/project-handlers.ts` — `projects:*` (list/add/clone/create-new/remove/update) and the `*-dialog` + `storage:open-dialog` native-dialog channels.
@@ -29,7 +29,7 @@ managers documented on the other architecture pages (`session.md`, `git.md`, etc
 - `src/main/ipc/search-handlers.ts` — `search:context`, `search:query`, `search:ask`, `search:view-state:*`.
 - `src/main/ipc/memory-handlers.ts` — `memory:*` (search/get/timeline/stats/delete/clear/settings), running SQLite FTS5 queries.
 - `src/main/ipc/simple-handlers.ts` — `simple:*` chat-adapter channels for the developer draft chat (`chat-messages`, `send-message`, `subscribe-chat`, status/preview/slash-command getters).
-- `src/main/ipc/workspace-handlers.ts` — `workspace:*` multi-root workspace ops.
+- `src/main/ipc/workspace-handlers.ts` — `workspace:*` multi-root workspace ops, plus `workspace:get-active`/`workspace:set-active` (`workspace-handlers.ts:8`–`:12`), the getter/setter for the last selected workspace backed by `ActiveWorkspaceStore` (`src/main/store/active-workspace-store.ts:13`, persisted to `~/.manifold/active-workspace.json`) so a restart reopens where the user left off.
 - `src/main/ipc/plugin-handlers.ts` — `plugins:*` view/contribution/config/tree-view bridge. Verdicts are no longer read over renderer IPC: the `manifold.statistics` plugin reads them through the built-in `verdicts:read` capability (`HOST_VERDICTS`, see `plugins.md`).
 
 Most handler modules ship a sibling `*.test.ts` exercising its channels in isolation (the `register*Handlers` functions are unit-testable against a mock `IpcDependencies`).
@@ -74,16 +74,27 @@ is non-empty (used by the New Agent form's dirty-repo confirmation).
 (`search-handlers.ts:94`). The substantive work lives in the managers.
 
 **Validation at the boundary.** Handlers are where untrusted renderer input is checked.
-`file-handlers.ts` resolves every path against the session worktree and rejects anything
-outside the allowed dirs via `isPathAllowed()` (`file-handlers.ts:19`, enforced on
-`files:read`, `files:write`, `files:delete`, `files:rename`, etc.). `chat-image-handlers.ts`
+`file-handlers.ts` resolves every path and rejects anything outside the folders the user has
+open — **the workspace roots**: every registered project path, **every workspace's checkout of
+each repo**, plus every session's worktree and `additionalDirs` (`workspaceRoots`,
+`file-handlers.ts:29`; `isAllowed`, `:52`; enforced on `files:read`, `files:write`,
+`files:delete`, `files:rename`, etc.). The workspace's checkouts are listed in their own right,
+not merely through the sessions working in them, because a workspace is browsable from the
+moment it exists — before any agent has run in it. It is deliberately *not* scoped to the
+selected session: the sidebar hangs a tree under every repo, all open at once, and a click there
+opens a file without first selecting its repo. Reading, saving and revealing take the session id
+as an optional hint for resolving a relative path and work with none at all
+(`authorize`, `:59`). One repo can be open in several workspaces at once, each with its own
+checkout, so `files:tree-by-project` takes an optional `workspaceId` that decides *which*
+checkout's files come back; without it the repo's own clone answers (`file-handlers.ts:75`).
+`chat-image-handlers.ts`
 restricts pasted/read-back chat images to a small allow-list of directories
 (`resolveReadableChatImagePath`, `chat-image-handlers.ts:26`). `project-handlers.ts` rejects
 clone URLs beginning with `-` to avoid argument injection into `git clone`
 (`project-handlers.ts:69`). Several handlers reject non-git projects with an explicit error
 (`isGitProject` checks throughout `git-handlers.ts` and `agent-handlers.ts`).
 `files:open-terminal` applies the same path guard before `openTerminal()` launches a detached
-platform process without a shell (`file-handlers.ts:208-225`, `open-terminal.ts:12-60`).
+platform process without a shell (`file-handlers.ts:229`, `open-terminal.ts:12-60`).
 
 ## Key types and entry points
 
@@ -94,9 +105,11 @@ platform process without a shell (`file-handlers.ts:208-225`, `open-terminal.ts:
 
 ## Interactions
 
-- **Session** (`src/main/session`): the busiest consumer. `agent:spawn`→`createSession`, `agent:resume`→`resumeSession` (`agent-handlers.ts:197`), `agent:kill`/`agent:kill-worktree`→killers (`agent:kill` additionally records a `DismissedAgentsStore` tombstone for `noWorktree` sessions so discovery won't resurrect a deleted agent from branch state, `agent-handlers.ts:107`, #679), `agent:sessions`→discovery (`:207`), `agent:replay`→`getOutputBuffer`, `agent:input`/`agent:interrupt`/`agent:resize`, plus all `shell:*` and `simple:*` channels.
+- **Session** (`src/main/session`): the busiest consumer. `agent:spawn`→`createSession`, `agent:resume`→`resumeSession`, and `agent:configure`→`configureSession` (rename-only in place, or a confirmed runtime/view replacement with a new session id). `agent:kill`→killer (it additionally records a `DismissedAgentsStore` tombstone for `noWorktree` sessions so discovery won't resurrect a deleted agent from branch state, #679), `agent:sessions`→discovery, `agent:replay`→`getOutputBuffer`, `agent:input`/`agent:interrupt`/`agent:resize`, plus all `shell:*` and `simple:*` channels (`agent-handlers.ts`).
+- **There is no `agent:kill-worktree`.** A checkout belongs to a workspace, not to the agents in it, so the channel that deleted one from an agent row is gone from the handlers and from the preload allowlist. Removing a checkout is `workspace:remove` (`ipc/workspace-handlers.ts`, `workspace/workspace-manager.ts:69`).
+- **Legacy locks** (`src/main/ipc/agent-handlers.ts`): `agent:set-locked` remains registered for compatibility with older persisted sessions and clients, but `agent:kill` no longer gates deletion on that retired flag.
 - **Git** (`src/main/git`): `gitOps`, `diffProvider`, `prCreator`, `branchCheckout` back the `git:*`, `diff:*`, and `pr:create` channels. `branch:suggest` uses `generateBranchName` (`agent-handlers.ts:66`).
-- **FS** (`src/main/fs`): `fileWatcher` backs every `files:*` channel and the file-tree responses; `agent:spawn` starts the watch, and teardown unwatch is owned by `SessionKiller.cleanupSession` (guarded by shared-path liveness) rather than the `agent:kill` handler, so killing one session can't stop polling for a sibling on the same worktree. `agent:kill-worktree`/`agent:delete-app` still unwatch the path explicitly.
+- **FS** (`src/main/fs`): `fileWatcher` backs every `files:*` channel and the file-tree responses; `agent:spawn` starts the watch, and teardown unwatch is owned by `SessionKiller.cleanupSession` (guarded by shared-path liveness) rather than the `agent:kill` handler, so killing one session can't stop polling for a sibling on the same worktree. `agent:delete-app` still unwatches the path explicitly.
 - **Store** (`src/main/store`): `projectRegistry`, `settingsStore`, `viewStateStore`, `shellTabStore`, `dockLayoutStore`, `searchViewStore`, `verdictStore` are all reached only through their handler namespaces.
 - **Memory / search** (`src/main/memory`, `src/main/search`): `memory:*` queries the per-project SQLite DB directly (`memoryStore.getDb`, `memory-handlers.ts:97`); `search:*` calls the search services with `memoryStore` + `gitOps`.
 - **Plugins** (`src/main/plugins`): `plugins:*` is a near-1:1 bridge onto `PluginManager`, including a renderer→host webview channel (`plugins:webview-to-host`) and a host→renderer push (`plugins:contributions-changed`).
@@ -106,7 +119,7 @@ platform process without a shell (`file-handlers.ts:208-225`, `open-terminal.ts:
 
 - **The registration list is manual.** Adding a namespace means writing a `register*Handlers` function *and* wiring it into `registerIpcHandlers` (`ipc-handlers.ts:22`). A forgotten line silently leaves the channels unregistered, and the renderer call rejects with "No handler registered".
 - **This layer is `handle`-only; events go the other way.** Don't add `ipcMain.on` here. Renderer→main is request/response; main→renderer is `webContents.send`. Mixing the two in one channel breaks the preload allow-list model.
-- **Path guards live in the handler, not the manager.** `fileWatcher` will read/write whatever absolute path it's given; the traversal guard is `isPathAllowed` in `file-handlers.ts`. A new `files:*` channel that skips it is an arbitrary-file-access hole.
+- **Path guards live in the handler, not the manager.** `fileWatcher` will read/write whatever absolute path it's given; the traversal guard is `isAllowed`/`authorize` in `file-handlers.ts`, resolved against the workspace roots. A new `files:*` channel that skips it is an arbitrary-file-access hole.
 - **Handlers must tolerate a missing session.** Sessions can be torn down mid-flight while a renderer refresh is in flight; `diff:get` returns an empty diff rather than throwing for exactly this race (`git-handlers.ts:15`), whereas `resolveSession`-based channels deliberately throw.
 - **Plain-folder projects reject git channels.** Most `git:*`/`diff:*`/`pr:create` handlers guard with `isGitProject` and either throw or return an empty result; do the same for any new git-touching channel.
 - **Removing a project must drop its derived stores and references.** A project id is a fresh uuid on every add, so anything keyed by it (verdicts, chat, memory, agent dismissals, workspace membership) is unreachable once the project is removed and re-added. `projects:remove` therefore deletes the verdict/chat/memory/dismissal data and detaches the id from every workspace (`project-handlers.ts:191`–`:195`) but leaves the on-disk repo in place; only `agent:delete-app` additionally `fs.rm`s the project directory (`project-handlers.ts:185`, `agent-handlers.ts:150`).

@@ -1,7 +1,7 @@
 ---
 description: The on-disk data model under ~/.manifold — every file and directory Manifold persists, which module owns each path, and the two distinct roots (hardcoded config home vs. configurable storage root).
 covers: [src/main/store, src/shared/defaults.ts]
-updated: 2026-07-14
+updated: 2026-08-06
 owner: see .github/CODEOWNERS
 ---
 
@@ -57,7 +57,6 @@ change lives in the IPC layer, not the store (`ipc/settings-handlers.ts:18`). `M
 also carries a bare-number `uiScale` (`src/shared/types.ts:178`), defaulting to `1`
 (`defaults.ts:55`); `clampUiScale()` bounds a persisted/user value to `[0.85, 2]` and falls back to
 `1` for non-finite input before it reaches font-size math (`defaults.ts:13`, min/max at `:4`–`:5`).
-
 **`<configHome>/projects.json`** — a flat `Project[]` array (id, name, path, baseBranch,
 addedAt, kind). `ProjectRegistry` loads, sorts by name, and rewrites the file on every
 add/remove/update (`project-registry.ts:40`). Note these are *registered* project paths
@@ -85,15 +84,38 @@ plugin verifies cached PR state (`verdict-types.ts:33`, `verdict-pr-verifier.ts:
 
 **`<configHome>/{view-state,dock-layout,search-view-state,shell-tabs}.json`** — renderer/UI
 state persisted by the four small stores in `src/main/store`. All hardcode
-`os.homedir()/.manifold` and rewrite their single JSON file on change.
+`os.homedir()/.manifold` and rewrite their single JSON file on change. Three are keyed maps
+(by session, project, workspace checkout path); `dock-layout.json` is a bare dockview layout, because the panel
+arrangement belongs to the window rather than to the selected agent (`dock-layout-store.ts:24`).
+A file still holding the older `{ sessionId: layout }` map is dropped on load and the default
+layout rebuilt once (`dock-layout-store.ts:37`).
 
 **`<configHome>/dismissed-agents.json`** — `{ projectId: branch[] }` of agents the user
 explicitly deleted from the sidebar, so session discovery does not resurrect a dormant
 agent from leftover branch checkout state (`dismissed-agents-store.ts:7`; #679). Entries
 are lifted when a session is recreated on that branch and purged on project removal.
 
-**`<configHome>/workspaces.json`** — multi-root workspace definitions
-(`app/index.ts:68`).
+**`<configHome>/workspaces.json`** — workspace definitions. Every entry has a
+required user-facing `name`, an ordered `projectIds` working set, and an optional runtime;
+the first project is the default agent working directory (`workspace-types.ts:9`).
+
+A workspace is also **a place, not just a grouping**: `worktreePaths` records its checkout of
+each member repo and `branchName` the branch they are all on. Both are absent on a *home*
+workspace, which is the repos' own clones — the one adopting a repository creates. Every
+workspace made after that owns a git worktree per repo, cut when the workspace is created and
+removed when it is removed, which is what lets the same repos appear in as many workspaces as
+the user wants without conflicting: one branch, one place, one checkout
+(`workspace-manager.ts:38`, `:69`).
+
+A workspace is the *only* container: **every registered project belongs to at least one**, and
+a workspace of a single folder is the ordinary shape, not a degenerate one. Registering a repo
+adopts it into a home workspace in the same IPC call (`ipc/project-handlers.ts:60`,
+`workspace-manager.ts:106`), and startup wraps any repo no workspace holds — the migration for
+trees added before this rule (`workspace-manager.ts:118`). Startup also promotes every worktree
+left over from the era when agents owned them into a workspace of its own, named after its
+branch (`workspace/workspace-promotion.ts:32`). The inverse also holds: removing the last
+project drops the workspace, since with no folders it can neither spawn an agent nor show
+anything (`workspace-manager.ts:190`).
 
 **`<configHome>/loop-logs/<sha256(worktreePath)[:16]>.jsonl`** — one append-only JSONL file
 per worktree of automated-loop iterations. Owned by the loop *plugin*
@@ -108,8 +130,9 @@ streaming sessions (`debug-log.ts:10`–`:25`). `flushSync()` drains on quit.
 **`<storageRoot>/worktrees/<projectName>/<branch>`** — managed git worktrees.
 `WorktreeManager.getWorktreeBase()` joins `storagePath` + `worktrees` + project name
 (`worktree-manager.ts:19`); the branch's `/` is flattened to `-` for the leaf dir
-(`worktree-manager.ts:33`). This is where session work happens; per-session meta lives inside
-the worktree (see `src/main/git/worktree-meta`), which is what makes session discovery
+(`worktree-manager.ts:33`). This is where work happens, and each one belongs to a workspace
+rather than to an agent — several agents in that workspace share it. Per-session meta lives
+inside the worktree (see `src/main/git/worktree-meta`), which is what makes session discovery
 possible.
 
 **`<storageRoot>/projects/<repoName>`** — locally generated app projects.

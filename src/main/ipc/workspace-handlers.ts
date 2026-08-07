@@ -3,20 +3,30 @@ import type { WorkspaceCreateOptions, WorkspaceSpawnAgentOptions } from '../../s
 import type { IpcDependencies } from './types'
 
 export function registerWorkspaceHandlers(deps: IpcDependencies): void {
-  const { workspaceManager } = deps
+  const { workspaceManager, activeWorkspaceStore } = deps
+
+  ipcMain.handle('workspace:get-active', () => activeWorkspaceStore.get())
+
+  ipcMain.handle('workspace:set-active', (_e, workspaceId: string | null) => {
+    activeWorkspaceStore.set(workspaceId)
+  })
 
   ipcMain.handle('workspace:list', () => workspaceManager.list())
 
   ipcMain.handle('workspace:create', (_e, options: WorkspaceCreateOptions) => workspaceManager.create(options))
 
+  ipcMain.handle('workspace:rename', (_e, id: string, name: string) => workspaceManager.rename(id, name))
+
   ipcMain.handle('workspace:remove', (_e, id: string) => workspaceManager.remove(id))
 
-  ipcMain.handle('workspace:add-project', (_e, id: string, projectId: string) => {
-    workspaceManager.addProject(id, projectId)
+  // Both await: attaching or detaching a folder cuts or removes that repo's
+  // checkout in a worktree workspace, and the renderer must not repaint first.
+  ipcMain.handle('workspace:add-project', async (_e, id: string, projectId: string) => {
+    await workspaceManager.addProject(id, projectId)
   })
 
-  ipcMain.handle('workspace:remove-project', (_e, id: string, projectId: string) => {
-    workspaceManager.removeProject(id, projectId)
+  ipcMain.handle('workspace:remove-project', async (_e, id: string, projectId: string) => {
+    await workspaceManager.removeProject(id, projectId)
   })
 
   ipcMain.handle('workspace:spawn-agent', (_e, id: string, options: WorkspaceSpawnAgentOptions) => {

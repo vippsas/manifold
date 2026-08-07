@@ -1,11 +1,11 @@
-// Regression guard for the sidebars-grow-on-drag bug: dragging a panel to a
+// Regression guard for the sidebar-grows-on-drag bug: dragging a panel to a
 // new position (e.g. dropping the editor tab below the agent tab) makes
 // dockview redistribute the freed width proportionally across ALL root
-// children — both sidebars included. The onDidLayoutChange handler reacts by
-// calling restoreSidebarWidths with the remembered widths; that restore must
-// actually resize the sidebars back. dockview's setConstraints is lazy
+// children — the sidebar included. The onDidLayoutChange handler reacts by
+// calling restoreSidebarWidth with the remembered width; that restore must
+// actually resize the sidebar back. dockview's setConstraints is lazy
 // (honoured only during a layout pass), so a pin/release with no layout pass
-// in between silently leaves the sidebars grown.
+// in between silently leaves the sidebar grown.
 //
 // These tests render the REAL dockview library and move the panel through
 // panel.api.moveTo — the same moveGroupOrPanel path a drag-and-drop lands in.
@@ -13,7 +13,7 @@ import React from 'react'
 import { render, act, waitFor } from '@testing-library/react'
 import { DockviewReact, type DockviewApi, type IDockviewPanelProps } from 'dockview'
 import { describe, it, expect, beforeAll } from 'vitest'
-import { restoreSidebarWidths } from './dock-layout-helpers'
+import { restoreSidebarWidth } from './dock-layout-helpers'
 
 beforeAll(() => {
   ;(globalThis as unknown as { ResizeObserver: unknown }).ResizeObserver = class {
@@ -44,7 +44,7 @@ async function setupDock(): Promise<DockviewApi> {
   render(
     <div style={{ width: 1200, height: 700 }}>
       <DockviewReact
-        components={{ projects: Probe, agent: Probe, editor: Probe, fileTree: Probe }}
+        components={{ sidebar: Probe, agent: Probe, editor: Probe }}
         onReady={(e) => { api = e.api }}
       />
     </div>,
@@ -53,44 +53,38 @@ async function setupDock(): Promise<DockviewApi> {
   const dv = api as unknown as DockviewApi
   act(() => {
     dv.layout(1200, 700)
-    dv.addPanel({ id: 'projects', component: 'projects' })
-    dv.addPanel({ id: 'agent', component: 'agent', position: { referencePanel: 'projects', direction: 'right' } })
+    dv.addPanel({ id: 'sidebar', component: 'sidebar' })
+    dv.addPanel({ id: 'agent', component: 'agent', position: { referencePanel: 'sidebar', direction: 'right' } })
     dv.addPanel({ id: 'editor', component: 'editor', position: { referencePanel: 'agent', direction: 'right' } })
-    dv.addPanel({ id: 'fileTree', component: 'fileTree', position: { referencePanel: 'editor', direction: 'right' } })
-    dv.getPanel('projects')?.group.api.setSize({ width: 200 })
-    dv.getPanel('fileTree')?.group.api.setSize({ width: 200 })
+    dv.getPanel('sidebar')?.group.api.setSize({ width: 200 })
   })
-  wireOffsetWidth(dv, 'projects')
-  wireOffsetWidth(dv, 'fileTree')
+  wireOffsetWidth(dv, 'sidebar')
   return dv
 }
 
-describe('restoreSidebarWidths after a drag-style panel move', () => {
-  it('shrinks both sidebars back to their remembered widths', async () => {
+describe('restoreSidebarWidth after a drag-style panel move', () => {
+  it('shrinks the sidebar back to its remembered width', async () => {
     const dv = await setupDock()
     const widthOf = (panelId: string): number => dv.getPanel(panelId)?.group.api.width ?? -1
 
-    expect(widthOf('projects')).toBe(200)
-    expect(widthOf('fileTree')).toBe(200)
+    expect(widthOf('sidebar')).toBe(200)
 
     // Drag-equivalent move: drop the editor tab on the agent group's bottom
     // edge. The editor's root-level column is removed and its width is
-    // redistributed proportionally — the sidebars grow.
+    // redistributed proportionally — the sidebar grows.
     act(() => {
       const agentGroup = dv.getPanel('agent')?.group
       if (!agentGroup) throw new Error('no agent group')
       dv.getPanel('editor')?.api.moveTo({ group: agentGroup, position: 'bottom' })
     })
 
-    // Precondition for the regression: the move actually inflated the sidebars.
-    expect(widthOf('projects')).toBeGreaterThan(201)
-    expect(widthOf('fileTree')).toBeGreaterThan(201)
+    // Precondition for the regression: the move actually inflated the sidebar.
+    expect(widthOf('sidebar')).toBeGreaterThan(201)
 
     act(() => {
-      restoreSidebarWidths(dv, { left: 200, right: 200 })
+      restoreSidebarWidth(dv, 200)
     })
 
-    expect(widthOf('projects')).toBe(200)
-    expect(widthOf('fileTree')).toBe(200)
+    expect(widthOf('sidebar')).toBe(200)
   })
 })

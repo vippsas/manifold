@@ -2,6 +2,12 @@ import { describe, expect, it } from 'vitest'
 import type { SerializedDockview } from 'dockview'
 import { sanitizeDockLayout } from './dock-layout-helpers'
 
+type Leaf = { type: 'leaf'; size: number; data: { views: string[]; activeView?: string } }
+type Branch = { type: 'branch'; size: number; data: Array<Branch | Leaf> }
+
+const asBranch = (layout: SerializedDockview): Branch => layout.grid.root as unknown as Branch
+const asLeaf = (layout: SerializedDockview): Leaf => layout.grid.root as unknown as Leaf
+
 describe('sanitizeDockLayout', () => {
   it('removes the retired memory panel from saved layouts', () => {
     const saved = {
@@ -13,27 +19,18 @@ describe('sanitizeDockLayout', () => {
             {
               type: 'leaf',
               size: 320,
-              data: {
-                id: 'sidebar',
-                views: ['fileTree', 'modifiedFiles', 'memory'],
-                activeView: 'memory',
-              },
+              data: { id: 'sidebar', views: ['sidebar', 'memory'], activeView: 'memory' },
             },
             {
               type: 'leaf',
               size: 680,
-              data: {
-                id: 'workspace',
-                views: ['agent', 'shell'],
-                activeView: 'agent',
-              },
+              data: { id: 'workspace', views: ['agent', 'shell'], activeView: 'agent' },
             },
           ],
         },
       },
       panels: {
-        fileTree: {},
-        modifiedFiles: {},
+        sidebar: {},
         memory: {},
         agent: {},
         shell: {},
@@ -41,15 +38,131 @@ describe('sanitizeDockLayout', () => {
     } as unknown as SerializedDockview
 
     const sanitized = sanitizeDockLayout(saved) as SerializedDockview
-    const sidebar = (sanitized.grid.root as {
-      type: 'branch'
-      data: Array<{ type: 'leaf'; data: { views: string[]; activeView?: string } }>
-    }).data[0]
+    const sidebar = asBranch(sanitized).data[0] as Leaf
 
     expect(sanitized).not.toBeNull()
     expect(Object.keys(sanitized.panels)).not.toContain('memory')
-    expect(sidebar.data.views).toEqual(['fileTree', 'modifiedFiles'])
-    expect(sidebar.data.activeView).toBe('fileTree')
+    expect(sidebar.data.views).toEqual(['sidebar'])
+    expect(sidebar.data.activeView).toBe('sidebar')
+  })
+
+  // The whole point of retiring the old ids: a user upgrading from the
+  // three-column model must land in a valid dock, not an empty or broken one.
+  describe('migrating a layout saved under the old three-column model', () => {
+    /** The real old shape: Repositories | agent | (Modified Files + editor). */
+    const oldLayout = (): SerializedDockview => ({
+      grid: {
+        width: 1800,
+        height: 1000,
+        orientation: 'HORIZONTAL',
+        root: {
+          type: 'branch',
+          size: 1800,
+          data: [
+            { type: 'leaf', size: 300, data: { id: 'repos', views: ['projects'], activeView: 'projects' } },
+            { type: 'leaf', size: 1200, data: { id: 'workspace', views: ['agent'], activeView: 'agent' } },
+            {
+              type: 'leaf',
+              size: 300,
+              data: { id: 'files', views: ['modifiedFiles', 'editor'], activeView: 'modifiedFiles' },
+            },
+          ],
+        },
+      },
+      panels: { projects: {}, agent: {}, modifiedFiles: {}, editor: {} },
+    } as unknown as SerializedDockview)
+
+    // Stripping the retired ids would leave `agent | editor` — a dock with no
+    // sidebar at all, and no way for the user to get one back. Discarding the
+    // layout hands the loader its fallback, which builds `sidebar | agent`.
+    // dock-layout-old-layout-migration.test.tsx pins what actually renders.
+    it('discards the layout so the default is built instead', () => {
+      expect(sanitizeDockLayout(oldLayout())).toBeNull()
+    })
+
+    it('discards a two-column Repositories-and-agent layout too', () => {
+      const saved = {
+        grid: {
+          root: {
+            type: 'branch',
+            size: 1000,
+            data: [
+              { type: 'leaf', size: 200, data: { id: 'repos', views: ['projects'], activeView: 'projects' } },
+              { type: 'leaf', size: 800, data: { id: 'workspace', views: ['agent'], activeView: 'agent' } },
+            ],
+          },
+        },
+        panels: { projects: {}, agent: {} },
+      } as unknown as SerializedDockview
+
+      expect(sanitizeDockLayout(saved)).toBeNull()
+    })
+
+    // The discard is scoped to layouts that actually carry an old sidebar id:
+    // a current layout whose sidebar the user closed must still restore as-is,
+    // not silently spring the sidebar back on every restart.
+    it('keeps a current layout that has no sidebar because the user closed it', () => {
+      const saved = {
+        grid: {
+          root: {
+            type: 'leaf',
+            size: 1000,
+            data: { id: 'workspace', views: ['agent', 'editor'], activeView: 'agent' },
+          },
+        },
+        panels: { agent: {}, editor: {} },
+      } as unknown as SerializedDockview
+
+      expect(sanitizeDockLayout(saved)).toBe(saved)
+    })
+
+    // A half-migrated layout — the new sidebar plus a stale Modified Files tab
+    // — keeps its sidebar and just drops the dead panel.
+    it('heals a layout that already has the sidebar alongside a stale panel', () => {
+      const saved = {
+        grid: {
+          root: {
+            type: 'branch',
+            size: 1000,
+            data: [
+              { type: 'leaf', size: 160, data: { id: 'side', views: ['sidebar'], activeView: 'sidebar' } },
+              {
+                type: 'leaf',
+                size: 840,
+                data: { id: 'workspace', views: ['agent', 'modifiedFiles'], activeView: 'modifiedFiles' },
+              },
+            ],
+          },
+        },
+        panels: { sidebar: {}, agent: {}, modifiedFiles: {} },
+      } as unknown as SerializedDockview
+
+      const sanitized = sanitizeDockLayout(saved) as SerializedDockview
+
+      expect(sanitized).not.toBeNull()
+      expect(Object.keys(sanitized.panels).sort()).toEqual(['agent', 'sidebar'])
+      const workspace = asBranch(sanitized).data[1] as Leaf
+      expect(workspace.data.views).toEqual(['agent'])
+      expect(workspace.data.activeView).toBe('agent')
+    })
+  })
+
+  it('leaves a current sidebar-and-agent layout untouched', () => {
+    const saved = {
+      grid: {
+        root: {
+          type: 'branch',
+          size: 1000,
+          data: [
+            { type: 'leaf', size: 160, data: { id: 'side', views: ['sidebar'], activeView: 'sidebar' } },
+            { type: 'leaf', size: 840, data: { id: 'workspace', views: ['agent'], activeView: 'agent' } },
+          ],
+        },
+      },
+      panels: { sidebar: {}, agent: {} },
+    } as unknown as SerializedDockview
+
+    expect(sanitizeDockLayout(saved)).toBe(saved)
   })
 
   it('returns null when the saved layout only contains retired panels', () => {
@@ -58,16 +171,10 @@ describe('sanitizeDockLayout', () => {
         root: {
           type: 'leaf',
           size: 1000,
-          data: {
-            id: 'memory-only',
-            views: ['memory'],
-            activeView: 'memory',
-          },
+          data: { id: 'memory-only', views: ['memory'], activeView: 'memory' },
         },
       },
-      panels: {
-        memory: {},
-      },
+      panels: { memory: {} },
     } as unknown as SerializedDockview
 
     expect(sanitizeDockLayout(saved)).toBeNull()
@@ -80,29 +187,17 @@ describe('sanitizeDockLayout', () => {
           type: 'branch',
           size: 1000,
           data: [
-            {
-              type: 'leaf',
-              size: 300,
-              data: {
-                id: 'empty-left',
-                views: [],
-                activeView: 'projects',
-              },
-            },
+            { type: 'leaf', size: 300, data: { id: 'empty-left', views: [], activeView: 'sidebar' } },
             {
               type: 'leaf',
               size: 700,
-              data: {
-                id: 'workspace',
-                views: ['agent', 'shell', 'unsupportedPanel'],
-                activeView: 'unsupportedPanel',
-              },
+              data: { id: 'workspace', views: ['agent', 'shell', 'unsupportedPanel'], activeView: 'unsupportedPanel' },
             },
           ],
         },
       },
       panels: {
-        projects: {},
+        sidebar: {},
         agent: {},
         shell: {},
         unsupportedPanel: {},
@@ -110,10 +205,7 @@ describe('sanitizeDockLayout', () => {
     } as unknown as SerializedDockview
 
     const sanitized = sanitizeDockLayout(saved) as SerializedDockview
-    const root = sanitized.grid.root as {
-      type: 'leaf'
-      data: { views: string[]; activeView?: string }
-    }
+    const root = asLeaf(sanitized)
 
     expect(sanitized).not.toBeNull()
     expect(root.type).toBe('leaf')
@@ -128,57 +220,15 @@ describe('sanitizeDockLayout', () => {
         root: {
           type: 'leaf',
           size: 1000,
-          data: {
-            id: 'workspace',
-            views: ['agent', 'loop'],
-            activeView: 'loop',
-          },
+          data: { id: 'workspace', views: ['agent', 'loop'], activeView: 'loop' },
         },
       },
-      panels: {
-        agent: {},
-        loop: {},
-      },
+      panels: { agent: {}, loop: {} },
     } as unknown as SerializedDockview
 
     const sanitized = sanitizeDockLayout(saved) as SerializedDockview
-    const leaf = sanitized.grid.root as {
-      type: 'leaf'
-      data: { views: string[]; activeView?: string }
-    }
+    const leaf = asLeaf(sanitized)
 
-    expect(sanitized).not.toBeNull()
-    expect(Object.keys(sanitized.panels)).toEqual(['agent'])
-    expect(leaf.data.views).toEqual(['agent'])
-    expect(leaf.data.activeView).toBe('agent')
-  })
-
-  it('removes the retired builtin watch tab from saved layouts', () => {
-    const saved = {
-      grid: {
-        root: {
-          type: 'leaf',
-          size: 1000,
-          data: {
-            id: 'workspace',
-            views: ['agent', 'watch'],
-            activeView: 'watch',
-          },
-        },
-      },
-      panels: {
-        agent: {},
-        watch: {},
-      },
-    } as unknown as SerializedDockview
-
-    const sanitized = sanitizeDockLayout(saved) as SerializedDockview
-    const leaf = sanitized.grid.root as {
-      type: 'leaf'
-      data: { views: string[]; activeView?: string }
-    }
-
-    expect(sanitized).not.toBeNull()
     expect(Object.keys(sanitized.panels)).toEqual(['agent'])
     expect(leaf.data.views).toEqual(['agent'])
     expect(leaf.data.activeView).toBe('agent')
@@ -190,26 +240,15 @@ describe('sanitizeDockLayout', () => {
         root: {
           type: 'leaf',
           size: 1000,
-          data: {
-            id: 'workspace',
-            views: ['agent', 'search'],
-            activeView: 'search',
-          },
+          data: { id: 'workspace', views: ['agent', 'search'], activeView: 'search' },
         },
       },
-      panels: {
-        agent: {},
-        search: {},
-      },
+      panels: { agent: {}, search: {} },
     } as unknown as SerializedDockview
 
     const sanitized = sanitizeDockLayout(saved) as SerializedDockview
-    const leaf = sanitized.grid.root as {
-      type: 'leaf'
-      data: { views: string[]; activeView?: string }
-    }
+    const leaf = asLeaf(sanitized)
 
-    expect(sanitized).not.toBeNull()
     expect(Object.keys(sanitized.panels)).toEqual(['agent'])
     expect(leaf.data.views).toEqual(['agent'])
     expect(leaf.data.activeView).toBe('agent')
@@ -236,15 +275,9 @@ describe('sanitizeDockLayout', () => {
     } as unknown as SerializedDockview
 
     const sanitized = sanitizeDockLayout(saved) as SerializedDockview
-    const leaf = sanitized.grid.root as {
-      type: 'leaf'
-      data: { views: string[]; activeView?: string }
-    }
 
     expect(sanitized).toBe(saved)
     expect(Object.keys(sanitized.panels)).toEqual(['agent', 'manifold.loop.panel', 'publisher.tree'])
-    expect(leaf.data.views).toEqual(['agent', 'manifold.loop.panel', 'publisher.tree'])
-    expect(leaf.data.activeView).toBe('manifold.loop.panel')
   })
 
   it('returns null when every grid leaf is empty after sanitization', () => {
@@ -254,30 +287,12 @@ describe('sanitizeDockLayout', () => {
           type: 'branch',
           size: 1000,
           data: [
-            {
-              type: 'leaf',
-              size: 500,
-              data: {
-                id: 'left',
-                views: [],
-                activeView: 'projects',
-              },
-            },
-            {
-              type: 'leaf',
-              size: 500,
-              data: {
-                id: 'right',
-                views: ['unsupportedPanel'],
-                activeView: 'unsupportedPanel',
-              },
-            },
+            { type: 'leaf', size: 500, data: { id: 'left', views: [], activeView: 'sidebar' } },
+            { type: 'leaf', size: 500, data: { id: 'right', views: ['unsupportedPanel'], activeView: 'unsupportedPanel' } },
           ],
         },
       },
-      panels: {
-        unsupportedPanel: {},
-      },
+      panels: { unsupportedPanel: {} },
     } as unknown as SerializedDockview
 
     expect(sanitizeDockLayout(saved)).toBeNull()
@@ -296,19 +311,13 @@ describe('sanitizeDockLayout', () => {
           },
         },
       },
-      panels: {
-        agent: {},
-        'agent:dead-1': {},
-        'agent:live-1': {},
-      },
+      panels: { agent: {}, 'agent:dead-1': {}, 'agent:live-1': {} },
     } as unknown as SerializedDockview
 
     const sanitized = sanitizeDockLayout(saved, new Set(['live-1'])) as SerializedDockview
+    const leaf = asLeaf(sanitized)
+
     expect(Object.keys(sanitized.panels)).toEqual(['agent', 'agent:live-1'])
-    const leaf = sanitized.grid.root as {
-      type: 'leaf'
-      data: { views: string[]; activeView?: string }
-    }
     expect(leaf.data.views).toEqual(['agent', 'agent:live-1'])
     expect(leaf.data.activeView).toBe('agent:live-1')
   })
@@ -327,8 +336,7 @@ describe('sanitizeDockLayout', () => {
       panels: { agent: {}, 'agent:s1': {} },
     } as unknown as SerializedDockview
 
-    const sanitized = sanitizeDockLayout(saved)
-    expect(sanitized).toBe(saved)
+    expect(sanitizeDockLayout(saved)).toBe(saved)
   })
 
   it('strips all sibling panels when an empty live session set is provided', () => {
@@ -347,7 +355,7 @@ describe('sanitizeDockLayout', () => {
     expect(Object.keys(sanitized.panels)).toEqual(['agent'])
   })
 
-  it('caps stale restored sidebar widths at the default one-sixth share', () => {
+  it('caps a stale restored sidebar width at the default one-sixth share', () => {
     const saved = {
       grid: {
         width: 1800,
@@ -357,40 +365,18 @@ describe('sanitizeDockLayout', () => {
           type: 'branch',
           size: 1800,
           data: [
-            {
-              type: 'leaf',
-              size: 600,
-              data: { id: 'projects', views: ['projects'], activeView: 'projects' },
-            },
-            {
-              type: 'leaf',
-              size: 600,
-              data: { id: 'agent', views: ['agent'], activeView: 'agent' },
-            },
-            {
-              type: 'leaf',
-              size: 600,
-              data: { id: 'files', views: ['fileTree', 'modifiedFiles'], activeView: 'fileTree' },
-            },
+            { type: 'leaf', size: 900, data: { id: 'side', views: ['sidebar'], activeView: 'sidebar' } },
+            { type: 'leaf', size: 900, data: { id: 'agent', views: ['agent'], activeView: 'agent' } },
           ],
         },
       },
-      panels: {
-        projects: {},
-        agent: {},
-        fileTree: {},
-        modifiedFiles: {},
-      },
+      panels: { sidebar: {}, agent: {} },
     } as unknown as SerializedDockview
 
     const sanitized = sanitizeDockLayout(saved) as SerializedDockview
-    const children = (sanitized.grid.root as {
-      type: 'branch'
-      data: Array<{ size: number }>
-    }).data
 
     expect(sanitized).not.toBe(saved)
-    expect(children.map((child) => child.size)).toEqual([300, 1200, 300])
+    expect(asBranch(sanitized).data.map((child) => child.size)).toEqual([300, 1500])
   })
 
   it('returns freed sidebar width to existing workspace panes proportionally', () => {
@@ -403,115 +389,26 @@ describe('sanitizeDockLayout', () => {
           type: 'branch',
           size: 1800,
           data: [
-            {
-              type: 'leaf',
-              size: 600,
-              data: { id: 'projects', views: ['projects'], activeView: 'projects' },
-            },
-            {
-              type: 'leaf',
-              size: 300,
-              data: { id: 'agent', views: ['agent'], activeView: 'agent' },
-            },
-            {
-              type: 'leaf',
-              size: 300,
-              data: { id: 'editor', views: ['editor'], activeView: 'editor' },
-            },
-            {
-              type: 'leaf',
-              size: 600,
-              data: { id: 'files', views: ['fileTree', 'modifiedFiles'], activeView: 'fileTree' },
-            },
+            { type: 'leaf', size: 600, data: { id: 'side', views: ['sidebar'], activeView: 'sidebar' } },
+            { type: 'leaf', size: 400, data: { id: 'agent', views: ['agent'], activeView: 'agent' } },
+            { type: 'leaf', size: 800, data: { id: 'editor', views: ['editor'], activeView: 'editor' } },
           ],
         },
       },
-      panels: {
-        projects: {},
-        agent: {},
-        editor: {},
-        fileTree: {},
-        modifiedFiles: {},
-      },
+      panels: { sidebar: {}, agent: {}, editor: {} },
     } as unknown as SerializedDockview
 
     const sanitized = sanitizeDockLayout(saved) as SerializedDockview
-    const children = (sanitized.grid.root as {
-      type: 'branch'
-      data: Array<{ size: number }>
-    }).data
+    const sizes = asBranch(sanitized).data.map((child) => child.size)
 
-    expect(children.map((child) => child.size)).toEqual([300, 600, 600, 300])
+    expect(sizes[0]).toBe(300)
+    expect(sizes[1] + sizes[2]).toBe(1500)
+    // The freed 300px is split in proportion to the panes' existing widths.
+    expect(sizes[1]).toBe(500)
+    expect(sizes[2]).toBe(1000)
   })
 
-  it('caps stale restored stacked sidebar columns at the default one-sixth share', () => {
-    const saved = {
-      grid: {
-        width: 1800,
-        height: 1074,
-        orientation: 'VERTICAL',
-        root: {
-          type: 'branch',
-          size: 1800,
-          data: [
-            {
-              type: 'branch',
-              size: 1074,
-              data: [
-                {
-                  type: 'branch',
-                  size: 600,
-                  data: [
-                    {
-                      type: 'leaf',
-                      size: 537,
-                      data: { id: 'projects', views: ['projects'], activeView: 'projects' },
-                    },
-                    {
-                      type: 'leaf',
-                      size: 537,
-                      data: { id: 'files', views: ['fileTree', 'modifiedFiles'], activeView: 'fileTree' },
-                    },
-                  ],
-                },
-                {
-                  type: 'leaf',
-                  size: 600,
-                  data: { id: 'agent', views: ['agent'], activeView: 'agent' },
-                },
-                {
-                  type: 'leaf',
-                  size: 600,
-                  data: { id: 'editor', views: ['editor'], activeView: 'editor' },
-                },
-              ],
-            },
-          ],
-        },
-      },
-      panels: {
-        projects: {},
-        agent: {},
-        editor: {},
-        fileTree: {},
-        modifiedFiles: {},
-      },
-    } as unknown as SerializedDockview
-
-    const sanitized = sanitizeDockLayout(saved) as SerializedDockview
-    const workspaceRow = ((sanitized.grid.root as {
-      type: 'branch'
-      data: Array<{
-        type: 'branch'
-        data: Array<{ size: number }>
-      }>
-    }).data[0])
-
-    expect(sanitized).not.toBe(saved)
-    expect(workspaceRow.data.map((child) => child.size)).toEqual([300, 750, 750])
-  })
-
-  it('preserves restored sidebar widths that are not over the default cap', () => {
+  it('preserves a restored sidebar width that is not over the default cap', () => {
     const saved = {
       grid: {
         width: 1800,
@@ -521,30 +418,12 @@ describe('sanitizeDockLayout', () => {
           type: 'branch',
           size: 1800,
           data: [
-            {
-              type: 'leaf',
-              size: 240,
-              data: { id: 'projects', views: ['projects'], activeView: 'projects' },
-            },
-            {
-              type: 'leaf',
-              size: 1320,
-              data: { id: 'agent', views: ['agent'], activeView: 'agent' },
-            },
-            {
-              type: 'leaf',
-              size: 240,
-              data: { id: 'files', views: ['fileTree', 'modifiedFiles'], activeView: 'fileTree' },
-            },
+            { type: 'leaf', size: 240, data: { id: 'side', views: ['sidebar'], activeView: 'sidebar' } },
+            { type: 'leaf', size: 1560, data: { id: 'agent', views: ['agent'], activeView: 'agent' } },
           ],
         },
       },
-      panels: {
-        projects: {},
-        agent: {},
-        fileTree: {},
-        modifiedFiles: {},
-      },
+      panels: { sidebar: {}, agent: {} },
     } as unknown as SerializedDockview
 
     expect(sanitizeDockLayout(saved)).toBe(saved)

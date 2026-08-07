@@ -31,45 +31,40 @@ describe('DockLayoutStore', () => {
     vi.clearAllMocks()
   })
 
-  it('round-trips an opaque layout', () => {
+  const layout = { grid: { root: {} }, panels: { agent: {} } }
+
+  it('round-trips the one layout', () => {
     mockExistsSync.mockReturnValue(false)
     const store = new DockLayoutStore()
-    const layout = { panels: { a: 1 }, grid: [1, 2] }
-    store.set('s1', layout)
-    expect(store.get('s1')).toEqual(layout)
-  })
-
-  it('loads existing layouts from disk', () => {
-    mockExistsSync.mockReturnValue(true)
-    mockReadFileSync.mockReturnValue(JSON.stringify({ s1: { foo: 'bar' } }))
-    const store = new DockLayoutStore()
-    expect(store.get('s1')).toEqual({ foo: 'bar' })
-  })
-
-  it('returns null for an unknown session', () => {
-    mockExistsSync.mockReturnValue(false)
-    const store = new DockLayoutStore()
-    expect(store.get('missing')).toBeNull()
-  })
-
-  it('delete removes the layout and persists (so the file shrinks) (#524)', () => {
-    mockExistsSync.mockReturnValue(true)
-    mockReadFileSync.mockReturnValue(JSON.stringify({ s1: { foo: 1 }, s2: { bar: 2 } }))
-    const store = new DockLayoutStore()
-
-    store.delete('s1')
-
-    expect(store.get('s1')).toBeNull()
-    expect(store.get('s2')).toEqual({ bar: 2 })
-    // The persisted object no longer contains the deleted session.
+    store.set(layout)
+    expect(store.get()).toEqual(layout)
+    // Written bare, not wrapped in a keyed map.
     const lastWrite = mockWriteFileSync.mock.calls.at(-1)![1] as string
-    expect(JSON.parse(lastWrite)).toEqual({ s2: { bar: 2 } })
+    expect(JSON.parse(lastWrite)).toEqual(layout)
+  })
+
+  it('loads the saved layout from disk', () => {
+    mockExistsSync.mockReturnValue(true)
+    mockReadFileSync.mockReturnValue(JSON.stringify(layout))
+    expect(new DockLayoutStore().get()).toEqual(layout)
+  })
+
+  it('returns null when nothing is saved', () => {
+    mockExistsSync.mockReturnValue(false)
+    expect(new DockLayoutStore().get()).toBeNull()
+  })
+
+  it('drops a per-agent map written before the layout became window-scoped', () => {
+    mockExistsSync.mockReturnValue(true)
+    mockReadFileSync.mockReturnValue(JSON.stringify({ 's1': layout, 's2': layout }))
+    // No single layout to pick out of the map — the default is rebuilt instead.
+    expect(new DockLayoutStore().get()).toBeNull()
   })
 
   it('writes atomically via a tmp file + rename (#525)', () => {
     mockExistsSync.mockReturnValue(false)
     const store = new DockLayoutStore()
-    store.set('s1', { x: 1 })
+    store.set(layout)
 
     // writeFileSync targets the .tmp sibling; rename moves it over the real file.
     expect(mockWriteFileSync).toHaveBeenCalledWith(`${STATE_FILE}.tmp`, expect.any(String), 'utf-8')

@@ -22,6 +22,9 @@ export interface AppLifecycleDeps {
   ptyPool: PtyPool
   fileWatcher: FileWatcher
   createWindow: () => void
+  /** Ran once before the first window, for work the sidebar's first paint must
+   *  already reflect. Failures here must not keep the window from opening. */
+  beforeFirstWindow?: () => Promise<void>
   chatStore: ChatStore
   pluginManager: PluginManager
 }
@@ -55,6 +58,7 @@ export function registerAppLifecycle(deps: AppLifecycleDeps): void {
     // when they embed a frameSources origin — YouTube rejects that (Error
     // 153). Re-attach the loopback renderer origin as the Referer.
     installFrameSourceReferrer(() => process.env.ELECTRON_RENDERER_URL ?? '')
+    await deps.beforeFirstWindow?.()
     createWindow()
     setupAutoUpdater()
 

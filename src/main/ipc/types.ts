@@ -9,6 +9,7 @@ import { ShellTabStore } from '../store/shell-tab-store'
 import { GitOperationsManager } from '../git/git-operations'
 import { BranchCheckoutManager } from '../git/branch-checkout-manager'
 import { DockLayoutStore } from '../store/dock-layout-store'
+import { ActiveWorkspaceStore } from '../store/active-workspace-store'
 import { SearchViewStore } from '../store/search-view-store'
 import { DismissedAgentsStore } from '../store/dismissed-agents-store'
 import type { ChatAdapter } from '../agent/chat-adapter'
@@ -30,6 +31,7 @@ export interface IpcDependencies {
   gitOps: GitOperationsManager
   branchCheckout: BranchCheckoutManager
   dockLayoutStore: DockLayoutStore
+  activeWorkspaceStore: ActiveWorkspaceStore
   searchViewStore: SearchViewStore
   dismissedAgents: DismissedAgentsStore
   chatAdapter: ChatAdapter

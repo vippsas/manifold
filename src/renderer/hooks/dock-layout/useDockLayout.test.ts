@@ -112,7 +112,6 @@ describe('useDockLayout plugin panels', () => {
 
     expect(mockInvoke).toHaveBeenCalledWith(
       'dock-layout:set',
-      'session-1',
       expect.objectContaining({
         panels: expect.objectContaining({
           'manifold.loop.panel': expect.objectContaining({ contentComponent: 'pluginView' }),
@@ -141,7 +140,7 @@ describe('useDockLayout plugin panels', () => {
     })
   })
 
-  it('flushes pending plugin layout saves before switching sessions', () => {
+  it('does not rebuild or re-fetch the layout when the active session changes', () => {
     const api = createApi()
     const { result, rerender } = renderHook(
       ({ sessionId }: { sessionId: string }) => useDockLayout(sessionId),
@@ -151,29 +150,14 @@ describe('useDockLayout plugin panels', () => {
     act(() => {
       result.current.apiRef.current = api
       result.current.openPluginView('manifold.loop.panel', 'Autoresearch Loop')
-      rerender({ sessionId: 'session-2' })
     })
 
-    expect(mockInvoke).toHaveBeenCalledWith(
-      'dock-layout:set',
-      'session-1',
-      expect.objectContaining({
-        panels: expect.objectContaining({
-          'manifold.loop.panel': expect.objectContaining({ contentComponent: 'pluginView' }),
-        }),
-      }),
-    )
+    act(() => { rerender({ sessionId: 'session-2' }) })
 
-    const sessionOneSaveCount = mockInvoke.mock.calls.filter(
-      ([channel, sessionId]) => channel === 'dock-layout:set' && sessionId === 'session-1',
-    ).length
-
-    act(() => {
-      vi.advanceTimersByTime(500)
-    })
-
-    expect(mockInvoke.mock.calls.filter(
-      ([channel, sessionId]) => channel === 'dock-layout:set' && sessionId === 'session-1',
-    )).toHaveLength(sessionOneSaveCount)
+    // The layout belongs to the window: switching agents must not reload it,
+    // which is what used to make panels and sizes jump around mid-click.
+    expect(api.clear).not.toHaveBeenCalled()
+    expect(api.fromJSON).not.toHaveBeenCalled()
+    expect(mockInvoke).not.toHaveBeenCalledWith('dock-layout:get')
   })
 })

@@ -5,6 +5,7 @@ import type { AgentSession } from '../../../shared/types'
 export interface UseWorkspacesResult {
   workspaces: Workspace[]
   createWorkspace: (opts: WorkspaceCreateOptions) => Promise<Workspace>
+  renameWorkspace: (id: string, name: string) => Promise<void>
   removeWorkspace: (id: string) => Promise<void>
   addProject: (id: string, projectId: string) => Promise<void>
   removeProject: (id: string, projectId: string) => Promise<void>
@@ -35,6 +36,11 @@ export function useWorkspaces(): UseWorkspacesResult {
     return w
   }, [refresh])
 
+  const renameWorkspace = useCallback(async (id: string, name: string) => {
+    await window.electronAPI.invoke('workspace:rename', id, name)
+    await refresh()
+  }, [refresh])
+
   const removeWorkspace = useCallback(async (id: string) => {
     await window.electronAPI.invoke('workspace:remove', id)
     await refresh()
@@ -54,5 +60,5 @@ export function useWorkspaces(): UseWorkspacesResult {
     return (await window.electronAPI.invoke('workspace:spawn-agent', id, opts)) as AgentSession
   }, [])
 
-  return { workspaces, createWorkspace, removeWorkspace, addProject, removeProject, spawnAgent }
+  return { workspaces, createWorkspace, renameWorkspace, removeWorkspace, addProject, removeProject, spawnAgent }
 }

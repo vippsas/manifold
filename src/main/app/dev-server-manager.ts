@@ -181,7 +181,7 @@ export class DevServerManager {
     )
     const runtime = getRuntimeById(session.runtimeId)
     if (!runtime) throw new Error('Runtime not found: ' + session.runtimeId)
-    const simpleCommand = buildSimpleRuntimeCommand(session.runtimeId, followUpPrompt)
+    const simpleCommand = buildSimpleRuntimeCommand(session.runtimeId, followUpPrompt, session.additionalDirs)
     const runtimeArgs = simpleCommand.args
 
     debugLog(`[session] print-mode follow-up: ${JSON.stringify(runtimeArgs)}`)

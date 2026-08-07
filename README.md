@@ -131,10 +131,12 @@ Key workflows:
 
 A **Workspace** groups several repositories into one working set so a single agent can operate across all of them at once.
 
-- Create one from the **New Workspace** action in the sidebar and pick the repositories — and the runtime — it should include
+- Workspaces are opt-in: enable **Settings → General → Enable Workspaces** to add working-set cards to the left sidebar; leaving it off preserves the standard repository-only workflow
+- The sidebar is a flat list of bordered working sets: a repository starts as a one-repository box, and its folder-plus action promotes it to a workspace where you can add more repositories
 - The first repository is the agent's working directory; the others are mounted through the runtime's own multi-directory flag (`--add-dir` for Claude, Codex, and Copilot; `--include-directories` for Gemini)
 - When the agent starts, Manifold creates a worktree for every git repository in the set, all on the same branch (`manifold/<workspace-name>` by default), and removes them again when the session ends
-- Add or remove repositories from a workspace at any time from its sidebar section
+- Every workspace has its own visible name. Add or remove repositories directly from its card; every box stays open, and the New Agent action opens a modal without replacing the current agent view
+- Each agent row has a settings gear for renaming the agent and reviewing its runtime, mode, and branch; the previous deletion-lock control is no longer shown
 
 Workspaces are useful when a task spans several repositories at once — for example, landing a change that touches both a backend and a frontend repo, or running the same refactor across many services. A workspace agent sees every included repository from the start; there is no orchestration layer or per-tool approval step in between.
 

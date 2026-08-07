@@ -2,6 +2,7 @@ import { useEffect, useRef } from 'react'
 import type { DockviewApi } from 'dockview'
 import type { AgentSession } from '../../../shared/types'
 import { isSiblingPanelId, parseSiblingSessionId, siblingPanelId } from './agent-siblings'
+import { clearAgentTabDismissed, isAgentTabDismissed, pruneDismissedAgentTabs } from './dismissed-agent-tabs'
 import { findTopLeftWorkspaceReferencePanel } from '../dock-layout/dock-layout-helpers'
 
 interface Options {
@@ -17,7 +18,12 @@ interface Options {
    *  on a cold entry). Only this remembered agent is protected from / realigned
    *  after layout restore, so cold-start restore is left to the dock (#773). */
   rememberedActiveSessionRef?: React.MutableRefObject<string | null>
+  /** Every agent in the active workspace — one tab each. Agents belong to the
+   *  workspace, so this list doesn't change when another folder is selected. */
   sessions: AgentSession[]
+  /** Only a readiness guard: while an agent is active but its checkout isn't
+   *  known yet, the session list is still settling and tabs must not be
+   *  reconciled against it. */
   activeWorktreePath: string | null
   primarySessionId: string | null
   activeSessionId: string | null
@@ -86,25 +92,29 @@ export function useAgentSiblingDockTabs({
     if (!api.getPanel('agent')) return
     if (activeSessionId && !activeWorktreePath) return
 
+    // Selecting an agent makes it active; that un-hides a tab the user closed,
+    // so picking it from the sidebar brings its tab back. Cleared before the
+    // desired set is computed below so the just-selected agent is re-included.
+    if (activeSessionId && prevActiveSessionIdRef.current !== activeSessionId) {
+      clearAgentTabDismissed(activeSessionId)
+    }
+
     const primaryPanel = api.getPanel('agent')
     const primarySession = primarySessionId
       ? sessions.find((s) => s.id === primarySessionId)
       : null
     if (primaryPanel) setPanelTitle(primaryPanel, primaryTabTitle(primarySession))
 
-    const siblingsOnWorktree = activeWorktreePath
-      ? sessions.filter(
-          (s) => s.worktreePath === activeWorktreePath && s.id !== primarySessionId,
-        )
-      : []
+    const siblingsInWorkspace = sessions.filter((s) => s.id !== primarySessionId)
     // Auto-tabbed: ungrouped siblings only. Grouped siblings (e.g. playlist
     // runs) are opened on demand by their owner UI to keep the dock bar clean.
-    const desiredSessions = siblingsOnWorktree.filter((s) => !s.groupId)
-    const desired = new Map(desiredSessions.map((s) => [s.id, s]))
-    // Tabs are removed only when the underlying session is gone (closed or
-    // moved off this worktree). Grouped sibling tabs that were manually
+    // A tab the user hid (dismissed) is left out until they reopen the agent.
+    const desiredSessions = siblingsInWorkspace.filter((s) => !s.groupId && !isAgentTabDismissed(s.id))
+    // Tabs are removed only when the underlying session is gone (closed, or
+    // moved out of this workspace). Grouped sibling tabs that were manually
     // opened stay open until the session itself is gone.
-    const knownSessionIds = new Set(siblingsOnWorktree.map((s) => s.id))
+    const knownSessionIds = new Set(siblingsInWorkspace.map((s) => s.id))
+    pruneDismissedAgentTabs(knownSessionIds)
 
     for (const panel of api.panels) {
       if (!isSiblingPanelId(panel.id)) continue
@@ -114,7 +124,7 @@ export function useAgentSiblingDockTabs({
       }
     }
 
-    for (const session of siblingsOnWorktree) {
+    for (const session of siblingsInWorkspace) {
       const panel = api.getPanel(siblingPanelId(session.id))
       if (panel) setPanelTitle(panel, tabTitle(session))
     }

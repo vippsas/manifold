@@ -13,7 +13,8 @@ export const treeStyles: Record<string, React.CSSProperties> = {
     flexDirection: 'column',
     height: '100%',
     overflow: 'hidden',
-    background: 'var(--bg-primary)',
+    // No background of its own: the tree hangs inside the Repositories sidebar
+    // and has to sit on that surface rather than paint a card over it.
     position: 'relative' as const,
   },
   header: {
@@ -81,24 +82,15 @@ export const treeStyles: Record<string, React.CSSProperties> = {
     transition: 'transform 0.1s ease',
     color: 'var(--text-secondary)',
   },
-  chevronSpacer: {
-    width: '16px',
-    flexShrink: 0,
-  },
   fileIcon: {
     width: '16px',
-    fontSize: '14px',
+    // Seti glyphs carry their own optical padding, so they need to be set larger than the
+    // 16px box to read at the same weight as the rest of the row.
+    fontFamily: 'seti',
+    fontSize: '18px',
     flexShrink: 0,
     textAlign: 'center' as const,
     lineHeight: '16px',
-  },
-  fileIconImg: {
-    width: '16px',
-    height: '16px',
-    flexShrink: 0,
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'center',
   },
   nodeName: {
     flex: 1,
@@ -214,12 +206,11 @@ export const treeStyles: Record<string, React.CSSProperties> = {
     fontFamily: 'var(--font-sans)',
     fontSize: 'inherit',
     padding: '3px 6px',
-    // No box: the `.reticle-input` resting brackets (theme.css) are the field's
-    // edge, like the titlebar search. Border stays 1px-transparent so the
-    // focus reticle has a border-box to paint into without shifting layout.
-    border: '1px solid transparent',
-    borderRadius: '4px',
-    background: 'transparent',
+    // A plain box on all four sides: too short for the reticle's corner
+    // brackets, whose arms would meet and read as a left and right border.
+    border: '1px solid var(--control-border)',
+    borderRadius: 'var(--radius-sm)',
+    background: 'var(--control-bg)',
     color: 'var(--text-primary)',
     outline: 'none',
   },

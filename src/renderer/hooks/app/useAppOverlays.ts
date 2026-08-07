@@ -1,14 +1,11 @@
 import { useState, useCallback, useEffect, useMemo } from 'react'
-import type { SpawnAgentOptions, ManifoldSettings, AgentSession } from '../../../shared/types'
+import type { ManifoldSettings, AgentSession } from '../../../shared/types'
+import type { SearchMode } from '../../../shared/search-types'
 import type { PendingDelete } from '../../components/sidebar/DeleteAgentDialog'
-
-interface SpawnedSession { id: string }
 
 export interface UseAppOverlaysResult {
   activePanel: 'commit' | 'pr' | 'conflicts' | null
   setActivePanel: (panel: 'commit' | 'pr' | 'conflicts' | null) => void
-  handleNewAgentFromHeader: () => void
-  newAgentFocusTrigger: number
   showSettings: boolean
   setShowSettings: (show: boolean) => void
   showAbout: boolean
@@ -17,6 +14,11 @@ export interface UseAppOverlaysResult {
   setShowCommandPalette: (show: boolean) => void
   showShortcuts: boolean
   setShowShortcuts: (show: boolean) => void
+  showSearch: boolean
+  /** Scope the search modal opens on (null = keep its default). */
+  searchMode: SearchMode | null
+  openSearch: (mode?: SearchMode) => void
+  closeSearch: () => void
   showDashboard: boolean
   setShowDashboard: (show: boolean) => void
   /** Card id to open the Dashboard straight into (null = land on the grid). */
@@ -25,7 +27,6 @@ export interface UseAppOverlaysResult {
   appVersion: string
   handleCommit: (message: string) => Promise<void>
   handleClosePanel: () => void
-  handleLaunchAgent: (options: SpawnAgentOptions) => Promise<unknown>
   handleSelectSession: (sessionId: string, projectId: string) => void
   handleSaveSettings: (partial: Partial<ManifoldSettings>) => void
   handleSetupComplete: () => void
@@ -34,14 +35,13 @@ export interface UseAppOverlaysResult {
   deletingSessionId: string | null
   requestDeleteAgent: (session: AgentSession, projectPath: string) => void
   cancelDeleteAgent: () => void
-  confirmDeleteAgent: (mode?: 'session' | 'worktree') => Promise<void>
+  confirmDeleteAgent: () => Promise<void>
 }
 
 export function useAppOverlays(
   commit: (message: string) => Promise<void>,
   refreshDiff: () => Promise<void>,
-  spawnAgent: (options: SpawnAgentOptions) => Promise<unknown>,
-  deleteAgent: (sessionId: string, mode?: 'session' | 'worktree') => Promise<void>,
+  deleteAgent: (sessionId: string) => Promise<void>,
   removeSession: (sessionId: string) => void,
   updateSettings: (partial: Partial<ManifoldSettings>) => Promise<void>,
   setActiveSession: (sessionId: string | null) => void,
@@ -53,10 +53,11 @@ export function useAppOverlays(
   const [showAbout, setShowAbout] = useState(false)
   const [showCommandPalette, setShowCommandPalette] = useState(false)
   const [showShortcuts, setShowShortcuts] = useState(false)
+  const [showSearch, setShowSearch] = useState(false)
+  const [searchMode, setSearchMode] = useState<SearchMode | null>(null)
   const [showDashboard, setShowDashboard] = useState(false)
   const [dashboardInitialCard, setDashboardInitialCard] = useState<string | null>(null)
   const [appVersion, setAppVersion] = useState('')
-  const [newAgentFocusTrigger, setNewAgentFocusTrigger] = useState(0)
   const [pendingDelete, setPendingDelete] = useState<PendingDelete | null>(null)
   const [deletingSessionId, setDeletingSessionId] = useState<string | null>(null)
 
@@ -68,25 +69,14 @@ export function useAppOverlays(
 
   const handleClosePanel = useCallback((): void => { setActivePanel(null) }, [])
 
-  const handleLaunchAgent = useCallback(async (options: SpawnAgentOptions): Promise<unknown> => {
-    const session = (await spawnAgent(options)) as SpawnedSession | null
-    if (session && options.nonInteractive) {
-      // Subscribe so the chat panel receives agent messages once the first
-      // user message triggers spawnPrintModeFollowUp on the main side.
-      try {
-        await window.electronAPI.invoke('simple:subscribe-chat', session.id)
-      } catch (err) {
-        console.error(`[handleLaunchAgent] simple:subscribe-chat failed for ${session.id}:`, err)
-      }
-    }
-    return session
-  }, [spawnAgent])
+  const openSearch = useCallback((mode?: SearchMode): void => {
+    setSearchMode(mode ?? null)
+    setShowSearch(true)
+  }, [])
+
+  const closeSearch = useCallback((): void => { setShowSearch(false) }, [])
 
   const requestDeleteAgent = useCallback((session: AgentSession, projectPath: string): void => {
-    // A locked agent can't be deleted — don't open the destructive dialog. This
-    // is the single chokepoint every delete entry point funnels through (sidebar,
-    // workspace list, dock panel, onboarding card). The main process refuses too.
-    if (session.locked) return
     setPendingDelete({ session, projectPath })
   }, [])
 
@@ -95,12 +85,12 @@ export function useAppOverlays(
     setPendingDelete(null)
   }, [deletingSessionId])
 
-  const confirmDeleteAgent = useCallback(async (mode?: 'session' | 'worktree'): Promise<void> => {
+  const confirmDeleteAgent = useCallback(async (): Promise<void> => {
     if (!pendingDelete) return
     const sessionId = pendingDelete.session.id
     setDeletingSessionId(sessionId)
     try {
-      await deleteAgent(sessionId, mode)
+      await deleteAgent(sessionId)
       removeSession(sessionId)
       setPendingDelete(null)
     } catch {
@@ -114,11 +104,6 @@ export function useAppOverlays(
     setActiveSession(sessionId)
     if (projectId !== activeProjectId) setActiveProject(projectId)
   }, [activeProjectId, setActiveSession, setActiveProject])
-
-  const handleNewAgentFromHeader = useCallback((): void => {
-    setActiveSession(null)
-    setNewAgentFocusTrigger((n) => n + 1)
-  }, [setActiveSession])
 
   const handleSaveSettings = useCallback((partial: Partial<ManifoldSettings>): void => {
     void updateSettings(partial)
@@ -135,8 +120,6 @@ export function useAppOverlays(
   return useMemo(() => ({
     activePanel,
     setActivePanel,
-    handleNewAgentFromHeader,
-    newAgentFocusTrigger,
     showSettings,
     setShowSettings,
     showAbout,
@@ -145,6 +128,10 @@ export function useAppOverlays(
     setShowCommandPalette,
     showShortcuts,
     setShowShortcuts,
+    showSearch,
+    searchMode,
+    openSearch,
+    closeSearch,
     showDashboard,
     setShowDashboard,
     dashboardInitialCard,
@@ -152,7 +139,6 @@ export function useAppOverlays(
     appVersion,
     handleCommit,
     handleClosePanel,
-    handleLaunchAgent,
     handleSelectSession,
     handleSaveSettings,
     handleSetupComplete,
@@ -162,9 +148,10 @@ export function useAppOverlays(
     cancelDeleteAgent,
     confirmDeleteAgent,
   }), [
-    activePanel, handleNewAgentFromHeader, newAgentFocusTrigger,
-    showSettings, showAbout, showCommandPalette, showShortcuts, showDashboard, dashboardInitialCard, appVersion, handleCommit, handleClosePanel,
-    handleLaunchAgent, handleSelectSession, handleSaveSettings, handleSetupComplete,
+    activePanel,
+    showSettings, showAbout, showCommandPalette, showShortcuts, showSearch, searchMode, openSearch, closeSearch,
+    showDashboard, dashboardInitialCard, appVersion, handleCommit, handleClosePanel,
+    handleSelectSession, handleSaveSettings, handleSetupComplete,
     pendingDelete, deletingSessionId, requestDeleteAgent, cancelDeleteAgent, confirmDeleteAgent,
   ])
 }

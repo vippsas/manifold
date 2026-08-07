@@ -1,4 +1,5 @@
 import { getRuntimeById } from './runtimes'
+import { buildWorkingSetArgs } from './working-set-args'
 
 export type SimpleRuntimeOutputMode = 'claude-stream-json' | 'codex-jsonl' | 'plain-text'
 
@@ -9,11 +10,21 @@ export interface SimpleRuntimeCommand {
   outputMode: SimpleRuntimeOutputMode
 }
 
-export function buildSimpleRuntimeCommand(runtimeId: string, prompt: string): SimpleRuntimeCommand {
+/** Argv for a one-shot (print-mode) turn.
+ *
+ *  `additionalDirs` carries the rest of a workspace's folders. The flags must be
+ *  placed before the prompt: Codex takes the prompt as a positional argument, so
+ *  anything appended after it is parsed as part of that positional. */
+export function buildSimpleRuntimeCommand(
+  runtimeId: string,
+  prompt: string,
+  additionalDirs: string[] = [],
+): SimpleRuntimeCommand {
   const runtime = getRuntimeById(runtimeId)
   if (!runtime) throw new Error(`Runtime not found: ${runtimeId}`)
 
   const baseArgs = [...(runtime.args ?? [])]
+  const workingSet = buildWorkingSetArgs(runtimeId, additionalDirs)
 
   switch (runtimeId) {
     case 'claude':
@@ -22,6 +33,7 @@ export function buildSimpleRuntimeCommand(runtimeId: string, prompt: string): Si
         args: [
           ...baseArgs,
           '--permission-mode', 'bypassPermissions',
+          ...workingSet,
           '-p', prompt,
           '--output-format', 'stream-json',
           '--verbose',
@@ -38,6 +50,7 @@ export function buildSimpleRuntimeCommand(runtimeId: string, prompt: string): Si
           'exec',
           '--dangerously-bypass-approvals-and-sandbox',
           '--json',
+          ...workingSet,
           prompt,
         ],
         env: runtime.env,
@@ -49,6 +62,7 @@ export function buildSimpleRuntimeCommand(runtimeId: string, prompt: string): Si
         binary: runtime.binary,
         args: [
           ...baseArgs,
+          ...workingSet,
           '-p',
           prompt,
         ],
@@ -61,6 +75,7 @@ export function buildSimpleRuntimeCommand(runtimeId: string, prompt: string): Si
         binary: runtime.binary,
         args: [
           ...baseArgs,
+          ...workingSet,
           '-p',
           prompt,
         ],

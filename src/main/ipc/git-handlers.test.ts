@@ -7,6 +7,8 @@ const mocks = vi.hoisted(() => {
     handle: vi.fn((channel: string, fn: (...args: unknown[]) => unknown) => {
       handlers.set(channel, fn)
     }),
+    gitExec: vi.fn(),
+    gitStatus: vi.fn(),
   }
 })
 
@@ -14,6 +16,13 @@ vi.mock('electron', () => ({
   ipcMain: {
     handle: mocks.handle,
   },
+}))
+
+vi.mock('../git/git-exec', () => ({ gitExec: mocks.gitExec }))
+
+vi.mock('../fs/file-watcher-utils', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('../fs/file-watcher-utils')>()),
+  gitStatus: mocks.gitStatus,
 }))
 
 describe('registerDiffHandler', () => {
@@ -127,5 +136,213 @@ describe('registerGitHandlers git:staleness', () => {
 
     const handler = mocks.handlers.get('git:staleness')!
     await expect(handler({}, 'nope')).rejects.toThrow('Project not found: nope')
+  })
+})
+
+describe('registerGitHandlers git:workspace-status', () => {
+  beforeEach(() => {
+    vi.resetModules()
+    vi.clearAllMocks()
+    mocks.handlers.clear()
+  })
+
+  async function registerWithWorkspace(workspace: unknown, projects: Record<string, unknown>): Promise<(...args: unknown[]) => unknown> {
+    const { registerGitHandlers } = await import('./git-handlers')
+    registerGitHandlers({
+      gitOps: {},
+      sessionManager: {},
+      projectRegistry: { getProject: vi.fn((id: string) => projects[id]) },
+      workspaceManager: { get: vi.fn(() => workspace) },
+    } as never)
+    return mocks.handlers.get('git:workspace-status')!
+  }
+
+  it('reports each git repo checkout with its branch and parsed changes', async () => {
+    mocks.gitExec.mockResolvedValue('manifold/feature\n')
+    mocks.gitStatus.mockResolvedValue(' M src/a.ts\n?? b.ts\n')
+    const handler = await registerWithWorkspace(
+      {
+        id: 'ws-1',
+        projectIds: ['p1', 'p2'],
+        worktreePaths: { p1: '/worktrees/repo-one', p2: '/plain-folder' },
+      },
+      {
+        p1: { id: 'p1', name: 'repo-one', path: '/repos/repo-one', kind: 'git' },
+        p2: { id: 'p2', name: 'plain', path: '/plain-folder', kind: 'folder' },
+      },
+    )
+
+    const result = await handler({}, 'ws-1')
+
+    // The plain folder is skipped; the git repo answers from its worktree.
+    expect(result).toEqual([
+      {
+        projectId: 'p1',
+        projectName: 'repo-one',
+        checkoutPath: '/worktrees/repo-one',
+        branch: 'manifold/feature',
+        changes: [
+          { path: 'src/a.ts', type: 'modified' },
+          { path: 'b.ts', type: 'added' },
+        ],
+      },
+    ])
+    expect(mocks.gitExec).toHaveBeenCalledWith(['rev-parse', '--abbrev-ref', 'HEAD'], '/worktrees/repo-one')
+    expect(mocks.gitStatus).toHaveBeenCalledWith('/worktrees/repo-one')
+  })
+
+  it('reads a home workspace from the clones themselves', async () => {
+    mocks.gitExec.mockResolvedValue('main\n')
+    mocks.gitStatus.mockResolvedValue('')
+    const handler = await registerWithWorkspace(
+      { id: 'ws-home', projectIds: ['p1'] },
+      { p1: { id: 'p1', name: 'repo-one', path: '/repos/repo-one', kind: 'git' } },
+    )
+
+    const result = await handler({}, 'ws-home')
+
+    expect(result).toEqual([
+      { projectId: 'p1', projectName: 'repo-one', checkoutPath: '/repos/repo-one', branch: 'main', changes: [] },
+    ])
+    expect(mocks.gitStatus).toHaveBeenCalledWith('/repos/repo-one')
+  })
+
+  it('returns an empty status for a repo whose git calls fail, not an error', async () => {
+    mocks.gitExec.mockRejectedValue(new Error('no HEAD'))
+    mocks.gitStatus.mockRejectedValue(new Error('timeout'))
+    const handler = await registerWithWorkspace(
+      { id: 'ws-1', projectIds: ['p1'] },
+      { p1: { id: 'p1', name: 'repo-one', path: '/repos/repo-one', kind: 'git' } },
+    )
+
+    await expect(handler({}, 'ws-1')).resolves.toEqual([
+      { projectId: 'p1', projectName: 'repo-one', checkoutPath: '/repos/repo-one', branch: '', changes: [] },
+    ])
+  })
+
+  it('returns [] for a missing workspace', async () => {
+    const handler = await registerWithWorkspace(undefined, {})
+    await expect(handler({}, 'gone')).resolves.toEqual([])
+  })
+})
+
+describe('registerGitHandlers workspace commit and checkout', () => {
+  beforeEach(() => {
+    vi.resetModules()
+    vi.clearAllMocks()
+    mocks.handlers.clear()
+  })
+
+  const workspace = {
+    id: 'ws-1',
+    projectIds: ['p1'],
+    worktreePaths: { p1: '/worktrees/repo-one' },
+  }
+
+  async function registerHandlers(overrides: Record<string, unknown> = {}): Promise<{ commit: ReturnType<typeof vi.fn>; send: ReturnType<typeof vi.fn> }> {
+    const { registerGitHandlers } = await import('./git-handlers')
+    const commit = vi.fn(async () => {})
+    const send = vi.fn()
+    registerGitHandlers({
+      gitOps: { commit },
+      sessionManager: {},
+      projectRegistry: {
+        getProject: vi.fn(() => ({ id: 'p1', name: 'repo-one', path: '/repos/repo-one', kind: 'git' })),
+      },
+      workspaceManager: { get: vi.fn(() => workspace) },
+      send,
+      ...overrides,
+    } as never)
+    return { commit, send }
+  }
+
+  it('git:workspace-commit commits the workspace checkout via gitOps', async () => {
+    const { commit } = await registerHandlers()
+    const handler = mocks.handlers.get('git:workspace-commit')!
+
+    await handler({}, 'ws-1', 'p1', 'fix: adjust checkout flow')
+
+    expect(commit).toHaveBeenCalledWith('/worktrees/repo-one', 'fix: adjust checkout flow')
+  })
+
+  it('git:workspace-checkout switches an existing branch and pokes the sidebar', async () => {
+    mocks.gitExec.mockResolvedValue('')
+    const { send } = await registerHandlers()
+    const handler = mocks.handlers.get('git:workspace-checkout')!
+
+    await handler({}, 'ws-1', 'p1', 'feature/login', false)
+
+    expect(mocks.gitExec).toHaveBeenCalledWith(['checkout', 'feature/login'], '/worktrees/repo-one')
+    expect(send).toHaveBeenCalledWith('workspace:list-changed')
+  })
+
+  it('git:workspace-checkout creates a new branch with checkout -b', async () => {
+    mocks.gitExec.mockResolvedValue('')
+    await registerHandlers()
+    const handler = mocks.handlers.get('git:workspace-checkout')!
+
+    await handler({}, 'ws-1', 'p1', 'feature/new-thing', true)
+
+    expect(mocks.gitExec).toHaveBeenCalledWith(['checkout', '-b', 'feature/new-thing'], '/worktrees/repo-one')
+  })
+
+  it('git:workspace-checkout surfaces git failures and does not poke the sidebar', async () => {
+    mocks.gitExec.mockRejectedValue(new Error('local changes would be overwritten'))
+    const { send } = await registerHandlers()
+    const handler = mocks.handlers.get('git:workspace-checkout')!
+
+    await expect(handler({}, 'ws-1', 'p1', 'main', false)).rejects.toThrow('local changes would be overwritten')
+    expect(send).not.toHaveBeenCalled()
+  })
+
+  it('rejects plain-folder projects', async () => {
+    await registerHandlers({
+      projectRegistry: {
+        getProject: vi.fn(() => ({ id: 'p1', name: 'plain', path: '/plain', kind: 'folder' })),
+      },
+    })
+    const handler = mocks.handlers.get('git:workspace-commit')!
+    await expect(handler({}, 'ws-1', 'p1', 'msg')).rejects.toThrow('not a git repository')
+  })
+
+  it('git:workspace-file-diff returns the uncommitted diff and HEAD original', async () => {
+    mocks.gitExec.mockImplementation(async (args: string[]) => {
+      if (args[0] === 'show') return 'old content'
+      return 'diff --git a/src/app.ts b/src/app.ts\n-old\n+new'
+    })
+    await registerHandlers()
+    const handler = mocks.handlers.get('git:workspace-file-diff')!
+
+    const result = await handler({}, 'ws-1', 'p1', 'src/app.ts')
+
+    expect(mocks.gitExec).toHaveBeenCalledWith(['show', 'HEAD:src/app.ts'], '/worktrees/repo-one')
+    expect(mocks.gitExec).toHaveBeenCalledWith(['diff', 'HEAD', '--', 'src/app.ts'], '/worktrees/repo-one')
+    expect(result).toEqual({ diff: 'diff --git a/src/app.ts b/src/app.ts\n-old\n+new', original: 'old content' })
+  })
+
+  it('git:workspace-file-diff treats a file missing from HEAD as a full add', async () => {
+    mocks.gitExec.mockImplementation(async (args: string[]) => {
+      if (args[0] === 'show') throw new Error('does not exist in HEAD')
+      return ''
+    })
+    await registerHandlers()
+    const handler = mocks.handlers.get('git:workspace-file-diff')!
+
+    const result = await handler({}, 'ws-1', 'p1', 'src/new-file.ts')
+
+    expect(result).toEqual({ diff: '', original: '' })
+  })
+
+  it('git:workspace-file-diff returns nulls when the file has no uncommitted change', async () => {
+    mocks.gitExec.mockImplementation(async (args: string[]) => {
+      if (args[0] === 'show') return 'unchanged content'
+      return '\n'
+    })
+    await registerHandlers()
+    const handler = mocks.handlers.get('git:workspace-file-diff')!
+
+    const result = await handler({}, 'ws-1', 'p1', 'src/app.ts')
+
+    expect(result).toEqual({ diff: null, original: null })
   })
 })

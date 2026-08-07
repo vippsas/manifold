@@ -4,7 +4,7 @@ import {
   applyLayoutChangePreservingSidebarWidths,
   PANEL_TITLES,
   findAdjacentEditorPanelId,
-  getSidebarWidths,
+  getSidebarWidth,
   parseEditorPanelOrder,
   showPanelFromHints,
   type EditorSplitDirection,
@@ -32,7 +32,7 @@ export function useEditorPanels(ctx: DockLayoutCtx, focusPanel: (id: string) => 
     }, refs)
     if (layoutChanged) {
       syncPanels(api)
-      ctx.sidebarWidthsRef.current = getSidebarWidths(api)
+      ctx.sidebarWidthRef.current = getSidebarWidth(api)
     }
 
     const visibleEditorPanels = Array.from(ctx.editorPanelIdsRef.current).sort((left, right) => (
@@ -84,7 +84,7 @@ export function useEditorPanels(ctx: DockLayoutCtx, focusPanel: (id: string) => 
     const panel = api.getPanel(newPanelId)
     if (!panel) return null
     ctx.editorPanelIdsRef.current.add(newPanelId)
-    ctx.sidebarWidthsRef.current = getSidebarWidths(api)
+    ctx.sidebarWidthRef.current = getSidebarWidth(api)
     panel.api.setActive()
     ctx.lastLayoutRef.current = api.toJSON()
     saveLayout()

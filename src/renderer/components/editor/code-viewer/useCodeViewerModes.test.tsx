@@ -60,4 +60,40 @@ describe('useCodeViewerModes persistence', () => {
 
     expect(result.current.diffMode).toBe(false)
   })
+
+  it('opens a Source Control click in diff mode, including diff data that arrives later', () => {
+    const props = {
+      ...baseProps('pane-d', '/code.ts', false),
+      lastFileOpenRequest: {
+        path: '/code.ts',
+        source: 'sourceControl' as const,
+      },
+    }
+    const { result, rerender } = renderHook((p) => useCodeViewerModes(p), {
+      initialProps: { ...props, hasDiff: true },
+    })
+    expect(result.current.diffMode).toBe(true)
+
+    // the diff can land after the open (async fetch); it must not be suppressed
+    rerender({ ...props, hasDiff: false })
+    rerender({ ...props, hasDiff: true })
+    expect(result.current.diffMode).toBe(true)
+  })
+
+  it('opens a file tree click in the editor even when a diff exists', () => {
+    const props = {
+      ...baseProps('pane-e', '/code.ts', false),
+      lastFileOpenRequest: {
+        path: '/code.ts',
+        source: 'fileTree' as const,
+      },
+    }
+    const { result, rerender } = renderHook((p) => useCodeViewerModes(p), {
+      initialProps: { ...props, hasDiff: true },
+    })
+    expect(result.current.diffMode).toBe(false)
+
+    rerender({ ...props, hasDiff: true })
+    expect(result.current.diffMode).toBe(false)
+  })
 })

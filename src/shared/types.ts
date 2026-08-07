@@ -12,6 +12,14 @@ export interface AgentRuntime {
 
 export type AgentStatus = 'running' | 'waiting' | 'done' | 'error'
 
+export type AgentViewMode = 'terminal' | 'chat'
+
+export interface AgentSettingsUpdate {
+  displayName: string
+  runtimeId: string
+  viewMode: AgentViewMode
+}
+
 export interface AgentSession {
   id: string
   projectId: string
@@ -43,7 +51,7 @@ export interface AgentSession {
   groupId?: string
   /** True when this session runs Claude in non-interactive (chat) mode. */
   nonInteractive?: boolean
-  /** When true, the agent is protected from deletion until explicitly unlocked. */
+  /** Legacy persisted field retained for backwards-compatible session discovery. */
   locked?: boolean
 }
 
@@ -166,9 +174,6 @@ export interface ManifoldSettings {
   autoGenerateMessages: boolean
   showCommitAndPrButtons: boolean
   sidebarResizeReversed: boolean
-  /** Create an isolated git worktree for each new agent. When false, new agents
-   *  run directly in the repository on a new branch. Default true. */
-  useWorktrees: boolean
   /** Ordered, typed favorites. Index 0 maps to ⌘1. */
   favorites?: FavoriteRef[]
   keepAwake: boolean
@@ -224,6 +229,8 @@ export interface SpawnAgentOptions {
   projectId: string
   runtimeId: string
   prompt: string
+  /** The agent's name, as typed in the New Agent form. Shown on its tab. */
+  displayName?: string
   userMessage?: string
   simpleTemplateTitle?: string
   simplePromptInstructions?: string

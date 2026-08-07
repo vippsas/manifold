@@ -1,11 +1,15 @@
 import React, { useMemo } from 'react'
 import { useFileDiff } from '../../../hooks/editor/useFileDiff'
+import { useWorkspaceFileDiff } from '../../../hooks/editor/useWorkspaceFileDiff'
 import { CodeViewer } from '../code-viewer/CodeViewer'
-import { FileTree } from '../file-tree/FileTree'
-import { ModifiedFiles } from '../../git/ModifiedFiles'
+import { SourceControl } from '../../git/SourceControl'
+import { SearchView } from '../../search/SearchView'
 import { ShellTabs } from '../../terminal/ShellTabs'
+import { resolveShellCwd } from '../../terminal/shell-cwd'
 import { ProjectSidebar } from '../../sidebar/ProjectSidebar'
 import { AgentPanel } from './dock-agent-panel'
+import { EditorPaneActions } from './EditorPaneActions'
+import { FolderFilesTree } from './FolderFilesTree'
 import { PluginViewPanel } from '../plugins/PluginViewPanel'
 import { PluginTreeViewPanel } from '../plugins/PluginTreeViewPanel'
 import { getPanelComponents } from '../../../plugins/contribution-registry'
@@ -17,10 +21,8 @@ export { DockStateContext } from './dock-panel-types'
 export const PANEL_COMPONENTS: Record<string, React.FC<any>> = {
   agent: AgentPanel,
   editor: EditorPanel,
-  fileTree: FileTreePanel,
-  modifiedFiles: ModifiedFilesPanel,
   shell: ShellPanel,
-  projects: ProjectsPanel,
+  sidebar: SidebarPanel,
   pluginView: PluginViewPanel,
   pluginTreeView: PluginTreeViewPanel,
   // Components for any built-in internal-contribution panels, sourced from the
@@ -45,18 +47,28 @@ function EditorPanel({ api }: { api: { id: string } }): React.JSX.Element {
     s.worktreeRoot,
   )
 
+  // A file opened from Source Control diffs against its checkout's HEAD
+  // (uncommitted changes — VS Code's SCM click), not the session's base branch.
+  const scmTarget =
+    s.lastFileOpenRequest.source === 'sourceControl' &&
+    s.lastFileOpenRequest.path === pane.activeFilePath
+      ? s.lastFileOpenRequest.scm ?? null
+      : null
+  const workspaceFileDiff = useWorkspaceFileDiff(scmTarget)
+
   return (
     <CodeViewer
       paneId={paneId}
       sessionId={s.sessionId}
-      fileDiffText={activeFileDiffText}
-      originalContent={originalContent}
+      fileDiffText={scmTarget ? workspaceFileDiff.diff : activeFileDiffText}
+      originalContent={scmTarget ? workspaceFileDiff.original : originalContent}
       openFiles={pane.openFiles}
       activeFilePath={pane.activeFilePath}
       fileContent={pane.fileContent}
       lastFileOpenRequest={s.lastFileOpenRequest}
       theme={s.theme}
       editorSettings={s.editorSettings}
+      headerActions={<EditorPaneActions paneId={paneId} />}
       onActivatePane={() => s.onActivateEditorPane(paneId)}
       onSelectTab={(filePath) => s.onSelectOpenFile(filePath, paneId)}
       onMoveTabToSplitPane={(filePath, direction) => s.onMoveFileToSplitPane(filePath, paneId, direction)}
@@ -69,108 +81,77 @@ function EditorPanel({ api }: { api: { id: string } }): React.JSX.Element {
   )
 }
 
-function FileTreePanel(): React.JSX.Element {
+/** The one sidebar column, showing whichever view the rail has selected. The
+ *  views are swapped rather than each holding a column of its own, so only one
+ *  is mounted at a time and none of them competes for the sidebar's width. */
+function SidebarPanel(): React.JSX.Element {
   const s = useDockState()
-  const openFilePaths = useMemo(
-    () => new Set(s.openFiles.map((f) => f.path)),
-    [s.openFiles]
-  )
-
-  return (
-    <div style={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
-      <FileTree
-        tree={s.tree}
-        additionalTrees={s.additionalTrees}
-        rootLabels={s.rootLabels}
-        changes={s.changes}
-        activeFilePath={s.activeFilePath}
-        openFilePaths={openFilePaths}
-        expandedPaths={s.expandedPaths}
-        onToggleExpand={s.onToggleExpand}
-        onSelectFile={s.onSelectFileFromFileTree}
-        onDeleteFile={s.onDeleteFile}
-        onRenameFile={s.onRenameFile}
-        onCreateFile={s.onCreateFile}
-        onCreateDir={s.onCreateDir}
-        onRefresh={s.onRefreshFileTree}
-        onImportPaths={s.onImportPaths}
-        onPasteImage={s.onPasteImage}
-        onPasteClipboardImage={s.onPasteClipboardImage}
-        onMovePath={s.onMovePath}
-        onRevealInFinder={s.onRevealInFinder}
-        onOpenInTerminal={s.onOpenInTerminal}
-        onCopyAbsolutePath={s.onCopyAbsolutePath}
-        onCopyRelativePath={s.onCopyRelativePath}
-        onOpenFileToSide={(path) => s.onOpenSearchResultInSplit({ path, sessionId: s.sessionId })}
-        worktreeRootPath={s.worktreeRootPath}
-      />
-    </div>
-  )
+  switch (s.sidebarView) {
+    case 'sourceControl':
+      return <SourceControlView />
+    case 'search':
+      return <SearchSidebarView />
+    default:
+      return <ExplorerView />
+  }
 }
 
-function ModifiedFilesPanel(): React.JSX.Element {
+function SourceControlView(): React.JSX.Element {
+  const s = useDockState()
+  const workspace = s.workspaces.find((w) => w.id === s.activeWorkspaceId) ?? null
+  return <SourceControl workspace={workspace} onSelectFile={s.onSelectScmFile} />
+}
+
+function SearchSidebarView(): React.JSX.Element {
   const s = useDockState()
   return (
-    <ModifiedFiles
-      changes={s.changes}
-      activeFilePath={s.activeFilePath}
-      worktreeRoot={s.worktreeRoot ?? ''}
-      onSelectFile={s.onSelectFile}
+    <SearchView
+      activeProjectId={s.activeProjectId}
+      activeSessionId={s.sessionId}
+      allProjectSessions={s.allProjectSessions}
+      onOpenSearchResult={s.onOpenSearchResult}
     />
   )
 }
 
 function ShellPanel(): React.JSX.Element {
   const s = useDockState()
+  const cwd = resolveShellCwd(s.workspaces, s.activeWorkspaceId, s.activeProjectId, s.projects)
   return (
     <ShellTabs
-      worktreeSessionId={s.worktreeShellSessionId}
-      projectSessionId={s.projectShellSessionId}
-      worktreeCwd={s.worktreeCwd}
+      cwd={cwd}
       scrollbackLines={s.scrollbackLines}
       terminalFontFamily={s.terminalFontFamily}
       xtermTheme={s.xtermTheme}
+      onHide={() => s.onClosePanel('shell')}
     />
   )
 }
 
-function ProjectsPanel(): React.JSX.Element {
+function ExplorerView(): React.JSX.Element {
   const s = useDockState()
   return (
     <ProjectSidebar
       projects={s.projects}
       activeProjectId={s.activeProjectId}
-      suppressedProjectIds={s.suppressedProjectIds}
-      allProjectSessions={s.allProjectSessions}
-      activeSessionId={s.sessionId}
       outputtingSessionIds={s.outputtingSessionIds}
-      onSelectProject={s.onSelectProject}
-      onSelectSession={s.onSelectSession}
-      onRemoveProject={s.onRemoveProject}
-      onUpdateProject={s.onUpdateProject}
-      onRenameAgent={s.onRenameAgent}
-      onRequestDeleteAgent={s.onRequestDeleteAgent}
-      onNewAgent={s.onNewAgentFromHeader}
       onNewProject={s.onNewProject}
       onNewWorkspace={s.onNewWorkspace}
       workspaces={s.workspaces}
       activeWorkspaceId={s.activeWorkspaceId}
       sessionsByWorkspace={s.sessionsByWorkspace}
       onSelectWorkspace={s.onSelectWorkspace}
+      onRenameWorkspace={s.onRenameWorkspace}
       onRemoveWorkspace={s.onRemoveWorkspace}
+      onCopyWorkspace={s.onCopyWorkspace}
       onSelectWorkspaceRepo={s.onSelectWorkspaceRepo}
       onAddProjectToWorkspace={s.onAddProjectToWorkspace}
       onRemoveProjectFromWorkspace={s.onRemoveProjectFromWorkspace}
-      fetchingProjectId={s.fetchingProjectId}
-      lastFetchedProjectId={s.lastFetchedProjectId}
-      fetchResult={s.fetchResult}
-      fetchError={s.fetchError}
-      onFetchProject={s.onFetchProject}
-      activeProjectBehindCount={s.activeProjectBehindCount}
       drafts={s.drafts}
       activeDraftId={s.activeDraft?.id ?? null}
       onSelectDraft={(id) => s.onSelectSession(id, s.activeProjectId ?? '')}
       onDiscardDraft={s.discardDraft}
+      renderFolderFiles={(source) => <FolderFilesTree source={source} />}
     />
   )
 }

@@ -1,27 +1,29 @@
-import React, { useState, useRef, useCallback, useEffect } from 'react'
+import React, { useCallback, useEffect, useSyncExternalStore } from 'react'
 import type { ITheme } from '@xterm/xterm'
 import { useTerminal } from '../../hooks/terminal/useTerminal'
+import { ShellTabControls } from './ShellTabControls'
 import { shellTabStyles as styles } from './ShellTabs.styles'
 import { registerShellHeaderControls, unregisterShellHeaderControls } from './shell-header-controls'
 import {
-  useSyncCacheOnAgentChange, useKeepCacheInSync, usePersistTabs,
-  useRestoreTabsFromDisk, usePersistOnChange, useCleanupOnUnmount,
-} from './shell-tabs-hooks'
-import type { ExtraShell, ShellMode } from './shell-tabs-hooks'
+  addTerminal, closeTerminal, dismissScopeError, getScope, openScope,
+  setActiveTerminal, subscribeShellTerminals, type ShellMode,
+} from './shell-terminal-store'
 
 interface ShellTabsProps {
-  worktreeSessionId: string | null
-  projectSessionId: string | null
-  worktreeCwd: string | null
+  cwd: string | null
   scrollbackLines: number
   terminalFontFamily?: string
   xtermTheme?: ITheme
+  /** Hide the whole terminal view (the shell dock panel). The terminals stay
+   *  alive in the store, so reopening the panel shows them again. */
+  onHide?: () => void
 }
 
-function ExtraShellTerminal({
+function ShellTerminalView({
   sessionId, scrollbackLines, terminalFontFamily, xtermTheme, isActive,
 }: {
-  sessionId: string; scrollbackLines: number; terminalFontFamily?: string; xtermTheme?: ITheme; isActive: boolean
+  sessionId: string; scrollbackLines: number; terminalFontFamily?: string
+  xtermTheme?: ITheme; isActive: boolean
 }): React.JSX.Element {
   const { containerRef } = useTerminal({ sessionId, scrollbackLines, terminalFontFamily, xtermTheme })
   return (
@@ -34,80 +36,37 @@ function ExtraShellTerminal({
 }
 
 export function ShellTabs({
-  worktreeSessionId, projectSessionId, worktreeCwd,
-  scrollbackLines, terminalFontFamily, xtermTheme,
+  cwd, scrollbackLines, terminalFontFamily, xtermTheme, onHide,
 }: ShellTabsProps): React.JSX.Element {
-  const [activeTab, setActiveTab] = useState<string>('main')
-  const mainSessionId = worktreeSessionId ?? projectSessionId
+  // No local error state: the panel unmounts on close, so anything held here
+  // would either vanish or come back from the dead on reopen. The store owns
+  // both the message and its dismissal, scoped to the cwd that produced it.
+  const scope = useSyncExternalStore(subscribeShellTerminals, () => getScope(cwd))
 
   useEffect(() => {
-    setActiveTab('main')
-  }, [mainSessionId])
+    if (!cwd) return
+    void openScope(cwd)
+  }, [cwd])
 
-  const extraShellCacheRef = useRef(new Map<string, { shells: ExtraShell[]; counter: number }>())
-  const agentKey = worktreeSessionId ?? '__none__'
-  const persistKey = worktreeCwd ?? '__none__'
+  const addShell = useCallback((mode: ShellMode) => {
+    if (cwd) void addTerminal(cwd, mode)
+  }, [cwd])
 
-  if (!extraShellCacheRef.current.has(agentKey)) {
-    extraShellCacheRef.current.set(agentKey, { shells: [], counter: 2 })
-  }
+  const closeShell = useCallback((sessionId: string) => {
+    if (cwd) closeTerminal(cwd, sessionId)
+  }, [cwd])
 
-  const [extraShells, setExtraShells] = useState<ExtraShell[]>(
-    extraShellCacheRef.current.get(agentKey)!.shells
-  )
+  const selectShell = useCallback((sessionId: string) => {
+    if (cwd) setActiveTerminal(cwd, sessionId)
+  }, [cwd])
 
-  useSyncCacheOnAgentChange(agentKey, extraShellCacheRef, setExtraShells)
-  useKeepCacheInSync(extraShells, agentKey, extraShellCacheRef)
-
-  const persistTabs = usePersistTabs(persistKey, worktreeCwd)
-  const restoredRef = useRef(new Set<string>())
-
-  useRestoreTabsFromDisk(worktreeCwd, persistKey, agentKey, extraShellCacheRef, restoredRef, setExtraShells)
-  usePersistOnChange(extraShells, agentKey, persistKey, restoredRef, extraShellCacheRef, persistTabs)
-
-  const mainTerminal = useTerminal({ sessionId: mainSessionId, scrollbackLines, terminalFontFamily, xtermTheme })
-
-  useCleanupOnUnmount(extraShellCacheRef)
-
-  const resolvedTab = resolveActiveTab(activeTab, extraShells)
-
-  const addShell = useCallback(async (mode: ShellMode) => {
-    if (!worktreeCwd) return
-    try {
-      const result = (await window.electronAPI.invoke('shell:create', worktreeCwd, { mode })) as { sessionId: string }
-      const entry = extraShellCacheRef.current.get(agentKey)
-      const counter = entry ? entry.counter++ : 2
-      setExtraShells((prev) => [...prev, { sessionId: result.sessionId, label: shellLabel(mode, counter), mode }])
-      setActiveTab(`extra-${result.sessionId}`)
-    } catch {
-      // shell:create failed -- ignore silently, user can retry
-    }
-  }, [worktreeCwd, agentKey])
-
-  const removeShell = useCallback(
-    (sessionId: string) => {
-      void window.electronAPI.invoke('shell:kill', sessionId).catch(() => {})
-      setExtraShells((prev) => prev.filter((s) => s.sessionId !== sessionId))
-      setActiveTab((prev) => {
-        if (prev === `extra-${sessionId}`) return 'main'
-        return prev
-      })
-    },
-    []
-  )
-
-  const addShellFromHeader = useCallback((mode: ShellMode) => {
-    void addShell(mode)
-  }, [addShell])
+  const hideTerminals = useCallback(() => { onHide?.() }, [onHide])
 
   const headerControls = React.useMemo(() => ({
-    activeTab: resolvedTab,
-    canAddShell: Boolean(worktreeSessionId),
-    extraShells,
-    onSetActiveTab: setActiveTab,
-    onRemoveShell: removeShell,
-    onAddShell: addShellFromHeader,
-  }), [resolvedTab, worktreeSessionId, extraShells, removeShell, addShellFromHeader])
+    canAddShell: Boolean(cwd),
+    onAddShell: addShell,
+    onHideTerminals: hideTerminals,
+  }), [cwd, addShell, hideTerminals])
 
   useEffect(() => {
     registerShellHeaderControls(headerControls)
@@ -116,38 +75,41 @@ export function ShellTabs({
 
   return (
     <div style={styles.wrapper}>
-      <div style={styles.terminalArea}>
-        <div
-          ref={mainTerminal.containerRef as React.RefObject<HTMLDivElement>}
-          className="terminal-host"
-          style={{ ...styles.terminalContainer, display: resolvedTab === 'main' ? 'block' : 'none' }}
-        />
-        {extraShells.map((shell) => (
-          <ExtraShellTerminal
-            key={shell.sessionId} sessionId={shell.sessionId}
-            scrollbackLines={scrollbackLines} terminalFontFamily={terminalFontFamily}
-            xtermTheme={xtermTheme}
-            isActive={resolvedTab === `extra-${shell.sessionId}`}
+      {scope.error && cwd && (
+        <div style={styles.errorStrip} role="alert">
+          {scope.error}
+          <button type="button" style={styles.errorDismiss} onClick={() => dismissScopeError(cwd)}>×</button>
+        </div>
+      )}
+      <div style={styles.body}>
+        <div style={styles.terminalArea}>
+          {scope.terminals.length === 0 && (
+            <div style={styles.emptyState}>
+              {cwd
+                ? <button type="button" onClick={() => addShell('manifold')}>New Terminal</button>
+                : 'Select a workspace to open a terminal'}
+            </div>
+          )}
+          {scope.terminals.map((terminal) => (
+            <ShellTerminalView
+              key={terminal.sessionId}
+              sessionId={terminal.sessionId}
+              scrollbackLines={scrollbackLines}
+              terminalFontFamily={terminalFontFamily}
+              xtermTheme={xtermTheme}
+              isActive={scope.activeSessionId === terminal.sessionId}
+            />
+          ))}
+        </div>
+        {scope.terminals.length > 0 && (
+          <ShellTabControls
+            terminals={scope.terminals}
+            activeSessionId={scope.activeSessionId}
+            onSetActiveTerminal={selectShell}
+            onCloseTerminal={closeShell}
           />
-        ))}
+        )}
       </div>
     </div>
   )
-}
-
-function resolveActiveTab(activeTab: string, extraShells: ExtraShell[]): string {
-  let tab = activeTab
-  if (tab === 'main') return tab
-  if (tab.startsWith('extra-')) {
-    const shellId = tab.slice(6)
-    if (!extraShells.find((s) => s.sessionId === shellId)) {
-      tab = 'main'
-    }
-    return tab
-  }
-  return 'main'
-}
-
-function shellLabel(mode: ShellMode, counter: number): string {
-  return `${mode === 'system' ? 'System' : 'Manifold'} ${counter}`
 }

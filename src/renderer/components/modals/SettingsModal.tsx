@@ -27,14 +27,12 @@ export function SettingsModal({ visible, settings, onSave, onClose, onPreviewThe
   const [autoGenerateMessages, setAutoGenerateMessages] = useState(settings.autoGenerateMessages)
   const [showCommitAndPrButtons, setShowCommitAndPrButtons] = useState(settings.showCommitAndPrButtons)
   const [sidebarResizeReversed, setSidebarResizeReversed] = useState(settings.sidebarResizeReversed)
-  const [useWorktrees, setUseWorktrees] = useState(settings.useWorktrees)
   const [uiScale, setUiScale] = useState(settings.uiScale ?? DEFAULT_SETTINGS.uiScale)
   const [searchAiSettings, setSearchAiSettings] = useState(settings.search?.ai ?? DEFAULT_SETTINGS.search.ai)
   const [editorSettings, setEditorSettings] = useState<EditorSettings>(settings.editor ?? DEFAULT_SETTINGS.editor!)
   const [transcription, setTranscription] = useState<AiServiceSettings>(
     settings.transcription ?? DEFAULT_SETTINGS.transcription ?? { provider: 'none' }
   )
-  const [pickerOpen, setPickerOpen] = useState(false)
   const [activeTab, setActiveTab] = useState<SettingsTabId>('general')
   const overlayRef = useRef<HTMLDivElement>(null)
 
@@ -53,12 +51,10 @@ export function SettingsModal({ visible, settings, onSave, onClose, onPreviewThe
     setAutoGenerateMessages(settings.autoGenerateMessages)
     setShowCommitAndPrButtons(settings.showCommitAndPrButtons)
     setSidebarResizeReversed(settings.sidebarResizeReversed)
-    setUseWorktrees(settings.useWorktrees)
     setUiScale(settings.uiScale ?? DEFAULT_SETTINGS.uiScale)
     setSearchAiSettings(settings.search?.ai ?? DEFAULT_SETTINGS.search.ai)
     setEditorSettings(settings.editor ?? DEFAULT_SETTINGS.editor!)
     setTranscription(settings.transcription ?? DEFAULT_SETTINGS.transcription ?? { provider: 'none' })
-    setPickerOpen(false)
     setActiveTab('general')
   }, [visible, settings])
 
@@ -77,14 +73,13 @@ export function SettingsModal({ visible, settings, onSave, onClose, onPreviewThe
       autoGenerateMessages,
       showCommitAndPrButtons,
       sidebarResizeReversed,
-      useWorktrees,
       uiScale,
       search: { ai: searchAiSettings },
       editor: editorSettings,
       transcription,
     })
     onClose()
-  }, [defaultRuntime, theme, scrollbackLines, terminalFontFamily, defaultBaseBranch, storagePath, notificationSound, notifications, shellHistoryScope, shellPromptSegments, autoGenerateMessages, showCommitAndPrButtons, sidebarResizeReversed, useWorktrees, uiScale, searchAiSettings, editorSettings, transcription, onSave, onClose])
+  }, [defaultRuntime, theme, scrollbackLines, terminalFontFamily, defaultBaseBranch, storagePath, notificationSound, notifications, shellHistoryScope, shellPromptSegments, autoGenerateMessages, showCommitAndPrButtons, sidebarResizeReversed, uiScale, searchAiSettings, editorSettings, transcription, onSave, onClose])
 
   if (!visible) return null
 
@@ -106,7 +101,7 @@ export function SettingsModal({ visible, settings, onSave, onClose, onPreviewThe
 
         <SettingsModalBody
           activeTab={activeTab}
-          onTabChange={(tab) => { setActiveTab(tab); setPickerOpen(false) }}
+          onTabChange={setActiveTab}
           storagePath={storagePath}
           onStoragePathChange={setStoragePath}
           defaultRuntime={defaultRuntime}
@@ -120,8 +115,6 @@ export function SettingsModal({ visible, settings, onSave, onClose, onPreviewThe
           onTerminalFontFamilyChange={setTerminalFontFamily}
           onBaseBranchChange={setDefaultBaseBranch}
           onPreviewTheme={onPreviewTheme}
-          pickerOpen={pickerOpen}
-          onPickerToggle={setPickerOpen}
           notificationSound={notificationSound}
           onNotificationSoundChange={setNotificationSound}
           notifications={notifications}
@@ -136,8 +129,6 @@ export function SettingsModal({ visible, settings, onSave, onClose, onPreviewThe
           onShowCommitAndPrButtonsChange={setShowCommitAndPrButtons}
           sidebarResizeReversed={sidebarResizeReversed}
           onSidebarResizeReversedChange={setSidebarResizeReversed}
-          useWorktrees={useWorktrees}
-          onUseWorktreesChange={setUseWorktrees}
           uiScale={uiScale}
           onUiScaleChange={setUiScale}
           searchAiSettings={searchAiSettings}

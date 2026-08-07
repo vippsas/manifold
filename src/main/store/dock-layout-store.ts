@@ -6,50 +6,47 @@ import { writeFileAtomicSync } from './atomic-write'
 const CONFIG_DIR = path.join(os.homedir(), '.manifold')
 const STATE_FILE = path.join(CONFIG_DIR, 'dock-layout.json')
 
+/** A serialized dockview layout, recognised by the two keys dockview always
+ *  writes. Distinguishes the current single layout from the `{ sessionId:
+ *  layout }` map this file held while layouts were per agent. */
+function isSerializedLayout(value: unknown): boolean {
+  if (typeof value !== 'object' || value === null) return false
+  const candidate = value as { grid?: unknown; panels?: unknown }
+  return typeof candidate.grid === 'object' && candidate.grid !== null
+    && typeof candidate.panels === 'object' && candidate.panels !== null
+}
+
+/**
+ * The one dock layout, shared by the whole window. Panel arrangement is a
+ * property of the window rather than of whatever agent is selected, so
+ * switching agents leaves the dock exactly where the user put it.
+ */
 export class DockLayoutStore {
-  private state: Map<string, unknown>
+  private layout: unknown | null
 
   constructor() {
-    this.state = this.loadFromDisk()
+    this.layout = this.loadFromDisk()
   }
 
-  private ensureConfigDir(): void {
-    fs.mkdirSync(CONFIG_DIR, { recursive: true })
-  }
-
-  private loadFromDisk(): Map<string, unknown> {
+  private loadFromDisk(): unknown | null {
     try {
-      if (!fs.existsSync(STATE_FILE)) {
-        return new Map()
-      }
-      const raw = fs.readFileSync(STATE_FILE, 'utf-8')
-      const parsed: unknown = JSON.parse(raw)
-      if (typeof parsed !== 'object' || parsed === null || Array.isArray(parsed)) {
-        return new Map()
-      }
-      return new Map(Object.entries(parsed as Record<string, unknown>))
+      if (!fs.existsSync(STATE_FILE)) return null
+      const parsed: unknown = JSON.parse(fs.readFileSync(STATE_FILE, 'utf-8'))
+      // A per-agent map from before the layout became window-scoped: there is no
+      // one layout to pick out of it, so it's dropped and the default rebuilt.
+      return isSerializedLayout(parsed) ? parsed : null
     } catch {
-      return new Map()
+      return null
     }
   }
 
-  private writeToDisk(): void {
-    this.ensureConfigDir()
-    const obj = Object.fromEntries(this.state)
-    writeFileAtomicSync(STATE_FILE, JSON.stringify(obj, null, 2))
+  get(): unknown | null {
+    return this.layout
   }
 
-  get(sessionId: string): unknown | null {
-    return this.state.get(sessionId) ?? null
-  }
-
-  set(sessionId: string, layout: unknown): void {
-    this.state.set(sessionId, layout)
-    this.writeToDisk()
-  }
-
-  delete(sessionId: string): void {
-    this.state.delete(sessionId)
-    this.writeToDisk()
+  set(layout: unknown): void {
+    this.layout = layout
+    fs.mkdirSync(CONFIG_DIR, { recursive: true })
+    writeFileAtomicSync(STATE_FILE, JSON.stringify(layout, null, 2))
   }
 }

@@ -9,6 +9,8 @@ const mockInvoke = vi.fn()
 beforeEach(() => {
   vi.clearAllMocks()
   mockInvoke.mockResolvedValue(undefined)
+  // jsdom has no scrollIntoView; the theme picker keeps its selection in view.
+  Element.prototype.scrollIntoView = vi.fn()
 
   ;(window as unknown as Record<string, unknown>).electronAPI = {
     invoke: mockInvoke,
@@ -57,9 +59,6 @@ describe('SettingsModal', () => {
 
     // Default runtime select
     expect(screen.getByDisplayValue('Claude Code')).toBeInTheDocument()
-
-    // Theme button shows the current theme label
-    expect(screen.getByText('Manifold Dark')).toBeInTheDocument()
 
     // Scrollback lines input
     const scrollbackInput = screen.getByDisplayValue('5000') as HTMLInputElement
@@ -163,12 +162,37 @@ describe('SettingsModal', () => {
     )
   })
 
-  it('shows theme label for the current theme', () => {
+  it('no longer offers a workspace opt-in — the sidebar is always workspaces', () => {
+    renderModal()
+
+    expect(screen.queryByLabelText(/^Enable Workspaces/)).not.toBeInTheDocument()
+  })
+
+  it('shows the theme picker on the dedicated Theme tab', () => {
     renderModal({
       settings: { ...DEFAULT_SETTINGS, theme: 'manifold-dark' },
     })
 
+    // Not on the General tab anymore.
+    expect(screen.queryByPlaceholderText('Search themes...')).not.toBeInTheDocument()
+
+    fireEvent.click(screen.getByRole('tab', { name: /^Theme$/i }))
+
+    expect(screen.getByPlaceholderText('Search themes...')).toBeInTheDocument()
     expect(screen.getByText('Manifold Dark')).toBeInTheDocument()
+    expect(screen.queryByText('Storage Directory')).not.toBeInTheDocument()
+  })
+
+  it('saves the theme chosen on the Theme tab', () => {
+    const { props } = renderModal()
+
+    fireEvent.click(screen.getByRole('tab', { name: /^Theme$/i }))
+    fireEvent.click(screen.getByText('Manifold Light'))
+    fireEvent.click(screen.getByText('Save'))
+
+    expect(props.onSave).toHaveBeenCalledWith(
+      expect.objectContaining({ theme: 'manifold-light' }),
+    )
   })
 
   it('switches between settings tabs', () => {

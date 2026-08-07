@@ -1,8 +1,20 @@
 import React, { useRef, useState, useCallback } from 'react'
 import type { CreateProjectOptions } from '../../../shared/types'
-import { modeToggleStyles, startButtonStyle } from '../modals/NewAgentForm.styles'
+import { modeToggleStyles, startButtonStyle, onboardingLinkStyle } from '../modals/NewAgentForm.styles'
+import {
+  headingStyle,
+  headingEmphasisStyle,
+  chooserRowStyle,
+  cardStyle,
+  cardHoverStyle,
+  cardIconStyle,
+  cardTitleStyle,
+  cardSubtitleStyle,
+  focusedColumnStyle,
+} from './NoProjectActions.styles'
 
 type PromptMode = 'scratch' | 'copied'
+type View = 'chooser' | 'new' | 'clone'
 
 const PROMPT_MODES: Array<{ id: PromptMode; label: string }> = [
   { id: 'copied', label: 'Copied instructions' },
@@ -18,27 +30,6 @@ const buttonStyle: React.CSSProperties = {
   border: 'none',
   borderRadius: 6,
   cursor: 'pointer',
-}
-
-const secondaryButtonStyle: React.CSSProperties = {
-  ...buttonStyle,
-  color: 'var(--text-primary)',
-  backgroundColor: 'var(--control-bg)',
-  border: '1px solid var(--control-border)',
-}
-
-const headingStyle: React.CSSProperties = {
-  fontFamily: 'var(--font-display)',
-  fontSize: 'var(--type-display)',
-  fontWeight: 400,
-  color: 'var(--text-primary)',
-  letterSpacing: 'var(--tracking-tight)',
-}
-
-const headingEmphasisStyle: React.CSSProperties = {
-  fontStyle: 'italic',
-  fontWeight: 500,
-  color: 'var(--accent-hi, var(--text-primary))',
 }
 
 // No box: the `.reticle-input` resting brackets (theme.css) are the field's edge,
@@ -65,6 +56,94 @@ const promptPlaceholderByMode: Record<PromptMode, string> = {
   copied: 'Paste the copied project instructions...',
 }
 
+const glyphProps = {
+  width: 20,
+  height: 20,
+  viewBox: '0 0 24 24',
+  fill: 'none',
+  stroke: 'currentColor',
+  strokeWidth: 2,
+  strokeLinejoin: 'round' as const,
+  strokeLinecap: 'round' as const,
+  'aria-hidden': true,
+}
+
+// Lucide "sparkles" — a fresh start.
+function NewProjectGlyph(): React.JSX.Element {
+  return (
+    <svg {...glyphProps}>
+      <path d="M9.937 15.5A2 2 0 0 0 8.5 14.063l-6.135-1.582a.5.5 0 0 1 0-.962L8.5 9.936A2 2 0 0 0 9.937 8.5l1.582-6.135a.5.5 0 0 1 .963 0L14.063 8.5A2 2 0 0 0 15.5 9.937l6.135 1.581a.5.5 0 0 1 0 .964L15.5 14.063a2 2 0 0 0-1.437 1.437l-1.582 6.135a.5.5 0 0 1-.963 0z" />
+      <path d="M20 3v4" />
+      <path d="M22 5h-4" />
+      <path d="M4 17v2" />
+      <path d="M5 18H3" />
+    </svg>
+  )
+}
+
+// Lucide "folder" — a folder already on disk.
+function LocalRepoGlyph(): React.JSX.Element {
+  return (
+    <svg {...glyphProps}>
+      <path d="M20 20a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.9a2 2 0 0 1-1.69-.9L9.6 3.9A2 2 0 0 0 7.93 3H4a2 2 0 0 0-2 2v13a2 2 0 0 0 2 2Z" />
+    </svg>
+  )
+}
+
+// Lucide "git-branch" — cloning a remote repo.
+function CloneGlyph(): React.JSX.Element {
+  return (
+    <svg {...glyphProps}>
+      <line x1="6" y1="3" x2="6" y2="15" />
+      <circle cx="18" cy="6" r="3" />
+      <circle cx="6" cy="18" r="3" />
+      <path d="M18 9a9 9 0 0 1-9 9" />
+    </svg>
+  )
+}
+
+function PathCard({
+  glyph,
+  title,
+  subtitle,
+  onClick,
+}: {
+  glyph: React.ReactNode
+  title: string
+  subtitle: string
+  onClick: () => void
+}): React.JSX.Element {
+  const [hover, setHover] = useState(false)
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      onMouseEnter={() => setHover(true)}
+      onMouseLeave={() => setHover(false)}
+      style={{ ...cardStyle, ...(hover ? cardHoverStyle : {}) }}
+    >
+      <span style={cardIconStyle}>{glyph}</span>
+      <span style={cardTitleStyle}>{title}</span>
+      <span style={cardSubtitleStyle}>{subtitle}</span>
+    </button>
+  )
+}
+
+function BackLink({ onClick }: { onClick: () => void }): React.JSX.Element {
+  const [hover, setHover] = useState(false)
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      onMouseEnter={() => setHover(true)}
+      onMouseLeave={() => setHover(false)}
+      style={{ ...onboardingLinkStyle(hover), marginTop: 0, alignSelf: 'flex-start' }}
+    >
+      ← Back
+    </button>
+  )
+}
+
 export function NoProjectActions({
   onAddProject,
   onCloneProject,
@@ -80,12 +159,18 @@ export function NoProjectActions({
   cloningProject?: boolean
   createError?: string | null
 }): React.JSX.Element {
+  const [view, setView] = useState<View>('chooser')
   const [promptMode, setPromptMode] = useState<PromptMode>('copied')
   const [hoveredMode, setHoveredMode] = useState<PromptMode | null>(null)
   const [description, setDescription] = useState('')
   const [cloneUrl, setCloneUrl] = useState('')
-  const [showClone, setShowClone] = useState(false)
   const formRef = useRef<HTMLFormElement>(null)
+
+  const goToChooser = useCallback((): void => {
+    setView('chooser')
+    setDescription('')
+    setCloneUrl('')
+  }, [])
 
   const handleCreateSubmit = useCallback(
     async (e: React.FormEvent): Promise<void> => {
@@ -111,7 +196,6 @@ export function NoProjectActions({
         const success = await onCloneProject(url)
         if (success) {
           setCloneUrl('')
-          setShowClone(false)
         }
       }
     },
@@ -120,16 +204,47 @@ export function NoProjectActions({
 
   const canSubmit = description.trim().length > 0 && !creatingProject
 
-  return (
-    <>
-      <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 'var(--space-lg)' }}>
+  if (view === 'chooser') {
+    return (
+      <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 'var(--space-xl)' }}>
+        <div style={headingStyle}>
+          Start a <span style={headingEmphasisStyle}>project</span>
+        </div>
+        <div style={chooserRowStyle}>
+          <PathCard
+            glyph={<NewProjectGlyph />}
+            title="New project"
+            subtitle="Start from scratch, or paste copied instructions"
+            onClick={() => setView('new')}
+          />
+          <PathCard
+            glyph={<LocalRepoGlyph />}
+            title="Local repository"
+            subtitle="Open a folder that's already on your machine"
+            onClick={onAddProject}
+          />
+          <PathCard
+            glyph={<CloneGlyph />}
+            title="Clone from Git"
+            subtitle="Copy a GitHub repo down to your machine"
+            onClick={() => setView('clone')}
+          />
+        </div>
+      </div>
+    )
+  }
+
+  if (view === 'new') {
+    return (
+      <div style={{ ...focusedColumnStyle, alignItems: 'center' }}>
+        <BackLink onClick={goToChooser} />
         <div style={headingStyle}>
           Start a <span style={headingEmphasisStyle}>new project</span>
         </div>
         <form
           ref={formRef}
           onSubmit={(e) => void handleCreateSubmit(e)}
-          style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-md)', width: 480, maxWidth: '90%' }}
+          style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-md)', width: '100%' }}
         >
           <textarea
             className="reticle-input"
@@ -181,65 +296,53 @@ export function NoProjectActions({
               {creatingProject ? 'Creating…' : 'Start Project'}
             </button>
           </div>
-          {createError && !showClone && (
+          {createError && (
             <div style={{ fontSize: 12, color: 'var(--error, #f44)', textAlign: 'center' }}>{createError}</div>
           )}
         </form>
       </div>
+    )
+  }
 
-      <div style={{
-        width: 480,
-        maxWidth: '90%',
-        display: 'flex',
-        alignItems: 'center',
-        gap: 16,
-        margin: '8px 0',
-      }}>
-        <div style={{ flex: 1, height: 1, backgroundColor: 'var(--border)' }} />
-        <span style={{ fontSize: 12, color: 'var(--text-muted)' }}>or open an existing repository</span>
-        <div style={{ flex: 1, height: 1, backgroundColor: 'var(--border)' }} />
+  // view === 'clone'
+  return (
+    <div style={{ ...focusedColumnStyle, alignItems: 'center' }}>
+      <BackLink onClick={goToChooser} />
+      <div style={headingStyle}>
+        Clone a <span style={headingEmphasisStyle}>repository</span>
       </div>
-
-      <div style={{ display: 'flex', gap: 10 }}>
-        <button onClick={onAddProject} style={secondaryButtonStyle}>+ Add Local Repository</button>
-        <button onClick={() => setShowClone((p) => !p)} style={secondaryButtonStyle}>Clone Repository</button>
-      </div>
-      {showClone && (
-        <>
-          <form onSubmit={(e) => void handleCloneSubmit(e)} style={{ display: 'flex', gap: 8 }}>
-            <input
-              type="text"
-              value={cloneUrl}
-              onChange={(e) => setCloneUrl(e.target.value)}
-              placeholder="git@github.com:user/repo.git"
-              autoFocus
-              disabled={cloningProject}
-              style={{
-                padding: '7px 12px',
-                fontSize: 13,
-                backgroundColor: 'var(--bg-input)',
-                color: 'var(--text-primary)',
-                border: '1px solid var(--border)',
-                borderRadius: 6,
-                outline: 'none',
-                width: 320,
-                opacity: cloningProject ? 0.6 : 1,
-              }}
-            />
-            <button
-              type="submit"
-              disabled={!cloneUrl.trim() || cloningProject}
-              style={{ ...buttonStyle, opacity: !cloneUrl.trim() || cloningProject ? 0.5 : 1, display: 'flex', alignItems: 'center', gap: 6 }}
-            >
-              {cloningProject && <span className="spinner" />}
-              {cloningProject ? 'Cloning...' : 'Clone'}
-            </button>
-          </form>
-          {createError && showClone && (
-            <div style={{ fontSize: 12, color: 'var(--error, #f44)', maxWidth: 480 }}>{createError}</div>
-          )}
-        </>
+      <form onSubmit={(e) => void handleCloneSubmit(e)} style={{ display: 'flex', gap: 8, width: '100%' }}>
+        <input
+          type="text"
+          value={cloneUrl}
+          onChange={(e) => setCloneUrl(e.target.value)}
+          placeholder="git@github.com:user/repo.git"
+          autoFocus
+          disabled={cloningProject}
+          style={{
+            flex: 1,
+            padding: '7px 12px',
+            fontSize: 13,
+            backgroundColor: 'var(--bg-input)',
+            color: 'var(--text-primary)',
+            border: '1px solid var(--border)',
+            borderRadius: 6,
+            outline: 'none',
+            opacity: cloningProject ? 0.6 : 1,
+          }}
+        />
+        <button
+          type="submit"
+          disabled={!cloneUrl.trim() || cloningProject}
+          style={{ ...buttonStyle, opacity: !cloneUrl.trim() || cloningProject ? 0.5 : 1, display: 'flex', alignItems: 'center', gap: 6 }}
+        >
+          {cloningProject && <span className="spinner" />}
+          {cloningProject ? 'Cloning...' : 'Clone'}
+        </button>
+      </form>
+      {createError && (
+        <div style={{ fontSize: 12, color: 'var(--error, #f44)', maxWidth: 480 }}>{createError}</div>
       )}
-    </>
+    </div>
   )
 }

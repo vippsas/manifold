@@ -42,6 +42,11 @@ the native module for the right ABI and recompiles plugins:
 - `dist:linux` → `predist:linux` rebuilds for Electron and compiles plugins, then electron-builder produces `dist/linux-unpacked` with `--publish never` (`package.json:25-26`).
 - `verify:linux-package` checks the Linux executable and packaged x64 GNU native modules (`package.json:27`, `scripts/verify-linux-package.mjs:15-33`).
 
+`typecheck` runs the renderer, Node, and plugin TypeScript project configs explicitly
+(`package.json:15-18`). The root `tsconfig.json` only contains project references, so invoking
+`tsc --noEmit` against it directly would check no source files and could miss renderer errors
+that otherwise become blank-window crashes at runtime.
+
 `build` itself (`package.json:11`) is `electron-vite build && npm run build:plugins` with no
 native rebuild — it produces JS only.
 

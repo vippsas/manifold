@@ -1,5 +1,5 @@
 import React from 'react'
-import { DockviewReact, type DockviewApi } from 'dockview'
+import { DockviewReact, type DockviewApi, type DockviewTheme } from 'dockview'
 import type { Project, AgentSession, ManifoldSettings, FileChange, CreateProjectOptions } from '../shared/types'
 import type { Workspace, WorkspaceCreateOptions } from '../shared/workspace-types'
 import type { DockAppState } from './components/editor/editor-shell/dock-panel-types'
@@ -7,7 +7,9 @@ import type { UseAppOverlaysResult } from './hooks/app/useAppOverlays'
 import type { UseGitOperationsResult } from './hooks/editor/useGitOperations'
 import type { UseUpdateLogResult } from '../shared/useUpdateLog'
 import { PANEL_COMPONENTS, DockStateContext } from './components/editor/editor-shell/dock-panels'
-import { PrefixHeaderActions, LeftHeaderActions, RightHeaderActions } from './components/editor/editor-shell/SidebarCollapseAction'
+import { ShellHeaderActions } from './components/terminal/ShellHeaderActions'
+import { AgentHeaderActions, AgentCloseHeaderActions } from './components/editor/editor-shell/AgentHeaderActions'
+import { WorkspaceHeaderActions } from './components/editor/editor-shell/WorkspaceHeaderActions'
 import { OnboardingView } from './components/modals/OnboardingView'
 import { DashboardHomeView } from './components/home/DashboardHomeView'
 import { SettingsModal } from './components/modals/SettingsModal'
@@ -20,15 +22,48 @@ import { CommitPanel } from './components/git/CommitPanel'
 import { PRPanel } from './components/git/PRPanel'
 import { ConflictPanel } from './components/git/ConflictPanel'
 import { WelcomeDialog } from './components/modals/WelcomeDialog'
+import { AddRepositoryModal } from './components/modals/AddRepositoryModal'
 import { NewWorkspaceModal } from './components/modals/NewWorkspaceModal'
-import { AddWorkspaceProjectModal } from './components/modals/AddWorkspaceProjectModal'
+import { NewAgentModal } from './components/modals/NewAgentModal'
 import { DockTab, EmptyWatermark } from './DockTab'
+import { ActivityBar, type ActivityBarProps } from './components/ActivityBar'
+import type { SidebarViewId } from './components/sidebar/sidebar-views'
 import { TitleBar } from './components/TitleBar'
 import { DeleteAgentDialog } from './components/sidebar/DeleteAgentDialog'
 import { useLoadPluginContributions } from './plugins/use-contributions'
 import { PluginUiHost } from './components/plugin-ui/PluginUiHost'
+import { SearchModal } from './components/search/SearchModal'
 import { CommandPalette } from './components/command-palette/CommandPalette'
 import { ShortcutsCheatSheet } from './components/command-palette/ShortcutsCheatSheet'
+
+/** The dockview theme: our CSS classes plus a small gap between panel groups,
+ *  which — with the rounded-card group styling in dockview-theme.css — makes
+ *  each panel read as a floating card on a recessed canvas. */
+const DOCK_THEME: DockviewTheme = {
+  name: 'manifold',
+  className: 'dockview-theme-dark dockview-theme-manifold',
+  gap: 6,
+}
+
+/** An agent belongs to a workspace and to nothing smaller, so that is all the
+ *  New Agent dialog needs to be aimed. */
+export interface NewAgentTarget {
+  workspaceId: string
+}
+
+/** Dockview takes one right-header component for every group; each of these
+ *  renders null outside its own group (shell tabs vs. icon-tab groups). The
+ *  shell's controls sit here rather than beside its tab so they land at the far
+ *  end of the strip, the way VS Code's terminal toolbar does. */
+function RightHeaderActions(props: React.ComponentProps<typeof ShellHeaderActions>): React.JSX.Element {
+  return (
+    <>
+      <ShellHeaderActions {...props} />
+      <AgentCloseHeaderActions {...props} />
+      <WorkspaceHeaderActions {...props} />
+    </>
+  )
+}
 
 export interface AppShellProps {
   themeClass: string
@@ -62,31 +97,29 @@ export interface AppShellProps {
   handleAddProjectFromOnboarding: (path?: string) => Promise<void>
   handleCloneFromOnboarding: (url: string) => Promise<boolean>
   handleCreateNewProject: (options: CreateProjectOptions) => Promise<boolean>
+  newAgentTarget: NewAgentTarget | null
+  closeNewAgentModal: () => void
   // Workspace modal wiring
   newWorkspaceVisible: boolean
   setNewWorkspaceVisible: (v: boolean) => void
   defaultRuntime: string
   createWorkspace: (opts: WorkspaceCreateOptions) => Promise<Workspace>
   workspaces: Workspace[]
-  addProjectWorkspaceId: string | null
-  setAddProjectWorkspaceId: (id: string | null) => void
-  addProjectToWorkspace: (id: string, projectId: string) => Promise<void>
   // StatusBar dock layout adapter
   dockLayout: unknown
+  /** Which view the one sidebar shows — the activity rail switches it. */
+  sidebarView: SidebarViewId
+  onSelectSidebarView: (id: SidebarViewId) => void
   onRenameActiveProject: (name: string) => void
-  onToggleTheme: () => void
-  themeFamily: 'manifold' | 'garfield' | 'neon' | 'royal' | 'jade' | 'platinum'
-  onSelectThemeFamily: (family: 'manifold' | 'garfield' | 'neon' | 'royal' | 'jade' | 'platinum') => void
   runCommand: (id: string) => void
 }
 
 export function AppShell(p: AppShellProps): React.JSX.Element {
   useLoadPluginContributions()
-  const themeType: 'dark' | 'light' = p.themeClass === 'theme-light' ? 'light' : 'dark'
   if (!p.settings.setupCompleted) {
     return (
       <div className={`layout-root ${p.themeClass}`}>
-        <TitleBar themeType={themeType} onToggleTheme={p.onToggleTheme} themeFamily={p.themeFamily} onSelectThemeFamily={p.onSelectThemeFamily} />
+        <TitleBar />
         <WelcomeDialog onAddProject={() => void p.addProject()} onCloneProject={p.cloneProject} onComplete={p.overlays.handleSetupComplete} />
       </div>
     )
@@ -95,7 +128,7 @@ export function AppShell(p: AppShellProps): React.JSX.Element {
   if (p.projects.length === 0) {
     return (
       <div className={`layout-root ${p.themeClass}`}>
-        <TitleBar themeType={themeType} onToggleTheme={p.onToggleTheme} themeFamily={p.themeFamily} onSelectThemeFamily={p.onSelectThemeFamily} />
+        <TitleBar />
         <OnboardingView variant="no-project" onAddProject={() => void p.handleAddProjectFromOnboarding()} onCloneProject={p.handleCloneFromOnboarding}
           onCreateNewProject={p.handleCreateNewProject} creatingProject={p.appEffects.creatingProject}
           cloningProject={p.appEffects.cloningProject} createError={p.projectError} />
@@ -104,58 +137,58 @@ export function AppShell(p: AppShellProps): React.JSX.Element {
   }
 
   const activeProjectName = p.projects.find((proj) => proj.id === p.activeProjectId)?.name
+  const newAgentWorkspace = p.workspaces.find((workspace) => workspace.id === p.newAgentTarget?.workspaceId) ?? null
 
   return (
     <div className={`layout-root ${p.themeClass}`}>
-      <TitleBar
-        projectName={activeProjectName}
-        themeType={themeType}
-        onToggleTheme={p.onToggleTheme}
-        themeFamily={p.themeFamily}
-        onSelectThemeFamily={p.onSelectThemeFamily}
-        onOpenDashboard={() => p.dockState.onOpenDashboard()}
-        search={{
-          activeProjectId: p.dockState.activeProjectId,
-          activeSessionId: p.dockState.sessionId,
-          allProjectSessions: p.dockState.allProjectSessions,
-          onOpenSearchResult: p.dockState.onOpenSearchResult,
-          focusRequestKey: p.dockState.searchFocusRequestKey,
-          requestedMode: p.dockState.requestedSearchMode,
-        }}
-      />
+      <TitleBar projectName={activeProjectName} />
       <div className="layout-main">
-        <DockStateContext.Provider value={p.dockState}>
-          <div style={{ flex: 1, overflow: 'hidden', position: 'relative' }}>
-            <DockviewReact
-              className={`dockview-theme-dark dockview-theme-manifold${!p.activeSessionId ? ' dockview-minimal' : ''}`}
-              components={PANEL_COMPONENTS}
-              onReady={(e) => p.onDockReady(e.api)}
-              defaultTabComponent={DockTab}
-              prefixHeaderActionsComponent={PrefixHeaderActions}
-              leftHeaderActionsComponent={LeftHeaderActions}
-              rightHeaderActionsComponent={RightHeaderActions}
-              watermarkComponent={EmptyWatermark}
-            />
-            {p.overlays.showDashboard && (
-              <DashboardHomeView
-                onClose={() => p.overlays.setShowDashboard(false)}
-                initialCard={p.overlays.dashboardInitialCard}
+        <div className="layout-workbench">
+          <ActivityBar
+            dockLayout={p.dockLayout as ActivityBarProps['dockLayout']}
+            sidebarView={p.sidebarView}
+            onSelectSidebarView={p.onSelectSidebarView}
+            hasActiveSession={p.activeSessionId != null}
+            onOpenSettings={() => p.overlays.setShowSettings(true)}
+          />
+          <DockStateContext.Provider value={p.dockState}>
+            <div style={{ flex: 1, overflow: 'hidden', position: 'relative', padding: 'var(--space-xs)', background: 'var(--dock-canvas)' }}>
+              <DockviewReact
+                theme={DOCK_THEME}
+                // The arrangement is a fixed preset, not something the user
+                // assembles: panels open in their set places and the only thing
+                // a drag can do is resize a divider. Turning dockview's dnd off
+                // removes tab/group dragging entirely — including the accidental
+                // drags that used to strand a pane somewhere it was never meant
+                // to go. `locked` is deliberately not set: that would disable
+                // the sashes too, and resizing is the one gesture we keep.
+                disableDnd
+                components={PANEL_COMPONENTS}
+                onReady={(e) => p.onDockReady(e.api)}
+                defaultTabComponent={DockTab}
+                leftHeaderActionsComponent={AgentHeaderActions}
+                rightHeaderActionsComponent={RightHeaderActions}
+                watermarkComponent={EmptyWatermark}
               />
-            )}
-          </div>
-        </DockStateContext.Provider>
+              {p.overlays.showDashboard && (
+                <DashboardHomeView
+                  onClose={() => p.overlays.setShowDashboard(false)}
+                  initialCard={p.overlays.dashboardInitialCard}
+                />
+              )}
+            </div>
+          </DockStateContext.Provider>
+        </div>
         <StatusBar
           activeSession={p.activeSession}
           changedFiles={p.mergedChanges}
           baseBranch={p.baseBranch}
           projectIsGit={p.activeProjectIsGit}
-          dockLayout={p.dockLayout as never}
           conflicts={p.gitOps.conflicts as never}
           aheadBehind={p.gitOps.aheadBehind as never}
           onCommit={() => p.overlays.setActivePanel('commit')}
           onCreatePR={() => p.overlays.setActivePanel('pr')}
           onShowConflicts={() => p.overlays.setActivePanel('conflicts')}
-          onOpenSettings={() => p.overlays.setShowSettings(true)}
           showCommitAndPrButtons={p.showCommitAndPrButtons}
         />
       </div>
@@ -174,17 +207,32 @@ export function AppShell(p: AppShellProps): React.JSX.Element {
       )}
       <DeleteAgentDialog
         pendingDelete={p.overlays.pendingDelete}
-        siblingCount={p.overlays.pendingDelete
-          ? (p.sessionsByProject[p.overlays.pendingDelete.session.projectId] ?? [])
-              .filter((s) => s.worktreePath !== '' && s.worktreePath === p.overlays.pendingDelete?.session.worktreePath)
-              .length
-          : 0}
         deleting={p.overlays.deletingSessionId === p.overlays.pendingDelete?.session.id}
         onCancel={p.overlays.cancelDeleteAgent}
         onConfirm={p.overlays.confirmDeleteAgent}
       />
+      <NewAgentModal
+        visible={p.newAgentTarget != null}
+        workspace={newAgentWorkspace}
+        defaultRuntime={p.defaultRuntime}
+        defaultAgentMode={p.settings.defaultAgentMode ?? 'interactive'}
+        onLaunch={async (options) => {
+          if (!newAgentWorkspace || !p.dockState.onLaunchWorkspaceAgent) return null
+          return p.dockState.onLaunchWorkspaceAgent(newAgentWorkspace.id, options)
+        }}
+        onClose={p.closeNewAgentModal}
+      />
       <SettingsModal visible={p.overlays.showSettings} settings={p.settings} onSave={p.overlays.handleSaveSettings}
         onClose={() => p.overlays.setShowSettings(false)} onPreviewTheme={p.setPreviewThemeId} />
+      <SearchModal
+        visible={p.overlays.showSearch}
+        onClose={p.overlays.closeSearch}
+        activeProjectId={p.dockState.activeProjectId}
+        activeSessionId={p.dockState.sessionId}
+        allProjectSessions={p.dockState.allProjectSessions}
+        onOpenSearchResult={p.dockState.onOpenSearchResult}
+        requestedMode={p.overlays.searchMode}
+      />
       <CommandPalette visible={p.overlays.showCommandPalette} onRun={p.runCommand}
         onClose={() => p.overlays.setShowCommandPalette(false)} />
       <ShortcutsCheatSheet visible={p.overlays.showShortcuts} onClose={() => p.overlays.setShowShortcuts(false)} />
@@ -214,16 +262,6 @@ export function AppShell(p: AppShellProps): React.JSX.Element {
         onCreate={(opts) => { void p.createWorkspace(opts); p.setNewWorkspaceVisible(false) }}
         onClose={() => p.setNewWorkspaceVisible(false)}
       />
-      <AddWorkspaceProjectModal
-        visible={p.addProjectWorkspaceId != null}
-        workspace={p.workspaces.find((w) => w.id === p.addProjectWorkspaceId) ?? null}
-        projects={p.projects}
-        onAdd={async (workspaceId, projectIds) => {
-          for (const pid of projectIds) await p.addProjectToWorkspace(workspaceId, pid)
-          p.setAddProjectWorkspaceId(null)
-        }}
-        onClose={() => p.setAddProjectWorkspaceId(null)}
-      />
       {p.updateNotification.updateReady && (
         <UpdateToast version={p.updateNotification.version} onRestart={p.updateNotification.install}
           onDismiss={p.updateNotification.dismiss}
@@ -232,16 +270,16 @@ export function AppShell(p: AppShellProps): React.JSX.Element {
       {p.themeChangeNotice.show && (
         <ThemeChangeToast mode={p.themeChangeNotice.mode} onDismiss={p.themeChangeNotice.dismiss} />
       )}
-      {(p.appEffects.showOnboarding || p.appEffects.creatingProject) && (
-        <div style={{ position: 'absolute', inset: 0, zIndex: 100, background: 'var(--bg-primary)' }}>
-          <OnboardingView variant="no-project" onAddProject={() => void p.handleAddProjectFromOnboarding()}
-            onCloneProject={p.handleCloneFromOnboarding}
-            onCreateNewProject={p.handleCreateNewProject}
-            creatingProject={p.appEffects.creatingProject}
-            cloningProject={p.appEffects.cloningProject} createError={p.projectError}
-            onBack={() => p.appEffects.setShowOnboarding(false)} />
-        </div>
-      )}
+      <AddRepositoryModal
+        visible={p.appEffects.showOnboarding || p.appEffects.creatingProject}
+        onAddProject={() => void p.handleAddProjectFromOnboarding()}
+        onCloneProject={p.handleCloneFromOnboarding}
+        onCreateNewProject={p.handleCreateNewProject}
+        creatingProject={p.appEffects.creatingProject}
+        cloningProject={p.appEffects.cloningProject}
+        createError={p.projectError}
+        onClose={() => p.appEffects.setShowOnboarding(false)}
+      />
       <PluginUiHost />
     </div>
   )

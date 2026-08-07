@@ -90,8 +90,11 @@ export function useCodeViewerModes({
   }, [activeFilePath, paneId, updatePreviewPaths])
 
   useEffect(() => {
-    const opensInEditor =
-      lastFileOpenRequest.source !== 'default' && lastFileOpenRequest.path === activeFilePath
+    // 'default' (Modified Files) and 'sourceControl' clicks open in diff mode;
+    // every other source (file tree, search, …) opens the plain editor.
+    const wantsDiff =
+      lastFileOpenRequest.source === 'default' || lastFileOpenRequest.source === 'sourceControl'
+    const opensInEditor = !wantsDiff && lastFileOpenRequest.path === activeFilePath
     autoDiffSuppressedRef.current = opensInEditor
     setDiffMode(opensInEditor ? false : hasDiffRef.current)
   }, [activeFilePath, lastFileOpenRequest])

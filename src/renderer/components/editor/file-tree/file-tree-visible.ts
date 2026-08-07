@@ -39,7 +39,9 @@ export function buildVisibleNodes(opts: {
   if (!primary) return out
 
   const pushRoot = (root: FileTreeNode): void => {
-    if (hasHeaderedRoots && flattenRoots && root.isDirectory && root.children?.length) {
+    // A flattened root has something else naming it — a workspace header, or the
+    // sidebar row the folder hangs under — so its own row would be a duplicate.
+    if (flattenRoots && root.isDirectory && root.children?.length) {
       for (const child of sortChildren(root.children)) flattenVisible(child, expandedPaths, 0, root.path, out)
     } else {
       flattenVisible(root, expandedPaths, 0, null, out)

@@ -1,18 +1,33 @@
 import React from 'react'
 import type { IDockviewHeaderActionsProps } from 'dockview'
-import { EditorHeaderActions } from './EditorHeaderActions'
-import { ModuleLauncher } from './ModuleLauncher'
+import { DockStateContext } from './dock-panel-types'
+import { ICON_TAB_PANELS } from '../../../DockTab'
+import { PANEL_TITLES } from '../../../hooks/dock-layout/dock-layout-helpers'
+import type { DockPanelId } from '../../../hooks/dock-layout/useDockLayout'
 
-/** Right-side header actions for every dock group: the editor pane/mode
- *  actions (which self-gate to editor panes) plus the module launcher,
- *  shown only in the group that owns the `agent` panel so it renders once
- *  at the end of the main workspace tab strip. */
+/** Right-side header actions for every dock group: a single × for groups made
+ *  of icon-only tabs (the sidebar, the editor) — those tabs carry no per-tab
+ *  close button of their own (see DockTab), and the sidebar renders no tab at
+ *  all, so the group header is what closes them. The editor's pane actions are
+ *  deliberately not here; they live in the code viewer's own tab bar (see
+ *  EditorPaneActions). */
 export function WorkspaceHeaderActions(props: IDockviewHeaderActionsProps): React.JSX.Element {
-  const ownsAgent = props.panels.some((panel) => panel.id === 'agent')
+  const state = React.useContext(DockStateContext)
+  const iconPanels = props.panels.filter((panel) => ICON_TAB_PANELS.has(panel.id))
+  const closeLabel = `Close ${PANEL_TITLES[iconPanels[0]?.id as DockPanelId] ?? ''}`.trim()
   return (
     <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
-      <EditorHeaderActions {...props} />
-      {ownsAgent && <ModuleLauncher />}
+      {state && iconPanels.length > 0 && (
+        <button
+          type="button"
+          className="dock-header-collapse"
+          onClick={() => { for (const panel of iconPanels) state.onClosePanel(panel.id) }}
+          title={closeLabel}
+          aria-label={closeLabel}
+        >
+          &times;
+        </button>
+      )}
     </div>
   )
 }

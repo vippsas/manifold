@@ -10,7 +10,9 @@ type FilterTab = 'all' | 'dark' | 'light'
 interface ThemePickerProps {
   currentThemeId: string
   onSelect: (themeId: string) => void
-  onCancel: () => void
+  /** Omitted where the picker is always mounted (the Theme settings tab): Escape
+   *  reverts the live preview and the host's own Escape handling takes it from there. */
+  onCancel?: () => void
   onPreview?: (themeId: string | null) => void
 }
 
@@ -25,8 +27,8 @@ export function ThemePicker({ currentThemeId, onSelect, onCancel, onPreview }: T
   const originalThemeIdRef = useRef(currentThemeId)
   // Tracks whether a hover/keyboard preview is currently applied app-wide, and
   // whether the user committed a real selection. Read by the unmount cleanup,
-  // which fires when Settings closes (or the Hide toggle collapses the picker)
-  // without an explicit Escape — the only path that previously reverted.
+  // which fires when Settings closes (or the Theme tab is left) without an
+  // explicit Escape — the only path that previously reverted.
   const previewActiveRef = useRef(false)
   const confirmedRef = useRef(false)
 
@@ -81,9 +83,9 @@ export function ThemePicker({ currentThemeId, onSelect, onCancel, onPreview }: T
   const revertPreviewRef = useRef(revertPreview)
   revertPreviewRef.current = revertPreview
 
-  // When the picker unmounts (Settings closed, or the Hide toggle collapsed it)
-  // without an Escape and without a committed selection, revert the live preview
-  // so the app doesn't stay on an unsaved theme.
+  // When the picker unmounts (Settings closed, or the Theme tab left) without an
+  // Escape and without a committed selection, revert the live preview so the app
+  // doesn't stay on an unsaved theme.
   useEffect(() => () => {
     if (previewActiveRef.current && !confirmedRef.current) {
       revertPreviewRef.current()
@@ -92,7 +94,7 @@ export function ThemePicker({ currentThemeId, onSelect, onCancel, onPreview }: T
 
   const handleCancel = useCallback(() => {
     revertPreview()
-    onCancel()
+    onCancel?.()
   }, [revertPreview, onCancel])
 
   const handleKeyDown = useCallback(

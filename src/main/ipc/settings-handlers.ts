@@ -53,7 +53,7 @@ export function registerOllamaHandler(): void {
 }
 
 export function registerViewStateHandlers(deps: IpcDependencies): void {
-  const { viewStateStore, dockLayoutStore } = deps
+  const { viewStateStore } = deps
 
   ipcMain.handle('view-state:get', (_event, sessionId: string) => {
     return viewStateStore.get(sessionId)
@@ -65,7 +65,6 @@ export function registerViewStateHandlers(deps: IpcDependencies): void {
 
   ipcMain.handle('view-state:delete', (_event, sessionId: string) => {
     viewStateStore.delete(sessionId)
-    dockLayoutStore.delete(sessionId)
   })
 }
 
@@ -84,11 +83,11 @@ export function registerShellTabHandlers(deps: IpcDependencies): void {
 export function registerDockLayoutHandlers(deps: IpcDependencies): void {
   const { dockLayoutStore } = deps
 
-  ipcMain.handle('dock-layout:get', (_event, sessionId: string) => {
-    return dockLayoutStore.get(sessionId)
+  ipcMain.handle('dock-layout:get', () => {
+    return dockLayoutStore.get()
   })
 
-  ipcMain.handle('dock-layout:set', (_event, sessionId: string, layout: unknown) => {
-    dockLayoutStore.set(sessionId, layout)
+  ipcMain.handle('dock-layout:set', (_event, layout: unknown) => {
+    dockLayoutStore.set(layout)
   })
 }

@@ -20,38 +20,6 @@ describe('convertTheme', () => {
     expect(theme.cssVars['--status-running']).toBe('#7FC8E8')
   })
 
-  it('derives the active tree icon tint filter from the accent', () => {
-    const blue = convertTheme({
-      base: 'vs-dark',
-      inherit: true,
-      rules: [],
-      colors: {
-        'editor.background': '#06080F',
-        'editor.foreground': '#E6ECF7',
-        focusBorder: '#007acc',
-      },
-    }, 'test')
-
-    expect(blue.cssVars['--tree-icon-active-filter']).toBe(
-      'grayscale(1) sepia(1) hue-rotate(164deg) saturate(2.22) brightness(1.08) opacity(1)'
-    )
-
-    const gold = convertTheme({
-      base: 'vs-dark',
-      inherit: true,
-      rules: [],
-      colors: {
-        'editor.background': '#06080F',
-        'editor.foreground': '#E6ECF7',
-        focusBorder: '#d4b46a',
-      },
-    }, 'test')
-
-    expect(gold.cssVars['--tree-icon-active-filter']).toBe(
-      'grayscale(1) sepia(1) hue-rotate(2deg) saturate(1.23) brightness(1.08) opacity(1)'
-    )
-  })
-
   it('maps the terminal accent into extended ANSI palette slot 16', () => {
     const withCursor = convertTheme({
       base: 'vs-dark',

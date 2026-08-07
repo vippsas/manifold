@@ -26,8 +26,14 @@ interface FileTreeProps {
   additionalTrees?: Map<string, FileTreeNode>
   /** Optional display names per worktree root path. Keys: primary tree path, plus additional tree paths. */
   rootLabels?: Map<string, string>
-  /** Render the root directory contents directly when a workspace header is shown. */
+  /** Render a root's contents directly, without a row for the root itself —
+   *  for trees whose root is already named by a workspace header or by the
+   *  sidebar row the folder hangs under. */
   flattenRoots?: boolean
+  /** Filter/refresh/expand-all strip above the tree. Off for the sidebar's
+   *  folders, where several trees are open at once and a strip per folder would
+   *  stack up; find-by-name there is Quick Open's job. */
+  showToolbar?: boolean
   changes: FileChange[]
   additionalChanges?: Map<string, FileChange[]>
   activeFilePath: string | null
@@ -53,7 +59,7 @@ interface FileTreeProps {
 }
 
 export function FileTree({
-  tree, additionalTrees, rootLabels, flattenRoots = false,
+  tree, additionalTrees, rootLabels, flattenRoots = false, showToolbar = true,
   changes, additionalChanges, activeFilePath, openFilePaths, expandedPaths, onToggleExpand, onSelectFile,
   onDeleteFile, onRenameFile, onCreateFile, onCreateDir, onRefresh, onImportPaths, onPasteImage, onPasteClipboardImage, onMovePath,
   onRevealInFinder, onOpenInTerminal, onCopyAbsolutePath, onCopyRelativePath, onOpenFileToSide,
@@ -232,14 +238,16 @@ export function FileTree({
 
   return (
     <div style={treeStyles.wrapper}>
-      <FileTreeToolbar
-        filterQuery={editing.filterQuery}
-        onFilterChange={editing.setFilterQuery}
-        onClearFilter={() => editing.setFilterQuery('')}
-        onRefresh={onRefresh}
-        onExpandAll={handleExpandAll}
-        onCollapseAll={handleCollapseAll}
-      />
+      {showToolbar && (
+        <FileTreeToolbar
+          filterQuery={editing.filterQuery}
+          onFilterChange={editing.setFilterQuery}
+          onClearFilter={() => editing.setFilterQuery('')}
+          onRefresh={onRefresh}
+          onExpandAll={handleExpandAll}
+          onCollapseAll={handleCollapseAll}
+        />
+      )}
       {(isDraggingAny || operationError) && (
         <div style={{ ...treeStyles.statusBanner, ...(operationError ? treeStyles.statusBannerError : treeStyles.statusBannerInfo) }}>
           <span style={treeStyles.statusBannerText}>{operationError ?? bannerLabel}</span>
@@ -290,7 +298,7 @@ export function FileTree({
               </div>
             ) : (
               <div data-tree-root-path={filteredTree.path}>
-                <TreeNode node={filteredTree} depth={0} {...treeNodeProps} />
+                {renderWorkspaceTree(filteredTree)}
               </div>
             )}
           </>

@@ -1,6 +1,7 @@
-// Covers the header collapse button's width mechanics: collapsing a sidebar to
-// width 0 (remembering its pre-collapse width) and restoring it to exactly that
-// width, while the opposite sidebar is preserved. Mirrors the real-dockview
+// Covers the sidebar collapse width mechanics: collapsing the sidebar to width
+// 0 (remembering its pre-collapse width) and restoring it to exactly that
+// width. No UI button collapses anymore, but a previously collapsed sidebar
+// persists at width 0 and reopens via the edge rail. Mirrors the real-dockview
 // harness in dock-layout-drag-restore.test.tsx (jsdom has no layout engine, so
 // element.offsetWidth is wired to dockview's tracked group width).
 import React from 'react'
@@ -36,7 +37,7 @@ async function setupDock(): Promise<DockviewApi> {
     <div style={{ width: 1200, height: 700 }}>
       <DockviewReact
         className="dockview-theme-manifold"
-        components={{ projects: Probe, agent: Probe, editor: Probe, fileTree: Probe }}
+        components={{ sidebar: Probe, agent: Probe, editor: Probe }}
         onReady={(e) => { api = e.api }}
       />
     </div>,
@@ -45,52 +46,29 @@ async function setupDock(): Promise<DockviewApi> {
   const dv = api as unknown as DockviewApi
   act(() => {
     dv.layout(1200, 700)
-    dv.addPanel({ id: 'projects', component: 'projects' })
-    dv.addPanel({ id: 'agent', component: 'agent', position: { referencePanel: 'projects', direction: 'right' } })
+    dv.addPanel({ id: 'sidebar', component: 'sidebar' })
+    dv.addPanel({ id: 'agent', component: 'agent', position: { referencePanel: 'sidebar', direction: 'right' } })
     dv.addPanel({ id: 'editor', component: 'editor', position: { referencePanel: 'agent', direction: 'right' } })
-    dv.addPanel({ id: 'fileTree', component: 'fileTree', position: { referencePanel: 'editor', direction: 'right' } })
-    dv.getPanel('projects')?.group.api.setSize({ width: 200 })
-    dv.getPanel('fileTree')?.group.api.setSize({ width: 200 })
+    dv.getPanel('sidebar')?.group.api.setSize({ width: 200 })
   })
-  wireOffsetWidth(dv, 'projects')
-  wireOffsetWidth(dv, 'fileTree')
+  wireOffsetWidth(dv, 'sidebar')
   return dv
 }
 
 describe('collapseSidebar / applySidebarWidth', () => {
-  it('collapses the projects sidebar to 0 and restores its previous width', async () => {
+  it('collapses the sidebar to 0 and restores its previous width', async () => {
     const dv = await setupDock()
     const widthOf = (panelId: string): number => dv.getPanel(panelId)?.group.api.width ?? -1
 
-    expect(widthOf('projects')).toBe(200)
+    expect(widthOf('sidebar')).toBe(200)
 
     let previous = 0
-    act(() => { previous = collapseSidebar(dv, 'left') })
+    act(() => { previous = collapseSidebar(dv) })
     expect(previous).toBe(200)
-    expect(widthOf('projects')).toBe(0)
-    // The opposite sidebar is preserved — only the center pane absorbs the space.
-    expect(widthOf('fileTree')).toBe(200)
+    expect(widthOf('sidebar')).toBe(0)
 
-    act(() => { applySidebarWidth(dv, 'left', previous) })
-    expect(widthOf('projects')).toBe(200)
-    expect(widthOf('fileTree')).toBe(200)
-  })
-
-  it('collapses the file-tree sidebar to 0 and restores its previous width', async () => {
-    const dv = await setupDock()
-    const widthOf = (panelId: string): number => dv.getPanel(panelId)?.group.api.width ?? -1
-
-    expect(widthOf('fileTree')).toBe(200)
-
-    let previous = 0
-    act(() => { previous = collapseSidebar(dv, 'right') })
-    expect(previous).toBe(200)
-    expect(widthOf('fileTree')).toBe(0)
-    expect(widthOf('projects')).toBe(200)
-
-    act(() => { applySidebarWidth(dv, 'right', previous) })
-    expect(widthOf('fileTree')).toBe(200)
-    expect(widthOf('projects')).toBe(200)
+    act(() => { applySidebarWidth(dv, previous) })
+    expect(widthOf('sidebar')).toBe(200)
   })
 
   it('reopens a collapsed sidebar on a single click of its edge rail', async () => {
@@ -99,9 +77,9 @@ describe('collapseSidebar / applySidebarWidth', () => {
     const apiRef: React.MutableRefObject<DockviewApi | null> = { current: dv }
     const { result } = renderHook(() => useSidebarHandleCycle(apiRef))
 
-    // Collapse from the header button — remembers the 200px pre-collapse width.
-    act(() => { result.current.collapseSidebar('left') })
-    expect(widthOf('projects')).toBe(0)
+    // Programmatic collapse — remembers the 200px pre-collapse width.
+    act(() => { result.current.collapseSidebar() })
+    expect(widthOf('sidebar')).toBe(0)
 
     // refreshEdgeGrab tags the collapsed sash dv-sash--edge-left; a single click
     // (not a double-click) on it reopens to the remembered width.
@@ -110,6 +88,6 @@ describe('collapseSidebar / applySidebarWidth', () => {
     sash.classList.add('dv-sash--edge-left')
     act(() => { sash.dispatchEvent(new MouseEvent('click', { bubbles: true })) })
 
-    expect(widthOf('projects')).toBe(200)
+    expect(widthOf('sidebar')).toBe(200)
   })
 })

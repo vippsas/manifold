@@ -56,19 +56,6 @@ describe('SettingsStore', () => {
       expect(settings.scrollbackLines).toBe(DEFAULT_SETTINGS.scrollbackLines)
     })
 
-    it('defaults useWorktrees to true', () => {
-      mockExistsSync.mockReturnValue(false)
-      const store = new SettingsStore()
-      expect(store.getSettings().useWorktrees).toBe(true)
-    })
-
-    it('preserves useWorktrees:false from disk', () => {
-      mockExistsSync.mockReturnValue(true)
-      mockReadFileSync.mockReturnValue(JSON.stringify({ useWorktrees: false }))
-      const store = new SettingsStore()
-      expect(store.getSettings().useWorktrees).toBe(false)
-    })
-
     it('returns defaults when file contains invalid JSON', () => {
       mockExistsSync.mockReturnValue(true)
       mockReadFileSync.mockReturnValue('not json!')

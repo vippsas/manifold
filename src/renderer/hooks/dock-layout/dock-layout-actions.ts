@@ -4,7 +4,7 @@ import {
   hidePanel,
   showPanelFromHints,
   showPanelFromSnapshot,
-  getSidebarWidths,
+  getSidebarWidth,
   withPinnedSidebars,
   isEditorPanelId,
   toggleMaximizedGroup,
@@ -35,8 +35,8 @@ export function useDockActions(
     if (isEditorPanelId(id)) {
       const panel = api.getPanel(id)
       if (!panel) return
-      // Pin the sidebars while the editor pane is removed so its freed space
-      // lands on the center pane, not on the sidebars (which dockview would
+      // Pin the sidebar while the editor pane is removed so its freed space
+      // lands on the center pane, not on the sidebar (which dockview would
       // otherwise widen proportionally).
       withPinnedSidebars(api, () => api.removePanel(panel))
       ctx.editorPanelIdsRef.current.delete(id)
@@ -64,8 +64,8 @@ export function useDockActions(
         return
       }
 
-      // Pin the sidebars while the editor panes are removed so their freed
-      // space lands on the center pane, not on the sidebars (which dockview
+      // Pin the sidebar while the editor panes are removed so their freed
+      // space lands on the center pane, not on the sidebar (which dockview
       // would otherwise widen proportionally).
       withPinnedSidebars(api, () => {
         for (const panelId of visibleEditorPanels) {
@@ -105,7 +105,7 @@ export function useDockActions(
   }, [ctx, bumpVersion, ensureEditorPanel, saveLayout, syncPanels, refs, closedPanelSnapshots])
 
   // Double-click a tab to toggle focus mode: maximize that pane's group to fill
-  // the dock (hiding all other panes and both sidebars), or restore everything
+  // the dock (hiding all other panes and the sidebar), or restore everything
   // if a group is already maximized. The onDidLayoutChange listener skips its
   // sidebar bookkeeping while maximized (hidden sidebars report width 0), so no
   // save/bump is needed here — exiting fires the listener, which persists the
@@ -135,7 +135,7 @@ export function useDockActions(
     }
     closedPanelSnapshots.current.clear()
     syncPanels(api)
-    ctx.sidebarWidthsRef.current = getSidebarWidths(api)
+    ctx.sidebarWidthRef.current = getSidebarWidth(api)
     ctx.lastLayoutRef.current = api.toJSON()
     bumpVersion()
   }, [ctx, buildDefaultLayout, bumpVersion, syncPanels, refs, closedPanelSnapshots])

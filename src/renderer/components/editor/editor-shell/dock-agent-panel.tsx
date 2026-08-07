@@ -128,43 +128,36 @@ export function AgentPanel({ api }: { api?: { id: string } } = {}): React.JSX.El
     )
   }
 
-  const workspaceForRepo = s.activeWorkspaceId
-    ? s.workspaces?.find((w) => w.id === s.activeWorkspaceId && !!s.activeProjectId && w.projectIds.includes(s.activeProjectId))
-    : undefined
+  // An agent is started in a workspace, never in a folder: the focused workspace,
+  // or whichever holds the open folder (every folder is in at least its home
+  // workspace). Without one there is nothing to start an agent in.
+  const workspace = s.workspaces?.find((w) => w.id === s.activeWorkspaceId)
+    ?? s.workspaces?.find((w) => !!s.activeProjectId && w.projectIds.includes(s.activeProjectId))
 
-  if (!targetSessionId && s.activeProjectId && activeProject) {
-    const projectId = s.activeProjectId
-    const onLaunch = workspaceForRepo && s.onLaunchWorkspaceAgent
-      ? (opts: SpawnAgentOptions) => s.onLaunchWorkspaceAgent!(workspaceForRepo.id, projectId, {
-          runtimeId: opts.runtimeId,
-          prompt: opts.prompt,
-          nonInteractive: opts.nonInteractive,
-        })
-      : s.onLaunchAgent
+  if (!targetSessionId && workspace && s.onLaunchWorkspaceAgent) {
+    const launchWorkspaceAgent = s.onLaunchWorkspaceAgent
+    const primaryProject = s.projects.find((p) => p.id === workspace.projectIds[0])
+    const workspaceSessions = Object.values(s.allProjectSessions)
+      .flat()
+      .filter((session) => session.workspaceId === workspace.id)
     return (
       <OnboardingView
         variant="no-agent"
-        projectId={projectId}
-        projectName={activeProject.name}
-        projectPath={activeProject.path}
-        baseBranch={s.baseBranch}
-        isGitProject={s.activeProjectIsGit}
-        defaultRuntime={s.defaultRuntime}
+        workspaceName={workspace.name}
+        primaryPath={workspace.worktreePaths?.[workspace.projectIds[0]] ?? primaryProject?.path ?? ''}
+        branchLabel={workspace.branchName}
+        defaultRuntime={workspace.runtimeId ?? s.defaultRuntime}
         defaultAgentMode={s.defaultAgentMode}
-        defaultUseWorktrees={s.defaultUseWorktrees}
-        onLaunch={onLaunch}
-        existingSessions={projectSessions}
+        onLaunch={(opts) => launchWorkspaceAgent(workspace.id, opts)}
+        existingSessions={workspaceSessions}
         onResumeSession={s.onResumeAgent}
-        onDeleteSession={(session) => s.onRequestDeleteAgent(session, activeProject.path)}
-        focusTrigger={s.newAgentFocusTrigger}
-        compact={!!workspaceForRepo}
-        workspaceName={workspaceForRepo?.name}
+        onDeleteSession={(session) => s.onRequestDeleteAgent(session, primaryProject?.path ?? '')}
       />
     )
   }
 
   if (!targetSessionId) {
-    return <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%', color: 'var(--text-muted)', fontSize: 12 }}>Select a repository to get started</div>
+    return <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%', color: 'var(--text-muted)', fontSize: 12 }}>Select a workspace to get started</div>
   }
 
   const isExited = targetStatus === 'done' || targetStatus === 'error'

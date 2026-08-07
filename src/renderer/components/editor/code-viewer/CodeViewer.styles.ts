@@ -31,117 +31,99 @@ export const viewerStyles: Record<string, React.CSSProperties> = {
   },
   tabStrip: {
     display: 'flex',
-    alignItems: 'center',
+    alignItems: 'stretch',
     alignContent: 'flex-start',
     flexWrap: 'wrap' as const,
     overflow: 'visible' as const,
     minWidth: 0,
     flex: '1 1 0',
   },
+  // The pane's actions ride at the right of the first tab row. Their pills carry
+  // their own vertical margin, like every other header control, so the strip
+  // stays exactly one tab tall.
   tabActions: {
     display: 'flex',
     alignItems: 'center',
     alignSelf: 'flex-start',
     flexWrap: 'wrap' as const,
     justifyContent: 'flex-end',
-    gap: '4px',
+    gap: '2px',
     marginLeft: 'auto',
-    padding: '4px',
+    padding: '0 var(--space-xs)',
     flexShrink: 0,
   },
+  // Colour, hover and the active tab's accent rule live in theme.css under
+  // `.code-tab` — they are state, and inline styles cannot express hover.
+  // VS Code's tab geometry — 10px of room before the icon, the close action in a
+  // slot of its own, and "shrink" sizing: content-width with an 80px floor, so a
+  // two-letter name still makes a tab you can hit and the strip is not ragged.
+  // Two numbers are ours, because this pane is a ~330px sidebar rather than VS
+  // Code's full-width editor area and the strip wraps instead of scrolling: the
+  // row is 30px like the header above it (35px would stack to 70px the moment a
+  // third file opened), and a tab is capped so one long name cannot push every
+  // other tab onto a row of its own.
   tab: {
     display: 'flex',
     alignItems: 'center',
-    gap: '4px',
-    padding: '4px 6px',
+    gap: 'var(--space-xs)',
+    height: '30px',
+    padding: '0 0 0 10px',
     fontSize: 'inherit',
-    color: 'var(--text-muted)',
-    borderRight: '1px solid var(--border)',
+    borderRight: '1px solid var(--divider)',
     cursor: 'pointer',
     whiteSpace: 'nowrap' as const,
-    flexShrink: 1,
-    minWidth: 0,
-    maxWidth: '180px',
+    flex: '0 1 auto',
+    minWidth: '80px',
+    maxWidth: '220px',
     overflow: 'hidden',
-  },
-  tabActive: {
-    color: 'var(--text-primary)',
-    background: 'var(--bg-primary)',
-  },
-  tabMenuOpen: {
-    boxShadow: 'inset 0 -1px 0 var(--accent)',
   },
   tabLabel: {
     display: 'flex',
     alignItems: 'center',
     justifyContent: 'flex-start',
+    gap: 'var(--space-xs)',
     flex: '1 1 auto',
     minWidth: 0,
     maxWidth: '100%',
     padding: 0,
     fontSize: 'inherit',
-    fontFamily: 'var(--font-mono)',
     color: 'inherit',
     overflow: 'hidden',
     whiteSpace: 'nowrap' as const,
     textAlign: 'left' as const,
   },
   tabLabelName: {
-    flex: '1 1 auto',
+    flex: '0 1 auto',
     minWidth: 0,
     overflow: 'hidden',
     textOverflow: 'ellipsis',
     whiteSpace: 'nowrap' as const,
   },
-  tabLabelSeparator: {
-    flexShrink: 0,
-    color: 'var(--text-muted)',
-  },
+  // The folder that tells two same-named files apart, in VS Code's muted
+  // "description" role beside the name rather than as a second title.
   tabLabelDescription: {
-    flex: '0 1 45%',
+    flex: '0 1 auto',
     minWidth: 0,
     overflow: 'hidden',
     textOverflow: 'ellipsis',
     whiteSpace: 'nowrap' as const,
+    fontSize: 'var(--type-ui-caption)',
     color: 'var(--text-muted)',
   },
+  // VS Code gives the close action a 28px slot holding a 16px glyph; the slot is
+  // what makes the label stop short of the tab's edge instead of running into it.
   tabClose: {
-    padding: '0 2px',
-    fontSize: '14px',
-    lineHeight: 1,
-    color: 'var(--text-muted)',
-    borderRadius: '3px',
-    flexShrink: 0,
-  },
-  compactActionButton: {
     display: 'inline-flex',
     alignItems: 'center',
     justifyContent: 'center',
-    gap: '4px',
-    minWidth: '30px',
-    padding: '2px 6px',
-    fontSize: '0.92em',
-    fontWeight: 500,
-    color: 'var(--text-secondary)',
-    background: 'var(--bg-input)',
-    borderRadius: '3px',
-    border: '1px solid var(--border)',
-    cursor: 'pointer',
+    width: '20px',
+    height: '20px',
+    margin: '0 4px',
+    fontSize: '14px',
+    lineHeight: 1,
+    color: 'var(--text-muted)',
+    borderRadius: 'var(--radius-xs)',
     flexShrink: 0,
-  },
-  compactActionButtonActive: {
-    color: 'var(--accent)',
-    border: '1px solid var(--accent)',
-  },
-  compactActionButtonContent: {
-    display: 'inline-flex',
-    alignItems: 'center',
-    gap: '4px',
-  },
-  compactActionButtonLabel: {
-    fontSize: '0.92em',
-    lineHeight: 1.2,
-    whiteSpace: 'nowrap' as const,
   },
   iconCaret: {
     width: 0,

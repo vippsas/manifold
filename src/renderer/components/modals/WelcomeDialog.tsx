@@ -88,7 +88,6 @@ export function WelcomeDialog({ onAddProject, onCloneProject, onComplete }: Welc
             <form onSubmit={(e) => void handleCloneSubmit(e)} style={styles.cloneRow}>
               <input
                 type="text"
-                className="reticle-input"
                 value={cloneUrl}
                 onChange={(e) => setCloneUrl(e.target.value)}
                 placeholder="git@github.com:user/repo.git"
@@ -214,8 +213,8 @@ const styles: Record<string, React.CSSProperties> = {
     padding: '10px 14px',
     fontSize: 'var(--type-ui)',
     color: 'var(--text-primary)',
-    background: 'transparent',
-    border: '1px solid transparent',
+    background: 'var(--control-bg)',
+    border: '1px solid var(--control-border)',
     borderRadius: 'var(--radius-md)',
     outline: 'none',
   },

@@ -6,6 +6,7 @@ import { writeFileAtomicSync } from './atomic-write'
 export interface SavedShellTab {
   label: string
   cwd: string
+  mode?: 'manifold' | 'system'
 }
 
 export interface SavedShellState {

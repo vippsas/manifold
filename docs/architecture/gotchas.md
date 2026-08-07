@@ -1,7 +1,7 @@
 ---
 description: The top recurring development traps in Manifold — StrictMode double-mount, the better-sqlite3 Node↔Electron ABI flip, worktree bootstrap, and dockview layout restore/width-0 — each paired with the checked-in guardrail (test/script/doc) that pins it, cited to file:line.
-covers: [src/renderer/components/modals/NewAgentForm.tsx, scripts/rebuild-better-sqlite3-node.mjs, scripts/setup-worktree.sh, src/renderer/hooks/dock-layout/dock-layout-lifecycle.ts]
-updated: 2026-07-09
+covers: [src/renderer/components/modals/useNewAgentForm.tsx, scripts/rebuild-better-sqlite3-node.mjs, scripts/setup-worktree.sh, src/renderer/hooks/dock-layout/dock-layout-lifecycle.ts]
+updated: 2026-08-03
 owner: see .github/CODEOWNERS
 ---
 
@@ -31,7 +31,7 @@ when any of that code changes.
 This page is bound to the canonical file for each trap, so the wiki lint flags it for
 review when one of them changes:
 
-- `src/renderer/components/modals/NewAgentForm.tsx` — the StrictMode mounted-ref pattern.
+- `src/renderer/components/modals/useNewAgentForm.tsx` — the StrictMode mounted-ref pattern.
 - `scripts/rebuild-better-sqlite3-node.mjs` — the self-healing Node-ABI rebuild.
 - `scripts/setup-worktree.sh` — `npm run bootstrap`, the one-step worktree setup.
 - `src/renderer/hooks/dock-layout/dock-layout-lifecycle.ts` — the dockview width-0 guard.
@@ -53,8 +53,8 @@ at `false` after the remount, so later callbacks gated on `mountedRef.current` a
 silently skipped.
 
 **Guardrail.** Set the flag in the effect *body*, not only in cleanup
-(`NewAgentForm.tsx:75-83`, `useIpc.ts:16-21`). Test the component wrapped in
-`<React.StrictMode>` so the remount actually happens: `NewAgentForm.test.tsx:241`, and
+(`useNewAgentForm.tsx:51-60`, `useIpc.ts:16-21`). Test the component wrapped in
+`<React.StrictMode>` so the remount actually happens: `NewAgentForm.test.tsx:108`, and
 the reusable **StrictMode double-mount test template** at
 `src/renderer/test-utils/strict-mode.test.tsx` (helper: `strict-mode.test-helpers.tsx`,
 `renderWithStrictMode`). The template's three tests are an executable proof that the
@@ -100,29 +100,69 @@ a worktree is runnable. See CLAUDE.md §7 and [Build & release](build.md).
 ## 4. Dockview layout: width-0 while maximized, and collapse doesn't survive `fromJSON`
 
 **Symptom.** Sidebar widths get corrupted after entering/leaving focus mode; a collapsed
-sidebar reopens after a session switch or app restart; a layout save throws on an
-already-disposed dockview during a StrictMode remount / onboarding transition; or a new
-agent opens with both sidebars at **1/3** width instead of 1/6 — but only in repos whose
-previous layout had a bottom pane.
+sidebar reopens after an app restart; a layout save throws on an
+already-disposed dockview during a StrictMode remount / onboarding transition; a rebuilt
+layout opens with the sidebar at **1/2** width instead of 1/6 — but only in repos whose
+previous layout had a bottom pane; or dividers intermittently stop being resizable
+(no resize cursor) after opening/closing a panel, until the window is resized. Or: clicking
+an activity-bar icon off and on repeatedly walks a sidebar steadily narrower — ~12px a
+cycle, never recovered — so "clicking back and forth" jumps and stutters instead of
+returning to the same layout.
 
-**Root cause.** (a) While a group is maximized, every other group — including both
-sidebars — is hidden, so their `offsetWidth` reads **0**; capturing widths then would
+**Root cause.** (a) While a group is maximized, every other group — the sidebar
+included — is hidden, so its `offsetWidth` reads **0**; capturing widths then would
 persist zeros. (b) dockview's `toJSON` drops `minimumWidth <= 0`, so a collapsed (width-0)
 sidebar is not preserved across an `api.fromJSON` reload. (c) A debounced layout save can
 fire `api.toJSON()` after the dockview is disposed. (d) The grid **orientation is sticky**:
 `api.clear()` keeps whatever the last `fromJSON` set, so rebuilding the default layout on a
-VERTICAL-rooted grid nests the three columns inside a wrapper branch where the 1:4:1 ratio
-patch used to miss them — equal thirds (#803).
+VERTICAL-rooted grid nests the columns inside a wrapper branch where the 1:5 ratio
+patch used to miss them — equal halves (#803). (e) Reopening panels into an **emptied**
+dock: the first reopened panel (typically `sidebar`) owns the full dock width, and
+`withPinnedSidebars` used to pin it there during every subsequent add — clamping each new
+group to width 0, so the panels existed but rendered invisible until `sidebar` was
+toggled closed and open again. (f) dockview re-evaluates each sash's enabled state only
+during a layout pass (`updateSashEnablement`), never on `setConstraints` alone: the pass a
+pinned mutation triggers marks the sashes next to min==max groups `dv-disabled`, and
+releasing the pin afterwards left them stuck that way — dividers dead until an unrelated
+relayout. (g) **`setSize` and `api.width` are not the same measurement.** `setSize` sets the
+view's *slot* in the splitview, which carries that view's share of the theme's group gap
+(`gap: 6`, `AppShell.tsx:43`), while `api.width` reports the rendered width the slot leaves
+behind — dockview lays each view out at `size - margin * sashes / views`
+(`dockview-core/…/splitview.js:791,843`). So both halves of the pin were off by that share:
+pinning to a measured `offsetWidth` rendered the group 3-4px narrower on the next layout
+pass, and the release poke fed `api.width` back into `setSize` and shaved it again. Four pin
+cycles run per panel toggle, hence ~12px lost per off/on and a layout that never returned to
+where it started.
 
 **Guardrail.** (a) Skip the width bookkeeping and the save while a group is maximized
 (`dock-layout-lifecycle.ts:41`). (b) Re-apply the saved sub-minimum sidebar widths right
-after `fromJSON` so the collapse survives (`dock-layout-loader.ts:56-61`). (c) Clear the
-pending debounced save on unmount (`useDockLayout.ts:288-295`). (d) Promote wrapper roots
+after `fromJSON` so the collapse survives (`dock-layout-loader.ts:95`). (c) Clear the
+pending debounced save on unmount (`useDockLayout.ts:247-252`). (d) Promote wrapper roots
 (flipping the serialized orientation) before patching the ratio
-(`dock-layout-builders.ts:41`). The regression tests drive the **real** dockview library
+(`dock-layout-builders.ts:45`). (e) Skip the sidebar pin when it would leave no unpinned
+group to absorb the change (`dock-layout-helpers.ts:240`), and after a hint-based reopen
+restore the default proportions — a reopened sidebar is sized to its 1/6 share, and a
+reopened center pane shrinks a sidebar that had grown past a third of the dock back to
+1/6 (`dock-layout-loader.ts:292-315`) — since `addPanel` naively splits the reference
+group 50/50. A group the user has dragged a workspace pane into is exempt from both
+shrinks — it is a center pane, not a sidebar (`isPureSidebarGroup`,
+`dock-layout-loader.ts:25`). (f) Releasing a pin
+pokes a same-size `setSize` on the group (`dock-layout-helpers.ts:173`), which triggers a
+relayout that re-runs the enablement check against the released constraints — chosen over
+a forced `api.layout()` because a forced pass re-applies the splitview's stale cached
+proportions and undoes the pinned resize. (g) Ask for widths in *rendered* terms:
+`setRenderedWidth` sets the size, measures what the gap took, and asks again for the slot
+that lands on the width wanted (`useSidebarHandleCycle.ts:75`); `withPinnedSidebars` then
+holds the sidebar to the width it promised once the mutation is done, rather than trusting
+the constraint clamp (`dock-layout-helpers.ts:256`). The regression tests drive the
+**real** dockview library
 and the **real** layout helpers rather than an approximation:
 `dock-layout-no-remount.test.tsx`, `useSidebarHandleCycle.collapse.test.tsx`,
-`dock-layout-default-ratio.test.tsx`, and `dock-layout-drag-restore.test.tsx` — the last
+`dock-layout-default-ratio.test.tsx`, `dock-layout-reopen-empty.test.tsx`,
+`dock-layout-sash-enablement.test.tsx` (inspects the real sash DOM for stuck
+`dv-disabled` classes), `dock-layout-toggle-drift.test.tsx` (drives five close/reopen cycles
+against a dock with the app's real `gap`, asserting the sidebar ends where it began), and
+`dock-layout-drag-restore.test.tsx` — the last
 wires `element.offsetWidth` to dockview's tracked group width because jsdom has no layout
 engine (`:30-36`). More in [Renderer](renderer.md).
 

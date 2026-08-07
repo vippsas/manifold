@@ -12,7 +12,7 @@ function createApi() {
   const toJSON = vi.fn(() => ({
     grid: {
       root: {
-        data: [{ size: 1 }, { size: 4 }, { size: 1 }],
+        data: [{ size: 1 }, { size: 5 }],
       },
     },
   }))
@@ -29,36 +29,26 @@ function createApi() {
 }
 
 describe('applyDefaultLayout', () => {
-  it('omits the editor panel — it is added lazily when needed', () => {
-    const { api, addPanel } = createApi()
-
-    applyDefaultLayout(api as never)
-
-    expect(addPanel).not.toHaveBeenCalledWith(expect.objectContaining({ id: 'editor' }))
-  })
-
-  it('positions the file tree beside the agent panel', () => {
+  it('splits the agent off the sidebar column, not the other way round', () => {
     const { api, addPanel } = createApi()
 
     applyDefaultLayout(api as never)
 
     expect(addPanel).toHaveBeenCalledWith({
-      id: 'fileTree',
-      component: 'fileTree',
-      title: 'Files',
-      position: { referencePanel: 'agent', direction: 'right' },
+      id: 'agent',
+      component: 'agent',
+      title: 'Agent',
+      position: { referencePanel: expect.objectContaining({ id: 'sidebar' }), direction: 'right' },
     })
   })
 
-  it('adds only the core panels — launcher modules are opened on demand', () => {
+  // The editor and the shell open on demand, so the default layout is two
+  // columns — not a standing editor pane with nothing to show in it.
+  it('adds only the sidebar and the agent', () => {
     const { api, addPanel } = createApi()
 
     applyDefaultLayout(api as never)
 
-    const addedIds = addPanel.mock.calls.map((call) => call[0].id)
-    expect(addedIds).not.toContain('loop')
-    expect(addedIds).not.toContain('verdicts')
-    expect(addedIds).not.toContain('watch')
-    expect(addedIds).toEqual(expect.arrayContaining(['projects', 'agent', 'fileTree', 'modifiedFiles']))
+    expect(addPanel.mock.calls.map((call) => call[0].id)).toEqual(['sidebar', 'agent'])
   })
 })

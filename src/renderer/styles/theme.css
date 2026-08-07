@@ -106,6 +106,9 @@
   --bg-overlay: var(--bg-secondary);
   --bg-elevated: var(--bg-secondary);
 
+  /* The recessed canvas the rounded dock panel cards float on. */
+  --dock-canvas: color-mix(in srgb, var(--bg-primary), black 15%);
+
   /* Compatibility aliases for shared chat components (renderer-shared) */
   --surface: var(--bg-elevated);
   --text: var(--text-primary);
@@ -225,6 +228,14 @@ body {
   flex-direction: column;
   overflow: hidden;
   min-width: 0;
+}
+
+/* Activity rail + dock, side by side above the status bar. */
+.layout-workbench {
+  flex: 1;
+  display: flex;
+  min-height: 0;
+  overflow: hidden;
 }
 
 .layout-panes {
@@ -354,12 +365,26 @@ select {
   transition: border-color var(--duration-normal) var(--ease-premium);
 }
 
-/* Targeting-reticle focus: text fields swap the plain accent border for four
-   corner brackets — the UI locks on to where you type. !important mirrors the
-   old border rule: inline `background` shorthands on inputs would otherwise
-   reset the bracket layers. Each corner is two thin gradient bars. */
+/* Every text field that isn't wearing the reticle takes the plain control
+   focus: the accent border it already has a box for, plus the soft ring
+   buttons use. */
 input:focus,
 textarea:focus {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 2px var(--accent-subtle);
+}
+
+/* Targeting-reticle focus: opt-in via `.reticle-input`, which swaps the plain
+   accent border for four corner brackets — the UI locks on to where you type.
+   Opt-in, not global, because a corner needs a field tall enough for its two
+   12px arms to read as one: on a ~24px search or filter row the top and bottom
+   arms meet and draw a solid rule down each side, so the field looks like it
+   has left and right borders and nothing else. Reserve it for the tall prompt
+   fields (chat composer, new project); the agent name field takes the plain
+   continuous border instead. !important mirrors the old
+   border rule: inline `background` shorthands on inputs would otherwise reset
+   the bracket layers. Each corner is two thin gradient bars. */
+.reticle-input:focus {
   border-color: transparent !important;
   background-image:
     linear-gradient(var(--accent), var(--accent)),
@@ -385,14 +410,13 @@ textarea:focus {
     right bottom, right bottom !important;
 }
 
-/* Resting reticle (opt-in via `.reticle-input` — titlebar search, files filter):
-   the corner brackets stay drawn while idle, dimmed to a whisper, so the field
-   reads as a target even unfocused. They brighten to full accent via the
-   `input:focus` rule above, which wins by specificity (0,1,1 > this rule's 0,1,0)
-   — so keep this a bare class, never `:not(:focus)`, which would outrank focus
-   and freeze the brackets dim. The `!important`s mirror the focus rule: they
+/* Resting reticle: the corner brackets stay drawn while idle, dimmed to a
+   whisper, so the field reads as a target even unfocused. They brighten to full
+   accent via the `.reticle-input:focus` rule above, which wins by specificity
+   (0,2,0 > this rule's 0,1,0) — so keep this a bare class, never `:not(:focus)`,
+   which would outrank focus and freeze the brackets dim. The `!important`s
+   mirror the focus rule: they
    override the input's inline `background`, which would otherwise wipe the layers. */
-.titlebar-search-input,
 .reticle-input {
   --reticle-rest: color-mix(in srgb, var(--accent), transparent 60%);
   background-image:
@@ -481,78 +505,252 @@ select:focus-visible {
   min-width: 0;
 }
 
-.dock-tab__role {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  height: 16px;
-  min-width: 16px;
-  padding: 0 5px;
-  border-radius: var(--radius-pill);
-  font-size: var(--type-ui-micro);
-  font-weight: 700;
-  letter-spacing: var(--tracking-wide);
-  text-transform: uppercase;
-  flex-shrink: 0;
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.06);
-}
-
-.dock-tab__role--workspace {
-  background: linear-gradient(135deg, var(--accent-subtle), color-mix(in srgb, var(--accent), transparent 74%));
-  color: var(--text-primary);
-  border: 1px solid color-mix(in srgb, var(--accent), var(--border) 72%);
-}
-
-.dock-tab__close {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 14px;
-  height: 14px;
+/* Text tabs (agent, shell, module panels) read as rounded-square chips floating
+   in the header strip — a themed elevated surface, gently rounded (not a pill).
+   Icon and headless tabs (sidebar/editor) keep their own treatment. The active
+   and hover fills live in dockview-theme.css, scoped to dockview's `.dv-active-tab`. */
+.dock-tab:not(.dock-tab--icon):not(.dock-tab--headless) {
+  height: calc(100% - 8px);
+  margin-block: 4px;
   border-radius: var(--radius-xs);
-  color: var(--text-muted);
-  opacity: 0.7;
+  background: var(--bg-elevated);
+  color: var(--text-secondary);
+  box-shadow: inset 0 0 0 1px var(--border);
+  transition: background 150ms ease, color 150ms ease, box-shadow 150ms ease;
 }
 
-.dock-tab__close:hover {
+/* Every control in a card's header strip — a text tab's ×, the icon-tab group's
+   ×, an editor pane's split/mode actions — takes the icon tabs' pill: a 24px
+   rounded square centered in the 30px strip. The shell's + (styled inline in
+   ShellTabs.styles.ts) matches these numbers, so a header reads as one row of
+   pills. */
+.dock-tab__close,
+.dock-header-collapse,
+.pane-action {
+  width: 24px;
+  height: 24px;
+  margin-block: 3px;
+  border-radius: var(--radius-sm);
+  font-size: 14px;
+  line-height: 1;
+  color: var(--text-muted);
+}
+
+.dock-tab__close:hover,
+.dock-header-collapse:hover,
+.pane-action:hover {
   background: var(--statusbar-hover-bg);
   color: var(--text-primary);
-  opacity: 1;
 }
 
-/* Sidebar collapse button — lives in the group header-action slot (outside the
-   tabs), pinned to the sidebar's inner edge next to the center pane. */
-.dock-header-collapse {
+.dock-tab__close,
+.pane-action {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 22px;
-  height: 22px;
-  margin: 0 2px;
+}
+
+/* Per-tab agent actions (⚙ settings, 🗑 delete — see DockTab). Hidden until the
+   tab is hovered or holds the keyboard, so a strip of agent tabs reads as names
+   rather than a row of icons; killing/settings is a deliberate reveal. The
+   group header's × (hide) stays a separate always-visible control. */
+.dock-tab__action {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 20px;
   padding: 0;
   border: none;
   background: transparent;
-  border-radius: var(--radius-sm);
-  color: var(--text-secondary);
+  border-radius: var(--radius-xs);
+  color: var(--text-muted);
   cursor: pointer;
-  transition: background var(--duration-normal) var(--ease-premium), color var(--duration-normal) var(--ease-premium);
+  opacity: 0;
+  transition: opacity 150ms ease, background 150ms ease, color 150ms ease;
 }
 
-.dock-header-collapse:hover {
+.dock-tab:hover .dock-tab__action,
+.dock-tab:focus-within .dock-tab__action {
+  opacity: 1;
+}
+
+.dock-tab__action:hover {
   background: var(--statusbar-hover-bg);
   color: var(--text-primary);
 }
 
-.shell-header-add-button {
-  transition: background 150ms ease, color 150ms ease;
+.dock-tab__action:focus-visible {
+  outline: none;
+  opacity: 1;
+  box-shadow: 0 0 0 2px var(--accent-subtle), 0 0 10px var(--accent-subtle);
 }
 
-.shell-header-add-button:hover {
+/* An editor pane's own actions sit at the right of its file tabs. They were a
+   bordered input box, which read as a form control dropped into a strip of flat
+   tabs; as the header pill they belong to the same row of controls. */
+.pane-action {
+  gap: 3px;
+  padding: 0;
+  border: none;
+  background: transparent;
+  cursor: pointer;
+}
+
+/* A pill that opens a menu carries a caret after its glyph, so it needs the
+   width of an icon tab rather than of a square. */
+.pane-action--menu {
+  width: 28px;
+}
+
+/* The view-mode toggle names the mode it is in ("Preview"), so its pill widens
+   to hold the word instead of being a square. */
+.pane-action--labeled {
+  width: auto;
+  padding: 0 var(--space-xs);
+  font-size: var(--type-ui-caption);
+}
+
+/* An open menu, or a pane showing something other than the plain editor, reads
+   the way an active icon tab does — accent, not a ring around the control. */
+.pane-action--on,
+.pane-action--on:hover {
+  color: var(--accent);
+  background: var(--accent-subtle);
+}
+
+/* Icon-only tabs (the sidebar item's view switcher): just the glyph, name as
+   tooltip. These tabs have no per-tab close — the group header carries a
+   single ×. The glyph sits centered in a square box so the row reads as an
+   evenly spaced icon strip. */
+.dock-tab--icon {
+  width: 28px;
+  /* Shorter than the strip (`.dock-tab` stretches to fill it) so the active
+     tab's pill clears the card's top edge instead of running into it. Centered
+     with margins, not `align-self`: dockview's `.dv-tab` is a block, so an
+     alignment property would be inert and drop the whole gap below the pill. */
+  height: 24px;
+  margin-block: 3px;
+  padding: 0;
+  justify-content: center;
+  gap: 0;
+  border-radius: var(--radius-sm);
+  color: var(--text-secondary);
+}
+
+.dock-tab--icon:hover {
+  color: var(--text-primary);
+}
+
+/* ─── Editor file tabs ─── */
+/* Modelled on VS Code's editor tabs (`multieditortabscontrol.css`): the strip is
+   chrome and the active tab is a piece of the editor surface pulled up into it —
+   same background, an accent rule along its top edge, and the only label at full
+   contrast. Everything else recedes, so the strip reads as "which file am I in"
+   rather than as a row of buttons. */
+.code-tab {
+  color: var(--text-muted);
+  border-top: 1px solid transparent;
+  transition: background var(--duration-normal) var(--ease-premium), color var(--duration-normal) var(--ease-premium);
+}
+
+.code-tab:hover {
   background: var(--list-hover-bg);
   color: var(--text-primary);
 }
 
-.shell-header-add-button:focus-visible {
+.code-tab--active {
+  background: var(--bg-primary);
+  border-top-color: var(--accent);
+  color: var(--text-primary);
+}
+
+.code-tab--menu {
+  box-shadow: inset 0 -1px 0 var(--accent);
+}
+
+/* The × keeps its space but shows only on the tab under the pointer and on the
+   active one: a permanent × per tab is a row of noise competing with the names,
+   and it is the file you are in that you close. */
+.code-tab__close {
+  opacity: 0;
+  transition: opacity var(--duration-normal) var(--ease-premium);
+}
+
+.code-tab:hover .code-tab__close,
+.code-tab--active .code-tab__close,
+.code-tab__close:focus-visible {
+  opacity: 1;
+}
+
+.code-tab__close:hover {
+  background: var(--statusbar-hover-bg);
+  color: var(--text-primary);
+}
+
+/* Icon button in a dock group's header-action slot (outside the tabs), e.g.
+   the group-level × that closes an icon-tab group (Repositories, Files). */
+.dock-header-collapse {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  margin-inline: 2px;
+  padding: 0;
+  border: none;
+  background: transparent;
+  cursor: pointer;
+  transition: background var(--duration-normal) var(--ease-premium), color var(--duration-normal) var(--ease-premium);
+}
+
+.shell-header-add-button,
+.shell-header-close-button,
+.agent-header-add-button {
+  transition: background 150ms ease, color 150ms ease;
+}
+
+.shell-header-add-button:hover,
+.shell-header-close-button:hover,
+.agent-header-add-button:hover {
+  background: var(--list-hover-bg);
+  color: var(--text-primary);
+}
+
+.shell-header-add-button:focus-visible,
+.shell-header-close-button:focus-visible,
+.agent-header-add-button:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 2px var(--accent-subtle), 0 0 10px var(--accent-subtle);
+}
+
+/* A row in the shell panel's terminal list (see ShellTabControls). The kill
+   trash stays hidden until the row is hovered or holds the keyboard, so a list
+   of terminals reads as names rather than a column of icons. The header's × is
+   a separate control that hides the whole terminal view. */
+.shell-tab {
+  transition: background 150ms ease, color 150ms ease;
+}
+
+.shell-tab:hover {
+  background: var(--list-hover-bg);
+  color: var(--text-primary);
+}
+
+.shell-tab__kill {
+  opacity: 0;
+  transition: opacity 150ms ease, background 150ms ease, color 150ms ease;
+}
+
+.shell-tab:hover .shell-tab__kill,
+.shell-tab:focus-within .shell-tab__kill {
+  opacity: 1;
+}
+
+.shell-tab__kill:hover {
+  background: var(--statusbar-hover-bg);
+  color: var(--text-primary);
+}
+
+.shell-tab button:focus-visible {
   outline: none;
   box-shadow: 0 0 0 2px var(--accent-subtle), 0 0 10px var(--accent-subtle);
 }
@@ -593,27 +791,6 @@ select:focus-visible {
   color: var(--text-primary);
 }
 
-.statusbar-button--shell {
-  min-width: 96px;
-  padding: 0 var(--space-sm);
-  border-color: color-mix(in srgb, var(--accent), transparent 70%);
-  border-radius: var(--radius-sm);
-  color: var(--accent);
-}
-
-.statusbar-button--shell:hover {
-  border-color: var(--accent);
-  background: var(--statusbar-hover-bg);
-  color: var(--accent);
-}
-
-.statusbar-shell-icon {
-  font-family: var(--font-mono);
-  font-size: var(--type-ui-caption);
-  font-weight: 700;
-  line-height: 1;
-}
-
 .statusbar-button--accent,
 .statusbar-button--success,
 .statusbar-button--warning {
@@ -635,30 +812,19 @@ select:focus-visible {
   background: var(--warning-subtle);
 }
 
-.statusbar-icon-button {
-  width: 20px;
-  justify-content: center;
-  padding: 0;
-}
-
-.statusbar-icon {
-  font-size: 14px;
-  line-height: 1;
-}
-
 .sidebar-item-row {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: var(--space-sm);
-  min-height: var(--chrome-row-height);
+  gap: var(--space-xs);
+  min-height: 28px;
   margin: 1px 8px;
-  padding: 0 12px 0 11px;
-  border-radius: var(--radius-sm);
+  padding: 0 8px;
+  font-size: var(--type-ui-small);
   color: var(--text-secondary);
   position: relative;
   cursor: pointer;
-  transition: background var(--duration-normal) var(--ease-premium), color var(--duration-normal) var(--ease-premium), box-shadow var(--duration-normal) var(--ease-premium);
+  transition: background var(--duration-normal) var(--ease-premium), color var(--duration-normal) var(--ease-premium);
 }
 
 .sidebar-item-row:hover {
@@ -666,27 +832,15 @@ select:focus-visible {
   color: var(--text-primary);
 }
 
+/* The active row carries no fill — selection is shown by label color alone
+   (the agent label goes accent, set inline in AgentItem), which keeps the
+   narrow sidebar clean and gives the text the full row width. */
 .sidebar-item-row--active {
-  background: var(--sidebar-active-bg);
   color: var(--sidebar-active-text);
 }
 
 .sidebar-project-row.sidebar-item-row--active {
-  border-left: 2px solid var(--accent);
-  padding-left: 9px;
-}
-
-/* When a child row inside the card carries the selection, the header drops its
-   matching fill and accent bar — otherwise the two highlights stack with the
-   same color and aligned bars and read as one merged surface. The elevated
-   card still marks the active project; the filled row marks the selection. */
-.sidebar-project-group--has-agents:has(.sidebar-item-row--active:not(.sidebar-project-row)) .sidebar-project-row.sidebar-item-row--active {
-  background: transparent;
-  border-left-color: transparent;
-}
-
-.sidebar-project-group--has-agents:has(.sidebar-item-row--active:not(.sidebar-project-row)) .sidebar-project-row.sidebar-item-row--active:hover {
-  background: var(--list-hover-bg);
+  color: var(--text-primary);
 }
 
 .terminal-host .xterm {
@@ -695,77 +849,45 @@ select:focus-visible {
   padding-bottom: var(--space-xs);
 }
 
+/* Keyboard focus reads as the hover fill rather than an accent glow: the rows
+   are a dense list, and a ring around one of them was more noise than signal. */
 .sidebar-item-row:focus-visible {
   outline: none;
-  box-shadow: 0 0 0 2px var(--accent-subtle), 0 0 10px var(--accent-subtle);
+  background: var(--list-hover-bg);
+  color: var(--text-primary);
 }
 
 .sidebar-project-row {
-  font-weight: 600;
-  padding-right: 68px;
-  font-size: var(--type-ui-small);
-  letter-spacing: 0.03em;
-  text-transform: uppercase;
+  font-weight: 400;
+  padding-right: 56px;
 }
 
-/* The fetch button widens into a "↻ 9+" pill when behind origin, so reserve
-   extra room on the right to keep a long repo name from running under it. */
-.sidebar-project-row--behind {
-  padding-right: 88px;
-}
-
+/* One 8px step in from its repo row, so the agent's chevron lands between the
+   repo's above it and its own worktree's files below it. */
 .sidebar-agent-row {
   flex-direction: column;
   align-items: flex-start;
-  min-height: auto;
-  padding: 4px 12px 4px 28px;
+  min-height: 28px;
+  justify-content: center;
+  padding: 2px 8px 2px 16px;
   gap: 0;
-  margin-top: 1px;
-  margin-bottom: 1px;
-  background: var(--bg-input);
-  border-left: 2px solid transparent;
+  background: transparent;
+  position: relative;
 }
 
-.sidebar-agent-row:hover {
-  transform: translateY(-0.5px);
-  box-shadow: var(--shadow-subtle);
-}
-
-.sidebar-agent-row--alive {
-  border-left-color: var(--accent);
+/* Workspace agents sit one level deeper than their repo row, which itself sits
+   a step in from the workspace card's header. */
+.sidebar-workspace-card .sidebar-agent-row {
+  padding-left: 24px;
 }
 
 .sidebar-agent-row--exited {
-  border-left-color: transparent;
+  color: var(--text-muted);
 }
 
-/* Sensor sweep: a slow, faint band of accent light crosses the row while its
-   agent streams output — a long-range scan, not a loading bar. */
-.sidebar-agent-row--outputting {
-  position: relative;
-  overflow: hidden;
-}
-
-.sidebar-agent-row--outputting::after {
-  content: '';
-  position: absolute;
-  inset: 0;
-  background: linear-gradient(90deg, transparent, var(--effect-glow, var(--accent-subtle)) 50%, transparent) no-repeat;
-  background-size: 90px 100%;
-  background-position: -90px 0;
-  animation: agent-scan 3.2s ease-in-out infinite;
-  pointer-events: none;
-}
-
-@keyframes agent-scan {
-  0% { background-position: -90px 0; }
-  60%, 100% { background-position: calc(100% + 90px) 0; }
-}
-
-.sidebar-agent-row.sidebar-item-row--active {
-  border-left-width: 2px;
-  background: var(--sidebar-active-bg);
-}
+/* A streaming agent is signalled by its pulsing status dot alone: the row keeps
+   the `--outputting` marker class but paints nothing, so nothing sweeps across
+   the sidebar while agents work. */
 
 .sidebar-agent-main {
   display: flex;
@@ -782,6 +904,73 @@ select:focus-visible {
   min-width: 0;
 }
 
+/* The disclosure on rows that also carry a selection — an agent, or a repo
+   inside a workspace: the row selects and opens, this opens without selecting.
+   Sized to the repo row's chevron column so both line up down the sidebar. */
+.sidebar-files-toggle {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  width: 16px;
+  height: 16px;
+  margin-left: -4px;
+  padding: 0;
+  border: none;
+  background: none;
+  color: var(--text-muted);
+  cursor: pointer;
+}
+
+.sidebar-files-toggle:hover {
+  color: var(--text-primary);
+}
+
+/* A workspace row leads with its folder, not a chevron beside one: the same
+   icon column carries the disclosure, swapping to the state's chevron while the
+   row is hovered or focused so the affordance appears where the eye already is. */
+.sidebar-workspace-toggle {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  width: 16px;
+  height: 16px;
+  margin-left: -4px;
+  padding: 0;
+  border: none;
+  background: none;
+  color: var(--text-muted);
+  cursor: pointer;
+}
+
+.sidebar-workspace-toggle__folder,
+.sidebar-workspace-toggle__chevron {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* Keyboard focus is `:focus-visible`, not `:focus-within`: clicking the row
+   focuses it, and that must not leave the chevron showing after the pointer
+   has gone. */
+.sidebar-workspace-toggle__chevron,
+.sidebar-item-row:hover .sidebar-workspace-toggle__folder,
+.sidebar-item-row:focus-visible .sidebar-workspace-toggle__folder,
+.sidebar-workspace-toggle:focus-visible .sidebar-workspace-toggle__folder {
+  display: none;
+}
+
+.sidebar-item-row:hover .sidebar-workspace-toggle__chevron,
+.sidebar-item-row:focus-visible .sidebar-workspace-toggle__chevron,
+.sidebar-workspace-toggle:focus-visible .sidebar-workspace-toggle__chevron {
+  display: inline-flex;
+}
+
+.sidebar-workspace-toggle:hover {
+  color: var(--text-primary);
+}
+
 .sidebar-item-actions {
   display: flex;
   align-items: center;
@@ -793,15 +982,14 @@ select:focus-visible {
 }
 
 .sidebar-item-row:hover .sidebar-item-actions,
-.sidebar-item-row:focus-within .sidebar-item-actions,
-.sidebar-item-row--active .sidebar-item-actions {
+.sidebar-item-row:focus-within .sidebar-item-actions {
   opacity: 0.95;
   pointer-events: auto;
 }
 
 .sidebar-project-row > .sidebar-item-actions {
   position: absolute;
-  right: 10px;
+  right: 8px;
   top: 50%;
   transform: translateY(-50%);
 }
@@ -820,21 +1008,33 @@ select:focus-visible {
   line-height: 1.15;
 }
 
+/* The runtime rides at the right of the row, the way a timestamp would, and
+   yields to the row actions on hover so the two never collide. It must never
+   catch clicks: at opacity 0 it still overlays the action buttons. */
+.sidebar-agent-row .sidebar-secondary-text {
+  position: absolute;
+  right: 8px;
+  top: 50%;
+  transform: translateY(-50%);
+  max-width: 40%;
+  transition: opacity var(--duration-normal) var(--ease-premium);
+  pointer-events: none;
+}
+
+.sidebar-agent-row:hover .sidebar-secondary-text,
+.sidebar-agent-row:focus-within .sidebar-secondary-text {
+  opacity: 0;
+}
+
 .sidebar-project-group {
   margin-bottom: 2px;
 }
 
 .sidebar-project-group--has-agents {
-  margin: 4px 6px;
-  padding: 2px 0;
-  background: var(--bg-elevated);
-  border-radius: var(--radius-md);
-  border: 1px solid var(--divider);
-}
-
-.sidebar-project-group--has-agents .sidebar-item-row {
-  margin-left: 4px;
-  margin-right: 4px;
+  margin: 0 0 var(--space-sm);
+  padding: 0;
+  background: transparent;
+  border: 0;
 }
 
 .sidebar-project-group--empty .sidebar-project-row {
@@ -845,9 +1045,24 @@ select:focus-visible {
 /* Active workspace renders as a labeled container card (reuses the repo-card
    elevation) with an accent-tinted border to read as a workspace, not a repo. */
 .sidebar-project-group--has-agents.sidebar-workspace-card {
-  border-color: color-mix(in srgb, var(--accent), transparent 58%);
-  /* Console plate: the active workspace cuts opposing corners too. */
-  clip-path: polygon(10px 0, 100% 0, 100% calc(100% - 10px), calc(100% - 10px) 100%, 0 100%, 0 10px);
+  background: transparent;
+}
+
+.sidebar-new-workspace-button:hover {
+  color: var(--text-primary);
+  background: var(--list-hover-bg);
+  border-color: var(--control-border);
+}
+
+.sidebar-card-actions button:hover {
+  color: var(--text-primary);
+  background: var(--control-bg-hover);
+  border-color: color-mix(in srgb, var(--accent), transparent 60%);
+}
+
+.sidebar-card-actions button:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 2px var(--accent-subtle), 0 0 10px var(--accent-subtle);
 }
 
 .sidebar-workspace-eyebrow {
@@ -892,35 +1107,6 @@ select:focus-visible {
   opacity: 1;
 }
 
-.sidebar-favorite-star {
-  opacity: 0;
-  pointer-events: none;
-}
-
-.sidebar-item-row:hover .sidebar-favorite-star,
-.sidebar-item-row:focus-within .sidebar-favorite-star,
-.sidebar-item-row--active .sidebar-favorite-star,
-.sidebar-project-group--collapsed:hover .sidebar-favorite-star,
-.sidebar-inactive-project:hover .sidebar-favorite-star {
-  opacity: 0.95;
-  pointer-events: auto;
-}
-
-/* A favorited star stays visible even when the row is not hovered. */
-.sidebar-favorite-star.is-favorite {
-  opacity: 1;
-  pointer-events: auto;
-  color: var(--accent);
-}
-
-/* Lock toggle lives in the row actions (hover-revealed); a locked agent also
-   shows a persistent .sidebar-agent-lock-indicator on the left, so the toggle
-   itself only needs the accent treatment to read as locked. */
-.sidebar-lock-toggle.is-locked {
-  color: var(--accent);
-}
-
-/* A locked agent's delete button is disabled until the agent is unlocked. */
 .sidebar-icon-button:disabled {
   opacity: 0.3;
   cursor: default;
@@ -931,30 +1117,127 @@ select:focus-visible {
   color: var(--text-muted);
 }
 
-.sidebar-action-button {
-  min-height: var(--control-height);
+.sidebar-toolbar-button {
+  transition: background var(--duration-normal) var(--ease-premium), color var(--duration-normal) var(--ease-premium), border-color var(--duration-normal) var(--ease-premium);
+}
+
+.sidebar-toolbar-button:hover {
+  color: var(--text-primary);
+  background: var(--list-hover-bg);
+  border-color: var(--control-border);
+}
+
+.sidebar-toolbar-button--primary:hover {
+  color: var(--accent);
+  background: var(--sidebar-active-bg);
+  border-color: color-mix(in srgb, var(--accent), transparent 50%);
+}
+
+.sidebar-toolbar-button:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 2px var(--accent-subtle), 0 0 10px var(--accent-subtle);
+}
+
+/* ─── Activity bar (fixed icon rail) ─── */
+.activity-bar-item {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 30px;
+  height: 30px;
+  padding: 0;
+  border: 0;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--text-muted);
+  cursor: pointer;
+  transition: background var(--duration-normal) var(--ease-premium), color var(--duration-normal) var(--ease-premium);
+}
+
+.activity-bar-item:hover {
+  background: var(--list-hover-bg);
+  color: var(--text-primary);
+}
+
+.activity-bar-item:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 2px var(--accent-subtle), 0 0 10px var(--accent-subtle);
+}
+
+.activity-bar-item--active {
+  color: var(--accent);
+}
+
+/* Active indicator: a thin accent bar pinned to the rail's outer edge. */
+.activity-bar-item--active::before {
+  content: '';
+  position: absolute;
+  left: -7px;
+  top: 6px;
+  bottom: 6px;
+  width: 2px;
+  border-radius: 1px;
+  background: var(--accent);
+}
+
+.activity-bar-item:disabled {
+  opacity: 0.35;
+  cursor: default;
+}
+
+.activity-bar-item:disabled:hover {
+  background: transparent;
+  color: var(--text-muted);
+}
+
+.activity-bar-tooltip {
+  position: absolute;
+  left: calc(100% + 12px);
+  top: 50%;
+  transform: translateY(-50%);
+  padding: 3px 8px;
+  border-radius: var(--radius-sm);
+  background: var(--bg-elevated);
+  border: 1px solid var(--border);
+  box-shadow: var(--shadow-popover);
+  color: var(--text-primary);
+  font-size: var(--type-ui-caption);
+  white-space: nowrap;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 120ms ease;
+  z-index: 100;
+}
+
+.activity-bar-item:hover .activity-bar-tooltip {
+  opacity: 1;
+  transition-delay: 350ms;
+}
+
+.activity-bar-item:focus-visible .activity-bar-tooltip {
+  opacity: 1;
 }
 
 /* Metallic primary CTA — gradient catches light at the top-left, a hairline
    of the darker alloy edges it, and the inset top highlight reads as
-   polished metal. Shared by every primary action (Start Agent, + New Agent). */
-.btn-metal,
-.sidebar-action-button--primary {
+   polished metal. */
+.btn-metal {
   color: var(--btn-text);
   background: linear-gradient(135deg, var(--btn-hover), var(--btn-bg));
   border: 1px solid color-mix(in srgb, var(--accent-dim, var(--accent)), transparent 40%);
   font-weight: 600;
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.22), var(--shadow-glow);
-  /* Machined plate: opposing 45° chamfers. clip-path clips outer box-shadows,
-     so depth is restored as drop-shadows that follow the chamfered silhouette. */
-  clip-path: polygon(9px 0, 100% 0, 100% calc(100% - 9px), calc(100% - 9px) 100%, 0 100%, 0 9px);
-  filter: drop-shadow(0 4px 8px rgba(0, 0, 0, 0.28)) drop-shadow(0 0 8px var(--effect-glow, transparent));
+  /* No radius of its own: each CTA keeps the one its own style declares. */
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.22),
+    0 4px 8px rgba(0, 0, 0, 0.28),
+    0 0 8px var(--effect-glow, transparent),
+    var(--shadow-glow);
   transition: filter var(--duration-normal) var(--ease-premium), box-shadow var(--duration-normal) var(--ease-premium);
 }
 
-.btn-metal:hover:not(:disabled),
-.sidebar-action-button--primary:hover {
-  filter: brightness(1.1) drop-shadow(0 4px 8px rgba(0, 0, 0, 0.28)) drop-shadow(0 0 8px var(--effect-glow, transparent));
+.btn-metal:hover:not(:disabled) {
+  filter: brightness(1.1);
 }
 
 /* ─── Markdown Preview ─── */
@@ -1439,19 +1722,23 @@ select:focus-visible {
 }
 
 /* ─── File Tree Icons ─── */
-/* Devicon brand colors are desaturated so the tree stays one material;
-   the icon brightens (still monochrome) as the row is hovered/activated. */
-.file-tree-row .file-tree-icon {
-  filter: grayscale(1) brightness(1.08) opacity(0.65);
-  transition: filter var(--duration-normal) var(--ease-premium);
+/* VS Code's default file icon theme (Seti): one glyph font, one colour per file type. The two
+   candidate colours arrive as custom properties on the glyph (see tree-node-row.tsx); Seti's
+   own light-theme palette is the dark one darkened, so light themes swap to it. */
+@font-face {
+  font-family: 'seti';
+  src: url('../assets/seti/seti.woff') format('woff');
+  font-weight: normal;
+  font-style: normal;
+  font-display: block;
 }
-.file-tree-row:hover .file-tree-icon {
-  filter: grayscale(1) brightness(1.08) opacity(0.85);
+/* Each icon carries its own pair of palettes inline, so the colour rule holds
+   wherever one is used — a tree row or an editor file tab. */
+.file-tree-icon {
+  color: var(--seti-icon-color);
 }
-.file-tree-row.file-tree-row--active .file-tree-icon {
-  /* Accent-tinted: the open file is the only icon that earns color.
-     Fallback preserves the monochrome treatment if the token is absent. */
-  filter: var(--tree-icon-active-filter, grayscale(1) brightness(1.08) opacity(1));
+.theme-light .file-tree-icon {
+  color: var(--seti-icon-color-light);
 }
 
 /* ─── File Tree Delete Button (hover reveal) ─── */
@@ -1654,15 +1941,21 @@ select:focus-visible {
   margin: 1em 0;
 }
 
-/* ─── Title Bar Search (omnibox) ─── */
-.titlebar-search-input::placeholder {
+/* ─── Search modal ─── */
+.search-modal-input::placeholder {
   color: var(--text-muted);
+}
+
+/* The palette row is the field: the panel's edge frames it and the divider
+   under the row closes it, so the input draws no box and no focus ring of its
+   own — it is the only field in the dialog and is focused the whole time. */
+.search-modal-input:focus {
+  box-shadow: none;
 }
 
 /* ─── Reduced motion: instrumentation effects go static ─── */
 @media (prefers-reduced-motion: reduce) {
-  .status-dot--active,
-  .sidebar-agent-row--outputting::after {
+  .status-dot--active {
     animation: none;
   }
 }

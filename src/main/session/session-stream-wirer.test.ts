@@ -133,6 +133,30 @@ describe('SessionStreamWirer', () => {
     expect(onDevServerNeeded).not.toHaveBeenCalled()
   })
 
+  it('ignores an interactive PTY exit after agent settings replace that process', () => {
+    const ptyPool = new FakePtyPool()
+    const sendToRenderer = vi.fn()
+    const wirer = new SessionStreamWirer(
+      ptyPool as never,
+      () => null,
+      sendToRenderer,
+      undefined,
+      vi.fn(),
+      vi.fn(),
+    )
+    const session = createSession()
+    const previousPtyId = session.ptyId
+    wirer.wireExitHandling(previousPtyId, session)
+
+    session.ptyId = 'pty-replacement'
+    session.pid = 999
+    ptyPool.emitExit(previousPtyId, 0)
+
+    expect(session.ptyId).toBe('pty-replacement')
+    expect(session.pid).toBe(999)
+    expect(sendToRenderer).not.toHaveBeenCalledWith('agent:exit', expect.anything())
+  })
+
   it('stores Codex generated image payloads in the project and publishes chat image references', async () => {
     const ptyPool = new FakePtyPool()
     const chatAdapter = new ChatAdapter()

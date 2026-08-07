@@ -21,7 +21,7 @@ export interface WorktreeMeta {
   nonInteractive?: boolean
   /** Codex's local thread id when a JSONL stream exposes it; used to locate Codex rollouts. */
   codexThreadId?: string
-  /** When true, the agent is protected from deletion until explicitly unlocked. */
+  /** Legacy field retained so older worktree metadata remains readable. */
   locked?: boolean
 }
 

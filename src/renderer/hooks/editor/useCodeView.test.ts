@@ -42,24 +42,19 @@ describe('useCodeView', () => {
     expect(result.current.activeEditorPaneId).toBe('editor:1')
   })
 
-  it('does not read files outside the active session roots', async () => {
+  it('reads a file from a worktree other than the selected session’s', async () => {
     mockInvoke.mockResolvedValue('content')
-    const { result } = renderHook(() => useCodeView('session-1', undefined, undefined, ['/repo/kong']))
+    const { result } = renderHook(() => useCodeView('session-1'))
 
-    // A path from a different worktree (previous session) must not be read —
-    // the main guard would deny it (path traversal) and log noise.
+    // The sidebar shows every repo and worktree at once, so a click can land on
+    // a file outside the selected session. Main authorizes it against the open
+    // folders; the renderer must not second-guess that and skip the read.
     act(() => {
       result.current.handleSelectFile('/other/worktrees/kong-oslo/src/a.ts', 'editor')
     })
-    await act(async () => { await Promise.resolve() })
-    expect(mockInvoke).not.toHaveBeenCalledWith('files:read', 'session-1', '/other/worktrees/kong-oslo/src/a.ts')
 
-    // A path under an allowed root reads normally.
-    act(() => {
-      result.current.handleSelectFile('/repo/kong/src/a.ts', 'editor')
-    })
     await waitFor(() => {
-      expect(mockInvoke).toHaveBeenCalledWith('files:read', 'session-1', '/repo/kong/src/a.ts')
+      expect(mockInvoke).toHaveBeenCalledWith('files:read', 'session-1', '/other/worktrees/kong-oslo/src/a.ts')
     })
   })
 

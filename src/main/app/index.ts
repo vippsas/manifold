@@ -38,6 +38,7 @@ import { ShellTabStore } from '../store/shell-tab-store'
 import { GitOperationsManager } from '../git/git-operations'
 import { BranchCheckoutManager } from '../git/branch-checkout-manager'
 import { DockLayoutStore } from '../store/dock-layout-store'
+import { ActiveWorkspaceStore } from '../store/active-workspace-store'
 import { SearchViewStore } from '../store/search-view-store'
 import { DismissedAgentsStore } from '../store/dismissed-agents-store'
 import { ChatStore } from '../store/chat-store'
@@ -52,6 +53,8 @@ import { MemoryCompressor } from '../memory/memory-compressor'
 import { MemoryInjector } from '../memory/memory-injector'
 import { WorkspaceStore } from '../workspace/workspace-store'
 import { WorkspaceManager } from '../workspace/workspace-manager'
+import { promoteAgentWorktreesToWorkspaces } from '../workspace/workspace-promotion'
+import { debugLog } from './debug-log'
 import { VerdictStore } from '../store/verdict-store'
 import { VerdictRecorder } from '../session/verdict-recorder'
 import { readClaudeTranscriptUsage, readClaudeTranscriptUsageSync, claudeProjectsDir, type SessionUsage } from '../session/transcript-usage-reader'
@@ -90,11 +93,15 @@ const workspaceManager = new WorkspaceManager({
 })
 // Heal workspaces saved before project removal cascaded into workspace membership.
 workspaceManager.pruneMissingProjects()
+// The sidebar shows workspaces and nothing else, so every registered repo must be
+// in one. Wraps repos added before that rule existed.
+workspaceManager.adoptOrphanProjects()
 const prCreator = new PrCreator()
 const viewStateStore = new ViewStateStore()
 const shellTabStore = new ShellTabStore()
 const gitOps = new GitOperationsManager()
 const dockLayoutStore = new DockLayoutStore()
+const activeWorkspaceStore = new ActiveWorkspaceStore()
 const searchViewStore = new SearchViewStore()
 const dismissedAgents = new DismissedAgentsStore()
 sessionManager.setDismissedAgents(dismissedAgents)
@@ -215,6 +222,7 @@ const ipcDeps = {
   gitOps,
   branchCheckout,
   dockLayoutStore,
+  activeWorkspaceStore,
   searchViewStore,
   dismissedAgents,
   chatAdapter,
@@ -279,4 +287,14 @@ registerAppLifecycle({
   chatStore,
   pluginManager,
   createWindow: doCreateWindow,
+  // A workspace owns its checkout now, so every worktree an agent used to own
+  // becomes the workspace it effectively already was. Runs before the first
+  // paint so the sidebar never shows the old shape, and is idempotent.
+  beforeFirstWindow: async () => {
+    try {
+      await promoteAgentWorktreesToWorkspaces({ store: workspaceStore, projectRegistry, worktreeManager })
+    } catch (err) {
+      debugLog(`[workspace] promoting existing worktrees failed: ${err}`)
+    }
+  },
 })
