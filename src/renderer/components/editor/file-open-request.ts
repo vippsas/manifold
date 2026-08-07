@@ -7,6 +7,10 @@ export interface ScmFileTarget {
   workspaceId: string
   projectId: string
   relPath: string
+  /** Which half of a staged-then-edited file was clicked: the staged row diffs
+   *  the index against HEAD, the unstaged row the working tree against the
+   *  index. */
+  staged: boolean
 }
 
 export interface FileOpenRequest {

@@ -4,6 +4,13 @@ import type { WorkspaceRepoStatus } from '../../shared/workspace-types'
 import { isGitProject } from '../../shared/project-kind'
 import { gitExec } from '../git/git-exec'
 import { gitStatus, parseStatusWithConflicts } from '../fs/file-watcher-utils'
+import { parseWorkspaceStatus } from '../git/porcelain-status'
+import {
+  commitManagedWorktreeIndex,
+  discardManagedWorktreePaths,
+  stageManagedWorktreePaths,
+  unstageManagedWorktreePaths,
+} from '../git/managed-worktree'
 import { withRepoLock } from '../git/repo-lock'
 import { getRuntimeById } from '../agent/runtimes'
 import type { IpcDependencies } from './types'
@@ -150,11 +157,11 @@ export function registerGitHandlers(deps: IpcDependencies): void {
       const project = projectRegistry.getProject(projectId)
       if (!project || !isGitProject(project)) return null
       const checkoutPath = workspace.worktreePaths?.[projectId] ?? project.path
-      const [branch, changes] = await Promise.all([
+      const [branch, groups] = await Promise.all([
         gitExec(['rev-parse', '--abbrev-ref', 'HEAD'], checkoutPath).then((out) => out.trim()).catch(() => ''),
-        gitStatus(checkoutPath).then((raw) => parseStatusWithConflicts(raw).changes).catch(() => []),
+        gitStatus(checkoutPath).then(parseWorkspaceStatus).catch(() => ({ staged: [], unstaged: [] })),
       ])
-      return { projectId, projectName: project.name, checkoutPath, branch, changes }
+      return { projectId, projectName: project.name, checkoutPath, branch, ...groups }
     }))
     return statuses.filter((status): status is WorkspaceRepoStatus => status !== null)
   })
@@ -171,13 +178,37 @@ export function registerGitHandlers(deps: IpcDependencies): void {
     return { projectPath: project.path, checkoutPath: workspace.worktreePaths?.[projectId] ?? project.path }
   }
 
-  // Commit one repo checkout of a workspace — the Source Control panel's
-  // per-repo commit input. Same managed commit as the session-scoped
-  // `git:commit` (stage-all with agent-scratch excludes), just addressed by
-  // workspace membership instead of a session.
-  ipcMain.handle('git:workspace-commit', async (_event, workspaceId: string, projectId: string, message: string) => {
+  // Move paths between the working tree and the index — the +/- on a Source
+  // Control row or group. Paths are relative to the checkout, and arrive as a
+  // list so staging a whole group is one git invocation.
+  ipcMain.handle('git:workspace-stage', async (_event, workspaceId: string, projectId: string, paths: string[]) => {
     const { checkoutPath } = resolveWorkspaceCheckout(workspaceId, projectId)
-    await gitOps.commit(checkoutPath, message)
+    await stageManagedWorktreePaths(checkoutPath, paths)
+  })
+
+  ipcMain.handle('git:workspace-unstage', async (_event, workspaceId: string, projectId: string, paths: string[]) => {
+    const { checkoutPath } = resolveWorkspaceCheckout(workspaceId, projectId)
+    await unstageManagedWorktreePaths(checkoutPath, paths)
+  })
+
+  // Throw away working-tree changes. Unrecoverable, so the renderer confirms
+  // first; this handler is the point of no return.
+  ipcMain.handle('git:workspace-discard', async (_event, workspaceId: string, projectId: string, paths: string[]) => {
+    const { checkoutPath } = resolveWorkspaceCheckout(workspaceId, projectId)
+    await discardManagedWorktreePaths(checkoutPath, paths)
+  })
+
+  // Commit one repo checkout of a workspace — the Source Control panel's
+  // per-repo commit input. `stageAll` is the answer to the panel's "nothing is
+  // staged, stage everything?" prompt: set, this is the same managed stage-all
+  // commit as the session-scoped `git:commit` (with agent-scratch excludes);
+  // clear, it commits exactly what the user staged and nothing more.
+  ipcMain.handle('git:workspace-commit', async (
+    _event, workspaceId: string, projectId: string, message: string, stageAll: boolean,
+  ) => {
+    const { checkoutPath } = resolveWorkspaceCheckout(workspaceId, projectId)
+    if (stageAll) await gitOps.commit(checkoutPath, message)
+    else await commitManagedWorktreeIndex(checkoutPath, message)
   })
 
   // Switch (or create) the branch of one workspace checkout — VS Code's
@@ -196,16 +227,20 @@ export function registerGitHandlers(deps: IpcDependencies): void {
   })
 
   // The uncommitted diff of one file in a workspace checkout — what the editor
-  // shows when a Source Control row is clicked, VS Code's SCM-click diff
-  // (working tree vs HEAD, unlike the session diff which compares to the base
-  // branch). `original` is the HEAD version for the diff editor's left side;
-  // both are null when the file has no uncommitted change (a click raced a
-  // refresh), and original is '' for a file HEAD doesn't have (new file).
-  ipcMain.handle('git:workspace-file-diff', async (_event, workspaceId: string, projectId: string, relativePath: string) => {
+  // shows when a Source Control row is clicked, VS Code's SCM-click diff (which
+  // compares against the index or HEAD, unlike the session diff which compares
+  // to the base branch). A staged row diffs the index against HEAD; an unstaged
+  // row diffs the working tree against the index, so a staged-then-edited file
+  // shows only the half that was clicked. `original` is the diff editor's left
+  // side; both are null when the file has no such change (a click raced a
+  // refresh), and original is '' for a file that side doesn't have (new file).
+  ipcMain.handle('git:workspace-file-diff', async (
+    _event, workspaceId: string, projectId: string, relativePath: string, staged: boolean,
+  ) => {
     const { checkoutPath } = resolveWorkspaceCheckout(workspaceId, projectId)
     const [original, diff] = await Promise.all([
-      gitExec(['show', `HEAD:${relativePath}`], checkoutPath).catch(() => null),
-      gitExec(['diff', 'HEAD', '--', relativePath], checkoutPath).catch(() => ''),
+      gitExec(['show', staged ? `HEAD:${relativePath}` : `:${relativePath}`], checkoutPath).catch(() => null),
+      gitExec(staged ? ['diff', '--cached', '--', relativePath] : ['diff', '--', relativePath], checkoutPath).catch(() => ''),
     ])
     if (original === null) return { diff: diff || '', original: '' }
     if (!diff.trim()) return { diff: null, original: null }

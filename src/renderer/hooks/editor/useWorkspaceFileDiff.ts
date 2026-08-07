@@ -9,13 +9,15 @@ export interface WorkspaceFileDiff {
 const EMPTY: WorkspaceFileDiff = { diff: null, original: null }
 
 /** The uncommitted diff of one file in a workspace checkout — what the editor
- *  shows for a Source Control click (working tree vs HEAD), where the session
- *  diff (vs the base branch) doesn't apply. Null target ⇒ no fetch. */
+ *  shows for a Source Control click (the index against HEAD for a staged row,
+ *  the working tree against the index otherwise), where the session diff (vs
+ *  the base branch) doesn't apply. Null target ⇒ no fetch. */
 export function useWorkspaceFileDiff(target: ScmFileTarget | null): WorkspaceFileDiff {
   const [result, setResult] = useState<WorkspaceFileDiff>(EMPTY)
   const workspaceId = target?.workspaceId ?? null
   const projectId = target?.projectId ?? null
   const relPath = target?.relPath ?? null
+  const staged = target?.staged ?? false
 
   useEffect(() => {
     if (!workspaceId || !projectId || !relPath) {
@@ -30,6 +32,7 @@ export function useWorkspaceFileDiff(target: ScmFileTarget | null): WorkspaceFil
           workspaceId,
           projectId,
           relPath,
+          staged,
         )) as WorkspaceFileDiff
         if (!cancelled) setResult(fetched)
       } catch {
@@ -37,7 +40,7 @@ export function useWorkspaceFileDiff(target: ScmFileTarget | null): WorkspaceFil
       }
     })()
     return () => { cancelled = true }
-  }, [workspaceId, projectId, relPath])
+  }, [workspaceId, projectId, relPath, staged])
 
   return result
 }

@@ -1,25 +1,28 @@
-import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import React, { useCallback, useEffect, useRef, useState } from 'react'
 import type { Workspace, WorkspaceRepoStatus } from '../../../shared/workspace-types'
-import type { FileChange, FileChangeType } from '../../../shared/types'
+import type { FileChange } from '../../../shared/types'
 import type { ScmFileTarget } from '../editor/file-open-request'
 import { useIpcListener } from '../../hooks/app/useIpc'
+import { ConfirmDialog } from '../ConfirmDialog'
 import { BranchSwitcher } from './BranchSwitcher'
+import { ScmChangeGroup } from './ScmChangeGroup'
+import { ScmGlyph, ScmIconButton } from './scm-icons'
+import { sourceControlStyles as styles } from './SourceControl.styles'
 
 interface SourceControlProps {
   workspace: Workspace | null
-  /** Open a changed file in the editor, diffed against its checkout's HEAD. */
+  /** Open a changed file in the editor, diffed against its checkout's index. */
   onSelectFile: (absolutePath: string, scm: ScmFileTarget) => void
 }
 
-const TYPE_ORDER: FileChangeType[] = ['modified', 'added', 'deleted']
-
-const CHANGE_INDICATORS: Record<FileChangeType, { color: string; label: string }> = {
-  modified: { color: 'var(--warning)', label: 'M' },
-  added: { color: 'var(--success)', label: 'A' },
-  deleted: { color: 'var(--error)', label: 'D' },
-}
-
 const IS_MAC = typeof navigator !== 'undefined' && navigator.platform.toUpperCase().includes('MAC')
+
+/** A discard the user has yet to confirm. Held here rather than in the group so
+ *  one dialog serves every row and group in the panel. */
+interface PendingDiscard {
+  projectId: string
+  paths: string[]
+}
 
 /** Live git status of the workspace's checkouts. Refreshes when the workspace
  *  changes, when the file watcher reports changes, and on window focus (the
@@ -59,11 +62,14 @@ function useWorkspaceRepoStatuses(workspaceId: string | null): { repos: Workspac
 
 /** VS Code-style Source Control view for the selected workspace: one section
  *  per member repo checkout — a clickable branch (switch/create, see
- *  `BranchSwitcher`), a commit message input, and the uncommitted changes —
- *  the way VS Code's SCM view sections a multi-root workspace's repositories. */
+ *  `BranchSwitcher`), a commit message input, and the uncommitted changes split
+ *  into staged and unstaged groups — the way VS Code's SCM view sections a
+ *  multi-root workspace's repositories. */
 export function SourceControl({ workspace, onSelectFile }: SourceControlProps): React.JSX.Element {
   const { repos, refresh } = useWorkspaceRepoStatuses(workspace?.id ?? null)
   const [collapsed, setCollapsed] = useState<Set<string>>(new Set())
+  const [pendingDiscard, setPendingDiscard] = useState<PendingDiscard | null>(null)
+  const workspaceId = workspace?.id ?? null
 
   const toggleRepo = (projectId: string): void => {
     setCollapsed((prev) => {
@@ -73,6 +79,22 @@ export function SourceControl({ workspace, onSelectFile }: SourceControlProps): 
       return next
     })
   }
+
+  const runIndexOp = useCallback(async (channel: string, projectId: string, paths: string[]): Promise<void> => {
+    if (!workspaceId || paths.length === 0) return
+    try {
+      await window.electronAPI.invoke(channel, workspaceId, projectId, paths)
+    } catch (err: unknown) {
+      console.error(`[SourceControl] ${channel} failed`, err)
+    }
+    refresh()
+  }, [workspaceId, refresh])
+
+  const confirmDiscard = useCallback((): void => {
+    if (!pendingDiscard) return
+    void runIndexOp('git:workspace-discard', pendingDiscard.projectId, pendingDiscard.paths)
+    setPendingDiscard(null)
+  }, [pendingDiscard, runIndexOp])
 
   if (!workspace) {
     return (
@@ -94,10 +116,24 @@ export function SourceControl({ workspace, onSelectFile }: SourceControlProps): 
             onToggle={() => toggleRepo(repo.projectId)}
             onSelectFile={onSelectFile}
             onRefresh={refresh}
+            onStage={(paths) => void runIndexOp('git:workspace-stage', repo.projectId, paths)}
+            onUnstage={(paths) => void runIndexOp('git:workspace-unstage', repo.projectId, paths)}
+            onRequestDiscard={(paths) => setPendingDiscard({ projectId: repo.projectId, paths })}
           />
         ))}
         {repos.length === 0 && <div style={styles.empty}>No git repositories in this workspace</div>}
       </div>
+      {pendingDiscard && (
+        <ConfirmDialog
+          title="Discard changes?"
+          message={pendingDiscard.paths.length === 1
+            ? `Changes to ${pendingDiscard.paths[0]} will be lost. This cannot be undone.`
+            : `Changes to ${pendingDiscard.paths.length} files will be lost. This cannot be undone.`}
+          confirmLabel="Discard"
+          onConfirm={confirmDiscard}
+          onCancel={() => setPendingDiscard(null)}
+        />
+      )}
     </div>
   )
 }
@@ -109,6 +145,9 @@ function RepoSection({
   onToggle,
   onSelectFile,
   onRefresh,
+  onStage,
+  onUnstage,
+  onRequestDiscard,
 }: {
   workspaceId: string
   repo: WorkspaceRepoStatus
@@ -116,21 +155,33 @@ function RepoSection({
   onToggle: () => void
   onSelectFile: (absolutePath: string, scm: ScmFileTarget) => void
   onRefresh: () => void
+  onStage: (paths: string[]) => void
+  onUnstage: (paths: string[]) => void
+  onRequestDiscard: (paths: string[]) => void
 }): React.JSX.Element {
   const root = repo.checkoutPath.replace(/\/$/, '')
-  const sorted = useMemo(() => (
-    [...repo.changes].sort((a, b) => {
-      const ai = TYPE_ORDER.indexOf(a.type)
-      const bi = TYPE_ORDER.indexOf(b.type)
-      if (ai !== bi) return ai - bi
-      return a.path.localeCompare(b.path)
+  const commitRef = useRef<(() => void) | null>(null)
+  const total = repo.staged.length + repo.unstaged.length
+
+  const openFile = (change: FileChange, staged: boolean): void => {
+    onSelectFile(`${root}/${change.path}`, {
+      workspaceId,
+      projectId: repo.projectId,
+      relPath: change.path,
+      staged,
     })
-  ), [repo.changes])
+  }
 
   return (
     <section aria-label={repo.projectName}>
       <div style={styles.repoHeader}>
-        <button type="button" style={styles.repoToggle} onClick={onToggle} aria-expanded={!isCollapsed}>
+        <button
+          type="button"
+          style={styles.repoToggle}
+          onClick={onToggle}
+          aria-expanded={!isCollapsed}
+          aria-label={repo.projectName}
+        >
           <span style={{ ...styles.chevron, transform: isCollapsed ? 'rotate(-90deg)' : undefined }} aria-hidden>
             ▾
           </span>
@@ -145,64 +196,85 @@ function RepoSection({
             onCheckedOut={onRefresh}
           />
         )}
-        {sorted.length > 0 && <span style={styles.countBadge}>{sorted.length}</span>}
+        <div style={{ ...styles.actionRow, ...styles.actionRowTrailing }}>
+          <ScmIconButton glyph="refresh" label={`Refresh ${repo.projectName}`} onClick={onRefresh} />
+          <ScmIconButton glyph="check" label={`Commit ${repo.projectName}`} onClick={() => commitRef.current?.()} />
+        </div>
+        {total > 0 && <span style={styles.countBadge}>{total}</span>}
       </div>
       {!isCollapsed && (
         <>
-          {sorted.length > 0 && (
+          {total > 0 && (
             <CommitInput
               workspaceId={workspaceId}
               projectId={repo.projectId}
               branch={repo.branch}
+              hasStaged={repo.staged.length > 0}
               onCommitted={onRefresh}
+              commitRef={commitRef}
             />
           )}
-          {sorted.length === 0 ? (
-            <div style={styles.cleanRow}>No changes</div>
-          ) : (
-            sorted.map((change) => (
-              <ChangeRow
-                key={change.path}
-                change={change}
-                onSelect={() => onSelectFile(`${root}/${change.path}`, {
-                  workspaceId,
-                  projectId: repo.projectId,
-                  relPath: change.path,
-                })}
-              />
-            ))
+          {repo.staged.length > 0 && (
+            <ScmChangeGroup
+              label="Staged Changes"
+              changes={repo.staged}
+              staged
+              onSelectFile={(change) => openFile(change, true)}
+              onStage={onStage}
+              onUnstage={onUnstage}
+              onDiscard={onRequestDiscard}
+            />
           )}
+          {repo.unstaged.length > 0 && (
+            <ScmChangeGroup
+              label="Changes"
+              changes={repo.unstaged}
+              staged={false}
+              onSelectFile={(change) => openFile(change, false)}
+              onStage={onStage}
+              onUnstage={onUnstage}
+              onDiscard={onRequestDiscard}
+            />
+          )}
+          {total === 0 && <div style={styles.cleanRow}>No changes</div>}
         </>
       )}
     </section>
   )
 }
 
-/** VS Code's SCM message box: a per-repo input that commits the checkout's
- *  changes (stage-all, same managed commit the Commit overlay uses) on the
- *  button or Cmd/Ctrl+Enter. */
+/** VS Code's SCM message box: a per-repo input that commits on the button or
+ *  Cmd/Ctrl+Enter. With something staged it commits exactly that; with nothing
+ *  staged it asks first, since committing everything is a different act from
+ *  the one the staging UI implies. `commitRef` lets the repo header's ✓ fire
+ *  the same path as the button. */
 function CommitInput({
   workspaceId,
   projectId,
   branch,
+  hasStaged,
   onCommitted,
+  commitRef,
 }: {
   workspaceId: string
   projectId: string
   branch: string
+  hasStaged: boolean
   onCommitted: () => void
+  commitRef: React.MutableRefObject<(() => void) | null>
 }): React.JSX.Element {
   const [message, setMessage] = useState('')
   const [committing, setCommitting] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [confirmingStageAll, setConfirmingStageAll] = useState(false)
 
-  const commit = async (): Promise<void> => {
+  const runCommit = useCallback(async (stageAll: boolean): Promise<void> => {
     const trimmed = message.trim()
     if (!trimmed || committing) return
     setCommitting(true)
     setError(null)
     try {
-      await window.electronAPI.invoke('git:workspace-commit', workspaceId, projectId, trimmed)
+      await window.electronAPI.invoke('git:workspace-commit', workspaceId, projectId, trimmed, stageAll)
       setMessage('')
       onCommitted()
     } catch (err: unknown) {
@@ -210,12 +282,23 @@ function CommitInput({
     } finally {
       setCommitting(false)
     }
-  }
+  }, [message, committing, workspaceId, projectId, onCommitted])
+
+  const commit = useCallback((): void => {
+    if (!message.trim() || committing) return
+    if (hasStaged) void runCommit(false)
+    else setConfirmingStageAll(true)
+  }, [message, committing, hasStaged, runCommit])
+
+  useEffect(() => {
+    commitRef.current = commit
+    return () => { commitRef.current = null }
+  }, [commit, commitRef])
 
   const onKeyDown = (e: React.KeyboardEvent): void => {
     if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) {
       e.preventDefault()
-      void commit()
+      commit()
     }
   }
 
@@ -233,175 +316,25 @@ function CommitInput({
       <button
         type="button"
         style={{ ...styles.commitButton, ...(message.trim() && !committing ? undefined : styles.commitButtonDisabled) }}
-        onClick={() => void commit()}
+        onClick={commit}
         disabled={!message.trim() || committing}
       >
-        {committing ? 'Committing…' : '✓ Commit'}
+        <ScmGlyph id="check" />
+        {committing ? 'Committing…' : 'Commit'}
       </button>
       {error && <div style={styles.commitError}>{error}</div>}
+      {confirmingStageAll && (
+        <ConfirmDialog
+          title="No staged changes"
+          message="There are no staged changes to commit. Stage all changes and commit them directly?"
+          confirmLabel="Stage all & commit"
+          onConfirm={() => {
+            setConfirmingStageAll(false)
+            void runCommit(true)
+          }}
+          onCancel={() => setConfirmingStageAll(false)}
+        />
+      )}
     </div>
   )
-}
-
-function ChangeRow({ change, onSelect }: { change: FileChange; onSelect: () => void }): React.JSX.Element {
-  const parts = change.path.split('/')
-  const filename = parts[parts.length - 1]
-  const dir = parts.length > 1 ? parts.slice(0, -1).join('/') : ''
-  const indicator = CHANGE_INDICATORS[change.type]
-
-  return (
-    <div
-      onClick={onSelect}
-      role="button"
-      tabIndex={0}
-      style={styles.row}
-      title={change.path}
-    >
-      <span style={{ ...styles.indicator, color: indicator.color }}>{indicator.label}</span>
-      <span className="truncate" style={styles.filename}>{filename}</span>
-      {dir && <span className="truncate" style={styles.dir}>{dir}</span>}
-    </div>
-  )
-}
-
-const styles: Record<string, React.CSSProperties> = {
-  wrapper: {
-    display: 'flex',
-    flexDirection: 'column',
-    height: '100%',
-    overflow: 'hidden',
-    background: 'var(--bg-primary)',
-  },
-  list: {
-    flex: 1,
-    overflowY: 'auto' as const,
-    padding: '4px 0',
-  },
-  empty: {
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'center',
-    height: '100%',
-    color: 'var(--text-muted)',
-    fontSize: '12px',
-  },
-  repoHeader: {
-    display: 'flex',
-    alignItems: 'center',
-    gap: '6px',
-    width: '100%',
-    boxSizing: 'border-box' as const,
-    padding: '4px 8px',
-  },
-  repoToggle: {
-    display: 'flex',
-    alignItems: 'center',
-    gap: '6px',
-    minWidth: 0,
-    // The name yields to the branch label only past half the header — the
-    // branch truncates first, so "storefront" never renders as "STOREFR…".
-    flexShrink: 0,
-    maxWidth: '50%',
-    padding: 0,
-    border: 'none',
-    background: 'transparent',
-    color: 'var(--text-secondary)',
-    cursor: 'pointer',
-    textAlign: 'left' as const,
-    fontSize: '11px',
-  },
-  chevron: {
-    flexShrink: 0,
-    fontSize: '9px',
-    transition: 'transform 0.1s ease',
-  },
-  repoName: {
-    color: 'var(--text-primary)',
-    fontWeight: 600,
-    textTransform: 'uppercase' as const,
-    letterSpacing: '0.5px',
-    fontSize: '11px',
-  },
-  countBadge: {
-    flexShrink: 0,
-    marginLeft: 'auto',
-    background: 'var(--accent-subtle)',
-    color: 'var(--accent)',
-    padding: '1px 6px',
-    borderRadius: 'var(--radius-pill)',
-    fontSize: 'var(--type-ui-micro)',
-  },
-  commitArea: {
-    display: 'flex',
-    flexDirection: 'column',
-    gap: '4px',
-    padding: '2px 8px 6px 24px',
-  },
-  commitTextarea: {
-    width: '100%',
-    boxSizing: 'border-box' as const,
-    padding: '4px 6px',
-    background: 'var(--bg-input)',
-    border: '1px solid var(--control-border)',
-    borderRadius: 'var(--radius-xs)',
-    color: 'var(--text-primary)',
-    fontSize: '12px',
-    fontFamily: 'var(--font-sans)',
-    lineHeight: '16px',
-    resize: 'none' as const,
-    outline: 'none',
-  },
-  commitButton: {
-    width: '100%',
-    padding: '3px 6px',
-    background: 'linear-gradient(135deg, var(--btn-bg), var(--btn-hover))',
-    border: 'none',
-    borderRadius: 'var(--radius-xs)',
-    color: 'var(--btn-text)',
-    fontSize: '11px',
-    cursor: 'pointer',
-    transition: 'filter 200ms ease',
-  },
-  commitButtonDisabled: {
-    opacity: 0.5,
-    cursor: 'default',
-  },
-  commitError: {
-    fontSize: '11px',
-    color: 'var(--error)',
-    whiteSpace: 'pre-wrap' as const,
-    maxHeight: '80px',
-    overflowY: 'auto' as const,
-  },
-  cleanRow: {
-    padding: '2px 8px 6px 24px',
-    color: 'var(--text-muted)',
-    fontSize: '12px',
-  },
-  row: {
-    display: 'flex',
-    alignItems: 'baseline',
-    gap: '6px',
-    padding: '2px 8px 2px 24px',
-    cursor: 'pointer',
-    fontSize: '12px',
-    lineHeight: '16px',
-    color: 'var(--text-primary)',
-  },
-  indicator: {
-    flexShrink: 0,
-    fontFamily: 'var(--font-mono)',
-    fontSize: '11px',
-    fontWeight: 700,
-  },
-  filename: {
-    fontFamily: 'var(--font-mono)',
-    fontSize: '12px',
-  },
-  dir: {
-    flexShrink: 1,
-    fontFamily: 'var(--font-mono)',
-    fontSize: '10px',
-    color: 'var(--text-muted)',
-  },
 }

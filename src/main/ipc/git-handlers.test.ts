@@ -9,6 +9,10 @@ const mocks = vi.hoisted(() => {
     }),
     gitExec: vi.fn(),
     gitStatus: vi.fn(),
+    stagePaths: vi.fn(),
+    unstagePaths: vi.fn(),
+    discardPaths: vi.fn(),
+    commitIndex: vi.fn(),
   }
 })
 
@@ -23,6 +27,17 @@ vi.mock('../git/git-exec', () => ({ gitExec: mocks.gitExec }))
 vi.mock('../fs/file-watcher-utils', async (importOriginal) => ({
   ...(await importOriginal<typeof import('../fs/file-watcher-utils')>()),
   gitStatus: mocks.gitStatus,
+}))
+
+// The index operations run real git against a real repo in
+// managed-worktree.staging.test.ts; here we only care that each channel is
+// wired to the right one with the right checkout.
+vi.mock('../git/managed-worktree', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('../git/managed-worktree')>()),
+  stageManagedWorktreePaths: mocks.stagePaths,
+  unstageManagedWorktreePaths: mocks.unstagePaths,
+  discardManagedWorktreePaths: mocks.discardPaths,
+  commitManagedWorktreeIndex: mocks.commitIndex,
 }))
 
 describe('registerDiffHandler', () => {
@@ -181,7 +196,8 @@ describe('registerGitHandlers git:workspace-status', () => {
         projectName: 'repo-one',
         checkoutPath: '/worktrees/repo-one',
         branch: 'manifold/feature',
-        changes: [
+        staged: [],
+        unstaged: [
           { path: 'src/a.ts', type: 'modified' },
           { path: 'b.ts', type: 'added' },
         ],
@@ -202,7 +218,7 @@ describe('registerGitHandlers git:workspace-status', () => {
     const result = await handler({}, 'ws-home')
 
     expect(result).toEqual([
-      { projectId: 'p1', projectName: 'repo-one', checkoutPath: '/repos/repo-one', branch: 'main', changes: [] },
+      { projectId: 'p1', projectName: 'repo-one', checkoutPath: '/repos/repo-one', branch: 'main', staged: [], unstaged: [] },
     ])
     expect(mocks.gitStatus).toHaveBeenCalledWith('/repos/repo-one')
   })
@@ -216,7 +232,7 @@ describe('registerGitHandlers git:workspace-status', () => {
     )
 
     await expect(handler({}, 'ws-1')).resolves.toEqual([
-      { projectId: 'p1', projectName: 'repo-one', checkoutPath: '/repos/repo-one', branch: '', changes: [] },
+      { projectId: 'p1', projectName: 'repo-one', checkoutPath: '/repos/repo-one', branch: '', staged: [], unstaged: [] },
     ])
   })
 
@@ -256,13 +272,37 @@ describe('registerGitHandlers workspace commit and checkout', () => {
     return { commit, send }
   }
 
-  it('git:workspace-commit commits the workspace checkout via gitOps', async () => {
+  it('git:workspace-commit commits only the index when the panel staged explicitly', async () => {
     const { commit } = await registerHandlers()
     const handler = mocks.handlers.get('git:workspace-commit')!
 
-    await handler({}, 'ws-1', 'p1', 'fix: adjust checkout flow')
+    await handler({}, 'ws-1', 'p1', 'fix: adjust checkout flow', false)
 
-    expect(commit).toHaveBeenCalledWith('/worktrees/repo-one', 'fix: adjust checkout flow')
+    expect(mocks.commitIndex).toHaveBeenCalledWith('/worktrees/repo-one', 'fix: adjust checkout flow')
+    // The stage-all path is a different commit entirely; it must not run here.
+    expect(commit).not.toHaveBeenCalled()
+  })
+
+  it('git:workspace-commit stages everything first when the panel asked to', async () => {
+    const { commit } = await registerHandlers()
+    const handler = mocks.handlers.get('git:workspace-commit')!
+
+    await handler({}, 'ws-1', 'p1', 'wip', true)
+
+    expect(commit).toHaveBeenCalledWith('/worktrees/repo-one', 'wip')
+    expect(mocks.commitIndex).not.toHaveBeenCalled()
+  })
+
+  it('git:workspace-stage, -unstage and -discard address the workspace checkout', async () => {
+    await registerHandlers()
+
+    await mocks.handlers.get('git:workspace-stage')!({}, 'ws-1', 'p1', ['src/a.ts'])
+    await mocks.handlers.get('git:workspace-unstage')!({}, 'ws-1', 'p1', ['src/b.ts'])
+    await mocks.handlers.get('git:workspace-discard')!({}, 'ws-1', 'p1', ['src/c.ts'])
+
+    expect(mocks.stagePaths).toHaveBeenCalledWith('/worktrees/repo-one', ['src/a.ts'])
+    expect(mocks.unstagePaths).toHaveBeenCalledWith('/worktrees/repo-one', ['src/b.ts'])
+    expect(mocks.discardPaths).toHaveBeenCalledWith('/worktrees/repo-one', ['src/c.ts'])
   })
 
   it('git:workspace-checkout switches an existing branch and pokes the sidebar', async () => {
@@ -305,22 +345,39 @@ describe('registerGitHandlers workspace commit and checkout', () => {
     await expect(handler({}, 'ws-1', 'p1', 'msg')).rejects.toThrow('not a git repository')
   })
 
-  it('git:workspace-file-diff returns the uncommitted diff and HEAD original', async () => {
+  it('git:workspace-file-diff diffs an unstaged row against the index', async () => {
     mocks.gitExec.mockImplementation(async (args: string[]) => {
-      if (args[0] === 'show') return 'old content'
+      if (args[0] === 'show') return 'index content'
       return 'diff --git a/src/app.ts b/src/app.ts\n-old\n+new'
     })
     await registerHandlers()
     const handler = mocks.handlers.get('git:workspace-file-diff')!
 
-    const result = await handler({}, 'ws-1', 'p1', 'src/app.ts')
+    const result = await handler({}, 'ws-1', 'p1', 'src/app.ts', false)
 
-    expect(mocks.gitExec).toHaveBeenCalledWith(['show', 'HEAD:src/app.ts'], '/worktrees/repo-one')
-    expect(mocks.gitExec).toHaveBeenCalledWith(['diff', 'HEAD', '--', 'src/app.ts'], '/worktrees/repo-one')
-    expect(result).toEqual({ diff: 'diff --git a/src/app.ts b/src/app.ts\n-old\n+new', original: 'old content' })
+    // `:path` is the index version — the left side an unstaged change is
+    // actually measured against once something else is staged.
+    expect(mocks.gitExec).toHaveBeenCalledWith(['show', ':src/app.ts'], '/worktrees/repo-one')
+    expect(mocks.gitExec).toHaveBeenCalledWith(['diff', '--', 'src/app.ts'], '/worktrees/repo-one')
+    expect(result).toEqual({ diff: 'diff --git a/src/app.ts b/src/app.ts\n-old\n+new', original: 'index content' })
   })
 
-  it('git:workspace-file-diff treats a file missing from HEAD as a full add', async () => {
+  it('git:workspace-file-diff diffs a staged row against HEAD', async () => {
+    mocks.gitExec.mockImplementation(async (args: string[]) => {
+      if (args[0] === 'show') return 'head content'
+      return 'diff --git a/src/app.ts b/src/app.ts\n-head\n+staged'
+    })
+    await registerHandlers()
+    const handler = mocks.handlers.get('git:workspace-file-diff')!
+
+    const result = await handler({}, 'ws-1', 'p1', 'src/app.ts', true)
+
+    expect(mocks.gitExec).toHaveBeenCalledWith(['show', 'HEAD:src/app.ts'], '/worktrees/repo-one')
+    expect(mocks.gitExec).toHaveBeenCalledWith(['diff', '--cached', '--', 'src/app.ts'], '/worktrees/repo-one')
+    expect(result).toEqual({ diff: 'diff --git a/src/app.ts b/src/app.ts\n-head\n+staged', original: 'head content' })
+  })
+
+  it('git:workspace-file-diff treats a file the base side lacks as a full add', async () => {
     mocks.gitExec.mockImplementation(async (args: string[]) => {
       if (args[0] === 'show') throw new Error('does not exist in HEAD')
       return ''
@@ -328,7 +385,7 @@ describe('registerGitHandlers workspace commit and checkout', () => {
     await registerHandlers()
     const handler = mocks.handlers.get('git:workspace-file-diff')!
 
-    const result = await handler({}, 'ws-1', 'p1', 'src/new-file.ts')
+    const result = await handler({}, 'ws-1', 'p1', 'src/new-file.ts', false)
 
     expect(result).toEqual({ diff: '', original: '' })
   })
@@ -341,7 +398,7 @@ describe('registerGitHandlers workspace commit and checkout', () => {
     await registerHandlers()
     const handler = mocks.handlers.get('git:workspace-file-diff')!
 
-    const result = await handler({}, 'ws-1', 'p1', 'src/app.ts')
+    const result = await handler({}, 'ws-1', 'p1', 'src/app.ts', false)
 
     expect(result).toEqual({ diff: null, original: null })
   })

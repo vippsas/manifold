@@ -37,8 +37,12 @@ export interface WorkspaceRepoStatus {
   checkoutPath: string
   /** The checked-out branch; empty when HEAD is unresolvable (no commits yet). */
   branch: string
-  /** Uncommitted working-tree changes, staged or not. */
-  changes: FileChange[]
+  /** What the index holds — the two groups mirror git's own model, so a file
+   *  staged and then edited again legitimately appears in both. */
+  staged: FileChange[]
+  /** Working-tree changes on top of the index, including untracked files and
+   *  anything conflicted. */
+  unstaged: FileChange[]
 }
 
 export interface WorkspaceCreateOptions {
