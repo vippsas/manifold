@@ -862,6 +862,18 @@ select:focus-visible {
   padding-right: 56px;
 }
 
+/* The workspace you are in is the first row in the list, and it stays put while
+   its own folders and files scroll under it — so scrolling deep into a tree
+   never costs you the label saying where you are. It needs its own background:
+   a row is transparent until hovered, and the rows passing beneath would
+   otherwise read straight through this one. */
+.sidebar-workspace-card.sidebar-project-group--active > .sidebar-project-row {
+  position: sticky;
+  top: 0;
+  z-index: 2;
+  background: var(--bg-sidebar);
+}
+
 /* One 8px step in from its repo row, so the agent's chevron lands between the
    repo's above it and its own worktree's files below it. */
 .sidebar-agent-row {

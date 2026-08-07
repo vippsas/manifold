@@ -59,15 +59,26 @@ describe('useProjectRecency', () => {
     expect(second.result.current.recency.p2).toBeTypeOf('number')
   })
 
-  // Touching records the visit for next time; it must not re-sort the list the
-  // user is clicking in.
-  it('holds the order it started with when a project is touched', () => {
-    const { result } = renderHook(() => useProjectRecency())
-    const before = result.current.recency
+  // Touching moves a project to the front of the live order straight away, so
+  // the one you just left is the row under the one you are in — and only that
+  // one moves; the rest keep the order they were already in.
+  it('re-orders the live list when a project is touched', () => {
+    vi.useFakeTimers()
+    try {
+      const { result } = renderHook(() => useProjectRecency())
 
-    act(() => result.current.touchProject('p2'))
+      vi.setSystemTime(1_000)
+      act(() => result.current.touchProject('p3'))
+      vi.setSystemTime(2_000)
+      act(() => result.current.touchProject('p1'))
+      vi.setSystemTime(3_000)
+      act(() => result.current.touchProject('p2'))
 
-    expect(result.current.recency).toBe(before)
+      const order = sortByRecency([{ id: 'p1' }, { id: 'p2' }, { id: 'p3' }], result.current.recency)
+      expect(order.map((p) => p.id)).toEqual(['p2', 'p1', 'p3'])
+    } finally {
+      vi.useRealTimers()
+    }
   })
 
   it('keeps several touches in one session, newest last-write-wins', () => {

@@ -45,6 +45,23 @@ describe('ProjectSidebar', () => {
     expect(within(rows[1] as HTMLElement).getByText('beta-space')).toBeInTheDocument()
   })
 
+  // Going back to where you just were is always the second row, whatever the
+  // list looked like before.
+  it('drops the workspace you just left to second place', () => {
+    const workspaces = [
+      { id: 'w1', name: 'alpha-space', projectIds: ['p1'], createdAt: '2024-01-01' },
+      { id: 'w2', name: 'beta-space', projectIds: ['p2'], createdAt: '2024-01-02' },
+      { id: 'w3', name: 'gamma-space', projectIds: [], createdAt: '2024-01-03' },
+    ]
+    const { setProps } = renderSidebar({ workspaces, activeWorkspaceId: 'w3' })
+
+    setProps({ activeWorkspaceId: 'w1' })
+
+    const rows = document.querySelectorAll('.sidebar-project-row')
+    const names = Array.from(rows).map((row) => row.querySelector('.truncate')?.textContent)
+    expect(names).toEqual(['alpha-space', 'gamma-space', 'beta-space'])
+  })
+
   // Which repo a workspace belongs to has to be readable without opening it —
   // the name alone can't say, since only some names carry their branch prefix.
   it('names the repo of a workspace whose own name does not', () => {

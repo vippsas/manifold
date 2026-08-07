@@ -85,5 +85,14 @@ export function renderSidebar(overrides: Record<string, unknown> = {}) {
     ...overrides,
   }
 
-  return { ...render(<ProjectSidebar {...props as unknown as ProjectSidebarProps} />), props }
+  const view = render(<ProjectSidebar {...props as unknown as ProjectSidebarProps} />)
+
+  // Re-renders the same sidebar with some props changed, for the cases that only
+  // show up on a change — switching the active workspace, say — rather than on a
+  // fresh mount.
+  const setProps = (next: Record<string, unknown>): void => {
+    view.rerender(<ProjectSidebar {...{ ...props, ...next } as unknown as ProjectSidebarProps} />)
+  }
+
+  return { ...view, props, setProps }
 }

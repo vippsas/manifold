@@ -348,12 +348,24 @@ selects the workspace's home folder *and* opens its files, while its chevron
 home — disclosure alone never switches sessions, which would reload the agent, the editor and
 the tree (`WorkspaceCard.tsx:211`, `:232`).
 
-The **selected workspace is pinned first**, so where you are working is always at the top of
-the list — the one place you can find it without reading the list or scrolling
-(`sortByRecency`, `sidebar-recency.ts:68`; `WorkspaceList.tsx:103`). Below it nothing reorders
-while you work: the rest are sorted by the recency read at startup and then **held**, so
-picking an agent records the visit for the next launch without sliding its card to the top
-under the cursor (`sidebar-recency.ts:45`, `:49`).
+The **selected workspace is pinned first**, so where you are working is always the top row —
+the one place you can find it without reading the list (`sortByRecency`,
+`sidebar-recency.ts:68`; `WorkspaceList.tsx:104`). It then **sticks** there while its own
+folders and files scroll under it, so going deep into a tree never costs you the label saying
+where you are; it needs an explicit background, since a row is transparent until hovered and
+the rows passing beneath would read straight through it
+(`.sidebar-workspace-card.sidebar-project-group--active > .sidebar-project-row`,
+`styles/theme.css:870`). Sticky is scoped to the card, so the header releases once you scroll
+past the active workspace's own content into the ones below.
+
+Below the pinned row the list is a most-recently-used stack, so **the workspace you just left
+is the second row** and going back is always one predictable click. The visit is recorded from
+whichever workspace ended up *active* rather than from the click that asked for it — opening a
+folder inside another workspace, or a session restored at launch, moves you just as a click on
+the row does, and all of them have to leave the same trail (`WorkspaceList.tsx:74`,
+`sidebar-recency.ts:48`). Only the row you moved to and the one you left change places: every
+other row keeps the order it was already in, because their timestamps don't move and the sort
+is stable.
 
 Several folders showing at once is possible because **the main process authorizes file paths
 against the workspace roots** — every registered repo plus every session's worktree — not
