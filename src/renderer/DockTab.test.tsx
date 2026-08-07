@@ -6,6 +6,7 @@ import { DockTab } from './DockTab'
 import { DockStateContext } from './components/editor/editor-shell/dock-panel-types'
 import type { DockAppState } from './components/editor/editor-shell/dock-panel-types'
 import { siblingPanelId } from './hooks/agent-session/agent-siblings'
+import type { AgentSession } from '../shared/types'
 
 function makeHeaderProps(id: string, title: string): IDockviewPanelHeaderProps {
   return {
@@ -119,7 +120,7 @@ describe('DockTab', () => {
     expect(onToggleMaximize).not.toHaveBeenCalled()
   })
 
-  const agentSession = {
+  const agentSession: AgentSession = {
     id: 'child-1', projectId: 'p1', runtimeId: 'codex', branchName: 'manifold/test',
     worktreePath: '/wt', status: 'running', pid: 1, additionalDirs: [], workspaceId: 'ws-1',
   }
