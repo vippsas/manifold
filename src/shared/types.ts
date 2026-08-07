@@ -51,7 +51,9 @@ export interface AgentSession {
   groupId?: string
   /** True when this session runs Claude in non-interactive (chat) mode. */
   nonInteractive?: boolean
-  /** Legacy persisted field retained for backwards-compatible session discovery. */
+  /** Protects the agent from deletion until it is explicitly unlocked. Persisted
+   *  in the worktree meta, so it survives a restart. Locking never stops or
+   *  interrupts the agent — it only refuses to delete it. */
   locked?: boolean
 }
 

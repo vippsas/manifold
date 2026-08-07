@@ -586,6 +586,35 @@ select:focus-visible {
   box-shadow: 0 0 0 2px var(--accent-subtle), 0 0 10px var(--accent-subtle);
 }
 
+/* A locked agent is protected from deletion. The rest of a tab's actions are
+   hover-only, but the lock reports state rather than offering one, so it stays
+   visible — a padlock on the tab is how you see at a glance which agents are
+   safe from an accidental click on 🗑. */
+.dock-tab__action.is-locked {
+  opacity: 1;
+  color: var(--accent);
+}
+
+/* And that 🗑 is disabled until the agent is unlocked. Only the hover state is
+   dimmed: the reveal rule above would otherwise restore it to full opacity and
+   hide that it is disabled, while at rest it stays hidden like every other
+   action — a greyed-out 🗑 on an unhovered tab says nothing the padlock hasn't. */
+.dock-tab:hover .dock-tab__action:disabled,
+.dock-tab:focus-within .dock-tab__action:disabled {
+  /* Legible but plainly inert. Lower than this and the 🗑 reads as missing
+     rather than disabled, which is a different (and wrong) message. */
+  opacity: 0.45;
+}
+
+.dock-tab__action:disabled {
+  cursor: default;
+}
+
+.dock-tab__action:disabled:hover {
+  background: transparent;
+  color: var(--text-muted);
+}
+
 /* An editor pane's own actions sit at the right of its file tabs. They were a
    bordered input box, which read as a form control dropped into a strip of flat
    tabs; as the header pill they belong to the same row of controls. */

@@ -67,6 +67,7 @@ function makeDockState(overrides: Partial<DockAppState> = {}): DockAppState {
     onRemoveProject: () => {},
     onUpdateProject: () => {},
     onRenameAgent: () => {},
+    onToggleLocked: () => {},
     onRequestDeleteAgent: () => {},
     onNewAgentFromHeader: () => {},
     onNewProject: () => {},
@@ -142,6 +143,51 @@ describe('DockTab', () => {
 
     fireEvent.click(screen.getByLabelText('Delete k8s-app-conf'))
     expect(onRequestDeleteAgent).toHaveBeenCalledWith(agentSession, '/repos/alpha')
+  })
+
+  it('locks an unlocked agent from its tab', () => {
+    const onToggleLocked = vi.fn()
+    render(
+      <DockStateContext.Provider value={makeDockState({
+        onToggleLocked,
+        allProjectSessions: { p1: [agentSession] },
+      } as unknown as Partial<DockAppState>)}>
+        <DockTab {...makeHeaderProps(siblingPanelId('child-1'), 'k8s-app-conf')} />
+      </DockStateContext.Provider>,
+    )
+
+    const toggle = screen.getByLabelText('Lock k8s-app-conf to prevent deletion')
+    expect(toggle).toHaveAttribute('aria-pressed', 'false')
+
+    fireEvent.click(toggle)
+    expect(onToggleLocked).toHaveBeenCalledWith('child-1', true)
+  })
+
+  it('disables delete on a locked agent and offers to unlock it', () => {
+    const onToggleLocked = vi.fn()
+    const onRequestDeleteAgent = vi.fn()
+    render(
+      <DockStateContext.Provider value={makeDockState({
+        onToggleLocked,
+        onRequestDeleteAgent,
+        projects: [{ id: 'p1', name: 'Alpha', path: '/repos/alpha', baseBranch: 'main', addedAt: '2024-01-01' }],
+        allProjectSessions: { p1: [{ ...agentSession, locked: true }] },
+      } as unknown as Partial<DockAppState>)}>
+        <DockTab {...makeHeaderProps(siblingPanelId('child-1'), 'k8s-app-conf')} />
+      </DockStateContext.Provider>,
+    )
+
+    const deleteButton = screen.getByLabelText('Delete k8s-app-conf')
+    expect(deleteButton).toBeDisabled()
+    fireEvent.click(deleteButton)
+    expect(onRequestDeleteAgent).not.toHaveBeenCalled()
+
+    const toggle = screen.getByLabelText('Unlock k8s-app-conf')
+    expect(toggle).toHaveAttribute('aria-pressed', 'true')
+    expect(toggle.className).toContain('is-locked')
+
+    fireEvent.click(toggle)
+    expect(onToggleLocked).toHaveBeenCalledWith('child-1', false)
   })
 
   it('does not toggle focus mode when an agent tab action is double-clicked', () => {

@@ -180,6 +180,12 @@ export function App(): React.JSX.Element {
     setActiveSession(configured.id)
   }, [setActiveProject, setActiveSession, workspaceIdBySession])
 
+  const setAgentLocked = useCallback((sessionId: string, locked: boolean): void => {
+    void window.electronAPI.invoke('agent:set-locked', sessionId, locked).catch((err) => {
+      console.error('[App] failed to set agent locked:', err)
+    })
+  }, [])
+
   const overlays = useAppOverlays(gitOps.commit, refreshDiff, deleteAgent, removeSession, updateSettings, setActiveSession, setActiveProject, activeProjectId)
   const { themeId, themeClass, xtermTheme, setPreviewThemeId } = useTheme(settings.theme)
   const toggleTheme = useCallback(() => {
@@ -345,7 +351,7 @@ export function App(): React.JSX.Element {
       setActiveWorkspaceId(workspaceIdBySession[sessionId] ?? null)
       overlays.handleSelectSession(sessionId, projectId)
     },
-    onRenameAgent: renameAgent, onRequestDeleteAgent: overlays.requestDeleteAgent,
+    onRenameAgent: renameAgent, onToggleLocked: setAgentLocked, onRequestDeleteAgent: overlays.requestDeleteAgent,
     onNewAgentFromHeader: openNewAgentModal,
     // Picking a folder only opens its files. It cannot move an agent: an agent
     // lives in the workspace and always runs in the workspace's first folder, so

@@ -148,6 +148,12 @@ export function registerAgentHandlers(deps: IpcDependencies): void {
   ipcMain.handle('agent:kill', async (_event, sessionId: string) => {
     const session = sessionManager.getSession(sessionId)
     debugLog(`[agent:kill] sessionId=${sessionId} found=${!!session} worktreePath=${session?.worktreePath ?? 'n/a'} noWorktree=${session?.noWorktree ?? 'n/a'}`)
+    // A locked agent is protected from deletion until explicitly unlocked. The
+    // renderer gates this too, but keep the hard guard here so no path (stale
+    // UI state, direct IPC) can delete a locked agent. Internal lifecycle kills
+    // (mode switch, respawn) call killSession directly and bypass this handler,
+    // so locking never blocks a respawn.
+    if (session?.locked) throw new Error(`Refusing to delete locked agent: ${sessionId}`)
     // Deleting a noWorktree agent keeps the branch checked out, and discovery
     // would otherwise resurrect a dormant session from that branch state (#679).
     // Record the dismissal so the agent stays gone until explicitly recreated.

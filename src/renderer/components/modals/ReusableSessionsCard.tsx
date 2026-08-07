@@ -79,6 +79,8 @@ export function ReusableSessionsCard({ projectPath, sessions, onResumeSession, o
                 <button
                   type="button"
                   onClick={() => onDeleteSession?.(session)}
+                  disabled={!!session.locked}
+                  title={session.locked ? 'This agent is locked — unlock it on its tab to delete it' : undefined}
                   style={modalStyles.inlineDangerButton}
                 >
                   Delete

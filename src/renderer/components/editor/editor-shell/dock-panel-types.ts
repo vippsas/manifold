@@ -83,6 +83,8 @@ export interface DockAppState {
   outputtingSessionIds: Set<string>
   onSelectSession: (sessionId: string, projectId: string) => void
   onRenameAgent: (sessionId: string, settings: AgentSettingsUpdate) => Promise<void> | void
+  /** Lock/unlock an agent against deletion. Locking never stops the agent. */
+  onToggleLocked: (sessionId: string, locked: boolean) => void
   onRequestDeleteAgent: (session: AgentSession, projectPath: string) => void
   onNewAgentFromHeader: (workspaceId?: string) => void
   onNewProject: () => void
