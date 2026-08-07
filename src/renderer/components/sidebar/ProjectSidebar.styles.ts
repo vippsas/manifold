@@ -89,6 +89,10 @@ export const sidebarStyles: Record<string, React.CSSProperties> = {
     maxWidth: '45%',
     overflow: 'hidden',
     textOverflow: 'ellipsis',
+    // Without nowrap the ellipsis never fires: a long repo wraps instead, which
+    // both doubles the row's height and pads the box out to the full 45%,
+    // leaving a gap before the separator.
+    whiteSpace: 'nowrap',
     flexShrink: 0,
   },
   rowRepoSep: {
