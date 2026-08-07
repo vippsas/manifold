@@ -56,6 +56,7 @@ function onReady(e: DockviewReadyEvent): void {
 registerShellHeaderControls({
   canAddShell: true,
   onAddShell: () => {},
+  onHideTerminals: () => {},
 })
 
 // Minimal state so DockTab / WorkspaceHeaderActions render their buttons.
