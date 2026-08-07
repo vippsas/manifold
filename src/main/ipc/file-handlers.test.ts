@@ -191,6 +191,58 @@ describe('registerFileHandlers', () => {
     }
   })
 
+  // Creating follows reading: a workspace's files are browsable — and editable —
+  // before any agent has run in it, so there is no session id to send along.
+  it('creates a file and a folder in an open folder with no session selected', async () => {
+    const { registerFileHandlers } = await import('./file-handlers')
+    const repo = await mkdtemp(join(tmpdir(), 'manifold-create-agentless-'))
+    const tree: FileTreeNode = { name: 'repo', path: repo, isDirectory: true, children: [] }
+
+    try {
+      const deps = makeDeps(makeSession(repo), tree, { projectPaths: [repo] })
+      ;(deps.sessionManager.getSession as ReturnType<typeof vi.fn>).mockReturnValue(undefined)
+      ;(deps.sessionManager.listSessions as ReturnType<typeof vi.fn>).mockReturnValue([])
+      const createFile = vi.fn()
+      const createDir = vi.fn()
+      Object.assign(deps.fileWatcher, { createFile, createDir })
+      registerFileHandlers(deps)
+
+      const fileHandler = mocks.handlers.get('files:create-file')
+      const dirHandler = mocks.handlers.get('files:create-dir')
+      if (!fileHandler || !dirHandler) throw new Error('create handlers were not registered')
+
+      fileHandler({}, null, repo, 'notes.md')
+      dirHandler({}, null, repo, 'docs')
+
+      expect(createFile).toHaveBeenCalledWith(join(repo, 'notes.md'))
+      expect(createDir).toHaveBeenCalledWith(join(repo, 'docs'))
+    } finally {
+      await rm(repo, { recursive: true, force: true })
+    }
+  })
+
+  it('still denies creating in no open folder', async () => {
+    const { registerFileHandlers } = await import('./file-handlers')
+    const worktree = await mkdtemp(join(tmpdir(), 'manifold-create-worktree-'))
+    const outside = await mkdtemp(join(tmpdir(), 'manifold-create-outside-'))
+    const tree: FileTreeNode = { name: 'repo', path: worktree, isDirectory: true, children: [] }
+
+    try {
+      const deps = makeDeps(makeSession(worktree), tree)
+      const createFile = vi.fn()
+      Object.assign(deps.fileWatcher, { createFile })
+      registerFileHandlers(deps)
+      const handler = mocks.handlers.get('files:create-file')
+      if (!handler) throw new Error('files:create-file handler was not registered')
+
+      expect(() => handler({}, 'sess-1', outside, 'secrets.env')).toThrow('Path traversal denied')
+      expect(createFile).not.toHaveBeenCalled()
+    } finally {
+      await rm(worktree, { recursive: true, force: true })
+      await rm(outside, { recursive: true, force: true })
+    }
+  })
+
   it('writes a pasted clipboard image into the requested directory', async () => {
     const { registerFileHandlers } = await import('./file-handlers')
     const root = await mkdtemp(join(tmpdir(), 'manifold-paste-image-test-'))

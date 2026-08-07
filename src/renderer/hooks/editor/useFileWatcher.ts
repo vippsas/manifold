@@ -151,9 +151,11 @@ export function useFileWatcher(
     [sessionId]
   )
 
+  // No session id needed: the sidebar creates in folders that have no agent
+  // yet, and the main process authorizes the path by the folders the user has
+  // open. Bailing out here made "New File"/"New Folder" fail silently there.
   const createFile = useCallback(
     async (dirPath: string, fileName: string): Promise<boolean> => {
-      if (!sessionId) return false
       try {
         const result = (await window.electronAPI.invoke('files:create-file', sessionId, dirPath, fileName)) as
           | { tree: FileTreeNode }
@@ -169,7 +171,6 @@ export function useFileWatcher(
 
   const createDir = useCallback(
     async (dirPath: string, dirName: string): Promise<boolean> => {
-      if (!sessionId) return false
       try {
         const result = (await window.electronAPI.invoke('files:create-dir', sessionId, dirPath, dirName)) as
           | { tree: FileTreeNode }

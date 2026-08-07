@@ -52,6 +52,70 @@ function renderTwoWorktrees(onMovePath = vi.fn(async () => null)) {
   return { ...result, onMovePath, rootB }
 }
 
+/** The sidebar's shape: the root row is flattened away, so its children are the
+ *  tree's top level. */
+function renderFlattenedRoot() {
+  const tree = dir('repo', '/repo', [
+    dir('.claude', '/repo/.claude', [file('settings.json', '/repo/.claude/settings.json')]),
+    file('README.md', '/repo/README.md'),
+  ])
+  const result = render(
+    <FileTree
+      showToolbar={false}
+      flattenRoots
+      tree={tree}
+      changes={[]}
+      activeFilePath={null}
+      openFilePaths={new Set()}
+      expandedPaths={new Set(['/repo', '/repo/.claude'])}
+      onToggleExpand={vi.fn()}
+      onSelectFile={vi.fn()}
+      onCreateFile={vi.fn(async () => true)}
+      onCreateDir={vi.fn(async () => true)}
+      worktreeRootPath="/repo"
+    />
+  )
+  const rightClick = (path: string): void => {
+    const row = result.container.querySelector(`[data-tree-path="${path}"]`)
+    if (!row) throw new Error(`no row for ${path}`)
+    fireEvent.contextMenu(row)
+  }
+  return { ...result, rightClick }
+}
+
+// The flattened root has no row of its own, so the create input it hosts had
+// nowhere to render: "New File" on a top-level entry looked like a dead menu.
+describe('FileTree create under a flattened root', () => {
+  it('prompts for a name when the target sits at the root', () => {
+    const { rightClick } = renderFlattenedRoot()
+
+    rightClick('/repo/README.md')
+    fireEvent.click(screen.getByText('New File'))
+
+    expect(screen.getByPlaceholderText('filename')).toBeTruthy()
+  })
+
+  it('prompts for a name when the target is the root itself (empty space)', () => {
+    const { container } = renderFlattenedRoot()
+
+    const treeContainer = container.querySelector('[data-tree-root-path="/repo"]')?.parentElement
+    if (!treeContainer) throw new Error('expected a tree container')
+    fireEvent.contextMenu(treeContainer)
+    fireEvent.click(screen.getByText('New Folder'))
+
+    expect(screen.getByPlaceholderText('folder name')).toBeTruthy()
+  })
+
+  it('still prompts for a name inside a nested directory', () => {
+    const { rightClick } = renderFlattenedRoot()
+
+    rightClick('/repo/.claude/settings.json')
+    fireEvent.click(screen.getByText('New File'))
+
+    expect(screen.getByPlaceholderText('filename')).toBeTruthy()
+  })
+})
+
 describe('FileTree cross-worktree move error banner', () => {
   afterEach(() => {
     vi.useRealTimers()

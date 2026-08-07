@@ -4,7 +4,7 @@ import { execFile } from 'node:child_process'
 import { extname, resolve } from 'node:path'
 import { promisify } from 'node:util'
 import type { IpcDependencies } from './types'
-import type { AgentSession } from '../../shared/types'
+import type { AgentSession, FileTreeNode } from '../../shared/types'
 import { listWorktreeFiles } from '../fs/list-files'
 import { openTerminal } from './open-terminal'
 import { debugLog } from '../app/debug-log'
@@ -144,34 +144,25 @@ export function registerFileHandlers(deps: IpcDependencies): void {
     return { tree: fileWatcher.getFileTree(session.worktreePath) }
   })
 
-  ipcMain.handle('files:create-file', (_event, sessionId: string, dirPath: string, fileName: string) => {
-    const session = sessionManager.getSession(sessionId)
-    if (!session) throw new Error(`Session not found: ${sessionId}`)
-    const resolvedDir = resolve(session.worktreePath, dirPath)
-    if (!isAllowed(resolvedDir, session)) {
-      throw new Error('Path traversal denied: directory outside allowed directories')
-    }
-    const filePath = resolve(resolvedDir, fileName)
-    if (!isAllowed(filePath, session)) {
-      throw new Error('Path traversal denied: file outside allowed directories')
-    }
-    fileWatcher.createFile(filePath)
-    return { tree: fileWatcher.getFileTree(session.worktreePath) }
+  // Creating needs no session either, for the same reason reading and saving
+  // don't: a workspace shows its files before any agent works in it, and the
+  // folders the user has open authorize the write. The selected session's tree
+  // only rides along for the renderer that mirrors it.
+  const sessionTree = (sessionId: string | null): { tree?: FileTreeNode } => {
+    const session = sessionId ? sessionManager.getSession(sessionId) : undefined
+    return session ? { tree: fileWatcher.getFileTree(session.worktreePath) } : {}
+  }
+
+  ipcMain.handle('files:create-file', (_event, sessionId: string | null, dirPath: string, fileName: string) => {
+    const dir = authorize(sessionId, dirPath)
+    fileWatcher.createFile(authorize(sessionId, resolve(dir, fileName)))
+    return sessionTree(sessionId)
   })
 
-  ipcMain.handle('files:create-dir', (_event, sessionId: string, dirPath: string, dirName: string) => {
-    const session = sessionManager.getSession(sessionId)
-    if (!session) throw new Error(`Session not found: ${sessionId}`)
-    const resolvedDir = resolve(session.worktreePath, dirPath)
-    if (!isAllowed(resolvedDir, session)) {
-      throw new Error('Path traversal denied: directory outside allowed directories')
-    }
-    const newDirPath = resolve(resolvedDir, dirName)
-    if (!isAllowed(newDirPath, session)) {
-      throw new Error('Path traversal denied: directory outside allowed directories')
-    }
-    fileWatcher.createDir(newDirPath)
-    return { tree: fileWatcher.getFileTree(session.worktreePath) }
+  ipcMain.handle('files:create-dir', (_event, sessionId: string | null, dirPath: string, dirName: string) => {
+    const dir = authorize(sessionId, dirPath)
+    fileWatcher.createDir(authorize(sessionId, resolve(dir, dirName)))
+    return sessionTree(sessionId)
   })
 
   ipcMain.handle('files:import', (_event, sessionId: string, dirPath: string, sourcePaths: string[]) => {
