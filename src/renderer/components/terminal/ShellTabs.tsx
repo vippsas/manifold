@@ -14,6 +14,9 @@ interface ShellTabsProps {
   scrollbackLines: number
   terminalFontFamily?: string
   xtermTheme?: ITheme
+  /** Hide the whole terminal view (the shell dock panel). The terminals stay
+   *  alive in the store, so reopening the panel shows them again. */
+  onHide?: () => void
 }
 
 function ShellTerminalView({
@@ -33,7 +36,7 @@ function ShellTerminalView({
 }
 
 export function ShellTabs({
-  cwd, scrollbackLines, terminalFontFamily, xtermTheme,
+  cwd, scrollbackLines, terminalFontFamily, xtermTheme, onHide,
 }: ShellTabsProps): React.JSX.Element {
   // No local error state: the panel unmounts on close, so anything held here
   // would either vanish or come back from the dead on reopen. The store owns
@@ -57,10 +60,13 @@ export function ShellTabs({
     if (cwd) setActiveTerminal(cwd, sessionId)
   }, [cwd])
 
+  const hideTerminals = useCallback(() => { onHide?.() }, [onHide])
+
   const headerControls = React.useMemo(() => ({
     canAddShell: Boolean(cwd),
     onAddShell: addShell,
-  }), [cwd, addShell])
+    onHideTerminals: hideTerminals,
+  }), [cwd, addShell, hideTerminals])
 
   useEffect(() => {
     registerShellHeaderControls(headerControls)

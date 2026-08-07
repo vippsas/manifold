@@ -22,6 +22,7 @@ function makeControls(over: Partial<ShellHeaderControls> = {}): ShellHeaderContr
   return {
     canAddShell: true,
     onAddShell: vi.fn(),
+    onHideTerminals: vi.fn(),
     ...over,
   }
 }
@@ -63,13 +64,14 @@ describe('ShellHeaderActions', () => {
     unregisterShellHeaderControls(controls)
   })
 
-  it('leaves killing a terminal to the list, and carries no kill button', () => {
+  it('hides the whole terminal view from the header close button', () => {
     const controls = makeControls()
     registerShellHeaderControls(controls)
 
     const { unmount } = render(<ShellHeaderActions {...makeHeaderProps('shell')} />)
 
-    expect(screen.queryByRole('button', { name: /kill/i })).toBeNull()
+    fireEvent.click(screen.getByRole('button', { name: 'Hide Terminals' }))
+    expect(controls.onHideTerminals).toHaveBeenCalledTimes(1)
 
     unmount()
     unregisterShellHeaderControls(controls)

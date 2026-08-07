@@ -6,7 +6,7 @@ import { render, screen, fireEvent } from '@testing-library/react'
 import type { IDockviewHeaderActionsProps } from 'dockview'
 import type { DockAppState } from './dock-panel-types'
 import { DockStateContext } from './dock-panel-types'
-import { AgentHeaderActions } from './AgentHeaderActions'
+import { AgentCloseHeaderActions, AgentHeaderActions } from './AgentHeaderActions'
 
 const mockInvoke = vi.fn()
 
@@ -31,15 +31,30 @@ function makeState(overrides: Partial<DockAppState> = {}): DockAppState {
     projects: [{ id: 'p1', name: 'Alpha', path: '/repos/alpha', baseBranch: 'main', addedAt: '2024-01-01' }],
     onNewAgentFromHeader: vi.fn(),
     onRenameAgent: vi.fn(),
+    onCloseSiblingPanel: vi.fn(),
     ...overrides,
   } as unknown as DockAppState
 }
 
-function renderActions(state: DockAppState, panelIds: string[]): void {
-  const props = { panels: panelIds.map((id) => ({ id })) } as unknown as IDockviewHeaderActionsProps
+function makeProps(panelIds: string[], activePanelId?: string): IDockviewHeaderActionsProps {
+  return {
+    panels: panelIds.map((id) => ({ id })),
+    activePanel: activePanelId ? { id: activePanelId } : undefined,
+  } as unknown as IDockviewHeaderActionsProps
+}
+
+function renderActions(state: DockAppState, panelIds: string[], activePanelId?: string): void {
   render(
     <DockStateContext.Provider value={state}>
-      <AgentHeaderActions {...props} />
+      <AgentHeaderActions {...makeProps(panelIds, activePanelId)} />
+    </DockStateContext.Provider>,
+  )
+}
+
+function renderCloseActions(state: DockAppState, panelIds: string[], activePanelId?: string): void {
+  render(
+    <DockStateContext.Provider value={state}>
+      <AgentCloseHeaderActions {...makeProps(panelIds, activePanelId)} />
     </DockStateContext.Provider>,
   )
 }
@@ -80,18 +95,36 @@ describe('AgentHeaderActions', () => {
     expect(state.onNewAgentFromHeader).toHaveBeenCalledWith('w1')
   })
 
-  it('offers agent settings for the active agent', () => {
-    const state = makeState({
-      sessionId: 's1',
-      allProjectSessions: {
-        p1: [{
-          id: 's1', projectId: 'p1', runtimeId: 'claude', branchName: 'main',
-          worktreePath: '/repos/alpha', status: 'running', pid: 1, additionalDirs: [],
-        }],
-      },
-    } as unknown as Partial<DockAppState>)
-    renderActions(state, ['agent'])
+  it('hides the active sibling agent tab from the far-right ×', () => {
+    const state = makeState()
+    renderCloseActions(state, ['agent', 'agent:s7'], 'agent:s7')
 
-    expect(screen.getByLabelText('Agent settings')).toBeInTheDocument()
+    const hide = screen.getByLabelText('Hide agent tab')
+    expect(hide).not.toBeDisabled()
+    fireEvent.click(hide)
+
+    expect(state.onCloseSiblingPanel).toHaveBeenCalledWith('s7')
+  })
+
+  it('disables the far-right × while the primary agent tab is active', () => {
+    const state = makeState()
+    renderCloseActions(state, ['agent', 'agent:s7'], 'agent')
+
+    expect(screen.getByLabelText('Hide agent tab')).toBeDisabled()
+    fireEvent.click(screen.getByLabelText('Hide agent tab'))
+    expect(state.onCloseSiblingPanel).not.toHaveBeenCalled()
+  })
+
+  it('keeps the + on the left slot free of the hide ×', () => {
+    renderActions(makeState(), ['agent'], 'agent')
+
+    expect(screen.getByLabelText('New agent in checkout')).toBeInTheDocument()
+    expect(screen.queryByLabelText('Hide agent tab')).not.toBeInTheDocument()
+  })
+
+  it('no longer carries the settings gear (settings moved onto each tab)', () => {
+    renderActions(makeState(), ['agent'], 'agent')
+
+    expect(screen.queryByLabelText('Agent settings')).not.toBeInTheDocument()
   })
 })

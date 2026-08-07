@@ -3,6 +3,7 @@ import { fireEvent, render, screen, waitFor, within } from '@testing-library/rea
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { renderWithStrictMode } from '../../test-utils/strict-mode.test-helpers'
 import { resetShellTerminalStore } from './shell-terminal-store'
+import { getShellHeaderControls } from './shell-header-controls'
 import { ShellTabs } from './ShellTabs'
 
 vi.mock('../../hooks/terminal/useTerminal', () => ({
@@ -76,6 +77,15 @@ describe('ShellTabs', () => {
     const list = await screen.findByLabelText('Terminals')
     fireEvent.click(within(list).getByRole('button', { name: 'Kill Manifold 1' }))
     expect(mockInvoke).toHaveBeenCalledWith('shell:kill', 'shell-1')
+  })
+
+  it('hides the whole terminal view through the header control without killing', async () => {
+    const onHide = vi.fn()
+    render(<ShellTabs cwd="/solo" scrollbackLines={1000} onHide={onHide} />)
+    await screen.findByLabelText('Terminals')
+    getShellHeaderControls()?.onHideTerminals()
+    expect(onHide).toHaveBeenCalledTimes(1)
+    expect(mockInvoke).not.toHaveBeenCalledWith('shell:kill', expect.anything())
   })
 
   it('surfaces a failed open in the error strip', async () => {

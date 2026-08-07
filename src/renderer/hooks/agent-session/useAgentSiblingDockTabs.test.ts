@@ -1,9 +1,12 @@
 import { renderHook } from '@testing-library/react'
-import { describe, expect, it, vi } from 'vitest'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
 import type { DockviewApi } from 'dockview'
 import type { AgentSession } from '../../../shared/types'
 import { siblingPanelId } from './agent-siblings'
+import { markAgentTabDismissed, resetDismissedAgentTabs } from './dismissed-agent-tabs'
 import { useAgentSiblingDockTabs } from './useAgentSiblingDockTabs'
+
+beforeEach(() => resetDismissedAgentTabs())
 
 interface MockGroup {
   element: {
@@ -383,5 +386,57 @@ describe('useAgentSiblingDockTabs', () => {
     rerender({ ...props, activeSessionId: 'sibling-1' })
 
     expect(siblingPanel.api.setActive).toHaveBeenCalled()
+  })
+
+  it('does not recreate a sibling tab the user hid, then reopens it on select', () => {
+    const group: MockGroup = {
+      element: { getBoundingClientRect: () => ({ top: 0, left: 0 }) },
+      panels: [],
+    }
+    // Only the primary agent panel exists — the sibling's tab was hidden.
+    const agentPanel = buildPanel('agent', group)
+    const panels = new Map<string, MockPanel>([[agentPanel.id, agentPanel]])
+    const addPanel = vi.fn()
+    const api = {
+      getPanel: ((panelId: string) => panels.get(panelId)) as DockviewApi['getPanel'],
+      addPanel,
+      removePanel: vi.fn((panel: MockPanel) => panels.delete(panel.id)),
+      onDidActivePanelChange: (() => ({ dispose() {} })) as DockviewApi['onDidActivePanelChange'],
+    } as unknown as DockviewApi
+    Object.defineProperty(api, 'panels', { get: () => Array.from(panels.values()) })
+
+    const sessions: AgentSession[] = [
+      {
+        id: 'primary', projectId: 'p1', runtimeId: 'codex', branchName: 'manifold/main',
+        worktreePath: '/worktrees/main', status: 'running', pid: 1, additionalDirs: [],
+      },
+      {
+        id: 'sibling-1', projectId: 'p1', runtimeId: 'claude', branchName: 'manifold/main',
+        worktreePath: '/worktrees/main', status: 'waiting', pid: 2, additionalDirs: [],
+      },
+    ]
+
+    // The user hid the sibling's tab (AgentHeaderActions × -> closeSiblingPanel).
+    markAgentTabDismissed('sibling-1')
+
+    const props = {
+      apiRef: { current: api },
+      layoutVersion: 1,
+      sessions,
+      activeWorktreePath: '/worktrees/main',
+      primarySessionId: 'primary',
+      activeSessionId: 'primary' as string | null,
+      onSelectSession: vi.fn(),
+    }
+    const { rerender } = renderHook((p) => useAgentSiblingDockTabs(p), { initialProps: props })
+
+    // The auto-tab effect must leave the hidden sibling alone, even as it re-runs.
+    expect(addPanel).not.toHaveBeenCalled()
+    rerender({ ...props, layoutVersion: 2 })
+    expect(addPanel).not.toHaveBeenCalled()
+
+    // Selecting the agent from the sidebar (makes it active) un-hides its tab.
+    rerender({ ...props, activeSessionId: 'sibling-1' })
+    expect(addPanel).toHaveBeenCalledWith(expect.objectContaining({ id: siblingPanelId('sibling-1') }))
   })
 })

@@ -11,6 +11,7 @@ import {
   type LayoutRefs,
 } from './dock-layout-helpers'
 import { siblingPanelId } from '../agent-session/agent-siblings'
+import { clearAgentTabDismissed, markAgentTabDismissed } from '../agent-session/dismissed-agent-tabs'
 import type { AgentSession } from '../../../shared/types'
 import { applyDefaultLayout, syncEditorPanelIds } from './dock-layout-builders'
 import type { DockLayoutCtx } from './dock-layout-context'
@@ -161,6 +162,9 @@ export function useDockLayout(
   const closeSiblingPanel = useCallback((sessionId: string): void => {
     const api = apiRef.current
     if (!api) return
+    // Mark before removing so the auto-tab effect (useAgentSiblingDockTabs),
+    // which re-runs on any dock change, doesn't immediately recreate the tab.
+    markAgentTabDismissed(sessionId)
     const panel = api.getPanel(siblingPanelId(sessionId))
     if (panel) api.removePanel(panel)
   }, [])
@@ -168,6 +172,8 @@ export function useDockLayout(
   const openSiblingPanel = useCallback((sessionId: string, title?: string, _referencePanelId?: string): void => {
     const api = apiRef.current
     if (!api) return
+    // Reopening clears any earlier hide, so the auto-tab effect keeps it around.
+    clearAgentTabDismissed(sessionId)
     const panelId = siblingPanelId(sessionId)
     let panel = api.getPanel(panelId)
     if (!panel) {

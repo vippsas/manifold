@@ -8,7 +8,7 @@ import type { UseGitOperationsResult } from './hooks/editor/useGitOperations'
 import type { UseUpdateLogResult } from '../shared/useUpdateLog'
 import { PANEL_COMPONENTS, DockStateContext } from './components/editor/editor-shell/dock-panels'
 import { ShellHeaderActions } from './components/terminal/ShellHeaderActions'
-import { AgentHeaderActions } from './components/editor/editor-shell/AgentHeaderActions'
+import { AgentHeaderActions, AgentCloseHeaderActions } from './components/editor/editor-shell/AgentHeaderActions'
 import { WorkspaceHeaderActions } from './components/editor/editor-shell/WorkspaceHeaderActions'
 import { OnboardingView } from './components/modals/OnboardingView'
 import { DashboardHomeView } from './components/home/DashboardHomeView'
@@ -59,6 +59,7 @@ function RightHeaderActions(props: React.ComponentProps<typeof ShellHeaderAction
   return (
     <>
       <ShellHeaderActions {...props} />
+      <AgentCloseHeaderActions {...props} />
       <WorkspaceHeaderActions {...props} />
     </>
   )

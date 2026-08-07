@@ -125,6 +125,16 @@ export function ShellHeaderActions({ activePanel }: IDockviewHeaderActionsProps)
           document.body,
         )}
       </div>
+      <button
+        type="button"
+        style={styles.headerCloseButton}
+        className="shell-header-close-button"
+        onClick={() => controls.onHideTerminals()}
+        title="Hide Terminals"
+        aria-label="Hide Terminals"
+      >
+        ×
+      </button>
     </div>
   )
 }

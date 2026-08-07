@@ -505,26 +505,18 @@ select:focus-visible {
   min-width: 0;
 }
 
-.dock-tab__role {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  height: 16px;
-  min-width: 16px;
-  padding: 0 5px;
-  border-radius: var(--radius-pill);
-  font-size: var(--type-ui-micro);
-  font-weight: 700;
-  letter-spacing: var(--tracking-wide);
-  text-transform: uppercase;
-  flex-shrink: 0;
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.06);
-}
-
-.dock-tab__role--workspace {
-  background: linear-gradient(135deg, var(--accent-subtle), color-mix(in srgb, var(--accent), transparent 74%));
-  color: var(--text-primary);
-  border: 1px solid color-mix(in srgb, var(--accent), var(--border) 72%);
+/* Text tabs (agent, shell, module panels) read as rounded-square chips floating
+   in the header strip — a themed elevated surface, gently rounded (not a pill).
+   Icon and headless tabs (sidebar/editor) keep their own treatment. The active
+   and hover fills live in dockview-theme.css, scoped to dockview's `.dv-active-tab`. */
+.dock-tab:not(.dock-tab--icon):not(.dock-tab--headless) {
+  height: calc(100% - 8px);
+  margin-block: 4px;
+  border-radius: var(--radius-xs);
+  background: var(--bg-elevated);
+  color: var(--text-secondary);
+  box-shadow: inset 0 0 0 1px var(--border);
+  transition: background 150ms ease, color 150ms ease, box-shadow 150ms ease;
 }
 
 /* Every control in a card's header strip — a text tab's ×, the icon-tab group's
@@ -556,6 +548,42 @@ select:focus-visible {
   display: inline-flex;
   align-items: center;
   justify-content: center;
+}
+
+/* Per-tab agent actions (⚙ settings, 🗑 delete — see DockTab). Hidden until the
+   tab is hovered or holds the keyboard, so a strip of agent tabs reads as names
+   rather than a row of icons; killing/settings is a deliberate reveal. The
+   group header's × (hide) stays a separate always-visible control. */
+.dock-tab__action {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 20px;
+  padding: 0;
+  border: none;
+  background: transparent;
+  border-radius: var(--radius-xs);
+  color: var(--text-muted);
+  cursor: pointer;
+  opacity: 0;
+  transition: opacity 150ms ease, background 150ms ease, color 150ms ease;
+}
+
+.dock-tab:hover .dock-tab__action,
+.dock-tab:focus-within .dock-tab__action {
+  opacity: 1;
+}
+
+.dock-tab__action:hover {
+  background: var(--statusbar-hover-bg);
+  color: var(--text-primary);
+}
+
+.dock-tab__action:focus-visible {
+  outline: none;
+  opacity: 1;
+  box-shadow: 0 0 0 2px var(--accent-subtle), 0 0 10px var(--accent-subtle);
 }
 
 /* An editor pane's own actions sit at the right of its file tabs. They were a
@@ -675,28 +703,29 @@ select:focus-visible {
 }
 
 .shell-header-add-button,
-.agent-header-add-button,
-.agent-header-settings-button {
+.shell-header-close-button,
+.agent-header-add-button {
   transition: background 150ms ease, color 150ms ease;
 }
 
 .shell-header-add-button:hover,
-.agent-header-add-button:hover,
-.agent-header-settings-button:hover {
+.shell-header-close-button:hover,
+.agent-header-add-button:hover {
   background: var(--list-hover-bg);
   color: var(--text-primary);
 }
 
 .shell-header-add-button:focus-visible,
-.agent-header-add-button:focus-visible,
-.agent-header-settings-button:focus-visible {
+.shell-header-close-button:focus-visible,
+.agent-header-add-button:focus-visible {
   outline: none;
   box-shadow: 0 0 0 2px var(--accent-subtle), 0 0 10px var(--accent-subtle);
 }
 
 /* A row in the shell panel's terminal list (see ShellTabControls). The kill
    trash stays hidden until the row is hovered or holds the keyboard, so a list
-   of terminals reads as names rather than a column of icons. */
+   of terminals reads as names rather than a column of icons. The header's × is
+   a separate control that hides the whole terminal view. */
 .shell-tab {
   transition: background 150ms ease, color 150ms ease;
 }
@@ -894,6 +923,51 @@ select:focus-visible {
 }
 
 .sidebar-files-toggle:hover {
+  color: var(--text-primary);
+}
+
+/* A workspace row leads with its folder, not a chevron beside one: the same
+   icon column carries the disclosure, swapping to the state's chevron while the
+   row is hovered or focused so the affordance appears where the eye already is. */
+.sidebar-workspace-toggle {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  width: 16px;
+  height: 16px;
+  margin-left: -4px;
+  padding: 0;
+  border: none;
+  background: none;
+  color: var(--text-muted);
+  cursor: pointer;
+}
+
+.sidebar-workspace-toggle__folder,
+.sidebar-workspace-toggle__chevron {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* Keyboard focus is `:focus-visible`, not `:focus-within`: clicking the row
+   focuses it, and that must not leave the chevron showing after the pointer
+   has gone. */
+.sidebar-workspace-toggle__chevron,
+.sidebar-item-row:hover .sidebar-workspace-toggle__folder,
+.sidebar-item-row:focus-visible .sidebar-workspace-toggle__folder,
+.sidebar-workspace-toggle:focus-visible .sidebar-workspace-toggle__folder {
+  display: none;
+}
+
+.sidebar-item-row:hover .sidebar-workspace-toggle__chevron,
+.sidebar-item-row:focus-visible .sidebar-workspace-toggle__chevron,
+.sidebar-workspace-toggle:focus-visible .sidebar-workspace-toggle__chevron {
+  display: inline-flex;
+}
+
+.sidebar-workspace-toggle:hover {
   color: var(--text-primary);
 }
 

@@ -256,6 +256,24 @@
   background: var(--accent-subtle);
 }
 
+/* Text-tab chips: a little breathing room so adjacent chips don't touch, then
+   brighten on hover and tint with the accent when active — the chip carries the
+   current theme's accent rather than text weight alone. */
+.dockview-theme-manifold .dv-tab:has(.dock-tab):not(:has(.dock-tab--icon)):not(:has(.dock-tab--headless)) {
+  padding-inline: 2px;
+}
+
+.dockview-theme-manifold .dv-tab:hover .dock-tab:not(.dock-tab--icon):not(.dock-tab--headless) {
+  color: var(--text-primary);
+  box-shadow: inset 0 0 0 1px var(--divider);
+}
+
+.dockview-theme-manifold .dv-active-tab .dock-tab:not(.dock-tab--icon):not(.dock-tab--headless) {
+  background: var(--accent-subtle);
+  color: var(--text-primary);
+  box-shadow: inset 0 0 0 1px var(--sidebar-active-border);
+}
+
 /* Hide tab close button by default, show on tab hover */
 .dockview-theme-manifold .dv-default-tab .dv-default-tab-action {
   opacity: 0;

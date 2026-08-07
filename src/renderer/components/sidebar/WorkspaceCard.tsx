@@ -111,18 +111,25 @@ export function WorkspaceCard({
         style={{ ...sidebarStyles.item, ...(isActive ? sidebarStyles.itemActive : undefined) }}
         title={workspace.name}
       >
+        {/* The workspace's folder icon is also its disclosure: it turns into the
+            chevron for its state while the row is hovered or focused, so the row
+            keeps one icon column instead of a chevron beside a folder. */}
         <button
           type="button"
           onClick={(e) => { e.stopPropagation(); onToggleExpanded() }}
           onKeyDown={(e) => e.stopPropagation()}
-          className="sidebar-files-toggle"
+          className="sidebar-workspace-toggle"
           aria-expanded={expanded}
           aria-label={`${expanded ? 'Collapse' : 'Expand'} ${workspace.name}`}
           title={expanded ? 'Collapse workspace' : 'Expand workspace'}
         >
-          <FilesChevronGlyph expanded={expanded} />
+          <span className="sidebar-workspace-toggle__folder">
+            <WorkspaceGlyph active={isActive} />
+          </span>
+          <span className="sidebar-workspace-toggle__chevron">
+            <FilesChevronGlyph expanded={expanded} />
+          </span>
         </button>
-        <WorkspaceGlyph active={isActive} />
         {nameDraft !== null ? (
           <input
             ref={focusAndSelect}

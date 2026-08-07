@@ -123,6 +123,7 @@ function ShellPanel(): React.JSX.Element {
       scrollbackLines={s.scrollbackLines}
       terminalFontFamily={s.terminalFontFamily}
       xtermTheme={s.xtermTheme}
+      onHide={() => s.onClosePanel('shell')}
     />
   )
 }

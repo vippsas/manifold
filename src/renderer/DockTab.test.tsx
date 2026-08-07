@@ -105,18 +105,69 @@ describe('DockTab', () => {
     expect(onToggleMaximize).toHaveBeenCalledWith('agent')
   })
 
-  it('does not toggle focus mode when the close button is double-clicked', () => {
+  it('does not toggle focus mode when a non-agent tab close is double-clicked', () => {
     const onToggleMaximize = vi.fn()
     const onClosePanel = vi.fn()
     render(
       <DockStateContext.Provider value={makeDockState({ onToggleMaximize, onClosePanel })}>
-        <DockTab {...makeHeaderProps('agent', 'Claude')} />
+        <DockTab {...makeHeaderProps('memory', 'Memory')} />
       </DockStateContext.Provider>,
     )
 
-    fireEvent.doubleClick(screen.getByTitle('Close Claude'))
+    fireEvent.doubleClick(screen.getByTitle('Close Memory'))
 
     expect(onToggleMaximize).not.toHaveBeenCalled()
+  })
+
+  const agentSession = {
+    id: 'child-1', projectId: 'p1', runtimeId: 'codex', branchName: 'manifold/test',
+    worktreePath: '/wt', status: 'running', pid: 1, additionalDirs: [], workspaceId: 'ws-1',
+  }
+
+  it('gives an agent tab settings + delete instead of a close, and deletes on 🗑', () => {
+    const onRequestDeleteAgent = vi.fn()
+    render(
+      <DockStateContext.Provider value={makeDockState({
+        onRequestDeleteAgent,
+        projects: [{ id: 'p1', name: 'Alpha', path: '/repos/alpha', baseBranch: 'main', addedAt: '2024-01-01' }],
+        allProjectSessions: { p1: [agentSession] },
+      } as unknown as Partial<DockAppState>)}>
+        <DockTab {...makeHeaderProps(siblingPanelId('child-1'), 'k8s-app-conf')} />
+      </DockStateContext.Provider>,
+    )
+
+    expect(screen.getByLabelText('Settings for k8s-app-conf')).toBeInTheDocument()
+    expect(screen.queryByTitle('Close k8s-app-conf')).toBeNull()
+
+    fireEvent.click(screen.getByLabelText('Delete k8s-app-conf'))
+    expect(onRequestDeleteAgent).toHaveBeenCalledWith(agentSession, '/repos/alpha')
+  })
+
+  it('does not toggle focus mode when an agent tab action is double-clicked', () => {
+    const onToggleMaximize = vi.fn()
+    render(
+      <DockStateContext.Provider value={makeDockState({
+        onToggleMaximize,
+        allProjectSessions: { p1: [agentSession] },
+      })}>
+        <DockTab {...makeHeaderProps(siblingPanelId('child-1'), 'k8s-app-conf')} />
+      </DockStateContext.Provider>,
+    )
+
+    fireEvent.doubleClick(screen.getByLabelText('Delete k8s-app-conf'))
+    expect(onToggleMaximize).not.toHaveBeenCalled()
+  })
+
+  it('gives the empty primary agent tab a label but no actions or close', () => {
+    render(
+      <DockStateContext.Provider value={makeDockState({ primarySessionId: null })}>
+        <DockTab {...makeHeaderProps('agent', 'Agent')} />
+      </DockStateContext.Provider>,
+    )
+
+    expect(screen.getByText('Agent')).toBeInTheDocument()
+    expect(screen.queryByTitle('Close Agent')).toBeNull()
+    expect(screen.queryByLabelText('Delete Agent')).toBeNull()
   })
 
   it('gives the sidebar group no tab of its own', () => {
@@ -153,7 +204,7 @@ describe('DockTab', () => {
     expect(onToggleMaximize).toHaveBeenCalledWith('editor')
   })
 
-  it('shows a compact workspace role pill on workspace child tabs', () => {
+  it('shows no workspace role pill on workspace child tabs', () => {
     render(
       <DockStateContext.Provider value={makeDockState({
         allProjectSessions: {
@@ -174,7 +225,7 @@ describe('DockTab', () => {
       </DockStateContext.Provider>,
     )
 
-    expect(screen.getByTitle('Workspace')).toHaveTextContent('W')
+    expect(screen.queryByTitle('Workspace')).toBeNull()
     expect(screen.getByText('k8s-app-conf')).toBeInTheDocument()
   })
 })
