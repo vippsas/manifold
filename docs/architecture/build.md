@@ -1,7 +1,7 @@
 ---
 description: How Manifold is built, type-checked, tested, packaged for macOS and x64 WSL2/Linux, and released.
 covers: [package.json]
-updated: 2026-07-27
+updated: 2026-07-30
 owner: see .github/CODEOWNERS
 ---
 
@@ -134,11 +134,13 @@ non-publishing Linux build and verifier on Ubuntu (`.github/workflows/ci-linux.y
 downloadable release artifacts remain macOS-only.
 
 **Release flow (`release.sh`).** The script takes one of `patch`/`minor`/`major`/`publish`
-(`release.sh:250-256`) and, after asserting a clean worktree, configured `origin`, and an
-authenticated `gh` (`:258-276`), branches into two paths:
+(`release.sh:262-268`) and, after asserting a clean worktree, configured `origin`, and a
+stored `gh` authentication token (`release.sh:270-287`), branches into two paths. The token
+preflight uses `gh auth token` rather than the network-backed `gh auth status`, so transient
+failures from GitHub's `/user` endpoint do not masquerade as missing credentials:
 
-- *Prepare* (`prepare_release`, `release.sh:129`): fetches `origin/main`, computes the next version from main's `package.json`, creates `release/v<next>` off `origin/main`, runs `npm version <type> --no-git-tag-version`, commits the bump, pushes, and opens (or reuses) a `gh pr create` against `main` (`:178-212`). It does **not** tag.
-- *Publish* (`publish_release`, `release.sh:219`): run *after* the bump PR is merged. Re-fetches `origin/main`, reads its now-bumped version, guards that the tag/release don't already exist (`:230-231`), then `git tag -a v<version>` at `origin/main`'s SHA, pushes the tag, and `gh release create --verify-tag --generate-notes` (`:233-239`).
+- *Prepare* (`prepare_release`, `release.sh:141`): fetches `origin/main`, computes the next version from main's `package.json`, creates `release/v<next>` off `origin/main`, runs `npm version <type> --no-git-tag-version`, commits the bump, pushes, and opens (or reuses) a `gh pr create` against `main` (`release.sh:190-224`). It does **not** tag.
+- *Publish* (`publish_release`, `release.sh:231`): run *after* the bump PR is merged. Re-fetches `origin/main`, reads its now-bumped version, guards that the tag/release don't already exist (`release.sh:242-243`), then `git tag -a v<version>` at `origin/main`'s SHA, pushes the tag, and `gh release create --verify-tag --generate-notes` (`release.sh:245-250`). The release guard continues only after an explicit HTTP 404; authorization, rate-limit, and network failures abort before the tag is created.
 
 Pushing the `v*` tag is the trigger for the real build: `release-dmg.yml` runs on
 `push: tags: v*` (`release-dmg.yml:6-7`), does `npm ci`, `npm run typecheck`, `npm test`,
@@ -156,7 +158,7 @@ packaging, but the canonical release artifacts come from CI on tag push.
 - `sync:codex-skills` — `package.json:31` → `scripts/sync-codex-skills.mjs`. Refreshes Codex's installed copies of every checked-in skill.
 - `buildPlugins()` — `scripts/build-plugins.mjs:14`. The esbuild plugin compiler; CLI-invoked via `build:plugins`.
 - `plugin:new` — `package.json:32` → `scripts/new-plugin.mjs`. Scaffolds `resources/plugins/<publisher>.<name>/` with a manifest + `src/plugin.ts`.
-- `prepare_release` / `publish_release` — `release.sh:129` / `:219`. The two release sub-commands.
+- `prepare_release` / `publish_release` — `release.sh:141` / `:231`. The two release sub-commands.
 
 ## Interactions
 

@@ -368,14 +368,29 @@ appear without a reload.
 bundle (`json`/`css`/`html`/`typescript`/`editor`) and registers the `monaco` instance
 with `@monaco-editor/react`'s `loader`. The actual editor component is `CodeViewer`.
 
-**Editor file freshness.** Open editor files live in `useCodeView` state as `OpenFile`
-records with a `refreshVersion` remount key (`useCodeView.ts:18`). The file watcher hook
-listens to both `files:changed` and `files:tree-changed`; for the active session it refreshes
-the tree and calls the app-level file-refresh callback (`useFileWatcher.ts:79`, `:93`). That
-callback reaches `useCodeViewFileOps.refreshOpenFiles()`, which rereads every file still open
-in an editor pane and increments `refreshVersion` when disk content changes
-(`useCodeViewFileOps.ts:259`). Selecting an already-open file also revalidates that one file
-before continuing to reuse the existing tab (`useCodeViewFileOps.ts:62`, `:93`, `:102`).
+**Editor view modes.** `useCodeViewerModes` owns the Editor/Preview/Diff selection for each
+pane. A default file-open request may select Diff when diff data exists, while file-tree,
+search, and preview-link opens select Editor (`components/editor/code-viewer/useCodeViewerModes.ts:92`).
+Once the user selects Editor or changes content, `CodeViewer` suppresses later automatic
+Diff selection for that open request, so the autosave/file-watcher diff refresh can expose
+the Diff toggle without replacing the active editor (`components/editor/code-viewer/CodeViewer.tsx:137`,
+`components/editor/code-viewer/useCodeViewerModes.ts:103`).
+
+**Editor file freshness and undo.** Open editor files live in `useCodeView` state as `OpenFile`
+records with a `refreshVersion` counter (`hooks/editor/useCodeView.ts:15`). The file watcher
+hook listens to both `files:changed` and `files:tree-changed`; for the active session it
+refreshes the tree and calls the app-level file-refresh callback
+(`hooks/editor/useFileWatcher.ts:79`, `:93`). That callback reaches
+`useCodeViewFileOps.refreshOpenFiles()`, which rereads every file still open in an editor pane
+and increments `refreshVersion` when disk content changes
+(`hooks/editor/useCodeViewFileOps.ts:279`, `:295`). The read-only Diff editor uses that counter
+as a remount key (`components/editor/code-viewer/CodeViewer.tsx:243`),
+but the editable `EditorContent` is keyed only by file path and receives refreshed text as a
+controlled Monaco value. Refreshes therefore update the current model without discarding
+Monaco's standard multi-step Undo/Redo history; switching files still creates a separate
+history (`components/editor/editor-shell/EditorContent.tsx:27`). Selecting an already-open
+file also revalidates that one file before continuing to reuse the existing tab
+(`hooks/editor/useCodeViewFileOps.ts:113`, `:122`, `:142`, `:157`).
 
 **Shared chat.** `src/renderer-shared/chat/` holds the chat surface — `ChatPane` plus the
 `useChat` / `useAgentStatus` / `useSlashCommands` hooks (`chat/index.ts`). Inside the
