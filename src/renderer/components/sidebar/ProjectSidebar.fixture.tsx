@@ -119,6 +119,10 @@ export default (
       onSelectWorkspaceRepo={() => undefined}
       onAddProjectToWorkspace={() => undefined}
       onRemoveProjectFromWorkspace={() => undefined}
+      // storefront trails origin, product-docs is level: both states of the
+      // folder row's fetch action in one shot.
+      behindCounts={{ frontend: 3 }}
+      onProjectFetched={() => undefined}
       drafts={[]}
       activeDraftId={null}
       onSelectDraft={() => undefined}

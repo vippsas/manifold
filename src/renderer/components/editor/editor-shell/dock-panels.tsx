@@ -147,6 +147,8 @@ function ExplorerView(): React.JSX.Element {
       onSelectWorkspaceRepo={s.onSelectWorkspaceRepo}
       onAddProjectToWorkspace={s.onAddProjectToWorkspace}
       onRemoveProjectFromWorkspace={s.onRemoveProjectFromWorkspace}
+      behindCounts={s.behindCounts}
+      onProjectFetched={s.onProjectFetched}
       drafts={s.drafts}
       activeDraftId={s.activeDraft?.id ?? null}
       onSelectDraft={(id) => s.onSelectSession(id, s.activeProjectId ?? '')}

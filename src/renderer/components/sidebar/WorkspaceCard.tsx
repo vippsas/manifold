@@ -32,6 +32,9 @@ export interface WorkspaceCardProps {
   onSelectRepo?: (workspaceId: string, projectId: string) => void
   onAddProject?: (workspaceId: string) => void | Promise<void>
   onRemoveProject?: (workspaceId: string, projectId: string) => void
+  /** How far each repo's base branch trails origin, by project id. */
+  behindCounts?: Record<string, number>
+  onProjectFetched?: (projectId: string) => void
   onSelectDraft: (id: string) => void
   onDiscardDraft: (id: string) => void
   renderFolderFiles?: (source: FolderSource) => React.ReactNode
@@ -61,6 +64,8 @@ export function WorkspaceCard({
   onSelectRepo,
   onAddProject,
   onRemoveProject,
+  behindCounts,
+  onProjectFetched,
   onSelectDraft,
   onDiscardDraft,
   renderFolderFiles,
@@ -228,10 +233,12 @@ export function WorkspaceCard({
           projectId={pid}
           repo={projectById(pid)}
           isActive={isActive && activeProjectId === pid}
+          behindCount={behindCounts?.[pid]}
           filesOpen={folders.isOpen(projectFolderKey(pid))}
           onToggleFiles={() => folders.toggle(projectFolderKey(pid))}
           onSelectRepo={onSelectRepo}
           onRemoveProject={onRemoveProject}
+          onFetched={onProjectFetched}
           renderFolderFiles={renderFolderFiles}
         />
       ))}

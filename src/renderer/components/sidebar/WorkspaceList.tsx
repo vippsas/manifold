@@ -25,6 +25,8 @@ export interface WorkspaceListProps {
   onSelectRepo?: (workspaceId: string, projectId: string) => void
   onAddProject?: (workspaceId: string) => void | Promise<void>
   onRemoveProject?: (workspaceId: string, projectId: string) => void
+  behindCounts?: Record<string, number>
+  onProjectFetched?: (projectId: string) => void
   onSelectDraft: (id: string) => void
   onDiscardDraft: (id: string) => void
   /** Renders a folder's file tree under its row while it is open. Injected by
@@ -52,6 +54,8 @@ export function WorkspaceList({
   onSelectRepo,
   onAddProject,
   onRemoveProject,
+  behindCounts,
+  onProjectFetched,
   onSelectDraft,
   onDiscardDraft,
   renderFolderFiles,
@@ -117,6 +121,8 @@ export function WorkspaceList({
           onSelectRepo={onSelectRepo}
           onAddProject={onAddProject}
           onRemoveProject={onRemoveProject}
+          behindCounts={behindCounts}
+          onProjectFetched={onProjectFetched}
           onSelectDraft={onSelectDraft}
           onDiscardDraft={onDiscardDraft}
           renderFolderFiles={renderFolderFiles}
