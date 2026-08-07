@@ -20,7 +20,11 @@ const RETIRED_PANEL_IDS = new Set([
 const RETIRED_SIDEBAR_PANEL_IDS = new Set(['projects', 'sourceControl', 'modifiedFiles'])
 const SUPPORTED_OPTIONAL_PANEL_IDS = new Set<string>()
 const PLUGIN_PANEL_COMPONENTS = new Set(['pluginView', 'pluginTreeView'])
-const RESTORED_SIDEBAR_MAX_FRACTION = 1 / 6
+// The share of the dock width the sidebar column gets. Not a ceiling but the
+// default: a restored layout is normalized back to it in either direction, so
+// the sidebar opens at the same width a fresh window builds
+// (`applyDefaultLayout`, and `SIDEBAR_WIDTH_FRACTION` in the loader).
+const RESTORED_SIDEBAR_FRACTION = 1 / 6
 const SIDEBAR_PANEL_IDS = new Set<string>(['sidebar'])
 
 type GridOrientation = 'HORIZONTAL' | 'VERTICAL'
@@ -119,7 +123,7 @@ function distributeFreedSize(branch: Extract<GridNode, { type: 'branch' }>, work
   })
 }
 
-function capSidebarWidthsInBranch(branch: Extract<GridNode, { type: 'branch' }>): boolean {
+function normalizeSidebarWidthInBranch(branch: Extract<GridNode, { type: 'branch' }>): boolean {
   const sidebarIndex = branch.data.findIndex(isSidebarSubtree)
   if (sidebarIndex < 0) return false
 
@@ -131,23 +135,30 @@ function capSidebarWidthsInBranch(branch: Extract<GridNode, { type: 'branch' }>)
   const total = branch.data.reduce((sum, child) => sum + Math.max(0, child.size), 0)
   if (total <= 0) return false
 
-  const maxSidebarSize = Math.round(total * RESTORED_SIDEBAR_MAX_FRACTION)
   const sidebar = branch.data[sidebarIndex]
-  if (sidebar.size <= maxSidebarSize) return false
+  // A collapsed sidebar is a state, not a width: the loader re-applies it by
+  // hand after fromJSON (restoreCollapsedSidebarWidths), so normalizing it
+  // would spring the sidebar open on every restart.
+  if (sidebar.size <= 0) return false
 
-  const freedSize = sidebar.size - maxSidebarSize
-  sidebar.size = maxSidebarSize
+  const defaultSidebarSize = Math.round(total * RESTORED_SIDEBAR_FRACTION)
+  if (sidebar.size === defaultSidebarSize) return false
+
+  // Negative when the sidebar is under its share: distributeFreedSize then
+  // takes the difference off the workspace panes instead of handing it to them.
+  const freedSize = sidebar.size - defaultSidebarSize
+  sidebar.size = defaultSidebarSize
   distributeFreedSize(branch, workspaceIndexes, freedSize)
   return true
 }
 
-function capRestoredSidebarWidths(node: GridNode, rootOrientation: GridOrientation, depth = 0): boolean {
+function normalizeRestoredSidebarWidths(node: GridNode, rootOrientation: GridOrientation, depth = 0): boolean {
   if (node.type === 'leaf') return false
 
   const orientation = branchOrientationAtDepth(rootOrientation, depth)
-  let changed = orientation === 'HORIZONTAL' ? capSidebarWidthsInBranch(node) : false
+  let changed = orientation === 'HORIZONTAL' ? normalizeSidebarWidthInBranch(node) : false
   for (const child of node.data) {
-    changed = capRestoredSidebarWidths(child, rootOrientation, depth + 1) || changed
+    changed = normalizeRestoredSidebarWidths(child, rootOrientation, depth + 1) || changed
   }
   return changed
 }
@@ -171,7 +182,7 @@ export function sanitizeDockLayout(
   if (!needsPanelSanitization) {
     const normalized = cloneLayout(saved)
     const rootOrientation = ((normalized.grid.orientation as GridOrientation | undefined) ?? 'HORIZONTAL')
-    return capRestoredSidebarWidths(normalized.grid.root as GridNode, rootOrientation) ? normalized : saved
+    return normalizeRestoredSidebarWidths(normalized.grid.root as GridNode, rootOrientation) ? normalized : saved
   }
 
   const sanitized = cloneLayout(saved)
@@ -180,7 +191,7 @@ export function sanitizeDockLayout(
 
   sanitized.grid.root = root
   const rootOrientation = ((sanitized.grid.orientation as GridOrientation | undefined) ?? 'HORIZONTAL')
-  capRestoredSidebarWidths(sanitized.grid.root as GridNode, rootOrientation)
+  normalizeRestoredSidebarWidths(sanitized.grid.root as GridNode, rootOrientation)
 
   const referencedPanelIds = new Set(collectPanelIds(root))
   for (const panelId of Object.keys((sanitized.panels ?? {}) as Record<string, unknown>)) {

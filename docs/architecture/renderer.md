@@ -224,10 +224,14 @@ Saved layouts are sanitized before
 a layout that names one of those but no `sidebar`, since stripping would leave a dock with no
 sidebar at all and the caller then builds the default
 (`hooks/dock-layout/dock-layout-sanitize.ts:20`, `:167`;
-`dock-layout-old-layout-migration.test.tsx`). It also caps a restored sidebar column,
-including stale stacked sidebar columns, to the same one-sixth share before the loader
-persists repaired snapshots (`hooks/dock-layout/dock-layout-sanitize.ts:122`, `:144`;
-`hooks/dock-layout/dock-layout-loader.ts:100`).
+`dock-layout-old-layout-migration.test.tsx`). It also **normalizes a restored sidebar
+column back to the one-sixth share the default layout builds** — in either direction, so a
+column that drifted narrow reopens as wide as a fresh window's, and stale stacked sidebar
+columns are pulled in too — before the loader persists repaired snapshots
+(`hooks/dock-layout/dock-layout-sanitize.ts:126`, `:155`;
+`hooks/dock-layout/dock-layout-loader.ts:100`). One sixth is therefore the sidebar's width
+at every app start; a drag holds only for the session. A **collapsed** sidebar is exempt
+(size 0 is a state, not a width) and survives the restart.
 **The editor is a document pane**, not a tab of the sidebar: it materializes on the first
 file open, splitting a column beside the agent, and an editor already present is left exactly
 where the user dragged it — opening a file must not relocate a pane
