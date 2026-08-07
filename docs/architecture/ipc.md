@@ -82,9 +82,11 @@ each repo**, plus every session's worktree and `additionalDirs` (`workspaceRoots
 not merely through the sessions working in them, because a workspace is browsable from the
 moment it exists — before any agent has run in it. It is deliberately *not* scoped to the
 selected session: the sidebar hangs a tree under every repo, all open at once, and a click there
-opens a file without first selecting its repo. Reading, saving and revealing take the session id
-as an optional hint for resolving a relative path and work with none at all
-(`authorize`, `:59`). One repo can be open in several workspaces at once, each with its own
+opens a file without first selecting its repo. Reading, saving, revealing and **creating** take
+the session id as an optional hint for resolving a relative path and work with none at all
+(`authorize`, `:59`; `files:create-file`/`files:create-dir`, `:156`, `:162`) — a workspace can
+be browsed and edited before an agent has ever run in it, so requiring a session id there made
+"New File"/"New Folder" fail silently. One repo can be open in several workspaces at once, each with its own
 checkout, so `files:tree-by-project` takes an optional `workspaceId` that decides *which*
 checkout's files come back; without it the repo's own clone answers (`file-handlers.ts:75`).
 `chat-image-handlers.ts`

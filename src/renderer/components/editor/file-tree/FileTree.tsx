@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import type { FileTreeNode, FileChange } from '../../../../shared/types'
-import { TreeNode, type TreeChangeEntry } from './tree-node'
+import { TreeChildren, TreeNode, type TreeChangeEntry } from './tree-node'
 import { ContextMenu } from './ContextMenu'
 import { treeStyles } from './FileTree.styles'
 import { describeDropTarget } from './file-tree-drop'
@@ -227,13 +227,7 @@ export function FileTree({
     if (!flattenRoots || !node.isDirectory || !node.children || node.children.length === 0) {
       return <TreeNode node={node} depth={0} {...treeNodeProps} />
     }
-    return (
-      <>
-        {node.children.map((child) => (
-          <TreeNode key={child.path} node={child} depth={0} {...treeNodeProps} />
-        ))}
-      </>
-    )
+    return <TreeChildren {...treeNodeProps} parentPath={node.path} nodes={node.children} depth={0} />
   }, [flattenRoots, treeNodeProps])
 
   return (

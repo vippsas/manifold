@@ -336,7 +336,7 @@ its card to the top under the cursor (`sidebar-recency.ts:45`, `WorkspaceList.ts
 
 Several folders showing at once is possible because **the main process authorizes file paths
 against the workspace roots** — every registered repo plus every session's worktree — not
-against the selected session, and reads need no session at all (`main/ipc/file-handlers.ts:26`,
+against the selected session, and reads and creates need no session at all (`main/ipc/file-handlers.ts:26`,
 `:46`, `:53`). A file in any open folder therefore opens, saves and renames like any other; the
 renderer no longer pre-filters reads by the active session's roots. Only the *selected* agent's
 worktree is a live, watched tree with change badges (`useFileWatcher`); every other folder is
@@ -345,7 +345,12 @@ reopening one paints in the same frame instead of flashing empty
 (`hooks/editor/useWorkspaceTree.ts:17`, `FolderFilesTree.tsx:26`). Folder trees render without
 the filter/refresh strip and without a row for their own root — the sidebar row above already
 names the folder, and one strip per open folder would stack up (`FolderFilesTree.tsx:39`;
-`flattenRoots`, `file-tree/file-tree-visible.ts:44`). Depth is carried by indentation alone —
+`flattenRoots`, `file-tree/file-tree-visible.ts:44`). A flattened root has no row, so anything
+a row would host has to be rendered by the tree instead: the pending "New File"/"New Folder"
+input lives in `TreeChildren`, which an expanded directory and the flattened root both render
+(`file-tree/tree-node.tsx:53`, `FileTree.tsx:230`). Hanging it off the root's own `TreeNode`
+left a create at top level with nowhere to draw — the menu item looked dead
+(regression test `FileTree.test.tsx:88`). Depth is carried by indentation alone —
 no rule down the left of a tree, no rounded row fills, and no focus glow: at sidebar density
 those read as clutter (`ProjectSidebar.styles.ts:68`, `styles/theme.css:703`). The whole
 sidebar is one ladder in the file tree's own 8px per-depth step, so each disclosure chevron

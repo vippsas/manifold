@@ -39,34 +39,20 @@ export interface TreeNodeProps {
   onCancelCreate?: () => void
 }
 
-export function TreeNode({
-  node,
-  depth,
-  changeMap,
-  activeFilePath,
-  selectedPaths,
-  openFilePaths,
-  expandedPaths,
-  onRowClick,
-  filterQuery,
-  onRequestDelete,
-  renamingPath,
-  renameValue,
-  onRenameValueChange,
-  onConfirmRename,
-  onCancelRename,
-  onStartRename,
-  creating,
-  createName,
-  createError,
-  onCreateNameChange,
-  onConfirmCreate,
-  onCancelCreate,
-  onContextMenu,
-  dragRootPath,
-}: TreeNodeProps): React.JSX.Element {
-  const expanded = expandedPaths.has(node.path)
-  const isCreatingHere = creating?.parentPath === node.path
+export type TreeChildrenProps = Omit<TreeNodeProps, 'node' | 'depth'> & {
+  /** The directory the children belong to — where a pending create lands. */
+  parentPath: string
+  nodes: FileTreeNode[]
+  depth: number
+}
+
+/** A directory's children with the pending create row placed among them.
+ *  Shared by an expanded directory and by a flattened root, whose own row the
+ *  tree doesn't render — without this the root's create row had no host and
+ *  "New File"/"New Folder" on a top-level entry did nothing. */
+export function TreeChildren({ parentPath, nodes, depth, ...rest }: TreeChildrenProps): React.JSX.Element {
+  const { creating, createName, createError, onCreateNameChange, onConfirmCreate, onCancelCreate } = rest
+  const isCreatingHere = creating?.parentPath === parentPath
 
   const handleCreateKeyDown = useCallback((e: React.KeyboardEvent<HTMLInputElement>): void => {
     if (e.key === 'Enter') {
@@ -75,6 +61,52 @@ export function TreeNode({
       onCancelCreate?.()
     }
   }, [onConfirmCreate, onCancelCreate])
+
+  const createRow = creating ? (
+    <CreateInput
+      depth={depth}
+      creating={creating}
+      createName={createName}
+      createError={createError}
+      onCreateNameChange={onCreateNameChange}
+      onKeyDown={handleCreateKeyDown}
+      onConfirmCreate={onConfirmCreate}
+      onCancelCreate={onCancelCreate}
+    />
+  ) : null
+
+  return (
+    <>
+      {isCreatingHere && !creating.afterPath && createRow}
+      {sortChildren(nodes).map((child) => (
+        <React.Fragment key={child.path}>
+          <TreeNode {...rest} node={child} depth={depth} />
+          {isCreatingHere && creating.afterPath === child.path && createRow}
+        </React.Fragment>
+      ))}
+    </>
+  )
+}
+
+export function TreeNode({ node, depth, ...rest }: TreeNodeProps): React.JSX.Element {
+  const {
+    changeMap,
+    activeFilePath,
+    selectedPaths,
+    expandedPaths,
+    onRowClick,
+    filterQuery,
+    onRequestDelete,
+    renamingPath,
+    renameValue,
+    onRenameValueChange,
+    onConfirmRename,
+    onCancelRename,
+    onStartRename,
+    onContextMenu,
+    dragRootPath,
+  } = rest
+  const expanded = expandedPaths.has(node.path)
 
   const handleClick = useCallback((e: React.MouseEvent): void => {
     onRowClick(e, node)
@@ -120,62 +152,7 @@ export function TreeNode({
         filterQuery={filterQuery}
       />
       {node.isDirectory && expanded && (
-        <>
-          {isCreatingHere && !creating.afterPath && (
-            <CreateInput
-              depth={depth + 1}
-              creating={creating}
-              createName={createName}
-              createError={createError}
-              onCreateNameChange={onCreateNameChange}
-              onKeyDown={handleCreateKeyDown}
-              onConfirmCreate={onConfirmCreate}
-              onCancelCreate={onCancelCreate}
-            />
-          )}
-          {node.children && sortChildren(node.children).map((child) => (
-            <React.Fragment key={child.path}>
-              <TreeNode
-                node={child}
-                depth={depth + 1}
-                changeMap={changeMap}
-                activeFilePath={activeFilePath}
-                selectedPaths={selectedPaths}
-                openFilePaths={openFilePaths}
-                expandedPaths={expandedPaths}
-                onRowClick={onRowClick}
-                filterQuery={filterQuery}
-                onRequestDelete={onRequestDelete}
-                renamingPath={renamingPath}
-                renameValue={renameValue}
-                onRenameValueChange={onRenameValueChange}
-                onConfirmRename={onConfirmRename}
-                onCancelRename={onCancelRename}
-                onStartRename={onStartRename}
-                onContextMenu={onContextMenu}
-                dragRootPath={dragRootPath}
-                creating={creating}
-                createName={createName}
-                createError={createError}
-                onCreateNameChange={onCreateNameChange}
-                onConfirmCreate={onConfirmCreate}
-                onCancelCreate={onCancelCreate}
-              />
-              {isCreatingHere && creating.afterPath === child.path && (
-                <CreateInput
-                  depth={depth + 1}
-                  creating={creating}
-                  createName={createName}
-                  createError={createError}
-                  onCreateNameChange={onCreateNameChange}
-                  onKeyDown={handleCreateKeyDown}
-                  onConfirmCreate={onConfirmCreate}
-                  onCancelCreate={onCancelCreate}
-                />
-              )}
-            </React.Fragment>
-          ))}
-        </>
+        <TreeChildren {...rest} parentPath={node.path} nodes={node.children ?? []} depth={depth + 1} />
       )}
     </>
   )
