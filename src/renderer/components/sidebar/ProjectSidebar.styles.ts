@@ -84,14 +84,16 @@ export const sidebarStyles: Record<string, React.CSSProperties> = {
   // The repo a workspace row belongs to, dimmed ahead of the row's own name.
   // Capped rather than flexible so the name — the row's identity — is the last
   // thing to truncate.
+  // Sized to its text, so the separator always sits right after the repo. An
+  // ellipsis cuts at a character boundary inside a fixed-width box, so any cap
+  // that bites leaves dead space between the repo and the "/" — the name
+  // absorbs the row's width pressure instead, and the cap here is only a
+  // backstop that keeps a pathological repo from erasing the name entirely.
   rowRepo: {
     color: 'var(--text-muted)',
-    maxWidth: '45%',
+    maxWidth: 'calc(100% - 5ch)',
     overflow: 'hidden',
     textOverflow: 'ellipsis',
-    // Without nowrap the ellipsis never fires: a long repo wraps instead, which
-    // both doubles the row's height and pads the box out to the full 45%,
-    // leaving a gap before the separator.
     whiteSpace: 'nowrap',
     flexShrink: 0,
   },

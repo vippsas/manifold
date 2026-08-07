@@ -119,19 +119,36 @@ name, rendered only when `label.repo` is non-null:
 
 New entries in `ProjectSidebar.styles.ts`:
 
-- `rowRepo` — `color: 'var(--text-muted)'`, `maxWidth: '45%'`, `overflow:
-  'hidden'`, `textOverflow: 'ellipsis'`, `flexShrink: 0`
+- `rowRepo` — `color: 'var(--text-muted)'`, `maxWidth: 'calc(100% - 5ch)'`,
+  `overflow: 'hidden'`, `textOverflow: 'ellipsis'`, `whiteSpace: 'nowrap'`,
+  `flexShrink: 0`
 - `rowRepoSep` — same color at `opacity: 0.55`, `margin: '0 3px'`,
   `flexShrink: 0`
 
 No new theme tokens and no hardcoded colors: both reuse `--text-muted`, per the
 design system's token-only rule.
 
-**Truncation priority.** The name is the row's identity, so it truncates last.
-The repo is capped at 45% of the row with its own ellipsis; the name stays
-flexible with ellipsis. The row's `title` becomes the full composed label
-(`kong/moss`) rather than the raw `workspace.name`, so the untruncated form is
-always one hover away.
+**Truncation priority: the repo renders whole, the name absorbs the pressure.**
+This reverses the initial "name truncates last" decision, which produced a
+visible gap between the repo and the separator on exactly the rows that
+truncated.
+
+Two CSS facts drive it. `text-overflow: ellipsis` only fires under
+`white-space: nowrap` — without it a long repo wraps, doubling the row height
+*and* padding the box out to its full cap. And an ellipsis cuts at a character
+boundary, so whenever a width cap actually bites, whatever does not fill that
+last character's width is left as dead space before the `/`. Any cap that
+regularly bites therefore shows a ragged gap.
+
+So the repo is sized to its own text and the name takes the remainder. The
+`calc(100% - 5ch)` cap is a backstop, not a layout rule: it only engages for a
+repo long enough to erase the name (~26 characters in a 270px sidebar), and in
+that case the small ellipsis gap returns. Real repo names are short and stable;
+workspace names are longer and more variable, so this also gives the name more
+room than the 45% cap did.
+
+The row's `title` becomes the full composed label (`kong/moss`) rather than the
+raw `workspace.name`, so the untruncated form is always one hover away.
 
 ## Rename seeding
 

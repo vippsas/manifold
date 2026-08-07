@@ -58,7 +58,12 @@ stored names carry a branch prefix, since `workspaceNameFor` strips just the lit
 (`workspace-promotion.ts:14`, `git/branch-namer.ts:53`). The helper strips a redundant
 prefix off the name, appends `+N` for the extra repos of a multi-repo workspace, and
 drops the segment entirely when the name already *is* the repo, so a home workspace stays
-`vops` rather than `vops / vops`.
+`vops` rather than `vops / vops`. **The repo segment is sized to its own text and the
+name absorbs the row's width pressure** (`ProjectSidebar.styles.ts` `rowRepo`): an
+ellipsis cuts at a character boundary, so any width cap that bites leaves dead space
+between the repo and the `/`. The `calc(100% - 5ch)` cap is only a backstop against a
+repo long enough to erase the name, and `white-space: nowrap` is load-bearing — without
+it `text-overflow` never fires and a long repo wraps to a second line instead.
 
 **Activity bar.** A fixed (non-collapsible) icon rail sits left of the dock
 (`components/ActivityBar.tsx`), labeled via a CSS hover tooltip
