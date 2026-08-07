@@ -28,25 +28,22 @@
 }
 
 /* Rounded panel cards — each group floats on the recessed canvas
-   (--dock-canvas); the theme's group gap provides the breathing room. The
-   border is a soft white-alpha hairline (not the structural --border grey),
-   so the card reads as a modern elevated surface. */
+   (--dock-canvas); the theme's group gap provides the breathing room. No
+   outline: the card's lighter fill against the darker canvas is the whole
+   edge, so a hairline around every panel would only add visual noise. */
 .dockview-theme-manifold .dv-groupview {
   overflow: hidden;
   border-radius: var(--radius-lg);
-  border: 1px solid rgba(255, 255, 255, 0.07);
   background: var(--bg-primary);
 }
-.dockview-theme-manifold .dv-groupview.dv-active-group {
-  border-color: rgba(255, 255, 255, 0.14);
-}
 
-/* Resize handles — invisible inside the group gap; the card edges already
-   read as the divider. 1px element, widened grab zone below. */
+/* Resize handles — with no outline around a group, the sash carries the
+   structure: one 1px --divider line per boundary (not a box per panel),
+   centered in the group gap. Widened grab zone below. */
 .dockview-theme-manifold .dv-split-view-container.dv-horizontal > .dv-sash-container > .dv-sash,
 .dockview-theme-manifold .dv-split-view-container.dv-vertical > .dv-sash-container > .dv-sash {
   --grip-color: var(--text-muted);
-  background: transparent;
+  background: var(--divider);
 }
 .dockview-theme-manifold .dv-split-view-container.dv-horizontal > .dv-sash-container > .dv-sash {
   width: 1px;

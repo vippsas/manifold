@@ -91,19 +91,19 @@ and the commit/PR/conflict actions.
 
 **Panel layout (dockview).** The workspace is a single `DockviewReact` instance
 (`AppShell.tsx:155`), themed via the `DOCK_THEME` option (`AppShell.tsx:42`): a 6px
-group gap plus the rounded-card group styling in `styles/dockview-theme.css` renders
-each panel group as a rounded card with a soft white-alpha hairline border (brighter on
-the active group), floating on the recessed `--dock-canvas` (a darkened `--bg-primary`,
-`styles/theme.css`). Text tabs (agent, shell, module panels) read as gently-rounded
+group gap plus the group styling in `styles/dockview-theme.css` renders each panel group
+as a rounded-cornered surface floating on the recessed `--dock-canvas` (a darkened
+`--bg-primary`, `styles/theme.css`). Groups carry **no outline of their own** — a hairline
+around every panel boxes the workspace in; the sash between two groups is the divider
+instead, so each boundary is drawn once rather than twice. Text tabs (agent, shell, module panels) read as gently-rounded
 chips (`--radius-xs`) floating in the strip: an elevated-surface fill when idle, tinted
 with `--accent-subtle` when active — so the current theme's accent, not text weight alone,
 carries the active tab (`.dock-tab:not(.dock-tab--icon)` in `styles/theme.css`, active/hover
 scoped to `.dv-active-tab` in `styles/dockview-theme.css`). Icon and headless tabs
-(sidebar/editor) keep their own accent-square treatment. Resize
-sashes carry five 3px grip dots centered on the gap — stacked for a vertical divider, in a
-row for a horizontal one — that brighten from `--text-muted` to the accent on hover
-(`styles/dockview-theme.css:58`); the sash element itself stays invisible, the card edges
-being the divider.
+(sidebar/editor) keep their own accent-square treatment. Each resize
+sash is a 1px `--divider` line centered in the gap, carrying five 3px grip dots — stacked
+for a vertical divider, in a row for a horizontal one — that brighten from `--text-muted`
+to the accent on hover (`styles/dockview-theme.css:40`).
 Dockview's own split-view separator (`--dv-separator-border`, `styles/dockview-theme.css:24`)
 is transparent for the same reason: it paints a straight full-height line down the left edge
 of every view but the first, cutting across the cards' rounded corners. The chrome is screenshot-able
