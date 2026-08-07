@@ -7,6 +7,9 @@ const projects: Project[] = [
   { id: 'frontend', name: 'storefront', path: '/projects/storefront', baseBranch: 'main', addedAt: '2026-07-10' },
   { id: 'backend', name: 'commerce-api', path: '/projects/commerce-api', baseBranch: 'main', addedAt: '2026-07-11' },
   { id: 'docs', name: 'product-docs', path: '/projects/product-docs', baseBranch: 'main', addedAt: '2026-07-12' },
+  // Long enough that its row label has to truncate — the case that catches a
+  // repo segment which wraps instead of ellipsizing.
+  { id: 'platform', name: 'commerce-platform-services', path: '/projects/commerce-platform-services', baseBranch: 'main', addedAt: '2026-07-15' },
 ]
 
 // Two workspaces side by side: one spanning two folders, one spanning a single
@@ -24,6 +27,13 @@ const docsWorkspace: Workspace = {
   name: 'product-docs',
   projectIds: ['docs'],
   createdAt: '2026-07-14',
+}
+
+const longRepoWorkspace: Workspace = {
+  id: 'billing',
+  name: 'billing-retries',
+  projectIds: ['platform'],
+  createdAt: '2026-07-15',
 }
 
 const workspaceSession: AgentSession = {
@@ -96,7 +106,7 @@ export default (
       outputtingSessionIds={new Set([workspaceSession.id])}
       onNewProject={() => undefined}
       onNewWorkspace={() => undefined}
-      workspaces={[workspace, docsWorkspace]}
+      workspaces={[workspace, docsWorkspace, longRepoWorkspace]}
       activeWorkspaceId={workspace.id}
       sessionsByWorkspace={{
         [workspace.id]: [workspaceSession, inPlaceSession],

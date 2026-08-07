@@ -5,6 +5,7 @@ import {
   installElectronApi,
   installLocalStorage,
   renderSidebar,
+  folderLabel,
 } from './ProjectSidebar.test-helpers'
 
 beforeEach(() => {
@@ -23,20 +24,54 @@ describe('ProjectSidebar', () => {
 
     expect(screen.getByText('alpha-space')).toBeInTheDocument()
     expect(screen.getByText('beta-space')).toBeInTheDocument()
-    expect(screen.getByText('Alpha')).toBeInTheDocument()
-    expect(screen.queryByText('Beta')).not.toBeInTheDocument()
+    expect(folderLabel('Alpha')).toBeInTheDocument()
+    expect(folderLabel('Beta')).not.toBeInTheDocument()
 
     fireEvent.click(screen.getByLabelText('Expand beta-space'))
 
-    expect(screen.getByText('Beta')).toBeInTheDocument()
+    expect(folderLabel('Beta')).toBeInTheDocument()
+  })
+
+  // Which repo a workspace belongs to has to be readable without opening it —
+  // the name alone can't say, since only some names carry their branch prefix.
+  it('names the repo of a workspace whose own name does not', () => {
+    renderSidebar()
+
+    const row = screen.getByText('alpha-space').closest('.sidebar-project-row')
+
+    expect(within(row as HTMLElement).getByText('Alpha')).toBeInTheDocument()
+    expect(row).toHaveAttribute('title', 'Alpha/alpha-space')
+  })
+
+  it('leaves the repo unsaid when the workspace is already named after it', () => {
+    renderSidebar({
+      workspaces: [{ id: 'w1', name: 'Alpha', projectIds: ['p1'], createdAt: '2024-01-01' }],
+    })
+
+    // Scoped to the workspace row: the folder row inside the open card says
+    // "Alpha" too, which is exactly the repetition this rule avoids on the row.
+    const row = document.querySelector('.sidebar-project-row')
+
+    expect(within(row as HTMLElement).getAllByText('Alpha')).toHaveLength(1)
+    expect(row).toHaveAttribute('title', 'Alpha')
+  })
+
+  it('counts the extra folders of a multi-folder workspace', () => {
+    renderSidebar({
+      workspaces: [{ id: 'w1', name: 'auth-refactor', projectIds: ['p1', 'p2'], createdAt: '2024-01-01' }],
+    })
+
+    const row = screen.getByText('auth-refactor').closest('.sidebar-project-row')
+
+    expect(within(row as HTMLElement).getByText('Alpha +1')).toBeInTheDocument()
   })
 
   it('shows nothing but the workspace names while none is open', () => {
     renderSidebar({ activeWorkspaceId: null })
 
     expect(screen.getByText('alpha-space')).toBeInTheDocument()
-    expect(screen.queryByText('Alpha')).not.toBeInTheDocument()
-    expect(screen.queryByText('Beta')).not.toBeInTheDocument()
+    expect(folderLabel('Alpha')).not.toBeInTheDocument()
+    expect(folderLabel('Beta')).not.toBeInTheDocument()
   })
 
   it('opens one workspace at a time — opening another closes the one before it', () => {
@@ -44,8 +79,8 @@ describe('ProjectSidebar', () => {
 
     fireEvent.click(screen.getByLabelText('Expand beta-space'))
 
-    expect(screen.getByText('Beta')).toBeInTheDocument()
-    expect(screen.queryByText('Alpha')).not.toBeInTheDocument()
+    expect(folderLabel('Beta')).toBeInTheDocument()
+    expect(folderLabel('Alpha')).not.toBeInTheDocument()
   })
 
   it('closes a workspace from its chevron without changing the selection', () => {
@@ -53,7 +88,7 @@ describe('ProjectSidebar', () => {
 
     fireEvent.click(screen.getByLabelText('Collapse alpha-space'))
 
-    expect(screen.queryByText('Alpha')).not.toBeInTheDocument()
+    expect(folderLabel('Alpha')).not.toBeInTheDocument()
     expect(props.onSelectWorkspace).not.toHaveBeenCalled()
   })
 
@@ -136,7 +171,7 @@ describe('ProjectSidebar', () => {
   it('selecting a folder row calls onSelectWorkspaceRepo', () => {
     const { props } = renderSidebar()
 
-    fireEvent.click(screen.getByText('Alpha'))
+    fireEvent.click(folderLabel('Alpha')!)
 
     expect(props.onSelectWorkspaceRepo).toHaveBeenCalledWith('w1', 'p1')
   })

@@ -1,12 +1,14 @@
-import React, { Fragment, useCallback, useState } from 'react'
+import React, { useCallback, useState } from 'react'
 import type { Project, AgentSession } from '../../../shared/types'
 import type { DraftChat } from '../../../shared/draft-chat'
 import type { Workspace } from '../../../shared/workspace-types'
 import { sidebarStyles } from './ProjectSidebar.styles'
 import { DraftAgentItem } from './DraftAgentItem'
 import { WorkspaceGlyph } from './WorkspaceGlyph'
-import { AddFolderGlyph, CopyWorkspaceGlyph, FilesChevronGlyph, RepoGlyph } from './SidebarCardActionGlyphs'
+import { AddFolderGlyph, CopyWorkspaceGlyph, FilesChevronGlyph } from './SidebarCardActionGlyphs'
 import { projectFolderKey, useFolderDisclosure } from './folder-disclosure'
+import { workspaceRowLabel } from './agent-labels'
+import { WorkspaceRepoRow } from './WorkspaceRepoRow'
 import type { FolderSource } from '../../hooks/editor/useWorkspaceTree'
 
 export interface WorkspaceCardProps {
@@ -83,6 +85,10 @@ export function WorkspaceCard({
     setNameDraft(null)
   }, [nameDraft, onRenameWorkspace, workspace.id, workspace.name])
 
+  // Which repo this workspace belongs to, said on the row itself: the name
+  // alone can't, since only some names carry their branch prefix.
+  const label = workspaceRowLabel(workspace, projects)
+
   // With no agent rows, the card still has to say "someone is working here" —
   // a pulsing dot by the name, the same signal the rows used to carry.
   const isWorking = sessions.some((s) => outputtingSessionIds?.has(s.id))
@@ -109,7 +115,7 @@ export function WorkspaceCard({
         aria-expanded={expanded}
         className={`sidebar-item-row sidebar-project-row${isActive ? ' sidebar-item-row--active' : ''}`}
         style={{ ...sidebarStyles.item, ...(isActive ? sidebarStyles.itemActive : undefined) }}
-        title={workspace.name}
+        title={label.repo ? `${label.repo}/${label.name}` : label.name}
       >
         {/* The workspace's folder icon is also its disclosure: it turns into the
             chevron for its state while the row is hovered or focused, so the row
@@ -149,10 +155,20 @@ export function WorkspaceCard({
           <span
             className="sidebar-row-label"
             style={{ display: 'flex', alignItems: 'center', gap: 6, minWidth: 0 }}
-            onDoubleClick={(e) => { e.stopPropagation(); if (onRenameWorkspace) setNameDraft(workspace.name) }}
+            onDoubleClick={(e) => { e.stopPropagation(); if (onRenameWorkspace) setNameDraft(label.name) }}
             title={onRenameWorkspace ? 'Double-click to rename' : undefined}
           >
-            <span className="truncate" style={{ minWidth: 0 }}>{workspace.name}</span>
+            {/* Own group, so the label's 6px gap spaces the dot off the name
+                without also prising the repo, the "/" and the name apart. */}
+            <span style={sidebarStyles.rowLabelPath}>
+              {label.repo && (
+                <>
+                  <span style={sidebarStyles.rowRepo}>{label.repo}</span>
+                  <span style={sidebarStyles.rowRepoSep}>/</span>
+                </>
+              )}
+              <span className="truncate" style={{ minWidth: 0 }}>{label.name}</span>
+            </span>
             {isWorking && (
               <span
                 className="status-dot status-dot--active"
@@ -205,71 +221,20 @@ export function WorkspaceCard({
         </div>
       </div>
 
-      {expanded && workspace.projectIds.map((pid) => {
-        const repo = projectById(pid)
-        const repoName = repo?.name ?? pid
-        const filesOpen = folders.isOpen(projectFolderKey(pid))
-        const toggleFiles = (): void => folders.toggle(projectFolderKey(pid))
-        // In a worktree workspace this row is the workspace's own checkout of the
-        // repo, not the clone — that is where its agents' edits land.
-        const folderPath = workspace.worktreePaths?.[pid] ?? repo?.path ?? pid
-        // Like an agent row: the row picks the workspace's home folder and opens
-        // its files, the chevron opens them without moving home.
-        const selectAndDisclose = (): void => { onSelectRepo?.(workspace.id, pid); toggleFiles() }
-        return (
-          <Fragment key={`repo-${pid}`}>
-            <div
-              className={`sidebar-item-row sidebar-repo-row${isActive && activeProjectId === pid ? ' sidebar-item-row--active' : ''}`}
-              style={{ ...sidebarStyles.item, paddingLeft: 16 }}
-              title={folderPath}
-              role="button"
-              tabIndex={0}
-              aria-expanded={filesOpen}
-              onClick={selectAndDisclose}
-              onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); selectAndDisclose() } }}
-            >
-              <span
-                className="truncate sidebar-row-label"
-                style={{ ...sidebarStyles.itemName, color: 'var(--text-secondary)', fontSize: 'var(--type-ui-small)' }}
-              >
-                <button
-                  type="button"
-                  onClick={(e) => { e.stopPropagation(); toggleFiles() }}
-                  onKeyDown={(e) => e.stopPropagation()}
-                  className="sidebar-files-toggle"
-                  aria-expanded={filesOpen}
-                  aria-label={`${filesOpen ? 'Hide' : 'Show'} files in ${repoName}`}
-                  title="Folder files"
-                >
-                  <FilesChevronGlyph expanded={filesOpen} />
-                </button>
-                <span style={sidebarStyles.rowGlyph}><RepoGlyph /></span>
-                <span className="truncate">{repoName}</span>
-              </span>
-              <div className="sidebar-item-actions" style={sidebarStyles.itemRight}>
-                {onRemoveProject && workspace.projectIds.length > 1 && (
-                  <button
-                    type="button"
-                    onClick={(e) => { e.stopPropagation(); onRemoveProject(workspace.id, pid) }}
-                    onKeyDown={(e) => e.stopPropagation()}
-                    className="sidebar-icon-button"
-                    style={sidebarStyles.removeButton}
-                    aria-label={`Remove ${repoName} from workspace`}
-                    title="Remove folder from workspace"
-                  >
-                    &times;
-                  </button>
-                )}
-              </div>
-            </div>
-            {filesOpen && renderFolderFiles && (
-              <div className="sidebar-project-files" style={sidebarStyles.projectFiles}>
-                {renderFolderFiles({ kind: 'project', id: pid, workspaceId: workspace.id })}
-              </div>
-            )}
-          </Fragment>
-        )
-      })}
+      {expanded && workspace.projectIds.map((pid) => (
+        <WorkspaceRepoRow
+          key={`repo-${pid}`}
+          workspace={workspace}
+          projectId={pid}
+          repo={projectById(pid)}
+          isActive={isActive && activeProjectId === pid}
+          filesOpen={folders.isOpen(projectFolderKey(pid))}
+          onToggleFiles={() => folders.toggle(projectFolderKey(pid))}
+          onSelectRepo={onSelectRepo}
+          onRemoveProject={onRemoveProject}
+          renderFolderFiles={renderFolderFiles}
+        />
+      ))}
 
       {expanded && drafts.map((draft) => (
         <DraftAgentItem

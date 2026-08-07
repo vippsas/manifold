@@ -81,6 +81,37 @@ export const sidebarStyles: Record<string, React.CSSProperties> = {
   itemActive: {
     color: 'var(--text-primary)',
   },
+  // The repo a workspace row belongs to, dimmed ahead of the row's own name.
+  // Capped rather than flexible so the name — the row's identity — is the last
+  // thing to truncate.
+  // `repo / name` as one unit. Sits inside the label's 6px flex gap rather than
+  // being spaced by it, so that gap keeps separating the status dot from the
+  // name without also widening the two joins of the path itself.
+  rowLabelPath: {
+    display: 'flex',
+    alignItems: 'center',
+    minWidth: 0,
+    overflow: 'hidden',
+  },
+  // Sized to its text, so the separator always sits right after the repo. An
+  // ellipsis cuts at a character boundary inside a fixed-width box, so any cap
+  // that bites leaves dead space between the repo and the "/" — the name
+  // absorbs the row's width pressure instead, and the cap here is only a
+  // backstop that keeps a pathological repo from erasing the name entirely.
+  rowRepo: {
+    color: 'var(--text-muted)',
+    maxWidth: 'calc(100% - 5ch)',
+    overflow: 'hidden',
+    textOverflow: 'ellipsis',
+    whiteSpace: 'nowrap',
+    flexShrink: 0,
+  },
+  rowRepoSep: {
+    color: 'var(--text-muted)',
+    opacity: 0.55,
+    margin: '0 3px',
+    flexShrink: 0,
+  },
   itemName: {
     flex: 1,
     minWidth: 0,

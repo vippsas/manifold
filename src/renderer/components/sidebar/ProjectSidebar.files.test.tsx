@@ -9,6 +9,7 @@ import {
   installElectronApi,
   installLocalStorage,
   renderSidebar,
+  folderLabel,
 } from './ProjectSidebar.test-helpers'
 
 const STORAGE_KEY = 'manifold.sidebar.openFolders.v1'
@@ -37,17 +38,17 @@ describe('sidebar folders', () => {
   it('opens the clicked folder’s files and closes them on a second click', () => {
     renderWithFiles()
 
-    fireEvent.click(screen.getByText('Alpha'))
+    fireEvent.click(folderLabel('Alpha')!)
     expect(screen.getByTestId('files-project-p1')).toBeInTheDocument()
 
-    fireEvent.click(screen.getByText('Alpha'))
+    fireEvent.click(folderLabel('Alpha')!)
     expect(screen.queryByTestId('files-project-p1')).not.toBeInTheDocument()
   })
 
   it('keeps a folder open when its workspace is closed and opened again', () => {
     renderWithFiles()
 
-    fireEvent.click(screen.getByText('Alpha'))
+    fireEvent.click(folderLabel('Alpha')!)
     fireEvent.click(screen.getByLabelText('Collapse alpha-space'))
     expect(screen.queryByTestId('files-project-p1')).not.toBeInTheDocument()
 
@@ -68,16 +69,16 @@ describe('sidebar folders', () => {
   it('selects the folder when the row itself is clicked', () => {
     const { props } = renderWithFiles()
 
-    fireEvent.click(screen.getByText('Alpha'))
+    fireEvent.click(folderLabel('Alpha')!)
 
     expect(props.onSelectWorkspaceRepo).toHaveBeenCalledWith('w1', 'p1')
   })
 
   it('remembers every open folder across a restart', () => {
     const first = renderWithFiles()
-    fireEvent.click(screen.getByText('Alpha'))
+    fireEvent.click(folderLabel('Alpha')!)
     fireEvent.click(screen.getByLabelText('Expand beta-space'))
-    fireEvent.click(screen.getByText('Beta'))
+    fireEvent.click(folderLabel('Beta')!)
     expect(JSON.parse(localStorage.getItem(STORAGE_KEY) ?? '[]')).toEqual(['project:p1', 'project:p2'])
     first.unmount()
 
@@ -94,9 +95,9 @@ describe('sidebar folders', () => {
     renderWithFiles()
 
     fireEvent.click(screen.getByLabelText('Expand beta-space'))
-    fireEvent.click(screen.getByText('Beta'))
+    fireEvent.click(folderLabel('Beta')!)
     fireEvent.click(screen.getByLabelText('Expand alpha-space'))
-    fireEvent.click(screen.getByText('Alpha'))
+    fireEvent.click(folderLabel('Alpha')!)
 
     expect(JSON.parse(localStorage.getItem(STORAGE_KEY) ?? '[]')).toEqual(['project:p2', 'project:p1'])
     expect(screen.getByTestId('files-project-p1')).toBeInTheDocument()
@@ -104,7 +105,7 @@ describe('sidebar folders', () => {
 
   it('keeps a folder’s open state when it moves into another workspace', () => {
     const before = renderWithFiles()
-    fireEvent.click(screen.getByText('Alpha'))
+    fireEvent.click(folderLabel('Alpha')!)
     before.unmount()
 
     renderWithFiles({
@@ -118,10 +119,10 @@ describe('sidebar folders', () => {
 
   it('marks a folder row expanded for assistive tech', () => {
     renderWithFiles()
-    const row = screen.getByText('Alpha').closest('[role="button"]')
+    const row = folderLabel('Alpha')!.closest('[role="button"]')
     expect(row).toHaveAttribute('aria-expanded', 'false')
 
-    fireEvent.click(screen.getByText('Alpha'))
+    fireEvent.click(folderLabel('Alpha')!)
     expect(row).toHaveAttribute('aria-expanded', 'true')
     expect(screen.getByLabelText('Hide files in Alpha')).toHaveAttribute('aria-expanded', 'true')
   })
