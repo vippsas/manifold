@@ -203,6 +203,12 @@ export function restoreSidebarWidth(api: DockviewApi, width: number, refs?: Layo
       api.layout(api.width, api.height, true)
     } finally {
       release()
+      // The same theme-gap shave withPinnedSidebars compensates for: the pin
+      // constrains the view's *slot*, which carries that group's share of the
+      // gap, so the pinned pass renders the sidebar a few pixels narrower than
+      // the width it was pinned to — pixels it never gets back. Left
+      // uncorrected, every window resize walked the sidebar steadily thinner.
+      if (group.api.width !== width) setRenderedWidth(group, width)
     }
   } catch (err) {
     console.warn('[restoreSidebarWidth] failed to restore the sidebar width:', err)

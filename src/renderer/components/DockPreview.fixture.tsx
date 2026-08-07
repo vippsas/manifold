@@ -76,8 +76,8 @@ export default (
         onReady={onReady}
         defaultTabComponent={DockTab}
         rightHeaderActionsComponent={RightHeaderActions}
-        theme={{ name: 'manifold', className: 'dockview-theme-dark dockview-theme-manifold', gap: 6, dndOverlayMounting: 'absolute' }}
-        dndEdges={{ activationSize: { type: 'pixels', value: 32 }, size: { type: 'pixels', value: 48 } }}
+        theme={{ name: 'manifold', className: 'dockview-theme-dark dockview-theme-manifold', gap: 6 }}
+        disableDnd
       />
     </DockStateContext.Provider>
   </div>

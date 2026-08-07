@@ -44,14 +44,16 @@ describe('sidebar folders', () => {
     expect(screen.queryByTestId('files-project-p1')).not.toBeInTheDocument()
   })
 
-  it('keeps folders in different workspaces open at once', () => {
+  it('keeps a folder open when its workspace is closed and opened again', () => {
     renderWithFiles()
 
     fireEvent.click(screen.getByText('Alpha'))
-    fireEvent.click(screen.getByText('Beta'))
+    fireEvent.click(screen.getByLabelText('Collapse alpha-space'))
+    expect(screen.queryByTestId('files-project-p1')).not.toBeInTheDocument()
+
+    fireEvent.click(screen.getByLabelText('Expand alpha-space'))
 
     expect(screen.getByTestId('files-project-p1')).toBeInTheDocument()
-    expect(screen.getByTestId('files-project-p2')).toBeInTheDocument()
   })
 
   it('opens a folder from its chevron without moving the workspace’s home folder', () => {
@@ -74,6 +76,7 @@ describe('sidebar folders', () => {
   it('remembers every open folder across a restart', () => {
     const first = renderWithFiles()
     fireEvent.click(screen.getByText('Alpha'))
+    fireEvent.click(screen.getByLabelText('Expand beta-space'))
     fireEvent.click(screen.getByText('Beta'))
     expect(JSON.parse(localStorage.getItem(STORAGE_KEY) ?? '[]')).toEqual(['project:p1', 'project:p2'])
     first.unmount()
@@ -81,6 +84,7 @@ describe('sidebar folders', () => {
     renderWithFiles()
 
     expect(screen.getByTestId('files-project-p1')).toBeInTheDocument()
+    fireEvent.click(screen.getByLabelText('Expand beta-space'))
     expect(screen.getByTestId('files-project-p2')).toBeInTheDocument()
   })
 
@@ -89,11 +93,12 @@ describe('sidebar folders', () => {
   it('saves folders opened in different cards into one remembered set', () => {
     renderWithFiles()
 
+    fireEvent.click(screen.getByLabelText('Expand beta-space'))
     fireEvent.click(screen.getByText('Beta'))
+    fireEvent.click(screen.getByLabelText('Expand alpha-space'))
     fireEvent.click(screen.getByText('Alpha'))
 
     expect(JSON.parse(localStorage.getItem(STORAGE_KEY) ?? '[]')).toEqual(['project:p2', 'project:p1'])
-    expect(screen.getByTestId('files-project-p2')).toBeInTheDocument()
     expect(screen.getByTestId('files-project-p1')).toBeInTheDocument()
   })
 

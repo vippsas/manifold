@@ -57,7 +57,15 @@ export function WorkspaceList({
   renderFolderFiles,
 }: WorkspaceListProps): React.JSX.Element {
   const [removing, setRemoving] = useState<string | null>(null)
+  // One workspace open at a time: the list reads as a column of names until you
+  // open one, and opening another closes the one before it.
+  const [expandedId, setExpandedId] = useState<string | null>(activeWorkspaceId)
   const { recency, touchProject } = useProjectRecency()
+
+  const toggleExpanded = useCallback(
+    (id: string): void => setExpandedId((current) => (current === id ? null : id)),
+    [],
+  )
 
   const selectWorkspace = useCallback(
     (id: string): void => {
@@ -94,6 +102,8 @@ export function WorkspaceList({
           workspace={workspace}
           projects={projects}
           isActive={workspace.id === activeWorkspaceId}
+          expanded={workspace.id === expandedId}
+          onToggleExpanded={() => toggleExpanded(workspace.id)}
           sessions={sessionsByWorkspace[workspace.id] ?? []}
           activeProjectId={activeProjectId}
           outputtingSessionIds={outputtingSessionIds}

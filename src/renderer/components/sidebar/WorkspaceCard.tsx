@@ -13,6 +13,10 @@ export interface WorkspaceCardProps {
   workspace: Workspace
   projects: Project[]
   isActive: boolean
+  /** Whether this card shows its folders and drafts. Only one card in the list
+   *  is expanded at a time, so the list owns the state. */
+  expanded: boolean
+  onToggleExpanded: () => void
   sessions: AgentSession[]
   activeProjectId?: string | null
   outputtingSessionIds?: Set<string>
@@ -40,6 +44,8 @@ export function WorkspaceCard({
   workspace,
   projects,
   isActive,
+  expanded,
+  onToggleExpanded,
   sessions,
   activeProjectId,
   outputtingSessionIds,
@@ -81,22 +87,41 @@ export function WorkspaceCard({
   // a pulsing dot by the name, the same signal the rows used to carry.
   const isWorking = sessions.some((s) => outputtingSessionIds?.has(s.id))
 
+  // The row opens the workspace it names; the chevron alone can close it again,
+  // so selecting the workspace never hides what is under it.
+  const selectAndExpand = (): void => {
+    onSelectWorkspace(workspace.id)
+    if (!expanded) onToggleExpanded()
+  }
+
   return (
     <div className={`sidebar-project-group sidebar-project-group--has-agents sidebar-workspace-card${isActive ? ' sidebar-project-group--active' : ''}`}>
       <div
-        onClick={() => onSelectWorkspace(workspace.id)}
+        onClick={selectAndExpand}
         onKeyDown={(e) => {
           if (e.key === 'Enter' || e.key === ' ') {
             e.preventDefault()
-            onSelectWorkspace(workspace.id)
+            selectAndExpand()
           }
         }}
         role="button"
         tabIndex={0}
+        aria-expanded={expanded}
         className={`sidebar-item-row sidebar-project-row${isActive ? ' sidebar-item-row--active' : ''}`}
         style={{ ...sidebarStyles.item, ...(isActive ? sidebarStyles.itemActive : undefined) }}
         title={workspace.name}
       >
+        <button
+          type="button"
+          onClick={(e) => { e.stopPropagation(); onToggleExpanded() }}
+          onKeyDown={(e) => e.stopPropagation()}
+          className="sidebar-files-toggle"
+          aria-expanded={expanded}
+          aria-label={`${expanded ? 'Collapse' : 'Expand'} ${workspace.name}`}
+          title={expanded ? 'Collapse workspace' : 'Expand workspace'}
+        >
+          <FilesChevronGlyph expanded={expanded} />
+        </button>
         <WorkspaceGlyph active={isActive} />
         {nameDraft !== null ? (
           <input
@@ -173,7 +198,7 @@ export function WorkspaceCard({
         </div>
       </div>
 
-      {workspace.projectIds.map((pid) => {
+      {expanded && workspace.projectIds.map((pid) => {
         const repo = projectById(pid)
         const repoName = repo?.name ?? pid
         const filesOpen = folders.isOpen(projectFolderKey(pid))
@@ -239,7 +264,7 @@ export function WorkspaceCard({
         )
       })}
 
-      {drafts.map((draft) => (
+      {expanded && drafts.map((draft) => (
         <DraftAgentItem
           key={draft.id}
           draft={draft}

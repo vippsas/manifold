@@ -18,13 +18,43 @@ afterEach(() => {
 })
 
 describe('ProjectSidebar', () => {
-  it('renders every workspace with the folders it spans', () => {
+  it('names every workspace, and shows the folders of the open one', () => {
     renderSidebar()
 
     expect(screen.getByText('alpha-space')).toBeInTheDocument()
     expect(screen.getByText('beta-space')).toBeInTheDocument()
     expect(screen.getByText('Alpha')).toBeInTheDocument()
+    expect(screen.queryByText('Beta')).not.toBeInTheDocument()
+
+    fireEvent.click(screen.getByLabelText('Expand beta-space'))
+
     expect(screen.getByText('Beta')).toBeInTheDocument()
+  })
+
+  it('shows nothing but the workspace names while none is open', () => {
+    renderSidebar({ activeWorkspaceId: null })
+
+    expect(screen.getByText('alpha-space')).toBeInTheDocument()
+    expect(screen.queryByText('Alpha')).not.toBeInTheDocument()
+    expect(screen.queryByText('Beta')).not.toBeInTheDocument()
+  })
+
+  it('opens one workspace at a time — opening another closes the one before it', () => {
+    renderSidebar()
+
+    fireEvent.click(screen.getByLabelText('Expand beta-space'))
+
+    expect(screen.getByText('Beta')).toBeInTheDocument()
+    expect(screen.queryByText('Alpha')).not.toBeInTheDocument()
+  })
+
+  it('closes a workspace from its chevron without changing the selection', () => {
+    const { props } = renderSidebar()
+
+    fireEvent.click(screen.getByLabelText('Collapse alpha-space'))
+
+    expect(screen.queryByText('Alpha')).not.toBeInTheDocument()
+    expect(props.onSelectWorkspace).not.toHaveBeenCalled()
   })
 
   it('gives a one-folder workspace the same folder row as a multi-folder one', () => {
@@ -37,8 +67,11 @@ describe('ProjectSidebar', () => {
     })
 
     const solo = screen.getByText('solo').closest<HTMLElement>('.sidebar-workspace-card')
-    const pair = screen.getByText('pair').closest<HTMLElement>('.sidebar-workspace-card')
     expect(within(solo!).getAllByRole('button', { name: /Show files in/ })).toHaveLength(1)
+
+    fireEvent.click(screen.getByLabelText('Expand pair'))
+
+    const pair = screen.getByText('pair').closest<HTMLElement>('.sidebar-workspace-card')
     expect(within(pair!).getAllByRole('button', { name: /Show files in/ })).toHaveLength(2)
   })
 
@@ -118,8 +151,11 @@ describe('ProjectSidebar', () => {
     })
 
     const solo = screen.getByText('solo').closest<HTMLElement>('.sidebar-workspace-card')
-    const pair = screen.getByText('pair').closest<HTMLElement>('.sidebar-workspace-card')
     expect(within(solo!).queryByRole('button', { name: /Remove Alpha from workspace/ })).not.toBeInTheDocument()
+
+    fireEvent.click(screen.getByLabelText('Expand pair'))
+
+    const pair = screen.getByText('pair').closest<HTMLElement>('.sidebar-workspace-card')
     expect(within(pair!).getByRole('button', { name: 'Remove Alpha from workspace' })).toBeInTheDocument()
   })
 

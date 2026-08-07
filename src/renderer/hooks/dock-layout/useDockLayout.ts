@@ -112,6 +112,8 @@ export function useDockLayout(
   const closedPanelSnapshots = useRef<Map<DockPanelId, SerializedDockview>>(new Map())
   const isRestoringRef = useRef(false)
   const sidebarWidthRef = useRef(0)
+  const dockWidthRef = useRef(0)
+  const dockResizeObserverRef = useRef<ResizeObserver | null>(null)
   const refs: LayoutRefs = { isRestoringRef, lastLayoutRef }
 
   const syncPanels = useCallback((api: DockviewApi) => {
@@ -139,6 +141,8 @@ export function useDockLayout(
     nextEditorPanelIndexRef,
     closedPanelSnapshots,
     sidebarWidthRef,
+    dockWidthRef,
+    dockResizeObserverRef,
     lastLayoutRef,
     refs,
     saveLayout,

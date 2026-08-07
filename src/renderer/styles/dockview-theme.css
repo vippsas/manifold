@@ -23,20 +23,8 @@
      across the rounded card corners below. The card border is the divider. */
   --dv-separator-border: transparent;
   --dv-group-view-background-color: var(--bg-primary);
-  /* Where a dragged panel will land. --accent-subtle was faint enough that an
-     active drop zone read as "nothing registered", so the fill is stronger and
-     carries a solid accent border — the drag's only feedback should not be a
-     tint you have to look for. */
-  --dv-drag-over-background-color: color-mix(in srgb, var(--accent), transparent 74%);
-  --dv-drag-over-border: 2px solid var(--accent);
+  --dv-drag-over-background-color: var(--accent-subtle, rgba(0, 122, 204, 0.15));
   --dv-drag-over-border-color: var(--accent);
-}
-
-/* The single overlay dockview slides between drop targets (dndOverlayMounting:
-   'absolute'). Rounded to match the panel cards it lands on. */
-.dockview-theme-manifold .dv-drop-target-anchor {
-  border-radius: var(--radius-lg);
-  box-sizing: border-box;
 }
 
 /* Rounded panel cards — each group floats on the recessed canvas
@@ -232,32 +220,11 @@
   padding: 0 2px;
 }
 
-/* The sidebar's tab carries no title (see DockTab): the item is named by the
-   activity-bar icon that opens it, not by a second copy of that icon inside the
-   view. It is still the group's drag handle, though — hiding it outright left
-   the item draggable only by whatever empty header space its actions happened
-   to leave — so it renders as a grip instead. */
+/* Repositories shows no tab at all (see DockTab): the header strip is left to
+   its actions, so the item is titled by the activity-bar icon that opens it
+   rather than by a second copy of that icon inside the view. */
 .dockview-theme-manifold .dv-tab:has(.dock-tab--headless) {
-  align-items: center;
-  display: flex;
-  padding: 0 6px;
-}
-
-.dockview-theme-manifold .dock-tab--headless {
-  background-image: radial-gradient(circle at center, var(--text-muted) 1px, transparent 1.5px);
-  background-size: 4px 4px;
-  cursor: grab;
-  height: 16px;
-  opacity: 0.5;
-  /* .dock-tab's side padding would be painted by the dot tile too, widening the
-     grip from two columns to four. */
-  padding: 0;
-  transition: opacity var(--duration-normal) var(--ease-premium);
-  width: 8px;
-}
-
-.dockview-theme-manifold .dv-tab:has(.dock-tab--headless):hover .dock-tab--headless {
-  opacity: 1;
+  display: none;
 }
 
 /* Inset the strip so the active tab's pill clears the card's rounded corner. */
