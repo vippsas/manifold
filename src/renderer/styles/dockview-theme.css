@@ -22,15 +22,14 @@
      every view but the first (.dv-view:not(:first-child)::before), which cuts
      across the rounded card corners below. The sash line is the divider. */
   --dv-separator-border: transparent;
-  /* The divider line lives on the sash. Drive it through dockview's own
-     variables rather than our own `background`: the library's
+  /* The divider line lives on the sash, and holds one steady color: hovering
+     is answered by the grip dots alone. Drive it through dockview's own
+     variables rather than our own `background` — the library's
      `.dv-sash:not(.disabled):hover` rule ties ours on specificity and wins on
-     source order, so a hardcoded background survives at rest but is wiped to
-     `--dv-active-sash-color` (transparent by default) the moment you hover it. */
+     source order, so a hardcoded background would survive at rest but be wiped
+     to `--dv-active-sash-color` (transparent by default) under the pointer. */
   --dv-sash-color: var(--divider);
-  --dv-active-sash-color: var(--accent-dim, var(--accent));
-  /* Light up with the grip dots instead of 0.5s behind them. */
-  --dv-active-sash-transition-delay: 0s;
+  --dv-active-sash-color: var(--divider);
   --dv-group-view-background-color: var(--bg-primary);
   --dv-drag-over-background-color: var(--accent-subtle, rgba(0, 122, 204, 0.15));
   --dv-drag-over-border-color: var(--accent);

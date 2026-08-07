@@ -102,9 +102,9 @@ carries the active tab (`.dock-tab:not(.dock-tab--icon)` in `styles/theme.css`, 
 scoped to `.dv-active-tab` in `styles/dockview-theme.css`). Icon and headless tabs
 (sidebar/editor) keep their own accent-square treatment. Each resize
 sash is a 1px line centered in the gap, carrying five 3px grip dots — stacked for a
-vertical divider, in a row for a horizontal one. Hovering lights the line from `--divider`
-to `--accent-dim` and the dots from `--text-muted` to `--accent`
-(`styles/dockview-theme.css:49`). The line's two colors go through dockview's own
+vertical divider, in a row for a horizontal one. Hovering brightens the dots from
+`--text-muted` to `--accent`; the line itself holds `--divider` throughout
+(`styles/dockview-theme.css:48`). That steady color is set through dockview's own
 `--dv-sash-color`/`--dv-active-sash-color` (`:30`) rather than a `background` of ours,
 because the library's `.dv-sash:not(.disabled):hover` rule ties us on specificity and wins
 on source order — it would blank a hardcoded background the moment the pointer arrives.
