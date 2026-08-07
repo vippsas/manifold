@@ -20,8 +20,17 @@
   --dv-inactivegroup-hiddenpanel-tab-color: var(--text-muted);
   /* Dockview draws this as a straight full-height line down the left edge of
      every view but the first (.dv-view:not(:first-child)::before), which cuts
-     across the rounded card corners below. The card border is the divider. */
+     across the rounded card corners below. The sash line is the divider. */
   --dv-separator-border: transparent;
+  /* The divider line lives on the sash. Drive it through dockview's own
+     variables rather than our own `background`: the library's
+     `.dv-sash:not(.disabled):hover` rule ties ours on specificity and wins on
+     source order, so a hardcoded background survives at rest but is wiped to
+     `--dv-active-sash-color` (transparent by default) the moment you hover it. */
+  --dv-sash-color: var(--divider);
+  --dv-active-sash-color: var(--accent-dim, var(--accent));
+  /* Light up with the grip dots instead of 0.5s behind them. */
+  --dv-active-sash-transition-delay: 0s;
   --dv-group-view-background-color: var(--bg-primary);
   --dv-drag-over-background-color: var(--accent-subtle, rgba(0, 122, 204, 0.15));
   --dv-drag-over-border-color: var(--accent);
@@ -38,12 +47,11 @@
 }
 
 /* Resize handles — with no outline around a group, the sash carries the
-   structure: one 1px --divider line per boundary (not a box per panel),
-   centered in the group gap. Widened grab zone below. */
+   structure: one 1px line per boundary (not a box per panel), centered in the
+   group gap and colored by --dv-sash-color above. Widened grab zone below. */
 .dockview-theme-manifold .dv-split-view-container.dv-horizontal > .dv-sash-container > .dv-sash,
 .dockview-theme-manifold .dv-split-view-container.dv-vertical > .dv-sash-container > .dv-sash {
   --grip-color: var(--text-muted);
-  background: var(--divider);
 }
 .dockview-theme-manifold .dv-split-view-container.dv-horizontal > .dv-sash-container > .dv-sash {
   width: 1px;
