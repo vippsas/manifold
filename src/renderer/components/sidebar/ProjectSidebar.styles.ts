@@ -81,6 +81,22 @@ export const sidebarStyles: Record<string, React.CSSProperties> = {
   itemActive: {
     color: 'var(--text-primary)',
   },
+  // The repo a workspace row belongs to, dimmed ahead of the row's own name.
+  // Capped rather than flexible so the name — the row's identity — is the last
+  // thing to truncate.
+  rowRepo: {
+    color: 'var(--text-muted)',
+    maxWidth: '45%',
+    overflow: 'hidden',
+    textOverflow: 'ellipsis',
+    flexShrink: 0,
+  },
+  rowRepoSep: {
+    color: 'var(--text-muted)',
+    opacity: 0.55,
+    margin: '0 3px',
+    flexShrink: 0,
+  },
   itemName: {
     flex: 1,
     minWidth: 0,

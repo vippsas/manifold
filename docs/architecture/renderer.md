@@ -49,6 +49,17 @@ incomplete) or `OnboardingView` (no projects) before rendering the full workspac
 `useTerminal` live-updates the running xterm's `fontSize` on each `manifold:ui-scale-changed`
 (`useTerminal.ts:105`, `:108`).
 
+**Workspace rows name their repo.** A sidebar workspace row reads `kong / moss`: the
+owning repo dimmed, then the workspace's own name (`WorkspaceCard.tsx:153`,
+`ProjectSidebar.styles.ts` `rowRepo`). The repo comes from `projectIds[0]` via
+`workspaceRowLabel` (`sidebar/agent-labels.ts`), never from parsing the name — only some
+stored names carry a branch prefix, since `workspaceNameFor` strips just the literal
+`manifold/` while branches are prefixed with the repo folder name
+(`workspace-promotion.ts:14`, `git/branch-namer.ts:53`). The helper strips a redundant
+prefix off the name, appends `+N` for the extra repos of a multi-repo workspace, and
+drops the segment entirely when the name already *is* the repo, so a home workspace stays
+`vops` rather than `vops / vops`.
+
 **Activity bar.** A fixed (non-collapsible) icon rail sits left of the dock
 (`components/ActivityBar.tsx`), labeled via a CSS hover tooltip
 (`.activity-bar-tooltip`), in two groups either side of a divider. The **top group is the

@@ -1,5 +1,5 @@
 import { vi } from 'vitest'
-import { render } from '@testing-library/react'
+import { render, within } from '@testing-library/react'
 import React from 'react'
 import { ProjectSidebar, type ProjectSidebarProps } from './ProjectSidebar'
 import type { Workspace } from '../../../shared/workspace-types'
@@ -29,6 +29,18 @@ export function installElectronApi(): void {
     invoke: mockInvoke,
     on: vi.fn(() => vi.fn()),
   }
+}
+
+/** The label of the folder row named `name` inside an expanded workspace card,
+ *  or null when no card is showing it. Scoped to the folder rows because a
+ *  workspace row now carries its repo's name too, as a dimmed prefix, so a bare
+ *  getByText would match both. */
+export function folderLabel(name: string): HTMLElement | null {
+  for (const row of document.querySelectorAll<HTMLElement>('.sidebar-repo-row')) {
+    const label = within(row).queryByText(name)
+    if (label) return label
+  }
+  return null
 }
 
 export const sampleProjects: Project[] = [
