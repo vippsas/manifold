@@ -180,8 +180,6 @@ export async function bundleEntry({ repoRoot, entrySource, cssVars, type }) {
     logOverride: { 'import-is-undefined': 'silent' },
     // theme.css @font-face-loads the Seti icon font by relative URL. The captured page is served
     // from an opaque origin with no file server, so inline the font into the bundled CSS.
-    loader: { '.woff': 'dataurl' },
-    // Fonts theme.css @font-face's (Seti) become data URLs so the page stays self-contained.
     loader: { '.woff': 'dataurl', '.woff2': 'dataurl' },
     define: {
       'process.env.NODE_ENV': '"production"',
