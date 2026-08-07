@@ -98,6 +98,13 @@ localStorage.setItem(
   JSON.stringify(['project:frontend', 'project:docs']),
 )
 
+// The active workspace is the least recently visited one, so the list can only
+// lead with it if the active row is pinned first.
+localStorage.setItem(
+  'manifold.sidebar.recency.v1',
+  JSON.stringify({ billing: 300, 'product-docs': 200, checkout: 100 }),
+)
+
 export default (
   <div style={{ width: 320, height: 720, background: 'var(--bg-sidebar)', border: '1px solid var(--border)' }}>
     <ProjectSidebar

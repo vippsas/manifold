@@ -35,6 +35,18 @@ describe('sortByRecency', () => {
     const sorted = sortByRecency(projects, {})
     expect(sorted.map((p) => p.id)).toEqual(['a', 'b', 'c'])
   })
+
+  it('pins the active project first, however stale its last visit', () => {
+    const projects = [{ id: 'a' }, { id: 'b' }, { id: 'c' }]
+    const sorted = sortByRecency(projects, { b: 200, c: 300 }, 'a')
+    expect(sorted.map((p) => p.id)).toEqual(['a', 'c', 'b'])
+  })
+
+  it('leaves the rest in recency order when nothing is active', () => {
+    const projects = [{ id: 'a' }, { id: 'b' }, { id: 'c' }]
+    const sorted = sortByRecency(projects, { b: 200, c: 300 }, null)
+    expect(sorted.map((p) => p.id)).toEqual(['c', 'b', 'a'])
+  })
 })
 
 describe('useProjectRecency', () => {

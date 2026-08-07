@@ -100,7 +100,7 @@ export function WorkspaceList({
 
   return (
     <div style={{ paddingTop: 4 }}>
-      {sortByRecency(workspaces, recency).map((workspace) => (
+      {sortByRecency(workspaces, recency, activeWorkspaceId).map((workspace) => (
         <WorkspaceCard
           key={workspace.id}
           workspace={workspace}

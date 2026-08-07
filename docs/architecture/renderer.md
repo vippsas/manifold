@@ -1,7 +1,7 @@
 ---
 description: How the Manifold renderer (developer workspace UI) is structured — the React entry, the dockview panel layout, and the preload-only boundary to main.
 covers: [src/renderer]
-updated: 2026-08-07
+updated: 2026-08-08
 owner: see .github/CODEOWNERS
 ---
 
@@ -348,9 +348,12 @@ selects the workspace's home folder *and* opens its files, while its chevron
 home — disclosure alone never switches sessions, which would reload the agent, the editor and
 the tree (`WorkspaceCard.tsx:211`, `:232`).
 
-Nothing reorders the list while you work: workspaces are sorted by the recency read at startup
-and then **held**, so picking an agent records the visit for the next launch without sliding
-its card to the top under the cursor (`sidebar-recency.ts:45`, `WorkspaceList.tsx:60`, `:91`).
+The **selected workspace is pinned first**, so where you are working is always at the top of
+the list — the one place you can find it without reading the list or scrolling
+(`sortByRecency`, `sidebar-recency.ts:68`; `WorkspaceList.tsx:103`). Below it nothing reorders
+while you work: the rest are sorted by the recency read at startup and then **held**, so
+picking an agent records the visit for the next launch without sliding its card to the top
+under the cursor (`sidebar-recency.ts:45`, `:49`).
 
 Several folders showing at once is possible because **the main process authorizes file paths
 against the workspace roots** — every registered repo plus every session's worktree — not

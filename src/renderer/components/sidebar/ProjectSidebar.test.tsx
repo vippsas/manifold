@@ -33,6 +33,18 @@ describe('ProjectSidebar', () => {
     expect(folderLabel('Beta')).toBeInTheDocument()
   })
 
+  // The workspace you are working in sits at the top of the list, so it is
+  // always in the same place — you never scroll to find where you are.
+  it('puts the active workspace first, ahead of a more recently visited one', () => {
+    localStorage.setItem('manifold.sidebar.recency.v1', JSON.stringify({ w2: 200 }))
+    renderSidebar({ activeWorkspaceId: 'w1' })
+
+    const rows = document.querySelectorAll('.sidebar-project-row')
+
+    expect(within(rows[0] as HTMLElement).getByText('alpha-space')).toBeInTheDocument()
+    expect(within(rows[1] as HTMLElement).getByText('beta-space')).toBeInTheDocument()
+  })
+
   // Which repo a workspace belongs to has to be readable without opening it —
   // the name alone can't say, since only some names carry their branch prefix.
   it('names the repo of a workspace whose own name does not', () => {

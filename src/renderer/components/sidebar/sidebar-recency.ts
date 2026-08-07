@@ -61,11 +61,18 @@ export function useProjectRecency(): {
   return { recency, touchProject }
 }
 
-/** Most recently accessed first; never-accessed projects keep their incoming
- *  (alphabetical) order after the accessed ones. */
+/** The active project first — where you are working is always at the top of the
+ *  list, in the one place you can find without reading it — then most recently
+ *  accessed; never-accessed projects keep their incoming (alphabetical) order
+ *  after the accessed ones. */
 export function sortByRecency<T extends { id: string }>(
   projects: readonly T[],
   recency: ProjectRecency,
+  activeId?: string | null,
 ): T[] {
-  return [...projects].sort((left, right) => (recency[right.id] ?? 0) - (recency[left.id] ?? 0))
+  return [...projects].sort((left, right) => {
+    if (left.id === activeId) return -1
+    if (right.id === activeId) return 1
+    return (recency[right.id] ?? 0) - (recency[left.id] ?? 0)
+  })
 }
