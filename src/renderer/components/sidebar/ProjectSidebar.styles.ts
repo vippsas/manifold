@@ -144,6 +144,31 @@ export const sidebarStyles: Record<string, React.CSSProperties> = {
     lineHeight: 1,
     background: 'transparent',
   },
+  // When the base branch is behind origin, the fetch button becomes an accent
+  // pill so the ↻ glyph stays visible next to the count, instead of a badge
+  // overlapping (and hiding) the icon. Overrides the fixed 16px width/height
+  // and muted color of .sidebar-icon-button.
+  fetchPill: {
+    width: 'auto',
+    height: 'auto',
+    gap: '3px',
+    padding: '1px 6px',
+    borderRadius: 'var(--radius-pill)',
+    background: 'var(--accent)',
+    color: 'var(--accent-text)',
+    fontSize: 'var(--type-ui-small)',
+    fontWeight: 700,
+    lineHeight: 1,
+    opacity: 1,
+    boxShadow: 'inset 0 1px 0 rgba(255, 255, 255, 0.06)',
+  },
+  // Indented past the folder row's own glyph column so the outcome of a fetch
+  // reads as belonging to the row above it.
+  fetchMessage: {
+    padding: '2px 14px 4px 40px',
+    fontSize: 'var(--type-ui-caption)',
+    color: 'var(--text-muted)',
+  },
   addButton: {
     fontSize: 'var(--type-ui-small)',
     color: 'var(--accent)',

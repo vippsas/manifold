@@ -161,7 +161,17 @@ export function App(): React.JSX.Element {
 
   const activeProject = projects.find((p) => p.id === activeProjectId) ?? null
   const gitOps = useGitOperations(effectiveSessionId)
-  useBranchStaleness(activeProjectId, projects)
+  const branchStaleness = useBranchStaleness(activeProjectId, projects)
+
+  // A folder row fetched its repo: its base branch is fresh again, and every
+  // agent cut from it has a new distance to that branch.
+  const handleProjectFetched = useCallback((projectId: string): void => {
+    branchStaleness.markFresh(projectId)
+    for (const session of sessionsByProject[projectId] ?? []) {
+      void window.electronAPI.invoke('git:ahead-behind', session.id).catch(() => {})
+    }
+    void gitOps.refreshAheadBehind()
+  }, [branchStaleness, gitOps, sessionsByProject])
 
   const renameAgent = useCallback(async (sessionId: string, update: AgentSettingsUpdate): Promise<void> => {
     const configured = await window.electronAPI.invoke('agent:configure', sessionId, update) as AgentSession
@@ -393,6 +403,7 @@ export function App(): React.JSX.Element {
     },
     onAddProjectToWorkspace: addLocalFolderToWorkspace,
     onRemoveProjectFromWorkspace: (id: string, pid: string) => { void removeProjectFromWorkspace(id, pid) },
+    behindCounts: branchStaleness.behindCounts, onProjectFetched: handleProjectFetched,
     sidebarView, onSelectSidebarView: setSidebarView,
     onFocusSearch: overlays.openSearch, onClosePanel: editorHandlers.handleClosePanel,
     onToggleMaximize: dockLayout.toggleMaximizePanel,

@@ -4,6 +4,7 @@ import type { DraftId } from '../../../shared/draft-chat'
 import {
   installElectronApi,
   installLocalStorage,
+  mockInvoke,
   renderSidebar,
   folderLabel,
 } from './ProjectSidebar.test-helpers'
@@ -287,9 +288,52 @@ describe('ProjectSidebar', () => {
     expect(screen.queryByLabelText(/to Favorites/)).not.toBeInTheDocument()
   })
 
-  it('does not render a manual refresh action for folders', () => {
+  it('offers a fetch action on a git folder row', () => {
     renderSidebar()
 
+    expect(screen.getByRole('button', { name: 'Fetch Alpha' })).toBeInTheDocument()
+  })
+
+  // The fetch acts on the repo's clone and its base branch — not on the
+  // workspace's checkout — and must not double as selecting the folder.
+  it('fetches the folder’s repo without selecting the row', () => {
+    const { props } = renderSidebar()
+
+    fireEvent.click(screen.getByRole('button', { name: 'Fetch Alpha' }))
+
+    expect(mockInvoke).toHaveBeenCalledWith('git:fetch', 'p1')
+    expect(props.onSelectWorkspaceRepo).not.toHaveBeenCalled()
+  })
+
+  it('offers no fetch action on a plain folder', () => {
+    renderSidebar({
+      projects: [{ id: 'p1', name: 'Alpha', path: '/repos/alpha', baseBranch: 'main', addedAt: '2024-01-01', kind: 'folder' }],
+    })
+
     expect(screen.queryByRole('button', { name: /Fetch Alpha/ })).not.toBeInTheDocument()
+  })
+
+  it('badges the row with how far behind origin the repo is', () => {
+    renderSidebar({ behindCounts: { p1: 2 } })
+
+    expect(screen.getByRole('button', { name: 'Fetch Alpha (2 behind origin)' })).toBeInTheDocument()
+  })
+
+  it('reports what the fetch brought in, under the row', async () => {
+    mockInvoke.mockResolvedValue({ updatedBranch: 'main', previousRef: 'a', currentRef: 'b', commitCount: 3 })
+    renderSidebar()
+
+    fireEvent.click(screen.getByRole('button', { name: 'Fetch Alpha' }))
+
+    expect(await screen.findByText('Updated main: 3 new commits')).toBeInTheDocument()
+  })
+
+  it('reports why a fetch failed', async () => {
+    mockInvoke.mockRejectedValue(new Error('fatal: unable to access remote'))
+    renderSidebar()
+
+    fireEvent.click(screen.getByRole('button', { name: 'Fetch Alpha' }))
+
+    expect(await screen.findByText('fatal: unable to access remote')).toBeInTheDocument()
   })
 })

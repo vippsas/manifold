@@ -65,6 +65,24 @@ between the repo and the `/`. The `calc(100% - 5ch)` cap is only a backstop agai
 repo long enough to erase the name, and `white-space: nowrap` is load-bearing — without
 it `text-overflow` never fires and a long repo wraps to a second line instead.
 
+**A folder row fetches its repo's clone, not the workspace's checkout.** Each git folder
+row of an open workspace card carries a `RepoFetchButton` (`WorkspaceRepoRow.tsx:86`) that
+invokes `git:fetch` with the *project* id, so main fetches `project.path` and updates
+`project.baseBranch` (`git-handlers.ts:117`) — the branch new work is cut from, and the
+branch `git:staleness` measures "behind origin" against. A worktree workspace's own
+checkout is deliberately untouched. Idle the button is a quiet `↻`; once the base branch
+trails origin it becomes an accent pill carrying the count, capped at `9+`
+(`ProjectSidebar.styles.ts` `fetchPill`). Fetch state is per row — `useFetchProject`
+(`hooks/project/useFetchProject.ts`) holds the in-flight flag and the outcome, which
+renders under the row and clears itself after 5s. The count itself is *not* per row:
+`useBranchStaleness` probes the **active project only**, throttled to 3 minutes and
+re-armed on window focus (`App.tsx:164`), and its `behindCounts` reach the row through
+`DockAppState` → `ProjectSidebar` → `WorkspaceList` → `WorkspaceCard`; a successful fetch
+calls back to `markFresh` so the pill clears without another network probe. Both the
+button and the `×` live in `.sidebar-item-actions`, which is `opacity: 0` until the row is
+hovered or focused (`theme.css:974`) — so the pill is a hover-time warning, not a
+persistent badge.
+
 **Activity bar.** A fixed (non-collapsible) icon rail sits left of the dock
 (`components/ActivityBar.tsx`), labeled via a CSS hover tooltip
 (`.activity-bar-tooltip`), in two groups either side of a divider. The **top group is the

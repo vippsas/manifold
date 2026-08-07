@@ -24,6 +24,9 @@ export interface ProjectSidebarProps {
   onSelectWorkspaceRepo?: (workspaceId: string, projectId: string) => void
   onAddProjectToWorkspace?: (workspaceId: string) => void | Promise<void>
   onRemoveProjectFromWorkspace?: (workspaceId: string, projectId: string) => void
+  /** How far each repo's base branch trails origin, by project id. */
+  behindCounts?: Record<string, number>
+  onProjectFetched?: (projectId: string) => void
   drafts: DraftChat[]
   activeDraftId: string | null
   onSelectDraft: (id: string) => void
@@ -47,6 +50,8 @@ export function ProjectSidebar({
   onSelectWorkspaceRepo,
   onAddProjectToWorkspace,
   onRemoveProjectFromWorkspace,
+  behindCounts,
+  onProjectFetched,
   drafts,
   activeDraftId,
   onSelectDraft,
@@ -87,6 +92,8 @@ export function ProjectSidebar({
           onSelectRepo={onSelectWorkspaceRepo}
           onAddProject={onAddProjectToWorkspace}
           onRemoveProject={onRemoveProjectFromWorkspace}
+          behindCounts={behindCounts}
+          onProjectFetched={onProjectFetched}
           onSelectDraft={onSelectDraft}
           onDiscardDraft={onDiscardDraft}
           renderFolderFiles={renderFolderFiles}

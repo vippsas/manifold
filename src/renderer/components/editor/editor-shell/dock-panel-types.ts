@@ -99,6 +99,10 @@ export interface DockAppState {
   onLaunchWorkspaceAgent?: (workspaceId: string, options: { runtimeId: string; displayName: string; nonInteractive?: boolean }) => Promise<unknown>
   onAddProjectToWorkspace?: (workspaceId: string) => void | Promise<void>
   onRemoveProjectFromWorkspace?: (workspaceId: string, projectId: string) => void
+  /** How far each repo's base branch trails origin, by project id — measured
+   *  for the active project only, so the sidebar badges that row alone. */
+  behindCounts?: Record<string, number>
+  onProjectFetched?: (projectId: string) => void
   // Agent restart
   activeSessionStatus: AgentStatus | null
   activeSessionRuntimeId: string | null

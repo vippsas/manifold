@@ -1,8 +1,11 @@
 import React from 'react'
 import type { Project } from '../../../shared/types'
 import type { Workspace } from '../../../shared/workspace-types'
+import { isGitProject } from '../../../shared/project-kind'
 import { sidebarStyles } from './ProjectSidebar.styles'
 import { FilesChevronGlyph, RepoGlyph } from './SidebarCardActionGlyphs'
+import { RepoFetchButton } from './RepoFetchButton'
+import { useFetchProject } from '../../hooks/project/useFetchProject'
 import type { FolderSource } from '../../hooks/editor/useWorkspaceTree'
 
 export interface WorkspaceRepoRowProps {
@@ -11,10 +14,14 @@ export interface WorkspaceRepoRowProps {
   repo: Project | undefined
   /** True when this row's workspace is the active one and this is its home folder. */
   isActive: boolean
+  /** How far the repo's base branch trails origin, if anyone has measured. */
+  behindCount?: number
   filesOpen: boolean
   onToggleFiles: () => void
   onSelectRepo?: (workspaceId: string, projectId: string) => void
   onRemoveProject?: (workspaceId: string, projectId: string) => void
+  /** Told once a fetch lands, so whoever owns the behind count can clear it. */
+  onFetched?: (projectId: string) => void
   renderFolderFiles?: (source: FolderSource) => React.ReactNode
 }
 
@@ -26,16 +33,19 @@ export function WorkspaceRepoRow({
   projectId,
   repo,
   isActive,
+  behindCount = 0,
   filesOpen,
   onToggleFiles,
   onSelectRepo,
   onRemoveProject,
+  onFetched,
   renderFolderFiles,
 }: WorkspaceRepoRowProps): React.JSX.Element {
   const repoName = repo?.name ?? projectId
   // In a worktree workspace this row is the workspace's own checkout of the
   // repo, not the clone — that is where its agents' edits land.
   const folderPath = workspace.worktreePaths?.[projectId] ?? repo?.path ?? projectId
+  const fetch = useFetchProject(projectId, onFetched)
   const selectAndDisclose = (): void => {
     onSelectRepo?.(workspace.id, projectId)
     onToggleFiles()
@@ -72,6 +82,15 @@ export function WorkspaceRepoRow({
           <span className="truncate">{repoName}</span>
         </span>
         <div className="sidebar-item-actions" style={sidebarStyles.itemRight}>
+          {isGitProject(repo) && repo && (
+            <RepoFetchButton
+              repoName={repoName}
+              baseBranch={repo.baseBranch}
+              behindCount={behindCount}
+              isFetching={fetch.isFetching}
+              onFetch={() => { void fetch.fetchProject() }}
+            />
+          )}
           {onRemoveProject && workspace.projectIds.length > 1 && (
             <button
               type="button"
@@ -87,6 +106,13 @@ export function WorkspaceRepoRow({
           )}
         </div>
       </div>
+      {(fetch.result || fetch.error) && (
+        <div style={sidebarStyles.fetchMessage}>
+          {fetch.error ?? (fetch.result!.commitCount > 0
+            ? `Updated ${fetch.result!.updatedBranch}: ${fetch.result!.commitCount} new commit${fetch.result!.commitCount === 1 ? '' : 's'}`
+            : `${fetch.result!.updatedBranch} is up to date`)}
+        </div>
+      )}
       {filesOpen && renderFolderFiles && (
         <div className="sidebar-project-files" style={sidebarStyles.projectFiles}>
           {renderFolderFiles({ kind: 'project', id: projectId, workspaceId: workspace.id })}
