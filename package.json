@@ -44,7 +44,7 @@
     "chokidar": "^3.6.0",
     "dockview": "^5.0.0",
     "electron-updater": "^6.8.3",
-    "mermaid": "^11.15.0",
+    "mermaid": "^11.16.1",
     "monaco-editor": "^0.52.0",
     "monaco-themes": "^0.4.8",
     "node-pty": "^1.0.0",
