@@ -28,26 +28,29 @@ export interface NewAgentProps {
   focusTrigger?: number
 }
 
+/** The single agent being launched right now, so a layout can mark the row that
+ *  is starting. Null when idle. */
+export interface PendingLaunch {
+  runtimeId: string
+  mode: AgentMode
+}
+
 /**
  * Every piece of new-agent state and the launch itself, shared by the two
- * layouts that offer it: the classic form (modal, compact workspace panel) and
- * the hero card grid. `submit` takes an optional mode so a layout can launch
- * straight from a "Start Chat" click without waiting for a `setMode` render.
+ * layouts that offer it: the compact dialog and the full-panel start view. Both
+ * now present the same provider list, so `launch` takes the runtime and mode
+ * explicitly from the clicked row rather than reading a single selection back
+ * from state.
  */
 export function useNewAgentForm({
   defaultRuntime,
   defaultAgentMode = 'interactive',
   onLaunch,
   existingSessions = [],
-  focusTrigger,
 }: NewAgentProps) {
-  const [mode, setMode] = useState<AgentMode>(defaultAgentMode)
-  const [taskDescription, setTaskDescription] = useState('')
-  const [runtimeId, setRuntimeId] = useState(defaultRuntime)
-  const [loading, setLoading] = useState(false)
   const [runtimes, setRuntimes] = useState<AgentRuntime[]>([])
+  const [pending, setPending] = useState<PendingLaunch | null>(null)
   const [error, setError] = useState('')
-  const inputRef = useRef<HTMLInputElement>(null)
   const mountedRef = useRef(true)
 
   useEffect(() => {
@@ -61,47 +64,42 @@ export function useNewAgentForm({
   }, [])
 
   useEffect(() => {
-    inputRef.current?.focus()
-  }, [focusTrigger])
-
-  useEffect(() => {
     void window.electronAPI.invoke('runtimes:list').then((list) => {
       setRuntimes(list as AgentRuntime[])
     })
   }, [])
 
-  const selectedRuntime = runtimes.find((r) => r.id === runtimeId)
-  const runtimeInstalled = selectedRuntime?.installed !== false
   const reusableSessions = existingSessions.filter((session) => (
     (session.status === 'done' || session.status === 'error')
     && !session.groupId
   ))
 
-  const canSubmit = runtimeInstalled
-
-  const submit = useCallback(
-    async (modeOverride?: AgentMode): Promise<void> => {
-      if (!canSubmit) return
+  const launch = useCallback(
+    async (runtimeId: string, mode: AgentMode): Promise<void> => {
+      if (pending) return
+      const runtime = runtimes.find((r) => r.id === runtimeId)
+      if (runtime?.installed === false) return
       setError('')
-      // A layout that launches straight from a "Start Chat" click passes the mode
-      // in: reading it back from state here would see the pre-click value.
-      const effectiveMode = modeOverride ?? mode
-      if (modeOverride && modeOverride !== mode) setMode(modeOverride)
 
-      // The name names the agent and nothing else. It used to seed a branch name
-      // — a random city when left blank — but the workspace owns the branch now,
-      // so a blank name simply leaves the agent named after its runtime.
+      // The workspace names the agent after its runtime; a second agent of the
+      // same runtime is disambiguated with a number ("Claude Code 2"). A blank
+      // name lets the downstream default name it "Claude Code", so only the
+      // duplicates carry a number.
+      const base = runtime?.name ?? runtimeId
+      const sameRuntimeCount = existingSessions.filter((s) => s.runtimeId === runtimeId).length
+      const displayName = sameRuntimeCount === 0 ? '' : `${base} ${sameRuntimeCount + 1}`
+
       const options: NewAgentLaunchOptions = {
         runtimeId,
-        displayName: taskDescription.trim(),
-        nonInteractive: effectiveMode === 'chat',
+        displayName,
+        nonInteractive: mode === 'chat',
       }
 
-      // Persist the chosen mode and runtime so the next New Agent form defaults
-      // to them. Done at submit (not on every click) to avoid flooding all
-      // renderers with settings:changed broadcasts while the user tries options out.
+      // Persist the chosen mode and runtime so the next New Agent view defaults
+      // to them. Only write what changed to avoid flooding renderers with
+      // settings:changed broadcasts.
       const remembered: Partial<{ defaultAgentMode: AgentMode; defaultRuntime: string }> = {}
-      if (effectiveMode !== defaultAgentMode) remembered.defaultAgentMode = effectiveMode
+      if (mode !== defaultAgentMode) remembered.defaultAgentMode = mode
       if (runtimeId !== defaultRuntime) remembered.defaultRuntime = runtimeId
       if (Object.keys(remembered).length > 0) {
         window.electronAPI.invoke('settings:update', remembered).catch((err) => {
@@ -109,7 +107,7 @@ export function useNewAgentForm({
         })
       }
 
-      setLoading(true)
+      setPending({ runtimeId, mode })
       try {
         const session = await onLaunch(options)
         if (!session && mountedRef.current) setError('Failed to start agent.')
@@ -119,27 +117,18 @@ export function useNewAgentForm({
           setError(`Failed to start agent: ${message}`)
         }
       } finally {
-        if (mountedRef.current) setLoading(false)
+        if (mountedRef.current) setPending(null)
       }
     },
-    [runtimeId, taskDescription, canSubmit, mode, defaultAgentMode, defaultRuntime, onLaunch]
+    [runtimes, existingSessions, pending, defaultAgentMode, defaultRuntime, onLaunch]
   )
 
   return {
-    mode,
-    setMode,
-    taskDescription,
-    setTaskDescription,
-    runtimeId,
-    setRuntimeId,
     runtimes,
-    selectedRuntime,
-    runtimeInstalled,
-    loading,
+    pending,
+    loading: pending !== null,
     error,
-    canSubmit,
     reusableSessions,
-    inputRef,
-    submit,
+    launch,
   }
 }

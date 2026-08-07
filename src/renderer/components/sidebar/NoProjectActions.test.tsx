@@ -20,19 +20,51 @@ function renderActions(overrides: Partial<React.ComponentProps<typeof NoProjectA
   }
 }
 
+function openNewProject(): void {
+  fireEvent.click(screen.getByRole('button', { name: /New project/ }))
+}
+
 describe('NoProjectActions', () => {
-  it('shows the prompt textarea immediately, defaulting to copied instructions', () => {
+  it('shows the three path cards first, with no form fields', () => {
     renderActions()
+
+    expect(screen.getByRole('button', { name: /New project/ })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /Local repository/ })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /Clone from Git/ })).toBeInTheDocument()
+    expect(screen.queryByRole('textbox')).not.toBeInTheDocument()
+  })
+
+  it('opens the folder picker directly from the Local repository card', () => {
+    const onAddProject = vi.fn()
+    renderActions({ onAddProject })
+
+    fireEvent.click(screen.getByRole('button', { name: /Local repository/ }))
+
+    expect(onAddProject).toHaveBeenCalledTimes(1)
+  })
+
+  it('shows the prompt textarea after choosing New project, defaulting to copied instructions', () => {
+    renderActions()
+    openNewProject()
 
     expect(screen.getByPlaceholderText('Paste the copied project instructions...')).toBeInTheDocument()
     expect(screen.getByRole('tab', { name: 'Copied instructions' })).toHaveAttribute('aria-selected', 'true')
     expect(screen.getByRole('button', { name: 'Start Project' })).toBeDisabled()
-    expect(screen.queryByRole('button', { name: 'Go' })).not.toBeInTheDocument()
-    expect(screen.queryByRole('button', { name: 'Back' })).not.toBeInTheDocument()
+  })
+
+  it('returns to the chooser from the New project view via Back', () => {
+    renderActions()
+    openNewProject()
+
+    fireEvent.click(screen.getByRole('button', { name: '← Back' }))
+
+    expect(screen.getByRole('button', { name: /Clone from Git/ })).toBeInTheDocument()
+    expect(screen.queryByPlaceholderText('Paste the copied project instructions...')).not.toBeInTheDocument()
   })
 
   it('switches the placeholder when selecting From scratch', () => {
     renderActions()
+    openNewProject()
 
     fireEvent.click(screen.getByRole('tab', { name: 'From scratch' }))
 
@@ -43,6 +75,7 @@ describe('NoProjectActions', () => {
   it('submits a scratch project without projectKind', async () => {
     const onCreateNewProject = vi.fn(async () => true)
     renderActions({ onCreateNewProject })
+    openNewProject()
 
     fireEvent.click(screen.getByRole('tab', { name: 'From scratch' }))
     fireEvent.change(screen.getByPlaceholderText('Describe what you want to build...'), {
@@ -60,6 +93,7 @@ describe('NoProjectActions', () => {
   it('submits copied instructions as a plain folder project', async () => {
     const onCreateNewProject = vi.fn(async () => true)
     renderActions({ onCreateNewProject })
+    openNewProject()
 
     fireEvent.change(screen.getByPlaceholderText('Paste the copied project instructions...'), {
       target: { value: 'Clone the prepared repository and continue.' },
@@ -77,6 +111,7 @@ describe('NoProjectActions', () => {
   it('keeps Start Project disabled for whitespace-only input', () => {
     const onCreateNewProject = vi.fn(async () => true)
     renderActions({ onCreateNewProject })
+    openNewProject()
 
     fireEvent.change(screen.getByPlaceholderText('Paste the copied project instructions...'), {
       target: { value: '   ' },
@@ -88,6 +123,7 @@ describe('NoProjectActions', () => {
 
   it('clears the textarea after a successful create', async () => {
     renderActions()
+    openNewProject()
 
     const textarea = screen.getByPlaceholderText('Paste the copied project instructions...')
     fireEvent.change(textarea, { target: { value: 'Copied setup prompt' } })
@@ -95,6 +131,21 @@ describe('NoProjectActions', () => {
 
     await waitFor(() => {
       expect((textarea as HTMLTextAreaElement).value).toBe('')
+    })
+  })
+
+  it('clones a repository from the Clone from Git card', async () => {
+    const onCloneProject = vi.fn(async () => true)
+    renderActions({ onCloneProject })
+
+    fireEvent.click(screen.getByRole('button', { name: /Clone from Git/ }))
+    fireEvent.change(screen.getByPlaceholderText('git@github.com:user/repo.git'), {
+      target: { value: 'git@github.com:user/repo.git' },
+    })
+    fireEvent.click(screen.getByRole('button', { name: 'Clone' }))
+
+    await waitFor(() => {
+      expect(onCloneProject).toHaveBeenCalledWith('git@github.com:user/repo.git')
     })
   })
 })

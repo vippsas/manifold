@@ -162,7 +162,6 @@ export function AppShell(p: AppShellProps): React.JSX.Element {
                 // to go. `locked` is deliberately not set: that would disable
                 // the sashes too, and resizing is the one gesture we keep.
                 disableDnd
-                className={!p.activeSessionId ? 'dockview-minimal' : ''}
                 components={PANEL_COMPONENTS}
                 onReady={(e) => p.onDockReady(e.api)}
                 defaultTabComponent={DockTab}

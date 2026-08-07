@@ -4,7 +4,6 @@ import { NewAgentHero } from './NewAgentHero'
 import type { NewAgentLaunchOptions } from './useNewAgentForm'
 import { onboardingLinkStyle } from './NewAgentForm.styles'
 import { NoProjectActions } from '../sidebar/NoProjectActions'
-import { WorkspaceGlyph } from '../sidebar/WorkspaceGlyph'
 import { ManifoldWordmark } from '../ManifoldWordmark'
 import { StarfieldBackdrop } from '../StarfieldBackdrop'
 
@@ -90,10 +89,10 @@ export function OnboardingView(props: OnboardingViewProps): React.JSX.Element {
       }}
     >
       <StarfieldBackdrop />
-      <ManifoldWordmark size="normal" />
 
       {props.variant === 'no-project' ? (
         <>
+          <ManifoldWordmark size="normal" />
           <NoProjectActions
             onAddProject={props.onAddProject}
             onCloneProject={props.onCloneProject}
@@ -107,35 +106,18 @@ export function OnboardingView(props: OnboardingViewProps): React.JSX.Element {
           )}
         </>
       ) : (
-        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 'var(--space-lg)' }}>
-          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 'var(--space-xs)' }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-              <WorkspaceGlyph active />
-              <span className="sidebar-workspace-eyebrow">Workspace</span>
-            </div>
-            <div style={{
-              fontFamily: 'var(--font-display)',
-              fontSize: 'var(--type-display)',
-              fontWeight: 400,
-              color: 'var(--text-primary)',
-              letterSpacing: 'var(--tracking-tight)',
-            }}>
-              New agent in <span style={{ fontStyle: 'italic', fontWeight: 500, color: 'var(--accent-hi, var(--text-primary))' }}>{props.workspaceName}</span>
-            </div>
-          </div>
-          <NewAgentHero
-            workspaceName={props.workspaceName}
-            primaryPath={props.primaryPath}
-            branchLabel={props.branchLabel}
-            defaultRuntime={props.defaultRuntime}
-            defaultAgentMode={props.defaultAgentMode}
-            onLaunch={props.onLaunch}
-            existingSessions={props.existingSessions}
-            onResumeSession={props.onResumeSession}
-            onDeleteSession={props.onDeleteSession}
-            focusTrigger={props.focusTrigger}
-          />
-        </div>
+        <NewAgentHero
+          workspaceName={props.workspaceName}
+          primaryPath={props.primaryPath}
+          branchLabel={props.branchLabel}
+          defaultRuntime={props.defaultRuntime}
+          defaultAgentMode={props.defaultAgentMode}
+          onLaunch={props.onLaunch}
+          existingSessions={props.existingSessions}
+          onResumeSession={props.onResumeSession}
+          onDeleteSession={props.onDeleteSession}
+          focusTrigger={props.focusTrigger}
+        />
       )}
     </div>
   )

@@ -31,19 +31,18 @@ beforeEach(() => {
 })
 
 describe('NewAgentModal', () => {
-  // The dialog is aimed at a workspace, never at one of its folders: the name
-  // names the agent, and the launch says nothing about where it will run.
+  // The dialog is aimed at a workspace, never at one of its folders: clicking a
+  // provider starts a terminal agent there and says nothing about where it runs.
   it('launches into the workspace and closes after a successful start', async () => {
     render(<NewAgentModal {...baseProps} />)
 
     expect(screen.getByRole('dialog', { name: 'New agent in Checkout' })).toBeInTheDocument()
     expect(screen.getByText('Checkout')).toBeInTheDocument()
-    fireEvent.change(screen.getByPlaceholderText(/Agent name/), { target: { value: 'Fix checkout' } })
-    fireEvent.click(screen.getByRole('button', { name: 'Start Agent' }))
+    fireEvent.click(await screen.findByRole('button', { name: /Claude/ }))
 
     await waitFor(() => expect(baseProps.onLaunch).toHaveBeenCalledWith({
       runtimeId: 'claude',
-      displayName: 'Fix checkout',
+      displayName: '',
       nonInteractive: false,
     }))
     expect(baseProps.onClose).toHaveBeenCalled()

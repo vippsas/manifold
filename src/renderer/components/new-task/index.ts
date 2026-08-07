@@ -1,5 +1,3 @@
-export { TaskDescriptionField } from './TaskDescriptionField'
-export { AgentDropdown } from './AgentDropdown'
 export { BranchPicker } from './BranchPicker'
 export { PRPicker } from './PRPicker'
 export type { ExistingSubTab } from './types'

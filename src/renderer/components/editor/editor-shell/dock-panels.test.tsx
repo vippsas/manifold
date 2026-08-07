@@ -174,7 +174,7 @@ describe('AgentPanel', () => {
     await waitFor(() => {
       expect(screen.getByText('Agents you can resume')).toBeInTheDocument()
     })
-    expect(screen.getByText('Start Terminal')).toBeInTheDocument()
+    expect(screen.getByText('Chat with interface')).toBeInTheDocument()
     expect(screen.getByText('Worktree: manifold-dormant')).toBeInTheDocument()
     expect(screen.getByText('Agent: Codex')).toBeInTheDocument()
   })
