@@ -158,13 +158,17 @@ export function WorkspaceCard({
             onDoubleClick={(e) => { e.stopPropagation(); if (onRenameWorkspace) setNameDraft(label.name) }}
             title={onRenameWorkspace ? 'Double-click to rename' : undefined}
           >
-            {label.repo && (
-              <>
-                <span style={sidebarStyles.rowRepo}>{label.repo}</span>
-                <span style={sidebarStyles.rowRepoSep}>/</span>
-              </>
-            )}
-            <span className="truncate" style={{ minWidth: 0 }}>{label.name}</span>
+            {/* Own group, so the label's 6px gap spaces the dot off the name
+                without also prising the repo, the "/" and the name apart. */}
+            <span style={sidebarStyles.rowLabelPath}>
+              {label.repo && (
+                <>
+                  <span style={sidebarStyles.rowRepo}>{label.repo}</span>
+                  <span style={sidebarStyles.rowRepoSep}>/</span>
+                </>
+              )}
+              <span className="truncate" style={{ minWidth: 0 }}>{label.name}</span>
+            </span>
             {isWorking && (
               <span
                 className="status-dot status-dot--active"
