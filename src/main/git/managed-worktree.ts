@@ -57,9 +57,69 @@ export async function stageManagedWorktreePath(
   worktreePath: string,
   filePath: string
 ): Promise<void> {
+  await stageManagedWorktreePaths(worktreePath, [filePath])
+}
+
+export async function stageManagedWorktreePaths(
+  worktreePath: string,
+  filePaths: string[]
+): Promise<void> {
+  if (filePaths.length === 0) return
   await ensureManagedWorktreeGuards(worktreePath)
   await runWithPoisonedIndexRecovery(worktreePath, async () => {
-    await gitExec(['add', '--', filePath], worktreePath)
+    await gitExec(['add', '--', ...filePaths], worktreePath)
+  })
+}
+
+export async function unstageManagedWorktreePaths(
+  worktreePath: string,
+  filePaths: string[]
+): Promise<void> {
+  if (filePaths.length === 0) return
+  await ensureManagedWorktreeGuards(worktreePath)
+  await runWithPoisonedIndexRecovery(worktreePath, async () => {
+    await gitExec(['restore', '--staged', '--', ...filePaths], worktreePath)
+  })
+}
+
+/** Throw away working-tree changes. A tracked file goes back to what the index
+ *  holds — so discarding the unstaged half of a staged-then-edited file keeps
+ *  the staged half — while an untracked file is simply removed, which is the
+ *  only thing "discard" can mean for a file git has never seen. */
+export async function discardManagedWorktreePaths(
+  worktreePath: string,
+  filePaths: string[]
+): Promise<void> {
+  if (filePaths.length === 0) return
+  await ensureManagedWorktreeGuards(worktreePath)
+  await runWithPoisonedIndexRecovery(worktreePath, async () => {
+    // -z, so a path with spaces or non-ASCII bytes comes back verbatim rather
+    // than in git's quoted form and still matches what the caller passed.
+    const listed = await gitExec(['ls-files', '-z', '--', ...filePaths], worktreePath)
+    const tracked = new Set(listed.split('\0').filter(Boolean))
+    const known = filePaths.filter((p) => tracked.has(p))
+    const untracked = filePaths.filter((p) => !tracked.has(p))
+    if (known.length > 0) await gitExec(['restore', '--worktree', '--', ...known], worktreePath)
+    if (untracked.length > 0) await gitExec(['clean', '-fd', '--', ...untracked], worktreePath)
+  })
+}
+
+/** Commit exactly what the index holds. The Source Control view stages
+ *  explicitly, so unlike `commitManagedWorktree` this must not `add -A` first —
+ *  that would commit the changes the user deliberately left unstaged. */
+export async function commitManagedWorktreeIndex(
+  worktreePath: string,
+  message: string
+): Promise<void> {
+  const trimmedMessage = message.trim()
+
+  await ensureManagedWorktreeGuards(worktreePath)
+  await runWithPoisonedIndexRecovery(worktreePath, async () => {
+    if (trimmedMessage) {
+      await gitExec(['commit', '-m', trimmedMessage], worktreePath)
+    } else {
+      await gitExec(['commit', '--no-edit'], worktreePath)
+    }
   })
 }
 

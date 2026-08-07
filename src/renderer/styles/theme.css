@@ -1953,6 +1953,15 @@ select:focus-visible {
   box-shadow: none;
 }
 
+/* ─── Source Control ─── */
+/* The branch is a control, not a caption: it reads as a pill so the click that
+   switches branches is discoverable without hovering to find out. */
+.branch-switcher-trigger:hover {
+  background: var(--control-bg-hover);
+  color: var(--text-primary);
+  border-color: var(--accent-dim);
+}
+
 /* ─── Reduced motion: instrumentation effects go static ─── */
 @media (prefers-reduced-motion: reduce) {
   .status-dot--active {

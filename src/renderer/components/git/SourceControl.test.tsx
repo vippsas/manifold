@@ -34,7 +34,8 @@ const statuses: WorkspaceRepoStatus[] = [
     projectName: 'repo-one',
     checkoutPath: '/worktrees/repo-one',
     branch: 'manifold/feature-x',
-    changes: [
+    staged: [{ path: 'src/staged.ts', type: 'modified' }],
+    unstaged: [
       { path: 'src/app.ts', type: 'modified' },
       { path: 'docs/new.md', type: 'added' },
     ],
@@ -44,8 +45,15 @@ const statuses: WorkspaceRepoStatus[] = [
     projectName: 'repo-two',
     checkoutPath: '/worktrees/repo-two',
     branch: 'manifold/feature-x',
-    changes: [],
+    staged: [],
+    unstaged: [],
   },
+]
+
+/** Nothing in the index — the shape that makes Commit ask before staging all. */
+const unstagedOnly: WorkspaceRepoStatus[] = [
+  { ...statuses[0], staged: [] },
+  statuses[1],
 ]
 
 describe('SourceControl', () => {
@@ -66,7 +74,6 @@ describe('SourceControl', () => {
 
     // Both sections carry the workspace branch.
     expect(screen.getAllByText('manifold/feature-x')).toHaveLength(2)
-    // repo-one's changes, sorted with the modified file first.
     expect(screen.getByText('app.ts')).toBeInTheDocument()
     expect(screen.getByText('new.md')).toBeInTheDocument()
     // repo-two is clean.
@@ -74,7 +81,20 @@ describe('SourceControl', () => {
     expect(screen.getByText('No changes')).toBeInTheDocument()
   })
 
-  it('opens a changed file with its checkout context for the SCM diff', async () => {
+  it('splits changes into staged and unstaged groups with counts', async () => {
+    mockInvoke.mockResolvedValue(statuses)
+    render(<SourceControl workspace={workspace} onSelectFile={vi.fn()} />)
+
+    await waitFor(() => {
+      expect(screen.getByText('Staged Changes')).toBeInTheDocument()
+    })
+    expect(screen.getByText('Changes')).toBeInTheDocument()
+    expect(screen.getByText('staged.ts')).toBeInTheDocument()
+    // The repo badge counts both halves.
+    expect(screen.getByText('3')).toBeInTheDocument()
+  })
+
+  it('opens a changed file with its checkout context and which half was clicked', async () => {
     mockInvoke.mockResolvedValue(statuses)
     const onSelectFile = vi.fn()
     render(<SourceControl workspace={workspace} onSelectFile={onSelectFile} />)
@@ -82,30 +102,104 @@ describe('SourceControl', () => {
     await waitFor(() => {
       expect(screen.getByText('app.ts')).toBeInTheDocument()
     })
-    fireEvent.click(screen.getByText('app.ts'))
 
+    fireEvent.click(screen.getByText('app.ts'))
     expect(onSelectFile).toHaveBeenCalledWith('/worktrees/repo-one/src/app.ts', {
       workspaceId: 'ws-1',
       projectId: 'p1',
       relPath: 'src/app.ts',
+      staged: false,
+    })
+
+    fireEvent.click(screen.getByText('staged.ts'))
+    expect(onSelectFile).toHaveBeenCalledWith('/worktrees/repo-one/src/staged.ts', {
+      workspaceId: 'ws-1',
+      projectId: 'p1',
+      relPath: 'src/staged.ts',
+      staged: true,
     })
   })
 
-  it('collapses a repo section on header click', async () => {
+  it('stages one file from its row action', async () => {
     mockInvoke.mockResolvedValue(statuses)
     render(<SourceControl workspace={workspace} onSelectFile={vi.fn()} />)
 
     await waitFor(() => {
       expect(screen.getByText('app.ts')).toBeInTheDocument()
     })
-    fireEvent.click(screen.getByRole('button', { name: /repo-one/ }))
+    // Row actions appear on hover, the way VS Code keeps a long list quiet.
+    fireEvent.mouseEnter(screen.getByTitle('src/app.ts'))
+    fireEvent.click(screen.getByRole('button', { name: 'Stage src/app.ts' }))
 
-    expect(screen.queryByText('app.ts')).not.toBeInTheDocument()
-    // The other section is untouched.
-    expect(screen.getByText('No changes')).toBeInTheDocument()
+    await waitFor(() => {
+      expect(mockInvoke).toHaveBeenCalledWith('git:workspace-stage', 'ws-1', 'p1', ['src/app.ts'])
+    })
   })
 
-  it('commits a repo through its message input and refreshes', async () => {
+  it('unstages a staged file from its row action', async () => {
+    mockInvoke.mockResolvedValue(statuses)
+    render(<SourceControl workspace={workspace} onSelectFile={vi.fn()} />)
+
+    await waitFor(() => {
+      expect(screen.getByText('staged.ts')).toBeInTheDocument()
+    })
+    fireEvent.mouseEnter(screen.getByTitle('src/staged.ts'))
+    fireEvent.click(screen.getByRole('button', { name: 'Unstage src/staged.ts' }))
+
+    await waitFor(() => {
+      expect(mockInvoke).toHaveBeenCalledWith('git:workspace-unstage', 'ws-1', 'p1', ['src/staged.ts'])
+    })
+  })
+
+  it('stages a whole group from the group action', async () => {
+    mockInvoke.mockResolvedValue(statuses)
+    render(<SourceControl workspace={workspace} onSelectFile={vi.fn()} />)
+
+    await waitFor(() => {
+      expect(screen.getByText('Changes')).toBeInTheDocument()
+    })
+    fireEvent.click(screen.getByRole('button', { name: 'Stage all Changes' }))
+
+    await waitFor(() => {
+      expect(mockInvoke).toHaveBeenCalledWith('git:workspace-stage', 'ws-1', 'p1', ['src/app.ts', 'docs/new.md'])
+    })
+  })
+
+  it('confirms before discarding and only then throws the change away', async () => {
+    mockInvoke.mockResolvedValue(statuses)
+    render(<SourceControl workspace={workspace} onSelectFile={vi.fn()} />)
+
+    await waitFor(() => {
+      expect(screen.getByText('app.ts')).toBeInTheDocument()
+    })
+    fireEvent.mouseEnter(screen.getByTitle('src/app.ts'))
+    fireEvent.click(screen.getByRole('button', { name: 'Discard src/app.ts' }))
+
+    expect(screen.getByText('Discard changes?')).toBeInTheDocument()
+    expect(mockInvoke).not.toHaveBeenCalledWith('git:workspace-discard', 'ws-1', 'p1', ['src/app.ts'])
+
+    fireEvent.click(screen.getByRole('button', { name: 'Discard' }))
+    await waitFor(() => {
+      expect(mockInvoke).toHaveBeenCalledWith('git:workspace-discard', 'ws-1', 'p1', ['src/app.ts'])
+    })
+  })
+
+  it('discards nothing when the confirm is cancelled', async () => {
+    mockInvoke.mockResolvedValue(statuses)
+    render(<SourceControl workspace={workspace} onSelectFile={vi.fn()} />)
+
+    await waitFor(() => {
+      expect(screen.getByText('app.ts')).toBeInTheDocument()
+    })
+    fireEvent.mouseEnter(screen.getByTitle('src/app.ts'))
+    fireEvent.click(screen.getByRole('button', { name: 'Discard src/app.ts' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Cancel' }))
+
+    expect(screen.queryByText('Discard changes?')).not.toBeInTheDocument()
+    expect(mockInvoke).not.toHaveBeenCalledWith('git:workspace-discard', 'ws-1', 'p1', ['src/app.ts'])
+  })
+
+  it('commits only the index when something is staged', async () => {
     mockInvoke.mockResolvedValue(statuses)
     render(<SourceControl workspace={workspace} onSelectFile={vi.fn()} />)
 
@@ -117,15 +211,93 @@ describe('SourceControl', () => {
 
     fireEvent.change(screen.getByPlaceholderText(/to commit on/), { target: { value: 'fix: polish checkout' } })
     const callsBefore = mockInvoke.mock.calls.length
-    fireEvent.click(screen.getByRole('button', { name: /Commit/ }))
+    fireEvent.click(screen.getByRole('button', { name: /^Commit$/ }))
 
     await waitFor(() => {
-      expect(mockInvoke).toHaveBeenCalledWith('git:workspace-commit', 'ws-1', 'p1', 'fix: polish checkout')
+      expect(mockInvoke).toHaveBeenCalledWith('git:workspace-commit', 'ws-1', 'p1', 'fix: polish checkout', false)
     })
     // A refresh followed the commit.
     await waitFor(() => {
       expect(mockInvoke.mock.calls.slice(callsBefore).map((c) => c[0])).toContain('git:workspace-status')
     })
+  })
+
+  it('asks before committing when nothing is staged, then stages all', async () => {
+    mockInvoke.mockResolvedValue(unstagedOnly)
+    render(<SourceControl workspace={workspace} onSelectFile={vi.fn()} />)
+
+    await waitFor(() => {
+      expect(screen.getByText('app.ts')).toBeInTheDocument()
+    })
+    fireEvent.change(screen.getByPlaceholderText(/to commit on/), { target: { value: 'wip' } })
+    fireEvent.click(screen.getByRole('button', { name: /^Commit$/ }))
+
+    expect(screen.getByText('No staged changes')).toBeInTheDocument()
+    expect(mockInvoke).not.toHaveBeenCalledWith('git:workspace-commit', 'ws-1', 'p1', 'wip', expect.anything())
+
+    fireEvent.click(screen.getByRole('button', { name: 'Stage all & commit' }))
+    await waitFor(() => {
+      expect(mockInvoke).toHaveBeenCalledWith('git:workspace-commit', 'ws-1', 'p1', 'wip', true)
+    })
+  })
+
+  it('commits nothing when the stage-all prompt is cancelled', async () => {
+    mockInvoke.mockResolvedValue(unstagedOnly)
+    render(<SourceControl workspace={workspace} onSelectFile={vi.fn()} />)
+
+    await waitFor(() => {
+      expect(screen.getByText('app.ts')).toBeInTheDocument()
+    })
+    fireEvent.change(screen.getByPlaceholderText(/to commit on/), { target: { value: 'wip' } })
+    fireEvent.click(screen.getByRole('button', { name: /^Commit$/ }))
+    fireEvent.click(screen.getByRole('button', { name: 'Cancel' }))
+
+    expect(screen.queryByText('No staged changes')).not.toBeInTheDocument()
+    expect(mockInvoke).not.toHaveBeenCalledWith('git:workspace-commit', 'ws-1', 'p1', 'wip', expect.anything())
+  })
+
+  it('commits from the repo header check as well as the button', async () => {
+    mockInvoke.mockResolvedValue(statuses)
+    render(<SourceControl workspace={workspace} onSelectFile={vi.fn()} />)
+
+    await waitFor(() => {
+      expect(screen.getByText('app.ts')).toBeInTheDocument()
+    })
+    fireEvent.change(screen.getByPlaceholderText(/to commit on/), { target: { value: 'from the header' } })
+    fireEvent.click(screen.getByRole('button', { name: 'Commit repo-one' }))
+
+    await waitFor(() => {
+      expect(mockInvoke).toHaveBeenCalledWith('git:workspace-commit', 'ws-1', 'p1', 'from the header', false)
+    })
+  })
+
+  it('refreshes from the repo header refresh action', async () => {
+    mockInvoke.mockResolvedValue(statuses)
+    render(<SourceControl workspace={workspace} onSelectFile={vi.fn()} />)
+
+    await waitFor(() => {
+      expect(screen.getByText('repo-one')).toBeInTheDocument()
+    })
+    const callsBefore = mockInvoke.mock.calls.length
+    fireEvent.click(screen.getByRole('button', { name: 'Refresh repo-one' }))
+
+    await waitFor(() => {
+      expect(mockInvoke.mock.calls.length).toBeGreaterThan(callsBefore)
+    })
+  })
+
+  it('collapses a repo section on header click', async () => {
+    mockInvoke.mockResolvedValue(statuses)
+    render(<SourceControl workspace={workspace} onSelectFile={vi.fn()} />)
+
+    await waitFor(() => {
+      expect(screen.getByText('app.ts')).toBeInTheDocument()
+    })
+    fireEvent.click(screen.getByRole('button', { name: 'repo-one' }))
+
+    expect(screen.queryByText('app.ts')).not.toBeInTheDocument()
+    // The other section is untouched.
+    expect(screen.getByText('No changes')).toBeInTheDocument()
   })
 
   it('shows the branch as a switcher button in each repo header', async () => {

@@ -1,7 +1,7 @@
 ---
 description: The contextBridge preload that exposes a single whitelisted window.electronAPI surface to the renderer and keeps Node/fs out of the web context.
 covers: [src/preload]
-updated: 2026-08-03
+updated: 2026-08-07
 owner: see .github/CODEOWNERS
 ---
 
@@ -27,7 +27,7 @@ The module imports only `contextBridge`, `ipcRenderer`, and `webUtils` from `ele
 (`src/preload/index.ts:1`) — nothing from `fs`, `path`, or `child_process`. Three
 `as const` arrays declare the permitted channels:
 
-- `ALLOWED_INVOKE_CHANNELS` (`src/preload/index.ts:3`) — 132 request/response channels, the `<namespace>:<verb>` names the main-process IPC handlers register (`projects:*`, `agent:*`, `files:*`, `diff:*`, `git:*` including `git:has-uncommitted-changes` and `git:workspace-status`, `settings:*`, `memory:*`, `search:*`, `workspace:*` including `workspace:get-active`/`workspace:set-active` (`src/preload/index.ts:113`), `simple:*`, `plugins:*`, and more).
+- `ALLOWED_INVOKE_CHANNELS` (`src/preload/index.ts:3`) — 135 request/response channels, the `<namespace>:<verb>` names the main-process IPC handlers register (`projects:*`, `agent:*`, `files:*`, `diff:*`, `git:*` including `git:has-uncommitted-changes` and the Source Control set `git:workspace-status`/`-stage`/`-unstage`/`-discard`/`-commit`/`-checkout`/`-file-diff`, `settings:*`, `memory:*`, `search:*`, `workspace:*` including `workspace:get-active`/`workspace:set-active` (`src/preload/index.ts:113`), `simple:*`, `plugins:*`, and more).
 - `ALLOWED_SEND_CHANNELS` (`src/preload/index.ts:138`) — two fire-and-forget channels, `theme:changed` and `notifications:active-session`.
 - `ALLOWED_LISTEN_CHANNELS` (`src/preload/index.ts:143`) — 27 main → renderer push channels (`agent:output`, `agent:status`, `agent:sessions-changed`, `files:changed`, `settings:changed`, `updater:status`, `command:run`, `plugins:webview-*`, `simple:chat-message`, etc.). `command:run` is the single channel the native menu uses to invoke any command in the shared catalog (`src/shared/commands/catalog.ts`); the renderer's `useCommands` hook dispatches it.
 

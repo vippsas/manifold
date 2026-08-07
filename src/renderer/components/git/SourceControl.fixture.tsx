@@ -1,7 +1,8 @@
 // Screenshot fixture for SourceControl — see scripts/screenshot-component.mjs.
-// `npm run screenshot:component SourceControl` renders the multi-repo view:
-// we override `git:workspace-status` so both sections show a branch, one with
-// changes of every type and one clean.
+// `npm run screenshot:component SourceControl` renders the multi-repo view: we
+// override `git:workspace-status` so both sections show a branch — one with a
+// staged group, an unstaged group carrying changes of every type, and a file
+// present in both (staged, then edited again), the other clean.
 import React from 'react'
 import type { Workspace, WorkspaceRepoStatus } from '../../../shared/workspace-types'
 import { SourceControl } from './SourceControl'
@@ -21,10 +22,15 @@ const statuses: WorkspaceRepoStatus[] = [
     projectName: 'storefront',
     checkoutPath: '/worktrees/storefront',
     branch: 'manifold/checkout-redesign',
-    changes: [
+    staged: [
+      { path: 'src/checkout/CartSummary.tsx', type: 'modified' },
+      { path: 'src/checkout/ExpressPay.tsx', type: 'added' },
+    ],
+    unstaged: [
+      // Also staged above: edited again after staging, which git reports in
+      // both columns and the panel shows in both groups.
       { path: 'src/checkout/CartSummary.tsx', type: 'modified' },
       { path: 'src/checkout/checkout-flow.ts', type: 'modified' },
-      { path: 'src/checkout/ExpressPay.tsx', type: 'added' },
       { path: 'src/legacy/one-page-checkout.ts', type: 'deleted' },
     ],
   },
@@ -33,7 +39,8 @@ const statuses: WorkspaceRepoStatus[] = [
     projectName: 'payments',
     checkoutPath: '/worktrees/payments',
     branch: 'manifold/checkout-redesign',
-    changes: [],
+    staged: [],
+    unstaged: [],
   },
 ]
 

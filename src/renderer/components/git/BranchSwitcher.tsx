@@ -235,20 +235,22 @@ export function BranchGlyph(): React.JSX.Element {
 const dialog = createDialogStyles('460px')
 
 const styles: Record<string, React.CSSProperties> = {
+  // A pill rather than a bare label: the click that switches branches has to
+  // look like a control, or nobody finds it (see .branch-switcher-trigger).
   trigger: {
     display: 'flex',
     alignItems: 'center',
-    gap: '3px',
+    gap: '4px',
     minWidth: 0,
-    padding: '0 3px',
-    border: 'none',
-    background: 'transparent',
-    borderRadius: 'var(--radius-xs)',
-    color: 'var(--text-muted)',
+    padding: '1px 7px',
+    border: '1px solid var(--control-border)',
+    background: 'var(--control-bg)',
+    borderRadius: 'var(--radius-pill)',
+    color: 'var(--text-secondary)',
     fontFamily: 'var(--font-mono)',
-    fontSize: '11px',
+    fontSize: 'var(--type-ui-caption)',
     cursor: 'pointer',
-    transition: 'background 150ms ease, color 150ms ease',
+    transition: 'background 150ms ease, color 150ms ease, border-color 150ms ease',
   },
   headerContext: {
     display: 'flex',

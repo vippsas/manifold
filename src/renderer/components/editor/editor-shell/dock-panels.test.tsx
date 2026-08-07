@@ -291,7 +291,7 @@ describe('EditorPanel — Source Control diff', () => {
         lastFileOpenRequest: {
           path: filePath,
           source: 'sourceControl',
-          scm: { workspaceId: 'ws-1', projectId: 'p1', relPath: 'src/app.ts' },
+          scm: { workspaceId: 'ws-1', projectId: 'p1', relPath: 'src/app.ts', staged: false },
         },
       })}
       >
@@ -302,7 +302,7 @@ describe('EditorPanel — Source Control diff', () => {
     await waitFor(() => {
       expect(screen.getByTestId('monaco-diff-editor')).toHaveTextContent('old content → new content')
     })
-    expect(mockInvoke).toHaveBeenCalledWith('git:workspace-file-diff', 'ws-1', 'p1', 'src/app.ts')
+    expect(mockInvoke).toHaveBeenCalledWith('git:workspace-file-diff', 'ws-1', 'p1', 'src/app.ts', false)
   })
 
   it('stays in the plain editor when the checkout reports no uncommitted change', async () => {
@@ -317,7 +317,7 @@ describe('EditorPanel — Source Control diff', () => {
         lastFileOpenRequest: {
           path: filePath,
           source: 'sourceControl',
-          scm: { workspaceId: 'ws-1', projectId: 'p1', relPath: 'src/app.ts' },
+          scm: { workspaceId: 'ws-1', projectId: 'p1', relPath: 'src/app.ts', staged: false },
         },
       })}
       >
@@ -326,7 +326,7 @@ describe('EditorPanel — Source Control diff', () => {
     )
 
     await waitFor(() => {
-      expect(mockInvoke).toHaveBeenCalledWith('git:workspace-file-diff', 'ws-1', 'p1', 'src/app.ts')
+      expect(mockInvoke).toHaveBeenCalledWith('git:workspace-file-diff', 'ws-1', 'p1', 'src/app.ts', false)
     })
     expect(screen.queryByTestId('monaco-diff-editor')).not.toBeInTheDocument()
     expect(screen.getByTestId('monaco-editor')).toHaveTextContent('new content')
