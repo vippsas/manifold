@@ -100,8 +100,10 @@ with `--accent-subtle` when active — so the current theme's accent, not text w
 carries the active tab (`.dock-tab:not(.dock-tab--icon)` in `styles/theme.css`, active/hover
 scoped to `.dv-active-tab` in `styles/dockview-theme.css`). Icon and headless tabs
 (sidebar/editor) keep their own accent-square treatment. Resize
-sashes are invisible inside the gap; hovering one fades in a full-length 2px accent line,
-the way VS Code's sash lights up.
+sashes carry five 3px grip dots centered on the gap — stacked for a vertical divider, in a
+row for a horizontal one — that brighten from `--text-muted` to the accent on hover
+(`styles/dockview-theme.css:58`); the sash element itself stays invisible, the card edges
+being the divider.
 Dockview's own split-view separator (`--dv-separator-border`, `styles/dockview-theme.css:24`)
 is transparent for the same reason: it paints a straight full-height line down the left edge
 of every view but the first, cutting across the cards' rounded corners. The chrome is screenshot-able
