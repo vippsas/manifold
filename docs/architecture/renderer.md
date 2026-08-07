@@ -290,9 +290,11 @@ All add/remove/focus/split/resize logic lives in the `hooks/dock-layout/` subsys
   (`modals/AgentLaunchList.tsx:81`): the full-panel **hero** (`modals/NewAgentHero.tsx`) for a
   workspace with no agent yet — the provider list over the workspace's finished agents, to
   resume — and the compact `NewAgentModal` (⌘N, or the agent tab bar's + — no sidebar button
-  opens it), which wraps the same list narrower in `NewAgentForm`. The full-panel view drops the
-  wordmark, the workspace eyebrow and the heading; `OnboardingView` keeps only the starfield
-  backdrop above the list.
+  opens it), which wraps the same list narrower in `NewAgentForm`. Only the hero carries a
+  masthead — the `ManifoldWordmark` ghost over its gold rule, then a display-serif *New agent for
+  &lt;workspace&gt;* naming the workspace the agent joins (`NewAgentHero.tsx:22`,
+  `NewAgentHero.styles.ts`) — because the dialog already has a titled header; `OnboardingView`
+  supplies the starfield backdrop behind both.
 
   **The list is the runtime picker.** One row per runtime — the agent's brand mark on the left,
   the name on the right — and clicking it starts that provider in a **terminal** on the spot. A
@@ -303,7 +305,14 @@ All add/remove/focus/split/resize logic lives in the `hooks/dock-layout/` subsys
   Ollama variants reuse the mark of the agent they launch, and a runtime with no mark falls back
   to an initial. A `needsModel` (Ollama) variant of a runtime already shown stays out of the
   list — having Ollama installed would otherwise double every row — and a runtime whose binary
-  is missing shows disabled with a "not installed" note. Both the provider and the Terminal/Chat
+  is missing shows disabled with a "not installed" note. **One row leads.** The remembered
+  `defaultRuntime` — or the first *installed* provider when it names one that isn't, so the plate
+  never advertises a dead default — is passed down as `leadRuntimeId` and wears the gold
+  `.btn-metal` plate; every other row is a dark console plate
+  (`AgentLaunchList.styles.ts:rowPlate`). Both wear the same `--chamfer` silhouette, so the list
+  reads as one cut of material with an obvious default rather than a wall of equals. The lead
+  row's surface comes entirely from the class: an inline `background`/`color` would outrank it,
+  which is why `row` holds geometry only. Both the provider and the Terminal/Chat
   mode are **remembered as the next view's defaults**, written as one `settings:update`
   (`defaultRuntime`, `defaultAgentMode`) on launch rather than on each click, which would
   broadcast `settings:changed` to every renderer while the user tries options out

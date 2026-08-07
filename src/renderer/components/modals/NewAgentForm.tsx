@@ -17,6 +17,7 @@ export function NewAgentForm(props: NewAgentProps): React.JSX.Element {
         pending={f.pending}
         onLaunch={(runtimeId, mode) => void f.launch(runtimeId, mode)}
         focusTrigger={props.focusTrigger}
+        leadRuntimeId={props.defaultRuntime}
       />
       {f.error && <p style={modalStyles.errorText}>{f.error}</p>}
     </div>

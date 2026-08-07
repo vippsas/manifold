@@ -7,6 +7,10 @@ export const launchListStyles: Record<string, React.CSSProperties> = {
     gap: 'var(--space-xs)',
     width: '100%',
   },
+  // Geometry only, shared by both kinds of row. The lead row's surface comes
+  // from the `.btn-metal` class, and an inline `background`/`color`/`border`
+  // here would outrank it — so every surface property lives in `rowPlate`,
+  // which the lead row simply doesn't take.
   row: {
     display: 'flex',
     alignItems: 'center',
@@ -14,18 +18,23 @@ export const launchListStyles: Record<string, React.CSSProperties> = {
     width: '100%',
     padding: 'var(--space-md)',
     textAlign: 'left',
-    background: 'var(--bg-elevated)',
-    border: '1px solid var(--border)',
-    borderRadius: 'var(--radius-sm)',
-    boxShadow: 'var(--shadow-elevated)',
-    color: 'var(--text-secondary)',
+    clipPath: 'var(--chamfer)',
     cursor: 'pointer',
     transition: 'background 150ms ease, color 150ms ease, border-color 150ms ease',
+  },
+  // A console plate: the same chamfered silhouette the metal CTA wears, so the
+  // lead row and the rows under it read as one cut of material. No radius — the
+  // chamfer is the corner treatment, and a radius would round the two corners
+  // it doesn't cut into a mismatched pair.
+  rowPlate: {
+    background: 'var(--bg-elevated)',
+    border: '1px solid color-mix(in srgb, var(--accent), transparent 78%)',
+    color: 'var(--text-secondary)',
   },
   rowHover: {
     background: 'var(--list-hover-bg)',
     color: 'var(--text-primary)',
-    borderColor: 'var(--control-border)',
+    borderColor: 'color-mix(in srgb, var(--accent), transparent 55%)',
   },
   rowDisabled: {
     opacity: 0.45,
@@ -56,6 +65,16 @@ export const launchListStyles: Record<string, React.CSSProperties> = {
     gap: 6,
     fontSize: 'var(--type-ui-caption)',
     color: 'var(--text-muted)',
+  },
+  // On the gold plate, muted grey falls below contrast — the plate's own ink
+  // carries the "Starting…" text instead.
+  metaOnMetal: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: 6,
+    fontSize: 'var(--type-ui-caption)',
+    color: 'var(--btn-text)',
+    opacity: 0.75,
   },
   chevron: {
     color: 'var(--text-muted)',
