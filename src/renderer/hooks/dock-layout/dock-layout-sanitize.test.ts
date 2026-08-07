@@ -147,6 +147,8 @@ describe('sanitizeDockLayout', () => {
     })
   })
 
+  // Sized at the default one-sixth share, so nothing — panels or widths — is
+  // left to heal and the caller gets the very object it saved.
   it('leaves a current sidebar-and-agent layout untouched', () => {
     const saved = {
       grid: {
@@ -154,8 +156,8 @@ describe('sanitizeDockLayout', () => {
           type: 'branch',
           size: 1000,
           data: [
-            { type: 'leaf', size: 160, data: { id: 'side', views: ['sidebar'], activeView: 'sidebar' } },
-            { type: 'leaf', size: 840, data: { id: 'workspace', views: ['agent'], activeView: 'agent' } },
+            { type: 'leaf', size: 167, data: { id: 'side', views: ['sidebar'], activeView: 'sidebar' } },
+            { type: 'leaf', size: 833, data: { id: 'workspace', views: ['agent'], activeView: 'agent' } },
           ],
         },
       },
@@ -408,7 +410,10 @@ describe('sanitizeDockLayout', () => {
     expect(sizes[2]).toBe(1000)
   })
 
-  it('preserves a restored sidebar width that is not over the default cap', () => {
+  // One sixth is the sidebar's default width, not merely its ceiling: a layout
+  // that drifted narrower (a resize, or the pixels older builds shaved off on
+  // every toggle) comes back at the same share a fresh window builds.
+  it('widens a restored sidebar that is under the default one-sixth share', () => {
     const saved = {
       grid: {
         width: 1800,
@@ -420,6 +425,54 @@ describe('sanitizeDockLayout', () => {
           data: [
             { type: 'leaf', size: 240, data: { id: 'side', views: ['sidebar'], activeView: 'sidebar' } },
             { type: 'leaf', size: 1560, data: { id: 'agent', views: ['agent'], activeView: 'agent' } },
+          ],
+        },
+      },
+      panels: { sidebar: {}, agent: {} },
+    } as unknown as SerializedDockview
+
+    const sanitized = sanitizeDockLayout(saved) as SerializedDockview
+
+    expect(sanitized).not.toBe(saved)
+    expect(asBranch(sanitized).data.map((child) => child.size)).toEqual([300, 1500])
+  })
+
+  it('leaves a sidebar already at the default share untouched', () => {
+    const saved = {
+      grid: {
+        width: 1800,
+        height: 1000,
+        orientation: 'HORIZONTAL',
+        root: {
+          type: 'branch',
+          size: 1800,
+          data: [
+            { type: 'leaf', size: 300, data: { id: 'side', views: ['sidebar'], activeView: 'sidebar' } },
+            { type: 'leaf', size: 1500, data: { id: 'agent', views: ['agent'], activeView: 'agent' } },
+          ],
+        },
+      },
+      panels: { sidebar: {}, agent: {} },
+    } as unknown as SerializedDockview
+
+    expect(sanitizeDockLayout(saved)).toBe(saved)
+  })
+
+  // A collapsed sidebar is a deliberate state the loader re-applies by hand
+  // after fromJSON (restoreCollapsedSidebarWidths). Normalizing it back to the
+  // default share would spring the sidebar open on every restart.
+  it('leaves a collapsed sidebar collapsed', () => {
+    const saved = {
+      grid: {
+        width: 1800,
+        height: 1000,
+        orientation: 'HORIZONTAL',
+        root: {
+          type: 'branch',
+          size: 1800,
+          data: [
+            { type: 'leaf', size: 0, data: { id: 'side', views: ['sidebar'], activeView: 'sidebar' } },
+            { type: 'leaf', size: 1800, data: { id: 'agent', views: ['agent'], activeView: 'agent' } },
           ],
         },
       },

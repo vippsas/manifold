@@ -20,32 +20,37 @@
   --dv-inactivegroup-hiddenpanel-tab-color: var(--text-muted);
   /* Dockview draws this as a straight full-height line down the left edge of
      every view but the first (.dv-view:not(:first-child)::before), which cuts
-     across the rounded card corners below. The card border is the divider. */
+     across the rounded card corners below. The sash line is the divider. */
   --dv-separator-border: transparent;
+  /* The divider line lives on the sash, and holds one steady color: hovering
+     is answered by the grip dots alone. Drive it through dockview's own
+     variables rather than our own `background` — the library's
+     `.dv-sash:not(.disabled):hover` rule ties ours on specificity and wins on
+     source order, so a hardcoded background would survive at rest but be wiped
+     to `--dv-active-sash-color` (transparent by default) under the pointer. */
+  --dv-sash-color: var(--divider);
+  --dv-active-sash-color: var(--divider);
   --dv-group-view-background-color: var(--bg-primary);
   --dv-drag-over-background-color: var(--accent-subtle, rgba(0, 122, 204, 0.15));
   --dv-drag-over-border-color: var(--accent);
 }
 
 /* Rounded panel cards — each group floats on the recessed canvas
-   (--dock-canvas); the theme's group gap provides the breathing room. The
-   border is a soft white-alpha hairline (not the structural --border grey),
-   so the card reads as a modern elevated surface. */
+   (--dock-canvas); the theme's group gap provides the breathing room. No
+   outline: the card's lighter fill against the darker canvas is the whole
+   edge, so a hairline around every panel would only add visual noise. */
 .dockview-theme-manifold .dv-groupview {
   overflow: hidden;
   border-radius: var(--radius-lg);
-  border: 1px solid rgba(255, 255, 255, 0.07);
   background: var(--bg-primary);
 }
-.dockview-theme-manifold .dv-groupview.dv-active-group {
-  border-color: rgba(255, 255, 255, 0.14);
-}
 
-/* Resize handles — invisible inside the group gap; the card edges already
-   read as the divider. 1px element, widened grab zone below. */
+/* Resize handles — with no outline around a group, the sash carries the
+   structure: one 1px line per boundary (not a box per panel), centered in the
+   group gap and colored by --dv-sash-color above. Widened grab zone below. */
 .dockview-theme-manifold .dv-split-view-container.dv-horizontal > .dv-sash-container > .dv-sash,
 .dockview-theme-manifold .dv-split-view-container.dv-vertical > .dv-sash-container > .dv-sash {
-  background: transparent;
+  --grip-color: var(--text-muted);
 }
 .dockview-theme-manifold .dv-split-view-container.dv-horizontal > .dv-sash-container > .dv-sash {
   width: 1px;
@@ -54,26 +59,29 @@
   height: 1px;
 }
 
-/* Hover affordance — the divider lights up end to end in the accent, the way
-   VS Code's sash does, so the whole edge reads as grabbable rather than just
-   the middle of it. */
+/* Grip dots — five subtle dots centered on the divider as a discoverable resize
+   affordance, so the gap between two cards reads as grabbable. */
 .dockview-theme-manifold .dv-split-view-container.dv-horizontal > .dv-sash-container > .dv-sash::after,
 .dockview-theme-manifold .dv-split-view-container.dv-vertical > .dv-sash-container > .dv-sash::after {
   content: '';
   position: absolute;
   top: 50%;
   left: 50%;
+  width: 3px;
+  height: 3px;
+  border-radius: 50%;
+  background: var(--grip-color);
   transform: translate(-50%, -50%);
-  background: transparent;
-  transition: background var(--duration-normal) var(--ease-premium);
+  transition: background var(--duration-normal) var(--ease-premium),
+    box-shadow var(--duration-normal) var(--ease-premium);
 }
+/* Vertical divider → dots stacked vertically */
 .dockview-theme-manifold .dv-split-view-container.dv-horizontal > .dv-sash-container > .dv-sash::after {
-  width: 2px;
-  height: 100%;
+  box-shadow: 0 -12px 0 var(--grip-color), 0 -6px 0 var(--grip-color), 0 6px 0 var(--grip-color), 0 12px 0 var(--grip-color);
 }
+/* Horizontal divider → dots laid out in a row */
 .dockview-theme-manifold .dv-split-view-container.dv-vertical > .dv-sash-container > .dv-sash::after {
-  width: 100%;
-  height: 2px;
+  box-shadow: -12px 0 0 var(--grip-color), -6px 0 0 var(--grip-color), 6px 0 0 var(--grip-color), 12px 0 0 var(--grip-color);
 }
 
 /* Widen the invisible grab area to 12px centered on the line for an easy drag target */
@@ -160,10 +168,10 @@
   font-size: inherit;
 }
 
-/* Sash hover — fade the full-length line in with the accent metal. The
-   collapsed-edge rails keep their chevron affordance instead. */
+/* Sash hover — brighten the grip dots to the accent metal. The collapsed-edge
+   rails keep their chevron affordance instead. */
 .dockview-theme-manifold .dv-sash:hover:not(.dv-sash--edge-left):not(.dv-sash--edge-right)::after {
-  background: var(--accent);
+  --grip-color: var(--accent);
 }
 
 /* dockview only draws a sash between two views, so a resizable divider always

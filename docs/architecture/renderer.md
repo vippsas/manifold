@@ -91,17 +91,23 @@ and the commit/PR/conflict actions.
 
 **Panel layout (dockview).** The workspace is a single `DockviewReact` instance
 (`AppShell.tsx:155`), themed via the `DOCK_THEME` option (`AppShell.tsx:42`): a 6px
-group gap plus the rounded-card group styling in `styles/dockview-theme.css` renders
-each panel group as a rounded card with a soft white-alpha hairline border (brighter on
-the active group), floating on the recessed `--dock-canvas` (a darkened `--bg-primary`,
-`styles/theme.css`). Text tabs (agent, shell, module panels) read as gently-rounded
+group gap plus the group styling in `styles/dockview-theme.css` renders each panel group
+as a rounded-cornered surface floating on the recessed `--dock-canvas` (a darkened
+`--bg-primary`, `styles/theme.css`). Groups carry **no outline of their own** — a hairline
+around every panel boxes the workspace in; the sash between two groups is the divider
+instead, so each boundary is drawn once rather than twice. Text tabs (agent, shell, module panels) read as gently-rounded
 chips (`--radius-xs`) floating in the strip: an elevated-surface fill when idle, tinted
 with `--accent-subtle` when active — so the current theme's accent, not text weight alone,
 carries the active tab (`.dock-tab:not(.dock-tab--icon)` in `styles/theme.css`, active/hover
 scoped to `.dv-active-tab` in `styles/dockview-theme.css`). Icon and headless tabs
-(sidebar/editor) keep their own accent-square treatment. Resize
-sashes are invisible inside the gap; hovering one fades in a full-length 2px accent line,
-the way VS Code's sash lights up.
+(sidebar/editor) keep their own accent-square treatment. Each resize
+sash is a 1px line centered in the gap, carrying five 3px grip dots — stacked for a
+vertical divider, in a row for a horizontal one. Hovering brightens the dots from
+`--text-muted` to `--accent`; the line itself holds `--divider` throughout
+(`styles/dockview-theme.css:48`). That steady color is set through dockview's own
+`--dv-sash-color`/`--dv-active-sash-color` (`:30`) rather than a `background` of ours,
+because the library's `.dv-sash:not(.disabled):hover` rule ties us on specificity and wins
+on source order — it would blank a hardcoded background the moment the pointer arrives.
 Dockview's own split-view separator (`--dv-separator-border`, `styles/dockview-theme.css:24`)
 is transparent for the same reason: it paints a straight full-height line down the left edge
 of every view but the first, cutting across the cards' rounded corners. The chrome is screenshot-able
@@ -218,10 +224,14 @@ Saved layouts are sanitized before
 a layout that names one of those but no `sidebar`, since stripping would leave a dock with no
 sidebar at all and the caller then builds the default
 (`hooks/dock-layout/dock-layout-sanitize.ts:20`, `:167`;
-`dock-layout-old-layout-migration.test.tsx`). It also caps a restored sidebar column,
-including stale stacked sidebar columns, to the same one-sixth share before the loader
-persists repaired snapshots (`hooks/dock-layout/dock-layout-sanitize.ts:122`, `:144`;
-`hooks/dock-layout/dock-layout-loader.ts:100`).
+`dock-layout-old-layout-migration.test.tsx`). It also **normalizes a restored sidebar
+column back to the one-sixth share the default layout builds** — in either direction, so a
+column that drifted narrow reopens as wide as a fresh window's, and stale stacked sidebar
+columns are pulled in too — before the loader persists repaired snapshots
+(`hooks/dock-layout/dock-layout-sanitize.ts:126`, `:155`;
+`hooks/dock-layout/dock-layout-loader.ts:100`). One sixth is therefore the sidebar's width
+at every app start; a drag holds only for the session. A **collapsed** sidebar is exempt
+(size 0 is a state, not a width) and survives the restart.
 **The editor is a document pane**, not a tab of the sidebar: it materializes on the first
 file open, splitting a column beside the agent, and an editor already present is left exactly
 where the user dragged it — opening a file must not relocate a pane

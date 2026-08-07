@@ -15,7 +15,8 @@ import {
 } from './dock-layout-helpers'
 
 /** The default share of the dock width the sidebar column gets (matches the
- *  1:5 default layout and the sanitizer's restored-sidebar cap). */
+ *  1:5 default layout and the share the sanitizer normalizes a restored
+ *  sidebar back to). */
 const SIDEBAR_WIDTH_FRACTION = 1 / 6
 
 type DockGroup = NonNullable<NonNullable<ReturnType<DockviewApi['getPanel']>>['group']>
