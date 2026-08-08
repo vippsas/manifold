@@ -178,12 +178,17 @@ describe('ProjectSidebar', () => {
     expect(props.onNewProject).toHaveBeenCalled()
   })
 
-  it('renders only Add Repository in the compact top toolbar', () => {
+  // The toolbar carries the sort toggle and Add Repository, in that order, and
+  // nothing else — it is pinned exactly so a third action cannot drift in.
+  it('renders just the sort toggle and Add Repository in the compact top toolbar', () => {
     renderSidebar()
 
     const toolbar = screen.getByRole('toolbar', { name: 'Repository actions' })
     const buttons = within(toolbar).getAllByRole('button')
-    expect(buttons.map((button) => button.getAttribute('aria-label'))).toEqual(['Add Repository'])
+    expect(buttons.map((button) => button.getAttribute('aria-label'))).toEqual([
+      'Sorted by recently used — click to sort A–Z',
+      'Add Repository',
+    ])
   })
 
   it('puts Copy to new worktree and Add folder on the workspace header, and no New agent', () => {

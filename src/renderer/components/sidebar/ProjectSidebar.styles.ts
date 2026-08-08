@@ -45,6 +45,15 @@ export const sidebarStyles: Record<string, React.CSSProperties> = {
     color: 'var(--text-secondary)',
     marginLeft: 'auto',
   },
+  // Holds both toolbar actions as one right-aligned cluster, so Add stays at the
+  // edge with Sort beside it. toolbarButtonPrimary's own marginLeft: 'auto' is
+  // inert inside a content-sized group, so it needs no change.
+  toolbarActions: {
+    marginLeft: 'auto',
+    display: 'flex',
+    alignItems: 'center',
+    gap: 'var(--space-xs)',
+  },
   list: {
     padding: 'var(--space-xs) 0',
   },

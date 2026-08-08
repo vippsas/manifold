@@ -5,7 +5,8 @@ import type { Workspace } from '../../../shared/workspace-types'
 import { sidebarStyles } from './ProjectSidebar.styles'
 import { WorkspaceList } from './WorkspaceList'
 import { FavoritesList } from './FavoritesList'
-import { AddFolderGlyph } from './SidebarCardActionGlyphs'
+import { AddFolderGlyph, SortModeGlyph } from './SidebarCardActionGlyphs'
+import { useSidebarSortMode } from './sidebar-sort'
 import type { FolderSource } from '../../hooks/editor/useWorkspaceTree'
 
 export interface ProjectSidebarProps {
@@ -58,26 +59,46 @@ export function ProjectSidebar({
   onDiscardDraft,
   renderFolderFiles,
 }: ProjectSidebarProps): React.JSX.Element {
+  const [sortMode, toggleSortMode] = useSidebarSortMode()
+  // Says the state *and* what the click does, so the mode is readable without
+  // clicking. Not aria-pressed: this is a two-state mode, not an on/off.
+  const sortLabel = sortMode === 'alpha'
+    ? 'Sorted A–Z — click to sort by recently used'
+    : 'Sorted by recently used — click to sort A–Z'
+
   return (
     <div style={sidebarStyles.root}>
       <div role="toolbar" aria-label="Repository actions" style={sidebarStyles.actionToolbar}>
         <span style={sidebarStyles.toolbarLabel}>Workspaces</span>
-        <button
-          type="button"
-          onClick={onNewProject}
-          className="sidebar-toolbar-button sidebar-toolbar-button--primary"
-          style={{ ...sidebarStyles.toolbarButton, ...sidebarStyles.toolbarButtonPrimary }}
-          aria-label="Add Repository"
-          title="Add Repository"
-        >
-          <AddFolderGlyph />
-        </button>
+        <div style={sidebarStyles.toolbarActions}>
+          <button
+            type="button"
+            onClick={toggleSortMode}
+            className="sidebar-toolbar-button"
+            style={sidebarStyles.toolbarButton}
+            aria-label={sortLabel}
+            title={sortLabel}
+          >
+            <SortModeGlyph mode={sortMode} />
+          </button>
+          <button
+            type="button"
+            onClick={onNewProject}
+            className="sidebar-toolbar-button sidebar-toolbar-button--primary"
+            style={{ ...sidebarStyles.toolbarButton, ...sidebarStyles.toolbarButtonPrimary }}
+            aria-label="Add Repository"
+            title="Add Repository"
+          >
+            <AddFolderGlyph />
+          </button>
+        </div>
       </div>
       <div style={sidebarStyles.content}>
         <FavoritesList />
         <WorkspaceList
           workspaces={workspaces}
           projects={projects}
+          sortMode={sortMode}
           activeWorkspaceId={activeWorkspaceId ?? null}
           activeProjectId={activeProjectId}
           sessionsByWorkspace={sessionsByWorkspace ?? {}}

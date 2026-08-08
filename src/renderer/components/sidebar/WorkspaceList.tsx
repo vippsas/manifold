@@ -5,12 +5,15 @@ import type { Workspace } from '../../../shared/workspace-types'
 import { sidebarStyles } from './ProjectSidebar.styles'
 import { WorkspaceCard } from './WorkspaceCard'
 import { WorkspaceGlyph } from './WorkspaceGlyph'
-import { sortByRecency, useProjectRecency } from './sidebar-recency'
+import { useProjectRecency } from './sidebar-recency'
+import { sortWorkspaces, type SidebarSortMode } from './sidebar-sort'
 import type { FolderSource } from '../../hooks/editor/useWorkspaceTree'
 
 export interface WorkspaceListProps {
   workspaces: Workspace[]
   projects: Project[]
+  /** How the list is ordered. Owned by ProjectSidebar, which renders the toggle. */
+  sortMode: SidebarSortMode
   activeWorkspaceId: string | null
   activeProjectId?: string | null
   sessionsByWorkspace: Record<string, AgentSession[]>
@@ -40,6 +43,7 @@ export interface WorkspaceListProps {
 export function WorkspaceList({
   workspaces,
   projects,
+  sortMode,
   activeWorkspaceId,
   activeProjectId,
   sessionsByWorkspace,
@@ -100,7 +104,11 @@ export function WorkspaceList({
 
   return (
     <div style={{ paddingTop: 4 }}>
-      {sortByRecency(workspaces, recency, activeWorkspaceId).map((workspace) => (
+      {sortWorkspaces(workspaces, sortMode, {
+        recency,
+        activeId: activeWorkspaceId,
+        projects,
+      }).map((workspace) => (
         <WorkspaceCard
           key={workspace.id}
           workspace={workspace}
