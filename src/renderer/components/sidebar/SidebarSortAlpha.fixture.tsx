@@ -9,11 +9,14 @@ const projects: Project[] = [
   { id: 'p-apex', name: 'apex', path: '/repos/apex', baseBranch: 'main', addedAt: '2026-07-11' },
 ]
 
+// `kong` is the home workspace — the clone itself, drawn with a folder. The rest
+// own their own checkout and are drawn with a branch, so the shot also proves
+// the two kinds are told apart in a flat list.
 const workspaces: Workspace[] = [
-  { id: 'w-moss', name: 'moss', projectIds: ['p-kong'], createdAt: '2026-07-12' },
-  { id: 'w-zed', name: 'zed', projectIds: ['p-apex'], createdAt: '2026-07-13' },
+  { id: 'w-moss', name: 'moss', projectIds: ['p-kong'], createdAt: '2026-07-12', branchName: 'kong/moss', worktreePaths: { 'p-kong': '/worktrees/moss' } },
+  { id: 'w-zed', name: 'zed', projectIds: ['p-apex'], createdAt: '2026-07-13', branchName: 'apex/zed', worktreePaths: { 'p-apex': '/worktrees/zed' } },
   { id: 'w-kong', name: 'kong', projectIds: ['p-kong'], createdAt: '2026-07-14' },
-  { id: 'w-dune', name: 'dune', projectIds: ['p-kong'], createdAt: '2026-07-15' },
+  { id: 'w-dune', name: 'dune', projectIds: ['p-kong'], createdAt: '2026-07-15', branchName: 'kong/dune', worktreePaths: { 'p-kong': '/worktrees/dune' } },
 ]
 
 // The mode is read from localStorage on mount, so seed it before rendering.

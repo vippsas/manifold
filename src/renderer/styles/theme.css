@@ -988,9 +988,10 @@ select:focus-visible {
   color: var(--text-primary);
 }
 
-/* A workspace row leads with its folder, not a chevron beside one: the same
-   icon column carries the disclosure, swapping to the state's chevron while the
-   row is hovered or focused so the affordance appears where the eye already is. */
+/* A workspace row leads with its kind glyph — a folder for a home workspace, a
+   branch for a worktree — not a chevron beside one: the same icon column carries
+   the disclosure, swapping to the state's chevron while the row is hovered or
+   focused so the affordance appears where the eye already is. */
 .sidebar-workspace-toggle {
   display: inline-flex;
   align-items: center;
@@ -1006,7 +1007,7 @@ select:focus-visible {
   cursor: pointer;
 }
 
-.sidebar-workspace-toggle__folder,
+.sidebar-workspace-toggle__glyph,
 .sidebar-workspace-toggle__chevron {
   display: inline-flex;
   align-items: center;
@@ -1017,9 +1018,9 @@ select:focus-visible {
    focuses it, and that must not leave the chevron showing after the pointer
    has gone. */
 .sidebar-workspace-toggle__chevron,
-.sidebar-item-row:hover .sidebar-workspace-toggle__folder,
-.sidebar-item-row:focus-visible .sidebar-workspace-toggle__folder,
-.sidebar-workspace-toggle:focus-visible .sidebar-workspace-toggle__folder {
+.sidebar-item-row:hover .sidebar-workspace-toggle__glyph,
+.sidebar-item-row:focus-visible .sidebar-workspace-toggle__glyph,
+.sidebar-workspace-toggle:focus-visible .sidebar-workspace-toggle__glyph {
   display: none;
 }
 
