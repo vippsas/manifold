@@ -95,9 +95,7 @@ export function registerAgentHandlers(deps: IpcDependencies): void {
   const spawnOnce = async (options: SpawnAgentOptions, requiresNoWorktree: boolean): Promise<AgentSession> => {
     const existing = await focusOrClearInPlaceSessions(deps, requiresNoWorktree, options)
     if (existing) return existing
-    const session = await sessionManager.createSession(options)
-    fileWatcher.watch(session.worktreePath, session.id)
-    return session
+    return sessionManager.createSession(options)
   }
 
   ipcMain.handle('agent:spawn', async (_event, options: SpawnAgentOptions) => {
