@@ -2,6 +2,8 @@ import { vi } from 'vitest'
 import { render, within } from '@testing-library/react'
 import React from 'react'
 import { ProjectSidebar, type ProjectSidebarProps } from './ProjectSidebar'
+import { DockStateContext } from '../editor/editor-shell/dock-panel-types'
+import type { DockAppState } from '../editor/editor-shell/dock-panel-types'
 import type { Workspace } from '../../../shared/workspace-types'
 import type { Project, AgentSession } from '../../../shared/types'
 
@@ -61,7 +63,14 @@ export const sampleSessions: AgentSession[] = [
   { id: 's2', projectId: 'p1', runtimeId: 'codex', branchName: 'alpha/bergen', worktreePath: '/wt2', status: 'waiting', pid: 2, additionalDirs: [] },
 ]
 
-export function renderSidebar(overrides: Record<string, unknown> = {}) {
+/** Renders the sidebar inside a DockStateContext when `dock` is supplied. The
+ *  cross-cutting row actions (favorites) read that context rather than props, so
+ *  only the tests that exercise them need to provide it. */
+export function renderSidebar(overrides: Record<string, unknown> = {}, dock?: Partial<DockAppState>) {
+  const wrap = (ui: React.ReactElement): React.ReactElement =>
+    dock
+      ? <DockStateContext.Provider value={dock as DockAppState}>{ui}</DockStateContext.Provider>
+      : ui
   const props = {
     projects: sampleProjects,
     activeProjectId: 'p1',
@@ -85,13 +94,13 @@ export function renderSidebar(overrides: Record<string, unknown> = {}) {
     ...overrides,
   }
 
-  const view = render(<ProjectSidebar {...props as unknown as ProjectSidebarProps} />)
+  const view = render(wrap(<ProjectSidebar {...props as unknown as ProjectSidebarProps} />))
 
   // Re-renders the same sidebar with some props changed, for the cases that only
   // show up on a change — switching the active workspace, say — rather than on a
   // fresh mount.
   const setProps = (next: Record<string, unknown>): void => {
-    view.rerender(<ProjectSidebar {...{ ...props, ...next } as unknown as ProjectSidebarProps} />)
+    view.rerender(wrap(<ProjectSidebar {...{ ...props, ...next } as unknown as ProjectSidebarProps} />))
   }
 
   return { ...view, props, setProps }

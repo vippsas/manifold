@@ -1,6 +1,6 @@
 import { createContext, useContext } from 'react'
 import type { ITheme } from '@xterm/xterm'
-import type { AgentStatus, FileTreeNode, FileChange, Project, AgentSession, AgentSettingsUpdate, SpawnAgentOptions, FavoriteKind, ResolvedFavorite, EditorSettings } from '../../../../shared/types'
+import type { AgentStatus, FileTreeNode, FileChange, Project, AgentSession, AgentSettingsUpdate, SpawnAgentOptions, ResolvedFavorite, EditorSettings } from '../../../../shared/types'
 import type { SearchMode } from '../../../../shared/search-types'
 import type { EditorPaneView, OpenFile } from '../../../hooks/editor/useCodeView'
 import type { FileOpenRequest, ScmFileTarget } from '../file-open-request'
@@ -137,8 +137,8 @@ export interface DockAppState {
   discardDraft: (draftId: string) => void
   // Favorites
   favorites: ResolvedFavorite[]
-  isFavorite: (kind: FavoriteKind, id: string) => boolean
-  onToggleFavorite: (kind: FavoriteKind, id: string) => void
+  isFavorite: (workspaceId: string) => boolean
+  onToggleFavorite: (workspaceId: string) => void
   onReorderFavorites: (fromIndex: number, toIndex: number) => void
   onActivateFavorite: (favorite: ResolvedFavorite) => void
 }

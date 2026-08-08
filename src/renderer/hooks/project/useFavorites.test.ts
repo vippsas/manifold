@@ -2,99 +2,92 @@ import { describe, it, expect, vi } from 'vitest'
 import { renderHook, act } from '@testing-library/react'
 import { useFavorites } from './useFavorites'
 import { DEFAULT_SETTINGS } from '../../../shared/defaults'
-import type { ManifoldSettings, Project, FavoriteRef } from '../../../shared/types'
+import type { ManifoldSettings, StoredFavorite } from '../../../shared/types'
 import type { Workspace } from '../../../shared/workspace-types'
 
-const projects: Project[] = [
-  { id: 'p1', name: 'api-gateway', path: '/a', baseBranch: 'main', addedAt: '' },
-  { id: 'p2', name: 'billing', path: '/b', baseBranch: 'main', addedAt: '' },
-]
 const workspaces: Workspace[] = [
   { id: 'w1', name: 'ML Pipeline', projectIds: ['p1', 'p2'], createdAt: '' },
+  { id: 'w2', name: 'billing fix', projectIds: ['p2'], createdAt: '' },
+  { id: 'w3', name: 'api-gateway', projectIds: ['p1'], createdAt: '' },
 ]
 
-function makeSettings(favorites: FavoriteRef[]): ManifoldSettings {
+function makeSettings(favorites: StoredFavorite[]): ManifoldSettings {
   return { ...DEFAULT_SETTINGS, favorites }
 }
 
 describe('useFavorites', () => {
-  it('resolves refs to ordered display entries with names, dropping unknown refs', () => {
-    const settings = makeSettings([
-      { kind: 'workspace', id: 'w1' },
-      { kind: 'repo', id: 'p2' },
-      { kind: 'repo', id: 'gone' },
-    ])
-    const { result } = renderHook(() => useFavorites(settings, vi.fn(), projects, workspaces))
+  it('resolves ids to ordered display entries with names, dropping unknown ids', () => {
+    const settings = makeSettings(['w1', 'w2', 'gone'])
+    const { result } = renderHook(() => useFavorites(settings, vi.fn(), workspaces))
     expect(result.current.favorites).toEqual([
-      { kind: 'workspace', id: 'w1', name: 'ML Pipeline' },
-      { kind: 'repo', id: 'p2', name: 'billing' },
+      { id: 'w1', name: 'ML Pipeline' },
+      { id: 'w2', name: 'billing fix' },
     ])
   })
 
-  it('isFavorite reflects the raw refs', () => {
+  it('resolves favorites saved by the pre-workspaces build', () => {
+    // What an upgrading user actually has on disk: repo refs, from when a
+    // repository was its own sidebar root.
+    const settings = makeSettings([{ kind: 'repo', id: 'p1' }, { kind: 'workspace', id: 'w2' }])
+    const { result } = renderHook(() => useFavorites(settings, vi.fn(), workspaces))
+    expect(result.current.favorites).toEqual([
+      { id: 'w1', name: 'ML Pipeline' },
+      { id: 'w2', name: 'billing fix' },
+    ])
+  })
+
+  it('rewrites legacy refs into the current shape on the next change', () => {
+    const updateSettings = vi.fn().mockResolvedValue(undefined)
     const settings = makeSettings([{ kind: 'repo', id: 'p1' }])
-    const { result } = renderHook(() => useFavorites(settings, vi.fn(), projects, workspaces))
-    expect(result.current.isFavorite('repo', 'p1')).toBe(true)
-    expect(result.current.isFavorite('repo', 'p2')).toBe(false)
-    expect(result.current.isFavorite('workspace', 'p1')).toBe(false)
+    const { result } = renderHook(() => useFavorites(settings, updateSettings, workspaces))
+    act(() => { result.current.toggleFavorite('w2') })
+    expect(updateSettings).toHaveBeenCalledWith({ favorites: ['w1', 'w2'] })
+  })
+
+  it('isFavorite reflects the raw ids', () => {
+    const settings = makeSettings(['w1'])
+    const { result } = renderHook(() => useFavorites(settings, vi.fn(), workspaces))
+    expect(result.current.isFavorite('w1')).toBe(true)
+    expect(result.current.isFavorite('w2')).toBe(false)
   })
 
   it('toggleFavorite appends when absent and persists a pruned list', () => {
     const updateSettings = vi.fn().mockResolvedValue(undefined)
-    const settings = makeSettings([{ kind: 'repo', id: 'gone' }])
-    const { result } = renderHook(() => useFavorites(settings, updateSettings, projects, workspaces))
-    act(() => { result.current.toggleFavorite('repo', 'p1') })
-    expect(updateSettings).toHaveBeenCalledWith({ favorites: [{ kind: 'repo', id: 'p1' }] })
+    const settings = makeSettings(['gone'])
+    const { result } = renderHook(() => useFavorites(settings, updateSettings, workspaces))
+    act(() => { result.current.toggleFavorite('w1') })
+    expect(updateSettings).toHaveBeenCalledWith({ favorites: ['w1'] })
   })
 
   it('toggleFavorite removes when already present', () => {
     const updateSettings = vi.fn().mockResolvedValue(undefined)
-    const settings = makeSettings([{ kind: 'repo', id: 'p1' }, { kind: 'repo', id: 'p2' }])
-    const { result } = renderHook(() => useFavorites(settings, updateSettings, projects, workspaces))
-    act(() => { result.current.toggleFavorite('repo', 'p1') })
-    expect(updateSettings).toHaveBeenCalledWith({ favorites: [{ kind: 'repo', id: 'p2' }] })
+    const settings = makeSettings(['w1', 'w2'])
+    const { result } = renderHook(() => useFavorites(settings, updateSettings, workspaces))
+    act(() => { result.current.toggleFavorite('w1') })
+    expect(updateSettings).toHaveBeenCalledWith({ favorites: ['w2'] })
   })
 
   it('reorderFavorites moves an entry and persists the new order', () => {
     const updateSettings = vi.fn().mockResolvedValue(undefined)
-    const settings = makeSettings([
-      { kind: 'repo', id: 'p1' },
-      { kind: 'repo', id: 'p2' },
-      { kind: 'workspace', id: 'w1' },
-    ])
-    const { result } = renderHook(() => useFavorites(settings, updateSettings, projects, workspaces))
+    const settings = makeSettings(['w1', 'w2', 'w3'])
+    const { result } = renderHook(() => useFavorites(settings, updateSettings, workspaces))
     act(() => { result.current.reorderFavorites(2, 0) })
-    expect(updateSettings).toHaveBeenCalledWith({
-      favorites: [
-        { kind: 'workspace', id: 'w1' },
-        { kind: 'repo', id: 'p1' },
-        { kind: 'repo', id: 'p2' },
-      ],
-    })
+    expect(updateSettings).toHaveBeenCalledWith({ favorites: ['w3', 'w1', 'w2'] })
   })
 
-  it('reorderFavorites drops stale refs on persist (operates on visible order)', () => {
+  it('reorderFavorites drops stale ids on persist (operates on visible order)', () => {
     const updateSettings = vi.fn().mockResolvedValue(undefined)
-    const settings = makeSettings([
-      { kind: 'repo', id: 'gone' },
-      { kind: 'repo', id: 'p1' },
-      { kind: 'repo', id: 'p2' },
-    ])
-    const { result } = renderHook(() => useFavorites(settings, updateSettings, projects, workspaces))
-    // Visible order is [p1, p2] (gone is filtered out); swap them.
+    const settings = makeSettings(['gone', 'w1', 'w2'])
+    const { result } = renderHook(() => useFavorites(settings, updateSettings, workspaces))
+    // Visible order is [w1, w2] (gone is filtered out); swap them.
     act(() => { result.current.reorderFavorites(1, 0) })
-    expect(updateSettings).toHaveBeenCalledWith({
-      favorites: [
-        { kind: 'repo', id: 'p2' },
-        { kind: 'repo', id: 'p1' },
-      ],
-    })
+    expect(updateSettings).toHaveBeenCalledWith({ favorites: ['w2', 'w1'] })
   })
 
   it('reorderFavorites is a no-op when indices are out of bounds', () => {
     const updateSettings = vi.fn().mockResolvedValue(undefined)
-    const settings = makeSettings([{ kind: 'repo', id: 'p1' }, { kind: 'repo', id: 'p2' }])
-    const { result } = renderHook(() => useFavorites(settings, updateSettings, projects, workspaces))
+    const settings = makeSettings(['w1', 'w2'])
+    const { result } = renderHook(() => useFavorites(settings, updateSettings, workspaces))
     act(() => { result.current.reorderFavorites(5, 0) })
     act(() => { result.current.reorderFavorites(0, -1) })
     expect(updateSettings).not.toHaveBeenCalled()

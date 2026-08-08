@@ -21,8 +21,7 @@ Nothing was designed away — the merge deleted exactly one file,
 - `src/shared/commands/catalog.ts:44` — the nine `navigation.favorite.N` commands.
 
 So `settings.favorites` can never grow, `FavoritesList` returns `null` on the empty list, and
-the section is invisible. It is a severed nerve, not a missing limb. The CSS went too:
-`.sidebar-favorite-row` is no longer in `theme.css`, so those rows have no hover state.
+the section is invisible. It is a severed nerve, not a missing limb.
 
 ## What changed underneath
 
@@ -44,7 +43,7 @@ Two consequences:
 
 | # | Question | Decision |
 |---|---|---|
-| 1 | What can be favorited? | **Workspace rows only.** A workspace over one repo is the ordinary "just a repo" case, so nothing is lost. Keeps ⌘1–9 unambiguous: one favorite, one destination. |
+| 1 | What can be favorited? | **Workspace rows only.** A workspace over one repo is the ordinary "just a repo" case, so nothing is lost. Keeps ⌘1–9 unambiguous: one favorite, one destination. Existing repo favorites are migrated, not dropped — see Design §1. |
 | 2 | Does a favorite still appear in the list below? | **Yes — mirror.** The rail at the top is a stable *address*; the list below keeps reshuffling by recency (`sidebar-recency.ts:66`). Duplication is the price of one of them holding still. Touches none of #894's sticky/MRU logic. |
 | 3 | How do you toggle it? | **Right-click context menu. No star on the row.** The row keeps exactly its current anatomy. |
 | 4 | What is in the menu? | **The full workspace menu** — favorites, rename, copy to new worktree, add folder, remove. |
@@ -65,19 +64,40 @@ visible even though the row is silent.
 
 ## Design
 
-### 1. Data model — collapse the union
+### 1. Data model — collapse the union, and migrate what is on disk
 
-`FavoriteKind` becomes a one-member union under decision 1, which is a smell. `settings.json`
-holds no `favorites` key today, so there is no stored data to migrate and no cost to
-simplifying:
+`FavoriteKind` becomes a one-member union under decision 1, which is a smell. The canonical
+shape becomes a plain workspace id:
 
-- `ManifoldSettings.favorites?: string[]` — workspace ids, in user order.
+- `ManifoldSettings.favorites?: StoredFavorite[]`, where `StoredFavorite = string |
+  LegacyFavoriteRef` — written as ids, still *read* as either.
 - `ResolvedFavorite` becomes `{ id, name }`.
-- `FavoriteKind` and `FavoriteRef` are deleted.
+- `FavoriteKind` is gone; `FavoriteRef` survives as `LegacyFavoriteRef`, read-only.
 - `isFavorite(id)` / `onToggleFavorite(id)` lose their `kind` argument.
 - `activateFavorite` loses its dead `'repo'` branch and keeps only the workspace path.
 
 Renderer-only: nothing in `src/main` or the plugins references favorites.
+
+**Existing favorites must survive.** An earlier draft of this spec claimed there were none to
+migrate — that was read from the wrong file. Settings live in `~/.manifold/config.json`
+(`settings-store.ts:9`), not `settings.json`, and it holds four `{kind: 'repo'}` favorites
+(`buildtounderstand.org`, `manifold`, `manifold-server`, `me`). Those are precisely the
+favorites this work exists to restore, so dropping the kind without migrating would delete the
+feature's own subject matter.
+
+`normalizeFavorites(stored, workspaces)` folds whatever is on disk into ids, on read:
+
+| Stored | Becomes |
+| --- | --- |
+| `'w1'` | `'w1'` |
+| `{kind: 'workspace', id}` | `id` |
+| `{kind: 'repo', id}` | the workspace spanning that repo, **preferring the home workspace** |
+| a repo in no workspace | dropped, as any unresolvable favorite always was |
+
+A repo favorite meant "the repository", and the home workspace is the repos' own clones — so it
+lands there rather than on some feature branch's worktree. Order is preserved; duplicates
+collapse, since two repo favorites in one workspace would otherwise take two ⌘ slots for one
+row. Nothing is written back on load; the next toggle or reorder persists the migrated form.
 
 ### 2. Shared context menu
 
@@ -122,13 +142,17 @@ own `stopPropagation` and the prop becomes `(id)`.
 `workspace-context-menu.ts` and the position state in a small `useContextMenu` hook, so the card
 gains only an `onContextMenu` handler and a short conditional render — landing near 270.
 
-### 5. CSS
+### 5. CSS — nothing to restore
 
-`.sidebar-favorite-row` returns to `theme.css` so the Favorites rows have a hover state again.
+Checked rather than assumed: the only favorites CSS `#880` deleted was
+`.sidebar-favorite-star`, which stays deleted under decision 3. `.sidebar-favorite-row` never
+had rules of its own — it is a hook class, and the row also carries `.sidebar-item-row`, which
+already supplies the hover background. `theme.css` is untouched.
 
 ## Files
 
 **New**
+- `src/renderer/hooks/project/normalize-favorites.ts` (+ test)
 - `src/renderer/components/common/ContextMenu.tsx` (moved)
 - `src/renderer/components/common/ContextMenu.styles.ts` (moved)
 - `src/renderer/components/sidebar/workspace-context-menu.ts`
@@ -145,7 +169,6 @@ gains only an `onContextMenu` handler and a short conditional render — landing
 - `src/renderer/components/sidebar/WorkspaceList.tsx`
 - `src/renderer/components/editor/file-tree/FileTree.tsx`,
   `file-tree-context-menu.ts`, `file-tree-context-menu.test.ts` (import paths)
-- `src/renderer/styles/theme.css`
 - `docs/architecture/renderer.md`
 
 ## Verification
@@ -156,12 +179,15 @@ Success criteria, each with its check:
    state, optional items are omitted with their handler, no dangling separators.
 2. Right-click toggles a favorite → card test: context menu opens, "Add to Favorites" calls
    `onToggleFavorite(id)`.
-3. Nothing regressed → updated `useFavorites.test.ts` and `FavoritesList.test.tsx`, then
+3. Existing favorites survive the upgrade → `normalize-favorites.test.ts` (each stored shape,
+   home-workspace preference, order, duplicate collapse) plus hook-level cases in
+   `useFavorites.test.ts` proving legacy refs resolve and are rewritten on the next change.
+4. Nothing regressed → updated `useFavorites.test.ts` and `FavoritesList.test.tsx`, then
    `npm test`.
-4. Types hold → `npm run typecheck:web` and `npm run typecheck:node`.
+5. Types hold → `npm run typecheck:web` and `npm run typecheck:node`.
    (`typecheck:plugins` is pre-existing red and out of scope.)
-5. Docs track code → `bash scripts/wiki-lint.sh`, `docs/architecture/renderer.md` updated in the
+6. Docs track code → `bash scripts/wiki-lint.sh`, `docs/architecture/renderer.md` updated in the
    same PR.
-6. **It actually works in the app** → per CLAUDE.md §4, drive the built app: right-click a
+7. **It actually works in the app** → per CLAUDE.md §4, drive the built app: right-click a
    workspace row, confirm the menu opens at the cursor, add a favorite, confirm it appears in the
    Favorites section with its ⌘ badge. Not called done off a passing test alone.

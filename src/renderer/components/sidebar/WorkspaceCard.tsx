@@ -1,7 +1,11 @@
-import React, { useCallback, useState } from 'react'
+import React, { useCallback, useContext, useState } from 'react'
 import type { Project, AgentSession } from '../../../shared/types'
 import type { DraftChat } from '../../../shared/draft-chat'
 import type { Workspace } from '../../../shared/workspace-types'
+import { ContextMenu } from '../common/ContextMenu'
+import { DockStateContext } from '../editor/editor-shell/dock-panel-types'
+import { useContextMenu } from '../../hooks/useContextMenu'
+import { buildWorkspaceContextMenu } from './workspace-context-menu'
 import { sidebarStyles } from './ProjectSidebar.styles'
 import { DraftAgentItem } from './DraftAgentItem'
 import { WorkspaceGlyph } from './WorkspaceGlyph'
@@ -26,7 +30,8 @@ export interface WorkspaceCardProps {
   activeDraftId: string | null
   onSelectWorkspace: (id: string) => void
   onRenameWorkspace?: (id: string, name: string) => void
-  onRemoveWorkspace: (e: React.MouseEvent, id: string) => void
+  /** Takes no event: the context menu calls it too, and a menu item has none. */
+  onRemoveWorkspace: (id: string) => void
   removing: boolean
   onCopyWorkspace?: (id: string) => void
   onSelectRepo?: (workspaceId: string, projectId: string) => void
@@ -71,6 +76,10 @@ export function WorkspaceCard({
   renderFolderFiles,
 }: WorkspaceCardProps): React.JSX.Element {
   const folders = useFolderDisclosure()
+  const menu = useContextMenu()
+  // Favorites hang off the dock state, like the rest of the sidebar's cross-cutting
+  // actions, so the card needs no props threaded down for them.
+  const dock = useContext(DockStateContext)
   const [nameDraft, setNameDraft] = useState<string | null>(null)
   // Stable identity so React only calls this when the input mounts — an inline
   // ref callback would re-run on every keystroke and re-select the text,
@@ -109,6 +118,7 @@ export function WorkspaceCard({
     <div className={`sidebar-project-group sidebar-project-group--has-agents sidebar-workspace-card${isActive ? ' sidebar-project-group--active' : ''}`}>
       <div
         onClick={selectAndExpand}
+        onContextMenu={menu.open}
         onKeyDown={(e) => {
           if (e.key === 'Enter' || e.key === ' ') {
             e.preventDefault()
@@ -213,7 +223,7 @@ export function WorkspaceCard({
           )}
           <button
             type="button"
-            onClick={(e) => onRemoveWorkspace(e, workspace.id)}
+            onClick={(e) => { e.stopPropagation(); onRemoveWorkspace(workspace.id) }}
             onKeyDown={(e) => e.stopPropagation()}
             disabled={removing}
             className="sidebar-icon-button"
@@ -252,6 +262,22 @@ export function WorkspaceCard({
           onDiscard={onDiscardDraft}
         />
       ))}
+
+      {menu.position && dock && (
+        <ContextMenu
+          x={menu.position.x}
+          y={menu.position.y}
+          items={buildWorkspaceContextMenu({
+            isFavorite: dock.isFavorite(workspace.id),
+            toggleFavorite: () => dock.onToggleFavorite(workspace.id),
+            rename: onRenameWorkspace ? () => setNameDraft(label.name) : undefined,
+            copyToWorktree: onCopyWorkspace ? () => onCopyWorkspace(workspace.id) : undefined,
+            addFolder: onAddProject ? () => void onAddProject(workspace.id) : undefined,
+            removeWorkspace: () => onRemoveWorkspace(workspace.id),
+          })}
+          onClose={menu.close}
+        />
+      )}
     </div>
   )
 }

@@ -1,8 +1,7 @@
 import type { FileTreeNode } from '../../../../shared/types'
-import type { ContextMenuAction } from './ContextMenu'
+import type { MenuItem } from '../../common/ContextMenu'
+import { tidy } from '../../common/ContextMenu'
 import type { FileTreeClipboard } from './useFileTreeClipboard'
-
-type MenuItem = ContextMenuAction | 'separator'
 
 export interface FileTreeMenuConfig {
   rootPath: string
@@ -17,20 +16,6 @@ export interface FileTreeMenuConfig {
   openInTerminal?: (dir: string) => void
   openFileToSide?: (path: string) => void
   clipboard?: FileTreeClipboard
-}
-
-/** Collapse consecutive separators and drop leading/trailing ones, so that
- *  conditionally-omitted items never leave a dangling divider. */
-function tidy(items: MenuItem[]): MenuItem[] {
-  const out: MenuItem[] = []
-  for (const item of items) {
-    if (item === 'separator') {
-      if (out.length === 0 || out[out.length - 1] === 'separator') continue
-    }
-    out.push(item)
-  }
-  while (out.length && out[out.length - 1] === 'separator') out.pop()
-  return out
 }
 
 /** Build the file-tree context menu for a target node (or empty space). */

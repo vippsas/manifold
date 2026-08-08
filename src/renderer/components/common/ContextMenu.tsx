@@ -7,10 +7,27 @@ export interface ContextMenuAction {
   action: () => void
 }
 
+export type MenuItem = ContextMenuAction | 'separator'
+
+/** Collapse consecutive separators and drop leading/trailing ones, so that
+ *  conditionally-omitted items never leave a dangling divider. Shared by every
+ *  menu builder, since all of them omit items whose handler is absent. */
+export function tidy(items: MenuItem[]): MenuItem[] {
+  const out: MenuItem[] = []
+  for (const item of items) {
+    if (item === 'separator') {
+      if (out.length === 0 || out[out.length - 1] === 'separator') continue
+    }
+    out.push(item)
+  }
+  while (out.length && out[out.length - 1] === 'separator') out.pop()
+  return out
+}
+
 export interface ContextMenuProps {
   x: number
   y: number
-  items: (ContextMenuAction | 'separator')[]
+  items: MenuItem[]
   onClose: () => void
 }
 
