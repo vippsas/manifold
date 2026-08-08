@@ -149,6 +149,18 @@ chat mode starts waiting for a first message while terminal mode launches a new 
 PTY exit handlers also require the exiting id to still be the session's current `ptyId`, so a slow
 exit from a replaced process cannot mark a newer process done (`session-stream-wirer.ts`).
 
+**Branch tracking.** `branchName` is a reading of the checkout, not a fixed property of the
+session: the agent runs `git checkout -b`, the PR flow renames the branch, or the user switches
+it in the shell terminal. The constructor registers `applyBranchChange` with the file watcher's
+`setOnBranchChanged` (`session-manager.ts:138`), so each 2 s poll that reports a different branch
+for a watched checkout moves **every session working in that checkout** onto it and broadcasts
+`agent:sessions-changed` — the watcher polls a path once, under whichever session id watched it
+last, and a checkout is on one branch, so its sibling agents moved with it. Nothing
+is persisted — worktree meta has no branch field; discovery re-reads the branch from the checkout
+(`session-discovery.ts:106`, `:150`). Only *watched* checkouts track it, i.e. sessions spawned or
+resumed this run (`agent-handlers.ts:99`, `:236`); a dormant session gets its branch fresh from
+discovery instead.
+
 **Discover-on-disk.** On launch the renderer's `agent:sessions` IPC calls
 `discoverSessionsForProject()` or `discoverAllSessions()`. `SessionDiscovery`
 (`session-discovery.ts:15`) lists the project's worktrees via `WorktreeManager.listWorktrees()`,

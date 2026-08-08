@@ -144,11 +144,19 @@ describe('SessionManager — kill / interrupt / resize', () => {
   })
 
   describe('killSession — file-watcher unwatch', () => {
-    let fileWatcher: { unwatch: ReturnType<typeof vi.fn>; unwatchAdditionalDir: ReturnType<typeof vi.fn> }
+    let fileWatcher: {
+      unwatch: ReturnType<typeof vi.fn>
+      unwatchAdditionalDir: ReturnType<typeof vi.fn>
+      setOnBranchChanged: ReturnType<typeof vi.fn>
+    }
     let sm: SessionManager
 
     beforeEach(() => {
-      fileWatcher = { unwatch: vi.fn().mockResolvedValue(undefined), unwatchAdditionalDir: vi.fn() }
+      fileWatcher = {
+        unwatch: vi.fn().mockResolvedValue(undefined),
+        unwatchAdditionalDir: vi.fn(),
+        setOnBranchChanged: vi.fn(),
+      }
       sm = new SessionManager(
         worktreeManager as unknown as WorktreeManager,
         ptyPool as unknown as PtyPool,

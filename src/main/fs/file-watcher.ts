@@ -5,6 +5,7 @@ import type { BrowserWindow } from 'electron'
 import type { VerdictRecorder } from '../session/verdict-recorder'
 import {
   gitStatus,
+  gitCurrentBranch,
   parseStatusWithConflicts,
   buildChangeFingerprint,
 } from './file-watcher-utils'
@@ -20,26 +21,43 @@ interface PollEntry {
   sessionId: string
   lastStatus: string
   lastChangeFingerprint: string
+  lastBranch: string
   polling: boolean
   gitPollingDisabled?: boolean
 }
 
 type GitStatusFn = (cwd: string) => Promise<string>
+type GitBranchFn = (cwd: string) => Promise<string>
 
 export class FileWatcher {
   private polls: Map<string, PollEntry> = new Map()
   private mainWindow: BrowserWindow | null = null
   private gitStatusFn: GitStatusFn
+  private gitBranchFn: GitBranchFn
   private treeWatcher: TreeWatcher
   private readonly verdictForwarder: VerdictPollForwarder
+  private onBranchChanged: ((sessionId: string, branch: string) => void) | null = null
 
-  constructor(gitStatusFn?: GitStatusFn, treeWatcher?: TreeWatcher, headShaFn?: HeadShaFn) {
+  constructor(
+    gitStatusFn?: GitStatusFn,
+    treeWatcher?: TreeWatcher,
+    headShaFn?: HeadShaFn,
+    gitBranchFn?: GitBranchFn,
+  ) {
     this.gitStatusFn = gitStatusFn ?? gitStatus
+    this.gitBranchFn = gitBranchFn ?? gitCurrentBranch
     this.verdictForwarder = new VerdictPollForwarder(headShaFn)
     this.treeWatcher = treeWatcher ?? new NoopTreeWatcher()
     this.treeWatcher.setOnTreeChanged((sessionId) => {
       this.sendToRenderer('files:tree-changed', { sessionId })
     })
+  }
+
+  /** Called whenever a watched checkout reports a different branch than the last
+   *  poll saw — the session's own branch moved (`git checkout -b`, a rename, or
+   *  a switch the user made in the shell). */
+  setOnBranchChanged(listener: (sessionId: string, branch: string) => void): void {
+    this.onBranchChanged = listener
   }
 
   setVerdictRecorder(recorder: VerdictRecorder): void {
@@ -69,6 +87,7 @@ export class FileWatcher {
       sessionId,
       lastStatus: '',
       lastChangeFingerprint: '',
+      lastBranch: '',
       polling: false,
     }
     this.polls.set(key, entry)
@@ -100,6 +119,7 @@ export class FileWatcher {
       sessionId,
       lastStatus: '',
       lastChangeFingerprint: '',
+      lastBranch: '',
       polling: false,
     }
     this.polls.set(worktreePath, entry)
@@ -133,6 +153,16 @@ export class FileWatcher {
           conflicts,
         })
         await this.verdictForwarder.notifyGitChange(worktreePath, entry.sessionId)
+      }
+
+      // Branch moves are invisible to `git status --porcelain` — switching
+      // branches on a clean tree leaves its output byte-identical — so read HEAD
+      // every tick rather than only when the status changed. A detached HEAD
+      // reports 'HEAD', which is no branch name to report.
+      const branch = await this.gitBranchFn(worktreePath).catch(() => '')
+      if (branch && branch !== 'HEAD' && branch !== entry.lastBranch) {
+        entry.lastBranch = branch
+        this.onBranchChanged?.(entry.sessionId, branch)
       }
     } catch (err) {
       if (isMissingGitError(err)) this.disableGitPolling(worktreePath)
