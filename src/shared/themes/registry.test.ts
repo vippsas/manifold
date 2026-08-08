@@ -1,4 +1,4 @@
-import { getThemeList, loadTheme, migrateLegacyTheme } from './registry'
+import { getThemeList, loadTheme, migrateLegacyTheme, getThemeFamilies, themeFamilyOf } from './registry'
 import { DEFAULT_SETTINGS } from '../defaults'
 
 describe('first-run default theme', () => {
@@ -35,6 +35,39 @@ describe('retired Royal ids', () => {
     expect(migrateLegacyTheme('royal-dark')).toBe('manifold-dark')
     expect(migrateLegacyTheme('royal-light')).toBe('manifold-light')
     expect(loadTheme(migrateLegacyTheme('royal-light')).type).toBe('light')
+  })
+})
+
+describe('theme families', () => {
+  it('strips the variant suffix', () => {
+    expect(themeFamilyOf('jade-light')).toBe('jade')
+    expect(themeFamilyOf('manifold-dark')).toBe('manifold')
+    // Family ids are already suffix-free and must survive a round trip.
+    expect(themeFamilyOf('jade')).toBe('jade')
+  })
+
+  it('collapses each dark/light pair into one entry', () => {
+    const families = getThemeFamilies()
+    const ids = families.map((f) => f.id)
+
+    expect(ids).toEqual(['manifold', 'garfield', 'neon', 'jade', 'platinum'])
+    expect(families.map((f) => f.label)).toEqual(['Manifold', 'Garfield', 'Neon', 'Jade', 'Platinum'])
+    expect(ids).not.toContain('royal')
+  })
+
+  // The list is derived so it cannot outlive the themes it names — the previous
+  // hardcoded copy kept offering Royal after that family was retired.
+  it('stays in step with the shipped theme list', () => {
+    const fromThemes = new Set(getThemeList().map((t) => themeFamilyOf(t.id)))
+    expect(new Set(getThemeFamilies().map((f) => f.id))).toEqual(fromThemes)
+  })
+
+  it('names a real theme when a family is combined with either variant', () => {
+    const ids = getThemeList().map((t) => t.id)
+    for (const family of getThemeFamilies()) {
+      expect(ids).toContain(`${family.id}-dark`)
+      expect(ids).toContain(`${family.id}-light`)
+    }
   })
 })
 

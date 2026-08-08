@@ -73,6 +73,9 @@ const project = {
 function makeProps(overrides: Partial<AppShellProps> = {}): AppShellProps {
   return {
     themeClass: 'theme-dark',
+    onToggleTheme: vi.fn(),
+    themeFamily: 'manifold',
+    onSelectThemeFamily: vi.fn(),
     settings: { setupCompleted: true } as AppShellProps['settings'],
     projects: [project],
     projectError: null,
