@@ -39,6 +39,30 @@ export function getThemeList(): ThemeMeta[] {
   return cachedList
 }
 
+/** A theme id with its variant suffix removed: `jade-light` → `jade`. */
+export function themeFamilyOf(themeId: string): string {
+  return themeId.replace(/-(dark|light)$/, '')
+}
+
+/**
+ * The shipped theme families, in registration order. Derived from the theme list
+ * rather than hardcoded: the title bar's previous hardcoded list kept offering
+ * Royal after that family was retired, which is exactly the drift this avoids.
+ */
+export function getThemeFamilies(): ThemeMeta[] {
+  const families: ThemeMeta[] = []
+  const seen = new Set<string>()
+
+  for (const { id, label, type } of getThemeList()) {
+    const familyId = themeFamilyOf(id)
+    if (seen.has(familyId)) continue
+    seen.add(familyId)
+    families.push({ id: familyId, label: label.replace(/ (Dark|Light)$/, ''), type })
+  }
+
+  return families
+}
+
 export function loadTheme(id: string): ConvertedTheme {
   const cached = themeCache.get(id)
   if (cached) return cached
