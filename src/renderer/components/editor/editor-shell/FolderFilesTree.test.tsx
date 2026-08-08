@@ -38,6 +38,8 @@ function makeDockState(overrides: Partial<DockAppState> = {}): DockAppState {
     activeFilePath: null,
     tree: null,
     changes: [],
+    workspaces: [],
+    projects: [],
     expandedPaths: new Set<string>(['/worktrees/oslo']),
     onToggleExpand: vi.fn(),
     onSelectFileFromFileTree: vi.fn(),
@@ -104,6 +106,80 @@ describe('FolderFilesTree', () => {
     screen.getByText('checkout.ts').click()
 
     await waitFor(() => expect(onSelectFileFromFileTree).toHaveBeenCalledWith('/repos/alpha/checkout.ts'))
+  })
+
+  // The watcher follows exactly one folder — the selected agent's checkout — so
+  // that folder's row is the one that can carry change badges. It is a folder
+  // row like any other, named by its repo, so liveness is a question about the
+  // folder's path, not about session ids.
+  describe('change badges', () => {
+    const workspaces = [
+      { id: 'w1', name: 'alpha', projectIds: ['p1'] },
+      { id: 'w2', name: 'oslo', projectIds: ['p1'], worktreePaths: { p1: '/worktrees/oslo' } },
+    ] as unknown as DockAppState['workspaces']
+    const projects = [
+      { id: 'p1', name: 'alpha', path: '/repos/alpha' },
+    ] as unknown as DockAppState['projects']
+
+    function watchingAlpha(overrides: Partial<DockAppState> = {}): DockAppState {
+      return makeDockState({
+        sessionId: 's1',
+        tree: checkoutTree,
+        worktreeRootPath: '/repos/alpha',
+        changes: [{ path: 'checkout.ts', type: 'modified' }],
+        workspaces,
+        projects,
+        ...overrides,
+      })
+    }
+
+    it('badges the folder the selected agent works in', () => {
+      renderFolder(watchingAlpha(), { kind: 'project', id: 'p1', workspaceId: 'w1' })
+
+      expect(screen.getByText('checkout.ts')).toBeInTheDocument()
+      expect(screen.getByTitle('modified')).toHaveTextContent('M')
+      expect(mockInvoke).not.toHaveBeenCalled()
+    })
+
+    it('leaves another workspace’s checkout of the same repo unbadged', async () => {
+      mockInvoke.mockResolvedValue(worktreeTree)
+
+      renderFolder(watchingAlpha(), { kind: 'project', id: 'p1', workspaceId: 'w2' })
+
+      await waitFor(() => expect(screen.getByText('worktree.ts')).toBeInTheDocument())
+      expect(screen.queryByTitle('modified')).toBeNull()
+    })
+
+    // A row shows one folder. The agent's other folders reach it as add-dirs,
+    // and stacking them here would repeat the workspace's other repos under
+    // this repo's row.
+    it('shows only its own folder, not the agent’s other ones', () => {
+      const beta = dir('/repos/beta', 'beta', [file('/repos/beta/sibling.ts', 'sibling.ts')])
+
+      renderFolder(
+        watchingAlpha({
+          additionalTrees: new Map([['/repos/beta', beta]]),
+          rootLabels: new Map([['/repos/alpha', 'alpha'], ['/repos/beta', 'beta']]),
+        }),
+        { kind: 'project', id: 'p1', workspaceId: 'w1' },
+      )
+
+      expect(screen.getByText('checkout.ts')).toBeInTheDocument()
+      expect(screen.queryByText('sibling.ts')).toBeNull()
+    })
+
+    // No session, no watched folder: every row is a plain listing, and an
+    // undefined path must not read as "same folder as the agent's".
+    it('does not treat an unregistered folder as the watched one', async () => {
+      mockInvoke.mockResolvedValue(checkoutTree)
+
+      renderFolder(
+        makeDockState({ sessionId: null, tree: null, workspaces, projects }),
+        { kind: 'project', id: 'ghost', workspaceId: 'w1' },
+      )
+
+      await waitFor(() => expect(mockInvoke).toHaveBeenCalledWith('files:tree-by-project', 'ghost', 'w1'))
+    })
   })
 
   it('paints a reopened folder from cache instead of flashing empty', async () => {
