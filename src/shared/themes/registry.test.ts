@@ -1,9 +1,9 @@
-import { getThemeList, loadTheme } from './registry'
+import { getThemeList, loadTheme, migrateLegacyTheme } from './registry'
 import { DEFAULT_SETTINGS } from '../defaults'
 
 describe('first-run default theme', () => {
-  it('is Royal Dark', () => {
-    expect(DEFAULT_SETTINGS.theme).toBe('royal-dark')
+  it('is Manifold Dark', () => {
+    expect(DEFAULT_SETTINGS.theme).toBe('manifold-dark')
   })
 
   // loadTheme() silently falls back to manifold-dark for an unknown id, so a typo in
@@ -11,6 +11,30 @@ describe('first-run default theme', () => {
   it('is a registered theme id', () => {
     expect(getThemeList().map((t) => t.id)).toContain(DEFAULT_SETTINGS.theme)
     expect(loadTheme(DEFAULT_SETTINGS.theme).type).toBe('dark')
+  })
+
+  // The Manifold pair now carries what used to be Royal, so the default must be the
+  // deep navy/gold — not the retired near-black original.
+  it('renders the Royal palette under the Manifold name', () => {
+    expect(loadTheme('manifold-dark').cssVars['--bg-primary']).toBe('#06080F')
+    expect(loadTheme('manifold-light').cssVars['--bg-primary']).toBe('#F6F1E7')
+  })
+})
+
+describe('retired Royal ids', () => {
+  it('are gone from the picker', () => {
+    const ids = getThemeList().map((t) => t.id)
+    expect(ids).not.toContain('royal-dark')
+    expect(ids).not.toContain('royal-light')
+  })
+
+  // A saved royal-* id must land on the same colors under its new name. royal-light is
+  // the case that bites: unmigrated it hits loadTheme()'s unknown-id fallback, which is
+  // dark, so a light-theme user would be flipped to dark on upgrade.
+  it('migrate to the Manifold ids of the same type', () => {
+    expect(migrateLegacyTheme('royal-dark')).toBe('manifold-dark')
+    expect(migrateLegacyTheme('royal-light')).toBe('manifold-light')
+    expect(loadTheme(migrateLegacyTheme('royal-light')).type).toBe('light')
   })
 })
 
@@ -22,8 +46,6 @@ describe('custom themes', () => {
     'garfield-light',
     'neon-dark',
     'neon-light',
-    'royal-dark',
-    'royal-light',
     'jade-dark',
     'jade-light',
     'platinum-dark',

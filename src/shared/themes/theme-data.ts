@@ -7,8 +7,6 @@ import theme_garfield_dark from './data/Garfield Dark.json'
 import theme_garfield_light from './data/Garfield Light.json'
 import theme_neon_dark from './data/Neon Dark.json'
 import theme_neon_light from './data/Neon Light.json'
-import theme_royal_dark from './data/Royal Dark.json'
-import theme_royal_light from './data/Royal Light.json'
 import theme_jade_dark from './data/Jade Dark.json'
 import theme_jade_light from './data/Jade Light.json'
 import theme_platinum_dark from './data/Platinum Dark.json'
@@ -21,8 +19,6 @@ export const themeDataByLabel: Record<string, unknown> = {
   "Garfield Light": theme_garfield_light,
   "Neon Dark": theme_neon_dark,
   "Neon Light": theme_neon_light,
-  "Royal Dark": theme_royal_dark,
-  "Royal Light": theme_royal_light,
   "Jade Dark": theme_jade_dark,
   "Jade Light": theme_jade_light,
   "Platinum Dark": theme_platinum_dark,
@@ -36,8 +32,6 @@ export const themeList: Record<string, string> = {
   "garfield-light": "Garfield Light",
   "neon-dark": "Neon Dark",
   "neon-light": "Neon Light",
-  "royal-dark": "Royal Dark",
-  "royal-light": "Royal Light",
   "jade-dark": "Jade Dark",
   "jade-light": "Jade Light",
   "platinum-dark": "Platinum Dark",

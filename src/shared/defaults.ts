@@ -20,7 +20,7 @@ export const DEFAULT_SETTINGS = {
   lastSeenReleaseNotesVersion: '',
   defaultRuntime: 'claude',
   defaultAgentMode: 'interactive',
-  theme: 'royal-dark',
+  theme: 'manifold-dark',
   scrollbackLines: 5000,
   terminalFontFamily: '',
   defaultBaseBranch: 'main',

@@ -1,5 +1,5 @@
 // Screenshot fixture for NewAgentHero — see scripts/screenshot-component.mjs.
-// `npm run screenshot:component NewAgentHero --theme royal-dark` renders the wired hero.
+// `npm run screenshot:component NewAgentHero --theme manifold-dark` renders the wired hero.
 // The default electronAPI stub resolves every invoke to []; here we override `runtimes:list`
 // so the agent dropdown shows real options, and pass a dormant session so the capture
 // includes the existing-worktrees list under the cards.
