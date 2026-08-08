@@ -8,7 +8,9 @@ export interface TreeWatcher {
   watch(rootPath: string, sessionId: string): void
   unwatch(rootPath: string): Promise<void>
   unwatchAll(): Promise<void>
-  setOnTreeChanged(fn: (sessionId: string) => void): void
+  /** Reports the folder that changed as well as the agent working in it: several
+   *  folders are on screen at once, and only the one that changed reloads. */
+  setOnTreeChanged(fn: (sessionId: string, rootPath: string) => void): void
 }
 
 interface WatchEntry {
@@ -19,9 +21,9 @@ interface WatchEntry {
 
 export class ChokidarTreeWatcher implements TreeWatcher {
   private watchers = new Map<string, WatchEntry>()
-  private onTreeChanged: ((sessionId: string) => void) | null = null
+  private onTreeChanged: ((sessionId: string, rootPath: string) => void) | null = null
 
-  setOnTreeChanged(fn: (sessionId: string) => void): void {
+  setOnTreeChanged(fn: (sessionId: string, rootPath: string) => void): void {
     this.onTreeChanged = fn
   }
 
@@ -48,7 +50,7 @@ export class ChokidarTreeWatcher implements TreeWatcher {
       if (entry.debounceTimer) clearTimeout(entry.debounceTimer)
       entry.debounceTimer = setTimeout(() => {
         entry.debounceTimer = null
-        this.onTreeChanged?.(entry.sessionId)
+        this.onTreeChanged?.(entry.sessionId, rootPath)
       }, DEBOUNCE_MS)
     }
 

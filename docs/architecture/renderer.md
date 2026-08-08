@@ -427,11 +427,25 @@ Several folders showing at once is possible because **the main process authorize
 against the workspace roots** — every registered repo plus every session's worktree — not
 against the selected session, and reads and creates need no session at all (`main/ipc/file-handlers.ts:26`,
 `:46`, `:53`). A file in any open folder therefore opens, saves and renames like any other; the
-renderer no longer pre-filters reads by the active session's roots. Only the *selected* agent's
-worktree is a live, watched tree with change badges (`useFileWatcher`); every other folder is
-fetched on demand through `files:tree` / `files:tree-by-project` and cached per root, so
-reopening one paints in the same frame instead of flashing empty
-(`hooks/editor/useWorkspaceTree.ts:17`, `FolderFilesTree.tsx:26`). Folder trees render without
+renderer no longer pre-filters reads by the active session's roots. Only the folder the
+*selected* agent works in is a live, watched tree with change badges (`useFileWatcher`); every
+other folder is fetched on demand through `files:tree` / `files:tree-by-project` and cached per
+root, so reopening one paints in the same frame instead of flashing empty
+(`hooks/editor/useWorkspaceTree.ts:18`, `FolderFilesTree.tsx:36`). Unwatched is not unchanging,
+though — an agent in another workspace, or the user in a terminal, moves those files too — so a
+fetched folder reloads itself when an event **names its own root** (`rootPath` on
+`files:tree-changed`, `source` on the add-dir `files:changed`) and on window focus, the only
+signal left for a folder no agent is working in (`useWorkspaceTree.ts:107`, `:111`, `:116`;
+[fs](fs.md)). Reloading keeps the folder's expanded paths, so a refresh never collapses what the
+user opened (`useWorkspaceTree.ts:74`). Which folder is watched, is a
+question about **paths, not session ids**: a workspace owns the checkout its agents share, so the
+watched folder appears in the sidebar as an ordinary repo row with no session id of its own —
+the row is live when its checkout path (`worktreePaths[projectId]`, or the clone on a home
+workspace) is the watched root (`FolderFilesTree.tsx:28`, `:42`). Keying liveness on the session
+id instead left every sidebar row on the fetched path, and no file anywhere carried a change
+badge (regression tests `FolderFilesTree.test.tsx:136`, `:156`). The live row renders that one
+root and not the session's add-dirs: the workspace's other folders each have a row of their own,
+and passing them here repeats them under this one (`FolderFilesTree.tsx:57`). Folder trees render without
 the filter/refresh strip and without a row for their own root — the sidebar row above already
 names the folder, and one strip per open folder would stack up (`FolderFilesTree.tsx:39`;
 `flattenRoots`, `file-tree/file-tree-visible.ts:44`). A flattened root has no row, so anything
@@ -453,7 +467,13 @@ separate direct working-tree changes from branch-only ones: `mergeFileChanges` u
 base-branch diff (`useDiff`) with the live `git status` watcher feed and tags each path
 `worktreeDirty` by source (`useFileDiff.ts:4`). A dirty path renders the vivid A/M/D letter
 with a tinted name; a path that only differs vs the base branch (committed on the branch,
-clean in the worktree) renders a faint `○` with a plain name (`tree-node-row.tsx:71`, `:178`).
+clean in the worktree) renders a faint `○` with a plain name (`tree-node-row.tsx:77`, `:169`).
+**Folders roll their contents up**: `buildChangeMaps` credits each change to every directory
+between it and its root, so a collapsed folder carries a dot — vivid when something inside is
+dirty, faint when its contents only differ vs the base branch — with the count in its tooltip
+(`file-tree-changes.ts:33`, `tree-node-row.tsx:183`). Never a letter: a directory is not itself
+added or modified, it only says *look in here*, which is what makes a change findable without
+opening every folder on the way down (`FileTree.test.tsx:176`).
 Viewing a file and its diff stays where it was — the editor pane on the other side of the
 agent.
 

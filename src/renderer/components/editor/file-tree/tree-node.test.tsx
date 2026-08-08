@@ -3,6 +3,7 @@ import { describe, it, expect, vi } from 'vitest'
 import { fireEvent, render, screen } from '@testing-library/react'
 import type { FileTreeNode } from '../../../../shared/types'
 import { TreeNode, type TreeChangeEntry } from './tree-node'
+import type { DirChangeEntry } from './file-tree-changes'
 
 function makeFileNode(overrides: Partial<FileTreeNode> = {}): FileTreeNode {
   return {
@@ -16,12 +17,14 @@ function makeFileNode(overrides: Partial<FileTreeNode> = {}): FileTreeNode {
 function renderTreeNode({
   node = makeFileNode(),
   changeMap = new Map<string, TreeChangeEntry>(),
+  dirChangeMap = new Map<string, DirChangeEntry>(),
   openFilePaths = new Set<string>(),
   onRowClick = vi.fn(),
   onStartRename = vi.fn(),
 }: {
   node?: FileTreeNode
   changeMap?: Map<string, TreeChangeEntry>
+  dirChangeMap?: Map<string, DirChangeEntry>
   openFilePaths?: Set<string>
   onRowClick?: (e: React.MouseEvent, node: FileTreeNode) => void
   onStartRename?: (path: string, name: string) => void
@@ -31,6 +34,7 @@ function renderTreeNode({
       node={node}
       depth={0}
       changeMap={changeMap}
+      dirChangeMap={dirChangeMap}
       activeFilePath={null}
       selectedPaths={new Set()}
       openFilePaths={openFilePaths}

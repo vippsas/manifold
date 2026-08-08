@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from 'react'
 import type { FileTreeNode } from '../../../shared/types'
+import { useIpcListener } from '../app/useIpc'
 
 /** A folder shown in the sidebar: one repo as a workspace holds it (that
  *  workspace's checkout, or the clone itself for a home workspace), or the
@@ -39,9 +40,13 @@ interface UseWorkspaceTreeResult {
 /** The file tree of one sidebar folder, fetched on demand and remembered.
  *
  *  The live, watched tree of the *selected* agent comes from `useFileWatcher`;
- *  this covers every other folder on screen, which no watcher follows. A folder
- *  refreshes when it mounts and whenever the user asks — nothing else is running
- *  in it that would change files behind their back. */
+ *  this covers every other folder on screen, which that watcher does not follow.
+ *  Something else may well be changing these files though — an agent in another
+ *  workspace, or the user in a terminal — so a folder reloads when it mounts,
+ *  when the user asks, when a watcher reports work in *this* folder, and when the
+ *  window regains focus (nothing watches a folder with no agent in it, so
+ *  returning to the app is the only moment it can learn; the same trigger the
+ *  Source Control view uses). */
 export function useWorkspaceTree(source: FolderSource): UseWorkspaceTreeResult {
   const key = cacheKey(source)
   const [entry, setEntry] = useState<CachedFolder>(
@@ -92,6 +97,26 @@ export function useWorkspaceTree(source: FolderSource): UseWorkspaceTreeResult {
   }, [key])
 
   const refresh = useCallback((): void => setReloadCount((count) => count + 1), [])
+
+  // Which folder this is, as the main process names it in its events.
+  const rootPath = entry.tree?.path ?? null
+
+  // A tree-watched checkout (any session's, not just the selected one) reports
+  // the folder it changed; an add-dir folder is git-polled instead and names
+  // itself in `source`. Either way, only this folder's events reload it.
+  useIpcListener<{ rootPath?: string }>('files:tree-changed', useCallback((event) => {
+    if (rootPath && event.rootPath === rootPath) refresh()
+  }, [rootPath, refresh]))
+
+  useIpcListener<{ source?: string }>('files:changed', useCallback((event) => {
+    if (rootPath && event.source === rootPath) refresh()
+  }, [rootPath, refresh]))
+
+  useEffect(() => {
+    const onFocus = (): void => refresh()
+    window.addEventListener('focus', onFocus)
+    return () => window.removeEventListener('focus', onFocus)
+  }, [refresh])
 
   return { tree: entry.tree, expandedPaths: entry.expandedPaths, onToggleExpand, refresh }
 }

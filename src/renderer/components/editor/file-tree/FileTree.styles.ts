@@ -120,6 +120,14 @@ export const treeStyles: Record<string, React.CSSProperties> = {
     fontSize: '9px',
     opacity: 0.7,
   },
+  // A folder holding working-tree changes. One colour whatever the mix inside:
+  // the dot says "look in here", and the letters inside say what changed.
+  indicatorSubtree: {
+    color: 'var(--warning)',
+    fontWeight: 400,
+    fontSize: '9px',
+    opacity: 0.85,
+  },
   deleteButton: {
     flexShrink: 0,
     fontSize: '12px',

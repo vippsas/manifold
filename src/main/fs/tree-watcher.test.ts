@@ -52,7 +52,25 @@ describe('ChokidarTreeWatcher', () => {
     expect(onTreeChanged).not.toHaveBeenCalled()
 
     await vi.advanceTimersByTimeAsync(1)
-    expect(onTreeChanged).toHaveBeenCalledWith('session-1')
+    expect(onTreeChanged).toHaveBeenCalledWith('session-1', '/repo/worktree')
+
+    await watcher.unwatchAll()
+  })
+
+  // The listener has to know *which* folder moved, not only which agent works
+  // there: several folders can be on screen at once, and only the one that
+  // changed should reload.
+  it('names the folder that changed', async () => {
+    const watcher = new ChokidarTreeWatcher()
+    const onTreeChanged = vi.fn()
+
+    watcher.setOnTreeChanged(onTreeChanged)
+    watcher.watch('/repos/alpha', 'session-1')
+
+    chokidarMock.handlers.get('add')?.('/repos/alpha/new.ts')
+    await vi.advanceTimersByTimeAsync(200)
+
+    expect(onTreeChanged).toHaveBeenCalledWith('session-1', '/repos/alpha')
 
     await watcher.unwatchAll()
   })

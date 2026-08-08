@@ -1,4 +1,6 @@
 import React, { useMemo } from 'react'
+import type { Project } from '../../../../shared/types'
+import type { Workspace } from '../../../../shared/workspace-types'
 import { FileTree } from '../file-tree/FileTree'
 import { useWorkspaceTree, type FolderSource } from '../../../hooks/editor/useWorkspaceTree'
 import { useDockState } from './dock-panel-types'
@@ -20,16 +22,38 @@ function withRefresh<A extends unknown[], R>(
   }
 }
 
+/** Where a sidebar folder's files live on disk: the workspace's own checkout of
+ *  the repo, or the clone itself on a home workspace — the same chain the folder
+ *  row itself uses for its tooltip (`WorkspaceRepoRow.tsx:47`). */
+function folderPath(source: FolderSource, workspaces: Workspace[], projects: Project[]): string | null {
+  if (source.kind === 'session') return null
+  const workspace = workspaces.find((w) => w.id === source.workspaceId)
+  const path = workspace?.worktreePaths?.[source.id] ?? projects.find((p) => p.id === source.id)?.path
+  return path ? path.replace(/\/$/, '') : null
+}
+
 /** The files of one sidebar folder: a repo's checkout, or an agent's worktree. */
 export function FolderFilesTree({ source }: { source: FolderSource }): React.JSX.Element {
   const s = useDockState()
-  const isLive = source.kind === 'session' && source.id === s.sessionId
+  // Only one folder has a watcher behind it: the one the selected agent works
+  // in. Which folder that is, is a question about paths — a workspace owns the
+  // checkout its agents share, so the agent's folder appears in the sidebar as
+  // an ordinary repo row, with no session id of its own to match on.
+  const watchedPath = s.worktreeRootPath?.replace(/\/$/, '') ?? null
+  const path = folderPath(source, s.workspaces, s.projects)
+  const isLive = source.kind === 'session'
+    ? source.id === s.sessionId
+    : path !== null && path === watchedPath
 
   return isLive ? <LiveFolderTree /> : <StaticFolderTree source={source} />
 }
 
-/** The selected agent's worktree — watched, so it carries change badges and
- *  updates itself as the agent works. */
+/** The folder the selected agent works in — watched, so it carries change
+ *  badges and updates itself as the agent works.
+ *
+ *  Its tree alone: the agent's other folders (the workspace's other repos,
+ *  reaching it as add-dirs) each have a sidebar row of their own, and passing
+ *  them here would repeat them under this row. */
 function LiveFolderTree(): React.JSX.Element {
   const s = useDockState()
   const openFilePaths = useMemo(() => new Set(s.openFiles.map((file) => file.path)), [s.openFiles])
@@ -39,8 +63,6 @@ function LiveFolderTree(): React.JSX.Element {
       showToolbar={false}
       flattenRoots
       tree={s.tree}
-      additionalTrees={s.additionalTrees}
-      rootLabels={s.rootLabels}
       changes={s.changes}
       activeFilePath={s.activeFilePath}
       openFilePaths={openFilePaths}

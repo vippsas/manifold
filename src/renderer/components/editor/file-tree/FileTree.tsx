@@ -1,6 +1,7 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import type { FileTreeNode, FileChange } from '../../../../shared/types'
-import { TreeChildren, TreeNode, type TreeChangeEntry } from './tree-node'
+import { TreeChildren, TreeNode } from './tree-node'
+import { buildChangeMaps } from './file-tree-changes'
 import { ContextMenu } from '../../common/ContextMenu'
 import { treeStyles } from './FileTree.styles'
 import { describeDropTarget } from './file-tree-drop'
@@ -76,23 +77,10 @@ export function FileTree({
   const containerRef = useRef<HTMLDivElement>(null)
   const [pendingBulkDelete, setPendingBulkDelete] = useState<FileTreeNode[] | null>(null)
 
-  const changeMap = useMemo(() => {
-    const map = new Map<string, TreeChangeEntry>()
-    const addChanges = (root: string, list: FileChange[]): void => {
-      const normalizedRoot = root.replace(/\/$/, '')
-      for (const change of list) {
-        const absPath = normalizedRoot ? `${normalizedRoot}/${change.path}` : change.path
-        // `changes` is pre-tagged by mergeFileChanges; additionalChanges come
-        // straight from the working-tree watcher, so they're always direct.
-        map.set(absPath, { type: change.type, worktreeDirty: change.worktreeDirty ?? true })
-      }
-    }
-    addChanges(tree?.path ?? '', changes)
-    if (additionalChanges) {
-      for (const [root, list] of additionalChanges) addChanges(root, list)
-    }
-    return map
-  }, [changes, additionalChanges, tree?.path])
+  const { changeMap, dirChangeMap } = useMemo(() => buildChangeMaps([
+    { rootPath: tree?.path ?? '', changes },
+    ...Array.from(additionalChanges ?? [], ([rootPath, list]) => ({ rootPath, changes: list })),
+  ]), [changes, additionalChanges, tree?.path])
 
   const filteredTree = useMemo(
     () => (tree && editing.filterQuery ? filterTree(tree, editing.filterQuery) : tree),
@@ -183,7 +171,7 @@ export function FileTree({
   }), [worktreeRootPath, tree?.path, onCreateFile, onCreateDir, onRenameFile, onDeleteFile, onCopyAbsolutePath, onCopyRelativePath, onRevealInFinder, onOpenInTerminal, onOpenFileToSide, clipboard, editing])
 
   const treeNodeProps = {
-    changeMap, activeFilePath, selectedPaths: selection.selectedPaths,
+    changeMap, dirChangeMap, activeFilePath, selectedPaths: selection.selectedPaths,
     openFilePaths, expandedPaths,
     onRowClick: handleRowClick,
     filterQuery: editing.filterQuery,

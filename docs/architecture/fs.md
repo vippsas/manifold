@@ -77,8 +77,12 @@ resolution via `git:resolve-conflict` (`useGitOperations.ts:68`, `:61`).
 
 **Tree watching.** Polling only sees git-tracked deltas, so a separate `ChokidarTreeWatcher`
 (`tree-watcher.ts:20`) watches the same root for `add`/`change`/`unlink`/`addDir`/`unlinkDir`,
-debounced 200 ms (`tree-watcher.ts:5`, `:55`). That emits `files:tree-changed`, which covers
-both tree-shape refreshes and near-immediate editor rereads after file-content edits. It
+debounced 200 ms (`tree-watcher.ts:5`, `:53`). That emits `files:tree-changed`, which covers
+both tree-shape refreshes and near-immediate editor rereads after file-content edits. The event
+names **the folder that changed as well as the agent working in it** (`{ sessionId, rootPath }`,
+`tree-watcher.ts:13`, `file-watcher.ts:55`): the renderer shows several folders at once and
+reloads them by path, so a session id alone could not say which listing had gone stale
+(`file-watcher.test.ts:319`). It
 ignores anything under `EXCLUDED_DIRS` and does not follow symlinks (`tree-watcher.ts:37`).
 Watcher errors are swallowed because the poll loop still provides updates (`tree-watcher.ts:60`). In tests the
 watcher defaults to `NoopTreeWatcher`; production wires the real one in `app/index.ts:58`.
@@ -126,7 +130,7 @@ path is recreated. It is wired via `fileWatcher.setVerdictRecorder` (`app/index.
 - **Session** (`src/main/session`): `SessionKiller.cleanupSession` owns teardown unwatch — it calls `unwatchAdditionalDir` for each `--add-dir` and `unwatch(worktreePath)` once no surviving session shares the path (`worktreeSharedWithOther`, `session-killer.ts:89`). Sharing is now the norm rather than the exception: several agents in one workspace work in the same checkout. This covers the mode-switch teardown paths (`killNonInteractiveSessions`/`killInteractiveSession`), not just the IPC kill. The watcher reads `session.worktreePath`/`additionalDirs` only indirectly through the session/IPC layers.
 - **Git** (`src/main/git`): the watcher shells out to `git status`/`ls-files`/`rev-parse`/`gh` directly rather than going through `gitExec`; `isMissingGitError` lets `poll()` permanently disable polling where git can't spawn, and `pollAdditionalDir` additionally disables on `isGitRepositoryError` so a plain non-git `--add-dir` stops respawning a failing `git` every 2 s (`git/git-errors`, `file-watcher.ts:131`, `:157`).
 - **Verdict** (`src/main/session/verdict-recorder.ts`): the sink for `VerdictPollForwarder`.
-- **Renderer** (`src/renderer/hooks`): `useFileWatcher` listens for `files:changed`/`files:tree-changed` and refreshes the tree (`useFileWatcher.ts:79`, `:93`); `useGitOperations` listens for `agent:conflicts` (`useGitOperations.ts:68`); `useAdditionalDirs` reacts to `files:tree-changed` for `--add-dir` panels.
+- **Renderer** (`src/renderer/hooks`): `useFileWatcher` listens for `files:changed`/`files:tree-changed` and refreshes the tree (`useFileWatcher.ts:79`, `:93`); `useGitOperations` listens for `agent:conflicts` (`useGitOperations.ts:68`); `useAdditionalDirs` reacts to `files:tree-changed` for `--add-dir` panels; `useWorkspaceTree` reloads one sidebar folder when an event names *its* root — `rootPath` on `files:tree-changed`, `source` on the add-dir `files:changed` — and on window focus, which is the only signal for a folder no agent is working in (`useWorkspaceTree.ts:107`, `:111`, `:116`).
 
 ## Invariants & gotchas
 
