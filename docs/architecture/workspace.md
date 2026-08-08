@@ -1,7 +1,7 @@
 ---
 description: How Manifold groups repositories into a Workspace — a place to work that owns one checkout of every repo it spans, so agents join a workspace instead of cutting worktrees of their own.
 covers: [src/main/workspace]
-updated: 2026-08-03
+updated: 2026-08-08
 owner: see .github/CODEOWNERS
 ---
 
@@ -144,7 +144,7 @@ pass promotes nothing.
 
 ## Invariants & gotchas
 
-- **Every registered repo is in exactly one home workspace, plus any worktree workspaces the user made.** `registerProject` adopts each newly added repo (`ipc/project-handlers.ts:60`, `workspace-manager.ts:106`) and startup wraps any the store doesn't hold (`:118`). The same repo appearing in several workspaces is the supported way to work on several branches of it at once, not a conflict.
+- **Every registered repo is held by a workspace from the moment it is registered.** `registerProject` places each newly added repo in the same step that registers it (`ipc/project-handlers.ts:60`): a home workspace of its own by default (`workspace-manager.ts:106`), or the workspace the caller named, when the folder is being added *to* one ("Add folder" on a workspace row). Startup wraps any repo the store doesn't hold (`:118`), and a named workspace that vanished before the click falls back to adoption — a repo no workspace holds has no row to appear in. Adopting *and then* joining is the bug this replaced: it left the folder in two workspaces, so it showed twice in the sidebar, once as its own row on the clone and once inside the workspace on that workspace's branch. The same repo appearing in several workspaces is still the supported way to work on several branches of it at once — it just isn't something a single add should produce.
 - **An agent never owns a checkout.** `spawnAgent` only reuses `worktreePaths` (`workspace-manager.ts:218`) and `SessionKiller` removes nothing (`session-killer.ts:28`), so the only thing that removes a checkout is removing the workspace. This is what rules out a worktree nested inside a worktree.
 - **A workspace is never empty.** `create()` rejects zero projects (`workspace-manager.ts:39`) and `removeProject()` no-ops on the last repo (`:97`). Deleting the *project* drops the workspace with it (`:139`, `:190`): with no folders it can neither spawn an agent nor disclose anything, so it would sit in the sidebar as an unusable card.
 - **`projectIds[0]` is the agent cwd, always.** Nothing overrides it — the caller can't name a home folder — so every agent in a workspace runs in the same place with the same repos alongside (`workspace-manager.ts:208`).

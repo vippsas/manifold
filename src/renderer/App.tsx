@@ -56,7 +56,7 @@ export function App(): React.JSX.Element {
   const { sessions, activeSessionId, activeSession, spawnAgent, deleteAgent, setActiveSession, resumeAgent, outputtingSessionIds, rememberedActiveSessionRef } = useAgentSession(activeProjectId)
   const { drafts, activeDraft, effectiveSessionId, createDraft, discardDraft, promoteDraft } = useDraftChatCoordinator(activeSessionId, setActiveSession, spawnAgent)
   const { sessionsByProject, removeSession } = useAllProjectSessions(projects, activeProjectId, sessions)
-  const { workspaces, createWorkspace, renameWorkspace, removeWorkspace, addProject: addProjectToWorkspace, removeProject: removeProjectFromWorkspace, spawnAgent: spawnWorkspaceAgent } = useWorkspaces()
+  const { workspaces, createWorkspace, renameWorkspace, removeWorkspace, removeProject: removeProjectFromWorkspace, spawnAgent: spawnWorkspaceAgent } = useWorkspaces()
   const { activeWorkspaceId, setActiveWorkspaceId } = usePersistedActiveWorkspace(workspaces)
   const [sidebarView, setSidebarView] = useState<SidebarViewId>(DEFAULT_SIDEBAR_VIEW)
   const [newAgentTarget, setNewAgentTarget] = useState<NewAgentTarget | null>(null)
@@ -268,10 +268,12 @@ export function App(): React.JSX.Element {
     setNewAgentTarget({ workspaceId: targetWorkspaceId })
   }, [activeProjectId, activeWorkspaceId, workspaces])
 
+  // One main-side step: registering the folder and joining it to the workspace in
+  // two calls let the first mint a home workspace, leaving the folder in two.
+  // The sidebar picks the new member up from workspace:list-changed.
   const addLocalFolderToWorkspace = useCallback(async (workspaceId: string): Promise<void> => {
-    const project = await addProject(undefined, { activate: false })
-    if (project) await addProjectToWorkspace(workspaceId, project.id)
-  }, [addProject, addProjectToWorkspace])
+    await addProject(undefined, { activate: false, workspaceId })
+  }, [addProject])
 
   // Removing a workspace also unregisters the repos it was the last holder of.
   // A repo outside every workspace has nowhere to appear and would simply be

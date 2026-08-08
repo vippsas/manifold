@@ -83,7 +83,7 @@ describe('useProjects', () => {
         await result.current.addProject('/new')
       })
 
-      expect(mockInvoke).toHaveBeenCalledWith('projects:add', '/new')
+      expect(mockInvoke).toHaveBeenCalledWith('projects:add', '/new', undefined)
       expect(result.current.projects).toHaveLength(1)
       expect(result.current.activeProjectId).toBe('p-new')
     })
@@ -110,6 +110,29 @@ describe('useProjects', () => {
       expect(result.current.projects.map((project) => project.name)).toEqual(['Aardvark', 'Project A', 'Project B'])
     })
 
+    // The workspace is named on the registering call, so the folder never passes
+    // through a home workspace of its own on the way in.
+    it('places the folder in a workspace when one is given', async () => {
+      const addedProject = { id: 'p-new', name: 'Aardvark', path: '/aardvark', baseBranch: 'main', addedAt: '2024-01-03' }
+      mockInvoke.mockImplementation((channel: string) => {
+        if (channel === 'projects:list') return Promise.resolve(sampleProjects)
+        if (channel === 'projects:add') return Promise.resolve(addedProject)
+        return Promise.resolve(undefined)
+      })
+
+      const { result } = renderHook(() => useProjects())
+
+      await waitFor(() => {
+        expect(result.current.loading).toBe(false)
+      })
+
+      await act(async () => {
+        await result.current.addProject('/aardvark', { activate: false, workspaceId: 'ws-1' })
+      })
+
+      expect(mockInvoke).toHaveBeenCalledWith('projects:add', '/aardvark', 'ws-1')
+    })
+
     it('opens a dialog when no path provided', async () => {
       mockInvoke
         .mockResolvedValueOnce([]) // initial list
@@ -127,7 +150,7 @@ describe('useProjects', () => {
       })
 
       expect(mockInvoke).toHaveBeenCalledWith('projects:open-dialog')
-      expect(mockInvoke).toHaveBeenCalledWith('projects:add', '/selected/path')
+      expect(mockInvoke).toHaveBeenCalledWith('projects:add', '/selected/path', undefined)
     })
 
     it('does nothing when dialog is cancelled', async () => {
