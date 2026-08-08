@@ -1,4 +1,18 @@
 import { getThemeList, loadTheme } from './registry'
+import { DEFAULT_SETTINGS } from '../defaults'
+
+describe('first-run default theme', () => {
+  it('is Royal Dark', () => {
+    expect(DEFAULT_SETTINGS.theme).toBe('royal-dark')
+  })
+
+  // loadTheme() silently falls back to manifold-dark for an unknown id, so a typo in
+  // DEFAULT_SETTINGS.theme would ship a different theme without failing anywhere else.
+  it('is a registered theme id', () => {
+    expect(getThemeList().map((t) => t.id)).toContain(DEFAULT_SETTINGS.theme)
+    expect(loadTheme(DEFAULT_SETTINGS.theme).type).toBe('dark')
+  })
+})
 
 describe('custom themes', () => {
   it.each([

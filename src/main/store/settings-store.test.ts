@@ -45,6 +45,11 @@ describe('SettingsStore', () => {
       expect(store.getSettings()).toEqual(RESOLVED_DEFAULTS)
     })
 
+    it('opens a first launch on Royal Dark', () => {
+      mockExistsSync.mockReturnValue(false)
+      expect(new SettingsStore().getSettings().theme).toBe('royal-dark')
+    })
+
     it('reads and merges settings from disk', () => {
       mockExistsSync.mockReturnValue(true)
       mockReadFileSync.mockReturnValue(JSON.stringify({ theme: 'light' }))
