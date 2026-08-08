@@ -78,7 +78,7 @@ describe('SettingsModal', () => {
 
     expect(props.onSave).toHaveBeenCalledWith(
       expect.objectContaining({
-        theme: 'manifold-dark',
+        theme: DEFAULT_SETTINGS.theme,
         defaultRuntime: 'claude',
         scrollbackLines: 5000,
         defaultBaseBranch: 'main',
