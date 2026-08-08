@@ -45,6 +45,15 @@ export const sidebarStyles: Record<string, React.CSSProperties> = {
     color: 'var(--text-secondary)',
     marginLeft: 'auto',
   },
+  // Holds both toolbar actions as one right-aligned cluster, so Add stays at the
+  // edge with Sort beside it. toolbarButtonPrimary's own marginLeft: 'auto' is
+  // inert inside a content-sized group, so it needs no change.
+  toolbarActions: {
+    marginLeft: 'auto',
+    display: 'flex',
+    alignItems: 'center',
+    gap: 'var(--space-xs)',
+  },
   list: {
     padding: 'var(--space-xs) 0',
   },
@@ -95,12 +104,21 @@ export const sidebarStyles: Record<string, React.CSSProperties> = {
   },
   // Sized to its text, so the separator always sits right after the repo. An
   // ellipsis cuts at a character boundary inside a fixed-width box, so any cap
-  // that bites leaves dead space between the repo and the "/" — the name
-  // absorbs the row's width pressure instead, and the cap here is only a
-  // backstop that keeps a pathological repo from erasing the name entirely.
+  // that bites leaves dead space between the repo and the "/" — the name absorbs
+  // the row's width pressure instead (`flexShrink: 0` here, so only the name
+  // gives), and the cap is only a backstop against a pathological repo erasing
+  // the name entirely.
+  //
+  // The cap is a length, not a percentage. A percentage resolves against
+  // `rowLabelPath`, which is shrink-to-fit, so it scaled with the row's *own*
+  // text instead of the space available — biting hardest on the short rows that
+  // had room to spare, and never on the long ones it was written for. At
+  // `calc(100% - 5ch)` that rendered `apex / zed` as `a… / zed`. 28ch clears a
+  // real repo folder name (`commerce-platform-services`, 26, fits) while still
+  // capping a pathological one.
   rowRepo: {
     color: 'var(--text-muted)',
-    maxWidth: 'calc(100% - 5ch)',
+    maxWidth: '28ch',
     overflow: 'hidden',
     textOverflow: 'ellipsis',
     whiteSpace: 'nowrap',
