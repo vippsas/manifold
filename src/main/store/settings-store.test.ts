@@ -45,9 +45,9 @@ describe('SettingsStore', () => {
       expect(store.getSettings()).toEqual(RESOLVED_DEFAULTS)
     })
 
-    it('opens a first launch on Royal Dark', () => {
+    it('opens a first launch on Manifold Dark', () => {
       mockExistsSync.mockReturnValue(false)
-      expect(new SettingsStore().getSettings().theme).toBe('royal-dark')
+      expect(new SettingsStore().getSettings().theme).toBe('manifold-dark')
     })
 
     it('reads and merges settings from disk', () => {

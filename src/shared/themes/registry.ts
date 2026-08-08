@@ -64,5 +64,11 @@ export function loadTheme(id: string): ConvertedTheme {
 export function migrateLegacyTheme(value: string): string {
   if (value === 'dark' || value === 'vs-dark') return DEFAULT_THEME
   if (value === 'light' || value === 'vs') return DEFAULT_THEME
+  // The Royal pair was renamed to Manifold when the original Manifold themes were
+  // retired; the colors are unchanged, so a saved royal-* id maps straight across.
+  // This matters most for royal-light: without it that id falls through to
+  // loadTheme()'s unknown-id fallback, which is dark, flipping a light-theme user.
+  if (value === 'royal-dark') return 'manifold-dark'
+  if (value === 'royal-light') return 'manifold-light'
   return value
 }

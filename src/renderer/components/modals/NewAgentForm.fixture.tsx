@@ -1,5 +1,5 @@
 // Screenshot fixture for NewAgentForm — see scripts/screenshot-component.mjs.
-// `npm run screenshot:component NewAgentForm --theme royal-dark` renders this wired form.
+// `npm run screenshot:component NewAgentForm --theme manifold-dark` renders this wired form.
 // The default electronAPI stub resolves every invoke to []; here we override `runtimes:list`
 // so the runtime tiles show real options in the capture.
 import React from 'react'
