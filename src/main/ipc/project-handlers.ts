@@ -55,11 +55,21 @@ function runAIPrompt(binary: string, prompt: string, cwd?: string): Promise<stri
 export function registerProjectHandlers(deps: IpcDependencies): void {
   const { projectRegistry, verdictStore, chatStore, memoryStore, workspaceManager, dismissedAgents } = deps
 
-  // The sidebar only ever shows workspaces, so a repo is registered and adopted
-  // into one in the same step — every add path goes through here.
-  const registerProject = async (projectPath: string, options: { kind?: ProjectKind } = {}) => {
+  // The sidebar only ever shows workspaces, so a repo is registered and placed in
+  // one in the same step — every add path goes through here. `workspaceId` joins
+  // that workspace instead of minting a home one: adopting first and joining after
+  // leaves the folder in two workspaces, showing twice in the sidebar. A target
+  // that vanished between render and click still falls back to a home workspace,
+  // since a repo no workspace holds has no row to appear in.
+  const registerProject = async (
+    projectPath: string,
+    options: { kind?: ProjectKind } = {},
+    workspaceId?: string,
+  ) => {
     const project = await projectRegistry.addProject(projectPath, options)
-    workspaceManager.adoptProject(project)
+    const target = workspaceId ? workspaceManager.get(workspaceId) : undefined
+    if (target) await workspaceManager.addProject(target.id, project.id)
+    else workspaceManager.adoptProject(project)
     return project
   }
 
@@ -67,8 +77,8 @@ export function registerProjectHandlers(deps: IpcDependencies): void {
     return projectRegistry.listProjects()
   })
 
-  ipcMain.handle('projects:add', async (_event, projectPath: string) => {
-    return registerProject(projectPath)
+  ipcMain.handle('projects:add', async (_event, projectPath: string, workspaceId?: string) => {
+    return registerProject(projectPath, {}, workspaceId)
   })
 
   ipcMain.handle(

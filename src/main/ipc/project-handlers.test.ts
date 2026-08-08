@@ -277,6 +277,74 @@ describe('registerProjectHandlers', () => {
     expect(deps.workspaceManager.adoptProject).toHaveBeenCalledWith(project)
   })
 
+  // Adopting first and joining second would leave the folder in two workspaces,
+  // so it shows twice in the sidebar: as its own row and inside the workspace.
+  it('projects:add joins the given workspace instead of minting a home one', async () => {
+    const { registerProjectHandlers } = await import('./project-handlers')
+    const project = {
+      id: 'project-4',
+      name: 'joined',
+      path: '/workspace/joined',
+      baseBranch: 'main',
+      addedAt: '2026-04-01T00:00:00.000Z',
+      kind: 'git',
+    }
+
+    const deps = {
+      projectRegistry: {
+        listProjects: vi.fn(() => []),
+        addProject: vi.fn(async () => project),
+      },
+      workspaceManager: {
+        adoptProject: vi.fn(),
+        addProject: vi.fn(async () => undefined),
+        get: vi.fn(() => ({ id: 'ws-1', name: 'jacob-co-2', projectIds: ['api'] })),
+      },
+    }
+
+    registerProjectHandlers(deps as never)
+    const handler = electronMocks.handlers.get('projects:add')
+    if (!handler) throw new Error('projects:add handler was not registered')
+
+    await expect(handler({}, '/workspace/joined', 'ws-1')).resolves.toEqual(project)
+    expect(deps.workspaceManager.addProject).toHaveBeenCalledWith('ws-1', 'project-4')
+    expect(deps.workspaceManager.adoptProject).not.toHaveBeenCalled()
+  })
+
+  // A workspace removed between render and click must not leave the folder held
+  // by nothing — a repo no workspace holds has no row to appear in.
+  it('projects:add falls back to a home workspace when the target is gone', async () => {
+    const { registerProjectHandlers } = await import('./project-handlers')
+    const project = {
+      id: 'project-5',
+      name: 'orphan',
+      path: '/workspace/orphan',
+      baseBranch: 'main',
+      addedAt: '2026-04-01T00:00:00.000Z',
+      kind: 'git',
+    }
+
+    const deps = {
+      projectRegistry: {
+        listProjects: vi.fn(() => []),
+        addProject: vi.fn(async () => project),
+      },
+      workspaceManager: {
+        adoptProject: vi.fn(),
+        addProject: vi.fn(async () => undefined),
+        get: vi.fn(() => undefined),
+      },
+    }
+
+    registerProjectHandlers(deps as never)
+    const handler = electronMocks.handlers.get('projects:add')
+    if (!handler) throw new Error('projects:add handler was not registered')
+
+    await handler({}, '/workspace/orphan', 'ws-gone')
+    expect(deps.workspaceManager.addProject).not.toHaveBeenCalled()
+    expect(deps.workspaceManager.adoptProject).toHaveBeenCalledWith(project)
+  })
+
   it('rejects duplicate explicit repository names instead of silently renaming them', async () => {
     const { registerProjectHandlers } = await import('./project-handlers')
     fsMocks.existsSync.mockImplementation((target: string) => target === '/workspace/projects/timer-app')

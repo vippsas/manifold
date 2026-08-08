@@ -7,7 +7,7 @@ interface UseProjectsResult {
   activeProjectId: string | null
   loading: boolean
   error: string | null
-  addProject: (path?: string, options?: { activate?: boolean }) => Promise<Project | null>
+  addProject: (path?: string, options?: { activate?: boolean; workspaceId?: string }) => Promise<Project | null>
   cloneProject: (url: string) => Promise<boolean>
   createNewProject: (options: CreateProjectOptions) => Promise<Project | null>
   removeProject: (id: string) => Promise<void>
@@ -43,9 +43,11 @@ export function useProjects(): UseProjectsResult {
     void fetchProjects()
   }, [fetchProjects])
 
+  // `workspaceId` places the folder in that workspace rather than in a home
+  // workspace of its own, in the same main-side step that registers it.
   const addProject = useCallback(async (
     path?: string,
-    options?: { activate?: boolean },
+    options?: { activate?: boolean; workspaceId?: string },
   ): Promise<Project | null> => {
     setError(null)
     try {
@@ -54,7 +56,7 @@ export function useProjects(): UseProjectsResult {
         projectPath = (await window.electronAPI.invoke('projects:open-dialog')) as string | undefined
         if (!projectPath) return null
       }
-      const project = (await window.electronAPI.invoke('projects:add', projectPath)) as Project
+      const project = (await window.electronAPI.invoke('projects:add', projectPath, options?.workspaceId)) as Project
       setProjects((prev) => sortProjectsByName([...prev, project]))
       if (options?.activate !== false) {
         setActiveProjectId(project.id)
