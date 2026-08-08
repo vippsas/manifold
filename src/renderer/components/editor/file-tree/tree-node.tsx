@@ -1,6 +1,7 @@
 import React, { useCallback } from 'react'
 import type { FileTreeNode, FileChangeType } from '../../../../shared/types'
 import { NodeRow, CreateInput, sortChildren } from './tree-node-row'
+import type { DirChangeEntry } from './file-tree-changes'
 
 /**
  * A file tree change keyed by absolute path. `worktreeDirty` separates direct
@@ -16,6 +17,8 @@ export interface TreeNodeProps {
   node: FileTreeNode
   depth: number
   changeMap: Map<string, TreeChangeEntry>
+  /** Directories with changes somewhere inside them — the folder roll-up dot. */
+  dirChangeMap: Map<string, DirChangeEntry>
   activeFilePath: string | null
   selectedPaths: Set<string>
   openFilePaths: Set<string>
@@ -91,6 +94,7 @@ export function TreeChildren({ parentPath, nodes, depth, ...rest }: TreeChildren
 export function TreeNode({ node, depth, ...rest }: TreeNodeProps): React.JSX.Element {
   const {
     changeMap,
+    dirChangeMap,
     activeFilePath,
     selectedPaths,
     expandedPaths,
@@ -128,6 +132,8 @@ export function TreeNode({ node, depth, ...rest }: TreeNodeProps): React.JSX.Ele
   }, [node, onContextMenu])
 
   const change = changeMap.get(node.path)
+  // Only directories roll up: a file's own letter already says everything.
+  const subtreeChange = node.isDirectory ? dirChangeMap.get(node.path) ?? null : null
 
   return (
     <>
@@ -139,6 +145,7 @@ export function TreeNode({ node, depth, ...rest }: TreeNodeProps): React.JSX.Ele
         isSelected={selectedPaths.has(node.path)}
         changeType={change?.type ?? null}
         worktreeDirty={change?.worktreeDirty ?? false}
+        subtreeChange={subtreeChange}
         onClick={handleClick}
         onDoubleClick={handleDoubleClick}
         onDelete={onRequestDelete && depth > 0 ? handleDelete : undefined}

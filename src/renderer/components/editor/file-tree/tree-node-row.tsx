@@ -5,6 +5,7 @@ import { getDraggedTreePath, writeFileTreeDragData } from './file-tree-drag'
 import { fuzzyMatch } from './file-tree-visible'
 import { highlightByIndices } from '../../search/search-highlight'
 import { CHANGE_INDICATORS, treeStyles } from './FileTree.styles'
+import type { DirChangeEntry } from './file-tree-changes'
 
 /** Directory expand/collapse chevron; the wrapper rotates it when expanded. */
 function ChevronIcon(): React.JSX.Element {
@@ -35,6 +36,7 @@ export function NodeRow({
   isSelected,
   changeType,
   worktreeDirty,
+  subtreeChange,
   onClick,
   onDoubleClick,
   onDelete,
@@ -54,6 +56,8 @@ export function NodeRow({
   isSelected: boolean
   changeType: FileChangeType | null
   worktreeDirty: boolean
+  /** For a directory: what its subtree holds, or null when nothing in it changed. */
+  subtreeChange?: DirChangeEntry | null
   onClick: (e: React.MouseEvent) => void
   onDoubleClick: () => void
   onDelete?: (e: React.MouseEvent) => void
@@ -175,6 +179,19 @@ export function NodeRow({
             {'○'}
           </span>
         )
+      )}
+      {/* A folder says what is under it, so a change stays findable while the
+          folder is collapsed. Never a letter: the folder itself isn't changed. */}
+      {!isRenaming && !indicator && subtreeChange && (
+        <span
+          style={{
+            ...treeStyles.indicator,
+            ...(subtreeChange.worktreeDirty ? treeStyles.indicatorSubtree : treeStyles.indicatorBranchOnly),
+          }}
+          title={`${subtreeChange.count} changed file${subtreeChange.count === 1 ? '' : 's'} inside`}
+        >
+          {subtreeChange.worktreeDirty ? '●' : '○'}
+        </span>
       )}
       {!isRenaming && onDelete && (
         <span

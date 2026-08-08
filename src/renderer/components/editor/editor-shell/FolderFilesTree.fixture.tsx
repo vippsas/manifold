@@ -62,7 +62,9 @@ const dockState = {
   ],
   openFiles: [],
   activeFilePath: null,
-  expandedPaths: new Set([watchedTree.path, '/projects/storefront/src']),
+  // `src` stays collapsed: its dot is the whole point — the changes inside it are
+  // findable without opening it.
+  expandedPaths: new Set([watchedTree.path]),
   onToggleExpand: () => undefined,
   onSelectFileFromFileTree: () => undefined,
   onOpenSearchResultInSplit: () => undefined,

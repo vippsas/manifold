@@ -170,3 +170,71 @@ describe('FileTree cross-worktree move error banner', () => {
     expect(screen.getByText('b.ts')).toBeTruthy()
   })
 })
+
+// A collapsed folder used to hide every change under it: the letters were on the
+// file rows, and nothing on the way down said "look in here".
+describe('FileTree folder change roll-up', () => {
+  function renderCollapsedFolders(changes: Parameters<typeof FileTree>[0]['changes']) {
+    const tree = dir('repo', '/repo', [
+      dir('src', '/repo/src', [file('index.ts', '/repo/src/index.ts')]),
+      dir('docs', '/repo/docs', [file('guide.md', '/repo/docs/guide.md')]),
+    ])
+    return render(
+      <FileTree
+        showToolbar={false}
+        flattenRoots
+        tree={tree}
+        changes={changes}
+        activeFilePath={null}
+        openFilePaths={new Set()}
+        expandedPaths={new Set(['/repo'])}
+        onToggleExpand={vi.fn()}
+        onSelectFile={vi.fn()}
+      />
+    )
+  }
+
+  function rowFor(container: HTMLElement, path: string): HTMLElement {
+    const row = container.querySelector<HTMLElement>(`[data-tree-path="${path}"]`)
+    if (!row) throw new Error(`expected a row for ${path}`)
+    return row
+  }
+
+  it('marks a collapsed folder that holds a working-tree change', () => {
+    const { container } = renderCollapsedFolders([{ path: 'src/index.ts', type: 'modified' }])
+
+    expect(rowFor(container, '/repo/src')).toHaveTextContent('●')
+    expect(screen.getByTitle('1 changed file inside')).toBeInTheDocument()
+    // Only the folder that holds it.
+    expect(rowFor(container, '/repo/docs')).not.toHaveTextContent('●')
+  })
+
+  it('counts what is inside', () => {
+    const { container } = renderCollapsedFolders([
+      { path: 'src/index.ts', type: 'modified' },
+      { path: 'src/added.ts', type: 'added' },
+    ])
+
+    expect(rowFor(container, '/repo/src')).toBeInTheDocument()
+    expect(screen.getByTitle('2 changed files inside')).toBeInTheDocument()
+  })
+
+  // Same distinction the file rows draw: a vivid mark for work in the tree now,
+  // a faint one for what only differs from the base branch.
+  it('recedes for a folder holding only branch-only changes', () => {
+    const { container } = renderCollapsedFolders([
+      { path: 'docs/guide.md', type: 'modified', worktreeDirty: false },
+    ])
+
+    const row = rowFor(container, '/repo/docs')
+    expect(row).toHaveTextContent('○')
+    expect(row).not.toHaveTextContent('●')
+  })
+
+  it('leaves a folder with nothing inside it unmarked', () => {
+    const { container } = renderCollapsedFolders([])
+
+    expect(rowFor(container, '/repo/src')).not.toHaveTextContent('●')
+    expect(rowFor(container, '/repo/docs')).not.toHaveTextContent('●')
+  })
+})

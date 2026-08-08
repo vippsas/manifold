@@ -467,7 +467,13 @@ separate direct working-tree changes from branch-only ones: `mergeFileChanges` u
 base-branch diff (`useDiff`) with the live `git status` watcher feed and tags each path
 `worktreeDirty` by source (`useFileDiff.ts:4`). A dirty path renders the vivid A/M/D letter
 with a tinted name; a path that only differs vs the base branch (committed on the branch,
-clean in the worktree) renders a faint `○` with a plain name (`tree-node-row.tsx:71`, `:178`).
+clean in the worktree) renders a faint `○` with a plain name (`tree-node-row.tsx:77`, `:169`).
+**Folders roll their contents up**: `buildChangeMaps` credits each change to every directory
+between it and its root, so a collapsed folder carries a dot — vivid when something inside is
+dirty, faint when its contents only differ vs the base branch — with the count in its tooltip
+(`file-tree-changes.ts:33`, `tree-node-row.tsx:183`). Never a letter: a directory is not itself
+added or modified, it only says *look in here*, which is what makes a change findable without
+opening every folder on the way down (`FileTree.test.tsx:176`).
 Viewing a file and its diff stays where it was — the editor pane on the other side of the
 agent.
 
