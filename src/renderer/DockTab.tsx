@@ -15,6 +15,18 @@ function GearIcon(): React.JSX.Element {
   )
 }
 
+/** Padlock marking a locked (deletion-protected) agent. `locked` swaps the closed
+ *  shackle for an open one, so the button shows the state it is in rather than the
+ *  action it performs — matching the ⚙/🗑 sizing beside it. */
+function LockIcon({ locked }: { locked: boolean }): React.JSX.Element {
+  return (
+    <svg aria-hidden="true" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <rect x="3" y="11" width="18" height="11" rx="2" ry="2" />
+      {locked ? <path d="M7 11V7a5 5 0 0 1 10 0v4" /> : <path d="M7 11V7a5 5 0 0 1 9.9-1" />}
+    </svg>
+  )
+}
+
 function TrashIcon(): React.JSX.Element {
   return (
     <svg aria-hidden="true" width="12" height="12" viewBox="0 0 12 12" fill="none">
@@ -64,10 +76,11 @@ export function DockTab({ api }: IDockviewPanelHeaderProps): React.JSX.Element {
     )
   }
   // An agent tab *is* its agent. Its per-tab controls act on that agent — ⚙
-  // opens settings, 🗑 deletes it (behind the confirm) — rather than the generic
-  // × that hides a panel. Hiding the tab (keeping the agent) is the group
-  // header's × (see AgentHeaderActions). The primary `agent` tab resolves to the
-  // workspace's primary session; siblings carry their own session id.
+  // opens settings, 🔒 protects it from deletion, 🗑 deletes it (behind the
+  // confirm) — rather than the generic × that hides a panel. Hiding the tab
+  // (keeping the agent) is the group header's × (see AgentHeaderActions). The
+  // primary `agent` tab resolves to the workspace's primary session; siblings
+  // carry their own session id.
   if (api.id === 'agent' || isSiblingPanelId(api.id)) {
     const sessionId = api.id === 'agent' ? state?.primarySessionId ?? null : parseSiblingSessionId(api.id)
     const session = sessionId && state
@@ -94,12 +107,27 @@ export function DockTab({ api }: IDockviewPanelHeaderProps): React.JSX.Element {
             >
               <GearIcon />
             </button>
+            {/* Sits immediately left of the 🗑 it guards, and stays visible while
+                locked — the other actions are hover-only, but a lock is state,
+                not an action, and has to read without hovering the tab. */}
+            <button
+              type="button"
+              onClick={(e) => { e.stopPropagation(); state.onToggleLocked(session.id, !session.locked) }}
+              onDoubleClick={(e) => e.stopPropagation()}
+              className={`dock-tab__action${session.locked ? ' is-locked' : ''}`}
+              aria-pressed={!!session.locked}
+              title={session.locked ? 'Unlock agent' : 'Lock agent to prevent deletion'}
+              aria-label={session.locked ? `Unlock ${title}` : `Lock ${title} to prevent deletion`}
+            >
+              <LockIcon locked={!!session.locked} />
+            </button>
             <button
               type="button"
               onClick={(e) => { e.stopPropagation(); state.onRequestDeleteAgent(session, projectPath) }}
               onDoubleClick={(e) => e.stopPropagation()}
+              disabled={!!session.locked}
               className="dock-tab__action"
-              title={`Delete ${title}`}
+              title={session.locked ? `${title} is locked — unlock it to delete` : `Delete ${title}`}
               aria-label={`Delete ${title}`}
             >
               <TrashIcon />

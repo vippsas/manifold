@@ -264,22 +264,58 @@
   background: var(--accent-subtle);
 }
 
-/* Text-tab chips: a little breathing room so adjacent chips don't touch, then
-   brighten on hover and tint with the accent when active — the chip carries the
-   current theme's accent rather than text weight alone. */
+/* Text tabs (agent and its siblings, module panels): the strip is chrome and the
+   active tab is a piece of the surface below pulled up into it — same
+   background, an accent rule fading at both ends along its top edge, and the
+   only label at full contrast. The strip reads as "which agent am I in" rather
+   than as a row of chips. Icon tabs above keep their pill. */
+.dockview-theme-manifold .dv-tabs-and-actions-container:has(.dock-tab:not(.dock-tab--icon):not(.dock-tab--headless)) {
+  background: linear-gradient(180deg, var(--bg-chrome-hi, var(--bg-chrome)) 0%, var(--bg-chrome) 100%);
+}
+
+/* A text tab's fill has to meet both edges of the strip, and two things stand in
+   the way: dockview pads `.dv-tab` by `0.25rem 0.5rem`, and it wraps the custom
+   tab in a block-level `.dv-react-part` sized to its content. Drop the vertical
+   padding (the horizontal stays — it is the gap between tab labels) and stretch
+   the wrapper. Stretching takes flex boxes, not `height: 100%`: `.dv-tab` is a
+   flex item with `height: auto`, against which a percentage resolves to auto.
+   Icon tabs want the opposite — a pill inset in the strip — and are left alone. */
 .dockview-theme-manifold .dv-tab:has(.dock-tab):not(:has(.dock-tab--icon)):not(:has(.dock-tab--headless)) {
-  padding-inline: 2px;
+  position: relative;
+  padding-block: 0;
+}
+
+.dockview-theme-manifold .dv-tab:has(.dock-tab):not(:has(.dock-tab--icon)):not(:has(.dock-tab--headless)),
+.dockview-theme-manifold .dv-tab:has(.dock-tab):not(:has(.dock-tab--icon)):not(:has(.dock-tab--headless)) > .dv-react-part {
+  display: flex;
+  align-items: stretch;
 }
 
 .dockview-theme-manifold .dv-tab:hover .dock-tab:not(.dock-tab--icon):not(.dock-tab--headless) {
   color: var(--text-primary);
-  box-shadow: inset 0 0 0 1px var(--divider);
 }
 
 .dockview-theme-manifold .dv-active-tab .dock-tab:not(.dock-tab--icon):not(.dock-tab--headless) {
-  background: var(--accent-subtle);
+  background: var(--bg-chrome-active);
   color: var(--text-primary);
-  box-shadow: inset 0 0 0 1px var(--sidebar-active-border);
+}
+
+.dockview-theme-manifold .dv-tab.dv-active-tab:has(.dock-tab):not(:has(.dock-tab--icon)):not(:has(.dock-tab--headless))::after {
+  content: '';
+  position: absolute;
+  left: var(--space-xs);
+  right: var(--space-xs);
+  top: 0;
+  height: 2px;
+  border-radius: 1px;
+  pointer-events: none;
+  background: linear-gradient(90deg, transparent, var(--text-muted) 28%, var(--text-muted) 72%, transparent);
+}
+
+/* The accent metal marks the tab you are in only while its group holds focus;
+   an unfocused group states its current tab in muted grey instead. */
+.dockview-theme-manifold .dv-groupview.dv-active-group > .dv-tabs-and-actions-container .dv-tab.dv-active-tab:has(.dock-tab):not(:has(.dock-tab--icon)):not(:has(.dock-tab--headless))::after {
+  background: linear-gradient(90deg, transparent, var(--accent) 28%, var(--accent) 72%, transparent);
 }
 
 /* Hide tab close button by default, show on tab hover */

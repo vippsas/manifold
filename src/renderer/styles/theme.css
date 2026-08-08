@@ -14,6 +14,14 @@
   --radius-lg: 10px;
   --radius-pill: 999px;
 
+  /* Machined-plate silhouette: opposing 45° chamfers at top-left and
+     bottom-right. Structural, like a radius — shared by the metal CTA and the
+     console plates that sit beside it, so they read as one cut of material. */
+  --chamfer: polygon(9px 0, 100% 0, 100% calc(100% - 9px), calc(100% - 9px) 100%, 0 100%, 0 9px);
+  /* The depth a chamfered plate can't get from box-shadow (clip-path cuts outer
+     shadows off), expressed as drop-shadows that follow the cut silhouette. */
+  --metal-depth: drop-shadow(0 4px 8px rgba(0, 0, 0, 0.28)) drop-shadow(0 0 8px var(--effect-glow, transparent));
+
   --space-xs: 4px;
   --space-sm: 8px;
   --space-md: 14px;
@@ -505,18 +513,15 @@ select:focus-visible {
   min-width: 0;
 }
 
-/* Text tabs (agent, shell, module panels) read as rounded-square chips floating
-   in the header strip — a themed elevated surface, gently rounded (not a pill).
-   Icon and headless tabs (sidebar/editor) keep their own treatment. The active
-   and hover fills live in dockview-theme.css, scoped to dockview's `.dv-active-tab`. */
+/* Text tabs (agent, shell, module panels) fill the header strip edge to edge and
+   sit in chrome, so the active one — carrying the content background — reads as
+   the surface below pulled up into the strip. Icon and headless tabs
+   (sidebar/editor) keep their own treatment. The active and hover fills live in
+   dockview-theme.css, scoped to dockview's `.dv-active-tab`. */
 .dock-tab:not(.dock-tab--icon):not(.dock-tab--headless) {
-  height: calc(100% - 8px);
-  margin-block: 4px;
-  border-radius: var(--radius-xs);
-  background: var(--bg-elevated);
+  background: var(--bg-chrome);
   color: var(--text-secondary);
-  box-shadow: inset 0 0 0 1px var(--border);
-  transition: background 150ms ease, color 150ms ease, box-shadow 150ms ease;
+  transition: background 150ms ease, color 150ms ease;
 }
 
 /* Every control in a card's header strip — a text tab's ×, the icon-tab group's
@@ -586,6 +591,35 @@ select:focus-visible {
   box-shadow: 0 0 0 2px var(--accent-subtle), 0 0 10px var(--accent-subtle);
 }
 
+/* A locked agent is protected from deletion. The rest of a tab's actions are
+   hover-only, but the lock reports state rather than offering one, so it stays
+   visible — a padlock on the tab is how you see at a glance which agents are
+   safe from an accidental click on 🗑. */
+.dock-tab__action.is-locked {
+  opacity: 1;
+  color: var(--accent);
+}
+
+/* And that 🗑 is disabled until the agent is unlocked. Only the hover state is
+   dimmed: the reveal rule above would otherwise restore it to full opacity and
+   hide that it is disabled, while at rest it stays hidden like every other
+   action — a greyed-out 🗑 on an unhovered tab says nothing the padlock hasn't. */
+.dock-tab:hover .dock-tab__action:disabled,
+.dock-tab:focus-within .dock-tab__action:disabled {
+  /* Legible but plainly inert. Lower than this and the 🗑 reads as missing
+     rather than disabled, which is a different (and wrong) message. */
+  opacity: 0.45;
+}
+
+.dock-tab__action:disabled {
+  cursor: default;
+}
+
+.dock-tab__action:disabled:hover {
+  background: transparent;
+  color: var(--text-muted);
+}
+
 /* An editor pane's own actions sit at the right of its file tabs. They were a
    bordered input box, which read as a form control dropped into a strip of flat
    tabs; as the header pill they belong to the same row of controls. */
@@ -649,8 +683,9 @@ select:focus-visible {
    contrast. Everything else recedes, so the strip reads as "which file am I in"
    rather than as a row of buttons. */
 .code-tab {
+  position: relative;
+  background: var(--bg-chrome);
   color: var(--text-muted);
-  border-top: 1px solid transparent;
   transition: background var(--duration-normal) var(--ease-premium), color var(--duration-normal) var(--ease-premium);
 }
 
@@ -660,9 +695,24 @@ select:focus-visible {
 }
 
 .code-tab--active {
-  background: var(--bg-primary);
-  border-top-color: var(--accent);
+  background: var(--bg-chrome-active);
   color: var(--text-primary);
+}
+
+/* The same rule the dock's text tabs carry (`styles/dockview-theme.css`): a line
+   of the accent metal that fades at both ends, not a hard border edge to edge.
+   The editor's tabs sit one panel over from the agent's, so a different active
+   marker between them reads as two different kinds of tab. */
+.code-tab--active::after {
+  content: '';
+  position: absolute;
+  left: var(--space-xs);
+  right: var(--space-xs);
+  top: 0;
+  height: 2px;
+  border-radius: 1px;
+  pointer-events: none;
+  background: linear-gradient(90deg, transparent, var(--accent) 28%, var(--accent) 72%, transparent);
 }
 
 .code-tab--menu {
@@ -1240,16 +1290,19 @@ select:focus-visible {
   border: 1px solid color-mix(in srgb, var(--accent-dim, var(--accent)), transparent 40%);
   font-weight: 600;
   /* No radius of its own: each CTA keeps the one its own style declares. */
-  box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.22),
-    0 4px 8px rgba(0, 0, 0, 0.28),
-    0 0 8px var(--effect-glow, transparent),
-    var(--shadow-glow);
+  /* Machined plate: opposing 45° chamfers. clip-path clips outer box-shadows,
+     so depth is restored as drop-shadows that follow the chamfered silhouette
+     — and every hover rule must repeat them, or the plate loses its depth the
+     moment the pointer lands on it. */
+  clip-path: var(--chamfer);
+  /* --shadow-glow stays for its inset highlight; its outer halo is clipped. */
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.22), var(--shadow-glow);
+  filter: var(--metal-depth);
   transition: filter var(--duration-normal) var(--ease-premium), box-shadow var(--duration-normal) var(--ease-premium);
 }
 
 .btn-metal:hover:not(:disabled) {
-  filter: brightness(1.1);
+  filter: brightness(1.1) var(--metal-depth);
 }
 
 /* ─── Markdown Preview ─── */

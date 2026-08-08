@@ -77,6 +77,11 @@ export function useAppOverlays(
   const closeSearch = useCallback((): void => { setShowSearch(false) }, [])
 
   const requestDeleteAgent = useCallback((session: AgentSession, projectPath: string): void => {
+    // A locked agent can't be deleted — don't open the destructive dialog. This
+    // is the single chokepoint every delete entry point funnels through (the
+    // agent tab's 🗑, the Delete Agent command, and the reusable-sessions card
+    // in the New Agent view). The main process refuses too.
+    if (session.locked) return
     setPendingDelete({ session, projectPath })
   }, [])
 
