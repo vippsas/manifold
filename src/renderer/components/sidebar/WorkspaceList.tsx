@@ -1,4 +1,4 @@
-import React, { useCallback, useState } from 'react'
+import React, { useCallback, useEffect, useState } from 'react'
 import type { Project, AgentSession } from '../../../shared/types'
 import type { DraftChat } from '../../../shared/draft-chat'
 import type { Workspace } from '../../../shared/workspace-types'
@@ -66,17 +66,18 @@ export function WorkspaceList({
   const [expandedId, setExpandedId] = useState<string | null>(activeWorkspaceId)
   const { recency, touchProject } = useProjectRecency()
 
+  // The visit is recorded from the workspace that ended up active, not from the
+  // click that asked for it: opening a folder inside another workspace, or a
+  // session restored at launch, moves you just as a click on the row does, and
+  // all of them have to leave the same trail for "the one I just left" to be
+  // the row under the one you are in.
+  useEffect(() => {
+    if (activeWorkspaceId) touchProject(activeWorkspaceId)
+  }, [activeWorkspaceId, touchProject])
+
   const toggleExpanded = useCallback(
     (id: string): void => setExpandedId((current) => (current === id ? null : id)),
     [],
-  )
-
-  const selectWorkspace = useCallback(
-    (id: string): void => {
-      touchProject(id)
-      onSelectWorkspace(id)
-    },
-    [onSelectWorkspace, touchProject],
   )
 
   const handleRemove = useCallback(
@@ -100,7 +101,7 @@ export function WorkspaceList({
 
   return (
     <div style={{ paddingTop: 4 }}>
-      {sortByRecency(workspaces, recency).map((workspace) => (
+      {sortByRecency(workspaces, recency, activeWorkspaceId).map((workspace) => (
         <WorkspaceCard
           key={workspace.id}
           workspace={workspace}
@@ -113,7 +114,7 @@ export function WorkspaceList({
           outputtingSessionIds={outputtingSessionIds}
           drafts={drafts.filter((d) => workspace.projectIds.includes(d.projectId))}
           activeDraftId={activeDraftId}
-          onSelectWorkspace={selectWorkspace}
+          onSelectWorkspace={onSelectWorkspace}
           onRenameWorkspace={onRenameWorkspace}
           onRemoveWorkspace={handleRemove}
           removing={removing === workspace.id}

@@ -1,7 +1,7 @@
 ---
 description: How Manifold's main-process services are exposed to the renderer over Electron IPC — the channel namespaces, the handler registration pattern, and how handlers delegate to subsystem managers.
 covers: [src/main/ipc]
-updated: 2026-08-07
+updated: 2026-08-08
 owner: see .github/CODEOWNERS
 ---
 
@@ -109,7 +109,7 @@ platform process without a shell (`file-handlers.ts:229`, `open-terminal.ts:12-6
 
 - **Session** (`src/main/session`): the busiest consumer. `agent:spawn`→`createSession`, `agent:resume`→`resumeSession`, and `agent:configure`→`configureSession` (rename-only in place, or a confirmed runtime/view replacement with a new session id). `agent:kill`→killer (it additionally records a `DismissedAgentsStore` tombstone for `noWorktree` sessions so discovery won't resurrect a deleted agent from branch state, #679), `agent:sessions`→discovery, `agent:replay`→`getOutputBuffer`, `agent:input`/`agent:interrupt`/`agent:resize`, plus all `shell:*` and `simple:*` channels (`agent-handlers.ts`).
 - **There is no `agent:kill-worktree`.** A checkout belongs to a workspace, not to the agents in it, so the channel that deleted one from an agent row is gone from the handlers and from the preload allowlist. Removing a checkout is `workspace:remove` (`ipc/workspace-handlers.ts`, `workspace/workspace-manager.ts:69`).
-- **Legacy locks** (`src/main/ipc/agent-handlers.ts`): `agent:set-locked` remains registered for compatibility with older persisted sessions and clients, but `agent:kill` no longer gates deletion on that retired flag.
+- **Deletion locks** (`src/main/ipc/agent-handlers.ts`): `agent:set-locked` → `setSessionLocked` toggles an agent's deletion protection, and `agent:kill` throws on a locked session before any teardown (`agent-handlers.ts:140`, `:113`). The renderer gates this too, so the handler is the backstop against a stale UI or a direct IPC call. Internal lifecycle kills (mode switch, respawn) call `killSession` directly and bypass the handler, so a lock never blocks a respawn.
 - **Git** (`src/main/git`): `gitOps`, `diffProvider`, `prCreator`, `branchCheckout` back the `git:*`, `diff:*`, and `pr:create` channels. `branch:suggest` uses `generateBranchName` (`agent-handlers.ts:66`).
 - **FS** (`src/main/fs`): `fileWatcher` backs every `files:*` channel and the file-tree responses; `agent:spawn` starts the watch, and teardown unwatch is owned by `SessionKiller.cleanupSession` (guarded by shared-path liveness) rather than the `agent:kill` handler, so killing one session can't stop polling for a sibling on the same worktree. `agent:delete-app` still unwatches the path explicitly.
 - **Store** (`src/main/store`): `projectRegistry`, `settingsStore`, `viewStateStore`, `shellTabStore`, `dockLayoutStore`, `searchViewStore`, `verdictStore` are all reached only through their handler namespaces.

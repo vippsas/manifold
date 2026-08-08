@@ -37,30 +37,36 @@ interface RowProps {
   starting?: boolean
   trailing?: React.ReactNode
   buttonRef?: React.Ref<HTMLButtonElement>
+  /** The lead row: wears the gold metal plate instead of the dark console one. */
+  metal?: boolean
 }
 
-function Row({ glyph, name, onClick, disabled, starting, trailing, buttonRef }: RowProps): React.JSX.Element {
+function Row({ glyph, name, onClick, disabled, starting, trailing, buttonRef, metal }: RowProps): React.JSX.Element {
   const [hover, setHover] = useState(false)
   return (
     <button
       type="button"
       ref={buttonRef}
+      className={metal ? 'btn-metal' : undefined}
       onClick={onClick}
       disabled={disabled}
       onMouseEnter={() => setHover(true)}
       onMouseLeave={() => setHover(false)}
       style={{
         ...s.row,
-        ...(hover && !disabled ? s.rowHover : {}),
+        ...(metal ? {} : s.rowPlate),
+        // `.btn-metal` brightens itself on hover; layering the plate hover on
+        // top would grey out the gold.
+        ...(hover && !disabled && !metal ? s.rowHover : {}),
         ...(disabled ? s.rowDisabled : {}),
       }}
     >
       <span style={s.icon}>{glyph}</span>
       <span style={s.name}>{name}</span>
       {starting ? (
-        <span style={s.meta}><span className="spinner" aria-hidden="true" />Starting…</span>
+        <span style={metal ? s.metaOnMetal : s.meta}><span className="spinner" aria-hidden="true" />Starting…</span>
       ) : trailing ? (
-        <span style={s.meta}>{trailing}</span>
+        <span style={metal ? s.metaOnMetal : s.meta}>{trailing}</span>
       ) : null}
     </button>
   )
@@ -77,17 +83,23 @@ function runtimeGlyph(runtime: AgentRuntime): React.ReactNode {
  * The provider list: one row per runtime that starts it in a terminal on click,
  * plus a Chat row that opens a provider picker to start a chat agent instead.
  * Shared by the compact dialog and the full-panel start view.
+ *
+ * Exactly one row leads — the runtime you launched last — and it wears the gold
+ * metal plate so the list has an obvious default rather than a wall of equals.
  */
 export function AgentLaunchList({
   runtimes,
   pending,
   onLaunch,
   focusTrigger,
+  leadRuntimeId,
 }: {
   runtimes: AgentRuntime[]
   pending: PendingLaunch | null
   onLaunch: (runtimeId: string, mode: AgentMode) => void
   focusTrigger?: number
+  /** The remembered runtime. Falls back to the first installed one. */
+  leadRuntimeId?: string
 }): React.JSX.Element {
   const [chatOpen, setChatOpen] = useState(false)
   const firstRowRef = useRef<HTMLButtonElement>(null)
@@ -101,6 +113,9 @@ export function AgentLaunchList({
   // double every row, so they stay out of the list.
   const providers = runtimes.filter((rt) => !rt.needsModel)
   const chatProviders = providers.filter((rt) => rt.installed !== false)
+  // A runtime that isn't installed can't lead — the plate would advertise a
+  // default you can't click.
+  const lead = chatProviders.find((rt) => rt.id === leadRuntimeId) ?? chatProviders[0]
 
   return (
     <div style={s.list}>
@@ -112,6 +127,7 @@ export function AgentLaunchList({
             buttonRef={index === 0 ? firstRowRef : undefined}
             glyph={runtimeGlyph(runtime)}
             name={runtime.name}
+            metal={runtime.id === lead?.id}
             disabled={missing || loading}
             starting={pending?.runtimeId === runtime.id && pending.mode === 'interactive'}
             trailing={missing ? 'not installed' : undefined}

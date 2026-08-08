@@ -45,6 +45,42 @@ const ready = (): Promise<unknown> =>
   waitFor(() => expect(mockInvoke).toHaveBeenCalledWith('runtimes:list'))
 
 describe('NewAgentHero', () => {
+  it('names the workspace the agent will join in the heading', async () => {
+    renderHero()
+    await ready()
+
+    expect(screen.getByRole('heading', { name: 'New agent for Checkout redesign' })).toBeInTheDocument()
+  })
+
+  // Exactly one row leads, so the list has a default instead of a wall of
+  // equals. `.btn-metal` is the gold plate; the rest stay console plates.
+  it('gives the gold plate to the remembered runtime, and only to it', async () => {
+    renderHero({ defaultRuntime: 'codex' })
+    await ready()
+
+    expect(await screen.findByRole('button', { name: /Codex/ })).toHaveClass('btn-metal')
+    expect(screen.getByRole('button', { name: /Claude Code/ })).not.toHaveClass('btn-metal')
+    expect(screen.getByRole('button', { name: /Chat with interface/ })).not.toHaveClass('btn-metal')
+  })
+
+  // A plate advertising a runtime you can't launch is a dead default.
+  it('leads with an installed runtime when the remembered one is missing', async () => {
+    mockInvoke.mockImplementation((channel: string) => {
+      if (channel === 'runtimes:list') {
+        return Promise.resolve([
+          { id: 'claude', name: 'Claude Code', binary: 'claude', installed: false },
+          { id: 'codex', name: 'Codex', binary: 'codex', installed: true },
+        ])
+      }
+      return Promise.resolve([])
+    })
+    renderHero({ defaultRuntime: 'claude' })
+    await ready()
+
+    expect(await screen.findByRole('button', { name: /Codex/ })).toHaveClass('btn-metal')
+    expect(screen.getByRole('button', { name: /Claude Code/ })).not.toHaveClass('btn-metal')
+  })
+
   it('lists the providers as rows to start', async () => {
     renderHero()
     await ready()

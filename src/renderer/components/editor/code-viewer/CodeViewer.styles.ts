@@ -21,11 +21,13 @@ export const viewerStyles: Record<string, React.CSSProperties> = {
     fontWeight: 500,
     color: 'var(--text-secondary)',
   },
+  // The same chrome the dock's tab strips carry, so the editor's file tabs and
+  // the agent tabs one panel over read as one row of tabs rather than two.
   tabBar: {
     display: 'flex',
     alignItems: 'flex-start',
     borderBottom: '1px solid var(--border)',
-    background: 'var(--bg-secondary)',
+    background: 'linear-gradient(180deg, var(--bg-chrome-hi, var(--bg-chrome)) 0%, var(--bg-chrome) 100%)',
     flexShrink: 0,
     minWidth: 0,
   },

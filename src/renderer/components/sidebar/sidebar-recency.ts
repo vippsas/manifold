@@ -34,22 +34,22 @@ function pruneRecency(recency: ProjectRecency): ProjectRecency {
 
 /**
  * Last-accessed timestamps per sidebar root (a workspace), persisted to
- * localStorage, ordering the sidebar most-recent-first.
+ * localStorage, ordering the sidebar most-recent-first and surviving a restart.
  *
- * The order is read once and then held for the life of the list: a touch is
- * recorded for the next launch but must not re-sort the rows you are working
- * in. Re-sorting live meant that picking an agent slid its repo to the top,
- * moving every other row under the cursor mid-click — which made going back and
- * forth between two repos a chase.
+ * A touch re-orders the live list, so the workspace you just left sits directly
+ * under the one you moved to and going back is always the second row. Only the
+ * touched row moves — every other row keeps the order it was already in, since
+ * their timestamps don't change and the sort is stable.
  */
 export function useProjectRecency(): {
   recency: ProjectRecency
   touchProject: (projectId: string) => void
 } {
-  const [recency] = useState<ProjectRecency>(readRecency)
+  const [recency, setRecency] = useState<ProjectRecency>(readRecency)
 
   const touchProject = useCallback((projectId: string) => {
     const next = pruneRecency({ ...readRecency(), [projectId]: Date.now() })
+    setRecency(next)
     try {
       localStorage.setItem(STORAGE_KEY, JSON.stringify(next))
     } catch {
@@ -61,11 +61,18 @@ export function useProjectRecency(): {
   return { recency, touchProject }
 }
 
-/** Most recently accessed first; never-accessed projects keep their incoming
- *  (alphabetical) order after the accessed ones. */
+/** The active project first — where you are working is always at the top of the
+ *  list, in the one place you can find without reading it — then most recently
+ *  accessed; never-accessed projects keep their incoming (alphabetical) order
+ *  after the accessed ones. */
 export function sortByRecency<T extends { id: string }>(
   projects: readonly T[],
   recency: ProjectRecency,
+  activeId?: string | null,
 ): T[] {
-  return [...projects].sort((left, right) => (recency[right.id] ?? 0) - (recency[left.id] ?? 0))
+  return [...projects].sort((left, right) => {
+    if (left.id === activeId) return -1
+    if (right.id === activeId) return 1
+    return (recency[right.id] ?? 0) - (recency[left.id] ?? 0)
+  })
 }
