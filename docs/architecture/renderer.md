@@ -1,7 +1,7 @@
 ---
 description: How the Manifold renderer (developer workspace UI) is structured — the React entry, the dockview panel layout, and the preload-only boundary to main.
 covers: [src/renderer]
-updated: 2026-08-07
+updated: 2026-08-08
 owner: see .github/CODEOWNERS
 ---
 
@@ -113,11 +113,16 @@ group gap plus the group styling in `styles/dockview-theme.css` renders each pan
 as a rounded-cornered surface floating on the recessed `--dock-canvas` (a darkened
 `--bg-primary`, `styles/theme.css`). Groups carry **no outline of their own** — a hairline
 around every panel boxes the workspace in; the sash between two groups is the divider
-instead, so each boundary is drawn once rather than twice. Text tabs (agent, shell, module panels) read as gently-rounded
-chips (`--radius-xs`) floating in the strip: an elevated-surface fill when idle, tinted
-with `--accent-subtle` when active — so the current theme's accent, not text weight alone,
-carries the active tab (`.dock-tab:not(.dock-tab--icon)` in `styles/theme.css`, active/hover
-scoped to `.dv-active-tab` in `styles/dockview-theme.css`). Icon and headless tabs
+instead, so each boundary is drawn once rather than twice. Text tabs (agent, shell, module
+panels) are modelled on VS Code's editor tabs: the strip is chrome
+(`--bg-chrome-hi` → `--bg-chrome`) and each tab fills it edge to edge, idle ones sitting in
+`--bg-chrome` while the active one carries the content background (`--bg-chrome-active`)
+and an accent rule that fades at both ends along its top edge — so the active tab reads as
+the surface below pulled up into the strip (`.dock-tab:not(.dock-tab--icon)` in
+`styles/theme.css`, strip/active/accent scoped to `.dv-active-tab` in
+`styles/dockview-theme.css:267`). That fill needs `padding-block: 0` and a flex stretch on
+dockview's `.dv-react-part` wrapper: the library pads `.dv-tab` by `0.25rem 0.5rem`, and
+`height: 100%` on the wrapper resolves to `auto` against a flex item. Icon and headless tabs
 (sidebar/editor) keep their own accent-square treatment. Each resize
 sash is a 1px line centered in the gap, carrying five 3px grip dots — stacked for a
 vertical divider, in a row for a horizontal one. Hovering brightens the dots from
@@ -179,9 +184,13 @@ VS Code's editor tabs** (`multieditortabscontrol.css`): each carries the Seti fi
 tree uses for the same file, the name in the UI font — not the editor's monospace, which sized
 the strip like code — and, only when two open files share a basename, the disambiguating folder
 as a muted description beside it (`CodeViewerTabs.tsx:218`, `CodeViewer.styles.ts:62`;
-`file-tree/FileTypeIcon.tsx:10`). The active tab is a piece of the editor surface pulled into the
-strip: editor background, an accent rule along its top edge, and the only label at full contrast
-(`styles/theme.css:596`). A tab's `×` is reserved space but shows only on hover and on the active
+`file-tree/FileTypeIcon.tsx:10`). The strip and its tabs carry the dock text tabs' treatment, so
+the file tabs and the agent tabs one panel over read as one row of tabs: the strip is the same
+`--bg-chrome-hi` → `--bg-chrome` gradient (`CodeViewer.styles.ts:24`), idle tabs sit in
+`--bg-chrome`, and the active tab is a piece of the editor surface pulled into the strip —
+`--bg-chrome-active`, the only label at full contrast, and the same accent rule fading at both
+ends along its top edge rather than a hard border edge to edge (`.code-tab`,
+`styles/theme.css:685`). A tab's `×` is reserved space but shows only on hover and on the active
 tab — one per tab, always on, was a row of noise beside the names (`styles/theme.css:609`).
 Geometry follows VS Code too — 10px before the icon, the close action in a slot of its own, and
 "shrink" sizing (content width, 80px floor) so short names do not make a ragged strip
