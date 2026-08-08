@@ -6,7 +6,8 @@ import { themeList, themeDataByLabel } from './theme-data'
 
 const themeCache = new Map<string, ConvertedTheme>()
 
-const DEFAULT_THEME = 'manifold-dark'
+/** Fallback for an unresolvable theme id, and the target of legacy value migration. */
+export const DEFAULT_THEME = 'manifold-dark'
 
 // ── Theme file name mapping ────────────────────────────────────────
 
