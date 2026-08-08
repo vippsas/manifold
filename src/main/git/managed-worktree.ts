@@ -1,4 +1,5 @@
 import { readFile, rename, writeFile } from 'node:fs/promises'
+import { resolve } from 'node:path'
 import { gitExec } from './git-exec'
 
 const EXCLUDE_BLOCK_START = '# manifold: managed-worktree excludes start'
@@ -21,7 +22,14 @@ export async function prepareManagedWorktree(worktreePath: string): Promise<void
 }
 
 export async function ensureManagedWorktreeGuards(worktreePath: string): Promise<void> {
-  const excludePath = (await gitExec(['rev-parse', '--git-path', 'info/exclude'], worktreePath)).trim()
+  // git answers absolutely for a linked worktree but *relatively* for an ordinary
+  // repo (`.git/info/exclude`) — including a home workspace, which works the clone
+  // itself. A relative path would be resolved against process.cwd() by readFile /
+  // writeFile, so the guards would land in whatever repo the app happens to be
+  // running from rather than the one they were handed. Anchoring to worktreePath
+  // leaves an absolute answer untouched and pins a relative one to the right repo.
+  const gitPath = (await gitExec(['rev-parse', '--git-path', 'info/exclude'], worktreePath)).trim()
+  const excludePath = resolve(worktreePath, gitPath)
 
   let existing = ''
   try {
