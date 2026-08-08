@@ -72,17 +72,25 @@ export interface Project {
   slashCommands?: string[]
 }
 
-export type FavoriteKind = 'repo' | 'workspace'
-
-/** A persisted favorite: a typed pointer to a Project or Workspace by id. */
-export interface FavoriteRef {
-  kind: FavoriteKind
+/** A favorite as written by the pre-workspaces build: a typed pointer to a
+ *  Project or Workspace. Still read from disk and migrated on load — see
+ *  `normalizeFavorites` — but never written again. */
+export interface LegacyFavoriteRef {
+  kind: 'repo' | 'workspace'
   id: string
 }
 
-/** A favorite resolved against the live project/workspace lists, for display. */
+/** What `settings.favorites` may hold: the current shape (a workspace id) or a
+ *  legacy ref left by an older build. */
+export type StoredFavorite = string | LegacyFavoriteRef
+
+/** A favorite resolved against the live workspace list, for display.
+ *
+ *  Favorites are workspace ids and nothing else: every sidebar root is a
+ *  workspace, and a workspace *is* a checkout, so favouriting a worktree and
+ *  favouriting a workspace are the same act. Repos have no root row of their own
+ *  to star, and a bare repo id could not say which of its checkouts it meant. */
 export interface ResolvedFavorite {
-  kind: FavoriteKind
   id: string
   name: string
 }
@@ -176,8 +184,10 @@ export interface ManifoldSettings {
   autoGenerateMessages: boolean
   showCommitAndPrButtons: boolean
   sidebarResizeReversed: boolean
-  /** Ordered, typed favorites. Index 0 maps to ⌘1. */
-  favorites?: FavoriteRef[]
+  /** Ordered favorites, in the user's own order. Index 0 maps to ⌘1. Written as
+   *  workspace ids; older builds wrote `{kind, id}` refs, which are migrated on
+   *  read and replaced the next time favorites are changed. */
+  favorites?: StoredFavorite[]
   keepAwake: boolean
   memory?: import('./memory-types').MemorySettings
   search?: SearchSettings

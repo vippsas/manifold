@@ -3,7 +3,6 @@ import { DockStateContext } from '../editor/editor-shell/dock-panel-types'
 import { sidebarStyles } from './ProjectSidebar.styles'
 import { favoritesStyles } from './FavoritesList.styles'
 import { WorkspaceGlyph } from './WorkspaceGlyph'
-import { RepoGlyph } from './RepoGlyph'
 import { SidebarSectionHeader } from './SidebarSectionHeader'
 import { useSidebarSectionState } from './sidebar-section-state'
 
@@ -25,7 +24,7 @@ export function FavoritesList(): React.JSX.Element | null {
       />
       {expanded && favorites.map((fav, index) => (
         <div
-          key={`${fav.kind}-${fav.id}`}
+          key={fav.id}
           role="button"
           tabIndex={0}
           draggable
@@ -48,7 +47,7 @@ export function FavoritesList(): React.JSX.Element | null {
           style={{ ...favoritesStyles.row, ...(dragIndex === index ? favoritesStyles.rowDragging : undefined) }}
           title={fav.name}
         >
-          {fav.kind === 'workspace' ? <WorkspaceGlyph /> : <RepoGlyph />}
+          <WorkspaceGlyph />
           <span className="truncate" style={favoritesStyles.name}>{fav.name}</span>
           {index < 9 && <span style={favoritesStyles.badge}>⌘{index + 1}</span>}
         </div>

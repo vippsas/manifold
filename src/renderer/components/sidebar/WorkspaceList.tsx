@@ -81,8 +81,7 @@ export function WorkspaceList({
   )
 
   const handleRemove = useCallback(
-    (e: React.MouseEvent, id: string): void => {
-      e.stopPropagation()
+    (id: string): void => {
       setRemoving(id)
       void onRemoveWorkspace(id).finally(() => {
         setRemoving((c) => (c === id ? null : c))

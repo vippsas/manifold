@@ -61,21 +61,16 @@ export function App(): React.JSX.Element {
   const [sidebarView, setSidebarView] = useState<SidebarViewId>(DEFAULT_SIDEBAR_VIEW)
   const [newAgentTarget, setNewAgentTarget] = useState<NewAgentTarget | null>(null)
   const { favorites, isFavorite, toggleFavorite, reorderFavorites } = useFavorites(
-    settings, updateSettings, projects, workspaces,
+    settings, updateSettings, workspaces,
   )
   const activateFavorite = useCallback((fav: ResolvedFavorite): void => {
-    // Either branch mirrors its sidebar click — a repo click and a workspace's
-    // home-folder click — and neither clears the session, so a ⌘-jump lands on
-    // the agent that folder was left on rather than on an empty pane.
-    if (fav.kind === 'repo') {
-      setActiveWorkspaceId(null)
-      setActiveProject(fav.id)
-    } else {
-      const ws = workspaces.find((w) => w.id === fav.id)
-      setActiveWorkspaceId(fav.id)
-      if (ws && ws.projectIds[0]) setActiveProject(ws.projectIds[0])
-    }
-  }, [workspaces, setActiveProject])
+    // Mirrors a click on the workspace's own sidebar row, and does not clear the
+    // session, so a ⌘-jump lands on the agent that workspace was left on rather
+    // than on an empty pane.
+    const ws = workspaces.find((w) => w.id === fav.id)
+    setActiveWorkspaceId(fav.id)
+    if (ws && ws.projectIds[0]) setActiveProject(ws.projectIds[0])
+  }, [workspaces, setActiveWorkspaceId, setActiveProject])
   const jumpToFavorite = useCallback((index: number): void => {
     const fav = favorites[index]
     if (fav) activateFavorite(fav)

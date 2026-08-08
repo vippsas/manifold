@@ -1,7 +1,7 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import type { FileTreeNode, FileChange } from '../../../../shared/types'
 import { TreeChildren, TreeNode, type TreeChangeEntry } from './tree-node'
-import { ContextMenu } from './ContextMenu'
+import { ContextMenu } from '../../common/ContextMenu'
 import { treeStyles } from './FileTree.styles'
 import { describeDropTarget } from './file-tree-drop'
 import { FileTreeDialogs } from './FileTreeDialogs'

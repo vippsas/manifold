@@ -39,8 +39,8 @@ describe('FavoritesList', () => {
 
   it('renders favorite names with ⌘ badges for the first nine', () => {
     renderList([
-      { kind: 'workspace', id: 'w1', name: 'ML Pipeline' },
-      { kind: 'repo', id: 'p2', name: 'billing' },
+      { id: 'w1', name: 'ML Pipeline' },
+      { id: 'w2', name: 'billing' },
     ])
     expect(screen.getByText('ML Pipeline')).toBeTruthy()
     expect(screen.getByText('billing')).toBeTruthy()
@@ -50,16 +50,16 @@ describe('FavoritesList', () => {
 
   it('activates a favorite on click', () => {
     const onActivateFavorite = vi.fn()
-    renderList([{ kind: 'repo', id: 'p2', name: 'billing' }], { onActivateFavorite })
+    renderList([{ id: 'w2', name: 'billing' }], { onActivateFavorite })
     fireEvent.click(screen.getByText('billing'))
-    expect(onActivateFavorite).toHaveBeenCalledWith({ kind: 'repo', id: 'p2', name: 'billing' })
+    expect(onActivateFavorite).toHaveBeenCalledWith({ id: 'w2', name: 'billing' })
   })
 
   it('reorders via drag-and-drop', () => {
     const onReorderFavorites = vi.fn()
     renderList([
-      { kind: 'repo', id: 'p1', name: 'api-gateway' },
-      { kind: 'repo', id: 'p2', name: 'billing' },
+      { id: 'w3', name: 'api-gateway' },
+      { id: 'w2', name: 'billing' },
     ], { onReorderFavorites })
     const apiRow = screen.getByText('api-gateway').closest('[role="button"]') as HTMLElement
     const billingRow = screen.getByText('billing').closest('[role="button"]') as HTMLElement
@@ -70,8 +70,8 @@ describe('FavoritesList', () => {
 
   it('collapses favorites to a header-only row', () => {
     renderList([
-      { kind: 'workspace', id: 'w1', name: 'ML Pipeline' },
-      { kind: 'repo', id: 'p2', name: 'billing' },
+      { id: 'w1', name: 'ML Pipeline' },
+      { id: 'w2', name: 'billing' },
     ])
 
     fireEvent.click(screen.getByTitle('Collapse Favorites'))
@@ -88,8 +88,8 @@ describe('FavoritesList', () => {
 
   it('restores the persisted favorites collapsed state', () => {
     const favorites: ResolvedFavorite[] = [
-      { kind: 'workspace', id: 'w1', name: 'ML Pipeline' },
-      { kind: 'repo', id: 'p2', name: 'billing' },
+      { id: 'w1', name: 'ML Pipeline' },
+      { id: 'w2', name: 'billing' },
     ]
     renderList(favorites)
 

@@ -1,4 +1,4 @@
-import type { FavoriteRef, ManifoldSettings } from './types'
+import type { ManifoldSettings } from './types'
 
 /** Supported UI scale range, matching the Settings dropdown options. */
 export const UI_SCALE_MIN = 0.85
@@ -32,7 +32,7 @@ export const DEFAULT_SETTINGS = {
   autoGenerateMessages: true,
   showCommitAndPrButtons: false,
   sidebarResizeReversed: false,
-  favorites: [] as FavoriteRef[],
+  favorites: [] as string[],
   keepAwake: false,
   memory: {
     enabled: true,
