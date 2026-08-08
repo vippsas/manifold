@@ -194,21 +194,32 @@ export const sidebarStyles: Record<string, React.CSSProperties> = {
     lineHeight: 1,
     background: 'transparent',
   },
+  // A bar of its own below the scrolling list, so however long the list grows
+  // the create action stays where it was — the sidebar's one fixed edge.
+  actions: {
+    display: 'flex',
+    padding: 'var(--space-sm)',
+    borderTop: '1px solid var(--border)',
+    flexShrink: 0,
+  },
+  // Transparent behind an accent hairline: unmistakably a control rather than
+  // one more row, while staying under the metal plate the primary agent CTA
+  // owns. Hover brightens the hairline (.sidebar-new-workspace-button).
   newWorkspaceButton: {
+    flex: 1,
     display: 'flex',
     alignItems: 'center',
-    justifyContent: 'flex-start',
+    justifyContent: 'center',
     gap: 'var(--space-xs)',
-    width: 'calc(100% - 16px)',
-    minHeight: '28px',
-    margin: '1px 8px var(--space-sm)',
-    padding: '0 8px',
-    border: 0,
+    height: 'var(--control-height)',
+    padding: '0 var(--space-sm)',
+    border: '1px solid color-mix(in srgb, var(--accent), transparent 70%)',
     borderRadius: 'var(--radius-sm)',
     background: 'transparent',
-    color: 'var(--text-muted)',
+    color: 'var(--accent)',
     fontSize: 'var(--type-ui-small)',
     cursor: 'pointer',
+    transition: 'border-color var(--duration-normal) var(--ease-premium), background var(--duration-normal) var(--ease-premium)',
   },
   cardActions: {
     display: 'flex',

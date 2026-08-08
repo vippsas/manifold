@@ -108,7 +108,6 @@ export function ProjectSidebar({
           onSelectWorkspace={onSelectWorkspace}
           onRenameWorkspace={onRenameWorkspace}
           onRemoveWorkspace={onRemoveWorkspace}
-          onNewWorkspace={onNewWorkspace}
           onCopyWorkspace={onCopyWorkspace}
           onSelectRepo={onSelectWorkspaceRepo}
           onAddProject={onAddProjectToWorkspace}
@@ -120,6 +119,19 @@ export function ProjectSidebar({
           renderFolderFiles={renderFolderFiles}
         />
       </div>
+      {onNewWorkspace && (
+        <div style={sidebarStyles.actions}>
+          <button
+            type="button"
+            onClick={onNewWorkspace}
+            className="sidebar-new-workspace-button"
+            style={sidebarStyles.newWorkspaceButton}
+            aria-label="New Workspace"
+          >
+            + New Workspace
+          </button>
+        </div>
+      )}
     </div>
   )
 }

@@ -310,12 +310,25 @@ describe('ProjectSidebar', () => {
     expect(props.onSelectWorkspace).toHaveBeenCalledWith('w1')
   })
 
-  it('renders a New Workspace list action that calls onNewWorkspace', () => {
+  it('renders a New Workspace action that calls onNewWorkspace', () => {
     const { props } = renderSidebar()
 
     fireEvent.click(screen.getByLabelText('New Workspace'))
 
     expect(props.onNewWorkspace).toHaveBeenCalled()
+  })
+
+  // Its own bar below the scrolling list, not the list's last row: with enough
+  // workspaces to scroll, a row would leave the viewport and take the only way
+  // to create a workspace with it.
+  it('keeps New Workspace outside the scrolling list', () => {
+    renderSidebar()
+
+    const button = screen.getByLabelText('New Workspace')
+    const scroller = screen.getByText('alpha-space').closest('[style*="overflow"]')
+
+    expect(scroller).not.toBeNull()
+    expect(scroller?.contains(button)).toBe(false)
   })
 
   it('keeps a static Workspaces label that is not a collapse control', () => {

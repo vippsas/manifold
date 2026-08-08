@@ -1112,9 +1112,8 @@ select:focus-visible {
 }
 
 .sidebar-new-workspace-button:hover {
-  color: var(--text-primary);
-  background: var(--list-hover-bg);
-  border-color: var(--control-border);
+  background: var(--accent-subtle);
+  border-color: var(--accent);
 }
 
 .sidebar-card-actions button:hover {
