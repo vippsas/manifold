@@ -135,6 +135,27 @@ export class SessionManager {
       getDismissedAgents: () => this.dismissedAgents,
       notifySessionsChanged: (projectId) => this.notifySessionsChanged(projectId),
     })
+    this.fileWatcher?.setOnBranchChanged((sessionId, branch) => this.applyBranchChange(sessionId, branch))
+  }
+
+  /** A session's branch is not fixed at creation: the agent runs `git checkout -b`,
+   *  the PR flow renames the branch, or the user switches it in the shell. The
+   *  name is what the status bar shows and what "Create PR" pushes, so follow the
+   *  checkout instead of keeping the name the session started on. A checkout is on
+   *  one branch, so this moves every sibling agent working in it — the watcher
+   *  polls the path once, under whichever session id last watched it. */
+  private applyBranchChange(sessionId: string, branch: string): void {
+    const watched = this.sessions.get(sessionId)
+    if (!watched) return
+
+    const affectedProjects = new Set<string>()
+    for (const session of this.sessions.values()) {
+      if (session.worktreePath !== watched.worktreePath) continue
+      if (session.branchName === branch) continue
+      session.branchName = branch
+      affectedProjects.add(session.projectId)
+    }
+    for (const projectId of affectedProjects) this.notifySessionsChanged(projectId)
   }
 
   setChatAdapter(adapter: ChatAdapter): void { this.chatAdapter = adapter }

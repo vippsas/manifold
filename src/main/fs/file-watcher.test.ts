@@ -44,11 +44,13 @@ function createMockWindow() {
 describe('FileWatcher', () => {
   let watcher: FileWatcher
   let mockGitStatus: ReturnType<typeof vi.fn<(cwd: string) => Promise<string>>>
+  let mockGitBranch: ReturnType<typeof vi.fn<(cwd: string) => Promise<string>>>
 
   beforeEach(() => {
     vi.clearAllMocks()
     vi.useFakeTimers()
     mockGitStatus = vi.fn<(cwd: string) => Promise<string>>().mockResolvedValue('')
+    mockGitBranch = vi.fn<(cwd: string) => Promise<string>>().mockResolvedValue('agent/one')
     mockStatSync.mockReturnValue({
       isDirectory: () => false,
       mtimeMs: 1,
@@ -58,7 +60,7 @@ describe('FileWatcher', () => {
     mockStat.mockImplementation(async (...args) =>
       (mockStatSync as unknown as (...a: unknown[]) => fs.Stats)(...(args as unknown[])),
     )
-    watcher = new FileWatcher(mockGitStatus)
+    watcher = new FileWatcher(mockGitStatus, undefined, undefined, mockGitBranch)
   })
 
   afterEach(async () => {
@@ -235,6 +237,62 @@ describe('FileWatcher', () => {
 
       // No crash, no event sent
       expect(mockWindow.webContents.send).not.toHaveBeenCalled()
+    })
+
+    it('reports the branch a watched checkout moved to', async () => {
+      const onBranchChanged = vi.fn()
+      watcher.setOnBranchChanged(onBranchChanged)
+
+      watcher.watch('/repo/worktree', 'session-1')
+      await vi.advanceTimersByTimeAsync(10)
+      expect(onBranchChanged).toHaveBeenCalledWith('session-1', 'agent/one')
+      onBranchChanged.mockClear()
+
+      // A branch switch on a clean tree leaves git status byte-identical, so the
+      // branch must be read on its own — not only when the status changed.
+      mockGitBranch.mockResolvedValue('agent/two')
+      await vi.advanceTimersByTimeAsync(2000)
+
+      expect(onBranchChanged).toHaveBeenCalledWith('session-1', 'agent/two')
+    })
+
+    it('reports a branch only when it changes', async () => {
+      const onBranchChanged = vi.fn()
+      watcher.setOnBranchChanged(onBranchChanged)
+
+      watcher.watch('/repo/worktree', 'session-1')
+      await vi.advanceTimersByTimeAsync(10)
+      onBranchChanged.mockClear()
+
+      await vi.advanceTimersByTimeAsync(4000)
+
+      expect(onBranchChanged).not.toHaveBeenCalled()
+    })
+
+    it('does not report a detached HEAD as a branch', async () => {
+      const onBranchChanged = vi.fn()
+      watcher.setOnBranchChanged(onBranchChanged)
+      mockGitBranch.mockResolvedValue('HEAD')
+
+      watcher.watch('/repo/worktree', 'session-1')
+      await vi.advanceTimersByTimeAsync(10)
+
+      expect(onBranchChanged).not.toHaveBeenCalled()
+    })
+
+    it('still reports file changes when the branch read fails', async () => {
+      const mockWindow = createMockWindow()
+      watcher.setMainWindow(mockWindow)
+      mockGitBranch.mockRejectedValue(new Error('git rev-parse failed (code 128)'))
+
+      mockGitStatus.mockResolvedValue(' M src/file.ts\n')
+      watcher.watch('/repo/worktree', 'session-1')
+      await vi.advanceTimersByTimeAsync(10)
+
+      expect(mockWindow.webContents.send).toHaveBeenCalledWith(
+        'files:changed',
+        { sessionId: 'session-1', changes: [{ path: 'src/file.ts', type: 'modified' }] },
+      )
     })
 
     it('stops polling when git cannot spawn', async () => {

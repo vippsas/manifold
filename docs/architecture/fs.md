@@ -1,7 +1,7 @@
 ---
 description: How Manifold watches worktrees for git/tree changes and reads, writes, lists, and imports files for the renderer's editor and file tree.
 covers: [src/main/fs]
-updated: 2026-08-07
+updated: 2026-08-08
 owner: see .github/CODEOWNERS
 ---
 
@@ -17,7 +17,7 @@ renderer's editor and file tree. Path validation and the IPC surface live one la
 ## Covered code
 
 - `src/main/fs/file-watcher.ts` — `FileWatcher`, the façade: owns the per-path poll map, the git-status polling loop, the tree-watcher, the verdict forwarder, and every fs operation method.
-- `src/main/fs/file-watcher-utils.ts` — `gitStatus()` (spawns `git status --porcelain` with `stderr: 'ignore'` and a 10 s kill-on-timeout), `parseStatusWithConflicts()`, the async `buildChangeFingerprint()`, the `EXCLUDED_DIRS` set, and the `isVisibleEntry`/`directoriesFirstComparator` tree filters.
+- `src/main/fs/file-watcher-utils.ts` — `runGit()` (the hardened spawn: `stderr: 'ignore'`, 10 s kill-on-timeout) behind `gitStatus()` (`git status --porcelain`) and `gitCurrentBranch()` (`git rev-parse --abbrev-ref HEAD`), plus `parseStatusWithConflicts()`, the async `buildChangeFingerprint()`, the `EXCLUDED_DIRS` set, and the `isVisibleEntry`/`directoriesFirstComparator` tree filters.
 - `src/main/fs/tree-watcher.ts` — `ChokidarTreeWatcher` (debounced add/change/unlink/addDir/unlinkDir → `files:tree-changed`), the `TreeWatcher` interface, and `NoopTreeWatcher` (the test default).
 - `src/main/fs/file-tree-builder.ts` — `buildFileTree()`: a recursive, synchronous `FileTreeNode` walk with hidden/excluded entries filtered.
 - `src/main/fs/list-files.ts` — `listWorktreeFiles()`: `git ls-files --cached --others --exclude-standard` for the Quick-Open set, capped at 10000.
@@ -52,6 +52,17 @@ fingerprint stats every changed path off the main thread via `fsp.stat` in paral
 case where a dirty file is edited again but its porcelain code is unchanged
 (`file-watcher.test.ts:122`). On change it sends `files:changed` (path list) and
 `agent:conflicts` (conflict list) to the renderer, then calls the verdict forwarder.
+
+**Branch reporting.** The same tick also reads the checkout's branch via `gitBranchFn`
+(default `gitCurrentBranch`) and calls `setOnBranchChanged`'s listener whenever it differs
+from the last one seen (`file-watcher.ts:162`, `:59`). This is deliberately *outside* the
+changed-status guard: switching branches on a clean tree leaves `git status --porcelain`
+byte-identical, so a status-gated read would never fire. A detached HEAD reports `HEAD` and is
+skipped, and a failed read degrades to no report rather than losing the tick's `files:changed`.
+`SessionManager` is the one listener (`session-manager.ts:138`): it moves the session's
+`branchName` onto the branch its checkout actually holds and emits `agent:sessions-changed`,
+which is what keeps the status bar and "Create PR" on the branch an agent cut mid-session
+rather than the one it was spawned on (`file-watcher-branch.test.ts:43`).
 
 **Conflict handling.** "Conflict" here means a git merge conflict, not an editor-buffer-vs-disk
 race. `parseStatusWithConflicts` (`file-watcher-utils.ts:23`) flags every unmerged porcelain
@@ -100,7 +111,8 @@ path is recreated. It is wired via `fileWatcher.setVerdictRecorder` (`app/index.
 
 ## Key types and entry points
 
-- `FileWatcher` — `file-watcher.ts:29`. Public surface: `watch`, `unwatch`, `unwatchAll`, `watchAdditionalDir`, `unwatchAdditionalDir`, `notifyTreeChanged`, `getFileTree`, `readFile`, `writeFile`, `createFile`, `createDir`, `deleteFile`, `renameFile`, `importPaths`, `setMainWindow`, `setVerdictRecorder`. Constructed once in `app/index.ts:58` with a real `ChokidarTreeWatcher`.
+- `FileWatcher` — `file-watcher.ts:29`. Public surface: `watch`, `unwatch`, `unwatchAll`, `watchAdditionalDir`, `unwatchAdditionalDir`, `notifyTreeChanged`, `getFileTree`, `readFile`, `writeFile`, `createFile`, `createDir`, `deleteFile`, `renameFile`, `importPaths`, `setMainWindow`, `setVerdictRecorder`, `setOnBranchChanged`. Constructed once in `app/index.ts:58` with a real `ChokidarTreeWatcher`.
+- `gitCurrentBranch()` — `file-watcher-utils.ts:49`. The polled branch read; `'HEAD'` when detached.
 - `parseStatusWithConflicts()` — `file-watcher-utils.ts:23`. Porcelain → `{ changes: FileChange[]; conflicts: string[] }`. `FileChange`/`FileChangeType` live in `src/shared/types.ts`.
 - `buildChangeFingerprint()` — `file-watcher-utils.ts:44`. Async; the size+mtime hash (via parallel `fsp.stat`) that makes re-edits of a still-dirty file detectable.
 - `buildFileTree()` — `file-tree-builder.ts:7`. Returns `FileTreeNode` (`src/shared/types.ts`).
@@ -120,6 +132,7 @@ path is recreated. It is wired via `fileWatcher.setVerdictRecorder` (`app/index.
 
 - **Polling is the source of truth for git status; chokidar is the low-latency filesystem signal.** `files:changed` (+ conflicts) comes from the 2 s git poll; `files:tree-changed` comes from debounced chokidar add/change/unlink events. A renderer needs both: status without create/delete, create/delete without status, and prompt open-file rereads for content edits that should not wait on git polling.
 - **Change detection is status + fingerprint.** A file edited twice with the same porcelain code still re-emits because `buildChangeFingerprint` hashes size+mtime (`file-watcher.test.ts:122`). Conversely, an identical status *and* fingerprint emits nothing.
+- **A branch switch is invisible to `git status`.** Checking out another branch on a clean tree leaves the porcelain output unchanged, so the branch read runs on every tick regardless of whether the status moved (`file-watcher.ts:162`). Gating it behind the change guard is how a session ends up labelled with the branch it was spawned on long after the agent cut a new one.
 - **Every unmerged porcelain code is a conflict.** Any code containing `U` (plus `AA`/`DD`) populates the conflict list; other codes never do, regardless of how they map to `added`/`deleted`/`modified` (`file-watcher-utils.ts:31`).
 - **Symlinked dirs must be filtered explicitly.** A symlink's `Dirent.isDirectory()` is `false`, so `isVisibleEntry`/`tree-watcher` both also check `isSymbolicLink()`; missing this followed a symlinked `node_modules` into the full tree and froze the UI (`file-tree-builder.test.ts:18`).
 - **`getFileTree` and the fs operations are synchronous; the poll's change fingerprint is not.** The file ops and tree walk run synchronously on the main thread (the symlink guard and `EXCLUDED_DIRS` keep that walk cheap), but `buildChangeFingerprint` stats async (`fsp.stat`) so a dirty tree of thousands of entries doesn't block the poll tick. `EXCLUDED_DIRS` is hard-coded (`file-watcher-utils.ts:62`) — there is no per-project ignore config; only `.gitignore` (via `ls-files --exclude-standard`) and that fixed set apply.

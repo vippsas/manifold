@@ -4,13 +4,13 @@ import * as path from 'node:path'
 import { spawn } from 'node:child_process'
 import { FileChange, FileChangeType } from '../../shared/types'
 
-const GIT_STATUS_TIMEOUT_MS = 10000
+const GIT_TIMEOUT_MS = 10000
 
-export function gitStatus(cwd: string): Promise<string> {
+function runGit(args: string[], cwd: string): Promise<string> {
   return new Promise((resolve, reject) => {
     // stderr is 'ignore' (not 'pipe') so a git that floods >64KB of warnings to
     // stderr can't block on a full pipe and wedge the poll forever (#536).
-    const child = spawn('git', ['status', '--porcelain'], {
+    const child = spawn('git', args, {
       cwd,
       stdio: ['ignore', 'pipe', 'ignore'],
     })
@@ -21,8 +21,8 @@ export function gitStatus(cwd: string): Promise<string> {
       if (settled) return
       settled = true
       child.kill('SIGKILL')
-      reject(new Error('git status timed out'))
-    }, GIT_STATUS_TIMEOUT_MS)
+      reject(new Error(`git ${args[0]} timed out`))
+    }, GIT_TIMEOUT_MS)
 
     child.stdout!.on('data', (data: Buffer) => chunks.push(data))
     child.on('error', (err) => {
@@ -35,10 +35,19 @@ export function gitStatus(cwd: string): Promise<string> {
       if (settled) return
       settled = true
       clearTimeout(timer)
-      if (code !== 0) reject(new Error(`git status failed (code ${code})`))
+      if (code !== 0) reject(new Error(`git ${args[0]} failed (code ${code})`))
       else resolve(Buffer.concat(chunks).toString('utf8'))
     })
   })
+}
+
+export function gitStatus(cwd: string): Promise<string> {
+  return runGit(['status', '--porcelain'], cwd)
+}
+
+/** The branch checked out in `cwd`, or 'HEAD' when it is detached. */
+export async function gitCurrentBranch(cwd: string): Promise<string> {
+  return (await runGit(['rev-parse', '--abbrev-ref', 'HEAD'], cwd)).trim()
 }
 
 // Git's unmerged porcelain codes: any entry containing 'U' (UU/AU/UA/DU/UD) plus
