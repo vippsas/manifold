@@ -104,7 +104,8 @@ export function WorkspaceCard({
   const label = workspaceRowLabel(workspace, projects)
 
   // With no agent rows, the card still has to say "someone is working here" —
-  // a pulsing dot by the name, the same signal the rows used to carry.
+  // a pulsing dot by the name, plus a highlight sweeping the name itself, so the
+  // signal carries even when the eye is not on the dot.
   const isWorking = sessions.some((s) => outputtingSessionIds?.has(s.id))
 
   // The row opens the workspace it names; the chevron alone can close it again,
@@ -175,7 +176,10 @@ export function WorkspaceCard({
           >
             {/* Own group, so the label's 6px gap spaces the dot off the name
                 without also prising the repo, the "/" and the name apart. */}
-            <span style={sidebarStyles.rowLabelPath}>
+            <span
+              className={isWorking ? 'sidebar-label-working' : undefined}
+              style={sidebarStyles.rowLabelPath}
+            >
               {label.repo && (
                 <>
                   <span style={sidebarStyles.rowRepo}>{label.repo}</span>
