@@ -1,6 +1,6 @@
 import { useCallback, useMemo } from 'react'
 import type { ManifoldSettings, ResolvedFavorite, StoredFavorite } from '../../../shared/types'
-import type { Workspace } from '../../../shared/workspace-types'
+import { isWorktreeWorkspace, type Workspace } from '../../../shared/workspace-types'
 import { normalizeFavorites } from './normalize-favorites'
 
 export interface UseFavoritesResult {
@@ -24,19 +24,19 @@ export function useFavorites(
     return normalizeFavorites(stored, workspaces)
   }, [settings.favorites, workspaces])
 
-  const resolveName = useCallback(
-    (id: string): string | null => workspaces.find((w) => w.id === id)?.name ?? null,
+  const resolve = useCallback(
+    (id: string): Workspace | undefined => workspaces.find((w) => w.id === id),
     [workspaces],
   )
 
   const favorites = useMemo<ResolvedFavorite[]>(() => {
     const out: ResolvedFavorite[] = []
     for (const id of raw) {
-      const name = resolveName(id)
-      if (name !== null) out.push({ id, name })
+      const workspace = resolve(id)
+      if (workspace) out.push({ id, name: workspace.name, worktree: isWorktreeWorkspace(workspace) })
     }
     return out
-  }, [raw, resolveName])
+  }, [raw, resolve])
 
   const isFavorite = useCallback((id: string): boolean => raw.includes(id), [raw])
 
@@ -47,10 +47,10 @@ export function useFavorites(
    */
   const persist = useCallback(
     (next: string[]): void => {
-      const pruned = next.filter((id) => resolveName(id) !== null)
+      const pruned = next.filter((id) => resolve(id) !== undefined)
       void updateSettings({ favorites: pruned })
     },
-    [resolveName, updateSettings],
+    [resolve, updateSettings],
   )
 
   const toggleFavorite = useCallback(

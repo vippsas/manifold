@@ -49,6 +49,17 @@ incomplete) or `OnboardingView` (no projects) before rendering the full workspac
 `useTerminal` live-updates the running xterm's `fontSize` on each `manifold:ui-scale-changed`
 (`useTerminal.ts:105`, `:108`).
 
+**A workspace row's glyph says which kind it is.** The list is flat — a repo's own
+clone and the worktrees cut off it sit side by side — so `WorkspaceGlyph` draws a folder
+for a **home** workspace and a git branch for a **worktree** one
+(`sidebar/WorkspaceGlyph.tsx`), keyed off `isWorktreeWorkspace`
+(`shared/workspace-types.ts`), whose marker is `worktreePaths` and not `branchName`: a home
+workspace also sits on a branch, it just does not own the checkout. Favorites carry the
+same glyph — `ResolvedFavorite.worktree` is resolved alongside the name in `useFavorites`
+(`hooks/project/useFavorites.ts`) so the starred rows above the list read the same way.
+The glyph doubles as the row's disclosure control, swapping to a chevron on hover
+(`theme.css:1019`), so one column carries kind and state at once.
+
 **Workspace rows name their repo.** A sidebar workspace row reads `kong / moss`: the
 owning repo dimmed, then the workspace's own name (`WorkspaceCard.tsx:153`,
 `ProjectSidebar.styles.ts` `rowRepo`). The repo comes from `projectIds[0]` via

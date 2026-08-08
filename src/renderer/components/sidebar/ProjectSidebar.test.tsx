@@ -86,6 +86,24 @@ describe('ProjectSidebar', () => {
     expect(row).toHaveAttribute('title', 'Alpha')
   })
 
+  // Both kinds sit in one flat list, so the glyph is the only thing that says
+  // whether a row is the repo you opened or a worktree cut off it.
+  it('draws a branch for a worktree workspace and a folder for a home one', () => {
+    renderSidebar({
+      workspaces: [
+        { id: 'w1', name: 'moss', projectIds: ['p1'], createdAt: '2024-01-01', branchName: 'alpha/moss', worktreePaths: { p1: '/wt/moss' } },
+        { id: 'w2', name: 'beta-space', projectIds: ['p2'], createdAt: '2024-01-02' },
+      ],
+    })
+
+    const glyphOf = (name: string): string | null | undefined =>
+      screen.getByText(name).closest('.sidebar-project-row')
+        ?.querySelector('[data-glyph]')?.getAttribute('data-glyph')
+
+    expect(glyphOf('moss')).toBe('worktree')
+    expect(glyphOf('beta-space')).toBe('folder')
+  })
+
   it('counts the extra folders of a multi-folder workspace', () => {
     renderSidebar({
       workspaces: [{ id: 'w1', name: 'auth-refactor', projectIds: ['p1', 'p2'], createdAt: '2024-01-01' }],

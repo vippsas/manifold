@@ -20,8 +20,22 @@ describe('useFavorites', () => {
     const settings = makeSettings(['w1', 'w2', 'gone'])
     const { result } = renderHook(() => useFavorites(settings, vi.fn(), workspaces))
     expect(result.current.favorites).toEqual([
-      { id: 'w1', name: 'ML Pipeline' },
-      { id: 'w2', name: 'billing fix' },
+      { id: 'w1', name: 'ML Pipeline', worktree: false },
+      { id: 'w2', name: 'billing fix', worktree: false },
+    ])
+  })
+
+  // The row draws a branch for a worktree workspace and a folder for a home one,
+  // so the resolved entry has to carry which it is.
+  it('marks a favorite that owns its own checkout as a worktree', () => {
+    const withWorktree: Workspace[] = [
+      { id: 'w1', name: 'ML Pipeline', projectIds: ['p1'], createdAt: '', worktreePaths: { p1: '/wt/ml' } },
+      ...workspaces.slice(1),
+    ]
+    const { result } = renderHook(() => useFavorites(makeSettings(['w1', 'w2']), vi.fn(), withWorktree))
+    expect(result.current.favorites).toEqual([
+      { id: 'w1', name: 'ML Pipeline', worktree: true },
+      { id: 'w2', name: 'billing fix', worktree: false },
     ])
   })
 
@@ -31,8 +45,8 @@ describe('useFavorites', () => {
     const settings = makeSettings([{ kind: 'repo', id: 'p1' }, { kind: 'workspace', id: 'w2' }])
     const { result } = renderHook(() => useFavorites(settings, vi.fn(), workspaces))
     expect(result.current.favorites).toEqual([
-      { id: 'w1', name: 'ML Pipeline' },
-      { id: 'w2', name: 'billing fix' },
+      { id: 'w1', name: 'ML Pipeline', worktree: false },
+      { id: 'w2', name: 'billing fix', worktree: false },
     ])
   })
 

@@ -26,6 +26,13 @@ export interface Workspace {
   worktreePaths?: Record<string, string>
 }
 
+/** Whether this workspace owns its own checkout — a worktree workspace rather
+ *  than the repos' own clones. `worktreePaths` is the marker, not `branchName`:
+ *  a home workspace also sits on a branch, it just does not own the checkout. */
+export function isWorktreeWorkspace(workspace: Workspace): boolean {
+  return workspace.worktreePaths !== undefined
+}
+
 /** Git status of one repo checkout in a workspace — one section of the Source
  *  Control view, which lists every member repo the way VS Code's SCM view
  *  lists the repos of a multi-root workspace. */

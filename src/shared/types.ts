@@ -93,6 +93,9 @@ export type StoredFavorite = string | LegacyFavoriteRef
 export interface ResolvedFavorite {
   id: string
   name: string
+  /** Whether the workspace owns its own checkout, so the row can carry the same
+   *  branch-or-folder glyph the workspace list below it does. */
+  worktree: boolean
 }
 
 export interface CreateProjectOptions {
