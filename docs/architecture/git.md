@@ -1,7 +1,7 @@
 ---
 description: How Manifold creates, lists, and removes git worktrees, checks out branches/PRs, persists per-session worktree meta, and runs raw git/gh for commits, diffs, and PR creation.
 covers: [src/main/git]
-updated: 2026-08-07
+updated: 2026-08-08
 owner: see .github/CODEOWNERS
 ---
 
@@ -84,7 +84,14 @@ session layer rebuild dormant sessions on the next launch.
 **Managed-worktree guards.** Before any staging/commit, `ensureManagedWorktreeGuards`
 (`managed-worktree.ts:23`) appends a fenced block of agent-scratch excludes
 (`/.claude/`, `/.cursor/`, `/.opencode/`, …) to the worktree's `info/exclude`, so a bulk
-`git add -A` can't poison the real index with transient AI files. `commitManagedWorktree`
+`git add -A` can't poison the real index with transient AI files. **The path git hands back is
+anchored to the worktree before it is opened** (`resolve(worktreePath, gitPath)`,
+`managed-worktree.ts:31`): `rev-parse --git-path` answers with an absolute path for a *linked*
+worktree but a relative `.git/info/exclude` for an ordinary repo — which a home workspace is —
+and `readFile`/`writeFile` would resolve that against `process.cwd()`, writing the guards into
+whichever repo the app happened to be launched from. `managed-worktree.exclude-path.test.ts`
+pins it against a real repo; the older mocked suite never could, since it always stubs the
+absolute answer, the one case that cannot go wrong. `commitManagedWorktree`
 (`managed-worktree.ts:66`) stages everything (`add -A`) then commits with the given message
 (or `--no-edit` when the message is empty). All staging/status/commit calls run inside
 `runWithPoisonedIndexRecovery` (`managed-worktree.ts:92`): if git reports an unreadable-object
