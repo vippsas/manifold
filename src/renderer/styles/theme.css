@@ -912,16 +912,81 @@ select:focus-visible {
   padding-right: 56px;
 }
 
+/* The workspace you are in reads as a region, not a row: a 2px accent rail down
+   the card's whole height — past an expanded tree — with a subtle wash on the
+   workspace's own rows. Neither half works alone. The rail by itself competes
+   with the pulsing status dots on every working workspace below it (`core-pulse`,
+   :477), and a static 2px line loses to motion; the wash by itself does not tie
+   the header to the folders under it. */
+.sidebar-workspace-card.sidebar-project-group--active {
+  position: relative;
+  margin: 2px 8px;
+  border-radius: var(--radius-sm);
+}
+
+/* Deliberately no `overflow: hidden` — it would kill the sticky header inside
+   this card. The rail rounds its own left corners instead.
+   `z-index: 3` clears the sticky header below (:2), whose background is opaque
+   by necessity and would otherwise paint over the rail's top — leaving the rail
+   to start at the first folder row instead of the top of the card. Only the
+   leftmost 2px is involved; row text starts 8px in. */
+.sidebar-workspace-card.sidebar-project-group--active::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  width: 2px;
+  z-index: 3;
+  border-radius: var(--radius-sm) 0 0 var(--radius-sm);
+  background: var(--accent);
+}
+
+/* The card now owns the 8px its rows used to carry (:871), so the wash meets the
+   rail with no gap. Padding is untouched, so no label moves. The child
+   combinator is what scopes the wash: it lands on the workspace header, its repo
+   rows and any drafts, while an expanded tree renders into
+   `.sidebar-project-files` (`WorkspaceRepoRow.tsx:117`) — not a row, so it stays
+   on the plain sidebar surface and the highlight costs the same at any depth. */
+.sidebar-workspace-card.sidebar-project-group--active > .sidebar-item-row {
+  margin-inline: 0;
+  background: var(--sidebar-active-bg);
+}
+
+/* `--list-hover-bg` is accent at 5% against this 7% wash, and loses on
+   specificity besides (:881 is `(0,2,0)`) — without this rule, rows in the
+   active card would not respond to hover at all. `--sidebar-active-border` is
+   accent at 12%: an unambiguous step up, and already in the palette. */
+.sidebar-workspace-card.sidebar-project-group--active > .sidebar-item-row:hover {
+  background: var(--sidebar-active-border);
+}
+
 /* The workspace you are in is the first row in the list, and it stays put while
    its own folders and files scroll under it — so scrolling deep into a tree
    never costs you the label saying where you are. It needs its own background:
    a row is transparent until hovered, and the rows passing beneath would
-   otherwise read straight through this one. */
+   otherwise read straight through this one.
+   That background has to be the card's wash *composited onto* an opaque base,
+   not a flat `--bg-sidebar`: this rule ties with the card's own wash rule at
+   `(0,3,0)` and comes later, so a flat fill would win and leave the header
+   reading unhighlighted while its children stayed washed. */
 .sidebar-workspace-card.sidebar-project-group--active > .sidebar-project-row {
   position: sticky;
   top: 0;
   z-index: 2;
-  background: var(--bg-sidebar);
+  background:
+    linear-gradient(var(--sidebar-active-bg), var(--sidebar-active-bg)),
+    var(--bg-sidebar);
+}
+
+/* Same trick for hover, and it is not optional: the card's hover rule scores
+   `(0,3,1)` and would otherwise beat the rule above, swapping this row's opaque
+   base for a translucent 12% fill and letting the rows scrolling under it show
+   through. */
+.sidebar-workspace-card.sidebar-project-group--active > .sidebar-project-row:hover {
+  background:
+    linear-gradient(var(--sidebar-active-border), var(--sidebar-active-border)),
+    var(--bg-sidebar);
 }
 
 /* One 8px step in from its repo row, so the agent's chevron lands between the

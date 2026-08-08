@@ -85,6 +85,37 @@ to spare and never on the long ones it was written for. The previous
 (`SidebarSortAlpha` for the short rows, `ProjectSidebar` for a long repo); jsdom has no
 layout engine, so no unit test can catch it.
 
+**The active workspace is marked as a region, not a row.** The card carrying
+`sidebar-project-group--active` (`WorkspaceCard.tsx:118`, fed by `activeWorkspaceId` at
+`WorkspaceList.tsx:116`) gets a 2px accent rail down its full height
+(`theme.css:933`) plus a wash of `--sidebar-active-bg` on its rows
+(`theme.css:951`). The split is deliberate: the rail runs past an expanded file tree so
+the region still reads as one, while the wash lands only on *direct* `.sidebar-item-row`
+children — an expanded tree renders into `.sidebar-project-files`
+(`WorkspaceRepoRow.tsx:117`), which is not a row, so the highlight costs the same whether
+a folder is collapsed or a large tree is open. Label color and the accent glyph
+(`WorkspaceGlyph.tsx:22`) stay, but they are no longer carrying the signal alone: that
+glyph is the same hue as the `status-dot--active` dots on every *working* workspace, and
+those pulse (`core-pulse`, `theme.css:477`), so a static 14px icon lost to them.
+
+Three cascade traps live in these selectors, all of them invisible to the sidebar's unit
+tests since jsdom never loads `theme.css`. **The sticky header** (`theme.css:973`) needs
+the wash *composited onto* `--bg-sidebar` through a `linear-gradient` layer rather than a
+flat fill: it ties with the card's wash rule at `(0,3,0)` and comes later, so a flat
+opaque fill wins and leaves the header reading unhighlighted while its children stay
+washed. **Its hover** (`theme.css:986`) needs the same treatment, because the card's own
+hover rule scores `(0,3,1)` and would otherwise replace that opaque base with a
+translucent fill, letting rows scroll visibly through the header. And **the rail needs
+`z-index: 3`** to clear the header's `2` — the header's background is opaque by necessity
+and otherwise paints over the rail's top, so the rail appears to start at the first folder
+row instead of the top of the card. Rows in the active card also need their own `:hover`
+(`theme.css:960`): `--list-hover-bg` is accent at 5% against the 7% wash and loses on
+specificity anyway (`theme.css:880` is `(0,2,0)`), so without it the active card stops
+responding to the pointer entirely. Verify a change here by screenshot plus a driven page
+— `--emit-html` on the screenshot script, then read `getComputedStyle` after the row's
+`background` transition (`theme.css:877`) settles, or the value read back is a mid-flight
+interpolation rather than the resting one.
+
 **A folder row fetches its repo's clone, not the workspace's checkout.** Each git folder
 row of an open workspace card carries a `RepoFetchButton` (`WorkspaceRepoRow.tsx:86`) that
 invokes `git:fetch` with the *project* id, so main fetches `project.path` and updates
