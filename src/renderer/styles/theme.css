@@ -966,6 +966,26 @@ select:focus-visible {
   min-width: 0;
 }
 
+/* A working workspace says so twice on the same row: the dot pulses, and an
+   accent highlight sweeps along the repo/name it belongs to. Text-only — the
+   row never moves or resizes — and it holds `currentColor` as its base so the
+   label reads exactly as it does at rest between sweeps. */
+.sidebar-label-working {
+  background: linear-gradient(
+    90deg,
+    currentColor 0%,
+    currentColor 42%,
+    var(--accent) 50%,
+    currentColor 58%,
+    currentColor 100%
+  );
+  background-size: 200% auto;
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+  animation: shimmer 2s linear infinite;
+}
+
 /* The disclosure on rows that also carry a selection — an agent, or a repo
    inside a workspace: the row selects and opens, this opens without selecting.
    Sized to the repo row's chevron column so both line up down the sidebar. */
@@ -2030,6 +2050,14 @@ select:focus-visible {
 /* ─── Reduced motion: instrumentation effects go static ─── */
 @media (prefers-reduced-motion: reduce) {
   .status-dot--active {
+    animation: none;
+  }
+
+  /* The sweep stops, and the label falls back to plain text — a frozen gradient
+     would leave the highlight parked mid-label. */
+  .sidebar-label-working {
+    background: none;
+    -webkit-text-fill-color: currentColor;
     animation: none;
   }
 }

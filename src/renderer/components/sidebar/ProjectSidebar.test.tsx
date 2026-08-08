@@ -188,6 +188,15 @@ describe('ProjectSidebar', () => {
     expect(screen.queryByLabelText('An agent is working in this workspace')).not.toBeInTheDocument()
   })
 
+  // The dot is 8px in the corner of the eye; the sweep across the name it belongs
+  // to is what tells you *which* workspace is busy without looking straight at it.
+  it('sweeps a highlight across the workspace name while one of its agents is outputting', () => {
+    renderSidebar({ outputtingSessionIds: new Set(['s1']) })
+
+    expect(screen.getByText('alpha-space').closest('.sidebar-label-working')).not.toBeNull()
+    expect(screen.getByText('beta-space').closest('.sidebar-label-working')).toBeNull()
+  })
+
   it('calls onNewProject when Add Repository is clicked', () => {
     const { props } = renderSidebar()
 
