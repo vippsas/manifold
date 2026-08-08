@@ -48,8 +48,11 @@ export class FileWatcher {
     this.gitBranchFn = gitBranchFn ?? gitCurrentBranch
     this.verdictForwarder = new VerdictPollForwarder(headShaFn)
     this.treeWatcher = treeWatcher ?? new NoopTreeWatcher()
-    this.treeWatcher.setOnTreeChanged((sessionId) => {
-      this.sendToRenderer('files:tree-changed', { sessionId })
+    // `rootPath` is the folder that changed. The renderer shows several folders
+    // at once and reloads them by path, so an event that only named the agent
+    // could not say which listing had gone stale.
+    this.treeWatcher.setOnTreeChanged((sessionId, rootPath) => {
+      this.sendToRenderer('files:tree-changed', { sessionId, rootPath })
     })
   }
 

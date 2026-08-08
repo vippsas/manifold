@@ -312,6 +312,31 @@ describe('FileWatcher', () => {
     })
   })
 
+  // Several folders are on screen at once, so a tree change has to say which
+  // folder it happened in — the renderer reloads the folder by path, and the
+  // session id alone can't tell one folder from another.
+  describe('files:tree-changed', () => {
+    it('names the folder the tree watcher reported', () => {
+      let notify: ((sessionId: string, rootPath: string) => void) | null = null
+      const treeWatcher = {
+        watch: vi.fn(),
+        unwatch: vi.fn(async () => {}),
+        unwatchAll: vi.fn(async () => {}),
+        setOnTreeChanged: vi.fn((fn: (sessionId: string, rootPath: string) => void) => { notify = fn }),
+      }
+      const watcher = new FileWatcher(mockGitStatus, treeWatcher)
+      const mockWindow = createMockWindow()
+      watcher.setMainWindow(mockWindow)
+
+      notify!('session-1', '/repos/alpha')
+
+      expect(mockWindow.webContents.send).toHaveBeenCalledWith(
+        'files:tree-changed',
+        { sessionId: 'session-1', rootPath: '/repos/alpha' },
+      )
+    })
+  })
+
   describe('watchAdditionalDir', () => {
     it('starts polling an additional directory', async () => {
       const mockGitStatus = vi.fn().mockResolvedValue('')

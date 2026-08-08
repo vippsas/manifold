@@ -11,12 +11,25 @@ import { FolderFilesTree } from './FolderFilesTree'
 
 const mockInvoke = vi.fn()
 
+/** Main-process events the folder trees listen for, replayable per test. */
+const listeners = new Map<string, Set<(payload: unknown) => void>>()
+
+function emit(channel: string, payload: unknown): void {
+  for (const listener of [...(listeners.get(channel) ?? [])]) listener(payload)
+}
+
 beforeEach(() => {
   vi.clearAllMocks()
   clearWorkspaceTreeCache()
+  listeners.clear()
   ;(window as unknown as { electronAPI: unknown }).electronAPI = {
     invoke: mockInvoke,
-    on: vi.fn(() => vi.fn()),
+    on: (channel: string, callback: (payload: unknown) => void) => {
+      const set = listeners.get(channel) ?? new Set()
+      set.add(callback)
+      listeners.set(channel, set)
+      return () => set.delete(callback)
+    },
   }
 })
 
@@ -179,6 +192,61 @@ describe('FolderFilesTree', () => {
       )
 
       await waitFor(() => expect(mockInvoke).toHaveBeenCalledWith('files:tree-by-project', 'ghost', 'w1'))
+    })
+  })
+
+  // No watcher follows these folders, so nothing used to tell them their files
+  // had moved: an agent working in another workspace, or an edit made outside
+  // the app, left the listing stale until the folder was closed and reopened.
+  describe('reloading a folder nothing watches', () => {
+    const grown = dir('/repos/alpha', 'alpha', [
+      file('/repos/alpha/checkout.ts', 'checkout.ts'),
+      file('/repos/alpha/added.ts', 'added.ts'),
+    ])
+
+    async function openAlpha(): Promise<void> {
+      mockInvoke.mockResolvedValue(checkoutTree)
+      renderFolder(makeDockState(), { kind: 'project', id: 'p1' })
+      await waitFor(() => expect(screen.getByText('checkout.ts')).toBeInTheDocument())
+      mockInvoke.mockResolvedValue(grown)
+    }
+
+    it('reloads when a watcher reports a tree change in this folder', async () => {
+      await openAlpha()
+
+      emit('files:tree-changed', { sessionId: 'someone-else', rootPath: '/repos/alpha' })
+
+      await waitFor(() => expect(screen.getByText('added.ts')).toBeInTheDocument())
+    })
+
+    it('ignores a tree change in a different folder', async () => {
+      await openAlpha()
+
+      emit('files:tree-changed', { sessionId: 'someone-else', rootPath: '/worktrees/oslo' })
+
+      await waitFor(() => expect(mockInvoke).toHaveBeenCalledTimes(1))
+      expect(screen.queryByText('added.ts')).toBeNull()
+    })
+
+    // An add-dir folder is git-polled rather than tree-watched, and that feed
+    // names the folder in `source`.
+    it('reloads when the add-dir poll reports this folder', async () => {
+      await openAlpha()
+
+      emit('files:changed', { sessionId: 'someone-else', changes: [], source: '/repos/alpha' })
+
+      await waitFor(() => expect(screen.getByText('added.ts')).toBeInTheDocument())
+    })
+
+    // Nothing watches a folder with no agent in it at all, so returning to the
+    // window is the only moment the app learns it changed — the trigger the
+    // Source Control view already uses.
+    it('reloads on window focus', async () => {
+      await openAlpha()
+
+      window.dispatchEvent(new Event('focus'))
+
+      await waitFor(() => expect(screen.getByText('added.ts')).toBeInTheDocument())
     })
   })
 

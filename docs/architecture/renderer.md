@@ -431,7 +431,13 @@ renderer no longer pre-filters reads by the active session's roots. Only the fol
 *selected* agent works in is a live, watched tree with change badges (`useFileWatcher`); every
 other folder is fetched on demand through `files:tree` / `files:tree-by-project` and cached per
 root, so reopening one paints in the same frame instead of flashing empty
-(`hooks/editor/useWorkspaceTree.ts:17`, `FolderFilesTree.tsx:36`). Which folder that is, is a
+(`hooks/editor/useWorkspaceTree.ts:18`, `FolderFilesTree.tsx:36`). Unwatched is not unchanging,
+though — an agent in another workspace, or the user in a terminal, moves those files too — so a
+fetched folder reloads itself when an event **names its own root** (`rootPath` on
+`files:tree-changed`, `source` on the add-dir `files:changed`) and on window focus, the only
+signal left for a folder no agent is working in (`useWorkspaceTree.ts:107`, `:111`, `:116`;
+[fs](fs.md)). Reloading keeps the folder's expanded paths, so a refresh never collapses what the
+user opened (`useWorkspaceTree.ts:74`). Which folder is watched, is a
 question about **paths, not session ids**: a workspace owns the checkout its agents share, so the
 watched folder appears in the sidebar as an ordinary repo row with no session id of its own —
 the row is live when its checkout path (`worktreePaths[projectId]`, or the clone on a home
